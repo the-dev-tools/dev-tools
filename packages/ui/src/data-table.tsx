@@ -22,11 +22,13 @@ declare module '@tanstack/react-table' {
 
 export const tableStyles = {
   body: tw`col-span-full grid grid-cols-subgrid divide-y border-inherit`,
-  cell: tw`block min-w-0 break-all border-inherit align-middle`,
-  header: tw`col-span-full grid grid-cols-subgrid divide-x border-b border-inherit bg-slate-50 font-medium tracking-tight`,
+  cell: tw`block min-w-0 border-inherit align-middle break-all`,
+  header: tw`
+    col-span-full grid grid-cols-subgrid divide-x border-b border-inherit bg-slate-50 font-medium tracking-tight
+  `,
   headerCell: tw`block border-inherit px-5 py-1.5 text-left capitalize`,
   row: tw`col-span-full grid grid-cols-subgrid items-center divide-x border-inherit`,
-  table: tw`text-md grid w-full border-inherit leading-5 text-slate-800`,
+  table: tw`grid w-full border-inherit text-md leading-5 text-slate-800`,
   wrapper: tw`block overflow-auto rounded-lg border border-slate-200`,
 };
 

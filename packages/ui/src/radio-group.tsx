@@ -67,7 +67,7 @@ export const RadioGroup = ({ children, className, containerClassName, error, lab
 // Item
 
 const itemStyles = tv({
-  base: tw`text-md group flex cursor-pointer items-center gap-1.5 font-medium leading-5 tracking-tight text-slate-800`,
+  base: tw`group flex cursor-pointer items-center gap-1.5 text-md leading-5 font-medium tracking-tight text-slate-800`,
   variants: {
     isDisabled: { true: tw`text-gray-300` },
   },

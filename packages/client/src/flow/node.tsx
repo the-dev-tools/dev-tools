@@ -61,7 +61,8 @@ export const Node = {
 };
 
 const nodeContainerStyles = tv({
-  base: tw`nopan shadow-xs relative w-80 rounded-lg bg-slate-200 p-1 outline-1 transition-colors`,
+  // eslint-disable-next-line better-tailwindcss/no-unregistered-classes
+  base: tw`nopan relative w-80 rounded-lg bg-slate-200 p-1 shadow-xs outline-1 transition-colors`,
   variants: {
     isSelected: { true: tw`bg-slate-300` },
     state: {
@@ -144,7 +145,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
   return (
     <>
       <div
-        className={tw`flex items-center gap-3 px-1 pb-1.5 pt-0.5`}
+        className={tw`flex items-center gap-3 px-1 pt-0.5 pb-1.5`}
         onContextMenu={(event) => {
           const offset = ref.current?.getBoundingClientRect();
           if (!offset) return;
@@ -156,7 +157,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
 
         <div className={tw`h-4 w-px bg-slate-300`} />
 
-        <div className={tw`flex-1 truncate text-xs font-medium leading-5 tracking-tight`} ref={escape.ref}>
+        <div className={tw`flex-1 truncate text-xs leading-5 font-medium tracking-tight`} ref={escape.ref}>
           {name}
         </div>
 
@@ -165,7 +166,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
             <TextField
               aria-label='New node name'
               className={tw`w-full`}
-              inputClassName={tw`py-0.75 -mx-2 mt-2 bg-white`}
+              inputClassName={tw`-mx-2 mt-2 bg-white py-0.75`}
               isDisabled={nodeUpdateLoading}
               {...textFieldProps}
             />,
@@ -176,6 +177,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
 
         {!isReadOnly && (
           <MenuTrigger {...menuTriggerProps}>
+            {/* eslint-disable-next-line better-tailwindcss/no-unregistered-classes */}
             <Button className={tw`nodrag p-0.5`} variant='ghost'>
               <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
             </Button>

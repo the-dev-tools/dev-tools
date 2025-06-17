@@ -18,7 +18,7 @@ import { Handle, HandleKind } from '../internal';
 import { Node, NodeProps, useMakeNode } from '../node';
 
 const CreateNodeHeader = (props: Omit<ComponentProps<'div'>, 'className'>) => (
-  <Header {...props} className={tw`px-3 pt-2 text-xs font-semibold leading-5 tracking-tight text-slate-500`} />
+  <Header {...props} className={tw`px-3 pt-2 text-xs leading-5 font-semibold tracking-tight text-slate-500`} />
 );
 
 interface CreateNodeItemProps extends Omit<ListBoxItemProps, 'children' | 'className' | 'textValue'> {
@@ -32,7 +32,7 @@ const CreateNodeItem = ({ description, Icon, title, ...props }: CreateNodeItemPr
     <div className={tw`row-span-2 rounded-md border border-slate-200 bg-white p-1.5`}>
       <Icon className={tw`size-5 text-slate-500`} />
     </div>
-    <span className={tw`text-md font-semibold leading-5 tracking-tight`}>{title}</span>
+    <span className={tw`text-md leading-5 font-semibold tracking-tight`}>{title}</span>
     <span className={tw`text-xs leading-4 tracking-tight text-slate-500`}>{description}</span>
   </ListBoxItem>
 );

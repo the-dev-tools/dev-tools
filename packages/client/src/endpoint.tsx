@@ -148,7 +148,10 @@ export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isRe
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              tw`
+                -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
+                text-slate-500 transition-colors
+              `,
               isSelected && tw`border-b-violet-700 text-slate-800`,
             )
           }
@@ -161,7 +164,10 @@ export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isRe
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              tw`
+                -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
+                text-slate-500 transition-colors
+              `,
               isSelected && tw`border-b-violet-700 text-slate-800`,
             )
           }
@@ -174,7 +180,10 @@ export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isRe
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              tw`
+                -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
+                text-slate-500 transition-colors
+              `,
               isSelected && tw`border-b-violet-700 text-slate-800`,
             )
           }
@@ -187,7 +196,10 @@ export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isRe
         <Tab
           className={({ isSelected }) =>
             twMerge(
-              tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-1.5 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+              tw`
+                -mb-px cursor-pointer border-b-2 border-transparent py-1.5 text-md leading-5 font-medium tracking-tight
+                text-slate-500 transition-colors
+              `,
               isSelected && tw`border-b-violet-700 text-slate-800`,
             )
           }
@@ -460,7 +472,9 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
     <>
       <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
         <div
-          className={tw`text-md flex min-w-0 flex-1 select-none gap-1 font-medium leading-5 tracking-tight text-slate-400`}
+          className={tw`
+            flex min-w-0 flex-1 gap-1 text-md leading-5 font-medium tracking-tight text-slate-400 select-none
+          `}
         >
           {example.breadcrumbs.map((_, index) => {
             // TODO: add links to breadcrumbs
@@ -586,11 +600,11 @@ const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
 
   return (
     <Modal isDismissable modalSize='lg'>
-      <Dialog className={tw`outline-hidden size-full`}>
+      <Dialog className={tw`size-full outline-hidden`}>
         <Tabs className={tw`flex h-full`} orientation='vertical'>
           <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
             <div className={tw`mb-4`}>
-              <div className={tw`mb-0.5 text-sm font-semibold leading-5 text-slate-800`}>Response History</div>
+              <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-slate-800`}>Response History</div>
               <div className={tw`text-xs leading-4 text-slate-500`}>History of your API response</div>
             </div>
             <div className={tw`grid grid-cols-[auto_1fr] gap-x-0.5`}>
@@ -602,7 +616,7 @@ const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
                 <div className={tw`w-px flex-1 bg-slate-200`} />
               </div>
 
-              <div className={tw`text-md p-2 font-semibold leading-5 tracking-tight text-violet-700`}>
+              <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-violet-700`}>
                 Current Version
               </div>
 
@@ -612,7 +626,7 @@ const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
                 <div className={tw`w-px flex-1 bg-slate-200`} />
               </div>
 
-              <div className={tw`text-md p-2 font-semibold leading-5 tracking-tight text-slate-800`}>
+              <div className={tw`p-2 text-md leading-5 font-semibold tracking-tight text-slate-800`}>
                 {versions.length} previous responses
               </div>
 
@@ -623,7 +637,10 @@ const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
                   <Tab
                     className={({ isSelected }) =>
                       twJoin(
-                        tw`text-md flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 font-semibold leading-5 text-slate-800`,
+                        tw`
+                          flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-md leading-5
+                          font-semibold text-slate-800
+                        `,
                         isSelected && tw`bg-slate-200`,
                       )
                     }
@@ -675,7 +692,7 @@ const ExampleVersionsView = ({ endpointId, item: { exampleId, lastResponseId } }
         <div className='shadow-xs m-5 mb-2 flex items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
           <MethodBadge method={endpoint.method} size='lg' />
           <div className={tw`h-7 w-px bg-slate-200`} />
-          <div className={tw`truncate font-medium leading-5 tracking-tight text-slate-800`}>{url}</div>
+          <div className={tw`truncate leading-5 font-medium tracking-tight text-slate-800`}>{url}</div>
         </div>
 
         <EndpointRequestView exampleId={exampleId} isReadOnly />
@@ -731,12 +748,15 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
 
   return (
     <Tabs className={twMerge(tw`flex h-full flex-col pb-4`, className)}>
-      <div className={twMerge(tw`text-md flex items-center gap-3 border-b border-slate-200`, fullWidth && tw`px-4`)}>
+      <div className={twMerge(tw`flex items-center gap-3 border-b border-slate-200 text-md`, fullWidth && tw`px-4`)}>
         <TabList className={tw`flex items-center gap-3`}>
           <Tab
             className={({ isSelected }) =>
               twMerge(
-                tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-2 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                tw`
+                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
+                  text-slate-500 transition-colors
+                `,
                 isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
@@ -748,7 +768,10 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
           <Tab
             className={({ isSelected }) =>
               twMerge(
-                tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-2 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                tw`
+                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
+                  text-slate-500 transition-colors
+                `,
                 isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
@@ -761,7 +784,10 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
           <Tab
             className={({ isSelected }) =>
               twMerge(
-                tw`text-md -mb-px cursor-pointer border-b-2 border-transparent py-2 font-medium leading-5 tracking-tight text-slate-500 transition-colors`,
+                tw`
+                  -mb-px cursor-pointer border-b-2 border-transparent py-2 text-md leading-5 font-medium tracking-tight
+                  text-slate-500 transition-colors
+                `,
                 isSelected && tw`border-b-violet-700 text-slate-800`,
               )
             }
@@ -774,7 +800,7 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
 
         <div className={tw`flex-1`} />
 
-        <div className={tw`flex items-center gap-1 text-xs font-medium leading-5 tracking-tight text-slate-800`}>
+        <div className={tw`flex items-center gap-1 text-xs leading-5 font-medium tracking-tight text-slate-800`}>
           <div className={tw`flex gap-1 p-2`}>
             <span>Status:</span>
             <span className={tw`text-green-600`}>{status}</span>
@@ -1028,7 +1054,7 @@ const ResponseAssertTable = ({ responseId }: ResponseAssertTableProps) => {
           <Fragment key={assertIdCan}>
             <div
               className={twJoin(
-                tw`rounded-sm px-2 py-1 text-center font-light uppercase text-white`,
+                tw`rounded-sm px-2 py-1 text-center font-light text-white uppercase`,
                 result ? tw`bg-green-600` : tw`bg-red-600`,
               )}
             >

@@ -336,7 +336,17 @@ const RecorderPage = () => {
                         focusRingStyles({
                           ...renderProps,
                           className: [
-                            tw`rac-selected:bg-indigo-100 group relative -mt-px flex cursor-pointer items-center gap-2.5 overflow-auto border bg-slate-50 px-4 py-6 text-sm transition-[border-color,outline-color,outline-width,background-color] last:rounded-b-lg odd:bg-white`,
+                            tw`
+                              group relative -mt-px flex cursor-pointer items-center gap-2.5 overflow-auto border
+                              bg-slate-50 px-4 py-6 text-sm
+                              transition-[border-color,outline-color,outline-width,background-color]
+
+                              last:rounded-b-lg
+
+                              odd:bg-white
+
+                              rac-selected:bg-indigo-100
+                            `,
                             !renderProps.isFocused && tw`border-slate-200`,
                           ],
                         })
@@ -392,7 +402,19 @@ const RecorderPage = () => {
                   focusRingStyles({
                     ...renderProps,
                     className: [
-                      tw`rac-selected:bg-indigo-100 -mt-px grid cursor-pointer grid-cols-[auto_auto_1fr_auto] grid-rows-[auto_auto] items-center gap-y-1.5 border bg-slate-50 p-4 text-slate-500 transition-[border-color,outline-color,outline-width,background-color] first:mt-0 first:rounded-t-lg first:border-t last:rounded-b-lg even:bg-white`,
+                      tw`
+                        -mt-px grid cursor-pointer grid-cols-[auto_auto_1fr_auto] grid-rows-[auto_auto] items-center
+                        gap-y-1.5 border bg-slate-50 p-4 text-slate-500
+                        transition-[border-color,outline-color,outline-width,background-color]
+
+                        first:mt-0 first:rounded-t-lg first:border-t
+
+                        last:rounded-b-lg
+
+                        even:bg-white
+
+                        rac-selected:bg-indigo-100
+                      `,
                       !renderProps.isFocused && tw`border-slate-200`,
                     ],
                   })

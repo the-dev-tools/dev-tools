@@ -51,7 +51,7 @@ const RequestNodeBody = (props: NodeProps) => {
 
   return (
     <NodeBody {...props} Icon={SendRequestIcon}>
-      <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
+      <div className={tw`rounded-md border border-slate-200 bg-white shadow-xs`}>
         {request?.exampleId.length !== 0 ? (
           <>
             <RequestNodeSelected request={request!} />
@@ -117,7 +117,7 @@ const RequestNodeSelected = ({
       <div className={tw`truncate text-xs leading-4 tracking-tight text-slate-400`}>{collectionName}</div>
       <div className={tw`flex items-center gap-1.5`}>
         <MethodBadge method={method} />
-        <div className={tw`flex-1 truncate text-xs font-medium leading-5 tracking-tight text-slate-800`}>{name}</div>
+        <div className={tw`flex-1 truncate text-xs leading-5 font-medium tracking-tight text-slate-800`}>{name}</div>
         <ButtonAsLink
           className={tw`p-0.5`}
           href={{
@@ -160,7 +160,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
       <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
         <div className='min-w-0'>
           <div className={tw`text-md leading-5 text-slate-400`}>{collection.name}</div>
-          <div className={tw`truncate text-sm font-medium leading-5 text-slate-800`}>{example.name}</div>
+          <div className={tw`truncate text-sm leading-5 font-medium text-slate-800`}>{example.name}</div>
         </div>
 
         <div className={tw`flex-1`} />
@@ -180,7 +180,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
           Open API
         </ButtonAsLink>
 
-        <div className={tw`ml-2 mr-3 h-5 w-px shrink-0 bg-slate-300`} />
+        <div className={tw`mr-3 ml-2 h-5 w-px shrink-0 bg-slate-300`} />
 
         <TooltipTrigger delay={750}>
           <ButtonAsLink
@@ -198,7 +198,9 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
 
       <div className={tw`mx-5 overflow-auto rounded-lg border border-slate-200`}>
         <div
-          className={tw`text-md border-b border-slate-200 bg-slate-50 px-3 py-2 font-medium leading-5 tracking-tight text-slate-800`}
+          className={tw`
+            border-b border-slate-200 bg-slate-50 px-3 py-2 text-md leading-5 font-medium tracking-tight text-slate-800
+          `}
         >
           Request
         </div>
@@ -216,7 +218,10 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
       {lastResponseId && (
         <div className={tw`mx-5 my-4 overflow-auto rounded-lg border border-slate-200`}>
           <div
-            className={tw`text-md border-b border-slate-200 bg-slate-50 px-3 py-2 font-medium leading-5 tracking-tight text-slate-800`}
+            className={tw`
+              border-b border-slate-200 bg-slate-50 px-3 py-2 text-md leading-5 font-medium tracking-tight
+              text-slate-800
+            `}
           >
             Response
           </div>

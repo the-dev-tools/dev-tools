@@ -91,7 +91,7 @@ export const EnvironmentsWidget = () => {
                 >
                   {item.isGlobal ? <VariableIcon /> : item.name[0]}
                 </div>
-                <span className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>
+                <span className={tw`text-md leading-5 font-semibold tracking-tight text-slate-800`}>
                   {item.isGlobal ? 'Global Environment' : item.name}
                 </span>
               </div>
@@ -130,7 +130,7 @@ const EnvironmentModal = () => {
 
   return (
     <Modal>
-      <Dialog className={tw`outline-hidden h-full`}>
+      <Dialog className={tw`h-full outline-hidden`}>
         {({ close }) => (
           <Tabs
             className={tw`flex h-full`}
@@ -140,11 +140,11 @@ const EnvironmentModal = () => {
           >
             <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
               <div className={tw`-order-3 mb-4`}>
-                <div className={tw`mb-0.5 text-sm font-semibold leading-5 text-slate-800`}>Variable Settings</div>
+                <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-slate-800`}>Variable Settings</div>
                 <div className={tw`text-xs leading-4 text-slate-500`}>Manage variables & environment</div>
               </div>
 
-              <div className={tw`-order-1 mb-1 mt-3 flex items-center justify-between py-0.5`}>
+              <div className={tw`-order-1 mt-3 mb-1 flex items-center justify-between py-0.5`}>
                 <span className={tw`text-md leading-5 text-slate-400`}>Environments</span>
 
                 <TooltipTrigger delay={750}>
@@ -188,12 +188,15 @@ const EnvironmentModal = () => {
                         <VariableIcon className={tw`size-4 text-slate-500`} />
                       ) : (
                         <div
-                          className={tw`flex size-4 items-center justify-center rounded-sm bg-slate-300 text-xs leading-3 text-slate-500`}
+                          className={tw`
+                            flex size-4 items-center justify-center rounded-sm bg-slate-300 text-xs leading-3
+                            text-slate-500
+                          `}
                         >
                           {item.name[0]}
                         </div>
                       )}
-                      <span className={tw`text-md font-semibold leading-5`}>
+                      <span className={tw`text-md leading-5 font-semibold`}>
                         {item.isGlobal ? 'Global Variables' : item.name}
                       </span>
                     </Tab>
@@ -249,7 +252,9 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }
           <VariableIcon className={tw`size-6 text-slate-500`} />
         ) : (
           <div
-            className={tw`flex size-6 items-center justify-center rounded-md bg-slate-300 text-xs leading-3 text-slate-500`}
+            className={tw`
+              flex size-6 items-center justify-center rounded-md bg-slate-300 text-xs leading-3 text-slate-500
+            `}
           >
             {name[0]}
           </div>
@@ -258,12 +263,12 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }
         {isEditing ? (
           <TextField
             aria-label='Environment name'
-            inputClassName={tw`-my-1 py-1 font-semibold leading-none tracking-tight text-slate-800`}
+            inputClassName={tw`-my-1 py-1 leading-none font-semibold tracking-tight text-slate-800`}
             isDisabled={environmentUpdateLoading}
             {...textFieldProps}
           />
         ) : (
-          <h1 className={tw`font-semibold leading-5 tracking-tight text-slate-800`}>
+          <h1 className={tw`leading-5 font-semibold tracking-tight text-slate-800`}>
             {isGlobal ? 'Global Variables' : name}
           </h1>
         )}

@@ -153,7 +153,7 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
             )}
 
             {key.kind === ReferenceKeyKind.GROUP && (
-              <span className={tw`text-xs font-semibold leading-5 tracking-tight text-slate-800`}>{key.group}</span>
+              <span className={tw`text-xs leading-5 font-semibold tracking-tight text-slate-800`}>{key.group}</span>
             )}
 
             {key.kind === ReferenceKeyKind.KEY && (
@@ -170,13 +170,13 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
             ))}
 
             {quantity && (
-              <span className={tw`text-xs font-medium leading-5 tracking-tight text-slate-500`}>{quantity}</span>
+              <span className={tw`text-xs leading-5 font-medium tracking-tight text-slate-500`}>{quantity}</span>
             )}
 
             {reference.kind === ReferenceKind.VALUE && (
               <>
                 <span className={tw`font-mono text-xs leading-5 text-slate-800`}>:</span>
-                <span className={tw`flex-1 break-all font-mono text-xs leading-5 text-blue-700`}>
+                <span className={tw`flex-1 font-mono text-xs leading-5 break-all text-blue-700`}>
                   {reference.value}
                 </span>
               </>
@@ -201,7 +201,7 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
 };
 
 const fieldStyles = tv({
-  base: tw`text-md rounded-md border border-slate-200 px-3 py-0.5 text-slate-800`,
+  base: tw`rounded-md border border-slate-200 px-3 py-0.5 text-md text-slate-800`,
   variants: {
     variant: {
       'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-0.5 -outline-offset-4`,

@@ -19,7 +19,7 @@ export const NoOpNode = (props: NodeProps) => {
     <>
       <div
         className={twMerge(
-          tw`shadow-xs flex items-center gap-2 rounded-md bg-slate-800 px-4 text-white transition-colors`,
+          tw`flex items-center gap-2 rounded-md bg-slate-800 px-4 text-white shadow-xs transition-colors`,
           props.selected && tw`bg-slate-600`,
         )}
       >
@@ -30,7 +30,7 @@ export const NoOpNode = (props: NodeProps) => {
           </>
         )}
 
-        <span className={tw`flex-1 py-1 text-xs font-medium leading-5`}>
+        <span className={tw`flex-1 py-1 text-xs leading-5 font-medium`}>
           {pipe(
             Match.value(kind),
             Match.when(NodeNoOpKind.START, () => 'Manual start'),

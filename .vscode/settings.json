@@ -12,6 +12,7 @@
   "nix.serverSettings": { "nixd": { "formatting": { "command": ["alejandra"] } } },
   "tailwindCSS.classAttributes": [" "],
   "tailwindCSS.classFunctions": ["tw"],
+  "tailwindCSS.lint.cssConflict": "ignore",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "typescript.tsdk": "node_modules/typescript/lib"
 }

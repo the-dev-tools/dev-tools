@@ -58,7 +58,10 @@ export const ImportDialog = () => {
   const importUniversal = !filters && (
     <>
       <div
-        className={tw`mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-medium leading-4 tracking-tight text-slate-500`}
+        className={tw`
+          mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-4 font-medium tracking-tight
+          text-slate-500
+        `}
       >
         <FiInfo className={tw`mr-1.5 inline-block size-4 align-bottom`} />
         Import Postman or HAR files
@@ -196,10 +199,10 @@ export const ImportDialog = () => {
       </TooltipTrigger>
 
       <Modal modalStyle={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
-        <Dialog className={tw`outline-hidden flex h-full flex-col overflow-auto`}>
+        <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
           <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
             <div className={tw`flex items-center justify-between`}>
-              <div className={tw`text-xl font-semibold leading-6 tracking-tighter text-slate-800`}>
+              <div className={tw`text-xl leading-6 font-semibold tracking-tighter text-slate-800`}>
                 Import Collections and Flows
               </div>
 

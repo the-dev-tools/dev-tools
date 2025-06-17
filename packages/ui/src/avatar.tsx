@@ -15,7 +15,7 @@ interface SharedProps {
 // Main
 
 export const avatarStyles = tv({
-  base: tw`flex select-none items-center justify-center border font-semibold`,
+  base: tw`flex items-center justify-center border font-semibold select-none`,
   variants: {
     shape: {
       circle: tw`rounded-full`,

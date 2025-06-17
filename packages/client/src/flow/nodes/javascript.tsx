@@ -29,8 +29,8 @@ export const JavaScriptNode = (props: NodeProps) => (
 
 const JavaScriptNodeBody = (props: NodeProps) => (
   <NodeBody {...props} Icon={FiTerminal}>
-    <div className={tw`shadow-xs overflow-auto rounded-md border border-slate-200`}>
-      <div className={tw`shadow-xs border-b border-slate-600 bg-slate-700 px-3 py-2.5 text-sm leading-5 text-white`}>
+    <div className={tw`overflow-auto rounded-md border border-slate-200 shadow-xs`}>
+      <div className={tw`border-b border-slate-600 bg-slate-700 px-3 py-2.5 text-sm leading-5 text-white shadow-xs`}>
         JavaScript
       </div>
       <div className={tw`bg-slate-800 px-3 py-5 text-center font-mono text-xs leading-4 text-slate-400`}>
@@ -55,7 +55,7 @@ export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
       <div className={tw`flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
         <div className='min-w-0'>
           <div className={tw`text-md leading-5 text-slate-400`}>Task</div>
-          <div className={tw`truncate text-sm font-medium leading-5 text-slate-800`}>JavaScript</div>
+          <div className={tw`truncate text-sm leading-5 font-medium text-slate-800`}>JavaScript</div>
         </div>
 
         <div className={tw`flex-1`} />

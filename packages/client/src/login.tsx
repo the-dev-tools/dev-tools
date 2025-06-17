@@ -29,10 +29,10 @@ function LoginPage() {
   const { runtime } = Route.useRouteContext();
   return (
     <div className='container mx-auto flex h-full flex-col items-center text-center'>
-      <Logo className={tw`mb-10 mt-24 h-16 w-auto`} />
+      <Logo className={tw`mt-24 mb-10 h-16 w-auto`} />
 
-      <h1 className={tw`mb-1 text-xl font-semibold leading-6 tracking-tight text-slate-800`}>Welcome to DevTools</h1>
-      <span className={tw`text-md mb-6 leading-5 tracking-tight text-slate-500`}>
+      <h1 className={tw`mb-1 text-xl leading-6 font-semibold tracking-tight text-slate-800`}>Welcome to DevTools</h1>
+      <span className={tw`mb-6 text-md leading-5 tracking-tight text-slate-500`}>
         Please enter your account details
       </span>
 
@@ -64,7 +64,7 @@ function LoginPage() {
           inputPlaceholder='Enter email...'
           isRequired
           label='Email'
-          labelClassName={tw`mb-1 text-start text-sm font-medium leading-5 tracking-tight text-slate-800`}
+          labelClassName={tw`mb-1 text-start text-sm leading-5 font-medium tracking-tight text-slate-800`}
           name='email'
           type='email'
         />

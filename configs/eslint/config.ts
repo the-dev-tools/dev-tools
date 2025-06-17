@@ -4,6 +4,7 @@ import tsParser from '@typescript-eslint/parser';
 import { Array, pipe, Record } from 'effect';
 import { Linter } from 'eslint';
 import prettier from 'eslint-config-prettier';
+import tailwindPlugin from 'eslint-plugin-better-tailwindcss';
 import { flatConfigs as importX } from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import perfectionistRaw from 'eslint-plugin-perfectionist';
@@ -14,7 +15,9 @@ import globals from 'globals';
 import { resolve } from 'node:path';
 import { ConfigArray, configs as ts } from 'typescript-eslint';
 
-const gitignore = includeIgnoreFile(resolve(import.meta.dirname, '../../.gitignore'));
+const root = resolve(import.meta.dirname, '../..');
+
+const gitignore = includeIgnoreFile(resolve(root, '.gitignore'));
 
 const nodejs: Linter.Config = {
   files: ['*.js', '*.mjs', '*.ts'],
@@ -32,20 +35,28 @@ const settings: Linter.Config = {
     },
   },
   settings: {
-    // tailwindcss: {
-    //   // This might not be needed after this PR is merged
-    //   // https://github.com/francoismassart/eslint-plugin-tailwindcss/pull/380
-    //   config: resolve(import.meta.dirname, '../config-tailwind/src/config.ts'),
-    //   callees: ['tv', 'twMerge', 'twJoin'],
-    //   tags: ['tw'],
-    // },
     react: { version: 'detect' },
   },
 };
 
-const reactCompiler: ConfigArray[number] = {
+const reactCompiler: Linter.Config = {
   plugins: { 'react-compiler': reactCompilerPlugin },
   rules: { 'react-compiler/react-compiler': 'error' },
+};
+
+const tailwind: Linter.Config = {
+  plugins: { 'better-tailwindcss': tailwindPlugin },
+  rules: tailwindPlugin.configs['recommended']!.rules,
+  settings: {
+    'better-tailwindcss': {
+      entryPoint: resolve(root, 'packages/ui/src/styles.css'),
+
+      attributes: [],
+      callees: [],
+      tags: ['tw'],
+      variables: [],
+    },
+  },
 };
 
 const perfectionist = {
@@ -118,6 +129,9 @@ const rules: Linter.Config = {
     ],
 
     'react/prop-types': 'off',
+
+    'better-tailwindcss/enforce-consistent-variable-syntax': ['warn', { syntax: 'parentheses' }],
+    'better-tailwindcss/multiline': ['warn', { group: 'emptyLine', preferSingleLine: true, printWidth: 120 }],
   },
 };
 
@@ -146,9 +160,7 @@ const config: ConfigArray = [
 
   jsxA11y.flatConfigs.recommended,
 
-  // ! Re-enable once Tailwind 4 is supported
-  // https://github.com/francoismassart/eslint-plugin-tailwindcss/issues/325
-  // ...tailwind.configs['flat/recommended'],
+  tailwind,
 
   rules,
 ];

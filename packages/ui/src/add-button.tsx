@@ -9,7 +9,7 @@ import { composeRenderPropsTV } from './utils';
 
 export const addButtonStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`flex size-5 select-none items-center justify-center rounded-full border font-semibold`,
+  base: tw`flex size-5 items-center justify-center rounded-full border font-semibold select-none`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isHovered: { false: null },

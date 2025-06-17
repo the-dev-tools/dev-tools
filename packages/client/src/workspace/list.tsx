@@ -36,7 +36,7 @@ function Page() {
         <span className={tw`mb-1 text-sm leading-5 tracking-tight text-slate-500`}>
           {pipe(DateTime.unsafeNow(), DateTime.formatLocal({ dateStyle: 'full' }))}
         </span>
-        <h1 className={tw`text-2xl font-medium leading-8 tracking-tight text-slate-800`}>Welcome to DevTools 👋</h1>
+        <h1 className={tw`text-2xl leading-8 font-medium tracking-tight text-slate-800`}>Welcome to DevTools 👋</h1>
       </div>
 
       <div className={tw`flex min-h-0 flex-col rounded-lg border border-slate-200`}>
@@ -90,18 +90,20 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
       </Avatar>
 
       <div
-        className={tw`grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight text-slate-500`}
+        className={tw`
+          grid flex-1 grid-flow-col grid-cols-[1fr] grid-rows-2 gap-x-9 text-xs leading-5 tracking-tight text-slate-500
+        `}
       >
         {isEditing ? (
           <TextField
             aria-label='Workspace name'
             className={tw`justify-self-start`}
-            inputClassName={tw`text-md -my-1 py-1 font-semibold leading-none tracking-tight text-slate-800`}
+            inputClassName={tw`-my-1 py-1 text-md leading-none font-semibold tracking-tight text-slate-800`}
             isDisabled={workspaceUpdateLoading}
             {...textFieldProps}
           />
         ) : (
-          <div className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>
+          <div className={tw`text-md leading-5 font-semibold tracking-tight text-slate-800`}>
             <Link params={{ workspaceIdCan }} to='/workspace/$workspaceIdCan'>
               {workspace.name}
             </Link>

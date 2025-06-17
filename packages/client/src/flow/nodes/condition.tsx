@@ -49,17 +49,23 @@ const ConditionNodeBody = (props: NodeProps) => {
 
   return (
     <NodeBody {...props} Icon={IfIcon}>
-      <div className={tw`shadow-xs rounded-md border border-slate-200 bg-white`}>
+      <div className={tw`rounded-md border border-slate-200 bg-white shadow-xs`}>
         {condition ? (
           <div
-            className={tw`shadow-xs flex justify-start gap-2 rounded-md border border-slate-200 p-3 text-xs font-medium leading-5 tracking-tight text-slate-800`}
+            className={tw`
+              flex justify-start gap-2 rounded-md border border-slate-200 p-3 text-xs leading-5 font-medium
+              tracking-tight text-slate-800 shadow-xs
+            `}
           >
             <CheckListAltIcon className={tw`size-5 text-slate-500`} />
             <span>Edit Condition</span>
           </div>
         ) : (
           <ButtonAsLink
-            className={tw`shadow-xs flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs font-medium leading-4 tracking-tight text-violet-600`}
+            className={tw`
+              flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs leading-4
+              font-medium tracking-tight text-violet-600 shadow-xs
+            `}
             href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: props.id }), to: '.' }}
           >
             <FiPlus className={tw`size-4`} />
@@ -95,7 +101,7 @@ export const ConditionPanel = ({ node: { condition, nodeId } }: NodePanelProps) 
       <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
         <div>
           <div className={tw`text-md leading-5 text-slate-400`}>If Condition</div>
-          <div className={tw`text-sm font-medium leading-5 text-slate-800`}>Node Name</div>
+          <div className={tw`text-sm leading-5 font-medium text-slate-800`}>Node Name</div>
         </div>
 
         <div className={tw`flex-1`} />

@@ -26,7 +26,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       <Outlet />
 
       <DevToolsProvider>
-        <TanStackRouterDevTools position='bottom-right' toggleButtonProps={{ class: tw`!bottom-3 !right-16` }} />
+        <TanStackRouterDevTools position='bottom-right' toggleButtonProps={{ class: tw`!right-16 !bottom-3` }} />
         <ReactQueryDevTools buttonPosition='bottom-right' />
         <ReactScanDevTools />
       </DevToolsProvider>

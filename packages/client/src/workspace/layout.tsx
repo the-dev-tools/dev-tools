@@ -69,7 +69,7 @@ function Layout() {
             <Avatar shape='square' size='base'>
               {workspace.name}
             </Avatar>
-            <span className={tw`text-xs font-semibold leading-5 tracking-tight`}>{workspace.name}</span>
+            <span className={tw`text-xs leading-5 font-semibold tracking-tight`}>{workspace.name}</span>
             {/* <FiChevronDown className={tw`size-4`} /> */}
           </ButtonAsLink>
 
@@ -114,12 +114,12 @@ function Layout() {
               variant='ghost'
             >
               <OverviewIcon className={tw`size-5 text-slate-500`} />
-              <h2 className={tw`text-md font-semibold leading-5 tracking-tight text-slate-800`}>Overview</h2>
+              <h2 className={tw`text-md leading-5 font-semibold tracking-tight text-slate-800`}>Overview</h2>
             </ButtonAsLink>
 
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
               <CollectionIcon className={tw`size-5 text-slate-500`} />
-              <h2 className={tw`text-md flex-1 font-semibold leading-5 tracking-tight text-slate-800`}>Collections</h2>
+              <h2 className={tw`flex-1 text-md leading-5 font-semibold tracking-tight text-slate-800`}>Collections</h2>
 
               <TooltipTrigger delay={750}>
                 <Button
@@ -171,7 +171,7 @@ const FlowList = () => {
     <>
       <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
         <FlowsIcon className={tw`size-5 text-slate-500`} />
-        <h2 className={tw`text-md flex-1 font-semibold leading-5 tracking-tight text-slate-800`}>Flows</h2>
+        <h2 className={tw`flex-1 text-md leading-5 font-semibold tracking-tight text-slate-800`}>Flows</h2>
 
         <TooltipTrigger delay={750}>
           <Button
@@ -239,7 +239,7 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
 
   return (
     <ListBoxItem
-      className={tw`text-md rounded-md pl-9 font-medium leading-5`}
+      className={tw`rounded-md pl-9 text-md leading-5 font-medium`}
       href={{ params: { flowIdCan, workspaceIdCan }, to: '/workspace/$workspaceIdCan/flow/$flowIdCan' }}
       id={flowIdCan}
       showSelectIndicator={false}

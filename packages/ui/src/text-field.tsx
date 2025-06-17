@@ -24,7 +24,7 @@ import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
 export const inputStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`text-md rounded-md border border-slate-200 px-3 py-1.5 leading-5 text-slate-800`,
+  base: tw`rounded-md border border-slate-200 px-3 py-1.5 text-md leading-5 text-slate-800`,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isDisabled: { false: null },

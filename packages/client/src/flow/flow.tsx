@@ -293,12 +293,12 @@ export const TopBar = () => {
       {isEditing ? (
         <TextField
           aria-label='Flow name'
-          inputClassName={tw`text-md -my-1 py-1 font-medium leading-none tracking-tight text-slate-800`}
+          inputClassName={tw`-my-1 py-1 text-md leading-none font-medium tracking-tight text-slate-800`}
           isDisabled={flowUpdateLoading}
           {...textFieldProps}
         />
       ) : (
-        <div className={tw`text-md font-medium leading-5 tracking-tight text-slate-800`} onContextMenu={onContextMenu}>
+        <div className={tw`text-md leading-5 font-medium tracking-tight text-slate-800`} onContextMenu={onContextMenu}>
           {name}
         </div>
       )}
@@ -314,7 +314,7 @@ export const TopBar = () => {
         <FiMinus className={tw`size-4 text-slate-500`} />
       </Button>
 
-      <div className={tw`w-10 text-center text-sm font-medium leading-5 tracking-tight text-gray-900`}>
+      <div className={tw`w-10 text-center text-sm leading-5 font-medium tracking-tight text-gray-900`}>
         {Math.floor(zoom * 100)}%
       </div>
 
@@ -527,7 +527,7 @@ const SettingsPanel = () => {
   return (
     <>
       <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
-        <div className={tw`text-sm font-medium leading-5 text-slate-800`}>Flow variables</div>
+        <div className={tw`text-sm leading-5 font-medium text-slate-800`}>Flow variables</div>
 
         <div className={tw`flex-1`} />
 

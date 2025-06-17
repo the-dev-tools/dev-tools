@@ -12,7 +12,10 @@ import { composeRenderPropsTV } from '@the-dev-tools/ui/utils';
 
 export const buttonStyles = tv({
   extend: focusRingStyles,
-  base: tw`flex cursor-pointer select-none items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold leading-5`,
+  base: tw`
+    flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base leading-5 font-semibold
+    select-none
+  `,
   variants: {
     isHovered: { true: null },
     variant: {

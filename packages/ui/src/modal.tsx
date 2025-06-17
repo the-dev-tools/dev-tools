@@ -10,10 +10,10 @@ import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
 const overlayStyles = tv({
-  base: tw`h-(--visual-viewport-height) fixed inset-0 z-20 flex items-center justify-center bg-slate-800/50`,
+  base: tw`fixed inset-0 z-20 flex h-(--visual-viewport-height) items-center justify-center bg-slate-800/50`,
   variants: {
-    isEntering: { true: tw`animate-in fade-in duration-200 ease-out` },
-    isExiting: { true: tw`animate-out fade-out duration-200 ease-in` },
+    isEntering: { true: tw`animate-in duration-200 ease-out fade-in` },
+    isExiting: { true: tw`animate-out duration-200 ease-in fade-out` },
   },
 });
 

@@ -58,7 +58,7 @@ export const Handle = (props: HandleProps) => {
 
   return (
     <HandleCore
-      className={tw`shadow-xs -z-10 size-5 overflow-visible rounded-full border-none bg-transparent`}
+      className={tw`-z-10 size-5 overflow-visible rounded-full border-none bg-transparent shadow-xs`}
       {...props}
     >
       <svg className={handleInnerStyles({ state })} viewBox='-10 -10 20 20'>

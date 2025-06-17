@@ -27,10 +27,13 @@ export const ToastRegion = () => {
   const queue = useToastQueue();
 
   return (
-    <AriaToastRegion className={tw`fixed bottom-5 right-5 flex flex-col gap-2`} queue={queue}>
+    <AriaToastRegion className={tw`fixed right-5 bottom-5 flex flex-col gap-2`} queue={queue}>
       {({ toast }) => (
         <AriaToast
-          className={tw`flex flex-col gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium leading-5 tracking-tight text-slate-800 shadow-xl`}
+          className={tw`
+            flex flex-col gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-5 font-medium
+            tracking-tight text-slate-800 shadow-xl
+          `}
           toast={toast}
         >
           <div className={tw`flex items-center gap-3`}>

@@ -14,7 +14,10 @@ import { composeRenderPropsTV, formatSize } from './utils';
 
 const dropZoneStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-white p-4`,
+  base: tw`
+    flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-white
+    p-4
+  `,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isDropTarget: { true: twJoin(isFocusedStyle, tw`bg-violet-100`) },
@@ -77,7 +80,7 @@ export const FileDropZone = ({
               </div>
 
               <div
-                className={tw`text-md w-full truncate text-center font-medium leading-5 tracking-tight text-slate-800`}
+                className={tw`w-full truncate text-center text-md leading-5 font-medium tracking-tight text-slate-800`}
               >
                 {file.name}
               </div>
@@ -103,7 +106,7 @@ export const FileDropZone = ({
         <>
           <CloudUploadIcon className={tw`size-7 text-slate-500`} />
 
-          <Text className={tw`mb-1 text-sm font-semibold leading-5 tracking-tight text-slate-800`} slot='label'>
+          <Text className={tw`mb-1 text-sm leading-5 font-semibold tracking-tight text-slate-800`} slot='label'>
             Drag and drop your files or
           </Text>
 

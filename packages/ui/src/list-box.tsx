@@ -19,7 +19,9 @@ import { ariaTextValue, composeRenderPropsTV } from './utils';
 // Root
 
 export const listBoxStyles = tv({
-  base: tw`outline-hidden pointer-events-auto overflow-auto rounded-lg border border-slate-200 bg-white py-0.5 shadow-md`,
+  base: tw`
+    pointer-events-auto overflow-auto rounded-lg border border-slate-200 bg-white py-0.5 shadow-md outline-hidden
+  `,
 });
 
 export interface ListBoxProps<T> extends Omit<AriaListBoxProps<T>, 'layout' | 'orientation'> {}
@@ -32,7 +34,10 @@ export const ListBox = <T extends object>({ className, ...props }: ListBoxProps<
 
 export const listBoxItemStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`group/listbox flex cursor-pointer select-none items-center gap-2.5 px-3 py-1.5 text-xs font-medium leading-4 tracking-tight -outline-offset-4`,
+  base: tw`
+    group/listbox flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-xs leading-4 font-medium tracking-tight
+    -outline-offset-4 select-none
+  `,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isHovered: { false: null },
@@ -128,7 +133,7 @@ export const ListBoxHeader = ({ className, ...props }: ListBoxHeaderProps) => (
   <AriaHeader
     {...props}
     className={twMerge(
-      tw`select-none px-3 pb-0.5 pt-2 text-xs font-semibold leading-5 tracking-tight text-slate-500`,
+      tw`px-3 pt-2 pb-0.5 text-xs leading-5 font-semibold tracking-tight text-slate-500 select-none`,
       className,
     )}
   />

@@ -15,7 +15,7 @@ export interface FieldLabelProps extends AriaLabelProps {}
 
 export const FieldLabel = ({ className, ...props }: FieldLabelProps) => (
   <AriaLabel
-    className={twMerge(className, tw`flex items-center text-sm font-medium leading-5 tracking-tight text-slate-800`)}
+    className={twMerge(className, tw`flex items-center text-sm leading-5 font-medium tracking-tight text-slate-800`)}
     {...props}
   />
 );

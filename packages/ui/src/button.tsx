@@ -13,7 +13,10 @@ import { composeRenderPropsTV } from './utils';
 
 export const buttonStyles = tv({
   extend: isFocusVisibleRingStyles,
-  base: tw`flex cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-transparent bg-transparent px-4 py-1.5 text-sm font-medium leading-5 tracking-tight`,
+  base: tw`
+    flex cursor-pointer items-center justify-center gap-1 rounded-md border border-transparent bg-transparent px-4
+    py-1.5 text-sm leading-5 font-medium tracking-tight select-none
+  `,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isDisabled: { true: tw`cursor-not-allowed` },
