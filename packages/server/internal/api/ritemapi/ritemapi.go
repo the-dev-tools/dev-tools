@@ -75,9 +75,6 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		ParentFolderId: msg.GetParentFolderId(),
 	}
 
-	if endpointReq.Method == "" {
-		endpointReq.Method = "GET"
-	}
 
 	itemApiReq, err := titemapi.SeralizeRPCToModelWithoutID(endpointReq, collectionID)
 	if err != nil {
