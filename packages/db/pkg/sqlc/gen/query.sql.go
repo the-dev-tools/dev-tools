@@ -55,8 +55,8 @@ type CreateAssertParams struct {
 	DeltaParentID *idwrap.IDWrap
 	Expression    string
 	Enable        bool
-	Prev          []byte
-	Next          []byte
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 func (q *Queries) CreateAssert(ctx context.Context, arg CreateAssertParams) error {
@@ -5879,6 +5879,7 @@ func (q *Queries) SetQueryEnable(ctx context.Context, arg SetQueryEnableParams) 
 const updateAssert = `-- name: UpdateAssert :exec
 UPDATE assertion
 SET
+  delta_parent_id = ?,
   expression = ?,
   enable = ?
 WHERE
@@ -5886,13 +5887,19 @@ WHERE
 `
 
 type UpdateAssertParams struct {
-	Expression string
-	Enable     bool
-	ID         idwrap.IDWrap
+	DeltaParentID *idwrap.IDWrap
+	Expression    string
+	Enable        bool
+	ID            idwrap.IDWrap
 }
 
 func (q *Queries) UpdateAssert(ctx context.Context, arg UpdateAssertParams) error {
-	_, err := q.exec(ctx, q.updateAssertStmt, updateAssert, arg.Expression, arg.Enable, arg.ID)
+	_, err := q.exec(ctx, q.updateAssertStmt, updateAssert,
+		arg.DeltaParentID,
+		arg.Expression,
+		arg.Enable,
+		arg.ID,
+	)
 	return err
 }
 

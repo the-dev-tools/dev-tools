@@ -9,6 +9,7 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/permcheck"
@@ -949,6 +950,62 @@ func (c RequestRPC) HeaderDeltaExampleCopy(ctx context.Context, originExampleID,
 	return nil
 }
 
+// AssertDeltaExampleCopy copies all asserts from an origin example to a delta example
+// This implements the "Delta example create" functionality
+func (c RequestRPC) AssertDeltaExampleCopy(ctx context.Context, originExampleID, deltaExampleID idwrap.IDWrap) error {
+	// Check permissions for both examples
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
+	if rpcErr != nil {
+		return rpcErr
+	}
+	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
+	if rpcErr != nil {
+		return rpcErr
+	}
+
+	// Get the origin example to determine if it has a version parent
+	originExample, err := c.iaes.GetApiExample(ctx, originExampleID)
+	if err != nil {
+		return err
+	}
+	originExampleHasVersionParent := originExample.VersionParentID != nil
+
+	// Get all asserts from the origin example
+	originAsserts, err := c.as.GetAssertByExampleID(ctx, originExampleID)
+	if err != nil {
+		return err
+	}
+
+	// Create corresponding asserts in the delta example
+	var deltaAsserts []massert.Assert
+	for _, originAssert := range originAsserts {
+		// Only copy origin asserts (not mixed or delta asserts)
+		originDeltaType := originAssert.DetermineDeltaType(originExampleHasVersionParent)
+		if originDeltaType == massert.AssertSourceOrigin {
+			deltaAssert := massert.Assert{
+				ID:            idwrap.NewNow(),
+				ExampleID:     deltaExampleID,
+				DeltaParentID: &originAssert.ID, // Reference the origin assert
+				Condition:     originAssert.Condition,
+				Enable:        originAssert.Enable,
+				Prev:          originAssert.Prev,
+				Next:          originAssert.Next,
+			}
+			deltaAsserts = append(deltaAsserts, deltaAssert)
+		}
+	}
+
+	// Bulk create all delta asserts
+	if len(deltaAsserts) > 0 {
+		err = c.as.CreateBulkAssert(ctx, deltaAsserts)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaListRequest]) (*connect.Response[requestv1.HeaderDeltaListResponse], error) {
 	// Parse both example IDs
 	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
@@ -1273,13 +1330,30 @@ func (c RequestRPC) AssertList(ctx context.Context, req *connect.Request[request
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	asserts, err := c.as.GetAssertByExampleID(ctx, exID)
+	
+	allAsserts, err := c.as.GetAssertByExampleID(ctx, exID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Check if example has a version parent
+	example, err := c.iaes.GetApiExample(ctx, exID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	exampleHasVersionParent := example.VersionParentID != nil
+
+	// Filter to only include origin asserts
+	var originAsserts []massert.Assert
+	for _, assert := range allAsserts {
+		deltaType := assert.DetermineDeltaType(exampleHasVersionParent)
+		if deltaType == massert.AssertSourceOrigin {
+			originAsserts = append(originAsserts, assert)
+		}
+	}
+
 	var rpcAssserts []*requestv1.AssertListItem
-	for _, a := range asserts {
+	for _, a := range originAsserts {
 		rpcAssert, err := tassert.SerializeAssertModelToRPCItem(a)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1330,24 +1404,49 @@ func (c RequestRPC) AssertUpdate(ctx context.Context, req *connect.Request[reque
 		return nil, rpcErr
 	}
 
-	rpcAssert := requestv1.Assert{
-		AssertId:  req.Msg.GetAssertId(),
-		Condition: req.Msg.GetCondition(),
-	}
-
-	_, err = tassert.SerializeAssertRPCToModel(&rpcAssert, idwrap.IDWrap{})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
+	// Get the assert to update
 	assertDB, err := c.as.GetAssert(ctx, assertID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	
+	// Update the origin assert
 	assertDB.Condition = tcondition.DeserializeConditionRPCToModel(req.Msg.GetCondition())
 
 	err = c.as.UpdateAssert(ctx, *assertDB)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Propagate changes to delta items with "origin" source that reference this assert
+	// Get the example to determine if it has a version parent
+	example, err := c.iaes.GetApiExample(ctx, assertDB.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	exampleHasVersionParent := example.VersionParentID != nil
+
+	// Get all asserts from this example to find any that reference this origin assert
+	allAsserts, err := c.as.GetAssertByExampleID(ctx, assertDB.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Update any delta asserts that reference this origin assert with source="origin"
+	for _, deltaAssert := range allAsserts {
+		deltaType := deltaAssert.DetermineDeltaType(exampleHasVersionParent)
+		if deltaAssert.DeltaParentID != nil &&
+			deltaAssert.DeltaParentID.Compare(assertID) == 0 &&
+			deltaType == massert.AssertSourceOrigin {
+			// Update the delta assert to match the origin
+			deltaAssert.Condition = assertDB.Condition
+			deltaAssert.Enable = assertDB.Enable
+
+			err = c.as.UpdateAssert(ctx, deltaAssert)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
 	}
 
 	return connect.NewResponse(&requestv1.AssertUpdateResponse{}), nil
@@ -1362,6 +1461,44 @@ func (c RequestRPC) AssertDelete(ctx context.Context, req *connect.Request[reque
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+
+	// Get the assert to check if it's an origin assert and get its example ID
+	originAssert, err := c.as.GetAssert(ctx, assertID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Get the example to determine if it has a version parent
+	example, err := c.iaes.GetApiExample(ctx, originAssert.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	exampleHasVersionParent := example.VersionParentID != nil
+	
+	// Determine if this is an origin assert
+	originDeltaType := originAssert.DetermineDeltaType(exampleHasVersionParent)
+	if originDeltaType == massert.AssertSourceOrigin {
+		// Get all asserts from this example to find any that reference this origin assert
+		allAsserts, err := c.as.GetAssertByExampleID(ctx, originAssert.ExampleID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Delete any delta asserts that reference this origin assert with source="origin" or "mixed"
+		for _, deltaAssert := range allAsserts {
+			deltaType := deltaAssert.DetermineDeltaType(exampleHasVersionParent)
+			if deltaAssert.DeltaParentID != nil &&
+				deltaAssert.DeltaParentID.Compare(assertID) == 0 &&
+				(deltaType == massert.AssertSourceOrigin || deltaType == massert.AssertSourceMixed) {
+				err = c.as.DeleteAssert(ctx, deltaAssert.ID)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+		}
+	}
+
+	// Delete the origin assert itself
 	err = c.as.DeleteAssert(ctx, assertID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1371,29 +1508,151 @@ func (c RequestRPC) AssertDelete(ctx context.Context, req *connect.Request[reque
 }
 
 func (c RequestRPC) AssertDeltaList(ctx context.Context, req *connect.Request[requestv1.AssertDeltaListRequest]) (*connect.Response[requestv1.AssertDeltaListResponse], error) {
-	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	// Parse both example IDs
+	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
+
+	originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for both examples
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	asserts, err := c.as.GetAssertByExampleID(ctx, exampleID)
+	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Check if delta example has a version parent
+	deltaExample, err := c.iaes.GetApiExample(ctx, deltaExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	var rpcAssserts []*requestv1.AssertDeltaListItem
-	for _, a := range asserts {
-		rpcAssert, err := tassert.SerializeAssertModelToRPCDeltaItem(a)
+	deltaExampleHasVersionParent := deltaExample.VersionParentID != nil
+
+	// Get asserts from both origin and delta examples
+	originAsserts, err := c.as.GetAssertByExampleID(ctx, originExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	deltaAsserts, err := c.as.GetAssertByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Combine all asserts and build maps for lookup
+	allAsserts := append(originAsserts, deltaAsserts...)
+	assertMap := make(map[idwrap.IDWrap]massert.Assert)
+	originMap := make(map[idwrap.IDWrap]*requestv1.Assert)
+	
+	// Build maps
+	for _, assert := range allAsserts {
+		assertMap[assert.ID] = assert
+		rpcAssert, err := tassert.SerializeAssertModelToRPC(assert)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		rpcAssserts = append(rpcAssserts, rpcAssert)
+		originMap[assert.ID] = rpcAssert
 	}
+
+	// First pass: identify which origins are replaced by delta/mixed asserts
+	processedOrigins := make(map[idwrap.IDWrap]bool)
+	for _, assert := range allAsserts {
+		deltaType := assert.DetermineDeltaType(deltaExampleHasVersionParent)
+		if (deltaType == massert.AssertSourceDelta || deltaType == massert.AssertSourceMixed) && assert.DeltaParentID != nil {
+			processedOrigins[*assert.DeltaParentID] = true
+		}
+	}
+
+	// Second pass: create result entries
+	var rpcAsserts []*requestv1.AssertDeltaListItem
+	for _, assert := range allAsserts {
+		deltaType := assert.DetermineDeltaType(deltaExampleHasVersionParent)
+		if deltaType == massert.AssertSourceDelta && assert.DeltaParentID != nil {
+			// This is a delta assert - create a mixed entry using delta values but showing as mixed
+			var origin *requestv1.Assert
+			if originRPC, exists := originMap[*assert.DeltaParentID]; exists {
+				origin = originRPC
+			}
+
+			sourceKind := massert.AssertSourceMixed.ToSourceKind()
+			rpcAssert := &requestv1.AssertDeltaListItem{
+				AssertId:    assert.ID.Bytes(),
+				Condition:   tcondition.SeralizeConditionModelToRPC(assert.Condition),
+				Origin:      origin,
+				Source:      &sourceKind,
+			}
+			rpcAsserts = append(rpcAsserts, rpcAssert)
+		} else if deltaType == massert.AssertSourceMixed {
+			// This is already a mixed assert, keep it as is
+			var origin *requestv1.Assert
+			if assert.DeltaParentID != nil {
+				if originRPC, exists := originMap[*assert.DeltaParentID]; exists {
+					origin = originRPC
+				}
+			}
+
+			sourceKind := deltaType.ToSourceKind()
+			rpcAssert := &requestv1.AssertDeltaListItem{
+				AssertId:    assert.ID.Bytes(),
+				Condition:   tcondition.SeralizeConditionModelToRPC(assert.Condition),
+				Origin:      origin,
+				Source:      &sourceKind,
+			}
+			rpcAsserts = append(rpcAsserts, rpcAssert)
+		} else if deltaType == massert.AssertSourceOrigin && !processedOrigins[assert.ID] {
+			// This is an origin assert that hasn't been processed (no delta/mixed version exists)
+			var origin *requestv1.Assert
+			if originRPC, exists := originMap[assert.ID]; exists {
+				origin = originRPC
+			}
+			
+			sourceKind := deltaType.ToSourceKind()
+			rpcAssert := &requestv1.AssertDeltaListItem{
+				AssertId:    assert.ID.Bytes(),
+				Condition:   nil, // Empty condition for origin-only entries
+				Origin:      origin,
+				Source:      &sourceKind,
+			}
+			rpcAsserts = append(rpcAsserts, rpcAssert)
+		}
+		// Skip origin asserts that have been processed (replaced by delta/mixed)
+	}
+
+	// Sort rpcAsserts by ID, but if it has DeltaParentID use that ID instead
+	sort.Slice(rpcAsserts, func(i, j int) bool {
+		idI, _ := idwrap.NewFromBytes(rpcAsserts[i].AssertId)
+		idJ, _ := idwrap.NewFromBytes(rpcAsserts[j].AssertId)
+
+		// Determine the ID to use for sorting for item i
+		sortIDI := idI
+		if rpcAsserts[i].Origin != nil && len(rpcAsserts[i].Origin.AssertId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcAsserts[i].Origin.AssertId); err == nil {
+				sortIDI = parentID
+			}
+		}
+
+		// Determine the ID to use for sorting for item j
+		sortIDJ := idJ
+		if rpcAsserts[j].Origin != nil && len(rpcAsserts[j].Origin.AssertId) > 0 {
+			if parentID, err := idwrap.NewFromBytes(rpcAsserts[j].Origin.AssertId); err == nil {
+				sortIDJ = parentID
+			}
+		}
+
+		return sortIDI.Compare(sortIDJ) < 0
+	})
+
 	resp := &requestv1.AssertDeltaListResponse{
-		ExampleId: req.Msg.GetExampleId(),
-		Items:     rpcAssserts,
+		ExampleId: deltaExampleID.Bytes(),
+		Items:     rpcAsserts,
 	}
 	return connect.NewResponse(resp), nil
 }
@@ -1407,6 +1666,7 @@ func (c RequestRPC) AssertDeltaCreate(ctx context.Context, req *connect.Request[
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+	
 	rpcAssert := requestv1.Assert{
 		Condition: req.Msg.GetCondition(),
 	}
@@ -1415,6 +1675,30 @@ func (c RequestRPC) AssertDeltaCreate(ctx context.Context, req *connect.Request[
 	assert := tassert.SerializeAssertRPCToModelWithoutID(&rpcAssert, exID, deltaParentIDPtr)
 	assert.Enable = true
 	assert.ID = idwrap.NewNow()
+
+	// Check if assert_id is provided in request
+	if len(req.Msg.GetAssertId()) > 0 {
+		// Assert ID is provided, verify it exists and use as delta parent
+		parentAssertID, err := idwrap.NewFromBytes(req.Msg.GetAssertId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Verify the parent assert exists and belongs to the same example
+		parentAssert, err := c.as.GetAssert(ctx, parentAssertID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+
+		// Verify parent assert belongs to the same example
+		if parentAssert.ExampleID.Compare(exID) != 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("parent assert does not belong to the specified example"))
+		}
+
+		assert.DeltaParentID = &parentAssertID
+	}
+	// If no assert_id provided, DeltaParentID remains nil (standalone delta)
+
 	err = c.as.CreateAssert(ctx, assert)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1428,32 +1712,53 @@ func (c RequestRPC) AssertDeltaUpdate(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+
 	rpcErr := permcheck.CheckPerm(CheckOwnerAssert(ctx, c.as, c.iaes, c.cs, c.us, assertID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	rpcAssert := requestv1.Assert{
-		AssertId:  req.Msg.GetAssertId(),
-		Condition: req.Msg.GetCondition(),
+
+	// Get the existing assert to check its source
+	existingAssert, err := c.as.GetAssert(ctx, assertID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	assert, err := tassert.SerializeAssertRPCToModel(&rpcAssert, idwrap.IDWrap{})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	assertDB, err := c.as.GetAssert(ctx, assert.ID)
+	// Get the example to determine if it has a version parent
+	example, err := c.iaes.GetApiExample(ctx, existingAssert.ExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	condition := tcondition.DeserializeConditionRPCToModel(req.Msg.Condition)
-	expr := condition.Comparisons.Expression
-	if expr != "" {
-		assertDB.Condition = condition
+	exampleHasVersionParent := example.VersionParentID != nil
+
+	// If this is an origin assert, we need to create a mixed assert instead of updating
+	existingDeltaType := existingAssert.DetermineDeltaType(exampleHasVersionParent)
+	if existingDeltaType == massert.AssertSourceOrigin {
+		// Create a new mixed assert with updated fields
+		mixedAssert := massert.Assert{
+			ID:            idwrap.NewNow(),
+			ExampleID:     existingAssert.ExampleID,
+			DeltaParentID: &existingAssert.ID, // Point to the original assert
+			Condition:     tcondition.DeserializeConditionRPCToModel(req.Msg.GetCondition()),
+			Enable:        true,
+			Prev:          existingAssert.Prev,
+			Next:          existingAssert.Next,
+		}
+
+		err = c.as.CreateAssert(ctx, mixedAssert)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else {
+		// If it's already a delta or mixed assert, just update it normally
+		existingAssert.Condition = tcondition.DeserializeConditionRPCToModel(req.Msg.GetCondition())
+		
+		err = c.as.UpdateAssert(ctx, *existingAssert)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
-	err = c.as.UpdateAssert(ctx, *assertDB)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+
 	return connect.NewResponse(&requestv1.AssertDeltaUpdateResponse{}), nil
 }
 
@@ -1482,9 +1787,49 @@ func (c RequestRPC) AssertDeltaReset(ctx context.Context, req *connect.Request[r
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	err = c.as.ResetAssertDelta(ctx, assertID)
+
+	// Get the delta assert
+	deltaAssert, err := c.as.GetAssert(ctx, assertID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// Get the example to determine if it has a version parent
+	example, err := c.iaes.GetApiExample(ctx, deltaAssert.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	exampleHasVersionParent := example.VersionParentID != nil
+
+	// If this is a mixed assert with a parent, delete the mixed assert to revert to origin
+	deltaType := deltaAssert.DetermineDeltaType(exampleHasVersionParent)
+	if deltaType == massert.AssertSourceMixed && deltaAssert.DeltaParentID != nil {
+		err = c.as.DeleteAssert(ctx, assertID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else if deltaAssert.DeltaParentID != nil {
+		// If it's a delta assert with a parent, restore values from parent and set source to origin
+		parentAssert, err := c.as.GetAssert(ctx, *deltaAssert.DeltaParentID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Restore delta assert fields to match parent and set source to origin
+		deltaAssert.Condition = parentAssert.Condition
+		deltaAssert.Enable = parentAssert.Enable
+
+		err = c.as.UpdateAssert(ctx, *deltaAssert)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	} else {
+		// If no parent, use the original reset behavior (clear fields)
+		err = c.as.ResetAssertDelta(ctx, assertID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
 	return connect.NewResponse(&requestv1.AssertDeltaResetResponse{}), nil
 }

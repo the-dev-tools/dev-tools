@@ -27,6 +27,8 @@ func ConvertAssertDBToModel(assert gen.Assertion) massert.Assert {
 			},
 		},
 		Enable: assert.Enable,
+		Prev:   assert.Prev,
+		Next:   assert.Next,
 	}
 }
 
@@ -37,6 +39,8 @@ func ConvertAssertModelToDB(assert massert.Assert) gen.Assertion {
 		DeltaParentID: assert.DeltaParentID,
 		Expression:    assert.Condition.Comparisons.Expression,
 		Enable:        assert.Enable,
+		Prev:          assert.Prev,
+		Next:          assert.Next,
 	}
 }
 
@@ -94,6 +98,8 @@ func (as AssertService) CreateAssert(ctx context.Context, assert massert.Assert)
 		DeltaParentID: arg.DeltaParentID,
 		Enable:        arg.Enable,
 		Expression:    assert.Condition.Comparisons.Expression,
+		Prev:          arg.Prev,
+		Next:          arg.Next,
 	})
 }
 
@@ -107,6 +113,11 @@ func (as AssertService) CreateAssertBulk(ctx context.Context, asserts []massert.
 		}
 	}
 	return nil
+}
+
+// CreateBulkAssert is an alias for CreateAssertBulk
+func (as AssertService) CreateBulkAssert(ctx context.Context, asserts []massert.Assert) error {
+	return as.CreateAssertBulk(ctx, asserts)
 }
 
 func (as AssertService) DeleteAssert(ctx context.Context, id idwrap.IDWrap) error {

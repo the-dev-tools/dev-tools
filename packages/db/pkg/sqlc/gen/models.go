@@ -16,8 +16,8 @@ type Assertion struct {
 	DeltaParentID *idwrap.IDWrap
 	Expression    string
 	Enable        bool
-	Prev          []byte
-	Next          []byte
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 type AssertionResult struct {

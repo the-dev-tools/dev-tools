@@ -399,6 +399,20 @@ sql:
               package: 'idwrap'
               type: 'IDWrap'
               pointer: true
+          ### prev
+          - column: 'assertion.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### next
+          - column: 'assertion.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ## assertion_result
           ### id
           - column: 'assertion_result.id'

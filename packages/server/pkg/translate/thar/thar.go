@@ -11,9 +11,11 @@ import (
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -36,6 +38,7 @@ type HarResvoled struct {
 	FormBodies       []mbodyform.BodyForm
 	UrlEncodedBodies []mbodyurl.BodyURLEncoded
 	Folders          []mitemfolder.ItemFolder
+	Asserts          []massert.Assert
 
 	// Flow Items
 	Flow         mflow.Flow
@@ -930,6 +933,22 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		exampleDefault.BodyType = example.BodyType
 		result.Examples = append(result.Examples, exampleDefault)
 		result.Examples = append(result.Examples, deltaExample)
+
+		// Create status code assertions for all examples
+		if entry.Response.Status > 0 {
+			// Create assertion for the normal example
+			assertNormal := createStatusCodeAssertion(exampleID, entry.Response.Status)
+			result.Asserts = append(result.Asserts, assertNormal)
+
+			// Create assertion for the default example
+			assertDefault := createStatusCodeAssertion(defaultExampleID, entry.Response.Status)
+			result.Asserts = append(result.Asserts, assertDefault)
+
+			// Create delta assertion for the delta example
+			// The delta assertion references the default assertion as its parent
+			assertDelta := createStatusCodeAssertionWithDeltaParent(deltaExampleID, &assertDefault.ID, entry.Response.Status)
+			result.Asserts = append(result.Asserts, assertDelta)
+		}
 	}
 
 	for i := range result.Apis {
@@ -951,6 +970,18 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		if i < len(result.Examples)-1 {
 			nextExample := &result.Examples[i+1]
 			result.Examples[i].Next = &nextExample.ID
+		}
+	}
+
+	// Set Prev/Next for assertions to maintain ordering
+	for i := range result.Asserts {
+		if i > 0 {
+			prevAssert := &result.Asserts[i-1]
+			result.Asserts[i].Prev = &prevAssert.ID
+		}
+		if i < len(result.Asserts)-1 {
+			nextAssert := &result.Asserts[i+1]
+			result.Asserts[i].Next = &nextAssert.ID
 		}
 	}
 
@@ -1340,5 +1371,45 @@ func processJSONForTokens(obj interface{}, depFinder depfinder.DepFinder) interf
 		return v
 	default:
 		return v
+	}
+}
+
+// createStatusCodeAssertion creates an assertion for checking the response status code
+func createStatusCodeAssertion(exampleID idwrap.IDWrap, statusCode int) massert.Assert {
+	// Create the condition expression for status code check
+	// The expression uses JSONPath-like syntax to check response.status
+	expression := fmt.Sprintf("response.status == %d", statusCode)
+	
+	return massert.Assert{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+		Condition: mcondition.Condition{
+			Comparisons: mcondition.Comparison{
+				Expression: expression,
+			},
+		},
+		Enable: true,
+		// For HAR imports, we don't set Prev/Next as assertions don't have ordering in this context
+		Prev: nil,
+		Next: nil,
+	}
+}
+
+// createStatusCodeAssertionWithDeltaParent creates a delta assertion for status code check
+func createStatusCodeAssertionWithDeltaParent(deltaExampleID idwrap.IDWrap, deltaParentID *idwrap.IDWrap, statusCode int) massert.Assert {
+	expression := fmt.Sprintf("response.status == %d", statusCode)
+	
+	return massert.Assert{
+		ID:            idwrap.NewNow(),
+		ExampleID:     deltaExampleID,
+		DeltaParentID: deltaParentID,
+		Condition: mcondition.Condition{
+			Comparisons: mcondition.Comparison{
+				Expression: expression,
+			},
+		},
+		Enable: true,
+		Prev:   nil,
+		Next:   nil,
 	}
 }

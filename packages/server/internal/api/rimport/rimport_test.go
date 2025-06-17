@@ -14,6 +14,7 @@ import (
 	"the-dev-tools/server/internal/api/rimport"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
+	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sitemapi"
@@ -42,6 +43,7 @@ func TestImportCurl(t *testing.T) {
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ers := sexampleresp.New(queries)
+	as := sassert.New(queries)
 
 	// Create test data - workspace, user, etc.
 	workspaceID := idwrap.NewNow()
@@ -59,7 +61,7 @@ func TestImportCurl(t *testing.T) {
   --data-raw '{"key":"value"}'`
 
 	// Create ImportRPC with actual services
-	importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers)
+	importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers, as)
 
 	// Create request
 	req := connect.NewRequest(&importv1.ImportRequest{
@@ -107,6 +109,7 @@ func TestImportHarWithFolderHierarchy(t *testing.T) {
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ers := sexampleresp.New(queries)
+	as := sassert.New(queries)
 
 	// Create test data - workspace, user, etc.
 	workspaceID := idwrap.NewNow()
@@ -238,7 +241,7 @@ func TestImportHarWithFolderHierarchy(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create ImportRPC with actual services
-	importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers)
+	importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers, as)
 
 	// Create request
 	req := connect.NewRequest(&importv1.ImportRequest{
@@ -327,6 +330,7 @@ func TestImportHarSimpleURL(t *testing.T) {
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
 	ers := sexampleresp.New(queries)
+	as := sassert.New(queries)
 
 	// Create test data - workspace, user, etc.
 	workspaceID := idwrap.NewNow()
@@ -404,7 +408,7 @@ func TestImportHarSimpleURL(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create ImportRPC with actual services
-	importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers)
+	importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers, as)
 
 	// Create request
 	req := connect.NewRequest(&importv1.ImportRequest{

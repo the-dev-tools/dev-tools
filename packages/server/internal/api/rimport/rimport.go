@@ -17,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/model/postman/v21/mpostmancollection"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
@@ -56,11 +57,13 @@ type ImportRPC struct {
 	ias  sitemapi.ItemApiService
 	iaes sitemapiexample.ItemApiExampleService
 	res  sexampleresp.ExampleRespService
+	as   sassert.AssertService
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService,
 	ifs sitemfolder.ItemFolderService, ias sitemapi.ItemApiService,
 	iaes sitemapiexample.ItemApiExampleService, res sexampleresp.ExampleRespService,
+	as sassert.AssertService,
 ) ImportRPC {
 	return ImportRPC{
 		DB:   db,
@@ -71,6 +74,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionSe
 		ias:  ias,
 		iaes: iaes,
 		res:  res,
+		as:   as,
 	}
 }
 
@@ -574,6 +578,18 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, resolved.UrlEncodedBodies)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Assertions
+	if len(resolved.Asserts) > 0 {
+		txAssertService, err := sassert.NewTX(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		err = txAssertService.CreateBulkAssert(ctx, resolved.Asserts)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	// Flow Creation

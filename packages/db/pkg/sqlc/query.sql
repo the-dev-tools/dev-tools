@@ -1468,6 +1468,7 @@ VALUES
 -- name: UpdateAssert :exec
 UPDATE assertion
 SET
+  delta_parent_id = ?,
   expression = ?,
   enable = ?
 WHERE
