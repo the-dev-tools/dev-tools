@@ -639,14 +639,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				return connect.NewError(connect.CodeInternal, err)
 			}
 
-			// Delta Endpoint - overwrite URL if delta endpoint is provided
+			// Delta Endpoint
 			if requestNode.DeltaEndpointID != nil {
 				deltaEndpoint, err := c.ias.GetItemApi(ctx, *requestNode.DeltaEndpointID)
 				if err != nil {
 					return connect.NewError(connect.CodeInternal, err)
 				}
-				endpoint.Url = deltaEndpoint.Url
-				endpoint.Method = deltaEndpoint.Method
+				if deltaEndpoint.Url != "" {
+					endpoint.Url = deltaEndpoint.Url
+				}
+				if deltaEndpoint.Method != "" {
+					endpoint.Method = deltaEndpoint.Method
+				}
 			}
 
 			deltaHeaders, err := c.hs.GetHeaderByExampleID(ctx, deltaExample.ID)
