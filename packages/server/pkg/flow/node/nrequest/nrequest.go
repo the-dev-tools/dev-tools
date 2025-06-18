@@ -3,6 +3,7 @@ package nrequest
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/http/request"
@@ -174,6 +175,26 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
+	// Check if any assertions failed
+	for _, assertCouple := range respCreate.AssertCouples {
+		if !assertCouple.AssertRes.Result {
+			result.Err = fmt.Errorf("assertion failed: %s", assertCouple.Assert.Condition.Comparisons.Expression)
+			// Still send the response data even though we're failing
+			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
+				Example: nr.Example,
+				Queries: nr.Queries,
+				Headers: nr.Headers,
+
+				RawBody:  nr.RawBody,
+				FormBody: nr.FormBody,
+				UrlBody:  nr.UrlBody,
+
+				Resp: *respCreate,
+			}
+			return result
+		}
+	}
+
 	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 		Example: nr.Example,
 		Queries: nr.Queries,
@@ -186,7 +207,6 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		Resp: *respCreate,
 	}
 
-	// TODO: add some functionality here
 	return result
 }
 
@@ -261,6 +281,27 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	nr.ExampleResp.ID = idwrap.NewNow()
 
+	// Check if any assertions failed
+	for _, assertCouple := range respCreate.AssertCouples {
+		if !assertCouple.AssertRes.Result {
+			result.Err = fmt.Errorf("assertion failed: %s", assertCouple.Assert.Condition.Comparisons.Expression)
+			// Still send the response data even though we're failing
+			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
+				Example: nr.Example,
+				Queries: nr.Queries,
+				Headers: nr.Headers,
+
+				RawBody:  nr.RawBody,
+				FormBody: nr.FormBody,
+				UrlBody:  nr.UrlBody,
+
+				Resp: *respCreate,
+			}
+			resultChan <- result
+			return
+		}
+	}
+
 	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 		Example: nr.Example,
 		Queries: nr.Queries,
@@ -276,6 +317,5 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	// TODO: add some functionality here
 	resultChan <- result
 }
