@@ -71,8 +71,13 @@ interface FormTableRowProps<T extends FieldValues> {
 }
 
 const FormTableRow = <T extends FieldValues>({ children, onUpdate, value }: FormTableRowProps<T>) => {
-  const form = useForm({ values: value });
+  const form = useForm({
+    resetOptions: { keepDirtyValues: true },
+    values: value,
+  });
+
   useFormAutoSave({ ...form, onSubmit: onUpdate });
+
   return <FormProvider {...form}>{children}</FormProvider>;
 };
 

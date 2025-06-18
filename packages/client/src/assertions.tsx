@@ -27,7 +27,11 @@ export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => 
 
   const { items } = useQuery(AssertListEndpoint, { exampleId });
 
-  const form = useForm({ values: { items } });
+  const form = useForm({
+    resetOptions: { keepDirtyValues: true },
+    values: { items },
+  });
+
   const fieldArray = useFieldArray({ control: form.control, name: 'items' });
 
   const assertUpdateCallback = useDebouncedCallback(

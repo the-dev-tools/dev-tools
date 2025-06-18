@@ -68,7 +68,11 @@ const ForNodeBody = (props: NodeProps) => {
 export const ForPanel = ({ node: { for: data, nodeId } }: NodePanelProps) => {
   const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const { control, handleSubmit, watch } = useForm({ values: data! });
+  const { control, handleSubmit, watch } = useForm({
+    resetOptions: { keepDirtyValues: true },
+    values: data!,
+  });
+
   const { isReadOnly = false } = use(FlowContext);
 
   const update = useDebouncedCallback(async () => {

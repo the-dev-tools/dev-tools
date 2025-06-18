@@ -69,7 +69,11 @@ const ForEachNodeBody = (props: NodeProps) => {
 export const ForEachPanel = ({ node: { forEach, nodeId } }: NodePanelProps) => {
   const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const { control, handleSubmit, watch } = useForm({ values: forEach! });
+  const { control, handleSubmit, watch } = useForm({
+    resetOptions: { keepDirtyValues: true },
+    values: forEach!,
+  });
+
   const { isReadOnly = false } = use(FlowContext);
 
   const update = useDebouncedCallback(async () => {

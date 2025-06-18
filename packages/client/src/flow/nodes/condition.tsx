@@ -80,7 +80,11 @@ const ConditionNodeBody = (props: NodeProps) => {
 export const ConditionPanel = ({ node: { condition, nodeId } }: NodePanelProps) => {
   const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const { control, handleSubmit, watch } = useForm({ values: condition! });
+  const { control, handleSubmit, watch } = useForm({
+    resetOptions: { keepDirtyValues: true },
+    values: condition!,
+  });
+
   const { isReadOnly = false } = use(FlowContext);
 
   const update = useDebouncedCallback(async () => {
