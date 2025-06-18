@@ -1,9 +1,10 @@
 import { fromJson, Message, toJson } from '@bufbuild/protobuf';
+import { startCompletion } from '@codemirror/autocomplete';
 import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
 import CodeMirror, { EditorView, ReactCodeMirrorProps, ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { Array, Match, pipe, Struct } from 'effect';
-import { createContext, use, useContext, useRef } from 'react';
+import { createContext, RefAttributes, use, useContext, useRef } from 'react';
 import { mergeProps } from 'react-aria';
 import {
   Collection as AriaCollection,
@@ -13,8 +14,6 @@ import {
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { twJoin } from 'tailwind-merge';
 import { tv, VariantProps } from 'tailwind-variants';
-
-import { startCompletion } from '@codemirror/autocomplete';
 import {
   ReferenceContext as ReferenceContextMessage,
   ReferenceKey,
@@ -212,7 +211,10 @@ const fieldStyles = tv({
 interface ReferenceFieldProps
   extends Partial<BaseCodeMirrorExtensionProps>,
     ReactCodeMirrorProps,
-    VariantProps<typeof fieldStyles> {}
+    RefAttributes<ReactCodeMirrorRef>,
+    VariantProps<typeof fieldStyles> {
+  // ref?: RefCallback<ReactCodeMirrorRef>;
+}
 
 export const ReferenceField = ({
   allowFiles,
@@ -221,6 +223,7 @@ export const ReferenceField = ({
   className,
   extensions = [],
   onFocus: onFocusParent,
+  ref: refProp,
   ...forwardedProps
 }: ReferenceFieldProps) => {
   const props = Struct.omit(forwardedProps, ...fieldStyles.variantKeys);
@@ -256,7 +259,11 @@ export const ReferenceField = ({
       height='100%'
       indentWithTab={false}
       onFocus={onFocus}
-      ref={ref}
+      ref={(_) => {
+        if (typeof refProp === 'function') refProp(_);
+        else if (refProp) refProp.current = _;
+        ref.current = _;
+      }}
       {...props}
     />
   );
@@ -283,6 +290,7 @@ export const ReferenceFieldRHF = <
     onBlur: field.onBlur,
     onChange: field.onChange,
     readOnly: field.disabled ?? false,
+    ref: field.ref,
     value: field.value,
   };
 
