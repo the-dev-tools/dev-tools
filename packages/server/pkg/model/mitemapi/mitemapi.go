@@ -14,6 +14,7 @@ type ItemApi struct {
 	Name            string
 	Url             string
 	Method          string
+	Hidden          bool
 	ID              idwrap.IDWrap
 	CollectionID    idwrap.IDWrap
 }

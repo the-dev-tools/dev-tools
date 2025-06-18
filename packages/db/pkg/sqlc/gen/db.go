@@ -249,6 +249,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteWorkspaceUserStmt, err = db.PrepareContext(ctx, deleteWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWorkspaceUser: %w", err)
 	}
+	if q.getAllItemsApiByCollectionIDStmt, err = db.PrepareContext(ctx, getAllItemsApiByCollectionID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllItemsApiByCollectionID: %w", err)
+	}
 	if q.getAssertStmt, err = db.PrepareContext(ctx, getAssert); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAssert: %w", err)
 	}
@@ -983,6 +986,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteWorkspaceUserStmt: %w", cerr)
 		}
 	}
+	if q.getAllItemsApiByCollectionIDStmt != nil {
+		if cerr := q.getAllItemsApiByCollectionIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllItemsApiByCollectionIDStmt: %w", cerr)
+		}
+	}
 	if q.getAssertStmt != nil {
 		if cerr := q.getAssertStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAssertStmt: %w", cerr)
@@ -1687,6 +1695,7 @@ type Queries struct {
 	deleteVariableStmt                                    *sql.Stmt
 	deleteWorkspaceStmt                                   *sql.Stmt
 	deleteWorkspaceUserStmt                               *sql.Stmt
+	getAllItemsApiByCollectionIDStmt                      *sql.Stmt
 	getAssertStmt                                         *sql.Stmt
 	getAssertResultStmt                                   *sql.Stmt
 	getAssertResultsByAssertIDStmt                        *sql.Stmt
@@ -1886,6 +1895,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteVariableStmt:                               q.deleteVariableStmt,
 		deleteWorkspaceStmt:                              q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                          q.deleteWorkspaceUserStmt,
+		getAllItemsApiByCollectionIDStmt:                 q.getAllItemsApiByCollectionIDStmt,
 		getAssertStmt:                                    q.getAssertStmt,
 		getAssertResultStmt:                              q.getAssertResultStmt,
 		getAssertResultsByAssertIDStmt:                   q.getAssertResultsByAssertIDStmt,

@@ -24,6 +24,7 @@ func ConvertToDBItemApi(item mitemapi.ItemApi) gen.ItemApi {
 		Method:          item.Method,
 		VersionParentID: item.VersionParentID,
 		DeltaParentID:   item.DeltaParentID,
+		Hidden:          item.Hidden,
 		Prev:            item.Prev,
 		Next:            item.Next,
 	}
@@ -39,6 +40,7 @@ func ConvertToModelItemApi(item gen.ItemApi) mitemapi.ItemApi {
 		Method:          item.Method,
 		VersionParentID: item.VersionParentID,
 		DeltaParentID:   item.DeltaParentID,
+		Hidden:          item.Hidden,
 		Prev:            item.Prev,
 		Next:            item.Next,
 	}
@@ -90,6 +92,7 @@ func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.Item
 		Next:            itemConverted.Next,
 		VersionParentID: itemConverted.VersionParentID,
 		DeltaParentID:   itemConverted.DeltaParentID,
+		Hidden:          itemConverted.Hidden,
 	})
 }
 
@@ -105,6 +108,7 @@ func (ias ItemApiService) CreateItemGenApi(ctx context.Context, item *gen.ItemAp
 		Next:            item.Next,
 		VersionParentID: item.VersionParentID,
 		DeltaParentID:   item.DeltaParentID,
+		Hidden:          item.Hidden,
 	})
 }
 
@@ -145,6 +149,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID:   item1.DeltaParentID,
 			Prev:            item1.Prev,
 			Next:            item1.Next,
+			Hidden:          item1.Hidden,
 			// 2
 			ID_2:              item2.ID,
 			CollectionID_2:    item2.CollectionID,
@@ -156,6 +161,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID_2:   item2.DeltaParentID,
 			Prev_2:            item2.Prev,
 			Next_2:            item2.Next,
+			Hidden_2:          item2.Hidden,
 			// 3
 			ID_3:              item3.ID,
 			CollectionID_3:    item3.CollectionID,
@@ -167,6 +173,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID_3:   item3.DeltaParentID,
 			Prev_3:            item3.Prev,
 			Next_3:            item3.Next,
+			Hidden_3:          item3.Hidden,
 			// 4
 			ID_4:              item4.ID,
 			CollectionID_4:    item4.CollectionID,
@@ -178,6 +185,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID_4:   item4.DeltaParentID,
 			Prev_4:            item4.Prev,
 			Next_4:            item4.Next,
+			Hidden_4:          item4.Hidden,
 			// 5
 			ID_5:              item5.ID,
 			CollectionID_5:    item5.CollectionID,
@@ -189,6 +197,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID_5:   item5.DeltaParentID,
 			Prev_5:            item5.Prev,
 			Next_5:            item5.Next,
+			Hidden_5:          item5.Hidden,
 			// 6
 			ID_6:              item6.ID,
 			CollectionID_6:    item6.CollectionID,
@@ -200,6 +209,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID_6:   item6.DeltaParentID,
 			Prev_6:            item6.Prev,
 			Next_6:            item6.Next,
+			Hidden_6:          item6.Hidden,
 			// 7
 			ID_7:              item7.ID,
 			CollectionID_7:    item7.CollectionID,
@@ -211,6 +221,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID_7:   item7.DeltaParentID,
 			Prev_7:            item7.Prev,
 			Next_7:            item7.Next,
+			Hidden_7:          item7.Hidden,
 			// 8
 			ID_8:              item8.ID,
 			CollectionID_8:    item8.CollectionID,
@@ -222,6 +233,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID_8:   item8.DeltaParentID,
 			Prev_8:            item8.Prev,
 			Next_8:            item8.Next,
+			Hidden_8:          item8.Hidden,
 			// 9
 			ID_9:              item9.ID,
 			CollectionID_9:    item9.CollectionID,
@@ -233,6 +245,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID_9:   item9.DeltaParentID,
 			Prev_9:            item9.Prev,
 			Next_9:            item9.Next,
+			Hidden_9:          item9.Hidden,
 			// 10
 			ID_10:              item10.ID,
 			CollectionID_10:    item10.CollectionID,
@@ -244,6 +257,7 @@ func (ias ItemApiService) CreateItemApiBulk(ctx context.Context, items []mitemap
 			DeltaParentID_10:   item10.DeltaParentID,
 			Prev_10:            item10.Prev,
 			Next_10:            item10.Next,
+			Hidden_10:          item10.Hidden,
 		}
 
 		if err := ias.queries.CreateItemApiBulk(ctx, params); err != nil {
@@ -261,6 +275,7 @@ func (ias ItemApiService) UpdateItemApi(ctx context.Context, item *mitemapi.Item
 		Name:     item.Name,
 		Url:      item.Url,
 		Method:   item.Method,
+		Hidden:   item.Hidden,
 	})
 	if err == sql.ErrNoRows {
 		return ErrNoItemApiFound
@@ -286,6 +301,17 @@ func (ias ItemApiService) DeleteItemApi(ctx context.Context, id idwrap.IDWrap) e
 
 func (ias ItemApiService) GetApisWithCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]mitemapi.ItemApi, error) {
 	itemApis, err := ias.queries.GetItemsApiByCollectionID(ctx, collectionID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mitemapi.ItemApi{}, ErrNoItemApiFound
+		}
+		return nil, err
+	}
+	return tgeneric.MassConvert(itemApis, ConvertToModelItemApi), nil
+}
+
+func (ias ItemApiService) GetAllApisWithCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]mitemapi.ItemApi, error) {
+	itemApis, err := ias.queries.GetAllItemsApiByCollectionID(ctx, collectionID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []mitemapi.ItemApi{}, ErrNoItemApiFound

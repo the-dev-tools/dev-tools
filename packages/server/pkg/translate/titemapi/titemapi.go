@@ -34,12 +34,18 @@ func SeralizeRPCToModelWithoutID(item *endpointv1.Endpoint, collectionID idwrap.
 		parentID = &tempParentID
 	}
 
+	var hidden bool
+	if item.Hidden != nil {
+		hidden = *item.Hidden
+	}
+
 	return &mitemapi.ItemApi{
 		CollectionID: collectionID,
 		FolderID:     parentID,
 		Url:          item.GetUrl(),
 		Name:         item.GetName(),
 		Method:       item.GetMethod(),
+		Hidden:       hidden,
 	}, nil
 }
 
@@ -54,6 +60,7 @@ func DeseralizeModelToRPC(item *mitemapi.ItemApi) *endpointv1.Endpoint {
 		Name:           item.Name,
 		Method:         item.Method,
 		Url:            item.Url,
+		Hidden:         &item.Hidden,
 	}
 }
 
@@ -67,5 +74,6 @@ func SeralizeModelToRPCItem(item *mitemapi.ItemApi) *endpointv1.EndpointListItem
 		ParentFolderId: parentID,
 		Name:           item.Name,
 		Method:         item.Method,
+		Hidden:         &item.Hidden,
 	}
 }

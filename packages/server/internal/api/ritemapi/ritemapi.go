@@ -73,6 +73,7 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		Method:         msg.GetMethod(),
 		Url:            msg.GetUrl(),
 		ParentFolderId: msg.GetParentFolderId(),
+		Hidden:         msg.Hidden,
 	}
 
 
@@ -210,6 +211,11 @@ func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request
 
 	api.ID = idwrap.NewNow()
 	api.Name = api.Name + " Copy"
+	
+	// Apply overrides from request if provided
+	if req.Msg.Hidden != nil {
+		api.Hidden = *req.Msg.Hidden
+	}
 
 	var exampleResps []mexampleresp.ExampleResp
 	for i, v := range examples {

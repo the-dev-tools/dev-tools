@@ -194,6 +194,7 @@ type ItemApi struct {
 	Method          string
 	VersionParentID *idwrap.IDWrap
 	DeltaParentID   *idwrap.IDWrap
+	Hidden          bool
 	Prev            *idwrap.IDWrap
 	Next            *idwrap.IDWrap
 }

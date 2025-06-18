@@ -94,6 +94,9 @@ CREATE TABLE item_api (
   -- delta endpoint parent (null for regular endpoints, references parent for delta endpoints)
   delta_parent_id BLOB DEFAULT NULL,
 
+  -- visibility
+  hidden BOOLEAN NOT NULL DEFAULT FALSE,
+
   -- ordering
   prev BLOB,
   next BLOB,
