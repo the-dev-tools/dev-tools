@@ -3,7 +3,7 @@ import { ConnectQueryKey, createConnectQueryKey } from '@connectrpc/connect-quer
 import { experimental_streamedQuery as streamedQuery, useQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { Ulid } from 'id128';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Collection as AriaCollection,
   Tree as AriaTree,
@@ -14,7 +14,7 @@ import { Panel } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 
-import { LogLevel, LogService, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
+import { LogLevel, LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
@@ -132,48 +132,52 @@ export const StatusBar = () => {
       {showLogs && (
         <Panel>
           <div className={tw`flex size-full flex-col-reverse overflow-auto`}>
-            <div>
-              {logs?.map((_) => {
-                const ulid = Ulid.construct(_.logId);
-                return (
-                  <AriaTree aria-label={_.value} key={ulid.toCanonical()}>
-                    <TreeItemRoot textValue={_.value}>
-                      <AriaTreeItemContent>
-                        {({ isExpanded }) => (
-                          <TreeItemWrapper className={tw`flex-wrap gap-1`} level={0}>
-                            <Button className={tw`p-1`} slot='chevron' variant='ghost'>
-                              <ChevronSolidDownIcon
-                                className={twJoin(
-                                  tw`size-3 text-slate-500 transition-transform`,
-                                  !isExpanded ? tw`rotate-0` : tw`rotate-90`,
-                                )}
-                              />
-                            </Button>
-
-                            <div className={logTextStyles({ level: _.level })}>
-                              {ulid.time.toLocaleTimeString()}: {_.value}
-                            </div>
-                          </TreeItemWrapper>
-                        )}
-                      </AriaTreeItemContent>
-
-                      <AriaCollection items={_.references}>
-                        {(_) => (
-                          <ReferenceTreeItemView
-                            id={makeReferenceTreeId([_.key!], _.value)}
-                            parentKeys={[]}
-                            reference={_}
-                          />
-                        )}
-                      </AriaCollection>
-                    </TreeItemRoot>
-                  </AriaTree>
-                );
-              })}
-            </div>
+            <AriaTree aria-label='Logs' items={logs ?? []}>
+              {(_) => <LogItem id={Ulid.construct(_.logId).toCanonical()} item={_} />}
+            </AriaTree>
           </div>
         </Panel>
       )}
     </>
+  );
+};
+
+interface LogItemProps {
+  id: string;
+  item: LogStreamResponse;
+}
+
+const LogItem = ({ id, item }: LogItemProps) => {
+  const ulid = Ulid.construct(item.logId);
+
+  const [isEnabled, setEnabled] = useState(false);
+
+  return (
+    <TreeItemRoot id={id} textValue={item.value}>
+      <AriaTreeItemContent>
+        {({ isExpanded }) => (
+          <TreeItemWrapper className={tw`flex-wrap gap-1`} level={0}>
+            <Button className={tw`p-1`} onPress={() => void setEnabled(true)} slot='chevron' variant='ghost'>
+              <ChevronSolidDownIcon
+                className={twJoin(
+                  tw`size-3 text-slate-500 transition-transform`,
+                  !isExpanded ? tw`rotate-0` : tw`rotate-90`,
+                )}
+              />
+            </Button>
+
+            <div className={logTextStyles({ level: item.level })}>
+              {ulid.time.toLocaleTimeString()}: {item.value}
+            </div>
+          </TreeItemWrapper>
+        )}
+      </AriaTreeItemContent>
+
+      {isEnabled && (
+        <AriaCollection items={item.references}>
+          {(_) => <ReferenceTreeItemView id={makeReferenceTreeId([_.key!], _.value)} parentKeys={[]} reference={_} />}
+        </AriaCollection>
+      )}
+    </TreeItemRoot>
   );
 };
