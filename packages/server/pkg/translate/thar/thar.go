@@ -426,8 +426,8 @@ func isAPIEndpoint(segment string) bool {
 	return false
 }
 
-// getAPINameFromURL extracts the API name from the URL
-func getAPINameFromURL(requestURL string) string {
+// getAPINameFromURL extracts the API name from the URL with method awareness
+func getAPINameFromURL(requestURL string, method string) string {
 	parsedURL, err := url.Parse(requestURL)
 	if err != nil {
 		return requestURL // Fallback to full URL
@@ -436,6 +436,13 @@ func getAPINameFromURL(requestURL string) string {
 	pathSegments := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
 	if len(pathSegments) > 0 && pathSegments[len(pathSegments)-1] != "" {
 		lastSegment := pathSegments[len(pathSegments)-1]
+
+		// For DELETE operations with an ID as the last segment (e.g., /tags/uuid),
+		// use the resource name (second-to-last segment) as the base name
+		if method == "DELETE" && len(pathSegments) > 1 && isLikelyID(lastSegment) {
+			resourceName := pathSegments[len(pathSegments)-2]
+			return resourceName
+		}
 
 		// If the last segment is an ID and we have a meaningful second-to-last segment,
 		// use the ID as the name
@@ -541,8 +548,8 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 		// Add new folders to result
 		result.Folders = append(result.Folders, newFolders...)
 
-		// Extract API name from URL
-		apiName := getAPINameFromURL(originalURL)
+		// Extract API name from URL with method awareness
+		apiName := getAPINameFromURL(originalURL, entry.Request.Method)
 
 		// Create Endpoint/api for each entry
 		apiID := idwrap.NewNow()
