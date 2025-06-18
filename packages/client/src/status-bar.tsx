@@ -1,8 +1,7 @@
 import { createClient } from '@connectrpc/connect';
 import { ConnectQueryKey, createConnectQueryKey } from '@connectrpc/connect-query';
-import { useQuery } from '@tanstack/react-query';
+import { experimental_streamedQuery as streamedQuery, useQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
-import { Array } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo } from 'react';
 import {
@@ -15,7 +14,7 @@ import { Panel } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 
-import { LogLevel, LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
+import { LogLevel, LogService, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
@@ -28,9 +27,8 @@ import { makeReferenceTreeId, ReferenceTreeItemView } from './reference';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
-// TODO: improve data streaming
 export const useLogsQuery = () => {
-  const { queryClient, transport } = workspaceRoute.useRouteContext();
+  const { transport } = workspaceRoute.useRouteContext();
 
   const { logStream } = useMemo(() => createClient(LogService, transport), [transport]);
 
@@ -45,15 +43,11 @@ export const useLogsQuery = () => {
   );
 
   const query = useQuery({
-    initialData: [],
-    meta: { normalize: false },
-    queryFn: async ({ queryKey, signal }) => {
-      for await (const log of logStream({})) {
-        queryClient.setQueryData(queryKey, Array.append(log));
-        if (signal.aborted) break;
-      }
-      return queryClient.getQueryData<LogStreamResponse[]>(queryKey)!;
-    },
+    queryFn: streamedQuery({
+      maxChunks: 100,
+      queryFn: () => logStream({}),
+      refetchMode: 'append',
+    }),
     queryKey,
   });
 
@@ -139,7 +133,7 @@ export const StatusBar = () => {
         <Panel>
           <div className={tw`flex size-full flex-col-reverse overflow-auto`}>
             <div>
-              {logs.map((_) => {
+              {logs?.map((_) => {
                 const ulid = Ulid.construct(_.logId);
                 return (
                   <AriaTree aria-label={_.value} key={ulid.toCanonical()}>
