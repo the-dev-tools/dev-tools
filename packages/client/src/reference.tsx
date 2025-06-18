@@ -4,7 +4,7 @@ import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
 import CodeMirror, { EditorView, ReactCodeMirrorProps, ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { Array, Match, pipe, Struct } from 'effect';
-import { createContext, RefAttributes, use, useContext, useRef } from 'react';
+import { createContext, RefAttributes, use, useContext, useRef, useState } from 'react';
 import { mergeProps } from 'react-aria';
 import {
   Collection as AriaCollection,
@@ -98,6 +98,8 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
   const key = reference.key!;
   const keys = [...parentKeys, key];
 
+  const [isEnabled, setEnabled] = useState(false);
+
   const keyText = getGroupText(key);
 
   const items = pipe(
@@ -141,7 +143,7 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
         {({ isExpanded, level }) => (
           <TreeItemWrapper className={tw`flex-wrap gap-1`} level={level}>
             {items && (
-              <Button className={tw`p-1`} slot='chevron' variant='ghost'>
+              <Button className={tw`p-1`} onPress={() => void setEnabled(true)} slot='chevron' variant='ghost'>
                 <ChevronSolidDownIcon
                   className={twJoin(
                     tw`size-3 text-slate-500 transition-transform`,
@@ -184,7 +186,7 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
         )}
       </AriaTreeItemContent>
 
-      {items && (
+      {items && isEnabled && (
         <AriaCollection items={items}>
           {(_) => (
             <ReferenceTreeItemView
@@ -212,9 +214,7 @@ interface ReferenceFieldProps
   extends Partial<BaseCodeMirrorExtensionProps>,
     ReactCodeMirrorProps,
     RefAttributes<ReactCodeMirrorRef>,
-    VariantProps<typeof fieldStyles> {
-  // ref?: RefCallback<ReactCodeMirrorRef>;
-}
+    VariantProps<typeof fieldStyles> {}
 
 export const ReferenceField = ({
   allowFiles,
