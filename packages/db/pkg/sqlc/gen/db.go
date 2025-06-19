@@ -300,6 +300,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCollectionByWorkspaceIDStmt, err = db.PrepareContext(ctx, getCollectionByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionByWorkspaceID: %w", err)
 	}
+	if q.getCollectionByWorkspaceIDAndNameStmt, err = db.PrepareContext(ctx, getCollectionByWorkspaceIDAndName); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionByWorkspaceIDAndName: %w", err)
+	}
 	if q.getCollectionWorkspaceIDStmt, err = db.PrepareContext(ctx, getCollectionWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionWorkspaceID: %w", err)
 	}
@@ -392,6 +395,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getItemApiByCollectionIDAndNextIDAndParentIDStmt, err = db.PrepareContext(ctx, getItemApiByCollectionIDAndNextIDAndParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiByCollectionIDAndNextIDAndParentID: %w", err)
+	}
+	if q.getItemApiByCollectionIDAndURLAndMethodStmt, err = db.PrepareContext(ctx, getItemApiByCollectionIDAndURLAndMethod); err != nil {
+		return nil, fmt.Errorf("error preparing query GetItemApiByCollectionIDAndURLAndMethod: %w", err)
 	}
 	if q.getItemApiExampleStmt, err = db.PrepareContext(ctx, getItemApiExample); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApiExample: %w", err)
@@ -1071,6 +1077,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCollectionByWorkspaceIDStmt: %w", cerr)
 		}
 	}
+	if q.getCollectionByWorkspaceIDAndNameStmt != nil {
+		if cerr := q.getCollectionByWorkspaceIDAndNameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionByWorkspaceIDAndNameStmt: %w", cerr)
+		}
+	}
 	if q.getCollectionWorkspaceIDStmt != nil {
 		if cerr := q.getCollectionWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCollectionWorkspaceIDStmt: %w", cerr)
@@ -1224,6 +1235,11 @@ func (q *Queries) Close() error {
 	if q.getItemApiByCollectionIDAndNextIDAndParentIDStmt != nil {
 		if cerr := q.getItemApiByCollectionIDAndNextIDAndParentIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemApiByCollectionIDAndNextIDAndParentIDStmt: %w", cerr)
+		}
+	}
+	if q.getItemApiByCollectionIDAndURLAndMethodStmt != nil {
+		if cerr := q.getItemApiByCollectionIDAndURLAndMethodStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getItemApiByCollectionIDAndURLAndMethodStmt: %w", cerr)
 		}
 	}
 	if q.getItemApiExampleStmt != nil {
@@ -1712,6 +1728,7 @@ type Queries struct {
 	getCollectionStmt                                     *sql.Stmt
 	getCollectionByPlatformIDandTypeStmt                  *sql.Stmt
 	getCollectionByWorkspaceIDStmt                        *sql.Stmt
+	getCollectionByWorkspaceIDAndNameStmt                 *sql.Stmt
 	getCollectionWorkspaceIDStmt                          *sql.Stmt
 	getEnvironmentStmt                                    *sql.Stmt
 	getEnvironmentsByWorkspaceIDStmt                      *sql.Stmt
@@ -1743,6 +1760,7 @@ type Queries struct {
 	getHeadersByExampleIDStmt                             *sql.Stmt
 	getItemApiStmt                                        *sql.Stmt
 	getItemApiByCollectionIDAndNextIDAndParentIDStmt      *sql.Stmt
+	getItemApiByCollectionIDAndURLAndMethodStmt           *sql.Stmt
 	getItemApiExampleStmt                                 *sql.Stmt
 	getItemApiExampleByCollectionIDStmt                   *sql.Stmt
 	getItemApiExampleByVersionParentIDStmt                *sql.Stmt
@@ -1912,6 +1930,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionStmt:                                q.getCollectionStmt,
 		getCollectionByPlatformIDandTypeStmt:             q.getCollectionByPlatformIDandTypeStmt,
 		getCollectionByWorkspaceIDStmt:                   q.getCollectionByWorkspaceIDStmt,
+		getCollectionByWorkspaceIDAndNameStmt:            q.getCollectionByWorkspaceIDAndNameStmt,
 		getCollectionWorkspaceIDStmt:                     q.getCollectionWorkspaceIDStmt,
 		getEnvironmentStmt:                               q.getEnvironmentStmt,
 		getEnvironmentsByWorkspaceIDStmt:                 q.getEnvironmentsByWorkspaceIDStmt,
@@ -1943,6 +1962,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHeadersByExampleIDStmt:                        q.getHeadersByExampleIDStmt,
 		getItemApiStmt:                                   q.getItemApiStmt,
 		getItemApiByCollectionIDAndNextIDAndParentIDStmt: q.getItemApiByCollectionIDAndNextIDAndParentIDStmt,
+		getItemApiByCollectionIDAndURLAndMethodStmt:      q.getItemApiByCollectionIDAndURLAndMethodStmt,
 		getItemApiExampleStmt:                            q.getItemApiExampleStmt,
 		getItemApiExampleByCollectionIDStmt:              q.getItemApiExampleByCollectionIDStmt,
 		getItemApiExampleByVersionParentIDStmt:           q.getItemApiExampleByVersionParentIDStmt,
