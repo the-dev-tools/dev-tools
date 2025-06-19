@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/url"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
@@ -14,6 +13,10 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/model/mitemfolder"
+	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/postman/v21/mpostmancollection"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/flow/sedge"
@@ -96,7 +99,23 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	data := req.Msg.Data
 	textData := req.Msg.TextData
 	resp := &importv1.ImportResponse{}
-	collectionID := idwrap.NewNow()
+	
+	// Check if a collection with this name already exists in the workspace
+	var collectionID idwrap.IDWrap
+	existingCollection, err := c.cs.GetCollectionByWorkspaceIDAndName(ctx, wsUlid, req.Msg.Name)
+	switch err {
+	case nil:
+		// Collection exists, use its ID
+		collectionID = existingCollection.ID
+		// Found existing collection, will merge endpoints into it
+	case scollection.ErrNoCollectionFound:
+		// Collection doesn't exist, generate new ID
+		collectionID = idwrap.NewNow()
+		// Collection doesn't exist, will create new one
+	default:
+		// Some other error occurred
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	// If no filter provided, we need to parse and present filter options
 	if len(req.Msg.Filter) == 0 {
@@ -190,10 +209,10 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	lastHar.Log.Entries = filteredEntries
 
 	// Try to import as HAR
-	fmt.Printf("DEBUG: Attempting HAR import with %d filtered entries\n", len(lastHar.Log.Entries))
+	// Attempt HAR import with filtered entries
 	flow, err := c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
 	if err == nil {
-		fmt.Printf("DEBUG: HAR import successful, flow created: %s\n", flow.Name)
+		// HAR import successful, flow created
 		// Set collection in response
 		resp.Collection = &collectionv1.CollectionListItem{
 			CollectionId: collectionID.Bytes(),
@@ -211,20 +230,19 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		return connect.NewResponse(resp), nil
 	}
 
-	fmt.Printf("DEBUG: HAR import failed with error: %v\n", err)
-	fmt.Printf("DEBUG: Falling back to Postman Collection import\n")
+	// HAR import failed, falling back to Postman Collection import
 
 	// Try to import as Postman Collection
 	postman, err := tpostman.ParsePostmanCollection(data)
 	if err != nil {
-		fmt.Printf("DEBUG: Postman collection parsing also failed: %v\n", err)
+		// Postman collection parsing also failed
 		return nil, err
 	}
 
-	fmt.Printf("DEBUG: Postman collection parsed successfully, attempting import\n")
+	// Postman collection parsed successfully, attempting import
 	err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, req.Msg.Name, postman)
 	if err == nil {
-		fmt.Printf("DEBUG: Postman collection import successful (no flow created)\n")
+		// Postman collection import successful (no flow created)
 		// Set collection in response (Postman imports only create collections, not flows)
 		resp.Collection = &collectionv1.CollectionListItem{
 			CollectionId: collectionID.Bytes(),
@@ -233,7 +251,7 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		return connect.NewResponse(resp), nil
 	}
 
-	fmt.Printf("DEBUG: Both HAR and Postman imports failed\n")
+	// Both HAR and Postman imports failed
 
 	return nil, errors.New("invalid file")
 }
@@ -243,6 +261,16 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 		ID:          CollectionID,
 		Name:        name,
 		WorkspaceID: workspaceID,
+	}
+
+	// Check if collection already exists
+	collectionExists := false
+	_, err := c.cs.GetCollection(ctx, CollectionID)
+	if err == nil {
+		collectionExists = true
+		// Collection already exists, will merge endpoints
+	} else if err != scollection.ErrNoCollectionFound {
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	tx, err := c.DB.Begin()
@@ -256,9 +284,13 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	err = txCollectionService.CreateCollection(ctx, &collection)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
+	
+	// Only create collection if it doesn't exist
+	if !collectionExists {
+		err = txCollectionService.CreateCollection(ctx, &collection)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	txItemApiService, err := sitemapi.NewTX(ctx, tx)
@@ -335,7 +367,10 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	ws.CollectionCount++
+	// Only increment collection count if we created a new collection
+	if !collectionExists {
+		ws.CollectionCount++
+	}
 	ws.Updated = dbtime.DBNow()
 	err = c.ws.Update(ctx, ws)
 	if err != nil {
@@ -350,6 +385,16 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 		ID:          CollectionID,
 		Name:        name,
 		WorkspaceID: workspaceID,
+	}
+
+	// Check if collection already exists
+	collectionExists := false
+	_, err := c.cs.GetCollection(ctx, CollectionID)
+	if err == nil {
+		collectionExists = true
+		// Collection already exists, will merge endpoints
+	} else if err != scollection.ErrNoCollectionFound {
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	items, err := tpostman.ConvertPostmanCollection(collectionData, CollectionID)
@@ -367,9 +412,13 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	err = txCollectionService.CreateCollection(ctx, &collection)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
+	
+	// Only create collection if it doesn't exist
+	if !collectionExists {
+		err = txCollectionService.CreateCollection(ctx, &collection)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
@@ -455,7 +504,10 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	ws.CollectionCount++
+	// Only increment collection count if we created a new collection
+	if !collectionExists {
+		ws.CollectionCount++
+	}
 	ws.Updated = dbtime.DBNow()
 	err = c.ws.Update(ctx, ws)
 	if err != nil {
@@ -466,18 +518,36 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 }
 
 func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, harData *thar.HAR) (*mflow.Flow, error) {
-	fmt.Printf("DEBUG: ImportHar starting with %d entries\n", len(harData.Log.Entries))
-	resolved, err := thar.ConvertHAR(harData, CollectionID, workspaceID)
+	// Check if collection already exists
+	collectionExists := false
+	_, err := c.cs.GetCollection(ctx, CollectionID)
+	if err == nil {
+		collectionExists = true
+		// Collection already exists, will merge endpoints
+	} else if err != scollection.ErrNoCollectionFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Pre-load existing folders if collection exists
+	var existingFolders []mitemfolder.ItemFolder
+	if collectionExists {
+		existingFolders, err = c.ifs.GetFoldersWithCollectionID(ctx, CollectionID)
+		if err != nil && err != sitemfolder.ErrNoItemFolderFound {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+	
+	// Import HAR data into collection with existing folder info
+	resolved, err := thar.ConvertHARWithExistingData(harData, CollectionID, workspaceID, existingFolders)
 	if err != nil {
-		fmt.Printf("DEBUG: thar.ConvertHAR failed: %v\n", err)
+		// HAR conversion failed
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	fmt.Printf("DEBUG: HAR conversion successful - APIs: %d, Nodes: %d, RequestNodes: %d\n",
-		len(resolved.Apis), len(resolved.Nodes), len(resolved.RequestNodes))
+	// HAR conversion successful
 
 	if len(resolved.Apis) == 0 {
-		fmt.Printf("DEBUG: No APIs found in HAR conversion\n")
+		// No APIs found in HAR conversion
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no apis found to create in har"))
 	}
 
@@ -497,9 +567,13 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = txCollectionService.CreateCollection(ctx, &collectionData)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	
+	// Only create collection if it doesn't exist
+	if !collectionExists {
+		err = txCollectionService.CreateCollection(ctx, &collectionData)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	txItemApiService, err := sitemapi.NewTX(ctx, tx)
@@ -507,21 +581,174 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Pre-load existing folders to optimize lookup
+	existingFoldersList, err := txItemFolderService.GetFoldersWithCollectionID(ctx, CollectionID)
+	if err != nil && err != sitemfolder.ErrNoItemFolderFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Create folders first (they need to exist before APIs reference them)
 	if len(resolved.Folders) > 0 {
-		txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		// Filter out folders that already exist
+		var foldersToCreate []mitemfolder.ItemFolder
+		for i := range resolved.Folders {
+			folder := &resolved.Folders[i]
+			// Check if folder already exists by name
+			exists := false
+			for _, existing := range existingFoldersList {
+				if existing.Name == folder.Name && 
+				   ((existing.ParentID == nil && folder.ParentID == nil) ||
+				    (existing.ParentID != nil && folder.ParentID != nil && existing.ParentID.Compare(*folder.ParentID) == 0)) {
+					exists = true
+					// Update the folder ID in resolved.Folders to use existing ID
+					folder.ID = existing.ID
+					break
+				}
+			}
+			if !exists {
+				foldersToCreate = append(foldersToCreate, *folder)
+			}
 		}
-		err = txItemFolderService.CreateItemFolderBulk(ctx, resolved.Folders)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		
+		// Only create folders that don't exist
+		if len(foldersToCreate) > 0 {
+			// CreateItemFolderBulk expects exactly 10 items, so we need to batch or create individually
+			for i := 0; i < len(foldersToCreate); i += 10 {
+				end := i + 10
+				if end > len(foldersToCreate) {
+					// Create remaining items individually
+					for j := i; j < len(foldersToCreate); j++ {
+						err = txItemFolderService.CreateItemFolder(ctx, &foldersToCreate[j])
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+					}
+				} else {
+					// Create batch of exactly 10
+					batch := foldersToCreate[i:end]
+					err = txItemFolderService.CreateItemFolderBulk(ctx, batch)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+				}
+			}
 		}
 	}
 
-	err = txItemApiService.CreateItemApiBulk(ctx, resolved.Apis)
-	if err != nil {
+	// Reload folders after creation to get updated list
+	existingFoldersList, err = txItemFolderService.GetFoldersWithCollectionID(ctx, CollectionID)
+	if err != nil && err != sitemfolder.ErrNoItemFolderFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Build a map for quick folder lookup by path
+	existingFolderMap := make(map[string]idwrap.IDWrap)
+	for _, folder := range existingFoldersList {
+		// We'll need to reconstruct the folder path - for now just use the folder ID
+		existingFolderMap[folder.Name] = folder.ID
+	}
+
+	// Handle endpoint creation/update with duplicate checking
+	apiMapping := make(map[idwrap.IDWrap]idwrap.IDWrap) // Map old API ID to new/existing API ID
+	var apisToCreate []mitemapi.ItemApi
+	var apisToUpdate []mitemapi.ItemApi
+	
+	// Batch load all existing endpoints for this collection
+	existingApis, err := txItemApiService.GetApisWithCollectionID(ctx, CollectionID)
+	if err != nil && err != sitemapi.ErrNoItemApiFound {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Create a map for quick lookup
+	existingApiMap := make(map[string]*mitemapi.ItemApi)
+	for i := range existingApis {
+		api := &existingApis[i]
+		key := api.Url + "|" + api.Method
+		existingApiMap[key] = api
+	}
+	
+	// Check each endpoint to see if it already exists
+	for _, api := range resolved.Apis {
+		// Skip delta endpoints for now - handle them separately
+		if api.DeltaParentID != nil {
+			continue
+		}
+		
+		key := api.Url + "|" + api.Method
+		existingApi := existingApiMap[key]
+		
+		if existingApi != nil {
+			// Endpoint exists - check if update is needed
+			needsUpdate := false
+			if existingApi.Name != api.Name {
+				needsUpdate = true
+				existingApi.Name = api.Name
+			}
+			if (existingApi.FolderID == nil && api.FolderID != nil) ||
+			   (existingApi.FolderID != nil && api.FolderID == nil) ||
+			   (existingApi.FolderID != nil && api.FolderID != nil && existingApi.FolderID.Compare(*api.FolderID) != 0) {
+				needsUpdate = true
+				existingApi.FolderID = api.FolderID
+			}
+			
+			apiMapping[api.ID] = existingApi.ID
+			if needsUpdate {
+				apisToUpdate = append(apisToUpdate, *existingApi)
+			}
+		} else {
+			// New endpoint - create it
+			apiMapping[api.ID] = api.ID
+			apisToCreate = append(apisToCreate, api)
+		}
+	}
+	
+	// Handle delta endpoints
+	for _, api := range resolved.Apis {
+		if api.DeltaParentID != nil {
+			// Map delta parent to the actual/existing API ID
+			if mappedID, ok := apiMapping[*api.DeltaParentID]; ok {
+				newDeltaParentID := mappedID
+				api.DeltaParentID = &newDeltaParentID
+			}
+			apisToCreate = append(apisToCreate, api)
+		}
+	}
+	
+	// Create new endpoints
+	if len(apisToCreate) > 0 {
+		// CreateItemApiBulk expects exactly 10 items, so we need to batch or create individually
+		for i := 0; i < len(apisToCreate); i += 10 {
+			end := i + 10
+			if end > len(apisToCreate) {
+				// Create remaining items individually
+				for j := i; j < len(apisToCreate); j++ {
+					err = txItemApiService.CreateItemApi(ctx, &apisToCreate[j])
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+				}
+			} else {
+				// Create batch of exactly 10
+				batch := apisToCreate[i:end]
+				err = txItemApiService.CreateItemApiBulk(ctx, batch)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+		}
+	}
+	
+	// Update existing endpoints
+	for _, api := range apisToUpdate {
+		err = txItemApiService.UpdateItemApi(ctx, &api)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
@@ -529,9 +756,38 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = txItemApiExampleService.CreateApiExampleBulk(ctx, resolved.Examples)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Update example API IDs based on mapping
+	var updatedExamples []mitemapiexample.ItemApiExample
+	for _, example := range resolved.Examples {
+		if mappedID, ok := apiMapping[example.ItemApiID]; ok {
+			example.ItemApiID = mappedID
+		}
+		updatedExamples = append(updatedExamples, example)
+	}
+	
+	// TODO: For existing endpoints, we should check if we need to delete old examples
+	// For now, just create new examples
+	if len(updatedExamples) > 0 {
+		// CreateApiExampleBulk expects exactly 10 items, so we need to batch or create individually
+		for i := 0; i < len(updatedExamples); i += 10 {
+			end := i + 10
+			if end > len(updatedExamples) {
+				// Create remaining items individually
+				for j := i; j < len(updatedExamples); j++ {
+					err = txItemApiExampleService.CreateApiExample(ctx, &updatedExamples[j])
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+				}
+			} else {
+				// Create batch of exactly 10
+				batch := updatedExamples[i:end]
+				err = txItemApiExampleService.CreateApiExampleBulk(ctx, batch)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+		}
 	}
 
 	txExampleHeaderService, err := sexampleheader.NewTX(ctx, tx)
@@ -613,18 +869,35 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	// Flow Request Nodes
-	fmt.Printf("DEBUG: Creating flow request nodes - count: %d\n", len(resolved.RequestNodes))
+	// Create flow request nodes
 	txFlowRequestService, err := snoderequest.NewTX(ctx, tx)
 	if err != nil {
-		fmt.Printf("DEBUG: Failed to create txFlowRequestService: %v\n", err)
+		// Failed to create txFlowRequestService
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = txFlowRequestService.CreateNodeRequestBulk(ctx, resolved.RequestNodes)
+	
+	// Update request nodes with mapped endpoint IDs
+	var updatedRequestNodes []mnrequest.MNRequest
+	for _, node := range resolved.RequestNodes {
+		if node.EndpointID != nil {
+			if mappedID, ok := apiMapping[*node.EndpointID]; ok {
+				node.EndpointID = &mappedID
+			}
+		}
+		if node.DeltaEndpointID != nil {
+			if mappedID, ok := apiMapping[*node.DeltaEndpointID]; ok {
+				node.DeltaEndpointID = &mappedID
+			}
+		}
+		updatedRequestNodes = append(updatedRequestNodes, node)
+	}
+	
+	err = txFlowRequestService.CreateNodeRequestBulk(ctx, updatedRequestNodes)
 	if err != nil {
-		fmt.Printf("DEBUG: CreateNodeRequestBulk failed: %v\n", err)
+		// CreateNodeRequestBulk failed
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	fmt.Printf("DEBUG: Flow request nodes created successfully\n")
+	// Flow request nodes created successfully
 
 	// Flow Noop Nodes
 	txFlowNoopService, err := snodenoop.NewTX(ctx, tx)
@@ -646,29 +919,32 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	fmt.Printf("DEBUG: Committing transaction\n")
+	// Commit transaction
 	err = tx.Commit()
 	if err != nil {
-		fmt.Printf("DEBUG: Transaction commit failed: %v\n", err)
+		// Transaction commit failed
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	fmt.Printf("DEBUG: Transaction committed successfully\n")
+	// Transaction committed successfully
 
 	ws, err := c.ws.Get(ctx, workspaceID)
 	if err != nil {
-		fmt.Printf("DEBUG: Failed to get workspace: %v\n", err)
+		// Failed to get workspace
 		return nil, err
 	}
-	ws.CollectionCount++
+	// Only increment collection count if we created a new collection
+	if !collectionExists {
+		ws.CollectionCount++
+	}
 	ws.FlowCount++
 	ws.Updated = dbtime.DBNow()
 	err = c.ws.Update(ctx, ws)
 	if err != nil {
-		fmt.Printf("DEBUG: Failed to update workspace: %v\n", err)
+		// Failed to update workspace
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	fmt.Printf("DEBUG: HAR import completed successfully, returning flow: %s\n", resolved.Flow.Name)
+	// HAR import completed successfully
 	// Return a pointer to the Flow
 	flow := resolved.Flow
 	return &flow, nil

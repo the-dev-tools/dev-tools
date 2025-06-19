@@ -461,8 +461,8 @@ func getAPINameFromURL(requestURL string, method string) string {
 	return requestURL
 }
 
-// ConvertHARWithDepFinder allows injecting a custom depFinder (for testing)
-func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder) (HarResvoled, error) {
+// convertHARInternal is the internal implementation that accepts existing folders map
+func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder, existingFoldersMap map[string]idwrap.IDWrap) (HarResvoled, error) {
 	result := HarResvoled{}
 
 	if len(har.Log.Entries) == 0 {
@@ -515,7 +515,10 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 	const slotSize = 400
 
 	// Map to track existing folders by their path to avoid duplicates
-	existingFolders := make(map[string]idwrap.IDWrap)
+	existingFolders := existingFoldersMap
+	if existingFolders == nil {
+		existingFolders = make(map[string]idwrap.IDWrap)
+	}
 
 	// Track previous node for timestamp-based sequencing
 	var previousNodeID *idwrap.IDWrap
@@ -605,9 +608,6 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 			VersionParentID: &defaultExampleID,
 		}
 		
-		// Debug logging for example creation
-		fmt.Printf("DEBUG: Creating delta example - ID: %s, Name: %s, VersionParentID: %s\n", 
-			deltaExampleID.String(), deltaExample.Name, defaultExampleID.String())
 		// Only add a flow node once per unique API.
 		flowNodeID := idwrap.NewNow()
 		request := mnrequest.MNRequest{
@@ -815,9 +815,8 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				if json.Valid(bodyBytes) {
 					resultDep := depFinder.TemplateJSON(bodyBytes)
 					if resultDep.Err != nil {
-						fmt.Println("Error 4: ", resultDep.Err, postData.Text)
+						// Error templating JSON
 					} else {
-						fmt.Println("find any: ", resultDep.FindAny)
 						if resultDep.FindAny {
 							connected = true
 							for _, couple := range resultDep.Couples {
@@ -867,7 +866,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 				couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
 				err := depFinder.AddJsonBytes(repsonseBodyBytes, couple)
 				if err != nil {
-					fmt.Println(err)
+					// Error adding JSON bytes to dependency finder
 				}
 			}
 		}
@@ -907,10 +906,7 @@ func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, 
 			}
 		}
 		
-		fmt.Printf("DEBUG: About to create delta headers - deltaHeaders with deps count: %d, base headers count: %d\n", 
-			len(deltaHeadersWithDeps), len(headers))
 		headersDelta := extractHeadersWithDeltaParent(deltaHeadersWithDeps, deltaExampleID, headers)
-		fmt.Printf("DEBUG: Created delta headers count: %d\n", len(headersDelta))
 		result.Headers = append(result.Headers, headersDelta...)
 
 		// Filter deltaQueries to only include those with dependencies
@@ -1106,9 +1102,38 @@ func performTransitiveReduction(result *HarResvoled) error {
 	return nil
 }
 
+// ConvertHARWithDepFinder allows injecting a custom depFinder (for testing)
+func ConvertHARWithDepFinder(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder) (HarResvoled, error) {
+	return convertHARInternal(har, collectionID, workspaceID, depFinder, nil)
+}
+
 // ConvertHAR uses a new depFinder (for production)
 func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled, error) {
 	return ConvertHARWithDepFinder(har, collectionID, workspaceID, nil)
+}
+
+// ConvertHARWithExistingData allows passing pre-loaded folders and APIs for optimization
+func ConvertHARWithExistingData(har *HAR, collectionID, workspaceID idwrap.IDWrap, existingFolders []mitemfolder.ItemFolder) (HarResvoled, error) {
+	// Build folder map from existing folders
+	folderMap := make(map[string]idwrap.IDWrap)
+	for _, folder := range existingFolders {
+		// Build the folder key based on hierarchy
+		key := folder.Name
+		// If folder has parent, we need to build full path (for now just use name)
+		folderMap[key] = folder.ID
+	}
+	
+	// Use existing ConvertHARWithDepFinder but inject folder map
+	depFinder := depfinder.NewDepFinder()
+	result, err := convertHARInternal(har, collectionID, workspaceID, &depFinder, folderMap)
+	return result, err
+}
+
+// ConvertHARWithDepFinderAndFolders is for future use
+func ConvertHARWithDepFinderAndFolders(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder, preloadedFolders map[string]idwrap.IDWrap) (HarResvoled, error) {
+	// For now, just use the existing function
+	// TODO: Implement folder preloading optimization
+	return ConvertHARWithDepFinder(har, collectionID, workspaceID, depFinder)
 }
 
 // Helper: returns true if the HAR entry is for an XHR request.
@@ -1191,9 +1216,6 @@ func extractHeadersWithDeltaParent(headers []Header, deltaExampleID idwrap.IDWra
 				DeltaParentID: deltaParentID,
 			}
 			
-			// Debug logging for header creation
-			fmt.Printf("DEBUG: Creating delta header - Key: %s, Value: %s, DeltaParentID: %v\n", 
-				header.Name, header.Value, deltaParentID != nil)
 			result = append(result, h)
 		}
 	}

@@ -121,3 +121,21 @@ func (cs CollectionService) CheckWorkspaceID(ctx context.Context, id, ownerID id
 	}
 	return ownerID.Compare(CollectionWorkspaceID) == 0, nil
 }
+
+func (cs CollectionService) GetCollectionByWorkspaceIDAndName(ctx context.Context, workspaceID idwrap.IDWrap, name string) (*mcollection.Collection, error) {
+	collection, err := cs.queries.GetCollectionByWorkspaceIDAndName(ctx, gen.GetCollectionByWorkspaceIDAndNameParams{
+		WorkspaceID: workspaceID,
+		Name:        name,
+	})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoCollectionFound
+		}
+		return nil, err
+	}
+	return &mcollection.Collection{
+		ID:          collection.ID,
+		Name:        collection.Name,
+		WorkspaceID: collection.WorkspaceID,
+	}, nil
+}

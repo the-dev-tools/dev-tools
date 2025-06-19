@@ -144,6 +144,30 @@ DELETE FROM item_api
 WHERE
   id = ?;
 
+-- name: GetItemApiByCollectionIDAndURLAndMethod :one
+SELECT
+  id,
+  collection_id,
+  folder_id,
+  name,
+  url,
+  method,
+  version_parent_id,
+  delta_parent_id,
+  hidden,
+  prev,
+  next
+FROM
+  item_api
+WHERE
+  collection_id = ? AND
+  url = ? AND
+  method = ? AND
+  version_parent_id is NULL AND
+  delta_parent_id is NULL
+LIMIT
+  1;
+
 --
 -- Item Api Example
 --
@@ -569,6 +593,19 @@ FROM
   collections
 WHERE
   workspace_id = ?;
+
+-- name: GetCollectionByWorkspaceIDAndName :one
+SELECT
+  id,
+  workspace_id,
+  name
+FROM
+  collections
+WHERE
+  workspace_id = ? AND
+  name = ?
+LIMIT
+  1;
 
 -- name: CreateCollection :exec
 INSERT INTO

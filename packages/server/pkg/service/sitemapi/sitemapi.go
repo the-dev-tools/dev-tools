@@ -336,6 +336,23 @@ func (ias ItemApiService) GetItemApiByCollectionIDAndNextIDAndParentID(ctx conte
 	return ConvertToModelItemApi(itemApi), nil
 }
 
+func (ias ItemApiService) GetItemApiByCollectionIDAndURLAndMethod(ctx context.Context, collectionID idwrap.IDWrap, url, method string) (*mitemapi.ItemApi, error) {
+	itemApi, err := ias.queries.GetItemApiByCollectionIDAndURLAndMethod(ctx, gen.GetItemApiByCollectionIDAndURLAndMethodParams{
+		CollectionID: collectionID,
+		Url:          url,
+		Method:       method,
+	})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoItemApiFound
+		}
+		return nil, err
+	}
+	
+	item := ConvertToModelItemApi(itemApi)
+	return &item, nil
+}
+
 func (ias ItemApiService) GetWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
 	ownerUlid, err := ias.queries.GetItemApiWorkspaceID(ctx, id)
 	if err != nil {

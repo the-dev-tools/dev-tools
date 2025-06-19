@@ -3599,6 +3599,32 @@ func (q *Queries) GetCollectionByWorkspaceID(ctx context.Context, workspaceID id
 	return items, nil
 }
 
+const getCollectionByWorkspaceIDAndName = `-- name: GetCollectionByWorkspaceIDAndName :one
+SELECT
+  id,
+  workspace_id,
+  name
+FROM
+  collections
+WHERE
+  workspace_id = ? AND
+  name = ?
+LIMIT
+  1
+`
+
+type GetCollectionByWorkspaceIDAndNameParams struct {
+	WorkspaceID idwrap.IDWrap
+	Name        string
+}
+
+func (q *Queries) GetCollectionByWorkspaceIDAndName(ctx context.Context, arg GetCollectionByWorkspaceIDAndNameParams) (Collection, error) {
+	row := q.queryRow(ctx, q.getCollectionByWorkspaceIDAndNameStmt, getCollectionByWorkspaceIDAndName, arg.WorkspaceID, arg.Name)
+	var i Collection
+	err := row.Scan(&i.ID, &i.WorkspaceID, &i.Name)
+	return i, err
+}
+
 const getCollectionWorkspaceID = `-- name: GetCollectionWorkspaceID :one
 SELECT
   workspace_id
@@ -4570,6 +4596,56 @@ type GetItemApiByCollectionIDAndNextIDAndParentIDParams struct {
 
 func (q *Queries) GetItemApiByCollectionIDAndNextIDAndParentID(ctx context.Context, arg GetItemApiByCollectionIDAndNextIDAndParentIDParams) (ItemApi, error) {
 	row := q.queryRow(ctx, q.getItemApiByCollectionIDAndNextIDAndParentIDStmt, getItemApiByCollectionIDAndNextIDAndParentID, arg.Next, arg.FolderID, arg.CollectionID)
+	var i ItemApi
+	err := row.Scan(
+		&i.ID,
+		&i.CollectionID,
+		&i.FolderID,
+		&i.Name,
+		&i.Url,
+		&i.Method,
+		&i.VersionParentID,
+		&i.DeltaParentID,
+		&i.Hidden,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
+const getItemApiByCollectionIDAndURLAndMethod = `-- name: GetItemApiByCollectionIDAndURLAndMethod :one
+SELECT
+  id,
+  collection_id,
+  folder_id,
+  name,
+  url,
+  method,
+  version_parent_id,
+  delta_parent_id,
+  hidden,
+  prev,
+  next
+FROM
+  item_api
+WHERE
+  collection_id = ? AND
+  url = ? AND
+  method = ? AND
+  version_parent_id is NULL AND
+  delta_parent_id is NULL
+LIMIT
+  1
+`
+
+type GetItemApiByCollectionIDAndURLAndMethodParams struct {
+	CollectionID idwrap.IDWrap
+	Url          string
+	Method       string
+}
+
+func (q *Queries) GetItemApiByCollectionIDAndURLAndMethod(ctx context.Context, arg GetItemApiByCollectionIDAndURLAndMethodParams) (ItemApi, error) {
+	row := q.queryRow(ctx, q.getItemApiByCollectionIDAndURLAndMethodStmt, getItemApiByCollectionIDAndURLAndMethod, arg.CollectionID, arg.Url, arg.Method)
 	var i ItemApi
 	err := row.Scan(
 		&i.ID,
