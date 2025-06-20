@@ -1,5 +1,6 @@
 import { getRouteApi, useNavigate, useRouteContext } from '@tanstack/react-router';
 import { Array, Option, pipe } from 'effect';
+import { Ulid } from 'id128';
 import { useState } from 'react';
 import {
   Cell,
@@ -16,9 +17,11 @@ import {
 } from 'react-aria-components';
 import { FiInfo, FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
-
-import { Ulid } from 'id128';
 import { ImportKind } from '@the-dev-tools/spec/import/v1/import_pb';
+import { ExampleListEndpoint } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
+import { CollectionItemListEndpoint } from '@the-dev-tools/spec/meta/collection/item/v1/item.endpoints.js';
+import { CollectionListEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.js';
+import { FlowListEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.js';
 import { ImportEndpoint } from '@the-dev-tools/spec/meta/import/v1/import.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { Checkbox } from '@the-dev-tools/ui/checkbox';
@@ -28,11 +31,12 @@ import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
+import { setQueryChild } from '~data-client';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 export const ImportDialog = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient, transport } = useRouteContext({ from: '__root__' });
 
   const { workspaceId } = workspaceRoute.useLoaderData();
 
@@ -87,6 +91,19 @@ export const ImportDialog = () => {
     Option.getOrElse(() => Promise.resolve(undefined)),
   );
 
+  const onImportSuccess = async () => {
+    onOpenChange(false);
+    // TODO: improve key matching
+    await dataClient.controller.expireAll({
+      testKey: (_) => {
+        if (_.startsWith(`["${CollectionListEndpoint.name}"`)) return true;
+        if (_.startsWith(`["${CollectionItemListEndpoint.name}"`)) return true;
+        if (_.startsWith(`["${ExampleListEndpoint.name}"`)) return true;
+        return false;
+      },
+    });
+  };
+
   const importUniversalSubmit = !filters && (
     <Button
       isDisabled={!files?.length && !text}
@@ -99,7 +116,7 @@ export const ImportDialog = () => {
         });
 
         if (result.kind === ImportKind.FILTER) setFilters(result.filter);
-        else onOpenChange(false);
+        else await onImportSuccess();
       }}
       variant='primary'
     >
@@ -170,16 +187,26 @@ export const ImportDialog = () => {
           workspaceId,
         });
 
-        const flowIdCan = Ulid.construct(flow.flowId).toCanonical();
+        if (flow) {
+          await setQueryChild(
+            dataClient.controller,
+            FlowListEndpoint.schema.items,
+            'push',
+            { input: { workspaceId }, transport },
+            flow,
+          );
 
-        await navigate({
-          from: '/workspace/$workspaceIdCan',
-          to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
+          const flowIdCan = Ulid.construct(flow.flowId).toCanonical();
 
-          params: { flowIdCan },
-        });
+          await navigate({
+            from: '/workspace/$workspaceIdCan',
+            to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
 
-        onOpenChange(false);
+            params: { flowIdCan },
+          });
+        }
+
+        await onImportSuccess();
       }}
       variant='primary'
     >
