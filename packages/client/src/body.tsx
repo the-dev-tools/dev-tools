@@ -163,7 +163,8 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
     items,
     onCreate: async () => {
       await dataClient.fetch(BodyFormCreateEndpoint, { enabled: true, exampleId });
-      await dataClient.controller.invalidateAll({ testKey: (_) => _.startsWith(BodyFormDeltaListEndpoint.name) });
+      // TODO: improve key matching
+      await dataClient.controller.expireAll({ testKey: (_) => _.startsWith(`["${BodyFormDeltaListEndpoint.name}"`) });
     },
     onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyFormUpdateEndpoint, item),
     primaryColumn: 'key',
@@ -258,7 +259,10 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
     items,
     onCreate: async () => {
       await dataClient.fetch(BodyUrlEncodedCreateEndpoint, { enabled: true, exampleId });
-      await dataClient.controller.invalidateAll({ testKey: (_) => _.startsWith(BodyUrlEncodedDeltaListEndpoint.name) });
+      // TODO: improve key matching
+      await dataClient.controller.expireAll({
+        testKey: (_) => _.startsWith(`["${BodyUrlEncodedDeltaListEndpoint.name}"`),
+      });
     },
     onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyUrlEncodedUpdateEndpoint, item),
     primaryColumn: 'key',

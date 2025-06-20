@@ -86,7 +86,8 @@ const FormTable = ({ exampleId }: FormTableProps) => {
     items,
     onCreate: async () => {
       await dataClient.fetch(HeaderCreateEndpoint, { enabled: true, exampleId });
-      await dataClient.controller.invalidateAll({ testKey: (_) => _.startsWith(HeaderDeltaListEndpoint.name) });
+      // TODO: improve key matching
+      await dataClient.controller.expireAll({ testKey: (_) => _.startsWith(`["${HeaderDeltaListEndpoint.name}"`) });
     },
     onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(HeaderUpdateEndpoint, item),
     primaryColumn: 'key',
