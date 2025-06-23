@@ -756,14 +756,47 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// Use the same timeout for the flow runner
 	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
 
-	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 1000)
-	flowStatusChan := make(chan runner.FlowStatus, 10)
+	// Calculate buffer size based on expected load
+	// For large iteration counts, we need bigger buffers to prevent blocking
+	bufferSize := 10000
+	if forNodeCount := len(forNodes); forNodeCount > 0 {
+		// Estimate based on for node iterations
+		var maxIterations int64
+		for _, fn := range forNodes {
+			if fn.IterCount > maxIterations {
+				maxIterations = fn.IterCount
+			}
+		}
+		// Buffer should handle at least all iterations * nodes
+		estimatedSize := int(maxIterations) * len(nodes) * 2
+		if estimatedSize > bufferSize {
+			bufferSize = estimatedSize
+		}
+	}
+	
+	flowNodeStatusChan := make(chan runner.FlowNodeStatus, bufferSize)
+	flowStatusChan := make(chan runner.FlowStatus, 100)
 
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	done := make(chan error, 1)
-	updateNodeChan := make(chan mnnode.MNode, 1000)
+	updateNodeChan := make(chan mnnode.MNode, bufferSize)
+	
+	// Collector goroutine for node updates
+	var nodeUpdates []mnnode.MNode
+	var nodeUpdatesMutex sync.Mutex
+	nodeUpdatesDone := make(chan struct{})
+	
+	go func() {
+		defer close(nodeUpdatesDone)
+		for node := range updateNodeChan {
+			nodeUpdatesMutex.Lock()
+			nodeUpdates = append(nodeUpdates, node)
+			nodeUpdatesMutex.Unlock()
+		}
+	}()
+	
 	go func() {
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
 			id := flowNodeStatus.NodeID
@@ -771,19 +804,38 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			idStr := id.String()
 			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
+				// Create copies of values we need for the goroutine
+				nameForLog := name
+				idStrForLog := idStr
+				stateStrForLog := stateStr
+				nodeError := flowNodeStatus.Error
+				
 				go func() {
-					ref := reference.NewReferenceFromInterfaceWithKey(flowNodeStatus, name)
+					// Create a simple log-friendly structure without maps
+					logData := struct {
+						NodeID string
+						Name   string
+						State  string
+						Error  error
+					}{
+						NodeID: idStrForLog,
+						Name:   nameForLog,
+						State:  stateStrForLog,
+						Error:  nodeError,
+					}
+					
+					ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
 					refs := []reference.ReferenceTreeItem{ref}
 
 					// Set log level to error if there's an error, otherwise warning
 					var logLevel logconsole.LogLevel
-					if flowNodeStatus.Error != nil {
+					if nodeError != nil {
 						logLevel = logconsole.LogLevelError
 					} else {
 						logLevel = logconsole.LogLevelUnspecified
 					}
 
-					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", name, idStr, stateStr), logLevel, refs)
+					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", nameForLog, idStrForLog, stateStrForLog), logLevel, refs)
 					if localErr != nil {
 						done <- localErr
 						return
@@ -832,10 +884,21 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				Node: nodeResp,
 			}
 
-			data, localErr := json.Marshal(flowNodeStatus.OutputData)
-			if localErr != nil {
-				done <- err
-				return
+			// Skip OutputData for intermediate status updates to avoid race conditions
+			// Only include it for final state updates
+			var data []byte
+			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS || flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+				// For final states, OutputData should be stable
+				var localErr error
+				data, localErr = json.Marshal(flowNodeStatus.OutputData)
+				if localErr != nil {
+					// Log error but continue processing
+					log.Printf("Error marshaling node output data: %v", localErr)
+					data = []byte("{}")
+				}
+			} else {
+				// For intermediate states, don't include output data
+				data = []byte("{}")
 			}
 
 			nodeStateData := mnnode.MNode{
@@ -844,9 +907,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				StateData: data,
 			}
 			updateNodeChan <- nodeStateData
-			localErr = stream.Send(resp)
-			if localErr != nil {
-				done <- localErr
+			err = stream.Send(resp)
+			if err != nil {
+				done <- err
 				return
 			}
 		}
@@ -868,9 +931,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				if !ok {
 					return
 				}
-				if len(flowNodeStatusChan) > 0 {
-					for flowNodeStatus := range flowNodeStatusChan {
+				// Process any pending node status messages without blocking
+			drainLoop:
+				for len(flowNodeStatusChan) > 0 {
+					select {
+					case flowNodeStatus := <-flowNodeStatusChan:
 						nodeStatusFunc(flowNodeStatus)
+					default:
+						// No more messages immediately available, exit loop
+						break drainLoop
 					}
 				}
 				if runner.IsFlowStatusDone(flowStatus) {
@@ -888,6 +957,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	close(updateNodeChan)
 	close(requestNodeRespChan)
+	
+	// Wait for all node updates to be collected
+	<-nodeUpdatesDone
 
 	flow.VersionParentID = &flow.ID
 	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow)
@@ -906,12 +978,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return fmt.Errorf("create node service: %w", err)
 	}
 
-	for node := range updateNodeChan {
+	// Process collected node updates
+	nodeUpdatesMutex.Lock()
+	for _, node := range nodeUpdates {
 		err = txNode.UpdateNodeState(ctx, node)
 		if err != nil {
+			nodeUpdatesMutex.Unlock()
 			return fmt.Errorf("update node: %w", err)
 		}
 	}
+	nodeUpdatesMutex.Unlock()
 
 	err = c.CopyFlow(ctx, tx, res)
 	if err != nil {
