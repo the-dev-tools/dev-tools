@@ -144,10 +144,10 @@ func TestImportCurl_OverwriteExistingCollection(t *testing.T) {
 	// Assertions
 	require.NoError(t, err)
 	assert.NotNil(t, resp1)
-	assert.NotNil(t, resp1.Msg.Collection)
-
-	collectionID1, err := idwrap.NewFromBytes(resp1.Msg.Collection.CollectionId)
+	// Collection is returned via service lookup
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
 	require.NoError(t, err)
+	collectionID1 := collection.ID
 
 	// Verify first collection was created
 	collection1, err := cs.GetCollection(ctx, collectionID1)
@@ -170,10 +170,10 @@ func TestImportCurl_OverwriteExistingCollection(t *testing.T) {
 	resp2, err := importRPC.Import(authedCtx, req2)
 	require.NoError(t, err)
 	assert.NotNil(t, resp2)
-	assert.NotNil(t, resp2.Msg.Collection)
-
-	collectionID2, err := idwrap.NewFromBytes(resp2.Msg.Collection.CollectionId)
+	// Collection is returned via service lookup
+	collection2, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
 	require.NoError(t, err)
+	collectionID2 := collection2.ID
 
 	// Verify same collection ID was reused
 	assert.Equal(t, collectionID1, collectionID2, "Should reuse existing collection with same name")
@@ -344,27 +344,42 @@ func TestImportHarWithFolderHierarchy(t *testing.T) {
 	// Create ImportRPC with actual services
 	importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers, as)
 
-	// Create request
-	req := connect.NewRequest(&importv1.ImportRequest{
+	// First request to get filter options
+	req1 := connect.NewRequest(&importv1.ImportRequest{
+		WorkspaceId: workspaceID.Bytes(),
+		Data:        harJSON,
+		Name:        "Test HAR Import with Folders",
+		Filter:      []string{}, // Empty filter first
+	})
+
+	// Call Import method with authenticated context
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp1, err := importRPC.Import(authedCtx, req1)
+	require.NoError(t, err)
+	require.NotNil(t, resp1)
+	require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp1.Msg.Kind)
+	
+	// Second request with filter
+	req2 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		Data:        harJSON,
 		Name:        "Test HAR Import with Folders",
 		Filter:      []string{"api.example.com", "other.example.com"}, // Include both domains
 	})
-
-	// Call Import method with authenticated context
-	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-	resp, err := importRPC.Import(authedCtx, req)
+	
+	resp, err := importRPC.Import(authedCtx, req2)
 
 	// Assertions
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.NotNil(t, resp.Msg.Collection)
+	// ImportResponse no longer includes Collection field
 	assert.NotNil(t, resp.Msg.Flow)
 
 	// Verify the collection was created
-	collectionID, err := idwrap.NewFromBytes(resp.Msg.Collection.CollectionId)
+	// Get collection ID via service lookup
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Test HAR Import with Folders")
 	require.NoError(t, err)
+	collectionID := collection.ID
 
 	// Verify folders were created
 	folders, err := ifs.GetFoldersWithCollectionID(ctx, collectionID)
@@ -511,26 +526,41 @@ func TestImportHarSimpleURL(t *testing.T) {
 	// Create ImportRPC with actual services
 	importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers, as)
 
-	// Create request
-	req := connect.NewRequest(&importv1.ImportRequest{
+	// First request to get filter options
+	req1 := connect.NewRequest(&importv1.ImportRequest{
+		WorkspaceId: workspaceID.Bytes(),
+		Data:        harJSON,
+		Name:        "Test HAR Import Simple URLs",
+		Filter:      []string{}, // Empty filter first
+	})
+
+	// Call Import method with authenticated context
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp1, err := importRPC.Import(authedCtx, req1)
+	require.NoError(t, err)
+	require.NotNil(t, resp1)
+	require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp1.Msg.Kind)
+	
+	// Second request with filter
+	req2 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		Data:        harJSON,
 		Name:        "Test HAR Import Simple URLs",
 		Filter:      []string{"example.com"},
 	})
-
-	// Call Import method with authenticated context
-	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-	resp, err := importRPC.Import(authedCtx, req)
+	
+	resp, err := importRPC.Import(authedCtx, req2)
 
 	// Assertions
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.NotNil(t, resp.Msg.Collection)
+	// ImportResponse no longer includes Collection field
 
 	// Verify the collection was created
-	collectionID, err := idwrap.NewFromBytes(resp.Msg.Collection.CollectionId)
+	// Get collection ID via service lookup
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Test HAR Import Simple URLs")
 	require.NoError(t, err)
+	collectionID := collection.ID
 
 	// Verify folders were created (should only create domain folder)
 	folders, err := ifs.GetFoldersWithCollectionID(ctx, collectionID)
@@ -654,11 +684,11 @@ func TestImportHar_OverwriteExistingCollection(t *testing.T) {
 	resp1, err := importRPC.Import(authedCtx, req1)
 	require.NoError(t, err)
 	assert.NotNil(t, resp1)
-	assert.NotNil(t, resp1.Msg.Collection)
-
-	collectionID1, err := idwrap.NewFromBytes(resp1.Msg.Collection.CollectionId)
+	// Collection is returned via service lookup
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
 	require.NoError(t, err)
-
+	collectionID1 := collection.ID
+	require.NoError(t, err)
 	// Verify first collection was created
 	collection1, err := cs.GetCollection(ctx, collectionID1)
 	require.NoError(t, err)
@@ -730,11 +760,10 @@ func TestImportHar_OverwriteExistingCollection(t *testing.T) {
 	resp2, err := importRPC.Import(authedCtx, req2)
 	require.NoError(t, err)
 	assert.NotNil(t, resp2)
-	assert.NotNil(t, resp2.Msg.Collection)
-
-	collectionID2, err := idwrap.NewFromBytes(resp2.Msg.Collection.CollectionId)
+	// Collection is returned via service lookup
+	collection2, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
 	require.NoError(t, err)
-
+	collectionID2 := collection2.ID
 	// Verify same collection ID was reused
 	assert.Equal(t, collectionID1, collectionID2, "Should reuse existing collection with same name")
 
@@ -852,9 +881,10 @@ func TestImportHar_OverwriteExistingEndpoints(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, resp1)
 
-	collectionID, err := idwrap.NewFromBytes(resp1.Msg.Collection.CollectionId)
+	// Get collection ID via service lookup
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
 	require.NoError(t, err)
-
+	collectionID := collection.ID
 	// Get the first endpoint
 	apis1, err := ias.GetApisWithCollectionID(ctx, collectionID)
 	require.NoError(t, err)

@@ -300,8 +300,10 @@ func TestImportHAR_DatabaseOperations(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp1)
 
-		collectionID, err := idwrap.NewFromBytes(resp1.Msg.Collection.CollectionId)
+		// Get collection ID via service lookup
+		collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
 		require.NoError(t, err)
+		collectionID := collection.ID
 
 		// Count created resources
 		folders, err := ifs.GetFoldersWithCollectionID(ctx, collectionID)

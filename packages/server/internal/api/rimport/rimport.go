@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
+	"sort"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
@@ -49,6 +51,13 @@ import (
 
 // TODO: this is need be switch to id based system later
 var lastHar thar.HAR
+
+// Custom error types to distinguish between parsing and database errors
+var (
+	ErrHARParsing = errors.New("failed to parse HAR file")
+	ErrPostmanParsing = errors.New("failed to parse Postman collection")
+	ErrDatabaseOperation = errors.New("database operation failed")
+)
 
 type ImportRPC struct {
 	DB   *sql.DB
@@ -217,13 +226,21 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		return connect.NewResponse(resp), nil
 	}
 
-	// HAR import failed, falling back to Postman Collection import
+	// Check if error is due to database operation failure
+	// In this case, we should not attempt fallback
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) && connectErr.Code() == connect.CodeInternal {
+		// Database error occurred, return immediately without fallback
+		return nil, err
+	}
+
+	// HAR import failed due to parsing/conversion, try Postman Collection
 
 	// Try to import as Postman Collection
 	postman, err := tpostman.ParsePostmanCollection(data)
 	if err != nil {
 		// Postman collection parsing also failed
-		return nil, err
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to parse as HAR or Postman collection: %w", err))
 	}
 
 	// Postman collection parsed successfully, attempting import
@@ -233,9 +250,8 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		return connect.NewResponse(resp), nil
 	}
 
-	// Both HAR and Postman imports failed
-
-	return nil, errors.New("invalid file")
+	// Return the actual error from import
+	return nil, err
 }
 
 func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, resolvedCurl tcurl.CurlResolved) error {
@@ -257,7 +273,7 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 
 	tx, err := c.DB.Begin()
 	if err != nil {
-		return err
+		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	defer devtoolsdb.TxnRollback(tx)
@@ -333,19 +349,20 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	}
 	txQueriesService, err := sexamplequery.NewTX(ctx, tx)
 	if err != nil {
-		return err
+		return connect.NewError(connect.CodeInternal, err)
 	}
 	err = txQueriesService.CreateBulkQuery(ctx, resolvedCurl.Queries)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = tx.Commit()
+	// Update workspace counts and timestamp inside transaction
+	txWorkspaceService, err := sworkspace.NewTX(ctx, tx)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	ws, err := c.ws.Get(ctx, workspaceID)
+	ws, err := txWorkspaceService.Get(ctx, workspaceID)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -354,7 +371,12 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 		ws.CollectionCount++
 	}
 	ws.Updated = dbtime.DBNow()
-	err = c.ws.Update(ctx, ws)
+	err = txWorkspaceService.Update(ctx, ws)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -477,12 +499,13 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = tx.Commit()
+	// Update workspace counts and timestamp inside transaction
+	txWorkspaceService, err := sworkspace.NewTX(ctx, tx)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	ws, err := c.ws.Get(ctx, workspaceID)
+	ws, err := txWorkspaceService.Get(ctx, workspaceID)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -491,7 +514,12 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 		ws.CollectionCount++
 	}
 	ws.Updated = dbtime.DBNow()
-	err = c.ws.Update(ctx, ws)
+	err = txWorkspaceService.Update(ctx, ws)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -540,10 +568,10 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	tx, err := c.DB.Begin()
-	defer devtoolsdb.TxnRollback(tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer devtoolsdb.TxnRollback(tx)
 
 	txCollectionService, err := scollection.NewTX(ctx, tx)
 	if err != nil {
@@ -574,28 +602,53 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Build a map to track folder updates
+	folderIDMapping := make(map[idwrap.IDWrap]idwrap.IDWrap) // old ID -> new/existing ID
+
 	// Create folders first (they need to exist before APIs reference them)
 	if len(resolved.Folders) > 0 {
-		// Filter out folders that already exist
+		// Build a map of existing folders by ID for quick lookup
+		existingFolderByID := make(map[idwrap.IDWrap]*mitemfolder.ItemFolder)
+		for i := range existingFoldersList {
+			existingFolderByID[existingFoldersList[i].ID] = &existingFoldersList[i]
+		}
+
+		// Filter out folders that already exist and build ID mapping
 		var foldersToCreate []mitemfolder.ItemFolder
 		for i := range resolved.Folders {
 			folder := &resolved.Folders[i]
-			// Check if folder already exists by name
+			// Check if folder already exists by name and parent
 			exists := false
 			for _, existing := range existingFoldersList {
 				if existing.Name == folder.Name &&
 					((existing.ParentID == nil && folder.ParentID == nil) ||
 						(existing.ParentID != nil && folder.ParentID != nil && existing.ParentID.Compare(*folder.ParentID) == 0)) {
 					exists = true
+					// Map old ID to existing ID
+					folderIDMapping[folder.ID] = existing.ID
 					// Update the folder ID in resolved.Folders to use existing ID
 					folder.ID = existing.ID
 					break
 				}
 			}
 			if !exists {
+				// Keep the same ID for new folders
+				folderIDMapping[folder.ID] = folder.ID
 				foldersToCreate = append(foldersToCreate, *folder)
 			}
 		}
+
+		// Update parent IDs in folders to create based on mapping
+		for i := range foldersToCreate {
+			if foldersToCreate[i].ParentID != nil {
+				if mappedID, ok := folderIDMapping[*foldersToCreate[i].ParentID]; ok {
+					foldersToCreate[i].ParentID = &mappedID
+				}
+			}
+		}
+
+		// Sort folders by hierarchy depth to ensure parents are created before children
+		sortFoldersByDepth(foldersToCreate)
 
 		// Only create folders that don't exist
 		if len(foldersToCreate) > 0 {
@@ -633,6 +686,17 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	for _, folder := range existingFoldersList {
 		// We'll need to reconstruct the folder path - for now just use the folder ID
 		existingFolderMap[folder.Name] = folder.ID
+	}
+
+	// Update API folder references based on folder mapping (if folders were processed)
+	if len(resolved.Folders) > 0 && len(folderIDMapping) > 0 {
+		for i := range resolved.Apis {
+			if resolved.Apis[i].FolderID != nil {
+				if mappedID, ok := folderIDMapping[*resolved.Apis[i].FolderID]; ok {
+					resolved.Apis[i].FolderID = &mappedID
+				}
+			}
+		}
 	}
 
 	// Handle endpoint creation/update with duplicate checking
@@ -901,18 +965,15 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Commit transaction
-	err = tx.Commit()
+	// Update workspace counts and timestamp inside transaction
+	txWorkspaceService, err := sworkspace.NewTX(ctx, tx)
 	if err != nil {
-		// Transaction commit failed
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	// Transaction committed successfully
 
-	ws, err := c.ws.Get(ctx, workspaceID)
+	ws, err := txWorkspaceService.Get(ctx, workspaceID)
 	if err != nil {
-		// Failed to get workspace
-		return nil, err
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	// Only increment collection count if we created a new collection
 	if !collectionExists {
@@ -920,9 +981,15 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 	ws.FlowCount++
 	ws.Updated = dbtime.DBNow()
-	err = c.ws.Update(ctx, ws)
+	err = txWorkspaceService.Update(ctx, ws)
 	if err != nil {
-		// Failed to update workspace
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		// Transaction commit failed
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -930,4 +997,45 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	// Return a pointer to the Flow
 	flow := resolved.Flow
 	return &flow, nil
+}
+
+// sortFoldersByDepth sorts folders so that parent folders come before their children
+func sortFoldersByDepth(folders []mitemfolder.ItemFolder) {
+	// Build a map of folder IDs to their indices
+	folderIndex := make(map[idwrap.IDWrap]int)
+	for i, folder := range folders {
+		folderIndex[folder.ID] = i
+	}
+
+	// Calculate depth for each folder
+	depths := make([]int, len(folders))
+	for i := range folders {
+		depths[i] = calculateFolderDepth(&folders[i], folders, folderIndex, make(map[idwrap.IDWrap]bool))
+	}
+
+	// Sort by depth (parents first)
+	sort.SliceStable(folders, func(i, j int) bool {
+		return depths[i] < depths[j]
+	})
+}
+
+// calculateFolderDepth calculates the depth of a folder in the hierarchy
+func calculateFolderDepth(folder *mitemfolder.ItemFolder, allFolders []mitemfolder.ItemFolder, folderIndex map[idwrap.IDWrap]int, visited map[idwrap.IDWrap]bool) int {
+	if folder.ParentID == nil {
+		return 0
+	}
+
+	// Check for circular references
+	if visited[folder.ID] {
+		return 0
+	}
+	visited[folder.ID] = true
+
+	// Find parent in the list
+	if parentIdx, ok := folderIndex[*folder.ParentID]; ok {
+		return 1 + calculateFolderDepth(&allFolders[parentIdx], allFolders, folderIndex, visited)
+	}
+
+	// Parent not in list, assume it exists in DB
+	return 1
 }

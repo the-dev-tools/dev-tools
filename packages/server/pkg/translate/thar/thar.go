@@ -1116,17 +1116,44 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 func ConvertHARWithExistingData(har *HAR, collectionID, workspaceID idwrap.IDWrap, existingFolders []mitemfolder.ItemFolder) (HarResvoled, error) {
 	// Build folder map from existing folders
 	folderMap := make(map[string]idwrap.IDWrap)
-	for _, folder := range existingFolders {
-		// Build the folder key based on hierarchy
-		key := folder.Name
-		// If folder has parent, we need to build full path (for now just use name)
-		folderMap[key] = folder.ID
+	
+	// First, create a map by ID for quick lookups
+	folderByID := make(map[idwrap.IDWrap]*mitemfolder.ItemFolder)
+	for i := range existingFolders {
+		folderByID[existingFolders[i].ID] = &existingFolders[i]
+	}
+	
+	// Now build the path map
+	for i := range existingFolders {
+		folder := &existingFolders[i]
+		path := buildFolderPath(folder, folderByID)
+		folderMap[path] = folder.ID
+		
+		// Also add just the name for root folders
+		if folder.ParentID == nil {
+			folderMap[folder.Name] = folder.ID
+		}
 	}
 	
 	// Use existing ConvertHARWithDepFinder but inject folder map
 	depFinder := depfinder.NewDepFinder()
 	result, err := convertHARInternal(har, collectionID, workspaceID, &depFinder, folderMap)
 	return result, err
+}
+
+// buildFolderPath reconstructs the full path for a folder
+func buildFolderPath(folder *mitemfolder.ItemFolder, folderByID map[idwrap.IDWrap]*mitemfolder.ItemFolder) string {
+	if folder.ParentID == nil {
+		return folder.Name
+	}
+	
+	parent, exists := folderByID[*folder.ParentID]
+	if !exists {
+		return folder.Name
+	}
+	
+	parentPath := buildFolderPath(parent, folderByID)
+	return parentPath + "/" + folder.Name
 }
 
 // ConvertHARWithDepFinderAndFolders is for future use
