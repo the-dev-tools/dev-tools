@@ -110,7 +110,18 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 
 	// Check if a collection with this name already exists in the workspace
 	var collectionID idwrap.IDWrap
-	existingCollection, err := c.cs.GetCollectionByWorkspaceIDAndName(ctx, wsUlid, req.Msg.Name)
+	// Determine collection name based on import type
+	// For HAR imports (when we have data that's valid JSON), use "Imported"
+	// For other imports (curl with textData), use the provided name
+	collectionName := req.Msg.Name
+	// Check if this is a HAR import (either initial parse or filtered import)
+	isHARImport := len(textData) == 0 && (json.Valid(data) || len(req.Msg.Filter) > 0)
+	if isHARImport {
+		// This is a HAR import, use "Imported" as collection name
+		collectionName = "Imported"
+	}
+	
+	existingCollection, err := c.cs.GetCollectionByWorkspaceIDAndName(ctx, wsUlid, collectionName)
 	switch err {
 	case nil:
 		// Collection exists, use its ID
@@ -187,6 +198,16 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	var filteredEntries []thar.Entry
 	urlMap := make(map[string][]thar.Entry)
 
+	// If lastHar is empty but we have data, parse it
+	// This handles cases where the filter request comes from a different context
+	if len(lastHar.Log.Entries) == 0 && len(data) > 0 && json.Valid(data) {
+		har, err := thar.ConvertRaw(data)
+		if err != nil {
+			return nil, err
+		}
+		lastHar = *har
+	}
+
 	for _, entry := range lastHar.Log.Entries {
 		if thar.IsXHRRequest(entry) {
 			urlData, err := url.Parse(entry.Request.URL)
@@ -213,7 +234,8 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 
 	// Try to import as HAR
 	// Attempt HAR import with filtered entries
-	flow, err := c.ImportHar(ctx, wsUlid, collectionID, req.Msg.Name, &lastHar)
+	// Use "Imported" as the collection name for HAR imports
+	flow, err := c.ImportHar(ctx, wsUlid, collectionID, "Imported", &lastHar)
 	if err == nil {
 		// For HAR imports, we also create a flow
 		if flow != nil {
@@ -244,7 +266,12 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	}
 
 	// Postman collection parsed successfully, attempting import
-	err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, req.Msg.Name, postman)
+	// For consistency, use "Imported" collection name if this was originally a HAR import attempt
+	postmanCollectionName := req.Msg.Name
+	if isHARImport {
+		postmanCollectionName = "Imported"
+	}
+	err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, postmanCollectionName, postman)
 	if err == nil {
 		// Postman collection import successful (no flow created)
 		return connect.NewResponse(resp), nil

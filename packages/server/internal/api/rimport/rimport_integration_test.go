@@ -162,7 +162,8 @@ func TestImportHarEmptyData(t *testing.T) {
 	require.NotNil(t, resp2)
 	
 	// Verify collection was created
-	collection, collErr := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Test Import")
+	// HAR imports now always use "Imported" as collection name
+	collection, collErr := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 	require.NoError(t, collErr)
 	require.NotNil(t, collection)
 	
@@ -314,8 +315,8 @@ func TestImportHarWithExistingCollection(t *testing.T) {
 	ws2, err := ws.Get(ctx, workspaceID)
 	require.NoError(t, err)
 	
-	// Collection count should not change (reused existing)
-	assert.Equal(t, collectionCount1, ws2.CollectionCount, "Collection count should not change")
+	// Collection count should increase by 1 (HAR imports now use "Imported" collection)
+	assert.Equal(t, collectionCount1+1, ws2.CollectionCount, "Collection count should increase by 1 for new 'Imported' collection")
 	
 	// Flow count should increase by 1 (HAR creates flows)
 	assert.Equal(t, flowCount1+1, ws2.FlowCount, "Flow count should increase by 1")

@@ -377,7 +377,8 @@ func TestImportHarWithFolderHierarchy(t *testing.T) {
 
 	// Verify the collection was created
 	// Get collection ID via service lookup
-	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Test HAR Import with Folders")
+	// HAR imports now always use "Imported" as collection name
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 	require.NoError(t, err)
 	collectionID := collection.ID
 
@@ -558,7 +559,8 @@ func TestImportHarSimpleURL(t *testing.T) {
 
 	// Verify the collection was created
 	// Get collection ID via service lookup
-	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Test HAR Import Simple URLs")
+	// HAR imports now always use "Imported" as collection name
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 	require.NoError(t, err)
 	collectionID := collection.ID
 
@@ -685,14 +687,15 @@ func TestImportHar_OverwriteExistingCollection(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, resp1)
 	// Collection is returned via service lookup
-	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
+	// HAR imports now always use "Imported" as collection name
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 	require.NoError(t, err)
 	collectionID1 := collection.ID
 	require.NoError(t, err)
 	// Verify first collection was created
 	collection1, err := cs.GetCollection(ctx, collectionID1)
 	require.NoError(t, err)
-	assert.Equal(t, collectionName, collection1.Name)
+	assert.Equal(t, "Imported", collection1.Name)
 
 	// Second import with same collection name - should reuse existing collection
 	harData2 := map[string]interface{}{
@@ -761,7 +764,8 @@ func TestImportHar_OverwriteExistingCollection(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, resp2)
 	// Collection is returned via service lookup
-	collection2, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
+	// HAR imports now always use "Imported" as collection name
+	collection2, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 	require.NoError(t, err)
 	collectionID2 := collection2.ID
 	// Verify same collection ID was reused
@@ -882,7 +886,8 @@ func TestImportHar_OverwriteExistingEndpoints(t *testing.T) {
 	assert.NotNil(t, resp1)
 
 	// Get collection ID via service lookup
-	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
+	// HAR imports now always use "Imported" as collection name
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 	require.NoError(t, err)
 	collectionID := collection.ID
 	// Get the first endpoint

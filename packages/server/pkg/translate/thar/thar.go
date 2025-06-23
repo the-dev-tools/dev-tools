@@ -864,10 +864,8 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 				path := fmt.Sprintf("%s.%s.%s", requestName, "response", "body")
 				nodeID := flowNodeID
 				couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
-				err := depFinder.AddJsonBytes(repsonseBodyBytes, couple)
-				if err != nil {
-					// Error adding JSON bytes to dependency finder
-				}
+				// Ignore error from AddJsonBytes as it's not critical for the conversion
+				_ = depFinder.AddJsonBytes(repsonseBodyBytes, couple)
 			}
 		}
 

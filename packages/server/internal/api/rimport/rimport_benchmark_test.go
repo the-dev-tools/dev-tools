@@ -301,7 +301,8 @@ func TestImportHAR_DatabaseOperations(t *testing.T) {
 		require.NotNil(t, resp1)
 
 		// Get collection ID via service lookup
-		collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, collectionName)
+		// HAR imports now always use "Imported" as collection name
+		collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 		require.NoError(t, err)
 		collectionID := collection.ID
 

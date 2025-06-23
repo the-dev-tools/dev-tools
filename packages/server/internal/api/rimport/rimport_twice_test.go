@@ -158,7 +158,8 @@ func TestImportHarTwice(t *testing.T) {
 		assert.NotNil(t, resp2.Msg.Flow)
 
 		// Verify collection was created
-		collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Test HAR Import Twice")
+		// HAR imports now always use "Imported" as collection name
+		collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 		require.NoError(t, err)
 		collectionID := collection.ID
 
@@ -192,7 +193,8 @@ func TestImportHarTwice(t *testing.T) {
 	// Second import - should NOT cause foreign key constraint errors
 	t.Run("Second Import", func(t *testing.T) {
 		// Get counts before second import
-		collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Test HAR Import Twice")
+		// HAR imports now always use "Imported" as collection name
+		collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 		require.NoError(t, err)
 		collectionID := collection.ID
 
