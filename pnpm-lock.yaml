@@ -609,6 +609,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@effect-rx/rx-react':
+        specifier: 0.37.0
+        version: 0.37.0(@effect/platform@0.85.0(effect@3.16.7))(effect@3.16.7)(react@19.1.0)(scheduler@0.26.0)
       '@fontsource-variable/dm-sans':
         specifier: 5.2.6
         version: 5.2.6
@@ -618,6 +621,9 @@ importers:
       '@react-aria/collections':
         specifier: 3.0.0-rc.3
         version: 3.0.0-rc.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@tanstack/react-router':
+        specifier: 1.121.21
+        version: 1.121.21(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@tanstack/react-table':
         specifier: 8.21.3
         version: 8.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -1515,6 +1521,19 @@ packages:
   '@develar/schema-utils@2.6.5':
     resolution: {integrity: sha512-0cp4PsWQ/9avqTVMCtZ+GirikIA36ikvjtHweU4/j8yLtgObI0+JUPhYFScgwlteveGB1rt3Cm8UhN04XayDig==}
     engines: {node: '>= 8.9.0'}
+
+  '@effect-rx/rx-react@0.37.0':
+    resolution: {integrity: sha512-dVzAq/OOYa8keuqTlWOOGJZeJTsLAUNAlW+I7NZRDieEJ9mfycii9aDBHIVV7bZIsE8hW+gM+457wLhRp31ORw==}
+    peerDependencies:
+      effect: ^3.16
+      react: '>=18 <20'
+      scheduler: '*'
+
+  '@effect-rx/rx@0.42.0':
+    resolution: {integrity: sha512-WPUr0SyJruDzXoy5zlwoogIPsM8dCWMlgFvo/CS7NDdVdPIolwq6BYdvIAwYbWEVs+CaBheOxmsm9P6vwbMNcA==}
+    peerDependencies:
+      '@effect/platform': ^0.85.0
+      effect: ^3.16.7
 
   '@effect/cli@0.64.0':
     resolution: {integrity: sha512-Xt+oTqptZkt20M+bzWH3wJPH2dlE9u03jQWIuw/agm+Epaw1/wmFbo09N4bDNutW13knRTmz76KWhHrGZoKyCw==}
@@ -10493,6 +10512,20 @@ snapshots:
     dependencies:
       ajv: 6.12.6
       ajv-keywords: 3.5.2(ajv@6.12.6)
+
+  '@effect-rx/rx-react@0.37.0(@effect/platform@0.85.0(effect@3.16.7))(effect@3.16.7)(react@19.1.0)(scheduler@0.26.0)':
+    dependencies:
+      '@effect-rx/rx': 0.42.0(@effect/platform@0.85.0(effect@3.16.7))(effect@3.16.7)
+      effect: 3.16.7
+      react: 19.1.0
+      scheduler: 0.26.0
+    transitivePeerDependencies:
+      - '@effect/platform'
+
+  '@effect-rx/rx@0.42.0(@effect/platform@0.85.0(effect@3.16.7))(effect@3.16.7)':
+    dependencies:
+      '@effect/platform': 0.85.0(effect@3.16.7)
+      effect: 3.16.7
 
   '@effect/cli@0.64.0(@effect/platform@0.85.0(effect@3.16.7))(@effect/printer-ansi@0.44.7(@effect/typeclass@0.35.7(effect@3.16.7))(effect@3.16.7))(@effect/printer@0.44.7(@effect/typeclass@0.35.7(effect@3.16.7))(effect@3.16.7))(effect@3.16.7)':
     dependencies:

@@ -10,9 +10,11 @@
     "./styles": "./src/styles.css"
   },
   "dependencies": {
+    "@effect-rx/rx-react": "0.37.0",
     "@fontsource-variable/dm-sans": "5.2.6",
     "@fontsource/dm-mono": "5.2.6",
     "@react-aria/collections": "3.0.0-rc.3",
+    "@tanstack/react-router": "1.121.21",
     "@tanstack/react-table": "8.21.3",
     "effect": "3.16.7",
     "react": "19.1.0",
