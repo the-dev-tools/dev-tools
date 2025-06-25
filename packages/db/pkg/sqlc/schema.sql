@@ -344,9 +344,6 @@ CREATE TABLE flow_node (
   id BLOB NOT NULL PRIMARY KEY,
   flow_id BLOB NOT NULL,
   name TEXT NOT NULL,
-  state INT8 NOT NULL,
-  state_data BLOB,
-  state_data_compress_type INT8 NOT NULL,
   node_kind INT NOT NULL,
   position_x REAL NOT NULL,
   position_y REAL NOT NULL,
@@ -436,3 +433,17 @@ CREATE TABLE flow_variable (
   description TEXT NOT NULL,
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
+
+CREATE TABLE node_execution (
+  id BLOB NOT NULL PRIMARY KEY,
+  node_id BLOB NOT NULL,
+  flow_run_id BLOB NOT NULL,
+  state INT8 NOT NULL,
+  data BLOB,
+  data_compress_type INT8 NOT NULL,
+  error TEXT,
+  FOREIGN KEY (node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+);
+
+CREATE INDEX node_execution_idx1 ON node_execution (node_id, flow_run_id);
+CREATE INDEX node_execution_idx2 ON node_execution (flow_run_id);

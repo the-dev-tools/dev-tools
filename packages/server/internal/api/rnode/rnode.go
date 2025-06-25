@@ -38,6 +38,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/translate/tcondition"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
@@ -72,6 +73,9 @@ type NodeServiceRPC struct {
 	brs  sbodyraw.BodyRawService
 	bfs  sbodyform.BodyFormService
 	bues sbodyurl.BodyURLEncodedService
+
+	// node execution
+	nes snodeexecution.NodeExecutionService
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
@@ -81,6 +85,7 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
 	ias sitemapi.ItemApiService, ieas sitemapiexample.ItemApiExampleService,
 	eqs sexamplequery.ExampleQueryService, ehs sexampleheader.HeaderService,
 	brs sbodyraw.BodyRawService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService,
+	nes snodeexecution.NodeExecutionService,
 ) *NodeServiceRPC {
 	return &NodeServiceRPC{
 		DB: db,
@@ -104,6 +109,8 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService,
 		brs:  brs,
 		bfs:  bfs,
 		bues: bues,
+
+		nes: nes,
 	}
 }
 
@@ -130,7 +137,7 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 
 	NodeList := make([]*nodev1.NodeListItem, len(nodes))
 	for i, node := range nodes {
-		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss, c.njss)
+		rpcNode, err := GetNodeSub(ctx, node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss, c.njss, c.nes)
 		if err != nil {
 			return nil, err
 		}
@@ -181,7 +188,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("root node not found"))
 	}
-	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss, c.njss)
+	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss, c.njss, c.nes)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("sub node not found"))
 	}
@@ -674,6 +681,7 @@ func CheckOwnerNode(ctx context.Context, fs sflow.FlowService, us suser.UserServ
 
 func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeService, nis snodeif.NodeIfService, nrs snoderequest.NodeRequestService,
 	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, nss snodenoop.NodeNoopService, njss snodejs.NodeJSService,
+	nes snodeexecution.NodeExecutionService,
 ) (*nodev1.Node, error) {
 	var rpcNode *nodev1.Node
 
@@ -815,7 +823,18 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		}
 	}
 
-	rpcNode.State = nodev1.NodeState(currentNode.State)
+	// Get the latest execution state for this node
+	executions, err := nes.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+	if err == nil && len(executions) > 0 {
+		// Use the latest execution state (they are ordered by ID DESC)
+		latestExecution := executions[0]
+		rpcNode.State = nodev1.NodeState(latestExecution.State)
+		// Note: Error information from node execution is available in latestExecution.Error
+		// but the Node proto doesn't have a field for it. The error is shown in execution-specific responses.
+	} else {
+		// Default to unspecified state if no executions found
+		rpcNode.State = nodev1.NodeState_NODE_STATE_UNSPECIFIED
+	}
 
 	return rpcNode, nil
 }

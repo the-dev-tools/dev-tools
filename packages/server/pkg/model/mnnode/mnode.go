@@ -38,15 +38,12 @@ func StringNodeStateWithIcons(a NodeState) string {
 }
 
 type MNode struct {
-	ID                    idwrap.IDWrap
-	FlowID                idwrap.IDWrap
-	Name                  string
-	State                 NodeState
-	StateData             []byte
-	StateDataCompressType int8
-	NodeKind              NodeKind
-	PositionX             float64
-	PositionY             float64
+	ID        idwrap.IDWrap
+	FlowID    idwrap.IDWrap
+	Name      string
+	NodeKind  NodeKind
+	PositionX float64
+	PositionY float64
 }
 
 type NodeInterface interface {

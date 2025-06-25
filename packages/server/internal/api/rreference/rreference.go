@@ -274,18 +274,6 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
 			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
 		}
-
-		stateData := node.StateData
-		if json.Valid(stateData) {
-			var anyStateData any
-			err = json.Unmarshal(stateData, &anyStateData)
-			if err != nil {
-				return nil, err
-			}
-
-			ref := reference.NewReferenceFromInterfaceWithKey(anyStateData, node.Name)
-			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(ref))
-		}
 	}
 
 	return nodeRefs, nil
@@ -550,15 +538,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 				creator.AddWithKey(node.Name, nodeVarsMap)
 			}
 
-			stateData := node.StateData
-			if json.Valid(stateData) {
-				var anyStateData any
-				err = json.Unmarshal(stateData, &anyStateData)
-				if err != nil {
-					return nil, err
-				}
-				creator.AddWithKey(node.Name, anyStateData)
-			}
+			// Node state data is now stored in node_execution table, not in the node itself
 
 		}
 	}
@@ -766,15 +746,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 				lookup.AddWithKey(node.Name, nodeVarsMap)
 			}
 
-			stateData := node.StateData
-			if json.Valid(stateData) {
-				var anyStateData any
-				err = json.Unmarshal(stateData, &anyStateData)
-				if err != nil {
-					return nil, err
-				}
-				lookup.AddWithKey(node.Name, anyStateData)
-			}
+			// Node state data is now stored in node_execution table, not in the node itself
 
 		}
 	}

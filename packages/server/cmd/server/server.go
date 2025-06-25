@@ -63,6 +63,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
@@ -171,6 +172,7 @@ func main() {
 	flowNodeCondition := snodeif.New(queries)
 	flowNodeNoOpService := snodenoop.New(queries)
 	flowNodeJsService := snodejs.New(queries)
+	nodeExecutionService := snodeexecution.New(queries)
 
 	// log/console
 	logMap := logconsole.NewLogChanMap()
@@ -260,14 +262,15 @@ func main() {
 		exampleResponseService, exampleResponseHeaderService, assertService, assertResultService,
 		// subnodes
 		flowNodeService, flowNodeRequestSevice, flowNodeForService, flowNodeForeachService,
-		flowNodeNoOpService, *flowNodeCondition, flowNodeJsService, logMap)
+		flowNodeNoOpService, *flowNodeCondition, flowNodeJsService, nodeExecutionService, logMap)
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service
 	nodeSrv := rnode.NewNodeServiceRPC(currentDB, userService,
 		flowService, *flowNodeCondition,
 		flowNodeRequestSevice, flowNodeForService, flowNodeForeachService, flowNodeService, flowNodeNoOpService, flowNodeJsService,
-		endpointService, exampleService, exampleQueryService, exampleHeaderService, bodyRawService, bodyFormService, bodyUrlService)
+		endpointService, exampleService, exampleQueryService, exampleHeaderService, bodyRawService, bodyFormService, bodyUrlService,
+		nodeExecutionService)
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 
 	// Edge Service

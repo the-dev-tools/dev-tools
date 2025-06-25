@@ -37,6 +37,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -89,6 +90,7 @@ func TestListFlow(t *testing.T) {
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 	jsns := snodejs.New(queries)
+	nes := snodeexecution.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
@@ -103,7 +105,7 @@ func TestListFlow(t *testing.T) {
 		ers, erhs, as, ars,
 		// sub nodes
 		ns, rns, flns, fens,
-		sns, *ins, jsns,
+		sns, *ins, jsns, nes,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -253,6 +255,7 @@ func TestGetFlow(t *testing.T) {
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 	jsns := snodejs.New(queries)
+	nes := snodeexecution.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
@@ -267,7 +270,7 @@ func TestGetFlow(t *testing.T) {
 		ers, erhs, as, ars,
 		// sub nodes
 		ns, rns, flns, fens,
-		sns, *ins, jsns,
+		sns, *ins, jsns, nes,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -374,6 +377,7 @@ func TestCreateFlow(t *testing.T) {
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 	jsns := snodejs.New(queries)
+	nes := snodeexecution.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
@@ -388,7 +392,7 @@ func TestCreateFlow(t *testing.T) {
 		ers, erhs, as, ars,
 		// sub nodes
 		ns, rns, flns, fens,
-		sns, *ins, jsns,
+		sns, *ins, jsns, nes,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -482,6 +486,7 @@ func TestUpdateFlow(t *testing.T) {
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 	jsns := snodejs.New(queries)
+	nes := snodeexecution.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
@@ -496,7 +501,7 @@ func TestUpdateFlow(t *testing.T) {
 		ers, erhs, as, ars,
 		// sub nodes
 		ns, rns, flns, fens,
-		sns, *ins, jsns,
+		sns, *ins, jsns, nes,
 		logChanMap)
 	wsID := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -592,6 +597,7 @@ func TestDeleteFlow(t *testing.T) {
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 	jsns := snodejs.New(queries)
+	nes := snodeexecution.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
@@ -606,7 +612,7 @@ func TestDeleteFlow(t *testing.T) {
 		ers, erhs, as, ars,
 		// sub nodes
 		ns, rns, flns, fens,
-		sns, *ins, jsns,
+		sns, *ins, jsns, nes,
 		logChanMap)
 
 	wsID := idwrap.NewNow()
@@ -700,6 +706,7 @@ func TestRunFlow(t *testing.T) {
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 	jsns := snodejs.New(queries)
+	nes := snodeexecution.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(10000)
 
@@ -714,7 +721,7 @@ func TestRunFlow(t *testing.T) {
 		ers, erhs, as, ars,
 		// sub nodes
 		ns, rns, flns, fens,
-		sns, *ins, jsns,
+		sns, *ins, jsns, nes,
 		logChanMap)
 
 	wsID := idwrap.NewNow()

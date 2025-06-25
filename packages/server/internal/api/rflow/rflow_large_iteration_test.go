@@ -38,6 +38,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -81,6 +82,7 @@ func TestFlowRunLargeIteration(t *testing.T) {
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 	jsns := snodejs.New(queries)
+	nes := snodeexecution.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(100000)
 
@@ -90,7 +92,7 @@ func TestFlowRunLargeIteration(t *testing.T) {
 		brs, bfs, bues,
 		ers, erhs, as, ars,
 		ns, rns, flns, fens,
-		sns, *ins, jsns,
+		sns, *ins, jsns, nes,
 		logChanMap)
 
 	// Create test workspace and user
@@ -363,6 +365,7 @@ func TestFlowRunMultipleLargeForNodes(t *testing.T) {
 	sns := snodenoop.New(queries)
 	ins := snodeif.New(queries)
 	jsns := snodejs.New(queries)
+	nes := snodeexecution.New(queries)
 
 	logChanMap := logconsole.NewLogChanMapWith(100000)
 
@@ -372,7 +375,7 @@ func TestFlowRunMultipleLargeForNodes(t *testing.T) {
 		brs, bfs, bues,
 		ers, erhs, as, ars,
 		ns, rns, flns, fens,
-		sns, *ins, jsns,
+		sns, *ins, jsns, nes,
 		logChanMap)
 
 	// Create test workspace and user

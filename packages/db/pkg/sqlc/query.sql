@@ -1747,9 +1747,6 @@ SELECT
   id,
   flow_id,
   name,
-  state,
-  state_data,
-  state_data_compress_type,
   node_kind,
   position_x,
   position_y
@@ -1764,9 +1761,6 @@ SELECT
   id,
   flow_id,
   name,
-  state,
-  state_data,
-  state_data_compress_type,
   node_kind,
   position_x,
   position_y
@@ -1777,28 +1771,16 @@ WHERE
 
 -- name: CreateFlowNode :exec
 INSERT INTO
-  flow_node (id, flow_id, name, state, state_data, state_data_compress_type, node_kind, position_x, position_y)
+  flow_node (id, flow_id, name, node_kind, position_x, position_y)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNode :exec
 UPDATE flow_node
 SET
   name = ?,
-  state = ?,
-  state_data = ?,
-  state_data_compress_type = ?,
   position_x = ?,
   position_y = ?
-WHERE
-  id = ?;
-
--- name: UpdateFlowState :exec
-UPDATE flow_node
-SET
-  state = ?,
-  state_data = ?,
-  state_data_compress_type = ?
 WHERE
   id = ?;
 
@@ -2125,3 +2107,15 @@ WHERE
 DELETE FROM flow_variable
 WHERE
   id = ?;
+
+-- Node Execution
+-- name: CreateNodeExecution :exec
+INSERT INTO node_execution (
+  id, node_id, flow_run_id, state, data, data_compress_type, error
+) VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- name: GetNodeExecutionsByFlowRunID :many
+SELECT * FROM node_execution WHERE flow_run_id = ? ORDER BY id;
+
+-- name: GetNodeExecutionsByNodeID :many
+SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC;

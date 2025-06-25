@@ -36,6 +36,7 @@ import (
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/server/pkg/model/mnnode/mnif"
@@ -69,6 +70,7 @@ import (
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/translate/tflow"
 	"the-dev-tools/server/pkg/translate/tflowversion"
 	"the-dev-tools/server/pkg/translate/tgeneric"
@@ -119,6 +121,9 @@ type FlowServiceRPC struct {
 	ins  snodeif.NodeIfService
 	jsns snodejs.NodeJSService
 
+	// node execution
+	nes snodeexecution.NodeExecutionService
+
 	logChanMap logconsole.LogChanMap
 }
 
@@ -134,6 +139,8 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 	// sub nodes
 	ns snode.NodeService, rns snoderequest.NodeRequestService, flns snodefor.NodeForService, fens snodeforeach.NodeForEachService,
 	sns snodenoop.NodeNoopService, ins snodeif.NodeIfService, jsns snodejs.NodeJSService,
+	// node execution
+	nes snodeexecution.NodeExecutionService,
 	logChanMap logconsole.LogChanMap,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
@@ -173,6 +180,9 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 		sns:  sns,
 		ins:  ins,
 		jsns: jsns,
+
+		// node execution
+		nes: nes,
 
 		logChanMap: logChanMap,
 	}
@@ -754,7 +764,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	// Use the same timeout for the flow runner
-	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
+	flowRunID := idwrap.NewNow()
+	runnerInst := flowlocalrunner.CreateFlowRunner(flowRunID, latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
 
 	// Calculate buffer size based on expected load
 	// For large iteration counts, we need bigger buffers to prevent blocking
@@ -777,23 +788,25 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, bufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, 100)
 
-	subCtx, cancel := context.WithCancel(ctx)
+	// Create a new context without the gRPC deadline for flow execution
+	// The flow runner will apply its own timeout (nodeTimeout)
+	subCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	done := make(chan error, 1)
-	updateNodeChan := make(chan mnnode.MNode, bufferSize)
+	nodeExecutionChan := make(chan mnodeexecution.NodeExecution, bufferSize)
 	
-	// Collector goroutine for node updates
-	var nodeUpdates []mnnode.MNode
-	var nodeUpdatesMutex sync.Mutex
-	nodeUpdatesDone := make(chan struct{})
+	// Collector goroutine for node executions
+	var nodeExecutions []mnodeexecution.NodeExecution
+	var nodeExecutionsMutex sync.Mutex
+	nodeExecutionsDone := make(chan struct{})
 	
 	go func() {
-		defer close(nodeUpdatesDone)
-		for node := range updateNodeChan {
-			nodeUpdatesMutex.Lock()
-			nodeUpdates = append(nodeUpdates, node)
-			nodeUpdatesMutex.Unlock()
+		defer close(nodeExecutionsDone)
+		for execution := range nodeExecutionChan {
+			nodeExecutionsMutex.Lock()
+			nodeExecutions = append(nodeExecutions, execution)
+			nodeExecutionsMutex.Unlock()
 		}
 	}()
 	
@@ -901,12 +914,23 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				data = []byte("{}")
 			}
 
-			nodeStateData := mnnode.MNode{
-				ID:        id,
-				State:     flowNodeStatus.State,
-				StateData: data,
+			// Prepare error string if there's an error
+			var errorStr *string
+			if flowNodeStatus.Error != nil {
+				errMsg := flowNodeStatus.Error.Error()
+				errorStr = &errMsg
 			}
-			updateNodeChan <- nodeStateData
+
+			nodeExecution := mnodeexecution.NodeExecution{
+				ID:               idwrap.NewNow(),
+				NodeID:           id,
+				FlowRunID:        flowRunID,
+				State:            flowNodeStatus.State,
+				Data:             data,
+				DataCompressType: 0, // No compression for now
+				Error:            errorStr,
+			}
+			nodeExecutionChan <- nodeExecution
 			err = stream.Send(resp)
 			if err != nil {
 				done <- err
@@ -917,10 +941,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		defer close(done)
 		for {
 			select {
+			case <-ctx.Done():
+				// Client disconnected, cancel the flow execution
+				cancel()
+				close(flowNodeStatusChan)
+				close(flowStatusChan)
+				done <- errors.New("client disconnected")
+				return
 			case <-subCtx.Done():
 				close(flowNodeStatusChan)
 				close(flowStatusChan)
-				done <- errors.New("context done")
+				done <- errors.New("flow execution cancelled")
 				return
 			case flowNodeStatus, ok := <-flowNodeStatusChan:
 				if !ok {
@@ -950,19 +981,26 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
-	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan, flowVarsMap)
+	flowRunErr := runnerInst.Run(subCtx, flowNodeStatusChan, flowStatusChan, flowVarsMap)
 
 	// wait for the flow to finish
 	flowErr := <-done
 
-	close(updateNodeChan)
+	close(nodeExecutionChan)
 	close(requestNodeRespChan)
 	
-	// Wait for all node updates to be collected
-	<-nodeUpdatesDone
+	// Wait for all node executions to be collected
+	<-nodeExecutionsDone
 
 	flow.VersionParentID = &flow.ID
-	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow)
+	
+	// Lock to safely access nodeExecutions
+	nodeExecutionsMutex.Lock()
+	nodeExecutionsCopy := make([]mnodeexecution.NodeExecution, len(nodeExecutions))
+	copy(nodeExecutionsCopy, nodeExecutions)
+	nodeExecutionsMutex.Unlock()
+	
+	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow, nodeExecutionsCopy)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -973,21 +1011,21 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	txNode, err := snode.NewTX(ctx, tx)
+	txNodeExecution, err := snodeexecution.NewTX(ctx, tx)
 	if err != nil {
-		return fmt.Errorf("create node service: %w", err)
+		return fmt.Errorf("create node execution service: %w", err)
 	}
 
-	// Process collected node updates
-	nodeUpdatesMutex.Lock()
-	for _, node := range nodeUpdates {
-		err = txNode.UpdateNodeState(ctx, node)
+	// Process collected node executions
+	nodeExecutionsMutex.Lock()
+	for _, execution := range nodeExecutions {
+		err = txNodeExecution.CreateNodeExecution(ctx, execution)
 		if err != nil {
-			nodeUpdatesMutex.Unlock()
-			return fmt.Errorf("update node: %w", err)
+			nodeExecutionsMutex.Unlock()
+			return fmt.Errorf("create node execution: %w", err)
 		}
 	}
-	nodeUpdatesMutex.Unlock()
+	nodeExecutionsMutex.Unlock()
 
 	err = c.CopyFlow(ctx, tx, res)
 	if err != nil {
@@ -1009,7 +1047,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	if flowErr != nil {
-		return connect.NewError(connect.CodeInternal, err)
+		return connect.NewError(connect.CodeInternal, flowErr)
 	}
 
 	if flowRunErr != nil {
@@ -1134,9 +1172,12 @@ type CopyFlowResult struct {
 	ForEachNodes []mnforeach.MNForEach
 	IfNodes      []mnif.MNIF
 	NoopNodes    []mnnoop.NoopNode
+	
+	// Node executions for this flow run
+	NodeExecutions []mnodeexecution.NodeExecution
 }
 
-func (c *FlowServiceRPC) PrepareCopyFlow(ctx context.Context, workspaceID idwrap.IDWrap, originalFlow mflow.Flow) (CopyFlowResult, error) {
+func (c *FlowServiceRPC) PrepareCopyFlow(ctx context.Context, workspaceID idwrap.IDWrap, originalFlow mflow.Flow, nodeExecutions []mnodeexecution.NodeExecution) (CopyFlowResult, error) {
 	result := CopyFlowResult{}
 
 	newFlowID := idwrap.NewNow()
@@ -1222,6 +1263,17 @@ func (c *FlowServiceRPC) PrepareCopyFlow(ctx context.Context, workspaceID idwrap
 		newEdge.SourceID = oldToNewIDMap[edge.SourceID]
 		newEdge.TargetID = oldToNewIDMap[edge.TargetID]
 		result.Edges = append(result.Edges, newEdge)
+	}
+
+	// Copy node executions with new node IDs
+	for _, execution := range nodeExecutions {
+		newExecution := execution
+		newExecution.ID = idwrap.NewNow()
+		// Map to the new node ID
+		if newNodeID, ok := oldToNewIDMap[execution.NodeID]; ok {
+			newExecution.NodeID = newNodeID
+			result.NodeExecutions = append(result.NodeExecutions, newExecution)
+		}
 	}
 
 	return result, nil
@@ -1315,6 +1367,18 @@ func (c *FlowServiceRPC) CopyFlow(ctx context.Context, tx *sql.Tx, copyData Copy
 		err = txEdge.CreateEdge(ctx, edge)
 		if err != nil {
 			return fmt.Errorf("create edge: %w", err)
+		}
+	}
+
+	// Create node executions for this flow version
+	txNodeExecution, err := snodeexecution.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("create node execution service: %w", err)
+	}
+	for _, execution := range copyData.NodeExecutions {
+		err = txNodeExecution.CreateNodeExecution(ctx, execution)
+		if err != nil {
+			return fmt.Errorf("create node execution: %w", err)
 		}
 	}
 

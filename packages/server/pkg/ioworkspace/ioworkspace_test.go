@@ -231,8 +231,6 @@ func createTestWorkspaceData() ioworkspace.WorkspaceData {
 			ID:        nodeID,
 			FlowID:    flowID,
 			Name:      "Test Node",
-			State:     mnnode.NODE_STATE_SUCCESS,
-			StateData: []byte("test"),
 			NodeKind:  mnnode.NODE_KIND_REQUEST,
 			PositionY: 0.0,
 			PositionX: 0.0,
