@@ -1,26 +1,16 @@
-import { scan } from 'react-scan';
-
 import { TransportProvider } from '@connectrpc/connect-query';
 import { DataProvider, getDefaultManagers, useController } from '@data-client/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  createBrowserHistory,
-  createHashHistory,
-  createRouter,
-  NavigateOptions,
-  RouterProvider,
-  ToOptions,
-} from '@tanstack/react-router';
+import { createBrowserHistory, createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { Effect, Layer, Option, pipe, Predicate, Runtime, Schema } from 'effect';
 import { StrictMode } from 'react';
-import { RouterProvider as AriaRouterProvider } from 'react-aria-components';
 import { createRoot } from 'react-dom/client';
-
+import { scan } from 'react-scan';
+import { AriaRouterProvider } from '@the-dev-tools/ui/router';
 import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
 import { LocalMode } from '~/api/local';
 import { ApiErrorHandler, ApiTransport } from '~/api/transport';
 import { makeDataClient } from '~data-client';
-
 import { RouterContext } from './root';
 import { routeTree } from './router-tree';
 
@@ -37,13 +27,6 @@ const makeRouter = Effect.gen(function* () {
 declare module '@tanstack/react-router' {
   interface Register {
     router: Effect.Effect.Success<typeof makeRouter>;
-  }
-}
-
-declare module 'react-aria-components' {
-  interface RouterConfig {
-    href: string | ToOptions;
-    routerOptions: Omit<NavigateOptions, keyof ToOptions>;
   }
 }
 
@@ -90,20 +73,7 @@ export const app = Effect.gen(function* () {
   pipe(
     <Root {...{ queryClient, router, runtime, transport }} />,
     (_) => <ToastQueueContext.Provider value={Option.some(toastQueue)}>{_}</ToastQueueContext.Provider>,
-    (_) => (
-      <AriaRouterProvider
-        navigate={(to, options) => {
-          if (typeof to === 'string') return;
-          return router.navigate({ ...to, ...options });
-        }}
-        useHref={(to) => {
-          if (typeof to === 'string') return to;
-          return router.buildLocation(to).href;
-        }}
-      >
-        {_}
-      </AriaRouterProvider>
-    ),
+    (_) => <AriaRouterProvider>{_}</AriaRouterProvider>,
     (_) => (
       <DataProvider devButton={null} managers={managers}>
         {_}

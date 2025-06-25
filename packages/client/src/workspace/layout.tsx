@@ -6,7 +6,6 @@ import { ListBox, MenuTrigger, Text, Tooltip, TooltipTrigger } from 'react-aria-
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
-
 import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
 import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { CollectionCreateEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
@@ -20,7 +19,7 @@ import { WorkspaceGetEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/work
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';
-import { ListBoxItem } from '@the-dev-tools/ui/list-box';
+import { ListBoxItemLink } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -28,7 +27,6 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
 import { useMutate, useQuery } from '~data-client';
-
 import { DashboardLayout } from '../authorized';
 import { CollectionListTree } from '../collection';
 import { EnvironmentsWidget } from '../environment';
@@ -63,7 +61,9 @@ function Layout() {
         <>
           <ButtonAsLink
             className={tw`-ml-3 gap-2 px-2 py-1`}
-            href={{ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' }}
+            from='/'
+            params={{ workspaceIdCan }}
+            to='/workspace/$workspaceIdCan'
             variant='ghost dark'
           >
             <Avatar shape='square' size='base'>
@@ -110,7 +110,9 @@ function Layout() {
           <div className={tw`flex flex-col gap-2 p-1.5`}>
             <ButtonAsLink
               className={tw`flex items-center justify-start gap-2 px-2.5 py-1.5`}
-              href={{ from: Route.fullPath, to: '/workspace/$workspaceIdCan' }}
+              from='/'
+              params={{ workspaceIdCan }}
+              to='/workspace/$workspaceIdCan'
               variant='ghost'
             >
               <OverviewIcon className={tw`size-5 text-slate-500`} />
@@ -238,12 +240,14 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
   });
 
   return (
-    <ListBoxItem
+    <ListBoxItemLink
       className={tw`rounded-md pl-9 text-md leading-5 font-medium`}
-      href={{ params: { flowIdCan, workspaceIdCan }, to: '/workspace/$workspaceIdCan/flow/$flowIdCan' }}
+      from='/'
       id={flowIdCan}
+      params={{ flowIdCan, workspaceIdCan }}
       showSelectIndicator={false}
       textValue={name}
+      to='/workspace/$workspaceIdCan/flow/$flowIdCan'
     >
       <div className={tw`contents`} onContextMenu={onContextMenu}>
         <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref} slot='label'>
@@ -291,6 +295,6 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
           </Menu>
         </MenuTrigger>
       </div>
-    </ListBoxItem>
+    </ListBoxItemLink>
   );
 };

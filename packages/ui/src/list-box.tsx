@@ -11,8 +11,8 @@ import {
 import { FiCheckCircle } from 'react-icons/fi';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { tv, VariantProps } from 'tailwind-variants';
-
 import { isFocusVisibleRingStyles } from './focus-ring';
+import { LinkComponent, useLink, UseLinkProps } from './router';
 import { tw } from './tailwind-literal';
 import { ariaTextValue, composeRenderPropsTV } from './utils';
 
@@ -123,6 +123,11 @@ export const ListBoxItem = ({
       })}
     </AriaListBoxItem>
   );
+};
+
+export const ListBoxItemLink: LinkComponent<ListBoxItemProps> = (props) => {
+  const linkProps = useLink(props as UseLinkProps);
+  return <ListBoxItem {...(props as ListBoxItemProps)} {...linkProps} />;
 };
 
 // Header

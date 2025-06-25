@@ -4,7 +4,6 @@ import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
-
 import { ErrorHandling } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
@@ -13,10 +12,8 @@ import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { NumberFieldRHF } from '@the-dev-tools/ui/number-field';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
-import { FlowSearch } from '../layout';
 import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
 export const ForNode = (props: NodeProps) => (
@@ -55,7 +52,9 @@ const ForNodeBody = (props: NodeProps) => {
             flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs leading-4 font-medium
             tracking-tight text-slate-800 shadow-xs
           `}
-          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: id }), to: '.' }}
+          from='/'
+          search={(_) => ({ ..._, node: id })}
+          to='.'
         >
           <CheckListAltIcon className={tw`size-5 text-slate-500`} />
           <span>Edit Loop</span>
@@ -98,11 +97,7 @@ export const ForPanel = ({ node: { for: data, nodeId } }: NodePanelProps) => {
 
         <div className={tw`flex-1`} />
 
-        <ButtonAsLink
-          className={tw`p-1`}
-          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
-          variant='ghost'
-        >
+        <ButtonAsLink className={tw`p-1`} from='/' search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
       </div>

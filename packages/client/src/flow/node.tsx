@@ -26,14 +26,13 @@ import {
 } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon, Spinner } from '@the-dev-tools/ui/icons';
-import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
+import { Menu, MenuItem, MenuItemLink, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { GenericMessage } from '~api/utils';
 import { useMutate, useQuery } from '~data-client';
 import { FlowContext } from './internal';
-import { FlowSearch } from './layout';
 
 export interface NodeData extends Pick<NodeListItem, 'info' | 'noOp' | 'state'> {}
 export interface Node extends NodeCore<NodeData> {}
@@ -183,7 +182,9 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
             </Button>
 
             <Menu {...menuProps}>
-              <MenuItem href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: id }), to: '.' }}>Edit</MenuItem>
+              <MenuItemLink from='/' search={(_) => ({ ..._, node: id })} to='.'>
+                Edit
+              </MenuItemLink>
 
               <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 

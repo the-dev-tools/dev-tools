@@ -50,7 +50,7 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { TreeItem } from '@the-dev-tools/ui/tree';
+import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
 import { useMutate, useQuery } from '~data-client';
@@ -431,6 +431,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   });
 
   const route = {
+    from: '/workspace/$workspaceIdCan',
     params: { endpointIdCan, exampleIdCan },
     search: { responseIdCan: lastResponseIdCan },
     to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
@@ -438,22 +439,8 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
   const childItems = (items ?? []).filter((_) => !_.hidden);
 
-  return (
-    <TreeItem
-      childItem={(_) => {
-        const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
-        return <ExampleItem collectionId={collectionId} endpointId={endpointId} example={_} id={exampleIdCan} />;
-      }}
-      childItems={childItems}
-      expandButtonIsForced={!enabled}
-      expandButtonOnPress={() => void setEnabled(true)}
-      href={toNavigate ? route : undefined!}
-      id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      isActive={toNavigate && matchRoute(route) !== false}
-      loading={loading}
-      textValue={name}
-      wrapperOnContextMenu={onContextMenu}
-    >
+  const content = (
+    <>
       {method && <MethodBadge method={method} />}
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
@@ -538,7 +525,30 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
           </Menu>
         </MenuTrigger>
       )}
-    </TreeItem>
+    </>
+  );
+
+  const props = {
+    childItem: (_) => {
+      const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
+      return <ExampleItem collectionId={collectionId} endpointId={endpointId} example={_} id={exampleIdCan} />;
+    },
+    childItems: childItems,
+    expandButtonIsForced: !enabled,
+    expandButtonOnPress: () => void setEnabled(true),
+    id: pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify),
+    isActive: toNavigate && matchRoute(route) !== false,
+    loading: loading,
+    textValue: name,
+    wrapperOnContextMenu: onContextMenu,
+  } satisfies TreeItemProps<ExampleListItem>;
+
+  return toNavigate ? (
+    <TreeItemLink {...props} {...route}>
+      {content}
+    </TreeItemLink>
+  ) : (
+    <TreeItem {...props}>{content}</TreeItem>
   );
 };
 
@@ -580,19 +590,14 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   });
 
   const route = {
+    from: '/workspace/$workspaceIdCan',
     params: { endpointIdCan, exampleIdCan },
     search: { responseIdCan: lastResponseIdCan },
     to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
   } satisfies ToOptions;
 
-  return (
-    <TreeItem
-      href={toNavigate ? route : undefined!}
-      id={pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      isActive={toNavigate && matchRoute(route) !== false}
-      textValue={name}
-      wrapperOnContextMenu={onContextMenu}
-    >
+  const content = (
+    <>
       <MdLightbulbOutline className={tw`size-4 text-violet-600`} />
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
@@ -649,6 +654,21 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
           </Menu>
         </MenuTrigger>
       )}
-    </TreeItem>
+    </>
+  );
+
+  const props = {
+    id: pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify),
+    isActive: toNavigate && matchRoute(route) !== false,
+    textValue: name,
+    wrapperOnContextMenu: onContextMenu,
+  } satisfies TreeItemProps<object>;
+
+  return toNavigate ? (
+    <TreeItemLink {...props} {...route}>
+      {content}
+    </TreeItemLink>
+  ) : (
+    <TreeItem {...props}>{content}</TreeItem>
   );
 };

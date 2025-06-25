@@ -1,4 +1,5 @@
 import { type CollectionProps } from '@react-aria/collections';
+import { AnyRouter, LinkOptions, RegisteredRouter } from '@tanstack/react-router';
 import {
   TreeItem as AriaTreeItem,
   TreeItemContent as AriaTreeItemContent,
@@ -10,11 +11,11 @@ import {
 import { IconBaseProps } from 'react-icons';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
-
 import { Button, ButtonProps } from './button';
 import { isFocusVisibleRingStyles } from './focus-ring';
 import { ChevronSolidDownIcon, Spinner } from './icons';
 import { type MixinProps, splitProps } from './mixin-props';
+import { useLink, UseLinkProps } from './router';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
@@ -118,4 +119,18 @@ export const TreeItem = <T extends object>({
       {!!childItem && <Collection {...props.child}>{childItem}</Collection>}
     </TreeItemRoot>
   );
+};
+
+export const TreeItemLink = <
+  T extends object,
+  TRouter extends AnyRouter = RegisteredRouter,
+  TFrom extends string = string,
+  TTo extends string | undefined = '.',
+  TMaskFrom extends string = TFrom,
+  TMaskTo extends string = '.',
+>(
+  props: LinkOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & TreeItemProps<T>,
+) => {
+  const linkProps = useLink(props as UseLinkProps);
+  return <TreeItem {...props} {...linkProps} />;
 };

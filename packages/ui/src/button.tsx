@@ -6,8 +6,8 @@ import {
   type LinkProps as AriaLinkProps,
 } from 'react-aria-components';
 import { tv, type VariantProps } from 'tailwind-variants';
-
 import { isFocusVisibleRingRenderPropKeys, isFocusVisibleRingStyles } from './focus-ring';
+import { LinkComponent, useLink, UseLinkProps } from './router';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
@@ -65,8 +65,17 @@ export const Button = ({ className, ...props }: ButtonProps) => {
 
 export interface ButtonAsLinkProps extends AriaLinkProps, VariantProps<typeof buttonStyles> {}
 
-export const ButtonAsLink = ({ className, ...props }: ButtonAsLinkProps) => {
-  const forwardedProps = Struct.omit(props, ...buttonVariantKeys);
-  const variantProps = Struct.pick(props, ...buttonVariantKeys);
-  return <AriaLink {...forwardedProps} className={composeRenderPropsTV(className, buttonStyles, variantProps)} />;
+export const ButtonAsLink: LinkComponent<ButtonAsLinkProps> = ({ className, ...props }) => {
+  const forwardedProps = Struct.omit(props as ButtonAsLinkProps, ...buttonVariantKeys);
+  const variantProps = Struct.pick(props as ButtonAsLinkProps, ...buttonVariantKeys);
+  const { onAction, ...linkProps } = useLink(forwardedProps as UseLinkProps);
+
+  return (
+    <AriaLink
+      {...forwardedProps}
+      {...linkProps}
+      className={composeRenderPropsTV(className, buttonStyles, variantProps)}
+      onPress={onAction}
+    />
+  );
 };

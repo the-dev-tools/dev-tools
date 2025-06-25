@@ -4,7 +4,6 @@ import { Ulid } from 'id128';
 import { Suspense, use, useEffect } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
-
 import { NodeRequest } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
   EndpointCreateEndpoint,
@@ -21,12 +20,10 @@ import { SendRequestIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
-
 import { CollectionListTree } from '../../collection';
 import { EndpointRequestView, ResponseTabs, useEndpointUrlForm } from '../../endpoint';
 import { ReferenceContext } from '../../reference';
 import { FlowContext, Handle, workspaceRoute } from '../internal';
-import { FlowSearch } from '../layout';
 import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
 export const RequestNode = (props: NodeProps) => (
@@ -103,6 +100,8 @@ const RequestNodeSelected = ({
   // TODO: fetch in parallel
   const { name: collectionName } = useQuery(CollectionGetEndpoint, { collectionId });
 
+  const { workspaceIdCan } = workspaceRoute.useParams();
+
   const endpoint = useQuery(EndpointGetEndpoint, { endpointId });
   const example = useQuery(ExampleGetEndpoint, { exampleId });
 
@@ -120,13 +119,13 @@ const RequestNodeSelected = ({
         <div className={tw`flex-1 truncate text-xs leading-5 font-medium tracking-tight text-slate-800`}>{name}</div>
         <ButtonAsLink
           className={tw`p-0.5`}
-          href={{
-            params: {
-              endpointIdCan: Ulid.construct(endpointId).toCanonical(),
-              exampleIdCan: Ulid.construct(exampleId).toCanonical(),
-            },
-            to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+          from='/'
+          params={{
+            endpointIdCan: Ulid.construct(endpointId).toCanonical(),
+            exampleIdCan: Ulid.construct(exampleId).toCanonical(),
+            workspaceIdCan,
           }}
+          to='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
           variant='ghost'
         >
           <FiExternalLink className={tw`size-4 text-slate-500`} />
@@ -141,6 +140,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
   const { isReadOnly = false } = use(FlowContext);
 
   const { workspaceId } = workspaceRoute.useLoaderData();
+  const { workspaceIdCan } = workspaceRoute.useParams();
 
   // TODO: fetch in parallel
   const collection = useQuery(CollectionGetEndpoint, { collectionId });
@@ -167,13 +167,13 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
 
         <ButtonAsLink
           className={tw`shrink-0 px-2`}
-          href={{
-            params: {
-              endpointIdCan: Ulid.construct(endpointId).toCanonical(),
-              exampleIdCan: Ulid.construct(exampleId).toCanonical(),
-            },
-            to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+          from='/'
+          params={{
+            endpointIdCan: Ulid.construct(endpointId).toCanonical(),
+            exampleIdCan: Ulid.construct(exampleId).toCanonical(),
+            workspaceIdCan,
           }}
+          to='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
           variant='ghost'
         >
           <FiExternalLink className={tw`size-4 text-slate-500`} />
@@ -183,11 +183,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
         <div className={tw`mr-3 ml-2 h-5 w-px shrink-0 bg-slate-300`} />
 
         <TooltipTrigger delay={750}>
-          <ButtonAsLink
-            className={tw`p-1`}
-            href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
-            variant='ghost'
-          >
+          <ButtonAsLink className={tw`p-1`} from='/' search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
             <FiX className={tw`size-5 text-slate-500`} />
           </ButtonAsLink>
           <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Close</Tooltip>

@@ -6,10 +6,10 @@ import {
   type MenuItemProps as AriaMenuItemProps,
   type MenuProps as AriaMenuProps,
 } from 'react-aria-components';
-
 import { DropdownPopover, DropdownPopoverProps } from './dropdown';
 import { listBoxItemStyles, listBoxItemVariantKeys, ListBoxItemVariants, listBoxStyles } from './list-box';
 import { type MixinProps, splitProps } from './mixin-props';
+import { LinkComponent, useLink, UseLinkProps } from './router';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
@@ -92,4 +92,9 @@ export const MenuItem = ({ className, ...props }: MenuItemProps) => {
   return (
     <AriaMenuItem {...forwardedProps} className={composeRenderPropsTV(className, listBoxItemStyles, variantProps)} />
   );
+};
+
+export const MenuItemLink: LinkComponent<MenuItemProps> = (props) => {
+  const linkProps = useLink(props as UseLinkProps);
+  return <MenuItem {...(props as MenuItemProps)} {...linkProps} />;
 };

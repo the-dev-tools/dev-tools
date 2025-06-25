@@ -33,7 +33,7 @@ export interface DashboardLayoutProps {
 export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => (
   <div className='flex h-full flex-col'>
     <NavigationBar>
-      <ButtonAsLink className={tw`p-0`} href={{ to: '/' }} variant='ghost'>
+      <ButtonAsLink className={tw`p-0`} from='/' to='/' variant='ghost'>
         <Logo className={tw`size-7`} />
       </ButtonAsLink>
 

@@ -3,14 +3,11 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Position } from '@xyflow/react';
 import { use, useState } from 'react';
 import { FiTerminal, FiX } from 'react-icons/fi';
-
 import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useCodeMirrorLanguageExtensions } from '~code-mirror/extensions';
-
 import { FlowContext, Handle } from '../internal';
-import { FlowSearch } from '../layout';
 import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
 export const JavaScriptNode = (props: NodeProps) => (
@@ -60,11 +57,7 @@ export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
 
         <div className={tw`flex-1`} />
 
-        <ButtonAsLink
-          className={tw`p-1`}
-          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
-          variant='ghost'
-        >
+        <ButtonAsLink className={tw`p-1`} from='/' search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
       </div>

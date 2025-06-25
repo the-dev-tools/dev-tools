@@ -64,7 +64,6 @@ import {
 import { ReferenceContext } from '../reference';
 import { ConnectionLine, Edge, edgeTypes, useMakeEdge } from './edge';
 import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
-import { FlowSearch } from './layout';
 import { Node, useMakeNode } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
@@ -270,6 +269,7 @@ export const TopBar = () => {
   const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { flowId } = flowRoute.useLoaderData();
+  const { flowIdCan, workspaceIdCan } = flowRoute.useParams();
 
   const { name } = useQuery(FlowGetEndpoint, { flowId });
 
@@ -331,12 +331,13 @@ export const TopBar = () => {
 
       <ButtonAsLink
         className={tw`px-2 py-1 text-slate-800`}
-        href={{
-          from: '/workspace/$workspaceIdCan/flow/$flowIdCan',
-          to: matchRoute({ to: '/workspace/$workspaceIdCan/flow/$flowIdCan/history' })
+        from='/'
+        params={{ flowIdCan, workspaceIdCan }}
+        to={
+          matchRoute({ to: '/workspace/$workspaceIdCan/flow/$flowIdCan/history' })
             ? '/workspace/$workspaceIdCan/flow/$flowIdCan'
-            : '/workspace/$workspaceIdCan/flow/$flowIdCan/history',
-        }}
+            : '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
+        }
         variant='ghost'
       >
         <FiClock className={tw`size-4 text-slate-500`} /> Flows History
@@ -535,11 +536,7 @@ const SettingsPanel = () => {
 
         <div className={tw`flex-1`} />
 
-        <ButtonAsLink
-          className={tw`p-1`}
-          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
-          variant='ghost'
-        >
+        <ButtonAsLink className={tw`p-1`} from='/' search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
       </div>

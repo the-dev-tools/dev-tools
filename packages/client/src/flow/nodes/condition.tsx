@@ -5,16 +5,13 @@ import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiPlus, FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
-
 import { NodeGetEndpoint, NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
-
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
-import { FlowSearch } from '../layout';
 import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
 export const ConditionNode = (props: NodeProps) => (
@@ -66,7 +63,9 @@ const ConditionNodeBody = (props: NodeProps) => {
               flex w-full justify-start gap-1.5 rounded-md border border-slate-200 px-2 py-3 text-xs leading-4
               font-medium tracking-tight text-violet-600 shadow-xs
             `}
-            href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: props.id }), to: '.' }}
+            from='/'
+            search={(_) => ({ ..._, node: props.id })}
+            to='.'
           >
             <FiPlus className={tw`size-4`} />
             <span>Setup Condition</span>
@@ -110,11 +109,7 @@ export const ConditionPanel = ({ node: { condition, nodeId } }: NodePanelProps) 
 
         <div className={tw`flex-1`} />
 
-        <ButtonAsLink
-          className={tw`p-1`}
-          href={{ search: (_: Partial<FlowSearch>) => ({ ..._, node: undefined }), to: '.' }}
-          variant='ghost'
-        >
+        <ButtonAsLink className={tw`p-1`} from='/' search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
       </div>

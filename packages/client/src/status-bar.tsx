@@ -13,16 +13,12 @@ import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
-
 import { LogLevel, LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
-
-import type { WorkspaceRouteSearch } from './workspace/layout';
-
 import { makeReferenceTreeId, ReferenceTreeItemView } from './reference';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
@@ -77,11 +73,9 @@ export const StatusBar = () => {
     <div className={twMerge(tw`flex items-center gap-2 bg-slate-50 px-2 py-1`, showLogs && tw`bg-white`)}>
       <ButtonAsLink
         className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
-        href={{
-          search: (_: Partial<WorkspaceRouteSearch>) =>
-            ({ ..._, showLogs: showLogs ? undefined : true }) satisfies Partial<WorkspaceRouteSearch>,
-          to: '.',
-        }}
+        from='/'
+        search={(_) => ({ ..._, showLogs: showLogs ? undefined : true })}
+        to='.'
         variant='ghost'
       >
         <FiTerminal className={tw`size-3`} />
@@ -105,11 +99,9 @@ export const StatusBar = () => {
 
           <ButtonAsLink
             className={tw`p-0.5`}
-            href={{
-              search: (_: Partial<WorkspaceRouteSearch>) =>
-                ({ ..._, showLogs: undefined }) satisfies Partial<WorkspaceRouteSearch>,
-              to: '.',
-            }}
+            from='/'
+            search={(_) => ({ ..._, showLogs: undefined })}
+            to='.'
             variant='ghost'
           >
             <FiX className={tw`size-4 text-slate-500`} />

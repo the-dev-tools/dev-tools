@@ -1,11 +1,10 @@
 import { timestampDate } from '@bufbuild/protobuf/wkt';
-import { createFileRoute, Link, useRouteContext } from '@tanstack/react-router';
+import { createFileRoute, useRouteContext } from '@tanstack/react-router';
 import { DateTime, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { MenuTrigger } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import TimeAgo from 'react-timeago';
-
 import {
   WorkspaceCreateEndpoint,
   WorkspaceDeleteEndpoint,
@@ -16,6 +15,7 @@ import { WorkspaceListItem } from '@the-dev-tools/spec/workspace/v1/workspace_pb
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
+import { Link } from '@the-dev-tools/ui/link';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
@@ -104,7 +104,7 @@ const Row = ({ workspace: { workspaceId, ...workspace }, workspaceIdCan, workspa
           />
         ) : (
           <div className={tw`text-md leading-5 font-semibold tracking-tight text-slate-800`}>
-            <Link params={{ workspaceIdCan }} to='/workspace/$workspaceIdCan'>
+            <Link from='/' params={{ workspaceIdCan }} to='/workspace/$workspaceIdCan'>
               {workspace.name}
             </Link>
           </div>
