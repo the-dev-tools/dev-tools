@@ -432,6 +432,10 @@ const ActionBar = () => {
               }),
           );
 
+          // Wait for auto-save
+          // TODO: would be better to implement some sort of a locking mechanism
+          await new Promise((r) => setTimeout(r, 500));
+
           const sourceEdges = pipe(
             flow.getEdges(),
             Array.groupBy((_) => _.source),
