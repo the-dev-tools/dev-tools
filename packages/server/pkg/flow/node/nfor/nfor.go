@@ -28,13 +28,13 @@ type NodeFor struct {
 	ErrorHandling mnfor.ErrorHandling
 }
 
-// TODO: check this
-func New(id idwrap.IDWrap, name string, iterCount int64, timeout time.Duration) *NodeFor {
+func New(id idwrap.IDWrap, name string, iterCount int64, timeout time.Duration, errorHandling mnfor.ErrorHandling) *NodeFor {
 	return &NodeFor{
-		FlowNodeID: id,
-		Name:       name,
-		IterCount:  iterCount,
-		Timeout:    timeout,
+		FlowNodeID:    id,
+		Name:          name,
+		IterCount:     iterCount,
+		Timeout:       timeout,
+		ErrorHandling: errorHandling,
 	}
 }
 
@@ -100,17 +100,20 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				}
 			}
 
-			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
-			switch nr.ErrorHandling {
-			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-				goto Exit
-			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-			}
-			// TODO: add run for subflow
+			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, req, req.LogPushFunc)
 			if err != nil {
-				return node.FlowNodeResult{
-					Err: err,
+				switch nr.ErrorHandling {
+				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+					// Log error but continue to next iteration
+					continue
+				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+					// Stop the loop but don't propagate error
+					goto Exit
+				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+					// Default behavior: fail the entire flow
+					return node.FlowNodeResult{
+						Err: err,
+					}
 				}
 			}
 
@@ -178,19 +181,21 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			}
 
 			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
-			switch nr.ErrorHandling {
-			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-				goto Exit
-			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-			}
-
-			// TODO: add run for subflow
 			if err != nil {
-				resultChan <- node.FlowNodeResult{
-					Err: err,
+				switch nr.ErrorHandling {
+				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+					// Log error but continue to next iteration
+					continue
+				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+					// Stop the loop but don't propagate error
+					goto Exit
+				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+					// Default behavior: fail the entire flow
+					resultChan <- node.FlowNodeResult{
+						Err: err,
+					}
+					return
 				}
-				return
 			}
 		}
 	}

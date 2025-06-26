@@ -450,11 +450,12 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 			}
 			if RpcNodeUpdate.For.ErrorHandling != nodev1.ErrorHandling(mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED) {
 				errorHandling := mnfor.ErrorHandling(RpcNodeUpdate.For.ErrorHandling)
-				RpcNodeUpdate.For.ErrorHandling = nodev1.ErrorHandling(errorHandling)
+				forNode.ErrorHandling = errorHandling
 				anyUpdate = true
 			}
 			if RpcNodeUpdate.For.Iterations != 0 {
 				forNode.IterCount = int64(RpcNodeUpdate.For.Iterations)
+				anyUpdate = true
 			}
 			if anyUpdate {
 				err = c.nfls.UpdateNodeFor(ctx, *forNode)
@@ -482,10 +483,8 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 
 			if RpcNodeUpdate.ForEach.ErrorHandling != nodev1.ErrorHandling(mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED) {
 				errorHandling := mnfor.ErrorHandling(RpcNodeUpdate.ForEach.ErrorHandling)
-				if errorHandling != mnfor.ErrorHandling_ERROR_HANDLING_IGNORE {
-					RpcNodeUpdate.ForEach.ErrorHandling = nodev1.ErrorHandling(errorHandling)
-					anyUpdate = true
-				}
+				forEachNode.ErrorHandling = errorHandling
+				anyUpdate = true
 			}
 
 			if RpcNodeUpdate.ForEach.Path != "" {

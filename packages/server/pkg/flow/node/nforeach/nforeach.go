@@ -106,7 +106,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	switch seq := result.(type) {
 	case iter.Seq[any]:
-		fmt.Println("Got a sequence (from a slice/array):")
+		// Handle slice/array sequence
 		itemIndex := 0
 		for item := range seq {
 			// Write the item and key (index) to the node variables
@@ -126,11 +126,21 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			result := processNode()
 			if result.Err != nil {
-				return result
+				switch nr.ErrorHandling {
+				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+					// Log error but continue to next iteration
+					continue
+				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+					// Stop the loop but don't propagate error
+					goto Exit
+				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+					// Default behavior: fail the entire flow
+					return result
+				}
 			}
 		}
 	case iter.Seq2[string, any]:
-		fmt.Println("Got a key-value sequence (from a map):")
+		// Handle map sequence
 		for key, value := range seq {
 			// Write the key and item (value) to the node variables
 			err := node.WriteNodeVar(req, nr.Name, "key", key)
@@ -148,12 +158,23 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			result := processNode()
 			if result.Err != nil {
-				return result
+				switch nr.ErrorHandling {
+				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+					// Log error but continue to next iteration
+					continue
+				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+					// Stop the loop but don't propagate error
+					goto Exit
+				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+					// Default behavior: fail the entire flow
+					return result
+				}
 			}
 		}
 	default:
-		fmt.Println("Unexpected result type")
+		// Unexpected result type
 	}
+Exit:
 	return node.FlowNodeResult{
 		NextNodeID: nextID,
 		Err:        nil,
@@ -210,7 +231,17 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			// Run the child node asynchronously
 			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
 			if err != nil {
-				return node.FlowNodeResult{Err: err}
+				switch nr.ErrorHandling {
+				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+					// Log error but continue to next iteration
+					continue
+				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+					// Stop the loop but don't propagate error
+					return node.FlowNodeResult{}
+				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+					// Default behavior: fail the entire flow
+					return node.FlowNodeResult{Err: err}
+				}
 			}
 		}
 		return node.FlowNodeResult{}
@@ -242,8 +273,19 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 				loopResult := processNode()
 				if loopResult.Err != nil {
-					resultChan <- loopResult
-					return // Stop processing on error
+					switch nr.ErrorHandling {
+					case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+						// Log error but continue to next iteration
+						continue
+					case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+						// Stop the loop but don't propagate error
+						resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
+						return
+					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+						// Default behavior: fail the entire flow
+						resultChan <- loopResult
+						return
+					}
 				}
 			}
 			// Send success result after loop finishes
@@ -271,8 +313,19 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 				loopResult := processNode()
 				if loopResult.Err != nil {
-					resultChan <- loopResult
-					return // Stop processing on error
+					switch nr.ErrorHandling {
+					case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+						// Log error but continue to next iteration
+						continue
+					case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+						// Stop the loop but don't propagate error
+						resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
+						return
+					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+						// Default behavior: fail the entire flow
+						resultChan <- loopResult
+						return
+					}
 				}
 			}
 			// Send success result after loop finishes

@@ -569,7 +569,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
 	for _, forNode := range forNodes {
 		name := nodeNameMap[forNode.FlowNodeID]
-		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout)
+		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling)
 	}
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))

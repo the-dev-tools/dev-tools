@@ -2,6 +2,7 @@ package nforeach_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -331,5 +332,261 @@ func TestForEachNode_SetID(t *testing.T) {
 	nodeForEach.SetID(id)
 	if nodeForEach.GetID() != id {
 		t.Errorf("Expected nodeFor.GetID() to be %v, but got %v", id, nodeForEach.GetID())
+	}
+}
+
+// MockNodeWithError is a mock node that can return errors based on a condition
+type MockNodeWithError struct {
+	ID         idwrap.IDWrap
+	Next       []idwrap.IDWrap
+	ShouldFail func(iteration int) bool
+	iteration  int
+	mu         sync.Mutex
+}
+
+func (m *MockNodeWithError) GetID() idwrap.IDWrap {
+	return m.ID
+}
+
+func (m *MockNodeWithError) SetID(id idwrap.IDWrap) {
+	m.ID = id
+}
+
+func (m *MockNodeWithError) GetName() string {
+	return "mockWithError"
+}
+
+func (m *MockNodeWithError) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
+	m.mu.Lock()
+	m.iteration++
+	currentIteration := m.iteration
+	m.mu.Unlock()
+
+	if m.ShouldFail != nil && m.ShouldFail(currentIteration) {
+		return node.FlowNodeResult{
+			Err: errors.New("mock error"),
+		}
+	}
+	return node.FlowNodeResult{
+		NextNodeID: m.Next,
+		Err:        nil,
+	}
+}
+
+func (m *MockNodeWithError) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
+	result := m.RunSync(ctx, req)
+	resultChan <- result
+}
+
+// TestForEachNode_ErrorHandling_Ignore tests that errors are ignored when ErrorHandling is set to IGNORE
+func TestForEachNode_ErrorHandling_Ignore(t *testing.T) {
+	// Setup
+	forEachNodeID := idwrap.NewNow()
+	errorNodeID := idwrap.NewNow()
+	nextNodeID := idwrap.NewNow()
+
+	// Create a foreach node with IGNORE error handling
+	forEachNode := nforeach.New(
+		forEachNodeID,
+		"TestForEachIgnore",
+		"[1, 2, 3]", // Iterate over array
+		time.Second*5,
+		mcondition.Condition{},
+		mnfor.ErrorHandling_ERROR_HANDLING_IGNORE,
+	)
+
+	// Create error node that fails on second iteration
+	errorNode := &MockNodeWithError{
+		ID:   errorNodeID,
+		Next: nil,
+		ShouldFail: func(iteration int) bool {
+			return iteration == 2
+		},
+	}
+
+	// Setup edge map
+	edgeMap := make(edge.EdgesMap)
+	edgeMap[forEachNodeID] = map[edge.EdgeHandle][]idwrap.IDWrap{
+		edge.HandleLoop: {errorNodeID},
+		edge.HandleThen: {nextNodeID},
+	}
+
+	// Setup node map
+	nodeMap := make(map[idwrap.IDWrap]node.FlowNode)
+	nodeMap[forEachNodeID] = forEachNode
+	nodeMap[errorNodeID] = errorNode
+
+	// Create request
+	req := &node.FlowNodeRequest{
+		VarMap:        make(map[string]any),
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgeMap,
+		LogPushFunc: func(status runner.FlowNodeStatus) {
+			// Log function for testing
+		},
+		Timeout:          time.Second * 5,
+		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
+	}
+
+	// Execute
+	ctx := context.Background()
+	result := forEachNode.RunSync(ctx, req)
+
+	// Verify
+	if result.Err != nil {
+		t.Errorf("Expected no error with IGNORE handling, got: %v", result.Err)
+	}
+
+	// Should have executed all 3 iterations despite error on iteration 2
+	if errorNode.iteration != 3 {
+		t.Errorf("Expected 3 executions with IGNORE, got: %d", errorNode.iteration)
+	}
+
+	// Should proceed to next node
+	if len(result.NextNodeID) != 1 || result.NextNodeID[0] != nextNodeID {
+		t.Errorf("Expected to proceed to next node")
+	}
+}
+
+// TestForEachNode_ErrorHandling_Break tests that loop stops on error when ErrorHandling is set to BREAK
+func TestForEachNode_ErrorHandling_Break(t *testing.T) {
+	// Setup
+	forEachNodeID := idwrap.NewNow()
+	errorNodeID := idwrap.NewNow()
+	nextNodeID := idwrap.NewNow()
+
+	// Create a foreach node with BREAK error handling
+	forEachNode := nforeach.New(
+		forEachNodeID,
+		"TestForEachBreak",
+		"[1, 2, 3, 4, 5]", // Iterate over array
+		time.Second*5,
+		mcondition.Condition{},
+		mnfor.ErrorHandling_ERROR_HANDLING_BREAK,
+	)
+
+	// Create error node that fails on second iteration
+	errorNode := &MockNodeWithError{
+		ID:   errorNodeID,
+		Next: nil,
+		ShouldFail: func(iteration int) bool {
+			return iteration == 2
+		},
+	}
+
+	// Setup edge map
+	edgeMap := make(edge.EdgesMap)
+	edgeMap[forEachNodeID] = map[edge.EdgeHandle][]idwrap.IDWrap{
+		edge.HandleLoop: {errorNodeID},
+		edge.HandleThen: {nextNodeID},
+	}
+
+	// Setup node map
+	nodeMap := make(map[idwrap.IDWrap]node.FlowNode)
+	nodeMap[forEachNodeID] = forEachNode
+	nodeMap[errorNodeID] = errorNode
+
+	// Create request
+	req := &node.FlowNodeRequest{
+		VarMap:        make(map[string]any),
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgeMap,
+		LogPushFunc: func(status runner.FlowNodeStatus) {
+			// Log function for testing
+		},
+		Timeout:          time.Second * 5,
+		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
+	}
+
+	// Execute
+	ctx := context.Background()
+	result := forEachNode.RunSync(ctx, req)
+
+	// Verify
+	if result.Err != nil {
+		t.Errorf("Expected no error with BREAK handling, got: %v", result.Err)
+	}
+
+	// Should have executed only 2 iterations (stopped on error)
+	if errorNode.iteration != 2 {
+		t.Errorf("Expected 2 executions with BREAK (stop on error), got: %d", errorNode.iteration)
+	}
+
+	// Should proceed to next node
+	if len(result.NextNodeID) != 1 || result.NextNodeID[0] != nextNodeID {
+		t.Errorf("Expected to proceed to next node")
+	}
+}
+
+// TestForEachNode_ErrorHandling_Unspecified tests default error behavior
+func TestForEachNode_ErrorHandling_Unspecified(t *testing.T) {
+	// Setup
+	forEachNodeID := idwrap.NewNow()
+	errorNodeID := idwrap.NewNow()
+	nextNodeID := idwrap.NewNow()
+
+	// Create a foreach node with UNSPECIFIED error handling (default fail behavior)
+	forEachNode := nforeach.New(
+		forEachNodeID,
+		"TestForEachUnspecified",
+		"[1, 2, 3, 4, 5]", // Iterate over array
+		time.Second*5,
+		mcondition.Condition{},
+		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
+	)
+
+	// Create error node that fails on second iteration
+	errorNode := &MockNodeWithError{
+		ID:   errorNodeID,
+		Next: nil,
+		ShouldFail: func(iteration int) bool {
+			return iteration == 2
+		},
+	}
+
+	// Setup edge map
+	edgeMap := make(edge.EdgesMap)
+	edgeMap[forEachNodeID] = map[edge.EdgeHandle][]idwrap.IDWrap{
+		edge.HandleLoop: {errorNodeID},
+		edge.HandleThen: {nextNodeID},
+	}
+
+	// Setup node map
+	nodeMap := make(map[idwrap.IDWrap]node.FlowNode)
+	nodeMap[forEachNodeID] = forEachNode
+	nodeMap[errorNodeID] = errorNode
+
+	// Create request
+	req := &node.FlowNodeRequest{
+		VarMap:        make(map[string]any),
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgeMap,
+		LogPushFunc: func(status runner.FlowNodeStatus) {
+			// Log function for testing
+		},
+		Timeout:          time.Second * 5,
+		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
+	}
+
+	// Execute
+	ctx := context.Background()
+	result := forEachNode.RunSync(ctx, req)
+
+	// Verify
+	if result.Err == nil {
+		t.Error("Expected error with UNSPECIFIED handling")
+	}
+
+	// Should have executed only 2 iterations (failed on second)
+	if errorNode.iteration != 2 {
+		t.Errorf("Expected 2 executions before failure, got: %d", errorNode.iteration)
+	}
+
+	// Should not proceed to next node due to error
+	if len(result.NextNodeID) != 0 {
+		t.Error("Expected no next node due to error")
 	}
 }
