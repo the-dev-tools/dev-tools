@@ -24,6 +24,7 @@ import {
   EndpointCreateEndpoint,
   EndpointDeleteEndpoint,
   EndpointDuplicateEndpoint,
+  EndpointGetEndpoint,
   EndpointUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
 import {
@@ -48,6 +49,7 @@ import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
+import { TabProps } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
@@ -383,6 +385,22 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
   );
 };
 
+interface EndpointTabProps {
+  endpointId: Uint8Array;
+}
+
+const EndpointTab = ({ endpointId }: EndpointTabProps) => {
+  const { method, name } = useQuery(EndpointGetEndpoint, { endpointId });
+  return (
+    <>
+      {method && <MethodBadge method={method} />}
+      <span className={tw`min-w-0 flex-1 truncate`}>{name}</span>
+    </>
+  );
+};
+
+const endpointTabLink = (props: EndpointTabProps): TabProps => ({ tab: <EndpointTab {...props} /> });
+
 interface EndpointTreeProps {
   collectionId: Collection['collectionId'];
   endpoint: EndpointListItem;
@@ -544,7 +562,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   } satisfies TreeItemProps<ExampleListItem>;
 
   return toNavigate ? (
-    <TreeItemLink {...props} {...route}>
+    <TreeItemLink {...props} {...route} {...endpointTabLink({ endpointId })}>
       {content}
     </TreeItemLink>
   ) : (
@@ -665,7 +683,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   } satisfies TreeItemProps<object>;
 
   return toNavigate ? (
-    <TreeItemLink {...props} {...route}>
+    <TreeItemLink {...props} {...route} {...endpointTabLink({ endpointId })}>
       {content}
     </TreeItemLink>
   ) : (

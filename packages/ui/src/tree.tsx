@@ -15,7 +15,7 @@ import { Button, ButtonProps } from './button';
 import { isFocusVisibleRingStyles } from './focus-ring';
 import { ChevronSolidDownIcon, Spinner } from './icons';
 import { type MixinProps, splitProps } from './mixin-props';
-import { useLink, UseLinkProps } from './router';
+import { TabProps, useLink, UseLinkProps } from './router';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 
@@ -129,7 +129,7 @@ export const TreeItemLink = <
   TMaskFrom extends string = TFrom,
   TMaskTo extends string = '.',
 >(
-  props: LinkOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & TreeItemProps<T>,
+  props: LinkOptions<TRouter, TFrom, TTo, TMaskFrom, TMaskTo> & TabProps & TreeItemProps<T>,
 ) => {
   const linkProps = useLink(props as UseLinkProps);
   return <TreeItem {...props} {...linkProps} />;

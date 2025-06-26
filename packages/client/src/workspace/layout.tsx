@@ -12,6 +12,7 @@ import { CollectionCreateEndpoint } from '@the-dev-tools/spec/meta/collection/v1
 import {
   FlowCreateEndpoint,
   FlowDeleteEndpoint,
+  FlowGetEndpoint,
   FlowListEndpoint,
   FlowUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.ts';
@@ -22,6 +23,7 @@ import { CollectionIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons
 import { ListBoxItemLink } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
+import { RouteTabList, TabProps } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
@@ -147,6 +149,9 @@ function Layout() {
 
         <Panel>
           <PanelGroup direction='vertical'>
+            <div className={tw`-mt-px pt-2`}>
+              <RouteTabList />
+            </div>
             <Panel>
               <Outlet />
             </Panel>
@@ -210,6 +215,22 @@ const FlowList = () => {
   );
 };
 
+interface FlowTabProps {
+  flowId: Uint8Array;
+}
+
+const FlowTab = ({ flowId }: FlowTabProps) => {
+  const { name } = useQuery(FlowGetEndpoint, { flowId });
+  return (
+    <>
+      <FlowsIcon className={tw`size-5 shrink-0 text-slate-500`} />
+      <span className={tw`min-w-0 flex-1 truncate`}>{name}</span>
+    </>
+  );
+};
+
+const flowTabLink = (props: FlowTabProps): TabProps => ({ tab: <FlowTab {...props} /> });
+
 interface FlowItemProps {
   flow: FlowListItem;
   id: string;
@@ -248,6 +269,7 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
       showSelectIndicator={false}
       textValue={name}
       to='/workspace/$workspaceIdCan/flow/$flowIdCan'
+      {...flowTabLink({ flowId })}
     >
       <div className={tw`contents`} onContextMenu={onContextMenu}>
         <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref} slot='label'>
