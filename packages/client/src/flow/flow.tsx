@@ -23,7 +23,7 @@ import { PropsWithChildren, Suspense, use, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
-
+import { EdgeKind, EdgeKindJson } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { ExampleVersionsEndpoint } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
@@ -61,7 +61,6 @@ import {
   columnTextField,
   useFormTable,
 } from '~form-table';
-
 import { ReferenceContext } from '../reference';
 import { ConnectionLine, Edge, edgeTypes, useMakeEdge } from './edge';
 import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
@@ -159,6 +158,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
       });
 
       const edge = await makeEdge({
+        kind: EdgeKind.NO_OP,
         sourceId: Ulid.fromCanonical(fromNode.id).bytes,
         targetId: node.nodeId,
       });
@@ -229,7 +229,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
     <ReactFlow
       colorMode='light'
       connectionLineComponent={ConnectionLine}
-      defaultEdgeOptions={{ type: 'default' }}
+      defaultEdgeOptions={{ type: 'EDGE_KIND_UNSPECIFIED' satisfies EdgeKindJson }}
       deleteKeyCode={['Backspace', 'Delete']}
       edges={edges}
       edgeTypes={edgeTypes}

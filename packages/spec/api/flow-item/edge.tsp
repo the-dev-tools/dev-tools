@@ -24,12 +24,18 @@ enum Handle {
   HANDLE_LOOP: 3,
 }
 
+enum EdgeKind {
+  EDGE_KIND_UNSPECIFIED: 0,
+  EDGE_KIND_NO_OP: 1,
+}
+
 @parentResource(Flow.Flow)
 @normalize
 @entity
 @autoFields
 model Edge {
   @key edgeId: Resource.Id;
+  kind: EdgeKind;
   sourceId: Resource.Id;
   targetId: Resource.Id;
   sourceHandle: Handle;

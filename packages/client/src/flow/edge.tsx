@@ -5,6 +5,7 @@ import {
   Edge as EdgeCore,
   EdgeLabelRenderer,
   EdgeProps as EdgePropsCore,
+  EdgeTypes as EdgeTypesCore,
   getEdgeCenter,
   getSmoothStepPath,
   useReactFlow,
@@ -15,6 +16,9 @@ import { use, useCallback } from 'react';
 import { FiX } from 'react-icons/fi';
 import { tv } from 'tailwind-variants';
 import {
+  EdgeKind,
+  EdgeKindJson,
+  EdgeKindSchema,
   EdgeListItem,
   EdgeListItemSchema,
   Handle as HandleKind,
@@ -39,6 +43,7 @@ export const Edge = {
     source: Ulid.construct(edge.sourceId).toCanonical(),
     sourceHandle: edge.sourceHandle === HandleKind.UNSPECIFIED ? null : enumToJson(HandleKindSchema, edge.sourceHandle),
     target: Ulid.construct(edge.targetId).toCanonical(),
+    type: enumToJson(EdgeKindSchema, edge.kind),
   }),
 
   toDTO: (_: Partial<Edge>): Omit<EdgeListItem, keyof Message> =>
@@ -49,6 +54,7 @@ export const Edge = {
           Option.map((_) => Ulid.fromCanonical(_).bytes),
           Option.getOrUndefined,
         )!,
+        kind: isEnumJson(EdgeKindSchema, _.type) ? enumFromJson(EdgeKindSchema, _.type) : EdgeKind.UNSPECIFIED,
         sourceHandle: isEnumJson(HandleKindSchema, _.sourceHandle)
           ? enumFromJson(HandleKindSchema, _.sourceHandle)
           : HandleKind.UNSPECIFIED,
@@ -81,23 +87,15 @@ export const useMakeEdge = () => {
   );
 };
 
-const DefaultEdge = ({ data, id, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY }: EdgeProps) => {
+const DefaultEdge = (props: EdgeProps) => {
+  const { id, sourceX, sourceY, targetX, targetY } = props;
   const { deleteElements } = useReactFlow();
 
   const [labelX, labelY] = getEdgeCenter({ sourceX, sourceY, targetX, targetY });
 
   return (
     <>
-      <ConnectionLine
-        connected
-        fromPosition={sourcePosition}
-        fromX={sourceX}
-        fromY={sourceY}
-        state={data?.state}
-        toPosition={targetPosition}
-        toX={targetX}
-        toY={targetY}
-      />
+      <NoOpEdge {...props} />
 
       <EdgeLabelRenderer>
         <div
@@ -114,8 +112,22 @@ const DefaultEdge = ({ data, id, sourcePosition, sourceX, sourceY, targetPositio
   );
 };
 
-export const edgeTypes = {
-  default: DefaultEdge,
+const NoOpEdge = ({ data, sourcePosition, sourceX, sourceY, targetPosition, targetX, targetY }: EdgeProps) => (
+  <ConnectionLine
+    connected
+    fromPosition={sourcePosition}
+    fromX={sourceX}
+    fromY={sourceY}
+    state={data?.state}
+    toPosition={targetPosition}
+    toX={targetX}
+    toY={targetY}
+  />
+);
+
+export const edgeTypes: Record<EdgeKindJson, EdgeTypesCore[string]> = {
+  EDGE_KIND_NO_OP: NoOpEdge,
+  EDGE_KIND_UNSPECIFIED: DefaultEdge,
 };
 
 const connectionLineStyles = tv({

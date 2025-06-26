@@ -7,7 +7,7 @@ import { IconType } from 'react-icons';
 import { FiTerminal } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 
-import { EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
+import { EdgeKind, EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { NodeKind, NodeListItem, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
@@ -170,11 +170,13 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                   ? []
                   : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })]),
                 makeEdge({
+                  kind: EdgeKind.NO_OP,
                   sourceHandle: HandleKind.THEN,
                   sourceId: node.nodeId,
                   targetId: nodeThen.nodeId,
                 }),
                 makeEdge({
+                  kind: EdgeKind.NO_OP,
                   sourceHandle: HandleKind.ELSE,
                   sourceId: node.nodeId,
                   targetId: nodeElse.nodeId,
@@ -223,11 +225,13 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                   ? []
                   : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })]),
                 makeEdge({
+                  kind: EdgeKind.NO_OP,
                   sourceHandle: HandleKind.LOOP,
                   sourceId: node.nodeId,
                   targetId: nodeLoop.nodeId,
                 }),
                 makeEdge({
+                  kind: EdgeKind.NO_OP,
                   sourceHandle: HandleKind.THEN,
                   sourceId: node.nodeId,
                   targetId: nodeThen.nodeId,
@@ -270,11 +274,13 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                   ? []
                   : [await makeEdge({ sourceId: sourceId.value, targetId: node.nodeId })]),
                 makeEdge({
+                  kind: EdgeKind.NO_OP,
                   sourceHandle: HandleKind.LOOP,
                   sourceId: node.nodeId,
                   targetId: nodeLoop.nodeId,
                 }),
                 makeEdge({
+                  kind: EdgeKind.NO_OP,
                   sourceHandle: HandleKind.THEN,
                   sourceId: node.nodeId,
                   targetId: nodeThen.nodeId,
