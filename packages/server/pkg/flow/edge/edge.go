@@ -22,6 +22,13 @@ const (
 	HandleLength
 )
 
+type EdgeKind = int32
+
+const (
+	EdgeKindUnspecified EdgeKind = 0
+	EdgeKindNoOp        EdgeKind = 1
+)
+
 var ErrEdgeNotFound = errors.New("edge not found")
 
 type Edge struct {
@@ -30,6 +37,7 @@ type Edge struct {
 	SourceID      idwrap.IDWrap
 	TargetID      idwrap.IDWrap
 	SourceHandler EdgeHandle
+	Kind          int32
 }
 
 type (
@@ -49,12 +57,13 @@ func GetNextNodeID(edgesMap EdgesMap, sourceID idwrap.IDWrap, handle EdgeHandle)
 	return edge
 }
 
-func NewEdge(id, sourceID, targetID idwrap.IDWrap, sourceHandlerID EdgeHandle) Edge {
+func NewEdge(id, sourceID, targetID idwrap.IDWrap, sourceHandlerID EdgeHandle, kind int32) Edge {
 	return Edge{
 		ID:            id,
 		SourceID:      sourceID,
 		TargetID:      targetID,
 		SourceHandler: sourceHandlerID,
+		Kind:          kind,
 	}
 }
 

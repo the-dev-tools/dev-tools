@@ -71,7 +71,7 @@ func TestNodeRequest_Run(t *testing.T) {
 			exampleResp, exampleRespHeader, asserts,
 			mockHttpClient, requestNodeRespChan)
 
-		edge1 := edge.NewEdge(idwrap.NewNow(), id, next, edge.HandleUnspecified)
+		edge1 := edge.NewEdge(idwrap.NewNow(), id, next, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 		edges := []edge.Edge{edge1}
 		edgesMap := edge.NewEdgesMap(edges)
 
@@ -122,7 +122,7 @@ func TestNodeRequest_Run(t *testing.T) {
 		requestNode := nrequest.New(id, nodeName, api, example, queries, headers, rawBody, formBody, urlBody,
 			exampleResp, exampleRespHeader, asserts,
 			mockHttpClient, requestNodeRespChan)
-		edge1 := edge.NewEdge(idwrap.NewNow(), id, next, edge.HandleUnspecified)
+		edge1 := edge.NewEdge(idwrap.NewNow(), id, next, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 		edges := []edge.Edge{edge1}
 		edgesMap := edge.NewEdgesMap(edges)
 

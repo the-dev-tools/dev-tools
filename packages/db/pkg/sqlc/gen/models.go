@@ -118,6 +118,7 @@ type FlowEdge struct {
 	SourceID     idwrap.IDWrap
 	TargetID     idwrap.IDWrap
 	SourceHandle int32
+	EdgeKind     int32
 }
 
 type FlowNode struct {

@@ -67,6 +67,7 @@ func (c *EdgeServiceRPC) EdgeList(ctx context.Context, req *connect.Request[edge
 			SourceId:     edge.SourceID.Bytes(),
 			TargetId:     edge.TargetID.Bytes(),
 			SourceHandle: edgev1.Handle(edge.SourceHandler),
+			Kind:         edgev1.EdgeKind(edge.Kind),
 		}
 	}
 
@@ -86,7 +87,21 @@ func (c *EdgeServiceRPC) EdgeGet(ctx context.Context, req *connect.Request[edgev
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	
+	edge, err := c.es.GetEdge(ctx, EdgeID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	resp := &edgev1.EdgeGetResponse{
+		EdgeId:       edge.ID.Bytes(),
+		Kind:         edgev1.EdgeKind(edge.Kind),
+		SourceId:     edge.SourceID.Bytes(),
+		TargetId:     edge.TargetID.Bytes(),
+		SourceHandle: edgev1.Handle(edge.SourceHandler),
+	}
+	
+	return connect.NewResponse(resp), nil
 }
 
 func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[edgev1.EdgeCreateRequest]) (*connect.Response[edgev1.EdgeCreateResponse], error) {
@@ -134,6 +149,7 @@ func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[ed
 		SourceID:      sourceID,
 		TargetID:      targetID,
 		SourceHandler: edge.EdgeHandle(req.Msg.SourceHandle),
+		Kind:          int32(req.Msg.Kind),
 	}
 
 	err = c.es.CreateEdge(ctx, *modelEdge)
@@ -187,6 +203,9 @@ func (c *EdgeServiceRPC) EdgeUpdate(ctx context.Context, req *connect.Request[ed
 	}
 	if targetID.Bytes() != nil {
 		requestedEdge.TargetID = targetID
+	}
+	if req.Msg.Kind != nil {
+		requestedEdge.Kind = int32(*req.Msg.Kind)
 	}
 	err = c.es.UpdateEdge(ctx, *requestedEdge)
 	if err != nil {

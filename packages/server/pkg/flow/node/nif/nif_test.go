@@ -40,8 +40,8 @@ func TestForNode_RunSync_true(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)
-	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse)
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -86,8 +86,8 @@ func TestForNode_RunSync_false(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)
-	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse)
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -132,8 +132,8 @@ func TestForNode_RunSync_VarTrue(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)
-	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse)
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -180,8 +180,8 @@ func TestForNode_RunSync_VarFalse(t *testing.T) {
 	})
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen)
-	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse)
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), id, mockNode2ID, edge.HandleElse, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 

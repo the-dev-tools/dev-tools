@@ -38,6 +38,7 @@ func ConvertToDBEdge(e edge.Edge) gen.FlowEdge {
 		SourceID:     e.SourceID,
 		TargetID:     e.TargetID,
 		SourceHandle: int32(e.SourceHandler),
+		EdgeKind:     e.Kind,
 	}
 }
 
@@ -48,6 +49,7 @@ func ConvertToModelEdge(e gen.FlowEdge) *edge.Edge {
 		SourceID:      e.SourceID,
 		TargetID:      e.TargetID,
 		SourceHandler: edge.EdgeHandle(e.SourceHandle),
+		Kind:          e.EdgeKind,
 	}
 }
 
@@ -75,6 +77,7 @@ func (es EdgeService) CreateEdge(ctx context.Context, e edge.Edge) error {
 		SourceID:     edge.SourceID,
 		TargetID:     edge.TargetID,
 		SourceHandle: edge.SourceHandle,
+		EdgeKind:     edge.EdgeKind,
 	})
 }
 
@@ -95,6 +98,7 @@ func (es EdgeService) UpdateEdge(ctx context.Context, e edge.Edge) error {
 		SourceID:     edge.SourceID,
 		TargetID:     edge.TargetID,
 		SourceHandle: edge.SourceHandle,
+		EdgeKind:     edge.EdgeKind,
 	})
 }
 

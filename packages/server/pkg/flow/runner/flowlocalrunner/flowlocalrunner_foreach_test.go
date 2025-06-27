@@ -69,8 +69,8 @@ func TestForEachNode_ErrorHandling_SubNodeError(t *testing.T) {
 			
 			// Setup edges
 			edges := []edge.Edge{
-				edge.NewEdge(idwrap.NewNow(), forEachNodeID, subNodeID, edge.HandleLoop),
-				edge.NewEdge(idwrap.NewNow(), forEachNodeID, nextNodeID, edge.HandleThen),
+				edge.NewEdge(idwrap.NewNow(), forEachNodeID, subNodeID, edge.HandleLoop, edge.EdgeKindUnspecified),
+				edge.NewEdge(idwrap.NewNow(), forEachNodeID, nextNodeID, edge.HandleThen, edge.EdgeKindUnspecified),
 			}
 			edgeMap := edge.NewEdgesMap(edges)
 			
@@ -223,10 +223,10 @@ func TestForEachNode_ErrorHandling_MultipleSubNodes(t *testing.T) {
 	
 	// Setup edges - chain of sub-nodes
 	edges := []edge.Edge{
-		edge.NewEdge(idwrap.NewNow(), forEachNodeID, subNode1ID, edge.HandleLoop),
-		edge.NewEdge(idwrap.NewNow(), subNode1ID, subNode2ID, edge.HandleUnspecified),
-		edge.NewEdge(idwrap.NewNow(), subNode2ID, subNode3ID, edge.HandleUnspecified),
-		edge.NewEdge(idwrap.NewNow(), forEachNodeID, nextNodeID, edge.HandleThen),
+		edge.NewEdge(idwrap.NewNow(), forEachNodeID, subNode1ID, edge.HandleLoop, edge.EdgeKindUnspecified),
+		edge.NewEdge(idwrap.NewNow(), subNode1ID, subNode2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified),
+		edge.NewEdge(idwrap.NewNow(), subNode2ID, subNode3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified),
+		edge.NewEdge(idwrap.NewNow(), forEachNodeID, nextNodeID, edge.HandleThen, edge.EdgeKindUnspecified),
 	}
 	edgeMap := edge.NewEdgesMap(edges)
 	

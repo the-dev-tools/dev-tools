@@ -89,9 +89,9 @@ func TestForNode_RunSync(t *testing.T) {
 	nodeFor := nfor.New(id, nodeName, iterCount, timeOut, 0)
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop)
+	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -138,9 +138,9 @@ func TestForNode_RunAsync(t *testing.T) {
 	id := idwrap.NewNow()
 	nodeName := "test-node"
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop)
+	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -211,9 +211,9 @@ func TestForNode_RunSync_LargeIterationCount(t *testing.T) {
 	nodeFor := nfor.New(id, nodeName, iterCount, timeOut, 0)
 	ctx := context.Background()
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop)
+	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -263,9 +263,9 @@ func TestForNode_RunAsync_LargeIterationCount(t *testing.T) {
 	id := idwrap.NewNow()
 	nodeName := "test-node-large-async"
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop)
+	edge1 := edge.NewEdge(idwrap.NewNow(), mockNode1ID, mockNode2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), mockNode2ID, mockNode3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleLoop, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 

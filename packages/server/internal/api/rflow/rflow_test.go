@@ -779,7 +779,7 @@ func TestRunFlow(t *testing.T) {
 	})
 	testutil.AssertFatal(t, nil, err)
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), startNodeID, forNodeID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), startNodeID, forNodeID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1}
 
 	for _, e := range edges {

@@ -146,8 +146,8 @@ func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 			
 			// Setup edges
 			edges := []edge.Edge{
-				edge.NewEdge(idwrap.NewNow(), forNodeID, subNodeID, edge.HandleLoop),
-				edge.NewEdge(idwrap.NewNow(), forNodeID, nextNodeID, edge.HandleThen),
+				edge.NewEdge(idwrap.NewNow(), forNodeID, subNodeID, edge.HandleLoop, edge.EdgeKindUnspecified),
+				edge.NewEdge(idwrap.NewNow(), forNodeID, nextNodeID, edge.HandleThen, edge.EdgeKindUnspecified),
 			}
 			edgeMap := edge.NewEdgesMap(edges)
 			

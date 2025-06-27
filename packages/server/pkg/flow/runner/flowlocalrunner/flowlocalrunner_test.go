@@ -41,8 +41,8 @@ func TestLocalFlowRunner_Run_Full(t *testing.T) {
 		node3ID: mockNode3,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -94,8 +94,8 @@ func TestLocalFlowRunner_Run_NonFull(t *testing.T) {
 		node4ID: mockNode4,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -133,8 +133,8 @@ func TestLocalFlowRunner_Run_Timeout(t *testing.T) {
 		node3ID: mockNode3,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -175,11 +175,11 @@ func TestLocalFlowRunner_Run_ParallelExecution(t *testing.T) {
 		node5ID: mockNode5,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified)
-	edge4 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified)
-	edge5 := edge.NewEdge(idwrap.NewNow(), node4ID, node5ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge4 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge5 := edge.NewEdge(idwrap.NewNow(), node4ID, node5ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3, edge4, edge5}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -239,10 +239,10 @@ func TestLocalFlowRunner_Run_SplitAndMerge(t *testing.T) {
 		node4ID: mockNode4,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified)
-	edge4 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge4 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3, edge4}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -299,17 +299,17 @@ func TestLocalFlowRunner_Run_SplitAndMergeWithSubNodes(t *testing.T) {
 		node9ID: mockNode9,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified)
-	edge4 := edge.NewEdge(idwrap.NewNow(), node2ID, node5ID, edge.HandleUnspecified)
-	edge5 := edge.NewEdge(idwrap.NewNow(), node3ID, node6ID, edge.HandleUnspecified)
-	edge6 := edge.NewEdge(idwrap.NewNow(), node3ID, node7ID, edge.HandleUnspecified)
-	edge7 := edge.NewEdge(idwrap.NewNow(), node4ID, node8ID, edge.HandleUnspecified)
-	edge8 := edge.NewEdge(idwrap.NewNow(), node5ID, node8ID, edge.HandleUnspecified)
-	edge9 := edge.NewEdge(idwrap.NewNow(), node6ID, node9ID, edge.HandleUnspecified)
-	edge10 := edge.NewEdge(idwrap.NewNow(), node7ID, node9ID, edge.HandleUnspecified)
-	edge11 := edge.NewEdge(idwrap.NewNow(), node8ID, node9ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge4 := edge.NewEdge(idwrap.NewNow(), node2ID, node5ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge5 := edge.NewEdge(idwrap.NewNow(), node3ID, node6ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge6 := edge.NewEdge(idwrap.NewNow(), node3ID, node7ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge7 := edge.NewEdge(idwrap.NewNow(), node4ID, node8ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge8 := edge.NewEdge(idwrap.NewNow(), node5ID, node8ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge9 := edge.NewEdge(idwrap.NewNow(), node6ID, node9ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge10 := edge.NewEdge(idwrap.NewNow(), node7ID, node9ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge11 := edge.NewEdge(idwrap.NewNow(), node8ID, node9ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3, edge4, edge5, edge6, edge7, edge8, edge9, edge10, edge11}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -369,9 +369,9 @@ func TestRunNodeASync_IncompleteExecution(t *testing.T) {
 		node4ID: mockNode4,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -435,8 +435,8 @@ func BenchmarkLinearFlow(b *testing.B) {
 		node3ID: mockNode3,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -473,10 +473,10 @@ func BenchmarkSplitAndMergeFlow(b *testing.B) {
 		node4ID: mockNode4,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified)
-	edge4 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge4 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3, edge4}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -527,17 +527,17 @@ func BenchmarkComplexFlow(b *testing.B) {
 		node9ID: mockNode9,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified)
-	edge4 := edge.NewEdge(idwrap.NewNow(), node2ID, node5ID, edge.HandleUnspecified)
-	edge5 := edge.NewEdge(idwrap.NewNow(), node3ID, node6ID, edge.HandleUnspecified)
-	edge6 := edge.NewEdge(idwrap.NewNow(), node3ID, node7ID, edge.HandleUnspecified)
-	edge7 := edge.NewEdge(idwrap.NewNow(), node4ID, node8ID, edge.HandleUnspecified)
-	edge8 := edge.NewEdge(idwrap.NewNow(), node5ID, node8ID, edge.HandleUnspecified)
-	edge9 := edge.NewEdge(idwrap.NewNow(), node6ID, node9ID, edge.HandleUnspecified)
-	edge10 := edge.NewEdge(idwrap.NewNow(), node7ID, node9ID, edge.HandleUnspecified)
-	edge11 := edge.NewEdge(idwrap.NewNow(), node8ID, node9ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge4 := edge.NewEdge(idwrap.NewNow(), node2ID, node5ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge5 := edge.NewEdge(idwrap.NewNow(), node3ID, node6ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge6 := edge.NewEdge(idwrap.NewNow(), node3ID, node7ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge7 := edge.NewEdge(idwrap.NewNow(), node4ID, node8ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge8 := edge.NewEdge(idwrap.NewNow(), node5ID, node8ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge9 := edge.NewEdge(idwrap.NewNow(), node6ID, node9ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge10 := edge.NewEdge(idwrap.NewNow(), node7ID, node9ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge11 := edge.NewEdge(idwrap.NewNow(), node8ID, node9ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3, edge4, edge5, edge6, edge7, edge8, edge9, edge10, edge11}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -572,8 +572,8 @@ func BenchmarkDelayedNodes(b *testing.B) {
 		node3ID: mockNode3,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -606,8 +606,8 @@ func BenchmarkAsyncVsSync(b *testing.B) {
 		node3ID: mockNode3,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node2ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
@@ -677,10 +677,10 @@ func TestMultipleIncomingEdges(t *testing.T) {
 		node4ID: mockNode4,
 	}
 
-	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified)
-	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified)
-	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified)
-	edge4 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified)
+	edge1 := edge.NewEdge(idwrap.NewNow(), node1ID, node2ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge2 := edge.NewEdge(idwrap.NewNow(), node1ID, node3ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge3 := edge.NewEdge(idwrap.NewNow(), node2ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
+	edge4 := edge.NewEdge(idwrap.NewNow(), node3ID, node4ID, edge.HandleUnspecified, edge.EdgeKindUnspecified)
 	edges := []edge.Edge{edge1, edge2, edge3, edge4}
 	edgesMap := edge.NewEdgesMap(edges)
 

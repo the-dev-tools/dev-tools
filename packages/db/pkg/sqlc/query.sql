@@ -1795,7 +1795,8 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle
+  source_handle,
+  edge_kind
 FROM
   flow_edge
 WHERE
@@ -1808,7 +1809,8 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle
+  source_handle,
+  edge_kind
 FROM
   flow_edge
 WHERE
@@ -1816,16 +1818,17 @@ WHERE
 
 -- name: CreateFlowEdge :exec
 INSERT INTO
-  flow_edge (id, flow_id, source_id, target_id, source_handle)
+  flow_edge (id, flow_id, source_id, target_id, source_handle, edge_kind)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowEdge :exec
 UPDATE flow_edge
 SET
   source_id = ?,
   target_id = ?,
-  source_handle = ?
+  source_handle = ?,
+  edge_kind = ?
 WHERE
   id = ?;
 

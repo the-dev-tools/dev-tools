@@ -826,9 +826,9 @@ func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
 
 const createFlowEdge = `-- name: CreateFlowEdge :exec
 INSERT INTO
-  flow_edge (id, flow_id, source_id, target_id, source_handle)
+  flow_edge (id, flow_id, source_id, target_id, source_handle, edge_kind)
 VALUES
-  (?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowEdgeParams struct {
@@ -837,6 +837,7 @@ type CreateFlowEdgeParams struct {
 	SourceID     idwrap.IDWrap
 	TargetID     idwrap.IDWrap
 	SourceHandle int32
+	EdgeKind     int32
 }
 
 func (q *Queries) CreateFlowEdge(ctx context.Context, arg CreateFlowEdgeParams) error {
@@ -846,6 +847,7 @@ func (q *Queries) CreateFlowEdge(ctx context.Context, arg CreateFlowEdgeParams) 
 		arg.SourceID,
 		arg.TargetID,
 		arg.SourceHandle,
+		arg.EdgeKind,
 	)
 	return err
 }
@@ -3913,7 +3915,8 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle
+  source_handle,
+  edge_kind
 FROM
   flow_edge
 WHERE
@@ -3930,6 +3933,7 @@ func (q *Queries) GetFlowEdge(ctx context.Context, id idwrap.IDWrap) (FlowEdge, 
 		&i.SourceID,
 		&i.TargetID,
 		&i.SourceHandle,
+		&i.EdgeKind,
 	)
 	return i, err
 }
@@ -3940,7 +3944,8 @@ SELECT
   flow_id,
   source_id,
   target_id,
-  source_handle
+  source_handle,
+  edge_kind
 FROM
   flow_edge
 WHERE
@@ -3962,6 +3967,7 @@ func (q *Queries) GetFlowEdgesByFlowID(ctx context.Context, flowID idwrap.IDWrap
 			&i.SourceID,
 			&i.TargetID,
 			&i.SourceHandle,
+			&i.EdgeKind,
 		); err != nil {
 			return nil, err
 		}
@@ -6357,7 +6363,8 @@ UPDATE flow_edge
 SET
   source_id = ?,
   target_id = ?,
-  source_handle = ?
+  source_handle = ?,
+  edge_kind = ?
 WHERE
   id = ?
 `
@@ -6366,6 +6373,7 @@ type UpdateFlowEdgeParams struct {
 	SourceID     idwrap.IDWrap
 	TargetID     idwrap.IDWrap
 	SourceHandle int32
+	EdgeKind     int32
 	ID           idwrap.IDWrap
 }
 
@@ -6374,6 +6382,7 @@ func (q *Queries) UpdateFlowEdge(ctx context.Context, arg UpdateFlowEdgeParams) 
 		arg.SourceID,
 		arg.TargetID,
 		arg.SourceHandle,
+		arg.EdgeKind,
 		arg.ID,
 	)
 	return err
