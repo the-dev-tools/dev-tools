@@ -1,13 +1,12 @@
-import { Rx, useRxSet, useRxValue } from '@effect-rx/rx-react';
+import { Registry, Rx, useRxSet, useRxValue } from '@effect-rx/rx-react';
 import {
   ActiveLinkOptions,
+  AnyRouteMatch,
   LinkComponent as LinkComponentUpstream,
-  MatchRouteOptions,
   ToOptions,
   useLinkProps,
-  useRouter,
 } from '@tanstack/react-router';
-import { Array, Option, pipe } from 'effect';
+import { Array, Option, pipe, Runtime } from 'effect';
 import React, { ComponentProps, PropsWithChildren, ReactNode, Ref, Suspense, SyntheticEvent } from 'react';
 import { ListBox, ListBoxItem, RouterProvider } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
@@ -37,59 +36,58 @@ const fauxEvent =
     } as E);
 
 export interface Tab {
-  baseRoute: ToOptions;
+  id: string;
+  node: ReactNode;
   route: ToOptions;
+}
 
-  matchOptions?: MatchRouteOptions | undefined;
+export type TabsRx = ReturnType<typeof makeTabsRx>;
+
+export const makeTabsRx = () => pipe(Array.empty<Tab>(), (_) => Rx.make(_), Rx.keepAlive);
+
+interface AddTabProps {
+  match: Omit<AnyRouteMatch, 'context'> & {
+    context: {
+      runtime: Runtime.Runtime<Registry.RxRegistry>;
+      tabsRx: TabsRx;
+    };
+  };
   node: ReactNode;
 }
 
-export interface TabProps {
-  tab?: ReactNode;
-  tabBaseRoute?: ToOptions;
-  tabMatchOptions?: MatchRouteOptions;
-}
+export const addTab = ({ match, node }: AddTabProps) => {
+  const { runtime, tabsRx } = match.context;
+  const tab: Tab = {
+    id: match.id,
+    node,
+    route: {
+      from: '/',
+      params: match.params,
+      search: match.search as unknown,
+      to: match.fullPath as unknown,
+    },
+  };
 
-const tabsRx = pipe(Array.empty<Tab>(), (_) => Rx.make(_), Rx.keepAlive);
+  const updateTabs = (tabs: Tab[]) =>
+    pipe(
+      Array.findFirstIndex(tabs, (_) => _.id === tab.id),
+      Option.flatMap((_) => Array.modifyOption(tabs, _, () => tab)),
+      Option.getOrElse(() => Array.append(tabs, tab)),
+    );
 
-const useTabKey = () => {
-  const router = useRouter();
-  return (tab: Pick<Tab, 'baseRoute'>) => router.buildLocation(tab.baseRoute).href;
+  pipe(Rx.update(tabsRx, updateTabs), Runtime.runSync(runtime));
 };
 
-export interface UseLinkProps extends ActiveLinkOptions, TabProps {
+export interface UseLinkProps extends ActiveLinkOptions {
   children?: ((state: { isActive: boolean; isTransitioning: boolean }) => React.ReactNode) | React.ReactNode;
   ref?: Ref<unknown> | undefined;
 }
 
-export const useLink = ({ children, ref, tab: tabNode, tabBaseRoute, tabMatchOptions, ...props }: UseLinkProps) => {
-  const router = useRouter();
-  const setTabs = useRxSet(tabsRx);
-
+export const useLink = ({ children, ref, ...props }: UseLinkProps) => {
   const _ = useLinkProps(props, ref as Ref<Element>) as ComponentProps<'a'> & Record<string, unknown>;
 
   const isActive = _['data-status'] === 'active';
   const isTransitioning = _['data-transitioning'] === 'transitioning';
-
-  const onActionBase = fauxEvent(_.onClick, { button: 0 });
-  const onActionTab: typeof onActionBase = (event) => {
-    const tab: Tab = {
-      baseRoute: tabBaseRoute ?? props,
-      matchOptions: tabMatchOptions,
-      node: tabNode,
-      route: props,
-    };
-
-    const updateTabs = (tabs: Tab[]) =>
-      pipe(
-        Array.findFirstIndex(tabs, (_) => router.matchRoute(_.baseRoute, _.matchOptions) !== false),
-        Option.flatMap((_) => Array.modifyOption(tabs, _, () => tab)),
-        Option.getOrElse(() => Array.append(tabs, tab)),
-      );
-
-    onActionBase(event);
-    setTimeout(() => void setTabs(updateTabs), 0);
-  };
 
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,21 +100,22 @@ export const useLink = ({ children, ref, tab: tabNode, tabBaseRoute, tabMatchOpt
     isDisabled: _['disabled'] === true,
     isTransitioning,
 
-    onAction: tabNode ? onActionTab : onActionBase,
+    onAction: fauxEvent(_.onClick, { button: 0 }),
     onFocus: fauxEvent(_.onFocus),
     onHoverEnd: fauxEvent(_.onMouseLeave),
     onHoverStart: fauxEvent(_.onMouseEnter),
   };
 };
 
-export type LinkComponent<T = object> = LinkComponentUpstream<(props: T & TabProps) => ReactNode>;
+export type LinkComponent<T = object> = LinkComponentUpstream<(props: T) => ReactNode>;
 
 interface TabItemProps extends ToOptions {
   id: string;
   tab: Tab;
+  tabsRx: TabsRx;
 }
 
-const TabItem = ({ id, tab }: TabItemProps) => {
+const TabItem = ({ id, tab, tabsRx }: TabItemProps) => {
   const setTabs = useRxSet(tabsRx);
   const { isActive, ...linkProps } = useLink({ ...tab.route, activeOptions: { exact: true } });
 
@@ -154,9 +153,12 @@ const TabItem = ({ id, tab }: TabItemProps) => {
   );
 };
 
-export const RouteTabList = () => {
+interface RouteTabListProps {
+  tabsRx: TabsRx;
+}
+
+export const RouteTabList = ({ tabsRx }: RouteTabListProps) => {
   const tabs = useRxValue(tabsRx);
-  const tabKey = useTabKey();
 
   return (
     <ListBox
@@ -170,7 +172,7 @@ export const RouteTabList = () => {
       orientation='horizontal'
       selectionMode='none'
     >
-      {(_) => <TabItem id={tabKey(_)} tab={_} />}
+      {(_) => <TabItem id={_.id} tab={_} tabsRx={tabsRx} />}
     </ListBox>
   );
 };

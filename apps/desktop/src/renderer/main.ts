@@ -26,9 +26,9 @@
  * ```
  */
 
+import { Registry } from '@effect-rx/rx-react';
 import { BrowserKeyValueStore } from '@effect/platform-browser';
 import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe } from 'effect';
-
 import { ApiLayer } from '@the-dev-tools/client/api/layer';
 import { ApiErrorHandlerLive, app } from '@the-dev-tools/client/index';
 
@@ -43,6 +43,7 @@ const ConfigLive = pipe(
 
 const layer = pipe(
   ApiLayer,
+  Layer.provideMerge(Registry.layer),
   Layer.provideMerge(ApiErrorHandlerLive),
   Layer.provideMerge(ConfigLive),
   Layer.provideMerge(Logger.pretty),

@@ -11,7 +11,6 @@ import { useForm } from 'react-hook-form';
 import { FiClock, FiMoreHorizontal, FiSave } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
-
 import {
   ExampleBreadcrumbKindSchema,
   ExampleVersionsItem,
@@ -52,6 +51,7 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
+import { addTab } from '@the-dev-tools/ui/router';
 import { Select } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -64,7 +64,6 @@ import {
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
 import { useMutate, useQuery } from '~data-client';
-
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
 import { ErrorComponent } from './error';
@@ -99,6 +98,10 @@ export const Route = makeRoute({
     </QueryErrorResetBoundary>
   ),
   errorComponent: (props) => <ErrorComponent {...props} />,
+  onEnter: (match) => {
+    if (!match.loaderData) return;
+    addTab({ match, node: <EndpointTab endpointId={match.loaderData.endpointId} /> });
+  },
   shouldReload: false,
 });
 
@@ -129,6 +132,20 @@ function Page() {
     </Suspense>
   );
 }
+
+interface EndpointTabProps {
+  endpointId: Uint8Array;
+}
+
+const EndpointTab = ({ endpointId }: EndpointTabProps) => {
+  const { method, name } = useQuery(EndpointGetEndpoint, { endpointId });
+  return (
+    <>
+      {method && <MethodBadge method={method} />}
+      <span className={tw`min-w-0 flex-1 truncate`}>{name}</span>
+    </>
+  );
+};
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 

@@ -1,21 +1,20 @@
 import { Transport } from '@connectrpc/connect';
+import { Registry } from '@effect-rx/rx-react';
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
 import { Runtime } from 'effect';
-
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { ToastRegion } from '@the-dev-tools/ui/toast';
 import { AuthTransport, MagicClient } from '~/api/auth';
 import { DataClient } from '~data-client';
 import { DevToolsProvider, ReactQueryDevTools, ReactScanDevTools, TanStackRouterDevTools } from '~dev-tools';
-
 import { ErrorComponent } from './error';
 
 export interface RouterContext {
   dataClient: DataClient;
   queryClient: QueryClient;
-  runtime: Runtime.Runtime<AuthTransport | KeyValueStore | MagicClient>;
+  runtime: Runtime.Runtime<AuthTransport | KeyValueStore | MagicClient | Registry.RxRegistry>;
   transport: Transport;
 }
 
