@@ -32,6 +32,8 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { GenericMessage } from '~api/utils';
 import { useMutate, useQuery } from '~data-client';
+import { duplicateNodeFromMenu } from './copy-paste';
+import { Edge, useMakeEdge } from './edge';
 import { FlowContext } from './internal';
 
 export interface NodeData extends Pick<NodeListItem, 'info' | 'noOp' | 'state'> {}
@@ -105,8 +107,11 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
 
   const { name } = useQuery(NodeGetEndpoint, { nodeId });
 
-  const { deleteElements, getEdges, getNode, getZoom } = useReactFlow();
+  const { addEdges, addNodes, deleteElements, getEdges, getNode, getZoom, setNodes } = useReactFlow();
   const { isReadOnly = false } = use(FlowContext);
+  const { dataClient } = useRouteContext({ from: '__root__' });
+  const makeNode = useMakeNode();
+  const makeEdge = useMakeEdge();
 
   const [nodeUpdate, nodeUpdateLoading] = useMutate(NodeUpdateEndpoint);
 
@@ -187,6 +192,30 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
               </MenuItemLink>
 
               <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+              <MenuItem
+                onAction={async () => {
+                  const node = getNode(id);
+                  if (!node) return;
+                  
+                  await duplicateNodeFromMenu(
+                    id,
+                    node.position,
+                    dataClient,
+                    makeNode,
+                    makeEdge,
+                    (newNodes, newEdges) => {
+                      // Deselect all nodes first
+                      setNodes((nodes) => nodes.map((n) => ({ ...n, selected: false })));
+                      // Add new nodes as selected
+                      addNodes(newNodes.map((n) => Node.fromDTO(n, { selected: true })));
+                      addEdges(newEdges.map((e) => Edge.fromDTO(e)));
+                    }
+                  );
+                }}
+              >
+                Duplicate
+              </MenuItem>
 
               <MenuItem
                 onAction={async () => {
