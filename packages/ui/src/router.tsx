@@ -1,12 +1,13 @@
-import { Registry, Rx, useRxSet, useRxValue } from '@effect-rx/rx-react';
+import { Registry, Rx, useRxValue } from '@effect-rx/rx-react';
 import {
   ActiveLinkOptions,
   AnyRouteMatch,
   LinkComponent as LinkComponentUpstream,
   ToOptions,
   useLinkProps,
+  useRouter,
 } from '@tanstack/react-router';
-import { Array, Option, pipe, Runtime } from 'effect';
+import { Array, Effect, Option, pipe, Runtime } from 'effect';
 import React, { ComponentProps, PropsWithChildren, ReactNode, Ref, Suspense, SyntheticEvent } from 'react';
 import { ListBox, ListBoxItem, RouterProvider } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
@@ -110,13 +111,16 @@ export const useLink = ({ children, ref, ...props }: UseLinkProps) => {
 export type LinkComponent<T = object> = LinkComponentUpstream<(props: T) => ReactNode>;
 
 interface TabItemProps extends ToOptions {
+  baseRoute: ToOptions;
   id: string;
+  runtime: Runtime.Runtime<Registry.RxRegistry>;
   tab: Tab;
   tabsRx: TabsRx;
 }
 
-const TabItem = ({ id, tab, tabsRx }: TabItemProps) => {
-  const setTabs = useRxSet(tabsRx);
+const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
+  const router = useRouter();
+
   const { isActive, ...linkProps } = useLink({ ...tab.route, activeOptions: { exact: true } });
 
   return (
@@ -141,10 +145,30 @@ const TabItem = ({ id, tab, tabsRx }: TabItemProps) => {
 
       <Button
         className={tw`p-0.5`}
-        onPress={(event) => {
-          event.continuePropagation();
-          void setTabs(Array.filter((_) => _ !== tab));
-        }}
+        onPress={(event) =>
+          Effect.gen(function* () {
+            event.continuePropagation();
+            let tabs = yield* Rx.get(tabsRx);
+            const index = yield* Array.findFirstIndex(tabs, (_) => _ == tab);
+
+            tabs = Array.remove(tabs, index);
+            yield* Rx.set(tabsRx, tabs);
+
+            const match: unknown = router.matchRoute(tab.route);
+            if (match === false) return;
+
+            const nextTab = pipe(
+              Array.get(tabs, index),
+              Option.orElse(() => Array.last(tabs)),
+            );
+
+            if (Option.isNone(nextTab)) {
+              void router.navigate(baseRoute);
+            } else {
+              void router.navigate(nextTab.value.route);
+            }
+          }).pipe(Runtime.runPromise(runtime))
+        }
         variant='ghost'
       >
         <FiX className={tw`size-4 text-slate-500`} />
@@ -153,12 +177,10 @@ const TabItem = ({ id, tab, tabsRx }: TabItemProps) => {
   );
 };
 
-interface RouteTabListProps {
-  tabsRx: TabsRx;
-}
+interface RouteTabListProps extends Pick<TabItemProps, 'baseRoute' | 'runtime' | 'tabsRx'> {}
 
-export const RouteTabList = ({ tabsRx }: RouteTabListProps) => {
-  const tabs = useRxValue(tabsRx);
+export const RouteTabList = (props: RouteTabListProps) => {
+  const tabs = useRxValue(props.tabsRx);
 
   return (
     <ListBox
@@ -172,7 +194,7 @@ export const RouteTabList = ({ tabsRx }: RouteTabListProps) => {
       orientation='horizontal'
       selectionMode='none'
     >
-      {(_) => <TabItem id={_.id} tab={_} tabsRx={tabsRx} />}
+      {(_) => <TabItem id={_.id} tab={_} {...props} />}
     </ListBox>
   );
 };

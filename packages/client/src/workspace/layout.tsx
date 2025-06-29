@@ -50,7 +50,7 @@ export const Route = makeRoute({
 });
 
 function Layout() {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient, runtime } = useRouteContext({ from: '__root__' });
 
   const { workspaceId } = Route.useLoaderData();
   const { workspaceIdCan } = Route.useParams();
@@ -151,7 +151,11 @@ function Layout() {
         <Panel>
           <PanelGroup direction='vertical'>
             <div className={tw`-mt-px pt-2`}>
-              <RouteTabList tabsRx={tabsRx} />
+              <RouteTabList
+                baseRoute={{ from: '/', params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' }}
+                runtime={runtime}
+                tabsRx={tabsRx}
+              />
             </div>
             <Panel>
               <Outlet />
