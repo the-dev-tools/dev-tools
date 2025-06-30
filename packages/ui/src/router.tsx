@@ -7,8 +7,8 @@ import {
   useLinkProps,
   useRouter,
 } from '@tanstack/react-router';
-import { Array, Effect, Option, pipe, Runtime } from 'effect';
-import React, { ComponentProps, PropsWithChildren, ReactNode, Ref, Suspense, SyntheticEvent } from 'react';
+import { Array, Effect, Match, Option, pipe, Runtime } from 'effect';
+import React, { ComponentProps, PropsWithChildren, ReactNode, Ref, Suspense, SyntheticEvent, useEffect } from 'react';
 import { ListBox, ListBoxItem, RouterProvider } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
@@ -77,6 +77,72 @@ export const addTab = ({ match, node }: AddTabProps) => {
     );
 
   pipe(Rx.update(tabsRx, updateTabs), Runtime.runSync(runtime));
+};
+
+interface UseTabShortcutsProps {
+  baseRoute: ToOptions;
+  runtime: Runtime.Runtime<Registry.RxRegistry>;
+  tabsRx: TabsRx;
+}
+
+export const useTabShortcuts = ({ baseRoute, runtime, tabsRx }: UseTabShortcutsProps) => {
+  const router = useRouter();
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) =>
+      Effect.gen(function* () {
+        const { code, ctrlKey, shiftKey } = event;
+        let shortcut: 'close' | 'next' | 'prev' | undefined;
+        if (ctrlKey && code === 'Tab') shortcut = 'next';
+        if (ctrlKey && shiftKey && code === 'Tab') shortcut = 'prev';
+        if (ctrlKey && code === 'KeyW') shortcut = 'close';
+        if (!shortcut) return;
+
+        event.preventDefault();
+
+        let tabs = yield* Rx.get(tabsRx);
+        const index = Array.findFirstIndex(tabs, (_) => router.matchRoute(_.route) !== false);
+
+        if (Option.isNone(index)) return;
+
+        if (shortcut === 'close') {
+          tabs = Array.remove(tabs, index.value);
+          yield* Rx.set(tabsRx, tabs);
+        }
+
+        const tab = pipe(
+          Match.value(shortcut),
+          Match.when('close', () =>
+            pipe(
+              Array.get(tabs, index.value),
+              Option.orElse(() => Array.last(tabs)),
+            ),
+          ),
+          Match.when('next', () =>
+            pipe(
+              Array.get(tabs, index.value + 1),
+              Option.orElse(() => Array.head(tabs)),
+            ),
+          ),
+          Match.when('prev', () =>
+            pipe(
+              Array.get(tabs, index.value - 1),
+              Option.orElse(() => Array.last(tabs)),
+            ),
+          ),
+          Match.exhaustive,
+        );
+
+        if (Option.isNone(tab)) {
+          void router.navigate(baseRoute);
+        } else {
+          void router.navigate(tab.value.route);
+        }
+      }).pipe(Runtime.runPromise(runtime));
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => void window.removeEventListener('keydown', onKeyDown);
+  }, [baseRoute, router, runtime, tabsRx]);
 };
 
 export interface UseLinkProps extends ActiveLinkOptions {

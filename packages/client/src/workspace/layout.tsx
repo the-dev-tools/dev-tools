@@ -1,4 +1,11 @@
-import { createFileRoute, Outlet, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  Outlet,
+  ToOptions,
+  useMatchRoute,
+  useNavigate,
+  useRouteContext,
+} from '@tanstack/react-router';
 import { pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
@@ -22,7 +29,7 @@ import { CollectionIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons
 import { ListBoxItemLink } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { makeTabsRx, RouteTabList, TabsRx } from '@the-dev-tools/ui/router';
+import { makeTabsRx, RouteTabList, TabsRx, useTabShortcuts } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
@@ -57,6 +64,10 @@ function Layout() {
   const { tabsRx } = Route.useRouteContext();
 
   const workspace = useQuery(WorkspaceGetEndpoint, { workspaceId });
+
+  const baseRoute: ToOptions = { from: '/', params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' };
+
+  useTabShortcuts({ baseRoute, runtime, tabsRx });
 
   return (
     <DashboardLayout
@@ -151,11 +162,7 @@ function Layout() {
         <Panel>
           <PanelGroup direction='vertical'>
             <div className={tw`-mt-px pt-2`}>
-              <RouteTabList
-                baseRoute={{ from: '/', params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' }}
-                runtime={runtime}
-                tabsRx={tabsRx}
-              />
+              <RouteTabList baseRoute={baseRoute} runtime={runtime} tabsRx={tabsRx} />
             </div>
             <Panel>
               <Outlet />
