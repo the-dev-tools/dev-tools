@@ -29,7 +29,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(5 * time.Second)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Long running response"))
+		_, _ = w.Write([]byte("Long running response"))
 	}))
 	defer server.Close()
 
@@ -75,7 +75,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 	t.Run("Flow with 60 second timeout should complete long HTTP request", func(t *testing.T) {
 		// Create flow runner with 60 second timeout (like the default in production)
 		timeout := 60 * time.Second
-		runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, nodeID, flowNodeMap, edgesMap, timeout)
+		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, nodeID, flowNodeMap, edgesMap, timeout)
 
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, 100)
 		flowStatusChan := make(chan runner.FlowStatus, 10)
@@ -94,7 +94,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 		done := make(chan error, 1)
 		
 		go func() {
-			err := runner.Run(flowCtx, flowNodeStatusChan, flowStatusChan, nil)
+			err := flowRunner.Run(flowCtx, flowNodeStatusChan, flowStatusChan, nil)
 			done <- err
 		}()
 
@@ -102,7 +102,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 		statusReceived := false
 
 		go func() {
-			for _ = range flowNodeStatusChan {
+			for range flowNodeStatusChan {
 				statusReceived = true
 			}
 		}()
@@ -143,7 +143,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 	t.Run("Flow with 2 second timeout should fail on long HTTP request", func(t *testing.T) {
 		// Create flow runner with short timeout
 		timeout := 2 * time.Second
-		runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, nodeID, flowNodeMap, edgesMap, timeout)
+		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, nodeID, flowNodeMap, edgesMap, timeout)
 
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, 100)
 		flowStatusChan := make(chan runner.FlowStatus, 10)
@@ -152,7 +152,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 
 		// Start the flow
 		start := time.Now()
-		err := runner.Run(ctx, flowNodeStatusChan, flowStatusChan, nil)
+		err := flowRunner.Run(ctx, flowNodeStatusChan, flowStatusChan, nil)
 		elapsed := time.Since(start)
 
 		// Should fail due to timeout
@@ -171,7 +171,7 @@ func TestFlowRunner_ContextIsolation(t *testing.T) {
 	// Create a simple HTTP server that responds immediately
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Quick response"))
+		_, _ = w.Write([]byte("Quick response"))
 	}))
 	defer server.Close()
 
@@ -216,7 +216,7 @@ func TestFlowRunner_ContextIsolation(t *testing.T) {
 	t.Run("Cancelled parent context should not affect flow with isolated context", func(t *testing.T) {
 		// Create flow runner
 		timeout := 10 * time.Second
-		runner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, nodeID, flowNodeMap, edgesMap, timeout)
+		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, nodeID, flowNodeMap, edgesMap, timeout)
 
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, 100)
 		flowStatusChan := make(chan runner.FlowStatus, 10)
@@ -231,7 +231,7 @@ func TestFlowRunner_ContextIsolation(t *testing.T) {
 		parentCancel()
 
 		// Run flow with isolated context
-		err := runner.Run(isolatedCtx, flowNodeStatusChan, flowStatusChan, nil)
+		err := flowRunner.Run(isolatedCtx, flowNodeStatusChan, flowStatusChan, nil)
 
 		// Should succeed despite parent context being cancelled
 		if err != nil {

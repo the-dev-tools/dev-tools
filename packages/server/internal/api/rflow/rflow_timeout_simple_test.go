@@ -17,7 +17,7 @@ func TestHTTPRequestWithContext(t *testing.T) {
 			select {
 			case <-time.After(5 * time.Second):
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("Success after delay"))
+				_, _ = w.Write([]byte("Success after delay"))
 			case <-r.Context().Done():
 				// Request was cancelled
 				return

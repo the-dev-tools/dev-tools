@@ -30,7 +30,7 @@ func TestNodeRequest_Timeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(delayDuration)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Delayed response"))
+		_, _ = w.Write([]byte("Delayed response"))
 	}))
 	defer server.Close()
 
@@ -102,7 +102,7 @@ func TestNodeRequest_Timeout(t *testing.T) {
 		fastServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(1 * time.Second)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("Fast response"))
+			_, _ = w.Write([]byte("Fast response"))
 		}))
 		defer fastServer.Close()
 
