@@ -22,7 +22,7 @@ import { CollectionIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons
 import { ListBoxItemLink } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { makeTabsRx, RouteTabList } from '@the-dev-tools/ui/router';
+import { makeTabsRx, RouteTabList, TabsRx } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
@@ -41,7 +41,7 @@ const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan');
 
 export const Route = makeRoute({
   validateSearch: (_) => Schema.decodeSync(WorkspaceRouteSearch)(_),
-  context: () => ({ tabsRx: makeTabsRx() }),
+  context: (): { tabsRx: TabsRx } => ({ tabsRx: makeTabsRx() }),
   loader: ({ params: { workspaceIdCan } }) => {
     const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;
     return { workspaceId };
