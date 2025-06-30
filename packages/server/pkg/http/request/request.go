@@ -2,6 +2,7 @@ package request
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"mime"
 	"mime/multipart"
@@ -311,6 +312,17 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 func SendRequest(req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {
 	now := time.Now()
 	respHttp, err := httpclient.SendRequestAndConvert(client, req, exampleID)
+	lapse := time.Since(now)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeAborted, err)
+	}
+
+	return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
+}
+
+func SendRequestWithContext(ctx context.Context, req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {
+	now := time.Now()
+	respHttp, err := httpclient.SendRequestAndConvertWithContext(ctx, client, req, exampleID)
 	lapse := time.Since(now)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeAborted, err)

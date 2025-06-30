@@ -131,7 +131,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	resp, err := request.SendRequest(prepareOutput, nr.Example.ID, nr.HttpClient)
+	resp, err := request.SendRequestWithContext(ctx, prepareOutput, nr.Example.ID, nr.HttpClient)
 	if err != nil {
 		result.Err = err
 		return result
@@ -234,7 +234,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	resp, err := request.SendRequest(prepareOutput, nr.Example.ID, nr.HttpClient)
+	resp, err := request.SendRequestWithContext(ctx, prepareOutput, nr.Example.ID, nr.HttpClient)
 	if err != nil {
 		result.Err = err
 		resultChan <- result

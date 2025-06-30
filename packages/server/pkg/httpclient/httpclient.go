@@ -2,6 +2,7 @@ package httpclient
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -86,8 +87,50 @@ func SendRequest(client HttpClient, req *Request) (*http.Response, error) {
 	return client.Do(reqRaw)
 }
 
+func SendRequestWithContext(ctx context.Context, client HttpClient, req *Request) (*http.Response, error) {
+	reqRaw, err := http.NewRequestWithContext(ctx, req.Method, req.URL, bytes.NewReader(req.Body))
+	if err != nil {
+		return nil, err
+	}
+
+	qNew := ConvertModelToQuery(req.Queries, reqRaw.URL.Query())
+	reqRaw.URL.RawQuery = qNew.Encode()
+	reqRaw.Header = ConvertModelToHeader(req.Headers)
+	return client.Do(reqRaw)
+}
+
 func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDWrap) (Response, error) {
 	resp, err := SendRequest(client, req)
+	if err != nil {
+		return Response{}, err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return Response{}, err
+	}
+
+	encoding := resp.Header.Get("Content-Encoding")
+	if encoding != "" {
+		body, err = compress.DecompressWithContentEncodeStr(body, encoding)
+		if err != nil {
+			return Response{}, err
+		}
+	}
+
+	err = resp.Body.Close()
+	if err != nil {
+		return Response{}, err
+	}
+	return Response{
+		StatusCode: resp.StatusCode,
+		Body:       body,
+		Headers:    ConvertHeaderToModel(resp.Header, exampleID),
+	}, nil
+}
+
+func SendRequestAndConvertWithContext(ctx context.Context, client HttpClient, req *Request, exampleID idwrap.IDWrap) (Response, error) {
+	resp, err := SendRequestWithContext(ctx, client, req)
 	if err != nil {
 		return Response{}, err
 	}
