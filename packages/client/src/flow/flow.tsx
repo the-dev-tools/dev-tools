@@ -19,7 +19,7 @@ import {
 } from '@xyflow/react';
 import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
-import { PropsWithChildren, Suspense, use, useCallback, useEffect, useMemo } from 'react';
+import { PropsWithChildren, Suspense, use, useCallback, useMemo } from 'react';
 import { MenuTrigger } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
@@ -62,7 +62,7 @@ import {
   useFormTable,
 } from '~form-table';
 import { ReferenceContext } from '../reference';
-import { setupCopyPasteHandlers } from './copy-paste';
+import { useFlowCopyPaste } from './copy-paste';
 import { ConnectionLine, Edge, edgeTypes, useMakeEdge } from './edge';
 import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
 import { Node, useMakeNode } from './node';
@@ -127,11 +127,10 @@ const minZoom = 0.1;
 const maxZoom = 2;
 
 export const Flow = ({ children }: PropsWithChildren) => {
-  const { addEdges, addNodes, getEdges, getNode, getNodes, screenToFlowPosition, setEdges, setNodes } = useReactFlow<Node, Edge>();
+  const { addEdges, addNodes, getEdges, getNode, screenToFlowPosition, setNodes } = useReactFlow<Node, Edge>();
   const { isReadOnly = false } = use(FlowContext);
 
   const navigate = useNavigate();
-  const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { edges, nodes, onEdgesChange, onNodesChange } = useFlowStateSynced();
 
@@ -226,26 +225,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
     [getEdges, getNode, isReadOnly],
   );
 
-  // Setup copy/paste
-  useEffect(() => {
-    const handleKeyDown = setupCopyPasteHandlers(
-      getNodes,
-      getEdges,
-      dataClient,
-      makeNode,
-      makeEdge,
-      addNodes,
-      addEdges,
-      setNodes,
-      setEdges,
-      isReadOnly
-    );
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [addEdges, addNodes, dataClient, getEdges, getNodes, isReadOnly, makeEdge, makeNode, setNodes, setEdges]);
+  useFlowCopyPaste();
 
   return (
     <ReactFlow
