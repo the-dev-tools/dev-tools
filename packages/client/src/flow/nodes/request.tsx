@@ -27,7 +27,15 @@ import { FlowContext, Handle, workspaceRoute } from '../internal';
 import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
 
 export const RequestNode = (props: NodeProps) => (
-  <NodeContainer {...props} handles={<Handle position={Position.Top} type='target' />}>
+  <NodeContainer
+    {...props}
+    handles={
+      <>
+        <Handle position={Position.Top} type='target' />
+        <Handle position={Position.Bottom} type='source' />
+      </>
+    }
+  >
     <RequestNodeBody {...props} />
   </NodeContainer>
 );
@@ -50,10 +58,7 @@ const RequestNodeBody = (props: NodeProps) => {
     <NodeBody {...props} Icon={SendRequestIcon}>
       <div className={tw`rounded-md border border-slate-200 bg-white shadow-xs`}>
         {request?.exampleId.length !== 0 ? (
-          <>
-            <RequestNodeSelected request={request!} />
-            <Handle position={Position.Bottom} type='source' />
-          </>
+          <RequestNodeSelected request={request!} />
         ) : (
           <CollectionListTree
             onAction={async ({ collectionId, endpointId, exampleId }) => {
