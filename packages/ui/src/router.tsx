@@ -91,11 +91,11 @@ export const useTabShortcuts = ({ baseRoute, runtime, tabsRx }: UseTabShortcutsP
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) =>
       Effect.gen(function* () {
-        const { code, ctrlKey, shiftKey } = event;
+        const { code, ctrlKey, metaKey, shiftKey } = event;
         let shortcut: 'close' | 'next' | 'prev' | undefined;
-        if (ctrlKey && code === 'Tab') shortcut = 'next';
-        if (ctrlKey && shiftKey && code === 'Tab') shortcut = 'prev';
-        if (ctrlKey && code === 'KeyW') shortcut = 'close';
+        if ((ctrlKey || metaKey) && code === 'Tab') shortcut = 'next';
+        if ((ctrlKey || metaKey) && shiftKey && code === 'Tab') shortcut = 'prev';
+        if ((ctrlKey || metaKey) && code === 'KeyW') shortcut = 'close';
         if (!shortcut) return;
 
         event.preventDefault();
