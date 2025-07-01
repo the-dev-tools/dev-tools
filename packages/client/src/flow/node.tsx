@@ -185,7 +185,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
             </Button>
 
             <Menu {...menuProps}>
-              <MenuItemLink from='/' search={(_) => ({ ..._, node: id })} to='.'>
+              <MenuItemLink search={(_) => ({ ..._, node: id })} to='.'>
                 Edit
               </MenuItemLink>
 

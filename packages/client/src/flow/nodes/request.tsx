@@ -183,7 +183,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
         <div className={tw`mr-3 ml-2 h-5 w-px shrink-0 bg-slate-300`} />
 
         <TooltipTrigger delay={750}>
-          <ButtonAsLink className={tw`p-1`} from='/' search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
+          <ButtonAsLink className={tw`p-1`} search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
             <FiX className={tw`size-5 text-slate-500`} />
           </ButtonAsLink>
           <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Close</Tooltip>

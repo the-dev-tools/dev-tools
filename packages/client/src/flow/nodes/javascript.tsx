@@ -57,7 +57,7 @@ export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
 
         <div className={tw`flex-1`} />
 
-        <ButtonAsLink className={tw`p-1`} from='/' search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
+        <ButtonAsLink className={tw`p-1`} search={(_) => ({ ..._, node: undefined })} to='.' variant='ghost'>
           <FiX className={tw`size-5 text-slate-500`} />
         </ButtonAsLink>
       </div>

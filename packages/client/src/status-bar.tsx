@@ -73,7 +73,6 @@ export const StatusBar = () => {
     <div className={twMerge(tw`flex items-center gap-2 bg-slate-50 px-2 py-1`, showLogs && tw`bg-white`)}>
       <ButtonAsLink
         className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
-        from='/'
         search={(_) => ({ ..._, showLogs: showLogs ? undefined : true })}
         to='.'
         variant='ghost'
@@ -97,13 +96,7 @@ export const StatusBar = () => {
 
           {separator}
 
-          <ButtonAsLink
-            className={tw`p-0.5`}
-            from='/'
-            search={(_) => ({ ..._, showLogs: undefined })}
-            to='.'
-            variant='ghost'
-          >
+          <ButtonAsLink className={tw`p-0.5`} search={(_) => ({ ..._, showLogs: undefined })} to='.' variant='ghost'>
             <FiX className={tw`size-4 text-slate-500`} />
           </ButtonAsLink>
         </>
