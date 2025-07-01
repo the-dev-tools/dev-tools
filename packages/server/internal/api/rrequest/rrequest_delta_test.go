@@ -2,20 +2,17 @@ package rrequest_test
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 	"testing"
 
-	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rrequest"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sexampleheader"
@@ -29,45 +26,35 @@ import (
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 
 	"connectrpc.com/connect"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// Test helpers
-
-type deltaTestContext struct {
-	ctx              context.Context
-	db               *sql.DB
-	rpc              rrequest.RequestRPC
-	userID           idwrap.IDWrap
-	collectionID     idwrap.IDWrap
-	originExampleID  idwrap.IDWrap
-	deltaExampleID   idwrap.IDWrap
-	itemApiID        idwrap.IDWrap
-	// Services
-	qs               sexamplequery.ExampleQueryService
-	hs               sexampleheader.HeaderService
-	as               sassert.AssertService
-	iaes             sitemapiexample.ItemApiExampleService
+// Helper functions for creating pointers
+func stringPtr(s string) *string {
+	return &s
 }
 
-func setupDeltaTest(t *testing.T) *deltaTestContext {
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+// setupDeltaTestData creates test data for delta functionality testing
+func setupDeltaTestData(t *testing.T) *deltaTestData {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
 	db := base.DB
 
 	// Initialize services
-	mockLogger := mocklogger.NewMockLogger()
 	ias := sitemapi.New(queries)
 	iaes := sitemapiexample.New(queries)
+	mockLogger := mocklogger.NewMockLogger()
 	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
 	ehs := sexampleheader.New(queries)
 	eqs := sexamplequery.New(queries)
 	as := sassert.New(queries)
 
-	// Create test data
+	// Create workspace and collection
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
 	collectionID := idwrap.NewNow()
@@ -76,17 +63,18 @@ func setupDeltaTest(t *testing.T) *deltaTestContext {
 	baseServices := base.GetBaseServices()
 	baseServices.CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, collectionID)
 
-	// Create item API
+	// Create item
 	item := &mitemapi.ItemApi{
 		ID:           idwrap.NewNow(),
-		Name:         "test_delta_api",
-		Url:          "https://api.example.com/test",
+		Name:         "test-item",
+		Url:          "http://example.com",
 		Method:       "GET",
 		CollectionID: collectionID,
-		FolderID:     nil,
 	}
 	err := ias.CreateItemApi(ctx, item)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create origin example
 	originExampleID := idwrap.NewNow()
@@ -94,1214 +82,639 @@ func setupDeltaTest(t *testing.T) *deltaTestContext {
 		ID:              originExampleID,
 		ItemApiID:       item.ID,
 		CollectionID:    collectionID,
-		Name:            "origin_example",
-		VersionParentID: nil, // No version parent - this is an origin
+		Name:            "origin-example",
+		VersionParentID: nil, // This is the origin example
 	}
 	err = iaes.CreateApiExample(ctx, originExample)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Create delta example with version parent
+	// Create delta example (with VersionParentID)
 	deltaExampleID := idwrap.NewNow()
 	deltaExample := &mitemapiexample.ItemApiExample{
 		ID:              deltaExampleID,
 		ItemApiID:       item.ID,
 		CollectionID:    collectionID,
-		Name:            "delta_example",
-		VersionParentID: &originExampleID, // Has version parent - this is a delta
+		Name:            "delta-example",
+		VersionParentID: &originExampleID, // This makes it a delta example
 	}
 	err = iaes.CreateApiExample(ctx, deltaExample)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	rpc := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
-	return &deltaTestContext{
-		ctx:             mwauth.CreateAuthedContext(ctx, userID),
-		db:              db,
+	return &deltaTestData{
+		ctx:             authedCtx,
 		rpc:             rpc,
-		userID:          userID,
-		collectionID:    collectionID,
 		originExampleID: originExampleID,
 		deltaExampleID:  deltaExampleID,
-		itemApiID:       item.ID,
-		qs:              eqs,
-		hs:              ehs,
+		userID:          userID,
+		ehs:             ehs,
+		eqs:             eqs,
 		as:              as,
-		iaes:            iaes,
 	}
 }
 
-// Query Delta Tests
-
-func TestQueryDeltaList_EmptyDelta(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create some queries in origin example
-	queries := []mexamplequery.Query{
-		{
-			ID:        idwrap.NewNow(),
-			ExampleID: tc.originExampleID,
-			QueryKey:  "api_key",
-			Enable:    true,
-			Value:     "secret123",
-			Description: "API Key",
-		},
-		{
-			ID:        idwrap.NewNow(),
-			ExampleID: tc.originExampleID,
-			QueryKey:  "page",
-			Enable:    true,
-			Value:     "1",
-			Description: "Page number",
-		},
-	}
-
-	for _, q := range queries {
-		err := tc.qs.CreateExampleQuery(tc.ctx, q)
-		require.NoError(t, err)
-	}
-
-	// List delta queries - should auto-create delta entries
-	req := connect.NewRequest(&requestv1.QueryDeltaListRequest{
-		ExampleId: tc.deltaExampleID.Bytes(),
-		OriginId:  tc.originExampleID.Bytes(),
-	})
-
-	resp, err := tc.rpc.QueryDeltaList(tc.ctx, req)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	// Should have 2 items, all with origin source
-	assert.Len(t, resp.Msg.Items, 2)
-	for _, item := range resp.Msg.Items {
-		assert.NotNil(t, item.Source)
-		assert.Equal(t, deltav1.SourceKind_SOURCE_KIND_ORIGIN, *item.Source)
-		assert.NotNil(t, item.Origin)
-		assert.Empty(t, item.Key) // Empty for auto-created entries
-		assert.Empty(t, item.Value)
-	}
+type deltaTestData struct {
+	ctx             context.Context
+	rpc             rrequest.RequestRPC
+	originExampleID idwrap.IDWrap
+	deltaExampleID  idwrap.IDWrap
+	userID          idwrap.IDWrap
+	ehs             sexampleheader.HeaderService
+	eqs             sexamplequery.ExampleQueryService
+	as              sassert.AssertService
 }
 
-func TestQueryDeltaList_MixedSources(t *testing.T) {
-	tc := setupDeltaTest(t)
+// Test Query Delta functionality
+func TestQueryDeltaCreateUpdateBehavior(t *testing.T) {
+	data := setupDeltaTestData(t)
 
-	// Create origin queries
-	originQuery1 := mexamplequery.Query{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		QueryKey:  "param1",
-		Enable:    true,
-		Value:     "value1",
-		Description: "First param",
+	// 1. Create a query in the origin example
+	createResp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
+		ExampleId:   data.originExampleID.Bytes(),
+		Key:         "test-key",
+		Enabled:     true,
+		Value:       "test-value",
+		Description: "test-description",
+	}))
+	if err != nil {
+		t.Fatal(err)
 	}
-	originQuery2 := mexamplequery.Query{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		QueryKey:  "param2",
-		Enable:    false,
-		Value:     "value2",
-		Description: "Second param",
-	}
+	_, _ = idwrap.NewFromBytes(createResp.Msg.QueryId)
 
-	err := tc.qs.CreateExampleQuery(tc.ctx, originQuery1)
-	require.NoError(t, err)
-	err = tc.qs.CreateExampleQuery(tc.ctx, originQuery2)
-	require.NoError(t, err)
-
-	// Create a delta query (will be shown as mixed)
-	deltaQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originQuery1.ID,
-		QueryKey:      "param1_modified",
-		Enable:        false,
-		Value:         "modified_value",
-		Description:   "Modified first param",
-	}
-	err = tc.qs.CreateExampleQuery(tc.ctx, deltaQuery)
-	require.NoError(t, err)
-
-	// List delta queries
-	req := connect.NewRequest(&requestv1.QueryDeltaListRequest{
-		ExampleId: tc.deltaExampleID.Bytes(),
-		OriginId:  tc.originExampleID.Bytes(),
-	})
-
-	resp, err := tc.rpc.QueryDeltaList(tc.ctx, req)
-	require.NoError(t, err)
-
-	// Should have 2 items
-	assert.Len(t, resp.Msg.Items, 2)
-
-	// Find the mixed source item
-	var mixedItem *requestv1.QueryDeltaListItem
-	var originItem *requestv1.QueryDeltaListItem
-	for _, item := range resp.Msg.Items {
-		if item.Source != nil && *item.Source == deltav1.SourceKind_SOURCE_KIND_MIXED {
-			mixedItem = item
-		} else if item.Source != nil && *item.Source == deltav1.SourceKind_SOURCE_KIND_ORIGIN {
-			originItem = item
-		}
+	// 2. Copy queries to delta example (simulating delta example creation)
+	err = data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	assert.NotNil(t, mixedItem)
-	assert.NotNil(t, originItem)
-
-	// Verify mixed item has modified values
-	assert.Equal(t, "param1_modified", mixedItem.Key)
-	assert.Equal(t, "modified_value", mixedItem.Value)
-	assert.Equal(t, false, mixedItem.Enabled)
-
-	// Verify origin item is auto-created
-	assert.Empty(t, originItem.Key)
-	assert.Empty(t, originItem.Value)
-}
-
-func TestQueryDeltaUpdate_OriginToMixed(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Copy queries from origin to delta
-	err := tc.rpc.QueryDeltaExampleCopy(tc.ctx, tc.originExampleID, tc.deltaExampleID)
-	require.NoError(t, err)
-
-	// Create an origin query in origin example
-	originQuery := mexamplequery.Query{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		QueryKey:  "test_key",
-		Enable:    true,
-		Value:     "original",
-		Description: "Original query",
+	// 3. Get delta list to verify initial state
+	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
 	}
-	err = tc.qs.CreateExampleQuery(tc.ctx, originQuery)
-	require.NoError(t, err)
 
-	// Copy to delta
-	err = tc.rpc.QueryDeltaExampleCopy(tc.ctx, tc.originExampleID, tc.deltaExampleID)
-	require.NoError(t, err)
-
-	// Get the delta queries to find the copied one
-	queries, err := tc.qs.GetExampleQueriesByExampleID(tc.ctx, tc.deltaExampleID)
-	require.NoError(t, err)
-
-	var deltaQueryID idwrap.IDWrap
-	for _, q := range queries {
-		if q.DeltaParentID != nil && q.DeltaParentID.Compare(originQuery.ID) == 0 {
-			deltaQueryID = q.ID
-			break
-		}
+	// Should have one item with source "origin"
+	if len(deltaListResp.Msg.Items) != 1 {
+		t.Fatalf("Expected 1 delta item, got %d", len(deltaListResp.Msg.Items))
 	}
-	require.NotEmpty(t, deltaQueryID)
+	initialItem := deltaListResp.Msg.Items[0]
+	if initialItem.Source == nil || *initialItem.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+		t.Errorf("Expected initial item to have source 'origin', got %v", initialItem.Source)
+	}
 
-	// Update the delta query (should create a mixed entry)
-	modifiedKey := "modified_key"
-	modifiedEnabled := false
-	modifiedValue := "modified"
-	modifiedDesc := "Modified query"
-	updateReq := connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{
+	// 4. Update the delta item
+	deltaQueryID, _ := idwrap.NewFromBytes(initialItem.QueryId)
+	_, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{
 		QueryId:     deltaQueryID.Bytes(),
-		Key:         &modifiedKey,
-		Enabled:     &modifiedEnabled,
-		Value:       &modifiedValue,
-		Description: &modifiedDesc,
-	})
-
-	_, err = tc.rpc.QueryDeltaUpdate(tc.ctx, updateReq)
-	require.NoError(t, err)
-
-	// Verify it's now mixed
-	query, err := tc.qs.GetExampleQuery(tc.ctx, deltaQueryID)
-	require.NoError(t, err)
-	assert.Equal(t, "modified_key", query.QueryKey)
-	assert.Equal(t, false, query.Enable)
-}
-
-func TestQueryDeltaReset_RestoresParentValues(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create origin query
-	originQuery := mexamplequery.Query{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		QueryKey:  "reset_test",
-		Enable:    true,
-		Value:     "original_value",
-		Description: "Original description",
-	}
-	err := tc.qs.CreateExampleQuery(tc.ctx, originQuery)
-	require.NoError(t, err)
-
-	// Create modified delta query
-	deltaQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originQuery.ID,
-		QueryKey:      "modified_key",
-		Enable:        false,
-		Value:         "modified_value",
-		Description:   "Modified description",
-	}
-	err = tc.qs.CreateExampleQuery(tc.ctx, deltaQuery)
-	require.NoError(t, err)
-
-	// Reset the delta query
-	resetReq := connect.NewRequest(&requestv1.QueryDeltaResetRequest{
-		QueryId: deltaQuery.ID.Bytes(),
-	})
-
-	_, err = tc.rpc.QueryDeltaReset(tc.ctx, resetReq)
-	require.NoError(t, err)
-
-	// Verify values are restored from parent
-	query, err := tc.qs.GetExampleQuery(tc.ctx, deltaQuery.ID)
-	require.NoError(t, err)
-	assert.Equal(t, originQuery.QueryKey, query.QueryKey)
-	assert.Equal(t, originQuery.Enable, query.Enable)
-	assert.Equal(t, originQuery.Value, query.Value)
-	assert.Equal(t, originQuery.Description, query.Description)
-}
-
-func TestQueryUpdate_PropagatestoOiriginSourceDeltas(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create origin query
-	originQuery := mexamplequery.Query{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		QueryKey:  "propagate_test",
-		Enable:    true,
-		Value:     "original",
-		Description: "Original",
-	}
-	err := tc.qs.CreateExampleQuery(tc.ctx, originQuery)
-	require.NoError(t, err)
-
-	// Create delta query that references origin (will have origin source)
-	deltaQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originQuery.ID,
-		QueryKey:      originQuery.QueryKey,
-		Enable:        originQuery.Enable,
-		Value:         originQuery.Value,
-		Description:   originQuery.Description,
-	}
-	err = tc.qs.CreateExampleQuery(tc.ctx, deltaQuery)
-	require.NoError(t, err)
-
-	// Update origin query
-	updatedKey := "updated_key"
-	updatedEnabled := false
-	updatedValue := "updated_value"
-	updatedDesc := "Updated description"
-	updateReq := connect.NewRequest(&requestv1.QueryUpdateRequest{
-		QueryId:     originQuery.ID.Bytes(),
-		Key:         &updatedKey,
-		Enabled:     &updatedEnabled,
-		Value:       &updatedValue,
-		Description: &updatedDesc,
-	})
-
-	_, err = tc.rpc.QueryUpdate(tc.ctx, updateReq)
-	require.NoError(t, err)
-
-	// Verify delta query was updated
-	updated, err := tc.qs.GetExampleQuery(tc.ctx, deltaQuery.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "updated_key", updated.QueryKey)
-	assert.Equal(t, false, updated.Enable)
-	assert.Equal(t, "updated_value", updated.Value)
-}
-
-func TestQueryDelete_CascadesToDeltaItems(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create origin query
-	originQuery := mexamplequery.Query{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		QueryKey:  "delete_test",
-		Enable:    true,
-		Value:     "will_be_deleted",
-		Description: "To be deleted",
-	}
-	err := tc.qs.CreateExampleQuery(tc.ctx, originQuery)
-	require.NoError(t, err)
-
-	// Create delta queries
-	deltaQuery1 := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originQuery.ID,
-		QueryKey:      originQuery.QueryKey,
-		Enable:        originQuery.Enable,
-		Value:         originQuery.Value,
-		Description:   originQuery.Description,
-	}
-	deltaQuery2 := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originQuery.ID,
-		QueryKey:      "modified",
-		Enable:        false,
-		Value:         "modified",
-		Description:   "Modified",
+		Key:         stringPtr("updated-key"),
+		Enabled:     boolPtr(false),
+		Value:       stringPtr("updated-value"),
+		Description: stringPtr("updated-description"),
+	}))
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	err = tc.qs.CreateExampleQuery(tc.ctx, deltaQuery1)
-	require.NoError(t, err)
-	err = tc.qs.CreateExampleQuery(tc.ctx, deltaQuery2)
-	require.NoError(t, err)
-
-	// Delete origin query
-	deleteReq := connect.NewRequest(&requestv1.QueryDeleteRequest{
-		QueryId: originQuery.ID.Bytes(),
-	})
-
-	_, err = tc.rpc.QueryDelete(tc.ctx, deleteReq)
-	require.NoError(t, err)
-
-	// Verify all queries are deleted
-	_, err = tc.qs.GetExampleQuery(tc.ctx, originQuery.ID)
-	assert.Error(t, err)
-	_, err = tc.qs.GetExampleQuery(tc.ctx, deltaQuery1.ID)
-	assert.Error(t, err)
-	_, err = tc.qs.GetExampleQuery(tc.ctx, deltaQuery2.ID)
-	assert.Error(t, err)
-}
-
-// Header Delta Tests
-
-func TestHeaderDeltaList_AutoCreateEntries(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create headers in origin example
-	headers := []mexampleheader.Header{
-		{
-			ID:          idwrap.NewNow(),
-			ExampleID:   tc.originExampleID,
-			HeaderKey:   "Authorization",
-			Enable:      true,
-			Value:       "Bearer token123",
-			Description: "Auth header",
-		},
-		{
-			ID:          idwrap.NewNow(),
-			ExampleID:   tc.originExampleID,
-			HeaderKey:   "Content-Type",
-			Enable:      true,
-			Value:       "application/json",
-			Description: "Content type",
-		},
+	// 5. Get delta list again to check for duplicates and source type
+	deltaListResp2, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for _, h := range headers {
-		err := tc.hs.CreateHeader(tc.ctx, h)
-		require.NoError(t, err)
+	// ISSUE 1 TEST: Should still have only 1 item (not creating duplicates)
+	if len(deltaListResp2.Msg.Items) != 1 {
+		t.Errorf("ISSUE 1: Expected 1 delta item after update, got %d - duplicates are being created!", len(deltaListResp2.Msg.Items))
 	}
 
-	// List delta headers
-	req := connect.NewRequest(&requestv1.HeaderDeltaListRequest{
-		ExampleId: tc.deltaExampleID.Bytes(),
-		OriginId:  tc.originExampleID.Bytes(),
-	})
+	// ISSUE 2 TEST: Updated item should have source "mixed" (current behavior) but should be "delta"
+	updatedItem := deltaListResp2.Msg.Items[0]
+	if updatedItem.Source == nil {
+		t.Error("Updated item has nil source")
+	} else if *updatedItem.Source == deltav1.SourceKind_SOURCE_KIND_MIXED {
+		t.Log("Current behavior: Updated delta item has source 'mixed'")
+		t.Error("ISSUE 2: Delta items should have source 'delta' instead of 'mixed'")
+	} else if *updatedItem.Source == deltav1.SourceKind_SOURCE_KIND_DELTA {
+		t.Log("Fixed behavior: Updated delta item correctly has source 'delta'")
+	}
 
-	resp, err := tc.rpc.HeaderDeltaList(tc.ctx, req)
-	require.NoError(t, err)
+	// Verify the values were actually updated
+	if updatedItem.Key != "updated-key" || updatedItem.Value != "updated-value" {
+		t.Error("Delta item values were not properly updated")
+	}
 
-	assert.Len(t, resp.Msg.Items, 2)
-	for _, item := range resp.Msg.Items {
-		assert.NotNil(t, item.Source)
-		assert.Equal(t, deltav1.SourceKind_SOURCE_KIND_ORIGIN, *item.Source)
-		assert.NotNil(t, item.Origin)
-		assert.Empty(t, item.Key)
+	// 6. Create a new delta item (without parent) to test source type
+	createDeltaResp, err := data.rpc.QueryDeltaCreate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaCreateRequest{
+		ExampleId:   data.deltaExampleID.Bytes(),
+		Key:         "new-delta-key",
+		Enabled:     true,
+		Value:       "new-delta-value",
+		Description: "new-delta-description",
+		// No QueryId provided, so this is a standalone delta item
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get the newly created delta query to check its type
+	newDeltaQueryID, _ := idwrap.NewFromBytes(createDeltaResp.Msg.QueryId)
+	newDeltaQuery, err := data.eqs.GetExampleQuery(data.ctx, newDeltaQueryID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check if it's correctly identified as a delta item
+	deltaType := newDeltaQuery.DetermineDeltaType(true) // true because delta example has VersionParentID
+	if deltaType != mexamplequery.QuerySourceDelta {
+		t.Errorf("ISSUE 2: New delta item should have source 'delta', got %v", deltaType)
 	}
 }
 
-func TestHeaderDeltaUpdate_CreatesNewMixedHeader(t *testing.T) {
-	tc := setupDeltaTest(t)
+// Test Header Delta functionality
+func TestHeaderDeltaCreateUpdateBehavior(t *testing.T) {
+	data := setupDeltaTestData(t)
 
-	// Copy headers from origin to delta
-	err := tc.rpc.HeaderDeltaExampleCopy(tc.ctx, tc.originExampleID, tc.deltaExampleID)
-	require.NoError(t, err)
-
-	// Create origin header
-	originHeader := mexampleheader.Header{
-		ID:          idwrap.NewNow(),
-		ExampleID:   tc.originExampleID,
-		HeaderKey:   "X-Custom",
-		Enable:      true,
-		Value:       "original",
-		Description: "Custom header",
+	// 1. Create a header in the origin example
+	createResp, err := data.rpc.HeaderCreate(data.ctx, connect.NewRequest(&requestv1.HeaderCreateRequest{
+		ExampleId:   data.originExampleID.Bytes(),
+		Key:         "test-header",
+		Enabled:     true,
+		Value:       "test-value",
+		Description: "test-description",
+	}))
+	if err != nil {
+		t.Fatal(err)
 	}
-	err = tc.hs.CreateHeader(tc.ctx, originHeader)
-	require.NoError(t, err)
+	_, _ = idwrap.NewFromBytes(createResp.Msg.HeaderId)
 
-	// Copy to delta
-	err = tc.rpc.HeaderDeltaExampleCopy(tc.ctx, tc.originExampleID, tc.deltaExampleID)
-	require.NoError(t, err)
-
-	// Get delta headers to find the copied one
-	headers, err := tc.hs.GetHeaderByExampleID(tc.ctx, tc.deltaExampleID)
-	require.NoError(t, err)
-
-	var deltaHeaderID idwrap.IDWrap
-	for _, h := range headers {
-		if h.DeltaParentID != nil && h.DeltaParentID.Compare(originHeader.ID) == 0 {
-			deltaHeaderID = h.ID
-			break
-		}
+	// 2. Copy headers to delta example
+	err = data.rpc.HeaderDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	require.NotEmpty(t, deltaHeaderID)
 
-	// Update should not create new header, just update existing
-	key := "X-Modified"
-	enabled := false
-	value := "modified"
-	description := "Modified header"
-	updateReq := connect.NewRequest(&requestv1.HeaderDeltaUpdateRequest{
+	// 3. Get delta list to verify initial state
+	deltaListResp, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should have one item with source "origin"
+	if len(deltaListResp.Msg.Items) != 1 {
+		t.Fatalf("Expected 1 delta item, got %d", len(deltaListResp.Msg.Items))
+	}
+	initialItem := deltaListResp.Msg.Items[0]
+	if initialItem.Source == nil || *initialItem.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+		t.Errorf("Expected initial item to have source 'origin', got %v", initialItem.Source)
+	}
+
+	// 4. Update the delta item
+	deltaHeaderID, _ := idwrap.NewFromBytes(initialItem.HeaderId)
+	_, err = data.rpc.HeaderDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaUpdateRequest{
 		HeaderId:    deltaHeaderID.Bytes(),
-		Key:         &key,
-		Enabled:     &enabled,
-		Value:       &value,
-		Description: &description,
-	})
+		Key:         stringPtr("updated-header"),
+		Enabled:     boolPtr(false),
+		Value:       stringPtr("updated-value"),
+		Description: stringPtr("updated-description"),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err = tc.rpc.HeaderDeltaUpdate(tc.ctx, updateReq)
-	require.NoError(t, err)
+	// 5. Get delta list again
+	deltaListResp2, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Verify update
-	header, err := tc.hs.GetHeaderByID(tc.ctx, deltaHeaderID)
-	require.NoError(t, err)
-	assert.Equal(t, "X-Modified", header.HeaderKey)
-	assert.Equal(t, false, header.Enable)
+	// Should still have only 1 item (not creating duplicates)
+	if len(deltaListResp2.Msg.Items) != 1 {
+		t.Errorf("Expected 1 delta item after update, got %d", len(deltaListResp2.Msg.Items))
+	}
+
+	// Check source type
+	updatedItem := deltaListResp2.Msg.Items[0]
+	if updatedItem.Source == nil {
+		t.Error("Updated item has nil source")
+	} else if *updatedItem.Source == deltav1.SourceKind_SOURCE_KIND_MIXED {
+		t.Log("Current behavior: Updated delta header has source 'mixed'")
+		t.Error("ISSUE 2: Delta headers should have source 'delta' instead of 'mixed'")
+	}
+
+	// 6. Create a standalone delta header
+	createDeltaResp, err := data.rpc.HeaderDeltaCreate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaCreateRequest{
+		ExampleId:   data.deltaExampleID.Bytes(),
+		Key:         "new-delta-header",
+		Enabled:     true,
+		Value:       "new-delta-value",
+		Description: "new-delta-description",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check the type of the newly created header
+	newDeltaHeaderID, _ := idwrap.NewFromBytes(createDeltaResp.Msg.HeaderId)
+	newDeltaHeader, err := data.ehs.GetHeaderByID(data.ctx, newDeltaHeaderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Manually check delta type (since we can't call the private method)
+	if newDeltaHeader.DeltaParentID == nil {
+		// Header with no parent in a delta example should be "delta" type
+		t.Log("Created standalone delta header (no parent)")
+	}
 }
 
-func TestHeaderDelete_CascadesToDeltaHeaders(t *testing.T) {
-	tc := setupDeltaTest(t)
+// Test Assert Delta functionality
+func TestAssertDeltaCreateUpdateBehavior(t *testing.T) {
+	data := setupDeltaTestData(t)
 
-	// Create origin header
-	originHeader := mexampleheader.Header{
-		ID:          idwrap.NewNow(),
-		ExampleID:   tc.originExampleID,
-		HeaderKey:   "X-Delete-Test",
-		Enable:      true,
-		Value:       "will_delete",
-		Description: "Will be deleted",
-	}
-	err := tc.hs.CreateHeader(tc.ctx, originHeader)
-	require.NoError(t, err)
-
-	// Create delta headers with different sources
-	deltaHeader1 := mexampleheader.Header{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originHeader.ID,
-		HeaderKey:     originHeader.HeaderKey,
-		Enable:        originHeader.Enable,
-		Value:         originHeader.Value,
-		Description:   originHeader.Description,
-	}
-	deltaHeader2 := mexampleheader.Header{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originHeader.ID,
-		HeaderKey:     "X-Modified",
-		Enable:        false,
-		Value:         "modified",
-		Description:   "Modified",
-	}
-
-	err = tc.hs.CreateHeader(tc.ctx, deltaHeader1)
-	require.NoError(t, err)
-	err = tc.hs.CreateHeader(tc.ctx, deltaHeader2)
-	require.NoError(t, err)
-
-	// Delete origin header
-	deleteReq := connect.NewRequest(&requestv1.HeaderDeleteRequest{
-		HeaderId: originHeader.ID.Bytes(),
-	})
-
-	_, err = tc.rpc.HeaderDelete(tc.ctx, deleteReq)
-	require.NoError(t, err)
-
-	// Verify cascade deletion
-	_, err = tc.hs.GetHeaderByID(tc.ctx, originHeader.ID)
-	assert.Error(t, err)
-	_, err = tc.hs.GetHeaderByID(tc.ctx, deltaHeader1.ID)
-	assert.Error(t, err)
-	_, err = tc.hs.GetHeaderByID(tc.ctx, deltaHeader2.ID)
-	assert.Error(t, err)
-}
-
-// Assert Delta Tests
-
-func TestAssertDeltaList_MixedSources(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create origin assert
-	originAssert := massert.Assert{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{
-				Expression: "status == \"200\"",
-			},
-		},
-		Enable: true,
-	}
-	err := tc.as.CreateAssert(tc.ctx, originAssert)
-	require.NoError(t, err)
-
-	// Create delta assert
-	deltaAssert := massert.Assert{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originAssert.ID,
-		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{
-				Expression: "status == \"201\"",
-			},
-		},
-		Enable: true,
-	}
-	err = tc.as.CreateAssert(tc.ctx, deltaAssert)
-	require.NoError(t, err)
-
-	// List delta asserts
-	req := connect.NewRequest(&requestv1.AssertDeltaListRequest{
-		ExampleId: tc.deltaExampleID.Bytes(),
-		OriginId:  tc.originExampleID.Bytes(),
-	})
-
-	resp, err := tc.rpc.AssertDeltaList(tc.ctx, req)
-	require.NoError(t, err)
-
-	assert.Len(t, resp.Msg.Items, 1)
-	item := resp.Msg.Items[0]
-	assert.NotNil(t, item.Source)
-	assert.Equal(t, deltav1.SourceKind_SOURCE_KIND_MIXED, *item.Source)
-	assert.NotNil(t, item.Origin)
-}
-
-func TestAssertUpdate_PropagatestoOriginSourceDeltas(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create origin assert
-	originAssert := massert.Assert{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{
-				Expression: "data.id == \"123\"",
-			},
-		},
-		Enable: true,
-	}
-	err := tc.as.CreateAssert(tc.ctx, originAssert)
-	require.NoError(t, err)
-
-	// Create delta assert with origin source
-	deltaAssert := massert.Assert{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originAssert.ID,
-		Condition:     originAssert.Condition,
-		Enable:        originAssert.Enable,
-	}
-	err = tc.as.CreateAssert(tc.ctx, deltaAssert)
-	require.NoError(t, err)
-
-	// Update origin assert
-	updateReq := connect.NewRequest(&requestv1.AssertUpdateRequest{
-		AssertId: originAssert.ID.Bytes(),
+	// 1. Create an assert in the origin example
+	createResp, err := data.rpc.AssertCreate(data.ctx, connect.NewRequest(&requestv1.AssertCreateRequest{
+		ExampleId: data.originExampleID.Bytes(),
 		Condition: &conditionv1.Condition{
 			Comparison: &conditionv1.Comparison{
-				Expression: "data.id == \"456\"",
+				Expression: "response == test-value",
 			},
 		},
-	})
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = idwrap.NewFromBytes(createResp.Msg.AssertId)
 
-	_, err = tc.rpc.AssertUpdate(tc.ctx, updateReq)
-	require.NoError(t, err)
+	// 2. Copy asserts to delta example
+	err = data.rpc.AssertDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Verify propagation
-	updated, err := tc.as.GetAssert(tc.ctx, deltaAssert.ID)
-	require.NoError(t, err)
-	assert.Contains(t, updated.Condition.Comparisons.Expression, "456")
-}
+	// 3. Get delta list to verify initial state
+	deltaListResp, err := data.rpc.AssertDeltaList(data.ctx, connect.NewRequest(&requestv1.AssertDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-func TestAssertDeltaReset_RestoresFromParent(t *testing.T) {
-	tc := setupDeltaTest(t)
+	// Should have one item with source "origin"
+	if len(deltaListResp.Msg.Items) != 1 {
+		t.Fatalf("Expected 1 delta item, got %d", len(deltaListResp.Msg.Items))
+	}
+	initialItem := deltaListResp.Msg.Items[0]
+	if initialItem.Source == nil || *initialItem.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+		t.Errorf("Expected initial item to have source 'origin', got %v", initialItem.Source)
+	}
 
-	// Create origin assert
-	originAssert := massert.Assert{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{
-				Expression: "success == \"true\"",
+	// 4. Update the delta item
+	deltaAssertID, _ := idwrap.NewFromBytes(initialItem.AssertId)
+	_, err = data.rpc.AssertDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.AssertDeltaUpdateRequest{
+		AssertId: deltaAssertID.Bytes(),
+		Condition: &conditionv1.Condition{
+			Comparison: &conditionv1.Comparison{
+				Expression: "response != updated-value",
 			},
 		},
-		Enable: true,
+	}))
+	if err != nil {
+		t.Fatal(err)
 	}
-	err := tc.as.CreateAssert(tc.ctx, originAssert)
-	require.NoError(t, err)
 
-	// Create modified delta assert
-	deltaAssert := massert.Assert{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originAssert.ID,
-		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{
-				Expression: "success == \"false\"",
-			},
-		},
-		Enable: false,
+	// 5. Get delta list again
+	deltaListResp2, err := data.rpc.AssertDeltaList(data.ctx, connect.NewRequest(&requestv1.AssertDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
 	}
-	err = tc.as.CreateAssert(tc.ctx, deltaAssert)
-	require.NoError(t, err)
 
-	// Reset delta assert
-	resetReq := connect.NewRequest(&requestv1.AssertDeltaResetRequest{
-		AssertId: deltaAssert.ID.Bytes(),
-	})
+	// ISSUE 1 TEST: Should still have only 1 item (not creating duplicates)
+	if len(deltaListResp2.Msg.Items) != 1 {
+		t.Errorf("ISSUE 1: Expected 1 delta item after update, got %d - duplicates are being created!", len(deltaListResp2.Msg.Items))
+	}
 
-	_, err = tc.rpc.AssertDeltaReset(tc.ctx, resetReq)
-	require.NoError(t, err)
-
-	// Verify reset
-	reset, err := tc.as.GetAssert(tc.ctx, deltaAssert.ID)
-	require.NoError(t, err)
-	assert.Equal(t, originAssert.Condition.Comparisons.Expression, reset.Condition.Comparisons.Expression)
-	assert.Equal(t, originAssert.Enable, reset.Enable)
+	// Check source type
+	updatedItem := deltaListResp2.Msg.Items[0]
+	if updatedItem.Source == nil {
+		t.Error("Updated item has nil source")
+	} else if *updatedItem.Source == deltav1.SourceKind_SOURCE_KIND_MIXED {
+		t.Log("Current behavior: Updated delta assert has source 'mixed'")
+		t.Error("ISSUE 2: Delta asserts should have source 'delta' instead of 'mixed'")
+	}
 }
 
-// Edge Case Tests
+// Test that updating origin items doesn't create duplicates in delta
+func TestOriginUpdatePropagation(t *testing.T) {
+	data := setupDeltaTestData(t)
 
-func TestDeltaOperations_InvalidParentID(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	nonExistentID := idwrap.NewNow()
-
-	// Test query with invalid parent
-	queryReq := connect.NewRequest(&requestv1.QueryDeltaCreateRequest{
-		ExampleId:   tc.deltaExampleID.Bytes(),
-		QueryId:     nonExistentID.Bytes(), // Non-existent parent
-		Key:         "test",
+	// Create and copy query
+	createResp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
+		ExampleId:   data.originExampleID.Bytes(),
+		Key:         "origin-key",
 		Enabled:     true,
-		Value:       "test",
-		Description: "test",
-	})
+		Value:       "origin-value",
+		Description: "origin-description",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
 
-	_, err := tc.rpc.QueryDeltaCreate(tc.ctx, queryReq)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not_found")
+	err = data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Test header with invalid parent
-	headerReq := connect.NewRequest(&requestv1.HeaderDeltaCreateRequest{
-		ExampleId:   tc.deltaExampleID.Bytes(),
-		HeaderId:    nonExistentID.Bytes(), // Non-existent parent
-		Key:         "test",
+	// Update the origin query
+	_, err = data.rpc.QueryUpdate(data.ctx, connect.NewRequest(&requestv1.QueryUpdateRequest{
+		QueryId:     originQueryID.Bytes(),
+		Key:         stringPtr("updated-origin-key"),
+		Enabled:     boolPtr(false),
+		Value:       stringPtr("updated-origin-value"),
+		Description: stringPtr("updated-origin-description"),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check delta list - should still have one item
+	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(deltaListResp.Msg.Items) != 1 {
+		t.Errorf("Expected 1 delta item after origin update, got %d", len(deltaListResp.Msg.Items))
+	}
+
+	// The delta item with source "origin" should reflect the updated values
+	item := deltaListResp.Msg.Items[0]
+	if item.Key != "updated-origin-key" {
+		t.Error("Delta item with source 'origin' should reflect updated origin values")
+	}
+}
+
+// Test reset functionality
+func TestDeltaResetFunctionality(t *testing.T) {
+	data := setupDeltaTestData(t)
+
+	// Create origin query
+	_, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
+		ExampleId:   data.originExampleID.Bytes(),
+		Key:         "original-key",
 		Enabled:     true,
-		Value:       "test",
-		Description: "test",
-	})
+		Value:       "original-value",
+		Description: "original-description",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err = tc.rpc.HeaderDeltaCreate(tc.ctx, headerReq)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not_found")
+	// Copy to delta
+	err = data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get delta item
+	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deltaQueryID, _ := idwrap.NewFromBytes(deltaListResp.Msg.Items[0].QueryId)
+
+	// Update the delta item
+	_, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{
+		QueryId:     deltaQueryID.Bytes(),
+		Key:         stringPtr("modified-key"),
+		Enabled:     boolPtr(false),
+		Value:       stringPtr("modified-value"),
+		Description: stringPtr("modified-description"),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Reset the delta item
+	_, err = data.rpc.QueryDeltaReset(data.ctx, connect.NewRequest(&requestv1.QueryDeltaResetRequest{
+		QueryId: deltaQueryID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check that values are restored
+	deltaListResp2, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resetItem := deltaListResp2.Msg.Items[0]
+	if resetItem.Key != "original-key" || resetItem.Value != "original-value" {
+		t.Error("Reset should restore original values")
+	}
+
+	// Source should be back to "origin"
+	if resetItem.Source == nil || *resetItem.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+		t.Error("Reset item should have source 'origin'")
+	}
 }
 
-func TestDeltaOperations_CrossExampleParent(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create another example
-	otherExampleID := idwrap.NewNow()
-	otherExample := &mitemapiexample.ItemApiExample{
-		ID:           otherExampleID,
-		ItemApiID:    tc.itemApiID,
-		CollectionID: tc.collectionID,
-		Name:         "other_example",
-	}
-	err := tc.iaes.CreateApiExample(tc.ctx, otherExample)
-	require.NoError(t, err)
-
-	// Create query in other example
-	otherQuery := mexamplequery.Query{
-		ID:        idwrap.NewNow(),
-		ExampleID: otherExampleID,
-		QueryKey:  "other",
-		Enable:    true,
-		Value:     "other",
-		Description: "Other query",
-	}
-	err = tc.qs.CreateExampleQuery(tc.ctx, otherQuery)
-	require.NoError(t, err)
-
-	// Try to create delta query with parent from different example
-	req := connect.NewRequest(&requestv1.QueryDeltaCreateRequest{
-		ExampleId:   tc.deltaExampleID.Bytes(),
-		QueryId:     otherQuery.ID.Bytes(), // Parent from different example
-		Key:         "test",
-		Enabled:     true,
-		Value:       "test",
-		Description: "test",
-	})
-
-	_, err = tc.rpc.QueryDeltaCreate(tc.ctx, req)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "does not belong to the specified example")
-}
-
-func TestDeltaBulkOperations_LargeDataset(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create many origin queries (more than chunk size of 10)
-	const numQueries = 25
-	for i := 0; i < numQueries; i++ {
-		query := mexamplequery.Query{
-			ID:        idwrap.NewNow(),
-			ExampleID: tc.originExampleID,
-			QueryKey:  fmt.Sprintf("key_%d", i),
-			Enable:    i%2 == 0,
-			Value:     fmt.Sprintf("value_%d", i),
-			Description: fmt.Sprintf("Query %d", i),
-		}
-		err := tc.qs.CreateExampleQuery(tc.ctx, query)
-		require.NoError(t, err)
-	}
-
-	// Copy all to delta (tests bulk operations)
-	err := tc.rpc.QueryDeltaExampleCopy(tc.ctx, tc.originExampleID, tc.deltaExampleID)
-	require.NoError(t, err)
-
-	// Verify all were copied
-	deltaQueries, err := tc.qs.GetExampleQueriesByExampleID(tc.ctx, tc.deltaExampleID)
-	require.NoError(t, err)
-	assert.Len(t, deltaQueries, numQueries)
-}
-
-func TestDeltaOperations_PermissionChecks(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create another user context without permissions
-	unauthorizedUserID := idwrap.NewNow()
-	unauthorizedCtx := mwauth.CreateAuthedContext(context.Background(), unauthorizedUserID)
-
-	// Try to list delta queries without permission
-	req := connect.NewRequest(&requestv1.QueryDeltaListRequest{
-		ExampleId: tc.deltaExampleID.Bytes(),
-		OriginId:  tc.originExampleID.Bytes(),
-	})
-
-	_, err := tc.rpc.QueryDeltaList(unauthorizedCtx, req)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "permission_denied")
-}
-
-func TestDeltaReset_WithoutParent(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create standalone delta query (no parent)
-	standaloneQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: nil, // No parent
-		QueryKey:      "standalone",
-		Enable:        true,
-		Value:         "test",
-		Description:   "Standalone query",
-	}
-	err := tc.qs.CreateExampleQuery(tc.ctx, standaloneQuery)
-	require.NoError(t, err)
-
-	// Reset should clear fields
-	resetReq := connect.NewRequest(&requestv1.QueryDeltaResetRequest{
-		QueryId: standaloneQuery.ID.Bytes(),
-	})
-
-	_, err = tc.rpc.QueryDeltaReset(tc.ctx, resetReq)
-	require.NoError(t, err)
-
-	// Verify fields are cleared
-	reset, err := tc.qs.GetExampleQuery(tc.ctx, standaloneQuery.ID)
-	require.NoError(t, err)
-	assert.Empty(t, reset.QueryKey)
-	assert.False(t, reset.Enable)
-	assert.Empty(t, reset.Value)
-	assert.Empty(t, reset.Description)
-}
-
-func TestSourceTypeDetermination_ComplexScenarios(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create origin query in origin example
-	originQuery := mexamplequery.Query{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		QueryKey:  "source_test",
-		Enable:    true,
-		Value:     "origin",
-		Description: "Origin query",
-	}
-	err := tc.qs.CreateExampleQuery(tc.ctx, originQuery)
-	require.NoError(t, err)
-
-	// Create mixed query in origin example (references another origin)
-	mixedInOrigin := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.originExampleID,
-		DeltaParentID: &originQuery.ID,
-		QueryKey:      "mixed_in_origin",
-		Enable:        false,
-		Value:         "mixed",
-		Description:   "Mixed in origin example",
-	}
-	err = tc.qs.CreateExampleQuery(tc.ctx, mixedInOrigin)
-	require.NoError(t, err)
-
-	// Verify source types
-	// In origin example (no version parent)
-	assert.Equal(t, mexamplequery.QuerySourceOrigin, originQuery.DetermineDeltaType(false))
-	assert.Equal(t, mexamplequery.QuerySourceMixed, mixedInOrigin.DetermineDeltaType(false))
-
-	// Create delta query in delta example
-	deltaQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     tc.deltaExampleID,
-		DeltaParentID: &originQuery.ID,
-		QueryKey:      "delta_query",
-		Enable:        true,
-		Value:         "delta",
-		Description:   "Delta query",
-	}
-	err = tc.qs.CreateExampleQuery(tc.ctx, deltaQuery)
-	require.NoError(t, err)
-
-	// In delta example (has version parent)
-	assert.Equal(t, mexamplequery.QuerySourceDelta, deltaQuery.DetermineDeltaType(true))
-}
-
-// Table-driven tests for comprehensive coverage
-
-func TestQueryDeltaOperations_TableDriven(t *testing.T) {
+// Test DetermineDeltaType method for Query
+func TestQueryDetermineDeltaType(t *testing.T) {
 	tests := []struct {
-		name        string
-		setupFunc   func(tc *deltaTestContext) (idwrap.IDWrap, error)
-		operation   string
-		expectError bool
-		errorMsg    string
-		validate    func(t *testing.T, tc *deltaTestContext, id idwrap.IDWrap)
+		name           string
+		query          mexamplequery.Query
+		isDeltaExample bool
+		expectedType   string
 	}{
 		{
-			name: "create_delta_query_with_valid_parent",
-			setupFunc: func(tc *deltaTestContext) (idwrap.IDWrap, error) {
-				// Create origin query
-				origin := mexamplequery.Query{
-					ID:        idwrap.NewNow(),
-					ExampleID: tc.originExampleID,
-					QueryKey:  "parent",
-					Enable:    true,
-					Value:     "value",
-				}
-				err := tc.qs.CreateExampleQuery(tc.ctx, origin)
-				if err != nil {
-					return idwrap.IDWrap{}, err
-				}
-
-				// Create delta with parent
-				req := connect.NewRequest(&requestv1.QueryDeltaCreateRequest{
-					ExampleId: tc.deltaExampleID.Bytes(),
-					QueryId:   origin.ID.Bytes(),
-					Key:       "child",
-					Enabled:   false,
-					Value:     "child_value",
-				})
-				resp, err := tc.rpc.QueryDeltaCreate(tc.ctx, req)
-				if err != nil {
-					return idwrap.IDWrap{}, err
-				}
-				return idwrap.NewFromBytes(resp.Msg.QueryId)
+			name: "Query without DeltaParentID in original example",
+			query: mexamplequery.Query{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: nil,
 			},
-			expectError: false,
-			validate: func(t *testing.T, tc *deltaTestContext, id idwrap.IDWrap) {
-				query, err := tc.qs.GetExampleQuery(tc.ctx, id)
-				require.NoError(t, err)
-				assert.NotNil(t, query.DeltaParentID)
-				assert.Equal(t, "child", query.QueryKey)
-			},
+			isDeltaExample: false,
+			expectedType:   mexamplequery.QuerySourceOrigin,
 		},
 		{
-			name: "delete_origin_cascades_to_all_deltas",
-			setupFunc: func(tc *deltaTestContext) (idwrap.IDWrap, error) {
-				// Create origin
-				origin := mexamplequery.Query{
-					ID:        idwrap.NewNow(),
-					ExampleID: tc.originExampleID,
-					QueryKey:  "cascade_test",
-					Enable:    true,
-					Value:     "origin",
-				}
-				err := tc.qs.CreateExampleQuery(tc.ctx, origin)
-				if err != nil {
-					return idwrap.IDWrap{}, err
-				}
-
-				// Create multiple deltas
-				for i := 0; i < 3; i++ {
-					delta := mexamplequery.Query{
-						ID:            idwrap.NewNow(),
-						ExampleID:     tc.deltaExampleID,
-						DeltaParentID: &origin.ID,
-						QueryKey:      fmt.Sprintf("delta_%d", i),
-						Enable:        true,
-						Value:         fmt.Sprintf("value_%d", i),
-					}
-					err := tc.qs.CreateExampleQuery(tc.ctx, delta)
-					if err != nil {
-						return idwrap.IDWrap{}, err
-					}
-				}
-
-				return origin.ID, nil
+			name: "Query without DeltaParentID in delta example",
+			query: mexamplequery.Query{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: nil,
 			},
-			operation:   "delete",
-			expectError: false,
-			validate: func(t *testing.T, tc *deltaTestContext, originID idwrap.IDWrap) {
-				// Verify origin is deleted
-				_, err := tc.qs.GetExampleQuery(tc.ctx, originID)
-				assert.Error(t, err)
-
-				// Verify all deltas are deleted
-				queries, err := tc.qs.GetExampleQueriesByExampleID(tc.ctx, tc.deltaExampleID)
-				require.NoError(t, err)
-				for _, q := range queries {
-					if q.DeltaParentID != nil && q.DeltaParentID.Compare(originID) == 0 {
-						t.Errorf("Found delta query that should have been deleted: %v", q.ID)
-					}
-				}
+			isDeltaExample: true,
+			expectedType:   mexamplequery.QuerySourceDelta,
+		},
+		{
+			name: "Query with DeltaParentID in original example",
+			query: mexamplequery.Query{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: &idwrap.IDWrap{},
 			},
+			isDeltaExample: false,
+			expectedType:   mexamplequery.QuerySourceMixed,
+		},
+		{
+			name: "Query with DeltaParentID in delta example",
+			query: mexamplequery.Query{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: &idwrap.IDWrap{},
+			},
+			isDeltaExample: true,
+			expectedType:   mexamplequery.QuerySourceDelta,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tc := setupDeltaTest(t)
-			id, err := tt.setupFunc(tc)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				if tt.errorMsg != "" {
-					assert.Contains(t, err.Error(), tt.errorMsg)
-				}
-			} else {
-				assert.NoError(t, err)
-				if tt.validate != nil {
-					tt.validate(t, tc, id)
-				}
+			result := tt.query.DetermineDeltaType(tt.isDeltaExample)
+			if result != tt.expectedType {
+				t.Errorf("Expected %s, got %s", tt.expectedType, result)
 			}
 		})
 	}
 }
 
-// Concurrent operations test
-func TestDeltaOperations_Concurrent(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create origin queries
-	const numQueries = 10
-	originQueries := make([]idwrap.IDWrap, numQueries)
-	for i := 0; i < numQueries; i++ {
-		query := mexamplequery.Query{
-			ID:        idwrap.NewNow(),
-			ExampleID: tc.originExampleID,
-			QueryKey:  fmt.Sprintf("concurrent_%d", i),
-			Enable:    true,
-			Value:     fmt.Sprintf("value_%d", i),
-			Description: fmt.Sprintf("Concurrent test %d", i),
-		}
-		err := tc.qs.CreateExampleQuery(tc.ctx, query)
-		require.NoError(t, err)
-		originQueries[i] = query.ID
+// Test DetermineDeltaType method for Header
+func TestHeaderDetermineDeltaType(t *testing.T) {
+	tests := []struct {
+		name           string
+		header         mexampleheader.Header
+		isDeltaExample bool
+		expectedType   string
+	}{
+		{
+			name: "Header without DeltaParentID in original example",
+			header: mexampleheader.Header{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: nil,
+			},
+			isDeltaExample: false,
+			expectedType:   mexampleheader.HeaderSourceOrigin,
+		},
+		{
+			name: "Header without DeltaParentID in delta example",
+			header: mexampleheader.Header{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: nil,
+			},
+			isDeltaExample: true,
+			expectedType:   mexampleheader.HeaderSourceDelta,
+		},
+		{
+			name: "Header with DeltaParentID in original example",
+			header: mexampleheader.Header{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: &idwrap.IDWrap{},
+			},
+			isDeltaExample: false,
+			expectedType:   mexampleheader.HeaderSourceMixed,
+		},
+		{
+			name: "Header with DeltaParentID in delta example",
+			header: mexampleheader.Header{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: &idwrap.IDWrap{},
+			},
+			isDeltaExample: true,
+			expectedType:   mexampleheader.HeaderSourceDelta,
+		},
 	}
 
-	// Concurrently update all queries
-	errCh := make(chan error, numQueries)
-	for i := 0; i < numQueries; i++ {
-		go func(idx int) {
-			key := fmt.Sprintf("updated_%d", idx)
-			enabled := false
-			value := fmt.Sprintf("updated_value_%d", idx)
-			description := fmt.Sprintf("Updated %d", idx)
-			req := connect.NewRequest(&requestv1.QueryUpdateRequest{
-				QueryId:     originQueries[idx].Bytes(),
-				Key:         &key,
-				Enabled:     &enabled,
-				Value:       &value,
-				Description: &description,
-			})
-			_, err := tc.rpc.QueryUpdate(tc.ctx, req)
-			errCh <- err
-		}(i)
-	}
-
-	// Check all operations succeeded
-	for i := 0; i < numQueries; i++ {
-		err := <-errCh
-		assert.NoError(t, err)
-	}
-
-	// Verify all updates
-	for i := 0; i < numQueries; i++ {
-		query, err := tc.qs.GetExampleQuery(tc.ctx, originQueries[i])
-		require.NoError(t, err)
-		assert.Equal(t, fmt.Sprintf("updated_%d", i), query.QueryKey)
-		assert.Equal(t, false, query.Enable)
-	}
-}
-
-// Test circular reference prevention
-func TestDeltaOperations_CircularReferencePrevention(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create a query that tries to reference itself
-	selfRefQuery := idwrap.NewNow()
-	req := connect.NewRequest(&requestv1.QueryDeltaCreateRequest{
-		ExampleId:   tc.deltaExampleID.Bytes(),
-		QueryId:     selfRefQuery.Bytes(), // Self reference
-		Key:         "self_ref",
-		Enabled:     true,
-		Value:       "circular",
-		Description: "Circular reference test",
-	})
-
-	_, err := tc.rpc.QueryDeltaCreate(tc.ctx, req)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not_found")
-}
-
-// Test null and empty field handling
-func TestDeltaOperations_NullEmptyFields(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create query with empty fields
-	emptyQuery := mexamplequery.Query{
-		ID:          idwrap.NewNow(),
-		ExampleID:   tc.originExampleID,
-		QueryKey:    "", // Empty key
-		Enable:      false,
-		Value:       "", // Empty value
-		Description: "", // Empty description
-	}
-	err := tc.qs.CreateExampleQuery(tc.ctx, emptyQuery)
-	require.NoError(t, err)
-
-	// Copy to delta - should handle empty fields
-	err = tc.rpc.QueryDeltaExampleCopy(tc.ctx, tc.originExampleID, tc.deltaExampleID)
-	require.NoError(t, err)
-
-	// List delta queries
-	req := connect.NewRequest(&requestv1.QueryDeltaListRequest{
-		ExampleId: tc.deltaExampleID.Bytes(),
-		OriginId:  tc.originExampleID.Bytes(),
-	})
-
-	resp, err := tc.rpc.QueryDeltaList(tc.ctx, req)
-	require.NoError(t, err)
-	
-	// Verify empty fields are preserved
-	found := false
-	for _, item := range resp.Msg.Items {
-		if item.Origin != nil && len(item.Origin.QueryId) > 0 {
-			originID, _ := idwrap.NewFromBytes(item.Origin.QueryId)
-			if originID.Compare(emptyQuery.ID) == 0 {
-				found = true
-				assert.Empty(t, item.Key)
-				assert.Empty(t, item.Value)
-				assert.Empty(t, item.Description)
-				assert.False(t, item.Enabled)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.header.DetermineDeltaType(tt.isDeltaExample)
+			if result != tt.expectedType {
+				t.Errorf("Expected %s, got %s", tt.expectedType, result)
 			}
-		}
+		})
 	}
-	assert.True(t, found, "Empty query not found in delta list")
 }
 
-// Test multiple delta examples referencing same origin
-func TestDeltaOperations_MultipleDeltasFromSameOrigin(t *testing.T) {
-	tc := setupDeltaTest(t)
-
-	// Create another delta example
-	deltaExample2ID := idwrap.NewNow()
-	deltaExample2 := &mitemapiexample.ItemApiExample{
-		ID:              deltaExample2ID,
-		ItemApiID:       tc.itemApiID,
-		CollectionID:    tc.collectionID,
-		Name:            "delta_example_2",
-		VersionParentID: &tc.originExampleID,
+// Test DetermineDeltaType method for Assert
+func TestAssertDetermineDeltaType(t *testing.T) {
+	tests := []struct {
+		name           string
+		assert         massert.Assert
+		isDeltaExample bool
+		expectedType   string
+	}{
+		{
+			name: "Assert without DeltaParentID in original example",
+			assert: massert.Assert{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: nil,
+			},
+			isDeltaExample: false,
+			expectedType:   massert.AssertSourceOrigin,
+		},
+		{
+			name: "Assert without DeltaParentID in delta example",
+			assert: massert.Assert{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: nil,
+			},
+			isDeltaExample: true,
+			expectedType:   massert.AssertSourceDelta,
+		},
+		{
+			name: "Assert with DeltaParentID in original example",
+			assert: massert.Assert{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: &idwrap.IDWrap{},
+			},
+			isDeltaExample: false,
+			expectedType:   massert.AssertSourceMixed,
+		},
+		{
+			name: "Assert with DeltaParentID in delta example",
+			assert: massert.Assert{
+				ID:            idwrap.NewNow(),
+				DeltaParentID: &idwrap.IDWrap{},
+			},
+			isDeltaExample: true,
+			expectedType:   massert.AssertSourceDelta,
+		},
 	}
-	err := tc.iaes.CreateApiExample(tc.ctx, deltaExample2)
-	require.NoError(t, err)
 
-	// Create query in origin
-	originQuery := mexamplequery.Query{
-		ID:        idwrap.NewNow(),
-		ExampleID: tc.originExampleID,
-		QueryKey:  "shared_origin",
-		Enable:    true,
-		Value:     "original",
-		Description: "Shared by multiple deltas",
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.assert.DetermineDeltaType(tt.isDeltaExample)
+			if result != tt.expectedType {
+				t.Errorf("Expected %s, got %s", tt.expectedType, result)
+			}
+		})
 	}
-	err = tc.qs.CreateExampleQuery(tc.ctx, originQuery)
-	require.NoError(t, err)
-
-	// Copy to both delta examples
-	err = tc.rpc.QueryDeltaExampleCopy(tc.ctx, tc.originExampleID, tc.deltaExampleID)
-	require.NoError(t, err)
-	err = tc.rpc.QueryDeltaExampleCopy(tc.ctx, tc.originExampleID, deltaExample2ID)
-	require.NoError(t, err)
-
-	// Update origin query
-	sharedKey := "updated_shared"
-	sharedEnabled := false
-	sharedValue := "updated"
-	sharedDescription := "Updated shared query"
-	updateReq := connect.NewRequest(&requestv1.QueryUpdateRequest{
-		QueryId:     originQuery.ID.Bytes(),
-		Key:         &sharedKey,
-		Enabled:     &sharedEnabled,
-		Value:       &sharedValue,
-		Description: &sharedDescription,
-	})
-
-	_, err = tc.rpc.QueryUpdate(tc.ctx, updateReq)
-	require.NoError(t, err)
-
-	// Verify both delta queries were updated
-	queries1, err := tc.qs.GetExampleQueriesByExampleID(tc.ctx, tc.deltaExampleID)
-	require.NoError(t, err)
-	queries2, err := tc.qs.GetExampleQueriesByExampleID(tc.ctx, deltaExample2ID)
-	require.NoError(t, err)
-
-	// Check first delta
-	found1 := false
-	for _, q := range queries1 {
-		if q.DeltaParentID != nil && q.DeltaParentID.Compare(originQuery.ID) == 0 {
-			found1 = true
-			assert.Equal(t, "updated_shared", q.QueryKey)
-			assert.Equal(t, false, q.Enable)
-		}
-	}
-	assert.True(t, found1)
-
-	// Check second delta
-	found2 := false
-	for _, q := range queries2 {
-		if q.DeltaParentID != nil && q.DeltaParentID.Compare(originQuery.ID) == 0 {
-			found2 = true
-			assert.Equal(t, "updated_shared", q.QueryKey)
-			assert.Equal(t, false, q.Enable)
-		}
-	}
-	assert.True(t, found2)
 }

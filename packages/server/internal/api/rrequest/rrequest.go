@@ -480,7 +480,7 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 				origin = originRPC
 			}
 
-			sourceKind := mexamplequery.QuerySourceMixed.ToSourceKind()
+			sourceKind := deltaType.ToSourceKind()
 			rpcQuery := &requestv1.QueryDeltaListItem{
 				QueryId:     query.ID.Bytes(),
 				Key:         query.QueryKey,
@@ -632,52 +632,25 @@ func (c RequestRPC) QueryDeltaUpdate(ctx context.Context, req *connect.Request[r
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Get the example to determine if it has a version parent
-	example, err := c.iaes.GetApiExample(ctx, existingQuery.ExampleID)
+	// Always update the existing query instead of creating a new one
+	reqQuery := requestv1.Query{
+		QueryId:     req.Msg.GetQueryId(),
+		Key:         req.Msg.GetKey(),
+		Enabled:     req.Msg.GetEnabled(),
+		Value:       req.Msg.GetValue(),
+		Description: req.Msg.GetDescription(),
+	}
+	query, err := tquery.SerlializeQueryRPCtoModel(&reqQuery, idwrap.IDWrap{})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Preserve the existing delta parent
+	query.DeltaParentID = existingQuery.DeltaParentID
+
+	err = c.eqs.UpdateExampleQuery(ctx, query)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	exampleHasVersionParent := example.VersionParentID != nil
-
-	// If this is an origin query, we need to create a mixed query instead of updating
-	existingDeltaType := existingQuery.DetermineDeltaType(exampleHasVersionParent)
-	if existingDeltaType == mexamplequery.QuerySourceOrigin {
-		// Create a new mixed query with updated fields
-		mixedQuery := mexamplequery.Query{
-			ID:            idwrap.NewNow(),
-			ExampleID:     existingQuery.ExampleID,
-			DeltaParentID: &existingQuery.ID, // Point to the original query
-			QueryKey:      req.Msg.GetKey(),
-			Enable:        req.Msg.GetEnabled(),
-			Description:   req.Msg.GetDescription(),
-			Value:         req.Msg.GetValue(),
-		}
-
-		err = c.eqs.CreateExampleQuery(ctx, mixedQuery)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	} else {
-		// If it's already a delta or mixed query, just update it normally
-		reqQuery := requestv1.Query{
-			QueryId:     req.Msg.GetQueryId(),
-			Key:         req.Msg.GetKey(),
-			Enabled:     req.Msg.GetEnabled(),
-			Value:       req.Msg.GetValue(),
-			Description: req.Msg.GetDescription(),
-		}
-		query, err := tquery.SerlializeQueryRPCtoModel(&reqQuery, idwrap.IDWrap{})
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-
-		// Preserve the existing delta parent
-		query.DeltaParentID = existingQuery.DeltaParentID
-
-		err = c.eqs.UpdateExampleQuery(ctx, query)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
 	}
 
 	return connect.NewResponse(&requestv1.QueryDeltaUpdateResponse{}), nil
@@ -1129,7 +1102,7 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 				origin = originRPC
 			}
 
-			sourceKind := mexampleheader.HeaderSourceMixed.ToSourceKind()
+			sourceKind := deltaType.ToSourceKind()
 			rpcHeader := &requestv1.HeaderDeltaListItem{
 				HeaderId:    header.ID.Bytes(),
 				Key:         header.HeaderKey,
@@ -1661,7 +1634,7 @@ func (c RequestRPC) AssertDeltaList(ctx context.Context, req *connect.Request[re
 				origin = originRPC
 			}
 
-			sourceKind := massert.AssertSourceMixed.ToSourceKind()
+			sourceKind := deltaType.ToSourceKind()
 			rpcAssert := &requestv1.AssertDeltaListItem{
 				AssertId:  assert.ID.Bytes(),
 				Condition: tcondition.SeralizeConditionModelToRPC(assert.Condition),
@@ -1805,39 +1778,12 @@ func (c RequestRPC) AssertDeltaUpdate(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Get the example to determine if it has a version parent
-	example, err := c.iaes.GetApiExample(ctx, existingAssert.ExampleID)
+	// Always update the existing assert instead of creating a new one
+	existingAssert.Condition = tcondition.DeserializeConditionRPCToModel(req.Msg.GetCondition())
+
+	err = c.as.UpdateAssert(ctx, *existingAssert)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	exampleHasVersionParent := example.VersionParentID != nil
-
-	// If this is an origin assert, we need to create a mixed assert instead of updating
-	existingDeltaType := existingAssert.DetermineDeltaType(exampleHasVersionParent)
-	if existingDeltaType == massert.AssertSourceOrigin {
-		// Create a new mixed assert with updated fields
-		mixedAssert := massert.Assert{
-			ID:            idwrap.NewNow(),
-			ExampleID:     existingAssert.ExampleID,
-			DeltaParentID: &existingAssert.ID, // Point to the original assert
-			Condition:     tcondition.DeserializeConditionRPCToModel(req.Msg.GetCondition()),
-			Enable:        true,
-			Prev:          existingAssert.Prev,
-			Next:          existingAssert.Next,
-		}
-
-		err = c.as.CreateAssert(ctx, mixedAssert)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	} else {
-		// If it's already a delta or mixed assert, just update it normally
-		existingAssert.Condition = tcondition.DeserializeConditionRPCToModel(req.Msg.GetCondition())
-
-		err = c.as.UpdateAssert(ctx, *existingAssert)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
 	}
 
 	return connect.NewResponse(&requestv1.AssertDeltaUpdateResponse{}), nil
