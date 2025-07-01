@@ -2,7 +2,7 @@ import type { MessageInitShape } from '@bufbuild/protobuf';
 import { enumFromJson } from '@bufbuild/protobuf';
 import { useRouteContext } from '@tanstack/react-router';
 import { useReactFlow } from '@xyflow/react';
-import { Array } from 'effect';
+import { Array, HashMap, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { use, useEffect, useRef } from 'react';
 import type { NodeSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
@@ -24,8 +24,10 @@ import {
   ExampleGetEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
 import {
+  HeaderDeltaCreateEndpoint,
   HeaderDeltaListEndpoint,
   HeaderDeltaUpdateEndpoint,
+  QueryDeltaCreateEndpoint,
   QueryDeltaListEndpoint,
   QueryDeltaUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.js';
@@ -46,41 +48,39 @@ async function copyDeltaData(
 ) {
   // 1. Copy all header deltas
   try {
-    // Get headers from the source delta that have been modified
-    const { items: sourceDeltas }: { items: HeaderDeltaListItem[] } = await dataClient.fetch(HeaderDeltaListEndpoint, {
+    const { items: sourceItems }: { items: HeaderDeltaListItem[] } = await dataClient.fetch(HeaderDeltaListEndpoint, {
       exampleId: originalDeltaExampleId,
       originId: exampleId,
     });
 
-    // Filter to only get overridden headers (not ORIGIN)
-    const overriddenHeaders = sourceDeltas.filter((h) => h.source !== SourceKind.ORIGIN);
-    console.log(`Found ${overriddenHeaders.length} overridden headers to copy`);
-
-    if (overriddenHeaders.length > 0) {
-      // Get all headers from the new delta example (they will all be ORIGIN)
-      const { items: newDeltas }: { items: HeaderDeltaListItem[] } = await dataClient.fetch(HeaderDeltaListEndpoint, {
+    const newItemMap = pipe(
+      await dataClient.fetch(HeaderDeltaListEndpoint, {
         exampleId: deltaExampleId,
         originId: exampleId,
-      });
+      }),
+      (_) =>
+        Array.filterMap(_.items, (_) => {
+          if (!_.origin) return Option.none();
+          const id = _.origin.headerId.toString();
+          return Option.some([id, _] as const);
+        }),
+      HashMap.fromIterable,
+    );
 
-      // For each overridden header in source, update the matching one in target
-      for (const src of overriddenHeaders) {
-        const match = newDeltas.find((d) => d.key === src.key);
-        if (!match) {
-          console.warn(`No matching header found for key: ${src.key}`);
-          continue;
-        }
+    for (const { $typeName: _, ...sourceItem } of sourceItems) {
+      if (sourceItem.source === SourceKind.ORIGIN) continue;
 
-        console.log(`Updating header '${src.key}' with value: ${src.value}`);
+      if (sourceItem.source === SourceKind.MIXED) {
+        const newItem = pipe(
+          Option.fromNullable(sourceItem.origin),
+          Option.flatMap((_) => HashMap.get(newItemMap, _.headerId.toString())),
+        );
+        if (Option.isNone(newItem)) continue;
+        await dataClient.fetch(HeaderDeltaUpdateEndpoint, { ...sourceItem, headerId: newItem.value.headerId });
+      }
 
-        // Update the header with the overridden values
-        await dataClient.fetch(HeaderDeltaUpdateEndpoint, {
-          description: src.description,
-          enabled: src.enabled,
-          headerId: match.headerId,
-          key: src.key,
-          value: src.value,
-        });
+      if (sourceItem.source === SourceKind.DELTA) {
+        await dataClient.fetch(HeaderDeltaCreateEndpoint, sourceItem);
       }
     }
   } catch (e) {
@@ -89,47 +89,39 @@ async function copyDeltaData(
 
   // 2. Copy all query parameter deltas
   try {
-    // Get query params from the source delta that have been modified
-    const { items: sourceQueryDeltas }: { items: QueryDeltaListItem[] } = await dataClient.fetch(
-      QueryDeltaListEndpoint,
-      {
-        exampleId: originalDeltaExampleId,
+    const { items: sourceItems }: { items: QueryDeltaListItem[] } = await dataClient.fetch(QueryDeltaListEndpoint, {
+      exampleId: originalDeltaExampleId,
+      originId: exampleId,
+    });
+
+    const newItemMap = pipe(
+      await dataClient.fetch(QueryDeltaListEndpoint, {
+        exampleId: deltaExampleId,
         originId: exampleId,
-      },
+      }),
+      (_) =>
+        Array.filterMap(_.items, (_) => {
+          if (!_.origin) return Option.none();
+          const id = _.origin.queryId.toString();
+          return Option.some([id, _] as const);
+        }),
+      HashMap.fromIterable,
     );
 
-    // Filter to only get overridden query params (not ORIGIN)
-    const overriddenQueries = sourceQueryDeltas.filter((q) => q.source !== SourceKind.ORIGIN);
-    console.log(`Found ${overriddenQueries.length} overridden query params to copy`);
+    for (const { $typeName: _, ...sourceItem } of sourceItems) {
+      if (sourceItem.source === SourceKind.ORIGIN) continue;
 
-    if (overriddenQueries.length > 0) {
-      // Get all query params from the new delta example (they will all be ORIGIN)
-      const { items: newQueryDeltas }: { items: QueryDeltaListItem[] } = await dataClient.fetch(
-        QueryDeltaListEndpoint,
-        {
-          exampleId: deltaExampleId,
-          originId: exampleId,
-        },
-      );
+      if (sourceItem.source === SourceKind.MIXED) {
+        const newItem = pipe(
+          Option.fromNullable(sourceItem.origin),
+          Option.flatMap((_) => HashMap.get(newItemMap, _.queryId.toString())),
+        );
+        if (Option.isNone(newItem)) continue;
+        await dataClient.fetch(QueryDeltaUpdateEndpoint, { ...sourceItem, queryId: newItem.value.queryId });
+      }
 
-      // For each overridden query param in source, update the matching one in target
-      for (const src of overriddenQueries) {
-        const match = newQueryDeltas.find((d) => d.key === src.key);
-        if (!match) {
-          console.warn(`No matching query param found for key: ${src.key}`);
-          continue;
-        }
-
-        console.log(`Updating query param '${src.key}' with value: ${src.value}`);
-
-        // Update the query param with the overridden values
-        await dataClient.fetch(QueryDeltaUpdateEndpoint, {
-          description: src.description,
-          enabled: src.enabled,
-          key: src.key,
-          queryId: match.queryId,
-          value: src.value,
-        });
+      if (sourceItem.source === SourceKind.DELTA) {
+        await dataClient.fetch(QueryDeltaCreateEndpoint, sourceItem);
       }
     }
   } catch (e) {
