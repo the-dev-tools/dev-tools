@@ -47,6 +47,7 @@ export type TabsRx = ReturnType<typeof makeTabsRx>;
 export const makeTabsRx = () => pipe(Array.empty<Tab>(), (_) => Rx.make(_), Rx.keepAlive);
 
 interface AddTabProps {
+  id: string;
   match: Omit<AnyRouteMatch, 'context'> & {
     context: {
       runtime: Runtime.Runtime<Registry.RxRegistry>;
@@ -56,10 +57,10 @@ interface AddTabProps {
   node: ReactNode;
 }
 
-export const addTab = ({ match, node }: AddTabProps) => {
+export const addTab = ({ id, match, node }: AddTabProps) => {
   const { runtime, tabsRx } = match.context;
   const tab: Tab = {
-    id: match.id,
+    id,
     node,
     route: {
       from: '/',
@@ -187,7 +188,7 @@ interface TabItemProps extends ToOptions {
 const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
   const router = useRouter();
 
-  const { isActive, ...linkProps } = useLink({ ...tab.route, activeOptions: { exact: true } });
+  const { isActive, ...linkProps } = useLink(tab.route);
 
   return (
     <ListBoxItem

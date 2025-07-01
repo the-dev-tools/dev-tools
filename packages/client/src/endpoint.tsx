@@ -100,7 +100,14 @@ export const Route = makeRoute({
   errorComponent: (props) => <ErrorComponent {...props} />,
   onEnter: (match) => {
     if (!match.loaderData) return;
-    addTab({ match, node: <EndpointTab endpointId={match.loaderData.endpointId} /> });
+
+    const { endpointId, exampleId } = match.loaderData;
+
+    addTab({
+      id: JSON.stringify({ endpointId, exampleId, route: Route.id }),
+      match,
+      node: <EndpointTab endpointId={endpointId} />,
+    });
   },
   shouldReload: false,
 });
