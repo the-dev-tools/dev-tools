@@ -99,18 +99,22 @@ type Assert struct {
 // DetermineDeltaType determines the delta type based on the assert's relationships
 // This function replaces the need for storing Source explicitly
 func (a *Assert) DetermineDeltaType(exampleHasVersionParent bool) AssertSource {
-	// If no DeltaParentID, this is not a delta assert
+	// If no DeltaParentID, determine based on example type
 	if a.DeltaParentID == nil {
+		if exampleHasVersionParent {
+			// No parent in a delta example = standalone DELTA item
+			return AssertSourceDelta
+		}
+		// No parent in origin example = ORIGIN item
 		return AssertSourceOrigin
 	}
-	
-	// If example has VersionParentID, this is a delta example
+
+	// Has DeltaParentID - determine based on example type
 	if exampleHasVersionParent {
-		// Assert has DeltaParentID and example is delta -> DELTA assert
+		// In delta example with parent reference = DELTA
 		return AssertSourceDelta
 	}
-	
-	// If example has no VersionParentID, it's an original example
-	// Assert has DeltaParentID but example is original -> MIXED assert
+
+	// In origin example with parent reference = MIXED
 	return AssertSourceMixed
 }

@@ -59,19 +59,23 @@ func (h Header) IsEnabled() bool {
 // DetermineDeltaType determines the delta type based on the header's relationships
 // This function will replace the need for storing Source explicitly
 func (h *Header) DetermineDeltaType(exampleHasVersionParent bool) HeaderSource {
-	// If no DeltaParentID, this is not a delta header
+	// If no DeltaParentID, determine based on example type
 	if h.DeltaParentID == nil {
+		if exampleHasVersionParent {
+			// No parent in a delta example = standalone DELTA item
+			return HeaderSourceDelta
+		}
+		// No parent in origin example = ORIGIN item
 		return HeaderSourceOrigin
 	}
-	
-	// If example has VersionParentID, this is a delta example
+
+	// Has DeltaParentID - determine based on example type
 	if exampleHasVersionParent {
-		// Header has DeltaParentID and example is delta -> DELTA header
+		// In delta example with parent reference = DELTA
 		return HeaderSourceDelta
 	}
-	
-	// If example has no VersionParentID, it's an original example
-	// Header has DeltaParentID but example is original -> MIXED header
+
+	// In origin example with parent reference = MIXED
 	return HeaderSourceMixed
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rrequest"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
@@ -12,7 +13,6 @@ import (
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sexampleheader"
@@ -21,9 +21,9 @@ import (
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/testutil"
+	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 	conditionv1 "the-dev-tools/spec/dist/buf/go/condition/v1"
 	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
-	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 
 	"connectrpc.com/connect"
 )
@@ -217,6 +217,7 @@ func TestQueryDeltaCreateUpdateBehavior(t *testing.T) {
 	// 6. Create a new delta item (without parent) to test source type
 	createDeltaResp, err := data.rpc.QueryDeltaCreate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaCreateRequest{
 		ExampleId:   data.deltaExampleID.Bytes(),
+		OriginId:    data.originExampleID.Bytes(),
 		Key:         "new-delta-key",
 		Enabled:     true,
 		Value:       "new-delta-value",
@@ -321,6 +322,7 @@ func TestHeaderDeltaCreateUpdateBehavior(t *testing.T) {
 	// 6. Create a standalone delta header
 	createDeltaResp, err := data.rpc.HeaderDeltaCreate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaCreateRequest{
 		ExampleId:   data.deltaExampleID.Bytes(),
+		OriginId:    data.originExampleID.Bytes(),
 		Key:         "new-delta-header",
 		Enabled:     true,
 		Value:       "new-delta-value",
@@ -473,8 +475,22 @@ func TestOriginUpdatePropagation(t *testing.T) {
 
 	// The delta item with source "origin" should reflect the updated values
 	item := deltaListResp.Msg.Items[0]
-	if item.Key != "updated-origin-key" {
-		t.Error("Delta item with source 'origin' should reflect updated origin values")
+	if item.Source != nil {
+		t.Logf("Item source: %v", *item.Source)
+	}
+	t.Logf("Item key: %v, expected: updated-origin-key", item.Key)
+	if item.Origin != nil {
+		t.Logf("Origin key: %v", item.Origin.Key)
+		t.Logf("Origin value: %v", item.Origin.Value)
+		t.Logf("Origin enabled: %v", item.Origin.Enabled)
+	}
+	// If source is ORIGIN, the key should be from the origin
+	if item.Source != nil && *item.Source == deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+		if item.Key != "updated-origin-key" {
+			t.Error("Delta item with source 'origin' should reflect updated origin values")
+		}
+	} else {
+		t.Errorf("Expected source to be ORIGIN but got %v", item.Source)
 	}
 }
 
@@ -557,7 +573,7 @@ func TestQueryDetermineDeltaType(t *testing.T) {
 		name           string
 		query          mexamplequery.Query
 		isDeltaExample bool
-		expectedType   string
+		expectedType   mexamplequery.QuerySource
 	}{
 		{
 			name: "Query without DeltaParentID in original example",
@@ -601,7 +617,7 @@ func TestQueryDetermineDeltaType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.query.DetermineDeltaType(tt.isDeltaExample)
 			if result != tt.expectedType {
-				t.Errorf("Expected %s, got %s", tt.expectedType, result)
+				t.Errorf("Expected %v, got %v", tt.expectedType, result)
 			}
 		})
 	}
@@ -613,7 +629,7 @@ func TestHeaderDetermineDeltaType(t *testing.T) {
 		name           string
 		header         mexampleheader.Header
 		isDeltaExample bool
-		expectedType   string
+		expectedType   mexampleheader.HeaderSource
 	}{
 		{
 			name: "Header without DeltaParentID in original example",
@@ -657,7 +673,7 @@ func TestHeaderDetermineDeltaType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.header.DetermineDeltaType(tt.isDeltaExample)
 			if result != tt.expectedType {
-				t.Errorf("Expected %s, got %s", tt.expectedType, result)
+				t.Errorf("Expected %v, got %v", tt.expectedType, result)
 			}
 		})
 	}
@@ -669,7 +685,7 @@ func TestAssertDetermineDeltaType(t *testing.T) {
 		name           string
 		assert         massert.Assert
 		isDeltaExample bool
-		expectedType   string
+		expectedType   massert.AssertSource
 	}{
 		{
 			name: "Assert without DeltaParentID in original example",
@@ -713,7 +729,7 @@ func TestAssertDetermineDeltaType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.assert.DetermineDeltaType(tt.isDeltaExample)
 			if result != tt.expectedType {
-				t.Errorf("Expected %s, got %s", tt.expectedType, result)
+				t.Errorf("Expected %v, got %v", tt.expectedType, result)
 			}
 		})
 	}

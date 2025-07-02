@@ -57,20 +57,36 @@ func (q Query) IsEnabled() bool {
 }
 
 // DetermineDeltaType determines the delta type based on the query's relationships
-// This function replaces the need for storing Source explicitly
+// This function dynamically determines the source type without storing it explicitly
+//
+// Logic Matrix:
+// | Has DeltaParentID | Example Has VersionParent | Result | Meaning |
+// |-------------------|---------------------------|--------|---------|
+// | No                | No                        | ORIGIN | Standalone item in origin example |
+// | No                | Yes                       | DELTA  | New item created in delta example |
+// | Yes               | No                        | MIXED  | Item referencing another in origin example |
+// | Yes               | Yes                       | DELTA  | Item in delta example with parent reference |
+//
+// The result is then converted for API responses:
+// - DELTA items are shown as MIXED in the frontend to indicate they have local modifications
+// - This is intentional - MIXED visually indicates "customized from parent"
 func (q *Query) DetermineDeltaType(exampleHasVersionParent bool) QuerySource {
-	// If no DeltaParentID, this is not a delta query
+	// If no DeltaParentID, determine based on example type
 	if q.DeltaParentID == nil {
+		if exampleHasVersionParent {
+			// No parent in a delta example = standalone DELTA item
+			return QuerySourceDelta
+		}
+		// No parent in origin example = ORIGIN item
 		return QuerySourceOrigin
 	}
-	
-	// If example has VersionParentID, this is a delta example
+
+	// Has DeltaParentID - determine based on example type
 	if exampleHasVersionParent {
-		// Query has DeltaParentID and example is delta -> DELTA query
+		// In delta example with parent reference = DELTA
 		return QuerySourceDelta
 	}
-	
-	// If example has no VersionParentID, it's an original example
-	// Query has DeltaParentID but example is original -> MIXED query
+
+	// In origin example with parent reference = MIXED
 	return QuerySourceMixed
 }
