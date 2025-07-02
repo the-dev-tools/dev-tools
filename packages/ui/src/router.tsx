@@ -177,20 +177,45 @@ const useTabShortcuts = ({ baseRoute, runtime, tabsRx }: UseTabShortcutsProps) =
   }, [baseRoute, router, runtime, tabsRx]);
 };
 
+// https://github.com/facebook/react/issues/29832#issuecomment-2490465022
+const updateRef = <T,>(ref: Ref<T> | undefined, node: T | undefined) => {
+  if (!node) return;
+  if (typeof ref === 'function') ref(node);
+  else if (ref) ref.current = node;
+};
+
 export interface UseLinkProps extends ActiveLinkOptions {
   children?: ((state: { isActive: boolean; isTransitioning: boolean }) => React.ReactNode) | React.ReactNode;
+  onAuxClick?: () => void;
   ref?: Ref<unknown> | undefined;
 }
 
-export const useLink = ({ children, ref, ...props }: UseLinkProps) => {
-  const _ = useLinkProps(props, ref as Ref<Element>) as ComponentProps<'a'> & Record<string, unknown>;
+export const useLink = ({ children, onAuxClick, ref: refProp, ...props }: UseLinkProps) => {
+  const _ = useLinkProps(props, refProp as Ref<Element>) as ComponentProps<'a'> & Record<string, unknown>;
 
   const isActive = _['data-status'] === 'active';
   const isTransitioning = _['data-transitioning'] === 'transitioning';
 
+  const onAction = fauxEvent(_.onClick, { button: 0 });
+
+  const ref = (node: unknown) => {
+    updateRef(_.ref, node as HTMLAnchorElement);
+
+    let element: HTMLElement | undefined;
+    if (node && typeof node === 'object' && 'addEventListener' in node) element = node as HTMLElement;
+
+    const onAuxClickHandler = (event: MouseEvent) => {
+      event.preventDefault();
+      if (onAuxClick) onAuxClick();
+      else onAction();
+    };
+
+    element?.addEventListener('auxclick', onAuxClickHandler);
+    return () => element?.removeEventListener('auxclick', onAuxClickHandler);
+  };
+
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ref: _.ref as Ref<any>,
+    ref,
 
     children: typeof children === 'function' ? children({ isActive, isTransitioning }) : children,
     href: _.href!,
@@ -199,7 +224,7 @@ export const useLink = ({ children, ref, ...props }: UseLinkProps) => {
     isDisabled: _['disabled'] === true,
     isTransitioning,
 
-    onAction: fauxEvent(_.onClick, { button: 0 }),
+    onAction,
     onFocus: fauxEvent(_.onFocus),
     onHoverEnd: fauxEvent(_.onMouseLeave),
     onHoverStart: fauxEvent(_.onMouseEnter),
@@ -216,7 +241,10 @@ interface TabItemProps extends TabsRouteContext, ToOptions {
 const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
   const removeTab = useRemoveTab();
 
-  const { isActive, ...linkProps } = useLink(tab.route);
+  const { isActive, ...linkProps } = useLink({
+    ...tab.route,
+    onAuxClick: () => void removeTab({ baseRoute, id: tab.id, runtime, tabsRx }),
+  });
 
   return (
     <ListBoxItem
