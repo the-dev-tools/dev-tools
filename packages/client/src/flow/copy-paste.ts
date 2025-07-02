@@ -80,7 +80,11 @@ async function copyDeltaData(
       }
 
       if (sourceItem.source === SourceKind.DELTA) {
-        await dataClient.fetch(HeaderDeltaCreateEndpoint, sourceItem);
+        await dataClient.fetch(HeaderDeltaCreateEndpoint, {
+          ...sourceItem,
+          exampleId: deltaExampleId,
+          originId: exampleId,
+        });
       }
     }
   } catch (e) {
@@ -121,7 +125,11 @@ async function copyDeltaData(
       }
 
       if (sourceItem.source === SourceKind.DELTA) {
-        await dataClient.fetch(QueryDeltaCreateEndpoint, sourceItem);
+        await dataClient.fetch(QueryDeltaCreateEndpoint, {
+          ...sourceItem,
+          exampleId: deltaExampleId,
+          originId: exampleId,
+        });
       }
     }
   } catch (e) {
