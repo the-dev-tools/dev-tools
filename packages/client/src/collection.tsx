@@ -54,6 +54,7 @@ import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
 import { useMutate, useQuery } from '~data-client';
+import { useOnEndpointDelete } from '~endpoint';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
@@ -401,8 +402,9 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
 
+  const onEndpointDelete = useOnEndpointDelete();
+
   const { workspaceId } = workspaceRoute.useLoaderData();
-  const { workspaceIdCan } = workspaceRoute.useParams();
 
   const { containerRef, navigate: toNavigate = false, showControls } = useContext(CollectionListTreeContext);
 
@@ -508,15 +510,8 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
             <MenuItem
               onAction={async () => {
+                await onEndpointDelete({ endpointId, exampleId });
                 await dataClient.fetch(EndpointDeleteEndpoint, { endpointId });
-                if (
-                  !matchRoute({
-                    params: { endpointIdCan },
-                    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-                  })
-                )
-                  return;
-                await navigate({ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' });
               }}
               variant='danger'
             >
@@ -568,10 +563,10 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   const lastResponseIdCan = lastResponseId && Ulid.construct(lastResponseId).toCanonical();
 
   const matchRoute = useMatchRoute();
-  const navigate = useNavigate();
+
+  const onEndpointDelete = useOnEndpointDelete();
 
   const { workspaceId } = workspaceRoute.useLoaderData();
-  const { workspaceIdCan } = workspaceRoute.useParams();
 
   const { containerRef, navigate: toNavigate = false, showControls } = useContext(CollectionListTreeContext);
 
@@ -637,15 +632,8 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
 
             <MenuItem
               onAction={async () => {
+                await onEndpointDelete({ endpointId, exampleId });
                 await dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
-                if (
-                  !matchRoute({
-                    params: { exampleIdCan },
-                    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-                  })
-                )
-                  return;
-                await navigate({ params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' });
               }}
               variant='danger'
             >

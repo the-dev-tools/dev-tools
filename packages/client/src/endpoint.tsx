@@ -1,5 +1,5 @@
 import { QueryErrorResetBoundary, useQuery as useReactQuery } from '@tanstack/react-query';
-import { createFileRoute, getRouteApi, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
+import { createFileRoute, getRouteApi, useNavigate, useRouteContext } from '@tanstack/react-router';
 import { createColumnHelper } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Match, MutableHashMap, Option, pipe, Schema, String, Struct } from 'effect';
@@ -51,7 +51,7 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { addTab } from '@the-dev-tools/ui/router';
+import { addTab, useRemoveTab } from '@the-dev-tools/ui/router';
 import { Select } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -104,13 +104,27 @@ export const Route = makeRoute({
     const { endpointId, exampleId } = match.loaderData;
 
     addTab({
-      id: JSON.stringify({ endpointId, exampleId, route: Route.id }),
+      id: endpointTabId({ endpointId, exampleId }),
       match,
       node: <EndpointTab endpointId={endpointId} />,
     });
   },
   shouldReload: false,
 });
+
+interface EndpointTabIdProps {
+  endpointId: Uint8Array;
+  exampleId: Uint8Array;
+}
+
+export const endpointTabId = ({ endpointId, exampleId }: EndpointTabIdProps) =>
+  JSON.stringify({ endpointId, exampleId, route: Route.id });
+
+export const useOnEndpointDelete = () => {
+  const context = workspaceRoute.useRouteContext();
+  const removeTab = useRemoveTab();
+  return (props: EndpointTabIdProps) => removeTab({ ...context, id: endpointTabId(props) });
+};
 
 function Page() {
   const { endpointId, exampleId } = Route.useLoaderData();
@@ -476,8 +490,9 @@ interface EndpointHeaderProps {
 export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) => {
   const { dataClient } = useRouteContext({ from: '__root__' });
 
-  const matchRoute = useMatchRoute();
   const navigate = useNavigate();
+
+  const onEndpointDelete = useOnEndpointDelete();
 
   const example = useQuery(ExampleGetEndpoint, { exampleId });
 
@@ -578,15 +593,8 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
 
             <MenuItem
               onAction={async () => {
+                await onEndpointDelete({ endpointId, exampleId });
                 await dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
-                if (
-                  !matchRoute({
-                    params: { endpointIdCan: Ulid.construct(endpointId).toCanonical() },
-                    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-                  })
-                )
-                  return;
-                await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
               }}
               variant='danger'
             >

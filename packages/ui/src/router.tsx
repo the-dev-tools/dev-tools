@@ -46,14 +46,15 @@ export type TabsRx = ReturnType<typeof makeTabsRx>;
 
 export const makeTabsRx = () => pipe(Array.empty<Tab>(), (_) => Rx.make(_), Rx.keepAlive);
 
+export interface TabsRouteContext {
+  baseRoute: ToOptions;
+  runtime: Runtime.Runtime<Registry.RxRegistry>;
+  tabsRx: TabsRx;
+}
+
 interface AddTabProps {
   id: string;
-  match: Omit<AnyRouteMatch, 'context'> & {
-    context: {
-      runtime: Runtime.Runtime<Registry.RxRegistry>;
-      tabsRx: TabsRx;
-    };
-  };
+  match: Omit<AnyRouteMatch, 'context'> & { context: TabsRouteContext };
   node: ReactNode;
 }
 
@@ -80,13 +81,43 @@ export const addTab = ({ id, match, node }: AddTabProps) => {
   pipe(Rx.update(tabsRx, updateTabs), Runtime.runSync(runtime));
 };
 
-interface UseTabShortcutsProps {
-  baseRoute: ToOptions;
-  runtime: Runtime.Runtime<Registry.RxRegistry>;
-  tabsRx: TabsRx;
+interface RemoveTabProps extends TabsRouteContext {
+  id: string;
 }
 
-export const useTabShortcuts = ({ baseRoute, runtime, tabsRx }: UseTabShortcutsProps) => {
+export const useRemoveTab = () => {
+  const router = useRouter();
+
+  return async ({ baseRoute, id, runtime, tabsRx }: RemoveTabProps) =>
+    Effect.gen(function* () {
+      let tabs = yield* Rx.get(tabsRx);
+
+      const index = Array.findFirstIndex(tabs, (_) => _.id === id);
+      if (Option.isNone(index)) return;
+      const tab = Array.unsafeGet(tabs, index.value);
+
+      tabs = Array.remove(tabs, index.value);
+      yield* Rx.set(tabsRx, tabs);
+
+      const match: unknown = router.matchRoute(tab.route);
+      if (match === false) return;
+
+      const nextTab = pipe(
+        Array.get(tabs, index.value),
+        Option.orElse(() => Array.last(tabs)),
+      );
+
+      if (Option.isNone(nextTab)) {
+        void router.navigate(baseRoute);
+      } else {
+        void router.navigate(nextTab.value.route);
+      }
+    }).pipe(Runtime.runPromise(runtime));
+};
+
+interface UseTabShortcutsProps extends TabsRouteContext {}
+
+const useTabShortcuts = ({ baseRoute, runtime, tabsRx }: UseTabShortcutsProps) => {
   const router = useRouter();
 
   useEffect(() => {
@@ -177,16 +208,13 @@ export const useLink = ({ children, ref, ...props }: UseLinkProps) => {
 
 export type LinkComponent<T = object> = LinkComponentUpstream<(props: T) => ReactNode>;
 
-interface TabItemProps extends ToOptions {
-  baseRoute: ToOptions;
+interface TabItemProps extends TabsRouteContext, ToOptions {
   id: string;
-  runtime: Runtime.Runtime<Registry.RxRegistry>;
   tab: Tab;
-  tabsRx: TabsRx;
 }
 
 const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
-  const router = useRouter();
+  const removeTab = useRemoveTab();
 
   const { isActive, ...linkProps } = useLink(tab.route);
 
@@ -212,30 +240,10 @@ const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
 
       <Button
         className={tw`p-0.5`}
-        onPress={(event) =>
-          Effect.gen(function* () {
-            event.continuePropagation();
-            let tabs = yield* Rx.get(tabsRx);
-            const index = yield* Array.findFirstIndex(tabs, (_) => _ == tab);
-
-            tabs = Array.remove(tabs, index);
-            yield* Rx.set(tabsRx, tabs);
-
-            const match: unknown = router.matchRoute(tab.route);
-            if (match === false) return;
-
-            const nextTab = pipe(
-              Array.get(tabs, index),
-              Option.orElse(() => Array.last(tabs)),
-            );
-
-            if (Option.isNone(nextTab)) {
-              void router.navigate(baseRoute);
-            } else {
-              void router.navigate(nextTab.value.route);
-            }
-          }).pipe(Runtime.runPromise(runtime))
-        }
+        onPress={(event) => {
+          event.continuePropagation();
+          void removeTab({ baseRoute, id: tab.id, runtime, tabsRx });
+        }}
         variant='ghost'
       >
         <FiX className={tw`size-4 text-slate-500`} />
@@ -244,10 +252,12 @@ const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
   );
 };
 
-interface RouteTabListProps extends Pick<TabItemProps, 'baseRoute' | 'runtime' | 'tabsRx'> {}
+interface RouteTabListProps extends TabsRouteContext {}
 
 export const RouteTabList = (props: RouteTabListProps) => {
   const tabs = useRxValue(props.tabsRx);
+
+  useTabShortcuts(props);
 
   return (
     <ListBox

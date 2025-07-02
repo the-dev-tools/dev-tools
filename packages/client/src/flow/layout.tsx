@@ -1,10 +1,10 @@
 import { QueryErrorResetBoundary } from '@tanstack/react-query';
-import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { createFileRoute, getRouteApi, Outlet } from '@tanstack/react-router';
 import { Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { FlowGetEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.js';
 import { FlowsIcon } from '@the-dev-tools/ui/icons';
-import { addTab } from '@the-dev-tools/ui/router';
+import { addTab, useRemoveTab } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
 import { ErrorComponent } from '../error';
@@ -12,6 +12,8 @@ import { ErrorComponent } from '../error';
 export class FlowSearch extends Schema.Class<FlowSearch>('FlowSearch')({
   node: pipe(Schema.String, Schema.optional),
 }) {}
+
+const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan');
 
@@ -38,12 +40,20 @@ export const Route = makeRoute({
     const { flowId } = match.loaderData;
 
     addTab({
-      id: JSON.stringify({ flowId, route: Route.id }),
+      id: flowTabId(flowId),
       match,
       node: <FlowTab flowId={flowId} />,
     });
   },
 });
+
+export const flowTabId = (flowId: Uint8Array) => JSON.stringify({ flowId, route: Route.id });
+
+export const useOnFlowDelete = () => {
+  const context = workspaceRoute.useRouteContext();
+  const removeTab = useRemoveTab();
+  return (flowId: Uint8Array) => removeTab({ ...context, id: flowTabId(flowId) });
+};
 
 interface FlowTabProps {
   flowId: Uint8Array;

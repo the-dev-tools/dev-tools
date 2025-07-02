@@ -65,6 +65,7 @@ import { ReferenceContext } from '../reference';
 import { useFlowCopyPaste } from './copy-paste';
 import { ConnectionLine, Edge, edgeTypes, useMakeEdge } from './edge';
 import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
+import { useOnFlowDelete } from './layout';
 import { Node, useMakeNode } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
@@ -280,7 +281,8 @@ export const TopBar = () => {
   const { zoom } = useViewport();
 
   const matchRoute = useMatchRoute();
-  const navigate = useNavigate();
+
+  const onFlowDelete = useOnFlowDelete();
 
   const [flowUpdate, flowUpdateLoading] = useMutate(FlowUpdateEndpoint);
 
@@ -358,15 +360,8 @@ export const TopBar = () => {
 
           <MenuItem
             onAction={async () => {
+              await onFlowDelete(flowId);
               await dataClient.fetch(FlowDeleteEndpoint, { flowId });
-              if (
-                !matchRoute({
-                  params: { flowIdCan: Ulid.construct(flowId).toCanonical() },
-                  to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
-                })
-              )
-                return;
-              await navigate({ from: Route.fullPath, to: '/workspace/$workspaceIdCan' });
             }}
             variant='danger'
           >
