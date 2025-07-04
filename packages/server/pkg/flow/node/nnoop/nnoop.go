@@ -34,15 +34,15 @@ func (n NodeNoop) GetName() string {
 }
 
 func (n NodeNoop) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleUnspecified)
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleThen)
 	var result node.FlowNodeResult
 	result.NextNodeID = nextID
 	return result
 }
 
 func (n NodeNoop) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleUnspecified)
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleThen)
 	var result node.FlowNodeResult
-	result.NextNodeID = trueID
+	result.NextNodeID = nextID
 	resultChan <- result
 }

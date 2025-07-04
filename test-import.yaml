@@ -1,0 +1,24 @@
+workspace_name: Import Test Workspace
+
+flows:
+  - name: TestImportFlow
+    variables:
+      base_url: "https://api.example.com"
+      api_key: "test-key-123"
+    steps:
+      - request:
+          name: GetUsers
+          method: GET
+          url: "{{base_url}}/users"
+          headers:
+            Authorization: "Bearer {{api_key}}"
+      - request:
+          name: CreateUser
+          method: POST
+          url: "{{base_url}}/users"
+          headers:
+            Authorization: "Bearer {{api_key}}"
+            Content-Type: "application/json"
+          body:
+            name: "Test User"
+            email: "test@example.com"

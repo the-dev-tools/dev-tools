@@ -198,13 +198,13 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	workspaceDataBytes, err := ioworkspace.MarshalWorkspace(workspaceData)
+	workspaceDataBytes, err := ioworkspace.MarshalWorkflowYAML(workspaceData)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	resp := &exportv1.ExportResponse{
-		Name: workspaceData.Workspace.Name,
+		Name: workspaceData.Workspace.Name + ".workflow.yaml",
 		Data: workspaceDataBytes,
 	}
 

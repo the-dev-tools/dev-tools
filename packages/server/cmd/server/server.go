@@ -286,7 +286,14 @@ func main() {
 		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
 
-	importServiceRPC := rimport.New(currentDB, workspaceService, collectionService, userService, folderService, endpointService, exampleService, exampleResponseService, assertService)
+	importServiceRPC := rimport.New(currentDB, workspaceService, collectionService, userService, folderService, endpointService, exampleService, exampleResponseService, assertService,
+		// Additional services for workflow YAML import
+		exampleHeaderService, exampleQueryService, bodyRawService, bodyFormService, bodyUrlService,
+		exampleResponseHeaderService, assertResultService,
+		// Flow services
+		flowService, flowNodeService, flowEdgeService, flowVariableService,
+		flowNodeRequestSevice, *flowNodeCondition, flowNodeNoOpService,
+		flowNodeForService, flowNodeForeachService, flowNodeJsService)
 	newServiceManager.AddService(rimport.CreateService(importServiceRPC, opitonsAll))
 
 	flowServiceRPC := rflowvariable.New(currentDB, flowService, userService, flowVariableService)

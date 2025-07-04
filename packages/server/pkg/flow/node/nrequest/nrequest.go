@@ -109,7 +109,7 @@ func (nr *NodeRequest) GetName() string {
 }
 
 func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleUnspecified)
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleThen)
 	result := node.FlowNodeResult{
 		NextNodeID: nextID,
 		Err:        nil,
@@ -211,7 +211,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 }
 
 func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleUnspecified)
+	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.GetID(), edge.HandleThen)
 	result := node.FlowNodeResult{
 		NextNodeID: nextID,
 		Err:        nil,

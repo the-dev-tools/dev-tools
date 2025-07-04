@@ -5,9 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/io/workflow"
+	"the-dev-tools/server/pkg/io/workflow/simplified"
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mbodyform"
@@ -200,6 +204,16 @@ type WorkspaceData struct {
 	FlowJSNodes        []mnjs.MNJS           `yaml:"flow_js_nodes"`
 }
 
+// ============================================================================
+// FULL WORKSPACE FORMAT - Complete database export/import
+// ============================================================================
+// These functions handle the complete workspace data structure that includes
+// all database entities. This format is used for full workspace backup/restore
+// and contains all the detailed information about every entity in the workspace.
+// ============================================================================
+
+// ImportWorkspace imports a complete workspace data structure into the database.
+// This includes all collections, folders, endpoints, examples, flows, nodes, edges, etc.
 func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data WorkspaceData) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
@@ -365,11 +379,21 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 	return nil
 }
 
+// ImportIntoWorkspace imports data into an existing workspace.
+// Unlike ImportWorkspace, this does not create a new workspace.
+func (s *IOWorkspaceService) ImportIntoWorkspace(ctx context.Context, data WorkspaceData) error {
+	// Use the improved version with better error handling and logging
+	return s.ImportIntoWorkspaceImproved(ctx, data)
+}
+
 type FilterExport struct {
 	FilterExampleIds *[]idwrap.IDWrap
 	FilterFlowIds    *[]idwrap.IDWrap
 }
 
+// ExportWorkspace exports a complete workspace data structure from the database.
+// It supports filtering to export only specific examples or flows.
+// The exported data includes all related entities and can be used with ImportWorkspace.
 func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID idwrap.IDWrap, FilterExport FilterExport) (*WorkspaceData, error) {
 	var data WorkspaceData
 
@@ -602,6 +626,8 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 	return &data, nil
 }
 
+// UnmarshalWorkspace deserializes a YAML representation of the complete workspace format
+// into a WorkspaceData structure. This is used for importing full workspace backups.
 func UnmarshalWorkspace(data []byte) (*WorkspaceData, error) {
 	var workspace WorkspaceData
 	err := yaml.Unmarshal(data, &workspace)
@@ -638,6 +664,9 @@ func (wd WorkspaceData) VerifyIds() error {
 	return nil
 }
 
+// MarshalWorkspace serializes a WorkspaceData structure into YAML format.
+// This creates a complete representation of all workspace entities suitable
+// for backup or transfer to another system.
 func MarshalWorkspace(workspace *WorkspaceData) ([]byte, error) {
 	data, err := yaml.Marshal(workspace)
 	if err != nil {
@@ -646,16 +675,48 @@ func MarshalWorkspace(workspace *WorkspaceData) ([]byte, error) {
 	return data, nil
 }
 
+// ============================================================================
+// SIMPLIFIED WORKFLOW YAML FORMAT - Human-friendly workflow definition
+// ============================================================================
+// These types and functions handle a simplified YAML format designed for
+// human readability and ease of writing. This format focuses on workflows
+// and uses features like:
+// - Global request definitions to reduce duplication
+// - Simplified header and body formats
+// - Direct variable references
+// - Minimal boilerplate
+// ============================================================================
+
 // WorkflowFormat represents the simplified workflow-centric YAML structure
 type WorkflowFormat struct {
 	WorkspaceName string         `yaml:"workspace_name"`
+	Requests      []RequestDef   `yaml:"requests,omitempty"` // Global request definitions
 	Flows         []WorkflowFlow `yaml:"flows"`
+	Run           any            `yaml:"run,omitempty"`      // Can be []string or []RunStep
+}
+
+// RequestDefMap is a map of request name to RequestDef for quick lookup
+type RequestDefMap map[string]*RequestDef
+
+// RunStep represents a flow execution step in the run section
+type RunStep struct {
+	Flow      string `yaml:"flow"`
+	DependsOn any    `yaml:"depends_on,omitempty"` // Can be string or []string
 }
 
 type WorkflowFlow struct {
 	Name      string             `yaml:"name"`
-	Variables []WorkflowVariable `yaml:"variables"`
+	Variables any                `yaml:"variables"` // Can be []WorkflowVariable or map[string]string
 	Steps     []WorkflowStep     `yaml:"steps"` // This will be used for initial unmarshal structure check if needed, but main logic uses raw map
+}
+
+// RequestDef defines a reusable request template
+type RequestDef struct {
+	Name    string           `yaml:"name"`
+	Method  string           `yaml:"method"`
+	URL     string           `yaml:"url"`
+	Headers any              `yaml:"headers,omitempty"` // Can be []RequestStepHeader or map[string]string
+	Body    *RequestStepBody `yaml:"body,omitempty"`
 }
 
 type WorkflowVariable struct {
@@ -672,11 +733,12 @@ type WorkflowStep struct {
 // RequestStep defines HTTP request configuration
 type RequestStep struct {
 	WorkflowStep `yaml:",inline"`
-	Name         string              `yaml:"name"`
-	Method       string              `yaml:"method"`
-	URL          string              `yaml:"url"`
-	Headers      []RequestStepHeader `yaml:"headers,omitempty"`
-	Body         *RequestStepBody    `yaml:"body,omitempty"`
+	Name         string           `yaml:"name"`
+	UseRequest   string           `yaml:"use_request,omitempty"` // Reference to global request definition
+	Method       string           `yaml:"method,omitempty"`
+	URL          string           `yaml:"url,omitempty"`
+	Headers      any              `yaml:"headers,omitempty"` // Can be []RequestStepHeader or map[string]string
+	Body         *RequestStepBody `yaml:"body,omitempty"`
 }
 
 type RequestStepHeader struct {
@@ -685,7 +747,35 @@ type RequestStepHeader struct {
 }
 
 type RequestStepBody struct {
-	BodyJSON map[string]any `yaml:"body_json,omitempty"`
+	Kind  string `yaml:"kind,omitempty"`  // "json", "form", "url", "raw", etc.
+	Value any    `yaml:"value,omitempty"` // The actual body content
+}
+
+// UnmarshalYAML implements custom unmarshaling to support both simple and explicit formats
+func (b *RequestStepBody) UnmarshalYAML(unmarshal func(any) error) error {
+	// First try to unmarshal as the explicit format
+	type explicitFormat struct {
+		Kind  string `yaml:"kind"`
+		Value any    `yaml:"value"`
+	}
+	
+	var explicit explicitFormat
+	if err := unmarshal(&explicit); err == nil && explicit.Kind != "" {
+		b.Kind = explicit.Kind
+		b.Value = explicit.Value
+		return nil
+	}
+	
+	// If that fails, try to unmarshal as a direct value (simple format)
+	var value any
+	if err := unmarshal(&value); err != nil {
+		return err
+	}
+	
+	// Default to JSON kind for simple format
+	b.Kind = "json"
+	b.Value = value
+	return nil
 }
 
 // IfStep defines conditional branching
@@ -712,8 +802,9 @@ type JSStep struct {
 	Code         string `yaml:"code"`
 }
 
-// UnmarshalWorkflowYAML parses the workflow-centric YAML format and converts it to WorkspaceData
-func UnmarshalWorkflowYAML(data []byte) (*WorkspaceData, error) {
+// unmarshalWorkflowYAMLLegacy parses the workflow-centric YAML format and converts it to WorkspaceData
+// Deprecated: This is the legacy implementation. Use the new workflow interface instead.
+func unmarshalWorkflowYAMLLegacy(data []byte) (*WorkspaceData, error) {
 	var workflow WorkflowFormat
 	var rawWorkflow map[string]any
 
@@ -725,6 +816,11 @@ func UnmarshalWorkflowYAML(data []byte) (*WorkspaceData, error) {
 	// Then unmarshal to our structured format (mainly for top-level fields and flow names/variables)
 	if err := yaml.Unmarshal(data, &workflow); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal workflow format: %w", err)
+	}
+
+	// Validate required fields
+	if workflow.WorkspaceName == "" {
+		return nil, fmt.Errorf("workspace_name is required")
 	}
 
 	collectionID := idwrap.NewNow()
@@ -757,8 +853,20 @@ func UnmarshalWorkflowYAML(data []byte) (*WorkspaceData, error) {
 		FlowJSNodes:        make([]mnjs.MNJS, 0),
 	}
 
+	// Create a map of global request definitions for quick lookup
+	globalRequests := make(RequestDefMap)
+	for i := range workflow.Requests {
+		req := &workflow.Requests[i]
+		globalRequests[req.Name] = req
+	}
+
 	// Process each flow
 	for _, wflow := range workflow.Flows {
+		// Validate flow name
+		if wflow.Name == "" {
+			return nil, fmt.Errorf("flow name is required")
+		}
+		
 		// Create flow
 		flowID := idwrap.NewNow()
 		flow := mflow.Flow{
@@ -772,16 +880,75 @@ func UnmarshalWorkflowYAML(data []byte) (*WorkspaceData, error) {
 		nodeNameToID := make(map[string]idwrap.IDWrap)
 		nodeIndex := make(map[string]int) // Store node indices for dependency resolution
 
-		// Process flow variables
-		for _, v := range wflow.Variables {
-			variable := mflowvariable.FlowVariable{
-				ID:      idwrap.NewNow(),
-				FlowID:  flow.ID,
-				Name:    v.Name,
-				Value:   v.Value,
-				Enabled: true,
+		// Process flow variables from raw data to support both array and map formats
+		// First, find the raw flow data
+		var rawFlow map[string]any
+		if rawFlows, ok := rawWorkflow["flows"].([]any); ok {
+			for _, rf := range rawFlows {
+				if rfMap, ok := rf.(map[string]any); ok {
+					if name, ok := rfMap["name"].(string); ok && name == wflow.Name {
+						rawFlow = rfMap
+						break
+					}
+				}
 			}
-			workspaceData.FlowVariables = append(workspaceData.FlowVariables, variable)
+		}
+		
+		// Process variables from raw flow data
+		if rawFlow != nil && rawFlow["variables"] != nil {
+			switch vars := rawFlow["variables"].(type) {
+			case map[string]any:
+				// New map format: variables: { key: value }
+				for name, value := range vars {
+					valueStr := ""
+					switch v := value.(type) {
+					case string:
+						valueStr = v
+					default:
+						valueStr = fmt.Sprintf("%v", v)
+					}
+					variable := mflowvariable.FlowVariable{
+						ID:      idwrap.NewNow(),
+						FlowID:  flow.ID,
+						Name:    name,
+						Value:   valueStr,
+						Enabled: true,
+					}
+					workspaceData.FlowVariables = append(workspaceData.FlowVariables, variable)
+				}
+			case []any:
+				// Old array format: variables: [{ name: key, value: value }]
+				if varArray, ok := wflow.Variables.([]WorkflowVariable); ok {
+					for _, v := range varArray {
+						variable := mflowvariable.FlowVariable{
+							ID:      idwrap.NewNow(),
+							FlowID:  flow.ID,
+							Name:    v.Name,
+							Value:   v.Value,
+							Enabled: true,
+						}
+						workspaceData.FlowVariables = append(workspaceData.FlowVariables, variable)
+					}
+				} else {
+					// Handle []any case
+					for _, item := range vars {
+						if varMap, ok := item.(map[string]any); ok {
+							name, _ := varMap["name"].(string)
+							value, _ := varMap["value"].(string)
+							if name != "" {
+								variable := mflowvariable.FlowVariable{
+									ID:      idwrap.NewNow(),
+									FlowID:  flow.ID,
+									Name:    name,
+									Value:   value,
+									Enabled: true,
+								}
+								workspaceData.FlowVariables = append(workspaceData.FlowVariables, variable)
+							}
+						}
+					}
+				}
+			}
 		}
 
 		startNodeID := idwrap.NewNow()
@@ -862,7 +1029,7 @@ func UnmarshalWorkflowYAML(data []byte) (*WorkspaceData, error) {
 				var err error
 				switch stepType {
 				case "request":
-					err = processRequestStep(workspaceData, flow.ID, nodeID, nodeName, dataMap, collectionID)
+					err = processRequestStep(workspaceData, flow.ID, nodeID, nodeName, dataMap, collectionID, globalRequests)
 				case "if":
 					err = processIfStep(workspaceData, flow.ID, nodeID, nodeName, dataMap)
 				case "for":
@@ -912,11 +1079,213 @@ func UnmarshalWorkflowYAML(data []byte) (*WorkspaceData, error) {
 		}
 	}
 
+	// Validate and process run field if present
+	if workflow.Run != nil {
+		runSteps, err := normalizeRunField(workflow.Run)
+		if err != nil {
+			return nil, fmt.Errorf("invalid run field: %w", err)
+		}
+		
+		if len(runSteps) > 0 {
+			// Create flow name lookup
+			flowNames := make(map[string]bool)
+			for _, flow := range workspaceData.Flows {
+				flowNames[flow.Name] = true
+			}
+			
+			// Validate all referenced flows exist
+			for _, step := range runSteps {
+				if !flowNames[step.Flow] {
+					return nil, fmt.Errorf("run field references non-existent flow: %s", step.Flow)
+				}
+				
+				// Validate dependencies
+				deps := normalizeRunDependencies(step.DependsOn)
+				for _, dep := range deps {
+					if !flowNames[dep] {
+						return nil, fmt.Errorf("run step '%s' depends on non-existent flow: %s", step.Flow, dep)
+					}
+				}
+			}
+			
+			// Check for circular dependencies in run steps
+			if err := checkRunCircularDependencies(runSteps); err != nil {
+				return nil, fmt.Errorf("run field has circular dependency: %w", err)
+			}
+		}
+	}
+
 	return workspaceData, nil
 }
 
+// normalizeRunField converts the run field from various formats to []RunStep
+func normalizeRunField(run any) ([]RunStep, error) {
+	if run == nil {
+		return nil, nil
+	}
+	
+	var result []RunStep
+	
+	switch r := run.(type) {
+	case []any:
+		// Could be []string or []RunStep format
+		for _, item := range r {
+			switch i := item.(type) {
+			case string:
+				// Simple string format - convert to RunStep
+				result = append(result, RunStep{Flow: i})
+			case map[string]any:
+				// RunStep format
+				flow, ok := i["flow"].(string)
+				if !ok || flow == "" {
+					return nil, fmt.Errorf("run step missing 'flow' field")
+				}
+				
+				step := RunStep{Flow: flow}
+				if deps, ok := i["depends_on"]; ok {
+					step.DependsOn = deps
+				}
+				result = append(result, step)
+			default:
+				return nil, fmt.Errorf("invalid run step format")
+			}
+		}
+	case []string:
+		// Old format - simple list of flow names
+		for _, flow := range r {
+			result = append(result, RunStep{Flow: flow})
+		}
+	default:
+		return nil, fmt.Errorf("run field must be an array")
+	}
+	
+	return result, nil
+}
+
+// normalizeRunDependencies converts depends_on field to []string
+func normalizeRunDependencies(deps any) []string {
+	if deps == nil {
+		return nil
+	}
+	
+	switch d := deps.(type) {
+	case string:
+		return []string{d}
+	case []string:
+		return d
+	case []any:
+		var result []string
+		for _, dep := range d {
+			if s, ok := dep.(string); ok {
+				result = append(result, s)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
+}
+
+// checkRunCircularDependencies checks for circular dependencies in run steps
+func checkRunCircularDependencies(runSteps []RunStep) error {
+	// Build adjacency list from dependencies
+	adjacency := make(map[string][]string)
+	flowSet := make(map[string]bool)
+	
+	for _, step := range runSteps {
+		flowSet[step.Flow] = true
+		deps := normalizeRunDependencies(step.DependsOn)
+		for _, dep := range deps {
+			adjacency[dep] = append(adjacency[dep], step.Flow)
+		}
+	}
+	
+	// Check for cycles using DFS
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
+	
+	var hasCycle func(flow string, path []string) (bool, []string)
+	hasCycle = func(flow string, path []string) (bool, []string) {
+		visited[flow] = true
+		recStack[flow] = true
+		path = append(path, flow)
+		
+		for _, next := range adjacency[flow] {
+			if !visited[next] {
+				if found, cyclePath := hasCycle(next, path); found {
+					return true, cyclePath
+				}
+			} else if recStack[next] {
+				// Found a cycle
+				cycleStart := -1
+				for i, f := range path {
+					if f == next {
+						cycleStart = i
+						break
+					}
+				}
+				if cycleStart >= 0 {
+					cyclePath := append(path[cycleStart:], next)
+					return true, cyclePath
+				}
+			}
+		}
+		
+		recStack[flow] = false
+		return false, nil
+	}
+	
+	// Check each flow that might be a root
+	for flow := range flowSet {
+		if !visited[flow] {
+			if found, cyclePath := hasCycle(flow, []string{}); found {
+				return fmt.Errorf("circular dependency detected: %s", strings.Join(cyclePath, " -> "))
+			}
+		}
+	}
+	
+	return nil
+}
+
+// normalizeHeaders converts headers from either array or object format to []RequestStepHeader
+func normalizeHeaders(headers any) []RequestStepHeader {
+	if headers == nil {
+		return nil
+	}
+	
+	var result []RequestStepHeader
+	
+	switch h := headers.(type) {
+	case []any:
+		// Array format: [{ name: "...", value: "..." }, ...]
+		for _, item := range h {
+			if hMap, ok := item.(map[string]any); ok {
+				name, _ := hMap["name"].(string)
+				value, _ := hMap["value"].(string)
+				if name != "" {
+					result = append(result, RequestStepHeader{Name: name, Value: value})
+				}
+			}
+		}
+	case map[string]any:
+		// Object format: { "HeaderName": "HeaderValue", ... }
+		for name, value := range h {
+			if valueStr, ok := value.(string); ok {
+				result = append(result, RequestStepHeader{Name: name, Value: valueStr})
+			}
+		}
+	case []RequestStepHeader:
+		// Already in correct format (from global request)
+		result = h
+	}
+	
+	return result
+}
+
 // Helper function to process request steps
-func processRequestStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWrap, nodeName string, data map[string]any, collectionID idwrap.IDWrap) error {
+func processRequestStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWrap, nodeName string, data map[string]any, collectionID idwrap.IDWrap, globalRequests RequestDefMap) error {
+	// Check for use_request first
+	useRequestValue, hasUseRequest := data["use_request"].(string)
 	// Create base node
 	node := mnnode.MNode{
 		ID:       nodeID,
@@ -926,14 +1295,40 @@ func processRequestStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWr
 	}
 	workspaceData.FlowNodes = append(workspaceData.FlowNodes, node)
 
-	// Process request specific fields
-	method, _ := data["method"].(string)
-	if method == "" {
-		method = "GET" // Default to GET if not specified
+	// Initialize variables for request data
+	var method, url string
+	var headers []RequestStepHeader
+	var body *RequestStepBody
+
+	// Check if this step references a global request
+	if hasUseRequest && useRequestValue != "" {
+		globalReq, exists := globalRequests[useRequestValue]
+		if !exists {
+			return fmt.Errorf("request node '%s' references undefined global request '%s'", nodeName, useRequestValue)
+		}
+
+		// Use values from global request as defaults
+		method = globalReq.Method
+		url = globalReq.URL
+		headers = normalizeHeaders(globalReq.Headers)
+		body = globalReq.Body
 	}
 
-	url, ok := data["url"].(string)
-	if !ok || url == "" {
+	// Override with step-specific values if provided
+	if stepMethod, ok := data["method"].(string); ok && stepMethod != "" {
+		method = stepMethod
+	}
+	if stepURL, ok := data["url"].(string); ok && stepURL != "" {
+		url = stepURL
+	}
+
+	// If method is still empty, default to GET
+	if method == "" {
+		method = "GET"
+	}
+
+	// Ensure we have a URL
+	if url == "" {
 		return fmt.Errorf("request node '%s' is missing required 'url' field", nodeName)
 	}
 
@@ -951,52 +1346,245 @@ func processRequestStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWr
 	}
 	workspaceData.Endpoints = append(workspaceData.Endpoints, endpoint)
 
+	// Create example first without body type (we'll set it later)
 	example := mitemapiexample.ItemApiExample{
 		ID:           exampleID,
 		Name:         fmt.Sprintf("%s Example", nodeName), // Give example a distinct name
 		ItemApiID:    endpointID,
 		CollectionID: collectionID,
+		BodyType:     mitemapiexample.BodyTypeNone, // Will be updated later based on body kind
 	}
-	workspaceData.Examples = append(workspaceData.Examples, example)
 
-	// Process headers
-	headers := []mexampleheader.Header{}
-	if headerData, ok := data["headers"].([]any); ok {
-		for _, h := range headerData {
-			if headerMap, ok := h.(map[string]any); ok {
-				headerKey, _ := headerMap["name"].(string)
-				headerValue, _ := headerMap["value"].(string)
-				if headerKey == "" {
-					continue // Skip headers without a name
+	// Process headers - merge step headers with global headers
+	headerMap := make(map[string]string)
+	
+	// First, add global headers (if any)
+	for _, h := range headers {
+		headerMap[h.Name] = h.Value
+	}
+	
+	// Then, override/add step-specific headers
+	if stepHeaders, ok := data["headers"]; ok {
+		// Normalize step headers to handle both array and object formats
+		normalizedStepHeaders := normalizeHeaders(stepHeaders)
+		for _, h := range normalizedStepHeaders {
+			headerMap[h.Name] = h.Value
+		}
+	}
+	
+	// Convert merged headers to model format
+	exampleHeaders := []mexampleheader.Header{}
+	for key, value := range headerMap {
+		header := mexampleheader.Header{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			HeaderKey: key,
+			Value:     value,
+			Enable:    true,
+		}
+		exampleHeaders = append(exampleHeaders, header)
+	}
+	workspaceData.ExampleHeaders = append(workspaceData.ExampleHeaders, exampleHeaders...)
+
+	
+	// Process body - handle different body kinds and merge with global body
+	var finalBody *RequestStepBody
+	
+	// Start with global body if available
+	if body != nil {
+		finalBody = &RequestStepBody{
+			Kind:  body.Kind,
+			Value: body.Value,
+		}
+	}
+	
+	// Override/merge with step-specific body
+	if bodyData, ok := data["body"]; ok {
+		// Check if it's the old format with body_json
+		if bodyMap, ok := bodyData.(map[string]any); ok {
+			if bodyJSON, hasBodyJSON := bodyMap["body_json"]; hasBodyJSON {
+				// Convert old format to new format
+				newBody := &RequestStepBody{
+					Kind:  "json",
+					Value: bodyJSON,
 				}
-				header := mexampleheader.Header{
+				
+				if finalBody == nil {
+					finalBody = newBody
+				} else if finalBody.Kind == "json" {
+					// Merge JSON bodies
+					if globalMap, ok := finalBody.Value.(map[string]any); ok {
+						if stepMap, ok := bodyJSON.(map[string]any); ok {
+							mergedMap := make(map[string]any)
+							// Copy global values
+							for k, v := range globalMap {
+								mergedMap[k] = v
+							}
+							// Override with step values
+							for k, v := range stepMap {
+								mergedMap[k] = v
+							}
+							finalBody.Value = mergedMap
+						}
+					}
+				} else {
+					// Different kinds, override completely
+					finalBody = newBody
+				}
+			} else {
+				// Handle new format
+				stepBodyYAML, err := yaml.Marshal(bodyData)
+				if err == nil {
+					var stepBody RequestStepBody
+					if err := yaml.Unmarshal(stepBodyYAML, &stepBody); err == nil {
+						if finalBody == nil {
+							finalBody = &stepBody
+						} else {
+							// Merge step body with global body
+							if stepBody.Kind != "" {
+								finalBody.Kind = stepBody.Kind
+							}
+							
+							// For JSON bodies, merge the values
+							if finalBody.Kind == "json" && stepBody.Kind == "json" {
+								// Merge JSON objects
+								if globalMap, ok := finalBody.Value.(map[string]any); ok {
+									if stepMap, ok := stepBody.Value.(map[string]any); ok {
+										mergedMap := make(map[string]any)
+										// Copy global values
+										for k, v := range globalMap {
+											mergedMap[k] = v
+										}
+										// Override with step values
+										for k, v := range stepMap {
+											mergedMap[k] = v
+										}
+										finalBody.Value = mergedMap
+									}
+								}
+							} else {
+								// For non-JSON kinds or when kinds differ, step body completely overrides
+								finalBody.Value = stepBody.Value
+							}
+						}
+					}
+				}
+			}
+		} else {
+			// Handle new simple format
+			stepBodyYAML, err := yaml.Marshal(bodyData)
+			if err == nil {
+				var stepBody RequestStepBody
+				if err := yaml.Unmarshal(stepBodyYAML, &stepBody); err == nil {
+					if finalBody == nil {
+						finalBody = &stepBody
+					} else {
+						// Merge step body with global body
+						if stepBody.Kind != "" {
+							finalBody.Kind = stepBody.Kind
+						}
+						
+						// For JSON bodies, merge the values
+						if finalBody.Kind == "json" && stepBody.Kind == "json" {
+							// Merge JSON objects
+							if globalMap, ok := finalBody.Value.(map[string]any); ok {
+								if stepMap, ok := stepBody.Value.(map[string]any); ok {
+									mergedMap := make(map[string]any)
+									// Copy global values
+									for k, v := range globalMap {
+										mergedMap[k] = v
+									}
+									// Override with step values
+									for k, v := range stepMap {
+										mergedMap[k] = v
+									}
+									finalBody.Value = mergedMap
+								}
+							}
+						} else {
+							// For non-JSON kinds or when kinds differ, step body completely overrides
+							finalBody.Value = stepBody.Value
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Process the final body based on its kind
+	if finalBody != nil {
+		switch finalBody.Kind {
+		case "json", "":
+			// Handle JSON body (empty kind defaults to JSON)
+			example.BodyType = mitemapiexample.BodyTypeRaw
+			if finalBody.Value != nil {
+				jsonData, err := json.Marshal(finalBody.Value)
+				if err != nil {
+					return fmt.Errorf("failed to marshal JSON body for node '%s': %w", nodeName, err)
+				}
+				bodyRaw := mbodyraw.ExampleBodyRaw{
 					ID:        idwrap.NewNow(),
 					ExampleID: exampleID,
-					HeaderKey: headerKey,
-					Value:     headerValue,
+					Data:      jsonData,
 				}
-				headers = append(headers, header)
+				workspaceData.Rawbodies = append(workspaceData.Rawbodies, bodyRaw)
 			}
+		case "form":
+			// Handle form-encoded body
+			example.BodyType = mitemapiexample.BodyTypeForm
+			if valueMap, ok := finalBody.Value.(map[string]any); ok {
+				for key, value := range valueMap {
+					formBody := mbodyform.BodyForm{
+						ID:          idwrap.NewNow(),
+						ExampleID:   exampleID,
+						BodyKey:     key,
+						Value:       fmt.Sprintf("%v", value),
+						Enable:      true,
+						Description: "",
+					}
+					workspaceData.FormBodies = append(workspaceData.FormBodies, formBody)
+				}
+			} else {
+				return fmt.Errorf("form body must be an object for node '%s'", nodeName)
+			}
+		case "url":
+			// Handle URL-encoded body
+			example.BodyType = mitemapiexample.BodyTypeUrlencoded
+			if valueMap, ok := finalBody.Value.(map[string]any); ok {
+				for key, value := range valueMap {
+					urlBody := mbodyurl.BodyURLEncoded{
+						ID:          idwrap.NewNow(),
+						ExampleID:   exampleID,
+						BodyKey:     key,
+						Value:       fmt.Sprintf("%v", value),
+						Enable:      true,
+						Description: "",
+					}
+					workspaceData.UrlBodies = append(workspaceData.UrlBodies, urlBody)
+				}
+			} else {
+				return fmt.Errorf("url-encoded body must be an object for node '%s'", nodeName)
+			}
+		case "raw":
+			// Handle raw text body
+			example.BodyType = mitemapiexample.BodyTypeRaw
+			if strValue, ok := finalBody.Value.(string); ok {
+				bodyRaw := mbodyraw.ExampleBodyRaw{
+					ID:        idwrap.NewNow(),
+					ExampleID: exampleID,
+					Data:      []byte(strValue),
+				}
+				workspaceData.Rawbodies = append(workspaceData.Rawbodies, bodyRaw)
+			} else {
+				return fmt.Errorf("raw body must be a string for node '%s'", nodeName)
+			}
+		default:
+			return fmt.Errorf("unknown body kind '%s' for node '%s'", finalBody.Kind, nodeName)
 		}
 	}
-	workspaceData.ExampleHeaders = append(workspaceData.ExampleHeaders, headers...)
 
-	bodyRaw := mbodyraw.ExampleBodyRaw{
-		ID:        idwrap.NewNow(),
-		ExampleID: exampleID,
-	}
-	// Process body
-	if bodyData, ok := data["body"].(map[string]any); ok {
-		if bodyJSON, ok := bodyData["body_json"].(map[string]any); ok {
-			jsonData, err := json.Marshal(bodyJSON)
-			if err != nil {
-				return fmt.Errorf("failed to marshal body_json for node '%s': %w", nodeName, err)
-			}
-			bodyRaw.Data = jsonData
-		}
-		// TODO: Add handling for other body types like text, form-data etc.
-	}
-	workspaceData.Rawbodies = append(workspaceData.Rawbodies, bodyRaw)
+	// Add example to workspace data after setting body type
+	workspaceData.Examples = append(workspaceData.Examples, example)
 
 	requestNode := mnrequest.MNRequest{
 		FlowNodeID: nodeID, // This should be the MNode ID
@@ -1020,13 +1608,16 @@ func processIfStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWrap, n
 	workspaceData.FlowNodes = append(workspaceData.FlowNodes, node)
 
 	// Process if specific fields
-	path, _ := data["expression"].(string) // Allow empty path for now, validation might be needed elsewhere
+	expression, ok := data["expression"].(string)
+	if !ok || expression == "" {
+		return fmt.Errorf("'expression' field is required for if/condition nodes")
+	}
 
 	ifNode := mnif.MNIF{
 		FlowNodeID: nodeID, // This should be the MNode ID
 		Condition: mcondition.Condition{
 			Comparisons: mcondition.Comparison{
-				Expression: path,
+				Expression: expression,
 			},
 		},
 	}
@@ -1084,10 +1675,8 @@ func processJSStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWrap, n
 
 	// Process js specific fields
 	code, ok := data["code"].(string)
-	if !ok {
-		// Allow empty code? Or return error? Assuming empty code is valid for now.
-		code = ""
-		// return fmt.Errorf("'code' field for 'js' node '%s' must be a string", nodeName)
+	if !ok || code == "" {
+		return fmt.Errorf("'code' field is required and must be a non-empty string for js node '%s'", nodeName)
 	}
 
 	jsNode := mnjs.MNJS{
@@ -1248,6 +1837,84 @@ func processEdgesAndDependencies(workspaceData *WorkspaceData, flowID idwrap.IDW
 			}
 		}
 	}
+	
+	// Check for circular dependencies
+	if err := checkCircularDependencies(workspaceData.FlowEdges, nodeNameToID); err != nil {
+		return err
+	}
+	
+	return nil
+}
+
+// checkCircularDependencies checks for cycles in the dependency graph
+func checkCircularDependencies(edges []edge.Edge, nodeNameToID map[string]idwrap.IDWrap) error {
+	// Build adjacency list from edges
+	adjacencyList := make(map[idwrap.IDWrap][]idwrap.IDWrap)
+	for _, e := range edges {
+		adjacencyList[e.SourceID] = append(adjacencyList[e.SourceID], e.TargetID)
+	}
+	
+	// Create reverse map for better error messages
+	nodeIDToName := make(map[idwrap.IDWrap]string)
+	for name, id := range nodeNameToID {
+		nodeIDToName[id] = name
+	}
+	
+	// Track visited nodes and recursion stack for cycle detection
+	visited := make(map[idwrap.IDWrap]bool)
+	recStack := make(map[idwrap.IDWrap]bool)
+	
+	// Helper function for DFS
+	var hasCycle func(node idwrap.IDWrap, path []idwrap.IDWrap) (bool, []idwrap.IDWrap)
+	hasCycle = func(node idwrap.IDWrap, path []idwrap.IDWrap) (bool, []idwrap.IDWrap) {
+		visited[node] = true
+		recStack[node] = true
+		path = append(path, node)
+		
+		// Check all neighbors
+		for _, neighbor := range adjacencyList[node] {
+			if !visited[neighbor] {
+				if found, cyclePath := hasCycle(neighbor, path); found {
+					return true, cyclePath
+				}
+			} else if recStack[neighbor] {
+				// Found a cycle, build the cycle path
+				cycleStart := -1
+				for i, n := range path {
+					if n == neighbor {
+						cycleStart = i
+						break
+					}
+				}
+				if cycleStart >= 0 {
+					cyclePath := append(path[cycleStart:], neighbor)
+					return true, cyclePath
+				}
+			}
+		}
+		
+		recStack[node] = false
+		return false, nil
+	}
+	
+	// Check for cycles starting from each unvisited node
+	for node := range adjacencyList {
+		if !visited[node] {
+			if found, cyclePath := hasCycle(node, []idwrap.IDWrap{}); found {
+				// Build error message with node names
+				var cycleNames []string
+				for _, id := range cyclePath {
+					if name, ok := nodeIDToName[id]; ok {
+						cycleNames = append(cycleNames, name)
+					} else {
+						cycleNames = append(cycleNames, id.String())
+					}
+				}
+				return fmt.Errorf("circular dependency detected: %s", strings.Join(cycleNames, " -> "))
+			}
+		}
+	}
+	
 	return nil
 }
 
@@ -1278,8 +1945,9 @@ func (s *IOWorkspaceService) ImportWorkflowYAML(ctx context.Context, data []byte
 	return nil
 }
 
-// MarshalWorkflowYAML converts a WorkspaceData structure to the workflow-centric YAML format
-func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
+// marshalWorkflowYAMLLegacy converts a WorkspaceData structure to the workflow-centric YAML format
+// Deprecated: This is the legacy implementation. Use the new workflow interface instead.
+func marshalWorkflowYAMLLegacy(workspaceData *WorkspaceData) ([]byte, error) {
 	if workspaceData == nil {
 		return nil, fmt.Errorf("workspace data cannot be nil")
 	}
@@ -1348,18 +2016,21 @@ func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
 	for _, flow := range workspaceData.Flows {
 		workflowFlow := WorkflowFlow{
 			Name:      flow.Name,
-			Variables: make([]WorkflowVariable, 0),
+			Variables: make(map[string]string),
 			Steps:     make([]WorkflowStep, 0),
 		}
 
-		// Extract variables
+		// Extract variables as a map
+		varMap := make(map[string]string)
 		for _, v := range workspaceData.FlowVariables {
 			if v.FlowID == flow.ID {
-				workflowFlow.Variables = append(workflowFlow.Variables, WorkflowVariable{
-					Name:  v.Name,
-					Value: v.Value,
-				})
+				varMap[v.Name] = v.Value
 			}
+		}
+		if len(varMap) > 0 {
+			workflowFlow.Variables = varMap
+		} else {
+			workflowFlow.Variables = nil
 		}
 
 		// Get all nodes for this flow
@@ -1413,30 +2084,28 @@ func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
 				if requestNode.ExampleID != nil {
 					exampleID := *requestNode.ExampleID
 
-					// Add headers
+					// Add headers as object format
 					if headers, ok := headersByExample[exampleID]; ok && len(headers) > 0 {
-						headersData := make([]map[string]string, 0, len(headers))
+						headersData := make(map[string]string)
 						for _, h := range headers {
-							headersData = append(headersData, map[string]string{
-								"name":  h.HeaderKey,
-								"value": h.Value,
-							})
+							headersData[h.HeaderKey] = h.Value
 						}
 						stepData["headers"] = headersData
 					}
 
 					// Add body if available
 					if body, ok := bodiesByExample[exampleID]; ok {
-						bodyData := map[string]interface{}{}
-
 						// Try to unmarshal JSON body
-						var jsonBody map[string]interface{}
+						var jsonBody interface{}
 						if err := json.Unmarshal(body.Data, &jsonBody); err == nil {
-							bodyData["body_json"] = jsonBody
-						}
-
-						if len(bodyData) > 0 {
-							stepData["body"] = bodyData
+							// Use simplified format - just the JSON object directly
+							stepData["body"] = jsonBody
+						} else {
+							// If not JSON, output as raw string
+							stepData["body"] = map[string]interface{}{
+								"kind": "raw",
+								"data": string(body.Data),
+							}
 						}
 					}
 				}
@@ -1548,10 +2217,44 @@ func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
 			}
 		}
 
-		// We need to create a raw structure for marshalling
-		rawWorkflow := map[string]interface{}{
-			"workspace_name": workflow.WorkspaceName,
-			"flows":          rawFlows,
+		// Extract global requests from all request nodes
+		globalRequests, globalRequestNames, patternDetails := extractGlobalRequests(workspaceData, endpointMap, exampleMap, headersByExample, bodiesByExample)
+		
+		// Now we need to update the request steps to use global requests
+		// This needs to be done before we already processed the flows, so we need to reprocess
+		if len(globalRequestNames) > 0 {
+			// Update the rawFlows to use use_request where applicable
+			rawFlows = updateFlowsWithGlobalRequests(rawFlows, workspaceData, endpointMap, globalRequestNames, patternDetails, headersByExample, bodiesByExample)
+		}
+		
+		// We need to create a raw structure for marshalling with ordered fields
+		// Using a custom type to ensure field order in YAML output
+		type orderedWorkflow struct {
+			WorkspaceName string                   `yaml:"workspace_name"`
+			Run           interface{}              `yaml:"run,omitempty"`
+			Requests      []map[string]interface{} `yaml:"requests,omitempty"`
+			Flows         []interface{}            `yaml:"flows"`
+		}
+		
+		// Build run field with all flow names (in order they were defined)
+		var runField interface{}
+		if len(workspaceData.Flows) > 0 {
+			runOrder := make([]string, 0, len(workspaceData.Flows))
+			for _, flow := range workspaceData.Flows {
+				runOrder = append(runOrder, flow.Name)
+			}
+			runField = runOrder
+		}
+		
+		rawWorkflow := orderedWorkflow{
+			WorkspaceName: workflow.WorkspaceName,
+			Run:           runField,
+			Flows:         rawFlows,
+		}
+		
+		// Only add requests section if we have global requests
+		if len(globalRequests) > 0 {
+			rawWorkflow.Requests = globalRequests
 		}
 
 		return yaml.Marshal(rawWorkflow)
@@ -1559,4 +2262,465 @@ func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
 
 	// If we have no flows, just marshal the empty structure
 	return yaml.Marshal(workflow)
+}
+
+// requestPattern represents a common pattern among requests
+type requestPattern struct {
+	method  string
+	url     string
+	headers map[string]string
+	hasBody bool
+	body    interface{} // Store the actual body data for comparison
+}
+
+// extractGlobalRequests analyzes all request nodes and extracts common patterns
+// as global request definitions to reduce duplication in the YAML output.
+// Returns the global requests and a map from pattern key to global request name.
+func extractGlobalRequests(
+	workspaceData *WorkspaceData,
+	endpointMap map[idwrap.IDWrap]mitemapi.ItemApi,
+	exampleMap map[idwrap.IDWrap]mitemapiexample.ItemApiExample,
+	headersByExample map[idwrap.IDWrap][]mexampleheader.Header,
+	bodiesByExample map[idwrap.IDWrap]mbodyraw.ExampleBodyRaw,
+) ([]map[string]interface{}, map[string]string, map[string]requestPattern) {
+	
+	patternGroups := make(map[string][]mnrequest.MNRequest)
+	patternDetails := make(map[string]requestPattern)
+	
+	// Analyze all request nodes
+	for _, reqNode := range workspaceData.FlowRequestNodes {
+		if reqNode.EndpointID == nil || reqNode.ExampleID == nil {
+			continue
+		}
+		
+		endpoint, ok := endpointMap[*reqNode.EndpointID]
+		if !ok {
+			continue
+		}
+		
+		// Create a pattern key based on method and URL template
+		// Remove variable parts from URL to find common patterns
+		urlTemplate := extractURLTemplate(endpoint.Url)
+		patternKey := fmt.Sprintf("%s:%s", endpoint.Method, urlTemplate)
+		
+		// Store the request node grouped by pattern
+		patternGroups[patternKey] = append(patternGroups[patternKey], reqNode)
+		
+		// Store pattern details if not already stored
+		if _, exists := patternDetails[patternKey]; !exists {
+			// For the first occurrence, just store basic info
+			// We'll determine common headers and body later
+			patternDetails[patternKey] = requestPattern{
+				method:  endpoint.Method,
+				url:     urlTemplate,
+				headers: make(map[string]string),
+				hasBody: false,
+				body:    nil,
+			}
+		}
+	}
+	
+	// Analyze patterns to find common headers and body
+	for patternKey, nodes := range patternGroups {
+		if len(nodes) == 0 {
+			continue
+		}
+		
+		// Find common headers across all nodes in this pattern
+		commonHeaders := make(map[string]string)
+		
+		// Start with headers from the first node
+		if nodes[0].ExampleID != nil {
+			if exHeaders, ok := headersByExample[*nodes[0].ExampleID]; ok {
+				for _, h := range exHeaders {
+					if h.Enable {
+						commonHeaders[h.HeaderKey] = h.Value
+					}
+				}
+			}
+		}
+		
+		// Check if all other nodes have the same headers
+		for i := 1; i < len(nodes); i++ {
+			if nodes[i].ExampleID == nil {
+				continue
+			}
+			
+			nodeHeaders := make(map[string]string)
+			if exHeaders, ok := headersByExample[*nodes[i].ExampleID]; ok {
+				for _, h := range exHeaders {
+					if h.Enable {
+						nodeHeaders[h.HeaderKey] = h.Value
+					}
+				}
+			}
+			
+			// Remove headers that don't match
+			for key, value := range commonHeaders {
+				if nodeValue, exists := nodeHeaders[key]; !exists || nodeValue != value {
+					delete(commonHeaders, key)
+				}
+			}
+		}
+		
+		// Update pattern with common headers
+		pattern := patternDetails[patternKey]
+		pattern.headers = commonHeaders
+		patternDetails[patternKey] = pattern
+	}
+	
+	// Create global requests for patterns that appear multiple times
+	// or have complex configurations worth extracting
+	globalRequests := make([]map[string]interface{}, 0)
+	globalRequestNames := make(map[string]string) // pattern key -> global request name
+	
+	requestCounter := 1
+	for patternKey, nodes := range patternGroups {
+		// Extract global request if:
+		// 1. Pattern is used multiple times, OR
+		// 2. Has headers or body (worth extracting for clarity)
+		pattern := patternDetails[patternKey]
+		if len(nodes) > 1 || len(pattern.headers) > 0 {
+			// Generate a name for this global request
+			requestName := generateRequestName(pattern.url, pattern.method, requestCounter)
+			requestCounter++
+			
+			globalRequestNames[patternKey] = requestName
+			
+			// Build the global request definition
+			globalReq := map[string]interface{}{
+				"name":   requestName,
+				"method": pattern.method,
+				"url":    pattern.url,
+			}
+			
+			// Add headers if present
+			if len(pattern.headers) > 0 {
+				globalReq["headers"] = pattern.headers
+			}
+			
+			// Add body if it's common across all uses (check first node as representative)
+			if pattern.hasBody && pattern.body != nil {
+				// Check if all nodes in this pattern have the same body
+				allSameBody := true
+				for _, node := range nodes {
+					if node.ExampleID != nil {
+						if nodeBody, ok := bodiesByExample[*node.ExampleID]; ok {
+							var nodeBodyData interface{}
+							if err := json.Unmarshal(nodeBody.Data, &nodeBodyData); err == nil {
+								// Compare JSON bodies
+								if fmt.Sprintf("%v", nodeBodyData) != fmt.Sprintf("%v", pattern.body) {
+									allSameBody = false
+									break
+								}
+							} else {
+								// Compare string bodies
+								if string(nodeBody.Data) != pattern.body {
+									allSameBody = false
+									break
+								}
+							}
+						}
+					}
+				}
+				
+				// Only include body in global request if all instances have the same body
+				if allSameBody {
+					globalReq["body"] = pattern.body
+				}
+			}
+			
+			globalRequests = append(globalRequests, globalReq)
+		}
+	}
+	
+	// Return the global requests, name mapping, and pattern details
+	return globalRequests, globalRequestNames, patternDetails
+}
+
+// extractURLTemplate converts a URL with variables into a template pattern
+// e.g., "https://api.example.com/users/123" -> "https://api.example.com/users/{{id}}"
+func extractURLTemplate(url string) string {
+	// Simple heuristic: replace numeric IDs with {{id}} and UUIDs with {{uuid}}
+	// This is a basic implementation and can be enhanced
+	
+	// Replace UUIDs
+	uuidRegex := regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
+	url = uuidRegex.ReplaceAllString(url, "{{uuid}}")
+	
+	// Replace numeric IDs in paths
+	// Match /123/ or /123 at end
+	numericIDRegex := regexp.MustCompile(`/(\d+)(/|$)`)
+	url = numericIDRegex.ReplaceAllString(url, "/{{id}}$2")
+	
+	return url
+}
+
+// generateRequestName creates a meaningful name for a global request
+func generateRequestName(url, method string, counter int) string {
+	// Extract meaningful parts from URL
+	parts := strings.Split(url, "/")
+	var resourceName string
+	
+	// Find the last non-variable part
+	for i := len(parts) - 1; i >= 0; i-- {
+		part := parts[i]
+		if part != "" && !strings.Contains(part, "{{") {
+			resourceName = part
+			break
+		}
+	}
+	
+	if resourceName == "" {
+		resourceName = "request"
+	}
+	
+	// Create name like "get_users" or "create_post"
+	methodLower := strings.ToLower(method)
+	return fmt.Sprintf("%s_%s", methodLower, resourceName)
+}
+
+// updateFlowsWithGlobalRequests updates request steps to use global request references
+func updateFlowsWithGlobalRequests(
+	rawFlows []interface{},
+	workspaceData *WorkspaceData,
+	endpointMap map[idwrap.IDWrap]mitemapi.ItemApi,
+	globalRequestNames map[string]string,
+	patternDetails map[string]requestPattern,
+	headersByExample map[idwrap.IDWrap][]mexampleheader.Header,
+	bodiesByExample map[idwrap.IDWrap]mbodyraw.ExampleBodyRaw,
+) []interface{} {
+	// Map node names to their request node data for quick lookup
+	nodeNameToRequest := make(map[string]mnrequest.MNRequest)
+	for _, node := range workspaceData.FlowNodes {
+		if node.NodeKind == mnnode.NODE_KIND_REQUEST {
+			for _, reqNode := range workspaceData.FlowRequestNodes {
+				if reqNode.FlowNodeID == node.ID {
+					nodeNameToRequest[node.Name] = reqNode
+					break
+				}
+			}
+		}
+	}
+	
+	// Process each flow
+	updatedFlows := make([]interface{}, 0, len(rawFlows))
+	for _, flow := range rawFlows {
+		flowMap, ok := flow.(map[string]interface{})
+		if !ok {
+			updatedFlows = append(updatedFlows, flow)
+			continue
+		}
+		
+		// Process steps in the flow
+		if steps, ok := flowMap["steps"].([]map[string]interface{}); ok {
+			updatedSteps := make([]map[string]interface{}, 0, len(steps))
+			
+			for _, step := range steps {
+				// Check if this is a request step
+				if requestData, ok := step["request"].(map[string]interface{}); ok {
+					// Get the node name to find the corresponding request node
+					nodeName, _ := requestData["name"].(string)
+					
+					if reqNode, ok := nodeNameToRequest[nodeName]; ok && reqNode.EndpointID != nil {
+						// Get the endpoint to create pattern key
+						if endpoint, ok := endpointMap[*reqNode.EndpointID]; ok {
+							urlTemplate := extractURLTemplate(endpoint.Url)
+							patternKey := fmt.Sprintf("%s:%s", endpoint.Method, urlTemplate)
+							
+							// Check if this pattern has a global request
+							if globalName, hasGlobal := globalRequestNames[patternKey]; hasGlobal {
+								// Create new request data using use_request
+								newRequestData := map[string]interface{}{
+									"name":        nodeName,
+									"use_request": globalName,
+								}
+								
+								// Keep dependencies if present
+								if deps, ok := requestData["depends_on"]; ok {
+									newRequestData["depends_on"] = deps
+								}
+								
+								// Get the global pattern details for comparison
+								pattern := patternDetails[patternKey]
+								
+								// Check URL override - only include if different from pattern
+								if url, ok := requestData["url"].(string); ok && url != pattern.url {
+									newRequestData["url"] = url
+								}
+								
+								// Check for body override
+								if body, ok := requestData["body"]; ok && reqNode.ExampleID != nil {
+									// Get the actual body data for this request
+									var requestBodyData interface{}
+									if bodyRaw, ok := bodiesByExample[*reqNode.ExampleID]; ok {
+										var jsonBody interface{}
+										if err := json.Unmarshal(bodyRaw.Data, &jsonBody); err == nil {
+											requestBodyData = jsonBody
+										} else {
+											requestBodyData = string(bodyRaw.Data)
+										}
+									}
+									
+									// Only include body if it's different from the global pattern body
+									if pattern.body == nil || fmt.Sprintf("%v", requestBodyData) != fmt.Sprintf("%v", pattern.body) {
+										newRequestData["body"] = body
+									}
+								}
+								
+								// Check for header overrides
+								if headers, ok := requestData["headers"]; ok && reqNode.ExampleID != nil {
+									// Get the actual headers for this request
+									requestHeaders := make(map[string]string)
+									if exHeaders, ok := headersByExample[*reqNode.ExampleID]; ok {
+										for _, h := range exHeaders {
+											if h.Enable {
+												requestHeaders[h.HeaderKey] = h.Value
+											}
+										}
+									}
+									
+									// Compare with global pattern headers
+									overrideHeaders := make(map[string]string)
+									headersMap, _ := headers.(map[string]string)
+									
+									for key, value := range headersMap {
+										// Include header if:
+										// 1. It's not in the global pattern, OR
+										// 2. Its value is different from the global pattern
+										if globalValue, exists := pattern.headers[key]; !exists || globalValue != value {
+											overrideHeaders[key] = value
+										}
+									}
+									
+									// Only include headers if there are overrides
+									if len(overrideHeaders) > 0 {
+										newRequestData["headers"] = overrideHeaders
+									}
+								}
+								
+								// Update the step with new request data
+								step["request"] = newRequestData
+							}
+						}
+					}
+				}
+				
+				updatedSteps = append(updatedSteps, step)
+			}
+			
+			flowMap["steps"] = updatedSteps
+		}
+		
+		updatedFlows = append(updatedFlows, flowMap)
+	}
+	
+	return updatedFlows
+}
+
+// UnmarshalWorkflowYAML parses the workflow-centric YAML format and converts it to WorkspaceData
+// This function uses the new workflow interface for parsing
+func UnmarshalWorkflowYAML(data []byte) (*WorkspaceData, error) {
+	s := simplified.New()
+	wd, err := s.Unmarshal(data, workflow.FormatYAML)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Convert from workflow.WorkspaceData to local WorkspaceData
+	return convertFromWorkflowData(wd), nil
+}
+
+// MarshalWorkflowYAML converts a WorkspaceData structure to the workflow-centric YAML format
+// This function uses the new workflow interface for marshaling
+func MarshalWorkflowYAML(workspaceData *WorkspaceData) ([]byte, error) {
+	// Convert from local WorkspaceData to workflow.WorkspaceData
+	wd := convertToWorkflowData(workspaceData)
+	
+	s := simplified.New()
+	return s.Marshal(wd, workflow.FormatYAML)
+}
+
+// convertFromWorkflowData converts from workflow.WorkspaceData to local WorkspaceData
+func convertFromWorkflowData(wd *workflow.WorkspaceData) *WorkspaceData {
+	if wd == nil {
+		return nil
+	}
+	
+	return &WorkspaceData{
+		Workspace:              wd.Workspace,
+		Collections:            []mcollection.Collection{wd.Collection}, // Convert single to array
+		Folders:                wd.Folders,
+		Endpoints:              wd.Endpoints,
+		Examples:               wd.Examples,
+		FlowNodes:              wd.FlowNodes,
+		FlowEdges:              wd.FlowEdges,
+		FlowVariables:          wd.FlowVariables,
+		FlowRequestNodes:       wd.FlowRequestNodes,
+		FlowConditionNodes:     wd.FlowConditionNodes,
+		FlowNoopNodes:          wd.FlowNoopNodes,
+		FlowForNodes:           wd.FlowForNodes,
+		FlowForEachNodes:       wd.FlowForEachNodes,
+		FlowJSNodes:            wd.FlowJSNodes,
+		Flows:                  wd.Flows,
+		ExampleQueries:         wd.RequestQueries,
+		ExampleHeaders:         wd.RequestHeaders,
+		ExampleAsserts:         wd.RequestAsserts,
+		Rawbodies:              wd.RequestBodyRaw,
+		FormBodies:             wd.RequestBodyForm,
+		UrlBodies:              wd.RequestBodyUrlencoded,
+		ExampleResponses:       wd.Responses,
+		ExampleResponseHeaders: wd.ResponseHeaders,
+		ExampleResponseAsserts: wd.ResponseAsserts,
+	}
+}
+
+// convertToWorkflowData converts from local WorkspaceData to workflow.WorkspaceData
+func convertToWorkflowData(wd *WorkspaceData) *workflow.WorkspaceData {
+	if wd == nil {
+		return nil
+	}
+	
+	// Use the first collection if available, otherwise create a default one
+	var collection mcollection.Collection
+	if len(wd.Collections) > 0 {
+		collection = wd.Collections[0]
+	} else {
+		collection = mcollection.Collection{
+			ID:          idwrap.NewNow(),
+			Name:        "Default Collection",
+			WorkspaceID: wd.Workspace.ID,
+		}
+	}
+	
+	return &workflow.WorkspaceData{
+		Workspace:              wd.Workspace,
+		Collection:             collection, // Convert array to single
+		Folders:                wd.Folders,
+		Endpoints:              wd.Endpoints,
+		Examples:               wd.Examples,
+		FlowNodes:              wd.FlowNodes,
+		FlowEdges:              wd.FlowEdges,
+		FlowVariables:          wd.FlowVariables,
+		FlowRequestNodes:       wd.FlowRequestNodes,
+		FlowConditionNodes:     wd.FlowConditionNodes,
+		FlowNoopNodes:          wd.FlowNoopNodes,
+		FlowForNodes:           wd.FlowForNodes,
+		FlowForEachNodes:       wd.FlowForEachNodes,
+		FlowJSNodes:            wd.FlowJSNodes,
+		Flows:                  wd.Flows,
+		RequestQueries:         wd.ExampleQueries,
+		RequestHeaders:         wd.ExampleHeaders,
+		RequestAsserts:         wd.ExampleAsserts,
+		RequestBodyRaw:         wd.Rawbodies,
+		RequestBodyForm:        wd.FormBodies,
+		RequestBodyUrlencoded:  wd.UrlBodies,
+		Responses:              wd.ExampleResponses,
+		ResponseHeaders:        wd.ExampleResponseHeaders,
+		ResponseAsserts:        wd.ExampleResponseAsserts,
+		ResponseBodyRaw:        nil, // TODO: Add to workflow.WorkspaceData
+		ResponseBodyForm:       nil, // TODO: Add to workflow.WorkspaceData
+		ResponseBodyUrlencoded: nil, // TODO: Add to workflow.WorkspaceData
+		EndpointExampleMap:     make(map[idwrap.IDWrap][]idwrap.IDWrap), // TODO: Build from examples
+	}
 }

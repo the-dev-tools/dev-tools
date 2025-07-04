@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/positioning"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
@@ -791,7 +792,9 @@ func TestNodePositioning(t *testing.T) {
 	)
 
 	// Run the positioning function
-	err := thar.ReorganizeNodePositions(&result)
+	// Use the positioning package to organize nodes
+	positioner := positioning.NewNodePositioner()
+	err := positioner.PositionNodes(result.Nodes, result.Edges, result.NoopNodes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -877,7 +880,9 @@ func TestPositionNodesWithDifferentTopologies(t *testing.T) {
 		)
 
 		// Run the positioning function
-		err := thar.ReorganizeNodePositions(&result)
+		// Use the positioning package to organize nodes
+	positioner := positioning.NewNodePositioner()
+	err := positioner.PositionNodes(result.Nodes, result.Edges, result.NoopNodes)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1461,7 +1466,9 @@ func TestNodePositioningNoOverlaps(t *testing.T) {
 	)
 
 	// Run the positioning function
-	err := thar.ReorganizeNodePositions(&result)
+	// Use the positioning package to organize nodes
+	positioner := positioning.NewNodePositioner()
+	err := positioner.PositionNodes(result.Nodes, result.Edges, result.NoopNodes)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -21,8 +22,10 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/postman/v21/mpostmancollection"
 	"the-dev-tools/server/pkg/permcheck"
+	"the-dev-tools/server/pkg/positioning"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
+	"the-dev-tools/server/pkg/service/sassertres"
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
@@ -30,11 +33,17 @@ import (
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
+	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeforeach"
+	"the-dev-tools/server/pkg/service/snodeif"
+	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
@@ -69,12 +78,53 @@ type ImportRPC struct {
 	iaes sitemapiexample.ItemApiExampleService
 	res  sexampleresp.ExampleRespService
 	as   sassert.AssertService
+	
+	// Additional services needed for workflow YAML import
+	ehs  sexampleheader.HeaderService
+	eqs  sexamplequery.ExampleQueryService
+	rbs  sbodyraw.BodyRawService
+	fbs  sbodyform.BodyFormService
+	ubs  sbodyurl.BodyURLEncodedService
+	rhs  sexamplerespheader.ExampleRespHeaderService
+	ars  sassertres.AssertResultService
+	
+	// Flow services
+	fs   sflow.FlowService
+	ns   snode.NodeService
+	es   sedge.EdgeService
+	fvs  sflowvariable.FlowVariableService
+	
+	frs  snoderequest.NodeRequestService
+	fcs  snodeif.NodeIfService
+	fns  snodenoop.NodeNoopService
+	ffors snodefor.NodeForService
+	ffes snodeforeach.NodeForEachService
+	fjs  snodejs.NodeJSService
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService,
 	ifs sitemfolder.ItemFolderService, ias sitemapi.ItemApiService,
 	iaes sitemapiexample.ItemApiExampleService, res sexampleresp.ExampleRespService,
 	as sassert.AssertService,
+	// Additional services
+	ehs sexampleheader.HeaderService,
+	eqs sexamplequery.ExampleQueryService,
+	rbs sbodyraw.BodyRawService,
+	fbs sbodyform.BodyFormService,
+	ubs sbodyurl.BodyURLEncodedService,
+	rhs sexamplerespheader.ExampleRespHeaderService,
+	ars sassertres.AssertResultService,
+	// Flow services
+	fs sflow.FlowService,
+	ns snode.NodeService,
+	es sedge.EdgeService,
+	fvs sflowvariable.FlowVariableService,
+	frs snoderequest.NodeRequestService,
+	fcs snodeif.NodeIfService,
+	fns snodenoop.NodeNoopService,
+	ffors snodefor.NodeForService,
+	ffes snodeforeach.NodeForEachService,
+	fjs snodejs.NodeJSService,
 ) ImportRPC {
 	return ImportRPC{
 		DB:   db,
@@ -86,6 +136,23 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionSe
 		iaes: iaes,
 		res:  res,
 		as:   as,
+		ehs:  ehs,
+		eqs:  eqs,
+		rbs:  rbs,
+		fbs:  fbs,
+		ubs:  ubs,
+		rhs:  rhs,
+		ars:  ars,
+		fs:   fs,
+		ns:   ns,
+		es:   es,
+		fvs:  fvs,
+		frs:  frs,
+		fcs:  fcs,
+		fns:  fns,
+		ffors: ffors,
+		ffes: ffes,
+		fjs:  fjs,
 	}
 }
 
@@ -154,6 +221,17 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 				return nil, err
 			}
 
+			return connect.NewResponse(resp), nil
+		}
+
+		// Try to import as simplified workflow YAML first
+		workspaceData, err := ioworkspace.UnmarshalWorkflowYAML(data)
+		if err == nil {
+			// Successfully parsed as workflow YAML, import it
+			err = c.ImportWorkflowYAML(ctx, wsUlid, workspaceData)
+			if err != nil {
+				return nil, err
+			}
 			return connect.NewResponse(resp), nil
 		}
 
@@ -1065,4 +1143,256 @@ func calculateFolderDepth(folder *mitemfolder.ItemFolder, allFolders []mitemfold
 
 	// Parent not in list, assume it exists in DB
 	return 1
+}
+
+// ImportWorkflowYAML imports a workspace from the simplified workflow YAML format
+func (c *ImportRPC) ImportWorkflowYAML(ctx context.Context, workspaceID idwrap.IDWrap, workspaceData *ioworkspace.WorkspaceData) error {
+	// Regenerate all IDs to avoid conflicts
+	idMap := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	
+	// Helper function to get new ID or create one if not exists
+	getNewID := func(oldID idwrap.IDWrap) idwrap.IDWrap {
+		// Handle zero/empty IDs
+		if oldID == (idwrap.IDWrap{}) {
+			return idwrap.IDWrap{}
+		}
+		if newID, exists := idMap[oldID]; exists {
+			return newID
+		}
+		newID := idwrap.NewNow()
+		idMap[oldID] = newID
+		return newID
+	}
+	
+	// Update workspace ID
+	oldWorkspaceID := workspaceData.Workspace.ID
+	workspaceData.Workspace.ID = workspaceID
+	idMap[oldWorkspaceID] = workspaceID
+
+	// Regenerate collection IDs
+	for i := range workspaceData.Collections {
+		oldID := workspaceData.Collections[i].ID
+		workspaceData.Collections[i].ID = getNewID(oldID)
+		workspaceData.Collections[i].WorkspaceID = workspaceID
+	}
+
+	// Regenerate flow IDs
+	for i := range workspaceData.Flows {
+		oldID := workspaceData.Flows[i].ID
+		workspaceData.Flows[i].ID = getNewID(oldID)
+		workspaceData.Flows[i].WorkspaceID = workspaceID
+	}
+
+	// Regenerate flow node IDs
+	for i := range workspaceData.FlowNodes {
+		oldID := workspaceData.FlowNodes[i].ID
+		workspaceData.FlowNodes[i].ID = getNewID(oldID)
+		if workspaceData.FlowNodes[i].FlowID != (idwrap.IDWrap{}) {
+			workspaceData.FlowNodes[i].FlowID = getNewID(workspaceData.FlowNodes[i].FlowID)
+		}
+	}
+
+	// Regenerate flow edge IDs
+	for i := range workspaceData.FlowEdges {
+		oldID := workspaceData.FlowEdges[i].ID
+		workspaceData.FlowEdges[i].ID = getNewID(oldID)
+		workspaceData.FlowEdges[i].FlowID = getNewID(workspaceData.FlowEdges[i].FlowID)
+		workspaceData.FlowEdges[i].SourceID = getNewID(workspaceData.FlowEdges[i].SourceID)
+		workspaceData.FlowEdges[i].TargetID = getNewID(workspaceData.FlowEdges[i].TargetID)
+	}
+
+	// Regenerate flow variable IDs
+	for i := range workspaceData.FlowVariables {
+		oldID := workspaceData.FlowVariables[i].ID
+		workspaceData.FlowVariables[i].ID = getNewID(oldID)
+		workspaceData.FlowVariables[i].FlowID = getNewID(workspaceData.FlowVariables[i].FlowID)
+	}
+
+	// Regenerate folder IDs
+	for i := range workspaceData.Folders {
+		oldID := workspaceData.Folders[i].ID
+		workspaceData.Folders[i].ID = getNewID(oldID)
+		workspaceData.Folders[i].CollectionID = getNewID(workspaceData.Folders[i].CollectionID)
+		if workspaceData.Folders[i].ParentID != nil {
+			newParentID := getNewID(*workspaceData.Folders[i].ParentID)
+			workspaceData.Folders[i].ParentID = &newParentID
+		}
+	}
+
+	// Regenerate endpoint IDs
+	for i := range workspaceData.Endpoints {
+		oldID := workspaceData.Endpoints[i].ID
+		workspaceData.Endpoints[i].ID = getNewID(oldID)
+		workspaceData.Endpoints[i].CollectionID = getNewID(workspaceData.Endpoints[i].CollectionID)
+		if workspaceData.Endpoints[i].FolderID != nil {
+			newFolderID := getNewID(*workspaceData.Endpoints[i].FolderID)
+			workspaceData.Endpoints[i].FolderID = &newFolderID
+		}
+	}
+
+	// Regenerate example IDs
+	for i := range workspaceData.Examples {
+		oldID := workspaceData.Examples[i].ID
+		workspaceData.Examples[i].ID = getNewID(oldID)
+		workspaceData.Examples[i].CollectionID = getNewID(workspaceData.Examples[i].CollectionID)
+		workspaceData.Examples[i].ItemApiID = getNewID(workspaceData.Examples[i].ItemApiID)
+	}
+
+	// Update flow request nodes
+	for i := range workspaceData.FlowRequestNodes {
+		workspaceData.FlowRequestNodes[i].FlowNodeID = getNewID(workspaceData.FlowRequestNodes[i].FlowNodeID)
+		if workspaceData.FlowRequestNodes[i].EndpointID != nil {
+			newEndpointID := getNewID(*workspaceData.FlowRequestNodes[i].EndpointID)
+			workspaceData.FlowRequestNodes[i].EndpointID = &newEndpointID
+		}
+		if workspaceData.FlowRequestNodes[i].DeltaEndpointID != nil {
+			newDeltaEndpointID := getNewID(*workspaceData.FlowRequestNodes[i].DeltaEndpointID)
+			workspaceData.FlowRequestNodes[i].DeltaEndpointID = &newDeltaEndpointID
+		}
+		if workspaceData.FlowRequestNodes[i].ExampleID != nil {
+			newExampleID := getNewID(*workspaceData.FlowRequestNodes[i].ExampleID)
+			workspaceData.FlowRequestNodes[i].ExampleID = &newExampleID
+		}
+		if workspaceData.FlowRequestNodes[i].DeltaExampleID != nil {
+			newDeltaExampleID := getNewID(*workspaceData.FlowRequestNodes[i].DeltaExampleID)
+			workspaceData.FlowRequestNodes[i].DeltaExampleID = &newDeltaExampleID
+		}
+	}
+
+	// Update flow condition nodes
+	for i := range workspaceData.FlowConditionNodes {
+		workspaceData.FlowConditionNodes[i].FlowNodeID = getNewID(workspaceData.FlowConditionNodes[i].FlowNodeID)
+	}
+
+	// Update flow noop nodes
+	for i := range workspaceData.FlowNoopNodes {
+		workspaceData.FlowNoopNodes[i].FlowNodeID = getNewID(workspaceData.FlowNoopNodes[i].FlowNodeID)
+	}
+
+	// Update flow for nodes
+	for i := range workspaceData.FlowForNodes {
+		workspaceData.FlowForNodes[i].FlowNodeID = getNewID(workspaceData.FlowForNodes[i].FlowNodeID)
+	}
+
+	// Update flow for each nodes
+	for i := range workspaceData.FlowForEachNodes {
+		workspaceData.FlowForEachNodes[i].FlowNodeID = getNewID(workspaceData.FlowForEachNodes[i].FlowNodeID)
+	}
+
+	// Update flow JS nodes
+	for i := range workspaceData.FlowJSNodes {
+		workspaceData.FlowJSNodes[i].FlowNodeID = getNewID(workspaceData.FlowJSNodes[i].FlowNodeID)
+	}
+
+	// Update example headers
+	for i := range workspaceData.ExampleHeaders {
+		oldID := workspaceData.ExampleHeaders[i].ID
+		workspaceData.ExampleHeaders[i].ID = getNewID(oldID)
+		workspaceData.ExampleHeaders[i].ExampleID = getNewID(workspaceData.ExampleHeaders[i].ExampleID)
+	}
+
+	// Update example queries
+	for i := range workspaceData.ExampleQueries {
+		oldID := workspaceData.ExampleQueries[i].ID
+		workspaceData.ExampleQueries[i].ID = getNewID(oldID)
+		workspaceData.ExampleQueries[i].ExampleID = getNewID(workspaceData.ExampleQueries[i].ExampleID)
+	}
+
+	// Update raw bodies
+	for i := range workspaceData.Rawbodies {
+		oldID := workspaceData.Rawbodies[i].ID
+		workspaceData.Rawbodies[i].ID = getNewID(oldID)
+		workspaceData.Rawbodies[i].ExampleID = getNewID(workspaceData.Rawbodies[i].ExampleID)
+	}
+
+	// Update form bodies
+	for i := range workspaceData.FormBodies {
+		oldID := workspaceData.FormBodies[i].ID
+		workspaceData.FormBodies[i].ID = getNewID(oldID)
+		workspaceData.FormBodies[i].ExampleID = getNewID(workspaceData.FormBodies[i].ExampleID)
+	}
+
+	// Update URL bodies
+	for i := range workspaceData.UrlBodies {
+		oldID := workspaceData.UrlBodies[i].ID
+		workspaceData.UrlBodies[i].ID = getNewID(oldID)
+		workspaceData.UrlBodies[i].ExampleID = getNewID(workspaceData.UrlBodies[i].ExampleID)
+	}
+
+	// Update example responses
+	for i := range workspaceData.ExampleResponses {
+		oldID := workspaceData.ExampleResponses[i].ID
+		workspaceData.ExampleResponses[i].ID = getNewID(oldID)
+		workspaceData.ExampleResponses[i].ExampleID = getNewID(workspaceData.ExampleResponses[i].ExampleID)
+	}
+
+	// Update example response headers
+	for i := range workspaceData.ExampleResponseHeaders {
+		oldID := workspaceData.ExampleResponseHeaders[i].ID
+		workspaceData.ExampleResponseHeaders[i].ID = getNewID(oldID)
+		workspaceData.ExampleResponseHeaders[i].ExampleRespID = getNewID(workspaceData.ExampleResponseHeaders[i].ExampleRespID)
+	}
+
+	// Update example asserts
+	for i := range workspaceData.ExampleAsserts {
+		oldID := workspaceData.ExampleAsserts[i].ID
+		workspaceData.ExampleAsserts[i].ID = getNewID(oldID)
+		workspaceData.ExampleAsserts[i].ExampleID = getNewID(workspaceData.ExampleAsserts[i].ExampleID)
+	}
+
+	// Update response assert results
+	for i := range workspaceData.ExampleResponseAsserts {
+		oldID := workspaceData.ExampleResponseAsserts[i].ID
+		workspaceData.ExampleResponseAsserts[i].ID = getNewID(oldID)
+		workspaceData.ExampleResponseAsserts[i].AssertID = getNewID(workspaceData.ExampleResponseAsserts[i].AssertID)
+		workspaceData.ExampleResponseAsserts[i].ResponseID = getNewID(workspaceData.ExampleResponseAsserts[i].ResponseID)
+	}
+
+	// Position the nodes before importing
+	fmt.Printf("Starting node positioning for %d nodes, %d edges\n", len(workspaceData.FlowNodes), len(workspaceData.FlowEdges))
+	positioner := positioning.NewNodePositioner()
+	posErr := positioner.PositionNodes(workspaceData.FlowNodes, workspaceData.FlowEdges, workspaceData.FlowNoopNodes)
+	if posErr != nil {
+		// Log the error but don't fail the import - positioning is not critical
+		fmt.Printf("Warning: Failed to position nodes: %v\n", posErr)
+	}
+	fmt.Printf("Node positioning completed\n")
+
+	// Create all required services
+	ioWorkspace := ioworkspace.NewIOWorkspaceService(
+		c.DB,
+		c.ws,
+		c.cs,
+		c.ifs,
+		c.ias,
+		c.iaes,
+		c.ehs,
+		c.eqs,
+		c.as,
+		c.rbs,
+		c.fbs,
+		c.ubs,
+		c.res,
+		c.rhs,
+		c.ars,
+		// Flow services
+		c.fs,
+		c.ns,
+		c.es,
+		c.fvs,
+		c.frs,
+		c.fcs,
+		c.fns,
+		c.ffors,
+		c.ffes,
+		c.fjs,
+	)
+
+	// Import the workspace data into the existing workspace
+	err := ioWorkspace.ImportIntoWorkspace(ctx, *workspaceData)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	return nil
 }
