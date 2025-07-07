@@ -31,10 +31,14 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeif"
+	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
@@ -42,11 +46,13 @@ import (
 	"the-dev-tools/server/pkg/translate/tcurl"
 	"the-dev-tools/server/pkg/translate/thar"
 	"the-dev-tools/server/pkg/translate/tpostman"
+	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
 	"the-dev-tools/spec/dist/buf/go/import/v1/importv1connect"
 
 	"connectrpc.com/connect"
+	"gopkg.in/yaml.v3"
 )
 
 // TODO: this is need be switch to id based system later
@@ -155,6 +161,267 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 			}
 
 			return connect.NewResponse(resp), nil
+		}
+
+		// Try to detect simplified YAML format first
+		var yamlCheck map[string]any
+		if err := yaml.Unmarshal(data, &yamlCheck); err == nil {
+			// Check if it has the markers for simplified format
+			if _, hasWorkspace := yamlCheck["workspace_name"]; hasWorkspace {
+				if _, hasFlows := yamlCheck["flows"]; hasFlows {
+					// This appears to be a simplified workflow YAML
+					workspaceData, err := workflowsimple.ImportWorkflowYAML(data)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to import simplified workflow: %w", err))
+					}
+
+					// For now, we'll use a transaction-based approach to import the workspace
+					// This is a simplified approach - in production, you'd want to use the full ioworkspace service
+					tx, err := c.DB.Begin()
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+					defer devtoolsdb.TxnRollback(tx)
+
+					// Don't create workspace - use the existing one
+					// The workspace ID from the request is for the existing workspace we're importing into
+
+					// Import collections first
+					if len(workspaceData.Collections) > 0 {
+						txCollectionService, err := scollection.NewTX(ctx, tx)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+						for _, collection := range workspaceData.Collections {
+							collection.WorkspaceID = wsUlid
+							err = txCollectionService.CreateCollection(ctx, &collection)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+					}
+
+					// Import endpoints and examples BEFORE request nodes
+					if len(workspaceData.Endpoints) > 0 {
+						txEndpointService, err := sitemapi.NewTX(ctx, tx)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+						for _, endpoint := range workspaceData.Endpoints {
+							err = txEndpointService.CreateItemApi(ctx, &endpoint)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+					}
+
+					if len(workspaceData.Examples) > 0 {
+						txExampleService, err := sitemapiexample.NewTX(ctx, tx)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+						for _, example := range workspaceData.Examples {
+							err = txExampleService.CreateApiExample(ctx, &example)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+					}
+
+					// Import headers, queries, bodies
+					if len(workspaceData.ExampleHeaders) > 0 {
+						txHeaderService, err := sexampleheader.NewTX(ctx, tx)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+						err = txHeaderService.CreateBulkHeader(ctx, workspaceData.ExampleHeaders)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+					}
+
+					if len(workspaceData.ExampleQueries) > 0 {
+						txQueryService, err := sexamplequery.NewTX(ctx, tx)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+						err = txQueryService.CreateBulkQuery(ctx, workspaceData.ExampleQueries)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+					}
+
+					if len(workspaceData.Rawbodies) > 0 {
+						txBodyService, err := sbodyraw.NewTX(ctx, tx)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+						for _, b := range workspaceData.Rawbodies {
+							err = txBodyService.CreateBodyRaw(ctx, b)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+					}
+
+					// Import flows
+					if len(workspaceData.Flows) > 0 {
+						txFlowService, err := sflow.NewTX(ctx, tx)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+						for i := range workspaceData.Flows {
+							workspaceData.Flows[i].WorkspaceID = wsUlid
+							err = txFlowService.CreateFlow(ctx, workspaceData.Flows[i])
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+
+						// Import flow nodes
+						if len(workspaceData.FlowNodes) > 0 {
+							txNodeService, err := snode.NewTX(ctx, tx)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+							err = txNodeService.CreateNodeBulk(ctx, workspaceData.FlowNodes)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+
+						// Import flow edges
+						if len(workspaceData.FlowEdges) > 0 {
+							txEdgeService, err := sedge.NewTX(ctx, tx)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+							for _, edge := range workspaceData.FlowEdges {
+						err = txEdgeService.CreateEdge(ctx, edge)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+					}
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+
+						// Import flow variables
+						if len(workspaceData.FlowVariables) > 0 {
+							txFlowVariableService, err := sflowvariable.NewTX(ctx, tx)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+							for _, v := range workspaceData.FlowVariables {
+						err = txFlowVariableService.CreateFlowVariable(ctx, v)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+					}
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+
+						// Import node implementations AFTER endpoints/examples
+						if len(workspaceData.FlowRequestNodes) > 0 {
+							txRequestService, err := snoderequest.NewTX(ctx, tx)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+							for _, r := range workspaceData.FlowRequestNodes {
+								err = txRequestService.CreateNodeRequest(ctx, r)
+								if err != nil {
+									return nil, connect.NewError(connect.CodeInternal, err)
+								}
+							}
+						}
+
+						// Import other node types
+						if len(workspaceData.FlowConditionNodes) > 0 {
+							txConditionService, err := snodeif.NewTX(ctx, tx)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+							for _, c := range workspaceData.FlowConditionNodes {
+						err = txConditionService.CreateNodeIf(ctx, c)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+					}
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+
+						if len(workspaceData.FlowNoopNodes) > 0 {
+							txNoopService, err := snodenoop.NewTX(ctx, tx)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+							for _, n := range workspaceData.FlowNoopNodes {
+						err = txNoopService.CreateNodeNoop(ctx, n)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+					}
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+
+						if len(workspaceData.FlowForNodes) > 0 {
+							txForService, err := snodefor.NewTX(ctx, tx)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+							for _, f := range workspaceData.FlowForNodes {
+						err = txForService.CreateNodeFor(ctx, f)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+					}
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+
+						if len(workspaceData.FlowJSNodes) > 0 {
+							txJsService, err := snodejs.NewTX(ctx, tx)
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+							for _, j := range workspaceData.FlowJSNodes {
+						err = txJsService.CreateNodeJS(ctx, j)
+						if err != nil {
+							return nil, connect.NewError(connect.CodeInternal, err)
+						}
+					}
+							if err != nil {
+								return nil, connect.NewError(connect.CodeInternal, err)
+							}
+						}
+					}
+
+					// Commit transaction
+					err = tx.Commit()
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+
+					// Return the first flow if any
+					if len(workspaceData.Flows) > 0 {
+						flow := workspaceData.Flows[0]
+						resp.Flow = &flowv1.FlowListItem{
+							FlowId: flow.ID.Bytes(),
+							Name:   flow.Name,
+						}
+					}
+
+					return connect.NewResponse(resp), nil
+				}
+			}
 		}
 
 		// Handle other imports

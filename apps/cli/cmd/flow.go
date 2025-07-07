@@ -28,6 +28,7 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
+	workflowsimple "the-dev-tools/server/pkg/io/workflow/workflowsimple"
 	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -357,9 +358,14 @@ var workflowRunCmd = &cobra.Command{
 		}
 
 		// Parse workflow YAML to workspace data
-		workspaceData, err := ioworkspace.UnmarshalWorkflowYAML(fileData)
+		// Try simplified format first
+		workspaceData, err := workflowsimple.ImportWorkflowYAML(fileData)
 		if err != nil {
-			return err
+			// Fall back to standard format
+			workspaceData, err = ioworkspace.UnmarshalWorkflowYAML(fileData)
+			if err != nil {
+				return fmt.Errorf("failed to parse workflow: %w", err)
+			}
 		}
 
 		err = workspaceData.VerifyIds()
@@ -624,7 +630,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
 	for _, forNode := range forNodes {
 		name := nodeNameMap[forNode.FlowNodeID]
-		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout)
+		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling)
 	}
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes)*100)

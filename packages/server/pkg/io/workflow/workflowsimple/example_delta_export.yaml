@@ -1,0 +1,38 @@
+# Example of exported workflow with delta overrides
+# 
+# This demonstrates how delta overrides appear in the exported YAML:
+# 1. The global 'requests:' section contains the base/delta merged values (with variables preserved)
+# 2. Individual flow steps show only the overrides that differ from the global request
+
+workspace_name: Test Workspace with Deltas
+
+# Global request definitions (showing merged base+delta values)
+requests:
+  - name: request_0
+    method: GET
+    url: https://api.example.com/users
+    headers:
+      Authorization: Bearer {{token}}    # From delta (new header)
+      Content-Type: application/xml       # From delta (override)
+    query_params:
+      page: "{{page}}"                   # From delta (with variable)
+      limit: "50"                        # From delta (new param)
+
+flows:
+  - name: Test Flow
+    steps:
+      - request:
+          name: request_0
+          use_request: request_0
+          # These are the delta overrides specific to this step
+          method: POST                                      # Override from GET to POST
+          url: https://api.example.com/users/{{userId}}    # Override URL with variable
+          headers:
+            Authorization: Bearer {{token}}                 # New header not in base
+            Content-Type: application/xml                   # Override from application/json
+          query_params:
+            page: "{{page}}"                               # Override from "1" to variable
+            limit: "50"                                    # New query param
+          body:                                            # Different body from base
+            name: "{{userName}}"
+            age: 30

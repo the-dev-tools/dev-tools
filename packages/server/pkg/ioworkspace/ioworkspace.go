@@ -428,14 +428,13 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 				if err != nil {
 					return nil, err
 				}
-				// Add referenced example IDs to the required set if filtering is enabled
-				if isFilteringExamples {
-					if request.ExampleID != nil {
-						requiredExampleIDs[*request.ExampleID] = struct{}{}
-					}
-					if request.DeltaExampleID != nil {
-						requiredExampleIDs[*request.DeltaExampleID] = struct{}{}
-					}
+				// Always track delta example IDs - we need to load them separately
+				// since they belong to hidden endpoints
+				if request.ExampleID != nil && isFilteringExamples {
+					requiredExampleIDs[*request.ExampleID] = struct{}{}
+				}
+				if request.DeltaExampleID != nil {
+					requiredExampleIDs[*request.DeltaExampleID] = struct{}{}
 				}
 				data.FlowRequestNodes = append(data.FlowRequestNodes, *request)
 			case mnnode.NODE_KIND_CONDITION:
@@ -486,17 +485,20 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 		}
 		data.Endpoints = append(data.Endpoints, endpoints...)
 
-		// Filter examples if a filter list was provided
-		if isFilteringExamples && len(requiredExampleIDs) > 0 {
+		// Load regular examples from collection
+		if !isFilteringExamples {
+			examples, err := s.exampleService.GetApiExampleByCollection(ctx, collection.ID)
+			if err != nil {
+				return nil, err
+			}
+			data.Examples = append(data.Examples, examples...)
+		}
+		
+		// Load specific examples (delta examples or filtered examples)
+		// Delta examples belong to hidden endpoints and won't be returned by GetApiExampleByCollection
+		if len(requiredExampleIDs) > 0 {
 			for exampleID := range requiredExampleIDs {
-				example, err := s.exampleService.GetApiExample(ctx, exampleID)
-				if err != nil {
-					if err == sql.ErrNoRows { // Skip if example doesn't exist
-						continue
-					}
-					return nil, err
-				}
-				// Add to examples list if not already included
+				// Skip if we already have this example
 				found := false
 				for _, e := range data.Examples {
 					if e.ID == exampleID {
@@ -504,18 +506,45 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 						break
 					}
 				}
-				if !found {
-					data.Examples = append(data.Examples, *example)
+				if found {
+					continue
 				}
+				
+				example, err := s.exampleService.GetApiExample(ctx, exampleID)
+				if err != nil {
+					if err == sql.ErrNoRows { // Skip if example doesn't exist
+						continue
+					}
+					return nil, err
+				}
+				data.Examples = append(data.Examples, *example)
 			}
-		} else {
-			examples, err := s.exampleService.GetApiExampleByCollection(ctx, collection.ID)
-			if err != nil {
-				return nil, err
-			}
-			data.Examples = append(data.Examples, examples...)
 		}
 
+	}
+	
+	// Load endpoints for delta examples (they won't be included in the collection query)
+	for _, example := range data.Examples {
+		// Check if we already have this endpoint
+		endpointFound := false
+		for _, endpoint := range data.Endpoints {
+			if endpoint.ID == example.ItemApiID {
+				endpointFound = true
+				break
+			}
+		}
+		
+		if !endpointFound {
+			// Load the endpoint (likely a hidden delta endpoint)
+			endpoint, err := s.endpointService.GetItemApi(ctx, example.ItemApiID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					continue // Skip if endpoint doesn't exist
+				}
+				return nil, err
+			}
+			data.Endpoints = append(data.Endpoints, *endpoint)
+		}
 	}
 
 	// Fetch details for the final list of examples
