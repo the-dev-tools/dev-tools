@@ -1,7 +1,5 @@
 import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
-import { useTransport } from '@connectrpc/connect-query';
-import { useDLE } from '@data-client/react';
 import { createFileRoute, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import {
   Background,
@@ -53,7 +51,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { setQueryChild, useMutate, useQuery } from '~data-client';
+import { setQueryChild, useDLE, useMutate, useQuery } from '~data-client';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -547,15 +545,10 @@ const SettingsPanel = () => {
 };
 
 export const EditPanel = () => {
-  const transport = useTransport();
-
   const { workspaceId } = workspaceRoute.useLoaderData();
   const { nodeId } = flowRoute.useLoaderData();
 
-  const { data } = useDLE(
-    NodeGetEndpoint,
-    ...(Option.isSome(nodeId) ? [{ input: { nodeId: nodeId.value }, transport }] : [null]),
-  );
+  const { data } = useDLE(NodeGetEndpoint, Option.isSome(nodeId) ? { nodeId: nodeId.value } : null);
 
   if (Option.isNone(nodeId) || !data) return null;
 

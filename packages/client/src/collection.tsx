@@ -1,6 +1,4 @@
 import { MessageInitShape } from '@bufbuild/protobuf';
-import { useTransport } from '@connectrpc/connect-query';
-import { useDLE } from '@data-client/react';
 import { getRouteApi, ToOptions, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import { Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
@@ -9,7 +7,6 @@ import { MenuTrigger, Text, Tree } from 'react-aria-components';
 import { FiFolder, FiMoreHorizontal } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
-
 import {
   Endpoint,
   EndpointCreateRequestSchema,
@@ -53,7 +50,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
-import { useMutate, useQuery } from '~data-client';
+import { useDLE, useMutate, useQuery } from '~data-client';
 import { useOnEndpointDelete } from '~endpoint';
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
@@ -116,7 +113,6 @@ interface CollectionTreeProps {
 }
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
-  const transport = useTransport();
   const { dataClient } = useRouteContext({ from: '__root__' });
 
   const navigate = useNavigate();
@@ -129,7 +125,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
   const {
     data: { items },
     loading,
-  } = useDLE(CollectionItemListEndpoint, ...(enabled ? [{ input: { collectionId }, transport }] : [null]));
+  } = useDLE(CollectionItemListEndpoint, enabled ? { collectionId } : null);
   const [collectionUpdate, collectionUpdateLoading] = useMutate(CollectionUpdateEndpoint);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -253,7 +249,6 @@ interface FolderTreeProps {
 }
 
 const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolderId }: FolderTreeProps) => {
-  const transport = useTransport();
   const { dataClient } = useRouteContext({ from: '__root__' });
 
   const navigate = useNavigate();
@@ -265,10 +260,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
   const {
     data: { items },
     loading,
-  } = useDLE(
-    CollectionItemListEndpoint,
-    ...(enabled ? [{ input: { collectionId, parentFolderId: folderId }, transport }] : [null]),
-  );
+  } = useDLE(CollectionItemListEndpoint, enabled ? { collectionId, parentFolderId: folderId } : null);
 
   const [folderUpdate, folderUpdateLoading] = useMutate(FolderUpdateEndpoint);
 
@@ -393,7 +385,6 @@ interface EndpointTreeProps {
 }
 
 const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, parentFolderId }: EndpointTreeProps) => {
-  const transport = useTransport();
   const { dataClient } = useRouteContext({ from: '__root__' });
 
   const { endpointId, method, name } = endpoint;
@@ -416,7 +407,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   const {
     data: { items },
     loading,
-  } = useDLE(ExampleListEndpoint, ...(enabled ? [{ input: { endpointId }, transport }] : [null]));
+  } = useDLE(ExampleListEndpoint, enabled ? { endpointId } : null);
 
   const [endpointUpdate, endpointUpdateLoading] = useMutate(EndpointUpdateEndpoint);
 

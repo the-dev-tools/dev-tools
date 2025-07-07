@@ -9,12 +9,12 @@ import {
   ResolveType,
   Schema,
   SchemaArgs,
+  useDLE as useBaseDLE,
   useLoading,
   useSuspense,
 } from '@data-client/react';
 import { useRouteContext } from '@tanstack/react-router';
 import { Option, pipe } from 'effect';
-
 import { EndpointProps } from '@the-dev-tools/spec/data-client/utils';
 import { enableErrorInterceptorKey } from '~api/transport';
 
@@ -28,6 +28,24 @@ export const useMutate = <E extends EndpointInterface<(props: EndpointProps<Desc
       dataClient.fetch(endpoint, input, params),
     [dataClient, endpoint],
   );
+};
+
+export const useDLE = <
+  E extends EndpointInterface<(props: EndpointProps<DescMethodUnary>) => Promise<unknown>, Schema, false>,
+>(
+  endpoint: E,
+  input: null | Parameters<E>[0]['input'],
+  params?: Partial<Omit<Parameters<E>[0], 'input'>>,
+) => {
+  const { transport } = useRouteContext({ from: '__root__' });
+
+  const args = pipe(
+    Option.fromNullable(input),
+    Option.map((input) => [{ input, transport, ...params }] as Parameters<E>),
+    Option.getOrElse(() => [null] as const),
+  );
+
+  return useBaseDLE(endpoint, ...args);
 };
 
 // TODO: fix types upstream
