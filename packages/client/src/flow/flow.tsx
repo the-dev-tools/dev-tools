@@ -373,8 +373,7 @@ export const TopBar = () => {
 
 const ActionBar = () => {
   const { flowId } = use(FlowContext);
-  const { dataClient } = useRouteContext({ from: '__root__' });
-  const { transport } = useRouteContext({ from: '__root__' });
+  const { dataClient, transport } = useRouteContext({ from: '__root__' });
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
   const flow = useReactFlow<Node, Edge>();
   const storeApi = useStoreApi<Node, Edge>();
@@ -446,7 +445,7 @@ const ActionBar = () => {
                 dataClient.controller,
                 FlowVersionsEndpoint.schema.items,
                 'unshift',
-                { input: { flowId }, transport },
+                { controller: () => dataClient.controller, input: { flowId }, transport },
                 version,
               );
             }
@@ -463,7 +462,7 @@ const ActionBar = () => {
                 dataClient.controller,
                 ExampleVersionsEndpoint.schema.items,
                 'unshift',
-                { input: { exampleId }, transport },
+                { controller: () => dataClient.controller, input: { exampleId }, transport },
                 { exampleId: versionId, lastResponseId: responseId } satisfies Partial<ExampleVersionsItemEntity>,
               );
             }

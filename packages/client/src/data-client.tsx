@@ -37,11 +37,11 @@ export const useDLE = <
   input: null | Parameters<E>[0]['input'],
   params?: Partial<Omit<Parameters<E>[0], 'input'>>,
 ) => {
-  const { transport } = useRouteContext({ from: '__root__' });
+  const { dataClient, transport } = useRouteContext({ from: '__root__' });
 
   const args = pipe(
     Option.fromNullable(input),
-    Option.map((input) => [{ input, transport, ...params }] as Parameters<E>),
+    Option.map((input) => [{ controller: () => dataClient.controller, input, transport, ...params }] as Parameters<E>),
     Option.getOrElse(() => [null] as const),
   );
 
@@ -64,11 +64,11 @@ export const useQuery = <
   input: I,
   params?: Partial<Omit<Parameters<E>[0], 'input'>>,
 ) => {
-  const { transport } = useRouteContext({ from: '__root__' });
+  const { dataClient, transport } = useRouteContext({ from: '__root__' });
 
   const args = pipe(
     Option.fromNullable(input),
-    Option.map((input) => [{ input, transport, ...params }] as Parameters<E>),
+    Option.map((input) => [{ controller: () => dataClient.controller, input, transport, ...params }] as Parameters<E>),
     Option.getOrElse(() => [null] as const),
   );
 
@@ -93,7 +93,10 @@ export const makeDataClient = ({ controller, transport }: MakeDataClientProps) =
   ) => {
     const contextValues = params?.contextValues ?? createContextValues();
     contextValues.set(enableErrorInterceptorKey, true);
-    return controller.fetch(endpoint, ...([{ input, transport, ...params, contextValues }] as Parameters<E>));
+    return controller.fetch(
+      endpoint,
+      ...([{ controller: () => controller, input, transport, ...params, contextValues }] as Parameters<E>),
+    );
   };
 
   return { controller, fetch };

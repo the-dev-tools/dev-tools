@@ -1,5 +1,6 @@
 import { create, DescMessage, DescMethodUnary, MessageInitShape, MessageShape, toJson } from '@bufbuild/protobuf';
 import { ContextValues, Transport } from '@connectrpc/connect';
+import { Controller } from '@data-client/core';
 import { EntityMixin } from '@data-client/endpoint';
 import { Option, pipe, Predicate, Record, Struct } from 'effect';
 
@@ -68,6 +69,7 @@ export const createMethodKeyRecord = <M extends DescMethodUnary>(
 
 export interface EndpointProps<M extends DescMethodUnary, N = Record<string, unknown>> {
   contextValues?: ContextValues;
+  controller: () => Controller;
   header?: HeadersInit;
   input: MessageInitShape<M['input']> & N;
   signal?: AbortSignal;

@@ -192,7 +192,7 @@ export const ImportDialog = () => {
             dataClient.controller,
             FlowListEndpoint.schema.items,
             'push',
-            { input: { workspaceId }, transport },
+            { controller: () => dataClient.controller, input: { workspaceId }, transport },
             flow,
           );
 

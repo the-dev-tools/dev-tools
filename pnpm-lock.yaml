@@ -560,6 +560,9 @@ importers:
       '@connectrpc/connect':
         specifier: 2.0.2
         version: 2.0.2(@bufbuild/protobuf@2.5.2)
+      '@data-client/core':
+        specifier: 0.14.24
+        version: 0.14.24
       '@data-client/endpoint':
         specifier: 0.14.26
         version: 0.14.26
@@ -12193,7 +12196,7 @@ snapshots:
       browserslist: 4.25.0
       json5: 2.2.3
       nullthrows: 1.1.1
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -12226,7 +12229,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.7.1
+      semver: 7.7.2
       srcset: 4.0.0
     transitivePeerDependencies:
       - '@parcel/core'
@@ -12257,7 +12260,7 @@ snapshots:
       browserslist: 4.25.0
       nullthrows: 1.1.1
       regenerator-runtime: 0.13.11
-      semver: 7.7.1
+      semver: 7.7.2
 
   '@parcel/transformer-json@2.9.3(@parcel/core@2.9.3)':
     dependencies:
@@ -12283,7 +12286,7 @@ snapshots:
       clone: 2.1.2
       nullthrows: 1.1.1
       postcss-value-parser: 4.2.0
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -12295,7 +12298,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -12340,7 +12343,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
