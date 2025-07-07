@@ -1,4 +1,4 @@
-import { Registry, Rx, useRxValue } from '@effect-rx/rx-react';
+import { Registry, Rx, useRx } from '@effect-rx/rx-react';
 import {
   ActiveLinkOptions,
   AnyRouteMatch,
@@ -9,7 +9,7 @@ import {
 } from '@tanstack/react-router';
 import { Array, Effect, Match, Option, pipe, Runtime } from 'effect';
 import React, { ComponentProps, PropsWithChildren, ReactNode, Ref, Suspense, SyntheticEvent, useEffect } from 'react';
-import { ListBox, ListBoxItem, RouterProvider } from 'react-aria-components';
+import { ListBox, ListBoxItem, RouterProvider, useDragAndDrop } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 import { Button } from './button';
@@ -283,9 +283,34 @@ const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
 interface RouteTabListProps extends TabsRouteContext {}
 
 export const RouteTabList = (props: RouteTabListProps) => {
-  const tabs = useRxValue(props.tabsRx);
+  const [tabs, setTabs] = useRx(props.tabsRx);
 
   useTabShortcuts(props);
+
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
+    onReorder: ({ keys, target: { dropPosition, key } }) => {
+      setTabs((tabs) =>
+        Option.gen(function* () {
+          const offset = yield* pipe(
+            Match.value(dropPosition),
+            Match.when('after', () => 1),
+            Match.when('before', () => 0),
+            Match.option,
+          );
+
+          const { rest = [], selection = [] } = Array.groupBy(tabs, (_) => (keys.has(_.id) ? 'selection' : 'rest'));
+
+          const index = yield* Array.findFirstIndex(rest, (_) => _.id === key);
+
+          const [before, after] = Array.splitAt(rest, index + offset);
+
+          return [...before, ...selection, ...after];
+        }).pipe(Option.getOrElse(() => tabs)),
+      );
+    },
+    renderDropIndicator: () => <div className={tw`relative z-10 h-full w-0 ring ring-violet-700`} />,
+  });
 
   return (
     <ListBox
@@ -295,6 +320,7 @@ export const RouteTabList = (props: RouteTabListProps) => {
 
         before:absolute before:bottom-0 before:w-full before:border-b before:border-gray-200
       `}
+      dragAndDropHooks={dragAndDropHooks}
       items={tabs}
       orientation='horizontal'
       selectionMode='none'
