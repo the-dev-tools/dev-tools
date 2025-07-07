@@ -187,3 +187,9 @@ func CheckOwnerEnv(ctx context.Context, su suser.UserService, es senv.EnvService
 	}
 	return su.CheckUserBelongsToWorkspace(ctx, userID, env.WorkspaceID)
 }
+
+// TODO: implement move RPC
+func (c *EnvRPC) EnvironmentMove(ctx context.Context, req *connect.Request[environmentv1.EnvironmentMoveRequest]) (*connect.Response[environmentv1.EnvironmentMoveResponse], error) {
+	resp := &environmentv1.EnvironmentMoveResponse{}
+	return connect.NewResponse(resp), nil
+}

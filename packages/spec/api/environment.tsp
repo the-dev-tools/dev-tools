@@ -29,5 +29,18 @@ model Environment {
   @visibility(Resource.Mutation.None) isGlobal: boolean;
 }
 
+@autoFields
+model EnvironmentMoveRequest {
+  ...ParentKeyOf<Environment>;
+  ...KeyOf<Environment>;
+  position: Resource.MovePosition;
+  targetEnvironmentId: Resource.Id;
+}
+
+model EnvironmentMoveResponse {}
+
 @Protobuf.service
-interface EnvironmentService extends Resource.CRUD<Environment> {}
+interface EnvironmentService extends Resource.CRUD<Environment> {
+  @endpoint("environment.js:move")
+  EnvironmentMove(...EnvironmentMoveRequest): EnvironmentMoveResponse;
+}

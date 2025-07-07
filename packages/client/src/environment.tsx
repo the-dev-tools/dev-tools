@@ -1,27 +1,27 @@
 import { getRouteApi, useRouteContext } from '@tanstack/react-router';
+import { Array, HashMap, Match, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useState } from 'react';
 import {
-  Collection,
+  ListBox as AriaListBox,
+  ListBoxItem as AriaListBoxItem,
   Dialog,
   DialogTrigger,
   Key,
   MenuTrigger,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
+  ToggleButton,
   Tooltip,
   TooltipTrigger,
+  useDragAndDrop,
 } from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
-
 import { EnvironmentListItem } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import {
   EnvironmentCreateEndpoint,
   EnvironmentDeleteEndpoint,
   EnvironmentListEndpoint,
+  EnvironmentMoveEndpoint,
   EnvironmentUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/environment/v1/environment.endpoints.ts';
 import {
@@ -35,6 +35,7 @@ import {
   WorkspaceGetEndpoint,
   WorkspaceUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
+import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, Spinner, VariableIcon } from '@the-dev-tools/ui/icons';
@@ -45,7 +46,6 @@ import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useMutate, useQuery } from '~data-client';
-
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -126,25 +126,85 @@ const EnvironmentModal = () => {
 
   const { items: environments } = useQuery(EnvironmentListEndpoint, { workspaceId });
 
-  const [selectedKey, setSelectedKey] = useState<Key | null>(null);
+  const environmentMap = pipe(
+    Array.map(environments, (_) => [Ulid.construct(_.environmentId).toCanonical(), _] as const),
+    HashMap.fromIterable,
+  );
+
+  const { global: [global] = [], rest = [] } = Array.groupBy(environments, (_) => (_.isGlobal ? 'global' : 'rest'));
+
+  const globalIdCan = pipe(
+    Option.fromNullable(global),
+    Option.map((_) => Ulid.construct(_.environmentId).toCanonical()),
+    Option.getOrUndefined,
+  );
+
+  const [selectedKey, setSelectedKey] = useState<Key | undefined>(globalIdCan);
+
+  const environment = pipe(
+    Option.liftPredicate(selectedKey, Predicate.isString),
+    Option.flatMap((_) => HashMap.get(environmentMap, _)),
+    Option.getOrNull,
+  );
+
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
+    onReorder: ({ keys, target: { dropPosition, key } }) =>
+      Option.gen(function* () {
+        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
+
+        const sourceIdCan = yield* pipe(
+          yield* Option.liftPredicate(keys, (_) => _.size === 1),
+          Array.fromIterable,
+          Array.head,
+          Option.filter(Predicate.isString),
+        );
+
+        const position = yield* pipe(
+          Match.value(dropPosition),
+          Match.when('after', () => MovePosition.AFTER),
+          Match.when('before', () => MovePosition.BEFORE),
+          Match.option,
+        );
+
+        void dataClient.fetch(EnvironmentMoveEndpoint, {
+          environmentId: Ulid.fromCanonical(sourceIdCan).bytes,
+          position,
+          targetEnvironmentId: Ulid.fromCanonical(targetIdCan).bytes,
+          workspaceId,
+        });
+      }),
+    renderDropIndicator: () => <div className={tw`relative z-10 h-0 w-full ring ring-violet-700`} />,
+  });
 
   return (
     <Modal>
       <Dialog className={tw`h-full outline-hidden`}>
         {({ close }) => (
-          <Tabs
-            className={tw`flex h-full`}
-            onSelectionChange={setSelectedKey}
-            orientation='vertical'
-            selectedKey={selectedKey}
-          >
+          <div className={tw`flex h-full`}>
             <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
-              <div className={tw`-order-3 mb-4`}>
+              <div className={tw`mb-4`}>
                 <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-slate-800`}>Variable Settings</div>
                 <div className={tw`text-xs leading-4 text-slate-500`}>Manage variables & environment</div>
               </div>
 
-              <div className={tw`-order-1 mt-3 mb-1 flex items-center justify-between py-0.5`}>
+              <ToggleButton
+                className={({ isSelected }) =>
+                  twJoin(
+                    tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
+                    isSelected && tw`bg-slate-200`,
+                  )
+                }
+                isSelected={selectedKey === globalIdCan}
+                onChange={(isSelected) => {
+                  if (isSelected && globalIdCan) setSelectedKey(globalIdCan);
+                }}
+              >
+                <VariableIcon className={tw`size-4 text-slate-500`} />
+                <span className={tw`text-md leading-5 font-semibold`}>Global Variables</span>
+              </ToggleButton>
+
+              <div className={tw`mt-3 mb-1 flex items-center justify-between py-0.5`}>
                 <span className={tw`text-md leading-5 text-slate-400`}>Environments</span>
 
                 <TooltipTrigger delay={750}>
@@ -170,58 +230,52 @@ const EnvironmentModal = () => {
                 </TooltipTrigger>
               </div>
 
-              <TabList className={tw`contents`} items={environments}>
-                {(item) => {
-                  const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
-                  return (
-                    <Tab
-                      className={({ isSelected }) =>
-                        twJoin(
-                          tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
-                          isSelected && tw`bg-slate-200`,
-                          item.isGlobal && tw`-order-2`,
-                        )
-                      }
-                      id={environmentIdCan}
-                    >
-                      {item.isGlobal ? (
-                        <VariableIcon className={tw`size-4 text-slate-500`} />
-                      ) : (
-                        <div
-                          className={tw`
-                            flex size-4 items-center justify-center rounded-sm bg-slate-300 text-xs leading-3
-                            text-slate-500
-                          `}
-                        >
-                          {item.name[0]}
-                        </div>
-                      )}
-                      <span className={tw`text-md leading-5 font-semibold`}>
-                        {item.isGlobal ? 'Global Variables' : item.name}
-                      </span>
-                    </Tab>
-                  );
+              <AriaListBox
+                aria-label='Environments'
+                dragAndDropHooks={dragAndDropHooks}
+                items={rest}
+                onSelectionChange={(keys) => {
+                  if (!Predicate.isSet(keys) || keys.size !== 1) return;
+                  const [key] = keys.values();
+                  setSelectedKey(key);
                 }}
-              </TabList>
+                selectedKeys={Array.fromNullable(selectedKey)}
+                selectionMode='single'
+              >
+                {(_) => (
+                  <AriaListBoxItem
+                    className={({ isSelected }) =>
+                      twJoin(
+                        tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
+                        isSelected && tw`bg-slate-200`,
+                      )
+                    }
+                    id={Ulid.construct(_.environmentId).toCanonical()}
+                    textValue={_.name}
+                  >
+                    <div
+                      className={tw`
+                        flex size-4 items-center justify-center rounded-sm bg-slate-300 text-xs leading-3 text-slate-500
+                      `}
+                    >
+                      {_.name[0]}
+                    </div>
+                    <span className={tw`text-md leading-5 font-semibold`}>{_.name}</span>
+                  </AriaListBoxItem>
+                )}
+              </AriaListBox>
             </div>
 
             <div className={tw`flex h-full min-w-0 flex-1 flex-col`}>
-              <Collection items={environments}>
-                {(_) => {
-                  const id = Ulid.construct(_.environmentId).toCanonical();
-                  return <EnvironmentPanel environment={_} id={id} />;
-                }}
-              </Collection>
-
+              {environment && <EnvironmentPanel environment={environment} />}
               <div className={tw`flex-1`} />
-
               <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
                 <Button onPress={close} variant='primary'>
                   Close
                 </Button>
               </div>
             </div>
-          </Tabs>
+          </div>
         )}
       </Dialog>
     </Modal>
@@ -230,10 +284,9 @@ const EnvironmentModal = () => {
 
 interface EnvironmentPanelProps {
   environment: EnvironmentListItem;
-  id: string;
 }
 
-const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }: EnvironmentPanelProps) => {
+const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name } }: EnvironmentPanelProps) => {
   const { dataClient } = useRouteContext({ from: '__root__' });
 
   const [environmentUpdate, environmentUpdateLoading] = useMutate(EnvironmentUpdateEndpoint);
@@ -246,7 +299,7 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }
   });
 
   return (
-    <TabPanel className={tw`h-full px-6 py-4`} id={id}>
+    <div className={tw`h-full px-6 py-4`}>
       <div className={tw`mb-4 flex items-center gap-2`} onContextMenu={onContextMenu}>
         {isGlobal ? (
           <VariableIcon className={tw`size-6 text-slate-500`} />
@@ -304,7 +357,7 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name }, id }
       >
         <VariablesTable environmentId={environmentId} />
       </Suspense>
-    </TabPanel>
+    </div>
   );
 };
 

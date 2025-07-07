@@ -36,6 +36,8 @@ model WorkspaceMoveRequest {
   targetWorkspaceId: Resource.Id;
 }
 
+model WorkspaceMoveResponse {}
+
 enum MemberRole {
   MEMBER_ROLE_UNSPECIFIED: 0,
   MEMBER_ROLE_BASIC: 1,
@@ -68,5 +70,5 @@ interface WorkspaceService
     Resource.Update.Interface<WorkspaceMember, TRequest = WorkspaceMemberUpdateRequest>,
     Resource.Delete.Interface<WorkspaceMember, TRequest = WorkspaceMemberDeleteRequest> {
   @endpoint("workspace.js:move")
-  WorkspaceMove(...WorkspaceMoveRequest): WellKnown.Empty;
+  WorkspaceMove(...WorkspaceMoveRequest): WorkspaceMoveResponse;
 }
