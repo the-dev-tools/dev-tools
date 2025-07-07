@@ -531,3 +531,9 @@ func CheckOwnerWorkspace(ctx context.Context, su suser.UserService, workspaceID 
 	}
 	return su.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
 }
+
+// TODO: implement move RPC
+func (c *WorkspaceServiceRPC) WorkspaceMove(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMoveRequest]) (*connect.Response[workspacev1.WorkspaceMoveResponse], error) {
+	resp := &workspacev1.WorkspaceMoveResponse{}
+	return connect.NewResponse(resp), nil
+}

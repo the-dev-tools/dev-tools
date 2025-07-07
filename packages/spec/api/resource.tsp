@@ -34,6 +34,12 @@ enum Mutation {
   Update,
 }
 
+enum MovePosition {
+  MOVE_POSITION_UNSPECIFIED: 0,
+  MOVE_POSITION_AFTER: 1,
+  MOVE_POSITION_BEFORE: 2,
+}
+
 interface CRUD<
   TResource extends Model,
   // List

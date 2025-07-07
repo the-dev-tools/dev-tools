@@ -29,6 +29,13 @@ model Workspace {
   @visibility(Resource.Mutation.None) flowCount: int32;
 }
 
+@autoFields
+model WorkspaceMoveRequest {
+  ...KeyOf<Workspace>;
+  position: Resource.MovePosition;
+  targetWorkspaceId: Resource.Id;
+}
+
 enum MemberRole {
   MEMBER_ROLE_UNSPECIFIED: 0,
   MEMBER_ROLE_BASIC: 1,
@@ -59,4 +66,7 @@ interface WorkspaceService
     Resource.List.Interface<WorkspaceMember>,
     Resource.Create.Interface<WorkspaceMember>,
     Resource.Update.Interface<WorkspaceMember, TRequest = WorkspaceMemberUpdateRequest>,
-    Resource.Delete.Interface<WorkspaceMember, TRequest = WorkspaceMemberDeleteRequest> {}
+    Resource.Delete.Interface<WorkspaceMember, TRequest = WorkspaceMemberDeleteRequest> {
+  @endpoint("workspace.js:move")
+  WorkspaceMove(...WorkspaceMoveRequest): WellKnown.Empty;
+}
