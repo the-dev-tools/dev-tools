@@ -209,12 +209,6 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 	return requests
 }
 
-// isRequestNamePattern checks if a name follows common request naming patterns
-func isRequestNamePattern(name string) bool {
-	// Check for patterns like: request_0, request_1, api_call_1, etc.
-	// But avoid overly generic names
-	return len(name) > 0 && name != "request" && name != "api" && name != "call"
-}
 
 // exportFlow exports a single flow
 func exportFlow(flow mflow.Flow, workspaceData *ioworkspace.WorkspaceData, requests map[string]map[string]any) map[string]any {
@@ -453,7 +447,10 @@ func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 					if requestNode.ExampleID != nil {
 						for _, baseB := range workspaceData.Rawbodies {
 							if baseB.ExampleID == *requestNode.ExampleID && len(baseB.Data) > 0 {
-								json.Unmarshal(baseB.Data, &baseBodyData)
+								if err := json.Unmarshal(baseB.Data, &baseBodyData); err != nil {
+									// If base body can't be unmarshaled, treat as different
+									baseBodyData = nil
+								}
 								break
 							}
 						}

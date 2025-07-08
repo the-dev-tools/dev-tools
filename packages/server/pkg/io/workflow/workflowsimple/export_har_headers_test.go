@@ -272,9 +272,10 @@ func TestExportHARImportedRequestsWithDifferentHeaders(t *testing.T) {
 			continue
 		}
 		name, _ := reqMap["name"].(string)
-		if name == "request_0" {
+		switch name {
+		case "request_0":
 			loginRequest = reqMap
-		} else if name == "request_1" {
+		case "request_1":
 			categoriesRequest = reqMap
 		}
 	}
