@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
 	"the-dev-tools/server/pkg/ioworkspace"
@@ -268,9 +269,8 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 	request := requests[0].(map[string]any)
 	
 	// Verify URL has variable placeholder (from delta endpoint)
-	// Since delta endpoint has the variable URL, this shouldn't be used in global requests
-	// But the endpoint used should be the base one
-	require.Equal(t, "https://api.example.com/users", request["url"])
+	// Delta endpoint is used to preserve variable placeholders in the export
+	require.Equal(t, "https://{{base_url}}/users", request["url"])
 	
 	// Verify headers have variable placeholders (from delta examples)
 	headers, ok := request["headers"].(map[string]any)
@@ -413,5 +413,594 @@ func TestExportCleanWithMultipleRequests(t *testing.T) {
 		authValue, ok := headers["Authorization"].(string)
 		require.True(t, ok)
 		require.Equal(t, "Bearer {{token}}", authValue)
+	}
+}
+
+func TestExportCleanNamingConsistency(t *testing.T) {
+	// Test that step names match their use_request references correctly
+	
+	// Create workspace data
+	workspaceData := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{
+			ID:   idwrap.NewNow(),
+			Name: "Test Naming Consistency",
+		},
+		Flows: []mflow.Flow{
+			{
+				ID:   idwrap.NewNow(),
+				Name: "TestFlow",
+			},
+		},
+	}
+	
+	flowID := workspaceData.Flows[0].ID
+	
+	// Create nodes
+	startNodeID := idwrap.NewNow()
+	request1NodeID := idwrap.NewNow()
+	request2NodeID := idwrap.NewNow()
+	
+	workspaceData.FlowNodes = []mnnode.MNode{
+		{
+			ID:       startNodeID,
+			FlowID:   flowID,
+			Name:     "Start",
+			NodeKind: mnnode.NODE_KIND_NO_OP,
+		},
+		{
+			ID:       request1NodeID,
+			FlowID:   flowID,
+			Name:     "request_0", // Node name is request_0
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+		{
+			ID:       request2NodeID,
+			FlowID:   flowID,
+			Name:     "request_1", // Node name is request_1
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+	}
+	
+	// Add noop node
+	workspaceData.FlowNoopNodes = []mnnoop.NoopNode{
+		{
+			FlowNodeID: startNodeID,
+			Type:       mnnoop.NODE_NO_OP_KIND_START,
+		},
+	}
+	
+	// Create endpoints
+	endpoint1ID := idwrap.NewNow()
+	endpoint2ID := idwrap.NewNow()
+	
+	workspaceData.Endpoints = []mitemapi.ItemApi{
+		{
+			ID:     endpoint1ID,
+			Name:   "Login",
+			Url:    "https://api.example.com/login",
+			Method: "POST",
+		},
+		{
+			ID:     endpoint2ID,
+			Name:   "GetUsers",
+			Url:    "https://api.example.com/users",
+			Method: "GET",
+		},
+	}
+	
+	// Create examples
+	example1ID := idwrap.NewNow()
+	example2ID := idwrap.NewNow()
+	
+	workspaceData.Examples = []mitemapiexample.ItemApiExample{
+		{
+			ID:        example1ID,
+			Name:      "Login Example",
+			ItemApiID: endpoint1ID,
+			IsDefault: true,
+		},
+		{
+			ID:        example2ID,
+			Name:      "GetUsers Example",
+			ItemApiID: endpoint2ID,
+			IsDefault: true,
+		},
+	}
+	
+	// Create request nodes
+	workspaceData.FlowRequestNodes = []mnrequest.MNRequest{
+		{
+			FlowNodeID: request1NodeID,
+			EndpointID: &endpoint1ID,
+			ExampleID:  &example1ID,
+		},
+		{
+			FlowNodeID: request2NodeID,
+			EndpointID: &endpoint2ID,
+			ExampleID:  &example2ID,
+		},
+	}
+	
+	// Add headers
+	workspaceData.ExampleHeaders = []mexampleheader.Header{
+		{
+			ID:        idwrap.NewNow(),
+			ExampleID: example1ID,
+			HeaderKey: "Content-Type",
+			Value:     "application/json",
+			Enable:    true,
+		},
+		{
+			ID:        idwrap.NewNow(),
+			ExampleID: example2ID,
+			HeaderKey: "Authorization",
+			Value:     "Bearer {{token}}",
+			Enable:    true,
+		},
+	}
+	
+	// Create edges - request_1 depends on request_0
+	workspaceData.FlowEdges = []edge.Edge{
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      startNodeID,
+			TargetID:      request1NodeID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      request1NodeID,
+			TargetID:      request2NodeID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+	}
+	
+	// Export
+	exported, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	require.NoError(t, err)
+	
+	// Parse the exported YAML
+	var exportedData map[string]any
+	err = yaml.Unmarshal(exported, &exportedData)
+	require.NoError(t, err)
+	
+	t.Logf("Exported YAML:\n%s", string(exported))
+	
+	// Verify requests section exists
+	requests, ok := exportedData["requests"].([]any)
+	require.True(t, ok, "Expected 'requests' section")
+	require.Len(t, requests, 2, "Should have 2 request definitions")
+	
+	// Build a map of request names to verify references
+	requestNameMap := make(map[string]bool)
+	for _, req := range requests {
+		reqMap := req.(map[string]any)
+		name, ok := reqMap["name"].(string)
+		require.True(t, ok, "Request should have a name")
+		requestNameMap[name] = true
+	}
+	
+	// Verify flows
+	flows, ok := exportedData["flows"].([]any)
+	require.True(t, ok, "Expected 'flows' section")
+	require.Len(t, flows, 1)
+	
+	flow := flows[0].(map[string]any)
+	steps, ok := flow["steps"].([]any)
+	require.True(t, ok, "Expected 'steps' in flow")
+	require.Len(t, steps, 2, "Should have 2 steps")
+	
+	// Check each step
+	for i, step := range steps {
+		stepMap := step.(map[string]any)
+		reqStep, ok := stepMap["request"].(map[string]any)
+		require.True(t, ok, "Step should be a request")
+		
+		// Verify step name matches the node name
+		stepName, ok := reqStep["name"].(string)
+		require.True(t, ok, "Step should have a name")
+		expectedName := "request_" + string(rune('0'+i))
+		require.Equal(t, expectedName, stepName, "Step name should match node name")
+		
+		// Verify use_request references a valid request
+		useRequest, ok := reqStep["use_request"].(string)
+		require.True(t, ok, "Step should have use_request")
+		require.True(t, requestNameMap[useRequest], "use_request '%s' should reference an existing request", useRequest)
+		
+		// For request_1, verify it has depends_on
+		if i == 1 {
+			dependsOn, ok := reqStep["depends_on"].([]any)
+			require.True(t, ok, "request_1 should have depends_on")
+			require.Len(t, dependsOn, 1, "request_1 should depend on one node")
+			require.Equal(t, "request_0", dependsOn[0], "request_1 should depend on request_0")
+		}
+	}
+}
+
+func TestExportCleanWithDependencies(t *testing.T) {
+	// Test that dependencies are properly exported
+	
+	workspaceData := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{
+			ID:   idwrap.NewNow(),
+			Name: "Test Dependencies",
+		},
+		Flows: []mflow.Flow{
+			{
+				ID:   idwrap.NewNow(),
+				Name: "DependencyFlow",
+			},
+		},
+	}
+	
+	flowID := workspaceData.Flows[0].ID
+	
+	// Create nodes
+	startNodeID := idwrap.NewNow()
+	nodeAID := idwrap.NewNow()
+	nodeBID := idwrap.NewNow()
+	nodeCID := idwrap.NewNow()
+	
+	workspaceData.FlowNodes = []mnnode.MNode{
+		{
+			ID:       startNodeID,
+			FlowID:   flowID,
+			Name:     "Start",
+			NodeKind: mnnode.NODE_KIND_NO_OP,
+		},
+		{
+			ID:       nodeAID,
+			FlowID:   flowID,
+			Name:     "NodeA",
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+		{
+			ID:       nodeBID,
+			FlowID:   flowID,
+			Name:     "NodeB",
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+		{
+			ID:       nodeCID,
+			FlowID:   flowID,
+			Name:     "NodeC",
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+	}
+	
+	// Add noop node
+	workspaceData.FlowNoopNodes = []mnnoop.NoopNode{
+		{
+			FlowNodeID: startNodeID,
+			Type:       mnnoop.NODE_NO_OP_KIND_START,
+		},
+	}
+	
+	// Create a single endpoint for all (to simplify)
+	endpointID := idwrap.NewNow()
+	workspaceData.Endpoints = []mitemapi.ItemApi{
+		{
+			ID:     endpointID,
+			Name:   "TestEndpoint",
+			Url:    "https://api.example.com/test",
+			Method: "GET",
+		},
+	}
+	
+	// Create example
+	exampleID := idwrap.NewNow()
+	workspaceData.Examples = []mitemapiexample.ItemApiExample{
+		{
+			ID:        exampleID,
+			Name:      "TestExample",
+			ItemApiID: endpointID,
+			IsDefault: true,
+		},
+	}
+	
+	// Create request nodes
+	for _, nodeID := range []idwrap.IDWrap{nodeAID, nodeBID, nodeCID} {
+		workspaceData.FlowRequestNodes = append(workspaceData.FlowRequestNodes, mnrequest.MNRequest{
+			FlowNodeID: nodeID,
+			EndpointID: &endpointID,
+			ExampleID:  &exampleID,
+		})
+	}
+	
+	// Create edges: NodeC depends on both NodeA and NodeB
+	workspaceData.FlowEdges = []edge.Edge{
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      startNodeID,
+			TargetID:      nodeAID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      startNodeID,
+			TargetID:      nodeBID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      nodeAID,
+			TargetID:      nodeCID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      nodeBID,
+			TargetID:      nodeCID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+	}
+	
+	// Export
+	exported, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	require.NoError(t, err)
+	
+	// Parse the exported YAML
+	var exportedData map[string]any
+	err = yaml.Unmarshal(exported, &exportedData)
+	require.NoError(t, err)
+	
+	t.Logf("Exported YAML with dependencies:\n%s", string(exported))
+	
+	// Find NodeC in the steps and verify its dependencies
+	flows := exportedData["flows"].([]any)
+	flow := flows[0].(map[string]any)
+	steps := flow["steps"].([]any)
+	
+	var nodeCStep map[string]any
+	for _, step := range steps {
+		stepMap := step.(map[string]any)
+		if reqStep, ok := stepMap["request"].(map[string]any); ok {
+			if reqStep["name"] == "NodeC" {
+				nodeCStep = reqStep
+				break
+			}
+		}
+	}
+	
+	require.NotNil(t, nodeCStep, "Should find NodeC step")
+	
+	// Verify NodeC has dependencies
+	dependsOn, ok := nodeCStep["depends_on"].([]any)
+	require.True(t, ok, "NodeC should have depends_on")
+	require.Len(t, dependsOn, 2, "NodeC should depend on both NodeA and NodeB")
+	
+	// Check that both NodeA and NodeB are in the dependencies
+	depMap := make(map[string]bool)
+	for _, dep := range dependsOn {
+		depMap[dep.(string)] = true
+	}
+	require.True(t, depMap["NodeA"], "NodeC should depend on NodeA")
+	require.True(t, depMap["NodeB"], "NodeC should depend on NodeB")
+}
+
+func TestExportRequestOrderConsistency(t *testing.T) {
+	// Test multiple times to catch ordering issues (maps are random)
+	for i := 0; i < 5; i++ {
+		t.Run("iteration", func(t *testing.T) {
+			testRequestOrdering(t)
+		})
+	}
+}
+
+func testRequestOrdering(t *testing.T) {
+	workspaceData := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{
+			ID:   idwrap.NewNow(),
+			Name: "Order Test",
+		},
+		Flows: []mflow.Flow{
+			{
+				ID:   idwrap.NewNow(),
+				Name: "OrderFlow",
+			},
+		},
+	}
+	
+	flowID := workspaceData.Flows[0].ID
+	
+	// Create nodes
+	startNodeID := idwrap.NewNow()
+	nodeAID := idwrap.NewNow()
+	nodeBID := idwrap.NewNow()
+	nodeCID := idwrap.NewNow()
+	
+	workspaceData.FlowNodes = []mnnode.MNode{
+		{
+			ID:       startNodeID,
+			FlowID:   flowID,
+			Name:     "Start",
+			NodeKind: mnnode.NODE_KIND_NO_OP,
+		},
+		{
+			ID:       nodeAID,
+			FlowID:   flowID,
+			Name:     "RequestA",
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+		{
+			ID:       nodeBID,
+			FlowID:   flowID,
+			Name:     "RequestB", 
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+		{
+			ID:       nodeCID,
+			FlowID:   flowID,
+			Name:     "RequestC",
+			NodeKind: mnnode.NODE_KIND_REQUEST,
+		},
+	}
+	
+	// Add noop node
+	workspaceData.FlowNoopNodes = []mnnoop.NoopNode{
+		{
+			FlowNodeID: startNodeID,
+			Type:       mnnoop.NODE_NO_OP_KIND_START,
+		},
+	}
+	
+	// Create different endpoints for each
+	endpointAID := idwrap.NewNow()
+	endpointBID := idwrap.NewNow()
+	endpointCID := idwrap.NewNow()
+	
+	workspaceData.Endpoints = []mitemapi.ItemApi{
+		{
+			ID:     endpointAID,
+			Name:   "EndpointA",
+			Url:    "https://api.example.com/a",
+			Method: "GET",
+		},
+		{
+			ID:     endpointBID,
+			Name:   "EndpointB",
+			Url:    "https://api.example.com/b",
+			Method: "POST",
+		},
+		{
+			ID:     endpointCID,
+			Name:   "EndpointC",
+			Url:    "https://api.example.com/c",
+			Method: "PUT",
+		},
+	}
+	
+	// Create examples
+	exampleAID := idwrap.NewNow()
+	exampleBID := idwrap.NewNow()
+	exampleCID := idwrap.NewNow()
+	
+	workspaceData.Examples = []mitemapiexample.ItemApiExample{
+		{
+			ID:        exampleAID,
+			Name:      "ExampleA",
+			ItemApiID: endpointAID,
+			IsDefault: true,
+		},
+		{
+			ID:        exampleBID,
+			Name:      "ExampleB",
+			ItemApiID: endpointBID,
+			IsDefault: true,
+		},
+		{
+			ID:        exampleCID,
+			Name:      "ExampleC",
+			ItemApiID: endpointCID,
+			IsDefault: true,
+		},
+	}
+	
+	// Create request nodes
+	workspaceData.FlowRequestNodes = []mnrequest.MNRequest{
+		{
+			FlowNodeID: nodeAID,
+			EndpointID: &endpointAID,
+			ExampleID:  &exampleAID,
+		},
+		{
+			FlowNodeID: nodeBID,
+			EndpointID: &endpointBID,
+			ExampleID:  &exampleBID,
+		},
+		{
+			FlowNodeID: nodeCID,
+			EndpointID: &endpointCID,
+			ExampleID:  &exampleCID,
+		},
+	}
+	
+	// Create edges
+	workspaceData.FlowEdges = []edge.Edge{
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      startNodeID,
+			TargetID:      nodeAID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      nodeAID,
+			TargetID:      nodeBID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+		{
+			ID:            idwrap.NewNow(),
+			FlowID:        flowID,
+			SourceID:      nodeBID,
+			TargetID:      nodeCID,
+			SourceHandler: edge.HandleUnspecified,
+		},
+	}
+	
+	// Export
+	exported, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	require.NoError(t, err)
+	
+	// Parse the exported YAML
+	var exportedData map[string]any
+	err = yaml.Unmarshal(exported, &exportedData)
+	require.NoError(t, err)
+	
+	t.Logf("Exported YAML:\n%s", string(exported))
+	
+	// Verify each step references the correct request
+	flows := exportedData["flows"].([]any)
+	flow := flows[0].(map[string]any)
+	steps := flow["steps"].([]any)
+	
+	// Build a map of URL to request name from the requests section
+	urlToRequestName := make(map[string]string)
+	requests := exportedData["requests"].([]any)
+	for _, req := range requests {
+		reqMap := req.(map[string]any)
+		url := reqMap["url"].(string)
+		name := reqMap["name"].(string)
+		urlToRequestName[url] = name
+	}
+	
+	// Check each step
+	expectedMappings := map[string]string{
+		"RequestA": "https://api.example.com/a",
+		"RequestB": "https://api.example.com/b", 
+		"RequestC": "https://api.example.com/c",
+	}
+	
+	for _, step := range steps {
+		stepMap := step.(map[string]any)
+		reqStep := stepMap["request"].(map[string]any)
+		
+		stepName := reqStep["name"].(string)
+		useRequest := reqStep["use_request"].(string)
+		
+		// Find the request definition
+		var requestDef map[string]any
+		for _, req := range requests {
+			reqMap := req.(map[string]any)
+			if reqMap["name"] == useRequest {
+				requestDef = reqMap
+				break
+			}
+		}
+		
+		require.NotNil(t, requestDef, "Should find request definition for %s", useRequest)
+		
+		// Verify the URL matches what we expect
+		expectedURL := expectedMappings[stepName]
+		actualURL := requestDef["url"].(string)
+		require.Equal(t, expectedURL, actualURL, "Step %s should reference request with URL %s", stepName, expectedURL)
 	}
 }

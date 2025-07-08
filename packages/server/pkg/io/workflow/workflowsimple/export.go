@@ -20,8 +20,8 @@ import (
 
 // ExportWorkflowYAML converts ioworkspace.WorkspaceData to simplified workflow YAML
 func ExportWorkflowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error) {
-	// Use the clean export format with default cleanup options
-	return ExportWorkflowCleanWithOptions(workspaceData, DefaultExportOptions)
+	// Use the clean export format
+	return ExportWorkflowClean(workspaceData)
 }
 
 // ExportWorkflowYAMLOld is the original export function (kept for reference)
