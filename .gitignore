@@ -20,3 +20,4 @@ out
 tsconfig.tsbuildinfo
 tsp-output
 *.embed
+.claude

@@ -30,6 +30,9 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/svar"
+	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
 	exportv1 "the-dev-tools/spec/dist/buf/go/export/v1"
 	"the-dev-tools/spec/dist/buf/go/export/v1/exportv1connect"
 
@@ -69,6 +72,9 @@ type ExportRPC struct {
 	flowForService       snodefor.NodeForService
 	flowForEachService   snodeforeach.NodeForEachService
 	flowJSService        snodejs.NodeJSService
+
+	envService senv.EnvService
+	varService svar.VarService
 }
 
 func New(
@@ -98,6 +104,8 @@ func New(
 	flowForService snodefor.NodeForService,
 	flowForEachService snodeforeach.NodeForEachService,
 	flowJSService snodejs.NodeJSService,
+	envService senv.EnvService,
+	varService svar.VarService,
 ) ExportRPC {
 	return ExportRPC{
 		DB:                    DB,
@@ -125,6 +133,8 @@ func New(
 		flowForService:        flowForService,
 		flowForEachService:    flowForEachService,
 		flowJSService:         flowJSService,
+		envService:            envService,
+		varService:            varService,
 	}
 }
 
@@ -191,6 +201,8 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 		c.flowForService,
 		c.flowForEachService,
 		c.flowJSService,
+		c.envService,
+		c.varService,
 	)
 
 	workspaceData, err := ioWorkspace.ExportWorkspace(ctx, workspaceID, filterExport)
@@ -198,14 +210,84 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	workspaceDataBytes, err := ioworkspace.MarshalWorkspace(workspaceData)
+	// Use simplified YAML format by default
+	simplifiedYAML, err := workflowsimple.ExportWorkflowYAML(workspaceData)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	resp := &exportv1.ExportResponse{
-		Name: workspaceData.Workspace.Name,
-		Data: workspaceDataBytes,
+		Name: workspaceData.Workspace.Name + ".yaml",
+		Data: simplifiedYAML,
+	}
+
+	return connect.NewResponse(resp), nil
+}
+
+// ExportSimplified exports workspace in simplified YAML format
+func (c *ExportRPC) ExportSimplified(ctx context.Context, req *connect.Request[exportv1.ExportRequest]) (*connect.Response[exportv1.ExportResponse], error) {
+	workspaceID, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	filterExport := ioworkspace.FilterExport{}
+	if len(req.Msg.FlowIds) != 0 {
+		filterIds := []idwrap.IDWrap{}
+		for _, flowId := range req.Msg.FlowIds {
+			filterID, err := idwrap.NewFromBytes(flowId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
+			filterIds = append(filterIds, filterID)
+		}
+		filterExport.FilterFlowIds = &filterIds
+	}
+
+	ioWorkspace := ioworkspace.NewIOWorkspaceService(
+		c.DB,
+		c.workspaceService,
+		c.collectionService,
+		c.folderservice,
+		c.endpointService,
+		c.exampleService,
+		c.exampleHeaderService,
+		c.exampleQueryService,
+		c.exampleAssertService,
+		c.rawBodyService,
+		c.formBodyService,
+		c.urlBodyService,
+		c.responseService,
+		c.responseHeaderService,
+		c.responseAssertService,
+		c.flowService,
+		c.flowNodeService,
+		c.flowEdgeService,
+		c.flowVariableService,
+		c.flowRequestService,
+		c.flowConditionService,
+		c.flowNoopService,
+		c.flowForService,
+		c.flowForEachService,
+		c.flowJSService,
+		c.envService,
+		c.varService,
+	)
+
+	workspaceData, err := ioWorkspace.ExportWorkspace(ctx, workspaceID, filterExport)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Convert to simplified format
+	simplifiedYAML, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	resp := &exportv1.ExportResponse{
+		Name: workspaceData.Workspace.Name + "_simplified.yaml",
+		Data: simplifiedYAML,
 	}
 
 	return connect.NewResponse(resp), nil

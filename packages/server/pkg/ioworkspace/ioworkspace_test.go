@@ -57,6 +57,8 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 )
 
@@ -313,6 +315,8 @@ func setupIOWorkspaceService(ctx context.Context, t *testing.T) (*ioworkspace.IO
 	flowForService := snodefor.New(queries)
 	flowForEachService := snodeforeach.New(queries)
 	flowJSService := snodejs.New(queries)
+	envService := senv.New(queries)
+	varService := svar.New(queries)
 
 	// Create IOWorkspaceService
 	ioWorkspaceService := ioworkspace.NewIOWorkspaceService(
@@ -341,6 +345,8 @@ func setupIOWorkspaceService(ctx context.Context, t *testing.T) (*ioworkspace.IO
 		flowForService,
 		flowForEachService,
 		flowJSService,
+		envService,
+		varService,
 	)
 
 	return ioWorkspaceService, base

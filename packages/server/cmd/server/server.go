@@ -287,7 +287,11 @@ func main() {
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
 
 	importServiceRPC := rimport.New(currentDB, workspaceService, collectionService, userService, folderService, endpointService, exampleService, exampleResponseService, assertService)
-	newServiceManager.AddService(rimport.CreateService(importServiceRPC, opitonsAll))
+	importService, err := rimport.CreateService(importServiceRPC, opitonsAll)
+	if err != nil {
+		log.Fatal(err)
+	}
+	newServiceManager.AddService(importService, err)
 
 	flowServiceRPC := rflowvariable.New(currentDB, flowService, userService, flowVariableService)
 	newServiceManager.AddService(rflowvariable.CreateService(flowServiceRPC, opitonsAll))
@@ -304,8 +308,13 @@ func main() {
 		flowNodeService, flowEdgeService, flowVariableService, flowNodeRequestSevice,
 		*flowNodeCondition, flowNodeNoOpService,
 		flowNodeForService, flowNodeForeachService, flowNodeJsService,
+		environmentService, variableService,
 	)
-	newServiceManager.AddService(rexport.CreateService(exportServiceRPC, opitonsAll))
+	exportService, err := rexport.CreateService(exportServiceRPC, opitonsAll)
+	if err != nil {
+		log.Fatal(err)
+	}
+	newServiceManager.AddService(exportService, err)
 
 	// Start services
 	go func() {

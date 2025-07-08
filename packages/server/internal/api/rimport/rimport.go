@@ -31,10 +31,14 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeif"
+	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
@@ -42,11 +46,13 @@ import (
 	"the-dev-tools/server/pkg/translate/tcurl"
 	"the-dev-tools/server/pkg/translate/thar"
 	"the-dev-tools/server/pkg/translate/tpostman"
+	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
 	"the-dev-tools/spec/dist/buf/go/import/v1/importv1connect"
 
 	"connectrpc.com/connect"
+	"gopkg.in/yaml.v3"
 )
 
 // TODO: this is need be switch to id based system later
@@ -155,6 +161,38 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 			}
 
 			return connect.NewResponse(resp), nil
+		}
+
+		// Try to detect simplified YAML format first
+		var yamlCheck map[string]any
+		if err := yaml.Unmarshal(data, &yamlCheck); err == nil {
+			// Check if it has the markers for simplified format
+			if _, hasWorkspace := yamlCheck["workspace_name"]; hasWorkspace {
+				if _, hasFlows := yamlCheck["flows"]; hasFlows {
+					// This appears to be a simplified workflow YAML
+					resolvedYAML, err := workflowsimple.ConvertSimplifiedYAML(data, collectionID, wsUlid)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to convert simplified workflow: %w", err))
+					}
+
+					// Import the simplified YAML data
+					err = c.ImportSimplifiedYAML(ctx, wsUlid, resolvedYAML)
+					if err != nil {
+						return nil, err
+					}
+
+					// Return the first flow if any
+					if len(resolvedYAML.Flows) > 0 {
+						flow := resolvedYAML.Flows[0]
+						resp.Flow = &flowv1.FlowListItem{
+							FlowId: flow.ID.Bytes(),
+							Name:   flow.Name,
+						}
+					}
+
+					return connect.NewResponse(resp), nil
+				}
+			}
 		}
 
 		// Handle other imports
@@ -1024,6 +1062,242 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	// Return a pointer to the Flow
 	flow := resolved.Flow
 	return &flow, nil
+}
+
+func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap.IDWrap, resolved workflowsimple.SimplifiedYAMLResolved) error {
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	// Import collections
+	if len(resolved.Collections) > 0 {
+		txCollectionService, err := scollection.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for _, collection := range resolved.Collections {
+			collection.WorkspaceID = workspaceID
+			err = txCollectionService.CreateCollection(ctx, &collection)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	// Import endpoints
+	if len(resolved.Endpoints) > 0 {
+		txEndpointService, err := sitemapi.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		err = txEndpointService.CreateItemApiBulk(ctx, resolved.Endpoints)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Import examples
+	if len(resolved.Examples) > 0 {
+		txExampleService, err := sitemapiexample.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		err = txExampleService.CreateApiExampleBulk(ctx, resolved.Examples)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Import headers
+	if len(resolved.Headers) > 0 {
+		txHeaderService, err := sexampleheader.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		err = txHeaderService.CreateBulkHeader(ctx, resolved.Headers)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Import queries
+	if len(resolved.Queries) > 0 {
+		txQueryService, err := sexamplequery.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		err = txQueryService.CreateBulkQuery(ctx, resolved.Queries)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Import raw bodies
+	if len(resolved.RawBodies) > 0 {
+		txBodyService, err := sbodyraw.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		err = txBodyService.CreateBulkBodyRaw(ctx, resolved.RawBodies)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Import flows
+	if len(resolved.Flows) > 0 {
+		txFlowService, err := sflow.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for i := range resolved.Flows {
+			resolved.Flows[i].WorkspaceID = workspaceID
+			err = txFlowService.CreateFlow(ctx, resolved.Flows[i])
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	// Import flow nodes
+	if len(resolved.FlowNodes) > 0 {
+		txNodeService, err := snode.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		err = txNodeService.CreateNodeBulk(ctx, resolved.FlowNodes)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Import flow edges
+	if len(resolved.FlowEdges) > 0 {
+		txEdgeService, err := sedge.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for _, edge := range resolved.FlowEdges {
+			err = txEdgeService.CreateEdge(ctx, edge)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	// Import flow variables
+	if len(resolved.FlowVariables) > 0 {
+		txFlowVariableService, err := sflowvariable.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for _, v := range resolved.FlowVariables {
+			err = txFlowVariableService.CreateFlowVariable(ctx, v)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	// Import node implementations
+	if len(resolved.FlowRequestNodes) > 0 {
+		txRequestService, err := snoderequest.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for _, r := range resolved.FlowRequestNodes {
+			err = txRequestService.CreateNodeRequest(ctx, r)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	if len(resolved.FlowConditionNodes) > 0 {
+		txConditionService, err := snodeif.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for _, c := range resolved.FlowConditionNodes {
+			err = txConditionService.CreateNodeIf(ctx, c)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	if len(resolved.FlowNoopNodes) > 0 {
+		txNoopService, err := snodenoop.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for _, n := range resolved.FlowNoopNodes {
+			err = txNoopService.CreateNodeNoop(ctx, n)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	if len(resolved.FlowForNodes) > 0 {
+		txForService, err := snodefor.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for _, f := range resolved.FlowForNodes {
+			err = txForService.CreateNodeFor(ctx, f)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	if len(resolved.FlowJSNodes) > 0 {
+		txJsService, err := snodejs.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for _, j := range resolved.FlowJSNodes {
+			err = txJsService.CreateNodeJS(ctx, j)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	// Update workspace counts and timestamp
+	txWorkspaceService, err := sworkspace.NewTX(ctx, tx)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	ws, err := txWorkspaceService.Get(ctx, workspaceID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+	
+	if len(resolved.Collections) > 0 {
+		ws.CollectionCount += int32(len(resolved.Collections))
+	}
+	if len(resolved.Flows) > 0 {
+		ws.FlowCount += int32(len(resolved.Flows))
+	}
+	ws.Updated = dbtime.DBNow()
+	
+	err = txWorkspaceService.Update(ctx, ws)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	return nil
 }
 
 // sortFoldersByDepth sorts folders so that parent folders come before their children
