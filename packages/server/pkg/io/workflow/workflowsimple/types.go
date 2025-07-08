@@ -35,6 +35,9 @@ type WorkflowFlow struct {
 }
 
 // Variable represents a flow variable
+// Special variables:
+// - "timeout": Controls flow execution timeout in seconds (default: 60)
+//   Example: {name: "timeout", value: "300"} sets a 5-minute timeout
 type Variable struct {
 	Name  string `yaml:"name"`
 	Value string `yaml:"value"`

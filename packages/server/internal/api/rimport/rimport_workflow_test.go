@@ -41,6 +41,8 @@ import (
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	exportv1 "the-dev-tools/spec/dist/buf/go/export/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
@@ -197,6 +199,10 @@ func TestWorkflowSimplifiedYAMLImportExport(t *testing.T) {
 	err = fes.CreateEdge(ctx, edgeData)
 	testutil.AssertFatal(t, nil, err)
 
+	// Create env and var services
+	envs := senv.New(queries)
+	vars := svar.New(queries)
+
 	// Create export service
 	exportService := rexport.New(
 		db, ws, cs, ifs, ias, iaes,
@@ -204,6 +210,7 @@ func TestWorkflowSimplifiedYAMLImportExport(t *testing.T) {
 		ers, erhs, eras,
 		fs, fns, fes, fvs,
 		frns, *fins, fnns, ffns, ffens, fjsns,
+		envs, vars,
 	)
 
 	// Export the workspace with flow filter

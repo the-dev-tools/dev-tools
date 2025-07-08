@@ -32,6 +32,8 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
@@ -56,6 +58,8 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/svar"
 
 	"gopkg.in/yaml.v3"
 )
@@ -94,6 +98,9 @@ type IOWorkspaceService struct {
 	flowForService       snodefor.NodeForService
 	flowForEachService   snodeforeach.NodeForEachService
 	flowJSService        snodejs.NodeJSService
+	
+	envService senv.EnvService
+	varService svar.VarService
 }
 
 func NewIOWorkspaceService(
@@ -126,6 +133,9 @@ func NewIOWorkspaceService(
 	flowForService snodefor.NodeForService,
 	flowForEachService snodeforeach.NodeForEachService,
 	flowJSService snodejs.NodeJSService,
+	
+	envService senv.EnvService,
+	varService svar.VarService,
 ) *IOWorkspaceService {
 	return &IOWorkspaceService{
 		DB:                    DB,
@@ -156,6 +166,9 @@ func NewIOWorkspaceService(
 		flowForService:       flowForService,
 		flowForEachService:   flowForEachService,
 		flowJSService:        flowJSService,
+		
+		envService: envService,
+		varService: varService,
 	}
 }
 
@@ -198,6 +211,10 @@ type WorkspaceData struct {
 	FlowForNodes       []mnfor.MNFor         `yaml:"flow_for_nodes"`
 	FlowForEachNodes   []mnforeach.MNForEach `yaml:"flow_foreach_nodes"`
 	FlowJSNodes        []mnjs.MNJS           `yaml:"flow_js_nodes"`
+	
+	// environments
+	Environments []menv.Env `yaml:"environments"`
+	Variables    []mvar.Var `yaml:"variables"`
 }
 
 func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data WorkspaceData) error {
@@ -239,6 +256,10 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 	txFlowForService := s.flowForService.TX(tx)
 	txFlowForEachService := s.flowForEachService.TX(tx)
 	txFlowJSService := s.flowJSService.TX(tx)
+	
+	// environment services
+	txEnvService := s.envService.TX(tx)
+	txVarService := s.varService.TX(tx)
 
 	for _, collection := range data.Collections {
 		err = txCollectionService.CreateCollection(ctx, &collection)
@@ -355,6 +376,22 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 	err = txFlowForEachService.CreateNodeForEachBulk(ctx, data.FlowForEachNodes)
 	if err != nil {
 		return err
+	}
+	
+	// Create environments
+	for _, env := range data.Environments {
+		err = txEnvService.Create(ctx, env)
+		if err != nil {
+			return err
+		}
+	}
+	
+	// Create environment variables
+	for _, v := range data.Variables {
+		err = txVarService.Create(ctx, v)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = tx.Commit()

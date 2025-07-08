@@ -30,6 +30,8 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
 	exportv1 "the-dev-tools/spec/dist/buf/go/export/v1"
 	"the-dev-tools/spec/dist/buf/go/export/v1/exportv1connect"
@@ -70,6 +72,9 @@ type ExportRPC struct {
 	flowForService       snodefor.NodeForService
 	flowForEachService   snodeforeach.NodeForEachService
 	flowJSService        snodejs.NodeJSService
+
+	envService senv.EnvService
+	varService svar.VarService
 }
 
 func New(
@@ -99,6 +104,8 @@ func New(
 	flowForService snodefor.NodeForService,
 	flowForEachService snodeforeach.NodeForEachService,
 	flowJSService snodejs.NodeJSService,
+	envService senv.EnvService,
+	varService svar.VarService,
 ) ExportRPC {
 	return ExportRPC{
 		DB:                    DB,
@@ -126,6 +133,8 @@ func New(
 		flowForService:        flowForService,
 		flowForEachService:    flowForEachService,
 		flowJSService:         flowJSService,
+		envService:            envService,
+		varService:            varService,
 	}
 }
 
@@ -192,6 +201,8 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 		c.flowForService,
 		c.flowForEachService,
 		c.flowJSService,
+		c.envService,
+		c.varService,
 	)
 
 	workspaceData, err := ioWorkspace.ExportWorkspace(ctx, workspaceID, filterExport)
@@ -259,6 +270,8 @@ func (c *ExportRPC) ExportSimplified(ctx context.Context, req *connect.Request[e
 		c.flowForService,
 		c.flowForEachService,
 		c.flowJSService,
+		c.envService,
+		c.varService,
 	)
 
 	workspaceData, err := ioWorkspace.ExportWorkspace(ctx, workspaceID, filterExport)

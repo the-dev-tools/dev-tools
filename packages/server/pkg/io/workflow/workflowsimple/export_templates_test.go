@@ -1,8 +1,8 @@
 package workflowsimple
 
 import (
-	"testing"
 	"gopkg.in/yaml.v3"
+	"testing"
 )
 
 func TestExportWithRequestTemplates(t *testing.T) {
@@ -14,18 +14,14 @@ request_templates:
     method: POST
     url: https://api.example.com/auth/login
     headers:
-      - name: Content-Type
-        value: application/json
+      Content-Type: application/json
     body:
-      body_json:
-        username: admin
-        password: secret123
+      username: admin
+      password: secret123
   api_template:
     headers:
-      - name: Authorization
-        value: Bearer {{token}}
-      - name: Accept
-        value: application/json
+      Authorization: Bearer {{token}}
+      Accept: application/json
 flows:
   - name: Template Flow
     variables:
@@ -43,8 +39,7 @@ flows:
           method: GET
           url: https://api.example.com/users/{{user_id}}
           headers:
-            - name: X-Custom
-              value: custom-value
+            X-Custom: custom-value
 `)
 
 	// Import to get full workspace data
@@ -53,8 +48,8 @@ flows:
 		t.Fatalf("failed to import: %v", err)
 	}
 
-	// Export back to YAML
-	exportedYAML, err := ExportWorkflowYAMLOld(workspaceData)
+	// Export back to YAML using clean export
+	exportedYAML, err := ExportWorkflowYAML(workspaceData)
 	if err != nil {
 		t.Fatalf("failed to export: %v", err)
 	}
@@ -74,7 +69,7 @@ flows:
 	}
 
 	flow := exported.Flows[0]
-	
+
 	// Check variables
 	if len(flow.Variables) != 2 {
 		t.Errorf("expected 2 variables, got %d", len(flow.Variables))
@@ -88,107 +83,114 @@ flows:
 	// Find Login step
 	var loginStep map[string]any
 	var getUserStep map[string]any
-	
+
 	for _, step := range flow.Steps {
 		if stepMap, ok := step.(map[string]any); ok {
 			if req, ok := stepMap["request"].(map[string]any); ok {
 				name, _ := req["name"].(string)
-				if name == "Login" {
+				switch name {
+				case "Login":
 					loginStep = req
-				} else if name == "Get User" {
+				case "Get User":
 					getUserStep = req
 				}
 			}
 		}
 	}
 
-	// Verify Login step has auth_template data
+	// Verify Login step references the request
 	if loginStep == nil {
 		t.Fatal("Login step not found")
 	}
-	if loginStep["method"] != "POST" {
-		t.Errorf("Login: expected method POST, got %v", loginStep["method"])
-	}
-	if loginStep["url"] != "https://api.example.com/auth/login" {
-		t.Errorf("Login: expected auth URL, got %v", loginStep["url"])
+	if loginStep["use_request"] != "Login" {
+		t.Errorf("Login: expected use_request 'Login', got %v", loginStep["use_request"])
 	}
 	
-	// Check Login headers
-	if headers, ok := loginStep["headers"].([]any); ok {
-		if len(headers) != 1 {
-			t.Errorf("Login: expected 1 header, got %d", len(headers))
+	// Check the requests section for Login data
+	requests := exported.Requests
+	if len(requests) == 0 {
+		t.Fatal("No requests found in requests section")
+	}
+	
+	var loginRequest map[string]any
+	for _, req := range requests {
+		if req["name"] == "Login" {
+			loginRequest = req
+			break
+		}
+	}
+	
+	if loginRequest == nil {
+		t.Fatal("Login request not found in requests section")
+	}
+	
+	// Verify Login request has auth_template data
+	if loginRequest["method"] != "POST" {
+		t.Errorf("Login request: expected method POST, got %v", loginRequest["method"])
+	}
+	if loginRequest["url"] != "https://api.example.com/auth/login" {
+		t.Errorf("Login request: expected auth URL, got %v", loginRequest["url"])
+	}
+	
+	// Check Login headers in request
+	if headers, ok := loginRequest["headers"].(map[string]any); ok {
+		if headers["Content-Type"] != "application/json" {
+			t.Errorf("Login request: expected Content-Type header, got %v", headers["Content-Type"])
 		}
 	} else {
-		t.Error("Login: no headers found")
+		t.Error("Login request: no headers found")
 	}
-
-	// Check Login body
-	if body, ok := loginStep["body"].(map[string]any); ok {
-		if bodyJSON, ok := body["body_json"].(map[string]any); ok {
-			if bodyJSON["username"] != "admin" {
-				t.Errorf("Login: expected username 'admin', got %v", bodyJSON["username"])
-			}
-		} else {
-			t.Error("Login: no body_json found")
+	
+	// Check Login body in request
+	if body, ok := loginRequest["body"].(map[string]any); ok {
+		if body["username"] != "admin" {
+			t.Errorf("Login request: expected username 'admin', got %v", body["username"])
+		}
+		if body["password"] != "secret123" {
+			t.Errorf("Login request: expected password 'secret123', got %v", body["password"])
 		}
 	} else {
-		t.Error("Login: no body found")
+		t.Error("Login request: no body found")
 	}
 
-	// Verify Get User step has merged data
+	// Verify Get User step references the request and has overrides
 	if getUserStep == nil {
 		t.Fatal("Get User step not found")
 	}
-	if getUserStep["method"] != "GET" {
-		t.Errorf("Get User: expected method GET, got %v", getUserStep["method"])
-	}
-	if getUserStep["url"] != "https://api.example.com/users/{{user_id}}" {
-		t.Errorf("Get User: expected user URL with variable, got %v", getUserStep["url"])
+	if getUserStep["use_request"] != "Get User" {
+		t.Errorf("Get User: expected use_request 'Get User', got %v", getUserStep["use_request"])
 	}
 	
-	// Check Get User headers (should have both template and override headers)
-	if headers, ok := getUserStep["headers"].([]any); ok {
-		// Should have Authorization, Accept from template + X-Custom override
-		if len(headers) < 3 {
-			t.Errorf("Get User: expected at least 3 headers, got %d", len(headers))
+	// The clean export merges everything into the request definition when using templates
+	// So the step won't have method/url/headers - they'll all be in the request section
+	
+	// Find Get User in requests section
+	var getUserRequest map[string]any
+	for _, req := range requests {
+		if req["name"] == "Get User" {
+			getUserRequest = req
+			break
 		}
-		
-		// Check for specific headers
-		hasAuth := false
-		hasAccept := false
-		hasCustom := false
-		
-		for _, h := range headers {
-			if hMap, ok := h.(map[string]any); ok {
-				name, _ := hMap["name"].(string)
-				switch name {
-				case "Authorization":
-					hasAuth = true
-					if hMap["value"] != "Bearer {{token}}" {
-						t.Errorf("Authorization header has wrong value: %v", hMap["value"])
-					}
-				case "Accept":
-					hasAccept = true
-				case "X-Custom":
-					hasCustom = true
-					if hMap["value"] != "custom-value" {
-						t.Errorf("X-Custom header has wrong value: %v", hMap["value"])
-					}
-				}
-			}
+	}
+	
+	if getUserRequest == nil {
+		t.Fatal("Get User request not found in requests section")
+	}
+	
+	// Check headers in request (should have all headers merged)
+	if headers, ok := getUserRequest["headers"].(map[string]any); ok {
+		if headers["Authorization"] != "Bearer {{token}}" {
+			t.Errorf("Get User request: expected Authorization header from template, got %v", headers["Authorization"])
 		}
-		
-		if !hasAuth {
-			t.Error("Get User: Authorization header not found")
+		if headers["Accept"] != "application/json" {
+			t.Errorf("Get User request: expected Accept header from template, got %v", headers["Accept"])
 		}
-		if !hasAccept {
-			t.Error("Get User: Accept header not found")
-		}
-		if !hasCustom {
-			t.Error("Get User: X-Custom header not found")
+		// When using templates, all headers are merged into the request definition
+		if headers["X-Custom"] != "custom-value" {
+			t.Errorf("Get User request: expected X-Custom header, got %v", headers["X-Custom"])
 		}
 	} else {
-		t.Error("Get User: no headers found")
+		t.Error("Get User request: no headers found")
 	}
 }
 
@@ -218,7 +220,7 @@ flows:
 
 	// Convert to string and check it doesn't contain empty arrays
 	exportedStr := string(exportedYAML)
-	
+
 	// These should not appear in minimal export
 	if contains(exportedStr, "headers: []") {
 		t.Error("exported YAML contains empty headers array")
@@ -229,13 +231,13 @@ flows:
 	if contains(exportedStr, "variables: []") {
 		t.Error("exported YAML contains empty variables array")
 	}
-	
+
 	t.Logf("Minimal export:\n%s", exportedStr)
 }
 
 func contains(s, substr string) bool {
-	return len(substr) > 0 && len(s) >= len(substr) && 
-		(s == substr || len(s) > len(substr) && 
+	return len(substr) > 0 && len(s) >= len(substr) &&
+		(s == substr || len(s) > len(substr) &&
 			(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
 				len(s) > len(substr) && findSubstring(s[1:len(s)-1], substr)))
 }

@@ -489,7 +489,6 @@ func extractRequestTemplates(workspaceData *ioworkspace.WorkspaceData, nodeMap m
 	// Group requests by common headers
 	type requestPattern struct {
 		headers []string
-		body    string
 		count   int
 		nodes   []mnrequest.MNRequest
 	}

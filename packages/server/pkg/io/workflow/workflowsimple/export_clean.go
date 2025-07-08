@@ -1,7 +1,6 @@
 package workflowsimple
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"gopkg.in/yaml.v3"
@@ -70,114 +69,81 @@ func ExportWorkflowClean(workspaceData *ioworkspace.WorkspaceData) ([]byte, erro
 func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[string]map[string]any {
 	requests := make(map[string]map[string]any)
 
-	// Track which endpoints are used in flows
-	usedEndpoints := make(map[idwrap.IDWrap]bool)
-	endpointToNodes := make(map[idwrap.IDWrap][]string)      // endpoint -> node names that use it
-	nodeNameToEndpoint := make(map[string]idwrap.IDWrap)     // node name -> endpoint ID
-	
-	// First pass: collect endpoint usage and node associations
-	for _, reqNode := range workspaceData.FlowRequestNodes {
-		if reqNode.EndpointID != nil {
-			usedEndpoints[*reqNode.EndpointID] = true
-			
-			// Find the node name for this request node
-			for _, node := range workspaceData.FlowNodes {
-				if node.ID == reqNode.FlowNodeID {
-					endpointToNodes[*reqNode.EndpointID] = append(endpointToNodes[*reqNode.EndpointID], node.Name)
-					nodeNameToEndpoint[node.Name] = *reqNode.EndpointID
-					break
-				}
-			}
-			
-			if reqNode.DeltaEndpointID != nil {
-				usedEndpoints[*reqNode.DeltaEndpointID] = true
-			}
-		}
-	}
-
-	// Collect endpoints to process in a deterministic order
-	endpointList := make([]mitemapi.ItemApi, 0)
-	for _, endpoint := range workspaceData.Endpoints {
-		// Skip if not used in any flow
-		if !usedEndpoints[endpoint.ID] {
-			continue
-		}
-
-		// Skip hidden endpoints (they're usually deltas)
-		if endpoint.Hidden {
-			continue
-		}
-		
-		endpointList = append(endpointList, endpoint)
-	}
-	
-	// Sort endpoints by the first node name that uses them (for consistent ordering)
-	sort.Slice(endpointList, func(i, j int) bool {
-		nodesI := endpointToNodes[endpointList[i].ID]
-		nodesJ := endpointToNodes[endpointList[j].ID]
-		if len(nodesI) > 0 && len(nodesJ) > 0 {
-			return nodesI[0] < nodesJ[0]
-		}
-		return endpointList[i].Name < endpointList[j].Name
-	})
-
-	// Track used request names to avoid conflicts
-	usedRequestNames := make(map[string]bool)
-	
-	// Process endpoints in sorted order
-	for _, endpoint := range endpointList {
-		// Determine request name
-		var requestName string
-		
-		// Check if any node using this endpoint has a suitable name
-		nodeNames := endpointToNodes[endpoint.ID]
-		if len(nodeNames) > 0 {
-			// Use the first node name if it looks like a request name pattern
-			firstNodeName := nodeNames[0]
-			if isRequestNamePattern(firstNodeName) && !usedRequestNames[firstNodeName] {
-				requestName = firstNodeName
-			}
-		}
-		
-		// If no suitable node name, generate a unique name
-		if requestName == "" {
-			for i := 1; ; i++ {
-				candidateName := fmt.Sprintf("request_%d", i)
-				if !usedRequestNames[candidateName] {
-					requestName = candidateName
-					break
-				}
-			}
-		}
-		
-		usedRequestNames[requestName] = true
-
-		// Build request definition
-		req := map[string]any{
-			"name":   requestName,
-			"method": endpoint.Method,
-			"url":    endpoint.Url,
-		}
-
-		// Find the base example for this endpoint
-		var primaryExampleID *idwrap.IDWrap
-		for _, example := range workspaceData.Examples {
-			if example.ItemApiID == endpoint.ID {
-				primaryExampleID = &example.ID
+	// Map node names to their request nodes for direct lookup
+	nodeNameToRequestNode := make(map[string]*mnrequest.MNRequest)
+	for i := range workspaceData.FlowRequestNodes {
+		reqNode := &workspaceData.FlowRequestNodes[i]
+		// Find the node name for this request node
+		for _, node := range workspaceData.FlowNodes {
+			if node.ID == reqNode.FlowNodeID {
+				nodeNameToRequestNode[node.Name] = reqNode
 				break
 			}
 		}
-		
-		if primaryExampleID == nil {
-			// No examples for this endpoint
+	}
+	
+	// Create a unique request definition for each request node
+	// This ensures each request has its own headers/params/body
+	processedNodes := make(map[string]bool)
+	
+	for _, node := range workspaceData.FlowNodes {
+		if node.NodeKind != mnnode.NODE_KIND_REQUEST {
 			continue
 		}
-
-		// Collect headers from base example only
+		
+		reqNode, exists := nodeNameToRequestNode[node.Name]
+		if !exists || reqNode.EndpointID == nil {
+			continue
+		}
+		
+		// Skip if already processed
+		if processedNodes[node.Name] {
+			continue
+		}
+		processedNodes[node.Name] = true
+		
+		// Find the endpoint
+		var endpoint *mitemapi.ItemApi
+		for i := range workspaceData.Endpoints {
+			if workspaceData.Endpoints[i].ID == *reqNode.EndpointID {
+				endpoint = &workspaceData.Endpoints[i]
+				break
+			}
+		}
+		if endpoint == nil {
+			continue
+		}
+		
+		// Build request definition for this specific node
+		req := map[string]any{
+			"name":   node.Name,
+			"method": endpoint.Method,
+			"url":    endpoint.Url,
+		}
+		
+		// Check if there's a delta endpoint with overrides
+		if reqNode.DeltaEndpointID != nil {
+			for _, deltaEndpoint := range workspaceData.Endpoints {
+				if deltaEndpoint.ID == *reqNode.DeltaEndpointID {
+					// Use delta endpoint's method/URL if different
+					if deltaEndpoint.Method != endpoint.Method {
+						req["method"] = deltaEndpoint.Method
+					}
+					if deltaEndpoint.Url != endpoint.Url {
+						req["url"] = deltaEndpoint.Url
+					}
+					break
+				}
+			}
+		}
+		
+		// Collect headers - use base example only (has hardcoded values)
 		headerMap := make(map[string]string)
-		for _, h := range workspaceData.ExampleHeaders {
-			if h.ExampleID == *primaryExampleID {
-				headerMap[h.HeaderKey] = h.Value
+		if reqNode.ExampleID != nil {
+			for _, h := range workspaceData.ExampleHeaders {
+				if h.ExampleID == *reqNode.ExampleID && h.Enable {
+					headerMap[h.HeaderKey] = h.Value
+				}
 			}
 		}
 
@@ -197,11 +163,13 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 			req["headers"] = orderedHeaders
 		}
 
-		// Collect query params from base example only
+		// Collect query params - use base example only
 		queryMap := make(map[string]string)
-		for _, q := range workspaceData.ExampleQueries {
-			if q.ExampleID == *primaryExampleID {
-				queryMap[q.QueryKey] = q.Value
+		if reqNode.ExampleID != nil {
+			for _, q := range workspaceData.ExampleQueries {
+				if q.ExampleID == *reqNode.ExampleID {
+					queryMap[q.QueryKey] = q.Value
+				}
 			}
 		}
 
@@ -221,19 +189,21 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 			req["query_params"] = orderedQueries
 		}
 
-		// Collect body from base example only
-		for _, b := range workspaceData.Rawbodies {
-			if b.ExampleID == *primaryExampleID && len(b.Data) > 0 {
-				var bodyData any
-				if err := json.Unmarshal(b.Data, &bodyData); err == nil {
-					req["body"] = bodyData
-					break
+		// Collect body - use base example only
+		if reqNode.ExampleID != nil {
+			for _, b := range workspaceData.Rawbodies {
+				if b.ExampleID == *reqNode.ExampleID && len(b.Data) > 0 {
+					var bodyData any
+					if err := json.Unmarshal(b.Data, &bodyData); err == nil {
+						req["body"] = bodyData
+						break
+					}
 				}
 			}
 		}
 
-		// Store with endpoint ID for later reference
-		requests[endpoint.ID.String()] = req
+		// Store with node name as key
+		requests[node.Name] = req
 	}
 
 	return requests
@@ -289,16 +259,14 @@ func exportFlow(flow mflow.Flow, workspaceData *ioworkspace.WorkspaceData, reque
 		}
 	}
 
-	// Build endpoint ID to request name mapping
-	endpointToRequest := make(map[string]string)
-	for endpointID, req := range requests {
-		if name, ok := req["name"].(string); ok {
-			endpointToRequest[endpointID] = name
-		}
+	// Build node name to request name mapping (which are now the same)
+	nodeToRequest := make(map[string]string)
+	for nodeName := range requests {
+		nodeToRequest[nodeName] = nodeName
 	}
 
 	// Process nodes to create steps
-	steps := processFlowNodes(nodeMap, incomingEdges, outgoingEdges, startNodeID, workspaceData, endpointToRequest)
+	steps := processFlowNodes(nodeMap, incomingEdges, outgoingEdges, startNodeID, workspaceData, nodeToRequest)
 
 	// Build flow data
 	flowData := map[string]any{
@@ -319,7 +287,7 @@ func exportFlow(flow mflow.Flow, workspaceData *ioworkspace.WorkspaceData, reque
 // processFlowNodes processes all nodes in a flow and returns steps
 func processFlowNodes(nodeMap map[idwrap.IDWrap]mnnode.MNode, incomingEdges map[idwrap.IDWrap][]edge.Edge,
 	outgoingEdges map[idwrap.IDWrap][]edge.Edge, startNodeID idwrap.IDWrap,
-	workspaceData *ioworkspace.WorkspaceData, endpointToRequest map[string]string) []map[string]any {
+	workspaceData *ioworkspace.WorkspaceData, nodeToRequest map[string]string) []map[string]any {
 
 	processed := make(map[idwrap.IDWrap]bool)
 	steps := make([]map[string]any, 0)
@@ -348,7 +316,7 @@ func processFlowNodes(nodeMap map[idwrap.IDWrap]mnnode.MNode, incomingEdges map[
 		switch node.NodeKind {
 		case mnnode.NODE_KIND_REQUEST:
 			step = convertRequestNodeClean(node, incomingEdges, outgoingEdges, startNodeID, 
-				nodeMap, workspaceData, endpointToRequest)
+				nodeMap, workspaceData, nodeToRequest)
 		case mnnode.NODE_KIND_JS:
 			step = convertJSNodeClean(node, incomingEdges, startNodeID, nodeMap, workspaceData)
 		case mnnode.NODE_KIND_CONDITION:
@@ -379,7 +347,7 @@ func processFlowNodes(nodeMap map[idwrap.IDWrap]mnnode.MNode, incomingEdges map[
 func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap][]edge.Edge,
 	outgoingEdges map[idwrap.IDWrap][]edge.Edge, startNodeID idwrap.IDWrap,
 	nodeMap map[idwrap.IDWrap]mnnode.MNode, workspaceData *ioworkspace.WorkspaceData,
-	endpointToRequest map[string]string) map[string]any {
+	nodeToRequest map[string]string) map[string]any {
 
 	// Find request node data
 	var requestNode *mnrequest.MNRequest
@@ -397,157 +365,105 @@ func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 		"name": node.Name,
 	}
 
-	// Find the request reference
-	if requestNode.EndpointID != nil {
-		if requestName, ok := endpointToRequest[requestNode.EndpointID.String()]; ok {
-			step["use_request"] = requestName
-		}
+	// Find the request reference using node name
+	if requestName, ok := nodeToRequest[node.Name]; ok {
+		step["use_request"] = requestName
 	}
 
-	// Check if this node has delta overrides
-	if requestNode.DeltaEndpointID != nil || requestNode.DeltaExampleID != nil {
-		// Check for delta endpoint (URL/method overrides)
-		if requestNode.DeltaEndpointID != nil {
-			// Find the delta endpoint
-			for _, endpoint := range workspaceData.Endpoints {
-				if endpoint.ID == *requestNode.DeltaEndpointID {
-					// Find the base endpoint to compare
-					var baseEndpoint *mitemapi.ItemApi
-					if requestNode.EndpointID != nil {
-						for _, ep := range workspaceData.Endpoints {
-							if ep.ID == *requestNode.EndpointID {
-								baseEndpoint = &ep
-								break
-							}
-						}
-					}
-					
-					// Add URL override if different from base
-					if baseEndpoint != nil && endpoint.Url != baseEndpoint.Url {
-						step["url"] = endpoint.Url
-					}
-					
-					// Add method override if different from base
-					if baseEndpoint != nil && endpoint.Method != baseEndpoint.Method {
-						step["method"] = endpoint.Method
-					}
-					break
-				}
+	// Add override values from delta endpoint/examples (with variable references)
+	// Check for method/URL overrides from delta endpoint
+	if requestNode.DeltaEndpointID != nil && requestNode.EndpointID != nil {
+		// Find base and delta endpoints
+		var baseEndpoint, deltaEndpoint *mitemapi.ItemApi
+		for i := range workspaceData.Endpoints {
+			if workspaceData.Endpoints[i].ID == *requestNode.EndpointID {
+				baseEndpoint = &workspaceData.Endpoints[i]
+			}
+			if workspaceData.Endpoints[i].ID == *requestNode.DeltaEndpointID {
+				deltaEndpoint = &workspaceData.Endpoints[i]
 			}
 		}
 		
-		// Check for delta example (headers/query/body overrides)
-		if requestNode.DeltaExampleID != nil {
-			// Collect delta headers
-			deltaHeaders := make(map[string]string)
-			for _, h := range workspaceData.ExampleHeaders {
-				if h.ExampleID == *requestNode.DeltaExampleID {
-					deltaHeaders[h.HeaderKey] = h.Value
-				}
+		if baseEndpoint != nil && deltaEndpoint != nil {
+			// Add method override if different
+			if deltaEndpoint.Method != baseEndpoint.Method {
+				step["method"] = deltaEndpoint.Method
 			}
-			
-			// Compare with base headers (if we have base example)
-			baseHeaders := make(map[string]string)
-			if requestNode.ExampleID != nil {
-				for _, h := range workspaceData.ExampleHeaders {
-					if h.ExampleID == *requestNode.ExampleID {
-						baseHeaders[h.HeaderKey] = h.Value
-					}
-				}
+			// Add URL override if different
+			if deltaEndpoint.Url != baseEndpoint.Url {
+				step["url"] = deltaEndpoint.Url
 			}
-			
-			// Find headers that are different or new in delta
-			overrideHeaders := make(map[string]string)
-			for key, value := range deltaHeaders {
-				if baseValue, exists := baseHeaders[key]; !exists || baseValue != value {
-					overrideHeaders[key] = value
-				}
-			}
-			
-			if len(overrideHeaders) > 0 {
-				// Sort keys for consistent output
-				keys := make([]string, 0, len(overrideHeaders))
-				for k := range overrideHeaders {
-					keys = append(keys, k)
-				}
-				sort.Strings(keys)
-				
-				sortedHeaders := make(map[string]string)
-				for _, k := range keys {
-					sortedHeaders[k] = overrideHeaders[k]
-				}
-				step["headers"] = sortedHeaders
-			}
-			
-			// Collect delta query params
-			deltaQueries := make(map[string]string)
-			for _, q := range workspaceData.ExampleQueries {
-				if q.ExampleID == *requestNode.DeltaExampleID {
-					deltaQueries[q.QueryKey] = q.Value
-				}
-			}
-			
-			// Compare with base queries
-			baseQueries := make(map[string]string)
-			if requestNode.ExampleID != nil {
-				for _, q := range workspaceData.ExampleQueries {
-					if q.ExampleID == *requestNode.ExampleID {
-						baseQueries[q.QueryKey] = q.Value
-					}
-				}
-			}
-			
-			// Find queries that are different or new in delta
-			overrideQueries := make(map[string]string)
-			for key, value := range deltaQueries {
-				if baseValue, exists := baseQueries[key]; !exists || baseValue != value {
-					overrideQueries[key] = value
-				}
-			}
-			
-			if len(overrideQueries) > 0 {
-				// Sort keys for consistent output
-				keys := make([]string, 0, len(overrideQueries))
-				for k := range overrideQueries {
-					keys = append(keys, k)
-				}
-				sort.Strings(keys)
-				
-				sortedQueries := make(map[string]string)
-				for _, k := range keys {
-					sortedQueries[k] = overrideQueries[k]
-				}
-				step["query_params"] = sortedQueries
-			}
-			
-			// Check for body overrides
-			var deltaBody []byte
-			for _, b := range workspaceData.Rawbodies {
-				if b.ExampleID == *requestNode.DeltaExampleID && len(b.Data) > 0 {
-					deltaBody = b.Data
-					break
-				}
-			}
-			
-			if len(deltaBody) > 0 {
-				// Compare with base body if available
-				var baseBody []byte
+		}
+	}
+	
+	if requestNode.DeltaExampleID != nil {
+		// Check for header overrides
+		headerOverrides := make(map[string]string)
+		for _, h := range workspaceData.ExampleHeaders {
+			if h.ExampleID == *requestNode.DeltaExampleID && h.Enable {
+				// Only include if different from base
+				var baseValue string
 				if requestNode.ExampleID != nil {
-					for _, b := range workspaceData.Rawbodies {
-						if b.ExampleID == *requestNode.ExampleID && len(b.Data) > 0 {
-							baseBody = b.Data
+					for _, baseH := range workspaceData.ExampleHeaders {
+						if baseH.ExampleID == *requestNode.ExampleID && baseH.HeaderKey == h.HeaderKey && baseH.Enable {
+							baseValue = baseH.Value
 							break
 						}
 					}
 				}
-				
-				// Only add body override if different from base
-				if !bytes.Equal(deltaBody, baseBody) {
-					var bodyData any
-					if err := json.Unmarshal(deltaBody, &bodyData); err == nil {
-						step["body"] = bodyData
+				if h.Value != baseValue {
+					headerOverrides[h.HeaderKey] = h.Value
+				}
+			}
+		}
+		if len(headerOverrides) > 0 {
+			step["headers"] = headerOverrides
+		}
+
+		// Check for query param overrides
+		queryOverrides := make(map[string]string)
+		for _, q := range workspaceData.ExampleQueries {
+			if q.ExampleID == *requestNode.DeltaExampleID {
+				// Only include if different from base
+				var baseValue string
+				if requestNode.ExampleID != nil {
+					for _, baseQ := range workspaceData.ExampleQueries {
+						if baseQ.ExampleID == *requestNode.ExampleID && baseQ.QueryKey == q.QueryKey {
+							baseValue = baseQ.Value
+							break
+						}
 					}
 				}
+				if q.Value != baseValue {
+					queryOverrides[q.QueryKey] = q.Value
+				}
+			}
+		}
+		if len(queryOverrides) > 0 {
+			step["query_params"] = queryOverrides
+		}
+
+		// Check for body overrides
+		for _, b := range workspaceData.Rawbodies {
+			if b.ExampleID == *requestNode.DeltaExampleID && len(b.Data) > 0 {
+				var deltaBodyData any
+				if err := json.Unmarshal(b.Data, &deltaBodyData); err == nil {
+					// Check if different from base
+					var baseBodyData any
+					if requestNode.ExampleID != nil {
+						for _, baseB := range workspaceData.Rawbodies {
+							if baseB.ExampleID == *requestNode.ExampleID && len(baseB.Data) > 0 {
+								json.Unmarshal(baseB.Data, &baseBodyData)
+								break
+							}
+						}
+					}
+					// Simple comparison - if they're different, include the override
+					if fmt.Sprintf("%v", deltaBodyData) != fmt.Sprintf("%v", baseBodyData) {
+						step["body"] = deltaBodyData
+					}
+				}
+				break
 			}
 		}
 	}

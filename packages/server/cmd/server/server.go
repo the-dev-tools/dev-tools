@@ -308,6 +308,7 @@ func main() {
 		flowNodeService, flowEdgeService, flowVariableService, flowNodeRequestSevice,
 		*flowNodeCondition, flowNodeNoOpService,
 		flowNodeForService, flowNodeForeachService, flowNodeJsService,
+		environmentService, variableService,
 	)
 	exportService, err := rexport.CreateService(exportServiceRPC, opitonsAll)
 	if err != nil {

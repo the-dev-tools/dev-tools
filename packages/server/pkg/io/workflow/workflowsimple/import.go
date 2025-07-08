@@ -2,6 +2,7 @@ package workflowsimple
 
 import (
 	"fmt"
+	"time"
 	"gopkg.in/yaml.v3"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
@@ -19,6 +20,8 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/model/mvar"
 )
 
 // ImportWorkflowYAML converts simplified workflow YAML to ioworkspace.WorkspaceData
@@ -60,6 +63,36 @@ func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 
 	// Update the flow with the workspace ID
 	workflowData.Flow.WorkspaceID = workspaceID
+	
+	// Extract all variable references from the workflow
+	variableRefs := ExtractVariableReferences(workflowData)
+	
+	// Separate into flow and environment variables
+	flowVarsFromYAML, envVarsToCreate := SeparateVariablesByType(variableRefs)
+	
+	// Create a default environment for the workspace
+	defaultEnv := menv.Env{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Type:        menv.EnvNormal,
+		Name:        "Default Environment",
+		Description: "Default environment for imported workflows",
+		Updated:     time.Now(),
+	}
+	
+	// Convert environment variables to proper format with EnvID
+	var environmentVariables []mvar.Var
+	for _, v := range envVarsToCreate {
+		envVar := mvar.Var{
+			ID:          idwrap.NewNow(),
+			EnvID:       defaultEnv.ID,
+			VarKey:      v.VarKey,
+			Value:       v.Value,
+			Enabled:     true,
+			Description: "Imported from workflow",
+		}
+		environmentVariables = append(environmentVariables, envVar)
+	}
 
 	// Create workspace data
 	workspaceData := &ioworkspace.WorkspaceData{
@@ -90,10 +123,12 @@ func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 		FlowForNodes:           workflowData.ForNodes,
 		FlowForEachNodes:       make([]mnforeach.MNForEach, 0), // Convert from ForNodes if needed
 		FlowJSNodes:            workflowData.JSNodes,
+		Environments:           []menv.Env{defaultEnv},
+		Variables:              environmentVariables,
 	}
 
-	// Convert variables to flow variables
-	for _, v := range workflowData.Variables {
+	// Convert flow variables (only those defined in the YAML with values)
+	for _, v := range flowVarsFromYAML {
 		flowVar := mflowvariable.FlowVariable{
 			ID:      idwrap.NewNow(),
 			FlowID:  workflowData.Flow.ID,

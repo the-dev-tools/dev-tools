@@ -20,7 +20,7 @@ type ExportOptions struct {
 // Default export options
 var DefaultExportOptions = ExportOptions{
 	ReplaceTokens:        false,
-	FilterBrowserHeaders: true,
+	FilterBrowserHeaders: false,
 	TokenVariableName:    "token",
 }
 

@@ -19,7 +19,7 @@ type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-const TimeoutRequest = 5 * time.Second
+const TimeoutRequest = 60 * time.Second
 
 func New() HttpClient {
 	return &http.Client{

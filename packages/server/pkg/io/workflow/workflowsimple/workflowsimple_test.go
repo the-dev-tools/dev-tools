@@ -30,8 +30,7 @@ flows:
           url: "{{base_url}}/users/1"
           method: GET
           headers:
-            - name: Authorization
-              value: "Bearer {{token}}"
+            Authorization: "Bearer {{token}}"
 `
 
 	data, err := workflowsimple.Parse([]byte(yamlData))
@@ -114,8 +113,7 @@ request_templates:
     method: POST
     url: "{{base_url}}/api/v1"
     headers:
-      - name: Content-Type
-        value: application/json
+      Content-Type: application/json
     body:
       body_json:
         version: 1
@@ -130,8 +128,7 @@ flows:
           name: UseTemplate
           use_request: api_base
           headers:
-            - name: X-Custom
-              value: custom-value
+            X-Custom: custom-value
 `
 
 	data, err := workflowsimple.Parse([]byte(yamlData))
@@ -406,11 +403,9 @@ flows:
           url: "https://{{host}}/{{version}}/users"
           method: GET
           headers:
-            - name: Authorization
-              value: "Bearer {{auth}}"
+            Authorization: "Bearer {{auth}}"
           query_params:
-            - name: api_version
-              value: "{{version}}"
+            api_version: "{{version}}"
 `
 
 	data, err := workflowsimple.Parse([]byte(yamlData))
@@ -554,10 +549,8 @@ workspace_name: Complex E-commerce Workflow
 request_templates:
   auth_headers:
     headers:
-      - name: Authorization
-        value: "Bearer {{auth_token}}"
-      - name: X-API-Version
-        value: "{{api_version}}"
+      Authorization: "Bearer {{auth_token}}"
+      X-API-Version: "{{api_version}}"
 
 flows:
   - name: OrderProcessingFlow
@@ -575,10 +568,8 @@ flows:
           url: "{{base_url}}/orders"
           method: GET
           query_params:
-            - name: status
-              value: pending
-            - name: limit
-              value: "10"
+            status: pending
+            limit: "10"
 
       - if:
           name: CheckOrdersExist
