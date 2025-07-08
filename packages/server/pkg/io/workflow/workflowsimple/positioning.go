@@ -68,7 +68,7 @@ func positionNodes(data *WorkflowData) error {
 			}
 
 			childLevel := maxParentLevel + 1
-			
+
 			// Only update if this is a new node or we found a deeper level
 			if existingLevel, exists := nodeLevels[childID]; !exists || childLevel > existingLevel {
 				// Remove from old level if it existed

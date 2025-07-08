@@ -7,6 +7,7 @@ import (
 	"errors"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
@@ -25,6 +26,7 @@ import (
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
@@ -52,11 +54,12 @@ type ReferenceServiceRPC struct {
 	erhs sexamplerespheader.ExampleRespHeaderService
 
 	// flow
-	fs                  sflow.FlowService
-	fns                 snode.NodeService
-	frns                snoderequest.NodeRequestService
-	flowVariableService sflowvariable.FlowVariableService
-	flowEdgeService     sedge.EdgeService
+	fs                   sflow.FlowService
+	fns                  snode.NodeService
+	frns                 snoderequest.NodeRequestService
+	flowVariableService  sflowvariable.FlowVariableService
+	flowEdgeService      sedge.EdgeService
+	nodeExecutionService snodeexecution.NodeExecutionService
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.WorkspaceService,
@@ -65,6 +68,7 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.Workspace
 	fs sflow.FlowService, fns snode.NodeService, frns snoderequest.NodeRequestService,
 	flowVariableService sflowvariable.FlowVariableService,
 	edgeService sedge.EdgeService,
+	nodeExecutionService snodeexecution.NodeExecutionService,
 ) *ReferenceServiceRPC {
 	return &ReferenceServiceRPC{
 		DB: db,
@@ -83,7 +87,8 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.Workspace
 		frns:                frns,
 		flowVariableService: flowVariableService,
 
-		flowEdgeService: edgeService,
+		flowEdgeService:      edgeService,
+		nodeExecutionService: nodeExecutionService,
 	}
 }
 
@@ -253,27 +258,77 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 	}
 
 	for _, node := range beforeNodes {
-		// Check if the before node is a foreach or for loop
-		// These nodes store their variables under the node name in the variable map
+		// First, try to get execution data for ANY node type
+		var nodeData interface{}
+		hasExecutionData := false
+
+		executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, node.ID)
+		if err == nil && len(executions) > 0 {
+			// Use the latest execution (first one, as they're ordered by ID DESC)
+			latestExecution := executions[0]
+
+			// Decompress data if needed
+			data := latestExecution.Data
+			if latestExecution.DataCompressType != compress.CompressTypeNone {
+				decompressed, err := compress.Decompress(data, latestExecution.DataCompressType)
+				if err == nil {
+					data = decompressed
+				}
+			}
+
+			// Try to unmarshal as generic JSON
+			var genericOutput interface{}
+			if err := json.Unmarshal(data, &genericOutput); err == nil {
+				nodeData = genericOutput
+				hasExecutionData = true
+			}
+		}
+
+		// If we have execution data, use it
+		if hasExecutionData && nodeData != nil {
+			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeData, node.Name)
+			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+			continue
+		}
+
+		// Otherwise, provide schema for specific node types
 		switch node.NodeKind {
 		case mnnode.NODE_KIND_FOR_EACH:
 			// For foreach loops, they write 'item' and 'key' variables
-			// Create a map structure similar to how WriteNodeVar stores them
 			nodeVarsMap := map[string]interface{}{
 				"item": "current item value",
 				"key":  "current key or index",
 			}
 			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
 			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+
 		case mnnode.NODE_KIND_FOR:
 			// For for loops, they write 'index' variable
-			// Create a map structure similar to how WriteNodeVar stores them
 			nodeVarsMap := map[string]interface{}{
 				"index": 0,
 			}
 			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
 			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+
+		case mnnode.NODE_KIND_REQUEST:
+			// For REQUEST nodes, provide the schema structure
+			nodeVarsMap := map[string]interface{}{
+				"request": map[string]interface{}{
+					"headers": map[string]string{},
+					"queries": map[string]string{},
+					"body":    "string",
+				},
+				"response": map[string]interface{}{
+					"status":   200,
+					"body":     map[string]interface{}{},
+					"headers":  map[string]string{},
+					"duration": 0,
+				},
+			}
+			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
+			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
 		}
+		// Other node types (JS, CONDITION, etc.) don't have default schemas
 	}
 
 	return nodeRefs, nil
@@ -518,28 +573,73 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		}
 
 		for _, node := range beforeNodes {
-			// Check if the before node is a foreach or for loop
-			// These nodes store their variables under the node name in the variable map
+			// First, try to get execution data for ANY node type
+			var nodeData interface{}
+			hasExecutionData := false
+
+			executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, node.ID)
+			if err == nil && len(executions) > 0 {
+				// Use the latest execution (first one, as they're ordered by ID DESC)
+				latestExecution := executions[0]
+
+				// Decompress data if needed
+				data := latestExecution.Data
+				if latestExecution.DataCompressType != compress.CompressTypeNone {
+					decompressed, err := compress.Decompress(data, latestExecution.DataCompressType)
+					if err == nil {
+						data = decompressed
+					}
+				}
+
+				// Try to unmarshal as generic JSON
+				var genericOutput interface{}
+				if err := json.Unmarshal(data, &genericOutput); err == nil {
+					nodeData = genericOutput
+					hasExecutionData = true
+				}
+			}
+
+			// If we have execution data, use it
+			if hasExecutionData && nodeData != nil {
+				creator.AddWithKey(node.Name, nodeData)
+				continue
+			}
+
+			// Otherwise, provide schema for specific node types
 			switch node.NodeKind {
 			case mnnode.NODE_KIND_FOR_EACH:
 				// For foreach loops, they write 'item' and 'key' variables
-				// Create a map structure similar to how WriteNodeVar stores them
 				nodeVarsMap := map[string]interface{}{
 					"item": "current item value",
 					"key":  "current key or index",
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
+
 			case mnnode.NODE_KIND_FOR:
 				// For for loops, they write 'index' variable
-				// Create a map structure similar to how WriteNodeVar stores them
 				nodeVarsMap := map[string]interface{}{
 					"index": 0,
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
+
+			case mnnode.NODE_KIND_REQUEST:
+				// For REQUEST nodes, provide the schema structure
+				nodeVarsMap := map[string]interface{}{
+					"request": map[string]interface{}{
+						"headers": map[string]string{},
+						"queries": map[string]string{},
+						"body":    "string",
+					},
+					"response": map[string]interface{}{
+						"status":   200,
+						"body":     map[string]interface{}{},
+						"headers":  map[string]string{},
+						"duration": 0,
+					},
+				}
+				creator.AddWithKey(node.Name, nodeVarsMap)
 			}
-
-			// Node state data is now stored in node_execution table, not in the node itself
-
+			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
 	}
 
@@ -726,28 +826,73 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 		}
 
 		for _, node := range beforeNodes {
-			// Check if the before node is a foreach or for loop
-			// These nodes store their variables under the node name in the variable map
+			// First, try to get execution data for ANY node type
+			var nodeData interface{}
+			hasExecutionData := false
+
+			executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, node.ID)
+			if err == nil && len(executions) > 0 {
+				// Use the latest execution (first one, as they're ordered by ID DESC)
+				latestExecution := executions[0]
+
+				// Decompress data if needed
+				data := latestExecution.Data
+				if latestExecution.DataCompressType != compress.CompressTypeNone {
+					decompressed, err := compress.Decompress(data, latestExecution.DataCompressType)
+					if err == nil {
+						data = decompressed
+					}
+				}
+
+				// Try to unmarshal as generic JSON
+				var genericOutput interface{}
+				if err := json.Unmarshal(data, &genericOutput); err == nil {
+					nodeData = genericOutput
+					hasExecutionData = true
+				}
+			}
+
+			// If we have execution data, use it
+			if hasExecutionData && nodeData != nil {
+				lookup.AddWithKey(node.Name, nodeData)
+				continue
+			}
+
+			// Otherwise, provide schema for specific node types
 			switch node.NodeKind {
 			case mnnode.NODE_KIND_FOR_EACH:
 				// For foreach loops, they write 'item' and 'key' variables
-				// Create a map structure similar to how WriteNodeVar stores them
 				nodeVarsMap := map[string]interface{}{
 					"item": "current item value",
 					"key":  "current key or index",
 				}
 				lookup.AddWithKey(node.Name, nodeVarsMap)
+
 			case mnnode.NODE_KIND_FOR:
 				// For for loops, they write 'index' variable
-				// Create a map structure similar to how WriteNodeVar stores them
 				nodeVarsMap := map[string]interface{}{
 					"index": 0,
 				}
 				lookup.AddWithKey(node.Name, nodeVarsMap)
+
+			case mnnode.NODE_KIND_REQUEST:
+				// For REQUEST nodes, provide the schema structure
+				nodeVarsMap := map[string]interface{}{
+					"request": map[string]interface{}{
+						"headers": map[string]string{},
+						"queries": map[string]string{},
+						"body":    "string",
+					},
+					"response": map[string]interface{}{
+						"status":   200,
+						"body":     map[string]interface{}{},
+						"headers":  map[string]string{},
+						"duration": 0,
+					},
+				}
+				lookup.AddWithKey(node.Name, nodeVarsMap)
 			}
-
-			// Node state data is now stored in node_execution table, not in the node itself
-
+			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
 	}
 

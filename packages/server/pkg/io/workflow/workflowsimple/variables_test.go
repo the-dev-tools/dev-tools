@@ -1,18 +1,18 @@
 package workflowsimple
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mcondition"
-	"github.com/stretchr/testify/assert"
+	"the-dev-tools/server/pkg/model/mnnode/mnjs"
+	"the-dev-tools/server/pkg/model/mvar"
 )
 
 func TestExtractVariableReferences(t *testing.T) {

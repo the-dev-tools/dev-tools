@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/server/pkg/model/mnnode/mnif"
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
@@ -38,8 +39,8 @@ type WorkflowFlow struct {
 
 // Variable represents a flow variable
 // Special variables:
-// - "timeout": Controls flow execution timeout in seconds (default: 60)
-//   Example: {name: "timeout", value: "300"} sets a 5-minute timeout
+//   - "timeout": Controls flow execution timeout in seconds (default: 60)
+//     Example: {name: "timeout", value: "300"} sets a 5-minute timeout
 type Variable struct {
 	Name  string `yaml:"name"`
 	Value string `yaml:"value"`
@@ -53,13 +54,13 @@ type WorkflowStep struct {
 // RequestStep represents a request step
 type RequestStep struct {
 	WorkflowStep `yaml:",inline"`
-	Name         string                 `yaml:"name"`
-	UseRequest   string                 `yaml:"use_request,omitempty"`
-	Method       string                 `yaml:"method,omitempty"`
-	Url          string                 `yaml:"url,omitempty"`
-	Headers      []map[string]string    `yaml:"headers,omitempty"`
-	QueryParams  []map[string]string    `yaml:"query_params,omitempty"`
-	Body         map[string]any         `yaml:"body,omitempty"`
+	Name         string              `yaml:"name"`
+	UseRequest   string              `yaml:"use_request,omitempty"`
+	Method       string              `yaml:"method,omitempty"`
+	Url          string              `yaml:"url,omitempty"`
+	Headers      []map[string]string `yaml:"headers,omitempty"`
+	QueryParams  []map[string]string `yaml:"query_params,omitempty"`
+	Body         map[string]any      `yaml:"body,omitempty"`
 }
 
 // IfStep represents a conditional step
@@ -97,22 +98,23 @@ type JSStep struct {
 // WorkflowData represents the parsed workflow data
 type WorkflowData struct {
 	// Flow items
-	Flow               mflow.Flow
-	Nodes              []mnnode.MNode
-	Edges              []edge.Edge
-	Variables          []mvar.Var
-	NoopNodes          []mnnoop.NoopNode
-	RequestNodes       []mnrequest.MNRequest
-	ConditionNodes     []mnif.MNIF
-	ForNodes           []mnfor.MNFor
-	JSNodes            []mnjs.MNJS
+	Flow           mflow.Flow
+	Nodes          []mnnode.MNode
+	Edges          []edge.Edge
+	Variables      []mvar.Var
+	NoopNodes      []mnnoop.NoopNode
+	RequestNodes   []mnrequest.MNRequest
+	ConditionNodes []mnif.MNIF
+	ForNodes       []mnfor.MNFor
+	ForEachNodes   []mnforeach.MNForEach
+	JSNodes        []mnjs.MNJS
 
 	// Collection items
-	Endpoints          []mitemapi.ItemApi
-	Examples           []mitemapiexample.ItemApiExample
-	Headers            []mexampleheader.Header
-	Queries            []mexamplequery.Query
-	RawBodies          []mbodyraw.ExampleBodyRaw
+	Endpoints []mitemapi.ItemApi
+	Examples  []mitemapiexample.ItemApiExample
+	Headers   []mexampleheader.Header
+	Queries   []mexamplequery.Query
+	RawBodies []mbodyraw.ExampleBodyRaw
 }
 
 // SimplifiedYAMLResolved contains all entities parsed from simplified YAML
@@ -134,6 +136,7 @@ type SimplifiedYAMLResolved struct {
 	FlowConditionNodes []mnif.MNIF
 	FlowNoopNodes      []mnnoop.NoopNode
 	FlowForNodes       []mnfor.MNFor
+	FlowForEachNodes   []mnforeach.MNForEach
 	FlowJSNodes        []mnjs.MNJS
 }
 

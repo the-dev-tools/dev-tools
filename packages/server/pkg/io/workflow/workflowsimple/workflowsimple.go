@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/server/pkg/model/mnnode/mnif"
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
@@ -72,6 +73,7 @@ func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap)
 	result.FlowConditionNodes = workflowData.ConditionNodes
 	result.FlowNoopNodes = workflowData.NoopNodes
 	result.FlowForNodes = workflowData.ForNodes
+	result.FlowForEachNodes = workflowData.ForEachNodes
 	result.FlowJSNodes = workflowData.JSNodes
 
 	// Process endpoints and examples
@@ -120,7 +122,6 @@ func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap)
 	return result, nil
 }
 
-
 // Parse parses the workflow YAML and returns WorkflowData
 func Parse(data []byte) (*WorkflowData, error) {
 	var workflow WorkflowFormat
@@ -159,6 +160,7 @@ func Parse(data []byte) (*WorkflowData, error) {
 		RequestNodes:   make([]mnrequest.MNRequest, 0),
 		ConditionNodes: make([]mnif.MNIF, 0),
 		ForNodes:       make([]mnfor.MNFor, 0),
+		ForEachNodes:   make([]mnforeach.MNForEach, 0),
 		JSNodes:        make([]mnjs.MNJS, 0),
 		Endpoints:      make([]mitemapi.ItemApi, 0),
 		Examples:       make([]mitemapiexample.ItemApiExample, 0),
@@ -259,7 +261,7 @@ func Parse(data []byte) (*WorkflowData, error) {
 			// Get dependencies
 			if deps, ok := dataMap["depends_on"].([]any); ok {
 				for _, dep := range deps {
-					if depStr, ok := dep.(string); ok {
+					if depStr, ok := dep.(string); ok && depStr != "" {
 						info.dependsOn = append(info.dependsOn, depStr)
 					}
 				}
@@ -307,49 +309,84 @@ func Parse(data []byte) (*WorkflowData, error) {
 	return workflowData, nil
 }
 
+// parseRequestData parses a single request template from data
+func parseRequestData(data map[string]any) *requestTemplate {
+	rt := &requestTemplate{}
+	if method, ok := data["method"].(string); ok && method != "" {
+		rt.method = method
+	}
+	if url, ok := data["url"].(string); ok && url != "" {
+		rt.url = url
+	}
+
+	// Parse headers - support both map and array formats
+	if headers, ok := data["headers"].(map[string]any); ok {
+		// Map format: {"X-Header": "value"}
+		for k, v := range headers {
+			if str, ok := v.(string); ok {
+				rt.headers = append(rt.headers, map[string]string{
+					"name":  k,
+					"value": str,
+				})
+			}
+		}
+	} else if headers, ok := data["headers"].([]any); ok {
+		// Array format (for parseRequests compatibility)
+		for _, h := range headers {
+			if hMap, ok := h.(map[string]any); ok {
+				strMap := make(map[string]string)
+				for k, v := range hMap {
+					if str, ok := v.(string); ok {
+						strMap[k] = str
+					}
+				}
+				rt.headers = append(rt.headers, strMap)
+			} else if hMap, ok := h.(map[string]string); ok {
+				rt.headers = append(rt.headers, hMap)
+			}
+		}
+	}
+
+	// Parse query params - support both map and array formats
+	if queryParams, ok := data["query_params"].(map[string]any); ok {
+		// Map format: {"param": "value"}
+		for k, v := range queryParams {
+			if str, ok := v.(string); ok {
+				rt.queryParams = append(rt.queryParams, map[string]string{
+					"name":  k,
+					"value": str,
+				})
+			}
+		}
+	} else if queryParams, ok := data["query_params"].([]any); ok {
+		// Array format (for parseRequests compatibility)
+		for _, q := range queryParams {
+			if qMap, ok := q.(map[string]any); ok {
+				strMap := make(map[string]string)
+				for k, v := range qMap {
+					if str, ok := v.(string); ok {
+						strMap[k] = str
+					}
+				}
+				rt.queryParams = append(rt.queryParams, strMap)
+			} else if qMap, ok := q.(map[string]string); ok {
+				rt.queryParams = append(rt.queryParams, qMap)
+			}
+		}
+	}
+
+	if body, ok := data["body"].(map[string]any); ok {
+		rt.body = body
+	}
+
+	return rt
+}
+
 // parseRequestTemplates parses request templates into a map
 func parseRequestTemplates(templates map[string]map[string]any) map[string]*requestTemplate {
 	result := make(map[string]*requestTemplate)
 	for name, tmpl := range templates {
-		rt := &requestTemplate{}
-		if method, ok := tmpl["method"].(string); ok {
-			rt.method = method
-		}
-		if url, ok := tmpl["url"].(string); ok {
-			rt.url = url
-		}
-		// Headers only support map format
-		if headers, ok := tmpl["headers"].(map[string]any); ok {
-			// Map format: {"X-Header": "value"}
-			// Convert to array of name/value maps for internal consistency
-			for k, v := range headers {
-				if str, ok := v.(string); ok {
-					headerMap := map[string]string{
-						"name": k,
-						"value": str,
-					}
-					rt.headers = append(rt.headers, headerMap)
-				}
-			}
-		}
-		// Query params only support map format
-		if queryParams, ok := tmpl["query_params"].(map[string]any); ok {
-			// Map format: {"param": "value"}
-			// Convert to array of name/value maps for internal consistency
-			for k, v := range queryParams {
-				if str, ok := v.(string); ok {
-					queryMap := map[string]string{
-						"name": k,
-						"value": str,
-					}
-					rt.queryParams = append(rt.queryParams, queryMap)
-				}
-			}
-		}
-		if body, ok := tmpl["body"].(map[string]any); ok {
-			rt.body = body
-		}
-		result[name] = rt
+		result[name] = parseRequestData(tmpl)
 	}
 	return result
 }
@@ -357,114 +394,244 @@ func parseRequestTemplates(templates map[string]map[string]any) map[string]*requ
 // parseRequests parses the new requests format into templates
 func parseRequests(requests []map[string]any) map[string]*requestTemplate {
 	result := make(map[string]*requestTemplate)
-	
+
 	for _, req := range requests {
 		// Get the request name
 		name, ok := req["name"].(string)
 		if !ok || name == "" {
 			continue
 		}
-		
-		rt := &requestTemplate{}
-		
-		if method, ok := req["method"].(string); ok {
-			rt.method = method
-		}
-		if url, ok := req["url"].(string); ok {
-			rt.url = url
-		}
-		
-		// Parse headers
-		if headers, ok := req["headers"].(map[string]any); ok {
-			// Headers as a map (new format)
-			// Convert to array of name/value maps for internal consistency
-			for k, v := range headers {
-				if str, ok := v.(string); ok {
-					headerMap := map[string]string{
-						"name": k,
-						"value": str,
-					}
-					rt.headers = append(rt.headers, headerMap)
-				}
-			}
-		} else if headers, ok := req["headers"].([]any); ok {
-			// Headers as an array (old format)
-			for _, h := range headers {
-				if hMap, ok := h.(map[string]any); ok {
-					strMap := make(map[string]string)
-					for k, v := range hMap {
-						if str, ok := v.(string); ok {
-							strMap[k] = str
-						}
-					}
-					rt.headers = append(rt.headers, strMap)
-				} else if hMap, ok := h.(map[string]string); ok {
-					rt.headers = append(rt.headers, hMap)
-				}
-			}
-		}
-		
-		// Parse query params
-		if queryParams, ok := req["query_params"].(map[string]any); ok {
-			// Query params as a map (new format)
-			// Convert to array of name/value maps for internal consistency
-			for k, v := range queryParams {
-				if str, ok := v.(string); ok {
-					queryMap := map[string]string{
-						"name": k,
-						"value": str,
-					}
-					rt.queryParams = append(rt.queryParams, queryMap)
-				}
-			}
-		} else if queryParams, ok := req["query_params"].([]any); ok {
-			// Query params as an array (old format)
-			for _, q := range queryParams {
-				if qMap, ok := q.(map[string]any); ok {
-					strMap := make(map[string]string)
-					for k, v := range qMap {
-						if str, ok := v.(string); ok {
-							strMap[k] = str
-						}
-					}
-					rt.queryParams = append(rt.queryParams, strMap)
-				} else if qMap, ok := q.(map[string]string); ok {
-					rt.queryParams = append(rt.queryParams, qMap)
-				}
-			}
-		}
-		
-		// Parse body
-		if body, ok := req["body"].(map[string]any); ok {
-			rt.body = body
-		}
-		
-		result[name] = rt
+
+		result[name] = parseRequestData(req)
 	}
-	
+
 	return result
 }
 
-// processRequestStep processes a request step
-func processRequestStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any, templates map[string]*requestTemplate, varMap varsystem.VarMap) error {
-	// Create base node
-	node := mnnode.MNode{
+// requestContext holds all the IDs and data needed for request processing
+type requestContext struct {
+	nodeID           idwrap.IDWrap
+	endpointID       idwrap.IDWrap
+	deltaEndpointID  idwrap.IDWrap
+	exampleID        idwrap.IDWrap
+	defaultExampleID idwrap.IDWrap
+	deltaExampleID   idwrap.IDWrap
+}
+
+// createRequestEntities creates all the entities needed for a request node
+func createRequestEntities(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName, url, method string) *requestContext {
+	ctx := &requestContext{
+		nodeID:           nodeID,
+		endpointID:       idwrap.NewNow(),
+		deltaEndpointID:  idwrap.NewNow(),
+		exampleID:        idwrap.NewNow(),
+		defaultExampleID: idwrap.NewNow(),
+		deltaExampleID:   idwrap.NewNow(),
+	}
+
+	// Add node
+	data.Nodes = append(data.Nodes, mnnode.MNode{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     nodeName,
 		NodeKind: mnnode.NODE_KIND_REQUEST,
+	})
+
+	// Add endpoints
+	data.Endpoints = append(data.Endpoints,
+		mitemapi.ItemApi{ID: ctx.endpointID, Name: nodeName, Url: url, Method: method},
+		mitemapi.ItemApi{
+			ID:            ctx.deltaEndpointID,
+			Name:          fmt.Sprintf("%s (delta)", nodeName),
+			Url:           url,
+			Method:        method,
+			DeltaParentID: &ctx.endpointID,
+			Hidden:        true,
+		},
+	)
+
+	// Add examples
+	data.Examples = append(data.Examples,
+		mitemapiexample.ItemApiExample{
+			ID:        ctx.exampleID,
+			Name:      nodeName,
+			ItemApiID: ctx.endpointID,
+			IsDefault: true,
+			BodyType:  mitemapiexample.BodyTypeRaw,
+		},
+		mitemapiexample.ItemApiExample{
+			ID:        ctx.defaultExampleID,
+			Name:      fmt.Sprintf("%s (default)", nodeName),
+			ItemApiID: ctx.endpointID,
+			IsDefault: false,
+			BodyType:  mitemapiexample.BodyTypeRaw,
+		},
+		mitemapiexample.ItemApiExample{
+			ID:              ctx.deltaExampleID,
+			Name:            fmt.Sprintf("%s (delta)", nodeName),
+			ItemApiID:       ctx.deltaEndpointID,
+			IsDefault:       true,
+			VersionParentID: &ctx.defaultExampleID,
+			BodyType:        mitemapiexample.BodyTypeRaw,
+		},
+	)
+
+	// Add request node
+	data.RequestNodes = append(data.RequestNodes, mnrequest.MNRequest{
+		FlowNodeID:      nodeID,
+		EndpointID:      &ctx.endpointID,
+		ExampleID:       &ctx.exampleID,
+		DeltaEndpointID: &ctx.deltaEndpointID,
+		DeltaExampleID:  &ctx.deltaExampleID,
+	})
+
+	return ctx
+}
+
+// addBody adds body data for all three examples
+func addBody(data *WorkflowData, ctx *requestContext, bodyData []byte) {
+	if bodyData == nil {
+		bodyData = []byte("{}")
 	}
-	data.Nodes = append(data.Nodes, node)
 
-	// Get request data
-	var method, url string
-	var headers []map[string]string
-	var queryParams []map[string]string
+	visualMode := mbodyraw.VisualizeModeJSON
+	if !json.Valid(bodyData) {
+		visualMode = mbodyraw.VisualizeModeText
+	}
 
-	// Track template data for comparison
-	var templateHeaders []map[string]string
-	var templateQueries []map[string]string
-	var templateBody map[string]any
+	for _, exampleID := range []idwrap.IDWrap{ctx.exampleID, ctx.defaultExampleID, ctx.deltaExampleID} {
+		data.RawBodies = append(data.RawBodies, mbodyraw.ExampleBodyRaw{
+			ID:            idwrap.NewNow(),
+			ExampleID:     exampleID,
+			Data:          bodyData,
+			CompressType:  compress.CompressTypeNone,
+			VisualizeMode: visualMode,
+		})
+	}
+}
+
+// processNameValuePairs processes headers or query parameters generically
+func processNameValuePairs(
+	data *WorkflowData,
+	exampleID, defaultExampleID, deltaExampleID idwrap.IDWrap,
+	templatePairs, overridePairs []map[string]string,
+	usingTemplate bool,
+	varMap varsystem.VarMap,
+	createFunc func(id idwrap.IDWrap, exampleID idwrap.IDWrap, name, value string, deltaParentID *idwrap.IDWrap) interface{},
+	appendFunc func(interface{}),
+) {
+	// Convert to common format
+	toNameValueMap := func(pairs []map[string]string) map[string]string {
+		result := make(map[string]string)
+		for _, p := range pairs {
+			if name, ok := p["name"]; ok {
+				if value, ok := p["value"]; ok {
+					result[name] = value
+				}
+			} else {
+				// Direct map format
+				for k, v := range p {
+					if k != "name" && k != "value" {
+						result[k] = v
+					}
+				}
+			}
+		}
+		return result
+	}
+
+	if usingTemplate {
+		templateMap := toNameValueMap(templatePairs)
+		overrideMap := toNameValueMap(overridePairs)
+		processedNames := make(map[string]bool)
+
+		// Process template items
+		for name, templateValue := range templateMap {
+			processedNames[name] = true
+
+			// Base item
+			baseItem := createFunc(idwrap.NewNow(), exampleID, name, templateValue, nil)
+			appendFunc(baseItem)
+
+			// Default item with resolved value
+			resolvedValue, _ := varMap.ReplaceVars(templateValue)
+			defaultItem := createFunc(idwrap.NewNow(), defaultExampleID, name, resolvedValue, nil)
+			appendFunc(defaultItem)
+
+			// Check if overridden
+			if overrideValue, isOverridden := overrideMap[name]; isOverridden {
+				// Need to get ID from the actual type
+				var defaultID idwrap.IDWrap
+				switch v := defaultItem.(type) {
+				case mexampleheader.Header:
+					defaultID = v.ID
+				case mexamplequery.Query:
+					defaultID = v.ID
+				}
+				deltaItem := createFunc(idwrap.NewNow(), deltaExampleID, name, overrideValue, &defaultID)
+				appendFunc(deltaItem)
+			}
+		}
+
+		// Process override-only items
+		for name, overrideValue := range overrideMap {
+			if !processedNames[name] {
+				// Base item
+				baseItem := createFunc(idwrap.NewNow(), exampleID, name, overrideValue, nil)
+				appendFunc(baseItem)
+
+				// Default item
+				resolvedValue, _ := varMap.ReplaceVars(overrideValue)
+				defaultItem := createFunc(idwrap.NewNow(), defaultExampleID, name, resolvedValue, nil)
+				appendFunc(defaultItem)
+
+				// Delta item
+				var defaultID idwrap.IDWrap
+				switch v := defaultItem.(type) {
+				case mexampleheader.Header:
+					defaultID = v.ID
+				case mexamplequery.Query:
+					defaultID = v.ID
+				}
+				deltaItem := createFunc(idwrap.NewNow(), deltaExampleID, name, overrideValue, &defaultID)
+				appendFunc(deltaItem)
+			}
+		}
+	} else {
+		// No template - process directly
+		directMap := toNameValueMap(overridePairs)
+		for name, value := range directMap {
+			// Base item
+			baseItem := createFunc(idwrap.NewNow(), exampleID, name, value, nil)
+			appendFunc(baseItem)
+
+			// Default item
+			resolvedValue, _ := varMap.ReplaceVars(value)
+			defaultItem := createFunc(idwrap.NewNow(), defaultExampleID, name, resolvedValue, nil)
+			appendFunc(defaultItem)
+
+			// Delta item if has variables
+			if varsystem.CheckStringHasAnyVarKey(value) {
+				var defaultID idwrap.IDWrap
+				switch v := defaultItem.(type) {
+				case mexampleheader.Header:
+					defaultID = v.ID
+				case mexamplequery.Query:
+					defaultID = v.ID
+				}
+				deltaItem := createFunc(idwrap.NewNow(), deltaExampleID, name, value, &defaultID)
+				appendFunc(deltaItem)
+			}
+		}
+	}
+}
+
+// processRequestStep processes a request step
+func processRequestStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any, templates map[string]*requestTemplate, varMap varsystem.VarMap) error {
+	// Get method and URL
+	method, url := "GET", ""
+	var templateHeaders, templateQueries, stepHeaderOverrides, stepQueryOverrides []map[string]string
+	var templateBody, stepBodyOverride map[string]any
 	var usingTemplate bool
 
 	// Check if using template
@@ -474,18 +641,10 @@ func processRequestStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeNa
 			templateHeaders = tmpl.headers
 			templateQueries = tmpl.queryParams
 			templateBody = tmpl.body
-			
 			method = tmpl.method
 			url = tmpl.url
-			// Don't append template data to headers/queryParams/body yet
-			// We'll handle them separately to preserve original values
 		}
 	}
-
-	// Collect step overrides separately
-	var stepHeaderOverrides []map[string]string
-	var stepQueryOverrides []map[string]string
-	var stepBodyOverride map[string]any
 
 	// Override with step-specific data
 	if m, ok := stepData["method"].(string); ok && m != "" {
@@ -494,30 +653,23 @@ func processRequestStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeNa
 	if u, ok := stepData["url"].(string); ok && u != "" {
 		url = u
 	}
+	// Only require URL if not using a template or if template didn't provide one
+	if url == "" && !usingTemplate {
+		return fmt.Errorf("request step '%s' missing required url", nodeName)
+	}
+
+	// Parse step overrides
 	if h, ok := stepData["headers"].(map[string]any); ok {
-		// Headers only support map format
-		// Convert to name/value format for internal consistency
 		for k, v := range h {
 			if vs, ok := v.(string); ok {
-				headerMap := map[string]string{
-					"name": k,
-					"value": vs,
-				}
-				stepHeaderOverrides = append(stepHeaderOverrides, headerMap)
+				stepHeaderOverrides = append(stepHeaderOverrides, map[string]string{"name": k, "value": vs})
 			}
 		}
 	}
-	// Query params only support map format
 	if q, ok := stepData["query_params"].(map[string]any); ok {
-		// Map format: {"param": "value"}
-		// Convert to name/value format for internal consistency
 		for k, v := range q {
 			if vs, ok := v.(string); ok {
-				queryMap := map[string]string{
-					"name": k,
-					"value": vs,
-				}
-				stepQueryOverrides = append(stepQueryOverrides, queryMap)
+				stepQueryOverrides = append(stepQueryOverrides, map[string]string{"name": k, "value": vs})
 			}
 		}
 	}
@@ -525,607 +677,163 @@ func processRequestStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeNa
 		stepBodyOverride = b
 	}
 
-	// Now merge template and step data intelligently
-	if usingTemplate {
-		// Start with template data for base values
-		headers = append(headers, templateHeaders...)
-		queryParams = append(queryParams, templateQueries...)
-		
-		// For the actual request execution, we need merged values
-		// But we'll track what's an override for delta creation
-	} else {
-		// No template, use step data directly
-		headers = stepHeaderOverrides
-		queryParams = stepQueryOverrides
-	}
+	// Create all request entities
+	ctx := createRequestEntities(data, flowID, nodeID, nodeName, url, method)
 
-	// Set defaults
-	if method == "" {
-		method = "GET"
-	}
-	if url == "" {
-		return fmt.Errorf("request step '%s' missing required url", nodeName)
-	}
+	// Process headers
+	processNameValuePairs(
+		data,
+		ctx.exampleID, ctx.defaultExampleID, ctx.deltaExampleID,
+		templateHeaders, stepHeaderOverrides,
+		usingTemplate,
+		varMap,
+		func(id, exampleID idwrap.IDWrap, name, value string, deltaParentID *idwrap.IDWrap) interface{} {
+			return mexampleheader.Header{
+				ID:            id,
+				ExampleID:     exampleID,
+				HeaderKey:     name,
+				Value:         value,
+				DeltaParentID: deltaParentID,
+				Enable:        true,
+			}
+		},
+		func(item interface{}) {
+			data.Headers = append(data.Headers, item.(mexampleheader.Header))
+		},
+	)
 
-	// Create base endpoint
-	endpointID := idwrap.NewNow()
-	endpoint := mitemapi.ItemApi{
-		ID:     endpointID,
-		Name:   nodeName,
-		Url:    url,
-		Method: method,
-	}
-	data.Endpoints = append(data.Endpoints, endpoint)
+	// Process query parameters
+	processNameValuePairs(
+		data,
+		ctx.exampleID, ctx.defaultExampleID, ctx.deltaExampleID,
+		templateQueries, stepQueryOverrides,
+		usingTemplate,
+		varMap,
+		func(id, exampleID idwrap.IDWrap, name, value string, deltaParentID *idwrap.IDWrap) interface{} {
+			return mexamplequery.Query{
+				ID:            id,
+				ExampleID:     exampleID,
+				QueryKey:      name,
+				Value:         value,
+				DeltaParentID: deltaParentID,
+				Enable:        true,
+			}
+		},
+		func(item interface{}) {
+			data.Queries = append(data.Queries, item.(mexamplequery.Query))
+		},
+	)
 
-	// Create base example (marked as default)
-	exampleID := idwrap.NewNow()
-	example := mitemapiexample.ItemApiExample{
-		ID:        exampleID,
-		Name:      nodeName,
-		ItemApiID: endpointID,
-		IsDefault: true,
-		BodyType:  mitemapiexample.BodyTypeRaw,
-	}
-	data.Examples = append(data.Examples, example)
+	// Process body
+	var bodyData []byte
+	if usingTemplate && templateBody != nil {
+		// Use template body for base
+		bodyData, _ = json.Marshal(templateBody)
+		addBody(data, ctx, bodyData)
 
-	// Create default example with resolved variables
-	defaultExampleID := idwrap.NewNow()
-	defaultExample := mitemapiexample.ItemApiExample{
-		ID:        defaultExampleID,
-		Name:      fmt.Sprintf("%s (default)", nodeName),
-		ItemApiID: endpointID,
-		IsDefault: false,
-		BodyType:  mitemapiexample.BodyTypeRaw,
-	}
-	data.Examples = append(data.Examples, defaultExample)
-
-	// Create delta endpoint (keeps original URL with variables)
-	deltaEndpointID := idwrap.NewNow()
-	deltaEndpoint := mitemapi.ItemApi{
-		ID:            deltaEndpointID,
-		Name:          fmt.Sprintf("%s (delta)", nodeName),
-		Url:           url, // Keep original URL with variables
-		Method:        method,
-		DeltaParentID: &endpointID,
-		Hidden:        true,
-	}
-	data.Endpoints = append(data.Endpoints, deltaEndpoint)
-
-	// Create delta example (marked as default for the delta endpoint)
-	deltaExampleID := idwrap.NewNow()
-	deltaExample := mitemapiexample.ItemApiExample{
-		ID:              deltaExampleID,
-		Name:            fmt.Sprintf("%s (delta)", nodeName),
-		ItemApiID:       deltaEndpointID,
-		IsDefault:       true,
-		VersionParentID: &defaultExampleID, // Link to default example
-		BodyType:        mitemapiexample.BodyTypeRaw,
-	}
-	data.Examples = append(data.Examples, deltaExample)
-
-	// Process headers with proper base/delta separation
-	if usingTemplate {
-		// Build maps for easier lookup
-		templateHeaderMap := make(map[string]string)
-		for _, h := range templateHeaders {
-			if name, ok := h["name"]; ok {
-				if value, ok := h["value"]; ok {
-					templateHeaderMap[name] = value
-				}
-			}
-		}
-		
-		// Check for direct map format too
-		if len(templateHeaderMap) == 0 && len(templateHeaders) > 0 {
-			// Maybe it's in direct map format
-			for _, h := range templateHeaders {
-				for k, v := range h {
-					if k != "name" && k != "value" {
-						templateHeaderMap[k] = v
-					}
-				}
-			}
-		}
-		
-		overrideHeaderMap := make(map[string]string)
-		for _, h := range stepHeaderOverrides {
-			if name, ok := h["name"]; ok {
-				if value, ok := h["value"]; ok {
-					overrideHeaderMap[name] = value
-				}
-			}
-		}
-		
-		// Process all unique headers
-		processedHeaders := make(map[string]bool)
-		
-		// First, process template headers
-		for headerName, templateValue := range templateHeaderMap {
-			processedHeaders[headerName] = true
-			
-			// Base header - always use template value
-			baseHeader := mexampleheader.Header{
-				ID:        idwrap.NewNow(),
-				ExampleID: exampleID,
-				HeaderKey: headerName,
-				Value:     templateValue, // Always use template value for base
-				Enable:    true,
-			}
-			data.Headers = append(data.Headers, baseHeader)
-			
-			// Default header with resolved template value
-			resolvedValue, _ := varMap.ReplaceVars(templateValue)
-			defaultHeader := mexampleheader.Header{
-				ID:        idwrap.NewNow(),
-				ExampleID: defaultExampleID,
-				HeaderKey: headerName,
-				Value:     resolvedValue,
-				Enable:    true,
-			}
-			data.Headers = append(data.Headers, defaultHeader)
-			
-			// Check if this header is overridden in the step
-			if overrideValue, isOverridden := overrideHeaderMap[headerName]; isOverridden {
-				// Create delta with the override value
-				deltaHeader := mexampleheader.Header{
-					ID:            idwrap.NewNow(),
-					ExampleID:     deltaExampleID,
-					HeaderKey:     headerName,
-					Value:         overrideValue, // Use override value for delta
-					DeltaParentID: &defaultHeader.ID,
-					Enable:        true,
-				}
-				data.Headers = append(data.Headers, deltaHeader)
-			}
-		}
-		
-		// Process headers that only exist in overrides (additions)
-		for headerName, overrideValue := range overrideHeaderMap {
-			if !processedHeaders[headerName] {
-				// This is a new header not in template
-				// For additions, base gets the override value (no template to use)
-				baseHeader := mexampleheader.Header{
-					ID:        idwrap.NewNow(),
-					ExampleID: exampleID,
-					HeaderKey: headerName,
-					Value:     overrideValue,
-					Enable:    true,
-				}
-				data.Headers = append(data.Headers, baseHeader)
-				
-				// Default header
-				resolvedValue, _ := varMap.ReplaceVars(overrideValue)
-				defaultHeader := mexampleheader.Header{
-					ID:        idwrap.NewNow(),
-					ExampleID: defaultExampleID,
-					HeaderKey: headerName,
-					Value:     resolvedValue,
-					Enable:    true,
-				}
-				data.Headers = append(data.Headers, defaultHeader)
-				
-				// Delta header
-				deltaHeader := mexampleheader.Header{
-					ID:            idwrap.NewNow(),
-					ExampleID:     deltaExampleID,
-					HeaderKey:     headerName,
-					Value:         overrideValue,
-					DeltaParentID: &defaultHeader.ID,
-					Enable:        true,
-				}
-				data.Headers = append(data.Headers, deltaHeader)
-			}
-		}
-	} else {
-		// No template - process step headers directly
-		for _, h := range headers {
-			headerName, nameOk := h["name"]
-			headerValue, valueOk := h["value"]
-			if !nameOk || !valueOk {
-				continue
-			}
-			
-			// Base header
-			baseHeader := mexampleheader.Header{
-				ID:        idwrap.NewNow(),
-				ExampleID: exampleID,
-				HeaderKey: headerName,
-				Value:     headerValue,
-				Enable:    true,
-			}
-			data.Headers = append(data.Headers, baseHeader)
-			
-			// Default header
-			resolvedValue, _ := varMap.ReplaceVars(headerValue)
-			defaultHeader := mexampleheader.Header{
-				ID:        idwrap.NewNow(),
-				ExampleID: defaultExampleID,
-				HeaderKey: headerName,
-				Value:     resolvedValue,
-				Enable:    true,
-			}
-			data.Headers = append(data.Headers, defaultHeader)
-			
-			// Delta header if has variables
-			if varsystem.CheckStringHasAnyVarKey(headerValue) {
-				deltaHeader := mexampleheader.Header{
-					ID:            idwrap.NewNow(),
-					ExampleID:     deltaExampleID,
-					HeaderKey:     headerName,
-					Value:         headerValue,
-					DeltaParentID: &defaultHeader.ID,
-					Enable:        true,
-				}
-				data.Headers = append(data.Headers, deltaHeader)
-			}
-		}
-	}
-
-	// Process query parameters with proper base/delta separation
-	if usingTemplate {
-		// Build maps for easier lookup
-		templateQueryMap := make(map[string]string)
-		for _, q := range templateQueries {
-			if name, ok := q["name"]; ok {
-				if value, ok := q["value"]; ok {
-					templateQueryMap[name] = value
-				}
-			}
-		}
-		
-		overrideQueryMap := make(map[string]string)
-		for _, q := range stepQueryOverrides {
-			if name, ok := q["name"]; ok {
-				if value, ok := q["value"]; ok {
-					overrideQueryMap[name] = value
-				}
-			}
-		}
-		
-		// Process all unique query params
-		processedQueries := make(map[string]bool)
-		
-		// First, process template queries
-		for queryName, templateValue := range templateQueryMap {
-			processedQueries[queryName] = true
-			
-			// Base query - always use template value
-			baseQuery := mexamplequery.Query{
-				ID:        idwrap.NewNow(),
-				ExampleID: exampleID,
-				QueryKey:  queryName,
-				Value:     templateValue, // Always use template value for base
-				Enable:    true,
-			}
-			data.Queries = append(data.Queries, baseQuery)
-			
-			// Default query with resolved template value
-			resolvedValue, _ := varMap.ReplaceVars(templateValue)
-			defaultQuery := mexamplequery.Query{
-				ID:        idwrap.NewNow(),
-				ExampleID: defaultExampleID,
-				QueryKey:  queryName,
-				Value:     resolvedValue,
-				Enable:    true,
-			}
-			data.Queries = append(data.Queries, defaultQuery)
-			
-			// Check if this query is overridden in the step
-			if overrideValue, isOverridden := overrideQueryMap[queryName]; isOverridden {
-				// Create delta with the override value
-				deltaQuery := mexamplequery.Query{
-					ID:            idwrap.NewNow(),
-					ExampleID:     deltaExampleID,
-					QueryKey:      queryName,
-					Value:         overrideValue, // Use override value for delta
-					DeltaParentID: &defaultQuery.ID,
-					Enable:        true,
-				}
-				data.Queries = append(data.Queries, deltaQuery)
-			}
-		}
-		
-		// Process queries that only exist in overrides (additions)
-		for queryName, overrideValue := range overrideQueryMap {
-			if !processedQueries[queryName] {
-				// This is a new query not in template
-				// For additions, base gets the override value (no template to use)
-				baseQuery := mexamplequery.Query{
-					ID:        idwrap.NewNow(),
-					ExampleID: exampleID,
-					QueryKey:  queryName,
-					Value:     overrideValue,
-					Enable:    true,
-				}
-				data.Queries = append(data.Queries, baseQuery)
-				
-				// Default query
-				resolvedValue, _ := varMap.ReplaceVars(overrideValue)
-				defaultQuery := mexamplequery.Query{
-					ID:        idwrap.NewNow(),
-					ExampleID: defaultExampleID,
-					QueryKey:  queryName,
-					Value:     resolvedValue,
-					Enable:    true,
-				}
-				data.Queries = append(data.Queries, defaultQuery)
-				
-				// Delta query
-				deltaQuery := mexamplequery.Query{
-					ID:            idwrap.NewNow(),
-					ExampleID:     deltaExampleID,
-					QueryKey:      queryName,
-					Value:         overrideValue,
-					DeltaParentID: &defaultQuery.ID,
-					Enable:        true,
-				}
-				data.Queries = append(data.Queries, deltaQuery)
-			}
-		}
-	} else {
-		// No template - process step queries directly
-		for _, q := range queryParams {
-			var queryName, queryValue string
-			
-			if name, nameOk := q["name"]; nameOk {
-				queryName = name
-				queryValue = q["value"]
-			} else {
-				// Direct key-value format
-				for k, v := range q {
-					queryName = k
-					queryValue = v
-					break
-				}
-			}
-			
-			if queryName == "" {
-				continue
-			}
-			
-			// Base query
-			baseQuery := mexamplequery.Query{
-				ID:        idwrap.NewNow(),
-				ExampleID: exampleID,
-				QueryKey:  queryName,
-				Value:     queryValue,
-				Enable:    true,
-			}
-			data.Queries = append(data.Queries, baseQuery)
-			
-			// Default query
-			resolvedValue, _ := varMap.ReplaceVars(queryValue)
-			defaultQuery := mexamplequery.Query{
-				ID:        idwrap.NewNow(),
-				ExampleID: defaultExampleID,
-				QueryKey:  queryName,
-				Value:     resolvedValue,
-				Enable:    true,
-			}
-			data.Queries = append(data.Queries, defaultQuery)
-			
-			// Delta query if has variables
-			if varsystem.CheckStringHasAnyVarKey(queryValue) {
-				deltaQuery := mexamplequery.Query{
-					ID:            idwrap.NewNow(),
-					ExampleID:     deltaExampleID,
-					QueryKey:      queryName,
-					Value:         queryValue,
-					DeltaParentID: &defaultQuery.ID,
-					Enable:        true,
-				}
-				data.Queries = append(data.Queries, deltaQuery)
-			}
-		}
-	}
-
-	// Process body with proper base/delta separation
-	var baseBodyData, deltaBodyData []byte
-	
-	if usingTemplate {
-		// Handle template body
-		if templateBody != nil {
-			jsonData, err := json.Marshal(templateBody)
-			if err != nil {
-				return fmt.Errorf("failed to marshal template body: %w", err)
-			}
-			baseBodyData = jsonData // Base uses template
-		}
-		
-		// Handle override body
+		// If there's an override, update delta only
 		if stepBodyOverride != nil {
-			jsonData, err := json.Marshal(stepBodyOverride)
-			if err != nil {
-				return fmt.Errorf("failed to marshal override body: %w", err)
-			}
-			deltaBodyData = jsonData // Delta uses override
-		} else if templateBody != nil {
-			// No override, delta uses template too
-			deltaBodyData = baseBodyData
-		}
-	} else {
-		// No template - use step body for everything
-		if stepBodyOverride != nil {
-			jsonData, err := json.Marshal(stepBodyOverride)
+			overrideData, err := json.Marshal(stepBodyOverride)
 			if err != nil {
 				return fmt.Errorf("failed to marshal body: %w", err)
 			}
-			baseBodyData = jsonData
-			deltaBodyData = jsonData
+			// Update only the delta body
+			for i := range data.RawBodies {
+				if data.RawBodies[i].ExampleID == ctx.deltaExampleID {
+					data.RawBodies[i].Data = overrideData
+					break
+				}
+			}
 		}
+	} else if stepBodyOverride != nil {
+		// No template, use step body for all
+		bodyData, _ = json.Marshal(stepBodyOverride)
+		addBody(data, ctx, bodyData)
+	} else {
+		// No body at all
+		addBody(data, ctx, nil)
 	}
-	
-	// Create bodies
-	if baseBodyData == nil {
-		baseBodyData = []byte("{}")
-	}
-	if deltaBodyData == nil {
-		deltaBodyData = []byte("{}")
-	}
-	
-	// Base body
-	rawBody := mbodyraw.ExampleBodyRaw{
-		ID:            idwrap.NewNow(),
-		ExampleID:     exampleID,
-		Data:          baseBodyData,
-		CompressType:  compress.CompressTypeNone,
-		VisualizeMode: mbodyraw.VisualizeModeJSON, // Default to JSON since we're creating JSON bodies
-	}
-	// Check if it's actually valid JSON
-	if !json.Valid(baseBodyData) {
-		rawBody.VisualizeMode = mbodyraw.VisualizeModeText
-	}
-	data.RawBodies = append(data.RawBodies, rawBody)
-
-	// Default body (uses base data)
-	defaultBody := mbodyraw.ExampleBodyRaw{
-		ID:            idwrap.NewNow(),
-		ExampleID:     defaultExampleID,
-		Data:          baseBodyData,
-		CompressType:  compress.CompressTypeNone,
-		VisualizeMode: rawBody.VisualizeMode, // Use same mode as base body
-	}
-	data.RawBodies = append(data.RawBodies, defaultBody)
-
-	// Delta body - ALWAYS create when we have a delta example
-	// Flow execution expects delta raw body to exist for all delta examples
-	deltaBody := mbodyraw.ExampleBodyRaw{
-		ID:            idwrap.NewNow(),
-		ExampleID:     deltaExampleID,
-		Data:          deltaBodyData,
-		CompressType:  compress.CompressTypeNone,
-		VisualizeMode: mbodyraw.VisualizeModeJSON, // Default to JSON
-	}
-	// Check if delta body is valid JSON
-	if !json.Valid(deltaBodyData) {
-		deltaBody.VisualizeMode = mbodyraw.VisualizeModeText
-	}
-	data.RawBodies = append(data.RawBodies, deltaBody)
-
-	// Create request node
-	requestNode := mnrequest.MNRequest{
-		FlowNodeID:      nodeID,
-		EndpointID:      &endpointID,
-		ExampleID:       &exampleID,
-		DeltaEndpointID: &deltaEndpointID,
-		DeltaExampleID:  &deltaExampleID,
-	}
-	data.RequestNodes = append(data.RequestNodes, requestNode)
 
 	return nil
 }
 
-// processIfStep processes an if step
-func processIfStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any) error {
-	node := mnnode.MNode{
+// addNode adds a flow node
+func addNode(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, kind mnnode.NodeKind) {
+	data.Nodes = append(data.Nodes, mnnode.MNode{
 		ID:       nodeID,
 		FlowID:   flowID,
 		Name:     nodeName,
-		NodeKind: mnnode.NODE_KIND_CONDITION,
-	}
-	data.Nodes = append(data.Nodes, node)
+		NodeKind: kind,
+	})
+}
+
+// processIfStep processes an if step
+func processIfStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any) error {
+	addNode(data, flowID, nodeID, nodeName, mnnode.NODE_KIND_CONDITION)
 
 	condition, ok := stepData["condition"].(string)
 	if !ok || condition == "" {
 		return fmt.Errorf("if step '%s' missing required condition", nodeName)
 	}
 
-	ifNode := mnif.MNIF{
+	data.ConditionNodes = append(data.ConditionNodes, mnif.MNIF{
 		FlowNodeID: nodeID,
 		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{
-				Expression: condition,
-			},
+			Comparisons: mcondition.Comparison{Expression: condition},
 		},
-	}
-
-	// Store then/else targets for later edge creation
-	// Note: The MNIF model doesn't have ThenID/ElseID fields,
-	// so we'll handle the edges separately in createEdges
-
-	data.ConditionNodes = append(data.ConditionNodes, ifNode)
+	})
 	return nil
 }
 
 // processForStep processes a for step
 func processForStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any) error {
-	node := mnnode.MNode{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     nodeName,
-		NodeKind: mnnode.NODE_KIND_FOR,
-	}
-	data.Nodes = append(data.Nodes, node)
+	addNode(data, flowID, nodeID, nodeName, mnnode.NODE_KIND_FOR)
 
-	iterCount, ok := stepData["iter_count"].(int)
-	if !ok {
-		// Try float64 (YAML numbers are often parsed as float64)
-		if f, ok := stepData["iter_count"].(float64); ok {
+	iterCount := 1 // Default to 1 if not specified
+	if val, ok := stepData["iter_count"]; ok {
+		if i, ok := val.(int); ok {
+			iterCount = i
+		} else if f, ok := val.(float64); ok {
 			iterCount = int(f)
-		} else {
-			return fmt.Errorf("for step '%s' missing required iter_count", nodeName)
 		}
 	}
 
-	forNode := mnfor.MNFor{
+	data.ForNodes = append(data.ForNodes, mnfor.MNFor{
 		FlowNodeID: nodeID,
 		IterCount:  int64(iterCount),
-	}
-
-	// Note: The MNFor model doesn't have LoopID field,
-	// so we'll handle the loop edges separately in createEdges
-
-	data.ForNodes = append(data.ForNodes, forNode)
+	})
 	return nil
 }
 
 // processForEachStep processes a for_each step
 func processForEachStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any) error {
-	node := mnnode.MNode{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     nodeName,
-		NodeKind: mnnode.NODE_KIND_FOR_EACH,
-	}
-	data.Nodes = append(data.Nodes, node)
+	addNode(data, flowID, nodeID, nodeName, mnnode.NODE_KIND_FOR_EACH)
 
 	items, ok := stepData["items"].(string)
 	if !ok || items == "" {
 		return fmt.Errorf("for_each step '%s' missing required items", nodeName)
 	}
 
-	// For for_each, we'll also use MNFor but without iteration count
-	// The actual implementation might need a separate type or field
-	forNode := mnfor.MNFor{
-		FlowNodeID: nodeID,
-		// Note: MNFor doesn't have ForEachItems field, so this is simplified
-		// In a real implementation, you might need to store the items expression elsewhere
-	}
-
-	data.ForNodes = append(data.ForNodes, forNode)
+	data.ForEachNodes = append(data.ForEachNodes, mnforeach.MNForEach{
+		FlowNodeID:     nodeID,
+		IterExpression: items,
+	})
 	return nil
 }
 
 // processJSStep processes a JavaScript step
 func processJSStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any) error {
-	node := mnnode.MNode{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     nodeName,
-		NodeKind: mnnode.NODE_KIND_JS,
-	}
-	data.Nodes = append(data.Nodes, node)
+	addNode(data, flowID, nodeID, nodeName, mnnode.NODE_KIND_JS)
 
 	code, ok := stepData["code"].(string)
 	if !ok || code == "" {
 		return fmt.Errorf("js step '%s' missing required code", nodeName)
 	}
 
-	jsNode := mnjs.MNJS{
+	data.JSNodes = append(data.JSNodes, mnjs.MNJS{
 		FlowNodeID: nodeID,
 		Code:       []byte(code),
-	}
-	data.JSNodes = append(data.JSNodes, jsNode)
+	})
 	return nil
 }
 

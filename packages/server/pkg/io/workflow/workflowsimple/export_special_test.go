@@ -1,8 +1,8 @@
 package workflowsimple
 
 import (
-	"testing"
 	"gopkg.in/yaml.v3"
+	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
@@ -23,15 +23,15 @@ func TestExportHARImportedRequestsWithDifferentHeaders(t *testing.T) {
 	startNodeID := idwrap.NewNow()
 	loginNodeID := idwrap.NewNow()
 	categoriesNodeID := idwrap.NewNow()
-	
+
 	// Each HAR request creates its own endpoint (simulating duplicate endpoints)
 	loginEndpointID := idwrap.NewNow()
 	categoriesEndpointID := idwrap.NewNow()
-	
+
 	// Base examples with hardcoded values
 	loginExampleID := idwrap.NewNow()
 	categoriesExampleID := idwrap.NewNow()
-	
+
 	// Delta examples with variable references
 	loginDeltaExampleID := idwrap.NewNow()
 	categoriesDeltaExampleID := idwrap.NewNow()
@@ -129,15 +129,15 @@ func TestExportHARImportedRequestsWithDifferentHeaders(t *testing.T) {
 				ItemApiID: categoriesEndpointID,
 			},
 			{
-				ID:        loginDeltaExampleID,
-				Name:      "login (Delta)",
-				ItemApiID: loginEndpointID,
+				ID:              loginDeltaExampleID,
+				Name:            "login (Delta)",
+				ItemApiID:       loginEndpointID,
 				VersionParentID: &loginExampleID,
 			},
 			{
-				ID:        categoriesDeltaExampleID,
-				Name:      "categories (Delta)",
-				ItemApiID: categoriesEndpointID,
+				ID:              categoriesDeltaExampleID,
+				Name:            "categories (Delta)",
+				ItemApiID:       categoriesEndpointID,
 				VersionParentID: &categoriesExampleID,
 			},
 		},
@@ -241,7 +241,7 @@ func TestExportHARImportedRequestsWithDifferentHeaders(t *testing.T) {
 	}
 
 	// Export using the clean format
-	yamlData, err := ExportWorkflowClean(workspaceData)
+	yamlData, err := ExportWorkflowYAML(workspaceData)
 	if err != nil {
 		t.Fatalf("failed to export: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestExportHARImportedRequestsWithDifferentHeaders(t *testing.T) {
 	if !ok {
 		t.Fatal("categories headers not found or not a map")
 	}
-	
+
 	// Check Authorization header has hardcoded value (not variable reference)
 	authHeader, hasAuth := categoriesHeaders["Authorization"].(string)
 	if !hasAuth {
@@ -315,16 +315,16 @@ func TestExportHARImportedRequestsWithDifferentHeaders(t *testing.T) {
 	if authHeader != expectedAuthToken {
 		t.Errorf("categories Authorization header should have hardcoded value, got: %s", authHeader)
 	}
-	
+
 	// Check other important headers are present
 	expectedHeaders := map[string]string{
-		"Content-Type": "application/json",
-		"Accept": "*/*",
+		"Content-Type":    "application/json",
+		"Accept":          "*/*",
 		"Accept-Encoding": "gzip, deflate, br, zstd",
 		"Accept-Language": "en-US,en;q=0.9",
-		"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+		"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
 	}
-	
+
 	for key, expectedValue := range expectedHeaders {
 		if value, exists := categoriesHeaders[key]; !exists {
 			t.Errorf("categories request missing header: %s", key)
@@ -332,7 +332,7 @@ func TestExportHARImportedRequestsWithDifferentHeaders(t *testing.T) {
 			t.Errorf("categories header %s: expected '%s', got '%v'", key, expectedValue, value)
 		}
 	}
-	
+
 	// Verify we have more than just a few headers
 	if len(categoriesHeaders) < 5 {
 		t.Errorf("categories request should have many headers, got only %d", len(categoriesHeaders))
@@ -358,15 +358,15 @@ func TestExportHARImportedRequestsWithDifferentHeaders(t *testing.T) {
 			t.Errorf("step %d is not a request", i)
 			continue
 		}
-		
-		expectedName := "request_" + string(rune('0' + i))
+
+		expectedName := "request_" + string(rune('0'+i))
 		if reqStep["name"] != expectedName {
 			t.Errorf("step %d name mismatch: expected %s, got %v", i, expectedName, reqStep["name"])
 		}
 		if reqStep["use_request"] != expectedName {
 			t.Errorf("step %d use_request mismatch: expected %s, got %v", i, expectedName, reqStep["use_request"])
 		}
-		
+
 		// Step 1 (categories) should have headers override with variable reference
 		// Step 0 (login) should not have any overrides
 		if i == 1 {
@@ -497,13 +497,13 @@ flows:
 	if loginStep["use_request"] != "Login" {
 		t.Errorf("Login: expected use_request 'Login', got %v", loginStep["use_request"])
 	}
-	
+
 	// Check the requests section for Login data
 	requests := exported.Requests
 	if len(requests) == 0 {
 		t.Fatal("No requests found in requests section")
 	}
-	
+
 	var loginRequest map[string]any
 	for _, req := range requests {
 		if req["name"] == "Login" {
@@ -511,11 +511,11 @@ flows:
 			break
 		}
 	}
-	
+
 	if loginRequest == nil {
 		t.Fatal("Login request not found in requests section")
 	}
-	
+
 	// Verify Login request has auth_template data
 	if loginRequest["method"] != "POST" {
 		t.Errorf("Login request: expected method POST, got %v", loginRequest["method"])
@@ -523,7 +523,7 @@ flows:
 	if loginRequest["url"] != "https://api.example.com/auth/login" {
 		t.Errorf("Login request: expected auth URL, got %v", loginRequest["url"])
 	}
-	
+
 	// Check Login headers in request
 	if headers, ok := loginRequest["headers"].(map[string]any); ok {
 		if headers["Content-Type"] != "application/json" {
@@ -532,7 +532,7 @@ flows:
 	} else {
 		t.Error("Login request: no headers found")
 	}
-	
+
 	// Check Login body in request
 	if body, ok := loginRequest["body"].(map[string]any); ok {
 		if body["username"] != "admin" {
@@ -552,10 +552,10 @@ flows:
 	if getUserStep["use_request"] != "Get User" {
 		t.Errorf("Get User: expected use_request 'Get User', got %v", getUserStep["use_request"])
 	}
-	
+
 	// The clean export merges everything into the request definition when using templates
 	// So the step won't have method/url/headers - they'll all be in the request section
-	
+
 	// Find Get User in requests section
 	var getUserRequest map[string]any
 	for _, req := range requests {
@@ -564,11 +564,11 @@ flows:
 			break
 		}
 	}
-	
+
 	if getUserRequest == nil {
 		t.Fatal("Get User request not found in requests section")
 	}
-	
+
 	// Check headers in request (should have all headers merged)
 	if headers, ok := getUserRequest["headers"].(map[string]any); ok {
 		if headers["Authorization"] != "Bearer {{token}}" {

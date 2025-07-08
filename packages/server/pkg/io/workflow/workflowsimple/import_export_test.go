@@ -69,6 +69,82 @@ flows:
 	require.Len(t, reimported.FlowVariables, len(imported.FlowVariables))
 }
 
+func TestRoundTripWithEmptyFields(t *testing.T) {
+	// Test workflow with empty fields that should be handled properly
+	yamlData := `
+workspace_name: Test Empty Fields
+
+requests:
+  - name: template_with_empty
+    method: ""
+    url: ""
+    headers:
+      Authorization: "Bearer {{token}}"
+
+flows:
+  - name: TestFlow
+    steps:
+      - request:
+          name: Step1
+          use_request: template_with_empty
+          url: "https://api.example.com/test"
+          method: GET
+      
+      - request:
+          name: Step2
+          url: "https://api.example.com/test2"
+          method: POST
+          depends_on: [""]
+`
+
+	// Import from simplified format
+	imported, err := workflowsimple.ImportWorkflowYAML([]byte(yamlData))
+	require.NoError(t, err)
+	require.NotNil(t, imported)
+
+	// Verify imported data
+	require.Equal(t, "Test Empty Fields", imported.Workspace.Name)
+	require.Len(t, imported.Flows, 1)
+	require.Equal(t, "TestFlow", imported.Flows[0].Name)
+	
+	// Verify nodes were created
+	requestNodeCount := 0
+	for _, node := range imported.FlowNodes {
+		if node.NodeKind == mnnode.NODE_KIND_REQUEST {
+			requestNodeCount++
+		}
+	}
+	require.Equal(t, 2, requestNodeCount, "Both request nodes should be created")
+
+	// Export back to simplified format
+	exported, err := workflowsimple.ExportWorkflowYAML(imported)
+	require.NoError(t, err)
+	
+	// Verify exported YAML doesn't contain empty fields
+	exportedStr := string(exported)
+	require.NotContains(t, exportedStr, `method: ""`, "Empty method should not be exported")
+	require.NotContains(t, exportedStr, `url: ""`, "Empty url should not be exported")
+	require.NotContains(t, exportedStr, `depends_on: [""]`, "Empty dependencies should not be exported")
+
+	// Parse exported YAML again (round-trip)
+	reimported, err := workflowsimple.ImportWorkflowYAML(exported)
+	require.NoError(t, err)
+
+	// Verify round-trip preservation
+	require.Equal(t, imported.Workspace.Name, reimported.Workspace.Name)
+	require.Len(t, reimported.Flows, len(imported.Flows))
+	require.Equal(t, imported.Flows[0].Name, reimported.Flows[0].Name)
+	
+	// Verify nodes still exist after round-trip
+	requestNodeCount = 0
+	for _, node := range reimported.FlowNodes {
+		if node.NodeKind == mnnode.NODE_KIND_REQUEST {
+			requestNodeCount++
+		}
+	}
+	require.Equal(t, 2, requestNodeCount, "Both request nodes should still exist after round-trip")
+}
+
 func TestImportComplexWorkflow(t *testing.T) {
 	yamlData := `
 workspace_name: Complex Workflow Test
@@ -131,13 +207,13 @@ flows:
 	// Verify imported structure
 	require.Len(t, imported.Flows, 1)
 	require.Equal(t, "ComplexFlow", imported.Flows[0].Name)
-	
+
 	// Count node types
 	requestNodeCount := 0
 	conditionNodeCount := 0
 	jsNodeCount := 0
 	forNodeCount := 0
-	
+
 	for _, node := range imported.FlowNodes {
 		switch node.NodeKind {
 		case mnnode.NODE_KIND_REQUEST:
@@ -150,7 +226,7 @@ flows:
 			forNodeCount++
 		}
 	}
-	
+
 	require.Equal(t, 3, requestNodeCount)
 	require.Equal(t, 1, conditionNodeCount)
 	require.Equal(t, 1, jsNodeCount)
@@ -244,7 +320,7 @@ func TestExportPreservesStructure(t *testing.T) {
 			ItemApiID: endpointID,
 		},
 	}
-	
+
 	// Update request node with IDs
 	workspaceData.FlowRequestNodes[0].EndpointID = &endpointID
 	workspaceData.FlowRequestNodes[0].ExampleID = &exampleID
@@ -306,7 +382,7 @@ flows:
 				targetNode = &imported.FlowNodes[i]
 			}
 		}
-		
+
 		// Check if this is a dependency edge to Step3
 		if targetNode != nil && targetNode.Name == "Step3" {
 			if sourceNode != nil && (sourceNode.Name == "Step1" || sourceNode.Name == "Step2") {
@@ -314,7 +390,7 @@ flows:
 			}
 		}
 	}
-	
+
 	require.Equal(t, 2, edgeCount, "Step3 should have edges from both Step1 and Step2")
 }
 
@@ -355,7 +431,7 @@ flows:
 	// Export and verify variables are preserved
 	exported, err := workflowsimple.ExportWorkflowYAML(imported)
 	require.NoError(t, err)
-	
+
 	exportedStr := string(exported)
 	require.Contains(t, exportedStr, "name: host")
 	require.Contains(t, exportedStr, "value: api.example.com")
@@ -471,7 +547,7 @@ func TestExportWithControlFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	exportedStr := string(exported)
-	
+
 	// Verify control flow structure
 	require.Contains(t, exportedStr, "name: CheckStatus")
 	require.Contains(t, exportedStr, "expression: response.status == 200")
@@ -615,7 +691,7 @@ func TestExampleWorkflowImport(t *testing.T) {
 	// "Get admin profile" should have:
 	// - 2 delta headers (Authorization override + X-Admin-Access addition)
 	// - 2 delta queries (include override + admin_view addition)
-	
+
 	// Note: These are totals across all steps
 	require.Greater(t, deltaHeaders, 0, "Should have delta headers for overrides/additions")
 	require.Greater(t, deltaQueries, 0, "Should have delta queries for overrides/additions")
@@ -630,7 +706,7 @@ func TestExampleWorkflowImport(t *testing.T) {
 	// Should have both "1.0" and "2.0" for X-API-Version
 	require.Contains(t, headerValues["X-API-Version"], "1.0", "Should have template value")
 	require.Contains(t, headerValues["X-API-Version"], "2.0", "Should have override value")
-	
+
 	// Should have X-Client-ID (addition)
 	require.Contains(t, headerValues, "X-Client-ID")
 	require.Contains(t, headerValues["X-Client-ID"], "admin-client")
@@ -644,7 +720,7 @@ func TestExampleWorkflowImport(t *testing.T) {
 	// Should have both template and override values for "include"
 	require.Contains(t, queryValues["include"], "preferences", "Should have template value")
 	require.Contains(t, queryValues["include"], "permissions,audit_log", "Should have override value")
-	
+
 	// Should have admin_view (addition)
 	require.Contains(t, queryValues, "admin_view")
 	require.Contains(t, queryValues["admin_view"], "true")
@@ -784,7 +860,7 @@ flows:
 	// "Get admin profile" should have:
 	// - 2 delta headers (Authorization override + X-Admin-Access addition)
 	// - 2 delta queries (include override + admin_view addition)
-	
+
 	// Note: These are totals across all steps
 	require.Greater(t, deltaHeaders, 0, "Should have delta headers for overrides/additions")
 	require.Greater(t, deltaQueries, 0, "Should have delta queries for overrides/additions")
@@ -799,7 +875,7 @@ flows:
 	// Should have both "1.0" and "2.0" for X-API-Version
 	require.Contains(t, headerValues["X-API-Version"], "1.0", "Should have template value")
 	require.Contains(t, headerValues["X-API-Version"], "2.0", "Should have override value")
-	
+
 	// Should have X-Client-ID (addition)
 	require.Contains(t, headerValues, "X-Client-ID")
 	require.Contains(t, headerValues["X-Client-ID"], "admin-client")
@@ -815,7 +891,7 @@ flows:
 	// The original "preferences" value should be in the base example, but overridden in delta
 	// So it's OK if we don't see it in the final values
 	t.Logf("Include query values: %v", queryValues["include"])
-	
+
 	// Should have admin_view (addition)
 	require.Contains(t, queryValues, "admin_view")
 	require.Contains(t, queryValues["admin_view"], "true")

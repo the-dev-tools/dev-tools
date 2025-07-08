@@ -40,6 +40,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -56,9 +57,8 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/svar"
+	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
 )
 

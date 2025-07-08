@@ -12,14 +12,15 @@ import (
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/server/pkg/model/mnnode/mnif"
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 )
 
-// ExportWorkflowClean exports workspace data to the clean simplified format
-func ExportWorkflowClean(workspaceData *ioworkspace.WorkspaceData) ([]byte, error) {
+// ExportWorkflowYAML converts ioworkspace.WorkspaceData to simplified workflow YAML
+func ExportWorkflowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error) {
 	if workspaceData == nil {
 		return nil, fmt.Errorf("workspace data cannot be nil")
 	}
@@ -81,27 +82,27 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 			}
 		}
 	}
-	
+
 	// Create a unique request definition for each request node
 	// This ensures each request has its own headers/params/body
 	processedNodes := make(map[string]bool)
-	
+
 	for _, node := range workspaceData.FlowNodes {
 		if node.NodeKind != mnnode.NODE_KIND_REQUEST {
 			continue
 		}
-		
+
 		reqNode, exists := nodeNameToRequestNode[node.Name]
 		if !exists || reqNode.EndpointID == nil {
 			continue
 		}
-		
+
 		// Skip if already processed
 		if processedNodes[node.Name] {
 			continue
 		}
 		processedNodes[node.Name] = true
-		
+
 		// Find the endpoint
 		var endpoint *mitemapi.ItemApi
 		for i := range workspaceData.Endpoints {
@@ -113,30 +114,38 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 		if endpoint == nil {
 			continue
 		}
-		
+
 		// Build request definition for this specific node
 		req := map[string]any{
-			"name":   node.Name,
-			"method": endpoint.Method,
-			"url":    endpoint.Url,
+			"name": node.Name,
 		}
-		
+
+		// Only add method if not empty
+		if endpoint.Method != "" {
+			req["method"] = endpoint.Method
+		}
+
+		// Only add url if not empty
+		if endpoint.Url != "" {
+			req["url"] = endpoint.Url
+		}
+
 		// Check if there's a delta endpoint with overrides
 		if reqNode.DeltaEndpointID != nil {
 			for _, deltaEndpoint := range workspaceData.Endpoints {
 				if deltaEndpoint.ID == *reqNode.DeltaEndpointID {
 					// Use delta endpoint's method/URL if different
-					if deltaEndpoint.Method != endpoint.Method {
+					if deltaEndpoint.Method != endpoint.Method && deltaEndpoint.Method != "" {
 						req["method"] = deltaEndpoint.Method
 					}
-					if deltaEndpoint.Url != endpoint.Url {
+					if deltaEndpoint.Url != endpoint.Url && deltaEndpoint.Url != "" {
 						req["url"] = deltaEndpoint.Url
 					}
 					break
 				}
 			}
 		}
-		
+
 		// Collect headers - use base example only (has hardcoded values)
 		headerMap := make(map[string]string)
 		if reqNode.ExampleID != nil {
@@ -154,7 +163,7 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 				headerKeys = append(headerKeys, key)
 			}
 			sort.Strings(headerKeys)
-			
+
 			// Build ordered header map
 			orderedHeaders := make(map[string]string)
 			for _, key := range headerKeys {
@@ -180,7 +189,7 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 				queryKeys = append(queryKeys, key)
 			}
 			sort.Strings(queryKeys)
-			
+
 			// Build ordered query map
 			orderedQueries := make(map[string]string)
 			for _, key := range queryKeys {
@@ -208,7 +217,6 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 
 	return requests
 }
-
 
 // exportFlow exports a single flow
 func exportFlow(flow mflow.Flow, workspaceData *ioworkspace.WorkspaceData, requests map[string]map[string]any) map[string]any {
@@ -309,18 +317,18 @@ func processFlowNodes(nodeMap map[idwrap.IDWrap]mnnode.MNode, incomingEdges map[
 		var step map[string]any
 		switch node.NodeKind {
 		case mnnode.NODE_KIND_REQUEST:
-			step = convertRequestNodeClean(node, incomingEdges, outgoingEdges, startNodeID, 
+			step = convertRequestNodeClean(node, incomingEdges, outgoingEdges, startNodeID,
 				nodeMap, workspaceData, nodeToRequest)
 		case mnnode.NODE_KIND_JS:
 			step = convertJSNodeClean(node, incomingEdges, startNodeID, nodeMap, workspaceData)
 		case mnnode.NODE_KIND_CONDITION:
-			step = convertConditionNodeClean(node, incomingEdges, outgoingEdges, startNodeID, 
+			step = convertConditionNodeClean(node, incomingEdges, outgoingEdges, startNodeID,
 				nodeMap, workspaceData)
 		case mnnode.NODE_KIND_FOR:
-			step = convertForNodeClean(node, incomingEdges, outgoingEdges, startNodeID, 
+			step = convertForNodeClean(node, incomingEdges, outgoingEdges, startNodeID,
 				nodeMap, workspaceData)
 		case mnnode.NODE_KIND_FOR_EACH:
-			step = convertForEachNodeClean(node, incomingEdges, outgoingEdges, startNodeID, 
+			step = convertForEachNodeClean(node, incomingEdges, outgoingEdges, startNodeID,
 				nodeMap, workspaceData)
 		}
 
@@ -377,19 +385,19 @@ func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 				deltaEndpoint = &workspaceData.Endpoints[i]
 			}
 		}
-		
+
 		if baseEndpoint != nil && deltaEndpoint != nil {
-			// Add method override if different
-			if deltaEndpoint.Method != baseEndpoint.Method {
+			// Add method override if different and not empty
+			if deltaEndpoint.Method != baseEndpoint.Method && deltaEndpoint.Method != "" {
 				step["method"] = deltaEndpoint.Method
 			}
-			// Add URL override if different
-			if deltaEndpoint.Url != baseEndpoint.Url {
+			// Add URL override if different and not empty
+			if deltaEndpoint.Url != baseEndpoint.Url && deltaEndpoint.Url != "" {
 				step["url"] = deltaEndpoint.Url
 			}
 		}
 	}
-	
+
 	if requestNode.DeltaExampleID != nil {
 		// Check for header overrides
 		headerOverrides := make(map[string]string)
@@ -469,7 +477,7 @@ func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 	var dependencies []string
 	for _, e := range incomingEdges[node.ID] {
 		if e.SourceID != startNodeID {
-			if sourceNode, exists := nodeMap[e.SourceID]; exists {
+			if sourceNode, exists := nodeMap[e.SourceID]; exists && sourceNode.Name != "" {
 				dependencies = append(dependencies, sourceNode.Name)
 			}
 		}
@@ -507,7 +515,7 @@ func convertJSNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap][]edg
 	var dependencies []string
 	for _, e := range incomingEdges[node.ID] {
 		if e.SourceID != startNodeID {
-			if sourceNode, exists := nodeMap[e.SourceID]; exists {
+			if sourceNode, exists := nodeMap[e.SourceID]; exists && sourceNode.Name != "" {
 				dependencies = append(dependencies, sourceNode.Name)
 			}
 		}
@@ -557,7 +565,7 @@ func convertConditionNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWra
 	var dependencies []string
 	for _, e := range incomingEdges[node.ID] {
 		if e.SourceID != startNodeID {
-			if sourceNode, exists := nodeMap[e.SourceID]; exists {
+			if sourceNode, exists := nodeMap[e.SourceID]; exists && sourceNode.Name != "" {
 				dependencies = append(dependencies, sourceNode.Name)
 			}
 		}
@@ -587,14 +595,18 @@ func convertForNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap][]ed
 	}
 
 	step := map[string]any{
-		"name":       node.Name,
-		"iter_count": forNode.IterCount,
+		"name": node.Name,
+	}
+	
+	// Only add iter_count if it's non-zero
+	if forNode.IterCount > 0 {
+		step["iter_count"] = forNode.IterCount
 	}
 
 	// Find loop target
 	for _, e := range outgoingEdges[node.ID] {
 		if e.SourceHandler == edge.HandleLoop {
-			if targetNode, exists := nodeMap[e.TargetID]; exists {
+			if targetNode, exists := nodeMap[e.TargetID]; exists && targetNode.Name != "" {
 				step["loop"] = targetNode.Name
 			}
 		}
@@ -604,7 +616,7 @@ func convertForNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap][]ed
 	var dependencies []string
 	for _, e := range incomingEdges[node.ID] {
 		if e.SourceID != startNodeID {
-			if sourceNode, exists := nodeMap[e.SourceID]; exists {
+			if sourceNode, exists := nodeMap[e.SourceID]; exists && sourceNode.Name != "" {
 				dependencies = append(dependencies, sourceNode.Name)
 			}
 		}
@@ -621,15 +633,30 @@ func convertForEachNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 	outgoingEdges map[idwrap.IDWrap][]edge.Edge, startNodeID idwrap.IDWrap,
 	nodeMap map[idwrap.IDWrap]mnnode.MNode, workspaceData *ioworkspace.WorkspaceData) map[string]any {
 
+	// Find ForEach node data
+	var forEachNode *mnforeach.MNForEach
+	for i := range workspaceData.FlowForEachNodes {
+		if workspaceData.FlowForEachNodes[i].FlowNodeID == node.ID {
+			forEachNode = &workspaceData.FlowForEachNodes[i]
+			break
+		}
+	}
+
 	step := map[string]any{
-		"name":  node.Name,
-		"items": "response.items", // Default since we don't store it
+		"name": node.Name,
+	}
+
+	// Add items expression
+	if forEachNode != nil && forEachNode.IterExpression != "" {
+		step["items"] = forEachNode.IterExpression
+	} else {
+		step["items"] = "response.items" // Default fallback
 	}
 
 	// Find loop target
 	for _, e := range outgoingEdges[node.ID] {
 		if e.SourceHandler == edge.HandleLoop {
-			if targetNode, exists := nodeMap[e.TargetID]; exists {
+			if targetNode, exists := nodeMap[e.TargetID]; exists && targetNode.Name != "" {
 				step["loop"] = targetNode.Name
 			}
 		}
@@ -639,7 +666,7 @@ func convertForEachNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 	var dependencies []string
 	for _, e := range incomingEdges[node.ID] {
 		if e.SourceID != startNodeID {
-			if sourceNode, exists := nodeMap[e.SourceID]; exists {
+			if sourceNode, exists := nodeMap[e.SourceID]; exists && sourceNode.Name != "" {
 				dependencies = append(dependencies, sourceNode.Name)
 			}
 		}

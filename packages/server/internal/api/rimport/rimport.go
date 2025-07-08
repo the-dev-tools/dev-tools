@@ -37,6 +37,7 @@ import (
 	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeforeach"
 	"the-dev-tools/server/pkg/service/snodeif"
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
@@ -1261,6 +1262,19 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 		}
 		for _, j := range resolved.FlowJSNodes {
 			err = txJsService.CreateNodeJS(ctx, j)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
+
+	if len(resolved.FlowForEachNodes) > 0 {
+		txForEachService, err := snodeforeach.NewTX(ctx, tx)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		for _, fe := range resolved.FlowForEachNodes {
+			err = txForEachService.CreateNodeForEach(ctx, fe)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, err)
 			}

@@ -27,7 +27,7 @@ import (
 
 func TestExportCleanPreservesVariables(t *testing.T) {
 	// Test that export uses delta examples to preserve variable placeholders
-	
+
 	// Create workspace data
 	workspaceData := &ioworkspace.WorkspaceData{
 		Workspace: mworkspace.Workspace{
@@ -41,13 +41,13 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			},
 		},
 	}
-	
+
 	flowID := workspaceData.Flows[0].ID
-	
+
 	// Create nodes
 	startNodeID := idwrap.NewNow()
 	requestNodeID := idwrap.NewNow()
-	
+
 	workspaceData.FlowNodes = []mnnode.MNode{
 		{
 			ID:       startNodeID,
@@ -62,7 +62,7 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			NodeKind: mnnode.NODE_KIND_REQUEST,
 		},
 	}
-	
+
 	// Add noop node
 	workspaceData.FlowNoopNodes = []mnnoop.NoopNode{
 		{
@@ -70,7 +70,7 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			Type:       mnnoop.NODE_NO_OP_KIND_START,
 		},
 	}
-	
+
 	// Create endpoint
 	endpointID := idwrap.NewNow()
 	deltaEndpointID := idwrap.NewNow()
@@ -90,12 +90,12 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			Hidden:        true,
 		},
 	}
-	
+
 	// Create examples
 	baseExampleID := idwrap.NewNow()
 	defaultExampleID := idwrap.NewNow()
 	deltaExampleID := idwrap.NewNow()
-	
+
 	workspaceData.Examples = []mitemapiexample.ItemApiExample{
 		{
 			ID:        baseExampleID,
@@ -116,12 +116,12 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			IsDefault: true,
 		},
 	}
-	
+
 	// Create headers - base has variable, default has resolved value, delta preserves variable
 	baseHeaderID := idwrap.NewNow()
 	defaultHeaderID := idwrap.NewNow()
 	deltaHeaderID := idwrap.NewNow()
-	
+
 	workspaceData.ExampleHeaders = []mexampleheader.Header{
 		{
 			ID:        baseHeaderID,
@@ -146,12 +146,12 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			Enable:        true,
 		},
 	}
-	
+
 	// Create query parameters
 	baseQueryID := idwrap.NewNow()
 	defaultQueryID := idwrap.NewNow()
 	deltaQueryID := idwrap.NewNow()
-	
+
 	workspaceData.ExampleQueries = []mexamplequery.Query{
 		{
 			ID:        baseQueryID,
@@ -176,14 +176,14 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			Enable:        true,
 		},
 	}
-	
+
 	// Create body with variables
 	bodyData := map[string]any{
 		"username": "{{username}}",
 		"email":    "{{email}}",
 	}
 	bodyJSON, _ := json.Marshal(bodyData)
-	
+
 	workspaceData.Rawbodies = []mbodyraw.ExampleBodyRaw{
 		{
 			ID:        idwrap.NewNow(),
@@ -201,7 +201,7 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			Data:      bodyJSON, // Delta preserves variables
 		},
 	}
-	
+
 	// Create request node
 	workspaceData.FlowRequestNodes = []mnrequest.MNRequest{
 		{
@@ -212,7 +212,7 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			DeltaExampleID:  &deltaExampleID,
 		},
 	}
-	
+
 	// Create flow variables
 	workspaceData.FlowVariables = []mflowvariable.FlowVariable{
 		{
@@ -251,59 +251,59 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 			Enabled: true,
 		},
 	}
-	
+
 	// Export using clean format
-	exported, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
 	require.NoError(t, err)
-	
+
 	// Parse the exported YAML
 	var exportedData map[string]any
 	err = yaml.Unmarshal(exported, &exportedData)
 	require.NoError(t, err)
-	
+
 	// Check that requests section exists
 	requests, ok := exportedData["requests"].([]any)
 	require.True(t, ok, "Expected 'requests' section in export")
 	require.Len(t, requests, 1)
-	
+
 	// Get the first request
 	request := requests[0].(map[string]any)
-	
+
 	// Verify URL has variable placeholder (from delta endpoint)
 	// Delta endpoint is used to preserve variable placeholders in the export
 	require.Equal(t, "https://{{base_url}}/users", request["url"])
-	
+
 	// Verify headers have variable placeholders (from delta examples)
 	headers, ok := request["headers"].(map[string]any)
 	require.True(t, ok, "Headers should be a map")
 	require.Len(t, headers, 1)
-	
+
 	authValue, ok := headers["Authorization"].(string)
 	require.True(t, ok, "Authorization header should exist")
 	require.Equal(t, "Bearer {{token}}", authValue, "Header should preserve variable placeholder")
-	
+
 	// Verify query params have variable placeholders
 	queryParams, ok := request["query_params"].(map[string]any)
 	require.True(t, ok, "Query params should be a map")
 	require.Len(t, queryParams, 1)
-	
+
 	apiKeyValue, ok := queryParams["apiKey"].(string)
 	require.True(t, ok, "apiKey query param should exist")
 	require.Equal(t, "{{api_key}}", apiKeyValue, "Query param should preserve variable placeholder")
-	
+
 	// Verify body has variable placeholders
 	body, ok := request["body"].(map[string]any)
 	require.True(t, ok, "Body should be a map")
 	require.Equal(t, "{{username}}", body["username"], "Body should preserve username variable")
 	require.Equal(t, "{{email}}", body["email"], "Body should preserve email variable")
-	
+
 	// Verify the exported YAML string contains variable placeholders
 	exportedStr := string(exported)
 	require.True(t, strings.Contains(exportedStr, "Bearer {{token}}"), "Export should contain token variable")
 	require.True(t, strings.Contains(exportedStr, "{{api_key}}"), "Export should contain api_key variable")
 	require.True(t, strings.Contains(exportedStr, "{{username}}"), "Export should contain username variable")
 	require.True(t, strings.Contains(exportedStr, "{{email}}"), "Export should contain email variable")
-	
+
 	// Ensure resolved values are NOT in the export
 	require.False(t, strings.Contains(exportedStr, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"), "Export should not contain resolved JWT token")
 	require.False(t, strings.Contains(exportedStr, "sk-1234567890abcdef"), "Export should not contain resolved API key")
@@ -311,7 +311,7 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 
 func TestExportCleanWithMultipleRequests(t *testing.T) {
 	// Test export with multiple requests that share common patterns
-	
+
 	workspaceData := &ioworkspace.WorkspaceData{
 		Workspace: mworkspace.Workspace{
 			ID:   idwrap.NewNow(),
@@ -324,9 +324,9 @@ func TestExportCleanWithMultipleRequests(t *testing.T) {
 			},
 		},
 	}
-	
+
 	flowID := workspaceData.Flows[0].ID
-	
+
 	// Create start node
 	startNodeID := idwrap.NewNow()
 	workspaceData.FlowNodes = []mnnode.MNode{
@@ -337,47 +337,47 @@ func TestExportCleanWithMultipleRequests(t *testing.T) {
 			NodeKind: mnnode.NODE_KIND_NO_OP,
 		},
 	}
-	
+
 	workspaceData.FlowNoopNodes = []mnnoop.NoopNode{
 		{
 			FlowNodeID: startNodeID,
 			Type:       mnnoop.NODE_NO_OP_KIND_START,
 		},
 	}
-	
+
 	// Create two request nodes
 	for i := 1; i <= 2; i++ {
 		nodeID := idwrap.NewNow()
 		endpointID := idwrap.NewNow()
 		exampleID := idwrap.NewNow()
-		
+
 		workspaceData.FlowNodes = append(workspaceData.FlowNodes, mnnode.MNode{
 			ID:       nodeID,
 			FlowID:   flowID,
 			Name:     "Request" + string(rune('0'+i)),
 			NodeKind: mnnode.NODE_KIND_REQUEST,
 		})
-		
+
 		workspaceData.Endpoints = append(workspaceData.Endpoints, mitemapi.ItemApi{
 			ID:     endpointID,
 			Name:   "Endpoint" + string(rune('0'+i)),
 			Url:    "https://api.example.com/endpoint" + string(rune('0'+i)),
 			Method: "GET",
 		})
-		
+
 		workspaceData.Examples = append(workspaceData.Examples, mitemapiexample.ItemApiExample{
 			ID:        exampleID,
 			Name:      "Example" + string(rune('0'+i)),
 			ItemApiID: endpointID,
 			IsDefault: true,
 		})
-		
+
 		workspaceData.FlowRequestNodes = append(workspaceData.FlowRequestNodes, mnrequest.MNRequest{
 			FlowNodeID: nodeID,
 			EndpointID: &endpointID,
 			ExampleID:  &exampleID,
 		})
-		
+
 		// Add common header
 		workspaceData.ExampleHeaders = append(workspaceData.ExampleHeaders, mexampleheader.Header{
 			ID:        idwrap.NewNow(),
@@ -387,27 +387,27 @@ func TestExportCleanWithMultipleRequests(t *testing.T) {
 			Enable:    true,
 		})
 	}
-	
+
 	// Export
-	exported, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
 	require.NoError(t, err)
-	
+
 	// Parse and verify
 	var exportedData map[string]any
 	err = yaml.Unmarshal(exported, &exportedData)
 	require.NoError(t, err)
-	
+
 	requests, ok := exportedData["requests"].([]any)
 	require.True(t, ok)
 	require.Len(t, requests, 2, "Should have 2 request definitions")
-	
+
 	// Both requests should be properly formatted
 	for i, req := range requests {
 		reqMap := req.(map[string]any)
 		require.Equal(t, "Request"+string(rune('1'+i)), reqMap["name"])
 		require.Equal(t, "GET", reqMap["method"])
 		require.Contains(t, reqMap["url"].(string), "endpoint"+string(rune('1'+i)))
-		
+
 		headers, ok := reqMap["headers"].(map[string]any)
 		require.True(t, ok, "Headers should be a map")
 		require.Len(t, headers, 1)
@@ -419,7 +419,7 @@ func TestExportCleanWithMultipleRequests(t *testing.T) {
 
 func TestExportCleanNamingConsistency(t *testing.T) {
 	// Test that step names match their use_request references correctly
-	
+
 	// Create workspace data
 	workspaceData := &ioworkspace.WorkspaceData{
 		Workspace: mworkspace.Workspace{
@@ -433,14 +433,14 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 			},
 		},
 	}
-	
+
 	flowID := workspaceData.Flows[0].ID
-	
+
 	// Create nodes
 	startNodeID := idwrap.NewNow()
 	request1NodeID := idwrap.NewNow()
 	request2NodeID := idwrap.NewNow()
-	
+
 	workspaceData.FlowNodes = []mnnode.MNode{
 		{
 			ID:       startNodeID,
@@ -461,7 +461,7 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 			NodeKind: mnnode.NODE_KIND_REQUEST,
 		},
 	}
-	
+
 	// Add noop node
 	workspaceData.FlowNoopNodes = []mnnoop.NoopNode{
 		{
@@ -469,11 +469,11 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 			Type:       mnnoop.NODE_NO_OP_KIND_START,
 		},
 	}
-	
+
 	// Create endpoints
 	endpoint1ID := idwrap.NewNow()
 	endpoint2ID := idwrap.NewNow()
-	
+
 	workspaceData.Endpoints = []mitemapi.ItemApi{
 		{
 			ID:     endpoint1ID,
@@ -488,11 +488,11 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 			Method: "GET",
 		},
 	}
-	
+
 	// Create examples
 	example1ID := idwrap.NewNow()
 	example2ID := idwrap.NewNow()
-	
+
 	workspaceData.Examples = []mitemapiexample.ItemApiExample{
 		{
 			ID:        example1ID,
@@ -507,7 +507,7 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 			IsDefault: true,
 		},
 	}
-	
+
 	// Create request nodes
 	workspaceData.FlowRequestNodes = []mnrequest.MNRequest{
 		{
@@ -521,7 +521,7 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 			ExampleID:  &example2ID,
 		},
 	}
-	
+
 	// Add headers
 	workspaceData.ExampleHeaders = []mexampleheader.Header{
 		{
@@ -539,7 +539,7 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 			Enable:    true,
 		},
 	}
-	
+
 	// Create edges - request_1 depends on request_0
 	workspaceData.FlowEdges = []edge.Edge{
 		{
@@ -557,23 +557,23 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 			SourceHandler: edge.HandleUnspecified,
 		},
 	}
-	
+
 	// Export
-	exported, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
 	require.NoError(t, err)
-	
+
 	// Parse the exported YAML
 	var exportedData map[string]any
 	err = yaml.Unmarshal(exported, &exportedData)
 	require.NoError(t, err)
-	
+
 	t.Logf("Exported YAML:\n%s", string(exported))
-	
+
 	// Verify requests section exists
 	requests, ok := exportedData["requests"].([]any)
 	require.True(t, ok, "Expected 'requests' section")
 	require.Len(t, requests, 2, "Should have 2 request definitions")
-	
+
 	// Build a map of request names to verify references
 	requestNameMap := make(map[string]bool)
 	for _, req := range requests {
@@ -582,34 +582,34 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 		require.True(t, ok, "Request should have a name")
 		requestNameMap[name] = true
 	}
-	
+
 	// Verify flows
 	flows, ok := exportedData["flows"].([]any)
 	require.True(t, ok, "Expected 'flows' section")
 	require.Len(t, flows, 1)
-	
+
 	flow := flows[0].(map[string]any)
 	steps, ok := flow["steps"].([]any)
 	require.True(t, ok, "Expected 'steps' in flow")
 	require.Len(t, steps, 2, "Should have 2 steps")
-	
+
 	// Check each step
 	for i, step := range steps {
 		stepMap := step.(map[string]any)
 		reqStep, ok := stepMap["request"].(map[string]any)
 		require.True(t, ok, "Step should be a request")
-		
+
 		// Verify step name matches the node name
 		stepName, ok := reqStep["name"].(string)
 		require.True(t, ok, "Step should have a name")
 		expectedName := "request_" + string(rune('0'+i))
 		require.Equal(t, expectedName, stepName, "Step name should match node name")
-		
+
 		// Verify use_request references a valid request
 		useRequest, ok := reqStep["use_request"].(string)
 		require.True(t, ok, "Step should have use_request")
 		require.True(t, requestNameMap[useRequest], "use_request '%s' should reference an existing request", useRequest)
-		
+
 		// For request_1, verify it has depends_on
 		if i == 1 {
 			dependsOn, ok := reqStep["depends_on"].([]any)
@@ -622,7 +622,7 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 
 func TestExportCleanWithDependencies(t *testing.T) {
 	// Test that dependencies are properly exported
-	
+
 	workspaceData := &ioworkspace.WorkspaceData{
 		Workspace: mworkspace.Workspace{
 			ID:   idwrap.NewNow(),
@@ -635,15 +635,15 @@ func TestExportCleanWithDependencies(t *testing.T) {
 			},
 		},
 	}
-	
+
 	flowID := workspaceData.Flows[0].ID
-	
+
 	// Create nodes
 	startNodeID := idwrap.NewNow()
 	nodeAID := idwrap.NewNow()
 	nodeBID := idwrap.NewNow()
 	nodeCID := idwrap.NewNow()
-	
+
 	workspaceData.FlowNodes = []mnnode.MNode{
 		{
 			ID:       startNodeID,
@@ -670,7 +670,7 @@ func TestExportCleanWithDependencies(t *testing.T) {
 			NodeKind: mnnode.NODE_KIND_REQUEST,
 		},
 	}
-	
+
 	// Add noop node
 	workspaceData.FlowNoopNodes = []mnnoop.NoopNode{
 		{
@@ -678,7 +678,7 @@ func TestExportCleanWithDependencies(t *testing.T) {
 			Type:       mnnoop.NODE_NO_OP_KIND_START,
 		},
 	}
-	
+
 	// Create a single endpoint for all (to simplify)
 	endpointID := idwrap.NewNow()
 	workspaceData.Endpoints = []mitemapi.ItemApi{
@@ -689,7 +689,7 @@ func TestExportCleanWithDependencies(t *testing.T) {
 			Method: "GET",
 		},
 	}
-	
+
 	// Create example
 	exampleID := idwrap.NewNow()
 	workspaceData.Examples = []mitemapiexample.ItemApiExample{
@@ -700,7 +700,7 @@ func TestExportCleanWithDependencies(t *testing.T) {
 			IsDefault: true,
 		},
 	}
-	
+
 	// Create request nodes
 	for _, nodeID := range []idwrap.IDWrap{nodeAID, nodeBID, nodeCID} {
 		workspaceData.FlowRequestNodes = append(workspaceData.FlowRequestNodes, mnrequest.MNRequest{
@@ -709,7 +709,7 @@ func TestExportCleanWithDependencies(t *testing.T) {
 			ExampleID:  &exampleID,
 		})
 	}
-	
+
 	// Create edges: NodeC depends on both NodeA and NodeB
 	workspaceData.FlowEdges = []edge.Edge{
 		{
@@ -741,23 +741,23 @@ func TestExportCleanWithDependencies(t *testing.T) {
 			SourceHandler: edge.HandleUnspecified,
 		},
 	}
-	
+
 	// Export
-	exported, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
 	require.NoError(t, err)
-	
+
 	// Parse the exported YAML
 	var exportedData map[string]any
 	err = yaml.Unmarshal(exported, &exportedData)
 	require.NoError(t, err)
-	
+
 	t.Logf("Exported YAML with dependencies:\n%s", string(exported))
-	
+
 	// Find NodeC in the steps and verify its dependencies
 	flows := exportedData["flows"].([]any)
 	flow := flows[0].(map[string]any)
 	steps := flow["steps"].([]any)
-	
+
 	var nodeCStep map[string]any
 	for _, step := range steps {
 		stepMap := step.(map[string]any)
@@ -768,14 +768,14 @@ func TestExportCleanWithDependencies(t *testing.T) {
 			}
 		}
 	}
-	
+
 	require.NotNil(t, nodeCStep, "Should find NodeC step")
-	
+
 	// Verify NodeC has dependencies
 	dependsOn, ok := nodeCStep["depends_on"].([]any)
 	require.True(t, ok, "NodeC should have depends_on")
 	require.Len(t, dependsOn, 2, "NodeC should depend on both NodeA and NodeB")
-	
+
 	// Check that both NodeA and NodeB are in the dependencies
 	depMap := make(map[string]bool)
 	for _, dep := range dependsOn {
@@ -807,15 +807,15 @@ func testRequestOrdering(t *testing.T) {
 			},
 		},
 	}
-	
+
 	flowID := workspaceData.Flows[0].ID
-	
+
 	// Create nodes
 	startNodeID := idwrap.NewNow()
 	nodeAID := idwrap.NewNow()
 	nodeBID := idwrap.NewNow()
 	nodeCID := idwrap.NewNow()
-	
+
 	workspaceData.FlowNodes = []mnnode.MNode{
 		{
 			ID:       startNodeID,
@@ -832,7 +832,7 @@ func testRequestOrdering(t *testing.T) {
 		{
 			ID:       nodeBID,
 			FlowID:   flowID,
-			Name:     "RequestB", 
+			Name:     "RequestB",
 			NodeKind: mnnode.NODE_KIND_REQUEST,
 		},
 		{
@@ -842,7 +842,7 @@ func testRequestOrdering(t *testing.T) {
 			NodeKind: mnnode.NODE_KIND_REQUEST,
 		},
 	}
-	
+
 	// Add noop node
 	workspaceData.FlowNoopNodes = []mnnoop.NoopNode{
 		{
@@ -850,12 +850,12 @@ func testRequestOrdering(t *testing.T) {
 			Type:       mnnoop.NODE_NO_OP_KIND_START,
 		},
 	}
-	
+
 	// Create different endpoints for each
 	endpointAID := idwrap.NewNow()
 	endpointBID := idwrap.NewNow()
 	endpointCID := idwrap.NewNow()
-	
+
 	workspaceData.Endpoints = []mitemapi.ItemApi{
 		{
 			ID:     endpointAID,
@@ -876,12 +876,12 @@ func testRequestOrdering(t *testing.T) {
 			Method: "PUT",
 		},
 	}
-	
+
 	// Create examples
 	exampleAID := idwrap.NewNow()
 	exampleBID := idwrap.NewNow()
 	exampleCID := idwrap.NewNow()
-	
+
 	workspaceData.Examples = []mitemapiexample.ItemApiExample{
 		{
 			ID:        exampleAID,
@@ -902,7 +902,7 @@ func testRequestOrdering(t *testing.T) {
 			IsDefault: true,
 		},
 	}
-	
+
 	// Create request nodes
 	workspaceData.FlowRequestNodes = []mnrequest.MNRequest{
 		{
@@ -921,7 +921,7 @@ func testRequestOrdering(t *testing.T) {
 			ExampleID:  &exampleCID,
 		},
 	}
-	
+
 	// Create edges
 	workspaceData.FlowEdges = []edge.Edge{
 		{
@@ -946,23 +946,23 @@ func testRequestOrdering(t *testing.T) {
 			SourceHandler: edge.HandleUnspecified,
 		},
 	}
-	
+
 	// Export
-	exported, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
 	require.NoError(t, err)
-	
+
 	// Parse the exported YAML
 	var exportedData map[string]any
 	err = yaml.Unmarshal(exported, &exportedData)
 	require.NoError(t, err)
-	
+
 	t.Logf("Exported YAML:\n%s", string(exported))
-	
+
 	// Verify each step references the correct request
 	flows := exportedData["flows"].([]any)
 	flow := flows[0].(map[string]any)
 	steps := flow["steps"].([]any)
-	
+
 	// Build a map of URL to request name from the requests section
 	urlToRequestName := make(map[string]string)
 	requests := exportedData["requests"].([]any)
@@ -972,21 +972,21 @@ func testRequestOrdering(t *testing.T) {
 		name := reqMap["name"].(string)
 		urlToRequestName[url] = name
 	}
-	
+
 	// Check each step
 	expectedMappings := map[string]string{
 		"RequestA": "https://api.example.com/a",
-		"RequestB": "https://api.example.com/b", 
+		"RequestB": "https://api.example.com/b",
 		"RequestC": "https://api.example.com/c",
 	}
-	
+
 	for _, step := range steps {
 		stepMap := step.(map[string]any)
 		reqStep := stepMap["request"].(map[string]any)
-		
+
 		stepName := reqStep["name"].(string)
 		useRequest := reqStep["use_request"].(string)
-		
+
 		// Find the request definition
 		var requestDef map[string]any
 		for _, req := range requests {
@@ -996,9 +996,9 @@ func testRequestOrdering(t *testing.T) {
 				break
 			}
 		}
-		
+
 		require.NotNil(t, requestDef, "Should find request definition for %s", useRequest)
-		
+
 		// Verify the URL matches what we expect
 		expectedURL := expectedMappings[stepName]
 		actualURL := requestDef["url"].(string)
@@ -1006,6 +1006,8 @@ func testRequestOrdering(t *testing.T) {
 	}
 }
 
+// TestExportWithHeadersQueryAndBody - removed as it was testing the old export format
+/*
 func TestExportWithHeadersQueryAndBody(t *testing.T) {
 	// Create workspace data with headers, query params, and body
 	flowID := idwrap.NewNow()
@@ -1245,7 +1247,10 @@ func TestExportWithHeadersQueryAndBody(t *testing.T) {
 	// Print the exported YAML for debugging
 	t.Logf("Exported YAML:\n%s", string(yamlData))
 }
+*/
 
+// TestExportMultipleRequestsWithOverrides - removed as it was testing the old export format
+/*
 func TestExportMultipleRequestsWithOverrides(t *testing.T) {
 	// Test with multiple requests where later ones override headers
 	flowID := idwrap.NewNow()
@@ -1397,6 +1402,7 @@ func TestExportMultipleRequestsWithOverrides(t *testing.T) {
 		t.Errorf("expected 2 steps, got %d", len(exported.Flows[0].Steps))
 	}
 }
+*/
 
 func TestExportFullBrowserHeaders(t *testing.T) {
 	// Test that all browser headers are preserved in export
@@ -1520,7 +1526,7 @@ func TestExportFullBrowserHeaders(t *testing.T) {
 	}
 
 	// Export using the clean format
-	yamlData, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	yamlData, err := workflowsimple.ExportWorkflowYAML(workspaceData)
 	if err != nil {
 		t.Fatalf("failed to export: %v", err)
 	}
@@ -1540,7 +1546,7 @@ func TestExportFullBrowserHeaders(t *testing.T) {
 	}
 
 	request := requests[0].(map[string]any)
-	
+
 	// Verify request has all headers
 	headers, ok := request["headers"].(map[string]any)
 	if !ok {
@@ -1569,12 +1575,12 @@ func TestExportFullBrowserHeaders(t *testing.T) {
 	for k := range headers {
 		headerKeys = append(headerKeys, k)
 	}
-	
+
 	// Create a sorted copy to compare
 	sortedKeys := make([]string, len(headerKeys))
 	copy(sortedKeys, headerKeys)
 	sort.Strings(sortedKeys)
-	
+
 	// Log the header keys for debugging
 	t.Logf("Header keys found: %v", headerKeys)
 }

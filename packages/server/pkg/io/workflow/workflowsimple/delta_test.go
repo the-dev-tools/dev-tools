@@ -61,7 +61,7 @@ flows:
 						deltaHeaders[h.HeaderKey] = h.Value
 					}
 				}
-				
+
 				// Verify overrides
 				require.Equal(t, "2.0", deltaHeaders["X-API-Version"], "X-API-Version should be overridden to 2.0")
 				require.Equal(t, "test-client", deltaHeaders["X-Client-ID"], "X-Client-ID should be added")
@@ -107,7 +107,7 @@ flows:
 						deltaQueries[q.QueryKey] = q.Value
 					}
 				}
-				
+
 				require.Equal(t, "50", deltaQueries["limit"], "limit should be overridden to 50")
 				require.Equal(t, "desc", deltaQueries["sort"], "sort should be added")
 			},
@@ -207,7 +207,7 @@ flows:
 						deltaHeaders[h.HeaderKey] = h.Value
 					}
 				}
-				
+
 				require.Equal(t, "{{ api_key }}", deltaHeaders["X-API-Key"], "X-API-Key should have variable")
 				require.Equal(t, "req-123", deltaHeaders["X-Request-ID"], "X-Request-ID should be added")
 			},
@@ -294,11 +294,11 @@ flows:
 			}
 
 			// Verify counts
-			require.Equal(t, tt.wantDeltas.headers, actualDeltas.headers, 
+			require.Equal(t, tt.wantDeltas.headers, actualDeltas.headers,
 				"Delta header count mismatch. Expected %d, got %d", tt.wantDeltas.headers, actualDeltas.headers)
-			require.Equal(t, tt.wantDeltas.queries, actualDeltas.queries, 
+			require.Equal(t, tt.wantDeltas.queries, actualDeltas.queries,
 				"Delta query count mismatch. Expected %d, got %d", tt.wantDeltas.queries, actualDeltas.queries)
-			require.Equal(t, tt.wantDeltas.bodies, actualDeltas.bodies, 
+			require.Equal(t, tt.wantDeltas.bodies, actualDeltas.bodies,
 				"Delta body count mismatch. Expected %d, got %d", tt.wantDeltas.bodies, actualDeltas.bodies)
 
 			// Run custom checks
@@ -450,7 +450,7 @@ flows:
 				// Find base headers for auth_request template
 				var baseAuthHeader string
 				var deltaAuthHeader string
-				
+
 				// Get the base example ID for get_data
 				var baseExampleID, deltaExampleID string
 				for _, node := range data.Nodes {
@@ -471,7 +471,7 @@ flows:
 						break
 					}
 				}
-				
+
 				// Check headers
 				for _, h := range data.Headers {
 					if h.HeaderKey == "Authorization" {
@@ -482,11 +482,11 @@ flows:
 						}
 					}
 				}
-				
+
 				// Base should have the hardcoded token from template
-				require.Equal(t, "Bearer hardcoded-token-12345", baseAuthHeader, 
+				require.Equal(t, "Bearer hardcoded-token-12345", baseAuthHeader,
 					"Base header should contain hardcoded token from template")
-				
+
 				// Delta should have the variable reference
 				require.Equal(t, "Bearer {{ login.response.body.token }}", deltaAuthHeader,
 					"Delta header should contain variable reference from step override")
@@ -524,7 +524,7 @@ flows:
 			validate: func(t *testing.T, data *workflowsimple.WorkflowData) {
 				// Find base and delta bodies
 				var baseBodyData, deltaBodyData []byte
-				
+
 				// Get example IDs
 				var baseExampleID, deltaExampleID string
 				for _, node := range data.Nodes {
@@ -544,7 +544,7 @@ flows:
 						break
 					}
 				}
-				
+
 				// Get body data
 				for _, body := range data.RawBodies {
 					if body.ExampleID.String() == baseExampleID {
@@ -553,16 +553,16 @@ flows:
 						deltaBodyData = body.Data
 					}
 				}
-				
+
 				// Check base body has template values
 				baseBodyStr := string(baseBodyData)
-				require.Contains(t, baseBodyStr, "Default User", 
+				require.Contains(t, baseBodyStr, "Default User",
 					"Base body should contain template values")
 				require.Contains(t, baseBodyStr, "default@example.com",
 					"Base body should contain template email")
 				require.Contains(t, baseBodyStr, "user",
 					"Base body should contain template role")
-				
+
 				// Check delta body has overrides
 				deltaBodyStr := string(deltaBodyData)
 				require.Contains(t, deltaBodyStr, "{{ admin_name }}",
@@ -593,7 +593,7 @@ flows:
 			validate: func(t *testing.T, data *workflowsimple.WorkflowData) {
 				// When no template, base should have the variable reference
 				var baseAuthHeader, deltaAuthHeader string
-				
+
 				// Get example IDs
 				var baseExampleID, deltaExampleID string
 				for _, example := range data.Examples {
@@ -601,13 +601,13 @@ flows:
 						baseExampleID = example.ID.String()
 					}
 				}
-				
+
 				for _, reqNode := range data.RequestNodes {
 					if reqNode.DeltaExampleID != nil {
 						deltaExampleID = reqNode.DeltaExampleID.String()
 					}
 				}
-				
+
 				// Check headers
 				for _, h := range data.Headers {
 					if h.HeaderKey == "Authorization" {
@@ -618,7 +618,7 @@ flows:
 						}
 					}
 				}
-				
+
 				// Both should have the variable reference since no template
 				require.Equal(t, "Bearer {{ token }}", baseAuthHeader,
 					"Base header should have variable when no template")
@@ -627,12 +627,12 @@ flows:
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			data, err := workflowsimple.Parse([]byte(tt.yaml))
 			require.NoError(t, err)
-			
+
 			tt.validate(t, data)
 		})
 	}
@@ -675,22 +675,22 @@ flows:
 	// Convert to ioworkspace format
 	workspaceData, err := workflowsimple.ImportWorkflowYAML([]byte(originalYAML))
 	require.NoError(t, err)
-	
+
 	// Export back to YAML
-	exportedYAML, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	exportedYAML, err := workflowsimple.ExportWorkflowYAML(workspaceData)
 	require.NoError(t, err)
-	
+
 	t.Logf("Exported YAML:\n%s", string(exportedYAML))
-	
+
 	// Parse the exported YAML to verify structure
 	var exported map[string]any
 	err = yaml.Unmarshal(exportedYAML, &exported)
 	require.NoError(t, err)
-	
+
 	// Check that requests section has static values
 	requests := exported["requests"].([]any)
 	require.Greater(t, len(requests), 0, "Should have requests")
-	
+
 	// Find a request with the static token (either login or get_data)
 	var apiRequest map[string]any
 	for _, r := range requests {
@@ -703,7 +703,7 @@ flows:
 		}
 	}
 	require.NotNil(t, apiRequest, "Should find a request with static token in exported YAML")
-	
+
 	// Check headers in the request template
 	headers := apiRequest["headers"].(map[string]any)
 	authHeader := headers["Authorization"].(string)
@@ -711,12 +711,12 @@ flows:
 		"Request template should have static token, not variable reference")
 	require.NotContains(t, authHeader, "{{",
 		"Request template should not contain variable references")
-	
+
 	// Check that flow steps have the overrides
 	flows := exported["flows"].([]any)
 	flow := flows[0].(map[string]any)
 	steps := flow["steps"].([]any)
-	
+
 	// Find get_data step
 	var getDataStep map[string]any
 	for _, s := range steps {
@@ -729,13 +729,13 @@ flows:
 		}
 	}
 	require.NotNil(t, getDataStep, "Should find get_data step")
-	
+
 	// Check that the step has the override
 	stepHeaders := getDataStep["headers"].(map[string]any)
 	stepAuthHeader := stepHeaders["Authorization"].(string)
 	require.Equal(t, "Bearer {{ login.response.body.token }}", stepAuthHeader,
 		"Step should have variable reference override")
-	
+
 	// Verify the step body has overrides too
 	stepBody := getDataStep["body"].(map[string]any)
 	require.Equal(t, "{{ username }}", stepBody["username"],
@@ -777,28 +777,28 @@ flows:
           use_request: get_categories
           headers:
             Authorization: Bearer {{ login.response.body.token }}`
-            
+
 	// Parse and convert
 	workspaceData, err := workflowsimple.ImportWorkflowYAML([]byte(yamlWithHardcodedTokens))
 	require.NoError(t, err)
-	
+
 	// Export back
-	exportedYAML, err := workflowsimple.ExportWorkflowClean(workspaceData)
+	exportedYAML, err := workflowsimple.ExportWorkflowYAML(workspaceData)
 	require.NoError(t, err)
-	
+
 	// Verify the hardcoded token is preserved in the template
 	require.Contains(t, string(exportedYAML), "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
 		"Exported YAML should contain the hardcoded JWT token in the request template")
-	
+
 	// Verify the override uses variable
 	require.Contains(t, string(exportedYAML), "{{ login.response.body.token }}",
 		"Exported YAML should contain the variable reference in the flow step")
-	
+
 	// Parse to check structure
 	var exported map[string]any
 	err = yaml.Unmarshal(exportedYAML, &exported)
 	require.NoError(t, err)
-	
+
 	// Verify the get_categories template has the hardcoded token
 	requests := exported["requests"].([]any)
 	for _, r := range requests {
@@ -877,12 +877,12 @@ flows:
 			desc: "Request with template override should create delta raw body",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			data, err := workflowsimple.Parse([]byte(tt.yaml))
 			require.NoError(t, err)
-			
+
 			// Find all delta examples by checking request nodes
 			deltaExampleIDs := []string{}
 			for _, reqNode := range data.RequestNodes {
@@ -890,9 +890,9 @@ flows:
 					deltaExampleIDs = append(deltaExampleIDs, reqNode.DeltaExampleID.String())
 				}
 			}
-			
+
 			require.Greater(t, len(deltaExampleIDs), 0, "Should have delta examples")
-			
+
 			// Verify each delta example has a corresponding raw body
 			for _, deltaID := range deltaExampleIDs {
 				foundDeltaBody := false
@@ -904,13 +904,13 @@ flows:
 				}
 				require.True(t, foundDeltaBody, "Delta example %s should have a corresponding raw body", deltaID)
 			}
-			
+
 			// Verify we have exactly 3 examples per request (base, default, delta)
 			require.Equal(t, 3, len(data.Examples), "Should have exactly 3 examples (base, default, delta)")
-			
+
 			// Verify we have exactly 3 raw bodies (one for each example)
 			require.Equal(t, 3, len(data.RawBodies), "Should have exactly 3 raw bodies (one for each example)")
-			
+
 			// Also verify request nodes have delta endpoint and example IDs
 			for _, reqNode := range data.RequestNodes {
 				require.NotNil(t, reqNode.DeltaEndpointID, "Request node should have delta endpoint ID")

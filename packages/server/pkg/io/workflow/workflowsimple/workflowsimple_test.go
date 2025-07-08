@@ -67,7 +67,7 @@ flows:
 
 	// Verify endpoints and examples
 	require.Len(t, data.Endpoints, 2) // base + delta
-	require.Len(t, data.Examples, 3) // base + default + delta
+	require.Len(t, data.Examples, 3)  // base + default + delta
 
 	// Verify base endpoint
 	baseEndpoint := data.Endpoints[0]
@@ -88,7 +88,7 @@ flows:
 
 	// Verify headers
 	require.Greater(t, len(data.Headers), 0)
-	
+
 	// Check for resolved header values in delta
 	foundResolvedHeader := false
 	for _, h := range data.Headers {
@@ -239,9 +239,14 @@ flows:
 	require.Equal(t, "InitialRequest.response.status == 200", condNode.Condition.Comparisons.Expression)
 
 	// Verify for node
-	require.Len(t, data.ForNodes, 2) // for and for_each
+	require.Len(t, data.ForNodes, 1)
 	forNode := data.ForNodes[0]
 	require.Equal(t, int64(3), forNode.IterCount)
+	
+	// Verify for_each node
+	require.Len(t, data.ForEachNodes, 1)
+	forEachNode := data.ForEachNodes[0]
+	require.Equal(t, "response.items", forEachNode.IterExpression)
 
 	// Verify JS nodes
 	require.Len(t, data.JSNodes, 2)
@@ -505,19 +510,6 @@ flows:
           then: Something
 `,
 			want: "missing required condition",
-		},
-		{
-			name: "missing for iter_count",
-			yaml: `
-workspace_name: Test
-flows:
-  - name: TestFlow
-    steps:
-      - for:
-          name: Test
-          loop: Something
-`,
-			want: "missing required iter_count",
 		},
 		{
 			name: "unknown step type",

@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mexampleresp"
@@ -31,9 +32,8 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mvar"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
@@ -41,6 +41,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -57,9 +58,8 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/svar"
+	"the-dev-tools/server/pkg/service/sworkspace"
 
 	"gopkg.in/yaml.v3"
 )
@@ -98,7 +98,7 @@ type IOWorkspaceService struct {
 	flowForService       snodefor.NodeForService
 	flowForEachService   snodeforeach.NodeForEachService
 	flowJSService        snodejs.NodeJSService
-	
+
 	envService senv.EnvService
 	varService svar.VarService
 }
@@ -133,7 +133,7 @@ func NewIOWorkspaceService(
 	flowForService snodefor.NodeForService,
 	flowForEachService snodeforeach.NodeForEachService,
 	flowJSService snodejs.NodeJSService,
-	
+
 	envService senv.EnvService,
 	varService svar.VarService,
 ) *IOWorkspaceService {
@@ -166,7 +166,7 @@ func NewIOWorkspaceService(
 		flowForService:       flowForService,
 		flowForEachService:   flowForEachService,
 		flowJSService:        flowJSService,
-		
+
 		envService: envService,
 		varService: varService,
 	}
@@ -211,7 +211,7 @@ type WorkspaceData struct {
 	FlowForNodes       []mnfor.MNFor         `yaml:"flow_for_nodes"`
 	FlowForEachNodes   []mnforeach.MNForEach `yaml:"flow_foreach_nodes"`
 	FlowJSNodes        []mnjs.MNJS           `yaml:"flow_js_nodes"`
-	
+
 	// environments
 	Environments []menv.Env `yaml:"environments"`
 	Variables    []mvar.Var `yaml:"variables"`
@@ -256,7 +256,7 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 	txFlowForService := s.flowForService.TX(tx)
 	txFlowForEachService := s.flowForEachService.TX(tx)
 	txFlowJSService := s.flowJSService.TX(tx)
-	
+
 	// environment services
 	txEnvService := s.envService.TX(tx)
 	txVarService := s.varService.TX(tx)
@@ -377,7 +377,7 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 	if err != nil {
 		return err
 	}
-	
+
 	// Create environments
 	for _, env := range data.Environments {
 		err = txEnvService.Create(ctx, env)
@@ -385,7 +385,7 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 			return err
 		}
 	}
-	
+
 	// Create environment variables
 	for _, v := range data.Variables {
 		err = txVarService.Create(ctx, v)
@@ -434,9 +434,27 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 	if err != nil {
 		return nil, err
 	}
-	data.Flows = flows
 
-	for _, flow := range flows {
+	// Filter flows if FilterFlowIds is provided
+	if FilterExport.FilterFlowIds != nil && len(*FilterExport.FilterFlowIds) > 0 {
+		filteredFlows := []mflow.Flow{}
+		// Use string representation for reliable comparison
+		filterMap := make(map[string]bool)
+		for _, id := range *FilterExport.FilterFlowIds {
+			filterMap[id.String()] = true
+		}
+
+		for _, flow := range flows {
+			if filterMap[flow.ID.String()] {
+				filteredFlows = append(filteredFlows, flow)
+			}
+		}
+		data.Flows = filteredFlows
+	} else {
+		data.Flows = flows
+	}
+
+	for _, flow := range data.Flows {
 		// flow node
 		flowNodes, err := s.flowNodeService.GetNodesByFlowID(ctx, flow.ID)
 		if err != nil {
@@ -530,7 +548,7 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 			}
 			data.Examples = append(data.Examples, examples...)
 		}
-		
+
 		// Load specific examples (delta examples or filtered examples)
 		// Delta examples belong to hidden endpoints and won't be returned by GetApiExampleByCollection
 		if len(requiredExampleIDs) > 0 {
@@ -546,7 +564,7 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 				if found {
 					continue
 				}
-				
+
 				example, err := s.exampleService.GetApiExample(ctx, exampleID)
 				if err != nil {
 					if err == sql.ErrNoRows { // Skip if example doesn't exist
@@ -559,7 +577,7 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 		}
 
 	}
-	
+
 	// Load endpoints for delta examples (they won't be included in the collection query)
 	for _, example := range data.Examples {
 		// Check if we already have this endpoint
@@ -570,7 +588,7 @@ func (s *IOWorkspaceService) ExportWorkspace(ctx context.Context, workspaceID id
 				break
 			}
 		}
-		
+
 		if !endpointFound {
 			// Load the endpoint (likely a hidden delta endpoint)
 			endpoint, err := s.endpointService.GetItemApi(ctx, example.ItemApiID)

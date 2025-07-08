@@ -2,7 +2,6 @@ package workflowsimple
 
 import (
 	"fmt"
-	"time"
 	"gopkg.in/yaml.v3"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
@@ -10,15 +9,14 @@ import (
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyurl"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/model/mitemfolder"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mvar"
+	"the-dev-tools/server/pkg/model/mworkspace"
+	"time"
 )
 
 // ImportWorkflowYAML converts simplified workflow YAML to ioworkspace.WorkspaceData
@@ -50,10 +48,10 @@ func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 
 	// Extract all variable references from the workflow
 	variableRefs := ExtractVariableReferences(workflowData)
-	
+
 	// Separate into flow and environment variables
 	_, envVarsToCreate := SeparateVariablesByType(variableRefs)
-	
+
 	// Create a default environment for the workspace
 	defaultEnv := menv.Env{
 		ID:          idwrap.NewNow(),
@@ -63,7 +61,7 @@ func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 		Description: "Default environment for imported workflows",
 		Updated:     time.Now(),
 	}
-	
+
 	// Convert environment variables to proper format with EnvID
 	var environmentVariables []mvar.Var
 	for _, v := range envVarsToCreate {
@@ -111,37 +109,9 @@ func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 		Variables:              environmentVariables,
 	}
 
-	// Separate for and for_each nodes
-	forNodes := make([]mnfor.MNFor, 0)
-	forEachNodes := make([]mnforeach.MNForEach, 0)
-	
-	for _, node := range resolved.FlowNodes {
-		switch node.NodeKind {
-		case mnnode.NODE_KIND_FOR_EACH:
-			// Find the corresponding for node data
-			for _, fn := range resolved.FlowForNodes {
-				if fn.FlowNodeID == node.ID {
-					// Create a for_each node
-					forEachNode := mnforeach.MNForEach{
-						FlowNodeID: fn.FlowNodeID,
-						// Note: The simplified format doesn't capture the items expression
-						// In a real implementation, we'd need to store this somewhere
-					}
-					forEachNodes = append(forEachNodes, forEachNode)
-				}
-			}
-		case mnnode.NODE_KIND_FOR:
-			// Keep regular for nodes
-			for _, fn := range resolved.FlowForNodes {
-				if fn.FlowNodeID == node.ID {
-					forNodes = append(forNodes, fn)
-				}
-			}
-		}
-	}
-
-	workspaceData.FlowForNodes = forNodes
-	workspaceData.FlowForEachNodes = forEachNodes
+	// Copy for and for_each nodes directly
+	workspaceData.FlowForNodes = resolved.FlowForNodes
+	workspaceData.FlowForEachNodes = resolved.FlowForEachNodes
 
 	return workspaceData, nil
 }
