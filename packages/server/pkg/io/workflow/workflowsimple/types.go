@@ -4,9 +4,11 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
@@ -111,6 +113,28 @@ type WorkflowData struct {
 	Headers            []mexampleheader.Header
 	Queries            []mexamplequery.Query
 	RawBodies          []mbodyraw.ExampleBodyRaw
+}
+
+// SimplifiedYAMLResolved contains all entities parsed from simplified YAML
+type SimplifiedYAMLResolved struct {
+	// Collection Items
+	Collections []mcollection.Collection
+	Endpoints   []mitemapi.ItemApi
+	Examples    []mitemapiexample.ItemApiExample
+	Headers     []mexampleheader.Header
+	Queries     []mexamplequery.Query
+	RawBodies   []mbodyraw.ExampleBodyRaw
+
+	// Flow Items
+	Flows              []mflow.Flow
+	FlowNodes          []mnnode.MNode
+	FlowEdges          []edge.Edge
+	FlowVariables      []mflowvariable.FlowVariable
+	FlowRequestNodes   []mnrequest.MNRequest
+	FlowConditionNodes []mnif.MNIF
+	FlowNoopNodes      []mnnoop.NoopNode
+	FlowForNodes       []mnfor.MNFor
+	FlowJSNodes        []mnjs.MNJS
 }
 
 // nodeInfo stores information about nodes during parsing

@@ -8,10 +8,12 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
@@ -23,6 +25,101 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 )
+
+// ConvertSimplifiedYAML converts simplified YAML to all the entities needed for import
+func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap) (SimplifiedYAMLResolved, error) {
+	result := SimplifiedYAMLResolved{}
+
+	// Parse the YAML
+	workflowData, err := Parse(data)
+	if err != nil {
+		return result, err
+	}
+
+	// Create collection
+	collection := mcollection.Collection{
+		ID:          collectionID,
+		Name:        "Workflow Collection",
+		WorkspaceID: workspaceID,
+	}
+	result.Collections = append(result.Collections, collection)
+
+	// Convert flow data
+	flow := workflowData.Flow
+	flow.WorkspaceID = workspaceID
+	result.Flows = append(result.Flows, flow)
+
+	// Copy all flow nodes
+	result.FlowNodes = workflowData.Nodes
+
+	// Copy all edges
+	result.FlowEdges = workflowData.Edges
+
+	// Convert variables to flow variables
+	for _, v := range workflowData.Variables {
+		flowVar := mflowvariable.FlowVariable{
+			ID:      idwrap.NewNow(),
+			FlowID:  flow.ID,
+			Name:    v.VarKey,
+			Value:   v.Value,
+			Enabled: true,
+		}
+		result.FlowVariables = append(result.FlowVariables, flowVar)
+	}
+
+	// Copy node implementations
+	result.FlowRequestNodes = workflowData.RequestNodes
+	result.FlowConditionNodes = workflowData.ConditionNodes
+	result.FlowNoopNodes = workflowData.NoopNodes
+	result.FlowForNodes = workflowData.ForNodes
+	result.FlowJSNodes = workflowData.JSNodes
+
+	// Process endpoints and examples
+	for _, endpoint := range workflowData.Endpoints {
+		// Set collection ID
+		endpoint.CollectionID = collectionID
+		result.Endpoints = append(result.Endpoints, endpoint)
+	}
+
+	// Process examples
+	for _, example := range workflowData.Examples {
+		// Set collection ID
+		example.CollectionID = collectionID
+		result.Examples = append(result.Examples, example)
+	}
+
+	// Copy headers, queries, and bodies
+	result.Headers = workflowData.Headers
+	result.Queries = workflowData.Queries
+	result.RawBodies = workflowData.RawBodies
+
+	// Set Prev/Next for endpoints
+	for i := range result.Endpoints {
+		if i > 0 {
+			prevID := &result.Endpoints[i-1].ID
+			result.Endpoints[i].Prev = prevID
+		}
+		if i < len(result.Endpoints)-1 {
+			nextID := &result.Endpoints[i+1].ID
+			result.Endpoints[i].Next = nextID
+		}
+	}
+
+	// Set Prev/Next for examples
+	for i := range result.Examples {
+		if i > 0 {
+			prevID := &result.Examples[i-1].ID
+			result.Examples[i].Prev = prevID
+		}
+		if i < len(result.Examples)-1 {
+			nextID := &result.Examples[i+1].ID
+			result.Examples[i].Next = nextID
+		}
+	}
+
+	return result, nil
+}
+
 
 // Parse parses the workflow YAML and returns WorkflowData
 func Parse(data []byte) (*WorkflowData, error) {

@@ -10,11 +10,8 @@ import (
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyurl"
-	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
@@ -26,10 +23,14 @@ import (
 
 // ImportWorkflowYAML converts simplified workflow YAML to ioworkspace.WorkspaceData
 func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
-	// Parse the simplified format
-	workflowData, err := Parse(data)
+	// Generate workspace ID first
+	workspaceID := idwrap.NewNow()
+	collectionID := idwrap.NewNow()
+
+	// Use the new ConvertSimplifiedYAML function
+	resolved, err := ConvertSimplifiedYAML(data, collectionID, workspaceID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse simplified workflow: %w", err)
+		return nil, fmt.Errorf("failed to convert simplified workflow: %w", err)
 	}
 
 	// Extract workspace name from the workflow
@@ -41,34 +42,17 @@ func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 			workspaceName = name
 		}
 	}
-
-	// Generate workspace ID first
-	workspaceID := idwrap.NewNow()
-
-	// Create a default collection for the imported workflows
-	collectionID := idwrap.NewNow()
-	defaultCollection := mcollection.Collection{
-		ID:          collectionID,
-		Name:        "Imported Workflows",
-		WorkspaceID: workspaceID,
+	// Parse the data to extract variables
+	workflowData, err := Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse workflow: %w", err)
 	}
 
-	// Update all endpoints and examples to have the collection ID
-	for i := range workflowData.Endpoints {
-		workflowData.Endpoints[i].CollectionID = collectionID
-	}
-	for i := range workflowData.Examples {
-		workflowData.Examples[i].CollectionID = collectionID
-	}
-
-	// Update the flow with the workspace ID
-	workflowData.Flow.WorkspaceID = workspaceID
-	
 	// Extract all variable references from the workflow
 	variableRefs := ExtractVariableReferences(workflowData)
 	
 	// Separate into flow and environment variables
-	flowVarsFromYAML, envVarsToCreate := SeparateVariablesByType(variableRefs)
+	_, envVarsToCreate := SeparateVariablesByType(variableRefs)
 	
 	// Create a default environment for the workspace
 	defaultEnv := menv.Env{
@@ -97,57 +81,45 @@ func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 	// Create workspace data
 	workspaceData := &ioworkspace.WorkspaceData{
 		Workspace: mworkspace.Workspace{
-			ID:   workspaceID, // Use the workspace ID we generated above
+			ID:   workspaceID,
 			Name: workspaceName,
 		},
-		Collections:            []mcollection.Collection{defaultCollection},
+		Collections:            resolved.Collections,
 		Folders:                make([]mitemfolder.ItemFolder, 0),
-		Endpoints:              workflowData.Endpoints,
-		Examples:               workflowData.Examples,
-		ExampleHeaders:         workflowData.Headers,
-		ExampleQueries:         workflowData.Queries,
+		Endpoints:              resolved.Endpoints,
+		Examples:               resolved.Examples,
+		ExampleHeaders:         resolved.Headers,
+		ExampleQueries:         resolved.Queries,
 		ExampleAsserts:         make([]massert.Assert, 0),
-		Rawbodies:              workflowData.RawBodies,
+		Rawbodies:              resolved.RawBodies,
 		FormBodies:             make([]mbodyform.BodyForm, 0),
 		UrlBodies:              make([]mbodyurl.BodyURLEncoded, 0),
 		ExampleResponses:       make([]mexampleresp.ExampleResp, 0),
 		ExampleResponseHeaders: make([]mexamplerespheader.ExampleRespHeader, 0),
 		ExampleResponseAsserts: make([]massertres.AssertResult, 0),
-		Flows:                  []mflow.Flow{workflowData.Flow},
-		FlowNodes:              workflowData.Nodes,
-		FlowEdges:              workflowData.Edges,
-		FlowVariables:          make([]mflowvariable.FlowVariable, 0),
-		FlowRequestNodes:       workflowData.RequestNodes,
-		FlowConditionNodes:     workflowData.ConditionNodes,
-		FlowNoopNodes:          workflowData.NoopNodes,
-		FlowForNodes:           workflowData.ForNodes,
-		FlowForEachNodes:       make([]mnforeach.MNForEach, 0), // Convert from ForNodes if needed
-		FlowJSNodes:            workflowData.JSNodes,
+		Flows:                  resolved.Flows,
+		FlowNodes:              resolved.FlowNodes,
+		FlowEdges:              resolved.FlowEdges,
+		FlowVariables:          resolved.FlowVariables,
+		FlowRequestNodes:       resolved.FlowRequestNodes,
+		FlowConditionNodes:     resolved.FlowConditionNodes,
+		FlowNoopNodes:          resolved.FlowNoopNodes,
+		FlowForNodes:           resolved.FlowForNodes,
+		FlowForEachNodes:       make([]mnforeach.MNForEach, 0),
+		FlowJSNodes:            resolved.FlowJSNodes,
 		Environments:           []menv.Env{defaultEnv},
 		Variables:              environmentVariables,
-	}
-
-	// Convert flow variables (only those defined in the YAML with values)
-	for _, v := range flowVarsFromYAML {
-		flowVar := mflowvariable.FlowVariable{
-			ID:      idwrap.NewNow(),
-			FlowID:  workflowData.Flow.ID,
-			Name:    v.VarKey,
-			Value:   v.Value,
-			Enabled: true,
-		}
-		workspaceData.FlowVariables = append(workspaceData.FlowVariables, flowVar)
 	}
 
 	// Separate for and for_each nodes
 	forNodes := make([]mnfor.MNFor, 0)
 	forEachNodes := make([]mnforeach.MNForEach, 0)
 	
-	for _, node := range workflowData.Nodes {
+	for _, node := range resolved.FlowNodes {
 		switch node.NodeKind {
 		case mnnode.NODE_KIND_FOR_EACH:
 			// Find the corresponding for node data
-			for _, fn := range workflowData.ForNodes {
+			for _, fn := range resolved.FlowForNodes {
 				if fn.FlowNodeID == node.ID {
 					// Create a for_each node
 					forEachNode := mnforeach.MNForEach{
@@ -160,7 +132,7 @@ func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 			}
 		case mnnode.NODE_KIND_FOR:
 			// Keep regular for nodes
-			for _, fn := range workflowData.ForNodes {
+			for _, fn := range resolved.FlowForNodes {
 				if fn.FlowNodeID == node.ID {
 					forNodes = append(forNodes, fn)
 				}
