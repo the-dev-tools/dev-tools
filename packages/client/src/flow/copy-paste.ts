@@ -2,7 +2,7 @@ import type { MessageInitShape } from '@bufbuild/protobuf';
 import { enumFromJson } from '@bufbuild/protobuf';
 import { useRouteContext } from '@tanstack/react-router';
 import { useReactFlow } from '@xyflow/react';
-import { Array, HashMap, Option, pipe } from 'effect';
+import { Array } from 'effect';
 import { Ulid } from 'id128';
 import { use, useEffect, useRef } from 'react';
 import type { NodeSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
@@ -26,10 +26,8 @@ import {
 import {
   HeaderDeltaCreateEndpoint,
   HeaderDeltaListEndpoint,
-  HeaderDeltaUpdateEndpoint,
   QueryDeltaCreateEndpoint,
   QueryDeltaListEndpoint,
-  QueryDeltaUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.js';
 import { NodeGetEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
 import { DataClient } from '~data-client';
@@ -53,37 +51,24 @@ async function copyDeltaData(
       originId: exampleId,
     });
 
-    const newItemMap = pipe(
-      await dataClient.fetch(HeaderDeltaListEndpoint, {
-        exampleId: deltaExampleId,
-        originId: exampleId,
-      }),
-      (_) =>
-        Array.filterMap(_.items, (_) => {
-          if (!_.origin) return Option.none();
-          const id = _.origin.headerId.toString();
-          return Option.some([id, _] as const);
-        }),
-      HashMap.fromIterable,
-    );
+    // Don't fetch the target list - it triggers auto-creation in the backend
+    // Instead, only copy non-ORIGIN items directly
 
     for (const { $typeName: _, ...sourceItem } of sourceItems) {
       if (sourceItem.source === SourceKind.ORIGIN) continue;
 
-      if (sourceItem.source === SourceKind.MIXED) {
-        const newItem = pipe(
-          Option.fromNullable(sourceItem.origin),
-          Option.flatMap((_) => HashMap.get(newItemMap, _.headerId.toString())),
-        );
-        if (Option.isNone(newItem)) continue;
-        await dataClient.fetch(HeaderDeltaUpdateEndpoint, { ...sourceItem, headerId: newItem.value.headerId });
-      }
-
-      if (sourceItem.source === SourceKind.DELTA) {
+      // For both MIXED and DELTA items, create them in the new delta example
+      // The backend will handle the proper relationships
+      if (sourceItem.source === SourceKind.MIXED || sourceItem.source === SourceKind.DELTA) {
+        // Get the origin header ID from the source item
+        const originHeaderId = sourceItem.origin?.headerId;
+        
         await dataClient.fetch(HeaderDeltaCreateEndpoint, {
           ...sourceItem,
           exampleId: deltaExampleId,
           originId: exampleId,
+          // If it's a MIXED item, pass the origin header ID to maintain the relationship
+          ...(originHeaderId && { headerId: originHeaderId }),
         });
       }
     }
@@ -98,37 +83,24 @@ async function copyDeltaData(
       originId: exampleId,
     });
 
-    const newItemMap = pipe(
-      await dataClient.fetch(QueryDeltaListEndpoint, {
-        exampleId: deltaExampleId,
-        originId: exampleId,
-      }),
-      (_) =>
-        Array.filterMap(_.items, (_) => {
-          if (!_.origin) return Option.none();
-          const id = _.origin.queryId.toString();
-          return Option.some([id, _] as const);
-        }),
-      HashMap.fromIterable,
-    );
+    // Don't fetch the target list - it triggers auto-creation in the backend
+    // Instead, only copy non-ORIGIN items directly
 
     for (const { $typeName: _, ...sourceItem } of sourceItems) {
       if (sourceItem.source === SourceKind.ORIGIN) continue;
 
-      if (sourceItem.source === SourceKind.MIXED) {
-        const newItem = pipe(
-          Option.fromNullable(sourceItem.origin),
-          Option.flatMap((_) => HashMap.get(newItemMap, _.queryId.toString())),
-        );
-        if (Option.isNone(newItem)) continue;
-        await dataClient.fetch(QueryDeltaUpdateEndpoint, { ...sourceItem, queryId: newItem.value.queryId });
-      }
-
-      if (sourceItem.source === SourceKind.DELTA) {
+      // For both MIXED and DELTA items, create them in the new delta example
+      // The backend will handle the proper relationships
+      if (sourceItem.source === SourceKind.MIXED || sourceItem.source === SourceKind.DELTA) {
+        // Get the origin query ID from the source item
+        const originQueryId = sourceItem.origin?.queryId;
+        
         await dataClient.fetch(QueryDeltaCreateEndpoint, {
           ...sourceItem,
           exampleId: deltaExampleId,
           originId: exampleId,
+          // If it's a MIXED item, pass the origin query ID to maintain the relationship
+          ...(originQueryId && { queryId: originQueryId }),
         });
       }
     }
