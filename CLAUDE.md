@@ -34,19 +34,16 @@ DevTools is a free, open-source Postman-style API tester that runs locally. It f
 Implemented a comprehensive node duplication system for the flow editor:
 
 1. **Single Node Duplication** - Right-click context menu "Duplicate" option
-
    - Duplicates the selected node without edges
    - Creates independent deltas for REQUEST nodes
    - Positions new node 50px offset from original
 
 2. **Copy/Paste with Ctrl+C/V** - Multi-node selection support
-
    - Preserves edges between selected nodes
    - Maintains relative positioning
    - Creates new deltas for all REQUEST nodes
 
 3. **Data Preservation**
-
    - Copies all delta data (headers, query parameters, body)
    - Preserves HTTP method overrides from delta endpoints
    - Maintains variable references in headers/queries (not resolved to constants)

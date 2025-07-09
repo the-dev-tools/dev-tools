@@ -63,7 +63,7 @@
       "plugin": "@nx/eslint/plugin",
       "options": {
         "targetName": "lint",
-        "flags": ["unstable_config_lookup_from_file"]
+        "flags": ["v10_config_lookup_from_file"]
       }
     }
   ]

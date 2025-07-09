@@ -133,8 +133,11 @@ const rules: Linter.Config = {
 
     'react/prop-types': 'off',
 
+    'better-tailwindcss/enforce-consistent-line-wrapping': [
+      'warn',
+      { group: 'emptyLine', preferSingleLine: true, printWidth: 120 },
+    ],
     'better-tailwindcss/enforce-consistent-variable-syntax': ['warn', { syntax: 'parentheses' }],
-    'better-tailwindcss/multiline': ['warn', { group: 'emptyLine', preferSingleLine: true, printWidth: 120 }],
   },
 };
 
