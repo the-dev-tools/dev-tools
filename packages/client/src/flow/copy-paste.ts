@@ -52,25 +52,38 @@ async function copyDeltaData(
     });
 
     // Don't fetch the target list - it triggers auto-creation in the backend
-    // Instead, only copy non-ORIGIN items directly
+    // Only copy items that have been actually modified from their origin
 
     for (const { $typeName: _, ...sourceItem } of sourceItems) {
+      // Skip ORIGIN items - these will be auto-created by backend
       if (sourceItem.source === SourceKind.ORIGIN) continue;
 
-      // For both MIXED and DELTA items, create them in the new delta example
-      // The backend will handle the proper relationships
-      if (sourceItem.source === SourceKind.MIXED || sourceItem.source === SourceKind.DELTA) {
-        // Get the origin header ID from the source item
-        const originHeaderId = sourceItem.origin?.headerId;
+      // For MIXED items, check if they've actually been modified
+      if (sourceItem.source === SourceKind.MIXED && sourceItem.origin) {
+        // Compare values with origin to see if actually modified
+        const isActuallyModified = 
+          sourceItem.key !== sourceItem.origin.key ||
+          sourceItem.enabled !== sourceItem.origin.enabled ||
+          sourceItem.value !== sourceItem.origin.value ||
+          sourceItem.description !== sourceItem.origin.description;
         
-        await dataClient.fetch(HeaderDeltaCreateEndpoint, {
-          ...sourceItem,
-          exampleId: deltaExampleId,
-          originId: exampleId,
-          // If it's a MIXED item, pass the origin header ID to maintain the relationship
-          ...(originHeaderId && { headerId: originHeaderId }),
-        });
+        // Skip if not actually modified - let backend create as ORIGIN
+        if (!isActuallyModified) continue;
       }
+
+      // Create the item (either DELTA or actually modified MIXED)
+      const originHeaderId = sourceItem.origin?.headerId;
+      
+      await dataClient.fetch(HeaderDeltaCreateEndpoint, {
+        description: sourceItem.description,
+        enabled: sourceItem.enabled,
+        exampleId: deltaExampleId,
+        key: sourceItem.key,
+        originId: exampleId,
+        value: sourceItem.value,
+        // Pass the origin header ID to maintain the relationship
+        ...(originHeaderId && { headerId: originHeaderId }),
+      });
     }
   } catch (e) {
     console.error('Error copying headers:', e);
@@ -84,25 +97,38 @@ async function copyDeltaData(
     });
 
     // Don't fetch the target list - it triggers auto-creation in the backend
-    // Instead, only copy non-ORIGIN items directly
+    // Only copy items that have been actually modified from their origin
 
     for (const { $typeName: _, ...sourceItem } of sourceItems) {
+      // Skip ORIGIN items - these will be auto-created by backend
       if (sourceItem.source === SourceKind.ORIGIN) continue;
 
-      // For both MIXED and DELTA items, create them in the new delta example
-      // The backend will handle the proper relationships
-      if (sourceItem.source === SourceKind.MIXED || sourceItem.source === SourceKind.DELTA) {
-        // Get the origin query ID from the source item
-        const originQueryId = sourceItem.origin?.queryId;
+      // For MIXED items, check if they've actually been modified
+      if (sourceItem.source === SourceKind.MIXED && sourceItem.origin) {
+        // Compare values with origin to see if actually modified
+        const isActuallyModified = 
+          sourceItem.key !== sourceItem.origin.key ||
+          sourceItem.enabled !== sourceItem.origin.enabled ||
+          sourceItem.value !== sourceItem.origin.value ||
+          sourceItem.description !== sourceItem.origin.description;
         
-        await dataClient.fetch(QueryDeltaCreateEndpoint, {
-          ...sourceItem,
-          exampleId: deltaExampleId,
-          originId: exampleId,
-          // If it's a MIXED item, pass the origin query ID to maintain the relationship
-          ...(originQueryId && { queryId: originQueryId }),
-        });
+        // Skip if not actually modified - let backend create as ORIGIN
+        if (!isActuallyModified) continue;
       }
+
+      // Create the item (either DELTA or actually modified MIXED)
+      const originQueryId = sourceItem.origin?.queryId;
+      
+      await dataClient.fetch(QueryDeltaCreateEndpoint, {
+        description: sourceItem.description,
+        enabled: sourceItem.enabled,
+        exampleId: deltaExampleId,
+        key: sourceItem.key,
+        originId: exampleId,
+        value: sourceItem.value,
+        // Pass the origin query ID to maintain the relationship
+        ...(originQueryId && { queryId: originQueryId }),
+      });
     }
   } catch (e) {
     console.error('Error copying query params:', e);

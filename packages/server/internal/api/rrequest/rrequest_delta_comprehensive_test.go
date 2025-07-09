@@ -67,7 +67,7 @@ func setupComprehensiveDeltaTestData(t *testing.T) *comprehensiveDeltaTestData {
 	as := sassert.New(queries)
 
 	// Create RPC service
-	rpc := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 
 	// Create workspace and collection
 	workspaceID := idwrap.NewNow()

@@ -67,7 +67,7 @@ func TestRPCRequestHeaderCreate(t *testing.T) {
 		Description: expectedDescription,
 	})
 
-	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpcExample := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.HeaderCreate(authedCtx, req)
 	if err != nil {
@@ -176,7 +176,7 @@ func TestRPCRequestHeaderList(t *testing.T) {
 		ExampleId: exampleID.Bytes(),
 	})
 
-	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpcExample := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.HeaderList(authedCtx, req)
 	if err != nil {
@@ -282,7 +282,7 @@ func TestRPCRequestHeaderUpdate(t *testing.T) {
 		Description: updatedDesc,
 	})
 
-	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpcExample := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.HeaderUpdate(authedCtx, req)
 	if err != nil {
@@ -379,7 +379,7 @@ func TestRPCRequestHeaderDelete(t *testing.T) {
 		HeaderId: headerID.Bytes(),
 	})
 
-	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpcExample := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.HeaderDelete(authedCtx, req)
 	if err != nil {
@@ -463,7 +463,7 @@ func TestRPCRequestAssertCreate(t *testing.T) {
 		Value: expectedValue,
 	})
 
-	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpcExample := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.AssertCreate(authedCtx, req)
 	testutil.AssertFatal(t, nil, err)
@@ -553,7 +553,7 @@ func TestRPCRequestAssertGet(t *testing.T) {
 		ExampleId: exampleID.Bytes(),
 	})
 
-	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpcExample := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.AssertList(authedCtx, req)
 	testutil.AssertFatal(t, nil, err)
@@ -646,7 +646,7 @@ func TestRPCRequestAssertUpdate(t *testing.T) {
 		},
 	})
 
-	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpcExample := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.AssertUpdate(authedCtx, req)
 	testutil.AssertFatal(t, nil, err)
@@ -730,7 +730,7 @@ func TestRPCRequestAssertDelete(t *testing.T) {
 		AssertId: assert.ID.Bytes(),
 	})
 
-	rpcExample := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpcExample := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcExample.AssertDelete(authedCtx, req)
 	testutil.AssertFatal(t, nil, err)

@@ -104,7 +104,7 @@ func setupDeltaTestData(t *testing.T) *deltaTestData {
 		t.Fatal(err)
 	}
 
-	rpc := rrequest.New(db, cs, us, iaes, ehs, eqs, as)
+	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
 	return &deltaTestData{
