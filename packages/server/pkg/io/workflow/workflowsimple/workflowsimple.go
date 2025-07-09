@@ -27,6 +27,99 @@ import (
 	"the-dev-tools/server/pkg/varsystem"
 )
 
+// ========================================
+// Constants
+// ========================================
+
+const (
+	// Field name constants
+	fieldName        = "name"
+	fieldValue       = "value"
+	fieldMethod      = "method"
+	fieldURL         = "url"
+	fieldHeaders     = "headers"
+	fieldQueryParams = "query_params"
+	fieldBody        = "body"
+	fieldCondition   = "condition"
+	fieldIterCount   = "iter_count"
+	fieldItems       = "items"
+	fieldCode        = "code"
+	fieldDependsOn   = "depends_on"
+	fieldUseRequest  = "use_request"
+	fieldThen        = "then"
+	fieldElse        = "else"
+	fieldLoop        = "loop"
+	fieldSteps       = "steps"
+	fieldFlows       = "flows"
+
+	// Node type constants
+	stepTypeRequest = "request"
+	stepTypeIf      = "if"
+	stepTypeFor     = "for"
+	stepTypeForEach = "for_each"
+	stepTypeJS      = "js"
+)
+
+// ========================================
+// Error Types
+// ========================================
+
+// WorkflowError provides structured error information
+type WorkflowError struct {
+	Message string
+	Field   string
+	Value   interface{}
+}
+
+func (e WorkflowError) Error() string {
+	if e.Field != "" {
+		return fmt.Sprintf("%s: field '%s' with value '%v'", e.Message, e.Field, e.Value)
+	}
+	return e.Message
+}
+
+func newWorkflowError(message, field string, value interface{}) error {
+	return WorkflowError{
+		Message: message,
+		Field:   field,
+		Value:   value,
+	}
+}
+
+// ========================================
+// Configuration Types
+// ========================================
+
+// NameValue represents a name-value pair for headers, queries, etc.
+type NameValue struct {
+	Name  string
+	Value string
+}
+
+// RequestConfig holds configuration for a request
+type RequestConfig struct {
+	Name        string
+	Method      string
+	URL         string
+	Headers     []NameValue
+	QueryParams []NameValue
+	Body        interface{}
+}
+
+// requestContext holds all the IDs and data needed for request processing
+type requestContext struct {
+	nodeID           idwrap.IDWrap
+	endpointID       idwrap.IDWrap
+	deltaEndpointID  idwrap.IDWrap
+	exampleID        idwrap.IDWrap
+	defaultExampleID idwrap.IDWrap
+	deltaExampleID   idwrap.IDWrap
+}
+
+// ========================================
+// Main Entry Points
+// ========================================
+
 // ConvertSimplifiedYAML converts simplified YAML to all the entities needed for import
 func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap) (SimplifiedYAMLResolved, error) {
 	result := SimplifiedYAMLResolved{}
@@ -138,7 +231,7 @@ func Parse(data []byte) (*WorkflowData, error) {
 	}
 
 	if workflow.WorkspaceName == "" {
-		return nil, fmt.Errorf("workspace_name is required")
+		return nil, newWorkflowError("workspace_name is required", "workspace_name", nil)
 	}
 
 	// Parse request templates (support both old and new format)
@@ -171,7 +264,7 @@ func Parse(data []byte) (*WorkflowData, error) {
 
 	// Process first flow only (simplified version)
 	if len(workflow.Flows) == 0 {
-		return nil, fmt.Errorf("at least one flow is required")
+		return nil, newWorkflowError("at least one flow is required", "flows", nil)
 	}
 
 	flow := workflow.Flows[0]
@@ -212,7 +305,7 @@ func Parse(data []byte) (*WorkflowData, error) {
 	workflowData.NoopNodes = append(workflowData.NoopNodes, noopNode)
 
 	// Get raw steps
-	rawFlows, ok := rawWorkflow["flows"].([]any)
+	rawFlows, ok := rawWorkflow[fieldFlows].([]any)
 	if !ok || len(rawFlows) == 0 {
 		return nil, fmt.Errorf("invalid flows format")
 	}
@@ -223,8 +316,8 @@ func Parse(data []byte) (*WorkflowData, error) {
 		if !ok {
 			continue
 		}
-		if name, ok := rfMap["name"].(string); ok && name == flow.Name {
-			if steps, ok := rfMap["steps"].([]any); ok {
+		if name, ok := rfMap[fieldName].(string); ok && name == flow.Name {
+			if steps, ok := rfMap[fieldSteps].([]any); ok {
 				for _, step := range steps {
 					if stepMap, ok := step.(map[string]any); ok && len(stepMap) == 1 {
 						rawSteps = append(rawSteps, stepMap)
@@ -246,9 +339,9 @@ func Parse(data []byte) (*WorkflowData, error) {
 				return nil, fmt.Errorf("invalid step data format")
 			}
 
-			nodeName, ok := dataMap["name"].(string)
+			nodeName, ok := dataMap[fieldName].(string)
 			if !ok || nodeName == "" {
-				return nil, fmt.Errorf("step missing required 'name' field")
+				return nil, newWorkflowError("step missing required field", fieldName, nodeName)
 			}
 
 			nodeID := idwrap.NewNow()
@@ -259,7 +352,7 @@ func Parse(data []byte) (*WorkflowData, error) {
 			}
 
 			// Get dependencies
-			if deps, ok := dataMap["depends_on"].([]any); ok {
+			if deps, ok := dataMap[fieldDependsOn].([]any); ok {
 				for _, dep := range deps {
 					if depStr, ok := dep.(string); ok && depStr != "" {
 						info.dependsOn = append(info.dependsOn, depStr)
@@ -272,34 +365,34 @@ func Parse(data []byte) (*WorkflowData, error) {
 
 			// Process step based on type
 			switch stepType {
-			case "request":
-				if err := processRequestStep(workflowData, flowID, nodeID, nodeName, dataMap, templates, varMap); err != nil {
+			case stepTypeRequest:
+				if err := processRequestStepForNode(nodeName, nodeID, flowID, dataMap, templates, varMap, workflowData); err != nil {
 					return nil, err
 				}
-			case "if":
-				if err := processIfStep(workflowData, flowID, nodeID, nodeName, dataMap); err != nil {
+			case stepTypeIf:
+				if err := processIfStepForNode(nodeName, nodeID, flowID, dataMap, workflowData); err != nil {
 					return nil, err
 				}
-			case "for":
-				if err := processForStep(workflowData, flowID, nodeID, nodeName, dataMap); err != nil {
+			case stepTypeFor:
+				if err := processForStepForNode(nodeName, nodeID, flowID, dataMap, workflowData); err != nil {
 					return nil, err
 				}
-			case "for_each":
-				if err := processForEachStep(workflowData, flowID, nodeID, nodeName, dataMap); err != nil {
+			case stepTypeForEach:
+				if err := processForEachStepForNode(nodeName, nodeID, flowID, dataMap, workflowData); err != nil {
 					return nil, err
 				}
-			case "js":
-				if err := processJSStep(workflowData, flowID, nodeID, nodeName, dataMap); err != nil {
+			case stepTypeJS:
+				if err := processJSStepForNode(nodeName, nodeID, flowID, dataMap, workflowData); err != nil {
 					return nil, err
 				}
 			default:
-				return nil, fmt.Errorf("unknown step type: %s", stepType)
+				return nil, newWorkflowError("unknown step type", "stepType", stepType)
 			}
 		}
 	}
 
 	// Create edges
-	createEdges(workflowData, flowID, startNodeID, nodeInfoMap, nodeList, rawSteps)
+	createEdgesForFlow(flowID, startNodeID, nodeInfoMap, nodeList, rawSteps, workflowData)
 
 	// Position nodes
 	if err := positionNodes(workflowData); err != nil {
@@ -309,28 +402,58 @@ func Parse(data []byte) (*WorkflowData, error) {
 	return workflowData, nil
 }
 
-// parseRequestData parses a single request template from data
-func parseRequestData(data map[string]any) *requestTemplate {
+// ========================================
+// Parsing Helper Functions
+// ========================================
+
+// parseRequestTemplates parses request templates into a map
+func parseRequestTemplates(templates map[string]map[string]any) map[string]*requestTemplate {
+	result := make(map[string]*requestTemplate)
+	for name, tmpl := range templates {
+		result[name] = parseRequestDataFromMap(tmpl)
+	}
+	return result
+}
+
+// parseRequests parses the new requests format into templates
+func parseRequests(requests []map[string]any) map[string]*requestTemplate {
+	result := make(map[string]*requestTemplate)
+
+	for _, req := range requests {
+		// Get the request name
+		name, ok := req[fieldName].(string)
+		if !ok || name == "" {
+			continue
+		}
+
+		result[name] = parseRequestDataFromMap(req)
+	}
+
+	return result
+}
+
+// parseRequestDataFromMap parses a single request template from data
+func parseRequestDataFromMap(data map[string]any) *requestTemplate {
 	rt := &requestTemplate{}
-	if method, ok := data["method"].(string); ok && method != "" {
+	if method, ok := data[fieldMethod].(string); ok && method != "" {
 		rt.method = method
 	}
-	if url, ok := data["url"].(string); ok && url != "" {
+	if url, ok := data[fieldURL].(string); ok && url != "" {
 		rt.url = url
 	}
 
 	// Parse headers - support both map and array formats
-	if headers, ok := data["headers"].(map[string]any); ok {
+	if headers, ok := data[fieldHeaders].(map[string]any); ok {
 		// Map format: {"X-Header": "value"}
 		for k, v := range headers {
 			if str, ok := v.(string); ok {
 				rt.headers = append(rt.headers, map[string]string{
-					"name":  k,
-					"value": str,
+					fieldName:  k,
+					fieldValue: str,
 				})
 			}
 		}
-	} else if headers, ok := data["headers"].([]any); ok {
+	} else if headers, ok := data[fieldHeaders].([]any); ok {
 		// Array format (for parseRequests compatibility)
 		for _, h := range headers {
 			if hMap, ok := h.(map[string]any); ok {
@@ -348,17 +471,17 @@ func parseRequestData(data map[string]any) *requestTemplate {
 	}
 
 	// Parse query params - support both map and array formats
-	if queryParams, ok := data["query_params"].(map[string]any); ok {
+	if queryParams, ok := data[fieldQueryParams].(map[string]any); ok {
 		// Map format: {"param": "value"}
 		for k, v := range queryParams {
 			if str, ok := v.(string); ok {
 				rt.queryParams = append(rt.queryParams, map[string]string{
-					"name":  k,
-					"value": str,
+					fieldName:  k,
+					fieldValue: str,
 				})
 			}
 		}
-	} else if queryParams, ok := data["query_params"].([]any); ok {
+	} else if queryParams, ok := data[fieldQueryParams].([]any); ok {
 		// Array format (for parseRequests compatibility)
 		for _, q := range queryParams {
 			if qMap, ok := q.(map[string]any); ok {
@@ -375,51 +498,234 @@ func parseRequestData(data map[string]any) *requestTemplate {
 		}
 	}
 
-	if body, ok := data["body"].(map[string]any); ok {
+	if body, ok := data[fieldBody].(map[string]any); ok {
 		rt.body = body
 	}
 
 	return rt
 }
 
-// parseRequestTemplates parses request templates into a map
-func parseRequestTemplates(templates map[string]map[string]any) map[string]*requestTemplate {
-	result := make(map[string]*requestTemplate)
-	for name, tmpl := range templates {
-		result[name] = parseRequestData(tmpl)
-	}
-	return result
+// ========================================
+// Node Processing Functions
+// ========================================
+
+// addNodeWithName adds a flow node with the given name
+func addNodeWithName(nodeName string, nodeID, flowID idwrap.IDWrap, kind mnnode.NodeKind, data *WorkflowData) {
+	data.Nodes = append(data.Nodes, mnnode.MNode{
+		ID:       nodeID,
+		FlowID:   flowID,
+		Name:     nodeName,
+		NodeKind: kind,
+	})
 }
 
-// parseRequests parses the new requests format into templates
-func parseRequests(requests []map[string]any) map[string]*requestTemplate {
-	result := make(map[string]*requestTemplate)
+// processRequestStepForNode processes a request step for a given node
+func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, templates map[string]*requestTemplate, varMap varsystem.VarMap, data *WorkflowData) error {
+	// Initialize request configuration
+	method, url := "GET", ""
+	var templateHeaders, templateQueries, stepHeaderOverrides, stepQueryOverrides []map[string]string
+	var templateBody, stepBodyOverride map[string]any
+	var usingTemplate bool
 
-	for _, req := range requests {
-		// Get the request name
-		name, ok := req["name"].(string)
-		if !ok || name == "" {
-			continue
+	// Check if using template
+	if useRequest, ok := stepData[fieldUseRequest].(string); ok && useRequest != "" {
+		if tmpl, exists := templates[useRequest]; exists {
+			usingTemplate = true
+			templateHeaders = tmpl.headers
+			templateQueries = tmpl.queryParams
+			templateBody = tmpl.body
+			method = tmpl.method
+			url = tmpl.url
 		}
-
-		result[name] = parseRequestData(req)
 	}
 
-	return result
+	// Override with step-specific data
+	if m, ok := stepData[fieldMethod].(string); ok && m != "" {
+		method = m
+	}
+	if u, ok := stepData[fieldURL].(string); ok && u != "" {
+		url = u
+	}
+	// Only require URL if not using a template or if template didn't provide one
+	if url == "" && !usingTemplate {
+		return newWorkflowError(fmt.Sprintf("request step '%s' missing required url", nodeName), fieldURL, nil)
+	}
+
+	// Parse step overrides
+	if h, ok := stepData[fieldHeaders].(map[string]any); ok {
+		for k, v := range h {
+			if vs, ok := v.(string); ok {
+				stepHeaderOverrides = append(stepHeaderOverrides, map[string]string{fieldName: k, fieldValue: vs})
+			}
+		}
+	}
+	if q, ok := stepData[fieldQueryParams].(map[string]any); ok {
+		for k, v := range q {
+			if vs, ok := v.(string); ok {
+				stepQueryOverrides = append(stepQueryOverrides, map[string]string{fieldName: k, fieldValue: vs})
+			}
+		}
+	}
+	if b, ok := stepData[fieldBody].(map[string]any); ok {
+		stepBodyOverride = b
+	}
+
+	// Create all request entities
+	ctx := createRequestEntitiesForNode(nodeName, nodeID, flowID, url, method, data)
+
+	// Process headers
+	processNameValuePairsForExamples(
+		ctx.exampleID, ctx.defaultExampleID, ctx.deltaExampleID,
+		templateHeaders, stepHeaderOverrides,
+		usingTemplate,
+		varMap,
+		func(name, value string, id, exampleID idwrap.IDWrap, deltaParentID *idwrap.IDWrap) interface{} {
+			return mexampleheader.Header{
+				ID:            id,
+				ExampleID:     exampleID,
+				HeaderKey:     name,
+				Value:         value,
+				DeltaParentID: deltaParentID,
+				Enable:        true,
+			}
+		},
+		func(item interface{}) {
+			data.Headers = append(data.Headers, item.(mexampleheader.Header))
+		},
+		data,
+	)
+
+	// Process query parameters
+	processNameValuePairsForExamples(
+		ctx.exampleID, ctx.defaultExampleID, ctx.deltaExampleID,
+		templateQueries, stepQueryOverrides,
+		usingTemplate,
+		varMap,
+		func(name, value string, id, exampleID idwrap.IDWrap, deltaParentID *idwrap.IDWrap) interface{} {
+			return mexamplequery.Query{
+				ID:            id,
+				ExampleID:     exampleID,
+				QueryKey:      name,
+				Value:         value,
+				DeltaParentID: deltaParentID,
+				Enable:        true,
+			}
+		},
+		func(item interface{}) {
+			data.Queries = append(data.Queries, item.(mexamplequery.Query))
+		},
+		data,
+	)
+
+	// Process body
+	var bodyData []byte
+	if usingTemplate && templateBody != nil {
+		// Use template body for base
+		bodyData, _ = json.Marshal(templateBody)
+		addBodyToExamples(ctx, bodyData, data)
+
+		// If there's an override, update delta only
+		if stepBodyOverride != nil {
+			overrideData, err := json.Marshal(stepBodyOverride)
+			if err != nil {
+				return fmt.Errorf("failed to marshal body: %w", err)
+			}
+			// Update only the delta body
+			for i := range data.RawBodies {
+				if data.RawBodies[i].ExampleID == ctx.deltaExampleID {
+					data.RawBodies[i].Data = overrideData
+					break
+				}
+			}
+		}
+	} else if stepBodyOverride != nil {
+		// No template, use step body for all
+		bodyData, _ = json.Marshal(stepBodyOverride)
+		addBodyToExamples(ctx, bodyData, data)
+	} else {
+		// No body at all
+		addBodyToExamples(ctx, nil, data)
+	}
+
+	return nil
 }
 
-// requestContext holds all the IDs and data needed for request processing
-type requestContext struct {
-	nodeID           idwrap.IDWrap
-	endpointID       idwrap.IDWrap
-	deltaEndpointID  idwrap.IDWrap
-	exampleID        idwrap.IDWrap
-	defaultExampleID idwrap.IDWrap
-	deltaExampleID   idwrap.IDWrap
+// processIfStepForNode processes an if step for a given node
+func processIfStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *WorkflowData) error {
+	addNodeWithName(nodeName, nodeID, flowID, mnnode.NODE_KIND_CONDITION, data)
+
+	condition, ok := stepData[fieldCondition].(string)
+	if !ok || condition == "" {
+		return newWorkflowError(fmt.Sprintf("if step '%s' missing required condition", nodeName), fieldCondition, nil)
+	}
+
+	data.ConditionNodes = append(data.ConditionNodes, mnif.MNIF{
+		FlowNodeID: nodeID,
+		Condition: mcondition.Condition{
+			Comparisons: mcondition.Comparison{Expression: condition},
+		},
+	})
+	return nil
 }
 
-// createRequestEntities creates all the entities needed for a request node
-func createRequestEntities(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName, url, method string) *requestContext {
+// processForStepForNode processes a for step for a given node
+func processForStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *WorkflowData) error {
+	addNodeWithName(nodeName, nodeID, flowID, mnnode.NODE_KIND_FOR, data)
+
+	iterCount := 1 // Default to 1 if not specified
+	if val, ok := stepData[fieldIterCount]; ok {
+		if i, ok := val.(int); ok {
+			iterCount = i
+		} else if f, ok := val.(float64); ok {
+			iterCount = int(f)
+		}
+	}
+
+	data.ForNodes = append(data.ForNodes, mnfor.MNFor{
+		FlowNodeID: nodeID,
+		IterCount:  int64(iterCount),
+	})
+	return nil
+}
+
+// processForEachStepForNode processes a for_each step for a given node
+func processForEachStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *WorkflowData) error {
+	addNodeWithName(nodeName, nodeID, flowID, mnnode.NODE_KIND_FOR_EACH, data)
+
+	items, ok := stepData[fieldItems].(string)
+	if !ok || items == "" {
+		return newWorkflowError(fmt.Sprintf("for_each step '%s' missing required items", nodeName), fieldItems, nil)
+	}
+
+	data.ForEachNodes = append(data.ForEachNodes, mnforeach.MNForEach{
+		FlowNodeID:     nodeID,
+		IterExpression: items,
+	})
+	return nil
+}
+
+// processJSStepForNode processes a JavaScript step for a given node
+func processJSStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *WorkflowData) error {
+	addNodeWithName(nodeName, nodeID, flowID, mnnode.NODE_KIND_JS, data)
+
+	code, ok := stepData[fieldCode].(string)
+	if !ok || code == "" {
+		return newWorkflowError(fmt.Sprintf("js step '%s' missing required code", nodeName), fieldCode, nil)
+	}
+
+	data.JSNodes = append(data.JSNodes, mnjs.MNJS{
+		FlowNodeID: nodeID,
+		Code:       []byte(code),
+	})
+	return nil
+}
+
+// ========================================
+// Request Helper Functions
+// ========================================
+
+// createRequestEntitiesForNode creates all the entities needed for a request node
+func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap, url, method string, data *WorkflowData) *requestContext {
 	ctx := &requestContext{
 		nodeID:           nodeID,
 		endpointID:       idwrap.NewNow(),
@@ -488,8 +794,8 @@ func createRequestEntities(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nod
 	return ctx
 }
 
-// addBody adds body data for all three examples
-func addBody(data *WorkflowData, ctx *requestContext, bodyData []byte) {
+// addBodyToExamples adds body data for all three examples
+func addBodyToExamples(ctx *requestContext, bodyData []byte, data *WorkflowData) {
 	if bodyData == nil {
 		bodyData = []byte("{}")
 	}
@@ -510,39 +816,43 @@ func addBody(data *WorkflowData, ctx *requestContext, bodyData []byte) {
 	}
 }
 
+// ========================================
+// Name-Value Processing Functions
+// ========================================
+
+// convertToNameValueMap converts various formats to a simple name-value map
+func convertToNameValueMap(pairs []map[string]string) map[string]string {
+	result := make(map[string]string)
+	for _, p := range pairs {
+		if name, ok := p[fieldName]; ok {
+			if value, ok := p[fieldValue]; ok {
+				result[name] = value
+			}
+		} else {
+			// Direct map format
+			for k, v := range p {
+				if k != fieldName && k != fieldValue {
+					result[k] = v
+				}
+			}
+		}
+	}
+	return result
+}
+
 // processNameValuePairs processes headers or query parameters generically
-func processNameValuePairs(
-	data *WorkflowData,
+func processNameValuePairsForExamples(
 	exampleID, defaultExampleID, deltaExampleID idwrap.IDWrap,
 	templatePairs, overridePairs []map[string]string,
 	usingTemplate bool,
 	varMap varsystem.VarMap,
-	createFunc func(id idwrap.IDWrap, exampleID idwrap.IDWrap, name, value string, deltaParentID *idwrap.IDWrap) interface{},
+	createFunc func(name, value string, id, exampleID idwrap.IDWrap, deltaParentID *idwrap.IDWrap) interface{},
 	appendFunc func(interface{}),
+	data *WorkflowData,
 ) {
-	// Convert to common format
-	toNameValueMap := func(pairs []map[string]string) map[string]string {
-		result := make(map[string]string)
-		for _, p := range pairs {
-			if name, ok := p["name"]; ok {
-				if value, ok := p["value"]; ok {
-					result[name] = value
-				}
-			} else {
-				// Direct map format
-				for k, v := range p {
-					if k != "name" && k != "value" {
-						result[k] = v
-					}
-				}
-			}
-		}
-		return result
-	}
-
 	if usingTemplate {
-		templateMap := toNameValueMap(templatePairs)
-		overrideMap := toNameValueMap(overridePairs)
+		templateMap := convertToNameValueMap(templatePairs)
+		overrideMap := convertToNameValueMap(overridePairs)
 		processedNames := make(map[string]bool)
 
 		// Process template items
@@ -550,12 +860,12 @@ func processNameValuePairs(
 			processedNames[name] = true
 
 			// Base item
-			baseItem := createFunc(idwrap.NewNow(), exampleID, name, templateValue, nil)
+			baseItem := createFunc(name, templateValue, idwrap.NewNow(), exampleID, nil)
 			appendFunc(baseItem)
 
 			// Default item with resolved value
 			resolvedValue, _ := varMap.ReplaceVars(templateValue)
-			defaultItem := createFunc(idwrap.NewNow(), defaultExampleID, name, resolvedValue, nil)
+			defaultItem := createFunc(name, resolvedValue, idwrap.NewNow(), defaultExampleID, nil)
 			appendFunc(defaultItem)
 
 			// Check if overridden
@@ -568,7 +878,7 @@ func processNameValuePairs(
 				case mexamplequery.Query:
 					defaultID = v.ID
 				}
-				deltaItem := createFunc(idwrap.NewNow(), deltaExampleID, name, overrideValue, &defaultID)
+				deltaItem := createFunc(name, overrideValue, idwrap.NewNow(), deltaExampleID, &defaultID)
 				appendFunc(deltaItem)
 			}
 		}
@@ -577,12 +887,12 @@ func processNameValuePairs(
 		for name, overrideValue := range overrideMap {
 			if !processedNames[name] {
 				// Base item
-				baseItem := createFunc(idwrap.NewNow(), exampleID, name, overrideValue, nil)
+				baseItem := createFunc(name, overrideValue, idwrap.NewNow(), exampleID, nil)
 				appendFunc(baseItem)
 
 				// Default item
 				resolvedValue, _ := varMap.ReplaceVars(overrideValue)
-				defaultItem := createFunc(idwrap.NewNow(), defaultExampleID, name, resolvedValue, nil)
+				defaultItem := createFunc(name, resolvedValue, idwrap.NewNow(), defaultExampleID, nil)
 				appendFunc(defaultItem)
 
 				// Delta item
@@ -593,21 +903,21 @@ func processNameValuePairs(
 				case mexamplequery.Query:
 					defaultID = v.ID
 				}
-				deltaItem := createFunc(idwrap.NewNow(), deltaExampleID, name, overrideValue, &defaultID)
+				deltaItem := createFunc(name, overrideValue, idwrap.NewNow(), deltaExampleID, &defaultID)
 				appendFunc(deltaItem)
 			}
 		}
 	} else {
 		// No template - process directly
-		directMap := toNameValueMap(overridePairs)
+		directMap := convertToNameValueMap(overridePairs)
 		for name, value := range directMap {
 			// Base item
-			baseItem := createFunc(idwrap.NewNow(), exampleID, name, value, nil)
+			baseItem := createFunc(name, value, idwrap.NewNow(), exampleID, nil)
 			appendFunc(baseItem)
 
 			// Default item
 			resolvedValue, _ := varMap.ReplaceVars(value)
-			defaultItem := createFunc(idwrap.NewNow(), defaultExampleID, name, resolvedValue, nil)
+			defaultItem := createFunc(name, resolvedValue, idwrap.NewNow(), defaultExampleID, nil)
 			appendFunc(defaultItem)
 
 			// Delta item if has variables
@@ -619,226 +929,19 @@ func processNameValuePairs(
 				case mexamplequery.Query:
 					defaultID = v.ID
 				}
-				deltaItem := createFunc(idwrap.NewNow(), deltaExampleID, name, value, &defaultID)
+				deltaItem := createFunc(name, value, idwrap.NewNow(), deltaExampleID, &defaultID)
 				appendFunc(deltaItem)
 			}
 		}
 	}
 }
 
-// processRequestStep processes a request step
-func processRequestStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any, templates map[string]*requestTemplate, varMap varsystem.VarMap) error {
-	// Get method and URL
-	method, url := "GET", ""
-	var templateHeaders, templateQueries, stepHeaderOverrides, stepQueryOverrides []map[string]string
-	var templateBody, stepBodyOverride map[string]any
-	var usingTemplate bool
+// ========================================
+// Edge Creation Functions
+// ========================================
 
-	// Check if using template
-	if useRequest, ok := stepData["use_request"].(string); ok && useRequest != "" {
-		if tmpl, exists := templates[useRequest]; exists {
-			usingTemplate = true
-			templateHeaders = tmpl.headers
-			templateQueries = tmpl.queryParams
-			templateBody = tmpl.body
-			method = tmpl.method
-			url = tmpl.url
-		}
-	}
-
-	// Override with step-specific data
-	if m, ok := stepData["method"].(string); ok && m != "" {
-		method = m
-	}
-	if u, ok := stepData["url"].(string); ok && u != "" {
-		url = u
-	}
-	// Only require URL if not using a template or if template didn't provide one
-	if url == "" && !usingTemplate {
-		return fmt.Errorf("request step '%s' missing required url", nodeName)
-	}
-
-	// Parse step overrides
-	if h, ok := stepData["headers"].(map[string]any); ok {
-		for k, v := range h {
-			if vs, ok := v.(string); ok {
-				stepHeaderOverrides = append(stepHeaderOverrides, map[string]string{"name": k, "value": vs})
-			}
-		}
-	}
-	if q, ok := stepData["query_params"].(map[string]any); ok {
-		for k, v := range q {
-			if vs, ok := v.(string); ok {
-				stepQueryOverrides = append(stepQueryOverrides, map[string]string{"name": k, "value": vs})
-			}
-		}
-	}
-	if b, ok := stepData["body"].(map[string]any); ok {
-		stepBodyOverride = b
-	}
-
-	// Create all request entities
-	ctx := createRequestEntities(data, flowID, nodeID, nodeName, url, method)
-
-	// Process headers
-	processNameValuePairs(
-		data,
-		ctx.exampleID, ctx.defaultExampleID, ctx.deltaExampleID,
-		templateHeaders, stepHeaderOverrides,
-		usingTemplate,
-		varMap,
-		func(id, exampleID idwrap.IDWrap, name, value string, deltaParentID *idwrap.IDWrap) interface{} {
-			return mexampleheader.Header{
-				ID:            id,
-				ExampleID:     exampleID,
-				HeaderKey:     name,
-				Value:         value,
-				DeltaParentID: deltaParentID,
-				Enable:        true,
-			}
-		},
-		func(item interface{}) {
-			data.Headers = append(data.Headers, item.(mexampleheader.Header))
-		},
-	)
-
-	// Process query parameters
-	processNameValuePairs(
-		data,
-		ctx.exampleID, ctx.defaultExampleID, ctx.deltaExampleID,
-		templateQueries, stepQueryOverrides,
-		usingTemplate,
-		varMap,
-		func(id, exampleID idwrap.IDWrap, name, value string, deltaParentID *idwrap.IDWrap) interface{} {
-			return mexamplequery.Query{
-				ID:            id,
-				ExampleID:     exampleID,
-				QueryKey:      name,
-				Value:         value,
-				DeltaParentID: deltaParentID,
-				Enable:        true,
-			}
-		},
-		func(item interface{}) {
-			data.Queries = append(data.Queries, item.(mexamplequery.Query))
-		},
-	)
-
-	// Process body
-	var bodyData []byte
-	if usingTemplate && templateBody != nil {
-		// Use template body for base
-		bodyData, _ = json.Marshal(templateBody)
-		addBody(data, ctx, bodyData)
-
-		// If there's an override, update delta only
-		if stepBodyOverride != nil {
-			overrideData, err := json.Marshal(stepBodyOverride)
-			if err != nil {
-				return fmt.Errorf("failed to marshal body: %w", err)
-			}
-			// Update only the delta body
-			for i := range data.RawBodies {
-				if data.RawBodies[i].ExampleID == ctx.deltaExampleID {
-					data.RawBodies[i].Data = overrideData
-					break
-				}
-			}
-		}
-	} else if stepBodyOverride != nil {
-		// No template, use step body for all
-		bodyData, _ = json.Marshal(stepBodyOverride)
-		addBody(data, ctx, bodyData)
-	} else {
-		// No body at all
-		addBody(data, ctx, nil)
-	}
-
-	return nil
-}
-
-// addNode adds a flow node
-func addNode(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, kind mnnode.NodeKind) {
-	data.Nodes = append(data.Nodes, mnnode.MNode{
-		ID:       nodeID,
-		FlowID:   flowID,
-		Name:     nodeName,
-		NodeKind: kind,
-	})
-}
-
-// processIfStep processes an if step
-func processIfStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any) error {
-	addNode(data, flowID, nodeID, nodeName, mnnode.NODE_KIND_CONDITION)
-
-	condition, ok := stepData["condition"].(string)
-	if !ok || condition == "" {
-		return fmt.Errorf("if step '%s' missing required condition", nodeName)
-	}
-
-	data.ConditionNodes = append(data.ConditionNodes, mnif.MNIF{
-		FlowNodeID: nodeID,
-		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{Expression: condition},
-		},
-	})
-	return nil
-}
-
-// processForStep processes a for step
-func processForStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any) error {
-	addNode(data, flowID, nodeID, nodeName, mnnode.NODE_KIND_FOR)
-
-	iterCount := 1 // Default to 1 if not specified
-	if val, ok := stepData["iter_count"]; ok {
-		if i, ok := val.(int); ok {
-			iterCount = i
-		} else if f, ok := val.(float64); ok {
-			iterCount = int(f)
-		}
-	}
-
-	data.ForNodes = append(data.ForNodes, mnfor.MNFor{
-		FlowNodeID: nodeID,
-		IterCount:  int64(iterCount),
-	})
-	return nil
-}
-
-// processForEachStep processes a for_each step
-func processForEachStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any) error {
-	addNode(data, flowID, nodeID, nodeName, mnnode.NODE_KIND_FOR_EACH)
-
-	items, ok := stepData["items"].(string)
-	if !ok || items == "" {
-		return fmt.Errorf("for_each step '%s' missing required items", nodeName)
-	}
-
-	data.ForEachNodes = append(data.ForEachNodes, mnforeach.MNForEach{
-		FlowNodeID:     nodeID,
-		IterExpression: items,
-	})
-	return nil
-}
-
-// processJSStep processes a JavaScript step
-func processJSStep(data *WorkflowData, flowID, nodeID idwrap.IDWrap, nodeName string, stepData map[string]any) error {
-	addNode(data, flowID, nodeID, nodeName, mnnode.NODE_KIND_JS)
-
-	code, ok := stepData["code"].(string)
-	if !ok || code == "" {
-		return fmt.Errorf("js step '%s' missing required code", nodeName)
-	}
-
-	data.JSNodes = append(data.JSNodes, mnjs.MNJS{
-		FlowNodeID: nodeID,
-		Code:       []byte(code),
-	})
-	return nil
-}
-
-// createEdges creates edges based on dependencies and sequential order
-func createEdges(data *WorkflowData, flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, rawSteps []map[string]any) {
+// createEdgesForFlow creates edges based on dependencies and sequential order
+func createEdgesForFlow(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, rawSteps []map[string]any, data *WorkflowData) {
 	// Track which nodes have incoming edges
 	hasIncoming := make(map[idwrap.IDWrap]bool)
 
@@ -897,13 +1000,13 @@ func createEdges(data *WorkflowData, flowID, startNodeID idwrap.IDWrap, nodeInfo
 	for _, rawStep := range rawSteps {
 		for stepType, stepData := range rawStep {
 			dataMap, _ := stepData.(map[string]any)
-			nodeName, _ := dataMap["name"].(string)
+			nodeName, _ := dataMap[fieldName].(string)
 			nodeID := nodeInfoMap[nodeName].id
 
 			switch stepType {
-			case "if":
+			case stepTypeIf:
 				// Create edges for then/else branches
-				if thenTarget, ok := dataMap["then"].(string); ok && thenTarget != "" {
+				if thenTarget, ok := dataMap[fieldThen].(string); ok && thenTarget != "" {
 					if targetID, exists := nodeInfoMap[thenTarget]; exists {
 						edge := edge.Edge{
 							ID:            idwrap.NewNow(),
@@ -917,7 +1020,7 @@ func createEdges(data *WorkflowData, flowID, startNodeID idwrap.IDWrap, nodeInfo
 					}
 				}
 
-				if elseTarget, ok := dataMap["else"].(string); ok && elseTarget != "" {
+				if elseTarget, ok := dataMap[fieldElse].(string); ok && elseTarget != "" {
 					if targetID, exists := nodeInfoMap[elseTarget]; exists {
 						edge := edge.Edge{
 							ID:            idwrap.NewNow(),
@@ -931,9 +1034,9 @@ func createEdges(data *WorkflowData, flowID, startNodeID idwrap.IDWrap, nodeInfo
 					}
 				}
 
-			case "for", "for_each":
+			case stepTypeFor, stepTypeForEach:
 				// Create edge for loop body
-				if loopTarget, ok := dataMap["loop"].(string); ok && loopTarget != "" {
+				if loopTarget, ok := dataMap[fieldLoop].(string); ok && loopTarget != "" {
 					if targetID, exists := nodeInfoMap[loopTarget]; exists {
 						edge := edge.Edge{
 							ID:            idwrap.NewNow(),

@@ -41,10 +41,17 @@ func ExportWorkflowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error
 		}
 	}
 
-	// Build final YAML structure
-	yamlData := map[string]any{
-		"workspace_name": workspaceData.Workspace.Name,
-	}
+	// Build final YAML structure using ordered approach
+	var doc yaml.Node
+	doc.Kind = yaml.DocumentNode
+
+	var root yaml.Node
+	root.Kind = yaml.MappingNode
+
+	// Add workspace_name
+	root.Content = append(root.Content, 
+		&yaml.Node{Kind: yaml.ScalarNode, Value: "workspace_name"},
+		&yaml.Node{Kind: yaml.ScalarNode, Value: workspaceData.Workspace.Name})
 
 	// Add requests section if not empty
 	if len(requests) > 0 {
@@ -58,12 +65,222 @@ func ExportWorkflowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error
 			nameJ, _ := requestList[j]["name"].(string)
 			return nameI < nameJ
 		})
-		yamlData["requests"] = requestList
+		
+		// Create requests array node
+		var requestsNode yaml.Node
+		requestsNode.Kind = yaml.SequenceNode
+		for _, req := range requestList {
+			requestsNode.Content = append(requestsNode.Content, createOrderedRequestNode(req))
+		}
+		
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "requests"},
+			&requestsNode)
 	}
 
-	yamlData["flows"] = flows
+	// Add flows
+	var flowsNode yaml.Node
+	flowsNode.Kind = yaml.SequenceNode
+	for _, flow := range flows {
+		flowsNode.Content = append(flowsNode.Content, createOrderedFlowNode(flow))
+	}
+	root.Content = append(root.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: "flows"},
+		&flowsNode)
 
-	return yaml.Marshal(yamlData)
+	doc.Content = append(doc.Content, &root)
+	return yaml.Marshal(&doc)
+}
+
+// createOrderedRequestNode creates a YAML node with fields in the desired order
+func createOrderedRequestNode(req map[string]any) *yaml.Node {
+	node := &yaml.Node{Kind: yaml.MappingNode}
+	
+	// Add fields in desired order: name first
+	if name, ok := req["name"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "name"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", name)})
+	}
+	
+	// Then method
+	if method, ok := req["method"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "method"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", method)})
+	}
+	
+	// Then url
+	if url, ok := req["url"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "url"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", url)})
+	}
+	
+	// Then headers
+	if headers, ok := req["headers"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "headers"},
+			createMapNode(headers))
+	}
+	
+	// Then query_params
+	if queryParams, ok := req["query_params"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "query_params"},
+			createMapNode(queryParams))
+	}
+	
+	// Finally body
+	if body, ok := req["body"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "body"},
+			createAnyNode(body))
+	}
+	
+	return node
+}
+
+// createOrderedFlowNode creates a YAML node for flow with proper field ordering
+func createOrderedFlowNode(flow map[string]any) *yaml.Node {
+	node := &yaml.Node{Kind: yaml.MappingNode}
+	
+	// Add name first
+	if name, ok := flow["name"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "name"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", name)})
+	}
+	
+	// Then variables
+	if variables, ok := flow["variables"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "variables"},
+			createAnyNode(variables))
+	}
+	
+	// Then steps
+	if steps, ok := flow["steps"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "steps"},
+			createStepsNode(steps))
+	}
+	
+	return node
+}
+
+// createStepsNode creates ordered step nodes
+func createStepsNode(steps any) *yaml.Node {
+	stepsSlice, ok := steps.([]map[string]any)
+	if !ok {
+		return createAnyNode(steps)
+	}
+	
+	node := &yaml.Node{Kind: yaml.SequenceNode}
+	for _, step := range stepsSlice {
+		node.Content = append(node.Content, createOrderedStepNode(step))
+	}
+	return node
+}
+
+// createOrderedStepNode creates a step node with proper ordering
+func createOrderedStepNode(step map[string]any) *yaml.Node {
+	node := &yaml.Node{Kind: yaml.MappingNode}
+	
+	// Handle different step types
+	for stepType, stepData := range step {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: stepType},
+			createOrderedStepDataNode(stepData))
+	}
+	
+	return node
+}
+
+// createOrderedStepDataNode creates step data with name first
+func createOrderedStepDataNode(data any) *yaml.Node {
+	dataMap, ok := data.(map[string]any)
+	if !ok {
+		return createAnyNode(data)
+	}
+	
+	node := &yaml.Node{Kind: yaml.MappingNode}
+	
+	// Add name first
+	if name, ok := dataMap["name"]; ok {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "name"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", name)})
+	}
+	
+	// Then add other fields in a logical order
+	fieldOrder := []string{"use_request", "method", "url", "headers", "query_params", "body",
+		"condition", "code", "iter_count", "items", "then", "else", "loop", "depends_on"}
+	
+	for _, field := range fieldOrder {
+		if val, ok := dataMap[field]; ok {
+			node.Content = append(node.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: field},
+				createAnyNode(val))
+		}
+	}
+	
+	// Add any remaining fields not in our order list
+	for key, val := range dataMap {
+		if key == "name" {
+			continue // Already added
+		}
+		found := false
+		for _, field := range fieldOrder {
+			if key == field {
+				found = true
+				break
+			}
+		}
+		if !found {
+			node.Content = append(node.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: key},
+				createAnyNode(val))
+		}
+	}
+	
+	return node
+}
+
+// createMapNode creates a YAML mapping node from a map
+func createMapNode(data any) *yaml.Node {
+	dataMap, ok := data.(map[string]string)
+	if !ok {
+		return createAnyNode(data)
+	}
+	
+	node := &yaml.Node{Kind: yaml.MappingNode}
+	
+	// Sort keys for consistent output
+	keys := make([]string, 0, len(dataMap))
+	for k := range dataMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	
+	for _, k := range keys {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: k},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: dataMap[k]})
+	}
+	
+	return node
+}
+
+// createAnyNode creates a YAML node from any value
+func createAnyNode(data any) *yaml.Node {
+	node := &yaml.Node{}
+	if err := node.Encode(data); err != nil {
+		// If encoding fails, return a string representation as fallback
+		node.Kind = yaml.ScalarNode
+		node.Value = fmt.Sprintf("%v", data)
+	}
+	return node
 }
 
 // buildRequestDefinitions creates global request definitions from endpoints
