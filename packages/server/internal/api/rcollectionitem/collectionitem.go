@@ -177,19 +177,22 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 	return connect.NewResponse(resp), nil
 }
 
+// TODO: implement move RPC
 func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.Request[itemv1.CollectionItemMoveRequest]) (*connect.Response[itemv1.CollectionItemMoveResponse], error) {
+	return connect.NewResponse(&itemv1.CollectionItemMoveResponse{}), nil
+
 	var targetNextID, targetPrevID *idwrap.IDWrap
 
-	if len(req.Msg.NextItemId) != 0 {
-		targetNextIDTemp, err := idwrap.NewFromBytes(req.Msg.NextItemId)
+	if len(req.Msg.TargetItemId) != 0 {
+		targetNextIDTemp, err := idwrap.NewFromBytes(req.Msg.TargetItemId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 		targetNextID = &targetNextIDTemp
 	}
 
-	if len(req.Msg.PreviousItemId) != 0 {
-		targetPrevIDTemp, err := idwrap.NewFromBytes(req.Msg.PreviousItemId)
+	if len(req.Msg.ItemId) != 0 {
+		targetPrevIDTemp, err := idwrap.NewFromBytes(req.Msg.ItemId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}

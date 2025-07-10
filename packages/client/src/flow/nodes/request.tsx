@@ -61,8 +61,9 @@ const RequestNodeBody = (props: NodeProps) => {
           <RequestNodeSelected request={request!} />
         ) : (
           <CollectionListTree
-            onAction={async ({ collectionId, endpointId, exampleId }) => {
-              if (collectionId === undefined || endpointId === undefined || exampleId === undefined) return;
+            onAction={async (key) => {
+              if (key._tag !== 'EndpointKey' && key._tag !== 'ExampleKey') return;
+              const { collectionId, endpointId, exampleId } = key;
 
               const {
                 endpoint: { endpointId: deltaEndpointId },

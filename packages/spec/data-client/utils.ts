@@ -1,8 +1,8 @@
 import { create, DescMessage, DescMethodUnary, MessageInitShape, MessageShape, toJson } from '@bufbuild/protobuf';
 import { ContextValues, Transport } from '@connectrpc/connect';
 import { Controller } from '@data-client/core';
-import { EntityMixin } from '@data-client/endpoint';
-import { Option, pipe, Predicate, Record, Struct } from 'effect';
+import { EntityMixin, schema, SchemaSimple } from '@data-client/endpoint';
+import { Equivalence, Option, pipe, Predicate, Record, Struct } from 'effect';
 
 type EntityOptions = Omit<Parameters<typeof EntityMixin>[1], 'pk'>;
 
@@ -91,3 +91,32 @@ export const makeKey =
     const inputKey = createMessageKey(method.input, input);
     return JSON.stringify([name, transportKey, inputKey]);
   };
+
+interface MakeListCollectionProps<S extends SchemaSimple, M extends DescMethodUnary> {
+  argsKey?: (props: EndpointProps<M> | null) => Record<string, string>;
+  inputPrimaryKeys?: (keyof MessageShape<M['input']>)[];
+  itemSchema: S;
+  method: M;
+}
+
+export const makeListCollection = <S extends SchemaSimple, M extends DescMethodUnary>({
+  argsKey: argsKeyCustom,
+  inputPrimaryKeys,
+  itemSchema,
+  method,
+}: MakeListCollectionProps<S, M>) => {
+  const argsKeyDefault = (props: EndpointProps<M> | null) => {
+    if (props === null) return {};
+    const { input, transport } = props;
+    return createMethodKeyRecord(transport, method, input, inputPrimaryKeys);
+  };
+
+  const argsKey = argsKeyCustom ?? argsKeyDefault;
+
+  const createCollectionFilter = (props: EndpointProps<M>) => (collectionKey: Record<string, string>) => {
+    const compare = Record.getEquivalence(Equivalence.string);
+    return compare(argsKey(props), collectionKey);
+  };
+
+  return new schema.Collection([itemSchema], { argsKey, createCollectionFilter });
+};

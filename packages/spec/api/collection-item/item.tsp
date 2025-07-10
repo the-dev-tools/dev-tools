@@ -48,17 +48,23 @@ model CollectionItemListResponse {
 
 @autoFields
 model CollectionItemMoveRequest {
-  ...ParentKeyOf<CollectionItem>;
-  itemId: Resource.Id;
   kind: ItemKind;
+  itemId: Resource.Id;
+  collectionId: Resource.Id;
   parentFolderId?: Resource.Id;
-  previousItemId: Resource.Id;
-  nextItemId: Resource.Id;
+  targetCollectionId?: Resource.Id;
+  targetParentFolderId?: Resource.Id;
+  targetKind?: ItemKind;
+  targetItemId?: Resource.Id;
+  position?: Resource.MovePosition;
 }
+
+model CollectionItemMoveResponse {}
 
 @Protobuf.service
 interface CollectionItemService {
   @endpoint("collection-item.js:list")
   CollectionItemList(...CollectionItemListRequest): CollectionItemListResponse;
-  CollectionItemMove(...CollectionItemMoveRequest): {};
+  @endpoint("collection-item.js:move")
+  CollectionItemMove(...CollectionItemMoveRequest): CollectionItemMoveResponse;
 }

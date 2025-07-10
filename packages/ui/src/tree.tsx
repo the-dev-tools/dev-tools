@@ -32,6 +32,7 @@ export const treeItemRootStyles = tv({
   `,
   variants: {
     isActive: { true: tw`bg-slate-200` },
+    isDropTarget: { true: tw`bg-violet-200` },
     isHovered: { true: tw`bg-slate-100` },
     isPressed: { true: tw`bg-slate-200` },
     isSelected: { true: tw`bg-slate-200` },

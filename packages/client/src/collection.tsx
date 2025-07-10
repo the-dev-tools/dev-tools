@@ -3,7 +3,7 @@ import { getRouteApi, ToOptions, useMatchRoute, useNavigate, useRouteContext } f
 import { Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useRef, useState } from 'react';
-import { MenuTrigger, Text, Tree } from 'react-aria-components';
+import { MenuTrigger, Text, Tree, useDragAndDrop } from 'react-aria-components';
 import { FiFolder, FiMoreHorizontal } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
@@ -35,12 +35,16 @@ import {
   FolderDeleteEndpoint,
   FolderUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/folder/v1/folder.endpoints.ts';
-import { CollectionItemListEndpoint } from '@the-dev-tools/spec/meta/collection/item/v1/item.endpoints.ts';
+import {
+  CollectionItemListEndpoint,
+  CollectionItemMoveEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/v1/item.endpoints.ts';
 import {
   CollectionDeleteEndpoint,
   CollectionListEndpoint,
   CollectionUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
+import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -63,29 +67,143 @@ interface CollectionListTreeContext {
 
 const CollectionListTreeContext = createContext({} as CollectionListTreeContext);
 
-class TreeKey extends Schema.Class<TreeKey>('CollectionListTreeKey')({
-  collectionId: pipe(Schema.Uint8Array, Schema.optional),
-  endpointId: pipe(Schema.Uint8Array, Schema.optional),
-  exampleId: pipe(Schema.Uint8Array, Schema.optional),
-  folderId: pipe(Schema.Uint8Array, Schema.optional),
+class CollectionKey extends Schema.TaggedClass<CollectionKey>()('CollectionKey', {
+  collectionId: Schema.Uint8ArrayFromBase64,
 }) {}
 
+class FolderKey extends Schema.TaggedClass<FolderKey>()('FolderKey', {
+  collectionId: Schema.Uint8ArrayFromBase64,
+  folderId: Schema.Uint8ArrayFromBase64,
+  parentFolderId: pipe(Schema.Uint8ArrayFromBase64, Schema.optional),
+}) {}
+
+class EndpointKey extends Schema.TaggedClass<EndpointKey>()('EndpointKey', {
+  collectionId: Schema.Uint8ArrayFromBase64,
+  endpointId: Schema.Uint8ArrayFromBase64,
+  exampleId: Schema.Uint8ArrayFromBase64,
+  parentFolderId: pipe(Schema.Uint8ArrayFromBase64, Schema.optional),
+}) {}
+
+class ExampleKey extends Schema.TaggedClass<ExampleKey>()('ExampleKey', {
+  collectionId: Schema.Uint8ArrayFromBase64,
+  endpointId: Schema.Uint8ArrayFromBase64,
+  exampleId: Schema.Uint8ArrayFromBase64,
+}) {}
+
+const TreeKey = Schema.Union(CollectionKey, FolderKey, EndpointKey, ExampleKey);
+
+const getTreeKeyItemKind = (tag: typeof TreeKey.Type._tag) =>
+  pipe(
+    Match.value(tag),
+    Match.when(EndpointKey._tag, () => ItemKind.ENDPOINT),
+    Match.when(FolderKey._tag, () => ItemKind.FOLDER),
+    Match.orElse(() => ItemKind.UNSPECIFIED),
+  );
+
+const getTreeKeyItemId = (key: EndpointKey | FolderKey) =>
+  pipe(
+    Match.value(key),
+    Match.when({ _tag: EndpointKey._tag }, (_) => _.endpointId),
+    Match.when({ _tag: FolderKey._tag }, (_) => _.folderId),
+    Match.exhaustive,
+  );
+
 interface CollectionListTreeProps extends Omit<CollectionListTreeContext, 'containerRef'> {
-  onAction?: (key: TreeKey) => void;
+  onAction?: (key: typeof TreeKey.Type) => void;
 }
 
 export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeProps) => {
+  const { dataClient } = useRouteContext({ from: '__root__' });
   const { workspaceId } = workspaceRoute.useLoaderData();
 
   const { items: collections } = useQuery(CollectionListEndpoint, { workspaceId });
 
   const ref = useRef<HTMLDivElement>(null);
 
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) =>
+      [...keys].map((key) => {
+        const { _tag } = pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, (_) => _(key));
+        return { [_tag]: '', key: key.toString() };
+      }),
+
+    shouldAcceptItemDrop: ({ dropPosition, key }, types) => {
+      if (dropPosition !== 'on') return false;
+
+      const { _tag: targetType } = pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, (_) => _(key));
+
+      if (types.has(EndpointKey._tag) && targetType === FolderKey._tag) return true;
+
+      if (types.has(FolderKey._tag)) {
+        if (targetType === FolderKey._tag) return true;
+        if (targetType === CollectionKey._tag) return true;
+      }
+
+      return false;
+    },
+
+    onItemDrop: async ({ items, target }) => {
+      const [item] = items;
+      if (target.dropPosition !== 'on' || !item || item.kind !== 'text' || items.length !== 1) return;
+
+      const key = await pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, async (decode) =>
+        pipe(await item.getText('key'), decode),
+      );
+
+      const targetKey = pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, (_) => _(target.key));
+
+      if (key._tag !== FolderKey._tag && key._tag !== EndpointKey._tag) return;
+      if (targetKey._tag !== CollectionKey._tag && targetKey._tag !== FolderKey._tag) return;
+
+      void dataClient.fetch(CollectionItemMoveEndpoint, {
+        collectionId: key.collectionId,
+        itemId: getTreeKeyItemId(key),
+        kind: getTreeKeyItemKind(key._tag),
+        parentFolderId: key.parentFolderId!,
+        targetCollectionId: targetKey.collectionId,
+        ...(targetKey._tag === FolderKey._tag ? { targetParentFolderId: targetKey.folderId } : {}),
+      });
+    },
+    onReorder: ({ keys, target }) => {
+      const [keyMaybe] = keys;
+      if (!keyMaybe || keys.size !== 1) return;
+
+      const key = pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, (_) => _(keyMaybe));
+
+      const targetKey = pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, (_) => _(target.key));
+
+      const position = pipe(
+        Match.value(target.dropPosition),
+        Match.when('after', () => MovePosition.AFTER),
+        Match.when('before', () => MovePosition.BEFORE),
+        Match.orElse(() => MovePosition.UNSPECIFIED),
+      );
+
+      if (
+        (key._tag === FolderKey._tag || key._tag === EndpointKey._tag) &&
+        (targetKey._tag === FolderKey._tag || targetKey._tag === EndpointKey._tag)
+      ) {
+        void dataClient.fetch(CollectionItemMoveEndpoint, {
+          collectionId: key.collectionId,
+          itemId: getTreeKeyItemId(key),
+          kind: getTreeKeyItemKind(key._tag),
+          parentFolderId: key.parentFolderId!,
+          position,
+          targetItemId: getTreeKeyItemId(targetKey),
+          targetKind: getTreeKeyItemKind(targetKey._tag),
+        });
+      }
+    },
+
+    renderDropIndicator: () => <div className={tw`relative z-10 h-0 w-full ring ring-violet-700`} />,
+  });
+
   return (
     <CollectionListTreeContext.Provider value={{ ...context, containerRef: ref }}>
       <div className={tw`relative`} ref={ref}>
         <Tree
           aria-label='Collections'
+          dragAndDropHooks={dragAndDropHooks}
           items={collections}
           onAction={
             onAction !== undefined
@@ -148,7 +266,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       childItems={childItems}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
-      id={pipe(new TreeKey({ collectionId }), Schema.encodeSync(TreeKey), JSON.stringify)}
+      id={pipe(new CollectionKey({ collectionId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       loading={loading}
       textValue={collection.name}
       wrapperOnContextMenu={onContextMenu}
@@ -289,7 +407,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
       childItems={childItems}
       expandButtonIsForced={!enabled}
       expandButtonOnPress={() => void setEnabled(true)}
-      id={pipe(new TreeKey({ collectionId, folderId }), Schema.encodeSync(TreeKey), JSON.stringify)}
+      id={pipe(new FolderKey({ collectionId, folderId, parentFolderId }), Schema.encodeSync(TreeKey), JSON.stringify)}
       loading={loading}
       textValue={folder.name}
       wrapperOnContextMenu={onContextMenu}
@@ -522,7 +640,11 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
     childItems: childItems,
     expandButtonIsForced: !enabled,
     expandButtonOnPress: () => void setEnabled(true),
-    id: pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify),
+    id: pipe(
+      new EndpointKey({ collectionId, endpointId, exampleId, parentFolderId }),
+      Schema.encodeSync(TreeKey),
+      JSON.stringify,
+    ),
     isActive: toNavigate && matchRoute(route) !== false,
     loading: loading,
     textValue: name,
@@ -637,7 +759,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   );
 
   const props = {
-    id: pipe(new TreeKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify),
+    id: pipe(new ExampleKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify),
     isActive: toNavigate && matchRoute(route) !== false,
     textValue: name,
     wrapperOnContextMenu: onContextMenu,
