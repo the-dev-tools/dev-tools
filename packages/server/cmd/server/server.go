@@ -232,7 +232,7 @@ func main() {
 		bodyRawService, exampleResponseHeaderService, exampleResponseService, environmentService, variableService, assertService, assertResultService, logMap)
 	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))
 
-	requestSrv := rrequest.New(currentDB, collectionService, userService, exampleService, exampleHeaderService, exampleQueryService, assertService)
+	requestSrv := rrequest.New(currentDB, collectionService, userService, endpointService, exampleService, exampleHeaderService, exampleQueryService, assertService)
 	newServiceManager.AddService(rrequest.CreateService(requestSrv, opitonsAll))
 
 	// BodyRaw Service
