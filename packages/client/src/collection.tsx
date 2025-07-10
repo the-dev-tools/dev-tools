@@ -69,30 +69,30 @@ interface CollectionListTreeContext {
 
 const CollectionListTreeContext = createContext({} as CollectionListTreeContext);
 
-class CollectionKey extends Schema.TaggedClass<CollectionKey>()('CollectionKey', {
+export class CollectionKey extends Schema.TaggedClass<CollectionKey>()('CollectionKey', {
   collectionId: Schema.Uint8ArrayFromBase64,
 }) {}
 
-class FolderKey extends Schema.TaggedClass<FolderKey>()('FolderKey', {
+export class FolderKey extends Schema.TaggedClass<FolderKey>()('FolderKey', {
   collectionId: Schema.Uint8ArrayFromBase64,
   folderId: Schema.Uint8ArrayFromBase64,
   parentFolderId: pipe(Schema.Uint8ArrayFromBase64, Schema.optional),
 }) {}
 
-class EndpointKey extends Schema.TaggedClass<EndpointKey>()('EndpointKey', {
+export class EndpointKey extends Schema.TaggedClass<EndpointKey>()('EndpointKey', {
   collectionId: Schema.Uint8ArrayFromBase64,
   endpointId: Schema.Uint8ArrayFromBase64,
   exampleId: Schema.Uint8ArrayFromBase64,
   parentFolderId: pipe(Schema.Uint8ArrayFromBase64, Schema.optional),
 }) {}
 
-class ExampleKey extends Schema.TaggedClass<ExampleKey>()('ExampleKey', {
+export class ExampleKey extends Schema.TaggedClass<ExampleKey>()('ExampleKey', {
   collectionId: Schema.Uint8ArrayFromBase64,
   endpointId: Schema.Uint8ArrayFromBase64,
   exampleId: Schema.Uint8ArrayFromBase64,
 }) {}
 
-const TreeKey = Schema.Union(CollectionKey, FolderKey, EndpointKey, ExampleKey);
+export const TreeKey = Schema.Union(CollectionKey, FolderKey, EndpointKey, ExampleKey);
 
 const getTreeKeyItemKind = (tag: typeof TreeKey.Type._tag) =>
   pipe(

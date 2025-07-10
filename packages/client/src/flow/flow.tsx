@@ -15,16 +15,21 @@ import {
   useStoreApi,
   useViewport,
 } from '@xyflow/react';
-import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record } from 'effect';
+import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { PropsWithChildren, Suspense, use, useCallback, useMemo } from 'react';
+import { PropsWithChildren, Suspense, use, useCallback, useMemo, useRef } from 'react';
+import { useDrop } from 'react-aria';
 import { MenuTrigger } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { EdgeKind, EdgeKindJson } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { ExampleVersionsEndpoint } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
+import { EndpointCreateEndpoint } from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.js';
+import {
+  ExampleCreateEndpoint,
+  ExampleVersionsEndpoint,
+} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
 import {
   ExampleEntity,
   ExampleVersionsItemEntity,
@@ -51,6 +56,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { EndpointKey, ExampleKey, TreeKey } from '~collection';
 import { setQueryChild, useDLE, useMutate, useQuery } from '~data-client';
 import {
   columnActionsCommon,
@@ -126,8 +132,15 @@ const minZoom = 0.1;
 const maxZoom = 2;
 
 export const Flow = ({ children }: PropsWithChildren) => {
-  const { addEdges, addNodes, getEdges, getNode, screenToFlowPosition, setNodes } = useReactFlow<Node, Edge>();
+  const { dataClient } = useRouteContext({ from: '__root__' });
+
+  const { addEdges, addNodes, getEdges, getNode, getNodes, screenToFlowPosition, setNodes } = useReactFlow<
+    Node,
+    Edge
+  >();
   const { isReadOnly = false } = use(FlowContext);
+
+  const ref = useRef<HTMLDivElement>(null);
 
   const navigate = useNavigate();
 
@@ -226,8 +239,54 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   useFlowCopyPaste();
 
+  const { dropProps } = useDrop({
+    onDrop: async ({ items, x, y }) => {
+      const [item] = items;
+      if (!item || item.kind !== 'text' || !item.types.has('key') || items.length !== 1) return;
+
+      const key = await pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, async (decode) =>
+        pipe(await item.getText('key'), decode),
+      );
+
+      if (key._tag !== EndpointKey._tag && key._tag !== ExampleKey._tag) return;
+
+      const { collectionId, endpointId, exampleId } = key;
+
+      const {
+        endpoint: { endpointId: deltaEndpointId },
+      } = await dataClient.fetch(EndpointCreateEndpoint, {
+        collectionId,
+        hidden: true,
+      });
+
+      const { exampleId: deltaExampleId } = await dataClient.fetch(ExampleCreateEndpoint, {
+        endpointId: deltaEndpointId,
+        hidden: true,
+      });
+
+      const canvas = ref.current?.getBoundingClientRect() ?? { x: 0, y: 0 };
+
+      const node = await makeNode({
+        kind: NodeKind.REQUEST,
+        name: `request_${getNodes().length}`,
+        position: screenToFlowPosition({ x: x + canvas.x, y: y + canvas.y }),
+        request: {
+          collectionId,
+          deltaEndpointId,
+          deltaExampleId,
+          endpointId,
+          exampleId,
+        },
+      });
+
+      addNodes(Node.fromDTO(node));
+    },
+    ref,
+  });
+
   return (
     <ReactFlow
+      {...(dropProps as object)}
       colorMode='light'
       connectionLineComponent={ConnectionLine}
       defaultEdgeOptions={{ type: 'EDGE_KIND_UNSPECIFIED' satisfies EdgeKindJson }}
@@ -251,6 +310,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
       panOnDrag={[1, 2]}
       panOnScroll
       proOptions={{ hideAttribution: true }}
+      ref={ref}
       selectionMode={SelectionMode.Partial}
       selectionOnDrag
       selectNodesOnDrag={false}
