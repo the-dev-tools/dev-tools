@@ -3,14 +3,10 @@ package rcollectionitem
 import (
 	"context"
 	"database/sql"
-	"errors"
-	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rcollection"
 	"the-dev-tools/server/internal/api/ritemfolder"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -181,179 +177,179 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.Request[itemv1.CollectionItemMoveRequest]) (*connect.Response[itemv1.CollectionItemMoveResponse], error) {
 	return connect.NewResponse(&itemv1.CollectionItemMoveResponse{}), nil
 
-	var targetNextID, targetPrevID *idwrap.IDWrap
+	// var targetNextID, targetPrevID *idwrap.IDWrap
 
-	if len(req.Msg.TargetItemId) != 0 {
-		targetNextIDTemp, err := idwrap.NewFromBytes(req.Msg.TargetItemId)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		targetNextID = &targetNextIDTemp
-	}
+	// if len(req.Msg.TargetItemId) != 0 {
+	// 	targetNextIDTemp, err := idwrap.NewFromBytes(req.Msg.TargetItemId)
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	// 	}
+	// 	targetNextID = &targetNextIDTemp
+	// }
 
-	if len(req.Msg.ItemId) != 0 {
-		targetPrevIDTemp, err := idwrap.NewFromBytes(req.Msg.ItemId)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		targetPrevID = &targetPrevIDTemp
-	}
+	// if len(req.Msg.ItemId) != 0 {
+	// 	targetPrevIDTemp, err := idwrap.NewFromBytes(req.Msg.ItemId)
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	// 	}
+	// 	targetPrevID = &targetPrevIDTemp
+	// }
 
-	switch req.Msg.Kind {
-	case itemv1.ItemKind_ITEM_KIND_FOLDER:
-		folderID, err := idwrap.NewFromBytes(req.Msg.ItemId)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
+	// switch req.Msg.Kind {
+	// case itemv1.ItemKind_ITEM_KIND_FOLDER:
+	// 	folderID, err := idwrap.NewFromBytes(req.Msg.ItemId)
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	// 	}
 
-		tx, err := c.DB.Begin()
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	// 	tx, err := c.DB.Begin()
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInternal, err)
+	// 	}
 
-		defer devtoolsdb.TxnRollback(tx)
+	// 	defer devtoolsdb.TxnRollback(tx)
 
-		txIfs, err := sitemfolder.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	// 	txIfs, err := sitemfolder.NewTX(ctx, tx)
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInternal, err)
+	// 	}
 
-		folder, err := c.ifs.GetFolder(ctx, folderID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	// 	folder, err := c.ifs.GetFolder(ctx, folderID)
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInternal, err)
+	// 	}
 
-		currentPrev, currentNext := folder.Prev, folder.Next
-		var currentPrevFolder, currentNextFolder *mitemfolder.ItemFolder
-		// Get the current prev and next folders
-		if currentPrev != nil {
-			currentPrevFolder, err = c.ifs.GetFolder(ctx, *currentPrev)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			currentPrevFolder.Next = currentNext
-		}
-		if currentNext != nil {
-			currentNextFolder, err = c.ifs.GetFolder(ctx, *currentNext)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			currentNextFolder.Prev = currentPrev
+	// 	currentPrev, currentNext := folder.Prev, folder.Next
+	// 	var currentPrevFolder, currentNextFolder *mitemfolder.ItemFolder
+	// 	// Get the current prev and next folders
+	// 	if currentPrev != nil {
+	// 		currentPrevFolder, err = c.ifs.GetFolder(ctx, *currentPrev)
+	// 		if err != nil {
+	// 			return nil, connect.NewError(connect.CodeInternal, err)
+	// 		}
+	// 		currentPrevFolder.Next = currentNext
+	// 	}
+	// 	if currentNext != nil {
+	// 		currentNextFolder, err = c.ifs.GetFolder(ctx, *currentNext)
+	// 		if err != nil {
+	// 			return nil, connect.NewError(connect.CodeInternal, err)
+	// 		}
+	// 		currentNextFolder.Prev = currentPrev
 
-		}
+	// 	}
 
-		// Get the target prev and next folders
-		var targetPrevFolder, targetNextFolder *mitemfolder.ItemFolder
-		if targetNextID != nil {
-			targetNextFolder, err := c.ifs.GetFolder(ctx, *targetNextID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			folder.Next = targetNextID
-			targetNextFolder.Prev = &folder.ID
-		}
-		if targetPrevID != nil {
-			targetPrevFolder, err := c.ifs.GetFolder(ctx, *targetPrevID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			folder.Prev = targetPrevID
-			targetPrevFolder.Next = &folder.ID
-		}
+	// 	// Get the target prev and next folders
+	// 	var targetPrevFolder, targetNextFolder *mitemfolder.ItemFolder
+	// 	if targetNextID != nil {
+	// 		targetNextFolder, err := c.ifs.GetFolder(ctx, *targetNextID)
+	// 		if err != nil {
+	// 			return nil, connect.NewError(connect.CodeInternal, err)
+	// 		}
+	// 		folder.Next = targetNextID
+	// 		targetNextFolder.Prev = &folder.ID
+	// 	}
+	// 	if targetPrevID != nil {
+	// 		targetPrevFolder, err := c.ifs.GetFolder(ctx, *targetPrevID)
+	// 		if err != nil {
+	// 			return nil, connect.NewError(connect.CodeInternal, err)
+	// 		}
+	// 		folder.Prev = targetPrevID
+	// 		targetPrevFolder.Next = &folder.ID
+	// 	}
 
-		updateOrderFolderArr := []*mitemfolder.ItemFolder{
-			currentPrevFolder, currentNextFolder, targetPrevFolder, targetNextFolder, folder,
-		}
+	// 	updateOrderFolderArr := []*mitemfolder.ItemFolder{
+	// 		currentPrevFolder, currentNextFolder, targetPrevFolder, targetNextFolder, folder,
+	// 	}
 
-		for _, folder := range updateOrderFolderArr {
-			err = txIfs.UpdateOrder(ctx, folder)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-		}
+	// 	for _, folder := range updateOrderFolderArr {
+	// 		err = txIfs.UpdateOrder(ctx, folder)
+	// 		if err != nil {
+	// 			return nil, connect.NewError(connect.CodeInternal, err)
+	// 		}
+	// 	}
 
-		err = tx.Commit()
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	// 	err = tx.Commit()
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInternal, err)
+	// 	}
 
-	case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
-		endpointID, err := idwrap.NewFromBytes(req.Msg.ItemId)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
+	// case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
+	// 	endpointID, err := idwrap.NewFromBytes(req.Msg.ItemId)
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	// 	}
 
-		tx, err := c.DB.Begin()
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		defer devtoolsdb.TxnRollback(tx)
+	// 	tx, err := c.DB.Begin()
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInternal, err)
+	// 	}
+	// 	defer devtoolsdb.TxnRollback(tx)
 
-		txIas, err := sitemapi.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	// 	txIas, err := sitemapi.NewTX(ctx, tx)
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInternal, err)
+	// 	}
 
-		endpoint, err := c.ias.GetItemApi(ctx, endpointID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+	// 	endpoint, err := c.ias.GetItemApi(ctx, endpointID)
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInternal, err)
+	// 	}
 
-		currentPrev, currentNext := endpoint.Prev, endpoint.Next
-		var currentPrevEndpoint, currentNextEndpoint *mitemapi.ItemApi
-		if currentPrev != nil {
-			currentPrevEndpoint, err = c.ias.GetItemApi(ctx, *currentPrev)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			currentPrevEndpoint.Next = currentNext
-		}
-		if currentNext != nil {
-			currentNextEndpoint, err = c.ias.GetItemApi(ctx, *currentNext)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			currentNextEndpoint.Prev = currentPrev
-		}
+	// 	currentPrev, currentNext := endpoint.Prev, endpoint.Next
+	// 	var currentPrevEndpoint, currentNextEndpoint *mitemapi.ItemApi
+	// 	if currentPrev != nil {
+	// 		currentPrevEndpoint, err = c.ias.GetItemApi(ctx, *currentPrev)
+	// 		if err != nil {
+	// 			return nil, connect.NewError(connect.CodeInternal, err)
+	// 		}
+	// 		currentPrevEndpoint.Next = currentNext
+	// 	}
+	// 	if currentNext != nil {
+	// 		currentNextEndpoint, err = c.ias.GetItemApi(ctx, *currentNext)
+	// 		if err != nil {
+	// 			return nil, connect.NewError(connect.CodeInternal, err)
+	// 		}
+	// 		currentNextEndpoint.Prev = currentPrev
+	// 	}
 
-		var targetPrevEndpoint, targetNextEndpoint *mitemapi.ItemApi
-		if targetNextID != nil {
-			targetNextEndpoint, err = c.ias.GetItemApi(ctx, *targetNextID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			endpoint.Next = targetNextID
-			targetNextEndpoint.Prev = &endpoint.ID
-		}
-		if targetPrevID != nil {
-			targetPrevEndpoint, err = c.ias.GetItemApi(ctx, *targetPrevID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			endpoint.Prev = targetPrevID
-			targetPrevEndpoint.Next = &endpoint.ID
-		}
+	// 	var targetPrevEndpoint, targetNextEndpoint *mitemapi.ItemApi
+	// 	if targetNextID != nil {
+	// 		targetNextEndpoint, err = c.ias.GetItemApi(ctx, *targetNextID)
+	// 		if err != nil {
+	// 			return nil, connect.NewError(connect.CodeInternal, err)
+	// 		}
+	// 		endpoint.Next = targetNextID
+	// 		targetNextEndpoint.Prev = &endpoint.ID
+	// 	}
+	// 	if targetPrevID != nil {
+	// 		targetPrevEndpoint, err = c.ias.GetItemApi(ctx, *targetPrevID)
+	// 		if err != nil {
+	// 			return nil, connect.NewError(connect.CodeInternal, err)
+	// 		}
+	// 		endpoint.Prev = targetPrevID
+	// 		targetPrevEndpoint.Next = &endpoint.ID
+	// 	}
 
-		updateOrderEndpointArr := []*mitemapi.ItemApi{
-			currentPrevEndpoint, currentNextEndpoint, targetPrevEndpoint, targetNextEndpoint, endpoint,
-		}
+	// 	updateOrderEndpointArr := []*mitemapi.ItemApi{
+	// 		currentPrevEndpoint, currentNextEndpoint, targetPrevEndpoint, targetNextEndpoint, endpoint,
+	// 	}
 
-		for _, ep := range updateOrderEndpointArr {
-			if ep != nil {
-				err = txIas.UpdateItemApiOrder(ctx, ep)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-			}
-		}
+	// 	for _, ep := range updateOrderEndpointArr {
+	// 		if ep != nil {
+	// 			err = txIas.UpdateItemApiOrder(ctx, ep)
+	// 			if err != nil {
+	// 				return nil, connect.NewError(connect.CodeInternal, err)
+	// 			}
+	// 		}
+	// 	}
 
-		err = tx.Commit()
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	default:
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item kind"))
-	}
+	// 	err = tx.Commit()
+	// 	if err != nil {
+	// 		return nil, connect.NewError(connect.CodeInternal, err)
+	// 	}
+	// default:
+	// 	return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item kind"))
+	// }
 
-	return connect.NewResponse(&itemv1.CollectionItemMoveResponse{}), nil
+	// return connect.NewResponse(&itemv1.CollectionItemMoveResponse{}), nil
 }
