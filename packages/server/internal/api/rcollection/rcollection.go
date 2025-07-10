@@ -232,3 +232,8 @@ func CheckOwnerCollection(ctx context.Context, cs scollection.CollectionService,
 
 	return CheckOwnerWorkspace(ctx, us, workspaceID)
 }
+
+// TODO: implement move RPC
+func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.Request[collectionv1.CollectionMoveRequest]) (*connect.Response[collectionv1.CollectionMoveResponse], error) {
+	return connect.NewResponse(&collectionv1.CollectionMoveResponse{}), nil
+}

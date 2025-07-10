@@ -28,5 +28,18 @@ model Collection {
 
 model CollectionListItem is Resource.List.Item<Collection>;
 
+@autoFields
+model CollectionMoveRequest {
+  ...ParentKeyOf<Collection>;
+  ...KeyOf<Collection>;
+  position: Resource.MovePosition;
+  targetCollectionId: Resource.Id;
+}
+
+model CollectionMoveResponse {}
+
 @Protobuf.service
-interface CollectionService extends Resource.CRUD<Collection, TListItem = CollectionListItem> {}
+interface CollectionService extends Resource.CRUD<Collection, TListItem = CollectionListItem> {
+  @endpoint("collection.js:move")
+  CollectionMove(...CollectionMoveRequest): CollectionMoveResponse;
+}

@@ -43,6 +43,7 @@ import {
 import {
   CollectionDeleteEndpoint,
   CollectionListEndpoint,
+  CollectionMoveEndpoint,
   CollectionUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
 import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
@@ -201,6 +202,15 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
           exampleId: key.exampleId,
           position,
           targetExampleId: targetKey.exampleId,
+        });
+      }
+
+      if (key._tag === CollectionKey._tag && targetKey._tag === CollectionKey._tag) {
+        void dataClient.fetch(CollectionMoveEndpoint, {
+          collectionId: key.collectionId,
+          position,
+          targetCollectionId: targetKey.collectionId,
+          workspaceId,
         });
       }
     },
