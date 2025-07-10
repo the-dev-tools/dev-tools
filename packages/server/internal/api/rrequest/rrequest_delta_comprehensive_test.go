@@ -491,7 +491,7 @@ func TestHeaderDeltaComprehensive(t *testing.T) {
 				t.Fatal(err)
 			}
 			id, _ := idwrap.NewFromBytes(resp.Msg.HeaderId)
-			originHeaderIDs = append(originHeaderIDs, id)
+			_ = append(originHeaderIDs, id)
 		}
 
 		// Copy to delta example
@@ -696,7 +696,7 @@ func TestAssertDeltaComprehensive(t *testing.T) {
 				t.Fatal(err)
 			}
 			id, _ := idwrap.NewFromBytes(resp.Msg.AssertId)
-			originAssertIDs = append(originAssertIDs, id)
+			_ = append(originAssertIDs, id)
 		}
 
 		// Copy to delta example
@@ -1073,7 +1073,7 @@ func TestDeltaConcurrency(t *testing.T) {
 				t.Fatal(err)
 			}
 			id, _ := idwrap.NewFromBytes(resp.Msg.QueryId)
-			originQueryIDs = append(originQueryIDs, id)
+			_ = append(originQueryIDs, id)
 		}
 
 		// Copy to delta
