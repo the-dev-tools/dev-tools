@@ -1347,3 +1347,8 @@ func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleS
 	}
 	return rcollection.CheckOwnerCollection(ctx, cs, us, example.CollectionID)
 }
+
+// TODO: implement move RPC
+func (c *ItemAPIExampleRPC) ExampleMove(ctx context.Context, req *connect.Request[examplev1.ExampleMoveRequest]) (*connect.Response[examplev1.ExampleMoveResponse], error) {
+	return connect.NewResponse(&examplev1.ExampleMoveResponse{}), nil
+}

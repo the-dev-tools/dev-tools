@@ -28,6 +28,7 @@ import {
   ExampleDeleteEndpoint,
   ExampleDuplicateEndpoint,
   ExampleListEndpoint,
+  ExampleMoveEndpoint,
   ExampleUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import {
@@ -191,6 +192,15 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
           position,
           targetItemId: getTreeKeyItemId(targetKey),
           targetKind: getTreeKeyItemKind(targetKey._tag),
+        });
+      }
+
+      if (key._tag === ExampleKey._tag && targetKey._tag === ExampleKey._tag) {
+        void dataClient.fetch(ExampleMoveEndpoint, {
+          endpointId: key.endpointId,
+          exampleId: key.exampleId,
+          position,
+          targetExampleId: targetKey.exampleId,
         });
       }
     },

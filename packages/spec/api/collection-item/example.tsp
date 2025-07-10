@@ -78,6 +78,16 @@ model ExampleRunResponse {
   version: ExampleVersionsItem;
 }
 
+@autoFields
+model ExampleMoveRequest {
+  ...ParentKeyOf<Example>;
+  ...KeyOf<Example>;
+  position: Resource.MovePosition;
+  targetExampleId: Resource.Id;
+}
+
+model ExampleMoveResponse {}
+
 @Protobuf.service
 interface ExampleService
   extends Resource.CRUD<Example, TListItem = ExampleListItem, TListResponse = ExampleListResponse> {
@@ -97,4 +107,7 @@ interface ExampleService
 
   @endpoint("collection-item.js:runExample")
   ExampleRun(...ExampleRunRequest): ExampleRunResponse;
+
+  @endpoint("collection-item.js:moveExample")
+  ExampleMove(...ExampleMoveRequest): ExampleMoveResponse;
 }

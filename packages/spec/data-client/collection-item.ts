@@ -1,8 +1,8 @@
 import { create } from '@bufbuild/protobuf';
 import { Endpoint, schema } from '@data-client/endpoint';
-import { Array, Equivalence, Option, Record, Struct } from 'effect';
+import { Array, Equivalence, Match, Option, pipe, Record, Struct } from 'effect';
 import { EndpointService } from '../dist/buf/typescript/collection/item/endpoint/v1/endpoint_pb';
-import { ExampleService } from '../dist/buf/typescript/collection/item/example/v1/example_pb';
+import { ExampleMoveRequestSchema, ExampleService } from '../dist/buf/typescript/collection/item/example/v1/example_pb';
 import { FolderService } from '../dist/buf/typescript/collection/item/folder/v1/folder_pb';
 import {
   CollectionItem,
@@ -205,6 +205,52 @@ export const move = ({ method, name }: MakeEndpointProps<typeof CollectionItemSe
     key: makeKey(method, name),
     name,
     schema: { from: fromList, to: toList },
+    sideEffect: true,
+  });
+};
+
+export const moveExample = ({ method, name }: MakeEndpointProps<typeof ExampleService.method.exampleMove>) => {
+  const list = makeListCollection({ inputPrimaryKeys: ['endpointId'], itemSchema: ExampleListItemEntity, method });
+
+  const endpointFn = async (props: EndpointProps<typeof ExampleService.method.exampleMove>) => {
+    await makeEndpointFn(method)(props);
+
+    const snapshot = props.controller().snapshot(props.controller().getState());
+
+    // TODO: implement a generic move helper
+    return Option.gen(function* () {
+      const items = yield* Option.fromNullable(snapshot.get(list, props));
+
+      const { exampleId, position, targetExampleId } = create(ExampleMoveRequestSchema, props.input);
+
+      const offset = yield* pipe(
+        Match.value(position),
+        Match.when(MovePosition.AFTER, () => 1),
+        Match.when(MovePosition.BEFORE, () => 0),
+        Match.option,
+      );
+
+      const { move = [], rest = [] } = Array.groupBy(items, (_) =>
+        _.exampleId.toString() === exampleId.toString() ? 'move' : 'rest',
+      );
+
+      const index = yield* Array.findFirstIndex(rest, (_) => _.exampleId.toString() === targetExampleId.toString());
+
+      const [before, after] = Array.splitAt(rest, index + offset);
+
+      return [...before, ...move, ...after];
+    }).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (_) => ({ items: _ }),
+      }),
+    );
+  };
+
+  return new Endpoint(endpointFn, {
+    key: makeKey(method, name),
+    name,
+    schema: { items: list },
     sideEffect: true,
   });
 };
