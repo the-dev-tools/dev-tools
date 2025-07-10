@@ -9,6 +9,7 @@ import {
   composeRenderProps,
 } from 'react-aria-components';
 import { IconBaseProps } from 'react-icons';
+import { FiMove } from 'react-icons/fi';
 import { twJoin, twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 import { Button, ButtonProps } from './button';
@@ -56,7 +57,7 @@ export interface TreeItemWrapperProps extends React.ComponentProps<'div'> {
 export const TreeItemWrapper = ({ className, level, style, ...props }: TreeItemWrapperProps) => (
   <div
     {...props}
-    className={twMerge(tw`flex items-center gap-2`, className)}
+    className={twMerge(tw`relative z-0 flex items-center gap-2`, className)}
     style={{ paddingInlineStart: ((level - 1) * (20 / 16)).toString() + 'rem', ...style }}
   />
 );
@@ -88,7 +89,7 @@ export const TreeItem = <T extends object>({
   return (
     <TreeItemRoot {...props.rest}>
       <AriaTreeItemContent {...props.content}>
-        {composeRenderProps(children, (children, { hasChildItems, isExpanded, level }) => (
+        {composeRenderProps(children, (children, { allowsDragging, hasChildItems, isExpanded, level }) => (
           <TreeItemWrapper level={level} {...props.wrapper}>
             {loading ? (
               <Button className={tw`p-1`} isDisabled variant='ghost'>
@@ -114,6 +115,16 @@ export const TreeItem = <T extends object>({
               <div />
             )}
             {children}
+            {allowsDragging && (
+              <Button
+                className={({ isFocused }) =>
+                  twMerge(tw`absolute right-0 p-1`, isFocused ? tw`z-10 opacity-100` : tw`-z-10 opacity-0`)
+                }
+                slot='drag'
+              >
+                <FiMove className={tw`size-3 text-slate-500`} />
+              </Button>
+            )}
           </TreeItemWrapper>
         ))}
       </AriaTreeItemContent>
