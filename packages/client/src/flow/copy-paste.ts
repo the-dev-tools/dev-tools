@@ -51,27 +51,12 @@ async function copyDeltaData(
       originId: exampleId,
     });
 
-    // Don't fetch the target list - it triggers auto-creation in the backend
-    // Only copy items that have been actually modified from their origin
-
+    // Only copy modified items - backend now properly determines source types
     for (const { $typeName: _, ...sourceItem } of sourceItems) {
       // Skip ORIGIN items - these will be auto-created by backend
       if (sourceItem.source === SourceKind.ORIGIN) continue;
 
-      // For MIXED items, check if they've actually been modified
-      if (sourceItem.source === SourceKind.MIXED && sourceItem.origin) {
-        // Compare values with origin to see if actually modified
-        const isActuallyModified = 
-          sourceItem.key !== sourceItem.origin.key ||
-          sourceItem.enabled !== sourceItem.origin.enabled ||
-          sourceItem.value !== sourceItem.origin.value ||
-          sourceItem.description !== sourceItem.origin.description;
-        
-        // Skip if not actually modified - let backend create as ORIGIN
-        if (!isActuallyModified) continue;
-      }
-
-      // Create the item (either DELTA or actually modified MIXED)
+      // Copy MIXED and DELTA items - backend has already determined these are modified
       const originHeaderId = sourceItem.origin?.headerId;
       
       await dataClient.fetch(HeaderDeltaCreateEndpoint, {
@@ -96,27 +81,12 @@ async function copyDeltaData(
       originId: exampleId,
     });
 
-    // Don't fetch the target list - it triggers auto-creation in the backend
-    // Only copy items that have been actually modified from their origin
-
+    // Only copy modified items - backend now properly determines source types
     for (const { $typeName: _, ...sourceItem } of sourceItems) {
       // Skip ORIGIN items - these will be auto-created by backend
       if (sourceItem.source === SourceKind.ORIGIN) continue;
 
-      // For MIXED items, check if they've actually been modified
-      if (sourceItem.source === SourceKind.MIXED && sourceItem.origin) {
-        // Compare values with origin to see if actually modified
-        const isActuallyModified = 
-          sourceItem.key !== sourceItem.origin.key ||
-          sourceItem.enabled !== sourceItem.origin.enabled ||
-          sourceItem.value !== sourceItem.origin.value ||
-          sourceItem.description !== sourceItem.origin.description;
-        
-        // Skip if not actually modified - let backend create as ORIGIN
-        if (!isActuallyModified) continue;
-      }
-
-      // Create the item (either DELTA or actually modified MIXED)
+      // Copy MIXED and DELTA items - backend has already determined these are modified
       const originQueryId = sourceItem.origin?.queryId;
       
       await dataClient.fetch(QueryDeltaCreateEndpoint, {
