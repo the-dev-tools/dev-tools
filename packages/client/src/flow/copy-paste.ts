@@ -58,7 +58,7 @@ async function copyDeltaData(
 
       // Copy MIXED and DELTA items - backend has already determined these are modified
       const originHeaderId = sourceItem.origin?.headerId;
-      
+
       await dataClient.fetch(HeaderDeltaCreateEndpoint, {
         description: sourceItem.description,
         enabled: sourceItem.enabled,
@@ -88,7 +88,7 @@ async function copyDeltaData(
 
       // Copy MIXED and DELTA items - backend has already determined these are modified
       const originQueryId = sourceItem.origin?.queryId;
-      
+
       await dataClient.fetch(QueryDeltaCreateEndpoint, {
         description: sourceItem.description,
         enabled: sourceItem.enabled,
