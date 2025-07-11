@@ -53,7 +53,7 @@ func ExportWorkflowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error
 		&yaml.Node{Kind: yaml.ScalarNode, Value: "workspace_name"},
 		&yaml.Node{Kind: yaml.ScalarNode, Value: workspaceData.Workspace.Name})
 
-	// Add run field if there are flows with dependencies
+	// Add run field with all exported flows
 	runEntries := buildRunEntries(workspaceData)
 	if len(runEntries) > 0 {
 		var runNode yaml.Node
@@ -910,15 +910,18 @@ func convertForEachNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 
 // buildRunEntries analyzes flows and their dependencies to build run entries
 func buildRunEntries(workspaceData *ioworkspace.WorkspaceData) []RunEntry {
-	// For now, we'll return an empty slice since the current architecture
-	// only supports single flow execution. This is a placeholder for future
-	// multi-flow orchestration support.
-	//
-	// In a full implementation, this would:
-	// 1. Analyze cross-flow dependencies
-	// 2. Determine execution order
-	// 3. Build RunEntry structs with proper dependencies
-	return []RunEntry{}
+	// Create a run entry for each flow that was exported
+	// This enables the exported YAML to specify which flows should be executed
+	entries := make([]RunEntry, 0, len(workspaceData.Flows))
+	
+	for _, flow := range workspaceData.Flows {
+		entry := RunEntry{
+			Flow: flow.Name,
+		}
+		entries = append(entries, entry)
+	}
+	
+	return entries
 }
 
 // createRunEntryNode creates a YAML node for a run entry
