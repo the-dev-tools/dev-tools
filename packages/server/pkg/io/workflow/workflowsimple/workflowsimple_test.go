@@ -242,7 +242,7 @@ flows:
 	require.Len(t, data.ForNodes, 1)
 	forNode := data.ForNodes[0]
 	require.Equal(t, int64(3), forNode.IterCount)
-	
+
 	// Verify for_each node
 	require.Len(t, data.ForEachNodes, 1)
 	forEachNode := data.ForEachNodes[0]

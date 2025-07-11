@@ -1,0 +1,167 @@
+workspace_name: Multi-Flow Run Example
+run:
+  - flow: DataFetchFlow
+  - flow: ProcessingFlow
+    depends_on: DataFetchFlow
+  - flow: ReportingFlow
+    depends_on:
+      - UserData
+      - ProcessingFlow
+request_templates:
+  UserRequest:
+    method: GET
+    url: https://jsonplaceholder.typicode.com/users/${user_id}
+    headers:
+      Accept: application/json
+  PostRequest:
+    method: GET
+    url: https://jsonplaceholder.typicode.com/posts
+    query_params:
+      userId: '${user_id}'
+  CommentRequest:
+    method: GET
+    url: https://jsonplaceholder.typicode.com/comments
+    query_params:
+      postId: '${post_id}'
+flows:
+  - name: DataFetchFlow
+    variables:
+      - name: user_id
+        value: '1'
+      - name: flow_name
+        value: 'Data Fetching Flow'
+    steps:
+      - request:
+          name: UserData
+          use_request: UserRequest
+      - request:
+          name: UserPosts
+          use_request: PostRequest
+          depends_on: UserData
+      - js:
+          name: ExtractFirstPost
+          code: |
+            export default function(context) {
+              const posts = context.UserPosts?.response?.body || [];
+              const firstPost = posts[0];
+              console.log(`Found ${posts.length} posts for user`);
+              return {
+                postId: firstPost?.id || 1,
+                postTitle: firstPost?.title || "No posts found"
+              };
+            }
+          depends_on: UserPosts
+  - name: ProcessingFlow
+    variables:
+      - name: post_id
+        value: '1'
+      - name: processing_type
+        value: 'detailed'
+    steps:
+      - request:
+          name: PostComments
+          use_request: CommentRequest
+          query_params:
+            postId: '${ExtractFirstPost.postId}'
+      - for:
+          name: ProcessMultiplePosts
+          iter_count: 3
+          loop: FetchPost
+          depends_on: PostComments
+      - request:
+          name: FetchPost
+          method: GET
+          url: https://jsonplaceholder.typicode.com/posts/${iter_index}
+      - js:
+          name: AnalyzeData
+          code: |
+            export default function(context) {
+              const comments = context.PostComments?.response?.body || [];
+              const userData = context.UserData?.response?.body;
+              
+              console.log(`Processing ${comments.length} comments`);
+              
+              return {
+                analysis: {
+                  commentCount: comments.length,
+                  userName: userData?.name || "Unknown",
+                  processingType: context.processing_type,
+                  timestamp: new Date().toISOString()
+                }
+              };
+            }
+          depends_on: ProcessMultiplePosts
+  - name: ReportingFlow
+    variables:
+      - name: report_type
+        value: 'summary'
+    steps:
+      - request:
+          name: CreateReport
+          method: POST
+          url: https://jsonplaceholder.typicode.com/posts
+          headers:
+            Content-Type: application/json
+          body:
+            title: 'Analysis Report - ${report_type}'
+            body: 'Generated report based on user data and processing results'
+            userId: 1
+      - if:
+          name: CheckReportSuccess
+          condition: CreateReport.response.status == 201
+          then: LogSuccess
+          else: LogFailure
+          depends_on: CreateReport
+      - js:
+          name: LogSuccess
+          code: |
+            export default function(context) {
+              const report = context.CreateReport?.response?.body;
+              const analysis = context.AnalyzeData?.analysis;
+              
+              console.log("Report created successfully!");
+              
+              return {
+                status: "success",
+                reportId: report?.id,
+                summary: {
+                  userName: analysis?.userName,
+                  commentCount: analysis?.commentCount,
+                  reportType: context.report_type,
+                  message: "All flows completed successfully"
+                }
+              };
+            }
+      - js:
+          name: LogFailure
+          code: |
+            export default function(context) {
+              console.log("Report creation failed");
+              return {
+                status: "failed",
+                error: "Unable to create report"
+              };
+            }
+      - js:
+          name: FinalSummary
+          code: |
+            export default function(context) {
+              console.log("=== Final Summary ===");
+              console.log("ReportingFlow depends on UserData from DataFetchFlow");
+              console.log("and completion of ProcessingFlow");
+              
+              const userData = context.UserData?.response?.body;
+              const analysis = context.AnalyzeData?.analysis;
+              const reportStatus = context.LogSuccess || context.LogFailure;
+              
+              return {
+                workflow: "Multi-Flow Run Example",
+                executionOrder: ["DataFetchFlow", "ProcessingFlow", "ReportingFlow"],
+                results: {
+                  user: userData?.name,
+                  analysisTimestamp: analysis?.timestamp,
+                  reportStatus: reportStatus?.status
+                }
+              };
+            }
+          depends_on: CheckReportSuccess

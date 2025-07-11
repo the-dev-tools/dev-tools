@@ -27,8 +27,8 @@ import (
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/ioworkspace"
 	workflowsimple "the-dev-tools/server/pkg/io/workflow/workflowsimple"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -46,6 +46,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -62,9 +63,8 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/svar"
+	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
 	"time"
 
@@ -72,6 +72,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 type FlowServiceLocal struct {
@@ -328,8 +329,8 @@ var workspaceRunCmd = &cobra.Command{
 var workflowRunCmd = &cobra.Command{
 	Use:   "workflow [filepath] [flow-name]",
 	Short: "Run flow from workflow file",
-	Long:  `Running Flow from a workflow format file`,
-	Args:  cobra.ExactArgs(2),
+	Long:  `Running Flow from a workflow format file. If flow-name is not provided, executes all flows from the 'run' field in order.`,
+	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
@@ -356,21 +357,61 @@ var workflowRunCmd = &cobra.Command{
 		logger := slog.New(loggerHandler)
 
 		workflowFilePath := args[0]
-		flowName := args[1]
+		var flowName string
+		var runMultiple bool
 
 		fileData, err := os.ReadFile(workflowFilePath)
 		if err != nil {
 			return err
 		}
 
+		// Check if flow name was provided as argument
+		if len(args) > 1 {
+			flowName = args[1]
+			runMultiple = false
+		} else {
+			// Check for run field to execute multiple flows
+			var rawYAML map[string]interface{}
+			if err := yaml.Unmarshal(fileData, &rawYAML); err == nil {
+				if runField, ok := rawYAML["run"].([]interface{}); ok && len(runField) > 0 {
+					// Execute all flows in run field
+					runMultiple = true
+					log.Println("Executing flows based on run field configuration")
+				}
+			}
+
+			if !runMultiple {
+				return fmt.Errorf("no flow name provided and no run field found in workflow file")
+			}
+		}
+
 		// Parse workflow YAML to workspace data
-		// Try simplified format first
-		workspaceData, err := workflowsimple.ImportWorkflowYAML(fileData)
-		if err != nil {
-			// Fall back to standard format
-			workspaceData, err = ioworkspace.UnmarshalWorkflowYAML(fileData)
+		var workspaceData *ioworkspace.WorkspaceData
+		if runMultiple {
+			// Use multi-flow import when running all flows
+			workspaceData, err = workflowsimple.ImportWorkflowYAMLMultiFlow(fileData)
 			if err != nil {
-				return fmt.Errorf("failed to parse workflow: %w", err)
+				// Log the error from simplified format for debugging
+				log.Printf("workflowsimple.ImportWorkflowYAMLMultiFlow failed: %v", err)
+				
+				// Fall back to standard format
+				workspaceData, err = ioworkspace.UnmarshalWorkflowYAML(fileData)
+				if err != nil {
+					return fmt.Errorf("failed to parse workflow: %w", err)
+				}
+			}
+		} else {
+			// For single flow, we still need to import all flows to find the requested one
+			workspaceData, err = workflowsimple.ImportWorkflowYAMLMultiFlow(fileData)
+			if err != nil {
+				// Log the error from simplified format for debugging
+				log.Printf("workflowsimple.ImportWorkflowYAMLMultiFlow failed: %v", err)
+				
+				// Fall back to standard format
+				workspaceData, err = ioworkspace.UnmarshalWorkflowYAML(fileData)
+				if err != nil {
+					return fmt.Errorf("failed to parse workflow: %w", err)
+				}
 			}
 		}
 
@@ -491,25 +532,31 @@ var workflowRunCmd = &cobra.Command{
 			return err
 		}
 
-		var flowPtr *mflow.Flow
-		for _, flow := range flows {
-			if flowName == flow.Name {
-				flowPtr = &flow
-				break
+		if runMultiple {
+			// Execute multiple flows based on run field
+			return runMultipleFlows(ctx, fileData, flows, c, logger)
+		} else {
+			// Execute single flow (existing behavior)
+			var flowPtr *mflow.Flow
+			for _, flow := range flows {
+				if flowName == flow.Name {
+					flowPtr = &flow
+					break
+				}
 			}
-		}
 
-		if flowPtr == nil {
-			return fmt.Errorf("flow '%s' not found in the workflow file", flowName)
-		}
+			if flowPtr == nil {
+				return fmt.Errorf("flow '%s' not found in the workflow file", flowName)
+			}
 
-		log.Println("found flow", flowPtr.Name)
-		err = flowRun(ctx, flowPtr, c)
+			log.Println("found flow", flowPtr.Name)
+			err = flowRun(ctx, flowPtr, c)
 
-		if err != nil {
-			logger.Error(err.Error())
+			if err != nil {
+				logger.Error(err.Error())
+			}
+			return err
 		}
-		return err
 	},
 }
 
@@ -524,6 +571,160 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%.2fm", d.Minutes())
 	}
 	return fmt.Sprintf("%.2fh", d.Hours())
+}
+
+// flowExecutionResult holds the result of a flow execution
+type flowExecutionResult struct {
+	flowName     string
+	success      bool
+	duration     time.Duration
+	nodeResults  map[string]interface{} // Store node results by name
+	variables    map[string]interface{} // Variables from the flow
+	err          error
+}
+
+// runMultipleFlows executes multiple flows based on the run field configuration
+func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flow, c FlowServiceLocal, logger *slog.Logger) error {
+	// Parse the run field to get flow order and dependencies
+	var rawYAML map[string]interface{}
+	if err := yaml.Unmarshal(fileData, &rawYAML); err != nil {
+		return fmt.Errorf("failed to unmarshal YAML: %w", err)
+	}
+
+	runField, ok := rawYAML["run"].([]interface{})
+	if !ok || len(runField) == 0 {
+		return fmt.Errorf("no run field found in workflow")
+	}
+
+	// Parse run entries
+	type runEntry struct {
+		flowName  string
+		dependsOn []string
+	}
+
+	var runEntries []runEntry
+	for _, entry := range runField {
+		entryMap, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		flowName, ok := entryMap["flow"].(string)
+		if !ok || flowName == "" {
+			continue
+		}
+
+		re := runEntry{flowName: flowName}
+
+		// Parse dependencies
+		if deps, ok := entryMap["depends_on"]; ok {
+			switch v := deps.(type) {
+			case string:
+				re.dependsOn = []string{v}
+			case []interface{}:
+				for _, dep := range v {
+					if depStr, ok := dep.(string); ok {
+						re.dependsOn = append(re.dependsOn, depStr)
+					}
+				}
+			}
+		}
+
+		runEntries = append(runEntries, re)
+	}
+
+	// Create flow map for easy lookup
+	flowMap := make(map[string]*mflow.Flow)
+	for i := range allFlows {
+		flowMap[allFlows[i].Name] = &allFlows[i]
+	}
+
+	// Track execution results
+	executionResults := make(map[string]*flowExecutionResult)
+	sharedVariables := make(map[string]interface{})
+	_ = sharedVariables // TODO: Implement variable sharing between flows
+
+	// Execute flows in order
+	fmt.Println("\n=== Multi-Flow Execution Starting ===")
+	fmt.Printf("Flows to execute: %d\n", len(runEntries))
+
+	overallStartTime := time.Now()
+
+	for i, entry := range runEntries {
+		flow, exists := flowMap[entry.flowName]
+		if !exists {
+			return fmt.Errorf("flow '%s' not found in workflow", entry.flowName)
+		}
+
+		// Check dependencies
+		for _, dep := range entry.dependsOn {
+			// Check if dependency is a flow
+			if depResult, ok := executionResults[dep]; ok {
+				if !depResult.success {
+					return fmt.Errorf("flow '%s' depends on '%s' which failed", entry.flowName, dep)
+				}
+			}
+			// Note: We could also check for node dependencies here in the future
+		}
+
+		fmt.Printf("\n[%d/%d] Executing flow: %s\n", i+1, len(runEntries), entry.flowName)
+		if len(entry.dependsOn) > 0 {
+			fmt.Printf("   Dependencies: %v\n", entry.dependsOn)
+		}
+
+		// Execute the flow
+		startTime := time.Now()
+		err := flowRun(ctx, flow, c)
+		duration := time.Since(startTime)
+
+		result := &flowExecutionResult{
+			flowName:    entry.flowName,
+			success:     err == nil,
+			duration:    duration,
+			nodeResults: make(map[string]interface{}), // TODO: Capture actual results
+			variables:   make(map[string]interface{}), // TODO: Capture flow variables
+			err:         err,
+		}
+
+		executionResults[entry.flowName] = result
+
+		if err != nil {
+			fmt.Printf("   ❌ Flow failed: %v\n", err)
+			logger.Error("flow execution failed", "flow", entry.flowName, "error", err)
+			// Continue to show summary even if a flow fails
+		} else {
+			fmt.Printf("   ✅ Flow completed successfully (Duration: %s)\n", formatDuration(duration))
+		}
+	}
+
+	// Display summary
+	overallDuration := time.Since(overallStartTime)
+	fmt.Println("\n=== Multi-Flow Execution Summary ===")
+	fmt.Printf("Total duration: %s\n", formatDuration(overallDuration))
+	fmt.Println("\nFlow Results:")
+
+	successCount := 0
+	for _, entry := range runEntries {
+		result := executionResults[entry.flowName]
+		status := "✅ Success"
+		if !result.success {
+			status = "❌ Failed"
+		} else {
+			successCount++
+		}
+		fmt.Printf("  %-20s %s (Duration: %s)\n", result.flowName, status, formatDuration(result.duration))
+	}
+
+	fmt.Printf("\nFlows completed: %d/%d\n", successCount, len(runEntries))
+
+	// Return error if any flow failed
+	for _, result := range executionResults {
+		if !result.success && result.err != nil {
+			return fmt.Errorf("multi-flow execution failed: one or more flows failed")
+		}
+	}
+
+	return nil
 }
 
 func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error {

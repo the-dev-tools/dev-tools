@@ -24,7 +24,7 @@ import (
 // WorkflowFormat represents the top-level YAML structure
 type WorkflowFormat struct {
 	WorkspaceName    string                    `yaml:"workspace_name"`
-	Run              map[string]any            `yaml:"run,omitempty"`
+	Run              []map[string]any          `yaml:"run,omitempty"`
 	RequestTemplates map[string]map[string]any `yaml:"request_templates,omitempty"` // Old format
 	Requests         []map[string]any          `yaml:"requests,omitempty"`          // New format
 	Flows            []WorkflowFlow            `yaml:"flows"`
@@ -155,4 +155,10 @@ type requestTemplate struct {
 	headers     []map[string]string
 	queryParams []map[string]string
 	body        map[string]any
+}
+
+// RunEntry represents a single run configuration entry
+type RunEntry struct {
+	Flow      string   `yaml:"flow"`
+	DependsOn []string `yaml:"depends_on,omitempty"`
 }

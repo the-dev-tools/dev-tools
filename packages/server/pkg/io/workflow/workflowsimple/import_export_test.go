@@ -106,7 +106,7 @@ flows:
 	require.Equal(t, "Test Empty Fields", imported.Workspace.Name)
 	require.Len(t, imported.Flows, 1)
 	require.Equal(t, "TestFlow", imported.Flows[0].Name)
-	
+
 	// Verify nodes were created
 	requestNodeCount := 0
 	for _, node := range imported.FlowNodes {
@@ -119,7 +119,7 @@ flows:
 	// Export back to simplified format
 	exported, err := workflowsimple.ExportWorkflowYAML(imported)
 	require.NoError(t, err)
-	
+
 	// Verify exported YAML doesn't contain empty fields
 	exportedStr := string(exported)
 	require.NotContains(t, exportedStr, `method: ""`, "Empty method should not be exported")
@@ -134,7 +134,7 @@ flows:
 	require.Equal(t, imported.Workspace.Name, reimported.Workspace.Name)
 	require.Len(t, reimported.Flows, len(imported.Flows))
 	require.Equal(t, imported.Flows[0].Name, reimported.Flows[0].Name)
-	
+
 	// Verify nodes still exist after round-trip
 	requestNodeCount = 0
 	for _, node := range reimported.FlowNodes {

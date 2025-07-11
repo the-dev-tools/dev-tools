@@ -1,0 +1,158 @@
+workspace_name: Example Run Field Workflow
+run:
+  - flow: FlowA
+  - flow: FlowB
+    depends_on: FlowA
+  - flow: FlowC
+    depends_on:
+      - RequestA
+      - FlowB
+requests:
+  - name: GetUser
+    method: GET
+    url: https://jsonplaceholder.typicode.com/users/1
+    headers:
+      Accept: application/json
+  - name: GetPosts
+    method: GET
+    url: https://jsonplaceholder.typicode.com/posts
+    query_params:
+      userId: '${user_id}'
+    headers:
+      Accept: application/json
+  - name: CreatePost
+    method: POST
+    url: https://jsonplaceholder.typicode.com/posts
+    headers:
+      Content-Type: application/json
+    body:
+      title: 'Test Post'
+      body: 'This is a test post created by ${flow_name}'
+      userId: 1
+flows:
+  - name: FlowA
+    variables:
+      - name: flow_name
+        value: 'Flow A'
+      - name: user_id
+        value: '1'
+    steps:
+      - request:
+          name: RequestA
+          use_request: GetUser
+      - request:
+          name: RequestA2
+          method: GET
+          url: https://jsonplaceholder.typicode.com/users/2
+          depends_on: RequestA
+      - js:
+          name: ProcessUserData
+          code: |
+            export default function(context) {
+              console.log("Processing user data from Flow A");
+              const userData = context.RequestA?.response?.body;
+              const userData2 = context.RequestA2?.response?.body;
+              
+              return { 
+                processed: true, 
+                message: "User data processed successfully",
+                user1Name: userData?.name || "Unknown",
+                user2Name: userData2?.name || "Unknown"
+              };
+            }
+          depends_on:
+            - RequestA
+            - RequestA2
+  - name: FlowB
+    variables:
+      - name: flow_name
+        value: 'Flow B'
+      - name: timeout
+        value: '120'
+    steps:
+      - request:
+          name: RequestB
+          use_request: GetPosts
+      - request:
+          name: RequestB2
+          use_request: CreatePost
+          body:
+            title: 'Flow B Post'
+            body: 'Created by Flow B after getting posts'
+            userId: 2
+          depends_on: RequestB
+      - if:
+          name: CheckPostCount
+          condition: RequestB.response.body.length > 10
+          then: LogManyPosts
+          else: LogFewPosts
+          depends_on: RequestB
+      - js:
+          name: LogManyPosts
+          code: |
+            export default function(context) {
+              const posts = context.RequestB?.response?.body;
+              const postCount = posts ? posts.length : 0;
+              console.log("Found many posts:", postCount);
+              return { message: "Many posts found", count: postCount };
+            }
+      - js:
+          name: LogFewPosts
+          code: |
+            export default function(context) {
+              const posts = context.RequestB?.response?.body;
+              const postCount = posts ? posts.length : 0;
+              console.log("Found few posts:", postCount);
+              return { message: "Few posts found", count: postCount };
+            }
+  - name: FlowC
+    variables:
+      - name: flow_name
+        value: 'Flow C'
+    steps:
+      - request:
+          name: RequestC
+          method: GET
+          url: https://jsonplaceholder.typicode.com/todos/1
+          headers:
+            Accept: application/json
+      - for:
+          name: RepeatRequests
+          iter_count: 3
+          loop: RequestC2
+          depends_on: RequestC
+      - request:
+          name: RequestC2
+          method: GET
+          url: https://jsonplaceholder.typicode.com/todos/${iter_index}
+          headers:
+            Accept: application/json
+      - for_each:
+          name: ProcessTodos
+          items: '[1, 2, 3]'
+          loop: RequestC3
+          depends_on: RepeatRequests
+      - request:
+          name: RequestC3
+          method: GET
+          url: https://jsonplaceholder.typicode.com/todos/${item}
+      - js:
+          name: FinalProcessing
+          code: |
+            export default function(context) {
+              console.log("Flow C: Final processing after all requests");
+              console.log("This flow depends on RequestA from FlowA and completion of FlowB");
+              
+              const flowName = context.flow_name || "Unknown Flow";
+              const todoData = context.RequestC?.response?.body;
+              
+              const result = {
+                status: "completed",
+                flowName: flowName,
+                timestamp: new Date().toISOString(),
+                todoTitle: todoData?.title || "No todo found"
+              };
+              
+              return result;
+            }
+          depends_on: ProcessTodos

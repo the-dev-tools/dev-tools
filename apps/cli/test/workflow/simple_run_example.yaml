@@ -1,0 +1,72 @@
+workspace_name: Simple Run Example
+run:
+  - flow: FlowA
+  - flow: FlowB
+    depends_on: FlowA
+  - flow: FlowC
+    depends_on:
+      - RequestA
+      - FlowB
+flows:
+  - name: FlowA
+    variables:
+      - name: flow_a_var
+        value: 'Flow A Variable'
+    steps:
+      - request:
+          name: RequestA
+          method: GET
+          url: https://jsonplaceholder.typicode.com/users/1
+      - request:
+          name: RequestA2
+          method: GET
+          url: https://jsonplaceholder.typicode.com/users/2
+          depends_on: RequestA
+  - name: FlowB
+    variables:
+      - name: flow_b_var
+        value: 'Flow B Variable'
+      - name: timeout
+        value: '30'
+    steps:
+      - request:
+          name: RequestB
+          method: GET
+          url: https://jsonplaceholder.typicode.com/posts/1
+      - request:
+          name: RequestB2
+          method: POST
+          url: https://jsonplaceholder.typicode.com/posts
+          headers:
+            Content-Type: application/json
+          body:
+            title: 'Test Post from FlowB'
+            body: 'This is a test post'
+            userId: 1
+          depends_on: RequestB
+  - name: FlowC
+    steps:
+      - request:
+          name: RequestC
+          method: GET
+          url: https://jsonplaceholder.typicode.com/todos/1
+      - request:
+          name: RequestC2
+          method: GET
+          url: https://jsonplaceholder.typicode.com/todos/2
+          depends_on: RequestC
+      - js:
+          name: ProcessTodos
+          code: |
+            export default function(context) {
+              console.log("Processing todos in FlowC");
+              const todo1 = context.RequestC?.response?.body;
+              const todo2 = context.RequestC2?.response?.body;
+              
+              return { 
+                message: "FlowC completed",
+                timestamp: Date.now(),
+                todosProcessed: [todo1?.title, todo2?.title].filter(Boolean)
+              };
+            }
+          depends_on: RequestC2

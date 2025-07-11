@@ -51,6 +51,8 @@ const (
 	fieldLoop        = "loop"
 	fieldSteps       = "steps"
 	fieldFlows       = "flows"
+	fieldRun         = "run"
+	fieldFlow        = "flow"
 
 	// Node type constants
 	stepTypeRequest = "request"
@@ -234,6 +236,16 @@ func Parse(data []byte) (*WorkflowData, error) {
 		return nil, newWorkflowError("workspace_name is required", "workspace_name", nil)
 	}
 
+	// Parse run field if present
+	var runEntries []RunEntry
+	if len(workflow.Run) > 0 {
+		parsedEntries, err := parseRunField(workflow.Run)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse run field: %w", err)
+		}
+		runEntries = parsedEntries
+	}
+
 	// Parse request templates (support both old and new format)
 	var templates map[string]*requestTemplate
 	if workflow.RequestTemplates != nil {
@@ -262,23 +274,44 @@ func Parse(data []byte) (*WorkflowData, error) {
 		RawBodies:      make([]mbodyraw.ExampleBodyRaw, 0),
 	}
 
-	// Process first flow only (simplified version)
-	if len(workflow.Flows) == 0 {
-		return nil, newWorkflowError("at least one flow is required", "flows", nil)
+	// Determine which flow to process
+	var flowToProcess WorkflowFlow
+	var flowName string
+
+	if len(runEntries) > 0 {
+		// If run field is present, use the first flow specified there
+		flowName = runEntries[0].Flow
+		found := false
+		for _, f := range workflow.Flows {
+			if f.Name == flowName {
+				flowToProcess = f
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("flow '%s' specified in run field not found", flowName)
+		}
+	} else {
+		// Otherwise, process first flow (backward compatibility)
+		if len(workflow.Flows) == 0 {
+			return nil, newWorkflowError("at least one flow is required", "flows", nil)
+		}
+		flowToProcess = workflow.Flows[0]
+		flowName = flowToProcess.Name
 	}
 
-	flow := workflow.Flows[0]
 	flowID := idwrap.NewNow()
 
 	workflowData.Flow = mflow.Flow{
 		ID:   flowID,
-		Name: flow.Name,
+		Name: flowName,
 	}
 
 	// Process flow variables
 	// Note: You can set a "timeout" variable to control flow execution timeout (in seconds)
 	// Default is 60 seconds if not specified. Example: - name: timeout, value: "300"
-	for _, v := range flow.Variables {
+	for _, v := range flowToProcess.Variables {
 		workflowData.Variables = append(workflowData.Variables, mvar.Var{
 			VarKey: v.Name,
 			Value:  v.Value,
@@ -316,7 +349,7 @@ func Parse(data []byte) (*WorkflowData, error) {
 		if !ok {
 			continue
 		}
-		if name, ok := rfMap[fieldName].(string); ok && name == flow.Name {
+		if name, ok := rfMap[fieldName].(string); ok && name == flowName {
 			if steps, ok := rfMap[fieldSteps].([]any); ok {
 				for _, step := range steps {
 					if stepMap, ok := step.(map[string]any); ok && len(stepMap) == 1 {
@@ -394,6 +427,11 @@ func Parse(data []byte) (*WorkflowData, error) {
 	// Create edges
 	createEdgesForFlow(flowID, startNodeID, nodeInfoMap, nodeList, rawSteps, workflowData)
 
+	// Handle run dependencies if present
+	if len(runEntries) > 0 {
+		processRunDependencies(runEntries, flowName, nodeInfoMap, workflowData)
+	}
+
 	// Position nodes
 	if err := positionNodes(workflowData); err != nil {
 		return nil, err
@@ -405,6 +443,44 @@ func Parse(data []byte) (*WorkflowData, error) {
 // ========================================
 // Parsing Helper Functions
 // ========================================
+
+// parseRunField parses the run field into RunEntry structs
+func parseRunField(runArray []map[string]any) ([]RunEntry, error) {
+	var entries []RunEntry
+
+	for _, itemMap := range runArray {
+		flowName, ok := itemMap[fieldFlow].(string)
+		if !ok || flowName == "" {
+			return nil, fmt.Errorf("each run entry must have a 'flow' field")
+		}
+
+		entry := RunEntry{
+			Flow: flowName,
+		}
+
+		// Parse depends_on field
+		if deps, ok := itemMap[fieldDependsOn]; ok {
+			switch v := deps.(type) {
+			case string:
+				// Single dependency
+				entry.DependsOn = []string{v}
+			case []any:
+				// Multiple dependencies
+				for _, dep := range v {
+					if depStr, ok := dep.(string); ok {
+						entry.DependsOn = append(entry.DependsOn, depStr)
+					}
+				}
+			default:
+				return nil, fmt.Errorf("depends_on must be a string or array of strings")
+			}
+		}
+
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
 
 // parseRequestTemplates parses request templates into a map
 func parseRequestTemplates(templates map[string]map[string]any) map[string]*requestTemplate {
@@ -534,8 +610,14 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 			templateHeaders = tmpl.headers
 			templateQueries = tmpl.queryParams
 			templateBody = tmpl.body
-			method = tmpl.method
-			url = tmpl.url
+			if tmpl.method != "" {
+				method = tmpl.method
+			}
+			if tmpl.url != "" {
+				url = tmpl.url
+			}
+		} else {
+			return newWorkflowError(fmt.Sprintf("request step '%s' references unknown template '%s'", nodeName, useRequest), fieldUseRequest, useRequest)
 		}
 	}
 
@@ -546,8 +628,8 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 	if u, ok := stepData[fieldURL].(string); ok && u != "" {
 		url = u
 	}
-	// Only require URL if not using a template or if template didn't provide one
-	if url == "" && !usingTemplate {
+	// URL is required either from template or step definition
+	if url == "" {
 		return newWorkflowError(fmt.Sprintf("request step '%s' missing required url", nodeName), fieldURL, nil)
 	}
 
@@ -1051,5 +1133,49 @@ func createEdgesForFlow(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[strin
 				}
 			}
 		}
+	}
+}
+
+// processRunDependencies handles dependencies specified in the run field
+func processRunDependencies(runEntries []RunEntry, currentFlowName string, nodeInfoMap map[string]*nodeInfo, data *WorkflowData) {
+	// Find the current flow's run entry
+	var currentEntry *RunEntry
+	for i := range runEntries {
+		if runEntries[i].Flow == currentFlowName {
+			currentEntry = &runEntries[i]
+			break
+		}
+	}
+
+	if currentEntry == nil || len(currentEntry.DependsOn) == 0 {
+		// No dependencies to process
+		return
+	}
+
+	// For the current implementation, we'll create implicit dependencies
+	// by making the first node of the current flow depend on the last nodes
+	// of the dependency flows/requests
+
+	// Find the first node in the current flow (excluding Start node)
+	var firstNode *nodeInfo
+	for _, node := range nodeInfoMap {
+		if firstNode == nil || node.index < firstNode.index {
+			firstNode = node
+		}
+	}
+
+	if firstNode == nil {
+		return
+	}
+
+	// Process each dependency
+	for _, dep := range currentEntry.DependsOn {
+		// Check if dependency is a node in the current flow
+		if depNode, exists := nodeInfoMap[dep]; exists {
+			// Add this dependency to the first node's dependsOn list
+			firstNode.dependsOn = append(firstNode.dependsOn, depNode.name)
+		}
+		// Note: Cross-flow dependencies would require more complex handling
+		// which is not currently supported by the single-flow architecture
 	}
 }

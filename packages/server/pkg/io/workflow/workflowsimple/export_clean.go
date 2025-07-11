@@ -49,9 +49,22 @@ func ExportWorkflowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error
 	root.Kind = yaml.MappingNode
 
 	// Add workspace_name
-	root.Content = append(root.Content, 
+	root.Content = append(root.Content,
 		&yaml.Node{Kind: yaml.ScalarNode, Value: "workspace_name"},
 		&yaml.Node{Kind: yaml.ScalarNode, Value: workspaceData.Workspace.Name})
+
+	// Add run field if there are flows with dependencies
+	runEntries := buildRunEntries(workspaceData)
+	if len(runEntries) > 0 {
+		var runNode yaml.Node
+		runNode.Kind = yaml.SequenceNode
+		for _, entry := range runEntries {
+			runNode.Content = append(runNode.Content, createRunEntryNode(entry))
+		}
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "run"},
+			&runNode)
+	}
 
 	// Add requests section if not empty
 	if len(requests) > 0 {
@@ -65,14 +78,14 @@ func ExportWorkflowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error
 			nameJ, _ := requestList[j]["name"].(string)
 			return nameI < nameJ
 		})
-		
+
 		// Create requests array node
 		var requestsNode yaml.Node
 		requestsNode.Kind = yaml.SequenceNode
 		for _, req := range requestList {
 			requestsNode.Content = append(requestsNode.Content, createOrderedRequestNode(req))
 		}
-		
+
 		root.Content = append(root.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "requests"},
 			&requestsNode)
@@ -95,77 +108,77 @@ func ExportWorkflowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error
 // createOrderedRequestNode creates a YAML node with fields in the desired order
 func createOrderedRequestNode(req map[string]any) *yaml.Node {
 	node := &yaml.Node{Kind: yaml.MappingNode}
-	
+
 	// Add fields in desired order: name first
 	if name, ok := req["name"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "name"},
 			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", name)})
 	}
-	
+
 	// Then method
 	if method, ok := req["method"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "method"},
 			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", method)})
 	}
-	
+
 	// Then url
 	if url, ok := req["url"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "url"},
 			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", url)})
 	}
-	
+
 	// Then headers
 	if headers, ok := req["headers"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "headers"},
 			createMapNode(headers))
 	}
-	
+
 	// Then query_params
 	if queryParams, ok := req["query_params"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "query_params"},
 			createMapNode(queryParams))
 	}
-	
+
 	// Finally body
 	if body, ok := req["body"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "body"},
 			createAnyNode(body))
 	}
-	
+
 	return node
 }
 
 // createOrderedFlowNode creates a YAML node for flow with proper field ordering
 func createOrderedFlowNode(flow map[string]any) *yaml.Node {
 	node := &yaml.Node{Kind: yaml.MappingNode}
-	
+
 	// Add name first
 	if name, ok := flow["name"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "name"},
 			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", name)})
 	}
-	
+
 	// Then variables
 	if variables, ok := flow["variables"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "variables"},
 			createAnyNode(variables))
 	}
-	
+
 	// Then steps
 	if steps, ok := flow["steps"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "steps"},
 			createStepsNode(steps))
 	}
-	
+
 	return node
 }
 
@@ -175,7 +188,7 @@ func createStepsNode(steps any) *yaml.Node {
 	if !ok {
 		return createAnyNode(steps)
 	}
-	
+
 	node := &yaml.Node{Kind: yaml.SequenceNode}
 	for _, step := range stepsSlice {
 		node.Content = append(node.Content, createOrderedStepNode(step))
@@ -186,14 +199,14 @@ func createStepsNode(steps any) *yaml.Node {
 // createOrderedStepNode creates a step node with proper ordering
 func createOrderedStepNode(step map[string]any) *yaml.Node {
 	node := &yaml.Node{Kind: yaml.MappingNode}
-	
+
 	// Handle different step types
 	for stepType, stepData := range step {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: stepType},
 			createOrderedStepDataNode(stepData))
 	}
-	
+
 	return node
 }
 
@@ -203,20 +216,20 @@ func createOrderedStepDataNode(data any) *yaml.Node {
 	if !ok {
 		return createAnyNode(data)
 	}
-	
+
 	node := &yaml.Node{Kind: yaml.MappingNode}
-	
+
 	// Add name first
 	if name, ok := dataMap["name"]; ok {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "name"},
 			&yaml.Node{Kind: yaml.ScalarNode, Value: fmt.Sprintf("%v", name)})
 	}
-	
+
 	// Then add other fields in a logical order
 	fieldOrder := []string{"use_request", "method", "url", "headers", "query_params", "body",
 		"condition", "code", "iter_count", "items", "then", "else", "loop", "depends_on"}
-	
+
 	for _, field := range fieldOrder {
 		if val, ok := dataMap[field]; ok {
 			node.Content = append(node.Content,
@@ -224,7 +237,7 @@ func createOrderedStepDataNode(data any) *yaml.Node {
 				createAnyNode(val))
 		}
 	}
-	
+
 	// Add any remaining fields not in our order list
 	for key, val := range dataMap {
 		if key == "name" {
@@ -243,7 +256,7 @@ func createOrderedStepDataNode(data any) *yaml.Node {
 				createAnyNode(val))
 		}
 	}
-	
+
 	return node
 }
 
@@ -253,22 +266,22 @@ func createMapNode(data any) *yaml.Node {
 	if !ok {
 		return createAnyNode(data)
 	}
-	
+
 	node := &yaml.Node{Kind: yaml.MappingNode}
-	
+
 	// Sort keys for consistent output
 	keys := make([]string, 0, len(dataMap))
 	for k := range dataMap {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	
+
 	for _, k := range keys {
 		node.Content = append(node.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: k},
 			&yaml.Node{Kind: yaml.ScalarNode, Value: dataMap[k]})
 	}
-	
+
 	return node
 }
 
@@ -814,7 +827,7 @@ func convertForNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap][]ed
 	step := map[string]any{
 		"name": node.Name,
 	}
-	
+
 	// Only add iter_count if it's non-zero
 	if forNode.IterCount > 0 {
 		step["iter_count"] = forNode.IterCount
@@ -893,4 +906,50 @@ func convertForEachNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 	}
 
 	return map[string]any{"for_each": step}
+}
+
+// buildRunEntries analyzes flows and their dependencies to build run entries
+func buildRunEntries(workspaceData *ioworkspace.WorkspaceData) []RunEntry {
+	// For now, we'll return an empty slice since the current architecture
+	// only supports single flow execution. This is a placeholder for future
+	// multi-flow orchestration support.
+	//
+	// In a full implementation, this would:
+	// 1. Analyze cross-flow dependencies
+	// 2. Determine execution order
+	// 3. Build RunEntry structs with proper dependencies
+	return []RunEntry{}
+}
+
+// createRunEntryNode creates a YAML node for a run entry
+func createRunEntryNode(entry RunEntry) *yaml.Node {
+	node := &yaml.Node{Kind: yaml.MappingNode}
+
+	// Add flow field
+	node.Content = append(node.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: "flow"},
+		&yaml.Node{Kind: yaml.ScalarNode, Value: entry.Flow})
+
+	// Add depends_on if present
+	if len(entry.DependsOn) > 0 {
+		if len(entry.DependsOn) == 1 {
+			// Single dependency as string
+			node.Content = append(node.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "depends_on"},
+				&yaml.Node{Kind: yaml.ScalarNode, Value: entry.DependsOn[0]})
+		} else {
+			// Multiple dependencies as array
+			var depsNode yaml.Node
+			depsNode.Kind = yaml.SequenceNode
+			for _, dep := range entry.DependsOn {
+				depsNode.Content = append(depsNode.Content,
+					&yaml.Node{Kind: yaml.ScalarNode, Value: dep})
+			}
+			node.Content = append(node.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "depends_on"},
+				&depsNode)
+		}
+	}
+
+	return node
 }

@@ -1,0 +1,137 @@
+workspace_name: Test Workflow with Run Dependencies
+# This demonstrates multiple flows executing in sequence
+# FlowA runs first, then FlowB (depends on FlowA), then FlowC (depends on RequestA from FlowA and FlowB completion)
+run:
+  - flow: FlowA
+  - flow: FlowB
+    depends_on: FlowA
+  - flow: FlowC
+    depends_on:
+      - RequestA
+      - FlowB
+requests:
+  - name: RequestTemplateA
+    method: GET
+    url: https://jsonplaceholder.typicode.com/users/1
+    headers:
+      Accept: application/json
+  - name: RequestTemplateB
+    method: POST
+    url: https://jsonplaceholder.typicode.com/posts
+    headers:
+      Content-Type: application/json
+    body:
+      title: 'Test Post from FlowB'
+      body: 'Hello from FlowB'
+      userId: 1
+flows:
+  - name: FlowA
+    variables:
+      - name: flow_a_var
+        value: 'Flow A Variable'
+    steps:
+      - request:
+          name: RequestA
+          use_request: RequestTemplateA
+      - request:
+          name: RequestA2
+          method: GET
+          url: https://jsonplaceholder.typicode.com/users/2
+          depends_on: RequestA
+      - js:
+          name: FlowAComplete
+          code: |
+            export default function(context) {
+              console.log("=== FlowA Completed ===");
+              const user1 = context.RequestA?.response?.body;
+              const user2 = context.RequestA2?.response?.body;
+              return {
+                flowName: "FlowA",
+                users: [user1?.name, user2?.name],
+                timestamp: new Date().toISOString()
+              };
+            }
+          depends_on:
+            - RequestA
+            - RequestA2
+  - name: FlowB
+    variables:
+      - name: flow_b_var
+        value: 'Flow B Variable'
+    steps:
+      - request:
+          name: RequestB
+          use_request: RequestTemplateB
+      - js:
+          name: ProcessResponse
+          code: |
+            export default function(context) {
+              console.log("=== FlowB Processing ===");
+              console.log("FlowB runs after FlowA completes");
+              const post = context.RequestB?.response?.body;
+              
+              // Note: FlowB cannot access FlowA's data directly
+              // Only FlowC can access RequestA from FlowA due to explicit dependency
+              
+              return { 
+                flowName: "FlowB",
+                processed: true,
+                postId: post?.id,
+                postTitle: post?.title,
+                flowVar: context.flow_b_var,
+                timestamp: new Date().toISOString()
+              };
+            }
+          depends_on: RequestB
+  - name: FlowC
+    steps:
+      - request:
+          name: RequestC
+          method: GET
+          url: https://jsonplaceholder.typicode.com/todos/1
+      - if:
+          name: CheckCondition
+          condition: RequestC.response.status == 200
+          then: RequestC2
+          else: FinalReport
+          depends_on: RequestC
+      - request:
+          name: RequestC2
+          method: POST
+          url: https://jsonplaceholder.typicode.com/todos
+          headers:
+            Content-Type: application/json
+          body:
+            title: 'Conditional todo'
+            completed: false
+            userId: 1
+      - js:
+          name: FinalReport
+          code: |
+            export default function(context) {
+              console.log("=== FlowC Final Report ===");
+              console.log("FlowC depends on:");
+              console.log("1. RequestA from FlowA");
+              console.log("2. Completion of FlowB");
+              
+              // FlowC can access RequestA from FlowA due to explicit dependency
+              const userFromFlowA = context.RequestA?.response?.body;
+              const todo = context.RequestC?.response?.body;
+              const conditionalTodo = context.RequestC2?.response?.body;
+              
+              return {
+                flowName: "FlowC",
+                report: {
+                  userFromFlowA: userFromFlowA?.name || "Not accessible",
+                  todoTitle: todo?.title,
+                  conditionalTodoId: conditionalTodo?.id,
+                  executionOrder: "FlowA -> FlowB -> FlowC",
+                  dependencies: {
+                    fromFlowA: "RequestA data",
+                    fromFlowB: "Completion only (no data access)"
+                  }
+                },
+                timestamp: new Date().toISOString()
+              };
+            }
+          depends_on: CheckCondition
