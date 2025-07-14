@@ -1,29 +1,20 @@
 {
-  "name": "cli",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "apps/cli",
+
+  "name": "cli",
   "projectType": "application",
+
+  "implicitDependencies": ["worker-js"],
+
   "targets": {
-    "build": {
-      "executor": "nx:run-commands",
-      "options": {
-        "commands": [
-          "nx run cli:copy-worker",
-          "cd apps/cli && task build:all"
-        ],
-        "parallel": false
-      },
-      "dependsOn": [
-        {
-          "target": "build",
-          "projects": ["worker-js"]
-        }
-      ]
-    },
     "copy-worker": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd apps/cli && task copy:worker"
+        "cwd": "{projectRoot}",
+        "commands": [
+          "mkdir -p embeded/embededJS",
+          "cp ../../packages/worker-js/dist/main.cjs embeded/embededJS/worker.cjs.embed"
+        ]
       },
       "dependsOn": [
         {
@@ -32,16 +23,45 @@
         }
       ]
     },
-    "clean": {
+    "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd apps/cli && task clean"
-      }
+        "cwd": "{projectRoot}",
+        "command": "go build -o dist/cli main.go"
+      },
+      "dependsOn": ["copy-worker"]
     },
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd apps/cli && task dev"
+        "cwd": "{projectRoot}",
+        "command": "go run main.go"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "parallel": false,
+        "commands": [
+          "rm --force dist/tests.json",
+          "mkdir --parents dist",
+          "go test ./... -json | tee dist/go-test.json"
+        ]
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "golangci-lint run"
+      }
+    },
+    "tidy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "go mod tidy"
       }
     }
   }
