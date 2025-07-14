@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"reflect"

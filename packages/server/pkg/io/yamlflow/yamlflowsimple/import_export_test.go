@@ -1,11 +1,11 @@
-package workflowsimple_test
+package yamlflowsimple_test
 
 import (
 	"os"
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
+	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -44,7 +44,7 @@ flows:
 `
 
 	// Import from simplified format
-	imported, err := workflowsimple.ImportWorkflowYAML([]byte(yamlData))
+	imported, err := yamlflowsimple.ImportYamlFlowYAML([]byte(yamlData))
 	require.NoError(t, err)
 	require.NotNil(t, imported)
 
@@ -55,11 +55,11 @@ flows:
 	require.Len(t, imported.FlowVariables, 2)
 
 	// Export back to simplified format
-	exported, err := workflowsimple.ExportWorkflowYAML(imported)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(imported)
 	require.NoError(t, err)
 
 	// Parse exported YAML
-	reimported, err := workflowsimple.ImportWorkflowYAML(exported)
+	reimported, err := yamlflowsimple.ImportYamlFlowYAML(exported)
 	require.NoError(t, err)
 
 	// Verify round-trip preservation
@@ -98,7 +98,7 @@ flows:
 `
 
 	// Import from simplified format
-	imported, err := workflowsimple.ImportWorkflowYAML([]byte(yamlData))
+	imported, err := yamlflowsimple.ImportYamlFlowYAML([]byte(yamlData))
 	require.NoError(t, err)
 	require.NotNil(t, imported)
 
@@ -117,7 +117,7 @@ flows:
 	require.Equal(t, 2, requestNodeCount, "Both request nodes should be created")
 
 	// Export back to simplified format
-	exported, err := workflowsimple.ExportWorkflowYAML(imported)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(imported)
 	require.NoError(t, err)
 
 	// Verify exported YAML doesn't contain empty fields
@@ -127,7 +127,7 @@ flows:
 	require.NotContains(t, exportedStr, `depends_on: [""]`, "Empty dependencies should not be exported")
 
 	// Parse exported YAML again (round-trip)
-	reimported, err := workflowsimple.ImportWorkflowYAML(exported)
+	reimported, err := yamlflowsimple.ImportYamlFlowYAML(exported)
 	require.NoError(t, err)
 
 	// Verify round-trip preservation
@@ -201,7 +201,7 @@ flows:
 `
 
 	// Import
-	imported, err := workflowsimple.ImportWorkflowYAML([]byte(yamlData))
+	imported, err := yamlflowsimple.ImportYamlFlowYAML([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Verify imported structure
@@ -326,7 +326,7 @@ func TestExportPreservesStructure(t *testing.T) {
 	workspaceData.FlowRequestNodes[0].ExampleID = &exampleID
 
 	// Export to simplified format
-	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.NoError(t, err)
 	require.NotNil(t, exported)
 
@@ -366,7 +366,7 @@ flows:
 `
 
 	// Import
-	imported, err := workflowsimple.ImportWorkflowYAML([]byte(yamlData))
+	imported, err := yamlflowsimple.ImportYamlFlowYAML([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Verify edges were created correctly
@@ -416,7 +416,7 @@ flows:
 `
 
 	// Import
-	imported, err := workflowsimple.ImportWorkflowYAML([]byte(yamlData))
+	imported, err := yamlflowsimple.ImportYamlFlowYAML([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Verify variables
@@ -429,7 +429,7 @@ flows:
 	require.Equal(t, "v2", varMap["version"])
 
 	// Export and verify variables are preserved
-	exported, err := workflowsimple.ExportWorkflowYAML(imported)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(imported)
 	require.NoError(t, err)
 
 	exportedStr := string(exported)
@@ -543,7 +543,7 @@ func TestExportWithControlFlow(t *testing.T) {
 	}
 
 	// Export
-	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.NoError(t, err)
 
 	exportedStr := string(exported)
@@ -595,7 +595,7 @@ flows: [
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := workflowsimple.ImportWorkflowYAML([]byte(tt.yamlData))
+			_, err := yamlflowsimple.ImportYamlFlowYAML([]byte(tt.yamlData))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.wantErr)
 		})
@@ -604,7 +604,7 @@ flows: [
 
 func TestExportErrorHandling(t *testing.T) {
 	// Test nil workspace data
-	_, err := workflowsimple.ExportWorkflowYAML(nil)
+	_, err := yamlflowsimple.ExportYamlFlowYAML(nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "workspace data cannot be nil")
 
@@ -616,7 +616,7 @@ func TestExportErrorHandling(t *testing.T) {
 		},
 		Flows: []mflow.Flow{},
 	}
-	_, err = workflowsimple.ExportWorkflowYAML(workspaceData)
+	_, err = yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no flows to export")
 }
@@ -630,7 +630,7 @@ func TestExampleWorkflowImport(t *testing.T) {
 	}
 
 	// Parse the YAML
-	data, err := workflowsimple.Parse(yamlData)
+	data, err := yamlflowsimple.Parse(yamlData)
 	require.NoError(t, err)
 
 	// Verify basic structure
@@ -799,7 +799,7 @@ flows:
               role: "user"`
 
 	// Parse the YAML
-	data, err := workflowsimple.Parse([]byte(yamlData))
+	data, err := yamlflowsimple.Parse([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Verify basic structure

@@ -1,4 +1,4 @@
-workspace_name: Example Run Field Workflow
+workspace_name: Example Run Field YamlFlow
 run:
   - flow: FlowA
   - flow: FlowB

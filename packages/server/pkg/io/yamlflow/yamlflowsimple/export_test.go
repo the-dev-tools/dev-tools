@@ -1,4 +1,4 @@
-package workflowsimple_test
+package yamlflowsimple_test
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
+	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mexampleheader"
@@ -253,7 +253,7 @@ func TestExportCleanPreservesVariables(t *testing.T) {
 	}
 
 	// Export using clean format
-	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.NoError(t, err)
 
 	// Parse the exported YAML
@@ -389,7 +389,7 @@ func TestExportCleanWithMultipleRequests(t *testing.T) {
 	}
 
 	// Export
-	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.NoError(t, err)
 
 	// Parse and verify
@@ -559,7 +559,7 @@ func TestExportCleanNamingConsistency(t *testing.T) {
 	}
 
 	// Export
-	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.NoError(t, err)
 
 	// Parse the exported YAML
@@ -743,7 +743,7 @@ func TestExportCleanWithDependencies(t *testing.T) {
 	}
 
 	// Export
-	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.NoError(t, err)
 
 	// Parse the exported YAML
@@ -948,7 +948,7 @@ func testRequestOrdering(t *testing.T) {
 	}
 
 	// Export
-	exported, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	exported, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.NoError(t, err)
 
 	// Parse the exported YAML
@@ -1155,13 +1155,13 @@ func TestExportWithHeadersQueryAndBody(t *testing.T) {
 	}
 
 	// Export to YAML
-	yamlData, err := workflowsimple.ExportWorkflowYAMLOld(workspaceData)
+	yamlData, err := yamlflowsimple.ExportYamlFlowYAMLOld(workspaceData)
 	if err != nil {
 		t.Fatalf("failed to export: %v", err)
 	}
 
 	// Parse the exported YAML
-	var exported workflowsimple.WorkflowFormat
+	var exported yamlflowsimple.YamlFlowFormat
 	if err := yaml.Unmarshal(yamlData, &exported); err != nil {
 		t.Fatalf("failed to parse exported YAML: %v", err)
 	}
@@ -1384,7 +1384,7 @@ func TestExportMultipleRequestsWithOverrides(t *testing.T) {
 	}
 
 	// Export to YAML
-	yamlData, err := workflowsimple.ExportWorkflowYAMLOld(workspaceData)
+	yamlData, err := yamlflowsimple.ExportYamlFlowYAMLOld(workspaceData)
 	if err != nil {
 		t.Fatalf("failed to export: %v", err)
 	}
@@ -1393,7 +1393,7 @@ func TestExportMultipleRequestsWithOverrides(t *testing.T) {
 	t.Logf("Exported YAML:\n%s", string(yamlData))
 
 	// Parse and verify
-	var exported workflowsimple.WorkflowFormat
+	var exported yamlflowsimple.YamlFlowFormat
 	if err := yaml.Unmarshal(yamlData, &exported); err != nil {
 		t.Fatalf("failed to parse exported YAML: %v", err)
 	}
@@ -1526,7 +1526,7 @@ func TestExportFullBrowserHeaders(t *testing.T) {
 	}
 
 	// Export using the clean format
-	yamlData, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	yamlData, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	if err != nil {
 		t.Fatalf("failed to export: %v", err)
 	}

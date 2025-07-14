@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"regexp"
@@ -16,7 +16,7 @@ type VariableInfo struct {
 }
 
 // ExtractVariableReferences extracts all variable references from workflow data
-func ExtractVariableReferences(workflowData *WorkflowData) map[string]*VariableInfo {
+func ExtractVariableReferences(workflowData *YamlFlowData) map[string]*VariableInfo {
 	variables := make(map[string]*VariableInfo)
 
 	// First, add all flow variables that are defined in the YAML

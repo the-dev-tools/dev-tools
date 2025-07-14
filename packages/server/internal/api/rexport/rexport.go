@@ -32,7 +32,7 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/svar"
-	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
+	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	exportv1 "the-dev-tools/spec/dist/buf/go/export/v1"
 	"the-dev-tools/spec/dist/buf/go/export/v1/exportv1connect"
 
@@ -211,7 +211,7 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 	}
 
 	// Use simplified YAML format by default
-	simplifiedYAML, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	simplifiedYAML, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -280,7 +280,7 @@ func (c *ExportRPC) ExportSimplified(ctx context.Context, req *connect.Request[e
 	}
 
 	// Convert to simplified format
-	simplifiedYAML, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	simplifiedYAML, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

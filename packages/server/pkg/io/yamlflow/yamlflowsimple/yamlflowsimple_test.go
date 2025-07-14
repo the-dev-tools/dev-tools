@@ -1,11 +1,11 @@
-package workflowsimple_test
+package yamlflowsimple_test
 
 import (
 	"strings"
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
+	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
@@ -33,7 +33,7 @@ flows:
             Authorization: "Bearer {{token}}"
 `
 
-	data, err := workflowsimple.Parse([]byte(yamlData))
+	data, err := yamlflowsimple.Parse([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Verify flow
@@ -131,7 +131,7 @@ flows:
             X-Custom: custom-value
 `
 
-	data, err := workflowsimple.Parse([]byte(yamlData))
+	data, err := yamlflowsimple.Parse([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Find the request endpoint
@@ -215,7 +215,7 @@ flows:
           code: "return item;"
 `
 
-	data, err := workflowsimple.Parse([]byte(yamlData))
+	data, err := yamlflowsimple.Parse([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Verify node counts
@@ -294,7 +294,7 @@ flows:
             - Step3
 `
 
-	data, err := workflowsimple.Parse([]byte(yamlData))
+	data, err := yamlflowsimple.Parse([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Build node name to ID map
@@ -366,7 +366,7 @@ flows:
             - C
 `
 
-	data, err := workflowsimple.Parse([]byte(yamlData))
+	data, err := yamlflowsimple.Parse([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Build node map
@@ -413,7 +413,7 @@ flows:
             api_version: "{{version}}"
 `
 
-	data, err := workflowsimple.Parse([]byte(yamlData))
+	data, err := yamlflowsimple.Parse([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Find delta endpoint (should keep variables)
@@ -527,7 +527,7 @@ flows:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := workflowsimple.Parse([]byte(tt.yaml))
+			_, err := yamlflowsimple.Parse([]byte(tt.yaml))
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.want)
 		})
@@ -602,7 +602,7 @@ flows:
               processed_count: "{{ProcessOrders.result.count || 0}}"
 `
 
-	data, err := workflowsimple.Parse([]byte(yamlData))
+	data, err := yamlflowsimple.Parse([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Verify all components were created
@@ -668,7 +668,7 @@ flows:
             - Independent1
 `
 
-	data, err := workflowsimple.Parse([]byte(yamlData))
+	data, err := yamlflowsimple.Parse([]byte(yamlData))
 	require.NoError(t, err)
 
 	// Find start node

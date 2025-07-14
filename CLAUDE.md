@@ -61,28 +61,33 @@ nix develop -c pnpm nx run-many --targets=lint,typecheck
 ### Package-Specific Commands
 
 **Server (Go backend):**
+
 - `pnpm nx run server:dev` - Development server
 - `pnpm nx run server:build` - Build binary
 - `pnpm nx run server:test` - Run tests (outputs to dist/go-test.json)
 - `pnpm nx run server:lint` - Run golangci-lint
 
 **Client (React frontend):**
+
 - `pnpm nx run client:dev` - Development server (Vite)
 - `pnpm nx run client:build` - Production build
 - `pnpm nx run client:preview` - Preview production build
 
 **UI (Component library):**
+
 - `pnpm nx run ui:dev` - React Cosmos playground
 - `pnpm nx run ui:lint` - ESLint checking
 - `pnpm nx run ui:typecheck` - TypeScript checking
 
 **Spec (API definitions):**
+
 - `pnpm nx run spec:build` - Build TypeSpec and generate protobuf
 - `pnpm nx run spec:dev` - Watch mode for spec building
 
 ### Pre-commit Checklist
 
 Always run both lint and typecheck before committing changes:
+
 ```bash
 nix develop -c pnpm nx run client:lint --fix
 nix develop -c pnpm nx run client:typecheck
@@ -93,6 +98,7 @@ nix develop -c pnpm nx run client:typecheck
 ### Technology Stack
 
 **Frontend:**
+
 - React 19 with TypeScript
 - @xyflow/react for visual flow builder
 - TanStack Router/Query for routing and data fetching
@@ -102,6 +108,7 @@ nix develop -c pnpm nx run client:typecheck
 - Connect RPC for API communication
 
 **Backend:**
+
 - Go server with Connect RPC
 - SQLite/LibSQL for database
 - Protocol Buffers for API definitions
@@ -118,6 +125,7 @@ nix develop -c pnpm nx run client:typecheck
 #### 2. Delta System
 
 Stores modifications without changing originals:
+
 - Base entities (endpoints, examples) are read-only templates
 - Delta entities store overrides as "hidden" entries
 - `SourceKind.ORIGIN` = inherited, `SourceKind.DELTA` = override
@@ -126,6 +134,7 @@ Stores modifications without changing originals:
 #### 3. Flow System
 
 Built on React Flow:
+
 - Node types: REQUEST, CONDITION, FOR, FOR_EACH, JAVASCRIPT, NO_OP
 - Debounced client-server synchronization
 - Atomic operations for create/update/delete
@@ -134,13 +143,15 @@ Built on React Flow:
 #### 4. Effect-TS Patterns
 
 Used for functional programming:
+
 ```typescript
 // Common pattern
 Effect.gen(function* () {
   const value = yield* someEffect;
   // Sequential operations with generator syntax
-})
+});
 ```
+
 - Dependency injection via Context.Tag
 - Error handling with Effect.tryPromise and Effect.catchIf
 - Extensive use of pipe, Option, Either, and collection utilities
@@ -212,6 +223,7 @@ go test -v ./...
 ### Request Nodes
 
 Each REQUEST node contains:
+
 - `endpointId` - Original endpoint reference
 - `exampleId` - Original example reference
 - `deltaEndpointId` - Node-specific endpoint overrides
@@ -235,4 +247,4 @@ MIT License + Commons Clause - free for local development and internal business 
 - Do what has been asked; nothing more, nothing less
 - NEVER create files unless they're absolutely necessary
 - ALWAYS prefer editing existing files to creating new ones
-- NEVER proactively create documentation files (*.md) unless explicitly requested
+- NEVER proactively create documentation files (\*.md) unless explicitly requested

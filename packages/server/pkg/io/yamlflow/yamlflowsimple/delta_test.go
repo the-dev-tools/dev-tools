@@ -1,9 +1,9 @@
-package workflowsimple_test
+package yamlflowsimple_test
 
 import (
 	"strings"
 	"testing"
-	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
+	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -18,7 +18,7 @@ func TestDeltaCreationForOverrides(t *testing.T) {
 			queries int
 			bodies  int
 		}
-		checkOverrides func(t *testing.T, data *workflowsimple.WorkflowData)
+		checkOverrides func(t *testing.T, data *yamlflowsimple.YamlFlowData)
 	}{
 		{
 			name: "header override without variables",
@@ -53,7 +53,7 @@ flows:
 				queries: 0,
 				bodies:  1, // Always create delta body for flow execution
 			},
-			checkOverrides: func(t *testing.T, data *workflowsimple.WorkflowData) {
+			checkOverrides: func(t *testing.T, data *yamlflowsimple.YamlFlowData) {
 				// Find delta headers
 				deltaHeaders := make(map[string]string)
 				for _, h := range data.Headers {
@@ -99,7 +99,7 @@ flows:
 				queries: 2, // limit override + sort addition
 				bodies:  1, // Always create delta body for flow execution
 			},
-			checkOverrides: func(t *testing.T, data *workflowsimple.WorkflowData) {
+			checkOverrides: func(t *testing.T, data *yamlflowsimple.YamlFlowData) {
 				// Find delta queries
 				deltaQueries := make(map[string]string)
 				for _, q := range data.Queries {
@@ -147,7 +147,7 @@ flows:
 				queries: 0,
 				bodies:  1, // Body content differs
 			},
-			checkOverrides: func(t *testing.T, data *workflowsimple.WorkflowData) {
+			checkOverrides: func(t *testing.T, data *yamlflowsimple.YamlFlowData) {
 				// Count delta bodies
 				deltaBodies := 0
 				for _, b := range data.RawBodies {
@@ -200,7 +200,7 @@ flows:
 				queries: 0,
 				bodies:  1, // Always create delta body for flow execution
 			},
-			checkOverrides: func(t *testing.T, data *workflowsimple.WorkflowData) {
+			checkOverrides: func(t *testing.T, data *yamlflowsimple.YamlFlowData) {
 				deltaHeaders := make(map[string]string)
 				for _, h := range data.Headers {
 					if h.DeltaParentID != nil {
@@ -241,7 +241,7 @@ flows:
 				queries: 0,
 				bodies:  1, // Always create delta body for flow execution
 			},
-			checkOverrides: func(t *testing.T, data *workflowsimple.WorkflowData) {
+			checkOverrides: func(t *testing.T, data *yamlflowsimple.YamlFlowData) {
 				// Count delta items
 				deltaCount := 0
 				for _, h := range data.Headers {
@@ -256,7 +256,7 @@ flows:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := workflowsimple.Parse([]byte(tt.yaml))
+			data, err := yamlflowsimple.Parse([]byte(tt.yaml))
 			require.NoError(t, err)
 
 			// Count actual deltas
@@ -358,7 +358,7 @@ flows:
               timestamp: "{{ now }}"  # New field with variable
 `
 
-	data, err := workflowsimple.Parse([]byte(yaml))
+	data, err := yamlflowsimple.Parse([]byte(yaml))
 	require.NoError(t, err)
 
 	// Collect delta headers
@@ -414,7 +414,7 @@ func TestBaseDeltaSeparation(t *testing.T) {
 	tests := []struct {
 		name     string
 		yaml     string
-		validate func(t *testing.T, data *workflowsimple.WorkflowData)
+		validate func(t *testing.T, data *yamlflowsimple.YamlFlowData)
 	}{
 		{
 			name: "template_with_header_override",
@@ -446,7 +446,7 @@ flows:
           body:
             username: "{{ username }}"
             password: "{{ password }}"`,
-			validate: func(t *testing.T, data *workflowsimple.WorkflowData) {
+			validate: func(t *testing.T, data *yamlflowsimple.YamlFlowData) {
 				// Find base headers for auth_request template
 				var baseAuthHeader string
 				var deltaAuthHeader string
@@ -521,7 +521,7 @@ flows:
             name: "{{ admin_name }}"
             email: "{{ admin_email }}"
             role: admin`,
-			validate: func(t *testing.T, data *workflowsimple.WorkflowData) {
+			validate: func(t *testing.T, data *yamlflowsimple.YamlFlowData) {
 				// Find base and delta bodies
 				var baseBodyData, deltaBodyData []byte
 
@@ -590,7 +590,7 @@ flows:
           url: https://api.example.com/data
           headers:
             Authorization: Bearer {{ token }}`,
-			validate: func(t *testing.T, data *workflowsimple.WorkflowData) {
+			validate: func(t *testing.T, data *yamlflowsimple.YamlFlowData) {
 				// When no template, base should have the variable reference
 				var baseAuthHeader, deltaAuthHeader string
 
@@ -630,7 +630,7 @@ flows:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := workflowsimple.Parse([]byte(tt.yaml))
+			data, err := yamlflowsimple.Parse([]byte(tt.yaml))
 			require.NoError(t, err)
 
 			tt.validate(t, data)
@@ -673,11 +673,11 @@ flows:
             password: "{{ password }}"`
 
 	// Convert to ioworkspace format
-	workspaceData, err := workflowsimple.ImportWorkflowYAML([]byte(originalYAML))
+	workspaceData, err := yamlflowsimple.ImportYamlFlowYAML([]byte(originalYAML))
 	require.NoError(t, err)
 
 	// Export back to YAML
-	exportedYAML, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	exportedYAML, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.NoError(t, err)
 
 	t.Logf("Exported YAML:\n%s", string(exportedYAML))
@@ -779,11 +779,11 @@ flows:
             Authorization: Bearer {{ login.response.body.token }}`
 
 	// Parse and convert
-	workspaceData, err := workflowsimple.ImportWorkflowYAML([]byte(yamlWithHardcodedTokens))
+	workspaceData, err := yamlflowsimple.ImportYamlFlowYAML([]byte(yamlWithHardcodedTokens))
 	require.NoError(t, err)
 
 	// Export back
-	exportedYAML, err := workflowsimple.ExportWorkflowYAML(workspaceData)
+	exportedYAML, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
 	require.NoError(t, err)
 
 	// Verify the hardcoded token is preserved in the template
@@ -880,7 +880,7 @@ flows:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := workflowsimple.Parse([]byte(tt.yaml))
+			data, err := yamlflowsimple.Parse([]byte(tt.yaml))
 			require.NoError(t, err)
 
 			// Find all delta examples by checking request nodes

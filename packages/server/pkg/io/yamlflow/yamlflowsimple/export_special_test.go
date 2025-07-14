@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"gopkg.in/yaml.v3"
@@ -241,7 +241,7 @@ func TestExportHARImportedRequestsWithDifferentHeaders(t *testing.T) {
 	}
 
 	// Export using the clean format
-	yamlData, err := ExportWorkflowYAML(workspaceData)
+	yamlData, err := ExportYamlFlowYAML(workspaceData)
 	if err != nil {
 		t.Fatalf("failed to export: %v", err)
 	}
@@ -435,19 +435,19 @@ flows:
 `)
 
 	// Import to get full workspace data
-	workspaceData, err := ImportWorkflowYAML(yamlData)
+	workspaceData, err := ImportYamlFlowYAML(yamlData)
 	if err != nil {
 		t.Fatalf("failed to import: %v", err)
 	}
 
 	// Export back to YAML using clean export
-	exportedYAML, err := ExportWorkflowYAML(workspaceData)
+	exportedYAML, err := ExportYamlFlowYAML(workspaceData)
 	if err != nil {
 		t.Fatalf("failed to export: %v", err)
 	}
 
 	// Parse exported YAML
-	var exported WorkflowFormat
+	var exported YamlFlowFormat
 	if err := yaml.Unmarshal(exportedYAML, &exported); err != nil {
 		t.Fatalf("failed to parse exported YAML: %v", err)
 	}
@@ -600,12 +600,12 @@ flows:
 `)
 
 	// Import and export
-	workspaceData, err := ImportWorkflowYAML(yamlData)
+	workspaceData, err := ImportYamlFlowYAML(yamlData)
 	if err != nil {
 		t.Fatalf("failed to import: %v", err)
 	}
 
-	exportedYAML, err := ExportWorkflowYAML(workspaceData)
+	exportedYAML, err := ExportYamlFlowYAML(workspaceData)
 	if err != nil {
 		t.Fatalf("failed to export: %v", err)
 	}

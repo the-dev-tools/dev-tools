@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"fmt"
@@ -34,8 +34,8 @@ import (
 	"time"
 )
 
-// ImportWorkflowYAML converts simplified workflow YAML to ioworkspace.WorkspaceData
-func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
+// ImportYamlFlowYAML converts simplified yamlflow YAML to ioworkspace.WorkspaceData
+func ImportYamlFlowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 	// Generate workspace ID first
 	workspaceID := idwrap.NewNow()
 	collectionID := idwrap.NewNow()
@@ -131,15 +131,15 @@ func ImportWorkflowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 	return workspaceData, nil
 }
 
-// ImportWorkflowYAMLMultiFlow converts workflow YAML with multiple flows to ioworkspace.WorkspaceData
-func ImportWorkflowYAMLMultiFlow(data []byte) (*ioworkspace.WorkspaceData, error) {
+// ImportYamlFlowYAMLMultiFlow converts yamlflow YAML with multiple flows to ioworkspace.WorkspaceData
+func ImportYamlFlowYAMLMultiFlow(data []byte) (*ioworkspace.WorkspaceData, error) {
 	// Generate workspace ID first
 	workspaceID := idwrap.NewNow()
 	
 	// Parse the workflow to get basic structure
-	var workflow WorkflowFormat
+	var workflow YamlFlowFormat
 	if err := yaml.Unmarshal(data, &workflow); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal workflow format: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal yamlflow format: %w", err)
 	}
 
 	if workflow.WorkspaceName == "" {
@@ -202,11 +202,11 @@ func ImportWorkflowYAMLMultiFlow(data []byte) (*ioworkspace.WorkspaceData, error
 	// Process each flow
 	for _, flowDef := range workflow.Flows {
 		// Use ConvertSimplifiedYAML for each flow by creating a temporary workflow with single flow
-		tempWorkflow := WorkflowFormat{
+		tempWorkflow := YamlFlowFormat{
 			WorkspaceName:    workflow.WorkspaceName,
 			RequestTemplates: workflow.RequestTemplates,
 			Requests:         workflow.Requests,
-			Flows:            []WorkflowFlow{flowDef},
+			Flows:            []YamlFlowFlow{flowDef},
 		}
 		
 		tempData, err := yaml.Marshal(tempWorkflow)

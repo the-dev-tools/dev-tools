@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 )
 
 // positionNodes arranges nodes using a level-based layout algorithm
-func positionNodes(data *WorkflowData) error {
+func positionNodes(data *YamlFlowData) error {
 	const (
 		nodeSpacingX = 400 // Horizontal spacing between parallel nodes
 		nodeSpacingY = 300 // Vertical spacing between levels

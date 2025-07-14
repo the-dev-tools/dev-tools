@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -18,12 +18,12 @@ import (
 func TestExtractVariableReferences(t *testing.T) {
 	tests := []struct {
 		name         string
-		workflowData *WorkflowData
+		workflowData *YamlFlowData
 		expected     map[string]*VariableInfo
 	}{
 		{
 			name: "Extract flow variables from YAML definition",
-			workflowData: &WorkflowData{
+			workflowData: &YamlFlowData{
 				Variables: []mvar.Var{
 					{VarKey: "api_key", Value: "test123"},
 					{VarKey: "base_url", Value: "https://api.example.com"},
@@ -46,7 +46,7 @@ func TestExtractVariableReferences(t *testing.T) {
 		},
 		{
 			name: "Extract environment variables from headers",
-			workflowData: &WorkflowData{
+			workflowData: &YamlFlowData{
 				Headers: []mexampleheader.Header{
 					{HeaderKey: "Authorization", Value: "Bearer {{ env.API_TOKEN }}"},
 					{HeaderKey: "X-Custom", Value: "{{ env.CUSTOM_VALUE }}"},
@@ -67,7 +67,7 @@ func TestExtractVariableReferences(t *testing.T) {
 		},
 		{
 			name: "Extract mixed variables from different sources",
-			workflowData: &WorkflowData{
+			workflowData: &YamlFlowData{
 				Variables: []mvar.Var{
 					{VarKey: "flow_var", Value: "flow_value"},
 				},
@@ -119,7 +119,7 @@ func TestExtractVariableReferences(t *testing.T) {
 		},
 		{
 			name: "Extract from endpoints and examples",
-			workflowData: &WorkflowData{
+			workflowData: &YamlFlowData{
 				Endpoints: []mitemapi.ItemApi{
 					{Url: "/api/{{ version }}/users", Name: "{{ env.API_BASE }}"},
 				},
@@ -147,7 +147,7 @@ func TestExtractVariableReferences(t *testing.T) {
 		},
 		{
 			name: "Extract from JS and condition nodes",
-			workflowData: &WorkflowData{
+			workflowData: &YamlFlowData{
 				JSNodes: []mnjs.MNJS{
 					{Code: []byte(`console.log("{{ env.LOG_LEVEL }}"); var x = "{{ js_var }}";`)},
 				},
@@ -263,7 +263,7 @@ func TestCheckStringHasEnvVar(t *testing.T) {
 	}
 }
 
-func TestImportWorkflowYAMLWithVariables(t *testing.T) {
+func TestImportYamlFlowYAMLWithVariables(t *testing.T) {
 	yamlData := []byte(`
 workspace_name: Test Workspace
 flows:
@@ -285,7 +285,7 @@ flows:
             env_param: "{{ env.QUERY_PARAM }}"
 `)
 
-	result, err := ImportWorkflowYAML(yamlData)
+	result, err := ImportYamlFlowYAML(yamlData)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 

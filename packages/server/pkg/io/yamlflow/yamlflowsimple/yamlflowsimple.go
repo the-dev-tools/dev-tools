@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"encoding/json"
@@ -66,22 +66,22 @@ const (
 // Error Types
 // ========================================
 
-// WorkflowError provides structured error information
-type WorkflowError struct {
+// YamlFlowError provides structured error information
+type YamlFlowError struct {
 	Message string
 	Field   string
 	Value   interface{}
 }
 
-func (e WorkflowError) Error() string {
+func (e YamlFlowError) Error() string {
 	if e.Field != "" {
 		return fmt.Sprintf("%s: field '%s' with value '%v'", e.Message, e.Field, e.Value)
 	}
 	return e.Message
 }
 
-func newWorkflowError(message, field string, value interface{}) error {
-	return WorkflowError{
+func newYamlFlowError(message, field string, value interface{}) error {
+	return YamlFlowError{
 		Message: message,
 		Field:   field,
 		Value:   value,
@@ -127,7 +127,7 @@ func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap)
 	result := SimplifiedYAMLResolved{}
 
 	// Parse the YAML
-	workflowData, err := Parse(data)
+	yamlflowData, err := Parse(data)
 	if err != nil {
 		return result, err
 	}
@@ -135,24 +135,24 @@ func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap)
 	// Create collection
 	collection := mcollection.Collection{
 		ID:          collectionID,
-		Name:        "Workflow Collection",
+		Name:        "YamlFlow Collection",
 		WorkspaceID: workspaceID,
 	}
 	result.Collections = append(result.Collections, collection)
 
 	// Convert flow data
-	flow := workflowData.Flow
+	flow := yamlflowData.Flow
 	flow.WorkspaceID = workspaceID
 	result.Flows = append(result.Flows, flow)
 
 	// Copy all flow nodes
-	result.FlowNodes = workflowData.Nodes
+	result.FlowNodes = yamlflowData.Nodes
 
 	// Copy all edges
-	result.FlowEdges = workflowData.Edges
+	result.FlowEdges = yamlflowData.Edges
 
 	// Convert variables to flow variables
-	for _, v := range workflowData.Variables {
+	for _, v := range yamlflowData.Variables {
 		flowVar := mflowvariable.FlowVariable{
 			ID:      idwrap.NewNow(),
 			FlowID:  flow.ID,
@@ -164,31 +164,31 @@ func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap)
 	}
 
 	// Copy node implementations
-	result.FlowRequestNodes = workflowData.RequestNodes
-	result.FlowConditionNodes = workflowData.ConditionNodes
-	result.FlowNoopNodes = workflowData.NoopNodes
-	result.FlowForNodes = workflowData.ForNodes
-	result.FlowForEachNodes = workflowData.ForEachNodes
-	result.FlowJSNodes = workflowData.JSNodes
+	result.FlowRequestNodes = yamlflowData.RequestNodes
+	result.FlowConditionNodes = yamlflowData.ConditionNodes
+	result.FlowNoopNodes = yamlflowData.NoopNodes
+	result.FlowForNodes = yamlflowData.ForNodes
+	result.FlowForEachNodes = yamlflowData.ForEachNodes
+	result.FlowJSNodes = yamlflowData.JSNodes
 
 	// Process endpoints and examples
-	for _, endpoint := range workflowData.Endpoints {
+	for _, endpoint := range yamlflowData.Endpoints {
 		// Set collection ID
 		endpoint.CollectionID = collectionID
 		result.Endpoints = append(result.Endpoints, endpoint)
 	}
 
 	// Process examples
-	for _, example := range workflowData.Examples {
+	for _, example := range yamlflowData.Examples {
 		// Set collection ID
 		example.CollectionID = collectionID
 		result.Examples = append(result.Examples, example)
 	}
 
 	// Copy headers, queries, and bodies
-	result.Headers = workflowData.Headers
-	result.Queries = workflowData.Queries
-	result.RawBodies = workflowData.RawBodies
+	result.Headers = yamlflowData.Headers
+	result.Queries = yamlflowData.Queries
+	result.RawBodies = yamlflowData.RawBodies
 
 	// Set Prev/Next for endpoints
 	for i := range result.Endpoints {
@@ -217,29 +217,29 @@ func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap)
 	return result, nil
 }
 
-// Parse parses the workflow YAML and returns WorkflowData
-func Parse(data []byte) (*WorkflowData, error) {
-	var workflow WorkflowFormat
-	var rawWorkflow map[string]any
+// Parse parses the yamlflow YAML and returns YamlFlowData
+func Parse(data []byte) (*YamlFlowData, error) {
+	var yamlflow YamlFlowFormat
+	var rawYamlFlow map[string]any
 
 	// First unmarshal to a generic map to handle step types properly
-	if err := yaml.Unmarshal(data, &rawWorkflow); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal workflow format: %w", err)
+	if err := yaml.Unmarshal(data, &rawYamlFlow); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal yamlflow format: %w", err)
 	}
 
 	// Then unmarshal to structured format
-	if err := yaml.Unmarshal(data, &workflow); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal workflow format: %w", err)
+	if err := yaml.Unmarshal(data, &yamlflow); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal yamlflow format: %w", err)
 	}
 
-	if workflow.WorkspaceName == "" {
-		return nil, newWorkflowError("workspace_name is required", "workspace_name", nil)
+	if yamlflow.WorkspaceName == "" {
+		return nil, newYamlFlowError("workspace_name is required", "workspace_name", nil)
 	}
 
 	// Parse run field if present
 	var runEntries []RunEntry
-	if len(workflow.Run) > 0 {
-		parsedEntries, err := parseRunField(workflow.Run)
+	if len(yamlflow.Run) > 0 {
+		parsedEntries, err := parseRunField(yamlflow.Run)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse run field: %w", err)
 		}
@@ -248,16 +248,16 @@ func Parse(data []byte) (*WorkflowData, error) {
 
 	// Parse request templates (support both old and new format)
 	var templates map[string]*requestTemplate
-	if workflow.RequestTemplates != nil {
-		templates = parseRequestTemplates(workflow.RequestTemplates)
-	} else if workflow.Requests != nil {
-		templates = parseRequests(workflow.Requests)
+	if yamlflow.RequestTemplates != nil {
+		templates = parseRequestTemplates(yamlflow.RequestTemplates)
+	} else if yamlflow.Requests != nil {
+		templates = parseRequests(yamlflow.Requests)
 	} else {
 		templates = make(map[string]*requestTemplate)
 	}
 
-	// Initialize workflow data
-	workflowData := &WorkflowData{
+	// Initialize yamlflow data
+	yamlflowData := &YamlFlowData{
 		Nodes:          make([]mnnode.MNode, 0),
 		Edges:          make([]edge.Edge, 0),
 		Variables:      make([]mvar.Var, 0),
@@ -275,14 +275,14 @@ func Parse(data []byte) (*WorkflowData, error) {
 	}
 
 	// Determine which flow to process
-	var flowToProcess WorkflowFlow
+	var flowToProcess YamlFlowFlow
 	var flowName string
 
 	if len(runEntries) > 0 {
 		// If run field is present, use the first flow specified there
 		flowName = runEntries[0].Flow
 		found := false
-		for _, f := range workflow.Flows {
+		for _, f := range yamlflow.Flows {
 			if f.Name == flowName {
 				flowToProcess = f
 				found = true
@@ -294,16 +294,16 @@ func Parse(data []byte) (*WorkflowData, error) {
 		}
 	} else {
 		// Otherwise, process first flow (backward compatibility)
-		if len(workflow.Flows) == 0 {
-			return nil, newWorkflowError("at least one flow is required", "flows", nil)
+		if len(yamlflow.Flows) == 0 {
+			return nil, newYamlFlowError("at least one flow is required", "flows", nil)
 		}
-		flowToProcess = workflow.Flows[0]
+		flowToProcess = yamlflow.Flows[0]
 		flowName = flowToProcess.Name
 	}
 
 	flowID := idwrap.NewNow()
 
-	workflowData.Flow = mflow.Flow{
+	yamlflowData.Flow = mflow.Flow{
 		ID:   flowID,
 		Name: flowName,
 	}
@@ -312,14 +312,14 @@ func Parse(data []byte) (*WorkflowData, error) {
 	// Note: You can set a "timeout" variable to control flow execution timeout (in seconds)
 	// Default is 60 seconds if not specified. Example: - name: timeout, value: "300"
 	for _, v := range flowToProcess.Variables {
-		workflowData.Variables = append(workflowData.Variables, mvar.Var{
+		yamlflowData.Variables = append(yamlflowData.Variables, mvar.Var{
 			VarKey: v.Name,
 			Value:  v.Value,
 		})
 	}
 
 	// Create variable map for resolution
-	varMap := varsystem.NewVarMap(workflowData.Variables)
+	varMap := varsystem.NewVarMap(yamlflowData.Variables)
 
 	// Create start node
 	startNodeID := idwrap.NewNow()
@@ -329,16 +329,16 @@ func Parse(data []byte) (*WorkflowData, error) {
 		Name:     "Start",
 		NodeKind: mnnode.NODE_KIND_NO_OP,
 	}
-	workflowData.Nodes = append(workflowData.Nodes, startNode)
+	yamlflowData.Nodes = append(yamlflowData.Nodes, startNode)
 
 	noopNode := mnnoop.NoopNode{
 		FlowNodeID: startNodeID,
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
 	}
-	workflowData.NoopNodes = append(workflowData.NoopNodes, noopNode)
+	yamlflowData.NoopNodes = append(yamlflowData.NoopNodes, noopNode)
 
 	// Get raw steps
-	rawFlows, ok := rawWorkflow[fieldFlows].([]any)
+	rawFlows, ok := rawYamlFlow[fieldFlows].([]any)
 	if !ok || len(rawFlows) == 0 {
 		return nil, fmt.Errorf("invalid flows format")
 	}
@@ -374,7 +374,7 @@ func Parse(data []byte) (*WorkflowData, error) {
 
 			nodeName, ok := dataMap[fieldName].(string)
 			if !ok || nodeName == "" {
-				return nil, newWorkflowError("step missing required field", fieldName, nodeName)
+				return nil, newYamlFlowError("step missing required field", fieldName, nodeName)
 			}
 
 			nodeID := idwrap.NewNow()
@@ -399,45 +399,45 @@ func Parse(data []byte) (*WorkflowData, error) {
 			// Process step based on type
 			switch stepType {
 			case stepTypeRequest:
-				if err := processRequestStepForNode(nodeName, nodeID, flowID, dataMap, templates, varMap, workflowData); err != nil {
+				if err := processRequestStepForNode(nodeName, nodeID, flowID, dataMap, templates, varMap, yamlflowData); err != nil {
 					return nil, err
 				}
 			case stepTypeIf:
-				if err := processIfStepForNode(nodeName, nodeID, flowID, dataMap, workflowData); err != nil {
+				if err := processIfStepForNode(nodeName, nodeID, flowID, dataMap, yamlflowData); err != nil {
 					return nil, err
 				}
 			case stepTypeFor:
-				if err := processForStepForNode(nodeName, nodeID, flowID, dataMap, workflowData); err != nil {
+				if err := processForStepForNode(nodeName, nodeID, flowID, dataMap, yamlflowData); err != nil {
 					return nil, err
 				}
 			case stepTypeForEach:
-				if err := processForEachStepForNode(nodeName, nodeID, flowID, dataMap, workflowData); err != nil {
+				if err := processForEachStepForNode(nodeName, nodeID, flowID, dataMap, yamlflowData); err != nil {
 					return nil, err
 				}
 			case stepTypeJS:
-				if err := processJSStepForNode(nodeName, nodeID, flowID, dataMap, workflowData); err != nil {
+				if err := processJSStepForNode(nodeName, nodeID, flowID, dataMap, yamlflowData); err != nil {
 					return nil, err
 				}
 			default:
-				return nil, newWorkflowError("unknown step type", "stepType", stepType)
+				return nil, newYamlFlowError("unknown step type", "stepType", stepType)
 			}
 		}
 	}
 
 	// Create edges
-	createEdgesForFlow(flowID, startNodeID, nodeInfoMap, nodeList, rawSteps, workflowData)
+	createEdgesForFlow(flowID, startNodeID, nodeInfoMap, nodeList, rawSteps, yamlflowData)
 
 	// Handle run dependencies if present
 	if len(runEntries) > 0 {
-		processRunDependencies(runEntries, flowName, nodeInfoMap, workflowData)
+		processRunDependencies(runEntries, flowName, nodeInfoMap, yamlflowData)
 	}
 
 	// Position nodes
-	if err := positionNodes(workflowData); err != nil {
+	if err := positionNodes(yamlflowData); err != nil {
 		return nil, err
 	}
 
-	return workflowData, nil
+	return yamlflowData, nil
 }
 
 // ========================================
@@ -586,7 +586,7 @@ func parseRequestDataFromMap(data map[string]any) *requestTemplate {
 // ========================================
 
 // addNodeWithName adds a flow node with the given name
-func addNodeWithName(nodeName string, nodeID, flowID idwrap.IDWrap, kind mnnode.NodeKind, data *WorkflowData) {
+func addNodeWithName(nodeName string, nodeID, flowID idwrap.IDWrap, kind mnnode.NodeKind, data *YamlFlowData) {
 	data.Nodes = append(data.Nodes, mnnode.MNode{
 		ID:       nodeID,
 		FlowID:   flowID,
@@ -596,7 +596,7 @@ func addNodeWithName(nodeName string, nodeID, flowID idwrap.IDWrap, kind mnnode.
 }
 
 // processRequestStepForNode processes a request step for a given node
-func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, templates map[string]*requestTemplate, varMap varsystem.VarMap, data *WorkflowData) error {
+func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, templates map[string]*requestTemplate, varMap varsystem.VarMap, data *YamlFlowData) error {
 	// Initialize request configuration
 	method, url := "GET", ""
 	var templateHeaders, templateQueries, stepHeaderOverrides, stepQueryOverrides []map[string]string
@@ -617,7 +617,7 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 				url = tmpl.url
 			}
 		} else {
-			return newWorkflowError(fmt.Sprintf("request step '%s' references unknown template '%s'", nodeName, useRequest), fieldUseRequest, useRequest)
+			return newYamlFlowError(fmt.Sprintf("request step '%s' references unknown template '%s'", nodeName, useRequest), fieldUseRequest, useRequest)
 		}
 	}
 
@@ -630,7 +630,7 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 	}
 	// URL is required either from template or step definition
 	if url == "" {
-		return newWorkflowError(fmt.Sprintf("request step '%s' missing required url", nodeName), fieldURL, nil)
+		return newYamlFlowError(fmt.Sprintf("request step '%s' missing required url", nodeName), fieldURL, nil)
 	}
 
 	// Parse step overrides
@@ -733,12 +733,12 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 }
 
 // processIfStepForNode processes an if step for a given node
-func processIfStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *WorkflowData) error {
+func processIfStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *YamlFlowData) error {
 	addNodeWithName(nodeName, nodeID, flowID, mnnode.NODE_KIND_CONDITION, data)
 
 	condition, ok := stepData[fieldCondition].(string)
 	if !ok || condition == "" {
-		return newWorkflowError(fmt.Sprintf("if step '%s' missing required condition", nodeName), fieldCondition, nil)
+		return newYamlFlowError(fmt.Sprintf("if step '%s' missing required condition", nodeName), fieldCondition, nil)
 	}
 
 	data.ConditionNodes = append(data.ConditionNodes, mnif.MNIF{
@@ -751,7 +751,7 @@ func processIfStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepDat
 }
 
 // processForStepForNode processes a for step for a given node
-func processForStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *WorkflowData) error {
+func processForStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *YamlFlowData) error {
 	addNodeWithName(nodeName, nodeID, flowID, mnnode.NODE_KIND_FOR, data)
 
 	iterCount := 1 // Default to 1 if not specified
@@ -771,12 +771,12 @@ func processForStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepDa
 }
 
 // processForEachStepForNode processes a for_each step for a given node
-func processForEachStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *WorkflowData) error {
+func processForEachStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *YamlFlowData) error {
 	addNodeWithName(nodeName, nodeID, flowID, mnnode.NODE_KIND_FOR_EACH, data)
 
 	items, ok := stepData[fieldItems].(string)
 	if !ok || items == "" {
-		return newWorkflowError(fmt.Sprintf("for_each step '%s' missing required items", nodeName), fieldItems, nil)
+		return newYamlFlowError(fmt.Sprintf("for_each step '%s' missing required items", nodeName), fieldItems, nil)
 	}
 
 	data.ForEachNodes = append(data.ForEachNodes, mnforeach.MNForEach{
@@ -787,12 +787,12 @@ func processForEachStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 }
 
 // processJSStepForNode processes a JavaScript step for a given node
-func processJSStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *WorkflowData) error {
+func processJSStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, data *YamlFlowData) error {
 	addNodeWithName(nodeName, nodeID, flowID, mnnode.NODE_KIND_JS, data)
 
 	code, ok := stepData[fieldCode].(string)
 	if !ok || code == "" {
-		return newWorkflowError(fmt.Sprintf("js step '%s' missing required code", nodeName), fieldCode, nil)
+		return newYamlFlowError(fmt.Sprintf("js step '%s' missing required code", nodeName), fieldCode, nil)
 	}
 
 	data.JSNodes = append(data.JSNodes, mnjs.MNJS{
@@ -807,7 +807,7 @@ func processJSStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepDat
 // ========================================
 
 // createRequestEntitiesForNode creates all the entities needed for a request node
-func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap, url, method string, data *WorkflowData) *requestContext {
+func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap, url, method string, data *YamlFlowData) *requestContext {
 	ctx := &requestContext{
 		nodeID:           nodeID,
 		endpointID:       idwrap.NewNow(),
@@ -877,7 +877,7 @@ func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap,
 }
 
 // addBodyToExamples adds body data for all three examples
-func addBodyToExamples(ctx *requestContext, bodyData []byte, data *WorkflowData) {
+func addBodyToExamples(ctx *requestContext, bodyData []byte, data *YamlFlowData) {
 	if bodyData == nil {
 		bodyData = []byte("{}")
 	}
@@ -930,7 +930,7 @@ func processNameValuePairsForExamples(
 	varMap varsystem.VarMap,
 	createFunc func(name, value string, id, exampleID idwrap.IDWrap, deltaParentID *idwrap.IDWrap) interface{},
 	appendFunc func(interface{}),
-	data *WorkflowData,
+	data *YamlFlowData,
 ) {
 	if usingTemplate {
 		templateMap := convertToNameValueMap(templatePairs)
@@ -1023,7 +1023,7 @@ func processNameValuePairsForExamples(
 // ========================================
 
 // createEdgesForFlow creates edges based on dependencies and sequential order
-func createEdgesForFlow(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, rawSteps []map[string]any, data *WorkflowData) {
+func createEdgesForFlow(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, rawSteps []map[string]any, data *YamlFlowData) {
 	// Track which nodes have incoming edges
 	hasIncoming := make(map[idwrap.IDWrap]bool)
 
@@ -1137,7 +1137,7 @@ func createEdgesForFlow(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[strin
 }
 
 // processRunDependencies handles dependencies specified in the run field
-func processRunDependencies(runEntries []RunEntry, currentFlowName string, nodeInfoMap map[string]*nodeInfo, data *WorkflowData) {
+func processRunDependencies(runEntries []RunEntry, currentFlowName string, nodeInfoMap map[string]*nodeInfo, data *YamlFlowData) {
 	// Find the current flow's run entry
 	var currentEntry *RunEntry
 	for i := range runEntries {

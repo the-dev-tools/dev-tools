@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ func TestParseRunField(t *testing.T) {
 		name    string
 		yaml    string
 		wantErr bool
-		check   func(t *testing.T, data *WorkflowData)
+		check   func(t *testing.T, data *YamlFlowData)
 	}{
 		{
 			name: "Simple run field with single flow",
@@ -25,7 +25,7 @@ flows:
           url: http://example.com
 `,
 			wantErr: false,
-			check: func(t *testing.T, data *WorkflowData) {
+			check: func(t *testing.T, data *YamlFlowData) {
 				if data.Flow.Name != "FlowA" {
 					t.Errorf("Expected flow name 'FlowA', got '%s'", data.Flow.Name)
 				}
@@ -61,7 +61,7 @@ flows:
           url: http://example.com/c
 `,
 			wantErr: false,
-			check: func(t *testing.T, data *WorkflowData) {
+			check: func(t *testing.T, data *YamlFlowData) {
 				// Should process the first flow in run list
 				if data.Flow.Name != "FlowA" {
 					t.Errorf("Expected flow name 'FlowA', got '%s'", data.Flow.Name)
@@ -89,7 +89,7 @@ flows:
           url: http://example.com/b
 `,
 			wantErr: false,
-			check: func(t *testing.T, data *WorkflowData) {
+			check: func(t *testing.T, data *YamlFlowData) {
 				if data.Flow.Name != "FlowA" {
 					t.Errorf("Expected flow name 'FlowA', got '%s'", data.Flow.Name)
 				}
@@ -122,7 +122,7 @@ flows:
           url: http://example.com
 `,
 			wantErr: false,
-			check: func(t *testing.T, data *WorkflowData) {
+			check: func(t *testing.T, data *YamlFlowData) {
 				// Should default to first flow
 				if data.Flow.Name != "FlowA" {
 					t.Errorf("Expected flow name 'FlowA', got '%s'", data.Flow.Name)

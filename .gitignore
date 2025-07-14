@@ -21,3 +21,4 @@ tsconfig.tsbuildinfo
 tsp-output
 *.embed
 .claude
+apps/cli/devtoolscli

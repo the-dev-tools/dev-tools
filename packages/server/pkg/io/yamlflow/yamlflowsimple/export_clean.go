@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"encoding/json"
@@ -19,8 +19,8 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 )
 
-// ExportWorkflowYAML converts ioworkspace.WorkspaceData to simplified workflow YAML
-func ExportWorkflowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error) {
+// ExportYamlFlowYAML converts ioworkspace.WorkspaceData to simplified yamlflow YAML
+func ExportYamlFlowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error) {
 	if workspaceData == nil {
 		return nil, fmt.Errorf("workspace data cannot be nil")
 	}

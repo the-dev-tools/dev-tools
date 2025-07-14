@@ -27,7 +27,7 @@ import (
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
-	workflowsimple "the-dev-tools/server/pkg/io/workflow/workflowsimple"
+	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/mexampleresp"
@@ -115,221 +115,25 @@ type FlowServiceLocal struct {
 
 func init() {
 	rootCmd.AddCommand(flowCmd)
-	flowCmd.AddCommand(flowRunCmd)
-
-	// Add workspace and workflow subcommands to the flowRunCmd
-	flowRunCmd.AddCommand(workspaceRunCmd)
-	flowRunCmd.AddCommand(workflowRunCmd)
+	// Add yamlflowRunCmd directly to flowCmd since we only have one run command now
+	flowCmd.AddCommand(yamlflowRunCmd)
 }
 
 var flowCmd = &cobra.Command{
 	Use:   "flow",
-	Short: "Workspace Flow Controls",
-	Long:  `Workspace Flow Controls`,
+	Short: "Flow Controls",
+	Long:  `Flow Controls`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
 }
 
-var flowRunCmd = &cobra.Command{
-	Use:   "run",
-	Short: "Run Flow",
-	Long:  `Running Flow from workspace or workflow files`,
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
-	},
-}
 
-var workspaceRunCmd = &cobra.Command{
-	Use:   "workspace [filepath] [flow-id-or-name]",
-	Short: "Run flow from workspace file",
-	Long:  `Running Flow from a workspace format file`,
-	Args:  cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
 
-		// TODO: move into context
-		var logLevel slog.Level
-		logLevelStr := os.Getenv("LOG_LEVEL")
-		switch logLevelStr {
-		case "DEBUG":
-			logLevel = slog.LevelDebug
-		case "INFO":
-			logLevel = slog.LevelInfo
-		case "WARNING":
-			logLevel = slog.LevelWarn
-		case "ERROR":
-			logLevel = slog.LevelError
-		default:
-			logLevel = slog.LevelError
-		}
-
-		loggerHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level: logLevel,
-		})
-
-		logger := slog.New(loggerHandler)
-
-		workspaceFilePath := args[0]
-		nameOrID := args[1]
-
-		fileData, err := os.ReadFile(workspaceFilePath)
-		if err != nil {
-			return err
-		}
-
-		workspaceData, err := ioworkspace.UnmarshalWorkspace(fileData)
-		if err != nil {
-			return err
-		}
-
-		err = workspaceData.VerifyIds()
-		if err != nil {
-			return err
-		}
-
-		db, _, err := tursomem.NewTursoLocal(ctx)
-		if err != nil {
-			return err
-		}
-
-		queries, err := gen.Prepare(ctx, db)
-		if err != nil {
-			return err
-		}
-
-		collectionService := scollection.New(queries, logger)
-		workspaceService := sworkspace.New(queries)
-		folderService := sitemfolder.New(queries)
-		endpointService := sitemapi.New(queries)
-		exampleService := sitemapiexample.New(queries)
-		exampleHeaderService := sexampleheader.New(queries)
-		exampleQueryService := sexamplequery.New(queries)
-		exampleAssertService := sassert.New(queries)
-		rawBodyService := sbodyraw.New(queries)
-		formBodyService := sbodyform.New(queries)
-		urlBodyService := sbodyurl.New(queries)
-		responseService := sexampleresp.New(queries)
-		responseHeaderService := sexamplerespheader.New(queries)
-		responseAssertService := sassertres.New(queries)
-		flowService := sflow.New(queries)
-		flowNodeService := snode.New(queries)
-		flowRequestService := snoderequest.New(queries)
-		flowConditionService := snodeif.New(queries)
-		flowNoopService := snodenoop.New(queries)
-		flowEdgeService := sedge.New(queries)
-		flowVariableService := sflowvariable.New(queries)
-		flowForService := snodefor.New(queries)
-		flowForEachService := snodeforeach.New(queries)
-		flowJSService := snodejs.New(queries)
-		flowEdges := sedge.New(queries)
-		envService := senv.New(queries)
-		varService := svar.New(queries)
-
-		ioWorkspaceService := ioworkspace.NewIOWorkspaceService(
-			db,
-			workspaceService,
-			collectionService,
-			folderService,
-			endpointService,
-			exampleService,
-			exampleHeaderService,
-			exampleQueryService,
-			exampleAssertService,
-			rawBodyService,
-			formBodyService,
-			urlBodyService,
-			responseService,
-			responseHeaderService,
-			responseAssertService,
-			flowService,
-			flowNodeService,
-			flowEdgeService,
-			flowVariableService,
-			flowRequestService,
-			*flowConditionService,
-			flowNoopService,
-			flowForService,
-			flowForEachService,
-			flowJSService,
-			envService,
-			varService,
-		)
-
-		logMap := logconsole.NewLogChanMap()
-
-		flowServiceLocal := FlowServiceLocal{
-			DB:         db,
-			ws:         workspaceService,
-			fs:         flowService,
-			fes:        flowEdges,
-			fvs:        flowVariableService,
-			ias:        endpointService,
-			es:         exampleService,
-			qs:         exampleQueryService,
-			hs:         exampleHeaderService,
-			brs:        rawBodyService,
-			bfs:        formBodyService,
-			bues:       urlBodyService,
-			ers:        responseService,
-			erhs:       responseHeaderService,
-			as:         exampleAssertService,
-			ars:        responseAssertService,
-			ns:         flowNodeService,
-			rns:        flowRequestService,
-			fns:        flowForService,
-			fens:       flowForEachService,
-			sns:        flowNoopService,
-			ins:        *flowConditionService,
-			jsns:       flowJSService,
-			logChanMap: logMap,
-		}
-
-		// TODO: move to const
-		workspaceID := workspaceData.Workspace.ID
-		c := flowServiceLocal
-
-		err = ioWorkspaceService.ImportWorkspace(ctx, *workspaceData)
-		if err != nil {
-			return err
-		}
-
-		var flowPtr *mflow.Flow
-		// check if id
-		id, err := idwrap.NewText(nameOrID)
-		if err != nil {
-			// seems like not id try find name
-			flows, err := c.fs.GetFlowsByWorkspaceID(ctx, workspaceID)
-			if err != nil {
-				return err
-			}
-			for _, flow := range flows {
-				if nameOrID == flow.Name {
-					flowPtr = &flow
-				}
-			}
-
-			if flowPtr == nil {
-				return fmt.Errorf("%s didn't match any flow names", nameOrID)
-			}
-
-		} else {
-			flow, err := c.fs.GetFlow(ctx, id)
-			if err != nil {
-				return err
-			}
-			flowPtr = &flow
-		}
-
-		log.Println("found flow", flowPtr.Name)
-		return flowRun(ctx, flowPtr, c)
-	},
-}
-
-var workflowRunCmd = &cobra.Command{
-	Use:   "workflow [filepath] [flow-name]",
-	Short: "Run flow from workflow file",
-	Long:  `Running Flow from a workflow format file. If flow-name is not provided, executes all flows from the 'run' field in order.`,
+var yamlflowRunCmd = &cobra.Command{
+	Use:   "run [yamlflow-file] [flow-name]",
+	Short: "Run flow from yamlflow file",
+	Long:  `Running Flow from a yamlflow format file. If flow-name is not provided, executes all flows from the 'run' field in order.`,
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
@@ -356,11 +160,11 @@ var workflowRunCmd = &cobra.Command{
 
 		logger := slog.New(loggerHandler)
 
-		workflowFilePath := args[0]
+		yamlflowFilePath := args[0]
 		var flowName string
 		var runMultiple bool
 
-		fileData, err := os.ReadFile(workflowFilePath)
+		fileData, err := os.ReadFile(yamlflowFilePath)
 		if err != nil {
 			return err
 		}
@@ -389,10 +193,10 @@ var workflowRunCmd = &cobra.Command{
 		var workspaceData *ioworkspace.WorkspaceData
 		if runMultiple {
 			// Use multi-flow import when running all flows
-			workspaceData, err = workflowsimple.ImportWorkflowYAMLMultiFlow(fileData)
+			workspaceData, err = yamlflowsimple.ImportYamlFlowYAMLMultiFlow(fileData)
 			if err != nil {
 				// Log the error from simplified format for debugging
-				log.Printf("workflowsimple.ImportWorkflowYAMLMultiFlow failed: %v", err)
+				log.Printf("yamlflowsimple.ImportYamlFlowYAMLMultiFlow failed: %v", err)
 				
 				// Fall back to standard format
 				workspaceData, err = ioworkspace.UnmarshalWorkflowYAML(fileData)
@@ -402,10 +206,10 @@ var workflowRunCmd = &cobra.Command{
 			}
 		} else {
 			// For single flow, we still need to import all flows to find the requested one
-			workspaceData, err = workflowsimple.ImportWorkflowYAMLMultiFlow(fileData)
+			workspaceData, err = yamlflowsimple.ImportYamlFlowYAMLMultiFlow(fileData)
 			if err != nil {
 				// Log the error from simplified format for debugging
-				log.Printf("workflowsimple.ImportWorkflowYAMLMultiFlow failed: %v", err)
+				log.Printf("yamlflowsimple.ImportYamlFlowYAMLMultiFlow failed: %v", err)
 				
 				// Fall back to standard format
 				workspaceData, err = ioworkspace.UnmarshalWorkflowYAML(fileData)

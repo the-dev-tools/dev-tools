@@ -47,7 +47,7 @@ import (
 	"the-dev-tools/server/pkg/translate/tcurl"
 	"the-dev-tools/server/pkg/translate/thar"
 	"the-dev-tools/server/pkg/translate/tpostman"
-	"the-dev-tools/server/pkg/io/workflow/workflowsimple"
+	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
 	"the-dev-tools/spec/dist/buf/go/import/v1/importv1connect"
@@ -171,7 +171,7 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 			if _, hasWorkspace := yamlCheck["workspace_name"]; hasWorkspace {
 				if _, hasFlows := yamlCheck["flows"]; hasFlows {
 					// This appears to be a simplified workflow YAML
-					resolvedYAML, err := workflowsimple.ConvertSimplifiedYAML(data, collectionID, wsUlid)
+					resolvedYAML, err := yamlflowsimple.ConvertSimplifiedYAML(data, collectionID, wsUlid)
 					if err != nil {
 						return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to convert simplified workflow: %w", err))
 					}
@@ -1065,7 +1065,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	return &flow, nil
 }
 
-func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap.IDWrap, resolved workflowsimple.SimplifiedYAMLResolved) error {
+func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap.IDWrap, resolved yamlflowsimple.SimplifiedYAMLResolved) error {
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)

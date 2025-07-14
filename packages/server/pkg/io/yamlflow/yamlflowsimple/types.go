@@ -1,4 +1,4 @@
-package workflowsimple
+package yamlflowsimple
 
 import (
 	"the-dev-tools/server/pkg/flow/edge"
@@ -21,17 +21,17 @@ import (
 	"the-dev-tools/server/pkg/model/mvar"
 )
 
-// WorkflowFormat represents the top-level YAML structure
-type WorkflowFormat struct {
+// YamlFlowFormat represents the top-level YAML structure
+type YamlFlowFormat struct {
 	WorkspaceName    string                    `yaml:"workspace_name"`
 	Run              []map[string]any          `yaml:"run,omitempty"`
 	RequestTemplates map[string]map[string]any `yaml:"request_templates,omitempty"` // Old format
 	Requests         []map[string]any          `yaml:"requests,omitempty"`          // New format
-	Flows            []WorkflowFlow            `yaml:"flows"`
+	Flows            []YamlFlowFlow            `yaml:"flows"`
 }
 
-// WorkflowFlow represents a single flow definition
-type WorkflowFlow struct {
+// YamlFlowFlow represents a single flow definition
+type YamlFlowFlow struct {
 	Name      string     `yaml:"name"`
 	Variables []Variable `yaml:"variables,omitempty"`
 	Steps     []any      `yaml:"steps"`
@@ -46,14 +46,14 @@ type Variable struct {
 	Value string `yaml:"value"`
 }
 
-// WorkflowStep is the base step with common fields
-type WorkflowStep struct {
+// YamlFlowStep is the base step with common fields
+type YamlFlowStep struct {
 	DependsOn []string `yaml:"depends_on,omitempty"`
 }
 
 // RequestStep represents a request step
 type RequestStep struct {
-	WorkflowStep `yaml:",inline"`
+	YamlFlowStep `yaml:",inline"`
 	Name         string              `yaml:"name"`
 	UseRequest   string              `yaml:"use_request,omitempty"`
 	Method       string              `yaml:"method,omitempty"`
@@ -65,7 +65,7 @@ type RequestStep struct {
 
 // IfStep represents a conditional step
 type IfStep struct {
-	WorkflowStep `yaml:",inline"`
+	YamlFlowStep `yaml:",inline"`
 	Name         string `yaml:"name"`
 	Condition    string `yaml:"condition"`
 	Then         string `yaml:"then,omitempty"`
@@ -74,7 +74,7 @@ type IfStep struct {
 
 // ForStep represents a for loop step
 type ForStep struct {
-	WorkflowStep `yaml:",inline"`
+	YamlFlowStep `yaml:",inline"`
 	Name         string `yaml:"name"`
 	IterCount    int    `yaml:"iter_count"`
 	Loop         string `yaml:"loop,omitempty"`
@@ -82,7 +82,7 @@ type ForStep struct {
 
 // ForEachStep represents a for-each loop step
 type ForEachStep struct {
-	WorkflowStep `yaml:",inline"`
+	YamlFlowStep `yaml:",inline"`
 	Name         string `yaml:"name"`
 	Items        string `yaml:"items"`
 	Loop         string `yaml:"loop,omitempty"`
@@ -90,13 +90,13 @@ type ForEachStep struct {
 
 // JSStep represents a JavaScript execution step
 type JSStep struct {
-	WorkflowStep `yaml:",inline"`
+	YamlFlowStep `yaml:",inline"`
 	Name         string `yaml:"name"`
 	Code         string `yaml:"code"`
 }
 
-// WorkflowData represents the parsed workflow data
-type WorkflowData struct {
+// YamlFlowData represents the parsed workflow data
+type YamlFlowData struct {
 	// Flow items
 	Flow           mflow.Flow
 	Nodes          []mnnode.MNode
