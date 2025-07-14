@@ -17,7 +17,7 @@ automatically generates requests, and seamlessly chains them for functional test
 With built-in CI integration, it streamlines API validation from development to deployment.
   `,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }
 

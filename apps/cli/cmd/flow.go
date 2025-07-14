@@ -124,7 +124,7 @@ var flowCmd = &cobra.Command{
 	Short: "Flow Controls",
 	Long:  `Flow Controls`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }
 
@@ -833,7 +833,9 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 			if err != nil {
 				slog.Error("failed to start worker-js", "error", err)
 			} else {
-				defer cmd.Cancel()
+				defer func() {
+					_ = cmd.Cancel()
+				}()
 				slog.Info("worker-js process started", "pid", cmd.Process.Pid)
 				go func() {
 					err := cmd.Wait()
