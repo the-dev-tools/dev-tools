@@ -1,0 +1,48 @@
+{
+  "name": "cli",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/cli",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "nx run cli:copy-worker",
+          "cd apps/cli && task build:all"
+        ],
+        "parallel": false
+      },
+      "dependsOn": [
+        {
+          "target": "build",
+          "projects": ["worker-js"]
+        }
+      ]
+    },
+    "copy-worker": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/cli && task copy:worker"
+      },
+      "dependsOn": [
+        {
+          "target": "build",
+          "projects": ["worker-js"]
+        }
+      ]
+    },
+    "clean": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/cli && task clean"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd apps/cli && task dev"
+      }
+    }
+  }
+}
