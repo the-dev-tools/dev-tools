@@ -60,6 +60,13 @@
       "Name": "task",
       "Version": "3.42.1",
       "Updated": "\/Date(1743676319794)\/"
+    },
+    {
+      "Info": "",
+      "Source": "main",
+      "Name": "mingw",
+      "Version": "13.2.0",
+      "Updated": "\/Date(1743676319794)\/"
     }
   ]
 }

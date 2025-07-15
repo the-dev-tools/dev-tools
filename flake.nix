@@ -66,6 +66,11 @@
               nodejs_latest
               pnpm
               gha-scripts
+              # C/C++ compilers for CGO
+              gcc
+              # Cross-compilation toolchains
+              pkgsCross.mingwW64.stdenv.cc
+              pkgsCross.aarch64-multiplatform.stdenv.cc
             ];
           };
 
