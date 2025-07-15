@@ -1,11 +1,11 @@
-name: Release / CLI
+name: Release / Go
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build CLI
+    name: Build Go Binary
     strategy:
       matrix:
         include:
@@ -34,45 +34,36 @@ jobs:
         name: Get project information
         run: gha-scripts export-project-info
 
-      - name: Install cross-compilation tools (Linux ARM64)
-        if: matrix.platform == 'linux-arm64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
-      - name: Install MinGW (Windows on Linux/macOS)
-        if: runner.os != 'Windows' && startsWith(matrix.platform, 'win32')
-        run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            sudo apt-get update
-            sudo apt-get install -y mingw-w64
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            brew install mingw-w64
-          fi
 
       - name: Set platform-specific environment
         run: |
           PLATFORM="${{ matrix.platform }}"
           echo "PLATFORM=${PLATFORM}" >> $GITHUB_ENV
           
-          # Parse platforms.json for this platform
-          PLATFORM_CONFIG=$(cat apps/cli/platforms.json | jq -r '."'${PLATFORM}'"')
-          
-          # Set binary suffix
-          BINARY_SUFFIX=$(echo "$PLATFORM_CONFIG" | jq -r '."binary-suffix" // ""')
-          echo "BINARY_SUFFIX=${BINARY_SUFFIX}" >> $GITHUB_ENV
-          
-          # Set Go environment variables
-          echo "$PLATFORM_CONFIG" | jq -r '.go // {} | to_entries | .[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+          # Check if platforms.json exists for cross-compilation projects
+          if [ -f "${{ steps.info.outputs.ROOT }}/platforms.json" ]; then
+            # Parse platforms.json for this platform
+            PLATFORM_CONFIG=$(cat ${{ steps.info.outputs.ROOT }}/platforms.json | jq -r '."'${PLATFORM}'"')
+            
+            # Set binary suffix
+            BINARY_SUFFIX=$(echo "$PLATFORM_CONFIG" | jq -r '."binary-suffix" // ""')
+            echo "BINARY_SUFFIX=${BINARY_SUFFIX}" >> $GITHUB_ENV
+            
+            # Set Go environment variables
+            echo "$PLATFORM_CONFIG" | jq -r '.go // {} | to_entries | .[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+          fi
 
-      - name: Build CLI Binary
-        run: pnpm nx run ${{ steps.info.outputs.NAME }}:build:release
+      - name: Build Binary
+        run: |
+          # Export version for build process
+          export VERSION=${{ steps.info.outputs.VERSION }}
+          pnpm nx run ${{ steps.info.outputs.NAME }}:build:release
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cli-${{ matrix.platform }}
-          path: apps/cli/dist/devtools-cli-*
+          name: ${{ steps.info.outputs.NAME }}-${{ matrix.platform }}
+          path: ${{ steps.info.outputs.ROOT }}/dist/devtools-${{ steps.info.outputs.NAME }}-*
           retention-days: 1
 
   release:
@@ -99,13 +90,13 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          find artifacts -name "devtools-cli-*" -type f -exec mv {} release-assets/ \;
+          find artifacts -name "devtools-${{ steps.info.outputs.NAME }}-*" -type f -exec mv {} release-assets/ \;
           ls -la release-assets/
 
       - name: Generate checksums
         working-directory: release-assets
         run: |
-          sha256sum devtools-cli-* > checksums.txt
+          sha256sum devtools-${{ steps.info.outputs.NAME }}-* > checksums.txt
           cat checksums.txt
 
       - name: Upload release assets

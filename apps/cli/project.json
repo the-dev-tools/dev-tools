@@ -37,7 +37,7 @@
         "cwd": "{projectRoot}",
         "commands": [
           "mkdir -p dist",
-          "go build -o dist/devtools-cli-$(cat package.json | grep version | cut -d'\"' -f4)-${PLATFORM:-$(go env GOOS)-$(go env GOARCH)}${BINARY_SUFFIX} main.go"
+          "go build -o dist/devtools-cli-${VERSION:-$(cat package.json | grep version | cut -d'\"' -f4)}-${PLATFORM:-$(go env GOOS)-$(go env GOARCH)}${BINARY_SUFFIX} main.go"
         ]
       },
       "dependsOn": ["copy-worker"]

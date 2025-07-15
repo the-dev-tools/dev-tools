@@ -78,13 +78,13 @@ type ReleaseWorkflow =
   | 'release-chrome-extension.yaml'
   | 'release-cloudflare-pages.yaml'
   | 'release-electron-builder.yaml'
-  | 'release-cli.yaml';
+  | 'release-go.yaml';
 
 const ReleaseWorkflows: Record<string, ReleaseWorkflow> = {
   'api-recorder-extension': 'release-chrome-extension.yaml',
   desktop: 'release-electron-builder.yaml',
   web: 'release-cloudflare-pages.yaml',
-  cli: 'release-cli.yaml',
+  cli: 'release-go.yaml',
 };
 
 const release = CliCommand.make(
