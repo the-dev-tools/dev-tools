@@ -48,14 +48,16 @@
           "mkdir --parents dist",
           "go test ./... -json | tee dist/go-test.json"
         ]
-      }
+      },
+      "dependsOn": ["copy-worker"]
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
         "command": "golangci-lint run"
-      }
+      },
+      "dependsOn": ["copy-worker"]
     },
     "tidy": {
       "executor": "nx:run-commands",
