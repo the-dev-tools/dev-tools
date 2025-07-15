@@ -14,6 +14,7 @@ A free, open‑source Postman‑style API tester you run locally. Record browser
   <summary>Table of Contents</summary>
   <ol>
     <li><a href="#about-the-project">About the Project</a></li>
+    <li><a href="#installation">Installation</a></li>
     <li><a href="#chrome-extension">Chrome Extension</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
@@ -53,6 +54,39 @@ The flow builder allows you to visually chain API requests and create complex te
 - **Data nodes**: Import data from Excel sheets and other sources
 
 This visual approach makes it easy to create sophisticated API workflows without writing code.
+
+## Installation
+
+### CLI Tool
+
+Install the DevTools CLI with a single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/the-dev-tools/dev-tools/main/apps/cli/install.sh | bash
+```
+
+Or if you prefer wget:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/the-dev-tools/dev-tools/main/apps/cli/install.sh | bash
+```
+
+The installer will:
+- Automatically detect your platform (Linux, macOS, Windows)
+- Download the appropriate binary from the latest release
+- Install it to `/usr/local/bin` (customizable with `INSTALL_DIR` environment variable)
+
+#### Manual Installation
+
+You can also download pre-built binaries directly from the [releases page](https://github.com/the-dev-tools/dev-tools/releases).
+
+### Desktop Application
+
+Download the desktop application for your platform from the [releases page](https://github.com/the-dev-tools/dev-tools/releases):
+
+- **macOS**: DevTools-{version}-darwin-{arch}.dmg
+- **Windows**: DevTools-{version}-win32-{arch}.exe
+- **Linux**: DevTools-{version}-linux-{arch}.AppImage
 
 ## Chrome Extension
 

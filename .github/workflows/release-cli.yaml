@@ -1,0 +1,114 @@
+name: Release / CLI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build CLI
+    strategy:
+      matrix:
+        include:
+          - runner: macos-13
+            platform: darwin-x64
+          - runner: macos-latest
+            platform: darwin-arm64
+          - runner: ubuntu-latest
+            platform: linux-x64
+          - runner: ubuntu-latest
+            platform: linux-arm64
+          - runner: windows-latest
+            platform: win32-x64
+          - runner: windows-latest
+            platform: win32-ia32
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+
+      - id: info
+        name: Get project information
+        run: gha-scripts export-project-info
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.platform == 'linux-arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Install MinGW (Windows on Linux/macOS)
+        if: runner.os != 'Windows' && startsWith(matrix.platform, 'win32')
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y mingw-w64
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install mingw-w64
+          fi
+
+      - name: Set platform-specific environment
+        run: |
+          PLATFORM="${{ matrix.platform }}"
+          echo "PLATFORM=${PLATFORM}" >> $GITHUB_ENV
+          
+          # Parse platforms.json for this platform
+          PLATFORM_CONFIG=$(cat apps/cli/platforms.json | jq -r '."'${PLATFORM}'"')
+          
+          # Set binary suffix
+          BINARY_SUFFIX=$(echo "$PLATFORM_CONFIG" | jq -r '."binary-suffix" // ""')
+          echo "BINARY_SUFFIX=${BINARY_SUFFIX}" >> $GITHUB_ENV
+          
+          # Set Go environment variables
+          echo "$PLATFORM_CONFIG" | jq -r '.go // {} | to_entries | .[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+
+      - name: Build CLI Binary
+        run: pnpm nx run ${{ steps.info.outputs.NAME }}:build:release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.platform }}
+          path: apps/cli/dist/devtools-cli-*
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup runner environment
+        uses: ./.github/actions/setup
+
+      - id: info
+        name: Get project information
+        run: gha-scripts export-project-info
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -name "devtools-cli-*" -type f -exec mv {} release-assets/ \;
+          ls -la release-assets/
+
+      - name: Generate checksums
+        working-directory: release-assets
+        run: |
+          sha256sum devtools-cli-* > checksums.txt
+          cat checksums.txt
+
+      - name: Upload release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gha-scripts upload-cli-release-assets

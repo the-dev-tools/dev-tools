@@ -77,12 +77,14 @@ const exportProjectInfo = CliCommand.make(
 type ReleaseWorkflow =
   | 'release-chrome-extension.yaml'
   | 'release-cloudflare-pages.yaml'
-  | 'release-electron-builder.yaml';
+  | 'release-electron-builder.yaml'
+  | 'release-cli.yaml';
 
 const ReleaseWorkflows: Record<string, ReleaseWorkflow> = {
   'api-recorder-extension': 'release-chrome-extension.yaml',
   desktop: 'release-electron-builder.yaml',
   web: 'release-cloudflare-pages.yaml',
+  cli: 'release-cli.yaml',
 };
 
 const release = CliCommand.make(
@@ -185,9 +187,37 @@ const uploadElectronReleaseAssets = CliCommand.make(
   }, Effect.provide(Repository.Default)),
 );
 
+const uploadCliReleaseAssets = CliCommand.make(
+  'upload-cli-release-assets',
+  {},
+  Effect.fn(function* () {
+    const path = yield* Path.Path;
+    const fs = yield* FileSystem.FileSystem;
+    const repo = yield* Repository;
+
+    const tag = yield* repo.tag;
+    const { id: releaseId } = yield* repo.getReleaseByTag(tag);
+
+    const assetsDir = 'release-assets';
+
+    yield* pipe(
+      yield* fs.readDirectory(assetsDir),
+      Array.filterMap((file) =>
+        Option.some(
+          repo.uploadReleaseAsset({
+            path: path.join(assetsDir, file),
+            releaseId,
+          }),
+        ),
+      ),
+      Effect.all,
+    );
+  }, Effect.provide(Repository.Default)),
+);
+
 pipe(
   CliCommand.make('gha-scripts'),
-  CliCommand.withSubcommands([exportProjectInfo, release, uploadElectronReleaseAssets]),
+  CliCommand.withSubcommands([exportProjectInfo, release, uploadElectronReleaseAssets, uploadCliReleaseAssets]),
   CliCommand.run({ name: 'Scripts for GitHub Actions', version: 'internal' }),
   (_) => _(process.argv),
   Effect.provide(NodeContext.layer),
