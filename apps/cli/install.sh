@@ -75,11 +75,21 @@ detect_platform() {
 }
 
 get_latest_version() {
-    local latest_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
-    local version=$(curl -s "$latest_url" | grep '"tag_name"' | sed -E 's/.*"cli@([^"]+)".*/\1/')
+    # Fetch the package.json from main branch to get the latest version
+    local package_url="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/refs/heads/main/apps/cli/package.json"
+    local version=$(curl -s "$package_url" | grep '"version"' | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
     
     if [ -z "$version" ]; then
-        print_error "Failed to fetch latest version"
+        print_error "Failed to fetch latest version from package.json"
+        exit 1
+    fi
+    
+    # Verify the release exists
+    local release_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/cli@${version}"
+    local release_check=$(curl -s -o /dev/null -w "%{http_code}" "$release_url")
+    
+    if [ "$release_check" != "200" ]; then
+        print_error "Release cli@${version} not found. It may not be published yet."
         exit 1
     fi
     

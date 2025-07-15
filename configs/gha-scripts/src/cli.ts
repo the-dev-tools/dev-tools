@@ -187,8 +187,8 @@ const uploadElectronReleaseAssets = CliCommand.make(
   }, Effect.provide(Repository.Default)),
 );
 
-const uploadCliReleaseAssets = CliCommand.make(
-  'upload-cli-release-assets',
+const uploadGoReleaseAssets = CliCommand.make(
+  'upload-go-release-assets',
   {},
   Effect.fn(function* () {
     const path = yield* Path.Path;
@@ -217,7 +217,7 @@ const uploadCliReleaseAssets = CliCommand.make(
 
 pipe(
   CliCommand.make('gha-scripts'),
-  CliCommand.withSubcommands([exportProjectInfo, release, uploadElectronReleaseAssets, uploadCliReleaseAssets]),
+  CliCommand.withSubcommands([exportProjectInfo, release, uploadElectronReleaseAssets, uploadGoReleaseAssets]),
   CliCommand.run({ name: 'Scripts for GitHub Actions', version: 'internal' }),
   (_) => _(process.argv),
   Effect.provide(NodeContext.layer),
