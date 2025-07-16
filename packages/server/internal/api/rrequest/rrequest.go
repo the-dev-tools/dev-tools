@@ -134,12 +134,12 @@ func (c *RequestRPC) isExampleDelta(ctx context.Context, exampleID idwrap.IDWrap
 	if err != nil {
 		return false, err
 	}
-	
+
 	// First check: if example has VersionParentID, it's definitely a delta
 	if example.VersionParentID != nil {
 		return true, nil
 	}
-	
+
 	// Second check: if the example belongs to a hidden endpoint, it might be a delta
 	// This handles cases where delta examples are created via API without VersionParentID
 	endpoint, err := c.ias.GetItemApi(ctx, example.ItemApiID)
@@ -147,13 +147,13 @@ func (c *RequestRPC) isExampleDelta(ctx context.Context, exampleID idwrap.IDWrap
 		// If we can't get the endpoint, fall back to the original check
 		return false, nil
 	}
-	
+
 	// Hidden endpoints are typically delta endpoints created for nodes
 	// Combined with the fact that we're calling delta APIs on them, this is a strong signal
 	if endpoint.Hidden {
 		return true, nil
 	}
-	
+
 	return false, nil
 }
 
@@ -789,11 +789,11 @@ func (c RequestRPC) QueryDeltaCreate(ctx context.Context, req *connect.Request[r
 				if err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
-				
+
 				if parentExample.VersionParentID != nil && parentExample.VersionParentID.Compare(originExampleID) == 0 {
 					query.DeltaParentID = &parentQueryID
 				} else {
-					return nil, connect.NewError(connect.CodeInvalidArgument, 
+					return nil, connect.NewError(connect.CodeInvalidArgument,
 						fmt.Errorf("parent query does not have a valid relationship to the origin example"))
 				}
 			}
@@ -1491,7 +1491,7 @@ func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[
 		// 1. Parent header belongs to the origin example directly
 		// 2. Parent header belongs to a delta example and has a DeltaParentID
 		// 3. Parent header belongs to a different example that's also a version of the origin
-		
+
 		// First check if the parent header belongs to the origin example
 		if parentHeader.ExampleID.Compare(originExampleID) == 0 {
 			// Parent belongs to origin example, use it directly
@@ -1510,7 +1510,7 @@ func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[
 				if err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
-				
+
 				// Check if the parent example is a version of the origin
 				if parentExample.VersionParentID != nil && parentExample.VersionParentID.Compare(originExampleID) == 0 {
 					// The parent header's example is a direct child of the origin example
@@ -1518,7 +1518,7 @@ func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[
 					header.DeltaParentID = &parentHeaderID
 				} else {
 					// Unable to establish relationship to origin example
-					return nil, connect.NewError(connect.CodeInvalidArgument, 
+					return nil, connect.NewError(connect.CodeInvalidArgument,
 						fmt.Errorf("parent header does not have a valid relationship to the origin example"))
 				}
 			}
@@ -2110,11 +2110,11 @@ func (c RequestRPC) AssertDeltaCreate(ctx context.Context, req *connect.Request[
 				if err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
-				
+
 				if parentExample.VersionParentID != nil && parentExample.VersionParentID.Compare(originExampleID) == 0 {
 					assert.DeltaParentID = &parentAssertID
 				} else {
-					return nil, connect.NewError(connect.CodeInvalidArgument, 
+					return nil, connect.NewError(connect.CodeInvalidArgument,
 						fmt.Errorf("parent assert does not have a valid relationship to the origin example"))
 				}
 			}
@@ -2215,4 +2215,9 @@ func (c RequestRPC) AssertDeltaReset(ctx context.Context, req *connect.Request[r
 	}
 
 	return connect.NewResponse(&requestv1.AssertDeltaResetResponse{}), nil
+}
+
+// TODO: implement move RPC
+func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv1.QueryMoveRequest]) (*connect.Response[requestv1.QueryMoveResponse], error) {
+	return connect.NewResponse(&requestv1.QueryMoveResponse{}), nil
 }

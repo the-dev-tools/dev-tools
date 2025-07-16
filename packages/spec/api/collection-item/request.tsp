@@ -31,6 +31,16 @@ model Query {
 }
 
 @autoFields
+model QueryMoveRequest {
+  ...ParentKeyOf<Query>;
+  ...KeyOf<Query>;
+  position: Resource.MovePosition;
+  targetQueryId: Resource.Id;
+}
+
+model QueryMoveResponse {}
+
+@autoFields
 @normalize
 @entity
 @parentResource(Example.Example)
@@ -71,4 +81,7 @@ interface RequestService
     Resource.Create.Interface<Assert>,
     Resource.Update.Interface<Assert>,
     Resource.Delete.Interface<Assert>,
-    Delta.Interface<Assert> {}
+    Delta.Interface<Assert> {
+  @endpoint("request.js:moveQuery")
+  QueryMove(...QueryMoveRequest): QueryMoveResponse;
+}
