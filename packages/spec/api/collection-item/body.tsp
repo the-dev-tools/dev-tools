@@ -37,6 +37,16 @@ model BodyForm {
 }
 
 @autoFields
+model BodyFormMoveRequest {
+  ...ParentKeyOf<BodyForm>;
+  ...KeyOf<BodyForm>;
+  position: Resource.MovePosition;
+  targetBodyId: Resource.Id;
+}
+
+model BodyFormMoveResponse {}
+
+@autoFields
 @normalize
 @entity
 @parentResource(Example.Example)
@@ -72,4 +82,7 @@ interface BodyService
     Delta.Interface<BodyUrlEncoded>,
     // Raw
     Resource.Get.Interface<BodyRaw>,
-    Resource.Update.Interface<BodyRaw> {}
+    Resource.Update.Interface<BodyRaw> {
+  @endpoint("request.js:moveBodyForm")
+  BodyFormMove(...BodyFormMoveRequest): BodyFormMoveResponse;
+}

@@ -1012,3 +1012,8 @@ func (s *BodyRPC) deleteDeltaBodyFormsForOrigin(ctx context.Context, originBodyF
 
 	return nil
 }
+
+// TODO: implement move RPC
+func (c *BodyRPC) BodyFormMove(ctx context.Context, req *connect.Request[bodyv1.BodyFormMoveRequest]) (*connect.Response[bodyv1.BodyFormMoveResponse], error) {
+	return connect.NewResponse(&bodyv1.BodyFormMoveResponse{}), nil
+}
