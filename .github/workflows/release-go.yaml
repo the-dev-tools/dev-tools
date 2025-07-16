@@ -35,17 +35,10 @@ jobs:
         run: gha-scripts export-project-info
 
       - name: Build Binary
-        run: |
-          # Export version for build process
-          export VERSION=${{ steps.info.outputs.VERSION }}
-          export PLATFORM=${{ matrix.platform }}
-
-          # Get GOOS and GOARCH from platforms.json for correct architecture
-          export GOOS=$(jq -r '.["${{ matrix.platform }}"].go.GOOS' apps/cli/platforms.json)
-          export GOARCH=$(jq -r '.["${{ matrix.platform }}"].go.GOARCH' apps/cli/platforms.json)
-          export BINARY_SUFFIX=$(jq -r '.["${{ matrix.platform }}"]["binary-suffix"] // ""' apps/cli/platforms.json)
-
-          pnpm nx run ${{ steps.info.outputs.NAME }}:build:release
+        env:
+          VERSION: ${{ steps.info.outputs.VERSION }}
+          PLATFORM: ${{ matrix.platform }}
+        run: pnpm nx run ${{ steps.info.outputs.NAME }}:build:release
 
       - name: Publish
         env:

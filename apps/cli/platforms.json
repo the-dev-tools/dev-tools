@@ -1,5 +1,5 @@
 {
-  "darwin-x64": {
+  "darwin-amd64": {
     "go": {
       "CGO_ENABLED": "1",
       "GOOS": "darwin",
