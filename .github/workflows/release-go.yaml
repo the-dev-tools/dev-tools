@@ -38,6 +38,7 @@ jobs:
         env:
           VERSION: ${{ steps.info.outputs.VERSION }}
           PLATFORM: ${{ matrix.platform }}
+          CGO_ENABLED: "0"
         run: pnpm nx run ${{ steps.info.outputs.NAME }}:build:release
 
       - name: Publish

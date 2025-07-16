@@ -29,6 +29,21 @@ tasks:
       - cmd: cmd /c if not exist "{{.DIR}}" mkdir "{{.DIR}}"
         platforms: [windows]
 
+  build:release:
+    desc: Build release binary with version and platform
+    vars:
+      VERSION_DEFAULT:
+        sh: cat package.json | grep version | cut -d'"' -f4
+      GOOS_DEFAULT:
+        sh: go env GOOS
+      GOARCH_DEFAULT:
+        sh: go env GOARCH
+    cmds:
+      - task: ensure-dir
+        vars:
+          DIR: dist
+      - go build -o {{.BIN_DIR}}/devtools-cli-{{.VERSION | default .VERSION_DEFAULT}}-{{.PLATFORM | default (printf "%s-%s" .GOOS_DEFAULT .GOARCH_DEFAULT)}}{{.BINARY_SUFFIX}} main.go
+
   clean:
     desc: Clean build artifacts
     cmd: rm -rf {{.BIN_DIR}}

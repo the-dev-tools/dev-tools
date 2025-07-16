@@ -32,10 +32,7 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
-        "commands": [
-          "mkdir -p dist",
-          "go build -o dist/devtools-cli-${VERSION:-$(cat package.json | grep version | cut -d'\"' -f4)}-${PLATFORM:-$(go env GOOS)-$(go env GOARCH)}${BINARY_SUFFIX} main.go"
-        ]
+        "command": "task build:release VERSION=${VERSION} PLATFORM=${PLATFORM} BINARY_SUFFIX=${BINARY_SUFFIX}"
       },
       "dependsOn": ["copy-worker"]
     },
