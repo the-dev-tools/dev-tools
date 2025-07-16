@@ -561,7 +561,7 @@ const SettingsPanel = () => {
   const table = useReactTable({
     columns: [
       columnCheckboxField<FlowVariableListItemEntity>('enabled', { meta: { divider: false } }),
-      columnReferenceField<FlowVariableListItemEntity>('name'),
+      columnReferenceField<FlowVariableListItemEntity>('name', { meta: { isRowHeader: true } }),
       columnReferenceField<FlowVariableListItemEntity>('value', { allowFiles: true }),
       columnTextField<FlowVariableListItemEntity>('description', { meta: { divider: false } }),
       columnActionsCommon<FlowVariableListItemEntity>({
@@ -597,7 +597,7 @@ const SettingsPanel = () => {
       </div>
 
       <div className={tw`m-5`}>
-        <DataTable {...formTable} table={table} />
+        <DataTable {...formTable} table={table} tableAria-label='Flow variables' />
       </div>
     </>
   );

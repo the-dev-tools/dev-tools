@@ -1066,7 +1066,7 @@ const ResponseHeaderTable = ({ responseId }: ResponseHeaderTableProps) => {
     data: items,
   });
 
-  return <DataTable cellClassName={tw`px-5 py-1.5`} table={table} />;
+  return <DataTable cellClassName={tw`px-5 py-1.5`} table={table} tableAria-label='Response headers' />;
 };
 
 interface ResponseAssertTableProps {

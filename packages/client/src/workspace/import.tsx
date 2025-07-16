@@ -139,11 +139,11 @@ export const ImportDialog = () => {
           selectedKeys={selectedFilters}
           selectionMode='multiple'
         >
-          <TableHeader className={twMerge(tableStyles.header, tw`sticky top-0 z-10 *:contents`)}>
-            <Column className={twMerge(tableStyles.headerCell, tw`!border-r-0 px-2`)}>
+          <TableHeader className={twMerge(tableStyles.header, tw`sticky top-0 z-10`)}>
+            <Column className={twMerge(tableStyles.headerColumn, tw`!border-r-0 px-2`)}>
               <Checkbox slot='selection' variant='table-cell' />
             </Column>
-            <Column className={tableStyles.headerCell} isRowHeader>
+            <Column className={tableStyles.headerColumn} isRowHeader>
               Domain
             </Column>
           </TableHeader>

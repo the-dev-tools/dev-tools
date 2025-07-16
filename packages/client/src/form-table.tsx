@@ -16,11 +16,10 @@ import { FiPlus } from 'react-icons/fi';
 import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
-
 import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
-import { DataTableProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
+import { DataTableProps, RowRenderProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
@@ -65,7 +64,7 @@ const useFormAutoSave = <TFieldValues extends FieldValues>({
 };
 
 interface FormTableRowProps<T extends FieldValues> {
-  children: ReactNode;
+  children: RowRenderProps<T>['rowNode'];
   onUpdate: (value: T) => Promise<unknown>;
   value: T;
 }
@@ -78,7 +77,7 @@ const FormTableRow = <T extends FieldValues>({ children, onUpdate, value }: Form
 
   useFormAutoSave({ ...form, onSubmit: onUpdate });
 
-  return <FormProvider {...form}>{children}</FormProvider>;
+  return children(({ cellNode }) => <FormProvider {...form}>{cellNode}</FormProvider>);
 };
 
 interface UseFormTableProps<TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>> {
@@ -102,7 +101,7 @@ export const useFormTable = <TFieldValues extends FieldValues, TPrimaryName exte
     if (!primaryColumn || !bodyRef.current || lengthPrev.current === null || lengthPrev.current === items.length)
       return;
 
-    const lastRow = bodyRef.current.children.item(items.length - 1);
+    const lastRow = bodyRef.current.children.item(items.length - 2);
     const primaryCell = lastRow?.querySelector(`[name="${primaryColumn}"]`);
     if (primaryCell instanceof HTMLElement) primaryCell.focus();
 
@@ -126,9 +125,9 @@ export const useFormTable = <TFieldValues extends FieldValues, TPrimaryName exte
         {createLabel}
       </Button>
     ),
-    rowRender: (row, _) => (
+    rowRender: ({ row, rowNode }) => (
       <FormTableRow onUpdate={onUpdate} value={row.original}>
-        {_}
+        {rowNode}
       </FormTableRow>
     ),
   } satisfies Partial<DataTableProps<TFieldValues>>;
@@ -150,18 +149,19 @@ export const makeDeltaItems = <
   });
 
 interface DisplayFormTableRowProps<T extends FieldValues> {
-  children: ReactNode;
+  children: RowRenderProps<T>['rowNode'];
   value: T;
 }
 
 const DisplayFormTableRow = <T extends FieldValues>({ children, value }: DisplayFormTableRowProps<T>) => {
   const form = useForm({ disabled: true, values: value });
-  return <FormProvider {...form}>{children}</FormProvider>;
+  return children(({ cellNode }) => <FormProvider {...form}>{cellNode}</FormProvider>);
 };
 
-export const displayTable = {
-  rowRender: (row, _) => <DisplayFormTableRow value={row.original}>{_}</DisplayFormTableRow>,
-} satisfies Partial<DataTableProps<FieldValues>>;
+export const displayTable = <TFieldValues extends FieldValues>() =>
+  ({
+    rowRender: ({ row, rowNode }) => <DisplayFormTableRow value={row.original}>{rowNode}</DisplayFormTableRow>,
+  }) satisfies Partial<DataTableProps<TFieldValues>>;
 
 export const columnCheckboxField = <TFieldValues extends FieldValues>(
   name: FieldPath<TFieldValues>,

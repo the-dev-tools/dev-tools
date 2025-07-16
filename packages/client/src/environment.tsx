@@ -373,7 +373,7 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   const table = useReactTable({
     columns: [
       columnCheckboxField<VariableListItemEntity>('enabled', { meta: { divider: false } }),
-      columnReferenceField<VariableListItemEntity>('name'),
+      columnReferenceField<VariableListItemEntity>('name', { meta: { isRowHeader: true } }),
       columnReferenceField<VariableListItemEntity>('value', { allowFiles: true }),
       columnTextField<VariableListItemEntity>('description', { meta: { divider: false } }),
       columnActionsCommon<VariableListItemEntity>({
@@ -396,5 +396,5 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
     primaryColumn: 'name',
   });
 
-  return <DataTable {...formTable} table={table} />;
+  return <DataTable {...formTable} table={table} tableAria-label='Environment variables' />;
 };

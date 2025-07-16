@@ -43,7 +43,7 @@ export const QueryTable = ({ deltaExampleId, exampleId, isReadOnly }: QueryTable
 
 const dataColumns = [
   columnCheckboxField<GenericMessage<QueryListItem>>('enabled', { meta: { divider: false } }),
-  columnReferenceField<GenericMessage<QueryListItem>>('key'),
+  columnReferenceField<GenericMessage<QueryListItem>>('key', { meta: { isRowHeader: true } }),
   columnReferenceField<GenericMessage<QueryListItem>>('value', { allowFiles: true }),
   columnTextField<GenericMessage<QueryListItem>>('description', { meta: { divider: false } }),
 ];
@@ -60,7 +60,7 @@ const DisplayTable = ({ exampleId }: DisplayTableProps) => {
     data: items,
   });
 
-  return <DataTable {...displayTable} table={table} />;
+  return <DataTable {...displayTable<GenericMessage<QueryListItem>>()} table={table} tableAria-label='Query items' />;
 };
 
 interface FormTableProps {
@@ -94,7 +94,7 @@ const FormTable = ({ exampleId }: FormTableProps) => {
       ]}
       data={items}
     >
-      {(table) => <DataTable {...formTable} table={table} />}
+      {(table) => <DataTable {...formTable} table={table} tableAria-label='Query items' />}
     </ReactTableNoMemo>
   );
 };
@@ -132,7 +132,7 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       data={items}
       getRowId={(_) => _.queryId.toString()}
     >
-      {(table) => <DataTable {...formTable} table={table} />}
+      {(table) => <DataTable {...formTable} table={table} tableAria-label='Query items' />}
     </ReactTableNoMemo>
   );
 };

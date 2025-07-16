@@ -117,7 +117,7 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
 
 const formDataColumns = [
   columnCheckboxField<GenericMessage<BodyFormListItem>>('enabled', { meta: { divider: false } }),
-  columnReferenceField<GenericMessage<BodyFormListItem>>('key'),
+  columnReferenceField<GenericMessage<BodyFormListItem>>('key', { meta: { isRowHeader: true } }),
   columnReferenceField<GenericMessage<BodyFormListItem>>('value', { allowFiles: true }),
   columnTextField<GenericMessage<BodyFormListItem>>('description', { meta: { divider: false } }),
 ];
@@ -134,7 +134,14 @@ const FormDisplayTable = ({ exampleId }: FormDisplayTableProps) => {
     data: items,
   });
 
-  return <DataTable {...displayTable} table={table} wrapperClassName={tw`col-span-full`} />;
+  return (
+    <DataTable
+      {...displayTable<GenericMessage<BodyFormListItem>>()}
+      table={table}
+      tableAria-label='Body form items'
+      wrapperClassName={tw`col-span-full`}
+    />
+  );
 };
 
 interface FormDataTableProps {
@@ -170,7 +177,9 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
     primaryColumn: 'key',
   });
 
-  return <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />;
+  return (
+    <DataTable {...formTable} table={table} tableAria-label='Body form items' wrapperClassName={tw`col-span-full`} />
+  );
 };
 
 interface FormDeltaDataTableProps {
@@ -206,14 +215,14 @@ const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: 
       data={items}
       getRowId={(_) => _.bodyId.toString()}
     >
-      {(table) => <DataTable {...formTable} table={table} />}
+      {(table) => <DataTable {...formTable} table={table} tableAria-label='Body form items' />}
     </ReactTableNoMemo>
   );
 };
 
 const urlEncodedDataColumns = [
   columnCheckboxField<GenericMessage<BodyUrlEncodedListItem>>('enabled', { meta: { divider: false } }),
-  columnReferenceField<GenericMessage<BodyUrlEncodedListItem>>('key'),
+  columnReferenceField<GenericMessage<BodyUrlEncodedListItem>>('key', { meta: { isRowHeader: true } }),
   columnReferenceField<GenericMessage<BodyUrlEncodedListItem>>('value', { allowFiles: true }),
   columnTextField<GenericMessage<BodyUrlEncodedListItem>>('description', { meta: { divider: false } }),
 ];
@@ -230,7 +239,14 @@ const UrlEncodedDisplayTable = ({ exampleId }: UrlEncodedDisplayTableProps) => {
     data: items,
   });
 
-  return <DataTable {...displayTable} table={table} wrapperClassName={tw`col-span-full`} />;
+  return (
+    <DataTable
+      {...displayTable<GenericMessage<BodyUrlEncodedListItem>>()}
+      table={table}
+      tableAria-label='URL encoded body form items'
+      wrapperClassName={tw`col-span-full`}
+    />
+  );
 };
 
 interface UrlEncodedFormTableProps {
@@ -268,7 +284,14 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
     primaryColumn: 'key',
   });
 
-  return <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />;
+  return (
+    <DataTable
+      {...formTable}
+      table={table}
+      tableAria-label='URL encoded body form items'
+      wrapperClassName={tw`col-span-full`}
+    />
+  );
 };
 
 interface UrlEncodedDeltaFormTableProps {
@@ -308,7 +331,14 @@ const UrlEncodedDeltaFormTable = ({
       data={items}
       getRowId={(_) => _.bodyId.toString()}
     >
-      {(table) => <DataTable {...formTable} table={table} wrapperClassName={tw`col-span-full`} />}
+      {(table) => (
+        <DataTable
+          {...formTable}
+          table={table}
+          tableAria-label='URL encoded body form items'
+          wrapperClassName={tw`col-span-full`}
+        />
+      )}
     </ReactTableNoMemo>
   );
 };

@@ -42,7 +42,7 @@ export const HeaderTable = ({ deltaExampleId, exampleId, isReadOnly }: HeaderTab
 
 const dataColumns = [
   columnCheckboxField<GenericMessage<HeaderListItem>>('enabled', { meta: { divider: false } }),
-  columnReferenceField<GenericMessage<HeaderListItem>>('key'),
+  columnReferenceField<GenericMessage<HeaderListItem>>('key', { meta: { isRowHeader: true } }),
   columnReferenceField<GenericMessage<HeaderListItem>>('value', { allowFiles: true }),
   columnTextField<GenericMessage<HeaderListItem>>('description', { meta: { divider: false } }),
 ];
@@ -59,7 +59,7 @@ const DisplayTable = ({ exampleId }: DisplayTableProps) => {
     data: items,
   });
 
-  return <DataTable {...displayTable} table={table} />;
+  return <DataTable {...displayTable<GenericMessage<HeaderListItem>>()} table={table} tableAria-label='Headers' />;
 };
 
 interface FormTableProps {
@@ -93,7 +93,7 @@ const FormTable = ({ exampleId }: FormTableProps) => {
     primaryColumn: 'key',
   });
 
-  return <DataTable {...formTable} table={table} />;
+  return <DataTable {...formTable} table={table} tableAria-label='Headers' />;
 };
 
 interface DeltaFormTableProps {
@@ -129,7 +129,7 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       data={items}
       getRowId={(_) => _.headerId.toString()}
     >
-      {(table) => <DataTable {...formTable} table={table} />}
+      {(table) => <DataTable {...formTable} table={table} tableAria-label='Headers' />}
     </ReactTableNoMemo>
   );
 };
