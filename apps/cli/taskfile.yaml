@@ -33,7 +33,7 @@ tasks:
     desc: Build release binary with version and platform
     vars:
       VERSION_DEFAULT:
-        sh: cat package.json | grep version | cut -d'"' -f4
+        sh: node -e "console.log(require('./package.json').version)"
       GOOS_DEFAULT:
         sh: go env GOOS
       GOARCH_DEFAULT:
@@ -46,7 +46,12 @@ tasks:
 
   clean:
     desc: Clean build artifacts
-    cmd: rm -rf {{.BIN_DIR}}
+    cmds:
+      - cmd: rm -rf {{.BIN_DIR}}
+        platforms: [linux, darwin]
+      - cmd: cmd /c rd /s /q "{{.BIN_DIR}}"
+        platforms: [windows]
+        ignore_error: true
 
   build:*:
     desc: Build for specified platform
