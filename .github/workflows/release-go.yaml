@@ -34,71 +34,13 @@ jobs:
         name: Get project information
         run: gha-scripts export-project-info
 
-      - name: Set platform-specific environment
-        run: |
-          PLATFORM="${{ matrix.platform }}"
-          echo "PLATFORM=${PLATFORM}" >> $GITHUB_ENV
-
-          # Check if platforms.json exists for cross-compilation projects
-          if [ -f "${{ steps.info.outputs.ROOT }}/platforms.json" ]; then
-            # Parse platforms.json for this platform
-            PLATFORM_CONFIG=$(cat ${{ steps.info.outputs.ROOT }}/platforms.json | jq -r '."'${PLATFORM}'"')
-            
-            # Set binary suffix
-            BINARY_SUFFIX=$(echo "$PLATFORM_CONFIG" | jq -r '."binary-suffix" // ""')
-            echo "BINARY_SUFFIX=${BINARY_SUFFIX}" >> $GITHUB_ENV
-            
-            # Set Go environment variables
-            echo "$PLATFORM_CONFIG" | jq -r '.go // {} | to_entries | .[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
-          fi
-
       - name: Build Binary
         run: |
           # Export version for build process
           export VERSION=${{ steps.info.outputs.VERSION }}
           pnpm nx run ${{ steps.info.outputs.NAME }}:build:release
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.info.outputs.NAME }}-${{ matrix.platform }}
-          path: ${{ steps.info.outputs.ROOT }}/dist/devtools-${{ steps.info.outputs.NAME }}-*
-          retention-days: 1
-
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup runner environment
-        uses: ./.github/actions/setup
-
-      - id: info
-        name: Get project information
-        run: gha-scripts export-project-info
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Prepare release assets
-        run: |
-          mkdir -p release-assets
-          find artifacts -name "devtools-${{ steps.info.outputs.NAME }}-*" -type f -exec mv {} release-assets/ \;
-          ls -la release-assets/
-
-      - name: Generate checksums
-        working-directory: release-assets
-        run: |
-          sha256sum devtools-${{ steps.info.outputs.NAME }}-* > checksums.txt
-          cat checksums.txt
-
-      - name: Upload release assets
+      - name: Publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gha-scripts upload-go-release-assets
