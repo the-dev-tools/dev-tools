@@ -197,15 +197,17 @@ const uploadGoReleaseAssets = CliCommand.make(
 
     const tag = yield* repo.tag;
     const { id: releaseId } = yield* repo.getReleaseByTag(tag);
+    const { name } = yield* repo.project;
+    const { root: projectRoot } = yield* getProjectInfo(name);
 
-    const assetsDir = 'release-assets';
+    const dist = path.join(projectRoot, 'dist');
 
     yield* pipe(
-      yield* fs.readDirectory(assetsDir),
+      yield* fs.readDirectory(dist),
       Array.filterMap((file) =>
         Option.some(
           repo.uploadReleaseAsset({
-            path: path.join(assetsDir, file),
+            path: path.join(dist, file),
             releaseId,
           }),
         ),
