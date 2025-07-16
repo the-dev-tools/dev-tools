@@ -204,13 +204,11 @@ const uploadGoReleaseAssets = CliCommand.make(
 
     yield* pipe(
       yield* fs.readDirectory(dist),
-      Array.filterMap((file) =>
-        Option.some(
-          repo.uploadReleaseAsset({
-            path: path.join(dist, file),
-            releaseId,
-          }),
-        ),
+      Array.map((file) =>
+        repo.uploadReleaseAsset({
+          path: path.join(dist, file),
+          releaseId,
+        }),
       ),
       Effect.all,
     );
