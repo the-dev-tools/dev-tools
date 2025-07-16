@@ -59,6 +59,16 @@ model BodyUrlEncoded {
 }
 
 @autoFields
+model BodyUrlEncodedMoveRequest {
+  ...ParentKeyOf<BodyUrlEncoded>;
+  ...KeyOf<BodyUrlEncoded>;
+  position: Resource.MovePosition;
+  targetBodyId: Resource.Id;
+}
+
+model BodyUrlEncodedMoveResponse {}
+
+@autoFields
 @entity
 model BodyRaw {
   ...KeyOf<Example.Example>;
@@ -85,4 +95,6 @@ interface BodyService
     Resource.Update.Interface<BodyRaw> {
   @endpoint("request.js:moveBodyForm")
   BodyFormMove(...BodyFormMoveRequest): BodyFormMoveResponse;
+  @endpoint("request.js:moveBodyUrlEncoded")
+  BodyUrlEncodedMove(...BodyUrlEncodedMoveRequest): BodyUrlEncodedMoveResponse;
 }

@@ -34,6 +34,7 @@ import {
   BodyUrlEncodedDeltaResetEndpoint,
   BodyUrlEncodedDeltaUpdateEndpoint,
   BodyUrlEncodedListEndpoint,
+  BodyUrlEncodedMoveEndpoint,
   BodyUrlEncodedUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/body/v1/body.endpoints.ts';
 import {
@@ -307,6 +308,7 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
       }),
     ],
     data: items,
+    getRowId: (_) => Ulid.construct(_.bodyId).toCanonical(),
   });
 
   const formTable = useFormTable({
@@ -323,11 +325,42 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
     primaryColumn: 'key',
   });
 
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
+    onReorder: ({ keys, target: { dropPosition, key } }) =>
+      Option.gen(function* () {
+        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
+
+        const sourceIdCan = yield* pipe(
+          yield* Option.liftPredicate(keys, (_) => _.size === 1),
+          Array.fromIterable,
+          Array.head,
+          Option.filter(Predicate.isString),
+        );
+
+        const position = yield* pipe(
+          Match.value(dropPosition),
+          Match.when('after', () => MovePosition.AFTER),
+          Match.when('before', () => MovePosition.BEFORE),
+          Match.option,
+        );
+
+        void dataClient.fetch(BodyUrlEncodedMoveEndpoint, {
+          bodyId: Ulid.fromCanonical(sourceIdCan).bytes,
+          exampleId,
+          position,
+          targetBodyId: Ulid.fromCanonical(targetIdCan).bytes,
+        });
+      }),
+    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+  });
+
   return (
     <DataTable
       {...formTable}
       table={table}
       tableAria-label='URL encoded body form items'
+      tableDragAndDropHooks={dragAndDropHooks}
       wrapperClassName={tw`col-span-full`}
     />
   );
