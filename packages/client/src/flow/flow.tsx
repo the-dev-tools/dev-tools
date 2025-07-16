@@ -15,11 +15,11 @@ import {
   useStoreApi,
   useViewport,
 } from '@xyflow/react';
-import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Record, Schema } from 'effect';
+import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Predicate, Record, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { PropsWithChildren, Suspense, use, useCallback, useMemo, useRef } from 'react';
 import { useDrop } from 'react-aria';
-import { MenuTrigger } from 'react-aria-components';
+import { MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { EdgeKind, EdgeKindJson } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
@@ -45,9 +45,11 @@ import {
   FlowVariableCreateEndpoint,
   FlowVariableDeleteEndpoint,
   FlowVariableListEndpoint,
+  FlowVariableMoveEndpoint,
   FlowVariableUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.endpoints.ts';
 import { FlowVariableListItemEntity } from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.entities.ts';
+import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';
@@ -569,6 +571,7 @@ const SettingsPanel = () => {
       }),
     ],
     data: items,
+    getRowId: (_) => Ulid.construct(_.variableId).toCanonical(),
   });
 
   const formTable = useFormTable({
@@ -584,6 +587,36 @@ const SettingsPanel = () => {
     primaryColumn: 'name',
   });
 
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
+    onReorder: ({ keys, target: { dropPosition, key } }) =>
+      Option.gen(function* () {
+        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
+
+        const sourceIdCan = yield* pipe(
+          yield* Option.liftPredicate(keys, (_) => _.size === 1),
+          Array.fromIterable,
+          Array.head,
+          Option.filter(Predicate.isString),
+        );
+
+        const position = yield* pipe(
+          Match.value(dropPosition),
+          Match.when('after', () => MovePosition.AFTER),
+          Match.when('before', () => MovePosition.BEFORE),
+          Match.option,
+        );
+
+        void dataClient.fetch(FlowVariableMoveEndpoint, {
+          flowId,
+          position,
+          targetVariableId: Ulid.fromCanonical(targetIdCan).bytes,
+          variableId: Ulid.fromCanonical(sourceIdCan).bytes,
+        });
+      }),
+    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+  });
+
   return (
     <>
       <div className={tw`sticky top-0 z-10 flex items-center border-b border-slate-200 bg-white px-5 py-2`}>
@@ -597,7 +630,12 @@ const SettingsPanel = () => {
       </div>
 
       <div className={tw`m-5`}>
-        <DataTable {...formTable} table={table} tableAria-label='Flow variables' />
+        <DataTable
+          {...formTable}
+          table={table}
+          tableAria-label='Flow variables'
+          tableDragAndDropHooks={dragAndDropHooks}
+        />
       </div>
     </>
   );

@@ -297,3 +297,8 @@ func (c *FlowVariableServiceRPC) FlowVariableDelete(ctx context.Context, req *co
 
 	return connect.NewResponse(response), nil
 }
+
+// TODO: implement move RPC
+func (c *FlowVariableServiceRPC) FlowVariableMove(ctx context.Context, req *connect.Request[flowvariablev1.FlowVariableMoveRequest]) (*connect.Response[flowvariablev1.FlowVariableMoveResponse], error) {
+	return connect.NewResponse(&flowvariablev1.FlowVariableMoveResponse{}), nil
+}

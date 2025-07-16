@@ -28,5 +28,18 @@ model FlowVariable {
   description: string;
 }
 
+@autoFields
+model FlowVariableMoveRequest {
+  ...ParentKeyOf<FlowVariable>;
+  ...KeyOf<FlowVariable>;
+  position: Resource.MovePosition;
+  targetVariableId: Resource.Id;
+}
+
+model FlowVariableMoveResponse {}
+
 @Protobuf.service
-interface FlowVariableService extends Resource.CRUD<FlowVariable> {}
+interface FlowVariableService extends Resource.CRUD<FlowVariable> {
+  @endpoint("flow.js:moveVariable")
+  FlowVariableMove(...FlowVariableMoveRequest): FlowVariableMoveResponse;
+}
