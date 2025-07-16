@@ -1,7 +1,10 @@
 version: "2"
 
 run:
-  allow-parallel-runners: true
+  allow-parallel-runners: false
+  modules-download-mode: readonly
+  allow-serial-runners: true
+  go: "1.24"
 
 linters:
   settings:

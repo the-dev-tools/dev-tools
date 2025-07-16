@@ -72,6 +72,7 @@ wget -qO- https://raw.githubusercontent.com/the-dev-tools/dev-tools/main/apps/cl
 ```
 
 The installer will:
+
 - Automatically detect your platform (Linux, macOS, Windows)
 - Download the appropriate binary from the latest release
 - Install it to `/usr/local/bin` (customizable with `INSTALL_DIR` environment variable)

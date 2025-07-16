@@ -34,12 +34,11 @@ jobs:
         name: Get project information
         run: gha-scripts export-project-info
 
-
       - name: Set platform-specific environment
         run: |
           PLATFORM="${{ matrix.platform }}"
           echo "PLATFORM=${PLATFORM}" >> $GITHUB_ENV
-          
+
           # Check if platforms.json exists for cross-compilation projects
           if [ -f "${{ steps.info.outputs.ROOT }}/platforms.json" ]; then
             # Parse platforms.json for this platform
