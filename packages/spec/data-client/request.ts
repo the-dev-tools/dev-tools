@@ -5,6 +5,7 @@ import {
   BodyFormDeltaMoveRequestSchema,
   BodyFormMoveRequestSchema,
   BodyService,
+  BodyUrlEncodedDeltaMoveRequestSchema,
   BodyUrlEncodedMoveRequestSchema,
 } from '../dist/buf/typescript/collection/item/body/v1/body_pb';
 import {
@@ -16,6 +17,7 @@ import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
 import {
   BodyFormDeltaListItemEntity,
   BodyFormListItemEntity,
+  BodyUrlEncodedDeltaListItemEntity,
   BodyUrlEncodedListItemEntity,
 } from '../dist/meta/collection/item/body/v1/body.entities';
 import { HeaderListItemEntity, QueryListItemEntity } from '../dist/meta/collection/item/request/v1/request.entities';
@@ -138,6 +140,59 @@ export const moveBodyUrlEncoded = ({
       const variables = yield* Option.fromNullable(snapshot.get(list, props));
 
       const { bodyId, position, targetBodyId } = create(BodyUrlEncodedMoveRequestSchema, props.input);
+
+      const offset = yield* pipe(
+        Match.value(position),
+        Match.when(MovePosition.AFTER, () => 1),
+        Match.when(MovePosition.BEFORE, () => 0),
+        Match.option,
+      );
+
+      const { move = [], rest = [] } = Array.groupBy(variables, (_) =>
+        _.bodyId.toString() === bodyId.toString() ? 'move' : 'rest',
+      );
+
+      const index = yield* Array.findFirstIndex(rest, (_) => _.bodyId.toString() === targetBodyId.toString());
+
+      const [before, after] = Array.splitAt(rest, index + offset);
+
+      return [...before, ...move, ...after];
+    }).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (_) => ({ items: _ }),
+      }),
+    );
+  };
+
+  return new Endpoint(endpointFn, {
+    key: makeKey(method, name),
+    name,
+    schema: { items: list },
+    sideEffect: true,
+  });
+};
+
+export const moveBodyUrlEncodedDelta = ({
+  method,
+  name,
+}: MakeEndpointProps<typeof BodyService.method.bodyUrlEncodedDeltaMove>) => {
+  const list = makeListCollection({
+    inputPrimaryKeys: ['exampleId', 'originId'],
+    itemSchema: BodyUrlEncodedDeltaListItemEntity,
+    method,
+  });
+
+  const endpointFn = async (props: EndpointProps<typeof BodyService.method.bodyUrlEncodedDeltaMove>) => {
+    await makeEndpointFn(method)(props);
+
+    const snapshot = props.controller().snapshot(props.controller().getState());
+
+    // TODO: implement a generic move helper
+    return Option.gen(function* () {
+      const variables = yield* Option.fromNullable(snapshot.get(list, props));
+
+      const { bodyId, position, targetBodyId } = create(BodyUrlEncodedDeltaMoveRequestSchema, props.input);
 
       const offset = yield* pipe(
         Match.value(position),
