@@ -12,7 +12,7 @@ import {
   UseFormHandleSubmit,
   UseFormWatch,
 } from 'react-hook-form';
-import { FiPlus } from 'react-icons/fi';
+import { FiMove, FiPlus } from 'react-icons/fi';
 import { LuTrash2 } from 'react-icons/lu';
 import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
@@ -101,7 +101,7 @@ export const useFormTable = <TFieldValues extends FieldValues, TPrimaryName exte
     if (!primaryColumn || !bodyRef.current || lengthPrev.current === null || lengthPrev.current === items.length)
       return;
 
-    const lastRow = bodyRef.current.children.item(items.length - 2);
+    const lastRow = bodyRef.current.children.item(items.length - 1);
     const primaryCell = lastRow?.querySelector(`[name="${primaryColumn}"]`);
     if (primaryCell instanceof HTMLElement) primaryCell.focus();
 
@@ -226,7 +226,9 @@ export const columnTextField = <TFieldValues extends FieldValues>(
 });
 
 export const columnActions = <T,>({ cell, ...props }: Partial<DisplayColumnDef<T>>): DisplayColumnDef<T> => ({
-  cell: (props) => <div className={tw`flex justify-center`}>{typeof cell === 'function' ? cell(props) : cell}</div>,
+  cell: (props) => (
+    <div className={tw`flex justify-center gap-1 px-1`}>{typeof cell === 'function' ? cell(props) : cell}</div>
+  ),
   header: '',
   id: 'actions',
   size: 0,
@@ -239,7 +241,7 @@ interface ColumnActionDeleteProps {
 
 export const ColumnActionDelete = ({ onDelete }: ColumnActionDeleteProps) => (
   <TooltipTrigger delay={750}>
-    <Button className={tw`text-red-700`} onPress={onDelete} variant='ghost'>
+    <Button className={tw`p-1 text-red-700`} onPress={onDelete} variant='ghost'>
       <LuTrash2 />
     </Button>
     <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Delete</Tooltip>
@@ -254,7 +256,7 @@ interface ColumnActionDeltaResetProps {
 export const ColumnActionDeltaReset = ({ onReset, source }: ColumnActionDeltaResetProps) => (
   <TooltipTrigger delay={750}>
     <Button
-      className={({ isDisabled }) => twJoin(tw`text-slate-500`, isDisabled && tw`invisible`)}
+      className={({ isDisabled }) => twJoin(tw`p-1 text-slate-500`, isDisabled && tw`invisible`)}
       isDisabled={source !== SourceKind.MIXED}
       onPress={onReset}
       variant='ghost'
@@ -265,13 +267,24 @@ export const ColumnActionDeltaReset = ({ onReset, source }: ColumnActionDeltaRes
   </TooltipTrigger>
 );
 
+export const ColumnActionDrag = () => (
+  <Button className={tw`p-1`} slot='drag' variant='ghost'>
+    <FiMove className={tw`size-3 text-slate-500`} />
+  </Button>
+);
+
 interface ColumnActionsCommonProps<T> {
   onDelete: (item: T) => void;
 }
 
 export const columnActionsCommon = <T,>({ onDelete }: ColumnActionsCommonProps<T>) =>
   columnActions<T>({
-    cell: ({ row }) => <ColumnActionDelete onDelete={() => void onDelete(row.original)} />,
+    cell: ({ row }) => (
+      <>
+        <ColumnActionDelete onDelete={() => void onDelete(row.original)} />
+        <ColumnActionDrag />
+      </>
+    ),
   });
 
 interface ColumnActionsDeltaCommonProps<T> {

@@ -148,13 +148,14 @@ export const DataTable = <T extends object>({
         >
           {headers.map((header) => (
             <AriaColumn
-              key={header.id}
               {...forwardedProps.headerColumn}
               className={composeRenderPropsTW(
                 headerColumnClassName,
                 twJoin(tableStyles.headerColumn, header.column.columnDef.meta?.divider === false && tw`!border-r-0`),
               )}
+              id={header.id}
               isRowHeader={header.column.columnDef.meta?.isRowHeader ?? false}
+              key={header.id}
             >
               {flexRender(header.column.columnDef.header, header.getContext())}
             </AriaColumn>
@@ -165,21 +166,23 @@ export const DataTable = <T extends object>({
         <AriaTableBody {...forwardedProps.body} className={composeRenderPropsTW(bodyClassName, tableStyles.body)}>
           {table.getRowModel().rows.map((row) => (
             <AriaRow
-              key={row.id}
               {...forwardedProps.row}
               className={composeRenderPropsTW(rowClassName, tableStyles.row)}
+              id={row.id}
+              key={row.id}
             >
               {rowRender({
                 row,
                 rowNode: (cellRender = ({ cellNode }) => cellNode) =>
                   row.getVisibleCells().map((cell) => (
                     <AriaCell
-                      key={cell.id}
                       {...forwardedProps.cell}
                       className={composeRenderPropsTW(
                         cellClassName,
                         twJoin(tableStyles.cell, cell.column.columnDef.meta?.divider === false && tw`!border-r-0`),
                       )}
+                      id={cell.id}
+                      key={cell.id}
                     >
                       {pipe(
                         cell.getContext(),
@@ -191,21 +194,14 @@ export const DataTable = <T extends object>({
               })}
             </AriaRow>
           ))}
-
-          {/* Footer workaround, as at the moment proper footer is not supported */}
-          {/* https://github.com/adobe/react-spectrum/issues/4372 */}
-          {footer && (
-            <AriaRow className={composeRenderPropsTW(rowClassName, tableStyles.row)}>
-              <AriaCell
-                className={composeRenderPropsTW(cellClassName, twJoin(tableStyles.cell, tw`col-span-full`))}
-                colSpan={headers.length}
-              >
-                {footer}
-              </AriaCell>
-            </AriaRow>
-          )}
         </AriaTableBody>
       </AriaTable>
+
+      {/* Footer workaround, as at the moment proper footer is not supported */}
+      {/* https://github.com/adobe/react-spectrum/issues/4372 */}
+      {footer && (
+        <div className={twMerge(tableStyles.row, tableStyles.cell, tw`border-t border-inherit`)}>{footer}</div>
+      )}
     </div>
   );
 };
