@@ -30,6 +30,8 @@ model Query {
   description: string;
 }
 
+model QueryDelta is Delta.Item<Query>;
+
 @autoFields
 model QueryMoveRequest {
   ...ParentKeyOf<Query>;
@@ -39,6 +41,17 @@ model QueryMoveRequest {
 }
 
 model QueryMoveResponse {}
+
+@autoFields
+model QueryDeltaMoveRequest {
+  ...ParentKeyOf<QueryDelta>;
+  ...KeyOf<QueryDelta>;
+  originId: Resource.Id;
+  position: Resource.MovePosition;
+  targetQueryId: Resource.Id;
+}
+
+model QueryDeltaMoveResponse {}
 
 @autoFields
 @normalize
@@ -79,7 +92,7 @@ interface RequestService
     Resource.Create.Interface<Query>,
     Resource.Update.Interface<Query>,
     Resource.Delete.Interface<Query>,
-    Delta.Interface<Query>,
+    Delta.Interface<Query, TDelta = QueryDelta>,
     // Header
     Resource.List.Interface<Header>,
     Resource.Create.Interface<Header>,
@@ -94,6 +107,8 @@ interface RequestService
     Delta.Interface<Assert> {
   @endpoint("request.js:moveQuery")
   QueryMove(...QueryMoveRequest): QueryMoveResponse;
+  @endpoint("request.js:moveQueryDelta")
+  QueryDeltaMove(...QueryDeltaMoveRequest): QueryDeltaMoveResponse;
   @endpoint("request.js:moveHeader")
   HeaderMove(...HeaderMoveRequest): HeaderMoveResponse;
 }

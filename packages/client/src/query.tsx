@@ -9,6 +9,7 @@ import {
   QueryDeltaCreateEndpoint,
   QueryDeltaDeleteEndpoint,
   QueryDeltaListEndpoint,
+  QueryDeltaMoveEndpoint,
   QueryDeltaResetEndpoint,
   QueryDeltaUpdateEndpoint,
   QueryListEndpoint,
@@ -160,6 +161,37 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
     primaryColumn: 'key',
   });
 
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
+    onReorder: ({ keys, target: { dropPosition, key } }) =>
+      Option.gen(function* () {
+        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
+
+        const sourceIdCan = yield* pipe(
+          yield* Option.liftPredicate(keys, (_) => _.size === 1),
+          Array.fromIterable,
+          Array.head,
+          Option.filter(Predicate.isString),
+        );
+
+        const position = yield* pipe(
+          Match.value(dropPosition),
+          Match.when('after', () => MovePosition.AFTER),
+          Match.when('before', () => MovePosition.BEFORE),
+          Match.option,
+        );
+
+        void dataClient.fetch(QueryDeltaMoveEndpoint, {
+          exampleId,
+          originId,
+          position,
+          queryId: Ulid.fromCanonical(sourceIdCan).bytes,
+          targetQueryId: Ulid.fromCanonical(targetIdCan).bytes,
+        });
+      }),
+    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+  });
+
   return (
     <ReactTableNoMemo
       columns={[
@@ -171,9 +203,16 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
         }),
       ]}
       data={items}
-      getRowId={(_) => _.queryId.toString()}
+      getRowId={(_) => Ulid.construct(_.queryId).toCanonical()}
     >
-      {(table) => <DataTable {...formTable} table={table} tableAria-label='Query items' />}
+      {(table) => (
+        <DataTable
+          {...formTable}
+          table={table}
+          tableAria-label='Query items'
+          tableDragAndDropHooks={dragAndDropHooks}
+        />
+      )}
     </ReactTableNoMemo>
   );
 };

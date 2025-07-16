@@ -10,6 +10,7 @@ import {
 } from '../dist/buf/typescript/collection/item/body/v1/body_pb';
 import {
   HeaderMoveRequestSchema,
+  QueryDeltaMoveRequestSchema,
   QueryMoveRequestSchema,
   RequestService,
 } from '../dist/buf/typescript/collection/item/request/v1/request_pb';
@@ -20,7 +21,11 @@ import {
   BodyUrlEncodedDeltaListItemEntity,
   BodyUrlEncodedListItemEntity,
 } from '../dist/meta/collection/item/body/v1/body.entities';
-import { HeaderListItemEntity, QueryListItemEntity } from '../dist/meta/collection/item/request/v1/request.entities';
+import {
+  HeaderListItemEntity,
+  QueryDeltaListItemEntity,
+  QueryListItemEntity,
+} from '../dist/meta/collection/item/request/v1/request.entities';
 import { MakeEndpointProps } from './resource';
 import { EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
@@ -239,6 +244,56 @@ export const moveQuery = ({ method, name }: MakeEndpointProps<typeof RequestServ
       const variables = yield* Option.fromNullable(snapshot.get(list, props));
 
       const { position, queryId, targetQueryId } = create(QueryMoveRequestSchema, props.input);
+
+      const offset = yield* pipe(
+        Match.value(position),
+        Match.when(MovePosition.AFTER, () => 1),
+        Match.when(MovePosition.BEFORE, () => 0),
+        Match.option,
+      );
+
+      const { move = [], rest = [] } = Array.groupBy(variables, (_) =>
+        _.queryId.toString() === queryId.toString() ? 'move' : 'rest',
+      );
+
+      const index = yield* Array.findFirstIndex(rest, (_) => _.queryId.toString() === targetQueryId.toString());
+
+      const [before, after] = Array.splitAt(rest, index + offset);
+
+      return [...before, ...move, ...after];
+    }).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (_) => ({ items: _ }),
+      }),
+    );
+  };
+
+  return new Endpoint(endpointFn, {
+    key: makeKey(method, name),
+    name,
+    schema: { items: list },
+    sideEffect: true,
+  });
+};
+
+export const moveQueryDelta = ({ method, name }: MakeEndpointProps<typeof RequestService.method.queryDeltaMove>) => {
+  const list = makeListCollection({
+    inputPrimaryKeys: ['exampleId', 'originId'],
+    itemSchema: QueryDeltaListItemEntity,
+    method,
+  });
+
+  const endpointFn = async (props: EndpointProps<typeof RequestService.method.queryDeltaMove>) => {
+    await makeEndpointFn(method)(props);
+
+    const snapshot = props.controller().snapshot(props.controller().getState());
+
+    // TODO: implement a generic move helper
+    return Option.gen(function* () {
+      const variables = yield* Option.fromNullable(snapshot.get(list, props));
+
+      const { position, queryId, targetQueryId } = create(QueryDeltaMoveRequestSchema, props.input);
 
       const offset = yield* pipe(
         Match.value(position),
