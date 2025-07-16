@@ -221,3 +221,8 @@ func CheckOwnerVar(ctx context.Context, us suser.UserService, vs svar.VarService
 	}
 	return renv.CheckOwnerEnv(ctx, us, es, variable.EnvID)
 }
+
+// TODO: implement move RPC
+func (c *VarRPC) VariableMove(ctx context.Context, req *connect.Request[variablev1.VariableMoveRequest]) (*connect.Response[variablev1.VariableMoveResponse], error) {
+	return connect.NewResponse(&variablev1.VariableMoveResponse{}), nil
+}

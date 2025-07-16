@@ -36,6 +36,19 @@ model VariableListRequest is Resource.List.Request<Variable> {
   @autoField @normalKey workspaceId?: Resource.Id;
 }
 
+@autoFields
+model VariableMoveRequest {
+  ...ParentKeyOf<Variable>;
+  ...KeyOf<Variable>;
+  position: Resource.MovePosition;
+  targetVariableId: Resource.Id;
+}
+
+model VariableMoveResponse {}
+
 @Protobuf.service
 interface VariableService
-  extends Resource.CRUD<Variable, TCreateRequest = VariableCreateRequest, TListRequest = VariableListRequest> {}
+  extends Resource.CRUD<Variable, TCreateRequest = VariableCreateRequest, TListRequest = VariableListRequest> {
+  @endpoint("variable.js:move")
+  VariableMove(...VariableMoveRequest): VariableMoveResponse;
+}

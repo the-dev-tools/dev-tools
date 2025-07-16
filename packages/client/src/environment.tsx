@@ -28,6 +28,7 @@ import {
   VariableCreateEndpoint,
   VariableDeleteEndpoint,
   VariableListEndpoint,
+  VariableMoveEndpoint,
   VariableUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/variable/v1/variable.endpoints.ts';
 import { VariableListItemEntity } from '@the-dev-tools/spec/meta/variable/v1/variable.entities.ts';
@@ -381,6 +382,7 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
       }),
     ],
     data: items,
+    getRowId: (_) => Ulid.construct(_.variableId).toCanonical(),
   });
 
   const formTable = useFormTable({
@@ -396,5 +398,42 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
     primaryColumn: 'name',
   });
 
-  return <DataTable {...formTable} table={table} tableAria-label='Environment variables' />;
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
+    onReorder: ({ keys, target: { dropPosition, key } }) =>
+      Option.gen(function* () {
+        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
+
+        const sourceIdCan = yield* pipe(
+          yield* Option.liftPredicate(keys, (_) => _.size === 1),
+          Array.fromIterable,
+          Array.head,
+          Option.filter(Predicate.isString),
+        );
+
+        const position = yield* pipe(
+          Match.value(dropPosition),
+          Match.when('after', () => MovePosition.AFTER),
+          Match.when('before', () => MovePosition.BEFORE),
+          Match.option,
+        );
+
+        void dataClient.fetch(VariableMoveEndpoint, {
+          environmentId,
+          position,
+          targetVariableId: Ulid.fromCanonical(targetIdCan).bytes,
+          variableId: Ulid.fromCanonical(sourceIdCan).bytes,
+        });
+      }),
+    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+  });
+
+  return (
+    <DataTable
+      {...formTable}
+      table={table}
+      tableAria-label='Environment variables'
+      tableDragAndDropHooks={dragAndDropHooks}
+    />
+  );
 };
