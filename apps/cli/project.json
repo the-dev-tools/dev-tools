@@ -11,10 +11,7 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
-        "commands": [
-          "mkdir -p embeded/embededJS",
-          "cp ../../packages/worker-js/dist/main.cjs embeded/embededJS/worker.cjs.embed"
-        ]
+        "command": "task copy:worker"
       },
       "dependsOn": [
         {

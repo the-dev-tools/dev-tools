@@ -12,8 +12,22 @@ vars:
 tasks:
   copy:worker:
     cmds:
-      - mkdir -p embeded/embededJS
-      - cp node_modules/@the-dev-tools/worker-js/dist/main.cjs embeded/embededJS/worker.cjs.embed
+      - task: ensure-dir
+        vars:
+          DIR: embeded/embededJS
+      - cmd: cp ../../packages/worker-js/dist/main.cjs embeded/embededJS/worker.cjs.embed
+        platforms: [linux, darwin]
+      - cmd: copy "..\\..\\packages\\worker-js\\dist\\main.cjs" "embeded\\embededJS\\worker.cjs.embed"
+        platforms: [windows]
+
+  ensure-dir:
+    internal: true
+    silent: true
+    cmds:
+      - cmd: mkdir -p {{.DIR}}
+        platforms: [linux, darwin]
+      - cmd: cmd /c if not exist "{{.DIR}}" mkdir "{{.DIR}}"
+        platforms: [windows]
 
   clean:
     desc: Clean build artifacts
