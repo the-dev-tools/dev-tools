@@ -53,6 +53,16 @@ model Header {
 }
 
 @autoFields
+model HeaderMoveRequest {
+  ...ParentKeyOf<Header>;
+  ...KeyOf<Header>;
+  position: Resource.MovePosition;
+  targetHeaderId: Resource.Id;
+}
+
+model HeaderMoveResponse {}
+
+@autoFields
 @normalize
 @entity
 @parentResource(Example.Example)
@@ -84,4 +94,6 @@ interface RequestService
     Delta.Interface<Assert> {
   @endpoint("request.js:moveQuery")
   QueryMove(...QueryMoveRequest): QueryMoveResponse;
+  @endpoint("request.js:moveHeader")
+  HeaderMove(...HeaderMoveRequest): HeaderMoveResponse;
 }

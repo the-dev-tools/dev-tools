@@ -2221,3 +2221,8 @@ func (c RequestRPC) AssertDeltaReset(ctx context.Context, req *connect.Request[r
 func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv1.QueryMoveRequest]) (*connect.Response[requestv1.QueryMoveResponse], error) {
 	return connect.NewResponse(&requestv1.QueryMoveResponse{}), nil
 }
+
+// TODO: implement move RPC
+func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[requestv1.HeaderMoveRequest]) (*connect.Response[requestv1.HeaderMoveResponse], error) {
+	return connect.NewResponse(&requestv1.HeaderMoveResponse{}), nil
+}

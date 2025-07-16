@@ -6,13 +6,17 @@ import {
   BodyService,
   BodyUrlEncodedMoveRequestSchema,
 } from '../dist/buf/typescript/collection/item/body/v1/body_pb';
-import { QueryMoveRequestSchema, RequestService } from '../dist/buf/typescript/collection/item/request/v1/request_pb';
+import {
+  HeaderMoveRequestSchema,
+  QueryMoveRequestSchema,
+  RequestService,
+} from '../dist/buf/typescript/collection/item/request/v1/request_pb';
 import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
 import {
   BodyFormListItemEntity,
   BodyUrlEncodedListItemEntity,
 } from '../dist/meta/collection/item/body/v1/body.entities';
-import { QueryListItemEntity } from '../dist/meta/collection/item/request/v1/request.entities';
+import { HeaderListItemEntity, QueryListItemEntity } from '../dist/meta/collection/item/request/v1/request.entities';
 import { MakeEndpointProps } from './resource';
 import { EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
@@ -141,6 +145,52 @@ export const moveQuery = ({ method, name }: MakeEndpointProps<typeof RequestServ
       );
 
       const index = yield* Array.findFirstIndex(rest, (_) => _.queryId.toString() === targetQueryId.toString());
+
+      const [before, after] = Array.splitAt(rest, index + offset);
+
+      return [...before, ...move, ...after];
+    }).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (_) => ({ items: _ }),
+      }),
+    );
+  };
+
+  return new Endpoint(endpointFn, {
+    key: makeKey(method, name),
+    name,
+    schema: { items: list },
+    sideEffect: true,
+  });
+};
+
+export const moveHeader = ({ method, name }: MakeEndpointProps<typeof RequestService.method.headerMove>) => {
+  const list = makeListCollection({ inputPrimaryKeys: ['exampleId'], itemSchema: HeaderListItemEntity, method });
+
+  const endpointFn = async (props: EndpointProps<typeof RequestService.method.headerMove>) => {
+    await makeEndpointFn(method)(props);
+
+    const snapshot = props.controller().snapshot(props.controller().getState());
+
+    // TODO: implement a generic move helper
+    return Option.gen(function* () {
+      const variables = yield* Option.fromNullable(snapshot.get(list, props));
+
+      const { headerId, position, targetHeaderId } = create(HeaderMoveRequestSchema, props.input);
+
+      const offset = yield* pipe(
+        Match.value(position),
+        Match.when(MovePosition.AFTER, () => 1),
+        Match.when(MovePosition.BEFORE, () => 0),
+        Match.option,
+      );
+
+      const { move = [], rest = [] } = Array.groupBy(variables, (_) =>
+        _.headerId.toString() === headerId.toString() ? 'move' : 'rest',
+      );
+
+      const index = yield* Array.findFirstIndex(rest, (_) => _.headerId.toString() === targetHeaderId.toString());
 
       const [before, after] = Array.splitAt(rest, index + offset);
 
