@@ -65,6 +65,8 @@ model Header {
   description: string;
 }
 
+model HeaderDelta is Delta.Item<Header>;
+
 @autoFields
 model HeaderMoveRequest {
   ...ParentKeyOf<Header>;
@@ -74,6 +76,17 @@ model HeaderMoveRequest {
 }
 
 model HeaderMoveResponse {}
+
+@autoFields
+model HeaderDeltaMoveRequest {
+  ...ParentKeyOf<HeaderDelta>;
+  ...KeyOf<HeaderDelta>;
+  originId: Resource.Id;
+  position: Resource.MovePosition;
+  targetHeaderId: Resource.Id;
+}
+
+model HeaderDeltaMoveResponse {}
 
 @autoFields
 @normalize
@@ -98,7 +111,7 @@ interface RequestService
     Resource.Create.Interface<Header>,
     Resource.Update.Interface<Header>,
     Resource.Delete.Interface<Header>,
-    Delta.Interface<Header>,
+    Delta.Interface<Header, TDelta = HeaderDelta>,
     // Assert
     Resource.List.Interface<Assert>,
     Resource.Create.Interface<Assert>,
@@ -111,4 +124,6 @@ interface RequestService
   QueryDeltaMove(...QueryDeltaMoveRequest): QueryDeltaMoveResponse;
   @endpoint("request.js:moveHeader")
   HeaderMove(...HeaderMoveRequest): HeaderMoveResponse;
+  @endpoint("request.js:moveHeaderDelta")
+  HeaderDeltaMove(...HeaderDeltaMoveRequest): HeaderDeltaMoveResponse;
 }

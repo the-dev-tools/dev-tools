@@ -9,6 +9,7 @@ import {
   BodyUrlEncodedMoveRequestSchema,
 } from '../dist/buf/typescript/collection/item/body/v1/body_pb';
 import {
+  HeaderDeltaMoveRequestSchema,
   HeaderMoveRequestSchema,
   QueryDeltaMoveRequestSchema,
   QueryMoveRequestSchema,
@@ -22,6 +23,7 @@ import {
   BodyUrlEncodedListItemEntity,
 } from '../dist/meta/collection/item/body/v1/body.entities';
 import {
+  HeaderDeltaListItemEntity,
   HeaderListItemEntity,
   QueryDeltaListItemEntity,
   QueryListItemEntity,
@@ -340,6 +342,56 @@ export const moveHeader = ({ method, name }: MakeEndpointProps<typeof RequestSer
       const variables = yield* Option.fromNullable(snapshot.get(list, props));
 
       const { headerId, position, targetHeaderId } = create(HeaderMoveRequestSchema, props.input);
+
+      const offset = yield* pipe(
+        Match.value(position),
+        Match.when(MovePosition.AFTER, () => 1),
+        Match.when(MovePosition.BEFORE, () => 0),
+        Match.option,
+      );
+
+      const { move = [], rest = [] } = Array.groupBy(variables, (_) =>
+        _.headerId.toString() === headerId.toString() ? 'move' : 'rest',
+      );
+
+      const index = yield* Array.findFirstIndex(rest, (_) => _.headerId.toString() === targetHeaderId.toString());
+
+      const [before, after] = Array.splitAt(rest, index + offset);
+
+      return [...before, ...move, ...after];
+    }).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (_) => ({ items: _ }),
+      }),
+    );
+  };
+
+  return new Endpoint(endpointFn, {
+    key: makeKey(method, name),
+    name,
+    schema: { items: list },
+    sideEffect: true,
+  });
+};
+
+export const moveHeaderDelta = ({ method, name }: MakeEndpointProps<typeof RequestService.method.headerDeltaMove>) => {
+  const list = makeListCollection({
+    inputPrimaryKeys: ['exampleId', 'originId'],
+    itemSchema: HeaderDeltaListItemEntity,
+    method,
+  });
+
+  const endpointFn = async (props: EndpointProps<typeof RequestService.method.headerDeltaMove>) => {
+    await makeEndpointFn(method)(props);
+
+    const snapshot = props.controller().snapshot(props.controller().getState());
+
+    // TODO: implement a generic move helper
+    return Option.gen(function* () {
+      const variables = yield* Option.fromNullable(snapshot.get(list, props));
+
+      const { headerId, position, targetHeaderId } = create(HeaderDeltaMoveRequestSchema, props.input);
 
       const offset = yield* pipe(
         Match.value(position),

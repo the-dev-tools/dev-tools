@@ -2231,3 +2231,8 @@ func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[req
 func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[requestv1.HeaderMoveRequest]) (*connect.Response[requestv1.HeaderMoveResponse], error) {
 	return connect.NewResponse(&requestv1.HeaderMoveResponse{}), nil
 }
+
+// TODO: implement move RPC
+func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaMoveRequest]) (*connect.Response[requestv1.HeaderDeltaMoveResponse], error) {
+	return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil
+}
