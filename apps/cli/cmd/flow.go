@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/db/pkg/tursomem"
+	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -224,7 +224,7 @@ var yamlflowRunCmd = &cobra.Command{
 			return err
 		}
 
-		db, _, err := tursomem.NewTursoLocal(ctx)
+		db, _, err := sqlitemem.NewSQLiteMem(ctx)
 		if err != nil {
 			return err
 		}
