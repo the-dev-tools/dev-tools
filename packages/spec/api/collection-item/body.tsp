@@ -36,6 +36,8 @@ model BodyForm {
   description: string;
 }
 
+model BodyFormDelta is Delta.Item<BodyForm>;
+
 @autoFields
 model BodyFormMoveRequest {
   ...ParentKeyOf<BodyForm>;
@@ -45,6 +47,17 @@ model BodyFormMoveRequest {
 }
 
 model BodyFormMoveResponse {}
+
+@autoFields
+model BodyFormDeltaMoveRequest {
+  ...ParentKeyOf<BodyFormDelta>;
+  ...KeyOf<BodyFormDelta>;
+  originId: Resource.Id;
+  position: Resource.MovePosition;
+  targetBodyId: Resource.Id;
+}
+
+model BodyFormDeltaMoveResponse {}
 
 @autoFields
 @normalize
@@ -83,7 +96,7 @@ interface BodyService
     Resource.Create.Interface<BodyForm>,
     Resource.Update.Interface<BodyForm>,
     Resource.Delete.Interface<BodyForm>,
-    Delta.Interface<BodyForm>,
+    Delta.Interface<BodyForm, TDelta = BodyFormDelta>,
     // URL Encoded Array
     Resource.List.Interface<BodyUrlEncoded>,
     Resource.Create.Interface<BodyUrlEncoded>,
@@ -95,6 +108,8 @@ interface BodyService
     Resource.Update.Interface<BodyRaw> {
   @endpoint("request.js:moveBodyForm")
   BodyFormMove(...BodyFormMoveRequest): BodyFormMoveResponse;
+  @endpoint("request.js:moveBodyFormDelta")
+  BodyFormDeltaMove(...BodyFormDeltaMoveRequest): BodyFormDeltaMoveResponse;
   @endpoint("request.js:moveBodyUrlEncoded")
   BodyUrlEncodedMove(...BodyUrlEncodedMoveRequest): BodyUrlEncodedMoveResponse;
 }

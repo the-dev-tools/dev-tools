@@ -299,6 +299,7 @@ export const columnActionsDeltaCommon = <T,>({ onDelete, onReset, source }: Colu
       <>
         <ColumnActionDeltaReset onReset={() => void onReset(row.original)} source={source(row.original)} />
         <ColumnActionDelete onDelete={() => void onDelete(row.original)} />
+        <ColumnActionDrag />
       </>
     ),
   });

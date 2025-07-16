@@ -1019,6 +1019,11 @@ func (c *BodyRPC) BodyFormMove(ctx context.Context, req *connect.Request[bodyv1.
 }
 
 // TODO: implement move RPC
+func (c *BodyRPC) BodyFormDeltaMove(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaMoveRequest]) (*connect.Response[bodyv1.BodyFormDeltaMoveResponse], error) {
+	return connect.NewResponse(&bodyv1.BodyFormDeltaMoveResponse{}), nil
+}
+
+// TODO: implement move RPC
 func (c *BodyRPC) BodyUrlEncodedMove(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedMoveRequest]) (*connect.Response[bodyv1.BodyUrlEncodedMoveResponse], error) {
 	return connect.NewResponse(&bodyv1.BodyUrlEncodedMoveResponse{}), nil
 }
