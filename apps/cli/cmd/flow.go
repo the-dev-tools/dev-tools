@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/pkg/compress"
@@ -66,7 +68,6 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
-	"time"
 
 	"the-dev-tools/cli/embeded/embededJS"
 
@@ -848,6 +849,25 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 			}
 		}
 
+		// Wait for worker-js to start with retries (up to 3 seconds)
+		var connected bool
+		for i := 0; i < 30; i++ { // 30 * 100ms = 3 seconds
+			time.Sleep(100 * time.Millisecond)
+			
+			// Check if port is open
+			conn, err := net.Dial("tcp", "localhost:9090")
+			if err == nil {
+				_ = conn.Close()
+				connected = true
+				slog.Info("worker-js server is ready", "attempts", i+1)
+				break
+			}
+		}
+		
+		if !connected {
+			return connect.NewError(connect.CodeUnavailable, fmt.Errorf("worker-js server failed to start after 3 seconds"))
+		}
+		
 		client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090")
 		clientPtr = &client
 	}
