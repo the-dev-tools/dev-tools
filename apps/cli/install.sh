@@ -23,11 +23,11 @@ print_error() {
 }
 
 print_success() {
-    echo -e "${GREEN}$1${NC}"
+    echo -e "${GREEN}$1${NC}" >&2
 }
 
 print_info() {
-    echo -e "${YELLOW}$1${NC}"
+    echo -e "${YELLOW}$1${NC}" >&2
 }
 
 detect_platform() {
@@ -74,26 +74,41 @@ detect_platform() {
     echo "${os}-${arch}"
 }
 
-get_latest_version() {
-    # Fetch the package.json from main branch to get the latest version
-    local package_url="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/refs/heads/main/apps/cli/package.json"
-    local version=$(curl -s "$package_url" | grep '"version"' | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
+get_version() {
+    local requested_version=$1
     
-    if [ -z "$version" ]; then
-        print_error "Failed to fetch latest version from package.json"
-        exit 1
+    if [ -n "$requested_version" ]; then
+        # Verify the requested version exists
+        local release_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/cli@${requested_version}"
+        local release_check=$(curl -s -o /dev/null -w "%{http_code}" "$release_url")
+        
+        if [ "$release_check" != "200" ]; then
+            print_error "Release cli@${requested_version} not found."
+            exit 1
+        fi
+        
+        echo "$requested_version"
+    else
+        # Fetch the package.json from main branch to get the latest version
+        local package_url="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/refs/heads/main/apps/cli/package.json"
+        local version=$(curl -s "$package_url" | grep '"version"' | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
+        
+        if [ -z "$version" ]; then
+            print_error "Failed to fetch latest version from package.json"
+            exit 1
+        fi
+        
+        # Verify the release exists
+        local release_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/cli@${version}"
+        local release_check=$(curl -s -o /dev/null -w "%{http_code}" "$release_url")
+        
+        if [ "$release_check" != "200" ]; then
+            print_error "Release cli@${version} not found. It may not be published yet."
+            exit 1
+        fi
+        
+        echo "$version"
     fi
-    
-    # Verify the release exists
-    local release_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/cli@${version}"
-    local release_check=$(curl -s -o /dev/null -w "%{http_code}" "$release_url")
-    
-    if [ "$release_check" != "200" ]; then
-        print_error "Release cli@${version} not found. It may not be published yet."
-        exit 1
-    fi
-    
-    echo "$version"
 }
 
 download_binary() {
@@ -112,7 +127,7 @@ download_binary() {
     print_info "Downloading DevTools CLI ${version} for ${platform}..."
     
     if command -v curl &> /dev/null; then
-        curl -L -o "$temp_file" "$download_url" || {
+        curl -fsSL -o "$temp_file" "$download_url" || {
             print_error "Failed to download binary"
             exit 1
         }
@@ -206,7 +221,48 @@ check_prerequisites() {
     fi
 }
 
+print_usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo "Options:"
+    echo "  -v, --version VERSION    Install a specific version (e.g., 1.2.3)"
+    echo "  -h, --help              Show this help message"
+    echo ""
+    echo "Environment variables:"
+    echo "  INSTALL_DIR             Installation directory (default: /usr/local/bin)"
+    echo ""
+    echo "Examples:"
+    echo "  $0                      # Install latest version"
+    echo "  $0 -v 1.2.3            # Install version 1.2.3"
+    echo "  INSTALL_DIR=~/.local/bin $0    # Install to custom directory"
+}
+
 main() {
+    local requested_version=""
+    
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -v|--version)
+                requested_version="$2"
+                if [ -z "$requested_version" ]; then
+                    print_error "Version not specified"
+                    print_usage
+                    exit 1
+                fi
+                shift 2
+                ;;
+            -h|--help)
+                print_usage
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                print_usage
+                exit 1
+                ;;
+        esac
+    done
+    
     print_info "DevTools CLI Installer"
     
     check_prerequisites
@@ -215,9 +271,13 @@ main() {
     local platform=$(detect_platform)
     print_info "Detected platform: $platform"
     
-    # Get latest version
-    local version=$(get_latest_version)
-    print_info "Latest version: $version"
+    # Get version (latest or specified)
+    local version=$(get_version "$requested_version")
+    if [ -n "$requested_version" ]; then
+        print_info "Installing version: $version"
+    else
+        print_info "Latest version: $version"
+    fi
     
     # Download binary
     local binary_file=$(download_binary "$version" "$platform")
@@ -230,7 +290,7 @@ main() {
     
     # Verify installation
     if command -v "$BINARY_NAME" &> /dev/null; then
-        print_success "Installation complete! Run '${BINARY_NAME} --version' to verify."
+        print_success "Installation complete! Run '${BINARY_NAME} version' to verify."
     else
         print_info "Installation complete! You may need to add ${INSTALL_DIR} to your PATH."
         print_info "Run 'export PATH=\$PATH:${INSTALL_DIR}' to add it to your current session."
