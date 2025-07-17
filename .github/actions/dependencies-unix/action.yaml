@@ -14,13 +14,13 @@ runs:
     - uses: nix-community/cache-nix-action@v6
       with:
         # Restore and save a cache using this key
-        primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+        primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
         # If there's no cache hit, restore a cache by this prefix
-        restore-prefixes-first-match: nix-${{ runner.os }}-
+        restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-
         # Do purge caches
         purge: true
         # Purge all versions of the cache
-        purge-prefixes: build-${{ runner.os }}-
+        purge-prefixes: build-${{ runner.os }}-${{ runner.arch }}-
         # Created more than 0 seconds ago relative to the start of the `Post Restore` phase
         purge-created: 0
         # Except the version with the `primary-key`, if it exists
