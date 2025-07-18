@@ -9,9 +9,15 @@ type EntityOptions = Omit<Parameters<typeof EntityMixin>[1], 'pk'>;
 interface MakeEntityProps<Desc extends DescMessage> extends EntityOptions {
   message: Desc;
   primaryKeys: (keyof MessageShape<Desc>)[];
+  requiredKeys: (keyof MessageShape<Desc>)[];
 }
 
-export const makeEntity = <Desc extends DescMessage>({ message, primaryKeys, ...props }: MakeEntityProps<Desc>) => {
+export const makeEntity = <Desc extends DescMessage>({
+  message,
+  primaryKeys,
+  requiredKeys,
+  ...props
+}: MakeEntityProps<Desc>) => {
   const MessageClass = function (this: MessageShape<Desc>, init?: MessageInitShape<Desc>) {
     const value = create(message, init);
     Object.assign(this, value);
@@ -20,7 +26,13 @@ export const makeEntity = <Desc extends DescMessage>({ message, primaryKeys, ...
   const pk = (value: MessageInitShape<Desc> | undefined) =>
     pipe(create(message, value), (_) => toJson(message, _), Struct.pick(...primaryKeys), JSON.stringify);
 
-  return EntityMixin(MessageClass, { pk, ...props });
+  const validate = (value: object): string | undefined => {
+    const missingKeys = requiredKeys.filter((_) => !Object.hasOwn(value, _));
+    if (!missingKeys.length) return;
+    return `Missing keys: ${missingKeys.join(', ')}`;
+  };
+
+  return EntityMixin(MessageClass, { pk, validate, ...props });
 };
 
 const transportKeys = new WeakMap<Transport, string>();

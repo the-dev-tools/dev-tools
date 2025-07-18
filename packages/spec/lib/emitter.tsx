@@ -32,7 +32,7 @@ import {
   Type,
 } from '@typespec/compiler';
 import { writeOutput } from '@typespec/emitter-framework';
-import { Array, Data, Match, Option, pipe, Record, String } from 'effect';
+import { Array, Data, flow, Match, Option, pipe, Record, String } from 'effect';
 import path from 'node:path';
 
 import { endpointMap, entityMap, keyMap, messageSet, moveMap, normalKeySet, packageMap, serviceSet } from './state.js';
@@ -129,6 +129,7 @@ interface Entity {
   key: string;
   model: Model;
   primaryKeys: string[];
+  requiredKeys: string[];
 }
 
 class Schema extends Data.TaggedClass('Schema')<{ type: Type }> {}
@@ -314,6 +315,7 @@ const EntitiesOutput = ({ name, package$ }: PackageOutputProps) => {
                       <ObjectProperty name='message' value={`${name}Schema`} />
                       <ObjectProperty jsValue={_.key} name='key' />
                       <ObjectProperty jsValue={_.primaryKeys} name='primaryKeys' />
+                      <ObjectProperty jsValue={_.requiredKeys} name='requiredKeys' />
                       {pipe(
                         schemaOutput({ origin: true, program, type: _.model }),
                         Option.map((_) => <ObjectProperty name='schema' value={_} />),
@@ -432,6 +434,18 @@ export async function $onEmit(context: EmitContext) {
       }),
     );
 
+  const getRequiredKeys = (model: Model) =>
+    pipe(
+      model.properties.values(),
+      Array.fromIterable,
+      Array.filterMap(
+        flow(
+          Option.liftPredicate((_) => !_.optional),
+          Option.map((_) => _.name),
+        ),
+      ),
+    );
+
   const getPackageName = (namespace?: Namespace) => {
     if (!namespace) return;
     const details = packageMap(program).get(namespace);
@@ -452,6 +466,7 @@ export async function $onEmit(context: EmitContext) {
       const name = getFriendlyName(program, target) ?? target.name;
       const baseName = getFriendlyName(program, base) ?? base.name;
       const primaryKeys = getPrimaryKeys(target);
+      const requiredKeys = getRequiredKeys(target);
 
       const package$ = getPackage(root, packageName);
       if (!package$) return;
@@ -460,6 +475,7 @@ export async function $onEmit(context: EmitContext) {
         key: `${packageName}.${baseName}`,
         model: target,
         primaryKeys,
+        requiredKeys,
       };
     }),
   );
