@@ -649,7 +649,23 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling)
 	}
 
-	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes)*100)
+	// Calculate buffer size for request responses based on flow complexity
+	requestBufferSize := len(requestNodes) * 100
+	if forNodeCount := len(forNodes); forNodeCount > 0 {
+		// For flows with iterations, we need larger buffers
+		var maxIterations int64
+		for _, fn := range forNodes {
+			if fn.IterCount > maxIterations {
+				maxIterations = fn.IterCount
+			}
+		}
+		// Estimate requests per iteration
+		estimatedRequests := int(maxIterations) * len(requestNodes) * 2
+		if estimatedRequests > requestBufferSize {
+			requestBufferSize = estimatedRequests
+		}
+	}
+	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, requestBufferSize)
 	for _, requestNode := range requestNodes {
 
 		// Base Request
@@ -731,8 +747,12 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 				if err != nil {
 					return connect.NewError(connect.CodeInternal, err)
 				}
-				endpoint.Url = deltaEndpoint.Url
-				endpoint.Method = deltaEndpoint.Method
+				if deltaEndpoint.Url != "" {
+					endpoint.Url = deltaEndpoint.Url
+				}
+				if deltaEndpoint.Method != "" {
+					endpoint.Method = deltaEndpoint.Method
+				}
 			}
 
 			deltaHeaders, err := c.hs.GetHeaderByExampleID(ctx, deltaExample.ID)
@@ -888,8 +908,26 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 	// Use the same timeout for the flow runner
 	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
 
-	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 1000)
-	flowStatusChan := make(chan runner.FlowStatus, 10)
+	// Calculate buffer size based on expected load
+	// For large iteration counts, we need bigger buffers to prevent blocking
+	bufferSize := 10000
+	if forNodeCount := len(forNodes); forNodeCount > 0 {
+		// Estimate based on for node iterations
+		var maxIterations int64
+		for _, fn := range forNodes {
+			if fn.IterCount > maxIterations {
+				maxIterations = fn.IterCount
+			}
+		}
+		// Buffer should handle at least all iterations * nodes
+		estimatedSize := int(maxIterations) * len(flowNodeMap) * 2
+		if estimatedSize > bufferSize {
+			bufferSize = estimatedSize
+		}
+	}
+
+	flowNodeStatusChan := make(chan runner.FlowNodeStatus, bufferSize)
+	flowStatusChan := make(chan runner.FlowStatus, 100)
 
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
