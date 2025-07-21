@@ -1,13 +1,15 @@
-import { DescMethodUnary, MessageShape } from '@bufbuild/protobuf';
+import { DescMessage, DescMethodUnary, MessageInitShape, MessageShape } from '@bufbuild/protobuf';
+import { Queryable } from '@data-client/core';
 import { Endpoint, EntityMap, schema, Schema } from '@data-client/endpoint';
 import { Equivalence, Record } from 'effect';
-
 import { createMethodKeyRecord, EndpointProps, makeEndpointFn, makeKey } from './utils';
 
 export interface MakeEndpointProps<M extends DescMethodUnary> {
   method: M;
   name: string;
 }
+
+type EntitySchema = (new (input: MessageInitShape<DescMessage>) => unknown) & Schema;
 
 interface ListProps<M extends DescMethodUnary, S extends Schema> extends MakeEndpointProps<M> {
   inputPrimaryKeys: (keyof MessageShape<M['input']>)[];
@@ -54,12 +56,12 @@ export const get = <M extends DescMethodUnary, S extends Schema>({ method, name,
     schema,
   });
 
-interface CreateProps<M extends DescMethodUnary, S extends Schema> extends MakeEndpointProps<M> {
+interface CreateProps<M extends DescMethodUnary, S extends EntitySchema> extends MakeEndpointProps<M> {
   listInputPrimaryKeys: (keyof MessageShape<M['input']>)[];
   listItemSchema: S;
 }
 
-export const create = <M extends DescMethodUnary, S extends Schema>({
+export const create = <M extends DescMethodUnary, S extends EntitySchema>({
   listInputPrimaryKeys,
   listItemSchema,
   method,
@@ -67,7 +69,7 @@ export const create = <M extends DescMethodUnary, S extends Schema>({
 }: CreateProps<M, S>) => {
   const endpointFn = async (props: EndpointProps<M>) => {
     const output = await makeEndpointFn(method)(props);
-    return { ...props.input, ...output };
+    return new listItemSchema({ ...props.input, ...output });
   };
 
   const createCollectionFilter =
@@ -88,14 +90,22 @@ export const create = <M extends DescMethodUnary, S extends Schema>({
   });
 };
 
-export interface UpdateProps<M extends DescMethodUnary, S extends Schema> extends MakeEndpointProps<M> {
+export interface UpdateProps<M extends DescMethodUnary, S extends EntitySchema> extends MakeEndpointProps<M> {
   schema: S;
 }
 
-export const update = <M extends DescMethodUnary, S extends Schema>({ method, name, schema }: UpdateProps<M, S>) => {
+export const update = <M extends DescMethodUnary, S extends EntitySchema>({
+  method,
+  name,
+  schema,
+}: UpdateProps<M, S>) => {
   const endpointFn = async (props: EndpointProps<M>) => {
     await makeEndpointFn(method)(props);
-    return props.input;
+
+    const snapshot = props.controller().snapshot(props.controller().getState());
+    const old = snapshot.get(schema as Queryable, props.input) ?? {};
+
+    return new schema({ ...old, ...props.input });
   };
 
   return new Endpoint(endpointFn, {
