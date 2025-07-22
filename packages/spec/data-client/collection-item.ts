@@ -149,8 +149,8 @@ export const move = ({ method, name }: MakeEndpointProps<typeof CollectionItemSe
       if (props === null) return {};
       const { targetCollectionId, targetParentFolderId } = props.input;
       return createMethodKeyRecord(props.transport, method, {
-        ...(targetCollectionId ? { collectionId: targetCollectionId } : {}),
-        ...(targetParentFolderId ? { parentFolderId: targetParentFolderId } : {}),
+        ...(targetCollectionId && { collectionId: targetCollectionId }),
+        ...(targetParentFolderId && { parentFolderId: targetParentFolderId }),
       });
     },
     itemSchema,

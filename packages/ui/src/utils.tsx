@@ -23,7 +23,7 @@ export const composeRenderPropsTW = <T,>(className: ((renderProps: T) => string)
 
 export const ariaTextValue = (textValue?: string, children?: unknown) => {
   const textValue_ = textValue ?? (typeof children === 'string' ? children : undefined);
-  return textValue_ === undefined ? {} : { textValue: textValue_ };
+  return { ...(textValue_ && { textValue: textValue_ }) };
 };
 
 export const useEscapePortal = (containerRef: RefObject<HTMLDivElement | null>) => {

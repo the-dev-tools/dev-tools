@@ -163,7 +163,7 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
         kind: getTreeKeyItemKind(key._tag),
         parentFolderId: key.parentFolderId!,
         targetCollectionId: targetKey.collectionId,
-        ...(targetKey._tag === FolderKey._tag ? { targetParentFolderId: targetKey.folderId } : {}),
+        ...(targetKey._tag === FolderKey._tag && { targetParentFolderId: targetKey.folderId }),
       });
     },
     onReorder: ({ keys, target }) => {

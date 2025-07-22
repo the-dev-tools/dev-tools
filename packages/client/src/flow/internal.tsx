@@ -41,7 +41,7 @@ export const Handle = (props: HandleProps) => {
   const { id, type } = props;
 
   const connection = useNodeConnections({
-    ...(id ? { handleId: id } : {}),
+    ...(id && { handleId: id }),
     handleType: type,
   })[0];
 
