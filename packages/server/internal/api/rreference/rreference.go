@@ -268,9 +268,9 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 			latestExecution := executions[0]
 
 			// Decompress data if needed
-			data := latestExecution.Data
-			if latestExecution.DataCompressType != compress.CompressTypeNone {
-				decompressed, err := compress.Decompress(data, latestExecution.DataCompressType)
+			data := latestExecution.OutputData
+			if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+				decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
 				if err == nil {
 					data = decompressed
 				}
@@ -583,9 +583,9 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 				latestExecution := executions[0]
 
 				// Decompress data if needed
-				data := latestExecution.Data
-				if latestExecution.DataCompressType != compress.CompressTypeNone {
-					decompressed, err := compress.Decompress(data, latestExecution.DataCompressType)
+				data := latestExecution.OutputData
+				if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+					decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
 					if err == nil {
 						data = decompressed
 					}
@@ -836,9 +836,9 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 				latestExecution := executions[0]
 
 				// Decompress data if needed
-				data := latestExecution.Data
-				if latestExecution.DataCompressType != compress.CompressTypeNone {
-					decompressed, err := compress.Decompress(data, latestExecution.DataCompressType)
+				data := latestExecution.OutputData
+				if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+					decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
 					if err == nil {
 						data = decompressed
 					}

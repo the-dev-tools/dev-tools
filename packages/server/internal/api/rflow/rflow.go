@@ -764,8 +764,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	// Use the same timeout for the flow runner
-	flowRunID := idwrap.NewNow()
-	runnerInst := flowlocalrunner.CreateFlowRunner(flowRunID, latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
+	runnerID := idwrap.NewNow()
+	runnerInst := flowlocalrunner.CreateFlowRunner(runnerID, latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
 
 	// Calculate buffer size based on expected load
 	// For large iteration counts, we need bigger buffers to prevent blocking
@@ -900,6 +900,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			// Skip OutputData for intermediate status updates to avoid race conditions
 			// Only include it for final state updates
 			var data []byte
+			var inputData []byte
 			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS || flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
 				// For final states, OutputData should be stable
 				var localErr error
@@ -909,9 +910,41 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					log.Printf("Error marshaling node output data: %v", localErr)
 					data = []byte("{}")
 				}
+
+				// Capture input data: outputs from predecessor nodes
+				inputMap := make(map[string]any)
+				
+				// Find predecessor nodes from edges
+				for sourceID, targets := range edgeMap {
+					for _, targetList := range targets {
+						for _, targetID := range targetList {
+							if targetID == id {
+								// This sourceID is a predecessor
+								sourceNode, ok := flowNodeMap[sourceID]
+								if ok {
+									// For now, we'll capture the node name and ID
+									// The actual output data would need to be retrieved from
+									// the running flow context, which isn't directly accessible here
+									inputMap[sourceNode.GetName()] = map[string]any{
+										"nodeId":   sourceID.String(),
+										"nodeName": sourceNode.GetName(),
+									}
+								}
+							}
+						}
+					}
+				}
+				
+				// Also capture any flow variables that might be used
+				if len(flowVarsMap) > 0 {
+					inputMap["flow"] = flowVarsMap
+				}
+				
+				inputData, _ = json.Marshal(inputMap)
 			} else {
-				// For intermediate states, don't include output data
+				// For intermediate states, don't include output data or input data
 				data = []byte("{}")
+				inputData = []byte("{}")
 			}
 
 			// Prepare error string if there's an error
@@ -922,13 +955,47 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 
 			nodeExecution := mnodeexecution.NodeExecution{
-				ID:               idwrap.NewNow(),
-				NodeID:           id,
-				FlowRunID:        flowRunID,
-				State:            flowNodeStatus.State,
-				Data:             data,
-				DataCompressType: 0, // No compression for now
-				Error:            errorStr,
+				ID:                     idwrap.NewNow(),
+				NodeID:                 id,
+				State:                  flowNodeStatus.State,
+				Error:                  errorStr,
+				InputData:              inputData,
+				InputDataCompressType:  0, // Will be set by SetInputJSON
+				OutputData:             data,
+				OutputDataCompressType: 0, // Will be set by SetOutputJSON
+				OutputKind:             nil, // Set for REQUEST nodes
+				CompletedAt:            nil, // Set when state is final
+			}
+
+			// Set OutputKind for REQUEST nodes
+			if node, ok := flowNodeMap[id]; ok {
+				if _, isRequestNode := node.(*nrequest.NodeRequest); isRequestNode {
+					outputKind := int8(1) // OUTPUT_KIND_REQUEST
+					nodeExecution.OutputKind = &outputKind
+				}
+			}
+
+			// Set CompletedAt for final states
+			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS || 
+			   flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+				now := time.Now().UnixMilli()
+				nodeExecution.CompletedAt = &now
+			}
+
+			// Use compression helpers
+			if len(inputData) > 0 {
+				if err := nodeExecution.SetInputJSON(inputData); err != nil {
+					// Log error but continue - keep uncompressed data
+					nodeExecution.InputData = inputData
+					nodeExecution.InputDataCompressType = 0
+				}
+			}
+			if len(data) > 0 {
+				if err := nodeExecution.SetOutputJSON(data); err != nil {
+					// Log error but continue - keep uncompressed data
+					nodeExecution.OutputData = data
+					nodeExecution.OutputDataCompressType = 0
+				}
 			}
 			nodeExecutionChan <- nodeExecution
 			err = stream.Send(resp)

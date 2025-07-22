@@ -2112,13 +2112,45 @@ WHERE
   id = ?;
 
 -- Node Execution
--- name: CreateNodeExecution :exec
-INSERT INTO node_execution (
-  id, node_id, flow_run_id, state, data, data_compress_type, error
-) VALUES (?, ?, ?, ?, ?, ?, ?);
+-- name: GetNodeExecution :one
+SELECT * FROM node_execution
+WHERE id = ?;
 
--- name: GetNodeExecutionsByFlowRunID :many
-SELECT * FROM node_execution WHERE flow_run_id = ? ORDER BY id;
+-- name: ListNodeExecutions :many
+SELECT * FROM node_execution
+WHERE node_id = ?
+ORDER BY completed_at DESC
+LIMIT ? OFFSET ?;
+
+-- name: ListNodeExecutionsByState :many
+SELECT * FROM node_execution
+WHERE node_id = ? AND state = ?
+ORDER BY completed_at DESC
+LIMIT ? OFFSET ?;
+
+-- name: ListNodeExecutionsByFlowRun :many
+SELECT ne.* FROM node_execution ne
+JOIN flow_node fn ON ne.node_id = fn.id
+WHERE fn.flow_id = ?
+ORDER BY ne.completed_at DESC;
+
+-- name: CreateNodeExecution :one
+INSERT INTO node_execution (
+  id, node_id, state, error, input_data, input_data_compress_type,
+  output_data, output_data_compress_type, output_kind, completed_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING *;
+
+-- name: UpdateNodeExecution :one
+UPDATE node_execution
+SET state = ?, error = ?, output_data = ?, 
+    output_data_compress_type = ?, output_kind = ?, completed_at = ?
+WHERE id = ?
+RETURNING *;
 
 -- name: GetNodeExecutionsByNodeID :many
-SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC;
+SELECT * FROM node_execution WHERE node_id = ? ORDER BY completed_at DESC;
+
+-- name: GetLatestNodeExecutionByNodeID :one
+SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC LIMIT 1;

@@ -823,10 +823,8 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 	}
 
 	// Get the latest execution state for this node
-	executions, err := nes.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
-	if err == nil && len(executions) > 0 {
-		// Use the latest execution state (they are ordered by ID DESC)
-		latestExecution := executions[0]
+	latestExecution, err := nes.GetLatestNodeExecutionByNodeID(ctx, currentNode.ID)
+	if err == nil && latestExecution != nil {
 		rpcNode.State = nodev1.NodeState(latestExecution.State)
 		// Note: Error information from node execution is available in latestExecution.Error
 		// but the Node proto doesn't have a field for it. The error is shown in execution-specific responses.
