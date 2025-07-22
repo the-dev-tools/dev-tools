@@ -28,12 +28,25 @@ model NodeExecution {
   inputData?: bytes;
   outputData?: bytes;
   error?: string;
+  
+  // Execution timing
+  @visibility(Resource.Query.List, Resource.Query.Get)
+  startedAt?: WellKnown.Timestamp;
+  @visibility(Resource.Query.List, Resource.Query.Get)
+  completedAt?: WellKnown.Timestamp;
+  @visibility(Resource.Query.List, Resource.Query.Get)
+  durationMs?: int32;
 }
 
 @autoFields
 model NodeExecutionListRequest is Resource.List.Request<NodeExecution> {
   // Filter by node ID
   nodeId?: Resource.Id;
+  // Filter by execution state
+  state?: Node.NodeState;
+  // Filter by date range
+  startedAfter?: WellKnown.Timestamp;
+  startedBefore?: WellKnown.Timestamp;
 }
 
 model NodeExecutionListItem is Resource.List.Item<NodeExecution>;
