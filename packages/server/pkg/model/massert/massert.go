@@ -111,8 +111,8 @@ func (a *Assert) DetermineDeltaType(exampleHasVersionParent bool) AssertSource {
 
 	// Has DeltaParentID - determine based on example type
 	if exampleHasVersionParent {
-		// In delta example with parent reference = DELTA
-		return AssertSourceDelta
+		// In delta example with parent reference = MIXED (modified from parent)
+		return AssertSourceMixed
 	}
 
 	// In origin example with parent reference = MIXED

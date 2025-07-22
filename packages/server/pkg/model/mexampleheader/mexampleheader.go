@@ -71,8 +71,8 @@ func (h *Header) DetermineDeltaType(exampleHasVersionParent bool) HeaderSource {
 
 	// Has DeltaParentID - determine based on example type
 	if exampleHasVersionParent {
-		// In delta example with parent reference = DELTA
-		return HeaderSourceDelta
+		// In delta example with parent reference = MIXED (modified from parent)
+		return HeaderSourceMixed
 	}
 
 	// In origin example with parent reference = MIXED

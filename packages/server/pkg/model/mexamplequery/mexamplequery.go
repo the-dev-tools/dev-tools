@@ -65,11 +65,12 @@ func (q Query) IsEnabled() bool {
 // | No                | No                        | ORIGIN | Standalone item in origin example |
 // | No                | Yes                       | DELTA  | New item created in delta example |
 // | Yes               | No                        | MIXED  | Item referencing another in origin example |
-// | Yes               | Yes                       | DELTA  | Item in delta example with parent reference |
+// | Yes               | Yes                       | MIXED  | Item in delta example modified from parent |
 //
-// The result is then converted for API responses:
-// - DELTA items are shown as MIXED in the frontend to indicate they have local modifications
-// - This is intentional - MIXED visually indicates "customized from parent"
+// The key principle is:
+// - **Has parent + unchanged** = ORIGIN (determined by value comparison at runtime)
+// - **Has parent + changed** = MIXED (items that differ from their parent)
+// - **No parent** = DELTA (standalone items created in delta example)
 func (q *Query) DetermineDeltaType(exampleHasVersionParent bool) QuerySource {
 	// If no DeltaParentID, determine based on example type
 	if q.DeltaParentID == nil {
@@ -83,8 +84,8 @@ func (q *Query) DetermineDeltaType(exampleHasVersionParent bool) QuerySource {
 
 	// Has DeltaParentID - determine based on example type
 	if exampleHasVersionParent {
-		// In delta example with parent reference = DELTA
-		return QuerySourceDelta
+		// In delta example with parent reference = MIXED (modified from parent)
+		return QuerySourceMixed
 	}
 
 	// In origin example with parent reference = MIXED

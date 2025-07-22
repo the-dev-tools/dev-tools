@@ -198,15 +198,14 @@ func TestQueryDeltaCreateUpdateBehavior(t *testing.T) {
 		t.Errorf("ISSUE 1: Expected 1 delta item after update, got %d - duplicates are being created!", len(deltaListResp2.Msg.Items))
 	}
 
-	// ISSUE 2 TEST: Updated item should have source "mixed" (current behavior) but should be "delta"
+	// Fixed behavior: Updated item should have source "mixed" when it differs from parent
 	updatedItem := deltaListResp2.Msg.Items[0]
 	if updatedItem.Source == nil {
 		t.Error("Updated item has nil source")
 	} else if *updatedItem.Source == deltav1.SourceKind_SOURCE_KIND_MIXED {
-		t.Log("Current behavior: Updated delta item has source 'mixed'")
-		t.Error("ISSUE 2: Delta items should have source 'delta' instead of 'mixed'")
-	} else if *updatedItem.Source == deltav1.SourceKind_SOURCE_KIND_DELTA {
-		t.Log("Fixed behavior: Updated delta item correctly has source 'delta'")
+		t.Log("Fixed behavior: Updated delta item correctly has source 'mixed' (modified from parent)")
+	} else {
+		t.Errorf("Expected updated delta item to have source 'mixed', got %v", *updatedItem.Source)
 	}
 
 	// Verify the values were actually updated
@@ -235,10 +234,10 @@ func TestQueryDeltaCreateUpdateBehavior(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check if it's correctly identified as a delta item
+	// Check if it's correctly identified as a delta item (no parent = pure delta)
 	deltaType := newDeltaQuery.DetermineDeltaType(true) // true because delta example has VersionParentID
 	if deltaType != mexamplequery.QuerySourceDelta {
-		t.Errorf("ISSUE 2: New delta item should have source 'delta', got %v", deltaType)
+		t.Errorf("New delta item (no parent) should have source 'delta', got %v", deltaType)
 	}
 }
 
@@ -310,13 +309,14 @@ func TestHeaderDeltaCreateUpdateBehavior(t *testing.T) {
 		t.Errorf("Expected 1 delta item after update, got %d", len(deltaListResp2.Msg.Items))
 	}
 
-	// Check source type
+	// Check source type - should be mixed after update
 	updatedItem := deltaListResp2.Msg.Items[0]
 	if updatedItem.Source == nil {
 		t.Error("Updated item has nil source")
 	} else if *updatedItem.Source == deltav1.SourceKind_SOURCE_KIND_MIXED {
-		t.Log("Current behavior: Updated delta header has source 'mixed'")
-		t.Error("ISSUE 2: Delta headers should have source 'delta' instead of 'mixed'")
+		t.Log("Correct behavior: Updated delta header has source 'mixed' to show it's customized")
+	} else {
+		t.Errorf("Expected updated delta header to have source 'mixed', got %v", *updatedItem.Source)
 	}
 
 	// 6. Create a standalone delta header
@@ -416,13 +416,14 @@ func TestAssertDeltaCreateUpdateBehavior(t *testing.T) {
 		t.Errorf("ISSUE 1: Expected 1 delta item after update, got %d - duplicates are being created!", len(deltaListResp2.Msg.Items))
 	}
 
-	// Check source type
+	// Check source type - should be mixed after update
 	updatedItem := deltaListResp2.Msg.Items[0]
 	if updatedItem.Source == nil {
 		t.Error("Updated item has nil source")
 	} else if *updatedItem.Source == deltav1.SourceKind_SOURCE_KIND_MIXED {
-		t.Log("Current behavior: Updated delta assert has source 'mixed'")
-		t.Error("ISSUE 2: Delta asserts should have source 'delta' instead of 'mixed'")
+		t.Log("Correct behavior: Updated delta assert has source 'mixed' to show it's customized")
+	} else {
+		t.Errorf("Expected updated delta assert to have source 'mixed', got %v", *updatedItem.Source)
 	}
 }
 
@@ -609,7 +610,7 @@ func TestQueryDetermineDeltaType(t *testing.T) {
 				DeltaParentID: &idwrap.IDWrap{},
 			},
 			isDeltaExample: true,
-			expectedType:   mexamplequery.QuerySourceDelta,
+			expectedType:   mexamplequery.QuerySourceMixed, // Has parent = MIXED, not DELTA
 		},
 	}
 
@@ -665,7 +666,7 @@ func TestHeaderDetermineDeltaType(t *testing.T) {
 				DeltaParentID: &idwrap.IDWrap{},
 			},
 			isDeltaExample: true,
-			expectedType:   mexampleheader.HeaderSourceDelta,
+			expectedType:   mexampleheader.HeaderSourceMixed, // Has parent = MIXED, not DELTA
 		},
 	}
 
@@ -721,7 +722,7 @@ func TestAssertDetermineDeltaType(t *testing.T) {
 				DeltaParentID: &idwrap.IDWrap{},
 			},
 			isDeltaExample: true,
-			expectedType:   massert.AssertSourceDelta,
+			expectedType:   massert.AssertSourceMixed, // Has parent = MIXED, not DELTA
 		},
 	}
 

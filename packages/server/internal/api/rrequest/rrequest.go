@@ -526,8 +526,11 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 	}
 
 	deltaQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, deltaExampleID)
-	if err != nil {
+	if err != nil && err != sexamplequery.ErrNoQueryFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err == sexamplequery.ErrNoQueryFound {
+		deltaQueries = []mexamplequery.Query{}
 	}
 
 	// Combine all queries and build maps for lookup
@@ -592,6 +595,8 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+			// Add newly created queries to allQueries so they're processed in the main loop
+			allQueries = append(allQueries, deltaQueriesToCreate...)
 		}
 	}
 
@@ -604,7 +609,7 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 		}
 
 		deltaType := query.DetermineDeltaType(deltaExampleHasVersionParent)
-		if deltaType == mexamplequery.QuerySourceDelta {
+		if deltaType == mexamplequery.QuerySourceDelta || deltaType == mexamplequery.QuerySourceMixed {
 			if query.DeltaParentID != nil {
 				// This is a delta query - check if it's been modified from its parent
 				var origin *requestv1.Query
@@ -623,7 +628,6 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 							actualSourceKind = deltav1.SourceKind_SOURCE_KIND_ORIGIN
 						} else {
 							// Values differ from parent - this is a modified delta (MIXED)
-							// Has parent connected to origin = MIXED when modified
 							actualSourceKind = deltav1.SourceKind_SOURCE_KIND_MIXED
 						}
 					} else {
@@ -679,20 +683,7 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 		// Note: MIXED queries won't appear here since we're only processing delta example queries
 	}
 
-	// Add the newly created delta queries to the response
-	for originID, deltaQuery := range newDeltaQueries {
-		sourceKind := mexamplequery.QuerySourceOrigin.ToSourceKind()
-		rpcQuery := &requestv1.QueryDeltaListItem{
-			QueryId:     deltaQuery.ID.Bytes(), // Use the new delta ID
-			Key:         deltaQuery.QueryKey,
-			Enabled:     deltaQuery.Enable,
-			Value:       deltaQuery.Value,
-			Description: deltaQuery.Description,
-			Origin:      originMap[originID],
-			Source:      &sourceKind,
-		}
-		rpcQueries = append(rpcQueries, rpcQuery)
-	}
+	// Newly created delta queries are now processed in the main loop above
 
 	// Sort rpcQueries by ID, but if it has DeltaParentID use that ID instead
 	sort.Slice(rpcQueries, func(i, j int) bool {
@@ -1301,6 +1292,8 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+			// Add newly created headers to allHeaders so they're processed in the main loop
+			allHeaders = append(allHeaders, deltaHeadersToCreate...)
 		}
 	}
 
@@ -1317,7 +1310,7 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if deltaType == mexampleheader.HeaderSourceDelta {
+		if deltaType == mexampleheader.HeaderSourceDelta || deltaType == mexampleheader.HeaderSourceMixed {
 			if header.DeltaParentID != nil {
 				// This is a delta header with a parent - check if it's been modified
 				var origin *requestv1.Header
@@ -1336,7 +1329,6 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 							actualSourceKind = deltav1.SourceKind_SOURCE_KIND_ORIGIN
 						} else {
 							// Values differ from parent - this is a modified delta (MIXED)
-							// Has parent connected to origin = MIXED when modified
 							actualSourceKind = deltav1.SourceKind_SOURCE_KIND_MIXED
 						}
 					} else {
@@ -1392,20 +1384,7 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 		// Note: MIXED headers won't appear here since we're only processing delta example headers
 	}
 
-	// Add the newly created delta headers to the response
-	for originID, deltaHeader := range newDeltaHeaders {
-		sourceKind := mexampleheader.HeaderSourceOrigin.ToSourceKind()
-		rpcHeader := &requestv1.HeaderDeltaListItem{
-			HeaderId:    deltaHeader.ID.Bytes(), // Use the new delta ID
-			Key:         deltaHeader.HeaderKey,
-			Enabled:     deltaHeader.Enable,
-			Value:       deltaHeader.Value,
-			Description: deltaHeader.Description,
-			Origin:      originMap[originID],
-			Source:      &sourceKind,
-		}
-		rpcHeaders = append(rpcHeaders, rpcHeader)
-	}
+	// Newly created delta headers are now processed in the main loop above
 
 	// Sort rpcHeaders by ID, but if it has DeltaParentID use that ID instead
 	sort.Slice(rpcHeaders, func(i, j int) bool {
@@ -1915,14 +1894,21 @@ func (c RequestRPC) AssertDeltaList(ctx context.Context, req *connect.Request[re
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+			// Add newly created asserts to allAsserts so they're processed in the main loop
+			allAsserts = append(allAsserts, deltaAssertsToCreate...)
 		}
 	}
 
 	// Second pass: create result entries
 	var rpcAsserts []*requestv1.AssertDeltaListItem
 	for _, assert := range allAsserts {
+		// Only include asserts that belong to the delta example
+		if assert.ExampleID.Compare(deltaExampleID) != 0 {
+			continue
+		}
+		
 		deltaType := assert.DetermineDeltaType(deltaExampleHasVersionParent)
-		if deltaType == massert.AssertSourceDelta && assert.DeltaParentID != nil {
+		if (deltaType == massert.AssertSourceDelta || deltaType == massert.AssertSourceMixed) && assert.DeltaParentID != nil {
 			// This is a delta assert - check if it's been modified from its parent
 			var origin *requestv1.Assert
 			var actualSourceKind deltav1.SourceKind
@@ -2003,22 +1989,7 @@ func (c RequestRPC) AssertDeltaList(ctx context.Context, req *connect.Request[re
 		// Skip origin asserts that have been processed (replaced by delta/mixed)
 	}
 
-	// Add the newly created delta asserts to the response
-	for originID, deltaAssert := range newDeltaAsserts {
-		var origin *requestv1.Assert
-		if originRPC, exists := originMap[originID]; exists {
-			origin = originRPC
-		}
-
-		sourceKind := massert.AssertSourceOrigin.ToSourceKind()
-		rpcAssert := &requestv1.AssertDeltaListItem{
-			AssertId:  deltaAssert.ID.Bytes(), // Use the new delta ID
-			Condition: nil,                    // Empty condition for origin-only entries
-			Origin:    origin,
-			Source:    &sourceKind,
-		}
-		rpcAsserts = append(rpcAsserts, rpcAssert)
-	}
+	// Newly created delta asserts are now processed in the main loop above
 
 	// Sort rpcAsserts by ID, but if it has DeltaParentID use that ID instead
 	sort.Slice(rpcAsserts, func(i, j int) bool {
