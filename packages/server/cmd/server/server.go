@@ -31,6 +31,7 @@ import (
 	"the-dev-tools/server/internal/api/ritemfolder"
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/internal/api/rnode"
+	"the-dev-tools/server/internal/api/rnodeexecution"
 	"the-dev-tools/server/internal/api/rreference"
 	"the-dev-tools/server/internal/api/rrequest"
 	"the-dev-tools/server/internal/api/rtag"
@@ -272,6 +273,14 @@ func main() {
 		endpointService, exampleService, exampleQueryService, exampleHeaderService, bodyRawService, bodyFormService, bodyUrlService,
 		nodeExecutionService)
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
+
+	// NodeExecution Service
+	nodeExecutionSrv := rnodeexecution.New(&nodeExecutionService, &flowNodeService, &flowService, &userService)
+	nodeExecutionService_svc, err := rnodeexecution.CreateService(nodeExecutionSrv, opitonsAll)
+	if err != nil {
+		log.Fatal(err)
+	}
+	newServiceManager.AddService(nodeExecutionService_svc, err)
 
 	// Edge Service
 	edgeSrv := redge.NewEdgeServiceRPC(currentDB, flowService, userService, flowEdgeService, flowNodeService)

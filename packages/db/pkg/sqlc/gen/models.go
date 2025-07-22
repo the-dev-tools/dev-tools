@@ -229,11 +229,13 @@ type NodeExecution struct {
 	ID                     idwrap.IDWrap
 	NodeID                 idwrap.IDWrap
 	State                  int8
+	Error                  sql.NullString
 	InputData              []byte
 	InputDataCompressType  int8
 	OutputData             []byte
 	OutputDataCompressType int8
-	Error                  sql.NullString
+	OutputKind             sql.NullInt64
+	CompletedAt            sql.NullInt64
 }
 
 type Tag struct {

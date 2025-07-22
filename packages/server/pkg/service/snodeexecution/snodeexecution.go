@@ -40,6 +40,22 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 		}
 	}
 	
+	var outputKindSQL sql.NullInt64
+	if ne.OutputKind != nil {
+		outputKindSQL = sql.NullInt64{
+			Int64: int64(*ne.OutputKind),
+			Valid: true,
+		}
+	}
+	
+	var completedAtSQL sql.NullInt64
+	if ne.CompletedAt != nil {
+		completedAtSQL = sql.NullInt64{
+			Int64: *ne.CompletedAt,
+			Valid: true,
+		}
+	}
+	
 	return &gen.NodeExecution{
 		ID:                     ne.ID,
 		NodeID:                 ne.NodeID,
@@ -49,6 +65,8 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
 		Error:                  errorSQL,
+		OutputKind:             outputKindSQL,
+		CompletedAt:            completedAtSQL,
 	}
 }
 
@@ -56,6 +74,17 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecu
 	var errorPtr *string
 	if ne.Error.Valid {
 		errorPtr = &ne.Error.String
+	}
+	
+	var outputKindPtr *int8
+	if ne.OutputKind.Valid {
+		outputKind := int8(ne.OutputKind.Int64)
+		outputKindPtr = &outputKind
+	}
+	
+	var completedAtPtr *int64
+	if ne.CompletedAt.Valid {
+		completedAtPtr = &ne.CompletedAt.Int64
 	}
 	
 	return &mnodeexecution.NodeExecution{
@@ -67,6 +96,8 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecu
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
 		Error:                  errorPtr,
+		OutputKind:             outputKindPtr,
+		CompletedAt:            completedAtPtr,
 	}
 }
 
@@ -79,16 +110,44 @@ func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodee
 		}
 	}
 	
-	return s.queries.CreateNodeExecution(ctx, gen.CreateNodeExecutionParams{
+	var outputKindSQL sql.NullInt64
+	if ne.OutputKind != nil {
+		outputKindSQL = sql.NullInt64{
+			Int64: int64(*ne.OutputKind),
+			Valid: true,
+		}
+	}
+	
+	var completedAtSQL sql.NullInt64
+	if ne.CompletedAt != nil {
+		completedAtSQL = sql.NullInt64{
+			Int64: *ne.CompletedAt,
+			Valid: true,
+		}
+	}
+	
+	_, err := s.queries.CreateNodeExecution(ctx, gen.CreateNodeExecutionParams{
 		ID:                     ne.ID,
 		NodeID:                 ne.NodeID,
 		State:                  ne.State,
+		Error:                  errorSQL,
 		InputData:              ne.InputData,
 		InputDataCompressType:  ne.InputDataCompressType,
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
-		Error:                  errorSQL,
+		OutputKind:             outputKindSQL,
+		CompletedAt:            completedAtSQL,
 	})
+	
+	return err
+}
+
+func (s NodeExecutionService) GetNodeExecution(ctx context.Context, executionID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
+	execution, err := s.queries.GetNodeExecution(ctx, executionID)
+	if err != nil {
+		return nil, err
+	}
+	return ConvertNodeExecutionToModel(execution), nil
 }
 
 func (s NodeExecutionService) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]mnodeexecution.NodeExecution, error) {
@@ -100,4 +159,20 @@ func (s NodeExecutionService) GetNodeExecutionsByNodeID(ctx context.Context, nod
 		return nil, err
 	}
 	return tgeneric.MassConvertPtr(executions, ConvertNodeExecutionToModel), nil
+}
+
+func (s NodeExecutionService) ListNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]mnodeexecution.NodeExecution, error) {
+	// For now, use the existing method - could add pagination later
+	return s.GetNodeExecutionsByNodeID(ctx, nodeID)
+}
+
+func (s NodeExecutionService) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
+	execution, err := s.queries.GetLatestNodeExecutionByNodeID(ctx, nodeID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return ConvertNodeExecutionToModel(execution), nil
 }

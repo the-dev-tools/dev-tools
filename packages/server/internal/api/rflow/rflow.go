@@ -958,11 +958,44 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				ID:                     idwrap.NewNow(),
 				NodeID:                 id,
 				State:                  flowNodeStatus.State,
-				InputData:              inputData,
-				InputDataCompressType:  0, // No compression for now
-				OutputData:             data,
-				OutputDataCompressType: 0, // No compression for now
 				Error:                  errorStr,
+				InputData:              inputData,
+				InputDataCompressType:  0, // Will be set by SetInputJSON
+				OutputData:             data,
+				OutputDataCompressType: 0, // Will be set by SetOutputJSON
+				OutputKind:             nil, // Set for REQUEST nodes
+				CompletedAt:            nil, // Set when state is final
+			}
+
+			// Set OutputKind for REQUEST nodes
+			if node, ok := flowNodeMap[id]; ok {
+				if _, isRequestNode := node.(*nrequest.NodeRequest); isRequestNode {
+					outputKind := int8(1) // OUTPUT_KIND_REQUEST
+					nodeExecution.OutputKind = &outputKind
+				}
+			}
+
+			// Set CompletedAt for final states
+			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS || 
+			   flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+				now := time.Now().UnixMilli()
+				nodeExecution.CompletedAt = &now
+			}
+
+			// Use compression helpers
+			if len(inputData) > 0 {
+				if err := nodeExecution.SetInputJSON(inputData); err != nil {
+					// Log error but continue - keep uncompressed data
+					nodeExecution.InputData = inputData
+					nodeExecution.InputDataCompressType = 0
+				}
+			}
+			if len(data) > 0 {
+				if err := nodeExecution.SetOutputJSON(data); err != nil {
+					// Log error but continue - keep uncompressed data
+					nodeExecution.OutputData = data
+					nodeExecution.OutputDataCompressType = 0
+				}
 			}
 			nodeExecutionChan <- nodeExecution
 			err = stream.Send(resp)

@@ -439,12 +439,18 @@ CREATE TABLE node_execution (
   id BLOB NOT NULL PRIMARY KEY,
   node_id BLOB NOT NULL,
   state INT8 NOT NULL,
-  input_data BLOB,
-  input_data_compress_type INT8 NOT NULL DEFAULT 0,
-  output_data BLOB,
-  output_data_compress_type INT8 NOT NULL,
   error TEXT,
+  -- Keep existing compression fields as-is
+  input_data BLOB,  -- Compressed JSON
+  input_data_compress_type INT8 NOT NULL DEFAULT 0,
+  output_data BLOB, -- Compressed JSON
+  output_data_compress_type INT8 NOT NULL DEFAULT 0,
+  -- Add new fields
+  output_kind INT8, -- OutputKind enum value (NULL for non-request nodes)
+  completed_at BIGINT, -- Unix timestamp in milliseconds
   FOREIGN KEY (node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
 CREATE INDEX node_execution_idx1 ON node_execution (node_id);
+CREATE INDEX node_execution_idx2 ON node_execution (completed_at DESC);
+CREATE INDEX node_execution_idx3 ON node_execution (state);

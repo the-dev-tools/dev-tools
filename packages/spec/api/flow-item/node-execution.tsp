@@ -39,6 +39,4 @@ model NodeExecution {
 }
 
 @Protobuf.service
-interface NodeExecutionService
-  extends Resource.List.Interface<NodeExecution>,
-    Resource.Get.Interface<NodeExecution> {}
+interface NodeExecutionService extends Resource.List.Interface<NodeExecution>, Resource.Get.Interface<NodeExecution> {}

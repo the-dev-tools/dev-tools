@@ -441,11 +441,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getItemsApiByCollectionIDStmt, err = db.PrepareContext(ctx, getItemsApiByCollectionID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemsApiByCollectionID: %w", err)
 	}
+	if q.getLatestNodeExecutionByNodeIDStmt, err = db.PrepareContext(ctx, getLatestNodeExecutionByNodeID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetLatestNodeExecutionByNodeID: %w", err)
+	}
 	if q.getMigrationStmt, err = db.PrepareContext(ctx, getMigration); err != nil {
 		return nil, fmt.Errorf("error preparing query GetMigration: %w", err)
 	}
 	if q.getMigrationsStmt, err = db.PrepareContext(ctx, getMigrations); err != nil {
 		return nil, fmt.Errorf("error preparing query GetMigrations: %w", err)
+	}
+	if q.getNodeExecutionStmt, err = db.PrepareContext(ctx, getNodeExecution); err != nil {
+		return nil, fmt.Errorf("error preparing query GetNodeExecution: %w", err)
 	}
 	if q.getNodeExecutionsByNodeIDStmt, err = db.PrepareContext(ctx, getNodeExecutionsByNodeID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetNodeExecutionsByNodeID: %w", err)
@@ -506,6 +512,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getWorkspacesByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspacesByUserID: %w", err)
+	}
+	if q.listNodeExecutionsStmt, err = db.PrepareContext(ctx, listNodeExecutions); err != nil {
+		return nil, fmt.Errorf("error preparing query ListNodeExecutions: %w", err)
+	}
+	if q.listNodeExecutionsByFlowRunStmt, err = db.PrepareContext(ctx, listNodeExecutionsByFlowRun); err != nil {
+		return nil, fmt.Errorf("error preparing query ListNodeExecutionsByFlowRun: %w", err)
+	}
+	if q.listNodeExecutionsByStateStmt, err = db.PrepareContext(ctx, listNodeExecutionsByState); err != nil {
+		return nil, fmt.Errorf("error preparing query ListNodeExecutionsByState: %w", err)
 	}
 	if q.setBodyFormEnableStmt, err = db.PrepareContext(ctx, setBodyFormEnable); err != nil {
 		return nil, fmt.Errorf("error preparing query SetBodyFormEnable: %w", err)
@@ -590,6 +605,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateItemFolderOrderStmt, err = db.PrepareContext(ctx, updateItemFolderOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemFolderOrder: %w", err)
+	}
+	if q.updateNodeExecutionStmt, err = db.PrepareContext(ctx, updateNodeExecution); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateNodeExecution: %w", err)
 	}
 	if q.updateQueryStmt, err = db.PrepareContext(ctx, updateQuery); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateQuery: %w", err)
@@ -1315,6 +1333,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getItemsApiByCollectionIDStmt: %w", cerr)
 		}
 	}
+	if q.getLatestNodeExecutionByNodeIDStmt != nil {
+		if cerr := q.getLatestNodeExecutionByNodeIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getLatestNodeExecutionByNodeIDStmt: %w", cerr)
+		}
+	}
 	if q.getMigrationStmt != nil {
 		if cerr := q.getMigrationStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getMigrationStmt: %w", cerr)
@@ -1323,6 +1346,11 @@ func (q *Queries) Close() error {
 	if q.getMigrationsStmt != nil {
 		if cerr := q.getMigrationsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getMigrationsStmt: %w", cerr)
+		}
+	}
+	if q.getNodeExecutionStmt != nil {
+		if cerr := q.getNodeExecutionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getNodeExecutionStmt: %w", cerr)
 		}
 	}
 	if q.getNodeExecutionsByNodeIDStmt != nil {
@@ -1423,6 +1451,21 @@ func (q *Queries) Close() error {
 	if q.getWorkspacesByUserIDStmt != nil {
 		if cerr := q.getWorkspacesByUserIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getWorkspacesByUserIDStmt: %w", cerr)
+		}
+	}
+	if q.listNodeExecutionsStmt != nil {
+		if cerr := q.listNodeExecutionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listNodeExecutionsStmt: %w", cerr)
+		}
+	}
+	if q.listNodeExecutionsByFlowRunStmt != nil {
+		if cerr := q.listNodeExecutionsByFlowRunStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listNodeExecutionsByFlowRunStmt: %w", cerr)
+		}
+	}
+	if q.listNodeExecutionsByStateStmt != nil {
+		if cerr := q.listNodeExecutionsByStateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listNodeExecutionsByStateStmt: %w", cerr)
 		}
 	}
 	if q.setBodyFormEnableStmt != nil {
@@ -1563,6 +1606,11 @@ func (q *Queries) Close() error {
 	if q.updateItemFolderOrderStmt != nil {
 		if cerr := q.updateItemFolderOrderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateItemFolderOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateNodeExecutionStmt != nil {
+		if cerr := q.updateNodeExecutionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateNodeExecutionStmt: %w", cerr)
 		}
 	}
 	if q.updateQueryStmt != nil {
@@ -1783,8 +1831,10 @@ type Queries struct {
 	getItemFolderWorkspaceIDStmt                          *sql.Stmt
 	getItemFoldersByCollectionIDStmt                      *sql.Stmt
 	getItemsApiByCollectionIDStmt                         *sql.Stmt
+	getLatestNodeExecutionByNodeIDStmt                    *sql.Stmt
 	getMigrationStmt                                      *sql.Stmt
 	getMigrationsStmt                                     *sql.Stmt
+	getNodeExecutionStmt                                  *sql.Stmt
 	getNodeExecutionsByNodeIDStmt                         *sql.Stmt
 	getQueriesByExampleIDStmt                             *sql.Stmt
 	getQueryStmt                                          *sql.Stmt
@@ -1805,6 +1855,9 @@ type Queries struct {
 	getWorkspaceUserByWorkspaceIDStmt                     *sql.Stmt
 	getWorkspaceUserByWorkspaceIDAndUserIDStmt            *sql.Stmt
 	getWorkspacesByUserIDStmt                             *sql.Stmt
+	listNodeExecutionsStmt                                *sql.Stmt
+	listNodeExecutionsByFlowRunStmt                       *sql.Stmt
+	listNodeExecutionsByStateStmt                         *sql.Stmt
 	setBodyFormEnableStmt                                 *sql.Stmt
 	setHeaderEnableStmt                                   *sql.Stmt
 	setQueryEnableStmt                                    *sql.Stmt
@@ -1833,6 +1886,7 @@ type Queries struct {
 	updateItemApiOrderStmt                                *sql.Stmt
 	updateItemFolderStmt                                  *sql.Stmt
 	updateItemFolderOrderStmt                             *sql.Stmt
+	updateNodeExecutionStmt                               *sql.Stmt
 	updateQueryStmt                                       *sql.Stmt
 	updateTagStmt                                         *sql.Stmt
 	updateUserStmt                                        *sql.Stmt
@@ -1986,8 +2040,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getItemFolderWorkspaceIDStmt:                        q.getItemFolderWorkspaceIDStmt,
 		getItemFoldersByCollectionIDStmt:                    q.getItemFoldersByCollectionIDStmt,
 		getItemsApiByCollectionIDStmt:                       q.getItemsApiByCollectionIDStmt,
+		getLatestNodeExecutionByNodeIDStmt:                  q.getLatestNodeExecutionByNodeIDStmt,
 		getMigrationStmt:                                    q.getMigrationStmt,
 		getMigrationsStmt:                                   q.getMigrationsStmt,
+		getNodeExecutionStmt:                                q.getNodeExecutionStmt,
 		getNodeExecutionsByNodeIDStmt:                       q.getNodeExecutionsByNodeIDStmt,
 		getQueriesByExampleIDStmt:                           q.getQueriesByExampleIDStmt,
 		getQueryStmt:                                        q.getQueryStmt,
@@ -2008,6 +2064,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getWorkspaceUserByWorkspaceIDStmt:                   q.getWorkspaceUserByWorkspaceIDStmt,
 		getWorkspaceUserByWorkspaceIDAndUserIDStmt:          q.getWorkspaceUserByWorkspaceIDAndUserIDStmt,
 		getWorkspacesByUserIDStmt:                           q.getWorkspacesByUserIDStmt,
+		listNodeExecutionsStmt:                              q.listNodeExecutionsStmt,
+		listNodeExecutionsByFlowRunStmt:                     q.listNodeExecutionsByFlowRunStmt,
+		listNodeExecutionsByStateStmt:                       q.listNodeExecutionsByStateStmt,
 		setBodyFormEnableStmt:                               q.setBodyFormEnableStmt,
 		setHeaderEnableStmt:                                 q.setHeaderEnableStmt,
 		setQueryEnableStmt:                                  q.setQueryEnableStmt,
@@ -2036,6 +2095,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateItemApiOrderStmt:                              q.updateItemApiOrderStmt,
 		updateItemFolderStmt:                                q.updateItemFolderStmt,
 		updateItemFolderOrderStmt:                           q.updateItemFolderOrderStmt,
+		updateNodeExecutionStmt:                             q.updateNodeExecutionStmt,
 		updateQueryStmt:                                     q.updateQueryStmt,
 		updateTagStmt:                                       q.updateTagStmt,
 		updateUserStmt:                                      q.updateUserStmt,
