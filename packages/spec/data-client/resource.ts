@@ -1,15 +1,13 @@
-import { DescMessage, DescMethodUnary, MessageInitShape, MessageShape } from '@bufbuild/protobuf';
+import { DescMethodUnary, MessageShape } from '@bufbuild/protobuf';
 import { Queryable } from '@data-client/core';
 import { Endpoint, EntityMap, schema, Schema } from '@data-client/endpoint';
 import { Equivalence, Record } from 'effect';
-import { createMethodKeyRecord, EndpointProps, makeEndpointFn, makeKey } from './utils';
+import { createMethodKeyRecord, EndpointProps, EntitySchema, makeEndpointFn, makeKey } from './utils';
 
 export interface MakeEndpointProps<M extends DescMethodUnary> {
   method: M;
   name: string;
 }
-
-type EntitySchema = (new (input: MessageInitShape<DescMessage>) => unknown) & Schema;
 
 interface ListProps<M extends DescMethodUnary, S extends Schema> extends MakeEndpointProps<M> {
   inputPrimaryKeys: (keyof MessageShape<M['input']>)[];

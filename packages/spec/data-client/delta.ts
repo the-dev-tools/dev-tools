@@ -1,11 +1,10 @@
 import { DescMethodUnary } from '@bufbuild/protobuf';
-import { Endpoint, Schema } from '@data-client/endpoint';
-
+import { Endpoint, Queryable } from '@data-client/endpoint';
 import { SourceKind } from '../dist/buf/typescript/delta/v1/delta_pb';
 import { UpdateProps } from './resource';
-import { EndpointProps, makeEndpointFn, makeKey } from './utils';
+import { EndpointProps, EntitySchema, makeEndpointFn, makeKey } from './utils';
 
-export const deltaUpdate = <M extends DescMethodUnary, S extends Schema>({
+export const deltaUpdate = <M extends DescMethodUnary, S extends EntitySchema>({
   method,
   name,
   schema,
@@ -13,7 +12,11 @@ export const deltaUpdate = <M extends DescMethodUnary, S extends Schema>({
   const endpointFn = async (props: EndpointProps<M, { source?: SourceKind }>) => {
     await makeEndpointFn(method)(props);
     const { source } = props.input;
-    return { ...props.input, source: source === SourceKind.ORIGIN ? SourceKind.MIXED : source };
+
+    const snapshot = props.controller().snapshot(props.controller().getState());
+    const old = snapshot.get(schema as Queryable, props.input) ?? {};
+
+    return { ...old, ...props.input, source: source === SourceKind.ORIGIN ? SourceKind.MIXED : source };
   };
 
   return new Endpoint(endpointFn, {
@@ -24,14 +27,18 @@ export const deltaUpdate = <M extends DescMethodUnary, S extends Schema>({
   });
 };
 
-export const deltaReset = <M extends DescMethodUnary, S extends Schema>({
+export const deltaReset = <M extends DescMethodUnary, S extends EntitySchema>({
   method,
   name,
   schema,
 }: UpdateProps<M, S>) => {
   const endpointFn = async (props: EndpointProps<M>) => {
     await makeEndpointFn(method)(props);
-    return { ...props.input, source: SourceKind.ORIGIN };
+
+    const snapshot = props.controller().snapshot(props.controller().getState());
+    const old = snapshot.get(schema as Queryable, props.input) ?? {};
+
+    return { ...old, ...props.input, source: SourceKind.ORIGIN };
   };
 
   return new Endpoint(endpointFn, {

@@ -1,8 +1,10 @@
 import { create, DescMessage, DescMethodUnary, MessageInitShape, MessageShape, toJson } from '@bufbuild/protobuf';
 import { ContextValues, Transport } from '@connectrpc/connect';
 import { Controller } from '@data-client/core';
-import { EntityMixin, schema, SchemaSimple } from '@data-client/endpoint';
+import { EntityMixin, Schema, schema, SchemaSimple } from '@data-client/endpoint';
 import { Equivalence, Option, pipe, Predicate, Record, Struct } from 'effect';
+
+export type EntitySchema = (new (input: MessageInitShape<DescMessage>) => unknown) & Schema;
 
 type EntityOptions = Omit<Parameters<typeof EntityMixin>[1], 'pk'>;
 
