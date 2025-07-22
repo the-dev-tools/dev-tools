@@ -2,7 +2,11 @@ import { create } from '@bufbuild/protobuf';
 import { Endpoint, schema } from '@data-client/endpoint';
 import { Array, Equivalence, Match, Option, pipe, Record, Struct } from 'effect';
 import { EndpointService } from '../dist/buf/typescript/collection/item/endpoint/v1/endpoint_pb';
-import { ExampleMoveRequestSchema, ExampleService } from '../dist/buf/typescript/collection/item/example/v1/example_pb';
+import {
+  ExampleMoveRequestSchema,
+  ExampleSchema,
+  ExampleService,
+} from '../dist/buf/typescript/collection/item/example/v1/example_pb';
 import { FolderService } from '../dist/buf/typescript/collection/item/folder/v1/folder_pb';
 import {
   CollectionItem,
@@ -102,10 +106,10 @@ export const runExample = ({ method, name }: MakeEndpointProps<typeof ExampleSer
   const endpointFn = async (props: EndpointProps<typeof ExampleService.method.exampleRun>) => {
     const output = await makeEndpointFn(method)(props);
 
-    const example = {
-      exampleId: props.input.exampleId,
-      lastResponseId: output.response?.responseId,
-    };
+    const example = create(ExampleSchema, {
+      exampleId: props.input.exampleId!,
+      lastResponseId: output.response!.responseId,
+    });
 
     return { ...output, example };
   };

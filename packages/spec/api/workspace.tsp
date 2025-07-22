@@ -24,7 +24,7 @@ model Workspace {
   @key workspaceId: Resource.Id;
   selectedEnvironmentId: Resource.Id;
   name: string;
-  @visibility(Resource.Mutation.None) updated: WellKnown.Timestamp;
+  @visibility(Resource.Mutation.None) updated?: WellKnown.Timestamp;
   @visibility(Resource.Mutation.None) collectionCount: int32;
   @visibility(Resource.Mutation.None) flowCount: int32;
 }
