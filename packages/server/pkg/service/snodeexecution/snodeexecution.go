@@ -41,13 +41,14 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 	}
 	
 	return &gen.NodeExecution{
-		ID:               ne.ID,
-		NodeID:           ne.NodeID,
-		FlowRunID:        ne.FlowRunID,
-		State:            ne.State,
-		Data:             ne.Data,
-		DataCompressType: ne.DataCompressType,
-		Error:            errorSQL,
+		ID:                     ne.ID,
+		NodeID:                 ne.NodeID,
+		State:                  ne.State,
+		InputData:              ne.InputData,
+		InputDataCompressType:  ne.InputDataCompressType,
+		OutputData:             ne.OutputData,
+		OutputDataCompressType: ne.OutputDataCompressType,
+		Error:                  errorSQL,
 	}
 }
 
@@ -58,13 +59,14 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecu
 	}
 	
 	return &mnodeexecution.NodeExecution{
-		ID:               ne.ID,
-		NodeID:           ne.NodeID,
-		FlowRunID:        ne.FlowRunID,
-		State:            ne.State,
-		Data:             ne.Data,
-		DataCompressType: ne.DataCompressType,
-		Error:            errorPtr,
+		ID:                     ne.ID,
+		NodeID:                 ne.NodeID,
+		State:                  ne.State,
+		InputData:              ne.InputData,
+		InputDataCompressType:  ne.InputDataCompressType,
+		OutputData:             ne.OutputData,
+		OutputDataCompressType: ne.OutputDataCompressType,
+		Error:                  errorPtr,
 	}
 }
 
@@ -78,25 +80,15 @@ func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodee
 	}
 	
 	return s.queries.CreateNodeExecution(ctx, gen.CreateNodeExecutionParams{
-		ID:               ne.ID,
-		NodeID:           ne.NodeID,
-		FlowRunID:        ne.FlowRunID,
-		State:            ne.State,
-		Data:             ne.Data,
-		DataCompressType: ne.DataCompressType,
-		Error:            errorSQL,
+		ID:                     ne.ID,
+		NodeID:                 ne.NodeID,
+		State:                  ne.State,
+		InputData:              ne.InputData,
+		InputDataCompressType:  ne.InputDataCompressType,
+		OutputData:             ne.OutputData,
+		OutputDataCompressType: ne.OutputDataCompressType,
+		Error:                  errorSQL,
 	})
-}
-
-func (s NodeExecutionService) GetNodeExecutionsByFlowRunID(ctx context.Context, flowRunID idwrap.IDWrap) ([]mnodeexecution.NodeExecution, error) {
-	executions, err := s.queries.GetNodeExecutionsByFlowRunID(ctx, flowRunID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return []mnodeexecution.NodeExecution{}, nil
-		}
-		return nil, err
-	}
-	return tgeneric.MassConvertPtr(executions, ConvertNodeExecutionToModel), nil
 }
 
 func (s NodeExecutionService) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]mnodeexecution.NodeExecution, error) {

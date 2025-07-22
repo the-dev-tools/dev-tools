@@ -24,16 +24,14 @@ namespace API.FlowItem.NodeExecution;
 model NodeExecution {
   @key nodeExecutionId: Resource.Id;
   nodeId: Resource.Id;
-  flowRunId: Resource.Id;
   state: Node.NodeState;
-  data?: bytes;
+  inputData?: bytes;
+  outputData?: bytes;
   error?: string;
 }
 
 @autoFields
 model NodeExecutionListRequest is Resource.List.Request<NodeExecution> {
-  // Filter by flow run ID
-  flowRunId?: Resource.Id;
   // Filter by node ID
   nodeId?: Resource.Id;
 }

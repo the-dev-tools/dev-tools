@@ -68,7 +68,6 @@ func TestReferenceTree_WithRequestNodeExecution(t *testing.T) {
 	userID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
 	requestNodeID := idwrap.NewNow()
-	flowRunID := idwrap.NewNow()
 
 	// Create workspace
 	baseServices := base.GetBaseServices()
@@ -128,10 +127,9 @@ func TestReferenceTree_WithRequestNodeExecution(t *testing.T) {
 	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
 		ID:               idwrap.NewNow(),
 		NodeID:           requestNodeID,
-		FlowRunID:        flowRunID,
 		State:            2, // Success
-		Data:             outputData,
-		DataCompressType: compress.CompressTypeNone,
+		OutputData:             outputData,
+		OutputDataCompressType: compress.CompressTypeNone,
 	})
 	require.NoError(t, err)
 
@@ -365,7 +363,6 @@ func TestReferenceCompletion_WithRequestNodeExecution(t *testing.T) {
 	flowID := idwrap.NewNow()
 	requestNodeID := idwrap.NewNow()
 	currentNodeID := idwrap.NewNow()
-	flowRunID := idwrap.NewNow()
 
 	// Create workspace
 	baseServices := base.GetBaseServices()
@@ -440,10 +437,9 @@ func TestReferenceCompletion_WithRequestNodeExecution(t *testing.T) {
 	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
 		ID:               idwrap.NewNow(),
 		NodeID:           requestNodeID,
-		FlowRunID:        flowRunID,
 		State:            2, // Success
-		Data:             outputData,
-		DataCompressType: compress.CompressTypeNone,
+		OutputData:             outputData,
+		OutputDataCompressType: compress.CompressTypeNone,
 	})
 	require.NoError(t, err)
 
@@ -513,7 +509,6 @@ func TestReferenceValue_WithRequestNodeExecution(t *testing.T) {
 	flowID := idwrap.NewNow()
 	requestNodeID := idwrap.NewNow()
 	currentNodeID := idwrap.NewNow()
-	flowRunID := idwrap.NewNow()
 
 	// Create workspace
 	baseServices := base.GetBaseServices()
@@ -589,10 +584,9 @@ func TestReferenceValue_WithRequestNodeExecution(t *testing.T) {
 	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
 		ID:               idwrap.NewNow(),
 		NodeID:           requestNodeID,
-		FlowRunID:        flowRunID,
 		State:            2, // Success
-		Data:             outputData,
-		DataCompressType: compress.CompressTypeNone,
+		OutputData:             outputData,
+		OutputDataCompressType: compress.CompressTypeNone,
 	})
 	require.NoError(t, err)
 
