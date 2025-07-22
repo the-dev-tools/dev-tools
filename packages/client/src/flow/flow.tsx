@@ -22,6 +22,7 @@ import { useDrop } from 'react-aria';
 import { MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
+import { Example } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import { EdgeKind, EdgeKindJson } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
@@ -515,10 +516,16 @@ const ActionBar = () => {
             if (example) {
               const { exampleId, responseId, versionId } = example;
 
-              void dataClient.controller.set(ExampleEntity, { exampleId }, {
-                exampleId,
-                lastResponseId: responseId,
-              } satisfies Partial<ExampleEntity>);
+              const snapshot = dataClient.controller.snapshot(dataClient.controller.getState());
+
+              const oldExampleData: Example | undefined = snapshot.get(ExampleEntity, { exampleId });
+
+              if (oldExampleData)
+                void dataClient.controller.set(
+                  ExampleEntity,
+                  { exampleId },
+                  { ...oldExampleData, lastResponseId: responseId },
+                );
 
               void setQueryChild(
                 dataClient.controller,
