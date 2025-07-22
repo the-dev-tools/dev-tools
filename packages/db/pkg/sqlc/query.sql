@@ -2114,11 +2114,8 @@ WHERE
 -- Node Execution
 -- name: CreateNodeExecution :exec
 INSERT INTO node_execution (
-  id, node_id, flow_run_id, state, data, data_compress_type, error
-) VALUES (?, ?, ?, ?, ?, ?, ?);
-
--- name: GetNodeExecutionsByFlowRunID :many
-SELECT * FROM node_execution WHERE flow_run_id = ? ORDER BY id;
+  id, node_id, state, input_data, input_data_compress_type, output_data, output_data_compress_type, error
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetNodeExecutionsByNodeID :many
 SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC;
