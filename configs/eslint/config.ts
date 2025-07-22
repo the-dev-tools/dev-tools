@@ -19,6 +19,8 @@ const root = resolve(import.meta.dirname, '../..');
 
 const gitignore = includeIgnoreFile(resolve(root, '.gitignore'));
 
+const isIDE = process.env['NODE_ENV'] === 'IDE';
+
 const nodejs: Linter.Config = {
   files: ['*.js', '*.mjs', '*.ts'],
   ignores: ['src/*'],
@@ -114,7 +116,7 @@ const rules: Linter.Config = {
     ],
     '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
 
-    'import-x/namespace': 'off', // currently a lot of false-positives, re-enable if/when improved
+    ...(isIDE && { 'import-x/no-unresolved': 'off' }), // disable in IDE due to false positives: https://github.com/un-ts/eslint-plugin-import-x/issues/370
 
     'perfectionist/sort-imports': [
       'warn',

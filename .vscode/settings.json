@@ -1,6 +1,6 @@
 {
   "eslint.options": { "flags": ["v10_config_lookup_from_file"] },
-  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.nodeEnv": "IDE",
   "files.associations": { "*.css": "tailwindcss" },
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nixd",
