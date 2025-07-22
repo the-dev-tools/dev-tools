@@ -2,7 +2,7 @@ import { create, DescMessage, DescMethodUnary, MessageInitShape, MessageShape, t
 import { ContextValues, Transport } from '@connectrpc/connect';
 import { Controller } from '@data-client/core';
 import { EntityMixin, Schema, schema, SchemaSimple } from '@data-client/endpoint';
-import { Equivalence, Option, pipe, Predicate, Record, Struct } from 'effect';
+import { Schema as EffectSchema, Equivalence, Option, pipe, Predicate, Record, Struct } from 'effect';
 
 export type EntitySchema = (new (input: MessageInitShape<DescMessage>) => unknown) & Schema;
 
@@ -21,20 +21,30 @@ export const makeEntity = <Desc extends DescMessage>({
   ...props
 }: MakeEntityProps<Desc>) => {
   const MessageClass = function (this: MessageShape<Desc>, init?: MessageInitShape<Desc>) {
-    const value = create(message, init);
+    const value = process(init);
     Object.assign(this, value);
   } as unknown as new (init?: MessageInitShape<Desc>) => MessageShape<Desc>;
 
-  const pk = (value: MessageInitShape<Desc> | undefined) =>
-    pipe(create(message, value), (_) => toJson(message, _), Struct.pick(...primaryKeys), JSON.stringify);
+  const pk = (value: Record<string, unknown> | undefined = {}) =>
+    pipe(
+      Struct.pick(value, ...(primaryKeys as string[])),
+      Record.map((value) => {
+        if (typeof value === 'bigint') return value.toString();
+        if (Predicate.isUint8Array(value)) return EffectSchema.encodeSync(EffectSchema.Uint8ArrayFromBase64)(value);
+        return value;
+      }),
+      JSON.stringify,
+    );
+
+  const process = (input: MessageInitShape<Desc> | undefined) => create(message, input);
 
   const validate = (value: object): string | undefined => {
     const missingKeys = requiredKeys.filter((_) => !Object.hasOwn(value, _));
     if (!missingKeys.length) return;
-    return `Missing keys: ${missingKeys.join(', ')}`;
+    return `Entity of type ${message.typeName} is missing the following keys: ${missingKeys.join(', ')}`;
   };
 
-  return EntityMixin(MessageClass, { pk, validate, ...props });
+  return EntityMixin(MessageClass, { pk, process, validate, ...props });
 };
 
 const transportKeys = new WeakMap<Transport, string>();
