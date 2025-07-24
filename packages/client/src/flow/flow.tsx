@@ -1,6 +1,6 @@
 import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
-import { createFileRoute, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
+import { createFileRoute, useBlocker, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
 import {
   Background,
   BackgroundVariant,
@@ -19,7 +19,7 @@ import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Predicate
 import { Ulid } from 'id128';
 import { PropsWithChildren, Suspense, use, useCallback, useMemo, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
-import { MenuTrigger, useDragAndDrop } from 'react-aria-components';
+import { Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { Example } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
@@ -55,6 +55,7 @@ import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
+import { Modal } from '@the-dev-tools/ui/modal';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -445,6 +446,12 @@ const ActionBar = () => {
 
   const makeNode = useMakeNode();
 
+  const { proceed, reset, status } = useBlocker({
+    disabled: !controller,
+    shouldBlockFn: (_) => _.current.pathname !== _.next.pathname,
+    withResolver: true,
+  });
+
   const onRun = async () => {
     const controller = new AbortController();
     setController(controller);
@@ -531,48 +538,72 @@ const ActionBar = () => {
   };
 
   return (
-    <RFPanel
-      className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow-sm`}
-      position='bottom-center'
-    >
-      {/* <Button variant='ghost dark' className={tw`p-1`}>
-        <TextBoxIcon className={tw`size-5 text-slate-300`} />
-      </Button> */}
+    <>
+      <Modal isOpen={status === 'blocked'} modalClassName={tw`h-auto w-sm`}>
+        <Dialog className={tw`grid grid-cols-2 gap-4 p-6`}>
+          <div className={tw`col-span-full`}>
+            Leaving the flow will stop the execution, are you sure you want to proceed?
+          </div>
 
-      {/* <Button variant='ghost dark' className={tw`p-1`}>
-        <ChatAddIcon className={tw`size-5 text-slate-300`} />
-      </Button> */}
+          <Button onPress={() => reset?.()} variant='secondary'>
+            Cancel
+          </Button>
 
-      {/* <div className={tw`mx-2 h-5 w-px bg-white/20`} /> */}
+          <Button
+            onPress={() => {
+              onStop();
+              proceed?.();
+            }}
+            variant='primary'
+          >
+            Continue
+          </Button>
+        </Dialog>
+      </Modal>
 
-      <Button
-        className={tw`px-1.5 py-1`}
-        onPress={async () => {
-          const { domNode } = storeApi.getState();
-          if (!domNode) return;
-          const box = domNode.getBoundingClientRect();
-          const position = flow.screenToFlowPosition({ x: box.x + box.width / 2, y: box.y + box.height * 0.1 });
-          const node = await makeNode({ kind: NodeKind.NO_OP, noOp: NodeNoOpKind.CREATE, position });
-          pipe(node, Node.fromDTO, flow.addNodes);
-        }}
-        variant='ghost dark'
+      <RFPanel
+        className={tw`mb-4 flex items-center gap-2 rounded-lg bg-slate-900 p-1 shadow-sm`}
+        position='bottom-center'
       >
-        <FiPlus className={tw`size-5 text-slate-300`} />
-        Add Node
-      </Button>
+        {/* <Button variant='ghost dark' className={tw`p-1`}>
+          <TextBoxIcon className={tw`size-5 text-slate-300`} />
+        </Button> */}
 
-      {controller ? (
-        <Button onPress={onStop} variant='primary'>
-          <FiStopCircle className={tw`size-4`} />
-          Stop
+        {/* <Button variant='ghost dark' className={tw`p-1`}>
+          <ChatAddIcon className={tw`size-5 text-slate-300`} />
+        </Button> */}
+
+        {/* <div className={tw`mx-2 h-5 w-px bg-white/20`} /> */}
+
+        <Button
+          className={tw`px-1.5 py-1`}
+          onPress={async () => {
+            const { domNode } = storeApi.getState();
+            if (!domNode) return;
+            const box = domNode.getBoundingClientRect();
+            const position = flow.screenToFlowPosition({ x: box.x + box.width / 2, y: box.y + box.height * 0.1 });
+            const node = await makeNode({ kind: NodeKind.NO_OP, noOp: NodeNoOpKind.CREATE, position });
+            pipe(node, Node.fromDTO, flow.addNodes);
+          }}
+          variant='ghost dark'
+        >
+          <FiPlus className={tw`size-5 text-slate-300`} />
+          Add Node
         </Button>
-      ) : (
-        <Button onPress={onRun} variant='primary'>
-          <PlayCircleIcon className={tw`size-4`} />
-          Run
-        </Button>
-      )}
-    </RFPanel>
+
+        {controller ? (
+          <Button onPress={onStop} variant='primary'>
+            <FiStopCircle className={tw`size-4`} />
+            Stop
+          </Button>
+        ) : (
+          <Button onPress={onRun} variant='primary'>
+            <PlayCircleIcon className={tw`size-4`} />
+            Run
+          </Button>
+        )}
+      </RFPanel>
+    </>
   );
 };
 
