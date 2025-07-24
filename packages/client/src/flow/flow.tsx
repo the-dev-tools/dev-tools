@@ -17,10 +17,10 @@ import {
 } from '@xyflow/react';
 import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Predicate, Record, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { PropsWithChildren, Suspense, use, useCallback, useMemo, useRef } from 'react';
+import { PropsWithChildren, Suspense, use, useCallback, useMemo, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
 import { MenuTrigger, useDragAndDrop } from 'react-aria-components';
-import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiX } from 'react-icons/fi';
+import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { Example } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import { EdgeKind, EdgeKindJson } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
@@ -441,7 +441,94 @@ const ActionBar = () => {
   const flow = useReactFlow<Node, Edge>();
   const storeApi = useStoreApi<Node, Edge>();
 
+  const [controller, setController] = useState<AbortController>();
+
   const makeNode = useMakeNode();
+
+  const onRun = async () => {
+    const controller = new AbortController();
+    setController(controller);
+
+    try {
+      flow.getNodes().forEach((_) => void flow.updateNodeData(_.id, { ..._.data, state: NodeState.UNSPECIFIED }));
+      flow.getEdges().forEach((_) => void flow.updateEdgeData(_.id, { ..._.data, state: NodeState.UNSPECIFIED }));
+
+      // Wait for auto-save
+      // TODO: would be better to implement some sort of a locking mechanism
+      await new Promise((r) => setTimeout(r, 500));
+
+      const sourceEdges = pipe(
+        flow.getEdges(),
+        Array.groupBy((_) => _.source),
+        Record.toEntries,
+        HashMap.fromIterable,
+      );
+
+      for await (const { example, node, version } of flowRun({ flowId }, { signal: controller.signal })) {
+        if (version) {
+          void setQueryChild(
+            dataClient.controller,
+            FlowVersionsEndpoint.schema.items,
+            'unshift',
+            { controller: () => dataClient.controller, input: { flowId }, transport },
+            version,
+          );
+        }
+
+        if (example) {
+          const { exampleId, responseId, versionId } = example;
+
+          const snapshot = dataClient.controller.snapshot(dataClient.controller.getState());
+
+          const oldExampleData: Example | undefined = snapshot.get(ExampleEntity, { exampleId });
+
+          if (oldExampleData)
+            void dataClient.controller.set(
+              ExampleEntity,
+              { exampleId },
+              { ...oldExampleData, lastResponseId: responseId },
+            );
+
+          void setQueryChild(
+            dataClient.controller,
+            ExampleVersionsEndpoint.schema.items,
+            'unshift',
+            { controller: () => dataClient.controller, input: { exampleId }, transport },
+            { exampleId: versionId, lastResponseId: responseId } satisfies Partial<ExampleVersionsItemEntity>,
+          );
+        }
+
+        if (node) {
+          const { info, nodeId, state } = node;
+          const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+
+          flow.updateNodeData(nodeIdCan, (_) => ({ ..._, info: info!, state }));
+
+          pipe(
+            HashMap.get(sourceEdges, nodeIdCan),
+            Array.fromOption,
+            Array.flatten,
+            Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state }))),
+          );
+        }
+      }
+    } finally {
+      setController(undefined);
+    }
+  };
+
+  const onStop = () => {
+    controller?.abort();
+
+    flow.getNodes().forEach((_) => {
+      if (_.data.state !== NodeState.RUNNING) return;
+      flow.updateNodeData(_.id, { ..._.data, state: NodeState.CANCELED });
+    });
+    flow.getEdges().forEach((_) => {
+      if (_.data?.state !== NodeState.RUNNING) return;
+      flow.updateEdgeData(_.id, { ..._.data, state: NodeState.CANCELED });
+    });
+  };
 
   return (
     <RFPanel
@@ -474,88 +561,17 @@ const ActionBar = () => {
         Add Node
       </Button>
 
-      <Button
-        onPress={async () => {
-          flow.getNodes().forEach(
-            (_) =>
-              void flow.updateNodeData(_.id, {
-                ..._,
-                state: NodeState.UNSPECIFIED,
-              }),
-          );
-          flow.getEdges().forEach(
-            (_) =>
-              void flow.updateEdgeData(_.id, {
-                ..._,
-                state: NodeState.UNSPECIFIED,
-              }),
-          );
-
-          // Wait for auto-save
-          // TODO: would be better to implement some sort of a locking mechanism
-          await new Promise((r) => setTimeout(r, 500));
-
-          const sourceEdges = pipe(
-            flow.getEdges(),
-            Array.groupBy((_) => _.source),
-            Record.toEntries,
-            HashMap.fromIterable,
-          );
-
-          for await (const { example, node, version } of flowRun({ flowId })) {
-            if (version) {
-              void setQueryChild(
-                dataClient.controller,
-                FlowVersionsEndpoint.schema.items,
-                'unshift',
-                { controller: () => dataClient.controller, input: { flowId }, transport },
-                version,
-              );
-            }
-
-            if (example) {
-              const { exampleId, responseId, versionId } = example;
-
-              const snapshot = dataClient.controller.snapshot(dataClient.controller.getState());
-
-              const oldExampleData: Example | undefined = snapshot.get(ExampleEntity, { exampleId });
-
-              if (oldExampleData)
-                void dataClient.controller.set(
-                  ExampleEntity,
-                  { exampleId },
-                  { ...oldExampleData, lastResponseId: responseId },
-                );
-
-              void setQueryChild(
-                dataClient.controller,
-                ExampleVersionsEndpoint.schema.items,
-                'unshift',
-                { controller: () => dataClient.controller, input: { exampleId }, transport },
-                { exampleId: versionId, lastResponseId: responseId } satisfies Partial<ExampleVersionsItemEntity>,
-              );
-            }
-
-            if (node) {
-              const { info, nodeId, state } = node;
-              const nodeIdCan = Ulid.construct(nodeId).toCanonical();
-
-              flow.updateNodeData(nodeIdCan, (_) => ({ ..._, info: info!, state }));
-
-              pipe(
-                HashMap.get(sourceEdges, nodeIdCan),
-                Array.fromOption,
-                Array.flatten,
-                Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state }))),
-              );
-            }
-          }
-        }}
-        variant='primary'
-      >
-        <PlayCircleIcon className={tw`size-4`} />
-        Run
-      </Button>
+      {controller ? (
+        <Button onPress={onStop} variant='primary'>
+          <FiStopCircle className={tw`size-4`} />
+          Stop
+        </Button>
+      ) : (
+        <Button onPress={onRun} variant='primary'>
+          <PlayCircleIcon className={tw`size-4`} />
+          Run
+        </Button>
+      )}
     </RFPanel>
   );
 };
