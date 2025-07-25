@@ -18,23 +18,18 @@ using TypeSpec.Rest;
 })
 namespace API.FlowItem.NodeExecution;
 
-// OutputKind enum for UI representation
-enum OutputKind {
-  OUTPUT_KIND_UNSPECIFIED: 0,
-  OUTPUT_KIND_REQUEST: 1,
-}
-
 @parentResource(Node.Node)
 @entity
 @autoFields
 model NodeExecution {
   @key nodeExecutionId: Resource.Id;
   nodeId: Resource.Id;
+  name: string;
   state: Node.NodeState;
   error?: string;
   input?: WellKnown.JsonValue;
   output?: WellKnown.JsonValue;
-  outputKind?: OutputKind; // OutputKind for UI representation
+  responseId?: Resource.Id; // present when execution belongs to a request node
   completedAt?: WellKnown.Timestamp;
 }
 

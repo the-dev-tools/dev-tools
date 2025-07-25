@@ -35,6 +35,7 @@ import {
   ExampleEntity,
   ExampleVersionsItemEntity,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.entities.js';
+import { NodeExecutionListEndpoint } from '@the-dev-tools/spec/meta/flow/node/execution/v1/execution.endpoints.js';
 import { NodeGetEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
 import {
   FlowDeleteEndpoint,
@@ -61,7 +62,7 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { EndpointKey, ExampleKey, TreeKey } from '~collection';
-import { setQueryChild, useDLE, useMutate, useQuery } from '~data-client';
+import { setQueryChild, useDLE, useEndpointProps, useMutate, useQuery } from '~data-client';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -441,6 +442,7 @@ const ActionBar = () => {
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
   const flow = useReactFlow<Node, Edge>();
   const storeApi = useStoreApi<Node, Edge>();
+  const endpointProps = useEndpointProps();
 
   const [controller, setController] = useState<AbortController>();
 
@@ -508,6 +510,10 @@ const ActionBar = () => {
         if (node) {
           const { info, nodeId, state } = node;
           const nodeIdCan = Ulid.construct(nodeId).toCanonical();
+
+          void dataClient.controller.expireAll({
+            testKey: (_) => _ === NodeExecutionListEndpoint.key({ ...endpointProps, input: { nodeId } }),
+          });
 
           flow.updateNodeData(nodeIdCan, (_) => ({ ..._, info: info!, state }));
 

@@ -14,7 +14,7 @@ import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
-import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
+import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps, NodeProps } from '../node';
 
 export const ForNode = (props: NodeProps) => (
   <NodeContainer
@@ -132,6 +132,8 @@ export const ForPanel = ({ node: { for: data, nodeId } }: NodePanelProps) => {
           <ListBoxItem id={ErrorHandling.BREAK}>Break</ListBoxItem>
         </SelectRHF>
       </div>
+
+      <NodeExecutionPanel nodeId={nodeId} />
     </>
   );
 };

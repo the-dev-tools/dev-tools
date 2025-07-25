@@ -8,7 +8,7 @@ import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useCodeMirrorLanguageExtensions } from '~code-mirror/extensions';
 import { FlowContext, Handle } from '../internal';
-import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
+import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps, NodeProps } from '../node';
 
 export const JavaScriptNode = (props: NodeProps) => (
   <NodeContainer
@@ -62,15 +62,26 @@ export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
         </ButtonAsLink>
       </div>
 
-      <CodeMirror
-        className={tw`flex-1 overflow-auto`}
-        extensions={extensions}
-        height='100%'
-        onBlur={() => dataClient.fetch(NodeUpdateEndpoint, { js: { code: value }, nodeId })}
-        onChange={setValue}
-        readOnly={isReadOnly}
-        value={value}
-      />
+      <div className={tw`mx-5 my-4 overflow-auto rounded-lg border border-slate-200`}>
+        <div
+          className={tw`
+            border-b border-slate-200 bg-slate-50 px-3 py-2 text-md leading-5 font-medium tracking-tight text-slate-800
+          `}
+        >
+          Code
+        </div>
+
+        <CodeMirror
+          extensions={extensions}
+          height='100%'
+          onBlur={() => dataClient.fetch(NodeUpdateEndpoint, { js: { code: value }, nodeId })}
+          onChange={setValue}
+          readOnly={isReadOnly}
+          value={value}
+        />
+      </div>
+
+      <NodeExecutionPanel nodeId={nodeId} />
     </>
   );
 };

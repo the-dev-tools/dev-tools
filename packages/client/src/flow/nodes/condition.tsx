@@ -12,7 +12,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
-import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
+import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps, NodeProps } from '../node';
 
 export const ConditionNode = (props: NodeProps) => (
   <NodeContainer
@@ -116,6 +116,8 @@ export const ConditionPanel = ({ node: { condition, nodeId } }: NodePanelProps) 
       <div className={tw`m-5`}>
         <ConditionField control={control} isReadOnly={isReadOnly} path='condition' />
       </div>
+
+      <NodeExecutionPanel nodeId={nodeId} />
     </>
   );
 };

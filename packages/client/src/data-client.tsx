@@ -56,6 +56,11 @@ export const setQueryChild = <S extends Queryable>(
   ...rest: readonly [...SchemaArgs<S>, object]
 ) => controller.set(schema[childKey] as S, ...rest);
 
+export const useEndpointProps = () => {
+  const { dataClient, transport } = useRouteContext({ from: '__root__' });
+  return { controller: () => dataClient.controller, transport };
+};
+
 export const useQuery = <
   E extends EndpointInterface<(props: EndpointProps<DescMethodUnary>) => Promise<unknown>, Schema, false>,
   I extends null | Parameters<E>[0]['input'],
@@ -64,11 +69,11 @@ export const useQuery = <
   input: I,
   params?: Partial<Omit<Parameters<E>[0], 'input'>>,
 ) => {
-  const { dataClient, transport } = useRouteContext({ from: '__root__' });
+  const endpointProps = useEndpointProps();
 
   const args = pipe(
     Option.fromNullable(input),
-    Option.map((input) => [{ controller: () => dataClient.controller, input, transport, ...params }] as Parameters<E>),
+    Option.map((input) => [{ ...endpointProps, ...params, input }] as Parameters<E>),
     Option.getOrElse(() => [null] as const),
   );
 

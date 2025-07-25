@@ -24,7 +24,7 @@ import { CollectionListTree } from '../../collection';
 import { EndpointRequestView, ResponseTabs, useEndpointUrlForm } from '../../endpoint';
 import { ReferenceContext } from '../../reference';
 import { FlowContext, Handle, workspaceRoute } from '../internal';
-import { NodeBody, NodeContainer, NodePanelProps, NodeProps } from '../node';
+import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps, NodeProps } from '../node';
 
 export const RequestNode = (props: NodeProps) => (
   <NodeContainer
@@ -152,8 +152,6 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
   const collection = useQuery(CollectionGetEndpoint, { collectionId });
   const example = useQuery(ExampleGetEndpoint, { exampleId });
 
-  const { lastResponseId } = example;
-
   const [renderEndpointUrlForm] = useEndpointUrlForm({
     deltaEndpointId,
     deltaExampleId,
@@ -217,28 +215,23 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
         </ReferenceContext>
       </div>
 
-      {lastResponseId && (
-        <div className={tw`mx-5 my-4 overflow-auto rounded-lg border border-slate-200`}>
-          <div
-            className={tw`
-              border-b border-slate-200 bg-slate-50 px-3 py-2 text-md leading-5 font-medium tracking-tight
-              text-slate-800
-            `}
-          >
-            Response
-          </div>
-
-          <Suspense
-            fallback={
-              <div className={tw`flex h-full items-center justify-center p-4`}>
-                <Spinner className={tw`size-8`} />
-              </div>
-            }
-          >
-            <ResponseTabs className={tw`p-5 pt-3`} responseId={lastResponseId} />
-          </Suspense>
-        </div>
-      )}
+      <NodeExecutionPanel
+        nodeId={nodeId}
+        renderOutput={(_) => {
+          if (!_.responseId) return null;
+          return (
+            <Suspense
+              fallback={
+                <div className={tw`flex h-full items-center justify-center p-4`}>
+                  <Spinner className={tw`size-8`} />
+                </div>
+              }
+            >
+              <ResponseTabs responseId={_.responseId} />
+            </Suspense>
+          );
+        }}
+      />
     </>
   );
 };

@@ -2,10 +2,11 @@ package tnodeexecution
 
 import (
 	"encoding/json"
-	"time"
+	"the-dev-tools/server/pkg/model/mnodeexecution"
 	nodeexecutionv1 "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
+	"time"
+
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -16,12 +17,12 @@ func SerializeNodeExecutionModelToRPC(ne *mnodeexecution.NodeExecution) (*nodeex
 		NodeId:          ne.NodeID.Bytes(),
 		State:           nodev1.NodeState(ne.State),
 	}
-	
+
 	// Handle optional error
 	if ne.Error != nil {
 		rpc.Error = ne.Error
 	}
-	
+
 	// Decompress and convert input JSON to structpb.Value
 	if inputJSON, err := ne.GetInputJSON(); err == nil && inputJSON != nil {
 		var inputValue interface{}
@@ -29,7 +30,7 @@ func SerializeNodeExecutionModelToRPC(ne *mnodeexecution.NodeExecution) (*nodeex
 			rpc.Input, _ = structpb.NewValue(inputValue)
 		}
 	}
-	
+
 	// Decompress and convert output JSON to structpb.Value
 	if outputJSON, err := ne.GetOutputJSON(); err == nil && outputJSON != nil {
 		var outputValue interface{}
@@ -37,18 +38,12 @@ func SerializeNodeExecutionModelToRPC(ne *mnodeexecution.NodeExecution) (*nodeex
 			rpc.Output, _ = structpb.NewValue(outputValue)
 		}
 	}
-	
-	// Convert OutputKind
-	if ne.OutputKind != nil {
-		outputKind := nodeexecutionv1.OutputKind(*ne.OutputKind)
-		rpc.OutputKind = &outputKind
-	}
-	
+
 	// Convert CompletedAt timestamp
 	if ne.CompletedAt != nil {
 		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
 	}
-	
+
 	return rpc, nil
 }
 
@@ -58,12 +53,12 @@ func SerializeNodeExecutionModelToRPCListItem(ne *mnodeexecution.NodeExecution) 
 		NodeId:          ne.NodeID.Bytes(),
 		State:           nodev1.NodeState(ne.State),
 	}
-	
+
 	// Handle optional error
 	if ne.Error != nil {
 		rpc.Error = ne.Error
 	}
-	
+
 	// Decompress and convert input JSON to structpb.Value
 	if inputJSON, err := ne.GetInputJSON(); err == nil && inputJSON != nil {
 		var inputValue interface{}
@@ -71,7 +66,7 @@ func SerializeNodeExecutionModelToRPCListItem(ne *mnodeexecution.NodeExecution) 
 			rpc.Input, _ = structpb.NewValue(inputValue)
 		}
 	}
-	
+
 	// Decompress and convert output JSON to structpb.Value
 	if outputJSON, err := ne.GetOutputJSON(); err == nil && outputJSON != nil {
 		var outputValue interface{}
@@ -79,18 +74,12 @@ func SerializeNodeExecutionModelToRPCListItem(ne *mnodeexecution.NodeExecution) 
 			rpc.Output, _ = structpb.NewValue(outputValue)
 		}
 	}
-	
-	// Convert OutputKind
-	if ne.OutputKind != nil {
-		outputKind := nodeexecutionv1.OutputKind(*ne.OutputKind)
-		rpc.OutputKind = &outputKind
-	}
-	
+
 	// Convert CompletedAt timestamp
 	if ne.CompletedAt != nil {
 		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
 	}
-	
+
 	return rpc, nil
 }
 
@@ -100,12 +89,12 @@ func SerializeNodeExecutionModelToRPCGetResponse(ne *mnodeexecution.NodeExecutio
 		NodeId:          ne.NodeID.Bytes(),
 		State:           nodev1.NodeState(ne.State),
 	}
-	
+
 	// Handle optional error
 	if ne.Error != nil {
 		rpc.Error = ne.Error
 	}
-	
+
 	// Decompress and convert input JSON to structpb.Value
 	if inputJSON, err := ne.GetInputJSON(); err == nil && inputJSON != nil {
 		var inputValue interface{}
@@ -113,7 +102,7 @@ func SerializeNodeExecutionModelToRPCGetResponse(ne *mnodeexecution.NodeExecutio
 			rpc.Input, _ = structpb.NewValue(inputValue)
 		}
 	}
-	
+
 	// Decompress and convert output JSON to structpb.Value
 	if outputJSON, err := ne.GetOutputJSON(); err == nil && outputJSON != nil {
 		var outputValue interface{}
@@ -121,17 +110,11 @@ func SerializeNodeExecutionModelToRPCGetResponse(ne *mnodeexecution.NodeExecutio
 			rpc.Output, _ = structpb.NewValue(outputValue)
 		}
 	}
-	
-	// Convert OutputKind
-	if ne.OutputKind != nil {
-		outputKind := nodeexecutionv1.OutputKind(*ne.OutputKind)
-		rpc.OutputKind = &outputKind
-	}
-	
+
 	// Convert CompletedAt timestamp
 	if ne.CompletedAt != nil {
 		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
 	}
-	
+
 	return rpc, nil
 }
