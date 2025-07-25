@@ -35,6 +35,18 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*HeaderService, error) {
 }
 
 func SerializeHeaderModelToDB(header gen.ExampleHeader) mexampleheader.Header {
+	var prev, next *idwrap.IDWrap
+	if len(header.Prev) > 0 {
+		if p, err := idwrap.NewFromBytes(header.Prev); err == nil {
+			prev = &p
+		}
+	}
+	if len(header.Next) > 0 {
+		if n, err := idwrap.NewFromBytes(header.Next); err == nil {
+			next = &n
+		}
+	}
+	
 	return mexampleheader.Header{
 		ID:            header.ID,
 		ExampleID:     header.ExampleID,
@@ -43,10 +55,20 @@ func SerializeHeaderModelToDB(header gen.ExampleHeader) mexampleheader.Header {
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
+		Prev:          prev,
+		Next:          next,
 	}
 }
 
 func SerializeHeaderDBToModel(header mexampleheader.Header) gen.ExampleHeader {
+	var prev, next []byte
+	if header.Prev != nil {
+		prev = header.Prev.Bytes()
+	}
+	if header.Next != nil {
+		next = header.Next.Bytes()
+	}
+	
 	return gen.ExampleHeader{
 		ID:            header.ID,
 		ExampleID:     header.ExampleID,
@@ -55,6 +77,22 @@ func SerializeHeaderDBToModel(header mexampleheader.Header) gen.ExampleHeader {
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
+		Prev:          prev,
+		Next:          next,
+	}
+}
+
+func convertGetHeadersByExampleIDRowToHeader(row gen.GetHeadersByExampleIDRow) mexampleheader.Header {
+	return mexampleheader.Header{
+		ID:            row.ID,
+		ExampleID:     row.ExampleID,
+		DeltaParentID: row.DeltaParentID,
+		HeaderKey:     row.HeaderKey,
+		Enable:        row.Enable,
+		Description:   row.Description,
+		Value:         row.Value,
+		Prev:          nil, // Row type doesn't include prev/next
+		Next:          nil,
 	}
 }
 
@@ -66,11 +104,25 @@ func (h HeaderService) GetHeaderByExampleID(ctx context.Context, exampleID idwra
 
 	var headers []mexampleheader.Header
 	for _, dbHeader := range dbHeaders {
-		header := SerializeHeaderModelToDB(dbHeader)
+		header := convertGetHeadersByExampleIDRowToHeader(dbHeader)
 		headers = append(headers, header)
 	}
 
 	return headers, nil
+}
+
+func convertGetHeaderByDeltaParentIDRowToHeader(row gen.GetHeaderByDeltaParentIDRow) mexampleheader.Header {
+	return mexampleheader.Header{
+		ID:            row.ID,
+		ExampleID:     row.ExampleID,
+		DeltaParentID: row.DeltaParentID,
+		HeaderKey:     row.HeaderKey,
+		Enable:        row.Enable,
+		Description:   row.Description,
+		Value:         row.Value,
+		Prev:          nil, // Row type doesn't include prev/next
+		Next:          nil,
+	}
 }
 
 func (h HeaderService) GetHeaderByDeltaParentID(ctx context.Context, deltaParentID idwrap.IDWrap) ([]mexampleheader.Header, error) {
@@ -79,7 +131,7 @@ func (h HeaderService) GetHeaderByDeltaParentID(ctx context.Context, deltaParent
 		return nil, err
 	}
 
-	header := SerializeHeaderModelToDB(dbHeader)
+	header := convertGetHeaderByDeltaParentIDRowToHeader(dbHeader)
 	return []mexampleheader.Header{header}, nil
 }
 
@@ -303,4 +355,139 @@ func (h HeaderService) ResetHeaderDelta(ctx context.Context, id idwrap.IDWrap) e
 	header.Value = ""
 
 	return h.UpdateHeader(ctx, header)
+}
+
+// MoveHeader moves a header to a new position relative to a target
+func (h HeaderService) MoveHeader(ctx context.Context, headerID, targetID idwrap.IDWrap, position string) error {
+	// This implementation assumes the transaction will be managed at a higher level
+	// For now, we'll implement it without explicit transaction management
+	queries := h.queries
+	
+	// 1. Get the header to move
+	header, err := queries.GetHeader(ctx, headerID)
+	if err != nil {
+		return err
+	}
+	
+	// 2. Remove header from current position
+	if len(header.Prev) > 0 {
+		prevID, err := idwrap.NewFromBytes(header.Prev)
+		if err != nil {
+			return err
+		}
+		err = queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
+			ID:   prevID,
+			Next: header.Next,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	
+	if len(header.Next) > 0 {
+		nextID, err := idwrap.NewFromBytes(header.Next)
+		if err != nil {
+			return err
+		}
+		err = queries.UpdateHeaderPrev(ctx, gen.UpdateHeaderPrevParams{
+			ID:   nextID,
+			Prev: header.Prev,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	
+	// 3. Insert at new position
+	if position == "before" {
+		target, err := queries.GetHeader(ctx, targetID)
+		if err != nil {
+			return err
+		}
+		
+		// Update header's pointers
+		err = queries.UpdateHeaderOrder(ctx, gen.UpdateHeaderOrderParams{
+			ID:   headerID,
+			Prev: target.Prev,
+			Next: targetID.Bytes(),
+		})
+		if err != nil {
+			return err
+		}
+		
+		// Update target's prev
+		err = queries.UpdateHeaderPrev(ctx, gen.UpdateHeaderPrevParams{
+			ID:   targetID,
+			Prev: headerID.Bytes(),
+		})
+		if err != nil {
+			return err
+		}
+		
+		// Update previous item's next if exists
+		if len(target.Prev) > 0 {
+			prevID, err := idwrap.NewFromBytes(target.Prev)
+			if err != nil {
+				return err
+			}
+			err = queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
+				ID:   prevID,
+				Next: headerID.Bytes(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+	} else if position == "after" {
+		target, err := queries.GetHeader(ctx, targetID)
+		if err != nil {
+			return err
+		}
+		
+		// Update header's pointers
+		err = queries.UpdateHeaderOrder(ctx, gen.UpdateHeaderOrderParams{
+			ID:   headerID,
+			Prev: targetID.Bytes(),
+			Next: target.Next,
+		})
+		if err != nil {
+			return err
+		}
+		
+		// Update target's next
+		err = queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
+			ID:   targetID,
+			Next: headerID.Bytes(),
+		})
+		if err != nil {
+			return err
+		}
+		
+		// Update next item's prev if exists
+		if len(target.Next) > 0 {
+			nextID, err := idwrap.NewFromBytes(target.Next)
+			if err != nil {
+				return err
+			}
+			err = queries.UpdateHeaderPrev(ctx, gen.UpdateHeaderPrevParams{
+				ID:   nextID,
+				Prev: headerID.Bytes(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	
+	return nil
+}
+
+// GetHeadersByExampleIDOrdered returns headers in their linked list order
+func (h HeaderService) GetHeadersByExampleIDOrdered(ctx context.Context, exampleID idwrap.IDWrap) ([]mexampleheader.Header, error) {
+	dbHeaders, err := h.queries.GetHeadersByExampleIDOrdered(ctx, exampleID)
+	if err != nil {
+		return nil, err
+	}
+	
+	return tgeneric.MassConvert(dbHeaders, SerializeHeaderModelToDB), nil
 }

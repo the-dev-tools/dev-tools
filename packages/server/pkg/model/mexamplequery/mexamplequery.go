@@ -50,6 +50,8 @@ type Query struct {
 	DeltaParentID *idwrap.IDWrap
 	ID            idwrap.IDWrap
 	ExampleID     idwrap.IDWrap
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 func (q Query) IsEnabled() bool {

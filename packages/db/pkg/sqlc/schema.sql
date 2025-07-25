@@ -166,6 +166,9 @@ CREATE TABLE example_header (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (prev, next, example_id),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (delta_parent_id) REFERENCES example_header (id) ON DELETE CASCADE
 );
@@ -197,6 +200,9 @@ CREATE TABLE example_query (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (prev, next, example_id),
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (delta_parent_id) REFERENCES example_query (id) ON DELETE CASCADE
 );
@@ -454,3 +460,7 @@ CREATE TABLE node_execution (
 CREATE INDEX node_execution_idx1 ON node_execution (node_id);
 CREATE INDEX node_execution_idx2 ON node_execution (completed_at DESC);
 CREATE INDEX node_execution_idx3 ON node_execution (state);
+
+-- Ordering indexes for drag and drop functionality
+CREATE INDEX example_header_order_idx ON example_header (example_id, prev, next);
+CREATE INDEX example_query_order_idx ON example_query (example_id, prev, next);

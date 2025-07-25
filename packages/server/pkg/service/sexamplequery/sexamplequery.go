@@ -15,6 +15,14 @@ import (
 var ErrNoQueryFound = errors.New("no error query found")
 
 func SerializeQueryModelToDB(query mexamplequery.Query) gen.ExampleQuery {
+	var prev, next []byte
+	if query.Prev != nil {
+		prev = query.Prev.Bytes()
+	}
+	if query.Next != nil {
+		next = query.Next.Bytes()
+	}
+	
 	return gen.ExampleQuery{
 		ID:            query.ID,
 		ExampleID:     query.ExampleID,
@@ -23,10 +31,24 @@ func SerializeQueryModelToDB(query mexamplequery.Query) gen.ExampleQuery {
 		Enable:        query.Enable,
 		Description:   query.Description,
 		Value:         query.Value,
+		Prev:          prev,
+		Next:          next,
 	}
 }
 
 func SerializeQueryDBToModel(query gen.ExampleQuery) mexamplequery.Query {
+	var prev, next *idwrap.IDWrap
+	if len(query.Prev) > 0 {
+		if p, err := idwrap.NewFromBytes(query.Prev); err == nil {
+			prev = &p
+		}
+	}
+	if len(query.Next) > 0 {
+		if n, err := idwrap.NewFromBytes(query.Next); err == nil {
+			next = &n
+		}
+	}
+	
 	return mexamplequery.Query{
 		ID:            query.ID,
 		ExampleID:     query.ExampleID,
@@ -35,6 +57,8 @@ func SerializeQueryDBToModel(query gen.ExampleQuery) mexamplequery.Query {
 		Enable:        query.Enable,
 		Description:   query.Description,
 		Value:         query.Value,
+		Prev:          prev,
+		Next:          next,
 	}
 }
 
@@ -67,18 +91,46 @@ func (h ExampleQueryService) GetExampleQuery(ctx context.Context, id idwrap.IDWr
 	return SerializeQueryDBToModel(query), nil
 }
 
+func convertGetQueriesByExampleIDRowToQuery(row gen.GetQueriesByExampleIDRow) mexamplequery.Query {
+	return mexamplequery.Query{
+		ID:            row.ID,
+		ExampleID:     row.ExampleID,
+		DeltaParentID: row.DeltaParentID,
+		QueryKey:      row.QueryKey,
+		Enable:        row.Enable,
+		Description:   row.Description,
+		Value:         row.Value,
+		Prev:          nil, // Row type doesn't include prev/next
+		Next:          nil,
+	}
+}
+
 func (h ExampleQueryService) GetExampleQueriesByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]mexamplequery.Query, error) {
-	queries, err := h.queries.GetQueriesByExampleID(ctx, exampleID)
+	queryRows, err := h.queries.GetQueriesByExampleID(ctx, exampleID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []mexamplequery.Query{}, ErrNoQueryFound
 		}
 		return nil, err
 	}
-	sort.Slice(queries, func(i, j int) bool {
-		return queries[i].ID.Compare(queries[j].ID) < 0
+	sort.Slice(queryRows, func(i, j int) bool {
+		return queryRows[i].ID.Compare(queryRows[j].ID) < 0
 	})
-	return tgeneric.MassConvert(queries, SerializeQueryDBToModel), nil
+	return tgeneric.MassConvert(queryRows, convertGetQueriesByExampleIDRowToQuery), nil
+}
+
+func convertGetQueryByDeltaParentIDRowToQuery(row gen.GetQueryByDeltaParentIDRow) mexamplequery.Query {
+	return mexamplequery.Query{
+		ID:            row.ID,
+		ExampleID:     row.ExampleID,
+		DeltaParentID: row.DeltaParentID,
+		QueryKey:      row.QueryKey,
+		Enable:        row.Enable,
+		Description:   row.Description,
+		Value:         row.Value,
+		Prev:          nil, // Row type doesn't include prev/next
+		Next:          nil,
+	}
 }
 
 func (h ExampleQueryService) GetExampleQueryByDeltaParentID(ctx context.Context, deltaParentID *idwrap.IDWrap) (mexamplequery.Query, error) {
@@ -86,7 +138,7 @@ func (h ExampleQueryService) GetExampleQueryByDeltaParentID(ctx context.Context,
 	if err != nil {
 		return mexamplequery.Query{}, err
 	}
-	return SerializeQueryDBToModel(query), nil
+	return convertGetQueryByDeltaParentIDRowToQuery(query), nil
 }
 
 func (h ExampleQueryService) CreateExampleQuery(ctx context.Context, query mexamplequery.Query) error {
@@ -254,4 +306,139 @@ func (h ExampleQueryService) ResetExampleQueryDelta(ctx context.Context, id idwr
 	query.Value = ""
 
 	return h.UpdateExampleQuery(ctx, query)
+}
+
+// MoveQuery moves a query to a new position relative to a target
+func (h ExampleQueryService) MoveQuery(ctx context.Context, queryID, targetID idwrap.IDWrap, position string) error {
+	// This implementation assumes the transaction will be managed at a higher level
+	// For now, we'll implement it without explicit transaction management
+	queries := h.queries
+	
+	// 1. Get the query to move
+	query, err := queries.GetQuery(ctx, queryID)
+	if err != nil {
+		return err
+	}
+	
+	// 2. Remove query from current position
+	if len(query.Prev) > 0 {
+		prevID, err := idwrap.NewFromBytes(query.Prev)
+		if err != nil {
+			return err
+		}
+		err = queries.UpdateQueryNext(ctx, gen.UpdateQueryNextParams{
+			ID:   prevID,
+			Next: query.Next,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	
+	if len(query.Next) > 0 {
+		nextID, err := idwrap.NewFromBytes(query.Next)
+		if err != nil {
+			return err
+		}
+		err = queries.UpdateQueryPrev(ctx, gen.UpdateQueryPrevParams{
+			ID:   nextID,
+			Prev: query.Prev,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	
+	// 3. Insert at new position
+	if position == "before" {
+		target, err := queries.GetQuery(ctx, targetID)
+		if err != nil {
+			return err
+		}
+		
+		// Update query's pointers
+		err = queries.UpdateQueryOrder(ctx, gen.UpdateQueryOrderParams{
+			ID:   queryID,
+			Prev: target.Prev,
+			Next: targetID.Bytes(),
+		})
+		if err != nil {
+			return err
+		}
+		
+		// Update target's prev
+		err = queries.UpdateQueryPrev(ctx, gen.UpdateQueryPrevParams{
+			ID:   targetID,
+			Prev: queryID.Bytes(),
+		})
+		if err != nil {
+			return err
+		}
+		
+		// Update previous item's next if exists
+		if len(target.Prev) > 0 {
+			prevID, err := idwrap.NewFromBytes(target.Prev)
+			if err != nil {
+				return err
+			}
+			err = queries.UpdateQueryNext(ctx, gen.UpdateQueryNextParams{
+				ID:   prevID,
+				Next: queryID.Bytes(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+	} else if position == "after" {
+		target, err := queries.GetQuery(ctx, targetID)
+		if err != nil {
+			return err
+		}
+		
+		// Update query's pointers
+		err = queries.UpdateQueryOrder(ctx, gen.UpdateQueryOrderParams{
+			ID:   queryID,
+			Prev: targetID.Bytes(),
+			Next: target.Next,
+		})
+		if err != nil {
+			return err
+		}
+		
+		// Update target's next
+		err = queries.UpdateQueryNext(ctx, gen.UpdateQueryNextParams{
+			ID:   targetID,
+			Next: queryID.Bytes(),
+		})
+		if err != nil {
+			return err
+		}
+		
+		// Update next item's prev if exists
+		if len(target.Next) > 0 {
+			nextID, err := idwrap.NewFromBytes(target.Next)
+			if err != nil {
+				return err
+			}
+			err = queries.UpdateQueryPrev(ctx, gen.UpdateQueryPrevParams{
+				ID:   nextID,
+				Prev: queryID.Bytes(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	
+	return nil
+}
+
+// GetQueriesByExampleIDOrdered returns queries in their linked list order
+func (h ExampleQueryService) GetQueriesByExampleIDOrdered(ctx context.Context, exampleID idwrap.IDWrap) ([]mexamplequery.Query, error) {
+	dbQueries, err := h.queries.GetQueriesByExampleIDOrdered(ctx, exampleID)
+	if err != nil {
+		return nil, err
+	}
+	
+	return tgeneric.MassConvert(dbQueries, SerializeQueryDBToModel), nil
 }

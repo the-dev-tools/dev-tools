@@ -50,6 +50,8 @@ type Header struct {
 	ID            idwrap.IDWrap
 	DeltaParentID *idwrap.IDWrap
 	ExampleID     idwrap.IDWrap
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 func (h Header) IsEnabled() bool {

@@ -848,7 +848,9 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
@@ -932,6 +934,51 @@ DELETE FROM example_header
 WHERE
   id = ?;
 
+-- name: GetHeadersByExampleIDOrdered :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  header_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_header
+WHERE
+  example_id = ?
+ORDER BY
+  CASE 
+    WHEN prev IS NULL THEN 0
+    ELSE 1
+  END,
+  prev,
+  id;
+
+-- name: UpdateHeaderOrder :exec
+UPDATE example_header
+SET prev = ?, next = ?
+WHERE id = ?;
+
+-- name: GetHeaderByPrevNext :one
+SELECT * FROM example_header
+WHERE example_id = @example_id AND 
+      ((@prev_value IS NULL AND prev IS NULL) OR prev = @prev_value) AND 
+      ((@next_value IS NULL AND next IS NULL) OR next = @next_value)
+LIMIT 1;
+
+-- name: UpdateHeaderPrev :exec
+UPDATE example_header
+SET prev = ?
+WHERE id = ?;
+
+-- name: UpdateHeaderNext :exec
+UPDATE example_header
+SET next = ?
+WHERE id = ?;
+
 /*
 *
 * Query
@@ -946,7 +993,9 @@ SELECT
   query_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_query
 WHERE
@@ -1017,6 +1066,51 @@ WHERE
 DELETE FROM example_query
 WHERE
   id = ?;
+
+-- name: GetQueriesByExampleIDOrdered :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  query_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_query
+WHERE
+  example_id = ?
+ORDER BY
+  CASE 
+    WHEN prev IS NULL THEN 0
+    ELSE 1
+  END,
+  prev,
+  id;
+
+-- name: UpdateQueryOrder :exec
+UPDATE example_query
+SET prev = ?, next = ?
+WHERE id = ?;
+
+-- name: GetQueryByPrevNext :one
+SELECT * FROM example_query
+WHERE example_id = @example_id AND 
+      ((@prev_value IS NULL AND prev IS NULL) OR prev = @prev_value) AND 
+      ((@next_value IS NULL AND next IS NULL) OR next = @next_value)
+LIMIT 1;
+
+-- name: UpdateQueryPrev :exec
+UPDATE example_query
+SET prev = ?
+WHERE id = ?;
+
+-- name: UpdateQueryNext :exec
+UPDATE example_query
+SET next = ?
+WHERE id = ?;
 
 -- name: SetQueryEnable :exec
 UPDATE example_query
