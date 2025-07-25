@@ -35,18 +35,6 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*HeaderService, error) {
 }
 
 func SerializeHeaderModelToDB(header gen.ExampleHeader) mexampleheader.Header {
-	var prev, next *idwrap.IDWrap
-	if len(header.Prev) > 0 {
-		if p, err := idwrap.NewFromBytes(header.Prev); err == nil {
-			prev = &p
-		}
-	}
-	if len(header.Next) > 0 {
-		if n, err := idwrap.NewFromBytes(header.Next); err == nil {
-			next = &n
-		}
-	}
-	
 	return mexampleheader.Header{
 		ID:            header.ID,
 		ExampleID:     header.ExampleID,
@@ -55,20 +43,12 @@ func SerializeHeaderModelToDB(header gen.ExampleHeader) mexampleheader.Header {
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
-		Prev:          prev,
-		Next:          next,
+		Prev:          header.Prev,
+		Next:          header.Next,
 	}
 }
 
 func SerializeHeaderDBToModel(header mexampleheader.Header) gen.ExampleHeader {
-	var prev, next []byte
-	if header.Prev != nil {
-		prev = header.Prev.Bytes()
-	}
-	if header.Next != nil {
-		next = header.Next.Bytes()
-	}
-	
 	return gen.ExampleHeader{
 		ID:            header.ID,
 		ExampleID:     header.ExampleID,
@@ -77,8 +57,8 @@ func SerializeHeaderDBToModel(header mexampleheader.Header) gen.ExampleHeader {
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
-		Prev:          prev,
-		Next:          next,
+		Prev:          header.Prev,
+		Next:          header.Next,
 	}
 }
 
@@ -146,6 +126,34 @@ func (h HeaderService) GetHeaderByID(ctx context.Context, headerID idwrap.IDWrap
 }
 
 func (h HeaderService) CreateHeader(ctx context.Context, header mexampleheader.Header) error {
+	// Find the last header in the list to maintain order
+	headers, err := h.queries.GetHeadersByExampleIDOrdered(ctx, header.ExampleID)
+	if err != nil {
+		return err
+	}
+	
+	var prevID, nextID *idwrap.IDWrap
+	
+	// If header already has prev/next set, use those (for manual control)
+	if header.Prev != nil || header.Next != nil {
+		prevID = header.Prev
+		nextID = header.Next
+	} else if len(headers) > 0 {
+		// Set this header to be last in the list
+		lastHeader := headers[len(headers)-1]
+		prevID = &lastHeader.ID
+		nextID = nil
+		
+		// Update the previous last header to point to this new header
+		err = h.queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
+			ID:   lastHeader.ID,
+			Next: &header.ID,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	
 	return h.queries.CreateHeader(ctx, gen.CreateHeaderParams{
 		ID:            header.ID,
 		ExampleID:     header.ExampleID,
@@ -154,6 +162,8 @@ func (h HeaderService) CreateHeader(ctx context.Context, header mexampleheader.H
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
+		Prev:          prevID,
+		Next:          nextID,
 	})
 }
 
@@ -166,6 +176,8 @@ func (h HeaderService) CreateHeaderModel(ctx context.Context, header gen.Example
 		Enable:        header.Enable,
 		Description:   header.Description,
 		Value:         header.Value,
+		Prev:          header.Prev,
+		Next:          header.Next,
 	})
 }
 
@@ -370,13 +382,9 @@ func (h HeaderService) MoveHeader(ctx context.Context, headerID, targetID idwrap
 	}
 	
 	// 2. Remove header from current position
-	if len(header.Prev) > 0 {
-		prevID, err := idwrap.NewFromBytes(header.Prev)
-		if err != nil {
-			return err
-		}
+	if header.Prev != nil {
 		err = queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
-			ID:   prevID,
+			ID:   *header.Prev,
 			Next: header.Next,
 		})
 		if err != nil {
@@ -384,13 +392,9 @@ func (h HeaderService) MoveHeader(ctx context.Context, headerID, targetID idwrap
 		}
 	}
 	
-	if len(header.Next) > 0 {
-		nextID, err := idwrap.NewFromBytes(header.Next)
-		if err != nil {
-			return err
-		}
+	if header.Next != nil {
 		err = queries.UpdateHeaderPrev(ctx, gen.UpdateHeaderPrevParams{
-			ID:   nextID,
+			ID:   *header.Next,
 			Prev: header.Prev,
 		})
 		if err != nil {
@@ -409,7 +413,7 @@ func (h HeaderService) MoveHeader(ctx context.Context, headerID, targetID idwrap
 		err = queries.UpdateHeaderOrder(ctx, gen.UpdateHeaderOrderParams{
 			ID:   headerID,
 			Prev: target.Prev,
-			Next: targetID.Bytes(),
+			Next: &targetID,
 		})
 		if err != nil {
 			return err
@@ -418,21 +422,17 @@ func (h HeaderService) MoveHeader(ctx context.Context, headerID, targetID idwrap
 		// Update target's prev
 		err = queries.UpdateHeaderPrev(ctx, gen.UpdateHeaderPrevParams{
 			ID:   targetID,
-			Prev: headerID.Bytes(),
+			Prev: &headerID,
 		})
 		if err != nil {
 			return err
 		}
 		
 		// Update previous item's next if exists
-		if len(target.Prev) > 0 {
-			prevID, err := idwrap.NewFromBytes(target.Prev)
-			if err != nil {
-				return err
-			}
+		if target.Prev != nil {
 			err = queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
-				ID:   prevID,
-				Next: headerID.Bytes(),
+				ID:   *target.Prev,
+				Next: &headerID,
 			})
 			if err != nil {
 				return err
@@ -447,7 +447,7 @@ func (h HeaderService) MoveHeader(ctx context.Context, headerID, targetID idwrap
 		// Update header's pointers
 		err = queries.UpdateHeaderOrder(ctx, gen.UpdateHeaderOrderParams{
 			ID:   headerID,
-			Prev: targetID.Bytes(),
+			Prev: &targetID,
 			Next: target.Next,
 		})
 		if err != nil {
@@ -457,21 +457,17 @@ func (h HeaderService) MoveHeader(ctx context.Context, headerID, targetID idwrap
 		// Update target's next
 		err = queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
 			ID:   targetID,
-			Next: headerID.Bytes(),
+			Next: &headerID,
 		})
 		if err != nil {
 			return err
 		}
 		
 		// Update next item's prev if exists
-		if len(target.Next) > 0 {
-			nextID, err := idwrap.NewFromBytes(target.Next)
-			if err != nil {
-				return err
-			}
+		if target.Next != nil {
 			err = queries.UpdateHeaderPrev(ctx, gen.UpdateHeaderPrevParams{
-				ID:   nextID,
-				Prev: headerID.Bytes(),
+				ID:   *target.Next,
+				Prev: &headerID,
 			})
 			if err != nil {
 				return err

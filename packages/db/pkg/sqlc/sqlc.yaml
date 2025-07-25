@@ -244,6 +244,20 @@ sql:
               package: 'idwrap'
               type: 'IDWrap'
               pointer: true
+          ### prev
+          - column: 'example_header.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### next
+          - column: 'example_header.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ## example_query
           ### id
           - column: 'example_query.id'
@@ -259,6 +273,20 @@ sql:
               type: 'IDWrap'
           ### delta_parent_id
           - column: 'example_query.delta_parent_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### prev
+          - column: 'example_query.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### next
+          - column: 'example_query.next'
             go_type:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'

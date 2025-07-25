@@ -77,8 +77,8 @@ type ExampleHeader struct {
 	Enable        bool
 	Description   string
 	Value         string
-	Prev          []byte
-	Next          []byte
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 type ExampleQuery struct {
@@ -89,8 +89,8 @@ type ExampleQuery struct {
 	Enable        bool
 	Description   string
 	Value         string
-	Prev          []byte
-	Next          []byte
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 type ExampleResp struct {

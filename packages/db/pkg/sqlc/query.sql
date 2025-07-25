@@ -895,9 +895,9 @@ WHERE
 
 -- name: CreateHeader :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateHeaderBulk :exec
 INSERT INTO
@@ -964,9 +964,9 @@ WHERE id = ?;
 
 -- name: GetHeaderByPrevNext :one
 SELECT * FROM example_header
-WHERE example_id = @example_id AND 
-      ((@prev_value IS NULL AND prev IS NULL) OR prev = @prev_value) AND 
-      ((@next_value IS NULL AND next IS NULL) OR next = @next_value)
+WHERE example_id = ? 
+  AND ((? IS NULL AND prev IS NULL) OR prev = ?)
+  AND ((? IS NULL AND next IS NULL) OR next = ?)
 LIMIT 1;
 
 -- name: UpdateHeaderPrev :exec
@@ -1033,9 +1033,9 @@ lIMIT 1;
 
 -- name: CreateQuery :exec
 INSERT INTO
-  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateQueryBulk :exec
 INSERT INTO
@@ -1097,9 +1097,9 @@ WHERE id = ?;
 
 -- name: GetQueryByPrevNext :one
 SELECT * FROM example_query
-WHERE example_id = @example_id AND 
-      ((@prev_value IS NULL AND prev IS NULL) OR prev = @prev_value) AND 
-      ((@next_value IS NULL AND next IS NULL) OR next = @next_value)
+WHERE example_id = ? 
+  AND ((? IS NULL AND prev IS NULL) OR prev = ?)
+  AND ((? IS NULL AND next IS NULL) OR next = ?)
 LIMIT 1;
 
 -- name: UpdateQueryPrev :exec

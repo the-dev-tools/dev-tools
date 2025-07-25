@@ -1199,9 +1199,9 @@ func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVari
 
 const createHeader = `-- name: CreateHeader :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHeaderParams struct {
@@ -1212,6 +1212,8 @@ type CreateHeaderParams struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 func (q *Queries) CreateHeader(ctx context.Context, arg CreateHeaderParams) error {
@@ -1223,6 +1225,8 @@ func (q *Queries) CreateHeader(ctx context.Context, arg CreateHeaderParams) erro
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Prev,
+		arg.Next,
 	)
 	return err
 }
@@ -2259,9 +2263,9 @@ func (q *Queries) CreateNodeExecution(ctx context.Context, arg CreateNodeExecuti
 
 const createQuery = `-- name: CreateQuery :exec
 INSERT INTO
-  example_query (id, example_id, delta_parent_id, query_key, enable, description, value)
+  example_query (id, example_id, delta_parent_id, query_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateQueryParams struct {
@@ -2272,6 +2276,8 @@ type CreateQueryParams struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 func (q *Queries) CreateQuery(ctx context.Context, arg CreateQueryParams) error {
@@ -2283,6 +2289,8 @@ func (q *Queries) CreateQuery(ctx context.Context, arg CreateQueryParams) error 
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Prev,
+		arg.Next,
 	)
 	return err
 }
@@ -4531,20 +4539,28 @@ func (q *Queries) GetHeaderByDeltaParentID(ctx context.Context, deltaParentID *i
 
 const getHeaderByPrevNext = `-- name: GetHeaderByPrevNext :one
 SELECT id, example_id, delta_parent_id, header_key, enable, description, value, prev, next FROM example_header
-WHERE example_id = ?1 AND 
-      ((?2 IS NULL AND prev IS NULL) OR prev = ?2) AND 
-      ((?3 IS NULL AND next IS NULL) OR next = ?3)
+WHERE example_id = ? 
+  AND ((? IS NULL AND prev IS NULL) OR prev = ?)
+  AND ((? IS NULL AND next IS NULL) OR next = ?)
 LIMIT 1
 `
 
 type GetHeaderByPrevNextParams struct {
 	ExampleID idwrap.IDWrap
-	PrevValue interface{}
-	NextValue interface{}
+	Column2   interface{}
+	Prev      *idwrap.IDWrap
+	Column4   interface{}
+	Next      *idwrap.IDWrap
 }
 
 func (q *Queries) GetHeaderByPrevNext(ctx context.Context, arg GetHeaderByPrevNextParams) (ExampleHeader, error) {
-	row := q.queryRow(ctx, q.getHeaderByPrevNextStmt, getHeaderByPrevNext, arg.ExampleID, arg.PrevValue, arg.NextValue)
+	row := q.queryRow(ctx, q.getHeaderByPrevNextStmt, getHeaderByPrevNext,
+		arg.ExampleID,
+		arg.Column2,
+		arg.Prev,
+		arg.Column4,
+		arg.Next,
+	)
 	var i ExampleHeader
 	err := row.Scan(
 		&i.ID,
@@ -5690,20 +5706,28 @@ func (q *Queries) GetQueryByDeltaParentID(ctx context.Context, deltaParentID *id
 
 const getQueryByPrevNext = `-- name: GetQueryByPrevNext :one
 SELECT id, example_id, delta_parent_id, query_key, enable, description, value, prev, next FROM example_query
-WHERE example_id = ?1 AND 
-      ((?2 IS NULL AND prev IS NULL) OR prev = ?2) AND 
-      ((?3 IS NULL AND next IS NULL) OR next = ?3)
+WHERE example_id = ? 
+  AND ((? IS NULL AND prev IS NULL) OR prev = ?)
+  AND ((? IS NULL AND next IS NULL) OR next = ?)
 LIMIT 1
 `
 
 type GetQueryByPrevNextParams struct {
 	ExampleID idwrap.IDWrap
-	PrevValue interface{}
-	NextValue interface{}
+	Column2   interface{}
+	Prev      *idwrap.IDWrap
+	Column4   interface{}
+	Next      *idwrap.IDWrap
 }
 
 func (q *Queries) GetQueryByPrevNext(ctx context.Context, arg GetQueryByPrevNextParams) (ExampleQuery, error) {
-	row := q.queryRow(ctx, q.getQueryByPrevNextStmt, getQueryByPrevNext, arg.ExampleID, arg.PrevValue, arg.NextValue)
+	row := q.queryRow(ctx, q.getQueryByPrevNextStmt, getQueryByPrevNext,
+		arg.ExampleID,
+		arg.Column2,
+		arg.Prev,
+		arg.Column4,
+		arg.Next,
+	)
 	var i ExampleQuery
 	err := row.Scan(
 		&i.ID,
@@ -7004,7 +7028,7 @@ WHERE id = ?
 `
 
 type UpdateHeaderNextParams struct {
-	Next []byte
+	Next *idwrap.IDWrap
 	ID   idwrap.IDWrap
 }
 
@@ -7020,8 +7044,8 @@ WHERE id = ?
 `
 
 type UpdateHeaderOrderParams struct {
-	Prev []byte
-	Next []byte
+	Prev *idwrap.IDWrap
+	Next *idwrap.IDWrap
 	ID   idwrap.IDWrap
 }
 
@@ -7037,7 +7061,7 @@ WHERE id = ?
 `
 
 type UpdateHeaderPrevParams struct {
-	Prev []byte
+	Prev *idwrap.IDWrap
 	ID   idwrap.IDWrap
 }
 
@@ -7260,7 +7284,7 @@ WHERE id = ?
 `
 
 type UpdateQueryNextParams struct {
-	Next []byte
+	Next *idwrap.IDWrap
 	ID   idwrap.IDWrap
 }
 
@@ -7276,8 +7300,8 @@ WHERE id = ?
 `
 
 type UpdateQueryOrderParams struct {
-	Prev []byte
-	Next []byte
+	Prev *idwrap.IDWrap
+	Next *idwrap.IDWrap
 	ID   idwrap.IDWrap
 }
 
@@ -7293,7 +7317,7 @@ WHERE id = ?
 `
 
 type UpdateQueryPrevParams struct {
-	Prev []byte
+	Prev *idwrap.IDWrap
 	ID   idwrap.IDWrap
 }
 

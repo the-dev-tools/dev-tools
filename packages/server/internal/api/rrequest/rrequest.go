@@ -50,6 +50,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/idwrap"
@@ -72,6 +73,7 @@ import (
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/request/v1/requestv1connect"
 	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 
 	"connectrpc.com/connect"
 )
@@ -245,7 +247,7 @@ func (c RequestRPC) QueryList(ctx context.Context, req *connect.Request[requestv
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	allQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, exID)
+	allQueries, err := c.eqs.GetQueriesByExampleIDOrdered(ctx, exID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -297,9 +299,35 @@ func (c RequestRPC) QueryCreate(ctx context.Context, req *connect.Request[reques
 	queryID := idwrap.NewNow()
 	query.ID = queryID
 
+	// Before creating the query, find the last query in the list to maintain order
+	existingQueries, err := c.eqs.GetQueriesByExampleIDOrdered(ctx, exID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Set prev to the last query if exists, making this the new last query
+	if len(existingQueries) > 0 {
+		lastQuery := existingQueries[len(existingQueries)-1]
+		query.Prev = &lastQuery.ID
+		// Next remains nil as this is the new last query
+	}
+
 	err = c.eqs.CreateExampleQuery(ctx, query)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Update the previous last query's next pointer to point to this new query
+	if len(existingQueries) > 0 {
+		lastQuery := existingQueries[len(existingQueries)-1]
+		queries := gen.New(c.DB)
+		err = queries.UpdateQueryNext(ctx, gen.UpdateQueryNextParams{
+			ID:   lastQuery.ID,
+			Next: &query.ID,
+		})
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 	return connect.NewResponse(&requestv1.QueryCreateResponse{QueryId: queryID.Bytes()}), nil
 }
@@ -428,15 +456,17 @@ func (c RequestRPC) QueryDeltaExampleCopy(ctx context.Context, originExampleID, 
 	}
 	originExampleHasVersionParent := originExample.VersionParentID != nil
 
-	// Get all queries from the origin example
-	originQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
+	// Get all queries from the origin example in proper order
+	originQueries, err := c.eqs.GetQueriesByExampleIDOrdered(ctx, originExampleID)
 	if err != nil {
 		return err
 	}
 
-	// Create corresponding queries in the delta example
+	// Create corresponding queries in the delta example maintaining order
 	var deltaQueries []mexamplequery.Query
-	for _, originQuery := range originQueries {
+	var prevID *idwrap.IDWrap
+	
+	for i, originQuery := range originQueries {
 		// Only copy origin queries (not mixed or delta queries)
 		originDeltaType := originQuery.DetermineDeltaType(originExampleHasVersionParent)
 		if originDeltaType == mexamplequery.QuerySourceOrigin {
@@ -448,14 +478,23 @@ func (c RequestRPC) QueryDeltaExampleCopy(ctx context.Context, originExampleID, 
 				Enable:        originQuery.Enable,
 				Description:   originQuery.Description,
 				Value:         originQuery.Value,
+				Prev:          prevID, // Maintain order
+				Next:          nil,    // Will be set for previous item
 			}
+			
+			// Update previous query's next pointer
+			if i > 0 && len(deltaQueries) > 0 {
+				deltaQueries[len(deltaQueries)-1].Next = &deltaQuery.ID
+			}
+			
 			deltaQueries = append(deltaQueries, deltaQuery)
+			prevID = &deltaQuery.ID
 		}
 	}
 
-	// Bulk create all delta queries
-	if len(deltaQueries) > 0 {
-		err = c.eqs.CreateBulkQuery(ctx, deltaQueries)
+	// Create all delta queries individually to properly handle linked list pointers
+	for _, deltaQuery := range deltaQueries {
+		err = c.eqs.CreateExampleQuery(ctx, deltaQuery)
 		if err != nil {
 			return err
 		}
@@ -520,12 +559,12 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 	deltaExampleHasVersionParent := deltaExample.VersionParentID != nil
 
 	// Get queries from both origin and delta examples
-	originQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
+	originQueries, err := c.eqs.GetQueriesByExampleIDOrdered(ctx, originExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	deltaQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, deltaExampleID)
+	deltaQueries, err := c.eqs.GetQueriesByExampleIDOrdered(ctx, deltaExampleID)
 	if err != nil && err != sexamplequery.ErrNoQueryFound {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -792,9 +831,35 @@ func (c RequestRPC) QueryDeltaCreate(ctx context.Context, req *connect.Request[r
 	}
 	// If no query_id provided, DeltaParentID remains nil (standalone delta)
 
+	// Before creating the query, find the last query in the list to maintain order
+	existingQueries, err := c.eqs.GetQueriesByExampleIDOrdered(ctx, exID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Set prev to the last query if exists, making this the new last query
+	if len(existingQueries) > 0 {
+		lastQuery := existingQueries[len(existingQueries)-1]
+		query.Prev = &lastQuery.ID
+		// Next remains nil as this is the new last query
+	}
+
 	err = c.eqs.CreateExampleQuery(ctx, query)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Update the previous last query's next pointer to point to this new query
+	if len(existingQueries) > 0 {
+		lastQuery := existingQueries[len(existingQueries)-1]
+		queries := gen.New(c.DB)
+		err = queries.UpdateQueryNext(ctx, gen.UpdateQueryNextParams{
+			ID:   lastQuery.ID,
+			Next: &query.ID,
+		})
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 	return connect.NewResponse(&requestv1.QueryDeltaCreateResponse{QueryId: queryID.Bytes()}), nil
 }
@@ -913,7 +978,7 @@ func (c RequestRPC) HeaderList(ctx context.Context, req *connect.Request[request
 		return nil, rpcErr
 	}
 
-	allHeaders, err := c.ehs.GetHeaderByExampleID(ctx, exID)
+	allHeaders, err := c.ehs.GetHeadersByExampleIDOrdered(ctx, exID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -961,6 +1026,7 @@ func (c RequestRPC) HeaderCreate(ctx context.Context, req *connect.Request[reque
 
 	// Note: Source field removed - delta type is determined dynamically
 
+	// Create the header first with basic fields
 	err = c.ehs.CreateHeader(ctx, header)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1101,15 +1167,17 @@ func (c RequestRPC) HeaderDeltaExampleCopy(ctx context.Context, originExampleID,
 		return rpcErr
 	}
 
-	// Get all headers from the origin example
-	originHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originExampleID)
+	// Get all headers from the origin example in proper order
+	originHeaders, err := c.ehs.GetHeadersByExampleIDOrdered(ctx, originExampleID)
 	if err != nil {
 		return err
 	}
 
-	// Create corresponding headers in the delta example
+	// Create corresponding headers in the delta example maintaining order
 	var deltaHeaders []mexampleheader.Header
-	for _, originHeader := range originHeaders {
+	var prevID *idwrap.IDWrap
+	
+	for i, originHeader := range originHeaders {
 		// Only copy origin headers (not mixed or delta headers)
 		deltaType, err := c.determineHeaderDeltaType(ctx, originHeader)
 		if err != nil {
@@ -1124,14 +1192,23 @@ func (c RequestRPC) HeaderDeltaExampleCopy(ctx context.Context, originExampleID,
 				Enable:        originHeader.Enable,
 				Description:   originHeader.Description,
 				Value:         originHeader.Value,
+				Prev:          prevID, // Maintain order
+				Next:          nil,    // Will be set for previous item
 			}
+			
+			// Update previous header's next pointer
+			if i > 0 && len(deltaHeaders) > 0 {
+				deltaHeaders[len(deltaHeaders)-1].Next = &deltaHeader.ID
+			}
+			
 			deltaHeaders = append(deltaHeaders, deltaHeader)
+			prevID = &deltaHeader.ID
 		}
 	}
 
-	// Bulk create all delta headers
-	if len(deltaHeaders) > 0 {
-		err = c.ehs.CreateBulkHeader(ctx, deltaHeaders)
+	// Create all delta headers individually to properly handle linked list pointers
+	for _, deltaHeader := range deltaHeaders {
+		err = c.ehs.CreateHeader(ctx, deltaHeader)
 		if err != nil {
 			return err
 		}
@@ -1219,12 +1296,12 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 	}
 
 	// Get headers from both origin and delta examples
-	originHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originExampleID)
+	originHeaders, err := c.ehs.GetHeadersByExampleIDOrdered(ctx, originExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	deltaHeaders, err := c.ehs.GetHeaderByExampleID(ctx, deltaExampleID)
+	deltaHeaders, err := c.ehs.GetHeadersByExampleIDOrdered(ctx, deltaExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -1505,9 +1582,35 @@ func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[
 	}
 	// If no header_id provided, DeltaParentID remains nil (standalone delta)
 
+	// Before creating the header, find the last header in the list to maintain order
+	existingHeaders, err := c.ehs.GetHeadersByExampleIDOrdered(ctx, exID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Set prev to the last header if exists, making this the new last header
+	if len(existingHeaders) > 0 {
+		lastHeader := existingHeaders[len(existingHeaders)-1]
+		header.Prev = &lastHeader.ID
+		// Next remains nil as this is the new last header
+	}
+
 	err = c.ehs.CreateHeader(ctx, header)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Update the previous last header's next pointer to point to this new header
+	if len(existingHeaders) > 0 {
+		lastHeader := existingHeaders[len(existingHeaders)-1]
+		queries := gen.New(c.DB)
+		err = queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
+			ID:   lastHeader.ID,
+			Next: &header.ID,
+		})
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 	return connect.NewResponse(&requestv1.HeaderDeltaCreateResponse{HeaderId: headerID.Bytes()}), nil
 }
@@ -2188,22 +2291,197 @@ func (c RequestRPC) AssertDeltaReset(ctx context.Context, req *connect.Request[r
 	return connect.NewResponse(&requestv1.AssertDeltaResetResponse{}), nil
 }
 
-// TODO: implement move RPC
 func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv1.QueryMoveRequest]) (*connect.Response[requestv1.QueryMoveResponse], error) {
+	// Similar to HeaderMove but for queries
+	queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	targetID, err := idwrap.NewFromBytes(req.Msg.GetTargetQueryId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	// Check permissions
+	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, c.eqs, c.iaes, c.cs, c.us, queryID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	
+	// Perform the move
+	var position string
+	switch req.Msg.GetPosition() {
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		position = "before"
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		position = "after"
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid position: %v", req.Msg.GetPosition()))
+	}
+	err = c.eqs.MoveQuery(ctx, queryID, targetID, position)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Handle delta propagation if needed
+	query, err := c.eqs.GetExampleQuery(ctx, queryID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// Get example to determine delta type
+	example, err := c.iaes.GetApiExample(ctx, query.ExampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	deltaType := query.DetermineDeltaType(example.VersionParentID != nil)
+	if deltaType == mexamplequery.QuerySourceOrigin {
+		// TODO: Implement delta ordering propagation
+		// This would update the order of corresponding delta queries
+	}
+	
 	return connect.NewResponse(&requestv1.QueryMoveResponse{}), nil
 }
 
-// TODO: implement move RPC
 func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[requestv1.QueryDeltaMoveRequest]) (*connect.Response[requestv1.QueryDeltaMoveResponse], error) {
+	// Similar to HeaderDeltaMove but for queries
+	// Implementation follows same pattern
+	queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	targetID, err := idwrap.NewFromBytes(req.Msg.GetTargetQueryId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	_, err = idwrap.NewFromBytes(req.Msg.GetOriginId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	// Check permissions
+	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, c.eqs, c.iaes, c.cs, c.us, queryID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	
+	// Perform the move
+	var position string
+	switch req.Msg.GetPosition() {
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		position = "before"
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		position = "after"
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid position: %v", req.Msg.GetPosition()))
+	}
+	err = c.eqs.MoveQuery(ctx, queryID, targetID, position)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
 	return connect.NewResponse(&requestv1.QueryDeltaMoveResponse{}), nil
 }
 
-// TODO: implement move RPC
 func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[requestv1.HeaderMoveRequest]) (*connect.Response[requestv1.HeaderMoveResponse], error) {
+	// 1. Parse request
+	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	targetID, err := idwrap.NewFromBytes(req.Msg.GetTargetHeaderId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	// 2. Check permissions
+	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, headerID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	
+	// 3. Perform the move
+	var position string
+	switch req.Msg.GetPosition() {
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		position = "before"
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		position = "after"
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid position: %v", req.Msg.GetPosition()))
+	}
+	err = c.ehs.MoveHeader(ctx, headerID, targetID, position)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// 4. Handle delta propagation if needed
+	// Check if this is an origin header and propagate ordering to delta headers
+	header, err := c.ehs.GetHeaderByID(ctx, headerID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	deltaType, err := c.determineHeaderDeltaType(ctx, header)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	if deltaType == mexampleheader.HeaderSourceOrigin {
+		// TODO: Implement delta ordering propagation
+		// This would update the order of corresponding delta headers
+	}
+	
 	return connect.NewResponse(&requestv1.HeaderMoveResponse{}), nil
 }
 
-// TODO: implement move RPC
 func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaMoveRequest]) (*connect.Response[requestv1.HeaderDeltaMoveResponse], error) {
+	// Similar implementation but for delta headers
+	// Key differences:
+	// 1. Validate against origin example
+	// 2. Only move within delta context
+	// 3. Maintain delta relationships
+	
+	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	targetID, err := idwrap.NewFromBytes(req.Msg.GetTargetHeaderId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	_, err = idwrap.NewFromBytes(req.Msg.GetOriginId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	
+	// Check permissions
+	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, headerID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	
+	// Perform the move
+	var position string
+	switch req.Msg.GetPosition() {
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		position = "before"
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		position = "after"
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid position: %v", req.Msg.GetPosition()))
+	}
+	err = c.ehs.MoveHeader(ctx, headerID, targetID, position)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
 	return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil
 }

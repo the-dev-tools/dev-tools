@@ -15,14 +15,6 @@ import (
 var ErrNoQueryFound = errors.New("no error query found")
 
 func SerializeQueryModelToDB(query mexamplequery.Query) gen.ExampleQuery {
-	var prev, next []byte
-	if query.Prev != nil {
-		prev = query.Prev.Bytes()
-	}
-	if query.Next != nil {
-		next = query.Next.Bytes()
-	}
-	
 	return gen.ExampleQuery{
 		ID:            query.ID,
 		ExampleID:     query.ExampleID,
@@ -31,24 +23,12 @@ func SerializeQueryModelToDB(query mexamplequery.Query) gen.ExampleQuery {
 		Enable:        query.Enable,
 		Description:   query.Description,
 		Value:         query.Value,
-		Prev:          prev,
-		Next:          next,
+		Prev:          query.Prev,
+		Next:          query.Next,
 	}
 }
 
 func SerializeQueryDBToModel(query gen.ExampleQuery) mexamplequery.Query {
-	var prev, next *idwrap.IDWrap
-	if len(query.Prev) > 0 {
-		if p, err := idwrap.NewFromBytes(query.Prev); err == nil {
-			prev = &p
-		}
-	}
-	if len(query.Next) > 0 {
-		if n, err := idwrap.NewFromBytes(query.Next); err == nil {
-			next = &n
-		}
-	}
-	
 	return mexamplequery.Query{
 		ID:            query.ID,
 		ExampleID:     query.ExampleID,
@@ -57,8 +37,8 @@ func SerializeQueryDBToModel(query gen.ExampleQuery) mexamplequery.Query {
 		Enable:        query.Enable,
 		Description:   query.Description,
 		Value:         query.Value,
-		Prev:          prev,
-		Next:          next,
+		Prev:          query.Prev,
+		Next:          query.Next,
 	}
 }
 
@@ -142,6 +122,34 @@ func (h ExampleQueryService) GetExampleQueryByDeltaParentID(ctx context.Context,
 }
 
 func (h ExampleQueryService) CreateExampleQuery(ctx context.Context, query mexamplequery.Query) error {
+	// Find the last query in the list to maintain order
+	queries, err := h.queries.GetQueriesByExampleIDOrdered(ctx, query.ExampleID)
+	if err != nil {
+		return err
+	}
+	
+	var prevID, nextID *idwrap.IDWrap
+	
+	// If query already has prev/next set, use those (for manual control)
+	if query.Prev != nil || query.Next != nil {
+		prevID = query.Prev
+		nextID = query.Next
+	} else if len(queries) > 0 {
+		// Set this query to be last in the list
+		lastQuery := queries[len(queries)-1]
+		prevID = &lastQuery.ID
+		nextID = nil
+		
+		// Update the previous last query to point to this new query
+		err = h.queries.UpdateQueryNext(ctx, gen.UpdateQueryNextParams{
+			ID:   lastQuery.ID,
+			Next: &query.ID,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	
 	return h.queries.CreateQuery(ctx, gen.CreateQueryParams{
 		ID:            query.ID,
 		ExampleID:     query.ExampleID,
@@ -150,6 +158,8 @@ func (h ExampleQueryService) CreateExampleQuery(ctx context.Context, query mexam
 		Description:   query.Description,
 		Value:         query.Value,
 		DeltaParentID: query.DeltaParentID,
+		Prev:          prevID,
+		Next:          nextID,
 	})
 }
 
@@ -162,6 +172,8 @@ func (h ExampleQueryService) CreateExampleQueryDB(ctx context.Context, query gen
 		Description:   query.Description,
 		Value:         query.Value,
 		DeltaParentID: query.DeltaParentID,
+		Prev:          query.Prev,
+		Next:          query.Next,
 	})
 }
 
@@ -321,13 +333,9 @@ func (h ExampleQueryService) MoveQuery(ctx context.Context, queryID, targetID id
 	}
 	
 	// 2. Remove query from current position
-	if len(query.Prev) > 0 {
-		prevID, err := idwrap.NewFromBytes(query.Prev)
-		if err != nil {
-			return err
-		}
+	if query.Prev != nil {
 		err = queries.UpdateQueryNext(ctx, gen.UpdateQueryNextParams{
-			ID:   prevID,
+			ID:   *query.Prev,
 			Next: query.Next,
 		})
 		if err != nil {
@@ -335,13 +343,9 @@ func (h ExampleQueryService) MoveQuery(ctx context.Context, queryID, targetID id
 		}
 	}
 	
-	if len(query.Next) > 0 {
-		nextID, err := idwrap.NewFromBytes(query.Next)
-		if err != nil {
-			return err
-		}
+	if query.Next != nil {
 		err = queries.UpdateQueryPrev(ctx, gen.UpdateQueryPrevParams{
-			ID:   nextID,
+			ID:   *query.Next,
 			Prev: query.Prev,
 		})
 		if err != nil {
@@ -360,7 +364,7 @@ func (h ExampleQueryService) MoveQuery(ctx context.Context, queryID, targetID id
 		err = queries.UpdateQueryOrder(ctx, gen.UpdateQueryOrderParams{
 			ID:   queryID,
 			Prev: target.Prev,
-			Next: targetID.Bytes(),
+			Next: &targetID,
 		})
 		if err != nil {
 			return err
@@ -369,21 +373,17 @@ func (h ExampleQueryService) MoveQuery(ctx context.Context, queryID, targetID id
 		// Update target's prev
 		err = queries.UpdateQueryPrev(ctx, gen.UpdateQueryPrevParams{
 			ID:   targetID,
-			Prev: queryID.Bytes(),
+			Prev: &queryID,
 		})
 		if err != nil {
 			return err
 		}
 		
 		// Update previous item's next if exists
-		if len(target.Prev) > 0 {
-			prevID, err := idwrap.NewFromBytes(target.Prev)
-			if err != nil {
-				return err
-			}
+		if target.Prev != nil {
 			err = queries.UpdateQueryNext(ctx, gen.UpdateQueryNextParams{
-				ID:   prevID,
-				Next: queryID.Bytes(),
+				ID:   *target.Prev,
+				Next: &queryID,
 			})
 			if err != nil {
 				return err
@@ -398,7 +398,7 @@ func (h ExampleQueryService) MoveQuery(ctx context.Context, queryID, targetID id
 		// Update query's pointers
 		err = queries.UpdateQueryOrder(ctx, gen.UpdateQueryOrderParams{
 			ID:   queryID,
-			Prev: targetID.Bytes(),
+			Prev: &targetID,
 			Next: target.Next,
 		})
 		if err != nil {
@@ -408,21 +408,17 @@ func (h ExampleQueryService) MoveQuery(ctx context.Context, queryID, targetID id
 		// Update target's next
 		err = queries.UpdateQueryNext(ctx, gen.UpdateQueryNextParams{
 			ID:   targetID,
-			Next: queryID.Bytes(),
+			Next: &queryID,
 		})
 		if err != nil {
 			return err
 		}
 		
 		// Update next item's prev if exists
-		if len(target.Next) > 0 {
-			nextID, err := idwrap.NewFromBytes(target.Next)
-			if err != nil {
-				return err
-			}
+		if target.Next != nil {
 			err = queries.UpdateQueryPrev(ctx, gen.UpdateQueryPrevParams{
-				ID:   nextID,
-				Prev: queryID.Bytes(),
+				ID:   *target.Next,
+				Prev: &queryID,
 			})
 			if err != nil {
 				return err
