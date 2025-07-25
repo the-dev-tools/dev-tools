@@ -10,6 +10,7 @@
     "./styles": "./src/styles.css"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "2.6.2",
     "@effect-rx/rx-react": "0.40.0",
     "@fontsource-variable/dm-sans": "5.2.6",
     "@fontsource/dm-mono": "5.2.6",

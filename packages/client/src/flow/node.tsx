@@ -1,13 +1,4 @@
-import {
-  create,
-  enumFromJson,
-  enumToJson,
-  isEnumJson,
-  Message,
-  MessageInitShape,
-  toJsonString,
-} from '@bufbuild/protobuf';
-import { ValueSchema } from '@bufbuild/protobuf/wkt';
+import { create, enumFromJson, enumToJson, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
 import { useRouteContext } from '@tanstack/react-router';
 import { getConnectedEdges, Node as NodeCore, NodeProps as NodePropsCore, useReactFlow } from '@xyflow/react';
 import { Array, Match, Option, pipe, Struct } from 'effect';
@@ -41,6 +32,7 @@ import {
 } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon, Spinner } from '@the-dev-tools/ui/icons';
+import { JsonTree } from '@the-dev-tools/ui/json-tree';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, MenuItemLink, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Select } from '@the-dev-tools/ui/select';
@@ -365,13 +357,11 @@ const NodeExecutionTabs = ({ nodeExecutionId, renderOutput }: NodeExecutionTabsP
             </div>
           }
         >
-          {/* TODO: add json tree renderer */}
-          <TabPanel id='input'>{data.input && toJsonString(ValueSchema, data.input)}</TabPanel>
+          <TabPanel id='input'>{data.input && <JsonTree value={data.input} />}</TabPanel>
 
           <TabPanel id='output'>
             {renderOutput?.(data)}
-            {/* TODO: add json tree renderer */}
-            {!renderOutput && data.output && toJsonString(ValueSchema, data.output)}
+            {!renderOutput && data.output && <JsonTree value={data.output} />}
           </TabPanel>
         </Suspense>
       </div>
