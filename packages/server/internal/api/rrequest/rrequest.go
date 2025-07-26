@@ -229,6 +229,19 @@ func (c *RequestRPC) determineHeaderDeltaType(ctx context.Context, header mexamp
 	return deltaType, nil
 }
 
+// determineHeaderDeltaTypeWithTx is a transaction-aware version of determineHeaderDeltaType
+func (c *RequestRPC) determineHeaderDeltaTypeWithTx(ctx context.Context, header mexampleheader.Header, iaesTx sitemapiexample.ItemApiExampleService) (mexampleheader.HeaderSource, error) {
+	example, err := iaesTx.GetApiExample(ctx, header.ExampleID)
+	if err != nil {
+		return mexampleheader.HeaderSourceOrigin, err
+	}
+	
+	// Check if example has VersionParentID (making it a delta)
+	exampleIsDelta := example.VersionParentID != nil
+	deltaType := header.DetermineDeltaType(exampleIsDelta)
+	return deltaType, nil
+}
+
 func CheckOwnerAssert(ctx context.Context, as sassert.AssertService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, assertUlid idwrap.IDWrap) (bool, error) {
 	assert, err := as.GetAssert(ctx, assertUlid)
 	if err != nil {
@@ -2292,7 +2305,7 @@ func (c RequestRPC) AssertDeltaReset(ctx context.Context, req *connect.Request[r
 }
 
 func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv1.QueryMoveRequest]) (*connect.Response[requestv1.QueryMoveResponse], error) {
-	// Similar to HeaderMove but for queries
+	// 1. Parse request
 	queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -2303,13 +2316,26 @@ func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	
-	// Check permissions
-	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, c.eqs, c.iaes, c.cs, c.us, queryID))
+	// 2. Start transaction for atomic move operation
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+	
+	// Create transaction-aware services
+	eqsTx := c.eqs.TX(tx)
+	iaesTx := c.iaes.TX(tx)
+	csTx := c.cs.TX(tx)
+	usTx := c.us.TX(tx)
+	
+	// 3. Check permissions
+	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, eqsTx, iaesTx, csTx, usTx, queryID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	
-	// Perform the move
+	// 4. Perform the move
 	var position string
 	switch req.Msg.GetPosition() {
 	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
@@ -2319,19 +2345,19 @@ func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid position: %v", req.Msg.GetPosition()))
 	}
-	err = c.eqs.MoveQuery(ctx, queryID, targetID, position)
+	err = eqsTx.MoveQuery(ctx, queryID, targetID, position)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	
-	// Handle delta propagation if needed
-	query, err := c.eqs.GetExampleQuery(ctx, queryID)
+	// 5. Handle delta propagation if needed
+	query, err := eqsTx.GetExampleQuery(ctx, queryID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	
 	// Get example to determine delta type
-	example, err := c.iaes.GetApiExample(ctx, query.ExampleID)
+	example, err := iaesTx.GetApiExample(ctx, query.ExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -2342,12 +2368,17 @@ func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv
 		// This would update the order of corresponding delta queries
 	}
 	
+	// 6. Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
 	return connect.NewResponse(&requestv1.QueryMoveResponse{}), nil
 }
 
 func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[requestv1.QueryDeltaMoveRequest]) (*connect.Response[requestv1.QueryDeltaMoveResponse], error) {
-	// Similar to HeaderDeltaMove but for queries
-	// Implementation follows same pattern
+	// 1. Parse request
 	queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -2363,13 +2394,26 @@ func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[req
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	
-	// Check permissions
-	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, c.eqs, c.iaes, c.cs, c.us, queryID))
+	// 2. Start transaction for atomic move operation
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+	
+	// Create transaction-aware services
+	eqsTx := c.eqs.TX(tx)
+	iaesTx := c.iaes.TX(tx)
+	csTx := c.cs.TX(tx)
+	usTx := c.us.TX(tx)
+	
+	// 3. Check permissions
+	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, eqsTx, iaesTx, csTx, usTx, queryID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	
-	// Perform the move
+	// 4. Perform the move
 	var position string
 	switch req.Msg.GetPosition() {
 	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
@@ -2379,7 +2423,13 @@ func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[req
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid position: %v", req.Msg.GetPosition()))
 	}
-	err = c.eqs.MoveQuery(ctx, queryID, targetID, position)
+	err = eqsTx.MoveQuery(ctx, queryID, targetID, position)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// 5. Commit transaction
+	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -2399,13 +2449,26 @@ func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[request
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	
-	// 2. Check permissions
-	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, headerID))
+	// 2. Start transaction for atomic move operation
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+	
+	// Create transaction-aware services
+	ehsTx := c.ehs.TX(tx)
+	iaesTx := c.iaes.TX(tx)
+	csTx := c.cs.TX(tx)
+	usTx := c.us.TX(tx)
+	
+	// 3. Check permissions
+	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, ehsTx, iaesTx, csTx, usTx, headerID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	
-	// 3. Perform the move
+	// 4. Perform the move
 	var position string
 	switch req.Msg.GetPosition() {
 	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
@@ -2415,19 +2478,19 @@ func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[request
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid position: %v", req.Msg.GetPosition()))
 	}
-	err = c.ehs.MoveHeader(ctx, headerID, targetID, position)
+	err = ehsTx.MoveHeader(ctx, headerID, targetID, position)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	
-	// 4. Handle delta propagation if needed
+	// 5. Handle delta propagation if needed
 	// Check if this is an origin header and propagate ordering to delta headers
-	header, err := c.ehs.GetHeaderByID(ctx, headerID)
+	header, err := ehsTx.GetHeaderByID(ctx, headerID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	
-	deltaType, err := c.determineHeaderDeltaType(ctx, header)
+	deltaType, err := c.determineHeaderDeltaTypeWithTx(ctx, header, iaesTx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -2437,16 +2500,17 @@ func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[request
 		// This would update the order of corresponding delta headers
 	}
 	
+	// 6. Commit transaction
+	err = tx.Commit()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
 	return connect.NewResponse(&requestv1.HeaderMoveResponse{}), nil
 }
 
 func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaMoveRequest]) (*connect.Response[requestv1.HeaderDeltaMoveResponse], error) {
-	// Similar implementation but for delta headers
-	// Key differences:
-	// 1. Validate against origin example
-	// 2. Only move within delta context
-	// 3. Maintain delta relationships
-	
+	// 1. Parse request
 	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -2462,13 +2526,26 @@ func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[re
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	
-	// Check permissions
-	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, headerID))
+	// 2. Start transaction for atomic move operation
+	tx, err := c.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+	
+	// Create transaction-aware services
+	ehsTx := c.ehs.TX(tx)
+	iaesTx := c.iaes.TX(tx)
+	csTx := c.cs.TX(tx)
+	usTx := c.us.TX(tx)
+	
+	// 3. Check permissions
+	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, ehsTx, iaesTx, csTx, usTx, headerID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	
-	// Perform the move
+	// 4. Perform the move
 	var position string
 	switch req.Msg.GetPosition() {
 	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
@@ -2478,7 +2555,13 @@ func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[re
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid position: %v", req.Msg.GetPosition()))
 	}
-	err = c.ehs.MoveHeader(ctx, headerID, targetID, position)
+	err = ehsTx.MoveHeader(ctx, headerID, targetID, position)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	
+	// 5. Commit transaction
+	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

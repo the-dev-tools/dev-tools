@@ -371,8 +371,7 @@ func (h HeaderService) ResetHeaderDelta(ctx context.Context, id idwrap.IDWrap) e
 
 // MoveHeader moves a header to a new position relative to a target
 func (h HeaderService) MoveHeader(ctx context.Context, headerID, targetID idwrap.IDWrap, position string) error {
-	// This implementation assumes the transaction will be managed at a higher level
-	// For now, we'll implement it without explicit transaction management
+	// Note: This assumes the transaction is managed at the caller level
 	queries := h.queries
 	
 	// 1. Get the header to move
