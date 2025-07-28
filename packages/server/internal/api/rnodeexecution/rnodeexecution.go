@@ -132,4 +132,3 @@ func (s *NodeExecutionServiceRPC) NodeExecutionGet(
 
 	return connect.NewResponse(resp), nil
 }
-

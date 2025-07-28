@@ -328,7 +328,7 @@ func TestCopyPasteScenarioWithoutVersionParent(t *testing.T) {
 		headerMap[item.Key] = item
 		headerCounts[strings.ToLower(item.Key)]++
 	}
-	
+
 	// Check for duplicate headers
 	for key, count := range headerCounts {
 		if count > 1 {
@@ -345,7 +345,7 @@ func TestCopyPasteScenarioWithoutVersionParent(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if authHeader != nil {
 		if authHeader.Key != "Authorization" {
 			t.Errorf("Authorization header has wrong key: '%s'", authHeader.Key)

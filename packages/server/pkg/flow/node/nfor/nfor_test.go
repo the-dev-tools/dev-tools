@@ -269,7 +269,7 @@ func TestForNode_RunAsync_LargeIterationCount(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	iterCount := int64(1001) // Test with more than 1000 iterations
+	iterCount := int64(1001)    // Test with more than 1000 iterations
 	timeOut := 30 * time.Second // Increased timeout for large iteration count
 	nodeFor := nfor.New(id, nodeName, iterCount, timeOut, 0)
 
@@ -324,17 +324,16 @@ func TestForNode_RunAsync_LargeIterationCount(t *testing.T) {
 	}
 }
 
-
 // TestForNode_ErrorHandling_Ignore tests that errors are ignored when ErrorHandling is set to IGNORE
 func TestForNode_ErrorHandling_Ignore(t *testing.T) {
 	// Setup
 	forNodeID := idwrap.NewNow()
 	errorNodeID := idwrap.NewNow()
 	nextNodeID := idwrap.NewNow()
-	
+
 	// Create a for node with IGNORE error handling
 	forNode := nfor.New(forNodeID, "TestForIgnore", 3, time.Second*5, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
-	
+
 	// Create error node that fails on second iteration
 	errorNode := &MockNodeWithError{
 		ID:   errorNodeID,
@@ -343,19 +342,19 @@ func TestForNode_ErrorHandling_Ignore(t *testing.T) {
 			return iteration == 2
 		},
 	}
-	
+
 	// Setup edge map
 	edgeMap := make(edge.EdgesMap)
 	edgeMap[forNodeID] = map[edge.EdgeHandle][]idwrap.IDWrap{
 		edge.HandleLoop: {errorNodeID},
 		edge.HandleThen: {nextNodeID},
 	}
-	
+
 	// Setup node map
 	nodeMap := make(map[idwrap.IDWrap]node.FlowNode)
 	nodeMap[forNodeID] = forNode
 	nodeMap[errorNodeID] = errorNode
-	
+
 	// Create request
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -368,21 +367,21 @@ func TestForNode_ErrorHandling_Ignore(t *testing.T) {
 		Timeout:          time.Second * 5,
 		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 	}
-	
+
 	// Execute
 	ctx := context.Background()
 	result := forNode.RunSync(ctx, req)
-	
+
 	// Verify
 	if result.Err != nil {
 		t.Errorf("Expected no error with IGNORE handling, got: %v", result.Err)
 	}
-	
+
 	// Should have executed all 3 iterations despite error on iteration 2
 	if errorNode.iteration != 3 {
 		t.Errorf("Expected 3 executions with IGNORE, got: %d", errorNode.iteration)
 	}
-	
+
 	// Should proceed to next node
 	if len(result.NextNodeID) != 1 || result.NextNodeID[0] != nextNodeID {
 		t.Errorf("Expected to proceed to next node")
@@ -395,10 +394,10 @@ func TestForNode_ErrorHandling_Break(t *testing.T) {
 	forNodeID := idwrap.NewNow()
 	errorNodeID := idwrap.NewNow()
 	nextNodeID := idwrap.NewNow()
-	
+
 	// Create a for node with BREAK error handling
 	forNode := nfor.New(forNodeID, "TestForBreak", 5, time.Second*5, mnfor.ErrorHandling_ERROR_HANDLING_BREAK)
-	
+
 	// Create error node that fails on second iteration
 	errorNode := &MockNodeWithError{
 		ID:   errorNodeID,
@@ -407,19 +406,19 @@ func TestForNode_ErrorHandling_Break(t *testing.T) {
 			return iteration == 2
 		},
 	}
-	
+
 	// Setup edge map
 	edgeMap := make(edge.EdgesMap)
 	edgeMap[forNodeID] = map[edge.EdgeHandle][]idwrap.IDWrap{
 		edge.HandleLoop: {errorNodeID},
 		edge.HandleThen: {nextNodeID},
 	}
-	
+
 	// Setup node map
 	nodeMap := make(map[idwrap.IDWrap]node.FlowNode)
 	nodeMap[forNodeID] = forNode
 	nodeMap[errorNodeID] = errorNode
-	
+
 	// Create request
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -432,21 +431,21 @@ func TestForNode_ErrorHandling_Break(t *testing.T) {
 		Timeout:          time.Second * 5,
 		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 	}
-	
+
 	// Execute
 	ctx := context.Background()
 	result := forNode.RunSync(ctx, req)
-	
+
 	// Verify
 	if result.Err != nil {
 		t.Errorf("Expected no error with BREAK handling, got: %v", result.Err)
 	}
-	
+
 	// Should have executed only 2 iterations (stopped on error)
 	if errorNode.iteration != 2 {
 		t.Errorf("Expected 2 executions with BREAK (stop on error), got: %d", errorNode.iteration)
 	}
-	
+
 	// Should proceed to next node
 	if len(result.NextNodeID) != 1 || result.NextNodeID[0] != nextNodeID {
 		t.Errorf("Expected to proceed to next node")
@@ -459,10 +458,10 @@ func TestForNode_ErrorHandling_Unspecified(t *testing.T) {
 	forNodeID := idwrap.NewNow()
 	errorNodeID := idwrap.NewNow()
 	nextNodeID := idwrap.NewNow()
-	
+
 	// Create a for node with UNSPECIFIED error handling (default fail behavior)
 	forNode := nfor.New(forNodeID, "TestForUnspecified", 5, time.Second*5, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-	
+
 	// Create error node that fails on second iteration
 	errorNode := &MockNodeWithError{
 		ID:   errorNodeID,
@@ -471,19 +470,19 @@ func TestForNode_ErrorHandling_Unspecified(t *testing.T) {
 			return iteration == 2
 		},
 	}
-	
+
 	// Setup edge map
 	edgeMap := make(edge.EdgesMap)
 	edgeMap[forNodeID] = map[edge.EdgeHandle][]idwrap.IDWrap{
 		edge.HandleLoop: {errorNodeID},
 		edge.HandleThen: {nextNodeID},
 	}
-	
+
 	// Setup node map
 	nodeMap := make(map[idwrap.IDWrap]node.FlowNode)
 	nodeMap[forNodeID] = forNode
 	nodeMap[errorNodeID] = errorNode
-	
+
 	// Create request
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -496,21 +495,21 @@ func TestForNode_ErrorHandling_Unspecified(t *testing.T) {
 		Timeout:          time.Second * 5,
 		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 	}
-	
+
 	// Execute
 	ctx := context.Background()
 	result := forNode.RunSync(ctx, req)
-	
+
 	// Verify
 	if result.Err == nil {
 		t.Error("Expected error with UNSPECIFIED handling")
 	}
-	
+
 	// Should have executed only 2 iterations (failed on second)
 	if errorNode.iteration != 2 {
 		t.Errorf("Expected 2 executions before failure, got: %d", errorNode.iteration)
 	}
-	
+
 	// Should not proceed to next node due to error
 	if len(result.NextNodeID) != 0 {
 		t.Error("Expected no next node due to error")
@@ -523,13 +522,13 @@ func TestForNode_ErrorHandling_NodeStatus(t *testing.T) {
 	forNodeID := idwrap.NewNow()
 	errorNodeID := idwrap.NewNow()
 	nextNodeID := idwrap.NewNow()
-	
+
 	// Track node statuses
 	nodeStatuses := make(map[idwrap.IDWrap]runner.FlowNodeStatus)
-	
+
 	// Create a for node with IGNORE error handling
 	forNode := nfor.New(forNodeID, "TestForNodeStatus", 3, time.Second*5, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
-	
+
 	// Create error node that fails on second iteration
 	errorNode := &MockNodeWithError{
 		ID:   errorNodeID,
@@ -538,19 +537,19 @@ func TestForNode_ErrorHandling_NodeStatus(t *testing.T) {
 			return iteration == 2
 		},
 	}
-	
+
 	// Setup edge map
 	edgeMap := make(edge.EdgesMap)
 	edgeMap[forNodeID] = map[edge.EdgeHandle][]idwrap.IDWrap{
 		edge.HandleLoop: {errorNodeID},
 		edge.HandleThen: {nextNodeID},
 	}
-	
+
 	// Setup node map
 	nodeMap := make(map[idwrap.IDWrap]node.FlowNode)
 	nodeMap[forNodeID] = forNode
 	nodeMap[errorNodeID] = errorNode
-	
+
 	// Create request with status tracking
 	req := &node.FlowNodeRequest{
 		VarMap:        make(map[string]any),
@@ -564,22 +563,22 @@ func TestForNode_ErrorHandling_NodeStatus(t *testing.T) {
 		Timeout:          time.Second * 5,
 		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 	}
-	
+
 	// Execute
 	ctx := context.Background()
 	result := forNode.RunSync(ctx, req)
-	
+
 	// Verify
 	// The for node should complete successfully (no error)
 	if result.Err != nil {
 		t.Errorf("Expected no error from for node with IGNORE handling, got: %v", result.Err)
 	}
-	
+
 	// Should have executed all 3 iterations despite error
 	if errorNode.iteration != 3 {
 		t.Errorf("Expected 3 executions with IGNORE, got: %d", errorNode.iteration)
 	}
-	
+
 	// Check node statuses
 	// The error node should have a failure status recorded during iteration 2
 	if errorStatus, ok := nodeStatuses[errorNodeID]; ok {
@@ -587,7 +586,7 @@ func TestForNode_ErrorHandling_NodeStatus(t *testing.T) {
 		// The important thing is that the error is associated with the error node, not the for node
 		t.Logf("Error node status: State=%v, Error=%v", errorStatus.State, errorStatus.Error)
 	}
-	
+
 	// The for node itself should not have an error status
 	if forStatus, ok := nodeStatuses[forNodeID]; ok {
 		if forStatus.State == mnnode.NODE_STATE_FAILURE {

@@ -121,6 +121,12 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	}
 
 Exit:
+	// Write final output with total iterations completed
+	if err := node.WriteNodeVar(req, nr.Name, "totalIterations", nr.IterCount); err != nil {
+		return node.FlowNodeResult{
+			Err: err,
+		}
+	}
 
 	return node.FlowNodeResult{
 		NextNodeID: nextID,
@@ -201,6 +207,13 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 	}
 
 Exit:
+	// Write final output with total iterations completed
+	if err := node.WriteNodeVar(req, nr.Name, "totalIterations", nr.IterCount); err != nil {
+		resultChan <- node.FlowNodeResult{
+			Err: err,
+		}
+		return
+	}
 
 	resultChan <- node.FlowNodeResult{
 		NextNodeID: nextID,

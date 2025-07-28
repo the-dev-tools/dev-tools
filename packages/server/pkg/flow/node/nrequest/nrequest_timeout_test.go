@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
@@ -22,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/testutil"
+	"time"
 )
 
 func TestNodeRequest_Timeout(t *testing.T) {
@@ -90,7 +90,7 @@ func TestNodeRequest_Timeout(t *testing.T) {
 
 		// Should fail due to timeout
 		testutil.AssertNot(t, nil, result.Err)
-		
+
 		// Should timeout in around 2 seconds, not 5 seconds
 		if elapsed > 3*time.Second {
 			t.Errorf("Expected timeout in ~2 seconds, but took %v", elapsed)
@@ -139,7 +139,7 @@ func TestNodeRequest_Timeout(t *testing.T) {
 
 		// Should succeed
 		testutil.Assert(t, nil, result.Err)
-		
+
 		// Should complete in around 1 second
 		if elapsed > 2*time.Second {
 			t.Errorf("Expected completion in ~1 second, but took %v", elapsed)
@@ -185,7 +185,7 @@ func TestNodeRequest_Timeout(t *testing.T) {
 
 		// Should fail due to cancellation
 		testutil.AssertNot(t, nil, result.Err)
-		
+
 		// Should be cancelled in around 1 second
 		if elapsed > 2*time.Second {
 			t.Errorf("Expected cancellation in ~1 second, but took %v", elapsed)

@@ -63,13 +63,13 @@ func (bf *BodyForm) DetermineDeltaType(exampleHasVersionParent bool) BodyFormSou
 	if bf.DeltaParentID == nil {
 		return BodyFormSourceOrigin
 	}
-	
+
 	// If example has VersionParentID, this is a delta example
 	if exampleHasVersionParent {
 		// BodyForm has DeltaParentID and example is delta -> DELTA body form
 		return BodyFormSourceDelta
 	}
-	
+
 	// If example has no VersionParentID, it's an original example
 	// BodyForm has DeltaParentID but example is original -> MIXED body form
 	return BodyFormSourceMixed

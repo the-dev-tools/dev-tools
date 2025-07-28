@@ -29,7 +29,7 @@ import (
 // createLargeHAR creates a HAR file with many entries to test performance
 func createLargeHAR(numEntries int) string {
 	entries := make([]interface{}, numEntries)
-	
+
 	for i := 0; i < numEntries; i++ {
 		entries[i] = map[string]interface{}{
 			"startedDateTime": time.Now().Add(time.Duration(i) * time.Second).Format(time.RFC3339),
@@ -82,7 +82,7 @@ func createLargeHAR(numEntries int) string {
 // BenchmarkImportHAR_NewCollection benchmarks importing HAR to a new collection
 func BenchmarkImportHAR_NewCollection(b *testing.B) {
 	sizes := []int{10, 50, 100, 200}
-	
+
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("entries_%d", size), func(b *testing.B) {
 			// Setup
@@ -118,7 +118,7 @@ func BenchmarkImportHAR_NewCollection(b *testing.B) {
 			harJSON := createLargeHAR(size)
 
 			b.ResetTimer()
-			
+
 			for i := 0; i < b.N; i++ {
 				// First request to get filter options
 				req0 := connect.NewRequest(&importv1.ImportRequest{
@@ -151,7 +151,7 @@ func BenchmarkImportHAR_NewCollection(b *testing.B) {
 // BenchmarkImportHAR_ExistingCollection benchmarks importing HAR to existing collection (tests optimization)
 func BenchmarkImportHAR_ExistingCollection(b *testing.B) {
 	sizes := []int{10, 50, 100}
-	
+
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("entries_%d", size), func(b *testing.B) {
 			// Setup
@@ -210,12 +210,12 @@ func BenchmarkImportHAR_ExistingCollection(b *testing.B) {
 			require.NotNil(b, resp1)
 
 			b.ResetTimer()
-			
+
 			// Benchmark re-importing to existing collection
 			for i := 0; i < b.N; i++ {
 				// Modify HAR slightly to simulate updates
 				modifiedHAR := createLargeHAR(size)
-				
+
 				// Get filter options
 				req2 := connect.NewRequest(&importv1.ImportRequest{
 					WorkspaceId: workspaceID.Bytes(),
@@ -309,14 +309,14 @@ func TestImportHAR_DatabaseOperations(t *testing.T) {
 		// Count created resources
 		folders, err := ifs.GetFoldersWithCollectionID(ctx, collectionID)
 		require.NoError(t, err)
-		
+
 		apis, err := ias.GetApisWithCollectionID(ctx, collectionID)
 		require.NoError(t, err)
 
 		t.Logf("First import created:")
 		t.Logf("  - Folders: %d", len(folders))
 		t.Logf("  - Endpoints: %d (including delta endpoints)", len(apis))
-		
+
 		// Now import the exact same HAR data again to same collection
 		// This should reuse existing folders and endpoints
 		req2 := connect.NewRequest(&importv1.ImportRequest{
@@ -341,14 +341,14 @@ func TestImportHAR_DatabaseOperations(t *testing.T) {
 		// Count resources after second import
 		foldersAfter, err := ifs.GetFoldersWithCollectionID(ctx, collectionID)
 		require.NoError(t, err)
-		
+
 		apisAfter, err := ias.GetApisWithCollectionID(ctx, collectionID)
 		require.NoError(t, err)
 
 		t.Logf("\nSecond import results:")
 		t.Logf("  - Folders: %d (no new folders created)", len(foldersAfter))
 		t.Logf("  - Endpoints: %d (no duplicates created)", len(apisAfter))
-		
+
 		// Debug: Show folder names
 		t.Logf("\nFolders after first import:")
 		for _, f := range folders {
@@ -358,7 +358,7 @@ func TestImportHAR_DatabaseOperations(t *testing.T) {
 		for _, f := range foldersAfter {
 			t.Logf("  - %s (ID: %s, Parent: %v)", f.Name, f.ID.String(), f.ParentID)
 		}
-		
+
 		// Count how many folders were actually reused
 		reusedFolders := 0
 		for _, f1 := range folders {
@@ -369,11 +369,11 @@ func TestImportHAR_DatabaseOperations(t *testing.T) {
 				}
 			}
 		}
-		
+
 		t.Logf("\n✓ Optimization results:")
 		t.Logf("  - Reused %d folders out of %d", reusedFolders, len(folders))
 		t.Logf("  - No duplicate endpoints created (kept at %d)", len(apis))
-		
+
 		// Verify endpoints weren't duplicated
 		assert := require.New(t)
 		assert.Equal(len(apis), len(apisAfter), "No new endpoints should be created")
@@ -417,7 +417,7 @@ func TestImportHAR_PerformanceComparison(t *testing.T) {
 
 	// Time first import (new collection)
 	start1 := time.Now()
-	
+
 	req0 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		Data:        []byte(harJSON),
@@ -436,12 +436,12 @@ func TestImportHAR_PerformanceComparison(t *testing.T) {
 	resp1, err := importRPC.Import(authedCtx, req1)
 	require.NoError(t, err)
 	require.NotNil(t, resp1)
-	
+
 	duration1 := time.Since(start1)
 
 	// Time second import (existing collection - should be faster)
 	start2 := time.Now()
-	
+
 	req2 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		Data:        []byte(harJSON),
@@ -460,13 +460,13 @@ func TestImportHAR_PerformanceComparison(t *testing.T) {
 	resp3, err := importRPC.Import(authedCtx, req3)
 	require.NoError(t, err)
 	require.NotNil(t, resp3)
-	
+
 	duration2 := time.Since(start2)
 
 	t.Logf("First import (new collection): %v", duration1)
 	t.Logf("Second import (existing collection): %v", duration2)
 	t.Logf("Speed improvement: %.2fx faster", float64(duration1)/float64(duration2))
-	
+
 	// Log performance metrics
 	if duration2 < duration1 {
 		t.Logf("✓ Optimization working: Second import is %.2f%% faster", (1-float64(duration2)/float64(duration1))*100)

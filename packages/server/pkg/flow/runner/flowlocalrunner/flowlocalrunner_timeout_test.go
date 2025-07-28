@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
@@ -22,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"time"
 )
 
 func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
@@ -92,7 +92,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 		// Start the flow
 		start := time.Now()
 		done := make(chan error, 1)
-		
+
 		go func() {
 			err := flowRunner.Run(flowCtx, flowNodeStatusChan, flowStatusChan, nil)
 			done <- err
@@ -111,22 +111,22 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 		select {
 		case err := <-done:
 			elapsed := time.Since(start)
-			
+
 			// Should succeed even though it took 5 seconds
 			if err != nil {
 				t.Errorf("Expected flow to complete successfully, but got error: %v", err)
 			}
-			
+
 			// Should take around 5 seconds
 			if elapsed < 5*time.Second || elapsed > 7*time.Second {
 				t.Errorf("Expected flow to complete in ~5 seconds, but took %v", elapsed)
 			}
-			
+
 			// Verify we got status updates
 			if !statusReceived {
 				t.Error("Expected to receive node status updates")
 			}
-			
+
 			// Verify the gRPC context timed out but didn't affect the flow
 			select {
 			case <-gRPCCtx.Done():
@@ -134,7 +134,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 			default:
 				t.Error("Expected gRPC context to have timed out")
 			}
-			
+
 		case <-time.After(10 * time.Second):
 			t.Error("Test timed out waiting for flow completion")
 		}
@@ -223,7 +223,7 @@ func TestFlowRunner_ContextIsolation(t *testing.T) {
 
 		// Create a parent context that we'll cancel immediately
 		parentCtx, parentCancel := context.WithCancel(context.Background())
-		
+
 		// Create isolated context (simulating what rflow.go does)
 		isolatedCtx := context.Background()
 

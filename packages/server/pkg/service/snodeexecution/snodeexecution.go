@@ -39,12 +39,12 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 			Valid:  true,
 		}
 	}
-	
+
 	var responseID []byte
 	if ne.ResponseID != nil {
 		responseID = ne.ResponseID.Bytes()
 	}
-	
+
 	var completedAtSQL sql.NullInt64
 	if ne.CompletedAt != nil {
 		completedAtSQL = sql.NullInt64{
@@ -52,7 +52,7 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 			Valid: true,
 		}
 	}
-	
+
 	return &gen.NodeExecution{
 		ID:                     ne.ID,
 		NodeID:                 ne.NodeID,
@@ -73,7 +73,7 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecu
 	if ne.Error.Valid {
 		errorPtr = &ne.Error.String
 	}
-	
+
 	var responseIDPtr *idwrap.IDWrap
 	if len(ne.ResponseID) > 0 {
 		respID, err := idwrap.NewFromBytes(ne.ResponseID)
@@ -81,12 +81,12 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecu
 			responseIDPtr = &respID
 		}
 	}
-	
+
 	var completedAtPtr *int64
 	if ne.CompletedAt.Valid {
 		completedAtPtr = &ne.CompletedAt.Int64
 	}
-	
+
 	return &mnodeexecution.NodeExecution{
 		ID:                     ne.ID,
 		NodeID:                 ne.NodeID,
@@ -110,12 +110,12 @@ func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodee
 			Valid:  true,
 		}
 	}
-	
+
 	var responseID []byte
 	if ne.ResponseID != nil {
 		responseID = ne.ResponseID.Bytes()
 	}
-	
+
 	var completedAtSQL sql.NullInt64
 	if ne.CompletedAt != nil {
 		completedAtSQL = sql.NullInt64{
@@ -123,7 +123,7 @@ func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodee
 			Valid: true,
 		}
 	}
-	
+
 	_, err := s.queries.CreateNodeExecution(ctx, gen.CreateNodeExecutionParams{
 		ID:                     ne.ID,
 		NodeID:                 ne.NodeID,
@@ -137,7 +137,7 @@ func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodee
 		ResponseID:             responseID,
 		CompletedAt:            completedAtSQL,
 	})
-	
+
 	return err
 }
 
@@ -184,12 +184,12 @@ func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mnodee
 			Valid:  true,
 		}
 	}
-	
+
 	var responseID []byte
 	if ne.ResponseID != nil {
 		responseID = ne.ResponseID.Bytes()
 	}
-	
+
 	var completedAtSQL sql.NullInt64
 	if ne.CompletedAt != nil {
 		completedAtSQL = sql.NullInt64{
@@ -197,7 +197,7 @@ func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mnodee
 			Valid: true,
 		}
 	}
-	
+
 	_, err := s.queries.UpdateNodeExecution(ctx, gen.UpdateNodeExecutionParams{
 		ID:                     ne.ID,
 		State:                  ne.State,
@@ -207,6 +207,6 @@ func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mnodee
 		ResponseID:             responseID,
 		CompletedAt:            completedAtSQL,
 	})
-	
+
 	return err
 }

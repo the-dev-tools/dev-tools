@@ -22,12 +22,12 @@ func smartCompare(a, b string) bool {
 	if len(a) != len(b) {
 		return len(a) < len(b)
 	}
-	
+
 	// If same length, check for numeric suffixes
 	re := regexp.MustCompile(`^(.+?)(\d+)$`)
 	aMatches := re.FindStringSubmatch(a)
 	bMatches := re.FindStringSubmatch(b)
-	
+
 	// If both have numeric suffixes and same prefix, compare numerically
 	if len(aMatches) == 3 && len(bMatches) == 3 && aMatches[1] == bMatches[1] {
 		aNum, aErr := strconv.Atoi(aMatches[2])
@@ -36,7 +36,7 @@ func smartCompare(a, b string) bool {
 			return aNum < bNum
 		}
 	}
-	
+
 	// Otherwise, fall back to alphabetical comparison
 	return a < b
 }

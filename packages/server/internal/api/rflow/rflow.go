@@ -36,13 +36,13 @@ import (
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/server/pkg/model/mnnode/mnif"
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/service/flow/sedge"
@@ -61,6 +61,7 @@ import (
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
 	"the-dev-tools/server/pkg/service/snodeforeach"
 	"the-dev-tools/server/pkg/service/snodeif"
@@ -70,7 +71,6 @@ import (
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/translate/tflow"
 	"the-dev-tools/server/pkg/translate/tflowversion"
 	"the-dev-tools/server/pkg/translate/tgeneric"
@@ -565,7 +565,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			nodeTimeout = time.Duration(timeoutSecondsInt) * time.Second
 		}
 	}
-	
+
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
 	for _, forNode := range forNodes {
 		name := nodeNameMap[forNode.FlowNodeID]
@@ -784,7 +784,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			bufferSize = estimatedSize
 		}
 	}
-	
+
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, bufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, 100)
 
@@ -795,20 +795,20 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	done := make(chan error, 1)
 	nodeExecutionChan := make(chan mnodeexecution.NodeExecution, bufferSize)
-	
+
 	// Collector goroutine for node executions
 	var nodeExecutions []mnodeexecution.NodeExecution
 	var nodeExecutionsMutex sync.Mutex
 	nodeExecutionsDone := make(chan struct{})
-	
+
 	// Track execution counts per node for naming
 	nodeExecutionCounts := make(map[idwrap.IDWrap]int)
 	nodeExecutionCountsMutex := sync.Mutex{}
-	
+
 	// Map to store node executions by node ID for later updates
 	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
 	pendingNodeExecutionsMutex := sync.Mutex{}
-	
+
 	go func() {
 		defer close(nodeExecutionsDone)
 		for execution := range nodeExecutionChan {
@@ -817,7 +817,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			nodeExecutionsMutex.Unlock()
 		}
 	}()
-	
+
 	go func() {
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
 			id := flowNodeStatus.NodeID
@@ -830,7 +830,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				idStrForLog := idStr
 				stateStrForLog := stateStr
 				nodeError := flowNodeStatus.Error
-				
+
 				go func() {
 					// Create a simple log-friendly structure without maps
 					logData := struct {
@@ -844,7 +844,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						State:  stateStrForLog,
 						Error:  nodeError,
 					}
-					
+
 					ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
 					refs := []reference.ReferenceTreeItem{ref}
 
@@ -927,36 +927,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					data = []byte("{}")
 				}
 
-				// Capture input data: outputs from predecessor nodes
-				inputMap := make(map[string]any)
-				
-				// Find predecessor nodes from edges
-				for sourceID, targets := range edgeMap {
-					for _, targetList := range targets {
-						for _, targetID := range targetList {
-							if targetID == id {
-								// This sourceID is a predecessor
-								sourceNode, ok := flowNodeMap[sourceID]
-								if ok {
-									// For now, we'll capture the node name and ID
-									// The actual output data would need to be retrieved from
-									// the running flow context, which isn't directly accessible here
-									inputMap[sourceNode.GetName()] = map[string]any{
-										"nodeId":   sourceID.String(),
-										"nodeName": sourceNode.GetName(),
-									}
-								}
-							}
-						}
-					}
+				// Capture input data from what the node actually read during execution
+				if flowNodeStatus.InputData != nil {
+					inputData, _ = json.Marshal(flowNodeStatus.InputData)
+				} else {
+					// Fallback to empty object if no input data
+					inputData = []byte("{}")
 				}
-				
-				// Also capture any flow variables that might be used
-				if len(flowVarsMap) > 0 {
-					inputMap["flow"] = flowVarsMap
-				}
-				
-				inputData, _ = json.Marshal(inputMap)
 			} else {
 				// For intermediate states, don't include output data or input data
 				data = []byte("{}")
@@ -976,7 +953,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			execCount := nodeExecutionCounts[id]
 			nodeExecutionCountsMutex.Unlock()
 			execName := fmt.Sprintf("Execution %d", execCount)
-			
+
 			nodeExecution := mnodeexecution.NodeExecution{
 				ID:                     idwrap.NewNow(),
 				NodeID:                 id,
@@ -986,22 +963,22 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				InputData:              inputData,
 				InputDataCompressType:  0, // Will be set by SetInputJSON
 				OutputData:             data,
-				OutputDataCompressType: 0, // Will be set by SetOutputJSON
+				OutputDataCompressType: 0,   // Will be set by SetOutputJSON
 				ResponseID:             nil, // Set for REQUEST nodes
 				CompletedAt:            nil, // Set when state is final
 			}
 
 			// Store the node execution for potential later updates (e.g., response ID)
-			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS || 
-			   flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS ||
+				flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
 				pendingNodeExecutionsMutex.Lock()
 				pendingNodeExecutions[id] = &nodeExecution
 				pendingNodeExecutionsMutex.Unlock()
 			}
 
 			// Set CompletedAt for final states
-			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS || 
-			   flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS ||
+				flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
 				now := time.Now().UnixMilli()
 				nodeExecution.CompletedAt = &now
 			}
@@ -1079,18 +1056,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	close(nodeExecutionChan)
 	close(requestNodeRespChan)
-	
+
 	// Wait for all node executions to be collected
 	<-nodeExecutionsDone
 
 	flow.VersionParentID = &flow.ID
-	
+
 	// Lock to safely access nodeExecutions
 	nodeExecutionsMutex.Lock()
 	nodeExecutionsCopy := make([]mnodeexecution.NodeExecution, len(nodeExecutions))
 	copy(nodeExecutionsCopy, nodeExecutions)
 	nodeExecutionsMutex.Unlock()
-	
+
 	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow, nodeExecutionsCopy)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
@@ -1263,7 +1240,7 @@ type CopyFlowResult struct {
 	ForEachNodes []mnforeach.MNForEach
 	IfNodes      []mnif.MNIF
 	NoopNodes    []mnnoop.NoopNode
-	
+
 	// Node executions for this flow run
 	NodeExecutions []mnodeexecution.NodeExecution
 }

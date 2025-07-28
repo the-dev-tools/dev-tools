@@ -108,6 +108,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	case iter.Seq[any]:
 		// Handle slice/array sequence
 		itemIndex := 0
+		totalItems := 0
 		for item := range seq {
 			// Write the item and key (index) to the node variables
 			err := node.WriteNodeVar(req, nr.Name, "item", item)
@@ -123,6 +124,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 			}
 			itemIndex++
+			totalItems++
 
 			result := processNode()
 			if result.Err != nil {
@@ -139,8 +141,15 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 			}
 		}
+		// Write total items processed
+		if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+			return node.FlowNodeResult{
+				Err: err,
+			}
+		}
 	case iter.Seq2[string, any]:
 		// Handle map sequence
+		totalItems := 0
 		for key, value := range seq {
 			// Write the key and item (value) to the node variables
 			err := node.WriteNodeVar(req, nr.Name, "key", key)
@@ -155,6 +164,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					Err: err,
 				}
 			}
+			totalItems++
 
 			result := processNode()
 			if result.Err != nil {
@@ -171,8 +181,17 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 			}
 		}
+		// Write total items processed
+		if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+			return node.FlowNodeResult{
+				Err: err,
+			}
+		}
 	default:
 		// Unexpected result type
+		return node.FlowNodeResult{
+			Err: fmt.Errorf("unexpected iterator type: %T", result),
+		}
 	}
 Exit:
 	return node.FlowNodeResult{
@@ -253,6 +272,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		// Handle slice/array sequence
 		go func() {
 			itemIndex := 0
+			totalItems := 0
 			for item := range seq {
 				// Write the item and key (index) to the node variables
 				err := node.WriteNodeVar(req, nr.Name, "item", item)
@@ -270,6 +290,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					return
 				}
 				itemIndex++
+				totalItems++
 
 				loopResult := processNode()
 				if loopResult.Err != nil {
@@ -288,12 +309,18 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					}
 				}
 			}
+			// Write total items processed
+			if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+				resultChan <- node.FlowNodeResult{Err: err}
+				return
+			}
 			// Send success result after loop finishes
 			resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
 		}()
 	case iter.Seq2[string, any]:
 		// Handle map sequence
 		go func() {
+			totalItems := 0
 			for key, value := range seq {
 				// Write the key and item (value) to the node variables
 				err := node.WriteNodeVar(req, nr.Name, "key", key)
@@ -310,6 +337,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					}
 					return
 				}
+				totalItems++
 
 				loopResult := processNode()
 				if loopResult.Err != nil {
@@ -327,6 +355,11 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						return
 					}
 				}
+			}
+			// Write total items processed
+			if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+				resultChan <- node.FlowNodeResult{Err: err}
+				return
 			}
 			// Send success result after loop finishes
 			resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}

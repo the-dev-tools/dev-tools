@@ -44,6 +44,7 @@ type FlowNodeStatus struct {
 	Name        string
 	State       mnnode.NodeState
 	OutputData  any
+	InputData   any // Data that was read by this node during execution
 	RunDuration time.Duration
 	Error       error
 }

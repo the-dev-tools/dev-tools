@@ -1906,7 +1906,7 @@ func (c RequestRPC) AssertDeltaList(ctx context.Context, req *connect.Request[re
 		if assert.ExampleID.Compare(deltaExampleID) != 0 {
 			continue
 		}
-		
+
 		deltaType := assert.DetermineDeltaType(deltaExampleHasVersionParent)
 		if (deltaType == massert.AssertSourceDelta || deltaType == massert.AssertSourceMixed) && assert.DeltaParentID != nil {
 			// This is a delta assert - check if it's been modified from its parent

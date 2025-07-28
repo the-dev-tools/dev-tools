@@ -32,6 +32,10 @@ type FlowNodeRequest struct {
 	Timeout          time.Duration
 	LogPushFunc      LogPushFunc
 	PendingAtmoicMap map[idwrap.IDWrap]uint32
+	// Read tracking fields
+	ReadTracker      map[string]any
+	ReadTrackerMutex *sync.Mutex
+	CurrentNodeID    idwrap.IDWrap
 }
 
 type LogPushFunc func(status runner.FlowNodeStatus)
@@ -104,11 +108,18 @@ func WriteNodeVarBulk(a *FlowNodeRequest, name string, v map[string]interface{})
 
 func ReadVarRaw(a *FlowNodeRequest, key string) (interface{}, error) {
 	a.ReadWriteLock.RLock()
-	defer a.ReadWriteLock.RUnlock()
-
 	v, ok := a.VarMap[key]
+	a.ReadWriteLock.RUnlock()
+
 	if !ok {
 		return nil, ErrVarKeyNotFound
+	}
+
+	// Track the read if tracking is enabled
+	if a.ReadTracker != nil && a.ReadTrackerMutex != nil {
+		a.ReadTrackerMutex.Lock()
+		a.ReadTracker[key] = deepCopy(v)
+		a.ReadTrackerMutex.Unlock()
 	}
 
 	return v, nil
@@ -116,11 +127,10 @@ func ReadVarRaw(a *FlowNodeRequest, key string) (interface{}, error) {
 
 func ReadNodeVar(a *FlowNodeRequest, name, key string) (interface{}, error) {
 	a.ReadWriteLock.RLock()
-	defer a.ReadWriteLock.RUnlock()
-
 	nodeKey := name
-
 	nodeVarMap, ok := a.VarMap[nodeKey]
+	a.ReadWriteLock.RUnlock()
+
 	if !ok {
 		return nil, ErrVarNodeNotFound
 	}
@@ -135,5 +145,46 @@ func ReadNodeVar(a *FlowNodeRequest, name, key string) (interface{}, error) {
 		return nil, ErrVarKeyNotFound
 	}
 
+	// Track the entire node data if tracking is enabled
+	if a.ReadTracker != nil && a.ReadTrackerMutex != nil {
+		a.ReadTrackerMutex.Lock()
+		a.ReadTracker[nodeKey] = deepCopy(nodeVarMap)
+		a.ReadTrackerMutex.Unlock()
+	}
+
 	return v, nil
+}
+
+// deepCopy creates a deep copy of the value to prevent external modifications
+func deepCopy(v interface{}) interface{} {
+	if v == nil {
+		return nil
+	}
+
+	switch val := v.(type) {
+	case map[string]interface{}:
+		result := make(map[string]interface{}, len(val))
+		for k, v := range val {
+			result[k] = deepCopy(v)
+		}
+		return result
+	case []interface{}:
+		result := make([]interface{}, len(val))
+		for i, v := range val {
+			result[i] = deepCopy(v)
+		}
+		return result
+	case []map[string]interface{}:
+		result := make([]map[string]interface{}, len(val))
+		for i, v := range val {
+			if mapCopy, ok := deepCopy(v).(map[string]interface{}); ok {
+				result[i] = mapCopy
+			}
+		}
+		return result
+	default:
+		// For primitive types and other types, return as is
+		// This includes string, int, float, bool, etc.
+		return v
+	}
 }

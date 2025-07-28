@@ -146,7 +146,7 @@ func TestImportHarEmptyData(t *testing.T) {
 	require.NotNil(t, resp1)
 	require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp1.Msg.Kind)
 	require.Empty(t, resp1.Msg.Filter) // No domains found
-	
+
 	// Second request with filter - HAR will fail but should fall back to Postman
 	req2 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
@@ -154,19 +154,19 @@ func TestImportHarEmptyData(t *testing.T) {
 		Name:        "Test Import",
 		Filter:      []string{"example.com"},
 	})
-	
+
 	resp2, err := importRPC.Import(authedCtx, req2)
-	
+
 	// This should succeed because it falls back to Postman import
 	require.NoError(t, err, "Should succeed via Postman fallback")
 	require.NotNil(t, resp2)
-	
+
 	// Verify collection was created
 	// HAR imports now always use "Imported" as collection name
 	collection, collErr := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 	require.NoError(t, collErr)
 	require.NotNil(t, collection)
-	
+
 	// Verify no flow was created (Postman imports don't create flows)
 	assert.Nil(t, resp2.Msg.Flow, "Postman imports should not create flows")
 }
@@ -209,7 +209,7 @@ func TestImportTransactionRollback(t *testing.T) {
 	// Test with very large curl data that might cause issues
 	// Create a curl with invalid JSON body that will fail during parsing
 	curlStr := `curl 'http://example.com/api' -H 'Content-Type: application/json' --data '{"invalid json: }'`
-	
+
 	req := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		TextData:    curlStr,
@@ -218,13 +218,13 @@ func TestImportTransactionRollback(t *testing.T) {
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 	_, err = importRPC.Import(authedCtx, req)
-	
+
 	// This might succeed or fail depending on curl parsing, but workspace should be consistent
-	
+
 	// Verify workspace state is consistent
 	finalWS, err2 := ws.Get(ctx, workspaceID)
 	require.NoError(t, err2)
-	
+
 	if err != nil {
 		// If import failed, count should not change
 		assert.Equal(t, initialCount, finalWS.CollectionCount, "Collection count should not change on error")
@@ -285,20 +285,20 @@ func TestImportHarWithExistingCollection(t *testing.T) {
 
 	// Now import HAR with same collection name
 	harData := createValidHARDataForTest()
-	
+
 	// First request to get filter options
 	req2a := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		Data:        harData,
 		Name:        "API Collection", // Same name
-		Filter:      []string{}, // Empty filter to get options
+		Filter:      []string{},       // Empty filter to get options
 	})
 
 	resp2a, err := importRPC.Import(authedCtx, req2a)
 	require.NoError(t, err)
 	require.NotNil(t, resp2a)
 	require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp2a.Msg.Kind)
-	
+
 	// Second request with filter
 	req2b := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
@@ -314,10 +314,10 @@ func TestImportHarWithExistingCollection(t *testing.T) {
 	// Verify workspace counts
 	ws2, err := ws.Get(ctx, workspaceID)
 	require.NoError(t, err)
-	
+
 	// Collection count should increase by 1 (HAR imports now use "Imported" collection)
 	assert.Equal(t, collectionCount1+1, ws2.CollectionCount, "Collection count should increase by 1 for new 'Imported' collection")
-	
+
 	// Flow count should increase by 1 (HAR creates flows)
 	assert.Equal(t, flowCount1+1, ws2.FlowCount, "Flow count should increase by 1")
 }

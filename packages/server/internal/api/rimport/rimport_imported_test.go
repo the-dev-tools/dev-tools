@@ -7,7 +7,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	
+
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rimport"
 	"the-dev-tools/server/pkg/idwrap"
@@ -128,7 +128,7 @@ func TestImportHarUsesImportedCollection(t *testing.T) {
 		WorkspaceId: workspaceID.Bytes(),
 		Data:        harJSON,
 		Name:        "My Custom HAR Import Name", // This should be ignored for HAR imports
-		Filter:      []string{}, // Empty filter first
+		Filter:      []string{},                  // Empty filter first
 	})
 
 	// Call Import method with authenticated context
@@ -137,7 +137,7 @@ func TestImportHarUsesImportedCollection(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp1)
 	require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp1.Msg.Kind)
-	
+
 	// Second request with filter
 	req2 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
@@ -145,27 +145,26 @@ func TestImportHarUsesImportedCollection(t *testing.T) {
 		Name:        "My Custom HAR Import Name", // This should be ignored for HAR imports
 		Filter:      []string{"example.com"},
 	})
-	
+
 	resp, err := importRPC.Import(authedCtx, req2)
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
-
 
 	// Verify the collection was created with "Imported" name, not the custom name
 	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 	require.NoError(t, err)
 	assert.Equal(t, "Imported", collection.Name)
-	
+
 	// Verify that no collection was created with the custom name
 	_, err = cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "My Custom HAR Import Name")
 	assert.Error(t, err)
 	assert.Equal(t, scollection.ErrNoCollectionFound, err)
-	
+
 	// Verify APIs were created in the "Imported" collection
 	apis, err := ias.GetApisWithCollectionID(ctx, collection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(apis), "Expected 1 API to be created")
-	
+
 	// Import another HAR file with a different name - should still go to "Imported"
 	harData2 := `{
 		"log": {
@@ -221,7 +220,7 @@ func TestImportHarUsesImportedCollection(t *testing.T) {
 			]
 		}
 	}`
-	
+
 	// Import with a different name
 	req3 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
@@ -229,27 +228,27 @@ func TestImportHarUsesImportedCollection(t *testing.T) {
 		Name:        "Another HAR Import",
 		Filter:      []string{},
 	})
-	
+
 	resp3, err := importRPC.Import(authedCtx, req3)
 	require.NoError(t, err)
 	require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp3.Msg.Kind)
-	
+
 	req4 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		Data:        []byte(harData2),
 		Name:        "Another HAR Import",
 		Filter:      []string{"example.com"},
 	})
-	
+
 	resp4, err := importRPC.Import(authedCtx, req4)
 	require.NoError(t, err)
 	assert.NotNil(t, resp4)
-	
+
 	// Verify both imports went to the same "Imported" collection
 	apis2, err := ias.GetApisWithCollectionID(ctx, collection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(apis2), "Expected 2 APIs total in the Imported collection")
-	
+
 	// Verify no collection was created with the second name either
 	_, err = cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Another HAR Import")
 	assert.Error(t, err)
@@ -305,7 +304,7 @@ func TestImportCurlStillUsesProvidedName(t *testing.T) {
 	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "My Curl Collection")
 	require.NoError(t, err)
 	assert.Equal(t, "My Curl Collection", collection.Name)
-	
+
 	// Verify that no "Imported" collection was created
 	_, err = cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
 	assert.Error(t, err)

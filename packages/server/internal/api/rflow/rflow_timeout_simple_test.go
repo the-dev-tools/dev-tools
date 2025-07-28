@@ -10,7 +10,7 @@ import (
 
 func TestHTTPRequestWithContext(t *testing.T) {
 	// Test that our HTTP client properly respects context timeout
-	
+
 	t.Run("Context timeout is respected", func(t *testing.T) {
 		// Create a server that delays for 5 seconds
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +99,7 @@ func TestHTTPRequestWithContext(t *testing.T) {
 
 func TestContextPropagation(t *testing.T) {
 	// Test that demonstrates the difference between NewRequest and NewRequestWithContext
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-time.After(3 * time.Second):
@@ -123,7 +123,7 @@ func TestContextPropagation(t *testing.T) {
 		client := &http.Client{
 			Timeout: 5 * time.Second, // Client timeout is longer
 		}
-		
+
 		start := time.Now()
 		resp, err := client.Do(req)
 		elapsed := time.Since(start)
@@ -158,7 +158,7 @@ func TestContextPropagation(t *testing.T) {
 		client := &http.Client{
 			Timeout: 5 * time.Second, // Client timeout is longer
 		}
-		
+
 		start := time.Now()
 		_, err = client.Do(req)
 		elapsed := time.Since(start)

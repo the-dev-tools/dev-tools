@@ -108,9 +108,9 @@ type Content struct {
 }
 
 const (
-	RawBodyCheck                = "application/json"
-	FormBodyCheck               = "multipart/form-data"
-	UrlEncodedBodyCheck         = "application/x-www-form-urlencoded"
+	RawBodyCheck                 = "application/json"
+	FormBodyCheck                = "multipart/form-data"
+	UrlEncodedBodyCheck          = "application/x-www-form-urlencoded"
 	TimestampSequencingThreshold = 50 * time.Millisecond // Connect requests within 50ms for better sequencing
 )
 
@@ -185,7 +185,7 @@ func ConvertParamToFormBodiesWithDeltaParent(params []Param, deltaExampleID idwr
 			Value:         val,
 			Enable:        true,
 			ExampleID:     deltaExampleID,
-				DeltaParentID: deltaParentID,
+			DeltaParentID: deltaParentID,
 		})
 	}
 	return result
@@ -252,7 +252,7 @@ func ConvertParamToUrlBodiesWithDeltaParent(params []Param, deltaExampleID idwra
 			Value:         val,
 			Enable:        true,
 			ExampleID:     deltaExampleID,
-				DeltaParentID: deltaParentID,
+			DeltaParentID: deltaParentID,
 		})
 	}
 	return result
@@ -607,7 +607,7 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 			ItemApiID:       apiID,
 			VersionParentID: &defaultExampleID,
 		}
-		
+
 		// Only add a flow node once per unique API.
 		flowNodeID := idwrap.NewNow()
 		request := mnrequest.MNRequest{
@@ -663,7 +663,7 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 
 		deltaHeaders := make([]Header, len(entry.Request.Headers))
 		copy(deltaHeaders, entry.Request.Headers)
-		
+
 		// Track which headers have dependencies so we only create delta versions for those
 		headersWithDependencies := make(map[int]bool)
 
@@ -734,7 +734,7 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 		// Process queries - original for default, templated for delta
 		originalQueries := make([]Query, len(entry.Request.QueryString))
 		deltaQueries := make([]Query, len(entry.Request.QueryString))
-		
+
 		// Track which queries have dependencies so we only create delta versions for those
 		queriesWithDependencies := make(map[int]bool)
 
@@ -878,7 +878,7 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 		deltaBody := rawBodyDefault
 		deltaBody.ID = idwrap.NewNow()
 		deltaBody.ExampleID = deltaExampleID
-		
+
 		// Use templated body for delta if it was created
 		if templatedBodyBytes != nil {
 			deltaBody.Data = templatedBodyBytes
@@ -891,7 +891,7 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 				}
 			}
 		}
-		
+
 		result.RawBodies = append(result.RawBodies, deltaBody)
 
 		// Create delta headers, queries, form bodies, and URL-encoded bodies
@@ -903,7 +903,7 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 				deltaHeadersWithDeps = append(deltaHeadersWithDeps, header)
 			}
 		}
-		
+
 		headersDelta := extractHeadersWithDeltaParent(deltaHeadersWithDeps, deltaExampleID, headers)
 		result.Headers = append(result.Headers, headersDelta...)
 
@@ -914,7 +914,7 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 				deltaQueriesWithDeps = append(deltaQueriesWithDeps, query)
 			}
 		}
-		
+
 		queriesDelta := extractQueryParamsWithDeltaParent(deltaQueriesWithDeps, deltaExampleID, queriesApi)
 		result.Queries = append(result.Queries, queriesDelta...)
 
@@ -1066,7 +1066,7 @@ func performTransitiveReduction(result *HarResvoled) error {
 	for source := range adjacencyList {
 		// Find all nodes reachable from source through intermediate nodes
 		reachableThroughPaths := make(map[idwrap.IDWrap]bool)
-		
+
 		// Check all direct neighbors
 		for intermediate := range adjacencyList[source] {
 			// From each direct neighbor, find what nodes are reachable
@@ -1114,25 +1114,25 @@ func ConvertHAR(har *HAR, collectionID, workspaceID idwrap.IDWrap) (HarResvoled,
 func ConvertHARWithExistingData(har *HAR, collectionID, workspaceID idwrap.IDWrap, existingFolders []mitemfolder.ItemFolder) (HarResvoled, error) {
 	// Build folder map from existing folders
 	folderMap := make(map[string]idwrap.IDWrap)
-	
+
 	// First, create a map by ID for quick lookups
 	folderByID := make(map[idwrap.IDWrap]*mitemfolder.ItemFolder)
 	for i := range existingFolders {
 		folderByID[existingFolders[i].ID] = &existingFolders[i]
 	}
-	
+
 	// Now build the path map
 	for i := range existingFolders {
 		folder := &existingFolders[i]
 		path := buildFolderPath(folder, folderByID)
 		folderMap[path] = folder.ID
-		
+
 		// Also add just the name for root folders
 		if folder.ParentID == nil {
 			folderMap[folder.Name] = folder.ID
 		}
 	}
-	
+
 	// Use existing ConvertHARWithDepFinder but inject folder map
 	depFinder := depfinder.NewDepFinder()
 	result, err := convertHARInternal(har, collectionID, workspaceID, &depFinder, folderMap)
@@ -1144,12 +1144,12 @@ func buildFolderPath(folder *mitemfolder.ItemFolder, folderByID map[idwrap.IDWra
 	if folder.ParentID == nil {
 		return folder.Name
 	}
-	
+
 	parent, exists := folderByID[*folder.ParentID]
 	if !exists {
 		return folder.Name
 	}
-	
+
 	parentPath := buildFolderPath(parent, folderByID)
 	return parentPath + "/" + folder.Name
 }
@@ -1240,7 +1240,7 @@ func extractHeadersWithDeltaParent(headers []Header, deltaExampleID idwrap.IDWra
 				Enable:        true,
 				DeltaParentID: deltaParentID,
 			}
-			
+
 			result = append(result, h)
 		}
 	}
@@ -1285,7 +1285,7 @@ func extractQueryParamsWithDeltaParent(queries []Query, deltaExampleID idwrap.ID
 			QueryKey:      query.Name,
 			Value:         query.Value,
 			Enable:        true,
-				DeltaParentID: deltaParentID,
+			DeltaParentID: deltaParentID,
 		}
 		result = append(result, q)
 	}
@@ -1354,7 +1354,7 @@ func ReorganizeNodePositions(result *HarResvoled) error {
 			}
 
 			childLevel := maxParentLevel + 1
-			
+
 			// Only update if this is a new node or we found a deeper level
 			if existingLevel, exists := nodeLevels[childID]; !exists || childLevel > existingLevel {
 				// Remove from old level if it existed
@@ -1402,7 +1402,6 @@ func ReorganizeNodePositions(result *HarResvoled) error {
 	return nil
 }
 
-
 func processJSONForTokens(obj interface{}, depFinder depfinder.DepFinder) interface{} {
 	switch v := obj.(type) {
 	case map[string]interface{}:
@@ -1433,7 +1432,7 @@ func createStatusCodeAssertion(exampleID idwrap.IDWrap, statusCode int) massert.
 	// Create the condition expression for status code check
 	// The expression uses JSONPath-like syntax to check response.status
 	expression := fmt.Sprintf("response.status == %d", statusCode)
-	
+
 	return massert.Assert{
 		ID:        idwrap.NewNow(),
 		ExampleID: exampleID,
@@ -1452,7 +1451,7 @@ func createStatusCodeAssertion(exampleID idwrap.IDWrap, statusCode int) massert.
 // createStatusCodeAssertionWithDeltaParent creates a delta assertion for status code check
 func createStatusCodeAssertionWithDeltaParent(deltaExampleID idwrap.IDWrap, deltaParentID *idwrap.IDWrap, statusCode int) massert.Assert {
 	expression := fmt.Sprintf("response.status == %d", statusCode)
-	
+
 	return massert.Assert{
 		ID:            idwrap.NewNow(),
 		ExampleID:     deltaExampleID,

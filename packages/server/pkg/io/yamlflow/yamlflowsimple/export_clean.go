@@ -913,14 +913,14 @@ func buildRunEntries(workspaceData *ioworkspace.WorkspaceData) []RunEntry {
 	// Create a run entry for each flow that was exported
 	// This enables the exported YAML to specify which flows should be executed
 	entries := make([]RunEntry, 0, len(workspaceData.Flows))
-	
+
 	for _, flow := range workspaceData.Flows {
 		entry := RunEntry{
 			Flow: flow.Name,
 		}
 		entries = append(entries, entry)
 	}
-	
+
 	return entries
 }
 

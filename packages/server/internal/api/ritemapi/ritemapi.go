@@ -76,7 +76,6 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		Hidden:         msg.Hidden,
 	}
 
-
 	itemApiReq, err := titemapi.SeralizeRPCToModelWithoutID(endpointReq, collectionID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -213,7 +212,7 @@ func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request
 
 	api.ID = idwrap.NewNow()
 	api.Name = api.Name + " Copy"
-	
+
 	// Apply overrides from request if provided
 	if req.Msg.Hidden != nil {
 		api.Hidden = *req.Msg.Hidden

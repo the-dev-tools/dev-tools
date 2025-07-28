@@ -181,10 +181,10 @@ func TestImportCurl_OverwriteExistingCollection(t *testing.T) {
 	// Verify endpoints in the collection
 	apis, err := ias.GetApisWithCollectionID(ctx, collectionID1)
 	require.NoError(t, err)
-	
+
 	// Should have both endpoints
 	assert.Equal(t, 2, len(apis), "Should have 2 endpoints in the collection")
-	
+
 	urls := make(map[string]bool)
 	for _, api := range apis {
 		urls[api.Url] = true
@@ -358,7 +358,7 @@ func TestImportHarWithFolderHierarchy(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp1)
 	require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp1.Msg.Kind)
-	
+
 	// Second request with filter
 	req2 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
@@ -366,7 +366,7 @@ func TestImportHarWithFolderHierarchy(t *testing.T) {
 		Name:        "Test HAR Import with Folders",
 		Filter:      []string{"api.example.com", "other.example.com"}, // Include both domains
 	})
-	
+
 	resp, err := importRPC.Import(authedCtx, req2)
 
 	// Assertions
@@ -541,7 +541,7 @@ func TestImportHarSimpleURL(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp1)
 	require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp1.Msg.Kind)
-	
+
 	// Second request with filter
 	req2 := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
@@ -549,7 +549,7 @@ func TestImportHarSimpleURL(t *testing.T) {
 		Name:        "Test HAR Import Simple URLs",
 		Filter:      []string{"example.com"},
 	})
-	
+
 	resp, err := importRPC.Import(authedCtx, req2)
 
 	// Assertions
@@ -774,10 +774,10 @@ func TestImportHar_OverwriteExistingCollection(t *testing.T) {
 	// Verify endpoints in the collection
 	apis, err := ias.GetApisWithCollectionID(ctx, collectionID1)
 	require.NoError(t, err)
-	
+
 	// Should have both GET and POST endpoints
 	assert.Greater(t, len(apis), 1, "Should have multiple endpoints in the collection")
-	
+
 	methods := make(map[string]bool)
 	for _, api := range apis {
 		methods[api.Method] = true
@@ -893,7 +893,7 @@ func TestImportHar_OverwriteExistingEndpoints(t *testing.T) {
 	// Get the first endpoint
 	apis1, err := ias.GetApisWithCollectionID(ctx, collectionID)
 	require.NoError(t, err)
-	
+
 	var originalEndpoint *mitemapi.ItemApi
 	for _, api := range apis1 {
 		if api.Method == "GET" && strings.Contains(api.Url, "/api/users/") && !strings.Contains(api.Name, "Delta") {
@@ -985,12 +985,12 @@ func TestImportHar_OverwriteExistingEndpoints(t *testing.T) {
 			break
 		}
 	}
-	
+
 	require.NotNil(t, updatedEndpoint, "Should find the same endpoint after update")
-	
+
 	// Verify endpoint was updated, not duplicated
 	assert.Equal(t, originalEndpointID, updatedEndpoint.ID, "Endpoint should be updated, not recreated")
-	
+
 	// Count GET endpoints with the same URL pattern (excluding delta endpoints)
 	getEndpointCount := 0
 	for _, api := range apis2 {

@@ -48,16 +48,16 @@ func (n *ErrorNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node
 	n.Executions++
 	currentExecution := n.Executions
 	n.mu.Unlock()
-	
+
 	if n.ShouldFail != nil && n.ShouldFail(currentExecution) {
 		return node.FlowNodeResult{
 			Err: n.FailError,
 		}
 	}
-	
+
 	// Get next nodes from edge map
 	nextNodes := edge.GetNextNodeID(req.EdgeSourceMap, n.ID, edge.HandleUnspecified)
-	
+
 	return node.FlowNodeResult{
 		NextNodeID: nextNodes,
 	}
@@ -103,23 +103,23 @@ func (t *NodeStatusTracker) GetFinalStatus(nodeID idwrap.IDWrap) *runner.FlowNod
 // TestForNode_ErrorHandling_SubNodeError tests that errors are shown on sub-nodes, not the for node
 func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 	tests := []struct {
-		name          string
-		errorHandling mnfor.ErrorHandling
+		name               string
+		errorHandling      mnfor.ErrorHandling
 		expectForNodeError bool
 	}{
 		{
-			name:          "IGNORE - for node succeeds, sub-node shows error",
-			errorHandling: mnfor.ErrorHandling_ERROR_HANDLING_IGNORE,
+			name:               "IGNORE - for node succeeds, sub-node shows error",
+			errorHandling:      mnfor.ErrorHandling_ERROR_HANDLING_IGNORE,
 			expectForNodeError: false,
 		},
 		{
-			name:          "BREAK - for node succeeds, sub-node shows error",
-			errorHandling: mnfor.ErrorHandling_ERROR_HANDLING_BREAK,
+			name:               "BREAK - for node succeeds, sub-node shows error",
+			errorHandling:      mnfor.ErrorHandling_ERROR_HANDLING_BREAK,
 			expectForNodeError: false,
 		},
 		{
-			name:          "UNSPECIFIED - both nodes show error",
-			errorHandling: mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
+			name:               "UNSPECIFIED - both nodes show error",
+			errorHandling:      mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 			expectForNodeError: true,
 		},
 	}
@@ -130,10 +130,10 @@ func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 			forNodeID := idwrap.NewNow()
 			subNodeID := idwrap.NewNow()
 			nextNodeID := idwrap.NewNow()
-			
+
 			// Create a for node with 3 iterations
 			forNode := nfor.New(forNodeID, "TestForLoop", 3, time.Second*5, tt.errorHandling)
-			
+
 			// Create a sub-node that fails on second iteration
 			subNode := &ErrorNode{
 				ID:   subNodeID,
@@ -143,28 +143,28 @@ func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 				},
 				FailError: errors.New("test error from SubNode"),
 			}
-			
+
 			// Setup edges
 			edges := []edge.Edge{
 				edge.NewEdge(idwrap.NewNow(), forNodeID, subNodeID, edge.HandleLoop, edge.EdgeKindUnspecified),
 				edge.NewEdge(idwrap.NewNow(), forNodeID, nextNodeID, edge.HandleThen, edge.EdgeKindUnspecified),
 			}
 			edgeMap := edge.NewEdgesMap(edges)
-			
+
 			// Create a simple next node
 			nextNode := &ErrorNode{
 				ID:         nextNodeID,
 				Name:       "NextNode",
 				ShouldFail: func(int) bool { return false },
 			}
-			
+
 			// Setup node map
 			nodeMap := map[idwrap.IDWrap]node.FlowNode{
 				forNodeID:  forNode,
 				subNodeID:  subNode,
 				nextNodeID: nextNode,
 			}
-			
+
 			// Create flow runner
 			flowRunner := flowlocalrunner.CreateFlowRunner(
 				idwrap.NewNow(),
@@ -174,12 +174,12 @@ func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 				edgeMap,
 				time.Second*10,
 			)
-			
+
 			// Setup status tracking
 			statusTracker := NewNodeStatusTracker()
 			flowNodeStatusChan := make(chan runner.FlowNodeStatus, 100)
 			flowStatusChan := make(chan runner.FlowStatus, 10)
-			
+
 			// Track statuses in background
 			statusDone := make(chan struct{})
 			go func() {
@@ -188,22 +188,22 @@ func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 					statusTracker.Track(status)
 				}
 			}()
-			
+
 			// Run the flow
 			ctx := context.Background()
 			err := flowRunner.Run(ctx, flowNodeStatusChan, flowStatusChan, nil)
-			
+
 			// Wait for status tracking to complete
 			<-statusDone
-			
+
 			// Verify results based on error handling mode
 			forNodeFinalStatus := statusTracker.GetFinalStatus(forNodeID)
 			subNodeStatuses := statusTracker.GetStatuses(subNodeID)
-			
+
 			if forNodeFinalStatus == nil {
 				t.Fatal("Expected for node to have status updates")
 			}
-			
+
 			// Check for node status
 			if tt.expectForNodeError {
 				// UNSPECIFIED mode - for node should fail
@@ -225,7 +225,7 @@ func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 					t.Errorf("Expected for node to have no error, got: %v", forNodeFinalStatus.Error)
 				}
 			}
-			
+
 			// Check sub-node statuses
 			// Find the status update where the sub-node failed
 			foundFailure := false
@@ -236,11 +236,11 @@ func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 					break
 				}
 			}
-			
+
 			if !foundFailure {
 				t.Error("Expected to find a failure status for the sub-node")
 			}
-			
+
 			// Verify iteration count based on error handling
 			expectedIterations := 0
 			switch tt.errorHandling {
@@ -251,7 +251,7 @@ func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 				expectedIterations = 2 // Stops after error
 			}
-			
+
 			if subNode.Executions != expectedIterations {
 				t.Errorf("Expected %d iterations, got %d", expectedIterations, subNode.Executions)
 			}

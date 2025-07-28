@@ -125,9 +125,9 @@ func TestReferenceTree_WithRequestNodeExecution(t *testing.T) {
 
 	// Create node execution record
 	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
-		ID:               idwrap.NewNow(),
-		NodeID:           requestNodeID,
-		State:            2, // Success
+		ID:                     idwrap.NewNow(),
+		NodeID:                 requestNodeID,
+		State:                  2, // Success
 		OutputData:             outputData,
 		OutputDataCompressType: compress.CompressTypeNone,
 	})
@@ -435,9 +435,9 @@ func TestReferenceCompletion_WithRequestNodeExecution(t *testing.T) {
 
 	// Create node execution record
 	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
-		ID:               idwrap.NewNow(),
-		NodeID:           requestNodeID,
-		State:            2, // Success
+		ID:                     idwrap.NewNow(),
+		NodeID:                 requestNodeID,
+		State:                  2, // Success
 		OutputData:             outputData,
 		OutputDataCompressType: compress.CompressTypeNone,
 	})
@@ -582,9 +582,9 @@ func TestReferenceValue_WithRequestNodeExecution(t *testing.T) {
 
 	// Create node execution record
 	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
-		ID:               idwrap.NewNow(),
-		NodeID:           requestNodeID,
-		State:            2, // Success
+		ID:                     idwrap.NewNow(),
+		NodeID:                 requestNodeID,
+		State:                  2, // Success
 		OutputData:             outputData,
 		OutputDataCompressType: compress.CompressTypeNone,
 	})
@@ -624,4 +624,3 @@ func TestReferenceValue_WithRequestNodeExecution(t *testing.T) {
 	require.NotNil(t, resp3)
 	assert.Equal(t, "test-api-key", resp3.Msg.Value)
 }
-

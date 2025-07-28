@@ -87,12 +87,12 @@ func (c *EdgeServiceRPC) EdgeGet(ctx context.Context, req *connect.Request[edgev
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	
+
 	edge, err := c.es.GetEdge(ctx, EdgeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	
+
 	resp := &edgev1.EdgeGetResponse{
 		EdgeId:       edge.ID.Bytes(),
 		Kind:         edgev1.EdgeKind(edge.Kind),
@@ -100,7 +100,7 @@ func (c *EdgeServiceRPC) EdgeGet(ctx context.Context, req *connect.Request[edgev
 		TargetId:     edge.TargetID.Bytes(),
 		SourceHandle: edgev1.Handle(edge.SourceHandler),
 	}
-	
+
 	return connect.NewResponse(resp), nil
 }
 

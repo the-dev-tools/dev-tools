@@ -78,6 +78,10 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 		LogPushFunc:      node.LogPushFunc(logWorkaround),
 		Timeout:          r.Timeout,
 		PendingAtmoicMap: pendingAtmoicMap,
+		// Initialize read tracking
+		ReadTracker:      make(map[string]any),
+		ReadTrackerMutex: &sync.Mutex{},
+		CurrentNodeID:    idwrap.IDWrap{}, // Will be set before each node execution
 	}
 	flowStatusChan <- runner.FlowStatusStarting
 	if r.Timeout == 0 {
@@ -98,6 +102,7 @@ type processResult struct {
 	originalID idwrap.IDWrap
 	nextNodes  []idwrap.IDWrap
 	err        error
+	inputData  map[string]any
 }
 
 func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest,
@@ -120,6 +125,25 @@ func MaxParallelism() int {
 }
 
 var goroutineCount int = MaxParallelism()
+
+// getPredecessorNodes returns all nodes that have edges pointing to the given node
+func getPredecessorNodes(nodeID idwrap.IDWrap, edgesMap edge.EdgesMap) []idwrap.IDWrap {
+	var predecessors []idwrap.IDWrap
+	seen := make(map[idwrap.IDWrap]bool)
+
+	for sourceID, edges := range edgesMap {
+		for _, targetNodes := range edges {
+			for _, targetID := range targetNodes {
+				if targetID == nodeID && !seen[sourceID] {
+					predecessors = append(predecessors, sourceID)
+					seen[sourceID] = true
+				}
+			}
+		}
+	}
+
+	return predecessors
+}
 
 func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
 	statusLogFunc node.LogPushFunc,
@@ -154,15 +178,55 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				return fmt.Errorf("node not found: %v", currentNode)
 			}
 			nodeStateMap[flowNodeId] = FlowNodeStatusLocal{StartTime: time.Now()}
-			go func() {
+			go func(nodeID idwrap.IDWrap) {
 				defer wg.Done()
+
+				// Capture predecessor outputs as input data
+				inputData := make(map[string]any)
+				predecessors := getPredecessorNodes(nodeID, req.EdgeSourceMap)
+				for _, predID := range predecessors {
+					if predNode, ok := req.NodeMap[predID]; ok {
+						predName := predNode.GetName()
+						if predData, err := node.ReadVarRaw(req, predName); err == nil {
+							inputData[predName] = predData
+						}
+					}
+				}
+
+				// Set current node ID and clear read tracker before execution
+				if req.ReadTrackerMutex != nil && req.ReadTracker != nil {
+					req.ReadTrackerMutex.Lock()
+					req.CurrentNodeID = nodeID
+					// Clear the read tracker for this node
+					for k := range req.ReadTracker {
+						delete(req.ReadTracker, k)
+					}
+					req.ReadTrackerMutex.Unlock()
+				} else {
+					req.CurrentNodeID = nodeID
+				}
+
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
+
+				// If read tracking captured additional data, merge it
+				if req.ReadTrackerMutex != nil && req.ReadTracker != nil {
+					req.ReadTrackerMutex.Lock()
+					for k, v := range req.ReadTracker {
+						// Only add if not already captured from predecessors
+						if _, exists := inputData[k]; !exists {
+							inputData[k] = v
+						}
+					}
+					req.ReadTrackerMutex.Unlock()
+				}
+
 				resultChan <- processResult{
 					originalID: currentNode.GetID(),
 					nextNodes:  ids,
 					err:        localErr,
+					inputData:  inputData,
 				}
-			}()
+			}(flowNodeId)
 		}
 
 		wg.Wait()
@@ -200,6 +264,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			} else {
 				status.OutputData = nil
 			}
+			status.InputData = result.inputData
 			statusLogFunc(status)
 
 			for _, id := range result.nextNodes {
@@ -261,18 +326,58 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			statusLogFunc(status)
 			timeStart[id] = time.Now()
 
-			go func() {
+			go func(nodeID idwrap.IDWrap) {
 				defer wg.Done()
+
+				// Capture predecessor outputs as input data
+				inputData := make(map[string]any)
+				predecessors := getPredecessorNodes(nodeID, req.EdgeSourceMap)
+				for _, predID := range predecessors {
+					if predNode, ok := req.NodeMap[predID]; ok {
+						predName := predNode.GetName()
+						if predData, err := node.ReadVarRaw(req, predName); err == nil {
+							inputData[predName] = predData
+						}
+					}
+				}
+
+				// Set current node ID and clear read tracker before execution
+				if req.ReadTrackerMutex != nil && req.ReadTracker != nil {
+					req.ReadTrackerMutex.Lock()
+					req.CurrentNodeID = nodeID
+					// Clear the read tracker for this node
+					for k := range req.ReadTracker {
+						delete(req.ReadTracker, k)
+					}
+					req.ReadTrackerMutex.Unlock()
+				} else {
+					req.CurrentNodeID = nodeID
+				}
+
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
 				if ctxTimed.Err() != nil {
 					return
 				}
+
+				// If read tracking captured additional data, merge it
+				if req.ReadTrackerMutex != nil && req.ReadTracker != nil {
+					req.ReadTrackerMutex.Lock()
+					for k, v := range req.ReadTracker {
+						// Only add if not already captured from predecessors
+						if _, exists := inputData[k]; !exists {
+							inputData[k] = v
+						}
+					}
+					req.ReadTrackerMutex.Unlock()
+				}
+
 				resultChan <- processResult{
 					originalID: currentNode.GetID(),
 					nextNodes:  ids,
 					err:        localErr,
+					inputData:  inputData,
 				}
-			}()
+			}(id)
 		}
 
 		waitCh := make(chan struct{}, 1)
@@ -319,6 +424,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			} else {
 				status.OutputData = nil
 			}
+			status.InputData = result.inputData
 			statusLogFunc(status)
 
 			for _, id := range result.nextNodes {

@@ -1,13 +1,13 @@
 package thar
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPerformTransitiveReduction(t *testing.T) {
@@ -24,13 +24,13 @@ func TestPerformTransitiveReduction(t *testing.T) {
 				nodeA := idwrap.NewNow()
 				nodeB := idwrap.NewNow()
 				nodeC := idwrap.NewNow()
-				
+
 				edges := []edge.Edge{
 					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeA, TargetID: nodeB},
 					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeB, TargetID: nodeC},
 					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeA, TargetID: nodeC}, // Redundant
 				}
-				
+
 				return edges, flowID, nodeA, nodeB, nodeC
 			},
 			expectedCount: 2,
@@ -39,7 +39,7 @@ func TestPerformTransitiveReduction(t *testing.T) {
 				hasAtoB := false
 				hasBtoC := false
 				hasAtoC := false
-				
+
 				for _, e := range edges {
 					if e.SourceID == nodeA && e.TargetID == nodeB {
 						hasAtoB = true
@@ -51,7 +51,7 @@ func TestPerformTransitiveReduction(t *testing.T) {
 						hasAtoC = true
 					}
 				}
-				
+
 				require.True(t, hasAtoB, "Expected edge A→B")
 				require.True(t, hasBtoC, "Expected edge B→C")
 				require.False(t, hasAtoC, "Should not have redundant edge A→C")
@@ -65,7 +65,7 @@ func TestPerformTransitiveReduction(t *testing.T) {
 				nodeB := idwrap.NewNow()
 				nodeC := idwrap.NewNow()
 				nodeD := idwrap.NewNow()
-				
+
 				edges := []edge.Edge{
 					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeA, TargetID: nodeB},
 					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeA, TargetID: nodeC},
@@ -73,20 +73,20 @@ func TestPerformTransitiveReduction(t *testing.T) {
 					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeC, TargetID: nodeD},
 					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeA, TargetID: nodeD}, // Redundant
 				}
-				
+
 				return edges, flowID, nodeA, nodeB, nodeD
 			},
 			expectedCount: 4,
 			checkEdges: func(t *testing.T, edges []edge.Edge, nodeA, nodeB, nodeD idwrap.IDWrap) {
 				// Should not have direct A→D edge as it's reachable through B and C
 				hasAtoD := false
-				
+
 				for _, e := range edges {
 					if e.SourceID == nodeA && e.TargetID == nodeD {
 						hasAtoD = true
 					}
 				}
-				
+
 				require.False(t, hasAtoD, "Should not have redundant edge A→D")
 			},
 		},
@@ -97,12 +97,12 @@ func TestPerformTransitiveReduction(t *testing.T) {
 				nodeA := idwrap.NewNow()
 				nodeB := idwrap.NewNow()
 				nodeC := idwrap.NewNow()
-				
+
 				edges := []edge.Edge{
 					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeA, TargetID: nodeB},
 					{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeA, TargetID: nodeC},
 				}
-				
+
 				return edges, flowID, nodeA, nodeB, nodeC
 			},
 			expectedCount: 2,
@@ -112,19 +112,19 @@ func TestPerformTransitiveReduction(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			edges, flowID, nodeA, nodeB, nodeC := tt.createEdges()
-			
+
 			result := &HarResvoled{
-				Flow: mflow.Flow{ID: flowID},
+				Flow:  mflow.Flow{ID: flowID},
 				Edges: edges,
 			}
-			
+
 			err := performTransitiveReduction(result)
 			require.NoError(t, err)
-			
+
 			require.Equal(t, tt.expectedCount, len(result.Edges), "Wrong number of edges after reduction")
 			tt.checkEdges(t, result.Edges, nodeA, nodeB, nodeC)
 		})
@@ -138,7 +138,7 @@ func TestEnsureProperDependencyOrderingWithTransitiveReduction(t *testing.T) {
 	nodeA := idwrap.NewNow()
 	nodeB := idwrap.NewNow()
 	nodeC := idwrap.NewNow()
-	
+
 	result := &HarResvoled{
 		Flow: mflow.Flow{ID: flowID},
 		Nodes: []mnnode.MNode{
@@ -157,20 +157,20 @@ func TestEnsureProperDependencyOrderingWithTransitiveReduction(t *testing.T) {
 			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: nodeA, TargetID: nodeC}, // Redundant
 		},
 	}
-	
+
 	err := ensureProperDependencyOrdering(result, startID, flowID)
 	require.NoError(t, err)
-	
+
 	// Should have:
 	// 1. Removed the redundant A→C edge
 	// 2. Added start→A edge (since A has no incoming dependencies after reduction)
-	
+
 	// Count edges by type
 	startToA := 0
 	aToB := 0
 	bToC := 0
 	aToC := 0
-	
+
 	for _, e := range result.Edges {
 		if e.SourceID == startID && e.TargetID == nodeA {
 			startToA++
@@ -185,7 +185,7 @@ func TestEnsureProperDependencyOrderingWithTransitiveReduction(t *testing.T) {
 			aToC++
 		}
 	}
-	
+
 	require.Equal(t, 1, startToA, "Should have start→A edge")
 	require.Equal(t, 1, aToB, "Should have A→B edge")
 	require.Equal(t, 1, bToC, "Should have B→C edge")

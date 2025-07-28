@@ -135,7 +135,7 @@ func ImportYamlFlowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 func ImportYamlFlowYAMLMultiFlow(data []byte) (*ioworkspace.WorkspaceData, error) {
 	// Generate workspace ID first
 	workspaceID := idwrap.NewNow()
-	
+
 	// Parse the workflow to get basic structure
 	var workflow YamlFlowFormat
 	if err := yaml.Unmarshal(data, &workflow); err != nil {
@@ -208,7 +208,7 @@ func ImportYamlFlowYAMLMultiFlow(data []byte) (*ioworkspace.WorkspaceData, error
 			Requests:         workflow.Requests,
 			Flows:            []YamlFlowFlow{flowDef},
 		}
-		
+
 		tempData, err := yaml.Marshal(tempWorkflow)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal temp workflow for flow %s: %w", flowDef.Name, err)
@@ -230,20 +230,20 @@ func ImportYamlFlowYAMLMultiFlow(data []byte) (*ioworkspace.WorkspaceData, error
 		workspaceData.FlowForNodes = append(workspaceData.FlowForNodes, resolved.FlowForNodes...)
 		workspaceData.FlowForEachNodes = append(workspaceData.FlowForEachNodes, resolved.FlowForEachNodes...)
 		workspaceData.FlowJSNodes = append(workspaceData.FlowJSNodes, resolved.FlowJSNodes...)
-		
+
 		// Merge endpoints and examples, avoiding duplicates
 		endpointMap := make(map[string]bool)
 		for _, e := range workspaceData.Endpoints {
 			endpointMap[e.Name] = true
 		}
-		
+
 		for _, e := range resolved.Endpoints {
 			if !endpointMap[e.Name] {
 				workspaceData.Endpoints = append(workspaceData.Endpoints, e)
 				endpointMap[e.Name] = true
 			}
 		}
-		
+
 		// Merge examples
 		workspaceData.Examples = append(workspaceData.Examples, resolved.Examples...)
 		workspaceData.ExampleHeaders = append(workspaceData.ExampleHeaders, resolved.Headers...)

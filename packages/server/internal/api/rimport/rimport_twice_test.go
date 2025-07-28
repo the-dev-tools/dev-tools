@@ -143,7 +143,7 @@ func TestImportHarTwice(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp1)
 		require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp1.Msg.Kind)
-		
+
 		// Second request with filter
 		req2 := connect.NewRequest(&importv1.ImportRequest{
 			WorkspaceId: workspaceID.Bytes(),
@@ -151,7 +151,7 @@ func TestImportHarTwice(t *testing.T) {
 			Name:        "Test HAR Import Twice",
 			Filter:      []string{"api.example.com"},
 		})
-		
+
 		resp2, err := importRPC.Import(authedCtx, req2)
 		require.NoError(t, err)
 		require.NotNil(t, resp2)
@@ -221,7 +221,7 @@ func TestImportHarTwice(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp1)
 		require.Equal(t, importv1.ImportKind_IMPORT_KIND_FILTER, resp1.Msg.Kind)
-		
+
 		// Second request with filter - this should NOT cause foreign key errors
 		req2 := connect.NewRequest(&importv1.ImportRequest{
 			WorkspaceId: workspaceID.Bytes(),
@@ -229,7 +229,7 @@ func TestImportHarTwice(t *testing.T) {
 			Name:        "Test HAR Import Twice",
 			Filter:      []string{"api.example.com"},
 		})
-		
+
 		resp2, err := importRPC.Import(authedCtx, req2)
 		require.NoError(t, err, "Second import should not cause foreign key constraint errors")
 		require.NotNil(t, resp2)
@@ -239,7 +239,7 @@ func TestImportHarTwice(t *testing.T) {
 		foldersAfter, err := ifs.GetFoldersWithCollectionID(ctx, collectionID)
 		require.NoError(t, err)
 		assert.Equal(t, folderCountBefore, len(foldersAfter), "Folder count should not change")
-		
+
 		t.Logf("Folders after second import: %d (unchanged)", len(foldersAfter))
 		for _, folder := range foldersAfter {
 			t.Logf("  - %s (ID: %s, Parent: %v)", folder.Name, folder.ID.String(), folder.ParentID)
@@ -347,7 +347,7 @@ func TestImportHarComplexHierarchy(t *testing.T) {
 			resp1, err := importRPC.Import(authedCtx, req1)
 			require.NoError(t, err)
 			require.NotNil(t, resp1)
-			
+
 			// Second request with filter
 			req2 := connect.NewRequest(&importv1.ImportRequest{
 				WorkspaceId: workspaceID.Bytes(),
@@ -355,7 +355,7 @@ func TestImportHarComplexHierarchy(t *testing.T) {
 				Name:        "Deep Hierarchy Test",
 				Filter:      []string{"api.example.com"},
 			})
-			
+
 			resp2, err := importRPC.Import(authedCtx, req2)
 			require.NoError(t, err, "Import %d should not cause foreign key errors", i+1)
 			require.NotNil(t, resp2)

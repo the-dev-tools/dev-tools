@@ -348,7 +348,7 @@ func (ias ItemApiService) GetItemApiByCollectionIDAndURLAndMethod(ctx context.Co
 		}
 		return nil, err
 	}
-	
+
 	item := ConvertToModelItemApi(itemApi)
 	return &item, nil
 }

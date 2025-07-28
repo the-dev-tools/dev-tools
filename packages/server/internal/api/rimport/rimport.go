@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
+	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -47,7 +48,6 @@ import (
 	"the-dev-tools/server/pkg/translate/tcurl"
 	"the-dev-tools/server/pkg/translate/thar"
 	"the-dev-tools/server/pkg/translate/tpostman"
-	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
 	"the-dev-tools/spec/dist/buf/go/import/v1/importv1connect"
@@ -61,8 +61,8 @@ var lastHar thar.HAR
 
 // Custom error types to distinguish between parsing and database errors
 var (
-	ErrHARParsing = errors.New("failed to parse HAR file")
-	ErrPostmanParsing = errors.New("failed to parse Postman collection")
+	ErrHARParsing        = errors.New("failed to parse HAR file")
+	ErrPostmanParsing    = errors.New("failed to parse Postman collection")
 	ErrDatabaseOperation = errors.New("database operation failed")
 )
 
@@ -127,7 +127,7 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		// This is a HAR import, use "Imported" as collection name
 		collectionName = "Imported"
 	}
-	
+
 	existingCollection, err := c.cs.GetCollectionByWorkspaceIDAndName(ctx, wsUlid, collectionName)
 	switch err {
 	case nil:
@@ -1291,7 +1291,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	
+
 	if len(resolved.Collections) > 0 {
 		ws.CollectionCount += int32(len(resolved.Collections))
 	}
@@ -1299,7 +1299,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 		ws.FlowCount += int32(len(resolved.Flows))
 	}
 	ws.Updated = dbtime.DBNow()
-	
+
 	err = txWorkspaceService.Update(ctx, ws)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)

@@ -477,7 +477,7 @@ func testOriginUpdateUpdatesOriginDelta(t *testing.T) {
 	}
 
 	item := deltaListResp.Msg.Items[0]
-	
+
 	// Should still be ORIGIN since it was automatically updated to match the new origin
 	if *item.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
 		t.Errorf("Updated delta should remain ORIGIN, got %v", *item.Source)
@@ -1044,4 +1044,3 @@ func testEmptyDeltaList(t *testing.T) {
 		}
 	}
 }
-

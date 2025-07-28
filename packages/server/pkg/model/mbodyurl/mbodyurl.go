@@ -60,13 +60,13 @@ func (bue *BodyURLEncoded) DetermineDeltaType(exampleHasVersionParent bool) Body
 	if bue.DeltaParentID == nil {
 		return BodyURLEncodedSourceOrigin
 	}
-	
+
 	// If example has VersionParentID, this is a delta example
 	if exampleHasVersionParent {
 		// BodyURLEncoded has DeltaParentID and example is delta -> DELTA body URL encoded
 		return BodyURLEncodedSourceDelta
 	}
-	
+
 	// If example has no VersionParentID, it's an original example
 	// BodyURLEncoded has DeltaParentID but example is original -> MIXED body URL encoded
 	return BodyURLEncodedSourceMixed

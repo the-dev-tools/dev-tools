@@ -32,15 +32,15 @@ import (
 
 // Comprehensive test data structure for delta testing
 type comprehensiveDeltaTestData struct {
-	ctx              context.Context
-	rpc              rrequest.RequestRPC
-	originExampleID  idwrap.IDWrap
-	deltaExampleID   idwrap.IDWrap
-	deltaExample2ID  idwrap.IDWrap // For testing multiple deltas
-	ehs              sexampleheader.HeaderService
-	eqs              sexamplequery.ExampleQueryService
-	as               sassert.AssertService
-	iaes             sitemapiexample.ItemApiExampleService
+	ctx             context.Context
+	rpc             rrequest.RequestRPC
+	originExampleID idwrap.IDWrap
+	deltaExampleID  idwrap.IDWrap
+	deltaExample2ID idwrap.IDWrap // For testing multiple deltas
+	ehs             sexampleheader.HeaderService
+	eqs             sexamplequery.ExampleQueryService
+	as              sassert.AssertService
+	iaes            sitemapiexample.ItemApiExampleService
 }
 
 // reuse stringPtr and boolPtr helpers to avoid conflicts with other test file
@@ -942,12 +942,12 @@ func TestDeltaEdgeCases(t *testing.T) {
 		// Try to create a nested delta (delta of delta)
 		// This should use the origin header as parent, not the delta
 		_, err = data.rpc.HeaderDeltaCreate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaCreateRequest{
-			ExampleId: data.deltaExample2ID.Bytes(),
-			OriginId:  data.originExampleID.Bytes(),
-			HeaderId:  delta1Header.ID.Bytes(), // Passing delta header as parent
-			Key:       "X-Nested-Delta",
-			Enabled:   true,
-			Value:     "nested-value",
+			ExampleId:   data.deltaExample2ID.Bytes(),
+			OriginId:    data.originExampleID.Bytes(),
+			HeaderId:    delta1Header.ID.Bytes(), // Passing delta header as parent
+			Key:         "X-Nested-Delta",
+			Enabled:     true,
+			Value:       "nested-value",
 			Description: "nested",
 		}))
 		if err != nil {
@@ -1000,12 +1000,12 @@ func TestDeltaEdgeCases(t *testing.T) {
 
 		// Try to create delta with invalid parent
 		_, err = data.rpc.HeaderDeltaCreate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaCreateRequest{
-			ExampleId: data.deltaExampleID.Bytes(),
-			OriginId:  data.originExampleID.Bytes(),
-			HeaderId:  unrelatedHeaderID.Bytes(), // Invalid parent
-			Key:       "X-Invalid",
-			Enabled:   true,
-			Value:     "invalid",
+			ExampleId:   data.deltaExampleID.Bytes(),
+			OriginId:    data.originExampleID.Bytes(),
+			HeaderId:    unrelatedHeaderID.Bytes(), // Invalid parent
+			Key:         "X-Invalid",
+			Enabled:     true,
+			Value:       "invalid",
 			Description: "invalid",
 		}))
 
@@ -1088,7 +1088,7 @@ func TestDeltaConcurrency(t *testing.T) {
 		// Concurrently update all delta queries
 		var wg sync.WaitGroup
 		errors := make([]error, numQueries)
-		
+
 		for i, dq := range deltaQueries {
 			wg.Add(1)
 			go func(idx int, query mexamplequery.Query) {
@@ -1122,4 +1122,3 @@ func TestDeltaConcurrency(t *testing.T) {
 		}
 	})
 }
-

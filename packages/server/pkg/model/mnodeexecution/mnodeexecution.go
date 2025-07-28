@@ -89,4 +89,3 @@ func (ne *NodeExecution) SetOutputJSON(data json.RawMessage) error {
 	}
 	return nil
 }
-

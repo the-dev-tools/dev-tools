@@ -63,6 +63,16 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 
+	// Write the decision result
+	outputData := map[string]interface{}{
+		"condition": normalizedExpression,
+		"result":    ok,
+	}
+	if err := node.WriteNodeVarBulk(req, n.Name, outputData); err != nil {
+		result.Err = fmt.Errorf("failed to write node output: %w", err)
+		return result
+	}
+
 	if ok {
 		result.NextNodeID = trueID
 	} else {
@@ -97,6 +107,17 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to evaluate condition expression '%s': %w", normalizedExpression, err)
+		resultChan <- result
+		return
+	}
+
+	// Write the decision result
+	outputData := map[string]interface{}{
+		"condition": normalizedExpression,
+		"result":    ok,
+	}
+	if err := node.WriteNodeVarBulk(req, n.Name, outputData); err != nil {
+		result.Err = fmt.Errorf("failed to write node output: %w", err)
 		resultChan <- result
 		return
 	}
