@@ -2208,23 +2208,24 @@ func (q *Queries) CreateMigration(ctx context.Context, arg CreateMigrationParams
 
 const createNodeExecution = `-- name: CreateNodeExecution :one
 INSERT INTO node_execution (
-  id, node_id, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, output_kind, completed_at
+  id, node_id, name, state, error, input_data, input_data_compress_type,
+  output_data, output_data_compress_type, response_id, completed_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, node_id, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, output_kind, completed_at
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
 `
 
 type CreateNodeExecutionParams struct {
 	ID                     idwrap.IDWrap
 	NodeID                 idwrap.IDWrap
+	Name                   string
 	State                  int8
 	Error                  sql.NullString
 	InputData              []byte
 	InputDataCompressType  int8
 	OutputData             []byte
 	OutputDataCompressType int8
-	OutputKind             sql.NullInt64
+	ResponseID             []byte
 	CompletedAt            sql.NullInt64
 }
 
@@ -2232,26 +2233,28 @@ func (q *Queries) CreateNodeExecution(ctx context.Context, arg CreateNodeExecuti
 	row := q.queryRow(ctx, q.createNodeExecutionStmt, createNodeExecution,
 		arg.ID,
 		arg.NodeID,
+		arg.Name,
 		arg.State,
 		arg.Error,
 		arg.InputData,
 		arg.InputDataCompressType,
 		arg.OutputData,
 		arg.OutputDataCompressType,
-		arg.OutputKind,
+		arg.ResponseID,
 		arg.CompletedAt,
 	)
 	var i NodeExecution
 	err := row.Scan(
 		&i.ID,
 		&i.NodeID,
+		&i.Name,
 		&i.State,
 		&i.Error,
 		&i.InputData,
 		&i.InputDataCompressType,
 		&i.OutputData,
 		&i.OutputDataCompressType,
-		&i.OutputKind,
+		&i.ResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
@@ -5235,7 +5238,7 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID id
 }
 
 const getLatestNodeExecutionByNodeID = `-- name: GetLatestNodeExecutionByNodeID :one
-SELECT id, node_id, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, output_kind, completed_at FROM node_execution WHERE node_id = ? ORDER BY id DESC LIMIT 1
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution WHERE node_id = ? ORDER BY id DESC LIMIT 1
 `
 
 func (q *Queries) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idwrap.IDWrap) (NodeExecution, error) {
@@ -5244,13 +5247,14 @@ func (q *Queries) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idw
 	err := row.Scan(
 		&i.ID,
 		&i.NodeID,
+		&i.Name,
 		&i.State,
 		&i.Error,
 		&i.InputData,
 		&i.InputDataCompressType,
 		&i.OutputData,
 		&i.OutputDataCompressType,
-		&i.OutputKind,
+		&i.ResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
@@ -5320,7 +5324,7 @@ func (q *Queries) GetMigrations(ctx context.Context) ([]Migration, error) {
 }
 
 const getNodeExecution = `-- name: GetNodeExecution :one
-SELECT id, node_id, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, output_kind, completed_at FROM node_execution
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution
 WHERE id = ?
 `
 
@@ -5331,20 +5335,21 @@ func (q *Queries) GetNodeExecution(ctx context.Context, id idwrap.IDWrap) (NodeE
 	err := row.Scan(
 		&i.ID,
 		&i.NodeID,
+		&i.Name,
 		&i.State,
 		&i.Error,
 		&i.InputData,
 		&i.InputDataCompressType,
 		&i.OutputData,
 		&i.OutputDataCompressType,
-		&i.OutputKind,
+		&i.ResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
 }
 
 const getNodeExecutionsByNodeID = `-- name: GetNodeExecutionsByNodeID :many
-SELECT id, node_id, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, output_kind, completed_at FROM node_execution WHERE node_id = ? ORDER BY completed_at DESC
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution WHERE node_id = ? ORDER BY completed_at DESC
 `
 
 func (q *Queries) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]NodeExecution, error) {
@@ -5359,13 +5364,14 @@ func (q *Queries) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.I
 		if err := rows.Scan(
 			&i.ID,
 			&i.NodeID,
+			&i.Name,
 			&i.State,
 			&i.Error,
 			&i.InputData,
 			&i.InputDataCompressType,
 			&i.OutputData,
 			&i.OutputDataCompressType,
-			&i.OutputKind,
+			&i.ResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -6107,7 +6113,7 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWra
 }
 
 const listNodeExecutions = `-- name: ListNodeExecutions :many
-SELECT id, node_id, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, output_kind, completed_at FROM node_execution
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution
 WHERE node_id = ?
 ORDER BY completed_at DESC
 LIMIT ? OFFSET ?
@@ -6131,13 +6137,14 @@ func (q *Queries) ListNodeExecutions(ctx context.Context, arg ListNodeExecutions
 		if err := rows.Scan(
 			&i.ID,
 			&i.NodeID,
+			&i.Name,
 			&i.State,
 			&i.Error,
 			&i.InputData,
 			&i.InputDataCompressType,
 			&i.OutputData,
 			&i.OutputDataCompressType,
-			&i.OutputKind,
+			&i.ResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -6154,7 +6161,7 @@ func (q *Queries) ListNodeExecutions(ctx context.Context, arg ListNodeExecutions
 }
 
 const listNodeExecutionsByFlowRun = `-- name: ListNodeExecutionsByFlowRun :many
-SELECT ne.id, ne.node_id, ne.state, ne.error, ne.input_data, ne.input_data_compress_type, ne.output_data, ne.output_data_compress_type, ne.output_kind, ne.completed_at FROM node_execution ne
+SELECT ne.id, ne.node_id, ne.name, ne.state, ne.error, ne.input_data, ne.input_data_compress_type, ne.output_data, ne.output_data_compress_type, ne.response_id, ne.completed_at FROM node_execution ne
 JOIN flow_node fn ON ne.node_id = fn.id
 WHERE fn.flow_id = ?
 ORDER BY ne.completed_at DESC
@@ -6172,13 +6179,14 @@ func (q *Queries) ListNodeExecutionsByFlowRun(ctx context.Context, flowID idwrap
 		if err := rows.Scan(
 			&i.ID,
 			&i.NodeID,
+			&i.Name,
 			&i.State,
 			&i.Error,
 			&i.InputData,
 			&i.InputDataCompressType,
 			&i.OutputData,
 			&i.OutputDataCompressType,
-			&i.OutputKind,
+			&i.ResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -6195,7 +6203,7 @@ func (q *Queries) ListNodeExecutionsByFlowRun(ctx context.Context, flowID idwrap
 }
 
 const listNodeExecutionsByState = `-- name: ListNodeExecutionsByState :many
-SELECT id, node_id, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, output_kind, completed_at FROM node_execution
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution
 WHERE node_id = ? AND state = ?
 ORDER BY completed_at DESC
 LIMIT ? OFFSET ?
@@ -6225,13 +6233,14 @@ func (q *Queries) ListNodeExecutionsByState(ctx context.Context, arg ListNodeExe
 		if err := rows.Scan(
 			&i.ID,
 			&i.NodeID,
+			&i.Name,
 			&i.State,
 			&i.Error,
 			&i.InputData,
 			&i.InputDataCompressType,
 			&i.OutputData,
 			&i.OutputDataCompressType,
-			&i.OutputKind,
+			&i.ResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -6909,9 +6918,9 @@ func (q *Queries) UpdateItemFolderOrder(ctx context.Context, arg UpdateItemFolde
 const updateNodeExecution = `-- name: UpdateNodeExecution :one
 UPDATE node_execution
 SET state = ?, error = ?, output_data = ?, 
-    output_data_compress_type = ?, output_kind = ?, completed_at = ?
+    output_data_compress_type = ?, response_id = ?, completed_at = ?
 WHERE id = ?
-RETURNING id, node_id, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, output_kind, completed_at
+RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
 `
 
 type UpdateNodeExecutionParams struct {
@@ -6919,7 +6928,7 @@ type UpdateNodeExecutionParams struct {
 	Error                  sql.NullString
 	OutputData             []byte
 	OutputDataCompressType int8
-	OutputKind             sql.NullInt64
+	ResponseID             []byte
 	CompletedAt            sql.NullInt64
 	ID                     idwrap.IDWrap
 }
@@ -6930,7 +6939,7 @@ func (q *Queries) UpdateNodeExecution(ctx context.Context, arg UpdateNodeExecuti
 		arg.Error,
 		arg.OutputData,
 		arg.OutputDataCompressType,
-		arg.OutputKind,
+		arg.ResponseID,
 		arg.CompletedAt,
 		arg.ID,
 	)
@@ -6938,13 +6947,14 @@ func (q *Queries) UpdateNodeExecution(ctx context.Context, arg UpdateNodeExecuti
 	err := row.Scan(
 		&i.ID,
 		&i.NodeID,
+		&i.Name,
 		&i.State,
 		&i.Error,
 		&i.InputData,
 		&i.InputDataCompressType,
 		&i.OutputData,
 		&i.OutputDataCompressType,
-		&i.OutputKind,
+		&i.ResponseID,
 		&i.CompletedAt,
 	)
 	return i, err

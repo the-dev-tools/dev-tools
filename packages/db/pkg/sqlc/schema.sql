@@ -438,6 +438,7 @@ CREATE TABLE flow_variable (
 CREATE TABLE node_execution (
   id BLOB NOT NULL PRIMARY KEY,
   node_id BLOB NOT NULL,
+  name TEXT NOT NULL,
   state INT8 NOT NULL,
   error TEXT,
   -- Keep existing compression fields as-is
@@ -446,7 +447,7 @@ CREATE TABLE node_execution (
   output_data BLOB, -- Compressed JSON
   output_data_compress_type INT8 NOT NULL DEFAULT 0,
   -- Add new fields
-  output_kind INT8, -- OutputKind enum value (NULL for non-request nodes)
+  response_id BLOB, -- Response ID for REQUEST nodes (NULL for non-request nodes)
   completed_at BIGINT, -- Unix timestamp in milliseconds
   FOREIGN KEY (node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );

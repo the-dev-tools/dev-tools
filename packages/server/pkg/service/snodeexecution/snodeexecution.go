@@ -40,12 +40,9 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 		}
 	}
 	
-	var outputKindSQL sql.NullInt64
-	if ne.OutputKind != nil {
-		outputKindSQL = sql.NullInt64{
-			Int64: int64(*ne.OutputKind),
-			Valid: true,
-		}
+	var responseID []byte
+	if ne.ResponseID != nil {
+		responseID = ne.ResponseID.Bytes()
 	}
 	
 	var completedAtSQL sql.NullInt64
@@ -59,13 +56,14 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 	return &gen.NodeExecution{
 		ID:                     ne.ID,
 		NodeID:                 ne.NodeID,
+		Name:                   ne.Name,
 		State:                  ne.State,
 		InputData:              ne.InputData,
 		InputDataCompressType:  ne.InputDataCompressType,
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
 		Error:                  errorSQL,
-		OutputKind:             outputKindSQL,
+		ResponseID:             responseID,
 		CompletedAt:            completedAtSQL,
 	}
 }
@@ -76,10 +74,12 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecu
 		errorPtr = &ne.Error.String
 	}
 	
-	var outputKindPtr *int8
-	if ne.OutputKind.Valid {
-		outputKind := int8(ne.OutputKind.Int64)
-		outputKindPtr = &outputKind
+	var responseIDPtr *idwrap.IDWrap
+	if len(ne.ResponseID) > 0 {
+		respID, err := idwrap.NewFromBytes(ne.ResponseID)
+		if err == nil {
+			responseIDPtr = &respID
+		}
 	}
 	
 	var completedAtPtr *int64
@@ -90,13 +90,14 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecu
 	return &mnodeexecution.NodeExecution{
 		ID:                     ne.ID,
 		NodeID:                 ne.NodeID,
+		Name:                   ne.Name,
 		State:                  ne.State,
 		InputData:              ne.InputData,
 		InputDataCompressType:  ne.InputDataCompressType,
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
 		Error:                  errorPtr,
-		OutputKind:             outputKindPtr,
+		ResponseID:             responseIDPtr,
 		CompletedAt:            completedAtPtr,
 	}
 }
@@ -110,12 +111,9 @@ func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodee
 		}
 	}
 	
-	var outputKindSQL sql.NullInt64
-	if ne.OutputKind != nil {
-		outputKindSQL = sql.NullInt64{
-			Int64: int64(*ne.OutputKind),
-			Valid: true,
-		}
+	var responseID []byte
+	if ne.ResponseID != nil {
+		responseID = ne.ResponseID.Bytes()
 	}
 	
 	var completedAtSQL sql.NullInt64
@@ -129,13 +127,14 @@ func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodee
 	_, err := s.queries.CreateNodeExecution(ctx, gen.CreateNodeExecutionParams{
 		ID:                     ne.ID,
 		NodeID:                 ne.NodeID,
+		Name:                   ne.Name,
 		State:                  ne.State,
 		Error:                  errorSQL,
 		InputData:              ne.InputData,
 		InputDataCompressType:  ne.InputDataCompressType,
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
-		OutputKind:             outputKindSQL,
+		ResponseID:             responseID,
 		CompletedAt:            completedAtSQL,
 	})
 	
@@ -175,4 +174,39 @@ func (s NodeExecutionService) GetLatestNodeExecutionByNodeID(ctx context.Context
 		return nil, err
 	}
 	return ConvertNodeExecutionToModel(execution), nil
+}
+
+func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mnodeexecution.NodeExecution) error {
+	var errorSQL sql.NullString
+	if ne.Error != nil {
+		errorSQL = sql.NullString{
+			String: *ne.Error,
+			Valid:  true,
+		}
+	}
+	
+	var responseID []byte
+	if ne.ResponseID != nil {
+		responseID = ne.ResponseID.Bytes()
+	}
+	
+	var completedAtSQL sql.NullInt64
+	if ne.CompletedAt != nil {
+		completedAtSQL = sql.NullInt64{
+			Int64: *ne.CompletedAt,
+			Valid: true,
+		}
+	}
+	
+	_, err := s.queries.UpdateNodeExecution(ctx, gen.UpdateNodeExecutionParams{
+		ID:                     ne.ID,
+		State:                  ne.State,
+		Error:                  errorSQL,
+		OutputData:             ne.OutputData,
+		OutputDataCompressType: ne.OutputDataCompressType,
+		ResponseID:             responseID,
+		CompletedAt:            completedAtSQL,
+	})
+	
+	return err
 }

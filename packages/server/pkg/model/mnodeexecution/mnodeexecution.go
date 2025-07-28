@@ -7,16 +7,17 @@ import (
 )
 
 type NodeExecution struct {
-	ID                     idwrap.IDWrap `json:"id"`
-	NodeID                 idwrap.IDWrap `json:"node_id"`
-	State                  int8          `json:"state"`
-	Error                  *string       `json:"error,omitempty"`
-	InputData              []byte        `json:"input_data,omitempty"`
-	InputDataCompressType  int8          `json:"input_data_compress_type"`
-	OutputData             []byte        `json:"output_data,omitempty"`
-	OutputDataCompressType int8          `json:"output_data_compress_type"`
-	OutputKind             *int8         `json:"output_kind,omitempty"`
-	CompletedAt            *int64        `json:"completed_at,omitempty"`
+	ID                     idwrap.IDWrap  `json:"id"`
+	NodeID                 idwrap.IDWrap  `json:"node_id"`
+	Name                   string         `json:"name"`
+	State                  int8           `json:"state"`
+	Error                  *string        `json:"error,omitempty"`
+	InputData              []byte         `json:"input_data,omitempty"`
+	InputDataCompressType  int8           `json:"input_data_compress_type"`
+	OutputData             []byte         `json:"output_data,omitempty"`
+	OutputDataCompressType int8           `json:"output_data_compress_type"`
+	ResponseID             *idwrap.IDWrap `json:"response_id,omitempty"`
+	CompletedAt            *int64         `json:"completed_at,omitempty"`
 }
 
 // Helper methods for JSON handling with compression

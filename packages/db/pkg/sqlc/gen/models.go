@@ -228,13 +228,14 @@ type Migration struct {
 type NodeExecution struct {
 	ID                     idwrap.IDWrap
 	NodeID                 idwrap.IDWrap
+	Name                   string
 	State                  int8
 	Error                  sql.NullString
 	InputData              []byte
 	InputDataCompressType  int8
 	OutputData             []byte
 	OutputDataCompressType int8
-	OutputKind             sql.NullInt64
+	ResponseID             []byte
 	CompletedAt            sql.NullInt64
 }
 

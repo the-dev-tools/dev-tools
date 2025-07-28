@@ -15,6 +15,7 @@ func SerializeNodeExecutionModelToRPC(ne *mnodeexecution.NodeExecution) (*nodeex
 	rpc := &nodeexecutionv1.NodeExecution{
 		NodeExecutionId: ne.ID.Bytes(),
 		NodeId:          ne.NodeID.Bytes(),
+		Name:            ne.Name,
 		State:           nodev1.NodeState(ne.State),
 	}
 
@@ -42,6 +43,11 @@ func SerializeNodeExecutionModelToRPC(ne *mnodeexecution.NodeExecution) (*nodeex
 	// Convert CompletedAt timestamp
 	if ne.CompletedAt != nil {
 		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
+	}
+
+	// Handle optional ResponseID
+	if ne.ResponseID != nil {
+		rpc.ResponseId = ne.ResponseID.Bytes()
 	}
 
 	return rpc, nil
@@ -51,6 +57,7 @@ func SerializeNodeExecutionModelToRPCListItem(ne *mnodeexecution.NodeExecution) 
 	rpc := &nodeexecutionv1.NodeExecutionListItem{
 		NodeExecutionId: ne.ID.Bytes(),
 		NodeId:          ne.NodeID.Bytes(),
+		Name:            ne.Name,
 		State:           nodev1.NodeState(ne.State),
 	}
 
@@ -78,6 +85,11 @@ func SerializeNodeExecutionModelToRPCListItem(ne *mnodeexecution.NodeExecution) 
 	// Convert CompletedAt timestamp
 	if ne.CompletedAt != nil {
 		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
+	}
+
+	// Handle optional ResponseID
+	if ne.ResponseID != nil {
+		rpc.ResponseId = ne.ResponseID.Bytes()
 	}
 
 	return rpc, nil
@@ -87,6 +99,7 @@ func SerializeNodeExecutionModelToRPCGetResponse(ne *mnodeexecution.NodeExecutio
 	rpc := &nodeexecutionv1.NodeExecutionGetResponse{
 		NodeExecutionId: ne.ID.Bytes(),
 		NodeId:          ne.NodeID.Bytes(),
+		Name:            ne.Name,
 		State:           nodev1.NodeState(ne.State),
 	}
 
@@ -114,6 +127,11 @@ func SerializeNodeExecutionModelToRPCGetResponse(ne *mnodeexecution.NodeExecutio
 	// Convert CompletedAt timestamp
 	if ne.CompletedAt != nil {
 		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
+	}
+
+	// Handle optional ResponseID
+	if ne.ResponseID != nil {
+		rpc.ResponseId = ne.ResponseID.Bytes()
 	}
 
 	return rpc, nil

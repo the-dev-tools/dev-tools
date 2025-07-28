@@ -2136,16 +2136,16 @@ ORDER BY ne.completed_at DESC;
 
 -- name: CreateNodeExecution :one
 INSERT INTO node_execution (
-  id, node_id, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, output_kind, completed_at
+  id, node_id, name, state, error, input_data, input_data_compress_type,
+  output_data, output_data_compress_type, response_id, completed_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateNodeExecution :one
 UPDATE node_execution
 SET state = ?, error = ?, output_data = ?, 
-    output_data_compress_type = ?, output_kind = ?, completed_at = ?
+    output_data_compress_type = ?, response_id = ?, completed_at = ?
 WHERE id = ?
 RETURNING *;
 

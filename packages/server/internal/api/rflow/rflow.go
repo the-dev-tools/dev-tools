@@ -801,6 +801,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	var nodeExecutionsMutex sync.Mutex
 	nodeExecutionsDone := make(chan struct{})
 	
+	// Track execution counts per node for naming
+	nodeExecutionCounts := make(map[idwrap.IDWrap]int)
+	nodeExecutionCountsMutex := sync.Mutex{}
+	
+	// Map to store node executions by node ID for later updates
+	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
+	pendingNodeExecutionsMutex := sync.Mutex{}
+	
 	go func() {
 		defer close(nodeExecutionsDone)
 		for execution := range nodeExecutionChan {
@@ -863,6 +871,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				if err != nil {
 					log.Println("cannot update example on flow run", err)
 				}
+
+				// Update the node execution with the response ID if it exists
+				pendingNodeExecutionsMutex.Lock()
+				if nodeExec, exists := pendingNodeExecutions[id]; exists && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
+					respID := requestNodeResp.Resp.ExampleResp.ID
+					nodeExec.ResponseID = &respID
+				}
+				pendingNodeExecutionsMutex.Unlock()
 
 				example := &flowv1.FlowRunExampleResponse{
 					ExampleId:  requestNodeResp.Example.ID.Bytes(),
@@ -954,25 +970,33 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				errorStr = &errMsg
 			}
 
+			// Generate execution name
+			nodeExecutionCountsMutex.Lock()
+			nodeExecutionCounts[id]++
+			execCount := nodeExecutionCounts[id]
+			nodeExecutionCountsMutex.Unlock()
+			execName := fmt.Sprintf("Execution %d", execCount)
+			
 			nodeExecution := mnodeexecution.NodeExecution{
 				ID:                     idwrap.NewNow(),
 				NodeID:                 id,
+				Name:                   execName,
 				State:                  flowNodeStatus.State,
 				Error:                  errorStr,
 				InputData:              inputData,
 				InputDataCompressType:  0, // Will be set by SetInputJSON
 				OutputData:             data,
 				OutputDataCompressType: 0, // Will be set by SetOutputJSON
-				OutputKind:             nil, // Set for REQUEST nodes
+				ResponseID:             nil, // Set for REQUEST nodes
 				CompletedAt:            nil, // Set when state is final
 			}
 
-			// Set OutputKind for REQUEST nodes
-			if node, ok := flowNodeMap[id]; ok {
-				if _, isRequestNode := node.(*nrequest.NodeRequest); isRequestNode {
-					outputKind := int8(1) // OUTPUT_KIND_REQUEST
-					nodeExecution.OutputKind = &outputKind
-				}
+			// Store the node execution for potential later updates (e.g., response ID)
+			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS || 
+			   flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+				pendingNodeExecutionsMutex.Lock()
+				pendingNodeExecutions[id] = &nodeExecution
+				pendingNodeExecutionsMutex.Unlock()
 			}
 
 			// Set CompletedAt for final states
