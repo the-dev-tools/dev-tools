@@ -99,10 +99,11 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 }
 
 type processResult struct {
-	originalID idwrap.IDWrap
-	nextNodes  []idwrap.IDWrap
-	err        error
-	inputData  map[string]any
+	originalID  idwrap.IDWrap
+	executionID idwrap.IDWrap
+	nextNodes   []idwrap.IDWrap
+	err         error
+	inputData   map[string]any
 }
 
 func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest,
@@ -206,6 +207,8 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 					req.CurrentNodeID = nodeID
 				}
 
+				// Generate execution ID right before processing
+				executionID := idwrap.NewNow()
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
 
 				// If read tracking captured additional data, merge it
@@ -221,10 +224,11 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				}
 
 				resultChan <- processResult{
-					originalID: currentNode.GetID(),
-					nextNodes:  ids,
-					err:        localErr,
-					inputData:  inputData,
+					originalID:  currentNode.GetID(),
+					executionID: executionID,
+					nextNodes:   ids,
+					err:         localErr,
+					inputData:   inputData,
 				}
 			}(flowNodeId)
 		}
@@ -236,6 +240,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		var lastNodeError error
 		for result := range resultChan {
 			status.NodeID = result.originalID
+			status.ExecutionID = result.executionID
 			currentNode := req.NodeMap[result.originalID]
 			status.Name = currentNode.GetName()
 			nodeState := nodeStateMap[status.NodeID]
@@ -354,6 +359,8 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 					req.CurrentNodeID = nodeID
 				}
 
+				// Generate execution ID right before processing
+				executionID := idwrap.NewNow()
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
 				if ctxTimed.Err() != nil {
 					return
@@ -372,10 +379,11 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				}
 
 				resultChan <- processResult{
-					originalID: currentNode.GetID(),
-					nextNodes:  ids,
-					err:        localErr,
-					inputData:  inputData,
+					originalID:  currentNode.GetID(),
+					executionID: executionID,
+					nextNodes:   ids,
+					err:         localErr,
+					inputData:   inputData,
 				}
 			}(id)
 		}
@@ -399,6 +407,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 		var lastNodeError error
 		for result := range resultChan {
 			status.NodeID = result.originalID
+			status.ExecutionID = result.executionID
 			currentNode := req.NodeMap[result.originalID]
 			status.Name = currentNode.GetName()
 			status.RunDuration = time.Since(timeStart[status.NodeID])

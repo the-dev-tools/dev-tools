@@ -798,7 +798,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// Collector goroutine for node executions
 	var nodeExecutions []mnodeexecution.NodeExecution
-	var nodeExecutionsMutex sync.Mutex
 	nodeExecutionsDone := make(chan struct{})
 
 	// Track execution counts per node for naming
@@ -807,14 +806,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// Map to store node executions by node ID for later updates
 	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
-	pendingNodeExecutionsMutex := sync.Mutex{}
 
 	go func() {
 		defer close(nodeExecutionsDone)
 		for execution := range nodeExecutionChan {
-			nodeExecutionsMutex.Lock()
 			nodeExecutions = append(nodeExecutions, execution)
-			nodeExecutionsMutex.Unlock()
 		}
 	}()
 
@@ -873,12 +869,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 
 				// Update the node execution with the response ID if it exists
-				pendingNodeExecutionsMutex.Lock()
 				if nodeExec, exists := pendingNodeExecutions[id]; exists && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
 					respID := requestNodeResp.Resp.ExampleResp.ID
 					nodeExec.ResponseID = &respID
 				}
-				pendingNodeExecutionsMutex.Unlock()
 
 				example := &flowv1.FlowRunExampleResponse{
 					ExampleId:  requestNodeResp.Example.ID.Bytes(),
@@ -971,9 +965,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			// Store the node execution for potential later updates (e.g., response ID)
 			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS ||
 				flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
-				pendingNodeExecutionsMutex.Lock()
 				pendingNodeExecutions[id] = &nodeExecution
-				pendingNodeExecutionsMutex.Unlock()
 			}
 
 			// Set CompletedAt for final states
@@ -1062,11 +1054,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	flow.VersionParentID = &flow.ID
 
-	// Lock to safely access nodeExecutions
-	nodeExecutionsMutex.Lock()
+	// Access nodeExecutions (safe after channel reader finished)
 	nodeExecutionsCopy := make([]mnodeexecution.NodeExecution, len(nodeExecutions))
 	copy(nodeExecutionsCopy, nodeExecutions)
-	nodeExecutionsMutex.Unlock()
 
 	res, err := c.PrepareCopyFlow(ctx, flow.WorkspaceID, flow, nodeExecutionsCopy)
 	if err != nil {
@@ -1084,16 +1074,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return fmt.Errorf("create node execution service: %w", err)
 	}
 
-	// Process collected node executions
-	nodeExecutionsMutex.Lock()
+	// Process collected node executions (safe after channel reader finished)
 	for _, execution := range nodeExecutions {
 		err = txNodeExecution.CreateNodeExecution(ctx, execution)
 		if err != nil {
-			nodeExecutionsMutex.Unlock()
 			return fmt.Errorf("create node execution: %w", err)
 		}
 	}
-	nodeExecutionsMutex.Unlock()
 
 	err = c.CopyFlow(ctx, tx, res)
 	if err != nil {

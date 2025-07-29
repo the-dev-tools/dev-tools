@@ -40,6 +40,7 @@ func IsFlowStatusDone(f FlowStatus) bool {
 }
 
 type FlowNodeStatus struct {
+	ExecutionID idwrap.IDWrap
 	NodeID      idwrap.IDWrap
 	Name        string
 	State       mnnode.NodeState
