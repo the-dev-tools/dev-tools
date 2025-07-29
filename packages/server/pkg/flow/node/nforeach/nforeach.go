@@ -65,7 +65,14 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	}
 
 	exprEnv := expression.NewEnv(req.VarMap)
-	result, err := expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
+	
+	// Use tracking version if tracker is available
+	var result any
+	if req.VariableTracker != nil {
+		result, err = expression.ExpressionEvaluateAsIterWithTracking(ctx, exprEnv, normalizedExpressionIterPath, req.VariableTracker)
+	} else {
+		result, err = expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
+	}
 	if err != nil {
 		return node.FlowNodeResult{
 			Err: err,
@@ -83,7 +90,14 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	processNode := func() node.FlowNodeResult {
 		for _, nextNodeID := range loopID {
 			if breakExpr != "" {
-				ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpressionBreak)
+				// Use tracking version if tracker is available
+				var ok bool
+				var err error
+				if req.VariableTracker != nil {
+					ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpressionBreak, req.VariableTracker)
+				} else {
+					ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpressionBreak)
+				}
 				if err != nil {
 					return node.FlowNodeResult{
 						Err: err,
@@ -111,13 +125,23 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		totalItems := 0
 		for item := range seq {
 			// Write the item and key (index) to the node variables
-			err := node.WriteNodeVar(req, nr.Name, "item", item)
+			var err error
+			if req.VariableTracker != nil {
+				err = node.WriteNodeVarWithTracking(req, nr.Name, "item", item, req.VariableTracker)
+			} else {
+				err = node.WriteNodeVar(req, nr.Name, "item", item)
+			}
 			if err != nil {
 				return node.FlowNodeResult{
 					Err: err,
 				}
 			}
-			err = node.WriteNodeVar(req, nr.Name, "key", itemIndex)
+			
+			if req.VariableTracker != nil {
+				err = node.WriteNodeVarWithTracking(req, nr.Name, "key", itemIndex, req.VariableTracker)
+			} else {
+				err = node.WriteNodeVar(req, nr.Name, "key", itemIndex)
+			}
 			if err != nil {
 				return node.FlowNodeResult{
 					Err: err,
@@ -142,7 +166,12 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			}
 		}
 		// Write total items processed
-		if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+		if req.VariableTracker != nil {
+			err = node.WriteNodeVarWithTracking(req, nr.Name, "totalItems", totalItems, req.VariableTracker)
+		} else {
+			err = node.WriteNodeVar(req, nr.Name, "totalItems", totalItems)
+		}
+		if err != nil {
 			return node.FlowNodeResult{
 				Err: err,
 			}
@@ -152,13 +181,23 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		totalItems := 0
 		for key, value := range seq {
 			// Write the key and item (value) to the node variables
-			err := node.WriteNodeVar(req, nr.Name, "key", key)
+			var err error
+			if req.VariableTracker != nil {
+				err = node.WriteNodeVarWithTracking(req, nr.Name, "key", key, req.VariableTracker)
+			} else {
+				err = node.WriteNodeVar(req, nr.Name, "key", key)
+			}
 			if err != nil {
 				return node.FlowNodeResult{
 					Err: err,
 				}
 			}
-			err = node.WriteNodeVar(req, nr.Name, "item", value)
+			
+			if req.VariableTracker != nil {
+				err = node.WriteNodeVarWithTracking(req, nr.Name, "item", value, req.VariableTracker)
+			} else {
+				err = node.WriteNodeVar(req, nr.Name, "item", value)
+			}
 			if err != nil {
 				return node.FlowNodeResult{
 					Err: err,
@@ -182,7 +221,12 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			}
 		}
 		// Write total items processed
-		if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+		if req.VariableTracker != nil {
+			err = node.WriteNodeVarWithTracking(req, nr.Name, "totalItems", totalItems, req.VariableTracker)
+		} else {
+			err = node.WriteNodeVar(req, nr.Name, "totalItems", totalItems)
+		}
+		if err != nil {
 			return node.FlowNodeResult{
 				Err: err,
 			}
@@ -215,8 +259,13 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	// Evaluate the iteration path expression to get an iterator
-	result, err := expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
+	// Use tracking version if tracker is available
+	var result any
+	if req.VariableTracker != nil {
+		result, err = expression.ExpressionEvaluateAsIterWithTracking(ctx, exprEnv, normalizedExpressionIterPath, req.VariableTracker)
+	} else {
+		result, err = expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
+	}
 	if err != nil {
 		resultChan <- node.FlowNodeResult{Err: err}
 		return
@@ -238,7 +287,14 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		for _, nextNodeID := range loopID {
 			// Evaluate the break condition if it exists
 			if breakExpr != "" {
-				ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpressionBreak)
+				// Use tracking version if tracker is available
+				var ok bool
+				var err error
+				if req.VariableTracker != nil {
+					ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpressionBreak, req.VariableTracker)
+				} else {
+					ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpressionBreak)
+				}
 				if err != nil {
 					return node.FlowNodeResult{Err: err}
 				}
@@ -275,14 +331,24 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			totalItems := 0
 			for item := range seq {
 				// Write the item and key (index) to the node variables
-				err := node.WriteNodeVar(req, nr.Name, "item", item)
+				var err error
+				if req.VariableTracker != nil {
+					err = node.WriteNodeVarWithTracking(req, nr.Name, "item", item, req.VariableTracker)
+				} else {
+					err = node.WriteNodeVar(req, nr.Name, "item", item)
+				}
 				if err != nil {
 					resultChan <- node.FlowNodeResult{
 						Err: err,
 					}
 					return
 				}
-				err = node.WriteNodeVar(req, nr.Name, "key", itemIndex)
+				
+				if req.VariableTracker != nil {
+					err = node.WriteNodeVarWithTracking(req, nr.Name, "key", itemIndex, req.VariableTracker)
+				} else {
+					err = node.WriteNodeVar(req, nr.Name, "key", itemIndex)
+				}
 				if err != nil {
 					resultChan <- node.FlowNodeResult{
 						Err: err,
@@ -310,7 +376,19 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				}
 			}
 			// Write total items processed
-			if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+			if req.VariableTracker != nil {
+				err := node.WriteNodeVarWithTracking(req, nr.Name, "totalItems", totalItems, req.VariableTracker)
+				if err != nil {
+					resultChan <- node.FlowNodeResult{Err: err}
+					return
+				}
+			} else {
+				if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+					resultChan <- node.FlowNodeResult{Err: err}
+					return
+				}
+			}
+			if err != nil {
 				resultChan <- node.FlowNodeResult{Err: err}
 				return
 			}
@@ -323,14 +401,24 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			totalItems := 0
 			for key, value := range seq {
 				// Write the key and item (value) to the node variables
-				err := node.WriteNodeVar(req, nr.Name, "key", key)
+				var err error
+				if req.VariableTracker != nil {
+					err = node.WriteNodeVarWithTracking(req, nr.Name, "key", key, req.VariableTracker)
+				} else {
+					err = node.WriteNodeVar(req, nr.Name, "key", key)
+				}
 				if err != nil {
 					resultChan <- node.FlowNodeResult{
 						Err: err,
 					}
 					return
 				}
-				err = node.WriteNodeVar(req, nr.Name, "item", value)
+				
+				if req.VariableTracker != nil {
+					err = node.WriteNodeVarWithTracking(req, nr.Name, "item", value, req.VariableTracker)
+				} else {
+					err = node.WriteNodeVar(req, nr.Name, "item", value)
+				}
 				if err != nil {
 					resultChan <- node.FlowNodeResult{
 						Err: err,
@@ -357,7 +445,19 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				}
 			}
 			// Write total items processed
-			if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+			if req.VariableTracker != nil {
+				err := node.WriteNodeVarWithTracking(req, nr.Name, "totalItems", totalItems, req.VariableTracker)
+				if err != nil {
+					resultChan <- node.FlowNodeResult{Err: err}
+					return
+				}
+			} else {
+				if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
+					resultChan <- node.FlowNodeResult{Err: err}
+					return
+				}
+			}
+			if err != nil {
 				resultChan <- node.FlowNodeResult{Err: err}
 				return
 			}

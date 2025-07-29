@@ -804,8 +804,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	nodeExecutionCounts := make(map[idwrap.IDWrap]int)
 	nodeExecutionCountsMutex := sync.Mutex{}
 
-	// Map to store node executions by node ID for later updates
+	// Map to store node executions by execution ID for state transitions
 	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
+	pendingMutex := sync.Mutex{}
 
 	go func() {
 		defer close(nodeExecutionsDone)
@@ -820,6 +821,85 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			name := flowNodeStatus.Name
 			idStr := id.String()
 			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
+			executionID := flowNodeStatus.ExecutionID
+			
+			// Handle NodeExecution creation/updates based on state
+			switch flowNodeStatus.State {
+			case mnnode.NODE_STATE_RUNNING:
+				// Create new NodeExecution for RUNNING state
+				pendingMutex.Lock()
+				if _, exists := pendingNodeExecutions[executionID]; !exists {
+					// Generate execution name
+					nodeExecutionCountsMutex.Lock()
+					nodeExecutionCounts[id]++
+					execCount := nodeExecutionCounts[id]
+					nodeExecutionCountsMutex.Unlock()
+					execName := fmt.Sprintf("Execution %d", execCount)
+
+					nodeExecution := mnodeexecution.NodeExecution{
+						ID:                     executionID, // Use executionID as the record ID
+						NodeID:                 id,
+						Name:                   execName,
+						State:                  flowNodeStatus.State,
+						Error:                  nil,
+						InputData:              []byte("{}"),
+						InputDataCompressType:  0,
+						OutputData:             []byte("{}"),
+						OutputDataCompressType: 0,
+						ResponseID:             nil,
+						CompletedAt:            nil,
+					}
+					
+					// Store in pending map for completion
+					pendingNodeExecutions[executionID] = &nodeExecution
+				}
+				pendingMutex.Unlock()
+				
+			case mnnode.NODE_STATE_SUCCESS, mnnode.NODE_STATE_FAILURE, mnnode.NODE_STATE_CANCELED:
+				// Update existing NodeExecution with final state
+				pendingMutex.Lock()
+				if nodeExec, exists := pendingNodeExecutions[executionID]; exists {
+					// Update final state
+					nodeExec.State = flowNodeStatus.State
+					completedAt := time.Now().UnixMilli()
+					nodeExec.CompletedAt = &completedAt
+					
+					// Set error if present
+					if flowNodeStatus.Error != nil {
+						errorStr := flowNodeStatus.Error.Error()
+						nodeExec.Error = &errorStr
+					}
+					
+					// Compress and store input data
+					if flowNodeStatus.InputData != nil {
+						if inputJSON, err := json.Marshal(flowNodeStatus.InputData); err == nil {
+							if err := nodeExec.SetInputJSON(inputJSON); err != nil {
+								nodeExec.InputData = inputJSON
+								nodeExec.InputDataCompressType = 0
+							}
+						}
+					}
+					
+					// Compress and store output data
+					if flowNodeStatus.OutputData != nil {
+						if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
+							if err := nodeExec.SetOutputJSON(outputJSON); err != nil {
+								nodeExec.OutputData = outputJSON
+								nodeExec.OutputDataCompressType = 0
+							}
+						}
+					}
+					
+					// Send completed execution to channel
+					nodeExecutionChan <- *nodeExec
+					
+					// Remove from pending
+					delete(pendingNodeExecutions, executionID)
+				}
+				pendingMutex.Unlock()
+			}
+			
+			// Handle logging for non-running states
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
 				// Create copies of values we need for the goroutine
 				nameForLog := name
@@ -860,19 +940,21 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}()
 			}
 
+			// Handle request node responses
 			select {
 			case requestNodeResp := <-requestNodeRespChan:
-
 				err = c.HandleExampleChanges(ctx, requestNodeResp)
 				if err != nil {
 					log.Println("cannot update example on flow run", err)
 				}
 
 				// Update the node execution with the response ID if it exists
-				if nodeExec, exists := pendingNodeExecutions[id]; exists && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
+				pendingMutex.Lock()
+				if nodeExec, exists := pendingNodeExecutions[executionID]; exists && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
 					respID := requestNodeResp.Resp.ExampleResp.ID
 					nodeExec.ResponseID = &respID
 				}
+				pendingMutex.Unlock()
 
 				example := &flowv1.FlowRunExampleResponse{
 					ExampleId:  requestNodeResp.Example.ID.Bytes(),
@@ -892,6 +974,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			default:
 			}
 
+			// Send node status response
 			nodeResp := &flowv1.FlowRunNodeResponse{
 				NodeId: flowNodeStatus.NodeID.Bytes(),
 				State:  nodev1.NodeState(flowNodeStatus.State),
@@ -907,90 +990,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				Node: nodeResp,
 			}
 
-			// Skip OutputData for intermediate status updates to avoid race conditions
-			// Only include it for final state updates
-			var data []byte
-			var inputData []byte
-			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS || flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
-				// For final states, OutputData should be stable
-				var localErr error
-				data, localErr = json.Marshal(flowNodeStatus.OutputData)
-				if localErr != nil {
-					// Log error but continue processing
-					log.Printf("Error marshaling node output data: %v", localErr)
-					data = []byte("{}")
-				}
-
-				// Capture input data from what the node actually read during execution
-				if flowNodeStatus.InputData != nil {
-					inputData, _ = json.Marshal(flowNodeStatus.InputData)
-				} else {
-					// Fallback to empty object if no input data
-					inputData = []byte("{}")
-				}
-			} else {
-				// For intermediate states, don't include output data or input data
-				data = []byte("{}")
-				inputData = []byte("{}")
-			}
-
-			// Prepare error string if there's an error
-			var errorStr *string
-			if flowNodeStatus.Error != nil {
-				errMsg := flowNodeStatus.Error.Error()
-				errorStr = &errMsg
-			}
-
-			// Generate execution name
-			nodeExecutionCountsMutex.Lock()
-			nodeExecutionCounts[id]++
-			execCount := nodeExecutionCounts[id]
-			nodeExecutionCountsMutex.Unlock()
-			execName := fmt.Sprintf("Execution %d", execCount)
-
-			nodeExecution := mnodeexecution.NodeExecution{
-				ID:                     idwrap.NewNow(),
-				NodeID:                 id,
-				Name:                   execName,
-				State:                  flowNodeStatus.State,
-				Error:                  errorStr,
-				InputData:              inputData,
-				InputDataCompressType:  0, // Will be set by SetInputJSON
-				OutputData:             data,
-				OutputDataCompressType: 0,   // Will be set by SetOutputJSON
-				ResponseID:             nil, // Set for REQUEST nodes
-				CompletedAt:            nil, // Set when state is final
-			}
-
-			// Store the node execution for potential later updates (e.g., response ID)
-			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS ||
-				flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
-				pendingNodeExecutions[id] = &nodeExecution
-			}
-
-			// Set CompletedAt for final states
-			if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS ||
-				flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
-				now := time.Now().UnixMilli()
-				nodeExecution.CompletedAt = &now
-			}
-
-			// Use compression helpers
-			if len(inputData) > 0 {
-				if err := nodeExecution.SetInputJSON(inputData); err != nil {
-					// Log error but continue - keep uncompressed data
-					nodeExecution.InputData = inputData
-					nodeExecution.InputDataCompressType = 0
-				}
-			}
-			if len(data) > 0 {
-				if err := nodeExecution.SetOutputJSON(data); err != nil {
-					// Log error but continue - keep uncompressed data
-					nodeExecution.OutputData = data
-					nodeExecution.OutputDataCompressType = 0
-				}
-			}
-			nodeExecutionChan <- nodeExecution
 			err = stream.Send(resp)
 			if err != nil {
 				done <- err

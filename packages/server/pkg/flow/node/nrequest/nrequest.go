@@ -159,7 +159,11 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	err = node.WriteNodeVarBulk(req, nr.Name, respMap)
+	if req.VariableTracker != nil {
+		err = node.WriteNodeVarBulkWithTracking(req, nr.Name, respMap, req.VariableTracker)
+	} else {
+		err = node.WriteNodeVarBulk(req, nr.Name, respMap)
+	}
 	if err != nil {
 		result.Err = err
 		return result
@@ -265,7 +269,11 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	err = node.WriteNodeVarBulk(req, nr.Name, respMap)
+	if req.VariableTracker != nil {
+		err = node.WriteNodeVarBulkWithTracking(req, nr.Name, respMap, req.VariableTracker)
+	} else {
+		err = node.WriteNodeVarBulk(req, nr.Name, respMap)
+	}
 	if err != nil {
 		result.Err = err
 		resultChan <- result

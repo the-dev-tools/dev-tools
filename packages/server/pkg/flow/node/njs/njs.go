@@ -68,7 +68,11 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 
 	InterfaceRaw := rpcResp.Msg.Result.AsInterface()
 
-	err = node.WriteNodeVarRaw(req, n.Name, InterfaceRaw)
+	if req.VariableTracker != nil {
+		err = node.WriteNodeVarRawWithTracking(req, n.Name, InterfaceRaw, req.VariableTracker)
+	} else {
+		err = node.WriteNodeVarRaw(req, n.Name, InterfaceRaw)
+	}
 	if err != nil {
 		result.Err = fmt.Errorf("failed to write node var bulk: %w", err)
 	}
@@ -103,7 +107,11 @@ func (n NodeJS) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		return
 	}
 	InterfaceRaw := rpcResp.Msg.Result.AsInterface()
-	err = node.WriteNodeVarRaw(req, n.Name, InterfaceRaw)
+	if req.VariableTracker != nil {
+		err = node.WriteNodeVarRawWithTracking(req, n.Name, InterfaceRaw, req.VariableTracker)
+	} else {
+		err = node.WriteNodeVarRaw(req, n.Name, InterfaceRaw)
+	}
 	if err != nil {
 		result.Err = fmt.Errorf("failed to write node var bulk: %w", err)
 	}

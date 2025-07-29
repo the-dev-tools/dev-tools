@@ -6,6 +6,7 @@ import (
 	"sync"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/runner"
+	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/idwrap"
 	"time"
 )
@@ -32,6 +33,7 @@ type FlowNodeRequest struct {
 	Timeout          time.Duration
 	LogPushFunc      LogPushFunc
 	PendingAtmoicMap map[idwrap.IDWrap]uint32
+	VariableTracker  *tracking.VariableTracker // Optional tracking for input/output data
 }
 
 type LogPushFunc func(status runner.FlowNodeStatus)
@@ -134,6 +136,94 @@ func ReadNodeVar(a *FlowNodeRequest, name, key string) (interface{}, error) {
 		return nil, ErrVarKeyNotFound
 	}
 
+	return v, nil
+}
+
+// WriteNodeVarWithTracking writes a node variable with optional tracking
+func WriteNodeVarWithTracking(a *FlowNodeRequest, name string, key string, v interface{}, tracker *tracking.VariableTracker) error {
+	// First perform the regular write
+	err := WriteNodeVar(a, name, key, v)
+	if err != nil {
+		return err
+	}
+	
+	// Track the write if tracker is provided
+	if tracker != nil {
+		nodeKey := name
+		fullKey := nodeKey + "." + key
+		tracker.TrackWrite(fullKey, v)
+	}
+	
+	return nil
+}
+
+// WriteNodeVarRawWithTracking writes a raw node variable with optional tracking
+func WriteNodeVarRawWithTracking(a *FlowNodeRequest, name string, v interface{}, tracker *tracking.VariableTracker) error {
+	// First perform the regular write
+	err := WriteNodeVarRaw(a, name, v)
+	if err != nil {
+		return err
+	}
+	
+	// Track the write if tracker is provided
+	if tracker != nil {
+		tracker.TrackWrite(name, v)
+	}
+	
+	return nil
+}
+
+// WriteNodeVarBulkWithTracking writes bulk node variables with optional tracking
+func WriteNodeVarBulkWithTracking(a *FlowNodeRequest, name string, v map[string]interface{}, tracker *tracking.VariableTracker) error {
+	// First perform the regular write
+	err := WriteNodeVarBulk(a, name, v)
+	if err != nil {
+		return err
+	}
+	
+	// Track each write if tracker is provided
+	if tracker != nil {
+		nodeKey := name
+		for key, value := range v {
+			fullKey := nodeKey + "." + key
+			tracker.TrackWrite(fullKey, value)
+		}
+	}
+	
+	return nil
+}
+
+// ReadVarRawWithTracking reads a raw variable with optional tracking
+func ReadVarRawWithTracking(a *FlowNodeRequest, key string, tracker *tracking.VariableTracker) (interface{}, error) {
+	// First perform the regular read
+	v, err := ReadVarRaw(a, key)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Track the read if tracker is provided
+	if tracker != nil {
+		tracker.TrackRead(key, v)
+	}
+	
+	return v, nil
+}
+
+// ReadNodeVarWithTracking reads a node variable with optional tracking
+func ReadNodeVarWithTracking(a *FlowNodeRequest, name, key string, tracker *tracking.VariableTracker) (interface{}, error) {
+	// First perform the regular read
+	v, err := ReadNodeVar(a, name, key)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Track the read if tracker is provided
+	if tracker != nil {
+		nodeKey := name
+		fullKey := nodeKey + "." + key
+		tracker.TrackRead(fullKey, v)
+	}
+	
 	return v, nil
 }
 

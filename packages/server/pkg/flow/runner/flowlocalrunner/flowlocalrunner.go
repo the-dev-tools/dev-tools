@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/runner"
+	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"time"
@@ -100,6 +101,7 @@ type processResult struct {
 	nextNodes   []idwrap.IDWrap
 	err         error
 	inputData   map[string]any
+	outputData  map[string]any // NEW: From tracker.GetWrittenVars()
 }
 
 func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest,
@@ -164,12 +166,6 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		FlowNodeCancelCtx, FlowNodeCancelCtxCancel := context.WithCancel(ctx)
 		defer FlowNodeCancelCtxCancel()
 		for _, flowNodeId := range subqueue {
-
-			status.NodeID = flowNodeId
-			status.Name = req.NodeMap[flowNodeId].GetName()
-			status.State = mnnode.NODE_STATE_RUNNING
-			status.Error = nil
-			statusLogFunc(status)
 			currentNode, ok := req.NodeMap[flowNodeId]
 			if !ok {
 				return fmt.Errorf("node not found: %v", currentNode)
@@ -192,7 +188,25 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 				// Generate execution ID right before processing
 				executionID := idwrap.NewNow()
+				
+				// Log RUNNING status with execution ID
+				runningStatus := runner.FlowNodeStatus{
+					ExecutionID: executionID,
+					NodeID:      nodeID,
+					Name:        currentNode.GetName(),
+					State:       mnnode.NODE_STATE_RUNNING,
+					Error:       nil,
+				}
+				statusLogFunc(runningStatus)
+				
+				// Initialize tracker for this node
+				tracker := tracking.NewVariableTracker()
+				req.VariableTracker = tracker
+				
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
+				
+				// Capture tracked data
+				outputData := tracker.GetWrittenVars()
 
 				resultChan <- processResult{
 					originalID:  currentNode.GetID(),
@@ -200,6 +214,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 					nextNodes:   ids,
 					err:         localErr,
 					inputData:   inputData,
+					outputData:  outputData,
 				}
 			}(flowNodeId)
 		}
@@ -295,11 +310,6 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				return fmt.Errorf("node not found: %v", currentNode)
 			}
 
-			status.NodeID = id
-			status.Name = req.NodeMap[id].GetName()
-			status.State = mnnode.NODE_STATE_RUNNING
-			status.Error = nil
-			statusLogFunc(status)
 			timeStart[id] = time.Now()
 
 			go func(nodeID idwrap.IDWrap) {
@@ -319,10 +329,28 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 				// Generate execution ID right before processing
 				executionID := idwrap.NewNow()
+				
+				// Log RUNNING status with execution ID
+				runningStatus := runner.FlowNodeStatus{
+					ExecutionID: executionID,
+					NodeID:      nodeID,
+					Name:        currentNode.GetName(),
+					State:       mnnode.NODE_STATE_RUNNING,
+					Error:       nil,
+				}
+				statusLogFunc(runningStatus)
+				
+				// Initialize tracker for this node
+				tracker := tracking.NewVariableTracker()
+				req.VariableTracker = tracker
+				
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
 				if ctxTimed.Err() != nil {
 					return
 				}
+				
+				// Capture tracked data
+				outputData := tracker.GetWrittenVars()
 
 				resultChan <- processResult{
 					originalID:  currentNode.GetID(),
@@ -330,6 +358,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 					nextNodes:   ids,
 					err:         localErr,
 					inputData:   inputData,
+					outputData:  outputData,
 				}
 			}(id)
 		}

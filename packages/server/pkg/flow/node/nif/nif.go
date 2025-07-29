@@ -56,8 +56,13 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 
-	// Evaluate the condition expression
-	ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
+	// Evaluate the condition expression using tracking if available
+	var ok bool
+	if req.VariableTracker != nil {
+		ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpression, req.VariableTracker)
+	} else {
+		ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
+	}
 	if err != nil {
 		result.Err = fmt.Errorf("failed to evaluate condition expression '%s': %w", normalizedExpression, err)
 		return result
@@ -68,7 +73,12 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		"condition": normalizedExpression,
 		"result":    ok,
 	}
-	if err := node.WriteNodeVarBulk(req, n.Name, outputData); err != nil {
+	if req.VariableTracker != nil {
+		err = node.WriteNodeVarBulkWithTracking(req, n.Name, outputData, req.VariableTracker)
+	} else {
+		err = node.WriteNodeVarBulk(req, n.Name, outputData)
+	}
+	if err != nil {
 		result.Err = fmt.Errorf("failed to write node output: %w", err)
 		return result
 	}
@@ -103,8 +113,13 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		return
 	}
 
-	// Evaluate the condition expression
-	ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
+	// Evaluate the condition expression using tracking if available
+	var ok bool
+	if req.VariableTracker != nil {
+		ok, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpression, req.VariableTracker)
+	} else {
+		ok, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
+	}
 	if err != nil {
 		result.Err = fmt.Errorf("failed to evaluate condition expression '%s': %w", normalizedExpression, err)
 		resultChan <- result
@@ -116,7 +131,12 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		"condition": normalizedExpression,
 		"result":    ok,
 	}
-	if err := node.WriteNodeVarBulk(req, n.Name, outputData); err != nil {
+	if req.VariableTracker != nil {
+		err = node.WriteNodeVarBulkWithTracking(req, n.Name, outputData, req.VariableTracker)
+	} else {
+		err = node.WriteNodeVarBulk(req, n.Name, outputData)
+	}
+	if err != nil {
 		result.Err = fmt.Errorf("failed to write node output: %w", err)
 		resultChan <- result
 		return

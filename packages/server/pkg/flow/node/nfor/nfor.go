@@ -66,7 +66,12 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 	for i := int64(0); i < nr.IterCount; i++ {
 		// Write the iteration index to the node variables
-		err := node.WriteNodeVar(req, nr.Name, "index", i)
+		var err error
+		if req.VariableTracker != nil {
+			err = node.WriteNodeVarWithTracking(req, nr.Name, "index", i, req.VariableTracker)
+		} else {
+			err = node.WriteNodeVar(req, nr.Name, "index", i)
+		}
 		if err != nil {
 			return node.FlowNodeResult{
 				Err: err,
@@ -122,7 +127,13 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 Exit:
 	// Write final output with total iterations completed
-	if err := node.WriteNodeVar(req, nr.Name, "totalIterations", nr.IterCount); err != nil {
+	var err error
+	if req.VariableTracker != nil {
+		err = node.WriteNodeVarWithTracking(req, nr.Name, "totalIterations", nr.IterCount, req.VariableTracker)
+	} else {
+		err = node.WriteNodeVar(req, nr.Name, "totalIterations", nr.IterCount)
+	}
+	if err != nil {
 		return node.FlowNodeResult{
 			Err: err,
 		}
@@ -150,7 +161,12 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 	for i := int64(0); i < nr.IterCount; i++ {
 		// Write the iteration index to the node variables
-		err := node.WriteNodeVar(req, nr.Name, "index", i)
+		var err error
+		if req.VariableTracker != nil {
+			err = node.WriteNodeVarWithTracking(req, nr.Name, "index", i, req.VariableTracker)
+		} else {
+			err = node.WriteNodeVar(req, nr.Name, "index", i)
+		}
 		if err != nil {
 			resultChan <- node.FlowNodeResult{
 				Err: err,
@@ -208,7 +224,13 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 Exit:
 	// Write final output with total iterations completed
-	if err := node.WriteNodeVar(req, nr.Name, "totalIterations", nr.IterCount); err != nil {
+	var err error
+	if req.VariableTracker != nil {
+		err = node.WriteNodeVarWithTracking(req, nr.Name, "totalIterations", nr.IterCount, req.VariableTracker)
+	} else {
+		err = node.WriteNodeVar(req, nr.Name, "totalIterations", nr.IterCount)
+	}
+	if err != nil {
 		resultChan <- node.FlowNodeResult{
 			Err: err,
 		}
