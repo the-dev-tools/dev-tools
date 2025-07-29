@@ -275,7 +275,7 @@ func main() {
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 
 	// NodeExecution Service
-	nodeExecutionSrv := rnodeexecution.New(&nodeExecutionService, &flowNodeService, &flowService, &userService)
+	nodeExecutionSrv := rnodeexecution.New(&nodeExecutionService, &flowNodeService, &flowService, &userService, &exampleResponseService, &flowNodeRequestSevice)
 	nodeExecutionService_svc, err := rnodeexecution.CreateService(nodeExecutionSrv, opitonsAll)
 	if err != nil {
 		log.Fatal(err)

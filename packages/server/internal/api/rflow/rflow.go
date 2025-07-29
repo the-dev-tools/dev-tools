@@ -10,6 +10,7 @@ import (
 	"log"
 	"sort"
 	"sync"
+	"time"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
@@ -78,7 +79,6 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
 	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
-	"time"
 
 	"connectrpc.com/connect"
 )
@@ -573,6 +573,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
+	nodeToExampleMap := make(map[idwrap.IDWrap]idwrap.IDWrap, len(requestNodes))
 	for _, requestNode := range requestNodes {
 
 		// Base Request
@@ -723,6 +724,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		name := nodeNameMap[requestNode.FlowNodeID]
 
+		// Map node ID to example ID for response matching
+		nodeToExampleMap[requestNode.FlowNodeID] = example.ID
+
 		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
 			*exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan)
 	}
@@ -815,6 +819,46 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
+	// Timeout handler for REQUEST nodes that don't receive responses
+	go func() {
+		ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ticker.C:
+				pendingMutex.Lock()
+				var timedOutExecutions []mnodeexecution.NodeExecution
+				
+				for execID, nodeExec := range pendingNodeExecutions {
+					// Check if it's a completed node without ResponseID that's been waiting too long
+					if nodeExec.CompletedAt != nil &&
+						nodeExec.ResponseID == nil &&
+						(nodeExec.State == mnnode.NODE_STATE_SUCCESS || nodeExec.State == mnnode.NODE_STATE_FAILURE) &&
+						time.Now().UnixMilli()-*nodeExec.CompletedAt > 30000 { // 30 seconds timeout
+						
+						// Check if this is a REQUEST node by checking if it exists in nodeToExampleMap
+						// This is safer than calling GetNode which may cause races
+						_, isRequestNode := nodeToExampleMap[nodeExec.NodeID]
+						if isRequestNode {
+							timedOutExecutions = append(timedOutExecutions, *nodeExec)
+							delete(pendingNodeExecutions, execID)
+						}
+					}
+				}
+				pendingMutex.Unlock()
+				
+				// Send timed out executions to channel without ResponseID
+				for _, exec := range timedOutExecutions {
+					nodeExecutionChan <- exec
+				}
+				
+			case <-subCtx.Done():
+				return
+			}
+		}
+	}()
+
 	go func() {
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
 			id := flowNodeStatus.NodeID
@@ -856,6 +900,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				pendingMutex.Unlock()
 				
 			case mnnode.NODE_STATE_SUCCESS, mnnode.NODE_STATE_FAILURE, mnnode.NODE_STATE_CANCELED:
+				// Get node type for REQUEST node detection
+				node, err := c.ns.GetNode(ctx, flowNodeStatus.NodeID)
+				if err != nil {
+					// Log error but continue - we'll treat as non-REQUEST node
+					log.Printf("Could not get node type for %s: %v", flowNodeStatus.NodeID.String(), err)
+				}
+
 				// Update existing NodeExecution with final state
 				pendingMutex.Lock()
 				if nodeExec, exists := pendingNodeExecutions[executionID]; exists {
@@ -890,11 +941,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					}
 					
-					// Send completed execution to channel
-					nodeExecutionChan <- *nodeExec
-					
-					// Remove from pending
-					delete(pendingNodeExecutions, executionID)
+					// For REQUEST nodes, wait for response before sending to channel
+					if node != nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
+						// Mark as completed but keep in pending map for response handling
+						// Don't send to channel yet - wait for response
+					} else {
+						// For non-REQUEST nodes, send immediately
+						nodeExecutionChan <- *nodeExec
+						delete(pendingNodeExecutions, executionID)
+					}
 				}
 				pendingMutex.Unlock()
 			}
@@ -948,11 +1003,48 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					log.Println("cannot update example on flow run", err)
 				}
 
-				// Update the node execution with the response ID if it exists
+				// Find the node that corresponds to this example and update execution with ResponseID
 				pendingMutex.Lock()
-				if nodeExec, exists := pendingNodeExecutions[executionID]; exists && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
-					respID := requestNodeResp.Resp.ExampleResp.ID
-					nodeExec.ResponseID = &respID
+				var targetNodeID idwrap.IDWrap
+				for nodeID, exampleID := range nodeToExampleMap {
+					if exampleID == requestNodeResp.Example.ID {
+						targetNodeID = nodeID
+						break
+					}
+				}
+
+				if targetNodeID != (idwrap.IDWrap{}) && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
+					// Find completed REQUEST node execution waiting for response
+					var targetExecutionID idwrap.IDWrap
+					var found bool
+					for execID, nodeExec := range pendingNodeExecutions {
+						if nodeExec.NodeID == targetNodeID &&
+							(nodeExec.State == mnnode.NODE_STATE_SUCCESS ||
+								nodeExec.State == mnnode.NODE_STATE_FAILURE) {
+							targetExecutionID = execID
+							found = true
+							break
+						}
+					}
+
+					if found {
+						if nodeExec, exists := pendingNodeExecutions[targetExecutionID]; exists {
+							respID := requestNodeResp.Resp.ExampleResp.ID
+							nodeExec.ResponseID = &respID
+
+							// Now send the completed execution with ResponseID to channel
+							nodeExecutionChan <- *nodeExec
+							delete(pendingNodeExecutions, targetExecutionID)
+
+							// Also update the corresponding entry in nodeExecutions array
+							for i := range nodeExecutions {
+								if nodeExecutions[i].ID == targetExecutionID {
+									nodeExecutions[i].ResponseID = &respID
+									break
+								}
+							}
+						}
+					}
 				}
 				pendingMutex.Unlock()
 

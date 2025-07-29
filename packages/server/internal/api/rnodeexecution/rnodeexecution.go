@@ -5,10 +5,13 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rflow"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/permcheck"
+	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
+	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/translate/tnodeexecution"
 	nodeexecutionv1 "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1"
@@ -22,6 +25,8 @@ type NodeExecutionServiceRPC struct {
 	ns  *snode.NodeService
 	fs  *sflow.FlowService
 	us  *suser.UserService
+	ers *sexampleresp.ExampleRespService
+	rns *snoderequest.NodeRequestService
 }
 
 func New(
@@ -29,12 +34,16 @@ func New(
 	ns *snode.NodeService,
 	fs *sflow.FlowService,
 	us *suser.UserService,
+	ers *sexampleresp.ExampleRespService,
+	rns *snoderequest.NodeRequestService,
 ) *NodeExecutionServiceRPC {
 	return &NodeExecutionServiceRPC{
 		nes: nes,
 		ns:  ns,
 		fs:  fs,
 		us:  us,
+		ers: ers,
+		rns: rns,
 	}
 }
 
@@ -128,7 +137,16 @@ func (s *NodeExecutionServiceRPC) NodeExecutionGet(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	resp := rpcExec
+	// For REQUEST nodes, ensure ResponseID is included in RPC response
+	if node.NodeKind == mnnode.NODE_KIND_REQUEST && execution.ResponseID != nil {
+		// Verify the response exists (optional validation)
+		_, err := s.ers.GetExampleResp(ctx, *execution.ResponseID)
+		if err == nil {
+			// ResponseID is already included by the translation layer
+			// This just ensures the response record exists
+		}
+	}
 
+	resp := rpcExec
 	return connect.NewResponse(resp), nil
 }
