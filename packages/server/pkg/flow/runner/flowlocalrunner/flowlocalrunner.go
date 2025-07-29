@@ -78,10 +78,6 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 		LogPushFunc:      node.LogPushFunc(logWorkaround),
 		Timeout:          r.Timeout,
 		PendingAtmoicMap: pendingAtmoicMap,
-		// Initialize read tracking
-		ReadTracker:      make(map[string]any),
-		ReadTrackerMutex: &sync.Mutex{},
-		CurrentNodeID:    idwrap.IDWrap{}, // Will be set before each node execution
 	}
 	flowStatusChan <- runner.FlowStatusStarting
 	if r.Timeout == 0 {
@@ -194,34 +190,9 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 					}
 				}
 
-				// Set current node ID and clear read tracker before execution
-				if req.ReadTrackerMutex != nil && req.ReadTracker != nil {
-					req.ReadTrackerMutex.Lock()
-					req.CurrentNodeID = nodeID
-					// Clear the read tracker for this node
-					for k := range req.ReadTracker {
-						delete(req.ReadTracker, k)
-					}
-					req.ReadTrackerMutex.Unlock()
-				} else {
-					req.CurrentNodeID = nodeID
-				}
-
 				// Generate execution ID right before processing
 				executionID := idwrap.NewNow()
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
-
-				// If read tracking captured additional data, merge it
-				if req.ReadTrackerMutex != nil && req.ReadTracker != nil {
-					req.ReadTrackerMutex.Lock()
-					for k, v := range req.ReadTracker {
-						// Only add if not already captured from predecessors
-						if _, exists := inputData[k]; !exists {
-							inputData[k] = v
-						}
-					}
-					req.ReadTrackerMutex.Unlock()
-				}
 
 				resultChan <- processResult{
 					originalID:  currentNode.GetID(),
@@ -346,36 +317,11 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 					}
 				}
 
-				// Set current node ID and clear read tracker before execution
-				if req.ReadTrackerMutex != nil && req.ReadTracker != nil {
-					req.ReadTrackerMutex.Lock()
-					req.CurrentNodeID = nodeID
-					// Clear the read tracker for this node
-					for k := range req.ReadTracker {
-						delete(req.ReadTracker, k)
-					}
-					req.ReadTrackerMutex.Unlock()
-				} else {
-					req.CurrentNodeID = nodeID
-				}
-
 				// Generate execution ID right before processing
 				executionID := idwrap.NewNow()
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
 				if ctxTimed.Err() != nil {
 					return
-				}
-
-				// If read tracking captured additional data, merge it
-				if req.ReadTrackerMutex != nil && req.ReadTracker != nil {
-					req.ReadTrackerMutex.Lock()
-					for k, v := range req.ReadTracker {
-						// Only add if not already captured from predecessors
-						if _, exists := inputData[k]; !exists {
-							inputData[k] = v
-						}
-					}
-					req.ReadTrackerMutex.Unlock()
 				}
 
 				resultChan <- processResult{

@@ -50,7 +50,6 @@ func TestForEachNode_RunSyncArray(t *testing.T) {
 		},
 	}
 
-	arrPath := "array"
 
 	nodeForEach := nforeach.New(id, "test", "var.array", timeOut, condition, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 	ctx := context.Background()
@@ -65,8 +64,10 @@ func TestForEachNode_RunSyncArray(t *testing.T) {
 	}
 
 	varMap := map[string]any{
-		arrPath: []string{"a", "b", "c"},
-		"test":  "test",
+		"var": map[string]any{
+			"array": []string{"a", "b", "c"},
+			"test":  "test",
+		},
 	}
 
 	req := &node.FlowNodeRequest{
@@ -126,7 +127,6 @@ func TestForEachNode_RunAsyncArray(t *testing.T) {
 		},
 	}
 
-	arrPath := "array"
 
 	nodeForEach := nforeach.New(id, "test", "var.array", timeOut, condition, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 
@@ -136,8 +136,10 @@ func TestForEachNode_RunAsyncArray(t *testing.T) {
 	}
 
 	varMap := map[string]any{
-		arrPath: []string{"a", "b", "c"},
-		"test":  "test",
+		"var": map[string]any{
+			"array": []string{"a", "b", "c"},
+			"test":  "test",
+		},
 	}
 
 	req := &node.FlowNodeRequest{
@@ -226,10 +228,12 @@ func TestForEachNode_RunSync_Map(t *testing.T) {
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]interface{}{
-			"hash": map[string]string{
-				"a": "valueA",
-				"b": "valueB",
-				"c": "valueC",
+			"var": map[string]interface{}{
+				"hash": map[string]string{
+					"a": "valueA",
+					"b": "valueB",
+					"c": "valueC",
+				},
 			},
 		},
 		ReadWriteLock: &sync.RWMutex{},
@@ -288,10 +292,12 @@ func TestForEachNode_RunAsync_Map(t *testing.T) {
 
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]interface{}{
-			"hash": map[string]string{
-				"a": "valueA",
-				"b": "valueB",
-				"c": "valueC",
+			"var": map[string]interface{}{
+				"hash": map[string]string{
+					"a": "valueA",
+					"b": "valueB",
+					"c": "valueC",
+				},
 			},
 		},
 		ReadWriteLock: &sync.RWMutex{},
