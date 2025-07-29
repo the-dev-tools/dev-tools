@@ -1,0 +1,37 @@
+name: Update / Scoop
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Windows dependencies
+        uses: ./.github/actions/dependencies-windows
+
+      - name: Setup Git user
+        # Use public GitHub bot user:
+        # https://api.github.com/users/github-actions[bot]
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+
+      - name: Update Scoop dependencies
+        run: |
+          scoop update --all
+          scoop export > .\scoop.json
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: Update Scoop dependencies
+          title: Update Scoop dependencies
