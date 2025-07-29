@@ -8,7 +8,16 @@ import {
   useRouter,
 } from '@tanstack/react-router';
 import { Array, Effect, Match, Option, pipe, Runtime } from 'effect';
-import React, { ComponentProps, PropsWithChildren, ReactNode, Ref, Suspense, SyntheticEvent, useEffect } from 'react';
+import React, {
+  ComponentProps,
+  MouseEventHandler,
+  PropsWithChildren,
+  ReactNode,
+  Ref,
+  Suspense,
+  SyntheticEvent,
+  useEffect,
+} from 'react';
 import { ListBox, ListBoxItem, RouterProvider, useDragAndDrop } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
@@ -186,7 +195,7 @@ const updateRef = <T,>(ref: Ref<T> | undefined, node: T | undefined) => {
 
 export interface UseLinkProps extends ActiveLinkOptions {
   children?: ((state: { isActive: boolean; isTransitioning: boolean }) => React.ReactNode) | React.ReactNode;
-  onAuxClick?: () => void;
+  onAuxClick?: MouseEventHandler<HTMLDivElement>;
   ref?: Ref<unknown> | undefined;
 }
 
@@ -206,7 +215,7 @@ export const useLink = ({ children, onAuxClick, ref: refProp, ...props }: UseLin
 
     const onAuxClickHandler = (event: MouseEvent) => {
       event.preventDefault();
-      if (onAuxClick) onAuxClick();
+      if (onAuxClick) fauxEvent(onAuxClick)(event);
       else onAction();
     };
 
