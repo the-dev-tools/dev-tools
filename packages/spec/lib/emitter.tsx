@@ -33,7 +33,7 @@ import {
 } from '@typespec/compiler';
 import { writeOutput } from '@typespec/emitter-framework';
 import { Array, Data, flow, Match, Option, pipe, Record, String } from 'effect';
-import path from 'node:path';
+import path from 'node:path/posix';
 
 import { endpointMap, entityMap, keyMap, messageSet, moveMap, normalKeySet, packageMap, serviceSet } from './state.js';
 
