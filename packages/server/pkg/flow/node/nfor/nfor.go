@@ -7,9 +7,11 @@ import (
 	"the-dev-tools/server/pkg/assertv2/leafs/leafmock"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
+	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"time"
 )
@@ -76,6 +78,20 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			return node.FlowNodeResult{
 				Err: err,
 			}
+		}
+
+		// Send iteration tracking status
+		if req.LogPushFunc != nil {
+			outputData := map[string]interface{}{
+				"index": i,
+			}
+			req.LogPushFunc(runner.FlowNodeStatus{
+				ExecutionID: idwrap.NewNow(), // Generate unique ID for each iteration
+				NodeID:      nr.FlowNodeID,
+				Name:        nr.Name,
+				State:       mnnode.NODE_STATE_RUNNING,
+				OutputData:  outputData,
+			})
 		}
 
 		for _, nextNodeID := range loopID {
@@ -172,6 +188,20 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				Err: err,
 			}
 			return
+		}
+
+		// Send iteration tracking status
+		if req.LogPushFunc != nil {
+			outputData := map[string]interface{}{
+				"index": i,
+			}
+			req.LogPushFunc(runner.FlowNodeStatus{
+				ExecutionID: idwrap.NewNow(), // Generate unique ID for each iteration
+				NodeID:      nr.FlowNodeID,
+				Name:        nr.Name,
+				State:       mnnode.NODE_STATE_RUNNING,
+				OutputData:  outputData,
+			})
 		}
 
 		for _, nextNodeID := range loopID {

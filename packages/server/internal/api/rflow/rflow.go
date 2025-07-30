@@ -870,6 +870,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			// Handle NodeExecution creation/updates based on state
 			switch flowNodeStatus.State {
 			case mnnode.NODE_STATE_RUNNING:
+				// Check if this is an iteration tracking record (has iteration data in OutputData)
+				isIterationRecord := false
+				if flowNodeStatus.OutputData != nil {
+					if outputMap, ok := flowNodeStatus.OutputData.(map[string]interface{}); ok {
+						isIterationRecord = outputMap["index"] != nil || 
+							outputMap["key"] != nil
+					}
+				}
+				
 				// Create new NodeExecution for RUNNING state
 				pendingMutex.Lock()
 				if _, exists := pendingNodeExecutions[executionID]; !exists {
@@ -894,8 +903,23 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						CompletedAt:            nil,
 					}
 					
-					// Store in pending map for completion
-					pendingNodeExecutions[executionID] = &nodeExecution
+					// Set output data for iteration tracking records
+					if isIterationRecord && flowNodeStatus.OutputData != nil {
+						if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
+							if err := nodeExecution.SetOutputJSON(outputJSON); err != nil {
+								nodeExecution.OutputData = outputJSON
+								nodeExecution.OutputDataCompressType = 0
+							}
+						}
+					}
+					
+					// For iteration tracking records, send immediately to database
+					if isIterationRecord {
+						nodeExecutionChan <- nodeExecution
+					} else {
+						// Store in pending map for completion (normal flow execution)
+						pendingNodeExecutions[executionID] = &nodeExecution
+					}
 				}
 				pendingMutex.Unlock()
 				

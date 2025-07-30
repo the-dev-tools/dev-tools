@@ -7,9 +7,11 @@ import (
 	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
+	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/varsystem"
 	"time"
@@ -148,6 +150,22 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 			}
 			itemIndex++
+			
+			// Log iteration data
+			if req.LogPushFunc != nil {
+				iterationData := map[string]any{
+					"index": itemIndex - 1,
+					"value": item,
+				}
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: idwrap.NewNow(),
+					NodeID:     nr.FlowNodeID,
+					Name:       nr.Name,
+					State:      mnnode.NODE_STATE_RUNNING,
+					OutputData: iterationData,
+				})
+			}
+			
 			totalItems++
 
 			result := processNode()
@@ -204,6 +222,21 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 			}
 			totalItems++
+
+			// Log iteration tracking data
+			if req.LogPushFunc != nil {
+				iterationData := map[string]any{
+					"key":   key,
+					"value": value,
+				}
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: idwrap.NewNow(),
+					NodeID:     nr.FlowNodeID,
+					Name:       nr.Name,
+					State:      mnnode.NODE_STATE_RUNNING,
+					OutputData: iterationData,
+				})
+			}
 
 			result := processNode()
 			if result.Err != nil {
@@ -356,6 +389,21 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					return
 				}
 				itemIndex++
+				
+				// Log iteration data
+				if req.LogPushFunc != nil {
+					iterationData := map[string]any{
+						"index": itemIndex - 1,
+						"value": item,
+					}
+					req.LogPushFunc(runner.FlowNodeStatus{
+						NodeID:     nr.FlowNodeID,
+						Name:       nr.Name,
+						State:      mnnode.NODE_STATE_RUNNING,
+						OutputData: iterationData,
+					})
+				}
+				
 				totalItems++
 
 				loopResult := processNode()
@@ -426,6 +474,20 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					return
 				}
 				totalItems++
+
+				// Log iteration tracking data
+				if req.LogPushFunc != nil {
+					iterationData := map[string]any{
+						"key":   key,
+						"value": value,
+					}
+					req.LogPushFunc(runner.FlowNodeStatus{
+						NodeID:     nr.FlowNodeID,
+						Name:       nr.Name,
+						State:      mnnode.NODE_STATE_RUNNING,
+						OutputData: iterationData,
+					})
+				}
 
 				loopResult := processNode()
 				if loopResult.Err != nil {
