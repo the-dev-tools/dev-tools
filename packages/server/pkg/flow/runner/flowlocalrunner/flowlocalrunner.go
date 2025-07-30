@@ -3,6 +3,7 @@ package flowlocalrunner
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"runtime"
 	"sync"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -247,16 +248,21 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				continue
 			}
 
-			status.State = mnnode.NODE_STATE_SUCCESS
-			status.Error = nil
-			outputData, err := node.ReadVarRaw(req, status.Name)
-			if err == nil {
-				status.OutputData = outputData
-			} else {
-				status.OutputData = nil
+			// Skip success completion record for loop nodes (FOR and FOR_EACH)
+			// These nodes already create their own iteration tracking records
+			nodeTypeName := reflect.TypeOf(currentNode).Elem().Name()
+			if nodeTypeName != "NodeFor" && nodeTypeName != "NodeForEach" {
+				status.State = mnnode.NODE_STATE_SUCCESS
+				status.Error = nil
+				outputData, err := node.ReadVarRaw(req, status.Name)
+				if err == nil {
+					status.OutputData = outputData
+				} else {
+					status.OutputData = nil
+				}
+				status.InputData = result.inputData
+				statusLogFunc(status)
 			}
-			status.InputData = result.inputData
-			statusLogFunc(status)
 
 			for _, id := range result.nextNodes {
 				i, ok := req.PendingAtmoicMap[id]
@@ -400,16 +406,21 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				FlowNodeCancelCtxCancelFn()
 				continue
 			}
-			status.State = mnnode.NODE_STATE_SUCCESS
-			status.Error = nil
-			outputData, err := node.ReadVarRaw(req, status.Name)
-			if err == nil {
-				status.OutputData = outputData
-			} else {
-				status.OutputData = nil
+			// Skip success completion record for loop nodes (FOR and FOR_EACH)
+			// These nodes already create their own iteration tracking records
+			nodeTypeName := reflect.TypeOf(currentNode).Elem().Name()
+			if nodeTypeName != "NodeFor" && nodeTypeName != "NodeForEach" {
+				status.State = mnnode.NODE_STATE_SUCCESS
+				status.Error = nil
+				outputData, err := node.ReadVarRaw(req, status.Name)
+				if err == nil {
+					status.OutputData = outputData
+				} else {
+					status.OutputData = nil
+				}
+				status.InputData = result.inputData
+				statusLogFunc(status)
 			}
-			status.InputData = result.inputData
-			statusLogFunc(status)
 
 			for _, id := range result.nextNodes {
 				i, ok := req.PendingAtmoicMap[id]

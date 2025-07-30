@@ -2,6 +2,7 @@ package nforeach_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -112,8 +113,9 @@ func TestForEachNodeArrayIterationLogging(t *testing.T) {
 			t.Errorf("Iteration %d: Expected NodeID %v, but got %v", i, forEachNodeID, status.NodeID)
 		}
 		
-		if status.Name != nodeName {
-			t.Errorf("Iteration %d: Expected Name %s, but got %s", i, nodeName, status.Name)
+		expectedName := fmt.Sprintf("Iteration %d", i)
+		if status.Name != expectedName {
+			t.Errorf("Iteration %d: Expected Name %s, but got %s", i, expectedName, status.Name)
 		}
 		
 		if status.State != mnnode.NODE_STATE_RUNNING {
@@ -269,8 +271,9 @@ func TestForEachNodeMapIterationLogging(t *testing.T) {
 			t.Errorf("Iteration %d: Expected NodeID %v, but got %v", i, forEachNodeID, status.NodeID)
 		}
 		
-		if status.Name != nodeName {
-			t.Errorf("Iteration %d: Expected Name %s, but got %s", i, nodeName, status.Name)
+		expectedName := fmt.Sprintf("Iteration %d", i)
+		if status.Name != expectedName {
+			t.Errorf("Iteration %d: Expected Name %s, but got %s", i, expectedName, status.Name)
 		}
 		
 		if status.State != mnnode.NODE_STATE_RUNNING {

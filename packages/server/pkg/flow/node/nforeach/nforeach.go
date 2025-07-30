@@ -259,7 +259,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					"key":   key,
 					"value": value,
 				}
-				executionName := fmt.Sprintf("Key '%s'", key)
+				executionName := fmt.Sprintf("Iteration %d", totalItems)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: idwrap.NewNow(),
 					NodeID:     nr.FlowNodeID,
@@ -565,7 +565,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						"key":   key,
 						"value": value,
 					}
-					executionName := fmt.Sprintf("Key '%s'", key)
+					executionName := fmt.Sprintf("Iteration %d", totalItems)
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID: idwrap.NewNow(),
 						NodeID:     nr.FlowNodeID,

@@ -111,8 +111,8 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 			assert.Equal(t, nodeID, status.NodeID, "NodeID should match")
 			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "All iteration records should be RUNNING")
 			
-			// Check naming format for map iterations
-			assert.Contains(t, status.Name, "Key '", "Should have key-based naming")
+			// Check naming format for map iterations (should use Iteration format like arrays)
+			assert.Contains(t, status.Name, "Iteration", "Should have iteration-based naming")
 			
 			// Verify output data structure
 			outputData, ok := status.OutputData.(map[string]any)
@@ -231,7 +231,7 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 		iterationStatus := capturedStatuses[0]
 		assert.Equal(t, nodeID, iterationStatus.NodeID)
 		assert.Equal(t, mnnode.NODE_STATE_RUNNING, iterationStatus.State)
-		assert.Contains(t, iterationStatus.Name, "Key '")
+		assert.Contains(t, iterationStatus.Name, "Iteration")
 		
 		// Second record should be error summary
 		summaryStatus := capturedStatuses[1]
@@ -421,10 +421,10 @@ func TestForEachNodeExecutionNaming(t *testing.T) {
 		require.NoError(t, result.Err)
 		require.Len(t, capturedStatuses, 1)
 		
-		// Verify naming format for map iteration
+		// Verify naming format for map iteration (should use Iteration format)
 		status := capturedStatuses[0]
-		expectedName := fmt.Sprintf("Key 'testKey'")
-		assert.Equal(t, expectedName, status.Name, "Should follow Key 'keyName' format")
+		expectedName := fmt.Sprintf("Iteration 0")
+		assert.Equal(t, expectedName, status.Name, "Should follow Iteration N format")
 	})
 
 	t.Run("ErrorSummaryNamingFormat", func(t *testing.T) {
