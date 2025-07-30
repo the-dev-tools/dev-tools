@@ -224,7 +224,8 @@ func TestInputOutputTracking_SimpleLinearFlow(t *testing.T) {
 				if status.State == mnnode.NODE_STATE_SUCCESS {
 					t.Logf("%s status - Input: %v, Output: %v", status.Name, status.InputData, status.OutputData)
 
-					if status.Name == "NodeA" {
+					switch status.Name {
+					case "NodeA":
 						// NodeA should have no input (it's the first node)
 						if status.InputData != nil && len(status.InputData.(map[string]interface{})) > 0 {
 							t.Errorf("NodeA should have empty input, got: %v", status.InputData)
@@ -233,7 +234,7 @@ func TestInputOutputTracking_SimpleLinearFlow(t *testing.T) {
 						if status.OutputData == nil {
 							t.Errorf("NodeA should have output data")
 						}
-					} else if status.Name == "NodeB" {
+					case "NodeB":
 						// NodeB should have input from NodeA
 						if status.InputData == nil {
 							t.Errorf("NodeB should have input data")

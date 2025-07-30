@@ -167,14 +167,14 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 		iterationStatus := capturedStatuses[0]
 		assert.Equal(t, nodeID, iterationStatus.NodeID)
 		assert.Equal(t, mnnode.NODE_STATE_RUNNING, iterationStatus.State)
-		expectedIterationName := fmt.Sprintf("Iteration 0")
+		expectedIterationName := "Iteration 0"
 		assert.Equal(t, expectedIterationName, iterationStatus.Name)
 		
 		// Second record should be error summary
 		summaryStatus := capturedStatuses[1]
 		assert.Equal(t, nodeID, summaryStatus.NodeID)
 		assert.Equal(t, mnnode.NODE_STATE_FAILURE, summaryStatus.State)
-		expectedSummaryName := fmt.Sprintf("Error Summary")
+		expectedSummaryName := "Error Summary"
 		assert.Equal(t, expectedSummaryName, summaryStatus.Name)
 		
 		// Verify summary output data
@@ -237,7 +237,7 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 		summaryStatus := capturedStatuses[1]
 		assert.Equal(t, nodeID, summaryStatus.NodeID)
 		assert.Equal(t, mnnode.NODE_STATE_FAILURE, summaryStatus.State)
-		expectedSummaryName := fmt.Sprintf("Error Summary")
+		expectedSummaryName := "Error Summary"
 		assert.Equal(t, expectedSummaryName, summaryStatus.Name)
 		
 		// Verify summary output data for map
@@ -340,7 +340,7 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 		// Verify the single record
 		status := capturedStatuses[0]
 		assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "Should be iteration record")
-		expectedName := fmt.Sprintf("Iteration 0")
+		expectedName := "Iteration 0"
 		assert.Equal(t, expectedName, status.Name)
 	})
 }
@@ -379,8 +379,8 @@ func TestForEachNodeExecutionNaming(t *testing.T) {
 		
 		// Verify naming format for array iterations
 		expectedNames := []string{
-			fmt.Sprintf("Iteration 0"),
-			fmt.Sprintf("Iteration 1"),
+			"Iteration 0",
+			"Iteration 1",
 		}
 		
 		for i, status := range capturedStatuses {
@@ -423,7 +423,7 @@ func TestForEachNodeExecutionNaming(t *testing.T) {
 		
 		// Verify naming format for map iteration (should use Iteration format)
 		status := capturedStatuses[0]
-		expectedName := fmt.Sprintf("Iteration 0")
+		expectedName := "Iteration 0"
 		assert.Equal(t, expectedName, status.Name, "Should follow Iteration N format")
 	})
 
@@ -466,7 +466,7 @@ func TestForEachNodeExecutionNaming(t *testing.T) {
 		
 		// Verify error summary naming
 		summaryStatus := capturedStatuses[1]
-		expectedSummaryName := fmt.Sprintf("Error Summary")
+		expectedSummaryName := "Error Summary"
 		assert.Equal(t, expectedSummaryName, summaryStatus.Name, "Should follow Error Summary format")
 	})
 }

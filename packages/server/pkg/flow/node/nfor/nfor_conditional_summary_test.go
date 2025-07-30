@@ -97,14 +97,14 @@ func TestForNodeConditionalSummary(t *testing.T) {
 		iterationStatus := capturedStatuses[0]
 		assert.Equal(t, nodeID, iterationStatus.NodeID)
 		assert.Equal(t, mnnode.NODE_STATE_RUNNING, iterationStatus.State)
-		expectedIterationName := fmt.Sprintf("Iteration 0")
+		expectedIterationName := "Iteration 0"
 		assert.Equal(t, expectedIterationName, iterationStatus.Name)
 		
 		// Second record should be error summary
 		summaryStatus := capturedStatuses[1]
 		assert.Equal(t, nodeID, summaryStatus.NodeID)
 		assert.Equal(t, mnnode.NODE_STATE_FAILURE, summaryStatus.State)
-		expectedSummaryName := fmt.Sprintf("Error Summary")
+		expectedSummaryName := "Error Summary"
 		assert.Equal(t, expectedSummaryName, summaryStatus.Name)
 		
 		// Verify summary output data
@@ -191,7 +191,7 @@ func TestForNodeConditionalSummary(t *testing.T) {
 		// Verify the single record
 		status := capturedStatuses[0]
 		assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "Should be iteration record")
-		expectedName := fmt.Sprintf("Iteration 0")
+		expectedName := "Iteration 0"
 		assert.Equal(t, expectedName, status.Name)
 	})
 }
@@ -223,8 +223,8 @@ func TestForNodeExecutionNaming(t *testing.T) {
 		
 		// Verify naming format
 		expectedNames := []string{
-			fmt.Sprintf("Iteration 0"),
-			fmt.Sprintf("Iteration 1"),
+			"Iteration 0",
+			"Iteration 1",
 		}
 		
 		for i, status := range capturedStatuses {
@@ -264,7 +264,7 @@ func TestForNodeExecutionNaming(t *testing.T) {
 		
 		// Verify error summary naming
 		summaryStatus := capturedStatuses[1]
-		expectedSummaryName := fmt.Sprintf("Error Summary")
+		expectedSummaryName := "Error Summary"
 		assert.Equal(t, expectedSummaryName, summaryStatus.Name, "Should follow Error Summary format")
 	})
 }

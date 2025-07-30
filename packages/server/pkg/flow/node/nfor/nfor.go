@@ -154,7 +154,7 @@ Exit:
 				"failedAtIteration": failedAtIteration,
 				"totalIterations":   nr.IterCount,
 			}
-			executionName := fmt.Sprintf("Error Summary")
+			executionName := "Error Summary"
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID: idwrap.NewNow(),
 				NodeID:      nr.FlowNodeID,
@@ -290,7 +290,7 @@ Exit:
 				"failedAtIteration": failedAtIteration,
 				"totalIterations":   nr.IterCount,
 			}
-			executionName := fmt.Sprintf("Error Summary")
+			executionName := "Error Summary"
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID: idwrap.NewNow(),
 				NodeID:      nr.FlowNodeID,

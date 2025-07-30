@@ -21,7 +21,11 @@ func TestNodeExecutionOrderingIntegration(t *testing.T) {
 	// Create in-memory SQLite database for testing
 	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Errorf("Failed to close database: %v", closeErr)
+		}
+	}()
 
 	ctx := context.Background()
 

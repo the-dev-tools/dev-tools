@@ -198,7 +198,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					"failedAtIndex": failedAt,
 					"totalItems":   totalItems,
 				}
-				executionName := fmt.Sprintf("Error Summary")
+				executionName := "Error Summary"
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: idwrap.NewNow(),
 					NodeID:      nr.FlowNodeID,
@@ -297,7 +297,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					"failedAtKey": failedAt,
 					"totalItems": totalItems,
 				}
-				executionName := fmt.Sprintf("Error Summary")
+				executionName := "Error Summary"
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: idwrap.NewNow(),
 					NodeID:      nr.FlowNodeID,
@@ -481,7 +481,6 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						// Default behavior: fail the entire flow
 						loopError = loopResult.Err
 						failedAt = itemIndex - 1
-						break
 					}
 				}
 			}
@@ -493,7 +492,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						"failedAtIndex": failedAt,
 						"totalItems":   totalItems,
 					}
-					executionName := fmt.Sprintf("Error Summary")
+					executionName := "Error Summary"
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID: idwrap.NewNow(),
 						NodeID:      nr.FlowNodeID,
@@ -591,7 +590,6 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						// Default behavior: fail the entire flow
 						loopError = loopResult.Err
 						failedAt = key
-						break
 					}
 				}
 			}
@@ -603,7 +601,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						"failedAtKey": failedAt,
 						"totalItems": totalItems,
 					}
-					executionName := fmt.Sprintf("Error Summary")
+					executionName := "Error Summary"
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID: idwrap.NewNow(),
 						NodeID:      nr.FlowNodeID,

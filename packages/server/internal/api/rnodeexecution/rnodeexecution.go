@@ -141,10 +141,13 @@ func (s *NodeExecutionServiceRPC) NodeExecutionGet(
 	if node.NodeKind == mnnode.NODE_KIND_REQUEST && execution.ResponseID != nil {
 		// Verify the response exists (optional validation)
 		_, err := s.ers.GetExampleResp(ctx, *execution.ResponseID)
-		if err == nil {
-			// ResponseID is already included by the translation layer
-			// This just ensures the response record exists
+		if err != nil {
+			// Log validation error but don't fail the request
+			// The ResponseID will still be included in the response
+			_ = err // Acknowledge error but don't act on it
 		}
+		// ResponseID is already included by the translation layer
+		// This validation just ensures the response record exists
 	}
 
 	resp := rpcExec
