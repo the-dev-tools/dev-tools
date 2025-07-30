@@ -2150,7 +2150,7 @@ WHERE id = ?
 RETURNING *;
 
 -- name: GetNodeExecutionsByNodeID :many
-SELECT * FROM node_execution WHERE node_id = ? ORDER BY completed_at DESC;
+SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC;
 
 -- name: GetLatestNodeExecutionByNodeID :one
 SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC LIMIT 1;

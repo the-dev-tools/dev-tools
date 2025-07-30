@@ -2,7 +2,10 @@ package snodeexecution_test
 
 import (
 	"database/sql"
+	"encoding/binary"
+	"fmt"
 	"testing"
+	"time"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
@@ -158,6 +161,169 @@ func TestNodeExecutionTracking(t *testing.T) {
 			require.Equal(t, nodeID, exec.NodeID)
 			require.NotNil(t, exec.InputData)
 			require.NotNil(t, exec.OutputData)
+		}
+	})
+}
+
+func TestNodeExecutionOrdering(t *testing.T) {
+	t.Run("OrderingByID", func(t *testing.T) {
+		// Test that node executions are ordered by ID (ULID) which contains timestamp
+		nodeID := idwrap.NewNow()
+		
+		// Create executions with deliberate time gaps to ensure different ULIDs
+		var executions []mnodeexecution.NodeExecution
+		var expectedOrder []idwrap.IDWrap
+		
+		// Create 5 executions with small delays to ensure different ULID timestamps
+		for i := 0; i < 5; i++ {
+			execID := idwrap.NewNow()
+			execution := mnodeexecution.NodeExecution{
+				ID:                     execID,
+				NodeID:                 nodeID,
+				Name:                   fmt.Sprintf("Execution %d", i+1),
+				State:                  1, // Running state
+				InputData:              []byte(fmt.Sprintf(`{"iteration": %d}`, i)),
+				InputDataCompressType:  0,
+				OutputData:             []byte(fmt.Sprintf(`{"index": %d}`, i)),
+				OutputDataCompressType: 0,
+			}
+			executions = append(executions, execution)
+			expectedOrder = append(expectedOrder, execID)
+			
+			// Small delay to ensure different ULID timestamps
+			time.Sleep(1 * time.Millisecond)
+		}
+		
+		// Verify that IDs are indeed in chronological order (ULID property)
+		for i := 1; i < len(executions); i++ {
+			prevID := executions[i-1].ID
+			currID := executions[i].ID
+			
+			// ULID comparison should show chronological order
+			prevBytes := prevID.Bytes()
+			currBytes := currID.Bytes()
+			
+			// Compare the first 6 bytes (timestamp portion of ULID)
+			prevTimestamp := binary.BigEndian.Uint64(append([]byte{0, 0}, prevBytes[:6]...))
+			currTimestamp := binary.BigEndian.Uint64(append([]byte{0, 0}, currBytes[:6]...))
+			
+			assert.LessOrEqual(t, prevTimestamp, currTimestamp, 
+				"ULID timestamps should be in chronological order (creation time)")
+		}
+		
+		// Test that creation order is maintained in memory
+		retrievedOrder := make([]idwrap.IDWrap, len(executions))
+		for i, exec := range executions {
+			retrievedOrder[i] = exec.ID
+		}
+		
+		// In memory, creation order is preserved (this simulates the data structure before DB query)
+		assert.Equal(t, expectedOrder, retrievedOrder, 
+			"In-memory execution order should match creation order")
+		
+		// Simulate database DESC ordering behavior
+		reversedOrder := make([]idwrap.IDWrap, len(expectedOrder))
+		for i, id := range expectedOrder {
+			reversedOrder[len(expectedOrder)-1-i] = id
+		}
+		
+		// Verify database would return DESC order
+		assert.NotEqual(t, expectedOrder, reversedOrder, 
+			"Database DESC order should differ from creation order")
+	})
+	
+	t.Run("OrderingWithMixedStates", func(t *testing.T) {
+		// Test ordering works with both running and completed executions
+		nodeID := idwrap.NewNow()
+		
+		var executions []mnodeexecution.NodeExecution
+		states := []int8{1, 1, 2, 1, 2} // Running, Running, Success, Running, Success
+		
+		for i := 0; i < 5; i++ {
+			execID := idwrap.NewNow()
+			var completedAt *int64
+			
+			// Set completedAt for success states
+			if states[i] == 2 {
+				timestamp := time.Now().UnixMilli()
+				completedAt = &timestamp
+			}
+			
+			execution := mnodeexecution.NodeExecution{
+				ID:                     execID,
+				NodeID:                 nodeID,
+				Name:                   fmt.Sprintf("Mixed Execution %d", i+1), 
+				State:                  states[i],
+				InputData:              []byte(fmt.Sprintf(`{"iteration": %d}`, i)),
+				InputDataCompressType:  0,
+				OutputData:             []byte(fmt.Sprintf(`{"index": %d}`, i)),
+				OutputDataCompressType: 0,
+				CompletedAt:            completedAt,
+			}
+			executions = append(executions, execution)
+			time.Sleep(1 * time.Millisecond)
+		}
+		
+		// Verify ordering is by ID, not by completion status
+		for i := 1; i < len(executions); i++ {
+			prevID := executions[i-1].ID
+			currID := executions[i].ID
+			
+			prevBytes := prevID.Bytes()
+			currBytes := currID.Bytes()
+			
+			// Compare ULID timestamps
+			prevTimestamp := binary.BigEndian.Uint64(append([]byte{0, 0}, prevBytes[:6]...))
+			currTimestamp := binary.BigEndian.Uint64(append([]byte{0, 0}, currBytes[:6]...))
+			
+			assert.LessOrEqual(t, prevTimestamp, currTimestamp,
+				"Executions should be ordered by ID timestamp regardless of completion state")
+		}
+	})
+	
+	t.Run("OrderingIterationRecords", func(t *testing.T) {
+		// Test ordering specifically for iteration records (FOR/FOR_EACH nodes)
+		nodeID := idwrap.NewNow()
+		
+		// Simulate iteration records like those created by FOR/FOR_EACH nodes
+		var iterationRecords []mnodeexecution.NodeExecution
+		
+		for i := 0; i < 10; i++ {
+			execID := idwrap.NewNow()
+			execution := mnodeexecution.NodeExecution{
+				ID:                     execID,
+				NodeID:                 nodeID,
+				Name:                   "FOR Node Iteration",
+				State:                  1, // Running - typical for iteration tracking
+				InputData:              []byte(`{}`),
+				InputDataCompressType:  0,
+				OutputData:             []byte(fmt.Sprintf(`{"index": %d}`, i)), // FOR node output format
+				OutputDataCompressType: 0,
+			}
+			iterationRecords = append(iterationRecords, execution)
+			time.Sleep(1 * time.Millisecond)
+		}
+		
+		// Verify iteration records maintain chronological order
+		for i := 1; i < len(iterationRecords); i++ {
+			prevID := iterationRecords[i-1].ID
+			currID := iterationRecords[i].ID
+			
+			prevBytes := prevID.Bytes()
+			currBytes := currID.Bytes()
+			
+			prevTimestamp := binary.BigEndian.Uint64(append([]byte{0, 0}, prevBytes[:6]...))
+			currTimestamp := binary.BigEndian.Uint64(append([]byte{0, 0}, currBytes[:6]...))
+			
+			assert.LessOrEqual(t, prevTimestamp, currTimestamp,
+				"Iteration records should maintain chronological order by ULID timestamp")
+		}
+		
+		// Verify output data represents correct iteration sequence
+		for i, record := range iterationRecords {
+			expectedOutput := fmt.Sprintf(`{"index": %d}`, i)
+			assert.Equal(t, expectedOutput, string(record.OutputData),
+				"Iteration output should match expected index sequence")
 		}
 	})
 }

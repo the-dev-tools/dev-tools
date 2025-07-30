@@ -5349,7 +5349,7 @@ func (q *Queries) GetNodeExecution(ctx context.Context, id idwrap.IDWrap) (NodeE
 }
 
 const getNodeExecutionsByNodeID = `-- name: GetNodeExecutionsByNodeID :many
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution WHERE node_id = ? ORDER BY completed_at DESC
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution WHERE node_id = ? ORDER BY id DESC
 `
 
 func (q *Queries) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]NodeExecution, error) {
