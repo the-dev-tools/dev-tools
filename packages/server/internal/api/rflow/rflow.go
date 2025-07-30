@@ -882,12 +882,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				// Create new NodeExecution for RUNNING state
 				pendingMutex.Lock()
 				if _, exists := pendingNodeExecutions[executionID]; !exists {
-					// Generate execution name
-					nodeExecutionCountsMutex.Lock()
-					nodeExecutionCounts[id]++
-					execCount := nodeExecutionCounts[id]
-					nodeExecutionCountsMutex.Unlock()
-					execName := fmt.Sprintf("Execution %d", execCount)
+					// Use custom name from FlowNodeStatus if available, otherwise generate default
+					var execName string
+					if flowNodeStatus.Name != "" {
+						execName = flowNodeStatus.Name
+					} else {
+						nodeExecutionCountsMutex.Lock()
+						nodeExecutionCounts[id]++
+						execCount := nodeExecutionCounts[id]
+						nodeExecutionCountsMutex.Unlock()
+						execName = fmt.Sprintf("Execution %d", execCount)
+					}
 
 					nodeExecution := mnodeexecution.NodeExecution{
 						ID:                     executionID, // Use executionID as the record ID

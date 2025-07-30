@@ -125,6 +125,9 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		// Handle slice/array sequence
 		itemIndex := 0
 		totalItems := 0
+		var loopError error
+		var failedAt interface{} = nil
+
 		for item := range seq {
 			// Write the item and key (index) to the node variables
 			var err error
@@ -149,23 +152,24 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					Err: err,
 				}
 			}
-			itemIndex++
 			
-			// Log iteration data
+			// Log iteration data with improved naming
 			if req.LogPushFunc != nil {
 				iterationData := map[string]any{
-					"index": itemIndex - 1,
+					"index": itemIndex,
 					"value": item,
 				}
+				executionName := fmt.Sprintf("Iteration %d", itemIndex)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: idwrap.NewNow(),
 					NodeID:     nr.FlowNodeID,
-					Name:       nr.Name,
+					Name:       executionName,
 					State:      mnnode.NODE_STATE_RUNNING,
 					OutputData: iterationData,
 				})
 			}
 			
+			itemIndex++
 			totalItems++
 
 			result := processNode()
@@ -176,11 +180,35 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					continue
 				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
 					// Stop the loop but don't propagate error
-					goto Exit
+					goto ExitSeq
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					// Default behavior: fail the entire flow
-					return result
+					loopError = result.Err
+					failedAt = itemIndex - 1 // Store the index where failure occurred
+					goto ExitSeq
 				}
+			}
+		}
+
+		ExitSeq:
+		// Only create final summary record on failure
+		if loopError != nil {
+			if req.LogPushFunc != nil {
+				outputData := map[string]interface{}{
+					"failedAtIndex": failedAt,
+					"totalItems":   totalItems,
+				}
+				executionName := fmt.Sprintf("Error Summary")
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: idwrap.NewNow(),
+					NodeID:      nr.FlowNodeID,
+					Name:        executionName,
+					State:       mnnode.NODE_STATE_FAILURE,
+					OutputData:  outputData,
+				})
+			}
+			return node.FlowNodeResult{
+				Err: loopError,
 			}
 		}
 		// Write total items processed
@@ -197,6 +225,9 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	case iter.Seq2[string, any]:
 		// Handle map sequence
 		totalItems := 0
+		var loopError error
+		var failedAt interface{} = nil
+
 		for key, value := range seq {
 			// Write the key and item (value) to the node variables
 			var err error
@@ -221,22 +252,24 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					Err: err,
 				}
 			}
-			totalItems++
 
-			// Log iteration tracking data
+			// Log iteration tracking data with improved naming
 			if req.LogPushFunc != nil {
 				iterationData := map[string]any{
 					"key":   key,
 					"value": value,
 				}
+				executionName := fmt.Sprintf("Key '%s'", key)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: idwrap.NewNow(),
 					NodeID:     nr.FlowNodeID,
-					Name:       nr.Name,
+					Name:       executionName,
 					State:      mnnode.NODE_STATE_RUNNING,
 					OutputData: iterationData,
 				})
 			}
+
+			totalItems++
 
 			result := processNode()
 			if result.Err != nil {
@@ -246,11 +279,35 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					continue
 				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
 					// Stop the loop but don't propagate error
-					goto Exit
+					goto ExitSeq2
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					// Default behavior: fail the entire flow
-					return result
+					loopError = result.Err
+					failedAt = key // Store the key where failure occurred
+					goto ExitSeq2
 				}
+			}
+		}
+
+		ExitSeq2:
+		// Only create final summary record on failure
+		if loopError != nil {
+			if req.LogPushFunc != nil {
+				outputData := map[string]interface{}{
+					"failedAtKey": failedAt,
+					"totalItems": totalItems,
+				}
+				executionName := fmt.Sprintf("Error Summary")
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: idwrap.NewNow(),
+					NodeID:      nr.FlowNodeID,
+					Name:        executionName,
+					State:       mnnode.NODE_STATE_FAILURE,
+					OutputData:  outputData,
+				})
+			}
+			return node.FlowNodeResult{
+				Err: loopError,
 			}
 		}
 		// Write total items processed
@@ -270,7 +327,6 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			Err: fmt.Errorf("unexpected iterator type: %T", result),
 		}
 	}
-Exit:
 	return node.FlowNodeResult{
 		NextNodeID: nextID,
 		Err:        nil,
@@ -362,6 +418,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		go func() {
 			itemIndex := 0
 			totalItems := 0
+			var loopError error
+			var failedAt interface{} = nil
+
 			for item := range seq {
 				// Write the item and key (index) to the node variables
 				var err error
@@ -388,22 +447,24 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					}
 					return
 				}
-				itemIndex++
 				
-				// Log iteration data
+				// Log iteration data with improved naming
 				if req.LogPushFunc != nil {
 					iterationData := map[string]any{
-						"index": itemIndex - 1,
+						"index": itemIndex,
 						"value": item,
 					}
+					executionName := fmt.Sprintf("Iteration %d", itemIndex)
 					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: idwrap.NewNow(),
 						NodeID:     nr.FlowNodeID,
-						Name:       nr.Name,
+						Name:       executionName,
 						State:      mnnode.NODE_STATE_RUNNING,
 						OutputData: iterationData,
 					})
 				}
 				
+				itemIndex++
 				totalItems++
 
 				loopResult := processNode()
@@ -418,10 +479,31 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						return
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						// Default behavior: fail the entire flow
-						resultChan <- loopResult
-						return
+						loopError = loopResult.Err
+						failedAt = itemIndex - 1
+						break
 					}
 				}
+			}
+
+			// Only create final summary record on failure
+			if loopError != nil {
+				if req.LogPushFunc != nil {
+					outputData := map[string]interface{}{
+						"failedAtIndex": failedAt,
+						"totalItems":   totalItems,
+					}
+					executionName := fmt.Sprintf("Error Summary")
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: idwrap.NewNow(),
+						NodeID:      nr.FlowNodeID,
+						Name:        executionName,
+						State:       mnnode.NODE_STATE_FAILURE,
+						OutputData:  outputData,
+					})
+				}
+				resultChan <- node.FlowNodeResult{Err: loopError}
+				return
 			}
 			// Write total items processed
 			if req.VariableTracker != nil {
@@ -447,6 +529,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		// Handle map sequence
 		go func() {
 			totalItems := 0
+			var loopError error
+			var failedAt interface{} = nil
+
 			for key, value := range seq {
 				// Write the key and item (value) to the node variables
 				var err error
@@ -473,21 +558,24 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					}
 					return
 				}
-				totalItems++
 
-				// Log iteration tracking data
+				// Log iteration tracking data with improved naming
 				if req.LogPushFunc != nil {
 					iterationData := map[string]any{
 						"key":   key,
 						"value": value,
 					}
+					executionName := fmt.Sprintf("Key '%s'", key)
 					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: idwrap.NewNow(),
 						NodeID:     nr.FlowNodeID,
-						Name:       nr.Name,
+						Name:       executionName,
 						State:      mnnode.NODE_STATE_RUNNING,
 						OutputData: iterationData,
 					})
 				}
+
+				totalItems++
 
 				loopResult := processNode()
 				if loopResult.Err != nil {
@@ -501,10 +589,31 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						return
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						// Default behavior: fail the entire flow
-						resultChan <- loopResult
-						return
+						loopError = loopResult.Err
+						failedAt = key
+						break
 					}
 				}
+			}
+
+			// Only create final summary record on failure
+			if loopError != nil {
+				if req.LogPushFunc != nil {
+					outputData := map[string]interface{}{
+						"failedAtKey": failedAt,
+						"totalItems": totalItems,
+					}
+					executionName := fmt.Sprintf("Error Summary")
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: idwrap.NewNow(),
+						NodeID:      nr.FlowNodeID,
+						Name:        executionName,
+						State:       mnnode.NODE_STATE_FAILURE,
+						OutputData:  outputData,
+					})
+				}
+				resultChan <- node.FlowNodeResult{Err: loopError}
+				return
 			}
 			// Write total items processed
 			if req.VariableTracker != nil {

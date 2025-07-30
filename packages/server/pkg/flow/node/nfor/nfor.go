@@ -2,6 +2,7 @@ package nfor
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"the-dev-tools/server/pkg/assertv2"
 	"the-dev-tools/server/pkg/assertv2/leafs/leafmock"
@@ -66,6 +67,9 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)
 
+	var loopError error
+	var failedAtIteration int64 = -1
+
 	for i := int64(0); i < nr.IterCount; i++ {
 		// Write the iteration index to the node variables
 		var err error
@@ -80,15 +84,16 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			}
 		}
 
-		// Send iteration tracking status
+		// Send iteration tracking status with improved naming
 		if req.LogPushFunc != nil {
 			outputData := map[string]interface{}{
 				"index": i,
 			}
+			executionName := fmt.Sprintf("Iteration %d", i)
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID: idwrap.NewNow(), // Generate unique ID for each iteration
 				NodeID:      nr.FlowNodeID,
-				Name:        nr.Name,
+				Name:        executionName,
 				State:       mnnode.NODE_STATE_RUNNING,
 				OutputData:  outputData,
 			})
@@ -132,9 +137,9 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 					goto Exit
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					// Default behavior: fail the entire flow
-					return node.FlowNodeResult{
-						Err: err,
-					}
+					loopError = err
+					failedAtIteration = i
+					goto Exit
 				}
 			}
 
@@ -142,7 +147,28 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	}
 
 Exit:
-	// Write final output with total iterations completed
+	// Only create final summary record on failure
+	if loopError != nil {
+		if req.LogPushFunc != nil {
+			outputData := map[string]interface{}{
+				"failedAtIteration": failedAtIteration,
+				"totalIterations":   nr.IterCount,
+			}
+			executionName := fmt.Sprintf("Error Summary")
+			req.LogPushFunc(runner.FlowNodeStatus{
+				ExecutionID: idwrap.NewNow(),
+				NodeID:      nr.FlowNodeID,
+				Name:        executionName,
+				State:       mnnode.NODE_STATE_FAILURE,
+				OutputData:  outputData,
+			})
+		}
+		return node.FlowNodeResult{
+			Err: loopError,
+		}
+	}
+
+	// Write final output with total iterations completed (for variable system)
 	var err error
 	if req.VariableTracker != nil {
 		err = node.WriteNodeVarWithTracking(req, nr.Name, "totalIterations", nr.IterCount, req.VariableTracker)
@@ -155,6 +181,7 @@ Exit:
 		}
 	}
 
+	// Success case: No final summary record needed - last iteration record shows completion
 	return node.FlowNodeResult{
 		NextNodeID: nextID,
 		Err:        nil,
@@ -175,6 +202,9 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 	root := assertv2.NewAssertRoot(rootLeaf)
 	assertSys := assertv2.NewAssertSystem(root)
 
+	var loopError error
+	var failedAtIteration int64 = -1
+
 	for i := int64(0); i < nr.IterCount; i++ {
 		// Write the iteration index to the node variables
 		var err error
@@ -190,15 +220,16 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			return
 		}
 
-		// Send iteration tracking status
+		// Send iteration tracking status with improved naming
 		if req.LogPushFunc != nil {
 			outputData := map[string]interface{}{
 				"index": i,
 			}
+			executionName := fmt.Sprintf("Iteration %d", i)
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID: idwrap.NewNow(), // Generate unique ID for each iteration
 				NodeID:      nr.FlowNodeID,
-				Name:        nr.Name,
+				Name:        executionName,
 				State:       mnnode.NODE_STATE_RUNNING,
 				OutputData:  outputData,
 			})
@@ -243,17 +274,38 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 					goto Exit
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					// Default behavior: fail the entire flow
-					resultChan <- node.FlowNodeResult{
-						Err: err,
-					}
-					return
+					loopError = err
+					failedAtIteration = i
+					goto Exit
 				}
 			}
 		}
 	}
 
 Exit:
-	// Write final output with total iterations completed
+	// Only create final summary record on failure
+	if loopError != nil {
+		if req.LogPushFunc != nil {
+			outputData := map[string]interface{}{
+				"failedAtIteration": failedAtIteration,
+				"totalIterations":   nr.IterCount,
+			}
+			executionName := fmt.Sprintf("Error Summary")
+			req.LogPushFunc(runner.FlowNodeStatus{
+				ExecutionID: idwrap.NewNow(),
+				NodeID:      nr.FlowNodeID,
+				Name:        executionName,
+				State:       mnnode.NODE_STATE_FAILURE,
+				OutputData:  outputData,
+			})
+		}
+		resultChan <- node.FlowNodeResult{
+			Err: loopError,
+		}
+		return
+	}
+
+	// Write final output with total iterations completed (for variable system)
 	var err error
 	if req.VariableTracker != nil {
 		err = node.WriteNodeVarWithTracking(req, nr.Name, "totalIterations", nr.IterCount, req.VariableTracker)
@@ -267,6 +319,7 @@ Exit:
 		return
 	}
 
+	// Success case: No final summary record needed - last iteration record shows completion
 	resultChan <- node.FlowNodeResult{
 		NextNodeID: nextID,
 		Err:        nil,
