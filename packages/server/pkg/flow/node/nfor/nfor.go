@@ -131,7 +131,21 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				}
 			}
 
-			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, req, req.LogPushFunc)
+			// Create iteration context for child nodes
+			var parentPath []int
+			if req.IterationContext != nil {
+				parentPath = req.IterationContext.IterationPath
+			}
+			childIterationContext := &runner.IterationContext{
+				IterationPath: append(parentPath, int(i)),
+				ExecutionIndex: 0, // Reset for each loop iteration
+			}
+
+			// Create new request with iteration context for child nodes
+			childReq := *req // Copy the request
+			childReq.IterationContext = childIterationContext
+
+			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, &childReq, req.LogPushFunc)
 			if err != nil {
 				iterationError = err
 				break // Exit inner loop on error
@@ -299,7 +313,21 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				}
 			}
 
-			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
+			// Create iteration context for child nodes
+			var parentPath []int
+			if req.IterationContext != nil {
+				parentPath = req.IterationContext.IterationPath
+			}
+			childIterationContext := &runner.IterationContext{
+				IterationPath: append(parentPath, int(i)),
+				ExecutionIndex: 0, // Reset for each loop iteration
+			}
+
+			// Create new request with iteration context for child nodes
+			childReq := *req // Copy the request
+			childReq.IterationContext = childIterationContext
+
+			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, &childReq, req.LogPushFunc)
 			if err != nil {
 				iterationError = err
 				break // Exit inner loop on error

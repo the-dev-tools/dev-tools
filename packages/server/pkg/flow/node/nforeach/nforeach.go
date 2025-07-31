@@ -89,7 +89,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		}
 	}
 
-	processNode := func() node.FlowNodeResult {
+	processNode := func(iterationIndex int) node.FlowNodeResult {
 		for _, nextNodeID := range loopID {
 			if breakExpr != "" {
 				// Use tracking version if tracker is available
@@ -110,7 +110,21 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 			}
 
-			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, req, req.LogPushFunc)
+			// Create iteration context for child nodes
+			var parentPath []int
+			if req.IterationContext != nil {
+				parentPath = req.IterationContext.IterationPath
+			}
+			childIterationContext := &runner.IterationContext{
+				IterationPath: append(parentPath, iterationIndex),
+				ExecutionIndex: 0, // Reset for each loop iteration
+			}
+
+			// Create new request with iteration context for child nodes
+			childReq := *req // Copy the request
+			childReq.IterationContext = childIterationContext
+
+			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, &childReq, req.LogPushFunc)
 			if err != nil {
 				return node.FlowNodeResult{
 					Err: err,
@@ -175,7 +189,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			itemIndex++
 			totalItems++
 
-			result := processNode()
+			result := processNode(itemIndex-1)
 			
 			// Update iteration record based on result
 			if req.LogPushFunc != nil {
@@ -300,7 +314,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			totalItems++
 
-			result := processNode()
+			result := processNode(totalItems-1)
 			
 			// Update iteration record based on result
 			if req.LogPushFunc != nil {
@@ -424,7 +438,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	}
 
 	// Define the function to process the child node(s) within the loop
-	processNode := func() node.FlowNodeResult {
+	processNode := func(iterationIndex int) node.FlowNodeResult {
 		for _, nextNodeID := range loopID {
 			// Evaluate the break condition if it exists
 			if breakExpr != "" {
@@ -444,8 +458,22 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				}
 			}
 
+			// Create iteration context for child nodes
+			var parentPath []int
+			if req.IterationContext != nil {
+				parentPath = req.IterationContext.IterationPath
+			}
+			childIterationContext := &runner.IterationContext{
+				IterationPath: append(parentPath, iterationIndex),
+				ExecutionIndex: 0, // Reset for each loop iteration
+			}
+
+			// Create new request with iteration context for child nodes
+			childReq := *req // Copy the request
+			childReq.IterationContext = childIterationContext
+
 			// Run the child node asynchronously
-			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
+			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, &childReq, req.LogPushFunc)
 			if err != nil {
 				switch nr.ErrorHandling {
 				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
@@ -522,7 +550,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				itemIndex++
 				totalItems++
 
-				loopResult := processNode()
+				loopResult := processNode(itemIndex-1)
 				
 				// Update iteration record based on result
 				if req.LogPushFunc != nil {
@@ -657,7 +685,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 				totalItems++
 
-				loopResult := processNode()
+				loopResult := processNode(totalItems-1)
 				
 				// Update iteration record based on result
 				if req.LogPushFunc != nil {

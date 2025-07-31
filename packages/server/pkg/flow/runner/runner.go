@@ -39,6 +39,11 @@ func IsFlowStatusDone(f FlowStatus) bool {
 	return f == FlowStatusSuccess || f == FlowStatusFailed || f == FlowStatusTimeout
 }
 
+type IterationContext struct {
+	IterationPath []int `json:"iteration_path"` // [1, 2, 3] for nested loops
+	ExecutionIndex int  `json:"execution_index"` // Current execution within current loop
+}
+
 type FlowNodeStatus struct {
 	ExecutionID idwrap.IDWrap
 	NodeID      idwrap.IDWrap
@@ -48,6 +53,7 @@ type FlowNodeStatus struct {
 	InputData   any // Data that was read by this node during execution
 	RunDuration time.Duration
 	Error       error
+	IterationContext *IterationContext `json:"iteration_context,omitempty"`
 }
 
 func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mnnode.NodeState, output []byte) FlowNodeStatus {

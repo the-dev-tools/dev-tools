@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 	devtoolsdb "the-dev-tools/db"
@@ -82,6 +83,26 @@ import (
 
 	"connectrpc.com/connect"
 )
+
+// formatIterationContext formats the iteration context into hierarchical format
+func formatIterationContext(ctx *runner.IterationContext) string {
+	if ctx == nil || len(ctx.IterationPath) == 0 {
+		return "Execution 1"
+	}
+	
+	// Build hierarchical format: 1-1, 1-2, 1-1-1, etc
+	var parts []string
+	for _, iteration := range ctx.IterationPath {
+		parts = append(parts, fmt.Sprintf("%d", iteration+1)) // +1 for 1-based indexing
+	}
+	
+	// Add execution index if we have one
+	if ctx.ExecutionIndex > 0 {
+		parts = append(parts, fmt.Sprintf("%d", ctx.ExecutionIndex+1))
+	}
+	
+	return fmt.Sprintf("Execution %s", strings.Join(parts, "-"))
+}
 
 type FlowServiceRPC struct {
 	DB *sql.DB
@@ -882,11 +903,21 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				// Create new NodeExecution for RUNNING state
 				pendingMutex.Lock()
 				if _, exists := pendingNodeExecutions[executionID]; !exists {
-					// Use custom name from FlowNodeStatus if available, otherwise generate default
+					// Generate execution name with hierarchical format for loop iterations
 					var execName string
-					if flowNodeStatus.Name != "" {
+					if flowNodeStatus.IterationContext != nil && len(flowNodeStatus.IterationContext.IterationPath) > 0 {
+						// For loop executions, combine node name with iteration context
+						baseNodeName := flowNodeStatus.Name
+						if baseNodeName == "" {
+							baseNodeName = nodeNameMap[id]
+						}
+						iterContext := formatIterationContext(flowNodeStatus.IterationContext)
+						execName = fmt.Sprintf("%s - %s", baseNodeName, iterContext)
+					} else if flowNodeStatus.Name != "" {
+						// For non-loop executions, use the node name directly
 						execName = flowNodeStatus.Name
 					} else {
+						// Fallback to execution count
 						nodeExecutionCountsMutex.Lock()
 						nodeExecutionCounts[id]++
 						execCount := nodeExecutionCounts[id]

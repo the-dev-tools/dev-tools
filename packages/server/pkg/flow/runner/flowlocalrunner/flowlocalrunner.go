@@ -197,6 +197,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 					Name:        currentNode.GetName(),
 					State:       mnnode.NODE_STATE_RUNNING,
 					Error:       nil,
+					IterationContext: req.IterationContext,
 				}
 				statusLogFunc(runningStatus)
 				
@@ -230,6 +231,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			status.ExecutionID = result.executionID
 			currentNode := req.NodeMap[result.originalID]
 			status.Name = currentNode.GetName()
+			status.IterationContext = req.IterationContext
 			nodeState := nodeStateMap[status.NodeID]
 			status.RunDuration = time.Since(nodeState.StartTime)
 			if FlowNodeCancelCtx.Err() != nil {
@@ -343,6 +345,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 					Name:        currentNode.GetName(),
 					State:       mnnode.NODE_STATE_RUNNING,
 					Error:       nil,
+					IterationContext: req.IterationContext,
 				}
 				statusLogFunc(runningStatus)
 				
@@ -391,6 +394,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			status.ExecutionID = result.executionID
 			currentNode := req.NodeMap[result.originalID]
 			status.Name = currentNode.GetName()
+			status.IterationContext = req.IterationContext
 			status.RunDuration = time.Since(timeStart[status.NodeID])
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
