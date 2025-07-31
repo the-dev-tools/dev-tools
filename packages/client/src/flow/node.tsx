@@ -296,9 +296,9 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
             }
           >
             <NodeExecutionTabs
+              key={selectedKey}
               nodeExecutionId={Ulid.fromCanonical(selectedKey).bytes}
               renderOutput={renderOutput}
-              // {...(renderOutput && { renderOutput })}
             />
           </Suspense>
         )}
