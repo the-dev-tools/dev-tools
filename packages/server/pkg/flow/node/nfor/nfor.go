@@ -84,14 +84,17 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			}
 		}
 
-		// Send iteration tracking status with improved naming
+		// Store execution ID for later update
+		executionID := idwrap.NewNow()
+
+		// Create initial RUNNING record
 		if req.LogPushFunc != nil {
 			outputData := map[string]interface{}{
 				"index": i,
 			}
 			executionName := fmt.Sprintf("Iteration %d", i)
 			req.LogPushFunc(runner.FlowNodeStatus{
-				ExecutionID: idwrap.NewNow(), // Generate unique ID for each iteration
+				ExecutionID: executionID, // Store this ID for update
 				NodeID:      nr.FlowNodeID,
 				Name:        executionName,
 				State:       mnnode.NODE_STATE_RUNNING,
@@ -99,6 +102,8 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			})
 		}
 
+		// Execute child nodes
+		var iterationError error
 		for _, nextNodeID := range loopID {
 
 			var val interface{}
@@ -128,21 +133,47 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, req, req.LogPushFunc)
 			if err != nil {
-				switch nr.ErrorHandling {
-				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-					// Log error but continue to next iteration
-					continue
-				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-					// Stop the loop but don't propagate error
-					goto Exit
-				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-					// Default behavior: fail the entire flow
-					loopError = err
-					failedAtIteration = i
-					goto Exit
-				}
+				iterationError = err
+				break // Exit inner loop on error
 			}
+		}
 
+		// Update iteration record based on result
+		if req.LogPushFunc != nil {
+			executionName := fmt.Sprintf("Iteration %d", i)
+			if iterationError != nil {
+				// Update to FAILURE
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: executionID, // Same ID = UPDATE
+					NodeID:      nr.FlowNodeID,
+					Name:        executionName,
+					State:       mnnode.NODE_STATE_FAILURE,
+					Error:       iterationError,
+				})
+			} else {
+				// Update to SUCCESS
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: executionID, // Same ID = UPDATE
+					NodeID:      nr.FlowNodeID,
+					Name:        executionName,
+					State:       mnnode.NODE_STATE_SUCCESS,
+					OutputData:  map[string]interface{}{"index": i, "completed": true},
+				})
+			}
+		}
+
+		// Handle iteration error according to error policy
+		if iterationError != nil {
+			switch nr.ErrorHandling {
+			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+				continue // Continue to next iteration
+			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				goto Exit // Stop loop but don't propagate error
+			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+				loopError = iterationError
+				failedAtIteration = i
+				goto Exit // Fail entire flow
+			}
 		}
 	}
 
@@ -220,14 +251,17 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			return
 		}
 
-		// Send iteration tracking status with improved naming
+		// Store execution ID for later update
+		executionID := idwrap.NewNow()
+
+		// Create initial RUNNING record
 		if req.LogPushFunc != nil {
 			outputData := map[string]interface{}{
 				"index": i,
 			}
 			executionName := fmt.Sprintf("Iteration %d", i)
 			req.LogPushFunc(runner.FlowNodeStatus{
-				ExecutionID: idwrap.NewNow(), // Generate unique ID for each iteration
+				ExecutionID: executionID, // Store this ID for update
 				NodeID:      nr.FlowNodeID,
 				Name:        executionName,
 				State:       mnnode.NODE_STATE_RUNNING,
@@ -235,6 +269,8 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			})
 		}
 
+		// Execute child nodes
+		var iterationError error
 		for _, nextNodeID := range loopID {
 
 			var val interface{}
@@ -265,19 +301,46 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, req, req.LogPushFunc)
 			if err != nil {
-				switch nr.ErrorHandling {
-				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-					// Log error but continue to next iteration
-					continue
-				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-					// Stop the loop but don't propagate error
-					goto Exit
-				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-					// Default behavior: fail the entire flow
-					loopError = err
-					failedAtIteration = i
-					goto Exit
-				}
+				iterationError = err
+				break // Exit inner loop on error
+			}
+		}
+
+		// Update iteration record based on result
+		if req.LogPushFunc != nil {
+			executionName := fmt.Sprintf("Iteration %d", i)
+			if iterationError != nil {
+				// Update to FAILURE
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: executionID, // Same ID = UPDATE
+					NodeID:      nr.FlowNodeID,
+					Name:        executionName,
+					State:       mnnode.NODE_STATE_FAILURE,
+					Error:       iterationError,
+				})
+			} else {
+				// Update to SUCCESS
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: executionID, // Same ID = UPDATE
+					NodeID:      nr.FlowNodeID,
+					Name:        executionName,
+					State:       mnnode.NODE_STATE_SUCCESS,
+					OutputData:  map[string]interface{}{"index": i, "completed": true},
+				})
+			}
+		}
+
+		// Handle iteration error according to error policy
+		if iterationError != nil {
+			switch nr.ErrorHandling {
+			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+				continue // Continue to next iteration
+			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				goto Exit // Stop loop but don't propagate error
+			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+				loopError = iterationError
+				failedAtIteration = i
+				goto Exit // Fail entire flow
 			}
 		}
 	}

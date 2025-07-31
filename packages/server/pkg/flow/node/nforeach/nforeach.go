@@ -153,7 +153,10 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 			}
 			
-			// Log iteration data with improved naming
+			// Store execution ID for later update
+			executionID := idwrap.NewNow()
+			
+			// Create initial RUNNING record
 			if req.LogPushFunc != nil {
 				iterationData := map[string]any{
 					"index": itemIndex,
@@ -161,7 +164,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 				executionName := fmt.Sprintf("Iteration %d", itemIndex)
 				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID: idwrap.NewNow(),
+					ExecutionID: executionID, // Store this ID for update
 					NodeID:     nr.FlowNodeID,
 					Name:       executionName,
 					State:      mnnode.NODE_STATE_RUNNING,
@@ -173,19 +176,42 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			totalItems++
 
 			result := processNode()
+			
+			// Update iteration record based on result
+			if req.LogPushFunc != nil {
+				executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
+				if result.Err != nil {
+					// Update to FAILURE
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: executionID, // Same ID = UPDATE
+						NodeID:     nr.FlowNodeID,
+						Name:       executionName,
+						State:      mnnode.NODE_STATE_FAILURE,
+						Error:      result.Err,
+					})
+				} else {
+					// Update to SUCCESS
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: executionID, // Same ID = UPDATE
+						NodeID:     nr.FlowNodeID,
+						Name:       executionName,
+						State:      mnnode.NODE_STATE_SUCCESS,
+						OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
+					})
+				}
+			}
+			
+			// Handle iteration error according to error policy
 			if result.Err != nil {
 				switch nr.ErrorHandling {
 				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-					// Log error but continue to next iteration
-					continue
+					continue // Continue to next iteration
 				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-					// Stop the loop but don't propagate error
-					goto ExitSeq
+					goto ExitSeq // Stop loop but don't propagate error
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-					// Default behavior: fail the entire flow
 					loopError = result.Err
 					failedAt = itemIndex - 1 // Store the index where failure occurred
-					goto ExitSeq
+					goto ExitSeq // Fail entire flow
 				}
 			}
 		}
@@ -253,7 +279,10 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 			}
 
-			// Log iteration tracking data with improved naming
+			// Store execution ID for later update
+			executionID := idwrap.NewNow()
+
+			// Create initial RUNNING record
 			if req.LogPushFunc != nil {
 				iterationData := map[string]any{
 					"key":   key,
@@ -261,7 +290,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				}
 				executionName := fmt.Sprintf("Iteration %d", totalItems)
 				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID: idwrap.NewNow(),
+					ExecutionID: executionID, // Store this ID for update
 					NodeID:     nr.FlowNodeID,
 					Name:       executionName,
 					State:      mnnode.NODE_STATE_RUNNING,
@@ -272,19 +301,42 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			totalItems++
 
 			result := processNode()
+			
+			// Update iteration record based on result
+			if req.LogPushFunc != nil {
+				executionName := fmt.Sprintf("Iteration %d", totalItems-1)
+				if result.Err != nil {
+					// Update to FAILURE
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: executionID, // Same ID = UPDATE
+						NodeID:     nr.FlowNodeID,
+						Name:       executionName,
+						State:      mnnode.NODE_STATE_FAILURE,
+						Error:      result.Err,
+					})
+				} else {
+					// Update to SUCCESS
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: executionID, // Same ID = UPDATE
+						NodeID:     nr.FlowNodeID,
+						Name:       executionName,
+						State:      mnnode.NODE_STATE_SUCCESS,
+						OutputData: map[string]any{"key": key, "value": value, "completed": true},
+					})
+				}
+			}
+			
+			// Handle iteration error according to error policy
 			if result.Err != nil {
 				switch nr.ErrorHandling {
 				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-					// Log error but continue to next iteration
-					continue
+					continue // Continue to next iteration
 				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-					// Stop the loop but don't propagate error
-					goto ExitSeq2
+					goto ExitSeq2 // Stop loop but don't propagate error
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-					// Default behavior: fail the entire flow
 					loopError = result.Err
 					failedAt = key // Store the key where failure occurred
-					goto ExitSeq2
+					goto ExitSeq2 // Fail entire flow
 				}
 			}
 		}
@@ -448,7 +500,10 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					return
 				}
 				
-				// Log iteration data with improved naming
+				// Store execution ID for later update
+				executionID := idwrap.NewNow()
+				
+				// Create initial RUNNING record
 				if req.LogPushFunc != nil {
 					iterationData := map[string]any{
 						"index": itemIndex,
@@ -456,7 +511,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					}
 					executionName := fmt.Sprintf("Iteration %d", itemIndex)
 					req.LogPushFunc(runner.FlowNodeStatus{
-						ExecutionID: idwrap.NewNow(),
+						ExecutionID: executionID, // Store this ID for update
 						NodeID:     nr.FlowNodeID,
 						Name:       executionName,
 						State:      mnnode.NODE_STATE_RUNNING,
@@ -468,19 +523,42 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				totalItems++
 
 				loopResult := processNode()
+				
+				// Update iteration record based on result
+				if req.LogPushFunc != nil {
+					executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
+					if loopResult.Err != nil {
+						// Update to FAILURE
+						req.LogPushFunc(runner.FlowNodeStatus{
+							ExecutionID: executionID, // Same ID = UPDATE
+							NodeID:     nr.FlowNodeID,
+							Name:       executionName,
+							State:      mnnode.NODE_STATE_FAILURE,
+							Error:      loopResult.Err,
+						})
+					} else {
+						// Update to SUCCESS
+						req.LogPushFunc(runner.FlowNodeStatus{
+							ExecutionID: executionID, // Same ID = UPDATE
+							NodeID:     nr.FlowNodeID,
+							Name:       executionName,
+							State:      mnnode.NODE_STATE_SUCCESS,
+							OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
+						})
+					}
+				}
+				
+				// Handle iteration error according to error policy
 				if loopResult.Err != nil {
 					switch nr.ErrorHandling {
 					case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-						// Log error but continue to next iteration
-						continue
+						continue // Continue to next iteration
 					case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-						// Stop the loop but don't propagate error
 						resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
-						return
+						return // Stop loop but don't propagate error
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-						// Default behavior: fail the entire flow
 						loopError = loopResult.Err
-						failedAt = itemIndex - 1
+						failedAt = itemIndex - 1 // Fail entire flow
 					}
 				}
 			}
@@ -558,7 +636,10 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					return
 				}
 
-				// Log iteration tracking data with improved naming
+				// Store execution ID for later update
+				executionID := idwrap.NewNow()
+
+				// Create initial RUNNING record
 				if req.LogPushFunc != nil {
 					iterationData := map[string]any{
 						"key":   key,
@@ -566,7 +647,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					}
 					executionName := fmt.Sprintf("Iteration %d", totalItems)
 					req.LogPushFunc(runner.FlowNodeStatus{
-						ExecutionID: idwrap.NewNow(),
+						ExecutionID: executionID, // Store this ID for update
 						NodeID:     nr.FlowNodeID,
 						Name:       executionName,
 						State:      mnnode.NODE_STATE_RUNNING,
@@ -577,19 +658,42 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				totalItems++
 
 				loopResult := processNode()
+				
+				// Update iteration record based on result
+				if req.LogPushFunc != nil {
+					executionName := fmt.Sprintf("Iteration %d", totalItems-1)
+					if loopResult.Err != nil {
+						// Update to FAILURE
+						req.LogPushFunc(runner.FlowNodeStatus{
+							ExecutionID: executionID, // Same ID = UPDATE
+							NodeID:     nr.FlowNodeID,
+							Name:       executionName,
+							State:      mnnode.NODE_STATE_FAILURE,
+							Error:      loopResult.Err,
+						})
+					} else {
+						// Update to SUCCESS
+						req.LogPushFunc(runner.FlowNodeStatus{
+							ExecutionID: executionID, // Same ID = UPDATE
+							NodeID:     nr.FlowNodeID,
+							Name:       executionName,
+							State:      mnnode.NODE_STATE_SUCCESS,
+							OutputData: map[string]any{"key": key, "value": value, "completed": true},
+						})
+					}
+				}
+				
+				// Handle iteration error according to error policy
 				if loopResult.Err != nil {
 					switch nr.ErrorHandling {
 					case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-						// Log error but continue to next iteration
-						continue
+						continue // Continue to next iteration
 					case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-						// Stop the loop but don't propagate error
 						resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
-						return
+						return // Stop loop but don't propagate error
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-						// Default behavior: fail the entire flow
 						loopError = loopResult.Err
-						failedAt = key
+						failedAt = key // Fail entire flow
 					}
 				}
 			}

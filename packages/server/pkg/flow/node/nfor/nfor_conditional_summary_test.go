@@ -41,20 +41,38 @@ func TestForNodeConditionalSummary(t *testing.T) {
 		// Assert
 		require.NoError(t, result.Err, "Successful loop should not return error")
 		
-		// Should have exactly 3 iteration records (no final summary)
-		assert.Len(t, capturedStatuses, 3, "Should have exactly 3 iteration records for successful loop")
+		// Should have exactly 6 iteration records (3 RUNNING + 3 SUCCESS, no final summary)
+		assert.Len(t, capturedStatuses, 6, "Should have exactly 6 iteration records for successful loop (RUNNING + SUCCESS for each)")
 		
-		// Verify each iteration record
-		for i, status := range capturedStatuses {
-			assert.Equal(t, nodeID, status.NodeID, "NodeID should match")
-			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "All iteration records should be RUNNING")
-			expectedName := fmt.Sprintf("Iteration %d", i)
-			assert.Equal(t, expectedName, status.Name, "Should have improved iteration naming")
+		// Verify iteration records - should have pairs of RUNNING then SUCCESS
+		for i := 0; i < 3; i++ {
+			runningIndex := i * 2
+			successIndex := i * 2 + 1
 			
-			// Verify output data
-			outputData, ok := status.OutputData.(map[string]interface{})
+			// Verify RUNNING record
+			runningStatus := capturedStatuses[runningIndex]
+			assert.Equal(t, nodeID, runningStatus.NodeID, "NodeID should match")
+			assert.Equal(t, mnnode.NODE_STATE_RUNNING, runningStatus.State, "First record should be RUNNING")
+			expectedName := fmt.Sprintf("Iteration %d", i)
+			assert.Equal(t, expectedName, runningStatus.Name, "Should have improved iteration naming")
+			
+			runningOutputData, ok := runningStatus.OutputData.(map[string]interface{})
 			require.True(t, ok, "OutputData should be a map")
-			assert.Equal(t, int64(i), outputData["index"], "Index should match iteration")
+			assert.Equal(t, int64(i), runningOutputData["index"], "Index should match iteration")
+			
+			// Verify SUCCESS record
+			successStatus := capturedStatuses[successIndex]
+			assert.Equal(t, nodeID, successStatus.NodeID, "NodeID should match")
+			assert.Equal(t, mnnode.NODE_STATE_SUCCESS, successStatus.State, "Second record should be SUCCESS")
+			assert.Equal(t, expectedName, successStatus.Name, "Should have same iteration naming")
+			
+			successOutputData, ok := successStatus.OutputData.(map[string]interface{})
+			require.True(t, ok, "OutputData should be a map")
+			assert.Equal(t, int64(i), successOutputData["index"], "Index should match iteration")
+			assert.Equal(t, true, successOutputData["completed"], "Should have completion flag")
+			
+			// Verify same ExecutionID for both records (update logic)
+			assert.Equal(t, runningStatus.ExecutionID, successStatus.ExecutionID, "RUNNING and SUCCESS records should have same ExecutionID")
 		}
 	})
 

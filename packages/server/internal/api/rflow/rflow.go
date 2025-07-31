@@ -918,9 +918,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					}
 					
-					// For iteration tracking records, send immediately to database
+					// For iteration tracking records, create immediately to avoid race condition
 					if isIterationRecord {
-						nodeExecutionChan <- nodeExecution
+						// Create iteration record immediately (no race)
+						if err := c.nes.CreateNodeExecution(ctx, nodeExecution); err != nil {
+							log.Printf("Failed to create iteration record %s: %v", executionID.String(), err)
+						}
 					} else {
 						// Store in pending map for completion (normal flow execution)
 						pendingNodeExecutions[executionID] = &nodeExecution
@@ -929,6 +932,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				pendingMutex.Unlock()
 				
 			case mnnode.NODE_STATE_SUCCESS, mnnode.NODE_STATE_FAILURE, mnnode.NODE_STATE_CANCELED:
+				// Check if this is an iteration tracking record (has iteration data in OutputData)
+				isIterationRecord := false
+				if flowNodeStatus.OutputData != nil {
+					if outputMap, ok := flowNodeStatus.OutputData.(map[string]interface{}); ok {
+						isIterationRecord = outputMap["index"] != nil || 
+							outputMap["key"] != nil || 
+							outputMap["completed"] != nil
+					}
+				}
+				
 				// Get node type for REQUEST node detection
 				node, err := c.ns.GetNode(ctx, flowNodeStatus.NodeID)
 				if err != nil {
@@ -936,51 +949,83 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					log.Printf("Could not get node type for %s: %v", flowNodeStatus.NodeID.String(), err)
 				}
 
-				// Update existing NodeExecution with final state
-				pendingMutex.Lock()
-				if nodeExec, exists := pendingNodeExecutions[executionID]; exists {
-					// Update final state
-					nodeExec.State = flowNodeStatus.State
+				// Handle iteration records separately (they need updates, not pending lookups)
+				if isIterationRecord {
+					// Create update record for iteration
 					completedAt := time.Now().UnixMilli()
-					nodeExec.CompletedAt = &completedAt
+					nodeExecution := mnodeexecution.NodeExecution{
+						ID:          executionID, // Use same ExecutionID for update
+						State:       flowNodeStatus.State,
+						CompletedAt: &completedAt,
+					}
 					
 					// Set error if present
 					if flowNodeStatus.Error != nil {
 						errorStr := flowNodeStatus.Error.Error()
-						nodeExec.Error = &errorStr
-					}
-					
-					// Compress and store input data
-					if flowNodeStatus.InputData != nil {
-						if inputJSON, err := json.Marshal(flowNodeStatus.InputData); err == nil {
-							if err := nodeExec.SetInputJSON(inputJSON); err != nil {
-								nodeExec.InputData = inputJSON
-								nodeExec.InputDataCompressType = 0
-							}
-						}
+						nodeExecution.Error = &errorStr
 					}
 					
 					// Compress and store output data
 					if flowNodeStatus.OutputData != nil {
 						if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
-							if err := nodeExec.SetOutputJSON(outputJSON); err != nil {
-								nodeExec.OutputData = outputJSON
-								nodeExec.OutputDataCompressType = 0
+							if err := nodeExecution.SetOutputJSON(outputJSON); err != nil {
+								nodeExecution.OutputData = outputJSON
+								nodeExecution.OutputDataCompressType = 0
 							}
 						}
 					}
 					
-					// For REQUEST nodes, wait for response before sending to channel
-					if node != nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
-						// Mark as completed but keep in pending map for response handling
-						// Don't send to channel yet - wait for response
-					} else {
-						// For non-REQUEST nodes, send immediately
-						nodeExecutionChan <- *nodeExec
-						delete(pendingNodeExecutions, executionID)
+					// Update iteration record synchronously (record already exists)
+					if err := c.nes.UpdateNodeExecution(ctx, nodeExecution); err != nil {
+						log.Printf("Failed to update iteration record %s: %v", executionID.String(), err)
 					}
+				} else {
+					// Update existing NodeExecution with final state (normal flow)
+					pendingMutex.Lock()
+					if nodeExec, exists := pendingNodeExecutions[executionID]; exists {
+						// Update final state
+						nodeExec.State = flowNodeStatus.State
+						completedAt := time.Now().UnixMilli()
+						nodeExec.CompletedAt = &completedAt
+						
+						// Set error if present
+						if flowNodeStatus.Error != nil {
+							errorStr := flowNodeStatus.Error.Error()
+							nodeExec.Error = &errorStr
+						}
+						
+						// Compress and store input data
+						if flowNodeStatus.InputData != nil {
+							if inputJSON, err := json.Marshal(flowNodeStatus.InputData); err == nil {
+								if err := nodeExec.SetInputJSON(inputJSON); err != nil {
+									nodeExec.InputData = inputJSON
+									nodeExec.InputDataCompressType = 0
+								}
+							}
+						}
+						
+						// Compress and store output data
+						if flowNodeStatus.OutputData != nil {
+							if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
+								if err := nodeExec.SetOutputJSON(outputJSON); err != nil {
+									nodeExec.OutputData = outputJSON
+									nodeExec.OutputDataCompressType = 0
+								}
+							}
+						}
+						
+						// For REQUEST nodes, wait for response before sending to channel
+						if node != nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
+							// Mark as completed but keep in pending map for response handling
+							// Don't send to channel yet - wait for response
+						} else {
+							// For non-REQUEST nodes, send immediately
+							nodeExecutionChan <- *nodeExec
+							delete(pendingNodeExecutions, executionID)
+						}
+					}
+					pendingMutex.Unlock()
 				}
-				pendingMutex.Unlock()
 			}
 			
 			// Handle logging for non-running states
