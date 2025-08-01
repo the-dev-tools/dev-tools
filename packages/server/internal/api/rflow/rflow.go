@@ -90,15 +90,14 @@ func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap
 		return "Execution 1"
 	}
 	
-	// Build hierarchical format with pipe separators
-	var parts []string
-	parts = append(parts, "Execution 1") // Always start with "Execution 1"
-	
 	// Use parent nodes from the IterationContext if available, otherwise fall back to passed parentNodes
 	actualParentNodes := ctx.ParentNodes
 	if len(actualParentNodes) == 0 {
 		actualParentNodes = parentNodes
 	}
+	
+	// Build hierarchical format with pipe separators (no "Execution 1" prefix for loop iterations)
+	var parts []string
 	
 	// Add parent loop nodes with their iteration numbers
 	for i, iteration := range ctx.IterationPath {
@@ -111,7 +110,12 @@ func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap
 	}
 	
 	// Join with pipe separator
-	return strings.Join(parts, " | ")
+	if len(parts) > 0 {
+		return strings.Join(parts, " | ")
+	}
+	
+	// Fallback if no parent nodes found
+	return "Execution 1"
 }
 
 type FlowServiceRPC struct {

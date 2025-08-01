@@ -173,6 +173,18 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			// Store execution ID for later update
 			executionID := idwrap.NewNow()
 			
+			// Create iteration context for this execution
+			var parentPath []int
+			var parentNodes []idwrap.IDWrap
+			if req.IterationContext != nil {
+				parentPath = req.IterationContext.IterationPath
+				parentNodes = req.IterationContext.ParentNodes
+			}
+			iterContext := &runner.IterationContext{
+				IterationPath: append(parentPath, itemIndex),
+				ParentNodes:   append(parentNodes, nr.FlowNodeID),
+			}
+			
 			// Create initial RUNNING record
 			if req.LogPushFunc != nil {
 				iterationData := map[string]any{
@@ -186,6 +198,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					Name:       executionName,
 					State:      mnnode.NODE_STATE_RUNNING,
 					OutputData: iterationData,
+					IterationContext: iterContext,
 				})
 			}
 			

@@ -84,8 +84,20 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			}
 		}
 
-		// Store execution ID for later update
+		// Store execution ID and iteration context for later update
 		executionID := idwrap.NewNow()
+
+		// Create iteration context for this execution
+		var parentPath []int
+		var parentNodes []idwrap.IDWrap
+		if req.IterationContext != nil {
+			parentPath = req.IterationContext.IterationPath
+			parentNodes = req.IterationContext.ParentNodes
+		}
+		iterContext := &runner.IterationContext{
+			IterationPath: append(parentPath, int(i)),
+			ParentNodes:   append(parentNodes, nr.FlowNodeID),
+		}
 
 		// Create initial RUNNING record
 		if req.LogPushFunc != nil {
@@ -93,12 +105,14 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				"index": i,
 			}
 			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
+			
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID: executionID, // Store this ID for update
 				NodeID:      nr.FlowNodeID,
 				Name:        executionName,
 				State:       mnnode.NODE_STATE_RUNNING,
 				OutputData:  outputData,
+				IterationContext: iterContext,
 			})
 		}
 
@@ -166,6 +180,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 					Name:        executionName,
 					State:       mnnode.NODE_STATE_FAILURE,
 					Error:       iterationError,
+					IterationContext: iterContext,
 				})
 			} else {
 				// Update to SUCCESS
@@ -175,6 +190,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 					Name:        executionName,
 					State:       mnnode.NODE_STATE_SUCCESS,
 					OutputData:  map[string]any{"index": i, "completed": true},
+					IterationContext: iterContext,
 				})
 			}
 		}
@@ -268,8 +284,20 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			return
 		}
 
-		// Store execution ID for later update
+		// Store execution ID and iteration context for later update
 		executionID := idwrap.NewNow()
+
+		// Create iteration context for this execution
+		var parentPath []int
+		var parentNodes []idwrap.IDWrap
+		if req.IterationContext != nil {
+			parentPath = req.IterationContext.IterationPath
+			parentNodes = req.IterationContext.ParentNodes
+		}
+		iterContext := &runner.IterationContext{
+			IterationPath: append(parentPath, int(i)),
+			ParentNodes:   append(parentNodes, nr.FlowNodeID),
+		}
 
 		// Create initial RUNNING record
 		if req.LogPushFunc != nil {
@@ -277,12 +305,14 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				"index": i,
 			}
 			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
+			
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID: executionID, // Store this ID for update
 				NodeID:      nr.FlowNodeID,
 				Name:        executionName,
 				State:       mnnode.NODE_STATE_RUNNING,
 				OutputData:  outputData,
+				IterationContext: iterContext,
 			})
 		}
 
@@ -351,6 +381,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 					Name:        executionName,
 					State:       mnnode.NODE_STATE_FAILURE,
 					Error:       iterationError,
+					IterationContext: iterContext,
 				})
 			} else {
 				// Update to SUCCESS
