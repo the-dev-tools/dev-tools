@@ -53,7 +53,7 @@ func TestForNodeConditionalSummary(t *testing.T) {
 			runningStatus := capturedStatuses[runningIndex]
 			assert.Equal(t, nodeID, runningStatus.NodeID, "NodeID should match")
 			assert.Equal(t, mnnode.NODE_STATE_RUNNING, runningStatus.State, "First record should be RUNNING")
-			expectedName := fmt.Sprintf("Iteration %d", i)
+			expectedName := fmt.Sprintf("TestForNode iteration %d", i+1)
 			assert.Equal(t, expectedName, runningStatus.Name, "Should have improved iteration naming")
 			
 			runningOutputData, ok := runningStatus.OutputData.(map[string]interface{})
@@ -115,7 +115,7 @@ func TestForNodeConditionalSummary(t *testing.T) {
 		iterationStatus := capturedStatuses[0]
 		assert.Equal(t, nodeID, iterationStatus.NodeID)
 		assert.Equal(t, mnnode.NODE_STATE_RUNNING, iterationStatus.State)
-		expectedIterationName := "Iteration 0"
+		expectedIterationName := "TestForNode iteration 1"
 		assert.Equal(t, expectedIterationName, iterationStatus.Name)
 		
 		// Second record should be error summary
@@ -168,7 +168,7 @@ func TestForNodeConditionalSummary(t *testing.T) {
 		// All records should be iteration records (no error summary)
 		for i, status := range capturedStatuses {
 			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "All records should be iteration records")
-			expectedName := fmt.Sprintf("Iteration %d", i)
+			expectedName := fmt.Sprintf("TestForNode iteration %d", i+1)
 			assert.Equal(t, expectedName, status.Name)
 		}
 	})
@@ -209,7 +209,7 @@ func TestForNodeConditionalSummary(t *testing.T) {
 		// Verify the single record
 		status := capturedStatuses[0]
 		assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "Should be iteration record")
-		expectedName := "Iteration 0"
+		expectedName := "TestForNode iteration 1"
 		assert.Equal(t, expectedName, status.Name)
 	})
 }
@@ -241,8 +241,8 @@ func TestForNodeExecutionNaming(t *testing.T) {
 		
 		// Verify naming format
 		expectedNames := []string{
-			"Iteration 0",
-			"Iteration 1",
+			"TestForNode iteration 1",
+			"TestForNode iteration 2",
 		}
 		
 		for i, status := range capturedStatuses {

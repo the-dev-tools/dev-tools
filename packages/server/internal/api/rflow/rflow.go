@@ -84,24 +84,34 @@ import (
 	"connectrpc.com/connect"
 )
 
-// formatIterationContext formats the iteration context into hierarchical format
-func formatIterationContext(ctx *runner.IterationContext) string {
+// formatIterationContext formats the iteration context into hierarchical format with node names
+func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap.IDWrap]string, nodeID idwrap.IDWrap, parentNodes []idwrap.IDWrap) string {
 	if ctx == nil || len(ctx.IterationPath) == 0 {
 		return "Execution 1"
 	}
 	
-	// Build hierarchical format: 1-1, 1-2, 1-1-1, etc
+	// Build hierarchical format with pipe separators
 	var parts []string
-	for _, iteration := range ctx.IterationPath {
-		parts = append(parts, fmt.Sprintf("%d", iteration+1)) // +1 for 1-based indexing
+	parts = append(parts, "Execution 1") // Always start with "Execution 1"
+	
+	// Use parent nodes from the IterationContext if available, otherwise fall back to passed parentNodes
+	actualParentNodes := ctx.ParentNodes
+	if len(actualParentNodes) == 0 {
+		actualParentNodes = parentNodes
 	}
 	
-	// Add execution index if we have one
-	if ctx.ExecutionIndex > 0 {
-		parts = append(parts, fmt.Sprintf("%d", ctx.ExecutionIndex+1))
+	// Add parent loop nodes with their iteration numbers
+	for i, iteration := range ctx.IterationPath {
+		if i < len(actualParentNodes) {
+			parentName := nodeNameMap[actualParentNodes[i]]
+			if parentName != "" {
+				parts = append(parts, fmt.Sprintf("%s iteration %d", parentName, iteration+1))
+			}
+		}
 	}
 	
-	return fmt.Sprintf("Execution %s", strings.Join(parts, "-"))
+	// Join with pipe separator
+	return strings.Join(parts, " | ")
 }
 
 type FlowServiceRPC struct {
@@ -906,13 +916,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					// Generate execution name with hierarchical format for loop iterations
 					var execName string
 					if flowNodeStatus.IterationContext != nil && len(flowNodeStatus.IterationContext.IterationPath) > 0 {
-						// For loop executions, combine node name with iteration context
-						baseNodeName := flowNodeStatus.Name
-						if baseNodeName == "" {
-							baseNodeName = nodeNameMap[id]
-						}
-						iterContext := formatIterationContext(flowNodeStatus.IterationContext)
-						execName = fmt.Sprintf("%s - %s", baseNodeName, iterContext)
+						// For loop executions, build hierarchical name using the full parent chain
+						var parentNodes []idwrap.IDWrap // Empty fallback
+						execName = formatIterationContext(flowNodeStatus.IterationContext, nodeNameMap, id, parentNodes)
 					} else if flowNodeStatus.Name != "" {
 						// For non-loop executions, use the node name directly
 						execName = flowNodeStatus.Name

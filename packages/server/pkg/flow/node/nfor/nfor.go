@@ -57,7 +57,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
-	a := map[string]interface{}{
+	a := map[string]any{
 		NodeVarKey: req.VarMap,
 	}
 
@@ -89,10 +89,10 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 		// Create initial RUNNING record
 		if req.LogPushFunc != nil {
-			outputData := map[string]interface{}{
+			outputData := map[string]any{
 				"index": i,
 			}
-			executionName := fmt.Sprintf("Iteration %d", i)
+			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID: executionID, // Store this ID for update
 				NodeID:      nr.FlowNodeID,
@@ -106,7 +106,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 		var iterationError error
 		for _, nextNodeID := range loopID {
 
-			var val interface{}
+			var val any
 			// parse int, float or bool if all fails make it string
 			if v, err := strconv.ParseInt(nr.Value, 0, 64); err == nil {
 				val = v
@@ -133,12 +133,15 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 			// Create iteration context for child nodes
 			var parentPath []int
+			var parentNodes []idwrap.IDWrap
 			if req.IterationContext != nil {
 				parentPath = req.IterationContext.IterationPath
+				parentNodes = req.IterationContext.ParentNodes
 			}
 			childIterationContext := &runner.IterationContext{
-				IterationPath: append(parentPath, int(i)),
+				IterationPath:  append(parentPath, int(i)),
 				ExecutionIndex: 0, // Reset for each loop iteration
+				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
 			}
 
 			// Create new request with iteration context for child nodes
@@ -154,7 +157,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 		// Update iteration record based on result
 		if req.LogPushFunc != nil {
-			executionName := fmt.Sprintf("Iteration %d", i)
+			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
 			if iterationError != nil {
 				// Update to FAILURE
 				req.LogPushFunc(runner.FlowNodeStatus{
@@ -171,7 +174,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 					NodeID:      nr.FlowNodeID,
 					Name:        executionName,
 					State:       mnnode.NODE_STATE_SUCCESS,
-					OutputData:  map[string]interface{}{"index": i, "completed": true},
+					OutputData:  map[string]any{"index": i, "completed": true},
 				})
 			}
 		}
@@ -195,7 +198,7 @@ Exit:
 	// Only create final summary record on failure
 	if loopError != nil {
 		if req.LogPushFunc != nil {
-			outputData := map[string]interface{}{
+			outputData := map[string]any{
 				"failedAtIteration": failedAtIteration,
 				"totalIterations":   nr.IterCount,
 			}
@@ -237,7 +240,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
-	a := map[string]interface{}{
+	a := map[string]any{
 		NodeVarKey: req.VarMap,
 	}
 
@@ -270,10 +273,10 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 		// Create initial RUNNING record
 		if req.LogPushFunc != nil {
-			outputData := map[string]interface{}{
+			outputData := map[string]any{
 				"index": i,
 			}
-			executionName := fmt.Sprintf("Iteration %d", i)
+			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID: executionID, // Store this ID for update
 				NodeID:      nr.FlowNodeID,
@@ -287,7 +290,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 		var iterationError error
 		for _, nextNodeID := range loopID {
 
-			var val interface{}
+			var val any
 			// parse int, float or bool if all fails make it string
 			if v, err := strconv.ParseInt(nr.Value, 0, 64); err == nil {
 				val = v
@@ -315,12 +318,15 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 			// Create iteration context for child nodes
 			var parentPath []int
+			var parentNodes []idwrap.IDWrap
 			if req.IterationContext != nil {
 				parentPath = req.IterationContext.IterationPath
+				parentNodes = req.IterationContext.ParentNodes
 			}
 			childIterationContext := &runner.IterationContext{
-				IterationPath: append(parentPath, int(i)),
+				IterationPath:  append(parentPath, int(i)),
 				ExecutionIndex: 0, // Reset for each loop iteration
+				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
 			}
 
 			// Create new request with iteration context for child nodes
@@ -336,7 +342,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 		// Update iteration record based on result
 		if req.LogPushFunc != nil {
-			executionName := fmt.Sprintf("Iteration %d", i)
+			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
 			if iterationError != nil {
 				// Update to FAILURE
 				req.LogPushFunc(runner.FlowNodeStatus{

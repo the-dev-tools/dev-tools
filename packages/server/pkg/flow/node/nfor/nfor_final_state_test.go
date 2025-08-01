@@ -79,13 +79,13 @@ func TestForNode_FinalStateVerification(t *testing.T) {
 				runningRecord := statuses[0]
 				assert.Equal(t, mnnode.NODE_STATE_RUNNING, runningRecord.State, 
 					fmt.Sprintf("First record for ExecutionID %s should be RUNNING", execID[:8]))
-				assert.Equal(t, fmt.Sprintf("Iteration %d", iterationIndex), runningRecord.Name)
+				assert.Equal(t, fmt.Sprintf("TestForNode iteration %d", iterationIndex+1), runningRecord.Name)
 				
 				// Second record should be SUCCESS
 				successRecord := statuses[1]
 				assert.Equal(t, mnnode.NODE_STATE_SUCCESS, successRecord.State, 
 					fmt.Sprintf("Second record for ExecutionID %s should be SUCCESS", execID[:8]))
-				assert.Equal(t, fmt.Sprintf("Iteration %d", iterationIndex), successRecord.Name)
+				assert.Equal(t, fmt.Sprintf("TestForNode iteration %d", iterationIndex+1), successRecord.Name)
 				
 				// Both records should have same ExecutionID
 				assert.Equal(t, runningRecord.ExecutionID, successRecord.ExecutionID, 
