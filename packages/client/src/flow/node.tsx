@@ -31,11 +31,12 @@ import {
   NodeUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
-import { CheckIcon, Spinner } from '@the-dev-tools/ui/icons';
+import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { JsonTree } from '@the-dev-tools/ui/json-tree';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, MenuItemLink, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Select } from '@the-dev-tools/ui/select';
+import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
@@ -94,7 +95,7 @@ export const NodeContainer = ({ children, data: { state }, handles, selected }: 
     <Suspense
       fallback={
         <div className={tw`flex h-full items-center justify-center`}>
-          <Spinner className={tw`size-8`} />
+          <Spinner size='md' />
         </div>
       }
     >
@@ -291,7 +292,7 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
           <Suspense
             fallback={
               <div className={tw`flex h-full items-center justify-center p-4`}>
-                <Spinner className={tw`size-8`} />
+                <Spinner size='md' />
               </div>
             }
           >
@@ -353,7 +354,7 @@ const NodeExecutionTabs = ({ nodeExecutionId, renderOutput }: NodeExecutionTabsP
         <Suspense
           fallback={
             <div className={tw`flex h-full items-center justify-center`}>
-              <Spinner className={tw`size-12`} />
+              <Spinner size='lg' />
             </div>
           }
         >

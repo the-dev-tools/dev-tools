@@ -45,7 +45,6 @@ import {
 } from '@the-dev-tools/spec/meta/collection/item/response/v1/response.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
-import { Spinner } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
@@ -54,6 +53,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { addTab, useRemoveTab } from '@the-dev-tools/ui/router';
 import { Select } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
+import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/ui/utils';
@@ -134,7 +134,7 @@ function Page() {
     <Suspense
       fallback={
         <div className={tw`flex h-full items-center justify-center`}>
-          <Spinner className={tw`size-16`} />
+          <Spinner size='xl' />
         </div>
       }
     >
@@ -251,7 +251,7 @@ export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isRe
       <Suspense
         fallback={
           <div className={tw`flex h-full items-center justify-center`}>
-            <Spinner className={tw`size-12`} />
+            <Spinner size='lg' />
           </div>
         }
       >
@@ -692,7 +692,7 @@ const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
                   <Suspense
                     fallback={
                       <div className={tw`flex h-full items-center justify-center`}>
-                        <Spinner className={tw`size-12`} />
+                        <Spinner size='lg' />
                       </div>
                     }
                   >
@@ -756,7 +756,7 @@ const ResponsePanel = () => {
         <Suspense
           fallback={
             <div className={tw`flex h-full items-center justify-center`}>
-              <Spinner className={tw`size-12`} />
+              <Spinner size='lg' />
             </div>
           }
         >
@@ -877,7 +877,7 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
         <Suspense
           fallback={
             <div className={tw`flex h-full items-center justify-center`}>
-              <Spinner className={tw`size-12`} />
+              <Spinner size='lg' />
             </div>
           }
         >

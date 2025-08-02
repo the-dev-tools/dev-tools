@@ -16,8 +16,9 @@ import {
 import { CollectionGetEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
 import { NodeGetEndpoint, NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
-import { SendRequestIcon, Spinner } from '@the-dev-tools/ui/icons';
+import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
+import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
 import { CollectionListTree } from '../../collection';
@@ -223,7 +224,7 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
             <Suspense
               fallback={
                 <div className={tw`flex h-full items-center justify-center p-4`}>
-                  <Spinner className={tw`size-8`} />
+                  <Spinner size='md' />
                 </div>
               }
             >

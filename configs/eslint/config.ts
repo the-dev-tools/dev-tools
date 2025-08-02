@@ -103,6 +103,12 @@ const sortTVObject = pipe(
   }),
 );
 
+const sizeObject = pipe(['sm', 'md', 'lg', 'xl'], (groups) => ({
+  customGroups: Array.map(groups, (name) => ({ elementNamePattern: name, groupName: name })),
+  groups,
+  useConfigurationIf: { allNamesMatchPattern: groups },
+}));
+
 const rules: Linter.Config = {
   rules: {
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
@@ -123,7 +129,7 @@ const rules: Linter.Config = {
       { internalPattern: ['^@the-dev-tools/.*', '^~.*'], newlinesBetween: 'ignore' },
     ],
     'perfectionist/sort-modules': 'off', // consider re-enabling after https://github.com/azat-io/eslint-plugin-perfectionist/issues/434
-    'perfectionist/sort-objects': ['warn', sortRouterObject, sortTVObject],
+    'perfectionist/sort-objects': ['warn', sortRouterObject, sortTVObject, sizeObject],
 
     'react-hooks/exhaustive-deps': [
       'warn',

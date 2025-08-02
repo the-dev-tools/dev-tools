@@ -6,14 +6,12 @@ import { useTab, useTabList, useTabPanel } from 'react-aria';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { Item, Node, TabListState, useTabListState } from 'react-stately';
 import { twJoin } from 'tailwind-merge';
-
 import { FlowVersionsItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { FlowVersionsEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.ts';
-import { Spinner } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
+import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
-
 import { EditPanel, Flow, TopBar } from './flow';
 import { FlowContext } from './internal';
 
@@ -33,7 +31,7 @@ function RouteComponent() {
         <Suspense
           fallback={
             <div className={tw`flex h-full items-center justify-center`}>
-              <Spinner className={tw`size-16`} />
+              <Spinner size='xl' />
             </div>
           }
         >

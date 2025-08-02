@@ -54,11 +54,12 @@ import { FlowVariableListItemEntity } from '@the-dev-tools/spec/meta/flowvariabl
 import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
-import { PlayCircleIcon, Spinner } from '@the-dev-tools/ui/icons';
+import { PlayCircleIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
+import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { EndpointKey, ExampleKey, TreeKey } from '~collection';
@@ -90,7 +91,7 @@ export const Route = makeRoute({
   component: RouteComponent,
   pendingComponent: () => (
     <div className={tw`flex h-full items-center justify-center`}>
-      <Spinner className={tw`size-16`} />
+      <Spinner size='xl' />
     </div>
   ),
 });
@@ -112,7 +113,7 @@ function RouteComponent() {
     <Suspense
       fallback={
         <div className={tw`flex h-full items-center justify-center`}>
-          <Spinner className={tw`size-16`} />
+          <Spinner size='xl' />
         </div>
       }
     >
@@ -729,7 +730,7 @@ export const EditPanel = () => {
         <Suspense
           fallback={
             <div className={tw`flex h-full items-center justify-center`}>
-              <Spinner className={tw`size-12`} />
+              <Spinner size='lg' />
             </div>
           }
           key={Ulid.construct(nodeId.value).toCanonical()}

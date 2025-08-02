@@ -14,9 +14,10 @@ import { twJoin, twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 import { Button, ButtonProps } from './button';
 import { isFocusVisibleRingStyles } from './focus-ring';
-import { ChevronSolidDownIcon, Spinner } from './icons';
+import { ChevronSolidDownIcon } from './icons';
 import { type MixinProps, splitProps } from './mixin-props';
 import { useLink, UseLinkProps } from './router';
+import { Spinner } from './spinner';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
 

@@ -39,11 +39,12 @@ import {
 import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
-import { GlobalEnvironmentIcon, Spinner, VariableIcon } from '@the-dev-tools/ui/icons';
+import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { Select } from '@the-dev-tools/ui/select';
+import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useMutate, useQuery } from '~data-client';
@@ -352,7 +353,7 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name } }: En
       <Suspense
         fallback={
           <div className={tw`flex h-full items-center justify-center`}>
-            <Spinner className={tw`size-12`} />
+            <Spinner size='lg' />
           </div>
         }
       >
