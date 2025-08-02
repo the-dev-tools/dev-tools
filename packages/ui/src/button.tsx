@@ -4,23 +4,27 @@ import {
   type ButtonProps as AriaButtonProps,
   Link as AriaLink,
   type LinkProps as AriaLinkProps,
+  composeRenderProps,
 } from 'react-aria-components';
+import { twJoin } from 'tailwind-merge';
 import { tv, type VariantProps } from 'tailwind-variants';
 import { isFocusVisibleRingRenderPropKeys, isFocusVisibleRingStyles } from './focus-ring';
 import { LinkComponent, useLink, UseLinkProps } from './router';
+import { Spinner } from './spinner';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';
 
 export const buttonStyles = tv({
   extend: isFocusVisibleRingStyles,
   base: tw`
-    flex cursor-pointer items-center justify-center gap-1 rounded-md border border-transparent bg-transparent px-4
-    py-1.5 text-sm leading-5 font-medium tracking-tight select-none
+    relative flex cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-md border border-transparent
+    bg-transparent px-4 py-1.5 text-sm leading-5 font-medium tracking-tight select-none
   `,
   variants: {
     ...isFocusVisibleRingStyles.variants,
     isDisabled: { true: tw`cursor-not-allowed` },
     isHovered: { true: null },
+    isPending: { true: tw`cursor-progress text-transparent!` },
     isPressed: { true: null },
     variant: {
       ghost: tw`text-slate-800`,
@@ -48,17 +52,41 @@ export const buttonStyles = tv({
   ],
 });
 
-const renderPropKeys = [...isFocusVisibleRingRenderPropKeys, 'isHovered', 'isPressed', 'isDisabled'] as const;
+const renderPropKeys = [
+  ...isFocusVisibleRingRenderPropKeys,
+  'isDisabled',
+  'isHovered',
+  'isPending',
+  'isPressed',
+] as const;
 export const buttonVariantKeys = pipe(Struct.omit(buttonStyles.variants, ...renderPropKeys), Record.keys);
 
 // Button
 
 export interface ButtonProps extends AriaButtonProps, VariantProps<typeof buttonStyles> {}
 
-export const Button = ({ className, ...props }: ButtonProps) => {
+export const Button = ({ children, className, ...props }: ButtonProps) => {
   const forwardedProps = Struct.omit(props, ...buttonVariantKeys);
   const variantProps = Struct.pick(props, ...buttonVariantKeys);
-  return <AriaButton {...forwardedProps} className={composeRenderPropsTV(className, buttonStyles, variantProps)} />;
+
+  return (
+    <AriaButton {...forwardedProps} className={composeRenderPropsTV(className, buttonStyles, variantProps)}>
+      {composeRenderProps(children, (children, { isPending }) => (
+        <>
+          {children}
+
+          <div
+            className={twJoin(
+              tw`absolute flex size-full items-center justify-center transition-opacity`,
+              isPending ? tw`opacity-100` : tw`opacity-0`,
+            )}
+          >
+            <Spinner />
+          </div>
+        </>
+      ))}
+    </AriaButton>
+  );
 };
 
 // Button as link
