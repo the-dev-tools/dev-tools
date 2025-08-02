@@ -507,6 +507,8 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
 
   const [renderEndpointUrlForm, submitEndpointUrlForm] = useEndpointUrlForm({ endpointId, exampleId });
 
+  const [isSending, setIsSending] = useState(false);
+
   return (
     <>
       <div className='flex items-center gap-2 border-b border-slate-200 px-4 py-2.5'>
@@ -609,9 +611,15 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
 
         <Button
           className={tw`px-6`}
+          isPending={isSending}
           onPress={async () => {
-            await submitEndpointUrlForm();
-            await dataClient.fetch(ExampleRunEndpoint, { exampleId });
+            try {
+              setIsSending(true);
+              await submitEndpointUrlForm();
+              await dataClient.fetch(ExampleRunEndpoint, { exampleId });
+            } finally {
+              setIsSending(false);
+            }
           }}
           variant='primary'
         >

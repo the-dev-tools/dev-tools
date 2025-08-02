@@ -47,6 +47,7 @@ export const ImportDialog = () => {
   const [files, setFiles] = useState<File[]>();
   const [filters, setFilters] = useState<string[]>();
   const [selectedFilters, setSelectedFilters] = useState<Selection>('all');
+  const [isPending, setIsPending] = useState(false);
 
   const isFilterSelected = selectedFilters === 'all' || selectedFilters.size > 0;
 
@@ -57,6 +58,7 @@ export const ImportDialog = () => {
     setFiles(undefined);
     setFilters(undefined);
     setSelectedFilters('all');
+    setIsPending(false);
   };
 
   const importUniversal = !filters && (
@@ -107,16 +109,22 @@ export const ImportDialog = () => {
   const importUniversalSubmit = !filters && (
     <Button
       isDisabled={!files?.length && !text}
+      isPending={isPending}
       onPress={async () => {
-        const result = await dataClient.fetch(ImportEndpoint, {
-          data: (await data) ?? new Uint8Array(),
-          name: file?.name ?? '',
-          textData: text,
-          workspaceId,
-        });
+        try {
+          setIsPending(true);
+          const result = await dataClient.fetch(ImportEndpoint, {
+            data: (await data) ?? new Uint8Array(),
+            name: file?.name ?? '',
+            textData: text,
+            workspaceId,
+          });
 
-        if (result.kind === ImportKind.FILTER) setFilters(result.filter);
-        else await onImportSuccess();
+          if (result.kind === ImportKind.FILTER) setFilters(result.filter);
+          else await onImportSuccess();
+        } finally {
+          setIsPending(false);
+        }
       }}
       variant='primary'
     >
@@ -168,45 +176,51 @@ export const ImportDialog = () => {
   const importFilterSubmit = filters && (
     <Button
       isDisabled={!isFilterSelected}
+      isPending={isPending}
       onPress={async () => {
-        const finalFilters =
-          selectedFilters === 'all'
-            ? filters
-            : pipe(
-                selectedFilters.values(),
-                Array.fromIterable,
-                Array.filterMap((_) => Option.fromNullable(filters[_ as number])),
-              );
+        try {
+          setIsPending(true);
+          const finalFilters =
+            selectedFilters === 'all'
+              ? filters
+              : pipe(
+                  selectedFilters.values(),
+                  Array.fromIterable,
+                  Array.filterMap((_) => Option.fromNullable(filters[_ as number])),
+                );
 
-        const { flow } = await dataClient.fetch(ImportEndpoint, {
-          data: (await data) ?? new Uint8Array(),
-          filter: finalFilters,
-          kind: ImportKind.FILTER,
-          name: file?.name ?? '',
-          textData: text,
-          workspaceId,
-        });
-
-        if (flow) {
-          await setQueryChild(
-            dataClient.controller,
-            FlowListEndpoint.schema.items,
-            'push',
-            { controller: () => dataClient.controller, input: { workspaceId }, transport },
-            flow,
-          );
-
-          const flowIdCan = Ulid.construct(flow.flowId).toCanonical();
-
-          await navigate({
-            from: '/workspace/$workspaceIdCan',
-            to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
-
-            params: { flowIdCan },
+          const { flow } = await dataClient.fetch(ImportEndpoint, {
+            data: (await data) ?? new Uint8Array(),
+            filter: finalFilters,
+            kind: ImportKind.FILTER,
+            name: file?.name ?? '',
+            textData: text,
+            workspaceId,
           });
-        }
 
-        await onImportSuccess();
+          if (flow) {
+            await setQueryChild(
+              dataClient.controller,
+              FlowListEndpoint.schema.items,
+              'push',
+              { controller: () => dataClient.controller, input: { workspaceId }, transport },
+              flow,
+            );
+
+            const flowIdCan = Ulid.construct(flow.flowId).toCanonical();
+
+            await navigate({
+              from: '/workspace/$workspaceIdCan',
+              to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
+
+              params: { flowIdCan },
+            });
+          }
+
+          await onImportSuccess();
+        } finally {
+          setIsPending(false);
+        }
       }}
       variant='primary'
     >
