@@ -8,7 +8,7 @@ import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, Suspense, useMemo, useState } from 'react';
 import { Collection, Dialog, DialogTrigger, MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { useForm } from 'react-hook-form';
-import { FiClock, FiMoreHorizontal, FiSave } from 'react-icons/fi';
+import { FiClock, FiMoreHorizontal } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 import {
@@ -557,10 +557,6 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
         </Button> */}
 
         {/* <Separator orientation='vertical' className={tw`h-4`} /> */}
-
-        <Button className={tw`px-2 py-1 text-slate-800`} type='submit' variant='ghost'>
-          <FiSave className={tw`size-4 text-slate-500`} /> Save
-        </Button>
 
         <MenuTrigger {...menuTriggerProps}>
           <Button className={tw`p-1`} variant='ghost'>
