@@ -85,8 +85,15 @@ import (
 )
 
 // formatIterationContext formats the iteration context into hierarchical format with node names
-func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap.IDWrap]string, nodeID idwrap.IDWrap, parentNodes []idwrap.IDWrap) string {
+func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap.IDWrap]string, nodeID idwrap.IDWrap, parentNodes []idwrap.IDWrap, isLoopNode bool, executionCount int) string {
 	if ctx == nil || len(ctx.IterationPath) == 0 {
+		// For non-loop nodes without iteration context, add execution number
+		if !isLoopNode {
+			nodeName := nodeNameMap[nodeID]
+			if nodeName != "" {
+				return fmt.Sprintf("%s - Execution %d", nodeName, executionCount)
+			}
+		}
 		return "Execution 1"
 	}
 	
@@ -99,13 +106,21 @@ func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap
 	// Build hierarchical format with pipe separators (no "Execution 1" prefix for loop iterations)
 	var parts []string
 	
-	// Add parent loop nodes with their iteration numbers
-	for i, iteration := range ctx.IterationPath {
+	// Add parent loop nodes with their iteration numbers (deepest to shallowest)
+	for i := len(ctx.IterationPath) - 1; i >= 0; i-- {
 		if i < len(actualParentNodes) {
 			parentName := nodeNameMap[actualParentNodes[i]]
 			if parentName != "" {
-				parts = append(parts, fmt.Sprintf("%s iteration %d", parentName, iteration+1))
+				parts = append(parts, fmt.Sprintf("%s iteration %d", parentName, ctx.IterationPath[i]+1))
 			}
+		}
+	}
+	
+	// For non-loop nodes, add the current node name with execution number (shallowest level)
+	if !isLoopNode {
+		currentNodeName := nodeNameMap[nodeID]
+		if currentNodeName != "" {
+			parts = append(parts, fmt.Sprintf("%s - Execution %d", currentNodeName, executionCount))
 		}
 	}
 	
@@ -840,7 +855,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	nodeExecutionsDone := make(chan struct{})
 
 	// Track execution counts per node for naming
-	nodeExecutionCounts := make(map[idwrap.IDWrap]int)
+	nodeExecutionCounts := make(map[idwrap.IDWrap]int)          // nodeID -> execution count
+	executionIDToCount := make(map[idwrap.IDWrap]int)           // executionID -> execution number
 	nodeExecutionCountsMutex := sync.Mutex{}
 
 	// Map to store node executions by execution ID for state transitions
@@ -922,10 +938,46 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					if flowNodeStatus.IterationContext != nil && len(flowNodeStatus.IterationContext.IterationPath) > 0 {
 						// For loop executions, build hierarchical name using the full parent chain
 						var parentNodes []idwrap.IDWrap // Empty fallback
-						execName = formatIterationContext(flowNodeStatus.IterationContext, nodeNameMap, id, parentNodes)
+						
+						// Check if this is a loop node (FOR or FOR_EACH) by checking if it's in the parent chain
+						isLoopNode := false
+						if flowNodeStatus.IterationContext.ParentNodes != nil {
+							for _, parentNodeID := range flowNodeStatus.IterationContext.ParentNodes {
+								if parentNodeID == id {
+									isLoopNode = true
+									break
+								}
+							}
+						}
+						
+						// Get execution count for non-loop nodes (only increment once per ExecutionID)
+						nodeExecutionCountsMutex.Lock()
+						if _, exists := executionIDToCount[executionID]; !exists {
+							// First time seeing this ExecutionID, increment the node's counter
+							nodeExecutionCounts[id]++
+							executionIDToCount[executionID] = nodeExecutionCounts[id] // Store the execution number for this ExecutionID
+						}
+						execCount := executionIDToCount[executionID]
+						nodeExecutionCountsMutex.Unlock()
+						
+						execName = formatIterationContext(flowNodeStatus.IterationContext, nodeNameMap, id, parentNodes, isLoopNode, execCount)
 					} else if flowNodeStatus.Name != "" {
-						// For non-loop executions, use the node name directly
-						execName = flowNodeStatus.Name
+						// For non-loop executions, add execution number (only increment once per ExecutionID)
+						nodeExecutionCountsMutex.Lock()
+						if _, exists := executionIDToCount[executionID]; !exists {
+							// First time seeing this ExecutionID, increment the node's counter
+							if nodeExecutionCounts == nil {
+								nodeExecutionCounts = make(map[idwrap.IDWrap]int)
+							}
+							if executionIDToCount == nil {
+								executionIDToCount = make(map[idwrap.IDWrap]int)
+							}
+							nodeExecutionCounts[id]++
+							executionIDToCount[executionID] = nodeExecutionCounts[id] // Store the execution number for this ExecutionID
+						}
+						execCount := executionIDToCount[executionID]
+						nodeExecutionCountsMutex.Unlock()
+						execName = fmt.Sprintf("%s - Execution %d", flowNodeStatus.Name, execCount)
 					} else {
 						// Fallback to execution count
 						nodeExecutionCountsMutex.Lock()
