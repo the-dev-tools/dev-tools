@@ -39,6 +39,10 @@ export const DashboardLayout = ({ children, navbar }: DashboardLayoutProps) => (
 
       {navbar}
 
+      <a href='https://github.com/the-dev-tools/dev-tools' rel='noreferrer' target='_blank'>
+        <img alt='GitHub Repo stars' src='https://img.shields.io/github/stars/the-dev-tools/dev-tools' />
+      </a>
+
       {/* <NavigationBarDivider />
 
         <MenuTrigger>

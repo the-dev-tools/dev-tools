@@ -2,7 +2,7 @@ import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Console, Effect, pipe, Runtime, String } from 'effect';
-import { app, BrowserWindow, dialog, Dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, Dialog, ipcMain, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 
 import { CustomUpdateProvider, UpdateOptions } from './update';
@@ -23,6 +23,12 @@ const createWindow = Effect.gen(function* () {
       preload: path.join(import.meta.dirname, '../preload/index.cjs'),
     },
     width: 800,
+  });
+
+  // Open external URLs in a browser
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    void shell.openExternal(details.url);
+    return { action: 'deny' };
   });
 
   // and load the index.html of the app.
