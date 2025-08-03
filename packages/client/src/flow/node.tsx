@@ -4,7 +4,17 @@ import { getConnectedEdges, Node as NodeCore, NodeProps as NodePropsCore, useRea
 import { Array, Match, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, Suspense, use, useCallback, useRef, useState } from 'react';
-import { Key, MenuTrigger, Tab, TabList, TabPanel, Tabs, Tooltip, TooltipTrigger } from 'react-aria-components';
+import {
+  Button as AriaButton,
+  Key,
+  MenuTrigger,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+  Tooltip,
+  TooltipTrigger,
+} from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
@@ -126,7 +136,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
   const ref = useRef<HTMLDivElement>(null);
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const escape = useEscapePortal(ref);
+  const escape = useEscapePortal<HTMLButtonElement>(ref);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => nodeUpdate({ name: _, nodeId }),
@@ -169,21 +179,26 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
 
         <div className={tw`h-4 w-px bg-slate-300`} />
 
-        <div className={tw`flex-1 truncate text-xs leading-5 font-medium tracking-tight`} ref={escape.ref}>
+        <AriaButton
+          className={tw`cursor-text truncate text-xs leading-5 font-medium tracking-tight`}
+          onPress={() => void edit()}
+          ref={escape.ref}
+        >
           {name}
-        </div>
+        </AriaButton>
 
         {isEditing &&
           escape.render(
             <TextField
               aria-label='New node name'
-              className={tw`w-full`}
               inputClassName={tw`-mx-2 mt-2 bg-white py-0.75`}
               isDisabled={nodeUpdateLoading}
               {...textFieldProps}
             />,
             getZoom(),
           )}
+
+        <div className={tw`flex-1`} />
 
         {stateIndicator}
 

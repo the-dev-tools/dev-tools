@@ -19,7 +19,7 @@ import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Predicate
 import { Ulid } from 'id128';
 import { PropsWithChildren, Suspense, use, useCallback, useMemo, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
-import { Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
+import { Button as AriaButton, Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { Example } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
@@ -367,9 +367,13 @@ export const TopBar = () => {
           {...textFieldProps}
         />
       ) : (
-        <div className={tw`text-md leading-5 font-medium tracking-tight text-slate-800`} onContextMenu={onContextMenu}>
+        <AriaButton
+          className={tw`cursor-text text-md leading-5 font-medium tracking-tight text-slate-800`}
+          onContextMenu={onContextMenu}
+          onPress={() => void edit()}
+        >
           {name}
-        </div>
+        </AriaButton>
       )}
 
       <div className={tw`flex-1`} />

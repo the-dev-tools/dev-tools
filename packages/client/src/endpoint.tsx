@@ -6,7 +6,17 @@ import { Array, Duration, Match, MutableHashMap, Option, pipe, Schema, String, S
 import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, Suspense, useMemo, useState } from 'react';
-import { Collection, Dialog, DialogTrigger, MenuTrigger, Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
+import {
+  Button as AriaButton,
+  Collection,
+  Dialog,
+  DialogTrigger,
+  MenuTrigger,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+} from 'react-aria-components';
 import { useForm } from 'react-hook-form';
 import { FiClock, FiMoreHorizontal } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
@@ -537,9 +547,13 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
               {...textFieldProps}
             />
           ) : (
-            <h2 className={tw`max-w-full cursor-pointer truncate text-slate-800`} onContextMenu={onContextMenu}>
+            <AriaButton
+              className={tw`max-w-full cursor-text truncate text-slate-800`}
+              onContextMenu={onContextMenu}
+              onPress={() => void edit()}
+            >
               {example.name}
-            </h2>
+            </AriaButton>
           )}
         </div>
 

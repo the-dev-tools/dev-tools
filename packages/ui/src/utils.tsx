@@ -26,8 +26,10 @@ export const ariaTextValue = (textValue?: string, children?: unknown) => {
   return { ...(textValue_ && { textValue: textValue_ }) };
 };
 
-export const useEscapePortal = (containerRef: RefObject<HTMLDivElement | null>) => {
-  const ref = useRef<HTMLDivElement>(null);
+export const useEscapePortal = <T extends HTMLElement = HTMLDivElement>(
+  containerRef: RefObject<HTMLDivElement | null>,
+) => {
+  const ref = useRef<T>(null);
 
   const render = useCallback(
     (children: ReactNode, zoom = 1) => {

@@ -3,6 +3,7 @@ import { Array, HashMap, Match, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useState } from 'react';
 import {
+  Button as AriaButton,
   ListBox as AriaListBox,
   ListBoxItem as AriaListBoxItem,
   Dialog,
@@ -323,9 +324,14 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name } }: En
             {...textFieldProps}
           />
         ) : (
-          <h1 className={tw`leading-5 font-semibold tracking-tight text-slate-800`}>
+          <AriaButton
+            className={tw`max-w-full cursor-text truncate leading-5 font-semibold tracking-tight text-slate-800`}
+            isDisabled={isGlobal}
+            onContextMenu={onContextMenu}
+            onPress={() => void edit()}
+          >
             {isGlobal ? 'Global Variables' : name}
-          </h1>
+          </AriaButton>
         )}
 
         <div className={tw`flex-1`} />
