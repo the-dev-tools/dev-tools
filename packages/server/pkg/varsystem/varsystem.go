@@ -171,6 +171,87 @@ func IsFileReference(key string) bool {
 	return strings.HasPrefix(strings.TrimSpace(key), "#file:")
 }
 
+// VarMapTracker wraps a VarMap and tracks variable reads
+type VarMapTracker struct {
+	VarMap   VarMap
+	ReadVars map[string]string // stores variable key -> resolved value
+}
+
+// NewVarMapTracker creates a new tracking wrapper around a VarMap
+func NewVarMapTracker(varMap VarMap) *VarMapTracker {
+	return &VarMapTracker{
+		VarMap:   varMap,
+		ReadVars: make(map[string]string),
+	}
+}
+
+// Get tracks variable access and delegates to the underlying VarMap
+func (vmt *VarMapTracker) Get(varKey string) (mvar.Var, bool) {
+	val, ok := vmt.VarMap.Get(varKey)
+	if ok {
+		// Track this variable read
+		vmt.ReadVars[varKey] = val.Value
+	}
+	return val, ok
+}
+
+// ReplaceVars tracks all variable reads during replacement and delegates to underlying VarMap
+func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
+	var result string
+	for {
+		startIndex := strings.Index(raw, mvar.Prefix)
+		if startIndex == -1 {
+			result += raw
+			break
+		}
+
+		endIndex := strings.Index(raw[startIndex:], mvar.Suffix)
+		if endIndex == -1 {
+			return "", ErrInvalidKey
+		}
+
+		rawVar := raw[startIndex : startIndex+endIndex+mvar.SuffixSize]
+		if !CheckIsVar(rawVar) {
+			return "", ErrInvalidKey
+		}
+
+		// Check if key is present in the map
+		key := GetVarKeyFromRaw(rawVar)
+
+		// Check if this is a file reference
+		if IsFileReference(key) {
+			fileContent, err := ReadFileContentAsString(key)
+			if err != nil {
+				return "", err
+			}
+			// Track file reference read
+			vmt.ReadVars[key] = fileContent
+			result += raw[:startIndex] + fileContent
+		} else {
+			val, ok := vmt.VarMap.Get(key)
+			if !ok {
+				return "", fmt.Errorf("%s %v", key, ErrKeyNotFound)
+			}
+			// Track variable read
+			vmt.ReadVars[key] = val.Value
+			result += raw[:startIndex] + val.Value
+		}
+
+		raw = raw[startIndex+len(rawVar):]
+	}
+
+	return result, nil
+}
+
+// GetReadVars returns a copy of all tracked variable reads
+func (vmt *VarMapTracker) GetReadVars() map[string]string {
+	result := make(map[string]string, len(vmt.ReadVars))
+	for k, v := range vmt.ReadVars {
+		result[k] = v
+	}
+	return result
+}
+
 // ReadFileContentAsString reads the content of a file at the given path
 func ReadFileContentAsString(filePath string) (string, error) {
 	data, err := os.ReadFile(strings.TrimPrefix(strings.TrimSpace(filePath), "#file:"))

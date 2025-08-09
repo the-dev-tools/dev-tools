@@ -209,6 +209,13 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				
 				// Capture tracked data
 				outputData := tracker.GetWrittenVars()
+				
+				// Merge tracked variable reads into inputData
+				trackedReads := tracker.GetReadVars()
+				if len(trackedReads) > 0 {
+					// Add tracked variables under a special "variables" key
+					inputData["variables"] = trackedReads
+				}
 
 				resultChan <- processResult{
 					originalID:  currentNode.GetID(),
@@ -360,6 +367,13 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				
 				// Capture tracked data
 				outputData := tracker.GetWrittenVars()
+				
+				// Merge tracked variable reads into inputData
+				trackedReads := tracker.GetReadVars()
+				if len(trackedReads) > 0 {
+					// Add tracked variables under a special "variables" key
+					inputData["variables"] = trackedReads
+				}
 
 				resultChan <- processResult{
 					originalID:  currentNode.GetID(),

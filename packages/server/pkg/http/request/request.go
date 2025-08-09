@@ -59,6 +59,12 @@ func escapeQuotes(s string) string {
 	return quoteEscaper.Replace(s)
 }
 
+// PrepareRequestResult holds the result of preparing a request with tracked variable usage
+type PrepareRequestResult struct {
+	Request   *httpclient.Request
+	ReadVars  map[string]string // Variables that were read during request preparation
+}
+
 func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiExample, queries []mexamplequery.Query, headers []mexampleheader.Header,
 	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded, varMap varsystem.VarMap,
 ) (*httpclient.Request, error) {
@@ -307,6 +313,267 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	}
 
 	return httpReq, nil
+}
+
+// PrepareRequestWithTracking prepares a request and tracks which variables are read
+func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiExample, queries []mexamplequery.Query, headers []mexampleheader.Header,
+	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded, varMap varsystem.VarMap,
+) (*PrepareRequestResult, error) {
+	// Create a tracking wrapper around the varMap
+	tracker := varsystem.NewVarMapTracker(varMap)
+	
+	var err error
+	if varsystem.CheckStringHasAnyVarKey(endpoint.Url) {
+		endpoint.Url, err = tracker.ReplaceVars(endpoint.Url)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+	}
+
+	// get only enabled
+	sortenabled.GetAllWithState(&headers, true)
+	sortenabled.GetAllWithState(&queries, true)
+	sortenabled.GetAllWithState(&formBody, true)
+	sortenabled.GetAllWithState(&urlBody, true)
+
+	compressType := compress.CompressTypeNone
+	if varMap != nil {
+		for i, query := range queries {
+			if varsystem.CheckIsVar(query.QueryKey) {
+				key := varsystem.GetVarKeyFromRaw(query.QueryKey)
+				if val, ok := tracker.Get(key); ok {
+					queries[i].QueryKey = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
+				}
+			}
+
+			if varsystem.CheckIsVar(query.Value) {
+				key := varsystem.GetVarKeyFromRaw(query.Value)
+				if val, ok := tracker.Get(key); ok {
+					queries[i].Value = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
+				}
+			}
+		}
+	}
+
+	for i, header := range headers {
+		if header.HeaderKey == "Content-Encoding" {
+			switch strings.ToLower(header.Value) {
+			case "gzip":
+				compressType = compress.CompressTypeGzip
+			case "zstd":
+				compressType = compress.CompressTypeZstd
+			case "br":
+				compressType = compress.CompressTypeBr
+			case "deflate", "identity":
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
+			default:
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
+			}
+		}
+
+		if varMap != nil {
+			if varsystem.CheckIsVar(header.HeaderKey) {
+				key := varsystem.GetVarKeyFromRaw(header.HeaderKey)
+				if val, ok := tracker.Get(key); ok {
+					headers[i].HeaderKey = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
+				}
+			}
+
+			if varsystem.CheckStringHasAnyVarKey(header.Value) {
+				// Use tracking wrapper's ReplaceVars for any string containing variables
+				replacedValue, err := tracker.ReplaceVars(header.Value)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
+				}
+				headers[i].Value = replacedValue
+			}
+		}
+	}
+
+	bodyBytes := &bytes.Buffer{}
+	switch example.BodyType {
+	case mitemapiexample.BodyTypeRaw:
+		if len(rawBody.Data) > 0 {
+			if rawBody.CompressType != compress.CompressTypeNone {
+				rawBody.Data, err = compress.Decompress(rawBody.Data, rawBody.CompressType)
+				if err != nil {
+					return nil, err
+				}
+			}
+			bodyStr := string(rawBody.Data)
+			bodyStr, err = tracker.ReplaceVars(bodyStr)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			rawBody.Data = []byte(bodyStr)
+		}
+		_, err = bodyBytes.Write(rawBody.Data)
+		if err != nil {
+			return nil, err
+		}
+	case mitemapiexample.BodyTypeForm:
+		writer := multipart.NewWriter(bodyBytes)
+
+		// Add Content-Type header with multipart boundary
+		contentTypeHeader := mexampleheader.Header{
+			HeaderKey: "Content-Type",
+			Value:     writer.FormDataContentType(),
+			Enable:    true,
+		}
+		headers = append(headers, contentTypeHeader)
+
+		for _, v := range formBody {
+			actualBodyKey := v.BodyKey
+			if varsystem.CheckIsVar(v.BodyKey) {
+				key := varsystem.GetVarKeyFromRaw(v.BodyKey)
+				if val, ok := tracker.Get(key); ok {
+					actualBodyKey = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+
+			// First check if this value contains file references (before variable replacement)
+			filePathsToUpload := []string{}
+			potentialFileRefs := strings.Split(v.Value, ",")
+			allAreFileReferences := true
+
+			for _, ref := range potentialFileRefs {
+				trimmedRef := strings.TrimSpace(ref)
+				// Check if this is a variable containing a file reference
+				if varsystem.CheckIsVar(trimmedRef) {
+					key := varsystem.GetVarKeyFromRaw(trimmedRef)
+					if varsystem.IsFileReference(key) {
+						// This is {{#file:path}} format
+						filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(key))
+						// Track the file reference read
+						tracker.ReadVars[key], _ = varsystem.ReadFileContentAsString(key)
+					} else {
+						// This is a regular variable, try to resolve it
+						if val, ok := tracker.Get(key); ok {
+							if varsystem.IsFileReference(val.Value) {
+								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(val.Value))
+							} else {
+								allAreFileReferences = false
+								break
+							}
+						} else {
+							allAreFileReferences = false
+							break
+						}
+					}
+				} else if varsystem.IsFileReference(trimmedRef) {
+					// This is direct #file:path format
+					filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(trimmedRef))
+					// Track the file reference read
+					tracker.ReadVars[trimmedRef], _ = varsystem.ReadFileContentAsString(trimmedRef)
+				} else {
+					allAreFileReferences = false
+					break
+				}
+			}
+
+			resolvedValue := v.Value
+			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.Value) {
+				// Only replace variables if this is not a file reference
+				var err error
+				resolvedValue, err = tracker.ReplaceVars(v.Value)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
+				}
+			}
+
+			if allAreFileReferences && len(filePathsToUpload) > 0 {
+				// This is a file upload (single or multiple)
+				for _, filePath := range filePathsToUpload {
+					fileContentBytes, err := os.ReadFile(filePath)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read file %s: %w", filePath, err))
+					}
+
+					fileName := filepath.Base(filePath)
+
+					h := make(textproto.MIMEHeader)
+					h.Set("Content-Disposition",
+						fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+							escapeQuotes(actualBodyKey), escapeQuotes(fileName)))
+
+					mimeType := mime.TypeByExtension(filepath.Ext(fileName))
+					if mimeType == "" {
+						mimeType = "application/octet-stream"
+					}
+					h.Set("Content-Type", mimeType)
+
+					partWriter, err := writer.CreatePart(h)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create form part: %w", err))
+					}
+
+					if _, err = partWriter.Write(fileContentBytes); err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to write file content: %w", err))
+					}
+				}
+			} else {
+				// This is a regular text field
+				if err := writer.WriteField(actualBodyKey, resolvedValue); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+		}
+		if err := writer.Close(); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to close multipart writer: %w", err))
+		}
+	case mitemapiexample.BodyTypeUrlencoded:
+		urlVal := url.Values{}
+		for _, url := range urlBody {
+			if varsystem.CheckIsVar(url.BodyKey) {
+				key := varsystem.GetVarKeyFromRaw(url.Value)
+				if val, ok := tracker.Get(key); ok {
+					url.BodyKey = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+			if varsystem.CheckIsVar(url.Value) {
+				key := varsystem.GetVarKeyFromRaw(url.Value)
+				if val, ok := tracker.Get(key); ok {
+					url.Value = val.Value
+				} else {
+					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+				}
+			}
+
+			urlVal.Add(url.BodyKey, url.Value)
+		}
+		endpoint.Url += urlVal.Encode()
+	}
+
+	if compressType != compress.CompressTypeNone {
+		compressedData, err := compress.Compress(bodyBytes.Bytes(), compressType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		bodyBytes = bytes.NewBuffer(compressedData)
+	}
+
+	httpReq := &httpclient.Request{
+		Method:  endpoint.Method,
+		URL:     endpoint.Url,
+		Headers: headers,
+		Queries: queries,
+		Body:    bodyBytes.Bytes(),
+	}
+
+	return &PrepareRequestResult{
+		Request:  httpReq,
+		ReadVars: tracker.GetReadVars(),
+	}, nil
 }
 
 func SendRequest(req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {

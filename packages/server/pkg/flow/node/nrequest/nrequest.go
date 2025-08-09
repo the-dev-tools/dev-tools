@@ -120,11 +120,21 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	// TODO: varMap is null create varMap
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 
-	prepareOutput, err := request.PrepareRequest(nr.Api, nr.Example,
+	prepareResult, err := request.PrepareRequestWithTracking(nr.Api, nr.Example,
 		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
 	if err != nil {
 		result.Err = err
 		return result
+	}
+	
+	prepareOutput := prepareResult.Request
+	inputVars := prepareResult.ReadVars
+	
+	// Track variable reads if tracker is available
+	if req.VariableTracker != nil {
+		for varKey, varValue := range inputVars {
+			req.VariableTracker.TrackRead(varKey, varValue)
+		}
 	}
 
 	if ctx.Err() != nil {
@@ -226,12 +236,22 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	// TODO: varMap is null create varMap
 	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
 
-	prepareOutput, err := request.PrepareRequest(nr.Api, nr.Example,
+	prepareResult, err := request.PrepareRequestWithTracking(nr.Api, nr.Example,
 		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
 		return
+	}
+	
+	prepareOutput := prepareResult.Request
+	inputVars := prepareResult.ReadVars
+	
+	// Track variable reads if tracker is available
+	if req.VariableTracker != nil {
+		for varKey, varValue := range inputVars {
+			req.VariableTracker.TrackRead(varKey, varValue)
+		}
 	}
 
 	if ctx.Err() != nil {
