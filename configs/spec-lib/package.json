@@ -1,0 +1,21 @@
+{
+  "name": "@the-dev-tools/spec-lib",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "typespec": "./spec/main.tsp",
+    "types": "./dist/src/index.d.ts",
+    "default": "./dist/src/index.js"
+  },
+  "devDependencies": {
+    "@alloy-js/cli": "~0.18.0",
+    "@alloy-js/core": "~0.18.2",
+    "@alloy-js/typescript": "~0.18.0",
+    "@the-dev-tools/eslint-config": "workspace:^",
+    "@types/node": "~24.1.0",
+    "@typespec/emitter-framework": "~0.9.0",
+    "effect": "~3.17.1",
+    "prettier": "~3.6.2",
+    "typescript": "~5.8.3"
+  }
+}

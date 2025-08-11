@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "jsx": "preserve",
+    "jsxImportSource": "@alloy-js/core",
+    "emitDeclarationOnly": false,
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "*.ts"],
+  "references": [
+    {
+      "path": "../eslint"
+    },
+    {
+      "path": "./tsconfig.lib.json"
+    }
+  ]
+}
