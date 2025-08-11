@@ -29,6 +29,9 @@
     },
     {
       "path": "./packages/worker-js"
+    },
+    {
+      "path": "./configs/spec-lib"
     }
   ]
 }
