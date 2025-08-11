@@ -350,6 +350,36 @@ importers:
         specifier: ~5.8.3
         version: 5.8.3
 
+  configs/spec-lib:
+    devDependencies:
+      '@alloy-js/cli':
+        specifier: ~0.18.0
+        version: 0.18.0
+      '@alloy-js/core':
+        specifier: ~0.18.2
+        version: 0.18.2
+      '@alloy-js/typescript':
+        specifier: ~0.18.0
+        version: 0.18.0
+      '@the-dev-tools/eslint-config':
+        specifier: workspace:^
+        version: link:../eslint
+      '@types/node':
+        specifier: ~24.1.0
+        version: 24.1.0
+      '@typespec/emitter-framework':
+        specifier: ~0.9.0
+        version: 0.9.0(@alloy-js/core@0.18.2)(@alloy-js/csharp@0.18.0)(@alloy-js/typescript@0.18.0)(@typespec/compiler@1.2.1(@types/node@24.1.0))(@typespec/http@1.2.1(@typespec/compiler@1.2.1(@types/node@24.1.0)))(@typespec/rest@0.72.1(@typespec/compiler@1.2.1(@types/node@24.1.0))(@typespec/http@1.2.1(@typespec/compiler@1.2.1(@types/node@24.1.0))))
+      effect:
+        specifier: ~3.17.1
+        version: 3.17.1
+      prettier:
+        specifier: ~3.6.2
+        version: 3.6.2
+      typescript:
+        specifier: ~5.8.3
+        version: 5.8.3
+
   packages/client:
     dependencies:
       '@bufbuild/protobuf':
@@ -8727,6 +8757,7 @@ packages:
   source-map@0.8.0-beta.0:
     resolution: {integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==}
     engines: {node: '>= 8'}
+    deprecated: The work that was done in this beta branch won't be included in future versions
 
   sprintf-js@1.0.3:
     resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==}
@@ -12263,7 +12294,7 @@ snapshots:
       browserslist: 4.25.1
       json5: 2.2.3
       nullthrows: 1.1.1
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -12296,7 +12327,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.7.1
+      semver: 7.7.2
       srcset: 4.0.0
     transitivePeerDependencies:
       - '@parcel/core'
@@ -12327,7 +12358,7 @@ snapshots:
       browserslist: 4.25.1
       nullthrows: 1.1.1
       regenerator-runtime: 0.13.11
-      semver: 7.7.1
+      semver: 7.7.2
 
   '@parcel/transformer-json@2.9.3(@parcel/core@2.9.3)':
     dependencies:
@@ -12353,7 +12384,7 @@ snapshots:
       clone: 2.1.2
       nullthrows: 1.1.1
       postcss-value-parser: 4.2.0
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -12365,7 +12396,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -12410,7 +12441,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
