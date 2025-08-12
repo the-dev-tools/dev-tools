@@ -30,7 +30,7 @@ import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
 import { $decorators } from './decorators.js';
 import { EmitterOptions } from './lib.js';
-import { externals, maps, streams, templateInstances, templateNames, templates } from './state.js';
+import { externals, instances, maps, streams, templateInstances, templateNames, templates } from './state.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -275,6 +275,7 @@ const Package = ({ namespace }: PackageProps) => {
     Array.filterMap((_) => {
       if (!_.isFinished) $.type.finishType(_);
       if (templates(program).has(_)) return Option.none();
+      if (instances(program).has(_)) return Option.none();
       return pipe(templateInstances(program).get(_)?.values() ?? [], Array.fromIterable, Array.prepend(_), Option.some);
     }),
     Array.flatten,

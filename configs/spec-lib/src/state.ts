@@ -15,3 +15,5 @@ export const templateNames = (program: Program) =>
   program.stateMap(state.templateNames) as Map<Model, Map<Type, string>>;
 
 export const templates = (program: Program) => program.stateSet(state.templates);
+
+export const instances = (program: Program) => program.stateSet(state.instances);
