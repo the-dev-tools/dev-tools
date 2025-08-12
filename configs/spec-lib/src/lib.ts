@@ -13,7 +13,7 @@ export const $lib = createTypeSpecLibrary({
   name: 'spec-lib',
 });
 
-const stateKeys = ['externals', 'maps', 'streams'] as const;
+const stateKeys = ['externals', 'maps', 'streams', 'templateInstances', 'templateNames', 'templates'] as const;
 export const state: Record<(typeof stateKeys)[number], symbol> = Record.fromIterableWith(stateKeys, (_) => [
   _,
   $lib.createStateSymbol(_),

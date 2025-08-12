@@ -28,8 +28,9 @@ import {
 import { EmitContext, Enum, Interface, Model, ModelProperty, Namespace, Program, Type } from '@typespec/compiler';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
+import { $decorators } from './decorators.js';
 import { EmitterOptions } from './lib.js';
-import { externals, maps, streams } from './state.js';
+import { externals, maps, streams, templateInstances, templateNames, templates } from './state.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -84,7 +85,7 @@ const fieldNumberFromName = (value: string) => {
 
 // https://protobuf.dev/programming-guides/proto3/#scalar
 const protoScalarsMapCache = new WeakMap<Program, HashMap.HashMap<Type, string>>();
-function useProtoScalarsMap() {
+const useProtoScalarsMap = () => {
   const { program } = useTsp();
 
   let scalarMap = protoScalarsMapCache.get(program);
@@ -121,7 +122,74 @@ function useProtoScalarsMap() {
 
   protoScalarsMapCache.set(program, scalarMap);
   return scalarMap;
-}
+};
+
+const useProtoTypeMap = () => {
+  const { $, program } = useTsp();
+
+  const protoScalarsMap = useProtoScalarsMap();
+
+  const getMapProtoType = (type: Type) => {
+    const types = pipe(maps(program).get(type)!, Tuple.map(getProtoType), Array.getSomes);
+    if (!Tuple.isTupleOf(types, 2)) throw Error('Incorrect map');
+    const [key, value] = types;
+
+    return Option.some(
+      <>
+        map {'<'} {key}, {value} {'>'}
+      </>,
+    );
+  };
+
+  const getTemplateInstance = (type: Type) =>
+    Option.gen(function* () {
+      const template = yield* Option.liftPredicate(type, (_) => $.model.is(_));
+
+      const templateDecorator = yield* Array.findFirst(
+        template.decorators,
+        (_) => _.decorator === $decorators.Lib.templateOf,
+      );
+
+      const base = yield* pipe(
+        Array.head(templateDecorator.args),
+        Option.map((_) => _.value),
+        Option.filter((_) => $.model.is(_)),
+      );
+
+      const instance = yield* pipe(templateInstances(program).get(base)?.get(template), Option.fromNullable);
+
+      return refkey(instance);
+    });
+
+  const getProtoType = (type: Type): Option.Option<Children> =>
+    pipe(
+      Match.value(type),
+      Match.when(
+        (_) => $.array.is(_),
+        (_) => pipe($.array.getElementType(_), getProtoType),
+      ),
+      Match.when(
+        (_) => maps(program).has(_),
+        (_) => getMapProtoType(_),
+      ),
+      Match.when(
+        (_) => templates(program).has(_),
+        (_) => getTemplateInstance(_),
+      ),
+      Match.when(
+        (_) => $.model.is(_) || $.enum.is(_),
+        (_) => Option.some(refkey(_)),
+      ),
+      Match.when(
+        (_) => $.scalar.is(_),
+        (_) => HashMap.get(protoScalarsMap, _),
+      ),
+      Match.option,
+      Option.flatten,
+    );
+
+  return getProtoType;
+};
 
 class ExternalScope extends OutputScope {
   override get kind() {
@@ -152,6 +220,7 @@ interface PackageProps {
 }
 
 const Package = ({ namespace }: PackageProps) => {
+  const { $, program } = useTsp();
   const { goPackage, version } = useContext(EmitterOptionsContext)!;
 
   const name = String.pascalToSnake(namespace.name);
@@ -163,6 +232,14 @@ const Package = ({ namespace }: PackageProps) => {
 
   const specifier = path.replaceAll('/', '.');
 
+  const scope = new PackageScope(`${path}/${name}.proto`, { specifier });
+
+  const packages = pipe(
+    namespace.namespaces.values(),
+    Array.fromIterable,
+    Array.map((_) => <Package namespace={_} />),
+  );
+
   const headers = ['syntax = "proto3"', `package ${specifier}`];
   if (Option.isSome(goPackage)) headers.push(`option go_package = "${goPackage.value}/${path};${name}v${version}"`);
 
@@ -172,10 +249,14 @@ const Package = ({ namespace }: PackageProps) => {
     </For>
   );
 
-  const packages = pipe(
-    namespace.namespaces.values(),
-    Array.fromIterable,
-    Array.map((_) => <Package namespace={_} />),
+  const imports = (
+    <Show when={scope.imports.size > 0}>
+      <hbr />
+      <For each={scope.imports.values()} enderPunctuation hardline semicolon>
+        {(_) => `import "${_.name}"`}
+      </For>
+      <hbr />
+    </Show>
   );
 
   const enums = (
@@ -188,36 +269,42 @@ const Package = ({ namespace }: PackageProps) => {
     </Show>
   );
 
-  const messages = (
-    <Show when={namespace.models.size > 0}>
-      <hbr />
-      <For doubleHardline each={namespace.models.values()}>
-        {(_) => <Message model={_} />}
-      </For>
-      <hbr />
-    </Show>
+  const messages = pipe(
+    namespace.models.values(),
+    Array.fromIterable,
+    Array.filterMap((_) => {
+      if (!_.isFinished) $.type.finishType(_);
+      if (templates(program).has(_)) return Option.none();
+      return pipe(templateInstances(program).get(_)?.values() ?? [], Array.fromIterable, Array.prepend(_), Option.some);
+    }),
+    Array.flatten,
+    (_) => (
+      <Show when={_.length > 0}>
+        <hbr />
+        <For doubleHardline each={_}>
+          {(_) => <Message model={_} />}
+        </For>
+        <hbr />
+      </Show>
+    ),
   );
 
-  const scope = new PackageScope(`${path}/${name}.proto`, { specifier });
-
-  const imports = (
-    <Show when={scope.imports.size > 0}>
-      <hbr />
-      <For each={scope.imports.values()} enderPunctuation hardline semicolon>
-        {(_) => `import "${_.name}"`}
-      </For>
-      <hbr />
-    </Show>
-  );
-
-  const services = (
-    <Show when={namespace.interfaces.size > 0}>
-      <hbr />
-      <For doubleHardline each={namespace.interfaces.values()}>
-        {(_) => <Service _interface={_} />}
-      </For>
-      <hbr />
-    </Show>
+  const services = pipe(
+    namespace.interfaces.values(),
+    Array.fromIterable,
+    Array.filter((_) => {
+      if (!_.isFinished) $.type.finishType(_);
+      return !templates(program).has(_);
+    }),
+    (_) => (
+      <Show when={_.length > 0}>
+        <hbr />
+        <For doubleHardline each={_}>
+          {(_) => <Service _interface={_} />}
+        </For>
+        <hbr />
+      </Show>
+    ),
   );
 
   return (
@@ -325,47 +412,10 @@ interface FieldProps {
 }
 
 const Field = ({ property }: FieldProps) => {
-  const { $, program } = useTsp();
+  const { $ } = useTsp();
+  const protoTypeMap = useProtoTypeMap();
 
-  const protoScalarsMap = useProtoScalarsMap();
-
-  const getMapProtoType = (type: Type) => {
-    const types = pipe(maps(program).get(type)!, Tuple.map(getProtoType), Array.getSomes);
-    if (!Tuple.isTupleOf(types, 2)) throw Error('Incorrect map');
-    const [key, value] = types;
-
-    return Option.some(
-      <>
-        map {'<'} {key}, {value} {'>'}
-      </>,
-    );
-  };
-
-  const getProtoType = (type: Type): Option.Option<Children> =>
-    pipe(
-      Match.value(type),
-      Match.when(
-        (_) => $.array.is(_),
-        (_) => pipe($.array.getElementType(_), getProtoType),
-      ),
-      Match.when(
-        (_) => maps(program).has(_),
-        (_) => getMapProtoType(_),
-      ),
-      Match.when(
-        (_) => $.model.is(_) || $.enum.is(_),
-        (_) => Option.some(refkey(_)),
-      ),
-      Match.when(
-        (_) => $.scalar.is(_),
-        (_) => HashMap.get(protoScalarsMap, _),
-      ),
-      Match.option,
-      Option.flatten,
-    );
-
-  const type = pipe(property.type, getProtoType, Option.getOrThrow);
-
+  const type = pipe(property.type, protoTypeMap, Option.getOrThrow);
   const number = fieldNumberFromName(property.name);
 
   return (
@@ -381,7 +431,8 @@ interface ServiceProps {
 }
 
 const Service = ({ _interface }: ServiceProps) => {
-  const { program } = useTsp();
+  const { $, program } = useTsp();
+  const protoTypeMap = useProtoTypeMap();
 
   const fields = pipe(
     _interface.operations.values(),
@@ -390,32 +441,54 @@ const Service = ({ _interface }: ServiceProps) => {
     Option.map((_) => (
       <Block>
         <For each={_} enderPunctuation hardline semicolon>
-          {(_) => {
-            const streamKey = 'stream ';
-            const [inputStreamKey, outputStreamKey] = pipe(
-              streams(program).get(_) ?? 'None',
-              Match.value,
-              Match.when('None', () => ['', ''] as const),
-              Match.when('Duplex', () => [streamKey, streamKey] as const),
-              Match.when('In', () => [streamKey, ''] as const),
-              Match.when('Out', () => ['', streamKey] as const),
-              Match.exhaustive,
-            );
+          {(_) =>
+            Option.gen(function* () {
+              const name = pipe(
+                Option.gen(function* () {
+                  const templateDecorator = yield* Array.findFirst(
+                    _.decorators,
+                    (_) => _.decorator === $decorators.Lib.templateOf,
+                  );
 
-            const { model: inputType } = pipe(
-              _.parameters.sourceModels,
-              Array.findFirst((_) => _.usage === 'spread'),
-              Option.getOrThrow,
-            );
+                  const base = yield* pipe(
+                    Array.head(templateDecorator.args),
+                    Option.map((_) => _.value),
+                    Option.filter((_) => $.model.is(_)),
+                  );
 
-            return (
-              <>
-                rpc {_.name}({inputStreamKey}
-                {refkey(inputType)}) returns ({outputStreamKey}
-                {refkey(_.returnType)})
-              </>
-            );
-          }}
+                  return yield* pipe(templateNames(program).get(base)?.get(_), Option.fromNullable);
+                }),
+                Option.getOrElse(() => _.name),
+              );
+
+              const streamKey = 'stream ';
+              const [inputStreamKey, outputStreamKey] = pipe(
+                streams(program).get(_) ?? 'None',
+                Match.value,
+                Match.when('None', () => ['', ''] as const),
+                Match.when('Duplex', () => [streamKey, streamKey] as const),
+                Match.when('In', () => [streamKey, ''] as const),
+                Match.when('Out', () => ['', streamKey] as const),
+                Match.exhaustive,
+              );
+
+              const inputType = yield* pipe(
+                _.parameters.sourceModels,
+                Array.findFirst((_) => _.usage === 'spread'),
+                Option.flatMap((_) => protoTypeMap(_.model)),
+              );
+
+              const outputType = yield* protoTypeMap(_.returnType);
+
+              return (
+                <>
+                  rpc {name}({inputStreamKey}
+                  {refkey(inputType)}) returns ({outputStreamKey}
+                  {refkey(outputType)})
+                </>
+              );
+            }).pipe(Option.getOrThrow)
+          }
         </For>
       </Block>
     )),
