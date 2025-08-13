@@ -10,9 +10,11 @@ import {
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { Array, Option, pipe, Record } from 'effect';
-import { externals, instances, maps, streams, templateInstances, templateNames, templates } from './state.js';
+import { addInstance, externals, instancesByTemplate, maps, streams, templates } from './state.js';
 
-const instanceOf = ({ program }: DecoratorContext, instance: Model, templateMaybe?: Model) =>
+// Lib
+
+const instanceOf = ({ program }: DecoratorContext, instance: Model, templateMaybe: Model) =>
   Option.gen(function* () {
     const template = yield* pipe(
       Option.fromNullable(templateMaybe),
@@ -30,50 +32,46 @@ const instanceOf = ({ program }: DecoratorContext, instance: Model, templateMayb
       Option.filter((_) => $(program).model.is(_)),
     );
 
-    let instanceMap = templateInstances(program).get(base);
-    instanceMap ??= new Map();
-
-    instances(program).add(instance);
-    templateInstances(program).set(base, instanceMap);
-    instanceMap.set(template, instance);
+    addInstance({ base, instance, override: true, program, template });
   });
 
-const templateOf = ({ program }: DecoratorContext, template: Interface | Model | Operation, base: Model) => {
-  const name = base.name + template.name;
+const templateOf = (context: DecoratorContext, template: Interface | Model | Operation, base?: Model) => {
+  const { program } = context;
 
-  if (template.kind === 'Model') {
-    const isInstance = pipe(
-      template.decorators,
-      Array.findFirst((_) => _.decorator === instanceOf),
-      Option.isSome,
-    );
+  if (templates(program).has(template)) return;
 
-    if (isInstance) return;
+  base = pipe(
+    Option.fromNullable(base),
+    Option.flatMapNullable((_) => instancesByTemplate(program).get(_)),
+    Option.orElseSome(() => base),
+    Option.getOrUndefined,
+  );
 
-    let instanceMap = templateInstances(program).get(base);
-    instanceMap ??= new Map();
+  if (base && template.kind === 'Model') {
+    if (template.sourceModel && instancesByTemplate(program).has(template.sourceModel))
+      return void instanceOf(context, template, template.sourceModel);
 
-    let instance = instanceMap.get(template);
-    instance ??= $(program).model.create({
-      name,
+    const instance = $(program).model.create({
+      name: base.name + template.name,
       properties: pipe($(program).model.getProperties(template), Record.fromEntries),
     });
 
-    templateInstances(program).set(base, instanceMap);
-    instanceMap.set(template, instance);
-  } else {
-    let names = templateNames(program).get(base);
-    names ??= new Map();
-
-    templateNames(program).set(base, names);
-    names.set(template, name);
+    addInstance({ base, instance, program, template });
+  } else if (base && template.kind === 'Interface') {
+    template.operations.forEach((_) => {
+      _.name = base.name + _.name;
+    });
   }
 
   templates(program).add(template);
 };
 
+// TypeSpec
+
 const stream = ({ program }: DecoratorContext, target: Operation, mode: EnumMember) =>
   streams(program).set(target, mode.name as never);
+
+// TypeSpec.Private
 
 const external = ({ program }: DecoratorContext, target: Model, path: StringLiteral, name: StringLiteral) =>
   externals(program).set(target, [path.value, name.value]);
