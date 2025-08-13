@@ -82,6 +82,9 @@ const fieldNumberFromName = (value: string) => {
   return fieldNumber;
 };
 
+// https://protobuf.dev/programming-guides/proto3/#enum
+const enumNumberFromName = (value: string) => Math.abs(Hash.string(value) % 2 ** 32);
+
 // https://protobuf.dev/programming-guides/proto3/#scalar
 const protoScalarsMapCache = new WeakMap<Program, HashMap.HashMap<Type, string>>();
 const useProtoScalarsMap = () => {
@@ -341,18 +344,19 @@ interface ProtoEnumProps {
 }
 
 const ProtoEnum = ({ _enum }: ProtoEnumProps) => {
-  const fields = pipe(
-    _enum.members.values(),
-    Array.fromIterable,
-    Option.liftPredicate(Array.isNonEmptyArray),
-    Option.map((_) => (
-      <Block>
-        <For each={_} enderPunctuation hardline semicolon>
-          {(_) => `${pipe(_.name, String.pascalToSnake, String.toUpperCase)} = ${_.value}`}
-        </For>
-      </Block>
-    )),
-    Option.getOrElse(() => '{}'),
+  const fieldName = (_: string) => pipe(_enum.name + _, String.pascalToSnake, String.toUpperCase);
+
+  const fields = (
+    <Block>
+      {fieldName('Unspecified')} = 0;
+      <hbr />
+      <For each={_enum.members.values()} enderPunctuation hardline semicolon>
+        {(_) => {
+          const name = fieldName(_.name);
+          return `${name} = ${_.value ?? enumNumberFromName(name)}`;
+        }}
+      </For>
+    </Block>
   );
 
   return (
