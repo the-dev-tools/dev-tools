@@ -1,4 +1,4 @@
-namespace WellKnown;
+namespace TypeSpec.WellKnown;
 
 model Any is External<"google/protobuf/any.proto", "google.protobuf.Any">;
 model Empty is External<"google/protobuf/empty.proto", "google.protobuf.Empty">;

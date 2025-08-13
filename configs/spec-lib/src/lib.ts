@@ -14,13 +14,16 @@ export const $lib = createTypeSpecLibrary({
 });
 
 const stateKeys = [
-  'externals',
+  // Lib
   'instances',
-  'maps',
-  'streams',
-  'templateInstances',
-  'templateNames',
+  'instancesByModel',
+  'instancesByTemplate',
   'templates',
+  // TypeSpec
+  'streams',
+  // TypeSpec.Private
+  'externals',
+  'maps',
 ] as const;
 export const state: Record<(typeof stateKeys)[number], symbol> = Record.fromIterableWith(stateKeys, (_) => [
   _,

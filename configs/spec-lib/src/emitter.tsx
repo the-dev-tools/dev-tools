@@ -27,10 +27,9 @@ import {
 } from '@alloy-js/core';
 import { EmitContext, Enum, Interface, Model, ModelProperty, Namespace, Program, Type } from '@typespec/compiler';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
-import { Array, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
-import { $decorators } from './decorators.js';
+import { Array, flow, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
 import { EmitterOptions } from './lib.js';
-import { externals, instances, maps, streams, templateInstances, templateNames, templates } from './state.js';
+import { externals, instances, instancesByModel, instancesByTemplate, maps, streams, templates } from './state.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -129,38 +128,6 @@ const useProtoTypeMap = () => {
 
   const protoScalarsMap = useProtoScalarsMap();
 
-  const getMapProtoType = (type: Type) => {
-    const types = pipe(maps(program).get(type)!, Tuple.map(getProtoType), Array.getSomes);
-    if (!Tuple.isTupleOf(types, 2)) throw Error('Incorrect map');
-    const [key, value] = types;
-
-    return Option.some(
-      <>
-        map {'<'} {key}, {value} {'>'}
-      </>,
-    );
-  };
-
-  const getTemplateInstance = (type: Type) =>
-    Option.gen(function* () {
-      const template = yield* Option.liftPredicate(type, (_) => $.model.is(_));
-
-      const templateDecorator = yield* Array.findFirst(
-        template.decorators,
-        (_) => _.decorator === $decorators.Lib.templateOf,
-      );
-
-      const base = yield* pipe(
-        Array.head(templateDecorator.args),
-        Option.map((_) => _.value),
-        Option.filter((_) => $.model.is(_)),
-      );
-
-      const instance = yield* pipe(templateInstances(program).get(base)?.get(template), Option.fromNullable);
-
-      return refkey(instance);
-    });
-
   const getProtoType = (type: Type): Option.Option<Children> =>
     pipe(
       Match.value(type),
@@ -170,11 +137,22 @@ const useProtoTypeMap = () => {
       ),
       Match.when(
         (_) => maps(program).has(_),
-        (_) => getMapProtoType(_),
+        (_) =>
+          pipe(
+            maps(program).get(_),
+            Option.fromNullable,
+            Option.flatMap(flow(Tuple.map(getProtoType), Array.getSomes, Option.liftPredicate(Tuple.isTupleOf(2)))),
+            Option.map(([key, value]) => ['map <', key, ', ', value, '>']),
+          ),
       ),
       Match.when(
-        (_) => templates(program).has(_),
-        (_) => getTemplateInstance(_),
+        (_) => instancesByTemplate(program).has(_),
+        (_) =>
+          pipe(
+            Option.liftPredicate(_, (_) => $.model.is(_)),
+            Option.flatMapNullable((_) => instancesByTemplate(program).get(_)),
+            Option.flatMap(getProtoType),
+          ),
       ),
       Match.when(
         (_) => $.model.is(_) || $.enum.is(_),
@@ -276,7 +254,7 @@ const Package = ({ namespace }: PackageProps) => {
       if (!_.isFinished) $.type.finishType(_);
       if (templates(program).has(_)) return Option.none();
       if (instances(program).has(_)) return Option.none();
-      return pipe(templateInstances(program).get(_)?.values() ?? [], Array.fromIterable, Array.prepend(_), Option.some);
+      return pipe(instancesByModel(program).get(_)?.values() ?? [], Array.fromIterable, Array.prepend(_), Option.some);
     }),
     Array.flatten,
     (_) => (
@@ -432,7 +410,7 @@ interface ServiceProps {
 }
 
 const Service = ({ _interface }: ServiceProps) => {
-  const { $, program } = useTsp();
+  const { program } = useTsp();
   const protoTypeMap = useProtoTypeMap();
 
   const fields = pipe(
@@ -444,24 +422,6 @@ const Service = ({ _interface }: ServiceProps) => {
         <For each={_} enderPunctuation hardline semicolon>
           {(_) =>
             Option.gen(function* () {
-              const name = pipe(
-                Option.gen(function* () {
-                  const templateDecorator = yield* Array.findFirst(
-                    _.decorators,
-                    (_) => _.decorator === $decorators.Lib.templateOf,
-                  );
-
-                  const base = yield* pipe(
-                    Array.head(templateDecorator.args),
-                    Option.map((_) => _.value),
-                    Option.filter((_) => $.model.is(_)),
-                  );
-
-                  return yield* pipe(templateNames(program).get(base)?.get(_), Option.fromNullable);
-                }),
-                Option.getOrElse(() => _.name),
-              );
-
               const streamKey = 'stream ';
               const [inputStreamKey, outputStreamKey] = pipe(
                 streams(program).get(_) ?? 'None',
@@ -475,15 +435,22 @@ const Service = ({ _interface }: ServiceProps) => {
 
               const inputType = yield* pipe(
                 _.parameters.sourceModels,
-                Array.findFirst((_) => _.usage === 'spread'),
-                Option.flatMap((_) => protoTypeMap(_.model)),
+                Option.liftPredicate(Array.isNonEmptyArray),
+                Option.match({
+                  onNone: () => Option.fromNullable(program.resolveTypeReference('TypeSpec.WellKnown.Empty')[0]),
+                  onSome: flow(
+                    Array.findFirst((_) => _.usage === 'spread'),
+                    Option.map((_) => _.model),
+                  ),
+                }),
+                Option.flatMap(protoTypeMap),
               );
 
               const outputType = yield* protoTypeMap(_.returnType);
 
               return (
                 <>
-                  rpc {name}({inputStreamKey}
+                  rpc {_.name}({inputStreamKey}
                   {refkey(inputType)}) returns ({outputStreamKey}
                   {refkey(outputType)})
                 </>
