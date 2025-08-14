@@ -28,8 +28,8 @@ import {
 import { EmitContext, Enum, Interface, Model, ModelProperty, Namespace, Program, Type } from '@typespec/compiler';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, flow, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
-import { EmitterOptions } from './lib.js';
-import { externals, instancesByModel, instancesByTemplate, maps, streams, templates } from './state.js';
+import { instancesByModel, instancesByTemplate, templates } from '../core/index.js';
+import { EmitterOptions, externals, maps, streams } from './lib.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
