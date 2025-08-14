@@ -134,10 +134,10 @@ func TestForNode_IterationOutput_WithError(t *testing.T) {
 			
 			_ = forNode.RunSync(context.Background(), req)
 			
-			// Count iteration records
+			// Count iteration records (only count RUNNING states to avoid duplicates)
 			iterationCount := 0
 			for _, status := range loggedStatuses {
-				if status.OutputData != nil {
+				if status.State == mnnode.NODE_STATE_RUNNING && status.OutputData != nil {
 					if outputMap, ok := status.OutputData.(map[string]any); ok {
 						if _, hasIndex := outputMap["index"]; hasIndex {
 							iterationCount++

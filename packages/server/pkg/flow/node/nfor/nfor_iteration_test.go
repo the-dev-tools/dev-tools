@@ -2,6 +2,7 @@ package nfor_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -97,8 +98,9 @@ func TestForNodeIterationLogging(t *testing.T) {
 			t.Errorf("Iteration %d: Expected NodeID %v, but got %v", i, forNodeID, status.NodeID)
 		}
 		
-		if status.Name != nodeName {
-			t.Errorf("Iteration %d: Expected Name %s, but got %s", i, nodeName, status.Name)
+		expectedName := fmt.Sprintf("%s iteration %d", nodeName, i+1)
+		if status.Name != expectedName {
+			t.Errorf("Iteration %d: Expected Name %s, but got %s", i, expectedName, status.Name)
 		}
 		
 		if status.State != mnnode.NODE_STATE_RUNNING {

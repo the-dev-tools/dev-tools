@@ -45,6 +45,9 @@ type NodeRequest struct {
 }
 
 type NodeRequestSideResp struct {
+	// Execution tracking
+	ExecutionID idwrap.IDWrap // The specific execution ID for this request
+	
 	// Request
 	Example mitemapiexample.ItemApiExample
 	Queries []mexamplequery.Query
@@ -197,6 +200,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			result.Err = fmt.Errorf("assertion failed: %s", assertCouple.Assert.Condition.Comparisons.Expression)
 			// Still send the response data even though we're failing
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
+				ExecutionID: req.ExecutionID,
 				Example: nr.Example,
 				Queries: nr.Queries,
 				Headers: nr.Headers,
@@ -212,6 +216,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	}
 
 	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
+		ExecutionID: req.ExecutionID,
 		Example: nr.Example,
 		Queries: nr.Queries,
 		Headers: nr.Headers,
@@ -319,6 +324,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			result.Err = fmt.Errorf("assertion failed: %s", assertCouple.Assert.Condition.Comparisons.Expression)
 			// Still send the response data even though we're failing
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
+				ExecutionID: req.ExecutionID,
 				Example: nr.Example,
 				Queries: nr.Queries,
 				Headers: nr.Headers,
@@ -335,6 +341,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	}
 
 	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
+		ExecutionID: req.ExecutionID,
 		Example: nr.Example,
 		Queries: nr.Queries,
 		Headers: nr.Headers,

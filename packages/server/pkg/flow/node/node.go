@@ -35,6 +35,7 @@ type FlowNodeRequest struct {
 	PendingAtmoicMap map[idwrap.IDWrap]uint32
 	VariableTracker  *tracking.VariableTracker // Optional tracking for input/output data
 	IterationContext *runner.IterationContext  // For hierarchical execution naming in loops
+	ExecutionID      idwrap.IDWrap            // Unique ID for this specific execution of the node
 }
 
 type LogPushFunc func(status runner.FlowNodeStatus)

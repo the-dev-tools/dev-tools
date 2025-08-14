@@ -122,7 +122,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			}
 			childIterationContext := &runner.IterationContext{
 				IterationPath: append(parentPath, iterationIndex),
-				ExecutionIndex: 0, // Reset for each loop iteration
+				ExecutionIndex: iterationIndex, // Use iteration index to differentiate executions
 				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
 			}
 
@@ -494,7 +494,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			}
 			childIterationContext := &runner.IterationContext{
 				IterationPath: append(parentPath, iterationIndex),
-				ExecutionIndex: 0, // Reset for each loop iteration
+				ExecutionIndex: iterationIndex, // Use iteration index to differentiate executions
 				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
 			}
 

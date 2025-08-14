@@ -108,18 +108,24 @@ func TestForNodeConditionalSummary(t *testing.T) {
 		// will return an error for the non-existent child node
 		require.Error(t, result.Err, "Failed loop should return error")
 		
-		// Should have 1 iteration record + 1 error summary record
-		assert.Len(t, capturedStatuses, 2, "Should have 1 iteration record + 1 error summary")
+		// Should have RUNNING for iteration, FAILURE for iteration, and error summary
+		assert.Len(t, capturedStatuses, 3, "Should have 1 RUNNING + 1 FAILURE + 1 error summary")
 		
-		// First record should be iteration record
-		iterationStatus := capturedStatuses[0]
-		assert.Equal(t, nodeID, iterationStatus.NodeID)
-		assert.Equal(t, mnnode.NODE_STATE_RUNNING, iterationStatus.State)
+		// First record should be iteration RUNNING
+		iterationRunning := capturedStatuses[0]
+		assert.Equal(t, nodeID, iterationRunning.NodeID)
+		assert.Equal(t, mnnode.NODE_STATE_RUNNING, iterationRunning.State)
 		expectedIterationName := "TestForNode iteration 1"
-		assert.Equal(t, expectedIterationName, iterationStatus.Name)
+		assert.Equal(t, expectedIterationName, iterationRunning.Name)
 		
-		// Second record should be error summary
-		summaryStatus := capturedStatuses[1]
+		// Second record should be iteration FAILURE
+		iterationFailure := capturedStatuses[1]
+		assert.Equal(t, nodeID, iterationFailure.NodeID)
+		assert.Equal(t, mnnode.NODE_STATE_FAILURE, iterationFailure.State)
+		assert.Equal(t, expectedIterationName, iterationFailure.Name)
+		
+		// Third record should be error summary
+		summaryStatus := capturedStatuses[2]
 		assert.Equal(t, nodeID, summaryStatus.NodeID)
 		assert.Equal(t, mnnode.NODE_STATE_FAILURE, summaryStatus.State)
 		expectedSummaryName := "Error Summary"
@@ -162,14 +168,24 @@ func TestForNodeConditionalSummary(t *testing.T) {
 		// Assert
 		require.NoError(t, result.Err, "IGNORE error handling should not propagate errors")
 		
-		// Should have exactly 3 iteration records (errors ignored, no summary)
-		assert.Len(t, capturedStatuses, 3, "Should have exactly 3 iteration records when ignoring errors")
+		// Should have 6 records: 3 RUNNING + 3 FAILURE (no error summary when ignoring)
+		assert.Len(t, capturedStatuses, 6, "Should have 3 RUNNING + 3 FAILURE when ignoring errors")
 		
-		// All records should be iteration records (no error summary)
-		for i, status := range capturedStatuses {
-			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "All records should be iteration records")
+		// Verify we have pairs of RUNNING/FAILURE for each iteration
+		for i := 0; i < 3; i++ {
+			runningIdx := i * 2
+			failureIdx := i * 2 + 1
+			
+			// Check RUNNING record
+			runningStatus := capturedStatuses[runningIdx]
+			assert.Equal(t, mnnode.NODE_STATE_RUNNING, runningStatus.State, "Should have RUNNING record")
 			expectedName := fmt.Sprintf("TestForNode iteration %d", i+1)
-			assert.Equal(t, expectedName, status.Name)
+			assert.Equal(t, expectedName, runningStatus.Name)
+			
+			// Check FAILURE record
+			failureStatus := capturedStatuses[failureIdx]
+			assert.Equal(t, mnnode.NODE_STATE_FAILURE, failureStatus.State, "Should have FAILURE record")
+			assert.Equal(t, expectedName, failureStatus.Name)
 		}
 	})
 
@@ -203,14 +219,19 @@ func TestForNodeConditionalSummary(t *testing.T) {
 		// Assert
 		require.NoError(t, result.Err, "BREAK error handling should not propagate errors")
 		
-		// Should have exactly 1 iteration record (breaks early, no summary)
-		assert.Len(t, capturedStatuses, 1, "Should have exactly 1 iteration record when breaking on error")
+		// Should have 2 records: 1 RUNNING + 1 FAILURE (breaks early, no summary)
+		assert.Len(t, capturedStatuses, 2, "Should have 1 RUNNING + 1 FAILURE when breaking on error")
 		
-		// Verify the single record
-		status := capturedStatuses[0]
-		assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "Should be iteration record")
+		// Verify RUNNING record
+		runningStatus := capturedStatuses[0]
+		assert.Equal(t, mnnode.NODE_STATE_RUNNING, runningStatus.State, "First should be RUNNING")
 		expectedName := "TestForNode iteration 1"
-		assert.Equal(t, expectedName, status.Name)
+		assert.Equal(t, expectedName, runningStatus.Name)
+		
+		// Verify FAILURE record
+		failureStatus := capturedStatuses[1]
+		assert.Equal(t, mnnode.NODE_STATE_FAILURE, failureStatus.State, "Second should be FAILURE")
+		assert.Equal(t, expectedName, failureStatus.Name)
 	})
 }
 
@@ -237,17 +258,18 @@ func TestForNodeExecutionNaming(t *testing.T) {
 
 		// Assert
 		require.NoError(t, result.Err)
-		require.Len(t, capturedStatuses, 2)
+		// Should have 4 records: 2 RUNNING + 2 SUCCESS
+		require.Len(t, capturedStatuses, 4)
 		
-		// Verify naming format
+		// Verify naming format for RUNNING statuses
 		expectedNames := []string{
 			"TestForNode iteration 1",
 			"TestForNode iteration 2",
 		}
 		
-		for i, status := range capturedStatuses {
-			assert.Equal(t, expectedNames[i], status.Name, "Should follow Iteration N format")
-		}
+		// Check the RUNNING statuses (at indices 0 and 2)
+		assert.Equal(t, expectedNames[0], capturedStatuses[0].Name, "First RUNNING should follow Iteration N format")
+		assert.Equal(t, expectedNames[1], capturedStatuses[2].Name, "Second RUNNING should follow Iteration N format")
 	})
 
 	t.Run("ErrorSummaryNamingFormat", func(t *testing.T) {
@@ -278,10 +300,10 @@ func TestForNodeExecutionNaming(t *testing.T) {
 
 		// Assert
 		require.Error(t, result.Err)
-		require.Len(t, capturedStatuses, 2) // 1 iteration + 1 error summary
+		require.Len(t, capturedStatuses, 3) // 1 RUNNING + 1 FAILURE + 1 error summary
 		
-		// Verify error summary naming
-		summaryStatus := capturedStatuses[1]
+		// Verify error summary naming (third record)
+		summaryStatus := capturedStatuses[2]
 		expectedSummaryName := "Error Summary"
 		assert.Equal(t, expectedSummaryName, summaryStatus.Name, "Should follow Error Summary format")
 	})

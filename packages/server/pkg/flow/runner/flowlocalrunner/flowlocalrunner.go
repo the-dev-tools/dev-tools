@@ -152,6 +152,8 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 	var status runner.FlowNodeStatus
 	var processCount int
+	// Mutex to protect PendingAtmoicMap from concurrent access
+	var pendingMapMutex sync.Mutex
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
 		processCount = min(goroutineCount, queueLen)
 
@@ -201,11 +203,18 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				}
 				statusLogFunc(runningStatus)
 				
-				// Initialize tracker for this node
-				tracker := tracking.NewVariableTracker()
-				req.VariableTracker = tracker
+				// Create a copy of the request for this execution to avoid race conditions
+				// This ensures each goroutine has its own tracker and execution ID
+				nodeReq := *req // Shallow copy of the request struct
 				
-				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
+				// Initialize tracker for this node execution
+				tracker := tracking.NewVariableTracker()
+				nodeReq.VariableTracker = tracker
+				
+				// Set the execution ID in the copied request
+				nodeReq.ExecutionID = executionID
+				
+				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
 				
 				// Capture tracked data
 				outputData := tracker.GetWrittenVars()
@@ -276,11 +285,14 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			}
 
 			for _, id := range result.nextNodes {
+				pendingMapMutex.Lock()
 				i, ok := req.PendingAtmoicMap[id]
 				if !ok || i == 1 {
+					pendingMapMutex.Unlock()
 					queue = append(queue, id)
 				} else {
 					req.PendingAtmoicMap[id] = i - 1
+					pendingMapMutex.Unlock()
 				}
 			}
 		}
@@ -304,6 +316,8 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 	var status runner.FlowNodeStatus
 	var processCount int
+	// Mutex to protect PendingAtmoicMap from concurrent access
+	var pendingMapMutex sync.Mutex
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
 		processCount = min(goroutineCount, queueLen)
 
@@ -358,11 +372,18 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				}
 				statusLogFunc(runningStatus)
 				
-				// Initialize tracker for this node
-				tracker := tracking.NewVariableTracker()
-				req.VariableTracker = tracker
+				// Create a copy of the request for this execution to avoid race conditions
+				// This ensures each goroutine has its own tracker and execution ID
+				nodeReq := *req // Shallow copy of the request struct
 				
-				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, req)
+				// Initialize tracker for this node execution
+				tracker := tracking.NewVariableTracker()
+				nodeReq.VariableTracker = tracker
+				
+				// Set the execution ID in the copied request
+				nodeReq.ExecutionID = executionID
+				
+				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
 				if ctxTimed.Err() != nil {
 					return
 				}
@@ -445,11 +466,14 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			}
 
 			for _, id := range result.nextNodes {
+				pendingMapMutex.Lock()
 				i, ok := req.PendingAtmoicMap[id]
 				if !ok || i == 1 {
+					pendingMapMutex.Unlock()
 					queue = append(queue, id)
 				} else {
 					req.PendingAtmoicMap[id] = i - 1
+					pendingMapMutex.Unlock()
 				}
 			}
 		}
