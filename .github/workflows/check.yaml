@@ -29,7 +29,7 @@ jobs:
 
       - id: test
         name: Test
-        run: task test
+        run: task test:ci
 
       - id: go-test-modules
         name: Find modules with Go test results

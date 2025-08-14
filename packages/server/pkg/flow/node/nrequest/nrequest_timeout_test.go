@@ -25,8 +25,10 @@ import (
 )
 
 func TestNodeRequest_Timeout(t *testing.T) {
-	// Create a test server that delays response
-	delayDuration := 5 * time.Second
+	t.Parallel() // Run this test in parallel with others
+	
+	// Create a test server that delays response - reduced from 5s to 500ms
+	delayDuration := 500 * time.Millisecond
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(delayDuration)
 		w.WriteHeader(http.StatusOK)
@@ -80,8 +82,8 @@ func TestNodeRequest_Timeout(t *testing.T) {
 			EdgeSourceMap: edgesMap,
 		}
 
-		// Create a context with 2 second timeout (shorter than server delay)
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		// Create a context with 200ms timeout (shorter than server delay of 500ms)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 
 		start := time.Now()
@@ -91,16 +93,16 @@ func TestNodeRequest_Timeout(t *testing.T) {
 		// Should fail due to timeout
 		testutil.AssertNot(t, nil, result.Err)
 
-		// Should timeout in around 2 seconds, not 5 seconds
-		if elapsed > 3*time.Second {
-			t.Errorf("Expected timeout in ~2 seconds, but took %v", elapsed)
+		// Should timeout in around 200ms, not 500ms
+		if elapsed > 300*time.Millisecond {
+			t.Errorf("Expected timeout in ~200ms, but took %v", elapsed)
 		}
 	})
 
 	t.Run("Long timeout should succeed", func(t *testing.T) {
 		// Create a faster test server for this test
 		fastServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond) // Reduced from 1s to 100ms
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("Fast response"))
 		}))
@@ -129,8 +131,8 @@ func TestNodeRequest_Timeout(t *testing.T) {
 			EdgeSourceMap: edgesMap,
 		}
 
-		// Create a context with 10 second timeout (longer than server delay)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		// Create a context with 1 second timeout (longer than server delay of 100ms)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
 		start := time.Now()
@@ -140,14 +142,14 @@ func TestNodeRequest_Timeout(t *testing.T) {
 		// Should succeed
 		testutil.Assert(t, nil, result.Err)
 
-		// Should complete in around 1 second
-		if elapsed > 2*time.Second {
-			t.Errorf("Expected completion in ~1 second, but took %v", elapsed)
+		// Should complete in around 100ms
+		if elapsed > 200*time.Millisecond {
+			t.Errorf("Expected completion in ~100ms, but took %v", elapsed)
 		}
 	})
 
 	t.Run("Context cancellation should work", func(t *testing.T) {
-		api.Url = server.URL // Use slow server again
+		api.Url = server.URL // Use slow server again (500ms delay)
 
 		// Create HTTP client
 		httpClient := &http.Client{
@@ -173,9 +175,9 @@ func TestNodeRequest_Timeout(t *testing.T) {
 		// Create a context that we'll cancel manually
 		ctx, cancel := context.WithCancel(context.Background())
 
-		// Cancel after 1 second
+		// Cancel after 100ms (before server responds at 500ms)
 		go func() {
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 			cancel()
 		}()
 
@@ -186,9 +188,9 @@ func TestNodeRequest_Timeout(t *testing.T) {
 		// Should fail due to cancellation
 		testutil.AssertNot(t, nil, result.Err)
 
-		// Should be cancelled in around 1 second
-		if elapsed > 2*time.Second {
-			t.Errorf("Expected cancellation in ~1 second, but took %v", elapsed)
+		// Should be cancelled in around 100ms
+		if elapsed > 200*time.Millisecond {
+			t.Errorf("Expected cancellation in ~100ms, but took %v", elapsed)
 		}
 	})
 }

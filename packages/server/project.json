@@ -25,11 +25,18 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
+        "command": "go test -p 8 ./... -timeout 30s"
+      }
+    },
+    "test:ci": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
         "parallel": false,
         "commands": [
           "rm --force dist/tests.json",
           "mkdir --parents dist",
-          "go test ./... -json | tee dist/go-test.json"
+          "go test ./... -json -timeout 60s | tee dist/go-test.json"
         ]
       }
     },

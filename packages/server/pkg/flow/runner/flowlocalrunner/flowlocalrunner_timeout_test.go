@@ -25,9 +25,11 @@ import (
 )
 
 func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
-	// Create a test server that simulates a long-running request (5 seconds)
+	t.Parallel() // Run test in parallel to speed up overall test suite
+	
+	// Create a test server that simulates a long-running request (500ms instead of 5s)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(5 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("Long running response"))
 	}))
@@ -72,17 +74,17 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 
 	edgesMap := edge.NewEdgesMap([]edge.Edge{})
 
-	t.Run("Flow with 60 second timeout should complete long HTTP request", func(t *testing.T) {
-		// Create flow runner with 60 second timeout (like the default in production)
-		timeout := 60 * time.Second
+	t.Run("Flow with 5 second timeout should complete long HTTP request", func(t *testing.T) {
+		// Create flow runner with 5 second timeout (reduced from 60s for faster testing)
+		timeout := 5 * time.Second
 		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, nodeID, flowNodeMap, edgesMap, timeout)
 
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, 100)
 		flowStatusChan := make(chan runner.FlowStatus, 10)
 
-		// Create a context that simulates a short gRPC timeout (3 seconds)
+		// Create a context that simulates a short gRPC timeout (300ms)
 		// This tests that the flow runner properly isolates from the parent context
-		gRPCCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		gRPCCtx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 		defer cancel()
 
 		// Create a new context without the gRPC deadline (simulating what rflow.go does)
@@ -112,14 +114,14 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 		case err := <-done:
 			elapsed := time.Since(start)
 
-			// Should succeed even though it took 5 seconds
+			// Should succeed even though it took 500ms
 			if err != nil {
 				t.Errorf("Expected flow to complete successfully, but got error: %v", err)
 			}
 
-			// Should take around 5 seconds
-			if elapsed < 5*time.Second || elapsed > 7*time.Second {
-				t.Errorf("Expected flow to complete in ~5 seconds, but took %v", elapsed)
+			// Should take around 500ms
+			if elapsed < 500*time.Millisecond || elapsed > 1*time.Second {
+				t.Errorf("Expected flow to complete in ~500ms, but took %v", elapsed)
 			}
 
 			// Verify we got status updates
@@ -135,14 +137,14 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 				t.Error("Expected gRPC context to have timed out")
 			}
 
-		case <-time.After(10 * time.Second):
+		case <-time.After(2 * time.Second):
 			t.Error("Test timed out waiting for flow completion")
 		}
 	})
 
-	t.Run("Flow with 2 second timeout should fail on long HTTP request", func(t *testing.T) {
-		// Create flow runner with short timeout
-		timeout := 2 * time.Second
+	t.Run("Flow with 200ms timeout should fail on long HTTP request", func(t *testing.T) {
+		// Create flow runner with short timeout (less than the 500ms request time)
+		timeout := 200 * time.Millisecond
 		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, nodeID, flowNodeMap, edgesMap, timeout)
 
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, 100)
@@ -160,14 +162,16 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 			t.Error("Expected flow to fail with timeout error")
 		}
 
-		// Should timeout in around 2 seconds
-		if elapsed > 3*time.Second {
-			t.Errorf("Expected timeout in ~2 seconds, but took %v", elapsed)
+		// Should timeout in around 200ms
+		if elapsed > 400*time.Millisecond {
+			t.Errorf("Expected timeout in ~200ms, but took %v", elapsed)
 		}
 	})
 }
 
 func TestFlowRunner_ContextIsolation(t *testing.T) {
+	t.Parallel() // Run test in parallel to speed up overall test suite
+	
 	// Create a simple HTTP server that responds immediately
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -215,7 +219,7 @@ func TestFlowRunner_ContextIsolation(t *testing.T) {
 
 	t.Run("Cancelled parent context should not affect flow with isolated context", func(t *testing.T) {
 		// Create flow runner
-		timeout := 10 * time.Second
+		timeout := 2 * time.Second // Reduced from 10s as request is instant
 		flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flowID, nodeID, flowNodeMap, edgesMap, timeout)
 
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, 100)

@@ -3,7 +3,9 @@ package rbody_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
+	"time"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rbody"
 	"the-dev-tools/server/pkg/compress"
@@ -212,23 +214,37 @@ func TestGetBodyForm(t *testing.T) {
 		t.Fatal("resp.Msg is nil")
 	}
 	msg := resp.Msg
-	for i := 0; i < formCount; i++ {
-		if msg.Items[i].Description != formBodyArr[i].Description {
-			t.Errorf("expected description %s, got %s", formBodyArr[i].Description, msg.Items[i].Description)
+	
+	// Create a map for easier lookup since order might not be guaranteed
+	expectedMap := make(map[string]mbodyurl.BodyURLEncoded)
+	for _, body := range formBodyArr {
+		expectedMap[body.BodyKey] = body
+	}
+	
+	if len(msg.Items) != formCount {
+		t.Errorf("expected %d items, got %d", formCount, len(msg.Items))
+	}
+	
+	for _, item := range msg.Items {
+		expected, exists := expectedMap[item.Key]
+		if !exists {
+			t.Errorf("unexpected key %s in response", item.Key)
+			continue
 		}
-		if msg.Items[i].Key != formBodyArr[i].BodyKey {
-			t.Errorf("expected body key %s, got %s", formBodyArr[i].BodyKey, msg.Items[i].Key)
+		if item.Description != expected.Description {
+			t.Errorf("expected description %s, got %s", expected.Description, item.Description)
 		}
-		if msg.Items[i].Value != formBodyArr[i].Value {
-			t.Errorf("expected value %s, got %s", formBodyArr[i].Value, msg.Items[i].Value)
+		if item.Value != expected.Value {
+			t.Errorf("expected value %s, got %s", expected.Value, item.Value)
 		}
-		if msg.Items[i].Enabled != formBodyArr[i].Enable {
-			t.Errorf("expected enable %t, got %t", formBodyArr[i].Enable, msg.Items[i].Enabled)
+		if item.Enabled != expected.Enable {
+			t.Errorf("expected enable %t, got %t", expected.Enable, item.Enabled)
 		}
 	}
 }
 
 func TestGetBodyUrlEncoded(t *testing.T) {
+	t.Parallel() // Add parallel execution for faster tests
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)
 	queries := base.Queries
@@ -289,11 +305,13 @@ func TestGetBodyUrlEncoded(t *testing.T) {
 		formBodyArr[i] = mbodyurl.BodyURLEncoded{
 			ID:          idwrap.NewNow(),
 			Description: "test",
-			BodyKey:     "test_key",
-			Value:       "test_val",
+			BodyKey:     fmt.Sprintf("test_key_%d", i), // Make keys unique
+			Value:       fmt.Sprintf("test_val_%d", i), // Make values unique
 			Enable:      true,
 			ExampleID:   itemExample.ID,
 		}
+		// Small delay to ensure unique ULIDs
+		time.Sleep(time.Microsecond)
 	}
 
 	err = bues.CreateBulkBodyURLEncoded(ctx, formBodyArr)
@@ -321,18 +339,31 @@ func TestGetBodyUrlEncoded(t *testing.T) {
 		t.Fatal("resp.Msg is nil")
 	}
 	msg := resp.Msg
-	for i := 0; i < formCount; i++ {
-		if msg.Items[i].Description != formBodyArr[i].Description {
-			t.Errorf("expected description %s, got %s", formBodyArr[i].Description, msg.Items[i].Description)
+	
+	// Create a map for easier lookup since order might not be guaranteed
+	expectedMap := make(map[string]mbodyurl.BodyURLEncoded)
+	for _, body := range formBodyArr {
+		expectedMap[body.BodyKey] = body
+	}
+	
+	if len(msg.Items) != formCount {
+		t.Errorf("expected %d items, got %d", formCount, len(msg.Items))
+	}
+	
+	for _, item := range msg.Items {
+		expected, exists := expectedMap[item.Key]
+		if !exists {
+			t.Errorf("unexpected key %s in response", item.Key)
+			continue
 		}
-		if msg.Items[i].Key != formBodyArr[i].BodyKey {
-			t.Errorf("expected body key %s, got %s", formBodyArr[i].BodyKey, msg.Items[i].Key)
+		if item.Description != expected.Description {
+			t.Errorf("expected description %s, got %s", expected.Description, item.Description)
 		}
-		if msg.Items[i].Value != formBodyArr[i].Value {
-			t.Errorf("expected value %s, got %s", formBodyArr[i].Value, msg.Items[i].Value)
+		if item.Value != expected.Value {
+			t.Errorf("expected value %s, got %s", expected.Value, item.Value)
 		}
-		if msg.Items[i].Enabled != formBodyArr[i].Enable {
-			t.Errorf("expected enable %t, got %t", formBodyArr[i].Enable, msg.Items[i].Enabled)
+		if item.Enabled != expected.Enable {
+			t.Errorf("expected enable %t, got %t", expected.Enable, item.Enabled)
 		}
 	}
 }

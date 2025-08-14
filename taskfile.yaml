@@ -19,9 +19,14 @@ tasks:
     cmd: pnpm nx run-many --targets=lint --targets=lint:format --nxBail {{.CLI_ARGS}}
 
   test:
-    desc: Test code for common problems
+    desc: Test code for common problems (fast, local development)
     interactive: true
     cmd: pnpm nx run-many --targets=test {{.CLI_ARGS}}
+
+  test:ci:
+    desc: Test code with JSON output for CI
+    interactive: true
+    cmd: pnpm nx run-many --targets=test:ci {{.CLI_ARGS}}
 
   fix:
     desc: Automatically fix common problems

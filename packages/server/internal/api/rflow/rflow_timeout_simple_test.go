@@ -10,12 +10,15 @@ import (
 
 func TestHTTPRequestWithContext(t *testing.T) {
 	// Test that our HTTP client properly respects context timeout
+	t.Parallel() // Run this test in parallel with others
 
 	t.Run("Context timeout is respected", func(t *testing.T) {
-		// Create a server that delays for 5 seconds
+		t.Parallel() // Run sub-tests in parallel
+		
+		// Create a server that delays for 500ms (reduced from 5 seconds)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			select {
-			case <-time.After(5 * time.Second):
+			case <-time.After(500 * time.Millisecond):
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte("Success after delay"))
 			case <-r.Context().Done():
@@ -27,7 +30,7 @@ func TestHTTPRequestWithContext(t *testing.T) {
 
 		// Test 1: Short timeout should fail
 		{
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 			defer cancel()
 
 			req, err := http.NewRequestWithContext(ctx, "GET", server.URL, nil)
@@ -44,23 +47,23 @@ func TestHTTPRequestWithContext(t *testing.T) {
 				t.Error("Expected error due to timeout, but got none")
 			}
 
-			if elapsed > 3*time.Second {
-				t.Errorf("Expected timeout in ~2 seconds, but took %v", elapsed)
+			if elapsed > 300*time.Millisecond {
+				t.Errorf("Expected timeout in ~200ms, but took %v", elapsed)
 			}
 		}
 
 		// Test 2: Context isolation works
 		{
 			// Create a parent context with short timeout
-			parentCtx, parentCancel := context.WithTimeout(context.Background(), 1*time.Second)
+			parentCtx, parentCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer parentCancel()
 
 			// Create an isolated context (like rflow.go does)
-			isolatedCtx, isolatedCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			isolatedCtx, isolatedCancel := context.WithTimeout(context.Background(), 1*time.Second)
 			defer isolatedCancel()
 
-			// Wait for parent to timeout
-			time.Sleep(2 * time.Second)
+			// Wait for parent to timeout (reduced from 2 seconds to 200ms)
+			time.Sleep(200 * time.Millisecond)
 
 			// Verify parent is cancelled
 			select {
@@ -90,8 +93,8 @@ func TestHTTPRequestWithContext(t *testing.T) {
 				t.Errorf("Expected status 200, got %d", resp.StatusCode)
 			}
 
-			if elapsed < 5*time.Second {
-				t.Errorf("Expected request to take ~5 seconds, but took %v", elapsed)
+			if elapsed < 500*time.Millisecond {
+				t.Errorf("Expected request to take ~500ms, but took %v", elapsed)
 			}
 		}
 	})
@@ -99,19 +102,23 @@ func TestHTTPRequestWithContext(t *testing.T) {
 
 func TestContextPropagation(t *testing.T) {
 	// Test that demonstrates the difference between NewRequest and NewRequestWithContext
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-time.After(3 * time.Second):
-			w.WriteHeader(http.StatusOK)
-		case <-r.Context().Done():
-			return
-		}
-	}))
-	defer server.Close()
+	t.Parallel() // Run this test in parallel with others
 
 	t.Run("NewRequest ignores context timeout", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		t.Parallel() // Run sub-tests in parallel
+		
+		// Create server for this specific test
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case <-time.After(300 * time.Millisecond): // Reduced from 3 seconds
+				w.WriteHeader(http.StatusOK)
+			case <-r.Context().Done():
+				return
+			}
+		}))
+		defer server.Close()
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 
 		// Using http.NewRequest (old way)
@@ -121,14 +128,14 @@ func TestContextPropagation(t *testing.T) {
 		}
 
 		client := &http.Client{
-			Timeout: 5 * time.Second, // Client timeout is longer
+			Timeout: 500 * time.Millisecond, // Client timeout is longer (reduced from 5s)
 		}
 
 		start := time.Now()
 		resp, err := client.Do(req)
 		elapsed := time.Since(start)
 
-		// Even though context has 1 second timeout, request will complete
+		// Even though context has 100ms timeout, request will complete
 		// because NewRequest doesn't use the context
 		if err != nil {
 			t.Logf("Request failed as expected in %v: %v", elapsed, err)
@@ -136,6 +143,9 @@ func TestContextPropagation(t *testing.T) {
 			t.Logf("Request succeeded in %v with status %d", elapsed, resp.StatusCode)
 		}
 
+		// Wait a bit for context to timeout since the request doesn't respect it
+		time.Sleep(150 * time.Millisecond)
+		
 		// Context should be done
 		select {
 		case <-ctx.Done():
@@ -146,7 +156,20 @@ func TestContextPropagation(t *testing.T) {
 	})
 
 	t.Run("NewRequestWithContext respects context timeout", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		t.Parallel() // Run sub-tests in parallel
+		
+		// Create server for this specific test
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case <-time.After(300 * time.Millisecond): // Reduced from 3 seconds
+				w.WriteHeader(http.StatusOK)
+			case <-r.Context().Done():
+				return
+			}
+		}))
+		defer server.Close()
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 
 		// Using http.NewRequestWithContext (new way)
@@ -156,7 +179,7 @@ func TestContextPropagation(t *testing.T) {
 		}
 
 		client := &http.Client{
-			Timeout: 5 * time.Second, // Client timeout is longer
+			Timeout: 500 * time.Millisecond, // Client timeout is longer (reduced from 5s)
 		}
 
 		start := time.Now()
@@ -168,8 +191,8 @@ func TestContextPropagation(t *testing.T) {
 			t.Error("Expected error due to context timeout")
 		}
 
-		if elapsed > 2*time.Second {
-			t.Errorf("Expected timeout in ~1 second, but took %v", elapsed)
+		if elapsed > 200*time.Millisecond {
+			t.Errorf("Expected timeout in ~100ms, but took %v", elapsed)
 		}
 	})
 }

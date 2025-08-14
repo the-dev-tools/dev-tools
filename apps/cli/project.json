@@ -47,11 +47,19 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
+        "command": "go test ./... -timeout 10s"
+      },
+      "dependsOn": ["copy-worker"]
+    },
+    "test:ci": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
         "parallel": false,
         "commands": [
           "rm --force dist/tests.json",
           "mkdir --parents dist",
-          "go test ./... -json | tee dist/go-test.json"
+          "go test ./... -json -timeout 30s | tee dist/go-test.json"
         ]
       },
       "dependsOn": ["copy-worker"]
