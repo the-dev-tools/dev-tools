@@ -57,6 +57,12 @@ func (vt *VariableTracker) GetReadVars() map[string]any {
 	return result
 }
 
+// GetReadVarsAsTree returns read variables as a nested tree structure
+func (vt *VariableTracker) GetReadVarsAsTree() map[string]any {
+	flatVars := vt.GetReadVars()
+	return BuildTree(flatVars)
+}
+
 // GetWrittenVars returns a copy of all tracked written variables
 func (vt *VariableTracker) GetWrittenVars() map[string]any {
 	if vt == nil {
@@ -71,6 +77,12 @@ func (vt *VariableTracker) GetWrittenVars() map[string]any {
 		result[k] = deepCopy(v)
 	}
 	return result
+}
+
+// GetWrittenVarsAsTree returns written variables as a nested tree structure
+func (vt *VariableTracker) GetWrittenVarsAsTree() map[string]any {
+	flatVars := vt.GetWrittenVars()
+	return BuildTree(flatVars)
 }
 
 // deepCopy creates a deep copy of the value to prevent external modifications

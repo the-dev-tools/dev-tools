@@ -216,14 +216,14 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
 				
-				// Capture tracked data
-				outputData := tracker.GetWrittenVars()
+				// Capture tracked data as tree structures
+				outputData := tracker.GetWrittenVarsAsTree()
 				
-				// Merge tracked variable reads into inputData
-				trackedReads := tracker.GetReadVars()
+				// Merge tracked variable reads as tree structure into inputData
+				trackedReads := tracker.GetReadVarsAsTree()
 				if len(trackedReads) > 0 {
-					// Add tracked variables under a special "variables" key
-					inputData["variables"] = trackedReads
+					// Merge the tracked reads into inputData without wrapping
+					inputData = tracking.MergeTreesPreferFirst(inputData, trackedReads)
 				}
 
 				resultChan <- processResult{
@@ -276,13 +276,8 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			if nodeTypeName != "NodeFor" && nodeTypeName != "NodeForEach" {
 				status.State = mnnode.NODE_STATE_SUCCESS
 				status.Error = nil
-				outputData, err := node.ReadVarRaw(req, status.Name)
-				if err == nil {
-					// Deep copy the output data to prevent concurrent access issues
-					status.OutputData = node.DeepCopyValue(outputData)
-				} else {
-					status.OutputData = nil
-				}
+				// Use the tracked output data which has the proper tree structure
+				status.OutputData = node.DeepCopyValue(result.outputData)
 				// Deep copy input data as well
 				status.InputData = node.DeepCopyValue(result.inputData)
 				statusLogFunc(status)
@@ -391,13 +386,13 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				
 				// Always capture tracked data and send result, even if context timed out
 				// This ensures nodes don't get stuck in RUNNING state
-				outputData := tracker.GetWrittenVars()
+				outputData := tracker.GetWrittenVarsAsTree()
 				
-				// Merge tracked variable reads into inputData
-				trackedReads := tracker.GetReadVars()
+				// Merge tracked variable reads as tree structure into inputData
+				trackedReads := tracker.GetReadVarsAsTree()
 				if len(trackedReads) > 0 {
-					// Add tracked variables under a special "variables" key
-					inputData["variables"] = trackedReads
+					// Merge the tracked reads into inputData without wrapping
+					inputData = tracking.MergeTreesPreferFirst(inputData, trackedReads)
 				}
 
 				// If context timed out after node execution, mark it as an error
@@ -466,13 +461,8 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			if nodeTypeName != "NodeFor" && nodeTypeName != "NodeForEach" {
 				status.State = mnnode.NODE_STATE_SUCCESS
 				status.Error = nil
-				outputData, err := node.ReadVarRaw(req, status.Name)
-				if err == nil {
-					// Deep copy the output data to prevent concurrent access issues
-					status.OutputData = node.DeepCopyValue(outputData)
-				} else {
-					status.OutputData = nil
-				}
+				// Use the tracked output data which has the proper tree structure
+				status.OutputData = node.DeepCopyValue(result.outputData)
 				// Deep copy input data as well
 				status.InputData = node.DeepCopyValue(result.inputData)
 				statusLogFunc(status)
