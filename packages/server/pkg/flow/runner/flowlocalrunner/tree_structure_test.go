@@ -32,7 +32,7 @@ func TestTreeStructuredInputOutput(t *testing.T) {
 						if bodyMap, ok := body.(map[string]interface{}); ok {
 							if token, exists := bodyMap["token"]; exists {
 								// Track reading the token specifically
-								node.WriteNodeVarWithTracking(req, "_temp", "read_token", token, req.VariableTracker)
+								_ = node.WriteNodeVarWithTracking(req, "_temp", "read_token", token, req.VariableTracker)
 							}
 						}
 					}

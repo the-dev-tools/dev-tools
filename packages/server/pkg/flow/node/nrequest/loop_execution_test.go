@@ -2,7 +2,6 @@ package nrequest
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -48,7 +47,7 @@ func (m *MockHTTPClient) Do(req any) (any, error) {
 	// Simulate a successful response
 	return map[string]interface{}{
 		"status": 200,
-		"body":   fmt.Sprintf("Response for execution"),
+		"body":   "Response for execution",
 	}, nil
 }
 

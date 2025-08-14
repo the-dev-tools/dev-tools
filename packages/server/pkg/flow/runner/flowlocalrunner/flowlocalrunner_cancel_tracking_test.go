@@ -485,7 +485,7 @@ func TestCanceledNode_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(id idwrap.IDWrap) {
 			defer wg.Done()
-			RunNodeSync(ctx, id, req, statusFunc)
+			_ = RunNodeSync(ctx, id, req, statusFunc)
 		}(nodeID)
 	}
 
@@ -878,7 +878,7 @@ func TestCanceledNode_RaceConditionSafety(t *testing.T) {
 				time.Duration(10+iteration)*time.Millisecond)
 			defer cancel()
 			
-			RunNodeSync(ctx, nodeID, req, statusFunc)
+			_ = RunNodeSync(ctx, nodeID, req, statusFunc)
 			atomic.AddInt64(&accessCount, 1)
 		}(i)
 	}
