@@ -63,6 +63,10 @@ import (
 )
 
 func createTestWorkspaceData() ioworkspace.WorkspaceData {
+	return createTestWorkspaceDataWithIDs()
+}
+
+func createTestWorkspaceDataWithIDs() ioworkspace.WorkspaceData {
 	workspaceID := idwrap.NewNow()
 	collectionID := idwrap.NewNow()
 	folderID := idwrap.NewNow()
@@ -676,16 +680,9 @@ func TestImportMultipleWorkspaces(t *testing.T) {
 	workspace1 := createTestWorkspaceData()
 	workspace1.Workspace.Name = "Workspace 1"
 
-	// Create second workspace data
+	// Create second workspace data - createTestWorkspaceData now generates unique IDs
 	workspace2 := createTestWorkspaceData()
-	workspace2.Workspace.ID = idwrap.NewNow() // Use a different workspace ID
 	workspace2.Workspace.Name = "Workspace 2"
-
-	// Update references in workspace2 to point to the new workspace ID
-	for i := range workspace2.Collections {
-		workspace2.Collections[i].ID = idwrap.NewNow() // Different collection ID
-		workspace2.Collections[i].WorkspaceID = workspace2.Workspace.ID
-	}
 
 	// Import both workspaces
 	err := ioWorkspaceService.ImportWorkspace(ctx, workspace1)

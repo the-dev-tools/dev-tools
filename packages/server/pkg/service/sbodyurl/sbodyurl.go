@@ -133,7 +133,8 @@ func (bues BodyURLEncodedService) CreateBulkBodyURLEncoded(ctx context.Context, 
 		return nil
 	}
 
-	const batchSize = 10
+	// The bulk insert SQL expects exactly 7 items per batch
+	const batchSize = 7
 	for i := 0; i < len(bodyForms); i += batchSize {
 		end := i + batchSize
 		if end > len(bodyForms) {
@@ -141,39 +142,76 @@ func (bues BodyURLEncodedService) CreateBulkBodyURLEncoded(ctx context.Context, 
 		}
 
 		batch := bodyForms[i:end]
+		
+		// For batches with fewer than 7 items, use individual inserts
+		if len(batch) < batchSize {
+			for _, body := range batch {
+				err := bues.CreateBodyURLEncoded(ctx, &body)
+				if err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		
 		params := gen.CreateBodyUrlEncodedBulkParams{}
 
-		// Set the bulk parameters based on batch size
-		if len(batch) > 0 {
-			params.ID = batch[0].ID
-			params.ExampleID = batch[0].ExampleID
-			params.DeltaParentID = batch[0].DeltaParentID
-			params.BodyKey = batch[0].BodyKey
-			params.Enable = batch[0].Enable
-			params.Description = batch[0].Description
-			params.Value = batch[0].Value
-		}
+		// Set all 7 batch parameters
+		params.ID = batch[0].ID
+		params.ExampleID = batch[0].ExampleID
+		params.DeltaParentID = batch[0].DeltaParentID
+		params.BodyKey = batch[0].BodyKey
+		params.Enable = batch[0].Enable
+		params.Description = batch[0].Description
+		params.Value = batch[0].Value
 
-		if len(batch) > 1 {
-			params.ID_2 = batch[1].ID
-			params.ExampleID_2 = batch[1].ExampleID
-			params.DeltaParentID_2 = batch[1].DeltaParentID
-			params.BodyKey_2 = batch[1].BodyKey
-			params.Enable_2 = batch[1].Enable
-			params.Description_2 = batch[1].Description
-			params.Value_2 = batch[1].Value
-		}
+		params.ID_2 = batch[1].ID
+		params.ExampleID_2 = batch[1].ExampleID
+		params.DeltaParentID_2 = batch[1].DeltaParentID
+		params.BodyKey_2 = batch[1].BodyKey
+		params.Enable_2 = batch[1].Enable
+		params.Description_2 = batch[1].Description
+		params.Value_2 = batch[1].Value
 
-		// Continue for batch[2] through batch[9] if they exist...
-		if len(batch) > 2 {
-			params.ID_3 = batch[2].ID
-			params.ExampleID_3 = batch[2].ExampleID
-			params.DeltaParentID_3 = batch[2].DeltaParentID
-			params.BodyKey_3 = batch[2].BodyKey
-			params.Enable_3 = batch[2].Enable
-			params.Description_3 = batch[2].Description
-			params.Value_3 = batch[2].Value
-		}
+		params.ID_3 = batch[2].ID
+		params.ExampleID_3 = batch[2].ExampleID
+		params.DeltaParentID_3 = batch[2].DeltaParentID
+		params.BodyKey_3 = batch[2].BodyKey
+		params.Enable_3 = batch[2].Enable
+		params.Description_3 = batch[2].Description
+		params.Value_3 = batch[2].Value
+
+		params.ID_4 = batch[3].ID
+		params.ExampleID_4 = batch[3].ExampleID
+		params.DeltaParentID_4 = batch[3].DeltaParentID
+		params.BodyKey_4 = batch[3].BodyKey
+		params.Enable_4 = batch[3].Enable
+		params.Description_4 = batch[3].Description
+		params.Value_4 = batch[3].Value
+
+		params.ID_5 = batch[4].ID
+		params.ExampleID_5 = batch[4].ExampleID
+		params.DeltaParentID_5 = batch[4].DeltaParentID
+		params.BodyKey_5 = batch[4].BodyKey
+		params.Enable_5 = batch[4].Enable
+		params.Description_5 = batch[4].Description
+		params.Value_5 = batch[4].Value
+
+		params.ID_6 = batch[5].ID
+		params.ExampleID_6 = batch[5].ExampleID
+		params.DeltaParentID_6 = batch[5].DeltaParentID
+		params.BodyKey_6 = batch[5].BodyKey
+		params.Enable_6 = batch[5].Enable
+		params.Description_6 = batch[5].Description
+		params.Value_6 = batch[5].Value
+
+		params.ID_7 = batch[6].ID
+		params.ExampleID_7 = batch[6].ExampleID
+		params.DeltaParentID_7 = batch[6].DeltaParentID
+		params.BodyKey_7 = batch[6].BodyKey
+		params.Enable_7 = batch[6].Enable
+		params.Description_7 = batch[6].Description
+		params.Value_7 = batch[6].Value
 
 		err := bues.queries.CreateBodyUrlEncodedBulk(ctx, params)
 		if err != nil {
