@@ -84,9 +84,10 @@ func (as AssertService) GetAssertByExampleID(ctx context.Context, id idwrap.IDWr
 func (as AssertService) UpdateAssert(ctx context.Context, assert massert.Assert) error {
 	arg := ConvertAssertModelToDB(assert)
 	return as.queries.UpdateAssert(ctx, gen.UpdateAssertParams{
-		ID:         arg.ID,
-		Enable:     arg.Enable,
-		Expression: arg.Expression,
+		ID:            arg.ID,
+		Enable:        arg.Enable,
+		Expression:    arg.Expression,
+		DeltaParentID: arg.DeltaParentID,
 	})
 }
 

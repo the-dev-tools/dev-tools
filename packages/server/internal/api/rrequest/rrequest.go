@@ -1917,6 +1917,7 @@ func (c RequestRPC) AssertDeltaList(ctx context.Context, req *connect.Request[re
 				origin = originRPC
 
 				// Compare with parent to determine if modified
+				// The parent should be from the origin example, not the delta example
 				if parentAssert, exists := assertMap[*assert.DeltaParentID]; exists {
 					// For asserts, we need to compare the condition fields
 					// Since Condition is a complex type, we'll do a deep comparison
@@ -1928,16 +1929,22 @@ func (c RequestRPC) AssertDeltaList(ctx context.Context, req *connect.Request[re
 						(parentCondition != nil && currentCondition == nil) {
 						conditionsMatch = false
 					} else if parentCondition != nil && currentCondition != nil {
-						// Compare the condition fields
-						conditionsMatch = parentCondition.String() == currentCondition.String()
+						// Compare the condition fields - check if both have comparisons
+						if parentCondition.Comparison != nil && currentCondition.Comparison != nil {
+							conditionsMatch = parentCondition.Comparison.Expression == currentCondition.Comparison.Expression
+						} else {
+							conditionsMatch = (parentCondition.Comparison == nil) == (currentCondition.Comparison == nil)
+						}
 					}
 
 					if conditionsMatch && assert.Enable == parentAssert.Enable {
 						// Values match parent - this is an unmodified delta (ORIGIN)
 						actualSourceKind = deltav1.SourceKind_SOURCE_KIND_ORIGIN
 					} else {
-						// Values differ from parent - this is a modified delta (DELTA)
-						actualSourceKind = deltaType.ToSourceKind()
+						// Values differ from parent - this is a modified delta (MIXED)
+						// deltaType should be AssertSourceMixed when the assert has a DeltaParentID
+						// and the example has a version parent
+						actualSourceKind = deltav1.SourceKind_SOURCE_KIND_MIXED
 					}
 				} else {
 					// Parent not found, treat as modified
