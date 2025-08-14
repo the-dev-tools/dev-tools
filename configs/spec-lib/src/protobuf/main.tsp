@@ -1,4 +1,6 @@
-namespace TypeSpec;
+import "../../dist/src/protobuf";
+
+namespace DevTools.Protobuf;
 
 scalar sint32 extends int32;
 scalar sint64 extends int64;
@@ -39,4 +41,11 @@ extern dec stream(target: Reflection.Operation, mode: StreamMode);
 namespace Private {
   extern dec map(target: Reflection.Scalar, key: keyType, value);
   extern dec external(target: Reflection.Model, path: string, name: string);
+}
+
+namespace WellKnown {
+  model Any is External<"google/protobuf/any.proto", "google.protobuf.Any">;
+  model Empty is External<"google/protobuf/empty.proto", "google.protobuf.Empty">;
+  model Json is External<"google/protobuf/struct.proto", "google.protobuf.Value">;
+  model Timestamp is External<"google/protobuf/timestamp.proto", "google.protobuf.Timestamp">;
 }

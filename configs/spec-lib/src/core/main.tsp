@@ -1,4 +1,6 @@
-namespace Lib;
+import "../../dist/src/core";
+
+namespace DevTools;
 
 using Reflection;
 
