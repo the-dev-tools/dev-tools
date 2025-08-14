@@ -5,12 +5,12 @@ import {
   JSONSchemaType,
   Model,
   Operation,
-  Program,
   Scalar,
   StringLiteral,
   Type,
 } from '@typespec/compiler';
-import { JSONSchema, pipe, Record, Schema } from 'effect';
+import { JSONSchema, pipe, Schema } from 'effect';
+import { makeStateFactory } from '../utils.js';
 
 export class EmitterOptions extends Schema.Class<EmitterOptions>('EmitterOptions')({
   goPackage: pipe(Schema.String, Schema.optionalWith({ as: 'Option' })),
@@ -34,18 +34,11 @@ export const $decorators = {
   },
 };
 
-const stateKeys = ['streams', 'externals', 'maps'] as const;
-export const state: Record<(typeof stateKeys)[number], symbol> = Record.fromIterableWith(stateKeys, (_) => [
-  _,
-  $lib.createStateSymbol(_),
-]);
+const { makeStateMap } = makeStateFactory((_) => $lib.createStateSymbol(_));
 
-export const streams = (program: Program) =>
-  program.stateMap(state.streams) as Map<Operation, 'Duplex' | 'In' | 'None' | 'Out'>;
-
-export const externals = (program: Program) => program.stateMap(state.externals) as Map<Type, [string, string]>;
-
-export const maps = (program: Program) => program.stateMap(state.maps) as Map<Type, [Type, Type]>;
+export const streams = makeStateMap<Operation, 'Duplex' | 'In' | 'None' | 'Out'>('streams');
+export const externals = makeStateMap<Type, [string, string]>('externals');
+export const maps = makeStateMap<Type, [Type, Type]>('maps');
 
 function stream({ program }: DecoratorContext, target: Operation, mode: EnumMember) {
   streams(program).set(target, mode.name as never);

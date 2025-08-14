@@ -3,12 +3,14 @@ import {
   DecoratorContext,
   Interface,
   Model,
+  ModelProperty,
   Operation,
   Program,
   Type,
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { Array, Option, pipe, Record } from 'effect';
+import { makeStateFactory } from '../utils.js';
 
 export const $lib = createTypeSpecLibrary({
   diagnostics: {},
@@ -22,21 +24,14 @@ export const $decorators = {
   },
 };
 
-const stateKeys = ['instances', 'instancesByModel', 'instancesByTemplate', 'templates'] as const;
-const state: Record<(typeof stateKeys)[number], symbol> = Record.fromIterableWith(stateKeys, (_) => [
-  _,
-  $lib.createStateSymbol(_),
-]);
+const { makeStateMap, makeStateSet } = makeStateFactory((_) => $lib.createStateSymbol(_));
 
-export const instances = (program: Program) => program.stateSet(state.instances);
-
-export const instancesByModel = (program: Program) =>
-  program.stateMap(state.instancesByModel) as Map<Model, Set<Model>>;
-
-export const instancesByTemplate = (program: Program) =>
-  program.stateMap(state.instancesByTemplate) as Map<Type, Model>;
-
-export const templates = (program: Program) => program.stateSet(state.templates);
+export const instances = makeStateSet<Type>('instances');
+export const instancesByModel = makeStateMap<Model, Set<Model>>('instancesByModel');
+export const instancesByTemplate = makeStateMap<Type, Model>('instancesByTemplate');
+export const normalKeys = makeStateSet<ModelProperty>('normalKeys');
+export const parents = makeStateMap<Model, Model>('parents');
+export const templates = makeStateSet<Type>('templates');
 
 interface AddInstanceProps {
   base: Model;
