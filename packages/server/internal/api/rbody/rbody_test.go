@@ -216,7 +216,7 @@ func TestGetBodyForm(t *testing.T) {
 	msg := resp.Msg
 	
 	// Create a map for easier lookup since order might not be guaranteed
-	expectedMap := make(map[string]mbodyurl.BodyURLEncoded)
+	expectedMap := make(map[string]mbodyform.BodyForm)
 	for _, body := range formBodyArr {
 		expectedMap[body.BodyKey] = body
 	}
