@@ -29,7 +29,7 @@ import { EmitContext, Enum, Interface, Model, ModelProperty, Namespace, Program,
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, flow, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
 import { EmitterOptions } from './lib.js';
-import { externals, instances, instancesByModel, instancesByTemplate, maps, streams, templates } from './state.js';
+import { externals, instancesByModel, instancesByTemplate, maps, streams, templates } from './state.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -250,16 +250,24 @@ const Package = ({ namespace }: PackageProps) => {
     </Show>
   );
 
+  const getModelInstances = (_: Model): Model[] => {
+    if (!_.isFinished) $.type.finishType(_);
+
+    if (templates(program).has(_)) return [];
+
+    return pipe(
+      instancesByModel(program).get(_)?.values() ?? [],
+      Array.fromIterable,
+      Array.flatMap(getModelInstances),
+      Array.prepend(_),
+    );
+  };
+
   const messages = pipe(
     namespace.models.values(),
     Array.fromIterable,
-    Array.filterMap((_) => {
-      if (!_.isFinished) $.type.finishType(_);
-      if (templates(program).has(_)) return Option.none();
-      if (instances(program).has(_)) return Option.none();
-      return pipe(instancesByModel(program).get(_)?.values() ?? [], Array.fromIterable, Array.prepend(_), Option.some);
-    }),
-    Array.flatten,
+    Array.flatMap(getModelInstances),
+    Array.dedupe,
     (_) => (
       <Show when={_.length > 0}>
         <hbr />
@@ -414,7 +422,7 @@ interface ServiceProps {
 }
 
 const Service = ({ _interface }: ServiceProps) => {
-  const { program } = useTsp();
+  const { $, program } = useTsp();
   const protoTypeMap = useProtoTypeMap();
 
   const fields = pipe(
@@ -437,11 +445,13 @@ const Service = ({ _interface }: ServiceProps) => {
                 Match.exhaustive,
               );
 
+              const empty = Option.fromNullable(program.resolveTypeReference('TypeSpec.WellKnown.Empty')[0]);
+
               const inputType = yield* pipe(
                 _.parameters.sourceModels,
                 Option.liftPredicate(Array.isNonEmptyArray),
                 Option.match({
-                  onNone: () => Option.fromNullable(program.resolveTypeReference('TypeSpec.WellKnown.Empty')[0]),
+                  onNone: () => empty,
                   onSome: flow(
                     Array.findFirst((_) => _.usage === 'spread'),
                     Option.map((_) => _.model),
@@ -450,7 +460,13 @@ const Service = ({ _interface }: ServiceProps) => {
                 Option.flatMap(protoTypeMap),
               );
 
-              const outputType = yield* protoTypeMap(_.returnType);
+              const outputType = yield* pipe(
+                _.returnType,
+                Option.liftPredicate((_) => $.model.is(_)),
+                Option.filter((_) => _.name.length > 0),
+                Option.orElse(() => empty),
+                Option.flatMap(protoTypeMap),
+              );
 
               return (
                 <>
