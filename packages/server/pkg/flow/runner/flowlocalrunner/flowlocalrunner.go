@@ -265,11 +265,13 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				status.Error = nil
 				outputData, err := node.ReadVarRaw(req, status.Name)
 				if err == nil {
-					status.OutputData = outputData
+					// Deep copy the output data to prevent concurrent access issues
+					status.OutputData = node.DeepCopyValue(outputData)
 				} else {
 					status.OutputData = nil
 				}
-				status.InputData = result.inputData
+				// Deep copy input data as well
+				status.InputData = node.DeepCopyValue(result.inputData)
 				statusLogFunc(status)
 			}
 
@@ -432,11 +434,13 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				status.Error = nil
 				outputData, err := node.ReadVarRaw(req, status.Name)
 				if err == nil {
-					status.OutputData = outputData
+					// Deep copy the output data to prevent concurrent access issues
+					status.OutputData = node.DeepCopyValue(outputData)
 				} else {
 					status.OutputData = nil
 				}
-				status.InputData = result.inputData
+				// Deep copy input data as well
+				status.InputData = node.DeepCopyValue(result.inputData)
 				statusLogFunc(status)
 			}
 

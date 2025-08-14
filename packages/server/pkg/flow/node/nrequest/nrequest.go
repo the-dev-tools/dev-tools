@@ -118,7 +118,9 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	nr.ExampleResp.ID = idwrap.NewNow()
 
 	// TODO: varMap is null create varMap
-	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	// Create a deep copy of VarMap to prevent concurrent access issues
+	varMapCopy := node.DeepCopyVarMap(req)
+	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 
 	prepareResult, err := request.PrepareRequestWithTracking(nr.Api, nr.Example,
 		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
@@ -234,7 +236,9 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	nr.ExampleResp.ID = idwrap.NewNow()
 
 	// TODO: varMap is null create varMap
-	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	// Create a deep copy of VarMap to prevent concurrent access issues
+	varMapCopy := node.DeepCopyVarMap(req)
+	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 
 	prepareResult, err := request.PrepareRequestWithTracking(nr.Api, nr.Example,
 		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)

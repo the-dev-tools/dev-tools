@@ -50,6 +50,57 @@ var (
 	ErrVarKeyNotFound   error = errors.New("key not found")
 )
 
+// DeepCopyVarMap creates a deep copy of the VarMap to prevent concurrent access issues
+func DeepCopyVarMap(req *FlowNodeRequest) map[string]any {
+	req.ReadWriteLock.RLock()
+	defer req.ReadWriteLock.RUnlock()
+	
+	return deepCopyMap(req.VarMap)
+}
+
+// deepCopyMap recursively copies a map[string]any
+func deepCopyMap(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	
+	result := make(map[string]any, len(m))
+	for k, v := range m {
+		result[k] = DeepCopyValue(v)
+	}
+	return result
+}
+
+// DeepCopyValue creates a deep copy of any value
+func DeepCopyValue(v any) any {
+	if v == nil {
+		return nil
+	}
+	
+	switch val := v.(type) {
+	case map[string]any:
+		return deepCopyMap(val)
+	case []any:
+		result := make([]any, len(val))
+		for i, item := range val {
+			result[i] = DeepCopyValue(item)
+		}
+		return result
+	case []map[string]interface{}:
+		result := make([]map[string]interface{}, len(val))
+		for i, item := range val {
+			if mapCopy, ok := DeepCopyValue(item).(map[string]interface{}); ok {
+				result[i] = mapCopy
+			}
+		}
+		return result
+	default:
+		// Primitive types (string, int, float, bool, etc.) are copied by value
+		// This includes string, int, float, bool, time.Time, etc.
+		return val
+	}
+}
+
 func WriteNodeVar(a *FlowNodeRequest, name string, key string, v interface{}) error {
 	a.ReadWriteLock.Lock()
 	defer a.ReadWriteLock.Unlock()

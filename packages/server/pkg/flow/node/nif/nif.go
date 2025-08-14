@@ -45,11 +45,14 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		result.Err = fmt.Errorf("%w: missing true or false branch for node %s", node.ErrNodeNotFound, n.FlowNodeID)
 		return result
 	}
-	exprEnv := expression.NewEnv(req.VarMap)
+	// Create a deep copy of VarMap to prevent concurrent access issues
+	varMapCopy := node.DeepCopyVarMap(req)
+	
+	exprEnv := expression.NewEnv(varMapCopy)
 
 	// Normalize the condition expression
 	conditionExpr := n.Condition.Comparisons.Expression
-	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 	normalizedExpression, err := expression.NormalizeExpression(ctx, conditionExpr, varMap)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to normalize condition expression '%s': %w", conditionExpr, err)
@@ -101,11 +104,14 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		return
 	}
 
-	exprEnv := expression.NewEnv(req.VarMap)
+	// Create a deep copy of VarMap to prevent concurrent access issues
+	varMapCopy := node.DeepCopyVarMap(req)
+	
+	exprEnv := expression.NewEnv(varMapCopy)
 
 	// Normalize the condition expression
 	conditionExpr := n.Condition.Comparisons.Expression
-	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 	normalizedExpression, err := expression.NormalizeExpression(ctx, conditionExpr, varMap)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to normalize condition expression '%s': %w", conditionExpr, err)

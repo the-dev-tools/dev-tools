@@ -58,7 +58,10 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
-	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	// Create a deep copy of VarMap to prevent concurrent access issues
+	varMapCopy := node.DeepCopyVarMap(req)
+	
+	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 	normalizedExpressionIterPath, err := expression.NormalizeExpression(ctx, nr.IterPath, varMap)
 	if err != nil {
 		return node.FlowNodeResult{
@@ -66,7 +69,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		}
 	}
 
-	exprEnv := expression.NewEnv(req.VarMap)
+	exprEnv := expression.NewEnv(varMapCopy)
 	
 	// Use tracking version if tracker is available
 	var result any
@@ -419,11 +422,19 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
+	// Safely read VarMap with lock protection
+	req.ReadWriteLock.RLock()
+	varMapCopy := make(map[string]any)
+	for k, v := range req.VarMap {
+		varMapCopy[k] = v
+	}
+	req.ReadWriteLock.RUnlock()
+	
 	// Create the expression environment
-	exprEnv := expression.NewEnv(req.VarMap)
+	exprEnv := expression.NewEnv(varMapCopy)
 
 	// Normalize the iteration path expression
-	varMap := varsystem.NewVarMapFromAnyMap(req.VarMap)
+	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 	normalizedExpressionIterPath, err := expression.NormalizeExpression(ctx, nr.IterPath, varMap)
 	if err != nil {
 		resultChan <- node.FlowNodeResult{Err: err}
