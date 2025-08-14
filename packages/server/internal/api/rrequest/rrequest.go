@@ -371,22 +371,21 @@ func (c RequestRPC) QueryDelete(ctx context.Context, req *connect.Request[reques
 	// Determine if this is an origin query
 	originDeltaType := originQuery.DetermineDeltaType(exampleHasVersionParent)
 	if originDeltaType == mexamplequery.QuerySourceOrigin {
-		// Get all queries from this example to find any that reference this origin query
-		allQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, originQuery.ExampleID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Delete any delta queries that reference this origin query with source="origin" or "mixed"
-		// When an origin is deleted, all its delta children must be removed to maintain consistency
-		for _, deltaQuery := range allQueries {
-			deltaType := deltaQuery.DetermineDeltaType(exampleHasVersionParent)
-			if deltaQuery.DeltaParentID != nil &&
-				deltaQuery.DeltaParentID.Compare(queryID) == 0 &&
-				(deltaType == mexamplequery.QuerySourceOrigin || deltaType == mexamplequery.QuerySourceMixed) {
-				err = c.eqs.DeleteExampleQuery(ctx, deltaQuery.ID)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
+		// Need to find and delete delta queries in OTHER examples that reference this origin
+		// Get all examples in the collection to search for delta queries
+		examples, err := c.iaes.GetApiExampleByCollection(ctx, example.CollectionID)
+		if err == nil {
+			for _, ex := range examples {
+				// Check all examples (both origin and delta) for queries that reference this one
+				deltaQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, ex.ID)
+				if err == nil {
+					for _, deltaQuery := range deltaQueries {
+						if deltaQuery.DeltaParentID != nil &&
+							deltaQuery.DeltaParentID.Compare(queryID) == 0 {
+							// Delete this delta query that references the origin being deleted
+							_ = c.eqs.DeleteExampleQuery(ctx, deltaQuery.ID)
+						}
+					}
 				}
 			}
 		}
@@ -1055,25 +1054,24 @@ func (c RequestRPC) HeaderDelete(ctx context.Context, req *connect.Request[reque
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if deltaType == mexampleheader.HeaderSourceOrigin {
-		// Get all headers from this example to find any that reference this origin header
-		allHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originHeader.ExampleID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Delete any delta headers that reference this origin header with source="origin" or "mixed"
-		for _, deltaHeader := range allHeaders {
-			if deltaHeader.DeltaParentID != nil &&
-				deltaHeader.DeltaParentID.Compare(headerID) == 0 {
-
-				deltaDeltaType, err := c.determineHeaderDeltaType(ctx, deltaHeader)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-				if deltaDeltaType == mexampleheader.HeaderSourceOrigin || deltaDeltaType == mexampleheader.HeaderSourceMixed {
-					err = c.ehs.DeleteHeader(ctx, deltaHeader.ID)
-					if err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
+		// Need to find and delete delta headers in OTHER examples that reference this origin
+		// Get the example to find the collection
+		example, err := c.iaes.GetApiExample(ctx, originHeader.ExampleID)
+		if err == nil {
+			// Get all examples in the collection to search for delta headers
+			examples, err := c.iaes.GetApiExampleByCollection(ctx, example.CollectionID)
+			if err == nil {
+				for _, ex := range examples {
+					// Check all examples for headers that reference this one
+					deltaHeaders, err := c.ehs.GetHeaderByExampleID(ctx, ex.ID)
+					if err == nil {
+						for _, deltaHeader := range deltaHeaders {
+							if deltaHeader.DeltaParentID != nil &&
+								deltaHeader.DeltaParentID.Compare(headerID) == 0 {
+								// Delete this delta header that references the origin being deleted
+								_ = c.ehs.DeleteHeader(ctx, deltaHeader.ID)
+							}
+						}
 					}
 				}
 			}
@@ -1769,21 +1767,21 @@ func (c RequestRPC) AssertDelete(ctx context.Context, req *connect.Request[reque
 	// Determine if this is an origin assert
 	originDeltaType := originAssert.DetermineDeltaType(exampleHasVersionParent)
 	if originDeltaType == massert.AssertSourceOrigin {
-		// Get all asserts from this example to find any that reference this origin assert
-		allAsserts, err := c.as.GetAssertByExampleID(ctx, originAssert.ExampleID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Delete any delta asserts that reference this origin assert with source="origin" or "mixed"
-		for _, deltaAssert := range allAsserts {
-			deltaType := deltaAssert.DetermineDeltaType(exampleHasVersionParent)
-			if deltaAssert.DeltaParentID != nil &&
-				deltaAssert.DeltaParentID.Compare(assertID) == 0 &&
-				(deltaType == massert.AssertSourceOrigin || deltaType == massert.AssertSourceMixed) {
-				err = c.as.DeleteAssert(ctx, deltaAssert.ID)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
+		// Need to find and delete delta asserts in OTHER examples that reference this origin
+		// Get all examples in the collection to search for delta asserts
+		examples, err := c.iaes.GetApiExampleByCollection(ctx, example.CollectionID)
+		if err == nil {
+			for _, ex := range examples {
+				// Check all examples for asserts that reference this one
+				deltaAsserts, err := c.as.GetAssertByExampleID(ctx, ex.ID)
+				if err == nil {
+					for _, deltaAssert := range deltaAsserts {
+						if deltaAssert.DeltaParentID != nil &&
+							deltaAssert.DeltaParentID.Compare(assertID) == 0 {
+							// Delete this delta assert that references the origin being deleted
+							_ = c.as.DeleteAssert(ctx, deltaAssert.ID)
+						}
+					}
 				}
 			}
 		}
