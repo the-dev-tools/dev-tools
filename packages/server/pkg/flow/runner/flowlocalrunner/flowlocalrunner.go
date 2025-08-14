@@ -253,6 +253,10 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
+				// Capture tracked input/output data even for canceled nodes
+				// This ensures we show what data was read/written before cancellation
+				status.InputData = node.DeepCopyValue(result.inputData)
+				status.OutputData = node.DeepCopyValue(result.outputData)
 				statusLogFunc(status)
 				continue
 			}
@@ -384,11 +388,9 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				nodeReq.ExecutionID = executionID
 				
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
-				if ctxTimed.Err() != nil {
-					return
-				}
 				
-				// Capture tracked data
+				// Always capture tracked data and send result, even if context timed out
+				// This ensures nodes don't get stuck in RUNNING state
 				outputData := tracker.GetWrittenVars()
 				
 				// Merge tracked variable reads into inputData
@@ -396,6 +398,11 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				if len(trackedReads) > 0 {
 					// Add tracked variables under a special "variables" key
 					inputData["variables"] = trackedReads
+				}
+
+				// If context timed out after node execution, mark it as an error
+				if ctxTimed.Err() != nil && localErr == nil {
+					localErr = ctxTimed.Err()
 				}
 
 				resultChan <- processResult{
@@ -415,10 +422,12 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			close(waitCh)
 		}()
 
+		// Wait for all goroutines to complete or timeout
+		timedOut := false
 		select {
 		case <-ctxTimed.Done():
-			<-waitCh
-			return ctxTimed.Err()
+			timedOut = true
+			<-waitCh // Wait for goroutines to finish sending their results
 		case <-waitCh:
 		}
 
@@ -436,6 +445,10 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
+				// Capture tracked input/output data even for canceled nodes
+				// This ensures we show what data was read/written before cancellation
+				status.InputData = node.DeepCopyValue(result.inputData)
+				status.OutputData = node.DeepCopyValue(result.outputData)
 				statusLogFunc(status)
 				continue
 			}
@@ -480,6 +493,11 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 		if lastNodeError != nil {
 			return lastNodeError
+		}
+		
+		// If we timed out but no specific node error, return the timeout error
+		if timedOut {
+			return ctxTimed.Err()
 		}
 	}
 
