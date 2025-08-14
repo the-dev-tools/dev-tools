@@ -14,13 +14,8 @@ import { addInstance, externals, instancesByTemplate, maps, streams, templates }
 
 // Lib
 
-const instanceOf = ({ program }: DecoratorContext, instance: Model, templateMaybe: Model) =>
+const instanceOf = ({ program }: DecoratorContext, instance: Model, template: Model) =>
   Option.gen(function* () {
-    const template = yield* pipe(
-      Option.fromNullable(templateMaybe),
-      Option.orElse(() => Option.fromNullable(instance.sourceModel)),
-    );
-
     const templateDecorator = yield* Array.findFirst(
       template.decorators,
       (_) => _.decorator === $decorators.Lib.templateOf,
@@ -58,9 +53,18 @@ const templateOf = (context: DecoratorContext, template: Interface | Model | Ope
 
     addInstance({ base, instance, program, template });
   } else if (base && template.kind === 'Interface') {
-    template.operations.forEach((_) => {
-      _.name = base.name + _.name;
-    });
+    // Avoid recursively renaming extended interfaces
+    const extendedOperationCount = template.sourceInterfaces.reduce(
+      (count, _interface) => count + _interface.operations.size,
+      0,
+    );
+
+    pipe(
+      template.operations.values(),
+      Array.fromIterable,
+      Array.drop(extendedOperationCount),
+      Array.forEach((_) => (_.name = base.name + _.name)),
+    );
   }
 
   templates(program).add(template);
@@ -73,8 +77,10 @@ const stream = ({ program }: DecoratorContext, target: Operation, mode: EnumMemb
 
 // TypeSpec.Private
 
-const external = ({ program }: DecoratorContext, target: Model, path: StringLiteral, name: StringLiteral) =>
+const external = ({ program }: DecoratorContext, target: Model, path: StringLiteral, name: StringLiteral) => {
+  if (target.sourceModel === undefined) return;
   externals(program).set(target, [path.value, name.value]);
+};
 
 const _map = ({ program }: DecoratorContext, target: Scalar, key: Type, value: Type) =>
   maps(program).set(target, [key, value]);
