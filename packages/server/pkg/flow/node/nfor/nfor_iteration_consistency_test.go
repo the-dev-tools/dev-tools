@@ -17,7 +17,7 @@ import (
 
 func TestForNode_IterationOutput_BasicCase(t *testing.T) {
 	// Test that FOR node outputs "index" not "iteration"
-	forNode := New(idwrap.NewNow(), "testFor", 3, time.Second*60, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
+	forNode := New(idwrap.NewNow(), "testFor", 3, time.Second*2, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 	
 	var loggedStatuses []runner.FlowNodeStatus
 	var mu sync.Mutex
@@ -71,7 +71,7 @@ func TestForNode_IterationOutput_BasicCase(t *testing.T) {
 
 func TestForNode_IterationOutput_ZeroIterations(t *testing.T) {
 	// Edge case: 0 iterations
-	forNode := New(idwrap.NewNow(), "testFor", 0, time.Second*60, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
+	forNode := New(idwrap.NewNow(), "testFor", 0, time.Second*2, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 	
 	var loggedStatuses []runner.FlowNodeStatus
 	logFunc := func(status runner.FlowNodeStatus) {
@@ -117,7 +117,7 @@ func TestForNode_IterationOutput_WithError(t *testing.T) {
 	
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			forNode := New(idwrap.NewNow(), "testFor", 3, time.Second*60, tc.errorHandling)
+			forNode := New(idwrap.NewNow(), "testFor", 3, time.Second*2, tc.errorHandling)
 			
 			var loggedStatuses []runner.FlowNodeStatus
 			logFunc := func(status runner.FlowNodeStatus) {
@@ -154,7 +154,7 @@ func TestForNode_IterationOutput_WithError(t *testing.T) {
 
 func TestForNode_IterationOutput_AsyncConsistency(t *testing.T) {
 	// Test that async behaves same as sync
-	forNode := New(idwrap.NewNow(), "testFor", 3, time.Second*60, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
+	forNode := New(idwrap.NewNow(), "testFor", 3, time.Second*2, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 	
 	var loggedStatuses []runner.FlowNodeStatus
 	var mu sync.Mutex
@@ -172,11 +172,17 @@ func TestForNode_IterationOutput_AsyncConsistency(t *testing.T) {
 		LogPushFunc:   logFunc,
 	}
 	
-	resultChan := make(chan node.FlowNodeResult)
-	forNode.RunAsync(context.Background(), req, resultChan)
+	resultChan := make(chan node.FlowNodeResult, 1) // Make it buffered
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	forNode.RunAsync(ctx, req, resultChan)
 	
-	result := <-resultChan
-	require.NoError(t, result.Err)
+	select {
+	case result := <-resultChan:
+		require.NoError(t, result.Err)
+	case <-ctx.Done():
+		t.Fatal("Test timed out waiting for async result")
+	}
 	
 	// Check all iteration records have "index" not "iteration"
 	for _, status := range loggedStatuses {

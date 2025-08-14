@@ -22,7 +22,7 @@ func TestForEachNode_ArrayIteration_OutputFormat(t *testing.T) {
 		idwrap.NewNow(), 
 		"testForEach", 
 		"testArray", 
-		time.Second*60,
+		time.Second*2,
 		mcondition.Condition{},
 		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 	)
@@ -92,7 +92,7 @@ func TestForEachNode_MapIteration_OutputFormat(t *testing.T) {
 		idwrap.NewNow(), 
 		"testForEach", 
 		"testMap", 
-		time.Second*60,
+		time.Second*2,
 		mcondition.Condition{},
 		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 	)
@@ -187,7 +187,7 @@ func TestForEachNode_EmptyCollection_OutputFormat(t *testing.T) {
 				idwrap.NewNow(), 
 				"testForEach", 
 				"testValue", 
-				time.Second*60,
+				time.Second*2,
 				mcondition.Condition{},
 				mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 			)
@@ -231,7 +231,7 @@ func TestForEachNode_MixedTypeArray_OutputFormat(t *testing.T) {
 		idwrap.NewNow(), 
 		"testForEach", 
 		"mixedArray", 
-		time.Second*60,
+		time.Second*2,
 		mcondition.Condition{},
 		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 	)
@@ -289,7 +289,7 @@ func TestForEachNode_AsyncConsistency(t *testing.T) {
 		idwrap.NewNow(), 
 		"testForEach", 
 		"testData", 
-		time.Second*60,
+		time.Second*2,
 		mcondition.Condition{},
 		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 	)

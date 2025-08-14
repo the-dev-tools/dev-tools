@@ -145,7 +145,7 @@ func TestForNode_RunAsync(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	iterCount := int64(3)
-	nodeFor := nfor.New(id, nodeName, iterCount, time.Minute, 0)
+	nodeFor := nfor.New(id, nodeName, iterCount, time.Second*2, 0)
 
 	ctx := context.Background()
 
@@ -175,7 +175,7 @@ func TestForNode_RunAsync(t *testing.T) {
 func TestForNode_SetID(t *testing.T) {
 	id := idwrap.NewNow()
 	nodeName := "test-node"
-	nodeFor := nfor.New(id, nodeName, 1, time.Minute, 0)
+	nodeFor := nfor.New(id, nodeName, 1, time.Second*2, 0)
 	nodeFor.SetID(id)
 	if nodeFor.GetID() != id {
 		t.Errorf("Expected nodeFor.GetID() to be %v, but got %v", id, nodeFor.GetID())

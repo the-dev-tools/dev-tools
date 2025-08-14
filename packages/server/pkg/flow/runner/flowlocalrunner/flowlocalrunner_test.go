@@ -60,7 +60,7 @@ func TestLocalFlowRunner_Run_Full(t *testing.T) {
 	})
 	runCounter = 0
 	t.Run("Async", func(t *testing.T) {
-		runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
+		runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Second*5)
 		flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 		flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
 		err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
@@ -99,7 +99,7 @@ func TestLocalFlowRunner_Run_NonFull(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
+	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Second*5)
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
 	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
@@ -246,7 +246,7 @@ func TestLocalFlowRunner_Run_SplitAndMerge(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2, edge3, edge4}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
+	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Second*5)
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
 	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
@@ -313,7 +313,7 @@ func TestLocalFlowRunner_Run_SplitAndMergeWithSubNodes(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2, edge3, edge4, edge5, edge6, edge7, edge8, edge9, edge10, edge11}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Minute)
+	runnerLocal := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), node1ID, flowNodeMap, edgesMap, time.Second*5)
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, FlowNodeStatusChanBufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, FlowStatusChanBufferSize)
 	err := runnerLocal.Run(context.Background(), flowNodeStatusChan, flowStatusChan, nil)
