@@ -3,9 +3,16 @@
   "private": true,
   "type": "module",
   "exports": {
-    "typespec": "./spec/main.tsp",
-    "types": "./dist/src/index.d.ts",
-    "default": "./dist/src/index.js"
+    "./core": {
+      "typespec": "./src/core/main.tsp",
+      "types": "./dist/src/core/index.d.ts",
+      "default": "./dist/src/core/index.js"
+    },
+    "./protobuf": {
+      "typespec": "./src/protobuf/main.tsp",
+      "types": "./dist/src/protobuf/index.d.ts",
+      "default": "./dist/src/protobuf/index.js"
+    }
   },
   "devDependencies": {
     "@alloy-js/cli": "~0.18.0",
