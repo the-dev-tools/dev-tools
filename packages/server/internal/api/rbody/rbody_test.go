@@ -301,17 +301,33 @@ func TestGetBodyUrlEncoded(t *testing.T) {
 
 	formBodyArr := make([]mbodyurl.BodyURLEncoded, formCount)
 
+	// Pre-generate all IDs to ensure uniqueness
+	ids := make([]idwrap.IDWrap, formCount)
+	idSet := make(map[string]bool) // Track used IDs
+	
+	for i := 0; i < formCount; i++ {
+		for {
+			id := idwrap.NewNow()
+			idStr := id.String()
+			if !idSet[idStr] {
+				ids[i] = id
+				idSet[idStr] = true
+				break
+			}
+			time.Sleep(time.Microsecond) // Wait and retry if duplicate
+		}
+		time.Sleep(time.Millisecond) // Additional spacing
+	}
+	
 	for i := 0; i < formCount; i++ {
 		formBodyArr[i] = mbodyurl.BodyURLEncoded{
-			ID:          idwrap.NewNow(),
+			ID:          ids[i],
 			Description: "test",
 			BodyKey:     fmt.Sprintf("test_key_%d", i), // Make keys unique
 			Value:       fmt.Sprintf("test_val_%d", i), // Make values unique
 			Enable:      true,
 			ExampleID:   itemExample.ID,
 		}
-		// Small delay to ensure unique ULIDs
-		time.Sleep(time.Microsecond)
 	}
 
 	err = bues.CreateBulkBodyURLEncoded(ctx, formBodyArr)
