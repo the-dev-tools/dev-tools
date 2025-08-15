@@ -55,7 +55,7 @@ func TestForEachNode_ArrayIteration_OutputFormat(t *testing.T) {
 	for _, status := range loggedStatuses {
 		if status.State == mnnode.NODE_STATE_RUNNING && status.OutputData != nil {
 			outputMap, ok := status.OutputData.(map[string]any)
-			if ok && (outputMap["index"] != nil || outputMap["key"] != nil) {
+			if ok && (outputMap["item"] != nil || outputMap["key"] != nil) {
 				iterationRecords = append(iterationRecords, status)
 			}
 		}
@@ -69,20 +69,16 @@ func TestForEachNode_ArrayIteration_OutputFormat(t *testing.T) {
 		outputMap, ok := record.OutputData.(map[string]any)
 		require.True(t, ok)
 		
-		// Should have exactly "index" and "value"
+		// Should have exactly "key" and "item"
 		assert.Len(t, outputMap, 2, "Should have exactly 2 fields")
 		
-		index, hasIndex := outputMap["index"]
-		assert.True(t, hasIndex, "Should have 'index' field")
-		assert.Equal(t, i, index, "Index should match")
+		key, hasKey := outputMap["key"]
+		assert.True(t, hasKey, "Should have 'key' field")
+		assert.Equal(t, i, key, "Index should match")
 		
-		value, hasValue := outputMap["value"]
-		assert.True(t, hasValue, "Should have 'value' field")
-		assert.Equal(t, testArray[i], value, "Value should match array item")
-		
-		// Should NOT have "key" for array iteration
-		_, hasKey := outputMap["key"]
-		assert.False(t, hasKey, "Should NOT have 'key' for array iteration")
+		item, hasItem := outputMap["item"]
+		assert.True(t, hasItem, "Should have 'item' field")
+		assert.Equal(t, testArray[i], item, "Value should match array item")
 	}
 }
 
@@ -145,7 +141,7 @@ func TestForEachNode_MapIteration_OutputFormat(t *testing.T) {
 		outputMap, ok := record.OutputData.(map[string]any)
 		require.True(t, ok)
 		
-		// Should have exactly "key" and "value"
+		// Should have exactly "key" and "item"
 		assert.Len(t, outputMap, 2, "Should have exactly 2 fields")
 		
 		key, hasKey := outputMap["key"]
@@ -153,17 +149,13 @@ func TestForEachNode_MapIteration_OutputFormat(t *testing.T) {
 		keyStr, ok := key.(string)
 		require.True(t, ok, "Key should be string")
 		
-		value, hasValue := outputMap["value"]
-		assert.True(t, hasValue, "Should have 'value' field")
+		item, hasItem := outputMap["item"]
+		assert.True(t, hasItem, "Should have 'item' field")
 		
 		// Verify key-value pair matches original map
 		expectedValue, exists := testMap[keyStr]
 		assert.True(t, exists, "Key should exist in original map")
-		assert.Equal(t, expectedValue, value, "Value should match")
-		
-		// Should NOT have "index" for map iteration
-		_, hasIndex := outputMap["index"]
-		assert.False(t, hasIndex, "Should NOT have 'index' for map iteration")
+		assert.Equal(t, expectedValue, item, "Value should match")
 		
 		seenKeys[keyStr] = true
 	}
@@ -215,7 +207,7 @@ func TestForEachNode_EmptyCollection_OutputFormat(t *testing.T) {
 			for _, status := range loggedStatuses {
 				if status.OutputData != nil {
 					outputMap, ok := status.OutputData.(map[string]any)
-					if ok && (outputMap["index"] != nil || outputMap["key"] != nil) {
+					if ok && (outputMap["item"] != nil || outputMap["key"] != nil) {
 						iterationCount++
 					}
 				}
@@ -269,13 +261,13 @@ func TestForEachNode_MixedTypeArray_OutputFormat(t *testing.T) {
 	for _, status := range loggedStatuses {
 		if status.State == mnnode.NODE_STATE_SUCCESS && status.OutputData != nil {
 			outputMap, ok := status.OutputData.(map[string]any)
-			if ok && outputMap["index"] != nil {
+			if ok && outputMap["key"] != nil {
 				iterationCount++
 				
 				// Verify value is preserved correctly
-				index := outputMap["index"].(int)
-				value := outputMap["value"]
-				assert.Equal(t, mixedArray[index], value, "Value type should be preserved")
+				key := outputMap["key"].(int)
+				item := outputMap["item"]
+				assert.Equal(t, mixedArray[key], item, "Value type should be preserved")
 			}
 		}
 	}
@@ -337,14 +329,12 @@ func TestForEachNode_AsyncConsistency(t *testing.T) {
 						if tc.checkKey {
 							// Map iteration
 							if outputMap["key"] != nil {
-								assert.NotNil(t, outputMap["value"], "Map iteration should have value")
-								assert.Nil(t, outputMap["index"], "Map iteration should not have index")
+								assert.NotNil(t, outputMap["item"], "Map iteration should have item")
 							}
 						} else {
 							// Array iteration
-							if outputMap["index"] != nil {
-								assert.NotNil(t, outputMap["value"], "Array iteration should have value")
-								assert.Nil(t, outputMap["key"], "Array iteration should not have key")
+							if outputMap["key"] != nil {
+								assert.NotNil(t, outputMap["item"], "Array iteration should have item")
 							}
 						}
 					}

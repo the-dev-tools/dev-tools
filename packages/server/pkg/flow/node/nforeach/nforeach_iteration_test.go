@@ -135,9 +135,9 @@ func TestForEachNodeArrayIterationLogging(t *testing.T) {
 		}
 		
 		// Check index
-		indexValue, exists := outputMap["index"]
+		indexValue, exists := outputMap["key"]
 		if !exists {
-			t.Errorf("Iteration %d: Expected 'index' key in OutputData", i)
+			t.Errorf("Iteration %d: Expected 'key' key in OutputData", i)
 			continue
 		}
 		
@@ -147,9 +147,9 @@ func TestForEachNodeArrayIterationLogging(t *testing.T) {
 		}
 		
 		// Check value
-		valueValue, exists := outputMap["value"]
+		valueValue, exists := outputMap["item"]
 		if !exists {
-			t.Errorf("Iteration %d: Expected 'value' key in OutputData", i)
+			t.Errorf("Iteration %d: Expected 'item' key in OutputData", i)
 			continue
 		}
 		
@@ -306,9 +306,9 @@ func TestForEachNodeMapIterationLogging(t *testing.T) {
 		}
 		
 		// Check value
-		valueValue, exists := outputMap["value"]
+		valueValue, exists := outputMap["item"]
 		if !exists {
-			t.Errorf("Iteration %d: Expected 'value' key in OutputData", i)
+			t.Errorf("Iteration %d: Expected 'item' key in OutputData", i)
 			continue
 		}
 		
@@ -538,9 +538,9 @@ func TestForEachNodeArrayIterationLoggingAsync(t *testing.T) {
 		}
 		
 		// Check index
-		indexValue, exists := outputMap["index"]
+		indexValue, exists := outputMap["key"]
 		if !exists {
-			t.Errorf("Iteration %d: Expected 'index' key in OutputData", i)
+			t.Errorf("Iteration %d: Expected 'key' key in OutputData", i)
 			continue
 		}
 		
@@ -550,9 +550,9 @@ func TestForEachNodeArrayIterationLoggingAsync(t *testing.T) {
 		}
 		
 		// Check value
-		valueValue, exists := outputMap["value"]
+		valueValue, exists := outputMap["item"]
 		if !exists {
-			t.Errorf("Iteration %d: Expected 'value' key in OutputData", i)
+			t.Errorf("Iteration %d: Expected 'item' key in OutputData", i)
 			continue
 		}
 		

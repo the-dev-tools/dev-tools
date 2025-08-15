@@ -72,8 +72,8 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 			// Verify output data
 			outputData, ok := status.OutputData.(map[string]any)
 			require.True(t, ok, "OutputData should be a map")
-			assert.Equal(t, i, outputData["index"], "Index should match iteration")
-			assert.Equal(t, expectedItems[i], outputData["value"], "Value should match array item")
+			assert.Equal(t, i, outputData["key"], "Index should match iteration")
+			assert.Equal(t, expectedItems[i], outputData["item"], "Value should match array item")
 		}
 	})
 
@@ -134,7 +134,7 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 			outputData, ok := status.OutputData.(map[string]any)
 			require.True(t, ok, "OutputData should be a map")
 			assert.Contains(t, outputData, "key", "Should contain key field")
-			assert.Contains(t, outputData, "value", "Should contain value field")
+			assert.Contains(t, outputData, "item", "Should contain item field")
 		}
 	})
 

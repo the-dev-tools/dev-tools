@@ -192,8 +192,8 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			// Create initial RUNNING record
 			if req.LogPushFunc != nil {
 				iterationData := map[string]any{
-					"index": itemIndex,
-					"value": item,
+					"item": item,
+					"key":  itemIndex,
 				}
 				executionName := fmt.Sprintf("Iteration %d", itemIndex)
 				req.LogPushFunc(runner.FlowNodeStatus{
@@ -220,7 +220,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					NodeID:     nr.FlowNodeID,
 					Name:       executionName,
 					State:      mnnode.NODE_STATE_SUCCESS,
-					OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
+					OutputData: map[string]any{"item": item, "key": itemIndex-1},
 					IterationContext: iterContext,
 				})
 			}
@@ -326,8 +326,8 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			// Create initial RUNNING record
 			if req.LogPushFunc != nil {
 				iterationData := map[string]any{
-					"key":   key,
-					"value": value,
+					"item": value,
+					"key":  key,
 				}
 				executionName := fmt.Sprintf("Iteration %d", totalItems)
 				req.LogPushFunc(runner.FlowNodeStatus{
@@ -353,7 +353,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					NodeID:     nr.FlowNodeID,
 					Name:       executionName,
 					State:      mnnode.NODE_STATE_SUCCESS,
-					OutputData: map[string]any{"key": key, "value": value, "completed": true},
+					OutputData: map[string]any{"item": value, "key": key},
 					IterationContext: iterContext,
 				})
 			}
@@ -585,8 +585,8 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				// Create initial RUNNING record
 				if req.LogPushFunc != nil {
 					iterationData := map[string]any{
-						"index": itemIndex,
-						"value": item,
+						"item": item,
+						"key":  itemIndex,
 					}
 					executionName := fmt.Sprintf("Iteration %d", itemIndex)
 					req.LogPushFunc(runner.FlowNodeStatus{
@@ -613,7 +613,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						NodeID:     nr.FlowNodeID,
 						Name:       executionName,
 						State:      mnnode.NODE_STATE_SUCCESS,
-						OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
+						OutputData: map[string]any{"item": item, "key": itemIndex-1},
 						IterationContext: iterContext,
 					})
 				}
@@ -726,8 +726,8 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				// Create initial RUNNING record
 				if req.LogPushFunc != nil {
 					iterationData := map[string]any{
-						"key":   key,
-						"value": value,
+						"item": value,
+						"key":  key,
 					}
 					executionName := fmt.Sprintf("Iteration %d", totalItems)
 					req.LogPushFunc(runner.FlowNodeStatus{
@@ -753,7 +753,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						NodeID:     nr.FlowNodeID,
 						Name:       executionName,
 						State:      mnnode.NODE_STATE_SUCCESS,
-						OutputData: map[string]any{"key": key, "value": value, "completed": true},
+						OutputData: map[string]any{"item": value, "key": key},
 						IterationContext: iterContext,
 					})
 				}

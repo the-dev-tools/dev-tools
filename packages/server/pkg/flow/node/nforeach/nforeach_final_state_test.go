@@ -77,8 +77,8 @@ func TestForEachNode_FinalStateVerification(t *testing.T) {
 			
 			// Verify output data
 			if outputData, ok := status.OutputData.(map[string]any); ok {
-				assert.Equal(t, i, outputData["index"], "Index should match iteration")
-				assert.Equal(t, i+1, outputData["value"], "Value should match array item")
+				assert.Equal(t, i, outputData["key"], "Index should match iteration")
+				assert.Equal(t, i+1, outputData["item"], "Value should match array item")
 			}
 		}
 		
@@ -136,7 +136,7 @@ func TestForEachNode_FinalStateVerification(t *testing.T) {
 			// Verify output data structure for map iteration
 			if outputData, ok := status.OutputData.(map[string]any); ok {
 				assert.Contains(t, outputData, "key", "Should contain key field")
-				assert.Contains(t, outputData, "value", "Should contain value field")
+				assert.Contains(t, outputData, "item", "Should contain item field")
 			}
 		}
 		
