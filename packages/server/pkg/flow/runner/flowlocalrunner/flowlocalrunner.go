@@ -242,6 +242,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		close(resultChan)
 
 		var lastNodeError error
+		var cancellationError error
 		for result := range resultChan {
 			status.NodeID = result.originalID
 			status.ExecutionID = result.executionID
@@ -258,6 +259,8 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				status.InputData = node.DeepCopyValue(result.inputData)
 				status.OutputData = node.DeepCopyValue(result.outputData)
 				statusLogFunc(status)
+				// Store the cancellation error to return after processing all results
+				cancellationError = FlowNodeCancelCtx.Err()
 				continue
 			}
 
@@ -298,6 +301,10 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 		if lastNodeError != nil {
 			return lastNodeError
+		}
+		
+		if cancellationError != nil {
+			return cancellationError
 		}
 
 		// remove from queue
@@ -430,6 +437,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 		queue = queue[processCount:]
 
 		var lastNodeError error
+		var cancellationError error
 		for result := range resultChan {
 			status.NodeID = result.originalID
 			status.ExecutionID = result.executionID
@@ -445,6 +453,8 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				status.InputData = node.DeepCopyValue(result.inputData)
 				status.OutputData = node.DeepCopyValue(result.outputData)
 				statusLogFunc(status)
+				// Store the cancellation error to return after processing all results
+				cancellationError = FlowNodeCancelCtx.Err()
 				continue
 			}
 			if result.err != nil {
@@ -483,6 +493,10 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 		if lastNodeError != nil {
 			return lastNodeError
+		}
+		
+		if cancellationError != nil {
+			return cancellationError
 		}
 		
 		// If we timed out but no specific node error, return the timeout error

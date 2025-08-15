@@ -144,17 +144,7 @@ func TestVariableTrackingIntegration_RequestNodeWithVariables(t *testing.T) {
 		t.Fatalf("InputData is not a map, got %T", successStatus.InputData)
 	}
 
-	// Check for variables section
-	variablesData, hasVariables := inputData["variables"]
-	if !hasVariables {
-		t.Fatal("InputData does not contain 'variables' section")
-	}
-
-	variables, ok := variablesData.(map[string]any)
-	if !ok {
-		t.Fatalf("Variables data is not a map, got %T", variablesData)
-	}
-
+	// InputData now contains variables directly (no 'variables' wrapper)
 	// Verify all expected variables were tracked
 	expectedVars := map[string]string{
 		"baseUrl":   "https://api.example.com",
@@ -167,13 +157,13 @@ func TestVariableTrackingIntegration_RequestNodeWithVariables(t *testing.T) {
 		"userRole":  "admin",
 	}
 
-	if len(variables) != len(expectedVars) {
-		t.Errorf("Expected %d tracked variables, got %d", len(expectedVars), len(variables))
-		t.Logf("Tracked variables: %v", variables)
+	if len(inputData) != len(expectedVars) {
+		t.Errorf("Expected %d tracked variables, got %d", len(expectedVars), len(inputData))
+		t.Logf("Tracked variables: %v", inputData)
 	}
 
 	for key, expectedValue := range expectedVars {
-		actualValue, found := variables[key]
+		actualValue, found := inputData[key]
 		if !found {
 			t.Errorf("Expected variable '%s' was not tracked", key)
 			continue
@@ -183,7 +173,7 @@ func TestVariableTrackingIntegration_RequestNodeWithVariables(t *testing.T) {
 		}
 	}
 
-	t.Logf("✅ Successfully tracked %d variables in REQUEST node InputData", len(variables))
+	t.Logf("✅ Successfully tracked %d variables in REQUEST node InputData", len(inputData))
 
 	// Pretty print the InputData for verification
 	inputJSON, _ := json.MarshalIndent(inputData, "", "  ")
@@ -415,17 +405,7 @@ func TestVariableTrackingIntegration_RequestNodeWithPartialVariables(t *testing.
 		t.Fatalf("InputData is not a map, got %T", successStatus.InputData)
 	}
 
-	// Check for variables section
-	variablesData, hasVariables := inputData["variables"]
-	if !hasVariables {
-		t.Fatal("InputData does not contain 'variables' section")
-	}
-
-	variables, ok := variablesData.(map[string]any)
-	if !ok {
-		t.Fatalf("Variables data is not a map, got %T", variablesData)
-	}
-
+	// InputData now contains variables directly (no 'variables' wrapper)
 	// Verify only the used variables were tracked
 	expectedVars := map[string]string{
 		"baseUrl":      "https://api.example.com",
@@ -435,13 +415,13 @@ func TestVariableTrackingIntegration_RequestNodeWithPartialVariables(t *testing.
 		"dynamicField": "runtime-field",
 	}
 
-	if len(variables) != len(expectedVars) {
-		t.Errorf("Expected %d tracked variables, got %d", len(expectedVars), len(variables))
-		t.Logf("Tracked variables: %v", variables)
+	if len(inputData) != len(expectedVars) {
+		t.Errorf("Expected %d tracked variables, got %d", len(expectedVars), len(inputData))
+		t.Logf("Tracked variables: %v", inputData)
 	}
 
 	for key, expectedValue := range expectedVars {
-		actualValue, found := variables[key]
+		actualValue, found := inputData[key]
 		if !found {
 			t.Errorf("Expected variable '%s' was not tracked", key)
 			continue
@@ -452,9 +432,9 @@ func TestVariableTrackingIntegration_RequestNodeWithPartialVariables(t *testing.
 	}
 
 	// Verify unused variable was not tracked
-	if _, found := variables["unusedVar"]; found {
+	if _, found := inputData["unusedVar"]; found {
 		t.Error("Unused variable 'unusedVar' should not have been tracked")
 	}
 
-	t.Logf("✅ Successfully tracked only the used variables (%d out of %d available)", len(variables), len(baseVars))
+	t.Logf("✅ Successfully tracked only the used variables (%d out of %d available)", len(inputData), len(baseVars))
 }
