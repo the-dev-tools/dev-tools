@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
@@ -868,22 +869,59 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
 	pendingMutex := sync.Mutex{}
 
+	// WaitGroup to track all goroutines that send to channels
+	var goroutineWg sync.WaitGroup
+	
+	// Channel to signal that sending should stop
+	stopSending := make(chan struct{})
+	
+	// Atomic flag to prevent sends after closure initiated
+	var channelsClosed atomic.Bool
+
+	// Collector goroutine for node executions
+	goroutineWg.Add(1)
 	go func() {
+		defer goroutineWg.Done()
 		defer close(nodeExecutionsDone)
-		for execution := range nodeExecutionChan {
-			nodeExecutions = append(nodeExecutions, execution)
-			
+		for {
+			select {
+			case execution, ok := <-nodeExecutionChan:
+				if !ok {
+					return
+				}
+				nodeExecutions = append(nodeExecutions, execution)
+			case <-stopSending:
+				// Drain remaining messages
+				for {
+					select {
+					case execution, ok := <-nodeExecutionChan:
+						if !ok {
+							return
+						}
+						nodeExecutions = append(nodeExecutions, execution)
+					default:
+						return
+					}
+				}
+			}
 		}
 	}()
 
 	// Timeout handler for REQUEST nodes that don't receive responses
+	goroutineWg.Add(1)
 	go func() {
+		defer goroutineWg.Done()
 		ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
 		defer ticker.Stop()
 		
 		for {
 			select {
 			case <-ticker.C:
+				// Check if we should stop sending
+				if channelsClosed.Load() {
+					return
+				}
+				
 				pendingMutex.Lock()
 				var timedOutExecutions []mnodeexecution.NodeExecution
 				
@@ -904,19 +942,35 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 				pendingMutex.Unlock()
 				
-				// Send timed out executions to channel without ResponseID
+				// Send timed out executions to channel without ResponseID (with safety check)
 				for _, exec := range timedOutExecutions {
-					nodeExecutionChan <- exec
+					if !channelsClosed.Load() {
+						select {
+						case nodeExecutionChan <- exec:
+						case <-stopSending:
+							return
+						}
+					}
 				}
 				
+			case <-stopSending:
+				return
 			case <-subCtx.Done():
 				return
 			}
 		}
 	}()
 
+	// Main status processing goroutine
+	goroutineWg.Add(1)
 	go func() {
+		defer goroutineWg.Done()
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
+			// Check if we should stop processing
+			if channelsClosed.Load() {
+				return
+			}
+			
 			id := flowNodeStatus.NodeID
 			name := flowNodeStatus.Name
 			idStr := id.String()
@@ -1117,9 +1171,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							// Mark as completed but keep in pending map for response handling
 							// Don't send to channel yet - wait for response
 						} else {
-							// For non-REQUEST nodes, send immediately
-							nodeExecutionChan <- *nodeExec
-							delete(pendingNodeExecutions, executionID)
+							// For non-REQUEST nodes, send immediately (with safety check)
+							if !channelsClosed.Load() {
+								select {
+								case nodeExecutionChan <- *nodeExec:
+									delete(pendingNodeExecutions, executionID)
+								case <-stopSending:
+									// Channel closed, don't send
+								}
+							}
 						}
 					}
 					pendingMutex.Unlock()
@@ -1184,9 +1244,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						respID := requestNodeResp.Resp.ExampleResp.ID
 						nodeExec.ResponseID = &respID
 
-						// Now send the completed execution with ResponseID to channel
-						nodeExecutionChan <- *nodeExec
-						delete(pendingNodeExecutions, targetExecutionID)
+						// Now send the completed execution with ResponseID to channel (with safety check)
+						if !channelsClosed.Load() {
+							select {
+							case nodeExecutionChan <- *nodeExec:
+								delete(pendingNodeExecutions, targetExecutionID)
+							case <-stopSending:
+								// Channel closed, don't send
+							}
+						} else {
+							delete(pendingNodeExecutions, targetExecutionID)
+						}
 
 						// Also update the corresponding entry in nodeExecutions array
 						for i := range nodeExecutions {
@@ -1244,24 +1312,34 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		for {
 			select {
 			case <-ctx.Done():
-				// Client disconnected, cancel the flow execution
+				// Client disconnected, signal all goroutines to stop
+				channelsClosed.Store(true)
+				close(stopSending)
+				
+				// Cancel the flow execution
 				cancel()
-				close(flowNodeStatusChan)
-				close(flowStatusChan)
+				
+				// DO NOT close channels here - let the runner close them
+				// The runner has deferred closes for these channels
 				done <- errors.New("client disconnected")
 				return
 			case <-subCtx.Done():
-				close(flowNodeStatusChan)
-				close(flowStatusChan)
+				// Flow execution cancelled
+				channelsClosed.Store(true)
+				close(stopSending)
+				
+				// DO NOT close channels here - let the runner close them
 				done <- errors.New("flow execution cancelled")
 				return
 			case flowNodeStatus, ok := <-flowNodeStatusChan:
 				if !ok {
+					// Channel closed by runner
 					return
 				}
 				nodeStatusFunc(flowNodeStatus)
 			case flowStatus, ok := <-flowStatusChan:
 				if !ok {
+					// Channel closed by runner
 					return
 				}
 				// Process any pending node status messages without blocking
@@ -1287,6 +1365,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// wait for the flow to finish
 	flowErr := <-done
+	
+	// Signal all goroutines to stop if not already done
+	if !channelsClosed.Load() {
+		channelsClosed.Store(true)
+		close(stopSending)
+	}
 
 	// After flow completes, flush any pending REQUEST node executions
 	// that didn't receive responses yet
@@ -1294,13 +1378,22 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	for execID, nodeExec := range pendingNodeExecutions {
 		// Check if this is a completed REQUEST node without ResponseID
 		if nodeExec.CompletedAt != nil {
-			// Send to channel to be collected
-			nodeExecutionChan <- *nodeExec
-			delete(pendingNodeExecutions, execID)
+			// Try to send to channel (non-blocking to avoid deadlock)
+			select {
+			case nodeExecutionChan <- *nodeExec:
+				delete(pendingNodeExecutions, execID)
+			default:
+				// Channel might be full or closed, just delete
+				delete(pendingNodeExecutions, execID)
+			}
 		}
 	}
 	pendingMutex.Unlock()
 
+	// Wait for all goroutines to finish before closing channels
+	goroutineWg.Wait()
+	
+	// Now safe to close channels since all senders have stopped
 	close(nodeExecutionChan)
 	close(requestNodeRespChan)
 
