@@ -264,10 +264,10 @@ func TestForEachNode_MixedTypeArray_OutputFormat(t *testing.T) {
 	result := forEachNode.RunSync(context.Background(), req)
 	require.NoError(t, result.Err)
 	
-	// Count and verify iteration records
+	// Count and verify SUCCESS iteration records only (we now get both RUNNING and SUCCESS)
 	iterationCount := 0
 	for _, status := range loggedStatuses {
-		if status.OutputData != nil {
+		if status.State == mnnode.NODE_STATE_SUCCESS && status.OutputData != nil {
 			outputMap, ok := status.OutputData.(map[string]any)
 			if ok && outputMap["index"] != nil {
 				iterationCount++

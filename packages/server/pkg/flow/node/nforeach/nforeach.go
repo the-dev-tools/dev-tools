@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"sync"
 	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -421,6 +422,14 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
+	
+	// Use sync.Once to ensure only one result is sent to prevent "send on closed channel" panic
+	var once sync.Once
+	sendResult := func(result node.FlowNodeResult) {
+		once.Do(func() {
+			resultChan <- result
+		})
+	}
 
 	// Safely read VarMap with lock protection
 	req.ReadWriteLock.RLock()
@@ -437,7 +446,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 	normalizedExpressionIterPath, err := expression.NormalizeExpression(ctx, nr.IterPath, varMap)
 	if err != nil {
-		resultChan <- node.FlowNodeResult{Err: err}
+		sendResult(node.FlowNodeResult{Err: err})
 		return
 	}
 
@@ -449,7 +458,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		result, err = expression.ExpressionEvaluateAsIter(ctx, exprEnv, normalizedExpressionIterPath)
 	}
 	if err != nil {
-		resultChan <- node.FlowNodeResult{Err: err}
+		sendResult(node.FlowNodeResult{Err: err})
 		return
 	}
 
@@ -459,7 +468,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	if breakExpr != "" {
 		normalizedExpressionBreak, err = expression.NormalizeExpression(ctx, breakExpr, varMap)
 		if err != nil {
-			resultChan <- node.FlowNodeResult{Err: err}
+			sendResult(node.FlowNodeResult{Err: err})
 			return
 		}
 	}
@@ -540,9 +549,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					err = node.WriteNodeVar(req, nr.Name, "item", item)
 				}
 				if err != nil {
-					resultChan <- node.FlowNodeResult{
+					sendResult(node.FlowNodeResult{
 						Err: err,
-					}
+					})
 					return
 				}
 				
@@ -552,9 +561,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					err = node.WriteNodeVar(req, nr.Name, "key", itemIndex)
 				}
 				if err != nil {
-					resultChan <- node.FlowNodeResult{
+					sendResult(node.FlowNodeResult{
 						Err: err,
-					}
+					})
 					return
 				}
 				
@@ -596,7 +605,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				loopResult := processNode(itemIndex-1)
 				
 				// Update iteration record based on result
-				if req.LogPushFunc != nil && loopResult.Err == nil && len(loopID) > 0 {
+				if req.LogPushFunc != nil && loopResult.Err == nil {
 					// Update to SUCCESS (iteration completed successfully)
 					executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
 					req.LogPushFunc(runner.FlowNodeStatus{
@@ -616,7 +625,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 						continue // Continue to next iteration
 					case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-						resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
+						sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})
 						return // Stop loop but don't propagate error
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						loopError = loopResult.Err
@@ -642,28 +651,28 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						Error:       loopError,
 					})
 				}
-				resultChan <- node.FlowNodeResult{Err: loopError}
+				sendResult(node.FlowNodeResult{Err: loopError})
 				return
 			}
 			// Write total items processed
 			if req.VariableTracker != nil {
 				err := node.WriteNodeVarWithTracking(req, nr.Name, "totalItems", totalItems, req.VariableTracker)
 				if err != nil {
-					resultChan <- node.FlowNodeResult{Err: err}
+					sendResult(node.FlowNodeResult{Err: err})
 					return
 				}
 			} else {
 				if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
-					resultChan <- node.FlowNodeResult{Err: err}
+					sendResult(node.FlowNodeResult{Err: err})
 					return
 				}
 			}
 			if err != nil {
-				resultChan <- node.FlowNodeResult{Err: err}
+				sendResult(node.FlowNodeResult{Err: err})
 				return
 			}
 			// Send success result after loop finishes
-			resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
+			sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})
 		}()
 	case iter.Seq2[string, any]:
 		// Handle map sequence
@@ -681,9 +690,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					err = node.WriteNodeVar(req, nr.Name, "key", key)
 				}
 				if err != nil {
-					resultChan <- node.FlowNodeResult{
+					sendResult(node.FlowNodeResult{
 						Err: err,
-					}
+					})
 					return
 				}
 				
@@ -693,9 +702,9 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					err = node.WriteNodeVar(req, nr.Name, "item", value)
 				}
 				if err != nil {
-					resultChan <- node.FlowNodeResult{
+					sendResult(node.FlowNodeResult{
 						Err: err,
-					}
+					})
 					return
 				}
 
@@ -736,7 +745,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				loopResult := processNode(totalItems-1)
 				
 				// Update iteration record based on result
-				if req.LogPushFunc != nil && loopResult.Err == nil && len(loopID) > 0 {
+				if req.LogPushFunc != nil && loopResult.Err == nil {
 					// Update to SUCCESS (iteration completed successfully)
 					executionName := fmt.Sprintf("Iteration %d", totalItems-1)
 					req.LogPushFunc(runner.FlowNodeStatus{
@@ -756,7 +765,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 						continue // Continue to next iteration
 					case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-						resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
+						sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})
 						return // Stop loop but don't propagate error
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						loopError = loopResult.Err
@@ -782,31 +791,31 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						Error:       loopError,
 					})
 				}
-				resultChan <- node.FlowNodeResult{Err: loopError}
+				sendResult(node.FlowNodeResult{Err: loopError})
 				return
 			}
 			// Write total items processed
 			if req.VariableTracker != nil {
 				err := node.WriteNodeVarWithTracking(req, nr.Name, "totalItems", totalItems, req.VariableTracker)
 				if err != nil {
-					resultChan <- node.FlowNodeResult{Err: err}
+					sendResult(node.FlowNodeResult{Err: err})
 					return
 				}
 			} else {
 				if err := node.WriteNodeVar(req, nr.Name, "totalItems", totalItems); err != nil {
-					resultChan <- node.FlowNodeResult{Err: err}
+					sendResult(node.FlowNodeResult{Err: err})
 					return
 				}
 			}
 			if err != nil {
-				resultChan <- node.FlowNodeResult{Err: err}
+				sendResult(node.FlowNodeResult{Err: err})
 				return
 			}
 			// Send success result after loop finishes
-			resultChan <- node.FlowNodeResult{NextNodeID: nextID, Err: nil}
+			sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})
 		}()
 	default:
 		// Should not happen if ExpressionEvaluateAsIter works correctly
-		resultChan <- node.FlowNodeResult{Err: fmt.Errorf("unexpected iterator type: %T", result)}
+		sendResult(node.FlowNodeResult{Err: fmt.Errorf("unexpected iterator type: %T", result)})
 	}
 }

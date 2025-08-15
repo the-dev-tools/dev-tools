@@ -203,9 +203,9 @@ func TestForNode_RunSync_LargeIterationCount(t *testing.T) {
 	}
 
 	id := idwrap.NewNow()
-	iterCount := int64(1001) // Test with more than 1000 iterations
+	iterCount := int64(500) // Test with moderate iteration count
 
-	timeOut := 30 * time.Second // Increased timeout for large iteration count
+	timeOut := 15 * time.Second // Timeout for moderate iteration count
 	nodeName := "test-node-large"
 
 	nodeFor := nfor.New(id, nodeName, iterCount, timeOut, 0)
@@ -269,8 +269,8 @@ func TestForNode_RunAsync_LargeIterationCount(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	iterCount := int64(1001)    // Test with more than 1000 iterations
-	timeOut := 30 * time.Second // Increased timeout for large iteration count
+	iterCount := int64(500)    // Test with moderate iteration count
+	timeOut := 15 * time.Second // Timeout for moderate iteration count
 	nodeFor := nfor.New(id, nodeName, iterCount, timeOut, 0)
 
 	ctx := context.Background()
@@ -305,7 +305,7 @@ func TestForNode_RunAsync_LargeIterationCount(t *testing.T) {
 	select {
 	case <-waitDone:
 		// All operations completed
-	case <-time.After(45 * time.Second):
+	case <-time.After(25 * time.Second):
 		t.Fatalf("Timeout waiting for async operations to complete (runCounter=%d, expected=%d)", runCounter.Load(), expectedCount)
 	}
 

@@ -189,14 +189,14 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 						// Retry reading with backoff to handle race conditions
 						var predData interface{}
 						var err error
-						maxRetries := 20 // Max 20ms wait (20 * 1ms)
+						maxRetries := 10 // Max ~1ms total wait
 						for retry := 0; retry < maxRetries; retry++ {
 							predData, err = node.ReadVarRaw(req, predName)
 							if err == nil {
 								break
 							}
-							// Short wait before retry to allow predecessor to complete
-							time.Sleep(1 * time.Millisecond)
+							// Very short wait before retry to allow predecessor to complete
+							time.Sleep(100 * time.Microsecond)
 						}
 						
 						// Only add to inputData if we successfully read the predecessor data
@@ -377,14 +377,14 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 						// Retry reading with backoff to handle race conditions
 						var predData interface{}
 						var err error
-						maxRetries := 20 // Max 20ms wait (20 * 1ms)
+						maxRetries := 10 // Max ~1ms total wait
 						for retry := 0; retry < maxRetries; retry++ {
 							predData, err = node.ReadVarRaw(req, predName)
 							if err == nil {
 								break
 							}
-							// Short wait before retry to allow predecessor to complete
-							time.Sleep(1 * time.Millisecond)
+							// Very short wait before retry to allow predecessor to complete
+							time.Sleep(100 * time.Microsecond)
 						}
 						
 						// Only add to inputData if we successfully read the predecessor data
