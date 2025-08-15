@@ -308,14 +308,14 @@ func TestDepFinderPartialTokenAndRecursiveJSON(t *testing.T) {
 
 	// 1. Test Bearer header replacement
 	header := "Bearer " + token
-	templated, _, _ := df.ReplaceWithPaths(header)
+	templated, _, _ := df.ReplaceWithPathsSubstring(header)
 	if templated != "Bearer {{ auth.token }}" {
 		t.Errorf("Expected Bearer token to be templated, got: %v", templated)
 	}
 
 	// 2. Test query parameter replacement
 	query := "?token=" + token
-	templated, _, _ = df.ReplaceWithPaths(query)
+	templated, _, _ = df.ReplaceWithPathsSubstring(query)
 	if templated != "?token={{ auth.token }}" {
 		t.Errorf("Expected query token to be templated, got: %v", templated)
 	}

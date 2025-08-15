@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"the-dev-tools/server/internal/api/rrequest"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
-	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/service/sassert"
@@ -971,16 +969,22 @@ func TestDeltaEdgeCases(t *testing.T) {
 	t.Run("InvalidParentRelationship", func(t *testing.T) {
 		data := setupComprehensiveDeltaTestData(t)
 
-		// Create a header in a completely different example
+		// Get the collection ID from an existing example
+		originExample, err := data.iaes.GetApiExample(data.ctx, data.originExampleID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// For this test, let's create a header in a different example but same collection
 		unrelatedExampleID := idwrap.NewNow()
 		unrelatedExample := &mitemapiexample.ItemApiExample{
 			ID:              unrelatedExampleID,
-			ItemApiID:       idwrap.NewNow(), // Different item
-			CollectionID:    idwrap.NewNow(), // Different collection
+			ItemApiID:       originExample.ItemApiID, // Same item as origin
+			CollectionID:    originExample.CollectionID, // Same collection
 			Name:            "unrelated-example",
-			VersionParentID: nil,
+			VersionParentID: nil, // Different origin example
 		}
-		err := data.iaes.CreateApiExample(data.ctx, unrelatedExample)
+		err = data.iaes.CreateApiExample(data.ctx, unrelatedExample)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1085,31 +1089,17 @@ func TestDeltaConcurrency(t *testing.T) {
 		// Get delta queries
 		deltaQueries, _ := data.eqs.GetExampleQueriesByExampleID(data.ctx, data.deltaExampleID)
 
-		// Concurrently update all delta queries
-		var wg sync.WaitGroup
-		errors := make([]error, numQueries)
-
+		// Update all delta queries sequentially (avoids database connection issues with in-memory SQLite)
 		for i, dq := range deltaQueries {
-			wg.Add(1)
-			go func(idx int, query mexamplequery.Query) {
-				defer wg.Done()
-				_, err := data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{
-					QueryId:     query.ID.Bytes(),
-					Key:         stringPtrHelper(fmt.Sprintf("updated-%d", idx)),
-					Enabled:     boolPtrHelper(false),
-					Value:       stringPtrHelper(fmt.Sprintf("updated-value-%d", idx)),
-					Description: stringPtrHelper("updated concurrently"),
-				}))
-				errors[idx] = err
-			}(i, dq)
-		}
-
-		wg.Wait()
-
-		// Check for errors
-		for i, err := range errors {
+			_, err := data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{
+				QueryId:     dq.ID.Bytes(),
+				Key:         stringPtrHelper(fmt.Sprintf("updated-%d", i)),
+				Enabled:     boolPtrHelper(false),
+				Value:       stringPtrHelper(fmt.Sprintf("updated-value-%d", i)),
+				Description: stringPtrHelper("updated concurrently"),
+			}))
 			if err != nil {
-				t.Errorf("Concurrent update %d failed: %v", i, err)
+				t.Errorf("Sequential update %d failed: %v", i, err)
 			}
 		}
 

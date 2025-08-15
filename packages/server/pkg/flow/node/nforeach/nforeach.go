@@ -194,7 +194,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					"index": itemIndex,
 					"value": item,
 				}
-				executionName := fmt.Sprintf("%s iteration %d", nr.Name, itemIndex)
+				executionName := fmt.Sprintf("Iteration %d", itemIndex)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: executionID, // Store this ID for update
 					NodeID:     nr.FlowNodeID,
@@ -211,28 +211,18 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			result := processNode(itemIndex-1)
 			
 			// Update iteration record based on result
-			if req.LogPushFunc != nil {
-				executionName := fmt.Sprintf("%s iteration %d", nr.Name, itemIndex-1)
-				if result.Err != nil {
-					// Update to FAILURE
-					req.LogPushFunc(runner.FlowNodeStatus{
-						ExecutionID: executionID, // Same ID = UPDATE
-						NodeID:     nr.FlowNodeID,
-						Name:       executionName,
-						State:      mnnode.NODE_STATE_FAILURE,
-						Error:      result.Err,
-					})
-				} else {
-					// Update to SUCCESS
-					req.LogPushFunc(runner.FlowNodeStatus{
-						ExecutionID: executionID, // Same ID = UPDATE
-						NodeID:     nr.FlowNodeID,
-						Name:       executionName,
-						State:      mnnode.NODE_STATE_SUCCESS,
-						OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
-					})
-				}
+			if req.LogPushFunc != nil && result.Err == nil && len(loopID) > 0 {
+				// Only update to SUCCESS if there are child nodes to execute and no error
+				executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: executionID, // Same ID = UPDATE
+					NodeID:     nr.FlowNodeID,
+					Name:       executionName,
+					State:      mnnode.NODE_STATE_SUCCESS,
+					OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
+				})
 			}
+			// Note: No FAILURE updates are created - errors are handled via Error Summary records only
 			
 			// Handle iteration error according to error policy
 			if result.Err != nil {
@@ -264,6 +254,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					Name:        executionName,
 					State:       mnnode.NODE_STATE_FAILURE,
 					OutputData:  outputData,
+					Error:       loopError,
 				})
 			}
 			return node.FlowNodeResult{
@@ -321,7 +312,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					"key":   key,
 					"value": value,
 				}
-				executionName := fmt.Sprintf("%s iteration %d", nr.Name, totalItems)
+				executionName := fmt.Sprintf("Iteration %d", totalItems)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: executionID, // Store this ID for update
 					NodeID:     nr.FlowNodeID,
@@ -336,28 +327,18 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			result := processNode(totalItems-1)
 			
 			// Update iteration record based on result
-			if req.LogPushFunc != nil {
-				executionName := fmt.Sprintf("%s iteration %d", nr.Name, totalItems-1)
-				if result.Err != nil {
-					// Update to FAILURE
-					req.LogPushFunc(runner.FlowNodeStatus{
-						ExecutionID: executionID, // Same ID = UPDATE
-						NodeID:     nr.FlowNodeID,
-						Name:       executionName,
-						State:      mnnode.NODE_STATE_FAILURE,
-						Error:      result.Err,
-					})
-				} else {
-					// Update to SUCCESS
-					req.LogPushFunc(runner.FlowNodeStatus{
-						ExecutionID: executionID, // Same ID = UPDATE
-						NodeID:     nr.FlowNodeID,
-						Name:       executionName,
-						State:      mnnode.NODE_STATE_SUCCESS,
-						OutputData: map[string]any{"key": key, "value": value, "completed": true},
-					})
-				}
+			if req.LogPushFunc != nil && result.Err == nil && len(loopID) > 0 {
+				// Only update to SUCCESS if there are child nodes to execute and no error
+				executionName := fmt.Sprintf("Iteration %d", totalItems-1)
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: executionID, // Same ID = UPDATE
+					NodeID:     nr.FlowNodeID,
+					Name:       executionName,
+					State:      mnnode.NODE_STATE_SUCCESS,
+					OutputData: map[string]any{"key": key, "value": value, "completed": true},
+				})
 			}
+			// Note: No FAILURE updates are created - errors are handled via Error Summary records only
 			
 			// Handle iteration error according to error policy
 			if result.Err != nil {
@@ -389,6 +370,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					Name:        executionName,
 					State:       mnnode.NODE_STATE_FAILURE,
 					OutputData:  outputData,
+					Error:       loopError,
 				})
 			}
 			return node.FlowNodeResult{
@@ -567,7 +549,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						"index": itemIndex,
 						"value": item,
 					}
-					executionName := fmt.Sprintf("%s iteration %d", nr.Name, itemIndex)
+					executionName := fmt.Sprintf("Iteration %d", itemIndex)
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID: executionID, // Store this ID for update
 						NodeID:     nr.FlowNodeID,
@@ -583,28 +565,18 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				loopResult := processNode(itemIndex-1)
 				
 				// Update iteration record based on result
-				if req.LogPushFunc != nil {
-					executionName := fmt.Sprintf("%s iteration %d", nr.Name, itemIndex-1)
-					if loopResult.Err != nil {
-						// Update to FAILURE
-						req.LogPushFunc(runner.FlowNodeStatus{
-							ExecutionID: executionID, // Same ID = UPDATE
-							NodeID:     nr.FlowNodeID,
-							Name:       executionName,
-							State:      mnnode.NODE_STATE_FAILURE,
-							Error:      loopResult.Err,
-						})
-					} else {
-						// Update to SUCCESS
-						req.LogPushFunc(runner.FlowNodeStatus{
-							ExecutionID: executionID, // Same ID = UPDATE
-							NodeID:     nr.FlowNodeID,
-							Name:       executionName,
-							State:      mnnode.NODE_STATE_SUCCESS,
-							OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
-						})
-					}
+				if req.LogPushFunc != nil && loopResult.Err == nil && len(loopID) > 0 {
+					// Only update to SUCCESS if there are child nodes to execute and no error
+					executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: executionID, // Same ID = UPDATE
+						NodeID:     nr.FlowNodeID,
+						Name:       executionName,
+						State:      mnnode.NODE_STATE_SUCCESS,
+						OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
+					})
 				}
+				// Note: No FAILURE updates are created - errors are handled via Error Summary records only
 				
 				// Handle iteration error according to error policy
 				if loopResult.Err != nil {
@@ -635,6 +607,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						Name:        executionName,
 						State:       mnnode.NODE_STATE_FAILURE,
 						OutputData:  outputData,
+						Error:       loopError,
 					})
 				}
 				resultChan <- node.FlowNodeResult{Err: loopError}
@@ -703,7 +676,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						"key":   key,
 						"value": value,
 					}
-					executionName := fmt.Sprintf("%s iteration %d", nr.Name, totalItems)
+					executionName := fmt.Sprintf("Iteration %d", totalItems)
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID: executionID, // Store this ID for update
 						NodeID:     nr.FlowNodeID,
@@ -718,28 +691,18 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				loopResult := processNode(totalItems-1)
 				
 				// Update iteration record based on result
-				if req.LogPushFunc != nil {
-					executionName := fmt.Sprintf("%s iteration %d", nr.Name, totalItems-1)
-					if loopResult.Err != nil {
-						// Update to FAILURE
-						req.LogPushFunc(runner.FlowNodeStatus{
-							ExecutionID: executionID, // Same ID = UPDATE
-							NodeID:     nr.FlowNodeID,
-							Name:       executionName,
-							State:      mnnode.NODE_STATE_FAILURE,
-							Error:      loopResult.Err,
-						})
-					} else {
-						// Update to SUCCESS
-						req.LogPushFunc(runner.FlowNodeStatus{
-							ExecutionID: executionID, // Same ID = UPDATE
-							NodeID:     nr.FlowNodeID,
-							Name:       executionName,
-							State:      mnnode.NODE_STATE_SUCCESS,
-							OutputData: map[string]any{"key": key, "value": value, "completed": true},
-						})
-					}
+				if req.LogPushFunc != nil && loopResult.Err == nil && len(loopID) > 0 {
+					// Only update to SUCCESS if there are child nodes to execute and no error
+					executionName := fmt.Sprintf("Iteration %d", totalItems-1)
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID: executionID, // Same ID = UPDATE
+						NodeID:     nr.FlowNodeID,
+						Name:       executionName,
+						State:      mnnode.NODE_STATE_SUCCESS,
+						OutputData: map[string]any{"key": key, "value": value, "completed": true},
+					})
 				}
+				// Note: No FAILURE updates are created - errors are handled via Error Summary records only
 				
 				// Handle iteration error according to error policy
 				if loopResult.Err != nil {
@@ -770,6 +733,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						Name:        executionName,
 						State:       mnnode.NODE_STATE_FAILURE,
 						OutputData:  outputData,
+						Error:       loopError,
 					})
 				}
 				resultChan <- node.FlowNodeResult{Err: loopError}

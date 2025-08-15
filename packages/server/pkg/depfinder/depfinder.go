@@ -161,6 +161,15 @@ func (d DepFinder) TemplateJSON(jsonBytes []byte) TemplateJSONResult {
 
 // replace value with path if the value in vars
 func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
+	return d.replaceWithPaths(value, false) // JSON mode: exact match only
+}
+
+// ReplaceWithPathsSubstring allows substring replacement for token templating
+func (d DepFinder) ReplaceWithPathsSubstring(value any) (any, bool, []VarCouple) {
+	return d.replaceWithPaths(value, true) // Token mode: allow substring replacement
+}
+
+func (d DepFinder) replaceWithPaths(value any, allowSubstring bool) (any, bool, []VarCouple) {
 	var findAny bool
 	var couples []VarCouple
 	var couplesSub []VarCouple
@@ -176,7 +185,7 @@ func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
 		result := make(map[string]any)
 		for _, key := range keys {
 			val := v[key]
-			result[key], findAny, couplesSub = d.ReplaceWithPaths(val)
+			result[key], findAny, couplesSub = d.replaceWithPaths(val, allowSubstring)
 			couples = append(couples, couplesSub...)
 		}
 		return result, findAny, couples
@@ -184,7 +193,7 @@ func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
 	case []any:
 		result := make([]any, len(v))
 		for i, val := range v {
-			result[i], findAny, couplesSub = d.ReplaceWithPaths(val)
+			result[i], findAny, couplesSub = d.replaceWithPaths(val, allowSubstring)
 			couples = append(couples, couplesSub...)
 		}
 		return result, findAny, couples
@@ -193,6 +202,30 @@ func (d DepFinder) ReplaceWithPaths(value any) (any, bool, []VarCouple) {
 		// First try exact match
 		if couple, err := d.FindVar(v); err == nil {
 			return fmt.Sprintf("{{ %s }}", couple.Path), true, []VarCouple{couple}
+		}
+
+		// Try partial string replacement for substrings (only if enabled)
+		if allowSubstring {
+			result := v
+			var foundAny bool
+			var allCouples []VarCouple
+			
+			// Check each known variable to see if it appears as a substring
+			for varValue, couple := range d.vars {
+				if strValue, ok := varValue.(string); ok && len(strValue) > 0 {
+					// Replace all occurrences of this token in the string
+					if strings.Contains(result, strValue) {
+						template := fmt.Sprintf("{{ %s }}", couple.Path)
+						result = strings.ReplaceAll(result, strValue, template)
+						foundAny = true
+						allCouples = append(allCouples, couple)
+					}
+				}
+			}
+			
+			if foundAny {
+				return result, true, allCouples
+			}
 		}
 
 		return v, false, nil

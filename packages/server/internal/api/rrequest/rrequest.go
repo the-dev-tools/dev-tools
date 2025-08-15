@@ -160,35 +160,47 @@ func (c *RequestRPC) isExampleDelta(ctx context.Context, exampleID idwrap.IDWrap
 // propagateQueryUpdatesToDeltas finds all delta queries that inherit from the given origin
 // and updates them if they haven't been modified (their values match the original values)
 func (c *RequestRPC) propagateQueryUpdatesToDeltas(ctx context.Context, originQueryID idwrap.IDWrap, originalQuery, updatedQuery mexamplequery.Query) error {
-	// Note: This is a workaround implementation
-	// In production, you'd add a method like GetQueriesByDeltaParentID to efficiently find all delta queries
-
-	// Since we know the test creates a delta example that's a child of the origin example,
-	// we can look for delta examples and check their queries
-
-	// Try to find the delta query using the single-query method
-	// This will work for simple cases but won't handle multiple delta queries
-	deltaQuery, err := c.eqs.GetExampleQueryByDeltaParentID(ctx, &originQueryID)
+	// Get the origin example to find delta examples
+	originExample, err := c.iaes.GetApiExample(ctx, originalQuery.ExampleID)
 	if err != nil {
-		// No delta query found, nothing to propagate
-		return nil
+		return nil // Can't propagate if we can't find the example
 	}
 
-	// Check if the delta query's values match the ORIGINAL values
-	// If they do, it means the delta hasn't been modified, so we should update it
-	if deltaQuery.QueryKey == originalQuery.QueryKey &&
-		deltaQuery.Enable == originalQuery.Enable &&
-		deltaQuery.Value == originalQuery.Value &&
-		deltaQuery.Description == originalQuery.Description {
-		// Update the delta query to match the new origin values
-		deltaQuery.QueryKey = updatedQuery.QueryKey
-		deltaQuery.Enable = updatedQuery.Enable
-		deltaQuery.Value = updatedQuery.Value
-		deltaQuery.Description = updatedQuery.Description
+	// Find all delta examples that have the origin example as their parent
+	deltaExamples, err := c.iaes.GetApiExampleByVersionParentID(ctx, originExample.ID)
+	if err != nil {
+		return nil // No delta examples found
+	}
 
-		err = c.eqs.UpdateExampleQuery(ctx, deltaQuery)
+	// For each delta example, check if it has queries that reference the origin query
+	for _, deltaExample := range deltaExamples {
+		deltaQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, deltaExample.ID)
 		if err != nil {
-			return err
+			continue // Skip this example if we can't get its queries
+		}
+
+		for _, deltaQuery := range deltaQueries {
+			// Check if this delta query references the origin query
+			if deltaQuery.DeltaParentID != nil && deltaQuery.DeltaParentID.Compare(originQueryID) == 0 {
+				// Check if the delta query's values match the ORIGINAL values
+				// If they do, it means the delta hasn't been modified, so we should update it
+				if deltaQuery.QueryKey == originalQuery.QueryKey &&
+					deltaQuery.Enable == originalQuery.Enable &&
+					deltaQuery.Value == originalQuery.Value &&
+					deltaQuery.Description == originalQuery.Description {
+					// Update the delta query to match the new origin values
+					deltaQuery.QueryKey = updatedQuery.QueryKey
+					deltaQuery.Enable = updatedQuery.Enable
+					deltaQuery.Value = updatedQuery.Value
+					deltaQuery.Description = updatedQuery.Description
+
+					err = c.eqs.UpdateExampleQuery(ctx, deltaQuery)
+					if err != nil {
+						// Continue with other queries even if one fails
+						continue
+					}
+				}
+			}
 		}
 	}
 
@@ -378,6 +390,25 @@ func (c RequestRPC) QueryDelete(ctx context.Context, req *connect.Request[reques
 			for _, ex := range examples {
 				// Check all examples (both origin and delta) for queries that reference this one
 				deltaQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, ex.ID)
+				if err == nil {
+					for _, deltaQuery := range deltaQueries {
+						if deltaQuery.DeltaParentID != nil &&
+							deltaQuery.DeltaParentID.Compare(queryID) == 0 {
+							// Delete this delta query that references the origin being deleted
+							_ = c.eqs.DeleteExampleQuery(ctx, deltaQuery.ID)
+						}
+					}
+				}
+			}
+		}
+
+		// ADDITIONAL WORKAROUND: Also check for delta examples that have this example as their parent
+		// This is needed because GetApiExampleByCollection may not return all examples
+		deltaExamples, err := c.iaes.GetApiExampleByVersionParentID(ctx, example.ID)
+		if err == nil {
+			for _, deltaExample := range deltaExamples {
+				// Check for queries in these delta examples that reference the origin query
+				deltaQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, deltaExample.ID)
 				if err == nil {
 					for _, deltaQuery := range deltaQueries {
 						if deltaQuery.DeltaParentID != nil &&
@@ -1064,6 +1095,25 @@ func (c RequestRPC) HeaderDelete(ctx context.Context, req *connect.Request[reque
 				for _, ex := range examples {
 					// Check all examples for headers that reference this one
 					deltaHeaders, err := c.ehs.GetHeaderByExampleID(ctx, ex.ID)
+					if err == nil {
+						for _, deltaHeader := range deltaHeaders {
+							if deltaHeader.DeltaParentID != nil &&
+								deltaHeader.DeltaParentID.Compare(headerID) == 0 {
+								// Delete this delta header that references the origin being deleted
+								_ = c.ehs.DeleteHeader(ctx, deltaHeader.ID)
+							}
+						}
+					}
+				}
+			}
+
+			// ADDITIONAL WORKAROUND: Also check for delta examples that have this example as their parent
+			// This is needed because GetApiExampleByCollection may not return all examples
+			deltaExamples, err := c.iaes.GetApiExampleByVersionParentID(ctx, example.ID)
+			if err == nil {
+				for _, deltaExample := range deltaExamples {
+					// Check for headers in these delta examples that reference the origin header
+					deltaHeaders, err := c.ehs.GetHeaderByExampleID(ctx, deltaExample.ID)
 					if err == nil {
 						for _, deltaHeader := range deltaHeaders {
 							if deltaHeader.DeltaParentID != nil &&
@@ -1774,6 +1824,25 @@ func (c RequestRPC) AssertDelete(ctx context.Context, req *connect.Request[reque
 			for _, ex := range examples {
 				// Check all examples for asserts that reference this one
 				deltaAsserts, err := c.as.GetAssertByExampleID(ctx, ex.ID)
+				if err == nil {
+					for _, deltaAssert := range deltaAsserts {
+						if deltaAssert.DeltaParentID != nil &&
+							deltaAssert.DeltaParentID.Compare(assertID) == 0 {
+							// Delete this delta assert that references the origin being deleted
+							_ = c.as.DeleteAssert(ctx, deltaAssert.ID)
+						}
+					}
+				}
+			}
+		}
+
+		// ADDITIONAL WORKAROUND: Also check for delta examples that have this example as their parent
+		// This is needed because GetApiExampleByCollection may not return all examples
+		deltaExamples, err := c.iaes.GetApiExampleByVersionParentID(ctx, example.ID)
+		if err == nil {
+			for _, deltaExample := range deltaExamples {
+				// Check for asserts in these delta examples that reference the origin assert
+				deltaAsserts, err := c.as.GetAssertByExampleID(ctx, deltaExample.ID)
 				if err == nil {
 					for _, deltaAssert := range deltaAsserts {
 						if deltaAssert.DeltaParentID != nil &&
