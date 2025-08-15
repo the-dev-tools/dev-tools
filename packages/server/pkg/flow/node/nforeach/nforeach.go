@@ -146,7 +146,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		itemIndex := 0
 		totalItems := 0
 		var loopError error
-		var failedAt interface{} = nil
+		var failedAt int = -1
 
 		for item := range seq {
 			// Write the item and key (index) to the node variables
@@ -212,13 +212,13 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			
 			// Update iteration record based on result
 			if req.LogPushFunc != nil && result.Err == nil && len(loopID) > 0 {
-				// Only update to SUCCESS if there are child nodes to execute and no error
+				// Update to RUNNING (iteration completed but loop continues)
 				executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: executionID, // Same ID = UPDATE
 					NodeID:     nr.FlowNodeID,
 					Name:       executionName,
-					State:      mnnode.NODE_STATE_SUCCESS,
+					State:      mnnode.NODE_STATE_RUNNING,
 					OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
 				})
 			}
@@ -230,6 +230,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 					continue // Continue to next iteration
 				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+					failedAt = itemIndex - 1 // Track where we stopped
 					goto ExitSeq // Stop loop but don't propagate error
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					loopError = result.Err
@@ -240,8 +241,9 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		}
 
 		ExitSeq:
-		// Only create final summary record on failure
+		// Create final summary record
 		if loopError != nil {
+			// Failure case: loop failed with error propagation
 			if req.LogPushFunc != nil {
 				outputData := map[string]interface{}{
 					"failedAtIndex": failedAt,
@@ -259,6 +261,22 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			}
 			return node.FlowNodeResult{
 				Err: loopError,
+			}
+		} else if failedAt >= 0 {
+			// Break case: loop stopped due to error but didn't propagate it
+			if req.LogPushFunc != nil {
+				outputData := map[string]interface{}{
+					"stoppedAtIndex": failedAt,
+					"totalItems":    totalItems,
+				}
+				executionName := fmt.Sprintf("%s (stopped)", nr.Name)
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID: idwrap.NewNow(),
+					NodeID:      nr.FlowNodeID,
+					Name:        executionName,
+					State:       mnnode.NODE_STATE_RUNNING,
+					OutputData:  outputData,
+				})
 			}
 		}
 		// Write total items processed

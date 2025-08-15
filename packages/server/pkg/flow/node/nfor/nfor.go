@@ -183,12 +183,12 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 					IterationContext: iterContext,
 				})
 			} else {
-				// Update to SUCCESS
+				// Update to RUNNING (iteration completed but loop continues)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: executionID, // Same ID = UPDATE
 					NodeID:      nr.FlowNodeID,
 					Name:        executionName,
-					State:       mnnode.NODE_STATE_SUCCESS,
+					State:       mnnode.NODE_STATE_RUNNING,
 					OutputData:  map[string]any{"index": i, "completed": true},
 					IterationContext: iterContext,
 				})
@@ -201,6 +201,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 				continue // Continue to next iteration
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				failedAtIteration = i // Track where we stopped
 				goto Exit // Stop loop but don't propagate error
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 				loopError = iterationError
@@ -211,8 +212,9 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	}
 
 Exit:
-	// Only create final summary record on failure
+	// Create final summary record
 	if loopError != nil {
+		// Failure case: loop failed with error propagation
 		if req.LogPushFunc != nil {
 			outputData := map[string]any{
 				"failedAtIteration": failedAtIteration,
@@ -229,6 +231,22 @@ Exit:
 		}
 		return node.FlowNodeResult{
 			Err: loopError,
+		}
+	} else if failedAtIteration >= 0 {
+		// Break case: loop stopped due to error but didn't propagate it
+		if req.LogPushFunc != nil {
+			outputData := map[string]any{
+				"stoppedAtIteration": failedAtIteration,
+				"totalIterations":   nr.IterCount,
+			}
+			executionName := fmt.Sprintf("%s (stopped)", nr.Name)
+			req.LogPushFunc(runner.FlowNodeStatus{
+				ExecutionID: idwrap.NewNow(),
+				NodeID:      nr.FlowNodeID,
+				Name:        executionName,
+				State:       mnnode.NODE_STATE_RUNNING,
+				OutputData:  outputData,
+			})
 		}
 	}
 
@@ -401,6 +419,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 				continue // Continue to next iteration
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				failedAtIteration = i // Track where we stopped
 				goto Exit // Stop loop but don't propagate error
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 				loopError = iterationError
