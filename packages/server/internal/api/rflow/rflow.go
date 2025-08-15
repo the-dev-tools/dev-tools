@@ -873,23 +873,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		for execution := range nodeExecutionChan {
 			nodeExecutions = append(nodeExecutions, execution)
 			
-			// Immediately persist the execution record to database
-			// This ensures NodeExecutionGet can return the latest state
-			go func(exec mnodeexecution.NodeExecution) {
-				// Check if record already exists (RUNNING state created earlier)
-				existingExec, err := c.nes.GetNodeExecution(ctx, exec.ID)
-				if err == nil && existingExec != nil {
-					// Record exists, update it with final state
-					if err := c.nes.UpdateNodeExecution(ctx, exec); err != nil {
-						log.Printf("Failed to update node execution %s: %v", exec.ID.String(), err)
-					}
-				} else {
-					// Record doesn't exist, create it
-					if err := c.nes.CreateNodeExecution(ctx, exec); err != nil {
-						log.Printf("Failed to create node execution %s: %v", exec.ID.String(), err)
-					}
-				}
-			}(execution)
 		}
 	}()
 
