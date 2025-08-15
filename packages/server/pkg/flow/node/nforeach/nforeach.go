@@ -147,7 +147,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		itemIndex := 0
 		totalItems := 0
 		var loopError error
-		var failedAt int = -1
+		var failedAt = -1
 
 		for item := range seq {
 			// Write the item and key (index) to the node variables
