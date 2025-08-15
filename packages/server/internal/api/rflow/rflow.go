@@ -872,6 +872,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		defer close(nodeExecutionsDone)
 		for execution := range nodeExecutionChan {
 			nodeExecutions = append(nodeExecutions, execution)
+			
 		}
 	}()
 

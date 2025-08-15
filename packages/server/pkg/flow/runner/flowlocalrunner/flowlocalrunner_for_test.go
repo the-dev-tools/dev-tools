@@ -218,9 +218,9 @@ func TestForNode_ErrorHandling_SubNodeError(t *testing.T) {
 				if err != nil {
 					t.Errorf("Expected flow to succeed with %v error handling, got error: %v", tt.errorHandling, err)
 				}
-				// For successful loops, final status should be RUNNING (last iteration), not SUCCESS
-				if forNodeFinalStatus.State != mnnode.NODE_STATE_RUNNING {
-					t.Errorf("Expected for node to have RUNNING state (last iteration), got %v", forNodeFinalStatus.State)
+				// For successful loops, final status should be SUCCESS
+				if forNodeFinalStatus.State != mnnode.NODE_STATE_SUCCESS {
+					t.Errorf("Expected for node to have SUCCESS state, got %v", forNodeFinalStatus.State)
 				}
 				if forNodeFinalStatus.Error != nil {
 					t.Errorf("Expected for node to have no error, got: %v", forNodeFinalStatus.Error)

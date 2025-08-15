@@ -50,14 +50,22 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 		// Assert
 		require.NoError(t, result.Err, "Successful loop should not return error")
 		
-		// Should have exactly 3 iteration records (no final summary)
-		assert.Len(t, capturedStatuses, 3, "Should have exactly 3 iteration records for successful array loop")
+		// Filter to get only SUCCESS records (we now create both RUNNING and SUCCESS)
+		var successStatuses []runner.FlowNodeStatus
+		for _, status := range capturedStatuses {
+			if status.State == mnnode.NODE_STATE_SUCCESS {
+				successStatuses = append(successStatuses, status)
+			}
+		}
+		
+		// Should have exactly 3 SUCCESS records (no final summary)
+		assert.Len(t, successStatuses, 3, "Should have exactly 3 SUCCESS iteration records for successful array loop")
 		
 		// Verify each iteration record
 		expectedItems := []interface{}{"item1", "item2", "item3"}
-		for i, status := range capturedStatuses {
+		for i, status := range successStatuses {
 			assert.Equal(t, nodeID, status.NodeID, "NodeID should match")
-			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "All iteration records should be RUNNING")
+			assert.Equal(t, mnnode.NODE_STATE_SUCCESS, status.State, "All iteration records should be SUCCESS")
 			expectedName := fmt.Sprintf("Iteration %d", i)
 			assert.Equal(t, expectedName, status.Name, "Should have improved iteration naming")
 			
@@ -103,13 +111,21 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 		// Assert
 		require.NoError(t, result.Err, "Successful map loop should not return error")
 		
-		// Should have exactly 2 iteration records (no final summary)
-		assert.Len(t, capturedStatuses, 2, "Should have exactly 2 iteration records for successful map loop")
+		// Filter for SUCCESS states only (we now get both RUNNING and SUCCESS for each iteration)
+		successStatuses := make([]runner.FlowNodeStatus, 0)
+		for _, status := range capturedStatuses {
+			if status.State == mnnode.NODE_STATE_SUCCESS {
+				successStatuses = append(successStatuses, status)
+			}
+		}
+		
+		// Should have exactly 2 SUCCESS iteration records (no final summary)
+		assert.Len(t, successStatuses, 2, "Should have exactly 2 SUCCESS iteration records for successful map loop")
 		
 		// Verify iteration records (order might vary for maps)
-		for _, status := range capturedStatuses {
+		for _, status := range successStatuses {
 			assert.Equal(t, nodeID, status.NodeID, "NodeID should match")
-			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "All iteration records should be RUNNING")
+			assert.Equal(t, mnnode.NODE_STATE_SUCCESS, status.State, "All iteration records should be SUCCESS")
 			
 			// Check naming format for map iterations (should use Iteration format like arrays)
 			assert.Contains(t, status.Name, "Iteration", "Should have iteration-based naming")
@@ -375,7 +391,15 @@ func TestForEachNodeExecutionNaming(t *testing.T) {
 
 		// Assert
 		require.NoError(t, result.Err)
-		require.Len(t, capturedStatuses, 2)
+		
+		// Filter for SUCCESS states only (we now get both RUNNING and SUCCESS for each iteration)
+		successStatuses := make([]runner.FlowNodeStatus, 0)
+		for _, status := range capturedStatuses {
+			if status.State == mnnode.NODE_STATE_SUCCESS {
+				successStatuses = append(successStatuses, status)
+			}
+		}
+		require.Len(t, successStatuses, 2)
 		
 		// Verify naming format for array iterations
 		expectedNames := []string{
@@ -383,7 +407,7 @@ func TestForEachNodeExecutionNaming(t *testing.T) {
 			"Iteration 1",
 		}
 		
-		for i, status := range capturedStatuses {
+		for i, status := range successStatuses {
 			assert.Equal(t, expectedNames[i], status.Name, "Should follow Iteration N format")
 		}
 	})
@@ -419,10 +443,18 @@ func TestForEachNodeExecutionNaming(t *testing.T) {
 
 		// Assert
 		require.NoError(t, result.Err)
-		require.Len(t, capturedStatuses, 1)
+		
+		// Filter for SUCCESS states only (we now get both RUNNING and SUCCESS for each iteration)
+		successStatuses := make([]runner.FlowNodeStatus, 0)
+		for _, status := range capturedStatuses {
+			if status.State == mnnode.NODE_STATE_SUCCESS {
+				successStatuses = append(successStatuses, status)
+			}
+		}
+		require.Len(t, successStatuses, 1)
 		
 		// Verify naming format for map iteration (should use Iteration format)
-		status := capturedStatuses[0]
+		status := successStatuses[0]
 		expectedName := "Iteration 0"
 		assert.Equal(t, expectedName, status.Name, "Should follow Iteration N format")
 	})

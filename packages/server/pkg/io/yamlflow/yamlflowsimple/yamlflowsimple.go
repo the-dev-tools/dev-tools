@@ -374,7 +374,7 @@ func Parse(data []byte) (*YamlFlowData, error) {
 
 			nodeName, ok := dataMap[fieldName].(string)
 			if !ok || nodeName == "" {
-				return nil, newYamlFlowError("step missing required field", fieldName, nodeName)
+				return nil, newYamlFlowError(fmt.Sprintf("missing required '%s' field", fieldName), "", nil)
 			}
 
 			nodeID := idwrap.NewNow()

@@ -183,7 +183,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 					IterationContext: iterContext,
 				})
 			} else {
-				// Update to SUCCESS
+				// Update to SUCCESS (iteration completed successfully)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: executionID, // Same ID = UPDATE
 					NodeID:      nr.FlowNodeID,
@@ -201,6 +201,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 				continue // Continue to next iteration
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				failedAtIteration = i // Track where we stopped
 				goto Exit // Stop loop but don't propagate error
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 				loopError = iterationError
@@ -211,8 +212,9 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	}
 
 Exit:
-	// Only create final summary record on failure
+	// Create final summary record
 	if loopError != nil {
+		// Failure case: loop failed with error propagation
 		if req.LogPushFunc != nil {
 			outputData := map[string]any{
 				"failedAtIteration": failedAtIteration,
@@ -231,6 +233,7 @@ Exit:
 			Err: loopError,
 		}
 	}
+	// Note: Break case (failedAtIteration >= 0) doesn't create summary record per test expectations
 
 	// Write final output with total iterations completed (for variable system)
 	var err error
@@ -391,6 +394,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 					Name:        executionName,
 					State:       mnnode.NODE_STATE_SUCCESS,
 					OutputData:  map[string]interface{}{"index": i, "completed": true},
+					IterationContext: iterContext,
 				})
 			}
 		}
@@ -401,6 +405,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 				continue // Continue to next iteration
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				failedAtIteration = i // Track where we stopped
 				goto Exit // Stop loop but don't propagate error
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 				loopError = iterationError

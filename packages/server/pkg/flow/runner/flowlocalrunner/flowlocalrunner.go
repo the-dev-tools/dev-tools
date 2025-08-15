@@ -3,7 +3,6 @@ package flowlocalrunner
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"runtime"
 	"sync"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -177,13 +176,31 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			go func(nodeID idwrap.IDWrap) {
 				defer wg.Done()
 
-				// Capture predecessor outputs as input data
-				inputData := make(map[string]any)
+				// Wait for all predecessors to complete before reading their output
+				// This prevents race conditions where we read before predecessors finish writing
 				predecessors := getPredecessorNodes(nodeID, req.EdgeSourceMap)
+				
+				// For each predecessor, wait until its variable is available
+				inputData := make(map[string]any)
 				for _, predID := range predecessors {
 					if predNode, ok := req.NodeMap[predID]; ok {
 						predName := predNode.GetName()
-						if predData, err := node.ReadVarRaw(req, predName); err == nil {
+						
+						// Retry reading with backoff to handle race conditions
+						var predData interface{}
+						var err error
+						maxRetries := 10 // Max ~1ms total wait
+						for retry := 0; retry < maxRetries; retry++ {
+							predData, err = node.ReadVarRaw(req, predName)
+							if err == nil {
+								break
+							}
+							// Very short wait before retry to allow predecessor to complete
+							time.Sleep(100 * time.Microsecond)
+						}
+						
+						// Only add to inputData if we successfully read the predecessor data
+						if err == nil {
 							inputData[predName] = predData
 						}
 					}
@@ -270,18 +287,15 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				continue
 			}
 
-			// Skip success completion record for loop nodes (FOR and FOR_EACH)
-			// These nodes already create their own iteration tracking records
-			nodeTypeName := reflect.TypeOf(currentNode).Elem().Name()
-			if nodeTypeName != "NodeFor" && nodeTypeName != "NodeForEach" {
-				status.State = mnnode.NODE_STATE_SUCCESS
-				status.Error = nil
-				// Use the tracked output data which has the proper tree structure
-				status.OutputData = node.DeepCopyValue(result.outputData)
-				// Deep copy input data as well
-				status.InputData = node.DeepCopyValue(result.inputData)
-				statusLogFunc(status)
-			}
+			// All nodes should report SUCCESS when they complete successfully
+			// Loop nodes handle their own iteration tracking internally
+			status.State = mnnode.NODE_STATE_SUCCESS
+			status.Error = nil
+			// Use the tracked output data which has the proper tree structure
+			status.OutputData = node.DeepCopyValue(result.outputData)
+			// Deep copy input data as well
+			status.InputData = node.DeepCopyValue(result.inputData)
+			statusLogFunc(status)
 
 			for _, id := range result.nextNodes {
 				pendingMapMutex.Lock()
@@ -298,6 +312,11 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 		if lastNodeError != nil {
 			return lastNodeError
+		}
+		
+		// Check if flow was canceled
+		if FlowNodeCancelCtx.Err() != nil {
+			return FlowNodeCancelCtx.Err()
 		}
 
 		// remove from queue
@@ -345,13 +364,31 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			go func(nodeID idwrap.IDWrap) {
 				defer wg.Done()
 
-				// Capture predecessor outputs as input data
-				inputData := make(map[string]any)
+				// Wait for all predecessors to complete before reading their output
+				// This prevents race conditions where we read before predecessors finish writing
 				predecessors := getPredecessorNodes(nodeID, req.EdgeSourceMap)
+				
+				// For each predecessor, wait until its variable is available
+				inputData := make(map[string]any)
 				for _, predID := range predecessors {
 					if predNode, ok := req.NodeMap[predID]; ok {
 						predName := predNode.GetName()
-						if predData, err := node.ReadVarRaw(req, predName); err == nil {
+						
+						// Retry reading with backoff to handle race conditions
+						var predData interface{}
+						var err error
+						maxRetries := 10 // Max ~1ms total wait
+						for retry := 0; retry < maxRetries; retry++ {
+							predData, err = node.ReadVarRaw(req, predName)
+							if err == nil {
+								break
+							}
+							// Very short wait before retry to allow predecessor to complete
+							time.Sleep(100 * time.Microsecond)
+						}
+						
+						// Only add to inputData if we successfully read the predecessor data
+						if err == nil {
 							inputData[predName] = predData
 						}
 					}
@@ -455,18 +492,15 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				FlowNodeCancelCtxCancelFn()
 				continue
 			}
-			// Skip success completion record for loop nodes (FOR and FOR_EACH)
-			// These nodes already create their own iteration tracking records
-			nodeTypeName := reflect.TypeOf(currentNode).Elem().Name()
-			if nodeTypeName != "NodeFor" && nodeTypeName != "NodeForEach" {
-				status.State = mnnode.NODE_STATE_SUCCESS
-				status.Error = nil
-				// Use the tracked output data which has the proper tree structure
-				status.OutputData = node.DeepCopyValue(result.outputData)
-				// Deep copy input data as well
-				status.InputData = node.DeepCopyValue(result.inputData)
-				statusLogFunc(status)
-			}
+			// All nodes should report SUCCESS when they complete successfully
+			// Loop nodes handle their own iteration tracking internally
+			status.State = mnnode.NODE_STATE_SUCCESS
+			status.Error = nil
+			// Use the tracked output data which has the proper tree structure
+			status.OutputData = node.DeepCopyValue(result.outputData)
+			// Deep copy input data as well
+			status.InputData = node.DeepCopyValue(result.inputData)
+			statusLogFunc(status)
 
 			for _, id := range result.nextNodes {
 				pendingMapMutex.Lock()
@@ -483,6 +517,11 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 		if lastNodeError != nil {
 			return lastNodeError
+		}
+		
+		// Check if flow was canceled
+		if FlowNodeCancelCtx.Err() != nil {
+			return FlowNodeCancelCtx.Err()
 		}
 		
 		// If we timed out but no specific node error, return the timeout error

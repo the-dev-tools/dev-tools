@@ -828,8 +828,8 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 									SourceHandler: edge.HandleUnspecified,
 								})
 							}
-							// Store templated JSON for delta examples
-							templatedBodyBytes = resultDep.NewJson
+							// DO NOT store templated JSON - JSON bodies should never be templated
+							// templatedBodyBytes = resultDep.NewJson
 						}
 					}
 				}

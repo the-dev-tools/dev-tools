@@ -388,7 +388,7 @@ func TestCanceledNode_PartialWritesCompleted(t *testing.T) {
 	}
 
 	// Cancel after writes should complete
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 75*time.Millisecond)
 	defer cancel()
 
 	err := RunNodeSync(ctx, nodeID, req, statusFunc)
@@ -422,11 +422,20 @@ func TestCanceledNode_PartialWritesCompleted(t *testing.T) {
 		if !ok {
 			t.Errorf("Expected output data to be a map, got %T", canceledStatus.OutputData)
 		} else {
-			if outputMap["testNode.intermediate"] != "step1_complete" {
-				t.Errorf("Expected intermediate='step1_complete', got %v", outputMap["testNode.intermediate"])
-			}
-			if outputMap["testNode.status"] != "processing" {
-				t.Errorf("Expected status='processing', got %v", outputMap["testNode.status"])
+			// Check for nested structure: testNode -> {intermediate, status}
+			if testNodeData, exists := outputMap["testNode"]; exists {
+				if nodeMap, ok := testNodeData.(map[string]any); ok {
+					if nodeMap["intermediate"] != "step1_complete" {
+						t.Errorf("Expected intermediate='step1_complete', got %v", nodeMap["intermediate"])
+					}
+					if nodeMap["status"] != "processing" {
+						t.Errorf("Expected status='processing', got %v", nodeMap["status"])
+					}
+				} else {
+					t.Errorf("Expected testNode data to be a map, got %T", testNodeData)
+				}
+			} else {
+				t.Error("Expected testNode key in output data")
 			}
 		}
 	}

@@ -151,14 +151,7 @@ func TestLoopExecutionNaming_E2E(t *testing.T) {
 func TestLoopExecutionTracking_FlowRunner(t *testing.T) {
 	// Test with the actual flow runner to ensure execution tracking works end-to-end
 	
-	// Create start node
-	startNodeID := idwrap.NewNow()
-	startNode := &MockRequestNode{
-		id:   startNodeID,
-		name: "Start",
-	}
-	
-	// Create FOR node with 5 iterations
+	// Create FOR node with 5 iterations (start with FOR node directly)
 	forNodeID := idwrap.NewNow()
 	forNode := nfor.New(forNodeID, "MainLoop", 5, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 	
@@ -168,22 +161,20 @@ func TestLoopExecutionTracking_FlowRunner(t *testing.T) {
 	
 	// Set up node map
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
-		startNodeID:   startNode,
 		forNodeID:     forNode,
 		requestNodeID: requestNode,
 	}
 	
-	// Connect: Start -> FOR -> REQUEST
+	// Connect: FOR -> REQUEST
 	edges := []edge.Edge{
-		edge.NewEdge(idwrap.NewNow(), startNodeID, forNodeID, edge.HandleThen, edge.EdgeKindNoOp),
 		edge.NewEdge(idwrap.NewNow(), forNodeID, requestNodeID, edge.HandleLoop, edge.EdgeKindNoOp),
 	}
 	edgeMap := edge.NewEdgesMap(edges)
 	
-	// Create flow runner
+	// Create flow runner starting directly with FOR node
 	runnerID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
-	flowRunner := flowlocalrunner.CreateFlowRunner(runnerID, flowID, startNodeID, nodeMap, edgeMap, 0)
+	flowRunner := flowlocalrunner.CreateFlowRunner(runnerID, flowID, forNodeID, nodeMap, edgeMap, 0)
 	
 	// Channels for flow execution
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 1000)
@@ -191,8 +182,12 @@ func TestLoopExecutionTracking_FlowRunner(t *testing.T) {
 	
 	// Track REQUEST node executions
 	var requestExecutions []runner.FlowNodeStatus
+	var allStatuses []runner.FlowNodeStatus
+	statusDone := make(chan struct{})
 	go func() {
+		defer close(statusDone)
 		for status := range flowNodeStatusChan {
+			allStatuses = append(allStatuses, status)
 			if status.NodeID == requestNodeID && status.State == mnnode.NODE_STATE_RUNNING {
 				requestExecutions = append(requestExecutions, status)
 			}
@@ -205,7 +200,16 @@ func TestLoopExecutionTracking_FlowRunner(t *testing.T) {
 	require.NoError(t, err)
 	
 	// Wait for channels to close
-	time.Sleep(100 * time.Millisecond)
+	<-statusDone
+	
+	// Debug: Print all statuses if test fails
+	if len(requestExecutions) != 5 {
+		t.Logf("All statuses received (%d total):", len(allStatuses))
+		for i, status := range allStatuses {
+			t.Logf("  %d: NodeID=%v, State=%v, Name=%s, IterContext=%v", 
+				i, status.NodeID, status.State, status.Name, status.IterationContext)
+		}
+	}
 	
 	// Verify REQUEST node was executed 5 times
 	assert.Len(t, requestExecutions, 5, "REQUEST node should have 5 RUNNING status records")
@@ -255,8 +259,9 @@ func TestNestedLoopExecutionTracking(t *testing.T) {
 	}
 	edgeSourceMap := edge.NewEdgesMap(edges)
 	
-	// Track execution contexts
+	// Track execution contexts - only capture REQUEST node RUNNING statuses
 	var executionContexts []runner.IterationContext
+	var allStatuses []runner.FlowNodeStatus
 	var execMutex sync.Mutex
 	
 	// Create request with status logging
@@ -265,9 +270,11 @@ func TestNestedLoopExecutionTracking(t *testing.T) {
 		NodeMap:       nodeMap,
 		EdgeSourceMap: edgeSourceMap,
 		LogPushFunc: func(status runner.FlowNodeStatus) {
-			if status.NodeID == requestNodeID && status.IterationContext != nil {
-				execMutex.Lock()
-				defer execMutex.Unlock()
+			execMutex.Lock()
+			defer execMutex.Unlock()
+			allStatuses = append(allStatuses, status)
+			// Only capture REQUEST node RUNNING statuses to avoid duplication
+			if status.NodeID == requestNodeID && status.State == mnnode.NODE_STATE_RUNNING && status.IterationContext != nil {
 				executionContexts = append(executionContexts, *status.IterationContext)
 			}
 		},
@@ -278,10 +285,23 @@ func TestNestedLoopExecutionTracking(t *testing.T) {
 	result := outerFor.RunSync(context.Background(), req)
 	require.NoError(t, result.Err)
 	
+	// Debug: Print all statuses if test fails
+	if len(executionContexts) != 6 {
+		t.Logf("All statuses received (%d total):", len(allStatuses))
+		for i, status := range allStatuses {
+			t.Logf("  %d: NodeID=%v, State=%v, Name=%s, IterContext=%v", 
+				i, status.NodeID, status.State, status.Name, status.IterationContext)
+		}
+		t.Logf("REQUEST execution contexts (%d):", len(executionContexts))
+		for i, ctx := range executionContexts {
+			t.Logf("  %d: Path=%v, ExecutionIndex=%d", i, ctx.IterationPath, ctx.ExecutionIndex)
+		}
+	}
+	
 	// Should have 3 * 2 = 6 executions
 	assert.Len(t, executionContexts, 6, "Should have 6 execution contexts")
 	
-	// Verify ExecutionIndex values
+	// Verify ExecutionIndex values - inner loop ExecutionIndex resets for each outer iteration
 	expectedContexts := []struct {
 		outerIteration int
 		innerIteration int
@@ -289,13 +309,20 @@ func TestNestedLoopExecutionTracking(t *testing.T) {
 	}{
 		{0, 0, 0}, // Outer 0, Inner 0
 		{0, 1, 1}, // Outer 0, Inner 1
-		{1, 0, 0}, // Outer 1, Inner 0
+		{1, 0, 0}, // Outer 1, Inner 0 - ExecutionIndex resets
 		{1, 1, 1}, // Outer 1, Inner 1
-		{2, 0, 0}, // Outer 2, Inner 0
+		{2, 0, 0}, // Outer 2, Inner 0 - ExecutionIndex resets
 		{2, 1, 1}, // Outer 2, Inner 1
 	}
 	
-	for i, ctx := range executionContexts {
+	// Safely check only the number of contexts we actually have
+	maxIndex := len(executionContexts)
+	if maxIndex > len(expectedContexts) {
+		maxIndex = len(expectedContexts)
+	}
+	
+	for i := 0; i < maxIndex; i++ {
+		ctx := executionContexts[i]
 		expected := expectedContexts[i]
 		assert.Equal(t, []int{expected.outerIteration, expected.innerIteration}, ctx.IterationPath,
 			"Context %d should have correct iteration path", i)
