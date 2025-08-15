@@ -58,13 +58,21 @@ func TestForEachNode_FinalStateVerification(t *testing.T) {
 		statusMutex.Lock()
 		defer statusMutex.Unlock()
 		
-		// Should have exactly 4 records (4 iterations with RUNNING only, no SUCCESS for successful loops)
-		assert.Len(t, capturedStatuses, 4, "Should have 4 records (RUNNING only for successful loops)")
+		// Filter to get only SUCCESS records (we now create both RUNNING and SUCCESS)
+		var successStatuses []runner.FlowNodeStatus
+		for _, status := range capturedStatuses {
+			if status.State == mnnode.NODE_STATE_SUCCESS {
+				successStatuses = append(successStatuses, status)
+			}
+		}
 		
-		// Verify each record is RUNNING and follows proper naming format
-		for i, status := range capturedStatuses {
-			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, 
-				fmt.Sprintf("Record %d should be RUNNING (successful loops don't create SUCCESS records)", i))
+		// Should have exactly 4 SUCCESS records (one per iteration)
+		assert.Len(t, successStatuses, 4, "Should have 4 SUCCESS records")
+		
+		// Verify each record follows proper naming format
+		for i, status := range successStatuses {
+			assert.Equal(t, mnnode.NODE_STATE_SUCCESS, status.State, 
+				fmt.Sprintf("Record %d should be SUCCESS", i))
 			assert.Equal(t, fmt.Sprintf("Iteration %d", i), status.Name, "Should follow Iteration N format")
 			
 			// Verify output data
@@ -74,7 +82,7 @@ func TestForEachNode_FinalStateVerification(t *testing.T) {
 			}
 		}
 		
-		t.Logf("✅ All %d iterations recorded as RUNNING (conditional summary: no SUCCESS for successful loops)", len(capturedStatuses))
+		t.Logf("✅ All %d iterations completed with SUCCESS status", len(successStatuses))
 	})
 	
 	t.Run("MapIteration_EndWithSuccessState", func(t *testing.T) {
@@ -108,13 +116,21 @@ func TestForEachNode_FinalStateVerification(t *testing.T) {
 		statusMutex.Lock()
 		defer statusMutex.Unlock()
 		
-		// Should have exactly 3 records (3 iterations with RUNNING only, no SUCCESS for successful loops)
-		assert.Len(t, capturedStatuses, 3, "Should have 3 records (RUNNING only for successful loops)")
+		// Filter to get only SUCCESS records (we now create both RUNNING and SUCCESS)
+		var successStatuses []runner.FlowNodeStatus
+		for _, status := range capturedStatuses {
+			if status.State == mnnode.NODE_STATE_SUCCESS {
+				successStatuses = append(successStatuses, status)
+			}
+		}
 		
-		// Verify each record is RUNNING and follows proper naming format
-		for i, status := range capturedStatuses {
-			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, 
-				fmt.Sprintf("Record %d should be RUNNING (successful loops don't create SUCCESS records)", i))
+		// Should have exactly 3 SUCCESS records (one per map entry)
+		assert.Len(t, successStatuses, 3, "Should have 3 SUCCESS records")
+		
+		// Verify each record follows proper naming format
+		for i, status := range successStatuses {
+			assert.Equal(t, mnnode.NODE_STATE_SUCCESS, status.State, 
+				fmt.Sprintf("Record %d should be SUCCESS", i))
 			assert.Equal(t, fmt.Sprintf("Iteration %d", i), status.Name, "Should follow Iteration N format")
 			
 			// Verify output data structure for map iteration
@@ -177,7 +193,7 @@ func TestForEachNode_FinalStateVerification(t *testing.T) {
 		statusMutex.Lock()
 		defer statusMutex.Unlock()
 		
-		// Filter out MockNode records - only look at ForEach iteration and error records
+		// Filter out MockNode records - only look at ForEach node records
 		forEachRecords := []runner.FlowNodeStatus{}
 		for _, status := range capturedStatuses {
 			if status.NodeID == nodeID {
@@ -185,10 +201,10 @@ func TestForEachNode_FinalStateVerification(t *testing.T) {
 			}
 		}
 		
-		// Should have RUNNING record + Error Summary (no FAILURE updates to iterations)
-		assert.Len(t, forEachRecords, 2, "Should have 1 RUNNING + 1 Error Summary (conditional summary behavior)")
+		// When iteration fails immediately, we have RUNNING record + Error Summary (no SUCCESS)
+		require.Len(t, forEachRecords, 2, "Should have 1 RUNNING + 1 Error Summary when failing on first iteration")
 		
-		// First record should be RUNNING for first iteration
+		// First record should be RUNNING for first iteration (it failed before SUCCESS update)
 		runningStatus := forEachRecords[0]
 		assert.Equal(t, mnnode.NODE_STATE_RUNNING, runningStatus.State, "First record should be RUNNING")
 		assert.Equal(t, "Iteration 0", runningStatus.Name, "Should follow Iteration N format")
@@ -250,23 +266,27 @@ func TestForEachNode_FinalStateVerification(t *testing.T) {
 
 		// Assert
 		statusMutex.RLock()
-		totalStatuses := len(capturedStatuses)
 		statusesCopy := make([]runner.FlowNodeStatus, len(capturedStatuses))
 		copy(statusesCopy, capturedStatuses)
 		statusMutex.RUnlock()
 		
-		// Should have exactly 8 records (8 iterations with RUNNING only, no SUCCESS for successful loops)
-		assert.Equal(t, 8, totalStatuses, "Should have exactly 8 status records (RUNNING only)")
-		
-		// Verify all records are RUNNING (no SUCCESS records for successful loops)
-		runningCount := 0
+		// Filter to get only SUCCESS records (we now create both RUNNING and SUCCESS)
+		var successStatuses []runner.FlowNodeStatus
 		for _, status := range statusesCopy {
-			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "All records should be RUNNING for successful loops")
-			runningCount++
+			if status.State == mnnode.NODE_STATE_SUCCESS {
+				successStatuses = append(successStatuses, status)
+			}
 		}
 		
-		assert.Equal(t, 8, runningCount, "All 8 iterations should be RUNNING only")
-		t.Logf("✅ Async execution completed without race conditions - all %d iterations recorded as RUNNING (conditional summary)", runningCount)
+		// Should have exactly 8 SUCCESS records (one per iteration)
+		assert.Equal(t, 8, len(successStatuses), "Should have exactly 8 SUCCESS records")
+		
+		// Verify all filtered records are SUCCESS
+		for _, status := range successStatuses {
+			assert.Equal(t, mnnode.NODE_STATE_SUCCESS, status.State, "All records should be SUCCESS for successful loops")
+		}
+		
+		t.Logf("✅ Async execution completed without race conditions - all %d iterations recorded as SUCCESS", len(successStatuses))
 	})
 }
 

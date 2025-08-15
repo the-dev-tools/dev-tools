@@ -211,7 +211,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			result := processNode(itemIndex-1)
 			
 			// Update iteration record based on result
-			if req.LogPushFunc != nil && result.Err == nil && len(loopID) > 0 {
+			if req.LogPushFunc != nil && result.Err == nil {
 				// Update to SUCCESS (iteration completed successfully)
 				executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
 				req.LogPushFunc(runner.FlowNodeStatus{
@@ -344,7 +344,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			result := processNode(totalItems-1)
 			
 			// Update iteration record based on result
-			if req.LogPushFunc != nil && result.Err == nil && len(loopID) > 0 {
+			if req.LogPushFunc != nil && result.Err == nil {
 				// Update to SUCCESS (iteration completed successfully)
 				executionName := fmt.Sprintf("Iteration %d", totalItems-1)
 				req.LogPushFunc(runner.FlowNodeStatus{

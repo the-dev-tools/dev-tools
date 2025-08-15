@@ -50,14 +50,22 @@ func TestForEachNodeConditionalSummary(t *testing.T) {
 		// Assert
 		require.NoError(t, result.Err, "Successful loop should not return error")
 		
-		// Should have exactly 3 iteration records (no final summary)
-		assert.Len(t, capturedStatuses, 3, "Should have exactly 3 iteration records for successful array loop")
+		// Filter to get only SUCCESS records (we now create both RUNNING and SUCCESS)
+		var successStatuses []runner.FlowNodeStatus
+		for _, status := range capturedStatuses {
+			if status.State == mnnode.NODE_STATE_SUCCESS {
+				successStatuses = append(successStatuses, status)
+			}
+		}
+		
+		// Should have exactly 3 SUCCESS records (no final summary)
+		assert.Len(t, successStatuses, 3, "Should have exactly 3 SUCCESS iteration records for successful array loop")
 		
 		// Verify each iteration record
 		expectedItems := []interface{}{"item1", "item2", "item3"}
-		for i, status := range capturedStatuses {
+		for i, status := range successStatuses {
 			assert.Equal(t, nodeID, status.NodeID, "NodeID should match")
-			assert.Equal(t, mnnode.NODE_STATE_RUNNING, status.State, "All iteration records should be RUNNING")
+			assert.Equal(t, mnnode.NODE_STATE_SUCCESS, status.State, "All iteration records should be SUCCESS")
 			expectedName := fmt.Sprintf("Iteration %d", i)
 			assert.Equal(t, expectedName, status.Name, "Should have improved iteration naming")
 			

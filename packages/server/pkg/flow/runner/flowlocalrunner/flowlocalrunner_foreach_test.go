@@ -141,9 +141,9 @@ func TestForEachNode_ErrorHandling_SubNodeError(t *testing.T) {
 				if err != nil {
 					t.Errorf("Expected flow to succeed with %v error handling, got error: %v", tt.errorHandling, err)
 				}
-				// For successful loops, final status should be RUNNING (last iteration), not SUCCESS
-				if forEachNodeFinalStatus.State != mnnode.NODE_STATE_RUNNING {
-					t.Errorf("Expected foreach node to have RUNNING state (last iteration), got %v", forEachNodeFinalStatus.State)
+				// For successful loops, final status should be SUCCESS
+				if forEachNodeFinalStatus.State != mnnode.NODE_STATE_SUCCESS {
+					t.Errorf("Expected foreach node to have SUCCESS state, got %v", forEachNodeFinalStatus.State)
 				}
 				if forEachNodeFinalStatus.Error != nil {
 					t.Errorf("Expected foreach node to have no error, got: %v", forEachNodeFinalStatus.Error)
@@ -283,10 +283,10 @@ func TestForEachNode_ErrorHandling_MultipleSubNodes(t *testing.T) {
 		t.Errorf("Expected flow to succeed with IGNORE error handling, got: %v", err)
 	}
 
-	// Check foreach node - should have RUNNING status (last iteration) for successful loops
+	// Check foreach node - should have SUCCESS status for successful loops
 	forEachStatus := statusTracker.GetFinalStatus(forEachNodeID)
-	if forEachStatus == nil || forEachStatus.State != mnnode.NODE_STATE_RUNNING {
-		t.Error("Expected foreach node to have RUNNING state (last iteration) with IGNORE error handling")
+	if forEachStatus == nil || forEachStatus.State != mnnode.NODE_STATE_SUCCESS {
+		t.Error("Expected foreach node to have SUCCESS state with IGNORE error handling")
 	}
 
 	// Check sub-nodes
