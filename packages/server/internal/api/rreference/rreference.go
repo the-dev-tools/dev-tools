@@ -286,8 +286,25 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 
 		// If we have execution data, use it
 		if hasExecutionData && nodeData != nil {
-			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeData, node.Name)
-			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+			// The execution data contains the full tree structure from tracker.GetWrittenVarsAsTree()
+			// which already includes node names as top-level keys
+			// We need to extract just the data for this specific node
+			if nodeMap, ok := nodeData.(map[string]interface{}); ok {
+				// Check if the data contains this node's name as a key
+				if nodeSpecificData, hasNodeKey := nodeMap[node.Name]; hasNodeKey {
+					// Use the node-specific data
+					nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeSpecificData, node.Name)
+					nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+				} else {
+					// Data doesn't have the expected structure, use it as-is
+					nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeData, node.Name)
+					nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+				}
+			} else {
+				// Not a map, use directly
+				nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeData, node.Name)
+				nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+			}
 			continue
 		}
 
@@ -601,7 +618,22 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 			// If we have execution data, use it
 			if hasExecutionData && nodeData != nil {
-				creator.AddWithKey(node.Name, nodeData)
+				// The execution data contains the full tree structure from tracker.GetWrittenVarsAsTree()
+				// which already includes node names as top-level keys
+				// We need to extract just the data for this specific node
+				if nodeMap, ok := nodeData.(map[string]interface{}); ok {
+					// Check if the data contains this node's name as a key
+					if nodeSpecificData, hasNodeKey := nodeMap[node.Name]; hasNodeKey {
+						// Use the node-specific data
+						creator.AddWithKey(node.Name, nodeSpecificData)
+					} else {
+						// Data doesn't have the expected structure, use it as-is
+						creator.AddWithKey(node.Name, nodeData)
+					}
+				} else {
+					// Not a map, use directly
+					creator.AddWithKey(node.Name, nodeData)
+				}
 				continue
 			}
 

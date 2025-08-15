@@ -1194,37 +1194,50 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				stateStrForLog := stateStr
 				nodeError := flowNodeStatus.Error
 
-				go func() {
-					// Create a simple log-friendly structure without maps
-					logData := struct {
-						NodeID string
-						Name   string
-						State  string
-						Error  error
-					}{
-						NodeID: idStrForLog,
-						Name:   nameForLog,
-						State:  stateStrForLog,
-						Error:  nodeError,
-					}
+				// Don't spawn goroutine if channels are closing
+				if !channelsClosed.Load() {
+					go func() {
+						// Double-check channels aren't closed
+						if channelsClosed.Load() {
+							return
+						}
+						
+						// Create a simple log-friendly structure without maps
+						logData := struct {
+							NodeID string
+							Name   string
+							State  string
+							Error  error
+						}{
+							NodeID: idStrForLog,
+							Name:   nameForLog,
+							State:  stateStrForLog,
+							Error:  nodeError,
+						}
 
-					ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
-					refs := []reference.ReferenceTreeItem{ref}
+						ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
+						refs := []reference.ReferenceTreeItem{ref}
 
-					// Set log level to error if there's an error, otherwise warning
-					var logLevel logconsole.LogLevel
-					if nodeError != nil {
-						logLevel = logconsole.LogLevelError
-					} else {
-						logLevel = logconsole.LogLevelUnspecified
-					}
+						// Set log level to error if there's an error, otherwise warning
+						var logLevel logconsole.LogLevel
+						if nodeError != nil {
+							logLevel = logconsole.LogLevelError
+						} else {
+							logLevel = logconsole.LogLevelUnspecified
+						}
 
-					localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", nameForLog, idStrForLog, stateStrForLog), logLevel, refs)
-					if localErr != nil {
-						done <- localErr
-						return
-					}
-				}()
+						localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", nameForLog, idStrForLog, stateStrForLog), logLevel, refs)
+						if localErr != nil {
+							// Use a select with default to avoid sending to a potentially closed channel
+							select {
+							case done <- localErr:
+							default:
+								// Channel is closed or full, ignore the error
+							}
+							return
+						}
+					}()
+				}
 			}
 
 			// Handle request node responses
