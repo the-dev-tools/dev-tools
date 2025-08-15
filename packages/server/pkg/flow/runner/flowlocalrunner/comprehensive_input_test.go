@@ -13,6 +13,47 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode"
 )
 
+// TestNode is a simple test implementation of FlowNode that can write/read variables
+type TestNode struct {
+	ID      idwrap.IDWrap
+	Name    string
+	NextIDs []idwrap.IDWrap
+	RunFunc func(req *node.FlowNodeRequest) error
+}
+
+func NewTestNode(id idwrap.IDWrap, name string, nextIDs []idwrap.IDWrap, runFunc func(req *node.FlowNodeRequest) error) *TestNode {
+	return &TestNode{
+		ID:      id,
+		Name:    name,
+		NextIDs: nextIDs,
+		RunFunc: runFunc,
+	}
+}
+
+func (tn *TestNode) GetID() idwrap.IDWrap {
+	return tn.ID
+}
+
+func (tn *TestNode) GetName() string {
+	return tn.Name
+}
+
+func (tn *TestNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
+	var err error
+	if tn.RunFunc != nil {
+		err = tn.RunFunc(req)
+	}
+	return node.FlowNodeResult{
+		NextNodeID: tn.NextIDs,
+		Err:        err,
+	}
+}
+
+func (tn *TestNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
+	result := tn.RunSync(ctx, req)
+	resultChan <- result
+}
+
 // TestComprehensiveInputDataTracking tests various input data scenarios
 func TestComprehensiveInputDataTracking(t *testing.T) {
 	var mu sync.Mutex
