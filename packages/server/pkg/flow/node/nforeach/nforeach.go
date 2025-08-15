@@ -212,14 +212,15 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			
 			// Update iteration record based on result
 			if req.LogPushFunc != nil && result.Err == nil && len(loopID) > 0 {
-				// Update to RUNNING (iteration completed but loop continues)
+				// Update to SUCCESS (iteration completed successfully)
 				executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: executionID, // Same ID = UPDATE
 					NodeID:     nr.FlowNodeID,
 					Name:       executionName,
-					State:      mnnode.NODE_STATE_RUNNING,
+					State:      mnnode.NODE_STATE_SUCCESS,
 					OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
+					IterationContext: iterContext,
 				})
 			}
 			// Note: No FAILURE updates are created - errors are handled via Error Summary records only
@@ -262,23 +263,8 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			return node.FlowNodeResult{
 				Err: loopError,
 			}
-		} else if failedAt >= 0 {
-			// Break case: loop stopped due to error but didn't propagate it
-			if req.LogPushFunc != nil {
-				outputData := map[string]interface{}{
-					"stoppedAtIndex": failedAt,
-					"totalItems":    totalItems,
-				}
-				executionName := fmt.Sprintf("%s (stopped)", nr.Name)
-				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID: idwrap.NewNow(),
-					NodeID:      nr.FlowNodeID,
-					Name:        executionName,
-					State:       mnnode.NODE_STATE_RUNNING,
-					OutputData:  outputData,
-				})
-			}
 		}
+		// Note: Break case (failedAt >= 0) doesn't create summary record per test expectations
 		// Write total items processed
 		if req.VariableTracker != nil {
 			err = node.WriteNodeVarWithTracking(req, nr.Name, "totalItems", totalItems, req.VariableTracker)
@@ -323,6 +309,18 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			// Store execution ID for later update
 			executionID := idwrap.NewNow()
+			
+			// Create iteration context for this execution
+			var parentPath []int
+			var parentNodes []idwrap.IDWrap
+			if req.IterationContext != nil {
+				parentPath = req.IterationContext.IterationPath
+				parentNodes = req.IterationContext.ParentNodes
+			}
+			iterContext := &runner.IterationContext{
+				IterationPath: append(parentPath, totalItems),
+				ParentNodes:   append(parentNodes, nr.FlowNodeID),
+			}
 
 			// Create initial RUNNING record
 			if req.LogPushFunc != nil {
@@ -337,6 +335,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					Name:       executionName,
 					State:      mnnode.NODE_STATE_RUNNING,
 					OutputData: iterationData,
+					IterationContext: iterContext,
 				})
 			}
 
@@ -346,7 +345,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			
 			// Update iteration record based on result
 			if req.LogPushFunc != nil && result.Err == nil && len(loopID) > 0 {
-				// Only update to SUCCESS if there are child nodes to execute and no error
+				// Update to SUCCESS (iteration completed successfully)
 				executionName := fmt.Sprintf("Iteration %d", totalItems-1)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID: executionID, // Same ID = UPDATE
@@ -354,6 +353,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					Name:       executionName,
 					State:      mnnode.NODE_STATE_SUCCESS,
 					OutputData: map[string]any{"key": key, "value": value, "completed": true},
+					IterationContext: iterContext,
 				})
 			}
 			// Note: No FAILURE updates are created - errors are handled via Error Summary records only
@@ -561,6 +561,18 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				// Store execution ID for later update
 				executionID := idwrap.NewNow()
 				
+				// Create iteration context for this execution
+				var parentPath []int
+				var parentNodes []idwrap.IDWrap
+				if req.IterationContext != nil {
+					parentPath = req.IterationContext.IterationPath
+					parentNodes = req.IterationContext.ParentNodes
+				}
+				iterContext := &runner.IterationContext{
+					IterationPath: append(parentPath, itemIndex),
+					ParentNodes:   append(parentNodes, nr.FlowNodeID),
+				}
+				
 				// Create initial RUNNING record
 				if req.LogPushFunc != nil {
 					iterationData := map[string]any{
@@ -574,6 +586,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						Name:       executionName,
 						State:      mnnode.NODE_STATE_RUNNING,
 						OutputData: iterationData,
+						IterationContext: iterContext,
 					})
 				}
 				
@@ -584,7 +597,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				
 				// Update iteration record based on result
 				if req.LogPushFunc != nil && loopResult.Err == nil && len(loopID) > 0 {
-					// Only update to SUCCESS if there are child nodes to execute and no error
+					// Update to SUCCESS (iteration completed successfully)
 					executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID: executionID, // Same ID = UPDATE
@@ -592,6 +605,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						Name:       executionName,
 						State:      mnnode.NODE_STATE_SUCCESS,
 						OutputData: map[string]any{"index": itemIndex-1, "value": item, "completed": true},
+						IterationContext: iterContext,
 					})
 				}
 				// Note: No FAILURE updates are created - errors are handled via Error Summary records only
@@ -687,6 +701,18 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 				// Store execution ID for later update
 				executionID := idwrap.NewNow()
+				
+				// Create iteration context for this execution
+				var parentPath []int
+				var parentNodes []idwrap.IDWrap
+				if req.IterationContext != nil {
+					parentPath = req.IterationContext.IterationPath
+					parentNodes = req.IterationContext.ParentNodes
+				}
+				iterContext := &runner.IterationContext{
+					IterationPath: append(parentPath, totalItems),
+					ParentNodes:   append(parentNodes, nr.FlowNodeID),
+				}
 
 				// Create initial RUNNING record
 				if req.LogPushFunc != nil {
@@ -701,6 +727,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						Name:       executionName,
 						State:      mnnode.NODE_STATE_RUNNING,
 						OutputData: iterationData,
+						IterationContext: iterContext,
 					})
 				}
 
@@ -710,7 +737,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				
 				// Update iteration record based on result
 				if req.LogPushFunc != nil && loopResult.Err == nil && len(loopID) > 0 {
-					// Only update to SUCCESS if there are child nodes to execute and no error
+					// Update to SUCCESS (iteration completed successfully)
 					executionName := fmt.Sprintf("Iteration %d", totalItems-1)
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID: executionID, // Same ID = UPDATE
@@ -718,6 +745,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						Name:       executionName,
 						State:      mnnode.NODE_STATE_SUCCESS,
 						OutputData: map[string]any{"key": key, "value": value, "completed": true},
+						IterationContext: iterContext,
 					})
 				}
 				// Note: No FAILURE updates are created - errors are handled via Error Summary records only

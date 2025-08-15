@@ -273,10 +273,20 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				continue
 			}
 
-			// Skip success completion record for loop nodes (FOR and FOR_EACH)
-			// These nodes already create their own iteration tracking records
+			// Handle completion records for loop nodes (FOR and FOR_EACH) vs regular nodes
+			// Loop nodes should have RUNNING final state, regular nodes should have SUCCESS
 			nodeTypeName := reflect.TypeOf(currentNode).Elem().Name()
-			if nodeTypeName != "NodeFor" && nodeTypeName != "NodeForEach" {
+			if nodeTypeName == "NodeFor" || nodeTypeName == "NodeForEach" {
+				// Loop nodes: final state should be RUNNING (the loop ran, it doesn't "succeed")
+				status.State = mnnode.NODE_STATE_RUNNING
+				status.Error = nil
+				// Use the tracked output data which has the proper tree structure
+				status.OutputData = node.DeepCopyValue(result.outputData)
+				// Deep copy input data as well
+				status.InputData = node.DeepCopyValue(result.inputData)
+				statusLogFunc(status)
+			} else {
+				// Regular nodes: final state should be SUCCESS
 				status.State = mnnode.NODE_STATE_SUCCESS
 				status.Error = nil
 				// Use the tracked output data which has the proper tree structure
@@ -465,10 +475,20 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				FlowNodeCancelCtxCancelFn()
 				continue
 			}
-			// Skip success completion record for loop nodes (FOR and FOR_EACH)
-			// These nodes already create their own iteration tracking records
+			// Handle completion records for loop nodes (FOR and FOR_EACH) vs regular nodes
+			// Loop nodes should have RUNNING final state, regular nodes should have SUCCESS
 			nodeTypeName := reflect.TypeOf(currentNode).Elem().Name()
-			if nodeTypeName != "NodeFor" && nodeTypeName != "NodeForEach" {
+			if nodeTypeName == "NodeFor" || nodeTypeName == "NodeForEach" {
+				// Loop nodes: final state should be RUNNING (the loop ran, it doesn't "succeed")
+				status.State = mnnode.NODE_STATE_RUNNING
+				status.Error = nil
+				// Use the tracked output data which has the proper tree structure
+				status.OutputData = node.DeepCopyValue(result.outputData)
+				// Deep copy input data as well
+				status.InputData = node.DeepCopyValue(result.inputData)
+				statusLogFunc(status)
+			} else {
+				// Regular nodes: final state should be SUCCESS
 				status.State = mnnode.NODE_STATE_SUCCESS
 				status.Error = nil
 				// Use the tracked output data which has the proper tree structure
