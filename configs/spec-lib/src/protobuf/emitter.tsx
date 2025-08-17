@@ -25,11 +25,28 @@ import {
   useContext,
   useScope,
 } from '@alloy-js/core';
-import { EmitContext, Enum, Interface, Model, ModelProperty, Namespace, Program, Type } from '@typespec/compiler';
+import {
+  EmitContext,
+  Enum,
+  Interface,
+  isTemplateDeclaration,
+  Model,
+  ModelProperty,
+  Namespace,
+  Program,
+  Type,
+} from '@typespec/compiler';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, flow, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
-import { instancesByModel, instancesByTemplate, templates } from '../core/index.js';
-import { EmitterOptions, externals, maps, streams } from './lib.js';
+import { join } from 'node:path/posix';
+import {
+  EmitterOptions,
+  getModelDerivations,
+  getModelName,
+  getModelProperties,
+  getModelRefKey,
+} from '../core/index.js';
+import { externals, maps, streams } from './lib.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -71,7 +88,7 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
         )}
       </Output>
     </EmitterOptionsContext.Provider>,
-    emitterOutputDir,
+    join(emitterOutputDir, 'protobuf'),
   );
 };
 
@@ -95,18 +112,18 @@ const useProtoScalarsMap = () => {
 
   scalarMap = pipe(
     [
+      ['DevTools.Protobuf.fixed32', 'fixed32'],
+      ['DevTools.Protobuf.fixed64', 'fixed64'],
+      ['DevTools.Protobuf.sfixed32', 'sfixed32'],
+      ['DevTools.Protobuf.sfixed64', 'sfixed64'],
+      ['DevTools.Protobuf.sint32', 'sint32'],
+      ['DevTools.Protobuf.sint64', 'sint64'],
       ['TypeSpec.boolean', 'bool'],
       ['TypeSpec.bytes', 'bytes'],
-      ['TypeSpec.fixed32', 'fixed32'],
-      ['TypeSpec.fixed64', 'fixed64'],
       ['TypeSpec.float32', 'float'],
       ['TypeSpec.float64', 'double'],
       ['TypeSpec.int32', 'int32'],
       ['TypeSpec.int64', 'int64'],
-      ['TypeSpec.sfixed32', 'sfixed32'],
-      ['TypeSpec.sfixed64', 'sfixed64'],
-      ['TypeSpec.sint32', 'sint32'],
-      ['TypeSpec.sint64', 'sint64'],
       ['TypeSpec.string', 'string'],
       ['TypeSpec.uint32', 'uint32'],
       ['TypeSpec.uint64', 'uint64'],
@@ -149,16 +166,11 @@ const useProtoTypeMap = () => {
           ),
       ),
       Match.when(
-        (_) => instancesByTemplate(program).has(_),
-        (_) =>
-          pipe(
-            Option.liftPredicate(_, (_) => $.model.is(_)),
-            Option.flatMapNullable((_) => instancesByTemplate(program).get(_)),
-            Option.flatMap(getProtoType),
-          ),
+        (_) => $.model.is(_),
+        (_) => Option.some(getModelRefKey(program, _)),
       ),
       Match.when(
-        (_) => $.model.is(_) || $.enum.is(_),
+        (_) => $.enum.is(_),
         (_) => Option.some(refkey(_)),
       ),
       Match.when(
@@ -208,7 +220,7 @@ const Package = ({ namespace }: PackageProps) => {
 
   const parent = useContext(SourceDirectoryContext)?.path;
 
-  let path = `${name}/v1`;
+  let path = `${name}/v${version}`;
   if (parent && parent !== './') path = `${parent}/${path}`;
 
   const specifier = path.replaceAll('/', '.');
@@ -250,23 +262,9 @@ const Package = ({ namespace }: PackageProps) => {
     </Show>
   );
 
-  const getModelInstances = (_: Model): Model[] => {
-    if (!_.isFinished) $.type.finishType(_);
-
-    if (templates(program).has(_)) return [];
-
-    return pipe(
-      instancesByModel(program).get(_)?.values() ?? [],
-      Array.fromIterable,
-      Array.flatMap(getModelInstances),
-      Array.prepend(_),
-    );
-  };
-
   const messages = pipe(
-    namespace.models.values(),
-    Array.fromIterable,
-    Array.flatMap(getModelInstances),
+    namespace.models.values().toArray(),
+    Array.flatMap((_) => getModelDerivations(program, _)),
     Array.dedupe,
     (_) => (
       <Show when={_.length > 0}>
@@ -284,7 +282,7 @@ const Package = ({ namespace }: PackageProps) => {
     Array.fromIterable,
     Array.filter((_) => {
       if (!_.isFinished) $.type.finishType(_);
-      return !templates(program).has(_);
+      return !isTemplateDeclaration(_);
     }),
     (_) => (
       <Show when={_.length > 0}>
@@ -379,9 +377,11 @@ interface MessageProps {
 }
 
 const Message = ({ model }: MessageProps) => {
+  const { program } = useTsp();
+
   const fields = pipe(
-    model.properties.values(),
-    Array.fromIterable,
+    getModelProperties(program, model),
+    HashMap.toValues,
     Option.liftPredicate(Array.isNonEmptyArray),
     Option.map((_) => (
       <Block>
@@ -392,7 +392,7 @@ const Message = ({ model }: MessageProps) => {
   );
 
   return (
-    <Declaration name={model.name} refkey={refkey(model)}>
+    <Declaration name={getModelName(program, model)} refkey={getModelRefKey(program, model)}>
       message <Name /> {fields}
     </Declaration>
   );
@@ -445,7 +445,7 @@ const Service = ({ _interface }: ServiceProps) => {
                 Match.exhaustive,
               );
 
-              const empty = Option.fromNullable(program.resolveTypeReference('TypeSpec.WellKnown.Empty')[0]);
+              const empty = Option.fromNullable(program.resolveTypeReference('DevTools.Protobuf.WellKnown.Empty')[0]);
 
               const inputType = yield* pipe(
                 _.parameters.sourceModels,
