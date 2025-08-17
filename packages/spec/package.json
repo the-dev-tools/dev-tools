@@ -9,8 +9,8 @@
   ],
   "exports": {
     "./*": "./dist/buf/typescript/*.ts",
-    "./meta/*": "./dist/meta/*",
-    "./data-client/*": "./data-client/*.ts"
+    "./data-client/*": "./dist/data-client/*",
+    "./data-client/utils": "./data-client/utils.ts"
   },
   "dependencies": {
     "@connectrpc/connect": "2.0.2",
@@ -18,18 +18,13 @@
     "@data-client/endpoint": "0.14.26"
   },
   "devDependencies": {
-    "@alloy-js/cli": "~0.18.0",
-    "@alloy-js/core": "~0.18.2",
-    "@alloy-js/typescript": "~0.18.0",
     "@bufbuild/buf": "~1.55.1",
     "@bufbuild/protobuf": "~2.6.2",
     "@bufbuild/protoc-gen-es": "~2.6.2",
     "@connectrpc/protoc-gen-connect-query": "~2.1.1",
     "@the-dev-tools/eslint-config": "workspace:^",
+    "@the-dev-tools/spec-lib": "workspace:^",
     "@types/node": "~24.1.0",
-    "@typespec/emitter-framework": "~0.9.0",
-    "@typespec/protobuf": "~0.72.1",
-    "@typespec/rest": "~0.72.1",
     "effect": "~3.17.1",
     "prettier": "~3.6.2",
     "rimraf": "~6.0.1",

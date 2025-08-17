@@ -1,33 +1,15 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
-
-import "../delta.tsp";
-import "./example.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "collection.item.body.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/body/v1;bodyv1",
-  },
-})
 namespace API.CollectionItem.Body;
 
 enum BodyKind {
-  BODY_KIND_UNSPECIFIED: 0,
-  BODY_KIND_FORM_ARRAY: 1,
-  BODY_KIND_URL_ENCODED_ARRAY: 2,
-  BODY_KIND_RAW: 3,
+  FormArray,
+  UrlEncodedArray,
+  Raw,
 }
 
-@autoFields
-@normalize
-@entity
-@parentResource(Example.Example)
+@DataClient.entity
+@parent(Example.Example)
 model BodyForm {
   @key bodyId: Resource.Id;
   key: string;
@@ -36,9 +18,6 @@ model BodyForm {
   description: string;
 }
 
-model BodyFormDelta is Delta.Item<BodyForm>;
-
-@autoFields
 model BodyFormMoveRequest {
   ...ParentKeyOf<BodyForm>;
   ...KeyOf<BodyForm>;
@@ -48,10 +27,9 @@ model BodyFormMoveRequest {
 
 model BodyFormMoveResponse {}
 
-@autoFields
 model BodyFormDeltaMoveRequest {
-  ...ParentKeyOf<BodyFormDelta>;
-  ...KeyOf<BodyFormDelta>;
+  ...ParentKeyOf<BodyForm>;
+  ...KeyOf<BodyForm>;
   originId: Resource.Id;
   position: Resource.MovePosition;
   targetBodyId: Resource.Id;
@@ -59,10 +37,8 @@ model BodyFormDeltaMoveRequest {
 
 model BodyFormDeltaMoveResponse {}
 
-@autoFields
-@normalize
-@entity
-@parentResource(Example.Example)
+@DataClient.entity
+@parent(Example.Example)
 model BodyUrlEncoded {
   @key bodyId: Resource.Id;
   key: string;
@@ -71,9 +47,6 @@ model BodyUrlEncoded {
   description: string;
 }
 
-model BodyUrlEncodedDelta is Delta.Item<BodyUrlEncoded>;
-
-@autoFields
 model BodyUrlEncodedMoveRequest {
   ...ParentKeyOf<BodyUrlEncoded>;
   ...KeyOf<BodyUrlEncoded>;
@@ -83,10 +56,9 @@ model BodyUrlEncodedMoveRequest {
 
 model BodyUrlEncodedMoveResponse {}
 
-@autoFields
 model BodyUrlEncodedDeltaMoveRequest {
-  ...ParentKeyOf<BodyUrlEncodedDelta>;
-  ...KeyOf<BodyUrlEncodedDelta>;
+  ...ParentKeyOf<BodyUrlEncoded>;
+  ...KeyOf<BodyUrlEncoded>;
   originId: Resource.Id;
   position: Resource.MovePosition;
   targetBodyId: Resource.Id;
@@ -94,14 +66,12 @@ model BodyUrlEncodedDeltaMoveRequest {
 
 model BodyUrlEncodedDeltaMoveResponse {}
 
-@autoFields
-@entity
+@DataClient.entity
 model BodyRaw {
   ...KeyOf<Example.Example>;
   data: bytes;
 }
 
-@Protobuf.service
 interface BodyService
   extends BlankInterface,
     // Form Array
@@ -109,22 +79,22 @@ interface BodyService
     Resource.Create.Interface<BodyForm>,
     Resource.Update.Interface<BodyForm>,
     Resource.Delete.Interface<BodyForm>,
-    Delta.Interface<BodyForm, TDelta = BodyFormDelta>,
+    Delta.Interface<BodyForm>,
     // URL Encoded Array
     Resource.List.Interface<BodyUrlEncoded>,
     Resource.Create.Interface<BodyUrlEncoded>,
     Resource.Update.Interface<BodyUrlEncoded>,
     Resource.Delete.Interface<BodyUrlEncoded>,
-    Delta.Interface<BodyUrlEncoded, TDelta = BodyUrlEncodedDelta>,
+    Delta.Interface<BodyUrlEncoded>,
     // Raw
     Resource.Get.Interface<BodyRaw>,
     Resource.Update.Interface<BodyRaw> {
-  @endpoint("request.js:moveBodyForm")
+  @DataClient.endpoint("request.js:moveBodyForm")
   BodyFormMove(...BodyFormMoveRequest): BodyFormMoveResponse;
-  @endpoint("request.js:moveBodyFormDelta")
+  @DataClient.endpoint("request.js:moveBodyFormDelta")
   BodyFormDeltaMove(...BodyFormDeltaMoveRequest): BodyFormDeltaMoveResponse;
-  @endpoint("request.js:moveBodyUrlEncoded")
+  @DataClient.endpoint("request.js:moveBodyUrlEncoded")
   BodyUrlEncodedMove(...BodyUrlEncodedMoveRequest): BodyUrlEncodedMoveResponse;
-  @endpoint("request.js:moveBodyUrlEncodedDelta")
+  @DataClient.endpoint("request.js:moveBodyUrlEncodedDelta")
   BodyUrlEncodedDeltaMove(...BodyUrlEncodedDeltaMoveRequest): BodyUrlEncodedDeltaMoveResponse;
 }

@@ -1,27 +1,9 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
-
-import "../delta.tsp";
-import "../condition.tsp";
-import "./example.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "collection.item.request.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/request/v1;requestv1",
-  },
-})
 namespace API.CollectionItem.Request;
 
-@autoFields
-@normalize
-@entity
-@parentResource(Example.Example)
+@DataClient.entity
+@parent(Example.Example)
 model Query {
   @key queryId: Resource.Id;
   key: string;
@@ -30,9 +12,6 @@ model Query {
   description: string;
 }
 
-model QueryDelta is Delta.Item<Query>;
-
-@autoFields
 model QueryMoveRequest {
   ...ParentKeyOf<Query>;
   ...KeyOf<Query>;
@@ -40,23 +19,16 @@ model QueryMoveRequest {
   targetQueryId: Resource.Id;
 }
 
-model QueryMoveResponse {}
-
-@autoFields
 model QueryDeltaMoveRequest {
-  ...ParentKeyOf<QueryDelta>;
-  ...KeyOf<QueryDelta>;
+  ...ParentKeyOf<Query>;
+  ...KeyOf<Query>;
   originId: Resource.Id;
   position: Resource.MovePosition;
   targetQueryId: Resource.Id;
 }
 
-model QueryDeltaMoveResponse {}
-
-@autoFields
-@normalize
-@entity
-@parentResource(Example.Example)
+@DataClient.entity
+@parent(Example.Example)
 model Header {
   @key headerId: Resource.Id;
   key: string;
@@ -65,9 +37,6 @@ model Header {
   description: string;
 }
 
-model HeaderDelta is Delta.Item<Header>;
-
-@autoFields
 model HeaderMoveRequest {
   ...ParentKeyOf<Header>;
   ...KeyOf<Header>;
@@ -75,29 +44,21 @@ model HeaderMoveRequest {
   targetHeaderId: Resource.Id;
 }
 
-model HeaderMoveResponse {}
-
-@autoFields
 model HeaderDeltaMoveRequest {
-  ...ParentKeyOf<HeaderDelta>;
-  ...KeyOf<HeaderDelta>;
+  ...ParentKeyOf<Header>;
+  ...KeyOf<Header>;
   originId: Resource.Id;
   position: Resource.MovePosition;
   targetHeaderId: Resource.Id;
 }
 
-model HeaderDeltaMoveResponse {}
-
-@autoFields
-@normalize
-@entity
-@parentResource(Example.Example)
+@DataClient.entity
+@parent(Example.Example)
 model Assert {
   @key assertId: Resource.Id;
   condition: Condition.Condition;
 }
 
-@Protobuf.service
 interface RequestService
   extends BlankInterface,
     // Query
@@ -105,25 +66,25 @@ interface RequestService
     Resource.Create.Interface<Query>,
     Resource.Update.Interface<Query>,
     Resource.Delete.Interface<Query>,
-    Delta.Interface<Query, TDelta = QueryDelta>,
+    Delta.Interface<Query>,
     // Header
     Resource.List.Interface<Header>,
     Resource.Create.Interface<Header>,
     Resource.Update.Interface<Header>,
     Resource.Delete.Interface<Header>,
-    Delta.Interface<Header, TDelta = HeaderDelta>,
+    Delta.Interface<Header>,
     // Assert
     Resource.List.Interface<Assert>,
     Resource.Create.Interface<Assert>,
     Resource.Update.Interface<Assert>,
     Resource.Delete.Interface<Assert>,
     Delta.Interface<Assert> {
-  @endpoint("request.js:moveQuery")
-  QueryMove(...QueryMoveRequest): QueryMoveResponse;
-  @endpoint("request.js:moveQueryDelta")
-  QueryDeltaMove(...QueryDeltaMoveRequest): QueryDeltaMoveResponse;
-  @endpoint("request.js:moveHeader")
-  HeaderMove(...HeaderMoveRequest): HeaderMoveResponse;
-  @endpoint("request.js:moveHeaderDelta")
-  HeaderDeltaMove(...HeaderDeltaMoveRequest): HeaderDeltaMoveResponse;
+  @DataClient.endpoint("request.js:moveQuery")
+  QueryMove(...QueryMoveRequest): {};
+  @DataClient.endpoint("request.js:moveQueryDelta")
+  QueryDeltaMove(...QueryDeltaMoveRequest): {};
+  @DataClient.endpoint("request.js:moveHeader")
+  HeaderMove(...HeaderMoveRequest): {};
+  @DataClient.endpoint("request.js:moveHeaderDelta")
+  HeaderDeltaMove(...HeaderDeltaMoveRequest): {};
 }

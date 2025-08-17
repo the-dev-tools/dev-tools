@@ -1,34 +1,9 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
-
-import "../collection.tsp";
-import "./folder.tsp";
-import "./endpoint.tsp";
-import "./example.tsp";
-
-import "./body.tsp";
-import "./request.tsp";
-import "./response.tsp";
-// import "./breadcrumb.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-using TypeSpec.Rest.Resource;
-
-@package({
-  name: "collection.item.example.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/example/v1;examplev1",
-  },
-})
 namespace API.CollectionItem.Example;
 
-@autoFields
-@normalize
-@entity
-@parentResource(Endpoint.Endpoint)
+@DataClient.entity
+@parent(Endpoint.Endpoint)
 model Example {
   @key exampleId: Resource.Id;
   lastResponseId?: Resource.Id;
@@ -43,42 +18,39 @@ model Example {
 }
 
 enum ExampleBreadcrumbKind {
-  EXAMPLE_BREADCRUMB_KIND_UNSPECIFIED: 0,
-  EXAMPLE_BREADCRUMB_KIND_COLLECTION: 1,
-  EXAMPLE_BREADCRUMB_KIND_FOLDER: 2,
-  EXAMPLE_BREADCRUMB_KIND_ENDPOINT: 3,
+  Collection,
+  Folder,
+  Endpoint,
 }
 
-@autoFields
 model ExampleBreadcrumb {
   kind: ExampleBreadcrumbKind;
-  collection?: Collection.CollectionListItem;
-  folder?: Folder.FolderListItem;
-  endpoint?: Endpoint.EndpointListItem;
+  collection?: Resource.List.ListItem<Collection.Collection>;
+  folder?: Resource.List.ListItem<Folder.Folder>;
+  endpoint?: Resource.List.ListItem<Endpoint.Endpoint>;
 }
 
-model ExampleListItem is Resource.List.Item<Example>;
-model ExampleListResponse is Resource.List.Response<Example, TItem = ExampleListItem>;
-model ExampleVersionsItem is Resource.List.Item<Example>;
-model ExampleVersionsRequest is KeyOf<Example>;
-model ExampleVersionsResponse
-  is Resource.List.Response<Example, TRequest = ExampleVersionsRequest, TItem = ExampleVersionsItem>;
+model ExampleVersion is Example;
+
+@instanceOf(Resource.List.ListRequest<ExampleVersion>)
+model ExampleVersionListRequest is KeyOf<ExampleVersion>;
 
 model ExampleDuplicateRequest {
   ...KeyOf<Example>;
   ...ParentKeyOf<Example>;
 }
-model ExampleDuplicateResponse is Resource.Create.Response<Example>;
+
+model ExampleDuplicateResponse {
+  ...Resource.Create.CreateResponse<Example>;
+}
 
 model ExampleRunRequest is KeyOf<Example>;
 
-@autoFields
 model ExampleRunResponse {
-  response: Resource.Get.Response<Response.Response>;
-  version: ExampleVersionsItem;
+  response: Resource.Get.GetResponse<Response.Response>;
+  version: ExampleVersion;
 }
 
-@autoFields
 model ExampleMoveRequest {
   ...ParentKeyOf<Example>;
   ...KeyOf<Example>;
@@ -88,26 +60,16 @@ model ExampleMoveRequest {
 
 model ExampleMoveResponse {}
 
-@Protobuf.service
-interface ExampleService
-  extends Resource.CRUD<Example, TListItem = ExampleListItem, TListResponse = ExampleListResponse> {
-  ExampleVersions is Resource.List.Operation<
-    Example,
-    TItem = ExampleVersionsItem,
-    TRequest = ExampleVersionsRequest,
-    TResponse = ExampleVersionsResponse
-  >;
-
+interface ExampleService extends Resource.CRUD<Example>, Resource.List.Interface<ExampleVersion> {
   ExampleDuplicate is Resource.Create.Operation<
     Example,
     TRequest = ExampleDuplicateRequest,
-    TResponse = ExampleDuplicateResponse,
-    TListItem = ExampleListItem
+    TResponse = ExampleDuplicateResponse
   >;
 
-  @endpoint("collection-item.js:runExample")
+  @DataClient.endpoint("collection-item.js:runExample")
   ExampleRun(...ExampleRunRequest): ExampleRunResponse;
 
-  @endpoint("collection-item.js:moveExample")
+  @DataClient.endpoint("collection-item.js:moveExample")
   ExampleMove(...ExampleMoveRequest): ExampleMoveResponse;
 }

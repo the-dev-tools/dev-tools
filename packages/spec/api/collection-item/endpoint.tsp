@@ -1,29 +1,9 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
-
-import "../collection.tsp";
-import "../resource.tsp";
-import "./example.tsp";
-import "./item.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-using TypeSpec.Rest.Resource;
-
-@package({
-  name: "collection.item.endpoint.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1;endpointv1",
-  },
-})
 namespace API.CollectionItem.Endpoint;
 
-@autoFields
-@normalize
-@entity
-@parentResource(Collection.Collection)
+@DataClient.entity
+@parent(Collection.Collection)
 model Endpoint {
   @key endpointId: Resource.Id;
   @visibility(Resource.Query.List) parentFolderId?: Resource.Id;
@@ -33,22 +13,26 @@ model Endpoint {
   @visibility(Resource.Query.Get) url: string;
 }
 
-model EndpointListItem is Resource.List.Item<Endpoint>;
-model EndpointCreateRequest is Resource.Create.Request<Endpoint>;
-model EndpointCreateResponse is KeyOf<Endpoint> {
+@instanceOf(Resource.Create.CreateResponse<Endpoint>)
+model EndpointCreateResponse {
+  ...KeyOf<Endpoint>;
   ...KeyOf<Example.Example>;
 }
 
-model EndpointDuplicateRequest is EndpointCreateRequest;
-model EndpointDuplicateResponse is EndpointCreateResponse;
+model EndpointDuplicateRequest {
+  ...Resource.Create.CreateRequest<Endpoint>;
+}
 
-@Protobuf.service
+model EndpointDuplicateResponse {
+  ...Resource.Create.CreateResponse<Endpoint>;
+}
+
 interface EndpointService
   extends Resource.Get.Interface<Endpoint>,
     Resource.Update.Interface<Endpoint>,
     Resource.Delete.Interface<Endpoint> {
-  @endpoint("collection-item.js:createEndpoint")
-  EndpointCreate(...EndpointCreateRequest): EndpointCreateResponse;
-  @endpoint("collection-item.js:createEndpoint")
+  @DataClient.endpoint("collection-item.js:createEndpoint")
+  EndpointCreate(...Resource.Create.CreateRequest<Endpoint>): EndpointCreateResponse;
+  @DataClient.endpoint("collection-item.js:createEndpoint")
   EndpointDuplicate(...EndpointDuplicateRequest): EndpointDuplicateResponse;
 }

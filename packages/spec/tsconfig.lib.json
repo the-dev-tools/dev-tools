@@ -1,10 +1,14 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "dist"
   },
-  "include": ["*.ts", "data-client", "dist/buf", "dist/meta"],
+  "include": ["lib"],
+  "exclude": ["node_modules", "*.ts"],
   "references": [
+    {
+      "path": "../../configs/spec-lib/tsconfig.lib.json"
+    },
     {
       "path": "../../configs/eslint/tsconfig.lib.json"
     }

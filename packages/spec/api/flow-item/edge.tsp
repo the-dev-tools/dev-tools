@@ -1,38 +1,19 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
-
-import "../resource.tsp";
-import "../flow.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "flow.edge.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/flow/edge/v1;edgev1",
-  },
-})
 namespace API.FlowItem.Edge;
 
 enum Handle {
-  HANDLE_UNSPECIFIED: 0,
-  HANDLE_THEN: 1,
-  HANDLE_ELSE: 2,
-  HANDLE_LOOP: 3,
+  Then,
+  Else,
+  Loop,
 }
 
 enum EdgeKind {
-  EDGE_KIND_UNSPECIFIED: 0,
-  EDGE_KIND_NO_OP: 1,
+  NoOp,
 }
 
-@parentResource(Flow.Flow)
-@normalize
-@entity
-@autoFields
+@parent(Flow.Flow)
+@DataClient.entity
 model Edge {
   @key edgeId: Resource.Id;
   kind: EdgeKind;
@@ -41,5 +22,4 @@ model Edge {
   sourceHandle: Handle;
 }
 
-@Protobuf.service
 interface EdgeService extends Resource.CRUD<Edge> {}

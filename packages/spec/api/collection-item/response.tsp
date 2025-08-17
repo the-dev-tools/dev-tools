@@ -1,55 +1,35 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
-
-import "./example.tsp";
-import "./request.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "collection.item.response.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/response/v1;responsev1",
-  },
-})
 namespace API.CollectionItem.Response;
 
-@autoFields
-@normalize
-@entity
-@parentResource(Example.Example)
+@DataClient.entity
+@parent(Example.Example)
 model Response {
   @key responseId: Resource.Id;
   status: int32;
   body: bytes;
-  time: WellKnown.Timestamp;
+  time: Protobuf.WellKnown.Timestamp;
   duration: int32;
   size: int32;
   headerCount: int32;
   assertCount: int32;
 }
 
-@autoFields
-@normalize
-@entity
-@parentResource(Response)
+@DataClient.entity
+@parent(Response)
 model ResponseHeader {
   @key responseHeaderId: Resource.Id;
   key: string;
   value: string;
 }
 
-@autoFields
-@parentResource(Response)
+@parent(Response)
 model ResponseAssert {
+  @key responseAssertId: Resource.Id;
   assert: Request.Assert;
   result: boolean;
 }
 
-@Protobuf.service
 interface ResponseService
   extends Resource.Get.Interface<Response>,
     Resource.List.Interface<ResponseHeader>,

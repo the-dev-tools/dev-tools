@@ -1,13 +1,13 @@
 import { create } from '@bufbuild/protobuf';
 import { Endpoint, schema } from '@data-client/endpoint';
 import { Array, Equivalence, Match, Option, pipe, Record, Struct } from 'effect';
-import { EndpointService } from '../dist/buf/typescript/collection/item/endpoint/v1/endpoint_pb';
+import { EndpointService } from '../dist/buf/typescript/collection_item/endpoint/v1/endpoint_pb';
 import {
   ExampleMoveRequestSchema,
   ExampleSchema,
   ExampleService,
-} from '../dist/buf/typescript/collection/item/example/v1/example_pb';
-import { FolderService } from '../dist/buf/typescript/collection/item/folder/v1/folder_pb';
+} from '../dist/buf/typescript/collection_item/example/v1/example_pb';
+import { FolderService } from '../dist/buf/typescript/collection_item/folder/v1/folder_pb';
 import {
   CollectionItem,
   CollectionItemListRequest,
@@ -15,16 +15,16 @@ import {
   CollectionItemSchema,
   CollectionItemService,
   ItemKind,
-} from '../dist/buf/typescript/collection/item/v1/item_pb';
-import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
-import { EndpointListItemEntity } from '../dist/meta/collection/item/endpoint/v1/endpoint.entities';
+} from '../dist/buf/typescript/collection_item/item/v1/item_pb';
+import { MovePosition } from '../dist/buf/typescript/resource/v1/resource_pb';
+import { EndpointListItemEntity } from '../dist/data-client/collection_item/endpoint/v1/endpoint.entities';
 import {
   ExampleEntity,
   ExampleListItemEntity,
-  ExampleVersionsItemEntity,
-} from '../dist/meta/collection/item/example/v1/example.entities';
-import { FolderListItemEntity } from '../dist/meta/collection/item/folder/v1/folder.entities';
-import { ResponseGetResponseEntity } from '../dist/meta/collection/item/response/v1/response.entities';
+  ExampleVersionListItemEntity,
+} from '../dist/data-client/collection_item/example/v1/example.entities';
+import { FolderListItemEntity } from '../dist/data-client/collection_item/folder/v1/folder.entities';
+import { ResponseGetResponseEntity } from '../dist/data-client/collection_item/response/v1/response.entities';
 import { MakeEndpointProps } from './resource';
 import { createMethodKeyRecord, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
@@ -123,7 +123,7 @@ export const runExample = ({ method, name }: MakeEndpointProps<typeof ExampleSer
       return compare(argsKey, collectionKey);
     };
 
-  const versions = new schema.Collection([ExampleVersionsItemEntity], { createCollectionFilter });
+  const versions = new schema.Collection([ExampleVersionListItemEntity], { createCollectionFilter });
 
   return new Endpoint(endpointFn, {
     key: makeKey(method, name),

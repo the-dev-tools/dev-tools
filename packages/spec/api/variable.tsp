@@ -1,26 +1,9 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "./lib.tsp";
-
-import "./environment.tsp";
-import "./resource.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "variable.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/variable/v1;variablev1",
-  },
-})
 namespace API.Variable;
 
-@autoFields
-@normalize
-@entity
-@parentResource(Environment.Environment)
+@DataClient.entity
+@parent(Environment.Environment)
 model Variable {
   @key variableId: Resource.Id;
   name: string;
@@ -29,14 +12,13 @@ model Variable {
   description: string;
 }
 
-model VariableCreateRequest is Resource.Create.Request<Variable> {
-  @autoField @normalKey workspaceId?: Resource.Id;
+model VariableCreateRequest is Resource.Create.CreateRequest<Variable> {
+  @normalKey workspaceId?: Resource.Id;
 }
-model VariableListRequest is Resource.List.Request<Variable> {
-  @autoField @normalKey workspaceId?: Resource.Id;
+model VariableListRequest is Resource.List.ListRequest<Variable> {
+  @normalKey workspaceId?: Resource.Id;
 }
 
-@autoFields
 model VariableMoveRequest {
   ...ParentKeyOf<Variable>;
   ...KeyOf<Variable>;
@@ -46,9 +28,7 @@ model VariableMoveRequest {
 
 model VariableMoveResponse {}
 
-@Protobuf.service
-interface VariableService
-  extends Resource.CRUD<Variable, TCreateRequest = VariableCreateRequest, TListRequest = VariableListRequest> {
-  @endpoint("variable.js:move")
+interface VariableService extends Resource.CRUD<Variable> {
+  @DataClient.endpoint("variable.js:move")
   VariableMove(...VariableMoveRequest): VariableMoveResponse;
 }

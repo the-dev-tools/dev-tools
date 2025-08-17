@@ -8,9 +8,6 @@ patchedDependencies:
   '@nx/eslint':
     hash: 45d7a0a2e2d55c4ffd4beb467a0e02fac3f27bc1857270f522acafd5365d2c6b
     path: patches/@nx__eslint.patch
-  '@typespec/protobuf':
-    hash: 43b6d67d0177150528dbb80326cfc5be8e05568791fe729e402fa2ad191bb74d
-    path: patches/@typespec__protobuf.patch
 
 importers:
 
@@ -631,15 +628,6 @@ importers:
       '@types/node':
         specifier: ~24.1.0
         version: 24.1.0
-      '@typespec/emitter-framework':
-        specifier: ~0.9.0
-        version: 0.9.0(@alloy-js/core@0.18.2)(@alloy-js/csharp@0.18.0)(@alloy-js/typescript@0.18.0)(@typespec/compiler@1.2.1(@types/node@24.1.0))(@typespec/http@1.2.1(@typespec/compiler@1.2.1(@types/node@24.1.0)))(@typespec/rest@0.72.1(@typespec/compiler@1.2.1(@types/node@24.1.0))(@typespec/http@1.2.1(@typespec/compiler@1.2.1(@types/node@24.1.0))))
-      '@typespec/protobuf':
-        specifier: ~0.72.1
-        version: 0.72.1(patch_hash=43b6d67d0177150528dbb80326cfc5be8e05568791fe729e402fa2ad191bb74d)(@typespec/compiler@1.2.1(@types/node@24.1.0))
-      '@typespec/rest':
-        specifier: ~0.72.1
-        version: 0.72.1(@typespec/compiler@1.2.1(@types/node@24.1.0))(@typespec/http@1.2.1(@typespec/compiler@1.2.1(@types/node@24.1.0)))
       effect:
         specifier: ~3.17.1
         version: 3.17.1
@@ -4924,11 +4912,6 @@ packages:
 
   '@typespec/prettier-plugin-typespec@1.2.1':
     resolution: {integrity: sha512-RCMHl8r5BRS8+xi+Pj60d9W5lLCG/iQfVuctnL69bqUVYHnrK2ffcjHTTr0TRmDqXpxKFqFTtYJdurBaW1OjCg==}
-
-  '@typespec/protobuf@0.72.1':
-    resolution: {integrity: sha512-7UAxC5CfGZFs5Xf21zWuqtZ2LU0b+RTBe0S5p8FoIz1IYH0wAFaAYPIkwvNEtFLTiSMAJmwi7Ue/hwp1kOgM3w==}
-    peerDependencies:
-      '@typespec/compiler': ^1.2.1
 
   '@typespec/rest@0.72.1':
     resolution: {integrity: sha512-w0C91JhrVos8mAdd3OVwrcS6aSjuKlw7LtoazHenAmou/zSACKZbH4g6ko1BY8fv5lgl+q7VZ3/52uEWHOTxpw==}
@@ -14782,10 +14765,6 @@ snapshots:
   '@typespec/prettier-plugin-typespec@1.2.1':
     dependencies:
       prettier: 3.5.3
-
-  '@typespec/protobuf@0.72.1(patch_hash=43b6d67d0177150528dbb80326cfc5be8e05568791fe729e402fa2ad191bb74d)(@typespec/compiler@1.2.1(@types/node@24.1.0))':
-    dependencies:
-      '@typespec/compiler': 1.2.1(@types/node@24.1.0)
 
   '@typespec/rest@0.72.1(@typespec/compiler@1.2.1(@types/node@24.1.0))(@typespec/http@1.2.1(@typespec/compiler@1.2.1(@types/node@24.1.0)))':
     dependencies:

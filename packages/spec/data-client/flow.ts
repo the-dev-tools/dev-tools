@@ -4,9 +4,9 @@ import { Array, Match, Option, pipe } from 'effect';
 import {
   FlowVariableMoveRequestSchema,
   FlowVariableService,
-} from '../dist/buf/typescript/flowvariable/v1/flowvariable_pb';
-import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
-import { FlowVariableListItemEntity } from '../dist/meta/flowvariable/v1/flowvariable.entities';
+} from '../dist/buf/typescript/flow_variable/v1/flow_variable_pb';
+import { MovePosition } from '../dist/buf/typescript/resource/v1/resource_pb';
+import { FlowVariableListItemEntity } from '../dist/data-client/flow_variable/v1/flow_variable.entities';
 import { MakeEndpointProps } from './resource';
 import { EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 

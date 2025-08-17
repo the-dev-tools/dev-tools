@@ -7,27 +7,27 @@ import {
   BodyService,
   BodyUrlEncodedDeltaMoveRequestSchema,
   BodyUrlEncodedMoveRequestSchema,
-} from '../dist/buf/typescript/collection/item/body/v1/body_pb';
+} from '../dist/buf/typescript/collection_item/body/v1/body_pb';
 import {
   HeaderDeltaMoveRequestSchema,
   HeaderMoveRequestSchema,
   QueryDeltaMoveRequestSchema,
   QueryMoveRequestSchema,
   RequestService,
-} from '../dist/buf/typescript/collection/item/request/v1/request_pb';
-import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
+} from '../dist/buf/typescript/collection_item/request/v1/request_pb';
+import { MovePosition } from '../dist/buf/typescript/resource/v1/resource_pb';
 import {
   BodyFormDeltaListItemEntity,
   BodyFormListItemEntity,
   BodyUrlEncodedDeltaListItemEntity,
   BodyUrlEncodedListItemEntity,
-} from '../dist/meta/collection/item/body/v1/body.entities';
+} from '../dist/data-client/collection_item/body/v1/body.entities';
 import {
   HeaderDeltaListItemEntity,
   HeaderListItemEntity,
   QueryDeltaListItemEntity,
   QueryListItemEntity,
-} from '../dist/meta/collection/item/request/v1/request.entities';
+} from '../dist/data-client/collection_item/request/v1/request.entities';
 import { MakeEndpointProps } from './resource';
 import { EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 

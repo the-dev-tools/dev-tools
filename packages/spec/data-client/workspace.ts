@@ -1,9 +1,9 @@
 import { create } from '@bufbuild/protobuf';
 import { Endpoint, schema } from '@data-client/endpoint';
 import { Array, Equivalence, Match, Option, pipe, Record } from 'effect';
-import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
+import { MovePosition } from '../dist/buf/typescript/resource/v1/resource_pb';
 import { WorkspaceMoveRequestSchema, WorkspaceService } from '../dist/buf/typescript/workspace/v1/workspace_pb';
-import { WorkspaceEntity } from '../dist/meta/workspace/v1/workspace.entities';
+import { WorkspaceEntity } from '../dist/data-client/workspace/v1/workspace.entities';
 import { MakeEndpointProps } from './resource';
 import { createMethodKeyRecord, EndpointProps, makeEndpointFn, makeKey } from './utils';
 

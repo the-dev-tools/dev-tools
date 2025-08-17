@@ -1,34 +1,14 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "./lib.tsp";
-
-import "./resource.tsp";
-import "./workspace.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "collection.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/collection/v1;collectionv1",
-  },
-})
 namespace API.Collection;
 
-@autoFields
-@normalize
-@entity
-@parentResource(Workspace.Workspace)
+@DataClient.entity
+@parent(Workspace.Workspace)
 model Collection {
   @key collectionId: Resource.Id;
   name: string;
 }
 
-model CollectionListItem is Resource.List.Item<Collection>;
-
-@autoFields
 model CollectionMoveRequest {
   ...ParentKeyOf<Collection>;
   ...KeyOf<Collection>;
@@ -38,8 +18,7 @@ model CollectionMoveRequest {
 
 model CollectionMoveResponse {}
 
-@Protobuf.service
-interface CollectionService extends Resource.CRUD<Collection, TListItem = CollectionListItem> {
-  @endpoint("collection.js:move")
+interface CollectionService extends Resource.CRUD<Collection> {
+  @DataClient.endpoint("collection.js:move")
   CollectionMove(...CollectionMoveRequest): CollectionMoveResponse;
 }

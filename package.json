@@ -32,8 +32,7 @@
       }
     },
     "patchedDependencies": {
-      "@nx/eslint": "patches/@nx__eslint.patch",
-      "@typespec/protobuf": "patches/@typespec__protobuf.patch"
+      "@nx/eslint": "patches/@nx__eslint.patch"
     },
     "onlyBuiltDependencies": [
       "@bufbuild/buf",
