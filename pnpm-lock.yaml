@@ -351,6 +351,16 @@ importers:
         version: 5.8.3
 
   configs/spec-lib:
+    dependencies:
+      '@connectrpc/connect':
+        specifier: 2.0.2
+        version: 2.0.2(@bufbuild/protobuf@2.6.2)
+      '@data-client/core':
+        specifier: 0.14.24
+        version: 0.14.24
+      '@data-client/endpoint':
+        specifier: 0.14.26
+        version: 0.14.26
     devDependencies:
       '@alloy-js/cli':
         specifier: ~0.18.0
@@ -361,6 +371,9 @@ importers:
       '@alloy-js/typescript':
         specifier: ~0.18.0
         version: 0.18.0
+      '@bufbuild/protobuf':
+        specifier: ~2.6.2
+        version: 2.6.2
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../eslint
@@ -597,15 +610,6 @@ importers:
         specifier: 0.14.26
         version: 0.14.26
     devDependencies:
-      '@alloy-js/cli':
-        specifier: ~0.18.0
-        version: 0.18.0
-      '@alloy-js/core':
-        specifier: ~0.18.2
-        version: 0.18.2
-      '@alloy-js/typescript':
-        specifier: ~0.18.0
-        version: 0.18.0
       '@bufbuild/buf':
         specifier: ~1.55.1
         version: 1.55.1
@@ -621,6 +625,9 @@ importers:
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../../configs/eslint
+      '@the-dev-tools/spec-lib':
+        specifier: workspace:^
+        version: link:../../configs/spec-lib
       '@types/node':
         specifier: ~24.1.0
         version: 24.1.0
