@@ -1,15 +1,17 @@
+import { refkey, Refkey } from '@alloy-js/core';
 import {
   createTypeSpecLibrary,
   DecoratorContext,
   Interface,
+  isKey,
+  isTemplateDeclaration,
   Model,
   ModelProperty,
-  Operation,
+  Namespace,
   Program,
-  Type,
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
-import { Array, Option, pipe, Record } from 'effect';
+import { Array, HashMap, Option, pipe, Schema } from 'effect';
 import { makeStateFactory } from '../utils.js';
 
 export const $lib = createTypeSpecLibrary({
@@ -24,88 +26,137 @@ export const $decorators = {
   },
 };
 
-const { makeStateMap, makeStateSet } = makeStateFactory((_) => $lib.createStateSymbol(_));
+export class EmitterOptions extends Schema.Class<EmitterOptions>('EmitterOptions')({
+  goPackage: pipe(Schema.String, Schema.optionalWith({ as: 'Option' })),
+  rootNamespace: pipe(Schema.String, Schema.optionalWith({ default: () => 'API' })),
+  version: pipe(Schema.Positive, Schema.int(), Schema.optionalWith({ default: () => 1 })),
+}) {}
 
-export const instances = makeStateSet<Type>('instances');
-export const instancesByModel = makeStateMap<Model, Set<Model>>('instancesByModel');
-export const instancesByTemplate = makeStateMap<Type, Model>('instancesByTemplate');
-export const normalKeys = makeStateSet<ModelProperty>('normalKeys');
-export const parents = makeStateMap<Model, Model>('parents');
-export const templates = makeStateSet<Type>('templates');
+const { makeStateMap } = makeStateFactory((_) => $lib.createStateSymbol(_));
 
-interface AddInstanceProps {
-  base: Model;
-  instance: Model;
-  override?: boolean;
-  program: Program;
-  template: Model;
-}
+const modelDerivations = makeStateMap<Model, Set<Model>>('modelDerivations');
+const templateMap = {
+  toBase: makeStateMap<Model, Model>('templateMap.toBase'),
 
-const addInstance = ({ base, instance, override, program, template }: AddInstanceProps) => {
-  if (instances(program).has(instance) && override !== true) return;
-
-  let baseInstances = instancesByModel(program).get(base);
-  baseInstances ??= new Set();
-
-  const oldInstance = instancesByTemplate(program).get(template);
-  if (oldInstance) baseInstances.delete(oldInstance);
-
-  baseInstances.add(instance);
-  instances(program).add(instance);
-  instancesByModel(program).set(base, baseInstances);
-  instancesByTemplate(program).set(template, instance);
+  fromInstance: makeStateMap<Model, Model>('templateMap.fromInstance'),
+  toInstance: makeStateMap<Model, Model>('templateMap.toInstance'),
 };
 
-function instanceOf({ program }: DecoratorContext, instance: Model, template: Model) {
-  Option.gen(function* () {
-    const templateDecorator = yield* Array.findFirst(template.decorators, (_) => _.decorator === templateOf);
-
-    const base = yield* pipe(
-      Array.head(templateDecorator.args),
-      Option.map((_) => _.value),
-      Option.filter((_) => $(program).model.is(_)),
-    );
-
-    addInstance({ base, instance, override: true, program, template });
-  });
-}
-
-function templateOf(context: DecoratorContext, template: Interface | Model | Operation, base?: Model) {
-  const { program } = context;
-
-  if (templates(program).has(template)) return;
-
-  base = pipe(
-    Option.fromNullable(base),
-    Option.flatMapNullable((_) => instancesByTemplate(program).get(_)),
-    Option.orElseSome(() => base),
-    Option.getOrUndefined,
+export const getModelKey = (program: Program, model: Model) =>
+  pipe(
+    $(program).model.getProperties(model),
+    Array.fromIterable,
+    Array.findFirst(([_key, value]) => isKey(program, value)),
   );
 
-  if (base && template.kind === 'Model') {
-    if (template.sourceModel && instancesByTemplate(program).has(template.sourceModel))
-      return void instanceOf(context, template, template.sourceModel);
+export const getModelProperties = (program: Program, target: Model): HashMap.HashMap<string, ModelProperty> => {
+  const model = templateMap.toInstance(program).get(target) ?? target;
+  const baseProperties = $(program).model.getProperties(model, { includeExtended: true });
 
-    const instance = $(program).model.create({
-      name: base.name + template.name,
-      properties: pipe($(program).model.getProperties(template), Record.fromEntries),
-    });
+  return pipe(
+    model.sourceModels,
+    Array.filter((_) => _.model !== target && _.model !== model),
+    Array.flatMap((_) => pipe(getModelProperties(program, _.model), HashMap.toEntries)),
+    Array.prependAll(baseProperties),
+    HashMap.fromIterable,
+  );
+};
 
-    addInstance({ base, instance, program, template });
-  } else if (base && template.kind === 'Interface') {
+export const getModelName = (program: Program, target: Model): string => {
+  const instance = templateMap.toInstance(program).get(target) ?? target;
+
+  if (templateMap.fromInstance(program).has(instance)) return instance.name;
+
+  let name = instance.name;
+
+  const base = templateMap.toBase(program).get(instance);
+  if (base) name = getModelName(program, base) + name;
+
+  return name;
+};
+
+export const getModelNamespace = (program: Program, target: Model): Namespace => {
+  const instance = templateMap.toInstance(program).get(target);
+  if (instance?.namespace) return instance.namespace;
+
+  const base = templateMap.toBase(program).get(target);
+  if (base) return getModelNamespace(program, base);
+
+  if (!target.namespace) throw Error('No namespace found');
+  return target.namespace;
+};
+
+export const getModelRefKey = (program: Program, target: Model): Refkey => {
+  const model = templateMap.fromInstance(program).get(target) ?? target;
+
+  if (!model.templateNode) return refkey(model);
+
+  const base = pipe(
+    templateMap.toBase(program).get(model),
+    Option.fromNullable,
+    Option.map((_) => getModelRefKey(program, _)),
+    Option.getOrThrow,
+  );
+
+  return refkey(model.templateNode, base);
+};
+
+export const getModelDerivations = (program: Program, target: Model): Model[] => {
+  if (!target.isFinished) $(program).type.finishType(target);
+  if (isTemplateDeclaration(target)) return [];
+
+  return pipe(
+    modelDerivations(program).get(target)?.values().toArray() ?? [],
+    Array.flatMap((_) => getModelDerivations(program, _)),
+    Array.prepend(target),
+    Array.filter((_) => !templateMap.toInstance(program).has(target)),
+  );
+};
+
+const addDerivation = (program: Program, template: Model, base: Model) => {
+  templateMap.toBase(program).set(template, base);
+
+  const derivations = modelDerivations(program).get(base) ?? new Set();
+  derivations.add(template);
+  modelDerivations(program).set(base, derivations);
+};
+
+function templateOf(context: DecoratorContext, template: Interface | Model, base: Model) {
+  const { program } = context;
+
+  if (template.kind === 'Model') {
+    if (template.sourceModel) instanceOf(context, template, template.sourceModel);
+
+    addDerivation(program, template, base);
+  }
+
+  if (template.kind === 'Interface') {
     // Avoid recursively renaming extended interfaces
     const extendedOperationCount = template.sourceInterfaces.reduce(
       (count, _interface) => count + _interface.operations.size,
       0,
     );
 
+    const getBaseName = (target: Model): string => {
+      let name = target.name;
+      const base = templateMap.toBase(program).get(target);
+      if (base) name = getBaseName(base) + name;
+      return name;
+    };
+
     pipe(
       template.operations.values(),
       Array.fromIterable,
       Array.drop(extendedOperationCount),
-      Array.forEach((_) => (_.name = base.name + _.name)),
+      Array.forEach((_) => (_.name = getBaseName(base) + _.name)),
     );
   }
+}
 
-  templates(program).add(template);
+function instanceOf({ program }: DecoratorContext, instance: Model, template: Model) {
+  templateMap.toInstance(program).set(template, instance);
+  templateMap.fromInstance(program).set(instance, template);
+
+  const base = pipe(templateMap.toBase(program).get(template), Option.fromNullable, Option.getOrThrow);
+  addDerivation(program, instance, base);
 }

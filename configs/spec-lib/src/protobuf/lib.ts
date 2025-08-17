@@ -10,13 +10,8 @@ import {
   Type,
 } from '@typespec/compiler';
 import { JSONSchema, pipe, Schema } from 'effect';
+import { EmitterOptions } from '../core/index.js';
 import { makeStateFactory } from '../utils.js';
-
-export class EmitterOptions extends Schema.Class<EmitterOptions>('EmitterOptions')({
-  goPackage: pipe(Schema.String, Schema.optionalWith({ as: 'Option' })),
-  rootNamespace: pipe(Schema.String, Schema.optionalWith({ default: () => 'API' })),
-  version: pipe(Schema.Positive, Schema.int(), Schema.optionalWith({ default: () => 1 })),
-}) {}
 
 export const $lib = createTypeSpecLibrary({
   diagnostics: {},
