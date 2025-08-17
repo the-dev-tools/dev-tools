@@ -8,16 +8,28 @@
       "types": "./dist/src/core/index.d.ts",
       "default": "./dist/src/core/index.js"
     },
+    "./data-client": {
+      "typespec": "./src/data-client/main.tsp",
+      "types": "./dist/src/data-client/index.d.ts",
+      "default": "./dist/src/data-client/index.js"
+    },
+    "./data-client/*": "./src/data-client/*",
     "./protobuf": {
       "typespec": "./src/protobuf/main.tsp",
       "types": "./dist/src/protobuf/index.d.ts",
       "default": "./dist/src/protobuf/index.js"
     }
   },
+  "dependencies": {
+    "@connectrpc/connect": "2.0.2",
+    "@data-client/core": "0.14.24",
+    "@data-client/endpoint": "0.14.26"
+  },
   "devDependencies": {
     "@alloy-js/cli": "~0.18.0",
     "@alloy-js/core": "~0.18.2",
     "@alloy-js/typescript": "~0.18.0",
+    "@bufbuild/protobuf": "~2.6.2",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@types/node": "~24.1.0",
     "@typespec/emitter-framework": "~0.9.0",
