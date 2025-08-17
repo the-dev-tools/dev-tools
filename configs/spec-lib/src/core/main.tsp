@@ -6,4 +6,4 @@ using Reflection;
 
 extern dec instanceOf(instance: Model, template: Model);
 
-extern dec templateOf(template: Model | Operation | Interface, base?: Model);
+extern dec templateOf(template: Model | Interface, base: Model);
