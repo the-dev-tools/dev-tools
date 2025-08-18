@@ -516,7 +516,7 @@ const ActionBar = () => {
           const { info, nodeId, state } = node;
           const nodeIdCan = Ulid.construct(nodeId).toCanonical();
 
-          void dataClient.controller.expireAll({
+          await dataClient.controller.expireAll({
             testKey: (_) => _ === NodeExecutionListEndpoint.key({ ...endpointProps, input: { nodeId } }),
           });
 
