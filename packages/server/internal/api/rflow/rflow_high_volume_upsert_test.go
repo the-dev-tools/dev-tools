@@ -25,12 +25,16 @@ func createTestDB(t *testing.T) (*sql.DB, *gen.Queries) {
 	ctx := context.Background()
 	
 	// Create in-memory SQLite database with proper settings for concurrency
-	db, err := sql.Open("sqlite", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:?cache=shared&_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
+	
+	// Configure connection pool for concurrency
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 
-	// Create the schema
+	// Create the schema - note we omit foreign key constraints for simplicity in tests
 	createTableSQL := `
 	CREATE TABLE node_execution (
 		id BLOB NOT NULL PRIMARY KEY,
@@ -69,7 +73,7 @@ func TestHighVolumeUpsertWithConcurrentCleanup(t *testing.T) {
 
 	ctx := context.Background()
 	db, queries := createTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Initialize node execution service
 	nes := snodeexecution.New(queries)
@@ -229,7 +233,7 @@ func TestHighVolumeUpsertWithConcurrentCleanup(t *testing.T) {
 func TestUpsertCreatesIfMissing(t *testing.T) {
 	ctx := context.Background()
 	db, queries := createTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	nes := snodeexecution.New(queries)
 
@@ -288,7 +292,7 @@ func TestUpsertCreatesIfMissing(t *testing.T) {
 func TestUpsertUpdatesIfExists(t *testing.T) {
 	ctx := context.Background()
 	db, queries := createTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	nes := snodeexecution.New(queries)
 
@@ -331,13 +335,13 @@ func TestUpsertUpdatesIfExists(t *testing.T) {
 	if execution.ID != retrieved.ID {
 		t.Errorf("ID mismatch: got %v, expected %v", retrieved.ID, execution.ID)
 	}
-	if "Original" != retrieved.Name {
+	if retrieved.Name != "Original" {
 		t.Errorf("Name should not change on UPSERT: got %v, expected Original", retrieved.Name)
 	}
 	if mnnode.NODE_STATE_SUCCESS != retrieved.State {
 		t.Errorf("State mismatch: got %v, expected %v", retrieved.State, mnnode.NODE_STATE_SUCCESS)
 	}
-	if `{"updated":true}` != string(retrieved.OutputData) {
+	if string(retrieved.OutputData) != `{"updated":true}` {
 		t.Errorf("OutputData mismatch: got %v, expected %v", string(retrieved.OutputData), `{"updated":true}`)
 	}
 
@@ -355,7 +359,7 @@ func TestConcurrentUpsertSameExecution(t *testing.T) {
 
 	ctx := context.Background()
 	db, queries := createTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	nes := snodeexecution.New(queries)
 
@@ -461,7 +465,7 @@ func TestUpsertWithCleanupRace(t *testing.T) {
 
 	ctx := context.Background()
 	db, queries := createTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	nes := snodeexecution.New(queries)
 	nodeID := idwrap.NewNow()

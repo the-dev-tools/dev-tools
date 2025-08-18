@@ -5,14 +5,20 @@ package dbtest
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"the-dev-tools/db/pkg/sqlc"
 	"the-dev-tools/db/pkg/sqlc/gen"
 
+	"github.com/oklog/ulid/v2"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func GetTestDB(ctx context.Context) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	// Generate unique database name for this test to ensure isolation
+	uniqueName := ulid.Make().String()
+	connStr := fmt.Sprintf("file:testdb_%s?mode=memory&cache=shared", uniqueName)
+	
+	db, err := sql.Open("sqlite3", connStr)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +33,11 @@ func GetTestDB(ctx context.Context) (*sql.DB, error) {
 }
 
 func GetTestPreparedQueries(ctx context.Context) (*gen.Queries, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	// Generate unique database name for this test to ensure isolation
+	uniqueName := ulid.Make().String()
+	connStr := fmt.Sprintf("file:testdb_%s?mode=memory&cache=shared", uniqueName)
+	
+	db, err := sql.Open("sqlite3", connStr)
 	if err != nil {
 		return nil, err
 	}
