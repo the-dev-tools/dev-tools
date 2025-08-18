@@ -5,31 +5,30 @@ import { useReactFlow } from '@xyflow/react';
 import { Array } from 'effect';
 import { Ulid } from 'id128';
 import { use, useEffect, useRef } from 'react';
-import type { NodeSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { BodyKind } from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
-import { HeaderDeltaListItem, QueryDeltaListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
-import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
-import { NodeKind, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { BodyKind } from '@the-dev-tools/spec/collection_item/body/v1/body_pb';
+import { HeaderDeltaListItem, QueryDeltaListItem } from '@the-dev-tools/spec/collection_item/request/v1/request_pb';
 import {
   BodyRawGetEndpoint,
   BodyRawUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/body/v1/body.endpoints.js';
+} from '@the-dev-tools/spec/data-client/collection_item/body/v1/body.endpoints.js';
 import {
   EndpointCreateEndpoint,
   EndpointGetEndpoint,
   EndpointUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.js';
+} from '@the-dev-tools/spec/data-client/collection_item/endpoint/v1/endpoint.endpoints.js';
 import {
   ExampleCreateEndpoint,
   ExampleGetEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
+} from '@the-dev-tools/spec/data-client/collection_item/example/v1/example.endpoints.js';
 import {
   HeaderDeltaCreateEndpoint,
   HeaderDeltaListEndpoint,
   QueryDeltaCreateEndpoint,
   QueryDeltaListEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.js';
-import { NodeGetEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
+} from '@the-dev-tools/spec/data-client/collection_item/request/v1/request.endpoints.js';
+import { NodeGetEndpoint } from '@the-dev-tools/spec/data-client/flow_item/node/v1/node.endpoints.js';
+import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
+import { NodeKind, NodeNoOpKind, NodeSchema } from '@the-dev-tools/spec/flow_item/node/v1/node_pb';
 import { DataClient } from '~data-client';
 import { Edge, useMakeEdge } from './edge';
 import { FlowContext, HandleKind, HandleKindJson, HandleKindSchema } from './internal';

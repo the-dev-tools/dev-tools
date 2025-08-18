@@ -1,11 +1,9 @@
 import { Position } from '@xyflow/react';
 import { Match, pipe } from 'effect';
 import { twMerge } from 'tailwind-merge';
-
-import { NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { NodeNoOpKind } from '@the-dev-tools/spec/flow_item/node/v1/node_pb';
 import { PlayIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-
 import { Handle } from '../internal';
 import { NodeProps } from '../node';
 import { CreateNode } from './create';

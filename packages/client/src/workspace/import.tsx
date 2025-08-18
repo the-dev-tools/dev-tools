@@ -17,12 +17,12 @@ import {
 } from 'react-aria-components';
 import { FiInfo, FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
+import { ExampleListEndpoint } from '@the-dev-tools/spec/data-client/collection_item/example/v1/example.endpoints.js';
+import { CollectionItemListEndpoint } from '@the-dev-tools/spec/data-client/collection_item/item/v1/item.endpoints.js';
+import { CollectionListEndpoint } from '@the-dev-tools/spec/data-client/collection/v1/collection.endpoints.js';
+import { FlowListEndpoint } from '@the-dev-tools/spec/data-client/flow/v1/flow.endpoints.js';
+import { ImportEndpoint } from '@the-dev-tools/spec/data-client/import/v1/import.endpoints.js';
 import { ImportKind } from '@the-dev-tools/spec/import/v1/import_pb';
-import { ExampleListEndpoint } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
-import { CollectionItemListEndpoint } from '@the-dev-tools/spec/meta/collection/item/v1/item.endpoints.js';
-import { CollectionListEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.js';
-import { FlowListEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.js';
-import { ImportEndpoint } from '@the-dev-tools/spec/meta/import/v1/import.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { tableStyles } from '@the-dev-tools/ui/data-table';

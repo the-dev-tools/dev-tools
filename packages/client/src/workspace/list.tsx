@@ -13,9 +13,9 @@ import {
   WorkspaceListEndpoint,
   WorkspaceMoveEndpoint,
   WorkspaceUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
-import { WorkspaceListItemEntity } from '@the-dev-tools/spec/meta/workspace/v1/workspace.entities.js';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
+} from '@the-dev-tools/spec/data-client/workspace/v1/workspace.endpoints.js';
+import { WorkspaceListItemEntity } from '@the-dev-tools/spec/data-client/workspace/v1/workspace.entities.js';
+import { MovePosition } from '@the-dev-tools/spec/resource/v1/resource_pb';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';

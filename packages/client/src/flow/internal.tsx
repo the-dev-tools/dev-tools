@@ -8,8 +8,8 @@ import {
   Handle as HandleKind,
   HandleJson as HandleKindJson,
   HandleSchema as HandleKindSchema,
-} from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+} from '@the-dev-tools/spec/flow_item/edge/v1/edge_pb';
+import { NodeState } from '@the-dev-tools/spec/flow_item/node/v1/node_pb';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 
 import { Edge } from './edge';

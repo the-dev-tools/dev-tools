@@ -26,7 +26,7 @@ import {
   AuthService,
 } from '@the-dev-tools/spec/auth/v1/auth_pb';
 import { files } from '@the-dev-tools/spec/files';
-import { NodeKind, NodeListResponseSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { NodeKind, NodeListResponseSchema } from '@the-dev-tools/spec/flow_item/node/v1/node_pb';
 
 import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
 import { AccessTokenPayload, RefreshTokenPayload } from './jwt';

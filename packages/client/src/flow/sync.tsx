@@ -5,20 +5,20 @@ import { Array, HashMap, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { use } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
-import { EdgeListItemSchema } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import { NodeListItemSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
   EdgeCreateEndpoint,
   EdgeDeleteEndpoint,
   EdgeListEndpoint,
   EdgeUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flow/edge/v1/edge.endpoints.js';
+} from '@the-dev-tools/spec/data-client/flow_item/edge/v1/edge.endpoints.js';
 import {
   NodeCreateEndpoint,
   NodeDeleteEndpoint,
   NodeListEndpoint,
   NodeUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
+} from '@the-dev-tools/spec/data-client/flow_item/node/v1/node.endpoints.js';
+import { EdgeListItemSchema } from '@the-dev-tools/spec/flow_item/edge/v1/edge_pb';
+import { NodeListItemSchema } from '@the-dev-tools/spec/flow_item/node/v1/node_pb';
 import { useQuery } from '~data-client';
 import { Edge } from './edge';
 import { FlowContext } from './internal';

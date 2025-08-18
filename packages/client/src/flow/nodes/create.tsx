@@ -6,13 +6,11 @@ import { Header, ListBoxSection } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiTerminal } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
-
-import { EdgeKind, EdgeListItem } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import { NodeKind, NodeListItem, NodeNoOpKind } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { EdgeKind, EdgeListItem } from '@the-dev-tools/spec/flow_item/edge/v1/edge_pb';
+import { NodeKind, NodeListItem, NodeNoOpKind } from '@the-dev-tools/spec/flow_item/node/v1/node_pb';
 import { ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-
 import { Edge, useMakeEdge } from '../edge';
 import { Handle, HandleKind } from '../internal';
 import { Node, NodeProps, useMakeNode } from '../node';

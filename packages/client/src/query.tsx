@@ -2,7 +2,7 @@ import { useRouteContext } from '@tanstack/react-router';
 import { Array, Match, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
-import { QueryDeltaListItem, QueryListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
+import { QueryDeltaListItem, QueryListItem } from '@the-dev-tools/spec/collection_item/request/v1/request_pb';
 import {
   QueryCreateEndpoint,
   QueryDeleteEndpoint,
@@ -15,8 +15,8 @@ import {
   QueryListEndpoint,
   QueryMoveEndpoint,
   QueryUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
+} from '@the-dev-tools/spec/data-client/collection_item/request/v1/request.endpoints.js';
+import { MovePosition } from '@the-dev-tools/spec/resource/v1/resource_pb';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { GenericMessage } from '~api/utils';

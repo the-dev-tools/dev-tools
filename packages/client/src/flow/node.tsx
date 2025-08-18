@@ -21,6 +21,16 @@ import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 import {
+  NodeExecutionGetEndpoint,
+  NodeExecutionListEndpoint,
+} from '@the-dev-tools/spec/data-client/flow_item/node_execution/v1/node_execution.endpoints.js';
+import { NodeExecutionGetResponseEntity } from '@the-dev-tools/spec/data-client/flow_item/node_execution/v1/node_execution.entities.js';
+import {
+  NodeCreateEndpoint,
+  NodeGetEndpoint,
+  NodeUpdateEndpoint,
+} from '@the-dev-tools/spec/data-client/flow_item/node/v1/node.endpoints.js';
+import {
   NodeGetResponse,
   NodeKind,
   NodeKindSchema,
@@ -29,17 +39,7 @@ import {
   NodeSchema,
   NodeState,
   PositionSchema,
-} from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import {
-  NodeExecutionGetEndpoint,
-  NodeExecutionListEndpoint,
-} from '@the-dev-tools/spec/meta/flow/node/execution/v1/execution.endpoints.ts';
-import { NodeExecutionGetResponseEntity } from '@the-dev-tools/spec/meta/flow/node/execution/v1/execution.entities.js';
-import {
-  NodeCreateEndpoint,
-  NodeGetEndpoint,
-  NodeUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
+} from '@the-dev-tools/spec/flow_item/node/v1/node_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { JsonTree } from '@the-dev-tools/ui/json-tree';

@@ -10,7 +10,7 @@ import {
   AssertDeleteEndpoint,
   AssertListEndpoint,
   AssertUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection_item/request/v1/request.endpoints.js';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';

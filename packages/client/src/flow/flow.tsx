@@ -22,36 +22,36 @@ import { useDrop } from 'react-aria';
 import { Button as AriaButton, Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
-import { Example } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import { EdgeKind, EdgeKindJson } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { EndpointCreateEndpoint } from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.js';
+import { Example } from '@the-dev-tools/spec/collection_item/example/v1/example_pb';
+import { EndpointCreateEndpoint } from '@the-dev-tools/spec/data-client/collection_item/endpoint/v1/endpoint.endpoints.js';
 import {
   ExampleCreateEndpoint,
-  ExampleVersionsEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
+  ExampleVersionListEndpoint,
+} from '@the-dev-tools/spec/data-client/collection_item/example/v1/example.endpoints.js';
 import {
   ExampleEntity,
-  ExampleVersionsItemEntity,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.entities.js';
-import { NodeExecutionListEndpoint } from '@the-dev-tools/spec/meta/flow/node/execution/v1/execution.endpoints.js';
-import { NodeGetEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
-import {
-  FlowDeleteEndpoint,
-  FlowGetEndpoint,
-  FlowUpdateEndpoint,
-  FlowVersionsEndpoint,
-} from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.ts';
+  ExampleVersionListItemEntity,
+} from '@the-dev-tools/spec/data-client/collection_item/example/v1/example.entities.js';
+import { NodeExecutionListEndpoint } from '@the-dev-tools/spec/data-client/flow_item/node_execution/v1/node_execution.endpoints.js';
+import { NodeGetEndpoint } from '@the-dev-tools/spec/data-client/flow_item/node/v1/node.endpoints.js';
 import {
   FlowVariableCreateEndpoint,
   FlowVariableDeleteEndpoint,
   FlowVariableListEndpoint,
   FlowVariableMoveEndpoint,
   FlowVariableUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.endpoints.ts';
-import { FlowVariableListItemEntity } from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.entities.ts';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
+} from '@the-dev-tools/spec/data-client/flow_variable/v1/flow_variable.endpoints.js';
+import { FlowVariableListItemEntity } from '@the-dev-tools/spec/data-client/flow_variable/v1/flow_variable.entities.js';
+import {
+  FlowDeleteEndpoint,
+  FlowGetEndpoint,
+  FlowUpdateEndpoint,
+  FlowVersionListEndpoint,
+} from '@the-dev-tools/spec/data-client/flow/v1/flow.endpoints.js';
+import { EdgeKind, EdgeKindJson } from '@the-dev-tools/spec/flow_item/edge/v1/edge_pb';
+import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow_item/node/v1/node_pb';
+import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
+import { MovePosition } from '@the-dev-tools/spec/resource/v1/resource_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon } from '@the-dev-tools/ui/icons';
@@ -482,7 +482,7 @@ const ActionBar = () => {
         if (version) {
           void setQueryChild(
             dataClient.controller,
-            FlowVersionsEndpoint.schema.items,
+            FlowVersionListEndpoint.schema.items,
             'unshift',
             { controller: () => dataClient.controller, input: { flowId }, transport },
             version,
@@ -505,10 +505,10 @@ const ActionBar = () => {
 
           void setQueryChild(
             dataClient.controller,
-            ExampleVersionsEndpoint.schema.items,
+            ExampleVersionListEndpoint.schema.items,
             'unshift',
             { controller: () => dataClient.controller, input: { exampleId }, transport },
-            { exampleId: versionId, lastResponseId: responseId } satisfies Partial<ExampleVersionsItemEntity>,
+            { exampleId: versionId, lastResponseId: responseId } satisfies Partial<ExampleVersionListItemEntity>,
           );
         }
 

@@ -12,7 +12,7 @@ import {
   BodyKind,
   BodyUrlEncodedDeltaListItem,
   BodyUrlEncodedListItem,
-} from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
+} from '@the-dev-tools/spec/collection_item/body/v1/body_pb';
 import {
   BodyFormCreateEndpoint,
   BodyFormDeleteEndpoint,
@@ -38,13 +38,13 @@ import {
   BodyUrlEncodedListEndpoint,
   BodyUrlEncodedMoveEndpoint,
   BodyUrlEncodedUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/body/v1/body.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection_item/body/v1/body.endpoints.js';
 import {
   ExampleGetEndpoint,
   ExampleUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection_item/example/v1/example.endpoints.js';
 import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
+import { MovePosition } from '@the-dev-tools/spec/resource/v1/resource_pb';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';

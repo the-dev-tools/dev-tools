@@ -1,8 +1,7 @@
 import { createFileRoute, getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
-
-import { WorkspaceMemberCreateEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
+import { WorkspaceMemberCreateEndpoint } from '@the-dev-tools/spec/data-client/workspace/v1/workspace.endpoints.js';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 

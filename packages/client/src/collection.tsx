@@ -11,18 +11,17 @@ import {
   Endpoint,
   EndpointCreateRequestSchema,
   EndpointListItem,
-} from '@the-dev-tools/spec/collection/item/endpoint/v1/endpoint_pb';
-import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import { Folder, FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
-import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
+} from '@the-dev-tools/spec/collection_item/endpoint/v1/endpoint_pb';
+import { ExampleListItem } from '@the-dev-tools/spec/collection_item/example/v1/example_pb';
+import { Folder, FolderListItem } from '@the-dev-tools/spec/collection_item/folder/v1/folder_pb';
+import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection_item/item/v1/item_pb';
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
-import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
 import {
   EndpointCreateEndpoint,
   EndpointDeleteEndpoint,
   EndpointDuplicateEndpoint,
   EndpointUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection_item/endpoint/v1/endpoint.endpoints.js';
 import {
   ExampleCreateEndpoint,
   ExampleDeleteEndpoint,
@@ -30,23 +29,24 @@ import {
   ExampleListEndpoint,
   ExampleMoveEndpoint,
   ExampleUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection_item/example/v1/example.endpoints.js';
 import {
   FolderCreateEndpoint,
   FolderDeleteEndpoint,
   FolderUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/folder/v1/folder.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection_item/folder/v1/folder.endpoints.js';
 import {
   CollectionItemListEndpoint,
   CollectionItemMoveEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/v1/item.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection_item/item/v1/item.endpoints.js';
 import {
   CollectionDeleteEndpoint,
   CollectionListEndpoint,
   CollectionMoveEndpoint,
   CollectionUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
+} from '@the-dev-tools/spec/data-client/collection/v1/collection.endpoints.js';
+import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
+import { MovePosition } from '@the-dev-tools/spec/resource/v1/resource_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
