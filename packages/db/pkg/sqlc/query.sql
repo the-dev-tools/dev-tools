@@ -2154,3 +2154,9 @@ SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC;
 
 -- name: GetLatestNodeExecutionByNodeID :one
 SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC LIMIT 1;
+
+-- name: DeleteNodeExecutionsByNodeID :exec
+DELETE FROM node_execution WHERE node_id = ?;
+
+-- name: DeleteNodeExecutionsByNodeIDs :exec
+DELETE FROM node_execution WHERE node_id IN (sqlc.slice('node_ids'));

@@ -210,3 +210,11 @@ func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mnodee
 
 	return err
 }
+
+func (s NodeExecutionService) DeleteNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) error {
+	return s.queries.DeleteNodeExecutionsByNodeID(ctx, nodeID)
+}
+
+func (s NodeExecutionService) DeleteNodeExecutionsByNodeIDs(ctx context.Context, nodeIDs []idwrap.IDWrap) error {
+	return s.queries.DeleteNodeExecutionsByNodeIDs(ctx, nodeIDs)
+}

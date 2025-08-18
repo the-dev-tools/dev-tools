@@ -8,6 +8,7 @@ package gen
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	idwrap "the-dev-tools/server/pkg/idwrap"
 )
@@ -2933,6 +2934,34 @@ WHERE
 
 func (q *Queries) DeleteMigration(ctx context.Context, id []byte) error {
 	_, err := q.exec(ctx, q.deleteMigrationStmt, deleteMigration, id)
+	return err
+}
+
+const deleteNodeExecutionsByNodeID = `-- name: DeleteNodeExecutionsByNodeID :exec
+DELETE FROM node_execution WHERE node_id = ?
+`
+
+func (q *Queries) DeleteNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteNodeExecutionsByNodeIDStmt, deleteNodeExecutionsByNodeID, nodeID)
+	return err
+}
+
+const deleteNodeExecutionsByNodeIDs = `-- name: DeleteNodeExecutionsByNodeIDs :exec
+DELETE FROM node_execution WHERE node_id IN (/*SLICE:node_ids*/?)
+`
+
+func (q *Queries) DeleteNodeExecutionsByNodeIDs(ctx context.Context, nodeIds []idwrap.IDWrap) error {
+	query := deleteNodeExecutionsByNodeIDs
+	var queryParams []interface{}
+	if len(nodeIds) > 0 {
+		for _, v := range nodeIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:node_ids*/?", strings.Repeat(",?", len(nodeIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:node_ids*/?", "NULL", 1)
+	}
+	_, err := q.exec(ctx, nil, query, queryParams...)
 	return err
 }
 

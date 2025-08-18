@@ -234,6 +234,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteMigrationStmt, err = db.PrepareContext(ctx, deleteMigration); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteMigration: %w", err)
 	}
+	if q.deleteNodeExecutionsByNodeIDStmt, err = db.PrepareContext(ctx, deleteNodeExecutionsByNodeID); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteNodeExecutionsByNodeID: %w", err)
+	}
+	if q.deleteNodeExecutionsByNodeIDsStmt, err = db.PrepareContext(ctx, deleteNodeExecutionsByNodeIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteNodeExecutionsByNodeIDs: %w", err)
+	}
 	if q.deleteQueryStmt, err = db.PrepareContext(ctx, deleteQuery); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteQuery: %w", err)
 	}
@@ -986,6 +992,16 @@ func (q *Queries) Close() error {
 	if q.deleteMigrationStmt != nil {
 		if cerr := q.deleteMigrationStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteMigrationStmt: %w", cerr)
+		}
+	}
+	if q.deleteNodeExecutionsByNodeIDStmt != nil {
+		if cerr := q.deleteNodeExecutionsByNodeIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteNodeExecutionsByNodeIDStmt: %w", cerr)
+		}
+	}
+	if q.deleteNodeExecutionsByNodeIDsStmt != nil {
+		if cerr := q.deleteNodeExecutionsByNodeIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteNodeExecutionsByNodeIDsStmt: %w", cerr)
 		}
 	}
 	if q.deleteQueryStmt != nil {
@@ -1762,6 +1778,8 @@ type Queries struct {
 	deleteItemApiExampleStmt                              *sql.Stmt
 	deleteItemFolderStmt                                  *sql.Stmt
 	deleteMigrationStmt                                   *sql.Stmt
+	deleteNodeExecutionsByNodeIDStmt                      *sql.Stmt
+	deleteNodeExecutionsByNodeIDsStmt                     *sql.Stmt
 	deleteQueryStmt                                       *sql.Stmt
 	deleteTagStmt                                         *sql.Stmt
 	deleteUserStmt                                        *sql.Stmt
@@ -1971,6 +1989,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteItemApiExampleStmt:                         q.deleteItemApiExampleStmt,
 		deleteItemFolderStmt:                             q.deleteItemFolderStmt,
 		deleteMigrationStmt:                              q.deleteMigrationStmt,
+		deleteNodeExecutionsByNodeIDStmt:                 q.deleteNodeExecutionsByNodeIDStmt,
+		deleteNodeExecutionsByNodeIDsStmt:                q.deleteNodeExecutionsByNodeIDsStmt,
 		deleteQueryStmt:                                  q.deleteQueryStmt,
 		deleteTagStmt:                                    q.deleteTagStmt,
 		deleteUserStmt:                                   q.deleteUserStmt,

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
@@ -81,6 +80,7 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
 	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
+	"time"
 
 	"connectrpc.com/connect"
 )
@@ -97,16 +97,16 @@ func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap
 		}
 		return "Execution 1"
 	}
-	
+
 	// Use parent nodes from the IterationContext if available, otherwise fall back to passed parentNodes
 	actualParentNodes := ctx.ParentNodes
 	if len(actualParentNodes) == 0 {
 		actualParentNodes = parentNodes
 	}
-	
+
 	// Build hierarchical format with pipe separators (no "Execution 1" prefix for loop iterations)
 	var parts []string
-	
+
 	// Add parent loop nodes with their iteration numbers (deepest to shallowest)
 	for i := len(ctx.IterationPath) - 1; i >= 0; i-- {
 		if i < len(actualParentNodes) {
@@ -116,7 +116,7 @@ func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap
 			}
 		}
 	}
-	
+
 	// For non-loop nodes, add the current node name with execution number (shallowest level)
 	if !isLoopNode {
 		currentNodeName := nodeNameMap[nodeID]
@@ -131,12 +131,12 @@ func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap
 			parts = append(parts, fmt.Sprintf("%s - Execution %d", currentNodeName, execNum))
 		}
 	}
-	
+
 	// Join with pipe separator
 	if len(parts) > 0 {
 		return strings.Join(parts, " | ")
 	}
-	
+
 	// Fallback if no parent nodes found
 	return "Execution 1"
 }
@@ -494,6 +494,23 @@ func (c *FlowServiceRPC) FlowDelete(ctx context.Context, req *connect.Request[fl
 	return connect.NewResponse(&flowv1.FlowDeleteResponse{}), nil
 }
 
+func (c *FlowServiceRPC) cleanupNodeExecutions(ctx context.Context, flowID idwrap.IDWrap) error {
+	// Get all nodes for this flow
+	nodes, err := c.ns.GetNodesByFlowID(ctx, flowID)
+	if err != nil {
+		return fmt.Errorf("get nodes: %w", err)
+	}
+
+	// Collect node IDs for batch delete
+	nodeIDs := make([]idwrap.IDWrap, len(nodes))
+	for i, node := range nodes {
+		nodeIDs[i] = node.ID
+	}
+
+	// Single batch delete - fast and simple
+	return c.nes.DeleteNodeExecutionsByNodeIDs(ctx, nodeIDs)
+}
+
 func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest], stream *connect.ServerStream[flowv1.FlowRunResponse]) error {
 	return c.FlowRunAdHoc(ctx, req, stream)
 }
@@ -519,6 +536,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	latestFlowID := flow.ID
+
+	// Clean up old executions before starting
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cleanupCancel()
+
+	if err := c.cleanupNodeExecutions(cleanupCtx, flowID); err != nil {
+		// Log but don't fail the run
+		log.Printf("Warning: Failed to cleanup old executions for flow %s: %v", flowID, err)
+	}
 
 	nodes, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
 	if err != nil {
@@ -861,8 +887,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	nodeExecutionsDone := make(chan struct{})
 
 	// Track execution counts per node for naming
-	nodeExecutionCounts := make(map[idwrap.IDWrap]int)          // nodeID -> execution count
-	executionIDToCount := make(map[idwrap.IDWrap]int)           // executionID -> execution number
+	nodeExecutionCounts := make(map[idwrap.IDWrap]int) // nodeID -> execution count
+	executionIDToCount := make(map[idwrap.IDWrap]int)  // executionID -> execution number
 	nodeExecutionCountsMutex := sync.Mutex{}
 
 	// Map to store node executions by execution ID for state transitions
@@ -871,13 +897,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// WaitGroup to track all goroutines that send to channels
 	var goroutineWg sync.WaitGroup
-	
+
 	// WaitGroup specifically for nested logging goroutines
 	var loggingWg sync.WaitGroup
-	
+
 	// Channel to signal that sending should stop
 	stopSending := make(chan struct{})
-	
+
 	// Atomic flag to prevent sends after closure initiated
 	var channelsClosed atomic.Bool
 
@@ -916,7 +942,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		defer goroutineWg.Done()
 		ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ticker.C:
@@ -924,17 +950,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				if channelsClosed.Load() {
 					return
 				}
-				
+
 				pendingMutex.Lock()
 				var timedOutExecutions []mnodeexecution.NodeExecution
-				
+
 				for execID, nodeExec := range pendingNodeExecutions {
 					// Check if it's a completed node without ResponseID that's been waiting too long
 					if nodeExec.CompletedAt != nil &&
 						nodeExec.ResponseID == nil &&
 						(nodeExec.State == mnnode.NODE_STATE_SUCCESS || nodeExec.State == mnnode.NODE_STATE_FAILURE) &&
 						time.Now().UnixMilli()-*nodeExec.CompletedAt > 30000 { // 30 seconds timeout
-						
+
 						// Check if this is a REQUEST node by checking the node type
 						node, err := c.ns.GetNode(ctx, nodeExec.NodeID)
 						if err == nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
@@ -944,7 +970,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					}
 				}
 				pendingMutex.Unlock()
-				
+
 				// Send timed out executions to channel without ResponseID (with safety check)
 				for _, exec := range timedOutExecutions {
 					if !channelsClosed.Load() {
@@ -955,7 +981,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					}
 				}
-				
+
 			case <-stopSending:
 				return
 			case <-subCtx.Done():
@@ -978,13 +1004,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			if channelsClosed.Load() {
 				return
 			}
-			
+
 			id := flowNodeStatus.NodeID
 			name := flowNodeStatus.Name
 			idStr := id.String()
 			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
 			executionID := flowNodeStatus.ExecutionID
-			
+
 			// Handle NodeExecution creation/updates based on state
 			switch flowNodeStatus.State {
 			case mnnode.NODE_STATE_RUNNING:
@@ -992,11 +1018,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				isIterationRecord := false
 				if flowNodeStatus.OutputData != nil {
 					if outputMap, ok := flowNodeStatus.OutputData.(map[string]interface{}); ok {
-						isIterationRecord = outputMap["index"] != nil || 
+						isIterationRecord = outputMap["index"] != nil ||
 							outputMap["key"] != nil
 					}
 				}
-				
+
 				// Create new NodeExecution for RUNNING state
 				pendingMutex.Lock()
 				if _, exists := pendingNodeExecutions[executionID]; !exists {
@@ -1005,7 +1031,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					if flowNodeStatus.IterationContext != nil && len(flowNodeStatus.IterationContext.IterationPath) > 0 {
 						// For loop executions, build hierarchical name using the full parent chain
 						var parentNodes []idwrap.IDWrap // Empty fallback
-						
+
 						// Check if this is a loop node (FOR or FOR_EACH) by checking if it's in the parent chain
 						isLoopNode := false
 						if flowNodeStatus.IterationContext.ParentNodes != nil {
@@ -1016,7 +1042,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 							}
 						}
-						
+
 						// Get execution count for non-loop nodes (only increment once per ExecutionID)
 						nodeExecutionCountsMutex.Lock()
 						if _, exists := executionIDToCount[executionID]; !exists {
@@ -1026,7 +1052,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 						execCount := executionIDToCount[executionID]
 						nodeExecutionCountsMutex.Unlock()
-						
+
 						execName = formatIterationContext(flowNodeStatus.IterationContext, nodeNameMap, id, parentNodes, isLoopNode, execCount)
 					} else if flowNodeStatus.Name != "" {
 						// For non-loop executions, add execution number (only increment once per ExecutionID)
@@ -1067,7 +1093,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						ResponseID:             nil,
 						CompletedAt:            nil,
 					}
-					
+
 					// Set output data for iteration tracking records
 					if isIterationRecord && flowNodeStatus.OutputData != nil {
 						if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
@@ -1077,7 +1103,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 					}
-					
+
 					// For iteration tracking records, create immediately to avoid race condition
 					if isIterationRecord {
 						// Create iteration record immediately (no race)
@@ -1087,21 +1113,30 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					} else {
 						// Store in pending map for completion (normal flow execution)
 						pendingNodeExecutions[executionID] = &nodeExecution
+
+						// Also save to DB immediately (non-blocking)
+						go func(exec mnodeexecution.NodeExecution) {
+							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+							defer cancel()
+							if err := c.nes.CreateNodeExecution(dbCtx, exec); err != nil {
+								log.Printf("Failed to save node execution %s: %v", exec.ID, err)
+							}
+						}(nodeExecution)
 					}
 				}
 				pendingMutex.Unlock()
-				
+
 			case mnnode.NODE_STATE_SUCCESS, mnnode.NODE_STATE_FAILURE, mnnode.NODE_STATE_CANCELED:
 				// Check if this is an iteration tracking record (has iteration data in OutputData)
 				isIterationRecord := false
 				if flowNodeStatus.OutputData != nil {
 					if outputMap, ok := flowNodeStatus.OutputData.(map[string]interface{}); ok {
-						isIterationRecord = outputMap["index"] != nil || 
-							outputMap["key"] != nil || 
+						isIterationRecord = outputMap["index"] != nil ||
+							outputMap["key"] != nil ||
 							outputMap["completed"] != nil
 					}
 				}
-				
+
 				// Get node type for REQUEST node detection
 				node, err := c.ns.GetNode(ctx, flowNodeStatus.NodeID)
 				if err != nil {
@@ -1118,13 +1153,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						State:       flowNodeStatus.State,
 						CompletedAt: &completedAt,
 					}
-					
+
 					// Set error if present
 					if flowNodeStatus.Error != nil {
 						errorStr := flowNodeStatus.Error.Error()
 						nodeExecution.Error = &errorStr
 					}
-					
+
 					// Compress and store output data
 					if flowNodeStatus.OutputData != nil {
 						if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
@@ -1134,11 +1169,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 					}
-					
-					// Update iteration record synchronously (record already exists)
-					if err := c.nes.UpdateNodeExecution(ctx, nodeExecution); err != nil {
-						log.Printf("Failed to update iteration record %s: %v", executionID.String(), err)
-					}
+
+					// Update iteration record immediately (non-blocking)
+					go func(exec mnodeexecution.NodeExecution) {
+						dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+						defer cancel()
+						if err := c.nes.UpdateNodeExecution(dbCtx, exec); err != nil {
+							log.Printf("Failed to update iteration record %s: %v", exec.ID.String(), err)
+						}
+					}(nodeExecution)
 				} else {
 					// Update existing NodeExecution with final state (normal flow)
 					pendingMutex.Lock()
@@ -1147,13 +1186,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						nodeExec.State = flowNodeStatus.State
 						completedAt := time.Now().UnixMilli()
 						nodeExec.CompletedAt = &completedAt
-						
+
 						// Set error if present
 						if flowNodeStatus.Error != nil {
 							errorStr := flowNodeStatus.Error.Error()
 							nodeExec.Error = &errorStr
 						}
-						
+
 						// Compress and store input data
 						if flowNodeStatus.InputData != nil {
 							if inputJSON, err := json.Marshal(flowNodeStatus.InputData); err == nil {
@@ -1163,7 +1202,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 							}
 						}
-						
+
 						// Compress and store output data
 						if flowNodeStatus.OutputData != nil {
 							if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
@@ -1173,7 +1212,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 							}
 						}
-						
+
+						// Update execution in DB immediately (non-blocking)
+						go func(exec mnodeexecution.NodeExecution) {
+							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+							defer cancel()
+							if err := c.nes.UpdateNodeExecution(dbCtx, exec); err != nil {
+								log.Printf("Failed to update node execution %s: %v", exec.ID, err)
+							}
+						}(*nodeExec)
+
 						// For REQUEST nodes, wait for response before sending to channel
 						if node != nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
 							// Mark as completed but keep in pending map for response handling
@@ -1193,7 +1241,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						// Handle the case where we receive a CANCELED status without a prior RUNNING status
 						// This can happen when nodes are canceled before they start executing
 						completedAt := time.Now().UnixMilli()
-						
+
 						// Get execution name
 						var execName string
 						if flowNodeStatus.Name != "" {
@@ -1209,7 +1257,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						} else {
 							execName = "Canceled Node"
 						}
-						
+
 						nodeExecution := mnodeexecution.NodeExecution{
 							ID:                     executionID,
 							NodeID:                 flowNodeStatus.NodeID,
@@ -1223,13 +1271,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							ResponseID:             nil,
 							CompletedAt:            &completedAt,
 						}
-						
+
 						// Set error if present
 						if flowNodeStatus.Error != nil {
 							errorStr := flowNodeStatus.Error.Error()
 							nodeExecution.Error = &errorStr
 						}
-						
+
 						// Compress and store input data if available
 						if flowNodeStatus.InputData != nil {
 							if inputJSON, err := json.Marshal(flowNodeStatus.InputData); err == nil {
@@ -1239,7 +1287,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 							}
 						}
-						
+
 						// Compress and store output data if available
 						if flowNodeStatus.OutputData != nil {
 							if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
@@ -1249,7 +1297,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 							}
 						}
-						
+
+						// Save to DB immediately (non-blocking)
+						go func(exec mnodeexecution.NodeExecution) {
+							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+							defer cancel()
+							if err := c.nes.CreateNodeExecution(dbCtx, exec); err != nil {
+								log.Printf("Failed to save canceled node execution %s: %v", exec.ID, err)
+							}
+						}(nodeExecution)
+
 						// Send immediately for canceled nodes (with safety check)
 						if !channelsClosed.Load() {
 							select {
@@ -1263,7 +1320,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					pendingMutex.Unlock()
 				}
 			}
-			
+
 			// Handle logging for non-running states
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
 				// Create copies of values we need for the goroutine
@@ -1278,12 +1335,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					loggingWg.Add(1)
 					go func() {
 						defer loggingWg.Done()
-						
+
 						// Double-check channels aren't closed
 						if channelsClosed.Load() {
 							return
 						}
-						
+
 						// Create a simple log-friendly structure without maps
 						logData := struct {
 							NodeID string
@@ -1338,11 +1395,20 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				// Use ExecutionID from the response to find the correct execution
 				pendingMutex.Lock()
 				targetExecutionID := requestNodeResp.ExecutionID
-				
+
 				if targetExecutionID != (idwrap.IDWrap{}) && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
 					if nodeExec, exists := pendingNodeExecutions[targetExecutionID]; exists {
 						respID := requestNodeResp.Resp.ExampleResp.ID
 						nodeExec.ResponseID = &respID
+
+						// Update execution in DB with ResponseID (non-blocking)
+						go func(exec mnodeexecution.NodeExecution) {
+							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+							defer cancel()
+							if err := c.nes.UpdateNodeExecution(dbCtx, exec); err != nil {
+								log.Printf("Failed to update node execution with response %s: %v", exec.ID, err)
+							}
+						}(*nodeExec)
 
 						// Now send the completed execution with ResponseID to channel (with safety check)
 						if !channelsClosed.Load() {
@@ -1414,10 +1480,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				// Client disconnected, signal all goroutines to stop
 				channelsClosed.Store(true)
 				close(stopSending)
-				
+
 				// Cancel the flow execution
 				cancel()
-				
+
 				// DO NOT close channels here - let the runner close them
 				// The runner has deferred closes for these channels
 				done <- errors.New("client disconnected")
@@ -1426,7 +1492,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				// Flow execution cancelled
 				channelsClosed.Store(true)
 				close(stopSending)
-				
+
 				// DO NOT close channels here - let the runner close them
 				done <- errors.New("flow execution cancelled")
 				return
@@ -1464,7 +1530,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// wait for the flow to finish
 	flowErr := <-done
-	
+
 	// Signal all goroutines to stop if not already done
 	if !channelsClosed.Load() {
 		channelsClosed.Store(true)
@@ -1491,7 +1557,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// Wait for all goroutines to finish before closing channels
 	goroutineWg.Wait()
-	
+
 	// Now safe to close channels since all senders have stopped
 	close(nodeExecutionChan)
 	close(requestNodeRespChan)
@@ -1516,18 +1582,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	txNodeExecution, err := snodeexecution.NewTX(ctx, tx)
-	if err != nil {
-		return fmt.Errorf("create node execution service: %w", err)
-	}
-
-	// Process collected node executions (safe after channel reader finished)
-	for _, execution := range nodeExecutions {
-		err = txNodeExecution.CreateNodeExecution(ctx, execution)
-		if err != nil {
-			return fmt.Errorf("create node execution: %w", err)
-		}
-	}
+	// NOTE: Node executions are now saved in real-time during flow execution,
+	// so we no longer need to batch save them at the end. The batch save has been removed.
+	// The nodeExecutions array is still collected for the flow version copy in PrepareCopyFlow.
 
 	err = c.CopyFlow(ctx, tx, res)
 	if err != nil {
