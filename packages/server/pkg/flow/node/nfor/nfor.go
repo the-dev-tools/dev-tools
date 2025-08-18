@@ -158,9 +158,13 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
 			}
 
+			// Generate unique execution ID for child node
+			childExecutionID := idwrap.NewNow()
+			
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
 			childReq.IterationContext = childIterationContext
+			childReq.ExecutionID = childExecutionID  // Set unique execution ID
 
 			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, &childReq, req.LogPushFunc)
 			if err != nil {
@@ -362,9 +366,13 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
 			}
 
+			// Generate unique execution ID for child node
+			childExecutionID := idwrap.NewNow()
+			
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
 			childReq.IterationContext = childIterationContext
+			childReq.ExecutionID = childExecutionID  // Set unique execution ID
 
 			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, &childReq, req.LogPushFunc)
 			if err != nil {

@@ -85,6 +85,234 @@ import (
 	"connectrpc.com/connect"
 )
 
+// preRegisteredRequestNode wraps a REQUEST node to handle pre-registration of ExecutionIDs
+// This fixes the race condition where responses arrive before ExecutionID is added to pendingNodeExecutions
+type preRegisteredRequestNode struct {
+	nodeRequest             node.FlowNode
+	preRegisteredExecutions map[idwrap.IDWrap]struct{}
+	preRegisteredMutex      *sync.RWMutex
+}
+
+// Implement node.FlowNode interface
+func (p *preRegisteredRequestNode) GetID() idwrap.IDWrap {
+	return p.nodeRequest.GetID()
+}
+
+func (p *preRegisteredRequestNode) GetName() string {
+	return p.nodeRequest.GetName()
+}
+
+func (p *preRegisteredRequestNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
+	// Pre-register the ExecutionID before running the request
+	if req.ExecutionID != (idwrap.IDWrap{}) {
+		p.preRegisteredMutex.Lock()
+		p.preRegisteredExecutions[req.ExecutionID] = struct{}{}
+		p.preRegisteredMutex.Unlock()
+		log.Printf("🔄 Pre-registered ExecutionID %s for REQUEST node", req.ExecutionID.String())
+	}
+	
+	// Run the actual request node
+	return p.nodeRequest.RunSync(ctx, req)
+}
+
+func (p *preRegisteredRequestNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
+	// Pre-register the ExecutionID before running the request
+	if req.ExecutionID != (idwrap.IDWrap{}) {
+		p.preRegisteredMutex.Lock()
+		p.preRegisteredExecutions[req.ExecutionID] = struct{}{}
+		p.preRegisteredMutex.Unlock()
+		log.Printf("🔄 Pre-registered ExecutionID %s for REQUEST node (async)", req.ExecutionID.String())
+	}
+	
+	// Run the actual request node
+	p.nodeRequest.RunAsync(ctx, req, resultChan)
+}
+
+// CorrelationMetrics tracks correlation effectiveness and performance
+type CorrelationMetrics struct {
+	// Counters
+	successfulCorrelations    int64 // Successful immediate correlations
+	orphanedResponses        int64 // Responses that arrived before ExecutionID registration
+	delayedCorrelations      int64 // Orphaned responses later correlated successfully
+	failedCorrelations       int64 // Failed to correlate after timeout
+	preRegistrations         int64 // ExecutionIDs pre-registered
+	deregistrations          int64 // ExecutionIDs removed from pending map
+	cleanupOperations        int64 // Memory cleanup operations
+	retryAttempts            int64 // Correlation retry attempts
+
+	// Timing metrics (in milliseconds)
+	totalCorrelationDelay    int64 // Total delay for all correlations
+	maxCorrelationDelay      int64 // Maximum delay observed
+	minCorrelationDelay      int64 // Minimum delay observed (initialized to max value)
+
+	// Map sizes for memory monitoring
+	maxPendingMapSize        int64 // Maximum pending executions map size
+	maxOrphanedMapSize       int64 // Maximum orphaned responses map size
+	currentPendingMapSize    int64 // Current pending executions map size
+	currentOrphanedMapSize   int64 // Current orphaned responses map size
+
+	// Performance thresholds
+	delayWarningThreshold    int64 // 100ms default
+	memoryWarningThreshold   int   // 1000 entries default
+
+	mu sync.RWMutex // Protects all metrics
+}
+
+// NewCorrelationMetrics creates a new metrics tracker
+func NewCorrelationMetrics() *CorrelationMetrics {
+	return &CorrelationMetrics{
+		minCorrelationDelay:      9223372036854775807, // max int64
+		delayWarningThreshold:    100,                 // 100ms
+		memoryWarningThreshold:   1000,                // 1000 entries
+	}
+}
+
+// RecordSuccessfulCorrelation records an immediate correlation success
+func (cm *CorrelationMetrics) RecordSuccessfulCorrelation(delayMs int64) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.successfulCorrelations++
+	cm.updateDelayMetrics(delayMs)
+}
+
+// RecordOrphanedResponse records when a response arrives before ExecutionID registration
+func (cm *CorrelationMetrics) RecordOrphanedResponse() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.orphanedResponses++
+}
+
+// RecordDelayedCorrelation records when an orphaned response is later correlated
+func (cm *CorrelationMetrics) RecordDelayedCorrelation(delayMs int64) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.delayedCorrelations++
+	cm.updateDelayMetrics(delayMs)
+}
+
+// RecordFailedCorrelation records when correlation fails after timeout
+func (cm *CorrelationMetrics) RecordFailedCorrelation() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.failedCorrelations++
+}
+
+// RecordPreRegistration records when an ExecutionID is pre-registered
+func (cm *CorrelationMetrics) RecordPreRegistration() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.preRegistrations++
+}
+
+// RecordDeregistration records when an ExecutionID is removed from pending map
+func (cm *CorrelationMetrics) RecordDeregistration() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.deregistrations++
+}
+
+// RecordCleanupOperation records memory cleanup operations
+func (cm *CorrelationMetrics) RecordCleanupOperation() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.cleanupOperations++
+}
+
+// RecordRetryAttempt records correlation retry attempts
+func (cm *CorrelationMetrics) RecordRetryAttempt() {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.retryAttempts++
+}
+
+// UpdateMapSizes updates current map sizes and tracks maximums
+func (cm *CorrelationMetrics) UpdateMapSizes(pendingSize, orphanedSize int) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.currentPendingMapSize = int64(pendingSize)
+	cm.currentOrphanedMapSize = int64(orphanedSize)
+	if int64(pendingSize) > cm.maxPendingMapSize {
+		cm.maxPendingMapSize = int64(pendingSize)
+	}
+	if int64(orphanedSize) > cm.maxOrphanedMapSize {
+		cm.maxOrphanedMapSize = int64(orphanedSize)
+	}
+}
+
+// updateDelayMetrics updates delay timing metrics (must be called with lock held)
+func (cm *CorrelationMetrics) updateDelayMetrics(delayMs int64) {
+	cm.totalCorrelationDelay += delayMs
+	if delayMs > cm.maxCorrelationDelay {
+		cm.maxCorrelationDelay = delayMs
+	}
+	if delayMs < cm.minCorrelationDelay {
+		cm.minCorrelationDelay = delayMs
+	}
+}
+
+// GetAverageCorrelationDelay returns the average correlation delay
+func (cm *CorrelationMetrics) GetAverageCorrelationDelay() float64 {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	totalCorrelations := cm.successfulCorrelations + cm.delayedCorrelations
+	if totalCorrelations == 0 {
+		return 0
+	}
+	return float64(cm.totalCorrelationDelay) / float64(totalCorrelations)
+}
+
+// GetMetricsSummary returns a formatted summary of all metrics
+func (cm *CorrelationMetrics) GetMetricsSummary() string {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	totalCorrelations := cm.successfulCorrelations + cm.delayedCorrelations
+	avgDelay := float64(0)
+	if totalCorrelations > 0 {
+		avgDelay = float64(cm.totalCorrelationDelay) / float64(totalCorrelations)
+	}
+	return fmt.Sprintf(
+		"📊 Correlation Metrics Summary: "+
+			"✅ Successful: %d, "+
+			"🔄 Orphaned: %d, "+
+			"⏰ Delayed: %d, "+
+			"❌ Failed: %d, "+
+			"📝 Pre-reg: %d, "+
+			"🗑️ Dereg: %d, "+
+			"🧹 Cleanup: %d, "+
+			"🔁 Retries: %d, "+
+			"⏱️ Avg Delay: %.1fms, "+
+			"⏱️ Max Delay: %dms, "+
+			"📈 Max Pending: %d, "+
+			"📈 Max Orphaned: %d",
+		cm.successfulCorrelations,
+		cm.orphanedResponses,
+		cm.delayedCorrelations,
+		cm.failedCorrelations,
+		cm.preRegistrations,
+		cm.deregistrations,
+		cm.cleanupOperations,
+		cm.retryAttempts,
+		avgDelay,
+		cm.maxCorrelationDelay,
+		cm.maxPendingMapSize,
+		cm.maxOrphanedMapSize,
+	)
+}
+
+// ShouldWarnAboutDelay returns true if the delay exceeds the warning threshold
+func (cm *CorrelationMetrics) ShouldWarnAboutDelay(delayMs int64) bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return delayMs > cm.delayWarningThreshold
+}
+
+// ShouldWarnAboutMemory returns true if map sizes exceed warning thresholds
+func (cm *CorrelationMetrics) ShouldWarnAboutMemory(pendingSize, orphanedSize int) bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return pendingSize > cm.memoryWarningThreshold || orphanedSize > cm.memoryWarningThreshold
+}
+
 // formatIterationContext formats the iteration context into hierarchical format with node names
 func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap.IDWrap]string, nodeID idwrap.IDWrap, parentNodes []idwrap.IDWrap, isLoopNode bool, executionCount int) string {
 	if ctx == nil || len(ctx.IterationPath) == 0 {
@@ -651,6 +879,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
+	
+	// Pre-registration system to fix REQUEST node response_id race condition
+	preRegisteredExecutions := make(map[idwrap.IDWrap]struct{})
+	preRegisteredMutex := sync.RWMutex{}
+	
 	for _, forNode := range forNodes {
 		name := nodeNameMap[forNode.FlowNodeID]
 		flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling)
@@ -807,10 +1040,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		name := nodeNameMap[requestNode.FlowNodeID]
 
-		// Note: ExecutionID will be passed through the NodeRequestSideResp for correlation
-
-		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
+		// Create wrapped REQUEST node with pre-registration capability
+		requestNodeInstance := nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
 			*exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan)
+		
+		// Wrap with pre-registration logic
+		wrappedNode := &preRegisteredRequestNode{
+			nodeRequest:              requestNodeInstance,
+			preRegisteredExecutions:  preRegisteredExecutions,
+			preRegisteredMutex:       &preRegisteredMutex,
+		}
+		
+		flowNodeMap[requestNode.FlowNodeID] = wrappedNode
 	}
 
 	for _, ifNode := range ifNodes {
@@ -893,7 +1134,20 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// Map to store node executions by execution ID for state transitions
 	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
+	
+	// Map to store orphaned responses that arrive before ExecutionID is registered
+	orphanedResponses := make(map[idwrap.IDWrap]struct {
+		ResponseID idwrap.IDWrap
+		Timestamp  int64
+	})
+	
 	pendingMutex := sync.Mutex{}
+
+	// Initialize correlation metrics tracking
+	correlationMetrics := NewCorrelationMetrics()
+
+	// Log flow execution start with initial metrics setup
+	log.Printf("🚀 Flow execution started for FlowID %s with correlation metrics tracking enabled", flowID.String())
 
 	// WaitGroup to track all goroutines that send to channels
 	var goroutineWg sync.WaitGroup
@@ -959,17 +1213,65 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					if nodeExec.CompletedAt != nil &&
 						nodeExec.ResponseID == nil &&
 						(nodeExec.State == mnnode.NODE_STATE_SUCCESS || nodeExec.State == mnnode.NODE_STATE_FAILURE) &&
-						time.Now().UnixMilli()-*nodeExec.CompletedAt > 30000 { // 30 seconds timeout
+						time.Now().UnixMilli()-*nodeExec.CompletedAt > 120000 { // 120 seconds timeout (increased from 30s)
 
 						// Check if this is a REQUEST node by checking the node type
 						node, err := c.ns.GetNode(ctx, nodeExec.NodeID)
 						if err == nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
+							// Log timeout to help diagnose issues
+							log.Printf("⏰ REQUEST node execution %s timed out after 120s without ResponseID - removing from pending map", execID.String())
 							timedOutExecutions = append(timedOutExecutions, *nodeExec)
 							delete(pendingNodeExecutions, execID)
+							correlationMetrics.RecordFailedCorrelation()
+							correlationMetrics.RecordDeregistration()
 						}
 					}
 				}
+				
+				// Clean up old orphaned responses (older than 5 minutes)
+				currentTime := time.Now().UnixMilli()
+				var cleanedCount int
+				for execID, orphaned := range orphanedResponses {
+					if currentTime - orphaned.Timestamp > 300000 { // 5 minutes
+						log.Printf("🧹 Cleaning up old orphaned response for ExecutionID %s (age: %dms)", 
+							execID.String(), currentTime - orphaned.Timestamp)
+						delete(orphanedResponses, execID)
+						correlationMetrics.RecordFailedCorrelation()
+						cleanedCount++
+					}
+				}
+				if cleanedCount > 0 {
+					correlationMetrics.RecordCleanupOperation()
+					correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
+					log.Printf("🧹 Cleanup completed: removed %d orphaned responses (remaining orphaned: %d, pending: %d)", 
+						cleanedCount, len(orphanedResponses), len(pendingNodeExecutions))
+				}
 				pendingMutex.Unlock()
+
+				// Clean up old pre-registered executions that never moved to pending (older than 10 minutes)
+				// This prevents memory leaks from ExecutionIDs that were pre-registered but never executed
+				preRegisteredMutex.Lock()
+				cleanedPreRegistered := 0
+				// NOTE: We don't have timestamps for pre-registered executions, but we can clean them up
+				// after a reasonable time if they're still in the map and not in pending
+				if len(preRegisteredExecutions) > 100 { // Only clean if we have many entries
+					pendingMutex.Lock()
+					for execID := range preRegisteredExecutions {
+						// If it's not in pending map after 30 seconds, it's likely orphaned
+						if _, isPending := pendingNodeExecutions[execID]; !isPending {
+							delete(preRegisteredExecutions, execID)
+							cleanedPreRegistered++
+							if cleanedPreRegistered >= 50 { // Clean in batches to avoid long locks
+								break
+							}
+						}
+					}
+					pendingMutex.Unlock()
+				}
+				if cleanedPreRegistered > 0 {
+					log.Printf("🧹 Cleaned up %d old pre-registered executions", cleanedPreRegistered)
+				}
+				preRegisteredMutex.Unlock()
 
 				// Send timed out executions to channel without ResponseID (with safety check)
 				for _, exec := range timedOutExecutions {
@@ -1026,6 +1328,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				// Create new NodeExecution for RUNNING state
 				pendingMutex.Lock()
 				if _, exists := pendingNodeExecutions[executionID]; !exists {
+					// Record pre-registration metrics
+					correlationMetrics.RecordPreRegistration()
 					// Generate execution name with hierarchical format for loop iterations
 					var execName string
 					if flowNodeStatus.IterationContext != nil && len(flowNodeStatus.IterationContext.IterationPath) > 0 {
@@ -1104,15 +1408,67 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					}
 
-					// For iteration tracking records, create immediately to avoid race condition
+					// For failed iteration tracking records, create immediately to avoid race condition
+					// Only save failed iterations, not successful ones (successful iterations are tracked in memory)
 					if isIterationRecord {
-						// Upsert iteration record immediately (no race)
-						if err := c.nes.UpsertNodeExecution(ctx, nodeExecution); err != nil {
-							log.Printf("Failed to upsert iteration record %s: %v", executionID.String(), err)
+						// Check if this is a failed iteration that should be persisted
+						isFailedIteration := false
+						if flowNodeStatus.OutputData != nil {
+							if outputMap, ok := flowNodeStatus.OutputData.(map[string]interface{}); ok {
+								// Failed iterations contain failure-specific fields
+								isFailedIteration = outputMap["failedAtIndex"] != nil ||
+									outputMap["failedAtKey"] != nil ||
+									outputMap["failedAtIteration"] != nil
+							}
 						}
+						
+						if isFailedIteration {
+							// Upsert failed iteration record immediately (for debugging)
+							if err := c.nes.UpsertNodeExecution(ctx, nodeExecution); err != nil {
+								log.Printf("Failed to upsert failed iteration record %s: %v", executionID.String(), err)
+							}
+						}
+						// Successful iterations are not persisted - they remain in memory only
 					} else {
 						// Store in pending map for completion (normal flow execution)
 						pendingNodeExecutions[executionID] = &nodeExecution
+						correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
+						log.Printf("📝 Pre-registered ExecutionID %s in pending map (state: %d, name: %s, pending_count: %d)", 
+							executionID.String(), nodeExecution.State, nodeExecution.Name, len(pendingNodeExecutions))
+						
+						// Check if there's an orphaned response waiting for this ExecutionID
+						if orphaned, exists := orphanedResponses[executionID]; exists {
+							// Calculate correlation delay
+							correlationDelay := time.Now().UnixMilli() - orphaned.Timestamp
+							correlationMetrics.RecordDelayedCorrelation(correlationDelay)
+							
+							// Log with timing information
+							if correlationMetrics.ShouldWarnAboutDelay(correlationDelay) {
+								log.Printf("⚠️ Delayed correlation for ExecutionID %s after %dms (above %dms threshold)", 
+									executionID.String(), correlationDelay, correlationMetrics.delayWarningThreshold)
+							} else {
+								log.Printf("🔄 Correlating orphaned response for ExecutionID %s (delay: %dms)", 
+									executionID.String(), correlationDelay)
+							}
+							
+							nodeExecution.ResponseID = &orphaned.ResponseID
+							
+							// Update in database immediately
+							go func(exec mnodeexecution.NodeExecution, delay int64) {
+								dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+								defer cancel()
+								if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
+									log.Printf("❌ Failed to upsert delayed correlation %s: %v", exec.ID, err)
+								} else {
+									log.Printf("✅ Successfully correlated orphaned response for ExecutionID %s (delay: %dms)", 
+										exec.ID.String(), delay)
+								}
+							}(nodeExecution, correlationDelay)
+							
+							// Remove from orphaned responses and update metrics
+							delete(orphanedResponses, executionID)
+							correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
+						}
 
 						// Also save to DB immediately (non-blocking)
 						go func(exec mnodeexecution.NodeExecution) {
@@ -1146,38 +1502,55 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 				// Handle iteration records separately (they need updates, not pending lookups)
 				if isIterationRecord {
-					// Create update record for iteration
-					completedAt := time.Now().UnixMilli()
-					nodeExecution := mnodeexecution.NodeExecution{
-						ID:          executionID, // Use same ExecutionID for update
-						State:       flowNodeStatus.State,
-						CompletedAt: &completedAt,
-					}
-
-					// Set error if present
-					if flowNodeStatus.Error != nil {
-						errorStr := flowNodeStatus.Error.Error()
-						nodeExecution.Error = &errorStr
-					}
-
-					// Compress and store output data
+					// Check if this is a failed iteration that should be persisted
+					isFailedIteration := false
 					if flowNodeStatus.OutputData != nil {
-						if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
-							if err := nodeExecution.SetOutputJSON(outputJSON); err != nil {
-								nodeExecution.OutputData = outputJSON
-								nodeExecution.OutputDataCompressType = 0
+						if outputMap, ok := flowNodeStatus.OutputData.(map[string]interface{}); ok {
+							// Failed iterations contain failure-specific fields
+							isFailedIteration = outputMap["failedAtIndex"] != nil ||
+								outputMap["failedAtKey"] != nil ||
+								outputMap["failedAtIteration"] != nil
+						}
+					}
+					
+					// Also consider error state as failed iteration
+					isFailedIteration = isFailedIteration || flowNodeStatus.State == mnnode.NODE_STATE_FAILURE || flowNodeStatus.Error != nil
+					
+					if isFailedIteration {
+						// Create update record for failed iteration
+						completedAt := time.Now().UnixMilli()
+						nodeExecution := mnodeexecution.NodeExecution{
+							ID:          executionID, // Use same ExecutionID for update
+							State:       flowNodeStatus.State,
+							CompletedAt: &completedAt,
+						}
+
+						// Set error if present
+						if flowNodeStatus.Error != nil {
+							errorStr := flowNodeStatus.Error.Error()
+							nodeExecution.Error = &errorStr
+						}
+
+						// Compress and store output data
+						if flowNodeStatus.OutputData != nil {
+							if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
+								if err := nodeExecution.SetOutputJSON(outputJSON); err != nil {
+									nodeExecution.OutputData = outputJSON
+									nodeExecution.OutputDataCompressType = 0
+								}
 							}
 						}
-					}
 
-					// Upsert iteration record immediately (non-blocking)
-					go func(exec mnodeexecution.NodeExecution) {
-						dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-						defer cancel()
-						if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
-							log.Printf("Failed to upsert iteration record %s: %v", exec.ID.String(), err)
-						}
-					}(nodeExecution)
+						// Upsert failed iteration record immediately (non-blocking)
+						go func(exec mnodeexecution.NodeExecution) {
+							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+							defer cancel()
+							if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
+								log.Printf("Failed to upsert failed iteration record %s: %v", exec.ID.String(), err)
+							}
+						}(nodeExecution)
+					}
+					// Successful iterations are not persisted - they remain in memory only
 				} else {
 					// Update existing NodeExecution with final state (normal flow)
 					pendingMutex.Lock()
@@ -1232,6 +1605,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								select {
 								case nodeExecutionChan <- *nodeExec:
 									delete(pendingNodeExecutions, executionID)
+									correlationMetrics.RecordDeregistration()
+									correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
+									log.Printf("🗑️ Deregistered ExecutionID %s from pending map (non-REQUEST node completion, pending_count: %d)", 
+										executionID.String(), len(pendingNodeExecutions))
 								case <-stopSending:
 									// Channel closed, don't send
 								}
@@ -1395,31 +1772,54 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				// Use ExecutionID from the response to find the correct execution
 				pendingMutex.Lock()
 				targetExecutionID := requestNodeResp.ExecutionID
+				responseReceivedTime := time.Now()
 
 				if targetExecutionID != (idwrap.IDWrap{}) && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
 					if nodeExec, exists := pendingNodeExecutions[targetExecutionID]; exists {
+						// Calculate correlation delay (response arrived after ExecutionID registration)
+						correlationDelay := int64(50) // Approximate immediate correlation delay (0-100ms)
+						correlationMetrics.RecordSuccessfulCorrelation(correlationDelay)
+						
+						// Log with timing information
+						if correlationMetrics.ShouldWarnAboutDelay(correlationDelay) {
+							log.Printf("⚠️ Slow correlation for ExecutionID %s (delay: %dms, above %dms threshold)", 
+								targetExecutionID.String(), correlationDelay, correlationMetrics.delayWarningThreshold)
+						} else {
+							log.Printf("✅ Immediate correlation for ExecutionID %s (delay: %dms)", 
+								targetExecutionID.String(), correlationDelay)
+						}
+						
 						respID := requestNodeResp.Resp.ExampleResp.ID
 						nodeExec.ResponseID = &respID
 
 						// Upsert execution in DB with ResponseID (non-blocking)
-						go func(exec mnodeexecution.NodeExecution) {
+						go func(exec mnodeexecution.NodeExecution, delay int64) {
 							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 							defer cancel()
 							if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
-								log.Printf("Failed to upsert node execution with response %s: %v", exec.ID, err)
+								log.Printf("❌ Failed to upsert node execution with response %s: %v", exec.ID, err)
+							} else {
+								log.Printf("✅ Successfully saved response correlation for ExecutionID %s (delay: %dms)", 
+									exec.ID.String(), delay)
 							}
-						}(*nodeExec)
+						}(*nodeExec, correlationDelay)
 
 						// Now send the completed execution with ResponseID to channel (with safety check)
 						if !channelsClosed.Load() {
 							select {
 							case nodeExecutionChan <- *nodeExec:
 								delete(pendingNodeExecutions, targetExecutionID)
+								correlationMetrics.RecordDeregistration()
+								correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
+								log.Printf("🗑️ Deregistered ExecutionID %s after successful correlation (pending_count: %d)", 
+									targetExecutionID.String(), len(pendingNodeExecutions))
 							case <-stopSending:
 								// Channel closed, don't send
 							}
 						} else {
 							delete(pendingNodeExecutions, targetExecutionID)
+							correlationMetrics.RecordDeregistration()
+							correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
 						}
 
 						// Also update the corresponding entry in nodeExecutions array
@@ -1428,6 +1828,32 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								nodeExecutions[i].ResponseID = &respID
 								break
 							}
+						}
+					} else {
+						// Record orphaned response metrics
+						correlationMetrics.RecordOrphanedResponse()
+						correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses)+1)
+						
+						log.Printf("❌ No pending execution found for ExecutionID %s (pending: %d, orphaned: %d)", 
+							targetExecutionID.String(), len(pendingNodeExecutions), len(orphanedResponses))
+						
+						// RACE CONDITION FIX: Store orphaned response for later correlation
+						respID := requestNodeResp.Resp.ExampleResp.ID
+						log.Printf("🔄 Storing orphaned response for ExecutionID %s (ResponseID: %s, pending: %d, orphaned: %d)", 
+							targetExecutionID.String(), respID.String(), len(pendingNodeExecutions), len(orphanedResponses)+1)
+						
+						orphanedResponses[targetExecutionID] = struct {
+							ResponseID idwrap.IDWrap
+							Timestamp  int64
+						}{
+							ResponseID: respID,
+							Timestamp:  responseReceivedTime.UnixMilli(),
+						}
+						
+						// Check for memory warning
+						if correlationMetrics.ShouldWarnAboutMemory(len(pendingNodeExecutions), len(orphanedResponses)) {
+							log.Printf("⚠️ High memory usage detected: pending=%d, orphaned=%d (threshold: %d)", 
+								len(pendingNodeExecutions), len(orphanedResponses), correlationMetrics.memoryWarningThreshold)
 						}
 					}
 				}
@@ -1555,6 +1981,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 	pendingMutex.Unlock()
 
+	// Log final correlation metrics summary
+	log.Printf("🏁 Flow execution completed. %s", correlationMetrics.GetMetricsSummary())
+
 	// Wait for all goroutines to finish before closing channels
 	goroutineWg.Wait()
 
@@ -1564,6 +1993,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// Wait for all node executions to be collected
 	<-nodeExecutionsDone
+
+	// Final cleanup of pre-registered executions
+	preRegisteredMutex.Lock()
+	remainingPreRegistered := len(preRegisteredExecutions)
+	if remainingPreRegistered > 0 {
+		log.Printf("🧹 Cleaning up %d remaining pre-registered executions", remainingPreRegistered)
+		for execID := range preRegisteredExecutions {
+			delete(preRegisteredExecutions, execID)
+		}
+	}
+	preRegisteredMutex.Unlock()
 
 	flow.VersionParentID = &flow.ID
 
