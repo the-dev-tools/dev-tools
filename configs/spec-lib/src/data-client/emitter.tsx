@@ -1,6 +1,7 @@
 import {
   Binder,
   Children,
+  code,
   createContext,
   For,
   getSymbolCreatorSymbol,
@@ -168,11 +169,6 @@ const Directory = ({ namespace }: DirectoryProps) => {
 
   const name = String.pascalToSnake(namespace.name);
 
-  // const parent = useContext(SourceDirectoryContext)?.path;
-
-  // let path = `${name}/v${version}`;
-  // if (parent && parent !== './') path = `${parent}/${path}`;
-
   const subdirectories = pipe(
     namespace.namespaces.values(),
     Array.fromIterable,
@@ -204,7 +200,7 @@ const Directory = ({ namespace }: DirectoryProps) => {
       ),
     ),
     (_) => (
-      <SourceFile path={`${name}.endpoints.ts`}>
+      <SourceFile header={code`import type * as _ from '@data-client/endpoint';`} path={`${name}.endpoints.ts`}>
         <For doubleHardline each={_}>
           {({ meta, operation }) => <Endpoint meta={meta} operation={operation} />}
         </For>
