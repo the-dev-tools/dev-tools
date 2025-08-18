@@ -872,6 +872,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// WaitGroup to track all goroutines that send to channels
 	var goroutineWg sync.WaitGroup
 	
+	// WaitGroup specifically for nested logging goroutines
+	var loggingWg sync.WaitGroup
+	
 	// Channel to signal that sending should stop
 	stopSending := make(chan struct{})
 	
@@ -965,6 +968,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	goroutineWg.Add(1)
 	go func() {
 		defer goroutineWg.Done()
+		defer func() {
+			// Wait for all logging goroutines to finish before closing done channel
+			loggingWg.Wait()
+			close(done)
+		}()
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
 			// Check if we should stop processing
 			if channelsClosed.Load() {
@@ -1181,6 +1189,76 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 							}
 						}
+					} else if flowNodeStatus.State == mnnode.NODE_STATE_CANCELED {
+						// Handle the case where we receive a CANCELED status without a prior RUNNING status
+						// This can happen when nodes are canceled before they start executing
+						completedAt := time.Now().UnixMilli()
+						
+						// Get execution name
+						var execName string
+						if flowNodeStatus.Name != "" {
+							nodeExecutionCountsMutex.Lock()
+							// Check if we already have a count for this execution ID
+							if _, exists := executionIDToCount[executionID]; !exists {
+								nodeExecutionCounts[flowNodeStatus.NodeID]++
+								executionIDToCount[executionID] = nodeExecutionCounts[flowNodeStatus.NodeID]
+							}
+							execCount := executionIDToCount[executionID]
+							nodeExecutionCountsMutex.Unlock()
+							execName = fmt.Sprintf("%s - Execution %d", flowNodeStatus.Name, execCount)
+						} else {
+							execName = "Canceled Node"
+						}
+						
+						nodeExecution := mnodeexecution.NodeExecution{
+							ID:                     executionID,
+							NodeID:                 flowNodeStatus.NodeID,
+							Name:                   execName,
+							State:                  mnnode.NODE_STATE_CANCELED,
+							Error:                  nil,
+							InputData:              []byte("{}"),
+							InputDataCompressType:  0,
+							OutputData:             []byte("{}"),
+							OutputDataCompressType: 0,
+							ResponseID:             nil,
+							CompletedAt:            &completedAt,
+						}
+						
+						// Set error if present
+						if flowNodeStatus.Error != nil {
+							errorStr := flowNodeStatus.Error.Error()
+							nodeExecution.Error = &errorStr
+						}
+						
+						// Compress and store input data if available
+						if flowNodeStatus.InputData != nil {
+							if inputJSON, err := json.Marshal(flowNodeStatus.InputData); err == nil {
+								if err := nodeExecution.SetInputJSON(inputJSON); err != nil {
+									nodeExecution.InputData = inputJSON
+									nodeExecution.InputDataCompressType = 0
+								}
+							}
+						}
+						
+						// Compress and store output data if available
+						if flowNodeStatus.OutputData != nil {
+							if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
+								if err := nodeExecution.SetOutputJSON(outputJSON); err != nil {
+									nodeExecution.OutputData = outputJSON
+									nodeExecution.OutputDataCompressType = 0
+								}
+							}
+						}
+						
+						// Send immediately for canceled nodes (with safety check)
+						if !channelsClosed.Load() {
+							select {
+							case nodeExecutionChan <- nodeExecution:
+								// Successfully sent
+							case <-stopSending:
+								// Channel closed, don't send
+							}
+						}
 					}
 					pendingMutex.Unlock()
 				}
@@ -1196,7 +1274,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 				// Don't spawn goroutine if channels are closing
 				if !channelsClosed.Load() {
+					// Use the logging WaitGroup to track this nested goroutine
+					loggingWg.Add(1)
 					go func() {
+						defer loggingWg.Done()
+						
 						// Double-check channels aren't closed
 						if channelsClosed.Load() {
 							return
@@ -1228,11 +1310,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 						localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", nameForLog, idStrForLog, stateStrForLog), logLevel, refs)
 						if localErr != nil {
-							// Use a select with default to avoid sending to a potentially closed channel
-							select {
-							case done <- localErr:
-							default:
-								// Channel is closed or full, ignore the error
+							// Check if we should still try to send the error
+							if !channelsClosed.Load() {
+								select {
+								case done <- localErr:
+								case <-stopSending:
+									// Stop signal received, don't send
+								default:
+									// Channel is full or closed, log the error instead
+									log.Printf("Failed to send log error to done channel: %v", localErr)
+								}
 							}
 							return
 						}
@@ -1321,7 +1408,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 		}
 
-		defer close(done)
 		for {
 			select {
 			case <-ctx.Done():

@@ -427,6 +427,10 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	var once sync.Once
 	sendResult := func(result node.FlowNodeResult) {
 		once.Do(func() {
+			// Recover from panic if channel is closed
+			defer func() {
+				_ = recover() // Ignore panic from closed channel
+			}()
 			resultChan <- result
 		})
 	}
@@ -630,10 +634,12 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						loopError = loopResult.Err
 						failedAt = itemIndex - 1 // Fail entire flow
+						goto ExitSeqAsync // Exit the loop immediately on error
 					}
 				}
 			}
 
+			ExitSeqAsync:
 			// Only create final summary record on failure
 			if loopError != nil {
 				if req.LogPushFunc != nil {
@@ -666,10 +672,6 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					sendResult(node.FlowNodeResult{Err: err})
 					return
 				}
-			}
-			if err != nil {
-				sendResult(node.FlowNodeResult{Err: err})
-				return
 			}
 			// Send success result after loop finishes
 			sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})
@@ -770,10 +772,12 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						loopError = loopResult.Err
 						failedAt = key // Fail entire flow
+						goto ExitSeq2Async // Exit the loop immediately on error
 					}
 				}
 			}
 
+			ExitSeq2Async:
 			// Only create final summary record on failure
 			if loopError != nil {
 				if req.LogPushFunc != nil {
@@ -806,10 +810,6 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 					sendResult(node.FlowNodeResult{Err: err})
 					return
 				}
-			}
-			if err != nil {
-				sendResult(node.FlowNodeResult{Err: err})
-				return
 			}
 			// Send success result after loop finishes
 			sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})

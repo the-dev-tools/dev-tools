@@ -153,7 +153,69 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 	var processCount int
 	// Mutex to protect PendingAtmoicMap from concurrent access
 	var pendingMapMutex sync.Mutex
+	// Track nodes that have been sent RUNNING status but haven't completed
+	// Map from executionID to the full status for proper state transitions
+	runningNodes := make(map[idwrap.IDWrap]runner.FlowNodeStatus)
+	runningNodesMutex := sync.Mutex{}
+	// Track start times for duration calculation
+	nodeStartTimes := make(map[idwrap.IDWrap]time.Time)
+	
+	// Cleanup function to send CANCELED status for all running/queued nodes
+	sendCanceledStatuses := func(cancelErr error) {
+		// Send CANCELED status for any nodes still in RUNNING state
+		runningNodesMutex.Lock()
+		for execID, runningStatus := range runningNodes {
+			// Calculate actual duration if we have a start time
+			duration := time.Duration(0)
+			if startTime, ok := nodeStartTimes[execID]; ok {
+				duration = time.Since(startTime)
+			}
+			
+			canceledStatus := runner.FlowNodeStatus{
+				ExecutionID:      execID,
+				NodeID:           runningStatus.NodeID,
+				Name:             runningStatus.Name,
+				State:            mnnode.NODE_STATE_CANCELED,
+				Error:            cancelErr,
+				IterationContext: runningStatus.IterationContext,
+				RunDuration:      duration,
+			}
+			statusLogFunc(canceledStatus)
+		}
+		// Clear the maps after sending all canceled statuses
+		runningNodes = make(map[idwrap.IDWrap]runner.FlowNodeStatus)
+		nodeStartTimes = make(map[idwrap.IDWrap]time.Time)
+		runningNodesMutex.Unlock()
+		
+		// Send CANCELED status for any nodes still in the queue
+		for _, nodeID := range queue {
+			if node, ok := req.NodeMap[nodeID]; ok {
+				canceledStatus := runner.FlowNodeStatus{
+					ExecutionID:      idwrap.NewNow(),
+					NodeID:           nodeID,
+					Name:             node.GetName(),
+					State:            mnnode.NODE_STATE_CANCELED,
+					Error:            cancelErr,
+					IterationContext: req.IterationContext,
+				}
+				statusLogFunc(canceledStatus)
+			}
+		}
+	}
+	
+	// Ensure we send canceled statuses on any return path
+	defer func() {
+		if ctx.Err() != nil {
+			sendCanceledStatuses(ctx.Err())
+		}
+	}()
+	
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
+		// Check if context was cancelled before processing next batch
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		
 		processCount = min(goroutineCount, queueLen)
 
 		var wg sync.WaitGroup
@@ -220,6 +282,12 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				}
 				statusLogFunc(runningStatus)
 				
+				// Track this node as running with its start time
+				runningNodesMutex.Lock()
+				runningNodes[executionID] = runningStatus
+				nodeStartTimes[executionID] = time.Now()
+				runningNodesMutex.Unlock()
+				
 				// Create a copy of the request for this execution to avoid race conditions
 				// This ensures each goroutine has its own tracker and execution ID
 				nodeReq := *req // Shallow copy of the request struct
@@ -267,6 +335,13 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			status.IterationContext = req.IterationContext
 			nodeState := nodeStateMap[status.NodeID]
 			status.RunDuration = time.Since(nodeState.StartTime)
+			
+			// Remove from running nodes since we're processing its completion
+			runningNodesMutex.Lock()
+			delete(runningNodes, result.executionID)
+			delete(nodeStartTimes, result.executionID)
+			runningNodesMutex.Unlock()
+			
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
@@ -275,6 +350,11 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				status.InputData = node.DeepCopyValue(result.inputData)
 				status.OutputData = node.DeepCopyValue(result.outputData)
 				statusLogFunc(status)
+				// Remove from running nodes since we've sent the CANCELED status
+				runningNodesMutex.Lock()
+				delete(runningNodes, result.executionID)
+				delete(nodeStartTimes, result.executionID)
+				runningNodesMutex.Unlock()
 				continue
 			}
 
@@ -314,7 +394,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			return lastNodeError
 		}
 		
-		// Check if flow was canceled
+		// Check if flow was canceled - the defer will handle sending CANCELED statuses
 		if FlowNodeCancelCtx.Err() != nil {
 			return FlowNodeCancelCtx.Err()
 		}
@@ -336,7 +416,69 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 	var processCount int
 	// Mutex to protect PendingAtmoicMap from concurrent access
 	var pendingMapMutex sync.Mutex
+	// Track nodes that have been sent RUNNING status but haven't completed
+	// Map from executionID to the full status for proper state transitions
+	runningNodes := make(map[idwrap.IDWrap]runner.FlowNodeStatus)
+	runningNodesMutex := sync.Mutex{}
+	// Track start times for duration calculation
+	nodeStartTimes := make(map[idwrap.IDWrap]time.Time)
+	
+	// Cleanup function to send CANCELED status for all running/queued nodes
+	sendCanceledStatuses := func(cancelErr error) {
+		// Send CANCELED status for any nodes still in RUNNING state
+		runningNodesMutex.Lock()
+		for execID, runningStatus := range runningNodes {
+			// Calculate actual duration if we have a start time
+			duration := time.Duration(0)
+			if startTime, ok := nodeStartTimes[execID]; ok {
+				duration = time.Since(startTime)
+			}
+			
+			canceledStatus := runner.FlowNodeStatus{
+				ExecutionID:      execID,
+				NodeID:           runningStatus.NodeID,
+				Name:             runningStatus.Name,
+				State:            mnnode.NODE_STATE_CANCELED,
+				Error:            cancelErr,
+				IterationContext: runningStatus.IterationContext,
+				RunDuration:      duration,
+			}
+			statusLogFunc(canceledStatus)
+		}
+		// Clear the maps after sending all canceled statuses
+		runningNodes = make(map[idwrap.IDWrap]runner.FlowNodeStatus)
+		nodeStartTimes = make(map[idwrap.IDWrap]time.Time)
+		runningNodesMutex.Unlock()
+		
+		// Send CANCELED status for any nodes still in the queue
+		for _, nodeID := range queue {
+			if node, ok := req.NodeMap[nodeID]; ok {
+				canceledStatus := runner.FlowNodeStatus{
+					ExecutionID:      idwrap.NewNow(),
+					NodeID:           nodeID,
+					Name:             node.GetName(),
+					State:            mnnode.NODE_STATE_CANCELED,
+					Error:            cancelErr,
+					IterationContext: req.IterationContext,
+				}
+				statusLogFunc(canceledStatus)
+			}
+		}
+	}
+	
+	// Ensure we send canceled statuses on any return path
+	defer func() {
+		if ctx.Err() != nil {
+			sendCanceledStatuses(ctx.Err())
+		}
+	}()
+	
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
+		// Check if context was cancelled before processing next batch
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		
 		processCount = min(goroutineCount, queueLen)
 
 		ctxTimed, cancelTimeFn := context.WithDeadline(ctx, time.Now().Add(req.Timeout))
@@ -408,6 +550,12 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				}
 				statusLogFunc(runningStatus)
 				
+				// Track this node as running with its start time
+				runningNodesMutex.Lock()
+				runningNodes[executionID] = runningStatus
+				nodeStartTimes[executionID] = time.Now()
+				runningNodesMutex.Unlock()
+				
 				// Create a copy of the request for this execution to avoid race conditions
 				// This ensures each goroutine has its own tracker and execution ID
 				nodeReq := *req // Shallow copy of the request struct
@@ -474,6 +622,13 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			status.Name = currentNode.GetName()
 			status.IterationContext = req.IterationContext
 			status.RunDuration = time.Since(timeStart[status.NodeID])
+			
+			// Remove from running nodes since we're processing its completion
+			runningNodesMutex.Lock()
+			delete(runningNodes, result.executionID)
+			delete(nodeStartTimes, result.executionID)
+			runningNodesMutex.Unlock()
+			
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
@@ -482,6 +637,11 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				status.InputData = node.DeepCopyValue(result.inputData)
 				status.OutputData = node.DeepCopyValue(result.outputData)
 				statusLogFunc(status)
+				// Remove from running nodes since we've sent the CANCELED status
+				runningNodesMutex.Lock()
+				delete(runningNodes, result.executionID)
+				delete(nodeStartTimes, result.executionID)
+				runningNodesMutex.Unlock()
 				continue
 			}
 			if result.err != nil {
@@ -519,12 +679,13 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			return lastNodeError
 		}
 		
-		// Check if flow was canceled
+		// Check if flow was canceled - the defer will handle sending CANCELED statuses
 		if FlowNodeCancelCtx.Err() != nil {
 			return FlowNodeCancelCtx.Err()
 		}
 		
 		// If we timed out but no specific node error, return the timeout error
+		// The defer will handle sending CANCELED statuses
 		if timedOut {
 			return ctxTimed.Err()
 		}
