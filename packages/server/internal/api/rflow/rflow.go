@@ -1106,9 +1106,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 					// For iteration tracking records, create immediately to avoid race condition
 					if isIterationRecord {
-						// Create iteration record immediately (no race)
-						if err := c.nes.CreateNodeExecution(ctx, nodeExecution); err != nil {
-							log.Printf("Failed to create iteration record %s: %v", executionID.String(), err)
+						// Upsert iteration record immediately (no race)
+						if err := c.nes.UpsertNodeExecution(ctx, nodeExecution); err != nil {
+							log.Printf("Failed to upsert iteration record %s: %v", executionID.String(), err)
 						}
 					} else {
 						// Store in pending map for completion (normal flow execution)
@@ -1118,8 +1118,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						go func(exec mnodeexecution.NodeExecution) {
 							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 							defer cancel()
-							if err := c.nes.CreateNodeExecution(dbCtx, exec); err != nil {
-								log.Printf("Failed to save node execution %s: %v", exec.ID, err)
+							if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
+								log.Printf("Failed to upsert node execution %s: %v", exec.ID, err)
 							}
 						}(nodeExecution)
 					}
@@ -1170,12 +1170,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					}
 
-					// Update iteration record immediately (non-blocking)
+					// Upsert iteration record immediately (non-blocking)
 					go func(exec mnodeexecution.NodeExecution) {
 						dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 						defer cancel()
-						if err := c.nes.UpdateNodeExecution(dbCtx, exec); err != nil {
-							log.Printf("Failed to update iteration record %s: %v", exec.ID.String(), err)
+						if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
+							log.Printf("Failed to upsert iteration record %s: %v", exec.ID.String(), err)
 						}
 					}(nodeExecution)
 				} else {
@@ -1213,12 +1213,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 
-						// Update execution in DB immediately (non-blocking)
+						// Upsert execution in DB immediately (non-blocking)
 						go func(exec mnodeexecution.NodeExecution) {
 							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 							defer cancel()
-							if err := c.nes.UpdateNodeExecution(dbCtx, exec); err != nil {
-								log.Printf("Failed to update node execution %s: %v", exec.ID, err)
+							if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
+								log.Printf("Failed to upsert node execution %s: %v", exec.ID, err)
 							}
 						}(*nodeExec)
 
@@ -1298,12 +1298,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 
-						// Save to DB immediately (non-blocking)
+						// Upsert to DB immediately (non-blocking)
 						go func(exec mnodeexecution.NodeExecution) {
 							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 							defer cancel()
-							if err := c.nes.CreateNodeExecution(dbCtx, exec); err != nil {
-								log.Printf("Failed to save canceled node execution %s: %v", exec.ID, err)
+							if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
+								log.Printf("Failed to upsert canceled node execution %s: %v", exec.ID, err)
 							}
 						}(nodeExecution)
 
@@ -1401,12 +1401,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						respID := requestNodeResp.Resp.ExampleResp.ID
 						nodeExec.ResponseID = &respID
 
-						// Update execution in DB with ResponseID (non-blocking)
+						// Upsert execution in DB with ResponseID (non-blocking)
 						go func(exec mnodeexecution.NodeExecution) {
 							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 							defer cancel()
-							if err := c.nes.UpdateNodeExecution(dbCtx, exec); err != nil {
-								log.Printf("Failed to update node execution with response %s: %v", exec.ID, err)
+							if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
+								log.Printf("Failed to upsert node execution with response %s: %v", exec.ID, err)
 							}
 						}(*nodeExec)
 

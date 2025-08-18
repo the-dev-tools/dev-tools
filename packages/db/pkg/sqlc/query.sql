@@ -2149,6 +2149,21 @@ SET state = ?, error = ?, output_data = ?,
 WHERE id = ?
 RETURNING *;
 
+-- name: UpsertNodeExecution :one
+INSERT INTO node_execution (
+  id, node_id, name, state, error, input_data, input_data_compress_type,
+  output_data, output_data_compress_type, response_id, completed_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  state = excluded.state,
+  error = excluded.error, 
+  output_data = excluded.output_data,
+  output_data_compress_type = excluded.output_data_compress_type,
+  response_id = excluded.response_id,
+  completed_at = excluded.completed_at
+RETURNING *;
+
 -- name: GetNodeExecutionsByNodeID :many
 SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC;
 

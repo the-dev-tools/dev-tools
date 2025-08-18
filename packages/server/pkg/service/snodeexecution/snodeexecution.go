@@ -211,6 +211,45 @@ func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mnodee
 	return err
 }
 
+func (s NodeExecutionService) UpsertNodeExecution(ctx context.Context, ne mnodeexecution.NodeExecution) error {
+	var errorSQL sql.NullString
+	if ne.Error != nil {
+		errorSQL = sql.NullString{
+			String: *ne.Error,
+			Valid:  true,
+		}
+	}
+
+	var responseID []byte
+	if ne.ResponseID != nil {
+		responseID = ne.ResponseID.Bytes()
+	}
+
+	var completedAtSQL sql.NullInt64
+	if ne.CompletedAt != nil {
+		completedAtSQL = sql.NullInt64{
+			Int64: *ne.CompletedAt,
+			Valid: true,
+		}
+	}
+
+	_, err := s.queries.UpsertNodeExecution(ctx, gen.UpsertNodeExecutionParams{
+		ID:                     ne.ID,
+		NodeID:                 ne.NodeID,
+		Name:                   ne.Name,
+		State:                  ne.State,
+		Error:                  errorSQL,
+		InputData:              ne.InputData,
+		InputDataCompressType:  ne.InputDataCompressType,
+		OutputData:             ne.OutputData,
+		OutputDataCompressType: ne.OutputDataCompressType,
+		ResponseID:             responseID,
+		CompletedAt:            completedAtSQL,
+	})
+
+	return err
+}
+
 func (s NodeExecutionService) DeleteNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) error {
 	return s.queries.DeleteNodeExecutionsByNodeID(ctx, nodeID)
 }

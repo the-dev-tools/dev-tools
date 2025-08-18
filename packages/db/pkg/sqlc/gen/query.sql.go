@@ -7183,3 +7183,64 @@ func (q *Queries) UpdateWorkspaceUser(ctx context.Context, arg UpdateWorkspaceUs
 	)
 	return err
 }
+
+const upsertNodeExecution = `-- name: UpsertNodeExecution :one
+INSERT INTO node_execution (
+  id, node_id, name, state, error, input_data, input_data_compress_type,
+  output_data, output_data_compress_type, response_id, completed_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  state = excluded.state,
+  error = excluded.error, 
+  output_data = excluded.output_data,
+  output_data_compress_type = excluded.output_data_compress_type,
+  response_id = excluded.response_id,
+  completed_at = excluded.completed_at
+RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
+`
+
+type UpsertNodeExecutionParams struct {
+	ID                     idwrap.IDWrap
+	NodeID                 idwrap.IDWrap
+	Name                   string
+	State                  int8
+	Error                  sql.NullString
+	InputData              []byte
+	InputDataCompressType  int8
+	OutputData             []byte
+	OutputDataCompressType int8
+	ResponseID             []byte
+	CompletedAt            sql.NullInt64
+}
+
+func (q *Queries) UpsertNodeExecution(ctx context.Context, arg UpsertNodeExecutionParams) (NodeExecution, error) {
+	row := q.queryRow(ctx, q.upsertNodeExecutionStmt, upsertNodeExecution,
+		arg.ID,
+		arg.NodeID,
+		arg.Name,
+		arg.State,
+		arg.Error,
+		arg.InputData,
+		arg.InputDataCompressType,
+		arg.OutputData,
+		arg.OutputDataCompressType,
+		arg.ResponseID,
+		arg.CompletedAt,
+	)
+	var i NodeExecution
+	err := row.Scan(
+		&i.ID,
+		&i.NodeID,
+		&i.Name,
+		&i.State,
+		&i.Error,
+		&i.InputData,
+		&i.InputDataCompressType,
+		&i.OutputData,
+		&i.OutputDataCompressType,
+		&i.ResponseID,
+		&i.CompletedAt,
+	)
+	return i, err
+}
