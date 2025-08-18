@@ -274,9 +274,13 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
     Option.getOrNull,
   );
 
+  const [prevFirstItem, setPrevFirstItem] = useState<Key | null>(firstItem);
   const [selectedKey, setSelectedKey] = useState<Key | null>(firstItem);
 
-  if (selectedKey === null && firstItem !== null) setSelectedKey(firstItem);
+  if (prevFirstItem !== firstItem) {
+    setSelectedKey(firstItem);
+    setPrevFirstItem(firstItem);
+  }
 
   return (
     <div className={tw`mx-5 my-4 overflow-auto rounded-lg border border-slate-200`}>
@@ -286,7 +290,7 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
           font-medium tracking-tight text-slate-800
         `}
       >
-        <div>Execution data</div>
+        <div>Execution data ({items.length})</div>
 
         {items.length > 0 && (
           <Select
