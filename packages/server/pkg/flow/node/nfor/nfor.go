@@ -3,9 +3,7 @@ package nfor
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"the-dev-tools/server/pkg/assertv2"
-	"the-dev-tools/server/pkg/assertv2/leafs/leafmock"
+	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/runner"
@@ -14,6 +12,7 @@ import (
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/varsystem"
 	"time"
 )
 
@@ -25,12 +24,23 @@ type NodeFor struct {
 	Name          string
 	IterCount     int64
 	Timeout       time.Duration
-	ConditionType mcondition.ComparisonKind
-	Path          string
-	Value         string
+	Condition     mcondition.Condition
 	ErrorHandling mnfor.ErrorHandling
 }
 
+// NewWithCondition creates a NodeFor with condition data for break logic
+func NewWithCondition(id idwrap.IDWrap, name string, iterCount int64, timeout time.Duration, errorHandling mnfor.ErrorHandling, condition mcondition.Condition) *NodeFor {
+	return &NodeFor{
+		FlowNodeID:    id,
+		Name:          name,
+		IterCount:     iterCount,
+		Timeout:       timeout,
+		ErrorHandling: errorHandling,
+		Condition:     condition,
+	}
+}
+
+// New creates a NodeFor without condition data (for backward compatibility)
 func New(id idwrap.IDWrap, name string, iterCount int64, timeout time.Duration, errorHandling mnfor.ErrorHandling) *NodeFor {
 	return &NodeFor{
 		FlowNodeID:    id,
@@ -38,6 +48,7 @@ func New(id idwrap.IDWrap, name string, iterCount int64, timeout time.Duration, 
 		IterCount:     iterCount,
 		Timeout:       timeout,
 		ErrorHandling: errorHandling,
+		Condition:     mcondition.Condition{}, // Empty condition
 	}
 }
 
@@ -53,19 +64,43 @@ func (n *NodeFor) GetName() string {
 	return n.Name
 }
 
+// checkBreakCondition evaluates the break condition and returns (shouldBreak, error)
+func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRequest) (bool, error) {
+	if nr.Condition.Comparisons.Expression == "" {
+		return false, nil // No condition, don't break
+	}
+	
+	// Create a deep copy of VarMap to prevent concurrent access issues
+	varMapCopy := node.DeepCopyVarMap(req)
+	exprEnv := expression.NewEnv(varMapCopy)
+	
+	// Normalize the condition expression
+	conditionExpr := nr.Condition.Comparisons.Expression
+	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
+	normalizedExpression, err := expression.NormalizeExpression(ctx, conditionExpr, varMap)
+	if err != nil {
+		return false, fmt.Errorf("failed to normalize break condition '%s': %w", conditionExpr, err)
+	}
+	
+	// Evaluate the condition expression
+	var shouldBreak bool
+	if req.VariableTracker != nil {
+		shouldBreak, err = expression.ExpressionEvaluteAsBoolWithTracking(ctx, exprEnv, normalizedExpression, req.VariableTracker)
+	} else {
+		shouldBreak, err = expression.ExpressionEvaluteAsBool(ctx, exprEnv, normalizedExpression)
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to evaluate break condition '%s': %w", normalizedExpression, err)
+	}
+	
+	return shouldBreak, nil
+}
+
 func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
-	a := map[string]any{
-		NodeVarKey: req.VarMap,
-	}
-
-	rootLeaf := &leafmock.LeafMock{
-		Leafs: a,
-	}
-	root := assertv2.NewAssertRoot(rootLeaf)
-	assertSys := assertv2.NewAssertSystem(root)
+	// Note: assertSys not needed for simple index comparison
 
 	var loopError error
 	var failedAtIteration int64 = -1
@@ -82,6 +117,18 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			return node.FlowNodeResult{
 				Err: err,
 			}
+		}
+
+		// Check break condition AFTER setting index variable, BEFORE executing iteration
+		shouldBreak, err := nr.checkBreakCondition(ctx, req)
+		if err != nil {
+			return node.FlowNodeResult{
+				Err: err,
+			}
+		}
+		if shouldBreak {
+			// Break condition met - exit loop
+			goto Exit
 		}
 
 		// Store execution ID and iteration context for later update
@@ -119,31 +166,6 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 		// Execute child nodes
 		var iterationError error
 		for _, nextNodeID := range loopID {
-
-			var val any
-			// parse int, float or bool if all fails make it string
-			if v, err := strconv.ParseInt(nr.Value, 0, 64); err == nil {
-				val = v
-			} else if v, err := strconv.ParseFloat(nr.Value, 64); err == nil {
-				val = v
-			} else if v, err := strconv.ParseBool(nr.Value); err == nil {
-				val = v
-			} else {
-				val = nr
-			}
-
-			if nr.Path != "" {
-				ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(nr.ConditionType), nr.Path, val)
-				if err != nil {
-					return node.FlowNodeResult{
-						Err: err,
-					}
-				}
-
-				if !ok {
-					break
-				}
-			}
 
 			// Create iteration context for child nodes
 			var parentPath []int
@@ -263,15 +285,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 
-	a := map[string]any{
-		NodeVarKey: req.VarMap,
-	}
-
-	rootLeaf := &leafmock.LeafMock{
-		Leafs: a,
-	}
-	root := assertv2.NewAssertRoot(rootLeaf)
-	assertSys := assertv2.NewAssertSystem(root)
+	// Note: assertSys not needed for simple index comparison
 
 	var loopError error
 	var failedAtIteration int64 = -1
@@ -289,6 +303,19 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				Err: err,
 			}
 			return
+		}
+
+		// Check break condition AFTER setting index variable, BEFORE executing iteration
+		shouldBreak, err := nr.checkBreakCondition(ctx, req)
+		if err != nil {
+			resultChan <- node.FlowNodeResult{
+				Err: err,
+			}
+			return
+		}
+		if shouldBreak {
+			// Break condition met - exit loop
+			goto Exit
 		}
 
 		// Store execution ID and iteration context for later update
@@ -326,32 +353,6 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 		// Execute child nodes
 		var iterationError error
 		for _, nextNodeID := range loopID {
-
-			var val any
-			// parse int, float or bool if all fails make it string
-			if v, err := strconv.ParseInt(nr.Value, 0, 64); err == nil {
-				val = v
-			} else if v, err := strconv.ParseFloat(nr.Value, 64); err == nil {
-				val = v
-			} else if v, err := strconv.ParseBool(nr.Value); err == nil {
-				val = v
-			} else {
-				val = nr
-			}
-
-			if nr.Path != "" {
-				ok, err := assertSys.AssertSimple(ctx, assertv2.AssertType(nr.ConditionType), nr.Path, val)
-				if err != nil {
-					resultChan <- node.FlowNodeResult{
-						Err: err,
-					}
-					return
-				}
-
-				if !ok {
-					break
-				}
-			}
 
 			// Create iteration context for child nodes
 			var parentPath []int

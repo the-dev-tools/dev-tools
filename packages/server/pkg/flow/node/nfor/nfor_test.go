@@ -3,6 +3,7 @@ package nfor_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"the-dev-tools/server/pkg/flow/node/nfor"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"time"
@@ -596,4 +598,187 @@ func TestForNode_ErrorHandling_NodeStatus(t *testing.T) {
 			t.Errorf("For node should not have error when using IGNORE error handling, got: %v", forStatus.Error)
 		}
 	}
+}
+
+func TestForLoopBreakCondition(t *testing.T) {
+	// Test FOR loop that should break when index > 3 (with 10 total iterations)
+	forNodeID := idwrap.NewNow()
+	mockNodeID := idwrap.NewNow()
+
+	// Create FOR node with break condition "breakLoop.index > 3"
+	condition := mcondition.Condition{
+		Comparisons: mcondition.Comparison{
+			Expression: "breakLoop.index > 3",
+		},
+	}
+	forNode := nfor.NewWithCondition(
+		forNodeID,
+		"breakLoop", 
+		10, // 10 iterations total
+		5*time.Second,
+		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
+		condition,
+	)
+
+	// Create mock node to track how many times it's called
+	var callCount int32
+	mockNode := &mocknode.MockNode{
+		ID:   mockNodeID,
+		Next: []idwrap.IDWrap{},
+		OnRun: func() {
+			atomic.AddInt32(&callCount, 1)
+		},
+	}
+
+	// Set up edges: FOR node -> mock node (loop body)
+	edgeMap := edge.NewEdgesMap([]edge.Edge{
+		{
+			SourceID:      forNodeID,
+			TargetID:      mockNodeID,
+			SourceHandler: edge.HandleLoop,
+		},
+	})
+
+	// Node mapping
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		forNodeID:  forNode,
+		mockNodeID: mockNode,
+	}
+
+	// Track execution statuses
+	executionCount := int32(0)
+	var statuses []runner.FlowNodeStatus
+
+	req := &node.FlowNodeRequest{
+		VarMap:        make(map[string]any),
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgeMap,
+		LogPushFunc: func(status runner.FlowNodeStatus) {
+			atomic.AddInt32(&executionCount, 1)
+			statuses = append(statuses, status)
+			t.Logf("Status: NodeID=%s, Name=%s, State=%v", status.NodeID.String(), status.Name, status.State)
+		},
+		Timeout:          time.Second * 5,
+		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
+	}
+
+	// Execute
+	ctx := context.Background()
+	result := forNode.RunSync(ctx, req)
+
+	// Verify - should complete without error
+	if result.Err != nil {
+		t.Errorf("Expected no error from FOR loop with break condition, got: %v", result.Err)
+	}
+
+	// Should only execute 4 iterations (0, 1, 2, 3) and then break when index = 4 > 3
+	expectedIterations := int32(4)
+	actualCallCount := atomic.LoadInt32(&callCount)
+	if actualCallCount != expectedIterations {
+		t.Errorf("Expected %d loop iterations before break, got: %d", expectedIterations, actualCallCount)
+	}
+
+	t.Logf("Successfully broke loop after %d iterations with condition 'index > 3'", actualCallCount)
+}
+
+func TestForLoopBreakCondition_RealWorldExpression(t *testing.T) {
+	// Test with actual expression format that would come from the UI: "for_2.index > 3"
+	forNodeID := idwrap.NewNow()
+	mockNodeID := idwrap.NewNow()
+
+	// Simulate the parsing logic from rflow.go
+	nodeName := "for_2"
+	expression := "for_2.index > 3"
+	
+	var conditionPath, conditionValue string
+	
+	// Parse the expression (same logic as in rflow.go)
+	if strings.Contains(expression, " > ") {
+		parts := strings.Split(expression, " > ")
+		if len(parts) == 2 {
+			leftSide := strings.TrimSpace(parts[0])   // "for_2.index"
+			rightSide := strings.TrimSpace(parts[1])  // "3"
+			
+			expectedLeft := nodeName + ".index"
+			if leftSide == expectedLeft {
+				conditionPath = leftSide  
+				conditionValue = rightSide 
+			}
+		}
+	}
+	
+	// Verify parsing worked
+	if conditionPath != "for_2.index" || conditionValue != "3" {
+		t.Fatalf("Expression parsing failed - Path: '%s', Value: '%s'", conditionPath, conditionValue)
+	}
+
+	// Create FOR node with parsed condition
+	condition := mcondition.Condition{
+		Comparisons: mcondition.Comparison{
+			Expression: expression, // "for_2.index > 3"
+		},
+	}
+	forNode := nfor.NewWithCondition(
+		forNodeID,
+		nodeName,
+		10, // 10 iterations total
+		5*time.Second,
+		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
+		condition,
+	)
+
+	// Create mock node
+	var callCount int32
+	mockNode := &mocknode.MockNode{
+		ID:   mockNodeID,
+		Next: []idwrap.IDWrap{},
+		OnRun: func() {
+			atomic.AddInt32(&callCount, 1)
+		},
+	}
+
+	// Set up edges
+	edgeMap := edge.NewEdgesMap([]edge.Edge{
+		{
+			SourceID:      forNodeID,
+			TargetID:      mockNodeID,
+			SourceHandler: edge.HandleLoop,
+		},
+	})
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		forNodeID:  forNode,
+		mockNodeID: mockNode,
+	}
+
+	req := &node.FlowNodeRequest{
+		VarMap:        make(map[string]any),
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgeMap,
+		LogPushFunc: func(status runner.FlowNodeStatus) {
+			t.Logf("Status: NodeID=%s, Name=%s, State=%v", status.NodeID.String(), status.Name, status.State)
+		},
+		Timeout:          time.Second * 5,
+		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
+	}
+
+	// Execute
+	ctx := context.Background()
+	result := forNode.RunSync(ctx, req)
+
+	// Verify
+	if result.Err != nil {
+		t.Errorf("Expected no error, got: %v", result.Err)
+	}
+
+	// Should break after 4 iterations (0, 1, 2, 3) when index becomes 4 > 3
+	expectedIterations := int32(4)
+	actualCallCount := atomic.LoadInt32(&callCount)
+	if actualCallCount != expectedIterations {
+		t.Errorf("Expected %d iterations before break, got: %d", expectedIterations, actualCallCount)
+	}
+
+	t.Logf("✅ Real-world expression '%s' correctly broke loop after %d iterations", expression, actualCallCount)
 }

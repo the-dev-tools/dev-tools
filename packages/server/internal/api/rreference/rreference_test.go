@@ -3,6 +3,7 @@ package rreference_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -623,4 +624,292 @@ func TestReferenceValue_WithRequestNodeExecution(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp3)
 	assert.Equal(t, "test-api-key", resp3.Msg.Value)
+}
+
+func TestReferenceCompletion_ForLoopSelfReference(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Initialize all services
+	us := suser.New(queries)
+	ws := sworkspace.New(queries)
+	es := senv.New(queries)
+	vs := svar.New(queries)
+	ers := sexampleresp.New(queries)
+	erhs := sexamplerespheader.New(queries)
+	fs := sflow.New(queries)
+	fns := snode.New(queries)
+	frns := snoderequest.New(queries)
+	flowVariableService := sflowvariable.New(queries)
+	edgeService := sedge.New(queries)
+	nodeExecutionService := snodeexecution.New(queries)
+
+	// Create ReferenceServiceRPC
+	referenceRPC := rreference.NewNodeServiceRPC(
+		db, us, ws, es, vs, ers, erhs, fs, fns, frns,
+		flowVariableService, edgeService, nodeExecutionService,
+	)
+
+	// Create test data
+	workspaceID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	forNodeID := idwrap.NewNow()
+
+	// Create workspace
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID, idwrap.NewNow(), userID, idwrap.NewNow())
+
+	// Create flow
+	err := fs.CreateFlow(ctx, mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	})
+	require.NoError(t, err)
+
+	// Create FOR node
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       forNodeID,
+		FlowID:   flowID,
+		Name:     "for_loop_1",
+		NodeKind: mnnode.NODE_KIND_FOR,
+	})
+	require.NoError(t, err)
+
+	// Test autocomplete for FOR node self-reference
+	req := connect.NewRequest(&referencev1.ReferenceCompletionRequest{
+		NodeId: forNodeID.Bytes(),
+		Start:  "for_loop_1.",
+	})
+
+	response, err := referenceRPC.ReferenceCompletion(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, response)
+
+	// Should find index completion
+	found := false
+	for _, item := range response.Msg.Items {
+		if item.EndToken == "for_loop_1.index" {
+			found = true
+			assert.Equal(t, referencev1.ReferenceKind_REFERENCE_KIND_VALUE, item.Kind)
+			break
+		}
+	}
+	assert.True(t, found, "Should find 'for_loop_1.index' completion for FOR node self-reference")
+
+	t.Logf("Found %d completions for FOR loop self-reference", len(response.Msg.Items))
+	for _, item := range response.Msg.Items {
+		t.Logf("  - %s (kind: %s)", item.EndToken, item.Kind.String())
+	}
+}
+
+func TestReferenceCompletion_ForEachLoopSelfReference(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Initialize all services
+	us := suser.New(queries)
+	ws := sworkspace.New(queries)
+	es := senv.New(queries)
+	vs := svar.New(queries)
+	ers := sexampleresp.New(queries)
+	erhs := sexamplerespheader.New(queries)
+	fs := sflow.New(queries)
+	fns := snode.New(queries)
+	frns := snoderequest.New(queries)
+	flowVariableService := sflowvariable.New(queries)
+	edgeService := sedge.New(queries)
+	nodeExecutionService := snodeexecution.New(queries)
+
+	// Create ReferenceServiceRPC
+	referenceRPC := rreference.NewNodeServiceRPC(
+		db, us, ws, es, vs, ers, erhs, fs, fns, frns,
+		flowVariableService, edgeService, nodeExecutionService,
+	)
+
+	// Create test data
+	workspaceID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	forEachNodeID := idwrap.NewNow()
+
+	// Create workspace
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID, idwrap.NewNow(), userID, idwrap.NewNow())
+
+	// Create flow
+	err := fs.CreateFlow(ctx, mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	})
+	require.NoError(t, err)
+
+	// Create FOREACH node
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       forEachNodeID,
+		FlowID:   flowID,
+		Name:     "foreach_items",
+		NodeKind: mnnode.NODE_KIND_FOR_EACH,
+	})
+	require.NoError(t, err)
+
+	// Test autocomplete for FOREACH node self-reference
+	req := connect.NewRequest(&referencev1.ReferenceCompletionRequest{
+		NodeId: forEachNodeID.Bytes(),
+		Start:  "foreach_items.",
+	})
+
+	response, err := referenceRPC.ReferenceCompletion(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, response)
+
+	// Should find item and key completions
+	foundItem := false
+	foundKey := false
+	for _, item := range response.Msg.Items {
+		if item.EndToken == "foreach_items.item" {
+			foundItem = true
+			assert.Equal(t, referencev1.ReferenceKind_REFERENCE_KIND_VALUE, item.Kind)
+		}
+		if item.EndToken == "foreach_items.key" {
+			foundKey = true
+			assert.Equal(t, referencev1.ReferenceKind_REFERENCE_KIND_VALUE, item.Kind)
+		}
+	}
+	assert.True(t, foundItem, "Should find 'foreach_items.item' completion for FOREACH node self-reference")
+	assert.True(t, foundKey, "Should find 'foreach_items.key' completion for FOREACH node self-reference")
+
+	t.Logf("Found %d completions for FOREACH loop self-reference", len(response.Msg.Items))
+	for _, item := range response.Msg.Items {
+		t.Logf("  - %s (kind: %s)", item.EndToken, item.Kind.String())
+	}
+}
+
+func TestReferenceCompletion_OnlyBeforeNodes(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Initialize all services
+	us := suser.New(queries)
+	ws := sworkspace.New(queries)
+	es := senv.New(queries)
+	vs := svar.New(queries)
+	ers := sexampleresp.New(queries)
+	erhs := sexamplerespheader.New(queries)
+	fs := sflow.New(queries)
+	fns := snode.New(queries)
+	frns := snoderequest.New(queries)
+	flowVariableService := sflowvariable.New(queries)
+	edgeService := sedge.New(queries)
+	nodeExecutionService := snodeexecution.New(queries)
+
+	// Create ReferenceServiceRPC
+	referenceRPC := rreference.NewNodeServiceRPC(
+		db, us, ws, es, vs, ers, erhs, fs, fns, frns,
+		flowVariableService, edgeService, nodeExecutionService,
+	)
+
+	// Create test data
+	workspaceID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	beforeNodeID := idwrap.NewNow()
+	currentNodeID := idwrap.NewNow()
+	afterNodeID := idwrap.NewNow()
+
+	// Create workspace
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID, idwrap.NewNow(), userID, idwrap.NewNow())
+
+	// Create flow
+	err := fs.CreateFlow(ctx, mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	})
+	require.NoError(t, err)
+
+	// Create nodes in sequence: beforeNode -> currentNode -> afterNode
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       beforeNodeID,
+		FlowID:   flowID,
+		Name:     "before_node",
+		NodeKind: mnnode.NODE_KIND_REQUEST,
+	})
+	require.NoError(t, err)
+
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       currentNodeID,
+		FlowID:   flowID,
+		Name:     "current_node",
+		NodeKind: mnnode.NODE_KIND_JS,
+	})
+	require.NoError(t, err)
+
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       afterNodeID,
+		FlowID:   flowID,
+		Name:     "after_node",
+		NodeKind: mnnode.NODE_KIND_REQUEST,
+	})
+	require.NoError(t, err)
+
+	// Create edges: beforeNode -> currentNode -> afterNode
+	err = edgeService.CreateEdge(ctx, edge.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      beforeNodeID,
+		TargetID:      currentNodeID,
+		SourceHandler: edge.HandleUnspecified,
+		Kind:          edge.EdgeKindUnspecified,
+	})
+	require.NoError(t, err)
+
+	err = edgeService.CreateEdge(ctx, edge.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      currentNodeID,
+		TargetID:      afterNodeID,
+		SourceHandler: edge.HandleUnspecified,
+		Kind:          edge.EdgeKindUnspecified,
+	})
+	require.NoError(t, err)
+
+	// Test autocomplete from current_node context
+	req := connect.NewRequest(&referencev1.ReferenceCompletionRequest{
+		NodeId: currentNodeID.Bytes(),
+		Start:  "",
+	})
+
+	response, err := referenceRPC.ReferenceCompletion(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, response)
+
+	// Should find before_node but NOT after_node
+	foundBeforeNode := false
+	foundAfterNode := false
+	for _, item := range response.Msg.Items {
+		if strings.HasPrefix(item.EndToken, "before_node") {
+			foundBeforeNode = true
+		}
+		if strings.HasPrefix(item.EndToken, "after_node") {
+			foundAfterNode = true
+		}
+	}
+
+	assert.True(t, foundBeforeNode, "Should find 'before_node' in autocomplete as it comes before current node")
+	assert.False(t, foundAfterNode, "Should NOT find 'after_node' in autocomplete as it comes after current node")
+
+	t.Logf("Found %d completions for context-aware node filtering", len(response.Msg.Items))
+	for _, item := range response.Msg.Items {
+		t.Logf("  - %s (kind: %s)", item.EndToken, item.Kind.String())
+	}
 }

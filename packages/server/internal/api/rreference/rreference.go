@@ -693,6 +693,30 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			}
 			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
+
+		// Add self-reference for FOR and FOREACH nodes so they can reference their own variables
+		// This enables break conditions like "if foreach_8.index > 8"
+		if nodeIDPtr != nil {
+			currentNode, err := c.fns.GetNode(ctx, *nodeIDPtr)
+			if err == nil {
+				switch currentNode.NodeKind {
+				case mnnode.NODE_KIND_FOR:
+					// FOR nodes can reference their own index
+					nodeVarsMap := map[string]interface{}{
+						"index": 0,
+					}
+					creator.AddWithKey(currentNode.Name, nodeVarsMap)
+
+				case mnnode.NODE_KIND_FOR_EACH:
+					// FOREACH nodes can reference their own item and key
+					nodeVarsMap := map[string]interface{}{
+						"item": nil,
+						"key":  0,
+					}
+					creator.AddWithKey(currentNode.Name, nodeVarsMap)
+				}
+			}
+		}
 	}
 
 	items := creator.FindMatchAndCalcCompletionData(req.Msg.Start)
