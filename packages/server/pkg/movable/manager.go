@@ -92,8 +92,8 @@ func (m *DefaultLinkedListManager) ReorderAfter(ctx context.Context, tx *sql.Tx,
 	}
 
 	// Find target position and calculate new positions
-	var targetPosition int = -1
-	var itemCurrentPosition int = -1
+	var targetPosition = -1
+	var itemCurrentPosition = -1
 	
 	for _, item := range allItems {
 		if item.ID == targetID {
@@ -203,8 +203,8 @@ func (m *DefaultLinkedListManager) ReorderBefore(ctx context.Context, tx *sql.Tx
 	}
 
 	// Find target position and calculate new positions
-	var targetPosition int = -1
-	var itemCurrentPosition int = -1
+	var targetPosition = -1
+	var itemCurrentPosition = -1
 	
 	for _, item := range allItems {
 		if item.ID == targetID {

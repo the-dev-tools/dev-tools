@@ -145,15 +145,15 @@ func (v *MoveValidator) validateParentChange(ctx context.Context, operation Move
 // ValidateListTypeCompatibility checks if an item can participate in a specific list type
 func (v *MoveValidator) ValidateListTypeCompatibility(itemType string, listType ListType) error {
 	// Define compatibility rules based on item type and list type
-	switch listType.(type) {
+	switch listType := listType.(type) {
 	case CollectionListType:
-		return v.validateCollectionListTypeCompatibility(itemType, listType.(CollectionListType))
+		return v.validateCollectionListTypeCompatibility(itemType, listType)
 	case RequestListType:
-		return v.validateRequestListTypeCompatibility(itemType, listType.(RequestListType))
+		return v.validateRequestListTypeCompatibility(itemType, listType)
 	case FlowListType:
-		return v.validateFlowListTypeCompatibility(itemType, listType.(FlowListType))
+		return v.validateFlowListTypeCompatibility(itemType, listType)
 	case WorkspaceListType:
-		return v.validateWorkspaceListTypeCompatibility(itemType, listType.(WorkspaceListType))
+		return v.validateWorkspaceListTypeCompatibility(itemType, listType)
 	default:
 		return ErrIncompatibleType
 	}
