@@ -66,22 +66,6 @@ func SerializeNodeExecutionModelToRPCListItem(ne *mnodeexecution.NodeExecution) 
 		rpc.Error = ne.Error
 	}
 
-	// Decompress and convert input JSON to structpb.Value
-	if inputJSON, err := ne.GetInputJSON(); err == nil && inputJSON != nil {
-		var inputValue interface{}
-		if err := json.Unmarshal(inputJSON, &inputValue); err == nil {
-			rpc.Input, _ = structpb.NewValue(inputValue)
-		}
-	}
-
-	// Decompress and convert output JSON to structpb.Value
-	if outputJSON, err := ne.GetOutputJSON(); err == nil && outputJSON != nil {
-		var outputValue interface{}
-		if err := json.Unmarshal(outputJSON, &outputValue); err == nil {
-			rpc.Output, _ = structpb.NewValue(outputValue)
-		}
-	}
-
 	// Convert CompletedAt timestamp
 	if ne.CompletedAt != nil {
 		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
