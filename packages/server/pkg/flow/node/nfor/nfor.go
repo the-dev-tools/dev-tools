@@ -69,11 +69,11 @@ func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRe
 	if nr.Condition.Comparisons.Expression == "" {
 		return false, nil // No condition, don't break
 	}
-	
+
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
 	exprEnv := expression.NewEnv(varMapCopy)
-	
+
 	// Normalize the condition expression
 	conditionExpr := nr.Condition.Comparisons.Expression
 	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
@@ -81,7 +81,7 @@ func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRe
 	if err != nil {
 		return false, fmt.Errorf("failed to normalize break condition '%s': %w", conditionExpr, err)
 	}
-	
+
 	// Evaluate the condition expression
 	var shouldBreak bool
 	if req.VariableTracker != nil {
@@ -92,7 +92,7 @@ func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRe
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate break condition '%s': %w", normalizedExpression, err)
 	}
-	
+
 	return shouldBreak, nil
 }
 
@@ -152,13 +152,13 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				"index": i,
 			}
 			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
-			
+
 			req.LogPushFunc(runner.FlowNodeStatus{
-				ExecutionID: executionID, // Store this ID for update
-				NodeID:      nr.FlowNodeID,
-				Name:        executionName,
-				State:       mnnode.NODE_STATE_RUNNING,
-				OutputData:  outputData,
+				ExecutionID:      executionID, // Store this ID for update
+				NodeID:           nr.FlowNodeID,
+				Name:             executionName,
+				State:            mnnode.NODE_STATE_RUNNING,
+				OutputData:       outputData,
 				IterationContext: iterContext,
 			})
 		}
@@ -176,17 +176,17 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			}
 			childIterationContext := &runner.IterationContext{
 				IterationPath:  append(parentPath, int(i)),
-				ExecutionIndex: int(i), // Use iteration index to differentiate executions
+				ExecutionIndex: int(i),                             // Use iteration index to differentiate executions
 				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
 			}
 
 			// Generate unique execution ID for child node
 			childExecutionID := idwrap.NewNow()
-			
+
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
 			childReq.IterationContext = childIterationContext
-			childReq.ExecutionID = childExecutionID  // Set unique execution ID
+			childReq.ExecutionID = childExecutionID // Set unique execution ID
 
 			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, &childReq, req.LogPushFunc)
 			if err != nil {
@@ -201,21 +201,21 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			if iterationError != nil {
 				// Update to FAILURE
 				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID: executionID, // Same ID = UPDATE
-					NodeID:      nr.FlowNodeID,
-					Name:        executionName,
-					State:       mnnode.NODE_STATE_FAILURE,
-					Error:       iterationError,
+					ExecutionID:      executionID, // Same ID = UPDATE
+					NodeID:           nr.FlowNodeID,
+					Name:             executionName,
+					State:            mnnode.NODE_STATE_FAILURE,
+					Error:            iterationError,
 					IterationContext: iterContext,
 				})
 			} else {
 				// Update to SUCCESS (iteration completed successfully)
 				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID: executionID, // Same ID = UPDATE
-					NodeID:      nr.FlowNodeID,
-					Name:        executionName,
-					State:       mnnode.NODE_STATE_SUCCESS,
-					OutputData:  map[string]any{"index": i, "completed": true},
+					ExecutionID:      executionID, // Same ID = UPDATE
+					NodeID:           nr.FlowNodeID,
+					Name:             executionName,
+					State:            mnnode.NODE_STATE_SUCCESS,
+					OutputData:       map[string]any{"index": i, "completed": true},
 					IterationContext: iterContext,
 				})
 			}
@@ -228,7 +228,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				continue // Continue to next iteration
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
 				failedAtIteration = i // Track where we stopped
-				goto Exit // Stop loop but don't propagate error
+				goto Exit             // Stop loop but don't propagate error
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 				loopError = iterationError
 				failedAtIteration = i
@@ -339,13 +339,13 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				"index": i,
 			}
 			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
-			
+
 			req.LogPushFunc(runner.FlowNodeStatus{
-				ExecutionID: executionID, // Store this ID for update
-				NodeID:      nr.FlowNodeID,
-				Name:        executionName,
-				State:       mnnode.NODE_STATE_RUNNING,
-				OutputData:  outputData,
+				ExecutionID:      executionID, // Store this ID for update
+				NodeID:           nr.FlowNodeID,
+				Name:             executionName,
+				State:            mnnode.NODE_STATE_RUNNING,
+				OutputData:       outputData,
 				IterationContext: iterContext,
 			})
 		}
@@ -363,17 +363,17 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			}
 			childIterationContext := &runner.IterationContext{
 				IterationPath:  append(parentPath, int(i)),
-				ExecutionIndex: int(i), // Use iteration index to differentiate executions
+				ExecutionIndex: int(i),                             // Use iteration index to differentiate executions
 				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
 			}
 
 			// Generate unique execution ID for child node
 			childExecutionID := idwrap.NewNow()
-			
+
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
 			childReq.IterationContext = childIterationContext
-			childReq.ExecutionID = childExecutionID  // Set unique execution ID
+			childReq.ExecutionID = childExecutionID // Set unique execution ID
 
 			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, &childReq, req.LogPushFunc)
 			if err != nil {
@@ -388,21 +388,21 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			if iterationError != nil {
 				// Update to FAILURE
 				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID: executionID, // Same ID = UPDATE
-					NodeID:      nr.FlowNodeID,
-					Name:        executionName,
-					State:       mnnode.NODE_STATE_FAILURE,
-					Error:       iterationError,
+					ExecutionID:      executionID, // Same ID = UPDATE
+					NodeID:           nr.FlowNodeID,
+					Name:             executionName,
+					State:            mnnode.NODE_STATE_FAILURE,
+					Error:            iterationError,
 					IterationContext: iterContext,
 				})
 			} else {
 				// Update to SUCCESS
 				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID: executionID, // Same ID = UPDATE
-					NodeID:      nr.FlowNodeID,
-					Name:        executionName,
-					State:       mnnode.NODE_STATE_SUCCESS,
-					OutputData:  map[string]interface{}{"index": i, "completed": true},
+					ExecutionID:      executionID, // Same ID = UPDATE
+					NodeID:           nr.FlowNodeID,
+					Name:             executionName,
+					State:            mnnode.NODE_STATE_SUCCESS,
+					OutputData:       map[string]interface{}{"index": i, "completed": true},
 					IterationContext: iterContext,
 				})
 			}
@@ -415,7 +415,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				continue // Continue to next iteration
 			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
 				failedAtIteration = i // Track where we stopped
-				goto Exit // Stop loop but don't propagate error
+				goto Exit             // Stop loop but don't propagate error
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 				loopError = iterationError
 				failedAtIteration = i

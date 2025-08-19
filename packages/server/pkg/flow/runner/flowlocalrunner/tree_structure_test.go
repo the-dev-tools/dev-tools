@@ -15,7 +15,7 @@ import (
 
 func TestTreeStructuredInputOutput(t *testing.T) {
 	nodeID := idwrap.NewNow()
-	
+
 	// Create a test node that reads from one source and writes to another
 	testNode := NewTestNode(nodeID, "treeTestNode", []idwrap.IDWrap{}, func(req *node.FlowNodeRequest) error {
 		if req.VariableTracker != nil {
@@ -24,7 +24,7 @@ func TestTreeStructuredInputOutput(t *testing.T) {
 			if err != nil && err != node.ErrVarKeyNotFound && err != node.ErrVarNodeNotFound {
 				return err
 			}
-			
+
 			// If we got the response data, try to access the nested fields
 			if responseData != nil {
 				if responseMap, ok := responseData.(map[string]interface{}); ok {
@@ -38,18 +38,18 @@ func TestTreeStructuredInputOutput(t *testing.T) {
 					}
 				}
 			}
-			
+
 			// Write some response data
 			err = node.WriteNodeVarWithTracking(req, "treeTestNode", "request.method", "POST", req.VariableTracker)
 			if err != nil {
 				return err
 			}
-			
+
 			err = node.WriteNodeVarWithTracking(req, "treeTestNode", "request.body", `{"test": "data"}`, req.VariableTracker)
 			if err != nil {
 				return err
 			}
-			
+
 			err = node.WriteNodeVarWithTracking(req, "treeTestNode", "response.status", 201, req.VariableTracker)
 			if err != nil {
 				return err
@@ -113,7 +113,7 @@ func TestTreeStructuredInputOutput(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(capturedStatus.InputData, expectedInputData) {
-		t.Errorf("Input data tree structure incorrect.\nExpected: %+v\nGot: %+v", 
+		t.Errorf("Input data tree structure incorrect.\nExpected: %+v\nGot: %+v",
 			expectedInputData, capturedStatus.InputData)
 	}
 
@@ -134,7 +134,7 @@ func TestTreeStructuredInputOutput(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(capturedStatus.OutputData, expectedOutputData) {
-		t.Errorf("Output data tree structure incorrect.\nExpected: %+v\nGot: %+v", 
+		t.Errorf("Output data tree structure incorrect.\nExpected: %+v\nGot: %+v",
 			expectedOutputData, capturedStatus.OutputData)
 	}
 
@@ -146,7 +146,7 @@ func TestTreeStructuredInputOutput(t *testing.T) {
 func TestTreeStructureWithoutVariablesWrapper(t *testing.T) {
 	// This test ensures we no longer have the confusing "variables" wrapper
 	nodeID := idwrap.NewNow()
-	
+
 	testNode := NewTestNode(nodeID, "noWrapperNode", []idwrap.IDWrap{}, func(req *node.FlowNodeRequest) error {
 		if req.VariableTracker != nil {
 			// Read a simple value
@@ -199,7 +199,7 @@ func TestTreeStructureWithoutVariablesWrapper(t *testing.T) {
 		if _, hasVariables := inputData["variables"]; hasVariables {
 			t.Error("Found unwanted 'variables' wrapper in input data")
 		}
-		
+
 		// Should have direct access to the data structure
 		if input, hasInput := inputData["input"]; hasInput {
 			if inputMap, ok := input.(map[string]any); ok {

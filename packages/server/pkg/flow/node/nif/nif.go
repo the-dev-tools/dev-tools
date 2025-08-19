@@ -47,7 +47,7 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	}
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
-	
+
 	exprEnv := expression.NewEnv(varMapCopy)
 
 	// Normalize the condition expression
@@ -106,7 +106,7 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
-	
+
 	exprEnv := expression.NewEnv(varMapCopy)
 
 	// Normalize the condition expression

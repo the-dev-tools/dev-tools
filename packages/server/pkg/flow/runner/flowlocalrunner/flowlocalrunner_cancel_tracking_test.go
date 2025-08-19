@@ -16,16 +16,16 @@ import (
 
 // CancelableTestNode is a test node that supports controlled cancellation scenarios
 type CancelableTestNode struct {
-	ID              idwrap.IDWrap
-	Name            string
-	NextIDs         []idwrap.IDWrap
-	DelayBeforeRead time.Duration
-	DelayAfterRead  time.Duration
+	ID               idwrap.IDWrap
+	Name             string
+	NextIDs          []idwrap.IDWrap
+	DelayBeforeRead  time.Duration
+	DelayAfterRead   time.Duration
 	DelayBeforeWrite time.Duration
-	DelayAfterWrite time.Duration
-	ReadKeys        []string
-	WriteData       map[string]interface{}
-	ShouldFail      bool
+	DelayAfterWrite  time.Duration
+	ReadKeys         []string
+	WriteData        map[string]interface{}
+	ShouldFail       bool
 }
 
 func NewCancelableTestNode(id idwrap.IDWrap, name string, nextIDs []idwrap.IDWrap) *CancelableTestNode {
@@ -191,7 +191,7 @@ func (cn *CancelableTestNode) RunAsync(ctx context.Context, req *node.FlowNodeRe
 func TestCanceledNode_NoDataReadOrWritten(t *testing.T) {
 	// Test case: Node canceled before any reads/writes → should show empty tracking
 	nodeID := idwrap.NewNow()
-	
+
 	// Create a node that delays before doing anything
 	testNode := NewCancelableTestNode(nodeID, "testNode", []idwrap.IDWrap{}).
 		WithDelays(100*time.Millisecond, 0, 0, 0).
@@ -257,7 +257,7 @@ func TestCanceledNode_NoDataReadOrWritten(t *testing.T) {
 func TestCanceledNode_PartialReadsCompleted(t *testing.T) {
 	// Test case: Node canceled after partial reads → should show only completed reads
 	nodeID := idwrap.NewNow()
-	
+
 	// Set up some initial data to read
 	initialData := map[string]any{
 		"header1": "value1",
@@ -353,7 +353,7 @@ func TestCanceledNode_PartialReadsCompleted(t *testing.T) {
 func TestCanceledNode_PartialWritesCompleted(t *testing.T) {
 	// Test case: Node canceled after partial writes → should show completed reads + writes
 	nodeID := idwrap.NewNow()
-	
+
 	initialData := map[string]any{
 		"input1": "test_input",
 		"input2": 42,
@@ -446,19 +446,19 @@ func TestCanceledNode_ConcurrentAccess(t *testing.T) {
 	numNodes := 5
 	nodeIDs := make([]idwrap.IDWrap, numNodes)
 	nodeMap := make(map[idwrap.IDWrap]node.FlowNode)
-	
+
 	for i := 0; i < numNodes; i++ {
 		nodeIDs[i] = idwrap.NewNow()
-		
+
 		// Each node reads shared data and writes unique data
 		testNode := NewCancelableTestNode(nodeIDs[i], fmt.Sprintf("node%d", i), []idwrap.IDWrap{}).
 			WithReads("shared_input").
 			WithWrites(map[string]interface{}{
 				fmt.Sprintf("result_%d", i): fmt.Sprintf("output_%d", i),
-				"timestamp": time.Now().Unix(),
+				"timestamp":                 time.Now().Unix(),
 			}).
 			WithDelays(10*time.Millisecond, 0, 10*time.Millisecond, 50*time.Millisecond)
-		
+
 		nodeMap[nodeIDs[i]] = testNode
 	}
 
@@ -506,7 +506,7 @@ func TestCanceledNode_ConcurrentAccess(t *testing.T) {
 	for _, status := range statuses {
 		if status.State == mnnode.NODE_STATE_CANCELED {
 			canceledCount++
-			
+
 			// Each canceled node should have input data from reads that completed
 			if status.InputData != nil {
 				inputMap, ok := status.InputData.(map[string]any)
@@ -520,7 +520,7 @@ func TestCanceledNode_ConcurrentAccess(t *testing.T) {
 					}
 				}
 			}
-			
+
 			// Some nodes might have output data if they completed writes before cancellation
 			if status.OutputData != nil {
 				outputMap, ok := status.OutputData.(map[string]any)
@@ -542,12 +542,12 @@ func TestCanceledNode_ConcurrentAccess(t *testing.T) {
 func TestCanceledNode_TimeoutVsManualCancel(t *testing.T) {
 	// Test case: Distinguish between timeout-based and manual cancellation
 	tests := []struct {
-		name          string
-		useTimeout    bool
-		cancelManual  bool
-		expectCancel  bool
-		timeoutDur    time.Duration
-		nodeDelay     time.Duration
+		name         string
+		useTimeout   bool
+		cancelManual bool
+		expectCancel bool
+		timeoutDur   time.Duration
+		nodeDelay    time.Duration
 	}{
 		{
 			name:         "Manual cancellation",
@@ -557,7 +557,7 @@ func TestCanceledNode_TimeoutVsManualCancel(t *testing.T) {
 			nodeDelay:    100 * time.Millisecond,
 		},
 		{
-			name:         "Timeout cancellation", 
+			name:         "Timeout cancellation",
 			useTimeout:   true,
 			cancelManual: false,
 			expectCancel: true,
@@ -576,7 +576,7 @@ func TestCanceledNode_TimeoutVsManualCancel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			nodeID := idwrap.NewNow()
-			
+
 			testNode := NewCancelableTestNode(nodeID, "testNode", []idwrap.IDWrap{}).
 				WithReads("input").
 				WithWrites(map[string]interface{}{"result": "success"}).
@@ -633,23 +633,23 @@ func TestCanceledNode_TimeoutVsManualCancel(t *testing.T) {
 				if err == nil {
 					t.Error("Expected cancellation error")
 				}
-				
+
 				// Should have canceled status with tracked data
 				var foundCanceled bool
 				for _, status := range statuses {
 					if status.State == mnnode.NODE_STATE_CANCELED {
 						foundCanceled = true
-						
+
 						// Should have input data from reads
 						if status.InputData == nil {
 							t.Error("Expected input data for canceled node")
 						}
-						
+
 						// Might have output data if writes completed before cancellation
 						break
 					}
 				}
-				
+
 				if !foundCanceled {
 					t.Error("Expected to find canceled node status")
 				}
@@ -657,7 +657,7 @@ func TestCanceledNode_TimeoutVsManualCancel(t *testing.T) {
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}
-				
+
 				// Should have success status
 				var foundSuccess bool
 				for _, status := range statuses {
@@ -666,7 +666,7 @@ func TestCanceledNode_TimeoutVsManualCancel(t *testing.T) {
 						break
 					}
 				}
-				
+
 				if !foundSuccess {
 					t.Error("Expected to find success node status")
 				}
@@ -678,7 +678,7 @@ func TestCanceledNode_TimeoutVsManualCancel(t *testing.T) {
 func TestCanceledNode_AsyncExecution(t *testing.T) {
 	// Test case: Verify cancellation tracking works with async execution
 	nodeID := idwrap.NewNow()
-	
+
 	testNode := NewCancelableTestNode(nodeID, "asyncNode", []idwrap.IDWrap{}).
 		WithReads("async_input").
 		WithWrites(map[string]interface{}{"async_result": "processing"}).
@@ -731,22 +731,22 @@ func TestCanceledNode_AsyncExecution(t *testing.T) {
 	}
 
 	// Output data might be present if writes completed before timeout
-	t.Logf("Async canceled node - InputData: %v, OutputData: %v", 
+	t.Logf("Async canceled node - InputData: %v, OutputData: %v",
 		canceledStatus.InputData, canceledStatus.OutputData)
 }
 
 func TestCanceledNode_HeaderVsBodyDataScenario(t *testing.T) {
 	// Test case: Simulate real scenario where headers are read but body processing is canceled
 	nodeID := idwrap.NewNow()
-	
+
 	// Simulate reading headers (fast) then processing body (slow)
 	testNode := NewCancelableTestNode(nodeID, "httpNode", []idwrap.IDWrap{}).
-		WithReads("headers", "content-type", "status-code"). // Fast header reads
+		WithReads("headers", "content-type", "status-code").       // Fast header reads
 		WithDelays(0, 5*time.Millisecond, 50*time.Millisecond, 0). // Delay before body processing
 		WithWrites(map[string]interface{}{
-			"parsed_body":    "processed_content",
-			"response_time":  123,
-			"processed_at":   time.Now(),
+			"parsed_body":   "processed_content",
+			"response_time": 123,
+			"processed_at":  time.Now(),
 		})
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
@@ -811,7 +811,7 @@ func TestCanceledNode_HeaderVsBodyDataScenario(t *testing.T) {
 					if len(variablesMap) == 0 {
 						t.Error("Expected header variables to be tracked")
 					}
-					
+
 					expectedHeaders := []string{"headers", "content-type", "status-code"}
 					for _, header := range expectedHeaders {
 						if _, exists := variablesMap[header]; !exists {
@@ -837,9 +837,9 @@ func TestCanceledNode_HeaderVsBodyDataScenario(t *testing.T) {
 func TestCanceledNode_RaceConditionSafety(t *testing.T) {
 	// Test case: Ensure thread safety during cancellation tracking capture
 	nodeID := idwrap.NewNow()
-	
+
 	var accessCount int64
-	
+
 	testNode := NewCancelableTestNode(nodeID, "raceNode", []idwrap.IDWrap{}).
 		WithReads("shared_resource").
 		WithDelays(0, 20*time.Millisecond, 0, 20*time.Millisecond).
@@ -877,16 +877,16 @@ func TestCanceledNode_RaceConditionSafety(t *testing.T) {
 	// Run multiple concurrent executions with rapid cancellation
 	numGoroutines := 10
 	var wg sync.WaitGroup
-	
+
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func(iteration int) {
 			defer wg.Done()
-			
-			ctx, cancel := context.WithTimeout(context.Background(), 
+
+			ctx, cancel := context.WithTimeout(context.Background(),
 				time.Duration(10+iteration)*time.Millisecond)
 			defer cancel()
-			
+
 			_ = RunNodeSync(ctx, nodeID, req, statusFunc)
 			atomic.AddInt64(&accessCount, 1)
 		}(i)
@@ -902,14 +902,14 @@ func TestCanceledNode_RaceConditionSafety(t *testing.T) {
 	for _, status := range statuses {
 		if status.State == mnnode.NODE_STATE_CANCELED {
 			cancelCount++
-			
+
 			// Verify data consistency - no nil pointer panics or corrupted data
 			if status.InputData != nil {
 				if _, ok := status.InputData.(map[string]any); !ok {
 					t.Errorf("InputData type corruption detected: %T", status.InputData)
 				}
 			}
-			
+
 			if status.OutputData != nil {
 				if _, ok := status.OutputData.(map[string]any); !ok {
 					t.Errorf("OutputData type corruption detected: %T", status.OutputData)

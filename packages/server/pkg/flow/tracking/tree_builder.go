@@ -10,13 +10,13 @@ func BuildTree(flatMap map[string]any) map[string]any {
 	if len(flatMap) == 0 {
 		return make(map[string]any)
 	}
-	
+
 	result := make(map[string]any)
-	
+
 	for key, value := range flatMap {
 		setNestedValue(result, key, value)
 	}
-	
+
 	return result
 }
 
@@ -26,16 +26,16 @@ func setNestedValue(target map[string]any, path string, value any) {
 	if path == "" {
 		return
 	}
-	
+
 	// Remove leading/trailing spaces from path
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return
 	}
-	
+
 	// Split the path by dots
 	parts := strings.Split(path, ".")
-	
+
 	// Navigate/create the nested structure
 	current := target
 	for i, part := range parts {
@@ -44,18 +44,18 @@ func setNestedValue(target map[string]any, path string, value any) {
 		if part == "" {
 			continue
 		}
-		
+
 		// If this is the last part, set the value
 		if i == len(parts)-1 {
 			current[part] = deepCopyValue(value)
 			return
 		}
-		
+
 		// Create or navigate to the next level
 		if _, exists := current[part]; !exists {
 			current[part] = make(map[string]any)
 		}
-		
+
 		// Type assertion to continue navigation
 		if nextLevel, ok := current[part].(map[string]any); ok {
 			current = nextLevel
@@ -112,9 +112,9 @@ func MergeTreesPreferFirst(first, second map[string]any) map[string]any {
 	if len(second) == 0 {
 		return deepCopyTree(first)
 	}
-	
+
 	result := deepCopyTree(first)
-	
+
 	for key, value := range second {
 		if _, exists := result[key]; !exists {
 			result[key] = deepCopyValue(value)
@@ -129,7 +129,7 @@ func MergeTreesPreferFirst(first, second map[string]any) map[string]any {
 			// If first exists and is not a map, keep first (prefer first)
 		}
 	}
-	
+
 	return result
 }
 
@@ -138,7 +138,7 @@ func deepCopyTree(tree map[string]any) map[string]any {
 	if tree == nil {
 		return make(map[string]any)
 	}
-	
+
 	result := make(map[string]any, len(tree))
 	for k, v := range tree {
 		result[k] = deepCopyValue(v)

@@ -19,12 +19,12 @@ func (te *TrackingEnv) Get(key string) (any, bool) {
 	if te.originalEnv == nil {
 		return nil, false
 	}
-	
+
 	value, exists := te.originalEnv[key]
 	if exists && te.tracker != nil {
 		te.tracker.TrackRead(key, value)
 	}
-	
+
 	return value, exists
 }
 
@@ -43,7 +43,7 @@ func (te *TrackingEnv) TrackAllVariables() {
 	if te.tracker == nil || te.originalEnv == nil {
 		return
 	}
-	
+
 	for key, value := range te.originalEnv {
 		te.tracker.TrackRead(key, value)
 	}

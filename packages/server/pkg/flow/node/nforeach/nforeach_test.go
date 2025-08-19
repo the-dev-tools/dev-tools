@@ -50,7 +50,6 @@ func TestForEachNode_RunSyncArray(t *testing.T) {
 		},
 	}
 
-
 	nodeForEach := nforeach.New(id, "test", "var.array", timeOut, condition, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 	ctx := context.Background()
 
@@ -126,7 +125,6 @@ func TestForEachNode_RunAsyncArray(t *testing.T) {
 			Expression: "var.test == 'test'",
 		},
 	}
-
 
 	nodeForEach := nforeach.New(id, "test", "var.array", timeOut, condition, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 
@@ -312,11 +310,10 @@ func TestForEachNode_RunAsync_Map(t *testing.T) {
 	resultChan := make(chan node.FlowNodeResult, 1)
 	go func() {
 		nodeForEach.RunAsync(ctx, req, resultChan)
-		wg.Wait() // Ensure all iterations complete before closing the channel
-		close(resultChan)
 	}()
 
 	result := <-resultChan
+	wg.Wait() // Ensure all iterations complete
 	if result.Err != nil {
 		t.Errorf("Expected err to be nil, but got %v", result.Err)
 	}

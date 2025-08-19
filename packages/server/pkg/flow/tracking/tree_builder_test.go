@@ -10,7 +10,7 @@ func TestBuildTree_SimpleNesting(t *testing.T) {
 		"request_0.response.body.token": "abc123",
 		"request_0.response.status":     200,
 	}
-	
+
 	expected := map[string]any{
 		"request_0": map[string]any{
 			"response": map[string]any{
@@ -21,9 +21,9 @@ func TestBuildTree_SimpleNesting(t *testing.T) {
 			},
 		},
 	}
-	
+
 	result := BuildTree(flatMap)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %+v, got %+v", expected, result)
 	}
@@ -35,7 +35,7 @@ func TestBuildTree_MultipleRoots(t *testing.T) {
 		"request_1.response.body.data":  "data456",
 		"config.timeout":                30,
 	}
-	
+
 	expected := map[string]any{
 		"request_0": map[string]any{
 			"response": map[string]any{
@@ -55,9 +55,9 @@ func TestBuildTree_MultipleRoots(t *testing.T) {
 			"timeout": 30,
 		},
 	}
-	
+
 	result := BuildTree(flatMap)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %+v, got %+v", expected, result)
 	}
@@ -68,12 +68,12 @@ func TestBuildTree_ComplexValues(t *testing.T) {
 		"nested": "value",
 		"array":  []int{1, 2, 3},
 	}
-	
+
 	flatMap := map[string]any{
 		"request_0.response.body":    complexValue,
 		"request_0.response.headers": map[string]string{"Content-Type": "application/json"},
 	}
-	
+
 	expected := map[string]any{
 		"request_0": map[string]any{
 			"response": map[string]any{
@@ -82,9 +82,9 @@ func TestBuildTree_ComplexValues(t *testing.T) {
 			},
 		},
 	}
-	
+
 	result := BuildTree(flatMap)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %+v, got %+v", expected, result)
 	}
@@ -96,7 +96,7 @@ func TestBuildTree_WithSpaces(t *testing.T) {
 		" request_0.response.body.token ": "abc123",
 		"request_0.response.status":       200,
 	}
-	
+
 	expected := map[string]any{
 		"request_0": map[string]any{
 			"response": map[string]any{
@@ -107,9 +107,9 @@ func TestBuildTree_WithSpaces(t *testing.T) {
 			},
 		},
 	}
-	
+
 	result := BuildTree(flatMap)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %+v, got %+v", expected, result)
 	}
@@ -117,11 +117,11 @@ func TestBuildTree_WithSpaces(t *testing.T) {
 
 func TestBuildTree_EmptyInput(t *testing.T) {
 	flatMap := map[string]any{}
-	
+
 	expected := map[string]any{}
-	
+
 	result := BuildTree(flatMap)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %+v, got %+v", expected, result)
 	}
@@ -131,13 +131,13 @@ func TestBuildTree_SingleKey(t *testing.T) {
 	flatMap := map[string]any{
 		"simple": "value",
 	}
-	
+
 	expected := map[string]any{
 		"simple": "value",
 	}
-	
+
 	result := BuildTree(flatMap)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %+v, got %+v", expected, result)
 	}
@@ -147,7 +147,7 @@ func TestBuildTree_DeepNesting(t *testing.T) {
 	flatMap := map[string]any{
 		"a.b.c.d.e.f": "deep_value",
 	}
-	
+
 	expected := map[string]any{
 		"a": map[string]any{
 			"b": map[string]any{
@@ -161,9 +161,9 @@ func TestBuildTree_DeepNesting(t *testing.T) {
 			},
 		},
 	}
-	
+
 	result := BuildTree(flatMap)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %+v, got %+v", expected, result)
 	}
@@ -177,7 +177,7 @@ func TestMergeTreesPreferFirst(t *testing.T) {
 		},
 		"only_first": "value1",
 	}
-	
+
 	second := map[string]any{
 		"a": map[string]any{
 			"b": "second_value", // Should be ignored (prefer first)
@@ -185,19 +185,19 @@ func TestMergeTreesPreferFirst(t *testing.T) {
 		},
 		"only_second": "value2",
 	}
-	
+
 	expected := map[string]any{
 		"a": map[string]any{
-			"b": "first_value",   // Kept from first
-			"c": "only_in_first", // Kept from first
+			"b": "first_value",    // Kept from first
+			"c": "only_in_first",  // Kept from first
 			"d": "only_in_second", // Added from second
 		},
 		"only_first":  "value1", // Kept from first
 		"only_second": "value2", // Added from second
 	}
-	
+
 	result := MergeTreesPreferFirst(first, second)
-	
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %+v, got %+v", expected, result)
 	}
@@ -209,16 +209,16 @@ func TestDeepCopyValue_PreventsMutation(t *testing.T) {
 			"value": "original",
 		},
 	}
-	
+
 	copied := deepCopyValue(original)
-	
+
 	// Modify the copied value
 	if copiedMap, ok := copied.(map[string]any); ok {
 		if nestedMap, ok := copiedMap["nested"].(map[string]any); ok {
 			nestedMap["value"] = "modified"
 		}
 	}
-	
+
 	// Original should be unchanged
 	if nestedMap, ok := original["nested"].(map[string]any); ok {
 		if nestedMap["value"] != "original" {

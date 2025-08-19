@@ -979,7 +979,7 @@ func TestDeltaEdgeCases(t *testing.T) {
 		unrelatedExampleID := idwrap.NewNow()
 		unrelatedExample := &mitemapiexample.ItemApiExample{
 			ID:              unrelatedExampleID,
-			ItemApiID:       originExample.ItemApiID, // Same item as origin
+			ItemApiID:       originExample.ItemApiID,    // Same item as origin
 			CollectionID:    originExample.CollectionID, // Same collection
 			Name:            "unrelated-example",
 			VersionParentID: nil, // Different origin example

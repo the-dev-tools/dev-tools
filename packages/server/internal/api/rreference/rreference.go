@@ -283,7 +283,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 					break
 				}
 			}
-			
+
 			// If we found a non-iteration execution, use it
 			if latestExecution != nil {
 				// Decompress data if needed
@@ -333,8 +333,8 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 		case mnnode.NODE_KIND_FOR_EACH:
 			// For foreach loops, they write 'item' and 'key' variables
 			nodeVarsMap := map[string]interface{}{
-				"item": nil,  // Can be any type from the iterated collection
-				"key":  0,    // Index for arrays, string key for maps
+				"item": nil, // Can be any type from the iterated collection
+				"key":  0,   // Index for arrays, string key for maps
 			}
 			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
 			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
@@ -662,8 +662,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			case mnnode.NODE_KIND_FOR_EACH:
 				// For foreach loops, they write 'item' and 'key' variables
 				nodeVarsMap := map[string]interface{}{
-					"item": nil,  // Can be any type from the iterated collection
-					"key":  0,    // Index for arrays, string key for maps
+					"item": nil, // Can be any type from the iterated collection
+					"key":  0,   // Index for arrays, string key for maps
 				}
 				creator.AddWithKey(node.Name, nodeVarsMap)
 
@@ -939,8 +939,8 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			case mnnode.NODE_KIND_FOR_EACH:
 				// For foreach loops, they write 'item' and 'key' variables
 				nodeVarsMap := map[string]interface{}{
-					"item": nil,  // Can be any type from the iterated collection
-					"key":  0,    // Index for arrays, string key for maps
+					"item": nil, // Can be any type from the iterated collection
+					"key":  0,   // Index for arrays, string key for maps
 				}
 				lookup.AddWithKey(node.Name, nodeVarsMap)
 

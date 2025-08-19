@@ -886,7 +886,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	for _, forNode := range forNodes {
 		name := nodeNameMap[forNode.FlowNodeID]
-		
+
 		// Use the condition directly - no need to parse it here
 		if forNode.Condition.Comparisons.Expression != "" {
 			log.Printf("📝 DEBUG: Creating FOR node '%s' with condition: '%s'", name, forNode.Condition.Comparisons.Expression)

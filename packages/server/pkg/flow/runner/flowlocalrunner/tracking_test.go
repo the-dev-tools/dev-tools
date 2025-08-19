@@ -56,14 +56,14 @@ func (tn *TestNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, res
 func TestRunNodeSync_WithTracking(t *testing.T) {
 	// Create a simple test node that demonstrates tracking
 	nodeID := idwrap.NewNow()
-	
+
 	testNode := NewTestNode(nodeID, "testNode", []idwrap.IDWrap{}, func(req *node.FlowNodeRequest) error {
 		// Test that the tracker was initialized
 		if req.VariableTracker == nil {
 			t.Error("Expected VariableTracker to be initialized, but it was nil")
 			return nil
 		}
-		
+
 		// Write some test data using tracking
 		err := node.WriteNodeVarWithTracking(req, "testNode", "result", "success", req.VariableTracker)
 		if err != nil {
@@ -131,7 +131,7 @@ func TestRunNodeSync_WithTracking(t *testing.T) {
 func TestRunNodeAsync_WithTracking(t *testing.T) {
 	// Create a mock node that writes output
 	nodeID := idwrap.NewNow()
-	
+
 	testNode := NewTestNode(nodeID, "asyncTestNode", []idwrap.IDWrap{}, func(req *node.FlowNodeRequest) error {
 		if req.VariableTracker != nil {
 			// Write some test data using tracking
@@ -171,10 +171,10 @@ func TestRunNodeAsync_WithTracking(t *testing.T) {
 		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 	}
 
-	// Run the single node asynchronously  
+	// Run the single node asynchronously
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	err := RunNodeASync(ctx, nodeID, req, statusFunc)
 	if err != nil {
 		t.Fatalf("RunNodeAsync failed: %v", err)
@@ -330,7 +330,7 @@ func TestFlowRunner_ParallelNodeTracking(t *testing.T) {
 		return NewTestNode(id, name, []idwrap.IDWrap{}, func(req *node.FlowNodeRequest) error {
 			// Simulate some work
 			time.Sleep(10 * time.Millisecond)
-			
+
 			if req.VariableTracker != nil {
 				return node.WriteNodeVarWithTracking(req, name, "result", outputValue, req.VariableTracker)
 			}
@@ -387,7 +387,7 @@ func TestFlowRunner_ParallelNodeTracking(t *testing.T) {
 	executionMutex.Lock()
 	numExecuted := len(executedNodes)
 	executionMutex.Unlock()
-	
+
 	if numExecuted != 3 {
 		t.Errorf("Expected 3 node executions, got %d", numExecuted)
 	}
@@ -395,7 +395,7 @@ func TestFlowRunner_ParallelNodeTracking(t *testing.T) {
 	// Verify all results were written correctly
 	expectedResults := map[string]string{
 		"parallelNode1": "result1",
-		"parallelNode2": "result2", 
+		"parallelNode2": "result2",
 		"parallelNode3": "result3",
 	}
 

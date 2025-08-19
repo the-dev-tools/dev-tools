@@ -113,4 +113,3 @@ func TestReadNodeVar_KeyNotFound(t *testing.T) {
 		t.Fatalf("expected %v, got %v", expectedErr, err)
 	}
 }
-

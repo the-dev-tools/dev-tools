@@ -37,8 +37,8 @@ func TestNodeRequest_RunSync_VariableTracking(t *testing.T) {
 	}
 
 	example := mitemapiexample.ItemApiExample{
-		ID:   idwrap.NewNow(),
-		Name: "example",
+		ID:       idwrap.NewNow(),
+		Name:     "example",
 		BodyType: mitemapiexample.BodyTypeRaw,
 	}
 
@@ -83,10 +83,10 @@ func TestNodeRequest_RunSync_VariableTracking(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	var RWLock sync.RWMutex
-	
+
 	// Create variable tracker
 	tracker := tracking.NewVariableTracker()
-	
+
 	// Setup variables that will be resolved
 	varMap := map[string]interface{}{
 		"baseUrl": "https://api.example.com",
@@ -94,36 +94,36 @@ func TestNodeRequest_RunSync_VariableTracking(t *testing.T) {
 		"token":   "abc123",
 		"limit":   "10",
 	}
-	
+
 	req := &node.FlowNodeRequest{
-		VarMap:           varMap,
-		ReadWriteLock:    &RWLock,
-		EdgeSourceMap:    edgesMap,
-		VariableTracker:  tracker,
+		VarMap:          varMap,
+		ReadWriteLock:   &RWLock,
+		EdgeSourceMap:   edgesMap,
+		VariableTracker: tracker,
 	}
-	
+
 	ctx := context.TODO()
 	result := requestNode.RunSync(ctx, req)
-	
+
 	testutil.Assert(t, next, result.NextNodeID[0])
 	testutil.Assert(t, nil, result.Err)
 	testutil.Assert(t, id, requestNode.GetID())
-	
+
 	// Check that variables were tracked
 	readVars := tracker.GetReadVars()
-	
+
 	expectedVars := map[string]interface{}{
 		"baseUrl": "https://api.example.com",
-		"version": "v1", 
+		"version": "v1",
 		"token":   "abc123",
 		"limit":   "10",
 	}
-	
+
 	if len(readVars) != len(expectedVars) {
 		t.Errorf("Expected %d tracked variables, got %d", len(expectedVars), len(readVars))
 		t.Logf("Tracked variables: %v", readVars)
 	}
-	
+
 	for key, expectedValue := range expectedVars {
 		if readVars[key] != expectedValue {
 			t.Errorf("Expected tracked %s value '%v', got '%v'", key, expectedValue, readVars[key])
@@ -142,8 +142,8 @@ func TestNodeRequest_RunAsync_VariableTracking(t *testing.T) {
 	}
 
 	example := mitemapiexample.ItemApiExample{
-		ID:   idwrap.NewNow(),
-		Name: "example",
+		ID:       idwrap.NewNow(),
+		Name:     "example",
 		BodyType: mitemapiexample.BodyTypeRaw,
 	}
 
@@ -184,47 +184,47 @@ func TestNodeRequest_RunAsync_VariableTracking(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	var RWLock sync.RWMutex
-	
+
 	// Create variable tracker
 	tracker := tracking.NewVariableTracker()
-	
+
 	// Setup variables that will be resolved
 	varMap := map[string]interface{}{
 		"baseUrl":   "https://api.example.com",
 		"userName":  "john_doe",
 		"userEmail": "john@example.com",
 	}
-	
+
 	req := &node.FlowNodeRequest{
-		VarMap:           varMap,
-		ReadWriteLock:    &RWLock,
-		EdgeSourceMap:    edgesMap,
-		VariableTracker:  tracker,
+		VarMap:          varMap,
+		ReadWriteLock:   &RWLock,
+		EdgeSourceMap:   edgesMap,
+		VariableTracker: tracker,
 	}
-	
+
 	ctx := context.TODO()
 	resChan := make(chan node.FlowNodeResult, 1)
 	go requestNode.RunAsync(ctx, req, resChan)
 	result := <-resChan
-	
+
 	testutil.Assert(t, next, result.NextNodeID[0])
 	testutil.Assert(t, nil, result.Err)
 	testutil.Assert(t, id, requestNode.GetID())
-	
+
 	// Check that variables were tracked
 	readVars := tracker.GetReadVars()
-	
+
 	expectedVars := map[string]interface{}{
 		"baseUrl":   "https://api.example.com",
 		"userName":  "john_doe",
 		"userEmail": "john@example.com",
 	}
-	
+
 	if len(readVars) != len(expectedVars) {
 		t.Errorf("Expected %d tracked variables, got %d", len(expectedVars), len(readVars))
 		t.Logf("Tracked variables: %v", readVars)
 	}
-	
+
 	for key, expectedValue := range expectedVars {
 		if readVars[key] != expectedValue {
 			t.Errorf("Expected tracked %s value '%v', got '%v'", key, expectedValue, readVars[key])
@@ -243,8 +243,8 @@ func TestNodeRequest_RunSync_NoVariables(t *testing.T) {
 	}
 
 	example := mitemapiexample.ItemApiExample{
-		ID:   idwrap.NewNow(),
-		Name: "example",
+		ID:       idwrap.NewNow(),
+		Name:     "example",
 		BodyType: mitemapiexample.BodyTypeRaw,
 	}
 
@@ -282,24 +282,24 @@ func TestNodeRequest_RunSync_NoVariables(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	var RWLock sync.RWMutex
-	
+
 	// Create variable tracker
 	tracker := tracking.NewVariableTracker()
-	
+
 	req := &node.FlowNodeRequest{
-		VarMap:           map[string]interface{}{},
-		ReadWriteLock:    &RWLock,
-		EdgeSourceMap:    edgesMap,
-		VariableTracker:  tracker,
+		VarMap:          map[string]interface{}{},
+		ReadWriteLock:   &RWLock,
+		EdgeSourceMap:   edgesMap,
+		VariableTracker: tracker,
 	}
-	
+
 	ctx := context.TODO()
 	result := requestNode.RunSync(ctx, req)
-	
+
 	testutil.Assert(t, next, result.NextNodeID[0])
 	testutil.Assert(t, nil, result.Err)
 	testutil.Assert(t, id, requestNode.GetID())
-	
+
 	// Check that no variables were tracked
 	readVars := tracker.GetReadVars()
 	if len(readVars) != 0 {
@@ -319,8 +319,8 @@ func TestNodeRequest_RunSync_NoTracker(t *testing.T) {
 	}
 
 	example := mitemapiexample.ItemApiExample{
-		ID:   idwrap.NewNow(),
-		Name: "example",
+		ID:       idwrap.NewNow(),
+		Name:     "example",
 		BodyType: mitemapiexample.BodyTypeRaw,
 	}
 
@@ -357,22 +357,22 @@ func TestNodeRequest_RunSync_NoTracker(t *testing.T) {
 	edgesMap := edge.NewEdgesMap(edges)
 
 	var RWLock sync.RWMutex
-	
+
 	// Setup variables but NO tracker
 	varMap := map[string]interface{}{
 		"baseUrl": "https://api.example.com",
 	}
-	
+
 	req := &node.FlowNodeRequest{
-		VarMap:           varMap,
-		ReadWriteLock:    &RWLock,
-		EdgeSourceMap:    edgesMap,
-		VariableTracker:  nil, // No tracker provided
+		VarMap:          varMap,
+		ReadWriteLock:   &RWLock,
+		EdgeSourceMap:   edgesMap,
+		VariableTracker: nil, // No tracker provided
 	}
-	
+
 	ctx := context.TODO()
 	result := requestNode.RunSync(ctx, req)
-	
+
 	// Should still work without errors even when no tracker is provided
 	testutil.Assert(t, next, result.NextNodeID[0])
 	testutil.Assert(t, nil, result.Err)

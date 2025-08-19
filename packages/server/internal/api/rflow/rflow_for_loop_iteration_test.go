@@ -4,7 +4,7 @@ package rflow
 // The fix ensures that:
 // - Successful FOR loop iterations are tracked in memory only (NOT sent to NodeExecutionCollector)
 // - Failed FOR loops create main \"FOR Loop - Execution X\" records with error details
-// - Error summary records (containing failedAtIteration) are properly sent to NodeExecutionCollector  
+// - Error summary records (containing failedAtIteration) are properly sent to NodeExecutionCollector
 // - Non-loop nodes continue to work normally and create main execution records
 //
 // This validates the execution visibility behavior - what records are sent to the NodeExecutionCollector
@@ -89,9 +89,9 @@ func (m *FailingMockNode) RunAsync(ctx context.Context, req *node.FlowNodeReques
 
 // MockTestNodeExecutionService tracks database saves for verification
 type MockTestNodeExecutionService struct {
-	mu         sync.Mutex
-	upserted   []mnodeexecution.NodeExecution
-	created    []mnodeexecution.NodeExecution
+	mu       sync.Mutex
+	upserted []mnodeexecution.NodeExecution
+	created  []mnodeexecution.NodeExecution
 }
 
 func NewMockTestNodeExecutionService() *MockTestNodeExecutionService {
@@ -135,35 +135,35 @@ func TestForLoopIterationSaving(t *testing.T) {
 		// Create a FOR loop with 7 iterations that all succeed
 		forNodeID := idwrap.NewNow()
 		mockNodeID := idwrap.NewNow()
-		
+
 		// Create FOR node with 7 iterations (no failures)
 		forNode := nfor.New(forNodeID, "SuccessfulLoop", 7, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-		
+
 		// Create mock node that never fails
 		mockNode := NewFailingMockNode(mockNodeID, "AlwaysSuccessNode", []int{}) // No failing iterations
-		
+
 		// Set up node map so FOR node can execute its children
 		nodeMap := map[idwrap.IDWrap]node.FlowNode{
-			forNodeID: forNode,
+			forNodeID:  forNode,
 			mockNodeID: mockNode,
 		}
-		
+
 		// Connect FOR node to mock node
 		edges := []edge.Edge{
 			edge.NewEdge(idwrap.NewNow(), forNodeID, mockNodeID, edge.HandleLoop, edge.EdgeKindNoOp),
 		}
 		edgeSourceMap := edge.NewEdgesMap(edges)
 		collector := &MockNodeExecutionCollector{}
-		
+
 		// Track all node statuses
 		var allStatuses []runner.FlowNodeStatus
 		var statusMu sync.Mutex
-		
+
 		logPushFunc := func(status runner.FlowNodeStatus) {
 			statusMu.Lock()
 			defer statusMu.Unlock()
 			allStatuses = append(allStatuses, status)
-			
+
 			// Simulate the rflow.go logic for iteration detection and saving
 			isIterationRecord := false
 			if status.OutputData != nil {
@@ -173,7 +173,7 @@ func TestForLoopIterationSaving(t *testing.T) {
 						outputMap["completed"] != nil
 				}
 			}
-			
+
 			if isIterationRecord {
 				// Check if this is a failed iteration that should be persisted
 				isFailedIteration := false
@@ -185,10 +185,10 @@ func TestForLoopIterationSaving(t *testing.T) {
 							outputMap["failedAtIteration"] != nil
 					}
 				}
-				
+
 				// Also consider error state as failed iteration
 				isFailedIteration = isFailedIteration || status.State == mnnode.NODE_STATE_FAILURE || status.Error != nil
-				
+
 				if isFailedIteration {
 					// Mock the database save for failed iterations
 					var errorStr *string
@@ -205,7 +205,7 @@ func TestForLoopIterationSaving(t *testing.T) {
 				// Successful iterations are NOT saved - they remain in memory only
 			}
 		}
-		
+
 		// Execute the FOR node
 		req := &node.FlowNodeRequest{
 			VarMap:           make(map[string]any),
@@ -215,55 +215,55 @@ func TestForLoopIterationSaving(t *testing.T) {
 			LogPushFunc:      logPushFunc,
 			PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 		}
-		
+
 		result := forNode.RunSync(ctx, req)
 		require.NoError(t, result.Err, "FOR loop should complete successfully")
-		
+
 		// Wait a bit for any async operations
 		time.Sleep(100 * time.Millisecond)
-		
+
 		// Verify execution
 		statusMu.Lock()
 		defer statusMu.Unlock()
-		
+
 		// Count iteration records (should be 7 RUNNING + 7 SUCCESS = 14 total)
 		iterationRecordCount := 0
 		successfulIterationCount := 0
 		failedIterationCount := 0
-		
+
 		for _, status := range allStatuses {
 			if status.OutputData != nil {
 				if outputMap, ok := status.OutputData.(map[string]interface{}); ok {
 					if outputMap["index"] != nil {
 						iterationRecordCount++
-						
-						if status.State == mnnode.NODE_STATE_SUCCESS || 
-						   (status.State == mnnode.NODE_STATE_RUNNING && outputMap["completed"] == nil) {
+
+						if status.State == mnnode.NODE_STATE_SUCCESS ||
+							(status.State == mnnode.NODE_STATE_RUNNING && outputMap["completed"] == nil) {
 							successfulIterationCount++
 						}
-						
+
 						// Check for failure markers
 						if outputMap["failedAtIndex"] != nil ||
-						   outputMap["failedAtKey"] != nil ||
-						   outputMap["failedAtIteration"] != nil ||
-						   status.State == mnnode.NODE_STATE_FAILURE ||
-						   status.Error != nil {
+							outputMap["failedAtKey"] != nil ||
+							outputMap["failedAtIteration"] != nil ||
+							status.State == mnnode.NODE_STATE_FAILURE ||
+							status.Error != nil {
 							failedIterationCount++
 						}
 					}
 				}
 			}
 		}
-		
+
 		// Verify that we have the expected number of iteration records
 		assert.Equal(t, 14, iterationRecordCount, "Should have 14 iteration records (7 RUNNING + 7 SUCCESS)")
 		assert.Equal(t, 14, successfulIterationCount, "All 14 records should be successful")
 		assert.Equal(t, 0, failedIterationCount, "No failed iterations should exist")
-		
+
 		// CRITICAL: Verify that NO failed iteration records were "saved" by our mock
 		savedExecutions := collector.GetExecutions()
 		assert.Equal(t, 0, len(savedExecutions), "No failed iteration records should be 'saved' for successful iterations")
-		
+
 		// Note: In this test we don't use the real rflow collector/service pattern,
 		// we just test the FOR node directly and verify the MockNodeExecutionCollector behavior
 	})
@@ -272,35 +272,35 @@ func TestForLoopIterationSaving(t *testing.T) {
 		// Create a FOR loop with 5 iterations where iteration 2 fails
 		forNodeID := idwrap.NewNow()
 		mockNodeID := idwrap.NewNow()
-		
+
 		// Create FOR node with 5 iterations
 		forNode := nfor.New(forNodeID, "FailingLoop", 5, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-		
+
 		// Create mock node that fails at iteration 2
 		mockNode := NewFailingMockNode(mockNodeID, "SometimesFailsNode", []int{2}) // Fail at iteration 2
-		
+
 		// Set up node map so FOR node can execute its children
 		nodeMap := map[idwrap.IDWrap]node.FlowNode{
-			forNodeID: forNode,
+			forNodeID:  forNode,
 			mockNodeID: mockNode,
 		}
-		
+
 		// Connect FOR node to mock node
 		edges := []edge.Edge{
 			edge.NewEdge(idwrap.NewNow(), forNodeID, mockNodeID, edge.HandleLoop, edge.EdgeKindNoOp),
 		}
 		edgeSourceMap := edge.NewEdgesMap(edges)
 		collector := &MockNodeExecutionCollector{}
-		
+
 		// Track all node statuses
 		var allStatuses []runner.FlowNodeStatus
 		var statusMu sync.Mutex
-		
+
 		logPushFunc := func(status runner.FlowNodeStatus) {
 			statusMu.Lock()
 			defer statusMu.Unlock()
 			allStatuses = append(allStatuses, status)
-			
+
 			// Simulate the rflow.go logic for iteration detection and saving
 			isIterationRecord := false
 			if status.OutputData != nil {
@@ -310,7 +310,7 @@ func TestForLoopIterationSaving(t *testing.T) {
 						outputMap["completed"] != nil
 				}
 			}
-			
+
 			if isIterationRecord {
 				// Check if this is a failed iteration that should be persisted
 				isFailedIteration := false
@@ -322,10 +322,10 @@ func TestForLoopIterationSaving(t *testing.T) {
 							outputMap["failedAtIteration"] != nil
 					}
 				}
-				
+
 				// Also consider error state as failed iteration
 				isFailedIteration = isFailedIteration || status.State == mnnode.NODE_STATE_FAILURE || status.Error != nil
-				
+
 				if isFailedIteration {
 					// Mock the database save for failed iterations
 					var errorStr *string
@@ -341,8 +341,8 @@ func TestForLoopIterationSaving(t *testing.T) {
 				}
 				// Successful iterations are NOT saved - they remain in memory only
 			}
-			
-			// ALSO check if this is a failed iteration summary (has failedAtIteration) 
+
+			// ALSO check if this is a failed iteration summary (has failedAtIteration)
 			// These should be saved even though they're not traditional iteration records
 			if status.OutputData != nil {
 				if outputMap, ok := status.OutputData.(map[string]interface{}); ok {
@@ -362,7 +362,7 @@ func TestForLoopIterationSaving(t *testing.T) {
 				}
 			}
 		}
-		
+
 		// Execute the FOR node (this will fail on iteration 2)
 		req := &node.FlowNodeRequest{
 			VarMap:           make(map[string]any),
@@ -372,44 +372,44 @@ func TestForLoopIterationSaving(t *testing.T) {
 			LogPushFunc:      logPushFunc,
 			PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 		}
-		
+
 		result := forNode.RunSync(ctx, req)
 		require.Error(t, result.Err, "FOR loop should fail due to iteration 2 failure")
-		
+
 		// Wait a bit for any async operations
 		time.Sleep(100 * time.Millisecond)
-		
+
 		// Verify execution
 		statusMu.Lock()
 		defer statusMu.Unlock()
-		
+
 		// Count different types of records
 		iterationRecordCount := 0
 		successfulIterationCount := 0
 		failedIterationCount := 0
 		errorSummaryCount := 0
-		
+
 		for _, status := range allStatuses {
 			if status.OutputData != nil {
 				if outputMap, ok := status.OutputData.(map[string]interface{}); ok {
 					if outputMap["index"] != nil {
 						iterationRecordCount++
-						
-						if status.State == mnnode.NODE_STATE_SUCCESS || 
-						   (status.State == mnnode.NODE_STATE_RUNNING && outputMap["completed"] == nil) {
+
+						if status.State == mnnode.NODE_STATE_SUCCESS ||
+							(status.State == mnnode.NODE_STATE_RUNNING && outputMap["completed"] == nil) {
 							successfulIterationCount++
 						}
-						
+
 						// Check for failure markers
 						if outputMap["failedAtIndex"] != nil ||
-						   outputMap["failedAtKey"] != nil ||
-						   outputMap["failedAtIteration"] != nil ||
-						   status.State == mnnode.NODE_STATE_FAILURE ||
-						   status.Error != nil {
+							outputMap["failedAtKey"] != nil ||
+							outputMap["failedAtIteration"] != nil ||
+							status.State == mnnode.NODE_STATE_FAILURE ||
+							status.Error != nil {
 							failedIterationCount++
 						}
 					}
-					
+
 					// Check for error summary records
 					if outputMap["failedAtIteration"] != nil && outputMap["totalIterations"] != nil {
 						errorSummaryCount++
@@ -417,17 +417,17 @@ func TestForLoopIterationSaving(t *testing.T) {
 				}
 			}
 		}
-		
+
 		// Verify that we have iteration records up to the failure point
 		// Should have: 2 successful iterations (0,1) = 4 records (RUNNING+SUCCESS each)
 		// Plus the error summary record with failedAtIteration
 		assert.Greater(t, iterationRecordCount, 0, "Should have some iteration records before failure")
 		assert.Greater(t, errorSummaryCount, 0, "Should have error summary record with failedAtIteration")
-		
+
 		// CRITICAL: Verify that the error summary record was "saved" by our mock logic
 		savedExecutions := collector.GetExecutions()
 		assert.Greater(t, len(savedExecutions), 0, "Error summary should be 'saved' due to failedAtIteration field")
-		
+
 		// Verify that the saved execution is the error summary (has failedAtIteration in its conceptual OutputData)
 		// Note: In our test we can't directly access OutputData from NodeExecution, but we know it was
 		// triggered by the presence of failedAtIteration field in the status that caused the save
@@ -437,36 +437,36 @@ func TestForLoopIterationSaving(t *testing.T) {
 		// Create a FOR loop with 10 iterations where iterations 3 and 7 fail (with IGNORE error handling)
 		forNodeID := idwrap.NewNow()
 		mockNodeID := idwrap.NewNow()
-		
+
 		// Create FOR node with IGNORE error handling so it continues after failures
 		forNode := nfor.New(forNodeID, "MixedLoop", 10, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
-		
+
 		// Create mock node that fails at specific iterations
 		mockNode := NewFailingMockNode(mockNodeID, "MixedResultsNode", []int{3, 7}) // Fail at iterations 3 and 7
-		
+
 		// Set up node map so FOR node can execute its children
 		nodeMap := map[idwrap.IDWrap]node.FlowNode{
-			forNodeID: forNode,
+			forNodeID:  forNode,
 			mockNodeID: mockNode,
 		}
-		
+
 		// Connect FOR node to mock node
 		edges := []edge.Edge{
 			edge.NewEdge(idwrap.NewNow(), forNodeID, mockNodeID, edge.HandleLoop, edge.EdgeKindNoOp),
 		}
 		edgeSourceMap := edge.NewEdgesMap(edges)
-		
+
 		// Track all node statuses including failed iterations
 		var allStatuses []runner.FlowNodeStatus
 		var statusMu sync.Mutex
 		var failedIterationsSaved int
 		var successfulIterationsProcessed int
-		
+
 		logPushFunc := func(status runner.FlowNodeStatus) {
 			statusMu.Lock()
 			defer statusMu.Unlock()
 			allStatuses = append(allStatuses, status)
-			
+
 			// Simulate the rflow.go logic for iteration detection and saving
 			isIterationRecord := false
 			if status.OutputData != nil {
@@ -476,7 +476,7 @@ func TestForLoopIterationSaving(t *testing.T) {
 						outputMap["completed"] != nil
 				}
 			}
-			
+
 			if isIterationRecord {
 				// Check if this is a failed iteration that should be persisted
 				isFailedIteration := false
@@ -488,10 +488,10 @@ func TestForLoopIterationSaving(t *testing.T) {
 							outputMap["failedAtIteration"] != nil
 					}
 				}
-				
+
 				// Also consider error state as failed iteration
 				isFailedIteration = isFailedIteration || status.State == mnnode.NODE_STATE_FAILURE || status.Error != nil
-				
+
 				if isFailedIteration {
 					// Count failed iterations that would be saved
 					failedIterationsSaved++
@@ -501,7 +501,7 @@ func TestForLoopIterationSaving(t *testing.T) {
 				}
 			}
 		}
-		
+
 		// Execute the FOR node (should complete despite individual iteration failures)
 		req := &node.FlowNodeRequest{
 			VarMap:           make(map[string]any),
@@ -511,24 +511,24 @@ func TestForLoopIterationSaving(t *testing.T) {
 			LogPushFunc:      logPushFunc,
 			PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 		}
-		
+
 		result := forNode.RunSync(ctx, req)
 		require.NoError(t, result.Err, "FOR loop should complete successfully with IGNORE error handling")
-		
+
 		// Wait a bit for any async operations
 		time.Sleep(100 * time.Millisecond)
-		
+
 		// Verify execution results
 		statusMu.Lock()
 		defer statusMu.Unlock()
-		
+
 		// With IGNORE error handling, individual iteration failures don't create error summary records
 		// The key validation is that no failed iteration summaries (with failedAtIteration) are created
 		assert.Equal(t, 0, failedIterationsSaved, "With IGNORE error handling, no failedAtIteration summary records are created")
-		
+
 		// We should have some successful iteration records (exact count may vary based on failure handling)
 		assert.Greater(t, successfulIterationsProcessed, 0, "Should have processed some successful iterations")
-		
+
 		// Note: With ERROR_HANDLING_IGNORE, the FOR loop doesn't create error summary records
 		// for individual iteration failures - it continues and completes successfully
 	})
@@ -541,38 +541,38 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 	// Test successful FOR loop execution visibility
 	t.Run("SuccessfulForLoop_OnlyIterationsInMemory", func(t *testing.T) {
 		collector := &MockNodeExecutionCollector{}
-		
+
 		// Create a FOR loop with 4 iterations that all succeed
 		forNodeID := idwrap.NewNow()
 		mockNodeID := idwrap.NewNow()
-		
+
 		// Create FOR node with 4 iterations (all succeed)
 		forNode := nfor.New(forNodeID, "SuccessfulLoop", 4, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-		
+
 		// Create mock node that never fails
 		mockNode := NewFailingMockNode(mockNodeID, "AlwaysSuccessNode", []int{}) // No failing iterations
-		
+
 		// Set up node map and edges
 		nodeMap := map[idwrap.IDWrap]node.FlowNode{
-			forNodeID: forNode,
+			forNodeID:  forNode,
 			mockNodeID: mockNode,
 		}
 		edges := []edge.Edge{
 			edge.NewEdge(idwrap.NewNow(), forNodeID, mockNodeID, edge.HandleLoop, edge.EdgeKindNoOp),
 		}
 		edgeSourceMap := edge.NewEdgesMap(edges)
-		
+
 		// Track iteration records and collector calls
 		var allStatuses []runner.FlowNodeStatus
 		var statusMu sync.Mutex
 		var iterationRecords []runner.FlowNodeStatus
 		var mainExecutionRecords []runner.FlowNodeStatus
-		
+
 		logPushFunc := func(status runner.FlowNodeStatus) {
 			statusMu.Lock()
 			defer statusMu.Unlock()
 			allStatuses = append(allStatuses, status)
-			
+
 			// Simulate the rflow.go execution visibility logic
 			isIterationRecord := false
 			if status.OutputData != nil {
@@ -582,10 +582,10 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 						outputMap["completed"] != nil
 				}
 			}
-			
+
 			if isIterationRecord {
 				iterationRecords = append(iterationRecords, status)
-				
+
 				// Check if this is a failed iteration that should be persisted
 				isFailedIteration := false
 				if status.OutputData != nil {
@@ -597,7 +597,7 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 					}
 				}
 				isFailedIteration = isFailedIteration || status.State == mnnode.NODE_STATE_FAILURE || status.Error != nil
-				
+
 				// CRITICAL: Only failed iterations should be sent to collector
 				if isFailedIteration {
 					collector.Collect(mnodeexecution.NodeExecution{
@@ -612,7 +612,7 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 				// (but we don't simulate this here as it's not loop-specific)
 			}
 		}
-		
+
 		// Execute the FOR node
 		req := &node.FlowNodeRequest{
 			VarMap:           make(map[string]any),
@@ -622,26 +622,26 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 			LogPushFunc:      logPushFunc,
 			PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 		}
-		
+
 		result := forNode.RunSync(ctx, req)
 		require.NoError(t, result.Err, "FOR loop should complete successfully")
-		
+
 		// Wait for any async operations
 		time.Sleep(100 * time.Millisecond)
-		
+
 		// Verify execution visibility
 		statusMu.Lock()
 		defer statusMu.Unlock()
-		
+
 		// Should have iteration records (4 iterations × 2 statuses each = 8 records)
 		assert.Equal(t, 8, len(iterationRecords), "Should have 8 iteration records (4 iterations × 2 statuses each)")
-		
+
 		// Verify all iteration records are for successful iterations
 		for i, record := range iterationRecords {
 			assert.Contains(t, []mnnode.NodeState{mnnode.NODE_STATE_RUNNING, mnnode.NODE_STATE_SUCCESS}, record.State,
 				"Iteration record %d should be RUNNING or SUCCESS", i)
 			assert.Nil(t, record.Error, "Iteration record %d should have no error", i)
-			
+
 			// Verify iteration records have proper iteration data
 			if record.OutputData != nil {
 				if outputMap, ok := record.OutputData.(map[string]interface{}); ok {
@@ -654,11 +654,11 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 				}
 			}
 		}
-		
+
 		// CRITICAL: Verify NO iteration records were sent to collector for successful FOR loop
 		collectedExecutions := collector.GetExecutions()
 		assert.Equal(t, 0, len(collectedExecutions), "NO iteration records should be sent to collector for successful FOR loop")
-		
+
 		// Should NOT have any main "FOR Loop - Execution X" records for successful execution
 		forExecutionRecords := 0
 		for _, record := range mainExecutionRecords {
@@ -668,43 +668,43 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 		}
 		assert.Equal(t, 0, forExecutionRecords, "Should have NO main 'FOR Loop - Execution X' records for successful execution")
 	})
-	
+
 	// Test failed FOR loop execution visibility
 	t.Run("FailedForLoop_MainExecutionAndErrorSummaryPersisted", func(t *testing.T) {
 		collector := &MockNodeExecutionCollector{}
-		
+
 		// Create a FOR loop with 5 iterations where iteration 2 fails
 		forNodeID := idwrap.NewNow()
 		mockNodeID := idwrap.NewNow()
-		
+
 		// Create FOR node with 5 iterations
 		forNode := nfor.New(forNodeID, "FailingLoop", 5, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-		
+
 		// Create mock node that fails at iteration 2
 		mockNode := NewFailingMockNode(mockNodeID, "SometimesFailsNode", []int{2}) // Fail at iteration 2
-		
+
 		// Set up node map and edges
 		nodeMap := map[idwrap.IDWrap]node.FlowNode{
-			forNodeID: forNode,
+			forNodeID:  forNode,
 			mockNodeID: mockNode,
 		}
 		edges := []edge.Edge{
 			edge.NewEdge(idwrap.NewNow(), forNodeID, mockNodeID, edge.HandleLoop, edge.EdgeKindNoOp),
 		}
 		edgeSourceMap := edge.NewEdgesMap(edges)
-		
+
 		// Track all records and collector calls
 		var allStatuses []runner.FlowNodeStatus
 		var statusMu sync.Mutex
 		var iterationRecords []runner.FlowNodeStatus
 		var errorSummaryRecords []runner.FlowNodeStatus
 		var mainExecutionRecords []runner.FlowNodeStatus
-		
+
 		logPushFunc := func(status runner.FlowNodeStatus) {
 			statusMu.Lock()
 			defer statusMu.Unlock()
 			allStatuses = append(allStatuses, status)
-			
+
 			// Simulate the rflow.go execution visibility logic
 			isIterationRecord := false
 			if status.OutputData != nil {
@@ -714,10 +714,10 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 						outputMap["completed"] != nil
 				}
 			}
-			
+
 			if isIterationRecord {
 				iterationRecords = append(iterationRecords, status)
-				
+
 				// Check if this is a failed iteration that should be persisted
 				isFailedIteration := false
 				if status.OutputData != nil {
@@ -729,7 +729,7 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 					}
 				}
 				isFailedIteration = isFailedIteration || status.State == mnnode.NODE_STATE_FAILURE || status.Error != nil
-				
+
 				// Failed iterations should be sent to collector
 				if isFailedIteration {
 					collector.Collect(mnodeexecution.NodeExecution{
@@ -741,7 +741,7 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 			} else {
 				mainExecutionRecords = append(mainExecutionRecords, status)
 			}
-			
+
 			// ALSO check for error summary records (have failedAtIteration)
 			if status.OutputData != nil {
 				if outputMap, ok := status.OutputData.(map[string]interface{}); ok {
@@ -756,7 +756,7 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 				}
 			}
 		}
-		
+
 		// Execute the FOR node (this will fail on iteration 2)
 		req := &node.FlowNodeRequest{
 			VarMap:           make(map[string]any),
@@ -766,23 +766,23 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 			LogPushFunc:      logPushFunc,
 			PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 		}
-		
+
 		result := forNode.RunSync(ctx, req)
 		require.Error(t, result.Err, "FOR loop should fail due to iteration 2 failure")
-		
+
 		// Wait for any async operations
 		time.Sleep(100 * time.Millisecond)
-		
+
 		// Verify execution visibility
 		statusMu.Lock()
 		defer statusMu.Unlock()
-		
+
 		// Should have some iteration records before the failure
 		assert.Greater(t, len(iterationRecords), 0, "Should have iteration records before failure")
-		
+
 		// Should have error summary records with failedAtIteration
 		assert.Greater(t, len(errorSummaryRecords), 0, "Should have error summary record with failedAtIteration")
-		
+
 		// Verify error summary record contains failure information
 		for _, record := range errorSummaryRecords {
 			if record.OutputData != nil {
@@ -794,11 +794,11 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 				}
 			}
 		}
-		
+
 		// CRITICAL: Verify that error summary records were sent to collector
 		collectedExecutions := collector.GetExecutions()
 		assert.Greater(t, len(collectedExecutions), 0, "Error summary and failed iteration records should be sent to collector")
-		
+
 		// Should have main "FOR Loop - Execution X" record for failed execution
 		forExecutionRecords := 0
 		for _, record := range mainExecutionRecords {
@@ -809,31 +809,31 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 		// Note: We simulate the logic, so we can't test main execution record creation here
 		// but the error summary records prove the failure was properly detected
 	})
-	
-	// Test non-loop nodes still work normally  
+
+	// Test non-loop nodes still work normally
 	t.Run("NonLoopNodes_NormalExecutionRecords", func(t *testing.T) {
 		collector := &MockNodeExecutionCollector{}
-		
+
 		// Create a simple mock non-loop node
 		nonLoopNodeID := idwrap.NewNow()
 		nonLoopNode := NewFailingMockNode(nonLoopNodeID, "SimpleNonLoopNode", []int{}) // Never fails
-		
+
 		// Set up node map
 		nodeMap := map[idwrap.IDWrap]node.FlowNode{
 			nonLoopNodeID: nonLoopNode,
 		}
 		edgeSourceMap := edge.NewEdgesMap([]edge.Edge{})
-		
+
 		// Track execution records
 		var allStatuses []runner.FlowNodeStatus
 		var statusMu sync.Mutex
 		var nonLoopExecutionRecords []runner.FlowNodeStatus
-		
+
 		logPushFunc := func(status runner.FlowNodeStatus) {
 			statusMu.Lock()
 			defer statusMu.Unlock()
 			allStatuses = append(allStatuses, status)
-			
+
 			// Check if this is an iteration record
 			isIterationRecord := false
 			if status.OutputData != nil {
@@ -843,7 +843,7 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 						outputMap["completed"] != nil
 				}
 			}
-			
+
 			if !isIterationRecord {
 				nonLoopExecutionRecords = append(nonLoopExecutionRecords, status)
 				// For non-loop nodes, all execution records should be sent to collector
@@ -853,7 +853,7 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 				})
 			}
 		}
-		
+
 		// Execute the non-loop node
 		req := &node.FlowNodeRequest{
 			VarMap:           make(map[string]any),
@@ -863,27 +863,27 @@ func TestForLoopExecutionVisibilityFix(t *testing.T) {
 			LogPushFunc:      logPushFunc,
 			PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
 		}
-		
+
 		result := nonLoopNode.RunSync(ctx, req)
 		require.NoError(t, result.Err, "Non-loop node should execute successfully")
-		
+
 		// Wait for any async operations
 		time.Sleep(50 * time.Millisecond)
-		
+
 		// Verify execution visibility
 		statusMu.Lock()
 		defer statusMu.Unlock()
-		
+
 		// Should have non-loop execution records (RUNNING + SUCCESS)
 		// Note: Our mock node doesn't automatically generate RUNNING/SUCCESS statuses via LogPushFunc
 		// This test demonstrates that non-loop nodes would normally create execution records
 		assert.Equal(t, 0, len(nonLoopExecutionRecords), "Mock node doesn't auto-generate status records (this is expected)")
-		
+
 		// This test validates that the iteration detection logic works correctly
 		// For real non-loop nodes in the actual rflow service, execution records would be created normally
 		collectedExecutions := collector.GetExecutions()
 		assert.Equal(t, 0, len(collectedExecutions), "Mock test - no auto-generated records")
-		
+
 		// Verify no iteration records were created
 		iterationRecords := 0
 		for _, status := range allStatuses {
@@ -959,8 +959,8 @@ func TestIterationRecordDetection(t *testing.T) {
 						outputMap["completed"] != nil
 				}
 			}
-			
-			assert.Equal(t, tc.expectedResult, isIterationRecord, 
+
+			assert.Equal(t, tc.expectedResult, isIterationRecord,
 				"isIterationRecord detection should match expected result")
 		})
 	}
@@ -1038,10 +1038,10 @@ func TestFailedIterationDetection(t *testing.T) {
 						outputMap["failedAtIteration"] != nil
 				}
 			}
-			
+
 			// Also consider error state as failed iteration
 			isFailedIteration = isFailedIteration || tc.state == mnnode.NODE_STATE_FAILURE || tc.error != nil
-			
+
 			assert.Equal(t, tc.expectedResult, isFailedIteration,
 				"isFailedIteration detection should match expected result")
 		})

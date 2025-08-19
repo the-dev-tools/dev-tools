@@ -14,7 +14,7 @@ func TestHTTPRequestWithContext(t *testing.T) {
 
 	t.Run("Context timeout is respected", func(t *testing.T) {
 		t.Parallel() // Run sub-tests in parallel
-		
+
 		// Create a server that delays for 500ms (reduced from 5 seconds)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			select {
@@ -106,7 +106,7 @@ func TestContextPropagation(t *testing.T) {
 
 	t.Run("NewRequest ignores context timeout", func(t *testing.T) {
 		t.Parallel() // Run sub-tests in parallel
-		
+
 		// Create server for this specific test
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			select {
@@ -117,7 +117,7 @@ func TestContextPropagation(t *testing.T) {
 			}
 		}))
 		defer server.Close()
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 
@@ -145,7 +145,7 @@ func TestContextPropagation(t *testing.T) {
 
 		// Wait a bit for context to timeout since the request doesn't respect it
 		time.Sleep(150 * time.Millisecond)
-		
+
 		// Context should be done
 		select {
 		case <-ctx.Done():
@@ -157,7 +157,7 @@ func TestContextPropagation(t *testing.T) {
 
 	t.Run("NewRequestWithContext respects context timeout", func(t *testing.T) {
 		t.Parallel() // Run sub-tests in parallel
-		
+
 		// Create server for this specific test
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			select {
@@ -168,7 +168,7 @@ func TestContextPropagation(t *testing.T) {
 			}
 		}))
 		defer server.Close()
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 

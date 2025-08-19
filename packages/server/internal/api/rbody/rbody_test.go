@@ -212,17 +212,17 @@ func TestGetBodyForm(t *testing.T) {
 		t.Fatal("resp.Msg is nil")
 	}
 	msg := resp.Msg
-	
+
 	// Create a map for easier lookup since order might not be guaranteed
 	expectedMap := make(map[string]mbodyform.BodyForm)
 	for _, body := range formBodyArr {
 		expectedMap[body.BodyKey] = body
 	}
-	
+
 	if len(msg.Items) != formCount {
 		t.Errorf("expected %d items, got %d", formCount, len(msg.Items))
 	}
-	
+
 	for _, item := range msg.Items {
 		expected, exists := expectedMap[item.Key]
 		if !exists {
@@ -299,12 +299,12 @@ func TestGetBodyUrlEncoded(t *testing.T) {
 	singleBody := mbodyurl.BodyURLEncoded{
 		ID:          idwrap.NewNow(),
 		Description: "test",
-		BodyKey:     "test_key", 
+		BodyKey:     "test_key",
 		Value:       "test_value",
 		Enable:      true,
 		ExampleID:   itemExample.ID,
 	}
-	
+
 	// Convert to slice for bulk creation
 	formBodyArr := []mbodyurl.BodyURLEncoded{singleBody}
 
@@ -338,17 +338,17 @@ func TestGetBodyUrlEncoded(t *testing.T) {
 		t.Fatal("resp.Msg is nil")
 	}
 	msg := resp.Msg
-	
+
 	// Create a map for easier lookup since order might not be guaranteed
 	expectedMap := make(map[string]mbodyurl.BodyURLEncoded)
 	for _, body := range formBodyArr {
 		expectedMap[body.BodyKey] = body
 	}
-	
+
 	if len(msg.Items) != len(formBodyArr) {
 		t.Errorf("expected %d items, got %d", len(formBodyArr), len(msg.Items))
 	}
-	
+
 	for _, item := range msg.Items {
 		expected, exists := expectedMap[item.Key]
 		if !exists {

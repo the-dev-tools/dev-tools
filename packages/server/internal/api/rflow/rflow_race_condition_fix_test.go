@@ -36,19 +36,19 @@ import (
 
 // CorrelationTracker tracks the correlation between running statuses and responses
 type CorrelationTracker struct {
-	mu                     sync.RWMutex
-	runningStatuses        map[idwrap.IDWrap]runner.FlowNodeStatus
-	responses             map[idwrap.IDWrap]nrequest.NodeRequestSideResp
-	correlatedResponses   map[idwrap.IDWrap]bool
-	orphanedResponses     map[idwrap.IDWrap]bool
-	totalRunningStatuses  int64
-	totalResponses        int64
+	mu                   sync.RWMutex
+	runningStatuses      map[idwrap.IDWrap]runner.FlowNodeStatus
+	responses            map[idwrap.IDWrap]nrequest.NodeRequestSideResp
+	correlatedResponses  map[idwrap.IDWrap]bool
+	orphanedResponses    map[idwrap.IDWrap]bool
+	totalRunningStatuses int64
+	totalResponses       int64
 }
 
 func NewCorrelationTracker() *CorrelationTracker {
 	return &CorrelationTracker{
 		runningStatuses:     make(map[idwrap.IDWrap]runner.FlowNodeStatus),
-		responses:          make(map[idwrap.IDWrap]nrequest.NodeRequestSideResp),
+		responses:           make(map[idwrap.IDWrap]nrequest.NodeRequestSideResp),
 		correlatedResponses: make(map[idwrap.IDWrap]bool),
 		orphanedResponses:   make(map[idwrap.IDWrap]bool),
 	}
@@ -57,7 +57,7 @@ func NewCorrelationTracker() *CorrelationTracker {
 func (ct *CorrelationTracker) TrackStatus(status runner.FlowNodeStatus, requestNodeID idwrap.IDWrap) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	
+
 	// Only track REQUEST node RUNNING statuses
 	if status.State == mnnode.NODE_STATE_RUNNING && status.NodeID == requestNodeID {
 		ct.runningStatuses[status.ExecutionID] = status
@@ -68,10 +68,10 @@ func (ct *CorrelationTracker) TrackStatus(status runner.FlowNodeStatus, requestN
 func (ct *CorrelationTracker) TrackResponse(response nrequest.NodeRequestSideResp) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	
+
 	ct.responses[response.ExecutionID] = response
 	atomic.AddInt64(&ct.totalResponses, 1)
-	
+
 	// Check if we have a running status for this response
 	if _, exists := ct.runningStatuses[response.ExecutionID]; exists {
 		ct.correlatedResponses[response.ExecutionID] = true
@@ -83,16 +83,16 @@ func (ct *CorrelationTracker) TrackResponse(response nrequest.NodeRequestSideRes
 func (ct *CorrelationTracker) GetCorrelationStats() (int, int, int, float64) {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
-	
+
 	totalRunning := int(atomic.LoadInt64(&ct.totalRunningStatuses))
 	totalResponses := int(atomic.LoadInt64(&ct.totalResponses))
 	correlated := len(ct.correlatedResponses)
-	
+
 	var successRate float64
 	if totalRunning > 0 {
 		successRate = float64(correlated) / float64(totalRunning) * 100
 	}
-	
+
 	return totalRunning, totalResponses, correlated, successRate
 }
 
@@ -116,11 +116,11 @@ func createFastMockServer(responseDelayMs int) *httptest.Server {
 // createForLoopWithRequestNode creates a FOR loop containing a REQUEST node
 func createForLoopWithRequestNode(iterations int, serverURL string, tracker *CorrelationTracker) (
 	node.FlowNode, node.FlowNode, []edge.Edge, chan nrequest.NodeRequestSideResp) {
-	
+
 	// Create FOR node
 	forNodeID := idwrap.NewNow()
 	forNode := nfor.New(forNodeID, "TestForLoop", int64(iterations), 30*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-	
+
 	// Create REQUEST node
 	requestNodeID := idwrap.NewNow()
 	endpoint := mitemapi.ItemApi{
@@ -129,7 +129,7 @@ func createForLoopWithRequestNode(iterations int, serverURL string, tracker *Cor
 		Url:    serverURL,
 		Method: "GET",
 	}
-	
+
 	example := mitemapiexample.ItemApiExample{
 		ID:        idwrap.NewNow(),
 		ItemApiID: endpoint.ID,
@@ -138,7 +138,7 @@ func createForLoopWithRequestNode(iterations int, serverURL string, tracker *Cor
 
 	// Create response channel
 	responseChan := make(chan nrequest.NodeRequestSideResp, iterations*2)
-	
+
 	requestNode := nrequest.New(
 		requestNodeID,
 		"FastRequest",
@@ -173,7 +173,7 @@ func TestRaceConditionFix_SmallLoop(t *testing.T) {
 	tracker := NewCorrelationTracker()
 
 	forNode, requestNode, edges, responseChan := createForLoopWithRequestNode(iterations, server.URL, tracker)
-	
+
 	// Set up node map and edges
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		forNode.GetID():     forNode,
@@ -226,7 +226,7 @@ func TestRaceConditionFix_SmallLoop(t *testing.T) {
 	totalRunning, totalResponses, correlated, successRate := tracker.GetCorrelationStats()
 	orphanedCount := tracker.GetOrphanedCount()
 
-	t.Logf("Small Loop Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d", 
+	t.Logf("Small Loop Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d",
 		totalRunning, totalResponses, correlated, successRate, orphanedCount)
 
 	// Validations
@@ -245,7 +245,7 @@ func TestRaceConditionFix_MediumLoop(t *testing.T) {
 	tracker := NewCorrelationTracker()
 
 	forNode, requestNode, edges, responseChan := createForLoopWithRequestNode(iterations, server.URL, tracker)
-	
+
 	// Set up node map and edges
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		forNode.GetID():     forNode,
@@ -285,7 +285,7 @@ func TestRaceConditionFix_MediumLoop(t *testing.T) {
 	startTime := time.Now()
 	result := forNode.RunSync(context.Background(), req)
 	executionTime := time.Since(startTime)
-	
+
 	require.NoError(t, result.Err, "FOR node execution should not fail")
 
 	// Wait for async operations to complete
@@ -297,7 +297,7 @@ func TestRaceConditionFix_MediumLoop(t *testing.T) {
 	totalRunning, totalResponses, correlated, successRate := tracker.GetCorrelationStats()
 	orphanedCount := tracker.GetOrphanedCount()
 
-	t.Logf("Medium Loop Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d, Execution Time=%v", 
+	t.Logf("Medium Loop Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d, Execution Time=%v",
 		totalRunning, totalResponses, correlated, successRate, orphanedCount, executionTime)
 
 	// Validations
@@ -316,7 +316,7 @@ func TestRaceConditionFix_LargeLoop(t *testing.T) {
 	tracker := NewCorrelationTracker()
 
 	forNode, requestNode, edges, responseChan := createForLoopWithRequestNode(iterations, server.URL, tracker)
-	
+
 	// Set up node map and edges
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		forNode.GetID():     forNode,
@@ -356,7 +356,7 @@ func TestRaceConditionFix_LargeLoop(t *testing.T) {
 	startTime := time.Now()
 	result := forNode.RunSync(context.Background(), req)
 	executionTime := time.Since(startTime)
-	
+
 	require.NoError(t, result.Err, "FOR node execution should not fail")
 
 	// Wait for async operations to complete
@@ -368,7 +368,7 @@ func TestRaceConditionFix_LargeLoop(t *testing.T) {
 	totalRunning, totalResponses, correlated, successRate := tracker.GetCorrelationStats()
 	orphanedCount := tracker.GetOrphanedCount()
 
-	t.Logf("Large Loop Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d, Execution Time=%v", 
+	t.Logf("Large Loop Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d, Execution Time=%v",
 		totalRunning, totalResponses, correlated, successRate, orphanedCount, executionTime)
 
 	// Validations
@@ -376,7 +376,7 @@ func TestRaceConditionFix_LargeLoop(t *testing.T) {
 	assert.Equal(t, iterations, totalResponses, "Should have %d REQUEST responses", iterations)
 	assert.Equal(t, 100.0, successRate, "Should have 100%% correlation success rate")
 	assert.Equal(t, 0, orphanedCount, "Should have no orphaned responses")
-	
+
 	// Performance check - should complete reasonably fast
 	assert.Less(t, executionTime, 30*time.Second, "Large loop should complete within 30 seconds")
 }
@@ -389,19 +389,19 @@ func TestRaceConditionFix_ConcurrentLoops(t *testing.T) {
 	numLoops := 5
 	iterationsPerLoop := 50
 	totalIterations := numLoops * iterationsPerLoop
-	
+
 	tracker := NewCorrelationTracker()
 
 	// Create multiple FOR loops with REQUEST nodes
 	var wg sync.WaitGroup
-	
+
 	for i := 0; i < numLoops; i++ {
 		wg.Add(1)
 		go func(loopIndex int) {
 			defer wg.Done()
-			
+
 			forNode, requestNode, edges, responseChan := createForLoopWithRequestNode(iterationsPerLoop, server.URL, tracker)
-			
+
 			// Set up node map and edges
 			nodeMap := map[idwrap.IDWrap]node.FlowNode{
 				forNode.GetID():     forNode,
@@ -458,7 +458,7 @@ func TestRaceConditionFix_ConcurrentLoops(t *testing.T) {
 	totalRunning, totalResponses, correlated, successRate := tracker.GetCorrelationStats()
 	orphanedCount := tracker.GetOrphanedCount()
 
-	t.Logf("Concurrent Loops Results: Loops=%d, Expected=%d, Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d", 
+	t.Logf("Concurrent Loops Results: Loops=%d, Expected=%d, Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d",
 		numLoops, totalIterations, totalRunning, totalResponses, correlated, successRate, orphanedCount)
 
 	// Validations
@@ -482,7 +482,7 @@ func TestRaceConditionFix_FastResponses(t *testing.T) {
 	tracker := NewCorrelationTracker()
 
 	forNode, requestNode, edges, responseChan := createForLoopWithRequestNode(iterations, server.URL, tracker)
-	
+
 	// Set up node map and edges
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		forNode.GetID():     forNode,
@@ -528,7 +528,7 @@ func TestRaceConditionFix_FastResponses(t *testing.T) {
 	startTime := time.Now()
 	result := forNode.RunSync(context.Background(), req)
 	executionTime := time.Since(startTime)
-	
+
 	require.NoError(t, result.Err, "FOR node execution should not fail")
 
 	// Wait for async operations to complete
@@ -561,7 +561,7 @@ func TestRaceConditionFix_FastResponses(t *testing.T) {
 	statusMutex.Unlock()
 	responseMutex.Unlock()
 
-	t.Logf("Fast Responses Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d, Execution Time=%v, Avg Response Time=%v", 
+	t.Logf("Fast Responses Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d, Execution Time=%v, Avg Response Time=%v",
 		totalRunning, totalResponses, correlated, successRate, orphanedCount, executionTime, avgTimeDiff)
 
 	// Validations
@@ -569,7 +569,7 @@ func TestRaceConditionFix_FastResponses(t *testing.T) {
 	assert.Equal(t, iterations, totalResponses, "Should have %d REQUEST responses", iterations)
 	assert.Equal(t, 100.0, successRate, "Should have 100%% correlation success rate")
 	assert.Equal(t, 0, orphanedCount, "Should have no orphaned responses")
-	
+
 	// Verify responses are indeed fast
 	assert.Less(t, avgTimeDiff, 100*time.Millisecond, "Average response time should be less than 100ms")
 }
@@ -580,13 +580,13 @@ func TestRaceConditionFix_MemoryLeakCheck(t *testing.T) {
 	defer server.Close()
 
 	iterations := 100
-	
+
 	// Run multiple sequential tests to check for memory accumulation
 	for round := 0; round < 5; round++ {
 		tracker := NewCorrelationTracker()
-		
+
 		forNode, requestNode, edges, responseChan := createForLoopWithRequestNode(iterations, server.URL, tracker)
-		
+
 		// Set up node map and edges
 		nodeMap := map[idwrap.IDWrap]node.FlowNode{
 			forNode.GetID():     forNode,
@@ -627,7 +627,7 @@ func TestRaceConditionFix_MemoryLeakCheck(t *testing.T) {
 		totalRunning, totalResponses, correlated, successRate := tracker.GetCorrelationStats()
 		orphanedCount := tracker.GetOrphanedCount()
 
-		t.Logf("Memory Leak Check Round %d: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d", 
+		t.Logf("Memory Leak Check Round %d: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d",
 			round+1, totalRunning, totalResponses, correlated, successRate, orphanedCount)
 
 		// Validations
@@ -635,11 +635,11 @@ func TestRaceConditionFix_MemoryLeakCheck(t *testing.T) {
 		assert.Equal(t, iterations, totalResponses, "Round %d should have %d responses", round+1, iterations)
 		assert.Equal(t, 100.0, successRate, "Round %d should have 100%% success rate", round+1)
 		assert.Equal(t, 0, orphanedCount, "Round %d should have no orphaned responses", round+1)
-		
+
 		// Force garbage collection between rounds
 		// runtime.GC()
 	}
-	
+
 	t.Log("Memory leak check completed - all rounds should show consistent results")
 }
 
@@ -652,7 +652,7 @@ func TestRaceConditionFix_FlowCompletionCleanup(t *testing.T) {
 	tracker := NewCorrelationTracker()
 
 	forNode, requestNode, edges, responseChan := createForLoopWithRequestNode(iterations, server.URL, tracker)
-	
+
 	// Set up node map and edges
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		forNode.GetID():     forNode,
@@ -704,14 +704,14 @@ func TestRaceConditionFix_FlowCompletionCleanup(t *testing.T) {
 	statusMutex.Lock()
 	completedRequests := 0
 	for _, status := range allStatuses {
-		if status.State == mnnode.NODE_STATE_SUCCESS && 
-		   requestNode.GetID() == status.NodeID {
+		if status.State == mnnode.NODE_STATE_SUCCESS &&
+			requestNode.GetID() == status.NodeID {
 			completedRequests++
 		}
 	}
 	statusMutex.Unlock()
 
-	t.Logf("Flow Completion Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d, Completed=%d", 
+	t.Logf("Flow Completion Results: Running=%d, Responses=%d, Correlated=%d, Success Rate=%.2f%%, Orphaned=%d, Completed=%d",
 		totalRunning, totalResponses, correlated, successRate, orphanedCount, completedRequests)
 
 	// Validations
@@ -720,7 +720,7 @@ func TestRaceConditionFix_FlowCompletionCleanup(t *testing.T) {
 	assert.Equal(t, 100.0, successRate, "Should have 100%% correlation success rate")
 	assert.Equal(t, 0, orphanedCount, "Should have no orphaned responses")
 	assert.Equal(t, iterations, completedRequests, "Should have %d completed requests", iterations)
-	
+
 	// Verify flow completed properly (FOR nodes may have empty next nodes when complete)
 	assert.NotNil(t, result, "FOR node should return a result")
 }

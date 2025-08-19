@@ -285,7 +285,7 @@ func TestNode_ReadWrite_Integration(t *testing.T) {
 	// Simulate a complete node execution cycle
 	// 1. Node reads input data
 	req.VarMap["inputData"] = map[string]interface{}{
-		"value": 10,
+		"value":      10,
 		"multiplier": 3,
 	}
 
@@ -301,7 +301,7 @@ func TestNode_ReadWrite_Integration(t *testing.T) {
 
 	// 2. Node processes data and writes output
 	result := inputValue.(int) * multiplier.(int)
-	
+
 	err = node.WriteNodeVarWithTracking(req, "outputData", "result", result, tracker)
 	if err != nil {
 		t.Fatalf("Failed to write result: %v", err)
@@ -388,7 +388,7 @@ func TestNode_ConcurrentTracking(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < 10; j++ {
 				key := fmt.Sprintf("key%d", j)
-				
+
 				// Read with tracking
 				_, err := node.ReadVarRawWithTracking(req, key, tracker)
 				if err != nil {

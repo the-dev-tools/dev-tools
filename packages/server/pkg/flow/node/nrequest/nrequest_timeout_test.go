@@ -26,7 +26,7 @@ import (
 
 func TestNodeRequest_Timeout(t *testing.T) {
 	t.Parallel() // Run this test in parallel with others
-	
+
 	// Create a test server that delays response - reduced from 5s to 500ms
 	delayDuration := 500 * time.Millisecond
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

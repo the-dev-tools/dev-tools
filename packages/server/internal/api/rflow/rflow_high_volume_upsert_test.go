@@ -23,13 +23,13 @@ import (
 // createTestDB creates an in-memory SQLite database with the node_execution table
 func createTestDB(t *testing.T) (*sql.DB, *gen.Queries) {
 	ctx := context.Background()
-	
+
 	// Create in-memory SQLite database with proper settings for concurrency
 	db, err := sql.Open("sqlite", ":memory:?cache=shared&_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
-	
+
 	// Configure connection pool for concurrency
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
@@ -57,7 +57,7 @@ func createTestDB(t *testing.T) (*sql.DB, *gen.Queries) {
 
 	// Create queries instance (using non-prepared queries for simplicity)
 	queries := gen.New(db)
-	
+
 	return db, queries
 }
 
@@ -65,8 +65,8 @@ func createTestDB(t *testing.T) (*sql.DB, *gen.Queries) {
 // and concurrent cleanup operations to verify race condition handling
 func TestHighVolumeUpsertWithConcurrentCleanup(t *testing.T) {
 	const (
-		totalOperations = 1000  // Reduced for test stability
-		numGoroutines   = 10    // Manageable concurrency
+		totalOperations = 1000 // Reduced for test stability
+		numGoroutines   = 10   // Manageable concurrency
 		numCleanupOps   = 20
 		cleanupInterval = 50 * time.Millisecond
 	)
@@ -80,11 +80,11 @@ func TestHighVolumeUpsertWithConcurrentCleanup(t *testing.T) {
 
 	// Shared state tracking
 	var (
-		operationCount       = atomic.Int64{}
-		errorCount           = atomic.Int64{}
-		noRowsErrorCount     = atomic.Int64{}
-		successfulUpserts    = atomic.Int64{}
-		successfulCleanups   = atomic.Int64{}
+		operationCount     = atomic.Int64{}
+		errorCount         = atomic.Int64{}
+		noRowsErrorCount   = atomic.Int64{}
+		successfulUpserts  = atomic.Int64{}
+		successfulCleanups = atomic.Int64{}
 	)
 
 	// Pre-create some node IDs for realistic testing
@@ -112,7 +112,7 @@ func TestHighVolumeUpsertWithConcurrentCleanup(t *testing.T) {
 				case <-ticker.C:
 					// Pick a random node ID to cleanup
 					nodeID := nodeIDs[cleanupOps%len(nodeIDs)]
-					
+
 					err := nes.DeleteNodeExecutionsByNodeID(ctx, nodeID)
 					if err != nil {
 						t.Logf("Cleanup %d failed for node %x: %v", cleanupID, nodeID.Bytes(), err)
@@ -134,12 +134,12 @@ func TestHighVolumeUpsertWithConcurrentCleanup(t *testing.T) {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			for j := 0; j < operationsPerGoroutine; j++ {
 				// Create execution with varied data
 				executionID := idwrap.NewNow()
 				nodeID := nodeIDs[j%len(nodeIDs)]
-				
+
 				execution := mnodeexecution.NodeExecution{
 					ID:                     executionID,
 					NodeID:                 nodeID,
@@ -161,9 +161,9 @@ func TestHighVolumeUpsertWithConcurrentCleanup(t *testing.T) {
 
 				// Perform UPSERT operation
 				err := nes.UpsertNodeExecution(ctx, execution)
-				
+
 				operationCount.Add(1)
-				
+
 				if err != nil {
 					errorCount.Add(1)
 					// Check for the specific "no rows in result set" error that indicates race condition
@@ -185,9 +185,9 @@ func TestHighVolumeUpsertWithConcurrentCleanup(t *testing.T) {
 
 	// Wait for all operations to complete
 	wg.Wait()
-	
+
 	elapsed := time.Since(startTime)
-	
+
 	// Collect final statistics
 	finalOps := operationCount.Load()
 	finalErrors := errorCount.Load()
@@ -377,12 +377,12 @@ func TestConcurrentUpsertSameExecution(t *testing.T) {
 	startTime := time.Now()
 
 	var wg sync.WaitGroup
-	
+
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func(goroutineID int) {
 			defer wg.Done()
-			
+
 			for j := 0; j < operationsPerGoroutine; j++ {
 				execution := mnodeexecution.NodeExecution{
 					ID:                     executionID,
@@ -471,10 +471,10 @@ func TestUpsertWithCleanupRace(t *testing.T) {
 	nodeID := idwrap.NewNow()
 
 	var (
-		upsertErrors     = atomic.Int64{}
-		cleanupErrors    = atomic.Int64{}
-		noRowsErrors     = atomic.Int64{}
-		raceConditions   = atomic.Int64{}
+		upsertErrors   = atomic.Int64{}
+		cleanupErrors  = atomic.Int64{}
+		noRowsErrors   = atomic.Int64{}
+		raceConditions = atomic.Int64{}
 	)
 
 	t.Logf("Testing UPSERT vs cleanup race condition with %d iterations", iterations)

@@ -209,7 +209,7 @@ func (d DepFinder) replaceWithPaths(value any, allowSubstring bool) (any, bool, 
 			result := v
 			var foundAny bool
 			var allCouples []VarCouple
-			
+
 			// Check each known variable to see if it appears as a substring
 			for varValue, couple := range d.vars {
 				if strValue, ok := varValue.(string); ok && len(strValue) > 0 {
@@ -222,7 +222,7 @@ func (d DepFinder) replaceWithPaths(value any, allowSubstring bool) (any, bool, 
 					}
 				}
 			}
-			
+
 			if foundAny {
 				return result, true, allCouples
 			}

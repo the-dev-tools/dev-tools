@@ -14,7 +14,7 @@ import (
 
 func TestSimpleTreeStructure(t *testing.T) {
 	nodeID := idwrap.NewNow()
-	
+
 	// Simple test node that just writes some data
 	testNode := NewTestNode(nodeID, "simpleNode", []idwrap.IDWrap{}, func(req *node.FlowNodeRequest) error {
 		if req.VariableTracker != nil {
@@ -23,7 +23,7 @@ func TestSimpleTreeStructure(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			
+
 			err = node.WriteNodeVarWithTracking(req, "simpleNode", "status", 200, req.VariableTracker)
 			if err != nil {
 				return err
@@ -41,7 +41,7 @@ func TestSimpleTreeStructure(t *testing.T) {
 		if status.State == mnnode.NODE_STATE_SUCCESS {
 			capturedStatus = &status
 		}
-		t.Logf("Status: %s, State: %v, InputData: %+v, OutputData: %+v", 
+		t.Logf("Status: %s, State: %v, InputData: %+v, OutputData: %+v",
 			status.Name, status.State, status.InputData, status.OutputData)
 	}
 
@@ -71,7 +71,7 @@ func TestSimpleTreeStructure(t *testing.T) {
 
 func TestReadAndWriteTreeStructure(t *testing.T) {
 	nodeID := idwrap.NewNow()
-	
+
 	// Node that reads from initial data and writes output
 	testNode := NewTestNode(nodeID, "readWriteNode", []idwrap.IDWrap{}, func(req *node.FlowNodeRequest) error {
 		if req.VariableTracker != nil {
@@ -80,7 +80,7 @@ func TestReadAndWriteTreeStructure(t *testing.T) {
 			if err != nil && err != node.ErrVarKeyNotFound && err != node.ErrVarNodeNotFound {
 				return err
 			}
-			
+
 			// Write some output based on the read value
 			if value != nil {
 				err = node.WriteNodeVarWithTracking(req, "readWriteNode", "processed", "processed_"+value.(string), req.VariableTracker)
@@ -101,7 +101,7 @@ func TestReadAndWriteTreeStructure(t *testing.T) {
 		if status.State == mnnode.NODE_STATE_SUCCESS {
 			capturedStatus = &status
 		}
-		t.Logf("Status: %s, State: %v, InputData: %+v, OutputData: %+v", 
+		t.Logf("Status: %s, State: %v, InputData: %+v, OutputData: %+v",
 			status.Name, status.State, status.InputData, status.OutputData)
 	}
 

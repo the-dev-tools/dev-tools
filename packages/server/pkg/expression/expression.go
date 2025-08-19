@@ -192,10 +192,10 @@ func ExpressionEvaluteAsBoolWithTracking(ctx context.Context, env Env, expressio
 	}
 
 	trackedEnv := tracking.NewTrackingEnv(env.varMap, tracker)
-	
+
 	// Track all variables as potentially accessed since we can't track individual access
 	trackedEnv.TrackAllVariables()
-	
+
 	program, err := expr.Compile(expressionString, expr.AsBool(), expr.Env(trackedEnv.GetMap()))
 	if err != nil {
 		return false, err
@@ -218,10 +218,10 @@ func ExpressionEvaluteAsArrayWithTracking(ctx context.Context, env Env, expressi
 	}
 
 	trackedEnv := tracking.NewTrackingEnv(env.varMap, tracker)
-	
+
 	// Track all variables as potentially accessed since we can't track individual access
 	trackedEnv.TrackAllVariables()
-	
+
 	program, err := expr.Compile(expressionString, expr.AsAny(), expr.Env(trackedEnv.GetMap()))
 	if err != nil {
 		return nil, err
@@ -254,10 +254,10 @@ func ExpressionEvaluateAsIterWithTracking(ctx context.Context, env Env, expressi
 	}
 
 	trackedEnv := tracking.NewTrackingEnv(env.varMap, tracker)
-	
+
 	// Track all variables as potentially accessed since we can't track individual access
 	trackedEnv.TrackAllVariables()
-	
+
 	program, err := expr.Compile(expressionString, expr.AsAny(), expr.Env(trackedEnv.GetMap()))
 	if err != nil {
 		return nil, err

@@ -30,7 +30,7 @@ import (
 func TestVariableTrackingIntegration_RequestNodeWithVariables(t *testing.T) {
 	// Create a REQUEST node that uses multiple variables
 	nodeID := idwrap.NewNow()
-	
+
 	api := mitemapi.ItemApi{
 		Method: "POST",
 		Url:    "{{baseUrl}}/{{version}}/users",
@@ -100,7 +100,7 @@ func TestVariableTrackingIntegration_RequestNodeWithVariables(t *testing.T) {
 		"limit":     "50",
 		"include":   "profile,permissions",
 		"userName":  "john_doe",
-		"userEmail": "john@example.com", 
+		"userEmail": "john@example.com",
 		"userRole":  "admin",
 	}
 
@@ -183,7 +183,7 @@ func TestVariableTrackingIntegration_RequestNodeWithVariables(t *testing.T) {
 func TestVariableTrackingIntegration_RequestNodeWithNoVariables(t *testing.T) {
 	// Create a REQUEST node that uses no variables
 	nodeID := idwrap.NewNow()
-	
+
 	api := mitemapi.ItemApi{
 		Method: "GET",
 		Url:    "https://api.example.com/static/endpoint",
@@ -292,7 +292,7 @@ func TestVariableTrackingIntegration_RequestNodeWithNoVariables(t *testing.T) {
 func TestVariableTrackingIntegration_RequestNodeWithPartialVariables(t *testing.T) {
 	// Create a REQUEST node that uses some variables and some static values
 	nodeID := idwrap.NewNow()
-	
+
 	api := mitemapi.ItemApi{
 		Method: "PUT",
 		Url:    "{{baseUrl}}/static/{{resourceId}}",

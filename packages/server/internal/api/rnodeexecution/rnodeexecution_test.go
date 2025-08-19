@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
-	"time"
 	"the-dev-tools/db/pkg/sqlc"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/compress"
@@ -22,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/testutil"
 	"the-dev-tools/server/pkg/translate/tnodeexecution"
 	nodeexecutionv1 "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +52,7 @@ func TestNodeExecutionService_Constructor(t *testing.T) {
 func TestNodeExecutionGet_RequestNodeDetection(t *testing.T) {
 	// Test that the node type detection logic compiles and runs
 	// This is more of a compilation test since we can't easily mock the dependencies
-	
+
 	// Test data structures
 	executionID := idwrap.NewNow()
 	nodeID := idwrap.NewNow()
@@ -220,7 +220,7 @@ func createTestNodeExecutionWithData(t *testing.T, withInputOutput bool) *mnodee
 			},
 		}
 
-		// Create some test output data  
+		// Create some test output data
 		outputData := map[string]interface{}{
 			"status":     200,
 			"statusText": "OK",
@@ -263,26 +263,26 @@ func createTestNodeExecutionWithData(t *testing.T, withInputOutput bool) *mnodee
 func TestSerializeNodeExecutionModelToRPCListItem_ExcludesInputOutput(t *testing.T) {
 	// Test that SerializeNodeExecutionModelToRPCListItem excludes input/output fields for optimization
 	tests := []struct {
-		name              string
-		hasInputOutput    bool
-		expectedError     *string
-		expectedNodeName  string
+		name             string
+		hasInputOutput   bool
+		expectedError    *string
+		expectedNodeName string
 	}{
 		{
-			name:              "Execution with input/output data",
-			hasInputOutput:    true,
-			expectedNodeName:  "Test Execution",
+			name:             "Execution with input/output data",
+			hasInputOutput:   true,
+			expectedNodeName: "Test Execution",
 		},
 		{
-			name:              "Execution without input/output data",
-			hasInputOutput:    false,
-			expectedNodeName:  "Test Execution",
+			name:             "Execution without input/output data",
+			hasInputOutput:   false,
+			expectedNodeName: "Test Execution",
 		},
 		{
-			name:              "Execution with error and input/output data",
-			hasInputOutput:    true,
-			expectedError:     stringPtr("Test error occurred"),
-			expectedNodeName:  "Test Execution",
+			name:             "Execution with error and input/output data",
+			hasInputOutput:   true,
+			expectedError:    stringPtr("Test error occurred"),
+			expectedNodeName: "Test Execution",
 		},
 	}
 
@@ -290,7 +290,7 @@ func TestSerializeNodeExecutionModelToRPCListItem_ExcludesInputOutput(t *testing
 		t.Run(tt.name, func(t *testing.T) {
 			// Create test execution with or without input/output
 			execution := createTestNodeExecutionWithData(t, tt.hasInputOutput)
-			
+
 			// Set error if specified
 			if tt.expectedError != nil {
 				execution.Error = tt.expectedError
@@ -341,26 +341,26 @@ func TestSerializeNodeExecutionModelToRPCListItem_ExcludesInputOutput(t *testing
 func TestSerializeNodeExecutionModelToRPCGetResponse_IncludesInputOutput(t *testing.T) {
 	// Test that SerializeNodeExecutionModelToRPCGetResponse still includes input/output fields
 	tests := []struct {
-		name              string
-		hasInputOutput    bool
-		expectedError     *string
-		expectedNodeName  string
+		name             string
+		hasInputOutput   bool
+		expectedError    *string
+		expectedNodeName string
 	}{
 		{
-			name:              "Execution with input/output data",
-			hasInputOutput:    true,
-			expectedNodeName:  "Test Execution",
+			name:             "Execution with input/output data",
+			hasInputOutput:   true,
+			expectedNodeName: "Test Execution",
 		},
 		{
-			name:              "Execution without input/output data",
-			hasInputOutput:    false,
-			expectedNodeName:  "Test Execution",
+			name:             "Execution without input/output data",
+			hasInputOutput:   false,
+			expectedNodeName: "Test Execution",
 		},
 		{
-			name:              "Execution with error and input/output data",
-			hasInputOutput:    true,
-			expectedError:     stringPtr("Test error occurred"),
-			expectedNodeName:  "Test Execution",
+			name:             "Execution with error and input/output data",
+			hasInputOutput:   true,
+			expectedError:    stringPtr("Test error occurred"),
+			expectedNodeName: "Test Execution",
 		},
 	}
 
@@ -368,7 +368,7 @@ func TestSerializeNodeExecutionModelToRPCGetResponse_IncludesInputOutput(t *test
 		t.Run(tt.name, func(t *testing.T) {
 			// Create test execution with or without input/output
 			execution := createTestNodeExecutionWithData(t, tt.hasInputOutput)
-			
+
 			// Set error if specified
 			if tt.expectedError != nil {
 				execution.Error = tt.expectedError
@@ -426,7 +426,7 @@ func TestSerializeNodeExecutionModelToRPC_IncludesInputOutput(t *testing.T) {
 	// Test that the general SerializeNodeExecutionModelToRPC function still includes input/output
 	execution := createTestNodeExecutionWithData(t, true)
 
-	// Call the general RPC serialization function  
+	// Call the general RPC serialization function
 	rpcExecution, err := tnodeexecution.SerializeNodeExecutionModelToRPC(execution)
 	require.NoError(t, err)
 	require.NotNil(t, rpcExecution)
@@ -497,22 +497,22 @@ func TestNodeExecutionWithCompressedData(t *testing.T) {
 	// Test list serialization with compressed data
 	listItem, err := tnodeexecution.SerializeNodeExecutionModelToRPCListItem(execution)
 	require.NoError(t, err)
-	
+
 	// Input should still be nil in list item even with compressed data
 	assert.Nil(t, listItem.Input, "List item should exclude compressed input for performance")
 
-	// Test get response serialization with compressed data  
+	// Test get response serialization with compressed data
 	getResponse, err := tnodeexecution.SerializeNodeExecutionModelToRPCGetResponse(execution)
 	require.NoError(t, err)
 
 	// Input should be properly decompressed and included in get response
 	assert.NotNil(t, getResponse.Input, "Get response should include decompressed input")
-	
+
 	// Verify the decompressed content is accessible
 	inputStruct := getResponse.Input.GetStructValue()
 	require.NotNil(t, inputStruct)
 	assert.Contains(t, inputStruct.Fields, "key_0")
-	assert.Contains(t, inputStruct.Fields, "key_100") 
+	assert.Contains(t, inputStruct.Fields, "key_100")
 	assert.Contains(t, inputStruct.Fields, "key_500")
 }
 
@@ -930,10 +930,10 @@ func TestRPCOptimization_EndToEndPerformanceComparison_Integration(t *testing.T)
 
 	// Create a REQUEST node
 	nodeData := mnnode.MNode{
-		ID:       nodeID,
-		FlowID:   flowID,
-		NodeKind: mnnode.NODE_KIND_REQUEST,
-		Name:     "Performance Test Node",
+		ID:        nodeID,
+		FlowID:    flowID,
+		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		Name:      "Performance Test Node",
 		PositionX: 100,
 		PositionY: 200,
 	}

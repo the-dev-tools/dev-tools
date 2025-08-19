@@ -61,8 +61,8 @@ func escapeQuotes(s string) string {
 
 // PrepareRequestResult holds the result of preparing a request with tracked variable usage
 type PrepareRequestResult struct {
-	Request   *httpclient.Request
-	ReadVars  map[string]string // Variables that were read during request preparation
+	Request  *httpclient.Request
+	ReadVars map[string]string // Variables that were read during request preparation
 }
 
 func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiExample, queries []mexamplequery.Query, headers []mexampleheader.Header,
@@ -321,7 +321,7 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 ) (*PrepareRequestResult, error) {
 	// Create a tracking wrapper around the varMap
 	tracker := varsystem.NewVarMapTracker(varMap)
-	
+
 	var err error
 	if varsystem.CheckStringHasAnyVarKey(endpoint.Url) {
 		endpoint.Url, err = tracker.ReplaceVars(endpoint.Url)

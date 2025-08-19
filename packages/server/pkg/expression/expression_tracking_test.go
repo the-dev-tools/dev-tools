@@ -8,8 +8,8 @@ import (
 
 func TestExpressionEvaluteAsBool_WithTracking(t *testing.T) {
 	env := NewEnv(map[string]any{
-		"flag":  true,
-		"count": 5,
+		"flag":   true,
+		"count":  5,
 		"unused": "not accessed",
 	})
 
@@ -58,7 +58,7 @@ func TestExpressionEvaluteAsBool_WithoutTracking(t *testing.T) {
 
 func TestExpressionEvaluteAsArray_WithTracking(t *testing.T) {
 	env := NewEnv(map[string]any{
-		"items": []any{1, 2, 3},
+		"items":      []any{1, 2, 3},
 		"multiplier": 2,
 	})
 

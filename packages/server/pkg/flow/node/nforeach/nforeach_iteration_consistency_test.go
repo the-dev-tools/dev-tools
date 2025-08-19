@@ -2,9 +2,10 @@ package nforeach
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sync"
 	"testing"
-	"time"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/runner"
@@ -12,21 +13,20 @@ import (
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"time"
 )
 
 func TestForEachNode_ArrayIteration_OutputFormat(t *testing.T) {
 	// Test array iteration outputs index and value
 	forEachNode := New(
-		idwrap.NewNow(), 
-		"testForEach", 
-		"testArray", 
+		idwrap.NewNow(),
+		"testForEach",
+		"testArray",
 		time.Second*2,
 		mcondition.Condition{},
 		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 	)
-	
+
 	var loggedStatuses []runner.FlowNodeStatus
 	var mu sync.Mutex
 	logFunc := func(status runner.FlowNodeStatus) {
@@ -34,7 +34,7 @@ func TestForEachNode_ArrayIteration_OutputFormat(t *testing.T) {
 		loggedStatuses = append(loggedStatuses, status)
 		mu.Unlock()
 	}
-	
+
 	// Set up test array
 	testArray := []any{"apple", "banana", "cherry"}
 	req := &node.FlowNodeRequest{
@@ -46,10 +46,10 @@ func TestForEachNode_ArrayIteration_OutputFormat(t *testing.T) {
 		EdgeSourceMap: make(edge.EdgesMap),
 		LogPushFunc:   logFunc,
 	}
-	
+
 	result := forEachNode.RunSync(context.Background(), req)
 	require.NoError(t, result.Err)
-	
+
 	// Filter iteration records
 	var iterationRecords []runner.FlowNodeStatus
 	for _, status := range loggedStatuses {
@@ -60,22 +60,22 @@ func TestForEachNode_ArrayIteration_OutputFormat(t *testing.T) {
 			}
 		}
 	}
-	
+
 	// Should have 3 iteration records
 	assert.Len(t, iterationRecords, 3)
-	
+
 	// Check each iteration
 	for i, record := range iterationRecords {
 		outputMap, ok := record.OutputData.(map[string]any)
 		require.True(t, ok)
-		
+
 		// Should have exactly "key" and "item"
 		assert.Len(t, outputMap, 2, "Should have exactly 2 fields")
-		
+
 		key, hasKey := outputMap["key"]
 		assert.True(t, hasKey, "Should have 'key' field")
 		assert.Equal(t, i, key, "Index should match")
-		
+
 		item, hasItem := outputMap["item"]
 		assert.True(t, hasItem, "Should have 'item' field")
 		assert.Equal(t, testArray[i], item, "Value should match array item")
@@ -85,14 +85,14 @@ func TestForEachNode_ArrayIteration_OutputFormat(t *testing.T) {
 func TestForEachNode_MapIteration_OutputFormat(t *testing.T) {
 	// Test map iteration outputs key and value
 	forEachNode := New(
-		idwrap.NewNow(), 
-		"testForEach", 
-		"testMap", 
+		idwrap.NewNow(),
+		"testForEach",
+		"testMap",
 		time.Second*2,
 		mcondition.Condition{},
 		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 	)
-	
+
 	var loggedStatuses []runner.FlowNodeStatus
 	var mu sync.Mutex
 	logFunc := func(status runner.FlowNodeStatus) {
@@ -100,12 +100,12 @@ func TestForEachNode_MapIteration_OutputFormat(t *testing.T) {
 		loggedStatuses = append(loggedStatuses, status)
 		mu.Unlock()
 	}
-	
+
 	// Set up test map
 	testMap := map[string]any{
-		"first": "apple",
+		"first":  "apple",
 		"second": "banana",
-		"third": "cherry",
+		"third":  "cherry",
 	}
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]any{
@@ -116,10 +116,10 @@ func TestForEachNode_MapIteration_OutputFormat(t *testing.T) {
 		EdgeSourceMap: make(edge.EdgesMap),
 		LogPushFunc:   logFunc,
 	}
-	
+
 	result := forEachNode.RunSync(context.Background(), req)
 	require.NoError(t, result.Err)
-	
+
 	// Filter iteration records
 	var iterationRecords []runner.FlowNodeStatus
 	for _, status := range loggedStatuses {
@@ -130,36 +130,36 @@ func TestForEachNode_MapIteration_OutputFormat(t *testing.T) {
 			}
 		}
 	}
-	
+
 	// Should have 3 iteration records
 	assert.Len(t, iterationRecords, 3)
-	
+
 	// Collect all keys to verify
 	seenKeys := make(map[string]bool)
-	
+
 	for _, record := range iterationRecords {
 		outputMap, ok := record.OutputData.(map[string]any)
 		require.True(t, ok)
-		
+
 		// Should have exactly "key" and "item"
 		assert.Len(t, outputMap, 2, "Should have exactly 2 fields")
-		
+
 		key, hasKey := outputMap["key"]
 		assert.True(t, hasKey, "Should have 'key' field")
 		keyStr, ok := key.(string)
 		require.True(t, ok, "Key should be string")
-		
+
 		item, hasItem := outputMap["item"]
 		assert.True(t, hasItem, "Should have 'item' field")
-		
+
 		// Verify key-value pair matches original map
 		expectedValue, exists := testMap[keyStr]
 		assert.True(t, exists, "Key should exist in original map")
 		assert.Equal(t, expectedValue, item, "Value should match")
-		
+
 		seenKeys[keyStr] = true
 	}
-	
+
 	// Should have seen all keys
 	assert.Len(t, seenKeys, len(testMap))
 }
@@ -172,23 +172,23 @@ func TestForEachNode_EmptyCollection_OutputFormat(t *testing.T) {
 		{"EmptyArray", []any{}},
 		{"EmptyMap", map[string]any{}},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			forEachNode := New(
-				idwrap.NewNow(), 
-				"testForEach", 
-				"testValue", 
+				idwrap.NewNow(),
+				"testForEach",
+				"testValue",
 				time.Second*2,
 				mcondition.Condition{},
 				mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 			)
-			
+
 			var loggedStatuses []runner.FlowNodeStatus
 			logFunc := func(status runner.FlowNodeStatus) {
 				loggedStatuses = append(loggedStatuses, status)
 			}
-			
+
 			req := &node.FlowNodeRequest{
 				VarMap: map[string]any{
 					"testValue": tc.value,
@@ -198,10 +198,10 @@ func TestForEachNode_EmptyCollection_OutputFormat(t *testing.T) {
 				EdgeSourceMap: make(edge.EdgesMap),
 				LogPushFunc:   logFunc,
 			}
-			
+
 			result := forEachNode.RunSync(context.Background(), req)
 			assert.NoError(t, result.Err)
-			
+
 			// Should have no iteration records for empty collections
 			iterationCount := 0
 			for _, status := range loggedStatuses {
@@ -220,19 +220,19 @@ func TestForEachNode_EmptyCollection_OutputFormat(t *testing.T) {
 func TestForEachNode_MixedTypeArray_OutputFormat(t *testing.T) {
 	// Test array with mixed types
 	forEachNode := New(
-		idwrap.NewNow(), 
-		"testForEach", 
-		"mixedArray", 
+		idwrap.NewNow(),
+		"testForEach",
+		"mixedArray",
 		time.Second*2,
 		mcondition.Condition{},
 		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 	)
-	
+
 	var loggedStatuses []runner.FlowNodeStatus
 	logFunc := func(status runner.FlowNodeStatus) {
 		loggedStatuses = append(loggedStatuses, status)
 	}
-	
+
 	// Mixed type array
 	mixedArray := []any{
 		"string",
@@ -242,7 +242,7 @@ func TestForEachNode_MixedTypeArray_OutputFormat(t *testing.T) {
 		map[string]any{"nested": "object"},
 		[]any{1, 2, 3},
 	}
-	
+
 	req := &node.FlowNodeRequest{
 		VarMap: map[string]any{
 			"mixedArray": mixedArray,
@@ -252,10 +252,10 @@ func TestForEachNode_MixedTypeArray_OutputFormat(t *testing.T) {
 		EdgeSourceMap: make(edge.EdgesMap),
 		LogPushFunc:   logFunc,
 	}
-	
+
 	result := forEachNode.RunSync(context.Background(), req)
 	require.NoError(t, result.Err)
-	
+
 	// Count and verify SUCCESS iteration records only (we now get both RUNNING and SUCCESS)
 	iterationCount := 0
 	for _, status := range loggedStatuses {
@@ -263,7 +263,7 @@ func TestForEachNode_MixedTypeArray_OutputFormat(t *testing.T) {
 			outputMap, ok := status.OutputData.(map[string]any)
 			if ok && outputMap["key"] != nil {
 				iterationCount++
-				
+
 				// Verify value is preserved correctly
 				key := outputMap["key"].(int)
 				item := outputMap["item"]
@@ -271,21 +271,21 @@ func TestForEachNode_MixedTypeArray_OutputFormat(t *testing.T) {
 			}
 		}
 	}
-	
+
 	assert.Equal(t, len(mixedArray), iterationCount)
 }
 
 func TestForEachNode_AsyncConsistency(t *testing.T) {
 	// Test that async produces same output format as sync
 	forEachNode := New(
-		idwrap.NewNow(), 
-		"testForEach", 
-		"testData", 
+		idwrap.NewNow(),
+		"testForEach",
+		"testData",
 		time.Second*2,
 		mcondition.Condition{},
 		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
 	)
-	
+
 	testCases := []struct {
 		name     string
 		data     any
@@ -294,7 +294,7 @@ func TestForEachNode_AsyncConsistency(t *testing.T) {
 		{"Array", []any{"a", "b", "c"}, false},
 		{"Map", map[string]any{"x": 1, "y": 2}, true},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var loggedStatuses []runner.FlowNodeStatus
@@ -304,7 +304,7 @@ func TestForEachNode_AsyncConsistency(t *testing.T) {
 				loggedStatuses = append(loggedStatuses, status)
 				mu.Unlock()
 			}
-			
+
 			req := &node.FlowNodeRequest{
 				VarMap: map[string]any{
 					"testData": tc.data,
@@ -314,13 +314,13 @@ func TestForEachNode_AsyncConsistency(t *testing.T) {
 				EdgeSourceMap: make(edge.EdgesMap),
 				LogPushFunc:   logFunc,
 			}
-			
+
 			resultChan := make(chan node.FlowNodeResult)
 			forEachNode.RunAsync(context.Background(), req, resultChan)
-			
+
 			result := <-resultChan
 			require.NoError(t, result.Err)
-			
+
 			// Verify output format consistency
 			for _, status := range loggedStatuses {
 				if status.OutputData != nil {

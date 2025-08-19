@@ -195,7 +195,7 @@ func TestFlowCancellation_AllNodesGetCanceledStatus(t *testing.T) {
 	// If node2 completes its next node list before cancellation, node3 gets queued and canceled
 	// If node2 is canceled before that, node3 never gets queued
 	t.Logf("Node3 status (may be empty if not queued): %v", nodeStatuses[node3ID])
-	
+
 	// Debug: Log status details for troubleshooting
 	t.Logf("Node1 statuses: %v", nodeStatuses[node1ID])
 	t.Logf("Node2 statuses: %v", nodeStatuses[node2ID])

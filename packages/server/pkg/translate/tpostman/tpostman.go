@@ -227,9 +227,13 @@ func GetResponse(items []mresponse.Response, reqHeaders []mheader.Header, body *
 	var prevExample *mitemapiexample.ItemApiExample
 	var examples []*mitemapiexample.ItemApiExample
 
+	// Create a local copy of items to avoid race condition during concurrent appends
+	localItems := make([]mresponse.Response, len(items))
+	copy(localItems, items)
+
 	var defaultExample *mresponse.Response
-	if len(items) != 0 {
-		ExampleLastDefault := items[len(items)-1]
+	if len(localItems) != 0 {
+		ExampleLastDefault := localItems[len(localItems)-1]
 		ExampleLastDefault.Name = "Default Example"
 		defaultExample = &ExampleLastDefault
 	} else {
@@ -238,10 +242,10 @@ func GetResponse(items []mresponse.Response, reqHeaders []mheader.Header, body *
 		}
 		defaultExample = &emptyExample
 	}
-	items = append(items, *defaultExample)
+	localItems = append(localItems, *defaultExample)
 
-	for i, item := range items {
-		isDefault := i == len(items)-1
+	for i, item := range localItems {
+		isDefault := i == len(localItems)-1
 
 		cookies := make(map[string]string)
 		for _, v := range item.Cookies {

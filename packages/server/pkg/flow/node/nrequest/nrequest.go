@@ -47,7 +47,7 @@ type NodeRequest struct {
 type NodeRequestSideResp struct {
 	// Execution tracking
 	ExecutionID idwrap.IDWrap // The specific execution ID for this request
-	
+
 	// Request
 	Example mitemapiexample.ItemApiExample
 	Queries []mexamplequery.Query
@@ -131,10 +131,10 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		result.Err = err
 		return result
 	}
-	
+
 	prepareOutput := prepareResult.Request
 	inputVars := prepareResult.ReadVars
-	
+
 	// Track variable reads if tracker is available
 	if req.VariableTracker != nil {
 		for varKey, varValue := range inputVars {
@@ -201,9 +201,9 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			// Still send the response data even though we're failing
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 				ExecutionID: req.ExecutionID,
-				Example: nr.Example,
-				Queries: nr.Queries,
-				Headers: nr.Headers,
+				Example:     nr.Example,
+				Queries:     nr.Queries,
+				Headers:     nr.Headers,
 
 				RawBody:  nr.RawBody,
 				FormBody: nr.FormBody,
@@ -217,9 +217,9 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 		ExecutionID: req.ExecutionID,
-		Example: nr.Example,
-		Queries: nr.Queries,
-		Headers: nr.Headers,
+		Example:     nr.Example,
+		Queries:     nr.Queries,
+		Headers:     nr.Headers,
 
 		RawBody:  nr.RawBody,
 		FormBody: nr.FormBody,
@@ -252,10 +252,10 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		resultChan <- result
 		return
 	}
-	
+
 	prepareOutput := prepareResult.Request
 	inputVars := prepareResult.ReadVars
-	
+
 	// Track variable reads if tracker is available
 	if req.VariableTracker != nil {
 		for varKey, varValue := range inputVars {
@@ -325,9 +325,9 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			// Still send the response data even though we're failing
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 				ExecutionID: req.ExecutionID,
-				Example: nr.Example,
-				Queries: nr.Queries,
-				Headers: nr.Headers,
+				Example:     nr.Example,
+				Queries:     nr.Queries,
+				Headers:     nr.Headers,
 
 				RawBody:  nr.RawBody,
 				FormBody: nr.FormBody,
@@ -342,9 +342,9 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 		ExecutionID: req.ExecutionID,
-		Example: nr.Example,
-		Queries: nr.Queries,
-		Headers: nr.Headers,
+		Example:     nr.Example,
+		Queries:     nr.Queries,
+		Headers:     nr.Headers,
 
 		RawBody:  nr.RawBody,
 		FormBody: nr.FormBody,

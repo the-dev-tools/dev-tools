@@ -51,29 +51,29 @@ func (n *ExecutionTrackingNode) GetName() string {
 
 func (n *ExecutionTrackingNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	count := n.ExecutionCount.Add(1)
-	
+
 	// Track execution details
 	n.mu.Lock()
 	detail := ExecutionDetail{
 		Count:     count,
 		Timestamp: time.Now(),
 	}
-	
+
 	if req.IterationContext != nil {
 		detail.IterationPath = append([]int{}, req.IterationContext.IterationPath...)
 		// Build execution name like the real system would
 		detail.ExecutionName = fmt.Sprintf("%s - Execution %d", n.Name, count)
 	}
-	
+
 	n.executions = append(n.executions, detail)
 	n.mu.Unlock()
-	
+
 	// Simulate minimal work
 	time.Sleep(1 * time.Millisecond)
-	
+
 	// Get next nodes
 	nextNodes := edge.GetNextNodeID(req.EdgeSourceMap, n.ID, edge.HandleUnspecified)
-	
+
 	return node.FlowNodeResult{
 		NextNodeID: nextNodes,
 	}
@@ -108,37 +108,37 @@ func TestNestedForWithFlowRunner(t *testing.T) {
 			expectedExecCount: 10,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup nodes exactly like the bug report
 			outerForID := idwrap.NewNow()
 			innerForID := idwrap.NewNow()
 			requestID := idwrap.NewNow()
-			
+
 			// Create outer FOR node "for_18" with 5 iterations
 			outerFor := nfor.New(outerForID, "for_18", 5, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-			
+
 			// Create inner FOR node "for_21" with 2 iterations
 			innerFor := nfor.New(innerForID, "for_21", 2, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-			
+
 			// Create request node
 			requestNode := NewExecutionTrackingNode(requestID, "request_0")
-			
+
 			// Setup edges: Start -> for_18 -> for_21 -> request_0
 			edges := []edge.Edge{
 				edge.NewEdge(idwrap.NewNow(), outerForID, innerForID, edge.HandleLoop, edge.EdgeKindUnspecified),
 				edge.NewEdge(idwrap.NewNow(), innerForID, requestID, edge.HandleLoop, edge.EdgeKindUnspecified),
 			}
 			edgeMap := edge.NewEdgesMap(edges)
-			
+
 			// Setup node map
 			nodeMap := map[idwrap.IDWrap]node.FlowNode{
 				outerForID: outerFor,
 				innerForID: innerFor,
 				requestID:  requestNode,
 			}
-			
+
 			// Create flow runner with specified timeout
 			flowRunner := flowlocalrunner.CreateFlowRunner(
 				idwrap.NewNow(),
@@ -148,16 +148,16 @@ func TestNestedForWithFlowRunner(t *testing.T) {
 				edgeMap,
 				tc.timeout,
 			)
-			
+
 			// Setup channels
 			flowNodeStatusChan := make(chan runner.FlowNodeStatus, 1000)
 			flowStatusChan := make(chan runner.FlowStatus, 10)
-			
+
 			// Track all status updates
 			var allStatuses []runner.FlowNodeStatus
 			var statusMu sync.Mutex
 			statusDone := make(chan struct{})
-			
+
 			go func() {
 				defer close(statusDone)
 				for status := range flowNodeStatusChan {
@@ -166,24 +166,24 @@ func TestNestedForWithFlowRunner(t *testing.T) {
 					statusMu.Unlock()
 				}
 			}()
-			
+
 			// Run the flow
 			ctx := context.Background()
 			err := flowRunner.Run(ctx, flowNodeStatusChan, flowStatusChan, nil)
-			
+
 			// Wait for status collection to complete
 			<-statusDone
-			
+
 			// Check for errors
 			if err != nil {
 				t.Fatalf("Flow execution failed: %v", err)
 			}
-			
+
 			// Verify execution count
 			actualCount := requestNode.ExecutionCount.Load()
 			if actualCount != tc.expectedExecCount {
 				t.Errorf("Expected %d executions, got %d", tc.expectedExecCount, actualCount)
-				
+
 				// Detailed analysis
 				executions := requestNode.GetExecutions()
 				t.Logf("\nExecution Details (%d total):", len(executions))
@@ -191,18 +191,18 @@ func TestNestedForWithFlowRunner(t *testing.T) {
 					t.Logf("  %d: Count=%d, Path=%v, Time=%v",
 						i+1, exec.Count, exec.IterationPath, exec.Timestamp.Format("15:04:05.000"))
 				}
-				
+
 				// Check which specific execution is missing
 				if actualCount == 9 && tc.expectedExecCount == 10 {
 					t.Logf("\nMISSING 10th EXECUTION - This matches the bug report!")
-					
+
 					// Analyze iteration paths to find the missing one
 					foundPaths := make(map[string]bool)
 					for _, exec := range executions {
 						key := fmt.Sprintf("%v", exec.IterationPath)
 						foundPaths[key] = true
 					}
-					
+
 					// Check all expected paths
 					t.Logf("\nExpected iteration paths:")
 					for i := 0; i < 5; i++ {
@@ -216,7 +216,7 @@ func TestNestedForWithFlowRunner(t *testing.T) {
 						}
 					}
 				}
-				
+
 				// Count request executions from status updates
 				requestStatusCount := 0
 				for _, status := range allStatuses {
@@ -233,32 +233,32 @@ func TestNestedForWithFlowRunner(t *testing.T) {
 // TestFlowRunnerAsyncTiming tests if timing affects the issue
 func TestFlowRunnerAsyncTiming(t *testing.T) {
 	// This test adds delays to see if the issue is timing-related
-	
+
 	outerForID := idwrap.NewNow()
 	innerForID := idwrap.NewNow()
 	requestID := idwrap.NewNow()
-	
+
 	// Create nodes
 	outerFor := nfor.New(outerForID, "for_outer", 3, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
 	innerFor := nfor.New(innerForID, "for_inner", 2, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED)
-	
+
 	// Create a request node
 	requestNode := NewExecutionTrackingNode(requestID, "request_delayed")
-	
+
 	// Setup edges
 	edges := []edge.Edge{
 		edge.NewEdge(idwrap.NewNow(), outerForID, innerForID, edge.HandleLoop, edge.EdgeKindUnspecified),
 		edge.NewEdge(idwrap.NewNow(), innerForID, requestID, edge.HandleLoop, edge.EdgeKindUnspecified),
 	}
 	edgeMap := edge.NewEdgesMap(edges)
-	
+
 	// Setup node map
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		outerForID: outerFor,
 		innerForID: innerFor,
 		requestID:  requestNode,
 	}
-	
+
 	// Run with async mode
 	flowRunner := flowlocalrunner.CreateFlowRunner(
 		idwrap.NewNow(),
@@ -268,11 +268,11 @@ func TestFlowRunnerAsyncTiming(t *testing.T) {
 		edgeMap,
 		5*time.Second, // Async mode
 	)
-	
+
 	// Setup channels
 	flowNodeStatusChan := make(chan runner.FlowNodeStatus, 1000)
 	flowStatusChan := make(chan runner.FlowStatus, 10)
-	
+
 	// Consume status updates
 	done := make(chan struct{})
 	go func() {
@@ -281,16 +281,16 @@ func TestFlowRunnerAsyncTiming(t *testing.T) {
 			// Just consume
 		}
 	}()
-	
+
 	// Run the flow
 	ctx := context.Background()
 	err := flowRunner.Run(ctx, flowNodeStatusChan, flowStatusChan, nil)
 	<-done
-	
+
 	if err != nil {
 		t.Fatalf("Flow execution failed: %v", err)
 	}
-	
+
 	// Check execution count
 	expectedCount := int32(6) // 3*2
 	actualCount := requestNode.ExecutionCount.Load()

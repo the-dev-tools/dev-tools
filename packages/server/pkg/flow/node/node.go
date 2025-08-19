@@ -35,7 +35,7 @@ type FlowNodeRequest struct {
 	PendingAtmoicMap map[idwrap.IDWrap]uint32
 	VariableTracker  *tracking.VariableTracker // Optional tracking for input/output data
 	IterationContext *runner.IterationContext  // For hierarchical execution naming in loops
-	ExecutionID      idwrap.IDWrap            // Unique ID for this specific execution of the node
+	ExecutionID      idwrap.IDWrap             // Unique ID for this specific execution of the node
 }
 
 type LogPushFunc func(status runner.FlowNodeStatus)
@@ -55,7 +55,7 @@ var (
 func DeepCopyVarMap(req *FlowNodeRequest) map[string]any {
 	req.ReadWriteLock.RLock()
 	defer req.ReadWriteLock.RUnlock()
-	
+
 	return deepCopyMap(req.VarMap)
 }
 
@@ -64,7 +64,7 @@ func deepCopyMap(m map[string]any) map[string]any {
 	if m == nil {
 		return nil
 	}
-	
+
 	result := make(map[string]any, len(m))
 	for k, v := range m {
 		result[k] = DeepCopyValue(v)
@@ -77,7 +77,7 @@ func DeepCopyValue(v any) any {
 	if v == nil {
 		return nil
 	}
-	
+
 	switch val := v.(type) {
 	case map[string]any:
 		return deepCopyMap(val)
@@ -199,14 +199,14 @@ func WriteNodeVarWithTracking(a *FlowNodeRequest, name string, key string, v int
 	if err != nil {
 		return err
 	}
-	
+
 	// Track the write if tracker is provided
 	if tracker != nil {
 		nodeKey := name
 		fullKey := nodeKey + "." + key
 		tracker.TrackWrite(fullKey, v)
 	}
-	
+
 	return nil
 }
 
@@ -217,12 +217,12 @@ func WriteNodeVarRawWithTracking(a *FlowNodeRequest, name string, v interface{},
 	if err != nil {
 		return err
 	}
-	
+
 	// Track the write if tracker is provided
 	if tracker != nil {
 		tracker.TrackWrite(name, v)
 	}
-	
+
 	return nil
 }
 
@@ -233,7 +233,7 @@ func WriteNodeVarBulkWithTracking(a *FlowNodeRequest, name string, v map[string]
 	if err != nil {
 		return err
 	}
-	
+
 	// Track each write if tracker is provided
 	if tracker != nil {
 		nodeKey := name
@@ -242,7 +242,7 @@ func WriteNodeVarBulkWithTracking(a *FlowNodeRequest, name string, v map[string]
 			tracker.TrackWrite(fullKey, value)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -253,12 +253,12 @@ func ReadVarRawWithTracking(a *FlowNodeRequest, key string, tracker *tracking.Va
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Track the read if tracker is provided
 	if tracker != nil {
 		tracker.TrackRead(key, v)
 	}
-	
+
 	return v, nil
 }
 
@@ -269,14 +269,13 @@ func ReadNodeVarWithTracking(a *FlowNodeRequest, name, key string, tracker *trac
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Track the read if tracker is provided
 	if tracker != nil {
 		nodeKey := name
 		fullKey := nodeKey + "." + key
 		tracker.TrackRead(fullKey, v)
 	}
-	
+
 	return v, nil
 }
-

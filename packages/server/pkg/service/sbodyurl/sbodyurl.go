@@ -142,7 +142,7 @@ func (bues BodyURLEncodedService) CreateBulkBodyURLEncoded(ctx context.Context, 
 		}
 
 		batch := bodyForms[i:end]
-		
+
 		// For batches with fewer than 7 items, use individual inserts
 		if len(batch) < batchSize {
 			for _, body := range batch {
@@ -153,7 +153,7 @@ func (bues BodyURLEncodedService) CreateBulkBodyURLEncoded(ctx context.Context, 
 			}
 			continue
 		}
-		
+
 		params := gen.CreateBodyUrlEncodedBulkParams{}
 
 		// Set all 7 batch parameters

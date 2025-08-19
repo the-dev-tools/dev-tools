@@ -52,7 +52,7 @@ func TestHarResvoledSimple(t *testing.T) {
 	if len(resolved.Apis) != 2 {
 		t.Errorf("Expected 2 APIs (1 original + 1 delta), got %d", len(resolved.Apis))
 	}
-	
+
 	// Verify one original and one delta API
 	var originalAPI, deltaAPI *mitemapi.ItemApi
 	for i := range resolved.Apis {
@@ -62,7 +62,7 @@ func TestHarResvoledSimple(t *testing.T) {
 			deltaAPI = &resolved.Apis[i]
 		}
 	}
-	
+
 	if originalAPI == nil {
 		t.Errorf("Expected to find one original API")
 	}
@@ -1534,7 +1534,7 @@ func TestNodePositioningNoOverlaps(t *testing.T) {
 			nodeMap["Node3"].PositionY, nodeMap["Node5"].PositionY)
 	}
 
-	// Test 4: Nodes should be spaced far enough apart 
+	// Test 4: Nodes should be spaced far enough apart
 	// The algorithm uses 400px horizontal and 300px vertical spacing
 	// So minimum distance can be 300px (vertical) or ~360.6px (diagonal at 1 level)
 	const minSpacing = 250.0
@@ -1783,9 +1783,9 @@ func TestHarFolderHierarchySimpleURL(t *testing.T) {
 
 	// Verify API names
 	expectedAPINames := map[string]bool{
-		"api":          true,
-		"users":        true,
-		"api (Delta)":  true,
+		"api":           true,
+		"users":         true,
+		"api (Delta)":   true,
 		"users (Delta)": true,
 	}
 	for _, api := range resolved.Apis {

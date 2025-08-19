@@ -219,19 +219,19 @@ func TestTrackingEnv_TrackAllVariables(t *testing.T) {
 	trackingEnv.TrackAllVariables()
 
 	readVars := tracker.GetReadVars()
-	
+
 	if len(readVars) != 3 {
 		t.Errorf("Expected 3 tracked reads, got %d", len(readVars))
 	}
-	
+
 	if readVars["var1"] != "value1" {
 		t.Errorf("Expected var1='value1', got %v", readVars["var1"])
 	}
-	
+
 	if readVars["var2"] != 42 {
 		t.Errorf("Expected var2=42, got %v", readVars["var2"])
 	}
-	
+
 	if nestedMap, ok := readVars["var3"].(map[string]interface{}); ok {
 		if nestedMap["nested"] != "data" {
 			t.Errorf("Expected nested data, got %v", nestedMap["nested"])

@@ -271,7 +271,7 @@ func TestForNode_RunAsync_LargeIterationCount(t *testing.T) {
 	edges := []edge.Edge{edge1, edge2, edge3}
 	edgesMap := edge.NewEdgesMap(edges)
 
-	iterCount := int64(500)    // Test with moderate iteration count
+	iterCount := int64(500)     // Test with moderate iteration count
 	timeOut := 15 * time.Second // Timeout for moderate iteration count
 	nodeFor := nfor.New(id, nodeName, iterCount, timeOut, 0)
 
@@ -613,7 +613,7 @@ func TestForLoopBreakCondition(t *testing.T) {
 	}
 	forNode := nfor.NewWithCondition(
 		forNodeID,
-		"breakLoop", 
+		"breakLoop",
 		10, // 10 iterations total
 		5*time.Second,
 		mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED,
@@ -690,24 +690,24 @@ func TestForLoopBreakCondition_RealWorldExpression(t *testing.T) {
 	// Simulate the parsing logic from rflow.go
 	nodeName := "for_2"
 	expression := "for_2.index > 3"
-	
+
 	var conditionPath, conditionValue string
-	
+
 	// Parse the expression (same logic as in rflow.go)
 	if strings.Contains(expression, " > ") {
 		parts := strings.Split(expression, " > ")
 		if len(parts) == 2 {
-			leftSide := strings.TrimSpace(parts[0])   // "for_2.index"
-			rightSide := strings.TrimSpace(parts[1])  // "3"
-			
+			leftSide := strings.TrimSpace(parts[0])  // "for_2.index"
+			rightSide := strings.TrimSpace(parts[1]) // "3"
+
 			expectedLeft := nodeName + ".index"
 			if leftSide == expectedLeft {
-				conditionPath = leftSide  
-				conditionValue = rightSide 
+				conditionPath = leftSide
+				conditionValue = rightSide
 			}
 		}
 	}
-	
+
 	// Verify parsing worked
 	if conditionPath != "for_2.index" || conditionValue != "3" {
 		t.Fatalf("Expression parsing failed - Path: '%s', Value: '%s'", conditionPath, conditionValue)

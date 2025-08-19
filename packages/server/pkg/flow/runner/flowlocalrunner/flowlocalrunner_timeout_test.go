@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -26,7 +27,7 @@ import (
 
 func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 	t.Parallel() // Run test in parallel to speed up overall test suite
-	
+
 	// Create a test server that simulates a long-running request (500ms instead of 5s)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(500 * time.Millisecond)
@@ -100,12 +101,12 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 			done <- err
 		}()
 
-		// Monitor status updates
-		statusReceived := false
+		// Monitor status updates with atomic boolean to prevent race condition
+		var statusReceived int64 // Use atomic int64 instead of bool
 
 		go func() {
 			for range flowNodeStatusChan {
-				statusReceived = true
+				atomic.StoreInt64(&statusReceived, 1)
 			}
 		}()
 
@@ -125,7 +126,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 			}
 
 			// Verify we got status updates
-			if !statusReceived {
+			if atomic.LoadInt64(&statusReceived) == 0 {
 				t.Error("Expected to receive node status updates")
 			}
 
@@ -171,7 +172,7 @@ func TestFlowRunner_LongRunningHTTPRequest(t *testing.T) {
 
 func TestFlowRunner_ContextIsolation(t *testing.T) {
 	t.Parallel() // Run test in parallel to speed up overall test suite
-	
+
 	// Create a simple HTTP server that responds immediately
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -24,7 +24,7 @@ func (vt *VariableTracker) TrackRead(key string, value any) {
 	if vt == nil {
 		return
 	}
-	
+
 	vt.mutex.Lock()
 	defer vt.mutex.Unlock()
 	vt.readVars[key] = deepCopy(value)
@@ -35,7 +35,7 @@ func (vt *VariableTracker) TrackWrite(key string, value any) {
 	if vt == nil {
 		return
 	}
-	
+
 	vt.mutex.Lock()
 	defer vt.mutex.Unlock()
 	vt.writtenVars[key] = deepCopy(value)
@@ -46,10 +46,10 @@ func (vt *VariableTracker) GetReadVars() map[string]any {
 	if vt == nil {
 		return make(map[string]any)
 	}
-	
+
 	vt.mutex.RLock()
 	defer vt.mutex.RUnlock()
-	
+
 	result := make(map[string]any, len(vt.readVars))
 	for k, v := range vt.readVars {
 		result[k] = deepCopy(v)
@@ -68,10 +68,10 @@ func (vt *VariableTracker) GetWrittenVars() map[string]any {
 	if vt == nil {
 		return make(map[string]any)
 	}
-	
+
 	vt.mutex.RLock()
 	defer vt.mutex.RUnlock()
-	
+
 	result := make(map[string]any, len(vt.writtenVars))
 	for k, v := range vt.writtenVars {
 		result[k] = deepCopy(v)

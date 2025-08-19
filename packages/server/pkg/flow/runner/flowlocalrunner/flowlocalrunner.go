@@ -159,7 +159,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 	runningNodesMutex := sync.Mutex{}
 	// Track start times for duration calculation
 	nodeStartTimes := make(map[idwrap.IDWrap]time.Time)
-	
+
 	// Cleanup function to send CANCELED status for all running/queued nodes
 	sendCanceledStatuses := func(cancelErr error) {
 		// Send CANCELED status for any nodes still in RUNNING state
@@ -170,7 +170,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			if startTime, ok := nodeStartTimes[execID]; ok {
 				duration = time.Since(startTime)
 			}
-			
+
 			canceledStatus := runner.FlowNodeStatus{
 				ExecutionID:      execID,
 				NodeID:           runningStatus.NodeID,
@@ -186,7 +186,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		runningNodes = make(map[idwrap.IDWrap]runner.FlowNodeStatus)
 		nodeStartTimes = make(map[idwrap.IDWrap]time.Time)
 		runningNodesMutex.Unlock()
-		
+
 		// Send CANCELED status for any nodes still in the queue
 		for _, nodeID := range queue {
 			if node, ok := req.NodeMap[nodeID]; ok {
@@ -202,20 +202,20 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			}
 		}
 	}
-	
+
 	// Ensure we send canceled statuses on any return path
 	defer func() {
 		if ctx.Err() != nil {
 			sendCanceledStatuses(ctx.Err())
 		}
 	}()
-	
+
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
 		// Check if context was cancelled before processing next batch
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		
+
 		processCount = min(goroutineCount, queueLen)
 
 		var wg sync.WaitGroup
@@ -241,13 +241,13 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				// Wait for all predecessors to complete before reading their output
 				// This prevents race conditions where we read before predecessors finish writing
 				predecessors := getPredecessorNodes(nodeID, req.EdgeSourceMap)
-				
+
 				// For each predecessor, wait until its variable is available
 				inputData := make(map[string]any)
 				for _, predID := range predecessors {
 					if predNode, ok := req.NodeMap[predID]; ok {
 						predName := predNode.GetName()
-						
+
 						// Retry reading with backoff to handle race conditions
 						var predData interface{}
 						var err error
@@ -260,7 +260,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 							// Very short wait before retry to allow predecessor to complete
 							time.Sleep(100 * time.Microsecond)
 						}
-						
+
 						// Only add to inputData if we successfully read the predecessor data
 						if err == nil {
 							inputData[predName] = predData
@@ -270,40 +270,40 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 				// Generate execution ID right before processing
 				executionID := idwrap.NewNow()
-				
+
 				// Log RUNNING status with execution ID
 				runningStatus := runner.FlowNodeStatus{
-					ExecutionID: executionID,
-					NodeID:      nodeID,
-					Name:        currentNode.GetName(),
-					State:       mnnode.NODE_STATE_RUNNING,
-					Error:       nil,
+					ExecutionID:      executionID,
+					NodeID:           nodeID,
+					Name:             currentNode.GetName(),
+					State:            mnnode.NODE_STATE_RUNNING,
+					Error:            nil,
 					IterationContext: req.IterationContext,
 				}
 				statusLogFunc(runningStatus)
-				
+
 				// Track this node as running with its start time
 				runningNodesMutex.Lock()
 				runningNodes[executionID] = runningStatus
 				nodeStartTimes[executionID] = time.Now()
 				runningNodesMutex.Unlock()
-				
+
 				// Create a copy of the request for this execution to avoid race conditions
 				// This ensures each goroutine has its own tracker and execution ID
 				nodeReq := *req // Shallow copy of the request struct
-				
+
 				// Initialize tracker for this node execution
 				tracker := tracking.NewVariableTracker()
 				nodeReq.VariableTracker = tracker
-				
+
 				// Set the execution ID in the copied request
 				nodeReq.ExecutionID = executionID
-				
+
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
-				
+
 				// Capture tracked data as tree structures
 				outputData := tracker.GetWrittenVarsAsTree()
-				
+
 				// Merge tracked variable reads as tree structure into inputData
 				trackedReads := tracker.GetReadVarsAsTree()
 				if len(trackedReads) > 0 {
@@ -335,13 +335,13 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			status.IterationContext = req.IterationContext
 			nodeState := nodeStateMap[status.NodeID]
 			status.RunDuration = time.Since(nodeState.StartTime)
-			
+
 			// Remove from running nodes since we're processing its completion
 			runningNodesMutex.Lock()
 			delete(runningNodes, result.executionID)
 			delete(nodeStartTimes, result.executionID)
 			runningNodesMutex.Unlock()
-			
+
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
@@ -393,7 +393,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		if lastNodeError != nil {
 			return lastNodeError
 		}
-		
+
 		// Check if flow was canceled - the defer will handle sending CANCELED statuses
 		if FlowNodeCancelCtx.Err() != nil {
 			return FlowNodeCancelCtx.Err()
@@ -422,7 +422,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 	runningNodesMutex := sync.Mutex{}
 	// Track start times for duration calculation
 	nodeStartTimes := make(map[idwrap.IDWrap]time.Time)
-	
+
 	// Cleanup function to send CANCELED status for all running/queued nodes
 	sendCanceledStatuses := func(cancelErr error) {
 		// Send CANCELED status for any nodes still in RUNNING state
@@ -433,7 +433,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			if startTime, ok := nodeStartTimes[execID]; ok {
 				duration = time.Since(startTime)
 			}
-			
+
 			canceledStatus := runner.FlowNodeStatus{
 				ExecutionID:      execID,
 				NodeID:           runningStatus.NodeID,
@@ -449,7 +449,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 		runningNodes = make(map[idwrap.IDWrap]runner.FlowNodeStatus)
 		nodeStartTimes = make(map[idwrap.IDWrap]time.Time)
 		runningNodesMutex.Unlock()
-		
+
 		// Send CANCELED status for any nodes still in the queue
 		for _, nodeID := range queue {
 			if node, ok := req.NodeMap[nodeID]; ok {
@@ -465,20 +465,20 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			}
 		}
 	}
-	
+
 	// Ensure we send canceled statuses on any return path
 	defer func() {
 		if ctx.Err() != nil {
 			sendCanceledStatuses(ctx.Err())
 		}
 	}()
-	
+
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
 		// Check if context was cancelled before processing next batch
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		
+
 		processCount = min(goroutineCount, queueLen)
 
 		ctxTimed, cancelTimeFn := context.WithDeadline(ctx, time.Now().Add(req.Timeout))
@@ -509,13 +509,13 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				// Wait for all predecessors to complete before reading their output
 				// This prevents race conditions where we read before predecessors finish writing
 				predecessors := getPredecessorNodes(nodeID, req.EdgeSourceMap)
-				
+
 				// For each predecessor, wait until its variable is available
 				inputData := make(map[string]any)
 				for _, predID := range predecessors {
 					if predNode, ok := req.NodeMap[predID]; ok {
 						predName := predNode.GetName()
-						
+
 						// Retry reading with backoff to handle race conditions
 						var predData interface{}
 						var err error
@@ -528,7 +528,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 							// Very short wait before retry to allow predecessor to complete
 							time.Sleep(100 * time.Microsecond)
 						}
-						
+
 						// Only add to inputData if we successfully read the predecessor data
 						if err == nil {
 							inputData[predName] = predData
@@ -538,41 +538,41 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 				// Generate execution ID right before processing
 				executionID := idwrap.NewNow()
-				
+
 				// Log RUNNING status with execution ID
 				runningStatus := runner.FlowNodeStatus{
-					ExecutionID: executionID,
-					NodeID:      nodeID,
-					Name:        currentNode.GetName(),
-					State:       mnnode.NODE_STATE_RUNNING,
-					Error:       nil,
+					ExecutionID:      executionID,
+					NodeID:           nodeID,
+					Name:             currentNode.GetName(),
+					State:            mnnode.NODE_STATE_RUNNING,
+					Error:            nil,
 					IterationContext: req.IterationContext,
 				}
 				statusLogFunc(runningStatus)
-				
+
 				// Track this node as running with its start time
 				runningNodesMutex.Lock()
 				runningNodes[executionID] = runningStatus
 				nodeStartTimes[executionID] = time.Now()
 				runningNodesMutex.Unlock()
-				
+
 				// Create a copy of the request for this execution to avoid race conditions
 				// This ensures each goroutine has its own tracker and execution ID
 				nodeReq := *req // Shallow copy of the request struct
-				
+
 				// Initialize tracker for this node execution
 				tracker := tracking.NewVariableTracker()
 				nodeReq.VariableTracker = tracker
-				
+
 				// Set the execution ID in the copied request
 				nodeReq.ExecutionID = executionID
-				
+
 				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
-				
+
 				// Always capture tracked data and send result, even if context timed out
 				// This ensures nodes don't get stuck in RUNNING state
 				outputData := tracker.GetWrittenVarsAsTree()
-				
+
 				// Merge tracked variable reads as tree structure into inputData
 				trackedReads := tracker.GetReadVarsAsTree()
 				if len(trackedReads) > 0 {
@@ -622,13 +622,13 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			status.Name = currentNode.GetName()
 			status.IterationContext = req.IterationContext
 			status.RunDuration = time.Since(timeStart[status.NodeID])
-			
+
 			// Remove from running nodes since we're processing its completion
 			runningNodesMutex.Lock()
 			delete(runningNodes, result.executionID)
 			delete(nodeStartTimes, result.executionID)
 			runningNodesMutex.Unlock()
-			
+
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
@@ -678,12 +678,12 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 		if lastNodeError != nil {
 			return lastNodeError
 		}
-		
+
 		// Check if flow was canceled - the defer will handle sending CANCELED statuses
 		if FlowNodeCancelCtx.Err() != nil {
 			return FlowNodeCancelCtx.Err()
 		}
-		
+
 		// If we timed out but no specific node error, return the timeout error
 		// The defer will handle sending CANCELED statuses
 		if timedOut {

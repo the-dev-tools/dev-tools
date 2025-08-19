@@ -317,14 +317,14 @@ func TestFlowRunLargeIteration(t *testing.T) {
 
 	// Close the log channel to signal the consumer to exit
 	close(logChan)
-	
+
 	// Wait for log consumer to finish with a timeout
 	done := make(chan struct{})
 	go func() {
 		logWg.Wait()
 		close(done)
 	}()
-	
+
 	select {
 	case <-done:
 		// Log consumer finished successfully
@@ -592,17 +592,17 @@ func TestFlowRunMultipleLargeForNodes(t *testing.T) {
 	}
 
 	<-streamDone
-	
+
 	// Close the log channel to signal the consumer to exit
 	close(logChan)
-	
+
 	// Wait for log consumer to finish with a timeout
 	done := make(chan struct{})
 	go func() {
 		logWg.Wait()
 		close(done)
 	}()
-	
+
 	select {
 	case <-done:
 		// Log consumer finished successfully

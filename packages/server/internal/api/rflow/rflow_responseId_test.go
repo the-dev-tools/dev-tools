@@ -115,7 +115,7 @@ func processNodeCompletion(
 func processRequestResponse(
 	response nrequest.NodeRequestSideResp,
 	pendingNodeExecutions map[idwrap.IDWrap]*mnodeexecution.NodeExecution,
-	nodeToExampleMap map[idwrap.IDWrap]idwrap.IDWrap, // maps nodeID to exampleID  
+	nodeToExampleMap map[idwrap.IDWrap]idwrap.IDWrap, // maps nodeID to exampleID
 	pendingMutex *sync.Mutex,
 	nodeExecutionChan chan mnodeexecution.NodeExecution,
 ) {

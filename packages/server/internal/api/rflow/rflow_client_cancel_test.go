@@ -124,6 +124,7 @@ type TestServices struct {
 	rns        snoderequest.NodeRequestService
 	fns        snodefor.NodeForService
 	fens       snodeforeach.NodeForEachService
+	logChanMap *logconsole.LogChanMap
 	sns        snodenoop.NodeNoopService
 	jsns       snodejs.NodeJSService
 }
@@ -193,6 +194,7 @@ func createTestService(t *testing.T, ctx context.Context) (*TestServices, *testu
 		rns:        rns,
 		fns:        fns,
 		fens:       fens,
+		logChanMap: &logChanMap,
 		sns:        sns,
 		jsns:       jsns,
 	}, base, wsID, userID
@@ -1245,6 +1247,17 @@ func TestDatabaseConsistencyAfterCancellation(t *testing.T) {
 	ctx := context.Background()
 	services, base, wsID, userID := createTestService(t, ctx)
 	defer sqlc.CloseQueriesAndLog(base.Queries)
+
+	// Register log channel for the user (required for flow execution)
+	logChan := services.logChanMap.AddLogChannel(userID)
+	defer services.logChanMap.DeleteLogChannel(userID)
+
+	// Start consuming log messages to prevent channel blocking
+	go func() {
+		for range logChan {
+			// Consume messages to prevent channel blocking
+		}
+	}()
 
 	// Create a flow
 	testFlowID := idwrap.NewNow()

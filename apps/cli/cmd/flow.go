@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"time"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/pkg/compress"
@@ -68,6 +67,7 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
+	"time"
 
 	"the-dev-tools/cli/embeded/embededJS"
 
@@ -128,8 +128,6 @@ var flowCmd = &cobra.Command{
 		_ = cmd.Help()
 	},
 }
-
-
 
 var yamlflowRunCmd = &cobra.Command{
 	Use:   "run [yamlflow-file] [flow-name]",
@@ -198,7 +196,7 @@ var yamlflowRunCmd = &cobra.Command{
 			if err != nil {
 				// Log the error from simplified format for debugging
 				log.Printf("yamlflowsimple.ImportYamlFlowYAMLMultiFlow failed: %v", err)
-				
+
 				// Fall back to standard format
 				workspaceData, err = ioworkspace.UnmarshalWorkflowYAML(fileData)
 				if err != nil {
@@ -211,7 +209,7 @@ var yamlflowRunCmd = &cobra.Command{
 			if err != nil {
 				// Log the error from simplified format for debugging
 				log.Printf("yamlflowsimple.ImportYamlFlowYAMLMultiFlow failed: %v", err)
-				
+
 				// Fall back to standard format
 				workspaceData, err = ioworkspace.UnmarshalWorkflowYAML(fileData)
 				if err != nil {
@@ -380,12 +378,12 @@ func formatDuration(d time.Duration) string {
 
 // flowExecutionResult holds the result of a flow execution
 type flowExecutionResult struct {
-	flowName     string
-	success      bool
-	duration     time.Duration
-	nodeResults  map[string]interface{} // Store node results by name
-	variables    map[string]interface{} // Variables from the flow
-	err          error
+	flowName    string
+	success     bool
+	duration    time.Duration
+	nodeResults map[string]interface{} // Store node results by name
+	variables   map[string]interface{} // Variables from the flow
+	err         error
 }
 
 // runMultipleFlows executes multiple flows based on the run field configuration
@@ -873,7 +871,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 		var connected bool
 		for i := 0; i < 30; i++ { // 30 * 100ms = 3 seconds
 			time.Sleep(100 * time.Millisecond)
-			
+
 			// Check if port is open
 			conn, err := net.Dial("tcp", "localhost:9090")
 			if err == nil {
@@ -883,11 +881,11 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 				break
 			}
 		}
-		
+
 		if !connected {
 			return connect.NewError(connect.CodeUnavailable, fmt.Errorf("worker-js server failed to start after 3 seconds"))
 		}
-		
+
 		client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090")
 		clientPtr = &client
 	}

@@ -18,13 +18,13 @@ import (
 // createTestDB creates a test database with minimal schema for testing
 func createTestDB(t *testing.T) (*sql.DB, *gen.Queries) {
 	ctx := context.Background()
-	
+
 	// Create in-memory SQLite database
 	db, err := sql.Open("sqlite", ":memory:?cache=shared&_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
-	
+
 	// Configure connection pool
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
@@ -61,7 +61,7 @@ func createTestDB(t *testing.T) (*sql.DB, *gen.Queries) {
 
 	// Create queries instance
 	queries := gen.New(db)
-	
+
 	return db, queries
 }
 
@@ -78,7 +78,6 @@ func TestForLoopNodeExecutionPersistence(t *testing.T) {
 	err := db.QueryRow("SELECT COUNT(*) FROM node_execution").Scan(&baselineCount)
 	require.NoError(t, err)
 	t.Logf("Baseline node_execution count: %d", baselineCount)
-
 
 	// Create test flow nodes for demonstration
 	forNodeID := idwrap.NewNow()
@@ -106,23 +105,23 @@ func TestForLoopNodeExecutionPersistence(t *testing.T) {
 		// Create FOR loop iteration record (NEW)
 		iterationID := idwrap.NewNow()
 		completedAt := time.Now().UnixMilli()
-		
+
 		_, err = db.Exec(`INSERT INTO node_execution (id, node_id, name, state, completed_at) VALUES (?, ?, ?, ?, ?)`,
-			iterationID.Bytes(), forNodeID.Bytes(), 
-			fmt.Sprintf("FOR Loop - iteration %d", i), 
+			iterationID.Bytes(), forNodeID.Bytes(),
+			fmt.Sprintf("FOR Loop - iteration %d", i),
 			int8(mnnode.NODE_STATE_SUCCESS), completedAt)
 		require.NoError(t, err)
-		
+
 		// Create REQUEST node execution record (EXISTING)
 		executionID := idwrap.NewNow()
 		completedAt = time.Now().UnixMilli()
-		
+
 		_, err = db.Exec(`INSERT INTO node_execution (id, node_id, name, state, completed_at) VALUES (?, ?, ?, ?, ?)`,
-			executionID.Bytes(), requestNodeID.Bytes(), 
-			fmt.Sprintf("Request to Google - iteration %d", i), 
+			executionID.Bytes(), requestNodeID.Bytes(),
+			fmt.Sprintf("Request to Google - iteration %d", i),
 			int8(mnnode.NODE_STATE_SUCCESS), completedAt)
 		require.NoError(t, err)
-		
+
 		t.Logf("Created node_execution records for iteration %d (FOR + REQUEST)", i)
 	}
 
@@ -159,7 +158,7 @@ func TestForLoopNodeExecutionPersistence(t *testing.T) {
 		err = rows.Scan(&nodeKind, &count)
 		require.NoError(t, err)
 		nodeKindCounts[nodeKind] = count
-		
+
 		nodeTypeString := "UNKNOWN"
 		switch nodeKind {
 		case mnnode.NODE_KIND_REQUEST:
@@ -169,7 +168,7 @@ func TestForLoopNodeExecutionPersistence(t *testing.T) {
 		case mnnode.NODE_KIND_NO_OP:
 			nodeTypeString = "NO_OP"
 		}
-		
+
 		t.Logf("Node kind %d (%s): %d executions", nodeKind, nodeTypeString, count)
 	}
 
@@ -177,16 +176,16 @@ func TestForLoopNodeExecutionPersistence(t *testing.T) {
 	// - 10 FOR loop iteration executions (now ALWAYS saved to database)
 	// - 10 REQUEST node executions (one per iteration)
 	// - Total: 20 records
-	require.Equal(t, 10, nodeKindCounts[mnnode.NODE_KIND_FOR], 
+	require.Equal(t, 10, nodeKindCounts[mnnode.NODE_KIND_FOR],
 		"Should have exactly 10 FOR loop iteration executions")
-	require.Equal(t, 10, nodeKindCounts[mnnode.NODE_KIND_REQUEST], 
+	require.Equal(t, 10, nodeKindCounts[mnnode.NODE_KIND_REQUEST],
 		"Should have exactly 10 REQUEST node executions (one per iteration)")
-	require.Equal(t, 20, newRecords, 
+	require.Equal(t, 20, newRecords,
 		"Should have exactly 20 new node_execution records total (10 iterations + 10 requests)")
 
 	t.Log("✅ TEST PASSED: FOR loop persistence works correctly")
 	t.Log("- FOR loop iteration executions: 10 (now saved to database)")
-	t.Log("- REQUEST node executions: 10 (one per iteration)")  
+	t.Log("- REQUEST node executions: 10 (one per iteration)")
 	t.Log("- FOR loop main execution: 0 (successful loops still hidden)")
 	t.Log("- Total new node_execution records: 20")
 }
