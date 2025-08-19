@@ -49,6 +49,9 @@ CREATE TABLE collections (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
   name TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (prev, next, workspace_id),
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 

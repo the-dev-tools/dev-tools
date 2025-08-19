@@ -306,14 +306,23 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCollectionByPlatformIDandTypeStmt, err = db.PrepareContext(ctx, getCollectionByPlatformIDandType); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionByPlatformIDandType: %w", err)
 	}
+	if q.getCollectionByPrevNextStmt, err = db.PrepareContext(ctx, getCollectionByPrevNext); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionByPrevNext: %w", err)
+	}
 	if q.getCollectionByWorkspaceIDStmt, err = db.PrepareContext(ctx, getCollectionByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionByWorkspaceID: %w", err)
 	}
 	if q.getCollectionByWorkspaceIDAndNameStmt, err = db.PrepareContext(ctx, getCollectionByWorkspaceIDAndName); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionByWorkspaceIDAndName: %w", err)
 	}
+	if q.getCollectionMaxPositionStmt, err = db.PrepareContext(ctx, getCollectionMaxPosition); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionMaxPosition: %w", err)
+	}
 	if q.getCollectionWorkspaceIDStmt, err = db.PrepareContext(ctx, getCollectionWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionWorkspaceID: %w", err)
+	}
+	if q.getCollectionsInOrderStmt, err = db.PrepareContext(ctx, getCollectionsInOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionsInOrder: %w", err)
 	}
 	if q.getEnvironmentStmt, err = db.PrepareContext(ctx, getEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironment: %w", err)
@@ -554,6 +563,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateCollectionStmt, err = db.PrepareContext(ctx, updateCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCollection: %w", err)
+	}
+	if q.updateCollectionOrderStmt, err = db.PrepareContext(ctx, updateCollectionOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCollectionOrder: %w", err)
+	}
+	if q.updateCollectionPositionsStmt, err = db.PrepareContext(ctx, updateCollectionPositions); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCollectionPositions: %w", err)
 	}
 	if q.updateEnvironmentStmt, err = db.PrepareContext(ctx, updateEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateEnvironment: %w", err)
@@ -1117,6 +1132,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCollectionByPlatformIDandTypeStmt: %w", cerr)
 		}
 	}
+	if q.getCollectionByPrevNextStmt != nil {
+		if cerr := q.getCollectionByPrevNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionByPrevNextStmt: %w", cerr)
+		}
+	}
 	if q.getCollectionByWorkspaceIDStmt != nil {
 		if cerr := q.getCollectionByWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCollectionByWorkspaceIDStmt: %w", cerr)
@@ -1127,9 +1147,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCollectionByWorkspaceIDAndNameStmt: %w", cerr)
 		}
 	}
+	if q.getCollectionMaxPositionStmt != nil {
+		if cerr := q.getCollectionMaxPositionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionMaxPositionStmt: %w", cerr)
+		}
+	}
 	if q.getCollectionWorkspaceIDStmt != nil {
 		if cerr := q.getCollectionWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCollectionWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionsInOrderStmt != nil {
+		if cerr := q.getCollectionsInOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionsInOrderStmt: %w", cerr)
 		}
 	}
 	if q.getEnvironmentStmt != nil {
@@ -1532,6 +1562,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateCollectionStmt: %w", cerr)
 		}
 	}
+	if q.updateCollectionOrderStmt != nil {
+		if cerr := q.updateCollectionOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCollectionOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateCollectionPositionsStmt != nil {
+		if cerr := q.updateCollectionPositionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCollectionPositionsStmt: %w", cerr)
+		}
+	}
 	if q.updateEnvironmentStmt != nil {
 		if cerr := q.updateEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateEnvironmentStmt: %w", cerr)
@@ -1810,9 +1850,12 @@ type Queries struct {
 	getBodyUrlEncodedsByExampleIDStmt                     *sql.Stmt
 	getCollectionStmt                                     *sql.Stmt
 	getCollectionByPlatformIDandTypeStmt                  *sql.Stmt
+	getCollectionByPrevNextStmt                           *sql.Stmt
 	getCollectionByWorkspaceIDStmt                        *sql.Stmt
 	getCollectionByWorkspaceIDAndNameStmt                 *sql.Stmt
+	getCollectionMaxPositionStmt                          *sql.Stmt
 	getCollectionWorkspaceIDStmt                          *sql.Stmt
+	getCollectionsInOrderStmt                             *sql.Stmt
 	getEnvironmentStmt                                    *sql.Stmt
 	getEnvironmentsByWorkspaceIDStmt                      *sql.Stmt
 	getExampleRespStmt                                    *sql.Stmt
@@ -1893,6 +1936,8 @@ type Queries struct {
 	updateBodyRawDataStmt                                 *sql.Stmt
 	updateBodyUrlEncodedStmt                              *sql.Stmt
 	updateCollectionStmt                                  *sql.Stmt
+	updateCollectionOrderStmt                             *sql.Stmt
+	updateCollectionPositionsStmt                         *sql.Stmt
 	updateEnvironmentStmt                                 *sql.Stmt
 	updateExampleRespStmt                                 *sql.Stmt
 	updateExampleRespHeaderStmt                           *sql.Stmt
@@ -2022,9 +2067,12 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getBodyUrlEncodedsByExampleIDStmt:                q.getBodyUrlEncodedsByExampleIDStmt,
 		getCollectionStmt:                                q.getCollectionStmt,
 		getCollectionByPlatformIDandTypeStmt:             q.getCollectionByPlatformIDandTypeStmt,
+		getCollectionByPrevNextStmt:                      q.getCollectionByPrevNextStmt,
 		getCollectionByWorkspaceIDStmt:                   q.getCollectionByWorkspaceIDStmt,
 		getCollectionByWorkspaceIDAndNameStmt:            q.getCollectionByWorkspaceIDAndNameStmt,
+		getCollectionMaxPositionStmt:                     q.getCollectionMaxPositionStmt,
 		getCollectionWorkspaceIDStmt:                     q.getCollectionWorkspaceIDStmt,
+		getCollectionsInOrderStmt:                        q.getCollectionsInOrderStmt,
 		getEnvironmentStmt:                               q.getEnvironmentStmt,
 		getEnvironmentsByWorkspaceIDStmt:                 q.getEnvironmentsByWorkspaceIDStmt,
 		getExampleRespStmt:                               q.getExampleRespStmt,
@@ -2105,6 +2153,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateBodyRawDataStmt:                               q.updateBodyRawDataStmt,
 		updateBodyUrlEncodedStmt:                            q.updateBodyUrlEncodedStmt,
 		updateCollectionStmt:                                q.updateCollectionStmt,
+		updateCollectionOrderStmt:                           q.updateCollectionOrderStmt,
+		updateCollectionPositionsStmt:                       q.updateCollectionPositionsStmt,
 		updateEnvironmentStmt:                               q.updateEnvironmentStmt,
 		updateExampleRespStmt:                               q.updateExampleRespStmt,
 		updateExampleRespHeaderStmt:                         q.updateExampleRespHeaderStmt,
