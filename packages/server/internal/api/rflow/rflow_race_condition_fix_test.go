@@ -109,7 +109,7 @@ func createFastMockServer(responseDelayMs int) *httptest.Server {
 			time.Sleep(time.Duration(responseDelayMs) * time.Millisecond)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"success": true, "timestamp": "` + fmt.Sprint(time.Now().UnixMilli()) + `"}`))
+		_, _ = w.Write([]byte(`{"success": true, "timestamp": "` + fmt.Sprint(time.Now().UnixMilli()) + `"}`))
 	}))
 }
 
@@ -474,7 +474,7 @@ func TestRaceConditionFix_FastResponses(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// No sleep - respond immediately
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"instant": true}`))
+		_, _ = w.Write([]byte(`{"instant": true}`))
 	}))
 	defer server.Close()
 
