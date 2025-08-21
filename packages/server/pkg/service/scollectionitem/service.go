@@ -136,6 +136,101 @@ func (s *CollectionItemService) ListCollectionItems(ctx context.Context, collect
 	return items, nil
 }
 
+// MoveCollectionItemToFolder moves a collection item to a specific parent folder with optional positioning
+// This method is specifically designed for cross-folder moves using targetParentFolderId
+func (s *CollectionItemService) MoveCollectionItemToFolder(ctx context.Context, itemID idwrap.IDWrap, targetParentFolderID *idwrap.IDWrap, targetItemID *idwrap.IDWrap, position movable.MovePosition) error {
+	s.logger.Debug("Moving collection item to specific parent folder",
+		"item_id", itemID.String(),
+		"target_parent_folder_id", getIDString(targetParentFolderID),
+		"target_item_id", getIDString(targetItemID),
+		"position", position)
+
+	// Get the item to validate it exists
+	item, err := s.queries.GetCollectionItem(ctx, itemID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return ErrCollectionItemNotFound
+		}
+		return fmt.Errorf("failed to get collection item: %w", err)
+	}
+
+	// Validate target parent folder if specified
+	if targetParentFolderID != nil {
+		targetParentItem, err := s.queries.GetCollectionItem(ctx, *targetParentFolderID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return fmt.Errorf("target parent folder not found")
+			}
+			return fmt.Errorf("failed to get target parent folder: %w", err)
+		}
+		
+		// Ensure target parent is actually a folder
+		if targetParentItem.ItemType != int8(CollectionItemTypeFolder) {
+			return fmt.Errorf("target parent must be a folder")
+		}
+		
+		// Validate items are in same collection
+		if item.CollectionID.Compare(targetParentItem.CollectionID) != 0 {
+			return fmt.Errorf("items must be in same collection")
+		}
+	}
+
+	// Validate target item if specified
+	if targetItemID != nil {
+		targetItem, err := s.queries.GetCollectionItem(ctx, *targetItemID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return fmt.Errorf("target item not found")
+			}
+			return fmt.Errorf("failed to get target item: %w", err)
+		}
+		
+		// Validate items are in same collection
+		if item.CollectionID.Compare(targetItem.CollectionID) != 0 {
+			return fmt.Errorf("items must be in same collection")
+		}
+		
+		// Ensure target item is in the target parent folder context
+		if (targetItem.ParentFolderID == nil) != (targetParentFolderID == nil) {
+			return fmt.Errorf("target item must be in the same parent context as the target parent folder")
+		}
+		if targetItem.ParentFolderID != nil && targetParentFolderID != nil {
+			if targetItem.ParentFolderID.Compare(*targetParentFolderID) != 0 {
+				return fmt.Errorf("target item must be in the same parent context as the target parent folder")
+			}
+		}
+	}
+
+	// Prevent moving item relative to itself
+	if targetItemID != nil && itemID.Compare(*targetItemID) == 0 {
+		return fmt.Errorf("cannot move item relative to itself")
+	}
+
+	// Check if this is actually a cross-folder move
+	isCrossFolderMove := false
+	if (item.ParentFolderID == nil) != (targetParentFolderID == nil) {
+		isCrossFolderMove = true
+	} else if item.ParentFolderID != nil && targetParentFolderID != nil {
+		if item.ParentFolderID.Compare(*targetParentFolderID) != 0 {
+			isCrossFolderMove = true
+		}
+	}
+
+	s.logger.Debug("Move to folder analysis",
+		"item_id", itemID.String(),
+		"item_parent", getIDString(item.ParentFolderID),
+		"target_parent", getIDString(targetParentFolderID),
+		"is_cross_folder_move", isCrossFolderMove)
+
+	if isCrossFolderMove {
+		// Cross-folder move: need to update parent_folder_id and handle two different lists
+		return s.performCrossFolderMove(ctx, itemID, item, targetItemID, targetParentFolderID, position)
+	} else {
+		// Same-folder move: use existing logic
+		return s.performSameFolderMove(ctx, itemID, item, targetItemID, position)
+	}
+}
+
 // MoveCollectionItem moves a collection item to a new position, supporting cross-folder moves
 // Updates prev/next pointers and parent_folder_id in the collection_items table
 func (s *CollectionItemService) MoveCollectionItem(ctx context.Context, itemID idwrap.IDWrap, targetID *idwrap.IDWrap, position movable.MovePosition) error {

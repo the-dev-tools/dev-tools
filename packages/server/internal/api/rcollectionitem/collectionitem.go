@@ -259,6 +259,37 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		}
 	}
 
+	// Parse target parent folder ID if provided
+	var targetParentFolderID *idwrap.IDWrap
+	if len(req.Msg.GetTargetParentFolderId()) > 0 {
+		targetParentIDRaw, err := idwrap.NewFromBytes(req.Msg.GetTargetParentFolderId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		
+		// Convert legacy parent folder ID to collection_items ID if needed
+		targetParentIDConverted, err := c.cis.GetCollectionItemIDByLegacyID(ctx, targetParentIDRaw)
+		if err != nil {
+			if err == scollectionitem.ErrCollectionItemNotFound {
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("target parent folder not found"))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		targetParentFolderID = &targetParentIDConverted
+		
+		// Validate target parent folder exists and belongs to same workspace
+		targetParentBelongsToWorkspace, err := c.cis.CheckWorkspaceID(ctx, *targetParentFolderID, collectionWorkspaceID)
+		if err != nil {
+			if err == scollectionitem.ErrCollectionItemNotFound {
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("target parent folder not found"))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if !targetParentBelongsToWorkspace {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("target parent folder does not belong to the specified workspace"))
+		}
+	}
+
 	// Parse and validate position
 	rpcPosition := req.Msg.GetPosition()
 	if rpcPosition == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED && targetID != nil {
@@ -284,8 +315,36 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move item relative to itself"))
 	}
 
-	// Execute the move operation using the CollectionItemService
-	err = c.cis.MoveCollectionItem(ctx, itemID, targetID, movePosition)
+	// Check if this is a targetParentFolderId move vs traditional targetItemId move
+	// We use MoveCollectionItemToFolder if:
+	// 1. targetParentFolderId is not nil (move to specific folder)
+	// 2. TargetParentFolderId field is present in request (even if empty - move to root)
+	isTargetParentFolderMove := targetParentFolderID != nil || req.Msg.TargetParentFolderId != nil
+	
+	if isTargetParentFolderMove {
+		slog.Debug("Cross-folder parent move requested",
+			"item_id", itemID.String(),
+			"target_parent_folder_id", func() string {
+				if targetParentFolderID != nil {
+					return targetParentFolderID.String()
+				}
+				return "nil (root)"
+			}(),
+			"target_item_id", func() string {
+				if targetID != nil {
+					return targetID.String()
+				}
+				return "nil"
+			}(),
+			"position", movePosition)
+		
+		// Execute move to specific parent folder (nil targetParentFolderID means root)
+		err = c.cis.MoveCollectionItemToFolder(ctx, itemID, targetParentFolderID, targetID, movePosition)
+	} else {
+		// Execute the traditional move operation using the CollectionItemService
+		err = c.cis.MoveCollectionItem(ctx, itemID, targetID, movePosition)
+	}
+	
 	if err != nil {
 		slog.Error("Failed to move collection item", 
 			"error", err,
