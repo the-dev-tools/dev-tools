@@ -263,10 +263,17 @@ CREATE TABLE environment (
   type INT8 NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (prev, next, workspace_id),
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
 CREATE INDEX environment_idx1 ON environment (workspace_id, type, name);
+
+-- Performance indexes for environment ordering operations
+CREATE INDEX environment_ordering ON environment (workspace_id, prev, next);
+CREATE INDEX environment_workspace_lookup ON environment (id, workspace_id);
 
 CREATE TABLE variable (
     id BLOB NOT NULL PRIMARY KEY,

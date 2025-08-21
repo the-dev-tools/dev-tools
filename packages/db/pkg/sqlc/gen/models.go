@@ -53,6 +53,8 @@ type Environment struct {
 	Type        int8
 	Name        string
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type ExampleBodyForm struct {

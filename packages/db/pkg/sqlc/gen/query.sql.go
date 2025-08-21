@@ -673,9 +673,9 @@ func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionPara
 
 const createEnvironment = `-- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, type, name, description)
+  environment (id, workspace_id, type, name, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateEnvironmentParams struct {
@@ -684,6 +684,8 @@ type CreateEnvironmentParams struct {
 	Type        int8
 	Name        string
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) error {
@@ -693,6 +695,8 @@ func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentPa
 		arg.Type,
 		arg.Name,
 		arg.Description,
+		arg.Prev,
+		arg.Next,
 	)
 	return err
 }
@@ -4428,7 +4432,9 @@ SELECT
   workspace_id,
   type,
   name,
-  description
+  description,
+  prev,
+  next
 FROM
   environment
 WHERE
@@ -4445,8 +4451,105 @@ func (q *Queries) GetEnvironment(ctx context.Context, id idwrap.IDWrap) (Environ
 		&i.Type,
 		&i.Name,
 		&i.Description,
+		&i.Prev,
+		&i.Next,
 	)
 	return i, err
+}
+
+const getEnvironmentByPrevNext = `-- name: GetEnvironmentByPrevNext :one
+SELECT
+  id,
+  workspace_id,
+  type,
+  name,
+  description,
+  prev,
+  next
+FROM
+  environment
+WHERE
+  workspace_id = ? AND
+  prev = ? AND
+  next = ?
+LIMIT
+  1
+`
+
+type GetEnvironmentByPrevNextParams struct {
+	WorkspaceID idwrap.IDWrap
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
+}
+
+// Find environment by its prev/next references for position-based operations
+func (q *Queries) GetEnvironmentByPrevNext(ctx context.Context, arg GetEnvironmentByPrevNextParams) (Environment, error) {
+	row := q.queryRow(ctx, q.getEnvironmentByPrevNextStmt, getEnvironmentByPrevNext, arg.WorkspaceID, arg.Prev, arg.Next)
+	var i Environment
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Type,
+		&i.Name,
+		&i.Description,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
+const getEnvironmentMaxPosition = `-- name: GetEnvironmentMaxPosition :one
+SELECT
+  id,
+  workspace_id,
+  type,
+  name,
+  description,
+  prev,
+  next
+FROM
+  environment
+WHERE
+  workspace_id = ? AND
+  next IS NULL
+LIMIT
+  1
+`
+
+// Get the last environment in the list (tail) for a workspace
+// Used when appending new environments to the end of the list
+func (q *Queries) GetEnvironmentMaxPosition(ctx context.Context, workspaceID idwrap.IDWrap) (Environment, error) {
+	row := q.queryRow(ctx, q.getEnvironmentMaxPositionStmt, getEnvironmentMaxPosition, workspaceID)
+	var i Environment
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Type,
+		&i.Name,
+		&i.Description,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
+const getEnvironmentWorkspaceID = `-- name: GetEnvironmentWorkspaceID :one
+SELECT
+  workspace_id
+FROM
+  environment
+WHERE
+  id = ?
+LIMIT
+  1
+`
+
+// Get workspace ID for environment (validation for move operations)
+func (q *Queries) GetEnvironmentWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
+	row := q.queryRow(ctx, q.getEnvironmentWorkspaceIDStmt, getEnvironmentWorkspaceID, id)
+	var workspace_id idwrap.IDWrap
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
 }
 
 const getEnvironmentsByWorkspaceID = `-- name: GetEnvironmentsByWorkspaceID :many
@@ -4455,7 +4558,9 @@ SELECT
   workspace_id,
   type,
   name,
-  description
+  description,
+  prev,
+  next
 FROM
   environment
 WHERE
@@ -4477,6 +4582,109 @@ func (q *Queries) GetEnvironmentsByWorkspaceID(ctx context.Context, workspaceID 
 			&i.Type,
 			&i.Name,
 			&i.Description,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getEnvironmentsByWorkspaceIDOrdered = `-- name: GetEnvironmentsByWorkspaceIDOrdered :many
+WITH RECURSIVE ordered_environments AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    e.id,
+    e.workspace_id,
+    e.type,
+    e.name,
+    e.description,
+    e.prev,
+    e.next,
+    0 as position
+  FROM
+    environment e
+  WHERE
+    e.workspace_id = ? AND
+    e.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    e.id,
+    e.workspace_id,
+    e.type,
+    e.name,
+    e.description,
+    e.prev,
+    e.next,
+    oe.position + 1
+  FROM
+    environment e
+  INNER JOIN ordered_environments oe ON e.prev = oe.id
+  WHERE
+    e.workspace_id = ?
+)
+SELECT
+  oe.id,
+  oe.workspace_id,
+  oe.type,
+  oe.name,
+  oe.description,
+  oe.prev,
+  oe.next,
+  oe.position
+FROM
+  ordered_environments oe
+ORDER BY
+  oe.position
+`
+
+type GetEnvironmentsByWorkspaceIDOrderedParams struct {
+	WorkspaceID   idwrap.IDWrap
+	WorkspaceID_2 idwrap.IDWrap
+}
+
+type GetEnvironmentsByWorkspaceIDOrderedRow struct {
+	ID          []byte
+	WorkspaceID []byte
+	Type        int8
+	Name        string
+	Description string
+	Prev        []byte
+	Next        []byte
+	Position    int64
+}
+
+// Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+// Requires index on (workspace_id, prev) for optimal performance
+func (q *Queries) GetEnvironmentsByWorkspaceIDOrdered(ctx context.Context, arg GetEnvironmentsByWorkspaceIDOrderedParams) ([]GetEnvironmentsByWorkspaceIDOrderedRow, error) {
+	rows, err := q.query(ctx, q.getEnvironmentsByWorkspaceIDOrderedStmt, getEnvironmentsByWorkspaceIDOrdered, arg.WorkspaceID, arg.WorkspaceID_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetEnvironmentsByWorkspaceIDOrderedRow{}
+	for rows.Next() {
+		var i GetEnvironmentsByWorkspaceIDOrderedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Type,
+			&i.Name,
+			&i.Description,
+			&i.Prev,
+			&i.Next,
+			&i.Position,
 		); err != nil {
 			return nil, err
 		}
@@ -7389,6 +7597,77 @@ type UpdateEnvironmentParams struct {
 
 func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error {
 	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment, arg.Name, arg.Description, arg.ID)
+	return err
+}
+
+const updateEnvironmentNext = `-- name: UpdateEnvironmentNext :exec
+UPDATE environment
+SET
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?
+`
+
+type UpdateEnvironmentNextParams struct {
+	Next        *idwrap.IDWrap
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+}
+
+// Update only the next pointer for an environment (used in deletion)
+func (q *Queries) UpdateEnvironmentNext(ctx context.Context, arg UpdateEnvironmentNextParams) error {
+	_, err := q.exec(ctx, q.updateEnvironmentNextStmt, updateEnvironmentNext, arg.Next, arg.ID, arg.WorkspaceID)
+	return err
+}
+
+const updateEnvironmentOrder = `-- name: UpdateEnvironmentOrder :exec
+UPDATE environment
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?
+`
+
+type UpdateEnvironmentOrderParams struct {
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+}
+
+// Update the prev/next pointers for a single environment
+// Used for moving environments within the linked list
+func (q *Queries) UpdateEnvironmentOrder(ctx context.Context, arg UpdateEnvironmentOrderParams) error {
+	_, err := q.exec(ctx, q.updateEnvironmentOrderStmt, updateEnvironmentOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.WorkspaceID,
+	)
+	return err
+}
+
+const updateEnvironmentPrev = `-- name: UpdateEnvironmentPrev :exec
+UPDATE environment
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  workspace_id = ?
+`
+
+type UpdateEnvironmentPrevParams struct {
+	Prev        *idwrap.IDWrap
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+}
+
+// Update only the prev pointer for an environment (used in deletion)
+func (q *Queries) UpdateEnvironmentPrev(ctx context.Context, arg UpdateEnvironmentPrevParams) error {
+	_, err := q.exec(ctx, q.updateEnvironmentPrevStmt, updateEnvironmentPrev, arg.Prev, arg.ID, arg.WorkspaceID)
 	return err
 }
 

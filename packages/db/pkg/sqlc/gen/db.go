@@ -360,8 +360,20 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getEnvironmentStmt, err = db.PrepareContext(ctx, getEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironment: %w", err)
 	}
+	if q.getEnvironmentByPrevNextStmt, err = db.PrepareContext(ctx, getEnvironmentByPrevNext); err != nil {
+		return nil, fmt.Errorf("error preparing query GetEnvironmentByPrevNext: %w", err)
+	}
+	if q.getEnvironmentMaxPositionStmt, err = db.PrepareContext(ctx, getEnvironmentMaxPosition); err != nil {
+		return nil, fmt.Errorf("error preparing query GetEnvironmentMaxPosition: %w", err)
+	}
+	if q.getEnvironmentWorkspaceIDStmt, err = db.PrepareContext(ctx, getEnvironmentWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetEnvironmentWorkspaceID: %w", err)
+	}
 	if q.getEnvironmentsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getEnvironmentsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironmentsByWorkspaceID: %w", err)
+	}
+	if q.getEnvironmentsByWorkspaceIDOrderedStmt, err = db.PrepareContext(ctx, getEnvironmentsByWorkspaceIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetEnvironmentsByWorkspaceIDOrdered: %w", err)
 	}
 	if q.getExampleRespStmt, err = db.PrepareContext(ctx, getExampleResp); err != nil {
 		return nil, fmt.Errorf("error preparing query GetExampleResp: %w", err)
@@ -620,6 +632,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateEnvironmentStmt, err = db.PrepareContext(ctx, updateEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateEnvironment: %w", err)
+	}
+	if q.updateEnvironmentNextStmt, err = db.PrepareContext(ctx, updateEnvironmentNext); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateEnvironmentNext: %w", err)
+	}
+	if q.updateEnvironmentOrderStmt, err = db.PrepareContext(ctx, updateEnvironmentOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateEnvironmentOrder: %w", err)
+	}
+	if q.updateEnvironmentPrevStmt, err = db.PrepareContext(ctx, updateEnvironmentPrev); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateEnvironmentPrev: %w", err)
 	}
 	if q.updateExampleRespStmt, err = db.PrepareContext(ctx, updateExampleResp); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateExampleResp: %w", err)
@@ -1279,9 +1300,29 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getEnvironmentStmt: %w", cerr)
 		}
 	}
+	if q.getEnvironmentByPrevNextStmt != nil {
+		if cerr := q.getEnvironmentByPrevNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getEnvironmentByPrevNextStmt: %w", cerr)
+		}
+	}
+	if q.getEnvironmentMaxPositionStmt != nil {
+		if cerr := q.getEnvironmentMaxPositionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getEnvironmentMaxPositionStmt: %w", cerr)
+		}
+	}
+	if q.getEnvironmentWorkspaceIDStmt != nil {
+		if cerr := q.getEnvironmentWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getEnvironmentWorkspaceIDStmt: %w", cerr)
+		}
+	}
 	if q.getEnvironmentsByWorkspaceIDStmt != nil {
 		if cerr := q.getEnvironmentsByWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getEnvironmentsByWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getEnvironmentsByWorkspaceIDOrderedStmt != nil {
+		if cerr := q.getEnvironmentsByWorkspaceIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getEnvironmentsByWorkspaceIDOrderedStmt: %w", cerr)
 		}
 	}
 	if q.getExampleRespStmt != nil {
@@ -1714,6 +1755,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateEnvironmentStmt: %w", cerr)
 		}
 	}
+	if q.updateEnvironmentNextStmt != nil {
+		if cerr := q.updateEnvironmentNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateEnvironmentNextStmt: %w", cerr)
+		}
+	}
+	if q.updateEnvironmentOrderStmt != nil {
+		if cerr := q.updateEnvironmentOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateEnvironmentOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateEnvironmentPrevStmt != nil {
+		if cerr := q.updateEnvironmentPrevStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateEnvironmentPrevStmt: %w", cerr)
+		}
+	}
 	if q.updateExampleRespStmt != nil {
 		if cerr := q.updateExampleRespStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateExampleRespStmt: %w", cerr)
@@ -2020,7 +2076,11 @@ type Queries struct {
 	getCollectionWorkspaceIDStmt                          *sql.Stmt
 	getCollectionsInOrderStmt                             *sql.Stmt
 	getEnvironmentStmt                                    *sql.Stmt
+	getEnvironmentByPrevNextStmt                          *sql.Stmt
+	getEnvironmentMaxPositionStmt                         *sql.Stmt
+	getEnvironmentWorkspaceIDStmt                         *sql.Stmt
 	getEnvironmentsByWorkspaceIDStmt                      *sql.Stmt
+	getEnvironmentsByWorkspaceIDOrderedStmt               *sql.Stmt
 	getExampleRespStmt                                    *sql.Stmt
 	getExampleRespByExampleIDStmt                         *sql.Stmt
 	getExampleRespByExampleIDLatestStmt                   *sql.Stmt
@@ -2107,6 +2167,9 @@ type Queries struct {
 	updateCollectionOrderStmt                             *sql.Stmt
 	updateCollectionPositionsStmt                         *sql.Stmt
 	updateEnvironmentStmt                                 *sql.Stmt
+	updateEnvironmentNextStmt                             *sql.Stmt
+	updateEnvironmentOrderStmt                            *sql.Stmt
+	updateEnvironmentPrevStmt                             *sql.Stmt
 	updateExampleRespStmt                                 *sql.Stmt
 	updateExampleRespHeaderStmt                           *sql.Stmt
 	updateFlowStmt                                        *sql.Stmt
@@ -2256,7 +2319,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionWorkspaceIDStmt:                          q.getCollectionWorkspaceIDStmt,
 		getCollectionsInOrderStmt:                             q.getCollectionsInOrderStmt,
 		getEnvironmentStmt:                                    q.getEnvironmentStmt,
+		getEnvironmentByPrevNextStmt:                          q.getEnvironmentByPrevNextStmt,
+		getEnvironmentMaxPositionStmt:                         q.getEnvironmentMaxPositionStmt,
+		getEnvironmentWorkspaceIDStmt:                         q.getEnvironmentWorkspaceIDStmt,
 		getEnvironmentsByWorkspaceIDStmt:                      q.getEnvironmentsByWorkspaceIDStmt,
+		getEnvironmentsByWorkspaceIDOrderedStmt:               q.getEnvironmentsByWorkspaceIDOrderedStmt,
 		getExampleRespStmt:                                    q.getExampleRespStmt,
 		getExampleRespByExampleIDStmt:                         q.getExampleRespByExampleIDStmt,
 		getExampleRespByExampleIDLatestStmt:                   q.getExampleRespByExampleIDLatestStmt,
@@ -2343,6 +2410,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateCollectionOrderStmt:                             q.updateCollectionOrderStmt,
 		updateCollectionPositionsStmt:                         q.updateCollectionPositionsStmt,
 		updateEnvironmentStmt:                                 q.updateEnvironmentStmt,
+		updateEnvironmentNextStmt:                             q.updateEnvironmentNextStmt,
+		updateEnvironmentOrderStmt:                            q.updateEnvironmentOrderStmt,
+		updateEnvironmentPrevStmt:                             q.updateEnvironmentPrevStmt,
 		updateExampleRespStmt:                                 q.updateExampleRespStmt,
 		updateExampleRespHeaderStmt:                           q.updateExampleRespHeaderStmt,
 		updateFlowStmt:                                        q.updateFlowStmt,

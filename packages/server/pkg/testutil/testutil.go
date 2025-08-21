@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"testing"
 	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -172,4 +173,8 @@ func AssertNotFatal[c comparable](t *testing.T, not, got c) {
 	if got == not {
 		t.Fatalf("got %v, expected not %v", got, not)
 	}
+}
+
+func (b BaseDBQueries) Logger() *slog.Logger {
+	return mocklogger.NewMockLogger()
 }

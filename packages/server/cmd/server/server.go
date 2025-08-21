@@ -158,7 +158,7 @@ func main() {
 	assertService := sassert.New(queries)
 	assertResultService := sassertres.New(queries)
 	variableService := svar.New(queries)
-	environmentService := senv.New(queries)
+	environmentService := senv.New(queries, logger)
 	tagService := stag.New(queries)
 
 	// Flow
