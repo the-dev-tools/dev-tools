@@ -29,7 +29,7 @@ func TestWorkspaceCreate(t *testing.T) {
 	ws := sworkspace.New(queries)
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
-	es := senv.New(queries)
+	es := senv.New(queries, base.Logger())
 
 	wsIDBase := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -89,7 +89,7 @@ func TestWorkspaceGet(t *testing.T) {
 	ws := sworkspace.New(queries)
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
-	es := senv.New(queries)
+	es := senv.New(queries, base.Logger())
 
 	wsIDBase := idwrap.NewNow()
 	wsuserID := idwrap.NewNow()
@@ -173,7 +173,7 @@ func TestWorkspaceUpdate(t *testing.T) {
 	ws := sworkspace.New(queries)
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
-	es := senv.New(queries)
+	es := senv.New(queries, base.Logger())
 
 	// TODO: change to correc service
 	wsIDBase := idwrap.NewNow()
@@ -263,7 +263,7 @@ func TestWorkspaceDelete(t *testing.T) {
 	ws := sworkspace.New(queries)
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
-	es := senv.New(queries)
+	es := senv.New(queries, base.Logger())
 
 	// TODO: change to correc service
 	wsIDBase := idwrap.NewNow()

@@ -319,8 +319,8 @@ func setupIOWorkspaceService(ctx context.Context, t *testing.T) (*ioworkspace.IO
 	flowForService := snodefor.New(queries)
 	flowForEachService := snodeforeach.New(queries)
 	flowJSService := snodejs.New(queries)
-	envService := senv.New(queries)
-	varService := svar.New(queries)
+	envService := senv.New(queries, mockLogger)
+	varService := svar.New(queries, mockLogger)
 
 	// Create IOWorkspaceService
 	ioWorkspaceService := ioworkspace.NewIOWorkspaceService(

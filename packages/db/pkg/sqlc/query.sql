@@ -1572,7 +1572,9 @@ SELECT
   var_key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   variable
 WHERE
@@ -1586,26 +1588,83 @@ SELECT
   var_key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   variable
 WHERE
   env_id = ?;
 
+-- name: GetVariablesByEnvironmentIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (env_id, prev) for optimal performance
+WITH RECURSIVE ordered_variables AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    v.id,
+    v.env_id,
+    v.var_key,
+    v.value,
+    v.enabled,
+    v.description,
+    v.prev,
+    v.next,
+    0 as position
+  FROM
+    variable v
+  WHERE
+    v.env_id = ? AND
+    v.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    v.id,
+    v.env_id,
+    v.var_key,
+    v.value,
+    v.enabled,
+    v.description,
+    v.prev,
+    v.next,
+    ov.position + 1
+  FROM
+    variable v
+  INNER JOIN ordered_variables ov ON v.prev = ov.id
+  WHERE
+    v.env_id = ?
+)
+SELECT
+  ov.id,
+  ov.env_id,
+  ov.var_key,
+  ov.value,
+  ov.enabled,
+  ov.description,
+  ov.prev,
+  ov.next,
+  ov.position
+FROM
+  ordered_variables ov
+ORDER BY
+  ov.position;
+
 -- name: CreateVariable :exec
 INSERT INTO
-  variable (id, env_id, var_key, value, enabled, description)
+  variable (id, env_id, var_key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateVariableBulk :exec
 INSERT INTO
-  variable (id, env_id, var_key, value, enabled, description)
+  variable (id, env_id, var_key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateVariable :exec
 UPDATE variable
@@ -1621,6 +1680,35 @@ WHERE
 DELETE FROM variable
 WHERE
   id = ?;
+
+-- name: UpdateVariableOrder :exec
+-- Update the prev/next pointers for a single variable
+-- Used for moving variables within the linked list
+UPDATE variable
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  env_id = ?;
+
+-- name: UpdateVariablePrev :exec
+-- Update only the prev pointer for a variable (used in deletion)
+UPDATE variable
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  env_id = ?;
+
+-- name: UpdateVariableNext :exec
+-- Update only the next pointer for a variable (used in deletion)
+UPDATE variable
+SET
+  next = ?
+WHERE
+  id = ? AND
+  env_id = ?;
 
 -- name: GetExampleResp :one
 SELECT
@@ -2296,7 +2384,9 @@ SELECT
   key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   flow_variable
 WHERE
@@ -2310,7 +2400,9 @@ SELECT
   key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   flow_variable
 WHERE
@@ -2318,24 +2410,24 @@ WHERE
 
 -- name: CreateFlowVariable :exec
 INSERT INTO
-  flow_variable (id, flow_id, key, value, enabled, description)
+  flow_variable (id, flow_id, key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateFlowVariableBulk :exec
 INSERT INTO
-  flow_variable (id, flow_id, key, value, enabled, description)
+  flow_variable (id, flow_id, key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowVariable :exec
 UPDATE flow_variable
@@ -2351,6 +2443,90 @@ WHERE
 DELETE FROM flow_variable
 WHERE
   id = ?;
+
+-- name: GetFlowVariablesByFlowIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (flow_id, prev) for optimal performance
+WITH RECURSIVE ordered_flow_variables AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    fv.id,
+    fv.flow_id,
+    fv.key,
+    fv.value,
+    fv.enabled,
+    fv.description,
+    fv.prev,
+    fv.next,
+    0 as position
+  FROM
+    flow_variable fv
+  WHERE
+    fv.flow_id = ? AND
+    fv.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    fv.id,
+    fv.flow_id,
+    fv.key,
+    fv.value,
+    fv.enabled,
+    fv.description,
+    fv.prev,
+    fv.next,
+    ofv.position + 1
+  FROM
+    flow_variable fv
+  INNER JOIN ordered_flow_variables ofv ON fv.prev = ofv.id
+  WHERE
+    fv.flow_id = ?
+)
+SELECT
+  ofv.id,
+  ofv.flow_id,
+  ofv.key,
+  ofv.value,
+  ofv.enabled,
+  ofv.description,
+  ofv.prev,
+  ofv.next,
+  ofv.position
+FROM
+  ordered_flow_variables ofv
+ORDER BY
+  ofv.position;
+
+-- name: UpdateFlowVariableOrder :exec
+-- Update the prev/next pointers for a single flow variable
+-- Used for moving flow variables within the linked list
+UPDATE flow_variable
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  flow_id = ?;
+
+-- name: UpdateFlowVariablePrev :exec
+-- Update only the prev pointer for a flow variable (used in deletion)
+UPDATE flow_variable
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  flow_id = ?;
+
+-- name: UpdateFlowVariableNext :exec
+-- Update only the next pointer for a flow variable (used in deletion)
+UPDATE flow_variable
+SET
+  next = ?
+WHERE
+  id = ? AND
+  flow_id = ?;
 
 -- Node Execution
 -- name: GetNodeExecution :one

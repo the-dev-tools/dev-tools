@@ -218,8 +218,8 @@ func TestWorkflowSimplifiedYAMLImportExport(t *testing.T) {
 	testutil.AssertFatal(t, nil, err)
 
 	// Create env and var services
-	envs := senv.New(queries)
-	vars := svar.New(queries)
+	envs := senv.New(queries, mockLogger)
+	vars := svar.New(queries, mockLogger)
 
 	// Create export service
 	exportService := rexport.New(

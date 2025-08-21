@@ -438,6 +438,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowVariablesByFlowIDStmt, err = db.PrepareContext(ctx, getFlowVariablesByFlowID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowVariablesByFlowID: %w", err)
 	}
+	if q.getFlowVariablesByFlowIDOrderedStmt, err = db.PrepareContext(ctx, getFlowVariablesByFlowIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowVariablesByFlowIDOrdered: %w", err)
+	}
 	if q.getFlowsByVersionParentIDStmt, err = db.PrepareContext(ctx, getFlowsByVersionParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowsByVersionParentID: %w", err)
 	}
@@ -548,6 +551,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getVariablesByEnvironmentIDStmt, err = db.PrepareContext(ctx, getVariablesByEnvironmentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetVariablesByEnvironmentID: %w", err)
+	}
+	if q.getVariablesByEnvironmentIDOrderedStmt, err = db.PrepareContext(ctx, getVariablesByEnvironmentIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetVariablesByEnvironmentIDOrdered: %w", err)
 	}
 	if q.getWorkspaceStmt, err = db.PrepareContext(ctx, getWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspace: %w", err)
@@ -675,6 +681,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowVariableStmt, err = db.PrepareContext(ctx, updateFlowVariable); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowVariable: %w", err)
 	}
+	if q.updateFlowVariableNextStmt, err = db.PrepareContext(ctx, updateFlowVariableNext); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowVariableNext: %w", err)
+	}
+	if q.updateFlowVariableOrderStmt, err = db.PrepareContext(ctx, updateFlowVariableOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowVariableOrder: %w", err)
+	}
+	if q.updateFlowVariablePrevStmt, err = db.PrepareContext(ctx, updateFlowVariablePrev); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFlowVariablePrev: %w", err)
+	}
 	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
 	}
@@ -716,6 +731,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateVariableStmt, err = db.PrepareContext(ctx, updateVariable); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateVariable: %w", err)
+	}
+	if q.updateVariableNextStmt, err = db.PrepareContext(ctx, updateVariableNext); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateVariableNext: %w", err)
+	}
+	if q.updateVariableOrderStmt, err = db.PrepareContext(ctx, updateVariableOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateVariableOrder: %w", err)
+	}
+	if q.updateVariablePrevStmt, err = db.PrepareContext(ctx, updateVariablePrev); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateVariablePrev: %w", err)
 	}
 	if q.updateVisualizeModeStmt, err = db.PrepareContext(ctx, updateVisualizeMode); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateVisualizeMode: %w", err)
@@ -1430,6 +1454,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowVariablesByFlowIDStmt: %w", cerr)
 		}
 	}
+	if q.getFlowVariablesByFlowIDOrderedStmt != nil {
+		if cerr := q.getFlowVariablesByFlowIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowVariablesByFlowIDOrderedStmt: %w", cerr)
+		}
+	}
 	if q.getFlowsByVersionParentIDStmt != nil {
 		if cerr := q.getFlowsByVersionParentIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowsByVersionParentIDStmt: %w", cerr)
@@ -1613,6 +1642,11 @@ func (q *Queries) Close() error {
 	if q.getVariablesByEnvironmentIDStmt != nil {
 		if cerr := q.getVariablesByEnvironmentIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getVariablesByEnvironmentIDStmt: %w", cerr)
+		}
+	}
+	if q.getVariablesByEnvironmentIDOrderedStmt != nil {
+		if cerr := q.getVariablesByEnvironmentIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getVariablesByEnvironmentIDOrderedStmt: %w", cerr)
 		}
 	}
 	if q.getWorkspaceStmt != nil {
@@ -1825,6 +1859,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowVariableStmt: %w", cerr)
 		}
 	}
+	if q.updateFlowVariableNextStmt != nil {
+		if cerr := q.updateFlowVariableNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowVariableNextStmt: %w", cerr)
+		}
+	}
+	if q.updateFlowVariableOrderStmt != nil {
+		if cerr := q.updateFlowVariableOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowVariableOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateFlowVariablePrevStmt != nil {
+		if cerr := q.updateFlowVariablePrevStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFlowVariablePrevStmt: %w", cerr)
+		}
+	}
 	if q.updateHeaderStmt != nil {
 		if cerr := q.updateHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHeaderStmt: %w", cerr)
@@ -1893,6 +1942,21 @@ func (q *Queries) Close() error {
 	if q.updateVariableStmt != nil {
 		if cerr := q.updateVariableStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateVariableStmt: %w", cerr)
+		}
+	}
+	if q.updateVariableNextStmt != nil {
+		if cerr := q.updateVariableNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateVariableNextStmt: %w", cerr)
+		}
+	}
+	if q.updateVariableOrderStmt != nil {
+		if cerr := q.updateVariableOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateVariableOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateVariablePrevStmt != nil {
+		if cerr := q.updateVariablePrevStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateVariablePrevStmt: %w", cerr)
 		}
 	}
 	if q.updateVisualizeModeStmt != nil {
@@ -2102,6 +2166,7 @@ type Queries struct {
 	getFlowTagsByTagIDStmt                                *sql.Stmt
 	getFlowVariableStmt                                   *sql.Stmt
 	getFlowVariablesByFlowIDStmt                          *sql.Stmt
+	getFlowVariablesByFlowIDOrderedStmt                   *sql.Stmt
 	getFlowsByVersionParentIDStmt                         *sql.Stmt
 	getFlowsByWorkspaceIDStmt                             *sql.Stmt
 	getHeaderStmt                                         *sql.Stmt
@@ -2139,6 +2204,7 @@ type Queries struct {
 	getUserByProviderIDandTypeStmt                        *sql.Stmt
 	getVariableStmt                                       *sql.Stmt
 	getVariablesByEnvironmentIDStmt                       *sql.Stmt
+	getVariablesByEnvironmentIDOrderedStmt                *sql.Stmt
 	getWorkspaceStmt                                      *sql.Stmt
 	getWorkspaceByUserIDStmt                              *sql.Stmt
 	getWorkspaceByUserIDandWorkspaceIDStmt                *sql.Stmt
@@ -2181,6 +2247,9 @@ type Queries struct {
 	updateFlowNodeJsStmt                                  *sql.Stmt
 	updateFlowNodeRequestStmt                             *sql.Stmt
 	updateFlowVariableStmt                                *sql.Stmt
+	updateFlowVariableNextStmt                            *sql.Stmt
+	updateFlowVariableOrderStmt                           *sql.Stmt
+	updateFlowVariablePrevStmt                            *sql.Stmt
 	updateHeaderStmt                                      *sql.Stmt
 	updateItemApiStmt                                     *sql.Stmt
 	updateItemApiCollectionIdStmt                         *sql.Stmt
@@ -2195,6 +2264,9 @@ type Queries struct {
 	updateTagStmt                                         *sql.Stmt
 	updateUserStmt                                        *sql.Stmt
 	updateVariableStmt                                    *sql.Stmt
+	updateVariableNextStmt                                *sql.Stmt
+	updateVariableOrderStmt                               *sql.Stmt
+	updateVariablePrevStmt                                *sql.Stmt
 	updateVisualizeModeStmt                               *sql.Stmt
 	updateWorkspaceStmt                                   *sql.Stmt
 	updateWorkspaceUpdatedTimeStmt                        *sql.Stmt
@@ -2345,6 +2417,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowTagsByTagIDStmt:                                q.getFlowTagsByTagIDStmt,
 		getFlowVariableStmt:                                   q.getFlowVariableStmt,
 		getFlowVariablesByFlowIDStmt:                          q.getFlowVariablesByFlowIDStmt,
+		getFlowVariablesByFlowIDOrderedStmt:                   q.getFlowVariablesByFlowIDOrderedStmt,
 		getFlowsByVersionParentIDStmt:                         q.getFlowsByVersionParentIDStmt,
 		getFlowsByWorkspaceIDStmt:                             q.getFlowsByWorkspaceIDStmt,
 		getHeaderStmt:                                         q.getHeaderStmt,
@@ -2382,6 +2455,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getUserByProviderIDandTypeStmt:                        q.getUserByProviderIDandTypeStmt,
 		getVariableStmt:                                       q.getVariableStmt,
 		getVariablesByEnvironmentIDStmt:                       q.getVariablesByEnvironmentIDStmt,
+		getVariablesByEnvironmentIDOrderedStmt:                q.getVariablesByEnvironmentIDOrderedStmt,
 		getWorkspaceStmt:                                      q.getWorkspaceStmt,
 		getWorkspaceByUserIDStmt:                              q.getWorkspaceByUserIDStmt,
 		getWorkspaceByUserIDandWorkspaceIDStmt:                q.getWorkspaceByUserIDandWorkspaceIDStmt,
@@ -2424,6 +2498,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowNodeJsStmt:                                  q.updateFlowNodeJsStmt,
 		updateFlowNodeRequestStmt:                             q.updateFlowNodeRequestStmt,
 		updateFlowVariableStmt:                                q.updateFlowVariableStmt,
+		updateFlowVariableNextStmt:                            q.updateFlowVariableNextStmt,
+		updateFlowVariableOrderStmt:                           q.updateFlowVariableOrderStmt,
+		updateFlowVariablePrevStmt:                            q.updateFlowVariablePrevStmt,
 		updateHeaderStmt:                                      q.updateHeaderStmt,
 		updateItemApiStmt:                                     q.updateItemApiStmt,
 		updateItemApiCollectionIdStmt:                         q.updateItemApiCollectionIdStmt,
@@ -2438,6 +2515,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateTagStmt:                                         q.updateTagStmt,
 		updateUserStmt:                                        q.updateUserStmt,
 		updateVariableStmt:                                    q.updateVariableStmt,
+		updateVariableNextStmt:                                q.updateVariableNextStmt,
+		updateVariableOrderStmt:                               q.updateVariableOrderStmt,
+		updateVariablePrevStmt:                                q.updateVariablePrevStmt,
 		updateVisualizeModeStmt:                               q.updateVisualizeModeStmt,
 		updateWorkspaceStmt:                                   q.updateWorkspaceStmt,
 		updateWorkspaceUpdatedTimeStmt:                        q.updateWorkspaceUpdatedTimeStmt,

@@ -258,8 +258,8 @@ var yamlflowRunCmd = &cobra.Command{
 		flowForEachService := snodeforeach.New(queries)
 		flowJSService := snodejs.New(queries)
 		flowEdges := sedge.New(queries)
-		envService := senv.New(queries)
-		varService := svar.New(queries)
+		envService := senv.New(queries, slog.Default())
+		varService := svar.New(queries, slog.Default())
 
 		ioWorkspaceService := ioworkspace.NewIOWorkspaceService(
 			db,

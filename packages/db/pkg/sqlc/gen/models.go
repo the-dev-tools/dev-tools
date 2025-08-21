@@ -197,6 +197,8 @@ type FlowVariable struct {
 	Value       string
 	Enabled     bool
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type ItemApi struct {
@@ -278,6 +280,8 @@ type Variable struct {
 	Value       string
 	Enabled     bool
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type Workspace struct {

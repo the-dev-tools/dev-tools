@@ -28,7 +28,7 @@ func TestCreateEnv(t *testing.T) {
 
 	us := suser.New(queries)
 	es := senv.New(queries, base.Logger())
-	vs := svar.New(queries)
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -98,7 +98,7 @@ func TestGetEnv(t *testing.T) {
 
 	us := suser.New(queries)
 	es := senv.New(queries, base.Logger())
-	vs := svar.New(queries)
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -164,7 +164,7 @@ func TestUpdateEnv(t *testing.T) {
 
 	us := suser.New(queries)
 	es := senv.New(queries, base.Logger())
-	vs := svar.New(queries)
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -234,7 +234,7 @@ func TestDeleteEnv(t *testing.T) {
 
 	us := suser.New(queries)
 	es := senv.New(queries, base.Logger())
-	vs := svar.New(queries)
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -296,7 +296,7 @@ func TestEnvironmentMoveAfter(t *testing.T) {
 
 	us := suser.New(queries)
 	es := senv.New(queries, base.Logger())
-	vs := svar.New(queries)
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -386,7 +386,7 @@ func TestEnvironmentMoveBefore(t *testing.T) {
 
 	us := suser.New(queries)
 	es := senv.New(queries, base.Logger())
-	vs := svar.New(queries)
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -476,7 +476,7 @@ func TestEnvironmentMoveValidationErrors(t *testing.T) {
 
 	us := suser.New(queries)
 	es := senv.New(queries, base.Logger())
-	vs := svar.New(queries)
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -630,7 +630,7 @@ func TestEnvironmentMoveCrossWorkspaceValidation(t *testing.T) {
 
 	us := suser.New(queries)
 	es := senv.New(queries, base.Logger())
-	vs := svar.New(queries)
+	vs := svar.New(queries, base.Logger())
 
 	// Create two different workspaces with the same user (realistic scenario)
 	workspace1ID := idwrap.NewNow()
