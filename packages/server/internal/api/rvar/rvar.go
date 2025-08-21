@@ -59,13 +59,10 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
-		vars, err := v.vs.GetVariableByEnvID(ctx, envID)
+		vars, err := v.vs.GetVariablesByEnvIDOrdered(ctx, envID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		sort.Slice(vars, func(i, j int) bool {
-			return vars[i].ID.Compare(vars[j].ID) < 0
-		})
 
 		rpcVars := tgeneric.MassConvert(vars, tvar.SerializeModelToRPCItem)
 		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars, EnvironmentId: envIDRaw}), nil
@@ -85,7 +82,7 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 		}
 		var vars []mvar.Var
 		for _, env := range envs {
-			envVars, err := v.vs.GetVariableByEnvID(ctx, env.ID)
+			envVars, err := v.vs.GetVariablesByEnvIDOrdered(ctx, env.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
