@@ -268,14 +268,21 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 		insertPosition = maxPosition + 1
 	}
 
-	// Step 1: Create collection_items entry (PRIMARY) with correct linked list position
+	// Step 1: Create item_folder entry (LEGACY TABLE) first to satisfy foreign key constraints
+	err = txService.folderService.CreateItemFolder(ctx, folder)
+	if err != nil {
+		return fmt.Errorf("failed to create folder reference: %w", err)
+	}
+
+	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
+	// Now we can safely reference folder.ID since it exists in item_folder table
 	collectionItemID := idwrap.New(ulid.Make())
 	err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
 		ID:             collectionItemID,
 		CollectionID:   folder.CollectionID,
 		ParentFolderID: folder.ParentID,
 		ItemType:       int8(CollectionItemTypeFolder),
-		FolderID:       &folder.ID, // Reference to legacy folder table
+		FolderID:       &folder.ID, // Reference to legacy folder table (now exists)
 		EndpointID:     nil,
 		Name:           folder.Name,
 		PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
@@ -283,13 +290,6 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 	}, insertPosition)
 	if err != nil {
 		return fmt.Errorf("failed to insert collection item at position: %w", err)
-	}
-
-	// Step 2: Create item_folder entry (REFERENCE) with collection_item_id FK
-	// Update folder to include collection_item_id reference (this might require schema changes)
-	err = txService.folderService.CreateItemFolder(ctx, folder)
-	if err != nil {
-		return fmt.Errorf("failed to create folder reference: %w", err)
 	}
 
 	s.logger.Debug("Successfully created folder with collection item reference",
@@ -324,7 +324,14 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 		insertPosition = maxPosition + 1
 	}
 
-	// Step 1: Create collection_items entry (PRIMARY) with correct linked list position
+	// Step 1: Create item_api entry (LEGACY TABLE) first to satisfy foreign key constraints
+	err = txService.apiService.CreateItemApi(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to create endpoint reference: %w", err)
+	}
+
+	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
+	// Now we can safely reference endpoint.ID since it exists in item_api table
 	collectionItemID := idwrap.New(ulid.Make())
 	err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
 		ID:             collectionItemID,
@@ -332,20 +339,13 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 		ParentFolderID: endpoint.FolderID,
 		ItemType:       int8(CollectionItemTypeEndpoint),
 		FolderID:       nil,
-		EndpointID:     &endpoint.ID, // Reference to legacy endpoint table
+		EndpointID:     &endpoint.ID, // Reference to legacy endpoint table (now exists)
 		Name:           endpoint.Name,
 		PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
 		NextID:         nil, // Will be calculated by InsertNewItemAtPosition
 	}, insertPosition)
 	if err != nil {
 		return fmt.Errorf("failed to insert collection item at position: %w", err)
-	}
-
-	// Step 2: Create item_api entry (REFERENCE) with collection_item_id FK
-	// Update endpoint to include collection_item_id reference (this might require schema changes)
-	err = txService.apiService.CreateItemApi(ctx, endpoint)
-	if err != nil {
-		return fmt.Errorf("failed to create endpoint reference: %w", err)
 	}
 
 	s.logger.Debug("Successfully created endpoint with collection item reference",

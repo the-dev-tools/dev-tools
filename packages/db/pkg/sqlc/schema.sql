@@ -479,7 +479,7 @@ CREATE TABLE collection_items (
     (item_type = 1 AND folder_id IS NULL AND endpoint_id IS NOT NULL)
   ),
   FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_folder_id) REFERENCES item_folder (id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_folder_id) REFERENCES collection_items (id) ON DELETE CASCADE,
   FOREIGN KEY (folder_id) REFERENCES item_folder (id) ON DELETE CASCADE,
   FOREIGN KEY (endpoint_id) REFERENCES item_api (id) ON DELETE CASCADE,
   UNIQUE (prev_id, next_id, parent_folder_id, collection_id)
