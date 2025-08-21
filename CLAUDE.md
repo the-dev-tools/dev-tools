@@ -172,7 +172,7 @@ dev-tools/
 │   ├── spec/               # TypeSpec API definitions
 │   ├── ui/                 # Shared UI components
 │   └── worker-js/          # JS worker for flow execution
-└── configs/               # Configuration packages
+└── tools/               # Configuration packages
 ```
 
 ## Recent Features

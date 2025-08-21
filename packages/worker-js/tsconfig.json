@@ -10,7 +10,7 @@
       "path": "../spec"
     },
     {
-      "path": "../../configs/eslint"
+      "path": "../../tools/eslint"
     }
   ]
 }

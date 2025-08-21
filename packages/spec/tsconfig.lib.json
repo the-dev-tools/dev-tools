@@ -6,7 +6,7 @@
   "include": ["*.ts", "data-client", "dist/buf", "dist/meta"],
   "references": [
     {
-      "path": "../../configs/eslint/tsconfig.lib.json"
+      "path": "../../tools/eslint/tsconfig.lib.json"
     }
   ]
 }

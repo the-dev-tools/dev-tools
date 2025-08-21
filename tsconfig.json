@@ -13,22 +13,22 @@
       "path": "./apps/desktop"
     },
     {
-      "path": "./configs/eslint"
-    },
-    {
       "path": "./packages/ui"
     },
     {
       "path": "./packages/client"
     },
     {
-      "path": "./configs/gha-scripts"
-    },
-    {
       "path": "./packages/spec"
     },
     {
       "path": "./packages/worker-js"
+    },
+    {
+      "path": "./tools/gha-scripts"
+    },
+    {
+      "path": "./tools/eslint"
     }
   ]
 }

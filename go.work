@@ -2,7 +2,7 @@ go 1.24.1
 
 use (
 	./apps/cli
-	./configs/go-tool
+	./tools/go-tool
 	./packages/db
 	./packages/server
 	./packages/spec

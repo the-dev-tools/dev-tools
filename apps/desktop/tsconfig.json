@@ -9,7 +9,7 @@
       "path": "../../packages/client"
     },
     {
-      "path": "../../configs/eslint"
+      "path": "../../tools/eslint"
     },
     {
       "path": "./tsconfig.lib.json"

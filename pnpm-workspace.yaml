@@ -1,6 +1,6 @@
 packages:
   - apps/*
-  - configs/*
+  - tools/*
   - packages/*
 onlyBuiltDependencies:
   - '@bufbuild/buf'

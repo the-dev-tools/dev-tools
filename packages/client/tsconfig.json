@@ -9,7 +9,7 @@
       "path": "../spec"
     },
     {
-      "path": "../../configs/eslint"
+      "path": "../../tools/eslint"
     },
     {
       "path": "./tsconfig.lib.json"

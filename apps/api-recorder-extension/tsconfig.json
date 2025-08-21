@@ -6,7 +6,7 @@
       "path": "../../packages/ui"
     },
     {
-      "path": "../../configs/eslint"
+      "path": "../../tools/eslint"
     },
     {
       "path": "./tsconfig.lib.json"
