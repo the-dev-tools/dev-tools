@@ -26,7 +26,7 @@
  * ```
  */
 
-import { Registry } from '@effect-rx/rx-react';
+import { Registry } from '@effect-atom/atom-react';
 import { BrowserKeyValueStore } from '@effect/platform-browser';
 import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe } from 'effect';
 import { ApiLayer } from '@the-dev-tools/client/api/layer';

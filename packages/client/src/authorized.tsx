@@ -9,16 +9,16 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { getUser } from '~/api/auth';
 import { LoginSearch } from './login';
 
-const makeRoute = createFileRoute('/_authorized');
-
-export const Route = makeRoute({
+export const Route = createFileRoute('/_authorized')({
   beforeLoad: ({ context: { runtime }, location }) =>
     pipe(Effect.option(getUser), Runtime.runPromise(runtime), async (_) =>
-      Option.getOrThrowWith(await _, () =>
-        redirect({
-          search: LoginSearch.make({ redirect: location.href }),
-          to: '/login',
-        }),
+      Option.getOrThrowWith(
+        await _,
+        () =>
+          void redirect({
+            search: LoginSearch.make({ redirect: location.href }),
+            to: '/login',
+          }),
       ),
     ),
 });

@@ -59,15 +59,15 @@
             '';
 
             nativeBuildInputs = with pkgs; [
+              gcc
               gh
+              gha-scripts
               go
               go-task
               jq
               nodejs_latest
               pnpm
-              gha-scripts
-              # C/C++ compilers for CGO
-              gcc
+              protoc-gen-connect-go
             ];
           };
 

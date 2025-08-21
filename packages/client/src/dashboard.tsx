@@ -1,10 +1,7 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-
 import { DashboardLayout } from './authorized';
 
-const makeRoute = createFileRoute('/_authorized/_dashboard');
-
-export const Route = makeRoute({
+export const Route = createFileRoute('/_authorized/_dashboard')({
   component: () => (
     <DashboardLayout
       navbar={

@@ -22,7 +22,7 @@ import { CollectionIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons
 import { ListBoxItemLink } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { makeTabsRx, RouteTabList, TabsRouteContext } from '@the-dev-tools/ui/router';
+import { makeTabsAtom, RouteTabList, TabsRouteContext } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
@@ -38,13 +38,12 @@ export class WorkspaceRouteSearch extends Schema.Class<WorkspaceRouteSearch>('Wo
   showLogs: pipe(Schema.Boolean, Schema.optional),
 }) {}
 
-const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan');
-
-export const Route = makeRoute({
+/* eslint-disable perfectionist/sort-objects */
+export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
   validateSearch: (_) => Schema.decodeSync(WorkspaceRouteSearch)(_),
   context: ({ params: { workspaceIdCan } }): Omit<TabsRouteContext, 'runtime'> => ({
     baseRoute: { from: '/', params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' },
-    tabsRx: makeTabsRx(),
+    tabsAtom: makeTabsAtom(),
   }),
   loader: ({ params: { workspaceIdCan } }) => {
     const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;
@@ -52,6 +51,7 @@ export const Route = makeRoute({
   },
   component: Layout,
 });
+/* eslint-enable perfectionist/sort-objects */
 
 function Layout() {
   const { dataClient, runtime } = useRouteContext({ from: '__root__' });
@@ -157,7 +157,7 @@ function Layout() {
         <Panel>
           <PanelGroup direction='vertical'>
             <div className={tw`-mt-px pt-2`}>
-              <RouteTabList baseRoute={baseRoute} runtime={runtime} tabsRx={context.tabsRx} />
+              <RouteTabList baseRoute={baseRoute} runtime={runtime} tabsAtom={context.tabsAtom} />
             </div>
             <Panel>
               <Outlet />

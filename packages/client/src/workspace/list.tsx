@@ -26,9 +26,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useMutate, useQuery } from '~data-client';
 
-const makeRoute = createFileRoute('/_authorized/_dashboard/');
-
-export const Route = makeRoute({ component: Page });
+export const Route = createFileRoute('/_authorized/_dashboard/')({ component: Page });
 
 function Page() {
   const { dataClient } = useRouteContext({ from: '__root__' });

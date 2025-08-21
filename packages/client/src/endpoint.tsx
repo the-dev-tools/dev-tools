@@ -85,11 +85,10 @@ export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('Endp
   responseIdCan: pipe(Schema.String, Schema.optional),
 }) {}
 
-const makeRoute = createFileRoute(
+/* eslint-disable perfectionist/sort-objects */
+export const Route = createFileRoute(
   '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-);
-
-export const Route = makeRoute({
+)({
   validateSearch: (_) => Schema.decodeSync(EndpointRouteSearch)(_),
   loaderDeps: (_) => Struct.pick(_.search, 'responseIdCan'),
   loader: ({ deps: { responseIdCan }, params: { endpointIdCan, exampleIdCan } }) => {
@@ -121,6 +120,7 @@ export const Route = makeRoute({
   },
   shouldReload: false,
 });
+/* eslint-enable perfectionist/sort-objects */
 
 interface EndpointTabIdProps {
   endpointId: Uint8Array;
@@ -860,7 +860,7 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
 
           <div className={tw`flex gap-1 p-2`}>
             <span>Time:</span>
-            <span className={tw`text-green-600`}>{pipe(Number(duration), Duration.millis, Duration.format)}</span>
+            <span className={tw`text-green-600`}>{pipe(duration, Duration.millis, Duration.format)}</span>
           </div>
 
           <Separator className={tw`h-4`} orientation='vertical' />

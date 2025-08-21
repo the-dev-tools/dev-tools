@@ -108,10 +108,8 @@ function moveMessages({ program }: EmitContext) {
     if (!moveTo || _.namespace === moveTo) return;
 
     const name = getFriendlyName(program, _) ?? _.name;
-    if (moveTo.models.has(name)) return;
-
     _.namespace = moveTo;
-    moveTo.models.set(name, _);
+    if (!moveTo.models.has(name)) moveTo.models.set(name, _);
   });
 
   pipe(
@@ -460,6 +458,9 @@ export async function $onEmit(context: EmitContext) {
     entityMap(program).entries(),
     Array.fromIterable,
     Array.forEach(([target, base]) => {
+      // if (!target.isFinished) $(program).type.finishType(target);
+      // if (isTemplateDeclaration(target)) return;
+
       const packageName = getPackageName(target.namespace);
       if (!packageName) return;
 

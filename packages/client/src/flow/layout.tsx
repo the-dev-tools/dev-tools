@@ -15,9 +15,8 @@ export class FlowSearch extends Schema.Class<FlowSearch>('FlowSearch')({
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
-const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan');
-
-export const Route = makeRoute({
+/* eslint-disable perfectionist/sort-objects */
+export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan')({
   validateSearch: (_) => Schema.decodeSync(FlowSearch)(_),
   loaderDeps: (_) => Struct.pick(_.search, 'node'),
   loader: ({ deps: { node }, params: { flowIdCan } }) => {
@@ -46,6 +45,7 @@ export const Route = makeRoute({
     });
   },
 });
+/* eslint-enable perfectionist/sort-objects */
 
 export const flowTabId = (flowId: Uint8Array) => JSON.stringify({ flowId, route: Route.id });
 

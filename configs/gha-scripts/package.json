@@ -7,15 +7,15 @@
     "cli": "node src/cli.ts"
   },
   "devDependencies": {
-    "@effect/cli": "~0.69.0",
-    "@effect/platform": "~0.90.0",
-    "@effect/platform-node": "~0.94.0",
+    "@effect/cli": "~0.69.2",
+    "@effect/platform": "~0.90.5",
+    "@effect/platform-node": "~0.96.0",
     "@octokit/auth-action": "~6.0.1",
     "@octokit/rest": "~22.0.0",
     "@the-dev-tools/eslint-config": "workspace:^",
-    "@types/node": "~24.1.0",
-    "effect": "~3.17.1",
-    "nx": "~21.3.3",
-    "typescript": "~5.8.3"
+    "@types/node": "~24.3.0",
+    "effect": "~3.17.8",
+    "nx": "~21.4.0",
+    "typescript": "~5.9.2"
   }
 }

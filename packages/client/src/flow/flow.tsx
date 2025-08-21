@@ -85,9 +85,7 @@ import { NoOpNode } from './nodes/no-op';
 import { RequestNode, RequestPanel } from './nodes/request';
 import { useFlowStateSynced } from './sync';
 
-const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/');
-
-export const Route = makeRoute({
+export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/')({
   component: RouteComponent,
   pendingComponent: () => (
     <div className={tw`flex h-full items-center justify-center`}>

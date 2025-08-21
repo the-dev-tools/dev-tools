@@ -1,5 +1,5 @@
 import { Transport } from '@connectrpc/connect';
-import { Registry } from '@effect-rx/rx-react';
+import { Registry } from '@effect-atom/atom-react';
 import { KeyValueStore } from '@effect/platform/KeyValueStore';
 import { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
@@ -14,7 +14,7 @@ import { ErrorComponent } from './error';
 export interface RouterContext {
   dataClient: DataClient;
   queryClient: QueryClient;
-  runtime: Runtime.Runtime<AuthTransport | KeyValueStore | MagicClient | Registry.RxRegistry>;
+  runtime: Runtime.Runtime<AuthTransport | KeyValueStore | MagicClient | Registry.AtomRegistry>;
   transport: Transport;
 }
 

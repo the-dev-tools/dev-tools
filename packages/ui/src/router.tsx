@@ -1,4 +1,4 @@
-import { Registry, Rx, useRx } from '@effect-rx/rx-react';
+import { Atom, Registry, useAtom } from '@effect-atom/atom-react';
 import {
   ActiveLinkOptions,
   AnyRouteMatch,
@@ -51,14 +51,14 @@ export interface Tab {
   route: ToOptions;
 }
 
-export type TabsRx = ReturnType<typeof makeTabsRx>;
+export type TabsAtom = ReturnType<typeof makeTabsAtom>;
 
-export const makeTabsRx = () => pipe(Array.empty<Tab>(), (_) => Rx.make(_), Rx.keepAlive);
+export const makeTabsAtom = () => pipe(Array.empty<Tab>(), (_) => Atom.make(_), Atom.keepAlive);
 
 export interface TabsRouteContext {
   baseRoute: ToOptions;
-  runtime: Runtime.Runtime<Registry.RxRegistry>;
-  tabsRx: TabsRx;
+  runtime: Runtime.Runtime<Registry.AtomRegistry>;
+  tabsAtom: TabsAtom;
 }
 
 interface AddTabProps {
@@ -68,7 +68,7 @@ interface AddTabProps {
 }
 
 export const addTab = ({ id, match, node }: AddTabProps) => {
-  const { runtime, tabsRx } = match.context;
+  const { runtime, tabsAtom } = match.context;
   const tab: Tab = {
     id,
     node,
@@ -87,7 +87,7 @@ export const addTab = ({ id, match, node }: AddTabProps) => {
       Option.getOrElse(() => Array.append(tabs, tab)),
     );
 
-  pipe(Rx.update(tabsRx, updateTabs), Runtime.runSync(runtime));
+  pipe(Atom.update(tabsAtom, updateTabs), Runtime.runSync(runtime));
 };
 
 interface RemoveTabProps extends TabsRouteContext {
@@ -97,16 +97,16 @@ interface RemoveTabProps extends TabsRouteContext {
 export const useRemoveTab = () => {
   const router = useRouter();
 
-  return async ({ baseRoute, id, runtime, tabsRx }: RemoveTabProps) =>
+  return async ({ baseRoute, id, runtime, tabsAtom }: RemoveTabProps) =>
     Effect.gen(function* () {
-      let tabs = yield* Rx.get(tabsRx);
+      let tabs = yield* Atom.get(tabsAtom);
 
       const index = Array.findFirstIndex(tabs, (_) => _.id === id);
       if (Option.isNone(index)) return;
       const tab = Array.unsafeGet(tabs, index.value);
 
       tabs = Array.remove(tabs, index.value);
-      yield* Rx.set(tabsRx, tabs);
+      yield* Atom.set(tabsAtom, tabs);
 
       const match: unknown = router.matchRoute(tab.route);
       if (match === false) return;
@@ -126,7 +126,7 @@ export const useRemoveTab = () => {
 
 interface UseTabShortcutsProps extends TabsRouteContext {}
 
-const useTabShortcuts = ({ baseRoute, runtime, tabsRx }: UseTabShortcutsProps) => {
+const useTabShortcuts = ({ baseRoute, runtime, tabsAtom }: UseTabShortcutsProps) => {
   const router = useRouter();
 
   useEffect(() => {
@@ -141,14 +141,14 @@ const useTabShortcuts = ({ baseRoute, runtime, tabsRx }: UseTabShortcutsProps) =
 
         event.preventDefault();
 
-        let tabs = yield* Rx.get(tabsRx);
+        let tabs = yield* Atom.get(tabsAtom);
         const index = Array.findFirstIndex(tabs, (_) => router.matchRoute(_.route) !== false);
 
         if (Option.isNone(index)) return;
 
         if (shortcut === 'close') {
           tabs = Array.remove(tabs, index.value);
-          yield* Rx.set(tabsRx, tabs);
+          yield* Atom.set(tabsAtom, tabs);
         }
 
         const tab = pipe(
@@ -183,7 +183,7 @@ const useTabShortcuts = ({ baseRoute, runtime, tabsRx }: UseTabShortcutsProps) =
 
     window.addEventListener('keydown', onKeyDown);
     return () => void window.removeEventListener('keydown', onKeyDown);
-  }, [baseRoute, router, runtime, tabsRx]);
+  }, [baseRoute, router, runtime, tabsAtom]);
 };
 
 // https://github.com/facebook/react/issues/29832#issuecomment-2490465022
@@ -247,12 +247,12 @@ interface TabItemProps extends TabsRouteContext, ToOptions {
   tab: Tab;
 }
 
-const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
+const TabItem = ({ baseRoute, id, runtime, tab, tabsAtom }: TabItemProps) => {
   const removeTab = useRemoveTab();
 
   const { isActive, ...linkProps } = useLink({
     ...tab.route,
-    onAuxClick: () => void removeTab({ baseRoute, id: tab.id, runtime, tabsRx }),
+    onAuxClick: () => void removeTab({ baseRoute, id: tab.id, runtime, tabsAtom }),
   });
 
   return (
@@ -279,7 +279,7 @@ const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
         className={tw`p-0.5`}
         onPress={(event) => {
           event.continuePropagation();
-          void removeTab({ baseRoute, id: tab.id, runtime, tabsRx });
+          void removeTab({ baseRoute, id: tab.id, runtime, tabsAtom });
         }}
         variant='ghost'
       >
@@ -292,7 +292,7 @@ const TabItem = ({ baseRoute, id, runtime, tab, tabsRx }: TabItemProps) => {
 interface RouteTabListProps extends TabsRouteContext {}
 
 export const RouteTabList = (props: RouteTabListProps) => {
-  const [tabs, setTabs] = useRx(props.tabsRx);
+  const [tabs, setTabs] = useAtom(props.tabsAtom);
 
   useTabShortcuts(props);
 

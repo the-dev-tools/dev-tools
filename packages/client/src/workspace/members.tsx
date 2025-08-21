@@ -1,14 +1,11 @@
 import { createFileRoute, getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
-
 import { WorkspaceMemberCreateEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
 
-const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/members');
-
-export const Route = makeRoute({ component: Page });
+export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/members')({ component: Page });
 
 const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 

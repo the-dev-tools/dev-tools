@@ -8,172 +8,229 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-// Import Routes
+import { Route as rootRouteImport } from './root';
+import { Route as loginRouteImport } from './login';
+import { Route as authorizedRouteImport } from './authorized';
+import { Route as dashboardRouteImport } from './dashboard';
+import { Route as workspaceLayoutRouteImport } from './workspace/layout';
+import { Route as workspaceListRouteImport } from './workspace/list';
+import { Route as workspaceMembersRouteImport } from './workspace/members';
+import { Route as workspaceOverviewRouteImport } from './workspace/overview';
+import { Route as flowLayoutRouteImport } from './flow/layout';
+import { Route as flowHistoryRouteImport } from './flow/history';
+import { Route as flowFlowRouteImport } from './flow/flow';
+import { Route as endpointRouteImport } from './endpoint';
 
-import { Route as rootRoute } from './root';
-import { Route as loginImport } from './login';
-import { Route as authorizedImport } from './authorized';
-import { Route as dashboardImport } from './dashboard';
-import { Route as workspaceLayoutImport } from './workspace/layout';
-import { Route as workspaceListImport } from './workspace/list';
-import { Route as workspaceMembersImport } from './workspace/members';
-import { Route as workspaceOverviewImport } from './workspace/overview';
-import { Route as flowLayoutImport } from './flow/layout';
-import { Route as flowHistoryImport } from './flow/history';
-import { Route as flowFlowImport } from './flow/flow';
-import { Route as endpointImport } from './endpoint';
-
-// Create/Update Routes
-
-const loginRoute = loginImport.update({
+const loginRoute = loginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any);
-
-const authorizedRoute = authorizedImport.update({
+const authorizedRoute = authorizedRouteImport.update({
   id: '/_authorized',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any);
-
-const dashboardRoute = dashboardImport.update({
+const dashboardRoute = dashboardRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => authorizedRoute,
 } as any);
-
-const workspaceLayoutRoute = workspaceLayoutImport.update({
+const workspaceLayoutRoute = workspaceLayoutRouteImport.update({
   id: '/workspace/$workspaceIdCan',
   path: '/workspace/$workspaceIdCan',
   getParentRoute: () => authorizedRoute,
 } as any);
-
-const workspaceListRoute = workspaceListImport.update({
+const workspaceListRoute = workspaceListRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => dashboardRoute,
 } as any);
-
-const workspaceMembersRoute = workspaceMembersImport.update({
+const workspaceMembersRoute = workspaceMembersRouteImport.update({
   id: '/members',
   path: '/members',
   getParentRoute: () => workspaceLayoutRoute,
 } as any);
-
-const workspaceOverviewRoute = workspaceOverviewImport.update({
+const workspaceOverviewRoute = workspaceOverviewRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => workspaceLayoutRoute,
 } as any);
-
-const flowLayoutRoute = flowLayoutImport.update({
+const flowLayoutRoute = flowLayoutRouteImport.update({
   id: '/flow/$flowIdCan',
   path: '/flow/$flowIdCan',
   getParentRoute: () => workspaceLayoutRoute,
 } as any);
-
-const flowHistoryRoute = flowHistoryImport.update({
+const flowHistoryRoute = flowHistoryRouteImport.update({
   id: '/history',
   path: '/history',
   getParentRoute: () => flowLayoutRoute,
 } as any);
-
-const flowFlowRoute = flowFlowImport.update({
+const flowFlowRoute = flowFlowRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => flowLayoutRoute,
 } as any);
-
-const endpointRoute = endpointImport.update({
+const endpointRoute = endpointRouteImport.update({
   id: '/endpoint/$endpointIdCan/example/$exampleIdCan',
   path: '/endpoint/$endpointIdCan/example/$exampleIdCan',
   getParentRoute: () => workspaceLayoutRoute,
 } as any);
 
-// Populate the FileRoutesByPath interface
+export interface FileRoutesByFullPath {
+  '/login': typeof loginRoute;
+  '/': typeof workspaceListRoute;
+  '/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
+  '/workspace/$workspaceIdCan/': typeof workspaceOverviewRoute;
+  '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
+  '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowLayoutRouteWithChildren;
+  '/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof flowFlowRoute;
+  '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRoute;
+}
+export interface FileRoutesByTo {
+  '/login': typeof loginRoute;
+  '/': typeof workspaceListRoute;
+  '/workspace/$workspaceIdCan': typeof workspaceOverviewRoute;
+  '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
+  '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowFlowRoute;
+  '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute;
+  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRoute;
+}
+export interface FileRoutesById {
+  __root__: typeof rootRouteImport;
+  '/_authorized': typeof authorizedRouteWithChildren;
+  '/login': typeof loginRoute;
+  '/_authorized/_dashboard': typeof dashboardRouteWithChildren;
+  '/_authorized/_dashboard/': typeof workspaceListRoute;
+  '/_authorized/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
+  '/_authorized/workspace/$workspaceIdCan/': typeof workspaceOverviewRoute;
+  '/_authorized/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
+  '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowLayoutRouteWithChildren;
+  '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof flowFlowRoute;
+  '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute;
+  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRoute;
+}
+export interface FileRouteTypes {
+  fileRoutesByFullPath: FileRoutesByFullPath;
+  fullPaths:
+    | '/login'
+    | '/'
+    | '/workspace/$workspaceIdCan'
+    | '/workspace/$workspaceIdCan/'
+    | '/workspace/$workspaceIdCan/members'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan/'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
+  fileRoutesByTo: FileRoutesByTo;
+  to:
+    | '/login'
+    | '/'
+    | '/workspace/$workspaceIdCan'
+    | '/workspace/$workspaceIdCan/members'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
+    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
+  id:
+    | '__root__'
+    | '/_authorized'
+    | '/login'
+    | '/_authorized/_dashboard'
+    | '/_authorized/_dashboard/'
+    | '/_authorized/workspace/$workspaceIdCan'
+    | '/_authorized/workspace/$workspaceIdCan/'
+    | '/_authorized/workspace/$workspaceIdCan/members'
+    | '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan'
+    | '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/'
+    | '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history'
+    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
+  fileRoutesById: FileRoutesById;
+}
+export interface RootRouteChildren {
+  authorizedRoute: typeof authorizedRouteWithChildren;
+  loginRoute: typeof loginRoute;
+}
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_authorized': {
-      id: '/_authorized';
-      path: '';
-      fullPath: '';
-      preLoaderRoute: typeof authorizedImport;
-      parentRoute: typeof rootRoute;
-    };
     '/login': {
       id: '/login';
       path: '/login';
       fullPath: '/login';
-      preLoaderRoute: typeof loginImport;
-      parentRoute: typeof rootRoute;
+      preLoaderRoute: typeof loginRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/_authorized': {
+      id: '/_authorized';
+      path: '';
+      fullPath: '';
+      preLoaderRoute: typeof authorizedRouteImport;
+      parentRoute: typeof rootRouteImport;
     };
     '/_authorized/_dashboard': {
       id: '/_authorized/_dashboard';
       path: '';
       fullPath: '';
-      preLoaderRoute: typeof dashboardImport;
-      parentRoute: typeof authorizedImport;
-    };
-    '/_authorized/_dashboard/': {
-      id: '/_authorized/_dashboard/';
-      path: '/';
-      fullPath: '/';
-      preLoaderRoute: typeof workspaceListImport;
-      parentRoute: typeof dashboardImport;
+      preLoaderRoute: typeof dashboardRouteImport;
+      parentRoute: typeof authorizedRoute;
     };
     '/_authorized/workspace/$workspaceIdCan': {
       id: '/_authorized/workspace/$workspaceIdCan';
       path: '/workspace/$workspaceIdCan';
       fullPath: '/workspace/$workspaceIdCan';
-      preLoaderRoute: typeof workspaceLayoutImport;
-      parentRoute: typeof authorizedImport;
+      preLoaderRoute: typeof workspaceLayoutRouteImport;
+      parentRoute: typeof authorizedRoute;
     };
-    '/_authorized/workspace/$workspaceIdCan/': {
-      id: '/_authorized/workspace/$workspaceIdCan/';
+    '/_authorized/_dashboard/': {
+      id: '/_authorized/_dashboard/';
       path: '/';
-      fullPath: '/workspace/$workspaceIdCan/';
-      preLoaderRoute: typeof workspaceOverviewImport;
-      parentRoute: typeof workspaceLayoutImport;
+      fullPath: '/';
+      preLoaderRoute: typeof workspaceListRouteImport;
+      parentRoute: typeof dashboardRoute;
     };
     '/_authorized/workspace/$workspaceIdCan/members': {
       id: '/_authorized/workspace/$workspaceIdCan/members';
       path: '/members';
       fullPath: '/workspace/$workspaceIdCan/members';
-      preLoaderRoute: typeof workspaceMembersImport;
-      parentRoute: typeof workspaceLayoutImport;
+      preLoaderRoute: typeof workspaceMembersRouteImport;
+      parentRoute: typeof workspaceLayoutRoute;
+    };
+    '/_authorized/workspace/$workspaceIdCan/': {
+      id: '/_authorized/workspace/$workspaceIdCan/';
+      path: '/';
+      fullPath: '/workspace/$workspaceIdCan/';
+      preLoaderRoute: typeof workspaceOverviewRouteImport;
+      parentRoute: typeof workspaceLayoutRoute;
     };
     '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan': {
       id: '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan';
       path: '/flow/$flowIdCan';
       fullPath: '/workspace/$workspaceIdCan/flow/$flowIdCan';
-      preLoaderRoute: typeof flowLayoutImport;
-      parentRoute: typeof workspaceLayoutImport;
-    };
-    '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/': {
-      id: '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/';
-      path: '/';
-      fullPath: '/workspace/$workspaceIdCan/flow/$flowIdCan/';
-      preLoaderRoute: typeof flowFlowImport;
-      parentRoute: typeof flowLayoutImport;
+      preLoaderRoute: typeof flowLayoutRouteImport;
+      parentRoute: typeof workspaceLayoutRoute;
     };
     '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history': {
       id: '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history';
       path: '/history';
       fullPath: '/workspace/$workspaceIdCan/flow/$flowIdCan/history';
-      preLoaderRoute: typeof flowHistoryImport;
-      parentRoute: typeof flowLayoutImport;
+      preLoaderRoute: typeof flowHistoryRouteImport;
+      parentRoute: typeof flowLayoutRoute;
+    };
+    '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/': {
+      id: '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/';
+      path: '/';
+      fullPath: '/workspace/$workspaceIdCan/flow/$flowIdCan/';
+      preLoaderRoute: typeof flowFlowRouteImport;
+      parentRoute: typeof flowLayoutRoute;
     };
     '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': {
       id: '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
       path: '/endpoint/$endpointIdCan/example/$exampleIdCan';
       fullPath: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
-      preLoaderRoute: typeof endpointImport;
-      parentRoute: typeof workspaceLayoutImport;
+      preLoaderRoute: typeof endpointRouteImport;
+      parentRoute: typeof workspaceLayoutRoute;
     };
   }
 }
-
-// Create and export the route tree
 
 interface dashboardRouteChildren {
   workspaceListRoute: typeof workspaceListRoute;
@@ -233,167 +290,10 @@ const authorizedRouteWithChildren = authorizedRoute._addFileChildren(
   authorizedRouteChildren,
 );
 
-export interface FileRoutesByFullPath {
-  '': typeof dashboardRouteWithChildren;
-  '/login': typeof loginRoute;
-  '/': typeof workspaceListRoute;
-  '/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
-  '/workspace/$workspaceIdCan/': typeof workspaceOverviewRoute;
-  '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
-  '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowLayoutRouteWithChildren;
-  '/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof flowFlowRoute;
-  '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRoute;
-}
-
-export interface FileRoutesByTo {
-  '': typeof authorizedRouteWithChildren;
-  '/login': typeof loginRoute;
-  '/': typeof workspaceListRoute;
-  '/workspace/$workspaceIdCan': typeof workspaceOverviewRoute;
-  '/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
-  '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowFlowRoute;
-  '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute;
-  '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRoute;
-}
-
-export interface FileRoutesById {
-  __root__: typeof rootRoute;
-  '/_authorized': typeof authorizedRouteWithChildren;
-  '/login': typeof loginRoute;
-  '/_authorized/_dashboard': typeof dashboardRouteWithChildren;
-  '/_authorized/_dashboard/': typeof workspaceListRoute;
-  '/_authorized/workspace/$workspaceIdCan': typeof workspaceLayoutRouteWithChildren;
-  '/_authorized/workspace/$workspaceIdCan/': typeof workspaceOverviewRoute;
-  '/_authorized/workspace/$workspaceIdCan/members': typeof workspaceMembersRoute;
-  '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowLayoutRouteWithChildren;
-  '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof flowFlowRoute;
-  '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute;
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan': typeof endpointRoute;
-}
-
-export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths:
-    | ''
-    | '/login'
-    | '/'
-    | '/workspace/$workspaceIdCan'
-    | '/workspace/$workspaceIdCan/'
-    | '/workspace/$workspaceIdCan/members'
-    | '/workspace/$workspaceIdCan/flow/$flowIdCan'
-    | '/workspace/$workspaceIdCan/flow/$flowIdCan/'
-    | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
-  fileRoutesByTo: FileRoutesByTo;
-  to:
-    | ''
-    | '/login'
-    | '/'
-    | '/workspace/$workspaceIdCan'
-    | '/workspace/$workspaceIdCan/members'
-    | '/workspace/$workspaceIdCan/flow/$flowIdCan'
-    | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
-    | '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
-  id:
-    | '__root__'
-    | '/_authorized'
-    | '/login'
-    | '/_authorized/_dashboard'
-    | '/_authorized/_dashboard/'
-    | '/_authorized/workspace/$workspaceIdCan'
-    | '/_authorized/workspace/$workspaceIdCan/'
-    | '/_authorized/workspace/$workspaceIdCan/members'
-    | '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan'
-    | '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/'
-    | '/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history'
-    | '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan';
-  fileRoutesById: FileRoutesById;
-}
-
-export interface RootRouteChildren {
-  authorizedRoute: typeof authorizedRouteWithChildren;
-  loginRoute: typeof loginRoute;
-}
-
 const rootRouteChildren: RootRouteChildren = {
   authorizedRoute: authorizedRouteWithChildren,
   loginRoute: loginRoute,
 };
-
-export const routeTree = rootRoute
+export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>();
-
-/* ROUTE_MANIFEST_START
-{
-  "routes": {
-    "__root__": {
-      "filePath": "root.tsx",
-      "children": [
-        "/_authorized",
-        "/login"
-      ]
-    },
-    "/_authorized": {
-      "filePath": "authorized.tsx",
-      "children": [
-        "/_authorized/_dashboard",
-        "/_authorized/workspace/$workspaceIdCan"
-      ]
-    },
-    "/login": {
-      "filePath": "login.tsx"
-    },
-    "/_authorized/_dashboard": {
-      "filePath": "dashboard.tsx",
-      "parent": "/_authorized",
-      "children": [
-        "/_authorized/_dashboard/"
-      ]
-    },
-    "/_authorized/_dashboard/": {
-      "filePath": "workspace/list.tsx",
-      "parent": "/_authorized/_dashboard"
-    },
-    "/_authorized/workspace/$workspaceIdCan": {
-      "filePath": "workspace/layout.tsx",
-      "parent": "/_authorized",
-      "children": [
-        "/_authorized/workspace/$workspaceIdCan/",
-        "/_authorized/workspace/$workspaceIdCan/members",
-        "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan",
-        "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan"
-      ]
-    },
-    "/_authorized/workspace/$workspaceIdCan/": {
-      "filePath": "workspace/overview.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan"
-    },
-    "/_authorized/workspace/$workspaceIdCan/members": {
-      "filePath": "workspace/members.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan"
-    },
-    "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan": {
-      "filePath": "flow/layout.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan",
-      "children": [
-        "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/",
-        "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history"
-      ]
-    },
-    "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/": {
-      "filePath": "flow/flow.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan"
-    },
-    "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history": {
-      "filePath": "flow/history.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan"
-    },
-    "/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan": {
-      "filePath": "endpoint.tsx",
-      "parent": "/_authorized/workspace/$workspaceIdCan"
-    }
-  }
-}
-ROUTE_MANIFEST_END */

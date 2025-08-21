@@ -1,7 +1,6 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
-
 import { Button } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -12,12 +11,12 @@ export class LoginSearch extends Schema.Class<LoginSearch>('LoginSearch')({
   redirect: Schema.optional(Schema.String),
 }) {}
 
-const makeRoute = createFileRoute('/login');
-
-export const Route = makeRoute({
+/* eslint-disable perfectionist/sort-objects */
+export const Route = createFileRoute('/login')({
   validateSearch: Schema.decodeSync(LoginSearch),
   component: LoginPage,
 });
+/* eslint-enable perfectionist/sort-objects */
 
 class LoginForm extends Schema.Class<LoginForm>('LoginForm')({
   email: Schema.String,

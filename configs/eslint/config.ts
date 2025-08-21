@@ -1,5 +1,6 @@
 import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
+import tanStackRouter from '@tanstack/eslint-plugin-router';
 import tsParser from '@typescript-eslint/parser';
 import { Array, pipe, Record } from 'effect';
 import { Linter } from 'eslint';
@@ -75,21 +76,6 @@ const perfectionist = {
   },
 };
 
-// Implement TanStack Router rule via Perfectionist
-// https://tanstack.com/router/latest/docs/eslint/create-route-property-order
-// https://perfectionist.dev/rules/sort-objects#useconfigurationif
-const sortRouterObject = pipe(
-  [['params', 'validateSearch'], ['loaderDeps', 'search'], ['context'], ['beforeLoad'], ['loader']],
-  (groups) => ({
-    customGroups: Array.map(groups, (names, index) => ({
-      elementNamePattern: names,
-      groupName: String(index),
-    })),
-    groups: Array.map(groups, (_, index) => String(index)),
-    useConfigurationIf: { callingFunctionNamePattern: 'makeRoute' },
-  }),
-);
-
 // Consistent Tailwind Variants order
 const sortTVObject = pipe(
   ['extend', 'base', 'slot', 'variants', 'defaultVariants', 'compoundVariants', 'compoundSlots'],
@@ -120,6 +106,13 @@ const rules: Linter.Config = {
       'error',
       { argsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_', varsIgnorePattern: '^_' },
     ],
+    '@typescript-eslint/only-throw-error': [
+      'error',
+      {
+        // https://tanstack.com/router/latest/docs/eslint/eslint-plugin-router#typescript-eslint
+        allow: [{ from: 'package', name: 'Redirect', package: '@tanstack/router-core' }],
+      },
+    ],
     '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
 
     ...(isIDE && { 'import-x/no-unresolved': 'off' }), // disable in IDE due to false positives: https://github.com/un-ts/eslint-plugin-import-x/issues/370
@@ -129,7 +122,7 @@ const rules: Linter.Config = {
       { internalPattern: ['^@the-dev-tools/.*', '^~.*'], newlinesBetween: 'ignore' },
     ],
     'perfectionist/sort-modules': 'off', // consider re-enabling after https://github.com/azat-io/eslint-plugin-perfectionist/issues/434
-    'perfectionist/sort-objects': ['warn', sortRouterObject, sortTVObject, sizeObject],
+    'perfectionist/sort-objects': ['warn', sortTVObject, sizeObject],
 
     'react-hooks/exhaustive-deps': [
       'warn',
@@ -175,6 +168,8 @@ const config: ConfigArray = [
   jsxA11y.flatConfigs.recommended,
 
   tailwind,
+
+  ...tanStackRouter.configs['flat/recommended'],
 
   rules,
 ];

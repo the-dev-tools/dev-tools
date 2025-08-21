@@ -66,14 +66,15 @@ export const formatSize = (bytes: number) => {
 };
 
 interface SaveFileProps {
-  blobParts: BlobPart[];
+  blobParts: BlobPart[] | Uint8Array[];
   name?: string;
   options?: BlobPropertyBag;
 }
 
 export const saveFile = ({ blobParts, name, options }: SaveFileProps) => {
   const link = document.createElement('a');
-  const file = new Blob(blobParts, options);
+  // TODO: remove casting once fixed upstream https://github.com/DefinitelyTyped/DefinitelyTyped/pull/73414
+  const file = new Blob(blobParts as BlobPart[], options);
   link.href = URL.createObjectURL(file);
   if (name) link.download = name;
   link.click();

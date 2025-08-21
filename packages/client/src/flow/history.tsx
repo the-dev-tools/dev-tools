@@ -15,9 +15,9 @@ import { useQuery } from '~data-client';
 import { EditPanel, Flow, TopBar } from './flow';
 import { FlowContext } from './internal';
 
-const makeRoute = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history');
-
-export const Route = makeRoute({ component: RouteComponent });
+export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history')({
+  component: RouteComponent,
+});
 
 function RouteComponent() {
   const { flowIdCan } = Route.useParams();

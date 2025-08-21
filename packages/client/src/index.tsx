@@ -1,6 +1,6 @@
 import { TransportProvider } from '@connectrpc/connect-query';
 import { DataProvider, getDefaultManagers, useController } from '@data-client/react';
-import { Registry, RegistryContext } from '@effect-rx/rx-react';
+import { Registry, RegistryContext } from '@effect-atom/atom-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserHistory, createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { Effect, Layer, Option, pipe, Predicate, Runtime, Schema } from 'effect';
@@ -70,11 +70,11 @@ export const app = Effect.gen(function* () {
   const transport = yield* ApiTransport;
   const queryClient = new QueryClient();
   const router = yield* makeRouter;
-  const rxRegistry = yield* Registry.RxRegistry;
+  const atomRegistry = yield* Registry.AtomRegistry;
 
   pipe(
     <Root {...{ queryClient, router, runtime, transport }} />,
-    (_) => <RegistryContext value={rxRegistry}>{_}</RegistryContext>,
+    (_) => <RegistryContext value={atomRegistry}>{_}</RegistryContext>,
     (_) => <ToastQueueContext.Provider value={Option.some(toastQueue)}>{_}</ToastQueueContext.Provider>,
     (_) => <AriaRouterProvider>{_}</AriaRouterProvider>,
     (_) => (
