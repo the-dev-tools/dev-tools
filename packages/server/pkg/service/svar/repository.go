@@ -75,36 +75,31 @@ func (r *VariableMovableRepository) UpdatePosition(ctx context.Context, tx *sql.
 		return nil
 	}
 
-	// Calculate new prev and next pointers
-	var newPrev, newNext *idwrap.IDWrap
-
-	if position == 0 {
-		// Moving to head position
-		newPrev = nil
-		if len(orderedVariables) > 1 {
-			nextID := idwrap.NewFromBytesMust(orderedVariables[1].ID)
-			newNext = &nextID
-		}
-	} else if position == len(orderedVariables)-1 {
-		// Moving to tail position  
-		prevID := idwrap.NewFromBytesMust(orderedVariables[len(orderedVariables)-2].ID)
-		newPrev = &prevID
-		newNext = nil
-	} else {
-		// Moving to middle position
-		prevID := idwrap.NewFromBytesMust(orderedVariables[position-1].ID)
-		nextID := idwrap.NewFromBytesMust(orderedVariables[position+1].ID)
-		newPrev = &prevID
-		newNext = &nextID
+	// FIXED: Use proper remove/insert pattern to maintain linked list integrity
+	// Step 1: Remove the variable from its current position
+	if err := repo.removeFromPosition(ctx, tx, itemID); err != nil {
+		return fmt.Errorf("failed to remove variable from current position: %w", err)
 	}
 
-	// Update the variable's position
-	return repo.queries.UpdateVariableOrder(ctx, gen.UpdateVariableOrderParams{
-		Prev:  newPrev,
-		Next:  newNext,
-		ID:    itemID,
-		EnvID: variable.EnvID,
-	})
+	// Step 2: Calculate the target position after removal
+	// When we remove an item, positions of items after it shift down by 1
+	targetPosition := position
+	if currentIdx < position {
+		targetPosition = position - 1
+	}
+	
+	// Special case: if we're moving to the last position in the original list,
+	// we want to append to the end of the reduced list
+	if position == len(orderedVariables)-1 {
+		targetPosition = len(orderedVariables) // This will trigger append to end in insertAtPosition
+	}
+
+	// Step 3: Insert the variable at the new position
+	if err := repo.insertAtPosition(ctx, tx, itemID, variable.EnvID, targetPosition); err != nil {
+		return fmt.Errorf("failed to insert variable at new position: %w", err)
+	}
+
+	return nil
 }
 
 // UpdatePositions updates positions for multiple variables in batch
@@ -267,14 +262,20 @@ func (r *VariableMovableRepository) insertAtPosition(ctx context.Context, tx *sq
 		// Insert at head
 		newPrev = nil
 		if len(orderedVariables) > 0 {
-			nextID := idwrap.NewFromBytesMust(orderedVariables[0].ID)
-			newNext = &nextID
+			currentHeadID := idwrap.NewFromBytesMust(orderedVariables[0].ID)
+			newNext = &currentHeadID
+			
+			// Get the current head's next pointer to preserve it
+			currentHead, err := repo.queries.GetVariable(ctx, currentHeadID)
+			if err != nil {
+				return fmt.Errorf("failed to get current head: %w", err)
+			}
 			
 			// Update the current head to point back to new item
 			err = repo.queries.UpdateVariableOrder(ctx, gen.UpdateVariableOrderParams{
-				Prev:  &itemID,
-				Next:  newNext,
-				ID:    nextID,
+				Prev:  &itemID,        // Current head's prev now points to new item
+				Next:  currentHead.Next, // Preserve current head's next pointer
+				ID:    currentHeadID,
 				EnvID: envID,
 			})
 			if err != nil {
@@ -284,14 +285,20 @@ func (r *VariableMovableRepository) insertAtPosition(ctx context.Context, tx *sq
 	} else if position >= len(orderedVariables) {
 		// Insert at tail
 		if len(orderedVariables) > 0 {
-			prevID := idwrap.NewFromBytesMust(orderedVariables[len(orderedVariables)-1].ID)
-			newPrev = &prevID
+			currentTailID := idwrap.NewFromBytesMust(orderedVariables[len(orderedVariables)-1].ID)
+			newPrev = &currentTailID
+			
+			// Get the current tail's prev pointer to preserve it
+			currentTail, err := repo.queries.GetVariable(ctx, currentTailID)
+			if err != nil {
+				return fmt.Errorf("failed to get current tail: %w", err)
+			}
 			
 			// Update the current tail to point forward to new item
 			err = repo.queries.UpdateVariableOrder(ctx, gen.UpdateVariableOrderParams{
-				Prev:  newPrev,
-				Next:  &itemID,
-				ID:    prevID,
+				Prev:  currentTail.Prev, // Preserve current tail's prev pointer
+				Next:  &itemID,         // Current tail's next now points to new item
+				ID:    currentTailID,
 				EnvID: envID,
 			})
 			if err != nil {
@@ -306,10 +313,21 @@ func (r *VariableMovableRepository) insertAtPosition(ctx context.Context, tx *sq
 		newPrev = &prevID
 		newNext = &nextID
 		
+		// Get existing prev and next items to preserve their other pointers
+		prevItem, err := repo.queries.GetVariable(ctx, prevID)
+		if err != nil {
+			return fmt.Errorf("failed to get prev item: %w", err)
+		}
+		
+		nextItem, err := repo.queries.GetVariable(ctx, nextID)
+		if err != nil {
+			return fmt.Errorf("failed to get next item: %w", err)
+		}
+		
 		// Update prev item to point to new item
 		err = repo.queries.UpdateVariableOrder(ctx, gen.UpdateVariableOrderParams{
-			Prev:  newPrev,
-			Next:  &itemID,
+			Prev:  prevItem.Prev, // Preserve prev item's own prev pointer
+			Next:  &itemID,       // Point to new item
 			ID:    prevID,
 			EnvID: envID,
 		})
@@ -319,8 +337,8 @@ func (r *VariableMovableRepository) insertAtPosition(ctx context.Context, tx *sq
 		
 		// Update next item to point back to new item
 		err = repo.queries.UpdateVariableOrder(ctx, gen.UpdateVariableOrderParams{
-			Prev:  &itemID,
-			Next:  newNext,
+			Prev:  &itemID,       // Point to new item
+			Next:  nextItem.Next, // Preserve next item's own next pointer
 			ID:    nextID,
 			EnvID: envID,
 		})
@@ -347,85 +365,45 @@ func (r *VariableMovableRepository) removeFromPosition(ctx context.Context, tx *
 		repo = r.TX(tx)
 	}
 
-	// Get the variable to remove
+	// Get the variable to remove and its current prev/next pointers
 	variable, err := repo.queries.GetVariable(ctx, itemID)
 	if err != nil {
 		return fmt.Errorf("failed to get variable: %w", err)
 	}
 
-	// Get ordered variables to find prev and next
-	orderedVariables, err := repo.queries.GetVariablesByEnvironmentIDOrdered(ctx, gen.GetVariablesByEnvironmentIDOrderedParams{
-		EnvID:   variable.EnvID,
-		EnvID_2: variable.EnvID,
+	// Update prev variable's next pointer to skip the removed variable
+	if variable.Prev != nil {
+		err = repo.queries.UpdateVariableNext(ctx, gen.UpdateVariableNextParams{
+			Next:  variable.Next, // Point to the removed variable's next
+			ID:    *variable.Prev,
+			EnvID: variable.EnvID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update previous variable's next pointer: %w", err)
+		}
+	}
+
+	// Update next variable's prev pointer to skip the removed variable
+	if variable.Next != nil {
+		err = repo.queries.UpdateVariablePrev(ctx, gen.UpdateVariablePrevParams{
+			Prev:  variable.Prev, // Point to the removed variable's prev
+			ID:    *variable.Next,
+			EnvID: variable.EnvID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update next variable's prev pointer: %w", err)
+		}
+	}
+
+	// Clear the removed variable's pointers
+	err = repo.queries.UpdateVariableOrder(ctx, gen.UpdateVariableOrderParams{
+		Prev:  nil,
+		Next:  nil,
+		ID:    itemID,
+		EnvID: variable.EnvID,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to get variables in order: %w", err)
-	}
-
-	// Find the item and its neighbors
-	var prevID, nextID *idwrap.IDWrap
-	for i, v := range orderedVariables {
-		if idwrap.NewFromBytesMust(v.ID).Compare(itemID) == 0 {
-			if i > 0 {
-				prev := idwrap.NewFromBytesMust(orderedVariables[i-1].ID)
-				prevID = &prev
-			}
-			if i < len(orderedVariables)-1 {
-				next := idwrap.NewFromBytesMust(orderedVariables[i+1].ID)
-				nextID = &next
-			}
-			break
-		}
-	}
-
-	// Update prev item's next pointer to skip the removed item
-	if prevID != nil {
-		// Get the prev item's current prev pointer to preserve it
-		for _, v := range orderedVariables {
-			if idwrap.NewFromBytesMust(v.ID).Compare(*prevID) == 0 {
-				var currentPrev *idwrap.IDWrap
-				if v.Prev != nil {
-					prev := idwrap.NewFromBytesMust(v.Prev)
-					currentPrev = &prev
-				}
-				
-				err = repo.queries.UpdateVariableOrder(ctx, gen.UpdateVariableOrderParams{
-					Prev:  currentPrev, // Preserve the prev item's own prev pointer
-					Next:  nextID,      // Point to the item after the removed one  
-					ID:    *prevID,
-					EnvID: variable.EnvID,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to update prev item: %w", err)
-				}
-				break
-			}
-		}
-	}
-
-	// Update next item's prev pointer to skip the removed item
-	if nextID != nil {
-		// Get the next item's current next pointer to preserve it
-		for _, v := range orderedVariables {
-			if idwrap.NewFromBytesMust(v.ID).Compare(*nextID) == 0 {
-				var currentNext *idwrap.IDWrap
-				if v.Next != nil {
-					next := idwrap.NewFromBytesMust(v.Next)
-					currentNext = &next
-				}
-				
-				err = repo.queries.UpdateVariableOrder(ctx, gen.UpdateVariableOrderParams{
-					Prev:  prevID,      // Point to the item before the removed one
-					Next:  currentNext, // Preserve the next item's own next pointer
-					ID:    *nextID,
-					EnvID: variable.EnvID,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to update next item: %w", err)
-				}
-				break
-			}
-		}
+		return fmt.Errorf("failed to clear removed variable's pointers: %w", err)
 	}
 
 	return nil
