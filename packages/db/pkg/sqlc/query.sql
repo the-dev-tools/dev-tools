@@ -2479,3 +2479,49 @@ WHERE
   collection_id = ? AND
   parent_folder_id IS ? AND
   item_type = ?;
+
+-- name: GetCollectionItemByFolderID :one
+-- Get collection item by folder_id (for legacy ID compatibility)
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  folder_id = ?
+LIMIT
+  1;
+
+-- name: GetCollectionItemByEndpointID :one
+-- Get collection item by endpoint_id (for legacy ID compatibility)  
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  endpoint_id = ?
+LIMIT
+  1;
+
+-- name: UpdateCollectionItemParentFolder :exec
+-- Update only the parent_folder_id for cross-folder moves
+UPDATE collection_items
+SET
+  parent_folder_id = ?
+WHERE
+  id = ?;

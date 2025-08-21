@@ -3825,6 +3825,80 @@ func (q *Queries) GetCollectionItem(ctx context.Context, id idwrap.IDWrap) (Coll
 	return i, err
 }
 
+const getCollectionItemByEndpointID = `-- name: GetCollectionItemByEndpointID :one
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  endpoint_id = ?
+LIMIT
+  1
+`
+
+// Get collection item by endpoint_id (for legacy ID compatibility)
+func (q *Queries) GetCollectionItemByEndpointID(ctx context.Context, endpointID *idwrap.IDWrap) (CollectionItem, error) {
+	row := q.queryRow(ctx, q.getCollectionItemByEndpointIDStmt, getCollectionItemByEndpointID, endpointID)
+	var i CollectionItem
+	err := row.Scan(
+		&i.ID,
+		&i.CollectionID,
+		&i.ParentFolderID,
+		&i.ItemType,
+		&i.FolderID,
+		&i.EndpointID,
+		&i.Name,
+		&i.PrevID,
+		&i.NextID,
+	)
+	return i, err
+}
+
+const getCollectionItemByFolderID = `-- name: GetCollectionItemByFolderID :one
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  folder_id = ?
+LIMIT
+  1
+`
+
+// Get collection item by folder_id (for legacy ID compatibility)
+func (q *Queries) GetCollectionItemByFolderID(ctx context.Context, folderID *idwrap.IDWrap) (CollectionItem, error) {
+	row := q.queryRow(ctx, q.getCollectionItemByFolderIDStmt, getCollectionItemByFolderID, folderID)
+	var i CollectionItem
+	err := row.Scan(
+		&i.ID,
+		&i.CollectionID,
+		&i.ParentFolderID,
+		&i.ItemType,
+		&i.FolderID,
+		&i.EndpointID,
+		&i.Name,
+		&i.PrevID,
+		&i.NextID,
+	)
+	return i, err
+}
+
 const getCollectionItemTail = `-- name: GetCollectionItemTail :one
 SELECT
   id,
@@ -7141,6 +7215,25 @@ func (q *Queries) UpdateCollectionItemParent(ctx context.Context, arg UpdateColl
 		arg.NextID,
 		arg.ID,
 	)
+	return err
+}
+
+const updateCollectionItemParentFolder = `-- name: UpdateCollectionItemParentFolder :exec
+UPDATE collection_items
+SET
+  parent_folder_id = ?
+WHERE
+  id = ?
+`
+
+type UpdateCollectionItemParentFolderParams struct {
+	ParentFolderID *idwrap.IDWrap
+	ID             idwrap.IDWrap
+}
+
+// Update only the parent_folder_id for cross-folder moves
+func (q *Queries) UpdateCollectionItemParentFolder(ctx context.Context, arg UpdateCollectionItemParentFolderParams) error {
+	_, err := q.exec(ctx, q.updateCollectionItemParentFolderStmt, updateCollectionItemParentFolder, arg.ParentFolderID, arg.ID)
 	return err
 }
 
