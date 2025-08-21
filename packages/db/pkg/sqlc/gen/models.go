@@ -35,6 +35,18 @@ type Collection struct {
 	Next        *idwrap.IDWrap
 }
 
+type CollectionItem struct {
+	ID             idwrap.IDWrap
+	CollectionID   idwrap.IDWrap
+	ParentFolderID *idwrap.IDWrap
+	ItemType       int8
+	FolderID       *idwrap.IDWrap
+	EndpointID     *idwrap.IDWrap
+	Name           string
+	PrevID         *idwrap.IDWrap
+	NextID         *idwrap.IDWrap
+}
+
 type Environment struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap

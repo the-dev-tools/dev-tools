@@ -665,3 +665,51 @@ sql:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ## collection_items
+          ### id
+          - column: 'collection_items.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### collection_id
+          - column: 'collection_items.collection_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### parent_folder_id
+          - column: 'collection_items.parent_folder_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### folder_id
+          - column: 'collection_items.folder_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### endpoint_id
+          - column: 'collection_items.endpoint_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### prev_id
+          - column: 'collection_items.prev_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### next_id
+          - column: 'collection_items.next_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true

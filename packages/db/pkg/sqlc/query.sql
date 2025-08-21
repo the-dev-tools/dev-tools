@@ -2282,3 +2282,200 @@ DELETE FROM node_execution WHERE node_id = ?;
 
 -- name: DeleteNodeExecutionsByNodeIDs :exec
 DELETE FROM node_execution WHERE node_id IN (sqlc.slice('node_ids'));
+
+-- 
+-- Collection Items Unified Table Queries
+-- These queries handle both folders and endpoints through a unified interface
+--
+
+-- name: GetCollectionItem :one
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  id = ?
+LIMIT
+  1;
+
+-- name: GetCollectionItemsInOrder :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Returns items in correct order for a collection/parent folder
+WITH RECURSIVE ordered_items AS (
+  -- Base case: Find the head (prev_id IS NULL)
+  SELECT
+    ci.id,
+    ci.collection_id,
+    ci.parent_folder_id,
+    ci.item_type,
+    ci.folder_id,
+    ci.endpoint_id,
+    ci.name,
+    ci.prev_id,
+    ci.next_id,
+    0 as position
+  FROM
+    collection_items ci
+  WHERE
+    ci.collection_id = ? AND
+    ci.parent_folder_id IS ? AND
+    ci.prev_id IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next_id pointers
+  SELECT
+    ci.id,
+    ci.collection_id,
+    ci.parent_folder_id,
+    ci.item_type,
+    ci.folder_id,
+    ci.endpoint_id,
+    ci.name,
+    ci.prev_id,
+    ci.next_id,
+    oi.position + 1
+  FROM
+    collection_items ci
+  INNER JOIN ordered_items oi ON ci.prev_id = oi.id
+  WHERE
+    ci.collection_id = ?
+)
+SELECT
+  oi.id,
+  oi.collection_id,
+  oi.parent_folder_id,
+  oi.item_type,
+  oi.folder_id,
+  oi.endpoint_id,
+  oi.name,
+  oi.prev_id,
+  oi.next_id,
+  oi.position
+FROM
+  ordered_items oi
+ORDER BY
+  oi.position;
+
+-- name: GetCollectionItemsByCollectionID :many
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ?;
+
+-- name: GetCollectionItemsByParentFolderID :many
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id = ?;
+
+-- name: GetCollectionItemTail :one
+-- Get the last item in the list (tail) for a collection/parent folder
+-- Used when appending new items to the end of the list
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id IS ? AND
+  next_id IS NULL
+LIMIT
+  1;
+
+-- name: InsertCollectionItem :exec
+INSERT INTO
+  collection_items (
+    id,
+    collection_id,
+    parent_folder_id,
+    item_type,
+    folder_id,
+    endpoint_id,
+    name,
+    prev_id,
+    next_id
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateCollectionItemOrder :exec
+-- Update the prev_id/next_id pointers for a single collection item
+-- Used for moving items within the linked list
+UPDATE collection_items
+SET
+  prev_id = ?,
+  next_id = ?
+WHERE
+  id = ?;
+
+-- name: UpdateCollectionItemParent :exec
+-- Move an item to a different parent folder while maintaining linked list integrity
+UPDATE collection_items
+SET
+  parent_folder_id = ?,
+  prev_id = ?,
+  next_id = ?
+WHERE
+  id = ?;
+
+-- name: DeleteCollectionItem :exec
+DELETE FROM collection_items
+WHERE
+  id = ?;
+
+-- name: GetCollectionItemsByType :many
+-- Get items filtered by type (0 = folder, 1 = endpoint)
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id IS ? AND
+  item_type = ?;

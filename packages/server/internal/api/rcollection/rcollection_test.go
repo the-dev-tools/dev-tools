@@ -2,7 +2,6 @@ package rcollection
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 	"os"
 	"testing"
@@ -27,9 +26,9 @@ func setupTestRPC(t *testing.T) (*CollectionServiceRPC, context.Context, idwrap.
 	t.Helper()
 	
 	// Create in-memory database
-	db, err := sqlitemem.NewInMemoryDB()
+	db, cleanup, err := sqlitemem.NewSQLiteMem(context.Background())
 	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(cleanup)
 	
 	// Initialize database schema
 	queries, err := gen.Prepare(context.Background(), db)
@@ -38,8 +37,8 @@ func setupTestRPC(t *testing.T) (*CollectionServiceRPC, context.Context, idwrap.
 	// Create test services
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	cs := scollection.New(queries, logger)
-	ws := &mockWorkspaceService{}
-	us := &mockUserService{}
+	ws := sworkspace.New(queries)
+	us := suser.New(queries)
 	
 	// Create RPC service
 	rpc := New(db, cs, ws, us)
@@ -282,37 +281,3 @@ func TestCollectionList_OrderedAfterMove(t *testing.T) {
 	}
 }
 
-// Mock implementations for testing
-
-type mockWorkspaceService struct{}
-
-func (m *mockWorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspace, error) {
-	return &mworkspace.Workspace{
-		ID:              id,
-		Name:           "Test Workspace",
-		CollectionCount: 0,
-		FlowCount:      0,
-	}, nil
-}
-
-func (m *mockWorkspaceService) Update(ctx context.Context, workspace *mworkspace.Workspace) error {
-	return nil
-}
-
-func (m *mockWorkspaceService) Create(ctx context.Context, workspace *mworkspace.Workspace) error {
-	return nil
-}
-
-func (m *mockWorkspaceService) Delete(ctx context.Context, id idwrap.IDWrap) error {
-	return nil
-}
-
-func (m *mockWorkspaceService) ListWorkspaces(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
-	return []mworkspace.Workspace{}, nil
-}
-
-type mockUserService struct{}
-
-func (m *mockUserService) CheckUserBelongsToWorkspace(ctx context.Context, userID, workspaceID idwrap.IDWrap) (bool, error) {
-	return true, nil
-}

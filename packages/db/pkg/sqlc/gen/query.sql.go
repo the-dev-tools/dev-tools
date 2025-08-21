@@ -2735,6 +2735,17 @@ func (q *Queries) DeleteCollection(ctx context.Context, id idwrap.IDWrap) error 
 	return err
 }
 
+const deleteCollectionItem = `-- name: DeleteCollectionItem :exec
+DELETE FROM collection_items
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteCollectionItem(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteCollectionItemStmt, deleteCollectionItem, id)
+	return err
+}
+
 const deleteEnvironment = `-- name: DeleteEnvironment :exec
 DELETE FROM environment
 WHERE
@@ -3773,6 +3784,368 @@ func (q *Queries) GetCollectionByWorkspaceIDAndName(ctx context.Context, arg Get
 	var i GetCollectionByWorkspaceIDAndNameRow
 	err := row.Scan(&i.ID, &i.WorkspaceID, &i.Name)
 	return i, err
+}
+
+const getCollectionItem = `-- name: GetCollectionItem :one
+
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  id = ?
+LIMIT
+  1
+`
+
+// Collection Items Unified Table Queries
+// These queries handle both folders and endpoints through a unified interface
+func (q *Queries) GetCollectionItem(ctx context.Context, id idwrap.IDWrap) (CollectionItem, error) {
+	row := q.queryRow(ctx, q.getCollectionItemStmt, getCollectionItem, id)
+	var i CollectionItem
+	err := row.Scan(
+		&i.ID,
+		&i.CollectionID,
+		&i.ParentFolderID,
+		&i.ItemType,
+		&i.FolderID,
+		&i.EndpointID,
+		&i.Name,
+		&i.PrevID,
+		&i.NextID,
+	)
+	return i, err
+}
+
+const getCollectionItemTail = `-- name: GetCollectionItemTail :one
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id IS ? AND
+  next_id IS NULL
+LIMIT
+  1
+`
+
+type GetCollectionItemTailParams struct {
+	CollectionID   idwrap.IDWrap
+	ParentFolderID *idwrap.IDWrap
+}
+
+// Get the last item in the list (tail) for a collection/parent folder
+// Used when appending new items to the end of the list
+func (q *Queries) GetCollectionItemTail(ctx context.Context, arg GetCollectionItemTailParams) (CollectionItem, error) {
+	row := q.queryRow(ctx, q.getCollectionItemTailStmt, getCollectionItemTail, arg.CollectionID, arg.ParentFolderID)
+	var i CollectionItem
+	err := row.Scan(
+		&i.ID,
+		&i.CollectionID,
+		&i.ParentFolderID,
+		&i.ItemType,
+		&i.FolderID,
+		&i.EndpointID,
+		&i.Name,
+		&i.PrevID,
+		&i.NextID,
+	)
+	return i, err
+}
+
+const getCollectionItemsByCollectionID = `-- name: GetCollectionItemsByCollectionID :many
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ?
+`
+
+func (q *Queries) GetCollectionItemsByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]CollectionItem, error) {
+	rows, err := q.query(ctx, q.getCollectionItemsByCollectionIDStmt, getCollectionItemsByCollectionID, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CollectionItem{}
+	for rows.Next() {
+		var i CollectionItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.CollectionID,
+			&i.ParentFolderID,
+			&i.ItemType,
+			&i.FolderID,
+			&i.EndpointID,
+			&i.Name,
+			&i.PrevID,
+			&i.NextID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getCollectionItemsByParentFolderID = `-- name: GetCollectionItemsByParentFolderID :many
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id = ?
+`
+
+type GetCollectionItemsByParentFolderIDParams struct {
+	CollectionID   idwrap.IDWrap
+	ParentFolderID *idwrap.IDWrap
+}
+
+func (q *Queries) GetCollectionItemsByParentFolderID(ctx context.Context, arg GetCollectionItemsByParentFolderIDParams) ([]CollectionItem, error) {
+	rows, err := q.query(ctx, q.getCollectionItemsByParentFolderIDStmt, getCollectionItemsByParentFolderID, arg.CollectionID, arg.ParentFolderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CollectionItem{}
+	for rows.Next() {
+		var i CollectionItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.CollectionID,
+			&i.ParentFolderID,
+			&i.ItemType,
+			&i.FolderID,
+			&i.EndpointID,
+			&i.Name,
+			&i.PrevID,
+			&i.NextID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getCollectionItemsByType = `-- name: GetCollectionItemsByType :many
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id IS ? AND
+  item_type = ?
+`
+
+type GetCollectionItemsByTypeParams struct {
+	CollectionID   idwrap.IDWrap
+	ParentFolderID *idwrap.IDWrap
+	ItemType       int8
+}
+
+// Get items filtered by type (0 = folder, 1 = endpoint)
+func (q *Queries) GetCollectionItemsByType(ctx context.Context, arg GetCollectionItemsByTypeParams) ([]CollectionItem, error) {
+	rows, err := q.query(ctx, q.getCollectionItemsByTypeStmt, getCollectionItemsByType, arg.CollectionID, arg.ParentFolderID, arg.ItemType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CollectionItem{}
+	for rows.Next() {
+		var i CollectionItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.CollectionID,
+			&i.ParentFolderID,
+			&i.ItemType,
+			&i.FolderID,
+			&i.EndpointID,
+			&i.Name,
+			&i.PrevID,
+			&i.NextID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getCollectionItemsInOrder = `-- name: GetCollectionItemsInOrder :many
+WITH RECURSIVE ordered_items AS (
+  -- Base case: Find the head (prev_id IS NULL)
+  SELECT
+    ci.id,
+    ci.collection_id,
+    ci.parent_folder_id,
+    ci.item_type,
+    ci.folder_id,
+    ci.endpoint_id,
+    ci.name,
+    ci.prev_id,
+    ci.next_id,
+    0 as position
+  FROM
+    collection_items ci
+  WHERE
+    ci.collection_id = ? AND
+    ci.parent_folder_id IS ? AND
+    ci.prev_id IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next_id pointers
+  SELECT
+    ci.id,
+    ci.collection_id,
+    ci.parent_folder_id,
+    ci.item_type,
+    ci.folder_id,
+    ci.endpoint_id,
+    ci.name,
+    ci.prev_id,
+    ci.next_id,
+    oi.position + 1
+  FROM
+    collection_items ci
+  INNER JOIN ordered_items oi ON ci.prev_id = oi.id
+  WHERE
+    ci.collection_id = ?
+)
+SELECT
+  oi.id,
+  oi.collection_id,
+  oi.parent_folder_id,
+  oi.item_type,
+  oi.folder_id,
+  oi.endpoint_id,
+  oi.name,
+  oi.prev_id,
+  oi.next_id,
+  oi.position
+FROM
+  ordered_items oi
+ORDER BY
+  oi.position
+`
+
+type GetCollectionItemsInOrderParams struct {
+	CollectionID   idwrap.IDWrap
+	ParentFolderID *idwrap.IDWrap
+	CollectionID_2 idwrap.IDWrap
+}
+
+type GetCollectionItemsInOrderRow struct {
+	ID             []byte
+	CollectionID   []byte
+	ParentFolderID []byte
+	ItemType       int8
+	FolderID       []byte
+	EndpointID     []byte
+	Name           string
+	PrevID         []byte
+	NextID         []byte
+	Position       int64
+}
+
+// Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+// Returns items in correct order for a collection/parent folder
+func (q *Queries) GetCollectionItemsInOrder(ctx context.Context, arg GetCollectionItemsInOrderParams) ([]GetCollectionItemsInOrderRow, error) {
+	rows, err := q.query(ctx, q.getCollectionItemsInOrderStmt, getCollectionItemsInOrder, arg.CollectionID, arg.ParentFolderID, arg.CollectionID_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetCollectionItemsInOrderRow{}
+	for rows.Next() {
+		var i GetCollectionItemsInOrderRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CollectionID,
+			&i.ParentFolderID,
+			&i.ItemType,
+			&i.FolderID,
+			&i.EndpointID,
+			&i.Name,
+			&i.PrevID,
+			&i.NextID,
+			&i.Position,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getCollectionMaxPosition = `-- name: GetCollectionMaxPosition :one
@@ -6334,6 +6707,50 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWra
 	return items, nil
 }
 
+const insertCollectionItem = `-- name: InsertCollectionItem :exec
+INSERT INTO
+  collection_items (
+    id,
+    collection_id,
+    parent_folder_id,
+    item_type,
+    folder_id,
+    endpoint_id,
+    name,
+    prev_id,
+    next_id
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertCollectionItemParams struct {
+	ID             idwrap.IDWrap
+	CollectionID   idwrap.IDWrap
+	ParentFolderID *idwrap.IDWrap
+	ItemType       int8
+	FolderID       *idwrap.IDWrap
+	EndpointID     *idwrap.IDWrap
+	Name           string
+	PrevID         *idwrap.IDWrap
+	NextID         *idwrap.IDWrap
+}
+
+func (q *Queries) InsertCollectionItem(ctx context.Context, arg InsertCollectionItemParams) error {
+	_, err := q.exec(ctx, q.insertCollectionItemStmt, insertCollectionItem,
+		arg.ID,
+		arg.CollectionID,
+		arg.ParentFolderID,
+		arg.ItemType,
+		arg.FolderID,
+		arg.EndpointID,
+		arg.Name,
+		arg.PrevID,
+		arg.NextID,
+	)
+	return err
+}
+
 const listNodeExecutions = `-- name: ListNodeExecutions :many
 SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution
 WHERE node_id = ?
@@ -6674,6 +7091,56 @@ type UpdateCollectionParams struct {
 
 func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionParams) error {
 	_, err := q.exec(ctx, q.updateCollectionStmt, updateCollection, arg.WorkspaceID, arg.Name, arg.ID)
+	return err
+}
+
+const updateCollectionItemOrder = `-- name: UpdateCollectionItemOrder :exec
+UPDATE collection_items
+SET
+  prev_id = ?,
+  next_id = ?
+WHERE
+  id = ?
+`
+
+type UpdateCollectionItemOrderParams struct {
+	PrevID *idwrap.IDWrap
+	NextID *idwrap.IDWrap
+	ID     idwrap.IDWrap
+}
+
+// Update the prev_id/next_id pointers for a single collection item
+// Used for moving items within the linked list
+func (q *Queries) UpdateCollectionItemOrder(ctx context.Context, arg UpdateCollectionItemOrderParams) error {
+	_, err := q.exec(ctx, q.updateCollectionItemOrderStmt, updateCollectionItemOrder, arg.PrevID, arg.NextID, arg.ID)
+	return err
+}
+
+const updateCollectionItemParent = `-- name: UpdateCollectionItemParent :exec
+UPDATE collection_items
+SET
+  parent_folder_id = ?,
+  prev_id = ?,
+  next_id = ?
+WHERE
+  id = ?
+`
+
+type UpdateCollectionItemParentParams struct {
+	ParentFolderID *idwrap.IDWrap
+	PrevID         *idwrap.IDWrap
+	NextID         *idwrap.IDWrap
+	ID             idwrap.IDWrap
+}
+
+// Move an item to a different parent folder while maintaining linked list integrity
+func (q *Queries) UpdateCollectionItemParent(ctx context.Context, arg UpdateCollectionItemParentParams) error {
+	_, err := q.exec(ctx, q.updateCollectionItemParentStmt, updateCollectionItemParent,
+		arg.ParentFolderID,
+		arg.PrevID,
+		arg.NextID,
+		arg.ID,
+	)
 	return err
 }
 
