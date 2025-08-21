@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/scollectionitem"
 	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/translate/tfolder"
@@ -26,14 +27,16 @@ type ItemFolderRPC struct {
 	ifs sitemfolder.ItemFolderService
 	us  suser.UserService
 	cs  scollection.CollectionService
+	cis *scollectionitem.CollectionItemService
 }
 
-func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs scollection.CollectionService) ItemFolderRPC {
+func New(db *sql.DB, ifs sitemfolder.ItemFolderService, us suser.UserService, cs scollection.CollectionService, cis *scollectionitem.CollectionItemService) ItemFolderRPC {
 	return ItemFolderRPC{
 		DB:  db,
 		ifs: ifs,
 		us:  us,
 		cs:  cs,
+		cis: cis,
 	}
 }
 
@@ -71,13 +74,6 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 		}
 	}
 
-	lastFolder, err := c.ifs.GetFolderByCollectionIDAndNextID(ctx, reqFolder.CollectionID, nil, reqFolder.ParentID)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -88,24 +84,10 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 		if localErr != nil {
 			log.Println(localErr)
 		}
-
 	}()
 
-	txIfs, err := sitemfolder.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if lastFolder != nil {
-		lastFolder.Next = &ID
-
-		err = txIfs.UpdateItemFolder(ctx, lastFolder)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	err = txIfs.CreateItemFolder(ctx, reqFolder)
+	// Use CollectionItemService to create folder with unified ordering
+	err = c.cis.CreateFolderTX(ctx, tx, reqFolder)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
