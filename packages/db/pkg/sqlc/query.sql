@@ -2525,3 +2525,49 @@ SET
   parent_folder_id = ?
 WHERE
   id = ?;
+
+-- 
+-- Cross-Collection Move Support Queries
+-- These queries support moving collection items between different collections
+--
+
+-- name: ValidateCollectionsInSameWorkspace :one
+-- Validate that two collections are in the same workspace
+SELECT 
+  c1.workspace_id = c2.workspace_id AS same_workspace,
+  c1.workspace_id AS source_workspace_id,
+  c2.workspace_id AS target_workspace_id
+FROM collections c1, collections c2 
+WHERE c1.id = ? AND c2.id = ?;
+
+-- name: GetCollectionWorkspaceByItemId :one
+-- Get the workspace_id for a collection that contains a specific collection item
+SELECT c.workspace_id 
+FROM collections c
+JOIN collection_items ci ON ci.collection_id = c.id
+WHERE ci.id = ?;
+
+-- name: UpdateCollectionItemCollectionId :exec
+-- Update the collection_id and parent_folder_id for cross-collection moves
+UPDATE collection_items 
+SET collection_id = ?, parent_folder_id = ?
+WHERE id = ?;
+
+-- name: GetCollectionItemsInOrderForCollection :many
+-- Get all collection items in order for a specific collection (used for cross-collection validation)
+SELECT id, collection_id, parent_folder_id, item_type, folder_id, endpoint_id, name, prev_id, next_id
+FROM collection_items 
+WHERE collection_id = ? AND parent_folder_id IS NULL
+ORDER BY CASE WHEN prev_id IS NULL THEN 0 ELSE 1 END, id;
+
+-- name: UpdateItemApiCollectionId :exec
+-- Update legacy item_api table collection_id for cross-collection moves
+UPDATE item_api
+SET collection_id = ?
+WHERE id = ?;
+
+-- name: UpdateItemFolderCollectionId :exec
+-- Update legacy item_folder table collection_id for cross-collection moves  
+UPDATE item_folder
+SET collection_id = ?
+WHERE id = ?;

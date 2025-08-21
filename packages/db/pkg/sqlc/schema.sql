@@ -508,3 +508,20 @@ CREATE INDEX collection_items_idx5 ON collection_items (
   collection_id,
   name
 );
+
+-- Performance indexes for cross-collection move operations
+-- Optimize workspace validation queries for collections
+CREATE INDEX collections_workspace_lookup ON collections (id, workspace_id);
+
+-- Optimize cross-collection validation queries for collection items  
+CREATE INDEX collection_items_workspace_lookup ON collection_items (id, collection_id);
+
+-- Optimize user access validation for cross-collection moves
+CREATE INDEX workspaces_users_collection_access ON workspaces_users (user_id, workspace_id);
+
+-- Optimize collection-workspace JOIN operations in cross-collection queries
+CREATE INDEX collections_workspace_id_lookup ON collections (workspace_id, id);
+
+-- Optimize legacy table updates for cross-collection moves
+CREATE INDEX item_api_collection_update ON item_api (id, collection_id);
+CREATE INDEX item_folder_collection_update ON item_folder (id, collection_id);

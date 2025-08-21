@@ -54,6 +54,8 @@ var (
 	ErrInvalidItemType        = fmt.Errorf("invalid item type")
 	ErrPositionOutOfRange     = fmt.Errorf("position out of range")
 	ErrInvalidTargetPosition  = fmt.Errorf("invalid target position")
+	ErrCrossWorkspaceMove     = fmt.Errorf("cannot move items between different workspaces")
+	ErrTargetCollectionNotFound = fmt.Errorf("target collection not found")
 )
 
 // New creates a new CollectionItemService
@@ -137,12 +139,14 @@ func (s *CollectionItemService) ListCollectionItems(ctx context.Context, collect
 }
 
 // MoveCollectionItemToFolder moves a collection item to a specific parent folder with optional positioning
-// This method is specifically designed for cross-folder moves using targetParentFolderId
-func (s *CollectionItemService) MoveCollectionItemToFolder(ctx context.Context, itemID idwrap.IDWrap, targetParentFolderID *idwrap.IDWrap, targetItemID *idwrap.IDWrap, position movable.MovePosition) error {
+// This method supports both intra-collection moves and cross-collection moves
+// If targetCollectionID is provided, it performs a cross-collection move
+func (s *CollectionItemService) MoveCollectionItemToFolder(ctx context.Context, itemID idwrap.IDWrap, targetParentFolderID *idwrap.IDWrap, targetItemID *idwrap.IDWrap, position movable.MovePosition, targetCollectionID *idwrap.IDWrap) error {
 	s.logger.Debug("Moving collection item to specific parent folder",
 		"item_id", itemID.String(),
 		"target_parent_folder_id", getIDString(targetParentFolderID),
 		"target_item_id", getIDString(targetItemID),
+		"target_collection_id", getIDString(targetCollectionID),
 		"position", position)
 
 	// Get the item to validate it exists
@@ -152,6 +156,18 @@ func (s *CollectionItemService) MoveCollectionItemToFolder(ctx context.Context, 
 			return ErrCollectionItemNotFound
 		}
 		return fmt.Errorf("failed to get collection item: %w", err)
+	}
+
+	// Check if this is a cross-collection move
+	if targetCollectionID != nil && item.CollectionID.Compare(*targetCollectionID) != 0 {
+		s.logger.Debug("Detected cross-collection move, delegating to cross-collection method")
+		return s.MoveCollectionItemCrossCollection(ctx, itemID, *targetCollectionID, targetParentFolderID, targetItemID, position)
+	}
+
+	// Determine the effective target collection (use current collection if not specified)
+	effectiveTargetCollectionID := item.CollectionID
+	if targetCollectionID != nil {
+		effectiveTargetCollectionID = *targetCollectionID
 	}
 
 	// Validate target parent folder if specified
@@ -169,9 +185,9 @@ func (s *CollectionItemService) MoveCollectionItemToFolder(ctx context.Context, 
 			return fmt.Errorf("target parent must be a folder")
 		}
 		
-		// Validate items are in same collection
-		if item.CollectionID.Compare(targetParentItem.CollectionID) != 0 {
-			return fmt.Errorf("items must be in same collection")
+		// Validate target parent is in the effective target collection
+		if targetParentItem.CollectionID.Compare(effectiveTargetCollectionID) != 0 {
+			return fmt.Errorf("target parent folder must be in the target collection")
 		}
 	}
 
@@ -185,9 +201,9 @@ func (s *CollectionItemService) MoveCollectionItemToFolder(ctx context.Context, 
 			return fmt.Errorf("failed to get target item: %w", err)
 		}
 		
-		// Validate items are in same collection
-		if item.CollectionID.Compare(targetItem.CollectionID) != 0 {
-			return fmt.Errorf("items must be in same collection")
+		// Validate target item is in the effective target collection
+		if targetItem.CollectionID.Compare(effectiveTargetCollectionID) != 0 {
+			return fmt.Errorf("target item must be in the target collection")
 		}
 		
 		// Ensure target item is in the target parent folder context
@@ -900,5 +916,325 @@ func (s *CollectionItemService) performSameFolderMove(ctx context.Context, itemI
 		"item_id", itemID.String(),
 		"from_pos", currentPos,
 		"to_pos", newPos)
+	return nil
+}
+
+// MoveCollectionItemCrossCollection moves a collection item to a different collection
+// This is the main method for handling cross-collection moves while maintaining workspace boundaries
+func (s *CollectionItemService) MoveCollectionItemCrossCollection(ctx context.Context, itemID idwrap.IDWrap, targetCollectionID idwrap.IDWrap, targetParentFolderID *idwrap.IDWrap, targetItemID *idwrap.IDWrap, position movable.MovePosition) error {
+	s.logger.Debug("Moving collection item across collections",
+		"item_id", itemID.String(),
+		"target_collection_id", targetCollectionID.String(),
+		"target_parent_folder_id", getIDString(targetParentFolderID),
+		"target_item_id", getIDString(targetItemID),
+		"position", position)
+
+	// Step 1: Validate the cross-collection move
+	sourceCollectionID, err := s.ValidateCrossCollectionMove(ctx, itemID, targetCollectionID, targetParentFolderID, targetItemID)
+	if err != nil {
+		return fmt.Errorf("cross-collection move validation failed: %w", err)
+	}
+
+	// Step 2: Perform the cross-collection move
+	err = s.PerformCrossCollectionMove(ctx, itemID, sourceCollectionID, targetCollectionID, targetParentFolderID, targetItemID, position)
+	if err != nil {
+		return fmt.Errorf("failed to perform cross-collection move: %w", err)
+	}
+
+	s.logger.Debug("Successfully moved collection item across collections",
+		"item_id", itemID.String(),
+		"source_collection_id", sourceCollectionID.String(),
+		"target_collection_id", targetCollectionID.String())
+
+	return nil
+}
+
+// ValidateCrossCollectionMove validates that a cross-collection move is valid
+// Returns the source collection ID if validation passes
+func (s *CollectionItemService) ValidateCrossCollectionMove(ctx context.Context, itemID idwrap.IDWrap, targetCollectionID idwrap.IDWrap, targetParentFolderID *idwrap.IDWrap, targetItemID *idwrap.IDWrap) (idwrap.IDWrap, error) {
+	s.logger.Debug("Validating cross-collection move",
+		"item_id", itemID.String(),
+		"target_collection_id", targetCollectionID.String())
+
+	// Get the item to validate it exists and get source collection
+	item, err := s.queries.GetCollectionItem(ctx, itemID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return idwrap.IDWrap{}, ErrCollectionItemNotFound
+		}
+		return idwrap.IDWrap{}, fmt.Errorf("failed to get collection item: %w", err)
+	}
+
+	sourceCollectionID := item.CollectionID
+
+	// Prevent move to same collection (this should use intra-collection methods)
+	if sourceCollectionID.Compare(targetCollectionID) == 0 {
+		return idwrap.IDWrap{}, fmt.Errorf("item is already in target collection, use intra-collection move methods")
+	}
+
+	// Validate that both collections exist and are in the same workspace
+	validation, err := s.queries.ValidateCollectionsInSameWorkspace(ctx, gen.ValidateCollectionsInSameWorkspaceParams{
+		ID:   sourceCollectionID,
+		ID_2: targetCollectionID,
+	})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return idwrap.IDWrap{}, ErrTargetCollectionNotFound
+		}
+		return idwrap.IDWrap{}, fmt.Errorf("failed to validate collections: %w", err)
+	}
+
+	if !validation.SameWorkspace {
+		s.logger.Warn("Attempted cross-workspace move",
+			"source_workspace_id", validation.SourceWorkspaceID.String(),
+			"target_workspace_id", validation.TargetWorkspaceID.String())
+		return idwrap.IDWrap{}, ErrCrossWorkspaceMove
+	}
+
+	// Validate target parent folder if specified
+	if targetParentFolderID != nil {
+		targetParentItem, err := s.queries.GetCollectionItem(ctx, *targetParentFolderID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return idwrap.IDWrap{}, fmt.Errorf("target parent folder not found")
+			}
+			return idwrap.IDWrap{}, fmt.Errorf("failed to get target parent folder: %w", err)
+		}
+
+		// Ensure target parent is in the target collection
+		if targetParentItem.CollectionID.Compare(targetCollectionID) != 0 {
+			return idwrap.IDWrap{}, fmt.Errorf("target parent folder must be in target collection")
+		}
+
+		// Ensure target parent is actually a folder
+		if targetParentItem.ItemType != int8(CollectionItemTypeFolder) {
+			return idwrap.IDWrap{}, fmt.Errorf("target parent must be a folder")
+		}
+	}
+
+	// Validate target item if specified
+	if targetItemID != nil {
+		targetItem, err := s.queries.GetCollectionItem(ctx, *targetItemID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return idwrap.IDWrap{}, fmt.Errorf("target item not found")
+			}
+			return idwrap.IDWrap{}, fmt.Errorf("failed to get target item: %w", err)
+		}
+
+		// Ensure target item is in the target collection
+		if targetItem.CollectionID.Compare(targetCollectionID) != 0 {
+			return idwrap.IDWrap{}, fmt.Errorf("target item must be in target collection")
+		}
+
+		// Ensure target item is in the target parent folder context
+		if (targetItem.ParentFolderID == nil) != (targetParentFolderID == nil) {
+			return idwrap.IDWrap{}, fmt.Errorf("target item must be in the same parent context as the target parent folder")
+		}
+		if targetItem.ParentFolderID != nil && targetParentFolderID != nil {
+			if targetItem.ParentFolderID.Compare(*targetParentFolderID) != 0 {
+				return idwrap.IDWrap{}, fmt.Errorf("target item must be in the same parent context as the target parent folder")
+			}
+		}
+	}
+
+	// Prevent moving item relative to itself
+	if targetItemID != nil && itemID.Compare(*targetItemID) == 0 {
+		return idwrap.IDWrap{}, fmt.Errorf("cannot move item relative to itself")
+	}
+
+	s.logger.Debug("Cross-collection move validation passed",
+		"item_id", itemID.String(),
+		"source_collection_id", sourceCollectionID.String(),
+		"target_collection_id", targetCollectionID.String())
+
+	return sourceCollectionID, nil
+}
+
+// PerformCrossCollectionMove performs the actual cross-collection move operation
+func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, itemID idwrap.IDWrap, sourceCollectionID idwrap.IDWrap, targetCollectionID idwrap.IDWrap, targetParentFolderID *idwrap.IDWrap, targetItemID *idwrap.IDWrap, position movable.MovePosition) error {
+	s.logger.Debug("Performing cross-collection move",
+		"item_id", itemID.String(),
+		"source_collection_id", sourceCollectionID.String(),
+		"target_collection_id", targetCollectionID.String())
+
+	// Get current item details
+	item, err := s.queries.GetCollectionItem(ctx, itemID)
+	if err != nil {
+		return fmt.Errorf("failed to get collection item: %w", err)
+	}
+
+	// Step 1: Remove item from source collection's linked list
+	sourceItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
+		CollectionID:   sourceCollectionID,
+		ParentFolderID: item.ParentFolderID,
+		CollectionID_2: sourceCollectionID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get source collection items: %w", err)
+	}
+
+	// Find current position and remove from source list
+	currentPos := -1
+	for i, orderedItem := range sourceItems {
+		orderItemID := idwrap.NewFromBytesMust(orderedItem.ID)
+		if orderItemID.Compare(itemID) == 0 {
+			currentPos = i
+			break
+		}
+	}
+
+	if currentPos == -1 {
+		return fmt.Errorf("item not found in source collection list")
+	}
+
+	// Rebuild source collection list without the moving item
+	newSourceOrder := make([]idwrap.IDWrap, 0, len(sourceItems)-1)
+	for i, orderedItem := range sourceItems {
+		if i != currentPos {
+			newSourceOrder = append(newSourceOrder, idwrap.NewFromBytesMust(orderedItem.ID))
+		}
+	}
+
+	// Step 2: Get target collection's current items
+	targetItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
+		CollectionID:   targetCollectionID,
+		ParentFolderID: targetParentFolderID,
+		CollectionID_2: targetCollectionID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get target collection items: %w", err)
+	}
+
+	// Step 3: Update item's collection_id and parent_folder_id
+	s.logger.Debug("Updating collection_id and parent_folder_id",
+		"item_id", itemID.String(),
+		"new_collection_id", targetCollectionID.String(),
+		"new_parent_folder_id", getIDString(targetParentFolderID))
+
+	err = s.queries.UpdateCollectionItemCollectionId(ctx, gen.UpdateCollectionItemCollectionIdParams{
+		CollectionID:   targetCollectionID,
+		ParentFolderID: targetParentFolderID,
+		ID:             itemID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update collection item collection_id: %w", err)
+	}
+
+	// Step 4: Update legacy table collection_ids
+	err = s.UpdateLegacyTableCollectionIds(ctx, item, targetCollectionID)
+	if err != nil {
+		return fmt.Errorf("failed to update legacy table collection_ids: %w", err)
+	}
+
+	// Step 5: Calculate insertion position in target collection
+	var insertPos int
+	if targetItemID != nil {
+		// Look for the target item within the target collection context
+		targetPos := -1
+		for i, orderedItem := range targetItems {
+			orderItemID := idwrap.NewFromBytesMust(orderedItem.ID)
+			if orderItemID.Compare(*targetItemID) == 0 {
+				targetPos = i
+				break
+			}
+		}
+
+		if targetPos != -1 {
+			// Target found within target collection: normal positioning relative to target
+			if position == movable.MovePositionAfter {
+				insertPos = targetPos + 1
+			} else {
+				insertPos = targetPos
+			}
+			s.logger.Debug("Target found in target collection, positioning relative to it",
+				"target_pos", targetPos, "insert_pos", insertPos)
+		} else {
+			// Target not found in target collection: add to end
+			insertPos = len(targetItems)
+			s.logger.Debug("Target not in target collection, adding to end", "pos", insertPos)
+		}
+	} else {
+		// No target specified, add to end
+		insertPos = len(targetItems)
+	}
+
+	// Clamp insert position
+	if insertPos < 0 {
+		insertPos = 0
+	}
+	if insertPos > len(targetItems) {
+		insertPos = len(targetItems)
+	}
+
+	// Step 6: Insert item into target collection's list at calculated position
+	newTargetOrder := make([]idwrap.IDWrap, 0, len(targetItems)+1)
+	for i, orderedItem := range targetItems {
+		if i == insertPos {
+			newTargetOrder = append(newTargetOrder, itemID)
+		}
+		newTargetOrder = append(newTargetOrder, idwrap.NewFromBytesMust(orderedItem.ID))
+	}
+	// Handle case where item is inserted at the end
+	if insertPos == len(targetItems) {
+		newTargetOrder = append(newTargetOrder, itemID)
+	}
+
+	// Step 7: Rebuild both linked lists
+	if len(newSourceOrder) > 0 {
+		s.logger.Debug("Rebuilding source collection linked list",
+			"items_count", len(newSourceOrder))
+		err = s.rebuildLinkedList(ctx, newSourceOrder)
+		if err != nil {
+			return fmt.Errorf("failed to rebuild source collection linked list: %w", err)
+		}
+	}
+
+	s.logger.Debug("Rebuilding target collection linked list",
+		"items_count", len(newTargetOrder))
+	err = s.rebuildLinkedList(ctx, newTargetOrder)
+	if err != nil {
+		return fmt.Errorf("failed to rebuild target collection linked list: %w", err)
+	}
+
+	s.logger.Debug("Successfully completed cross-collection move",
+		"item_id", itemID.String(),
+		"insert_pos", insertPos,
+		"target_collection_items", len(newTargetOrder))
+
+	return nil
+}
+
+// UpdateLegacyTableCollectionIds updates the collection_id in legacy tables (item_api and item_folder)
+// to maintain consistency after cross-collection moves
+func (s *CollectionItemService) UpdateLegacyTableCollectionIds(ctx context.Context, item gen.CollectionItem, targetCollectionID idwrap.IDWrap) error {
+	s.logger.Debug("Updating legacy table collection_ids",
+		"item_type", item.ItemType,
+		"target_collection_id", targetCollectionID.String())
+
+	if item.ItemType == int8(CollectionItemTypeFolder) && item.FolderID != nil {
+		// Update item_folder table
+		err := s.queries.UpdateItemFolderCollectionId(ctx, gen.UpdateItemFolderCollectionIdParams{
+			CollectionID: targetCollectionID,
+			ID:           *item.FolderID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update item_folder collection_id: %w", err)
+		}
+		s.logger.Debug("Updated item_folder collection_id", "folder_id", item.FolderID.String())
+	}
+
+	if item.ItemType == int8(CollectionItemTypeEndpoint) && item.EndpointID != nil {
+		// Update item_api table
+		err := s.queries.UpdateItemApiCollectionId(ctx, gen.UpdateItemApiCollectionIdParams{
+			CollectionID: targetCollectionID,
+			ID:           *item.EndpointID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update item_api collection_id: %w", err)
+		}
+		s.logger.Debug("Updated item_api collection_id", "endpoint_id", item.EndpointID.String())
+	}
+
 	return nil
 }

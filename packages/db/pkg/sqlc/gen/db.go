@@ -342,8 +342,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCollectionItemsInOrderStmt, err = db.PrepareContext(ctx, getCollectionItemsInOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionItemsInOrder: %w", err)
 	}
+	if q.getCollectionItemsInOrderForCollectionStmt, err = db.PrepareContext(ctx, getCollectionItemsInOrderForCollection); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItemsInOrderForCollection: %w", err)
+	}
 	if q.getCollectionMaxPositionStmt, err = db.PrepareContext(ctx, getCollectionMaxPosition); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionMaxPosition: %w", err)
+	}
+	if q.getCollectionWorkspaceByItemIdStmt, err = db.PrepareContext(ctx, getCollectionWorkspaceByItemId); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionWorkspaceByItemId: %w", err)
 	}
 	if q.getCollectionWorkspaceIDStmt, err = db.PrepareContext(ctx, getCollectionWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionWorkspaceID: %w", err)
@@ -594,6 +600,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateCollectionStmt, err = db.PrepareContext(ctx, updateCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCollection: %w", err)
 	}
+	if q.updateCollectionItemCollectionIdStmt, err = db.PrepareContext(ctx, updateCollectionItemCollectionId); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCollectionItemCollectionId: %w", err)
+	}
 	if q.updateCollectionItemOrderStmt, err = db.PrepareContext(ctx, updateCollectionItemOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCollectionItemOrder: %w", err)
 	}
@@ -651,6 +660,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateItemApiStmt, err = db.PrepareContext(ctx, updateItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemApi: %w", err)
 	}
+	if q.updateItemApiCollectionIdStmt, err = db.PrepareContext(ctx, updateItemApiCollectionId); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateItemApiCollectionId: %w", err)
+	}
 	if q.updateItemApiExampleStmt, err = db.PrepareContext(ctx, updateItemApiExample); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemApiExample: %w", err)
 	}
@@ -662,6 +674,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateItemFolderStmt, err = db.PrepareContext(ctx, updateItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemFolder: %w", err)
+	}
+	if q.updateItemFolderCollectionIdStmt, err = db.PrepareContext(ctx, updateItemFolderCollectionId); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateItemFolderCollectionId: %w", err)
 	}
 	if q.updateItemFolderOrderStmt, err = db.PrepareContext(ctx, updateItemFolderOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemFolderOrder: %w", err)
@@ -695,6 +710,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.upsertNodeExecutionStmt, err = db.PrepareContext(ctx, upsertNodeExecution); err != nil {
 		return nil, fmt.Errorf("error preparing query UpsertNodeExecution: %w", err)
+	}
+	if q.validateCollectionsInSameWorkspaceStmt, err = db.PrepareContext(ctx, validateCollectionsInSameWorkspace); err != nil {
+		return nil, fmt.Errorf("error preparing query ValidateCollectionsInSameWorkspace: %w", err)
 	}
 	return &q, nil
 }
@@ -1231,9 +1249,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCollectionItemsInOrderStmt: %w", cerr)
 		}
 	}
+	if q.getCollectionItemsInOrderForCollectionStmt != nil {
+		if cerr := q.getCollectionItemsInOrderForCollectionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemsInOrderForCollectionStmt: %w", cerr)
+		}
+	}
 	if q.getCollectionMaxPositionStmt != nil {
 		if cerr := q.getCollectionMaxPositionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCollectionMaxPositionStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionWorkspaceByItemIdStmt != nil {
+		if cerr := q.getCollectionWorkspaceByItemIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionWorkspaceByItemIdStmt: %w", cerr)
 		}
 	}
 	if q.getCollectionWorkspaceIDStmt != nil {
@@ -1651,6 +1679,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateCollectionStmt: %w", cerr)
 		}
 	}
+	if q.updateCollectionItemCollectionIdStmt != nil {
+		if cerr := q.updateCollectionItemCollectionIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCollectionItemCollectionIdStmt: %w", cerr)
+		}
+	}
 	if q.updateCollectionItemOrderStmt != nil {
 		if cerr := q.updateCollectionItemOrderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCollectionItemOrderStmt: %w", cerr)
@@ -1746,6 +1779,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateItemApiStmt: %w", cerr)
 		}
 	}
+	if q.updateItemApiCollectionIdStmt != nil {
+		if cerr := q.updateItemApiCollectionIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateItemApiCollectionIdStmt: %w", cerr)
+		}
+	}
 	if q.updateItemApiExampleStmt != nil {
 		if cerr := q.updateItemApiExampleStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateItemApiExampleStmt: %w", cerr)
@@ -1764,6 +1802,11 @@ func (q *Queries) Close() error {
 	if q.updateItemFolderStmt != nil {
 		if cerr := q.updateItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateItemFolderStmt: %w", cerr)
+		}
+	}
+	if q.updateItemFolderCollectionIdStmt != nil {
+		if cerr := q.updateItemFolderCollectionIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateItemFolderCollectionIdStmt: %w", cerr)
 		}
 	}
 	if q.updateItemFolderOrderStmt != nil {
@@ -1819,6 +1862,11 @@ func (q *Queries) Close() error {
 	if q.upsertNodeExecutionStmt != nil {
 		if cerr := q.upsertNodeExecutionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing upsertNodeExecutionStmt: %w", cerr)
+		}
+	}
+	if q.validateCollectionsInSameWorkspaceStmt != nil {
+		if cerr := q.validateCollectionsInSameWorkspaceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing validateCollectionsInSameWorkspaceStmt: %w", cerr)
 		}
 	}
 	return err
@@ -1966,7 +2014,9 @@ type Queries struct {
 	getCollectionItemsByParentFolderIDStmt                *sql.Stmt
 	getCollectionItemsByTypeStmt                          *sql.Stmt
 	getCollectionItemsInOrderStmt                         *sql.Stmt
+	getCollectionItemsInOrderForCollectionStmt            *sql.Stmt
 	getCollectionMaxPositionStmt                          *sql.Stmt
+	getCollectionWorkspaceByItemIdStmt                    *sql.Stmt
 	getCollectionWorkspaceIDStmt                          *sql.Stmt
 	getCollectionsInOrderStmt                             *sql.Stmt
 	getEnvironmentStmt                                    *sql.Stmt
@@ -2050,6 +2100,7 @@ type Queries struct {
 	updateBodyRawDataStmt                                 *sql.Stmt
 	updateBodyUrlEncodedStmt                              *sql.Stmt
 	updateCollectionStmt                                  *sql.Stmt
+	updateCollectionItemCollectionIdStmt                  *sql.Stmt
 	updateCollectionItemOrderStmt                         *sql.Stmt
 	updateCollectionItemParentStmt                        *sql.Stmt
 	updateCollectionItemParentFolderStmt                  *sql.Stmt
@@ -2069,10 +2120,12 @@ type Queries struct {
 	updateFlowVariableStmt                                *sql.Stmt
 	updateHeaderStmt                                      *sql.Stmt
 	updateItemApiStmt                                     *sql.Stmt
+	updateItemApiCollectionIdStmt                         *sql.Stmt
 	updateItemApiExampleStmt                              *sql.Stmt
 	updateItemApiExampleOrderStmt                         *sql.Stmt
 	updateItemApiOrderStmt                                *sql.Stmt
 	updateItemFolderStmt                                  *sql.Stmt
+	updateItemFolderCollectionIdStmt                      *sql.Stmt
 	updateItemFolderOrderStmt                             *sql.Stmt
 	updateNodeExecutionStmt                               *sql.Stmt
 	updateQueryStmt                                       *sql.Stmt
@@ -2084,6 +2137,7 @@ type Queries struct {
 	updateWorkspaceUpdatedTimeStmt                        *sql.Stmt
 	updateWorkspaceUserStmt                               *sql.Stmt
 	upsertNodeExecutionStmt                               *sql.Stmt
+	validateCollectionsInSameWorkspaceStmt                *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -2196,7 +2250,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getCollectionItemsByParentFolderIDStmt:                q.getCollectionItemsByParentFolderIDStmt,
 		getCollectionItemsByTypeStmt:                          q.getCollectionItemsByTypeStmt,
 		getCollectionItemsInOrderStmt:                         q.getCollectionItemsInOrderStmt,
+		getCollectionItemsInOrderForCollectionStmt:            q.getCollectionItemsInOrderForCollectionStmt,
 		getCollectionMaxPositionStmt:                          q.getCollectionMaxPositionStmt,
+		getCollectionWorkspaceByItemIdStmt:                    q.getCollectionWorkspaceByItemIdStmt,
 		getCollectionWorkspaceIDStmt:                          q.getCollectionWorkspaceIDStmt,
 		getCollectionsInOrderStmt:                             q.getCollectionsInOrderStmt,
 		getEnvironmentStmt:                                    q.getEnvironmentStmt,
@@ -2280,6 +2336,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateBodyRawDataStmt:                                 q.updateBodyRawDataStmt,
 		updateBodyUrlEncodedStmt:                              q.updateBodyUrlEncodedStmt,
 		updateCollectionStmt:                                  q.updateCollectionStmt,
+		updateCollectionItemCollectionIdStmt:                  q.updateCollectionItemCollectionIdStmt,
 		updateCollectionItemOrderStmt:                         q.updateCollectionItemOrderStmt,
 		updateCollectionItemParentStmt:                        q.updateCollectionItemParentStmt,
 		updateCollectionItemParentFolderStmt:                  q.updateCollectionItemParentFolderStmt,
@@ -2299,10 +2356,12 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowVariableStmt:                                q.updateFlowVariableStmt,
 		updateHeaderStmt:                                      q.updateHeaderStmt,
 		updateItemApiStmt:                                     q.updateItemApiStmt,
+		updateItemApiCollectionIdStmt:                         q.updateItemApiCollectionIdStmt,
 		updateItemApiExampleStmt:                              q.updateItemApiExampleStmt,
 		updateItemApiExampleOrderStmt:                         q.updateItemApiExampleOrderStmt,
 		updateItemApiOrderStmt:                                q.updateItemApiOrderStmt,
 		updateItemFolderStmt:                                  q.updateItemFolderStmt,
+		updateItemFolderCollectionIdStmt:                      q.updateItemFolderCollectionIdStmt,
 		updateItemFolderOrderStmt:                             q.updateItemFolderOrderStmt,
 		updateNodeExecutionStmt:                               q.updateNodeExecutionStmt,
 		updateQueryStmt:                                       q.updateQueryStmt,
@@ -2314,5 +2373,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateWorkspaceUpdatedTimeStmt:                        q.updateWorkspaceUpdatedTimeStmt,
 		updateWorkspaceUserStmt:                               q.updateWorkspaceUserStmt,
 		upsertNodeExecutionStmt:                               q.upsertNodeExecutionStmt,
+		validateCollectionsInSameWorkspaceStmt:                q.validateCollectionsInSameWorkspaceStmt,
 	}
 }

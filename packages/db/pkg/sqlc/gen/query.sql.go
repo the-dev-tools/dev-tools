@@ -4222,6 +4222,47 @@ func (q *Queries) GetCollectionItemsInOrder(ctx context.Context, arg GetCollecti
 	return items, nil
 }
 
+const getCollectionItemsInOrderForCollection = `-- name: GetCollectionItemsInOrderForCollection :many
+SELECT id, collection_id, parent_folder_id, item_type, folder_id, endpoint_id, name, prev_id, next_id
+FROM collection_items 
+WHERE collection_id = ? AND parent_folder_id IS NULL
+ORDER BY CASE WHEN prev_id IS NULL THEN 0 ELSE 1 END, id
+`
+
+// Get all collection items in order for a specific collection (used for cross-collection validation)
+func (q *Queries) GetCollectionItemsInOrderForCollection(ctx context.Context, collectionID idwrap.IDWrap) ([]CollectionItem, error) {
+	rows, err := q.query(ctx, q.getCollectionItemsInOrderForCollectionStmt, getCollectionItemsInOrderForCollection, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CollectionItem{}
+	for rows.Next() {
+		var i CollectionItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.CollectionID,
+			&i.ParentFolderID,
+			&i.ItemType,
+			&i.FolderID,
+			&i.EndpointID,
+			&i.Name,
+			&i.PrevID,
+			&i.NextID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCollectionMaxPosition = `-- name: GetCollectionMaxPosition :one
 SELECT
   id,
@@ -4251,6 +4292,21 @@ func (q *Queries) GetCollectionMaxPosition(ctx context.Context, workspaceID idwr
 		&i.Next,
 	)
 	return i, err
+}
+
+const getCollectionWorkspaceByItemId = `-- name: GetCollectionWorkspaceByItemId :one
+SELECT c.workspace_id 
+FROM collections c
+JOIN collection_items ci ON ci.collection_id = c.id
+WHERE ci.id = ?
+`
+
+// Get the workspace_id for a collection that contains a specific collection item
+func (q *Queries) GetCollectionWorkspaceByItemId(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
+	row := q.queryRow(ctx, q.getCollectionWorkspaceByItemIdStmt, getCollectionWorkspaceByItemId, id)
+	var workspace_id idwrap.IDWrap
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
 }
 
 const getCollectionWorkspaceID = `-- name: GetCollectionWorkspaceID :one
@@ -7168,6 +7224,24 @@ func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionPara
 	return err
 }
 
+const updateCollectionItemCollectionId = `-- name: UpdateCollectionItemCollectionId :exec
+UPDATE collection_items 
+SET collection_id = ?, parent_folder_id = ?
+WHERE id = ?
+`
+
+type UpdateCollectionItemCollectionIdParams struct {
+	CollectionID   idwrap.IDWrap
+	ParentFolderID *idwrap.IDWrap
+	ID             idwrap.IDWrap
+}
+
+// Update the collection_id and parent_folder_id for cross-collection moves
+func (q *Queries) UpdateCollectionItemCollectionId(ctx context.Context, arg UpdateCollectionItemCollectionIdParams) error {
+	_, err := q.exec(ctx, q.updateCollectionItemCollectionIdStmt, updateCollectionItemCollectionId, arg.CollectionID, arg.ParentFolderID, arg.ID)
+	return err
+}
+
 const updateCollectionItemOrder = `-- name: UpdateCollectionItemOrder :exec
 UPDATE collection_items
 SET
@@ -7658,6 +7732,23 @@ func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) er
 	return err
 }
 
+const updateItemApiCollectionId = `-- name: UpdateItemApiCollectionId :exec
+UPDATE item_api
+SET collection_id = ?
+WHERE id = ?
+`
+
+type UpdateItemApiCollectionIdParams struct {
+	CollectionID idwrap.IDWrap
+	ID           idwrap.IDWrap
+}
+
+// Update legacy item_api table collection_id for cross-collection moves
+func (q *Queries) UpdateItemApiCollectionId(ctx context.Context, arg UpdateItemApiCollectionIdParams) error {
+	_, err := q.exec(ctx, q.updateItemApiCollectionIdStmt, updateItemApiCollectionId, arg.CollectionID, arg.ID)
+	return err
+}
+
 const updateItemApiExample = `-- name: UpdateItemApiExample :exec
 UPDATE item_api_example
 SET
@@ -7735,6 +7826,23 @@ type UpdateItemFolderParams struct {
 
 func (q *Queries) UpdateItemFolder(ctx context.Context, arg UpdateItemFolderParams) error {
 	_, err := q.exec(ctx, q.updateItemFolderStmt, updateItemFolder, arg.Name, arg.ParentID, arg.ID)
+	return err
+}
+
+const updateItemFolderCollectionId = `-- name: UpdateItemFolderCollectionId :exec
+UPDATE item_folder
+SET collection_id = ?
+WHERE id = ?
+`
+
+type UpdateItemFolderCollectionIdParams struct {
+	CollectionID idwrap.IDWrap
+	ID           idwrap.IDWrap
+}
+
+// Update legacy item_folder table collection_id for cross-collection moves
+func (q *Queries) UpdateItemFolderCollectionId(ctx context.Context, arg UpdateItemFolderCollectionIdParams) error {
+	_, err := q.exec(ctx, q.updateItemFolderCollectionIdStmt, updateItemFolderCollectionId, arg.CollectionID, arg.ID)
 	return err
 }
 
@@ -8056,5 +8164,37 @@ func (q *Queries) UpsertNodeExecution(ctx context.Context, arg UpsertNodeExecuti
 		&i.ResponseID,
 		&i.CompletedAt,
 	)
+	return i, err
+}
+
+const validateCollectionsInSameWorkspace = `-- name: ValidateCollectionsInSameWorkspace :one
+
+SELECT 
+  c1.workspace_id = c2.workspace_id AS same_workspace,
+  c1.workspace_id AS source_workspace_id,
+  c2.workspace_id AS target_workspace_id
+FROM collections c1, collections c2 
+WHERE c1.id = ? AND c2.id = ?
+`
+
+type ValidateCollectionsInSameWorkspaceParams struct {
+	ID   idwrap.IDWrap
+	ID_2 idwrap.IDWrap
+}
+
+type ValidateCollectionsInSameWorkspaceRow struct {
+	SameWorkspace     bool
+	SourceWorkspaceID idwrap.IDWrap
+	TargetWorkspaceID idwrap.IDWrap
+}
+
+// Cross-Collection Move Support Queries
+// These queries support moving collection items between different collections
+//
+// Validate that two collections are in the same workspace
+func (q *Queries) ValidateCollectionsInSameWorkspace(ctx context.Context, arg ValidateCollectionsInSameWorkspaceParams) (ValidateCollectionsInSameWorkspaceRow, error) {
+	row := q.queryRow(ctx, q.validateCollectionsInSameWorkspaceStmt, validateCollectionsInSameWorkspace, arg.ID, arg.ID_2)
+	var i ValidateCollectionsInSameWorkspaceRow
+	err := row.Scan(&i.SameWorkspace, &i.SourceWorkspaceID, &i.TargetWorkspaceID)
 	return i, err
 }
