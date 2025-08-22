@@ -4,25 +4,41 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"slices"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/movable"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
 type FlowVariableService struct {
-	queries *gen.Queries
+	queries           *gen.Queries
+	movableRepository *FlowVariableMovableRepository
 }
 
 var ErrNoFlowVariableFound = errors.New("no flow variable find")
 
 func New(queries *gen.Queries) FlowVariableService {
-	return FlowVariableService{queries: queries}
+	// Create the movable repository for flow variables
+	movableRepo := NewFlowVariableMovableRepository(queries)
+	
+	return FlowVariableService{
+		queries:           queries,
+		movableRepository: movableRepo,
+	}
 }
 
 func (s FlowVariableService) TX(tx *sql.Tx) FlowVariableService {
-	return FlowVariableService{queries: s.queries.WithTx(tx)}
+	// Create new instances with transaction support
+	txQueries := s.queries.WithTx(tx)
+	movableRepo := NewFlowVariableMovableRepository(txQueries)
+	
+	return FlowVariableService{
+		queries:           txQueries,
+		movableRepository: movableRepo,
+	}
 }
 
 func NewTX(ctx context.Context, tx *sql.Tx) (*FlowVariableService, error) {
@@ -30,8 +46,13 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*FlowVariableService, error) {
 	if err != nil {
 		return nil, err
 	}
+	
+	// Create movable repository
+	movableRepo := NewFlowVariableMovableRepository(queries)
+	
 	return &FlowVariableService{
-		queries: queries,
+		queries:           queries,
+		movableRepository: movableRepo,
 	}, nil
 }
 
@@ -215,4 +236,264 @@ func (s *FlowVariableService) UpdateFlowVariable(ctx context.Context, item mflow
 func (s *FlowVariableService) DeleteFlowVariable(ctx context.Context, id idwrap.IDWrap) error {
 	err := s.queries.DeleteFlowVariable(ctx, id)
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
+}
+
+// GetFlowVariablesByFlowIDOrdered returns flow variables in the flow in their proper order
+func (s *FlowVariableService) GetFlowVariablesByFlowIDOrdered(ctx context.Context, flowID idwrap.IDWrap) ([]mflowvariable.FlowVariable, error) {
+	// Use the underlying query that maintains the linked list order
+	orderedFlowVariables, err := s.queries.GetFlowVariablesByFlowIDOrdered(ctx, gen.GetFlowVariablesByFlowIDOrderedParams{
+		FlowID:   flowID,
+		FlowID_2: flowID,
+	})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mflowvariable.FlowVariable{}, nil
+		}
+		return nil, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
+	}
+
+	// Convert to model flow variables
+	flowVariables := make([]mflowvariable.FlowVariable, len(orderedFlowVariables))
+	for i, fv := range orderedFlowVariables {
+		flowVariables[i] = mflowvariable.FlowVariable{
+			ID:          idwrap.NewFromBytesMust(fv.ID),
+			FlowID:      idwrap.NewFromBytesMust(fv.FlowID),
+			Name:        fv.Key,
+			Value:       fv.Value,
+			Enabled:     fv.Enabled,
+			Description: fv.Description,
+		}
+	}
+
+	return flowVariables, nil
+}
+
+// MoveFlowVariable moves a flow variable to a specific position in the flow
+func (s *FlowVariableService) MoveFlowVariable(ctx context.Context, itemID idwrap.IDWrap, position int) error {
+	return s.MoveFlowVariableTX(ctx, nil, itemID, position)
+}
+
+// MoveFlowVariableTX moves a flow variable to a specific position within a transaction
+func (s *FlowVariableService) MoveFlowVariableTX(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap, position int) error {
+	service := *s
+	if tx != nil {
+		service = s.TX(tx)
+	}
+
+	// Use the movable repository to perform the position-based move
+	err := service.movableRepository.UpdatePosition(ctx, tx, itemID, movable.FlowListTypeVariables, position)
+	if err != nil {
+		return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
+	}
+
+	return nil
+}
+
+// Repository returns the movable repository for advanced operations
+func (s *FlowVariableService) Repository() *FlowVariableMovableRepository {
+	return s.movableRepository
+}
+
+// validateMoveOperation validates that a move operation is safe and valid
+func (s *FlowVariableService) validateMoveOperation(ctx context.Context, variableID, targetVariableID idwrap.IDWrap) error {
+	if variableID.Compare(targetVariableID) == 0 {
+		return errors.New("cannot move flow variable relative to itself")
+	}
+	
+	return nil
+}
+
+// checkFlowBoundaries ensures both flow variables are in the same flow
+func (s *FlowVariableService) checkFlowBoundaries(ctx context.Context, variableID, targetVariableID idwrap.IDWrap) error {
+	sourceVariable, err := s.GetFlowVariable(ctx, variableID)
+	if err != nil {
+		return fmt.Errorf("failed to get source flow variable: %w", err)
+	}
+
+	targetVariable, err := s.GetFlowVariable(ctx, targetVariableID)
+	if err != nil {
+		return fmt.Errorf("failed to get target flow variable: %w", err)
+	}
+
+	if sourceVariable.FlowID.Compare(targetVariable.FlowID) != 0 {
+		return errors.New("flow variables must be in the same flow")
+	}
+
+	return nil
+}
+
+// MoveFlowVariableAfter moves a flow variable to be positioned after the target variable
+func (s *FlowVariableService) MoveFlowVariableAfter(ctx context.Context, variableID, targetVariableID idwrap.IDWrap) error {
+	return s.MoveFlowVariableAfterTX(ctx, nil, variableID, targetVariableID)
+}
+
+// MoveFlowVariableAfterTX moves a flow variable to be positioned after the target variable within a transaction
+func (s *FlowVariableService) MoveFlowVariableAfterTX(ctx context.Context, tx *sql.Tx, variableID, targetVariableID idwrap.IDWrap) error {
+	service := *s
+	if tx != nil {
+		service = s.TX(tx)
+	}
+
+	// Validate the move operation
+	if err := service.validateMoveOperation(ctx, variableID, targetVariableID); err != nil {
+		return err
+	}
+
+	// Check flow boundaries
+	if err := service.checkFlowBoundaries(ctx, variableID, targetVariableID); err != nil {
+		return err
+	}
+
+	// Get flow ID for both variables
+	sourceVariable, err := service.GetFlowVariable(ctx, variableID)
+	if err != nil {
+		return fmt.Errorf("failed to get source flow variable: %w", err)
+	}
+
+	// Get all flow variables in the flow in order
+	variables, err := service.GetFlowVariablesByFlowIDOrdered(ctx, sourceVariable.FlowID)
+	if err != nil {
+		return fmt.Errorf("failed to get flow variables in order: %w", err)
+	}
+
+	// Find positions of source and target variables
+	var sourcePos, targetPos int = -1, -1
+	for i, v := range variables {
+		if v.ID.Compare(variableID) == 0 {
+			sourcePos = i
+		}
+		if v.ID.Compare(targetVariableID) == 0 {
+			targetPos = i
+		}
+	}
+
+	if sourcePos == -1 {
+		return fmt.Errorf("source flow variable not found in flow")
+	}
+	if targetPos == -1 {
+		return fmt.Errorf("target flow variable not found in flow")
+	}
+
+	if sourcePos == targetPos {
+		return fmt.Errorf("cannot move flow variable relative to itself")
+	}
+
+	// Calculate new order: move source to be after target
+	newOrder := make([]idwrap.IDWrap, 0, len(variables))
+
+	for i, v := range variables {
+		if i == sourcePos {
+			continue // Skip source variable
+		}
+		newOrder = append(newOrder, v.ID)
+		if i == targetPos {
+			newOrder = append(newOrder, variableID) // Insert source after target
+		}
+	}
+
+	// Reorder flow variables
+	return service.ReorderFlowVariablesTX(ctx, tx, sourceVariable.FlowID, newOrder)
+}
+
+// MoveFlowVariableBefore moves a flow variable to be positioned before the target variable
+func (s *FlowVariableService) MoveFlowVariableBefore(ctx context.Context, variableID, targetVariableID idwrap.IDWrap) error {
+	return s.MoveFlowVariableBeforeTX(ctx, nil, variableID, targetVariableID)
+}
+
+// MoveFlowVariableBeforeTX moves a flow variable to be positioned before the target variable within a transaction
+func (s *FlowVariableService) MoveFlowVariableBeforeTX(ctx context.Context, tx *sql.Tx, variableID, targetVariableID idwrap.IDWrap) error {
+	service := *s
+	if tx != nil {
+		service = s.TX(tx)
+	}
+
+	// Validate the move operation
+	if err := service.validateMoveOperation(ctx, variableID, targetVariableID); err != nil {
+		return err
+	}
+
+	// Check flow boundaries
+	if err := service.checkFlowBoundaries(ctx, variableID, targetVariableID); err != nil {
+		return err
+	}
+
+	// Get flow ID for both variables
+	sourceVariable, err := service.GetFlowVariable(ctx, variableID)
+	if err != nil {
+		return fmt.Errorf("failed to get source flow variable: %w", err)
+	}
+
+	// Get all flow variables in the flow in order
+	variables, err := service.GetFlowVariablesByFlowIDOrdered(ctx, sourceVariable.FlowID)
+	if err != nil {
+		return fmt.Errorf("failed to get flow variables in order: %w", err)
+	}
+
+	// Find positions of source and target variables
+	var sourcePos, targetPos int = -1, -1
+	for i, v := range variables {
+		if v.ID.Compare(variableID) == 0 {
+			sourcePos = i
+		}
+		if v.ID.Compare(targetVariableID) == 0 {
+			targetPos = i
+		}
+	}
+
+	if sourcePos == -1 {
+		return fmt.Errorf("source flow variable not found in flow")
+	}
+	if targetPos == -1 {
+		return fmt.Errorf("target flow variable not found in flow")
+	}
+
+	if sourcePos == targetPos {
+		return fmt.Errorf("cannot move flow variable relative to itself")
+	}
+
+	// Calculate new order: move source to be before target
+	newOrder := make([]idwrap.IDWrap, 0, len(variables))
+
+	for i, v := range variables {
+		if i == sourcePos {
+			continue // Skip source variable
+		}
+		if i == targetPos {
+			newOrder = append(newOrder, variableID) // Insert source before target
+		}
+		newOrder = append(newOrder, v.ID)
+	}
+
+	// Reorder flow variables
+	return service.ReorderFlowVariablesTX(ctx, tx, sourceVariable.FlowID, newOrder)
+}
+
+// ReorderFlowVariables performs a bulk reorder of flow variables using the movable system
+func (s *FlowVariableService) ReorderFlowVariables(ctx context.Context, flowID idwrap.IDWrap, orderedIDs []idwrap.IDWrap) error {
+	return s.ReorderFlowVariablesTX(ctx, nil, flowID, orderedIDs)
+}
+
+// ReorderFlowVariablesTX performs a bulk reorder of flow variables using the movable system within a transaction
+func (s *FlowVariableService) ReorderFlowVariablesTX(ctx context.Context, tx *sql.Tx, flowID idwrap.IDWrap, orderedIDs []idwrap.IDWrap) error {
+	service := *s
+	if tx != nil {
+		service = s.TX(tx)
+	}
+
+	// Build position updates using the flow variable list type
+	updates := make([]movable.PositionUpdate, len(orderedIDs))
+	for i, id := range orderedIDs {
+		updates[i] = movable.PositionUpdate{
+			ItemID:   id,
+			ListType: movable.FlowListTypeVariables, // Flow variables within a flow
+			Position: i,
+		}
+	}
+
+	// Execute the batch update using the movable repository
+	if err := service.movableRepository.UpdatePositions(ctx, tx, updates); err != nil {
+		return fmt.Errorf("failed to reorder flow variables: %w", err)
+	}
+
+	return nil
 }

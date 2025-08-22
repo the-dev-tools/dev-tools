@@ -22,6 +22,7 @@ import (
 
 	flowvariablev1 "the-dev-tools/spec/dist/buf/go/flowvariable/v1"
 	"the-dev-tools/spec/dist/buf/go/flowvariable/v1/flowvariablev1connect"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 )
 
 type FlowVariableServiceRPC struct {
@@ -56,7 +57,7 @@ func (c *FlowVariableServiceRPC) FlowVariableList(ctx context.Context, req *conn
 		return nil, rpcErr
 	}
 
-	variables, err := c.fvs.GetFlowVariablesByFlowID(ctx, flowID)
+	variables, err := c.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -298,7 +299,89 @@ func (c *FlowVariableServiceRPC) FlowVariableDelete(ctx context.Context, req *co
 	return connect.NewResponse(response), nil
 }
 
-// TODO: implement move RPC
 func (c *FlowVariableServiceRPC) FlowVariableMove(ctx context.Context, req *connect.Request[flowvariablev1.FlowVariableMoveRequest]) (*connect.Response[flowvariablev1.FlowVariableMoveResponse], error) {
+	// Validate flow ID
+	flowID, err := idwrap.NewFromBytes(req.Msg.GetFlowId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Validate variable ID
+	variableID, err := idwrap.NewFromBytes(req.Msg.GetVariableId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Validate target variable ID
+	targetVariableID, err := idwrap.NewFromBytes(req.Msg.GetTargetVariableId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for the flow
+	rpcErr := permcheck.CheckPerm(rflow.CheckOwnerFlow(ctx, c.fs, c.us, flowID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Validate position
+	position := req.Msg.GetPosition()
+	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified"))
+	}
+
+	// Prevent moving variable relative to itself
+	if variableID.Compare(targetVariableID) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move flow variable relative to itself"))
+	}
+
+	// Verify both variables exist and are in the same flow
+	sourceVariable, err := c.fvs.GetFlowVariable(ctx, variableID)
+	if err != nil {
+		if err == sflowvariable.ErrNoFlowVariableFound {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("flow variable not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	targetVariable, err := c.fvs.GetFlowVariable(ctx, targetVariableID)
+	if err != nil {
+		if err == sflowvariable.ErrNoFlowVariableFound {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("target flow variable not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Verify both variables are in the specified flow
+	if sourceVariable.FlowID.Compare(flowID) != 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable does not belong to the specified flow"))
+	}
+
+	if targetVariable.FlowID.Compare(flowID) != 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("target flow variable does not belong to the specified flow"))
+	}
+
+	if sourceVariable.FlowID.Compare(targetVariable.FlowID) != 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variables must be in the same flow"))
+	}
+
+	// Execute the move operation
+	switch position {
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		err = c.fvs.MoveFlowVariableAfter(ctx, variableID, targetVariableID)
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		err = c.fvs.MoveFlowVariableBefore(ctx, variableID, targetVariableID)
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid position"))
+	}
+
+	if err != nil {
+		// Map service-level errors to appropriate Connect error codes
+		if err == sflowvariable.ErrNoFlowVariableFound {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	return connect.NewResponse(&flowvariablev1.FlowVariableMoveResponse{}), nil
 }
