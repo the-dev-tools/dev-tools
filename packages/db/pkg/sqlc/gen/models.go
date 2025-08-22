@@ -292,6 +292,8 @@ type Workspace struct {
 	FlowCount       int32
 	ActiveEnv       idwrap.IDWrap
 	GlobalEnv       idwrap.IDWrap
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 type WorkspacesUser struct {

@@ -2685,9 +2685,9 @@ func (q *Queries) CreateVariableBulk(ctx context.Context, arg CreateVariableBulk
 
 const createWorkspace = `-- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env)
+  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateWorkspaceParams struct {
@@ -2698,6 +2698,8 @@ type CreateWorkspaceParams struct {
 	FlowCount       int32
 	ActiveEnv       idwrap.IDWrap
 	GlobalEnv       idwrap.IDWrap
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) error {
@@ -2709,6 +2711,8 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 		arg.FlowCount,
 		arg.ActiveEnv,
 		arg.GlobalEnv,
+		arg.Prev,
+		arg.Next,
 	)
 	return err
 }
@@ -3158,6 +3162,62 @@ func (q *Queries) GetAllItemsApiByCollectionID(ctx context.Context, collectionID
 			&i.VersionParentID,
 			&i.DeltaParentID,
 			&i.Hidden,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllWorkspacesByUserID = `-- name: GetAllWorkspacesByUserID :many
+SELECT
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.prev,
+  w.next
+FROM
+  workspaces w
+INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
+WHERE
+  wu.user_id = ?
+ORDER BY
+  w.updated DESC
+`
+
+// Returns ALL workspaces for a user, including isolated ones (prev=NULL, next=NULL)
+// Unlike GetWorkspacesByUserIDOrdered, this query finds workspaces regardless of linked-list state
+// Essential for finding new workspaces that haven't been linked yet
+func (q *Queries) GetAllWorkspacesByUserID(ctx context.Context, userID idwrap.IDWrap) ([]Workspace, error) {
+	rows, err := q.query(ctx, q.getAllWorkspacesByUserIDStmt, getAllWorkspacesByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Workspace{}
+	for rows.Next() {
+		var i Workspace
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Updated,
+			&i.CollectionCount,
+			&i.FlowCount,
+			&i.ActiveEnv,
+			&i.GlobalEnv,
 			&i.Prev,
 			&i.Next,
 		); err != nil {
@@ -7042,10 +7102,20 @@ LIMIT
   1
 `
 
+type GetWorkspaceRow struct {
+	ID              idwrap.IDWrap
+	Name            string
+	Updated         int64
+	CollectionCount int32
+	FlowCount       int32
+	ActiveEnv       idwrap.IDWrap
+	GlobalEnv       idwrap.IDWrap
+}
+
 // Workspaces
-func (q *Queries) GetWorkspace(ctx context.Context, id idwrap.IDWrap) (Workspace, error) {
+func (q *Queries) GetWorkspace(ctx context.Context, id idwrap.IDWrap) (GetWorkspaceRow, error) {
 	row := q.queryRow(ctx, q.getWorkspaceStmt, getWorkspace, id)
-	var i Workspace
+	var i GetWorkspaceRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -7084,9 +7154,19 @@ LIMIT
   1
 `
 
-func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID idwrap.IDWrap) (Workspace, error) {
+type GetWorkspaceByUserIDRow struct {
+	ID              idwrap.IDWrap
+	Name            string
+	Updated         int64
+	CollectionCount int32
+	FlowCount       int32
+	ActiveEnv       idwrap.IDWrap
+	GlobalEnv       idwrap.IDWrap
+}
+
+func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID idwrap.IDWrap) (GetWorkspaceByUserIDRow, error) {
 	row := q.queryRow(ctx, q.getWorkspaceByUserIDStmt, getWorkspaceByUserID, userID)
-	var i Workspace
+	var i GetWorkspaceByUserIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -7107,7 +7187,9 @@ SELECT
   collection_count,
   flow_count,
   active_env,
-  global_env
+  global_env,
+  prev,
+  next
 FROM
   workspaces
 WHERE
@@ -7142,6 +7224,8 @@ func (q *Queries) GetWorkspaceByUserIDandWorkspaceID(ctx context.Context, arg Ge
 		&i.FlowCount,
 		&i.ActiveEnv,
 		&i.GlobalEnv,
+		&i.Prev,
+		&i.Next,
 	)
 	return i, err
 }
@@ -7292,7 +7376,9 @@ SELECT
   collection_count,
   flow_count,
   active_env,
-  global_env
+  global_env,
+  prev,
+  next
 FROM
   workspaces
 WHERE
@@ -7323,6 +7409,121 @@ func (q *Queries) GetWorkspacesByUserID(ctx context.Context, userID idwrap.IDWra
 			&i.FlowCount,
 			&i.ActiveEnv,
 			&i.GlobalEnv,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getWorkspacesByUserIDOrdered = `-- name: GetWorkspacesByUserIDOrdered :many
+WITH RECURSIVE ordered_workspaces AS (
+  -- Base case: Find the head (prev IS NULL) for this user
+  SELECT
+    w.id,
+    w.name,
+    w.updated,
+    w.collection_count,
+    w.flow_count,
+    w.active_env,
+    w.global_env,
+    w.prev,
+    w.next,
+    0 as position
+  FROM
+    workspaces w
+  INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
+  WHERE
+    wu.user_id = ? AND
+    w.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    w.id,
+    w.name,
+    w.updated,
+    w.collection_count,
+    w.flow_count,
+    w.active_env,
+    w.global_env,
+    w.prev,
+    w.next,
+    ow.position + 1
+  FROM
+    workspaces w
+  INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
+  INNER JOIN ordered_workspaces ow ON w.prev = ow.id
+  WHERE
+    wu.user_id = ?
+)
+SELECT
+  ow.id,
+  ow.name,
+  ow.updated,
+  ow.collection_count,
+  ow.flow_count,
+  ow.active_env,
+  ow.global_env,
+  ow.prev,
+  ow.next,
+  ow.position
+FROM
+  ordered_workspaces ow
+ORDER BY
+  ow.position
+`
+
+type GetWorkspacesByUserIDOrderedParams struct {
+	UserID   idwrap.IDWrap
+	UserID_2 idwrap.IDWrap
+}
+
+type GetWorkspacesByUserIDOrderedRow struct {
+	ID              []byte
+	Name            string
+	Updated         int64
+	CollectionCount int32
+	FlowCount       int32
+	ActiveEnv       []byte
+	GlobalEnv       []byte
+	Prev            []byte
+	Next            []byte
+	Position        int64
+}
+
+// Uses WITH RECURSIVE CTE to traverse linked list from head to tail for user-scoped ordering
+// Each user has their own workspace ordering maintained via workspaces_users table
+func (q *Queries) GetWorkspacesByUserIDOrdered(ctx context.Context, arg GetWorkspacesByUserIDOrderedParams) ([]GetWorkspacesByUserIDOrderedRow, error) {
+	rows, err := q.query(ctx, q.getWorkspacesByUserIDOrderedStmt, getWorkspacesByUserIDOrdered, arg.UserID, arg.UserID_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetWorkspacesByUserIDOrderedRow{}
+	for rows.Next() {
+		var i GetWorkspacesByUserIDOrderedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Updated,
+			&i.CollectionCount,
+			&i.FlowCount,
+			&i.ActiveEnv,
+			&i.GlobalEnv,
+			&i.Prev,
+			&i.Next,
+			&i.Position,
 		); err != nil {
 			return nil, err
 		}
@@ -8771,6 +8972,89 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		arg.ActiveEnv,
 		arg.ID,
 	)
+	return err
+}
+
+const updateWorkspaceNext = `-- name: UpdateWorkspaceNext :exec
+UPDATE workspaces
+SET
+  next = ?
+WHERE
+  workspaces.id = ? AND
+  workspaces.id IN (
+    SELECT wu.workspace_id 
+    FROM workspaces_users wu
+    WHERE wu.user_id = ?
+  )
+`
+
+type UpdateWorkspaceNextParams struct {
+	Next   *idwrap.IDWrap
+	ID     idwrap.IDWrap
+	UserID idwrap.IDWrap
+}
+
+// Update only the next pointer for a workspace with user validation (used in deletion)
+func (q *Queries) UpdateWorkspaceNext(ctx context.Context, arg UpdateWorkspaceNextParams) error {
+	_, err := q.exec(ctx, q.updateWorkspaceNextStmt, updateWorkspaceNext, arg.Next, arg.ID, arg.UserID)
+	return err
+}
+
+const updateWorkspaceOrder = `-- name: UpdateWorkspaceOrder :exec
+UPDATE workspaces
+SET
+  prev = ?,
+  next = ?
+WHERE
+  workspaces.id = ? AND
+  workspaces.id IN (
+    SELECT wu.workspace_id 
+    FROM workspaces_users wu
+    WHERE wu.user_id = ?
+  )
+`
+
+type UpdateWorkspaceOrderParams struct {
+	Prev   *idwrap.IDWrap
+	Next   *idwrap.IDWrap
+	ID     idwrap.IDWrap
+	UserID idwrap.IDWrap
+}
+
+// Update the prev/next pointers for a single workspace with user validation
+// Used for moving workspaces within the user's linked list
+func (q *Queries) UpdateWorkspaceOrder(ctx context.Context, arg UpdateWorkspaceOrderParams) error {
+	_, err := q.exec(ctx, q.updateWorkspaceOrderStmt, updateWorkspaceOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.UserID,
+	)
+	return err
+}
+
+const updateWorkspacePrev = `-- name: UpdateWorkspacePrev :exec
+UPDATE workspaces
+SET
+  prev = ?
+WHERE
+  workspaces.id = ? AND
+  workspaces.id IN (
+    SELECT wu.workspace_id 
+    FROM workspaces_users wu
+    WHERE wu.user_id = ?
+  )
+`
+
+type UpdateWorkspacePrevParams struct {
+	Prev   *idwrap.IDWrap
+	ID     idwrap.IDWrap
+	UserID idwrap.IDWrap
+}
+
+// Update only the prev pointer for a workspace with user validation (used in deletion)
+func (q *Queries) UpdateWorkspacePrev(ctx context.Context, arg UpdateWorkspacePrevParams) error {
+	_, err := q.exec(ctx, q.updateWorkspacePrevStmt, updateWorkspacePrev, arg.Prev, arg.ID, arg.UserID)
 	return err
 }
 

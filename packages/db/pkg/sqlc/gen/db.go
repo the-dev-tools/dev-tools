@@ -264,6 +264,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getAllItemsApiByCollectionIDStmt, err = db.PrepareContext(ctx, getAllItemsApiByCollectionID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllItemsApiByCollectionID: %w", err)
 	}
+	if q.getAllWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getAllWorkspacesByUserID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllWorkspacesByUserID: %w", err)
+	}
 	if q.getAssertStmt, err = db.PrepareContext(ctx, getAssert); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAssert: %w", err)
 	}
@@ -579,6 +582,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getWorkspacesByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspacesByUserID: %w", err)
 	}
+	if q.getWorkspacesByUserIDOrderedStmt, err = db.PrepareContext(ctx, getWorkspacesByUserIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetWorkspacesByUserIDOrdered: %w", err)
+	}
 	if q.insertCollectionItemStmt, err = db.PrepareContext(ctx, insertCollectionItem); err != nil {
 		return nil, fmt.Errorf("error preparing query InsertCollectionItem: %w", err)
 	}
@@ -746,6 +752,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateWorkspaceStmt, err = db.PrepareContext(ctx, updateWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspace: %w", err)
+	}
+	if q.updateWorkspaceNextStmt, err = db.PrepareContext(ctx, updateWorkspaceNext); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWorkspaceNext: %w", err)
+	}
+	if q.updateWorkspaceOrderStmt, err = db.PrepareContext(ctx, updateWorkspaceOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWorkspaceOrder: %w", err)
+	}
+	if q.updateWorkspacePrevStmt, err = db.PrepareContext(ctx, updateWorkspacePrev); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateWorkspacePrev: %w", err)
 	}
 	if q.updateWorkspaceUpdatedTimeStmt, err = db.PrepareContext(ctx, updateWorkspaceUpdatedTime); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspaceUpdatedTime: %w", err)
@@ -1162,6 +1177,11 @@ func (q *Queries) Close() error {
 	if q.getAllItemsApiByCollectionIDStmt != nil {
 		if cerr := q.getAllItemsApiByCollectionIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllItemsApiByCollectionIDStmt: %w", cerr)
+		}
+	}
+	if q.getAllWorkspacesByUserIDStmt != nil {
+		if cerr := q.getAllWorkspacesByUserIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllWorkspacesByUserIDStmt: %w", cerr)
 		}
 	}
 	if q.getAssertStmt != nil {
@@ -1689,6 +1709,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getWorkspacesByUserIDStmt: %w", cerr)
 		}
 	}
+	if q.getWorkspacesByUserIDOrderedStmt != nil {
+		if cerr := q.getWorkspacesByUserIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getWorkspacesByUserIDOrderedStmt: %w", cerr)
+		}
+	}
 	if q.insertCollectionItemStmt != nil {
 		if cerr := q.insertCollectionItemStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing insertCollectionItemStmt: %w", cerr)
@@ -1969,6 +1994,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateWorkspaceStmt: %w", cerr)
 		}
 	}
+	if q.updateWorkspaceNextStmt != nil {
+		if cerr := q.updateWorkspaceNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWorkspaceNextStmt: %w", cerr)
+		}
+	}
+	if q.updateWorkspaceOrderStmt != nil {
+		if cerr := q.updateWorkspaceOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWorkspaceOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateWorkspacePrevStmt != nil {
+		if cerr := q.updateWorkspacePrevStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateWorkspacePrevStmt: %w", cerr)
+		}
+	}
 	if q.updateWorkspaceUpdatedTimeStmt != nil {
 		if cerr := q.updateWorkspaceUpdatedTimeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateWorkspaceUpdatedTimeStmt: %w", cerr)
@@ -2108,6 +2148,7 @@ type Queries struct {
 	deleteWorkspaceStmt                                   *sql.Stmt
 	deleteWorkspaceUserStmt                               *sql.Stmt
 	getAllItemsApiByCollectionIDStmt                      *sql.Stmt
+	getAllWorkspacesByUserIDStmt                          *sql.Stmt
 	getAssertStmt                                         *sql.Stmt
 	getAssertResultStmt                                   *sql.Stmt
 	getAssertResultsByAssertIDStmt                        *sql.Stmt
@@ -2213,6 +2254,7 @@ type Queries struct {
 	getWorkspaceUserByWorkspaceIDStmt                     *sql.Stmt
 	getWorkspaceUserByWorkspaceIDAndUserIDStmt            *sql.Stmt
 	getWorkspacesByUserIDStmt                             *sql.Stmt
+	getWorkspacesByUserIDOrderedStmt                      *sql.Stmt
 	insertCollectionItemStmt                              *sql.Stmt
 	listNodeExecutionsStmt                                *sql.Stmt
 	listNodeExecutionsByFlowRunStmt                       *sql.Stmt
@@ -2269,6 +2311,9 @@ type Queries struct {
 	updateVariablePrevStmt                                *sql.Stmt
 	updateVisualizeModeStmt                               *sql.Stmt
 	updateWorkspaceStmt                                   *sql.Stmt
+	updateWorkspaceNextStmt                               *sql.Stmt
+	updateWorkspaceOrderStmt                              *sql.Stmt
+	updateWorkspacePrevStmt                               *sql.Stmt
 	updateWorkspaceUpdatedTimeStmt                        *sql.Stmt
 	updateWorkspaceUserStmt                               *sql.Stmt
 	upsertNodeExecutionStmt                               *sql.Stmt
@@ -2359,6 +2404,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteWorkspaceStmt:                                   q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                               q.deleteWorkspaceUserStmt,
 		getAllItemsApiByCollectionIDStmt:                      q.getAllItemsApiByCollectionIDStmt,
+		getAllWorkspacesByUserIDStmt:                          q.getAllWorkspacesByUserIDStmt,
 		getAssertStmt:                                         q.getAssertStmt,
 		getAssertResultStmt:                                   q.getAssertResultStmt,
 		getAssertResultsByAssertIDStmt:                        q.getAssertResultsByAssertIDStmt,
@@ -2464,6 +2510,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getWorkspaceUserByWorkspaceIDStmt:                     q.getWorkspaceUserByWorkspaceIDStmt,
 		getWorkspaceUserByWorkspaceIDAndUserIDStmt:            q.getWorkspaceUserByWorkspaceIDAndUserIDStmt,
 		getWorkspacesByUserIDStmt:                             q.getWorkspacesByUserIDStmt,
+		getWorkspacesByUserIDOrderedStmt:                      q.getWorkspacesByUserIDOrderedStmt,
 		insertCollectionItemStmt:                              q.insertCollectionItemStmt,
 		listNodeExecutionsStmt:                                q.listNodeExecutionsStmt,
 		listNodeExecutionsByFlowRunStmt:                       q.listNodeExecutionsByFlowRunStmt,
@@ -2520,6 +2567,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateVariablePrevStmt:                                q.updateVariablePrevStmt,
 		updateVisualizeModeStmt:                               q.updateVisualizeModeStmt,
 		updateWorkspaceStmt:                                   q.updateWorkspaceStmt,
+		updateWorkspaceNextStmt:                               q.updateWorkspaceNextStmt,
+		updateWorkspaceOrderStmt:                              q.updateWorkspaceOrderStmt,
+		updateWorkspacePrevStmt:                               q.updateWorkspacePrevStmt,
 		updateWorkspaceUpdatedTimeStmt:                        q.updateWorkspaceUpdatedTimeStmt,
 		updateWorkspaceUserStmt:                               q.updateWorkspaceUserStmt,
 		upsertNodeExecutionStmt:                               q.upsertNodeExecutionStmt,
