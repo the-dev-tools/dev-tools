@@ -9,7 +9,7 @@ export const NavigationBarDivider = () => <div className={tw`h-5 w-px bg-white/2
 
 // Main container
 
-interface NavigationBarProps extends ComponentProps<'div'> {}
+export interface NavigationBarProps extends ComponentProps<'div'> {}
 
 export const NavigationBar = ({ className, ...props }: NavigationBarProps) => (
   <div

@@ -75,7 +75,7 @@ nix develop -c pnpm nx run-many --targets=lint,typecheck
 
 **UI (Component library):**
 
-- `pnpm nx run ui:dev` - React Cosmos playground
+- `pnpm nx run ui:storybook` - React Storybook playground
 - `pnpm nx run ui:lint` - ESLint checking
 - `pnpm nx run ui:typecheck` - TypeScript checking
 

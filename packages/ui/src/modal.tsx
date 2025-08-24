@@ -21,9 +21,9 @@ const modalStyles = tv({
   base: tw`size-full overflow-auto rounded-lg bg-white`,
   variants: {
     size: {
-      lg: tw`max-h-[75vh] max-w-[80vw]`,
-      md: tw`max-h-[50vh] max-w-[70vw]`,
       sm: tw`max-h-[40vh] max-w-[40vw]`,
+      md: tw`max-h-[50vh] max-w-[70vw]`,
+      lg: tw`max-h-[75vh] max-w-[80vw]`,
     },
   },
   defaultVariants: {

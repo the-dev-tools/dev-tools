@@ -2,7 +2,6 @@ import { pipe, Record, Struct } from 'effect';
 import { ComponentProps } from 'react';
 import { Button as AriaButton, ButtonProps as AriaButtonProps } from 'react-aria-components';
 import { tv, VariantProps } from 'tailwind-variants';
-
 import { isFocusVisibleRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
 import { composeRenderPropsTV } from './utils';

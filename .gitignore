@@ -1,3 +1,4 @@
+.claude
 .direnv
 .env.*.local
 .env.keys
@@ -12,13 +13,13 @@
 *.db-journal
 *.db-shm
 *.db-wal
+*.embed
+apps/cli/devtoolscli
 data
 dist
 next-env.d.ts
 node_modules
 out
+storybook-static
 tsconfig.tsbuildinfo
 tsp-output
-*.embed
-.claude
-apps/cli/devtoolscli

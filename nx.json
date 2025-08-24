@@ -65,6 +65,16 @@
         "targetName": "lint",
         "flags": ["v10_config_lookup_from_file"]
       }
+    },
+
+    {
+      "plugin": "@nx/storybook/plugin",
+      "options": {
+        "serveStorybookTargetName": "storybook",
+        "buildStorybookTargetName": "build-storybook",
+        "testStorybookTargetName": "test-storybook",
+        "staticStorybookTargetName": "static-storybook"
+      }
     }
   ]
 }
