@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./*": "./src/*.tsx",
+    "./storybook-config/*": "./.storybook/*",
     "./styles": "./src/styles.css"
   },
   "dependencies": {
@@ -14,7 +15,7 @@
     "@react-aria/collections": "3.0.0-rc.4",
     "@tanstack/react-router": "1.131.27",
     "@tanstack/react-table": "8.21.3",
-    "effect": "3.17.8",
+    "effect": "3.17.9",
     "react": "19.1.1",
     "react-aria": "3.42.0",
     "react-aria-components": "1.11.0",

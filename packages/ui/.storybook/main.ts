@@ -46,7 +46,7 @@ const config: StorybookConfig = {
             let name = index.name ?? index.exportName;
             if (name === 'Default') name = Array.lastNonEmpty(parts);
 
-            const title = ['UI', ...parts].join('/');
+            const title = parts.join('/');
 
             return { ...index, name, title };
           }),

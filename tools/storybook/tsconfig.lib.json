@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "jsx": "react-jsx"
+  },
+  "include": [".", ".storybook/*"],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    {
+      "path": "../eslint/tsconfig.lib.json"
+    }
+  ]
+}

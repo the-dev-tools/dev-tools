@@ -29,6 +29,9 @@
     },
     {
       "path": "./tools/eslint"
+    },
+    {
+      "path": "./tools/storybook"
     }
   ]
 }

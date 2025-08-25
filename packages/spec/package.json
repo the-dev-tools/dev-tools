@@ -30,7 +30,7 @@
     "@typespec/emitter-framework": "~0.10.0",
     "@typespec/protobuf": "~0.73.0",
     "@typespec/rest": "~0.73.0",
-    "effect": "~3.17.8",
+    "effect": "~3.17.9",
     "prettier": "~3.6.2",
     "rimraf": "~6.0.1",
     "typescript": "~5.9.2"

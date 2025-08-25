@@ -64,3 +64,8 @@ tasks:
     cmds:
       - pnpm update --recursive --interactive --latest
       - task: fix:syncpack:mismatches
+
+  storybook:
+    desc: Start the Storybook composition
+    interactive: true
+    cmd: nx run storybook:storybook

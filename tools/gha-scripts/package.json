@@ -14,7 +14,7 @@
     "@octokit/rest": "~22.0.0",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@types/node": "~24.3.0",
-    "effect": "~3.17.8",
+    "effect": "~3.17.9",
     "nx": "~21.4.0",
     "typescript": "~5.9.2"
   }

@@ -14,7 +14,7 @@
     "@the-dev-tools/eslint-config": "workspace:^",
     "@the-dev-tools/spec": "workspace:^",
     "@types/node": "~24.3.0",
-    "effect": "~3.17.8",
+    "effect": "~3.17.9",
     "eslint": "~9.33.0",
     "tsup": "~8.5.0",
     "typescript": "~5.9.2"

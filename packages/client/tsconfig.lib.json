@@ -6,7 +6,7 @@
     "paths": { "~*": ["./src/*"] },
     "types": ["vite/client"]
   },
-  "include": ["."],
+  "include": [".", ".storybook/*"],
   "exclude": ["node_modules", "dist"],
   "references": [
     {

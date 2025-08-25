@@ -1,14 +1,14 @@
 {
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
 
-  "name": "ui",
-  "projectType": "library",
+  "name": "storybook",
+  "projectType": "application",
 
   "targets": {
     "storybook": {
+      "dependsOn": ["ui:storybook", "client:storybook"],
       "options": {
-        "args": ["--no-open"],
-        "port": 4401
+        "port": 4400
       }
     }
   }
