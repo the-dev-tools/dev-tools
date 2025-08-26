@@ -1,6 +1,5 @@
 import type { MessageInitShape } from '@bufbuild/protobuf';
 import { enumFromJson } from '@bufbuild/protobuf';
-import { useRouteContext } from '@tanstack/react-router';
 import { useReactFlow } from '@xyflow/react';
 import { Array } from 'effect';
 import { Ulid } from 'id128';
@@ -31,6 +30,7 @@ import {
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.js';
 import { NodeGetEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
 import { DataClient } from '~data-client';
+import { rootRouteApi } from '~routes';
 import { Edge, useMakeEdge } from './edge';
 import { FlowContext, HandleKind, HandleKindJson, HandleKindSchema } from './internal';
 import { Node, useMakeNode } from './node';
@@ -130,7 +130,7 @@ interface CopyNodeProps {
 
 // Copy a single node with all its data and potentially its children
 const useCopyNode = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const makeNode = useMakeNode();
   const makeEdge = useMakeEdge();
@@ -311,7 +311,7 @@ const useCopyNode = () => {
 };
 
 export function useFlowCopyPaste() {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
   const { isReadOnly = false } = use(FlowContext);
   const { addEdges, addNodes, getEdges, getNodes, setEdges, setNodes } = useReactFlow<Node, Edge>();
 

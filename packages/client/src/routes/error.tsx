@@ -1,7 +1,6 @@
 import { useQueryErrorResetBoundary } from '@tanstack/react-query';
 import { ErrorRouteComponent, useRouter } from '@tanstack/react-router';
 import { useEffect } from 'react';
-
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 

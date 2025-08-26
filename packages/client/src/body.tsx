@@ -1,6 +1,5 @@
 import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
-import { useRouteContext } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Match, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
@@ -59,6 +58,7 @@ import {
 } from '~code-mirror/extensions';
 import { useQuery } from '~data-client';
 import { useReactRender } from '~react-render';
+import { rootRouteApi } from '~routes';
 import {
   columnActionsCommon,
   columnActionsDeltaCommon,
@@ -79,7 +79,7 @@ interface BodyViewProps {
 }
 
 export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { bodyKind } = useQuery(ExampleGetEndpoint, { exampleId });
 
@@ -154,7 +154,7 @@ interface FormDataTableProps {
 }
 
 const FormDataTable = ({ exampleId }: FormDataTableProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const items: GenericMessage<BodyFormListItem>[] = useQuery(BodyFormListEndpoint, {
     exampleId,
@@ -230,7 +230,7 @@ interface FormDeltaDataTableProps {
 }
 
 const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: FormDeltaDataTableProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const items = pipe(useQuery(BodyFormDeltaListEndpoint, { exampleId, originId }).items, (_: BodyFormDeltaListItem[]) =>
     makeDeltaItems(_, 'bodyId'),
@@ -335,7 +335,7 @@ interface UrlEncodedFormTableProps {
 }
 
 const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const items: GenericMessage<BodyUrlEncodedListItem>[] = useQuery(BodyUrlEncodedListEndpoint, {
     exampleId,
@@ -416,7 +416,7 @@ const UrlEncodedDeltaFormTable = ({
   deltaExampleId: exampleId,
   exampleId: originId,
 }: UrlEncodedDeltaFormTableProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const items = pipe(
     useQuery(BodyUrlEncodedDeltaListEndpoint, { exampleId, originId }).items,
@@ -495,7 +495,7 @@ interface RawFormProps {
 }
 
 const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
   const transport = useTransport();
 
   const bodyRaw = useQuery(BodyRawGetEndpoint, { exampleId });

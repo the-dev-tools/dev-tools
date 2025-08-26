@@ -73,7 +73,6 @@ export const addTab = ({ id, match, node }: AddTabProps) => {
     id,
     node,
     route: {
-      from: '/',
       params: match.params,
       search: match.search as unknown,
       to: match.fullPath as unknown,

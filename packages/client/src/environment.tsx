@@ -1,4 +1,3 @@
-import { getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { Array, HashMap, Match, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useState } from 'react';
@@ -49,6 +48,7 @@ import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useMutate, useQuery } from '~data-client';
+import { rootRouteApi, workspaceRouteApi } from '~routes';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -58,12 +58,10 @@ import {
 } from './form-table';
 import { ImportDialog } from './workspace/import';
 
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
-
 export const EnvironmentsWidget = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
-  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   // TODO: fetch in parallel
   const { selectedEnvironmentId } = useQuery(WorkspaceGetEndpoint, { workspaceId });
@@ -123,9 +121,9 @@ export const EnvironmentsWidget = () => {
 };
 
 const EnvironmentModal = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
-  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const { items: environments } = useQuery(EnvironmentListEndpoint, { workspaceId });
 
@@ -290,7 +288,7 @@ interface EnvironmentPanelProps {
 }
 
 const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name } }: EnvironmentPanelProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const [environmentUpdate, environmentUpdateLoading] = useMutate(EnvironmentUpdateEndpoint);
 
@@ -374,7 +372,7 @@ interface VariablesTableProps {
 }
 
 export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { items } = useQuery(VariableListEndpoint, { environmentId });
 

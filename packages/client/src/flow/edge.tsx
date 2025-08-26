@@ -1,5 +1,4 @@
 import { create, enumFromJson, enumToJson, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
-import { useRouteContext } from '@tanstack/react-router';
 import {
   ConnectionLineComponentProps,
   Edge as EdgeCore,
@@ -28,6 +27,7 @@ import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { EdgeCreateEndpoint } from '@the-dev-tools/spec/meta/flow/edge/v1/edge.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { rootRouteApi } from '~routes';
 import { FlowContext } from './internal';
 
 export interface EdgeData extends Record<string, unknown> {
@@ -74,7 +74,7 @@ export const Edge = {
 };
 
 export const useMakeEdge = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { flowId } = use(FlowContext);
 

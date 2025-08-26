@@ -1,8 +1,8 @@
-import { QueryErrorResetBoundary, useQuery as useReactQuery } from '@tanstack/react-query';
-import { createFileRoute, getRouteApi, useNavigate, useRouteContext } from '@tanstack/react-router';
+import { useQuery as useReactQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Duration, Match, MutableHashMap, Option, pipe, Schema, String, Struct } from 'effect';
+import { Array, Duration, Match, MutableHashMap, Option, pipe, Schema, String } from 'effect';
 import { Ulid } from 'id128';
 import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, Suspense, useMemo, useState } from 'react';
@@ -60,7 +60,7 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { addTab, useRemoveTab } from '@the-dev-tools/ui/router';
+import { useRemoveTab } from '@the-dev-tools/ui/router';
 import { Select } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { Spinner } from '@the-dev-tools/ui/spinner';
@@ -74,53 +74,12 @@ import {
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
 import { useMutate, useQuery } from '~data-client';
+import { requestRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
-import { ErrorComponent } from './error';
 import { HeaderTable } from './headers';
 import { QueryTable } from './query';
 import { ReferenceContext, ReferenceFieldRHF } from './reference';
-
-export class EndpointRouteSearch extends Schema.Class<EndpointRouteSearch>('EndpointRouteSearch')({
-  responseIdCan: pipe(Schema.String, Schema.optional),
-}) {}
-
-/* eslint-disable perfectionist/sort-objects */
-export const Route = createFileRoute(
-  '/_authorized/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
-)({
-  validateSearch: (_) => Schema.decodeSync(EndpointRouteSearch)(_),
-  loaderDeps: (_) => Struct.pick(_.search, 'responseIdCan'),
-  loader: ({ deps: { responseIdCan }, params: { endpointIdCan, exampleIdCan } }) => {
-    const endpointId = Ulid.fromCanonical(endpointIdCan).bytes;
-    const exampleId = Ulid.fromCanonical(exampleIdCan).bytes;
-    const responseId = pipe(
-      Option.fromNullable(responseIdCan),
-      Option.map((_) => Ulid.fromCanonical(_).bytes),
-    );
-
-    return { endpointId, exampleId, responseId };
-  },
-  component: () => (
-    <QueryErrorResetBoundary>
-      <Page />
-    </QueryErrorResetBoundary>
-  ),
-  errorComponent: (props) => <ErrorComponent {...props} />,
-  onEnter: (match) => {
-    if (!match.loaderData) return;
-
-    const { endpointId, exampleId } = match.loaderData;
-
-    addTab({
-      id: endpointTabId({ endpointId, exampleId }),
-      match,
-      node: <EndpointTab endpointId={endpointId} />,
-    });
-  },
-  shouldReload: false,
-});
-/* eslint-enable perfectionist/sort-objects */
 
 interface EndpointTabIdProps {
   endpointId: Uint8Array;
@@ -128,17 +87,17 @@ interface EndpointTabIdProps {
 }
 
 export const endpointTabId = ({ endpointId, exampleId }: EndpointTabIdProps) =>
-  JSON.stringify({ endpointId, exampleId, route: Route.id });
+  JSON.stringify({ endpointId, exampleId, route: requestRouteApi.id });
 
 export const useOnEndpointDelete = () => {
-  const context = workspaceRoute.useRouteContext();
+  const context = workspaceRouteApi.useRouteContext();
   const removeTab = useRemoveTab();
   return (props: EndpointTabIdProps) => removeTab({ ...context, id: endpointTabId(props) });
 };
 
-function Page() {
-  const { endpointId, exampleId } = Route.useLoaderData();
-  const { workspaceId } = workspaceRoute.useLoaderData();
+export const EndpointPage = () => {
+  const { endpointId, exampleId } = requestRouteApi.useLoaderData();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   return (
     <Suspense
@@ -162,13 +121,13 @@ function Page() {
       </PanelGroup>
     </Suspense>
   );
-}
+};
 
 interface EndpointTabProps {
   endpointId: Uint8Array;
 }
 
-const EndpointTab = ({ endpointId }: EndpointTabProps) => {
+export const EndpointTab = ({ endpointId }: EndpointTabProps) => {
   const { method, name } = useQuery(EndpointGetEndpoint, { endpointId });
   return (
     <>
@@ -177,8 +136,6 @@ const EndpointTab = ({ endpointId }: EndpointTabProps) => {
     </>
   );
 };
-
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
 
 interface EndpointRequestViewProps {
   className?: string;
@@ -350,7 +307,7 @@ export const useEndpointUrlForm = ({
   endpointId,
   exampleId,
 }: UseEndpointUrlFormProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   // TODO: fetch in parallel
   const endpoint = useQuery(EndpointGetEndpoint, { endpointId });
@@ -498,7 +455,7 @@ interface EndpointHeaderProps {
 }
 
 export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const navigate = useNavigate();
 
@@ -589,8 +546,8 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
                 const exampleIdCan = Ulid.construct(exampleId).toCanonical();
 
                 await navigate({
-                  from: Route.fullPath,
-                  to: Route.fullPath,
+                  from: requestRouteApi.id,
+                  to: requestRouteApi.id,
 
                   params: { endpointIdCan, exampleIdCan },
                 });
@@ -761,7 +718,7 @@ const ExampleVersionsView = ({ endpointId, item: { exampleId, lastResponseId } }
 };
 
 const ResponsePanel = () => {
-  const { exampleId } = Route.useLoaderData();
+  const { exampleId } = requestRouteApi.useLoaderData();
 
   const { lastResponseId } = useQuery(ExampleGetEndpoint, { exampleId });
 

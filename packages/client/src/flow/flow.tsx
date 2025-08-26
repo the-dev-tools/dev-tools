@@ -1,6 +1,6 @@
 import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
 import { createClient } from '@connectrpc/connect';
-import { createFileRoute, useBlocker, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
+import { useBlocker, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import {
   Background,
   BackgroundVariant,
@@ -71,11 +71,11 @@ import {
   columnTextField,
   useFormTable,
 } from '~form-table';
+import { flowHistoryRouteApi, flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 import { ReferenceContext } from '../reference';
 import { useFlowCopyPaste } from './copy-paste';
 import { ConnectionLine, Edge, edgeTypes, useMakeEdge } from './edge';
-import { FlowContext, flowRoute, HandleKind, HandleKindSchema, workspaceRoute } from './internal';
-import { useOnFlowDelete } from './layout';
+import { FlowContext, HandleKind, HandleKindSchema, useOnFlowDelete } from './internal';
 import { Node, useMakeNode } from './node';
 import { ConditionNode, ConditionPanel } from './nodes/condition';
 import { ForNode, ForPanel } from './nodes/for';
@@ -84,15 +84,6 @@ import { JavaScriptNode, JavaScriptPanel } from './nodes/javascript';
 import { NoOpNode } from './nodes/no-op';
 import { RequestNode, RequestPanel } from './nodes/request';
 import { useFlowStateSynced } from './sync';
-
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/')({
-  component: RouteComponent,
-  pendingComponent: () => (
-    <div className={tw`flex h-full items-center justify-center`}>
-      <Spinner size='xl' />
-    </div>
-  ),
-});
 
 export const nodeTypes: Record<NodeKindJson, NodeTypesCore[string]> = {
   NODE_KIND_CONDITION: ConditionNode,
@@ -104,8 +95,8 @@ export const nodeTypes: Record<NodeKindJson, NodeTypesCore[string]> = {
   NODE_KIND_UNSPECIFIED: () => null,
 };
 
-function RouteComponent() {
-  const { flowId } = flowRoute.useLoaderData();
+export const FlowEditPage = () => {
+  const { flowId } = flowLayoutRouteApi.useLoaderData();
 
   return (
     <Suspense
@@ -130,13 +121,13 @@ function RouteComponent() {
       </FlowContext.Provider>
     </Suspense>
   );
-}
+};
 
 const minZoom = 0.1;
 const maxZoom = 2;
 
 export const Flow = ({ children }: PropsWithChildren) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { addEdges, addNodes, getEdges, getNode, getNodes, screenToFlowPosition, setNodes } = useReactFlow<
     Node,
@@ -332,10 +323,10 @@ export const Flow = ({ children }: PropsWithChildren) => {
 };
 
 export const TopBar = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
-  const { flowId } = flowRoute.useLoaderData();
-  const { flowIdCan, workspaceIdCan } = flowRoute.useParams();
+  const { flowId } = flowLayoutRouteApi.useLoaderData();
+  const { flowIdCan, workspaceIdCan } = flowLayoutRouteApi.useParams();
 
   const { name } = useQuery(FlowGetEndpoint, { flowId });
 
@@ -402,13 +393,8 @@ export const TopBar = () => {
 
       <ButtonAsLink
         className={tw`px-2 py-1 text-slate-800`}
-        from='/'
         params={{ flowIdCan, workspaceIdCan }}
-        to={
-          matchRoute({ to: '/workspace/$workspaceIdCan/flow/$flowIdCan/history' })
-            ? '/workspace/$workspaceIdCan/flow/$flowIdCan'
-            : '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
-        }
+        to={matchRoute({ to: flowHistoryRouteApi.id }) ? flowLayoutRouteApi.id : flowHistoryRouteApi.id}
         variant='ghost'
       >
         <FiClock className={tw`size-4 text-slate-500`} /> Flows History
@@ -441,7 +427,7 @@ export const TopBar = () => {
 
 const ActionBar = () => {
   const { flowId } = use(FlowContext);
-  const { dataClient, transport } = useRouteContext({ from: '__root__' });
+  const { dataClient, transport } = rootRouteApi.useRouteContext();
   const { flowRun } = useMemo(() => createClient(FlowService, transport), [transport]);
   const flow = useReactFlow<Node, Edge>();
   const storeApi = useStoreApi<Node, Edge>();
@@ -617,9 +603,9 @@ const ActionBar = () => {
 };
 
 const SettingsPanel = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
-  const { flowId } = flowRoute.useLoaderData();
+  const { flowId } = flowLayoutRouteApi.useLoaderData();
 
   const { items } = useQuery(FlowVariableListEndpoint, { flowId });
 
@@ -705,8 +691,8 @@ const SettingsPanel = () => {
 };
 
 export const EditPanel = () => {
-  const { workspaceId } = workspaceRoute.useLoaderData();
-  const { nodeId } = flowRoute.useLoaderData();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
+  const { nodeId } = flowLayoutRouteApi.useLoaderData();
 
   const { data } = useDLE(NodeGetEndpoint, Option.isSome(nodeId) ? { nodeId: nodeId.value } : null);
 

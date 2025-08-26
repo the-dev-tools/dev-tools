@@ -1,5 +1,4 @@
 import { create, enumFromJson, enumToJson, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
-import { useRouteContext } from '@tanstack/react-router';
 import { getConnectedEdges, Node as NodeCore, NodeProps as NodePropsCore, useReactFlow } from '@xyflow/react';
 import { Array, Match, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
@@ -52,6 +51,7 @@ import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { GenericMessage } from '~api/utils';
 import { useMutate, useQuery } from '~data-client';
+import { rootRouteApi } from '~routes';
 import { useNodeDuplicate } from './copy-paste';
 import { FlowContext } from './internal';
 
@@ -247,7 +247,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
 };
 
 export const useMakeNode = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { flowId } = use(FlowContext);
 

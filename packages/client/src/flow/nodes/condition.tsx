@@ -1,4 +1,3 @@
-import { useRouteContext } from '@tanstack/react-router';
 import { Position } from '@xyflow/react';
 import { Ulid } from 'id128';
 import { use, useEffect } from 'react';
@@ -10,6 +9,7 @@ import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
+import { rootRouteApi } from '~routes';
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
 import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps, NodeProps } from '../node';
@@ -76,7 +76,7 @@ const ConditionNodeBody = (props: NodeProps) => {
 };
 
 export const ConditionPanel = ({ node: { condition, nodeId } }: NodePanelProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { control, handleSubmit, watch } = useForm({
     resetOptions: { keepDirtyValues: true },

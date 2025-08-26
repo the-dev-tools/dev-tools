@@ -1,5 +1,4 @@
 import { create, equals } from '@bufbuild/protobuf';
-import { useRouteContext } from '@tanstack/react-router';
 import { useEdgesState, useNodesState } from '@xyflow/react';
 import { Array, HashMap, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
@@ -20,12 +19,13 @@ import {
   NodeUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
 import { useQuery } from '~data-client';
+import { rootRouteApi } from '~routes';
 import { Edge } from './edge';
 import { FlowContext } from './internal';
 import { Node } from './node';
 
 export const useFlowStateSynced = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { flowId, isReadOnly = false } = use(FlowContext);
 

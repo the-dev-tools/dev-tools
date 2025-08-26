@@ -1,5 +1,4 @@
 import { timestampDate } from '@bufbuild/protobuf/wkt';
-import { createFileRoute, useRouteContext } from '@tanstack/react-router';
 import { Array, DateTime, Match, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
@@ -25,11 +24,10 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useMutate, useQuery } from '~data-client';
+import { rootRouteApi, workspaceRouteApi } from '~routes';
 
-export const Route = createFileRoute('/_authorized/_dashboard/')({ component: Page });
-
-function Page() {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+export const WorkspaceListPage = () => {
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { items: workspaces } = useQuery(WorkspaceListEndpoint, {});
 
@@ -97,7 +95,7 @@ function Page() {
       </div>
     </div>
   );
-}
+};
 
 interface ItemProps {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -110,7 +108,7 @@ const Item = ({
   data: { collectionCount, flowCount, name, updated, workspaceId },
   id: workspaceIdCan,
 }: ItemProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const [workspaceUpdate, workspaceUpdateLoading] = useMutate(WorkspaceUpdateEndpoint);
 
@@ -143,7 +141,7 @@ const Item = ({
             )}
             ref={escape.ref}
           >
-            <Link from='/' params={{ workspaceIdCan }} to='/workspace/$workspaceIdCan'>
+            <Link params={{ workspaceIdCan }} to={workspaceRouteApi.id}>
               {name}
             </Link>
           </div>

@@ -1,22 +1,18 @@
-import { createFileRoute, getRouteApi, useRouteContext } from '@tanstack/react-router';
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 import { WorkspaceMemberCreateEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextField } from '@the-dev-tools/ui/text-field';
-
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/members')({ component: Page });
-
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+import { rootRouteApi, workspaceRouteApi } from '~routes';
 
 class InviteForm extends Schema.Class<InviteForm>('WorkspaceInviteForm')({
   email: Schema.String,
 }) {}
 
-function Page() {
-  const { workspaceId } = workspaceRoute.useLoaderData();
+export function Page() {
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
-  const { dataClient, runtime } = useRouteContext({ from: '__root__' });
+  const { dataClient, runtime } = rootRouteApi.useRouteContext();
 
   return (
     <div className='p-4'>

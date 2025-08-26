@@ -1,9 +1,9 @@
 .golangci.yml
 *.har
+**/routes/__tree.tsx
 CHANGELOG.md
 dist
 flake.lock
 LICENSE
 pnpm-lock.yaml
-router-tree.tsx
 scoop.json

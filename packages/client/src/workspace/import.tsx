@@ -1,4 +1,4 @@
-import { getRouteApi, useNavigate, useRouteContext } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { Array, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { useState } from 'react';
@@ -32,13 +32,12 @@ import { Modal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
 import { setQueryChild } from '~data-client';
-
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 
 export const ImportDialog = () => {
-  const { dataClient, transport } = useRouteContext({ from: '__root__' });
+  const { dataClient, transport } = rootRouteApi.useRouteContext();
 
-  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const navigate = useNavigate();
 
@@ -210,8 +209,8 @@ export const ImportDialog = () => {
             const flowIdCan = Ulid.construct(flow.flowId).toCanonical();
 
             await navigate({
-              from: '/workspace/$workspaceIdCan',
-              to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
+              from: workspaceRouteApi.id,
+              to: flowLayoutRouteApi.id,
 
               params: { flowIdCan },
             });

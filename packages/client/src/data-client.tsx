@@ -13,15 +13,15 @@ import {
   useLoading,
   useSuspense,
 } from '@data-client/react';
-import { useRouteContext } from '@tanstack/react-router';
 import { Option, pipe } from 'effect';
 import { EndpointProps } from '@the-dev-tools/spec/data-client/utils';
 import { enableErrorInterceptorKey } from '~api/transport';
+import { rootRouteApi } from '~routes';
 
 export const useMutate = <E extends EndpointInterface<(props: EndpointProps<DescMethodUnary>) => Promise<unknown>>>(
   endpoint: E,
 ) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   return useLoading(
     (input: Parameters<E>[0]['input'], params?: Partial<Omit<Parameters<E>[0], 'input'>>) =>
@@ -37,7 +37,7 @@ export const useDLE = <
   input: null | Parameters<E>[0]['input'],
   params?: Partial<Omit<Parameters<E>[0], 'input'>>,
 ) => {
-  const { dataClient, transport } = useRouteContext({ from: '__root__' });
+  const { dataClient, transport } = rootRouteApi.useRouteContext();
 
   const args = pipe(
     Option.fromNullable(input),
@@ -57,7 +57,7 @@ export const setQueryChild = <S extends Queryable>(
 ) => controller.set(schema[childKey] as S, ...rest);
 
 export const useEndpointProps = () => {
-  const { dataClient, transport } = useRouteContext({ from: '__root__' });
+  const { dataClient, transport } = rootRouteApi.useRouteContext();
   return { controller: () => dataClient.controller, transport };
 };
 

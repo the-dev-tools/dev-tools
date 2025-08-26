@@ -1,5 +1,5 @@
 import { MessageInitShape } from '@bufbuild/protobuf';
-import { getRouteApi, ToOptions, useMatchRoute, useNavigate, useRouteContext } from '@tanstack/react-router';
+import { ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useRef, useState } from 'react';
@@ -58,8 +58,7 @@ import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
 import { useDLE, useMutate, useQuery } from '~data-client';
 import { useOnEndpointDelete } from '~endpoint';
-
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
+import { requestRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 
 interface CollectionListTreeContext {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -115,8 +114,8 @@ interface CollectionListTreeProps extends Omit<CollectionListTreeContext, 'conta
 }
 
 export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
-  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { dataClient } = rootRouteApi.useRouteContext();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const { items: collections } = useQuery(CollectionListEndpoint, { workspaceId });
 
@@ -251,7 +250,7 @@ interface CollectionTreeProps {
 }
 
 const CollectionTree = ({ collection }: CollectionTreeProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const navigate = useNavigate();
 
@@ -330,8 +329,8 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
                 const exampleIdCan = Ulid.construct(exampleId).toCanonical();
 
                 await navigate({
-                  from: '/workspace/$workspaceIdCan',
-                  to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+                  from: workspaceRouteApi.id,
+                  to: requestRouteApi.id,
 
                   params: { endpointIdCan, exampleIdCan },
                 });
@@ -387,7 +386,7 @@ interface FolderTreeProps {
 }
 
 const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolderId }: FolderTreeProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const navigate = useNavigate();
 
@@ -480,8 +479,8 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
                     const exampleIdCan = Ulid.construct(exampleId).toCanonical();
 
                     await navigate({
-                      from: '/workspace/$workspaceIdCan',
-                      to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+                      from: workspaceRouteApi.id,
+                      to: requestRouteApi.id,
 
                       params: { endpointIdCan, exampleIdCan },
                     });
@@ -523,7 +522,7 @@ interface EndpointTreeProps {
 }
 
 const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, parentFolderId }: EndpointTreeProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { endpointId, method, name } = endpoint;
   const { exampleId, lastResponseId } = example;
@@ -533,7 +532,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
   const onEndpointDelete = useOnEndpointDelete();
 
-  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const { containerRef, navigate: toNavigate = false, showControls } = useContext(CollectionListTreeContext);
 
@@ -562,10 +561,10 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   });
 
   const route = {
-    from: '/workspace/$workspaceIdCan',
+    from: workspaceRouteApi.id,
     params: { endpointIdCan, exampleIdCan },
     search: { responseIdCan: lastResponseIdCan },
-    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+    to: requestRouteApi.id,
   } satisfies ToOptions;
 
   const childItems = (items ?? []).filter((_) => !_.hidden);
@@ -608,8 +607,8 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
                 const exampleIdCan = Ulid.construct(exampleId).toCanonical();
 
                 await navigate({
-                  from: '/workspace/$workspaceIdCan',
-                  to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+                  from: workspaceRouteApi.id,
+                  to: requestRouteApi.id,
 
                   params: { endpointIdCan, exampleIdCan },
                 });
@@ -688,7 +687,7 @@ interface ExampleItemProps {
 }
 
 const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: ExampleItemProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { exampleId, lastResponseId, name } = example;
 
@@ -699,7 +698,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
 
   const onEndpointDelete = useOnEndpointDelete();
 
-  const { workspaceId } = workspaceRoute.useLoaderData();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const { containerRef, navigate: toNavigate = false, showControls } = useContext(CollectionListTreeContext);
 
@@ -718,10 +717,10 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   });
 
   const route = {
-    from: '/workspace/$workspaceIdCan',
+    from: workspaceRouteApi.id,
     params: { endpointIdCan, exampleIdCan },
     search: { responseIdCan: lastResponseIdCan },
-    to: '/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan',
+    to: requestRouteApi.id,
   } satisfies ToOptions;
 
   const content = (

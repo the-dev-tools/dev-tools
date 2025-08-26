@@ -1,4 +1,3 @@
-import { useRouteContext } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
 import { Position } from '@xyflow/react';
 import { use, useState } from 'react';
@@ -7,6 +6,7 @@ import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.e
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useCodeMirrorLanguageExtensions } from '~code-mirror/extensions';
+import { rootRouteApi } from '~routes';
 import { FlowContext, Handle } from '../internal';
 import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps, NodeProps } from '../node';
 
@@ -38,7 +38,7 @@ const JavaScriptNodeBody = (props: NodeProps) => (
 );
 
 export const JavaScriptPanel = ({ node: { js, nodeId } }: NodePanelProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { code } = js!;
   const { isReadOnly = false } = use(FlowContext);

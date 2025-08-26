@@ -1,5 +1,4 @@
-import { createFileRoute, Outlet, ToOptions, useNavigate, useRouteContext } from '@tanstack/react-router';
-import { pipe, Schema } from 'effect';
+import { Outlet, ToOptions, useNavigate } from '@tanstack/react-router';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
 import { ListBox, MenuTrigger, Text, Tooltip, TooltipTrigger } from 'react-aria-components';
@@ -22,47 +21,29 @@ import { CollectionIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons
 import { ListBoxItemLink } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { makeTabsAtom, RouteTabList, TabsRouteContext } from '@the-dev-tools/ui/router';
+import { RouteTabList } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
 import { useMutate, useQuery } from '~data-client';
-import { useOnFlowDelete } from '~flow/layout';
-import { DashboardLayout } from '../authorized';
+import { useOnFlowDelete } from '~flow/internal';
+import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
+import { DashboardLayout } from '../dashboard';
 import { CollectionListTree } from '../collection';
 import { EnvironmentsWidget } from '../environment';
 import { StatusBar } from '../status-bar';
 
-export class WorkspaceRouteSearch extends Schema.Class<WorkspaceRouteSearch>('WorkspaceRouteSearch')({
-  showLogs: pipe(Schema.Boolean, Schema.optional),
-}) {}
+export const WorkspaceLayout = () => {
+  const { dataClient, runtime } = rootRouteApi.useRouteContext();
 
-/* eslint-disable perfectionist/sort-objects */
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan')({
-  validateSearch: (_) => Schema.decodeSync(WorkspaceRouteSearch)(_),
-  context: ({ params: { workspaceIdCan } }): Omit<TabsRouteContext, 'runtime'> => ({
-    baseRoute: { from: '/', params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' },
-    tabsAtom: makeTabsAtom(),
-  }),
-  loader: ({ params: { workspaceIdCan } }) => {
-    const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;
-    return { workspaceId };
-  },
-  component: Layout,
-});
-/* eslint-enable perfectionist/sort-objects */
-
-function Layout() {
-  const { dataClient, runtime } = useRouteContext({ from: '__root__' });
-
-  const { workspaceId } = Route.useLoaderData();
-  const { workspaceIdCan } = Route.useParams();
-  const context = Route.useRouteContext();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
+  const { workspaceIdCan } = workspaceRouteApi.useParams();
+  const context = workspaceRouteApi.useRouteContext();
 
   const workspace = useQuery(WorkspaceGetEndpoint, { workspaceId });
 
-  const baseRoute: ToOptions = { from: '/', params: { workspaceIdCan }, to: '/workspace/$workspaceIdCan' };
+  const baseRoute: ToOptions = { params: { workspaceIdCan }, to: workspaceRouteApi.id };
 
   return (
     <DashboardLayout
@@ -70,38 +51,16 @@ function Layout() {
         <>
           <ButtonAsLink
             className={tw`-ml-3 gap-2 px-2 py-1`}
-            from='/'
             params={{ workspaceIdCan }}
-            to='/workspace/$workspaceIdCan'
+            to={workspaceRouteApi.id}
             variant='ghost dark'
           >
             <Avatar shape='square' size='base'>
               {workspace.name}
             </Avatar>
             <span className={tw`text-xs leading-5 font-semibold tracking-tight`}>{workspace.name}</span>
-            {/* <FiChevronDown className={tw`size-4`} /> */}
           </ButtonAsLink>
 
-          {/* <MenuTrigger>
-            <Menu>
-              <MenuItem
-                href={{
-                  to: '/workspace/$workspaceIdCan',
-                  params: { workspaceIdCan },
-                }}
-              >
-                Home
-              </MenuItem>
-              <MenuItem
-                href={{
-                  to: '/workspace/$workspaceIdCan/members',
-                  params: { workspaceIdCan },
-                }}
-              >
-                Members
-              </MenuItem>
-            </Menu>
-          </MenuTrigger> */}
           <div className='flex-1' />
         </>
       }
@@ -119,9 +78,8 @@ function Layout() {
           <div className={tw`flex flex-col gap-2 p-1.5`}>
             <ButtonAsLink
               className={tw`flex items-center justify-start gap-2 px-2.5 py-1.5`}
-              from='/'
               params={{ workspaceIdCan }}
-              to='/workspace/$workspaceIdCan'
+              to={workspaceRouteApi.id}
               variant='ghost'
             >
               <OverviewIcon className={tw`size-5 text-slate-500`} />
@@ -168,14 +126,14 @@ function Layout() {
       </PanelGroup>
     </DashboardLayout>
   );
-}
+};
 
 const FlowList = () => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const navigate = useNavigate();
 
-  const { workspaceId } = Route.useLoaderData();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const { items: flows } = useQuery(FlowListEndpoint, { workspaceId });
 
@@ -196,8 +154,8 @@ const FlowList = () => {
               const flowIdCan = Ulid.construct(flowId).toCanonical();
 
               await navigate({
-                from: Route.fullPath,
-                to: '/workspace/$workspaceIdCan/flow/$flowIdCan',
+                from: workspaceRouteApi.id,
+                to: flowLayoutRouteApi.id,
 
                 params: { flowIdCan },
               });
@@ -229,10 +187,10 @@ interface FlowItemProps {
 }
 
 const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
-  const { workspaceIdCan } = Route.useParams();
-  const { workspaceId } = Route.useLoaderData();
+  const { workspaceIdCan } = workspaceRouteApi.useParams();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const onFlowDelete = useOnFlowDelete();
 
@@ -253,12 +211,11 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
   return (
     <ListBoxItemLink
       className={tw`rounded-md pl-9 text-md leading-5 font-medium`}
-      from='/'
       id={flowIdCan}
       params={{ flowIdCan, workspaceIdCan }}
       showSelectIndicator={false}
       textValue={name}
-      to='/workspace/$workspaceIdCan/flow/$flowIdCan'
+      to={flowLayoutRouteApi.id}
     >
       <div className={tw`contents`} onContextMenu={onContextMenu}>
         <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref} slot='label'>

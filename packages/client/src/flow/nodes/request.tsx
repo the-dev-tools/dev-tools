@@ -1,4 +1,3 @@
-import { useRouteContext } from '@tanstack/react-router';
 import { Position, useReactFlow } from '@xyflow/react';
 import { Ulid } from 'id128';
 import { Suspense, use, useEffect } from 'react';
@@ -21,10 +20,11 @@ import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
+import { requestRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 import { CollectionListTree } from '../../collection';
 import { EndpointRequestView, ResponseTabs, useEndpointUrlForm } from '../../endpoint';
 import { ReferenceContext } from '../../reference';
-import { FlowContext, Handle, workspaceRoute } from '../internal';
+import { FlowContext, Handle } from '../internal';
 import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps, NodeProps } from '../node';
 
 export const RequestNode = (props: NodeProps) => (
@@ -44,7 +44,7 @@ export const RequestNode = (props: NodeProps) => (
 const RequestNodeBody = (props: NodeProps) => {
   const { id, selected } = props;
 
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
   const { deleteElements } = useReactFlow();
 
   const nodeId = Ulid.fromCanonical(id).bytes;
@@ -107,7 +107,7 @@ const RequestNodeSelected = ({
   // TODO: fetch in parallel
   const { name: collectionName } = useQuery(CollectionGetEndpoint, { collectionId });
 
-  const { workspaceIdCan } = workspaceRoute.useParams();
+  const { workspaceIdCan } = workspaceRouteApi.useParams();
 
   const endpoint = useQuery(EndpointGetEndpoint, { endpointId });
   const example = useQuery(ExampleGetEndpoint, { exampleId });
@@ -126,13 +126,12 @@ const RequestNodeSelected = ({
         <div className={tw`flex-1 truncate text-xs leading-5 font-medium tracking-tight text-slate-800`}>{name}</div>
         <ButtonAsLink
           className={tw`p-0.5`}
-          from='/'
           params={{
             endpointIdCan: Ulid.construct(endpointId).toCanonical(),
             exampleIdCan: Ulid.construct(exampleId).toCanonical(),
             workspaceIdCan,
           }}
-          to='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
+          to={requestRouteApi.id}
           variant='ghost'
         >
           <FiExternalLink className={tw`size-4 text-slate-500`} />
@@ -146,8 +145,8 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
   const { collectionId, deltaEndpointId, deltaExampleId, endpointId, exampleId } = request!;
   const { isReadOnly = false } = use(FlowContext);
 
-  const { workspaceId } = workspaceRoute.useLoaderData();
-  const { workspaceIdCan } = workspaceRoute.useParams();
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
+  const { workspaceIdCan } = workspaceRouteApi.useParams();
 
   // TODO: fetch in parallel
   const collection = useQuery(CollectionGetEndpoint, { collectionId });
@@ -172,13 +171,12 @@ export const RequestPanel = ({ node: { nodeId, request } }: NodePanelProps) => {
 
         <ButtonAsLink
           className={tw`shrink-0 px-2`}
-          from='/'
           params={{
             endpointIdCan: Ulid.construct(endpointId).toCanonical(),
             exampleIdCan: Ulid.construct(exampleId).toCanonical(),
             workspaceIdCan,
           }}
-          to='/workspace/$workspaceIdCan/endpoint/$endpointIdCan/example/$exampleIdCan'
+          to={requestRouteApi.id}
           variant='ghost'
         >
           <FiExternalLink className={tw`size-4 text-slate-500`} />

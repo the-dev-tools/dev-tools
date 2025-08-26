@@ -1,4 +1,3 @@
-import { useRouteContext } from '@tanstack/react-router';
 import { Array, Match, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
@@ -21,6 +20,7 @@ import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { GenericMessage } from '~api/utils';
 import { useQuery } from '~data-client';
+import { rootRouteApi } from '~routes';
 import {
   columnActionsCommon,
   columnActionsDeltaCommon,
@@ -72,7 +72,7 @@ interface FormTableProps {
 }
 
 const FormTable = ({ exampleId }: FormTableProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const items: GenericMessage<QueryListItem>[] = useQuery(QueryListEndpoint, { exampleId }).items;
 
@@ -147,7 +147,7 @@ interface DeltaFormTableProps {
 }
 
 const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: DeltaFormTableProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const items = pipe(useQuery(QueryDeltaListEndpoint, { exampleId, originId }).items, (_: QueryDeltaListItem[]) =>
     makeDeltaItems(_, 'queryId'),

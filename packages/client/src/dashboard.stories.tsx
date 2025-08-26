@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { DashboardLayout } from './authorized';
+import { DashboardLayout } from './dashboard';
 
 const meta = {
   component: DashboardLayout,

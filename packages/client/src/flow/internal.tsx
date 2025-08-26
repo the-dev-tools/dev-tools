@@ -1,17 +1,16 @@
-import { getRouteApi } from '@tanstack/react-router';
 import { Handle as HandleCore, HandleProps, ReactFlowState, useNodeConnections, useStore } from '@xyflow/react';
 import { Option, pipe } from 'effect';
 import { createContext } from 'react';
 import { tv } from 'tailwind-variants';
-
 import {
   Handle as HandleKind,
   HandleJson as HandleKindJson,
   HandleSchema as HandleKindSchema,
 } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { useRemoveTab } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-
+import { flowLayoutRouteApi, workspaceRouteApi } from '~routes';
 import { Edge } from './edge';
 import { Node } from './node';
 
@@ -71,5 +70,10 @@ export const Handle = (props: HandleProps) => {
   );
 };
 
-export const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
-export const flowRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan');
+export const flowTabId = (flowId: Uint8Array) => JSON.stringify({ flowId, route: flowLayoutRouteApi.id });
+
+export const useOnFlowDelete = () => {
+  const context = workspaceRouteApi.useRouteContext();
+  const removeTab = useRemoveTab();
+  return (flowId: Uint8Array) => removeTab({ ...context, id: flowTabId(flowId) });
+};

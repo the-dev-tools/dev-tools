@@ -1,7 +1,6 @@
 import { createClient } from '@connectrpc/connect';
 import { ConnectQueryKey, createConnectQueryKey } from '@connectrpc/connect-query';
 import { experimental_streamedQuery as streamedQuery, useQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
 import { Ulid } from 'id128';
 import { useMemo, useState } from 'react';
 import {
@@ -19,12 +18,11 @@ import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
+import { workspaceRouteApi } from '~routes';
 import { makeReferenceTreeId, ReferenceTreeItemView } from './reference';
 
-const workspaceRoute = getRouteApi('/_authorized/workspace/$workspaceIdCan');
-
 export const useLogsQuery = () => {
-  const { transport } = workspaceRoute.useRouteContext();
+  const { transport } = workspaceRouteApi.useRouteContext();
 
   const { logStream } = useMemo(() => createClient(LogService, transport), [transport]);
 
@@ -62,8 +60,8 @@ const logTextStyles = tv({
 });
 
 export const StatusBar = () => {
-  const { showLogs } = workspaceRoute.useSearch();
-  const { queryClient } = workspaceRoute.useRouteContext();
+  const { showLogs } = workspaceRouteApi.useSearch();
+  const { queryClient } = workspaceRouteApi.useRouteContext();
 
   const { data: logs, queryKey } = useLogsQuery();
 

@@ -1,4 +1,3 @@
-import { useRouteContext } from '@tanstack/react-router';
 import { Position } from '@xyflow/react';
 import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -13,6 +12,7 @@ import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { ReferenceFieldRHF } from '~reference';
+import { rootRouteApi } from '~routes';
 import { ConditionField } from '../../condition';
 import { FlowContext, Handle, HandleKindJson } from '../internal';
 import { NodeBody, NodeContainer, NodeExecutionPanel, NodePanelProps, NodeProps } from '../node';
@@ -65,7 +65,7 @@ const ForEachNodeBody = (props: NodeProps) => {
 };
 
 export const ForEachPanel = ({ node: { forEach, nodeId } }: NodePanelProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { control, handleSubmit, watch } = useForm({
     resetOptions: { keepDirtyValues: true },

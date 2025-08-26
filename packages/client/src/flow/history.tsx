@@ -1,4 +1,3 @@
-import { createFileRoute } from '@tanstack/react-router';
 import { ReactFlowProvider } from '@xyflow/react';
 import { Ulid } from 'id128';
 import { Suspense, useRef } from 'react';
@@ -12,15 +11,12 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
+import { flowHistoryRouteApi } from '~routes';
 import { EditPanel, Flow, TopBar } from './flow';
 import { FlowContext } from './internal';
 
-export const Route = createFileRoute('/_authorized/workspace/$workspaceIdCan/flow/$flowIdCan/history')({
-  component: RouteComponent,
-});
-
-function RouteComponent() {
-  const { flowIdCan } = Route.useParams();
+export const FlowHistoryPage = () => {
+  const { flowIdCan } = flowHistoryRouteApi.useParams();
   const flowId = Ulid.fromCanonical(flowIdCan).bytes;
 
   const { items } = useQuery(FlowVersionsEndpoint, { flowId });
@@ -105,7 +101,7 @@ function RouteComponent() {
       </Panel>
     </PanelGroup>
   );
-}
+};
 
 interface TabProps {
   item: Node<FlowVersionsItem>;

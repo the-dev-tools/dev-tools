@@ -1,10 +1,8 @@
-import { useRouteContext } from '@tanstack/react-router';
 import { Struct } from 'effect';
 import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
 import { useDebouncedCallback } from 'use-debounce';
-
 import {
   AssertCreateEndpoint,
   AssertDeleteEndpoint,
@@ -14,7 +12,7 @@ import {
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
-
+import { rootRouteApi } from '~routes';
 import { ConditionField } from './condition';
 
 interface AssertionViewProps {
@@ -23,7 +21,7 @@ interface AssertionViewProps {
 }
 
 export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => {
-  const { dataClient } = useRouteContext({ from: '__root__' });
+  const { dataClient } = rootRouteApi.useRouteContext();
 
   const { items } = useQuery(AssertListEndpoint, { exampleId });
 
