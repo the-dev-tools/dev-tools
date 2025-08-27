@@ -1,5 +1,5 @@
 import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
-import { createClient } from '@connectrpc/connect';
+import { ConnectError, createClient } from '@connectrpc/connect';
 import { useBlocker, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import {
   Background,
@@ -15,7 +15,23 @@ import {
   useStoreApi,
   useViewport,
 } from '@xyflow/react';
-import { Array, Boolean, HashMap, Match, MutableHashMap, Option, pipe, Predicate, Record, Schema } from 'effect';
+import {
+  Array,
+  Boolean,
+  Chunk,
+  Effect,
+  Fiber,
+  HashMap,
+  Match,
+  MutableHashMap,
+  MutableHashSet,
+  Option,
+  pipe,
+  Predicate,
+  Record,
+  Schema,
+  Stream,
+} from 'effect';
 import { Ulid } from 'id128';
 import { PropsWithChildren, Suspense, use, useCallback, useMemo, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
@@ -31,10 +47,7 @@ import {
   ExampleCreateEndpoint,
   ExampleVersionsEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
-import {
-  ExampleEntity,
-  ExampleVersionsItemEntity,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.entities.js';
+import { ExampleEntity } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.entities.js';
 import { NodeExecutionListEndpoint } from '@the-dev-tools/spec/meta/flow/node/execution/v1/execution.endpoints.js';
 import { NodeGetEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
 import {
@@ -63,7 +76,7 @@ import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { EndpointKey, ExampleKey, TreeKey } from '~collection';
-import { setQueryChild, useDLE, useEndpointProps, useMutate, useQuery } from '~data-client';
+import { useDLE, useEndpointProps, useMutate, useQuery } from '~data-client';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -443,17 +456,17 @@ const ActionBar = () => {
     withResolver: true,
   });
 
-  const onRun = async () => {
-    const controller = new AbortController();
-    setController(controller);
+  const onRun = () =>
+    Effect.gen(function* () {
+      const controller = new AbortController();
+      setController(controller);
 
-    try {
       flow.getNodes().forEach((_) => void flow.updateNodeData(_.id, { ..._.data, state: NodeState.UNSPECIFIED }));
       flow.getEdges().forEach((_) => void flow.updateEdgeData(_.id, { ..._.data, state: NodeState.UNSPECIFIED }));
 
       // Wait for auto-save
       // TODO: would be better to implement some sort of a locking mechanism
-      await new Promise((r) => setTimeout(r, 500));
+      Effect.sleep('500 millis');
 
       const sourceEdges = pipe(
         flow.getEdges(),
@@ -462,62 +475,91 @@ const ActionBar = () => {
         HashMap.fromIterable,
       );
 
-      for await (const { example, node, version } of flowRun({ flowId }, { signal: controller.signal })) {
-        if (version) {
-          void setQueryChild(
-            dataClient.controller,
-            FlowVersionsEndpoint.schema.items,
-            'unshift',
-            { controller: () => dataClient.controller, input: { flowId }, transport },
-            version,
-          );
-        }
+      const stream = Stream.fromAsyncIterable(flowRun({ flowId }, { signal: controller.signal }), (_) =>
+        ConnectError.from(_),
+      );
 
-        if (example) {
-          const { exampleId, responseId, versionId } = example;
+      const [stream1, stream2] = yield* Stream.broadcast(stream, 2, { capacity: 'unbounded' });
 
-          const snapshot = dataClient.controller.snapshot(dataClient.controller.getState());
+      const fiber1 = yield* pipe(
+        stream1,
+        Stream.runForEach(({ node }) =>
+          Effect.try(() => {
+            if (!node) return;
 
-          const oldExampleData: Example | undefined = snapshot.get(ExampleEntity, { exampleId });
+            const nodeIdCan = Ulid.construct(node.nodeId).toCanonical();
+            flow.updateNodeData(nodeIdCan, (_) => ({ ..._, ...node }));
 
-          if (oldExampleData)
-            void dataClient.controller.set(
-              ExampleEntity,
-              { exampleId },
-              { ...oldExampleData, lastResponseId: responseId },
+            pipe(
+              HashMap.get(sourceEdges, nodeIdCan),
+              Array.fromOption,
+              Array.flatten,
+              Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state: node.state }))),
             );
+          }),
+        ),
+        Effect.fork,
+      );
 
-          void setQueryChild(
-            dataClient.controller,
-            ExampleVersionsEndpoint.schema.items,
-            'unshift',
-            { controller: () => dataClient.controller, input: { exampleId }, transport },
-            { exampleId: versionId, lastResponseId: responseId } satisfies Partial<ExampleVersionsItemEntity>,
+      const fiber2 = yield* pipe(
+        stream2,
+        Stream.groupedWithin(Number.POSITIVE_INFINITY, '500 millis'),
+        Stream.runForEach((_) => {
+          const { effectMap, expireKeys } = Chunk.reduce(
+            _,
+            {
+              effectMap: MutableHashMap.empty<string, Effect.Effect<void>>(),
+              expireKeys: MutableHashSet.empty<string>(),
+            },
+            (_, { example, node, version }) => {
+              if (example) {
+                const { exampleId, responseId } = example;
+
+                const snapshot = dataClient.controller.snapshot(dataClient.controller.getState());
+                const oldExampleData: Example | undefined = snapshot.get(ExampleEntity, { exampleId });
+
+                const setEntity = Effect.tryPromise(() =>
+                  dataClient.controller.set(
+                    ExampleEntity,
+                    { exampleId },
+                    { ...oldExampleData, lastResponseId: responseId },
+                  ),
+                );
+
+                MutableHashMap.set(_.effectMap, exampleId.toString(), setEntity);
+
+                MutableHashSet.add(
+                  _.expireKeys,
+                  ExampleVersionsEndpoint.key({ ...endpointProps, input: { exampleId } }),
+                );
+              }
+
+              if (node)
+                MutableHashSet.add(
+                  _.expireKeys,
+                  NodeExecutionListEndpoint.key({ ...endpointProps, input: { nodeId: node.nodeId } }),
+                );
+
+              if (version)
+                MutableHashSet.add(_.expireKeys, FlowVersionsEndpoint.key({ ...endpointProps, input: { flowId } }));
+
+              return _;
+            },
           );
-        }
 
-        if (node) {
-          const { info, nodeId, state } = node;
-          const nodeIdCan = Ulid.construct(nodeId).toCanonical();
-
-          await dataClient.controller.expireAll({
-            testKey: (_) => _ === NodeExecutionListEndpoint.key({ ...endpointProps, input: { nodeId } }),
-          });
-
-          flow.updateNodeData(nodeIdCan, (_) => ({ ..._, info: info!, state }));
-
-          pipe(
-            HashMap.get(sourceEdges, nodeIdCan),
-            Array.fromOption,
-            Array.flatten,
-            Array.forEach((_) => void flow.updateEdgeData(_.id, (_) => ({ ..._, state }))),
+          const expire = Effect.tryPromise(() =>
+            dataClient.controller.expireAll({ testKey: (_) => MutableHashSet.has(expireKeys, _) }),
           );
-        }
-      }
-    } finally {
-      setController(undefined);
-    }
-  };
+
+          return pipe(MutableHashMap.values(effectMap), Array.append(expire), (_) =>
+            Effect.all(_, { concurrency: 10 }),
+          );
+        }),
+        Effect.fork,
+      );
+
+      yield* pipe(Fiber.join(fiber1), Effect.zip(Fiber.join(fiber2), { concurrent: true }));
+    }).pipe(Effect.scoped, Effect.ensuring(Effect.sync(() => void setController(undefined))), Effect.runPromise);
 
   const onStop = () => {
     controller?.abort();
