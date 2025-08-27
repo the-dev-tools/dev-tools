@@ -31,7 +31,7 @@ import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField } from '@the-dev-tools/ui/text-field';
-import { setQueryChild } from '~data-client';
+import { matchAllEndpoint, setQueryChild } from '~data-client';
 import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 
 export const ImportDialog = () => {
@@ -94,12 +94,11 @@ export const ImportDialog = () => {
 
   const onImportSuccess = async () => {
     onOpenChange(false);
-    // TODO: improve key matching
     await dataClient.controller.expireAll({
       testKey: (_) => {
-        if (_.startsWith(`["${CollectionListEndpoint.name}"`)) return true;
-        if (_.startsWith(`["${CollectionItemListEndpoint.name}"`)) return true;
-        if (_.startsWith(`["${ExampleListEndpoint.name}"`)) return true;
+        if (matchAllEndpoint(CollectionListEndpoint)(_)) return true;
+        if (matchAllEndpoint(CollectionItemListEndpoint)(_)) return true;
+        if (matchAllEndpoint(ExampleListEndpoint)(_)) return true;
         return false;
       },
     });

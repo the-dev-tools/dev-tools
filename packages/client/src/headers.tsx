@@ -18,7 +18,7 @@ import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { GenericMessage } from '~api/utils';
-import { useQuery } from '~data-client';
+import { matchAllEndpoint, useQuery } from '~data-client';
 import { rootRouteApi } from '~routes';
 import {
   columnActionsCommon,
@@ -91,8 +91,7 @@ const FormTable = ({ exampleId }: FormTableProps) => {
     items,
     onCreate: async () => {
       await dataClient.fetch(HeaderCreateEndpoint, { enabled: true, exampleId });
-      // TODO: improve key matching
-      await dataClient.controller.expireAll({ testKey: (_) => _.startsWith(`["${HeaderDeltaListEndpoint.name}"`) });
+      await dataClient.controller.expireAll({ testKey: matchAllEndpoint(HeaderDeltaListEndpoint) });
     },
     onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(HeaderUpdateEndpoint, item),
     primaryColumn: 'key',

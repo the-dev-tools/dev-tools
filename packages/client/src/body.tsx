@@ -56,7 +56,7 @@ import {
   CodeMirrorMarkupLanguages,
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
-import { useQuery } from '~data-client';
+import { matchAllEndpoint, useQuery } from '~data-client';
 import { useReactRender } from '~react-render';
 import { rootRouteApi } from '~routes';
 import {
@@ -176,8 +176,7 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
     items,
     onCreate: async () => {
       await dataClient.fetch(BodyFormCreateEndpoint, { enabled: true, exampleId });
-      // TODO: improve key matching
-      await dataClient.controller.expireAll({ testKey: (_) => _.startsWith(`["${BodyFormDeltaListEndpoint.name}"`) });
+      await dataClient.controller.expireAll({ testKey: matchAllEndpoint(BodyFormDeltaListEndpoint) });
     },
     onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyFormUpdateEndpoint, item),
     primaryColumn: 'key',
@@ -357,10 +356,7 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
     items,
     onCreate: async () => {
       await dataClient.fetch(BodyUrlEncodedCreateEndpoint, { enabled: true, exampleId });
-      // TODO: improve key matching
-      await dataClient.controller.expireAll({
-        testKey: (_) => _.startsWith(`["${BodyUrlEncodedDeltaListEndpoint.name}"`),
-      });
+      await dataClient.controller.expireAll({ testKey: matchAllEndpoint(BodyUrlEncodedDeltaListEndpoint) });
     },
     onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyUrlEncodedUpdateEndpoint, item),
     primaryColumn: 'key',

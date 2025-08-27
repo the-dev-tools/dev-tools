@@ -108,3 +108,5 @@ export const makeDataClient = ({ controller, transport }: MakeDataClientProps) =
 };
 
 export interface DataClient extends ReturnType<typeof makeDataClient> {}
+
+export const matchAllEndpoint = (endpoint: { name: string }) => (key: string) => key.startsWith(`["${endpoint.name}"`);
