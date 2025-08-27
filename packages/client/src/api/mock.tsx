@@ -2,35 +2,10 @@ import { create, DescEnum, DescField, DescMessage, Message, ScalarType, toJsonSt
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { createRouterTransport, ServiceImpl } from '@connectrpc/connect';
 import { Faker as FakerClass, base as fakerLocaleBase, en as fakerLocaleEn } from '@faker-js/faker';
-import {
-  Context,
-  DateTime,
-  Effect,
-  flow,
-  Layer,
-  MutableHashMap,
-  Option,
-  pipe,
-  Record,
-  Ref,
-  Runtime,
-  Schema,
-} from 'effect';
+import { Context, Effect, flow, Layer, MutableHashMap, Option, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
-import { UnsecuredJWT } from 'jose';
-import { Magic, PromiEvent } from 'magic-sdk';
-
-import {
-  AuthMagicLinkResponseSchema,
-  AuthRefreshResponseSchema,
-  AuthService,
-} from '@the-dev-tools/spec/auth/v1/auth_pb';
 import { files } from '@the-dev-tools/spec/files';
 import { NodeKind, NodeListResponseSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-
-import { authorizationInterceptor, AuthTransport, MagicClient } from './auth';
-import { AccessTokenPayload, RefreshTokenPayload } from './jwt';
-import { registry } from './registry';
 import { AnyFnEffect, ApiTransport, effectInterceptor, errorInterceptor, Request } from './transport';
 
 export class Faker extends Context.Tag('Faker')<Faker, FakerClass>() {}
@@ -40,64 +15,6 @@ export const FakerLive = Layer.sync(Faker, () => {
   faker.seed(0);
   return faker;
 });
-
-class EmailRef extends Context.Tag('EmailRef')<EmailRef, Ref.Ref<string>>() {}
-
-const EmailMock = Layer.effect(
-  EmailRef,
-  Effect.flatMap(Faker, (_) => Ref.make(_.internet.email())),
-);
-
-const AuthTransportMock = Layer.effect(
-  AuthTransport,
-  Effect.gen(function* () {
-    const runtime = yield* Effect.runtime<EmailRef | Faker>();
-    return createRouterTransport(
-      (router) => {
-        router.service(AuthService, {
-          authMagicLink: () =>
-            pipe(
-              tokens,
-              Effect.map((_) => create(AuthMagicLinkResponseSchema, _)),
-              Runtime.runPromise(runtime),
-            ),
-          authRefresh: () =>
-            pipe(
-              tokens,
-              Effect.map((_) => create(AuthRefreshResponseSchema, _)),
-              Runtime.runPromise(runtime),
-            ),
-        });
-      },
-      {
-        transport: {
-          interceptors: [yield* effectInterceptor(mockInterceptor)],
-          jsonOptions: { registry },
-        },
-      },
-    );
-  }),
-);
-
-const MagicClientMock = Layer.effect(
-  MagicClient,
-  Effect.gen(function* () {
-    const runtime = yield* Effect.runtime<EmailRef | Faker>();
-    return {
-      auth: {
-        loginWithMagicLink: (request) =>
-          Effect.gen(function* () {
-            yield* Effect.flatMap(EmailRef, Ref.set(request.email));
-            const faker = yield* Faker;
-            return faker.string.uuid();
-          }).pipe(Runtime.runPromise(runtime)) as PromiEvent<string>,
-      } as Partial<Magic['auth']>,
-      user: {
-        logout: () => Promise.resolve(true),
-      },
-    } as Magic;
-  }),
-);
 
 const fakeScalar = (faker: (typeof Faker)['Service'], scalar: ScalarType, field: DescField) => {
   if (field.name.endsWith('Id')) {
@@ -254,20 +171,14 @@ const ApiTransportMock = Layer.effect(
       {
         transport: {
           // Interceptor flow order is reversed
-          interceptors: [yield* effectInterceptor(flow(errorInterceptor, mockInterceptor, authorizationInterceptor))],
+          interceptors: [yield* effectInterceptor(flow(errorInterceptor, mockInterceptor))],
         },
       },
     );
   }),
 );
 
-export const ApiMock = pipe(
-  ApiTransportMock,
-  Layer.provideMerge(AuthTransportMock),
-  Layer.provideMerge(MagicClientMock),
-  Layer.provide(EmailMock),
-  Layer.provide(FakerLive),
-);
+export const ApiMock = pipe(ApiTransportMock, Layer.provide(FakerLive));
 
 const mockInterceptor =
   <E, R>(next: AnyFnEffect<E, R>) =>
@@ -278,28 +189,3 @@ const mockInterceptor =
       yield* Effect.sleep('500 millis');
       return response;
     });
-
-const tokens = Effect.gen(function* () {
-  const email = yield* Effect.flatMap(EmailRef, Ref.get);
-
-  const accessToken = yield* pipe(
-    AccessTokenPayload.make({
-      email,
-      exp: pipe(yield* DateTime.now, DateTime.add({ minutes: 1 }), DateTime.toDate),
-      token_type: 'access_token',
-    }),
-    Schema.encode(AccessTokenPayload),
-    Effect.map((_) => new UnsecuredJWT(_).encode()),
-  );
-
-  const refreshToken = yield* pipe(
-    RefreshTokenPayload.make({
-      exp: pipe(yield* DateTime.now, DateTime.add({ days: 1 }), DateTime.toDate),
-      token_type: 'refresh_token',
-    }),
-    Schema.encode(RefreshTokenPayload),
-    Effect.map((_) => new UnsecuredJWT(_).encode()),
-  );
-
-  return { accessToken, refreshToken };
-});

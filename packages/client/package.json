@@ -46,8 +46,6 @@
     "@xyflow/react": "12.8.4",
     "effect": "3.17.9",
     "id128": "1.6.6",
-    "jose": "6.0.12",
-    "magic-sdk": "29.4.2",
     "prettier": "3.6.2",
     "react": "19.1.1",
     "react-aria": "3.42.0",

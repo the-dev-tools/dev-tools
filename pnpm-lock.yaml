@@ -370,12 +370,6 @@ importers:
       id128:
         specifier: 1.6.6
         version: 1.6.6
-      jose:
-        specifier: 6.0.12
-        version: 6.0.12
-      magic-sdk:
-        specifier: 29.4.2
-        version: 29.4.2
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -8392,9 +8386,6 @@ packages:
   jiti@2.5.1:
     resolution: {integrity: sha512-twQoecYPiVA5K/h6SxtORw/Bs3ar+mLUtoPSc7iMXzQzK8d7eJ/R09wmTwAjiamETn1cXYPGfNnu7DMoHgu12w==}
     hasBin: true
-
-  jose@6.0.12:
-    resolution: {integrity: sha512-T8xypXs8CpmiIi78k0E+Lk7T2zlK4zDyg+o1CZ4AkOHgDg98ogdP2BeZ61lTFKFyoEwJ9RgAgN+SdM3iPgNonQ==}
 
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
@@ -20820,8 +20811,6 @@ snapshots:
       supports-color: 8.1.1
 
   jiti@2.5.1: {}
-
-  jose@6.0.12: {}
 
   joycon@3.1.1: {}
 

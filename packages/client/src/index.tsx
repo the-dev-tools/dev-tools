@@ -2,14 +2,13 @@ import { TransportProvider } from '@connectrpc/connect-query';
 import { DataProvider, getDefaultManagers, useController } from '@data-client/react';
 import { Registry, RegistryContext } from '@effect-atom/atom-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createBrowserHistory, createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
+import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { Effect, Layer, Option, Predicate, Runtime, Schema } from 'effect';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { scan } from 'react-scan';
 import { AriaRouterProvider } from '@the-dev-tools/ui/router';
 import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
-import { LocalMode } from '~/api/local';
 import { ApiErrorHandler, ApiTransport } from '~/api/transport';
 import { makeDataClient } from '~data-client';
 import { RouterContext } from '~routes/context';
@@ -19,15 +18,15 @@ import './styles.css';
 
 scan({ enabled: !import.meta.env.PROD, showToolbar: false });
 
-const makeRouter = Effect.gen(function* () {
-  // TODO: create an Electron-related layer instead to better represent this logic
-  const history = (yield* LocalMode) ? createHashHistory() : createBrowserHistory();
-  return createRouter({ context: {} as RouterContext, history, routeTree });
+const router = createRouter({
+  context: {} as RouterContext,
+  history: createHashHistory(),
+  routeTree,
 });
 
 declare module '@tanstack/react-router' {
   interface Register {
-    router: Effect.Effect.Success<typeof makeRouter>;
+    router: typeof router;
   }
 }
 
@@ -50,11 +49,9 @@ export const ApiErrorHandlerLive = Layer.succeed(
   (error) => void toastQueue.add({ title: error.message }),
 );
 
-interface RootProps extends Omit<RouterContext, 'dataClient'> {
-  router: Effect.Effect.Success<typeof makeRouter>;
-}
+interface RootProps extends Omit<RouterContext, 'dataClient'> {}
 
-const Root = ({ router, transport, ...context }: RootProps) => {
+const Root = ({ transport, ...context }: RootProps) => {
   const controller = useController();
   const dataClient = makeDataClient({ controller, transport });
   return <RouterProvider context={{ ...context, dataClient, transport }} router={router} />;
@@ -69,10 +66,9 @@ export const app = Effect.gen(function* () {
 
   const transport = yield* ApiTransport;
   const queryClient = new QueryClient();
-  const router = yield* makeRouter;
   const atomRegistry = yield* Registry.AtomRegistry;
 
-  let _ = <Root {...{ queryClient, router, runtime, transport }} />;
+  let _ = <Root {...{ queryClient, runtime, transport }} />;
   _ = <RegistryContext value={atomRegistry}>{_}</RegistryContext>;
   _ = <ToastQueueContext.Provider value={Option.some(toastQueue)}>{_}</ToastQueueContext.Provider>;
   _ = <AriaRouterProvider>{_}</AriaRouterProvider>;
