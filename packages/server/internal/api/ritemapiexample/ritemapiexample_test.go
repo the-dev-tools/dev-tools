@@ -33,6 +33,7 @@ import (
 	"the-dev-tools/server/pkg/testutil"
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 
 	"connectrpc.com/connect"
 )
@@ -58,8 +59,8 @@ func TestGetExampleApi(t *testing.T) {
 	brs := sbodyraw.New(queries)
 	ers := sexampleresp.New(queries)
 	erhs := sexamplerespheader.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, mockLogger)
+	vs := svar.New(queries, mockLogger)
 	as := sassert.New(queries)
 	ars := sassertres.New(queries)
 
@@ -165,8 +166,8 @@ func TestCreateExampleApi(t *testing.T) {
 	brs := sbodyraw.New(queries)
 	ers := sexampleresp.New(queries)
 	erhs := sexamplerespheader.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, mockLogger)
+	vs := svar.New(queries, mockLogger)
 	as := sassert.New(queries)
 	ars := sassertres.New(queries)
 
@@ -265,8 +266,8 @@ func TestUpdateExampleApi(t *testing.T) {
 	brs := sbodyraw.New(queries)
 	ers := sexampleresp.New(queries)
 	erhs := sexamplerespheader.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, mockLogger)
+	vs := svar.New(queries, mockLogger)
 	as := sassert.New(queries)
 	ars := sassertres.New(queries)
 
@@ -375,8 +376,8 @@ func TestDeleteExampleApi(t *testing.T) {
 	brs := sbodyraw.New(queries)
 	ers := sexampleresp.New(queries)
 	erhs := sexamplerespheader.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, mockLogger)
+	vs := svar.New(queries, mockLogger)
 	as := sassert.New(queries)
 	ars := sassertres.New(queries)
 
@@ -598,5 +599,115 @@ func TestPrepareCopyExample(t *testing.T) {
 	if copiedHeader.ExampleID != result.Example.ID {
 		t.Errorf("new header's ExampleID %s does not match new example ID %s",
 			copiedHeader.ExampleID, result.Example.ID)
+	}
+}
+
+func TestExampleMoveParameterValidation(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	db := base.DB
+
+	mockLogger := mocklogger.NewMockLogger()
+
+	ias := sitemapi.New(base.Queries)
+	iaes := sitemapiexample.New(base.Queries)
+	ifs := sitemfolder.New(base.Queries)
+	ws := sworkspace.New(base.Queries)
+	cs := scollection.New(base.Queries, mockLogger)
+	us := suser.New(base.Queries)
+	hs := sexampleheader.New(base.Queries)
+	qs := sexamplequery.New(base.Queries)
+	bfs := sbodyform.New(base.Queries)
+	bues := sbodyurl.New(base.Queries)
+	brs := sbodyraw.New(base.Queries)
+	erhs := sexamplerespheader.New(base.Queries)
+	ers := sexampleresp.New(base.Queries)
+	es := senv.New(base.Queries, mockLogger)
+	vs := svar.New(base.Queries, mockLogger)
+	as := sassert.New(base.Queries)
+	ars := sassertres.New(base.Queries)
+	logChanMap := logconsole.NewLogChanMapWith(10000)
+
+	rpcExample := ritemapiexample.New(db, iaes, ias, ifs,
+		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
+
+	tests := []struct {
+		name        string
+		request     *examplev1.ExampleMoveRequest
+		expectedErr string
+	}{
+		{
+			name: "invalid endpoint ID",
+			request: &examplev1.ExampleMoveRequest{
+				EndpointId:      []byte("invalid"),
+				ExampleId:       idwrap.NewNow().Bytes(),
+				Position:        resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+				TargetExampleId: idwrap.NewNow().Bytes(),
+			},
+			expectedErr: "invalid endpoint ID",
+		},
+		{
+			name: "invalid example ID",
+			request: &examplev1.ExampleMoveRequest{
+				EndpointId:      idwrap.NewNow().Bytes(),
+				ExampleId:       []byte("invalid"),
+				Position:        resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+				TargetExampleId: idwrap.NewNow().Bytes(),
+			},
+			expectedErr: "invalid example ID",
+		},
+		{
+			name: "invalid target example ID",
+			request: &examplev1.ExampleMoveRequest{
+				EndpointId:      idwrap.NewNow().Bytes(),
+				ExampleId:       idwrap.NewNow().Bytes(),
+				Position:        resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+				TargetExampleId: []byte("invalid"),
+			},
+			expectedErr: "invalid target example ID",
+		},
+		{
+			name: "invalid position",
+			request: &examplev1.ExampleMoveRequest{
+				EndpointId:      idwrap.NewNow().Bytes(),
+				ExampleId:       idwrap.NewNow().Bytes(),
+				Position:        resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED,
+				TargetExampleId: idwrap.NewNow().Bytes(),
+			},
+			expectedErr: "invalid position: must be AFTER or BEFORE",
+		},
+		{
+			name: "move example relative to itself",
+			request: func() *examplev1.ExampleMoveRequest {
+				exampleID := idwrap.NewNow()
+				return &examplev1.ExampleMoveRequest{
+					EndpointId:      idwrap.NewNow().Bytes(),
+					ExampleId:       exampleID.Bytes(),
+					Position:        resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+					TargetExampleId: exampleID.Bytes(), // Same as ExampleId
+				}
+			}(),
+			expectedErr: "cannot move example relative to itself",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := connect.NewRequest(tt.request)
+			_, err := rpcExample.ExampleMove(ctx, req)
+
+			if err == nil {
+				t.Fatal("expected error but got none")
+			}
+
+			connectErr := err.(*connect.Error)
+			if connectErr.Message() != tt.expectedErr {
+				t.Errorf("expected error %q, got %q", tt.expectedErr, connectErr.Message())
+			}
+
+			if connectErr.Code() != connect.CodeInvalidArgument {
+				t.Errorf("expected code %v, got %v", connect.CodeInvalidArgument, connectErr.Code())
+			}
+		})
 	}
 }

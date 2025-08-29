@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"sort"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/renv"
@@ -17,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	"the-dev-tools/server/pkg/translate/tvar"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 	variablev1 "the-dev-tools/spec/dist/buf/go/variable/v1"
 	"the-dev-tools/spec/dist/buf/go/variable/v1/variablev1connect"
 
@@ -57,13 +59,10 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
-		vars, err := v.vs.GetVariableByEnvID(ctx, envID)
+		vars, err := v.vs.GetVariablesByEnvIDOrdered(ctx, envID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		sort.Slice(vars, func(i, j int) bool {
-			return vars[i].ID.Compare(vars[j].ID) < 0
-		})
 
 		rpcVars := tgeneric.MassConvert(vars, tvar.SerializeModelToRPCItem)
 		return connect.NewResponse(&variablev1.VariableListResponse{Items: rpcVars, EnvironmentId: envIDRaw}), nil
@@ -83,7 +82,7 @@ func (v *VarRPC) VariableList(ctx context.Context, req *connect.Request[variable
 		}
 		var vars []mvar.Var
 		for _, env := range envs {
-			envVars, err := v.vs.GetVariableByEnvID(ctx, env.ID)
+			envVars, err := v.vs.GetVariablesByEnvIDOrdered(ctx, env.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -222,7 +221,93 @@ func CheckOwnerVar(ctx context.Context, us suser.UserService, vs svar.VarService
 	return renv.CheckOwnerEnv(ctx, us, es, variable.EnvID)
 }
 
-// TODO: implement move RPC
 func (c *VarRPC) VariableMove(ctx context.Context, req *connect.Request[variablev1.VariableMoveRequest]) (*connect.Response[variablev1.VariableMoveResponse], error) {
+	// Validate variable ID
+	variableID, err := idwrap.NewFromBytes(req.Msg.GetVariableId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Validate target variable ID
+	targetVariableID, err := idwrap.NewFromBytes(req.Msg.GetTargetVariableId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for the variable being moved
+	rpcErr := permcheck.CheckPerm(CheckOwnerVar(ctx, c.us, c.vs, c.es, variableID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Check permissions for the target variable
+	rpcErr = permcheck.CheckPerm(CheckOwnerVar(ctx, c.us, c.vs, c.es, targetVariableID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Validate position
+	position := req.Msg.GetPosition()
+	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified"))
+	}
+
+	// Prevent moving variable relative to itself
+	if variableID.Compare(targetVariableID) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move variable relative to itself"))
+	}
+
+	// Verify both variables are in the same environment
+	sourceEnvID, err := c.vs.GetEnvID(ctx, variableID)
+	if err != nil {
+		if err == svar.ErrNoVarFound {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("variable not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	targetEnvID, err := c.vs.GetEnvID(ctx, targetVariableID)
+	if err != nil {
+		if err == svar.ErrNoVarFound {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("target variable not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if sourceEnvID.Compare(targetEnvID) != 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("variables must be in the same environment"))
+	}
+
+	// Add debug logging for move operations
+	slog.DebugContext(ctx, "VariableMove request",
+		"variable_id", variableID.String(),
+		"target_variable_id", targetVariableID.String(),
+		"position", position.String(),
+		"environment_id", sourceEnvID.String())
+
+	// Execute the move operation
+	switch position {
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		err = c.vs.MoveVariableAfter(ctx, variableID, targetVariableID)
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		err = c.vs.MoveVariableBefore(ctx, variableID, targetVariableID)
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid position"))
+	}
+
+	if err != nil {
+		// Map service-level errors to appropriate Connect error codes
+		if err == svar.ErrNoVarFound {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		if err == svar.ErrSelfReferentialMove {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		if err == svar.ErrEnvironmentBoundaryViolation {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	return connect.NewResponse(&variablev1.VariableMoveResponse{}), nil
 }

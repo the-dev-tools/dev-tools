@@ -17,7 +17,11 @@ CREATE TABLE workspaces (
   collection_count INT NOT NULL DEFAULT 0,
   flow_count INT NOT NULL DEFAULT 0,
   active_env BLOB,
-  global_env BLOB
+  global_env BLOB,
+  prev BLOB,
+  next BLOB,
+  FOREIGN KEY (prev) REFERENCES workspaces (id) ON DELETE SET NULL,
+  FOREIGN KEY (next) REFERENCES workspaces (id) ON DELETE SET NULL
 );
 
 CREATE INDEX workspaces_idx1 ON workspaces (
@@ -49,6 +53,9 @@ CREATE TABLE collections (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
   name TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (prev, next, workspace_id),
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
@@ -166,14 +173,33 @@ CREATE TABLE example_header (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
-  FOREIGN KEY (delta_parent_id) REFERENCES example_header (id) ON DELETE CASCADE
+  FOREIGN KEY (delta_parent_id) REFERENCES example_header (id) ON DELETE CASCADE,
+  FOREIGN KEY (prev) REFERENCES example_header (id) ON DELETE SET NULL,
+  FOREIGN KEY (next) REFERENCES example_header (id) ON DELETE SET NULL
 );
 
 CREATE INDEX example_header_idx1 ON example_header (
   example_id,
   header_key,
   delta_parent_id
+);
+
+-- Linked list indexes for header ordering optimization
+CREATE INDEX example_header_linked_list_idx ON example_header (
+  example_id,
+  prev,
+  next
+);
+
+CREATE INDEX example_header_prev_idx ON example_header (
+  prev
+);
+
+CREATE INDEX example_header_next_idx ON example_header (
+  next
 );
 
 CREATE TABLE example_resp_header (
@@ -260,10 +286,17 @@ CREATE TABLE environment (
   type INT8 NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (prev, next, workspace_id),
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
 CREATE INDEX environment_idx1 ON environment (workspace_id, type, name);
+
+-- Performance indexes for environment ordering operations
+CREATE INDEX environment_ordering ON environment (workspace_id, prev, next);
+CREATE INDEX environment_workspace_lookup ON environment (id, workspace_id);
 
 CREATE TABLE variable (
     id BLOB NOT NULL PRIMARY KEY,
@@ -272,11 +305,17 @@ CREATE TABLE variable (
     value TEXT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     description TEXT NOT NULL,
+    prev BLOB,
+    next BLOB,
     UNIQUE (env_id, var_key),
+    UNIQUE (prev, next, env_id),
     FOREIGN KEY (env_id) REFERENCES environment(id) ON DELETE CASCADE
 );
 
 CREATE INDEX variable_idx1 ON variable (env_id, var_key);
+
+-- Performance indexes for variable ordering operations
+CREATE INDEX variable_ordering ON variable (env_id, prev, next);
 
 CREATE TABLE assertion (
   id BLOB NOT NULL PRIMARY KEY,
@@ -432,8 +471,15 @@ CREATE TABLE flow_variable (
   value TEXT NOT NULL,
   enabled BOOL NOT NULL,
   description TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (flow_id, key),
+  UNIQUE (prev, next, flow_id),
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
+
+-- Performance indexes for flow variable ordering operations
+CREATE INDEX flow_variable_ordering ON flow_variable (flow_id, prev, next);
 
 CREATE TABLE node_execution (
   id BLOB NOT NULL PRIMARY KEY,
@@ -455,3 +501,70 @@ CREATE TABLE node_execution (
 CREATE INDEX node_execution_idx1 ON node_execution (node_id);
 CREATE INDEX node_execution_idx2 ON node_execution (completed_at DESC);
 CREATE INDEX node_execution_idx3 ON node_execution (state);
+
+/*
+ * UNIFIED COLLECTION ITEMS TABLE
+ * Enables mixed folder/endpoint ordering with drag-and-drop functionality
+ */
+CREATE TABLE collection_items (
+  id BLOB NOT NULL PRIMARY KEY,
+  collection_id BLOB NOT NULL,
+  parent_folder_id BLOB,
+  item_type INT8 NOT NULL,                         -- 0 = folder, 1 = endpoint
+  folder_id BLOB,
+  endpoint_id BLOB,
+  name TEXT NOT NULL,
+  prev_id BLOB,
+  next_id BLOB,
+  CHECK (item_type IN (0, 1)),
+  CHECK (
+    (item_type = 0 AND folder_id IS NOT NULL AND endpoint_id IS NULL) OR
+    (item_type = 1 AND folder_id IS NULL AND endpoint_id IS NOT NULL)
+  ),
+  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_folder_id) REFERENCES collection_items (id) ON DELETE CASCADE,
+  FOREIGN KEY (folder_id) REFERENCES item_folder (id) ON DELETE CASCADE,
+  FOREIGN KEY (endpoint_id) REFERENCES item_api (id) ON DELETE CASCADE,
+  UNIQUE (prev_id, next_id, parent_folder_id, collection_id)
+);
+
+CREATE INDEX collection_items_idx1 ON collection_items (
+  collection_id, 
+  parent_folder_id, 
+  item_type
+);
+
+CREATE INDEX collection_items_idx2 ON collection_items (
+  folder_id
+) WHERE folder_id IS NOT NULL;
+
+CREATE INDEX collection_items_idx3 ON collection_items (
+  endpoint_id  
+) WHERE endpoint_id IS NOT NULL;
+
+CREATE INDEX collection_items_idx4 ON collection_items (
+  prev_id, 
+  next_id
+);
+
+CREATE INDEX collection_items_idx5 ON collection_items (
+  collection_id,
+  name
+);
+
+-- Performance indexes for cross-collection move operations
+-- Optimize workspace validation queries for collections
+CREATE INDEX collections_workspace_lookup ON collections (id, workspace_id);
+
+-- Optimize cross-collection validation queries for collection items  
+CREATE INDEX collection_items_workspace_lookup ON collection_items (id, collection_id);
+
+-- Optimize user access validation for cross-collection moves
+CREATE INDEX workspaces_users_collection_access ON workspaces_users (user_id, workspace_id);
+
+-- Optimize collection-workspace JOIN operations in cross-collection queries
+CREATE INDEX collections_workspace_id_lookup ON collections (workspace_id, id);
+
+-- Optimize legacy table updates for cross-collection moves
+CREATE INDEX item_api_collection_update ON item_api (id, collection_id);
+CREATE INDEX item_folder_collection_update ON item_folder (id, collection_id);

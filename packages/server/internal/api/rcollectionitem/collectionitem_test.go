@@ -9,6 +9,7 @@ import (
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/scollectionitem"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
@@ -29,6 +30,7 @@ func TestCollectionItemRPC_CollectionItemList(t *testing.T) {
 	mockLogger := mocklogger.NewMockLogger()
 
 	cs := scollection.New(queries, mockLogger)
+	cis := scollectionitem.New(queries, mockLogger)
 	us := suser.New(queries)
 	ifs := sitemfolder.New(queries)
 	ias := sitemapi.New(queries)
@@ -77,7 +79,7 @@ func TestCollectionItemRPC_CollectionItemList(t *testing.T) {
 		t.Error(err)
 	}
 
-	serviceRPC := rcollectionitem.New(db, cs, us, ifs, ias, iaes, res)
+	serviceRPC := rcollectionitem.New(db, cs, cis, us, ifs, ias, iaes, res)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	t.Run("Root items", func(t *testing.T) {
 		reqData := &itemv1.CollectionItemListRequest{

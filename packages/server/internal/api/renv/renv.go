@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
@@ -17,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	environmentv1 "the-dev-tools/spec/dist/buf/go/environment/v1"
 	"the-dev-tools/spec/dist/buf/go/environment/v1/environmentv1connect"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 	"time"
 
 	"connectrpc.com/connect"
@@ -188,8 +190,109 @@ func CheckOwnerEnv(ctx context.Context, su suser.UserService, es senv.EnvService
 	return su.CheckUserBelongsToWorkspace(ctx, userID, env.WorkspaceID)
 }
 
-// TODO: implement move RPC
 func (c *EnvRPC) EnvironmentMove(ctx context.Context, req *connect.Request[environmentv1.EnvironmentMoveRequest]) (*connect.Response[environmentv1.EnvironmentMoveResponse], error) {
-	resp := &environmentv1.EnvironmentMoveResponse{}
-	return connect.NewResponse(resp), nil
+	// Validate environment ID
+	environmentID, err := idwrap.NewFromBytes(req.Msg.GetEnvironmentId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for the environment being moved
+	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, c.us, c.es, environmentID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Validate workspace ID if provided (for additional permission checking)
+	if len(req.Msg.GetWorkspaceId()) > 0 {
+		workspaceID, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		
+		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, workspaceID))
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+
+		// Verify environment belongs to the specified workspace
+		environmentWorkspaceID, err := c.es.GetWorkspaceID(ctx, environmentID)
+		if err != nil {
+			if err == senv.ErrNoEnvironmentFound {
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("environment not found"))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		
+		if environmentWorkspaceID.Compare(workspaceID) != 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("environment does not belong to specified workspace"))
+		}
+	}
+
+	// Validate target environment ID
+	targetEnvironmentID, err := idwrap.NewFromBytes(req.Msg.GetTargetEnvironmentId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for target environment (must be in same workspace)
+	rpcErr = permcheck.CheckPerm(CheckOwnerEnv(ctx, c.us, c.es, targetEnvironmentID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Validate position
+	position := req.Msg.GetPosition()
+	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified"))
+	}
+
+	// Prevent moving environment relative to itself
+	if environmentID.Compare(targetEnvironmentID) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move environment relative to itself"))
+	}
+
+	// Verify both environments are in the same workspace
+	sourceWorkspaceID, err := c.es.GetWorkspaceID(ctx, environmentID)
+	if err != nil {
+		if err == senv.ErrNoEnvironmentFound {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("environment not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	targetWorkspaceID, err := c.es.GetWorkspaceID(ctx, targetEnvironmentID)
+	if err != nil {
+		if err == senv.ErrNoEnvironmentFound {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("target environment not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if sourceWorkspaceID.Compare(targetWorkspaceID) != 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("environments must be in the same workspace"))
+	}
+
+	// Add debug logging for move operations
+	slog.DebugContext(ctx, "EnvironmentMove request",
+		"environment_id", environmentID.String(),
+		"target_environment_id", targetEnvironmentID.String(),
+		"position", position.String(),
+		"workspace_id", sourceWorkspaceID.String())
+
+	// Execute the move operation
+	switch position {
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		err = c.es.MoveEnvironmentAfter(ctx, environmentID, targetEnvironmentID)
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		err = c.es.MoveEnvironmentBefore(ctx, environmentID, targetEnvironmentID)
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid position"))
+	}
+
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&environmentv1.EnvironmentMoveResponse{}), nil
 }

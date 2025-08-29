@@ -17,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/translate/tworkspace"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 	workspacev1 "the-dev-tools/spec/dist/buf/go/workspace/v1"
 	"the-dev-tools/spec/dist/buf/go/workspace/v1/workspacev1connect"
 
@@ -99,7 +100,7 @@ func (c *WorkspaceServiceRPC) WorkspaceList(ctx context.Context, req *connect.Re
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
-	workspaces, err := c.ws.GetMultiByUserID(ctx, userID)
+	workspaces, err := c.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
@@ -532,8 +533,70 @@ func CheckOwnerWorkspace(ctx context.Context, su suser.UserService, workspaceID 
 	return su.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
 }
 
-// TODO: implement move RPC
 func (c *WorkspaceServiceRPC) WorkspaceMove(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMoveRequest]) (*connect.Response[workspacev1.WorkspaceMoveResponse], error) {
-	resp := &workspacev1.WorkspaceMoveResponse{}
-	return connect.NewResponse(resp), nil
+	// Get user ID from authenticated context
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
+	}
+
+	// Validate workspace ID
+	workspaceID, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid workspace id"))
+	}
+
+	// Validate target workspace ID
+	targetWorkspaceID, err := idwrap.NewFromBytes(req.Msg.GetTargetWorkspaceId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid target workspace id"))
+	}
+
+	// Validate position
+	position := req.Msg.GetPosition()
+	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified"))
+	}
+
+	// Prevent moving workspace relative to itself
+	if workspaceID.Compare(targetWorkspaceID) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move workspace relative to itself"))
+	}
+
+	// Verify user has access to both workspaces (source and target)
+	_, err = c.ws.GetByIDandUserID(ctx, workspaceID, userID)
+	if err != nil {
+		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	_, err = c.ws.GetByIDandUserID(ctx, targetWorkspaceID, userID)
+	if err != nil {
+		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("target workspace not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Execute the move operation
+	switch position {
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		err = c.ws.MoveWorkspaceAfter(ctx, userID, workspaceID, targetWorkspaceID)
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		err = c.ws.MoveWorkspaceBefore(ctx, userID, workspaceID, targetWorkspaceID)
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid position"))
+	}
+
+	if err != nil {
+		// Map service-level errors to appropriate Connect error codes
+		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&workspacev1.WorkspaceMoveResponse{}), nil
 }

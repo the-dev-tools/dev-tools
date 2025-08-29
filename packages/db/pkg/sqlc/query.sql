@@ -359,6 +359,121 @@ DELETE FROM item_api_example
 WHERE
   id = ?;
 
+-- name: GetExamplesByEndpointIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail for endpoint-scoped ordering
+-- Examples are scoped to specific endpoints via item_api_id column
+-- Excludes default examples (is_default = FALSE) to match other example queries
+WITH RECURSIVE ordered_examples AS (
+  -- Base case: Find the head (prev IS NULL) for this endpoint
+  SELECT
+    e.id,
+    e.item_api_id,
+    e.collection_id,
+    e.is_default,
+    e.body_type,
+    e.name,
+    e.version_parent_id,
+    e.prev,
+    e.next,
+    0 as position
+  FROM
+    item_api_example e
+  WHERE
+    e.item_api_id = ? AND
+    e.version_parent_id IS NULL AND
+    e.is_default = FALSE AND
+    e.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    e.id,
+    e.item_api_id,
+    e.collection_id,
+    e.is_default,
+    e.body_type,
+    e.name,
+    e.version_parent_id,
+    e.prev,
+    e.next,
+    oe.position + 1
+  FROM
+    item_api_example e
+  INNER JOIN ordered_examples oe ON e.prev = oe.id
+  WHERE
+    e.item_api_id = ? AND
+    e.version_parent_id IS NULL AND
+    e.is_default = FALSE
+)
+SELECT
+  oe.id,
+  oe.item_api_id,
+  oe.collection_id,
+  oe.is_default,
+  oe.body_type,
+  oe.name,
+  oe.version_parent_id,
+  oe.prev,
+  oe.next,
+  oe.position
+FROM
+  ordered_examples oe
+ORDER BY
+  oe.position;
+
+-- name: GetAllExamplesByEndpointID :many
+-- Returns ALL examples for an endpoint, including isolated ones (prev=NULL, next=NULL)
+-- Unlike GetExamplesByEndpointIDOrdered, this query finds examples regardless of linked-list state
+-- Essential for finding examples that became isolated during failed move operations
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  is_default,
+  body_type,
+  name,
+  version_parent_id,
+  prev,
+  next
+FROM
+  item_api_example
+WHERE
+  item_api_id = ? AND
+  version_parent_id IS NULL AND
+  is_default = FALSE
+ORDER BY
+  name ASC;
+
+-- name: UpdateExampleOrder :exec
+-- Update the prev/next pointers for a single example with endpoint validation
+-- Used for moving examples within the endpoint's linked list
+UPDATE item_api_example
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  item_api_id = ?;
+
+-- name: UpdateExamplePrev :exec
+-- Update only the prev pointer for an example with endpoint validation (used in deletion)
+UPDATE item_api_example
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  item_api_id = ?;
+
+-- name: UpdateExampleNext :exec
+-- Update only the next pointer for an example with endpoint validation (used in deletion)
+UPDATE item_api_example
+SET
+  next = ?
+WHERE
+  id = ? AND
+  item_api_id = ?;
+
 --
 -- ItemFolder
 --
@@ -556,7 +671,9 @@ WHERE
 SELECT
   id,
   workspace_id,
-  name
+  name,
+  prev,
+  next
 FROM
   collections
 WHERE
@@ -609,9 +726,9 @@ LIMIT
 
 -- name: CreateCollection :exec
 INSERT INTO
-  collections (id, workspace_id, name)
+  collections (id, workspace_id, name, prev, next)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateCollection :exec
 UPDATE collections
@@ -625,6 +742,111 @@ WHERE
 DELETE FROM collections
 WHERE
   id = ?;
+
+-- name: GetCollectionsInOrder :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (workspace_id, prev) for optimal performance
+WITH RECURSIVE ordered_collections AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    c.id,
+    c.workspace_id,
+    c.name,
+    c.prev,
+    c.next,
+    0 as position
+  FROM
+    collections c
+  WHERE
+    c.workspace_id = ? AND
+    c.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    c.id,
+    c.workspace_id,
+    c.name,
+    c.prev,
+    c.next,
+    oc.position + 1
+  FROM
+    collections c
+  INNER JOIN ordered_collections oc ON c.prev = oc.id
+  WHERE
+    c.workspace_id = ?
+)
+SELECT
+  oc.id,
+  oc.workspace_id,
+  oc.name,
+  oc.prev,
+  oc.next,
+  oc.position
+FROM
+  ordered_collections oc
+ORDER BY
+  oc.position;
+
+-- name: GetCollectionByPrevNext :one
+-- Find collection by its prev/next references for position-based operations
+SELECT
+  id,
+  workspace_id,
+  name,
+  prev,
+  next
+FROM
+  collections
+WHERE
+  workspace_id = ? AND
+  prev = ? AND
+  next = ?
+LIMIT
+  1;
+
+-- name: UpdateCollectionOrder :exec
+-- Update the prev/next pointers for a single collection
+-- Used for moving collections within the linked list
+UPDATE collections
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
+-- name: UpdateCollectionPositions :exec
+-- Batch update positions for multiple collections (for efficient reordering)
+-- This query updates prev/next based on the position parameter
+-- Usage: Call with arrays of (id, prev_id, next_id, workspace_id) for each collection
+-- Note: In practice, this would be used with multiple individual UPDATE statements
+-- since SQLite doesn't support arrays directly in prepared statements
+UPDATE collections
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
+-- name: GetCollectionMaxPosition :one
+-- Get the last collection in the list (tail) for a workspace
+-- Used when appending new collections to the end of the list
+SELECT
+  id,
+  workspace_id,
+  name,
+  prev,
+  next
+FROM
+  collections
+WHERE
+  workspace_id = ? AND
+  next IS NULL
+LIMIT
+  1;
 
 --
 -- Workspaces
@@ -678,7 +900,9 @@ SELECT
   collection_count,
   flow_count,
   active_env,
-  global_env
+  global_env,
+  prev,
+  next
 FROM
   workspaces
 WHERE
@@ -699,7 +923,9 @@ SELECT
   collection_count,
   flow_count,
   active_env,
-  global_env
+  global_env,
+  prev,
+  next
 FROM
   workspaces
 WHERE
@@ -719,9 +945,9 @@ LIMIT
 
 -- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env)
+  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces
@@ -745,6 +971,129 @@ WHERE
 DELETE FROM workspaces
 WHERE
   id = ?;
+
+-- name: GetWorkspacesByUserIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail for user-scoped ordering
+-- Each user has their own workspace ordering maintained via workspaces_users table
+WITH RECURSIVE ordered_workspaces AS (
+  -- Base case: Find the head (prev IS NULL) for this user
+  SELECT
+    w.id,
+    w.name,
+    w.updated,
+    w.collection_count,
+    w.flow_count,
+    w.active_env,
+    w.global_env,
+    w.prev,
+    w.next,
+    0 as position
+  FROM
+    workspaces w
+  INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
+  WHERE
+    wu.user_id = ? AND
+    w.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    w.id,
+    w.name,
+    w.updated,
+    w.collection_count,
+    w.flow_count,
+    w.active_env,
+    w.global_env,
+    w.prev,
+    w.next,
+    ow.position + 1
+  FROM
+    workspaces w
+  INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
+  INNER JOIN ordered_workspaces ow ON w.prev = ow.id
+  WHERE
+    wu.user_id = ?
+)
+SELECT
+  ow.id,
+  ow.name,
+  ow.updated,
+  ow.collection_count,
+  ow.flow_count,
+  ow.active_env,
+  ow.global_env,
+  ow.prev,
+  ow.next,
+  ow.position
+FROM
+  ordered_workspaces ow
+ORDER BY
+  ow.position;
+
+-- name: GetAllWorkspacesByUserID :many
+-- Returns ALL workspaces for a user, including isolated ones (prev=NULL, next=NULL)
+-- Unlike GetWorkspacesByUserIDOrdered, this query finds workspaces regardless of linked-list state
+-- Essential for finding new workspaces that haven't been linked yet
+SELECT
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.prev,
+  w.next
+FROM
+  workspaces w
+INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
+WHERE
+  wu.user_id = ?
+ORDER BY
+  w.updated DESC;
+
+-- name: UpdateWorkspaceOrder :exec
+-- Update the prev/next pointers for a single workspace with user validation
+-- Used for moving workspaces within the user's linked list
+UPDATE workspaces
+SET
+  prev = ?,
+  next = ?
+WHERE
+  workspaces.id = ? AND
+  workspaces.id IN (
+    SELECT wu.workspace_id 
+    FROM workspaces_users wu
+    WHERE wu.user_id = ?
+  );
+
+-- name: UpdateWorkspacePrev :exec
+-- Update only the prev pointer for a workspace with user validation (used in deletion)
+UPDATE workspaces
+SET
+  prev = ?
+WHERE
+  workspaces.id = ? AND
+  workspaces.id IN (
+    SELECT wu.workspace_id 
+    FROM workspaces_users wu
+    WHERE wu.user_id = ?
+  );
+
+-- name: UpdateWorkspaceNext :exec
+-- Update only the next pointer for a workspace with user validation (used in deletion)
+UPDATE workspaces
+SET
+  next = ?
+WHERE
+  workspaces.id = ? AND
+  workspaces.id IN (
+    SELECT wu.workspace_id 
+    FROM workspaces_users wu
+    WHERE wu.user_id = ?
+  );
 
 --
 -- WorkspaceUsers
@@ -848,7 +1197,9 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
@@ -863,11 +1214,92 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
   example_id = ?;
+
+-- name: GetHeadersByExampleIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail for example-scoped ordering
+-- Headers are scoped to specific examples via example_id column
+WITH RECURSIVE ordered_headers AS (
+  -- Base case: Find the head (prev IS NULL) for this example
+  SELECT
+    h.id,
+    h.example_id,
+    h.delta_parent_id,
+    h.header_key,
+    h.enable,
+    h.description,
+    h.value,
+    h.prev,
+    h.next,
+    0 as position
+  FROM
+    example_header h
+  WHERE
+    h.example_id = ? AND
+    h.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    h.id,
+    h.example_id,
+    h.delta_parent_id,
+    h.header_key,
+    h.enable,
+    h.description,
+    h.value,
+    h.prev,
+    h.next,
+    oh.position + 1
+  FROM
+    example_header h
+  INNER JOIN ordered_headers oh ON h.prev = oh.id
+  WHERE
+    h.example_id = ?
+)
+SELECT
+  oh.id,
+  oh.example_id,
+  oh.delta_parent_id,
+  oh.header_key,
+  oh.enable,
+  oh.description,
+  oh.value,
+  oh.prev,
+  oh.next,
+  oh.position
+FROM
+  ordered_headers oh
+ORDER BY
+  oh.position;
+
+-- name: GetAllHeadersByExampleID :many
+-- Returns ALL headers for an example, including isolated ones (prev=NULL, next=NULL)
+-- Unlike GetHeadersByExampleIDOrdered, this query finds headers regardless of linked-list state
+-- Essential for finding headers that became isolated during failed move operations
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  header_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_header
+WHERE
+  example_id = ?
+ORDER BY
+  header_key ASC;
 
 -- name: GetHeaderByDeltaParentID :one
 SELECT
@@ -877,7 +1309,9 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
@@ -893,29 +1327,29 @@ WHERE
 
 -- name: CreateHeader :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateHeaderBulk :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateHeader :exec
 UPDATE example_header
@@ -926,6 +1360,56 @@ SET
   value = ?
 WHERE
   id = ?;
+
+-- name: UpdateHeaderOrder :exec
+-- Update the prev/next pointers for a single header with example validation
+-- Used for moving headers within the example's linked list
+UPDATE example_header
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?;
+
+-- name: UpdateHeaderPrev :exec
+-- Update only the prev pointer for a header with example validation (used in deletion)
+UPDATE example_header
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  example_id = ?;
+
+-- name: UpdateHeaderNext :exec
+-- Update only the next pointer for a header with example validation (used in deletion)
+UPDATE example_header
+SET
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?;
+
+-- name: GetHeaderTail :one
+-- Get the last header in the list (tail) for an example
+-- Used when appending new headers to the end of the list
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  header_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_header
+WHERE
+  example_id = ? AND
+  next IS NULL
+LIMIT
+  1;
 
 -- name: DeleteHeader :exec
 DELETE FROM example_header
@@ -1282,7 +1766,9 @@ SELECT
   workspace_id,
   type,
   name,
-  description
+  description,
+  prev,
+  next
 FROM
   environment
 WHERE
@@ -1295,7 +1781,9 @@ SELECT
   workspace_id,
   type,
   name,
-  description
+  description,
+  prev,
+  next
 FROM
   environment
 WHERE
@@ -1303,9 +1791,9 @@ WHERE
 
 -- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, type, name, description)
+  environment (id, workspace_id, type, name, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateEnvironment :exec
 UPDATE environment
@@ -1320,6 +1808,136 @@ DELETE FROM environment
 WHERE
   id = ?;
 
+-- name: GetEnvironmentsByWorkspaceIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (workspace_id, prev) for optimal performance
+WITH RECURSIVE ordered_environments AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    e.id,
+    e.workspace_id,
+    e.type,
+    e.name,
+    e.description,
+    e.prev,
+    e.next,
+    0 as position
+  FROM
+    environment e
+  WHERE
+    e.workspace_id = ? AND
+    e.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    e.id,
+    e.workspace_id,
+    e.type,
+    e.name,
+    e.description,
+    e.prev,
+    e.next,
+    oe.position + 1
+  FROM
+    environment e
+  INNER JOIN ordered_environments oe ON e.prev = oe.id
+  WHERE
+    e.workspace_id = ?
+)
+SELECT
+  oe.id,
+  oe.workspace_id,
+  oe.type,
+  oe.name,
+  oe.description,
+  oe.prev,
+  oe.next,
+  oe.position
+FROM
+  ordered_environments oe
+ORDER BY
+  oe.position;
+
+-- name: GetEnvironmentWorkspaceID :one
+-- Get workspace ID for environment (validation for move operations)
+SELECT
+  workspace_id
+FROM
+  environment
+WHERE
+  id = ?
+LIMIT
+  1;
+
+-- name: UpdateEnvironmentOrder :exec
+-- Update the prev/next pointers for a single environment
+-- Used for moving environments within the linked list
+UPDATE environment
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
+-- name: GetEnvironmentMaxPosition :one
+-- Get the last environment in the list (tail) for a workspace
+-- Used when appending new environments to the end of the list
+SELECT
+  id,
+  workspace_id,
+  type,
+  name,
+  description,
+  prev,
+  next
+FROM
+  environment
+WHERE
+  workspace_id = ? AND
+  next IS NULL
+LIMIT
+  1;
+
+-- name: GetEnvironmentByPrevNext :one
+-- Find environment by its prev/next references for position-based operations
+SELECT
+  id,
+  workspace_id,
+  type,
+  name,
+  description,
+  prev,
+  next
+FROM
+  environment
+WHERE
+  workspace_id = ? AND
+  prev = ? AND
+  next = ?
+LIMIT
+  1;
+
+-- name: UpdateEnvironmentNext :exec
+-- Update only the next pointer for an environment (used in deletion)
+UPDATE environment
+SET
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
+-- name: UpdateEnvironmentPrev :exec
+-- Update only the prev pointer for an environment (used in deletion)
+UPDATE environment
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
 /*
 * Variables
 */
@@ -1331,7 +1949,9 @@ SELECT
   var_key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   variable
 WHERE
@@ -1345,26 +1965,83 @@ SELECT
   var_key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   variable
 WHERE
   env_id = ?;
 
+-- name: GetVariablesByEnvironmentIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (env_id, prev) for optimal performance
+WITH RECURSIVE ordered_variables AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    v.id,
+    v.env_id,
+    v.var_key,
+    v.value,
+    v.enabled,
+    v.description,
+    v.prev,
+    v.next,
+    0 as position
+  FROM
+    variable v
+  WHERE
+    v.env_id = ? AND
+    v.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    v.id,
+    v.env_id,
+    v.var_key,
+    v.value,
+    v.enabled,
+    v.description,
+    v.prev,
+    v.next,
+    ov.position + 1
+  FROM
+    variable v
+  INNER JOIN ordered_variables ov ON v.prev = ov.id
+  WHERE
+    v.env_id = ?
+)
+SELECT
+  ov.id,
+  ov.env_id,
+  ov.var_key,
+  ov.value,
+  ov.enabled,
+  ov.description,
+  ov.prev,
+  ov.next,
+  ov.position
+FROM
+  ordered_variables ov
+ORDER BY
+  ov.position;
+
 -- name: CreateVariable :exec
 INSERT INTO
-  variable (id, env_id, var_key, value, enabled, description)
+  variable (id, env_id, var_key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateVariableBulk :exec
 INSERT INTO
-  variable (id, env_id, var_key, value, enabled, description)
+  variable (id, env_id, var_key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateVariable :exec
 UPDATE variable
@@ -1380,6 +2057,35 @@ WHERE
 DELETE FROM variable
 WHERE
   id = ?;
+
+-- name: UpdateVariableOrder :exec
+-- Update the prev/next pointers for a single variable
+-- Used for moving variables within the linked list
+UPDATE variable
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  env_id = ?;
+
+-- name: UpdateVariablePrev :exec
+-- Update only the prev pointer for a variable (used in deletion)
+UPDATE variable
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  env_id = ?;
+
+-- name: UpdateVariableNext :exec
+-- Update only the next pointer for a variable (used in deletion)
+UPDATE variable
+SET
+  next = ?
+WHERE
+  id = ? AND
+  env_id = ?;
 
 -- name: GetExampleResp :one
 SELECT
@@ -2055,7 +2761,9 @@ SELECT
   key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   flow_variable
 WHERE
@@ -2069,7 +2777,9 @@ SELECT
   key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   flow_variable
 WHERE
@@ -2077,24 +2787,24 @@ WHERE
 
 -- name: CreateFlowVariable :exec
 INSERT INTO
-  flow_variable (id, flow_id, key, value, enabled, description)
+  flow_variable (id, flow_id, key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateFlowVariableBulk :exec
 INSERT INTO
-  flow_variable (id, flow_id, key, value, enabled, description)
+  flow_variable (id, flow_id, key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowVariable :exec
 UPDATE flow_variable
@@ -2110,6 +2820,90 @@ WHERE
 DELETE FROM flow_variable
 WHERE
   id = ?;
+
+-- name: GetFlowVariablesByFlowIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (flow_id, prev) for optimal performance
+WITH RECURSIVE ordered_flow_variables AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    fv.id,
+    fv.flow_id,
+    fv.key,
+    fv.value,
+    fv.enabled,
+    fv.description,
+    fv.prev,
+    fv.next,
+    0 as position
+  FROM
+    flow_variable fv
+  WHERE
+    fv.flow_id = ? AND
+    fv.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    fv.id,
+    fv.flow_id,
+    fv.key,
+    fv.value,
+    fv.enabled,
+    fv.description,
+    fv.prev,
+    fv.next,
+    ofv.position + 1
+  FROM
+    flow_variable fv
+  INNER JOIN ordered_flow_variables ofv ON fv.prev = ofv.id
+  WHERE
+    fv.flow_id = ?
+)
+SELECT
+  ofv.id,
+  ofv.flow_id,
+  ofv.key,
+  ofv.value,
+  ofv.enabled,
+  ofv.description,
+  ofv.prev,
+  ofv.next,
+  ofv.position
+FROM
+  ordered_flow_variables ofv
+ORDER BY
+  ofv.position;
+
+-- name: UpdateFlowVariableOrder :exec
+-- Update the prev/next pointers for a single flow variable
+-- Used for moving flow variables within the linked list
+UPDATE flow_variable
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  flow_id = ?;
+
+-- name: UpdateFlowVariablePrev :exec
+-- Update only the prev pointer for a flow variable (used in deletion)
+UPDATE flow_variable
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  flow_id = ?;
+
+-- name: UpdateFlowVariableNext :exec
+-- Update only the next pointer for a flow variable (used in deletion)
+UPDATE flow_variable
+SET
+  next = ?
+WHERE
+  id = ? AND
+  flow_id = ?;
 
 -- Node Execution
 -- name: GetNodeExecution :one
@@ -2175,3 +2969,292 @@ DELETE FROM node_execution WHERE node_id = ?;
 
 -- name: DeleteNodeExecutionsByNodeIDs :exec
 DELETE FROM node_execution WHERE node_id IN (sqlc.slice('node_ids'));
+
+-- 
+-- Collection Items Unified Table Queries
+-- These queries handle both folders and endpoints through a unified interface
+--
+
+-- name: GetCollectionItem :one
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  id = ?
+LIMIT
+  1;
+
+-- name: GetCollectionItemsInOrder :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Returns items in correct order for a collection/parent folder
+WITH RECURSIVE ordered_items AS (
+  -- Base case: Find the head (prev_id IS NULL)
+  SELECT
+    ci.id,
+    ci.collection_id,
+    ci.parent_folder_id,
+    ci.item_type,
+    ci.folder_id,
+    ci.endpoint_id,
+    ci.name,
+    ci.prev_id,
+    ci.next_id,
+    0 as position
+  FROM
+    collection_items ci
+  WHERE
+    ci.collection_id = ? AND
+    ci.parent_folder_id IS ? AND
+    ci.prev_id IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next_id pointers
+  SELECT
+    ci.id,
+    ci.collection_id,
+    ci.parent_folder_id,
+    ci.item_type,
+    ci.folder_id,
+    ci.endpoint_id,
+    ci.name,
+    ci.prev_id,
+    ci.next_id,
+    oi.position + 1
+  FROM
+    collection_items ci
+  INNER JOIN ordered_items oi ON ci.prev_id = oi.id
+  WHERE
+    ci.collection_id = ?
+)
+SELECT
+  oi.id,
+  oi.collection_id,
+  oi.parent_folder_id,
+  oi.item_type,
+  oi.folder_id,
+  oi.endpoint_id,
+  oi.name,
+  oi.prev_id,
+  oi.next_id,
+  oi.position
+FROM
+  ordered_items oi
+ORDER BY
+  oi.position;
+
+-- name: GetCollectionItemsByCollectionID :many
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ?;
+
+-- name: GetCollectionItemsByParentFolderID :many
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id = ?;
+
+-- name: GetCollectionItemTail :one
+-- Get the last item in the list (tail) for a collection/parent folder
+-- Used when appending new items to the end of the list
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id IS ? AND
+  next_id IS NULL
+LIMIT
+  1;
+
+-- name: InsertCollectionItem :exec
+INSERT INTO
+  collection_items (
+    id,
+    collection_id,
+    parent_folder_id,
+    item_type,
+    folder_id,
+    endpoint_id,
+    name,
+    prev_id,
+    next_id
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateCollectionItemOrder :exec
+-- Update the prev_id/next_id pointers for a single collection item
+-- Used for moving items within the linked list
+UPDATE collection_items
+SET
+  prev_id = ?,
+  next_id = ?
+WHERE
+  id = ?;
+
+-- name: UpdateCollectionItemParent :exec
+-- Move an item to a different parent folder while maintaining linked list integrity
+UPDATE collection_items
+SET
+  parent_folder_id = ?,
+  prev_id = ?,
+  next_id = ?
+WHERE
+  id = ?;
+
+-- name: DeleteCollectionItem :exec
+DELETE FROM collection_items
+WHERE
+  id = ?;
+
+-- name: GetCollectionItemsByType :many
+-- Get items filtered by type (0 = folder, 1 = endpoint)
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id IS ? AND
+  item_type = ?;
+
+-- name: GetCollectionItemByFolderID :one
+-- Get collection item by folder_id (for legacy ID compatibility)
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  folder_id = ?
+LIMIT
+  1;
+
+-- name: GetCollectionItemByEndpointID :one
+-- Get collection item by endpoint_id (for legacy ID compatibility)  
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  endpoint_id = ?
+LIMIT
+  1;
+
+-- name: UpdateCollectionItemParentFolder :exec
+-- Update only the parent_folder_id for cross-folder moves
+UPDATE collection_items
+SET
+  parent_folder_id = ?
+WHERE
+  id = ?;
+
+-- 
+-- Cross-Collection Move Support Queries
+-- These queries support moving collection items between different collections
+--
+
+-- name: ValidateCollectionsInSameWorkspace :one
+-- Validate that two collections are in the same workspace
+SELECT 
+  c1.workspace_id = c2.workspace_id AS same_workspace,
+  c1.workspace_id AS source_workspace_id,
+  c2.workspace_id AS target_workspace_id
+FROM collections c1, collections c2 
+WHERE c1.id = ? AND c2.id = ?;
+
+-- name: GetCollectionWorkspaceByItemId :one
+-- Get the workspace_id for a collection that contains a specific collection item
+SELECT c.workspace_id 
+FROM collections c
+JOIN collection_items ci ON ci.collection_id = c.id
+WHERE ci.id = ?;
+
+-- name: UpdateCollectionItemCollectionId :exec
+-- Update the collection_id and parent_folder_id for cross-collection moves
+UPDATE collection_items 
+SET collection_id = ?, parent_folder_id = ?
+WHERE id = ?;
+
+-- name: GetCollectionItemsInOrderForCollection :many
+-- Get all collection items in order for a specific collection (used for cross-collection validation)
+SELECT id, collection_id, parent_folder_id, item_type, folder_id, endpoint_id, name, prev_id, next_id
+FROM collection_items 
+WHERE collection_id = ? AND parent_folder_id IS NULL
+ORDER BY CASE WHEN prev_id IS NULL THEN 0 ELSE 1 END, id;
+
+-- name: UpdateItemApiCollectionId :exec
+-- Update legacy item_api table collection_id for cross-collection moves
+UPDATE item_api
+SET collection_id = ?
+WHERE id = ?;
+
+-- name: UpdateItemFolderCollectionId :exec
+-- Update legacy item_folder table collection_id for cross-collection moves  
+UPDATE item_folder
+SET collection_id = ?
+WHERE id = ?;

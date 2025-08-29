@@ -72,6 +72,7 @@ import (
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/request/v1/requestv1connect"
 	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 
 	"connectrpc.com/connect"
 )
@@ -943,7 +944,8 @@ func (c RequestRPC) HeaderList(ctx context.Context, req *connect.Request[request
 		return nil, rpcErr
 	}
 
-	allHeaders, err := c.ehs.GetHeaderByExampleID(ctx, exID)
+	// Use the ordered version that traverses the linked list
+	allHeaders, err := c.ehs.GetHeaderByExampleIDOrdered(ctx, exID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -991,7 +993,8 @@ func (c RequestRPC) HeaderCreate(ctx context.Context, req *connect.Request[reque
 
 	// Note: Source field removed - delta type is determined dynamically
 
-	err = c.ehs.CreateHeader(ctx, header)
+	// Use AppendHeader to properly add the header to the end of the linked list
+	err = c.ehs.AppendHeader(ctx, header)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -1177,9 +1180,9 @@ func (c RequestRPC) HeaderDeltaExampleCopy(ctx context.Context, originExampleID,
 		}
 	}
 
-	// Bulk create all delta headers
+	// Bulk create all delta headers with proper linked list maintenance
 	if len(deltaHeaders) > 0 {
-		err = c.ehs.CreateBulkHeader(ctx, deltaHeaders)
+		err = c.ehs.AppendBulkHeader(ctx, deltaHeaders)
 		if err != nil {
 			return err
 		}
@@ -1266,13 +1269,17 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 		return nil, rpcErr
 	}
 
-	// Get headers from both origin and delta examples
-	originHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originExampleID)
+	// Get headers from both origin and delta examples using linked list ordering
+	// With linked lists, each example maintains its own ordered list of headers
+	
+	// Get all headers for origin example
+	originHeaders, err := c.ehs.GetHeadersOrdered(ctx, originExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-
-	deltaHeaders, err := c.ehs.GetHeaderByExampleID(ctx, deltaExampleID)
+	
+	// Get all headers for delta example
+	deltaHeaders, err := c.ehs.GetHeadersOrdered(ctx, deltaExampleID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -1329,14 +1336,18 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 				Enable:        originHeader.Enable,
 				Description:   originHeader.Description,
 				Value:         originHeader.Value,
+				// Don't copy Prev/Next - these will be set by AppendBulkHeader
+				// to maintain proper linked list within the delta example
+				Prev:          nil,
+				Next:          nil,
 			}
 			deltaHeadersToCreate = append(deltaHeadersToCreate, deltaHeader)
 			newDeltaHeaders[originHeader.ID] = deltaHeader
 		}
 
-		// Bulk create the delta headers
+		// Bulk create the delta headers with proper linked list maintenance
 		if len(deltaHeadersToCreate) > 0 {
-			err = c.ehs.CreateBulkHeader(ctx, deltaHeadersToCreate)
+			err = c.ehs.AppendBulkHeader(ctx, deltaHeadersToCreate)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -1434,29 +1445,8 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 
 	// Newly created delta headers are now processed in the main loop above
 
-	// Sort rpcHeaders by ID, but if it has DeltaParentID use that ID instead
-	sort.Slice(rpcHeaders, func(i, j int) bool {
-		idI, _ := idwrap.NewFromBytes(rpcHeaders[i].HeaderId)
-		idJ, _ := idwrap.NewFromBytes(rpcHeaders[j].HeaderId)
-
-		// Determine the ID to use for sorting for item i
-		sortIDI := idI
-		if rpcHeaders[i].Origin != nil && len(rpcHeaders[i].Origin.HeaderId) > 0 {
-			if parentID, err := idwrap.NewFromBytes(rpcHeaders[i].Origin.HeaderId); err == nil {
-				sortIDI = parentID
-			}
-		}
-
-		// Determine the ID to use for sorting for item j
-		sortIDJ := idJ
-		if rpcHeaders[j].Origin != nil && len(rpcHeaders[j].Origin.HeaderId) > 0 {
-			if parentID, err := idwrap.NewFromBytes(rpcHeaders[j].Origin.HeaderId); err == nil {
-				sortIDJ = parentID
-			}
-		}
-
-		return sortIDI.Compare(sortIDJ) < 0
-	})
+	// Headers are already in order from the linked list traversal
+	// No additional sorting needed since GetHeadersOrdered returns them in correct order
 
 	resp := &requestv1.HeaderDeltaListResponse{
 		ExampleId: deltaExampleID.Bytes(),
@@ -1553,7 +1543,8 @@ func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[
 	}
 	// If no header_id provided, DeltaParentID remains nil (standalone delta)
 
-	err = c.ehs.CreateHeader(ctx, header)
+	// Use AppendHeader to properly add the header to the end of the linked list
+	err = c.ehs.AppendHeader(ctx, header)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -2272,12 +2263,175 @@ func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[req
 	return connect.NewResponse(&requestv1.QueryDeltaMoveResponse{}), nil
 }
 
-// TODO: implement move RPC
 func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[requestv1.HeaderMoveRequest]) (*connect.Response[requestv1.HeaderMoveResponse], error) {
+	// Parse request parameters
+	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid example ID: %w", err))
+	}
+
+	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid header ID: %w", err))
+	}
+
+	targetHeaderID, err := idwrap.NewFromBytes(req.Msg.GetTargetHeaderId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid target header ID: %w", err))
+	}
+
+	position := req.Msg.GetPosition()
+	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("position must be specified"))
+	}
+
+	// Check permissions for the example
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Prevent moving header relative to itself
+	if headerID.Compare(targetHeaderID) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot move header relative to itself"))
+	}
+
+	// Determine after/before pointers based on position
+	var afterHeaderID, beforeHeaderID *idwrap.IDWrap
+	if position == resourcesv1.MovePosition_MOVE_POSITION_AFTER {
+		afterHeaderID = &targetHeaderID
+	} else {
+		beforeHeaderID = &targetHeaderID
+	}
+
+	// Use HeaderService to perform the move
+	err = c.ehs.MoveHeader(ctx, headerID, afterHeaderID, beforeHeaderID, exampleID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to move header: %w", err))
+	}
+
 	return connect.NewResponse(&requestv1.HeaderMoveResponse{}), nil
 }
 
-// TODO: implement move RPC
 func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaMoveRequest]) (*connect.Response[requestv1.HeaderDeltaMoveResponse], error) {
+	// Parse request parameters
+	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid example ID: %w", err))
+	}
+
+	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid header ID: %w", err))
+	}
+
+	targetHeaderID, err := idwrap.NewFromBytes(req.Msg.GetTargetHeaderId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid target header ID: %w", err))
+	}
+
+	position := req.Msg.GetPosition()
+	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("position must be specified"))
+	}
+
+	// Check permissions for the example
+	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Prevent moving header relative to itself
+	if headerID.Compare(targetHeaderID) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot move header relative to itself"))
+	}
+
+	// Get both headers to validate they exist and belong to the same example
+	headerToMove, err := c.ehs.GetHeaderByID(ctx, headerID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("header to move not found: %w", err))
+	}
+
+	targetHeader, err := c.ehs.GetHeaderByID(ctx, targetHeaderID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("target header not found: %w", err))
+	}
+
+	// Verify both headers belong to the specified example
+	if headerToMove.ExampleID.Compare(exampleID) != 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("header does not belong to the specified example"))
+	}
+	if targetHeader.ExampleID.Compare(exampleID) != 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("target header does not belong to the same example"))
+	}
+
+	// Manually unlink header from current position without deleting it
+	if headerToMove.Prev != nil {
+		// Update previous header's next pointer to skip the moved header
+		err = c.ehs.UpdateHeaderNext(ctx, *headerToMove.Prev, headerToMove.Next)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update prev header: %w", err))
+		}
+	}
+	if headerToMove.Next != nil {
+		// Update next header's prev pointer to skip the moved header
+		err = c.ehs.UpdateHeaderPrev(ctx, *headerToMove.Next, headerToMove.Prev)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update next header: %w", err))
+		}
+	}
+
+	// Get fresh data for target header after unlinking (in case target was adjacent)
+	targetHeader, err = c.ehs.GetHeaderByID(ctx, targetHeaderID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("target header not found after unlink: %w", err))
+	}
+
+	// Determine new position and update pointers
+	var newPrev, newNext *idwrap.IDWrap
+	if position == resourcesv1.MovePosition_MOVE_POSITION_AFTER {
+		// Insert after target: moved header goes between target and target.next
+		newPrev = &targetHeaderID
+		newNext = targetHeader.Next
+		
+		// Update target's next pointer to moved header
+		err = c.ehs.UpdateHeaderNext(ctx, targetHeaderID, &headerID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update target header: %w", err))
+		}
+		
+		// If target had a next, update it to point back to moved header
+		if targetHeader.Next != nil {
+			err = c.ehs.UpdateHeaderPrev(ctx, *targetHeader.Next, &headerID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update next header: %w", err))
+			}
+		}
+	} else { // MOVE_POSITION_BEFORE
+		// Insert before target: moved header goes between target.prev and target
+		newPrev = targetHeader.Prev
+		newNext = &targetHeaderID
+		
+		// Update target's prev pointer to moved header
+		err = c.ehs.UpdateHeaderPrev(ctx, targetHeaderID, &headerID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update target header: %w", err))
+		}
+		
+		// If target had a prev, update it to point to moved header
+		if targetHeader.Prev != nil {
+			err = c.ehs.UpdateHeaderNext(ctx, *targetHeader.Prev, &headerID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update prev header: %w", err))
+			}
+		}
+	}
+
+	// Update moved header's pointers to its new position
+	err = c.ehs.UpdateHeaderLinks(ctx, headerID, newPrev, newNext)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update moved header's links: %w", err))
+	}
+
 	return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil
 }

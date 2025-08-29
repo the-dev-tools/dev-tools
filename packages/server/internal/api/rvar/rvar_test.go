@@ -12,6 +12,7 @@ import (
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 	variablev1 "the-dev-tools/spec/dist/buf/go/variable/v1"
 	"time"
 
@@ -25,8 +26,8 @@ func TestCreateVar(t *testing.T) {
 	db := base.DB
 
 	us := suser.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -110,8 +111,8 @@ func TestGetVar(t *testing.T) {
 	db := base.DB
 
 	us := suser.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -199,8 +200,8 @@ func TestUpdateVar(t *testing.T) {
 	db := base.DB
 
 	us := suser.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -296,8 +297,8 @@ func TestDeleteVar(t *testing.T) {
 	db := base.DB
 
 	us := suser.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -365,5 +366,217 @@ func TestDeleteVar(t *testing.T) {
 	}
 	if dbVar != nil {
 		t.Error("dbVar is not nil")
+	}
+}
+
+// TestVariableMoveAfter tests moving a variable after another variable in the same environment
+func TestVariableMoveAfter(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	us := suser.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
+
+	workspaceID := idwrap.NewNow()
+	workspaceUserID := idwrap.NewNow()
+	collectionID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID,
+		workspaceUserID, userID, collectionID)
+
+	// Create environment
+	envID := idwrap.NewNow()
+	env := menv.Env{
+		ID:          envID,
+		WorkspaceID: workspaceID,
+		Type:        menv.EnvNormal,
+		Description: "Test Environment",
+		Name:        "TestEnv",
+		Updated:     time.Now(),
+	}
+	err := es.Create(ctx, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create two variables for testing move operation
+	var1ID := idwrap.NewNow()
+	var1 := mvar.Var{
+		ID:          var1ID,
+		EnvID:       envID,
+		VarKey:      "VAR1",
+		Value:       "value1",
+		Enabled:     true,
+		Description: "First variable",
+	}
+	err = vs.Create(ctx, var1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var2ID := idwrap.NewNow()
+	var2 := mvar.Var{
+		ID:          var2ID,
+		EnvID:       envID,
+		VarKey:      "VAR2",
+		Value:       "value2",
+		Enabled:     true,
+		Description: "Second variable",
+	}
+	err = vs.Create(ctx, var2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test moving var1 after var2
+	req := connect.NewRequest(&variablev1.VariableMoveRequest{
+		EnvironmentId:    envID.Bytes(),
+		VariableId:       var1ID.Bytes(),
+		Position:         resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+		TargetVariableId: var2ID.Bytes(),
+	})
+
+	rpcVar := rvar.New(db, us, es, vs)
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := rpcVar.VariableMove(authedCtx, req)
+	if err != nil {
+		t.Fatal("Move operation failed:", err)
+	}
+
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+
+	if resp.Msg == nil {
+		t.Fatal("resp.Msg is nil")
+	}
+
+	// Verify the order by getting the variables list
+	variables, err := vs.GetVariablesByEnvIDOrdered(ctx, envID)
+	if err != nil {
+		t.Fatal("Failed to get ordered variables:", err)
+	}
+
+	if len(variables) != 2 {
+		t.Fatal("Expected 2 variables, got:", len(variables))
+	}
+
+	// After moving var1 after var2, the order should be: var2, var1
+	if variables[0].ID.Compare(var2ID) != 0 {
+		t.Error("Expected var2 to be first, got:", variables[0].ID.String())
+	}
+	if variables[1].ID.Compare(var1ID) != 0 {
+		t.Error("Expected var1 to be second, got:", variables[1].ID.String())
+	}
+}
+
+// TestVariableMoveBefore tests moving a variable before another variable in the same environment
+func TestVariableMoveBefore(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	us := suser.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
+
+	workspaceID := idwrap.NewNow()
+	workspaceUserID := idwrap.NewNow()
+	collectionID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID,
+		workspaceUserID, userID, collectionID)
+
+	// Create environment
+	envID := idwrap.NewNow()
+	env := menv.Env{
+		ID:          envID,
+		WorkspaceID: workspaceID,
+		Type:        menv.EnvNormal,
+		Description: "Test Environment",
+		Name:        "TestEnv",
+		Updated:     time.Now(),
+	}
+	err := es.Create(ctx, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create two variables for testing move operation
+	var1ID := idwrap.NewNow()
+	var1 := mvar.Var{
+		ID:          var1ID,
+		EnvID:       envID,
+		VarKey:      "VAR1",
+		Value:       "value1",
+		Enabled:     true,
+		Description: "First variable",
+	}
+	err = vs.Create(ctx, var1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var2ID := idwrap.NewNow()
+	var2 := mvar.Var{
+		ID:          var2ID,
+		EnvID:       envID,
+		VarKey:      "VAR2",
+		Value:       "value2",
+		Enabled:     true,
+		Description: "Second variable",
+	}
+	err = vs.Create(ctx, var2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test moving var2 before var1
+	req := connect.NewRequest(&variablev1.VariableMoveRequest{
+		EnvironmentId:    envID.Bytes(),
+		VariableId:       var2ID.Bytes(),
+		Position:         resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
+		TargetVariableId: var1ID.Bytes(),
+	})
+
+	rpcVar := rvar.New(db, us, es, vs)
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := rpcVar.VariableMove(authedCtx, req)
+	if err != nil {
+		t.Fatal("Move operation failed:", err)
+	}
+
+	if resp == nil {
+		t.Fatal("resp is nil")
+	}
+
+	if resp.Msg == nil {
+		t.Fatal("resp.Msg is nil")
+	}
+
+	// Verify the order by getting the variables list
+	variables, err := vs.GetVariablesByEnvIDOrdered(ctx, envID)
+	if err != nil {
+		t.Fatal("Failed to get ordered variables:", err)
+	}
+
+	if len(variables) != 2 {
+		t.Fatal("Expected 2 variables, got:", len(variables))
+	}
+
+	// After moving var2 before var1, the order should be: var2, var1
+	if variables[0].ID.Compare(var2ID) != 0 {
+		t.Error("Expected var2 to be first, got:", variables[0].ID.String())
+	}
+	if variables[1].ID.Compare(var1ID) != 0 {
+		t.Error("Expected var1 to be second, got:", variables[1].ID.String())
 	}
 }

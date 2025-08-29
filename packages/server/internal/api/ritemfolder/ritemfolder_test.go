@@ -9,6 +9,7 @@ import (
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/scollectionitem"
 	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/testutil"
@@ -27,6 +28,7 @@ func TestCreateItemFolder(t *testing.T) {
 	ifs := sitemfolder.New(queries)
 	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
+	cis := scollectionitem.New(queries, mockLogger)
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -47,7 +49,7 @@ func TestCreateItemFolder(t *testing.T) {
 		ParentFolderId: expectedParentID,
 	})
 
-	rpcItemFolder := ritemfolder.New(db, ifs, us, cs)
+	rpcItemFolder := ritemfolder.New(db, ifs, us, cs, cis)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcItemFolder.FolderCreate(authedCtx, req)
 	if err != nil {
@@ -96,6 +98,7 @@ func TestUpdateItemFolder(t *testing.T) {
 	ifs := sitemfolder.New(queries)
 	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
+	cis := scollectionitem.New(queries, mockLogger)
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -128,7 +131,7 @@ func TestUpdateItemFolder(t *testing.T) {
 		ParentFolderId: nil,
 	})
 
-	rpcItemFolder := ritemfolder.New(db, ifs, us, cs)
+	rpcItemFolder := ritemfolder.New(db, ifs, us, cs, cis)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcItemFolder.FolderUpdate(authedCtx, req)
 	if err != nil {
@@ -164,6 +167,7 @@ func TestDeleteItemFolder(t *testing.T) {
 	ifs := sitemfolder.New(queries)
 	cs := scollection.New(queries, mockLogger)
 	us := suser.New(queries)
+	cis := scollectionitem.New(queries, mockLogger)
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
@@ -190,7 +194,7 @@ func TestDeleteItemFolder(t *testing.T) {
 		FolderId: item.ID.Bytes(),
 	})
 
-	rpcItemFolder := ritemfolder.New(db, ifs, us, cs)
+	rpcItemFolder := ritemfolder.New(db, ifs, us, cs, cis)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
 	resp, err := rpcItemFolder.FolderDelete(authedCtx, req)
 	if err != nil {

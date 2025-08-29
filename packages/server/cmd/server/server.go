@@ -46,6 +46,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/scollectionitem"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
@@ -140,6 +141,7 @@ func main() {
 	}
 
 	collectionService := scollection.New(queries, logger)
+	collectionItemService := scollectionitem.New(queries, logger)
 	workspaceService := sworkspace.New(queries)
 	workspaceUserService := sworkspacesusers.New(queries)
 	userService := suser.New(queries)
@@ -155,8 +157,8 @@ func main() {
 	exampleResponseHeaderService := sexamplerespheader.New(queries)
 	assertService := sassert.New(queries)
 	assertResultService := sassertres.New(queries)
-	variableService := svar.New(queries)
-	environmentService := senv.New(queries)
+	variableService := svar.New(queries, logger)
+	environmentService := senv.New(queries, logger)
 	tagService := stag.New(queries)
 
 	// Flow
@@ -211,7 +213,7 @@ func main() {
 	newServiceManager.AddService(rcollection.CreateService(collectionSrv, opitonsAll))
 
 	// Collection Item Service
-	collectionItemSrv := rcollectionitem.New(currentDB, collectionService, userService, folderService, endpointService, exampleService, exampleResponseService)
+	collectionItemSrv := rcollectionitem.New(currentDB, collectionService, collectionItemService, userService, folderService, endpointService, exampleService, exampleResponseService)
 	newServiceManager.AddService(rcollectionitem.CreateService(collectionItemSrv, opitonsAll))
 
 	// Result API Service
@@ -220,11 +222,11 @@ func main() {
 
 	// Item API Service
 	itemapiSrv := ritemapi.New(currentDB, endpointService, collectionService,
-		folderService, userService, exampleService, exampleResponseService)
+		folderService, userService, exampleService, exampleResponseService, collectionItemService)
 	newServiceManager.AddService(ritemapi.CreateService(itemapiSrv, opitonsAll))
 
 	// Folder API Service
-	folderItemSrv := ritemfolder.New(currentDB, folderService, userService, collectionService)
+	folderItemSrv := ritemfolder.New(currentDB, folderService, userService, collectionService, collectionItemService)
 	newServiceManager.AddService(ritemfolder.CreateService(folderItemSrv, opitonsAll))
 
 	// Api Item Example

@@ -31,6 +31,20 @@ type Collection struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
 	Name        string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
+}
+
+type CollectionItem struct {
+	ID             idwrap.IDWrap
+	CollectionID   idwrap.IDWrap
+	ParentFolderID *idwrap.IDWrap
+	ItemType       int8
+	FolderID       *idwrap.IDWrap
+	EndpointID     *idwrap.IDWrap
+	Name           string
+	PrevID         *idwrap.IDWrap
+	NextID         *idwrap.IDWrap
 }
 
 type Environment struct {
@@ -39,6 +53,8 @@ type Environment struct {
 	Type        int8
 	Name        string
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type ExampleBodyForm struct {
@@ -77,6 +93,8 @@ type ExampleHeader struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 type ExampleQuery struct {
@@ -181,6 +199,8 @@ type FlowVariable struct {
 	Value       string
 	Enabled     bool
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type ItemApi struct {
@@ -262,6 +282,8 @@ type Variable struct {
 	Value       string
 	Enabled     bool
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type Workspace struct {
@@ -272,6 +294,8 @@ type Workspace struct {
 	FlowCount       int32
 	ActiveEnv       idwrap.IDWrap
 	GlobalEnv       idwrap.IDWrap
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 type WorkspacesUser struct {
