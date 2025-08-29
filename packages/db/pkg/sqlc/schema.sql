@@ -17,7 +17,11 @@ CREATE TABLE workspaces (
   collection_count INT NOT NULL DEFAULT 0,
   flow_count INT NOT NULL DEFAULT 0,
   active_env BLOB,
-  global_env BLOB
+  global_env BLOB,
+  prev BLOB,
+  next BLOB,
+  FOREIGN KEY (prev) REFERENCES workspaces (id) ON DELETE SET NULL,
+  FOREIGN KEY (next) REFERENCES workspaces (id) ON DELETE SET NULL
 );
 
 CREATE INDEX workspaces_idx1 ON workspaces (
@@ -49,6 +53,9 @@ CREATE TABLE collections (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
   name TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (prev, next, workspace_id),
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 

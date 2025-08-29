@@ -17,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/v1/collectionv1connect"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 
 	"connectrpc.com/connect"
 )
@@ -60,7 +61,7 @@ func (c *CollectionServiceRPC) CollectionList(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
 
-	simpleCollections, err := c.cs.ListCollections(ctx, workspaceID.ID)
+	simpleCollections, err := c.cs.GetCollectionsOrdered(ctx, workspaceID.ID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -233,7 +234,102 @@ func CheckOwnerCollection(ctx context.Context, cs scollection.CollectionService,
 	return CheckOwnerWorkspace(ctx, us, workspaceID)
 }
 
-// TODO: implement move RPC
 func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.Request[collectionv1.CollectionMoveRequest]) (*connect.Response[collectionv1.CollectionMoveResponse], error) {
+	// Validate collection ID
+	collectionID, err := idwrap.NewFromBytes(req.Msg.GetCollectionId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for the collection being moved
+	rpcErr := permcheck.CheckPerm(CheckOwnerCollection(ctx, c.cs, c.us, collectionID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Validate workspace ID if provided (for additional permission checking)
+	if len(req.Msg.GetWorkspaceId()) > 0 {
+		workspaceID, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+		
+		rpcErr := permcheck.CheckPerm(CheckOwnerWorkspace(ctx, c.us, workspaceID))
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+
+		// Verify collection belongs to the specified workspace
+		collectionWorkspaceID, err := c.cs.GetWorkspaceID(ctx, collectionID)
+		if err != nil {
+			if err == scollection.ErrNoCollectionFound {
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("collection not found"))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		
+		if collectionWorkspaceID.Compare(workspaceID) != 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("collection does not belong to specified workspace"))
+		}
+	}
+
+	// Validate target collection ID
+	targetCollectionID, err := idwrap.NewFromBytes(req.Msg.GetTargetCollectionId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Check permissions for target collection (must be in same workspace)
+	rpcErr = permcheck.CheckPerm(CheckOwnerCollection(ctx, c.cs, c.us, targetCollectionID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Validate position
+	position := req.Msg.GetPosition()
+	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified"))
+	}
+
+	// Prevent moving collection relative to itself
+	if collectionID.Compare(targetCollectionID) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move collection relative to itself"))
+	}
+
+	// Verify both collections are in the same workspace
+	sourceWorkspaceID, err := c.cs.GetWorkspaceID(ctx, collectionID)
+	if err != nil {
+		if err == scollection.ErrNoCollectionFound {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("collection not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	targetWorkspaceID, err := c.cs.GetWorkspaceID(ctx, targetCollectionID)
+	if err != nil {
+		if err == scollection.ErrNoCollectionFound {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("target collection not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if sourceWorkspaceID.Compare(targetWorkspaceID) != 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("collections must be in the same workspace"))
+	}
+
+	// Execute the move operation
+	switch position {
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		err = c.cs.MoveCollectionAfter(ctx, collectionID, targetCollectionID)
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		err = c.cs.MoveCollectionBefore(ctx, collectionID, targetCollectionID)
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid position"))
+	}
+
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	return connect.NewResponse(&collectionv1.CollectionMoveResponse{}), nil
 }

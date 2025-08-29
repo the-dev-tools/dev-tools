@@ -31,6 +31,8 @@ type Collection struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
 	Name        string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type Environment struct {

@@ -556,7 +556,9 @@ WHERE
 SELECT
   id,
   workspace_id,
-  name
+  name,
+  prev,
+  next
 FROM
   collections
 WHERE
@@ -609,9 +611,9 @@ LIMIT
 
 -- name: CreateCollection :exec
 INSERT INTO
-  collections (id, workspace_id, name)
+  collections (id, workspace_id, name, prev, next)
 VALUES
-  (?, ?, ?);
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateCollection :exec
 UPDATE collections
@@ -625,6 +627,111 @@ WHERE
 DELETE FROM collections
 WHERE
   id = ?;
+
+-- name: GetCollectionsInOrder :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (workspace_id, prev) for optimal performance
+WITH RECURSIVE ordered_collections AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    c.id,
+    c.workspace_id,
+    c.name,
+    c.prev,
+    c.next,
+    0 as position
+  FROM
+    collections c
+  WHERE
+    c.workspace_id = ? AND
+    c.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    c.id,
+    c.workspace_id,
+    c.name,
+    c.prev,
+    c.next,
+    oc.position + 1
+  FROM
+    collections c
+  INNER JOIN ordered_collections oc ON c.prev = oc.id
+  WHERE
+    c.workspace_id = ?
+)
+SELECT
+  oc.id,
+  oc.workspace_id,
+  oc.name,
+  oc.prev,
+  oc.next,
+  oc.position
+FROM
+  ordered_collections oc
+ORDER BY
+  oc.position;
+
+-- name: GetCollectionByPrevNext :one
+-- Find collection by its prev/next references for position-based operations
+SELECT
+  id,
+  workspace_id,
+  name,
+  prev,
+  next
+FROM
+  collections
+WHERE
+  workspace_id = ? AND
+  prev = ? AND
+  next = ?
+LIMIT
+  1;
+
+-- name: UpdateCollectionOrder :exec
+-- Update the prev/next pointers for a single collection
+-- Used for moving collections within the linked list
+UPDATE collections
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
+-- name: UpdateCollectionPositions :exec
+-- Batch update positions for multiple collections (for efficient reordering)
+-- This query updates prev/next based on the position parameter
+-- Usage: Call with arrays of (id, prev_id, next_id, workspace_id) for each collection
+-- Note: In practice, this would be used with multiple individual UPDATE statements
+-- since SQLite doesn't support arrays directly in prepared statements
+UPDATE collections
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
+-- name: GetCollectionMaxPosition :one
+-- Get the last collection in the list (tail) for a workspace
+-- Used when appending new collections to the end of the list
+SELECT
+  id,
+  workspace_id,
+  name,
+  prev,
+  next
+FROM
+  collections
+WHERE
+  workspace_id = ? AND
+  next IS NULL
+LIMIT
+  1;
 
 --
 -- Workspaces

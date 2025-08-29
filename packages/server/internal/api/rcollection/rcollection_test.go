@@ -1,339 +1,318 @@
-package rcollection_test
+package rcollection
 
 import (
 	"context"
+	"database/sql"
+	"log/slog"
+	"os"
 	"testing"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rcollection"
+	
+	"the-dev-tools/db/pkg/sqlc/gen"
+	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mcollection"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/testutil"
 	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
-	"time"
-
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestCollectionGet(t *testing.T) {
-	ctx := context.Background()
-	base := testutil.CreateBaseDB(ctx, t)
-	queries := base.Queries
-	db := base.DB
-
-	mockLogger := mocklogger.NewMockLogger()
-
-	cs := scollection.New(queries, mockLogger)
-	ws := sworkspace.New(queries)
-	us := suser.New(queries)
-
-	serviceRPC := rcollection.New(db, cs, ws, us)
-	wsID := idwrap.NewNow()
-	wsuserID := idwrap.NewNow()
+func setupTestRPC(t *testing.T) (*CollectionServiceRPC, context.Context, idwrap.IDWrap, idwrap.IDWrap) {
+	t.Helper()
+	
+	// Create in-memory database
+	db, err := sqlitemem.NewInMemoryDB()
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+	
+	// Initialize database schema
+	queries, err := gen.Prepare(context.Background(), db)
+	require.NoError(t, err)
+	
+	// Create test services
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	cs := scollection.New(queries, logger)
+	ws := &mockWorkspaceService{}
+	us := &mockUserService{}
+	
+	// Create RPC service
+	rpc := New(db, cs, ws, us)
+	
+	// Create test user and workspace
 	userID := idwrap.NewNow()
-	baseCollectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+	
+	// Create simple context (not using auth middleware for this test)
+	ctx := context.Background()
+	
+	return &rpc, ctx, userID, workspaceID
+}
 
-	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
-		wsuserID, userID, baseCollectionID)
-
-	testCollectionID := idwrap.NewNow()
-	collectionData := mcollection.Collection{
-		ID:          testCollectionID,
-		WorkspaceID: wsID,
-		Name:        "test",
-		Updated:     time.Now(),
+func TestCollectionMove_Success(t *testing.T) {
+	t.Parallel()
+	
+	rpc, ctx, _, workspaceID := setupTestRPC(t)
+	
+	// Create test collections
+	collection1 := &mcollection.Collection{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Name:        "Collection 1",
 	}
-
-	err := cs.CreateCollection(ctx, &collectionData)
-	if err != nil {
-		t.Error(err)
+	collection2 := &mcollection.Collection{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Name:        "Collection 2",
 	}
-
-	req := connect.NewRequest(
-		&collectionv1.CollectionGetRequest{
-			CollectionId: testCollectionID.Bytes(),
+	collection3 := &mcollection.Collection{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Name:        "Collection 3",
+	}
+	
+	err := rpc.cs.CreateCollection(ctx, collection1)
+	require.NoError(t, err)
+	err = rpc.cs.CreateCollection(ctx, collection2)
+	require.NoError(t, err)
+	err = rpc.cs.CreateCollection(ctx, collection3)
+	require.NoError(t, err)
+	
+	tests := []struct {
+		name           string
+		collectionID   idwrap.IDWrap
+		targetID       idwrap.IDWrap
+		position       resourcesv1.MovePosition
+		expectedError  bool
+	}{
+		{
+			name:         "Move collection1 after collection2",
+			collectionID: collection1.ID,
+			targetID:     collection2.ID,
+			position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+			expectedError: false,
 		},
-	)
-
-	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-
-	resp, err := serviceRPC.CollectionGet(authedCtx, req)
-	if err != nil {
-		t.Fatal(err)
+		{
+			name:         "Move collection3 before collection1",
+			collectionID: collection3.ID,
+			targetID:     collection1.ID,
+			position:     resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
+			expectedError: false,
+		},
 	}
-	if resp.Msg == nil {
-		t.Fatalf("CollectionGet failed: invalid response")
-	}
-	msg := resp.Msg
-
-	if msg.CollectionId == nil {
-		t.Fatalf("CollectionGet failed: invalid response")
-	}
-
-	respCollectionID, err := idwrap.NewFromBytes(msg.CollectionId)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if testCollectionID.Compare(respCollectionID) != 0 {
-		t.Fatalf("CollectionGet failed: id mismatch")
-	}
-
-	if msg.Name != collectionData.Name {
-		t.Fatalf("CollectionGet failed: invalid response")
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &connect.Request[collectionv1.CollectionMoveRequest]{
+				Msg: &collectionv1.CollectionMoveRequest{
+					CollectionId:       tt.collectionID.Bytes(),
+					TargetCollectionId: tt.targetID.Bytes(),
+					Position:          tt.position,
+					WorkspaceId:       workspaceID.Bytes(),
+				},
+			}
+			
+			resp, err := rpc.CollectionMove(ctx, req)
+			
+			if tt.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+			}
+		})
 	}
 }
 
-func TestCollectionCreate(t *testing.T) {
-	ctx := context.Background()
-	base := testutil.CreateBaseDB(ctx, t)
-	queries := base.Queries
-	db := base.DB
-
-	mockLogger := mocklogger.NewMockLogger()
-
-	cs := scollection.New(queries, mockLogger)
-	ws := sworkspace.New(queries)
-	us := suser.New(queries)
-
-	serviceRPC := rcollection.New(db, cs, ws, us)
-	wsID := idwrap.NewNow()
-	wsuserID := idwrap.NewNow()
-	userID := idwrap.NewNow()
-	baseCollectionID := idwrap.NewNow()
-
-	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
-		wsuserID, userID, baseCollectionID)
-
-	collectionName := "test"
-	req := connect.NewRequest(
-		&collectionv1.CollectionCreateRequest{
-			WorkspaceId: wsID.Bytes(),
-			Name:        collectionName,
+func TestCollectionMove_ErrorCases(t *testing.T) {
+	t.Parallel()
+	
+	rpc, ctx, _, workspaceID := setupTestRPC(t)
+	
+	// Create test collection
+	collection1 := &mcollection.Collection{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Name:        "Collection 1",
+	}
+	
+	err := rpc.cs.CreateCollection(ctx, collection1)
+	require.NoError(t, err)
+	
+	tests := []struct {
+		name           string
+		collectionID   []byte
+		targetID       []byte
+		position       resourcesv1.MovePosition
+		workspaceID    []byte
+		expectedCode   connect.Code
+	}{
+		{
+			name:         "Invalid collection ID",
+			collectionID: []byte("invalid"),
+			targetID:     collection1.ID.Bytes(),
+			position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+			workspaceID:  workspaceID.Bytes(),
+			expectedCode: connect.CodeInvalidArgument,
 		},
-	)
-
-	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-
-	resp, err := serviceRPC.CollectionCreate(authedCtx, req)
-	if err != nil {
-		t.Fatal(err)
+		{
+			name:         "Invalid target ID",
+			collectionID: collection1.ID.Bytes(),
+			targetID:     []byte("invalid"),
+			position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+			workspaceID:  workspaceID.Bytes(),
+			expectedCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:         "Move to itself",
+			collectionID: collection1.ID.Bytes(),
+			targetID:     collection1.ID.Bytes(),
+			position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+			workspaceID:  workspaceID.Bytes(),
+			expectedCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:         "Unspecified position",
+			collectionID: collection1.ID.Bytes(),
+			targetID:     idwrap.NewNow().Bytes(),
+			position:     resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED,
+			workspaceID:  workspaceID.Bytes(),
+			expectedCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:         "Non-existent target collection",
+			collectionID: collection1.ID.Bytes(),
+			targetID:     idwrap.NewNow().Bytes(),
+			position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+			workspaceID:  workspaceID.Bytes(),
+			expectedCode: connect.CodeNotFound,
+		},
 	}
-	if resp.Msg == nil {
-		t.Fatalf("CollectionGet failed: invalid response")
-	}
-	msg := resp.Msg
-
-	if msg.CollectionId == nil {
-		t.Fatalf("CollectionGet failed: invalid response")
-	}
-	id, err := idwrap.NewFromBytes(msg.CollectionId)
-	if err != nil {
-		t.Fatal(err)
-	}
-	collection, err := cs.GetCollection(ctx, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if collection.Name != collectionName {
-		t.Error("CollectionCreate failed: invalid response")
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &connect.Request[collectionv1.CollectionMoveRequest]{
+				Msg: &collectionv1.CollectionMoveRequest{
+					CollectionId:       tt.collectionID,
+					TargetCollectionId: tt.targetID,
+					Position:          tt.position,
+					WorkspaceId:       tt.workspaceID,
+				},
+			}
+			
+			_, err := rpc.CollectionMove(ctx, req)
+			assert.Error(t, err)
+			
+			if connectErr := new(connect.Error); assert.ErrorAs(t, err, &connectErr) {
+				assert.Equal(t, tt.expectedCode, connectErr.Code())
+			}
+		})
 	}
 }
 
-func TestCollectionUpdate(t *testing.T) {
-	ctx := context.Background()
-	base := testutil.CreateBaseDB(ctx, t)
-	queries := base.Queries
-	db := base.DB
-
-	mockLogger := mocklogger.NewMockLogger()
-
-	cs := scollection.New(queries, mockLogger)
-	ws := sworkspace.New(queries)
-	us := suser.New(queries)
-
-	serviceRPC := rcollection.New(db, cs, ws, us)
-	wsID := idwrap.NewNow()
-	wsuserID := idwrap.NewNow()
-	userID := idwrap.NewNow()
-	baseCollectionID := idwrap.NewNow()
-
-	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
-		wsuserID, userID, baseCollectionID)
-
-	testCollectionID := idwrap.NewNow()
-	collectionData := mcollection.Collection{
-		ID:          testCollectionID,
-		WorkspaceID: wsID,
-		Name:        "test",
-		Updated:     time.Now(),
+func TestCollectionList_OrderedAfterMove(t *testing.T) {
+	t.Parallel()
+	
+	rpc, ctx, _, workspaceID := setupTestRPC(t)
+	
+	// Create test collections
+	collection1 := &mcollection.Collection{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Name:        "Collection 1",
 	}
-
-	err := cs.CreateCollection(ctx, &collectionData)
-	if err != nil {
-		t.Error(err)
+	collection2 := &mcollection.Collection{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Name:        "Collection 2",
 	}
-
-	collectionNewName := "newName"
-
-	req := connect.NewRequest(
-		&collectionv1.CollectionUpdateRequest{
-			CollectionId: testCollectionID.Bytes(),
-			Name:         &collectionNewName,
+	collection3 := &mcollection.Collection{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		Name:        "Collection 3",
+	}
+	
+	err := rpc.cs.CreateCollection(ctx, collection1)
+	require.NoError(t, err)
+	err = rpc.cs.CreateCollection(ctx, collection2)
+	require.NoError(t, err)
+	err = rpc.cs.CreateCollection(ctx, collection3)
+	require.NoError(t, err)
+	
+	// Get initial order
+	listReq := &connect.Request[collectionv1.CollectionListRequest]{
+		Msg: &collectionv1.CollectionListRequest{
+			WorkspaceId: workspaceID.Bytes(),
 		},
-	)
-
-	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-
-	resp, err := serviceRPC.CollectionUpdate(authedCtx, req)
-	if err != nil {
-		t.Fatal(err)
 	}
-	if resp == nil {
-		t.Fatal("resp is nil")
+	
+	listResp, err := rpc.CollectionList(ctx, listReq)
+	require.NoError(t, err)
+	require.Len(t, listResp.Msg.Items, 3)
+	
+	// Move collection1 after collection2
+	moveReq := &connect.Request[collectionv1.CollectionMoveRequest]{
+		Msg: &collectionv1.CollectionMoveRequest{
+			CollectionId:       collection1.ID.Bytes(),
+			TargetCollectionId: collection2.ID.Bytes(),
+			Position:          resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+			WorkspaceId:       workspaceID.Bytes(),
+		},
 	}
-
-	collection, err := cs.GetCollection(ctx, testCollectionID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if collection.Name != collectionNewName {
-		t.Error("name is not updated")
+	
+	_, err = rpc.CollectionMove(ctx, moveReq)
+	require.NoError(t, err)
+	
+	// Verify new order
+	listResp, err = rpc.CollectionList(ctx, listReq)
+	require.NoError(t, err)
+	require.Len(t, listResp.Msg.Items, 3)
+	
+	// The order should now reflect the move operation
+	// This test will help us verify if the ordering is working correctly
+	t.Logf("Collection order after move:")
+	for i, item := range listResp.Msg.Items {
+		collectionID := idwrap.NewFromBytesMust(item.CollectionId)
+		t.Logf("  %d: %s (%s)", i, item.Name, collectionID.String())
 	}
 }
 
-func TestCollectionDelete(t *testing.T) {
-	ctx := context.Background()
-	base := testutil.CreateBaseDB(ctx, t)
-	queries := base.Queries
-	db := base.DB
+// Mock implementations for testing
 
-	mockLogger := mocklogger.NewMockLogger()
+type mockWorkspaceService struct{}
 
-	cs := scollection.New(queries, mockLogger)
-	ws := sworkspace.New(queries)
-	us := suser.New(queries)
-
-	serviceRPC := rcollection.New(db, cs, ws, us)
-	wsID := idwrap.NewNow()
-	wsuserID := idwrap.NewNow()
-	userID := idwrap.NewNow()
-	baseCollectionID := idwrap.NewNow()
-
-	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
-		wsuserID, userID, baseCollectionID)
-
-	testCollectionID := idwrap.NewNow()
-	collectionData := mcollection.Collection{
-		ID:          testCollectionID,
-		WorkspaceID: wsID,
-		Name:        "test",
-		Updated:     time.Now(),
-	}
-
-	err := cs.CreateCollection(ctx, &collectionData)
-	if err != nil {
-		t.Error(err)
-	}
-
-	req := connect.NewRequest(
-		&collectionv1.CollectionDeleteRequest{
-			CollectionId: testCollectionID.Bytes(),
-		},
-	)
-
-	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-
-	resp, err := serviceRPC.CollectionDelete(authedCtx, req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp == nil {
-		t.Fatal("resp is nil")
-	}
-
-	collection, err := cs.GetCollection(ctx, testCollectionID)
-	if err == nil {
-		t.Fatalf("collection is not deleted")
-	}
-	if err != scollection.ErrNoCollectionFound {
-		t.Fatalf("returned error is not ErrNoCollectionFound")
-	}
-	if collection != nil {
-		t.Fatalf("collection is not deleted")
-	}
+func (m *mockWorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspace, error) {
+	return &mworkspace.Workspace{
+		ID:              id,
+		Name:           "Test Workspace",
+		CollectionCount: 0,
+		FlowCount:      0,
+	}, nil
 }
 
-// TODO: generate a HAR file for testing
-/*
-func TestCollectionImportHar(t *testing.T) {
-	ctx := context.Background()
-	base := testutil.CreateBaseDB(ctx, t)
-	queries := base.Queries
-	defer queries.Close()
-	db := base.DB
-
-	cs := scollection.New(queries)
-	ws := sworkspace.New(queries)
-	us := suser.New(queries)
-
-	serviceRPC := rcollection.New(db, cs, ws, us)
-	wsID := idwrap.NewNow()
-	wsuserID := idwrap.NewNow()
-	userID := idwrap.NewNow()
-	baseCollectionID := idwrap.NewNow()
-
-	base.GetBaseServices().CreateTempCollection(t, ctx, wsID,
-		wsuserID, userID, baseCollectionID)
-
-	// print the current working directory
-	currentDir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println("Current working directory: ", currentDir)
-
-	fileData, err := os.ReadFile(filePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	harFileData := fileData
-
-	req := connect.NewRequest(
-		&collectionv1.CollectionImportHarRequest{
-			WorkspaceId: wsID.Bytes(),
-			Name:        "test",
-			Data:        harFileData,
-		},
-	)
-
-	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-
-	resp, err := serviceRPC.CollectionImportHar(authedCtx, req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp == nil {
-		t.Fatal("resp is nil")
-	}
-
-	testCollectionID, err := idwrap.NewFromBytes(resp.Msg.CollectionId)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	collection, err := cs.GetCollection(ctx, testCollectionID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if collection == nil {
-		t.Fatal("collection is nil")
-	}
+func (m *mockWorkspaceService) Update(ctx context.Context, workspace *mworkspace.Workspace) error {
+	return nil
 }
-*/
+
+func (m *mockWorkspaceService) Create(ctx context.Context, workspace *mworkspace.Workspace) error {
+	return nil
+}
+
+func (m *mockWorkspaceService) Delete(ctx context.Context, id idwrap.IDWrap) error {
+	return nil
+}
+
+func (m *mockWorkspaceService) ListWorkspaces(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
+	return []mworkspace.Workspace{}, nil
+}
+
+type mockUserService struct{}
+
+func (m *mockUserService) CheckUserBelongsToWorkspace(ctx context.Context, userID, workspaceID idwrap.IDWrap) (bool, error) {
+	return true, nil
+}

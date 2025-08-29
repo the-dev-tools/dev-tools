@@ -647,19 +647,27 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 
 const createCollection = `-- name: CreateCollection :exec
 INSERT INTO
-  collections (id, workspace_id, name)
+  collections (id, workspace_id, name, prev, next)
 VALUES
-  (?, ?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateCollectionParams struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
 	Name        string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionParams) error {
-	_, err := q.exec(ctx, q.createCollectionStmt, createCollection, arg.ID, arg.WorkspaceID, arg.Name)
+	_, err := q.exec(ctx, q.createCollectionStmt, createCollection,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.Name,
+		arg.Prev,
+		arg.Next,
+	)
 	return err
 }
 
@@ -3593,7 +3601,9 @@ const getCollection = `-- name: GetCollection :one
 SELECT
   id,
   workspace_id,
-  name
+  name,
+  prev,
+  next
 FROM
   collections
 WHERE
@@ -3606,7 +3616,13 @@ LIMIT
 func (q *Queries) GetCollection(ctx context.Context, id idwrap.IDWrap) (Collection, error) {
 	row := q.queryRow(ctx, q.getCollectionStmt, getCollection, id)
 	var i Collection
-	err := row.Scan(&i.ID, &i.WorkspaceID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Prev,
+		&i.Next,
+	)
 	return i, err
 }
 
@@ -3621,15 +3637,21 @@ WHERE
   id = ?
 `
 
-func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id idwrap.IDWrap) ([]Collection, error) {
+type GetCollectionByPlatformIDandTypeRow struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Name        string
+}
+
+func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id idwrap.IDWrap) ([]GetCollectionByPlatformIDandTypeRow, error) {
 	rows, err := q.query(ctx, q.getCollectionByPlatformIDandTypeStmt, getCollectionByPlatformIDandType, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Collection{}
+	items := []GetCollectionByPlatformIDandTypeRow{}
 	for rows.Next() {
-		var i Collection
+		var i GetCollectionByPlatformIDandTypeRow
 		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.Name); err != nil {
 			return nil, err
 		}
@@ -3644,6 +3666,43 @@ func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id idwra
 	return items, nil
 }
 
+const getCollectionByPrevNext = `-- name: GetCollectionByPrevNext :one
+SELECT
+  id,
+  workspace_id,
+  name,
+  prev,
+  next
+FROM
+  collections
+WHERE
+  workspace_id = ? AND
+  prev = ? AND
+  next = ?
+LIMIT
+  1
+`
+
+type GetCollectionByPrevNextParams struct {
+	WorkspaceID idwrap.IDWrap
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
+}
+
+// Find collection by its prev/next references for position-based operations
+func (q *Queries) GetCollectionByPrevNext(ctx context.Context, arg GetCollectionByPrevNextParams) (Collection, error) {
+	row := q.queryRow(ctx, q.getCollectionByPrevNextStmt, getCollectionByPrevNext, arg.WorkspaceID, arg.Prev, arg.Next)
+	var i Collection
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
 const getCollectionByWorkspaceID = `-- name: GetCollectionByWorkspaceID :many
 SELECT
   id,
@@ -3655,15 +3714,21 @@ WHERE
   workspace_id = ?
 `
 
-func (q *Queries) GetCollectionByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Collection, error) {
+type GetCollectionByWorkspaceIDRow struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Name        string
+}
+
+func (q *Queries) GetCollectionByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]GetCollectionByWorkspaceIDRow, error) {
 	rows, err := q.query(ctx, q.getCollectionByWorkspaceIDStmt, getCollectionByWorkspaceID, workspaceID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Collection{}
+	items := []GetCollectionByWorkspaceIDRow{}
 	for rows.Next() {
-		var i Collection
+		var i GetCollectionByWorkspaceIDRow
 		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.Name); err != nil {
 			return nil, err
 		}
@@ -3697,10 +3762,47 @@ type GetCollectionByWorkspaceIDAndNameParams struct {
 	Name        string
 }
 
-func (q *Queries) GetCollectionByWorkspaceIDAndName(ctx context.Context, arg GetCollectionByWorkspaceIDAndNameParams) (Collection, error) {
+type GetCollectionByWorkspaceIDAndNameRow struct {
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+	Name        string
+}
+
+func (q *Queries) GetCollectionByWorkspaceIDAndName(ctx context.Context, arg GetCollectionByWorkspaceIDAndNameParams) (GetCollectionByWorkspaceIDAndNameRow, error) {
 	row := q.queryRow(ctx, q.getCollectionByWorkspaceIDAndNameStmt, getCollectionByWorkspaceIDAndName, arg.WorkspaceID, arg.Name)
-	var i Collection
+	var i GetCollectionByWorkspaceIDAndNameRow
 	err := row.Scan(&i.ID, &i.WorkspaceID, &i.Name)
+	return i, err
+}
+
+const getCollectionMaxPosition = `-- name: GetCollectionMaxPosition :one
+SELECT
+  id,
+  workspace_id,
+  name,
+  prev,
+  next
+FROM
+  collections
+WHERE
+  workspace_id = ? AND
+  next IS NULL
+LIMIT
+  1
+`
+
+// Get the last collection in the list (tail) for a workspace
+// Used when appending new collections to the end of the list
+func (q *Queries) GetCollectionMaxPosition(ctx context.Context, workspaceID idwrap.IDWrap) (Collection, error) {
+	row := q.queryRow(ctx, q.getCollectionMaxPositionStmt, getCollectionMaxPosition, workspaceID)
+	var i Collection
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Prev,
+		&i.Next,
+	)
 	return i, err
 }
 
@@ -3720,6 +3822,97 @@ func (q *Queries) GetCollectionWorkspaceID(ctx context.Context, id idwrap.IDWrap
 	var workspace_id idwrap.IDWrap
 	err := row.Scan(&workspace_id)
 	return workspace_id, err
+}
+
+const getCollectionsInOrder = `-- name: GetCollectionsInOrder :many
+WITH RECURSIVE ordered_collections AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    c.id,
+    c.workspace_id,
+    c.name,
+    c.prev,
+    c.next,
+    0 as position
+  FROM
+    collections c
+  WHERE
+    c.workspace_id = ? AND
+    c.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    c.id,
+    c.workspace_id,
+    c.name,
+    c.prev,
+    c.next,
+    oc.position + 1
+  FROM
+    collections c
+  INNER JOIN ordered_collections oc ON c.prev = oc.id
+  WHERE
+    c.workspace_id = ?
+)
+SELECT
+  oc.id,
+  oc.workspace_id,
+  oc.name,
+  oc.prev,
+  oc.next,
+  oc.position
+FROM
+  ordered_collections oc
+ORDER BY
+  oc.position
+`
+
+type GetCollectionsInOrderParams struct {
+	WorkspaceID   idwrap.IDWrap
+	WorkspaceID_2 idwrap.IDWrap
+}
+
+type GetCollectionsInOrderRow struct {
+	ID          []byte
+	WorkspaceID []byte
+	Name        string
+	Prev        []byte
+	Next        []byte
+	Position    int64
+}
+
+// Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+// Requires index on (workspace_id, prev) for optimal performance
+func (q *Queries) GetCollectionsInOrder(ctx context.Context, arg GetCollectionsInOrderParams) ([]GetCollectionsInOrderRow, error) {
+	rows, err := q.query(ctx, q.getCollectionsInOrderStmt, getCollectionsInOrder, arg.WorkspaceID, arg.WorkspaceID_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetCollectionsInOrderRow{}
+	for rows.Next() {
+		var i GetCollectionsInOrderRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.Prev,
+			&i.Next,
+			&i.Position,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getEnvironment = `-- name: GetEnvironment :one
@@ -6481,6 +6674,67 @@ type UpdateCollectionParams struct {
 
 func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionParams) error {
 	_, err := q.exec(ctx, q.updateCollectionStmt, updateCollection, arg.WorkspaceID, arg.Name, arg.ID)
+	return err
+}
+
+const updateCollectionOrder = `-- name: UpdateCollectionOrder :exec
+UPDATE collections
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?
+`
+
+type UpdateCollectionOrderParams struct {
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+}
+
+// Update the prev/next pointers for a single collection
+// Used for moving collections within the linked list
+func (q *Queries) UpdateCollectionOrder(ctx context.Context, arg UpdateCollectionOrderParams) error {
+	_, err := q.exec(ctx, q.updateCollectionOrderStmt, updateCollectionOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.WorkspaceID,
+	)
+	return err
+}
+
+const updateCollectionPositions = `-- name: UpdateCollectionPositions :exec
+UPDATE collections
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?
+`
+
+type UpdateCollectionPositionsParams struct {
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
+	ID          idwrap.IDWrap
+	WorkspaceID idwrap.IDWrap
+}
+
+// Batch update positions for multiple collections (for efficient reordering)
+// This query updates prev/next based on the position parameter
+// Usage: Call with arrays of (id, prev_id, next_id, workspace_id) for each collection
+// Note: In practice, this would be used with multiple individual UPDATE statements
+// since SQLite doesn't support arrays directly in prepared statements
+func (q *Queries) UpdateCollectionPositions(ctx context.Context, arg UpdateCollectionPositionsParams) error {
+	_, err := q.exec(ctx, q.updateCollectionPositionsStmt, updateCollectionPositions,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.WorkspaceID,
+	)
 	return err
 }
 
