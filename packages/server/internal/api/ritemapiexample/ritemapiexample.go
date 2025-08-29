@@ -526,6 +526,11 @@ func (c *ItemAPIExampleRPC) ExampleDuplicate(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
 	err = CreateCopyExample(ctx, tx, res)
 	if err != nil {
@@ -1219,11 +1224,11 @@ func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult
 	// Create the main example
 	txIaes, err := sitemapiexample.NewTX(ctx, tx)
 	if err != nil {
-		return fmt.Errorf("failed to create example: %w", err)
+		return fmt.Errorf("failed to create example service: %w", err)
 	}
 	err = txIaes.CreateApiExample(ctx, &result.Example)
 	if err != nil {
-		return fmt.Errorf("failed to create example: %w", err)
+		return fmt.Errorf("failed to create example with ID %s: %w", result.Example.ID.String(), err)
 	}
 
 	// Create headers
@@ -1292,13 +1297,18 @@ func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult
 		return fmt.Errorf("failed to create assertion: %w", err)
 	}
 
-	txErs, err := sexampleresp.NewTX(ctx, tx)
-	if err != nil {
-		return fmt.Errorf("failed to create example response: %w", err)
-	}
-	err = txErs.CreateExampleResp(ctx, result.Resp)
-	if err != nil {
-		return fmt.Errorf("failed to create example response: %w", err)
+	// Only create response if there was one to copy
+	// Check if the Resp has a valid ID (meaning it was populated from an existing response)
+	if result.Resp.ID != (idwrap.IDWrap{}) && result.Resp.ExampleID != (idwrap.IDWrap{}) {
+		txErs, err := sexampleresp.NewTX(ctx, tx)
+		if err != nil {
+			return fmt.Errorf("failed to create example response service: %w", err)
+		}
+		err = txErs.CreateExampleResp(ctx, result.Resp)
+		if err != nil {
+			return fmt.Errorf("failed to create example response (ID: %s, ExampleID: %s): %w", 
+				result.Resp.ID.String(), result.Resp.ExampleID.String(), err)
+		}
 	}
 
 	txErhs, err := sexamplerespheader.NewTX(ctx, tx)

@@ -193,12 +193,25 @@ func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get examples"))
 	}
 
+	// Try to get default example, but don't fail if it doesn't exist
+	// (for backwards compatibility with endpoints created before default examples were mandatory)
 	defaultExample, err := c.iaes.GetDefaultApiExample(ctx, api.ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get default example"))
+	if err == nil && defaultExample != nil {
+		examples = append(examples, *defaultExample)
 	}
-
-	examples = append(examples, *defaultExample)
+	
+	// If no examples at all (not even default), create a default example for the duplicate
+	if len(examples) == 0 {
+		newDefaultExample := mitemapiexample.ItemApiExample{
+			ID:           idwrap.NewNow(),
+			ItemApiID:    idwrap.NewNow(), // Will be updated to the new API ID below
+			CollectionID: api.CollectionID,
+			IsDefault:    true,
+			Name:         "Default",
+			BodyType:     mitemapiexample.BodyTypeNone,
+		}
+		examples = append(examples, newDefaultExample)
+	}
 
 	api.ID = idwrap.NewNow()
 	api.Name = api.Name + " Copy"
@@ -231,11 +244,6 @@ func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	iasTX, err := sitemapi.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	iaesTX, err := sitemapiexample.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -246,7 +254,9 @@ func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	err = iasTX.CreateItemApi(ctx, api)
+	// Use CollectionItemService to create endpoint with unified ordering
+	// This ensures the duplicated endpoint appears in CollectionItemList
+	err = c.cis.CreateEndpointTX(ctx, tx, api)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -268,7 +278,23 @@ func (c *ItemApiRPC) EndpointDuplicate(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	resp := &endpointv1.EndpointDuplicateResponse{}
+	// Find the default example ID from the duplicated examples
+	var defaultExampleID []byte
+	for _, ex := range examples {
+		if ex.IsDefault {
+			defaultExampleID = ex.ID.Bytes()
+			break
+		}
+	}
+	// If no default example, use the first example
+	if defaultExampleID == nil && len(examples) > 0 {
+		defaultExampleID = examples[0].ID.Bytes()
+	}
+
+	resp := &endpointv1.EndpointDuplicateResponse{
+		EndpointId: api.ID.Bytes(),
+		ExampleId:  defaultExampleID,
+	}
 	return connect.NewResponse(resp), nil
 }
 
