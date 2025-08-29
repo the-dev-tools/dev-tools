@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rcollectionitem"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -53,11 +52,11 @@ func TestCrossCollectionTargetKindValidation(t *testing.T) {
 
 	tests := []TargetKindTestCase{
 		{
-			name:                "Valid: Folder to Folder",
-			sourceKind:          itemv1.ItemKind_ITEM_KIND_FOLDER,
-			targetKind:          itemv1.ItemKind_ITEM_KIND_FOLDER,
-			expectError:         false,
-			description:         "Moving folder relative to another folder should succeed",
+			name:        "Valid: Folder to Folder",
+			sourceKind:  itemv1.ItemKind_ITEM_KIND_FOLDER,
+			targetKind:  itemv1.ItemKind_ITEM_KIND_FOLDER,
+			expectError: false,
+			description: "Moving folder relative to another folder should succeed",
 			setupFunc: func(t *testing.T, ctx context.Context, sourceCollectionID, targetCollectionID idwrap.IDWrap, cis *scollectionitem.CollectionItemService, ifs sitemfolder.ItemFolderService, ias sitemapi.ItemApiService) (sourceItemID, targetItemID idwrap.IDWrap) {
 				// Create source folder
 				sourceFolderID := idwrap.NewNow()
@@ -311,7 +310,7 @@ func TestCrossCollectionTargetKindValidation(t *testing.T) {
 			// Convert legacy IDs to collection item IDs if needed
 			var targetCollectionItemID idwrap.IDWrap
 			var err error
-			
+
 			if !tt.expectError || tt.expectedCode != connect.CodeInvalidArgument || tt.expectedMessagePart != "source kind must be specified" {
 				// Only try to get collection item ID if we expect the request to get past initial validation
 				targetCollectionItemID, err = cis.GetCollectionItemIDByLegacyID(ctx, targetItemID)
@@ -344,7 +343,7 @@ func TestCrossCollectionTargetKindValidation(t *testing.T) {
 				if connectErr := new(connect.Error); assert.ErrorAs(t, err, &connectErr) {
 					assert.Equal(t, tt.expectedCode, connectErr.Code(),
 						"Expected error code %v but got %v for: %s", tt.expectedCode, connectErr.Code(), tt.description)
-					
+
 					if tt.expectedMessagePart != "" {
 						assert.Contains(t, connectErr.Message(), tt.expectedMessagePart,
 							"Error message should contain '%s' but got: %s", tt.expectedMessagePart, connectErr.Message())
@@ -378,7 +377,7 @@ func TestCrossCollectionTargetKindSemantics(t *testing.T) {
 	t.Run("Semantic Analysis: Folder into Folder Hierarchy", func(t *testing.T) {
 		// This tests the semantic meaning of folder-to-folder moves
 		// When targetKind=FOLDER, we're indicating this is folder reorganization
-		
+
 		// Create parent folder in target collection
 		parentFolderID := idwrap.NewNow()
 		parentFolder := &mitemfolder.ItemFolder{
@@ -390,7 +389,7 @@ func TestCrossCollectionTargetKindSemantics(t *testing.T) {
 		err := ifs.CreateItemFolder(ctx, parentFolder)
 		require.NoError(t, err)
 
-		// Create child folder in source collection  
+		// Create child folder in source collection
 		childFolderID := idwrap.NewNow()
 		childFolder := &mitemfolder.ItemFolder{
 			ID:           childFolderID,
@@ -684,7 +683,7 @@ func TestCrossCollectionTargetKindMismatchScenarios(t *testing.T) {
 		// Verify move succeeded
 		items, err := cis.ListCollectionItems(ctx, targetCollectionID, nil)
 		require.NoError(t, err)
-		
+
 		found := false
 		for _, item := range items {
 			if item.EndpointID != nil && item.EndpointID.Compare(sourceEndpointID) == 0 {
@@ -699,7 +698,7 @@ func TestCrossCollectionTargetKindMismatchScenarios(t *testing.T) {
 	t.Run("TargetKind Advisory Nature", func(t *testing.T) {
 		// This test confirms that targetKind is advisory/validation only
 		// The actual operation should work based on real item types, not claimed types
-		
+
 		// Create source folder
 		sourceFolderID := idwrap.NewNow()
 		sourceFolder := &mitemfolder.ItemFolder{
@@ -711,7 +710,7 @@ func TestCrossCollectionTargetKindMismatchScenarios(t *testing.T) {
 		err := ifs.CreateItemFolder(ctx, sourceFolder)
 		require.NoError(t, err)
 
-		// Create target folder  
+		// Create target folder
 		targetFolderID := idwrap.NewNow()
 		targetFolder := &mitemfolder.ItemFolder{
 			ID:           targetFolderID,
@@ -753,7 +752,7 @@ func TestCrossCollectionTargetKindMismatchScenarios(t *testing.T) {
 		assert.NoError(t, err, "Move with correct targetKind should succeed")
 		assert.NotNil(t, resp, "Response should not be nil")
 
-		// Verify successful move  
+		// Verify successful move
 		items, err := cis.ListCollectionItems(ctx, targetCollectionID, nil)
 		require.NoError(t, err)
 		require.Len(t, items, 2, "Target collection should have 2 folders")

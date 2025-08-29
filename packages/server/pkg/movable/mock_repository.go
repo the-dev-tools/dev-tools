@@ -95,3 +95,12 @@ func (m *mockMovableRepository) addTestItem(id, parentID idwrap.IDWrap, position
 		ListType: CollectionListTypeItems,
 	}
 }
+
+// getItemByID gets an item by ID (helper method for delta manager)
+func (m *mockMovableRepository) getItemByID(id idwrap.IDWrap) (MovableItem, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	
+	item, exists := m.items[id]
+	return item, exists
+}

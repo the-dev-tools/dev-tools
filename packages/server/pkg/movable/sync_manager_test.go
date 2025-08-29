@@ -36,9 +36,9 @@ func (m *MockDeltaCoordinator) SyncDeltas(ctx context.Context, scopeID idwrap.ID
 	return m.syncError
 }
 
-func (m *MockDeltaCoordinator) ResolveConflicts(ctx context.Context, conflicts []DeltaConflict) (*ConflictResolution, error) {
+func (m *MockDeltaCoordinator) ResolveConflicts(ctx context.Context, conflicts []DeltaConflict) (*UnifiedConflictResolution, error) {
 	m.resolveConflictsCalled = true
-	return &ConflictResolution{}, m.resolveError
+	return &UnifiedConflictResolution{}, m.resolveError
 }
 
 // createTestSyncManager creates a sync manager for testing
@@ -72,7 +72,7 @@ func createTestSyncManager(t *testing.T) (*DeltaSyncManager, *MockDeltaCoordinat
 func createTestSyncIDs(prefix string, count int) []idwrap.IDWrap {
 	ids := make([]idwrap.IDWrap, count)
 	for i := 0; i < count; i++ {
-		ids[i] = idwrap.NewIDWrap(fmt.Sprintf("%s_%d", prefix, i))
+		ids[i] = idwrap.NewTextMust(fmt.Sprintf("%s_%d", prefix, i))
 	}
 	return ids
 }
@@ -82,23 +82,23 @@ func createTestSyncIDs(prefix string, count int) []idwrap.IDWrap {
 // =============================================================================
 
 func TestDeltaSyncManager_OnDeltaCreate(t *testing.T) {
-	manager, coordinator, _ := createTestSyncManager(t)
+	manager, _, _ := createTestSyncManager(t)
 	
 	// Test data
-	deltaID := idwrap.NewIDWrap("delta_1")
-	originID := idwrap.NewIDWrap("origin_1") 
-	scopeID := idwrap.NewIDWrap("scope_1")
-	context := ContextEndpoint
+	deltaID := idwrap.NewTextMust("delta_1")
+	originID := idwrap.NewTextMust("origin_1") 
+	scopeID := idwrap.NewTextMust("scope_1")
+	contextType := ContextEndpoint
 	
 	relation := &DeltaRelation{
 		DeltaID:  deltaID,
 		OriginID: originID,
-		Context:  context,
+		Context:  contextType,
 		ScopeID:  scopeID,
 	}
 	
 	// Execute
-	err := manager.OnDeltaCreate(context.Background(), deltaID, originID, context, scopeID, relation)
+	err := manager.OnDeltaCreate(context.Background(), deltaID, originID, contextType, scopeID, relation)
 	
 	// Verify
 	if err != nil {
@@ -122,8 +122,8 @@ func TestDeltaSyncManager_OnDeltaCreate(t *testing.T) {
 		t.Errorf("Expected OriginID %v, got %v", originID, syncRel.OriginID)
 	}
 	
-	if syncRel.Context != context {
-		t.Errorf("Expected Context %v, got %v", context, syncRel.Context)
+	if syncRel.Context != contextType {
+		t.Errorf("Expected Context %v, got %v", contextType, syncRel.Context)
 	}
 }
 
@@ -131,19 +131,19 @@ func TestDeltaSyncManager_OnDeltaDelete(t *testing.T) {
 	manager, _, _ := createTestSyncManager(t)
 	
 	// Setup: Create a sync relationship first
-	deltaID := idwrap.NewIDWrap("delta_1")
-	originID := idwrap.NewIDWrap("origin_1")
-	scopeID := idwrap.NewIDWrap("scope_1") 
-	context := ContextEndpoint
+	deltaID := idwrap.NewTextMust("delta_1")
+	originID := idwrap.NewTextMust("origin_1")
+	scopeID := idwrap.NewTextMust("scope_1") 
+	contextType := ContextEndpoint
 	
 	relation := &DeltaRelation{
 		DeltaID:  deltaID,
 		OriginID: originID,
-		Context:  context,
+		Context:  contextType,
 		ScopeID:  scopeID,
 	}
 	
-	err := manager.OnDeltaCreate(context.Background(), deltaID, originID, context, scopeID, relation)
+	err := manager.OnDeltaCreate(context.Background(), deltaID, originID, contextType, scopeID, relation)
 	if err != nil {
 		t.Fatalf("Failed to create delta for test: %v", err)
 	}
@@ -177,21 +177,21 @@ func TestDeltaSyncManager_OnOriginMove(t *testing.T) {
 	manager, _, _ := createTestSyncManager(t)
 	
 	// Setup: Create deltas for an origin
-	originID := idwrap.NewIDWrap("origin_1")
-	deltaID1 := idwrap.NewIDWrap("delta_1")
-	deltaID2 := idwrap.NewIDWrap("delta_2")
-	scopeID := idwrap.NewIDWrap("scope_1")
-	context := ContextEndpoint
+	originID := idwrap.NewTextMust("origin_1")
+	deltaID1 := idwrap.NewTextMust("delta_1")
+	deltaID2 := idwrap.NewTextMust("delta_2")
+	scopeID := idwrap.NewTextMust("scope_1")
+	contextType := ContextEndpoint
 	
 	// Create sync relationships
 	relations := []*DeltaRelation{
-		{DeltaID: deltaID1, OriginID: originID, Context: context, ScopeID: scopeID},
-		{DeltaID: deltaID2, OriginID: originID, Context: context, ScopeID: scopeID},
+		{DeltaID: deltaID1, OriginID: originID, Context: contextType, ScopeID: scopeID},
+		{DeltaID: deltaID2, OriginID: originID, Context: contextType, ScopeID: scopeID},
 	}
 	
 	for i, relation := range relations {
 		deltaID := []idwrap.IDWrap{deltaID1, deltaID2}[i]
-		err := manager.OnDeltaCreate(context.Background(), deltaID, originID, context, scopeID, relation)
+		err := manager.OnDeltaCreate(context.Background(), deltaID, originID, contextType, scopeID, relation)
 		if err != nil {
 			t.Fatalf("Failed to create delta %d: %v", i, err)
 		}
@@ -239,15 +239,15 @@ func TestDeltaSyncManager_ResolveConflicts_LastWriteWins(t *testing.T) {
 	conflicts := []SyncConflict{
 		{
 			ConflictID: "conflict_1",
-			OriginID:   idwrap.NewIDWrap("origin_1"),
+			OriginID:   idwrap.NewTextMust("origin_1"),
 			ConflictingDeltas: []ConflictingDelta{
 				{
-					DeltaID:      idwrap.NewIDWrap("delta_old"),
+					DeltaID:      idwrap.NewTextMust("delta_old"),
 					LastModified: older,
 					Position:     5,
 				},
 				{
-					DeltaID:      idwrap.NewIDWrap("delta_new"), 
+					DeltaID:      idwrap.NewTextMust("delta_new"), 
 					LastModified: now,
 					Position:     7,
 				},
@@ -286,7 +286,7 @@ func TestDeltaSyncManager_ResolveConflicts_LastWriteWins(t *testing.T) {
 		t.Errorf("Expected LastWriteWins strategy, got %v", resolved.Strategy)
 	}
 	
-	expectedWinner := idwrap.NewIDWrap("delta_new")
+	expectedWinner := idwrap.NewTextMust("delta_new")
 	if resolved.Resolution.WinnerID != expectedWinner {
 		t.Errorf("Expected winner %v, got %v", expectedWinner, resolved.Resolution.WinnerID)
 	}
@@ -298,14 +298,14 @@ func TestDeltaSyncManager_ResolveConflicts_OriginPriority(t *testing.T) {
 	// Set strategy to origin priority
 	manager.config.DefaultStrategy = ConflictStrategyOriginPriority
 	
-	originID := idwrap.NewIDWrap("origin_1")
+	originID := idwrap.NewTextMust("origin_1")
 	conflicts := []SyncConflict{
 		{
 			ConflictID: "conflict_1",
 			OriginID:   originID,
 			ConflictingDeltas: []ConflictingDelta{
-				{DeltaID: idwrap.NewIDWrap("delta_1"), Position: 5},
-				{DeltaID: idwrap.NewIDWrap("delta_2"), Position: 7},
+				{DeltaID: idwrap.NewTextMust("delta_1"), Position: 5},
+				{DeltaID: idwrap.NewTextMust("delta_2"), Position: 7},
 			},
 			ConflictType: ConflictTypePositionMismatch,
 			Context:      ContextEndpoint,
@@ -341,11 +341,11 @@ func TestDeltaSyncManager_ResolveConflicts_MergeStrategy(t *testing.T) {
 	conflicts := []SyncConflict{
 		{
 			ConflictID: "conflict_1",
-			OriginID:   idwrap.NewIDWrap("origin_1"),
+			OriginID:   idwrap.NewTextMust("origin_1"),
 			ConflictingDeltas: []ConflictingDelta{
-				{DeltaID: idwrap.NewIDWrap("delta_1"), Position: 4},
-				{DeltaID: idwrap.NewIDWrap("delta_2"), Position: 6},
-				{DeltaID: idwrap.NewIDWrap("delta_3"), Position: 8},
+				{DeltaID: idwrap.NewTextMust("delta_1"), Position: 4},
+				{DeltaID: idwrap.NewTextMust("delta_2"), Position: 6},
+				{DeltaID: idwrap.NewTextMust("delta_3"), Position: 8},
 			},
 			ConflictType: ConflictTypePositionMismatch,
 			Context:      ContextEndpoint,
@@ -383,20 +383,20 @@ func TestDeltaSyncManager_PropagateChanges(t *testing.T) {
 	manager, _, _ := createTestSyncManager(t)
 	
 	// Setup sync relationships
-	originID := idwrap.NewIDWrap("origin_1")
-	deltaID1 := idwrap.NewIDWrap("delta_1")
-	deltaID2 := idwrap.NewIDWrap("delta_2")
-	scopeID := idwrap.NewIDWrap("scope_1")
-	context := ContextEndpoint
+	originID := idwrap.NewTextMust("origin_1")
+	deltaID1 := idwrap.NewTextMust("delta_1")
+	deltaID2 := idwrap.NewTextMust("delta_2")
+	scopeID := idwrap.NewTextMust("scope_1")
+	contextType := ContextEndpoint
 	
 	relations := []*DeltaRelation{
-		{DeltaID: deltaID1, OriginID: originID, Context: context, ScopeID: scopeID},
-		{DeltaID: deltaID2, OriginID: originID, Context: context, ScopeID: scopeID},
+		{DeltaID: deltaID1, OriginID: originID, Context: contextType, ScopeID: scopeID},
+		{DeltaID: deltaID2, OriginID: originID, Context: contextType, ScopeID: scopeID},
 	}
 	
 	for i, relation := range relations {
 		deltaID := []idwrap.IDWrap{deltaID1, deltaID2}[i]
-		err := manager.OnDeltaCreate(context.Background(), deltaID, originID, context, scopeID, relation)
+		err := manager.OnDeltaCreate(context.Background(), deltaID, originID, contextType, scopeID, relation)
 		if err != nil {
 			t.Fatalf("Failed to create delta %d: %v", i, err)
 		}
@@ -619,17 +619,17 @@ func TestDeltaSyncManager_OnDeltaCreate_EmptyIDs(t *testing.T) {
 	
 	// Test with empty delta ID
 	err := manager.OnDeltaCreate(context.Background(), idwrap.IDWrap{}, 
-		idwrap.NewIDWrap("origin_1"), ContextEndpoint, 
-		idwrap.NewIDWrap("scope_1"), &DeltaRelation{})
+		idwrap.NewTextMust("origin_1"), ContextEndpoint, 
+		idwrap.NewTextMust("scope_1"), &DeltaRelation{})
 	
 	if err == nil {
 		t.Error("Expected error for empty delta ID")
 	}
 	
 	// Test with empty origin ID
-	err = manager.OnDeltaCreate(context.Background(), idwrap.NewIDWrap("delta_1"),
+	err = manager.OnDeltaCreate(context.Background(), idwrap.NewTextMust("delta_1"),
 		idwrap.IDWrap{}, ContextEndpoint,
-		idwrap.NewIDWrap("scope_1"), &DeltaRelation{})
+		idwrap.NewTextMust("scope_1"), &DeltaRelation{})
 	
 	if err == nil {
 		t.Error("Expected error for empty origin ID")
@@ -640,7 +640,7 @@ func TestDeltaSyncManager_OnDeltaDelete_NonExistent(t *testing.T) {
 	manager, _, _ := createTestSyncManager(t)
 	
 	// Try to delete non-existent delta (should not error)
-	err := manager.OnDeltaDelete(context.Background(), idwrap.NewIDWrap("nonexistent"))
+	err := manager.OnDeltaDelete(context.Background(), idwrap.NewTextMust("nonexistent"))
 	if err != nil {
 		t.Errorf("OnDeltaDelete should handle non-existent deltas gracefully: %v", err)
 	}
@@ -677,9 +677,9 @@ func TestDeltaSyncManager_ConcurrentAccess(t *testing.T) {
 			defer func() { done <- true }()
 			
 			for j := 0; j < operationsPerWorker; j++ {
-				deltaID := idwrap.NewIDWrap(fmt.Sprintf("delta_%d_%d", workerID, j))
-				originID := idwrap.NewIDWrap(fmt.Sprintf("origin_%d", workerID))
-				scopeID := idwrap.NewIDWrap(fmt.Sprintf("scope_%d", workerID))
+				deltaID := idwrap.NewTextMust(fmt.Sprintf("delta_%d_%d", workerID, j))
+				originID := idwrap.NewTextMust(fmt.Sprintf("origin_%d", workerID))
+				scopeID := idwrap.NewTextMust(fmt.Sprintf("scope_%d", workerID))
 				
 				relation := &DeltaRelation{
 					DeltaID:  deltaID,
@@ -754,11 +754,11 @@ func BenchmarkDeltaSyncManager_PropagateChanges(b *testing.B) {
 	
 	// Setup: Create many sync relationships
 	const numDeltas = 100
-	originID := idwrap.NewIDWrap("benchmark_origin")
+	originID := idwrap.NewTextMust("benchmark_origin")
 	
 	for i := 0; i < numDeltas; i++ {
-		deltaID := idwrap.NewIDWrap(fmt.Sprintf("delta_%d", i))
-		scopeID := idwrap.NewIDWrap(fmt.Sprintf("scope_%d", i))
+		deltaID := idwrap.NewTextMust(fmt.Sprintf("delta_%d", i))
+		scopeID := idwrap.NewTextMust(fmt.Sprintf("scope_%d", i))
 		
 		relation := &DeltaRelation{
 			DeltaID:  deltaID,

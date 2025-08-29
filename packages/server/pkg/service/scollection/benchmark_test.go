@@ -2,6 +2,7 @@ package scollection_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/rand"
 	"runtime"
@@ -9,17 +10,150 @@ import (
 	"testing"
 	"time"
 
+	"the-dev-tools/db/pkg/dbtest"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mcollection"
+	"the-dev-tools/server/pkg/model/muser"
+	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/movable"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
 )
 
-// setupBenchmarkCollections creates n collections for benchmarking
-func setupBenchmarkCollections(b *testing.B, ctx context.Context, cs *scollection.CollectionService, wsID idwrap.IDWrap, n int) []idwrap.IDWrap {
+// BenchmarkBaseDBQueries is like BaseDBQueries but for benchmarks
+type BenchmarkBaseDBQueries struct {
+	Queries *gen.Queries
+	DB      *sql.DB
+	b       *testing.B
+	ctx     context.Context
+}
+
+// createBaseBenchmarkDB creates database connection for benchmarks
+func createBaseBenchmarkDB(ctx context.Context, b *testing.B) *BenchmarkBaseDBQueries {
+	db, err := dbtest.GetTestDB(ctx)
+	if err != nil {
+		b.Fatal(err)
+	}
+	queries, err := gen.Prepare(ctx, db)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return &BenchmarkBaseDBQueries{Queries: queries, b: b, ctx: ctx, DB: db}
+}
+
+func (b BenchmarkBaseDBQueries) GetBaseServices() testutil.BaseTestServices {
+	queries := b.Queries
+	mockLogger := mocklogger.NewMockLogger()
+	cs := scollection.New(queries, mockLogger)
+	ws := sworkspace.New(queries)
+	wus := sworkspacesusers.New(queries)
+	us := suser.New(queries)
+	return testutil.BaseTestServices{
+		DB:  b.DB,
+		Cs:  cs,
+		Us:  us,
+		Ws:  ws,
+		Wus: wus,
+	}
+}
+
+func (b BenchmarkBaseDBQueries) Close() {
+	err := b.DB.Close()
+	if err != nil {
+		b.b.Error(err)
+	}
+	err = b.Queries.Close()
+	if err != nil {
+		b.b.Error(err)
+	}
+}
+
+// setupWorkspaceAndUserBenchmark is the benchmark version of setupWorkspaceAndUser
+func setupWorkspaceAndUserBenchmark(b *testing.B, ctx context.Context, base *BenchmarkBaseDBQueries) (wsID, userID idwrap.IDWrap) {
 	b.Helper()
+	
+	wsID = idwrap.NewNow()
+	wsuserID := idwrap.NewNow()
+	userID = idwrap.NewNow()
+	baseCollectionID := idwrap.NewNow()
+
+	services := base.GetBaseServices()
+	cs := services.Cs
+	ws := services.Ws
+	wus := services.Wus
+	us := services.Us
+
+	workspaceData := mworkspace.Workspace{
+		ID:      wsID,
+		Updated: time.Now(),
+		Name:    "test",
+	}
+
+	err := ws.Create(ctx, &workspaceData)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	providerID := "test"
+	userData := muser.User{
+		ID:           userID,
+		Email:        "test@dev.tools",
+		Password:     []byte("test"),
+		ProviderID:   &providerID,
+		ProviderType: muser.MagicLink,
+		Status:       muser.Active,
+	}
+
+	err = us.CreateUser(ctx, &userData)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	workspaceUserData := mworkspaceuser.WorkspaceUser{
+		ID:          wsuserID,
+		WorkspaceID: wsID,
+		UserID:      userID,
+		Role:        mworkspaceuser.RoleAdmin,
+	}
+
+	err = wus.CreateWorkspaceUser(ctx, &workspaceUserData)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	collectionData := mcollection.Collection{
+		ID:          baseCollectionID,
+		WorkspaceID: wsID,
+		Name:        "test",
+		Updated:     time.Now(),
+	}
+
+	err = cs.CreateCollection(ctx, &collectionData)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	collectionGet, err := cs.GetCollection(ctx, baseCollectionID)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	if collectionGet == nil {
+		b.Fatal("Collection not found")
+	}
+
+	return wsID, userID
+}
+
+// setupBenchmarkCollections creates n collections for benchmarking
+func setupBenchmarkCollections(tb testing.TB, ctx context.Context, cs *scollection.CollectionService, wsID idwrap.IDWrap, n int) []idwrap.IDWrap {
+	tb.Helper()
 	
 	ids := make([]idwrap.IDWrap, n)
 	for i := 0; i < n; i++ {
@@ -33,7 +167,7 @@ func setupBenchmarkCollections(b *testing.B, ctx context.Context, cs *scollectio
 		
 		err := cs.CreateCollection(ctx, collection)
 		if err != nil {
-			b.Fatalf("failed to create collection %d: %v", i, err)
+			tb.Fatalf("failed to create collection %d: %v", i, err)
 		}
 		
 		ids[i] = id
@@ -53,14 +187,14 @@ func BenchmarkCollectionTraversal(b *testing.B) {
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
 			ctx := context.Background()
-			base := testutil.CreateBaseDB(ctx, b)
+			base := createBaseBenchmarkDB(ctx, b)
 			defer base.Close()
 
 			mockLogger := mocklogger.NewMockLogger()
 			cs := scollection.New(base.Queries, mockLogger)
 			
 			// Setup workspace and collections
-			wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+			wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 			collectionIDs := setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 			
 			// Verify setup
@@ -137,14 +271,14 @@ func BenchmarkCollectionMove(b *testing.B) {
 		for _, pattern := range patterns {
 			b.Run(fmt.Sprintf("size_%d_%s", size, pattern.name), func(b *testing.B) {
 				ctx := context.Background()
-				base := testutil.CreateBaseDB(ctx, b)
+				base := createBaseBenchmarkDB(ctx, b)
 				defer base.Close()
 
 				mockLogger := mocklogger.NewMockLogger()
 				cs := scollection.New(base.Queries, mockLogger)
 				
 				// Setup workspace
-				wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+				wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 				
 				// Pre-generate move operations to avoid timing the random generation
 				type moveOp struct {
@@ -170,7 +304,7 @@ func BenchmarkCollectionMove(b *testing.B) {
 				}
 				
 				// Setup final collections for the benchmark
-				collectionIDs := setupBenchmarkCollections(b, ctx, &cs, wsID, size)
+				_ = setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 				
 				runtime.GC()
 				b.ResetTimer()
@@ -253,14 +387,14 @@ func BenchmarkBatchReorder(b *testing.B) {
 		for _, pattern := range patterns {
 			b.Run(fmt.Sprintf("size_%d_%s", size, pattern.name), func(b *testing.B) {
 				ctx := context.Background()
-				base := testutil.CreateBaseDB(ctx, b)
+				base := createBaseBenchmarkDB(ctx, b)
 				defer base.Close()
 
 				mockLogger := mocklogger.NewMockLogger()
 				cs := scollection.New(base.Queries, mockLogger)
 				
 				// Setup workspace and collections
-				wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+				wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 				collectionIDs := setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 				
 				// Pre-generate reorderings to avoid timing the shuffle/reverse operations
@@ -299,14 +433,14 @@ func BenchmarkRecursiveCTE(b *testing.B) {
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
 			ctx := context.Background()
-			base := testutil.CreateBaseDB(ctx, b)
+			base := createBaseBenchmarkDB(ctx, b)
 			defer base.Close()
 
 			mockLogger := mocklogger.NewMockLogger()
 			cs := scollection.New(base.Queries, mockLogger)
 			
 			// Setup workspace and collections
-			wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+			wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 			_ = setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 			
 			runtime.GC()
@@ -314,7 +448,7 @@ func BenchmarkRecursiveCTE(b *testing.B) {
 			
 			// Benchmark the raw query performance
 			for i := 0; i < b.N; i++ {
-				_, err := base.Queries.GetCollectionsInOrder(ctx, base.Queries.GetCollectionsInOrderParams{
+				_, err := base.Queries.GetCollectionsInOrder(ctx, gen.GetCollectionsInOrderParams{
 					WorkspaceID:   wsID,
 					WorkspaceID_2: wsID,
 				})
@@ -343,14 +477,14 @@ func BenchmarkCollectionMoveAllocs(b *testing.B) {
 			b.ReportAllocs()
 			
 			ctx := context.Background()
-			base := testutil.CreateBaseDB(ctx, b)
+			base := createBaseBenchmarkDB(ctx, b)
 			defer base.Close()
 
 			mockLogger := mocklogger.NewMockLogger()
 			cs := scollection.New(base.Queries, mockLogger)
 			
 			// Setup workspace and collections
-			wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+			wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 			collectionIDs := setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 			
 			runtime.GC()
@@ -393,14 +527,14 @@ func BenchmarkTraversalAllocs(b *testing.B) {
 			b.ReportAllocs()
 			
 			ctx := context.Background()
-			base := testutil.CreateBaseDB(ctx, b)
+			base := createBaseBenchmarkDB(ctx, b)
 			defer base.Close()
 
 			mockLogger := mocklogger.NewMockLogger()
 			cs := scollection.New(base.Queries, mockLogger)
 			
 			// Setup workspace and collections
-			wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+			wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 			_ = setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 			
 			runtime.GC()
@@ -437,14 +571,14 @@ func BenchmarkParallelMoves(b *testing.B) {
 		for _, numWorkers := range workers {
 			b.Run(fmt.Sprintf("size_%d_workers_%d", size, numWorkers), func(b *testing.B) {
 				ctx := context.Background()
-				base := testutil.CreateBaseDB(ctx, b)
+				base := createBaseBenchmarkDB(ctx, b)
 				defer base.Close()
 
 				mockLogger := mocklogger.NewMockLogger()
 				cs := scollection.New(base.Queries, mockLogger)
 				
 				// Setup workspace and collections
-				wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+				wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 				collectionIDs := setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 				
 				runtime.GC()
@@ -510,14 +644,14 @@ func BenchmarkParallelTraversal(b *testing.B) {
 		for _, numWorkers := range workers {
 			b.Run(fmt.Sprintf("size_%d_workers_%d", size, numWorkers), func(b *testing.B) {
 				ctx := context.Background()
-				base := testutil.CreateBaseDB(ctx, b)
+				base := createBaseBenchmarkDB(ctx, b)
 				defer base.Close()
 
 				mockLogger := mocklogger.NewMockLogger()
 				cs := scollection.New(base.Queries, mockLogger)
 				
 				// Setup workspace and collections
-				wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+				wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 				_ = setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 				
 				runtime.GC()
@@ -587,14 +721,14 @@ func BenchmarkRepositoryOperations(b *testing.B) {
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("UpdatePosition_size_%d", size), func(b *testing.B) {
 			ctx := context.Background()
-			base := testutil.CreateBaseDB(ctx, b)
+			base := createBaseBenchmarkDB(ctx, b)
 			defer base.Close()
 
 			mockLogger := mocklogger.NewMockLogger()
 			cs := scollection.New(base.Queries, mockLogger)
 			
 			// Setup workspace and collections
-			wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+			wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 			collectionIDs := setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 			
 			repo := scollection.NewCollectionMovableRepository(base.Queries)
@@ -617,14 +751,14 @@ func BenchmarkRepositoryOperations(b *testing.B) {
 		
 		b.Run(fmt.Sprintf("GetMaxPosition_size_%d", size), func(b *testing.B) {
 			ctx := context.Background()
-			base := testutil.CreateBaseDB(ctx, b)
+			base := createBaseBenchmarkDB(ctx, b)
 			defer base.Close()
 
 			mockLogger := mocklogger.NewMockLogger()
 			cs := scollection.New(base.Queries, mockLogger)
 			
 			// Setup workspace and collections
-			wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+			wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 			_ = setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 			
 			repo := scollection.NewCollectionMovableRepository(base.Queries)
@@ -648,14 +782,14 @@ func BenchmarkRepositoryOperations(b *testing.B) {
 		
 		b.Run(fmt.Sprintf("GetItemsByParent_size_%d", size), func(b *testing.B) {
 			ctx := context.Background()
-			base := testutil.CreateBaseDB(ctx, b)
+			base := createBaseBenchmarkDB(ctx, b)
 			defer base.Close()
 
 			mockLogger := mocklogger.NewMockLogger()
 			cs := scollection.New(base.Queries, mockLogger)
 			
 			// Setup workspace and collections
-			wsID, _ := setupWorkspaceAndUser(b, ctx, base)
+			wsID, _ := setupWorkspaceAndUserBenchmark(b, ctx, base)
 			_ = setupBenchmarkCollections(b, ctx, &cs, wsID, size)
 			
 			repo := scollection.NewCollectionMovableRepository(base.Queries)
@@ -677,19 +811,6 @@ func BenchmarkRepositoryOperations(b *testing.B) {
 			b.ReportMetric(float64(size), "list_size")
 		})
 	}
-}
-
-// setupWorkspaceAndUser is a helper for benchmarks (extracted from test helper)
-func setupWorkspaceAndUser(b *testing.B, ctx context.Context, base *testutil.BaseDBQueries) (wsID, userID idwrap.IDWrap) {
-	b.Helper()
-	
-	wsID = idwrap.NewNow()
-	wsuserID := idwrap.NewNow()
-	userID = idwrap.NewNow()
-	baseCollectionID := idwrap.NewNow()
-
-	base.GetBaseServices().CreateTempCollection(b, ctx, wsID, wsuserID, userID, baseCollectionID)
-	return wsID, userID
 }
 
 /*

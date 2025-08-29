@@ -5,11 +5,15 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 	
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcollection"
+	"the-dev-tools/server/pkg/model/muser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -46,8 +50,41 @@ func setupTestRPC(t *testing.T) (*CollectionServiceRPC, context.Context, idwrap.
 	userID := idwrap.NewNow()
 	workspaceID := idwrap.NewNow()
 	
-	// Create simple context (not using auth middleware for this test)
-	ctx := context.Background()
+	// Create authenticated context with user ID for permission checking
+	ctx := mwauth.CreateAuthedContext(context.Background(), userID)
+	
+	// Create actual user record in database
+	testUser := &muser.User{
+		ID:           userID,
+		Email:        "test@example.com",
+		Password:     []byte("test"),
+		ProviderType: muser.Local,
+		Status:       muser.Active,
+	}
+	err = us.CreateUser(ctx, testUser)
+	require.NoError(t, err)
+	
+	// Create actual workspace record in database
+	testWorkspace := &mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		FlowCount:       0,
+		CollectionCount: 0,
+		Updated:         time.Now(),
+		ActiveEnv:       idwrap.NewNow(), // Create dummy env IDs
+		GlobalEnv:       idwrap.NewNow(),
+	}
+	err = ws.Create(ctx, testWorkspace)
+	require.NoError(t, err)
+	
+	// Create workspace-user relationship
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1, // Owner role (valid values are 1, 2, 3)
+	})
+	require.NoError(t, err)
 	
 	return &rpc, ctx, userID, workspaceID
 }

@@ -199,6 +199,7 @@ func (r *CollectionItemsMovableRepository) GetMaxPosition(ctx context.Context, p
 		orderedItems, err = r.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 			CollectionID:   parentID,
 			ParentFolderID: nil, // Root level items
+			Column3:        nil, // Same value for null check in SQL
 			CollectionID_2: parentID,
 		})
 		if err != nil && err != sql.ErrNoRows {
@@ -206,6 +207,7 @@ func (r *CollectionItemsMovableRepository) GetMaxPosition(ctx context.Context, p
 			orderedItems, err = r.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 				CollectionID:   parentID, // This needs to be collection_id, but we need it from context
 				ParentFolderID: &parentID,
+				Column3:        &parentID, // Same value for null check in SQL
 				CollectionID_2: parentID,
 			})
 		}
@@ -238,6 +240,7 @@ func (r *CollectionItemsMovableRepository) GetItemsByParent(ctx context.Context,
 		orderedItems, err = r.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 			CollectionID:   parentID,
 			ParentFolderID: nil,
+			Column3:        nil, // Same value for null check in SQL
 			CollectionID_2: parentID,
 		})
 		if err != nil && err != sql.ErrNoRows {
@@ -270,6 +273,7 @@ func (r *CollectionItemsMovableRepository) getOrderedItemsInSameParent(ctx conte
 	return r.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 		CollectionID:   item.CollectionID,
 		ParentFolderID: item.ParentFolderID,
+		Column3:        item.ParentFolderID, // Same value for null check in SQL
 		CollectionID_2: item.CollectionID,
 	})
 }
@@ -302,6 +306,7 @@ func (r *CollectionItemsMovableRepository) CalculateInsertPosition(ctx context.C
 	orderedItems, err := r.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 		CollectionID:   collectionID,
 		ParentFolderID: parentFolderID,
+		Column3:        parentFolderID, // Same value for null check in SQL
 		CollectionID_2: collectionID,
 	})
 	if err != nil && err != sql.ErrNoRows {
@@ -419,6 +424,7 @@ func (r *CollectionItemsMovableRepository) InsertAtPosition(ctx context.Context,
 	orderedItems, err := repo.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 		CollectionID:   collectionID,
 		ParentFolderID: parentFolderID,
+		Column3:        parentFolderID, // Same value for null check in SQL
 		CollectionID_2: collectionID,
 	})
 	if err != nil && err != sql.ErrNoRows {

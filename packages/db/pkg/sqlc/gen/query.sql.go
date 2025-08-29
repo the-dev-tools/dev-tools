@@ -4218,7 +4218,7 @@ FROM
   collection_items
 WHERE
   collection_id = ? AND
-  parent_folder_id IS ? AND
+  (parent_folder_id = ? OR (? IS NULL AND parent_folder_id IS NULL)) AND
   next_id IS NULL
 LIMIT
   1
@@ -4227,12 +4227,13 @@ LIMIT
 type GetCollectionItemTailParams struct {
 	CollectionID   idwrap.IDWrap
 	ParentFolderID *idwrap.IDWrap
+	Column3        interface{}
 }
 
 // Get the last item in the list (tail) for a collection/parent folder
 // Used when appending new items to the end of the list
 func (q *Queries) GetCollectionItemTail(ctx context.Context, arg GetCollectionItemTailParams) (CollectionItem, error) {
-	row := q.queryRow(ctx, q.getCollectionItemTailStmt, getCollectionItemTail, arg.CollectionID, arg.ParentFolderID)
+	row := q.queryRow(ctx, q.getCollectionItemTailStmt, getCollectionItemTail, arg.CollectionID, arg.ParentFolderID, arg.Column3)
 	var i CollectionItem
 	err := row.Scan(
 		&i.ID,
@@ -4369,19 +4370,25 @@ FROM
   collection_items
 WHERE
   collection_id = ? AND
-  parent_folder_id IS ? AND
+  (parent_folder_id = ? OR (? IS NULL AND parent_folder_id IS NULL)) AND
   item_type = ?
 `
 
 type GetCollectionItemsByTypeParams struct {
 	CollectionID   idwrap.IDWrap
 	ParentFolderID *idwrap.IDWrap
+	Column3        interface{}
 	ItemType       int8
 }
 
 // Get items filtered by type (0 = folder, 1 = endpoint)
 func (q *Queries) GetCollectionItemsByType(ctx context.Context, arg GetCollectionItemsByTypeParams) ([]CollectionItem, error) {
-	rows, err := q.query(ctx, q.getCollectionItemsByTypeStmt, getCollectionItemsByType, arg.CollectionID, arg.ParentFolderID, arg.ItemType)
+	rows, err := q.query(ctx, q.getCollectionItemsByTypeStmt, getCollectionItemsByType,
+		arg.CollectionID,
+		arg.ParentFolderID,
+		arg.Column3,
+		arg.ItemType,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -4431,7 +4438,7 @@ WITH RECURSIVE ordered_items AS (
     collection_items ci
   WHERE
     ci.collection_id = ? AND
-    ci.parent_folder_id IS ? AND
+    (ci.parent_folder_id = ? OR (? IS NULL AND ci.parent_folder_id IS NULL)) AND
     ci.prev_id IS NULL
   
   UNION ALL
@@ -4474,6 +4481,7 @@ ORDER BY
 type GetCollectionItemsInOrderParams struct {
 	CollectionID   idwrap.IDWrap
 	ParentFolderID *idwrap.IDWrap
+	Column3        interface{}
 	CollectionID_2 idwrap.IDWrap
 }
 
@@ -4493,7 +4501,12 @@ type GetCollectionItemsInOrderRow struct {
 // Uses WITH RECURSIVE CTE to traverse linked list from head to tail
 // Returns items in correct order for a collection/parent folder
 func (q *Queries) GetCollectionItemsInOrder(ctx context.Context, arg GetCollectionItemsInOrderParams) ([]GetCollectionItemsInOrderRow, error) {
-	rows, err := q.query(ctx, q.getCollectionItemsInOrderStmt, getCollectionItemsInOrder, arg.CollectionID, arg.ParentFolderID, arg.CollectionID_2)
+	rows, err := q.query(ctx, q.getCollectionItemsInOrderStmt, getCollectionItemsInOrder,
+		arg.CollectionID,
+		arg.ParentFolderID,
+		arg.Column3,
+		arg.CollectionID_2,
+	)
 	if err != nil {
 		return nil, err
 	}

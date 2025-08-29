@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rcollectionitem"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -91,7 +90,7 @@ func TestCrossCollectionRealWorldPayloads(t *testing.T) {
 				// Verify endpoint is now in target collection
 				items, err := cis.ListCollectionItems(ctx, targetCollectionID, nil)
 				require.NoError(t, err)
-				
+
 				found := false
 				for _, item := range items {
 					if item.EndpointID != nil {
@@ -156,7 +155,7 @@ func TestCrossCollectionRealWorldPayloads(t *testing.T) {
 				// Verify folder is in target collection
 				items, err := cis.ListCollectionItems(ctx, targetCollectionID, nil)
 				require.NoError(t, err)
-				
+
 				foundFolder := false
 				var folderCollectionItemID *idwrap.IDWrap
 				for _, item := range items {
@@ -173,7 +172,7 @@ func TestCrossCollectionRealWorldPayloads(t *testing.T) {
 				if folderCollectionItemID != nil {
 					nestedItems, err := cis.ListCollectionItems(ctx, targetCollectionID, folderCollectionItemID)
 					require.NoError(t, err)
-					
+
 					foundEndpoint := false
 					for _, item := range nestedItems {
 						if item.EndpointID != nil {
@@ -312,7 +311,7 @@ func TestCrossCollectionRealWorldPayloads(t *testing.T) {
 				// Get folder collection item ID for nested lookup
 				items, err := cis.ListCollectionItems(ctx, targetCollectionID, nil)
 				require.NoError(t, err)
-				
+
 				var folderCollectionItemID *idwrap.IDWrap
 				for _, item := range items {
 					if item.FolderID != nil {
@@ -325,7 +324,7 @@ func TestCrossCollectionRealWorldPayloads(t *testing.T) {
 				// Verify endpoint is nested in target folder
 				nestedItems, err := cis.ListCollectionItems(ctx, targetCollectionID, folderCollectionItemID)
 				require.NoError(t, err)
-				
+
 				found := false
 				for _, item := range nestedItems {
 					if item.EndpointID != nil {
@@ -387,7 +386,7 @@ func TestCrossCollectionRealWorldPayloads(t *testing.T) {
 			validateFunc: func(t *testing.T, ctx context.Context, sourceCollectionID, targetCollectionID idwrap.IDWrap, cis *scollectionitem.CollectionItemService) {
 				items, err := cis.ListCollectionItems(ctx, targetCollectionID, nil)
 				require.NoError(t, err)
-				
+
 				found := false
 				for _, item := range items {
 					if item.EndpointID != nil {
@@ -459,7 +458,7 @@ func TestCrossCollectionRealWorldPayloads(t *testing.T) {
 				// Verify folder remains in source collection
 				sourceItems, err := cis.ListCollectionItems(ctx, sourceCollectionID, nil)
 				require.NoError(t, err)
-				
+
 				found := false
 				for _, item := range sourceItems {
 					if item.FolderID != nil {

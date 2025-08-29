@@ -81,7 +81,7 @@ func TestUnifiedServiceContextDetection(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			itemID := idwrap.NewFromStringMust(tt.itemID)
+			itemID := idwrap.NewTextMust(tt.itemID)
 			
 			context, err := service.contextDetector.DetectContext(ctx, itemID)
 			if err != nil {
@@ -165,7 +165,7 @@ func TestUnifiedServicePerformance(t *testing.T) {
 	}
 	
 	ctx := context.Background()
-	itemID := idwrap.NewFromStringMust("ep001")
+	itemID := idwrap.NewTextMust("ep001")
 	
 	// Perform multiple operations to test performance
 	const numOps = 100
@@ -210,7 +210,7 @@ func BenchmarkUnifiedServiceContextDetection(b *testing.B) {
 	}
 	
 	ctx := context.Background()
-	itemID := idwrap.NewFromStringMust("ep001")
+	itemID := idwrap.NewTextMust("ep001")
 	
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -258,7 +258,7 @@ func TestUnifiedServiceValidation_OperationTimeout(t *testing.T) {
 	}
 	
 	ctx := context.Background()
-	itemID := idwrap.NewFromStringMust("ep001")
+	itemID := idwrap.NewTextMust("ep001")
 	
 	// This operation may or may not timeout depending on execution speed
 	// The test verifies that timeout handling is in place

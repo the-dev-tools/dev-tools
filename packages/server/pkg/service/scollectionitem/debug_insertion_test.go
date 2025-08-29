@@ -50,6 +50,7 @@ func TestDebugInsertionLogic(t *testing.T) {
 		items, err := queries.WithTx(tx).GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 			CollectionID:   collectionID,
 			ParentFolderID: nil,
+			Column3:        nil, // Same value for null check in SQL
 			CollectionID_2: collectionID,
 		})
 		require.NoError(t, err)
@@ -70,6 +71,7 @@ func TestDebugInsertionLogic(t *testing.T) {
 		items, err = queries.WithTx(tx).GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 			CollectionID:   collectionID,
 			ParentFolderID: nil,
+			Column3:        nil, // Same value for null check in SQL
 			CollectionID_2: collectionID,
 		})
 		require.NoError(t, err)
@@ -106,6 +108,7 @@ func TestDebugInsertionLogic(t *testing.T) {
 		items, err = queries.WithTx(tx).GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 			CollectionID:   collectionID,
 			ParentFolderID: nil,
+			Column3:        nil, // Same value for null check in SQL
 			CollectionID_2: collectionID,
 		})
 		require.NoError(t, err)
@@ -126,6 +129,7 @@ func TestDebugInsertionLogic(t *testing.T) {
 		items, err = queries.WithTx(tx).GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 			CollectionID:   collectionID,
 			ParentFolderID: nil,
+			Column3:        nil, // Same value for null check in SQL
 			CollectionID_2: collectionID,
 		})
 		require.NoError(t, err)

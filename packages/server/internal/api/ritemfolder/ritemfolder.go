@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rcollection"
@@ -78,13 +77,7 @@ func (c *ItemFolderRPC) FolderCreate(ctx context.Context, req *connect.Request[f
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer func() {
-		// TODO: find a better way
-		localErr := tx.Rollback()
-		if localErr != nil {
-			log.Println(localErr)
-		}
-	}()
+	defer devtoolsdb.TxnRollback(tx)
 
 	// Use CollectionItemService to create folder with unified ordering
 	err = c.cis.CreateFolderTX(ctx, tx, reqFolder)

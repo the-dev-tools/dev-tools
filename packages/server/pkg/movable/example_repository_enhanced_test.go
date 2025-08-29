@@ -112,7 +112,8 @@ func TestCreateDeltaExample(t *testing.T) {
 	originID, deltaID, endpointID := createExampleTestIDs()
 	
 	// Mock the base repository methods to avoid database calls
-	repo.SimpleRepository = &MockSimpleRepository{}
+	mockRepo := NewSimpleRepository(nil, &MoveConfig{})
+	repo.SimpleEnhancedRepository.SimpleRepository = mockRepo
 	
 	err := repo.CreateDeltaExample(ctx, nil, originID, deltaID, endpointID, OverrideLevelHeaders)
 	if err != nil {
@@ -168,7 +169,8 @@ func TestResolveDeltaExample(t *testing.T) {
 	originID, deltaID, endpointID := createExampleTestIDs()
 	
 	// Create a delta example first
-	repo.SimpleRepository = &MockSimpleRepository{}
+	mockRepo := NewSimpleRepository(nil, &MoveConfig{})
+	repo.SimpleEnhancedRepository.SimpleRepository = mockRepo
 	err := repo.CreateDeltaExample(ctx, nil, originID, deltaID, endpointID, OverrideLevelHeaders)
 	if err != nil {
 		t.Fatalf("Failed to create delta example: %v", err)
@@ -250,7 +252,8 @@ func TestSyncDeltaExamples(t *testing.T) {
 	originID, deltaID, endpointID := createExampleTestIDs()
 	
 	// Create a delta example first
-	repo.SimpleRepository = &MockSimpleRepository{}
+	mockRepo := NewSimpleRepository(nil, &MoveConfig{})
+	repo.SimpleEnhancedRepository.SimpleRepository = mockRepo
 	err := repo.CreateDeltaExample(ctx, nil, originID, deltaID, endpointID, OverrideLevelHeaders)
 	if err != nil {
 		t.Fatalf("Failed to create delta example: %v", err)
@@ -282,7 +285,8 @@ func TestPruneStaleDeltaExamples(t *testing.T) {
 	originID, deltaID, endpointID := createExampleTestIDs()
 	
 	// Create a delta example
-	repo.SimpleRepository = &MockSimpleRepository{}
+	mockRepo := NewSimpleRepository(nil, &MoveConfig{})
+	repo.SimpleEnhancedRepository.SimpleRepository = mockRepo
 	err := repo.CreateDeltaExample(ctx, nil, originID, deltaID, endpointID, OverrideLevelHeaders)
 	if err != nil {
 		t.Fatalf("Failed to create delta example: %v", err)
@@ -339,7 +343,8 @@ func TestUpdateExamplePositionInEndpoint(t *testing.T) {
 	endpointID := idwrap.NewTextMust("endpoint-456")
 	
 	// Mock the base repository to avoid database calls
-	repo.SimpleRepository = &MockSimpleRepository{}
+	mockRepo := NewSimpleRepository(nil, &MoveConfig{})
+	repo.SimpleEnhancedRepository.SimpleRepository = mockRepo
 	
 	err := repo.UpdateExamplePositionInEndpoint(ctx, nil, exampleID, endpointID, 5)
 	if err != nil {
@@ -356,7 +361,8 @@ func TestUpdateExamplePositionInEndpoint(t *testing.T) {
 func TestBatchCreateDeltaExamples(t *testing.T) {
 	repo := mockExampleRepository()
 	ctx := context.Background()
-	repo.SimpleRepository = &MockSimpleRepository{}
+	mockRepo := NewSimpleRepository(nil, &MoveConfig{})
+	repo.SimpleEnhancedRepository.SimpleRepository = mockRepo
 	
 	operations := []DeltaExampleOperation{
 		{
@@ -483,7 +489,8 @@ func TestOverrideLevelFieldMapping(t *testing.T) {
 		endpointID := idwrap.NewTextMust("endpoint-test")
 		
 		// Create delta with specific override level
-		repo.SimpleRepository = &MockSimpleRepository{}
+		mockRepo := NewSimpleRepository(nil, &MoveConfig{})
+	repo.SimpleEnhancedRepository.SimpleRepository = mockRepo
 		err := repo.CreateDeltaExample(ctx, nil, originID, deltaID, endpointID, test.level)
 		if err != nil {
 			t.Fatalf("Failed to create delta example: %v", err)

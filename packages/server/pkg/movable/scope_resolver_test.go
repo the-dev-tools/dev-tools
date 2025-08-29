@@ -748,10 +748,12 @@ func TestInMemoryContextCache(t *testing.T) {
 }
 
 func BenchmarkResolveContext(b *testing.B) {
-	db, cleanup := setupScopeTestDB(b)
+	// Convert benchmark to test interface for helper functions
+	t := &testing.T{}
+	db, cleanup := setupScopeTestDB(t)
 	defer cleanup()
 
-	_, _, _, endpointID, _, _, _ := insertTestData(b, db)
+	_, _, _, endpointID, _, _, _ := insertTestData(t, db)
 
 	cache := NewInMemoryContextCache(5 * time.Minute)
 	resolver, err := NewDefaultScopeResolver(db, cache)
@@ -772,10 +774,12 @@ func BenchmarkResolveContext(b *testing.B) {
 }
 
 func BenchmarkBatchResolveContexts(b *testing.B) {
-	db, cleanup := setupScopeTestDB(b)
+	// Convert benchmark to test interface for helper functions
+	t := &testing.T{}
+	db, cleanup := setupScopeTestDB(t)
 	defer cleanup()
 
-	_, collectionID, folderID, _, _, _, _ := insertTestData(b, db)
+	_, collectionID, folderID, _, _, _, _ := insertTestData(t, db)
 
 	// Create 100 endpoints for batch testing
 	endpointIDs := make([]idwrap.IDWrap, 100)

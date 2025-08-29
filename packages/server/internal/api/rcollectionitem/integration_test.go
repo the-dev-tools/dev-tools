@@ -106,6 +106,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Users", usersFolder.Name)
 		require.NotNil(t, usersFolder.ParentID)
+		t.Logf("DEBUG: Users folder parent ID: %s, Root folder ID: %s", usersFolder.ParentID.String(), rootFolderID.String())
 		assert.Equal(t, rootFolderID.Compare(*usersFolder.ParentID), 0)
 
 		// Verify collection_items entries exist by getting all items and filtering
@@ -281,6 +282,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 
 		// Get folder IDs for listing subfolders
 		apiV1FolderID := idwrap.NewFromBytesMust(rootItems[0].Folder.FolderId)
+		t.Logf("DEBUG: API v1 folder ID from rootItems[0]: %s", apiV1FolderID.String())
 
 		// List items in "API v1" folder
 		listFolderReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
@@ -293,6 +295,14 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 		require.NotNil(t, listFolderResp)
 
 		folderItems := listFolderResp.Msg.Items
+		t.Logf("DEBUG: API v1 folder contents: %d items", len(folderItems))
+		for i, item := range folderItems {
+			if item.Kind == itemv1.ItemKind_ITEM_KIND_FOLDER {
+				t.Logf("DEBUG: Item %d: FOLDER - %s", i, item.Folder.Name)
+			} else if item.Kind == itemv1.ItemKind_ITEM_KIND_ENDPOINT {
+				t.Logf("DEBUG: Item %d: ENDPOINT - %s", i, item.Endpoint.Name)
+			}
+		}
 		require.Len(t, folderItems, 2) // "Users" subfolder + "Get Version" endpoint
 
 		// Verify ordering within folder
@@ -369,6 +379,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
+		require.GreaterOrEqual(t, len(apiV1Items.Msg.Items), 2, "Expected at least 2 items in API v1 folder: Users subfolder + Get Version endpoint, but got %d items", len(apiV1Items.Msg.Items))
 
 		getVersionEndpointID := idwrap.NewFromBytesMust(apiV1Items.Msg.Items[1].Endpoint.EndpointId)
 

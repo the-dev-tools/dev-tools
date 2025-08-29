@@ -225,8 +225,8 @@ func CheckOwnerCollection(ctx context.Context, cs scollection.CollectionService,
 	workspaceID, err := cs.GetWorkspaceID(ctx, collectionID)
 	if err != nil {
 		if err == scollection.ErrNoCollectionFound {
-			err = errors.New("collection not found")
-			return false, connect.NewError(connect.CodePermissionDenied, err)
+			// Return CodeNotFound for non-existent collections
+			return false, connect.NewError(connect.CodeNotFound, errors.New("collection not found"))
 		}
 		return false, connect.NewError(connect.CodeInternal, err)
 	}
@@ -273,27 +273,27 @@ func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.
 		}
 	}
 
+	// Validate position first (before checking permissions)
+	position := req.Msg.GetPosition()
+	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified"))
+	}
+
 	// Validate target collection ID
 	targetCollectionID, err := idwrap.NewFromBytes(req.Msg.GetTargetCollectionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	// Prevent moving collection relative to itself (before checking permissions)
+	if collectionID.Compare(targetCollectionID) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move collection relative to itself"))
+	}
+
 	// Check permissions for target collection (must be in same workspace)
 	rpcErr = permcheck.CheckPerm(CheckOwnerCollection(ctx, c.cs, c.us, targetCollectionID))
 	if rpcErr != nil {
 		return nil, rpcErr
-	}
-
-	// Validate position
-	position := req.Msg.GetPosition()
-	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified"))
-	}
-
-	// Prevent moving collection relative to itself
-	if collectionID.Compare(targetCollectionID) == 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move collection relative to itself"))
 	}
 
 	// Verify both collections are in the same workspace

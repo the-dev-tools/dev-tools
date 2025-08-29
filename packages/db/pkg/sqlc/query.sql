@@ -3013,7 +3013,7 @@ WITH RECURSIVE ordered_items AS (
     collection_items ci
   WHERE
     ci.collection_id = ? AND
-    ci.parent_folder_id IS ? AND
+    (ci.parent_folder_id = ? OR (? IS NULL AND ci.parent_folder_id IS NULL)) AND
     ci.prev_id IS NULL
   
   UNION ALL
@@ -3102,7 +3102,7 @@ FROM
   collection_items
 WHERE
   collection_id = ? AND
-  parent_folder_id IS ? AND
+  (parent_folder_id = ? OR (? IS NULL AND parent_folder_id IS NULL)) AND
   next_id IS NULL
 LIMIT
   1;
@@ -3164,7 +3164,7 @@ FROM
   collection_items
 WHERE
   collection_id = ? AND
-  parent_folder_id IS ? AND
+  (parent_folder_id = ? OR (? IS NULL AND parent_folder_id IS NULL)) AND
   item_type = ?;
 
 -- name: GetCollectionItemByFolderID :one

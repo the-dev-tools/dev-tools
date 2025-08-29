@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rcollection"
@@ -117,13 +118,17 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 
 	// Convert legacy folder ID to collection_items folder ID if needed
 	if itemApiReq.FolderID != nil {
+		// Debug logging
+		log.Printf("DEBUG: EndpointCreate converting folder ID from %s", itemApiReq.FolderID.String())
 		collectionItemsFolderID, err := c.cis.GetCollectionItemIDByLegacyID(ctx, *itemApiReq.FolderID)
 		if err != nil {
+			log.Printf("DEBUG: EndpointCreate failed to convert folder ID: %v", err)
 			if err == scollectionitem.ErrCollectionItemNotFound {
 				return nil, connect.NewError(connect.CodeNotFound, errors.New("parent folder not found"))
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		log.Printf("DEBUG: EndpointCreate successfully converted folder ID from %s to %s", itemApiReq.FolderID.String(), collectionItemsFolderID.String())
 		itemApiReq.FolderID = &collectionItemsFolderID
 	}
 

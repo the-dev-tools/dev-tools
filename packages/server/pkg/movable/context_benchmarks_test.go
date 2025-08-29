@@ -4,10 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math"
 	"runtime"
 	"sort"
-	"sync"
 	"testing"
 	"time"
 	"the-dev-tools/server/pkg/idwrap"
@@ -191,11 +189,16 @@ func setupBenchmarkTestData(size int) *benchmarkTestData {
 		}
 		
 		// Create context metadata
+		var originBytes *[]byte
+		if originID != nil {
+			b := originID.Bytes()
+			originBytes = &b
+		}
 		metadata := &ContextMetadata{
 			Type:      contextType,
 			ScopeID:   scopeID.Bytes(),
 			IsHidden:  isHidden,
-			OriginID:  (*[]byte)(originID),
+			OriginID:  originBytes,
 			Priority:  i % 10,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -1097,6 +1100,10 @@ func analyzeMemoryGrowth(b *testing.B, results map[int]float64, operation string
 type mockRepository struct{}
 
 func (r *mockRepository) UpdatePosition(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap, listType ListType, position int) error {
+	return nil
+}
+
+func (r *mockRepository) UpdatePositions(ctx context.Context, tx *sql.Tx, updates []PositionUpdate) error {
 	return nil
 }
 

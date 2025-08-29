@@ -101,7 +101,7 @@ func createTestOrderItems(t *testing.T, db *sql.DB) []idwrap.IDWrap {
 		if _, err := db.Exec(query, item.id, item.parentID, item.position, item.listType, item.contextType); err != nil {
 			t.Fatalf("Failed to create test item %s: %v", item.id, err)
 		}
-		itemIDs = append(itemIDs, idwrap.NewFromStringMust(item.id))
+		itemIDs = append(itemIDs, idwrap.NewTextMust(item.id))
 	}
 	
 	return itemIDs
@@ -237,7 +237,7 @@ func TestUnifiedOrderingService_ContextDetection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			
-			itemID := idwrap.NewFromStringMust(tt.itemID)
+			itemID := idwrap.NewTextMust(tt.itemID)
 			
 			context, err := service.contextDetector.DetectContext(ctx, itemID)
 			
@@ -262,9 +262,9 @@ func TestUnifiedOrderingService_ContextDetection(t *testing.T) {
 	// Test batch detection
 	t.Run("batch context detection", func(t *testing.T) {
 		itemIDs := []idwrap.IDWrap{
-			idwrap.NewFromStringMust("ep001"),
-			idwrap.NewFromStringMust("ex001"),
-			idwrap.NewFromStringMust("fn001"),
+			idwrap.NewTextMust("ep001"),
+			idwrap.NewTextMust("ex001"),
+			idwrap.NewTextMust("fn001"),
 		}
 		
 		results, err := service.contextDetector.DetectContextBatch(ctx, itemIDs)
@@ -344,8 +344,8 @@ func TestUnifiedOrderingService_MoveItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Don't parallelize move operations as they modify shared state
 			
-			itemID := idwrap.NewFromStringMust(tt.itemID)
-			targetID := idwrap.NewFromStringMust(tt.targetID)
+			itemID := idwrap.NewTextMust(tt.itemID)
+			targetID := idwrap.NewTextMust(tt.targetID)
 			
 			operation := MoveOperation{
 				ItemID:   itemID,
@@ -437,7 +437,7 @@ func TestUnifiedOrderingService_GetOrderedItems(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			
-			parentID := idwrap.NewFromStringMust(tt.parentID)
+			parentID := idwrap.NewTextMust(tt.parentID)
 			
 			items, err := service.GetOrderedItems(ctx, parentID, tt.listType, tt.contextMeta)
 			
@@ -524,9 +524,9 @@ func TestUnifiedOrderingService_CreateDelta(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			
-			originID := idwrap.NewFromStringMust(tt.originID)
-			deltaID := idwrap.NewFromStringMust(tt.deltaID)
-			scopeID := idwrap.NewFromStringMust(tt.scopeID)
+			originID := idwrap.NewTextMust(tt.originID)
+			deltaID := idwrap.NewTextMust(tt.deltaID)
+			scopeID := idwrap.NewTextMust(tt.scopeID)
 			
 			relation := &DeltaRelation{
 				DeltaID:      deltaID,
@@ -602,7 +602,7 @@ func TestUnifiedOrderingService_ResolveItem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			
-			itemID := idwrap.NewFromStringMust(tt.itemID)
+			itemID := idwrap.NewTextMust(tt.itemID)
 			
 			resolved, err := service.ResolveItem(ctx, itemID, tt.contextMeta)
 			
@@ -660,11 +660,11 @@ func TestUnifiedOrderingService_BatchMoveItems(t *testing.T) {
 			name: "single operation",
 			operations: []UnifiedBatchMoveOperation{
 				{
-					ItemID: idwrap.NewFromStringMust("ep001"),
+					ItemID: idwrap.NewTextMust("ep001"),
 					Operation: MoveOperation{
-						ItemID:   idwrap.NewFromStringMust("ep001"),
+						ItemID:   idwrap.NewTextMust("ep001"),
 						Position: MovePositionAfter,
-						TargetID: &[]idwrap.IDWrap{idwrap.NewFromStringMust("ep002")}[0],
+						TargetID: &[]idwrap.IDWrap{idwrap.NewTextMust("ep002")}[0],
 						ListType: CollectionListTypeEndpoints,
 					},
 				},
@@ -677,20 +677,20 @@ func TestUnifiedOrderingService_BatchMoveItems(t *testing.T) {
 			name: "mixed contexts",
 			operations: []UnifiedBatchMoveOperation{
 				{
-					ItemID: idwrap.NewFromStringMust("ep001"),
+					ItemID: idwrap.NewTextMust("ep001"),
 					Operation: MoveOperation{
-						ItemID:   idwrap.NewFromStringMust("ep001"),
+						ItemID:   idwrap.NewTextMust("ep001"),
 						Position: MovePositionAfter,
-						TargetID: &[]idwrap.IDWrap{idwrap.NewFromStringMust("ep002")}[0],
+						TargetID: &[]idwrap.IDWrap{idwrap.NewTextMust("ep002")}[0],
 						ListType: CollectionListTypeEndpoints,
 					},
 				},
 				{
-					ItemID: idwrap.NewFromStringMust("fn001"),
+					ItemID: idwrap.NewTextMust("fn001"),
 					Operation: MoveOperation{
-						ItemID:   idwrap.NewFromStringMust("fn001"),
+						ItemID:   idwrap.NewTextMust("fn001"),
 						Position: MovePositionAfter,
-						TargetID: &[]idwrap.IDWrap{idwrap.NewFromStringMust("fn002")}[0],
+						TargetID: &[]idwrap.IDWrap{idwrap.NewTextMust("fn002")}[0],
 						ListType: FlowListTypeNodes,
 					},
 				},
@@ -773,10 +773,10 @@ func TestUnifiedOrderingService_BatchCreateDeltas(t *testing.T) {
 					Type: BatchDeltaCreate,
 					Relations: []DeltaRelation{
 						{
-							DeltaID:      idwrap.NewFromStringMust("ep001_delta"),
-							OriginID:     idwrap.NewFromStringMust("ep001"),
+							DeltaID:      idwrap.NewTextMust("ep001_delta"),
+							OriginID:     idwrap.NewTextMust("ep001"),
 							Context:      ContextFlow,
-							ScopeID:      idwrap.NewFromStringMust("flow001"),
+							ScopeID:      idwrap.NewTextMust("flow001"),
 							RelationType: DeltaRelationOverride,
 							Priority:     1,
 							IsActive:     true,
@@ -793,19 +793,19 @@ func TestUnifiedOrderingService_BatchCreateDeltas(t *testing.T) {
 					Type: BatchDeltaCreate,
 					Relations: []DeltaRelation{
 						{
-							DeltaID:      idwrap.NewFromStringMust("ep001_delta2"),
-							OriginID:     idwrap.NewFromStringMust("ep001"),
+							DeltaID:      idwrap.NewTextMust("ep001_delta2"),
+							OriginID:     idwrap.NewTextMust("ep001"),
 							Context:      ContextFlow,
-							ScopeID:      idwrap.NewFromStringMust("flow001"),
+							ScopeID:      idwrap.NewTextMust("flow001"),
 							RelationType: DeltaRelationOverride,
 							Priority:     1,
 							IsActive:     true,
 						},
 						{
-							DeltaID:      idwrap.NewFromStringMust("ex001_delta"),
-							OriginID:     idwrap.NewFromStringMust("ex001"),
+							DeltaID:      idwrap.NewTextMust("ex001_delta"),
+							OriginID:     idwrap.NewTextMust("ex001"),
 							Context:      ContextFlow,
-							ScopeID:      idwrap.NewFromStringMust("flow001"),
+							ScopeID:      idwrap.NewTextMust("flow001"),
 							RelationType: DeltaRelationOverride,
 							Priority:     1,
 							IsActive:     true,
@@ -879,7 +879,7 @@ func TestUnifiedOrderingService_Performance(t *testing.T) {
 		timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Microsecond)
 		defer cancel()
 		
-		itemID := idwrap.NewFromStringMust("ep001")
+		itemID := idwrap.NewTextMust("ep001")
 		
 		_, err := service.ResolveItem(timeoutCtx, itemID, nil)
 		
@@ -895,7 +895,7 @@ func TestUnifiedOrderingService_Performance(t *testing.T) {
 			t.Skip("Metrics collection not enabled")
 		}
 		
-		itemID := idwrap.NewFromStringMust("ep001")
+		itemID := idwrap.NewTextMust("ep001")
 		
 		// Perform several operations
 		for i := 0; i < 5; i++ {
@@ -941,7 +941,7 @@ func TestUnifiedOrderingService_ErrorHandling(t *testing.T) {
 	t.Run("context mismatch", func(t *testing.T) {
 		t.Parallel()
 		
-		itemID := idwrap.NewFromStringMust("ep001")
+		itemID := idwrap.NewTextMust("ep001")
 		
 		// Try to resolve with wrong context
 		wrongContext := &ContextMetadata{
@@ -970,11 +970,11 @@ func TestUnifiedOrderingService_ErrorHandling(t *testing.T) {
 		
 		for i := 0; i < batchSize; i++ {
 			operations[i] = UnifiedBatchMoveOperation{
-				ItemID: idwrap.NewFromStringMust("ep001"),
+				ItemID: idwrap.NewTextMust("ep001"),
 				Operation: MoveOperation{
-					ItemID:   idwrap.NewFromStringMust("ep001"),
+					ItemID:   idwrap.NewTextMust("ep001"),
 					Position: MovePositionAfter,
-					TargetID: &[]idwrap.IDWrap{idwrap.NewFromStringMust("ep002")}[0],
+					TargetID: &[]idwrap.IDWrap{idwrap.NewTextMust("ep002")}[0],
 					ListType: CollectionListTypeEndpoints,
 				},
 			}
@@ -999,7 +999,7 @@ func BenchmarkUnifiedOrderingService_ResolveItem(b *testing.B) {
 	defer cleanup()
 	
 	ctx := context.Background()
-	itemID := idwrap.NewFromStringMust("ep001")
+	itemID := idwrap.NewTextMust("ep001")
 	
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -1014,7 +1014,7 @@ func BenchmarkUnifiedOrderingService_ContextDetection(b *testing.B) {
 	defer cleanup()
 	
 	ctx := context.Background()
-	itemID := idwrap.NewFromStringMust("ep001")
+	itemID := idwrap.NewTextMust("ep001")
 	
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -1032,11 +1032,11 @@ func BenchmarkUnifiedOrderingService_BatchOperations(b *testing.B) {
 	
 	operations := []UnifiedBatchMoveOperation{
 		{
-			ItemID: idwrap.NewFromStringMust("ep001"),
+			ItemID: idwrap.NewTextMust("ep001"),
 			Operation: MoveOperation{
-				ItemID:   idwrap.NewFromStringMust("ep001"),
+				ItemID:   idwrap.NewTextMust("ep001"),
 				Position: MovePositionAfter,
-				TargetID: &[]idwrap.IDWrap{idwrap.NewFromStringMust("ep002")}[0],
+				TargetID: &[]idwrap.IDWrap{idwrap.NewTextMust("ep002")}[0],
 				ListType: CollectionListTypeEndpoints,
 			},
 		},

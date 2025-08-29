@@ -106,6 +106,7 @@ func (s *CollectionItemService) ListCollectionItems(ctx context.Context, collect
 	orderedItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 		CollectionID:   collectionID,
 		ParentFolderID: parentFolderID,
+		Column3:        parentFolderID, // Same value for null check in SQL
 		CollectionID_2: collectionID,
 	})
 	if err != nil {
@@ -388,10 +389,33 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
 	// Now we can safely reference folder.ID since it exists in item_folder table
 	collectionItemID := idwrap.New(ulid.Make())
+	
+	// Convert legacy parent folder ID to collection_items parent folder ID if needed
+	var collectionItemsParentFolderID *idwrap.IDWrap = nil
+	if folder.ParentID != nil {
+		s.logger.Debug("Converting parent folder ID", 
+			"folder_name", folder.Name,
+			"parent_legacy_id", folder.ParentID.String())
+		// Convert legacy folder ID to collection_items ID
+		parentCollectionItemID, err := txService.GetCollectionItemIDByLegacyID(ctx, *folder.ParentID)
+		if err != nil {
+			s.logger.Error("Failed to convert parent folder ID", 
+				"folder_name", folder.Name,
+				"parent_legacy_id", folder.ParentID.String(),
+				"error", err)
+			return fmt.Errorf("failed to convert parent folder ID: %w", err)
+		}
+		s.logger.Debug("Successfully converted parent folder ID", 
+			"folder_name", folder.Name,
+			"parent_legacy_id", folder.ParentID.String(),
+			"parent_collection_items_id", parentCollectionItemID.String())
+		collectionItemsParentFolderID = &parentCollectionItemID
+	}
+	
 	err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
 		ID:             collectionItemID,
 		CollectionID:   folder.CollectionID,
-		ParentFolderID: folder.ParentID,
+		ParentFolderID: collectionItemsParentFolderID, // Use collection_items ID, not legacy ID
 		ItemType:       int8(CollectionItemTypeFolder),
 		FolderID:       &folder.ID, // Reference to legacy folder table (now exists)
 		EndpointID:     nil,
@@ -444,10 +468,12 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
 	// Now we can safely reference endpoint.ID since it exists in item_api table
 	collectionItemID := idwrap.New(ulid.Make())
+	
+	// Note: endpoint.FolderID should already be converted to collection_items ID in the RPC layer
 	err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
 		ID:             collectionItemID,
 		CollectionID:   endpoint.CollectionID,
-		ParentFolderID: endpoint.FolderID,
+		ParentFolderID: endpoint.FolderID, // Should already be collection_items ID, not legacy ID
 		ItemType:       int8(CollectionItemTypeEndpoint),
 		FolderID:       nil,
 		EndpointID:     &endpoint.ID, // Reference to legacy endpoint table (now exists)
@@ -580,6 +606,8 @@ func (s *CollectionItemService) GetCollectionItemIDByLegacyID(ctx context.Contex
 		return folderItem.ID, nil
 	}
 	
+	s.logger.Debug("Failed to find by folder_id", "legacy_id", legacyID.String(), "error", err)
+	
 	// If not found by folder_id, try endpoint_id
 	if err == sql.ErrNoRows {
 		endpointItem, err := s.queries.GetCollectionItemByEndpointID(ctx, &legacyID)
@@ -589,6 +617,8 @@ func (s *CollectionItemService) GetCollectionItemIDByLegacyID(ctx context.Contex
 				"collection_item_id", endpointItem.ID.String())
 			return endpointItem.ID, nil
 		}
+		
+		s.logger.Debug("Failed to find by endpoint_id", "legacy_id", legacyID.String(), "error", err)
 		
 		if err == sql.ErrNoRows {
 			s.logger.Debug("Legacy ID not found in collection_items table", "legacy_id", legacyID.String())
@@ -678,6 +708,7 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 	currentParentItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 		CollectionID:   item.CollectionID,
 		ParentFolderID: item.ParentFolderID,
+		Column3:        item.ParentFolderID, // Same value for null check in SQL
 		CollectionID_2: item.CollectionID,
 	})
 	if err != nil {
@@ -711,6 +742,7 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 	targetParentItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 		CollectionID:   item.CollectionID,
 		ParentFolderID: newParentFolderID,
+		Column3:        newParentFolderID, // Same value for null check in SQL
 		CollectionID_2: item.CollectionID,
 	})
 	if err != nil {
@@ -834,6 +866,7 @@ func (s *CollectionItemService) performSameFolderMove(ctx context.Context, itemI
 	orderedItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 		CollectionID:   item.CollectionID,
 		ParentFolderID: item.ParentFolderID,
+		Column3:        item.ParentFolderID, // Same value for null check in SQL
 		CollectionID_2: item.CollectionID,
 	})
 	if err != nil {
@@ -1068,6 +1101,7 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 	sourceItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 		CollectionID:   sourceCollectionID,
 		ParentFolderID: item.ParentFolderID,
+		Column3:        item.ParentFolderID, // Same value for null check in SQL
 		CollectionID_2: sourceCollectionID,
 	})
 	if err != nil {
@@ -1100,6 +1134,7 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 	targetItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
 		CollectionID:   targetCollectionID,
 		ParentFolderID: targetParentFolderID,
+		Column3:        targetParentFolderID, // Same value for null check in SQL
 		CollectionID_2: targetCollectionID,
 	})
 	if err != nil {

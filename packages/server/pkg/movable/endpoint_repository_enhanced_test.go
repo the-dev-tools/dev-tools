@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 )
 
@@ -19,11 +20,44 @@ func createTestEndpointRepository(t *testing.T) *EnhancedEndpointRepository {
 	// In a real test, you would use a test database
 	db := createTestDB(t)
 	
-	// Create minimal configuration
+	// Create minimal configuration with proper initialization
 	config := &EnhancedEndpointConfig{
 		EnhancedRepositoryConfig: &EnhancedRepositoryConfig{
 			MoveConfig: &MoveConfig{
-				// Basic configuration would go here
+				EntityOperations: EntityOperations{
+					GetEntity: func(ctx context.Context, queries *gen.Queries, id idwrap.IDWrap) (interface{}, error) {
+						// Mock implementation for testing
+						return &EntityData{
+							ID: id,
+							ParentID: idwrap.NewTextMust("mock-parent"),
+							Position: 0,
+						}, nil
+					},
+					UpdateOrder: func(ctx context.Context, queries *gen.Queries, id idwrap.IDWrap, prev, next *idwrap.IDWrap) error {
+						// Mock implementation for testing - just return success
+						return nil
+					},
+					ExtractData: func(entity interface{}) EntityData {
+						// Mock implementation for testing
+						if data, ok := entity.(*EntityData); ok {
+							return *data
+						}
+						return EntityData{
+							ID: idwrap.NewTextMust("mock-id"),
+							ParentID: idwrap.NewTextMust("mock-parent"),
+							Position: 0,
+						}
+					},
+				},
+				QueryOperations: QueryOperations{
+					BuildOrderedQuery: func(config QueryConfig) (string, []interface{}) {
+						// Mock implementation for testing - return empty results
+						return "SELECT id, prev, next, position FROM mock_table WHERE parent_id = ?", []interface{}{config.ParentID.String()}
+					},
+				},
+				ParentScope: ParentScopeConfig{
+					Pattern: DirectFKPattern,
+				},
 			},
 			EnableContextAware:    true,
 			EnableDeltaSupport:    true,

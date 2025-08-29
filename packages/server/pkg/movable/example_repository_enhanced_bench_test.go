@@ -28,9 +28,8 @@ func setupBenchmark(b *testing.B, numItems int) *BenchmarkSetup {
 	b.Helper()
 	
 	repo := mockExampleRepository()
-	repo.SimpleRepository = &mockMovableRepository{
-		items: make(map[idwrap.IDWrap]MovableItem),
-	}
+	// Create a proper mock SimpleRepository using the NewSimpleRepository constructor
+	repo.SimpleEnhancedRepository.SimpleRepository = NewSimpleRepository(nil, &MoveConfig{})
 	
 	ctx := context.Background()
 	endpointID := idwrap.NewTextMust("benchmark-endpoint")
@@ -368,7 +367,7 @@ func BenchmarkMemoryUsageScaling(b *testing.B) {
 				
 				// Clear for next iteration to test scaling
 				setup.repo.exampleDeltas = make(map[string]*ExampleDeltaRelation)
-				setup.repo.endpointContexts = make(map[string]*EndpointContext)
+				setup.repo.endpointContexts = make(map[string]*ExampleEndpointContext)
 			}
 		})
 	}

@@ -75,36 +75,57 @@ func (r *CollectionMovableRepository) UpdatePosition(ctx context.Context, tx *sq
 		return nil
 	}
 
-	// Calculate new prev and next pointers
-	var newPrev, newNext *idwrap.IDWrap
-
-	if position == 0 {
-		// Moving to head position
-		newPrev = nil
-		if len(orderedCollections) > 1 {
-			nextID := idwrap.NewFromBytesMust(orderedCollections[1].ID)
-			newNext = &nextID
-		}
-	} else if position == len(orderedCollections)-1 {
-		// Moving to tail position  
-		prevID := idwrap.NewFromBytesMust(orderedCollections[len(orderedCollections)-2].ID)
-		newPrev = &prevID
-		newNext = nil
+	// Build the new order by simulating the move operation
+	newOrder := make([]idwrap.IDWrap, len(orderedCollections))
+	for i, col := range orderedCollections {
+		newOrder[i] = idwrap.NewFromBytesMust(col.ID)
+	}
+	
+	// Remove the item from its current position
+	movedItem := newOrder[currentIdx]
+	newOrder = append(newOrder[:currentIdx], newOrder[currentIdx+1:]...)
+	
+	// Insert the item at the target position
+	if position == len(orderedCollections) - 1 {
+		// Moving to last position - append to end
+		newOrder = append(newOrder, movedItem)
+	} else if position <= currentIdx {
+		// Target position is before or at the removed item's original position
+		// Insert at the target position directly
+		newOrder = append(newOrder[:position], append([]idwrap.IDWrap{movedItem}, newOrder[position:]...)...)
 	} else {
-		// Moving to middle position
-		prevID := idwrap.NewFromBytesMust(orderedCollections[position-1].ID)
-		nextID := idwrap.NewFromBytesMust(orderedCollections[position+1].ID)
-		newPrev = &prevID
-		newNext = &nextID
+		// Target position is after the removed item's original position
+		// Insert at the original target position (no adjustment needed)
+		if position >= len(newOrder) {
+			// Append to end if target position is beyond the shortened array
+			newOrder = append(newOrder, movedItem)
+		} else {
+			newOrder = append(newOrder[:position], append([]idwrap.IDWrap{movedItem}, newOrder[position:]...)...)
+		}
 	}
 
-	// Update the collection's position
-	return repo.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{
-		Prev:        newPrev,
-		Next:        newNext,
-		ID:          itemID,
-		WorkspaceID: collection.WorkspaceID,
-	})
+	// Update all items with their new prev/next pointers
+	for i, id := range newOrder {
+		var prev, next *idwrap.IDWrap
+		if i > 0 {
+			prev = &newOrder[i-1]
+		}
+		if i < len(newOrder)-1 {
+			next = &newOrder[i+1]
+		}
+		
+		err := repo.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{
+			Prev:        prev,
+			Next:        next,
+			ID:          id,
+			WorkspaceID: collection.WorkspaceID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update collection %s: %w", id.String(), err)
+		}
+	}
+
+	return nil
 }
 
 // UpdatePositions updates positions for multiple collections in batch

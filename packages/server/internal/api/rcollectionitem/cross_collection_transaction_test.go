@@ -2,11 +2,9 @@ package rcollectionitem_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rcollectionitem"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -625,7 +623,7 @@ func TestCrossCollectionAtomicOperations(t *testing.T) {
 		if err != nil {
 			// If operation failed, verify NO changes occurred
 			t.Logf("Move operation failed: %v", err)
-			
+
 			finalSourceItems, err := cis.ListCollectionItems(ctx, sourceCollectionID, nil)
 			require.NoError(t, err)
 			finalTargetItems, err := cis.ListCollectionItems(ctx, targetCollectionID, nil)
@@ -746,7 +744,6 @@ func TestCrossCollectionConcurrencyConsistency(t *testing.T) {
 	defer base.Close()
 	mockLogger := mocklogger.NewMockLogger()
 	cis := scollectionitem.New(base.Queries, mockLogger)
-	ifs := sitemfolder.New(base.Queries)
 	ias := sitemapi.New(base.Queries)
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)

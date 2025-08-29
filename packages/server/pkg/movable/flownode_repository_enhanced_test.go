@@ -3,6 +3,7 @@ package movable
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -23,8 +24,9 @@ func testFlowNodeRepository(t *testing.T) *EnhancedFlowNodeRepositoryImpl {
 
 	// Create enhanced repository configuration
 	baseConfig := &MoveConfig{
-		EnableSafetyChecks: true,
-		BatchSize:          50,
+		EntityOperations: EntityOperations{},
+		QueryOperations:  QueryOperations{},
+		ParentScope:     ParentScopeConfig{},
 	}
 
 	enhancedConfig := &EnhancedRepositoryConfig{
@@ -56,10 +58,10 @@ func testFlowNodeRepository(t *testing.T) *EnhancedFlowNodeRepositoryImpl {
 // createTestFlowContext creates a test flow boundary context
 func createTestFlowContext(t *testing.T) *FlowBoundaryContext {
 	return &FlowBoundaryContext{
-		FlowID:        idwrap.NewTest(t, "flow_1"),
-		WorkspaceID:   idwrap.NewTest(t, "workspace_1"),
+		FlowID:        idwrap.NewTextMust("flow_1"),
+		WorkspaceID:   idwrap.NewTextMust("workspace_1"),
 		CollectionID:  nil,
-		UserID:        idwrap.NewTest(t, "user_1"),
+		UserID:        idwrap.NewTextMust("user_1"),
 		EnforceStrict: false,
 	}
 }
@@ -69,7 +71,7 @@ func createTestFlowNodeItem(t *testing.T, nodeID string, flowID idwrap.IDWrap,
 	position FlowNodePosition, orderType FlowNodeOrderType) FlowNodeItem {
 
 	return FlowNodeItem{
-		ID:         idwrap.NewTest(t, nodeID),
+		ID:         idwrap.NewTextMust(nodeID),
 		FlowID:     flowID,
 		ParentID:   nil,
 		Position:   position,
@@ -88,7 +90,7 @@ func createTestFlowNodeItem(t *testing.T, nodeID string, flowID idwrap.IDWrap,
 func TestGetNodesInFlow(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	flowID := idwrap.NewTest(t, "test_flow")
+	flowID := idwrap.NewTextMust("test_flow")
 
 	tests := []struct {
 		name        string
@@ -151,7 +153,7 @@ func TestGetNodesInFlow(t *testing.T) {
 func TestUpdateNodePosition(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	nodeID := idwrap.NewTest(t, "test_node")
+	nodeID := idwrap.NewTextMust("test_node")
 	flowContext := createTestFlowContext(t)
 
 	tests := []struct {
@@ -223,12 +225,12 @@ func TestBatchUpdateNodePositions(t *testing.T) {
 	// Create test updates
 	validUpdates := []FlowNodePositionUpdate{
 		{
-			NodeID:    idwrap.NewTest(t, "node_1"),
+			NodeID:    idwrap.NewTextMust("node_1"),
 			Position:  FlowNodePosition{X: 100.0, Y: 100.0},
 			OrderType: FlowNodeOrderSpatial,
 		},
 		{
-			NodeID:     idwrap.NewTest(t, "node_2"),
+			NodeID:     idwrap.NewTextMust("node_2"),
 			Position:   FlowNodePosition{X: 200.0, Y: 200.0},
 			Sequential: 1,
 			OrderType:  FlowNodeOrderSequential,
@@ -239,7 +241,7 @@ func TestBatchUpdateNodePositions(t *testing.T) {
 	oversizedUpdates := make([]FlowNodePositionUpdate, repo.flowConfig.BatchSize+1)
 	for i := range oversizedUpdates {
 		oversizedUpdates[i] = FlowNodePositionUpdate{
-			NodeID:    idwrap.NewTest(t, "node_"+string(rune(i))),
+			NodeID:    idwrap.NewTextMust("node_"+string(rune(i))),
 			Position:  FlowNodePosition{X: 100.0, Y: 100.0},
 			OrderType: FlowNodeOrderSpatial,
 		}
@@ -298,8 +300,8 @@ func TestBatchUpdateNodePositions(t *testing.T) {
 func TestValidateFlowBoundary(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	nodeID := idwrap.NewTest(t, "test_node")
-	flowID := idwrap.NewTest(t, "test_flow")
+	nodeID := idwrap.NewTextMust("test_node")
+	flowID := idwrap.NewTextMust("test_flow")
 
 	// Enable boundary validation for this test
 	repo.flowConfig.EnableBoundaryValidation = true
@@ -358,15 +360,20 @@ func TestValidateFlowBoundary(t *testing.T) {
 func TestHandleRequestNode(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	nodeID := idwrap.NewTest(t, "request_node")
-	flowID := idwrap.NewTest(t, "test_flow")
+	nodeID := idwrap.NewTextMust("request_node")
+	flowID := idwrap.NewTextMust("test_flow")
 
+	endpointID := idwrap.NewTextMust("endpoint_1")
+	exampleID := idwrap.NewTextMust("example_1")
+	deltaEndpointID := idwrap.NewTextMust("delta_endpoint_1")
+	deltaExampleID := idwrap.NewTextMust("delta_example_1")
+	
 	validDeltaRef := &FlowNodeDeltaReference{
 		NodeID:          nodeID,
-		EndpointID:      idwrap.NewTestPtr(t, "endpoint_1"),
-		ExampleID:       idwrap.NewTestPtr(t, "example_1"),
-		DeltaEndpointID: idwrap.NewTestPtr(t, "delta_endpoint_1"),
-		DeltaExampleID:  idwrap.NewTestPtr(t, "delta_example_1"),
+		EndpointID:      &endpointID,
+		ExampleID:       &exampleID,
+		DeltaEndpointID: &deltaEndpointID,
+		DeltaExampleID:  &deltaExampleID,
 		Context:         ContextFlow,
 		FlowID:          flowID,
 		IsActive:        true,
@@ -429,16 +436,21 @@ func TestHandleRequestNode(t *testing.T) {
 func TestResolveRequestNodeDeltas(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	nodeID := idwrap.NewTest(t, "request_node")
+	nodeID := idwrap.NewTextMust("request_node")
 	flowContext := createTestFlowContext(t)
 
 	// Set up a REQUEST node with deltas
+	endpointID2 := idwrap.NewTextMust("endpoint_1")
+	exampleID2 := idwrap.NewTextMust("example_1")
+	deltaEndpointID2 := idwrap.NewTextMust("delta_endpoint_1")
+	deltaExampleID2 := idwrap.NewTextMust("delta_example_1")
+	
 	deltaRef := &FlowNodeDeltaReference{
 		NodeID:          nodeID,
-		EndpointID:      idwrap.NewTestPtr(t, "endpoint_1"),
-		ExampleID:       idwrap.NewTestPtr(t, "example_1"),
-		DeltaEndpointID: idwrap.NewTestPtr(t, "delta_endpoint_1"),
-		DeltaExampleID:  idwrap.NewTestPtr(t, "delta_example_1"),
+		EndpointID:      &endpointID2,
+		ExampleID:       &exampleID2,
+		DeltaEndpointID: &deltaEndpointID2,
+		DeltaExampleID:  &deltaExampleID2,
 		Context:         ContextFlow,
 		FlowID:          flowContext.FlowID,
 		IsActive:        true,
@@ -466,7 +478,7 @@ func TestResolveRequestNodeDeltas(t *testing.T) {
 		},
 		{
 			name:        "Non-existent node",
-			nodeID:      idwrap.NewTest(t, "non_existent"),
+			nodeID:      idwrap.NewTextMust("non_existent"),
 			context:     flowContext,
 			expectError: false,
 			expectNil:   true, // Should return nil for non-existent deltas
@@ -529,31 +541,35 @@ func TestResolveRequestNodeDeltas(t *testing.T) {
 func TestGetRequestNodeDeltas(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	flowID := idwrap.NewTest(t, "test_flow")
-	otherFlowID := idwrap.NewTest(t, "other_flow")
+	flowID := idwrap.NewTextMust("test_flow")
+	otherFlowID := idwrap.NewTextMust("other_flow")
 
 	// Set up multiple REQUEST nodes with deltas
-	node1ID := idwrap.NewTest(t, "request_node_1")
-	node2ID := idwrap.NewTest(t, "request_node_2")
-	node3ID := idwrap.NewTest(t, "request_node_3")
+	node1ID := idwrap.NewTextMust("request_node_1")
+	node2ID := idwrap.NewTextMust("request_node_2")
+	node3ID := idwrap.NewTextMust("request_node_3")
+	
+	endpoint1ID := idwrap.NewTextMust("endpoint_1")
+	endpoint2ID := idwrap.NewTextMust("endpoint_2")
+	endpoint3ID := idwrap.NewTextMust("endpoint_3")
 
 	deltaRef1 := &FlowNodeDeltaReference{
 		NodeID:     node1ID,
-		EndpointID: idwrap.NewTestPtr(t, "endpoint_1"),
+		EndpointID: &endpoint1ID,
 		FlowID:     flowID,
 		IsActive:   true,
 	}
 
 	deltaRef2 := &FlowNodeDeltaReference{
 		NodeID:     node2ID,
-		EndpointID: idwrap.NewTestPtr(t, "endpoint_2"),
+		EndpointID: &endpoint2ID,
 		FlowID:     flowID,
 		IsActive:   true,
 	}
 
 	deltaRef3 := &FlowNodeDeltaReference{
 		NodeID:     node3ID,
-		EndpointID: idwrap.NewTestPtr(t, "endpoint_3"),
+		EndpointID: &endpoint3ID,
 		FlowID:     otherFlowID, // Different flow
 		IsActive:   true,
 	}
@@ -583,7 +599,7 @@ func TestGetRequestNodeDeltas(t *testing.T) {
 		},
 		{
 			name:          "Flow with no deltas",
-			flowID:        idwrap.NewTest(t, "empty_flow"),
+			flowID:        idwrap.NewTextMust("empty_flow"),
 			expectedCount: 0,
 			expectError:   false,
 		},
@@ -625,20 +641,24 @@ func TestGetRequestNodeDeltas(t *testing.T) {
 func TestUpdateRequestNodeDeltas(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	nodeID := idwrap.NewTest(t, "request_node")
-	flowID := idwrap.NewTest(t, "test_flow")
+	nodeID := idwrap.NewTextMust("request_node")
+	flowID := idwrap.NewTextMust("test_flow")
+
+	originalEndpointID := idwrap.NewTextMust("endpoint_1")
+	updatedEndpointID := idwrap.NewTextMust("endpoint_2")
+	updatedDeltaEndpointID := idwrap.NewTextMust("delta_endpoint_2")
 
 	originalDeltaRef := &FlowNodeDeltaReference{
 		NodeID:     nodeID,
-		EndpointID: idwrap.NewTestPtr(t, "endpoint_1"),
+		EndpointID: &originalEndpointID,
 		FlowID:     flowID,
 		IsActive:   true,
 	}
 
 	updatedDeltaRef := &FlowNodeDeltaReference{
 		NodeID:          nodeID,
-		EndpointID:      idwrap.NewTestPtr(t, "endpoint_2"),
-		DeltaEndpointID: idwrap.NewTestPtr(t, "delta_endpoint_2"),
+		EndpointID:      &updatedEndpointID,
+		DeltaEndpointID: &updatedDeltaEndpointID,
 		FlowID:          flowID,
 		IsActive:        true,
 	}
@@ -737,7 +757,7 @@ func TestUpdateRequestNodeDeltas(t *testing.T) {
 func TestGetFlowVariablesOrder(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	flowID := idwrap.NewTest(t, "test_flow")
+	flowID := idwrap.NewTextMust("test_flow")
 
 	tests := []struct {
 		name        string
@@ -789,7 +809,7 @@ func TestGetFlowVariablesOrder(t *testing.T) {
 func TestReorderFlowVariable(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	variableID := idwrap.NewTest(t, "test_variable")
+	variableID := idwrap.NewTextMust("test_variable")
 	flowContext := createTestFlowContext(t)
 
 	tests := []struct {
@@ -854,7 +874,7 @@ func TestReorderFlowVariable(t *testing.T) {
 func TestBatchCreateFlowNodes(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	flowID := idwrap.NewTest(t, "test_flow")
+	flowID := idwrap.NewTextMust("test_flow")
 
 	validNodes := []FlowNodeItem{
 		createTestFlowNodeItem(t, "node_1", flowID, FlowNodePosition{X: 100, Y: 100}, FlowNodeOrderSpatial),
@@ -914,9 +934,9 @@ func TestBatchResolveFlowNodes(t *testing.T) {
 	flowContext := createTestFlowContext(t)
 
 	nodeIDs := []idwrap.IDWrap{
-		idwrap.NewTest(t, "node_1"),
-		idwrap.NewTest(t, "node_2"),
-		idwrap.NewTest(t, "node_3"),
+		idwrap.NewTextMust("node_1"),
+		idwrap.NewTextMust("node_2"),
+		idwrap.NewTextMust("node_3"),
 	}
 
 	tests := []struct {
@@ -969,7 +989,7 @@ func TestBatchResolveFlowNodes(t *testing.T) {
 func TestCompactFlowPositions(t *testing.T) {
 	repo := testFlowNodeRepository(t)
 	ctx := context.Background()
-	flowID := idwrap.NewTest(t, "test_flow")
+	flowID := idwrap.NewTextMust("test_flow")
 
 	tests := []struct {
 		name        string

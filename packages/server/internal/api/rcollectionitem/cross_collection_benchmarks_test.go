@@ -14,16 +14,15 @@ import (
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/service/scollectionitem"
-	"the-dev-tools/server/pkg/service/sitemapi"
-	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/service/sexampleresp"
+	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
+	"the-dev-tools/server/pkg/service/sitemfolder"
 	"the-dev-tools/server/pkg/testutil"
 	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 
 	"connectrpc.com/connect"
-	"github.com/stretchr/testify/require"
 )
 
 // BenchmarkSetup represents benchmark test setup configuration
@@ -489,7 +488,7 @@ func BenchmarkCrossCollectionMove_DatabaseOperations(b *testing.B) {
 
 	b.Run("Direct Service Layer", func(b *testing.B) {
 		b.ReportAllocs()
-		
+
 		for i := 0; i < b.N; i++ {
 			sourceItemIndex := i % len(sourceItemIDs)
 			sourceItemID := sourceItemIDs[sourceItemIndex]
@@ -511,7 +510,7 @@ func BenchmarkCrossCollectionMove_DatabaseOperations(b *testing.B) {
 
 	b.Run("Full RPC Stack", func(b *testing.B) {
 		b.ReportAllocs()
-		
+
 		for i := 0; i < b.N; i++ {
 			sourceItemIndex := i % len(sourceItemIDs)
 			sourceItemID := sourceItemIDs[sourceItemIndex]
@@ -639,9 +638,9 @@ func BenchmarkCrossCollectionMove_ErrorScenarios(b *testing.B) {
 	unauthorizedCtx := mwauth.CreateAuthedContext(ctx, unauthorizedUserID)
 
 	errorScenarios := []struct {
-		name   string
-		req    *itemv1.CollectionItemMoveRequest
-		ctx    context.Context
+		name string
+		req  *itemv1.CollectionItemMoveRequest
+		ctx  context.Context
 	}{
 		{
 			name: "InvalidItemID",
@@ -711,7 +710,7 @@ func BenchmarkCrossCollectionMove_Comparative(b *testing.B) {
 		b.Run("Small_10_items", func(b *testing.B) {
 			BenchmarkCrossCollectionMove_SmallCollections(b)
 		})
-		
+
 		b.Run("Medium_100_items", func(b *testing.B) {
 			BenchmarkCrossCollectionMove_MediumCollections(b)
 		})
@@ -721,7 +720,7 @@ func BenchmarkCrossCollectionMove_Comparative(b *testing.B) {
 		b.Run("WithoutPositioning", func(b *testing.B) {
 			BenchmarkCrossCollectionMove_SmallCollections(b)
 		})
-		
+
 		b.Run("WithPositioning", func(b *testing.B) {
 			BenchmarkCrossCollectionMove_WithPositioning(b)
 		})
@@ -731,9 +730,10 @@ func BenchmarkCrossCollectionMove_Comparative(b *testing.B) {
 		b.Run("WithoutTargetKind", func(b *testing.B) {
 			BenchmarkCrossCollectionMove_SmallCollections(b)
 		})
-		
+
 		b.Run("WithTargetKind", func(b *testing.B) {
 			BenchmarkCrossCollectionMove_WithTargetKind(b)
 		})
 	})
 }
+
