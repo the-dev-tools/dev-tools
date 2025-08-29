@@ -177,6 +177,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteCollectionStmt, err = db.PrepareContext(ctx, deleteCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteCollection: %w", err)
 	}
+	if q.deleteCollectionItemStmt, err = db.PrepareContext(ctx, deleteCollectionItem); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCollectionItem: %w", err)
+	}
 	if q.deleteEnvironmentStmt, err = db.PrepareContext(ctx, deleteEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteEnvironment: %w", err)
 	}
@@ -315,8 +318,38 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getCollectionByWorkspaceIDAndNameStmt, err = db.PrepareContext(ctx, getCollectionByWorkspaceIDAndName); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionByWorkspaceIDAndName: %w", err)
 	}
+	if q.getCollectionItemStmt, err = db.PrepareContext(ctx, getCollectionItem); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItem: %w", err)
+	}
+	if q.getCollectionItemByEndpointIDStmt, err = db.PrepareContext(ctx, getCollectionItemByEndpointID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItemByEndpointID: %w", err)
+	}
+	if q.getCollectionItemByFolderIDStmt, err = db.PrepareContext(ctx, getCollectionItemByFolderID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItemByFolderID: %w", err)
+	}
+	if q.getCollectionItemTailStmt, err = db.PrepareContext(ctx, getCollectionItemTail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItemTail: %w", err)
+	}
+	if q.getCollectionItemsByCollectionIDStmt, err = db.PrepareContext(ctx, getCollectionItemsByCollectionID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItemsByCollectionID: %w", err)
+	}
+	if q.getCollectionItemsByParentFolderIDStmt, err = db.PrepareContext(ctx, getCollectionItemsByParentFolderID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItemsByParentFolderID: %w", err)
+	}
+	if q.getCollectionItemsByTypeStmt, err = db.PrepareContext(ctx, getCollectionItemsByType); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItemsByType: %w", err)
+	}
+	if q.getCollectionItemsInOrderStmt, err = db.PrepareContext(ctx, getCollectionItemsInOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItemsInOrder: %w", err)
+	}
+	if q.getCollectionItemsInOrderForCollectionStmt, err = db.PrepareContext(ctx, getCollectionItemsInOrderForCollection); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionItemsInOrderForCollection: %w", err)
+	}
 	if q.getCollectionMaxPositionStmt, err = db.PrepareContext(ctx, getCollectionMaxPosition); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionMaxPosition: %w", err)
+	}
+	if q.getCollectionWorkspaceByItemIdStmt, err = db.PrepareContext(ctx, getCollectionWorkspaceByItemId); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCollectionWorkspaceByItemId: %w", err)
 	}
 	if q.getCollectionWorkspaceIDStmt, err = db.PrepareContext(ctx, getCollectionWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetCollectionWorkspaceID: %w", err)
@@ -528,6 +561,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getWorkspacesByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetWorkspacesByUserID: %w", err)
 	}
+	if q.insertCollectionItemStmt, err = db.PrepareContext(ctx, insertCollectionItem); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertCollectionItem: %w", err)
+	}
 	if q.listNodeExecutionsStmt, err = db.PrepareContext(ctx, listNodeExecutions); err != nil {
 		return nil, fmt.Errorf("error preparing query ListNodeExecutions: %w", err)
 	}
@@ -563,6 +599,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateCollectionStmt, err = db.PrepareContext(ctx, updateCollection); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCollection: %w", err)
+	}
+	if q.updateCollectionItemCollectionIdStmt, err = db.PrepareContext(ctx, updateCollectionItemCollectionId); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCollectionItemCollectionId: %w", err)
+	}
+	if q.updateCollectionItemOrderStmt, err = db.PrepareContext(ctx, updateCollectionItemOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCollectionItemOrder: %w", err)
+	}
+	if q.updateCollectionItemParentStmt, err = db.PrepareContext(ctx, updateCollectionItemParent); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCollectionItemParent: %w", err)
+	}
+	if q.updateCollectionItemParentFolderStmt, err = db.PrepareContext(ctx, updateCollectionItemParentFolder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCollectionItemParentFolder: %w", err)
 	}
 	if q.updateCollectionOrderStmt, err = db.PrepareContext(ctx, updateCollectionOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateCollectionOrder: %w", err)
@@ -612,6 +660,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateItemApiStmt, err = db.PrepareContext(ctx, updateItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemApi: %w", err)
 	}
+	if q.updateItemApiCollectionIdStmt, err = db.PrepareContext(ctx, updateItemApiCollectionId); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateItemApiCollectionId: %w", err)
+	}
 	if q.updateItemApiExampleStmt, err = db.PrepareContext(ctx, updateItemApiExample); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemApiExample: %w", err)
 	}
@@ -623,6 +674,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateItemFolderStmt, err = db.PrepareContext(ctx, updateItemFolder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemFolder: %w", err)
+	}
+	if q.updateItemFolderCollectionIdStmt, err = db.PrepareContext(ctx, updateItemFolderCollectionId); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateItemFolderCollectionId: %w", err)
 	}
 	if q.updateItemFolderOrderStmt, err = db.PrepareContext(ctx, updateItemFolderOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemFolderOrder: %w", err)
@@ -656,6 +710,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.upsertNodeExecutionStmt, err = db.PrepareContext(ctx, upsertNodeExecution); err != nil {
 		return nil, fmt.Errorf("error preparing query UpsertNodeExecution: %w", err)
+	}
+	if q.validateCollectionsInSameWorkspaceStmt, err = db.PrepareContext(ctx, validateCollectionsInSameWorkspace); err != nil {
+		return nil, fmt.Errorf("error preparing query ValidateCollectionsInSameWorkspace: %w", err)
 	}
 	return &q, nil
 }
@@ -917,6 +974,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteCollectionStmt: %w", cerr)
 		}
 	}
+	if q.deleteCollectionItemStmt != nil {
+		if cerr := q.deleteCollectionItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCollectionItemStmt: %w", cerr)
+		}
+	}
 	if q.deleteEnvironmentStmt != nil {
 		if cerr := q.deleteEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteEnvironmentStmt: %w", cerr)
@@ -1147,9 +1209,59 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getCollectionByWorkspaceIDAndNameStmt: %w", cerr)
 		}
 	}
+	if q.getCollectionItemStmt != nil {
+		if cerr := q.getCollectionItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionItemByEndpointIDStmt != nil {
+		if cerr := q.getCollectionItemByEndpointIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemByEndpointIDStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionItemByFolderIDStmt != nil {
+		if cerr := q.getCollectionItemByFolderIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemByFolderIDStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionItemTailStmt != nil {
+		if cerr := q.getCollectionItemTailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemTailStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionItemsByCollectionIDStmt != nil {
+		if cerr := q.getCollectionItemsByCollectionIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemsByCollectionIDStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionItemsByParentFolderIDStmt != nil {
+		if cerr := q.getCollectionItemsByParentFolderIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemsByParentFolderIDStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionItemsByTypeStmt != nil {
+		if cerr := q.getCollectionItemsByTypeStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemsByTypeStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionItemsInOrderStmt != nil {
+		if cerr := q.getCollectionItemsInOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemsInOrderStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionItemsInOrderForCollectionStmt != nil {
+		if cerr := q.getCollectionItemsInOrderForCollectionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionItemsInOrderForCollectionStmt: %w", cerr)
+		}
+	}
 	if q.getCollectionMaxPositionStmt != nil {
 		if cerr := q.getCollectionMaxPositionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getCollectionMaxPositionStmt: %w", cerr)
+		}
+	}
+	if q.getCollectionWorkspaceByItemIdStmt != nil {
+		if cerr := q.getCollectionWorkspaceByItemIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCollectionWorkspaceByItemIdStmt: %w", cerr)
 		}
 	}
 	if q.getCollectionWorkspaceIDStmt != nil {
@@ -1502,6 +1614,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getWorkspacesByUserIDStmt: %w", cerr)
 		}
 	}
+	if q.insertCollectionItemStmt != nil {
+		if cerr := q.insertCollectionItemStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertCollectionItemStmt: %w", cerr)
+		}
+	}
 	if q.listNodeExecutionsStmt != nil {
 		if cerr := q.listNodeExecutionsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listNodeExecutionsStmt: %w", cerr)
@@ -1560,6 +1677,26 @@ func (q *Queries) Close() error {
 	if q.updateCollectionStmt != nil {
 		if cerr := q.updateCollectionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateCollectionStmt: %w", cerr)
+		}
+	}
+	if q.updateCollectionItemCollectionIdStmt != nil {
+		if cerr := q.updateCollectionItemCollectionIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCollectionItemCollectionIdStmt: %w", cerr)
+		}
+	}
+	if q.updateCollectionItemOrderStmt != nil {
+		if cerr := q.updateCollectionItemOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCollectionItemOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateCollectionItemParentStmt != nil {
+		if cerr := q.updateCollectionItemParentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCollectionItemParentStmt: %w", cerr)
+		}
+	}
+	if q.updateCollectionItemParentFolderStmt != nil {
+		if cerr := q.updateCollectionItemParentFolderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCollectionItemParentFolderStmt: %w", cerr)
 		}
 	}
 	if q.updateCollectionOrderStmt != nil {
@@ -1642,6 +1779,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateItemApiStmt: %w", cerr)
 		}
 	}
+	if q.updateItemApiCollectionIdStmt != nil {
+		if cerr := q.updateItemApiCollectionIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateItemApiCollectionIdStmt: %w", cerr)
+		}
+	}
 	if q.updateItemApiExampleStmt != nil {
 		if cerr := q.updateItemApiExampleStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateItemApiExampleStmt: %w", cerr)
@@ -1660,6 +1802,11 @@ func (q *Queries) Close() error {
 	if q.updateItemFolderStmt != nil {
 		if cerr := q.updateItemFolderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateItemFolderStmt: %w", cerr)
+		}
+	}
+	if q.updateItemFolderCollectionIdStmt != nil {
+		if cerr := q.updateItemFolderCollectionIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateItemFolderCollectionIdStmt: %w", cerr)
 		}
 	}
 	if q.updateItemFolderOrderStmt != nil {
@@ -1715,6 +1862,11 @@ func (q *Queries) Close() error {
 	if q.upsertNodeExecutionStmt != nil {
 		if cerr := q.upsertNodeExecutionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing upsertNodeExecutionStmt: %w", cerr)
+		}
+	}
+	if q.validateCollectionsInSameWorkspaceStmt != nil {
+		if cerr := q.validateCollectionsInSameWorkspaceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing validateCollectionsInSameWorkspaceStmt: %w", cerr)
 		}
 	}
 	return err
@@ -1807,6 +1959,7 @@ type Queries struct {
 	deleteBodyRawStmt                                     *sql.Stmt
 	deleteBodyURLEncodedStmt                              *sql.Stmt
 	deleteCollectionStmt                                  *sql.Stmt
+	deleteCollectionItemStmt                              *sql.Stmt
 	deleteEnvironmentStmt                                 *sql.Stmt
 	deleteExampleRespStmt                                 *sql.Stmt
 	deleteExampleRespHeaderStmt                           *sql.Stmt
@@ -1853,7 +2006,17 @@ type Queries struct {
 	getCollectionByPrevNextStmt                           *sql.Stmt
 	getCollectionByWorkspaceIDStmt                        *sql.Stmt
 	getCollectionByWorkspaceIDAndNameStmt                 *sql.Stmt
+	getCollectionItemStmt                                 *sql.Stmt
+	getCollectionItemByEndpointIDStmt                     *sql.Stmt
+	getCollectionItemByFolderIDStmt                       *sql.Stmt
+	getCollectionItemTailStmt                             *sql.Stmt
+	getCollectionItemsByCollectionIDStmt                  *sql.Stmt
+	getCollectionItemsByParentFolderIDStmt                *sql.Stmt
+	getCollectionItemsByTypeStmt                          *sql.Stmt
+	getCollectionItemsInOrderStmt                         *sql.Stmt
+	getCollectionItemsInOrderForCollectionStmt            *sql.Stmt
 	getCollectionMaxPositionStmt                          *sql.Stmt
+	getCollectionWorkspaceByItemIdStmt                    *sql.Stmt
 	getCollectionWorkspaceIDStmt                          *sql.Stmt
 	getCollectionsInOrderStmt                             *sql.Stmt
 	getEnvironmentStmt                                    *sql.Stmt
@@ -1924,6 +2087,7 @@ type Queries struct {
 	getWorkspaceUserByWorkspaceIDStmt                     *sql.Stmt
 	getWorkspaceUserByWorkspaceIDAndUserIDStmt            *sql.Stmt
 	getWorkspacesByUserIDStmt                             *sql.Stmt
+	insertCollectionItemStmt                              *sql.Stmt
 	listNodeExecutionsStmt                                *sql.Stmt
 	listNodeExecutionsByFlowRunStmt                       *sql.Stmt
 	listNodeExecutionsByStateStmt                         *sql.Stmt
@@ -1936,6 +2100,10 @@ type Queries struct {
 	updateBodyRawDataStmt                                 *sql.Stmt
 	updateBodyUrlEncodedStmt                              *sql.Stmt
 	updateCollectionStmt                                  *sql.Stmt
+	updateCollectionItemCollectionIdStmt                  *sql.Stmt
+	updateCollectionItemOrderStmt                         *sql.Stmt
+	updateCollectionItemParentStmt                        *sql.Stmt
+	updateCollectionItemParentFolderStmt                  *sql.Stmt
 	updateCollectionOrderStmt                             *sql.Stmt
 	updateCollectionPositionsStmt                         *sql.Stmt
 	updateEnvironmentStmt                                 *sql.Stmt
@@ -1952,10 +2120,12 @@ type Queries struct {
 	updateFlowVariableStmt                                *sql.Stmt
 	updateHeaderStmt                                      *sql.Stmt
 	updateItemApiStmt                                     *sql.Stmt
+	updateItemApiCollectionIdStmt                         *sql.Stmt
 	updateItemApiExampleStmt                              *sql.Stmt
 	updateItemApiExampleOrderStmt                         *sql.Stmt
 	updateItemApiOrderStmt                                *sql.Stmt
 	updateItemFolderStmt                                  *sql.Stmt
+	updateItemFolderCollectionIdStmt                      *sql.Stmt
 	updateItemFolderOrderStmt                             *sql.Stmt
 	updateNodeExecutionStmt                               *sql.Stmt
 	updateQueryStmt                                       *sql.Stmt
@@ -1967,222 +2137,242 @@ type Queries struct {
 	updateWorkspaceUpdatedTimeStmt                        *sql.Stmt
 	updateWorkspaceUserStmt                               *sql.Stmt
 	upsertNodeExecutionStmt                               *sql.Stmt
+	validateCollectionsInSameWorkspaceStmt                *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                                               tx,
-		tx:                                               tx,
-		checkIFWorkspaceUserExistsStmt:                   q.checkIFWorkspaceUserExistsStmt,
-		createAssertStmt:                                 q.createAssertStmt,
-		createAssertBulkStmt:                             q.createAssertBulkStmt,
-		createAssertResultStmt:                           q.createAssertResultStmt,
-		createBodyFormStmt:                               q.createBodyFormStmt,
-		createBodyFormBulkStmt:                           q.createBodyFormBulkStmt,
-		createBodyRawStmt:                                q.createBodyRawStmt,
-		createBodyRawBulkStmt:                            q.createBodyRawBulkStmt,
-		createBodyUrlEncodedStmt:                         q.createBodyUrlEncodedStmt,
-		createBodyUrlEncodedBulkStmt:                     q.createBodyUrlEncodedBulkStmt,
-		createCollectionStmt:                             q.createCollectionStmt,
-		createEnvironmentStmt:                            q.createEnvironmentStmt,
-		createExampleRespStmt:                            q.createExampleRespStmt,
-		createExampleRespHeaderStmt:                      q.createExampleRespHeaderStmt,
-		createExampleRespHeaderBulkStmt:                  q.createExampleRespHeaderBulkStmt,
-		createFlowStmt:                                   q.createFlowStmt,
-		createFlowEdgeStmt:                               q.createFlowEdgeStmt,
-		createFlowNodeStmt:                               q.createFlowNodeStmt,
-		createFlowNodeConditionStmt:                      q.createFlowNodeConditionStmt,
-		createFlowNodeForStmt:                            q.createFlowNodeForStmt,
-		createFlowNodeForEachStmt:                        q.createFlowNodeForEachStmt,
-		createFlowNodeJsStmt:                             q.createFlowNodeJsStmt,
-		createFlowNodeNoopStmt:                           q.createFlowNodeNoopStmt,
-		createFlowNodeRequestStmt:                        q.createFlowNodeRequestStmt,
-		createFlowTagStmt:                                q.createFlowTagStmt,
-		createFlowVariableStmt:                           q.createFlowVariableStmt,
-		createFlowVariableBulkStmt:                       q.createFlowVariableBulkStmt,
-		createHeaderStmt:                                 q.createHeaderStmt,
-		createHeaderBulkStmt:                             q.createHeaderBulkStmt,
-		createItemApiStmt:                                q.createItemApiStmt,
-		createItemApiBulkStmt:                            q.createItemApiBulkStmt,
-		createItemApiExampleStmt:                         q.createItemApiExampleStmt,
-		createItemApiExampleBulkStmt:                     q.createItemApiExampleBulkStmt,
-		createItemFolderStmt:                             q.createItemFolderStmt,
-		createItemFolderBulkStmt:                         q.createItemFolderBulkStmt,
-		createMigrationStmt:                              q.createMigrationStmt,
-		createNodeExecutionStmt:                          q.createNodeExecutionStmt,
-		createQueryStmt:                                  q.createQueryStmt,
-		createQueryBulkStmt:                              q.createQueryBulkStmt,
-		createTagStmt:                                    q.createTagStmt,
-		createUserStmt:                                   q.createUserStmt,
-		createVariableStmt:                               q.createVariableStmt,
-		createVariableBulkStmt:                           q.createVariableBulkStmt,
-		createWorkspaceStmt:                              q.createWorkspaceStmt,
-		createWorkspaceUserStmt:                          q.createWorkspaceUserStmt,
-		deleteAssertStmt:                                 q.deleteAssertStmt,
-		deleteAssertResultStmt:                           q.deleteAssertResultStmt,
-		deleteBodyFormStmt:                               q.deleteBodyFormStmt,
-		deleteBodyRawStmt:                                q.deleteBodyRawStmt,
-		deleteBodyURLEncodedStmt:                         q.deleteBodyURLEncodedStmt,
-		deleteCollectionStmt:                             q.deleteCollectionStmt,
-		deleteEnvironmentStmt:                            q.deleteEnvironmentStmt,
-		deleteExampleRespStmt:                            q.deleteExampleRespStmt,
-		deleteExampleRespHeaderStmt:                      q.deleteExampleRespHeaderStmt,
-		deleteFlowStmt:                                   q.deleteFlowStmt,
-		deleteFlowEdgeStmt:                               q.deleteFlowEdgeStmt,
-		deleteFlowNodeStmt:                               q.deleteFlowNodeStmt,
-		deleteFlowNodeConditionStmt:                      q.deleteFlowNodeConditionStmt,
-		deleteFlowNodeForStmt:                            q.deleteFlowNodeForStmt,
-		deleteFlowNodeForEachStmt:                        q.deleteFlowNodeForEachStmt,
-		deleteFlowNodeJsStmt:                             q.deleteFlowNodeJsStmt,
-		deleteFlowNodeNoopStmt:                           q.deleteFlowNodeNoopStmt,
-		deleteFlowNodeRequestStmt:                        q.deleteFlowNodeRequestStmt,
-		deleteFlowTagStmt:                                q.deleteFlowTagStmt,
-		deleteFlowVariableStmt:                           q.deleteFlowVariableStmt,
-		deleteHeaderStmt:                                 q.deleteHeaderStmt,
-		deleteItemApiStmt:                                q.deleteItemApiStmt,
-		deleteItemApiExampleStmt:                         q.deleteItemApiExampleStmt,
-		deleteItemFolderStmt:                             q.deleteItemFolderStmt,
-		deleteMigrationStmt:                              q.deleteMigrationStmt,
-		deleteNodeExecutionsByNodeIDStmt:                 q.deleteNodeExecutionsByNodeIDStmt,
-		deleteNodeExecutionsByNodeIDsStmt:                q.deleteNodeExecutionsByNodeIDsStmt,
-		deleteQueryStmt:                                  q.deleteQueryStmt,
-		deleteTagStmt:                                    q.deleteTagStmt,
-		deleteUserStmt:                                   q.deleteUserStmt,
-		deleteVariableStmt:                               q.deleteVariableStmt,
-		deleteWorkspaceStmt:                              q.deleteWorkspaceStmt,
-		deleteWorkspaceUserStmt:                          q.deleteWorkspaceUserStmt,
-		getAllItemsApiByCollectionIDStmt:                 q.getAllItemsApiByCollectionIDStmt,
-		getAssertStmt:                                    q.getAssertStmt,
-		getAssertResultStmt:                              q.getAssertResultStmt,
-		getAssertResultsByAssertIDStmt:                   q.getAssertResultsByAssertIDStmt,
-		getAssertResultsByResponseIDStmt:                 q.getAssertResultsByResponseIDStmt,
-		getAssertsByExampleIDStmt:                        q.getAssertsByExampleIDStmt,
-		getBodyFormStmt:                                  q.getBodyFormStmt,
-		getBodyFormsByDeltaParentIDStmt:                  q.getBodyFormsByDeltaParentIDStmt,
-		getBodyFormsByExampleIDStmt:                      q.getBodyFormsByExampleIDStmt,
-		getBodyRawStmt:                                   q.getBodyRawStmt,
-		getBodyRawsByExampleIDStmt:                       q.getBodyRawsByExampleIDStmt,
-		getBodyUrlEncodedStmt:                            q.getBodyUrlEncodedStmt,
-		getBodyUrlEncodedsByDeltaParentIDStmt:            q.getBodyUrlEncodedsByDeltaParentIDStmt,
-		getBodyUrlEncodedsByExampleIDStmt:                q.getBodyUrlEncodedsByExampleIDStmt,
-		getCollectionStmt:                                q.getCollectionStmt,
-		getCollectionByPlatformIDandTypeStmt:             q.getCollectionByPlatformIDandTypeStmt,
-		getCollectionByPrevNextStmt:                      q.getCollectionByPrevNextStmt,
-		getCollectionByWorkspaceIDStmt:                   q.getCollectionByWorkspaceIDStmt,
-		getCollectionByWorkspaceIDAndNameStmt:            q.getCollectionByWorkspaceIDAndNameStmt,
-		getCollectionMaxPositionStmt:                     q.getCollectionMaxPositionStmt,
-		getCollectionWorkspaceIDStmt:                     q.getCollectionWorkspaceIDStmt,
-		getCollectionsInOrderStmt:                        q.getCollectionsInOrderStmt,
-		getEnvironmentStmt:                               q.getEnvironmentStmt,
-		getEnvironmentsByWorkspaceIDStmt:                 q.getEnvironmentsByWorkspaceIDStmt,
-		getExampleRespStmt:                               q.getExampleRespStmt,
-		getExampleRespByExampleIDStmt:                    q.getExampleRespByExampleIDStmt,
-		getExampleRespByExampleIDLatestStmt:              q.getExampleRespByExampleIDLatestStmt,
-		getExampleRespHeaderStmt:                         q.getExampleRespHeaderStmt,
-		getExampleRespHeadersByRespIDStmt:                q.getExampleRespHeadersByRespIDStmt,
-		getFlowStmt:                                      q.getFlowStmt,
-		getFlowEdgeStmt:                                  q.getFlowEdgeStmt,
-		getFlowEdgesByFlowIDStmt:                         q.getFlowEdgesByFlowIDStmt,
-		getFlowNodeStmt:                                  q.getFlowNodeStmt,
-		getFlowNodeConditionStmt:                         q.getFlowNodeConditionStmt,
-		getFlowNodeForStmt:                               q.getFlowNodeForStmt,
-		getFlowNodeForEachStmt:                           q.getFlowNodeForEachStmt,
-		getFlowNodeJsStmt:                                q.getFlowNodeJsStmt,
-		getFlowNodeNoopStmt:                              q.getFlowNodeNoopStmt,
-		getFlowNodeRequestStmt:                           q.getFlowNodeRequestStmt,
-		getFlowNodesByFlowIDStmt:                         q.getFlowNodesByFlowIDStmt,
-		getFlowTagStmt:                                   q.getFlowTagStmt,
-		getFlowTagsByFlowIDStmt:                          q.getFlowTagsByFlowIDStmt,
-		getFlowTagsByTagIDStmt:                           q.getFlowTagsByTagIDStmt,
-		getFlowVariableStmt:                              q.getFlowVariableStmt,
-		getFlowVariablesByFlowIDStmt:                     q.getFlowVariablesByFlowIDStmt,
-		getFlowsByVersionParentIDStmt:                    q.getFlowsByVersionParentIDStmt,
-		getFlowsByWorkspaceIDStmt:                        q.getFlowsByWorkspaceIDStmt,
-		getHeaderStmt:                                    q.getHeaderStmt,
-		getHeaderByDeltaParentIDStmt:                     q.getHeaderByDeltaParentIDStmt,
-		getHeadersByExampleIDStmt:                        q.getHeadersByExampleIDStmt,
-		getItemApiStmt:                                   q.getItemApiStmt,
-		getItemApiByCollectionIDAndNextIDAndParentIDStmt: q.getItemApiByCollectionIDAndNextIDAndParentIDStmt,
-		getItemApiByCollectionIDAndURLAndMethodStmt:      q.getItemApiByCollectionIDAndURLAndMethodStmt,
-		getItemApiExampleStmt:                            q.getItemApiExampleStmt,
-		getItemApiExampleByCollectionIDStmt:              q.getItemApiExampleByCollectionIDStmt,
-		getItemApiExampleByVersionParentIDStmt:           q.getItemApiExampleByVersionParentIDStmt,
-		getItemApiExampleDefaultStmt:                     q.getItemApiExampleDefaultStmt,
-		getItemApiExamplesStmt:                           q.getItemApiExamplesStmt,
-		getItemApiExamplesWithDefaultsStmt:               q.getItemApiExamplesWithDefaultsStmt,
-		getItemApiWorkspaceIDStmt:                        q.getItemApiWorkspaceIDStmt,
+		db:                                                    tx,
+		tx:                                                    tx,
+		checkIFWorkspaceUserExistsStmt:                        q.checkIFWorkspaceUserExistsStmt,
+		createAssertStmt:                                      q.createAssertStmt,
+		createAssertBulkStmt:                                  q.createAssertBulkStmt,
+		createAssertResultStmt:                                q.createAssertResultStmt,
+		createBodyFormStmt:                                    q.createBodyFormStmt,
+		createBodyFormBulkStmt:                                q.createBodyFormBulkStmt,
+		createBodyRawStmt:                                     q.createBodyRawStmt,
+		createBodyRawBulkStmt:                                 q.createBodyRawBulkStmt,
+		createBodyUrlEncodedStmt:                              q.createBodyUrlEncodedStmt,
+		createBodyUrlEncodedBulkStmt:                          q.createBodyUrlEncodedBulkStmt,
+		createCollectionStmt:                                  q.createCollectionStmt,
+		createEnvironmentStmt:                                 q.createEnvironmentStmt,
+		createExampleRespStmt:                                 q.createExampleRespStmt,
+		createExampleRespHeaderStmt:                           q.createExampleRespHeaderStmt,
+		createExampleRespHeaderBulkStmt:                       q.createExampleRespHeaderBulkStmt,
+		createFlowStmt:                                        q.createFlowStmt,
+		createFlowEdgeStmt:                                    q.createFlowEdgeStmt,
+		createFlowNodeStmt:                                    q.createFlowNodeStmt,
+		createFlowNodeConditionStmt:                           q.createFlowNodeConditionStmt,
+		createFlowNodeForStmt:                                 q.createFlowNodeForStmt,
+		createFlowNodeForEachStmt:                             q.createFlowNodeForEachStmt,
+		createFlowNodeJsStmt:                                  q.createFlowNodeJsStmt,
+		createFlowNodeNoopStmt:                                q.createFlowNodeNoopStmt,
+		createFlowNodeRequestStmt:                             q.createFlowNodeRequestStmt,
+		createFlowTagStmt:                                     q.createFlowTagStmt,
+		createFlowVariableStmt:                                q.createFlowVariableStmt,
+		createFlowVariableBulkStmt:                            q.createFlowVariableBulkStmt,
+		createHeaderStmt:                                      q.createHeaderStmt,
+		createHeaderBulkStmt:                                  q.createHeaderBulkStmt,
+		createItemApiStmt:                                     q.createItemApiStmt,
+		createItemApiBulkStmt:                                 q.createItemApiBulkStmt,
+		createItemApiExampleStmt:                              q.createItemApiExampleStmt,
+		createItemApiExampleBulkStmt:                          q.createItemApiExampleBulkStmt,
+		createItemFolderStmt:                                  q.createItemFolderStmt,
+		createItemFolderBulkStmt:                              q.createItemFolderBulkStmt,
+		createMigrationStmt:                                   q.createMigrationStmt,
+		createNodeExecutionStmt:                               q.createNodeExecutionStmt,
+		createQueryStmt:                                       q.createQueryStmt,
+		createQueryBulkStmt:                                   q.createQueryBulkStmt,
+		createTagStmt:                                         q.createTagStmt,
+		createUserStmt:                                        q.createUserStmt,
+		createVariableStmt:                                    q.createVariableStmt,
+		createVariableBulkStmt:                                q.createVariableBulkStmt,
+		createWorkspaceStmt:                                   q.createWorkspaceStmt,
+		createWorkspaceUserStmt:                               q.createWorkspaceUserStmt,
+		deleteAssertStmt:                                      q.deleteAssertStmt,
+		deleteAssertResultStmt:                                q.deleteAssertResultStmt,
+		deleteBodyFormStmt:                                    q.deleteBodyFormStmt,
+		deleteBodyRawStmt:                                     q.deleteBodyRawStmt,
+		deleteBodyURLEncodedStmt:                              q.deleteBodyURLEncodedStmt,
+		deleteCollectionStmt:                                  q.deleteCollectionStmt,
+		deleteCollectionItemStmt:                              q.deleteCollectionItemStmt,
+		deleteEnvironmentStmt:                                 q.deleteEnvironmentStmt,
+		deleteExampleRespStmt:                                 q.deleteExampleRespStmt,
+		deleteExampleRespHeaderStmt:                           q.deleteExampleRespHeaderStmt,
+		deleteFlowStmt:                                        q.deleteFlowStmt,
+		deleteFlowEdgeStmt:                                    q.deleteFlowEdgeStmt,
+		deleteFlowNodeStmt:                                    q.deleteFlowNodeStmt,
+		deleteFlowNodeConditionStmt:                           q.deleteFlowNodeConditionStmt,
+		deleteFlowNodeForStmt:                                 q.deleteFlowNodeForStmt,
+		deleteFlowNodeForEachStmt:                             q.deleteFlowNodeForEachStmt,
+		deleteFlowNodeJsStmt:                                  q.deleteFlowNodeJsStmt,
+		deleteFlowNodeNoopStmt:                                q.deleteFlowNodeNoopStmt,
+		deleteFlowNodeRequestStmt:                             q.deleteFlowNodeRequestStmt,
+		deleteFlowTagStmt:                                     q.deleteFlowTagStmt,
+		deleteFlowVariableStmt:                                q.deleteFlowVariableStmt,
+		deleteHeaderStmt:                                      q.deleteHeaderStmt,
+		deleteItemApiStmt:                                     q.deleteItemApiStmt,
+		deleteItemApiExampleStmt:                              q.deleteItemApiExampleStmt,
+		deleteItemFolderStmt:                                  q.deleteItemFolderStmt,
+		deleteMigrationStmt:                                   q.deleteMigrationStmt,
+		deleteNodeExecutionsByNodeIDStmt:                      q.deleteNodeExecutionsByNodeIDStmt,
+		deleteNodeExecutionsByNodeIDsStmt:                     q.deleteNodeExecutionsByNodeIDsStmt,
+		deleteQueryStmt:                                       q.deleteQueryStmt,
+		deleteTagStmt:                                         q.deleteTagStmt,
+		deleteUserStmt:                                        q.deleteUserStmt,
+		deleteVariableStmt:                                    q.deleteVariableStmt,
+		deleteWorkspaceStmt:                                   q.deleteWorkspaceStmt,
+		deleteWorkspaceUserStmt:                               q.deleteWorkspaceUserStmt,
+		getAllItemsApiByCollectionIDStmt:                      q.getAllItemsApiByCollectionIDStmt,
+		getAssertStmt:                                         q.getAssertStmt,
+		getAssertResultStmt:                                   q.getAssertResultStmt,
+		getAssertResultsByAssertIDStmt:                        q.getAssertResultsByAssertIDStmt,
+		getAssertResultsByResponseIDStmt:                      q.getAssertResultsByResponseIDStmt,
+		getAssertsByExampleIDStmt:                             q.getAssertsByExampleIDStmt,
+		getBodyFormStmt:                                       q.getBodyFormStmt,
+		getBodyFormsByDeltaParentIDStmt:                       q.getBodyFormsByDeltaParentIDStmt,
+		getBodyFormsByExampleIDStmt:                           q.getBodyFormsByExampleIDStmt,
+		getBodyRawStmt:                                        q.getBodyRawStmt,
+		getBodyRawsByExampleIDStmt:                            q.getBodyRawsByExampleIDStmt,
+		getBodyUrlEncodedStmt:                                 q.getBodyUrlEncodedStmt,
+		getBodyUrlEncodedsByDeltaParentIDStmt:                 q.getBodyUrlEncodedsByDeltaParentIDStmt,
+		getBodyUrlEncodedsByExampleIDStmt:                     q.getBodyUrlEncodedsByExampleIDStmt,
+		getCollectionStmt:                                     q.getCollectionStmt,
+		getCollectionByPlatformIDandTypeStmt:                  q.getCollectionByPlatformIDandTypeStmt,
+		getCollectionByPrevNextStmt:                           q.getCollectionByPrevNextStmt,
+		getCollectionByWorkspaceIDStmt:                        q.getCollectionByWorkspaceIDStmt,
+		getCollectionByWorkspaceIDAndNameStmt:                 q.getCollectionByWorkspaceIDAndNameStmt,
+		getCollectionItemStmt:                                 q.getCollectionItemStmt,
+		getCollectionItemByEndpointIDStmt:                     q.getCollectionItemByEndpointIDStmt,
+		getCollectionItemByFolderIDStmt:                       q.getCollectionItemByFolderIDStmt,
+		getCollectionItemTailStmt:                             q.getCollectionItemTailStmt,
+		getCollectionItemsByCollectionIDStmt:                  q.getCollectionItemsByCollectionIDStmt,
+		getCollectionItemsByParentFolderIDStmt:                q.getCollectionItemsByParentFolderIDStmt,
+		getCollectionItemsByTypeStmt:                          q.getCollectionItemsByTypeStmt,
+		getCollectionItemsInOrderStmt:                         q.getCollectionItemsInOrderStmt,
+		getCollectionItemsInOrderForCollectionStmt:            q.getCollectionItemsInOrderForCollectionStmt,
+		getCollectionMaxPositionStmt:                          q.getCollectionMaxPositionStmt,
+		getCollectionWorkspaceByItemIdStmt:                    q.getCollectionWorkspaceByItemIdStmt,
+		getCollectionWorkspaceIDStmt:                          q.getCollectionWorkspaceIDStmt,
+		getCollectionsInOrderStmt:                             q.getCollectionsInOrderStmt,
+		getEnvironmentStmt:                                    q.getEnvironmentStmt,
+		getEnvironmentsByWorkspaceIDStmt:                      q.getEnvironmentsByWorkspaceIDStmt,
+		getExampleRespStmt:                                    q.getExampleRespStmt,
+		getExampleRespByExampleIDStmt:                         q.getExampleRespByExampleIDStmt,
+		getExampleRespByExampleIDLatestStmt:                   q.getExampleRespByExampleIDLatestStmt,
+		getExampleRespHeaderStmt:                              q.getExampleRespHeaderStmt,
+		getExampleRespHeadersByRespIDStmt:                     q.getExampleRespHeadersByRespIDStmt,
+		getFlowStmt:                                           q.getFlowStmt,
+		getFlowEdgeStmt:                                       q.getFlowEdgeStmt,
+		getFlowEdgesByFlowIDStmt:                              q.getFlowEdgesByFlowIDStmt,
+		getFlowNodeStmt:                                       q.getFlowNodeStmt,
+		getFlowNodeConditionStmt:                              q.getFlowNodeConditionStmt,
+		getFlowNodeForStmt:                                    q.getFlowNodeForStmt,
+		getFlowNodeForEachStmt:                                q.getFlowNodeForEachStmt,
+		getFlowNodeJsStmt:                                     q.getFlowNodeJsStmt,
+		getFlowNodeNoopStmt:                                   q.getFlowNodeNoopStmt,
+		getFlowNodeRequestStmt:                                q.getFlowNodeRequestStmt,
+		getFlowNodesByFlowIDStmt:                              q.getFlowNodesByFlowIDStmt,
+		getFlowTagStmt:                                        q.getFlowTagStmt,
+		getFlowTagsByFlowIDStmt:                               q.getFlowTagsByFlowIDStmt,
+		getFlowTagsByTagIDStmt:                                q.getFlowTagsByTagIDStmt,
+		getFlowVariableStmt:                                   q.getFlowVariableStmt,
+		getFlowVariablesByFlowIDStmt:                          q.getFlowVariablesByFlowIDStmt,
+		getFlowsByVersionParentIDStmt:                         q.getFlowsByVersionParentIDStmt,
+		getFlowsByWorkspaceIDStmt:                             q.getFlowsByWorkspaceIDStmt,
+		getHeaderStmt:                                         q.getHeaderStmt,
+		getHeaderByDeltaParentIDStmt:                          q.getHeaderByDeltaParentIDStmt,
+		getHeadersByExampleIDStmt:                             q.getHeadersByExampleIDStmt,
+		getItemApiStmt:                                        q.getItemApiStmt,
+		getItemApiByCollectionIDAndNextIDAndParentIDStmt:      q.getItemApiByCollectionIDAndNextIDAndParentIDStmt,
+		getItemApiByCollectionIDAndURLAndMethodStmt:           q.getItemApiByCollectionIDAndURLAndMethodStmt,
+		getItemApiExampleStmt:                                 q.getItemApiExampleStmt,
+		getItemApiExampleByCollectionIDStmt:                   q.getItemApiExampleByCollectionIDStmt,
+		getItemApiExampleByVersionParentIDStmt:                q.getItemApiExampleByVersionParentIDStmt,
+		getItemApiExampleDefaultStmt:                          q.getItemApiExampleDefaultStmt,
+		getItemApiExamplesStmt:                                q.getItemApiExamplesStmt,
+		getItemApiExamplesWithDefaultsStmt:                    q.getItemApiExamplesWithDefaultsStmt,
+		getItemApiWorkspaceIDStmt:                             q.getItemApiWorkspaceIDStmt,
 		getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt: q.getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt,
-		getItemFolderStmt: q.getItemFolderStmt,
-		getItemFolderByCollectionIDAndNextIDAndParentIDStmt: q.getItemFolderByCollectionIDAndNextIDAndParentIDStmt,
-		getItemFolderWorkspaceIDStmt:                        q.getItemFolderWorkspaceIDStmt,
-		getItemFoldersByCollectionIDStmt:                    q.getItemFoldersByCollectionIDStmt,
-		getItemsApiByCollectionIDStmt:                       q.getItemsApiByCollectionIDStmt,
-		getLatestNodeExecutionByNodeIDStmt:                  q.getLatestNodeExecutionByNodeIDStmt,
-		getMigrationStmt:                                    q.getMigrationStmt,
-		getMigrationsStmt:                                   q.getMigrationsStmt,
-		getNodeExecutionStmt:                                q.getNodeExecutionStmt,
-		getNodeExecutionsByNodeIDStmt:                       q.getNodeExecutionsByNodeIDStmt,
-		getQueriesByExampleIDStmt:                           q.getQueriesByExampleIDStmt,
-		getQueryStmt:                                        q.getQueryStmt,
-		getQueryByDeltaParentIDStmt:                         q.getQueryByDeltaParentIDStmt,
-		getTagStmt:                                          q.getTagStmt,
-		getTagsByWorkspaceIDStmt:                            q.getTagsByWorkspaceIDStmt,
-		getUserStmt:                                         q.getUserStmt,
-		getUserByEmailStmt:                                  q.getUserByEmailStmt,
-		getUserByEmailAndProviderTypeStmt:                   q.getUserByEmailAndProviderTypeStmt,
-		getUserByProviderIDandTypeStmt:                      q.getUserByProviderIDandTypeStmt,
-		getVariableStmt:                                     q.getVariableStmt,
-		getVariablesByEnvironmentIDStmt:                     q.getVariablesByEnvironmentIDStmt,
-		getWorkspaceStmt:                                    q.getWorkspaceStmt,
-		getWorkspaceByUserIDStmt:                            q.getWorkspaceByUserIDStmt,
-		getWorkspaceByUserIDandWorkspaceIDStmt:              q.getWorkspaceByUserIDandWorkspaceIDStmt,
-		getWorkspaceUserStmt:                                q.getWorkspaceUserStmt,
-		getWorkspaceUserByUserIDStmt:                        q.getWorkspaceUserByUserIDStmt,
-		getWorkspaceUserByWorkspaceIDStmt:                   q.getWorkspaceUserByWorkspaceIDStmt,
-		getWorkspaceUserByWorkspaceIDAndUserIDStmt:          q.getWorkspaceUserByWorkspaceIDAndUserIDStmt,
-		getWorkspacesByUserIDStmt:                           q.getWorkspacesByUserIDStmt,
-		listNodeExecutionsStmt:                              q.listNodeExecutionsStmt,
-		listNodeExecutionsByFlowRunStmt:                     q.listNodeExecutionsByFlowRunStmt,
-		listNodeExecutionsByStateStmt:                       q.listNodeExecutionsByStateStmt,
-		setBodyFormEnableStmt:                               q.setBodyFormEnableStmt,
-		setHeaderEnableStmt:                                 q.setHeaderEnableStmt,
-		setQueryEnableStmt:                                  q.setQueryEnableStmt,
-		updateAssertStmt:                                    q.updateAssertStmt,
-		updateAssertResultStmt:                              q.updateAssertResultStmt,
-		updateBodyFormStmt:                                  q.updateBodyFormStmt,
-		updateBodyRawDataStmt:                               q.updateBodyRawDataStmt,
-		updateBodyUrlEncodedStmt:                            q.updateBodyUrlEncodedStmt,
-		updateCollectionStmt:                                q.updateCollectionStmt,
-		updateCollectionOrderStmt:                           q.updateCollectionOrderStmt,
-		updateCollectionPositionsStmt:                       q.updateCollectionPositionsStmt,
-		updateEnvironmentStmt:                               q.updateEnvironmentStmt,
-		updateExampleRespStmt:                               q.updateExampleRespStmt,
-		updateExampleRespHeaderStmt:                         q.updateExampleRespHeaderStmt,
-		updateFlowStmt:                                      q.updateFlowStmt,
-		updateFlowEdgeStmt:                                  q.updateFlowEdgeStmt,
-		updateFlowNodeStmt:                                  q.updateFlowNodeStmt,
-		updateFlowNodeConditionStmt:                         q.updateFlowNodeConditionStmt,
-		updateFlowNodeForStmt:                               q.updateFlowNodeForStmt,
-		updateFlowNodeForEachStmt:                           q.updateFlowNodeForEachStmt,
-		updateFlowNodeJsStmt:                                q.updateFlowNodeJsStmt,
-		updateFlowNodeRequestStmt:                           q.updateFlowNodeRequestStmt,
-		updateFlowVariableStmt:                              q.updateFlowVariableStmt,
-		updateHeaderStmt:                                    q.updateHeaderStmt,
-		updateItemApiStmt:                                   q.updateItemApiStmt,
-		updateItemApiExampleStmt:                            q.updateItemApiExampleStmt,
-		updateItemApiExampleOrderStmt:                       q.updateItemApiExampleOrderStmt,
-		updateItemApiOrderStmt:                              q.updateItemApiOrderStmt,
-		updateItemFolderStmt:                                q.updateItemFolderStmt,
-		updateItemFolderOrderStmt:                           q.updateItemFolderOrderStmt,
-		updateNodeExecutionStmt:                             q.updateNodeExecutionStmt,
-		updateQueryStmt:                                     q.updateQueryStmt,
-		updateTagStmt:                                       q.updateTagStmt,
-		updateUserStmt:                                      q.updateUserStmt,
-		updateVariableStmt:                                  q.updateVariableStmt,
-		updateVisualizeModeStmt:                             q.updateVisualizeModeStmt,
-		updateWorkspaceStmt:                                 q.updateWorkspaceStmt,
-		updateWorkspaceUpdatedTimeStmt:                      q.updateWorkspaceUpdatedTimeStmt,
-		updateWorkspaceUserStmt:                             q.updateWorkspaceUserStmt,
-		upsertNodeExecutionStmt:                             q.upsertNodeExecutionStmt,
+		getItemFolderStmt:                                     q.getItemFolderStmt,
+		getItemFolderByCollectionIDAndNextIDAndParentIDStmt:   q.getItemFolderByCollectionIDAndNextIDAndParentIDStmt,
+		getItemFolderWorkspaceIDStmt:                          q.getItemFolderWorkspaceIDStmt,
+		getItemFoldersByCollectionIDStmt:                      q.getItemFoldersByCollectionIDStmt,
+		getItemsApiByCollectionIDStmt:                         q.getItemsApiByCollectionIDStmt,
+		getLatestNodeExecutionByNodeIDStmt:                    q.getLatestNodeExecutionByNodeIDStmt,
+		getMigrationStmt:                                      q.getMigrationStmt,
+		getMigrationsStmt:                                     q.getMigrationsStmt,
+		getNodeExecutionStmt:                                  q.getNodeExecutionStmt,
+		getNodeExecutionsByNodeIDStmt:                         q.getNodeExecutionsByNodeIDStmt,
+		getQueriesByExampleIDStmt:                             q.getQueriesByExampleIDStmt,
+		getQueryStmt:                                          q.getQueryStmt,
+		getQueryByDeltaParentIDStmt:                           q.getQueryByDeltaParentIDStmt,
+		getTagStmt:                                            q.getTagStmt,
+		getTagsByWorkspaceIDStmt:                              q.getTagsByWorkspaceIDStmt,
+		getUserStmt:                                           q.getUserStmt,
+		getUserByEmailStmt:                                    q.getUserByEmailStmt,
+		getUserByEmailAndProviderTypeStmt:                     q.getUserByEmailAndProviderTypeStmt,
+		getUserByProviderIDandTypeStmt:                        q.getUserByProviderIDandTypeStmt,
+		getVariableStmt:                                       q.getVariableStmt,
+		getVariablesByEnvironmentIDStmt:                       q.getVariablesByEnvironmentIDStmt,
+		getWorkspaceStmt:                                      q.getWorkspaceStmt,
+		getWorkspaceByUserIDStmt:                              q.getWorkspaceByUserIDStmt,
+		getWorkspaceByUserIDandWorkspaceIDStmt:                q.getWorkspaceByUserIDandWorkspaceIDStmt,
+		getWorkspaceUserStmt:                                  q.getWorkspaceUserStmt,
+		getWorkspaceUserByUserIDStmt:                          q.getWorkspaceUserByUserIDStmt,
+		getWorkspaceUserByWorkspaceIDStmt:                     q.getWorkspaceUserByWorkspaceIDStmt,
+		getWorkspaceUserByWorkspaceIDAndUserIDStmt:            q.getWorkspaceUserByWorkspaceIDAndUserIDStmt,
+		getWorkspacesByUserIDStmt:                             q.getWorkspacesByUserIDStmt,
+		insertCollectionItemStmt:                              q.insertCollectionItemStmt,
+		listNodeExecutionsStmt:                                q.listNodeExecutionsStmt,
+		listNodeExecutionsByFlowRunStmt:                       q.listNodeExecutionsByFlowRunStmt,
+		listNodeExecutionsByStateStmt:                         q.listNodeExecutionsByStateStmt,
+		setBodyFormEnableStmt:                                 q.setBodyFormEnableStmt,
+		setHeaderEnableStmt:                                   q.setHeaderEnableStmt,
+		setQueryEnableStmt:                                    q.setQueryEnableStmt,
+		updateAssertStmt:                                      q.updateAssertStmt,
+		updateAssertResultStmt:                                q.updateAssertResultStmt,
+		updateBodyFormStmt:                                    q.updateBodyFormStmt,
+		updateBodyRawDataStmt:                                 q.updateBodyRawDataStmt,
+		updateBodyUrlEncodedStmt:                              q.updateBodyUrlEncodedStmt,
+		updateCollectionStmt:                                  q.updateCollectionStmt,
+		updateCollectionItemCollectionIdStmt:                  q.updateCollectionItemCollectionIdStmt,
+		updateCollectionItemOrderStmt:                         q.updateCollectionItemOrderStmt,
+		updateCollectionItemParentStmt:                        q.updateCollectionItemParentStmt,
+		updateCollectionItemParentFolderStmt:                  q.updateCollectionItemParentFolderStmt,
+		updateCollectionOrderStmt:                             q.updateCollectionOrderStmt,
+		updateCollectionPositionsStmt:                         q.updateCollectionPositionsStmt,
+		updateEnvironmentStmt:                                 q.updateEnvironmentStmt,
+		updateExampleRespStmt:                                 q.updateExampleRespStmt,
+		updateExampleRespHeaderStmt:                           q.updateExampleRespHeaderStmt,
+		updateFlowStmt:                                        q.updateFlowStmt,
+		updateFlowEdgeStmt:                                    q.updateFlowEdgeStmt,
+		updateFlowNodeStmt:                                    q.updateFlowNodeStmt,
+		updateFlowNodeConditionStmt:                           q.updateFlowNodeConditionStmt,
+		updateFlowNodeForStmt:                                 q.updateFlowNodeForStmt,
+		updateFlowNodeForEachStmt:                             q.updateFlowNodeForEachStmt,
+		updateFlowNodeJsStmt:                                  q.updateFlowNodeJsStmt,
+		updateFlowNodeRequestStmt:                             q.updateFlowNodeRequestStmt,
+		updateFlowVariableStmt:                                q.updateFlowVariableStmt,
+		updateHeaderStmt:                                      q.updateHeaderStmt,
+		updateItemApiStmt:                                     q.updateItemApiStmt,
+		updateItemApiCollectionIdStmt:                         q.updateItemApiCollectionIdStmt,
+		updateItemApiExampleStmt:                              q.updateItemApiExampleStmt,
+		updateItemApiExampleOrderStmt:                         q.updateItemApiExampleOrderStmt,
+		updateItemApiOrderStmt:                                q.updateItemApiOrderStmt,
+		updateItemFolderStmt:                                  q.updateItemFolderStmt,
+		updateItemFolderCollectionIdStmt:                      q.updateItemFolderCollectionIdStmt,
+		updateItemFolderOrderStmt:                             q.updateItemFolderOrderStmt,
+		updateNodeExecutionStmt:                               q.updateNodeExecutionStmt,
+		updateQueryStmt:                                       q.updateQueryStmt,
+		updateTagStmt:                                         q.updateTagStmt,
+		updateUserStmt:                                        q.updateUserStmt,
+		updateVariableStmt:                                    q.updateVariableStmt,
+		updateVisualizeModeStmt:                               q.updateVisualizeModeStmt,
+		updateWorkspaceStmt:                                   q.updateWorkspaceStmt,
+		updateWorkspaceUpdatedTimeStmt:                        q.updateWorkspaceUpdatedTimeStmt,
+		updateWorkspaceUserStmt:                               q.updateWorkspaceUserStmt,
+		upsertNodeExecutionStmt:                               q.upsertNodeExecutionStmt,
+		validateCollectionsInSameWorkspaceStmt:                q.validateCollectionsInSameWorkspaceStmt,
 	}
 }

@@ -31,17 +31,17 @@ func TestCollectionMoveEdgeCases(t *testing.T) {
 		{
 			name:      "SingleCollection",
 			setupFunc: setupSingleCollection,
-			testFunc:  testSingleCollectionEdgeCases,
+			testFunc:  testSingleCollectionExtendedEdgeCases,
 		},
 		{
 			name:      "TwoCollections",
 			setupFunc: setupTwoCollections,
-			testFunc:  testTwoCollectionsEdgeCases,
+			testFunc:  testTwoCollectionsExtendedEdgeCases,
 		},
 		{
 			name:      "ThreeCollections", 
 			setupFunc: setupThreeCollections,
-			testFunc:  testThreeCollectionsEdgeCases,
+			testFunc:  testThreeCollectionsExtendedEdgeCases,
 		},
 		{
 			name:      "FiveCollections",
@@ -157,7 +157,7 @@ func testEmptyWorkspaceEdgeCases(t *testing.T, service CollectionService, ctx co
 	assert.Error(t, err, "Moving non-existent collection should fail")
 }
 
-func testSingleCollectionEdgeCases(t *testing.T, service CollectionService, ctx context.Context, workspaceID idwrap.IDWrap, collections []*mcollection.Collection) {
+func testSingleCollectionExtendedEdgeCases(t *testing.T, service CollectionService, ctx context.Context, workspaceID idwrap.IDWrap, collections []*mcollection.Collection) {
 	require.Len(t, collections, 1)
 	col := collections[0]
 	
@@ -174,7 +174,7 @@ func testSingleCollectionEdgeCases(t *testing.T, service CollectionService, ctx 
 	verifyCollectionIntegrity(t, service, ctx, workspaceID, collections)
 }
 
-func testTwoCollectionsEdgeCases(t *testing.T, service CollectionService, ctx context.Context, workspaceID idwrap.IDWrap, collections []*mcollection.Collection) {
+func testTwoCollectionsExtendedEdgeCases(t *testing.T, service CollectionService, ctx context.Context, workspaceID idwrap.IDWrap, collections []*mcollection.Collection) {
 	require.Len(t, collections, 2)
 	colA, colB := collections[0], collections[1]
 	
@@ -228,7 +228,7 @@ func testTwoCollectionsEdgeCases(t *testing.T, service CollectionService, ctx co
 	})
 }
 
-func testThreeCollectionsEdgeCases(t *testing.T, service CollectionService, ctx context.Context, workspaceID idwrap.IDWrap, collections []*mcollection.Collection) {
+func testThreeCollectionsExtendedEdgeCases(t *testing.T, service CollectionService, ctx context.Context, workspaceID idwrap.IDWrap, collections []*mcollection.Collection) {
 	require.Len(t, collections, 3)
 	colA, colB, colC := collections[0], collections[1], collections[2]
 	
@@ -399,7 +399,7 @@ func testTenCollectionsEdgeCases(t *testing.T, service CollectionService, ctx co
 			require.NoError(t, err, "Move to position %d should succeed", i)
 			
 			verifyCollectionCount(t, service, ctx, workspaceID, 10)
-			verifyLinkedListIntegrity(t, service, ctx, workspaceID)
+			verifyLinkedListIntegrityExtended(t, service, ctx, workspaceID)
 		}
 	})
 }
@@ -446,7 +446,7 @@ func verifyCollectionIntegrity(t *testing.T, service CollectionService, ctx cont
 	}
 	
 	// Verify linked list pointers
-	verifyLinkedListIntegrity(t, service, ctx, workspaceID)
+	verifyLinkedListIntegrityExtended(t, service, ctx, workspaceID)
 }
 
 func verifyCollectionCount(t *testing.T, service CollectionService, ctx context.Context, workspaceID idwrap.IDWrap, expectedCount int) {
@@ -457,7 +457,7 @@ func verifyCollectionCount(t *testing.T, service CollectionService, ctx context.
 	assert.Len(t, collections, expectedCount, "Collection count should be %d", expectedCount)
 }
 
-func verifyLinkedListIntegrity(t *testing.T, service CollectionService, ctx context.Context, workspaceID idwrap.IDWrap) {
+func verifyLinkedListIntegrityExtended(t *testing.T, service CollectionService, ctx context.Context, workspaceID idwrap.IDWrap) {
 	t.Helper()
 	
 	// Get ordered collections

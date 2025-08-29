@@ -9,6 +9,7 @@ const (
 	CollectionListTypeEndpoints       // Endpoints within a folder
 	CollectionListTypeExamples        // Examples within an endpoint
 	CollectionListTypeCollections     // Collections within a workspace
+	CollectionListTypeItems           // Mixed folders and endpoints within a collection/folder
 )
 
 func (c CollectionListType) String() string {
@@ -21,6 +22,8 @@ func (c CollectionListType) String() string {
 		return "examples"
 	case CollectionListTypeCollections:
 		return "collections"
+	case CollectionListTypeItems:
+		return "items"
 	default:
 		return "unspecified"
 	}
@@ -141,6 +144,8 @@ func GetListTypeFromString(listTypeStr string) ListType {
 		return CollectionListTypeExamples
 	case "collections":
 		return CollectionListTypeCollections
+	case "items":
+		return CollectionListTypeItems
 	}
 	
 	// Request list types

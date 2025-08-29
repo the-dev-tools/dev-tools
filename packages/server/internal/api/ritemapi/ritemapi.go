@@ -16,6 +16,7 @@ import (
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/scollectionitem"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
@@ -35,14 +36,15 @@ type ItemApiRPC struct {
 	cs   *scollection.CollectionService
 	us   *suser.UserService
 	iaes *sitemapiexample.ItemApiExampleService
-
 	ers *sexampleresp.ExampleRespService
+	cis  *scollectionitem.CollectionItemService
 }
 
 func New(db *sql.DB, ias sitemapi.ItemApiService, cs scollection.CollectionService,
 	ifs sitemfolder.ItemFolderService, us suser.UserService,
 	iaes sitemapiexample.ItemApiExampleService,
 	ers sexampleresp.ExampleRespService,
+	cis *scollectionitem.CollectionItemService,
 ) ItemApiRPC {
 	return ItemApiRPC{
 		DB:   db,
@@ -51,8 +53,8 @@ func New(db *sql.DB, ias sitemapi.ItemApiService, cs scollection.CollectionServi
 		cs:   &cs,
 		us:   &us,
 		iaes: &iaes,
-
 		ers: &ers,
+		cis:  cis,
 	}
 }
 
@@ -93,23 +95,8 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		}
 	}
 
-	// TODO: add ordering it should append into end
-
 	ID := idwrap.NewNow()
 	itemApiReq.ID = ID
-
-	var nextNodeExists bool
-
-	NextItemApi, err := c.ias.GetItemApiByCollectionIDAndNextIDAndParentID(ctx, collectionID, nil, itemApiReq.FolderID)
-	if err != nil {
-		if sql.ErrNoRows != err {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	} else {
-		nextNodeExists = true
-		NextItemApi.Next = &ID
-		itemApiReq.Prev = &NextItemApi.ID
-	}
 
 	exampleNanem := "Default"
 	// For hidden endpoints (like delta endpoints in flows), don't mark the example as default
@@ -128,13 +115,26 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		ExampleID: example.ID,
 	}
 
+	// Convert legacy folder ID to collection_items folder ID if needed
+	if itemApiReq.FolderID != nil {
+		collectionItemsFolderID, err := c.cis.GetCollectionItemIDByLegacyID(ctx, *itemApiReq.FolderID)
+		if err != nil {
+			if err == scollectionitem.ErrCollectionItemNotFound {
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("parent folder not found"))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		itemApiReq.FolderID = &collectionItemsFolderID
+	}
+
 	tx, err := c.DB.Begin()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	txIas, err := sitemapi.NewTX(ctx, tx)
+	// Use CollectionItemService to create endpoint with unified ordering
+	err = c.cis.CreateEndpointTX(ctx, tx, itemApiReq)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -149,17 +149,6 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if nextNodeExists {
-		err = txIas.UpdateItemApi(ctx, &NextItemApi)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-	err = txIas.CreateItemApi(ctx, itemApiReq)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	err = txIaes.CreateApiExample(ctx, example)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -169,6 +158,7 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
 	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

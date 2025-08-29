@@ -2282,3 +2282,292 @@ DELETE FROM node_execution WHERE node_id = ?;
 
 -- name: DeleteNodeExecutionsByNodeIDs :exec
 DELETE FROM node_execution WHERE node_id IN (sqlc.slice('node_ids'));
+
+-- 
+-- Collection Items Unified Table Queries
+-- These queries handle both folders and endpoints through a unified interface
+--
+
+-- name: GetCollectionItem :one
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  id = ?
+LIMIT
+  1;
+
+-- name: GetCollectionItemsInOrder :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Returns items in correct order for a collection/parent folder
+WITH RECURSIVE ordered_items AS (
+  -- Base case: Find the head (prev_id IS NULL)
+  SELECT
+    ci.id,
+    ci.collection_id,
+    ci.parent_folder_id,
+    ci.item_type,
+    ci.folder_id,
+    ci.endpoint_id,
+    ci.name,
+    ci.prev_id,
+    ci.next_id,
+    0 as position
+  FROM
+    collection_items ci
+  WHERE
+    ci.collection_id = ? AND
+    ci.parent_folder_id IS ? AND
+    ci.prev_id IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next_id pointers
+  SELECT
+    ci.id,
+    ci.collection_id,
+    ci.parent_folder_id,
+    ci.item_type,
+    ci.folder_id,
+    ci.endpoint_id,
+    ci.name,
+    ci.prev_id,
+    ci.next_id,
+    oi.position + 1
+  FROM
+    collection_items ci
+  INNER JOIN ordered_items oi ON ci.prev_id = oi.id
+  WHERE
+    ci.collection_id = ?
+)
+SELECT
+  oi.id,
+  oi.collection_id,
+  oi.parent_folder_id,
+  oi.item_type,
+  oi.folder_id,
+  oi.endpoint_id,
+  oi.name,
+  oi.prev_id,
+  oi.next_id,
+  oi.position
+FROM
+  ordered_items oi
+ORDER BY
+  oi.position;
+
+-- name: GetCollectionItemsByCollectionID :many
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ?;
+
+-- name: GetCollectionItemsByParentFolderID :many
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id = ?;
+
+-- name: GetCollectionItemTail :one
+-- Get the last item in the list (tail) for a collection/parent folder
+-- Used when appending new items to the end of the list
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id IS ? AND
+  next_id IS NULL
+LIMIT
+  1;
+
+-- name: InsertCollectionItem :exec
+INSERT INTO
+  collection_items (
+    id,
+    collection_id,
+    parent_folder_id,
+    item_type,
+    folder_id,
+    endpoint_id,
+    name,
+    prev_id,
+    next_id
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateCollectionItemOrder :exec
+-- Update the prev_id/next_id pointers for a single collection item
+-- Used for moving items within the linked list
+UPDATE collection_items
+SET
+  prev_id = ?,
+  next_id = ?
+WHERE
+  id = ?;
+
+-- name: UpdateCollectionItemParent :exec
+-- Move an item to a different parent folder while maintaining linked list integrity
+UPDATE collection_items
+SET
+  parent_folder_id = ?,
+  prev_id = ?,
+  next_id = ?
+WHERE
+  id = ?;
+
+-- name: DeleteCollectionItem :exec
+DELETE FROM collection_items
+WHERE
+  id = ?;
+
+-- name: GetCollectionItemsByType :many
+-- Get items filtered by type (0 = folder, 1 = endpoint)
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  collection_id = ? AND
+  parent_folder_id IS ? AND
+  item_type = ?;
+
+-- name: GetCollectionItemByFolderID :one
+-- Get collection item by folder_id (for legacy ID compatibility)
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  folder_id = ?
+LIMIT
+  1;
+
+-- name: GetCollectionItemByEndpointID :one
+-- Get collection item by endpoint_id (for legacy ID compatibility)  
+SELECT
+  id,
+  collection_id,
+  parent_folder_id,
+  item_type,
+  folder_id,
+  endpoint_id,
+  name,
+  prev_id,
+  next_id
+FROM
+  collection_items
+WHERE
+  endpoint_id = ?
+LIMIT
+  1;
+
+-- name: UpdateCollectionItemParentFolder :exec
+-- Update only the parent_folder_id for cross-folder moves
+UPDATE collection_items
+SET
+  parent_folder_id = ?
+WHERE
+  id = ?;
+
+-- 
+-- Cross-Collection Move Support Queries
+-- These queries support moving collection items between different collections
+--
+
+-- name: ValidateCollectionsInSameWorkspace :one
+-- Validate that two collections are in the same workspace
+SELECT 
+  c1.workspace_id = c2.workspace_id AS same_workspace,
+  c1.workspace_id AS source_workspace_id,
+  c2.workspace_id AS target_workspace_id
+FROM collections c1, collections c2 
+WHERE c1.id = ? AND c2.id = ?;
+
+-- name: GetCollectionWorkspaceByItemId :one
+-- Get the workspace_id for a collection that contains a specific collection item
+SELECT c.workspace_id 
+FROM collections c
+JOIN collection_items ci ON ci.collection_id = c.id
+WHERE ci.id = ?;
+
+-- name: UpdateCollectionItemCollectionId :exec
+-- Update the collection_id and parent_folder_id for cross-collection moves
+UPDATE collection_items 
+SET collection_id = ?, parent_folder_id = ?
+WHERE id = ?;
+
+-- name: GetCollectionItemsInOrderForCollection :many
+-- Get all collection items in order for a specific collection (used for cross-collection validation)
+SELECT id, collection_id, parent_folder_id, item_type, folder_id, endpoint_id, name, prev_id, next_id
+FROM collection_items 
+WHERE collection_id = ? AND parent_folder_id IS NULL
+ORDER BY CASE WHEN prev_id IS NULL THEN 0 ELSE 1 END, id;
+
+-- name: UpdateItemApiCollectionId :exec
+-- Update legacy item_api table collection_id for cross-collection moves
+UPDATE item_api
+SET collection_id = ?
+WHERE id = ?;
+
+-- name: UpdateItemFolderCollectionId :exec
+-- Update legacy item_folder table collection_id for cross-collection moves  
+UPDATE item_folder
+SET collection_id = ?
+WHERE id = ?;

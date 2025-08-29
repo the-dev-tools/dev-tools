@@ -462,3 +462,70 @@ CREATE TABLE node_execution (
 CREATE INDEX node_execution_idx1 ON node_execution (node_id);
 CREATE INDEX node_execution_idx2 ON node_execution (completed_at DESC);
 CREATE INDEX node_execution_idx3 ON node_execution (state);
+
+/*
+ * UNIFIED COLLECTION ITEMS TABLE
+ * Enables mixed folder/endpoint ordering with drag-and-drop functionality
+ */
+CREATE TABLE collection_items (
+  id BLOB NOT NULL PRIMARY KEY,
+  collection_id BLOB NOT NULL,
+  parent_folder_id BLOB,
+  item_type INT8 NOT NULL,                         -- 0 = folder, 1 = endpoint
+  folder_id BLOB,
+  endpoint_id BLOB,
+  name TEXT NOT NULL,
+  prev_id BLOB,
+  next_id BLOB,
+  CHECK (item_type IN (0, 1)),
+  CHECK (
+    (item_type = 0 AND folder_id IS NOT NULL AND endpoint_id IS NULL) OR
+    (item_type = 1 AND folder_id IS NULL AND endpoint_id IS NOT NULL)
+  ),
+  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_folder_id) REFERENCES collection_items (id) ON DELETE CASCADE,
+  FOREIGN KEY (folder_id) REFERENCES item_folder (id) ON DELETE CASCADE,
+  FOREIGN KEY (endpoint_id) REFERENCES item_api (id) ON DELETE CASCADE,
+  UNIQUE (prev_id, next_id, parent_folder_id, collection_id)
+);
+
+CREATE INDEX collection_items_idx1 ON collection_items (
+  collection_id, 
+  parent_folder_id, 
+  item_type
+);
+
+CREATE INDEX collection_items_idx2 ON collection_items (
+  folder_id
+) WHERE folder_id IS NOT NULL;
+
+CREATE INDEX collection_items_idx3 ON collection_items (
+  endpoint_id  
+) WHERE endpoint_id IS NOT NULL;
+
+CREATE INDEX collection_items_idx4 ON collection_items (
+  prev_id, 
+  next_id
+);
+
+CREATE INDEX collection_items_idx5 ON collection_items (
+  collection_id,
+  name
+);
+
+-- Performance indexes for cross-collection move operations
+-- Optimize workspace validation queries for collections
+CREATE INDEX collections_workspace_lookup ON collections (id, workspace_id);
+
+-- Optimize cross-collection validation queries for collection items  
+CREATE INDEX collection_items_workspace_lookup ON collection_items (id, collection_id);
+
+-- Optimize user access validation for cross-collection moves
+CREATE INDEX workspaces_users_collection_access ON workspaces_users (user_id, workspace_id);
+
+-- Optimize collection-workspace JOIN operations in cross-collection queries
+CREATE INDEX collections_workspace_id_lookup ON collections (workspace_id, id);
+
+-- Optimize legacy table updates for cross-collection moves
+CREATE INDEX item_api_collection_update ON item_api (id, collection_id);
+CREATE INDEX item_folder_collection_update ON item_folder (id, collection_id);
