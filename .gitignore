@@ -23,3 +23,7 @@ out
 storybook-static
 tsconfig.tsbuildinfo
 tsp-output
+
+# Coverage files
+*.out
+coverage.out
