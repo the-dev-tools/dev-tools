@@ -409,7 +409,7 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	err = txHeaderService.CreateBulkHeader(ctx, resolvedCurl.Headers)
+	err = txHeaderService.AppendBulkHeader(ctx, resolvedCurl.Headers)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -552,7 +552,7 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	err = txHeaderService.CreateBulkHeader(ctx, items.Headers)
+	err = txHeaderService.AppendBulkHeader(ctx, items.Headers)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -906,7 +906,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = txExampleHeaderService.CreateBulkHeader(ctx, resolved.Headers)
+	err = txExampleHeaderService.AppendBulkHeader(ctx, resolved.Headers)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -1117,7 +1117,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
 		}
-		err = txHeaderService.CreateBulkHeader(ctx, resolved.Headers)
+		err = txHeaderService.AppendBulkHeader(ctx, resolved.Headers)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
 		}

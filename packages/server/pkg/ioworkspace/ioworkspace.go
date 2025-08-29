@@ -283,7 +283,7 @@ func (s *IOWorkspaceService) ImportWorkspace(ctx context.Context, data Workspace
 		return err
 	}
 
-	err = txExampleHeaderService.CreateBulkHeader(ctx, data.ExampleHeaders)
+	err = txExampleHeaderService.AppendBulkHeader(ctx, data.ExampleHeaders)
 	if err != nil {
 		return err
 	}

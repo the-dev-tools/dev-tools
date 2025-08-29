@@ -1232,7 +1232,7 @@ func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult
 		return err
 	}
 
-	err = txehs.CreateBulkHeader(ctx, result.Headers)
+	err = txehs.AppendBulkHeader(ctx, result.Headers)
 	if err != nil {
 		return fmt.Errorf("failed to create header: %w", err)
 	}

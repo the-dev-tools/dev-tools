@@ -1197,7 +1197,9 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
@@ -1212,11 +1214,92 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
   example_id = ?;
+
+-- name: GetHeadersByExampleIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail for example-scoped ordering
+-- Headers are scoped to specific examples via example_id column
+WITH RECURSIVE ordered_headers AS (
+  -- Base case: Find the head (prev IS NULL) for this example
+  SELECT
+    h.id,
+    h.example_id,
+    h.delta_parent_id,
+    h.header_key,
+    h.enable,
+    h.description,
+    h.value,
+    h.prev,
+    h.next,
+    0 as position
+  FROM
+    example_header h
+  WHERE
+    h.example_id = ? AND
+    h.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    h.id,
+    h.example_id,
+    h.delta_parent_id,
+    h.header_key,
+    h.enable,
+    h.description,
+    h.value,
+    h.prev,
+    h.next,
+    oh.position + 1
+  FROM
+    example_header h
+  INNER JOIN ordered_headers oh ON h.prev = oh.id
+  WHERE
+    h.example_id = ?
+)
+SELECT
+  oh.id,
+  oh.example_id,
+  oh.delta_parent_id,
+  oh.header_key,
+  oh.enable,
+  oh.description,
+  oh.value,
+  oh.prev,
+  oh.next,
+  oh.position
+FROM
+  ordered_headers oh
+ORDER BY
+  oh.position;
+
+-- name: GetAllHeadersByExampleID :many
+-- Returns ALL headers for an example, including isolated ones (prev=NULL, next=NULL)
+-- Unlike GetHeadersByExampleIDOrdered, this query finds headers regardless of linked-list state
+-- Essential for finding headers that became isolated during failed move operations
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  header_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_header
+WHERE
+  example_id = ?
+ORDER BY
+  header_key ASC;
 
 -- name: GetHeaderByDeltaParentID :one
 SELECT
@@ -1226,7 +1309,9 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
@@ -1242,29 +1327,29 @@ WHERE
 
 -- name: CreateHeader :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateHeaderBulk :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateHeader :exec
 UPDATE example_header
@@ -1275,6 +1360,56 @@ SET
   value = ?
 WHERE
   id = ?;
+
+-- name: UpdateHeaderOrder :exec
+-- Update the prev/next pointers for a single header with example validation
+-- Used for moving headers within the example's linked list
+UPDATE example_header
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?;
+
+-- name: UpdateHeaderPrev :exec
+-- Update only the prev pointer for a header with example validation (used in deletion)
+UPDATE example_header
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  example_id = ?;
+
+-- name: UpdateHeaderNext :exec
+-- Update only the next pointer for a header with example validation (used in deletion)
+UPDATE example_header
+SET
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?;
+
+-- name: GetHeaderTail :one
+-- Get the last header in the list (tail) for an example
+-- Used when appending new headers to the end of the list
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  header_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_header
+WHERE
+  example_id = ? AND
+  next IS NULL
+LIMIT
+  1;
 
 -- name: DeleteHeader :exec
 DELETE FROM example_header

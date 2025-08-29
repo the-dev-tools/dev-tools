@@ -264,6 +264,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getAllExamplesByEndpointIDStmt, err = db.PrepareContext(ctx, getAllExamplesByEndpointID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllExamplesByEndpointID: %w", err)
 	}
+	if q.getAllHeadersByExampleIDStmt, err = db.PrepareContext(ctx, getAllHeadersByExampleID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllHeadersByExampleID: %w", err)
+	}
 	if q.getAllItemsApiByCollectionIDStmt, err = db.PrepareContext(ctx, getAllItemsApiByCollectionID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllItemsApiByCollectionID: %w", err)
 	}
@@ -462,8 +465,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHeaderByDeltaParentIDStmt, err = db.PrepareContext(ctx, getHeaderByDeltaParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeaderByDeltaParentID: %w", err)
 	}
+	if q.getHeaderTailStmt, err = db.PrepareContext(ctx, getHeaderTail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHeaderTail: %w", err)
+	}
 	if q.getHeadersByExampleIDStmt, err = db.PrepareContext(ctx, getHeadersByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeadersByExampleID: %w", err)
+	}
+	if q.getHeadersByExampleIDOrderedStmt, err = db.PrepareContext(ctx, getHeadersByExampleIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHeadersByExampleIDOrdered: %w", err)
 	}
 	if q.getItemApiStmt, err = db.PrepareContext(ctx, getItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApi: %w", err)
@@ -713,6 +722,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
+	}
+	if q.updateHeaderNextStmt, err = db.PrepareContext(ctx, updateHeaderNext); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHeaderNext: %w", err)
+	}
+	if q.updateHeaderOrderStmt, err = db.PrepareContext(ctx, updateHeaderOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHeaderOrder: %w", err)
+	}
+	if q.updateHeaderPrevStmt, err = db.PrepareContext(ctx, updateHeaderPrev); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHeaderPrev: %w", err)
 	}
 	if q.updateItemApiStmt, err = db.PrepareContext(ctx, updateItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateItemApi: %w", err)
@@ -1194,6 +1212,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getAllExamplesByEndpointIDStmt: %w", cerr)
 		}
 	}
+	if q.getAllHeadersByExampleIDStmt != nil {
+		if cerr := q.getAllHeadersByExampleIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllHeadersByExampleIDStmt: %w", cerr)
+		}
+	}
 	if q.getAllItemsApiByCollectionIDStmt != nil {
 		if cerr := q.getAllItemsApiByCollectionIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllItemsApiByCollectionIDStmt: %w", cerr)
@@ -1524,9 +1547,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHeaderByDeltaParentIDStmt: %w", cerr)
 		}
 	}
+	if q.getHeaderTailStmt != nil {
+		if cerr := q.getHeaderTailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHeaderTailStmt: %w", cerr)
+		}
+	}
 	if q.getHeadersByExampleIDStmt != nil {
 		if cerr := q.getHeadersByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHeadersByExampleIDStmt: %w", cerr)
+		}
+	}
+	if q.getHeadersByExampleIDOrderedStmt != nil {
+		if cerr := q.getHeadersByExampleIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHeadersByExampleIDOrderedStmt: %w", cerr)
 		}
 	}
 	if q.getItemApiStmt != nil {
@@ -1944,6 +1977,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateHeaderStmt: %w", cerr)
 		}
 	}
+	if q.updateHeaderNextStmt != nil {
+		if cerr := q.updateHeaderNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHeaderNextStmt: %w", cerr)
+		}
+	}
+	if q.updateHeaderOrderStmt != nil {
+		if cerr := q.updateHeaderOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHeaderOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateHeaderPrevStmt != nil {
+		if cerr := q.updateHeaderPrevStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHeaderPrevStmt: %w", cerr)
+		}
+	}
 	if q.updateItemApiStmt != nil {
 		if cerr := q.updateItemApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateItemApiStmt: %w", cerr)
@@ -2188,6 +2236,7 @@ type Queries struct {
 	deleteWorkspaceStmt                                   *sql.Stmt
 	deleteWorkspaceUserStmt                               *sql.Stmt
 	getAllExamplesByEndpointIDStmt                        *sql.Stmt
+	getAllHeadersByExampleIDStmt                          *sql.Stmt
 	getAllItemsApiByCollectionIDStmt                      *sql.Stmt
 	getAllWorkspacesByUserIDStmt                          *sql.Stmt
 	getAssertStmt                                         *sql.Stmt
@@ -2254,7 +2303,9 @@ type Queries struct {
 	getFlowsByWorkspaceIDStmt                             *sql.Stmt
 	getHeaderStmt                                         *sql.Stmt
 	getHeaderByDeltaParentIDStmt                          *sql.Stmt
+	getHeaderTailStmt                                     *sql.Stmt
 	getHeadersByExampleIDStmt                             *sql.Stmt
+	getHeadersByExampleIDOrderedStmt                      *sql.Stmt
 	getItemApiStmt                                        *sql.Stmt
 	getItemApiByCollectionIDAndNextIDAndParentIDStmt      *sql.Stmt
 	getItemApiByCollectionIDAndURLAndMethodStmt           *sql.Stmt
@@ -2338,6 +2389,9 @@ type Queries struct {
 	updateFlowVariableOrderStmt                           *sql.Stmt
 	updateFlowVariablePrevStmt                            *sql.Stmt
 	updateHeaderStmt                                      *sql.Stmt
+	updateHeaderNextStmt                                  *sql.Stmt
+	updateHeaderOrderStmt                                 *sql.Stmt
+	updateHeaderPrevStmt                                  *sql.Stmt
 	updateItemApiStmt                                     *sql.Stmt
 	updateItemApiCollectionIdStmt                         *sql.Stmt
 	updateItemApiExampleStmt                              *sql.Stmt
@@ -2449,6 +2503,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteWorkspaceStmt:                                   q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                               q.deleteWorkspaceUserStmt,
 		getAllExamplesByEndpointIDStmt:                        q.getAllExamplesByEndpointIDStmt,
+		getAllHeadersByExampleIDStmt:                          q.getAllHeadersByExampleIDStmt,
 		getAllItemsApiByCollectionIDStmt:                      q.getAllItemsApiByCollectionIDStmt,
 		getAllWorkspacesByUserIDStmt:                          q.getAllWorkspacesByUserIDStmt,
 		getAssertStmt:                                         q.getAssertStmt,
@@ -2515,7 +2570,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowsByWorkspaceIDStmt:                             q.getFlowsByWorkspaceIDStmt,
 		getHeaderStmt:                                         q.getHeaderStmt,
 		getHeaderByDeltaParentIDStmt:                          q.getHeaderByDeltaParentIDStmt,
+		getHeaderTailStmt:                                     q.getHeaderTailStmt,
 		getHeadersByExampleIDStmt:                             q.getHeadersByExampleIDStmt,
+		getHeadersByExampleIDOrderedStmt:                      q.getHeadersByExampleIDOrderedStmt,
 		getItemApiStmt:                                        q.getItemApiStmt,
 		getItemApiByCollectionIDAndNextIDAndParentIDStmt:      q.getItemApiByCollectionIDAndNextIDAndParentIDStmt,
 		getItemApiByCollectionIDAndURLAndMethodStmt:           q.getItemApiByCollectionIDAndURLAndMethodStmt,
@@ -2599,6 +2656,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowVariableOrderStmt:                           q.updateFlowVariableOrderStmt,
 		updateFlowVariablePrevStmt:                            q.updateFlowVariablePrevStmt,
 		updateHeaderStmt:                                      q.updateHeaderStmt,
+		updateHeaderNextStmt:                                  q.updateHeaderNextStmt,
+		updateHeaderOrderStmt:                                 q.updateHeaderOrderStmt,
+		updateHeaderPrevStmt:                                  q.updateHeaderPrevStmt,
 		updateItemApiStmt:                                     q.updateItemApiStmt,
 		updateItemApiCollectionIdStmt:                         q.updateItemApiCollectionIdStmt,
 		updateItemApiExampleStmt:                              q.updateItemApiExampleStmt,

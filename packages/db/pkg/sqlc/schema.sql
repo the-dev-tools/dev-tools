@@ -173,14 +173,33 @@ CREATE TABLE example_header (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
-  FOREIGN KEY (delta_parent_id) REFERENCES example_header (id) ON DELETE CASCADE
+  FOREIGN KEY (delta_parent_id) REFERENCES example_header (id) ON DELETE CASCADE,
+  FOREIGN KEY (prev) REFERENCES example_header (id) ON DELETE SET NULL,
+  FOREIGN KEY (next) REFERENCES example_header (id) ON DELETE SET NULL
 );
 
 CREATE INDEX example_header_idx1 ON example_header (
   example_id,
   header_key,
   delta_parent_id
+);
+
+-- Linked list indexes for header ordering optimization
+CREATE INDEX example_header_linked_list_idx ON example_header (
+  example_id,
+  prev,
+  next
+);
+
+CREATE INDEX example_header_prev_idx ON example_header (
+  prev
+);
+
+CREATE INDEX example_header_next_idx ON example_header (
+  next
 );
 
 CREATE TABLE example_resp_header (

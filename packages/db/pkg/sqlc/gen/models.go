@@ -93,6 +93,8 @@ type ExampleHeader struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 type ExampleQuery struct {

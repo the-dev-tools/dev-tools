@@ -1256,9 +1256,9 @@ func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVari
 
 const createHeader = `-- name: CreateHeader :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHeaderParams struct {
@@ -1269,6 +1269,8 @@ type CreateHeaderParams struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Prev          *idwrap.IDWrap
+	Next          *idwrap.IDWrap
 }
 
 func (q *Queries) CreateHeader(ctx context.Context, arg CreateHeaderParams) error {
@@ -1280,29 +1282,31 @@ func (q *Queries) CreateHeader(ctx context.Context, arg CreateHeaderParams) erro
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Prev,
+		arg.Next,
 	)
 	return err
 }
 
 const createHeaderBulk = `-- name: CreateHeaderBulk :exec
 INSERT INTO
-  example_header (id, example_id, delta_parent_id, header_key, enable, description, value)
+  example_header (id, example_id, delta_parent_id, header_key, enable, description, value, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHeaderBulkParams struct {
@@ -1313,6 +1317,8 @@ type CreateHeaderBulkParams struct {
 	Enable           bool
 	Description      string
 	Value            string
+	Prev             *idwrap.IDWrap
+	Next             *idwrap.IDWrap
 	ID_2             idwrap.IDWrap
 	ExampleID_2      idwrap.IDWrap
 	DeltaParentID_2  *idwrap.IDWrap
@@ -1320,6 +1326,8 @@ type CreateHeaderBulkParams struct {
 	Enable_2         bool
 	Description_2    string
 	Value_2          string
+	Prev_2           *idwrap.IDWrap
+	Next_2           *idwrap.IDWrap
 	ID_3             idwrap.IDWrap
 	ExampleID_3      idwrap.IDWrap
 	DeltaParentID_3  *idwrap.IDWrap
@@ -1327,6 +1335,8 @@ type CreateHeaderBulkParams struct {
 	Enable_3         bool
 	Description_3    string
 	Value_3          string
+	Prev_3           *idwrap.IDWrap
+	Next_3           *idwrap.IDWrap
 	ID_4             idwrap.IDWrap
 	ExampleID_4      idwrap.IDWrap
 	DeltaParentID_4  *idwrap.IDWrap
@@ -1334,6 +1344,8 @@ type CreateHeaderBulkParams struct {
 	Enable_4         bool
 	Description_4    string
 	Value_4          string
+	Prev_4           *idwrap.IDWrap
+	Next_4           *idwrap.IDWrap
 	ID_5             idwrap.IDWrap
 	ExampleID_5      idwrap.IDWrap
 	DeltaParentID_5  *idwrap.IDWrap
@@ -1341,6 +1353,8 @@ type CreateHeaderBulkParams struct {
 	Enable_5         bool
 	Description_5    string
 	Value_5          string
+	Prev_5           *idwrap.IDWrap
+	Next_5           *idwrap.IDWrap
 	ID_6             idwrap.IDWrap
 	ExampleID_6      idwrap.IDWrap
 	DeltaParentID_6  *idwrap.IDWrap
@@ -1348,6 +1362,8 @@ type CreateHeaderBulkParams struct {
 	Enable_6         bool
 	Description_6    string
 	Value_6          string
+	Prev_6           *idwrap.IDWrap
+	Next_6           *idwrap.IDWrap
 	ID_7             idwrap.IDWrap
 	ExampleID_7      idwrap.IDWrap
 	DeltaParentID_7  *idwrap.IDWrap
@@ -1355,6 +1371,8 @@ type CreateHeaderBulkParams struct {
 	Enable_7         bool
 	Description_7    string
 	Value_7          string
+	Prev_7           *idwrap.IDWrap
+	Next_7           *idwrap.IDWrap
 	ID_8             idwrap.IDWrap
 	ExampleID_8      idwrap.IDWrap
 	DeltaParentID_8  *idwrap.IDWrap
@@ -1362,6 +1380,8 @@ type CreateHeaderBulkParams struct {
 	Enable_8         bool
 	Description_8    string
 	Value_8          string
+	Prev_8           *idwrap.IDWrap
+	Next_8           *idwrap.IDWrap
 	ID_9             idwrap.IDWrap
 	ExampleID_9      idwrap.IDWrap
 	DeltaParentID_9  *idwrap.IDWrap
@@ -1369,6 +1389,8 @@ type CreateHeaderBulkParams struct {
 	Enable_9         bool
 	Description_9    string
 	Value_9          string
+	Prev_9           *idwrap.IDWrap
+	Next_9           *idwrap.IDWrap
 	ID_10            idwrap.IDWrap
 	ExampleID_10     idwrap.IDWrap
 	DeltaParentID_10 *idwrap.IDWrap
@@ -1376,6 +1398,8 @@ type CreateHeaderBulkParams struct {
 	Enable_10        bool
 	Description_10   string
 	Value_10         string
+	Prev_10          *idwrap.IDWrap
+	Next_10          *idwrap.IDWrap
 	ID_11            idwrap.IDWrap
 	ExampleID_11     idwrap.IDWrap
 	DeltaParentID_11 *idwrap.IDWrap
@@ -1383,6 +1407,8 @@ type CreateHeaderBulkParams struct {
 	Enable_11        bool
 	Description_11   string
 	Value_11         string
+	Prev_11          *idwrap.IDWrap
+	Next_11          *idwrap.IDWrap
 	ID_12            idwrap.IDWrap
 	ExampleID_12     idwrap.IDWrap
 	DeltaParentID_12 *idwrap.IDWrap
@@ -1390,6 +1416,8 @@ type CreateHeaderBulkParams struct {
 	Enable_12        bool
 	Description_12   string
 	Value_12         string
+	Prev_12          *idwrap.IDWrap
+	Next_12          *idwrap.IDWrap
 	ID_13            idwrap.IDWrap
 	ExampleID_13     idwrap.IDWrap
 	DeltaParentID_13 *idwrap.IDWrap
@@ -1397,6 +1425,8 @@ type CreateHeaderBulkParams struct {
 	Enable_13        bool
 	Description_13   string
 	Value_13         string
+	Prev_13          *idwrap.IDWrap
+	Next_13          *idwrap.IDWrap
 	ID_14            idwrap.IDWrap
 	ExampleID_14     idwrap.IDWrap
 	DeltaParentID_14 *idwrap.IDWrap
@@ -1404,6 +1434,8 @@ type CreateHeaderBulkParams struct {
 	Enable_14        bool
 	Description_14   string
 	Value_14         string
+	Prev_14          *idwrap.IDWrap
+	Next_14          *idwrap.IDWrap
 	ID_15            idwrap.IDWrap
 	ExampleID_15     idwrap.IDWrap
 	DeltaParentID_15 *idwrap.IDWrap
@@ -1411,6 +1443,8 @@ type CreateHeaderBulkParams struct {
 	Enable_15        bool
 	Description_15   string
 	Value_15         string
+	Prev_15          *idwrap.IDWrap
+	Next_15          *idwrap.IDWrap
 }
 
 func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkParams) error {
@@ -1422,6 +1456,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable,
 		arg.Description,
 		arg.Value,
+		arg.Prev,
+		arg.Next,
 		arg.ID_2,
 		arg.ExampleID_2,
 		arg.DeltaParentID_2,
@@ -1429,6 +1465,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_2,
 		arg.Description_2,
 		arg.Value_2,
+		arg.Prev_2,
+		arg.Next_2,
 		arg.ID_3,
 		arg.ExampleID_3,
 		arg.DeltaParentID_3,
@@ -1436,6 +1474,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_3,
 		arg.Description_3,
 		arg.Value_3,
+		arg.Prev_3,
+		arg.Next_3,
 		arg.ID_4,
 		arg.ExampleID_4,
 		arg.DeltaParentID_4,
@@ -1443,6 +1483,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_4,
 		arg.Description_4,
 		arg.Value_4,
+		arg.Prev_4,
+		arg.Next_4,
 		arg.ID_5,
 		arg.ExampleID_5,
 		arg.DeltaParentID_5,
@@ -1450,6 +1492,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_5,
 		arg.Description_5,
 		arg.Value_5,
+		arg.Prev_5,
+		arg.Next_5,
 		arg.ID_6,
 		arg.ExampleID_6,
 		arg.DeltaParentID_6,
@@ -1457,6 +1501,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_6,
 		arg.Description_6,
 		arg.Value_6,
+		arg.Prev_6,
+		arg.Next_6,
 		arg.ID_7,
 		arg.ExampleID_7,
 		arg.DeltaParentID_7,
@@ -1464,6 +1510,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_7,
 		arg.Description_7,
 		arg.Value_7,
+		arg.Prev_7,
+		arg.Next_7,
 		arg.ID_8,
 		arg.ExampleID_8,
 		arg.DeltaParentID_8,
@@ -1471,6 +1519,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_8,
 		arg.Description_8,
 		arg.Value_8,
+		arg.Prev_8,
+		arg.Next_8,
 		arg.ID_9,
 		arg.ExampleID_9,
 		arg.DeltaParentID_9,
@@ -1478,6 +1528,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_9,
 		arg.Description_9,
 		arg.Value_9,
+		arg.Prev_9,
+		arg.Next_9,
 		arg.ID_10,
 		arg.ExampleID_10,
 		arg.DeltaParentID_10,
@@ -1485,6 +1537,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_10,
 		arg.Description_10,
 		arg.Value_10,
+		arg.Prev_10,
+		arg.Next_10,
 		arg.ID_11,
 		arg.ExampleID_11,
 		arg.DeltaParentID_11,
@@ -1492,6 +1546,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_11,
 		arg.Description_11,
 		arg.Value_11,
+		arg.Prev_11,
+		arg.Next_11,
 		arg.ID_12,
 		arg.ExampleID_12,
 		arg.DeltaParentID_12,
@@ -1499,6 +1555,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_12,
 		arg.Description_12,
 		arg.Value_12,
+		arg.Prev_12,
+		arg.Next_12,
 		arg.ID_13,
 		arg.ExampleID_13,
 		arg.DeltaParentID_13,
@@ -1506,6 +1564,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_13,
 		arg.Description_13,
 		arg.Value_13,
+		arg.Prev_13,
+		arg.Next_13,
 		arg.ID_14,
 		arg.ExampleID_14,
 		arg.DeltaParentID_14,
@@ -1513,6 +1573,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_14,
 		arg.Description_14,
 		arg.Value_14,
+		arg.Prev_14,
+		arg.Next_14,
 		arg.ID_15,
 		arg.ExampleID_15,
 		arg.DeltaParentID_15,
@@ -1520,6 +1582,8 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 		arg.Enable_15,
 		arg.Description_15,
 		arg.Value_15,
+		arg.Prev_15,
+		arg.Next_15,
 	)
 	return err
 }
@@ -3163,6 +3227,61 @@ func (q *Queries) GetAllExamplesByEndpointID(ctx context.Context, itemApiID idwr
 			&i.BodyType,
 			&i.Name,
 			&i.VersionParentID,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllHeadersByExampleID = `-- name: GetAllHeadersByExampleID :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  header_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_header
+WHERE
+  example_id = ?
+ORDER BY
+  header_key ASC
+`
+
+// Returns ALL headers for an example, including isolated ones (prev=NULL, next=NULL)
+// Unlike GetHeadersByExampleIDOrdered, this query finds headers regardless of linked-list state
+// Essential for finding headers that became isolated during failed move operations
+func (q *Queries) GetAllHeadersByExampleID(ctx context.Context, exampleID idwrap.IDWrap) ([]ExampleHeader, error) {
+	rows, err := q.query(ctx, q.getAllHeadersByExampleIDStmt, getAllHeadersByExampleID, exampleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ExampleHeader{}
+	for rows.Next() {
+		var i ExampleHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleID,
+			&i.DeltaParentID,
+			&i.HeaderKey,
+			&i.Enable,
+			&i.Description,
+			&i.Value,
 			&i.Prev,
 			&i.Next,
 		); err != nil {
@@ -5808,7 +5927,9 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
@@ -5827,6 +5948,8 @@ func (q *Queries) GetHeader(ctx context.Context, id idwrap.IDWrap) (ExampleHeade
 		&i.Enable,
 		&i.Description,
 		&i.Value,
+		&i.Prev,
+		&i.Next,
 	)
 	return i, err
 }
@@ -5839,7 +5962,9 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
@@ -5858,6 +5983,47 @@ func (q *Queries) GetHeaderByDeltaParentID(ctx context.Context, deltaParentID *i
 		&i.Enable,
 		&i.Description,
 		&i.Value,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
+const getHeaderTail = `-- name: GetHeaderTail :one
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  header_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_header
+WHERE
+  example_id = ? AND
+  next IS NULL
+LIMIT
+  1
+`
+
+// Get the last header in the list (tail) for an example
+// Used when appending new headers to the end of the list
+func (q *Queries) GetHeaderTail(ctx context.Context, exampleID idwrap.IDWrap) (ExampleHeader, error) {
+	row := q.queryRow(ctx, q.getHeaderTailStmt, getHeaderTail, exampleID)
+	var i ExampleHeader
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.DeltaParentID,
+		&i.HeaderKey,
+		&i.Enable,
+		&i.Description,
+		&i.Value,
+		&i.Prev,
+		&i.Next,
 	)
 	return i, err
 }
@@ -5870,7 +6036,9 @@ SELECT
   header_key,
   enable,
   description,
-  value
+  value,
+  prev,
+  next
 FROM
   example_header
 WHERE
@@ -5894,6 +6062,119 @@ func (q *Queries) GetHeadersByExampleID(ctx context.Context, exampleID idwrap.ID
 			&i.Enable,
 			&i.Description,
 			&i.Value,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHeadersByExampleIDOrdered = `-- name: GetHeadersByExampleIDOrdered :many
+WITH RECURSIVE ordered_headers AS (
+  -- Base case: Find the head (prev IS NULL) for this example
+  SELECT
+    h.id,
+    h.example_id,
+    h.delta_parent_id,
+    h.header_key,
+    h.enable,
+    h.description,
+    h.value,
+    h.prev,
+    h.next,
+    0 as position
+  FROM
+    example_header h
+  WHERE
+    h.example_id = ? AND
+    h.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    h.id,
+    h.example_id,
+    h.delta_parent_id,
+    h.header_key,
+    h.enable,
+    h.description,
+    h.value,
+    h.prev,
+    h.next,
+    oh.position + 1
+  FROM
+    example_header h
+  INNER JOIN ordered_headers oh ON h.prev = oh.id
+  WHERE
+    h.example_id = ?
+)
+SELECT
+  oh.id,
+  oh.example_id,
+  oh.delta_parent_id,
+  oh.header_key,
+  oh.enable,
+  oh.description,
+  oh.value,
+  oh.prev,
+  oh.next,
+  oh.position
+FROM
+  ordered_headers oh
+ORDER BY
+  oh.position
+`
+
+type GetHeadersByExampleIDOrderedParams struct {
+	ExampleID   idwrap.IDWrap
+	ExampleID_2 idwrap.IDWrap
+}
+
+type GetHeadersByExampleIDOrderedRow struct {
+	ID            []byte
+	ExampleID     []byte
+	DeltaParentID []byte
+	HeaderKey     string
+	Enable        bool
+	Description   string
+	Value         string
+	Prev          []byte
+	Next          []byte
+	Position      int64
+}
+
+// Uses WITH RECURSIVE CTE to traverse linked list from head to tail for example-scoped ordering
+// Headers are scoped to specific examples via example_id column
+func (q *Queries) GetHeadersByExampleIDOrdered(ctx context.Context, arg GetHeadersByExampleIDOrderedParams) ([]GetHeadersByExampleIDOrderedRow, error) {
+	rows, err := q.query(ctx, q.getHeadersByExampleIDOrderedStmt, getHeadersByExampleIDOrdered, arg.ExampleID, arg.ExampleID_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHeadersByExampleIDOrderedRow{}
+	for rows.Next() {
+		var i GetHeadersByExampleIDOrderedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleID,
+			&i.DeltaParentID,
+			&i.HeaderKey,
+			&i.Enable,
+			&i.Description,
+			&i.Value,
+			&i.Prev,
+			&i.Next,
+			&i.Position,
 		); err != nil {
 			return nil, err
 		}
@@ -8783,6 +9064,77 @@ func (q *Queries) UpdateHeader(ctx context.Context, arg UpdateHeaderParams) erro
 		arg.Value,
 		arg.ID,
 	)
+	return err
+}
+
+const updateHeaderNext = `-- name: UpdateHeaderNext :exec
+UPDATE example_header
+SET
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?
+`
+
+type UpdateHeaderNextParams struct {
+	Next      *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	ExampleID idwrap.IDWrap
+}
+
+// Update only the next pointer for a header with example validation (used in deletion)
+func (q *Queries) UpdateHeaderNext(ctx context.Context, arg UpdateHeaderNextParams) error {
+	_, err := q.exec(ctx, q.updateHeaderNextStmt, updateHeaderNext, arg.Next, arg.ID, arg.ExampleID)
+	return err
+}
+
+const updateHeaderOrder = `-- name: UpdateHeaderOrder :exec
+UPDATE example_header
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?
+`
+
+type UpdateHeaderOrderParams struct {
+	Prev      *idwrap.IDWrap
+	Next      *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	ExampleID idwrap.IDWrap
+}
+
+// Update the prev/next pointers for a single header with example validation
+// Used for moving headers within the example's linked list
+func (q *Queries) UpdateHeaderOrder(ctx context.Context, arg UpdateHeaderOrderParams) error {
+	_, err := q.exec(ctx, q.updateHeaderOrderStmt, updateHeaderOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.ExampleID,
+	)
+	return err
+}
+
+const updateHeaderPrev = `-- name: UpdateHeaderPrev :exec
+UPDATE example_header
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  example_id = ?
+`
+
+type UpdateHeaderPrevParams struct {
+	Prev      *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	ExampleID idwrap.IDWrap
+}
+
+// Update only the prev pointer for a header with example validation (used in deletion)
+func (q *Queries) UpdateHeaderPrev(ctx context.Context, arg UpdateHeaderPrevParams) error {
+	_, err := q.exec(ctx, q.updateHeaderPrevStmt, updateHeaderPrev, arg.Prev, arg.ID, arg.ExampleID)
 	return err
 }
 
