@@ -3122,6 +3122,63 @@ func (q *Queries) DeleteWorkspaceUser(ctx context.Context, id idwrap.IDWrap) err
 	return err
 }
 
+const getAllExamplesByEndpointID = `-- name: GetAllExamplesByEndpointID :many
+SELECT
+  id,
+  item_api_id,
+  collection_id,
+  is_default,
+  body_type,
+  name,
+  version_parent_id,
+  prev,
+  next
+FROM
+  item_api_example
+WHERE
+  item_api_id = ? AND
+  version_parent_id IS NULL AND
+  is_default = FALSE
+ORDER BY
+  name ASC
+`
+
+// Returns ALL examples for an endpoint, including isolated ones (prev=NULL, next=NULL)
+// Unlike GetExamplesByEndpointIDOrdered, this query finds examples regardless of linked-list state
+// Essential for finding examples that became isolated during failed move operations
+func (q *Queries) GetAllExamplesByEndpointID(ctx context.Context, itemApiID idwrap.IDWrap) ([]ItemApiExample, error) {
+	rows, err := q.query(ctx, q.getAllExamplesByEndpointIDStmt, getAllExamplesByEndpointID, itemApiID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ItemApiExample{}
+	for rows.Next() {
+		var i ItemApiExample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemApiID,
+			&i.CollectionID,
+			&i.IsDefault,
+			&i.BodyType,
+			&i.Name,
+			&i.VersionParentID,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAllItemsApiByCollectionID = `-- name: GetAllItemsApiByCollectionID :many
 SELECT
   id,
@@ -4951,6 +5008,122 @@ func (q *Queries) GetExampleRespHeadersByRespID(ctx context.Context, exampleResp
 			&i.ExampleRespID,
 			&i.HeaderKey,
 			&i.Value,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getExamplesByEndpointIDOrdered = `-- name: GetExamplesByEndpointIDOrdered :many
+WITH RECURSIVE ordered_examples AS (
+  -- Base case: Find the head (prev IS NULL) for this endpoint
+  SELECT
+    e.id,
+    e.item_api_id,
+    e.collection_id,
+    e.is_default,
+    e.body_type,
+    e.name,
+    e.version_parent_id,
+    e.prev,
+    e.next,
+    0 as position
+  FROM
+    item_api_example e
+  WHERE
+    e.item_api_id = ? AND
+    e.version_parent_id IS NULL AND
+    e.is_default = FALSE AND
+    e.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    e.id,
+    e.item_api_id,
+    e.collection_id,
+    e.is_default,
+    e.body_type,
+    e.name,
+    e.version_parent_id,
+    e.prev,
+    e.next,
+    oe.position + 1
+  FROM
+    item_api_example e
+  INNER JOIN ordered_examples oe ON e.prev = oe.id
+  WHERE
+    e.item_api_id = ? AND
+    e.version_parent_id IS NULL AND
+    e.is_default = FALSE
+)
+SELECT
+  oe.id,
+  oe.item_api_id,
+  oe.collection_id,
+  oe.is_default,
+  oe.body_type,
+  oe.name,
+  oe.version_parent_id,
+  oe.prev,
+  oe.next,
+  oe.position
+FROM
+  ordered_examples oe
+ORDER BY
+  oe.position
+`
+
+type GetExamplesByEndpointIDOrderedParams struct {
+	ItemApiID   idwrap.IDWrap
+	ItemApiID_2 idwrap.IDWrap
+}
+
+type GetExamplesByEndpointIDOrderedRow struct {
+	ID              []byte
+	ItemApiID       []byte
+	CollectionID    []byte
+	IsDefault       bool
+	BodyType        int8
+	Name            string
+	VersionParentID []byte
+	Prev            []byte
+	Next            []byte
+	Position        int64
+}
+
+// Uses WITH RECURSIVE CTE to traverse linked list from head to tail for endpoint-scoped ordering
+// Examples are scoped to specific endpoints via item_api_id column
+// Excludes default examples (is_default = FALSE) to match other example queries
+func (q *Queries) GetExamplesByEndpointIDOrdered(ctx context.Context, arg GetExamplesByEndpointIDOrderedParams) ([]GetExamplesByEndpointIDOrderedRow, error) {
+	rows, err := q.query(ctx, q.getExamplesByEndpointIDOrderedStmt, getExamplesByEndpointIDOrdered, arg.ItemApiID, arg.ItemApiID_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetExamplesByEndpointIDOrderedRow{}
+	for rows.Next() {
+		var i GetExamplesByEndpointIDOrderedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemApiID,
+			&i.CollectionID,
+			&i.IsDefault,
+			&i.BodyType,
+			&i.Name,
+			&i.VersionParentID,
+			&i.Prev,
+			&i.Next,
+			&i.Position,
 		); err != nil {
 			return nil, err
 		}
@@ -8161,6 +8334,77 @@ type UpdateEnvironmentPrevParams struct {
 // Update only the prev pointer for an environment (used in deletion)
 func (q *Queries) UpdateEnvironmentPrev(ctx context.Context, arg UpdateEnvironmentPrevParams) error {
 	_, err := q.exec(ctx, q.updateEnvironmentPrevStmt, updateEnvironmentPrev, arg.Prev, arg.ID, arg.WorkspaceID)
+	return err
+}
+
+const updateExampleNext = `-- name: UpdateExampleNext :exec
+UPDATE item_api_example
+SET
+  next = ?
+WHERE
+  id = ? AND
+  item_api_id = ?
+`
+
+type UpdateExampleNextParams struct {
+	Next      *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	ItemApiID idwrap.IDWrap
+}
+
+// Update only the next pointer for an example with endpoint validation (used in deletion)
+func (q *Queries) UpdateExampleNext(ctx context.Context, arg UpdateExampleNextParams) error {
+	_, err := q.exec(ctx, q.updateExampleNextStmt, updateExampleNext, arg.Next, arg.ID, arg.ItemApiID)
+	return err
+}
+
+const updateExampleOrder = `-- name: UpdateExampleOrder :exec
+UPDATE item_api_example
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  item_api_id = ?
+`
+
+type UpdateExampleOrderParams struct {
+	Prev      *idwrap.IDWrap
+	Next      *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	ItemApiID idwrap.IDWrap
+}
+
+// Update the prev/next pointers for a single example with endpoint validation
+// Used for moving examples within the endpoint's linked list
+func (q *Queries) UpdateExampleOrder(ctx context.Context, arg UpdateExampleOrderParams) error {
+	_, err := q.exec(ctx, q.updateExampleOrderStmt, updateExampleOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.ItemApiID,
+	)
+	return err
+}
+
+const updateExamplePrev = `-- name: UpdateExamplePrev :exec
+UPDATE item_api_example
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  item_api_id = ?
+`
+
+type UpdateExamplePrevParams struct {
+	Prev      *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	ItemApiID idwrap.IDWrap
+}
+
+// Update only the prev pointer for an example with endpoint validation (used in deletion)
+func (q *Queries) UpdateExamplePrev(ctx context.Context, arg UpdateExamplePrevParams) error {
+	_, err := q.exec(ctx, q.updateExamplePrevStmt, updateExamplePrev, arg.Prev, arg.ID, arg.ItemApiID)
 	return err
 }
 

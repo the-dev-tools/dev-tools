@@ -53,6 +53,7 @@ import (
 	"the-dev-tools/server/pkg/varsystem"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 
 	"connectrpc.com/connect"
 )
@@ -131,9 +132,42 @@ func (c *ItemAPIExampleRPC) ExampleList(ctx context.Context, req *connect.Reques
 		return nil, rpcErr
 	}
 
-	examples, err := c.iaes.GetApiExamples(ctx, apiUlid)
+	// Auto-repair any isolated examples before returning list
+	// This is defensive - we log warnings but don't fail the request
+	autoLinkErr := c.iaes.AutoLinkIsolatedExamples(ctx, apiUlid)
+	if autoLinkErr != nil {
+		// Log warning but continue - this is a repair operation, not critical to the user request
+		fmt.Printf("Warning: auto-linking failed for endpoint %s: %v\n", apiUlid.String(), autoLinkErr)
+	}
+
+	// First try to get ordered examples (preferred)
+	examples, err := c.iaes.GetApiExamplesOrdered(ctx, apiUlid)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		// If ordered query fails, fall back to getting all examples
+		if err == sitemapiexample.ErrNoItemApiExampleFound {
+			// Return empty list if no examples
+			resp := &examplev1.ExampleListResponse{
+				EndpointId: apiUlid.Bytes(),
+				Items:      []*examplev1.ExampleListItem{},
+			}
+			return connect.NewResponse(resp), nil
+		}
+		
+		// For other errors, try fallback to all examples
+		fmt.Printf("Warning: ordered query failed for endpoint %s, falling back to all examples: %v\n", apiUlid.String(), err)
+		examples, err = c.iaes.GetAllApiExamples(ctx, apiUlid)
+		if err != nil {
+			if err == sitemapiexample.ErrNoItemApiExampleFound {
+				// Return empty list if no examples found in fallback
+				resp := &examplev1.ExampleListResponse{
+					EndpointId: apiUlid.Bytes(),
+					Items:      []*examplev1.ExampleListItem{},
+				}
+				return connect.NewResponse(resp), nil
+			}
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("both ordered and fallback queries failed: %w", err))
+		}
+		fmt.Printf("Successfully used fallback query for endpoint %s, returned %d examples\n", apiUlid.String(), len(examples))
 	}
 
 	var respsRpc []*examplev1.ExampleListItem
@@ -1348,7 +1382,57 @@ func CheckOwnerExample(ctx context.Context, iaes sitemapiexample.ItemApiExampleS
 	return rcollection.CheckOwnerCollection(ctx, cs, us, example.CollectionID)
 }
 
-// TODO: implement move RPC
 func (c *ItemAPIExampleRPC) ExampleMove(ctx context.Context, req *connect.Request[examplev1.ExampleMoveRequest]) (*connect.Response[examplev1.ExampleMoveResponse], error) {
+	// 1. Parameter Validation
+	endpointID, err := idwrap.NewFromBytes(req.Msg.GetEndpointId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid endpoint ID"))
+	}
+
+	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid example ID"))
+	}
+
+	targetExampleID, err := idwrap.NewFromBytes(req.Msg.GetTargetExampleId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid target example ID"))
+	}
+
+	// Validate position
+	position := req.Msg.GetPosition()
+	if position != resourcesv1.MovePosition_MOVE_POSITION_AFTER && position != resourcesv1.MovePosition_MOVE_POSITION_BEFORE {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid position: must be AFTER or BEFORE"))
+	}
+
+	// Prevent moving example relative to itself
+	if exampleID.Compare(targetExampleID) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move example relative to itself"))
+	}
+
+	// 2. Permission Check
+	rpcErr := permcheck.CheckPerm(ritemapi.CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, endpointID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// 3. Move Operation
+	switch position {
+	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+		err = c.iaes.MoveExampleAfter(ctx, endpointID, exampleID, targetExampleID)
+	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+		err = c.iaes.MoveExampleBefore(ctx, endpointID, exampleID, targetExampleID)
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid position"))
+	}
+
+	// 4. Error Handling
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("example or target example not found"))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	return connect.NewResponse(&examplev1.ExampleMoveResponse{}), nil
 }

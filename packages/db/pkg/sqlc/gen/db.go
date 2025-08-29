@@ -261,6 +261,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteWorkspaceUserStmt, err = db.PrepareContext(ctx, deleteWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWorkspaceUser: %w", err)
 	}
+	if q.getAllExamplesByEndpointIDStmt, err = db.PrepareContext(ctx, getAllExamplesByEndpointID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllExamplesByEndpointID: %w", err)
+	}
 	if q.getAllItemsApiByCollectionIDStmt, err = db.PrepareContext(ctx, getAllItemsApiByCollectionID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllItemsApiByCollectionID: %w", err)
 	}
@@ -392,6 +395,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getExampleRespHeadersByRespIDStmt, err = db.PrepareContext(ctx, getExampleRespHeadersByRespID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetExampleRespHeadersByRespID: %w", err)
+	}
+	if q.getExamplesByEndpointIDOrderedStmt, err = db.PrepareContext(ctx, getExamplesByEndpointIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetExamplesByEndpointIDOrdered: %w", err)
 	}
 	if q.getFlowStmt, err = db.PrepareContext(ctx, getFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlow: %w", err)
@@ -653,6 +659,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateEnvironmentPrevStmt, err = db.PrepareContext(ctx, updateEnvironmentPrev); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateEnvironmentPrev: %w", err)
+	}
+	if q.updateExampleNextStmt, err = db.PrepareContext(ctx, updateExampleNext); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateExampleNext: %w", err)
+	}
+	if q.updateExampleOrderStmt, err = db.PrepareContext(ctx, updateExampleOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateExampleOrder: %w", err)
+	}
+	if q.updateExamplePrevStmt, err = db.PrepareContext(ctx, updateExamplePrev); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateExamplePrev: %w", err)
 	}
 	if q.updateExampleRespStmt, err = db.PrepareContext(ctx, updateExampleResp); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateExampleResp: %w", err)
@@ -1174,6 +1189,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteWorkspaceUserStmt: %w", cerr)
 		}
 	}
+	if q.getAllExamplesByEndpointIDStmt != nil {
+		if cerr := q.getAllExamplesByEndpointIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllExamplesByEndpointIDStmt: %w", cerr)
+		}
+	}
 	if q.getAllItemsApiByCollectionIDStmt != nil {
 		if cerr := q.getAllItemsApiByCollectionIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllItemsApiByCollectionIDStmt: %w", cerr)
@@ -1392,6 +1412,11 @@ func (q *Queries) Close() error {
 	if q.getExampleRespHeadersByRespIDStmt != nil {
 		if cerr := q.getExampleRespHeadersByRespIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getExampleRespHeadersByRespIDStmt: %w", cerr)
+		}
+	}
+	if q.getExamplesByEndpointIDOrderedStmt != nil {
+		if cerr := q.getExamplesByEndpointIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getExamplesByEndpointIDOrderedStmt: %w", cerr)
 		}
 	}
 	if q.getFlowStmt != nil {
@@ -1829,6 +1854,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateEnvironmentPrevStmt: %w", cerr)
 		}
 	}
+	if q.updateExampleNextStmt != nil {
+		if cerr := q.updateExampleNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateExampleNextStmt: %w", cerr)
+		}
+	}
+	if q.updateExampleOrderStmt != nil {
+		if cerr := q.updateExampleOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateExampleOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateExamplePrevStmt != nil {
+		if cerr := q.updateExamplePrevStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateExamplePrevStmt: %w", cerr)
+		}
+	}
 	if q.updateExampleRespStmt != nil {
 		if cerr := q.updateExampleRespStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateExampleRespStmt: %w", cerr)
@@ -2147,6 +2187,7 @@ type Queries struct {
 	deleteVariableStmt                                    *sql.Stmt
 	deleteWorkspaceStmt                                   *sql.Stmt
 	deleteWorkspaceUserStmt                               *sql.Stmt
+	getAllExamplesByEndpointIDStmt                        *sql.Stmt
 	getAllItemsApiByCollectionIDStmt                      *sql.Stmt
 	getAllWorkspacesByUserIDStmt                          *sql.Stmt
 	getAssertStmt                                         *sql.Stmt
@@ -2191,6 +2232,7 @@ type Queries struct {
 	getExampleRespByExampleIDLatestStmt                   *sql.Stmt
 	getExampleRespHeaderStmt                              *sql.Stmt
 	getExampleRespHeadersByRespIDStmt                     *sql.Stmt
+	getExamplesByEndpointIDOrderedStmt                    *sql.Stmt
 	getFlowStmt                                           *sql.Stmt
 	getFlowEdgeStmt                                       *sql.Stmt
 	getFlowEdgesByFlowIDStmt                              *sql.Stmt
@@ -2278,6 +2320,9 @@ type Queries struct {
 	updateEnvironmentNextStmt                             *sql.Stmt
 	updateEnvironmentOrderStmt                            *sql.Stmt
 	updateEnvironmentPrevStmt                             *sql.Stmt
+	updateExampleNextStmt                                 *sql.Stmt
+	updateExampleOrderStmt                                *sql.Stmt
+	updateExamplePrevStmt                                 *sql.Stmt
 	updateExampleRespStmt                                 *sql.Stmt
 	updateExampleRespHeaderStmt                           *sql.Stmt
 	updateFlowStmt                                        *sql.Stmt
@@ -2403,6 +2448,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteVariableStmt:                                    q.deleteVariableStmt,
 		deleteWorkspaceStmt:                                   q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                               q.deleteWorkspaceUserStmt,
+		getAllExamplesByEndpointIDStmt:                        q.getAllExamplesByEndpointIDStmt,
 		getAllItemsApiByCollectionIDStmt:                      q.getAllItemsApiByCollectionIDStmt,
 		getAllWorkspacesByUserIDStmt:                          q.getAllWorkspacesByUserIDStmt,
 		getAssertStmt:                                         q.getAssertStmt,
@@ -2447,6 +2493,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getExampleRespByExampleIDLatestStmt:                   q.getExampleRespByExampleIDLatestStmt,
 		getExampleRespHeaderStmt:                              q.getExampleRespHeaderStmt,
 		getExampleRespHeadersByRespIDStmt:                     q.getExampleRespHeadersByRespIDStmt,
+		getExamplesByEndpointIDOrderedStmt:                    q.getExamplesByEndpointIDOrderedStmt,
 		getFlowStmt:                                           q.getFlowStmt,
 		getFlowEdgeStmt:                                       q.getFlowEdgeStmt,
 		getFlowEdgesByFlowIDStmt:                              q.getFlowEdgesByFlowIDStmt,
@@ -2534,6 +2581,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateEnvironmentNextStmt:                             q.updateEnvironmentNextStmt,
 		updateEnvironmentOrderStmt:                            q.updateEnvironmentOrderStmt,
 		updateEnvironmentPrevStmt:                             q.updateEnvironmentPrevStmt,
+		updateExampleNextStmt:                                 q.updateExampleNextStmt,
+		updateExampleOrderStmt:                                q.updateExampleOrderStmt,
+		updateExamplePrevStmt:                                 q.updateExamplePrevStmt,
 		updateExampleRespStmt:                                 q.updateExampleRespStmt,
 		updateExampleRespHeaderStmt:                           q.updateExampleRespHeaderStmt,
 		updateFlowStmt:                                        q.updateFlowStmt,

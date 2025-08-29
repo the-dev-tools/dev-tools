@@ -99,8 +99,8 @@ func (c *ItemApiRPC) EndpointCreate(ctx context.Context, req *connect.Request[en
 	itemApiReq.ID = ID
 
 	exampleNanem := "Default"
-	// For hidden endpoints (like delta endpoints in flows), don't mark the example as default
-	isDefault := !itemApiReq.Hidden
+	// Always create default examples, even for hidden endpoints (needed for CollectionItemList)
+	isDefault := true
 	example := &mitemapiexample.ItemApiExample{
 		ID:           idwrap.NewNow(),
 		ItemApiID:    itemApiReq.ID,
