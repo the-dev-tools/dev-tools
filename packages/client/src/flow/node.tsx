@@ -282,6 +282,14 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
     setPrevFirstItem(firstItem);
   }
 
+  // Fix React Aria over-rendering non-visible components
+  // https://github.com/adobe/react-spectrum/issues/8783#issuecomment-3233350825
+  // TODO: move the workaround to an improved select component
+  const [isOpen, setIsOpen] = useState(false);
+  const listBoxItems = isOpen
+    ? items
+    : items.filter((_) => Ulid.construct(_.nodeExecutionId).toCanonical() === selectedKey);
+
   return (
     <div className={tw`mx-5 my-4 overflow-auto rounded-lg border border-slate-200`}>
       <div
@@ -295,7 +303,9 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
         {items.length > 0 && (
           <Select
             aria-label='Node execution'
-            listBoxItems={items}
+            isOpen={isOpen}
+            listBoxItems={listBoxItems}
+            onOpenChange={setIsOpen}
             onSelectionChange={setSelectedKey}
             selectedKey={selectedKey}
           >
