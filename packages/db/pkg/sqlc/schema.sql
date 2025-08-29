@@ -267,10 +267,17 @@ CREATE TABLE environment (
   type INT8 NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (prev, next, workspace_id),
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
 );
 
 CREATE INDEX environment_idx1 ON environment (workspace_id, type, name);
+
+-- Performance indexes for environment ordering operations
+CREATE INDEX environment_ordering ON environment (workspace_id, prev, next);
+CREATE INDEX environment_workspace_lookup ON environment (id, workspace_id);
 
 CREATE TABLE variable (
     id BLOB NOT NULL PRIMARY KEY,
@@ -279,11 +286,17 @@ CREATE TABLE variable (
     value TEXT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     description TEXT NOT NULL,
+    prev BLOB,
+    next BLOB,
     UNIQUE (env_id, var_key),
+    UNIQUE (prev, next, env_id),
     FOREIGN KEY (env_id) REFERENCES environment(id) ON DELETE CASCADE
 );
 
 CREATE INDEX variable_idx1 ON variable (env_id, var_key);
+
+-- Performance indexes for variable ordering operations
+CREATE INDEX variable_ordering ON variable (env_id, prev, next);
 
 CREATE TABLE assertion (
   id BLOB NOT NULL PRIMARY KEY,
@@ -439,8 +452,15 @@ CREATE TABLE flow_variable (
   value TEXT NOT NULL,
   enabled BOOL NOT NULL,
   description TEXT NOT NULL,
+  prev BLOB,
+  next BLOB,
+  UNIQUE (flow_id, key),
+  UNIQUE (prev, next, flow_id),
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
+
+-- Performance indexes for flow variable ordering operations
+CREATE INDEX flow_variable_ordering ON flow_variable (flow_id, prev, next);
 
 CREATE TABLE node_execution (
   id BLOB NOT NULL PRIMARY KEY,

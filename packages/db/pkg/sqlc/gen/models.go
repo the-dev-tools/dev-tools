@@ -53,6 +53,8 @@ type Environment struct {
 	Type        int8
 	Name        string
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type ExampleBodyForm struct {
@@ -195,6 +197,8 @@ type FlowVariable struct {
 	Value       string
 	Enabled     bool
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type ItemApi struct {
@@ -276,6 +280,8 @@ type Variable struct {
 	Value       string
 	Enabled     bool
 	Description string
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
 }
 
 type Workspace struct {
@@ -286,6 +292,8 @@ type Workspace struct {
 	FlowCount       int32
 	ActiveEnv       idwrap.IDWrap
 	GlobalEnv       idwrap.IDWrap
+	Prev            *idwrap.IDWrap
+	Next            *idwrap.IDWrap
 }
 
 type WorkspacesUser struct {

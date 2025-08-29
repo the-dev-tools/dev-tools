@@ -785,7 +785,9 @@ SELECT
   collection_count,
   flow_count,
   active_env,
-  global_env
+  global_env,
+  prev,
+  next
 FROM
   workspaces
 WHERE
@@ -806,7 +808,9 @@ SELECT
   collection_count,
   flow_count,
   active_env,
-  global_env
+  global_env,
+  prev,
+  next
 FROM
   workspaces
 WHERE
@@ -826,9 +830,9 @@ LIMIT
 
 -- name: CreateWorkspace :exec
 INSERT INTO
-  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env)
+  workspaces (id, name, updated, collection_count, flow_count, active_env, global_env, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateWorkspace :exec
 UPDATE workspaces
@@ -852,6 +856,129 @@ WHERE
 DELETE FROM workspaces
 WHERE
   id = ?;
+
+-- name: GetWorkspacesByUserIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail for user-scoped ordering
+-- Each user has their own workspace ordering maintained via workspaces_users table
+WITH RECURSIVE ordered_workspaces AS (
+  -- Base case: Find the head (prev IS NULL) for this user
+  SELECT
+    w.id,
+    w.name,
+    w.updated,
+    w.collection_count,
+    w.flow_count,
+    w.active_env,
+    w.global_env,
+    w.prev,
+    w.next,
+    0 as position
+  FROM
+    workspaces w
+  INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
+  WHERE
+    wu.user_id = ? AND
+    w.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    w.id,
+    w.name,
+    w.updated,
+    w.collection_count,
+    w.flow_count,
+    w.active_env,
+    w.global_env,
+    w.prev,
+    w.next,
+    ow.position + 1
+  FROM
+    workspaces w
+  INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
+  INNER JOIN ordered_workspaces ow ON w.prev = ow.id
+  WHERE
+    wu.user_id = ?
+)
+SELECT
+  ow.id,
+  ow.name,
+  ow.updated,
+  ow.collection_count,
+  ow.flow_count,
+  ow.active_env,
+  ow.global_env,
+  ow.prev,
+  ow.next,
+  ow.position
+FROM
+  ordered_workspaces ow
+ORDER BY
+  ow.position;
+
+-- name: GetAllWorkspacesByUserID :many
+-- Returns ALL workspaces for a user, including isolated ones (prev=NULL, next=NULL)
+-- Unlike GetWorkspacesByUserIDOrdered, this query finds workspaces regardless of linked-list state
+-- Essential for finding new workspaces that haven't been linked yet
+SELECT
+  w.id,
+  w.name,
+  w.updated,
+  w.collection_count,
+  w.flow_count,
+  w.active_env,
+  w.global_env,
+  w.prev,
+  w.next
+FROM
+  workspaces w
+INNER JOIN workspaces_users wu ON w.id = wu.workspace_id
+WHERE
+  wu.user_id = ?
+ORDER BY
+  w.updated DESC;
+
+-- name: UpdateWorkspaceOrder :exec
+-- Update the prev/next pointers for a single workspace with user validation
+-- Used for moving workspaces within the user's linked list
+UPDATE workspaces
+SET
+  prev = ?,
+  next = ?
+WHERE
+  workspaces.id = ? AND
+  workspaces.id IN (
+    SELECT wu.workspace_id 
+    FROM workspaces_users wu
+    WHERE wu.user_id = ?
+  );
+
+-- name: UpdateWorkspacePrev :exec
+-- Update only the prev pointer for a workspace with user validation (used in deletion)
+UPDATE workspaces
+SET
+  prev = ?
+WHERE
+  workspaces.id = ? AND
+  workspaces.id IN (
+    SELECT wu.workspace_id 
+    FROM workspaces_users wu
+    WHERE wu.user_id = ?
+  );
+
+-- name: UpdateWorkspaceNext :exec
+-- Update only the next pointer for a workspace with user validation (used in deletion)
+UPDATE workspaces
+SET
+  next = ?
+WHERE
+  workspaces.id = ? AND
+  workspaces.id IN (
+    SELECT wu.workspace_id 
+    FROM workspaces_users wu
+    WHERE wu.user_id = ?
+  );
 
 --
 -- WorkspaceUsers
@@ -1389,7 +1516,9 @@ SELECT
   workspace_id,
   type,
   name,
-  description
+  description,
+  prev,
+  next
 FROM
   environment
 WHERE
@@ -1402,7 +1531,9 @@ SELECT
   workspace_id,
   type,
   name,
-  description
+  description,
+  prev,
+  next
 FROM
   environment
 WHERE
@@ -1410,9 +1541,9 @@ WHERE
 
 -- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, type, name, description)
+  environment (id, workspace_id, type, name, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateEnvironment :exec
 UPDATE environment
@@ -1427,6 +1558,136 @@ DELETE FROM environment
 WHERE
   id = ?;
 
+-- name: GetEnvironmentsByWorkspaceIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (workspace_id, prev) for optimal performance
+WITH RECURSIVE ordered_environments AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    e.id,
+    e.workspace_id,
+    e.type,
+    e.name,
+    e.description,
+    e.prev,
+    e.next,
+    0 as position
+  FROM
+    environment e
+  WHERE
+    e.workspace_id = ? AND
+    e.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    e.id,
+    e.workspace_id,
+    e.type,
+    e.name,
+    e.description,
+    e.prev,
+    e.next,
+    oe.position + 1
+  FROM
+    environment e
+  INNER JOIN ordered_environments oe ON e.prev = oe.id
+  WHERE
+    e.workspace_id = ?
+)
+SELECT
+  oe.id,
+  oe.workspace_id,
+  oe.type,
+  oe.name,
+  oe.description,
+  oe.prev,
+  oe.next,
+  oe.position
+FROM
+  ordered_environments oe
+ORDER BY
+  oe.position;
+
+-- name: GetEnvironmentWorkspaceID :one
+-- Get workspace ID for environment (validation for move operations)
+SELECT
+  workspace_id
+FROM
+  environment
+WHERE
+  id = ?
+LIMIT
+  1;
+
+-- name: UpdateEnvironmentOrder :exec
+-- Update the prev/next pointers for a single environment
+-- Used for moving environments within the linked list
+UPDATE environment
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
+-- name: GetEnvironmentMaxPosition :one
+-- Get the last environment in the list (tail) for a workspace
+-- Used when appending new environments to the end of the list
+SELECT
+  id,
+  workspace_id,
+  type,
+  name,
+  description,
+  prev,
+  next
+FROM
+  environment
+WHERE
+  workspace_id = ? AND
+  next IS NULL
+LIMIT
+  1;
+
+-- name: GetEnvironmentByPrevNext :one
+-- Find environment by its prev/next references for position-based operations
+SELECT
+  id,
+  workspace_id,
+  type,
+  name,
+  description,
+  prev,
+  next
+FROM
+  environment
+WHERE
+  workspace_id = ? AND
+  prev = ? AND
+  next = ?
+LIMIT
+  1;
+
+-- name: UpdateEnvironmentNext :exec
+-- Update only the next pointer for an environment (used in deletion)
+UPDATE environment
+SET
+  next = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
+-- name: UpdateEnvironmentPrev :exec
+-- Update only the prev pointer for an environment (used in deletion)
+UPDATE environment
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  workspace_id = ?;
+
 /*
 * Variables
 */
@@ -1438,7 +1699,9 @@ SELECT
   var_key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   variable
 WHERE
@@ -1452,26 +1715,83 @@ SELECT
   var_key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   variable
 WHERE
   env_id = ?;
 
+-- name: GetVariablesByEnvironmentIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (env_id, prev) for optimal performance
+WITH RECURSIVE ordered_variables AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    v.id,
+    v.env_id,
+    v.var_key,
+    v.value,
+    v.enabled,
+    v.description,
+    v.prev,
+    v.next,
+    0 as position
+  FROM
+    variable v
+  WHERE
+    v.env_id = ? AND
+    v.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    v.id,
+    v.env_id,
+    v.var_key,
+    v.value,
+    v.enabled,
+    v.description,
+    v.prev,
+    v.next,
+    ov.position + 1
+  FROM
+    variable v
+  INNER JOIN ordered_variables ov ON v.prev = ov.id
+  WHERE
+    v.env_id = ?
+)
+SELECT
+  ov.id,
+  ov.env_id,
+  ov.var_key,
+  ov.value,
+  ov.enabled,
+  ov.description,
+  ov.prev,
+  ov.next,
+  ov.position
+FROM
+  ordered_variables ov
+ORDER BY
+  ov.position;
+
 -- name: CreateVariable :exec
 INSERT INTO
-  variable (id, env_id, var_key, value, enabled, description)
+  variable (id, env_id, var_key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateVariableBulk :exec
 INSERT INTO
-  variable (id, env_id, var_key, value, enabled, description)
+  variable (id, env_id, var_key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateVariable :exec
 UPDATE variable
@@ -1487,6 +1807,35 @@ WHERE
 DELETE FROM variable
 WHERE
   id = ?;
+
+-- name: UpdateVariableOrder :exec
+-- Update the prev/next pointers for a single variable
+-- Used for moving variables within the linked list
+UPDATE variable
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  env_id = ?;
+
+-- name: UpdateVariablePrev :exec
+-- Update only the prev pointer for a variable (used in deletion)
+UPDATE variable
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  env_id = ?;
+
+-- name: UpdateVariableNext :exec
+-- Update only the next pointer for a variable (used in deletion)
+UPDATE variable
+SET
+  next = ?
+WHERE
+  id = ? AND
+  env_id = ?;
 
 -- name: GetExampleResp :one
 SELECT
@@ -2162,7 +2511,9 @@ SELECT
   key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   flow_variable
 WHERE
@@ -2176,7 +2527,9 @@ SELECT
   key,
   value,
   enabled,
-  description
+  description,
+  prev,
+  next
 FROM
   flow_variable
 WHERE
@@ -2184,24 +2537,24 @@ WHERE
 
 -- name: CreateFlowVariable :exec
 INSERT INTO
-  flow_variable (id, flow_id, key, value, enabled, description)
+  flow_variable (id, flow_id, key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateFlowVariableBulk :exec
 INSERT INTO
-  flow_variable (id, flow_id, key, value, enabled, description)
+  flow_variable (id, flow_id, key, value, enabled, description, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowVariable :exec
 UPDATE flow_variable
@@ -2217,6 +2570,90 @@ WHERE
 DELETE FROM flow_variable
 WHERE
   id = ?;
+
+-- name: GetFlowVariablesByFlowIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
+-- Requires index on (flow_id, prev) for optimal performance
+WITH RECURSIVE ordered_flow_variables AS (
+  -- Base case: Find the head (prev IS NULL)
+  SELECT
+    fv.id,
+    fv.flow_id,
+    fv.key,
+    fv.value,
+    fv.enabled,
+    fv.description,
+    fv.prev,
+    fv.next,
+    0 as position
+  FROM
+    flow_variable fv
+  WHERE
+    fv.flow_id = ? AND
+    fv.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    fv.id,
+    fv.flow_id,
+    fv.key,
+    fv.value,
+    fv.enabled,
+    fv.description,
+    fv.prev,
+    fv.next,
+    ofv.position + 1
+  FROM
+    flow_variable fv
+  INNER JOIN ordered_flow_variables ofv ON fv.prev = ofv.id
+  WHERE
+    fv.flow_id = ?
+)
+SELECT
+  ofv.id,
+  ofv.flow_id,
+  ofv.key,
+  ofv.value,
+  ofv.enabled,
+  ofv.description,
+  ofv.prev,
+  ofv.next,
+  ofv.position
+FROM
+  ordered_flow_variables ofv
+ORDER BY
+  ofv.position;
+
+-- name: UpdateFlowVariableOrder :exec
+-- Update the prev/next pointers for a single flow variable
+-- Used for moving flow variables within the linked list
+UPDATE flow_variable
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  flow_id = ?;
+
+-- name: UpdateFlowVariablePrev :exec
+-- Update only the prev pointer for a flow variable (used in deletion)
+UPDATE flow_variable
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  flow_id = ?;
+
+-- name: UpdateFlowVariableNext :exec
+-- Update only the next pointer for a flow variable (used in deletion)
+UPDATE flow_variable
+SET
+  next = ?
+WHERE
+  id = ? AND
+  flow_id = ?;
 
 -- Node Execution
 -- name: GetNodeExecution :one

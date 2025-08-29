@@ -194,6 +194,20 @@ sql:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### prev
+          - column: 'workspaces.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### next
+          - column: 'workspaces.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ## workspaces_users
           ### id
           - column: 'workspaces_users.id'
@@ -344,6 +358,20 @@ sql:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### prev
+          - column: 'environment.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### next
+          - column: 'environment.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ## variable
           ### id
           - column: 'variable.id'
@@ -357,6 +385,20 @@ sql:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### prev
+          - column: 'variable.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### next
+          - column: 'variable.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ### workspace_id
           - column: 'variable.workspace_id'
             go_type:
@@ -646,6 +688,20 @@ sql:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
+          ### prev
+          - column: 'flow_variable.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### next
+          - column: 'flow_variable.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
           ## node_execution
           ### id
           - column: 'node_execution.id'

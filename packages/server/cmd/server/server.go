@@ -157,8 +157,8 @@ func main() {
 	exampleResponseHeaderService := sexamplerespheader.New(queries)
 	assertService := sassert.New(queries)
 	assertResultService := sassertres.New(queries)
-	variableService := svar.New(queries)
-	environmentService := senv.New(queries)
+	variableService := svar.New(queries, logger)
+	environmentService := senv.New(queries, logger)
 	tagService := stag.New(queries)
 
 	// Flow

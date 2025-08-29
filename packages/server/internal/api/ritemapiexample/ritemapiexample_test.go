@@ -58,8 +58,8 @@ func TestGetExampleApi(t *testing.T) {
 	brs := sbodyraw.New(queries)
 	ers := sexampleresp.New(queries)
 	erhs := sexamplerespheader.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, mockLogger)
+	vs := svar.New(queries, mockLogger)
 	as := sassert.New(queries)
 	ars := sassertres.New(queries)
 
@@ -165,8 +165,8 @@ func TestCreateExampleApi(t *testing.T) {
 	brs := sbodyraw.New(queries)
 	ers := sexampleresp.New(queries)
 	erhs := sexamplerespheader.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, mockLogger)
+	vs := svar.New(queries, mockLogger)
 	as := sassert.New(queries)
 	ars := sassertres.New(queries)
 
@@ -265,8 +265,8 @@ func TestUpdateExampleApi(t *testing.T) {
 	brs := sbodyraw.New(queries)
 	ers := sexampleresp.New(queries)
 	erhs := sexamplerespheader.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, mockLogger)
+	vs := svar.New(queries, mockLogger)
 	as := sassert.New(queries)
 	ars := sassertres.New(queries)
 
@@ -375,8 +375,8 @@ func TestDeleteExampleApi(t *testing.T) {
 	brs := sbodyraw.New(queries)
 	ers := sexampleresp.New(queries)
 	erhs := sexamplerespheader.New(queries)
-	es := senv.New(queries)
-	vs := svar.New(queries)
+	es := senv.New(queries, mockLogger)
+	vs := svar.New(queries, mockLogger)
 	as := sassert.New(queries)
 	ars := sassertres.New(queries)
 
