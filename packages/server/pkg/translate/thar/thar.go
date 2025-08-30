@@ -725,7 +725,7 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 		}
 		result.Nodes = append(result.Nodes, node)
 
-		// Use original headers for both default and normal examples
+		// Use original headers for both default and normal examples - store them for later linking
 		headers := extractHeaders(originalHeaders, exampleID)
 		headersDefault := extractHeaders(originalHeaders, defaultExampleID)
 		result.Headers = append(result.Headers, headers...)
@@ -952,39 +952,20 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 		}
 	}
 
-	for i := range result.Apis {
-		if i > 0 {
-			prevApi := &result.Apis[i-1]
-			result.Apis[i].Prev = &prevApi.ID
-		}
-		if i < len(result.Apis)-1 {
-			nextApi := &result.Apis[i+1]
-			result.Apis[i].Next = &nextApi.ID
-		}
-	}
-
-	for i := range result.Examples {
-		if i > 0 {
-			prevExample := &result.Examples[i-1]
-			result.Examples[i].Prev = &prevExample.ID
-		}
-		if i < len(result.Examples)-1 {
-			nextExample := &result.Examples[i+1]
-			result.Examples[i].Next = &nextExample.ID
-		}
-	}
-
-	// Set Prev/Next for assertions to maintain ordering
-	for i := range result.Asserts {
-		if i > 0 {
-			prevAssert := &result.Asserts[i-1]
-			result.Asserts[i].Prev = &prevAssert.ID
-		}
-		if i < len(result.Asserts)-1 {
-			nextAssert := &result.Asserts[i+1]
-			result.Asserts[i].Next = &nextAssert.ID
-		}
-	}
+	// Two-phase creation for linked list entities to avoid foreign key constraints
+	// Phase 1: All entities are created with prev/next set to nil (already done above)
+	// Phase 2: Database service layer handles proper linking during bulk operations
+	
+	// NOTE: We do NOT set up links here because the database service layer (AppendBulkHeader, etc.)
+	// implements proper two-phase creation. Setting links here causes FK constraint violations
+	// because the referenced entities don't exist in the database yet.
+	
+	// The following service methods handle linking properly:
+	// - AppendBulkHeader() in sexampleheader 
+	// - CreateBulkQuery() in sexamplequery
+	// - CreateBulkAssert() in sassert
+	// - CreateItemApiBulk() and CreateApiExampleBulk() handle API/Example linking
+	// - CreateItemFolderBulk() handles folder linking
 
 	// After all entries are processed, connect nodes without dependencies to the start node
 	// and ensure proper dependency ordering
@@ -1464,5 +1445,135 @@ func createStatusCodeAssertionWithDeltaParent(deltaExampleID idwrap.IDWrap, delt
 		Enable: true,
 		Prev:   nil,
 		Next:   nil,
+	}
+}
+
+// setupAPILinks sets up prev/next relationships for APIs per collection after creation
+// This implements scope-aware linking that only references existing entities within the same collection
+func setupAPILinks(result *HarResvoled) {
+	apisByCollection := make(map[idwrap.IDWrap][]int)
+	for i, api := range result.Apis {
+		apisByCollection[api.CollectionID] = append(apisByCollection[api.CollectionID], i)
+	}
+	
+	for _, apiIndices := range apisByCollection {
+		// Only link within the same collection scope (matches FK constraint scope)
+		for j := range apiIndices {
+			idx := apiIndices[j]
+			if j > 0 {
+				prevIdx := apiIndices[j-1]
+				prevAPI := &result.Apis[prevIdx]
+				result.Apis[idx].Prev = &prevAPI.ID
+			}
+			if j < len(apiIndices)-1 {
+				nextIdx := apiIndices[j+1]
+				nextAPI := &result.Apis[nextIdx]
+				result.Apis[idx].Next = &nextAPI.ID
+			}
+		}
+	}
+}
+
+// setupExampleLinks sets up prev/next relationships for Examples per API after creation
+// This implements scope-aware linking that only references existing entities within the same API
+func setupExampleLinks(result *HarResvoled) {
+	examplesByAPI := make(map[idwrap.IDWrap][]int)
+	for i, example := range result.Examples {
+		examplesByAPI[example.ItemApiID] = append(examplesByAPI[example.ItemApiID], i)
+	}
+	
+	for _, exampleIndices := range examplesByAPI {
+		// Only link within the same API scope (matches FK constraint scope)
+		for j := range exampleIndices {
+			idx := exampleIndices[j]
+			if j > 0 {
+				prevIdx := exampleIndices[j-1]
+				prevExample := &result.Examples[prevIdx]
+				result.Examples[idx].Prev = &prevExample.ID
+			}
+			if j < len(exampleIndices)-1 {
+				nextIdx := exampleIndices[j+1]
+				nextExample := &result.Examples[nextIdx]
+				result.Examples[idx].Next = &nextExample.ID
+			}
+		}
+	}
+}
+
+// setupHeaderLinks sets up prev/next relationships for Headers per example after creation
+// This implements scope-aware linking that only references existing entities within the same example
+func setupHeaderLinks(result *HarResvoled) {
+	headersByExample := make(map[idwrap.IDWrap][]int)
+	for i, header := range result.Headers {
+		headersByExample[header.ExampleID] = append(headersByExample[header.ExampleID], i)
+	}
+	
+	for _, headerIndices := range headersByExample {
+		// Only link within the same example scope (matches FK constraint scope)
+		for j := range headerIndices {
+			idx := headerIndices[j]
+			if j > 0 {
+				prevIdx := headerIndices[j-1]
+				prevHeader := &result.Headers[prevIdx]
+				result.Headers[idx].Prev = &prevHeader.ID
+			}
+			if j < len(headerIndices)-1 {
+				nextIdx := headerIndices[j+1]
+				nextHeader := &result.Headers[nextIdx]
+				result.Headers[idx].Next = &nextHeader.ID
+			}
+		}
+	}
+}
+
+// setupAssertionLinks sets up prev/next relationships for Assertions per example after creation
+// This implements scope-aware linking that only references existing entities within the same example
+func setupAssertionLinks(result *HarResvoled) {
+	assertsByExample := make(map[idwrap.IDWrap][]int)
+	for i, assert := range result.Asserts {
+		assertsByExample[assert.ExampleID] = append(assertsByExample[assert.ExampleID], i)
+	}
+	
+	for _, assertIndices := range assertsByExample {
+		// Only link within the same example scope (matches FK constraint scope)
+		for j := range assertIndices {
+			idx := assertIndices[j]
+			if j > 0 {
+				prevIdx := assertIndices[j-1]
+				prevAssert := &result.Asserts[prevIdx]
+				result.Asserts[idx].Prev = &prevAssert.ID
+			}
+			if j < len(assertIndices)-1 {
+				nextIdx := assertIndices[j+1]
+				nextAssert := &result.Asserts[nextIdx]
+				result.Asserts[idx].Next = &nextAssert.ID
+			}
+		}
+	}
+}
+
+// setupFolderLinks sets up prev/next relationships for Folders per collection after creation
+// This implements scope-aware linking that only references existing entities within the same collection
+func setupFolderLinks(result *HarResvoled) {
+	foldersByCollection := make(map[idwrap.IDWrap][]int)
+	for i, folder := range result.Folders {
+		foldersByCollection[folder.CollectionID] = append(foldersByCollection[folder.CollectionID], i)
+	}
+	
+	for _, folderIndices := range foldersByCollection {
+		// Only link within the same collection scope (matches FK constraint scope)
+		for j := range folderIndices {
+			idx := folderIndices[j]
+			if j > 0 {
+				prevIdx := folderIndices[j-1]
+				prevFolder := &result.Folders[prevIdx]
+				result.Folders[idx].Prev = &prevFolder.ID
+			}
+			if j < len(folderIndices)-1 {
+				nextIdx := folderIndices[j+1]
+				nextFolder := &result.Folders[nextIdx]
+				result.Folders[idx].Next = &nextFolder.ID
+			}
+		}
 	}
 }

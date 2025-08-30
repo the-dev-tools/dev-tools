@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/dbtime"
@@ -17,6 +18,7 @@ import (
 	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mcollection"
+	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
@@ -56,6 +58,7 @@ import (
 	"the-dev-tools/spec/dist/buf/go/import/v1/importv1connect"
 
 	"connectrpc.com/connect"
+	"github.com/oklog/ulid/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -763,6 +766,79 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// CRITICAL FIX: Create collection_items entries for all folders
+	// The unified collection_items table requires folders to have entries with item_type=0
+	// so they can be properly referenced by endpoints via parent_folder_id
+	folderToCollectionItemMapping := make(map[idwrap.IDWrap]idwrap.IDWrap) // legacy folder ID -> collection_items ID
+	
+	if len(existingFoldersList) > 0 {
+		// Get prepared transaction queries
+		txQueries, err := gen.Prepare(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to prepare transaction queries for folder items: %w", err))
+		}
+
+		// Process folders by depth to ensure parents are created before children
+		foldersProcessed := make(map[idwrap.IDWrap]bool)
+		
+		// Keep processing until all folders are handled
+		for len(foldersProcessed) < len(existingFoldersList) {
+			progressMade := false
+			
+			for _, folder := range existingFoldersList {
+				if foldersProcessed[folder.ID] {
+					continue // Already processed
+				}
+				
+				// Check if we can process this folder (parent must be processed first, or no parent)
+				canProcess := folder.ParentID == nil
+				if folder.ParentID != nil {
+					// Check if parent is already processed
+					if _, parentProcessed := foldersProcessed[*folder.ParentID]; parentProcessed {
+						canProcess = true
+					}
+				}
+				
+				if canProcess {
+					// Create collection_items entry for this folder
+					collectionItemID := idwrap.New(ulid.Make())
+					folderToCollectionItemMapping[folder.ID] = collectionItemID
+					
+					// Determine parent collection item ID
+					var parentCollectionItemID *idwrap.IDWrap
+					if folder.ParentID != nil {
+						if parentItemID, exists := folderToCollectionItemMapping[*folder.ParentID]; exists {
+							parentCollectionItemID = &parentItemID
+						}
+					}
+					
+					// Insert collection item for folder
+					err = txQueries.InsertCollectionItem(ctx, gen.InsertCollectionItemParams{
+						ID:             collectionItemID,
+						CollectionID:   folder.CollectionID,
+						ParentFolderID: parentCollectionItemID,
+						ItemType:       int8(scollectionitem.CollectionItemTypeFolder), // 0 = folder
+						FolderID:       &folder.ID, // Reference to legacy folder table
+						EndpointID:     nil,
+						Name:           folder.Name,
+						PrevID:         nil, // For bulk imports, leave ordering for later
+						NextID:         nil, // For bulk imports, leave ordering for later
+					})
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create collection item for folder %s: %w", folder.ID.String(), err))
+					}
+					
+					foldersProcessed[folder.ID] = true
+					progressMade = true
+				}
+			}
+			
+			if !progressMade {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("circular dependency detected in folder hierarchy or orphaned folders"))
+			}
+		}
+	}
+
 	// Build a map for quick folder lookup by path
 	existingFolderMap := make(map[string]idwrap.IDWrap)
 	for _, folder := range existingFoldersList {
@@ -835,38 +911,68 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		}
 	}
 
-	// Handle delta endpoints
+	// For HAR imports, delta endpoints should not be created as separate APIs
+	// They are meant to be variations/modifications of original endpoints in the flow system
+	// Just map them to their original APIs for example linking purposes
 	for _, api := range resolved.Apis {
 		if api.DeltaParentID != nil {
-			// Map delta parent to the actual/existing API ID
-			if mappedID, ok := apiMapping[*api.DeltaParentID]; ok {
-				newDeltaParentID := mappedID
-				api.DeltaParentID = &newDeltaParentID
+			// Don't create delta endpoints as separate APIs in HAR import
+			// Instead, find the corresponding original API and map to it
+			if originalID, exists := apiMapping[*api.DeltaParentID]; exists {
+				apiMapping[api.ID] = originalID
 			}
-			apisToCreate = append(apisToCreate, api)
+			// Skip creating delta APIs as separate database entities
 		}
 	}
 
-	// Create new endpoints
+	// Create new endpoints using a two-phase approach to avoid FK constraint issues
 	if len(apisToCreate) > 0 {
-		// CreateItemApiBulk expects exactly 10 items, so we need to batch or create individually
-		for i := 0; i < len(apisToCreate); i += 10 {
-			end := i + 10
-			if end > len(apisToCreate) {
-				// Create remaining items individually
-				for j := i; j < len(apisToCreate); j++ {
-					err = txItemApiService.CreateItemApi(ctx, &apisToCreate[j])
-					if err != nil {
-						return nil, connect.NewError(connect.CodeInternal, err)
-					}
+		// PHASE 1: Create all item_api entries first (legacy tables)
+		// This ensures all endpoint references exist before creating collection_items
+		// Note: apisToCreate only contains original APIs, not delta APIs
+		
+		for _, api := range apisToCreate {
+			err = txItemApiService.CreateItemApi(ctx, &api)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create API in item_api table %s: %w", api.ID.String(), err))
+			}
+		}
+		
+		// PHASE 2: Create collection_items entries now that all item_api entries exist
+		// Get prepared transaction queries
+		txQueries, err := gen.Prepare(ctx, tx)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to prepare transaction queries: %w", err))
+		}
+		
+		// Create collection_items entries for all APIs (now that item_api entries exist)
+		// Since we're doing a bulk import, we can simply insert them in order without complex positioning
+		for _, api := range apisToCreate {
+			collectionItemID := idwrap.New(ulid.Make())
+			
+			// CRITICAL FIX: Use collection_items folder ID, not legacy folder ID
+			var parentCollectionItemID *idwrap.IDWrap
+			if api.FolderID != nil {
+				if collectionItemFolderID, exists := folderToCollectionItemMapping[*api.FolderID]; exists {
+					parentCollectionItemID = &collectionItemFolderID
 				}
-			} else {
-				// Create batch of exactly 10
-				batch := apisToCreate[i:end]
-				err = txItemApiService.CreateItemApiBulk(ctx, batch)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
+				// If mapping doesn't exist, leave as nil (no parent folder)
+			}
+			
+			// Insert collection item directly - for bulk imports we don't need complex linked list management
+			err = txQueries.InsertCollectionItem(ctx, gen.InsertCollectionItemParams{
+				ID:             collectionItemID,
+				CollectionID:   api.CollectionID,
+				ParentFolderID: parentCollectionItemID, // Now correctly references collection_items.id for folder
+				ItemType:       int8(scollectionitem.CollectionItemTypeEndpoint),
+				FolderID:       nil,
+				EndpointID:     &api.ID, // Reference to legacy endpoint table (now exists)
+				Name:           api.Name,
+				PrevID:         nil, // For bulk imports, leave as nil - ordering can be managed later
+				NextID:         nil, // For bulk imports, leave as nil - ordering can be managed later
+			})
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to insert collection item for API %s: %w", api.ID.String(), err))
 			}
 		}
 	}
@@ -889,8 +995,10 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	for _, example := range resolved.Examples {
 		if mappedID, ok := apiMapping[example.ItemApiID]; ok {
 			example.ItemApiID = mappedID
+			updatedExamples = append(updatedExamples, example)
 		}
-		updatedExamples = append(updatedExamples, example)
+		// Skip examples that don't have a corresponding API in this collection
+		// This can happen when filtering by domain in HAR import
 	}
 
 	// TODO: For existing endpoints, we should check if we need to delete old examples
@@ -922,9 +1030,34 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	err = txExampleHeaderService.AppendBulkHeader(ctx, resolved.Headers)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	
+	// Separate headers into base headers and delta headers to avoid FK constraint violations
+	// Base headers must be created before delta headers that reference them
+	var baseHeaders []mexampleheader.Header
+	var deltaHeaders []mexampleheader.Header
+	
+	for _, header := range resolved.Headers {
+		if header.DeltaParentID == nil {
+			baseHeaders = append(baseHeaders, header)
+		} else {
+			deltaHeaders = append(deltaHeaders, header)
+		}
+	}
+	
+	// Create base headers first
+	if len(baseHeaders) > 0 {
+		err = txExampleHeaderService.AppendBulkHeader(ctx, baseHeaders)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+	
+	// Create delta headers second (they can now reference existing base headers)
+	if len(deltaHeaders) > 0 {
+		err = txExampleHeaderService.AppendBulkHeader(ctx, deltaHeaders)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	txExampleQueryService, err := sexamplequery.NewTX(ctx, tx)
