@@ -285,8 +285,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getAssertResultsByResponseIDStmt, err = db.PrepareContext(ctx, getAssertResultsByResponseID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAssertResultsByResponseID: %w", err)
 	}
+	if q.getAssertTailStmt, err = db.PrepareContext(ctx, getAssertTail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAssertTail: %w", err)
+	}
 	if q.getAssertsByExampleIDStmt, err = db.PrepareContext(ctx, getAssertsByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAssertsByExampleID: %w", err)
+	}
+	if q.getAssertsByExampleIDOrderedStmt, err = db.PrepareContext(ctx, getAssertsByExampleIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAssertsByExampleIDOrdered: %w", err)
 	}
 	if q.getBodyFormStmt, err = db.PrepareContext(ctx, getBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBodyForm: %w", err)
@@ -623,6 +629,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateAssertStmt, err = db.PrepareContext(ctx, updateAssert); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateAssert: %w", err)
+	}
+	if q.updateAssertNextStmt, err = db.PrepareContext(ctx, updateAssertNext); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateAssertNext: %w", err)
+	}
+	if q.updateAssertOrderStmt, err = db.PrepareContext(ctx, updateAssertOrder); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateAssertOrder: %w", err)
+	}
+	if q.updateAssertPrevStmt, err = db.PrepareContext(ctx, updateAssertPrev); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateAssertPrev: %w", err)
 	}
 	if q.updateAssertResultStmt, err = db.PrepareContext(ctx, updateAssertResult); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateAssertResult: %w", err)
@@ -1247,9 +1262,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getAssertResultsByResponseIDStmt: %w", cerr)
 		}
 	}
+	if q.getAssertTailStmt != nil {
+		if cerr := q.getAssertTailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAssertTailStmt: %w", cerr)
+		}
+	}
 	if q.getAssertsByExampleIDStmt != nil {
 		if cerr := q.getAssertsByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAssertsByExampleIDStmt: %w", cerr)
+		}
+	}
+	if q.getAssertsByExampleIDOrderedStmt != nil {
+		if cerr := q.getAssertsByExampleIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAssertsByExampleIDOrderedStmt: %w", cerr)
 		}
 	}
 	if q.getBodyFormStmt != nil {
@@ -1812,6 +1837,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateAssertStmt: %w", cerr)
 		}
 	}
+	if q.updateAssertNextStmt != nil {
+		if cerr := q.updateAssertNextStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateAssertNextStmt: %w", cerr)
+		}
+	}
+	if q.updateAssertOrderStmt != nil {
+		if cerr := q.updateAssertOrderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateAssertOrderStmt: %w", cerr)
+		}
+	}
+	if q.updateAssertPrevStmt != nil {
+		if cerr := q.updateAssertPrevStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateAssertPrevStmt: %w", cerr)
+		}
+	}
 	if q.updateAssertResultStmt != nil {
 		if cerr := q.updateAssertResultStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateAssertResultStmt: %w", cerr)
@@ -2243,7 +2283,9 @@ type Queries struct {
 	getAssertResultStmt                                   *sql.Stmt
 	getAssertResultsByAssertIDStmt                        *sql.Stmt
 	getAssertResultsByResponseIDStmt                      *sql.Stmt
+	getAssertTailStmt                                     *sql.Stmt
 	getAssertsByExampleIDStmt                             *sql.Stmt
+	getAssertsByExampleIDOrderedStmt                      *sql.Stmt
 	getBodyFormStmt                                       *sql.Stmt
 	getBodyFormsByDeltaParentIDStmt                       *sql.Stmt
 	getBodyFormsByExampleIDStmt                           *sql.Stmt
@@ -2356,6 +2398,9 @@ type Queries struct {
 	setHeaderEnableStmt                                   *sql.Stmt
 	setQueryEnableStmt                                    *sql.Stmt
 	updateAssertStmt                                      *sql.Stmt
+	updateAssertNextStmt                                  *sql.Stmt
+	updateAssertOrderStmt                                 *sql.Stmt
+	updateAssertPrevStmt                                  *sql.Stmt
 	updateAssertResultStmt                                *sql.Stmt
 	updateBodyFormStmt                                    *sql.Stmt
 	updateBodyRawDataStmt                                 *sql.Stmt
@@ -2510,7 +2555,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getAssertResultStmt:                                   q.getAssertResultStmt,
 		getAssertResultsByAssertIDStmt:                        q.getAssertResultsByAssertIDStmt,
 		getAssertResultsByResponseIDStmt:                      q.getAssertResultsByResponseIDStmt,
+		getAssertTailStmt:                                     q.getAssertTailStmt,
 		getAssertsByExampleIDStmt:                             q.getAssertsByExampleIDStmt,
+		getAssertsByExampleIDOrderedStmt:                      q.getAssertsByExampleIDOrderedStmt,
 		getBodyFormStmt:                                       q.getBodyFormStmt,
 		getBodyFormsByDeltaParentIDStmt:                       q.getBodyFormsByDeltaParentIDStmt,
 		getBodyFormsByExampleIDStmt:                           q.getBodyFormsByExampleIDStmt,
@@ -2623,6 +2670,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		setHeaderEnableStmt:                                   q.setHeaderEnableStmt,
 		setQueryEnableStmt:                                    q.setQueryEnableStmt,
 		updateAssertStmt:                                      q.updateAssertStmt,
+		updateAssertNextStmt:                                  q.updateAssertNextStmt,
+		updateAssertOrderStmt:                                 q.updateAssertOrderStmt,
+		updateAssertPrevStmt:                                  q.updateAssertPrevStmt,
 		updateAssertResultStmt:                                q.updateAssertResultStmt,
 		updateBodyFormStmt:                                    q.updateBodyFormStmt,
 		updateBodyRawDataStmt:                                 q.updateBodyRawDataStmt,

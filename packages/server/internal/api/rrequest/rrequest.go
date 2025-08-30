@@ -1661,7 +1661,7 @@ func (c RequestRPC) AssertList(ctx context.Context, req *connect.Request[request
 		return nil, rpcErr
 	}
 
-	allAsserts, err := c.as.GetAssertByExampleID(ctx, exID)
+	allAsserts, err := c.as.GetAssertsOrdered(ctx, exID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -1673,17 +1673,20 @@ func (c RequestRPC) AssertList(ctx context.Context, req *connect.Request[request
 	}
 	exampleHasVersionParent := example.VersionParentID != nil
 
-	// Filter to only include origin asserts
-	var originAsserts []massert.Assert
+	// Filter to include appropriate asserts based on example type
+	var visibleAsserts []massert.Assert
 	for _, assert := range allAsserts {
 		deltaType := assert.DetermineDeltaType(exampleHasVersionParent)
-		if deltaType == massert.AssertSourceOrigin {
-			originAsserts = append(originAsserts, assert)
+		// For delta examples (with version parent), include both origin and delta asserts
+		// For regular examples, only include origin asserts
+		if deltaType == massert.AssertSourceOrigin || 
+			(exampleHasVersionParent && deltaType == massert.AssertSourceDelta) {
+			visibleAsserts = append(visibleAsserts, assert)
 		}
 	}
 
 	var rpcAssserts []*requestv1.AssertListItem
-	for _, a := range originAsserts {
+	for _, a := range visibleAsserts {
 		rpcAssert, err := tassert.SerializeAssertModelToRPCItem(a)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1715,7 +1718,7 @@ func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[reque
 	assert := tassert.SerializeAssertRPCToModelWithoutID(&rpcAssert, exID, deltaParentIDPtr)
 	assert.Enable = true
 	assert.ID = idwrap.NewNow()
-	err = c.as.CreateAssert(ctx, assert)
+	err = c.as.AppendAssert(ctx, assert)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -2158,7 +2161,7 @@ func (c RequestRPC) AssertDeltaCreate(ctx context.Context, req *connect.Request[
 	}
 	// If no assert_id provided, DeltaParentID remains nil (standalone delta)
 
-	err = c.as.CreateAssert(ctx, assert)
+	err = c.as.AppendAssert(ctx, assert)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

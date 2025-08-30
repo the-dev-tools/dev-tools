@@ -3554,6 +3554,41 @@ func (q *Queries) GetAssertResultsByResponseID(ctx context.Context, responseID i
 	return items, nil
 }
 
+const getAssertTail = `-- name: GetAssertTail :one
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  expression,
+  enable,
+  prev,
+  next
+FROM
+  assertion
+WHERE
+  example_id = ? AND
+  next IS NULL
+LIMIT
+  1
+`
+
+// Get the last assertion in the list (tail) for an example
+// Used when appending new assertions to the end of the list
+func (q *Queries) GetAssertTail(ctx context.Context, exampleID idwrap.IDWrap) (Assertion, error) {
+	row := q.queryRow(ctx, q.getAssertTailStmt, getAssertTail, exampleID)
+	var i Assertion
+	err := row.Scan(
+		&i.ID,
+		&i.ExampleID,
+		&i.DeltaParentID,
+		&i.Expression,
+		&i.Enable,
+		&i.Prev,
+		&i.Next,
+	)
+	return i, err
+}
+
 const getAssertsByExampleID = `-- name: GetAssertsByExampleID :many
 SELECT
   id,
@@ -3586,6 +3621,107 @@ func (q *Queries) GetAssertsByExampleID(ctx context.Context, exampleID idwrap.ID
 			&i.Enable,
 			&i.Prev,
 			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAssertsByExampleIDOrdered = `-- name: GetAssertsByExampleIDOrdered :many
+WITH RECURSIVE ordered_asserts AS (
+  -- Base case: Find the head (prev IS NULL) for this example
+  SELECT
+    a.id,
+    a.example_id,
+    a.delta_parent_id,
+    a.expression,
+    a.enable,
+    a.prev,
+    a.next,
+    0 as position
+  FROM
+    assertion a
+  WHERE
+    a.example_id = ? AND
+    a.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    a.id,
+    a.example_id,
+    a.delta_parent_id,
+    a.expression,
+    a.enable,
+    a.prev,
+    a.next,
+    oa.position + 1
+  FROM
+    assertion a
+  INNER JOIN ordered_asserts oa ON a.prev = oa.id
+  WHERE
+    a.example_id = ?
+)
+SELECT
+  oa.id,
+  oa.example_id,
+  oa.delta_parent_id,
+  oa.expression,
+  oa.enable,
+  oa.prev,
+  oa.next,
+  oa.position
+FROM
+  ordered_asserts oa
+ORDER BY
+  oa.position
+`
+
+type GetAssertsByExampleIDOrderedParams struct {
+	ExampleID   idwrap.IDWrap
+	ExampleID_2 idwrap.IDWrap
+}
+
+type GetAssertsByExampleIDOrderedRow struct {
+	ID            []byte
+	ExampleID     []byte
+	DeltaParentID []byte
+	Expression    string
+	Enable        bool
+	Prev          []byte
+	Next          []byte
+	Position      int64
+}
+
+// Uses WITH RECURSIVE CTE to traverse linked list from head to tail for example-scoped ordering
+// Assertions are scoped to specific examples via example_id column
+func (q *Queries) GetAssertsByExampleIDOrdered(ctx context.Context, arg GetAssertsByExampleIDOrderedParams) ([]GetAssertsByExampleIDOrderedRow, error) {
+	rows, err := q.query(ctx, q.getAssertsByExampleIDOrderedStmt, getAssertsByExampleIDOrdered, arg.ExampleID, arg.ExampleID_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAssertsByExampleIDOrderedRow{}
+	for rows.Next() {
+		var i GetAssertsByExampleIDOrderedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleID,
+			&i.DeltaParentID,
+			&i.Expression,
+			&i.Enable,
+			&i.Prev,
+			&i.Next,
+			&i.Position,
 		); err != nil {
 			return nil, err
 		}
@@ -8271,6 +8407,77 @@ func (q *Queries) UpdateAssert(ctx context.Context, arg UpdateAssertParams) erro
 		arg.Enable,
 		arg.ID,
 	)
+	return err
+}
+
+const updateAssertNext = `-- name: UpdateAssertNext :exec
+UPDATE assertion
+SET
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?
+`
+
+type UpdateAssertNextParams struct {
+	Next      *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	ExampleID idwrap.IDWrap
+}
+
+// Update only the next pointer for an assertion with example validation (used in deletion)
+func (q *Queries) UpdateAssertNext(ctx context.Context, arg UpdateAssertNextParams) error {
+	_, err := q.exec(ctx, q.updateAssertNextStmt, updateAssertNext, arg.Next, arg.ID, arg.ExampleID)
+	return err
+}
+
+const updateAssertOrder = `-- name: UpdateAssertOrder :exec
+UPDATE assertion
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?
+`
+
+type UpdateAssertOrderParams struct {
+	Prev      *idwrap.IDWrap
+	Next      *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	ExampleID idwrap.IDWrap
+}
+
+// Update the prev/next pointers for a single assertion with example validation
+// Used for moving assertions within the example's linked list
+func (q *Queries) UpdateAssertOrder(ctx context.Context, arg UpdateAssertOrderParams) error {
+	_, err := q.exec(ctx, q.updateAssertOrderStmt, updateAssertOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.ExampleID,
+	)
+	return err
+}
+
+const updateAssertPrev = `-- name: UpdateAssertPrev :exec
+UPDATE assertion
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  example_id = ?
+`
+
+type UpdateAssertPrevParams struct {
+	Prev      *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	ExampleID idwrap.IDWrap
+}
+
+// Update only the prev pointer for an assertion with example validation (used in deletion)
+func (q *Queries) UpdateAssertPrev(ctx context.Context, arg UpdateAssertPrevParams) error {
+	_, err := q.exec(ctx, q.updateAssertPrevStmt, updateAssertPrev, arg.Prev, arg.ID, arg.ExampleID)
 	return err
 }
 

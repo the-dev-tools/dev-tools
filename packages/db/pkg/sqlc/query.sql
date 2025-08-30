@@ -2247,6 +2247,106 @@ DELETE FROM assertion
 WHERE
   id = ?;
 
+-- name: GetAssertsByExampleIDOrdered :many
+-- Uses WITH RECURSIVE CTE to traverse linked list from head to tail for example-scoped ordering
+-- Assertions are scoped to specific examples via example_id column
+WITH RECURSIVE ordered_asserts AS (
+  -- Base case: Find the head (prev IS NULL) for this example
+  SELECT
+    a.id,
+    a.example_id,
+    a.delta_parent_id,
+    a.expression,
+    a.enable,
+    a.prev,
+    a.next,
+    0 as position
+  FROM
+    assertion a
+  WHERE
+    a.example_id = ? AND
+    a.prev IS NULL
+  
+  UNION ALL
+  
+  -- Recursive case: Follow the next pointers
+  SELECT
+    a.id,
+    a.example_id,
+    a.delta_parent_id,
+    a.expression,
+    a.enable,
+    a.prev,
+    a.next,
+    oa.position + 1
+  FROM
+    assertion a
+  INNER JOIN ordered_asserts oa ON a.prev = oa.id
+  WHERE
+    a.example_id = ?
+)
+SELECT
+  oa.id,
+  oa.example_id,
+  oa.delta_parent_id,
+  oa.expression,
+  oa.enable,
+  oa.prev,
+  oa.next,
+  oa.position
+FROM
+  ordered_asserts oa
+ORDER BY
+  oa.position;
+
+-- name: UpdateAssertOrder :exec
+-- Update the prev/next pointers for a single assertion with example validation
+-- Used for moving assertions within the example's linked list
+UPDATE assertion
+SET
+  prev = ?,
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?;
+
+-- name: UpdateAssertPrev :exec
+-- Update only the prev pointer for an assertion with example validation (used in deletion)
+UPDATE assertion
+SET
+  prev = ?
+WHERE
+  id = ? AND
+  example_id = ?;
+
+-- name: UpdateAssertNext :exec
+-- Update only the next pointer for an assertion with example validation (used in deletion)
+UPDATE assertion
+SET
+  next = ?
+WHERE
+  id = ? AND
+  example_id = ?;
+
+-- name: GetAssertTail :one
+-- Get the last assertion in the list (tail) for an example
+-- Used when appending new assertions to the end of the list
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  expression,
+  enable,
+  prev,
+  next
+FROM
+  assertion
+WHERE
+  example_id = ? AND
+  next IS NULL
+LIMIT
+  1;
+
 /*
 * INFO: assert_result
 */

@@ -1292,7 +1292,7 @@ func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult
 	if err != nil {
 		return fmt.Errorf("failed to create assertion: %w", err)
 	}
-	err = txAs.CreateAssertBulk(ctx, result.Assertions)
+	err = txAs.AppendBulkAssert(ctx, result.Assertions)
 	if err != nil {
 		return fmt.Errorf("failed to create assertion: %w", err)
 	}
