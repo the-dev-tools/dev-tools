@@ -221,7 +221,7 @@ func extractURL(curlStr string) string {
 	fields := strings.Fields(curlStr)
 	for i, field := range fields {
 		if i > 0 && field != "curl" && !strings.HasPrefix(field, "-") &&
-			fields[i-1] == "curl" || fields[i-1] == "-L" {
+			(fields[i-1] == "curl" || fields[i-1] == "-L") {
 			// Remove quotes if present
 			return removeQuotes(field)
 		}
@@ -424,4 +424,9 @@ func extractCookies(curlStr string, exampleID idwrap.IDWrap) []mexampleheader.He
 	}
 
 	return cookieHeaders
+}
+
+// ExtractURLForTesting exposes extractURL for testing purposes
+func ExtractURLForTesting(curlStr string) string {
+	return extractURL(curlStr)
 }

@@ -243,3 +243,127 @@ func TestSimpleOneLine(t *testing.T) {
 		t.Error("Authorization header not correctly parsed")
 	}
 }
+
+// TestIndexOutOfRangeBug tests the specific case that causes index out of range panic
+func TestIndexOutOfRangeBug(t *testing.T) {
+	// This curl command would trigger the index out of range panic before the fix
+	// The issue occurs when the URL regex doesn't match and it falls back to field parsing
+	problematicCurl := `-L https://example.com`
+	
+	// This should not panic, it should either extract the URL or return empty string
+	_, err := tcurl.ConvertCurl(problematicCurl, idwrap.NewNow())
+	// We expect an error because it's not a valid curl command, but it shouldn't panic
+	if err == nil {
+		t.Error("Expected error for invalid curl command starting with -L, got nil")
+	}
+}
+
+// TestExtractURLDirectly tests the extractURL function directly with problematic inputs
+func TestExtractURLDirectly(t *testing.T) {
+	// Test cases that previously caused panic
+	testCases := []struct {
+		input    string
+		expected string
+		name     string
+	}{
+		{"curl", "", "empty_curl_command"},
+		{"curl ", "", "curl_with_space"},
+		{"curl -L", "", "curl_with_L_flag_only"},
+		{"curl -X GET", "", "curl_with_method_only"},
+		{"curl -L https://example.com", "https://example.com", "curl_with_L_and_url"},
+		{"curl https://example.com", "https://example.com", "normal_curl_with_url"},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// This should not panic
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("extractURL panicked for input '%s': %v", tc.input, r)
+				}
+			}()
+			
+			result := tcurl.ExtractURLForTesting(tc.input)
+			if result != tc.expected {
+				t.Errorf("Expected '%s', got '%s' for input '%s'", tc.expected, result, tc.input)
+			}
+		})
+	}
+}
+
+// TestEdgeCaseEmptyFields tests edge cases with empty or minimal input
+func TestEdgeCaseEmptyFields(t *testing.T) {
+	testCases := []string{
+		"",                    // Empty string
+		"curl",                // Just curl command
+		"curl ",               // curl with space
+		"-L",                  // Just -L flag
+		"curl -L",             // curl with -L but no URL
+	}
+	
+	for _, testCase := range testCases {
+		t.Run(fmt.Sprintf("input_%s", strings.ReplaceAll(testCase, " ", "_space_")), func(t *testing.T) {
+			// These should not panic, even if they return errors
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("Panic occurred for input '%s': %v", testCase, r)
+				}
+			}()
+			
+			_, err := tcurl.ConvertCurl(testCase, idwrap.NewNow())
+			// We expect errors for these invalid inputs, but no panics
+			if err == nil && testCase != "" && testCase != "curl" && testCase != "curl " {
+				t.Logf("Unexpectedly succeeded for input '%s'", testCase)
+			}
+		})
+	}
+}
+
+// TestProtocolLessURL tests parsing URLs without protocol (http:// or https://)
+func TestProtocolLessURL(t *testing.T) {
+	testCases := []struct {
+		input       string
+		expectedURL string
+		shouldFail  bool
+		name        string
+	}{
+		{"curl google.com", "google.com", false, "google_com_no_protocol"},
+		{"curl example.com", "example.com", false, "example_com_no_protocol"},
+		{"curl www.example.com", "www.example.com", false, "www_example_com"},
+		{"curl https://google.com", "https://google.com", false, "google_com_with_https"},
+		{"curl http://google.com", "http://google.com", false, "google_com_with_http"},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// This should not panic
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("ConvertCurl panicked for input '%s': %v", tc.input, r)
+				}
+			}()
+			
+			resolved, err := tcurl.ConvertCurl(tc.input, idwrap.NewNow())
+			if tc.shouldFail {
+				if err == nil {
+					t.Errorf("Expected error for input '%s', got nil", tc.input)
+				}
+				return
+			}
+			
+			if err != nil {
+				t.Errorf("Failed to convert curl command '%s': %v", tc.input, err)
+				return
+			}
+			
+			if len(resolved.Apis) != 1 {
+				t.Errorf("Expected 1 API for '%s', got %d", tc.input, len(resolved.Apis))
+				return
+			}
+			
+			if resolved.Apis[0].Url != tc.expectedURL {
+				t.Errorf("Expected URL '%s' for input '%s', got '%s'", tc.expectedURL, tc.input, resolved.Apis[0].Url)
+			}
+		})
+	}
+}

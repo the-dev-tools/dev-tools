@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strings"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
 	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
+	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -28,6 +30,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/scollectionitem"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -76,6 +79,7 @@ type ImportRPC struct {
 	iaes sitemapiexample.ItemApiExampleService
 	res  sexampleresp.ExampleRespService
 	as   sassert.AssertService
+	cis  *scollectionitem.CollectionItemService
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService,
@@ -93,6 +97,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionSe
 		iaes: iaes,
 		res:  res,
 		as:   as,
+		cis:  nil, // Will be created in ImportCurl with proper queries
 	}
 }
 
@@ -119,13 +124,18 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	var collectionID idwrap.IDWrap
 	// Determine collection name based on import type
 	// For HAR imports (when we have data that's valid JSON), use "Imported"
-	// For other imports (curl with textData), use the provided name
+	// For other imports (curl with textData), use the provided name or generate default
 	collectionName := req.Msg.Name
 	// Check if this is a HAR import (either initial parse or filtered import)
 	isHARImport := len(textData) == 0 && (json.Valid(data) || len(req.Msg.Filter) > 0)
 	if isHARImport {
 		// This is a HAR import, use "Imported" as collection name
 		collectionName = "Imported"
+	} else if len(textData) > 0 {
+		// This is a curl import - validate and generate name if needed
+		if strings.TrimSpace(collectionName) == "" {
+			collectionName = generateCurlCollectionName(textData)
+		}
 	}
 
 	existingCollection, err := c.cs.GetCollectionByWorkspaceIDAndName(ctx, wsUlid, collectionName)
@@ -156,7 +166,7 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no api found"))
 			}
 
-			err = c.ImportCurl(ctx, wsUlid, collectionID, req.Msg.Name, curlResolved)
+			err = c.ImportCurl(ctx, wsUlid, collectionID, collectionName, curlResolved)
 			if err != nil {
 				return nil, err
 			}
@@ -357,13 +367,19 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 		}
 	}
 
-	txItemApiService, err := sitemapi.NewTX(ctx, tx)
+	// Create collection item service for proper linked-list ordering
+	mockLogger := mocklogger.NewMockLogger()
+	txCollectionItemService, err := scollectionitem.NewTX(ctx, tx, mockLogger)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	err = txItemApiService.CreateItemApiBulk(ctx, resolvedCurl.Apis)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
+
+	// Create endpoints using collection item service for proper ordering
+	for _, api := range resolvedCurl.Apis {
+		err = txCollectionItemService.CreateEndpointTX(ctx, tx, &api)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
@@ -1353,4 +1369,68 @@ func calculateFolderDepth(folder *mitemfolder.ItemFolder, allFolders []mitemfold
 
 	// Parent not in list, assume it exists in DB
 	return 1
+}
+
+// generateCurlCollectionName generates a meaningful collection name from a curl command
+// by extracting the hostname from the URL, providing a fallback if extraction fails
+func generateCurlCollectionName(curlStr string) string {
+	// Use the tcurl package to extract the URL from the curl command
+	extractedURL := tcurl.ExtractURLForTesting(curlStr)
+	
+	if extractedURL == "" {
+		// Fallback to default name if URL extraction fails
+		return "Imported from cURL"
+	}
+	
+	var hostname string
+	
+	// First try to parse the URL as-is (works for URLs with protocols)
+	if parsedURL, err := url.Parse(extractedURL); err == nil && parsedURL.Host != "" {
+		hostname = parsedURL.Host
+	} else {
+		// For protocol-less URLs like "google.com", url.Parse treats them as paths
+		// Try prepending a protocol and parsing again
+		prefixedURL := "https://" + extractedURL
+		if parsedURL, err := url.Parse(prefixedURL); err == nil && parsedURL.Host != "" {
+			hostname = parsedURL.Host
+		} else {
+			// If both parsing attempts fail, try to extract hostname manually
+			// Remove any path components (everything after first '/')
+			if slashIndex := strings.Index(extractedURL, "/"); slashIndex != -1 {
+				hostname = extractedURL[:slashIndex]
+			} else {
+				hostname = extractedURL
+			}
+		}
+	}
+	
+	if hostname == "" {
+		// Fallback if no hostname found
+		return "Imported from cURL"
+	}
+	
+	// Remove port if present and clean up hostname
+	if colonIndex := strings.Index(hostname, ":"); colonIndex != -1 {
+		hostname = hostname[:colonIndex]
+	}
+	
+	// Remove www prefix if present
+	if strings.HasPrefix(hostname, "www.") {
+		hostname = hostname[4:]
+	}
+	
+	// Create a user-friendly collection name
+	if hostname != "" {
+		// Capitalize first letter of each word manually to avoid deprecated strings.Title
+		words := strings.Split(hostname, ".")
+		for i, word := range words {
+			if len(word) > 0 {
+				words[i] = strings.ToUpper(word[:1]) + word[1:]
+			}
+		}
+		return fmt.Sprintf("%s API", strings.Join(words, "."))
+	}
+	
+	// Final fallback
+	return "Imported from cURL"
 }

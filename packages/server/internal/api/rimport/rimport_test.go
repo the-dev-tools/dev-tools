@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"net/url"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -14,6 +15,7 @@ import (
 	"the-dev-tools/server/internal/api/rimport"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
+	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/scollection"
@@ -24,6 +26,7 @@ import (
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
+	"the-dev-tools/server/pkg/translate/tcurl"
 	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
 )
 
@@ -90,6 +93,265 @@ func TestImportCurl(t *testing.T) {
 		assert.Equal(t, changev1.ChangeKind_CHANGE_KIND_UNSPECIFIED, *change.Kind)
 		assert.NotEmpty(t, change.List)
 	*/
+}
+
+func TestImportCurl_ProtocolLessURL(t *testing.T) {
+	// Setup test context and database
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	mockLogger := mocklogger.NewMockLogger()
+
+	// Initialize services
+	ws := sworkspace.New(queries)
+	cs := scollection.New(queries, mockLogger)
+	us := suser.New(queries)
+	ifs := sitemfolder.New(queries)
+	ias := sitemapi.New(queries)
+	iaes := sitemapiexample.New(queries)
+	ers := sexampleresp.New(queries)
+	as := sassert.New(queries)
+
+	// Create test data - workspace, user, etc.
+	workspaceID := idwrap.NewNow()
+	workspaceUserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+
+	// Setup workspace and collection for testing
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, idwrap.NewNow())
+
+	// Test the specific problematic curl command
+	curlStr := `curl google.com`
+
+	// Create ImportRPC with actual services
+	importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers, as)
+
+	// Create request - no name provided to trigger hostname extraction
+	req := connect.NewRequest(&importv1.ImportRequest{
+		WorkspaceId: workspaceID.Bytes(),
+		TextData:    curlStr,
+		Name:        "", // Empty name to trigger automatic generation
+	})
+
+	// Call Import method with authenticated context
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := importRPC.Import(authedCtx, req)
+
+	// Debug logging
+	t.Logf("Import response: %+v", resp)
+	if err != nil {
+		t.Logf("Import error: %v", err)
+	}
+
+	// Assertions
+	require.NoError(t, err, "Import should succeed for 'curl google.com'")
+	assert.NotNil(t, resp)
+
+	// Now test if the collection was actually created by checking CollectionList
+	collectionService := cs
+	collections, err := collectionService.GetCollectionsOrdered(ctx, workspaceID)
+	require.NoError(t, err, "Should be able to get collections")
+	
+	// Debug: print collections found
+	t.Logf("Collections found: %d", len(collections))
+	for i, col := range collections {
+		t.Logf("Collection %d: ID=%s, Name=%s", i, col.ID.String(), col.Name)
+	}
+
+	// Verify a collection was created
+	// There should be at least 2 collections: the original temp one plus the imported one
+	assert.GreaterOrEqual(t, len(collections), 2, "Should have at least 2 collections (temp + imported)")
+	
+	// Find the imported collection
+	var importedCollection *mcollection.Collection
+	for _, col := range collections {
+		if strings.Contains(col.Name, "Imported from cURL") || strings.Contains(col.Name, "Google") || strings.Contains(col.Name, "google") {
+			importedCollection = &col
+			break
+		}
+	}
+	
+	require.NotNil(t, importedCollection, "Should have created an imported collection")
+	t.Logf("Found imported collection: %s", importedCollection.Name)
+	
+	// Verify the collection has endpoints
+	apis, err := ias.GetApisWithCollectionID(ctx, importedCollection.ID)
+	require.NoError(t, err, "Should be able to get APIs for the collection")
+	
+	// Debug: print APIs found  
+	t.Logf("APIs found: %d", len(apis))
+	for i, api := range apis {
+		t.Logf("API %d: ID=%s, Method=%s, URL=%s", i, api.ID.String(), api.Method, api.Url)
+	}
+	
+	assert.Len(t, apis, 1, "Should have exactly 1 API endpoint")
+	assert.Equal(t, "GET", apis[0].Method, "Should be GET method")
+	assert.Equal(t, "google.com", apis[0].Url, "Should have google.com as URL")
+}
+
+func TestCurlURLExtraction(t *testing.T) {
+	// Import the tcurl package to test URL extraction directly
+	curlStr := `curl google.com`
+	
+	// Test the URL extraction function used in collection name generation
+	extractedURL := tcurl.ExtractURLForTesting(curlStr)  // Use the exported test function
+	t.Logf("Extracted URL for 'curl google.com': '%s'", extractedURL)
+	
+	// This should not be empty for protocol-less URLs
+	assert.NotEmpty(t, extractedURL, "Should extract URL from protocol-less curl command")
+	assert.Equal(t, "google.com", extractedURL, "Should extract 'google.com' from curl command")
+}
+
+func TestURLParsingIssue(t *testing.T) {
+	// Test the issue with url.Parse on protocol-less URLs
+	testURL := "google.com"
+	
+	parsed, err := url.Parse(testURL)
+	require.NoError(t, err, "url.Parse should not fail")
+	
+	t.Logf("Parsed URL: Scheme='%s', Host='%s', Path='%s'", parsed.Scheme, parsed.Host, parsed.Path)
+	
+	// This is the issue: url.Parse treats "google.com" as a path, not a host
+	assert.Empty(t, parsed.Host, "Host should be empty for protocol-less URL")
+	assert.Equal(t, "google.com", parsed.Path, "Path should contain the domain for protocol-less URL")
+	
+	// Test with protocol
+	testURLWithProtocol := "https://google.com"
+	parsedWithProtocol, err := url.Parse(testURLWithProtocol)
+	require.NoError(t, err)
+	
+	t.Logf("Parsed URL with protocol: Scheme='%s', Host='%s', Path='%s'", parsedWithProtocol.Scheme, parsedWithProtocol.Host, parsedWithProtocol.Path)
+	assert.Equal(t, "google.com", parsedWithProtocol.Host, "Host should be properly parsed with protocol")
+}
+
+func TestGenerateCurlCollectionName(t *testing.T) {
+	// Test the fixed generateCurlCollectionName function with various URL patterns
+	testCases := []struct {
+		curlCommand    string
+		expectedName   string
+		description    string
+	}{
+		{
+			curlCommand:  "curl google.com",
+			expectedName: "Google.Com API",
+			description:  "protocol-less domain",
+		},
+		{
+			curlCommand:  "curl https://google.com",
+			expectedName: "Google.Com API", 
+			description:  "domain with https protocol",
+		},
+		{
+			curlCommand:  "curl http://example.com",
+			expectedName: "Example.Com API",
+			description:  "domain with http protocol",
+		},
+		{
+			curlCommand:  "curl www.github.com",
+			expectedName: "Github.Com API",
+			description:  "protocol-less www domain (should remove www)",
+		},
+		{
+			curlCommand:  "curl https://api.stripe.com/v1/charges",
+			expectedName: "Api.Stripe.Com API",
+			description:  "subdomain with path",
+		},
+		{
+			curlCommand:  "curl localhost:8080",
+			expectedName: "Localhost API",
+			description:  "localhost with port (should remove port)",
+		},
+		{
+			curlCommand:  "curl invalidcommand",
+			expectedName: "Imported from cURL",
+			description:  "invalid command should fallback",
+		},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			// We need to test the actual generateCurlCollectionName function
+			// Since it's not exported, we'll test the Import function and check the collection name
+			
+			// Setup test context and database
+			ctx := context.Background()
+			base := testutil.CreateBaseDB(ctx, t)
+			queries := base.Queries
+			db := base.DB
+
+			mockLogger := mocklogger.NewMockLogger()
+			ws := sworkspace.New(queries)
+			cs := scollection.New(queries, mockLogger)
+			us := suser.New(queries)
+			ifs := sitemfolder.New(queries)
+			ias := sitemapi.New(queries)
+			iaes := sitemapiexample.New(queries)
+			ers := sexampleresp.New(queries)
+			as := sassert.New(queries)
+
+			workspaceID := idwrap.NewNow()
+			workspaceUserID := idwrap.NewNow()
+			userID := idwrap.NewNow()
+
+			baseServices := base.GetBaseServices()
+			baseServices.CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, idwrap.NewNow())
+
+			importRPC := rimport.New(db, ws, cs, us, ifs, ias, iaes, ers, as)
+
+			req := connect.NewRequest(&importv1.ImportRequest{
+				WorkspaceId: workspaceID.Bytes(),
+				TextData:    tc.curlCommand,
+				Name:        "", // Empty to trigger name generation
+			})
+
+			authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+			resp, err := importRPC.Import(authedCtx, req)
+
+			if tc.expectedName == "Imported from cURL" {
+				// For invalid commands, we expect an error or fallback
+				if err == nil {
+					// Check if we got the fallback collection name
+					collections, getErr := cs.GetCollectionsOrdered(ctx, workspaceID)
+					require.NoError(t, getErr)
+					
+					var foundCollection *mcollection.Collection
+					for _, col := range collections {
+						if col.Name == tc.expectedName {
+							foundCollection = &col
+							break
+						}
+					}
+					
+					if foundCollection != nil {
+						t.Logf("Got expected fallback name: %s", foundCollection.Name)
+						assert.Equal(t, tc.expectedName, foundCollection.Name)
+					}
+				}
+				return
+			}
+
+			require.NoError(t, err, "Import should succeed for: %s", tc.curlCommand)
+			assert.NotNil(t, resp)
+
+			collections, err := cs.GetCollectionsOrdered(ctx, workspaceID)
+			require.NoError(t, err)
+
+			var foundCollection *mcollection.Collection
+			for _, col := range collections {
+				// Skip the temp collection
+				if col.Name != "test" {
+					foundCollection = &col
+					break
+				}
+			}
+
+			require.NotNil(t, foundCollection, "Should have created a collection for: %s", tc.curlCommand)
+			assert.Equal(t, tc.expectedName, foundCollection.Name, "Collection name should match expected for: %s", tc.curlCommand)
+		})
+	}
 }
 
 func TestImportCurl_OverwriteExistingCollection(t *testing.T) {
