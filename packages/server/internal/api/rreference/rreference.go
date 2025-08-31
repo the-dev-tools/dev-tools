@@ -161,6 +161,8 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, ErrEnvNotFound)
 			}
+			// Filter to only include enabled variables
+			sortenabled.GetAllWithState(&vars, true)
 			for _, v := range vars {
 				foundEnvs := present[v.VarKey]
 				foundEnvs = append(foundEnvs, env)
@@ -489,6 +491,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 				return nil, connect.NewError(connect.CodeInternal, ErrEnvNotFound)
 			}
 
+			// Filter to only include enabled variables
+			sortenabled.GetAllWithState(&vars, true)
 			for _, v := range vars {
 				creator.AddWithKey(v.VarKey, v.Value)
 			}
@@ -786,6 +790,8 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 				return nil, connect.NewError(connect.CodeInternal, ErrEnvNotFound)
 			}
 
+			// Filter to only include enabled variables
+			sortenabled.GetAllWithState(&vars, true)
 			for _, v := range vars {
 				lookup.AddWithKey(v.VarKey, v.Value)
 			}

@@ -20,3 +20,8 @@ type Var struct {
 	Enabled     bool
 	Description string
 }
+
+// IsEnabled returns whether the variable is enabled
+func (v Var) IsEnabled() bool {
+	return v.Enabled
+}
