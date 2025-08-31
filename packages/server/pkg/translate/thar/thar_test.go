@@ -7,6 +7,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
@@ -1200,7 +1201,7 @@ func TestHarNoJSONBodyTemplating(t *testing.T) {
 		t.Fatalf("Error converting HAR: %v", err)
 	}
 
-	// Verify that JSON bodies are NOT templated (new behavior)
+	// Verify JSON body templating behavior: base examples unmodified, delta examples templated
 	for _, example := range resolved.Examples {
 		var rawBody *mbodyraw.ExampleBodyRaw
 		for _, body := range resolved.RawBodies {
@@ -1215,24 +1216,49 @@ func TestHarNoJSONBodyTemplating(t *testing.T) {
 			continue
 		}
 
-		// Convert raw body to string for checking
-		bodyStr := string(rawBody.Data)
+		// Decompress if needed
+		var bodyData []byte
+		if rawBody.CompressType == compress.CompressTypeZstd {
+			decompressed, err := compress.Decompress(rawBody.Data, compress.CompressTypeZstd)
+			if err != nil {
+				t.Errorf("Failed to decompress body: %v", err)
+				continue
+			}
+			bodyData = decompressed
+		} else {
+			bodyData = rawBody.Data
+		}
+		
+		bodyStr := string(bodyData)
 
 		// Check if this is the products request
 		if strings.Contains(bodyStr, "category_id") {
-			// Verify that the category_id is NOT replaced with a template variable (new behavior)
-			if strings.Contains(bodyStr, "{{") && strings.Contains(bodyStr, "}}") {
-				t.Errorf("Category ID should NOT be replaced with template variable in JSON request body (new behavior): %s", bodyStr)
-			}
-			// Verify the original value is preserved
-			if !strings.Contains(bodyStr, "\"category_id\": 2") {
-				t.Errorf("Original category_id value not preserved in request body: %s", bodyStr)
+			// Determine if this is a delta example
+			isDelta := strings.Contains(example.Name, "Delta")
+			
+			if isDelta {
+				// Delta examples SHOULD have templated values
+				if !strings.Contains(bodyStr, "{{") || !strings.Contains(bodyStr, "}}") {
+					t.Errorf("Delta example should have templated category_id in JSON body: %s", bodyStr)
+				}
+				if !strings.Contains(bodyStr, "{{ request_0.response.body.id }}") {
+					t.Errorf("Delta example should have category_id templated as {{ request_0.response.body.id }}: %s", bodyStr)
+				}
+			} else {
+				// Base examples should preserve original values
+				if strings.Contains(bodyStr, "{{") && strings.Contains(bodyStr, "}}") {
+					t.Errorf("Base example should NOT have template variables in JSON body: %s", bodyStr)
+				}
+				// The original test expects "category_id": 2 but the JSON might be ordered differently
+				if !strings.Contains(bodyStr, "\"category_id\":2") && !strings.Contains(bodyStr, "\"category_id\": 2") {
+					t.Errorf("Base example should preserve original category_id value: %s", bodyStr)
+				}
 			}
 		}
 	}
 
-	// Template variables and edges are now only created for query/header/form/urlencoded bodies,
-	// not for JSON request bodies. This is the expected behavior.
+	// Template variables and edges are created for all body types including JSON bodies
+	// but only for delta examples - base examples preserve original values.
 }
 
 func TestHarTemplatingInDeltasOnly(t *testing.T) {
@@ -2479,14 +2505,41 @@ func TestHarComprehensiveIntegration(t *testing.T) {
 		}
 	})
 
-	// === Test 5: Verify JSON bodies are NOT templated ===
-	t.Run("JSONNotTemplated", func(t *testing.T) {
+	// === Test 5: Verify JSON body templating: base preserved, delta templated ===
+	t.Run("JSONTemplatingBehavior", func(t *testing.T) {
 		for _, body := range resolved.RawBodies {
-			bodyStr := string(body.Data)
+			// Decompress if needed
+			var bodyData []byte
+			if body.CompressType == compress.CompressTypeZstd {
+				decompressed, err := compress.Decompress(body.Data, compress.CompressTypeZstd)
+				if err != nil {
+					continue // Skip if decompression fails
+				}
+				bodyData = decompressed
+			} else {
+				bodyData = body.Data
+			}
+			
+			bodyStr := string(bodyData)
 			if strings.Contains(bodyStr, "user_id") || strings.Contains(bodyStr, "category_id") {
 				// This is a JSON body that might have had dependencies
-				if strings.Contains(bodyStr, "{{") && strings.Contains(bodyStr, "}}") {
-					t.Errorf("JSON body should NOT contain template variables: %s", bodyStr)
+				// Find the corresponding example to check if it's a delta
+				var isDelta bool
+				for _, example := range resolved.Examples {
+					if example.ID == body.ExampleID {
+						isDelta = strings.Contains(example.Name, "Delta")
+						break
+					}
+				}
+				
+				if isDelta {
+					// Delta examples can have template variables
+					// This is expected behavior now
+				} else {
+					// Base examples should NOT have template variables
+					if strings.Contains(bodyStr, "{{") && strings.Contains(bodyStr, "}}") {
+						t.Errorf("Base example JSON body should NOT contain template variables: %s", bodyStr)
+					}
 				}
 			}
 		}

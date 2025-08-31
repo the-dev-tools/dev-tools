@@ -172,7 +172,6 @@ func (d DepFinder) ReplaceWithPathsSubstring(value any) (any, bool, []VarCouple)
 func (d DepFinder) replaceWithPaths(value any, allowSubstring bool) (any, bool, []VarCouple) {
 	var findAny bool
 	var couples []VarCouple
-	var couplesSub []VarCouple
 
 	switch v := value.(type) {
 	case map[string]any:
@@ -185,7 +184,11 @@ func (d DepFinder) replaceWithPaths(value any, allowSubstring bool) (any, bool, 
 		result := make(map[string]any)
 		for _, key := range keys {
 			val := v[key]
-			result[key], findAny, couplesSub = d.replaceWithPaths(val, allowSubstring)
+			templated, found, couplesSub := d.replaceWithPaths(val, allowSubstring)
+			result[key] = templated
+			if found {
+				findAny = true
+			}
 			couples = append(couples, couplesSub...)
 		}
 		return result, findAny, couples
@@ -193,7 +196,11 @@ func (d DepFinder) replaceWithPaths(value any, allowSubstring bool) (any, bool, 
 	case []any:
 		result := make([]any, len(v))
 		for i, val := range v {
-			result[i], findAny, couplesSub = d.replaceWithPaths(val, allowSubstring)
+			templated, found, couplesSub := d.replaceWithPaths(val, allowSubstring)
+			result[i] = templated
+			if found {
+				findAny = true
+			}
 			couples = append(couples, couplesSub...)
 		}
 		return result, findAny, couples

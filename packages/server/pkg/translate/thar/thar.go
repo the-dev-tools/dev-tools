@@ -807,11 +807,11 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 				example.BodyType = mitemapiexample.BodyTypeUrlencoded
 
 			} else {
-				// For JSON and other raw bodies, use original data without templating
-				// JSON bodies should never be templated according to requirements
+				// For JSON and other raw bodies
+				// Base examples use original data, delta examples use templated data
 				bodyBytes := []byte(postData.Text)
 
-				// Still check for dependencies to create edges, but don't modify the body
+				// Check for dependencies and template JSON bodies for delta examples
 				if json.Valid(bodyBytes) {
 					resultDep := depFinder.TemplateJSON(bodyBytes)
 					if resultDep.Err != nil {
@@ -828,8 +828,8 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 									SourceHandler: edge.HandleUnspecified,
 								})
 							}
-							// DO NOT store templated JSON - JSON bodies should never be templated
-							// templatedBodyBytes = resultDep.NewJson
+							// Store templated JSON for delta examples
+							templatedBodyBytes = resultDep.NewJson
 						}
 					}
 				}
