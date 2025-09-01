@@ -1,0 +1,13 @@
+diff --git a/dist/useTableState.mjs b/dist/useTableState.mjs
+index ed3fc9b9febd1a9a685086fb08c3ad1c3272533b..49f173c08cc0bd181857a87015b14ea45d537129 100644
+--- a/dist/useTableState.mjs
++++ b/dist/useTableState.mjs
+@@ -50,7 +50,7 @@ function $4a0dd036d492cee4$export$907bcc6c48325fd6(props) {
+         selectionManager: selectionManager,
+         showSelectionCheckboxes: props.showSelectionCheckboxes || false,
+         sortDescriptor: (_props_sortDescriptor = props.sortDescriptor) !== null && _props_sortDescriptor !== void 0 ? _props_sortDescriptor : null,
+-        isKeyboardNavigationDisabled: collection.size === 0 || isKeyboardNavigationDisabled,
++        isKeyboardNavigationDisabled: props.isKeyboardNavigationDisabled ?? (collection.size === 0 || isKeyboardNavigationDisabled),
+         setKeyboardNavigationDisabled: setKeyboardNavigationDisabled,
+         sort (columnKey, direction) {
+             var _props_sortDescriptor, _props_onSortChange;

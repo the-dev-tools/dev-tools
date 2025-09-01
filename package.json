@@ -37,7 +37,8 @@
     },
     "patchedDependencies": {
       "@nx/eslint": "patches/@nx__eslint.patch",
-      "@typespec/protobuf": "patches/@typespec__protobuf.patch"
+      "@typespec/protobuf": "patches/@typespec__protobuf.patch",
+      "@react-stately/table": "patches/@react-stately__table.patch"
     },
     "onlyBuiltDependencies": [
       "@bufbuild/buf",

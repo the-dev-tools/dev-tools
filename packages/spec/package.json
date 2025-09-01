@@ -21,7 +21,7 @@
     "@alloy-js/cli": "~0.19.0",
     "@alloy-js/core": "~0.19.0",
     "@alloy-js/typescript": "~0.19.0",
-    "@bufbuild/buf": "~1.56.0",
+    "@bufbuild/buf": "~1.57.0",
     "@bufbuild/protobuf": "~2.7.0",
     "@bufbuild/protoc-gen-es": "~2.7.0",
     "@connectrpc/protoc-gen-connect-query": "~2.1.1",

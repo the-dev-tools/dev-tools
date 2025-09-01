@@ -8,7 +8,7 @@ import {
   useReactTable as useReactTablePrimitive,
 } from '@tanstack/react-table';
 import { pipe } from 'effect';
-import { ComponentProps, ReactNode, RefAttributes, useEffect, useRef } from 'react';
+import { ComponentProps, ReactNode, RefAttributes } from 'react';
 import {
   Cell as AriaCell,
   CellProps as AriaCellProps,
@@ -99,17 +99,6 @@ export const DataTable = <T extends object>({
 }: DataTableProps<T>) => {
   const forwardedProps = splitProps(props, 'wrapper', 'table', 'headerColumn', 'header', 'row', 'cell', 'body');
 
-  // Disable key propagation when table is focused to allow input fields in table
-  // https://github.com/adobe/react-spectrum/issues/4674#issuecomment-1667722934
-  const isFocused = useRef(false);
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (isFocused.current) e.stopPropagation();
-    };
-    window.addEventListener('keydown', handler, true);
-    return () => void window.removeEventListener('keydown', handler, true);
-  }, []);
-
   const headerGroups = table.getHeaderGroups();
   if (headerGroups.length !== 1) throw new Error('Header groups not supported');
   const { headers } = headerGroups[0]!;
@@ -117,18 +106,8 @@ export const DataTable = <T extends object>({
   return (
     <div {...forwardedProps.wrapper} className={twMerge(tableStyles.wrapper, wrapperClassName)}>
       <AriaTable
-        ref={(ref) => {
-          const handleFocusIn = () => (isFocused.current = true);
-          const handleFocusOut = () => (isFocused.current = false);
-
-          ref?.addEventListener('focusin', handleFocusIn);
-          ref?.addEventListener('focusout', handleFocusOut);
-
-          return () => {
-            ref?.removeEventListener('focusin', handleFocusIn);
-            ref?.removeEventListener('focusout', handleFocusOut);
-          };
-        }}
+        // @ts-expect-error patched workaround until fixed upstream https://github.com/adobe/react-spectrum/issues/2328
+        isKeyboardNavigationDisabled
         {...forwardedProps.table}
         className={composeRenderPropsTW(tableClassName, tableStyles.table)}
         style={{
