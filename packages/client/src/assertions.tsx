@@ -1,6 +1,6 @@
 import { Struct } from 'effect';
 import { useEffect } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { LuTrash2 } from 'react-icons/lu';
 import { useDebouncedCallback } from 'use-debounce';
 import {
@@ -48,6 +48,14 @@ export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => 
     return () => void subscription.unsubscribe();
   }, [assertUpdateCallback, form]);
 
+  const canAdd = useWatch({
+    compute: ({ items }) => {
+      if (items.length < 1) return true;
+      return !!items[items.length - 1]?.condition?.comparison?.expression;
+    },
+    control: form.control,
+  });
+
   return (
     <div className={tw`flex flex-col gap-2`}>
       {fieldArray.fields.map((item, index) => (
@@ -70,11 +78,13 @@ export const AssertionView = ({ exampleId, isReadOnly }: AssertionViewProps) => 
 
       {!isReadOnly && (
         <Button
-          isDisabled={false}
-          onPress={() => void dataClient.fetch(AssertCreateEndpoint, { 
-            exampleId, 
-            condition: { comparison: { expression: '' } } 
-          })}
+          isDisabled={!canAdd}
+          onPress={() =>
+            void dataClient.fetch(AssertCreateEndpoint, {
+              condition: { comparison: { expression: '' } },
+              exampleId,
+            })
+          }
         >
           New Assertion
         </Button>
