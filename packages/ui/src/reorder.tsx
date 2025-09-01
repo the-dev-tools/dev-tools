@@ -30,6 +30,8 @@ export const basicReorder =
 
       const target = yield* Option.liftPredicate(key, Predicate.isString);
 
+      if (source === target) return;
+
       callback({ position, source, target });
     });
 

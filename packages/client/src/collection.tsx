@@ -134,14 +134,10 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
 
       const { _tag: targetType } = pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, (_) => _(key));
 
-      if (types.has(EndpointKey._tag) && targetType === FolderKey._tag) return true;
+      const sourceCanMove = types.has(EndpointKey._tag) || types.has(FolderKey._tag);
+      const targetCanAccept = targetType === FolderKey._tag || targetType === CollectionKey._tag;
 
-      if (types.has(FolderKey._tag)) {
-        if (targetType === FolderKey._tag) return true;
-        if (targetType === CollectionKey._tag) return true;
-      }
-
-      return false;
+      return sourceCanMove && targetCanAccept;
     },
 
     onItemDrop: async ({ items, target }) => {
@@ -173,6 +169,8 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
       const key = pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, (_) => _(keyMaybe));
 
       const targetKey = pipe(Schema.parseJson(TreeKey), Schema.decodeUnknownSync, (_) => _(target.key));
+
+      if (Schema.equivalence(TreeKey)(key, targetKey)) return;
 
       const position = pipe(
         Match.value(target.dropPosition),
