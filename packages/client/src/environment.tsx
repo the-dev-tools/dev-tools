@@ -361,7 +361,7 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name } }: En
           </div>
         }
       >
-        <VariablesTable environmentId={environmentId} />
+        <VariablesTable environmentId={environmentId} key={Ulid.construct(environmentId).toCanonical()} />
       </Suspense>
     </div>
   );
