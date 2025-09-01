@@ -1,5 +1,5 @@
 import { timestampDate } from '@bufbuild/protobuf/wkt';
-import { Array, DateTime, Match, Option, pipe, Predicate } from 'effect';
+import { DateTime, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
 import { ListBox, ListBoxItem, MenuTrigger, useDragAndDrop } from 'react-aria-components';
@@ -14,12 +14,12 @@ import {
   WorkspaceUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
 import { WorkspaceListItemEntity } from '@the-dev-tools/spec/meta/workspace/v1/workspace.entities.js';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
 import { Link } from '@the-dev-tools/ui/link';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
+import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
@@ -35,31 +35,14 @@ export const WorkspaceListPage = () => {
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: ({ keys, target: { dropPosition, key } }) =>
-      Option.gen(function* () {
-        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
-
-        const sourceIdCan = yield* pipe(
-          yield* Option.liftPredicate(keys, (_) => _.size === 1),
-          Array.fromIterable,
-          Array.head,
-          Option.filter(Predicate.isString),
-        );
-
-        const position = yield* pipe(
-          Match.value(dropPosition),
-          Match.when('after', () => MovePosition.AFTER),
-          Match.when('before', () => MovePosition.BEFORE),
-          Match.option,
-        );
-
-        void dataClient.fetch(WorkspaceMoveEndpoint, {
-          position,
-          targetWorkspaceId: Ulid.fromCanonical(targetIdCan).bytes,
-          workspaceId: Ulid.fromCanonical(sourceIdCan).bytes,
-        });
+    onReorder: basicReorder(({ position, source, target }) =>
+      dataClient.fetch(WorkspaceMoveEndpoint, {
+        position,
+        targetWorkspaceId: Ulid.fromCanonical(target).bytes,
+        workspaceId: Ulid.fromCanonical(source).bytes,
       }),
-    renderDropIndicator: () => <div className={tw`relative z-10 h-0 w-full border-none ring ring-violet-700`} />,
+    ),
+    renderDropIndicator: () => <DropIndicatorHorizontal />,
   });
 
   return (

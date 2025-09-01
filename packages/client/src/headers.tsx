@@ -1,4 +1,4 @@
-import { Array, Match, Option, pipe, Predicate } from 'effect';
+import { pipe } from 'effect';
 import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
 import { HeaderDeltaListItem, HeaderListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
@@ -14,9 +14,8 @@ import {
   HeaderMoveEndpoint,
   HeaderUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
-import { tw } from '@the-dev-tools/ui/tailwind-literal';
+import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { GenericMessage } from '~api/utils';
 import { matchAllEndpoint, useQuery } from '~data-client';
 import { rootRouteApi } from '~routes';
@@ -99,32 +98,15 @@ const FormTable = ({ exampleId }: FormTableProps) => {
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: ({ keys, target: { dropPosition, key } }) =>
-      Option.gen(function* () {
-        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
-
-        const sourceIdCan = yield* pipe(
-          yield* Option.liftPredicate(keys, (_) => _.size === 1),
-          Array.fromIterable,
-          Array.head,
-          Option.filter(Predicate.isString),
-        );
-
-        const position = yield* pipe(
-          Match.value(dropPosition),
-          Match.when('after', () => MovePosition.AFTER),
-          Match.when('before', () => MovePosition.BEFORE),
-          Match.option,
-        );
-
-        void dataClient.fetch(HeaderMoveEndpoint, {
-          exampleId,
-          headerId: Ulid.fromCanonical(sourceIdCan).bytes,
-          position,
-          targetHeaderId: Ulid.fromCanonical(targetIdCan).bytes,
-        });
+    onReorder: basicReorder(({ position, source, target }) =>
+      dataClient.fetch(HeaderMoveEndpoint, {
+        exampleId,
+        headerId: Ulid.fromCanonical(source).bytes,
+        position,
+        targetHeaderId: Ulid.fromCanonical(target).bytes,
       }),
-    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+    ),
+    renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
   return <DataTable {...formTable} table={table} tableAria-label='Headers' tableDragAndDropHooks={dragAndDropHooks} />;
@@ -152,33 +134,16 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: ({ keys, target: { dropPosition, key } }) =>
-      Option.gen(function* () {
-        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
-
-        const sourceIdCan = yield* pipe(
-          yield* Option.liftPredicate(keys, (_) => _.size === 1),
-          Array.fromIterable,
-          Array.head,
-          Option.filter(Predicate.isString),
-        );
-
-        const position = yield* pipe(
-          Match.value(dropPosition),
-          Match.when('after', () => MovePosition.AFTER),
-          Match.when('before', () => MovePosition.BEFORE),
-          Match.option,
-        );
-
-        void dataClient.fetch(HeaderDeltaMoveEndpoint, {
-          exampleId,
-          headerId: Ulid.fromCanonical(sourceIdCan).bytes,
-          originId,
-          position,
-          targetHeaderId: Ulid.fromCanonical(targetIdCan).bytes,
-        });
+    onReorder: basicReorder(({ position, source, target }) =>
+      dataClient.fetch(HeaderDeltaMoveEndpoint, {
+        exampleId,
+        headerId: Ulid.fromCanonical(source).bytes,
+        originId,
+        position,
+        targetHeaderId: Ulid.fromCanonical(target).bytes,
       }),
-    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+    ),
+    renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
   return (

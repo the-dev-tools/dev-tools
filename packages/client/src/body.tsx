@@ -1,7 +1,7 @@
 import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Match, Option, pipe, Predicate } from 'effect';
+import { Match, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { useContext, useState } from 'react';
 import { useDragAndDrop } from 'react-aria-components';
@@ -43,10 +43,10 @@ import {
   ExampleUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
+import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { Select } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { GenericMessage } from '~api/utils';
@@ -184,32 +184,15 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: ({ keys, target: { dropPosition, key } }) =>
-      Option.gen(function* () {
-        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
-
-        const sourceIdCan = yield* pipe(
-          yield* Option.liftPredicate(keys, (_) => _.size === 1),
-          Array.fromIterable,
-          Array.head,
-          Option.filter(Predicate.isString),
-        );
-
-        const position = yield* pipe(
-          Match.value(dropPosition),
-          Match.when('after', () => MovePosition.AFTER),
-          Match.when('before', () => MovePosition.BEFORE),
-          Match.option,
-        );
-
-        void dataClient.fetch(BodyFormMoveEndpoint, {
-          bodyId: Ulid.fromCanonical(sourceIdCan).bytes,
-          exampleId,
-          position,
-          targetBodyId: Ulid.fromCanonical(targetIdCan).bytes,
-        });
+    onReorder: basicReorder(({ position, source, target }) =>
+      dataClient.fetch(BodyFormMoveEndpoint, {
+        bodyId: Ulid.fromCanonical(source).bytes,
+        exampleId,
+        position,
+        targetBodyId: Ulid.fromCanonical(target).bytes,
       }),
-    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+    ),
+    renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
   return (
@@ -245,33 +228,16 @@ const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: 
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: ({ keys, target: { dropPosition, key } }) =>
-      Option.gen(function* () {
-        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
-
-        const sourceIdCan = yield* pipe(
-          yield* Option.liftPredicate(keys, (_) => _.size === 1),
-          Array.fromIterable,
-          Array.head,
-          Option.filter(Predicate.isString),
-        );
-
-        const position = yield* pipe(
-          Match.value(dropPosition),
-          Match.when('after', () => MovePosition.AFTER),
-          Match.when('before', () => MovePosition.BEFORE),
-          Match.option,
-        );
-
-        void dataClient.fetch(BodyFormDeltaMoveEndpoint, {
-          bodyId: Ulid.fromCanonical(sourceIdCan).bytes,
-          exampleId,
-          originId,
-          position,
-          targetBodyId: Ulid.fromCanonical(targetIdCan).bytes,
-        });
+    onReorder: basicReorder(({ position, source, target }) =>
+      dataClient.fetch(BodyFormDeltaMoveEndpoint, {
+        bodyId: Ulid.fromCanonical(source).bytes,
+        exampleId,
+        originId,
+        position,
+        targetBodyId: Ulid.fromCanonical(target).bytes,
       }),
-    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+    ),
+    renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
   return (
@@ -364,32 +330,15 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: ({ keys, target: { dropPosition, key } }) =>
-      Option.gen(function* () {
-        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
-
-        const sourceIdCan = yield* pipe(
-          yield* Option.liftPredicate(keys, (_) => _.size === 1),
-          Array.fromIterable,
-          Array.head,
-          Option.filter(Predicate.isString),
-        );
-
-        const position = yield* pipe(
-          Match.value(dropPosition),
-          Match.when('after', () => MovePosition.AFTER),
-          Match.when('before', () => MovePosition.BEFORE),
-          Match.option,
-        );
-
-        void dataClient.fetch(BodyUrlEncodedMoveEndpoint, {
-          bodyId: Ulid.fromCanonical(sourceIdCan).bytes,
-          exampleId,
-          position,
-          targetBodyId: Ulid.fromCanonical(targetIdCan).bytes,
-        });
+    onReorder: basicReorder(({ position, source, target }) =>
+      dataClient.fetch(BodyUrlEncodedMoveEndpoint, {
+        bodyId: Ulid.fromCanonical(source).bytes,
+        exampleId,
+        position,
+        targetBodyId: Ulid.fromCanonical(target).bytes,
       }),
-    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+    ),
+    renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
   return (
@@ -429,33 +378,16 @@ const UrlEncodedDeltaFormTable = ({
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: ({ keys, target: { dropPosition, key } }) =>
-      Option.gen(function* () {
-        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
-
-        const sourceIdCan = yield* pipe(
-          yield* Option.liftPredicate(keys, (_) => _.size === 1),
-          Array.fromIterable,
-          Array.head,
-          Option.filter(Predicate.isString),
-        );
-
-        const position = yield* pipe(
-          Match.value(dropPosition),
-          Match.when('after', () => MovePosition.AFTER),
-          Match.when('before', () => MovePosition.BEFORE),
-          Match.option,
-        );
-
-        void dataClient.fetch(BodyUrlEncodedDeltaMoveEndpoint, {
-          bodyId: Ulid.fromCanonical(sourceIdCan).bytes,
-          exampleId,
-          originId,
-          position,
-          targetBodyId: Ulid.fromCanonical(targetIdCan).bytes,
-        });
+    onReorder: basicReorder(({ position, source, target }) =>
+      dataClient.fetch(BodyUrlEncodedDeltaMoveEndpoint, {
+        bodyId: Ulid.fromCanonical(source).bytes,
+        exampleId,
+        originId,
+        position,
+        targetBodyId: Ulid.fromCanonical(target).bytes,
       }),
-    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+    ),
+    renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
   return (

@@ -1,4 +1,4 @@
-import { Array, HashMap, Match, Option, pipe, Predicate } from 'effect';
+import { Array, HashMap, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useState } from 'react';
 import {
@@ -36,13 +36,13 @@ import {
   WorkspaceGetEndpoint,
   WorkspaceUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
 import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
+import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { Select } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -150,32 +150,15 @@ const EnvironmentModal = () => {
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: ({ keys, target: { dropPosition, key } }) =>
-      Option.gen(function* () {
-        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
-
-        const sourceIdCan = yield* pipe(
-          yield* Option.liftPredicate(keys, (_) => _.size === 1),
-          Array.fromIterable,
-          Array.head,
-          Option.filter(Predicate.isString),
-        );
-
-        const position = yield* pipe(
-          Match.value(dropPosition),
-          Match.when('after', () => MovePosition.AFTER),
-          Match.when('before', () => MovePosition.BEFORE),
-          Match.option,
-        );
-
-        void dataClient.fetch(EnvironmentMoveEndpoint, {
-          environmentId: Ulid.fromCanonical(sourceIdCan).bytes,
-          position,
-          targetEnvironmentId: Ulid.fromCanonical(targetIdCan).bytes,
-          workspaceId,
-        });
+    onReorder: basicReorder(({ position, source, target }) =>
+      dataClient.fetch(EnvironmentMoveEndpoint, {
+        environmentId: Ulid.fromCanonical(source).bytes,
+        position,
+        targetEnvironmentId: Ulid.fromCanonical(target).bytes,
+        workspaceId,
       }),
-    renderDropIndicator: () => <div className={tw`relative z-10 h-0 w-full ring ring-violet-700`} />,
+    ),
+    renderDropIndicator: () => <DropIndicatorHorizontal />,
   });
 
   return (
@@ -405,32 +388,15 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: ({ keys, target: { dropPosition, key } }) =>
-      Option.gen(function* () {
-        const targetIdCan = yield* Option.liftPredicate(key, Predicate.isString);
-
-        const sourceIdCan = yield* pipe(
-          yield* Option.liftPredicate(keys, (_) => _.size === 1),
-          Array.fromIterable,
-          Array.head,
-          Option.filter(Predicate.isString),
-        );
-
-        const position = yield* pipe(
-          Match.value(dropPosition),
-          Match.when('after', () => MovePosition.AFTER),
-          Match.when('before', () => MovePosition.BEFORE),
-          Match.option,
-        );
-
-        void dataClient.fetch(VariableMoveEndpoint, {
-          environmentId,
-          position,
-          targetVariableId: Ulid.fromCanonical(targetIdCan).bytes,
-          variableId: Ulid.fromCanonical(sourceIdCan).bytes,
-        });
+    onReorder: basicReorder(({ position, source, target }) =>
+      dataClient.fetch(VariableMoveEndpoint, {
+        environmentId,
+        position,
+        targetVariableId: Ulid.fromCanonical(target).bytes,
+        variableId: Ulid.fromCanonical(source).bytes,
       }),
-    renderDropIndicator: () => <tr className={tw`relative z-10 col-span-full h-0 w-full ring ring-violet-700`} />,
+    ),
+    renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
   return (

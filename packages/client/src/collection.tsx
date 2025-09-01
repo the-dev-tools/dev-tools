@@ -51,6 +51,7 @@ import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
+import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
@@ -214,7 +215,7 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
       }
     },
 
-    renderDropIndicator: () => <div className={tw`relative z-10 h-0 w-full ring ring-violet-700`} />,
+    renderDropIndicator: () => <DropIndicatorHorizontal />,
   });
 
   return (

@@ -22,6 +22,7 @@ import { ListBox, ListBoxItem, RouterProvider, useDragAndDrop } from 'react-aria
 import { FiX } from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
 import { Button } from './button';
+import { DropIndicatorVertical } from './reorder';
 import { tw } from './tailwind-literal';
 
 declare module 'react-aria-components' {
@@ -317,7 +318,7 @@ export const RouteTabList = (props: RouteTabListProps) => {
         }).pipe(Option.getOrElse(() => tabs)),
       );
     },
-    renderDropIndicator: () => <div className={tw`relative z-10 h-full w-0 ring ring-violet-700`} />,
+    renderDropIndicator: () => <DropIndicatorVertical />,
   });
 
   return (
