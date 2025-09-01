@@ -8,6 +8,9 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     {
+      "path": "../spec/tsconfig.lib.json"
+    },
+    {
       "path": "../../tools/eslint/tsconfig.lib.json"
     }
   ]

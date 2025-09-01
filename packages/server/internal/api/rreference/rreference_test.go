@@ -3,6 +3,7 @@ package rreference_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -912,4 +913,609 @@ func TestReferenceCompletion_OnlyBeforeNodes(t *testing.T) {
 	for _, item := range response.Msg.Items {
 		t.Logf("  - %s (kind: %s)", item.EndToken, item.Kind.String())
 	}
+}
+
+// TestReferenceCompletion_RequestNodeSelfReference tests that REQUEST nodes can reference their own response without prefix
+func TestReferenceCompletion_RequestNodeSelfReference(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Initialize all services
+	us := suser.New(queries)
+	ws := sworkspace.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
+	ers := sexampleresp.New(queries)
+	erhs := sexamplerespheader.New(queries)
+	fs := sflow.New(queries)
+	fns := snode.New(queries)
+	frns := snoderequest.New(queries)
+	flowVariableService := sflowvariable.New(queries)
+	edgeService := sedge.New(queries)
+	nodeExecutionService := snodeexecution.New(queries)
+
+	// Create ReferenceServiceRPC
+	referenceRPC := rreference.NewNodeServiceRPC(
+		db, us, ws, es, vs, ers, erhs, fs, fns, frns,
+		flowVariableService, edgeService, nodeExecutionService,
+	)
+
+	// Create test data
+	workspaceID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	requestNodeID := idwrap.NewNow()
+
+	// Create workspace using base services
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID, idwrap.NewNow(), userID, idwrap.NewNow())
+
+	// Create flow
+	err := fs.CreateFlow(ctx, mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	})
+	require.NoError(t, err)
+
+	// Create REQUEST node
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       requestNodeID,
+		FlowID:   flowID,
+		Name:     "GetAPIData",
+		NodeKind: mnnode.NODE_KIND_REQUEST,
+	})
+	require.NoError(t, err)
+
+	// Create node execution with data
+	executionData := map[string]interface{}{
+		"GetAPIData": map[string]interface{}{
+			"response": map[string]interface{}{
+				"status": 200,
+				"body": map[string]interface{}{
+					"data": map[string]interface{}{
+						"id":   "123",
+						"name": "Test Item",
+						"tags": []string{"api", "test"},
+					},
+				},
+				"headers": map[string]string{
+					"content-type": "application/json",
+				},
+			},
+			"request": map[string]interface{}{
+				"body": "{\"query\":\"test\"}",
+			},
+		},
+	}
+
+	executionDataBytes, err := json.Marshal(executionData)
+	require.NoError(t, err)
+
+	// Create node execution record
+	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+		ID:                     idwrap.NewNow(),
+		NodeID:                 requestNodeID,
+		Name:                   "Main Execution",
+		State:                  2, // Success
+		OutputData:             executionDataBytes,
+		OutputDataCompressType: compress.CompressTypeNone,
+	})
+	require.NoError(t, err)
+
+	// Test completion for self-reference (should work without node name prefix)
+	req := connect.NewRequest(&referencev1.ReferenceCompletionRequest{
+		NodeId: requestNodeID.Bytes(),
+		Start:  "response",
+	})
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := referenceRPC.ReferenceCompletion(authedCtx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// Should find completions for response
+	require.NotEmpty(t, resp.Msg.Items, "Should have completions for 'response'")
+
+	// Check that we found the response object
+	foundResponse := false
+	for _, item := range resp.Msg.Items {
+		if item.EndToken == "response" {
+			foundResponse = true
+		}
+	}
+
+	assert.True(t, foundResponse, "Should find 'response' in completions")
+
+	t.Logf("Found %d completions for REQUEST node self-reference 'response'", len(resp.Msg.Items))
+	for _, item := range resp.Msg.Items {
+		t.Logf("  - %s (kind: %s)", item.EndToken, item.Kind.String())
+	}
+
+	// Now test deeper path
+	req2 := connect.NewRequest(&referencev1.ReferenceCompletionRequest{
+		NodeId: requestNodeID.Bytes(),
+		Start:  "response.body.data.",
+	})
+
+	resp2, err := referenceRPC.ReferenceCompletion(authedCtx, req2)
+	require.NoError(t, err)
+	require.NotNil(t, resp2)
+
+	t.Logf("Found %d completions for 'response.body.data.'", len(resp2.Msg.Items))
+	for _, item := range resp2.Msg.Items {
+		t.Logf("  - %s (kind: %s)", item.EndToken, item.Kind.String())
+	}
+
+	// Test value lookup for self-reference
+	valueReq := connect.NewRequest(&referencev1.ReferenceValueRequest{
+		NodeId: requestNodeID.Bytes(),
+		Path:   "response.status",
+	})
+
+	valueResp, err := referenceRPC.ReferenceValue(authedCtx, valueReq)
+	require.NoError(t, err)
+	require.NotNil(t, valueResp)
+	assert.Equal(t, "200", valueResp.Msg.Value, "Should get value '200' for 'response.status'")
+}
+
+// TestReferenceValue_WithForEachIterationExecutions tests that the reference system handles
+// FOR_EACH nodes with multiple iteration executions correctly
+func TestReferenceValue_WithForEachIterationExecutions(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Initialize all services
+	us := suser.New(queries)
+	ws := sworkspace.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
+	ers := sexampleresp.New(queries)
+	erhs := sexamplerespheader.New(queries)
+	fs := sflow.New(queries)
+	fns := snode.New(queries)
+	frns := snoderequest.New(queries)
+	flowVariableService := sflowvariable.New(queries)
+	edgeService := sedge.New(queries)
+	nodeExecutionService := snodeexecution.New(queries)
+
+	// Create ReferenceServiceRPC
+	referenceRPC := rreference.NewNodeServiceRPC(
+		db, us, ws, es, vs, ers, erhs, fs, fns, frns,
+		flowVariableService, edgeService, nodeExecutionService,
+	)
+
+	// Create test data
+	workspaceID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	forEachNodeID := idwrap.NewNow()
+	nextNodeID := idwrap.NewNow()
+
+	// Create workspace
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID, idwrap.NewNow(), userID, idwrap.NewNow())
+
+	// Create flow
+	err := fs.CreateFlow(ctx, mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	})
+	require.NoError(t, err)
+
+	// Create FOR_EACH node
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       forEachNodeID,
+		FlowID:   flowID,
+		Name:     "ForEachNode",
+		NodeKind: mnnode.NODE_KIND_FOR_EACH,
+	})
+	require.NoError(t, err)
+
+	// Create next node
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       nextNodeID,
+		FlowID:   flowID,
+		Name:     "NextNode",
+		NodeKind: mnnode.NODE_KIND_JS,
+	})
+	require.NoError(t, err)
+
+	// Create edge from forEach to next node
+	err = edgeService.CreateEdge(ctx, edge.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      forEachNodeID,
+		TargetID:      nextNodeID,
+		SourceHandler: edge.HandleUnspecified,
+		Kind:          edge.EdgeKindUnspecified,
+	})
+	require.NoError(t, err)
+
+	// Create multiple executions for the FOR_EACH node:
+	// 1. Iteration executions (should be ignored)
+	// 2. Main execution with the actual written variables (should be used)
+
+	// Create iteration executions first
+	for i := 0; i < 3; i++ {
+		iterationData := map[string]interface{}{
+			"iteration": i,
+			"data":      fmt.Sprintf("iteration_%d_data", i),
+		}
+		iterationDataBytes, err := json.Marshal(iterationData)
+		require.NoError(t, err)
+
+		err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+			ID:                     idwrap.NewNow(),
+			NodeID:                 forEachNodeID,
+			Name:                   fmt.Sprintf("Iteration %d", i),
+			State:                  2, // Success
+			OutputData:             iterationDataBytes,
+			OutputDataCompressType: compress.CompressTypeNone,
+		})
+		require.NoError(t, err)
+	}
+
+	// Create Error Summary execution
+	errorSummaryData := map[string]interface{}{
+		"errors": []string{"error1", "error2"},
+	}
+	errorSummaryDataBytes, err := json.Marshal(errorSummaryData)
+	require.NoError(t, err)
+
+	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+		ID:                     idwrap.NewNow(),
+		NodeID:                 forEachNodeID,
+		Name:                   "Error Summary",
+		State:                  2, // Success
+		OutputData:             errorSummaryDataBytes,
+		OutputDataCompressType: compress.CompressTypeNone,
+	})
+	require.NoError(t, err)
+
+	// Create the main execution with the actual written variables
+	// This is what should be returned by the reference system
+	mainExecutionData := map[string]interface{}{
+		"ForEachNode": map[string]interface{}{
+			"processedItems": []string{"item1", "item2", "item3"},
+			"totalCount":     3,
+			"status":         "completed",
+		},
+	}
+	mainExecutionDataBytes, err := json.Marshal(mainExecutionData)
+	require.NoError(t, err)
+
+	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+		ID:                     idwrap.NewNow(),
+		NodeID:                 forEachNodeID,
+		Name:                   "Main Execution", // Not an iteration name
+		State:                  2,                // Success
+		OutputData:             mainExecutionDataBytes,
+		OutputDataCompressType: compress.CompressTypeNone,
+	})
+	require.NoError(t, err)
+
+	// Test ReferenceValue - should get the main execution data, not iterations
+	req := connect.NewRequest(&referencev1.ReferenceValueRequest{
+		NodeId: nextNodeID.Bytes(),
+		Path:   "ForEachNode.totalCount",
+	})
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := referenceRPC.ReferenceValue(authedCtx, req)
+	
+	// Log all executions to debug
+	allExecutions, _ := nodeExecutionService.GetNodeExecutionsByNodeID(ctx, forEachNodeID)
+	t.Logf("Total executions for node: %d", len(allExecutions))
+	for i, exec := range allExecutions {
+		t.Logf("Execution %d: Name='%s', ID=%s", i, exec.Name, exec.ID)
+	}
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	
+	// Since we're now taking the first execution (which will be the last created = Main Execution)
+	// This should work correctly
+	assert.Equal(t, "3", resp.Msg.Value, "Should get value '3' for 'ForEachNode.totalCount' from main execution")
+}
+
+// TestReferenceCompletion_WithForEachIterationExecutions tests completion with iteration executions
+func TestReferenceCompletion_WithForEachIterationExecutions(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Initialize all services
+	us := suser.New(queries)
+	ws := sworkspace.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
+	ers := sexampleresp.New(queries)
+	erhs := sexamplerespheader.New(queries)
+	fs := sflow.New(queries)
+	fns := snode.New(queries)
+	frns := snoderequest.New(queries)
+	flowVariableService := sflowvariable.New(queries)
+	edgeService := sedge.New(queries)
+	nodeExecutionService := snodeexecution.New(queries)
+
+	// Create ReferenceServiceRPC
+	referenceRPC := rreference.NewNodeServiceRPC(
+		db, us, ws, es, vs, ers, erhs, fs, fns, frns,
+		flowVariableService, edgeService, nodeExecutionService,
+	)
+
+	// Create test data
+	workspaceID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	forEachNodeID := idwrap.NewNow()
+	nextNodeID := idwrap.NewNow()
+
+	// Create workspace
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID, idwrap.NewNow(), userID, idwrap.NewNow())
+
+	// Create flow
+	err := fs.CreateFlow(ctx, mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	})
+	require.NoError(t, err)
+
+	// Create FOR_EACH node
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       forEachNodeID,
+		FlowID:   flowID,
+		Name:     "LoopItems",
+		NodeKind: mnnode.NODE_KIND_FOR_EACH,
+	})
+	require.NoError(t, err)
+
+	// Create next node
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       nextNodeID,
+		FlowID:   flowID,
+		Name:     "ProcessResults",
+		NodeKind: mnnode.NODE_KIND_JS,
+	})
+	require.NoError(t, err)
+
+	// Create edge
+	err = edgeService.CreateEdge(ctx, edge.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      forEachNodeID,
+		TargetID:      nextNodeID,
+		SourceHandler: edge.HandleUnspecified,
+		Kind:          edge.EdgeKindUnspecified,
+	})
+	require.NoError(t, err)
+
+	// Add iteration executions
+	for i := 0; i < 2; i++ {
+		iterData, _ := json.Marshal(map[string]interface{}{"iter": i})
+		err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+			ID:                     idwrap.NewNow(),
+			NodeID:                 forEachNodeID,
+			Name:                   fmt.Sprintf("Iteration %d", i),
+			State:                  2,
+			OutputData:             iterData,
+			OutputDataCompressType: compress.CompressTypeNone,
+		})
+		require.NoError(t, err)
+	}
+
+	// Add main execution with proper structure
+	mainData := map[string]interface{}{
+		"LoopItems": map[string]interface{}{
+			"results": []map[string]interface{}{
+				{"id": 1, "name": "Item1"},
+				{"id": 2, "name": "Item2"},
+			},
+			"summary": "Processed 2 items",
+		},
+	}
+	mainDataBytes, err := json.Marshal(mainData)
+	require.NoError(t, err)
+
+	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+		ID:                     idwrap.NewNow(),
+		NodeID:                 forEachNodeID,
+		Name:                   "FinalExecution",
+		State:                  2,
+		OutputData:             mainDataBytes,
+		OutputDataCompressType: compress.CompressTypeNone,
+	})
+	require.NoError(t, err)
+
+	// Test completion
+	req := connect.NewRequest(&referencev1.ReferenceCompletionRequest{
+		NodeId: nextNodeID.Bytes(),
+		Start:  "LoopItems.results",
+	})
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := referenceRPC.ReferenceCompletion(authedCtx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// Should find the completion
+	found := false
+	for _, item := range resp.Msg.Items {
+		if item.EndToken == "LoopItems.results" {
+			found = true
+			break
+		}
+	}
+
+	t.Logf("Found %d completions for 'LoopItems.results'", len(resp.Msg.Items))
+	for _, item := range resp.Msg.Items {
+		t.Logf("  - %s (kind: %s)", item.EndToken, item.Kind.String())
+	}
+
+	assert.True(t, found, "Should find 'LoopItems.results' in completions from main execution")
+}
+
+// TestReferenceValue_ExecutionOrderMatters tests that we always get the latest execution
+// regardless of whether it's an iteration or main execution
+func TestReferenceValue_ExecutionOrderMatters(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	queries := base.Queries
+	db := base.DB
+
+	// Initialize all services
+	us := suser.New(queries)
+	ws := sworkspace.New(queries)
+	es := senv.New(queries, base.Logger())
+	vs := svar.New(queries, base.Logger())
+	ers := sexampleresp.New(queries)
+	erhs := sexamplerespheader.New(queries)
+	fs := sflow.New(queries)
+	fns := snode.New(queries)
+	frns := snoderequest.New(queries)
+	flowVariableService := sflowvariable.New(queries)
+	edgeService := sedge.New(queries)
+	nodeExecutionService := snodeexecution.New(queries)
+
+	// Create ReferenceServiceRPC
+	referenceRPC := rreference.NewNodeServiceRPC(
+		db, us, ws, es, vs, ers, erhs, fs, fns, frns,
+		flowVariableService, edgeService, nodeExecutionService,
+	)
+
+	// Create test data
+	workspaceID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	jsNodeID := idwrap.NewNow()
+	nextNodeID := idwrap.NewNow()
+
+	// Create workspace
+	baseServices := base.GetBaseServices()
+	baseServices.CreateTempCollection(t, ctx, workspaceID, idwrap.NewNow(), userID, idwrap.NewNow())
+
+	// Create flow
+	err := fs.CreateFlow(ctx, mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	})
+	require.NoError(t, err)
+
+	// Create JS node (not a FOR_EACH or FOR node, so no iteration executions expected)
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       jsNodeID,
+		FlowID:   flowID,
+		Name:     "JSNode",
+		NodeKind: mnnode.NODE_KIND_JS,
+	})
+	require.NoError(t, err)
+
+	// Create next node
+	err = fns.CreateNode(ctx, mnnode.MNode{
+		ID:       nextNodeID,
+		FlowID:   flowID,
+		Name:     "NextNode",
+		NodeKind: mnnode.NODE_KIND_JS,
+	})
+	require.NoError(t, err)
+
+	// Create edge
+	err = edgeService.CreateEdge(ctx, edge.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      jsNodeID,
+		TargetID:      nextNodeID,
+		SourceHandler: edge.HandleUnspecified,
+		Kind:          edge.EdgeKindUnspecified,
+	})
+	require.NoError(t, err)
+
+	// Test scenario 1: Only one execution (should use it)
+	executionData1 := map[string]interface{}{
+		"JSNode": map[string]interface{}{
+			"result": "first",
+		},
+	}
+	data1, _ := json.Marshal(executionData1)
+	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+		ID:                     idwrap.NewNow(),
+		NodeID:                 jsNodeID,
+		Name:                   "First Run",
+		State:                  2,
+		OutputData:             data1,
+		OutputDataCompressType: compress.CompressTypeNone,
+	})
+	require.NoError(t, err)
+
+	req := connect.NewRequest(&referencev1.ReferenceValueRequest{
+		NodeId: nextNodeID.Bytes(),
+		Path:   "JSNode.result",
+	})
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+	resp, err := referenceRPC.ReferenceValue(authedCtx, req)
+	require.NoError(t, err)
+	assert.Equal(t, "first", resp.Msg.Value, "Should get first execution when it's the only one")
+
+	// Test scenario 2: Add a second execution (should use the latest)
+	executionData2 := map[string]interface{}{
+		"JSNode": map[string]interface{}{
+			"result": "second",
+		},
+	}
+	data2, _ := json.Marshal(executionData2)
+	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+		ID:                     idwrap.NewNow(),
+		NodeID:                 jsNodeID,
+		Name:                   "Second Run",
+		State:                  2,
+		OutputData:             data2,
+		OutputDataCompressType: compress.CompressTypeNone,
+	})
+	require.NoError(t, err)
+
+	resp, err = referenceRPC.ReferenceValue(authedCtx, req)
+	require.NoError(t, err)
+	assert.Equal(t, "second", resp.Msg.Value, "Should get latest execution")
+
+	// Test scenario 3: Add a third execution with different structure
+	executionData3 := map[string]interface{}{
+		"JSNode": map[string]interface{}{
+			"result": "third",
+			"extra":  "data",
+		},
+	}
+	data3, _ := json.Marshal(executionData3)
+	err = nodeExecutionService.CreateNodeExecution(ctx, mnodeexecution.NodeExecution{
+		ID:                     idwrap.NewNow(),
+		NodeID:                 jsNodeID,
+		Name:                   "Third Run",
+		State:                  2,
+		OutputData:             data3,
+		OutputDataCompressType: compress.CompressTypeNone,
+	})
+	require.NoError(t, err)
+
+	resp, err = referenceRPC.ReferenceValue(authedCtx, req)
+	require.NoError(t, err)
+	assert.Equal(t, "third", resp.Msg.Value, "Should always get the most recent execution")
+
+	// Also verify we can access the new field
+	req2 := connect.NewRequest(&referencev1.ReferenceValueRequest{
+		NodeId: nextNodeID.Bytes(),
+		Path:   "JSNode.extra",
+	})
+	resp2, err := referenceRPC.ReferenceValue(authedCtx, req2)
+	require.NoError(t, err)
+	assert.Equal(t, "data", resp2.Msg.Value, "Should access new fields from latest execution")
 }

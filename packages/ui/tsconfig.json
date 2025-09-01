@@ -3,6 +3,9 @@
   "files": [],
   "references": [
     {
+      "path": "../spec"
+    },
+    {
       "path": "../../tools/eslint"
     },
     {

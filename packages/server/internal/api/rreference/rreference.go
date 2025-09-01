@@ -759,14 +759,12 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 						// Extract the node-specific data
 						if nodeMap, ok := nodeData.(map[string]interface{}); ok {
 							if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
-								// Add response and request at ROOT level, not under node name
+								// Add the entire node data at ROOT level
+								// This allows direct access to response.* and request.*
 								if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
-									// Add each variable directly without prefix
-									if response, ok := nodeVars["response"]; ok {
-										creator.AddWithKey("response", response)
-									}
-									if request, ok := nodeVars["request"]; ok {
-										creator.AddWithKey("request", request)
+									// Add all variables from the node directly at root
+									for key, value := range nodeVars {
+										creator.AddWithKey(key, value)
 									}
 								}
 							}
@@ -981,38 +979,44 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 			executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, node.ID)
 			if err == nil && len(executions) > 0 {
-				// Filter out iteration executions from foreach/for nodes
-				var latestExecution *mnodeexecution.NodeExecution
-				for _, exec := range executions {
-					if !isIterationExecution(exec.Name) {
-						latestExecution = &exec
-						break
+				// Use the latest execution (first one, as they're ordered by ID DESC)
+				latestExecution := executions[0]
+
+				// Decompress data if needed
+				data := latestExecution.OutputData
+				if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+					decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+					if err == nil {
+						data = decompressed
 					}
 				}
 
-				// Only proceed if we found a non-iteration execution
-				if latestExecution != nil {
-					// Decompress data if needed
-					data := latestExecution.OutputData
-					if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
-						decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
-						if err == nil {
-							data = decompressed
-						}
-					}
-
-					// Try to unmarshal as generic JSON
-					var genericOutput interface{}
-					if err := json.Unmarshal(data, &genericOutput); err == nil {
-						nodeData = genericOutput
-						hasExecutionData = true
-					}
+				// Try to unmarshal as generic JSON
+				var genericOutput interface{}
+				if err := json.Unmarshal(data, &genericOutput); err == nil {
+					nodeData = genericOutput
+					hasExecutionData = true
 				}
 			}
 
 			// If we have execution data, use it
 			if hasExecutionData && nodeData != nil {
-				lookup.AddWithKey(node.Name, nodeData)
+				// The execution data contains the full tree structure from tracker.GetWrittenVarsAsTree()
+				// which already includes node names as top-level keys
+				// We need to extract just the data for this specific node
+				if nodeMap, ok := nodeData.(map[string]interface{}); ok {
+					// Check if the data contains this node's name as a key
+					if nodeSpecificData, hasNodeKey := nodeMap[node.Name]; hasNodeKey {
+						// Use the node-specific data
+						lookup.AddWithKey(node.Name, nodeSpecificData)
+					} else {
+						// Data doesn't have the expected structure, use it as-is
+						lookup.AddWithKey(node.Name, nodeData)
+					}
+				} else {
+					// Not a map, use directly
+					lookup.AddWithKey(node.Name, nodeData)
+				}
 				continue
 			}
 
@@ -1065,31 +1069,23 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 				// Try to get the current node's execution data
 				executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
 				if err == nil && len(executions) > 0 {
-					// Filter out iteration executions
-					var latestExecution *mnodeexecution.NodeExecution
-					for _, exec := range executions {
-						if !isIterationExecution(exec.Name) {
-							latestExecution = &exec
-							break
+					// Use the latest execution (first one, as they're ordered by ID DESC)
+					latestExecution := executions[0]
+
+					// Decompress data if needed
+					data := latestExecution.OutputData
+					if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+						decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+						if err == nil {
+							data = decompressed
 						}
 					}
 
-					if latestExecution != nil {
-						// Decompress data if needed
-						data := latestExecution.OutputData
-						if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
-							decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
-							if err == nil {
-								data = decompressed
-							}
-						}
-
-						// Try to unmarshal as generic JSON
-						var genericOutput interface{}
-						if err := json.Unmarshal(data, &genericOutput); err == nil {
-							nodeData = genericOutput
-							hasExecutionData = true
-						}
+					// Try to unmarshal as generic JSON
+					var genericOutput interface{}
+					if err := json.Unmarshal(data, &genericOutput); err == nil {
+						nodeData = genericOutput
+						hasExecutionData = true
 					}
 				}
 
@@ -1097,14 +1093,12 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 					// Extract the node-specific data
 					if nodeMap, ok := nodeData.(map[string]interface{}); ok {
 						if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
-							// Add response and request at ROOT level, not under node name
+							// Add the entire node data at ROOT level
+							// This allows direct access to response.* and request.*
 							if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
-								// Add each variable directly without prefix
-								if response, ok := nodeVars["response"]; ok {
-									lookup.AddWithKey("response", response)
-								}
-								if request, ok := nodeVars["request"]; ok {
-									lookup.AddWithKey("request", request)
+								// Add all variables from the node directly at root
+								for key, value := range nodeVars {
+									lookup.AddWithKey(key, value)
 								}
 							}
 						}
