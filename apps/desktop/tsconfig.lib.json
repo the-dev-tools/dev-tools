@@ -5,7 +5,7 @@
     "jsx": "react-jsx",
     "types": ["vite/client"]
   },
-  "include": ["."],
+  "include": [".", "package.json"],
   "exclude": ["node_modules", "dist"],
   "references": [
     {

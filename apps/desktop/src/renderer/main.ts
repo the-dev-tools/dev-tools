@@ -31,11 +31,13 @@ import { BrowserKeyValueStore } from '@effect/platform-browser';
 import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe } from 'effect';
 import { ApiLayer } from '@the-dev-tools/client/api/layer';
 import { ApiErrorHandlerLive, app } from '@the-dev-tools/client/index';
+import packageJson from '../../package.json';
 
 const ConfigLive = pipe(
   {
     ...import.meta.env,
     PUBLIC_LOCAL_MODE: true,
+    VERSION: packageJson.version,
   },
   ConfigProvider.fromJson,
   Layer.setConfigProvider,

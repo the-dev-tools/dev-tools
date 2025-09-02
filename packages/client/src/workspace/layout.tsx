@@ -1,4 +1,5 @@
 import { Outlet, ToOptions, useNavigate } from '@tanstack/react-router';
+import { Config, pipe, Runtime } from 'effect';
 import { Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
 import { ListBox, MenuTrigger, Text, Tooltip, TooltipTrigger } from 'react-aria-components';
@@ -29,8 +30,8 @@ import { useConnectMutation } from '~/api/connect-query';
 import { useMutate, useQuery } from '~data-client';
 import { useOnFlowDelete } from '~flow/internal';
 import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
-import { DashboardLayout } from '../dashboard';
 import { CollectionListTree } from '../collection';
+import { DashboardLayout } from '../dashboard';
 import { EnvironmentsWidget } from '../environment';
 import { StatusBar } from '../status-bar';
 
@@ -75,7 +76,7 @@ export const WorkspaceLayout = () => {
         >
           <EnvironmentsWidget />
 
-          <div className={tw`flex flex-col gap-2 p-1.5`}>
+          <div className={tw`flex flex-1 flex-col gap-2 overflow-auto p-1.5`}>
             <ButtonAsLink
               className={tw`flex items-center justify-start gap-2 px-2.5 py-1.5`}
               params={{ workspaceIdCan }}
@@ -107,6 +108,10 @@ export const WorkspaceLayout = () => {
             <CollectionListTree navigate showControls />
 
             <FlowList />
+          </div>
+
+          <div className={tw`px-2.5 py-1.5 text-md leading-5 tracking-tight text-slate-800`}>
+            DevTools v{pipe(Config.string('VERSION'), Runtime.runSync(runtime))}
           </div>
         </Panel>
 
