@@ -99,6 +99,8 @@ func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRe
 func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
+	// Track if we had any iteration errors to determine if we need final status
+	hadIterationErrors := false
 
 	// Note: assertSys not needed for simple index comparison
 
@@ -223,6 +225,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 		// Handle iteration error according to error policy
 		if iterationError != nil {
+			hadIterationErrors = true // Mark that we had errors
 			switch nr.ErrorHandling {
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 				continue // Continue to next iteration
@@ -275,15 +278,20 @@ Exit:
 	}
 
 	// Success case: No final summary record needed - last iteration record shows completion
+	// Only skip final status if loop completed all iterations without any errors
+	// If we had errors (IGNORE/BREAK), we need final status to show overall success
 	return node.FlowNodeResult{
-		NextNodeID: nextID,
-		Err:        nil,
+		NextNodeID:      nextID,
+		Err:             nil,
+		SkipFinalStatus: !hadIterationErrors, // Skip only if no iteration errors
 	}
 }
 
 func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
+	// Track if we had any iteration errors to determine if we need final status
+	hadIterationErrors := false
 
 	// Note: assertSys not needed for simple index comparison
 
@@ -410,6 +418,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 		// Handle iteration error according to error policy
 		if iterationError != nil {
+			hadIterationErrors = true // Mark that we had errors
 			switch nr.ErrorHandling {
 			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 				continue // Continue to next iteration
@@ -462,8 +471,11 @@ Exit:
 	}
 
 	// Success case: No final summary record needed - last iteration record shows completion
+	// Only skip final status if loop completed all iterations without any errors
+	// If we had errors (IGNORE/BREAK), we need final status to show overall success
 	resultChan <- node.FlowNodeResult{
-		NextNodeID: nextID,
-		Err:        nil,
+		NextNodeID:      nextID,
+		Err:             nil,
+		SkipFinalStatus: !hadIterationErrors, // Skip only if no iteration errors
 	}
 }

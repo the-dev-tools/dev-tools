@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"strings"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/compress"
@@ -16,7 +15,6 @@ import (
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/reference"
@@ -106,12 +104,6 @@ var (
 	ErrEnvNotFound       = errors.New("env not found")
 )
 
-// isIterationExecution checks if an execution name indicates it's an iteration execution
-// from a foreach/for node rather than the main node execution.
-// Iteration executions have names like "Iteration 0", "Iteration 1", "Error Summary", etc.
-func isIterationExecution(name string) bool {
-	return strings.HasPrefix(name, "Iteration ") || name == "Error Summary"
-}
 
 func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Request[referencev1.ReferenceTreeRequest]) (*connect.Response[referencev1.ReferenceTreeResponse], error) {
 	var Items []*referencev1.ReferenceTreeItem
@@ -275,18 +267,11 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 
 		executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, node.ID)
 		if err == nil && len(executions) > 0 {
-			// Filter out iteration executions from foreach/for nodes
-			// These have names like "Iteration 0", "Iteration 1", "Error Summary" etc.
-			// We want the main node execution which contains the actual written variables
-			var latestExecution *mnodeexecution.NodeExecution
-			for _, exec := range executions {
-				if !isIterationExecution(exec.Name) {
-					latestExecution = &exec
-					break
-				}
-			}
-
-			// If we found a non-iteration execution, use it
+			// Use the latest execution (first one, as they're ordered by ID DESC)
+			// This includes iteration executions which now contain the actual values
+			latestExecution := &executions[0]
+			
+			// Always use the latest execution
 			if latestExecution != nil {
 				// Decompress data if needed
 				data := latestExecution.OutputData
@@ -705,19 +690,87 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 			if err == nil {
 				switch currentNode.NodeKind {
 				case mnnode.NODE_KIND_FOR:
-					// FOR nodes can reference their own index
-					nodeVarsMap := map[string]interface{}{
-						"index": 0,
+					// FOR nodes can reference their own index from execution data
+					var nodeData interface{}
+					hasExecutionData := false
+
+					// Try to get the current node's execution data
+					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					if err == nil && len(executions) > 0 {
+						// Use the latest execution (first one, as they're ordered by ID DESC)
+						latestExecution := &executions[0]
+
+						if latestExecution != nil {
+							// Decompress data if needed
+							data := latestExecution.OutputData
+							if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+								decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+								if err == nil {
+									data = decompressed
+								}
+							}
+
+							// Try to unmarshal as generic JSON
+							var genericOutput interface{}
+							if err := json.Unmarshal(data, &genericOutput); err == nil {
+								nodeData = genericOutput
+								hasExecutionData = true
+							}
+						}
 					}
-					creator.AddWithKey(currentNode.Name, nodeVarsMap)
+
+					if hasExecutionData && nodeData != nil {
+						// Use the actual execution data
+						creator.AddWithKey(currentNode.Name, nodeData)
+					} else {
+						// No execution data, provide the schema
+						nodeVarsMap := map[string]interface{}{
+							"index": 0,
+						}
+						creator.AddWithKey(currentNode.Name, nodeVarsMap)
+					}
 
 				case mnnode.NODE_KIND_FOR_EACH:
-					// FOREACH nodes can reference their own item and key
-					nodeVarsMap := map[string]interface{}{
-						"item": nil,
-						"key":  0,
+					// FOREACH nodes can reference their own item and key from execution data
+					var nodeData interface{}
+					hasExecutionData := false
+
+					// Try to get the current node's execution data
+					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					if err == nil && len(executions) > 0 {
+						// Use the latest execution (first one, as they're ordered by ID DESC)
+						latestExecution := &executions[0]
+
+						if latestExecution != nil {
+							// Decompress data if needed
+							data := latestExecution.OutputData
+							if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+								decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+								if err == nil {
+									data = decompressed
+								}
+							}
+
+							// Try to unmarshal as generic JSON
+							var genericOutput interface{}
+							if err := json.Unmarshal(data, &genericOutput); err == nil {
+								nodeData = genericOutput
+								hasExecutionData = true
+							}
+						}
 					}
-					creator.AddWithKey(currentNode.Name, nodeVarsMap)
+
+					if hasExecutionData && nodeData != nil {
+						// Use the actual execution data
+						creator.AddWithKey(currentNode.Name, nodeData)
+					} else {
+						// No execution data, provide the schema
+						nodeVarsMap := map[string]interface{}{
+							"item": nil,
+							"key":  0,
+						}
+						creator.AddWithKey(currentNode.Name, nodeVarsMap)
+					}
 
 				case mnnode.NODE_KIND_REQUEST:
 					// REQUEST nodes can reference their own response and request directly (without prefix)
@@ -727,14 +780,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 					// Try to get the current node's execution data
 					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
 					if err == nil && len(executions) > 0 {
-						// Filter out iteration executions
-						var latestExecution *mnodeexecution.NodeExecution
-						for _, exec := range executions {
-							if !isIterationExecution(exec.Name) {
-								latestExecution = &exec
-								break
-							}
-						}
+						// Use the latest execution (first one, as they're ordered by ID DESC)
+						latestExecution := &executions[0]
 
 						if latestExecution != nil {
 							// Decompress data if needed
@@ -1057,11 +1104,58 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 			// Other node types (JS, CONDITION, etc.) don't have default schemas
 		}
 
-		// Add self-reference for REQUEST nodes so they can reference their own variables
-		// This allows REQUEST nodes to use "response.status" directly
+		// Add self-reference for REQUEST, FOR, and FOREACH nodes so they can reference their own variables
+		// This allows these nodes to use their own variables directly
 		if nodeIDPtr != nil {
 			currentNode, err := c.fns.GetNode(ctx, *nodeIDPtr)
-			if err == nil && currentNode.NodeKind == mnnode.NODE_KIND_REQUEST {
+			if err == nil {
+				switch currentNode.NodeKind {
+				case mnnode.NODE_KIND_FOR, mnnode.NODE_KIND_FOR_EACH:
+					// FOR and FOREACH nodes can reference their own index/item/key from execution data
+					var nodeData interface{}
+					hasExecutionData := false
+
+					// Try to get the current node's execution data
+					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					if err == nil && len(executions) > 0 {
+						// Use the latest execution (first one, as they're ordered by ID DESC)
+						latestExecution := executions[0]
+
+						// Decompress data if needed
+						data := latestExecution.OutputData
+						if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+							decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+							if err == nil {
+								data = decompressed
+							}
+						}
+
+						// Try to unmarshal as generic JSON
+						var genericOutput interface{}
+						if err := json.Unmarshal(data, &genericOutput); err == nil {
+							nodeData = genericOutput
+							hasExecutionData = true
+						}
+					}
+
+					if hasExecutionData && nodeData != nil {
+						// Add the execution data for self-reference
+						lookup.AddWithKey(currentNode.Name, nodeData)
+					} else {
+						// No execution data, provide the schema
+						if currentNode.NodeKind == mnnode.NODE_KIND_FOR {
+							lookup.AddWithKey(currentNode.Name, map[string]interface{}{
+								"index": 0,
+							})
+						} else {
+							lookup.AddWithKey(currentNode.Name, map[string]interface{}{
+								"item": nil,
+								"key":  0,
+							})
+						}
+					}
+
+				case mnnode.NODE_KIND_REQUEST:
 				// REQUEST nodes can reference their own response and request directly (without prefix)
 				var nodeData interface{}
 				hasExecutionData := false
@@ -1116,6 +1210,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 						"headers":  map[string]string{},
 						"duration": 0,
 					})
+				}
 				}
 			}
 		}

@@ -43,6 +43,9 @@ type LogPushFunc func(status runner.FlowNodeStatus)
 type FlowNodeResult struct {
 	NextNodeID []idwrap.IDWrap
 	Err        error
+	// SkipFinalStatus tells the runner not to create a final execution status.
+	// Used by FOR/FOREACH nodes that handle their own iteration status logging.
+	SkipFinalStatus bool
 }
 
 var (

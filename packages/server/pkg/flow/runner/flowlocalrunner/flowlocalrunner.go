@@ -96,18 +96,18 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 }
 
 type processResult struct {
-	originalID  idwrap.IDWrap
-	executionID idwrap.IDWrap
-	nextNodes   []idwrap.IDWrap
-	err         error
-	inputData   map[string]any
-	outputData  map[string]any // NEW: From tracker.GetWrittenVars()
+	originalID       idwrap.IDWrap
+	executionID      idwrap.IDWrap
+	nextNodes        []idwrap.IDWrap
+	err              error
+	inputData        map[string]any
+	outputData       map[string]any // NEW: From tracker.GetWrittenVars()
+	skipFinalStatus  bool           // From FlowNodeResult.SkipFinalStatus
 }
 
 func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest,
-) ([]idwrap.IDWrap, error) {
-	res := n.RunSync(ctx, req)
-	return res.NextNodeID, res.Err
+) node.FlowNodeResult {
+	return n.RunSync(ctx, req)
 }
 
 type FlowNodeStatusLocal struct {
@@ -299,7 +299,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				// Set the execution ID in the copied request
 				nodeReq.ExecutionID = executionID
 
-				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
+				result := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
 
 				// Capture tracked data as tree structures
 				outputData := tracker.GetWrittenVarsAsTree()
@@ -312,12 +312,13 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				}
 
 				resultChan <- processResult{
-					originalID:  currentNode.GetID(),
-					executionID: executionID,
-					nextNodes:   ids,
-					err:         localErr,
-					inputData:   inputData,
-					outputData:  outputData,
+					originalID:      currentNode.GetID(),
+					executionID:     executionID,
+					nextNodes:       result.NextNodeID,
+					err:             result.Err,
+					inputData:       inputData,
+					outputData:      outputData,
+					skipFinalStatus: result.SkipFinalStatus,
 				}
 			}(flowNodeId)
 		}
@@ -369,13 +370,16 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 			// All nodes should report SUCCESS when they complete successfully
 			// Loop nodes handle their own iteration tracking internally
-			status.State = mnnode.NODE_STATE_SUCCESS
-			status.Error = nil
-			// Use the tracked output data which has the proper tree structure
-			status.OutputData = node.DeepCopyValue(result.outputData)
-			// Deep copy input data as well
-			status.InputData = node.DeepCopyValue(result.inputData)
-			statusLogFunc(status)
+			// FOR/FOREACH nodes set skipFinalStatus to avoid creating empty main execution
+			if !result.skipFinalStatus {
+				status.State = mnnode.NODE_STATE_SUCCESS
+				status.Error = nil
+				// Use the tracked output data which has the proper tree structure
+				status.OutputData = node.DeepCopyValue(result.outputData)
+				// Deep copy input data as well
+				status.InputData = node.DeepCopyValue(result.inputData)
+				statusLogFunc(status)
+			}
 
 			for _, id := range result.nextNodes {
 				pendingMapMutex.Lock()
@@ -567,7 +571,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				// Set the execution ID in the copied request
 				nodeReq.ExecutionID = executionID
 
-				ids, localErr := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
+				result := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
 
 				// Always capture tracked data and send result, even if context timed out
 				// This ensures nodes don't get stuck in RUNNING state
@@ -581,17 +585,18 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				}
 
 				// If context timed out after node execution, mark it as an error
-				if ctxTimed.Err() != nil && localErr == nil {
-					localErr = ctxTimed.Err()
+				if ctxTimed.Err() != nil && result.Err == nil {
+					result.Err = ctxTimed.Err()
 				}
 
 				resultChan <- processResult{
-					originalID:  currentNode.GetID(),
-					executionID: executionID,
-					nextNodes:   ids,
-					err:         localErr,
-					inputData:   inputData,
-					outputData:  outputData,
+					originalID:      currentNode.GetID(),
+					executionID:     executionID,
+					nextNodes:       result.NextNodeID,
+					err:             result.Err,
+					inputData:       inputData,
+					outputData:      outputData,
+					skipFinalStatus: result.SkipFinalStatus,
 				}
 			}(id)
 		}
@@ -654,13 +659,16 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			}
 			// All nodes should report SUCCESS when they complete successfully
 			// Loop nodes handle their own iteration tracking internally
-			status.State = mnnode.NODE_STATE_SUCCESS
-			status.Error = nil
-			// Use the tracked output data which has the proper tree structure
-			status.OutputData = node.DeepCopyValue(result.outputData)
-			// Deep copy input data as well
-			status.InputData = node.DeepCopyValue(result.inputData)
-			statusLogFunc(status)
+			// FOR/FOREACH nodes set skipFinalStatus to avoid creating empty main execution
+			if !result.skipFinalStatus {
+				status.State = mnnode.NODE_STATE_SUCCESS
+				status.Error = nil
+				// Use the tracked output data which has the proper tree structure
+				status.OutputData = node.DeepCopyValue(result.outputData)
+				// Deep copy input data as well
+				status.InputData = node.DeepCopyValue(result.inputData)
+				statusLogFunc(status)
+			}
 
 			for _, id := range result.nextNodes {
 				pendingMapMutex.Lock()

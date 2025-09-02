@@ -58,6 +58,8 @@ func (n *NodeForEach) GetName() string {
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
+	// Track if we had any iteration errors to determine if we need final status
+	hadIterationErrors := false
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
@@ -232,6 +234,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			// Handle iteration error according to error policy
 			if result.Err != nil {
+				hadIterationErrors = true // Mark that we had errors
 				switch nr.ErrorHandling {
 				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 					continue // Continue to next iteration
@@ -365,6 +368,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			// Handle iteration error according to error policy
 			if result.Err != nil {
+				hadIterationErrors = true // Mark that we had errors
 				switch nr.ErrorHandling {
 				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 					continue // Continue to next iteration
@@ -417,9 +421,12 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			Err: fmt.Errorf("unexpected iterator type: %T", result),
 		}
 	}
+	// Only skip final status if loop completed all iterations without any errors
+	// If we had errors (IGNORE/BREAK), we need final status to show overall success
 	return node.FlowNodeResult{
-		NextNodeID: nextID,
-		Err:        nil,
+		NextNodeID:      nextID,
+		Err:             nil,
+		SkipFinalStatus: !hadIterationErrors, // Skip only if no iteration errors
 	}
 }
 
