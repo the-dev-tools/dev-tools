@@ -32,7 +32,7 @@ import {
   Stream,
 } from 'effect';
 import { Ulid } from 'id128';
-import { PropsWithChildren, Suspense, use, useCallback, useMemo, useRef, useState } from 'react';
+import { PropsWithChildren, ReactNode, Suspense, use, useCallback, useMemo, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
 import { Button as AriaButton, Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
@@ -121,7 +121,7 @@ export const FlowEditPage = () => {
       <FlowContext.Provider value={{ flowId }}>
         <ReactFlowProvider>
           <PanelGroup direction='vertical'>
-            <TopBar />
+            <TopBarWithControls />
             <Panel className='flex h-full flex-col' id='flow' order={1}>
               <Flow key={Ulid.construct(flowId).toCanonical()}>
                 <ActionBar />
@@ -334,16 +334,17 @@ export const Flow = ({ children }: PropsWithChildren) => {
   );
 };
 
-export const TopBar = () => {
+interface TopBarProps {
+  children?: ReactNode;
+}
+
+export const TopBar = ({ children }: TopBarProps) => {
   const { dataClient } = rootRouteApi.useRouteContext();
 
   const { flowId } = flowLayoutRouteApi.useLoaderData();
   const { flowIdCan, workspaceIdCan } = flowLayoutRouteApi.useParams();
 
   const { name } = useQuery(FlowGetEndpoint, { flowId });
-
-  const { zoomIn, zoomOut } = useReactFlow();
-  const { zoom } = useViewport();
 
   const matchRoute = useMatchRoute();
 
@@ -379,29 +380,7 @@ export const TopBar = () => {
 
       <div className={tw`flex-1`} />
 
-      <Button
-        className={tw`p-0.5`}
-        isDisabled={zoom <= minZoom}
-        onPress={() => void zoomOut({ duration: 100 })}
-        variant='ghost'
-      >
-        <FiMinus className={tw`size-4 text-slate-500`} />
-      </Button>
-
-      <div className={tw`w-10 text-center text-sm leading-5 font-medium tracking-tight text-gray-900`}>
-        {Math.floor(zoom * 100)}%
-      </div>
-
-      <Button
-        className={tw`p-0.5`}
-        isDisabled={zoom >= maxZoom}
-        onPress={() => void zoomIn({ duration: 100 })}
-        variant='ghost'
-      >
-        <FiPlus className={tw`size-4 text-slate-500`} />
-      </Button>
-
-      <div className={tw`h-4 w-px bg-slate-200`} />
+      {children}
 
       <ButtonAsLink
         className={tw`px-2 py-1 text-slate-800`}
@@ -434,6 +413,39 @@ export const TopBar = () => {
         </Menu>
       </MenuTrigger>
     </div>
+  );
+};
+
+export const TopBarWithControls = () => {
+  const { zoomIn, zoomOut } = useReactFlow();
+  const { zoom } = useViewport();
+
+  return (
+    <TopBar>
+      <Button
+        className={tw`p-0.5`}
+        isDisabled={zoom <= minZoom}
+        onPress={() => void zoomOut({ duration: 100 })}
+        variant='ghost'
+      >
+        <FiMinus className={tw`size-4 text-slate-500`} />
+      </Button>
+
+      <div className={tw`w-10 text-center text-sm leading-5 font-medium tracking-tight text-gray-900`}>
+        {Math.floor(zoom * 100)}%
+      </div>
+
+      <Button
+        className={tw`p-0.5`}
+        isDisabled={zoom >= maxZoom}
+        onPress={() => void zoomIn({ duration: 100 })}
+        variant='ghost'
+      >
+        <FiPlus className={tw`size-4 text-slate-500`} />
+      </Button>
+
+      <div className={tw`h-4 w-px bg-slate-200`} />
+    </TopBar>
   );
 };
 

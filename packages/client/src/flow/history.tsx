@@ -12,7 +12,7 @@ import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
 import { flowHistoryRouteApi } from '~routes';
-import { EditPanel, Flow, TopBar } from './flow';
+import { EditPanel, Flow, TopBar, TopBarWithControls } from './flow';
 import { FlowContext } from './internal';
 
 export const FlowHistoryPage = () => {
@@ -33,13 +33,11 @@ export const FlowHistoryPage = () => {
         >
           <FlowContext.Provider value={{ flowId, isReadOnly: true }}>
             <ReactFlowProvider>
-              <PanelGroup direction='vertical'>
-                <TopBar />
-                <Panel className='flex h-full flex-col' id='flow' order={1}>
-                  <Flow key={Ulid.construct(flowId).toCanonical()} />
-                </Panel>
-                <EditPanel />
-              </PanelGroup>
+              <TopBarWithControls />
+              <Panel className='flex h-full flex-col' id='flow' order={1}>
+                <Flow key={Ulid.construct(flowId).toCanonical()} />
+              </Panel>
+              <EditPanel />
             </ReactFlowProvider>
           </FlowContext.Provider>
         </Suspense>
@@ -53,7 +51,12 @@ export const FlowHistoryPage = () => {
   return (
     <PanelGroup direction='horizontal'>
       <Panel>
-        <TabPanel state={state} />
+        <PanelGroup direction='vertical'>
+          {!state.selectedKey && <TopBar />}
+          <Panel className='flex h-full flex-col' id='flow' order={1}>
+            <TabPanel state={state} />
+          </Panel>
+        </PanelGroup>
       </Panel>
 
       <PanelResizeHandle direction='horizontal' />
