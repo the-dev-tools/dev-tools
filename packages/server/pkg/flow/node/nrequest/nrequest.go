@@ -156,10 +156,13 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	output := NodeRequestOutput{
-		Request:  request.ConvertRequestToVar(prepareOutput),
-		Response: httpclient.ConvertResponseToVar(resp.HttpResp),
-	}
+    // Build output using measured duration
+    respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
+    respVar.Duration = int32(resp.LapTime.Milliseconds())
+    output := NodeRequestOutput{
+        Request:  request.ConvertRequestToVar(prepareOutput),
+        Response: respVar,
+    }
 
 	respMap := map[string]any{}
 	// TODO: change map conversion non json
@@ -278,10 +281,13 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	output := NodeRequestOutput{
-		Request:  request.ConvertRequestToVar(prepareOutput),
-		Response: httpclient.ConvertResponseToVar(resp.HttpResp),
-	}
+    // Build output using measured duration
+    respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
+    respVar.Duration = int32(resp.LapTime.Milliseconds())
+    output := NodeRequestOutput{
+        Request:  request.ConvertRequestToVar(prepareOutput),
+        Response: respVar,
+    }
 
 	respMap := map[string]any{}
 	// TODO: change map conversion non json

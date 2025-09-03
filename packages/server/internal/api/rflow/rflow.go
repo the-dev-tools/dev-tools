@@ -1,17 +1,18 @@
 package rflow
 
 import (
-	"bytes"
-	"context"
-	"database/sql"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"log"
-	"sort"
-	"strings"
-	"sync"
-	"sync/atomic"
+    "bytes"
+    "context"
+    "database/sql"
+    "encoding/json"
+    "errors"
+    "fmt"
+    "log"
+    "sort"
+    "strings"
+    "sync"
+    "sync/atomic"
+    "reflect"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
@@ -80,10 +81,93 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
 	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
-	"time"
+    "time"
 
     "connectrpc.com/connect"
 )
+
+// normalizeForLog converts OutputData values into log-friendly forms:
+// - []byte -> if JSON, unmarshal to any; else convert to string
+// - map[string]any / []any -> recurse
+func normalizeForLog(v any) any {
+    switch t := v.(type) {
+    case string:
+        // Attempt to parse JSON string into structured value
+        bs := []byte(t)
+        if len(bs) > 0 && (bs[0] == '{' || bs[0] == '[') && json.Valid(bs) {
+            var out any
+            if err := json.Unmarshal(bs, &out); err == nil {
+                return normalizeForLog(out)
+            }
+        }
+        return t
+    case []byte:
+        if json.Valid(t) {
+            var out any
+            if err := json.Unmarshal(t, &out); err == nil {
+                return normalizeForLog(out)
+            }
+        }
+        return string(t)
+    case json.RawMessage:
+        if json.Valid(t) {
+            var out any
+            if err := json.Unmarshal(t, &out); err == nil {
+                return normalizeForLog(out)
+            }
+        }
+        return string(t)
+    case map[string]any:
+        m := make(map[string]any, len(t))
+        for k, val := range t {
+            m[k] = normalizeForLog(val)
+        }
+        return m
+    case []any:
+        arr := make([]any, len(t))
+        for i := range t {
+            arr[i] = normalizeForLog(t[i])
+        }
+        return arr
+    default:
+        // Fallback: handle maps/slices via reflection to catch typed maps (e.g., map[string][]byte)
+        rv := reflect.ValueOf(v)
+        switch rv.Kind() {
+        case reflect.Map:
+            // Only handle string-keyed maps
+            if rv.Type().Key().Kind() == reflect.String {
+                m := make(map[string]any, rv.Len())
+                for _, mk := range rv.MapKeys() {
+                    key := mk.String()
+                    mv := rv.MapIndex(mk).Interface()
+                    m[key] = normalizeForLog(mv)
+                }
+                return m
+            }
+        case reflect.Slice:
+            // If it's a []uint8 (aka []byte), handle as bytes
+            if rv.Type().Elem().Kind() == reflect.Uint8 {
+                b := make([]byte, rv.Len())
+                reflect.Copy(reflect.ValueOf(b), rv)
+                if json.Valid(b) {
+                    var out any
+                    if err := json.Unmarshal(b, &out); err == nil {
+                        return normalizeForLog(out)
+                    }
+                }
+                return string(b)
+            }
+            // Generic slice
+            n := rv.Len()
+            arr := make([]any, n)
+            for i := 0; i < n; i++ {
+                arr[i] = normalizeForLog(rv.Index(i).Interface())
+            }
+            return arr
+        }
+        return v
+    }
+}
 
 // upsertWithRetry attempts to upsert a node execution with small retries for transient DB lock/busy errors.
 func upsertWithRetry(ctx context.Context, svc snodeexecution.NodeExecutionService, exec mnodeexecution.NodeExecution) error {
@@ -1806,21 +1890,40 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							return
 						}
 
-						// Create a simple log-friendly structure without maps
-						logData := struct {
-							NodeID string
-							Name   string
-							State  string
-							Error  error
-						}{
-							NodeID: idStrForLog,
-							Name:   nameForLog,
-							State:  stateStrForLog,
-							Error:  nodeError,
-						}
+                    // Option A: dump entire OutputData as-is for all nodes when available
+                    var refs []reference.ReferenceTreeItem
+                    if flowNodeStatus.OutputData != nil {
+                        if out, ok := flowNodeStatus.OutputData.(map[string]any); ok {
+                            // If OutputData is nested under node name, unwrap once to avoid double key
+                            var src map[string]any = out
+                            if nb, ok := out[nameForLog].(map[string]any); ok {
+                                src = nb
+                            }
+                            // Normalize any []byte or nested structures for display
+                            if norm, ok := normalizeForLog(src).(map[string]any); ok {
+                                // Build reference tree that preserves arrays and nested values
+                                r := reference.NewReferenceFromInterfaceWithKey(norm, nameForLog)
+                                refs = []reference.ReferenceTreeItem{r}
+                            }
+                        }
+                    }
 
-						ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
-						refs := []reference.ReferenceTreeItem{ref}
+                    // Fallback to simple metadata if OutputData is missing or not a map
+                    if len(refs) == 0 {
+                        logData := struct {
+                            NodeID string
+                            Name   string
+                            State  string
+                            Error  error
+                        }{
+                            NodeID: idStrForLog,
+                            Name:   nameForLog,
+                            State:  stateStrForLog,
+                            Error:  nodeError,
+                        }
+                        ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
+                        refs = []reference.ReferenceTreeItem{ref}
+                    }
 
 						// Set log level to error if there's an error, otherwise warning
 						var logLevel logconsole.LogLevel

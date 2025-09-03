@@ -29,9 +29,11 @@ import (
 )
 
 type RequestResponseVar struct {
-	Headers map[string]string `json:"headers"`
-	Queries map[string]string `json:"queries"`
-	Body    string            `json:"body"`
+    Method  string            `json:"method"`
+    URL     string            `json:"url"`
+    Headers map[string]string `json:"headers"`
+    Queries map[string]string `json:"queries"`
+    Body    string            `json:"body"`
 }
 
 type RequestResponse struct {
@@ -40,16 +42,22 @@ type RequestResponse struct {
 }
 
 func ConvertRequestToVar(r *httpclient.Request) RequestResponseVar {
-	headersMaps := make(map[string]string, len(r.Headers))
-	queriesMaps := make(map[string]string, len(r.Queries))
-	for _, header := range r.Headers {
-		headersMaps[header.HeaderKey] = header.Value
-	}
+    headersMaps := make(map[string]string, len(r.Headers))
+    queriesMaps := make(map[string]string, len(r.Queries))
+    for _, header := range r.Headers {
+        headersMaps[header.HeaderKey] = header.Value
+    }
 
-	for _, query := range r.Queries {
-		queriesMaps[query.QueryKey] = query.Value
-	}
-	return RequestResponseVar{Headers: headersMaps, Queries: queriesMaps, Body: string(r.Body)}
+    for _, query := range r.Queries {
+        queriesMaps[query.QueryKey] = query.Value
+    }
+    return RequestResponseVar{
+        Method:  r.Method,
+        URL:     r.URL,
+        Headers: headersMaps,
+        Queries: queriesMaps,
+        Body:    string(r.Body),
+    }
 }
 
 // quoteEscaper is used to escape quotes in MIME headers.
