@@ -35,7 +35,11 @@ import (
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 
-	"connectrpc.com/connect"
+    "connectrpc.com/connect"
+    "github.com/stretchr/testify/require"
+    "the-dev-tools/server/pkg/model/mbodyraw"
+    "the-dev-tools/server/pkg/model/mexamplequery"
+    "the-dev-tools/server/pkg/model/massert"
 )
 
 func TestGetExampleApi(t *testing.T) {
@@ -194,8 +198,8 @@ func TestCreateExampleApi(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectedName := "test_name"
-	expectedBodyType := bodyv1.BodyKind_BODY_KIND_RAW
+    expectedName := "test_name"
+    expectedBodyType := bodyv1.BodyKind_BODY_KIND_RAW
 
 	req := connect.NewRequest(&examplev1.ExampleCreateRequest{
 		EndpointId: item.ID.Bytes(),
@@ -208,10 +212,10 @@ func TestCreateExampleApi(t *testing.T) {
 	rpcExample := ritemapiexample.New(db, iaes, ias, ifs,
 		ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
 	authedCtx := mwauth.CreateAuthedContext(ctx, UserID)
-	resp, err := rpcExample.ExampleCreate(authedCtx, req)
-	if err != nil {
-		t.Fatal(err)
-	}
+    resp, err := rpcExample.ExampleCreate(authedCtx, req)
+    if err != nil {
+        t.Fatal(err)
+    }
 
 	if resp == nil {
 		t.Fatal("resp is nil")
@@ -231,11 +235,11 @@ func TestCreateExampleApi(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if example.Name != expectedName {
-		t.Errorf("expected body %s, got %s", expectedName, example.Name)
-	}
+    if example.Name != expectedName {
+        t.Errorf("expected body %s, got %s", expectedName, example.Name)
+    }
 
-	// TODO: add bodykind to rpc
+    // TODO: add bodykind to rpc
 	/*
 		if bodyv1.BodyKind(example.BodyType) != expectedBodyType {
 			fmt.Println(bodyv1.BodyKind(example.BodyType))
@@ -243,6 +247,105 @@ func TestCreateExampleApi(t *testing.T) {
 			t.Error("body type is not same")
 		}
 	*/
+}
+
+// New test: when a default example exists, ExampleCreate should copy headers/queries/body/assertions
+func TestExampleCreate_CopiesFromDefault(t *testing.T) {
+    ctx := context.Background()
+    base := testutil.CreateBaseDB(ctx, t)
+    queries := base.Queries
+    db := base.DB
+
+    mockLogger := mocklogger.NewMockLogger()
+
+    ias := sitemapi.New(queries)
+    iaes := sitemapiexample.New(queries)
+    ifs := sitemfolder.New(queries)
+    ws := sworkspace.New(queries)
+    cs := scollection.New(queries, mockLogger)
+    us := suser.New(queries)
+    hs := sexampleheader.New(queries)
+    qs := sexamplequery.New(queries)
+    bfs := sbodyform.New(queries)
+    bues := sbodyurl.New(queries)
+    brs := sbodyraw.New(queries)
+    ers := sexampleresp.New(queries)
+    erhs := sexamplerespheader.New(queries)
+    es := senv.New(queries, mockLogger)
+    vs := svar.New(queries, mockLogger)
+    as := sassert.New(queries)
+    ars := sassertres.New(queries)
+
+    workspaceID := idwrap.NewNow()
+    workspaceUserID := idwrap.NewNow()
+    collectionID := idwrap.NewNow()
+    userID := idwrap.NewNow()
+
+    base.GetBaseServices().CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, collectionID)
+
+    // Create endpoint
+    endpoint := &mitemapi.ItemApi{
+        ID:           idwrap.NewNow(),
+        Name:         "E",
+        Url:          "http://example.com",
+        Method:       "GET",
+        CollectionID: collectionID,
+    }
+    require.NoError(t, ias.CreateItemApi(ctx, endpoint))
+
+    // Create a default example with one header, one query, raw body, and an assertion
+    defaultExample := &mitemapiexample.ItemApiExample{
+        ID:           idwrap.NewNow(),
+        ItemApiID:    endpoint.ID,
+        CollectionID: collectionID,
+        Name:         "Default",
+        BodyType:     mitemapiexample.BodyTypeRaw,
+        IsDefault:    true,
+    }
+    require.NoError(t, iaes.CreateApiExample(ctx, defaultExample))
+
+    // Raw body
+    require.NoError(t, brs.CreateBodyRaw(ctx, mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: defaultExample.ID, Data: []byte("{\"ok\":true}")}))
+    // Header
+    require.NoError(t, hs.AppendHeader(ctx, mexampleheader.Header{ID: idwrap.NewNow(), ExampleID: defaultExample.ID, HeaderKey: "X-Default", Value: "yes"}))
+    // Query
+    require.NoError(t, qs.CreateExampleQuery(ctx, mexamplequery.Query{ID: idwrap.NewNow(), ExampleID: defaultExample.ID, QueryKey: "q", Value: "1"}))
+    // Assertion
+    require.NoError(t, as.CreateAssert(ctx, massert.Assert{ID: idwrap.NewNow(), ExampleID: defaultExample.ID, Enable: true}))
+
+    // Now create a new example via RPC; it should copy from default
+    logChanMap := logconsole.NewLogChanMapWith(10000)
+    rpcExample := ritemapiexample.New(db, iaes, ias, ifs, ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
+    authed := mwauth.CreateAuthedContext(ctx, userID)
+    name := "Copied"
+    req := connect.NewRequest(&examplev1.ExampleCreateRequest{EndpointId: endpoint.ID.Bytes(), Name: name})
+    resp, err := rpcExample.ExampleCreate(authed, req)
+    require.NoError(t, err)
+
+    newID, err := idwrap.NewFromBytes(resp.Msg.ExampleId)
+    require.NoError(t, err)
+
+    // Verify copied data exists
+    ex, err := iaes.GetApiExample(ctx, newID)
+    require.NoError(t, err)
+    require.Equal(t, name, ex.Name)
+
+    // Header
+    hdrs, err := hs.GetHeaderByExampleID(ctx, newID)
+    require.NoError(t, err)
+    require.NotEmpty(t, hdrs)
+    // Query
+    qsNew, err := qs.GetExampleQueriesByExampleID(ctx, newID)
+    require.NoError(t, err)
+    require.NotEmpty(t, qsNew)
+    // Body raw
+    body, err := brs.GetBodyRawByExampleID(ctx, newID)
+    require.NoError(t, err)
+    require.NotNil(t, body)
+    // Assertions
+    asserts, err := as.GetAssertByExampleID(ctx, newID)
+    require.NoError(t, err)
+    require.NotEmpty(t, asserts)
 }
 
 func TestUpdateExampleApi(t *testing.T) {

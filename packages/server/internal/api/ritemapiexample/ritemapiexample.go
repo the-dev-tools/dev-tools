@@ -255,32 +255,74 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// TODO: make this a transaction
-	ExampleID := idwrap.NewNow()
-	ex := &mitemapiexample.ItemApiExample{
-		ID:           ExampleID,
-		ItemApiID:    apiIDWrap,
-		CollectionID: itemApi.CollectionID,
-		Name:         req.Msg.Name,
-		BodyType:     mitemapiexample.BodyTypeNone,
-		IsDefault:    false,
-	}
-	err = c.iaes.CreateApiExample(ctx, ex)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	bodyRaw := mbodyraw.ExampleBodyRaw{
-		ID:            idwrap.NewNow(),
-		ExampleID:     ExampleID,
-		VisualizeMode: mbodyraw.VisualizeModeBinary,
-		CompressType:  compress.CompressTypeNone,
-		Data:          []byte{},
-	}
+    // Attempt to find a default example for this endpoint (outside TX to avoid holding locks)
+    examplesWithDefaults, err := c.iaes.GetApiExamplesWithDefaults(ctx, apiIDWrap)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    var defaultExample *mitemapiexample.ItemApiExample
+    for i := range examplesWithDefaults {
+        if examplesWithDefaults[i].IsDefault {
+            defaultExample = &examplesWithDefaults[i]
+            break
+        }
+    }
 
-	err = c.brs.CreateBodyRaw(ctx, bodyRaw)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+    // If copying: prepare outside TX to avoid holding write locks during reads
+    var copyRes *CopyExampleResult
+    if defaultExample != nil {
+        r, prepErr := PrepareCopyExample(ctx, apiIDWrap, *defaultExample, *c.hs, *c.qs, *c.brs, *c.bfs, *c.bues, *c.ers, *c.erhs, *c.as, *c.ars)
+        if prepErr != nil {
+            return nil, connect.NewError(connect.CodeInternal, prepErr)
+        }
+        r.Example.Name = req.Msg.Name
+        r.Example.IsDefault = false
+        copyRes = &r
+    }
+
+    // Create within a transaction (write-only phase)
+    tx, err := c.DB.Begin()
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    defer devtoolsdb.TxnRollback(tx)
+
+    var newExampleID idwrap.IDWrap
+    if copyRes != nil {
+        if err := CreateCopyExample(ctx, tx, *copyRes); err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+        newExampleID = copyRes.Example.ID
+    } else {
+        // Fallback: create an empty example with raw body
+        exampleID := idwrap.NewNow()
+        ex := &mitemapiexample.ItemApiExample{
+            ID:           exampleID,
+            ItemApiID:    apiIDWrap,
+            CollectionID: itemApi.CollectionID,
+            Name:         req.Msg.Name,
+            BodyType:     mitemapiexample.BodyTypeNone,
+            IsDefault:    false,
+        }
+        if err := c.iaes.TX(tx).CreateApiExample(ctx, ex); err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+        bodyRaw := mbodyraw.ExampleBodyRaw{
+            ID:            idwrap.NewNow(),
+            ExampleID:     exampleID,
+            VisualizeMode: mbodyraw.VisualizeModeBinary,
+            CompressType:  compress.CompressTypeNone,
+            Data:          []byte{},
+        }
+        if err := c.brs.TX(tx).CreateBodyRaw(ctx, bodyRaw); err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+        newExampleID = exampleID
+    }
+
+    if err := tx.Commit(); err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
 
 	// TODO: refactor changes stuff
 	/*
@@ -329,9 +371,9 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 		}
 	*/
 
-	return connect.NewResponse(&examplev1.ExampleCreateResponse{
-		ExampleId: ExampleID.Bytes(),
-	}), nil
+    return connect.NewResponse(&examplev1.ExampleCreateResponse{
+        ExampleId: newExampleID.Bytes(),
+    }), nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Request[examplev1.ExampleUpdateRequest]) (*connect.Response[examplev1.ExampleUpdateResponse], error) {
