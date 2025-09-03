@@ -38,7 +38,7 @@ declare module '@tanstack/react-table' {
 
 export const tableStyles = {
   body: tw`col-span-full grid grid-cols-subgrid divide-y border-inherit`,
-  cell: tw`block min-w-0 border-inherit align-middle break-all`,
+  cell: tw`block min-w-0 border-inherit align-middle break-all select-text`,
   header: tw`
     col-span-full grid grid-cols-subgrid divide-x border-b border-inherit bg-slate-50 font-medium tracking-tight
 
