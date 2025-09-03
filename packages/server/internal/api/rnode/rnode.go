@@ -45,6 +45,7 @@ import (
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
 
 	"connectrpc.com/connect"
+	"time"
 )
 
 type NodeServiceRPC struct {
@@ -119,6 +120,37 @@ func CreateService(srv *NodeServiceRPC, options []connect.HandlerOption) (*api.S
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
+// choose a stable state for display that avoids stale RUNNING from previous sessions
+func (c *NodeServiceRPC) effectiveNodeState(ctx context.Context, nodeID idwrap.IDWrap) nodev1.NodeState {
+    latest, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, nodeID)
+    if err != nil || latest == nil {
+        return nodev1.NodeState_NODE_STATE_UNSPECIFIED
+    }
+
+    // If we have a terminal state or CompletedAt, return it directly
+    if latest.CompletedAt != nil || latest.State != mnnode.NODE_STATE_RUNNING {
+        return nodev1.NodeState(latest.State)
+    }
+
+    // Prefer a terminal execution if present
+    executions, err := c.nes.ListNodeExecutionsByNodeID(ctx, nodeID)
+    if err == nil {
+        for _, ex := range executions { // assumed latest-first
+            if ex.CompletedAt != nil {
+                return nodev1.NodeState(ex.State)
+            }
+        }
+    }
+
+    // If still RUNNING with no CompletedAt, treat very old records as unspecified (ghost-run protection)
+    age := time.Since(latest.ID.Time())
+    if age > 5*time.Second {
+        return nodev1.NodeState_NODE_STATE_UNSPECIFIED
+    }
+
+    return nodev1.NodeState(latest.State)
+}
+
 func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[nodev1.NodeListRequest]) (*connect.Response[nodev1.NodeListResponse], error) {
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
@@ -142,13 +174,13 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 			return nil, err
 		}
 
-		convertedItem := &nodev1.NodeListItem{
-			NodeId:   node.ID.Bytes(),
-			State:    rpcNode.State,
-			Position: rpcNode.Position,
-			Kind:     rpcNode.Kind,
-			NoOp:     rpcNode.NoOp,
-		}
+    convertedItem := &nodev1.NodeListItem{
+            NodeId:   node.ID.Bytes(),
+            State:    c.effectiveNodeState(ctx, node.ID),
+            Position: rpcNode.Position,
+            Kind:     rpcNode.Kind,
+            NoOp:     rpcNode.NoOp,
+        }
 
 		// For request nodes, include endpoint information in the info field
 		if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST && rpcNode.Request != nil {
@@ -822,16 +854,42 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		}
 	}
 
-	// Get the latest execution state for this node
-	latestExecution, err := nes.GetLatestNodeExecutionByNodeID(ctx, currentNode.ID)
-	if err == nil && latestExecution != nil {
-		rpcNode.State = nodev1.NodeState(latestExecution.State)
-		// Note: Error information from node execution is available in latestExecution.Error
-		// but the Node proto doesn't have a field for it. The error is shown in execution-specific responses.
-	} else {
-		// Default to unspecified state if no executions found
-		rpcNode.State = nodev1.NodeState_NODE_STATE_UNSPECIFIED
-	}
+    // Get the latest execution state for this node with stale RUNNING protection
+    latestExecution, err := nes.GetLatestNodeExecutionByNodeID(ctx, currentNode.ID)
+    if err == nil && latestExecution != nil {
+        if latestExecution.CompletedAt != nil || latestExecution.State != mnnode.NODE_STATE_RUNNING {
+            rpcNode.State = nodev1.NodeState(latestExecution.State)
+        } else {
+            // Prefer a terminal execution if present
+            if execs, err := nes.ListNodeExecutionsByNodeID(ctx, currentNode.ID); err == nil {
+                found := false
+                for _, ex := range execs { // assumed latest-first
+                    if ex.CompletedAt != nil {
+                        rpcNode.State = nodev1.NodeState(ex.State)
+                        found = true
+                        break
+                    }
+                }
+                if !found {
+                    // If still RUNNING and very old, treat as unspecified (ghost protection)
+                    if time.Since(latestExecution.ID.Time()) > 5*time.Second {
+                        rpcNode.State = nodev1.NodeState_NODE_STATE_UNSPECIFIED
+                    } else {
+                        rpcNode.State = nodev1.NodeState_NODE_STATE_RUNNING
+                    }
+                }
+            } else {
+                // Fallback
+                if time.Since(latestExecution.ID.Time()) > 5*time.Second {
+                    rpcNode.State = nodev1.NodeState_NODE_STATE_UNSPECIFIED
+                } else {
+                    rpcNode.State = nodev1.NodeState_NODE_STATE_RUNNING
+                }
+            }
+        }
+    } else {
+        rpcNode.State = nodev1.NodeState_NODE_STATE_UNSPECIFIED
+    }
 
 	return rpcNode, nil
 }

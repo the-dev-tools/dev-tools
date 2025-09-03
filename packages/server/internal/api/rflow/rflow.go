@@ -82,8 +82,39 @@ import (
 	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
 	"time"
 
-	"connectrpc.com/connect"
+    "connectrpc.com/connect"
 )
+
+// upsertWithRetry attempts to upsert a node execution with small retries for transient DB lock/busy errors.
+func upsertWithRetry(ctx context.Context, svc snodeexecution.NodeExecutionService, exec mnodeexecution.NodeExecution) error {
+    // Try immediate, then exponential backoff for transient sqlite busy/locked
+    backoffs := []time.Duration{0, 10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond, 80 * time.Millisecond, 160 * time.Millisecond, 320 * time.Millisecond}
+    var lastErr error
+    for i, d := range backoffs {
+        if d > 0 {
+            select {
+            case <-ctx.Done():
+                return ctx.Err()
+            case <-time.After(d):
+            }
+        }
+        if err := svc.UpsertNodeExecution(ctx, exec); err != nil {
+            lastErr = err
+            // Retry on transient lock/busy conditions
+            msg := err.Error()
+            if !(strings.Contains(msg, "locked") || strings.Contains(msg, "busy")) {
+                return err
+            }
+            // If this was the last attempt, return error
+            if i == len(backoffs)-1 {
+                return err
+            }
+            continue
+        }
+        return nil
+    }
+    return lastErr
+}
 
 // preRegisteredRequestNode wraps a REQUEST node to handle pre-registration of ExecutionIDs
 // This fixes the race condition where responses arrive before ExecutionID is added to pendingNodeExecutions
@@ -763,7 +794,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	latestFlowID := flow.ID
+    latestFlowID := flow.ID
+    runStart := time.Now()
 
 	// Clean up old executions before starting
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -1534,14 +1566,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					}
 
-					// Upsert ALL iteration records immediately (non-blocking)
-					go func(exec mnodeexecution.NodeExecution) {
-						dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-						defer cancel()
-						if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
-							log.Printf("Failed to upsert iteration record %s: %v", exec.ID.String(), err)
-						}
-					}(nodeExecution)
+					// Upsert ALL iteration records synchronously to avoid stale RUNNING state after cancel
+					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+					defer cancel()
+					if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
+						log.Printf("Failed to upsert iteration record %s: %v", nodeExecution.ID.String(), err)
+					}
 					// ALL iterations are now persisted to database
 				} else {
 					// Update existing NodeExecution with final state (normal flow)
@@ -1578,14 +1608,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 
-						// Upsert execution in DB immediately (non-blocking)
-						go func(exec mnodeexecution.NodeExecution) {
-							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-							defer cancel()
-							if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
-								log.Printf("Failed to upsert node execution %s: %v", exec.ID, err)
-							}
-						}(*nodeExec)
+						// Upsert execution in DB synchronously to ensure terminal state is persisted
+						dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+						defer cancel()
+						if err := upsertWithRetry(dbCtx, c.nes, *nodeExec); err != nil {
+							log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
+						}
 
 						// For REQUEST nodes, wait for response before sending to channel
 						if node != nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
@@ -1667,14 +1695,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 
-						// Upsert to DB immediately (non-blocking)
-						go func(exec mnodeexecution.NodeExecution) {
-							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-							defer cancel()
-							if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
-								log.Printf("Failed to upsert canceled node execution %s: %v", exec.ID, err)
-							}
-						}(nodeExecution)
+						// Upsert to DB synchronously to ensure cancellation is persisted before navigation
+						dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+						defer cancel()
+						if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
+							log.Printf("Failed to upsert canceled node execution %s: %v", nodeExecution.ID, err)
+						}
 
 						// Send immediately for canceled nodes (with safety check)
 						if !channelsClosed.Load() {
@@ -1738,14 +1764,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 							}
 
-							// Upsert to DB immediately (non-blocking)
-							go func(exec mnodeexecution.NodeExecution) {
-								dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-								defer cancel()
-								if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
-									log.Printf("Failed to upsert failed loop node execution %s: %v", exec.ID, err)
-								}
-							}(nodeExecution)
+							// Upsert to DB synchronously to ensure final state is persisted
+							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+							defer cancel()
+							if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
+								log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
+							}
 
 							// Send immediately for failed loop nodes to make them visible in UI
 							if !channelsClosed.Load() {
@@ -2028,19 +2052,39 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	// After flow completes, flush any pending REQUEST node executions
-	// that didn't receive responses yet
+	// that didn't receive responses yet. If any are still RUNNING (no CompletedAt),
+	// mark them as CANCELED and persist synchronously to avoid stale RUNNING state.
 	pendingMutex.Lock()
 	for execID, nodeExec := range pendingNodeExecutions {
-		// Check if this is a completed REQUEST node without ResponseID
 		if nodeExec.CompletedAt != nil {
-			// Try to send to channel (non-blocking to avoid deadlock)
+			// Already completed: forward to channel and remove
 			select {
 			case nodeExecutionChan <- *nodeExec:
 				delete(pendingNodeExecutions, execID)
 			default:
-				// Channel might be full or closed, just delete
 				delete(pendingNodeExecutions, execID)
 			}
+			continue
+		}
+
+		// Not completed: treat as canceled
+		nodeExec.State = mnnode.NODE_STATE_CANCELED
+		completedAt := time.Now().UnixMilli()
+		nodeExec.CompletedAt = &completedAt
+
+		// Persist synchronously
+		dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		if err := upsertWithRetry(dbCtx, c.nes, *nodeExec); err != nil {
+			log.Printf("Failed to upsert pending canceled node execution %s: %v", nodeExec.ID, err)
+		}
+		cancel()
+
+		// Try to send to channel and remove
+		select {
+		case nodeExecutionChan <- *nodeExec:
+			delete(pendingNodeExecutions, execID)
+		default:
+			delete(pendingNodeExecutions, execID)
 		}
 	}
 	pendingMutex.Unlock()
@@ -2051,12 +2095,86 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// Wait for all goroutines to finish before closing channels
 	goroutineWg.Wait()
 
-	// Now safe to close channels since all senders have stopped
-	close(nodeExecutionChan)
-	close(requestNodeRespChan)
+    // Now safe to close channels since all senders have stopped
+    close(nodeExecutionChan)
+    close(requestNodeRespChan)
 
 	// Wait for all node executions to be collected
 	<-nodeExecutionsDone
+
+    // Safety net: ensure no RUNNING executions remain as latest state for any nodes in this flow.
+    // Under heavy concurrency (e.g., sqlite busy/locked), a final state upsert may fail transiently.
+    // Perform a best-effort pass to mark any lingering RUNNING latest execution as CANCELED.
+    {
+        nodesForSafety, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
+        if err == nil {
+            for _, n := range nodesForSafety {
+                exec, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, n.ID)
+                if err != nil || exec == nil {
+                    // No execution at all for this node. Create a CANCELED record so UI won't show stale RUNNING.
+                    canceled := mnodeexecution.NodeExecution{
+                        ID:            idwrap.NewNow(),
+                        NodeID:        n.ID,
+                        Name:          n.Name,
+                        State:         mnnode.NODE_STATE_CANCELED,
+                        InputData:     []byte("{}"),
+                        OutputData:    []byte("{}"),
+                        CompletedAt:   func() *int64 { ts := time.Now().UnixMilli(); return &ts }(),
+                    }
+                    dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+                    _ = upsertWithRetry(dbCtx, c.nes, canceled)
+                    cancel()
+                    continue
+                }
+                if exec.State == mnnode.NODE_STATE_RUNNING {
+                    completedAt := time.Now().UnixMilli()
+                    exec.State = mnnode.NODE_STATE_CANCELED
+                    exec.CompletedAt = &completedAt
+
+					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+					_ = upsertWithRetry(dbCtx, c.nes, *exec)
+					cancel()
+					log.Printf("🧹 Safety-updated lingering RUNNING execution %s for node %s to CANCELED", exec.ID.String(), n.ID.String())
+            }
+        }
+    }
+
+    // Additional safety: for nodes whose latest execution predates this run (or none at all),
+    // create a CANCELED record to reflect that the current run was cancelled before they executed.
+    {
+        nodesForSafety, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
+        if err == nil {
+            for _, n := range nodesForSafety {
+                exec, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, n.ID)
+                if err != nil || exec == nil {
+                    // already handled above (no exec at all)
+                    continue
+                }
+                // If the latest execution ID time and completed_at are both before runStart,
+                // it means this run created no record for this node. Create a canceled record now.
+                predates := exec.ID.Time().Before(runStart)
+                if exec.CompletedAt != nil {
+                    completedAtTime := time.UnixMilli(*exec.CompletedAt)
+                    predates = predates && completedAtTime.Before(runStart)
+                }
+                if predates {
+                    canceled := mnodeexecution.NodeExecution{
+                        ID:            idwrap.NewNow(),
+                        NodeID:        n.ID,
+                        Name:          n.Name,
+                        State:         mnnode.NODE_STATE_CANCELED,
+                        InputData:     []byte("{}"),
+                        OutputData:    []byte("{}"),
+                        CompletedAt:   func() *int64 { ts := time.Now().UnixMilli(); return &ts }(),
+                    }
+                    dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+                    _ = upsertWithRetry(dbCtx, c.nes, canceled)
+                    cancel()
+                }
+            }
+        }
+    }
+	}
 
 	// Final cleanup of pre-registered executions
 	preRegisteredMutex.Lock()

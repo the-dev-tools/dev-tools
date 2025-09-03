@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/db/pkg/sqlc"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rflow"
+	"the-dev-tools/server/internal/api/rnode"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logconsole"
@@ -54,6 +55,7 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
+	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	"time"
 
 	"connectrpc.com/connect"
@@ -303,6 +305,17 @@ func TestClientCancelImmediately(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Flow execution didn't complete within timeout after immediate cancellation")
 	}
+
+	// Verify NodeList has no RUNNING nodes for this flow
+    nodeRPC := rnode.NewNodeServiceRPC(base.DB, suser.New(base.Queries), services.fs, *snodeif.New(base.Queries), services.rns, services.fns, services.fens, services.ns, services.sns, services.jsns, services.ias, services.es, sexamplequery.New(base.Queries), sexampleheader.New(base.Queries), sbodyraw.New(base.Queries), sbodyform.New(base.Queries), sbodyurl.New(base.Queries), snodeexecution.New(base.Queries))
+	listReq := connect.NewRequest(&nodev1.NodeListRequest{FlowId: testFlowID.Bytes()})
+	listResp, err := nodeRPC.NodeList(mwauth.CreateAuthedContext(ctx, userID), listReq)
+	require.NoError(t, err)
+	for _, it := range listResp.Msg.Items {
+		if it.State == nodev1.NodeState_NODE_STATE_RUNNING {
+			t.Fatalf("node still RUNNING after immediate cancel")
+		}
+	}
 }
 
 // TestClientCancelDuringNodeExecution tests cancellation during node execution
@@ -442,6 +455,17 @@ func TestClientCancelDuringNodeExecution(t *testing.T) {
 		t.Logf("Flow handled cancellation during execution with error: %v", err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("Flow execution didn't complete within timeout after cancellation")
+	}
+
+	// Verify NodeList has no RUNNING nodes for this flow
+    nodeRPC := rnode.NewNodeServiceRPC(base.DB, suser.New(base.Queries), services.fs, *snodeif.New(base.Queries), services.rns, services.fns, services.fens, services.ns, services.sns, services.jsns, services.ias, services.es, sexamplequery.New(base.Queries), sexampleheader.New(base.Queries), sbodyraw.New(base.Queries), sbodyform.New(base.Queries), sbodyurl.New(base.Queries), snodeexecution.New(base.Queries))
+	listReq := connect.NewRequest(&nodev1.NodeListRequest{FlowId: testFlowID.Bytes()})
+	listResp, err := nodeRPC.NodeList(mwauth.CreateAuthedContext(ctx, userID), listReq)
+	require.NoError(t, err)
+	for _, it := range listResp.Msg.Items {
+		if it.State == nodev1.NodeState_NODE_STATE_RUNNING {
+			t.Fatalf("node still RUNNING after cancel during request execution")
+		}
 	}
 
 	// Verify no panic occurred and resources were cleaned up
