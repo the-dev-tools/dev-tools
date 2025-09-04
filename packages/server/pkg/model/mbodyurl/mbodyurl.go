@@ -56,18 +56,17 @@ func (bue BodyURLEncoded) IsEnabled() bool {
 // DetermineDeltaType determines the delta type based on the body URL encoded's relationships
 // This function replaces the need for storing Source explicitly
 func (bue *BodyURLEncoded) DetermineDeltaType(exampleHasVersionParent bool) BodyURLEncodedSource {
-	// If no DeltaParentID, this is not a delta body URL encoded
-	if bue.DeltaParentID == nil {
-		return BodyURLEncodedSourceOrigin
-	}
-
-	// If example has VersionParentID, this is a delta example
-	if exampleHasVersionParent {
-		// BodyURLEncoded has DeltaParentID and example is delta -> DELTA body URL encoded
-		return BodyURLEncodedSourceDelta
-	}
-
-	// If example has no VersionParentID, it's an original example
-	// BodyURLEncoded has DeltaParentID but example is original -> MIXED body URL encoded
-	return BodyURLEncodedSourceMixed
+    // New items created directly in a delta example (no parent) are DELTA
+    if exampleHasVersionParent && bue.DeltaParentID == nil {
+        return BodyURLEncodedSourceDelta
+    }
+    // Items with parent:
+    if bue.DeltaParentID != nil {
+        if exampleHasVersionParent {
+            return BodyURLEncodedSourceDelta
+        }
+        return BodyURLEncodedSourceMixed
+    }
+    // Default: origin example, no parent
+    return BodyURLEncodedSourceOrigin
 }
