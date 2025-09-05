@@ -21,7 +21,7 @@ const (
 
 type LogMessage struct {
     LogID idwrap.IDWrap
-    Value string
+    Name  string
     Level LogLevel
     // JSON contains the structured payload encoded as JSON.
     JSON  string
@@ -64,18 +64,18 @@ func (l *LogChanMap) DeleteLogChannel(userID idwrap.IDWrap) {
 	delete(l.chanMap, userID)
 }
 
-func SendLogMessage(ch chan LogMessage, logID idwrap.IDWrap, value string, level LogLevel, refs []reference.ReferenceTreeItem) {
+func SendLogMessage(ch chan LogMessage, logID idwrap.IDWrap, name string, level LogLevel, refs []reference.ReferenceTreeItem) {
     // Convert refs to a single JSON object for downstream consumers.
     jsonStr := refsToJSON(refs)
     ch <- LogMessage{
         LogID: logID,
-        Value: value,
+        Name:  name,
         Level: level,
         JSON:  jsonStr,
     }
 }
 
-func (logChannels *LogChanMap) SendMsgToUserWithContext(ctx context.Context, logID idwrap.IDWrap, value string, level LogLevel, refs []reference.ReferenceTreeItem) error {
+func (logChannels *LogChanMap) SendMsgToUserWithContext(ctx context.Context, logID idwrap.IDWrap, name string, level LogLevel, refs []reference.ReferenceTreeItem) error {
     logChannels.mt.Lock()
     defer logChannels.mt.Unlock()
     userID, err := mwauth.GetContextUserID(ctx)
@@ -86,7 +86,7 @@ func (logChannels *LogChanMap) SendMsgToUserWithContext(ctx context.Context, log
 	if !ok {
 		return fmt.Errorf("userID's log channel not found")
     }
-    SendLogMessage(ch, logID, value, level, refs)
+    SendLogMessage(ch, logID, name, level, refs)
     return nil
 }
 

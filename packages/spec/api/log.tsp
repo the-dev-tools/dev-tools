@@ -1,8 +1,8 @@
 import "@typespec/protobuf";
 
 import "./lib.tsp";
-import "./reference.tsp";
 import "./resource.tsp";
+import "./well-known.tsp";
 
 using TypeSpec.Protobuf;
 
@@ -23,9 +23,9 @@ enum LogLevel {
 @autoFields
 model LogStreamResponse {
   @key logId: Resource.Id;
-  value: string;
+  name: string;
   level: LogLevel;
-  json?: string;
+  value?: WellKnown.JsonValue;
 }
 
 @Protobuf.service

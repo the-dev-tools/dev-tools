@@ -2,6 +2,7 @@ package rlog
 
 import (
     "context"
+    "encoding/json"
     "the-dev-tools/server/internal/api"
     "the-dev-tools/server/internal/api/middleware/mwauth"
     "the-dev-tools/server/pkg/logconsole"
@@ -10,6 +11,7 @@ import (
 
     "connectrpc.com/connect"
     "google.golang.org/protobuf/types/known/emptypb"
+    structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 type RlogRPC struct {
@@ -42,16 +44,20 @@ func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[empty
 	for {
 		select {
         case logMessage := <-lmc:
-            var jsonStrPtr *string
+            var val *structpb.Value
             if logMessage.JSON != "" {
-                s := logMessage.JSON
-                jsonStrPtr = &s
+                var v any
+                if err := json.Unmarshal([]byte(logMessage.JSON), &v); err == nil {
+                    if pv, err2 := structpb.NewValue(v); err2 == nil {
+                        val = pv
+                    }
+                }
             }
             b := &logv1.LogStreamResponse{
                 LogId: logMessage.LogID.Bytes(),
-                Value: logMessage.Value,
+                Name:  logMessage.Name,
                 Level: logv1.LogLevel(logMessage.Level),
-                Json:  jsonStrPtr,
+                Value: val,
             }
             err = stream.Send(b)
             if err != nil {
