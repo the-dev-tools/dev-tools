@@ -451,24 +451,36 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 		return fmt.Errorf("failed to create endpoint reference: %w", err)
 	}
 
-	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
-	// Now we can safely reference endpoint.ID since it exists in item_api table
-	collectionItemID := idwrap.New(ulid.Make())
-	plan, err := movable.BuildAppendPlanFromRepo(ctx, txService.repository, endpoint.CollectionID, movable.CollectionListTypeItems, collectionItemID)
-	if err != nil {
-		return fmt.Errorf("append plan failed: %w", err)
-	}
+    // Step 2: Create collection_items entry (PRIMARY) with correct linked list position
+    // Now we can safely reference endpoint.ID since it exists in item_api table
+    collectionItemID := idwrap.New(ulid.Make())
+    plan, err := movable.BuildAppendPlanFromRepo(ctx, txService.repository, endpoint.CollectionID, movable.CollectionListTypeItems, collectionItemID)
+    if err != nil {
+        return fmt.Errorf("append plan failed: %w", err)
+    }
 
-	// Note: endpoint.FolderID should already be converted to collection_items ID in the RPC layer
-	err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
-		ID:             collectionItemID,
-		CollectionID:   endpoint.CollectionID,
-		ParentFolderID: endpoint.FolderID, // Should already be collection_items ID, not legacy ID
-		ItemType:       int8(CollectionItemTypeEndpoint),
-		FolderID:       nil,
-		EndpointID:     &endpoint.ID, // Reference to legacy endpoint table (now exists)
-		Name:           endpoint.Name,
-		PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
+    // Resolve collection_items parent folder ID if legacy folder ID was provided
+    var parentFolderCI *idwrap.IDWrap
+    if endpoint.FolderID != nil {
+        ciID, err := txService.GetCollectionItemIDByLegacyID(ctx, *endpoint.FolderID)
+        if err != nil {
+            if err == ErrCollectionItemNotFound {
+                return fmt.Errorf("parent folder not found")
+            }
+            return fmt.Errorf("failed to resolve parent folder mapping: %w", err)
+        }
+        parentFolderCI = &ciID
+    }
+
+    err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
+        ID:             collectionItemID,
+        CollectionID:   endpoint.CollectionID,
+        ParentFolderID: parentFolderCI,
+        ItemType:       int8(CollectionItemTypeEndpoint),
+        FolderID:       nil,
+        EndpointID:     &endpoint.ID, // Reference to legacy endpoint table (now exists)
+        Name:           endpoint.Name,
+        PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
 		NextID:         nil, // Will be calculated by InsertNewItemAtPosition
 	}, plan.Position)
 	if err != nil {
