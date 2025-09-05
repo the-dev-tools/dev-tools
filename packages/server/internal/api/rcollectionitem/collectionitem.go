@@ -30,42 +30,35 @@ import (
 
 // validateMoveKindCompatibility validates that a move operation from sourceKind to targetKind is semantically valid
 func validateMoveKindCompatibility(sourceKind, targetKind itemv1.ItemKind) error {
-	// If targetKind is unspecified, no validation needed
-	if targetKind == itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
-		return nil
-	}
+    // If targetKind is unspecified, no validation needed
+    if targetKind == itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
+        return nil
+    }
 
-	switch sourceKind {
-	case itemv1.ItemKind_ITEM_KIND_FOLDER:
-		switch targetKind {
-		case itemv1.ItemKind_ITEM_KIND_FOLDER:
-			// ✅ Folder to folder: valid (folder reorganization)
-			return nil
-		case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
-			// ❌ Folder to endpoint: invalid (can't put folder inside endpoint)
-			return errors.New("invalid move: cannot move folder into an endpoint")
-		default:
-			return errors.New("invalid targetKind specified")
-		}
+    switch sourceKind {
+    case itemv1.ItemKind_ITEM_KIND_FOLDER:
+        // Moving a folder relative to an endpoint is valid for sibling reordering in collection_items.
+        // Actual parent validation happens elsewhere (only folders can be parents).
+        return nil
 
-	case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
-		switch targetKind {
-		case itemv1.ItemKind_ITEM_KIND_FOLDER:
-			// ✅ Endpoint to folder: valid (endpoint into folder)
-			return nil
-		case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
-			// ✅ Endpoint to endpoint: valid (endpoint reordering)
-			return nil
-		default:
-			return errors.New("invalid targetKind specified")
-		}
+    case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
+        switch targetKind {
+        case itemv1.ItemKind_ITEM_KIND_FOLDER:
+            // ✅ Endpoint to folder: valid (endpoint into folder)
+            return nil
+        case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
+            // ✅ Endpoint to endpoint: valid (endpoint reordering)
+            return nil
+        default:
+            return errors.New("invalid targetKind specified")
+        }
 
-	case itemv1.ItemKind_ITEM_KIND_UNSPECIFIED:
-		return errors.New("source kind must be specified")
+    case itemv1.ItemKind_ITEM_KIND_UNSPECIFIED:
+        return errors.New("source kind must be specified")
 
-	default:
-		return errors.New("invalid source kind specified")
-	}
+    default:
+        return errors.New("invalid source kind specified")
+    }
 }
 
 type CollectionItemRPC struct {
@@ -396,9 +389,15 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move item relative to itself"))
 	}
 
-	// Determine the type of move operation and route appropriately
-	isCrossCollectionMove := targetCollectionID != nil
-	isTargetParentFolderMove := targetParentFolderID != nil || req.Msg.TargetParentFolderId != nil
+    // Determine source collection to route same-collection vs cross-collection correctly
+    currentItem, err := c.cis.GetCollectionItem(ctx, itemID)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // Same-collection when targetCollectionID is nil or equals current item's collection
+    isCrossCollectionMove := targetCollectionID != nil && currentItem.CollectionID.Compare(*targetCollectionID) != 0
+    isTargetParentFolderMove := targetParentFolderID != nil || req.Msg.TargetParentFolderId != nil
 
 	// Add comprehensive logging for move operations
 	slog.Debug("Collection item move operation",
@@ -429,16 +428,17 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		"is_target_parent_folder", isTargetParentFolderMove)
 
 	// Route to appropriate service method based on operation type
-	if isCrossCollectionMove {
-		// Cross-collection move: use dedicated cross-collection service method
-		slog.Debug("Executing cross-collection move",
-			"source_collection", collectionID.String(),
-			"target_collection", targetCollectionID.String())
-		err = c.cis.MoveCollectionItemCrossCollection(ctx, itemID, *targetCollectionID, targetParentFolderID, targetID, movePosition)
-	} else if isTargetParentFolderMove {
-		// Same-collection move with target parent folder specified
-		slog.Debug("Executing same-collection parent folder move")
-		err = c.cis.MoveCollectionItemToFolder(ctx, itemID, targetParentFolderID, targetID, movePosition, nil)
+    if isCrossCollectionMove {
+        // Cross-collection move: use dedicated cross-collection service method
+        slog.Debug("Executing cross-collection move",
+            "source_collection", collectionID.String(),
+            "target_collection", targetCollectionID.String())
+        err = c.cis.MoveCollectionItemCrossCollection(ctx, itemID, *targetCollectionID, targetParentFolderID, targetID, movePosition)
+    } else if isTargetParentFolderMove {
+        // Same-collection move with target parent folder specified
+        slog.Debug("Executing same-collection parent folder move")
+        // For same-collection parent move, ignore targetCollectionID (even if provided and equal)
+        err = c.cis.MoveCollectionItemToFolder(ctx, itemID, targetParentFolderID, targetID, movePosition, nil)
 	} else {
 		// Traditional same-collection move with target item positioning
 		slog.Debug("Executing traditional same-collection move")

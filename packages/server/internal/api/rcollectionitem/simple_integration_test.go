@@ -158,6 +158,80 @@ func TestSimpleCollectionItemWorkflow(t *testing.T) {
 	t.Log("🎉 All steps passed! Basic collection item workflow is working correctly.")
 }
 
+// New test: moving a folder AFTER an endpoint should be valid (mixed kinds are allowed as siblings)
+func TestMoveFolderAfterEndpoint(t *testing.T) {
+    ctx := context.Background()
+    base := testutil.CreateBaseDB(ctx, t)
+    defer base.Close()
+
+    queries := base.Queries
+    db := base.DB
+    mockLogger := mocklogger.NewMockLogger()
+
+    workspaceID := idwrap.NewNow()
+    workspaceUserID := idwrap.NewNow()
+    userID := idwrap.NewNow()
+    collectionID := idwrap.NewNow()
+    base.GetBaseServices().CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, collectionID)
+
+    // Initialize services
+    cs := scollection.New(queries, mockLogger)
+    us := suser.New(queries)
+    cis := scollectionitem.New(queries, mockLogger)
+    ifs := sitemfolder.New(queries)
+    ias := sitemapi.New(queries)
+    iaes := sitemapiexample.New(queries)
+    ers := sexampleresp.New(queries)
+
+    // RPC services
+    collectionItemRPC := rcollectionitem.New(db, cs, cis, us, ifs, ias, iaes, ers)
+    folderRPC := ritemfolder.New(db, ifs, us, cs, cis)
+    apiRPC := ritemapi.New(db, ias, cs, ifs, us, iaes, ers, cis)
+
+    authed := mwauth.CreateAuthedContext(ctx, userID)
+
+    // Create folder
+    fresp, err := folderRPC.FolderCreate(authed, connect.NewRequest(&folderv1.FolderCreateRequest{
+        CollectionId:   collectionID.Bytes(),
+        Name:           "FolderA",
+        ParentFolderId: nil,
+    }))
+    require.NoError(t, err)
+    folderID := idwrap.NewFromBytesMust(fresp.Msg.FolderId)
+
+    // Create endpoint
+    eresp, err := apiRPC.EndpointCreate(authed, connect.NewRequest(&endpointv1.EndpointCreateRequest{
+        CollectionId:   collectionID.Bytes(),
+        Name:           "EndpointB",
+        Method:         "GET",
+        Url:            "/b",
+        ParentFolderId: nil,
+    }))
+    require.NoError(t, err)
+    endpointID := idwrap.NewFromBytesMust(eresp.Msg.EndpointId)
+
+    // Move folder AFTER endpoint
+    moveReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
+        CollectionId:  collectionID.Bytes(),
+        ItemId:        folderID.Bytes(),
+        Kind:          itemv1.ItemKind_ITEM_KIND_FOLDER,
+        TargetItemId:  endpointID.Bytes(),
+        TargetKind:    itemv1.ItemKind_ITEM_KIND_ENDPOINT,
+        Position:      resourcesv1.MovePosition_MOVE_POSITION_AFTER.Enum(),
+    })
+    _, err = collectionItemRPC.CollectionItemMove(authed, moveReq)
+    require.NoError(t, err)
+
+    // Verify order: endpoint first, then folder
+    listResp, err := collectionItemRPC.CollectionItemList(authed, connect.NewRequest(&itemv1.CollectionItemListRequest{
+        CollectionId: collectionID.Bytes(),
+    }))
+    require.NoError(t, err)
+    require.Len(t, listResp.Msg.Items, 2)
+    require.Equal(t, itemv1.ItemKind_ITEM_KIND_ENDPOINT, listResp.Msg.Items[0].Kind)
+    require.Equal(t, itemv1.ItemKind_ITEM_KIND_FOLDER, listResp.Msg.Items[1].Kind)
+}
+
 // TestSimpleCollectionItemWorkflowAlternativeOrder tests the same workflow but with endpoint before folder move
 func TestSimpleCollectionItemWorkflowAlternativeOrder(t *testing.T) {
 	ctx := context.Background()

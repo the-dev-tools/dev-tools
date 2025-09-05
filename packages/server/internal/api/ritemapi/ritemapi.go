@@ -12,7 +12,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mexampleresp"
-	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/sbodyraw"
@@ -417,36 +416,22 @@ func (c *ItemApiRPC) EndpointUpdate(ctx context.Context, req *connect.Request[en
 }
 
 func (c *ItemApiRPC) EndpointDelete(ctx context.Context, req *connect.Request[endpointv1.EndpointDeleteRequest]) (*connect.Response[endpointv1.EndpointDeleteResponse], error) {
-	id, err := idwrap.NewFromBytes(req.Msg.GetEndpointId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
+    id, err := idwrap.NewFromBytes(req.Msg.GetEndpointId())
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInvalidArgument, err)
+    }
 
 	rpcErr := permcheck.CheckPerm(CheckOwnerApi(ctx, *c.ias, *c.cs, *c.us, id))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	endpoint, err := c.ias.GetItemApi(ctx, id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	prev, next := endpoint.Prev, endpoint.Next
-	var prevEndPointPtr, nextEndPointPtr *mitemapi.ItemApi
-	if prev != nil {
-		prevEndPointPtr, err = c.ias.GetItemApi(ctx, *prev)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get prev"))
-		}
-	}
-
-	if next != nil {
-		nextEndPointPtr, err = c.ias.GetItemApi(ctx, *next)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get next"))
-		}
-	}
+    // Read-only phase (outside transaction): validate and prefetch mapping
+    if _, err := c.ias.GetItemApi(ctx, id); err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    // Prefetch collection_items mapping BEFORE opening a write transaction to avoid read-while-write locks in SQLite
+    mappedItemID, mapErr := c.cis.GetCollectionItemIDByLegacyID(ctx, id)
 
 	tx, err := c.DB.Begin()
 	if err != nil {
@@ -454,32 +439,26 @@ func (c *ItemApiRPC) EndpointDelete(ctx context.Context, req *connect.Request[en
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	txias, err := sitemapi.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+    txias, err := sitemapi.NewTX(ctx, tx)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    // Bind collection item service to the same transaction for all reads/writes
+    txcis := c.cis.TX(tx)
 
-	// Before deletion, update the links
-	if prevEndPointPtr != nil {
-		prevEndPointPtr.Next = endpoint.Next // Point prev's next to current's next
-		err = txias.UpdateItemApiOrder(ctx, prevEndPointPtr)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
+    // Unlink from collection_items chain via unified safe delete and then delete the endpoint row
+    // If mapping existed, perform unlink inside TX using the tx-bound service (no additional reads)
+    if mapErr == nil {
+        if derr := txcis.DeleteCollectionItem(ctx, tx, mappedItemID); derr != nil {
+            return nil, connect.NewError(connect.CodeInternal, derr)
+        }
+    }
 
-	if nextEndPointPtr != nil {
-		nextEndPointPtr.Prev = endpoint.Prev // Point next's prev to current's prev
-		err = txias.UpdateItemApiOrder(ctx, nextEndPointPtr)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	err = txias.DeleteItemApi(ctx, id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+    // 3) Delete the endpoint itself
+    err = txias.DeleteItemApi(ctx, id)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
 
 	err = tx.Commit()
 	if err != nil {

@@ -508,25 +508,21 @@ func (s *CollectionItemService) GetCollectionItem(ctx context.Context, id idwrap
 
 // DeleteCollectionItem removes a collection item and its linked list connections
 func (s *CollectionItemService) DeleteCollectionItem(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
-	s.logger.Debug("Deleting collection item", "item_id", itemID.String())
+    s.logger.Debug("Deleting collection item", "item_id", itemID.String())
 
-	// Get service with transaction support
-	txService := s.TX(tx)
+    // Get service with transaction support
+    txService := s.TX(tx)
 
-	// Remove from linked list position first
-	err := txService.repository.RemoveFromPosition(ctx, tx, itemID)
-	if err != nil {
-		return fmt.Errorf("failed to remove from position: %w", err)
-	}
+    // Use unified safe delete via movable manager (unlink then delete)
+    mgr := movable.NewDefaultLinkedListManager(txService.repository)
+    if err := mgr.SafeDelete(ctx, tx, itemID, func(ctx context.Context, tx *sql.Tx, id idwrap.IDWrap) error {
+        return txService.queries.DeleteCollectionItem(ctx, id)
+    }); err != nil {
+        return fmt.Errorf("failed safe delete: %w", err)
+    }
 
-	// Delete the collection item
-	err = txService.queries.DeleteCollectionItem(ctx, itemID)
-	if err != nil {
-		return fmt.Errorf("failed to delete collection item: %w", err)
-	}
-
-	s.logger.Debug("Successfully deleted collection item", "item_id", itemID.String())
-	return nil
+    s.logger.Debug("Successfully deleted collection item", "item_id", itemID.String())
+    return nil
 }
 
 // Utility functions for type conversion

@@ -25,9 +25,9 @@ func NewWorkspaceMovableRepository(queries *gen.Queries) *WorkspaceMovableReposi
 
 // TX returns a new repository instance with transaction support
 func (r *WorkspaceMovableRepository) TX(tx *sql.Tx) *WorkspaceMovableRepository {
-	return &WorkspaceMovableRepository{
-		queries: r.queries.WithTx(tx),
-	}
+    return &WorkspaceMovableRepository{
+        queries: r.queries.WithTx(tx),
+    }
 }
 
 // UpdatePosition updates the position of a workspace in the linked list
@@ -407,4 +407,18 @@ func (r *WorkspaceMovableRepository) removeFromPosition(ctx context.Context, tx 
 	}
 
 	return nil
+}
+
+// Remove unlinks the workspace from the user's workspace chain
+func (r *WorkspaceMovableRepository) Remove(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+    // Resolve a user who has access to this workspace to scope the linked list
+    users, err := r.queries.GetWorkspaceUserByWorkspaceID(ctx, itemID)
+    if err != nil {
+        return fmt.Errorf("failed to get workspace users: %w", err)
+    }
+    if len(users) == 0 {
+        return fmt.Errorf("workspace has no users")
+    }
+    userID := users[0].UserID
+    return r.removeFromPosition(ctx, tx, itemID, userID)
 }

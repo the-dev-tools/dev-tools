@@ -343,7 +343,10 @@ func (iaes ItemApiExampleService) UpdateItemApiExampleOrder(ctx context.Context,
 }
 
 func (iaes ItemApiExampleService) DeleteApiExample(ctx context.Context, id idwrap.IDWrap) error {
-	return iaes.Queries.DeleteItemApiExample(ctx, id)
+    mgr := movable.NewDefaultLinkedListManager(iaes.movableRepository)
+    return mgr.SafeDelete(ctx, nil, id, func(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+        return iaes.Queries.DeleteItemApiExample(ctx, itemID)
+    })
 }
 
 // GetMovableRepository returns the movable repository for example operations

@@ -73,23 +73,32 @@ type LinkedListManager interface {
 	// ValidateMove checks if a move operation is valid
 	ValidateMove(ctx context.Context, operation MoveOperation) error
 	
-	// CompactPositions recalculates and compacts position values to eliminate gaps
-	CompactPositions(ctx context.Context, tx *sql.Tx, parentID idwrap.IDWrap, listType ListType) error
+    // CompactPositions recalculates and compacts position values to eliminate gaps
+    CompactPositions(ctx context.Context, tx *sql.Tx, parentID idwrap.IDWrap, listType ListType) error
+
+    // SafeDelete unlinks the item from its neighbors and then invokes deleteFn to remove it
+    SafeDelete(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap, deleteFn func(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error) error
 }
 
 // MovableRepository defines the interface for database operations on movable items
 type MovableRepository interface {
-	// UpdatePosition updates the position of an item in a specific list type
-	UpdatePosition(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap, listType ListType, position int) error
-	
-	// UpdatePositions updates positions for multiple items in batch
-	UpdatePositions(ctx context.Context, tx *sql.Tx, updates []PositionUpdate) error
-	
-	// GetMaxPosition returns the maximum position value for a list
-	GetMaxPosition(ctx context.Context, parentID idwrap.IDWrap, listType ListType) (int, error)
-	
-	// GetItemsByParent returns all items under a parent, ordered by position
-	GetItemsByParent(ctx context.Context, parentID idwrap.IDWrap, listType ListType) ([]MovableItem, error)
+    // UpdatePosition updates the position of an item in a specific list type
+    UpdatePosition(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap, listType ListType, position int) error
+
+    // UpdatePositions updates positions for multiple items in batch
+    UpdatePositions(ctx context.Context, tx *sql.Tx, updates []PositionUpdate) error
+
+    // GetMaxPosition returns the maximum position value for a list
+    GetMaxPosition(ctx context.Context, parentID idwrap.IDWrap, listType ListType) (int, error)
+
+    // GetItemsByParent returns all items under a parent, ordered by position
+    GetItemsByParent(ctx context.Context, parentID idwrap.IDWrap, listType ListType) ([]MovableItem, error)
+
+    // Remove unlinks an item from its linked list neighbors in a transaction-safe manner.
+    // Implementations must ensure that the item's previous neighbor now points to its next,
+    // and the next neighbor points back to its previous, leaving the item isolated
+    // (prev=nil, next=nil) but not yet deleted from storage.
+    Remove(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error
 }
 
 // TransactionAwareRepository extends MovableRepository with transaction support

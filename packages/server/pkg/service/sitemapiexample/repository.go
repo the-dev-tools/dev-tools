@@ -26,9 +26,9 @@ func NewExampleMovableRepository(queries *gen.Queries) *ExampleMovableRepository
 
 // TX returns a new repository instance with transaction support
 func (r *ExampleMovableRepository) TX(tx *sql.Tx) *ExampleMovableRepository {
-	return &ExampleMovableRepository{
-		queries: r.queries.WithTx(tx),
-	}
+    return &ExampleMovableRepository{
+        queries: r.queries.WithTx(tx),
+    }
 }
 
 // UpdatePosition updates the position of an example in the linked list
@@ -585,6 +585,16 @@ func (r *ExampleMovableRepository) removeFromPosition(ctx context.Context, tx *s
 	}
 
 	return nil
+}
+
+// Remove unlinks an example from its endpoint chain
+func (r *ExampleMovableRepository) Remove(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+    // Resolve endpoint scope for this example
+    ex, err := r.queries.GetItemApiExample(ctx, itemID)
+    if err != nil {
+        return fmt.Errorf("failed to get example: %w", err)
+    }
+    return r.removeFromPosition(ctx, tx, itemID, ex.ItemApiID)
 }
 
 // DetectIsolatedExamples finds examples that are isolated (prev=NULL, next=NULL) but are not the only example

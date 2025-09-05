@@ -12,7 +12,7 @@ import (
 // EnvironmentMovableRepository implements movable.MovableRepository for Environments
 // It adapts position-based operations to linked list operations using prev/next pointers
 type EnvironmentMovableRepository struct {
-	queries *gen.Queries
+    queries *gen.Queries
 }
 
 // NewEnvironmentMovableRepository creates a new EnvironmentMovableRepository
@@ -24,9 +24,14 @@ func NewEnvironmentMovableRepository(queries *gen.Queries) *EnvironmentMovableRe
 
 // TX returns a new repository instance with transaction support
 func (r *EnvironmentMovableRepository) TX(tx *sql.Tx) *EnvironmentMovableRepository {
-	return &EnvironmentMovableRepository{
-		queries: r.queries.WithTx(tx),
-	}
+    return &EnvironmentMovableRepository{
+        queries: r.queries.WithTx(tx),
+    }
+}
+
+// Remove unlinks an environment from its workspace chain
+func (r *EnvironmentMovableRepository) Remove(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+    return r.removeFromPosition(ctx, tx, itemID)
 }
 
 // UpdatePosition updates the position of an environment in the linked list

@@ -252,3 +252,25 @@ func (r *BodyUrlEncodedMovableRepository) UpdatePosition(ctx context.Context, tx
 
 // Helper to convert *IDWrap to []byte
 func bts(id *idwrap.IDWrap) []byte { if id == nil { return nil }; return id.Bytes() }
+
+// Remove unlinks a URL-encoded body field from its example-scoped chain
+func (r *BodyUrlEncodedMovableRepository) Remove(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+    repo := r
+    if tx != nil {
+        repo = &BodyUrlEncodedMovableRepository{queries: r.queries.WithTx(tx)}
+    }
+    links, err := repo.queries.GetBodyUrlEncodedLinks(ctx, itemID)
+    if err != nil { return err }
+    exampleID := links.ExampleID
+    var prevID, nextID *idwrap.IDWrap
+    if len(links.Prev) > 0 { v := idwrap.NewFromBytesMust(links.Prev); prevID = &v }
+    if len(links.Next) > 0 { v := idwrap.NewFromBytesMust(links.Next); nextID = &v }
+    if prevID != nil {
+        if err := repo.queries.UpdateBodyUrlEncodedNext(ctx, gen.UpdateBodyUrlEncodedNextParams{Next: bts(nextID), ID: *prevID, ExampleID: exampleID}); err != nil { return err }
+    }
+    if nextID != nil {
+        if err := repo.queries.UpdateBodyUrlEncodedPrev(ctx, gen.UpdateBodyUrlEncodedPrevParams{Prev: bts(prevID), ID: *nextID, ExampleID: exampleID}); err != nil { return err }
+    }
+    // Isolate the removed node
+    return repo.queries.UpdateBodyUrlEncodedOrder(ctx, gen.UpdateBodyUrlEncodedOrderParams{Prev: nil, Next: nil, ID: itemID, ExampleID: exampleID})
+}

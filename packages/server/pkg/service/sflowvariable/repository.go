@@ -12,7 +12,7 @@ import (
 // FlowVariableMovableRepository implements movable.MovableRepository for FlowVariables
 // It adapts position-based operations to linked list operations using prev/next pointers
 type FlowVariableMovableRepository struct {
-	queries *gen.Queries
+    queries *gen.Queries
 }
 
 // NewFlowVariableMovableRepository creates a new FlowVariableMovableRepository
@@ -24,9 +24,14 @@ func NewFlowVariableMovableRepository(queries *gen.Queries) *FlowVariableMovable
 
 // TX returns a new repository instance with transaction support
 func (r *FlowVariableMovableRepository) TX(tx *sql.Tx) *FlowVariableMovableRepository {
-	return &FlowVariableMovableRepository{
-		queries: r.queries.WithTx(tx),
-	}
+    return &FlowVariableMovableRepository{
+        queries: r.queries.WithTx(tx),
+    }
+}
+
+// Remove unlinks a flow variable from its flow chain
+func (r *FlowVariableMovableRepository) Remove(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+    return r.removeFromPosition(ctx, tx, itemID)
 }
 
 // UpdatePosition updates the position of a flow variable in the linked list

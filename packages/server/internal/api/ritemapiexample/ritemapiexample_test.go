@@ -721,6 +721,225 @@ func TestPrepareCopyExample(t *testing.T) {
 	}
 }
 
+// Regression: deleting the middle example must preserve the chain and order of remaining items
+func TestExampleDelete_MiddleMaintainsOrder(t *testing.T) {
+    ctx := context.Background()
+    base := testutil.CreateBaseDB(ctx, t)
+    queries := base.Queries
+    db := base.DB
+
+    mockLogger := mocklogger.NewMockLogger()
+
+    ias := sitemapi.New(queries)
+    iaes := sitemapiexample.New(queries)
+    ifs := sitemfolder.New(queries)
+    ws := sworkspace.New(queries)
+    cs := scollection.New(queries, mockLogger)
+    us := suser.New(queries)
+    hs := sexampleheader.New(queries)
+    qs := sexamplequery.New(queries)
+    bfs := sbodyform.New(queries)
+    bues := sbodyurl.New(queries)
+    brs := sbodyraw.New(queries)
+    ers := sexampleresp.New(queries)
+    erhs := sexamplerespheader.New(queries)
+    es := senv.New(queries, mockLogger)
+    vs := svar.New(queries, mockLogger)
+    as := sassert.New(queries)
+    ars := sassertres.New(queries)
+
+    workspaceID := idwrap.NewNow()
+    workspaceUserID := idwrap.NewNow()
+    collectionID := idwrap.NewNow()
+    userID := idwrap.NewNow()
+
+    baseServices := base.GetBaseServices()
+    baseServices.CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, collectionID)
+
+    endpoint := &mitemapi.ItemApi{
+        ID:           idwrap.NewNow(),
+        Name:         "endpoint",
+        Url:          "/ep",
+        Method:       "GET",
+        CollectionID: collectionID,
+        FolderID:     nil,
+    }
+    require.NoError(t, ias.CreateItemApi(ctx, endpoint))
+
+    // Create three user examples A -> B -> C
+    a := &mitemapiexample.ItemApiExample{ID: idwrap.NewNow(), ItemApiID: endpoint.ID, CollectionID: collectionID, Name: "A"}
+    b := &mitemapiexample.ItemApiExample{ID: idwrap.NewNow(), ItemApiID: endpoint.ID, CollectionID: collectionID, Name: "B"}
+    c := &mitemapiexample.ItemApiExample{ID: idwrap.NewNow(), ItemApiID: endpoint.ID, CollectionID: collectionID, Name: "C"}
+    require.NoError(t, iaes.CreateApiExample(ctx, a))
+    require.NoError(t, iaes.CreateApiExample(ctx, b))
+    require.NoError(t, iaes.CreateApiExample(ctx, c))
+
+    // Sanity: ordered list is A,B,C
+    {
+        logChanMap := logconsole.NewLogChanMapWith(10000)
+        rpc := ritemapiexample.New(db, iaes, ias, ifs, ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
+        authed := mwauth.CreateAuthedContext(ctx, userID)
+        listResp, err := rpc.ExampleList(authed, connect.NewRequest(&examplev1.ExampleListRequest{EndpointId: endpoint.ID.Bytes()}))
+        require.NoError(t, err)
+        require.Len(t, listResp.Msg.Items, 3)
+        require.Equal(t, "A", listResp.Msg.Items[0].Name)
+        require.Equal(t, "B", listResp.Msg.Items[1].Name)
+        require.Equal(t, "C", listResp.Msg.Items[2].Name)
+    }
+
+    // Delete the middle (B)
+    {
+        logChanMap := logconsole.NewLogChanMapWith(10000)
+        rpc := ritemapiexample.New(db, iaes, ias, ifs, ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
+        authed := mwauth.CreateAuthedContext(ctx, userID)
+        _, err := rpc.ExampleDelete(authed, connect.NewRequest(&examplev1.ExampleDeleteRequest{ExampleId: b.ID.Bytes()}))
+        require.NoError(t, err)
+    }
+
+    // Validate chain is intact: A -> C, and listed order is A,C
+    {
+        // Ordered listing
+        logChanMap := logconsole.NewLogChanMapWith(10000)
+        rpc := ritemapiexample.New(db, iaes, ias, ifs, ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
+        authed := mwauth.CreateAuthedContext(ctx, userID)
+        listResp, err := rpc.ExampleList(authed, connect.NewRequest(&examplev1.ExampleListRequest{EndpointId: endpoint.ID.Bytes()}))
+        require.NoError(t, err)
+        require.Len(t, listResp.Msg.Items, 2)
+        require.Equal(t, "A", listResp.Msg.Items[0].Name)
+        require.Equal(t, "C", listResp.Msg.Items[1].Name)
+
+        // Direct pointer checks
+        aRow, err := iaes.GetApiExample(ctx, a.ID)
+        require.NoError(t, err)
+        cRow, err := iaes.GetApiExample(ctx, c.ID)
+        require.NoError(t, err)
+        require.NotNil(t, aRow.Next, "A.next should point to C after deletion")
+        require.Equal(t, c.ID.String(), aRow.Next.String())
+        require.NotNil(t, cRow.Prev, "C.prev should point to A after deletion")
+        require.Equal(t, a.ID.String(), cRow.Prev.String())
+    }
+}
+
+func TestExampleDelete_HeadMaintainsOrder(t *testing.T) {
+    ctx := context.Background()
+    base := testutil.CreateBaseDB(ctx, t)
+    queries := base.Queries
+    db := base.DB
+
+    mockLogger := mocklogger.NewMockLogger()
+    ias := sitemapi.New(queries)
+    iaes := sitemapiexample.New(queries)
+    ifs := sitemfolder.New(queries)
+    ws := sworkspace.New(queries)
+    cs := scollection.New(queries, mockLogger)
+    us := suser.New(queries)
+    hs := sexampleheader.New(queries)
+    qs := sexamplequery.New(queries)
+    bfs := sbodyform.New(queries)
+    bues := sbodyurl.New(queries)
+    brs := sbodyraw.New(queries)
+    ers := sexampleresp.New(queries)
+    erhs := sexamplerespheader.New(queries)
+    es := senv.New(queries, mockLogger)
+    vs := svar.New(queries, mockLogger)
+    as := sassert.New(queries)
+    ars := sassertres.New(queries)
+
+    workspaceID := idwrap.NewNow()
+    workspaceUserID := idwrap.NewNow()
+    collectionID := idwrap.NewNow()
+    userID := idwrap.NewNow()
+    baseServices := base.GetBaseServices()
+    baseServices.CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, collectionID)
+
+    endpoint := &mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "endpoint", Url: "/ep", Method: "GET", CollectionID: collectionID}
+    require.NoError(t, ias.CreateItemApi(ctx, endpoint))
+    a := &mitemapiexample.ItemApiExample{ID: idwrap.NewNow(), ItemApiID: endpoint.ID, CollectionID: collectionID, Name: "A"}
+    b := &mitemapiexample.ItemApiExample{ID: idwrap.NewNow(), ItemApiID: endpoint.ID, CollectionID: collectionID, Name: "B"}
+    c := &mitemapiexample.ItemApiExample{ID: idwrap.NewNow(), ItemApiID: endpoint.ID, CollectionID: collectionID, Name: "C"}
+    require.NoError(t, iaes.CreateApiExample(ctx, a))
+    require.NoError(t, iaes.CreateApiExample(ctx, b))
+    require.NoError(t, iaes.CreateApiExample(ctx, c))
+
+    logChanMap := logconsole.NewLogChanMapWith(10000)
+    rpc := ritemapiexample.New(db, iaes, ias, ifs, ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
+    authed := mwauth.CreateAuthedContext(ctx, userID)
+    _, err := rpc.ExampleDelete(authed, connect.NewRequest(&examplev1.ExampleDeleteRequest{ExampleId: a.ID.Bytes()}))
+    require.NoError(t, err)
+
+    listResp, err := rpc.ExampleList(authed, connect.NewRequest(&examplev1.ExampleListRequest{EndpointId: endpoint.ID.Bytes()}))
+    require.NoError(t, err)
+    require.Len(t, listResp.Msg.Items, 2)
+    require.Equal(t, "B", listResp.Msg.Items[0].Name)
+    require.Equal(t, "C", listResp.Msg.Items[1].Name)
+    bRow, _ := iaes.GetApiExample(ctx, b.ID)
+    cRow, _ := iaes.GetApiExample(ctx, c.ID)
+    require.Nil(t, bRow.Prev, "B.prev should be nil after deleting A")
+    require.NotNil(t, bRow.Next)
+    require.Equal(t, c.ID.String(), bRow.Next.String())
+    require.NotNil(t, cRow.Prev)
+    require.Equal(t, b.ID.String(), cRow.Prev.String())
+}
+
+func TestExampleDelete_TailMaintainsOrder(t *testing.T) {
+    ctx := context.Background()
+    base := testutil.CreateBaseDB(ctx, t)
+    queries := base.Queries
+    db := base.DB
+
+    mockLogger := mocklogger.NewMockLogger()
+    ias := sitemapi.New(queries)
+    iaes := sitemapiexample.New(queries)
+    ifs := sitemfolder.New(queries)
+    ws := sworkspace.New(queries)
+    cs := scollection.New(queries, mockLogger)
+    us := suser.New(queries)
+    hs := sexampleheader.New(queries)
+    qs := sexamplequery.New(queries)
+    bfs := sbodyform.New(queries)
+    bues := sbodyurl.New(queries)
+    brs := sbodyraw.New(queries)
+    ers := sexampleresp.New(queries)
+    erhs := sexamplerespheader.New(queries)
+    es := senv.New(queries, mockLogger)
+    vs := svar.New(queries, mockLogger)
+    as := sassert.New(queries)
+    ars := sassertres.New(queries)
+
+    workspaceID := idwrap.NewNow()
+    workspaceUserID := idwrap.NewNow()
+    collectionID := idwrap.NewNow()
+    userID := idwrap.NewNow()
+    baseServices := base.GetBaseServices()
+    baseServices.CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, collectionID)
+
+    endpoint := &mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "endpoint", Url: "/ep", Method: "GET", CollectionID: collectionID}
+    require.NoError(t, ias.CreateItemApi(ctx, endpoint))
+    a := &mitemapiexample.ItemApiExample{ID: idwrap.NewNow(), ItemApiID: endpoint.ID, CollectionID: collectionID, Name: "A"}
+    b := &mitemapiexample.ItemApiExample{ID: idwrap.NewNow(), ItemApiID: endpoint.ID, CollectionID: collectionID, Name: "B"}
+    c := &mitemapiexample.ItemApiExample{ID: idwrap.NewNow(), ItemApiID: endpoint.ID, CollectionID: collectionID, Name: "C"}
+    require.NoError(t, iaes.CreateApiExample(ctx, a))
+    require.NoError(t, iaes.CreateApiExample(ctx, b))
+    require.NoError(t, iaes.CreateApiExample(ctx, c))
+
+    logChanMap := logconsole.NewLogChanMapWith(10000)
+    rpc := ritemapiexample.New(db, iaes, ias, ifs, ws, cs, us, hs, qs, bfs, bues, brs, erhs, ers, es, vs, as, ars, logChanMap)
+    authed := mwauth.CreateAuthedContext(ctx, userID)
+    _, err := rpc.ExampleDelete(authed, connect.NewRequest(&examplev1.ExampleDeleteRequest{ExampleId: c.ID.Bytes()}))
+    require.NoError(t, err)
+
+    listResp, err := rpc.ExampleList(authed, connect.NewRequest(&examplev1.ExampleListRequest{EndpointId: endpoint.ID.Bytes()}))
+    require.NoError(t, err)
+    require.Len(t, listResp.Msg.Items, 2)
+    require.Equal(t, "A", listResp.Msg.Items[0].Name)
+    require.Equal(t, "B", listResp.Msg.Items[1].Name)
+    aRow, _ := iaes.GetApiExample(ctx, a.ID)
+    bRow, _ := iaes.GetApiExample(ctx, b.ID)
+    require.NotNil(t, aRow.Next)
+    require.Equal(t, b.ID.String(), aRow.Next.String())
+    require.Nil(t, bRow.Next, "B.next should be nil after deleting C")
+}
+
 func TestExampleMoveParameterValidation(t *testing.T) {
 	ctx := context.Background()
 	base := testutil.CreateBaseDB(ctx, t)

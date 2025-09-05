@@ -24,9 +24,72 @@ func NewCollectionItemsMovableRepository(queries *gen.Queries) *CollectionItemsM
 
 // TX returns a new repository instance with transaction support
 func (r *CollectionItemsMovableRepository) TX(tx *sql.Tx) *CollectionItemsMovableRepository {
-	return &CollectionItemsMovableRepository{
-		queries: r.queries.WithTx(tx),
-	}
+    return &CollectionItemsMovableRepository{
+        queries: r.queries.WithTx(tx),
+    }
+}
+
+// Remove unlinks an item from its collection/folder chain
+func (r *CollectionItemsMovableRepository) Remove(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+    // Unlink the item by stitching its neighbors together using only direct neighbor reads
+    repo := r
+    if tx != nil {
+        repo = r.TX(tx)
+    }
+
+    // Load the item to get its neighbors
+    item, err := repo.queries.GetCollectionItem(ctx, itemID)
+    if err != nil {
+        return fmt.Errorf("failed to get collection item: %w", err)
+    }
+
+    var prevID, nextID *idwrap.IDWrap
+    if item.PrevID != nil { prevID = item.PrevID }
+    if item.NextID != nil { nextID = item.NextID }
+
+    // Update prev.next to point to next, preserving prev.prev
+    if prevID != nil {
+        prevRow, err := repo.queries.GetCollectionItem(ctx, *prevID)
+        if err != nil {
+            return fmt.Errorf("failed to get prev item: %w", err)
+        }
+        var prevPrev *idwrap.IDWrap
+        if prevRow.PrevID != nil { prevPrev = prevRow.PrevID }
+        if err := repo.queries.UpdateCollectionItemOrder(ctx, gen.UpdateCollectionItemOrderParams{
+            PrevID: prevPrev,
+            NextID: nextID,
+            ID:     *prevID,
+        }); err != nil {
+            return fmt.Errorf("failed to update prev item: %w", err)
+        }
+    }
+
+    // Update next.prev to point to prev, preserving next.next
+    if nextID != nil {
+        nextRow, err := repo.queries.GetCollectionItem(ctx, *nextID)
+        if err != nil {
+            return fmt.Errorf("failed to get next item: %w", err)
+        }
+        var nextNext *idwrap.IDWrap
+        if nextRow.NextID != nil { nextNext = nextRow.NextID }
+        if err := repo.queries.UpdateCollectionItemOrder(ctx, gen.UpdateCollectionItemOrderParams{
+            PrevID: prevID,
+            NextID: nextNext,
+            ID:     *nextID,
+        }); err != nil {
+            return fmt.Errorf("failed to update next item: %w", err)
+        }
+    }
+
+    // Isolate the item (optional before delete)
+    if err := repo.queries.UpdateCollectionItemOrder(ctx, gen.UpdateCollectionItemOrderParams{
+        PrevID: nil,
+        NextID: nil,
+        ID:     itemID,
+    }); err != nil {
+        return fmt.Errorf("failed to isolate removed item: %w", err)
+    }
+    return nil
 }
 
 // UpdatePosition updates the position of a collection item in the linked list

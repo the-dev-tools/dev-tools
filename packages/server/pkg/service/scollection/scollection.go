@@ -164,7 +164,10 @@ func (cs CollectionService) UpdateCollection(ctx context.Context, collection *mc
 }
 
 func (cs CollectionService) DeleteCollection(ctx context.Context, id idwrap.IDWrap) error {
-	return cs.queries.DeleteCollection(ctx, id)
+    // Use the linked list manager's SafeDelete to unlink then delete
+    return cs.linkedListManager.SafeDelete(ctx, nil, id, func(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+        return cs.queries.DeleteCollection(ctx, itemID)
+    })
 }
 
 func (cs CollectionService) GetWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {

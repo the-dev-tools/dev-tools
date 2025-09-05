@@ -12,7 +12,7 @@ import (
 // VariableMovableRepository implements movable.MovableRepository for Variables
 // It adapts position-based operations to linked list operations using prev/next pointers
 type VariableMovableRepository struct {
-	queries *gen.Queries
+    queries *gen.Queries
 }
 
 // NewVariableMovableRepository creates a new VariableMovableRepository
@@ -24,9 +24,14 @@ func NewVariableMovableRepository(queries *gen.Queries) *VariableMovableReposito
 
 // TX returns a new repository instance with transaction support
 func (r *VariableMovableRepository) TX(tx *sql.Tx) *VariableMovableRepository {
-	return &VariableMovableRepository{
-		queries: r.queries.WithTx(tx),
-	}
+    return &VariableMovableRepository{
+        queries: r.queries.WithTx(tx),
+    }
+}
+
+// Remove unlinks a variable from its environment chain
+func (r *VariableMovableRepository) Remove(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+    return r.removeFromPosition(ctx, tx, itemID)
 }
 
 // UpdatePosition updates the position of a variable in the linked list

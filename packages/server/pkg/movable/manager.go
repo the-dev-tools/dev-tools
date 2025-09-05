@@ -9,7 +9,7 @@ import (
 
 // DefaultLinkedListManager provides a default implementation of LinkedListManager
 type DefaultLinkedListManager struct {
-	repo MovableRepository
+    repo MovableRepository
 }
 
 // NewDefaultLinkedListManager creates a new DefaultLinkedListManager
@@ -342,4 +342,31 @@ func (m *DefaultLinkedListManager) CompactPositions(ctx context.Context, tx *sql
 	}
 
 	return nil
+}
+
+// SafeDelete orchestrates a safe delete by first unlinking the item from its neighbors
+// via the repository's Remove, then invoking the provided delete function to remove
+// the row from storage. When tx is non-nil, implementations should operate within it.
+func (m *DefaultLinkedListManager) SafeDelete(
+    ctx context.Context,
+    tx *sql.Tx,
+    itemID idwrap.IDWrap,
+    deleteFn func(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error,
+) error {
+    if (idwrap.IDWrap{}) == itemID {
+        return fmt.Errorf("SafeDelete: itemID cannot be empty")
+    }
+    if deleteFn == nil {
+        return fmt.Errorf("SafeDelete: deleteFn cannot be nil")
+    }
+
+    // Unlink the node from its list neighbors first
+    if err := m.repo.Remove(ctx, tx, itemID); err != nil {
+        return fmt.Errorf("SafeDelete: unlink failed: %w", err)
+    }
+    // Perform the actual delete
+    if err := deleteFn(ctx, tx, itemID); err != nil {
+        return fmt.Errorf("SafeDelete: delete failed: %w", err)
+    }
+    return nil
 }

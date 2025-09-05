@@ -12,7 +12,7 @@ import (
 // CollectionMovableRepository implements movable.MovableRepository for Collections
 // It adapts position-based operations to linked list operations using prev/next pointers
 type CollectionMovableRepository struct {
-	queries *gen.Queries
+    queries *gen.Queries
 }
 
 // NewCollectionMovableRepository creates a new CollectionMovableRepository
@@ -24,9 +24,14 @@ func NewCollectionMovableRepository(queries *gen.Queries) *CollectionMovableRepo
 
 // TX returns a new repository instance with transaction support
 func (r *CollectionMovableRepository) TX(tx *sql.Tx) *CollectionMovableRepository {
-	return &CollectionMovableRepository{
-		queries: r.queries.WithTx(tx),
-	}
+    return &CollectionMovableRepository{
+        queries: r.queries.WithTx(tx),
+    }
+}
+
+// Remove unlinks the collection from its neighbors in the workspace-scoped chain
+func (r *CollectionMovableRepository) Remove(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+    return r.removeFromPosition(ctx, tx, itemID)
 }
 
 // UpdatePosition updates the position of a collection in the linked list

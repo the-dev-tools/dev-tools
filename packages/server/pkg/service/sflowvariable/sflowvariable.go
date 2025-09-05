@@ -234,8 +234,11 @@ func (s *FlowVariableService) UpdateFlowVariable(ctx context.Context, item mflow
 }
 
 func (s *FlowVariableService) DeleteFlowVariable(ctx context.Context, id idwrap.IDWrap) error {
-	err := s.queries.DeleteFlowVariable(ctx, id)
-	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
+    mgr := movable.NewDefaultLinkedListManager(s.movableRepository)
+    err := mgr.SafeDelete(ctx, nil, id, func(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+        return s.queries.DeleteFlowVariable(ctx, itemID)
+    })
+    return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
 }
 
 // GetFlowVariablesByFlowIDOrdered returns flow variables in the flow in their proper order

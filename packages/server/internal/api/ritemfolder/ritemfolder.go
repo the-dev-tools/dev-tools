@@ -8,7 +8,6 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rcollection"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/scollectionitem"
@@ -157,28 +156,11 @@ func (c *ItemFolderRPC) FolderDelete(ctx context.Context, req *connect.Request[f
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("not owner"))
 	}
 
-	reqFolder, err := c.ifs.GetFolder(ctx, ulidID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	prev, next := reqFolder.Prev, reqFolder.Next
-	var prevFolderPtr, nextFolderPtr *mitemfolder.ItemFolder
-
-	if prev != nil {
-		prevFolder, err := c.ifs.GetFolder(ctx, *prev)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		prevFolderPtr = prevFolder
-	}
-	if next != nil {
-		nextFolder, err := c.ifs.GetFolder(ctx, *next)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		nextFolderPtr = nextFolder
-	}
+    // Read-only stage: fetch folder (validation) and prefetch mapping to collection_items BEFORE opening tx
+    if _, err := c.ifs.GetFolder(ctx, ulidID); err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    mappedItemID, mapErr := c.cis.GetCollectionItemIDByLegacyID(ctx, ulidID)
 
 	tx, err := c.DB.Begin()
 	if err != nil {
@@ -186,30 +168,21 @@ func (c *ItemFolderRPC) FolderDelete(ctx context.Context, req *connect.Request[f
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	txIfs, err := sitemfolder.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if prevFolderPtr != nil {
-		prevFolderPtr.Next = next
-		err = txIfs.UpdateOrder(ctx, prevFolderPtr)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-	if nextFolderPtr != nil {
-		nextFolderPtr.Prev = prev
-		err = txIfs.UpdateOrder(ctx, nextFolderPtr)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	err = txIfs.DeleteItemFolder(ctx, ulidID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+    txIfs, err := sitemfolder.NewTX(ctx, tx)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    txcis := c.cis.TX(tx)
+    // Unlink from collection_items if mapping exists, then delete legacy folder row
+    if mapErr == nil {
+        if derr := txcis.DeleteCollectionItem(ctx, tx, mappedItemID); derr != nil {
+            return nil, connect.NewError(connect.CodeInternal, derr)
+        }
+    }
+    err = txIfs.DeleteItemFolder(ctx, ulidID)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
 
 	err = tx.Commit()
 	if err != nil {
