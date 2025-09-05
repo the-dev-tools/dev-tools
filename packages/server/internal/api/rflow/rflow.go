@@ -913,7 +913,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	var jsNodes []mnjs.MNJS
 	var startNodeID idwrap.IDWrap
 
-	nodeNameMap := make(map[idwrap.IDWrap]string, len(nodes))
+    nodeNameMap := make(map[idwrap.IDWrap]string, len(nodes))
+    // Track loop node IDs for quick lookup when streaming statuses
+    loopNodeIDs := make(map[idwrap.IDWrap]bool)
 
 	for _, node := range nodes {
 		nodeNameMap[node.ID] = node.Name
@@ -1004,17 +1006,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	preRegisteredExecutions := make(map[idwrap.IDWrap]struct{})
 	preRegisteredMutex := sync.RWMutex{}
 
-	for _, forNode := range forNodes {
-		name := nodeNameMap[forNode.FlowNodeID]
+    for _, forNode := range forNodes {
+        name := nodeNameMap[forNode.FlowNodeID]
 
-		// Use the condition directly - no need to parse it here
-		if forNode.Condition.Comparisons.Expression != "" {
-			log.Printf("📝 DEBUG: Creating FOR node '%s' with condition: '%s'", name, forNode.Condition.Comparisons.Expression)
-			flowNodeMap[forNode.FlowNodeID] = nfor.NewWithCondition(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling, forNode.Condition)
-		} else {
-			flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling)
-		}
-	}
+        // Use the condition directly - no need to parse it here
+        if forNode.Condition.Comparisons.Expression != "" {
+            log.Printf("📝 DEBUG: Creating FOR node '%s' with condition: '%s'", name, forNode.Condition.Comparisons.Expression)
+            flowNodeMap[forNode.FlowNodeID] = nfor.NewWithCondition(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling, forNode.Condition)
+        } else {
+            flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling)
+        }
+        loopNodeIDs[forNode.FlowNodeID] = true
+    }
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
 	for _, requestNode := range requestNodes {
@@ -1220,11 +1223,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		flowNodeMap[noopNode.FlowNodeID] = nnoop.New(noopNode.FlowNodeID, name)
 	}
 
-	for _, forEachNode := range forEachNodes {
-		name := nodeNameMap[forEachNode.FlowNodeID]
-		flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, name, forEachNode.IterExpression, nodeTimeout,
-			forEachNode.Condition, forEachNode.ErrorHandling)
-	}
+    for _, forEachNode := range forEachNodes {
+        name := nodeNameMap[forEachNode.FlowNodeID]
+        flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, name, forEachNode.IterExpression, nodeTimeout,
+            forEachNode.Condition, forEachNode.ErrorHandling)
+        loopNodeIDs[forEachNode.FlowNodeID] = true
+    }
 
 	var clientPtr *nodejs_executorv1connect.NodeJSExecutorServiceClient
 	for i, jsNode := range jsNodes {
@@ -1828,9 +1832,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 					} else {
-						// Handle failed loop nodes that weren't in pending (because we skip successful loops)
-						if node != nil && (node.NodeKind == mnnode.NODE_KIND_FOR || node.NodeKind == mnnode.NODE_KIND_FOR_EACH) &&
-							flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+                        // Handle terminal (failure/canceled) loop nodes that weren't in pending
+                        // (because we skip successful loop main executions)
+                        if node != nil && (node.NodeKind == mnnode.NODE_KIND_FOR || node.NodeKind == mnnode.NODE_KIND_FOR_EACH) &&
+                            (flowNodeStatus.State == mnnode.NODE_STATE_FAILURE || flowNodeStatus.State == mnnode.NODE_STATE_CANCELED) {
 
 							// Create execution record for failed loop nodes (these should be visible in UI)
 							completedAt := time.Now().UnixMilli()
@@ -1887,16 +1892,30 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
 							}
 
-							// Send immediately for failed loop nodes to make them visible in UI
-							if !channelsClosed.Load() {
-								select {
-								case nodeExecutionChan <- nodeExecution:
-									log.Printf("📤 Sent failed loop execution %s to UI (state: %s)", executionID.String(), mnnode.StringNodeState(flowNodeStatus.State))
-								case <-stopSending:
-									// Channel closed, don't send
-								}
-							}
-						}
+                            // Send immediately for terminal loop nodes to make them visible in UI
+                            if !channelsClosed.Load() {
+                                select {
+                                case nodeExecutionChan <- nodeExecution:
+                                    log.Printf("📤 Sent terminal loop execution %s to UI (state: %s)", executionID.String(), mnnode.StringNodeState(flowNodeStatus.State))
+                                case <-stopSending:
+                                    // Channel closed, don't send
+                                }
+                                // Also emit a streamed node state to keep the client in sync even if
+                                // the runner's final status arrives after flow status.
+                                nodeMsg := &flowv1.FlowRunNodeResponse{
+                                    NodeId: flowNodeStatus.NodeID.Bytes(),
+                                    State:  nodev1.NodeState(flowNodeStatus.State),
+                                }
+                                resp := &flowv1.FlowRunResponse{Node: nodeMsg}
+                                if err := stream.Send(resp); err != nil {
+                                    select {
+                                    case done <- err:
+                                    default:
+                                    }
+                                    return
+                                }
+                            }
+                        }
 					}
 					pendingMutex.Unlock()
 				}
@@ -2101,6 +2120,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 
 			// Send node status response
+			// Skip per-iteration RUNNING/SUCCESS updates for loop nodes to avoid
+			// briefly showing the loop as SUCCESS in the live stream.
+			if loopNodeIDs[flowNodeStatus.NodeID] {
+				if outMap, ok := flowNodeStatus.OutputData.(map[string]any); ok {
+					if outMap["index"] != nil || outMap["key"] != nil || outMap["completed"] != nil {
+						// This is an iteration-level status; don't stream as node state
+						return
+					}
+				}
+			}
+
 			nodeResp := &flowv1.FlowRunNodeResponse{
 				NodeId: flowNodeStatus.NodeID.Bytes(),
 				State:  nodev1.NodeState(flowNodeStatus.State),
@@ -2151,26 +2181,30 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					return
 				}
 				nodeStatusFunc(flowNodeStatus)
-			case flowStatus, ok := <-flowStatusChan:
-				if !ok {
-					// Channel closed by runner
-					return
-				}
-				// Process any pending node status messages without blocking
-			drainLoop:
-				for len(flowNodeStatusChan) > 0 {
-					select {
-					case flowNodeStatus := <-flowNodeStatusChan:
-						nodeStatusFunc(flowNodeStatus)
-					default:
-						// No more messages immediately available, exit loop
-						break drainLoop
-					}
-				}
-				if runner.IsFlowStatusDone(flowStatus) {
-					done <- nil
-					return
-				}
+            case flowStatus, ok := <-flowStatusChan:
+                if !ok {
+                    // Channel closed by runner
+                    return
+                }
+                // Process any pending node status messages without blocking
+            drainLoop:
+                for len(flowNodeStatusChan) > 0 {
+                    select {
+                    case flowNodeStatus := <-flowNodeStatusChan:
+                        nodeStatusFunc(flowNodeStatus)
+                    default:
+                        // No more messages immediately available, exit loop
+                        break drainLoop
+                    }
+                }
+                if runner.IsFlowStatusDone(flowStatus) {
+                    // Drain all remaining node statuses until the channel is closed
+                    for flowNodeStatus := range flowNodeStatusChan {
+                        nodeStatusFunc(flowNodeStatus)
+                    }
+                    done <- nil
+                    return
+                }
 			}
 		}
 	}()
@@ -2259,6 +2293,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
                     dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
                     _ = upsertWithRetry(dbCtx, c.nes, canceled)
                     cancel()
+                    // Stream a final CANCELED state to keep clients consistent
+                    nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
+                    _ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
                     continue
                 }
                 if exec.State == mnnode.NODE_STATE_RUNNING {
@@ -2266,11 +2303,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
                     exec.State = mnnode.NODE_STATE_CANCELED
                     exec.CompletedAt = &completedAt
 
-					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-					_ = upsertWithRetry(dbCtx, c.nes, *exec)
-					cancel()
-					log.Printf("🧹 Safety-updated lingering RUNNING execution %s for node %s to CANCELED", exec.ID.String(), n.ID.String())
-            }
+				dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				_ = upsertWithRetry(dbCtx, c.nes, *exec)
+				cancel()
+				log.Printf("🧹 Safety-updated lingering RUNNING execution %s for node %s to CANCELED", exec.ID.String(), n.ID.String())
+                    // Stream a final CANCELED state so clients reflect the terminal state without refresh
+                    nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
+                    _ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
+                }
         }
     }
 
@@ -2305,6 +2345,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
                     dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
                     _ = upsertWithRetry(dbCtx, c.nes, canceled)
                     cancel()
+                    // Stream a final CANCELED state to keep clients consistent
+                    nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
+                    _ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
                 }
             }
         }

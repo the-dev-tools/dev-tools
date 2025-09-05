@@ -359,14 +359,18 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				continue
 			}
 
-			if result.err != nil {
-				status.State = mnnode.NODE_STATE_FAILURE
-				status.Error = result.err
-				statusLogFunc(status)
-				lastNodeError = result.err
-				FlowNodeCancelCtxCancel()
-				continue
-			}
+            if result.err != nil {
+                if runner.IsCancellationError(result.err) {
+                    status.State = mnnode.NODE_STATE_CANCELED
+                } else {
+                    status.State = mnnode.NODE_STATE_FAILURE
+                }
+                status.Error = result.err
+                statusLogFunc(status)
+                lastNodeError = result.err
+                FlowNodeCancelCtxCancel()
+                continue
+            }
 
 			// All nodes should report SUCCESS when they complete successfully
 			// Loop nodes handle their own iteration tracking internally
@@ -649,14 +653,18 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				runningNodesMutex.Unlock()
 				continue
 			}
-			if result.err != nil {
-				status.State = mnnode.NODE_STATE_FAILURE
-				status.Error = result.err
-				statusLogFunc(status)
-				lastNodeError = result.err
-				FlowNodeCancelCtxCancelFn()
-				continue
-			}
+            if result.err != nil {
+                if runner.IsCancellationError(result.err) {
+                    status.State = mnnode.NODE_STATE_CANCELED
+                } else {
+                    status.State = mnnode.NODE_STATE_FAILURE
+                }
+                status.Error = result.err
+                statusLogFunc(status)
+                lastNodeError = result.err
+                FlowNodeCancelCtxCancelFn()
+                continue
+            }
 			// All nodes should report SUCCESS when they complete successfully
 			// Loop nodes handle their own iteration tracking internally
 			// FOR/FOREACH nodes set skipFinalStatus to avoid creating empty main execution
