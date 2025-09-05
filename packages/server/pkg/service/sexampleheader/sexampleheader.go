@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mexampleheader"
+	"the-dev-tools/server/pkg/movable"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
@@ -446,7 +447,7 @@ func (h HeaderService) UpdateHeaderLinks(ctx context.Context, headerID idwrap.ID
 	if err != nil {
 		return err
 	}
-	
+
 	return h.queries.UpdateHeaderOrder(ctx, gen.UpdateHeaderOrderParams{
 		Prev:      prev,
 		Next:      next,
@@ -457,37 +458,51 @@ func (h HeaderService) UpdateHeaderLinks(ctx context.Context, headerID idwrap.ID
 
 // AppendHeader adds a header to the end of the linked list for an example
 func (h HeaderService) AppendHeader(ctx context.Context, header mexampleheader.Header) error {
-	// First, try to get the tail of the current list
-	tail, err := h.queries.GetHeaderTail(ctx, header.ExampleID)
-	var hasTail bool
+	// Fetch ordered headers to build a safe append plan
+	ordered, err := h.GetHeaderByExampleIDOrdered(ctx, header.ExampleID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
-	hasTail = !errors.Is(err, sql.ErrNoRows)
 
-	if !hasTail {
-		// No existing headers, this will be the first one
-		header.Prev = nil
-		header.Next = nil
-	} else {
-		// Link this header to the end of the existing list
-		header.Prev = &tail.ID
-		header.Next = nil
+	// Convert to MovableItem slice with positions 0..n-1
+	items := make([]movable.MovableItem, 0, len(ordered))
+	for i := range ordered {
+		parent := header.ExampleID
+		items = append(items, movable.MovableItem{
+			ID:       ordered[i].ID,
+			ParentID: &parent,
+			Position: i,
+			ListType: movable.RequestListTypeHeaders,
+		})
 	}
 
-	// Create the header first (must exist before we can reference it)
+	plan, err := movable.PlanAppendAtEndFromItems(header.ExampleID, movable.RequestListTypeHeaders, header.ID, items)
+	if err != nil {
+		return err
+	}
+
+	// Create the header with planner's prev; next is always NULL for new tail
+	header.Prev = plan.PrevID
+	header.Next = nil
 	if err := h.CreateHeader(ctx, header); err != nil {
 		return err
 	}
 
-	// Now update the old tail to point to this new header (if there was a tail)
-	if hasTail {
-		if err := h.queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
-			Next:      &header.ID,
-			ID:        tail.ID,
-			ExampleID: header.ExampleID,
-		}); err != nil {
-			return err
+	// Update the previous tail's next to point to the new header (if any)
+	if plan.PrevID != nil {
+		// Optional CAS-like guard: if prev's next is already set, skip to avoid races
+		prevRow, getErr := h.GetHeaderByID(ctx, *plan.PrevID)
+		if getErr != nil {
+			return getErr
+		}
+		if prevRow.Next == nil {
+			if err := h.queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
+				Next:      &header.ID,
+				ID:        *plan.PrevID,
+				ExampleID: header.ExampleID,
+			}); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -534,7 +549,7 @@ func (h HeaderService) AppendBulkHeader(ctx context.Context, headers []mexampleh
 		// Now update the links between headers after they all exist
 		for i := range exampleHeaders {
 			var prevID, nextID *idwrap.IDWrap
-			
+
 			if i == 0 {
 				// First header links to existing tail
 				prevID = currentTail
@@ -542,12 +557,12 @@ func (h HeaderService) AppendBulkHeader(ctx context.Context, headers []mexampleh
 				// Link to previous header in this batch
 				prevID = &exampleHeaders[i-1].ID
 			}
-			
+
 			if i < len(exampleHeaders)-1 {
 				// Link to next header in this batch
 				nextID = &exampleHeaders[i+1].ID
 			}
-			
+
 			// Update the header's links using UpdateHeaderOrder
 			if prevID != nil || nextID != nil {
 				if err := h.queries.UpdateHeaderOrder(ctx, gen.UpdateHeaderOrderParams{
@@ -617,7 +632,7 @@ func (h HeaderService) UpdateHeaderNext(ctx context.Context, headerID idwrap.IDW
 	if err != nil {
 		return err
 	}
-	
+
 	return h.queries.UpdateHeaderNext(ctx, gen.UpdateHeaderNextParams{
 		Next:      next,
 		ID:        headerID,
@@ -632,7 +647,7 @@ func (h HeaderService) UpdateHeaderPrev(ctx context.Context, headerID idwrap.IDW
 	if err != nil {
 		return err
 	}
-	
+
 	return h.queries.UpdateHeaderPrev(ctx, gen.UpdateHeaderPrevParams{
 		Prev:      prev,
 		ID:        headerID,

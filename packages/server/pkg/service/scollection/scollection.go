@@ -15,10 +15,10 @@ import (
 var ErrNoCollectionFound = sql.ErrNoRows
 
 type CollectionService struct {
-	queries              *gen.Queries
-	logger               *slog.Logger
-	linkedListManager    movable.LinkedListManager
-	movableRepository    movable.MovableRepository
+	queries           *gen.Queries
+	logger            *slog.Logger
+	linkedListManager movable.LinkedListManager
+	movableRepository movable.MovableRepository
 }
 
 func ConvertToDBCollection(collection mcollection.Collection) gen.Collection {
@@ -45,19 +45,18 @@ func ConvertGetCollectionByWorkspaceIDRowToModel(row gen.GetCollectionByWorkspac
 	}
 }
 
-
 func New(queries *gen.Queries, logger *slog.Logger) CollectionService {
 	// Create the movable repository for collections
 	movableRepo := NewCollectionMovableRepository(queries)
-	
+
 	// Create the linked list manager with the movable repository
 	linkedListManager := movable.NewDefaultLinkedListManager(movableRepo)
-	
+
 	return CollectionService{
-		queries:              queries,
-		logger:               logger,
-		linkedListManager:    linkedListManager,
-		movableRepository:    movableRepo,
+		queries:           queries,
+		logger:            logger,
+		linkedListManager: linkedListManager,
+		movableRepository: movableRepo,
 	}
 }
 
@@ -66,12 +65,12 @@ func (cs CollectionService) TX(tx *sql.Tx) CollectionService {
 	txQueries := cs.queries.WithTx(tx)
 	movableRepo := NewCollectionMovableRepository(txQueries)
 	linkedListManager := movable.NewDefaultLinkedListManager(movableRepo)
-	
+
 	return CollectionService{
-		queries:              txQueries,
-		logger:               cs.logger,
-		linkedListManager:    linkedListManager,
-		movableRepository:    movableRepo,
+		queries:           txQueries,
+		logger:            cs.logger,
+		linkedListManager: linkedListManager,
+		movableRepository: movableRepo,
 	}
 }
 
@@ -80,15 +79,15 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*CollectionService, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create movable repository and linked list manager
 	movableRepo := NewCollectionMovableRepository(queries)
 	linkedListManager := movable.NewDefaultLinkedListManager(movableRepo)
-	
+
 	service := CollectionService{
-		queries:              queries,
-		linkedListManager:    linkedListManager,
-		movableRepository:    movableRepo,
+		queries:           queries,
+		linkedListManager: linkedListManager,
+		movableRepository: movableRepo,
 	}
 	return &service, nil
 }
@@ -106,45 +105,40 @@ func (cs CollectionService) ListCollections(ctx context.Context, workspaceID idw
 }
 
 func (cs CollectionService) CreateCollection(ctx context.Context, collection *mcollection.Collection) error {
-	// Find the current tail of the linked list (last collection in workspace)
-	existingCollections, err := cs.GetCollectionsOrdered(ctx, collection.WorkspaceID)
-	if err != nil && err != ErrNoCollectionFound {
-		return fmt.Errorf("failed to get existing collections: %w", err)
+	// Super-safe append-to-end using planner + guarded updates.
+	// Step 1: Plan append using MovableRepository (preflight integrity + tail detection).
+	plan, err := movable.BuildAppendPlanFromRepo(ctx, cs.movableRepository, collection.WorkspaceID, movable.CollectionListTypeCollections, collection.ID)
+	if err != nil {
+		return fmt.Errorf("plan append failed: %w", err)
 	}
-	
-	var prev *idwrap.IDWrap
-	
-	// If there are existing collections, set prev to point to the last one
-	// and update that collection's next pointer to point to the new one
-	if len(existingCollections) > 0 {
-		lastCollection := existingCollections[len(existingCollections)-1]
-		prev = &lastCollection.ID
-		
-		// Get the database version to access prev/next fields
-		dbLastCollection, err := cs.queries.GetCollection(ctx, lastCollection.ID)
+
+	// Step 2: If there is a tail (PrevID), patch tail's next to the new ID.
+	if plan.PrevID != nil {
+		tailRow, err := cs.queries.GetCollection(ctx, *plan.PrevID)
 		if err != nil {
-			return fmt.Errorf("failed to get last collection from database: %w", err)
+			return fmt.Errorf("failed to read tail collection: %w", err)
 		}
-		
-		// Update the current tail's next pointer to point to new collection
-		err = cs.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{
-			Prev:        dbLastCollection.Prev, // Keep existing prev pointer
-			Next:        &collection.ID,       // Set next to new collection
-			ID:          lastCollection.ID,    // Update the last collection
+		if tailRow.Next != nil {
+			return fmt.Errorf("concurrent tail advance detected for tail %s", plan.PrevID.String())
+		}
+		// Update only the next pointer while preserving existing prev.
+		if err := cs.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{
+			Prev:        tailRow.Prev,
+			Next:        &collection.ID,
+			ID:          *plan.PrevID,
 			WorkspaceID: collection.WorkspaceID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to update previous tail collection: %w", err)
+		}); err != nil {
+			return fmt.Errorf("failed to set tail.next: %w", err)
 		}
 	}
-	
-	// Create the collection with proper linked list pointers
+
+	// Step 3: Insert the new collection as the new tail (prev=plan.PrevID, next=NULL).
 	return cs.queries.CreateCollection(ctx, gen.CreateCollectionParams{
 		ID:          collection.ID,
 		WorkspaceID: collection.WorkspaceID,
 		Name:        collection.Name,
-		Prev:        prev, // Points to current tail (or nil if first)
-		Next:        nil,  // Always nil for new collections (they become the new tail)
+		Prev:        plan.PrevID,
+		Next:        nil,
 	})
 }
 
@@ -226,28 +220,28 @@ func (cs CollectionService) MoveCollectionAfterTX(ctx context.Context, tx *sql.T
 	if tx != nil {
 		service = cs.TX(tx)
 	}
-	
+
 	// Get workspace ID for both collections to ensure they're in the same workspace
 	sourceWorkspaceID, err := service.GetWorkspaceID(ctx, collectionID)
 	if err != nil {
 		return fmt.Errorf("failed to get source collection workspace: %w", err)
 	}
-	
+
 	targetWorkspaceID, err := service.GetWorkspaceID(ctx, targetID)
 	if err != nil {
 		return fmt.Errorf("failed to get target collection workspace: %w", err)
 	}
-	
+
 	if sourceWorkspaceID.Compare(targetWorkspaceID) != 0 {
 		return fmt.Errorf("collections must be in the same workspace")
 	}
-	
+
 	// Get all collections in the workspace in order
 	collections, err := service.GetCollectionsOrdered(ctx, sourceWorkspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to get collections in order: %w", err)
 	}
-	
+
 	// Find positions of source and target collections
 	var sourcePos, targetPos int = -1, -1
 	for i, col := range collections {
@@ -258,21 +252,21 @@ func (cs CollectionService) MoveCollectionAfterTX(ctx context.Context, tx *sql.T
 			targetPos = i
 		}
 	}
-	
+
 	if sourcePos == -1 {
 		return fmt.Errorf("source collection not found in workspace")
 	}
 	if targetPos == -1 {
 		return fmt.Errorf("target collection not found in workspace")
 	}
-	
+
 	if sourcePos == targetPos {
 		return fmt.Errorf("cannot move collection relative to itself")
 	}
-	
+
 	// Calculate new order: move source to be after target
 	newOrder := make([]idwrap.IDWrap, 0, len(collections))
-	
+
 	for i, col := range collections {
 		if i == sourcePos {
 			continue // Skip source collection
@@ -282,7 +276,7 @@ func (cs CollectionService) MoveCollectionAfterTX(ctx context.Context, tx *sql.T
 			newOrder = append(newOrder, collectionID) // Insert source after target
 		}
 	}
-	
+
 	// Reorder collections
 	return service.ReorderCollectionsTX(ctx, tx, sourceWorkspaceID, newOrder)
 }
@@ -298,28 +292,28 @@ func (cs CollectionService) MoveCollectionBeforeTX(ctx context.Context, tx *sql.
 	if tx != nil {
 		service = cs.TX(tx)
 	}
-	
+
 	// Get workspace ID for both collections to ensure they're in the same workspace
 	sourceWorkspaceID, err := service.GetWorkspaceID(ctx, collectionID)
 	if err != nil {
 		return fmt.Errorf("failed to get source collection workspace: %w", err)
 	}
-	
+
 	targetWorkspaceID, err := service.GetWorkspaceID(ctx, targetID)
 	if err != nil {
 		return fmt.Errorf("failed to get target collection workspace: %w", err)
 	}
-	
+
 	if sourceWorkspaceID.Compare(targetWorkspaceID) != 0 {
 		return fmt.Errorf("collections must be in the same workspace")
 	}
-	
+
 	// Get all collections in the workspace in order
 	collections, err := service.GetCollectionsOrdered(ctx, sourceWorkspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to get collections in order: %w", err)
 	}
-	
+
 	// Find positions of source and target collections
 	var sourcePos, targetPos int = -1, -1
 	for i, col := range collections {
@@ -330,21 +324,21 @@ func (cs CollectionService) MoveCollectionBeforeTX(ctx context.Context, tx *sql.
 			targetPos = i
 		}
 	}
-	
+
 	if sourcePos == -1 {
 		return fmt.Errorf("source collection not found in workspace")
 	}
 	if targetPos == -1 {
 		return fmt.Errorf("target collection not found in workspace")
 	}
-	
+
 	if sourcePos == targetPos {
 		return fmt.Errorf("cannot move collection relative to itself")
 	}
-	
+
 	// Calculate new order: move source to be before target
 	newOrder := make([]idwrap.IDWrap, 0, len(collections))
-	
+
 	for i, col := range collections {
 		if i == sourcePos {
 			continue // Skip source collection
@@ -354,7 +348,7 @@ func (cs CollectionService) MoveCollectionBeforeTX(ctx context.Context, tx *sql.
 		}
 		newOrder = append(newOrder, col.ID)
 	}
-	
+
 	// Reorder collections
 	return service.ReorderCollectionsTX(ctx, tx, sourceWorkspaceID, newOrder)
 }
@@ -373,7 +367,7 @@ func (cs CollectionService) GetCollectionsOrdered(ctx context.Context, workspace
 		}
 		return nil, err
 	}
-	
+
 	// Convert to model collections
 	collections := make([]mcollection.Collection, len(orderedCollections))
 	for i, col := range orderedCollections {
@@ -385,7 +379,7 @@ func (cs CollectionService) GetCollectionsOrdered(ctx context.Context, workspace
 			// If needed, we could make a separate query to get this field
 		}
 	}
-	
+
 	return collections, nil
 }
 
@@ -400,7 +394,7 @@ func (cs CollectionService) ReorderCollectionsTX(ctx context.Context, tx *sql.Tx
 	if tx != nil {
 		service = cs.TX(tx)
 	}
-	
+
 	// Build position updates
 	updates := make([]movable.PositionUpdate, len(orderedIDs))
 	for i, id := range orderedIDs {
@@ -410,16 +404,16 @@ func (cs CollectionService) ReorderCollectionsTX(ctx context.Context, tx *sql.Tx
 			Position: i,
 		}
 	}
-	
+
 	// Execute the batch update using the movable repository
 	if err := service.movableRepository.UpdatePositions(ctx, tx, updates); err != nil {
 		return fmt.Errorf("failed to reorder collections: %w", err)
 	}
-	
-	cs.logger.DebugContext(ctx, "Collections reordered", 
+
+	cs.logger.DebugContext(ctx, "Collections reordered",
 		"workspaceID", workspaceID.String(),
 		"collectionCount", len(orderedIDs))
-	
+
 	return nil
 }
 
@@ -434,11 +428,11 @@ func (cs CollectionService) CompactCollectionPositionsTX(ctx context.Context, tx
 	if tx != nil {
 		service = cs.TX(tx)
 	}
-	
+
 	if err := service.linkedListManager.CompactPositions(ctx, tx, workspaceID, movable.CollectionListTypeCollections); err != nil {
 		return fmt.Errorf("failed to compact collection positions: %w", err)
 	}
-	
+
 	cs.logger.DebugContext(ctx, "Collection positions compacted", "workspaceID", workspaceID.String())
 	return nil
 }

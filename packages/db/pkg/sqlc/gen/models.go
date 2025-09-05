@@ -47,6 +47,122 @@ type CollectionItem struct {
 	NextID         *idwrap.IDWrap
 }
 
+type DeltaFormDeltum struct {
+	ExampleID   []byte
+	ID          []byte
+	BodyKey     string
+	Value       string
+	Description string
+	Enabled     bool
+	UpdatedAt   int64
+}
+
+type DeltaFormOrder struct {
+	ExampleID []byte
+	RefKind   int16
+	RefID     []byte
+	Rank      string
+	Revision  int64
+}
+
+type DeltaFormState struct {
+	ExampleID   []byte
+	OriginID    []byte
+	Suppressed  bool
+	BodyKey     interface{}
+	Value       interface{}
+	Description interface{}
+	Enabled     interface{}
+	UpdatedAt   int64
+}
+
+type DeltaHeaderDeltum struct {
+	ExampleID   []byte
+	ID          []byte
+	HeaderKey   string
+	Value       string
+	Description string
+	Enabled     bool
+	UpdatedAt   int64
+}
+
+type DeltaHeaderOrder struct {
+	ExampleID []byte
+	RefKind   int16
+	RefID     []byte
+	Rank      string
+	Revision  int64
+}
+
+type DeltaHeaderState struct {
+	ExampleID   []byte
+	OriginID    []byte
+	Suppressed  bool
+	HeaderKey   interface{}
+	Value       interface{}
+	Description interface{}
+	Enabled     interface{}
+	UpdatedAt   int64
+}
+
+type DeltaQueryDeltum struct {
+	ExampleID   []byte
+	ID          []byte
+	QueryKey    string
+	Value       string
+	Description string
+	Enabled     bool
+	UpdatedAt   int64
+}
+
+type DeltaQueryOrder struct {
+	ExampleID []byte
+	RefKind   int16
+	RefID     []byte
+	Rank      string
+	Revision  int64
+}
+
+type DeltaQueryState struct {
+	ExampleID   []byte
+	OriginID    []byte
+	Suppressed  bool
+	QueryKey    interface{}
+	Value       interface{}
+	Description interface{}
+	Enabled     interface{}
+	UpdatedAt   int64
+}
+
+type DeltaUrlencDeltum struct {
+	ExampleID   []byte
+	ID          []byte
+	BodyKey     string
+	Value       string
+	Description string
+	Enabled     bool
+	UpdatedAt   int64
+}
+
+type DeltaUrlencOrder struct {
+	ExampleID []byte
+	RefKind   int16
+	RefID     []byte
+	Rank      string
+	Revision  int64
+}
+
+type DeltaUrlencState struct {
+	ExampleID   []byte
+	OriginID    []byte
+	Suppressed  bool
+	BodyKey     interface{}
+	Value       interface{}
+	Description interface{}
+	Enabled     interface{}
+	UpdatedAt   int64
+}
+
 type Environment struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
@@ -83,6 +199,8 @@ type ExampleBodyUrlencoded struct {
 	Enable        bool
 	Description   string
 	Value         string
+	Prev          []byte
+	Next          []byte
 }
 
 type ExampleHeader struct {

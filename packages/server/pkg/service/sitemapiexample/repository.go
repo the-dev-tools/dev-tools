@@ -91,7 +91,7 @@ func (r *ExampleMovableRepository) UpdatePositions(ctx context.Context, tx *sql.
 	if len(updates) == 0 {
 		return nil
 	}
-	
+
 	// Get repository with transaction support
 	repo := r
 	if tx != nil {
@@ -104,7 +104,7 @@ func (r *ExampleMovableRepository) UpdatePositions(ctx context.Context, tx *sql.
 		return fmt.Errorf("failed to get first example: %w", err)
 	}
 	endpointID := firstExample.ItemApiID
-	
+
 	// Validate all examples are in the same endpoint and create ID position map
 	positionMap := make(map[idwrap.IDWrap]int)
 	for _, update := range updates {
@@ -117,42 +117,42 @@ func (r *ExampleMovableRepository) UpdatePositions(ctx context.Context, tx *sql.
 		}
 		positionMap[update.ItemID] = update.Position
 	}
-	
+
 	// Build the complete ordered list with all examples at their new positions
 	orderedIDs := make([]idwrap.IDWrap, len(updates))
 	for _, update := range updates {
 		if update.Position < 0 || update.Position >= len(updates) {
-			return fmt.Errorf("invalid position %d for example %s (valid range: 0-%d)", 
+			return fmt.Errorf("invalid position %d for example %s (valid range: 0-%d)",
 				update.Position, update.ItemID.String(), len(updates)-1)
 		}
 		orderedIDs[update.Position] = update.ItemID
 	}
-	
+
 	// Calculate prev/next pointers for each example in the new order
 	type ptrUpdate struct {
 		id   idwrap.IDWrap
 		prev *idwrap.IDWrap
 		next *idwrap.IDWrap
 	}
-	
+
 	ptrUpdates := make([]ptrUpdate, len(orderedIDs))
 	for i, id := range orderedIDs {
 		var prev, next *idwrap.IDWrap
-		
+
 		if i > 0 {
 			prev = &orderedIDs[i-1]
 		}
 		if i < len(orderedIDs)-1 {
 			next = &orderedIDs[i+1]
 		}
-		
+
 		ptrUpdates[i] = ptrUpdate{
 			id:   id,
 			prev: prev,
 			next: next,
 		}
 	}
-	
+
 	// Apply all updates atomically
 	for _, update := range ptrUpdates {
 		if err := repo.queries.UpdateExampleOrder(ctx, gen.UpdateExampleOrderParams{
@@ -210,7 +210,7 @@ func (r *ExampleMovableRepository) GetItemsByParent(ctx context.Context, parentI
 		items[i] = movable.MovableItem{
 			ID:       idwrap.NewFromBytesMust(ex.ID),
 			ParentID: &parentID, // endpoint_id as parent
-			Position: i, // Use index as position (0, 1, 2, etc.)
+			Position: i,         // Use index as position (0, 1, 2, etc.)
 			ListType: listType,
 		}
 	}
@@ -253,24 +253,13 @@ func (r *ExampleMovableRepository) Create(ctx context.Context, tx *sql.Tx, examp
 		}
 		return nil
 	}
-	
-	// For user examples, find the current tail of the user example chain
-	// Note: GetExamplesByEndpointIDOrdered already filters out default examples with is_default = FALSE
-	orderedExamples, err := repo.queries.GetExamplesByEndpointIDOrdered(ctx, gen.GetExamplesByEndpointIDOrderedParams{
-		ItemApiID:   example.ItemApiID,
-		ItemApiID_2: example.ItemApiID,
-	})
-	
-	var prevID *idwrap.IDWrap
-	if err == nil && len(orderedExamples) > 0 {
-		// Get the last example in the ordered list (current tail)
-		lastExample := orderedExamples[len(orderedExamples)-1]
-		lastID := idwrap.NewFromBytesMust(lastExample.ID)
-		prevID = &lastID
+
+	// Plan a safe append using movable planner (preflight and tail detection)
+	plan, err := movable.BuildAppendPlanFromRepo(ctx, repo, example.ItemApiID, movable.CollectionListTypeExamples, example.ID)
+	if err != nil {
+		return fmt.Errorf("append plan failed: %w", err)
 	}
-	// If no user examples exist yet, this will be the head with prev=NULL
-	// This is correct - user examples form their own chain separate from default
-	
+
 	// Create the example with proper linking
 	arg := ConvertToDBItem(example)
 	err = repo.queries.CreateItemApiExample(ctx, gen.CreateItemApiExampleParams{
@@ -281,25 +270,32 @@ func (r *ExampleMovableRepository) Create(ctx context.Context, tx *sql.Tx, examp
 		BodyType:        arg.BodyType,
 		Name:            arg.Name,
 		VersionParentID: arg.VersionParentID,
-		Prev:            prevID, // Link to current tail or NULL if first user example
-		Next:            nil,    // New tail has no next
+		Prev:            plan.PrevID, // Link to planner-detected tail or NULL if first user example
+		Next:            nil,         // New tail has no next
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create example: %w", err)
 	}
-	
+
 	// If there was a previous tail, update it to point to the new example
-	if prevID != nil {
-		err = repo.queries.UpdateExampleNext(ctx, gen.UpdateExampleNextParams{
+	if plan.PrevID != nil {
+		// CAS-like guard: ensure current tail still has next=NULL before linking
+		prevRow, gerr := repo.queries.GetItemApiExample(ctx, *plan.PrevID)
+		if gerr != nil {
+			return fmt.Errorf("failed to read tail: %w", gerr)
+		}
+		if prevRow.Next != nil {
+			return fmt.Errorf("concurrent tail advance detected for example tail %s", plan.PrevID.String())
+		}
+		if err := repo.queries.UpdateExampleNext(ctx, gen.UpdateExampleNextParams{
 			Next:      &example.ID,
-			ID:        *prevID,
+			ID:        *plan.PrevID,
 			ItemApiID: example.ItemApiID,
-		})
-		if err != nil {
+		}); err != nil {
 			return fmt.Errorf("failed to update previous tail: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -333,10 +329,10 @@ func (r *ExampleMovableRepository) insertAtPosition(ctx context.Context, tx *sql
 		if len(orderedExamples) > 0 {
 			currentHeadID := idwrap.NewFromBytesMust(orderedExamples[0].ID)
 			newNext = &currentHeadID
-			
+
 			// Update the current head to point back to new item
 			err = repo.queries.UpdateExamplePrev(ctx, gen.UpdateExamplePrevParams{
-				Prev:      &itemID,        // Current head's prev now points to new item
+				Prev:      &itemID, // Current head's prev now points to new item
 				ID:        currentHeadID,
 				ItemApiID: endpointID,
 			})
@@ -349,10 +345,10 @@ func (r *ExampleMovableRepository) insertAtPosition(ctx context.Context, tx *sql
 		if len(orderedExamples) > 0 {
 			currentTailID := idwrap.NewFromBytesMust(orderedExamples[len(orderedExamples)-1].ID)
 			newPrev = &currentTailID
-			
+
 			// Update the current tail to point forward to new item
 			err = repo.queries.UpdateExampleNext(ctx, gen.UpdateExampleNextParams{
-				Next:      &itemID,         // Current tail's next now points to new item
+				Next:      &itemID, // Current tail's next now points to new item
 				ID:        currentTailID,
 				ItemApiID: endpointID,
 			})
@@ -367,20 +363,20 @@ func (r *ExampleMovableRepository) insertAtPosition(ctx context.Context, tx *sql
 		nextID := idwrap.NewFromBytesMust(orderedExamples[position].ID)
 		newPrev = &prevID
 		newNext = &nextID
-		
+
 		// Update prev item to point to new item
 		err = repo.queries.UpdateExampleNext(ctx, gen.UpdateExampleNextParams{
-			Next:      &itemID,       // Point to new item
+			Next:      &itemID, // Point to new item
 			ID:        prevID,
 			ItemApiID: endpointID,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update prev item: %w", err)
 		}
-		
+
 		// Update next item to point back to new item
 		err = repo.queries.UpdateExamplePrev(ctx, gen.UpdateExamplePrevParams{
-			Prev:      &itemID,       // Point to new item
+			Prev:      &itemID, // Point to new item
 			ID:        nextID,
 			ItemApiID: endpointID,
 		})
@@ -439,12 +435,12 @@ type atomicMoveUpdate struct {
 // This ensures no example ever becomes isolated during the move process
 func (r *ExampleMovableRepository) calculateAtomicMoveUpdates(itemID idwrap.IDWrap, currentIdx, targetIdx int, orderedExamples []gen.GetExamplesByEndpointIDOrderedRow) ([]atomicMoveUpdate, error) {
 	var updates []atomicMoveUpdate
-	
+
 	// Handle empty list case
 	if len(orderedExamples) == 0 {
 		return updates, nil
 	}
-	
+
 	// Validate indices
 	if currentIdx < 0 || currentIdx >= len(orderedExamples) {
 		return nil, fmt.Errorf("invalid currentIdx: %d (valid range: 0-%d)", currentIdx, len(orderedExamples)-1)
@@ -452,19 +448,19 @@ func (r *ExampleMovableRepository) calculateAtomicMoveUpdates(itemID idwrap.IDWr
 	if targetIdx < 0 || targetIdx >= len(orderedExamples) {
 		return nil, fmt.Errorf("invalid targetIdx: %d (valid range: 0-%d)", targetIdx, len(orderedExamples)-1)
 	}
-	
+
 	// Create a working copy of the example order with the item moved to its new position
 	workingOrder := make([]idwrap.IDWrap, len(orderedExamples))
 	for i, ex := range orderedExamples {
 		workingOrder[i] = idwrap.NewFromBytesMust(ex.ID)
 	}
-	
+
 	// Move item from currentIdx to targetIdx
 	movedItem := workingOrder[currentIdx]
-	
+
 	// Remove the item from its current position
 	workingOrder = append(workingOrder[:currentIdx], workingOrder[currentIdx+1:]...)
-	
+
 	// Calculate where to insert in the shortened array
 	insertIndex := targetIdx
 	if currentIdx < targetIdx {
@@ -476,24 +472,24 @@ func (r *ExampleMovableRepository) calculateAtomicMoveUpdates(itemID idwrap.IDWr
 			insertIndex = targetIdx - 1
 		}
 	}
-	
+
 	// Insert the item at the calculated position
 	workingOrder = append(workingOrder[:insertIndex], append([]idwrap.IDWrap{movedItem}, workingOrder[insertIndex:]...)...)
-	
+
 	// Calculate new prev/next pointers for all affected examples
 	for i, id := range workingOrder {
 		var prev, next *idwrap.IDWrap
-		
+
 		if i > 0 {
 			prev = &workingOrder[i-1]
 		}
 		if i < len(workingOrder)-1 {
 			next = &workingOrder[i+1]
 		}
-		
+
 		// Only include updates for examples that need pointer changes
 		needsUpdate := false
-		
+
 		// Find current pointers for this example
 		for _, ex := range orderedExamples {
 			if idwrap.NewFromBytesMust(ex.ID).Compare(id) == 0 {
@@ -507,14 +503,14 @@ func (r *ExampleMovableRepository) calculateAtomicMoveUpdates(itemID idwrap.IDWr
 					currentNextID := idwrap.NewFromBytesMust(ex.Next)
 					currentNext = &currentNextID
 				}
-				
+
 				// Check if prev pointer changed
 				if (prev == nil && currentPrev != nil) || (prev != nil && currentPrev == nil) {
 					needsUpdate = true
 				} else if prev != nil && currentPrev != nil && prev.Compare(*currentPrev) != 0 {
 					needsUpdate = true
 				}
-				
+
 				// Check if next pointer changed
 				if (next == nil && currentNext != nil) || (next != nil && currentNext == nil) {
 					needsUpdate = true
@@ -524,7 +520,7 @@ func (r *ExampleMovableRepository) calculateAtomicMoveUpdates(itemID idwrap.IDWr
 				break
 			}
 		}
-		
+
 		if needsUpdate {
 			updates = append(updates, atomicMoveUpdate{
 				id:   id,
@@ -533,7 +529,7 @@ func (r *ExampleMovableRepository) calculateAtomicMoveUpdates(itemID idwrap.IDWr
 			})
 		}
 	}
-	
+
 	return updates, nil
 }
 
@@ -611,7 +607,7 @@ func (r *ExampleMovableRepository) DetectIsolatedExamples(ctx context.Context, e
 		if ex.IsDefault {
 			continue
 		}
-		
+
 		// Skip examples with version parent (not base examples)
 		if ex.VersionParentID != nil {
 			continue
@@ -657,12 +653,12 @@ func (r *ExampleMovableRepository) RepairIsolatedExamples(ctx context.Context, t
 	// For each isolated example, append it to the end of the valid chain
 	for _, isolatedID := range isolatedIDs {
 		var newPrev *idwrap.IDWrap
-		
+
 		// If there are examples in the valid chain, link to the last one
 		if len(orderedExamples) > 0 {
 			lastExampleID := idwrap.NewFromBytesMust(orderedExamples[len(orderedExamples)-1].ID)
 			newPrev = &lastExampleID
-			
+
 			// Update the current tail to point to the isolated example
 			err = repo.queries.UpdateExampleNext(ctx, gen.UpdateExampleNextParams{
 				Next:      &isolatedID,
@@ -727,7 +723,7 @@ func (r *ExampleMovableRepository) ValidateLinkedListIntegrity(ctx context.Conte
 	// Check 1: All base examples should be visible via ordered query
 	if len(baseExamples) != len(orderedExamples) {
 		isolatedIDs, _ := r.DetectIsolatedExamples(ctx, endpointID)
-		return fmt.Errorf("linked list corruption detected: %d examples in database, %d visible via API (%d isolated)", 
+		return fmt.Errorf("linked list corruption detected: %d examples in database, %d visible via API (%d isolated)",
 			len(baseExamples), len(orderedExamples), len(isolatedIDs))
 	}
 
@@ -739,7 +735,7 @@ func (r *ExampleMovableRepository) ValidateLinkedListIntegrity(ctx context.Conte
 
 	for _, ex := range baseExamples {
 		exID := ex.ID
-		
+
 		// If has prev, prev should point back to this example
 		if ex.Prev != nil {
 			prevID := *ex.Prev
@@ -748,7 +744,7 @@ func (r *ExampleMovableRepository) ValidateLinkedListIntegrity(ctx context.Conte
 				return fmt.Errorf("example %s points to non-existent prev %s", exID.String(), prevID.String())
 			}
 			if prevEx.Next == nil || prevEx.Next.Compare(exID) != 0 {
-				return fmt.Errorf("bidirectional link broken: %s->prev->%s but %s->next does not point back", 
+				return fmt.Errorf("bidirectional link broken: %s->prev->%s but %s->next does not point back",
 					exID.String(), prevID.String(), prevID.String())
 			}
 		}
@@ -761,7 +757,7 @@ func (r *ExampleMovableRepository) ValidateLinkedListIntegrity(ctx context.Conte
 				return fmt.Errorf("example %s points to non-existent next %s", exID.String(), nextID.String())
 			}
 			if nextEx.Prev == nil || nextEx.Prev.Compare(exID) != 0 {
-				return fmt.Errorf("bidirectional link broken: %s->next->%s but %s->prev does not point back", 
+				return fmt.Errorf("bidirectional link broken: %s->next->%s but %s->prev does not point back",
 					exID.String(), nextID.String(), nextID.String())
 			}
 		}

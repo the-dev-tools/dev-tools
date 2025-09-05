@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/movable"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
@@ -196,7 +197,7 @@ func (as AssertService) UpdateAssertLinks(ctx context.Context, assertID idwrap.I
 	if err != nil {
 		return err
 	}
-	
+
 	return as.queries.UpdateAssertOrder(ctx, gen.UpdateAssertOrderParams{
 		Prev:      prev,
 		Next:      next,
@@ -207,37 +208,49 @@ func (as AssertService) UpdateAssertLinks(ctx context.Context, assertID idwrap.I
 
 // AppendAssert adds an assertion to the end of the linked list for an example
 func (as AssertService) AppendAssert(ctx context.Context, assert massert.Assert) error {
-	// First, try to get the tail of the current list
-	tail, err := as.queries.GetAssertTail(ctx, assert.ExampleID)
-	var hasTail bool
+	// Build a safe append plan using current ordered assertions
+	ordered, err := as.GetAssertsOrdered(ctx, assert.ExampleID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
-	hasTail = !errors.Is(err, sql.ErrNoRows)
 
-	if !hasTail {
-		// No existing assertions, this will be the first one
-		assert.Prev = nil
-		assert.Next = nil
-	} else {
-		// Link this assertion to the end of the existing list
-		assert.Prev = &tail.ID
-		assert.Next = nil
+	items := make([]movable.MovableItem, 0, len(ordered))
+	for i := range ordered {
+		parent := assert.ExampleID
+		items = append(items, movable.MovableItem{
+			ID:       ordered[i].ID,
+			ParentID: &parent,
+			Position: i,
+			ListType: movable.RequestListTypeHeaders, // reuse request list space; or add RequestListTypeAssertions if desired
+		})
 	}
 
-	// Create the assertion first (must exist before we can reference it)
+	plan, err := movable.PlanAppendAtEndFromItems(assert.ExampleID, movable.RequestListTypeHeaders, assert.ID, items)
+	if err != nil {
+		return err
+	}
+
+	// Create with planner's chosen prev; next always NULL for new tail
+	assert.Prev = plan.PrevID
+	assert.Next = nil
 	if err := as.CreateAssert(ctx, assert); err != nil {
 		return err
 	}
 
-	// Now update the old tail to point to this new assertion (if there was a tail)
-	if hasTail {
-		if err := as.queries.UpdateAssertNext(ctx, gen.UpdateAssertNextParams{
-			Next:      &assert.ID,
-			ID:        tail.ID,
-			ExampleID: assert.ExampleID,
-		}); err != nil {
-			return err
+	// Patch previous tail's next if any (simple CAS guard: only if current next is NULL)
+	if plan.PrevID != nil {
+		prevRow, getErr := as.GetAssert(ctx, *plan.PrevID)
+		if getErr != nil {
+			return getErr
+		}
+		if prevRow.Next == nil {
+			if err := as.queries.UpdateAssertNext(ctx, gen.UpdateAssertNextParams{
+				Next:      &assert.ID,
+				ID:        *plan.PrevID,
+				ExampleID: assert.ExampleID,
+			}); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -284,7 +297,7 @@ func (as AssertService) AppendBulkAssert(ctx context.Context, asserts []massert.
 		// Now update the links between assertions after they all exist
 		for i := range exampleAsserts {
 			var prevID, nextID *idwrap.IDWrap
-			
+
 			if i == 0 {
 				// First assertion links to existing tail
 				prevID = currentTail
@@ -292,12 +305,12 @@ func (as AssertService) AppendBulkAssert(ctx context.Context, asserts []massert.
 				// Link to previous assertion in this batch
 				prevID = &exampleAsserts[i-1].ID
 			}
-			
+
 			if i < len(exampleAsserts)-1 {
 				// Link to next assertion in this batch
 				nextID = &exampleAsserts[i+1].ID
 			}
-			
+
 			// Update the assertion's links using UpdateAssertOrder
 			if prevID != nil || nextID != nil {
 				if err := as.queries.UpdateAssertOrder(ctx, gen.UpdateAssertOrderParams{
@@ -367,7 +380,7 @@ func (as AssertService) UpdateAssertNext(ctx context.Context, assertID idwrap.ID
 	if err != nil {
 		return err
 	}
-	
+
 	return as.queries.UpdateAssertNext(ctx, gen.UpdateAssertNextParams{
 		Next:      next,
 		ID:        assertID,
@@ -382,7 +395,7 @@ func (as AssertService) UpdateAssertPrev(ctx context.Context, assertID idwrap.ID
 	if err != nil {
 		return err
 	}
-	
+
 	return as.queries.UpdateAssertPrev(ctx, gen.UpdateAssertPrevParams{
 		Prev:      prev,
 		ID:        assertID,

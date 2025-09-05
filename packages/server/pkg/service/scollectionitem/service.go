@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/oklog/ulid/v2"
 	"log/slog"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
@@ -12,17 +13,16 @@ import (
 	"the-dev-tools/server/pkg/movable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemfolder"
-	"github.com/oklog/ulid/v2"
 )
 
 // CollectionItemService provides operations for managing collection items using the simplified reference-based architecture
 // where collection_items is the PRIMARY table containing ordering logic, and legacy tables reference it via FK.
 type CollectionItemService struct {
-	queries           *gen.Queries
-	repository        *CollectionItemsMovableRepository
-	folderService     sitemfolder.ItemFolderService
-	apiService        sitemapi.ItemApiService
-	logger            *slog.Logger
+	queries       *gen.Queries
+	repository    *CollectionItemsMovableRepository
+	folderService sitemfolder.ItemFolderService
+	apiService    sitemapi.ItemApiService
+	logger        *slog.Logger
 }
 
 // CollectionItemType represents the type of collection item
@@ -50,11 +50,11 @@ type CollectionItem struct {
 }
 
 var (
-	ErrCollectionItemNotFound = fmt.Errorf("collection item not found")
-	ErrInvalidItemType        = fmt.Errorf("invalid item type")
-	ErrPositionOutOfRange     = fmt.Errorf("position out of range")
-	ErrInvalidTargetPosition  = fmt.Errorf("invalid target position")
-	ErrCrossWorkspaceMove     = fmt.Errorf("cannot move items between different workspaces")
+	ErrCollectionItemNotFound   = fmt.Errorf("collection item not found")
+	ErrInvalidItemType          = fmt.Errorf("invalid item type")
+	ErrPositionOutOfRange       = fmt.Errorf("position out of range")
+	ErrInvalidTargetPosition    = fmt.Errorf("invalid target position")
+	ErrCrossWorkspaceMove       = fmt.Errorf("cannot move items between different workspaces")
 	ErrTargetCollectionNotFound = fmt.Errorf("target collection not found")
 )
 
@@ -180,12 +180,12 @@ func (s *CollectionItemService) MoveCollectionItemToFolder(ctx context.Context, 
 			}
 			return fmt.Errorf("failed to get target parent folder: %w", err)
 		}
-		
+
 		// Ensure target parent is actually a folder
 		if targetParentItem.ItemType != int8(CollectionItemTypeFolder) {
 			return fmt.Errorf("target parent must be a folder")
 		}
-		
+
 		// Validate target parent is in the effective target collection
 		if targetParentItem.CollectionID.Compare(effectiveTargetCollectionID) != 0 {
 			return fmt.Errorf("target parent folder must be in the target collection")
@@ -201,12 +201,12 @@ func (s *CollectionItemService) MoveCollectionItemToFolder(ctx context.Context, 
 			}
 			return fmt.Errorf("failed to get target item: %w", err)
 		}
-		
+
 		// Validate target item is in the effective target collection
 		if targetItem.CollectionID.Compare(effectiveTargetCollectionID) != 0 {
 			return fmt.Errorf("target item must be in the target collection")
 		}
-		
+
 		// Ensure target item is in the target parent folder context
 		if (targetItem.ParentFolderID == nil) != (targetParentFolderID == nil) {
 			return fmt.Errorf("target item must be in the same parent context as the target parent folder")
@@ -277,26 +277,24 @@ func (s *CollectionItemService) MoveCollectionItem(ctx context.Context, itemID i
 			return fmt.Errorf("failed to get target item: %w", err)
 		}
 		targetItem = &target
-		
+
 		// Validate items are in same collection (still required)
 		if item.CollectionID.Compare(targetItem.CollectionID) != 0 {
 			return fmt.Errorf("items must be in same collection")
 		}
-		
+
 		// Determine target parent context based on move semantics:
 		// We need to distinguish between two cases when target is a folder:
 		// 1. "Drop into folder" - move item to be inside the target folder
 		// 2. "Position relative to folder" - position item before/after folder at the same level
-		
-		
+
 		if targetItem.ItemType == int8(CollectionItemTypeFolder) {
 			targetFolderID := idwrap.NewFromBytesMust(targetItem.ID.Bytes())
-			
+
 			// Check if item is already inside the target folder
-			itemAlreadyInTargetFolder := item.ParentFolderID != nil && 
+			itemAlreadyInTargetFolder := item.ParentFolderID != nil &&
 				item.ParentFolderID.Compare(targetFolderID) == 0
-			
-			
+
 			if itemAlreadyInTargetFolder {
 				// Item is already in the target folder and we're targeting that folder.
 				// This means "move this item to be positioned relative to the folder itself"
@@ -305,12 +303,12 @@ func (s *CollectionItemService) MoveCollectionItem(ctx context.Context, itemID i
 				s.logger.Debug("Item in target folder, moving out to folder's level")
 			} else {
 				// Item is NOT currently in the target folder
-				// 
+				//
 				// Key insight: When targeting a folder with BEFORE/AFTER position,
 				// the item should be positioned at the SAME LEVEL as the target folder,
 				// regardless of where the item currently is.
 				// This provides consistent behavior for positioning operations.
-				
+
 				targetParentFolderID = targetItem.ParentFolderID
 				s.logger.Debug("Position relative to target folder level")
 			}
@@ -346,7 +344,6 @@ func (s *CollectionItemService) MoveCollectionItem(ctx context.Context, itemID i
 		}(),
 		"is_cross_folder_move", isCrossFolderMove)
 
-
 	if isCrossFolderMove {
 		// Cross-folder move: need to update parent_folder_id and handle two different lists
 		return s.performCrossFolderMove(ctx, itemID, item, targetID, targetParentFolderID, position)
@@ -368,17 +365,10 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 
 	// Get service with transaction support
 	txService := s.TX(tx)
+	var err error
 
-	// Find position to insert (append to end by default)
-	maxPosition, err := txService.repository.GetMaxPosition(ctx, folder.CollectionID, movable.CollectionListTypeItems)
-	if err != nil {
-		return fmt.Errorf("failed to get max position: %w", err)
-	}
-	
-	insertPosition := 0
-	if maxPosition >= 0 {
-		insertPosition = maxPosition + 1
-	}
+	// Plan append safely using movable planner (preflight integrity + tail detection).
+	// We plan against the collection_items list using a new collectionItemID.
 
 	// Step 1: Create item_folder entry (LEGACY TABLE) first to satisfy foreign key constraints
 	err = txService.folderService.CreateItemFolder(ctx, folder)
@@ -389,29 +379,33 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
 	// Now we can safely reference folder.ID since it exists in item_folder table
 	collectionItemID := idwrap.New(ulid.Make())
-	
+	plan, err := movable.BuildAppendPlanFromRepo(ctx, txService.repository, folder.CollectionID, movable.CollectionListTypeItems, collectionItemID)
+	if err != nil {
+		return fmt.Errorf("append plan failed: %w", err)
+	}
+
 	// Convert legacy parent folder ID to collection_items parent folder ID if needed
 	var collectionItemsParentFolderID *idwrap.IDWrap = nil
 	if folder.ParentID != nil {
-		s.logger.Debug("Converting parent folder ID", 
+		s.logger.Debug("Converting parent folder ID",
 			"folder_name", folder.Name,
 			"parent_legacy_id", folder.ParentID.String())
 		// Convert legacy folder ID to collection_items ID
 		parentCollectionItemID, err := txService.GetCollectionItemIDByLegacyID(ctx, *folder.ParentID)
 		if err != nil {
-			s.logger.Error("Failed to convert parent folder ID", 
+			s.logger.Error("Failed to convert parent folder ID",
 				"folder_name", folder.Name,
 				"parent_legacy_id", folder.ParentID.String(),
 				"error", err)
 			return fmt.Errorf("failed to convert parent folder ID: %w", err)
 		}
-		s.logger.Debug("Successfully converted parent folder ID", 
+		s.logger.Debug("Successfully converted parent folder ID",
 			"folder_name", folder.Name,
 			"parent_legacy_id", folder.ParentID.String(),
 			"parent_collection_items_id", parentCollectionItemID.String())
 		collectionItemsParentFolderID = &parentCollectionItemID
 	}
-	
+
 	err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
 		ID:             collectionItemID,
 		CollectionID:   folder.CollectionID,
@@ -422,7 +416,7 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 		Name:           folder.Name,
 		PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
 		NextID:         nil, // Will be calculated by InsertNewItemAtPosition
-	}, insertPosition)
+	}, plan.Position)
 	if err != nil {
 		return fmt.Errorf("failed to insert collection item at position: %w", err)
 	}
@@ -433,7 +427,7 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 	return nil
 }
 
-// CreateEndpointTX creates an endpoint using the reference-based architecture  
+// CreateEndpointTX creates an endpoint using the reference-based architecture
 // 1. Creates collection_items entry (type=1, name, url, method, prev/next positioning)
 // 2. Creates item_api entry with collection_item_id FK
 // 3. Single transaction ensures consistency
@@ -447,17 +441,9 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 
 	// Get service with transaction support
 	txService := s.TX(tx)
+	var err error
 
-	// Find position to insert (append to end by default)
-	maxPosition, err := txService.repository.GetMaxPosition(ctx, endpoint.CollectionID, movable.CollectionListTypeItems)
-	if err != nil {
-		return fmt.Errorf("failed to get max position: %w", err)
-	}
-	
-	insertPosition := 0
-	if maxPosition >= 0 {
-		insertPosition = maxPosition + 1
-	}
+	// Plan append safely using movable planner for collection_items.
 
 	// Step 1: Create item_api entry (LEGACY TABLE) first to satisfy foreign key constraints
 	err = txService.apiService.CreateItemApi(ctx, endpoint)
@@ -468,7 +454,11 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
 	// Now we can safely reference endpoint.ID since it exists in item_api table
 	collectionItemID := idwrap.New(ulid.Make())
-	
+	plan, err := movable.BuildAppendPlanFromRepo(ctx, txService.repository, endpoint.CollectionID, movable.CollectionListTypeItems, collectionItemID)
+	if err != nil {
+		return fmt.Errorf("append plan failed: %w", err)
+	}
+
 	// Note: endpoint.FolderID should already be converted to collection_items ID in the RPC layer
 	err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
 		ID:             collectionItemID,
@@ -480,7 +470,7 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 		Name:           endpoint.Name,
 		PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
 		NextID:         nil, // Will be calculated by InsertNewItemAtPosition
-	}, insertPosition)
+	}, plan.Position)
 	if err != nil {
 		return fmt.Errorf("failed to insert collection item at position: %w", err)
 	}
@@ -596,38 +586,38 @@ func (s *CollectionItemService) CheckWorkspaceID(ctx context.Context, itemID, wo
 // This is needed for backward compatibility with move operations that receive legacy IDs
 func (s *CollectionItemService) GetCollectionItemIDByLegacyID(ctx context.Context, legacyID idwrap.IDWrap) (idwrap.IDWrap, error) {
 	s.logger.Debug("Converting legacy ID to collection_items ID", "legacy_id", legacyID.String())
-	
+
 	// Try to find by folder_id first
 	folderItem, err := s.queries.GetCollectionItemByFolderID(ctx, &legacyID)
 	if err == nil {
-		s.logger.Debug("Found collection item by folder_id", 
+		s.logger.Debug("Found collection item by folder_id",
 			"legacy_id", legacyID.String(),
 			"collection_item_id", folderItem.ID.String())
 		return folderItem.ID, nil
 	}
-	
+
 	s.logger.Debug("Failed to find by folder_id", "legacy_id", legacyID.String(), "error", err)
-	
+
 	// If not found by folder_id, try endpoint_id
 	if err == sql.ErrNoRows {
 		endpointItem, err := s.queries.GetCollectionItemByEndpointID(ctx, &legacyID)
 		if err == nil {
-			s.logger.Debug("Found collection item by endpoint_id", 
+			s.logger.Debug("Found collection item by endpoint_id",
 				"legacy_id", legacyID.String(),
 				"collection_item_id", endpointItem.ID.String())
 			return endpointItem.ID, nil
 		}
-		
+
 		s.logger.Debug("Failed to find by endpoint_id", "legacy_id", legacyID.String(), "error", err)
-		
+
 		if err == sql.ErrNoRows {
 			s.logger.Debug("Legacy ID not found in collection_items table", "legacy_id", legacyID.String())
 			return idwrap.IDWrap{}, ErrCollectionItemNotFound
 		}
-		
+
 		return idwrap.IDWrap{}, fmt.Errorf("failed to get collection item by endpoint_id: %w", err)
 	}
-	
+
 	return idwrap.IDWrap{}, fmt.Errorf("failed to get collection item by folder_id: %w", err)
 }
 
@@ -641,27 +631,27 @@ func (s *CollectionItemService) moveItemToPosition(ctx context.Context, itemID i
 	// Create a new order by moving the item from fromPos to toPos
 	newOrder := make([]idwrap.IDWrap, len(orderedItems))
 	movingItem := idwrap.NewFromBytesMust(orderedItems[fromPos].ID)
-	
+
 	// Build new order: copy items skipping the moving item, insert moving item at toPos
 	newIdx := 0
 	movingItemInserted := false
-	
+
 	for i, item := range orderedItems {
 		if i == fromPos {
 			continue // Skip the moving item
 		}
-		
+
 		// Check if we should insert the moving item before this position
 		if newIdx == toPos && !movingItemInserted {
 			newOrder[newIdx] = movingItem
 			newIdx++
 			movingItemInserted = true
 		}
-		
+
 		newOrder[newIdx] = idwrap.NewFromBytesMust(item.ID)
 		newIdx++
 	}
-	
+
 	// If we haven't inserted the moving item yet, it goes at the end
 	if !movingItemInserted {
 		newOrder[len(newOrder)-1] = movingItem
@@ -675,14 +665,14 @@ func (s *CollectionItemService) moveItemToPosition(ctx context.Context, itemID i
 func (s *CollectionItemService) rebuildLinkedList(ctx context.Context, orderedIDs []idwrap.IDWrap) error {
 	for i, itemID := range orderedIDs {
 		var prevID, nextID *idwrap.IDWrap
-		
+
 		if i > 0 {
 			prevID = &orderedIDs[i-1]
 		}
 		if i < len(orderedIDs)-1 {
 			nextID = &orderedIDs[i+1]
 		}
-		
+
 		err := s.queries.UpdateCollectionItemOrder(ctx, gen.UpdateCollectionItemOrderParams{
 			PrevID: prevID,
 			NextID: nextID,
@@ -692,7 +682,7 @@ func (s *CollectionItemService) rebuildLinkedList(ctx context.Context, orderedID
 			return fmt.Errorf("failed to update item %s: %w", itemID.String(), err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -724,7 +714,7 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 			break
 		}
 	}
-	
+
 	if currentPos == -1 {
 		return fmt.Errorf("item not found in current parent list")
 	}
@@ -750,8 +740,8 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 	}
 
 	// Step 3: Update item's parent_folder_id
-	s.logger.Debug("Updating parent_folder_id", 
-		"item_id", itemID.String(), 
+	s.logger.Debug("Updating parent_folder_id",
+		"item_id", itemID.String(),
 		"new_parent", getIDString(newParentFolderID))
 	err = s.queries.UpdateCollectionItemParentFolder(ctx, gen.UpdateCollectionItemParentFolderParams{
 		ParentFolderID: newParentFolderID,
@@ -773,7 +763,7 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 				break
 			}
 		}
-		
+
 		if targetPos != -1 {
 			// Target found within new parent context: normal positioning relative to target
 			if position == movable.MovePositionAfter {
@@ -781,7 +771,7 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 			} else {
 				insertPos = targetPos
 			}
-			s.logger.Debug("Target found in new parent context, positioning relative to it", 
+			s.logger.Debug("Target found in new parent context, positioning relative to it",
 				"target_pos", targetPos, "insert_pos", insertPos)
 		} else {
 			// Target not found in new parent context: add to end
@@ -817,7 +807,7 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 
 	// Step 6: Rebuild both linked lists
 	if len(newCurrentParentOrder) > 0 {
-		s.logger.Debug("Rebuilding current parent linked list", 
+		s.logger.Debug("Rebuilding current parent linked list",
 			"items_count", len(newCurrentParentOrder),
 			"items", func() []string {
 				strs := make([]string, len(newCurrentParentOrder))
@@ -832,7 +822,7 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 		}
 	}
 
-	s.logger.Debug("Rebuilding target parent linked list", 
+	s.logger.Debug("Rebuilding target parent linked list",
 		"items_count", len(newTargetParentOrder),
 		"items", func() []string {
 			strs := make([]string, len(newTargetParentOrder))
@@ -851,8 +841,7 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 		"insert_pos", insertPos,
 		"target_parent_items", len(newTargetParentOrder),
 		"new_parent_folder_id", getIDString(newParentFolderID))
-	
-	
+
 	return nil
 }
 
@@ -876,7 +865,7 @@ func (s *CollectionItemService) performSameFolderMove(ctx context.Context, itemI
 	// Find current and target positions
 	currentPos := -1
 	targetPos := -1
-	
+
 	for i, orderedItem := range orderedItems {
 		orderItemID := idwrap.NewFromBytesMust(orderedItem.ID)
 		if orderItemID.Compare(itemID) == 0 {
@@ -886,7 +875,7 @@ func (s *CollectionItemService) performSameFolderMove(ctx context.Context, itemI
 			targetPos = i
 		}
 	}
-	
+
 	if currentPos == -1 {
 		return fmt.Errorf("item not found in ordered list")
 	}
@@ -924,7 +913,7 @@ func (s *CollectionItemService) performSameFolderMove(ctx context.Context, itemI
 			}
 		}
 	}
-	
+
 	// Clamp to valid range
 	if newPos < 0 {
 		newPos = 0
@@ -932,13 +921,13 @@ func (s *CollectionItemService) performSameFolderMove(ctx context.Context, itemI
 	if newPos >= len(orderedItems) {
 		newPos = len(orderedItems) - 1
 	}
-	
+
 	// If no change needed
 	if currentPos == newPos {
 		s.logger.Debug("No position change needed", "current_pos", currentPos, "new_pos", newPos)
 		return nil
 	}
-	
+
 	// Use existing move logic
 	err = s.moveItemToPosition(ctx, itemID, orderedItems, currentPos, newPos)
 	if err != nil {

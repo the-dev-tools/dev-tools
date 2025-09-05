@@ -57,7 +57,6 @@ func ConvertGetWorkspaceRowToModel(workspace gen.GetWorkspaceRow) mworkspace.Wor
 	}
 }
 
-
 func ConvertGetWorkspacesByUserIDOrderedRowToModel(workspace gen.GetWorkspacesByUserIDOrderedRow) mworkspace.Workspace {
 	return mworkspace.Workspace{
 		ID:              idwrap.NewFromBytesMust(workspace.ID),
@@ -72,9 +71,9 @@ func ConvertGetWorkspacesByUserIDOrderedRowToModel(workspace gen.GetWorkspacesBy
 
 func New(queries *gen.Queries) WorkspaceService {
 	movableRepo := NewWorkspaceMovableRepository(queries)
-	
+
 	return WorkspaceService{
-		queries: queries,
+		queries:           queries,
 		movableRepository: movableRepo,
 	}
 }
@@ -83,9 +82,9 @@ func (ws WorkspaceService) TX(tx *sql.Tx) WorkspaceService {
 	// Create new instances with transaction support
 	txQueries := ws.queries.WithTx(tx)
 	movableRepo := NewWorkspaceMovableRepository(txQueries)
-	
+
 	return WorkspaceService{
-		queries: txQueries,
+		queries:           txQueries,
 		movableRepository: movableRepo,
 	}
 }
@@ -98,18 +97,18 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*WorkspaceService, error) {
 		}
 		return nil, err
 	}
-	
+
 	movableRepo := NewWorkspaceMovableRepository(queries)
-	
+
 	return &WorkspaceService{
-		queries: queries,
+		queries:           queries,
 		movableRepository: movableRepo,
 	}, nil
 }
 
 func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) error {
 	dbWorkspace := ConvertToDBWorkspace(*w)
-	
+
 	// Create the workspace with initial NULL prev/next
 	err := ws.queries.CreateWorkspace(ctx, gen.CreateWorkspaceParams{
 		ID:              dbWorkspace.ID,
@@ -134,137 +133,40 @@ func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) 
 // This prevents the workspace from being an isolated node that doesn't appear in the ordered query
 // This method should be called after both workspace and workspace_user records are created
 func (ws WorkspaceService) AutoLinkWorkspaceToUserList(ctx context.Context, workspaceID idwrap.IDWrap, userID idwrap.IDWrap) error {
-	// Get ALL workspaces for the user (including isolated ones)
-	// This is critical - we need to see workspaces that aren't linked yet
-	allWorkspaces, err := ws.queries.GetAllWorkspacesByUserID(ctx, userID)
-	if err != nil && err != sql.ErrNoRows {
-		return fmt.Errorf("failed to get all user workspaces for auto-linking: %w", err)
+	// If the new workspace already appears in the user's ordered chain (e.g., first workspace
+	// was inserted and the list is empty so it becomes head automatically), skip linking.
+	items, err := ws.movableRepository.GetItemsByParent(ctx, userID, movable.WorkspaceListTypeWorkspaces)
+	if err == nil && movable.HasID(items, workspaceID) {
+		return nil // already present; nothing to link
+	}
+	// Super-safe append using planner + guarded updates.
+	plan, err := movable.BuildAppendPlanFromRepo(ctx, ws.movableRepository, userID, movable.WorkspaceListTypeWorkspaces, workspaceID)
+	if err != nil {
+		return fmt.Errorf("workspace auto-link plan failed: %w", err)
 	}
 
-	// Convert to map for quick lookup and count workspaces excluding the new one
-	workspaceMap := make(map[string]bool)
-	var existingWorkspaces []gen.Workspace
-	
-	for _, workspace := range allWorkspaces {
-		// Skip the newly created workspace itself
-		if workspace.ID.Compare(workspaceID) == 0 {
-			continue
-		}
-		workspaceMap[workspace.ID.String()] = true
-		existingWorkspaces = append(existingWorkspaces, workspace)
-	}
-
-	// If this is the first workspace for the user, leave it as isolated head
-	if len(existingWorkspaces) == 0 {
-		return nil
-	}
-
-	// Find the structure of existing workspaces
-	var tailWorkspaceID idwrap.IDWrap
-	var foundHead, foundTail bool
-	
-	// Look for head (prev=NULL) and tail (next=NULL) in existing workspaces
-	for _, workspace := range existingWorkspaces {
-		if workspace.Prev == nil {
-			foundHead = true
-		}
-		if workspace.Next == nil {
-			tailWorkspaceID = workspace.ID
-			foundTail = true
-		}
-	}
-
-	// Handle different scenarios based on existing chain structure
-	
-	// Scenario 1: No existing chain structure (all workspaces are isolated)
-	// Link the new workspace to any existing workspace to start a chain
-	if !foundHead && !foundTail {
-		// Pick the first existing workspace to form a chain with
-		firstExisting := existingWorkspaces[0]
-		firstExistingID := firstExisting.ID
-		
-		// Make firstExisting the head and new workspace its next
-		err = ws.queries.UpdateWorkspaceOrder(ctx, gen.UpdateWorkspaceOrderParams{
-			Prev:   nil,
+	// Patch tail.next if needed (best-effort; if race detected, bail quietly to avoid corruption).
+	if plan.PrevID != nil {
+		// Use UpdateWorkspaceNext to set tail's next.
+		if err := ws.queries.UpdateWorkspaceNext(ctx, gen.UpdateWorkspaceNextParams{
 			Next:   &workspaceID,
-			ID:     firstExistingID,
+			ID:     *plan.PrevID,
 			UserID: userID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to set first existing workspace as head: %w", err)
+		}); err != nil {
+			return fmt.Errorf("failed to set tail.next: %w", err)
 		}
-		
-		// Set new workspace as tail
-		err = ws.queries.UpdateWorkspaceOrder(ctx, gen.UpdateWorkspaceOrderParams{
-			Prev:   &firstExistingID,
-			Next:   nil,
-			ID:     workspaceID,
-			UserID: userID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to set new workspace as tail: %w", err)
-		}
-		
-		return nil
 	}
-	
-	// Scenario 2: This is the second workspace (one existing, forming first chain)
-	if len(existingWorkspaces) == 1 {
-		firstExistingID := existingWorkspaces[0].ID
-		
-		// Link first → new (first becomes head if not already)
-		err = ws.queries.UpdateWorkspaceOrder(ctx, gen.UpdateWorkspaceOrderParams{
-			Prev:   nil, // First workspace becomes head
-			Next:   &workspaceID,
-			ID:     firstExistingID,
-			UserID: userID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to set first workspace as head: %w", err)
-		}
-		
-		// New workspace becomes tail
-		err = ws.queries.UpdateWorkspaceOrder(ctx, gen.UpdateWorkspaceOrderParams{
-			Prev:   &firstExistingID,
-			Next:   nil, // New workspace becomes tail
-			ID:     workspaceID,
-			UserID: userID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to set new workspace as tail: %w", err)
-		}
-		
-		return nil
+
+	// Set new workspace's prev and next(nil) to become new tail.
+	if err := ws.queries.UpdateWorkspaceOrder(ctx, gen.UpdateWorkspaceOrderParams{
+		Prev:   plan.PrevID,
+		Next:   nil,
+		ID:     workspaceID,
+		UserID: userID,
+	}); err != nil {
+		return fmt.Errorf("failed to set new workspace prev/next: %w", err)
 	}
-	
-	// Scenario 3: Multiple workspaces exist with proper chain - append to tail
-	if foundTail {
-		// Update current tail to point to new workspace
-		err = ws.queries.UpdateWorkspaceNext(ctx, gen.UpdateWorkspaceNextParams{
-			Next:   &workspaceID,
-			ID:     tailWorkspaceID,
-			UserID: userID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to update current tail's next pointer: %w", err)
-		}
-		
-		// Set new workspace as new tail
-		err = ws.queries.UpdateWorkspaceOrder(ctx, gen.UpdateWorkspaceOrderParams{
-			Prev:   &tailWorkspaceID,
-			Next:   nil, // New tail
-			ID:     workspaceID,
-			UserID: userID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to set new workspace as tail: %w", err)
-		}
-		
-		return nil
-	}
-	
-	// Scenario 4: Chain is corrupted or unclear - leave workspace isolated
-	// This prevents corrupting an already damaged linked list
+
 	return nil
 }
 

@@ -165,6 +165,191 @@ CREATE INDEX item_api_example_resp_idx1 ON example_resp (
   example_id
 );
 
+--
+-- Overlay tables for URL-encoded bodies (Delta Overlay Option A)
+--
+
+-- Ordered overlay sequence mixing origin-backed refs and delta-only refs
+-- ref_kind: 1 = origin-ref (references example_body_urlencoded.id), 2 = delta-ref (references delta_urlenc_delta.id)
+CREATE TABLE delta_urlenc_order (
+  example_id BLOB NOT NULL,
+  ref_kind TINYINT NOT NULL,
+  ref_id BLOB NOT NULL,
+  rank TEXT NOT NULL,
+  revision BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (example_id, ref_kind, ref_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+
+CREATE INDEX delta_urlenc_order_idx1 ON delta_urlenc_order (
+  example_id,
+  rank
+);
+
+-- State (patch + tombstone) per origin-backed item within a delta example
+-- Nullable columns act as field overrides. suppressed=true hides the origin from the delta view.
+CREATE TABLE delta_urlenc_state (
+  example_id BLOB NOT NULL,
+  origin_id BLOB NOT NULL,
+  suppressed BOOLEAN NOT NULL DEFAULT FALSE,
+  body_key TEXT NULL,
+  value TEXT NULL,
+  description TEXT NULL,
+  enabled BOOLEAN NULL,
+  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (example_id, origin_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (origin_id) REFERENCES example_body_urlencoded (id) ON DELETE CASCADE
+);
+
+CREATE INDEX delta_urlenc_state_idx1 ON delta_urlenc_state (
+  example_id,
+  origin_id
+);
+
+CREATE INDEX delta_urlenc_state_supp_idx ON delta_urlenc_state (
+  example_id
+) WHERE suppressed = TRUE;
+
+-- Delta-only rows (no origin). Values are stored typed for query clarity and future indexing.
+CREATE TABLE delta_urlenc_delta (
+  example_id BLOB NOT NULL,
+  id BLOB NOT NULL PRIMARY KEY,
+  body_key TEXT NOT NULL DEFAULT '',
+  value TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+
+CREATE INDEX delta_urlenc_delta_idx1 ON delta_urlenc_delta (
+  example_id,
+  id
+);
+
+--
+-- Overlay tables for Headers
+--
+CREATE TABLE delta_header_order (
+  example_id BLOB NOT NULL,
+  ref_kind TINYINT NOT NULL,
+  ref_id BLOB NOT NULL,
+  rank TEXT NOT NULL,
+  revision BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (example_id, ref_kind, ref_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+CREATE INDEX delta_header_order_idx1 ON delta_header_order (example_id, rank);
+
+CREATE TABLE delta_header_state (
+  example_id BLOB NOT NULL,
+  origin_id BLOB NOT NULL,
+  suppressed BOOLEAN NOT NULL DEFAULT FALSE,
+  header_key TEXT NULL,
+  value TEXT NULL,
+  description TEXT NULL,
+  enabled BOOLEAN NULL,
+  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (example_id, origin_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (origin_id) REFERENCES example_header (id) ON DELETE CASCADE
+);
+CREATE INDEX delta_header_state_idx1 ON delta_header_state (example_id, origin_id);
+CREATE INDEX delta_header_state_supp_idx ON delta_header_state (example_id) WHERE suppressed = TRUE;
+
+CREATE TABLE delta_header_delta (
+  example_id BLOB NOT NULL,
+  id BLOB NOT NULL PRIMARY KEY,
+  header_key TEXT NOT NULL DEFAULT '',
+  value TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+CREATE INDEX delta_header_delta_idx1 ON delta_header_delta (example_id, id);
+
+-- Overlay tables for Queries
+CREATE TABLE delta_query_order (
+  example_id BLOB NOT NULL,
+  ref_kind TINYINT NOT NULL,
+  ref_id BLOB NOT NULL,
+  rank TEXT NOT NULL,
+  revision BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (example_id, ref_kind, ref_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+CREATE INDEX delta_query_order_idx1 ON delta_query_order (example_id, rank);
+
+CREATE TABLE delta_query_state (
+  example_id BLOB NOT NULL,
+  origin_id BLOB NOT NULL,
+  suppressed BOOLEAN NOT NULL DEFAULT FALSE,
+  query_key TEXT NULL,
+  value TEXT NULL,
+  description TEXT NULL,
+  enabled BOOLEAN NULL,
+  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (example_id, origin_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (origin_id) REFERENCES example_query (id) ON DELETE CASCADE
+);
+CREATE INDEX delta_query_state_idx1 ON delta_query_state (example_id, origin_id);
+CREATE INDEX delta_query_state_supp_idx ON delta_query_state (example_id) WHERE suppressed = TRUE;
+
+CREATE TABLE delta_query_delta (
+  example_id BLOB NOT NULL,
+  id BLOB NOT NULL PRIMARY KEY,
+  query_key TEXT NOT NULL DEFAULT '',
+  value TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+CREATE INDEX delta_query_delta_idx1 ON delta_query_delta (example_id, id);
+
+-- Overlay tables for Form Bodies
+CREATE TABLE delta_form_order (
+  example_id BLOB NOT NULL,
+  ref_kind TINYINT NOT NULL,
+  ref_id BLOB NOT NULL,
+  rank TEXT NOT NULL,
+  revision BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (example_id, ref_kind, ref_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+CREATE INDEX delta_form_order_idx1 ON delta_form_order (example_id, rank);
+
+CREATE TABLE delta_form_state (
+  example_id BLOB NOT NULL,
+  origin_id BLOB NOT NULL,
+  suppressed BOOLEAN NOT NULL DEFAULT FALSE,
+  body_key TEXT NULL,
+  value TEXT NULL,
+  description TEXT NULL,
+  enabled BOOLEAN NULL,
+  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (example_id, origin_id),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
+  FOREIGN KEY (origin_id) REFERENCES example_body_form (id) ON DELETE CASCADE
+);
+CREATE INDEX delta_form_state_idx1 ON delta_form_state (example_id, origin_id);
+CREATE INDEX delta_form_state_supp_idx ON delta_form_state (example_id) WHERE suppressed = TRUE;
+
+CREATE TABLE delta_form_delta (
+  example_id BLOB NOT NULL,
+  id BLOB NOT NULL PRIMARY KEY,
+  body_key TEXT NOT NULL DEFAULT '',
+  value TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE
+);
+CREATE INDEX delta_form_delta_idx1 ON delta_form_delta (example_id, id);
+
 CREATE TABLE example_header (
   id BLOB NOT NULL PRIMARY KEY,
   example_id BLOB NOT NULL,
@@ -259,6 +444,9 @@ CREATE TABLE example_body_urlencoded (
   enable BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL,
   value TEXT NOT NULL,
+  -- Linked list pointers for stable ordering within an example
+  prev BLOB DEFAULT NULL,
+  next BLOB DEFAULT NULL,
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE CASCADE,
   FOREIGN KEY (delta_parent_id) REFERENCES example_body_urlencoded (id) ON DELETE CASCADE
 );
@@ -267,6 +455,21 @@ CREATE INDEX example_body_urlencoded_idx1 ON example_body_urlencoded (
   example_id,
   delta_parent_id,
   body_key
+);
+
+-- Linked list indexes for URL-encoded ordering optimization
+CREATE INDEX example_body_urlencoded_linked_list_idx ON example_body_urlencoded (
+  example_id,
+  prev,
+  next
+);
+CREATE INDEX example_body_urlencoded_prev_idx ON example_body_urlencoded (
+  example_id,
+  prev
+);
+CREATE INDEX example_body_urlencoded_next_idx ON example_body_urlencoded (
+  example_id,
+  next
 );
 
 CREATE TABLE example_body_raw (

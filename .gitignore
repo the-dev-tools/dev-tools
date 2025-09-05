@@ -27,3 +27,7 @@ tsp-output
 # Coverage files
 *.out
 coverage.out
+**/.gocache/
+.code/
+packages/server/server
+tools/collect_go_failures.py

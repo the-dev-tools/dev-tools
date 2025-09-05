@@ -240,6 +240,11 @@ func (c *WorkspaceServiceRPC) WorkspaceCreate(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Append the new workspace to the user's tail using the planner-based autolink.
+	if err := workspaceServiceTX.AutoLinkWorkspaceToUserList(ctx, ws.ID, userID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

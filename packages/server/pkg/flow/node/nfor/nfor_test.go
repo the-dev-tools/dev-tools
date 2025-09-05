@@ -518,6 +518,54 @@ func TestForNode_ErrorHandling_Unspecified(t *testing.T) {
 	}
 }
 
+// Test that FOR loop does not emit iteration-level FAILURE statuses when a child fails
+// and instead relies on final summary/final status semantics (parity with FOREACH).
+func TestForNode_NoIterationFailureStatuses_OnChildFailure(t *testing.T) {
+	// Setup
+	forNodeID := idwrap.NewNow()
+	missingChildID := idwrap.NewNow()
+
+	// Configure FOR with IGNORE so we don't propagate error; all iterations will fail
+	forNode := nfor.New(forNodeID, "ParityForIgnore", 3, 5*time.Second, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+
+	// Edge map points loop body to a non-existent child to force iteration error
+	edgeMap := edge.NewEdgesMap([]edge.Edge{
+		edge.NewEdge(idwrap.NewNow(), forNodeID, missingChildID, edge.HandleLoop, edge.EdgeKindNoOp),
+	})
+
+	// Capture statuses pushed by FOR node
+	var captured []runner.FlowNodeStatus
+	logPush := func(s runner.FlowNodeStatus) { captured = append(captured, s) }
+
+	// Request with only FOR node present
+	req := &node.FlowNodeRequest{
+		VarMap:        make(map[string]any),
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       map[idwrap.IDWrap]node.FlowNode{forNodeID: forNode},
+		EdgeSourceMap: edgeMap,
+		LogPushFunc:   logPush,
+		Timeout:       5 * time.Second,
+	}
+
+	// Execute
+	res := forNode.RunSync(context.Background(), req)
+
+	// Verify no propagation of error under IGNORE
+	if res.Err != nil {
+		t.Fatalf("unexpected error: %v", res.Err)
+	}
+
+	// Expect only RUNNING statuses, one per iteration; no iteration FAILURE updates
+	if len(captured) != 3 {
+		t.Fatalf("expected 3 statuses (RUNNING x3), got %d", len(captured))
+	}
+	for i, st := range captured {
+		if st.State != mnnode.NODE_STATE_RUNNING {
+			t.Fatalf("status %d: expected RUNNING, got %v", i, st.State)
+		}
+	}
+}
+
 // TestForNode_ErrorHandling_NodeStatus tests that errors are shown on the correct node
 func TestForNode_ErrorHandling_NodeStatus(t *testing.T) {
 	// Setup

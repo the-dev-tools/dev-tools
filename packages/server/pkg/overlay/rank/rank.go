@@ -1,4 +1,4 @@
-package urlenc
+package rank
 
 import (
 	"math/big"
@@ -6,7 +6,6 @@ import (
 )
 
 // Simple fixed-width base36 rank strings. Lex order == numeric order.
-// Width 16 gives ~2e25 space; practically no saturation.
 const rankWidth = 16
 const base36 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -31,7 +30,6 @@ func formatRank(n *big.Int) string {
 	if n.Sign() < 0 {
 		n = big.NewInt(0)
 	}
-	// convert to base36 string
 	if n.Sign() == 0 {
 		return strings.Repeat("0", rankWidth)
 	}
@@ -42,7 +40,6 @@ func formatRank(n *big.Int) string {
 		tmp.DivMod(tmp, b36, mod)
 		digits = append(digits, base36[mod.Int64()])
 	}
-	// reverse
 	for i, j := 0, len(digits)-1; i < j; i, j = i+1, j-1 {
 		digits[i], digits[j] = digits[j], digits[i]
 	}
@@ -50,21 +47,19 @@ func formatRank(n *big.Int) string {
 	if len(s) < rankWidth {
 		s = strings.Repeat("0", rankWidth-len(s)) + s
 	} else if len(s) > rankWidth {
-		// clamp to width
 		s = s[:rankWidth]
 	}
 	return s
 }
 
 func maxRank() *big.Int {
-	// base^width - 1
 	pow := new(big.Int).Exp(b36, big.NewInt(rankWidth), nil)
 	return pow.Sub(pow, big.NewInt(1))
 }
 
-// RankBetween returns a rank string strictly between prev and next.
+// Between returns a rank string strictly between prev and next.
 // If prev == "" it treats prev = 0; if next == "" it treats next = max.
-func RankBetween(prev, next string) string {
+func Between(prev, next string) string {
 	var a = big.NewInt(0)
 	var b = maxRank()
 	if prev != "" {
@@ -74,8 +69,7 @@ func RankBetween(prev, next string) string {
 		b = parseRank(next)
 	}
 	sum := new(big.Int).Add(a, b)
-	mid := sum.Rsh(sum, 1) // divide by 2
-	// ensure strictly between by nudging if equal to endpoints
+	mid := sum.Rsh(sum, 1)
 	if prev != "" && mid.Cmp(a) == 0 {
 		mid = new(big.Int).Add(a, big.NewInt(1))
 	}
@@ -85,7 +79,7 @@ func RankBetween(prev, next string) string {
 	return formatRank(mid)
 }
 
-// FirstRank returns an initial middle rank.
-func FirstRank() string {
-	return RankBetween("", "")
+// First returns an initial middle rank.
+func First() string {
+	return Between("", "")
 }
