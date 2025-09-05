@@ -1,36 +1,54 @@
 package rnode_test
 
 import (
-	"bytes"
-	"context"
-	"testing"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rnode"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
-	"the-dev-tools/server/pkg/service/sbodyform"
-	"the-dev-tools/server/pkg/service/sbodyraw"
-	"the-dev-tools/server/pkg/service/sbodyurl"
-	"the-dev-tools/server/pkg/service/sexampleheader"
-	"the-dev-tools/server/pkg/service/sexamplequery"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sitemapi"
-	"the-dev-tools/server/pkg/service/sitemapiexample"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snodefor"
-	"the-dev-tools/server/pkg/service/snodeforeach"
-	"the-dev-tools/server/pkg/service/snodeif"
-	"the-dev-tools/server/pkg/service/snodejs"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/snoderequest"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/testutil"
-	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
+    "bytes"
+    "context"
+    "strings"
+    "sync"
+    "testing"
+    "the-dev-tools/server/internal/api/middleware/mwauth"
+    "the-dev-tools/server/internal/api/rflow"
+    "the-dev-tools/server/internal/api/rnode"
+    "the-dev-tools/server/pkg/flow/edge"
+    "the-dev-tools/server/pkg/idwrap"
+    "the-dev-tools/server/pkg/logconsole"
+    "the-dev-tools/server/pkg/model/mcondition"
+    "the-dev-tools/server/pkg/model/mflow"
+    "the-dev-tools/server/pkg/model/mnnode"
+    "the-dev-tools/server/pkg/model/mnnode/mnif"
+    "the-dev-tools/server/pkg/model/mnnode/mnnoop"
+    "the-dev-tools/server/pkg/model/mnnode/mnrequest"
+    "the-dev-tools/server/pkg/service/flow/sedge"
+    "the-dev-tools/server/pkg/service/sassert"
+    "the-dev-tools/server/pkg/service/sassertres"
+    "the-dev-tools/server/pkg/service/sbodyform"
+    "the-dev-tools/server/pkg/service/sbodyraw"
+    "the-dev-tools/server/pkg/service/sbodyurl"
+    "the-dev-tools/server/pkg/service/sexampleheader"
+    "the-dev-tools/server/pkg/service/sexamplequery"
+    "the-dev-tools/server/pkg/service/sexampleresp"
+    "the-dev-tools/server/pkg/service/sexamplerespheader"
+    "the-dev-tools/server/pkg/service/sflow"
+    "the-dev-tools/server/pkg/service/sflowtag"
+    "the-dev-tools/server/pkg/service/sflowvariable"
+    "the-dev-tools/server/pkg/service/sitemapi"
+    "the-dev-tools/server/pkg/service/sitemapiexample"
+    "the-dev-tools/server/pkg/service/snode"
+    "the-dev-tools/server/pkg/service/snodeexecution"
+    "the-dev-tools/server/pkg/service/snodefor"
+    "the-dev-tools/server/pkg/service/snodeforeach"
+    "the-dev-tools/server/pkg/service/snodeif"
+    "the-dev-tools/server/pkg/service/snodejs"
+    "the-dev-tools/server/pkg/service/snodenoop"
+    "the-dev-tools/server/pkg/service/snoderequest"
+    "the-dev-tools/server/pkg/service/stag"
+    "the-dev-tools/server/pkg/service/suser"
+    "the-dev-tools/server/pkg/service/sworkspace"
+    "the-dev-tools/server/pkg/testutil"
+    flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
+    nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 
-	"connectrpc.com/connect"
+    "connectrpc.com/connect"
 )
 
 func TestNodeGet(t *testing.T) {
@@ -594,4 +612,199 @@ func TestNodeDelete(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, node should be deleted")
 	}
+}
+
+// collectStreamMock captures streamed FlowRun responses for assertions
+type collectStreamMock struct{
+    mu    sync.Mutex
+    items []*flowv1.FlowRunResponse
+}
+
+func (s *collectStreamMock) Send(resp *flowv1.FlowRunResponse) error {
+    s.mu.Lock()
+    s.items = append(s.items, resp)
+    s.mu.Unlock()
+    return nil
+}
+
+// TestFlowRun_PersistsNodeErrorAndServesToClient verifies that when a node errors during a run,
+// the error is persisted to node_execution and surfaced on the flow stream.
+func TestFlowRun_PersistsNodeErrorAndServesToClient(t *testing.T) {
+    ctx := context.Background()
+    base := testutil.CreateBaseDB(ctx, t)
+    queries := base.Queries
+    db := base.DB
+
+    // Core services (mirror server wiring)
+    ws := sworkspace.New(queries) // workspace service for rflow constructor
+    us := suser.New(queries)
+    ts := stag.New(queries)
+    fs := sflow.New(queries)
+    fts := sflowtag.New(queries)
+    fes := sedge.New(queries)
+    fvs := sflowvariable.New(queries)
+
+    ias := sitemapi.New(queries)
+    es := sitemapiexample.New(queries)
+    qs := sexamplequery.New(queries)
+    hs := sexampleheader.New(queries)
+    brs := sbodyraw.New(queries)
+    bfs := sbodyform.New(queries)
+    bues := sbodyurl.New(queries)
+
+    ers := sexampleresp.New(queries)
+    erhs := sexamplerespheader.New(queries)
+    as := sassert.New(queries)
+    ars := sassertres.New(queries)
+
+    ns := snode.New(queries)
+    rns := snoderequest.New(queries)
+    fns := snodefor.New(queries)
+    fens := snodeforeach.New(queries)
+    sns := snodenoop.New(queries)
+    ins := snodeif.New(queries)
+    jsns := snodejs.New(queries)
+    nes := snodeexecution.New(queries)
+
+    logChanMap := logconsole.NewLogChanMapWith(1000)
+
+    flowSrv := rflow.New(db, ws, us, ts,
+        fs, fts, fes, fvs,
+        ias, es, qs, hs,
+        brs, bfs, bues,
+        ers, erhs, as, ars,
+        ns, rns, fns, fens,
+        sns, *ins, jsns, nes,
+        logChanMap,
+    )
+
+    // Minimal domain data
+    wsID := idwrap.NewNow()
+    wsUserID := idwrap.NewNow()
+    userID := idwrap.NewNow()
+    collectionID := idwrap.NewNow()
+    base.GetBaseServices().CreateTempCollection(t, ctx, wsID, wsUserID, userID, collectionID)
+
+    // Flow with: start -> if(bad expr) -> true/false
+    flowID := idwrap.NewNow()
+    if err := fs.CreateFlow(ctx, mflow.Flow{ID: flowID, WorkspaceID: wsID, Name: "error_e2e"}); err != nil {
+        t.Fatal(err)
+    }
+
+    startID := idwrap.NewNow()
+    if err := ns.CreateNode(ctx, mnnode.MNode{ID: startID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP}); err != nil {
+        t.Fatal(err)
+    }
+    if err := sns.CreateNodeNoop(ctx, mnnoop.NoopNode{FlowNodeID: startID, Type: mnnoop.NODE_NO_OP_KIND_START}); err != nil {
+        t.Fatal(err)
+    }
+
+    ifID := idwrap.NewNow()
+    if err := ns.CreateNode(ctx, mnnode.MNode{ID: ifID, FlowID: flowID, Name: "IfBad", NodeKind: mnnode.NODE_KIND_CONDITION}); err != nil {
+        t.Fatal(err)
+    }
+    // Intentionally invalid expression to force evaluation error
+    if err := ins.CreateNodeIf(ctx, mnif.MNIF{FlowNodeID: ifID, Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "this is not valid expr"}}}); err != nil {
+        t.Fatal(err)
+    }
+
+    trueID := idwrap.NewNow()
+    if err := ns.CreateNode(ctx, mnnode.MNode{ID: trueID, FlowID: flowID, Name: "True", NodeKind: mnnode.NODE_KIND_NO_OP}); err != nil {
+        t.Fatal(err)
+    }
+    if err := sns.CreateNodeNoop(ctx, mnnoop.NoopNode{FlowNodeID: trueID, Type: mnnoop.NODE_NO_OP_KIND_THEN}); err != nil {
+        t.Fatal(err)
+    }
+
+    falseID := idwrap.NewNow()
+    if err := ns.CreateNode(ctx, mnnode.MNode{ID: falseID, FlowID: flowID, Name: "False", NodeKind: mnnode.NODE_KIND_NO_OP}); err != nil {
+        t.Fatal(err)
+    }
+    if err := sns.CreateNodeNoop(ctx, mnnoop.NoopNode{FlowNodeID: falseID, Type: mnnoop.NODE_NO_OP_KIND_ELSE}); err != nil {
+        t.Fatal(err)
+    }
+
+    // Edges
+    if err := fes.CreateEdge(ctx, edge.Edge{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startID, TargetID: ifID, SourceHandler: edge.HandleUnspecified}); err != nil {
+        t.Fatal(err)
+    }
+    if err := fes.CreateEdge(ctx, edge.Edge{ID: idwrap.NewNow(), FlowID: flowID, SourceID: ifID, TargetID: trueID, SourceHandler: edge.HandleThen}); err != nil {
+        t.Fatal(err)
+    }
+    if err := fes.CreateEdge(ctx, edge.Edge{ID: idwrap.NewNow(), FlowID: flowID, SourceID: ifID, TargetID: falseID, SourceHandler: edge.HandleElse}); err != nil {
+        t.Fatal(err)
+    }
+
+    // Run the flow
+    req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes(), EnvironmentId: idwrap.NewNow().Bytes()})
+    stream := &collectStreamMock{}
+    // Register user's log channel so FlowRun can send logs without error
+    _ = logChanMap.AddLogChannel(userID)
+    authed := mwauth.CreateAuthedContext(ctx, userID)
+
+    // Flow may return an error when a node fails; we still want to verify
+    // that the error is persisted and surfaced via stream.
+    _ = flowSrv.FlowRunAdHoc(authed, req, stream)
+
+    // Verify node_execution contains a FAILURE with error for the IF node
+    exec, err := nes.GetLatestNodeExecutionByNodeID(ctx, ifID)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if exec == nil {
+        t.Fatal("expected a node execution for IF node, got nil")
+    }
+    if exec.State != mnnode.NODE_STATE_FAILURE {
+        t.Fatalf("expected FAILURE state, got %v", exec.State)
+    }
+    if exec.Error == nil || *exec.Error == "" {
+        t.Fatalf("expected non-empty error on node execution, got %+v", exec.Error)
+    }
+    // Basic sanity the error came from condition evaluation
+    if !strings.Contains(strings.ToLower(*exec.Error), "evaluate condition expression") &&
+       !strings.Contains(strings.ToLower(*exec.Error), "normalize condition expression") {
+        t.Fatalf("unexpected error message: %s", *exec.Error)
+    }
+    if exec.CompletedAt == nil {
+        t.Fatalf("expected CompletedAt to be set")
+    }
+
+    // Best-effort: stream may finish early due to error. If a node update for the IF node
+    // was delivered, ensure Info is included. Otherwise, persistence check above suffices.
+    stream.mu.Lock()
+    for _, it := range stream.items {
+        if it != nil && it.Node != nil && bytes.Equal(it.Node.NodeId, ifID.Bytes()) {
+            if it.Node.State == nodev1.NodeState_NODE_STATE_FAILURE {
+                if it.Node.Info == nil || *it.Node.Info == "" {
+                    t.Fatalf("expected node stream Info to include error message")
+                }
+            }
+            break
+        }
+    }
+    stream.mu.Unlock()
+
+    // Now verify NodeList returns info for the failing node
+    nodeRPC := rnode.NewNodeServiceRPC(db, us, fs, *ins, rns, fns, fens, ns, sns, jsns, ias, es, qs, hs, brs, bfs, bues, nes)
+    listReq := connect.NewRequest(&nodev1.NodeListRequest{FlowId: flowID.Bytes()})
+    listResp, err := nodeRPC.NodeList(mwauth.CreateAuthedContext(ctx, userID), listReq)
+    if err != nil {
+        t.Fatalf("node list failed: %v", err)
+    }
+    foundInfo := false
+    for _, it := range listResp.Msg.Items {
+        if bytes.Equal(it.NodeId, ifID.Bytes()) {
+            if it.State != nodev1.NodeState_NODE_STATE_FAILURE {
+                t.Fatalf("expected IF node state FAILURE, got %v", it.State)
+            }
+            if it.Info == nil || *it.Info == "" {
+                t.Fatalf("expected NodeList info to include error message for IF node")
+            }
+            foundInfo = true
+            break
+        }
+    }
+    if !foundInfo {
+        t.Fatalf("IF node not found in NodeList items")
+    }
 }

@@ -1906,6 +1906,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
                                     NodeId: flowNodeStatus.NodeID.Bytes(),
                                     State:  nodev1.NodeState(flowNodeStatus.State),
                                 }
+                                if flowNodeStatus.Error != nil {
+                                    em := flowNodeStatus.Error.Error()
+                                    nodeMsg.Info = &em // surface error via node.info for live stream
+                                }
                                 resp := &flowv1.FlowRunResponse{Node: nodeMsg}
                                 if err := stream.Send(resp); err != nil {
                                     select {

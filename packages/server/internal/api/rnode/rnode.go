@@ -182,6 +182,14 @@ func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[node
 			NoOp:     rpcNode.NoOp,
 		}
 
+		// Populate info with latest execution error (if any) so clients can surface details.
+		if latest, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, node.ID); err == nil && latest != nil {
+			if latest.Error != nil && *latest.Error != "" {
+				msg := *latest.Error
+				convertedItem.Info = &msg
+			}
+		}
+
 		// For request nodes, include endpoint information in the info field
 		if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST && rpcNode.Request != nil {
 			if rpcNode.Request.ExampleId != nil {
