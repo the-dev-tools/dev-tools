@@ -4,7 +4,6 @@ import (
     "context"
     "database/sql"
     "errors"
-    "sort"
     "the-dev-tools/server/internal/api"
     "the-dev-tools/server/internal/api/ritemapiexample"
     "the-dev-tools/server/pkg/compress"
@@ -20,6 +19,9 @@ import (
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/suser"
     overlayurlenc "the-dev-tools/server/pkg/overlay/urlenc"
+    overcore "the-dev-tools/server/pkg/overlay/core"
+    orank "the-dev-tools/server/pkg/overlay/rank"
+    soverlayform "the-dev-tools/server/pkg/service/soverlayform"
 	"the-dev-tools/server/pkg/translate/tbodyform"
 	"the-dev-tools/server/pkg/translate/tbodyurl"
 	"the-dev-tools/server/pkg/translate/tgeneric"
@@ -44,7 +46,62 @@ type BodyRPC struct {
 
     // overlay (optional)
     overlay *overlayurlenc.Service
+    fov *soverlayform.Service
 }
+
+// --- Overlay form adapters (minimal) ---
+type formOrderStore struct{ s *soverlayform.Service }
+type formStateStore struct{ s *soverlayform.Service }
+type formDeltaStore struct{ s *soverlayform.Service }
+
+func (o formOrderStore) Count(ctx context.Context, ex idwrap.IDWrap) (int64, error) { return o.s.Count(ctx, ex) }
+func (o formOrderStore) SelectAsc(ctx context.Context, ex idwrap.IDWrap) ([]overcore.OrderRow, error) {
+    rows, err := o.s.SelectAsc(ctx, ex)
+    if err != nil { return nil, err }
+    out := make([]overcore.OrderRow, 0, len(rows))
+    for _, r := range rows {
+        id, err := idwrap.NewFromBytes(r.RefID)
+        if err != nil { return nil, err }
+        out = append(out, overcore.OrderRow{ RefKind: r.RefKind, RefID: id, Rank: r.Rank })
+    }
+    return out, nil
+}
+func (o formOrderStore) LastRank(ctx context.Context, ex idwrap.IDWrap) (string, bool, error) { return o.s.LastRank(ctx, ex) }
+func (o formOrderStore) MaxRevision(ctx context.Context, ex idwrap.IDWrap) (int64, error) { return o.s.MaxRevision(ctx, ex) }
+func (o formOrderStore) InsertIgnore(ctx context.Context, ex idwrap.IDWrap, rk int8, id idwrap.IDWrap, rank string, rev int64) error { return o.s.InsertIgnore(ctx, ex, rk, id, rank, rev) }
+func (o formOrderStore) Upsert(ctx context.Context, ex idwrap.IDWrap, rk int8, id idwrap.IDWrap, rank string, rev int64) error { return o.s.Upsert(ctx, ex, rk, id, rank, rev) }
+func (o formOrderStore) DeleteByRef(ctx context.Context, ex idwrap.IDWrap, id idwrap.IDWrap) error { return o.s.DeleteByRef(ctx, ex, id) }
+func (o formOrderStore) Exists(ctx context.Context, ex idwrap.IDWrap, rk int8, id idwrap.IDWrap) (bool, error) { return o.s.Exists(ctx, ex, rk, id) }
+
+func (s formStateStore) Upsert(ctx context.Context, ex, origin idwrap.IDWrap, suppressed bool, key, val, desc *string, enabled *bool) error {
+    return s.s.UpsertState(ctx, ex, origin, suppressed, key, val, desc, enabled)
+}
+func (s formStateStore) Get(ctx context.Context, ex, origin idwrap.IDWrap) (overcore.StateRow, bool, error) {
+    r, ok, err := s.s.GetState(ctx, ex, origin)
+    if err != nil { return overcore.StateRow{}, false, err }
+    if !ok { return overcore.StateRow{}, false, nil }
+    var kp, vp, dp *string; var ep *bool
+    if r.Key.Valid { v := r.Key.String; kp = &v }
+    if r.Val.Valid { v := r.Val.String; vp = &v }
+    if r.Desc.Valid { v := r.Desc.String; dp = &v }
+    if r.Enabled.Valid { v := r.Enabled.Bool; ep = &v }
+    return overcore.StateRow{ Suppressed: r.Suppressed, Key: kp, Val: vp, Desc: dp, Enabled: ep }, true, nil
+}
+func (s formStateStore) ClearOverrides(ctx context.Context, ex, origin idwrap.IDWrap) error { return s.s.ClearStateOverrides(ctx, ex, origin) }
+func (s formStateStore) Suppress(ctx context.Context, ex, origin idwrap.IDWrap) error { return s.s.SuppressState(ctx, ex, origin) }
+func (s formStateStore) Unsuppress(ctx context.Context, ex, origin idwrap.IDWrap) error { return s.s.UnsuppressState(ctx, ex, origin) }
+
+func (d formDeltaStore) Insert(ctx context.Context, ex, id idwrap.IDWrap, key, value, desc string, enabled bool) error {
+    return d.s.InsertDelta(ctx, ex, id, key, value, desc, enabled)
+}
+func (d formDeltaStore) Update(ctx context.Context, ex, id idwrap.IDWrap, key, value, desc string, enabled bool) error {
+    return d.s.UpdateDelta(ctx, ex, id, key, value, desc, enabled)
+}
+func (d formDeltaStore) Get(ctx context.Context, ex, id idwrap.IDWrap) (string, string, string, bool, bool, error) {
+    return d.s.GetDelta(ctx, ex, id)
+}
+func (d formDeltaStore) Exists(ctx context.Context, ex, id idwrap.IDWrap) (bool, error) { return d.s.ExistsDelta(ctx, ex, id) }
+func (d formDeltaStore) Delete(ctx context.Context, ex, id idwrap.IDWrap) error { return d.s.DeleteDelta(ctx, ex, id) }
 
 func New(db *sql.DB, cs scollection.CollectionService, iaes sitemapiexample.ItemApiExampleService,
     us suser.UserService, bfs sbodyform.BodyFormService, bues sbodyurl.BodyURLEncodedService, brs sbodyraw.BodyRawService,
@@ -60,6 +117,7 @@ func New(db *sql.DB, cs scollection.CollectionService, iaes sitemapiexample.Item
         bues: bues,
         brs:  brs,
         overlay: overlayurlenc.New(db, bues),
+        fov: func() *soverlayform.Service { s, _ := soverlayform.New(db); return s }(),
     }
 }
 
@@ -409,295 +467,95 @@ func (c *BodyRPC) BodyRawUpdate(ctx context.Context, req *connect.Request[bodyv1
 }
 
 func (c *BodyRPC) BodyFormDeltaList(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaListRequest]) (*connect.Response[bodyv1.BodyFormDeltaListResponse], error) {
-	// Parse both example IDs
-	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	// Check permissions for both examples
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	// Get body forms from both origin and delta examples
-	originBodyForms, err := c.bfs.GetBodyFormsByExampleID(ctx, originExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	deltaBodyForms, err := c.bfs.GetBodyFormsByExampleID(ctx, deltaExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Check if delta example has version parent
-	deltaExampleIsDelta, err := c.isExampleDelta(ctx, deltaExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Combine all body forms and build maps for lookup
-	allBodyForms := append(originBodyForms, deltaBodyForms...)
-	bodyFormMap := make(map[idwrap.IDWrap]mbodyform.BodyForm)
-	originMap := make(map[idwrap.IDWrap]*bodyv1.BodyForm)
-	replacedOrigins := make(map[idwrap.IDWrap]bool)
-
-	for _, bodyForm := range allBodyForms {
-		bodyFormMap[bodyForm.ID] = bodyForm
-		originMap[bodyForm.ID] = tbodyform.SerializeFormModelToRPC(bodyForm)
-
-		// Determine the delta type for this body form
-		exampleIsDelta := bodyForm.ExampleID.Compare(deltaExampleID) == 0 && deltaExampleIsDelta
-		deltaType := bodyForm.DetermineDeltaType(exampleIsDelta)
-
-		// Mark origin body forms that have been replaced by mixed body forms
-		if deltaType == mbodyform.BodyFormSourceMixed && bodyForm.DeltaParentID != nil {
-			replacedOrigins[*bodyForm.DeltaParentID] = true
-		}
-	}
-
-	// Create result slice maintaining order from allBodyForms
-	var rpcBodyForms []*bodyv1.BodyFormDeltaListItem
-	for _, bodyForm := range allBodyForms {
-		// Determine the delta type for this body form
-		exampleIsDelta := bodyForm.ExampleID.Compare(deltaExampleID) == 0 && deltaExampleIsDelta
-		deltaType := bodyForm.DetermineDeltaType(exampleIsDelta)
-
-		// Skip origin body forms that have been replaced by mixed body forms
-		if deltaType == mbodyform.BodyFormSourceOrigin && replacedOrigins[bodyForm.ID] {
-			continue
-		}
-
-		sourceKind := deltaType.ToSourceKind()
-		var origin *bodyv1.BodyForm
-		var key, value, description string
-		var enabled bool
-
-		if deltaType == mbodyform.BodyFormSourceOrigin {
-			// For origin items, put the data in origin field and leave main fields empty
-			origin = tbodyform.SerializeFormModelToRPC(bodyForm)
-			key = ""
-			value = ""
-			description = ""
-			enabled = false
-		} else {
-			// For delta/mixed items, use the current values and find the origin if it has a parent
-			key = bodyForm.BodyKey
-			value = bodyForm.Value
-			description = bodyForm.Description
-			enabled = bodyForm.Enable
-
-			if bodyForm.DeltaParentID != nil {
-				if originRPC, exists := originMap[*bodyForm.DeltaParentID]; exists {
-					origin = originRPC
-				}
-			}
-		}
-
-		rpcBodyForm := &bodyv1.BodyFormDeltaListItem{
-			BodyId:      bodyForm.ID.Bytes(),
-			Key:         key,
-			Enabled:     enabled,
-			Value:       value,
-			Description: description,
-			Origin:      origin,
-			Source:      &sourceKind,
-		}
-		rpcBodyForms = append(rpcBodyForms, rpcBodyForm)
-	}
-
-	// Sort rpcBodyForms by ID, but if it has DeltaParentID use that ID instead
-	sort.Slice(rpcBodyForms, func(i, j int) bool {
-		idI, _ := idwrap.NewFromBytes(rpcBodyForms[i].BodyId)
-		idJ, _ := idwrap.NewFromBytes(rpcBodyForms[j].BodyId)
-
-		// Determine the ID to use for sorting for item i
-		sortIDI := idI
-		if rpcBodyForms[i].Origin != nil && len(rpcBodyForms[i].Origin.BodyId) > 0 {
-			if parentID, err := idwrap.NewFromBytes(rpcBodyForms[i].Origin.BodyId); err == nil {
-				sortIDI = parentID
-			}
-		}
-
-		// Determine the ID to use for sorting for item j
-		sortIDJ := idJ
-		if rpcBodyForms[j].Origin != nil && len(rpcBodyForms[j].Origin.BodyId) > 0 {
-			if parentID, err := idwrap.NewFromBytes(rpcBodyForms[j].Origin.BodyId); err == nil {
-				sortIDJ = parentID
-			}
-		}
-
-		return sortIDI.Compare(sortIDJ) < 0
-	})
-
-	resp := &bodyv1.BodyFormDeltaListResponse{
-		ExampleId: deltaExampleID.Bytes(),
-		Items:     rpcBodyForms,
-	}
-	return connect.NewResponse(resp), nil
+    deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
+    // seed order if none
+    if cnt, err := c.fov.Count(ctx, deltaExampleID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) } else if cnt == 0 {
+        origin, err := c.bfs.GetBodyFormsByExampleID(ctx, originExampleID)
+        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+        r := ""
+        for _, f := range origin { nr := orank.Between(r, ""); if r == "" { nr = orank.First() }; if err := c.fov.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), f.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }; r = nr }
+    }
+    ord := formOrderStore{ s: c.fov }
+    st := formStateStore{ s: c.fov }
+    dl := formDeltaStore{ s: c.fov }
+    originVals := func(ctx context.Context, ids []idwrap.IDWrap) (map[idwrap.IDWrap]overcore.Values, error) {
+        items, err := c.bfs.GetBodyFormsByExampleID(ctx, originExampleID)
+        if err != nil { return nil, err }
+        m := make(map[idwrap.IDWrap]overcore.Values, len(items))
+        for _, it := range items { m[it.ID] = overcore.Values{ Key: it.BodyKey, Value: it.Value, Description: it.Description, Enabled: it.Enable } }
+        return m, nil
+    }
+    build := func(m overcore.Merged) any {
+        var origin *bodyv1.BodyForm
+        if m.Origin != nil { origin = &bodyv1.BodyForm{ BodyId: m.ID.Bytes(), Key: m.Origin.Key, Enabled: m.Origin.Enabled, Value: m.Origin.Value, Description: m.Origin.Description } }
+        src := m.Source
+        return &bodyv1.BodyFormDeltaListItem{ BodyId: m.ID.Bytes(), Key: m.Values.Key, Enabled: m.Values.Enabled, Value: m.Values.Value, Description: m.Values.Description, Origin: origin, Source: &src }
+    }
+    fetch := func(ctx context.Context, ex idwrap.IDWrap) ([]mbodyform.BodyForm, error) { return nil, nil }
+    extract := func(f mbodyform.BodyForm) overcore.Values { return overcore.Values{} }
+    itemsAny, err := overcore.List[mbodyform.BodyForm](ctx, ord, st, dl, fetch, extract, originVals, build, deltaExampleID, originExampleID)
+    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    out := make([]*bodyv1.BodyFormDeltaListItem, 0, len(itemsAny))
+    for _, it := range itemsAny { out = append(out, it.(*bodyv1.BodyFormDeltaListItem)) }
+    return connect.NewResponse(&bodyv1.BodyFormDeltaListResponse{ ExampleId: deltaExampleID.Bytes(), Items: out }), nil
 }
 
 func (c *BodyRPC) BodyFormDeltaCreate(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaCreateRequest]) (*connect.Response[bodyv1.BodyFormDeltaCreateResponse], error) {
-	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcBody := &bodyv1.BodyForm{
-		Key:         req.Msg.GetKey(),
-		Enabled:     req.Msg.GetEnabled(),
-		Value:       req.Msg.GetValue(),
-		Description: req.Msg.GetDescription(),
-	}
-
-	var deltaParentIDPtr *idwrap.IDWrap
-
-	bodyForm, err := tbodyform.SeralizeFormRPCToModelWithoutID(rpcBody, exampleID, deltaParentIDPtr)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	bodyForm.ID = idwrap.NewNow()
-
-	ok, err := ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no example found"))
-	}
-	err = c.bfs.CreateBodyForm(ctx, bodyForm)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&bodyv1.BodyFormDeltaCreateResponse{BodyId: bodyForm.ID.Bytes()}), nil
+    exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID)); rpcErr != nil { return nil, rpcErr }
+    ord := formOrderStore{ s: c.fov }
+    dl := formDeltaStore{ s: c.fov }
+    st := formStateStore{ s: c.fov }
+    id, err := overcore.CreateDelta(ctx, ord, dl, exampleID)
+    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    vals := overcore.Values{ Key: req.Msg.GetKey(), Value: req.Msg.GetValue(), Description: req.Msg.GetDescription(), Enabled: req.Msg.GetEnabled() }
+    if err := overcore.Update(ctx, st, dl, exampleID, id, &vals); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&bodyv1.BodyFormDeltaCreateResponse{ BodyId: id.Bytes() }), nil
 }
 
 func (c *BodyRPC) BodyFormDeltaUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaUpdateRequest]) (*connect.Response[bodyv1.BodyFormDeltaUpdateResponse], error) {
-	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	bodyFormPtr, err := c.bfs.GetBodyForm(ctx, ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	bodyForm := *bodyFormPtr
-
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	rpcBody := &bodyv1.BodyForm{
-		BodyId:      req.Msg.GetBodyId(),
-		Key:         req.Msg.GetKey(),
-		Enabled:     req.Msg.GetEnabled(),
-		Value:       req.Msg.GetValue(),
-		Description: req.Msg.GetDescription(),
-	}
-	updated, err := tbodyform.SerializeFormRPCtoModel(rpcBody, idwrap.IDWrap{})
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	updated.ExampleID = bodyForm.ExampleID
-
-	// Check if example has version parent
-	exampleIsDelta, err := c.isExampleDelta(ctx, bodyForm.ExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Determine the delta type for this body form
-	deltaType := bodyForm.DetermineDeltaType(exampleIsDelta)
-
-	// If it's an origin bodyform, create a mixed bodyform instead
-	if deltaType == mbodyform.BodyFormSourceOrigin {
-		updated.DeltaParentID = &bodyForm.ID
-		updated.ID = idwrap.NewNow()
-
-		if err := c.bfs.CreateBodyForm(ctx, updated); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	} else {
-		updated.DeltaParentID = bodyForm.DeltaParentID
-
-		if err := c.bfs.UpdateBodyForm(ctx, updated); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	return connect.NewResponse(&bodyv1.BodyFormDeltaUpdateResponse{}), nil
+    ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    ex, ok, _ := c.fov.ResolveExampleByDeltaID(ctx, ID); if !ok { ex, ok, _ = c.fov.ResolveExampleByOrderRefID(ctx, ID) }
+    if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot resolve example for update")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
+    st := formStateStore{ s: c.fov }
+    dl := formDeltaStore{ s: c.fov }
+    vals := &overcore.Values{}
+    if req.Msg.Key != nil { vals.Key = *req.Msg.Key }
+    if req.Msg.Value != nil { vals.Value = *req.Msg.Value }
+    if req.Msg.Description != nil { vals.Description = *req.Msg.Description }
+    if req.Msg.Enabled != nil { vals.Enabled = *req.Msg.Enabled }
+    if err := overcore.Update(ctx, st, dl, ex, ID, vals); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&bodyv1.BodyFormDeltaUpdateResponse{}), nil
 }
 
 func (c *BodyRPC) BodyFormDeltaDelete(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaDeleteRequest]) (*connect.Response[bodyv1.BodyFormDeltaDeleteResponse], error) {
-	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerBodyForm(ctx, c.bfs, c.iaes, c.cs, c.us, ID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	err = c.bfs.DeleteBodyForm(ctx, ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&bodyv1.BodyFormDeltaDeleteResponse{}), nil
+    ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    ex, ok, _ := c.fov.ResolveExampleByDeltaID(ctx, ID); if !ok { ex, ok, _ = c.fov.ResolveExampleByOrderRefID(ctx, ID) }
+    if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot resolve example for delete")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
+    ord := formOrderStore{ s: c.fov }; st := formStateStore{ s: c.fov }; dl := formDeltaStore{ s: c.fov }
+    if err := overcore.Delete(ctx, ord, st, dl, ex, ID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&bodyv1.BodyFormDeltaDeleteResponse{}), nil
 }
 
 func (c *BodyRPC) BodyFormDeltaReset(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaResetRequest]) (*connect.Response[bodyv1.BodyFormDeltaResetResponse], error) {
-	ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	bodyFormPtr, err := c.bfs.GetBodyForm(ctx, ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	bodyForm := *bodyFormPtr
-
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, bodyForm.ExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	if bodyForm.DeltaParentID != nil {
-		// Get parent bodyform and restore values
-		parentBodyFormPtr, err := c.bfs.GetBodyForm(ctx, *bodyForm.DeltaParentID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		parentBodyForm := *parentBodyFormPtr
-
-		bodyForm.BodyKey = parentBodyForm.BodyKey
-		bodyForm.Value = parentBodyForm.Value
-		bodyForm.Enable = parentBodyForm.Enable
-	} else {
-		// Clear the values
-		bodyForm.BodyKey = ""
-		bodyForm.Value = ""
-		bodyForm.Enable = false
-	}
-
-	if err := c.bfs.UpdateBodyForm(ctx, &bodyForm); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&bodyv1.BodyFormDeltaResetResponse{}), nil
+    ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    ex, ok, _ := c.fov.ResolveExampleByDeltaID(ctx, ID); if !ok { ex, ok, _ = c.fov.ResolveExampleByOrderRefID(ctx, ID) }
+    if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot resolve example for reset")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
+    st := formStateStore{ s: c.fov }; dl := formDeltaStore{ s: c.fov }
+    if err := overcore.Reset(ctx, st, dl, ex, ID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&bodyv1.BodyFormDeltaResetResponse{}), nil
 }
 
 func (c *BodyRPC) BodyUrlEncodedDeltaList(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaListRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaListResponse], error) {
@@ -867,7 +725,28 @@ func (c *BodyRPC) BodyFormMove(ctx context.Context, req *connect.Request[bodyv1.
 
 // TODO: implement move RPC
 func (c *BodyRPC) BodyFormDeltaMove(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaMoveRequest]) (*connect.Response[bodyv1.BodyFormDeltaMoveResponse], error) {
-	return connect.NewResponse(&bodyv1.BodyFormDeltaMoveResponse{}), nil
+    deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    bodyID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    targetID, err := idwrap.NewFromBytes(req.Msg.GetTargetBodyId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    pos := req.Msg.GetPosition()
+    if pos == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED { return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
+    if cnt, err := c.fov.Count(ctx, deltaExampleID); err == nil && cnt == 0 {
+        origin, err := c.bfs.GetBodyFormsByExampleID(ctx, originExampleID)
+        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+        r := ""
+        for _, f := range origin { nr := orank.Between(r, ""); if r == "" { nr = orank.First() }; if err := c.fov.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), f.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }; r = nr }
+    }
+    after := pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER
+    ord := formOrderStore{ s: c.fov }
+    if err := overcore.Move(ctx, ord, deltaExampleID, bodyID, targetID, after); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&bodyv1.BodyFormDeltaMoveResponse{}), nil
 }
 
 // TODO: implement move RPC

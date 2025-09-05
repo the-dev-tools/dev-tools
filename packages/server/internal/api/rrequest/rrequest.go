@@ -49,7 +49,6 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
-	"strings"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/idwrap"
@@ -64,6 +63,10 @@ import (
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/suser"
+    overcore "the-dev-tools/server/pkg/overlay/core"
+    orank "the-dev-tools/server/pkg/overlay/rank"
+	soverlayheader "the-dev-tools/server/pkg/service/soverlayheader"
+	soverlayquery "the-dev-tools/server/pkg/service/soverlayquery"
 	"the-dev-tools/server/pkg/translate/tassert"
 	"the-dev-tools/server/pkg/translate/tcondition"
 	"the-dev-tools/server/pkg/translate/tgeneric"
@@ -90,7 +93,111 @@ type RequestRPC struct {
 
 	// Assert
 	as sassert.AssertService
+
+	// overlay services
+	hov *soverlayheader.Service
+	qov *soverlayquery.Service
 }
+
+// --- Overlay header adapters (minimal) ---
+type headerOrderStore struct{ s *soverlayheader.Service }
+type headerStateStore struct{ s *soverlayheader.Service }
+type headerDeltaStore struct{ s *soverlayheader.Service }
+
+func (o headerOrderStore) Count(ctx context.Context, ex idwrap.IDWrap) (int64, error) { return o.s.Count(ctx, ex) }
+func (o headerOrderStore) SelectAsc(ctx context.Context, ex idwrap.IDWrap) ([]overcore.OrderRow, error) {
+    rows, err := o.s.SelectAsc(ctx, ex)
+    if err != nil { return nil, err }
+    out := make([]overcore.OrderRow, 0, len(rows))
+    for _, r := range rows {
+        id, err := idwrap.NewFromBytes(r.RefID)
+        if err != nil { return nil, err }
+        out = append(out, overcore.OrderRow{ RefKind: r.RefKind, RefID: id, Rank: r.Rank })
+    }
+    return out, nil
+}
+func (o headerOrderStore) LastRank(ctx context.Context, ex idwrap.IDWrap) (string, bool, error) { return o.s.LastRank(ctx, ex) }
+func (o headerOrderStore) MaxRevision(ctx context.Context, ex idwrap.IDWrap) (int64, error) { return o.s.MaxRevision(ctx, ex) }
+func (o headerOrderStore) InsertIgnore(ctx context.Context, ex idwrap.IDWrap, refKind int8, refID idwrap.IDWrap, rank string, rev int64) error {
+    return o.s.InsertIgnore(ctx, ex, refKind, refID, rank, rev)
+}
+func (o headerOrderStore) Upsert(ctx context.Context, ex idwrap.IDWrap, refKind int8, refID idwrap.IDWrap, rank string, rev int64) error {
+    return o.s.Upsert(ctx, ex, refKind, refID, rank, rev)
+}
+func (o headerOrderStore) DeleteByRef(ctx context.Context, ex idwrap.IDWrap, refID idwrap.IDWrap) error { return o.s.DeleteByRef(ctx, ex, refID) }
+func (o headerOrderStore) Exists(ctx context.Context, ex idwrap.IDWrap, refKind int8, refID idwrap.IDWrap) (bool, error) { return o.s.Exists(ctx, ex, refKind, refID) }
+
+func (s headerStateStore) Upsert(ctx context.Context, ex, origin idwrap.IDWrap, suppressed bool, key, val, desc *string, enabled *bool) error {
+    return s.s.UpsertState(ctx, ex, origin, suppressed, key, val, desc, enabled)
+}
+func (s headerStateStore) Get(ctx context.Context, ex, origin idwrap.IDWrap) (overcore.StateRow, bool, error) {
+    r, ok, err := s.s.GetState(ctx, ex, origin)
+    if err != nil { return overcore.StateRow{}, false, err }
+    if !ok { return overcore.StateRow{}, false, nil }
+    var kp, vp, dp *string; var ep *bool
+    if r.Key.Valid { v := r.Key.String; kp = &v }
+    if r.Val.Valid { v := r.Val.String; vp = &v }
+    if r.Desc.Valid { v := r.Desc.String; dp = &v }
+    if r.Enabled.Valid { v := r.Enabled.Bool; ep = &v }
+    return overcore.StateRow{ Suppressed: r.Suppressed, Key: kp, Val: vp, Desc: dp, Enabled: ep }, true, nil
+}
+func (s headerStateStore) ClearOverrides(ctx context.Context, ex, origin idwrap.IDWrap) error { return s.s.ClearStateOverrides(ctx, ex, origin) }
+func (s headerStateStore) Suppress(ctx context.Context, ex, origin idwrap.IDWrap) error { return s.s.SuppressState(ctx, ex, origin) }
+func (s headerStateStore) Unsuppress(ctx context.Context, ex, origin idwrap.IDWrap) error { return s.s.UnsuppressState(ctx, ex, origin) }
+
+func (d headerDeltaStore) Insert(ctx context.Context, ex, id idwrap.IDWrap, key, value, desc string, enabled bool) error {
+    return d.s.InsertDelta(ctx, ex, id, key, value, desc, enabled)
+}
+func (d headerDeltaStore) Update(ctx context.Context, ex, id idwrap.IDWrap, key, value, desc string, enabled bool) error {
+    return d.s.UpdateDelta(ctx, ex, id, key, value, desc, enabled)
+}
+func (d headerDeltaStore) Get(ctx context.Context, ex, id idwrap.IDWrap) (string, string, string, bool, bool, error) {
+    return d.s.GetDelta(ctx, ex, id)
+}
+func (d headerDeltaStore) Exists(ctx context.Context, ex, id idwrap.IDWrap) (bool, error) { return d.s.ExistsDelta(ctx, ex, id) }
+func (d headerDeltaStore) Delete(ctx context.Context, ex, id idwrap.IDWrap) error { return d.s.DeleteDelta(ctx, ex, id) }
+
+// --- Overlay query adapters (minimal) ---
+type queryOrderStore struct{ s *soverlayquery.Service }
+type queryStateStore struct{ s *soverlayquery.Service }
+type queryDeltaStore struct{ s *soverlayquery.Service }
+
+func (o queryOrderStore) Count(ctx context.Context, ex idwrap.IDWrap) (int64, error) { return o.s.Count(ctx, ex) }
+func (o queryOrderStore) SelectAsc(ctx context.Context, ex idwrap.IDWrap) ([]overcore.OrderRow, error) {
+    rows, err := o.s.SelectAsc(ctx, ex)
+    if err != nil { return nil, err }
+    out := make([]overcore.OrderRow, 0, len(rows))
+    for _, r := range rows { id, err := idwrap.NewFromBytes(r.RefID); if err != nil { return nil, err }; out = append(out, overcore.OrderRow{ RefKind: r.RefKind, RefID: id, Rank: r.Rank }) }
+    return out, nil
+}
+func (o queryOrderStore) LastRank(ctx context.Context, ex idwrap.IDWrap) (string, bool, error) { return o.s.LastRank(ctx, ex) }
+func (o queryOrderStore) MaxRevision(ctx context.Context, ex idwrap.IDWrap) (int64, error) { return o.s.MaxRevision(ctx, ex) }
+func (o queryOrderStore) InsertIgnore(ctx context.Context, ex idwrap.IDWrap, refKind int8, refID idwrap.IDWrap, rank string, rev int64) error { return o.s.InsertIgnore(ctx, ex, refKind, refID, rank, rev) }
+func (o queryOrderStore) Upsert(ctx context.Context, ex idwrap.IDWrap, refKind int8, refID idwrap.IDWrap, rank string, rev int64) error { return o.s.Upsert(ctx, ex, refKind, refID, rank, rev) }
+func (o queryOrderStore) DeleteByRef(ctx context.Context, ex idwrap.IDWrap, refID idwrap.IDWrap) error { return o.s.DeleteByRef(ctx, ex, refID) }
+func (o queryOrderStore) Exists(ctx context.Context, ex idwrap.IDWrap, refKind int8, refID idwrap.IDWrap) (bool, error) { return o.s.Exists(ctx, ex, refKind, refID) }
+
+func (s queryStateStore) Upsert(ctx context.Context, ex, origin idwrap.IDWrap, suppressed bool, key, val, desc *string, enabled *bool) error { return s.s.UpsertState(ctx, ex, origin, suppressed, key, val, desc, enabled) }
+func (s queryStateStore) Get(ctx context.Context, ex, origin idwrap.IDWrap) (overcore.StateRow, bool, error) {
+    r, ok, err := s.s.GetState(ctx, ex, origin)
+    if err != nil { return overcore.StateRow{}, false, err }
+    if !ok { return overcore.StateRow{}, false, nil }
+    var kp, vp, dp *string; var ep *bool
+    if r.Key.Valid { v := r.Key.String; kp = &v }
+    if r.Val.Valid { v := r.Val.String; vp = &v }
+    if r.Desc.Valid { v := r.Desc.String; dp = &v }
+    if r.Enabled.Valid { v := r.Enabled.Bool; ep = &v }
+    return overcore.StateRow{ Suppressed: r.Suppressed, Key: kp, Val: vp, Desc: dp, Enabled: ep }, true, nil
+}
+func (s queryStateStore) ClearOverrides(ctx context.Context, ex, origin idwrap.IDWrap) error { return s.s.ClearStateOverrides(ctx, ex, origin) }
+func (s queryStateStore) Suppress(ctx context.Context, ex, origin idwrap.IDWrap) error { return s.s.SuppressState(ctx, ex, origin) }
+func (s queryStateStore) Unsuppress(ctx context.Context, ex, origin idwrap.IDWrap) error { return s.s.UnsuppressState(ctx, ex, origin) }
+
+func (d queryDeltaStore) Insert(ctx context.Context, ex, id idwrap.IDWrap, key, value, desc string, enabled bool) error { return d.s.InsertDelta(ctx, ex, id, key, value, desc, enabled) }
+func (d queryDeltaStore) Update(ctx context.Context, ex, id idwrap.IDWrap, key, value, desc string, enabled bool) error { return d.s.UpdateDelta(ctx, ex, id, key, value, desc, enabled) }
+func (d queryDeltaStore) Get(ctx context.Context, ex, id idwrap.IDWrap) (string, string, string, bool, bool, error) { return d.s.GetDelta(ctx, ex, id) }
+func (d queryDeltaStore) Exists(ctx context.Context, ex, id idwrap.IDWrap) (bool, error) { return d.s.ExistsDelta(ctx, ex, id) }
+func (d queryDeltaStore) Delete(ctx context.Context, ex, id idwrap.IDWrap) error { return d.s.DeleteDelta(ctx, ex, id) }
 
 func New(db *sql.DB, cs scollection.CollectionService, us suser.UserService, ias sitemapi.ItemApiService, iaes sitemapiexample.ItemApiExampleService,
 	ehs sexampleheader.HeaderService, eqs sexamplequery.ExampleQueryService, as sassert.AssertService,
@@ -104,6 +211,8 @@ func New(db *sql.DB, cs scollection.CollectionService, us suser.UserService, ias
 		ehs:  ehs,
 		eqs:  eqs,
 		as:   as,
+		hov:  func() *soverlayheader.Service { s, _ := soverlayheader.New(db); return s }(),
+		qov:  func() *soverlayquery.Service { s, _ := soverlayquery.New(db); return s }(),
 	}
 }
 
@@ -496,19 +605,14 @@ func (c RequestRPC) QueryDeltaExampleCopy(ctx context.Context, originExampleID, 
 }
 
 func (c RequestRPC) QueryDeltaDelete(ctx context.Context, req *connect.Request[requestv1.QueryDeltaDeleteRequest]) (*connect.Response[requestv1.QueryDeltaDeleteResponse], error) {
-	queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, c.eqs, c.iaes, c.cs, c.us, queryID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	err = c.eqs.DeleteExampleQuery(ctx, queryID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&requestv1.QueryDeltaDeleteResponse{}), nil
+    queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    ex, ok, _ := c.qov.ResolveExampleByDeltaID(ctx, queryID); if !ok { ex, ok, _ = c.qov.ResolveExampleByOrderRefID(ctx, queryID) }
+    if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for delete")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
+    ord := queryOrderStore{ s: c.qov }; st := queryStateStore{ s: c.qov }; dl := queryDeltaStore{ s: c.qov }
+    if err := overcore.Delete(ctx, ord, st, dl, ex, queryID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.QueryDeltaDeleteResponse{}), nil
 }
 
 // QueryDeltaList returns the combined view of queries in a delta example
@@ -522,312 +626,55 @@ func (c RequestRPC) QueryDeltaDelete(ctx context.Context, req *connect.Request[r
 // - MIXED items show they've been modified (have local changes)
 // - DELTA items show they're new in this version (no parent)
 func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[requestv1.QueryDeltaListRequest]) (*connect.Response[requestv1.QueryDeltaListResponse], error) {
-	// Parse both example IDs
-	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	// Check permissions for both examples
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Check if delta example has a version parent
-	deltaExample, err := c.iaes.GetApiExample(ctx, deltaExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	deltaExampleHasVersionParent := deltaExample.VersionParentID != nil
-
-	// Get queries from both origin and delta examples
-	originQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	deltaQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, deltaExampleID)
-	if err != nil && err != sexamplequery.ErrNoQueryFound {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if err == sexamplequery.ErrNoQueryFound {
-		deltaQueries = []mexamplequery.Query{}
-	}
-
-	// Combine all queries and build maps for lookup
-	allQueries := append(originQueries, deltaQueries...)
-	queryMap := make(map[idwrap.IDWrap]mexamplequery.Query)
-	originMap := make(map[idwrap.IDWrap]*requestv1.Query)
-
-	// Build maps
-	for _, query := range allQueries {
-		queryMap[query.ID] = query
-		originMap[query.ID] = tquery.SerializeQueryModelToRPC(query)
-	}
-
-	// First pass: identify which origins are replaced by delta/mixed queries
-	// This tracks which origin items already have corresponding delta items
-	processedOrigins := make(map[idwrap.IDWrap]bool)
-	for _, query := range allQueries {
-		deltaType := query.DetermineDeltaType(deltaExampleHasVersionParent)
-		if (deltaType == mexamplequery.QuerySourceDelta || deltaType == mexamplequery.QuerySourceMixed) && query.DeltaParentID != nil {
-			processedOrigins[*query.DeltaParentID] = true
-		}
-	}
-
-	// Build a map of existing delta queries by key to avoid duplicates
-	deltaQueriesByKey := make(map[string]bool)
-	for _, query := range deltaQueries {
-		deltaQueriesByKey[strings.ToLower(query.QueryKey)] = true
-	}
-
-	// Collect origin queries that need delta entries created
-	// These are origin items that don't have corresponding delta items yet
-	// We'll create ORIGIN-type delta items for them to show they're inherited
-	var originQueriesNeedingDeltas []mexamplequery.Query
-	for _, query := range originQueries { // Only check origin queries
-		if !processedOrigins[query.ID] && // If not already processed by a delta
-			!deltaQueriesByKey[strings.ToLower(query.QueryKey)] { // And no query with same key exists
-			originQueriesNeedingDeltas = append(originQueriesNeedingDeltas, query)
-		}
-	}
-
-	// Create delta entries for origin queries that don't have them
-	newDeltaQueries := make(map[idwrap.IDWrap]mexamplequery.Query)
-	if len(originQueriesNeedingDeltas) > 0 {
-		var deltaQueriesToCreate []mexamplequery.Query
-		for _, originQuery := range originQueriesNeedingDeltas {
-			deltaQuery := mexamplequery.Query{
-				ID:            idwrap.NewNow(),
-				ExampleID:     deltaExampleID,
-				DeltaParentID: &originQuery.ID,
-				QueryKey:      originQuery.QueryKey,
-				Enable:        originQuery.Enable,
-				Description:   originQuery.Description,
-				Value:         originQuery.Value,
-			}
-			deltaQueriesToCreate = append(deltaQueriesToCreate, deltaQuery)
-			newDeltaQueries[originQuery.ID] = deltaQuery
-		}
-
-		// Bulk create the delta queries
-		if len(deltaQueriesToCreate) > 0 {
-			err = c.eqs.CreateBulkQuery(ctx, deltaQueriesToCreate)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			// Add newly created queries to allQueries so they're processed in the main loop
-			allQueries = append(allQueries, deltaQueriesToCreate...)
-		}
-	}
-
-	// Second pass: create result entries
-	var rpcQueries []*requestv1.QueryDeltaListItem
-	for _, query := range allQueries {
-		// Only include queries that belong to the delta example
-		if query.ExampleID.Compare(deltaExampleID) != 0 {
-			continue
-		}
-
-		deltaType := query.DetermineDeltaType(deltaExampleHasVersionParent)
-		if deltaType == mexamplequery.QuerySourceDelta || deltaType == mexamplequery.QuerySourceMixed {
-			if query.DeltaParentID != nil {
-				// This is a delta query - check if it's been modified from its parent
-				var origin *requestv1.Query
-				var actualSourceKind deltav1.SourceKind
-
-				if originRPC, exists := originMap[*query.DeltaParentID]; exists {
-					origin = originRPC
-
-					// Compare with parent to determine if modified
-					if parentQuery, exists := queryMap[*query.DeltaParentID]; exists {
-						if query.QueryKey == parentQuery.QueryKey &&
-							query.Enable == parentQuery.Enable &&
-							query.Value == parentQuery.Value &&
-							query.Description == parentQuery.Description {
-							// Values match parent - this is an unmodified delta (ORIGIN)
-							actualSourceKind = deltav1.SourceKind_SOURCE_KIND_ORIGIN
-						} else {
-							// Values differ from parent - this is a modified delta (MIXED)
-							actualSourceKind = deltav1.SourceKind_SOURCE_KIND_MIXED
-						}
-					} else {
-						// Parent not found, treat as DELTA
-						actualSourceKind = deltav1.SourceKind_SOURCE_KIND_DELTA
-					}
-				} else {
-					// No origin found, this is a standalone DELTA
-					actualSourceKind = deltav1.SourceKind_SOURCE_KIND_DELTA
-				}
-
-				// Build the response based on the source kind
-				var rpcQuery *requestv1.QueryDeltaListItem
-				if actualSourceKind == deltav1.SourceKind_SOURCE_KIND_ORIGIN && origin != nil {
-					// For ORIGIN items, use the parent's values to reflect inheritance
-					rpcQuery = &requestv1.QueryDeltaListItem{
-						QueryId:     query.ID.Bytes(),
-						Key:         origin.Key,
-						Enabled:     origin.Enabled,
-						Value:       origin.Value,
-						Description: origin.Description,
-						Origin:      origin,
-						Source:      &actualSourceKind,
-					}
-				} else {
-					// For DELTA/MIXED items, use the delta's values
-					rpcQuery = &requestv1.QueryDeltaListItem{
-						QueryId:     query.ID.Bytes(),
-						Key:         query.QueryKey,
-						Enabled:     query.Enable,
-						Value:       query.Value,
-						Description: query.Description,
-						Origin:      origin,
-						Source:      &actualSourceKind,
-					}
-				}
-				rpcQueries = append(rpcQueries, rpcQuery)
-			} else {
-				// This is a new query created in the delta (no parent)
-				sourceKind := deltaType.ToSourceKind()
-				rpcQuery := &requestv1.QueryDeltaListItem{
-					QueryId:     query.ID.Bytes(),
-					Key:         query.QueryKey,
-					Enabled:     query.Enable,
-					Value:       query.Value,
-					Description: query.Description,
-					Origin:      nil, // No origin for new queries
-					Source:      &sourceKind,
-				}
-				rpcQueries = append(rpcQueries, rpcQuery)
-			}
-		}
-		// Note: MIXED queries won't appear here since we're only processing delta example queries
-	}
-
-	// Newly created delta queries are now processed in the main loop above
-
-	// Sort rpcQueries by ID, but if it has DeltaParentID use that ID instead
-	sort.Slice(rpcQueries, func(i, j int) bool {
-		idI, _ := idwrap.NewFromBytes(rpcQueries[i].QueryId)
-		idJ, _ := idwrap.NewFromBytes(rpcQueries[j].QueryId)
-
-		// Determine the ID to use for sorting for item i
-		sortIDI := idI
-		if rpcQueries[i].Origin != nil && len(rpcQueries[i].Origin.QueryId) > 0 {
-			if parentID, err := idwrap.NewFromBytes(rpcQueries[i].Origin.QueryId); err == nil {
-				sortIDI = parentID
-			}
-		}
-
-		// Determine the ID to use for sorting for item j
-		sortIDJ := idJ
-		if rpcQueries[j].Origin != nil && len(rpcQueries[j].Origin.QueryId) > 0 {
-			if parentID, err := idwrap.NewFromBytes(rpcQueries[j].Origin.QueryId); err == nil {
-				sortIDJ = parentID
-			}
-		}
-
-		return sortIDI.Compare(sortIDJ) < 0
-	})
-
-	resp := &requestv1.QueryDeltaListResponse{
-		ExampleId: deltaExampleID.Bytes(),
-		Items:     rpcQueries,
-	}
-	return connect.NewResponse(resp), nil
+    deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
+    ord := queryOrderStore{ s: c.qov }
+    if cnt, err := ord.Count(ctx, deltaExampleID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) } else if cnt == 0 {
+        origin, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
+        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+        r := ""
+        for _, q := range origin { nr := orank.Between(r, ""); if r == "" { nr = orank.First() }; if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), q.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }; r = nr }
+    }
+    st := queryStateStore{ s: c.qov }
+    dl := queryDeltaStore{ s: c.qov }
+    originVals := func(ctx context.Context, ids []idwrap.IDWrap) (map[idwrap.IDWrap]overcore.Values, error) {
+        items, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
+        if err != nil { return nil, err }
+        m := make(map[idwrap.IDWrap]overcore.Values, len(items))
+        for _, it := range items { m[it.ID] = overcore.Values{ Key: it.QueryKey, Value: it.Value, Description: it.Description, Enabled: it.Enable } }
+        return m, nil
+    }
+    build := func(m overcore.Merged) any {
+        var origin *requestv1.Query
+        if m.Origin != nil { origin = &requestv1.Query{ QueryId: m.ID.Bytes(), Key: m.Origin.Key, Enabled: m.Origin.Enabled, Value: m.Origin.Value, Description: m.Origin.Description } }
+        src := m.Source
+        return &requestv1.QueryDeltaListItem{ QueryId: m.ID.Bytes(), Key: m.Values.Key, Enabled: m.Values.Enabled, Value: m.Values.Value, Description: m.Values.Description, Origin: origin, Source: &src }
+    }
+    fetch := func(ctx context.Context, ex idwrap.IDWrap) ([]mexamplequery.Query, error) { return nil, nil }
+    extract := func(q mexamplequery.Query) overcore.Values { return overcore.Values{} }
+    itemsAny, err := overcore.List[mexamplequery.Query](ctx, ord, st, dl, fetch, extract, originVals, build, deltaExampleID, originExampleID)
+    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    out := make([]*requestv1.QueryDeltaListItem, 0, len(itemsAny))
+    for _, it := range itemsAny { out = append(out, it.(*requestv1.QueryDeltaListItem)) }
+    return connect.NewResponse(&requestv1.QueryDeltaListResponse{ ExampleId: deltaExampleID.Bytes(), Items: out }), nil
 }
 
 func (c RequestRPC) QueryDeltaCreate(ctx context.Context, req *connect.Request[requestv1.QueryDeltaCreateRequest]) (*connect.Response[requestv1.QueryDeltaCreateResponse], error) {
-	exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Get origin example ID from request
-	originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	// Check permissions for origin example as well
-	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	reqQuery := requestv1.Query{
-		Key:         req.Msg.GetKey(),
-		Enabled:     req.Msg.GetEnabled(),
-		Value:       req.Msg.GetValue(),
-		Description: req.Msg.GetDescription(),
-	}
-	query, err := tquery.SerlializeQueryRPCtoModelNoIDForDelta(&reqQuery, exID)
-	if err != nil {
-		return nil, err
-	}
-
-	queryID := idwrap.NewNow()
-	query.ID = queryID
-
-	// Check if query_id is provided in request
-	if len(req.Msg.GetQueryId()) > 0 {
-		// Query ID is provided, verify it exists and use as delta parent
-		parentQueryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-
-		// Verify the parent query exists
-		parentQuery, err := c.eqs.GetExampleQuery(ctx, parentQueryID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-
-		// Verify parent query relationship (same logic as headers)
-		if parentQuery.ExampleID.Compare(originExampleID) == 0 {
-			// Parent belongs to origin example, use it directly
-			query.DeltaParentID = &parentQueryID
-		} else {
-			// Parent doesn't belong to origin example
-			if parentQuery.DeltaParentID != nil {
-				// This is a delta query, use its DeltaParentID
-				query.DeltaParentID = parentQuery.DeltaParentID
-			} else {
-				// Check if the parent example is related to origin
-				parentExample, err := c.iaes.GetApiExample(ctx, parentQuery.ExampleID)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-
-				if parentExample.VersionParentID != nil && parentExample.VersionParentID.Compare(originExampleID) == 0 {
-					query.DeltaParentID = &parentQueryID
-				} else {
-					return nil, connect.NewError(connect.CodeInvalidArgument,
-						fmt.Errorf("parent query does not have a valid relationship to the origin example"))
-				}
-			}
-		}
-	}
-	// If no query_id provided, DeltaParentID remains nil (standalone delta)
-
-	err = c.eqs.CreateExampleQuery(ctx, query)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&requestv1.QueryDeltaCreateResponse{QueryId: queryID.Bytes()}), nil
+    exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID)); rpcErr != nil { return nil, rpcErr }
+    ord := queryOrderStore{ s: c.qov }
+    dl := queryDeltaStore{ s: c.qov }
+    st := queryStateStore{ s: c.qov }
+    id := idwrap.IDWrap{}
+    if id, err = overcore.CreateDelta(ctx, ord, dl, exID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    vals := overcore.Values{ Key: req.Msg.GetKey(), Value: req.Msg.GetValue(), Description: req.Msg.GetDescription(), Enabled: req.Msg.GetEnabled() }
+    if err := overcore.Update(ctx, st, dl, exID, id, &vals); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.QueryDeltaCreateResponse{ QueryId: id.Bytes() }), nil
 }
 
 // QueryDeltaUpdate updates a delta query with new values
@@ -840,42 +687,20 @@ func (c RequestRPC) QueryDeltaCreate(ctx context.Context, req *connect.Request[r
 // The transition to MIXED is automatic based on the DetermineDeltaType logic
 // Frontend uses MIXED state to show this item has been customized
 func (c RequestRPC) QueryDeltaUpdate(ctx context.Context, req *connect.Request[requestv1.QueryDeltaUpdateRequest]) (*connect.Response[requestv1.QueryDeltaUpdateResponse], error) {
-	queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, c.eqs, c.iaes, c.cs, c.us, queryID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Get the existing query to check its source
-	existingQuery, err := c.eqs.GetExampleQuery(ctx, queryID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Apply partial updates - only update fields that are provided
-	if req.Msg.Key != nil {
-		existingQuery.QueryKey = *req.Msg.Key
-	}
-	if req.Msg.Enabled != nil {
-		existingQuery.Enable = *req.Msg.Enabled
-	}
-	if req.Msg.Value != nil {
-		existingQuery.Value = *req.Msg.Value
-	}
-	if req.Msg.Description != nil {
-		existingQuery.Description = *req.Msg.Description
-	}
-
-	err = c.eqs.UpdateExampleQuery(ctx, existingQuery)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&requestv1.QueryDeltaUpdateResponse{}), nil
+    queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    ex, ok, _ := c.qov.ResolveExampleByDeltaID(ctx, queryID); if !ok { ex, ok, _ = c.qov.ResolveExampleByOrderRefID(ctx, queryID) }
+    if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for update")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
+    st := queryStateStore{ s: c.qov }
+    dl := queryDeltaStore{ s: c.qov }
+    vals := &overcore.Values{}
+    if req.Msg.Key != nil { vals.Key = *req.Msg.Key }
+    if req.Msg.Value != nil { vals.Value = *req.Msg.Value }
+    if req.Msg.Description != nil { vals.Description = *req.Msg.Description }
+    if req.Msg.Enabled != nil { vals.Enabled = *req.Msg.Enabled }
+    if err := overcore.Update(ctx, st, dl, ex, queryID, vals); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.QueryDeltaUpdateResponse{}), nil
 }
 
 // QueryDeltaReset resets a delta query to its origin values
@@ -887,50 +712,14 @@ func (c RequestRPC) QueryDeltaUpdate(ctx context.Context, req *connect.Request[r
 //
 // This allows users to undo modifications and return to inherited values
 func (c RequestRPC) QueryDeltaReset(ctx context.Context, req *connect.Request[requestv1.QueryDeltaResetRequest]) (*connect.Response[requestv1.QueryDeltaResetResponse], error) {
-	queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerQuery(ctx, c.eqs, c.iaes, c.cs, c.us, queryID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Get the delta query
-	deltaQuery, err := c.eqs.GetExampleQuery(ctx, queryID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// If the query has a parent, restore values from parent
-	if deltaQuery.DeltaParentID != nil {
-		// Restore values from parent
-		parentQuery, err := c.eqs.GetExampleQuery(ctx, *deltaQuery.DeltaParentID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Restore delta query fields to match parent
-		// This makes the item ORIGIN again (no local modifications)
-		deltaQuery.QueryKey = parentQuery.QueryKey
-		deltaQuery.Enable = parentQuery.Enable
-		deltaQuery.Description = parentQuery.Description
-		deltaQuery.Value = parentQuery.Value
-
-		err = c.eqs.UpdateExampleQuery(ctx, deltaQuery)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	} else {
-		// If no parent, use the original reset behavior (clear fields)
-		// This is for standalone DELTA items
-		err = c.eqs.ResetExampleQueryDelta(ctx, queryID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	return connect.NewResponse(&requestv1.QueryDeltaResetResponse{}), nil
+    queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    ex, ok, _ := c.qov.ResolveExampleByDeltaID(ctx, queryID); if !ok { ex, ok, _ = c.qov.ResolveExampleByOrderRefID(ctx, queryID) }
+    if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for reset")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
+    st := queryStateStore{ s: c.qov }; dl := queryDeltaStore{ s: c.qov }
+    if err := overcore.Reset(ctx, st, dl, ex, queryID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.QueryDeltaResetResponse{}), nil
 }
 
 func (c RequestRPC) HeaderList(ctx context.Context, req *connect.Request[requestv1.HeaderListRequest]) (*connect.Response[requestv1.HeaderListResponse], error) {
@@ -1248,407 +1037,107 @@ func (c RequestRPC) AssertDeltaExampleCopy(ctx context.Context, originExampleID,
 }
 
 func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaListRequest]) (*connect.Response[requestv1.HeaderDeltaListResponse], error) {
-	// Parse both example IDs
-	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	// Check permissions for both examples
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Get headers from both origin and delta examples using linked list ordering
-	// With linked lists, each example maintains its own ordered list of headers
-	
-	// Get all headers for origin example
-	originHeaders, err := c.ehs.GetHeadersOrdered(ctx, originExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	
-	// Get all headers for delta example
-	deltaHeaders, err := c.ehs.GetHeadersOrdered(ctx, deltaExampleID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Combine all headers and build maps for lookup
-	allHeaders := append(originHeaders, deltaHeaders...)
-	headerMap := make(map[idwrap.IDWrap]mexampleheader.Header)
-	originMap := make(map[idwrap.IDWrap]*requestv1.Header)
-
-	// Build maps
-	for _, header := range allHeaders {
-		headerMap[header.ID] = header
-		originMap[header.ID] = theader.SerializeHeaderModelToRPC(header)
-	}
-
-	// First pass: identify which origins are replaced by delta/mixed headers
-	processedOrigins := make(map[idwrap.IDWrap]bool)
-	for _, header := range allHeaders {
-		deltaType, err := c.determineHeaderDeltaType(ctx, header)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		if (deltaType == mexampleheader.HeaderSourceDelta || deltaType == mexampleheader.HeaderSourceMixed) && header.DeltaParentID != nil {
-			processedOrigins[*header.DeltaParentID] = true
-		}
-	}
-
-	// Build a map of existing delta headers by key to avoid duplicates
-	deltaHeadersByKey := make(map[string]bool)
-	for _, header := range deltaHeaders {
-		deltaHeadersByKey[strings.ToLower(header.HeaderKey)] = true
-	}
-
-	// Collect origin headers that need delta entries created
-	var originHeadersNeedingDeltas []mexampleheader.Header
-	for _, header := range originHeaders { // Only check origin headers
-		if !processedOrigins[header.ID] && // If not already processed by a delta
-			!deltaHeadersByKey[strings.ToLower(header.HeaderKey)] { // And no header with same key exists
-			originHeadersNeedingDeltas = append(originHeadersNeedingDeltas, header)
-		}
-	}
-
-	// Create delta entries for origin headers that don't have them
-	newDeltaHeaders := make(map[idwrap.IDWrap]mexampleheader.Header)
-	if len(originHeadersNeedingDeltas) > 0 {
-		var deltaHeadersToCreate []mexampleheader.Header
-		for _, originHeader := range originHeadersNeedingDeltas {
-			deltaHeader := mexampleheader.Header{
-				ID:            idwrap.NewNow(),
-				ExampleID:     deltaExampleID,
-				DeltaParentID: &originHeader.ID,
-				HeaderKey:     originHeader.HeaderKey,
-				Enable:        originHeader.Enable,
-				Description:   originHeader.Description,
-				Value:         originHeader.Value,
-				// Don't copy Prev/Next - these will be set by AppendBulkHeader
-				// to maintain proper linked list within the delta example
-				Prev:          nil,
-				Next:          nil,
-			}
-			deltaHeadersToCreate = append(deltaHeadersToCreate, deltaHeader)
-			newDeltaHeaders[originHeader.ID] = deltaHeader
-		}
-
-		// Bulk create the delta headers with proper linked list maintenance
-		if len(deltaHeadersToCreate) > 0 {
-			err = c.ehs.AppendBulkHeader(ctx, deltaHeadersToCreate)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			// Add newly created headers to allHeaders so they're processed in the main loop
-			allHeaders = append(allHeaders, deltaHeadersToCreate...)
-		}
-	}
-
-	// Second pass: create result entries
-	var rpcHeaders []*requestv1.HeaderDeltaListItem
-	for _, header := range allHeaders {
-		// Only include headers that belong to the delta example
-		if header.ExampleID.Compare(deltaExampleID) != 0 {
-			continue
-		}
-
-		deltaType, err := c.determineHeaderDeltaType(ctx, header)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		if deltaType == mexampleheader.HeaderSourceDelta || deltaType == mexampleheader.HeaderSourceMixed {
-			if header.DeltaParentID != nil {
-				// This is a delta header with a parent - check if it's been modified
-				var origin *requestv1.Header
-				var actualSourceKind deltav1.SourceKind
-
-				if originRPC, exists := originMap[*header.DeltaParentID]; exists {
-					origin = originRPC
-
-					// Compare with parent to determine if modified
-					if parentHeader, exists := headerMap[*header.DeltaParentID]; exists {
-						if header.HeaderKey == parentHeader.HeaderKey &&
-							header.Enable == parentHeader.Enable &&
-							header.Value == parentHeader.Value &&
-							header.Description == parentHeader.Description {
-							// Values match parent - this is an unmodified delta (ORIGIN)
-							actualSourceKind = deltav1.SourceKind_SOURCE_KIND_ORIGIN
-						} else {
-							// Values differ from parent - this is a modified delta (MIXED)
-							actualSourceKind = deltav1.SourceKind_SOURCE_KIND_MIXED
-						}
-					} else {
-						// Parent not found, treat as DELTA
-						actualSourceKind = deltav1.SourceKind_SOURCE_KIND_DELTA
-					}
-				} else {
-					// No origin found, this is a standalone DELTA
-					actualSourceKind = deltav1.SourceKind_SOURCE_KIND_DELTA
-				}
-
-				// Build the response based on the source kind
-				var rpcHeader *requestv1.HeaderDeltaListItem
-				if actualSourceKind == deltav1.SourceKind_SOURCE_KIND_ORIGIN && origin != nil {
-					// For ORIGIN items, use the parent's values to reflect inheritance
-					rpcHeader = &requestv1.HeaderDeltaListItem{
-						HeaderId:    header.ID.Bytes(),
-						Key:         origin.Key,
-						Enabled:     origin.Enabled,
-						Value:       origin.Value,
-						Description: origin.Description,
-						Origin:      origin,
-						Source:      &actualSourceKind,
-					}
-				} else {
-					// For DELTA/MIXED items, use the delta's values
-					rpcHeader = &requestv1.HeaderDeltaListItem{
-						HeaderId:    header.ID.Bytes(),
-						Key:         header.HeaderKey,
-						Enabled:     header.Enable,
-						Value:       header.Value,
-						Description: header.Description,
-						Origin:      origin,
-						Source:      &actualSourceKind,
-					}
-				}
-				rpcHeaders = append(rpcHeaders, rpcHeader)
-			} else {
-				// This is a new header created in the delta (no parent)
-				sourceKind := deltaType.ToSourceKind()
-				rpcHeader := &requestv1.HeaderDeltaListItem{
-					HeaderId:    header.ID.Bytes(),
-					Key:         header.HeaderKey,
-					Enabled:     header.Enable,
-					Value:       header.Value,
-					Description: header.Description,
-					Origin:      nil, // No origin for new headers
-					Source:      &sourceKind,
-				}
-				rpcHeaders = append(rpcHeaders, rpcHeader)
-			}
-		}
-		// Note: MIXED headers won't appear here since we're only processing delta example headers
-	}
-
-	// Newly created delta headers are now processed in the main loop above
-
-	// Headers are already in order from the linked list traversal
-	// No additional sorting needed since GetHeadersOrdered returns them in correct order
-
-	resp := &requestv1.HeaderDeltaListResponse{
-		ExampleId: deltaExampleID.Bytes(),
-		Items:     rpcHeaders,
-	}
-	return connect.NewResponse(resp), nil
+    deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
+    // Seed if needed
+    ord := headerOrderStore{ s: c.hov }
+    if cnt, err := ord.Count(ctx, deltaExampleID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) } else if cnt == 0 {
+        origin, err := c.ehs.GetHeaderByExampleIDOrdered(ctx, originExampleID)
+        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+        r := ""
+        for _, h := range origin {
+            nr := orank.Between(r, "")
+            if r == "" { nr = orank.First() }
+            if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), h.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+            r = nr
+        }
+    }
+    st := headerStateStore{ s: c.hov }
+    dl := headerDeltaStore{ s: c.hov }
+    // origin values loader
+    originVals := func(ctx context.Context, ids []idwrap.IDWrap) (map[idwrap.IDWrap]overcore.Values, error) {
+        items, err := c.ehs.GetHeaderByExampleID(ctx, originExampleID)
+        if err != nil { return nil, err }
+        m := make(map[idwrap.IDWrap]overcore.Values, len(items))
+        for _, it := range items { m[it.ID] = overcore.Values{ Key: it.HeaderKey, Value: it.Value, Description: it.Description, Enabled: it.Enable } }
+        return m, nil
+    }
+    build := func(m overcore.Merged) any {
+        var origin *requestv1.Header
+        if m.Origin != nil {
+            origin = &requestv1.Header{ HeaderId: m.ID.Bytes(), Key: m.Origin.Key, Enabled: m.Origin.Enabled, Value: m.Origin.Value, Description: m.Origin.Description }
+        }
+        src := m.Source
+        return &requestv1.HeaderDeltaListItem{ HeaderId: m.ID.Bytes(), Key: m.Values.Key, Enabled: m.Values.Enabled, Value: m.Values.Value, Description: m.Values.Description, Origin: origin, Source: &src }
+    }
+    // Provide no-op fetch/extract (not used by core.List now)
+    fetch := func(ctx context.Context, ex idwrap.IDWrap) ([]mexampleheader.Header, error) { return nil, nil }
+    extract := func(h mexampleheader.Header) overcore.Values { return overcore.Values{} }
+    itemsAny, err := overcore.List[mexampleheader.Header](ctx, ord, st, dl, fetch, extract, originVals, build, deltaExampleID, originExampleID)
+    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    out := make([]*requestv1.HeaderDeltaListItem, 0, len(itemsAny))
+    for _, it := range itemsAny { out = append(out, it.(*requestv1.HeaderDeltaListItem)) }
+    return connect.NewResponse(&requestv1.HeaderDeltaListResponse{ ExampleId: deltaExampleID.Bytes(), Items: out }), nil
 }
 
 func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaCreateRequest]) (*connect.Response[requestv1.HeaderDeltaCreateResponse], error) {
-	exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Get origin example ID from request
-	originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	// Check permissions for origin example as well
-	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	rpcHeader := requestv1.Header{
-		Key:         req.Msg.GetKey(),
-		Enabled:     req.Msg.GetEnabled(),
-		Value:       req.Msg.GetValue(),
-		Description: req.Msg.GetDescription(),
-	}
-	header := theader.SerlializeHeaderRPCtoModelNoID(&rpcHeader, exID, nil)
-
-	headerID := idwrap.NewNow()
-	header.ID = headerID
-
-	// Note: Source field removed - delta type determined dynamically
-
-	// Check if header_id is provided in request
-	if len(req.Msg.GetHeaderId()) > 0 {
-		// Header ID is provided, verify it exists and use as delta parent
-		parentHeaderID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-
-		// Verify the parent header exists
-		parentHeader, err := c.ehs.GetHeaderByID(ctx, parentHeaderID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		}
-
-		// Verify parent header relationship
-		// For HAR imports and node copying, we need to handle multiple scenarios:
-		// 1. Parent header belongs to the origin example directly
-		// 2. Parent header belongs to a delta example and has a DeltaParentID
-		// 3. Parent header belongs to a different example that's also a version of the origin
-
-		// First check if the parent header belongs to the origin example
-		if parentHeader.ExampleID.Compare(originExampleID) == 0 {
-			// Parent belongs to origin example, use it directly
-			header.DeltaParentID = &parentHeaderID
-		} else {
-			// Parent doesn't belong to origin example
-			// Check if it has a DeltaParentID (meaning it's a delta header)
-			if parentHeader.DeltaParentID != nil {
-				// This is a delta header, use its DeltaParentID
-				header.DeltaParentID = parentHeader.DeltaParentID
-			} else {
-				// This header doesn't belong to origin and doesn't have a DeltaParentID
-				// It might be from a different version/example chain
-				// Try to find if this example is related to the origin through VersionParentID
-				parentExample, err := c.iaes.GetApiExample(ctx, parentHeader.ExampleID)
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-
-				// Check if the parent example is a version of the origin
-				if parentExample.VersionParentID != nil && parentExample.VersionParentID.Compare(originExampleID) == 0 {
-					// The parent header's example is a direct child of the origin example
-					// Use the parent header ID as the delta parent
-					header.DeltaParentID = &parentHeaderID
-				} else {
-					// Unable to establish relationship to origin example
-					return nil, connect.NewError(connect.CodeInvalidArgument,
-						fmt.Errorf("parent header does not have a valid relationship to the origin example"))
-				}
-			}
-		}
-	}
-	// If no header_id provided, DeltaParentID remains nil (standalone delta)
-
-	// Use AppendHeader to properly add the header to the end of the linked list
-	err = c.ehs.AppendHeader(ctx, header)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&requestv1.HeaderDeltaCreateResponse{HeaderId: headerID.Bytes()}), nil
+    exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID)); rpcErr != nil { return nil, rpcErr }
+    // Always create delta-only row and optionally apply provided fields
+    ord := headerOrderStore{ s: c.hov }
+    dl := headerDeltaStore{ s: c.hov }
+    st := headerStateStore{ s: c.hov }
+    id, err := overcore.CreateDelta(ctx, ord, dl, exID)
+    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    vals := overcore.Values{ Key: req.Msg.GetKey(), Value: req.Msg.GetValue(), Description: req.Msg.GetDescription(), Enabled: req.Msg.GetEnabled() }
+    if err := overcore.Update(ctx, st, dl, exID, id, &vals); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.HeaderDeltaCreateResponse{ HeaderId: id.Bytes() }), nil
 }
 
 func (c RequestRPC) HeaderDeltaUpdate(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaUpdateRequest]) (*connect.Response[requestv1.HeaderDeltaUpdateResponse], error) {
-	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, headerID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Get the existing header to check its source
-	existingHeader, err := c.ehs.GetHeaderByID(ctx, headerID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Apply partial updates - only update fields that are provided
-	if req.Msg.Key != nil {
-		existingHeader.HeaderKey = *req.Msg.Key
-	}
-	if req.Msg.Enabled != nil {
-		existingHeader.Enable = *req.Msg.Enabled
-	}
-	if req.Msg.Value != nil {
-		existingHeader.Value = *req.Msg.Value
-	}
-	if req.Msg.Description != nil {
-		existingHeader.Description = *req.Msg.Description
-	}
-
-	err = c.ehs.UpdateHeader(ctx, existingHeader)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&requestv1.HeaderDeltaUpdateResponse{}), nil
+    headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    // Resolve example scope
+    ex, ok, _ := c.hov.ResolveExampleByDeltaID(ctx, headerID)
+    if !ok { ex, ok, _ = c.hov.ResolveExampleByOrderRefID(ctx, headerID) }
+    if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for update")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
+    st := headerStateStore{ s: c.hov }
+    dl := headerDeltaStore{ s: c.hov }
+    vals := &overcore.Values{}
+    if req.Msg.Key != nil { vals.Key = *req.Msg.Key }
+    if req.Msg.Value != nil { vals.Value = *req.Msg.Value }
+    if req.Msg.Description != nil { vals.Description = *req.Msg.Description }
+    if req.Msg.Enabled != nil { vals.Enabled = *req.Msg.Enabled }
+    if err := overcore.Update(ctx, st, dl, ex, headerID, vals); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.HeaderDeltaUpdateResponse{}), nil
 }
 
 func (c RequestRPC) HeaderDeltaDelete(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaDeleteRequest]) (*connect.Response[requestv1.HeaderDeltaDeleteResponse], error) {
-	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, headerID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	err = c.ehs.DeleteHeader(ctx, headerID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(&requestv1.HeaderDeltaDeleteResponse{}), nil
+    headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    ex, ok, _ := c.hov.ResolveExampleByDeltaID(ctx, headerID); if !ok { ex, ok, _ = c.hov.ResolveExampleByOrderRefID(ctx, headerID) }
+    if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for delete")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
+    ord := headerOrderStore{ s: c.hov }; st := headerStateStore{ s: c.hov }; dl := headerDeltaStore{ s: c.hov }
+    if err := overcore.Delete(ctx, ord, st, dl, ex, headerID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.HeaderDeltaDeleteResponse{}), nil
 }
 
 func (c RequestRPC) HeaderDeltaReset(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaResetRequest]) (*connect.Response[requestv1.HeaderDeltaResetResponse], error) {
-	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerHeader(ctx, c.ehs, c.iaes, c.cs, c.us, headerID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Get the delta header
-	deltaHeader, err := c.ehs.GetHeaderByID(ctx, headerID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// If the header has a parent, restore values from parent
-	if deltaHeader.DeltaParentID != nil {
-		// Restore values from parent
-		parentHeader, err := c.ehs.GetHeaderByID(ctx, *deltaHeader.DeltaParentID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Restore delta header fields to match parent and set source to origin
-		deltaHeader.HeaderKey = parentHeader.HeaderKey
-		deltaHeader.Enable = parentHeader.Enable
-		deltaHeader.Description = parentHeader.Description
-		deltaHeader.Value = parentHeader.Value
-
-		err = c.ehs.UpdateHeader(ctx, deltaHeader)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	} else {
-		// If no parent, use the original reset behavior (clear fields)
-		err = c.ehs.ResetHeaderDelta(ctx, headerID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-	}
-
-	return connect.NewResponse(&requestv1.HeaderDeltaResetResponse{}), nil
+    headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    ex, ok, _ := c.hov.ResolveExampleByDeltaID(ctx, headerID); if !ok { ex, ok, _ = c.hov.ResolveExampleByOrderRefID(ctx, headerID) }
+    if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for reset")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
+    st := headerStateStore{ s: c.hov }; dl := headerDeltaStore{ s: c.hov }
+    if err := overcore.Reset(ctx, st, dl, ex, headerID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.HeaderDeltaResetResponse{}), nil
 }
 
 func (c RequestRPC) AssertList(ctx context.Context, req *connect.Request[requestv1.AssertListRequest]) (*connect.Response[requestv1.AssertListResponse], error) {
@@ -2263,7 +1752,28 @@ func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv
 
 // TODO: implement move RPC
 func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[requestv1.QueryDeltaMoveRequest]) (*connect.Response[requestv1.QueryDeltaMoveResponse], error) {
-	return connect.NewResponse(&requestv1.QueryDeltaMoveResponse{}), nil
+    deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    targetQueryID, err := idwrap.NewFromBytes(req.Msg.GetTargetQueryId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    pos := req.Msg.GetPosition()
+    if pos == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("position must be specified")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
+    ord := queryOrderStore{ s: c.qov }
+    if cnt, err := ord.Count(ctx, deltaExampleID); err == nil && cnt == 0 {
+        origin, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
+        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+        r := ""
+        for _, q := range origin { nr := orank.Between(r, ""); if r == "" { nr = orank.First() }; if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), q.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }; r = nr }
+    }
+    after := (pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER)
+    if err := overcore.Move(ctx, ord, deltaExampleID, queryID, targetQueryID, after); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.QueryDeltaMoveResponse{}), nil
 }
 
 func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[requestv1.HeaderMoveRequest]) (*connect.Response[requestv1.HeaderMoveResponse], error) {
@@ -2317,124 +1827,27 @@ func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[request
 }
 
 func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaMoveRequest]) (*connect.Response[requestv1.HeaderDeltaMoveResponse], error) {
-	// Parse request parameters
-	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid example ID: %w", err))
-	}
-
-	headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid header ID: %w", err))
-	}
-
-	targetHeaderID, err := idwrap.NewFromBytes(req.Msg.GetTargetHeaderId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid target header ID: %w", err))
-	}
-
-	position := req.Msg.GetPosition()
-	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("position must be specified"))
-	}
-
-	// Check permissions for the example
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Prevent moving header relative to itself
-	if headerID.Compare(targetHeaderID) == 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot move header relative to itself"))
-	}
-
-	// Get both headers to validate they exist and belong to the same example
-	headerToMove, err := c.ehs.GetHeaderByID(ctx, headerID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("header to move not found: %w", err))
-	}
-
-	targetHeader, err := c.ehs.GetHeaderByID(ctx, targetHeaderID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("target header not found: %w", err))
-	}
-
-	// Verify both headers belong to the specified example
-	if headerToMove.ExampleID.Compare(exampleID) != 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("header does not belong to the specified example"))
-	}
-	if targetHeader.ExampleID.Compare(exampleID) != 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("target header does not belong to the same example"))
-	}
-
-	// Manually unlink header from current position without deleting it
-	if headerToMove.Prev != nil {
-		// Update previous header's next pointer to skip the moved header
-		err = c.ehs.UpdateHeaderNext(ctx, *headerToMove.Prev, headerToMove.Next)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update prev header: %w", err))
-		}
-	}
-	if headerToMove.Next != nil {
-		// Update next header's prev pointer to skip the moved header
-		err = c.ehs.UpdateHeaderPrev(ctx, *headerToMove.Next, headerToMove.Prev)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update next header: %w", err))
-		}
-	}
-
-	// Get fresh data for target header after unlinking (in case target was adjacent)
-	targetHeader, err = c.ehs.GetHeaderByID(ctx, targetHeaderID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("target header not found after unlink: %w", err))
-	}
-
-	// Determine new position and update pointers
-	var newPrev, newNext *idwrap.IDWrap
-	if position == resourcesv1.MovePosition_MOVE_POSITION_AFTER {
-		// Insert after target: moved header goes between target and target.next
-		newPrev = &targetHeaderID
-		newNext = targetHeader.Next
-		
-		// Update target's next pointer to moved header
-		err = c.ehs.UpdateHeaderNext(ctx, targetHeaderID, &headerID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update target header: %w", err))
-		}
-		
-		// If target had a next, update it to point back to moved header
-		if targetHeader.Next != nil {
-			err = c.ehs.UpdateHeaderPrev(ctx, *targetHeader.Next, &headerID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update next header: %w", err))
-			}
-		}
-	} else { // MOVE_POSITION_BEFORE
-		// Insert before target: moved header goes between target.prev and target
-		newPrev = targetHeader.Prev
-		newNext = &targetHeaderID
-		
-		// Update target's prev pointer to moved header
-		err = c.ehs.UpdateHeaderPrev(ctx, targetHeaderID, &headerID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update target header: %w", err))
-		}
-		
-		// If target had a prev, update it to point to moved header
-		if targetHeader.Prev != nil {
-			err = c.ehs.UpdateHeaderNext(ctx, *targetHeader.Prev, &headerID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update prev header: %w", err))
-			}
-		}
-	}
-
-	// Update moved header's pointers to its new position
-	err = c.ehs.UpdateHeaderLinks(ctx, headerID, newPrev, newNext)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update moved header's links: %w", err))
-	}
-
-	return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil
+    deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    targetHeaderID, err := idwrap.NewFromBytes(req.Msg.GetTargetHeaderId())
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    pos := req.Msg.GetPosition()
+    if pos == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("position must be specified")) }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
+    // Seed if needed
+    ord := headerOrderStore{ s: c.hov }
+    if cnt, err := ord.Count(ctx, deltaExampleID); err == nil && cnt == 0 {
+        origin, err := c.ehs.GetHeaderByExampleIDOrdered(ctx, originExampleID)
+        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+        r := ""
+        for _, h := range origin { nr := orank.Between(r, ""); if r == "" { nr = orank.First() }; if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), h.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }; r = nr }
+    }
+    after := (pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER)
+    if err := overcore.Move(ctx, ord, deltaExampleID, headerID, targetHeaderID, after); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil
 }

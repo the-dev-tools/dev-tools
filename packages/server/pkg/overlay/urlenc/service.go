@@ -9,6 +9,7 @@ import (
     "the-dev-tools/server/pkg/model/mbodyurl"
     "the-dev-tools/server/pkg/service/sbodyurl"
     soverlayurlenc "the-dev-tools/server/pkg/service/soverlayurlenc"
+    orank "the-dev-tools/server/pkg/overlay/rank"
     bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
     deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
 )
@@ -53,7 +54,7 @@ func (s *Service) EnsureSeeded(ctx context.Context, deltaExampleID, originExampl
         var next string
         // pre-computing next is not necessary, using nil for tail spacing
         newRank := ""
-        if rank == "" && next == "" { newRank = FirstRank() } else { newRank = RankBetween(rank, next) }
+        if rank == "" && next == "" { newRank = orank.First() } else { newRank = orank.Between(rank, next) }
         if err := s.ovs.InsertOrderIgnore(ctx, deltaExampleID, refKindOrigin, origin[i].ID, newRank, 0); err != nil { return err }
         rank = newRank
     }
@@ -177,7 +178,7 @@ func (s *Service) CreateDelta(ctx context.Context, deltaExampleID idwrap.IDWrap)
     last, ok, err := s.ovs.LastOrderRank(ctx, deltaExampleID)
     if err != nil { return idwrap.IDWrap{}, err }
     var newRank string
-    if ok { newRank = RankBetween(last, "") } else { newRank = FirstRank() }
+    if ok { newRank = orank.Between(last, "") } else { newRank = orank.First() }
     nextRev, err := s.nextRevision(ctx, deltaExampleID)
     if err != nil { return idwrap.IDWrap{}, err }
     if err := s.ovs.UpsertOrderRank(ctx, deltaExampleID, refKindDelta, id, newRank, nextRev); err != nil { return idwrap.IDWrap{}, err }
@@ -233,7 +234,7 @@ func (s *Service) Move(ctx context.Context, deltaExampleID, originExampleID idwr
         rightRank = ord[tIdx].Rank
         if tIdx-1 >= 0 { leftRank = ord[tIdx-1].Rank } else { leftRank = "" }
     }
-    newRank := RankBetween(leftRank, rightRank)
+    newRank := orank.Between(leftRank, rightRank)
     rev, err := s.nextRevision(ctx, deltaExampleID)
     if err != nil { return err }
     // upsert order row for bodyID; we don't know if bodyID is origin or delta, try delta first
@@ -245,11 +246,14 @@ func (s *Service) Move(ctx context.Context, deltaExampleID, originExampleID idwr
 
 // Delete deletes delta-only rows and removes origin-ref entries (soft-delete state + remove from order).
 func (s *Service) Delete(ctx context.Context, deltaExampleID idwrap.IDWrap, bodyID idwrap.IDWrap) error {
-    // try delta delete
-    if err := s.ovs.DeleteDelta(ctx, deltaExampleID, bodyID); err != nil { return err }
-    // always remove order row for both possibilities
+    // delta-only: delete delta row and remove order; do not suppress state
+    if ok, _ := s.ovs.ExistsDelta(ctx, deltaExampleID, bodyID); ok {
+        if err := s.ovs.DeleteDelta(ctx, deltaExampleID, bodyID); err != nil { return err }
+        if err := s.ovs.DeleteOrderByRef(ctx, deltaExampleID, bodyID); err != nil { return err }
+        return nil
+    }
+    // origin-ref: remove from order and mark suppressed in state
     if err := s.ovs.DeleteOrderByRef(ctx, deltaExampleID, bodyID); err != nil { return err }
-    // mark origin state suppressed
     return s.ovs.SuppressState(ctx, deltaExampleID, bodyID)
 }
 
@@ -272,7 +276,7 @@ func (s *Service) Undelete(ctx context.Context, deltaExampleID idwrap.IDWrap, bo
     last, ok, err := s.ovs.LastOrderRank(ctx, deltaExampleID)
     if err != nil { return err }
     var newRank string
-    if ok { newRank = RankBetween(last, "") } else { newRank = FirstRank() }
+    if ok { newRank = orank.Between(last, "") } else { newRank = orank.First() }
     rev, err := s.nextRevision(ctx, deltaExampleID)
     if err != nil { return err }
     return s.ovs.UpsertOrderRank(ctx, deltaExampleID, refKindOrigin, bodyID, newRank, rev)
