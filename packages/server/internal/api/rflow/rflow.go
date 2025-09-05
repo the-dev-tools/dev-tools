@@ -36,6 +36,10 @@ import (
 	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/massertres"
+	"the-dev-tools/server/pkg/model/mbodyform"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
+	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
@@ -1108,24 +1112,52 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				return connect.NewError(connect.CodeInternal, err)
 			}
 
+			// Delta queries: allow none-found (treat as empty)
 			deltaQueries, err := c.qs.GetExampleQueriesByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				if err == sexamplequery.ErrNoQueryFound {
+					// Use empty slice for no delta queries
+					deltaQueries = []mexamplequery.Query{}
+				} else {
+					return connect.NewError(connect.CodeInternal, err)
+				}
 			}
 
+			// Delta raw body: allow none-found (treat as empty body)
 			rawBodyDelta, err := c.brs.GetBodyRawByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, errors.New("delta raw body not found"))
+				if err == sbodyraw.ErrNoBodyRawFound {
+					tmp := mbodyraw.ExampleBodyRaw{
+						ID:            idwrap.NewNow(),
+						ExampleID:     deltaExample.ID,
+						VisualizeMode: mbodyraw.VisualizeModeBinary,
+						CompressType:  compress.CompressTypeNone,
+						Data:          []byte{},
+					}
+					rawBodyDelta = &tmp
+				} else {
+					return connect.NewError(connect.CodeInternal, err)
+				}
 			}
 
+			// Delta form body: allow none-found (treat as empty)
 			formBodyDelta, err := c.bfs.GetBodyFormsByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, errors.New("delta form body not found"))
+				if err == sbodyform.ErrNoBodyFormFound {
+					formBodyDelta = []mbodyform.BodyForm{}
+				} else {
+					return connect.NewError(connect.CodeInternal, err)
+				}
 			}
 
+			// Delta URL-encoded body: allow none-found (treat as empty)
 			urlBodyDelta, err := c.bues.GetBodyURLEncodedByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, errors.New("delta url body not found"))
+				if err == sbodyurl.ErrNoBodyUrlEncodedFound {
+					urlBodyDelta = []mbodyurl.BodyURLEncoded{}
+				} else {
+					return connect.NewError(connect.CodeInternal, err)
+				}
 			}
 
 			mergeExamplesInput := request.MergeExamplesInput{
