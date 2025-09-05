@@ -1,17 +1,15 @@
 package rlog
 
 import (
-	"context"
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/logconsole"
-	"the-dev-tools/server/pkg/reference"
-	"the-dev-tools/server/pkg/translate/tgeneric"
-	logv1 "the-dev-tools/spec/dist/buf/go/log/v1"
-	"the-dev-tools/spec/dist/buf/go/log/v1/logv1connect"
+    "context"
+    "the-dev-tools/server/internal/api"
+    "the-dev-tools/server/internal/api/middleware/mwauth"
+    "the-dev-tools/server/pkg/logconsole"
+    logv1 "the-dev-tools/spec/dist/buf/go/log/v1"
+    "the-dev-tools/spec/dist/buf/go/log/v1/logv1connect"
 
-	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/emptypb"
+    "connectrpc.com/connect"
+    "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type RlogRPC struct {
@@ -43,20 +41,23 @@ func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[empty
 
 	for {
 		select {
-		case logMessage := <-lmc:
-			rpcRefs := tgeneric.MassConvert(logMessage.Refs, reference.ConvertPkgToRpcTree)
-
-			b := &logv1.LogStreamResponse{
-				LogId:      logMessage.LogID.Bytes(),
-				Value:      logMessage.Value,
-				Level:      logv1.LogLevel(logMessage.Level),
-				References: rpcRefs,
-			}
-			err = stream.Send(b)
-			if err != nil {
-				return err
-			}
-			continue
+        case logMessage := <-lmc:
+            var jsonStrPtr *string
+            if logMessage.JSON != "" {
+                s := logMessage.JSON
+                jsonStrPtr = &s
+            }
+            b := &logv1.LogStreamResponse{
+                LogId: logMessage.LogID.Bytes(),
+                Value: logMessage.Value,
+                Level: logv1.LogLevel(logMessage.Level),
+                Json:  jsonStrPtr,
+            }
+            err = stream.Send(b)
+            if err != nil {
+                return err
+            }
+            continue
 		case <-ctx.Done():
 			err = ctx.Err()
 		}
@@ -65,3 +66,5 @@ func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[empty
 	c.logChannels.DeleteLogChannel(userID)
 	return err
 }
+
+// no helper needed; JSON payload comes from logconsole

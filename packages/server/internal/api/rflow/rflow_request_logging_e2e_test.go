@@ -1,6 +1,7 @@
 package rflow_test
 
 import (
+    "encoding/json"
     "context"
     "net/http"
     "net/http/httptest"
@@ -20,7 +21,6 @@ import (
     "the-dev-tools/server/pkg/model/mnnode"
     "the-dev-tools/server/pkg/model/mnnode/mnnoop"
     "the-dev-tools/server/pkg/model/mnnode/mnrequest"
-    "the-dev-tools/server/pkg/reference"
     "the-dev-tools/server/pkg/service/flow/sedge"
     "the-dev-tools/server/pkg/service/sassert"
     "the-dev-tools/server/pkg/service/sassertres"
@@ -54,27 +54,16 @@ import (
     "github.com/stretchr/testify/require"
 )
 
-// convert a ReferenceTreeItem into a nested map[string]any for easy assertions
-func refToMap(ref reference.ReferenceTreeItem) map[string]any {
-    out := make(map[string]any)
-    switch ref.Kind {
-    case reference.ReferenceKind_REFERENCE_KIND_MAP:
-        m := make(map[string]any)
-        for _, child := range ref.Map {
-            childMap := refToMap(child)
-            // key child.Key.Key is the map key
-            m[child.Key.Key] = childMap[child.Key.Key]
-        }
-        out[ref.Key.Key] = m
-    case reference.ReferenceKind_REFERENCE_KIND_ARRAY:
-        // not expected here
-        out[ref.Key.Key] = []any{}
-    case reference.ReferenceKind_REFERENCE_KIND_VALUE:
-        out[ref.Key.Key] = ref.Value
-    default:
-        out[ref.Key.Key] = nil
+// parseJSON parses a JSON object string into map[string]any.
+func parseJSON(s string) (map[string]any, bool) {
+    if s == "" {
+        return nil, false
     }
-    return out
+    var m map[string]any
+    if err := json.Unmarshal([]byte(s), &m); err != nil {
+        return nil, false
+    }
+    return m, true
 }
 
 func TestRequestLogging_ContainsRequestAndResponseFields(t *testing.T) {
@@ -182,11 +171,10 @@ func TestRequestLogging_ContainsRequestAndResponseFields(t *testing.T) {
     for !found {
         select {
         case msg := <-logCh:
-            // expect a single ref per message
-            if len(msg.Refs) == 0 {
+            m, ok := parseJSON(msg.JSON)
+            if !ok {
                 continue
             }
-            m := refToMap(msg.Refs[0])
             // root key is node name
             root := m["Request"]
             if rootMap, ok := root.(map[string]any); ok {

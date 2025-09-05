@@ -25,7 +25,7 @@ model LogStreamResponse {
   @key logId: Resource.Id;
   value: string;
   level: LogLevel;
-  references: Reference.ReferenceTreeItem[];
+  json?: string;
 }
 
 @Protobuf.service
