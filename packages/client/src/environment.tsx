@@ -399,11 +399,6 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   });
 
   return (
-    <DataTable
-      {...formTable}
-      aria-label='Environment variables'
-      dragAndDropHooks={dragAndDropHooks}
-      table={table}
-    />
+    <DataTable {...formTable} aria-label='Environment variables' dragAndDropHooks={dragAndDropHooks} table={table} />
   );
 };

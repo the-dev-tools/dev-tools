@@ -159,9 +159,7 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       data={items}
       getRowId={(_) => Ulid.construct(_.headerId).toCanonical()}
     >
-      {(table) => (
-        <DataTable {...formTable} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />
-      )}
+      {(table) => <DataTable {...formTable} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />}
     </ReactTableNoMemo>
   );
 };
