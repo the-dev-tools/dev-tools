@@ -17,7 +17,7 @@ export const Menu = <T extends object>({ className, contextMenuPosition, context
   <>
     {contextMenuRef && <div className={tw`fixed`} ref={contextMenuRef} style={contextMenuPosition} />}
 
-    <Popover {...(contextMenuRef && { triggerRef: contextMenuRef })}>
+    <Popover {...(contextMenuPosition && { triggerRef: contextMenuRef })}>
       <RAC.Menu {...props} className={composeStyleRenderProps(className, menuStyles)} />
     </Popover>
   </>
