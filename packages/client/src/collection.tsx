@@ -57,7 +57,7 @@ import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-fie
 import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
-import { useDLE, useMutate, useQuery } from '~data-client';
+import { useDLE, useEndpointProps, useMutate, useQuery } from '~data-client';
 import { useOnEndpointDelete } from '~endpoint';
 import { requestRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 
@@ -109,6 +109,53 @@ const getTreeKeyItemId = (key: EndpointKey | FolderKey) =>
     Match.when({ _tag: FolderKey._tag }, (_) => _.folderId),
     Match.exhaustive,
   );
+
+const useOnCollectionDelete = () => {
+  const { dataClient } = rootRouteApi.useRouteContext();
+  const endpointProps = useEndpointProps();
+  const onEndpointDelete = useOnEndpointDelete();
+  const onFolderDelete = useOnFolderDelete();
+  const onCollectionrDelete = (collectionId: Uint8Array) => {
+    const state = dataClient.controller.getState();
+    const {
+      data: { items },
+    } = dataClient.controller.getResponse(
+      CollectionItemListEndpoint,
+      { ...endpointProps, input: { collectionId } },
+      state,
+    );
+    items?.forEach((_) => {
+      if (_.kind === ItemKind.FOLDER) onFolderDelete(collectionId, _.folder.folderId);
+
+      if (_.kind === ItemKind.ENDPOINT)
+        onEndpointDelete({ endpointId: _.endpoint.endpointId, exampleId: _.example.exampleId });
+    });
+  };
+  return onCollectionrDelete;
+};
+
+const useOnFolderDelete = () => {
+  const { dataClient } = rootRouteApi.useRouteContext();
+  const endpointProps = useEndpointProps();
+  const onEndpointDelete = useOnEndpointDelete();
+  const onFolderDelete = (collectionId: Uint8Array, folderId: Uint8Array) => {
+    const state = dataClient.controller.getState();
+    const {
+      data: { items },
+    } = dataClient.controller.getResponse(
+      CollectionItemListEndpoint,
+      { ...endpointProps, input: { collectionId, parentFolderId: folderId } },
+      state,
+    );
+    items?.forEach((_) => {
+      if (_.kind === ItemKind.FOLDER) onFolderDelete(collectionId, _.folder.folderId);
+
+      if (_.kind === ItemKind.ENDPOINT)
+        onEndpointDelete({ endpointId: _.endpoint.endpointId, exampleId: _.example.exampleId });
+    });
+  };
+  return onFolderDelete;
+};
 
 interface CollectionListTreeProps extends Omit<CollectionListTreeContext, 'containerRef'> {
   onAction?: (key: typeof TreeKey.Type) => void;
@@ -263,6 +310,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
     loading,
   } = useDLE(CollectionItemListEndpoint, enabled ? { collectionId } : null);
   const [collectionUpdate, collectionUpdateLoading] = useMutate(CollectionUpdateEndpoint);
+  const onCollectionDelete = useOnCollectionDelete();
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -341,7 +389,13 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
               Add Folder
             </MenuItem>
 
-            <MenuItem onAction={() => dataClient.fetch(CollectionDeleteEndpoint, { collectionId })} variant='danger'>
+            <MenuItem
+              onAction={() => {
+                onCollectionDelete(collectionId);
+                void dataClient.fetch(CollectionDeleteEndpoint, { collectionId });
+              }}
+              variant='danger'
+            >
               Delete
             </MenuItem>
           </Menu>
@@ -398,6 +452,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
   } = useDLE(CollectionItemListEndpoint, enabled ? { collectionId, parentFolderId: folderId } : null);
 
   const [folderUpdate, folderUpdateLoading] = useMutate(FolderUpdateEndpoint);
+  const onFolderDelete = useOnFolderDelete();
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -498,7 +553,13 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
                   Add Folder
                 </MenuItem>
 
-                <MenuItem onAction={() => dataClient.fetch(FolderDeleteEndpoint, { folderId })} variant='danger'>
+                <MenuItem
+                  onAction={() => {
+                    onFolderDelete(collectionId, folderId);
+                    void dataClient.fetch(FolderDeleteEndpoint, { folderId });
+                  }}
+                  variant='danger'
+                >
                   Delete
                 </MenuItem>
               </Menu>
@@ -634,9 +695,9 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
             </MenuItem>
 
             <MenuItem
-              onAction={async () => {
-                await onEndpointDelete({ endpointId, exampleId });
-                await dataClient.fetch(EndpointDeleteEndpoint, { endpointId });
+              onAction={() => {
+                onEndpointDelete({ endpointId, exampleId });
+                void dataClient.fetch(EndpointDeleteEndpoint, { endpointId });
               }}
               variant='danger'
             >
@@ -754,9 +815,9 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
             </MenuItem>
 
             <MenuItem
-              onAction={async () => {
-                await onEndpointDelete({ endpointId, exampleId });
-                await dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
+              onAction={() => {
+                onEndpointDelete({ endpointId, exampleId });
+                void dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
               }}
               variant='danger'
             >

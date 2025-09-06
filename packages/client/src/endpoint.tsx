@@ -36,6 +36,7 @@ import {
   ExampleCreateEndpoint,
   ExampleDeleteEndpoint,
   ExampleGetEndpoint,
+  ExampleListEndpoint,
   ExampleRunEndpoint,
   ExampleUpdateEndpoint,
   ExampleVersionsEndpoint,
@@ -72,7 +73,7 @@ import {
   CodeMirrorMarkupLanguages,
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
-import { useMutate, useQuery } from '~data-client';
+import { useEndpointProps, useMutate, useQuery } from '~data-client';
 import { requestRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
@@ -89,9 +90,31 @@ export const endpointTabId = ({ endpointId, exampleId }: EndpointTabIdProps) =>
   JSON.stringify({ endpointId, exampleId, route: requestRouteApi.id });
 
 export const useOnEndpointDelete = () => {
+  const { dataClient } = rootRouteApi.useRouteContext();
+  const endpointProps = useEndpointProps();
   const context = workspaceRouteApi.useRouteContext();
   const removeTab = useRemoveTab();
-  return (props: EndpointTabIdProps) => removeTab({ ...context, id: endpointTabId(props) });
+  return (props: EndpointTabIdProps) => {
+    const state = dataClient.controller.getState();
+    const {
+      data: { items },
+    } = dataClient.controller.getResponse(
+      ExampleListEndpoint,
+      { ...endpointProps, input: { endpointId: props.endpointId } },
+      state,
+    );
+    items?.forEach(
+      (_) =>
+        void removeTab({
+          ...context,
+          id: endpointTabId({
+            endpointId: props.endpointId,
+            exampleId: _.exampleId,
+          }),
+        }),
+    );
+    void removeTab({ ...context, id: endpointTabId(props) });
+  };
 };
 
 export const EndpointPage = () => {
@@ -560,9 +583,9 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
             <MenuItem
-              onAction={async () => {
-                await onEndpointDelete({ endpointId, exampleId });
-                await dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
+              onAction={() => {
+                onEndpointDelete({ endpointId, exampleId });
+                void dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
               }}
               variant='danger'
             >
