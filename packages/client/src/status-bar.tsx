@@ -8,13 +8,13 @@ import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
-import { LogLevel, LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
+import { LogLevel, LogService, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
+import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { workspaceRouteApi } from '~routes';
-import { makeReferenceTreeId, ReferenceTreeItemView } from './reference';
 
 export const useLogsQuery = () => {
   const { transport } = workspaceRouteApi.useRouteContext();
@@ -111,33 +111,26 @@ export const StatusBar = () => {
         <Panel>
           <div className={tw`flex size-full flex-col-reverse overflow-auto`}>
             <AriaTree aria-label='Logs' items={logs ?? []}>
-              {(_) => <LogItem id={Ulid.construct(_.logId).toCanonical()} item={_} />}
+              {(_) => {
+                const ulid = Ulid.construct(_.logId);
+                const id = ulid.toCanonical();
+                return (
+                  <TreeItem
+                    id={id}
+                    item={(_) => <JsonTreeItem {..._} id={`${id}.root`} />}
+                    items={jsonTreeItemProps(_.value)!}
+                    textValue={_.name}
+                  >
+                    <div className={logTextStyles({ level: _.level })}>
+                      {ulid.time.toLocaleTimeString()}: {_.name}
+                    </div>
+                  </TreeItem>
+                );
+              }}
             </AriaTree>
           </div>
         </Panel>
       )}
     </>
-  );
-};
-
-interface LogItemProps {
-  id: string;
-  item: LogStreamResponse;
-}
-
-const LogItem = ({ id, item }: LogItemProps) => {
-  const ulid = Ulid.construct(item.logId);
-
-  return (
-    <TreeItem
-      id={id}
-      item={(_) => <ReferenceTreeItemView id={makeReferenceTreeId([_.key!], _.value)} parentKeys={[]} reference={_} />}
-      items={item.references}
-      textValue={item.value}
-    >
-      <div className={logTextStyles({ level: item.level })}>
-        {ulid.time.toLocaleTimeString()}: {item.value}
-      </div>
-    </TreeItem>
   );
 };
