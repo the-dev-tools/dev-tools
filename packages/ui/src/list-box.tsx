@@ -1,20 +1,11 @@
-import { pipe, Record, Struct } from 'effect';
 import { ComponentProps } from 'react';
-import {
-  Header as AriaHeader,
-  ListBox as AriaListBox,
-  ListBoxItem as AriaListBoxItem,
-  ListBoxItemProps as AriaListBoxItemProps,
-  ListBoxProps as AriaListBoxProps,
-  composeRenderProps,
-} from 'react-aria-components';
-import { FiCheckCircle } from 'react-icons/fi';
-import { twJoin, twMerge } from 'tailwind-merge';
+import * as RAC from 'react-aria-components';
+import { twMerge } from 'tailwind-merge';
 import { tv, VariantProps } from 'tailwind-variants';
-import { isFocusVisibleRingStyles } from './focus-ring';
+import { focusVisibleRingStyles } from './focus-ring';
 import { LinkComponent, useLink, UseLinkProps } from './router';
 import { tw } from './tailwind-literal';
-import { ariaTextValue, composeRenderPropsTV } from './utils';
+import { composeStyleProps, composeStyleRenderProps } from './utils';
 
 // Root
 
@@ -24,106 +15,39 @@ export const listBoxStyles = tv({
   `,
 });
 
-export interface ListBoxProps<T> extends Omit<AriaListBoxProps<T>, 'layout' | 'orientation'> {}
+export interface ListBoxProps<T>
+  extends Omit<RAC.ListBoxProps<T>, 'layout' | 'orientation'>,
+    VariantProps<typeof listBoxStyles> {}
 
 export const ListBox = <T extends object>({ className, ...props }: ListBoxProps<T>) => (
-  <AriaListBox className={composeRenderPropsTV(className, listBoxStyles)} {...props} />
+  <RAC.ListBox className={composeStyleRenderProps(className, listBoxStyles)} {...props} />
 );
 
 // Item
 
 export const listBoxItemStyles = tv({
-  extend: isFocusVisibleRingStyles,
+  extend: focusVisibleRingStyles,
   base: tw`
-    group/listbox flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-xs leading-4 font-medium tracking-tight
-    -outline-offset-4 select-none
+    group/listbox group/list-item flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-xs leading-4 font-medium
+    tracking-tight -outline-offset-4 select-none
   `,
   variants: {
-    ...isFocusVisibleRingStyles.variants,
-    isHovered: { false: null },
-    isPressed: { false: null },
-    isSelected: { false: null },
     variant: {
-      accent: tw`text-violet-600`,
-      danger: tw`text-rose-700`,
-      default: tw`text-slate-800`,
+      accent: tw`text-violet-600 hover:bg-violet-100 pressed:bg-violet-200 selected:bg-violet-200`,
+      danger: tw`text-rose-700 hover:bg-rose-100 pressed:bg-rose-200 selected:bg-rose-200`,
+      default: tw`text-slate-800 hover:bg-slate-100 pressed:bg-slate-200 selected:bg-slate-200`,
     },
   },
   defaultVariants: {
     variant: 'default',
   },
-  compoundVariants: [
-    { className: tw`bg-slate-100`, isHovered: true, variant: 'default' },
-    { className: tw`bg-rose-100`, isHovered: true, variant: 'danger' },
-    { className: tw`bg-violet-100`, isHovered: true, variant: 'accent' },
-
-    { className: tw`bg-slate-200`, isPressed: true, variant: 'default' },
-    { className: tw`bg-rose-200`, isPressed: true, variant: 'danger' },
-    { className: tw`bg-violet-200`, isPressed: true, variant: 'accent' },
-
-    { className: tw`bg-slate-200`, isSelected: true, variant: 'default' },
-    { className: tw`bg-rose-200`, isSelected: true, variant: 'danger' },
-    { className: tw`bg-violet-200`, isSelected: true, variant: 'accent' },
-  ],
 });
 
-export const listBoxItemVariantKeys = pipe(
-  Struct.omit(
-    listBoxItemStyles.variants,
-    ...isFocusVisibleRingStyles.variantKeys,
-    'isHovered',
-    'isPressed',
-    'isSelected',
-  ),
-  Record.keys,
+export interface ListBoxItemProps extends RAC.ListBoxItemProps, VariantProps<typeof listBoxItemStyles> {}
+
+export const ListBoxItem = ({ ...props }: ListBoxItemProps) => (
+  <RAC.ListBoxItem {...props} className={composeStyleProps(props, listBoxItemStyles)} />
 );
-
-export interface ListBoxItemVariants
-  extends Pick<VariantProps<typeof listBoxItemStyles>, (typeof listBoxItemVariantKeys)[number]> {}
-
-export interface ListBoxItemProps extends AriaListBoxItemProps, ListBoxItemVariants {
-  showSelectIndicator?: boolean;
-}
-
-export const ListBoxItem = ({
-  children,
-  className,
-  showSelectIndicator = true,
-  textValue,
-  ...props
-}: ListBoxItemProps) => {
-  const forwardedProps = Struct.omit(props, ...listBoxItemVariantKeys);
-  const variantProps = Struct.pick(props, ...listBoxItemVariantKeys);
-
-  return (
-    <AriaListBoxItem
-      className={composeRenderPropsTV(className, listBoxItemStyles, variantProps)}
-      {...ariaTextValue(textValue, children)}
-      {...forwardedProps}
-    >
-      {composeRenderProps(children, (children, { isSelected, selectionMode }) => {
-        const selectIndicatorActive = showSelectIndicator && selectionMode !== 'none' && !props.onAction;
-
-        return (
-          <>
-            {children}
-            {selectIndicatorActive && (
-              <div className={tw`hidden group-[&[role="option"]]/listbox:contents`}>
-                <div className={tw`flex-1`} />
-                <FiCheckCircle
-                  className={twJoin(
-                    tw`size-3.5 stroke-[1.2px] text-green-600 transition-opacity`,
-                    isSelected ? tw`opacity-100` : tw`opacity-0`,
-                  )}
-                />
-              </div>
-            )}
-          </>
-        );
-      })}
-    </AriaListBoxItem>
-  );
-};
 
 export const ListBoxItemLink: LinkComponent<ListBoxItemProps> = (props) => {
   const linkProps = useLink(props as UseLinkProps);
@@ -135,7 +59,7 @@ export const ListBoxItemLink: LinkComponent<ListBoxItemProps> = (props) => {
 export interface ListBoxHeaderProps extends ComponentProps<'div'> {}
 
 export const ListBoxHeader = ({ className, ...props }: ListBoxHeaderProps) => (
-  <AriaHeader
+  <RAC.Header
     {...props}
     className={twMerge(
       tw`px-3 pt-2 pb-0.5 text-xs leading-5 font-semibold tracking-tight text-slate-500 select-none`,

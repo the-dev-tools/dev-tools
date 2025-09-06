@@ -1,9 +1,8 @@
-import { Separator as AriaSeparator, SeparatorProps as AriaSeparatorProps } from 'react-aria-components';
-import { tv } from 'tailwind-variants';
-
+import * as RAC from 'react-aria-components';
+import { tv, VariantProps } from 'tailwind-variants';
 import { tw } from './tailwind-literal';
 
-const styles = tv({
+export const separatorStyles = tv({
   base: tw`bg-slate-200`,
   variants: {
     orientation: {
@@ -16,6 +15,6 @@ const styles = tv({
   },
 });
 
-export const Separator = ({ className, ...props }: AriaSeparatorProps) => (
-  <AriaSeparator {...props} className={styles({ className, orientation: props.orientation })} />
-);
+export interface SeparatorProps extends RAC.SeparatorProps, VariantProps<typeof separatorStyles> {}
+
+export const Separator = (props: SeparatorProps) => <RAC.Separator {...props} className={separatorStyles(props)} />;

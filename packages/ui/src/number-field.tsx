@@ -1,86 +1,43 @@
 import { Struct } from 'effect';
-import { Ref } from 'react';
+import { RefAttributes } from 'react';
 import { mergeProps } from 'react-aria';
-import {
-  Button as AriaButton,
-  ButtonProps as AriaButtonProps,
-  Group as AriaGroup,
-  GroupProps as AriaGroupProps,
-  Input as AriaInput,
-  InputProps as AriaInputProps,
-  NumberField as AriaNumberField,
-  NumberFieldProps as AriaNumberFieldProps,
-} from 'react-aria-components';
+import * as RAC from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { FiMinus, FiPlus } from 'react-icons/fi';
-import { tv } from 'tailwind-variants';
-
+import { twMerge } from 'tailwind-merge';
 import { FieldLabel, FieldLabelProps } from './field';
-import { isFocusVisibleRingStyles } from './focus-ring';
-import { MixinProps, splitProps } from './mixin-props';
+import { focusVisibleRingStyles } from './focus-ring';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
-
-const groupStyles = tv({
-  extend: isFocusVisibleRingStyles,
-  base: tw`flex rounded-md border border-slate-200 text-md leading-5 text-slate-800`,
-});
 
 // Number field
 
-export interface NumberFieldProps
-  extends MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
-    MixinProps<'group', Omit<AriaGroupProps, 'children'>>,
-    MixinProps<'button', Omit<AriaButtonProps, 'children' | 'slot'>>,
-    MixinProps<'input', Omit<AriaInputProps, 'children'>>,
-    Omit<AriaNumberFieldProps, 'children'> {
+export interface NumberFieldProps extends RAC.NumberFieldProps, RefAttributes<HTMLDivElement> {
   label?: FieldLabelProps['children'];
-  ref?: Ref<HTMLDivElement>;
 }
 
-export const NumberField = ({
-  buttonClassName,
-  groupClassName,
-  inputClassName,
-  label,
-  ref,
-  ...mixProps
-}: NumberFieldProps) => {
-  const props = splitProps(mixProps, 'label', 'group', 'button', 'input');
+export const NumberField = ({ className = '', label, ...props }: NumberFieldProps) => (
+  <RAC.NumberField className={className} {...props}>
+    {label && <FieldLabel>{label}</FieldLabel>}
 
-  return (
-    <AriaNumberField ref={ref} {...props.rest}>
-      {label && <FieldLabel {...props.label}>{label}</FieldLabel>}
+    <RAC.Group
+      className={twMerge(
+        focusVisibleRingStyles(),
+        tw`flex rounded-md border border-slate-200 text-md leading-5 text-slate-800`,
+      )}
+    >
+      <RAC.Button className={tw`flex size-8 items-center justify-center border-r border-slate-200`} slot='decrement'>
+        <FiMinus />
+      </RAC.Button>
 
-      <AriaGroup className={composeRenderPropsTV(groupClassName, groupStyles)} {...props.group}>
-        <AriaButton
-          className={composeRenderPropsTW(
-            buttonClassName,
-            tw`flex size-8 items-center justify-center border-r border-slate-200`,
-          )}
-          slot='decrement'
-          {...props.button}
-        >
-          <FiMinus />
-        </AriaButton>
+      <RAC.Input className={tw`flex-1 px-3 outline-hidden`} />
 
-        <AriaInput className={composeRenderPropsTW(inputClassName, tw`flex-1 px-3 outline-hidden`)} {...props.input} />
-
-        <AriaButton
-          className={composeRenderPropsTW(
-            buttonClassName,
-            tw`flex size-8 items-center justify-center border-l border-slate-200`,
-          )}
-          slot='increment'
-          {...props.button}
-        >
-          <FiPlus />
-        </AriaButton>
-      </AriaGroup>
-    </AriaNumberField>
-  );
-};
+      <RAC.Button className={tw`flex size-8 items-center justify-center border-l border-slate-200`} slot='increment'>
+        <FiPlus />
+      </RAC.Button>
+    </RAC.Group>
+  </RAC.NumberField>
+);
 
 // Number field RHF wrapper
 

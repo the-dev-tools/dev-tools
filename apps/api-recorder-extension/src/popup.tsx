@@ -19,8 +19,7 @@ import * as React from 'react';
 import * as RAC from 'react-aria-components';
 import * as FeatherIcons from 'react-icons/fi';
 import { twMerge } from 'tailwind-merge';
-
-import { focusRingStyles } from '@the-dev-tools/ui/focus-ring';
+import { focusVisibleRingStyles } from '@the-dev-tools/ui/focus-ring';
 import { EmptyCollectionIllustration, IntroIcon, Logo } from '@the-dev-tools/ui/illustrations';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { Button } from '~/ui/button';
@@ -30,7 +29,6 @@ import * as Postman from '~postman';
 import * as Recorder from '~recorder';
 import { Runtime } from '~runtime';
 import * as Storage from '~storage';
-
 import { keyValue } from './utils';
 
 const Layout = (props: Omit<LayoutProps, 'className'>) => (
@@ -70,8 +68,7 @@ const LoginPage = () => {
           <RAC.Label className='mb-2 block'>Email</RAC.Label>
           <RAC.Input
             className={(renderProps) =>
-              focusRingStyles({
-                ...renderProps,
+              focusVisibleRingStyles({
                 className: [
                   tw`w-full rounded-lg border bg-white px-3 py-2 text-sm leading-tight text-slate-500`,
                   !renderProps.isFocused && tw`border-slate-300`,
@@ -291,8 +288,7 @@ const RecorderPage = () => {
         <RAC.SearchField aria-label='Search' className='group w-80' onChange={setSearchTerm} value={searchTerm}>
           <RAC.Group
             className={(renderProps) =>
-              focusRingStyles({
-                ...renderProps,
+              focusVisibleRingStyles({
                 className: [
                   tw`flex items-center rounded-lg border bg-white px-3 text-slate-500`,
                   !renderProps.isFocusWithin && tw`border-slate-300`,
@@ -305,7 +301,7 @@ const RecorderPage = () => {
               className='min-w-0 flex-1 p-2 text-sm leading-tight outline outline-0 [&::-webkit-search-cancel-button]:hidden'
               placeholder='Search'
             />
-            <RAC.Button className='group-rac-empty:invisible group-rac-empty:opacity-0 rounded-full bg-gray-100 p-1 opacity-100 transition-opacity'>
+            <RAC.Button className='group-empty:invisible group-empty:opacity-0 rounded-full bg-gray-100 p-1 opacity-100 transition-opacity'>
               <FeatherIcons.FiX className='size-4' />
             </RAC.Button>
           </RAC.Group>
@@ -333,8 +329,7 @@ const RecorderPage = () => {
                   {(host) => (
                     <RAC.ListBoxItem
                       className={(renderProps) =>
-                        focusRingStyles({
-                          ...renderProps,
+                        focusVisibleRingStyles({
                           className: [
                             tw`
                               group relative -mt-px flex cursor-pointer items-center gap-2.5 overflow-auto border
@@ -345,7 +340,7 @@ const RecorderPage = () => {
 
                               odd:bg-white
 
-                              rac-selected:bg-indigo-100
+                              selected:bg-indigo-100
                             `,
                             !renderProps.isFocused && tw`border-slate-200`,
                           ],
@@ -354,17 +349,17 @@ const RecorderPage = () => {
                       id={host.id ?? ''}
                       textValue={host.name ?? ''}
                     >
-                      <div className='group-rac-selected:w-0.5 absolute inset-y-0 left-0 w-0 bg-indigo-700 transition-[width]' />
+                      <div className='group-selected:w-0.5 absolute inset-y-0 left-0 w-0 bg-indigo-700 transition-[width]' />
                       <RAC.Text
-                        className='group-rac-selected:text-indigo-700 flex-1 truncate text-slate-500 transition-colors'
+                        className='group-selected:text-indigo-700 flex-1 truncate text-slate-500 transition-colors'
                         slot='label'
                       >
                         {host.name}
                       </RAC.Text>
-                      <div className='group-rac-selected:border-indigo-200 group-rac-selected:bg-indigo-50 group-rac-selected:text-indigo-700 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-slate-700 transition-colors'>
+                      <div className='group-selected:border-indigo-200 group-selected:bg-indigo-50 group-selected:text-indigo-700 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-slate-700 transition-colors'>
                         {host.item?.length ?? 0} calls
                       </div>
-                      <FeatherIcons.FiChevronRight className='group-rac-selected:text-indigo-700 size-5 text-slate-500 transition-colors' />
+                      <FeatherIcons.FiChevronRight className='group-selected:text-indigo-700 size-5 text-slate-500 transition-colors' />
                     </RAC.ListBoxItem>
                   )}
                 </RAC.Collection>
@@ -379,10 +374,7 @@ const RecorderPage = () => {
           <RAC.ListBox
             aria-label='API Calls'
             className={(renderProps) =>
-              focusRingStyles({
-                ...renderProps,
-                className: [tw`w-full`, renderProps.isEmpty && tw`min-h-0 flex-1`],
-              })
+              focusVisibleRingStyles({ className: [tw`w-full`, renderProps.isEmpty && tw`min-h-0 flex-1`] })
             }
             items={filteredRequests}
             onSelectionChange={flow(setRequestsSelection, Runtime.runPromise)}
@@ -399,8 +391,7 @@ const RecorderPage = () => {
             {(request) => (
               <RAC.ListBoxItem
                 className={(renderProps) =>
-                  focusRingStyles({
-                    ...renderProps,
+                  focusVisibleRingStyles({
                     className: [
                       tw`
                         -mt-px grid cursor-pointer grid-cols-[auto_auto_1fr_auto] grid-rows-[auto_auto] items-center
@@ -413,7 +404,7 @@ const RecorderPage = () => {
 
                         even:bg-white
 
-                        rac-selected:bg-indigo-100
+                        selected:bg-indigo-100
                       `,
                       !renderProps.isFocused && tw`border-slate-200`,
                     ],
@@ -431,7 +422,7 @@ const RecorderPage = () => {
                       isReadOnly
                       isSelected={isSelected}
                     >
-                      <div className='group-rac-selected:border-transparent group-rac-selected:bg-indigo-600 mr-3 flex size-5 cursor-pointer items-center justify-center rounded-sm border border-slate-300 text-white transition-colors'>
+                      <div className='group-selected:border-transparent group-selected:bg-indigo-600 mr-3 flex size-5 cursor-pointer items-center justify-center rounded-sm border border-slate-300 text-white transition-colors'>
                         {isSelected && <FeatherIcons.FiCheck />}
                       </div>
                     </RAC.Checkbox>

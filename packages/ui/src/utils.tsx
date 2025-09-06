@@ -1,29 +1,29 @@
 import { ReactNode, RefObject, useCallback, useRef } from 'react';
-import { composeRenderProps } from 'react-aria-components';
+import { composeRenderProps, StyleRenderProps } from 'react-aria-components';
 import { createPortal } from 'react-dom';
 import { twMerge } from 'tailwind-merge';
-
+import { ClassProp } from 'tailwind-variants';
 import { tw } from './tailwind-literal';
 
-export const composeRenderPropsTV = <T, K>(
-  className: ((renderProps: T) => string) | string | undefined,
-  tv: (variant: K & T) => string,
-  props: K = {} as K,
-) =>
-  composeRenderProps(className, (className, renderProps) =>
-    tv({
-      ...props,
-      ...renderProps,
-      className,
-    }),
-  );
+export const composeTailwindRenderProps = <TRenderProps,>(
+  className: StyleRenderProps<TRenderProps>['className'],
+  ...tw: string[]
+) => composeRenderProps(className, (className) => twMerge(...tw, className));
 
-export const composeRenderPropsTW = <T,>(className: ((renderProps: T) => string) | string | undefined, tw: string) =>
-  composeRenderProps(className, (className) => twMerge(tw, className));
+export const composeStyleRenderProps = <TRenderProps, TVariantProps, TExtraProps>(
+  className: StyleRenderProps<TRenderProps>['className'],
+  tv: (props: ClassProp & TExtraProps & TVariantProps) => string,
+  extraProps?: TExtraProps,
+) => composeRenderProps(className, (className, renderProps) => tv({ ...extraProps, ...renderProps, className }));
 
-export const ariaTextValue = (textValue?: string, children?: unknown) => {
-  const textValue_ = textValue ?? (typeof children === 'string' ? children : undefined);
-  return { ...(textValue_ && { textValue: textValue_ }) };
+export const composeStyleProps = <TRenderProps, TVariantProps>(
+  props: StyleRenderProps<TRenderProps> & TVariantProps,
+  tv: ((props: ClassProp & TVariantProps) => string) & { variantKeys: (keyof TVariantProps)[] },
+) => composeRenderProps(props.className, (className, renderProps) => tv({ ...props, ...renderProps, className }));
+
+export const composeTextValueProps = (props: { children?: unknown; textValue?: string }) => {
+  const textValue = props.textValue ?? (typeof props.children === 'string' ? props.children : undefined);
+  return { ...(textValue && { textValue }) };
 };
 
 export const useEscapePortal = <T extends HTMLElement = HTMLDivElement>(

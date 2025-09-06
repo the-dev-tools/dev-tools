@@ -1,6 +1,4 @@
-import { Struct } from 'effect';
 import { tv, VariantProps } from 'tailwind-variants';
-
 import { tw } from './tailwind-literal';
 
 export const badgeStyles = tv({
@@ -31,9 +29,4 @@ export interface BadgeProps
   extends Omit<React.ComponentPropsWithoutRef<'div'>, 'color'>,
     VariantProps<typeof badgeStyles> {}
 
-export const Badge = ({ className, ...props }: BadgeProps) => {
-  const forwardedProps = Struct.omit(props, ...badgeStyles.variantKeys);
-  const variantProps = Struct.pick(props, ...badgeStyles.variantKeys);
-
-  return <div {...forwardedProps} className={badgeStyles({ ...variantProps, className })} />;
-};
+export const Badge = (props: BadgeProps) => <div {...props} className={badgeStyles(props)} />;

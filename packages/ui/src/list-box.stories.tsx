@@ -23,7 +23,7 @@ export const Basic: Story = {
   args: { onAction: fn() },
   render: function Render(props) {
     return (
-      <ListBox aria-label='List Box' {...props}>
+      <ListBox {...props}>
         <ListBoxItem>Open in tab</ListBoxItem>
         <ListBoxItem>Add example</ListBoxItem>
         <Separator />
@@ -60,7 +60,7 @@ export const WithAvatars: Story = {
   },
   render: function Render(props) {
     return (
-      <ListBox aria-label='List Box with Avatars' {...props}>
+      <ListBox {...props}>
         <ListBoxHeader>Your Workspace</ListBoxHeader>
         <ListBoxItemAvatar color='violet'>Workspace 1.1</ListBoxItemAvatar>
         <ListBoxItemAvatar color='lime'>KreativeDesk</ListBoxItemAvatar>

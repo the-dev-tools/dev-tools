@@ -1,47 +1,29 @@
 import { Array, flow, Option, pipe } from 'effect';
 import { DropEvent } from 'react-aria';
-import { DropZone, DropZoneProps, FileTrigger, FileTriggerProps, Text } from 'react-aria-components';
+import * as RAC from 'react-aria-components';
 import { FiFile } from 'react-icons/fi';
-import { twJoin } from 'tailwind-merge';
-import { tv } from 'tailwind-variants';
-
 import { Button } from './button';
-import { isFocusedStyle, isFocusVisibleRingStyles } from './focus-ring';
+import { focusVisibleRingStyles } from './focus-ring';
 import { CloudUploadIcon, DeleteIcon } from './icons';
-import { MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV, formatSize } from './utils';
-
-const dropZoneStyles = tv({
-  extend: isFocusVisibleRingStyles,
-  base: tw`
-    flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-white
-    p-4
-  `,
-  variants: {
-    ...isFocusVisibleRingStyles.variants,
-    isDropTarget: { true: twJoin(isFocusedStyle, tw`bg-violet-100`) },
-  },
-});
+import { composeTailwindRenderProps, formatSize } from './utils';
 
 export interface FileDropZoneProps
-  extends MixinProps<'dropZone', Omit<DropZoneProps, 'children'>>,
-    Omit<FileTriggerProps, 'children'> {
+  extends Omit<RAC.FileTriggerProps, 'children'>,
+    Pick<RAC.DropZoneProps, 'className' | 'isDisabled'> {
   files?: File[] | undefined;
   onChange?: (files: File[] | undefined) => void;
 }
 
 export const FileDropZone = ({
-  dropZoneClassName,
-  dropZoneIsDisabled = false,
-  dropZoneOnDrop,
+  allowsMultiple = false,
+  className,
   files,
+  isDisabled = false,
   onChange,
   onSelect,
-  ...mixProps
+  ...props
 }: FileDropZoneProps) => {
-  const props = splitProps(mixProps, 'dropZone');
-  const { allowsMultiple = false } = props.rest;
   const hasFiles = files !== undefined && files.length > 0;
 
   const onDropChange =
@@ -62,59 +44,73 @@ export const FileDropZone = ({
   const onSelectChange = onChange && ((_: FileList | null) => void onChange(_?.length ? [..._] : undefined));
 
   return (
-    <DropZone
-      className={composeRenderPropsTV(dropZoneClassName, dropZoneStyles)}
-      isDisabled={dropZoneIsDisabled || (hasFiles && !allowsMultiple)}
-      onDrop={(dropZoneOnDrop ?? onDropChange)!}
-      {...props.dropZone}
+    <RAC.DropZone
+      className={composeTailwindRenderProps(
+        className,
+        focusVisibleRingStyles(),
+        tw`
+          flex min-h-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-slate-300
+          bg-white p-4
+
+          drop-target:bg-violet-100 drop-target:outline-4 drop-target:outline-violet-200
+        `,
+      )}
+      isDisabled={isDisabled || (hasFiles && !allowsMultiple)}
+      onDrop={onDropChange!}
     >
       {hasFiles ? (
         <div className={tw`flex flex-wrap justify-around gap-4`}>
           {Array.fromIterable(files).map((file, index) => (
-            <div
-              className={tw`flex w-40 flex-col items-center`}
+            <FilePreview
+              file={file}
               key={index.toString() + file.name + file.size.toString()}
-            >
-              <div className={tw`mb-3 rounded-md border border-slate-200 bg-white p-1.5`}>
-                <FiFile className={tw`size-5 text-slate-500`} />
-              </div>
-
-              <div
-                className={tw`w-full truncate text-center text-md leading-5 font-medium tracking-tight text-slate-800`}
-              >
-                {file.name}
-              </div>
-
-              <div className={tw`text-xs leading-4 tracking-tight text-slate-500`}>{formatSize(file.size)}</div>
-
-              {onChange && (
-                <Button
-                  className={tw`mt-1 p-1`}
-                  onPress={() => {
-                    const newFiles = Array.remove(files, index);
-                    onChange(newFiles.length ? newFiles : undefined);
-                  }}
-                  variant='ghost'
-                >
-                  <DeleteIcon className={tw`size-4 text-rose-700`} />
-                </Button>
-              )}
-            </div>
+              {...(onChange && {
+                onRemove: () => {
+                  const newFiles = Array.remove(files, index);
+                  onChange(newFiles.length ? newFiles : undefined);
+                },
+              })}
+            />
           ))}
         </div>
       ) : (
         <>
           <CloudUploadIcon className={tw`size-7 text-slate-500`} />
 
-          <Text className={tw`mb-1 text-sm leading-5 font-semibold tracking-tight text-slate-800`} slot='label'>
+          <RAC.Text className={tw`mb-1 text-sm leading-5 font-semibold tracking-tight text-slate-800`} slot='label'>
             Drag and drop your files or
-          </Text>
+          </RAC.Text>
 
-          <FileTrigger onSelect={(onSelect ?? onSelectChange)!} {...props.rest}>
+          <RAC.FileTrigger onSelect={(onSelect ?? onSelectChange)!} {...props}>
             <Button>Browse Files</Button>
-          </FileTrigger>
+          </RAC.FileTrigger>
         </>
       )}
-    </DropZone>
+    </RAC.DropZone>
   );
 };
+
+interface FilePreviewProps {
+  file: File;
+  onRemove?: () => void;
+}
+
+const FilePreview = ({ file, onRemove }: FilePreviewProps) => (
+  <div className={tw`flex w-40 flex-col items-center`}>
+    <div className={tw`mb-3 rounded-md border border-slate-200 bg-white p-1.5`}>
+      <FiFile className={tw`size-5 text-slate-500`} />
+    </div>
+
+    <div className={tw`w-full truncate text-center text-md leading-5 font-medium tracking-tight text-slate-800`}>
+      {file.name}
+    </div>
+
+    <div className={tw`text-xs leading-4 tracking-tight text-slate-500`}>{formatSize(file.size)}</div>
+
+    {onRemove && (
+      <Button className={tw`mt-1 p-1`} onPress={() => void onRemove()} variant='ghost'>
+        <DeleteIcon className={tw`size-4 text-rose-700`} />
+      </Button>
+    )}
+  </div>
+);

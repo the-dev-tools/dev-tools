@@ -5,6 +5,7 @@
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nixd",
   "nix.serverSettings": { "nixd": { "formatting": { "command": ["alejandra"] } } },
+  "tailwindCSS.experimental.configFile": "packages/ui/src/styles.css",
   "tailwindCSS.classAttributes": [" "],
   "tailwindCSS.classFunctions": ["tw"],
   "tailwindCSS.lint.cssConflict": "ignore",

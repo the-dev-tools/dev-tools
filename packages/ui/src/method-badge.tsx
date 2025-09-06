@@ -1,6 +1,5 @@
 import { Match, pipe } from 'effect';
 import { tv } from 'tailwind-variants';
-
 import { Badge, BadgeProps } from './badge';
 import { tw } from './tailwind-literal';
 
@@ -39,7 +38,7 @@ export const MethodBadge = ({ className, method, ...props }: MethodBadgeProps) =
   );
 
   return (
-    <Badge className={styles({ className, size: props.size })} color={color} {...props}>
+    <Badge {...props} className={styles({ className, size: props.size })} color={color}>
       {value}
     </Badge>
   );

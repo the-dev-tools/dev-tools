@@ -17,7 +17,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-  args: { modalSize: 'sm' },
+  args: { size: 'sm' },
   render: function Render({ onOpenChange, ...props }) {
     return (
       <DialogTrigger onOpenChange={onOpenChange!}>

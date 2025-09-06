@@ -1,136 +1,117 @@
 import { type CollectionProps } from '@react-aria/collections';
 import { AnyRouter, LinkOptions, RegisteredRouter } from '@tanstack/react-router';
-import {
-  TreeItem as AriaTreeItem,
-  TreeItemContent as AriaTreeItemContent,
-  type TreeItemContentProps as AriaTreeItemContentProps,
-  type TreeItemProps as AriaTreeItemProps,
-  Collection,
-  composeRenderProps,
-} from 'react-aria-components';
-import { IconBaseProps } from 'react-icons';
+import { ReactNode, useState } from 'react';
+import * as RAC from 'react-aria-components';
 import { FiMove } from 'react-icons/fi';
-import { twJoin, twMerge } from 'tailwind-merge';
-import { tv } from 'tailwind-variants';
-import { Button, ButtonProps } from './button';
-import { isFocusVisibleRingStyles } from './focus-ring';
+import { Button } from './button';
+import { focusVisibleRingStyles } from './focus-ring';
 import { ChevronSolidDownIcon } from './icons';
-import { type MixinProps, splitProps } from './mixin-props';
 import { useLink, UseLinkProps } from './router';
 import { Spinner } from './spinner';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
+import { composeTailwindRenderProps } from './utils';
 
-// TODO: Implement drag and drop for re-ordering. Either wait for React Aria to
-// potentially implement it, or switch to React Arborist
-
-// Item root
-
-export const treeItemRootStyles = tv({
-  extend: isFocusVisibleRingStyles,
-  base: tw`
-    cursor-pointer rounded-md bg-transparent px-3 py-1.5 text-md leading-5 font-medium tracking-tight text-slate-800
-    outline-hidden select-none
-  `,
-  variants: {
-    isActive: { true: tw`bg-slate-200` },
-    isDropTarget: { true: tw`bg-violet-200` },
-    isHovered: { true: tw`bg-slate-100` },
-    isPressed: { true: tw`bg-slate-200` },
-    isSelected: { true: tw`bg-slate-200` },
-  },
-});
-
-export interface TreeItemRootProps extends AriaTreeItemProps {
-  isActive?: boolean;
-}
-
-export const TreeItemRoot = ({ className, isActive, ...props }: TreeItemRootProps) => (
-  <AriaTreeItem {...props} className={composeRenderPropsTV(className, treeItemRootStyles, { isActive })} />
-);
-
-// Item wrapper
-
-export interface TreeItemWrapperProps extends React.ComponentProps<'div'> {
-  level: number;
-}
-
-export const TreeItemWrapper = ({ className, level, style, ...props }: TreeItemWrapperProps) => (
-  <div
-    {...props}
-    className={twMerge(tw`relative z-0 flex items-center gap-2`, className)}
-    style={{ paddingInlineStart: ((level - 1) * (20 / 16)).toString() + 'rem', ...style }}
-  />
-);
-
-// Item mix
-
-export interface TreeItemProps<T extends object>
-  extends MixinProps<'content', Omit<AriaTreeItemContentProps, 'children'>>,
-    MixinProps<'wrapper', Omit<TreeItemWrapperProps, 'level'>>,
-    MixinProps<'expandButton', Omit<ButtonProps, 'children'>>,
-    MixinProps<'expandIndicator', IconBaseProps>,
-    MixinProps<'child', Omit<CollectionProps<T>, 'children'>>,
-    Omit<TreeItemRootProps, 'children'> {
-  childItem?: CollectionProps<T>['children'];
-  children?: AriaTreeItemContentProps['children'];
-  expandButtonIsForced?: boolean;
-  loading?: boolean;
+export interface TreeItemProps<T extends object> extends Omit<RAC.TreeItemProps, 'children' | 'textValue'> {
+  children: RAC.TreeItemContentProps['children'];
+  isLoading?: boolean;
+  item?: CollectionProps<T>['children'];
+  items?: T[];
+  onExpand?: () => void;
+  textValue?: RAC.TreeItemProps['textValue'];
 }
 
 export const TreeItem = <T extends object>({
-  childItem,
   children,
-  expandButtonClassName,
-  expandButtonIsForced,
-  loading,
-  ...mixProps
+  className,
+  isLoading,
+  item,
+  items,
+  onExpand,
+  textValue,
+  ...props
 }: TreeItemProps<T>) => {
-  const props = splitProps(mixProps, 'content', 'wrapper', 'expandButton', 'expandIndicator', 'child');
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  let childItems: ReactNode;
+  if (item && !items) childItems = <RAC.Collection>{isExpanded ? item : null}</RAC.Collection>;
+  if (item && items) childItems = <RAC.Collection items={isExpanded ? items : []}>{item}</RAC.Collection>;
+  if (childItems)
+    childItems = (
+      <>
+        {childItems}
+        <RAC.TreeLoadMoreItem />
+      </>
+    );
+
   return (
-    <TreeItemRoot {...props.rest}>
-      <AriaTreeItemContent {...props.content}>
-        {composeRenderProps(children, (children, { allowsDragging, hasChildItems, isExpanded, level }) => (
-          <TreeItemWrapper level={level} {...props.wrapper}>
-            {loading ? (
-              <Button className={tw`p-1`} isDisabled variant='ghost'>
-                <Spinner className={tw`size-3`} />
-              </Button>
-            ) : hasChildItems || expandButtonIsForced ? (
-              <Button
-                className={composeRenderPropsTW(expandButtonClassName, tw`p-1`)}
-                slot='chevron'
-                variant='ghost'
-                {...props.expandButton}
-              >
+    <RAC.TreeItem
+      {...props}
+      className={composeTailwindRenderProps(
+        className,
+        focusVisibleRingStyles(),
+        tw`
+          group/tree-item cursor-pointer rounded-md bg-transparent px-3 py-1.5 text-md leading-5 font-medium
+          tracking-tight text-slate-800
+
+          hover:bg-slate-100
+
+          active:bg-slate-200
+
+          pressed:bg-slate-200
+
+          selected:bg-slate-200
+
+          drop-target:bg-violet-200
+        `,
+      )}
+      ref={(node) => {
+        if (!node) return;
+        const observer = new MutationObserver(() => {
+          const isExpanded = node.attributes.getNamedItem('data-expanded')?.value === 'true';
+          if (isExpanded) onExpand?.();
+          setIsExpanded(isExpanded);
+        });
+        observer.observe(node, { attributeFilter: ['data-expanded'] });
+        return () => void observer.disconnect();
+      }}
+      textValue={textValue ?? (typeof children === 'string' ? children : undefined!)}
+    >
+      <RAC.TreeItemContent>
+        {RAC.composeRenderProps(children, (children, { allowsDragging, hasChildItems, level }) => {
+          let icon = <div className={tw`size-5 shrink-0`} />;
+          if (isLoading) icon = <Spinner className={tw`size-5 p-1`} />;
+          else if (hasChildItems)
+            icon = (
+              <RAC.Button className={tw`shrink-0 cursor-pointer`} slot='chevron'>
                 <ChevronSolidDownIcon
-                  {...props.expandIndicator}
-                  className={twJoin(
-                    tw`size-3 text-slate-500 transition-transform`,
-                    !isExpanded ? tw`rotate-0` : tw`rotate-90`,
-                    props.expandIndicator.className,
-                  )}
+                  className={tw`
+                    size-5 rotate-0 p-1 text-slate-500 transition-transform
+
+                    group-expanded/tree-item:rotate-90
+                  `}
                 />
-              </Button>
-            ) : (
-              <div />
-            )}
-            {children}
-            {allowsDragging && (
-              <Button
-                className={({ isFocused }) =>
-                  twMerge(tw`absolute right-0 p-1`, isFocused ? tw`z-10 opacity-100` : tw`-z-10 opacity-0`)
-                }
-                slot='drag'
-              >
-                <FiMove className={tw`size-3 text-slate-500`} />
-              </Button>
-            )}
-          </TreeItemWrapper>
-        ))}
-      </AriaTreeItemContent>
-      {!!childItem && <Collection {...props.child}>{childItem}</Collection>}
-    </TreeItemRoot>
+              </RAC.Button>
+            );
+
+          return (
+            <div
+              className={tw`relative z-0 flex items-center gap-2`}
+              style={{ paddingInlineStart: ((level - 1) * (20 / 16)).toString() + 'rem' }}
+            >
+              {icon}
+              {children}
+              {allowsDragging && (
+                <Button className={tw`absolute right-0 -z-10 p-1 opacity-0 focus:z-10 focus:opacity-100`} slot='drag'>
+                  <FiMove className={tw`size-3 text-slate-500`} />
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </RAC.TreeItemContent>
+
+      {childItems}
+    </RAC.TreeItem>
   );
 };
 

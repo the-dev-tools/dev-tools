@@ -1,29 +1,25 @@
-import {
-  Modal as AriaModal,
-  ModalOverlay as AriaModalOverlay,
-  ModalOverlayProps as AriaModalOverlayProps,
-} from 'react-aria-components';
+import * as RAC from 'react-aria-components';
 import { tv, VariantProps } from 'tailwind-variants';
-
-import { MixinProps, splitProps } from './mixin-props';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV } from './utils';
+import { composeStyleRenderProps } from './utils';
 
-const overlayStyles = tv({
-  base: tw`fixed inset-0 z-20 flex h-(--visual-viewport-height) items-center justify-center bg-slate-800/50`,
-  variants: {
-    isEntering: { true: tw`animate-in duration-200 ease-out fade-in` },
-    isExiting: { true: tw`animate-out duration-200 ease-in fade-out` },
+export const modalStyles = tv({
+  slots: {
+    base: tw`size-full overflow-auto rounded-lg bg-white`,
+
+    overlay: tw`
+      fixed inset-0 z-20 flex h-(--visual-viewport-height) items-center justify-center bg-slate-800/50
+
+      entering:animate-in entering:duration-200 entering:ease-out entering:fade-in
+
+      exiting:animate-out exiting:duration-200 exiting:ease-in exiting:fade-out
+    `,
   },
-});
-
-const modalStyles = tv({
-  base: tw`size-full overflow-auto rounded-lg bg-white`,
   variants: {
     size: {
-      sm: tw`max-h-[40vh] max-w-[40vw]`,
-      md: tw`max-h-[50vh] max-w-[70vw]`,
-      lg: tw`max-h-[75vh] max-w-[80vw]`,
+      sm: { base: tw`max-h-[40vh] max-w-[40vw]` },
+      md: { base: tw`max-h-[50vh] max-w-[70vw]` },
+      lg: { base: tw`max-h-[75vh] max-w-[80vw]` },
     },
   },
   defaultVariants: {
@@ -31,24 +27,15 @@ const modalStyles = tv({
   },
 });
 
-export interface ModalProps
-  extends MixinProps<'modal', VariantProps<typeof modalStyles>>,
-    Omit<AriaModalOverlayProps, 'className' | 'style'> {
-  modalClassName?: AriaModalOverlayProps['className'];
-  modalStyle?: AriaModalOverlayProps['style'];
-  overlayClassName?: AriaModalOverlayProps['className'];
+export interface ModalProps extends RAC.ModalOverlayProps, VariantProps<typeof modalStyles> {
+  overlayClassName?: RAC.ModalOverlayProps['className'];
 }
 
-export const Modal = ({ modalClassName, modalStyle, overlayClassName, ...props }: ModalProps) => {
-  const forwardedProps = splitProps(props, 'modal');
-
+export const Modal = ({ className, overlayClassName, ...props }: ModalProps) => {
+  const styles = modalStyles(props);
   return (
-    <AriaModalOverlay {...forwardedProps.rest} className={composeRenderPropsTV(overlayClassName, overlayStyles)}>
-      <AriaModal
-        {...forwardedProps.rest}
-        className={composeRenderPropsTV(modalClassName, modalStyles, forwardedProps.modal)}
-        style={modalStyle ?? {}}
-      />
-    </AriaModalOverlay>
+    <RAC.ModalOverlay {...props} className={composeStyleRenderProps(overlayClassName, styles.overlay)}>
+      <RAC.Modal {...props} className={composeStyleRenderProps(className, styles.base)} />
+    </RAC.ModalOverlay>
   );
 };

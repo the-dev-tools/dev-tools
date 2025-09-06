@@ -1,113 +1,74 @@
 import { Struct } from 'effect';
-import { ComponentProps, ForwardedRef, forwardRef, SVGProps } from 'react';
+import { RefAttributes } from 'react';
 import { mergeProps } from 'react-aria';
-import {
-  Checkbox as AriaCheckbox,
-  CheckboxProps as AriaCheckboxProps,
-  composeRenderProps,
-} from 'react-aria-components';
+import * as RAC from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { tv, VariantProps } from 'tailwind-variants';
-
-import { isFocusVisibleRingStyles } from './focus-ring';
-import { MixinProps, splitProps } from './mixin-props';
+import { focusVisibleRingStyles } from './focus-ring';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV } from './utils';
+import { composeStyleRenderProps } from './utils';
 
-const rootStyles = tv({
-  base: tw`group flex items-center gap-2`,
+const checkboxStyles = tv({
+  slots: {
+    base: tw`group/checkbox flex items-center gap-2`,
+
+    box: [
+      focusVisibleRingStyles(),
+      tw`
+        flex size-4 flex-none cursor-pointer items-center justify-center rounded-sm border border-slate-200 bg-white
+        p-0.5 text-white
+
+        group-selected/checkbox:border-violet-600 group-selected/checkbox:bg-violet-600
+      `,
+    ],
+  },
   variants: {
-    variant: {
-      'table-cell': tw`justify-self-center p-1`,
-    },
+    isTableCell: { true: { base: tw`justify-self-center p-1` } },
   },
 });
-
-const boxStyles = tv({
-  extend: isFocusVisibleRingStyles,
-  base: tw`
-    flex size-4 flex-none cursor-pointer items-center justify-center rounded-sm border border-slate-200 bg-white p-0.5
-    text-white
-  `,
-  variants: {
-    ...isFocusVisibleRingStyles.variants,
-    isIndeterminate: { true: tw`border-violet-600 bg-violet-600` },
-    isSelected: { true: tw`border-violet-600 bg-violet-600` },
-  },
-});
-
-// Checkbox
 
 export interface CheckboxProps
-  extends AriaCheckboxProps,
-    MixinProps<'box', Omit<ComponentProps<'div'>, 'children'>>,
-    MixinProps<'indicator', SVGProps<SVGSVGElement>>,
-    VariantProps<typeof rootStyles> {}
+  extends RAC.CheckboxProps,
+    RefAttributes<HTMLLabelElement>,
+    VariantProps<typeof checkboxStyles> {}
 
-export const Checkbox = forwardRef(
-  ({ boxClassName, children, className, ...props }: CheckboxProps, ref: ForwardedRef<HTMLLabelElement>) => {
-    const forwardedProps = splitProps(props, 'box', 'indicator');
+export const Checkbox = ({ children, className, ...props }: CheckboxProps) => {
+  const styles = checkboxStyles(props);
 
-    const rootForwardedProps = Struct.omit(forwardedProps.rest, ...rootStyles.variantKeys);
-    const rootVariantProps = Struct.pick(forwardedProps.rest, ...rootStyles.variantKeys);
+  return (
+    <RAC.Checkbox {...props} className={composeStyleRenderProps(className, styles.base)}>
+      {RAC.composeRenderProps(children, (children, renderProps) => (
+        <>
+          <div className={styles.box()}>
+            {renderProps.isSelected && <SelectedIcon />}
+            {renderProps.isIndeterminate && <IndeterminateIcon />}
+          </div>
 
-    return (
-      <AriaCheckbox
-        className={composeRenderPropsTV(className, rootStyles, rootVariantProps)}
-        ref={ref}
-        {...rootForwardedProps}
-      >
-        {composeRenderProps(children, (children, renderProps) => (
-          <>
-            <div className={boxStyles({ className: boxClassName, ...renderProps })} {...forwardedProps.box}>
-              {renderProps.isIndeterminate && (
-                <svg
-                  fill='none'
-                  height='1em'
-                  viewBox='0 0 10 2'
-                  width='1em'
-                  xmlns='http://www.w3.org/2000/svg'
-                  {...forwardedProps.indicator}
-                >
-                  <path
-                    d='M1 1h8.315'
-                    stroke='currentColor'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={1.5}
-                  />
-                </svg>
-              )}
+          {children}
+        </>
+      ))}
+    </RAC.Checkbox>
+  );
+};
 
-              {renderProps.isSelected && (
-                <svg
-                  fill='none'
-                  height='1em'
-                  viewBox='0 0 10 8'
-                  width='1em'
-                  xmlns='http://www.w3.org/2000/svg'
-                  {...forwardedProps.indicator}
-                >
-                  <path
-                    d='m.833 4.183 2.778 3.15L9.167 1.5'
-                    stroke='currentColor'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={1.2}
-                  />
-                </svg>
-              )}
-            </div>
-
-            {children}
-          </>
-        ))}
-      </AriaCheckbox>
-    );
-  },
+const SelectedIcon = () => (
+  <svg fill='none' height='1em' viewBox='0 0 10 8' width='1em' xmlns='http://www.w3.org/2000/svg'>
+    <path
+      d='m.833 4.183 2.778 3.15L9.167 1.5'
+      stroke='currentColor'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      strokeWidth={1.2}
+    />
+  </svg>
 );
-Checkbox.displayName = 'Checkbox';
+
+const IndeterminateIcon = () => (
+  <svg fill='none' height='1em' viewBox='0 0 10 2' width='1em' xmlns='http://www.w3.org/2000/svg'>
+    <path d='M1 1h8.315' stroke='currentColor' strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} />
+  </svg>
+);
 
 // RHF wrapper
 

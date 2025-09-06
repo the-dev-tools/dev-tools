@@ -7,7 +7,6 @@ import {
   Text,
 } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
-
 import { Button } from './button';
 import { tw } from './tailwind-literal';
 

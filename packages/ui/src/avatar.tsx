@@ -1,15 +1,18 @@
-import { pipe, Record, Struct } from 'effect';
 import { ComponentProps } from 'react';
-import { Button as AriaButton, ButtonProps as AriaButtonProps } from 'react-aria-components';
+import * as RAC from 'react-aria-components';
 import { tv, VariantProps } from 'tailwind-variants';
-import { isFocusVisibleRingStyles } from './focus-ring';
+import { focusVisibleRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV } from './utils';
+import { composeStyleProps } from './utils';
 
-interface SharedProps {
+// Text
+
+interface AvatarTextProps {
   children: string;
   shorten?: boolean;
 }
+
+const AvatarText = ({ children, shorten = true }: AvatarTextProps) => (shorten ? children[0]?.toUpperCase() : children);
 
 // Main
 
@@ -43,54 +46,30 @@ export const avatarStyles = tv({
 });
 
 export interface AvatarProps
-  extends Omit<ComponentProps<'div'>, keyof SharedProps>,
-    SharedProps,
+  extends AvatarTextProps,
+    Omit<ComponentProps<'div'>, keyof AvatarTextProps>,
     VariantProps<typeof avatarStyles> {}
 
-export const Avatar = ({ children, className, shorten = true, ...props }: AvatarProps) => {
-  const forwardedProps = Struct.omit(props, ...avatarStyles.variantKeys);
-  const variantProps = Struct.pick(props, ...avatarStyles.variantKeys);
-
-  const text = shorten ? children[0]?.toUpperCase() : children;
-
-  return (
-    <div {...forwardedProps} className={avatarStyles({ ...variantProps, className })}>
-      {text}
-    </div>
-  );
-};
+export const Avatar = ({ children, ...props }: AvatarProps) => (
+  <div {...props} className={avatarStyles(props)}>
+    <AvatarText {...props}>{children}</AvatarText>
+  </div>
+);
 
 // Button
 
 export const avatarButtonStyles = tv({
-  extend: isFocusVisibleRingStyles,
-  base: avatarStyles.base,
-  variants: {
-    ...isFocusVisibleRingStyles.variants,
-    ...avatarStyles.variants,
-  },
-  defaultVariants: avatarStyles.defaultVariants,
+  extend: avatarStyles,
+  base: focusVisibleRingStyles(),
 });
 
-export const avatarButtonVariantKeys = pipe(
-  Struct.omit(avatarButtonStyles.variants, ...isFocusVisibleRingStyles.variantKeys),
-  Record.keys,
-);
-
 export interface AvatarButtonProps
-  extends Omit<AriaButtonProps, keyof SharedProps>,
-    SharedProps,
+  extends AvatarTextProps,
+    Omit<RAC.ButtonProps, keyof AvatarTextProps>,
     VariantProps<typeof avatarButtonStyles> {}
 
-export const AvatarButton = ({ children, className, shorten = true, ...props }: AvatarButtonProps) => {
-  const forwardedProps = Struct.omit(props, ...avatarButtonVariantKeys);
-  const variantProps = Struct.pick(props, ...avatarButtonVariantKeys);
-
-  const text = shorten ? children[0]?.toUpperCase() : children;
-
-  return (
-    <AriaButton {...forwardedProps} className={composeRenderPropsTV(className, avatarButtonStyles, variantProps)}>
-      {text}
-    </AriaButton>
-  );
-};
+export const AvatarButton = ({ children, ...props }: AvatarButtonProps) => (
+  <RAC.Button {...props} className={composeStyleProps(props, avatarButtonStyles)}>
+    <AvatarText {...props}>{children}</AvatarText>
+  </RAC.Button>
+);

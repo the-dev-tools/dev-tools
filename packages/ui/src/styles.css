@@ -5,9 +5,7 @@
 
 @import 'tw-animate-css';
 
-@plugin 'tailwindcss-react-aria-components' {
-  prefix: rac;
-}
+@plugin 'tailwindcss-react-aria-components';
 
 @source '.';
 

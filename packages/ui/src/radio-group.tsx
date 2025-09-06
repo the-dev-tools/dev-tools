@@ -1,29 +1,21 @@
-import { Struct } from 'effect';
-import { ComponentProps } from 'react';
-import {
-  Radio as AriaRadio,
-  RadioGroup as AriaRadioGroup,
-  RadioGroupProps as AriaRadioGroupProps,
-  RadioProps as AriaRadioProps,
-  composeRenderProps,
-} from 'react-aria-components';
-import { twMerge } from 'tailwind-merge';
-import { tv } from 'tailwind-variants';
-
+import * as RAC from 'react-aria-components';
+import { tv, VariantProps } from 'tailwind-variants';
 import { FieldError, FieldErrorProps, FieldLabel, FieldLabelProps } from './field';
-import { isFocusVisibleRingStyles } from './focus-ring';
-import { MixinProps, splitProps } from './mixin-props';
+import { focusVisibleRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
+import { composeStyleRenderProps } from './utils';
 
 // Group
 
-const containerStyles = tv({
-  base: tw`flex`,
+export const radioGroupStyles = tv({
+  slots: {
+    base: tw`group flex flex-col gap-2`,
+    container: tw`flex`,
+  },
   variants: {
     orientation: {
-      horizontal: tw`gap-3`,
-      vertical: tw`flex-col`,
+      horizontal: { container: tw`gap-3` },
+      vertical: { container: tw`flex-col` },
     },
   },
   defaultVariants: {
@@ -31,92 +23,74 @@ const containerStyles = tv({
   },
 });
 
-export interface RadioGroupProps
-  extends AriaRadioGroupProps,
-    MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
-    MixinProps<'container', Omit<ComponentProps<'div'>, 'children'>>,
-    MixinProps<'error', Omit<FieldErrorProps, 'children'>> {
+export interface RadioGroupProps extends RAC.RadioGroupProps, VariantProps<typeof radioGroupStyles> {
   error?: FieldErrorProps['children'];
   label?: FieldLabelProps['children'];
 }
 
-export const RadioGroup = ({ children, className, containerClassName, error, label, ...props }: RadioGroupProps) => {
-  const forwardedProps = splitProps(props, 'label', 'container', 'error');
+export const RadioGroup = ({ children, className, error, label, ...props }: RadioGroupProps) => {
+  const styles = radioGroupStyles(props);
 
   return (
-    <AriaRadioGroup {...forwardedProps.rest} className={composeRenderPropsTW(className, tw`group flex flex-col gap-2`)}>
-      {composeRenderProps(children, (children, renderProps) => (
+    <RAC.RadioGroup {...props} className={composeStyleRenderProps(className, styles.base)}>
+      {RAC.composeRenderProps(children, (children) => (
         <>
-          {label && <FieldLabel {...forwardedProps.label}>{label}</FieldLabel>}
-          <div
-            {...forwardedProps.container}
-            className={containerStyles({
-              ...Struct.pick(renderProps, ...containerStyles.variantKeys),
-              className: containerClassName,
-            })}
-          >
-            {children}
-          </div>
-          <FieldError {...forwardedProps.error}>{error}</FieldError>
+          {label && <FieldLabel>{label}</FieldLabel>}
+          <div className={styles.container()}>{children}</div>
+          <FieldError>{error}</FieldError>
         </>
       ))}
-    </AriaRadioGroup>
+    </RAC.RadioGroup>
   );
 };
 
 // Item
 
-const itemStyles = tv({
-  base: tw`group flex cursor-pointer items-center gap-1.5 text-md leading-5 font-medium tracking-tight text-slate-800`,
-  variants: {
-    isDisabled: { true: tw`text-gray-300` },
+export const radioStyles = tv({
+  slots: {
+    base: tw`
+      group flex cursor-pointer items-center gap-1.5 text-md leading-5 font-medium tracking-tight text-slate-800
+
+      disabled:text-gray-300
+    `,
+
+    indicator: [
+      focusVisibleRingStyles(),
+      tw`
+        size-4 rounded-full border border-slate-200 bg-white
+
+        invalid:border-red-700 invalid:bg-red-700
+
+        disabled:border-slate-200 disabled:bg-slate-200
+
+        pressed:not-selected:border-slate-400
+
+        invalid:pressed:border-red-800
+
+        selected:border-violet-600 selected:bg-violet-600
+      `,
+    ],
+
+    dot: tw`size-full rounded-full border-2 border-white`,
   },
 });
 
-const indicatorStyles = tv({
-  extend: isFocusVisibleRingStyles,
-  base: tw`size-4 rounded-full border`,
-  variants: {
-    ...isFocusVisibleRingStyles.variants,
-    isDisabled: { true: tw`border-slate-200 bg-slate-200` },
-    isInvalid: { true: tw`border-red-700 bg-red-700` },
-    isPressed: { true: null },
-    isSelected: {
-      false: tw`border-slate-200 bg-white`,
-      true: tw`border-violet-600 bg-violet-600`,
-    },
-  },
-  compoundVariants: [
-    { className: tw`border-slate-400`, isPressed: true, isSelected: false },
-    { className: tw`border-red-800`, isInvalid: true, isPressed: true },
-  ],
-});
+export interface RadioProps extends RAC.RadioProps {}
 
-export interface RadioProps
-  extends AriaRadioProps,
-    MixinProps<'indicator', Omit<ComponentProps<'div'>, 'children'>>,
-    MixinProps<'ring', Omit<ComponentProps<'div'>, 'children'>> {}
-
-export const Radio = ({ children, className, indicatorClassName, ringClassName, ...props }: RadioProps) => {
-  const forwardedProps = splitProps(props, 'indicator', 'ring');
+export const Radio = ({ children, className, ...props }: RadioProps) => {
+  const styles = radioStyles(props);
 
   return (
-    <AriaRadio {...forwardedProps.rest} className={composeRenderPropsTV(className, itemStyles)}>
-      {composeRenderProps(children, (children, renderProps) => (
+    <RAC.Radio {...props} className={composeStyleRenderProps(className, styles.base)}>
+      {RAC.composeRenderProps(children, (children) => (
         <>
-          <div
-            className={indicatorStyles({ className: indicatorClassName, ...renderProps })}
-            {...forwardedProps.indicator}
-          >
-            <div
-              className={twMerge(tw`size-full rounded-full border-2 border-white`, ringClassName)}
-              {...forwardedProps.ring}
-            />
+          <div className={styles.indicator()}>
+            <div className={styles.dot()} />
           </div>
 
           {children}
         </>
       ))}
-    </AriaRadio>
+    </RAC.Radio>
   );
 };

@@ -1,61 +1,39 @@
-import {
-  Label as AriaLabel,
-  LabelProps as AriaLabelProps,
-  Tag as AriaTag,
-  TagGroup as AriaTagGroup,
-  TagGroupProps as AriaTagGroupProps,
-  TagList as AriaTagList,
-  TagListProps as AriaTagListProps,
-  TagProps as AriaTagProps,
-} from 'react-aria-components';
-import { tv } from 'tailwind-variants';
-
-import { isFocusVisibleRingStyles } from './focus-ring';
-import { MixinProps, splitProps } from './mixin-props';
+import * as RAC from 'react-aria-components';
+import { focusVisibleRingStyles } from './focus-ring';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
+import { composeTailwindRenderProps } from './utils';
 
 // Tag
 
-export const tagStyles = tv({
-  extend: isFocusVisibleRingStyles,
-  base: tw`cursor-pointer rounded-sm px-2 py-1.5 text-xs leading-none font-medium tracking-tight`,
-  variants: {
-    isSelected: {
-      false: tw`bg-transparent text-slate-400`,
-      true: tw`bg-white text-slate-800 shadow-sm`,
-    },
-  },
-});
+export interface TagProps extends RAC.TagProps {}
 
-export interface TagProps extends AriaTagProps {}
+export const Tag = ({ className, ...props }: TagProps) => (
+  <RAC.Tag
+    {...props}
+    className={composeTailwindRenderProps(
+      className,
+      focusVisibleRingStyles(),
+      tw`
+        cursor-pointer rounded-sm bg-transparent px-2 py-1.5 text-xs leading-none font-medium tracking-tight
+        text-slate-400
 
-export const Tag = ({ className, ...props }: TagProps) => {
-  return <AriaTag {...props} className={composeRenderPropsTV(className, tagStyles)} />;
-};
+        selected:bg-white selected:text-slate-800 selected:shadow-sm
+      `,
+    )}
+  />
+);
 
 // Group
 
 export interface TagGroupProps<T>
-  extends MixinProps<'list', Omit<AriaTagListProps<T>, 'children'>>,
-    MixinProps<'label', Omit<AriaLabelProps, 'children'>>,
-    Omit<AriaTagGroupProps, 'children'> {
-  children?: AriaTagListProps<T>['children'];
-  label?: AriaLabelProps['children'];
+  extends Omit<RAC.TagGroupProps, 'children'>,
+    Omit<RAC.TagListProps<T>, 'className' | 'style'> {
+  label?: RAC.LabelProps['children'];
 }
 
-export const TagGroup = <T extends object>({ children, label, listClassName, ...props }: TagGroupProps<T>) => {
-  const forwardedProps = splitProps(props, 'list', 'label');
-
-  return (
-    <AriaTagGroup {...forwardedProps.rest}>
-      {label && <AriaLabel {...forwardedProps.label}>{label}</AriaLabel>}
-      <AriaTagList
-        {...forwardedProps.list}
-        className={composeRenderPropsTW(listClassName, tw`flex gap-1 rounded-md bg-slate-100 p-0.5`)}
-      >
-        {children}
-      </AriaTagList>
-    </AriaTagGroup>
-  );
-};
+export const TagGroup = <T extends object>({ children, label, ...props }: TagGroupProps<T>) => (
+  <RAC.TagGroup {...props}>
+    {label && <RAC.Label>{label}</RAC.Label>}
+    <RAC.TagList className={tw`flex gap-1 rounded-md bg-slate-100 p-0.5`}>{children}</RAC.TagList>
+  </RAC.TagGroup>
+);

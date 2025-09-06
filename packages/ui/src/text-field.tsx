@@ -1,46 +1,14 @@
-import { pipe, Record, String, Struct } from 'effect';
-import { forwardRef, useCallback, useState } from 'react';
+import { Struct } from 'effect';
+import { RefAttributes, useCallback, useState } from 'react';
 import { mergeProps } from 'react-aria';
-import {
-  Input as AriaInput,
-  type InputProps as AriaInputProps,
-  TextArea as AriaTextArea,
-  type TextAreaProps as AriaTextAreaProps,
-  TextField as AriaTextField,
-  type TextFieldProps as AriaTextFieldProps,
-  composeRenderProps,
-} from 'react-aria-components';
+import * as RAC from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { tv, VariantProps } from 'tailwind-variants';
-
 import { FieldError, type FieldErrorProps, FieldLabel, type FieldLabelProps } from './field';
-import { isFocusVisibleRingStyles } from './focus-ring';
-import { type MixinProps, splitProps } from './mixin-props';
+import { focusVisibleRingStyles } from './focus-ring';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
-import { composeRenderPropsTV, composeRenderPropsTW } from './utils';
-
-// Input
-
-export const inputStyles = tv({
-  extend: isFocusVisibleRingStyles,
-  base: tw`rounded-md border border-slate-200 px-3 py-1.5 text-md leading-5 text-slate-800`,
-  variants: {
-    ...isFocusVisibleRingStyles.variants,
-    isDisabled: { false: null },
-    variant: {
-      default: null,
-      'table-cell': tw`w-full min-w-0 rounded-none border-transparent px-5 py-1.5 -outline-offset-4`,
-    },
-  },
-  defaultVariants: { variant: 'default' },
-  compoundVariants: [{ className: tw`bg-slate-100 opacity-50`, isDisabled: true, variant: 'default' }],
-});
-
-const inputVariantKeys = pipe(
-  Struct.omit(inputStyles.variants, ...isFocusVisibleRingStyles.variantKeys, 'isDisabled'),
-  Record.keys,
-);
+import { composeTailwindRenderProps } from './utils';
 
 // Editable text state
 
@@ -76,89 +44,79 @@ export const useEditableTextState = ({ onSuccess, value }: UseEditableTextStateP
     textFieldProps: {
       autoFocus: true,
       defaultValue: value,
-      inputOnBlur: onBlur,
-      inputOnKeyDown: onKeyDown,
+      onBlur,
+      onKeyDown,
     } satisfies TextFieldProps,
   };
 };
 
-// Root
+// Text Field
 
-interface RootProps
-  extends AriaTextFieldProps,
-    MixinProps<'label', Omit<FieldLabelProps, 'children'>>,
-    MixinProps<'error', Omit<FieldErrorProps, 'children'>> {
+export interface TextFieldProps extends RAC.TextFieldProps {
   error?: FieldErrorProps['children'];
   label?: FieldLabelProps['children'];
 }
 
-const Root = ({ children, className, error, label, ...props }: RootProps) => {
-  const forwardedProps = splitProps(props, 'label', 'error');
-
-  if (!label && !forwardedProps.rest['aria-label'] && forwardedProps.rest.name) {
-    forwardedProps.rest['aria-label'] = String.capitalize(forwardedProps.rest.name);
-  }
-
-  return (
-    <AriaTextField {...forwardedProps.rest} className={composeRenderPropsTW(className, tw`flex flex-col gap-1`)}>
-      {composeRenderProps(children, (children) => (
-        <>
-          {label && <FieldLabel {...forwardedProps.label}>{label}</FieldLabel>}
-          {children}
-          <FieldError {...forwardedProps.error}>{error}</FieldError>
-        </>
-      ))}
-    </AriaTextField>
-  );
-};
-
-// Text field
-
-export interface TextFieldProps
-  extends MixinProps<'input', Omit<AriaInputProps, 'children'>>,
-    Omit<RootProps, 'children'>,
-    VariantProps<typeof inputStyles> {}
-
-export const TextField = forwardRef(
-  ({ inputClassName, ...props }: TextFieldProps, ref: React.ForwardedRef<HTMLInputElement>) => {
-    const forwardedProps = splitProps(props, 'input');
-
-    const rootForwardedProps = Struct.omit(forwardedProps.rest, ...inputVariantKeys);
-    const variantProps = Struct.pick(forwardedProps.rest, ...inputVariantKeys);
-
-    return (
-      <Root {...rootForwardedProps}>
-        <AriaInput
-          {...forwardedProps.input}
-          className={composeRenderPropsTV(inputClassName, inputStyles, variantProps)}
-          ref={ref}
-        />
-      </Root>
-    );
-  },
+export const TextField = ({ children, className, error, label, ...props }: TextFieldProps) => (
+  <RAC.TextField
+    {...props}
+    {...(!label && !props['aria-label'] && props.name && { 'aria-label': 'String.capitalize(props.name)' })}
+    className={composeTailwindRenderProps(className, tw`flex flex-col gap-1`)}
+  >
+    {RAC.composeRenderProps(children, (children) => (
+      <>
+        {label && <FieldLabel>{label}</FieldLabel>}
+        {children}
+        <FieldError>{error}</FieldError>
+      </>
+    ))}
+  </RAC.TextField>
 );
-TextField.displayName = 'TextField';
 
-// Text field RHF wrapper
+// Text input field
 
-export interface TextFieldRHFProps<
+export const textInputFieldStyles = tv({
+  extend: focusVisibleRingStyles,
+  base: tw`rounded-md border border-slate-200 px-3 py-1.5 text-md leading-5 text-slate-800`,
+  variants: {
+    isTableCell: {
+      false: tw`disabled:bg-slate-100 disabled:opacity-50`,
+      true: tw`w-full min-w-0 rounded-none border-transparent px-5 py-1.5 -outline-offset-4`,
+    },
+  },
+});
+
+export interface TextInputFieldProps
+  extends Omit<TextFieldProps, 'children'>,
+    RefAttributes<HTMLInputElement>,
+    VariantProps<typeof textInputFieldStyles> {}
+
+export const TextInputField = ({ className = '', ref, ...props }: TextInputFieldProps) => (
+  <TextField {...props} className={className}>
+    <RAC.Input className={textInputFieldStyles(props)} ref={ref} />
+  </TextField>
+);
+
+// Text input field RHF wrapper
+
+export interface TextInputFieldRHFProps<
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
-> extends Omit<TextFieldProps, ControllerPropKeys>,
+> extends Omit<TextInputFieldProps, ControllerPropKeys>,
     UseControllerProps<TFieldValues, TName> {}
 
-export const TextFieldRHF = <
+export const TextInputFieldRHF = <
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 >(
-  props: TextFieldRHFProps<TFieldValues, TName>,
+  props: TextInputFieldRHFProps<TFieldValues, TName>,
 ) => {
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
   const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
 
-  const fieldProps: TextFieldProps = {
+  const fieldProps: TextInputFieldProps = {
     error: fieldState.error?.message,
     isDisabled: field.disabled ?? false,
     isInvalid: fieldState.invalid,
@@ -169,35 +127,21 @@ export const TextFieldRHF = <
     value: field.value,
   };
 
-  return <TextField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
+  return <TextInputField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
 };
 
 // Text area field
 
 export interface TextAreaFieldProps
-  extends MixinProps<'area', Omit<AriaTextAreaProps, 'children'>>,
-    Omit<RootProps, 'children'>,
-    VariantProps<typeof inputStyles> {}
+  extends Omit<TextFieldProps, 'children'>,
+    RefAttributes<HTMLTextAreaElement>,
+    VariantProps<typeof textInputFieldStyles> {}
 
-export const TextAreaField = forwardRef(
-  ({ areaClassName, ...props }: TextAreaFieldProps, ref: React.ForwardedRef<HTMLTextAreaElement>) => {
-    const forwardedProps = splitProps(props, 'area');
-
-    const rootForwardedProps = Struct.omit(forwardedProps.rest, ...inputStyles.variantKeys);
-    const variantProps = Struct.pick(forwardedProps.rest, ...inputStyles.variantKeys);
-
-    return (
-      <Root {...rootForwardedProps}>
-        <AriaTextArea
-          {...forwardedProps.area}
-          className={composeRenderPropsTV(areaClassName, inputStyles, variantProps)}
-          ref={ref}
-        />
-      </Root>
-    );
-  },
+export const TextAreaField = ({ className = '', ref, ...props }: TextAreaFieldProps) => (
+  <TextField {...props} className={className}>
+    <RAC.TextArea className={textInputFieldStyles(props)} ref={ref} />
+  </TextField>
 );
-TextAreaField.displayName = 'TextAreaField';
 
 // Text area field RHF wrapper
 
@@ -218,7 +162,7 @@ export const TextAreaFieldRHF = <
 
   const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
 
-  const fieldProps: TextFieldProps = {
+  const fieldProps: TextInputFieldProps = {
     error: fieldState.error?.message,
     isDisabled: field.disabled ?? false,
     isInvalid: fieldState.invalid,
