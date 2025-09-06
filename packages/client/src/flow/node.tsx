@@ -42,7 +42,7 @@ import {
 } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
-import { JsonTreeItem } from '@the-dev-tools/ui/json-tree';
+import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { Menu, MenuItem, MenuItemLink, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
@@ -379,7 +379,7 @@ const NodeExecutionTabs = ({ nodeExecutionId, renderOutput }: NodeExecutionTabsP
         </Tab>
       </TabList>
 
-      <div className={tw`flex-1 overflow-auto pt-4`}>
+      <div className={tw`flex-1 pt-4`}>
         <Suspense
           fallback={
             <div className={tw`flex h-full items-center justify-center`}>
@@ -389,8 +389,8 @@ const NodeExecutionTabs = ({ nodeExecutionId, renderOutput }: NodeExecutionTabsP
         >
           <TabPanel id='input'>
             {data.input && (
-              <Tree aria-label='Input values' defaultExpandedKeys={['root']}>
-                <JsonTreeItem jsonValue={data.input} />
+              <Tree aria-label='Input values' defaultExpandedKeys={['root']} items={jsonTreeItemProps(data.input)!}>
+                {(_) => <JsonTreeItem {..._} />}
               </Tree>
             )}
           </TabPanel>
@@ -398,8 +398,8 @@ const NodeExecutionTabs = ({ nodeExecutionId, renderOutput }: NodeExecutionTabsP
           <TabPanel id='output'>
             {renderOutput?.(data)}
             {!renderOutput && data.output && (
-              <Tree aria-label='Output values' defaultExpandedKeys={['root']}>
-                <JsonTreeItem jsonValue={data.output} />
+              <Tree aria-label='Output values' defaultExpandedKeys={['root']} items={jsonTreeItemProps(data.output)!}>
+                {(_) => <JsonTreeItem {..._} />}
               </Tree>
             )}
           </TabPanel>

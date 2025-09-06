@@ -68,11 +68,13 @@ export const TreeItem = <T extends object>({
       )}
       ref={(node) => {
         if (!node) return;
-        const observer = new MutationObserver(() => {
+        const handler = () => {
           const isExpanded = node.attributes.getNamedItem('data-expanded')?.value === 'true';
           if (isExpanded) onExpand?.();
           setIsExpanded(isExpanded);
-        });
+        };
+        handler();
+        const observer = new MutationObserver(handler);
         observer.observe(node, { attributeFilter: ['data-expanded'] });
         return () => void observer.disconnect();
       }}

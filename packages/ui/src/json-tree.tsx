@@ -4,6 +4,23 @@ import * as RAC from 'react-aria-components';
 import { tw } from './tailwind-literal';
 import { TreeItem, TreeItemProps } from './tree';
 
+export const jsonTreeItemProps = (jsonValue?: Value) => {
+  if (!jsonValue) return undefined;
+  return pipe(
+    Match.value(jsonValue.kind),
+    Match.when({ case: 'structValue' }, (_) =>
+      pipe(
+        Record.toEntries(_.value.fields),
+        Array.map(([jsonKey, jsonValue]): JsonTreeItemProps => ({ id: jsonKey, jsonKey, jsonValue })),
+      ),
+    ),
+    Match.when({ case: 'listValue' }, (_) =>
+      Array.map(_.value.values, (jsonValue, jsonIndex): JsonTreeItemProps => ({ id: jsonIndex, jsonIndex, jsonValue })),
+    ),
+    Match.orElse((): JsonTreeItemProps[] => [{ id: 'root', jsonValue }]),
+  );
+};
+
 export interface JsonTreeItemProps {
   id?: RAC.Key;
   jsonIndex?: number | undefined;
