@@ -24,7 +24,7 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { RouteTabList } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
 import { useMutate, useQuery } from '~data-client';
@@ -218,7 +218,6 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
       className={tw`rounded-md pl-9 text-md leading-5 font-medium`}
       id={flowIdCan}
       params={{ flowIdCan, workspaceIdCan }}
-      showSelectIndicator={false}
       textValue={name}
       to={flowLayoutRouteApi.id}
     >
@@ -229,7 +228,7 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
 
         {isEditing &&
           escape.render(
-            <TextField
+            <TextInputField
               aria-label='Flow name'
               className={tw`w-full`}
               inputClassName={tw`-my-1 py-1`}

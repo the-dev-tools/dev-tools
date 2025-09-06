@@ -73,7 +73,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { EndpointKey, ExampleKey, TreeKey } from '~collection';
 import { useDLE, useEndpointProps, useMutate, useQuery } from '~data-client';
 import {
@@ -362,7 +362,7 @@ export const TopBar = ({ children }: TopBarProps) => {
   return (
     <div className={tw`flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5`}>
       {isEditing ? (
-        <TextField
+        <TextInputField
           aria-label='Flow name'
           inputClassName={tw`-my-1 py-1 text-md leading-none font-medium tracking-tight text-slate-800`}
           isDisabled={flowUpdateLoading}
@@ -587,7 +587,7 @@ const ActionBar = () => {
 
   return (
     <>
-      <Modal isOpen={status === 'blocked'} modalClassName={tw`h-auto w-sm`}>
+      <Modal className={tw`h-auto w-sm`} isOpen={status === 'blocked'}>
         <Dialog className={tw`grid grid-cols-2 gap-4 p-6`}>
           <div className={tw`col-span-full`}>
             Leaving the flow will stop the execution, are you sure you want to proceed?
@@ -715,12 +715,7 @@ const SettingsPanel = () => {
       </div>
 
       <div className={tw`m-5`}>
-        <DataTable
-          {...formTable}
-          table={table}
-          tableAria-label='Flow variables'
-          tableDragAndDropHooks={dragAndDropHooks}
-        />
+        <DataTable {...formTable} aria-label='Flow variables' dragAndDropHooks={dragAndDropHooks} table={table} />
       </div>
     </>
   );

@@ -22,7 +22,7 @@ import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DataTableProps, RowRenderProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextFieldRHF } from '@the-dev-tools/ui/text-field';
+import { TextInputFieldRHF } from '@the-dev-tools/ui/text-field';
 import { GenericMessage } from '~api/utils';
 import { ReferenceFieldRHF } from '~reference';
 
@@ -170,7 +170,7 @@ export const columnCheckboxField = <TFieldValues extends FieldValues>(
   accessorKey: name,
   cell: function Cell() {
     const { control } = useFormContext<TFieldValues>();
-    return <CheckboxRHF control={control} name={name} variant='table-cell' />;
+    return <CheckboxRHF control={control} isTableCell name={name} />;
   },
   header: '',
   size: 0,
@@ -212,13 +212,7 @@ export const columnTextField = <TFieldValues extends FieldValues>(
   cell: function Cell() {
     const { control } = useFormContext<TFieldValues>();
     return (
-      <TextFieldRHF
-        className='flex-1'
-        control={control}
-        inputPlaceholder={`Enter ${title}`}
-        name={name}
-        variant='table-cell'
-      />
+      <TextInputFieldRHF className='flex-1' control={control} isTableCell name={name} placeholder={`Enter ${title}`} />
     );
   },
   header: String.capitalize(title),

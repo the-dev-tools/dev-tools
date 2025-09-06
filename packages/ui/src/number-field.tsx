@@ -4,24 +4,26 @@ import { mergeProps } from 'react-aria';
 import * as RAC from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { FiMinus, FiPlus } from 'react-icons/fi';
-import { twMerge } from 'tailwind-merge';
 import { FieldLabel, FieldLabelProps } from './field';
 import { focusVisibleRingStyles } from './focus-ring';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
+import { composeTailwindRenderProps } from './utils';
 
 // Number field
 
 export interface NumberFieldProps extends RAC.NumberFieldProps, RefAttributes<HTMLDivElement> {
+  groupClassName?: RAC.GroupProps['className'];
   label?: FieldLabelProps['children'];
 }
 
-export const NumberField = ({ className = '', label, ...props }: NumberFieldProps) => (
+export const NumberField = ({ className = '', groupClassName, label, ...props }: NumberFieldProps) => (
   <RAC.NumberField className={className} {...props}>
     {label && <FieldLabel>{label}</FieldLabel>}
 
     <RAC.Group
-      className={twMerge(
+      className={composeTailwindRenderProps(
+        groupClassName,
         focusVisibleRingStyles(),
         tw`flex rounded-md border border-slate-200 text-md leading-5 text-slate-800`,
       )}

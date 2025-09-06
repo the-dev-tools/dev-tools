@@ -31,10 +31,10 @@ export interface ModalProps extends RAC.ModalOverlayProps, VariantProps<typeof m
   overlayClassName?: RAC.ModalOverlayProps['className'];
 }
 
-export const Modal = ({ className, overlayClassName, ...props }: ModalProps) => {
+export const Modal = ({ className, overlayClassName, style, ...props }: ModalProps) => {
   const styles = modalStyles(props);
   return (
-    <RAC.ModalOverlay {...props} className={composeStyleRenderProps(overlayClassName, styles.overlay)}>
+    <RAC.ModalOverlay {...props} className={composeStyleRenderProps(overlayClassName, styles.overlay)} style={style!}>
       <RAC.Modal {...props} className={composeStyleRenderProps(className, styles.base)} />
     </RAC.ModalOverlay>
   );

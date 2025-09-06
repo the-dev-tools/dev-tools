@@ -4,15 +4,10 @@ import { createClient } from '@connectrpc/connect';
 import { useTransport } from '@connectrpc/connect-query';
 import CodeMirror, { EditorView, ReactCodeMirrorProps, ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { Array, Match, pipe, Struct } from 'effect';
-import { createContext, RefAttributes, use, useContext, useRef, useState } from 'react';
+import { createContext, RefAttributes, use, useContext, useRef } from 'react';
 import { mergeProps } from 'react-aria';
-import {
-  Collection as AriaCollection,
-  Tree as AriaTree,
-  TreeItemContent as AriaTreeItemContent,
-} from 'react-aria-components';
+import { Tree as AriaTree } from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
-import { twJoin } from 'tailwind-merge';
 import { tv, VariantProps } from 'tailwind-variants';
 import {
   ReferenceContext as ReferenceContextMessage,
@@ -25,11 +20,9 @@ import {
   ReferenceTreeItem,
 } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { referenceTree } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
-import { Button } from '@the-dev-tools/ui/button';
-import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { controllerPropKeys, ControllerPropKeys } from '@the-dev-tools/ui/react-hook-form';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
+import { TreeItem } from '@the-dev-tools/ui/tree';
 import { useConnectSuspenseQuery } from '~/api/connect-query';
 import { BaseCodeMirrorExtensionProps, baseCodeMirrorExtensions } from '~code-mirror/extensions';
 import { useReactRender } from '~react-render';
@@ -98,8 +91,6 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
   const key = reference.key!;
   const keys = [...parentKeys, key];
 
-  const [isEnabled, setEnabled] = useState(false);
-
   const keyText = getGroupText(key);
 
   const items = pipe(
@@ -138,66 +129,41 @@ export const ReferenceTreeItemView = ({ id, parentKeys, reference }: ReferenceTr
   );
 
   return (
-    <TreeItemRoot className={tw`rounded-none py-1`} id={id} textValue={keyText ?? kindIndexTag ?? ''}>
-      <AriaTreeItemContent>
-        {({ isExpanded, level }) => (
-          <TreeItemWrapper className={tw`flex-wrap gap-1`} level={level}>
-            {items && (
-              <Button className={tw`p-1`} onPress={() => void setEnabled(true)} slot='chevron' variant='ghost'>
-                <ChevronSolidDownIcon
-                  className={twJoin(
-                    tw`size-3 text-slate-500 transition-transform`,
-                    !isExpanded ? tw`rotate-0` : tw`rotate-90`,
-                  )}
-                />
-              </Button>
-            )}
-
-            {key.kind === ReferenceKeyKind.GROUP && (
-              <span className={tw`text-xs leading-5 font-semibold tracking-tight text-slate-800`}>{key.group}</span>
-            )}
-
-            {key.kind === ReferenceKeyKind.KEY && (
-              <span className={tw`font-mono text-xs leading-5 text-red-700`}>{key.key}</span>
-            )}
-
-            {tags.map((tag, index) => (
-              <span
-                className={tw`rounded-sm bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
-                key={index}
-              >
-                {tag}
-              </span>
-            ))}
-
-            {quantity && (
-              <span className={tw`text-xs leading-5 font-medium tracking-tight text-slate-500`}>{quantity}</span>
-            )}
-
-            {reference.kind === ReferenceKind.VALUE && (
-              <>
-                <span className={tw`font-mono text-xs leading-5 text-slate-800`}>:</span>
-                <span className={tw`flex-1 font-mono text-xs leading-5 break-all text-blue-700`}>
-                  {reference.value}
-                </span>
-              </>
-            )}
-          </TreeItemWrapper>
-        )}
-      </AriaTreeItemContent>
-
-      {items && isEnabled && (
-        <AriaCollection items={items}>
-          {(_) => (
-            <ReferenceTreeItemView
-              id={makeReferenceTreeId([...keys, _.key!], _.value)}
-              parentKeys={keys}
-              reference={_}
-            />
-          )}
-        </AriaCollection>
+    <TreeItem
+      className={tw`rounded-none py-1`}
+      id={id}
+      item={(_) => (
+        <ReferenceTreeItemView id={makeReferenceTreeId([...keys, _.key!], _.value)} parentKeys={keys} reference={_} />
       )}
-    </TreeItemRoot>
+      items={items!}
+      textValue={keyText ?? kindIndexTag ?? ''}
+    >
+      {key.kind === ReferenceKeyKind.GROUP && (
+        <span className={tw`text-xs leading-5 font-semibold tracking-tight text-slate-800`}>{key.group}</span>
+      )}
+
+      {key.kind === ReferenceKeyKind.KEY && (
+        <span className={tw`font-mono text-xs leading-5 text-red-700`}>{key.key}</span>
+      )}
+
+      {tags.map((tag, index) => (
+        <span
+          className={tw`rounded-sm bg-slate-200 px-2 py-0.5 text-xs font-medium tracking-tight text-slate-500`}
+          key={index}
+        >
+          {tag}
+        </span>
+      ))}
+
+      {quantity && <span className={tw`text-xs leading-5 font-medium tracking-tight text-slate-500`}>{quantity}</span>}
+
+      {reference.kind === ReferenceKind.VALUE && (
+        <>
+          <span className={tw`font-mono text-xs leading-5 text-slate-800`}>:</span>
+          <span className={tw`flex-1 font-mono text-xs leading-5 break-all text-blue-700`}>{reference.value}</span>
+        </>
+      )}
+    </TreeItem>
   );
 };
 

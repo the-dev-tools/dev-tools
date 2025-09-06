@@ -39,14 +39,13 @@ import {
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
-import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
-import { Select } from '@the-dev-tools/ui/select';
+import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useMutate, useQuery } from '~data-client';
 import { rootRouteApi, workspaceRouteApi } from '~routes';
 import {
@@ -73,7 +72,7 @@ export const EnvironmentsWidget = () => {
     <div className={tw`flex gap-1 border-b border-slate-200 p-3`}>
       <Select
         aria-label='Environment'
-        listBoxItems={environments}
+        items={environments}
         onSelectionChange={async (selectedEnvironmentIdCan) => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
           await dataClient.fetch(WorkspaceUpdateEndpoint, { selectedEnvironmentId, workspaceId });
@@ -85,7 +84,7 @@ export const EnvironmentsWidget = () => {
         {(item) => {
           const environmentIdCan = Ulid.construct(item.environmentId).toCanonical();
           return (
-            <ListBoxItem id={environmentIdCan} textValue={item.name}>
+            <SelectItem id={environmentIdCan} textValue={item.name}>
               <div className={tw`flex items-center gap-2`}>
                 <div
                   className={tw`flex size-6 items-center justify-center rounded-md bg-slate-200 text-xs text-slate-500`}
@@ -96,7 +95,7 @@ export const EnvironmentsWidget = () => {
                   {item.isGlobal ? 'Global Environment' : item.name}
                 </span>
               </div>
-            </ListBoxItem>
+            </SelectItem>
           );
         }}
       </Select>
@@ -298,7 +297,7 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name } }: En
         )}
 
         {isEditing ? (
-          <TextField
+          <TextInputField
             aria-label='Environment name'
             inputClassName={tw`-my-1 py-1 leading-none font-semibold tracking-tight text-slate-800`}
             isDisabled={environmentUpdateLoading}
@@ -402,9 +401,9 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   return (
     <DataTable
       {...formTable}
+      aria-label='Environment variables'
+      dragAndDropHooks={dragAndDropHooks}
       table={table}
-      tableAria-label='Environment variables'
-      tableDragAndDropHooks={dragAndDropHooks}
     />
   );
 };

@@ -44,10 +44,9 @@ import {
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
-import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
-import { Select } from '@the-dev-tools/ui/select';
+import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { GenericMessage } from '~api/utils';
 import {
@@ -142,9 +141,9 @@ const FormDisplayTable = ({ exampleId }: FormDisplayTableProps) => {
   return (
     <DataTable
       {...displayTable<GenericMessage<BodyFormListItem>>()}
+      aria-label='Body form items'
+      containerClassName={tw`col-span-full`}
       table={table}
-      tableAria-label='Body form items'
-      wrapperClassName={tw`col-span-full`}
     />
   );
 };
@@ -198,10 +197,10 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
   return (
     <DataTable
       {...formTable}
+      aria-label='Body form items'
+      containerClassName={tw`col-span-full`}
+      dragAndDropHooks={dragAndDropHooks}
       table={table}
-      tableAria-label='Body form items'
-      tableDragAndDropHooks={dragAndDropHooks}
-      wrapperClassName={tw`col-span-full`}
     />
   );
 };
@@ -256,10 +255,10 @@ const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: 
       {(table) => (
         <DataTable
           {...formTable}
+          aria-label='Body form items'
+          containerClassName={tw`col-span-full`}
+          dragAndDropHooks={dragAndDropHooks}
           table={table}
-          tableAria-label='Body form items'
-          tableDragAndDropHooks={dragAndDropHooks}
-          wrapperClassName={tw`col-span-full`}
         />
       )}
     </ReactTableNoMemo>
@@ -288,9 +287,9 @@ const UrlEncodedDisplayTable = ({ exampleId }: UrlEncodedDisplayTableProps) => {
   return (
     <DataTable
       {...displayTable<GenericMessage<BodyUrlEncodedListItem>>()}
+      aria-label='URL encoded body form items'
+      containerClassName={tw`col-span-full`}
       table={table}
-      tableAria-label='URL encoded body form items'
-      wrapperClassName={tw`col-span-full`}
     />
   );
 };
@@ -344,10 +343,10 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
   return (
     <DataTable
       {...formTable}
+      aria-label='URL encoded body form items'
+      containerClassName={tw`col-span-full`}
+      dragAndDropHooks={dragAndDropHooks}
       table={table}
-      tableAria-label='URL encoded body form items'
-      tableDragAndDropHooks={dragAndDropHooks}
-      wrapperClassName={tw`col-span-full`}
     />
   );
 };
@@ -406,10 +405,10 @@ const UrlEncodedDeltaFormTable = ({
       {(table) => (
         <DataTable
           {...formTable}
+          aria-label='URL encoded body form items'
+          containerClassName={tw`col-span-full`}
+          dragAndDropHooks={dragAndDropHooks}
           table={table}
-          tableAria-label='URL encoded body form items'
-          tableDragAndDropHooks={dragAndDropHooks}
-          wrapperClassName={tw`col-span-full`}
         />
       )}
     </ReactTableNoMemo>
@@ -457,9 +456,9 @@ const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
         triggerClassName={tw`px-4 py-1`}
       >
         {CodeMirrorMarkupLanguages.map((_) => (
-          <ListBoxItem id={_} key={_}>
+          <SelectItem id={_} key={_}>
             {_}
-          </ListBoxItem>
+          </SelectItem>
         ))}
       </Select>
 

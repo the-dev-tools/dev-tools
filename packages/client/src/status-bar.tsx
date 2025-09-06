@@ -2,22 +2,17 @@ import { createClient } from '@connectrpc/connect';
 import { ConnectQueryKey, createConnectQueryKey } from '@connectrpc/connect-query';
 import { experimental_streamedQuery as streamedQuery, useQuery } from '@tanstack/react-query';
 import { Ulid } from 'id128';
-import { useMemo, useState } from 'react';
-import {
-  Collection as AriaCollection,
-  Tree as AriaTree,
-  TreeItemContent as AriaTreeItemContent,
-} from 'react-aria-components';
+import { useMemo } from 'react';
+import { Tree as AriaTree } from 'react-aria-components';
 import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
-import { twJoin, twMerge } from 'tailwind-merge';
+import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 import { LogLevel, LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
-import { ChevronSolidDownIcon } from '@the-dev-tools/ui/icons';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TreeItemRoot, TreeItemWrapper } from '@the-dev-tools/ui/tree';
+import { TreeItem } from '@the-dev-tools/ui/tree';
 import { workspaceRouteApi } from '~routes';
 import { makeReferenceTreeId, ReferenceTreeItemView } from './reference';
 
@@ -133,34 +128,16 @@ interface LogItemProps {
 const LogItem = ({ id, item }: LogItemProps) => {
   const ulid = Ulid.construct(item.logId);
 
-  const [isEnabled, setEnabled] = useState(false);
-
   return (
-    <TreeItemRoot id={id} textValue={item.value}>
-      <AriaTreeItemContent>
-        {({ isExpanded }) => (
-          <TreeItemWrapper className={tw`flex-wrap gap-1`} level={0}>
-            <Button className={tw`p-1`} onPress={() => void setEnabled(true)} slot='chevron' variant='ghost'>
-              <ChevronSolidDownIcon
-                className={twJoin(
-                  tw`size-3 text-slate-500 transition-transform`,
-                  !isExpanded ? tw`rotate-0` : tw`rotate-90`,
-                )}
-              />
-            </Button>
-
-            <div className={logTextStyles({ level: item.level })}>
-              {ulid.time.toLocaleTimeString()}: {item.value}
-            </div>
-          </TreeItemWrapper>
-        )}
-      </AriaTreeItemContent>
-
-      {isEnabled && (
-        <AriaCollection items={item.references}>
-          {(_) => <ReferenceTreeItemView id={makeReferenceTreeId([_.key!], _.value)} parentKeys={[]} reference={_} />}
-        </AriaCollection>
-      )}
-    </TreeItemRoot>
+    <TreeItem
+      id={id}
+      item={(_) => <ReferenceTreeItemView id={makeReferenceTreeId([_.key!], _.value)} parentKeys={[]} reference={_} />}
+      items={item.references}
+      textValue={item.value}
+    >
+      <div className={logTextStyles({ level: item.level })}>
+        {ulid.time.toLocaleTimeString()}: {item.value}
+      </div>
+    </TreeItem>
   );
 };

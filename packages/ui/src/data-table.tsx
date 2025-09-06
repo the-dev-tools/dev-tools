@@ -1,6 +1,6 @@
 import * as TSR from '@tanstack/react-table';
 import { pipe } from 'effect';
-import { ReactNode } from 'react';
+import { ComponentProps, ReactNode, Ref } from 'react';
 import * as RAC from 'react-aria-components';
 import { twJoin } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
@@ -56,13 +56,17 @@ export interface RowRenderProps<T> {
 export type RowRender<T> = (props: RowRenderProps<T>) => ReactNode;
 
 export interface DataTableProps<T> extends RAC.TableProps {
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  containerClassName?: ComponentProps<'div'>['className'];
   footer?: ReactNode;
   rowRender?: RowRender<T>;
   table: TSR.Table<T>;
 }
 
 export const DataTable = <T extends object>({
+  bodyRef,
   className,
+  containerClassName,
   footer,
   rowRender = ({ rowNode }) => rowNode(),
   table,
@@ -75,7 +79,7 @@ export const DataTable = <T extends object>({
   const styles = tableStyles(props);
 
   return (
-    <div className={styles.container()}>
+    <div className={styles.container({ className: containerClassName })}>
       <RAC.Table
         // @ts-expect-error patched workaround until fixed upstream https://github.com/adobe/react-spectrum/issues/2328
         isKeyboardNavigationDisabled
@@ -108,7 +112,7 @@ export const DataTable = <T extends object>({
         </RAC.TableHeader>
 
         {/* Body */}
-        <RAC.TableBody className={styles.body()}>
+        <RAC.TableBody className={styles.body()} ref={bodyRef}>
           {table.getRowModel().rows.map((row) => (
             <RAC.Row className={styles.row()} id={row.id} key={row.id}>
               {rowRender({

@@ -21,7 +21,7 @@ import { Link } from '@the-dev-tools/ui/link';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useMutate, useQuery } from '~data-client';
 import { rootRouteApi, workspaceRouteApi } from '~routes';
@@ -131,7 +131,7 @@ const Item = ({
 
           {isEditing &&
             escape.render(
-              <TextField
+              <TextInputField
                 aria-label='Workspace name'
                 className={tw`justify-self-start`}
                 inputClassName={tw`-mt-1 py-1 text-md leading-none font-semibold tracking-tight text-slate-800`}

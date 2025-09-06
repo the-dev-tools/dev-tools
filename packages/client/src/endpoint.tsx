@@ -55,17 +55,16 @@ import {
 } from '@the-dev-tools/spec/meta/collection/item/response/v1/response.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
-import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { useRemoveTab } from '@the-dev-tools/ui/router';
-import { Select } from '@the-dev-tools/ui/select';
+import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { formatSize } from '@the-dev-tools/ui/utils';
 import { enumToString, GenericMessage } from '~api/utils';
 import {
@@ -427,9 +426,9 @@ export const useEndpointUrlForm = ({
         triggerClassName={tw`border-none p-0`}
       >
         {methods.map((_) => (
-          <ListBoxItem id={_} key={_} textValue={_}>
+          <SelectItem id={_} key={_} textValue={_}>
             <MethodBadge method={_} size='lg' />
-          </ListBoxItem>
+          </SelectItem>
         ))}
       </Select>
 
@@ -497,7 +496,7 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
           })}
 
           {isEditing ? (
-            <TextField
+            <TextInputField
               aria-label='Example name'
               inputClassName={tw`-my-1 py-1 leading-none text-slate-800`}
               isDisabled={exampleUpdateLoading}
@@ -606,7 +605,7 @@ const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
   const { items: versions } = useQuery(ExampleVersionsEndpoint, { exampleId });
 
   return (
-    <Modal isDismissable modalSize='lg'>
+    <Modal isDismissable size='lg'>
       <Dialog className={tw`size-full outline-hidden`}>
         <Tabs className={tw`flex h-full`} orientation='vertical'>
           <div className={tw`flex w-64 flex-col border-r border-slate-200 bg-slate-50 p-4 tracking-tight`}>
@@ -1006,9 +1005,9 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
         triggerClassName={tw`px-4 py-1`}
       >
         {CodeMirrorMarkupLanguages.map((_) => (
-          <ListBoxItem id={_} key={_}>
+          <SelectItem id={_} key={_}>
             {_}
-          </ListBoxItem>
+          </SelectItem>
         ))}
       </Select>
 
@@ -1033,7 +1032,10 @@ const ResponseHeaderTable = ({ responseId }: ResponseHeaderTableProps) => {
 
   const columns = useMemo(() => {
     const { accessor } = createColumnHelper<ResponseHeaderListItem>();
-    return [accessor('key', {}), accessor('value', {})];
+    return [
+      accessor('key', { cell: ({ cell }) => <div className={tw`px-5 py-1.5`}>{cell.renderValue()}</div> }),
+      accessor('value', { cell: ({ cell }) => <div className={tw`px-5 py-1.5`}>{cell.renderValue()}</div> }),
+    ];
   }, []);
 
   const table = useReactTable({
@@ -1041,7 +1043,7 @@ const ResponseHeaderTable = ({ responseId }: ResponseHeaderTableProps) => {
     data: items,
   });
 
-  return <DataTable cellClassName={tw`px-5 py-1.5`} table={table} tableAria-label='Response headers' />;
+  return <DataTable aria-label='Response headers' table={table} />;
 };
 
 interface ResponseAssertTableProps {

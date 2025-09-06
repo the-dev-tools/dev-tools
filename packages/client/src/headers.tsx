@@ -62,7 +62,7 @@ const DisplayTable = ({ exampleId }: DisplayTableProps) => {
     data: items,
   });
 
-  return <DataTable {...displayTable<GenericMessage<HeaderListItem>>()} table={table} tableAria-label='Headers' />;
+  return <DataTable {...displayTable<GenericMessage<HeaderListItem>>()} aria-label='Headers' table={table} />;
 };
 
 interface FormTableProps {
@@ -109,7 +109,7 @@ const FormTable = ({ exampleId }: FormTableProps) => {
     renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
-  return <DataTable {...formTable} table={table} tableAria-label='Headers' tableDragAndDropHooks={dragAndDropHooks} />;
+  return <DataTable {...formTable} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />;
 };
 
 interface DeltaFormTableProps {
@@ -160,7 +160,7 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       getRowId={(_) => Ulid.construct(_.headerId).toCanonical()}
     >
       {(table) => (
-        <DataTable {...formTable} table={table} tableAria-label='Headers' tableDragAndDropHooks={dragAndDropHooks} />
+        <DataTable {...formTable} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />
       )}
     </ReactTableNoMemo>
   );

@@ -13,6 +13,7 @@ import {
   Tabs,
   Tooltip,
   TooltipTrigger,
+  Tree,
 } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiMoreHorizontal } from 'react-icons/fi';
@@ -41,13 +42,12 @@ import {
 } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
-import { JsonTree } from '@the-dev-tools/ui/json-tree';
-import { ListBoxItem } from '@the-dev-tools/ui/list-box';
+import { JsonTreeItem } from '@the-dev-tools/ui/json-tree';
 import { Menu, MenuItem, MenuItemLink, useContextMenuState } from '@the-dev-tools/ui/menu';
-import { Select } from '@the-dev-tools/ui/select';
+import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { GenericMessage } from '~api/utils';
 import { useMutate, useQuery } from '~data-client';
@@ -189,7 +189,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
 
         {isEditing &&
           escape.render(
-            <TextField
+            <TextInputField
               aria-label='New node name'
               inputClassName={tw`-mx-2 mt-2 bg-white py-0.75`}
               isDisabled={nodeUpdateLoading}
@@ -304,12 +304,12 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
           <Select
             aria-label='Node execution'
             isOpen={isOpen}
-            listBoxItems={listBoxItems}
+            items={listBoxItems}
             onOpenChange={setIsOpen}
             onSelectionChange={setSelectedKey}
             selectedKey={selectedKey}
           >
-            {(_) => <ListBoxItem id={Ulid.construct(_.nodeExecutionId).toCanonical()}>{_.name}</ListBoxItem>}
+            {(_) => <SelectItem id={Ulid.construct(_.nodeExecutionId).toCanonical()}>{_.name}</SelectItem>}
           </Select>
         )}
       </div>
@@ -387,11 +387,21 @@ const NodeExecutionTabs = ({ nodeExecutionId, renderOutput }: NodeExecutionTabsP
             </div>
           }
         >
-          <TabPanel id='input'>{data.input && <JsonTree value={data.input} />}</TabPanel>
+          <TabPanel id='input'>
+            {data.input && (
+              <Tree aria-label='Input values' defaultExpandedKeys={['root']}>
+                <JsonTreeItem jsonValue={data.input} />
+              </Tree>
+            )}
+          </TabPanel>
 
           <TabPanel id='output'>
             {renderOutput?.(data)}
-            {!renderOutput && data.output && <JsonTree value={data.output} />}
+            {!renderOutput && data.output && (
+              <Tree aria-label='Output values' defaultExpandedKeys={['root']}>
+                <JsonTreeItem jsonValue={data.output} />
+              </Tree>
+            )}
           </TabPanel>
         </Suspense>
       </div>

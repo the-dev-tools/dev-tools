@@ -1,6 +1,6 @@
 import { type CollectionProps } from '@react-aria/collections';
 import { AnyRouter, LinkOptions, RegisteredRouter } from '@tanstack/react-router';
-import { ReactNode, useState } from 'react';
+import { ComponentProps, ReactNode, useState } from 'react';
 import * as RAC from 'react-aria-components';
 import { FiMove } from 'react-icons/fi';
 import { Button } from './button';
@@ -16,6 +16,7 @@ export interface TreeItemProps<T extends object> extends Omit<RAC.TreeItemProps,
   isLoading?: boolean;
   item?: CollectionProps<T>['children'];
   items?: T[];
+  onContextMenu?: ComponentProps<'div'>['onContextMenu'];
   onExpand?: () => void;
   textValue?: RAC.TreeItemProps['textValue'];
 }
@@ -26,6 +27,7 @@ export const TreeItem = <T extends object>({
   isLoading,
   item,
   items,
+  onContextMenu,
   onExpand,
   textValue,
   ...props
@@ -96,6 +98,7 @@ export const TreeItem = <T extends object>({
           return (
             <div
               className={tw`relative z-0 flex items-center gap-2`}
+              onContextMenu={onContextMenu}
               style={{ paddingInlineStart: ((level - 1) * (20 / 16)).toString() + 'rem' }}
             >
               {icon}

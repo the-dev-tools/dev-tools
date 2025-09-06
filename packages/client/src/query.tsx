@@ -63,7 +63,7 @@ const DisplayTable = ({ exampleId }: DisplayTableProps) => {
     data: items,
   });
 
-  return <DataTable {...displayTable<GenericMessage<QueryListItem>>()} table={table} tableAria-label='Query items' />;
+  return <DataTable {...displayTable<GenericMessage<QueryListItem>>()} aria-label='Query items' table={table} />;
 };
 
 interface FormTableProps {
@@ -111,12 +111,7 @@ const FormTable = ({ exampleId }: FormTableProps) => {
       getRowId={(_) => Ulid.construct(_.queryId).toCanonical()}
     >
       {(table) => (
-        <DataTable
-          {...formTable}
-          table={table}
-          tableAria-label='Query items'
-          tableDragAndDropHooks={dragAndDropHooks}
-        />
+        <DataTable {...formTable} aria-label='Query items' dragAndDropHooks={dragAndDropHooks} table={table} />
       )}
     </ReactTableNoMemo>
   );
@@ -170,12 +165,7 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       getRowId={(_) => Ulid.construct(_.queryId).toCanonical()}
     >
       {(table) => (
-        <DataTable
-          {...formTable}
-          table={table}
-          tableAria-label='Query items'
-          tableDragAndDropHooks={dragAndDropHooks}
-        />
+        <DataTable {...formTable} aria-label='Query items' dragAndDropHooks={dragAndDropHooks} table={table} />
       )}
     </ReactTableNoMemo>
   );

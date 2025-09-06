@@ -4,7 +4,7 @@ import { mergeProps } from 'react-aria';
 import * as RAC from 'react-aria-components';
 import { FieldPath, FieldValues, useController, UseControllerProps } from 'react-hook-form';
 import { FiCheckCircle, FiChevronDown } from 'react-icons/fi';
-import { Button } from './button';
+import { Button, ButtonProps } from './button';
 import { FieldError, type FieldErrorProps, FieldLabel, type FieldLabelProps } from './field';
 import { ListBox, ListBoxItem, ListBoxItemProps, ListBoxProps } from './list-box';
 import { Popover } from './popover';
@@ -16,23 +16,35 @@ import { composeTailwindRenderProps, composeTextValueProps } from './utils';
 
 export interface SelectProps<T extends object>
   extends Omit<RAC.SelectProps<T>, 'children'>,
+    Pick<ListBoxProps<T>, 'children' | 'items'>,
     RefAttributes<HTMLDivElement> {
-  children?: ListBoxProps<T>['children'];
   error?: FieldErrorProps['children'];
   label?: FieldLabelProps['children'];
+  triggerClassName?: ButtonProps['className'];
+  triggerVariant?: ButtonProps['variant'];
   value?: RAC.SelectValueProps<T>['children'];
 }
 
-export const Select = <T extends object>({ children, className, error, label, value, ...props }: SelectProps<T>) => (
+export const Select = <T extends object>({
+  children,
+  className,
+  error,
+  items,
+  label,
+  triggerClassName,
+  triggerVariant,
+  value,
+  ...props
+}: SelectProps<T>) => (
   <RAC.Select {...props} className={composeTailwindRenderProps(className, tw`group flex flex-col gap-1`)}>
     {label && <FieldLabel>{label}</FieldLabel>}
-    <Button>
+    <Button className={triggerClassName!} variant={triggerVariant}>
       <RAC.SelectValue>{value}</RAC.SelectValue>
       <FiChevronDown className={tw`-mr-1 size-4 text-slate-500 transition-transform group-open:rotate-180`} />
     </Button>
     {error && <FieldError>{error}</FieldError>}
     <Popover>
-      <ListBox>{children}</ListBox>
+      <ListBox items={items!}>{children}</ListBox>
     </Popover>
   </RAC.Select>
 );

@@ -30,7 +30,7 @@ import { FileDropZone } from '@the-dev-tools/ui/file-drop-zone';
 import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField } from '@the-dev-tools/ui/text-field';
+import { TextInputField } from '@the-dev-tools/ui/text-field';
 import { matchAllEndpoint, setQueryChild } from '~data-client';
 import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 
@@ -72,15 +72,15 @@ export const ImportDialog = () => {
         Import Postman or HAR files
       </div>
 
-      <TextField
+      <TextInputField
         className={tw`mt-4`}
-        inputPlaceholder='Paste cURL, Raw text or URL...'
         label='Text value'
         onChange={setText}
+        placeholder='Paste cURL, Raw text or URL...'
         value={text}
       />
 
-      <FileDropZone dropZoneClassName={tw`mt-4 flex-1`} files={files} onChange={setFiles} />
+      <FileDropZone className={tw`mt-4 flex-1`} files={files} onChange={setFiles} />
     </>
   );
 
@@ -137,32 +137,32 @@ export const ImportDialog = () => {
         import.
       </div>
 
-      <div className={twMerge(tableStyles.wrapper, tw`mt-4 flex-1`)}>
+      <div className={twMerge(tableStyles().container(), tw`mt-4 flex-1`)}>
         <Table
           aria-label='Filters'
-          className={twMerge(tableStyles.table, tw`grid-cols-[auto_1fr]`)}
+          className={twMerge(tableStyles().base(), tw`grid-cols-[auto_1fr]`)}
           onSelectionChange={setSelectedFilters}
           selectedKeys={selectedFilters}
           selectionMode='multiple'
         >
-          <TableHeader className={twMerge(tableStyles.header, tw`sticky top-0 z-10`)}>
-            <Column className={twMerge(tableStyles.headerColumn, tw`!border-r-0 px-2`)}>
-              <Checkbox slot='selection' variant='table-cell' />
+          <TableHeader className={twMerge(tableStyles().header(), tw`sticky top-0 z-10`)}>
+            <Column className={twMerge(tableStyles().headerColumn(), tw`!border-r-0 px-2`)}>
+              <Checkbox isTableCell slot='selection' />
             </Column>
-            <Column className={tableStyles.headerColumn} isRowHeader>
+            <Column className={tableStyles().headerColumn()} isRowHeader>
               Domain
             </Column>
           </TableHeader>
 
-          <TableBody className={tableStyles.body} items={filters.map((value, index) => ({ index, value }))}>
+          <TableBody className={tableStyles().body()} items={filters.map((value, index) => ({ index, value }))}>
             {(_) => (
-              <Row className={twMerge(tableStyles.row, tw`cursor-pointer`)} id={_.index}>
-                <Cell className={twMerge(tableStyles.cell, tw`!border-r-0`)}>
+              <Row className={twMerge(tableStyles().row(), tw`cursor-pointer`)} id={_.index}>
+                <Cell className={twMerge(tableStyles().cell(), tw`!border-r-0`)}>
                   <div className={tw`flex justify-center`}>
-                    <Checkbox slot='selection' variant='table-cell' />
+                    <Checkbox isTableCell slot='selection' />
                   </div>
                 </Cell>
-                <Cell className={twMerge(tableStyles.cell, tw`px-5 py-1.5`)}>{_.value}</Cell>
+                <Cell className={twMerge(tableStyles().cell(), tw`px-5 py-1.5`)}>{_.value}</Cell>
               </Row>
             )}
           </TableBody>
@@ -237,7 +237,7 @@ export const ImportDialog = () => {
         </Tooltip>
       </TooltipTrigger>
 
-      <Modal modalStyle={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
+      <Modal style={{ maxHeight: 'max(40vh, min(32rem, 90vh))', maxWidth: 'max(40vw, min(40rem, 90vw))' }}>
         <Dialog className={tw`flex h-full flex-col overflow-auto outline-hidden`}>
           <div className={tw`flex h-full min-h-0 flex-1 flex-col overflow-auto p-6`}>
             <div className={tw`flex items-center justify-between`}>

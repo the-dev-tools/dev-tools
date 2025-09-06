@@ -8,7 +8,7 @@ import { FieldError, type FieldErrorProps, FieldLabel, type FieldLabelProps } fr
 import { focusVisibleRingStyles } from './focus-ring';
 import { controllerPropKeys, ControllerPropKeys } from './react-hook-form';
 import { tw } from './tailwind-literal';
-import { composeTailwindRenderProps } from './utils';
+import { composeStyleRenderProps, composeTailwindRenderProps } from './utils';
 
 // Editable text state
 
@@ -89,11 +89,18 @@ export const textInputFieldStyles = tv({
 export interface TextInputFieldProps
   extends Omit<TextFieldProps, 'children'>,
     RefAttributes<HTMLInputElement>,
-    VariantProps<typeof textInputFieldStyles> {}
+    VariantProps<typeof textInputFieldStyles> {
+  inputClassName?: RAC.InputProps['className'];
+  placeholder?: RAC.InputProps['placeholder'];
+}
 
-export const TextInputField = ({ className = '', ref, ...props }: TextInputFieldProps) => (
+export const TextInputField = ({ className = '', inputClassName, placeholder, ref, ...props }: TextInputFieldProps) => (
   <TextField {...props} className={className}>
-    <RAC.Input className={textInputFieldStyles(props)} ref={ref} />
+    <RAC.Input
+      className={composeStyleRenderProps(inputClassName, textInputFieldStyles)}
+      placeholder={placeholder}
+      ref={ref}
+    />
   </TextField>
 );
 

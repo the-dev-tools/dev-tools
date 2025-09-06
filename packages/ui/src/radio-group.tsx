@@ -9,7 +9,7 @@ import { composeStyleRenderProps } from './utils';
 
 export const radioGroupStyles = tv({
   slots: {
-    base: tw`group flex flex-col gap-2`,
+    base: tw`flex flex-col gap-2`,
     container: tw`flex`,
   },
   variants: {
@@ -49,7 +49,7 @@ export const RadioGroup = ({ children, className, error, label, ...props }: Radi
 export const radioStyles = tv({
   slots: {
     base: tw`
-      group flex cursor-pointer items-center gap-1.5 text-md leading-5 font-medium tracking-tight text-slate-800
+      group/radio flex cursor-pointer items-center gap-1.5 text-md leading-5 font-medium tracking-tight text-slate-800
 
       disabled:text-gray-300
     `,
@@ -59,15 +59,15 @@ export const radioStyles = tv({
       tw`
         size-4 rounded-full border border-slate-200 bg-white
 
-        invalid:border-red-700 invalid:bg-red-700
+        group-invalid/radio:border-red-700 group-invalid/radio:bg-red-700
 
-        disabled:border-slate-200 disabled:bg-slate-200
+        group-disabled/radio:border-slate-200 group-disabled/radio:bg-slate-200
 
-        pressed:not-selected:border-slate-400
+        group-pressed/radio:not-selected:border-slate-400
 
-        invalid:pressed:border-red-800
+        group-selected/radio:border-violet-600 group-selected/radio:bg-violet-600
 
-        selected:border-violet-600 selected:bg-violet-600
+        group-invalid/radio:pressed:border-red-800
       `,
     ],
 

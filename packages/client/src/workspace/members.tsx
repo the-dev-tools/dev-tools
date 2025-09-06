@@ -2,7 +2,7 @@ import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
 import { WorkspaceMemberCreateEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
-import { TextField } from '@the-dev-tools/ui/text-field';
+import { TextInputField } from '@the-dev-tools/ui/text-field';
 import { rootRouteApi, workspaceRouteApi } from '~routes';
 
 class InviteForm extends Schema.Class<InviteForm>('WorkspaceInviteForm')({
@@ -33,7 +33,7 @@ export function Page() {
           }).pipe(Runtime.runPromise(runtime))
         }
       >
-        <TextField inputPlaceholder='Email' isRequired label='Invite new member:' name='email' type='email' />
+        <TextInputField isRequired label='Invite new member:' name='email' placeholder='Email' type='email' />
         <Button type='submit'>Send invite</Button>
       </Form>
     </div>

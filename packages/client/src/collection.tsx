@@ -53,7 +53,7 @@ import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { TextField, useEditableTextState } from '@the-dev-tools/ui/text-field';
+import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useConnectMutation } from '~/api/connect-query';
@@ -280,14 +280,13 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
   return (
     <TreeItem
-      childItem={mapCollectionItemTree(collectionId)}
-      childItems={childItems}
-      expandButtonIsForced={!enabled}
-      expandButtonOnPress={() => void setEnabled(true)}
       id={pipe(new CollectionKey({ collectionId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      loading={loading}
+      isLoading={loading}
+      item={mapCollectionItemTree(collectionId)}
+      items={childItems}
+      onContextMenu={onContextMenu}
+      onExpand={() => void setEnabled(true)}
       textValue={collection.name}
-      wrapperOnContextMenu={onContextMenu}
     >
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
         {collection.name}
@@ -295,7 +294,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
       {isEditing &&
         escape.render(
-          <TextField
+          <TextInputField
             aria-label='Collection name'
             className={tw`w-full`}
             inputClassName={tw`-my-1 py-1`}
@@ -421,14 +420,13 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
   return (
     <TreeItem
-      childItem={mapCollectionItemTree(collectionId, folderId)}
-      childItems={childItems}
-      expandButtonIsForced={!enabled}
-      expandButtonOnPress={() => void setEnabled(true)}
       id={pipe(new FolderKey({ collectionId, folderId, parentFolderId }), Schema.encodeSync(TreeKey), JSON.stringify)}
-      loading={loading}
+      isLoading={loading}
+      item={mapCollectionItemTree(collectionId, folderId)}
+      items={childItems}
+      onContextMenu={onContextMenu}
+      onExpand={() => void setEnabled(true)}
       textValue={folder.name}
-      wrapperOnContextMenu={onContextMenu}
     >
       {({ isExpanded }) => (
         <>
@@ -444,7 +442,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
           {isEditing &&
             escape.render(
-              <TextField
+              <TextInputField
                 aria-label='Folder name'
                 className={tw`w-full`}
                 inputClassName={tw`-my-1 py-1`}
@@ -578,7 +576,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
       {isEditing &&
         escape.render(
-          <TextField
+          <TextInputField
             aria-label='Endpoint name'
             className={tw`w-full`}
             inputClassName={tw`-my-1 py-1`}
@@ -651,31 +649,25 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   );
 
   const props = {
-    childItem: (_) => {
-      const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
-      return <ExampleItem collectionId={collectionId} endpointId={endpointId} example={_} id={exampleIdCan} />;
-    },
-    childItems: childItems,
-    expandButtonIsForced: !enabled,
-    expandButtonOnPress: () => void setEnabled(true),
+    children: content,
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
     id: pipe(
       new EndpointKey({ collectionId, endpointId, exampleId, parentFolderId }),
       Schema.encodeSync(TreeKey),
       JSON.stringify,
     ),
-    isActive: toNavigate && matchRoute(route) !== false,
-    loading: loading,
+    isLoading: loading,
+    item: (_) => {
+      const exampleIdCan = Ulid.construct(_.exampleId).toCanonical();
+      return <ExampleItem collectionId={collectionId} endpointId={endpointId} example={_} id={exampleIdCan} />;
+    },
+    items: childItems,
+    onContextMenu: onContextMenu,
+    onExpand: () => void setEnabled(true),
     textValue: name,
-    wrapperOnContextMenu: onContextMenu,
   } satisfies TreeItemProps<ExampleListItem>;
 
-  return toNavigate ? (
-    <TreeItemLink {...props} {...route}>
-      {content}
-    </TreeItemLink>
-  ) : (
-    <TreeItem {...props}>{content}</TreeItem>
-  );
+  return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
 interface ExampleItemProps {
@@ -732,7 +724,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
 
       {isEditing &&
         escape.render(
-          <TextField
+          <TextInputField
             aria-label='Example name'
             className={tw`w-full`}
             inputClassName={tw`-my-1 py-1`}
@@ -777,17 +769,12 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
   );
 
   const props = {
+    children: content,
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
     id: pipe(new ExampleKey({ collectionId, endpointId, exampleId }), Schema.encodeSync(TreeKey), JSON.stringify),
-    isActive: toNavigate && matchRoute(route) !== false,
+    onContextMenu: onContextMenu,
     textValue: name,
-    wrapperOnContextMenu: onContextMenu,
   } satisfies TreeItemProps<object>;
 
-  return toNavigate ? (
-    <TreeItemLink {...props} {...route}>
-      {content}
-    </TreeItemLink>
-  ) : (
-    <TreeItem {...props}>{content}</TreeItem>
-  );
+  return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;
 };

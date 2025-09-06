@@ -7,9 +7,8 @@ import { ErrorHandling } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, ForIcon } from '@the-dev-tools/ui/icons';
-import { ListBoxItem } from '@the-dev-tools/ui/list-box';
 import { NumberFieldRHF } from '@the-dev-tools/ui/number-field';
-import { SelectRHF } from '@the-dev-tools/ui/select';
+import { SelectItem, SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { rootRouteApi } from '~routes';
 import { ConditionField } from '../../condition';
@@ -127,9 +126,9 @@ export const ForPanel = ({ node: { for: data, nodeId } }: NodePanelProps) => {
           name='errorHandling'
           triggerClassName={tw`min-w-[30%] justify-between justify-self-start`}
         >
-          <ListBoxItem id={ErrorHandling.UNSPECIFIED}>Throw</ListBoxItem>
-          <ListBoxItem id={ErrorHandling.IGNORE}>Ignore</ListBoxItem>
-          <ListBoxItem id={ErrorHandling.BREAK}>Break</ListBoxItem>
+          <SelectItem id={ErrorHandling.UNSPECIFIED}>Throw</SelectItem>
+          <SelectItem id={ErrorHandling.IGNORE}>Ignore</SelectItem>
+          <SelectItem id={ErrorHandling.BREAK}>Break</SelectItem>
         </SelectRHF>
       </div>
 

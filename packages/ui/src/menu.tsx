@@ -1,4 +1,4 @@
-import { MouseEventHandler, RefObject, useCallback, useRef, useState } from 'react';
+import { RefObject, useCallback, useRef, useState } from 'react';
 import * as RAC from 'react-aria-components';
 import { tv, VariantProps } from 'tailwind-variants';
 import { listBoxItemStyles, listBoxStyles } from './list-box';
@@ -43,20 +43,17 @@ export const useContextMenuState = () => {
     isOpen: boolean;
   }>({ isOpen: false });
 
-  const onContextMenu = useCallback<MouseEventHandler>(
-    (event: React.MouseEvent, offset?: ContextMenuPosition, zoom = 1) => {
-      setState({
-        contextMenuPosition: {
-          left: (event.pageX - (offset?.left ?? 0)) / zoom,
-          top: (event.pageY - (offset?.top ?? 0)) / zoom,
-        },
-        isOpen: true,
-      });
+  const onContextMenu = useCallback((event: React.MouseEvent, offset?: ContextMenuPosition, zoom = 1) => {
+    setState({
+      contextMenuPosition: {
+        left: (event.pageX - (offset?.left ?? 0)) / zoom,
+        top: (event.pageY - (offset?.top ?? 0)) / zoom,
+      },
+      isOpen: true,
+    });
 
-      event.preventDefault();
-    },
-    [],
-  );
+    event.preventDefault();
+  }, []);
 
   const onOpenChange = useCallback((isOpen: boolean) => void setState({ isOpen }), []);
 
