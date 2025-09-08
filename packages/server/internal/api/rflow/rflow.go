@@ -1988,7 +1988,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							logLevel = logconsole.LogLevelUnspecified
 						}
 
-						localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s:%s: %s", nameForLog, idStrForLog, stateStrForLog), logLevel, refs)
+						// Log only the node name and state (omit ID in the title)
+						localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", nameForLog, stateStrForLog), logLevel, refs)
 						if localErr != nil {
 							// Check if we should still try to send the error
 							if !channelsClosed.Load() {
