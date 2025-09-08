@@ -16,7 +16,7 @@ import {
   LRLanguage,
   syntaxHighlighting,
 } from '@codemirror/language';
-import { EditorSelection, Extension, Prec, Text } from '@codemirror/state';
+import { ChangeSpec, EditorSelection, EditorState, Extension, Text } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { Client } from '@connectrpc/connect';
 import { styleTags, tags } from '@lezer/highlight';
@@ -318,12 +318,34 @@ const expressionBracketSpacing = EditorView.updateListener.of((update) => {
   });
 });
 
-export const disableEnterKeymap = pipe(keymap.of([{ key: 'Enter', run: () => true }]), Prec.high);
+// https://discuss.codemirror.net/t/codemirror-6-single-line-and-or-avoid-carriage-return/2979/8
+const singleLineModeExtension = EditorState.transactionFilter.of((tr) => {
+  if (tr.changes.empty) return tr;
+  if (tr.newDoc.lines > 1 && !tr.isUserEvent('input.paste')) {
+    return [];
+  }
+
+  const removeNLs: ChangeSpec[] = [];
+  tr.changes.iterChanges((_fromA, _toA, fromB, _toB, ins) => {
+    const lineIter = ins.iterLines().next();
+    if (ins.lines <= 1) return;
+    // skip the first line
+    let len = fromB + lineIter.value.length;
+    lineIter.next();
+    // for the next lines, remove the leading NL
+    for (; !lineIter.done; lineIter.next()) {
+      removeNLs.push({ from: len, to: len + 1 });
+      len += lineIter.value.length + 1;
+    }
+  });
+
+  return [tr, { changes: removeNLs, sequential: true }];
+});
 
 const keymaps = keymap.of([...standardKeymap, ...historyKeymap, ...closeBracketsKeymap, ...completionKeymap]);
 
 export interface BaseCodeMirrorExtensionProps extends LanguageProps {
-  disableEnter?: boolean;
+  singleLineMode?: boolean;
 }
 
 // Additional handler to trigger completions in JSON strings
@@ -362,7 +384,7 @@ const jsonStringCompletionHandler = EditorView.updateListener.of((update) => {
   }
 });
 
-export const baseCodeMirrorExtensions = ({ disableEnter, ...props }: BaseCodeMirrorExtensionProps): Extension[] => {
+export const baseCodeMirrorExtensions = ({ singleLineMode, ...props }: BaseCodeMirrorExtensionProps): Extension[] => {
   const extensions = [
     keymaps,
     history(),
@@ -379,7 +401,7 @@ export const baseCodeMirrorExtensions = ({ disableEnter, ...props }: BaseCodeMir
     language(props),
   ];
 
-  if (disableEnter) extensions.push(disableEnterKeymap);
+  if (singleLineMode) extensions.push(singleLineModeExtension);
 
   return extensions;
 };
