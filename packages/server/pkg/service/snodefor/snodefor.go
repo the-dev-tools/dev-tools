@@ -64,17 +64,14 @@ func (nfs NodeForService) GetNodeFor(ctx context.Context, id idwrap.IDWrap) (*mn
 }
 
 func (nfs NodeForService) CreateNodeFor(ctx context.Context, nf mnfor.MNFor) error {
-	// Default ErrorHandling to IGNORE if unspecified
-	if nf.ErrorHandling == mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED {
-		nf.ErrorHandling = mnfor.ErrorHandling_ERROR_HANDLING_IGNORE
-	}
-	nodeFor := ConvertToDBNodeFor(nf)
-	return nfs.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams{
-		FlowNodeID:    nodeFor.FlowNodeID,
-		IterCount:     nodeFor.IterCount,
-		ErrorHandling: nodeFor.ErrorHandling,
-		Expression:    nodeFor.Expression,
-	})
+    // Preserve UNSPECIFIED to allow default "throw" semantics in flow runner.
+    nodeFor := ConvertToDBNodeFor(nf)
+    return nfs.queries.CreateFlowNodeFor(ctx, gen.CreateFlowNodeForParams{
+        FlowNodeID:    nodeFor.FlowNodeID,
+        IterCount:     nodeFor.IterCount,
+        ErrorHandling: nodeFor.ErrorHandling,
+        Expression:    nodeFor.Expression,
+    })
 }
 
 func (nfs NodeForService) CreateNodeForBulk(ctx context.Context, nf []mnfor.MNFor) error {

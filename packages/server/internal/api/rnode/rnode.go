@@ -978,18 +978,13 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		forNode := rpcNode.For
 		condition := tcondition.DeserializeConditionRPCToModel(forNode.Condition)
 
-		forNodeConverted := &mnfor.MNFor{
-			FlowNodeID:    nodeID,
-			IterCount:     int64(forNode.Iterations),
-			Condition:     condition,
-			ErrorHandling: mnfor.ErrorHandling(forNode.ErrorHandling),
-		}
-
-		// Default ErrorHandling to IGNORE if client omitted or sent UNSPECIFIED
-		if forNodeConverted.ErrorHandling == mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED {
-			forNodeConverted.ErrorHandling = mnfor.ErrorHandling_ERROR_HANDLING_IGNORE
-		}
-		subNode = forNodeConverted
+    forNodeConverted := &mnfor.MNFor{
+        FlowNodeID:    nodeID,
+        IterCount:     int64(forNode.Iterations),
+        Condition:     condition,
+        ErrorHandling: mnfor.ErrorHandling(forNode.ErrorHandling),
+    }
+    subNode = forNodeConverted
 	case nodev1.NodeKind_NODE_KIND_FOR_EACH:
 		var iterpath string
 
