@@ -83,10 +83,10 @@ export const BodyView = ({ deltaExampleId, exampleId, isReadOnly }: BodyViewProp
   const { bodyKind } = useQuery(ExampleGetEndpoint, { exampleId });
 
   return (
-    <div className='grid flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4'>
+    <div className={tw`grid h-full flex-1 grid-cols-[auto_1fr] grid-rows-[auto_1fr] items-start gap-4`}>
       <RadioGroup
         aria-label='Body type'
-        className='h-7 justify-center'
+        className={tw`h-7 justify-center`}
         isReadOnly={isReadOnly ?? false}
         onChange={(key) => dataClient.fetch(ExampleUpdateEndpoint, { bodyKind: parseInt(key), exampleId })}
         orientation='horizontal'
@@ -450,7 +450,7 @@ const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
     <>
       <Select
         aria-label='Language'
-        className='self-center justify-self-start'
+        className={tw`self-center justify-self-start`}
         onSelectionChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
         selectedKey={language}
         triggerClassName={tw`px-4 py-1`}
@@ -463,7 +463,7 @@ const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
       </Select>
 
       <CodeMirror
-        className='col-span-full self-stretch'
+        className={tw`col-span-full self-stretch`}
         extensions={combinedExtensions}
         height='100%'
         onBlur={() =>

@@ -252,7 +252,7 @@ export const EndpointRequestView = ({ className, deltaExampleId, exampleId, isRe
           <HeaderTable deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
         </TabPanel>
 
-        <TabPanel id='body'>
+        <TabPanel className={tw`h-full`} id='body'>
           <BodyView deltaExampleId={deltaExampleId} exampleId={exampleId} isReadOnly={isReadOnly} />
         </TabPanel>
 
