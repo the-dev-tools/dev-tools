@@ -106,10 +106,10 @@ export const runExample = ({ method, name }: MakeEndpointProps<typeof ExampleSer
   const endpointFn = async (props: EndpointProps<typeof ExampleService.method.exampleRun>) => {
     const output = await makeEndpointFn(method)(props);
 
-    const example = create(ExampleSchema, {
-      exampleId: props.input.exampleId!,
-      lastResponseId: output.response!.responseId,
-    });
+    const snapshot = props.controller().snapshot(props.controller().getState());
+
+    const oldExample = snapshot.get(ExampleEntity, { exampleId: props.input.exampleId! }) ?? {};
+    const example = create(ExampleSchema, { ...oldExample, lastResponseId: output.response!.responseId });
 
     return { ...output, example };
   };
