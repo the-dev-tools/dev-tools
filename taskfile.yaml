@@ -5,6 +5,7 @@ output: prefixed
 
 tasks:
   default:
+    interactive: true
     silent: true
     cmd: task --list --sort=none --output=interleaved
 
@@ -69,3 +70,12 @@ tasks:
     desc: Start the Storybook composition
     interactive: true
     cmd: nx run storybook:storybook
+
+  version-plan:
+    interactive: true
+    desc: Create a version plan for the specified project
+    requires:
+      vars:
+        - name: project
+          enum: [api-recorder-extension, desktop, cli]
+    cmd: nx release plan --onlyTouched=false --projects={{.project}}
