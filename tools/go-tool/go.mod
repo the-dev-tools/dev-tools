@@ -3,6 +3,7 @@ module tools
 go 1.24.1
 
 tool (
+	connectrpc.com/connect/cmd/protoc-gen-connect-go
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	github.com/sqlc-dev/sqlc/cmd/sqlc
 	google.golang.org/protobuf/cmd/protoc-gen-go
