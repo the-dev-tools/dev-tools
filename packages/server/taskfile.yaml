@@ -14,6 +14,33 @@ tasks:
     desc: Clean build artifacts
     cmd: rm -rf {{.BIN_DIR}}
 
+  build:release:
+    desc: Build release binary with version and platform
+    vars:
+      VERSION_DEFAULT:
+        sh: node -e "console.log(require('./package.json').version)"
+      ENV:
+        sh: >-
+          jq --raw-output \
+            '."{{.PLATFORM}}".go
+              | to_entries
+              | map("\(.key)=\(.value)")
+              | join(" ")' \
+            platforms.json
+      BINARY_SUFFIX:
+        sh: >-
+          jq --raw-output \
+            '."{{.PLATFORM}}"."binary-suffix" // ""' \
+            platforms.json
+    cmds:
+      - task: clean
+      - mkdir -p {{.BIN_DIR}}
+      - >-
+        {{.ENV}} go build \
+          -ldflags="-X main.Version={{.VERSION | default .VERSION_DEFAULT}}" \
+          -o {{.BIN_DIR}}/devtools-server-{{.VERSION | default .VERSION_DEFAULT}}-{{.PLATFORM}}{{.BINARY_SUFFIX}} \
+          {{.SOURCE_PATH}}
+
   build:*:
     desc: Build for specified platform
     vars:

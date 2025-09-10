@@ -21,6 +21,8 @@ jobs:
             platform: win32-x64
           - runner: windows-latest
             platform: win32-ia32
+          - runner: windows-latest
+            platform: win32-arm64
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: write

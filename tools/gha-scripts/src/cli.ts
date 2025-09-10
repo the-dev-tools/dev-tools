@@ -85,6 +85,7 @@ const ReleaseWorkflows: Record<string, ReleaseWorkflow> = {
   desktop: 'release-electron-builder.yaml',
   web: 'release-cloudflare-pages.yaml',
   cli: 'release-go.yaml',
+  server: 'release-go.yaml',
 };
 
 const release = CliCommand.make(
@@ -152,20 +153,43 @@ const uploadElectronReleaseAssets = CliCommand.make(
 
     const dist = path.join(projectRoot, 'dist');
 
+    const pickPlatformArchForLatest = (file: string) => {
+      // Infer platform + arch from filename to support multi-arch builds per runner
+      // electron-builder emits:
+      //   - Windows: latest.yml, latest-arm64.yml, latest-ia32.yml
+      //   - macOS:  latest-mac.yml (runner-specific arch)
+      //   - Linux:  latest-linux.yml (runner-specific arch)
+      const lower = file.toLowerCase();
+      let platform: NodeJS.Platform = process.platform as NodeJS.Platform;
+      if (lower.startsWith('latest-mac')) platform = 'darwin';
+      else if (lower.startsWith('latest-linux')) platform = 'linux';
+      else if (lower.startsWith('latest')) platform = 'win32';
+
+      let arch: string = process.arch;
+      if (/-arm64\.yml$/i.test(file)) arch = 'arm64';
+      else if (/-ia32\.yml$/i.test(file)) arch = 'ia32';
+
+      return { platform, arch } as const;
+    };
+
     yield* pipe(
       yield* fs.readDirectory(dist),
       Array.filterMap(
         flow(
           Match.value,
 
-          // Auto update meta
+          // Auto update meta (rename to our custom per-platform/arch scheme)
           Match.when(String.startsWith('latest'), (file) =>
-            Option.some(
-              repo.uploadReleaseAsset({
-                name: `latest-${process.platform}-${process.arch}.yml`,
-                path: path.join(dist, file),
-                releaseId,
-              }),
+            pipe(
+              pickPlatformArchForLatest(file),
+              ({ platform, arch }) =>
+                Option.some(
+                  repo.uploadReleaseAsset({
+                    name: `latest-${platform}-${arch}.yml`,
+                    path: path.join(dist, file),
+                    releaseId,
+                  }),
+                ),
             ),
           ),
 

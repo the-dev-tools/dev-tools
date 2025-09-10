@@ -1,7 +1,7 @@
 import { Command } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { Config, Effect, pipe } from 'effect';
-import { build, type Configuration } from 'electron-builder';
+import { Arch, Platform, build, type Configuration } from 'electron-builder';
 import { fileURLToPath } from 'node:url';
 
 const config: Configuration = {
@@ -31,6 +31,12 @@ const config: Configuration = {
   },
   publish: { provider: 'custom' },
   win: {
+    target: [
+      {
+        target: 'nsis',
+        arch: ['x64', 'arm64'],
+      },
+    ],
     signtoolOptions: {
       sign: (configuration) =>
         pipe(
@@ -65,4 +71,9 @@ const config: Configuration = {
   },
 };
 
-await build({ config, publish: 'never' });
+if (process.platform === 'win32') {
+  // Build both x64 and arm64 in a single Windows job
+  await build({ config, targets: Platform.WINDOWS.createTarget(['nsis'], Arch.x64, Arch.arm64), publish: 'never' });
+} else {
+  await build({ config, publish: 'never' });
+}

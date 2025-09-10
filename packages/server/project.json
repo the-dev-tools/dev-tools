@@ -14,6 +14,13 @@
         "command": "go build -o dist/server cmd/server/server.go"
       }
     },
+    "build:release": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "task build:release VERSION=${VERSION} PLATFORM=${PLATFORM} BINARY_SUFFIX=${BINARY_SUFFIX}"
+      }
+    },
     "dev": {
       "executor": "nx:run-commands",
       "options": {

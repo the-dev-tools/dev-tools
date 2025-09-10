@@ -48,5 +48,13 @@
       "CC": "i686-w64-mingw32-gcc",
       "CXX": "i686-w64-mingw32-g++"
     }
+  },
+  "win32-arm64": {
+    "binary-suffix": ".exe",
+    "go": {
+      "CGO_ENABLED": "0",
+      "GOOS": "windows",
+      "GOARCH": "arm64"
+    }
   }
 }
