@@ -1,3 +1,13 @@
+## 0.3.0 (2025-09-10)
+
+### 🚀 Features
+
+- test ([972a0306](https://github.com/the-dev-tools/dev-tools/commit/972a0306))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.2.0 (2025-09-09)
 
 ### 🚀 Features
