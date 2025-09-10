@@ -52,7 +52,7 @@ func setupCI(t *testing.T) (CollectionItemRPC, context.Context, idwrap.IDWrap, i
     cis := scollectionitem.New(queries, nil)
     res := sexampleresp.New(queries)
 
-    rpc := New(db, cs, &cis, us, ifs, ias, iaes, res)
+    rpc := New(db, cs, cis, us, ifs, ias, iaes, res)
 
     user := idwrap.NewNow()
     ctx := mwauth.CreateAuthedContext(context.Background(), user)
@@ -87,7 +87,7 @@ func TestAppend_Folder_Then_Endpoint_Order(t *testing.T) {
     require.NoError(t, err)
 
     // Create Endpoint E (should append to end after folders)
-    erpc := ritemapi.New(rpc.DB, *rpc.ias, rpc.cs, rpc.ifs, rpc.us, *rpc.iaes, rpc.res, rpc.cis)
+    erpc := ritemapi.New(rpc.DB, rpc.ias, rpc.cs, rpc.ifs, rpc.us, rpc.iaes, rpc.res, rpc.cis)
     _, err = erpc.EndpointCreate(ctx, &connect.Request[endpointv1.EndpointCreateRequest]{Msg: &endpointv1.EndpointCreateRequest{CollectionId: collectionID.Bytes(), Name: "E", Url: "/", Method: "GET"}})
     require.NoError(t, err)
 

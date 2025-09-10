@@ -1,6 +1,7 @@
 package rbody_test
 
 import (
+    "bytes"
     "context"
     "testing"
     "the-dev-tools/server/internal/api/middleware/mwauth"
@@ -166,7 +167,7 @@ func TestUrlEncoded_DeltaMove_After_E2E(t *testing.T) {
     list2, err := rpc.BodyUrlEncodedDeltaList(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaListRequest{ ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes() }))
     if err != nil { t.Fatal(err) }
     last := list2.Msg.Items[len(list2.Msg.Items)-1]
-    if last.BodyId == bID { return }
+    if bytes.Equal(last.BodyId, bID) { return }
     t.Fatalf("expected b to be last after AFTER move; got last key=%s", last.Key)
 }
 

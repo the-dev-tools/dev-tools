@@ -199,8 +199,8 @@ func (d *dbTestData) validateDatabaseLinkedList(expectedCount int, testContext s
 // TestDatabaseForeignKeyConstraints tests that foreign key constraints prevent orphaned references
 func TestDatabaseForeignKeyConstraints(t *testing.T) {
 	data := setupDatabaseTest(t)
-	defer data.db.Close()
-	defer data.queries.Close()
+    defer func(){ _ = data.db.Close() }()
+    defer func(){ _ = data.queries.Close() }()
 	
 	t.Run("CannotInsertHeaderWithNonExistentPrev", func(t *testing.T) {
 		nonExistentID := idwrap.NewNow()
@@ -279,8 +279,8 @@ func TestDatabaseForeignKeyConstraints(t *testing.T) {
 // TestDatabaseCascadeDelete tests that deleting headers properly updates adjacent pointers
 func TestDatabaseCascadeDelete(t *testing.T) {
 	data := setupDatabaseTest(t)
-	defer data.db.Close()
-	defer data.queries.Close()
+    defer func(){ _ = data.db.Close() }()
+    defer func(){ _ = data.queries.Close() }()
 	
 	// Create a chain of 5 headers: A <-> B <-> C <-> D <-> E
 	headerA := data.createHeaderDirect("Header-A", "value-a", nil, nil)
@@ -401,8 +401,8 @@ func TestDatabaseCascadeDelete(t *testing.T) {
 // TestDatabaseRecursiveCTETraversal tests that the recursive CTE query traverses correctly
 func TestDatabaseRecursiveCTETraversal(t *testing.T) {
 	data := setupDatabaseTest(t)
-	defer data.db.Close()
-	defer data.queries.Close()
+    defer func(){ _ = data.db.Close() }()
+    defer func(){ _ = data.queries.Close() }()
 	
 	// Test various linked list configurations
 	
@@ -490,8 +490,8 @@ func TestDatabaseRecursiveCTETraversal(t *testing.T) {
 // TestDatabaseSchemaEdgeCases tests various edge cases and constraint violations
 func TestDatabaseSchemaEdgeCases(t *testing.T) {
 	data := setupDatabaseTest(t)
-	defer data.db.Close()
-	defer data.queries.Close()
+    defer func(){ _ = data.db.Close() }()
+    defer func(){ _ = data.queries.Close() }()
 	
 	t.Run("NullPointerHandling", func(t *testing.T) {
 		// Test that NULL prev/next pointers are handled correctly
@@ -636,8 +636,8 @@ func TestDatabaseSchemaEdgeCases(t *testing.T) {
 // TestDatabasePerformanceValidation tests performance with large datasets
 func TestDatabasePerformanceValidation(t *testing.T) {
 	data := setupDatabaseTest(t)
-	defer data.db.Close()
-	defer data.queries.Close()
+    defer func(){ _ = data.db.Close() }()
+    defer func(){ _ = data.queries.Close() }()
 	
 	// Skip performance tests in short mode
 	if testing.Short() {
@@ -756,8 +756,8 @@ func TestDatabasePerformanceValidation(t *testing.T) {
 // TestDatabaseMigrationCompatibility tests compatibility with old data structures
 func TestDatabaseMigrationCompatibility(t *testing.T) {
 	data := setupDatabaseTest(t)
-	defer data.db.Close()
-	defer data.queries.Close()
+    defer func(){ _ = data.db.Close() }()
+    defer func(){ _ = data.queries.Close() }()
 	
 	t.Run("OldDataWithoutPrevNext", func(t *testing.T) {
 		// Simulate old headers that existed before prev/next columns were added
@@ -876,8 +876,8 @@ func TestDatabaseMigrationCompatibility(t *testing.T) {
 // TestDatabaseTransactionIntegrity tests that operations maintain integrity within transactions
 func TestDatabaseTransactionIntegrity(t *testing.T) {
 	data := setupDatabaseTest(t)
-	defer data.db.Close()
-	defer data.queries.Close()
+    defer func(){ _ = data.db.Close() }()
+    defer func(){ _ = data.queries.Close() }()
 	
 	t.Run("RollbackPreservesIntegrity", func(t *testing.T) {
 		// Start a transaction

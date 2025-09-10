@@ -1837,7 +1837,7 @@ func TestWorkspaceCreateListDatabaseStateValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to query workspace database state: %v", err)
 	}
-	defer rows.Close()
+        defer func(){ _ = rows.Close() }()
 
 	type WorkspaceDBState struct {
 		ID   []byte

@@ -37,7 +37,7 @@ func BenchmarkWorkspaceCreateFirstWorkspace(b *testing.B) {
 		// Setup for this iteration
 		ctx := context.Background()
 		db, queries := setupTestDB(b, ctx)
-		defer db.Close()
+            defer func(){ _ = db.Close() }()
 		
 		service, _, authedCtx := setupTestService(b, ctx, db, queries)
 		
@@ -67,7 +67,7 @@ func BenchmarkWorkspaceCreateWith10Existing(b *testing.B) {
 		// Setup for this iteration
 		ctx := context.Background()
 		db, queries := setupTestDB(b, ctx)
-		defer db.Close()
+            defer func(){ _ = db.Close() }()
 		
 		service, _, authedCtx := setupTestService(b, ctx, db, queries)
 		

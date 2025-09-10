@@ -81,7 +81,7 @@ func findIsolatedExamples(t *testing.T, ctx context.Context, base *testutil.Base
 	if err != nil {
 		t.Fatalf("Failed to query isolated examples: %v", err)
 	}
-	defer rows.Close()
+    defer func(){ _ = rows.Close() }()
 	
 	var isolated []idwrap.IDWrap
 	for rows.Next() {
@@ -127,7 +127,7 @@ func logDatabaseState(t *testing.T, ctx context.Context, base *testutil.BaseDBQu
 		t.Logf("Failed to query database state: %v", err)
 		return
 	}
-	defer rows.Close()
+    defer func(){ _ = rows.Close() }()
 	
 	for rows.Next() {
 		var id, name []byte

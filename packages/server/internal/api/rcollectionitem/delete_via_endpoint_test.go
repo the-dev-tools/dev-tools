@@ -9,7 +9,7 @@ import (
 
     "the-dev-tools/server/internal/api/middleware/mwauth"
     "the-dev-tools/server/internal/api/ritemapi"
-    "the-dev-tools/server/internal/api/ritemfolder"
+    rcollectionitem "the-dev-tools/server/internal/api/rcollectionitem"
     "the-dev-tools/server/pkg/idwrap"
     "the-dev-tools/server/pkg/logger/mocklogger"
     "the-dev-tools/server/pkg/service/scollection"
@@ -52,7 +52,6 @@ func TestCollectionItemDeleteViaEndpoint_MiddleMaintainsOrder(t *testing.T) {
     ers := sexampleresp.New(queries)
 
     // RPC services
-    folderRPC := ritemfolder.New(db, ifs, us, cs, cis)
     apiRPC := ritemapi.New(db, ias, cs, ifs, us, iaes, ers, cis)
     itemsRPC := rcollectionitem.New(db, cs, cis, us, ifs, ias, iaes, ers)
 
@@ -69,9 +68,9 @@ func TestCollectionItemDeleteViaEndpoint_MiddleMaintainsOrder(t *testing.T) {
         require.NoError(t, err)
         return idwrap.NewFromBytesMust(resp.Msg.EndpointId)
     }
-    a := create("A")
+    _ = create("A")
     b := create("B")
-    c := create("C")
+    _ = create("C")
 
     // Delete middle (B) via endpoint RPC
     _, err := apiRPC.EndpointDelete(authed, connect.NewRequest(&endpointv1.EndpointDeleteRequest{EndpointId: b.Bytes()}))
@@ -82,4 +81,3 @@ func TestCollectionItemDeleteViaEndpoint_MiddleMaintainsOrder(t *testing.T) {
     require.NoError(t, err)
     require.Len(t, listResp.Msg.Items, 2)
 }
-

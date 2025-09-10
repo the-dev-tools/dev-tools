@@ -239,7 +239,7 @@ func BenchmarkCrossCollectionMove_SmallCollections(b *testing.B) {
 	rpc, _, authedCtx, sourceCollectionID, targetCollectionID, sourceItemIDs, _, _, cleanup := setupBenchmarkEnvironment(b, setup)
 	defer cleanup()
 
-	rand.Seed(time.Now().UnixNano())
+        rand.Seed(time.Now().UnixNano()) // nolint:staticcheck // seeding is acceptable in benchmark setup
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -736,4 +736,3 @@ func BenchmarkCrossCollectionMove_Comparative(b *testing.B) {
 		})
 	})
 }
-

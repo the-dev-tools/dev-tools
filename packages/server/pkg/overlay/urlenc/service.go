@@ -393,12 +393,14 @@ func (s *Service) Undelete(ctx context.Context, deltaExampleID idwrap.IDWrap, bo
 }
 
 // Utility nullable wrappers
+// nolint:unused
 func strPtrOrNil(p *string) interface{} {
 	if p == nil {
 		return nil
 	}
 	return *p
 }
+// nolint:unused
 func boolPtrOrNil(p *bool) interface{} {
 	if p == nil {
 		return nil

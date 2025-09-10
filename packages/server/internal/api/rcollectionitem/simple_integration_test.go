@@ -216,7 +216,7 @@ func TestMoveFolderAfterEndpoint(t *testing.T) {
         ItemId:        folderID.Bytes(),
         Kind:          itemv1.ItemKind_ITEM_KIND_FOLDER,
         TargetItemId:  endpointID.Bytes(),
-        TargetKind:    itemv1.ItemKind_ITEM_KIND_ENDPOINT,
+        TargetKind:    itemv1.ItemKind_ITEM_KIND_ENDPOINT.Enum(),
         Position:      resourcesv1.MovePosition_MOVE_POSITION_AFTER.Enum(),
     })
     _, err = collectionItemRPC.CollectionItemMove(authed, moveReq)

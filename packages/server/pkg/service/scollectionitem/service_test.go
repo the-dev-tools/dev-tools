@@ -29,7 +29,7 @@ func createTestDB(t *testing.T, ctx context.Context) (*sql.DB, *gen.Queries, fun
 
 	return db, queries, func() {
 		cleanup()
-		queries.Close()
+            _ = queries.Close()
 	}
 }
 

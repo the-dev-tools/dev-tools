@@ -165,6 +165,3 @@ func TestBodyUrlEncodedDeltaReset_PreservesParentAndRestoresValues(t *testing.T)
         t.Fatalf("expected values restored from origin (v1,true,d1); got val=%s enabled=%v desc=%s", after.Value, after.Enabled, after.Description)
     }
 }
-
-func stringPtr(s string) *string { return &s }
-func boolPtr(b bool) *bool       { return &b }

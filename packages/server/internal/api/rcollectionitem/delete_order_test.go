@@ -23,14 +23,13 @@ import (
     "the-dev-tools/db/pkg/sqlc/gen"
     endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
     folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
-    itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
 )
 
 // helper to create A,B,C (folder, endpoint, folder) at root and return their legacy IDs and collection item IDs
-func setupThreeItems(t *testing.T, ctx context.Context, base *testutil.BaseDB,
+func setupThreeItems(t *testing.T, ctx context.Context,
     cis *scollectionitem.CollectionItemService,
     folderRPC ritemfolder.ItemFolderRPC,
-    apiRPC ritemapi.ItemAPIRPC,
+    apiRPC ritemapi.ItemApiRPC,
     userID, collectionID idwrap.IDWrap,
 ) (aFolderID, bEndpointID, cFolderID idwrap.IDWrap, aItemID, bItemID, cItemID idwrap.IDWrap) {
     authed := mwauth.CreateAuthedContext(ctx, userID)
@@ -97,7 +96,7 @@ func TestCollectionItemDelete_MiddleMaintainsOrder(t *testing.T) {
     apiRPC := ritemapi.New(db, ias, cs, ifs, us, iaes, ers, cis)
 
     // Create A,B,C
-    _, bLegacy, _, aItem, bItem, cItem := setupThreeItems(t, ctx, base, cis, folderRPC, apiRPC, userID, collectionID)
+    _, bLegacy, _, aItem, bItem, cItem := setupThreeItems(t, ctx, cis, folderRPC, apiRPC, userID, collectionID)
 
     // Delete the middle (B) by collection_items ID via service with TX
     tx, err := db.BeginTx(ctx, nil)
@@ -148,7 +147,7 @@ func TestCollectionItemDelete_HeadMaintainsOrder(t *testing.T) {
     apiRPC := ritemapi.New(db, ias, cs, ifs, us, iaes, ers, cis)
 
     // Create A,B,C
-    _, _, _, aItem, _, cItem := setupThreeItems(t, ctx, base, cis, folderRPC, apiRPC, userID, collectionID)
+    _, _, _, aItem, _, cItem := setupThreeItems(t, ctx, cis, folderRPC, apiRPC, userID, collectionID)
     // Delete head A
     tx, err := db.BeginTx(ctx, nil)
     require.NoError(t, err)
@@ -186,7 +185,7 @@ func TestCollectionItemDelete_TailMaintainsOrder(t *testing.T) {
     apiRPC := ritemapi.New(db, ias, cs, ifs, us, iaes, ers, cis)
 
     // Create A,B,C
-    _, _, _, aItem, _, cItem := setupThreeItems(t, ctx, base, cis, folderRPC, apiRPC, userID, collectionID)
+    _, _, _, _, _, cItem := setupThreeItems(t, ctx, cis, folderRPC, apiRPC, userID, collectionID)
     // Determine tail (likely C)
     tail := cItem
     // Delete tail

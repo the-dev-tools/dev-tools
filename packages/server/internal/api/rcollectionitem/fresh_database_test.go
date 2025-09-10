@@ -57,7 +57,7 @@ func TestFreshDatabaseCollectionItemCreation(t *testing.T) {
 
 	tx, err := db.Begin()
 	require.NoError(t, err, "Transaction creation should succeed")
-	defer tx.Rollback()
+    defer func(){ _ = tx.Rollback() }()
 
 	// This is the critical test - CreateFolderTX was failing with foreign key constraints
 	err = cis.CreateFolderTX(ctx, tx, folder)
@@ -83,7 +83,7 @@ func TestFreshDatabaseCollectionItemCreation(t *testing.T) {
 
 	tx2, err := db.Begin()
 	require.NoError(t, err, "Second transaction creation should succeed")
-	defer tx2.Rollback()
+    defer func(){ _ = tx2.Rollback() }()
 
 	// This was also failing with foreign key constraints
 	err = cis.CreateEndpointTX(ctx, tx2, endpoint)
@@ -109,7 +109,7 @@ func TestFreshDatabaseCollectionItemCreation(t *testing.T) {
 
 	tx3, err := db.Begin()
 	require.NoError(t, err, "Third transaction creation should succeed")
-	defer tx3.Rollback()
+    defer func(){ _ = tx3.Rollback() }()
 
 	err = cis.CreateEndpointTX(ctx, tx3, rootEndpoint)
 	require.NoError(t, err, "Root endpoint creation should succeed")

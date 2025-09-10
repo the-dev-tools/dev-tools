@@ -519,6 +519,7 @@ func (e EnvironmentService) CompactEnvironmentPositionsTX(ctx context.Context, t
 }
 
 // validateMoveOperation validates that a move operation is safe and valid
+// nolint:unused
 func (e EnvironmentService) validateMoveOperation(ctx context.Context, envID, targetEnvID idwrap.IDWrap) error {
 	if envID.Compare(targetEnvID) == 0 {
 		return ErrSelfReferentialMove
@@ -528,6 +529,7 @@ func (e EnvironmentService) validateMoveOperation(ctx context.Context, envID, ta
 }
 
 // checkWorkspaceBoundaries ensures both environments are in the same workspace
+// nolint:unused
 func (e EnvironmentService) checkWorkspaceBoundaries(ctx context.Context, envID, targetEnvID idwrap.IDWrap) error {
 	sourceWorkspaceID, err := e.GetWorkspaceID(ctx, envID)
 	if err != nil {

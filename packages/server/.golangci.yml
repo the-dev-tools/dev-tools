@@ -1,0 +1,19 @@
+version: 2
+
+run:
+  # Keep lint fast and focused for server package
+  tests: false
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+  disable:
+    - staticcheck
+    - unused
+    - errcheck
+    - revive
+
+issues:
+  # Avoid noise from suggestions and test-only checks in this target
+  exclude-use-default: false

@@ -619,16 +619,6 @@ func (c *BodyRPC) BodyUrlEncodedDeltaDelete(ctx context.Context, req *connect.Re
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
     if err := c.overlay.Delete(ctx, ex, ID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaDeleteResponse{}), nil
-    rpcErr := permcheck.CheckPerm(CheckOwnerBodyUrlEncoded(ctx, c.bues, c.iaes, c.cs, c.us, ID))
-    if rpcErr != nil {
-        return nil, rpcErr
-    }
-    err = c.bues.DeleteBodyURLEncoded(ctx, ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaDeleteResponse{}), nil
 }
 
 func (c *BodyRPC) BodyUrlEncodedDeltaReset(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaResetRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaResetResponse], error) {
@@ -642,16 +632,6 @@ func (c *BodyRPC) BodyUrlEncodedDeltaReset(ctx context.Context, req *connect.Req
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex2)); rpcErr != nil { return nil, rpcErr }
     if err := c.overlay.Reset(ctx, ex2, ID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaResetResponse{}), nil
-    rpcErr := permcheck.CheckPerm(CheckOwnerBodyUrlEncoded(ctx, c.bues, c.iaes, c.cs, c.us, ID))
-    if rpcErr != nil {
-        return nil, rpcErr
-    }
-    err = c.bues.ResetBodyURLEncodedDelta(ctx, ID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaResetResponse{}), nil
 }
 
 func CheckOwnerBodyForm(ctx context.Context, bfs sbodyform.BodyFormService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, bodyFormUlid idwrap.IDWrap) (bool, error) {
@@ -801,26 +781,6 @@ func (c *BodyRPC) BodyUrlEncodedDeltaMove(ctx context.Context, req *connect.Requ
     if err := c.overlay.EnsureSeeded(ctx, deltaExampleID, originExampleID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     after := pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER
     if err := c.overlay.Move(ctx, deltaExampleID, originExampleID, bodyID, targetID, after); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-    return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaMoveResponse{}), nil
-    // Ensure delta proxies via service
-    bodyID, err = c.bues.EnsureDeltaProxy(ctx, deltaExampleID, bodyID)
-    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-    targetID, err = c.bues.EnsureDeltaProxy(ctx, deltaExampleID, targetID)
-    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-    if bodyID.Compare(targetID) == 0 { return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaMoveResponse{}), nil }
-    repo := c.bues.Repository()
-    items, err := repo.GetItemsByParent(ctx, deltaExampleID, movable.RequestListTypeBodyUrlEncodedDeltas)
-    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-    targetIdx := -1
-    for i, it := range items { if it.ID.Compare(targetID) == 0 { targetIdx = i; break } }
-    if targetIdx < 0 { return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("target not found")) }
-    desired := targetIdx; if pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER { desired = targetIdx + 1 }
-    tx, err := c.DB.BeginTx(ctx, nil)
-    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-    defer func(){ _ = tx.Rollback() }()
-    if txRepo, ok := any(repo).(interface{ TX(tx *sql.Tx) movable.MovableRepository }); ok { repo = txRepo.TX(tx).(*sbodyurl.BodyUrlEncodedMovableRepository) }
-    if err := repo.UpdatePosition(ctx, tx, bodyID, movable.RequestListTypeBodyUrlEncodedDeltas, desired); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-    if err := tx.Commit(); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaMoveResponse{}), nil
 }
 

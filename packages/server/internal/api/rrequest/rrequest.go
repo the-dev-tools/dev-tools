@@ -670,8 +670,8 @@ func (c RequestRPC) QueryDeltaCreate(ctx context.Context, req *connect.Request[r
     ord := queryOrderStore{ s: c.qov }
     dl := queryDeltaStore{ s: c.qov }
     st := queryStateStore{ s: c.qov }
-    id := idwrap.IDWrap{}
-    if id, err = overcore.CreateDelta(ctx, ord, dl, exID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    id, err := overcore.CreateDelta(ctx, ord, dl, exID)
+    if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     vals := overcore.Values{ Key: req.Msg.GetKey(), Value: req.Msg.GetValue(), Description: req.Msg.GetDescription(), Enabled: req.Msg.GetEnabled() }
     if err := overcore.Update(ctx, st, dl, exID, id, &vals); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     return connect.NewResponse(&requestv1.QueryDeltaCreateResponse{ QueryId: id.Bytes() }), nil

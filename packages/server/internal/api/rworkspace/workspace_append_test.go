@@ -3,7 +3,6 @@ package rworkspace
 import (
     "context"
     "log/slog"
-    "os"
     "testing"
 
     devtoolsdb "the-dev-tools/db"
@@ -20,6 +19,7 @@ import (
 
     "connectrpc.com/connect"
     "github.com/stretchr/testify/require"
+    "google.golang.org/protobuf/types/known/emptypb"
 )
 
 func setupWorkspaceRPC(t *testing.T) (WorkspaceServiceRPC, context.Context, *gen.Queries, idwrap.IDWrap) {
@@ -34,7 +34,7 @@ func setupWorkspaceRPC(t *testing.T) (WorkspaceServiceRPC, context.Context, *gen
     ws := sworkspace.New(queries)
     wus := sworkspacesusers.New(queries)
     us := suser.New(queries)
-    es := senv.New(queries)
+    es := senv.New(queries, slog.Default())
 
     srv := New(db, ws, wus, us, es)
 
@@ -67,7 +67,7 @@ func TestWorkspaceCreate_AppendsToEnd(t *testing.T) {
     id2 := resp2.Msg.GetWorkspaceId()
 
     // List and assert order is [W1, W2]
-    listResp, err := srv.WorkspaceList(ctx, &connect.Request[workspacev1.WorkspaceListRequest]{Msg: &workspacev1.WorkspaceListRequest{}})
+    listResp, err := srv.WorkspaceList(ctx, &connect.Request[emptypb.Empty]{Msg: &emptypb.Empty{}})
     require.NoError(t, err)
     items := listResp.Msg.GetItems()
     require.GreaterOrEqual(t, len(items), 2)

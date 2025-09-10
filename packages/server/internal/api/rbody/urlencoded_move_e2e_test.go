@@ -61,9 +61,7 @@ func TestUrlEncoded_Move_Before_E2E(t *testing.T) {
         return resp.Msg.BodyId
     }
     id1 := create("1")
-    _ = id1
-    id2 := create("2")
-    _ = id2
+    _ = create("2")
     id3 := create("3")
 
     // Check order 1,2,3
@@ -129,7 +127,7 @@ func TestUrlEncoded_Move_After_E2E(t *testing.T) {
         if err != nil { t.Fatalf("create %s: %v", k, err) }
         return resp.Msg.BodyId
     }
-    id1 := create("1")
+    _ = create("1")
     id2 := create("2")
     id3 := create("3")
 
