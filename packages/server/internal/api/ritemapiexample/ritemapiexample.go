@@ -1,21 +1,22 @@
 package ritemapiexample
 
 import (
-	"context"
-	"database/sql"
-	"errors"
-	"fmt"
-	"sort"
-	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/rcollection"
-	"the-dev-tools/server/internal/api/ritemapi"
-	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/http/request"
-	"the-dev-tools/server/pkg/http/response"
-	"the-dev-tools/server/pkg/httpclient"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/logconsole"
+    "context"
+    "database/sql"
+    "errors"
+    "fmt"
+    "sort"
+    devtoolsdb "the-dev-tools/db"
+    "the-dev-tools/server/internal/api"
+    "the-dev-tools/server/internal/api/rcollection"
+    "the-dev-tools/server/internal/api/ritemapi"
+    "the-dev-tools/server/pkg/compress"
+    "the-dev-tools/server/pkg/errmap"
+    "the-dev-tools/server/pkg/http/request"
+    "the-dev-tools/server/pkg/http/response"
+    "the-dev-tools/server/pkg/httpclient"
+    "the-dev-tools/server/pkg/idwrap"
+    "the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mbodyform"
@@ -53,9 +54,9 @@ import (
 	"the-dev-tools/server/pkg/varsystem"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+    resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 
-	"connectrpc.com/connect"
+    "connectrpc.com/connect"
 )
 
 type ItemAPIExampleRPC struct {
@@ -757,10 +758,32 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, fmt.Errorf("failed to prepare request: %w", err)
 	}
 
-	requestResp, err := request.SendRequest(preparedRequest, example.ID, client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
+    requestResp, err := request.SendRequest(preparedRequest, example.ID, client)
+    if err != nil {
+        // Map and present a friendly message to the client instead of a raw wrapped error
+        mapped := errmap.MapRequestError(preparedRequest.Method, preparedRequest.URL, err)
+        friendly := errmap.Friendly(mapped)
+
+        // Pick a connect code based on the mapped error code
+        var code connect.Code = connect.CodeUnknown
+        if me, ok := mapped.(*errmap.Error); ok {
+            switch me.Code {
+            case errmap.CodeUnsupportedScheme, errmap.CodeInvalidURL:
+                code = connect.CodeInvalidArgument
+            case errmap.CodeTimeout:
+                code = connect.CodeDeadlineExceeded
+            case errmap.CodeCanceled:
+                code = connect.CodeCanceled
+            case errmap.CodeDNSError, errmap.CodeConnectionRefused, errmap.CodeConnectionReset,
+                errmap.CodeNetworkUnreachable, errmap.CodeTLSUnknownAuthority, errmap.CodeTLSHostnameMismatch,
+                errmap.CodeTLSHandshake, errmap.CodeIO:
+                code = connect.CodeUnavailable
+            default:
+                code = connect.CodeUnknown
+            }
+        }
+        return nil, connect.NewError(code, errors.New(friendly))
+    }
 
 	// TODO: simplify this package deps
 	exampleRunLog := ExampleRunLog{

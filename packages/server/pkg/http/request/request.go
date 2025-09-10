@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"the-dev-tools/server/pkg/compress"
+	"the-dev-tools/server/pkg/errmap"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyform"
@@ -585,25 +586,26 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 }
 
 func SendRequest(req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {
-	now := time.Now()
-	respHttp, err := httpclient.SendRequestAndConvert(client, req, exampleID)
-	lapse := time.Since(now)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeAborted, err)
-	}
+    now := time.Now()
+    respHttp, err := httpclient.SendRequestAndConvert(client, req, exampleID)
+    lapse := time.Since(now)
+    if err != nil {
+        return nil, errmap.MapRequestError(req.Method, req.URL, err)
+    }
 
-	return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
+    return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
 }
 
 func SendRequestWithContext(ctx context.Context, req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {
-	now := time.Now()
-	respHttp, err := httpclient.SendRequestAndConvertWithContext(ctx, client, req, exampleID)
-	lapse := time.Since(now)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeAborted, err)
-	}
+    now := time.Now()
+    respHttp, err := httpclient.SendRequestAndConvertWithContext(ctx, client, req, exampleID)
+    lapse := time.Since(now)
+    if err != nil {
+        // Preserve context cancellation/timeout classification and annotate with request data
+        return nil, errmap.MapRequestError(req.Method, req.URL, err)
+    }
 
-	return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
+    return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
 }
 
 type MergeExamplesInput struct {

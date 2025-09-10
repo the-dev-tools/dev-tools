@@ -19,6 +19,7 @@ import (
 	"the-dev-tools/server/internal/api/rtag"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/compress"
+    "the-dev-tools/server/pkg/errmap"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -89,6 +90,10 @@ import (
 
     "connectrpc.com/connect"
 )
+
+// formatErrForUser returns a user-friendly error string.
+// If the error is an errmap.Error, it prefixes the code for quick scanning.
+func formatErrForUser(err error) string { return errmap.Friendly(err) }
 
 // normalizeForLog converts OutputData values into log-friendly forms:
 // - []byte -> if JSON, unmarshal to any; else convert to string
@@ -1743,11 +1748,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						CompletedAt: &completedAt,
 					}
 
-					// Set error if present
-					if flowNodeStatus.Error != nil {
-						errorStr := flowNodeStatus.Error.Error()
-						nodeExecution.Error = &errorStr
-					}
+                    // Set error if present
+                    if flowNodeStatus.Error != nil {
+                        errorStr := formatErrForUser(flowNodeStatus.Error)
+                        nodeExecution.Error = &errorStr
+                    }
 
 					// Compress and store output data
 					if flowNodeStatus.OutputData != nil {
@@ -1775,11 +1780,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						completedAt := time.Now().UnixMilli()
 						nodeExec.CompletedAt = &completedAt
 
-						// Set error if present
-						if flowNodeStatus.Error != nil {
-							errorStr := flowNodeStatus.Error.Error()
-							nodeExec.Error = &errorStr
-						}
+                        // Set error if present
+                        if flowNodeStatus.Error != nil {
+                            errorStr := formatErrForUser(flowNodeStatus.Error)
+                            nodeExec.Error = &errorStr
+                        }
 
 						// Compress and store input data
 						if flowNodeStatus.InputData != nil {
@@ -1862,11 +1867,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							CompletedAt:            &completedAt,
 						}
 
-						// Set error if present
-						if flowNodeStatus.Error != nil {
-							errorStr := flowNodeStatus.Error.Error()
-							nodeExecution.Error = &errorStr
-						}
+                        // Set error if present
+                        if flowNodeStatus.Error != nil {
+                            errorStr := formatErrForUser(flowNodeStatus.Error)
+                            nodeExecution.Error = &errorStr
+                        }
 
 						// Compress and store input data if available
 						if flowNodeStatus.InputData != nil {
@@ -1980,8 +1985,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
                                     State:  nodev1.NodeState(flowNodeStatus.State),
                                 }
                                 if flowNodeStatus.Error != nil {
-                                    em := flowNodeStatus.Error.Error()
-                                    nodeMsg.Info = &em // surface error via node.info for live stream
+                                    em := formatErrForUser(flowNodeStatus.Error)
+                                    nodeMsg.Info = &em
                                 }
                                 resp := &flowv1.FlowRunResponse{Node: nodeMsg}
                                 if err := stream.Send(resp); err != nil {
@@ -2182,11 +2187,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				State:  nodev1.NodeState(flowNodeStatus.State),
 			}
 
-			// Add error information if the node failed
-			if flowNodeStatus.Error != nil {
-				errorMsg := flowNodeStatus.Error.Error()
-				nodeResp.Info = &errorMsg
-			}
+            // Add user-friendly error information if the node failed
+            if flowNodeStatus.Error != nil {
+                errorMsg := formatErrForUser(flowNodeStatus.Error)
+                nodeResp.Info = &errorMsg
+            }
 
 			resp := &flowv1.FlowRunResponse{
 				Node: nodeResp,
