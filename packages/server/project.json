@@ -40,6 +40,14 @@
         ]
       }
     },
+    "test:unit": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "{projectRoot}",
+        "parallel": false,
+        "command": "go test -timeout 60s ./internal/api/middleware/... ./pkg/assertv2 ./pkg/depfinder ./pkg/errmap ./pkg/expression ./pkg/flow/node/nrequest ./pkg/http/... ./pkg/httpclient ./pkg/idwrap ./pkg/io/yamlflow/yamlflowsimple ./pkg/ioworkspace ./pkg/migrate ./pkg/service/sitemapiexample ./pkg/service/snodeexecution ./pkg/service/svar ./pkg/translate/tcurl ./pkg/translate/thar ./pkg/varsystem ./pkg/zstdcompress"
+      }
+    },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
