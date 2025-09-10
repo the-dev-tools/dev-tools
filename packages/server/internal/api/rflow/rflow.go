@@ -427,9 +427,82 @@ func (cm *CorrelationMetrics) ShouldWarnAboutDelay(delayMs int64) bool {
 
 // ShouldWarnAboutMemory returns true if map sizes exceed warning thresholds
 func (cm *CorrelationMetrics) ShouldWarnAboutMemory(pendingSize, orphanedSize int) bool {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	return pendingSize > cm.memoryWarningThreshold || orphanedSize > cm.memoryWarningThreshold
+    cm.mu.RLock()
+    defer cm.mu.RUnlock()
+    return pendingSize > cm.memoryWarningThreshold || orphanedSize > cm.memoryWarningThreshold
+}
+
+// buildLogRefs constructs structured log references for a node state change.
+// Error-first behavior:
+// - If nodeError != nil, prefer an error payload with minimal node info and
+//   error { message, kind } and optional failure context keys from outputData.
+// - Else, if outputData is a map, normalize and render it as-is.
+// - Else, fall back to a small metadata struct.
+func buildLogRefs(nameForLog, idStrForLog, stateStrForLog string, nodeError error, outputData any) []reference.ReferenceTreeItem {
+    if nodeError != nil {
+        kind := "failed"
+        if runner.IsCancellationError(nodeError) {
+            kind = "canceled"
+        }
+        payload := map[string]any{
+            "node": map[string]any{
+                "id":    idStrForLog,
+                "name":  nameForLog,
+                "state": stateStrForLog,
+            },
+            "error": map[string]any{
+                "message": nodeError.Error(),
+                "kind":    kind,
+            },
+        }
+        // Include only safe failure context keys (from foreach summaries)
+        if m, ok := outputData.(map[string]any); ok {
+            ctx := map[string]any{}
+            if v, ok := m["failedAtIndex"]; ok {
+                ctx["failedAtIndex"] = v
+            }
+            if v, ok := m["failedAtKey"]; ok {
+                ctx["failedAtKey"] = v
+            }
+            if v, ok := m["totalItems"]; ok {
+                ctx["totalItems"] = v
+            }
+            if len(ctx) > 0 {
+                payload["context"] = ctx
+            }
+        }
+        ref := reference.NewReferenceFromInterfaceWithKey(payload, nameForLog)
+        return []reference.ReferenceTreeItem{ref}
+    }
+
+    if outputData != nil {
+        if out, ok := outputData.(map[string]any); ok {
+            // If OutputData is nested under node name, unwrap once
+            src := out
+            if nb, ok := out[nameForLog].(map[string]any); ok {
+                src = nb
+            }
+            if norm, ok := normalizeForLog(src).(map[string]any); ok {
+                r := reference.NewReferenceFromInterfaceWithKey(norm, nameForLog)
+                return []reference.ReferenceTreeItem{r}
+            }
+        }
+    }
+
+    // Fallback minimal payload
+    logData := struct {
+        NodeID string
+        Name   string
+        State  string
+        Error  error
+    }{
+        NodeID: idStrForLog,
+        Name:   nameForLog,
+        State:  stateStrForLog,
+        Error:  nil,
+    }
+    ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
+    return []reference.ReferenceTreeItem{ref}
 }
 
 // formatIterationContext formats the iteration context into hierarchical format with node names
@@ -1945,40 +2018,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							return
 						}
 
-                    // Option A: dump entire OutputData as-is for all nodes when available
-                    var refs []reference.ReferenceTreeItem
-                    if flowNodeStatus.OutputData != nil {
-                        if out, ok := flowNodeStatus.OutputData.(map[string]any); ok {
-                            // If OutputData is nested under node name, unwrap once to avoid double key
-                            var src map[string]any = out
-                            if nb, ok := out[nameForLog].(map[string]any); ok {
-                                src = nb
-                            }
-                            // Normalize any []byte or nested structures for display
-                            if norm, ok := normalizeForLog(src).(map[string]any); ok {
-                                // Build reference tree that preserves arrays and nested values
-                                r := reference.NewReferenceFromInterfaceWithKey(norm, nameForLog)
-                                refs = []reference.ReferenceTreeItem{r}
-                            }
-                        }
-                    }
-
-                    // Fallback to simple metadata if OutputData is missing or not a map
-                    if len(refs) == 0 {
-                        logData := struct {
-                            NodeID string
-                            Name   string
-                            State  string
-                            Error  error
-                        }{
-                            NodeID: idStrForLog,
-                            Name:   nameForLog,
-                            State:  stateStrForLog,
-                            Error:  nodeError,
-                        }
-                        ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
-                        refs = []reference.ReferenceTreeItem{ref}
-                    }
+                    // Build log references with error-first semantics
+                    refs := buildLogRefs(nameForLog, idStrForLog, stateStrForLog, nodeError, flowNodeStatus.OutputData)
 
 						// Set log level to error if there's an error, otherwise warning
 						var logLevel logconsole.LogLevel
