@@ -1,3 +1,13 @@
+## 0.4.0 (2025-09-10)
+
+### 🚀 Features
+
+- test2 ([829dace6](https://github.com/the-dev-tools/dev-tools/commit/829dace6))
+
+### ❤️ Thank You
+
+- ElecTwix @ElecTwix
+
 ## 0.3.0 (2025-09-10)
 
 ### 🚀 Features
