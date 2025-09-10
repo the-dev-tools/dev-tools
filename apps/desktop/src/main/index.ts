@@ -60,8 +60,11 @@ const server = pipe(
       Effect.flatMap(path.fromFileUrl),
     );
 
+    const serverBinary = process.platform === 'win32' ? 'server.exe' : 'server';
+    const serverPath = path.join(dist, serverBinary);
+
     return yield* pipe(
-      path.join(dist, 'server'),
+      serverPath,
       String.replaceAll('app.asar', 'app.asar.unpacked'),
       Command.make,
       Command.env({
