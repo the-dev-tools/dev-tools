@@ -33,7 +33,7 @@
 
   "release": {
     "versionPlans": true,
-    "projects": ["apps/*"],
+    "projects": ["apps/*", "packages/server"],
     "projectsRelationship": "independent",
     "version": {
       "preserveLocalDependencyProtocols": true
