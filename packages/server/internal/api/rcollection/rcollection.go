@@ -209,15 +209,23 @@ func CheckOwnerWorkspace(ctx context.Context, us suser.UserService, workspaceID 
 		return false, connect.NewError(connect.CodeInternal, err)
 	}
 
-	ok, err := us.CheckUserBelongsToWorkspace(ctx, userUlid, workspaceID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// INFO: this mean that workspace not belong to user
-			// So for avoid information leakage, we should return not found
-			return false, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
-		}
-		return false, err
-	}
+    ok, err := us.CheckUserBelongsToWorkspace(ctx, userUlid, workspaceID)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            // INFO: this mean that workspace not belong to user
+            // So for avoid information leakage, we should return not found
+            return false, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
+        }
+        // Preserve existing connect errors, otherwise wrap as internal
+        if ce, ok2 := err.(*connect.Error); ok2 {
+            return false, ce
+        }
+        return false, connect.NewError(connect.CodeInternal, err)
+    }
+    if !ok {
+        // User is not linked to the workspace
+        return false, connect.NewError(connect.CodeNotFound, errors.New("workspace not found"))
+    }
 	return ok, nil
 }
 

@@ -456,8 +456,8 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		case errors.Is(err, scollectionitem.ErrInvalidTargetPosition):
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
         case errors.Is(err, scollectionitem.ErrCrossWorkspaceMove):
-            // Return NotFound with a clear workspace message per test expectations
-            return nil, connect.NewError(connect.CodeNotFound, errors.New("workspace boundary violation: cannot move items across workspaces"))
+            // Return PermissionDenied with a clear workspace message per test expectations
+            return nil, connect.NewError(connect.CodePermissionDenied, errors.New("workspace boundary violation: cannot move items across workspaces"))
 		case errors.Is(err, scollectionitem.ErrTargetCollectionNotFound):
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		default:
