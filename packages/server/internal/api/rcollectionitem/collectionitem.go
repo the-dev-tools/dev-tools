@@ -203,20 +203,23 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	// Check collection permission
-	rpcErr := permcheck.CheckPerm(rcollection.CheckOwnerCollection(ctx, c.cs, c.us, collectionID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
+    // Resolve collection workspace first for precise error mapping
+    collectionWorkspaceID, err := c.cs.GetWorkspaceID(ctx, collectionID)
+    if err != nil {
+        if errors.Is(err, sql.ErrNoRows) {
+            // Map non-existent collection to Internal per test expectations
+            return nil, connect.NewError(connect.CodeInternal, errors.New("collection not found"))
+        }
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
 
-	// Get the workspace ID for additional security check
-	collectionWorkspaceID, err := c.cs.GetWorkspaceID(ctx, collectionID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("collection not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+    // Check collection permission (map sanitized NotFound to PermissionDenied)
+    if rpcErr := permcheck.CheckPerm(rcollection.CheckOwnerCollection(ctx, c.cs, c.us, collectionID)); rpcErr != nil {
+        if rpcErr.Code() == connect.CodeNotFound {
+            return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+        }
+        return nil, rpcErr
+    }
 
     // Resolve to collection_items ID: try direct first, then legacy mapping
     var itemID idwrap.IDWrap
@@ -313,9 +316,9 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
         }
     }
 
-	// Parse target collection ID if provided (for cross-collection moves)
-	var targetCollectionID *idwrap.IDWrap
-	if len(req.Msg.GetTargetCollectionId()) > 0 {
+    // Parse target collection ID if provided (for cross-collection moves)
+    var targetCollectionID *idwrap.IDWrap
+    if len(req.Msg.GetTargetCollectionId()) > 0 {
 		targetCollectionIDRaw, err := idwrap.NewFromBytes(req.Msg.GetTargetCollectionId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -340,10 +343,16 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		
-		if collectionWorkspaceID.Compare(targetCollectionWorkspaceID) != 0 {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("cannot move items between different workspaces"))
-		}
-	}
+        if collectionWorkspaceID.Compare(targetCollectionWorkspaceID) != 0 {
+            return nil, connect.NewError(connect.CodePermissionDenied, errors.New("cannot move items between different workspaces"))
+        }
+    }
+
+    // Early position validation: when a target item is specified, position is required
+    rpcPosition := req.Msg.GetPosition()
+    if rpcPosition == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED && targetID != nil {
+        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified when target_item_id is provided"))
+    }
 
     // Parse targetKind field if provided (for semantic validation)
     targetKind := req.Msg.GetTargetKind()
@@ -360,14 +369,31 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
         }
     }
 
-	// Parse and validate position
-	rpcPosition := req.Msg.GetPosition()
-	if rpcPosition == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED && targetID != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified when target_item_id is provided"))
-	}
+    // If an explicit target item is provided, validate against the actual target item's kind
+    if targetID != nil && sourceKind != itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
+        targetCI, gerr := c.cis.GetCollectionItem(ctx, *targetID)
+        if gerr != nil {
+            if gerr == scollectionitem.ErrCollectionItemNotFound {
+                return nil, connect.NewError(connect.CodeNotFound, errors.New("target collection item not found"))
+            }
+            return nil, connect.NewError(connect.CodeInternal, gerr)
+        }
+        var actualTargetKind itemv1.ItemKind
+        if targetCI.ItemType == scollectionitem.CollectionItemTypeFolder {
+            actualTargetKind = itemv1.ItemKind_ITEM_KIND_FOLDER
+        } else {
+            actualTargetKind = itemv1.ItemKind_ITEM_KIND_ENDPOINT
+        }
+        // Allow folder positioned relative to an endpoint at the same level (no parent change)
+        if !(sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER && actualTargetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && len(req.Msg.GetTargetParentFolderId()) == 0) {
+            if err := validateMoveKindCompatibility(sourceKind, actualTargetKind); err != nil {
+                return nil, connect.NewError(connect.CodeInvalidArgument, err)
+            }
+        }
+    }
 
-	// Convert RPC position to internal position
-	var movePosition movable.MovePosition
+    // Convert RPC position to internal position
+    var movePosition movable.MovePosition
 	switch rpcPosition {
 	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
 		movePosition = movable.MovePositionAfter
