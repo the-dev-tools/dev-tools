@@ -1305,10 +1305,96 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 		return fmt.Errorf("failed to rebuild target collection linked list: %w", err)
 	}
 
-	s.logger.Debug("Successfully completed cross-collection move",
-		"item_id", itemID.String(),
-		"insert_pos", insertPos,
-		"target_collection_items", len(newTargetOrder))
+    // If we moved a folder across collections, migrate its direct endpoint children from source to target
+    if item.ItemType == int8(CollectionItemTypeFolder) {
+        s.logger.Debug("Migrating direct endpoint children of moved folder to target root",
+            "folder_id", itemID.String())
+
+        // Children still reside under source collection at this point
+        srcChildren, cerr := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
+            CollectionID:   sourceCollectionID,
+            ParentFolderID: &itemID,
+            Column3:        &itemID,
+            CollectionID_2: sourceCollectionID,
+        })
+        if cerr == nil && len(srcChildren) > 0 {
+            movedEndpointIDs := make([]idwrap.IDWrap, 0)
+            for _, ch := range srcChildren {
+                if ch.ItemType == int8(CollectionItemTypeEndpoint) {
+                    eid := idwrap.NewFromBytesMust(ch.ID)
+                    // Move endpoint into target collection, promote to root (nil parent)
+                    if err := s.queries.UpdateCollectionItemCollectionId(ctx, gen.UpdateCollectionItemCollectionIdParams{
+                        CollectionID:   targetCollectionID,
+                        ParentFolderID: nil,
+                        ID:             eid,
+                    }); err != nil {
+                        return fmt.Errorf("failed to migrate endpoint child to target: %w", err)
+                    }
+                    // Keep legacy in sync: clear item_api.folder_id
+                    if len(ch.EndpointID) != 0 {
+                        epLegacyID := idwrap.NewFromBytesMust(ch.EndpointID)
+                        api, gerr := s.apiService.GetItemApi(ctx, epLegacyID)
+                        if gerr == nil {
+                            if uerr := s.queries.UpdateItemApi(ctx, gen.UpdateItemApiParams{
+                                FolderID: nil,
+                                Name:     api.Name,
+                                Url:      api.Url,
+                                Method:   api.Method,
+                                Hidden:   api.Hidden,
+                                ID:       api.ID,
+                            }); uerr != nil {
+                                return fmt.Errorf("failed to update legacy endpoint parent during migration: %w", uerr)
+                            }
+                        }
+                    }
+                    movedEndpointIDs = append(movedEndpointIDs, eid)
+                }
+            }
+            if len(movedEndpointIDs) > 0 {
+                // Build root order from all items (fallback when list pointers are inconsistent)
+                all, rerr := s.queries.GetCollectionItemsByCollectionID(ctx, targetCollectionID)
+                if rerr != nil && rerr != sql.ErrNoRows {
+                    return fmt.Errorf("failed to fetch target items: %w", rerr)
+                }
+                seen := make(map[string]struct{})
+                newOrder := make([]idwrap.IDWrap, 0, len(all)+len(movedEndpointIDs))
+                for _, it := range all {
+                    if it.ParentFolderID == nil {
+                        id := it.ID
+                        key := id.String()
+                        if _, ok := seen[key]; !ok {
+                            newOrder = append(newOrder, id)
+                            seen[key] = struct{}{}
+                        }
+                    }
+                }
+                // Ensure moved folder itself appears at root
+                if item.ItemType == int8(CollectionItemTypeFolder) {
+                    key := itemID.String()
+                    if _, ok := seen[key]; !ok {
+                        newOrder = append(newOrder, itemID)
+                        seen[key] = struct{}{}
+                    }
+                }
+                // Append migrated endpoints to the end
+                for _, eid := range movedEndpointIDs {
+                    key := eid.String()
+                    if _, ok := seen[key]; !ok {
+                        newOrder = append(newOrder, eid)
+                        seen[key] = struct{}{}
+                    }
+                }
+                if err := s.rebuildLinkedList(ctx, newOrder); err != nil {
+                    return fmt.Errorf("failed to rebuild target root after migrating children: %w", err)
+                }
+            }
+        }
+    }
+
+    s.logger.Debug("Successfully completed cross-collection move",
+        "item_id", itemID.String(),
+        "insert_pos", insertPos,
+        "target_collection_items", len(newTargetOrder))
 
 	return nil
 }
