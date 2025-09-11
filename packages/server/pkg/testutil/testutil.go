@@ -86,15 +86,16 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
         }
     }
 
-	providerID := "test"
-	userData := muser.User{
-		ID:           userID,
-		Email:        "test@dev.tools",
-		Password:     []byte("test"),
-		ProviderID:   &providerID,
-		ProviderType: muser.MagicLink,
-		Status:       muser.Active,
-	}
+    // Use unique providerID to avoid UNIQUE(provider_type, provider_id) collisions across tests
+    providerID := userID.String()
+    userData := muser.User{
+        ID:           userID,
+        Email:        userID.String() + "@dev.tools",
+        Password:     []byte("test"),
+        ProviderID:   &providerID,
+        ProviderType: muser.MagicLink,
+        Status:       muser.Active,
+    }
 
     // Idempotent user create: skip if ID already exists
     if existingUser, err := us.GetUser(ctx, userID); err == nil && existingUser != nil {
