@@ -67,21 +67,24 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 }
 
 func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context, wsID, wuID, userID, collectionID idwrap.IDWrap) {
-	cs := c.Cs
-	ws := c.Ws
-	wus := c.Wus
-	us := c.Us
+    cs := c.Cs
+    ws := c.Ws
+    wus := c.Wus
+    us := c.Us
 
-	workspaceData := mworkspace.Workspace{
-		ID:      wsID,
-		Updated: time.Now(),
-		Name:    "test",
-	}
-
-	err := ws.Create(ctx, &workspaceData)
-	if err != nil {
-		t.Fatal(err)
-	}
+    workspaceData := mworkspace.Workspace{
+        ID:      wsID,
+        Updated: time.Now(),
+        Name:    "test",
+    }
+    // Idempotent workspace create: skip if already exists
+    if existing, err := ws.Get(ctx, wsID); err == nil && existing != nil {
+        // already exists, no-op
+    } else {
+        if err := ws.Create(ctx, &workspaceData); err != nil {
+            t.Fatal(err)
+        }
+    }
 
 	providerID := "test"
 	userData := muser.User{
@@ -93,10 +96,14 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 		Status:       muser.Active,
 	}
 
-	err = us.CreateUser(ctx, &userData)
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Idempotent user create: skip if ID already exists
+    if existingUser, err := us.GetUser(ctx, userID); err == nil && existingUser != nil {
+        // already exists, no-op
+    } else {
+        if err := us.CreateUser(ctx, &userData); err != nil {
+            t.Fatal(err)
+        }
+    }
 
 	workspaceUserData := mworkspaceuser.WorkspaceUser{
 		ID:          wuID,
@@ -105,10 +112,14 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 		Role:        mworkspaceuser.RoleAdmin,
 	}
 
-	err = wus.CreateWorkspaceUser(ctx, &workspaceUserData)
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Idempotent workspace-user mapping: skip if user already linked to workspace
+    if existingWU, err := wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, wsID, userID); err == nil && existingWU != nil {
+        // already linked, no-op
+    } else {
+        if err := wus.CreateWorkspaceUser(ctx, &workspaceUserData); err != nil {
+            t.Fatal(err)
+        }
+    }
 
 	collectionData := mcollection.Collection{
 		ID:          collectionID,
@@ -117,10 +128,9 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 		Updated:     time.Now(),
 	}
 
-	err = cs.CreateCollection(ctx, &collectionData)
-	if err != nil {
-		t.Fatal(err)
-	}
+    if err := cs.CreateCollection(ctx, &collectionData); err != nil {
+        t.Fatal(err)
+    }
 
 	collectionGet, err := cs.GetCollection(ctx, collectionID)
 	if err != nil {

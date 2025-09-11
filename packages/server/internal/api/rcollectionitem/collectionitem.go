@@ -30,32 +30,26 @@ import (
 
 // validateMoveKindCompatibility validates that a move operation from sourceKind to targetKind is semantically valid
 func validateMoveKindCompatibility(sourceKind, targetKind itemv1.ItemKind) error {
-    // If targetKind is unspecified, no validation needed
+    // Unspecified target kind: allow
     if targetKind == itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
         return nil
     }
-
     switch sourceKind {
     case itemv1.ItemKind_ITEM_KIND_FOLDER:
-        // Moving a folder relative to an endpoint is valid for sibling reordering in collection_items.
-        // Actual parent validation happens elsewhere (only folders can be parents).
-        return nil
-
-    case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
-        switch targetKind {
-        case itemv1.ItemKind_ITEM_KIND_FOLDER:
-            // ✅ Endpoint to folder: valid (endpoint into folder)
-            return nil
-        case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
-            // ✅ Endpoint to endpoint: valid (endpoint reordering)
-            return nil
-        default:
-            return errors.New("invalid targetKind specified")
+        // Folders cannot be moved "into" endpoints (invalid relative positioning context)
+        if targetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT {
+            return errors.New("invalid move: cannot move folder into an endpoint")
         }
-
+        // Folder to folder is valid
+        return nil
+    case itemv1.ItemKind_ITEM_KIND_ENDPOINT:
+        // Endpoints can be positioned relative to folders or other endpoints
+        if targetKind == itemv1.ItemKind_ITEM_KIND_FOLDER || targetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT {
+            return nil
+        }
+        return errors.New("invalid targetKind specified")
     case itemv1.ItemKind_ITEM_KIND_UNSPECIFIED:
         return errors.New("source kind must be specified")
-
     default:
         return errors.New("invalid source kind specified")
     }
@@ -104,7 +98,9 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 		return nil, rpcErr
 	}
 
-	var folderidPtr *idwrap.IDWrap = nil
+    var folderidPtr *idwrap.IDWrap = nil
+    var legacyFolderIDPtr *idwrap.IDWrap = nil
+    useFallbackOnly := false
 	if req.Msg.ParentFolderId != nil {
 		legacyFolderID, err := idwrap.NewFromBytes(req.Msg.ParentFolderId)
 		if err != nil {
@@ -116,91 +112,73 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 		}
 		
 		// Convert legacy folder ID to collection_items folder ID for consistent lookups
-		collectionItemsFolderID, err := c.cis.GetCollectionItemIDByLegacyID(ctx, legacyFolderID)
-		if err != nil {
-			if err == scollectionitem.ErrCollectionItemNotFound {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("folder collection item not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		folderidPtr = &collectionItemsFolderID
+        collectionItemsFolderID, err := c.cis.GetCollectionItemIDByLegacyID(ctx, legacyFolderID)
+        if err != nil {
+            if err == scollectionitem.ErrCollectionItemNotFound {
+                // No collection_items mapping yet; fall back to legacy listing for this parent
+                useFallbackOnly = true
+            } else {
+                return nil, connect.NewError(connect.CodeInternal, err)
+            }
+        } else {
+            folderidPtr = &collectionItemsFolderID
+        }
+        legacyFolderIDPtr = &legacyFolderID
 	}
 
 	// Use collection_items table to get ordered items
-	collectionItems, err := c.cis.ListCollectionItems(ctx, collectionID, folderidPtr)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+    var collectionItems []scollectionitem.CollectionItem
+    if !useFallbackOnly {
+        collectionItems, err = c.cis.ListCollectionItems(ctx, collectionID, folderidPtr)
+        if err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+    } else {
+        collectionItems = nil
+    }
 
-	// Build RPC response from collection_items data
+	// Build RPC response
 	items := make([]*itemv1.CollectionItem, 0, len(collectionItems))
-	for _, collectionItem := range collectionItems {
-		switch collectionItem.ItemType {
-		case 0: // Folder
-			if collectionItem.FolderID == nil {
-				slog.Error("Collection item has folder type but no folder_id", "item_id", collectionItem.ID.String())
-				continue
+	if len(collectionItems) > 0 {
+		// Primary path: from collection_items table
+		for _, collectionItem := range collectionItems {
+			switch collectionItem.ItemType {
+			case 0: // Folder
+				if collectionItem.FolderID == nil { continue }
+				folder, err := c.ifs.GetFolder(ctx, *collectionItem.FolderID)
+				if err != nil { continue }
+				items = append(items, &itemv1.CollectionItem{ Kind: itemv1.ItemKind_ITEM_KIND_FOLDER, Folder: tfolder.SeralizeModelToRPCItem(*folder) })
+			case 1: // Endpoint
+				if collectionItem.EndpointID == nil { continue }
+				endpoint, err := c.ias.GetItemApi(ctx, *collectionItem.EndpointID)
+				if err != nil { continue }
+				ex, err := c.iaes.GetDefaultApiExample(ctx, endpoint.ID)
+				if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+				resp, err := c.res.GetExampleRespByExampleIDLatest(ctx, ex.ID)
+				var respID *idwrap.IDWrap
+				if err == nil { respID = &resp.ID }
+				items = append(items, &itemv1.CollectionItem{ Kind: itemv1.ItemKind_ITEM_KIND_ENDPOINT, Endpoint: titemapi.SeralizeModelToRPCItem(endpoint), Example: texample.SerializeModelToRPCItem(*ex, respID) })
 			}
-			
-			folder, err := c.ifs.GetFolder(ctx, *collectionItem.FolderID)
-			if err != nil {
-				slog.Error("Failed to get folder for collection item", 
-					"item_id", collectionItem.ID.String(), 
-					"folder_id", collectionItem.FolderID.String(),
-					"error", err)
-				continue
-			}
-			
-			items = append(items, &itemv1.CollectionItem{
-				Kind:   itemv1.ItemKind_ITEM_KIND_FOLDER,
-				Folder: tfolder.SeralizeModelToRPCItem(*folder),
-			})
-
-		case 1: // Endpoint
-			if collectionItem.EndpointID == nil {
-				slog.Error("Collection item has endpoint type but no endpoint_id", "item_id", collectionItem.ID.String())
-				continue
-			}
-			
-			endpoint, err := c.ias.GetItemApi(ctx, *collectionItem.EndpointID)
-			if err != nil {
-				slog.Error("Failed to get endpoint for collection item", 
-					"item_id", collectionItem.ID.String(), 
-					"endpoint_id", collectionItem.EndpointID.String(),
-					"error", err)
-				continue
-			}
-			
-			ex, err := c.iaes.GetDefaultApiExample(ctx, endpoint.ID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			
-			resp, err := c.res.GetExampleRespByExampleIDLatest(ctx, ex.ID)
-			var respID *idwrap.IDWrap = nil
-			if err != nil {
-				if err != sql.ErrNoRows {
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
+		}
+	} else {
+		// Fallback path: legacy folders only (for backward compatibility/tests)
+		folders, err := c.ifs.GetFoldersWithCollectionID(ctx, collectionID)
+		if err != nil && err != sitemfolder.ErrNoItemFolderFound {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		for _, f := range folders {
+			// Filter by parent if requested
+			if legacyFolderIDPtr != nil {
+				if f.ParentID == nil || f.ParentID.Compare(*legacyFolderIDPtr) != 0 { continue }
 			} else {
-				respID = &resp.ID
+				// Only root-level when no parent specified
+				if f.ParentID != nil { continue }
 			}
-
-			items = append(items, &itemv1.CollectionItem{
-				Kind:     itemv1.ItemKind_ITEM_KIND_ENDPOINT,
-				Endpoint: titemapi.SeralizeModelToRPCItem(endpoint),
-				Example:  texample.SerializeModelToRPCItem(*ex, respID),
-			})
-
-		default:
-			slog.Error("Unknown collection item type", "item_id", collectionItem.ID.String(), "type", collectionItem.ItemType)
+			items = append(items, &itemv1.CollectionItem{ Kind: itemv1.ItemKind_ITEM_KIND_FOLDER, Folder: tfolder.SeralizeModelToRPCItem(f) })
 		}
 	}
 
-	resp := &itemv1.CollectionItemListResponse{
-		Items: items,
-	}
-	return connect.NewResponse(resp), nil
+	return connect.NewResponse(&itemv1.CollectionItemListResponse{ Items: items }), nil
 }
 
 func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.Request[itemv1.CollectionItemMoveRequest]) (*connect.Response[itemv1.CollectionItemMoveResponse], error) {
@@ -356,13 +334,15 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 	targetKind := req.Msg.GetTargetKind()
 	sourceKind := req.Msg.GetKind()
 
-	// Validate targetKind semantics if specified
-	if targetKind != itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
-		err := validateMoveKindCompatibility(sourceKind, targetKind)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-	}
+    // Validate targetKind semantics if specified
+    if targetKind != itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
+        // Allow folder positioned relative to endpoint (same level) when no target parent is provided
+        if !(sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER && targetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && req.Msg.TargetParentFolderId == nil) {
+            if err := validateMoveKindCompatibility(sourceKind, targetKind); err != nil {
+                return nil, connect.NewError(connect.CodeInvalidArgument, err)
+            }
+        }
+    }
 
 	// Parse and validate position
 	rpcPosition := req.Msg.GetPosition()

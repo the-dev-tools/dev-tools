@@ -1,14 +1,15 @@
 package scollectionitem
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
-	"github.com/oklog/ulid/v2"
-	"log/slog"
-	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mitemapi"
+    "context"
+    "database/sql"
+    "fmt"
+    "errors"
+    "github.com/oklog/ulid/v2"
+    "log/slog"
+    "the-dev-tools/db/pkg/sqlc/gen"
+    "the-dev-tools/server/pkg/idwrap"
+    "the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/movable"
 	"the-dev-tools/server/pkg/service/sitemapi"
@@ -60,13 +61,17 @@ var (
 
 // New creates a new CollectionItemService
 func New(queries *gen.Queries, logger *slog.Logger) *CollectionItemService {
-	return &CollectionItemService{
-		queries:       queries,
-		repository:    NewCollectionItemsMovableRepository(queries),
-		folderService: sitemfolder.New(queries),
-		apiService:    sitemapi.New(queries),
-		logger:        logger,
-	}
+    // Avoid nil logger panics during tests and lightweight setups
+    if logger == nil {
+        logger = slog.Default()
+    }
+    return &CollectionItemService{
+        queries:       queries,
+        repository:    NewCollectionItemsMovableRepository(queries),
+        folderService: sitemfolder.New(queries),
+        apiService:    sitemapi.New(queries),
+        logger:        logger,
+    }
 }
 
 // TX returns a new service instance with transaction support
@@ -82,33 +87,44 @@ func (s *CollectionItemService) TX(tx *sql.Tx) *CollectionItemService {
 
 // NewTX creates a new service instance with prepared transaction queries
 func NewTX(ctx context.Context, tx *sql.Tx, logger *slog.Logger) (*CollectionItemService, error) {
-	queries, err := gen.Prepare(ctx, tx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare transaction queries: %w", err)
-	}
-	return &CollectionItemService{
-		queries:       queries,
-		repository:    NewCollectionItemsMovableRepository(queries),
-		folderService: sitemfolder.New(queries),
-		apiService:    sitemapi.New(queries),
-		logger:        logger,
-	}, nil
+    queries, err := gen.Prepare(ctx, tx)
+    if err != nil {
+        return nil, fmt.Errorf("failed to prepare transaction queries: %w", err)
+    }
+    if logger == nil {
+        logger = slog.Default()
+    }
+    return &CollectionItemService{
+        queries:       queries,
+        repository:    NewCollectionItemsMovableRepository(queries),
+        folderService: sitemfolder.New(queries),
+        apiService:    sitemapi.New(queries),
+        logger:        logger,
+    }, nil
 }
 
 // ListCollectionItems retrieves all collection items in a parent context, ordered by position
 // This reads from the collection_items table only for core data and ordering
 func (s *CollectionItemService) ListCollectionItems(ctx context.Context, collectionID idwrap.IDWrap, parentFolderID *idwrap.IDWrap) ([]CollectionItem, error) {
-	s.logger.Debug("Listing collection items",
-		"collection_id", collectionID.String(),
-		"parent_folder_id", getIDString(parentFolderID))
+    s.logger.Debug("Listing collection items",
+        "collection_id", collectionID.String(),
+        "parent_folder_id", getIDString(parentFolderID))
+
+    // Treat provided parentFolderID as legacy ID; convert to collection_items ID when possible
+    effectiveParentID := parentFolderID
+    if parentFolderID != nil {
+        if ciID, err := s.GetCollectionItemIDByLegacyID(ctx, *parentFolderID); err == nil {
+            effectiveParentID = &ciID
+        }
+    }
 
 	// Get items in order from the primary collection_items table
-	orderedItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
-		CollectionID:   collectionID,
-		ParentFolderID: parentFolderID,
-		Column3:        parentFolderID, // Same value for null check in SQL
-		CollectionID_2: collectionID,
-	})
+    orderedItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
+        CollectionID:   collectionID,
+        ParentFolderID: effectiveParentID,
+        Column3:        effectiveParentID, // Same value for null check in SQL
+        CollectionID_2: collectionID,
+    })
 	if err != nil {
 		if err == sql.ErrNoRows {
 			s.logger.Debug("No collection items found")
@@ -370,11 +386,16 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 	// Plan append safely using movable planner (preflight integrity + tail detection).
 	// We plan against the collection_items list using a new collectionItemID.
 
-	// Step 1: Create item_folder entry (LEGACY TABLE) first to satisfy foreign key constraints
-	err = txService.folderService.CreateItemFolder(ctx, folder)
-	if err != nil {
-		return fmt.Errorf("failed to create folder reference: %w", err)
-	}
+    // Step 1: Ensure item_folder entry exists (LEGACY TABLE) before we reference it
+    if _, getErr := txService.folderService.GetFolder(ctx, folder.ID); getErr != nil {
+        if errors.Is(getErr, sitemfolder.ErrNoItemFolderFound) {
+            if err := txService.folderService.CreateItemFolder(ctx, folder); err != nil {
+                return fmt.Errorf("failed to create folder reference: %w", err)
+            }
+        } else {
+            return fmt.Errorf("failed to fetch folder reference: %w", getErr)
+        }
+    }
 
 	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
 	// Now we can safely reference folder.ID since it exists in item_folder table
@@ -445,11 +466,16 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 
 	// Plan append safely using movable planner for collection_items.
 
-	// Step 1: Create item_api entry (LEGACY TABLE) first to satisfy foreign key constraints
-	err = txService.apiService.CreateItemApi(ctx, endpoint)
-	if err != nil {
-		return fmt.Errorf("failed to create endpoint reference: %w", err)
-	}
+    // Step 1: Ensure item_api entry exists (LEGACY TABLE) before we reference it
+    if _, getErr := txService.apiService.GetItemApi(ctx, endpoint.ID); getErr != nil {
+        if errors.Is(getErr, sitemapi.ErrNoItemApiFound) {
+            if err := txService.apiService.CreateItemApi(ctx, endpoint); err != nil {
+                return fmt.Errorf("failed to create endpoint reference: %w", err)
+            }
+        } else {
+            return fmt.Errorf("failed to fetch endpoint reference: %w", getErr)
+        }
+    }
 
     // Step 2: Create collection_items entry (PRIMARY) with correct linked list position
     // Now we can safely reference endpoint.ID since it exists in item_api table

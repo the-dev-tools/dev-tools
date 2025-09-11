@@ -21,54 +21,164 @@ const (
 )
 
 type Service struct {
-	bues sbodyurl.BodyURLEncodedService
-	ovs  *soverlayurlenc.Service
+    bues sbodyurl.BodyURLEncodedService
+    ovs  *soverlayurlenc.Service
 }
 
 func New(db *sql.DB, bues sbodyurl.BodyURLEncodedService) *Service {
-	ovs, _ := soverlayurlenc.New(db)
-	return &Service{bues: bues, ovs: ovs}
+    ovs, _ := soverlayurlenc.New(db)
+    return &Service{bues: bues, ovs: ovs}
+}
+
+// Proxy ID encoding helpers. We expose origin-anchored proxies with a stable
+// overlay-specific ID that differs from the origin ID. This lets clients
+// distinguish proxy IDs from origin IDs for update semantics.
+var proxySalt = [16]byte{0x21, 0x42, 0x63, 0x84, 0xa5, 0xc6, 0xe7, 0x08, 0x29, 0x4a, 0x6b, 0x8c, 0xad, 0xce, 0xef, 0x10}
+
+func EncodeProxyID(id idwrap.IDWrap) idwrap.IDWrap {
+    b := make([]byte, len(id.Bytes()))
+    copy(b, id.Bytes())
+    for i := 0; i < len(b) && i < len(proxySalt); i++ {
+        b[i] ^= proxySalt[i]
+    }
+    return idwrap.NewFromBytesMust(b)
+}
+
+func TryDecodeProxyID(id idwrap.IDWrap) (idwrap.IDWrap, bool) {
+    // Decoding is symmetric XOR. Caller should validate existence after decoding.
+    b := make([]byte, len(id.Bytes()))
+    copy(b, id.Bytes())
+    for i := 0; i < len(b) && i < len(proxySalt); i++ {
+        b[i] ^= proxySalt[i]
+    }
+    return idwrap.NewFromBytesMust(b), true
 }
 
 // EnsureSeeded creates overlay order entries for all origin url-enc items
 // in origin order if the overlay has no entries yet for deltaExampleID.
 func (s *Service) EnsureSeeded(ctx context.Context, deltaExampleID, originExampleID idwrap.IDWrap) error {
-	cnt, err := s.ovs.CountOrder(ctx, deltaExampleID)
-	if err != nil {
-		return err
-	}
-	if cnt > 0 {
-		return nil
-	}
-	// get origin list in order, fallback to unordered
-	origin, err := s.bues.GetBodyURLEncodedByExampleIDOrdered(ctx, originExampleID)
-	if err != nil {
-		// fallback to unordered when no head or CTE misses
-		origin, err = s.bues.GetBodyURLEncodedByExampleID(ctx, originExampleID)
-		if err != nil {
-			return err
-		}
-	}
-	if len(origin) == 0 {
-		return nil
-	}
-	// create ranks sequentially using FirstRank/between
-	rank := ""
-	for i := range origin {
-		var next string
-		// pre-computing next is not necessary, using nil for tail spacing
-		newRank := ""
-		if rank == "" && next == "" {
-			newRank = orank.First()
-		} else {
-			newRank = orank.Between(rank, next)
-		}
-		if err := s.ovs.InsertOrderIgnore(ctx, deltaExampleID, refKindOrigin, origin[i].ID, newRank, 0); err != nil {
-			return err
-		}
-		rank = newRank
-	}
-	return nil
+    // Read current overlay order to decide seeding strategy (supports incremental ensure-missing behavior)
+    ord, err := s.readOrder(ctx, deltaExampleID)
+    if err != nil {
+        return err
+    }
+    // Fetch origin list (ordered, with fallback)
+    origin, err := s.bues.GetBodyURLEncodedByExampleIDOrdered(ctx, originExampleID)
+    if err != nil {
+        origin, err = s.bues.GetBodyURLEncodedByExampleID(ctx, originExampleID)
+        if err != nil {
+            return err
+        }
+    }
+    if len(origin) == 0 {
+        return nil
+    }
+    // Map existing origin anchors in current order
+    present := map[string]bool{}
+    hasAnyOrigin := false
+    for _, r := range ord {
+        if r.RefKind == refKindOrigin {
+            present[r.RefID.String()] = true
+            hasAnyOrigin = true
+        }
+    }
+    nextRev, err := s.nextRevision(ctx, deltaExampleID)
+    if err != nil {
+        return err
+    }
+    // Case 1: No origin anchors yet — append all proxies after any existing delta-only rows
+    if !hasAnyOrigin {
+        last, ok, err := s.ovs.LastOrderRank(ctx, deltaExampleID)
+        if err != nil {
+            return err
+        }
+        for i := range origin {
+            newRank := ""
+            if ok {
+                newRank = orank.Between(last, "")
+            } else {
+                newRank = orank.First()
+            }
+            if err := s.ovs.UpsertOrderRank(ctx, deltaExampleID, refKindOrigin, origin[i].ID, newRank, nextRev); err != nil {
+                return err
+            }
+            // Ensure not suppressed if previously deleted
+            _ = s.ovs.UnsuppressState(ctx, deltaExampleID, origin[i].ID)
+            nextRev++
+            last = newRank
+            ok = true
+        }
+        return nil
+    }
+    // Helper: rank and position maps for quick lookup (positions in current overlay order)
+    rankByID := map[string]string{}
+    posByID := map[string]int{}
+    for i, r := range ord {
+        rankByID[r.RefID.String()] = r.Rank
+        posByID[r.RefID.String()] = i
+    }
+    // Case 2: Some anchors exist — insert any missing origin proxies between nearest anchors based on origin order
+    for idx := range origin {
+        id := origin[idx].ID
+        idStr := id.String()
+        if present[idStr] {
+            continue // already anchored
+        }
+        // Find nearest present origin anchors in origin order
+        var leftAnchorID *idwrap.IDWrap
+        var rightAnchorID *idwrap.IDWrap
+        for l := idx - 1; l >= 0; l-- {
+            if present[origin[l].ID.String()] {
+                tmp := origin[l].ID
+                leftAnchorID = &tmp
+                break
+            }
+        }
+        for r := idx + 1; r < len(origin); r++ {
+            if present[origin[r].ID.String()] {
+                tmp := origin[r].ID
+                rightAnchorID = &tmp
+                break
+            }
+        }
+        // Choose placement bounds based on overlay positions to preserve user order
+        var leftBound, rightBound string
+        if leftAnchorID != nil && rightAnchorID != nil {
+            // Insert after whichever anchor appears later in current overlay order
+            li := posByID[leftAnchorID.String()]
+            ri := posByID[rightAnchorID.String()]
+            if li >= ri {
+                // after left anchor
+                leftBound = rankByID[leftAnchorID.String()]
+                if li+1 < len(ord) {
+                    rightBound = ord[li+1].Rank
+                }
+            } else {
+                // before right anchor
+                rightBound = rankByID[rightAnchorID.String()]
+                if ri-1 >= 0 {
+                    leftBound = ord[ri-1].Rank
+                }
+            }
+        } else {
+            // Only one or no anchor: do not auto-insert (respect deletions)
+            continue
+        }
+        newRank := orank.Between(leftBound, rightBound)
+        if err := s.ovs.UpsertOrderRank(ctx, deltaExampleID, refKindOrigin, id, newRank, nextRev); err != nil {
+            return err
+        }
+        // If this origin was previously suppressed, clear suppression
+        _ = s.ovs.UnsuppressState(ctx, deltaExampleID, id)
+        nextRev++
+        // update maps for subsequent insertions
+        present[idStr] = true
+        rankByID[idStr] = newRank
+        // Best-effort position update: assume inserted after/before chosen bounds near existing indices
+        // We set position equal to len(ord) to bias subsequent insertions towards tail when unsure.
+        posByID[idStr] = len(ord)
+    }
+    return nil
 }
 
 type orderRow struct {
@@ -176,25 +286,28 @@ func (s *Service) List(ctx context.Context, deltaExampleID, originExampleID idwr
 			// Determine source kind: MIXED if any override present
 			var mixed bool
 			mixed = st.Key.Valid || st.Val.Valid || st.Desc.Valid || st.Enabled.Valid
-			kind := deltav1.SourceKind_SOURCE_KIND_ORIGIN
-			key := orig.BodyKey
-			val := orig.Value
-			desc := orig.Description
-			en := orig.Enable
-			if mixed {
-				kind = deltav1.SourceKind_SOURCE_KIND_MIXED
-				key = coalesce(st.Key, key)
-				val = coalesce(st.Val, val)
-				desc = coalesce(st.Desc, desc)
-				en = coalesceB(st.Enabled, en)
-			}
-			// embed origin RPC
-			originRPC := &bodyv1.BodyUrlEncoded{BodyId: orig.ID.Bytes(), Key: orig.BodyKey, Enabled: orig.Enable, Value: orig.Value, Description: orig.Description}
-			out = append(out, &bodyv1.BodyUrlEncodedDeltaListItem{
-				BodyId: o.RefID.Bytes(),
-				Key:    key, Enabled: en, Value: val, Description: desc,
-				Origin: originRPC, Source: &kind,
-			})
+            // Treat proxies anchored to origin as delta-layer items by default
+            kind := deltav1.SourceKind_SOURCE_KIND_DELTA
+            key := orig.BodyKey
+            val := orig.Value
+            desc := orig.Description
+            en := orig.Enable
+            if mixed {
+                kind = deltav1.SourceKind_SOURCE_KIND_MIXED
+                key = coalesce(st.Key, key)
+                val = coalesce(st.Val, val)
+                desc = coalesce(st.Desc, desc)
+                en = coalesceB(st.Enabled, en)
+            }
+            // embed origin RPC
+            originRPC := &bodyv1.BodyUrlEncoded{BodyId: orig.ID.Bytes(), Key: orig.BodyKey, Enabled: orig.Enable, Value: orig.Value, Description: orig.Description}
+            // expose proxy with encoded ID distinct from origin ID
+            proxyID := EncodeProxyID(o.RefID)
+            out = append(out, &bodyv1.BodyUrlEncodedDeltaListItem{
+                BodyId: proxyID.Bytes(),
+                Key:    key, Enabled: en, Value: val, Description: desc,
+                Origin: originRPC, Source: &kind,
+            })
 		case refKindDelta:
 			// load delta-only row
 			var key, val, desc string
@@ -363,6 +476,11 @@ func (s *Service) Reset(ctx context.Context, deltaExampleID idwrap.IDWrap, bodyI
 	}
 	// origin: clear overrides (keep suppressed as is)
 	return s.ovs.ClearStateOverrides(ctx, deltaExampleID, bodyID)
+}
+
+// IsDelta reports whether the given id corresponds to a delta-only row in this overlay example.
+func (s *Service) IsDelta(ctx context.Context, deltaExampleID, id idwrap.IDWrap) (bool, error) {
+    return s.ovs.ExistsDelta(ctx, deltaExampleID, id)
 }
 
 // Undelete clears suppressed and appends the origin-ref at tail.

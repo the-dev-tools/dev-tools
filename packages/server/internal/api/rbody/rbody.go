@@ -596,15 +596,34 @@ func (c *BodyRPC) BodyUrlEncodedDeltaCreate(ctx context.Context, req *connect.Re
 
 func (c *BodyRPC) BodyUrlEncodedDeltaUpdate(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaUpdateRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaUpdateResponse], error) {
     ID, err := idwrap.NewFromBytes(req.Msg.GetBodyId())
-    if err != nil {
-        return nil, connect.NewError(connect.CodeInvalidArgument, err)
-    }
-    // Overlay only
+    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    // Resolve example; if found, check whether this is a delta-only id. If origin-ref, reject.
     var ex idwrap.IDWrap
-    if ex2, ok, _ := c.overlay.ResolveExampleForBodyID(ctx, ID); ok { ex = ex2 } else { return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot resolve example for update")) }
+    rawID := ID
+    if ex2, ok, _ := c.overlay.ResolveExampleForBodyID(ctx, ID); ok {
+        ex = ex2
+        if isDelta, derr := c.overlay.IsDelta(ctx, ex, ID); derr != nil {
+            return nil, connect.NewError(connect.CodeInternal, derr)
+        } else if !isDelta {
+            return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("origin id not allowed for delta update; use proxy id from delta list"))
+        }
+        // else: delta-only id is allowed; proceed with ID as-is
+    } else {
+        // Try proxy decode path for encoded origin proxies
+        if dID, _ := overlayurlenc.TryDecodeProxyID(ID); true {
+            if ex2b, ok2, _ := c.overlay.ResolveExampleForBodyID(ctx, dID); ok2 {
+                ex = ex2b
+                ID = dID
+            } else {
+                return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot resolve example for update"))
+            }
+        }
+    }
+    // Permission check
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
     // Use pointer fields to preserve partial updates
     if err := c.overlay.Update(ctx, ex, ID, req.Msg.Key, req.Msg.Value, req.Msg.Description, req.Msg.Enabled); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    _ = rawID // silence unused if build tags vary
     return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaUpdateResponse{}), nil
 }
 
@@ -615,6 +634,16 @@ func (c *BodyRPC) BodyUrlEncodedDeltaDelete(ctx context.Context, req *connect.Re
     }
     // Overlay only
     ex, ok, _ := c.overlay.ResolveExampleForBodyID(ctx, ID)
+    if !ok {
+        // Try proxy decode
+        if d, _ := overlayurlenc.TryDecodeProxyID(ID); true {
+            if ex2, ok2, _ := c.overlay.ResolveExampleForBodyID(ctx, d); ok2 {
+                ID = d
+                ex = ex2
+                ok = true
+            }
+        }
+    }
     if !ok { return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot resolve example for delete")) }
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil { return nil, rpcErr }
     if err := c.overlay.Delete(ctx, ex, ID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
@@ -628,6 +657,11 @@ func (c *BodyRPC) BodyUrlEncodedDeltaReset(ctx context.Context, req *connect.Req
     }
     // Overlay only
     ex2, ok2, _ := c.overlay.ResolveExampleForBodyID(ctx, ID)
+    if !ok2 {
+        if d, _ := overlayurlenc.TryDecodeProxyID(ID); true {
+            if ex3, ok3, _ := c.overlay.ResolveExampleForBodyID(ctx, d); ok3 { ID = d; ex2 = ex3; ok2 = true }
+        }
+    }
     if !ok2 { return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot resolve example for reset")) }
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex2)); rpcErr != nil { return nil, rpcErr }
     if err := c.overlay.Reset(ctx, ex2, ID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
@@ -779,6 +813,13 @@ func (c *BodyRPC) BodyUrlEncodedDeltaMove(ctx context.Context, req *connect.Requ
     // Overlay only
     if bodyID.Compare(targetID) == 0 { return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaMoveResponse{}), nil }
     if err := c.overlay.EnsureSeeded(ctx, deltaExampleID, originExampleID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    // Decode proxy ids to underlying origin ids if necessary
+    if _, ok, _ := c.overlay.ResolveExampleForBodyID(ctx, bodyID); !ok {
+        if d, _ := overlayurlenc.TryDecodeProxyID(bodyID); true { bodyID = d }
+    }
+    if _, ok, _ := c.overlay.ResolveExampleForBodyID(ctx, targetID); !ok {
+        if d, _ := overlayurlenc.TryDecodeProxyID(targetID); true { targetID = d }
+    }
     after := pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER
     if err := c.overlay.Move(ctx, deltaExampleID, originExampleID, bodyID, targetID, after); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaMoveResponse{}), nil
