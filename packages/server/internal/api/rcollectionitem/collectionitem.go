@@ -191,11 +191,11 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("collection_id is required"))
 	}
 
-	// Parse item ID (this could be a legacy ID)
-	itemIDRaw, err := idwrap.NewFromBytes(req.Msg.GetItemId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
+    // Parse item ID (accepts either collection_items ID or legacy ID)
+    itemIDRaw, err := idwrap.NewFromBytes(req.Msg.GetItemId())
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInvalidArgument, err)
+    }
 
 	// Parse collection ID
 	collectionID, err := idwrap.NewFromBytes(req.Msg.GetCollectionId())
@@ -218,14 +218,20 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Convert legacy item ID to collection_items ID if needed
-	itemID, err := c.cis.GetCollectionItemIDByLegacyID(ctx, itemIDRaw)
-	if err != nil {
-		if err == scollectionitem.ErrCollectionItemNotFound {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("collection item not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+    // Resolve to collection_items ID: try direct first, then legacy mapping
+    var itemID idwrap.IDWrap
+    if _, getErr := c.cis.GetCollectionItem(ctx, itemIDRaw); getErr == nil {
+        itemID = itemIDRaw
+    } else {
+        mappedID, mapErr := c.cis.GetCollectionItemIDByLegacyID(ctx, itemIDRaw)
+        if mapErr != nil {
+            if mapErr == scollectionitem.ErrCollectionItemNotFound {
+                return nil, connect.NewError(connect.CodeNotFound, errors.New("collection item not found"))
+            }
+            return nil, connect.NewError(connect.CodeInternal, mapErr)
+        }
+        itemID = mappedID
+    }
 
 	// Verify the collection item belongs to this workspace (additional security check)
 	belongsToWorkspace, err := c.cis.CheckWorkspaceID(ctx, itemID, collectionWorkspaceID)
@@ -241,65 +247,71 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 
 	// Parse target item ID if provided
 	var targetID *idwrap.IDWrap
-	if len(req.Msg.GetTargetItemId()) > 0 {
-		targetIDRaw, err := idwrap.NewFromBytes(req.Msg.GetTargetItemId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		
-		// Convert legacy target ID to collection_items ID if needed
-		targetIDConverted, err := c.cis.GetCollectionItemIDByLegacyID(ctx, targetIDRaw)
-		if err != nil {
-			if err == scollectionitem.ErrCollectionItemNotFound {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("target collection item not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		targetID = &targetIDConverted
-		
-		// Validate target item exists and belongs to same workspace
-		targetBelongsToWorkspace, err := c.cis.CheckWorkspaceID(ctx, *targetID, collectionWorkspaceID)
-		if err != nil {
-			if err == scollectionitem.ErrCollectionItemNotFound {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("target collection item not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		if !targetBelongsToWorkspace {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("target collection item does not belong to the specified workspace"))
-		}
-	}
+    if len(req.Msg.GetTargetItemId()) > 0 {
+        targetIDRaw, err := idwrap.NewFromBytes(req.Msg.GetTargetItemId())
+        if err != nil {
+            return nil, connect.NewError(connect.CodeInvalidArgument, err)
+        }
+        // Resolve to collection_items ID: try direct first, then legacy mapping
+        if _, getErr := c.cis.GetCollectionItem(ctx, targetIDRaw); getErr == nil {
+            targetID = &targetIDRaw
+        } else {
+            targetIDConverted, mapErr := c.cis.GetCollectionItemIDByLegacyID(ctx, targetIDRaw)
+            if mapErr != nil {
+                if mapErr == scollectionitem.ErrCollectionItemNotFound {
+                    return nil, connect.NewError(connect.CodeNotFound, errors.New("target collection item not found"))
+                }
+                return nil, connect.NewError(connect.CodeInternal, mapErr)
+            }
+            targetID = &targetIDConverted
+        }
+        
+        // Validate target item exists and belongs to same workspace
+        targetBelongsToWorkspace, err := c.cis.CheckWorkspaceID(ctx, *targetID, collectionWorkspaceID)
+        if err != nil {
+            if err == scollectionitem.ErrCollectionItemNotFound {
+                return nil, connect.NewError(connect.CodeNotFound, errors.New("target collection item not found"))
+            }
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+        if !targetBelongsToWorkspace {
+            return nil, connect.NewError(connect.CodeNotFound, errors.New("target collection item not found"))
+        }
+    }
 
 	// Parse target parent folder ID if provided
 	var targetParentFolderID *idwrap.IDWrap
-	if len(req.Msg.GetTargetParentFolderId()) > 0 {
-		targetParentIDRaw, err := idwrap.NewFromBytes(req.Msg.GetTargetParentFolderId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		
-		// Convert legacy parent folder ID to collection_items ID if needed
-		targetParentIDConverted, err := c.cis.GetCollectionItemIDByLegacyID(ctx, targetParentIDRaw)
-		if err != nil {
-			if err == scollectionitem.ErrCollectionItemNotFound {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("target parent folder not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		targetParentFolderID = &targetParentIDConverted
-		
-		// Validate target parent folder exists and belongs to same workspace
-		targetParentBelongsToWorkspace, err := c.cis.CheckWorkspaceID(ctx, *targetParentFolderID, collectionWorkspaceID)
-		if err != nil {
-			if err == scollectionitem.ErrCollectionItemNotFound {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("target parent folder not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		if !targetParentBelongsToWorkspace {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("target parent folder does not belong to the specified workspace"))
-		}
-	}
+    if len(req.Msg.GetTargetParentFolderId()) > 0 {
+        targetParentIDRaw, err := idwrap.NewFromBytes(req.Msg.GetTargetParentFolderId())
+        if err != nil {
+            return nil, connect.NewError(connect.CodeInvalidArgument, err)
+        }
+        // Resolve to collection_items ID: try direct first, then legacy mapping
+        if _, getErr := c.cis.GetCollectionItem(ctx, targetParentIDRaw); getErr == nil {
+            targetParentFolderID = &targetParentIDRaw
+        } else {
+            targetParentIDConverted, mapErr := c.cis.GetCollectionItemIDByLegacyID(ctx, targetParentIDRaw)
+            if mapErr != nil {
+                if mapErr == scollectionitem.ErrCollectionItemNotFound {
+                    return nil, connect.NewError(connect.CodeNotFound, errors.New("target parent folder not found"))
+                }
+                return nil, connect.NewError(connect.CodeInternal, mapErr)
+            }
+            targetParentFolderID = &targetParentIDConverted
+        }
+        
+        // Validate target parent folder exists and belongs to same workspace
+        targetParentBelongsToWorkspace, err := c.cis.CheckWorkspaceID(ctx, *targetParentFolderID, collectionWorkspaceID)
+        if err != nil {
+            if err == scollectionitem.ErrCollectionItemNotFound {
+                return nil, connect.NewError(connect.CodeNotFound, errors.New("target parent folder not found"))
+            }
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+        if !targetParentBelongsToWorkspace {
+            return nil, connect.NewError(connect.CodeNotFound, errors.New("target parent folder not found"))
+        }
+    }
 
 	// Parse target collection ID if provided (for cross-collection moves)
 	var targetCollectionID *idwrap.IDWrap
@@ -311,10 +323,13 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		targetCollectionID = &targetCollectionIDRaw
 		
 		// Check permission on target collection
-		rpcErr := permcheck.CheckPerm(rcollection.CheckOwnerCollection(ctx, c.cs, c.us, targetCollectionIDRaw))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
+        rpcErr := permcheck.CheckPerm(rcollection.CheckOwnerCollection(ctx, c.cs, c.us, targetCollectionIDRaw))
+        if rpcErr != nil {
+            if rpcErr.Code() == connect.CodeNotFound {
+                return nil, connect.NewError(connect.CodePermissionDenied, errors.New("workspace boundary violation: cannot move items across workspaces"))
+            }
+            return nil, rpcErr
+        }
 		
 		// Validate target collection exists and is in same workspace as source collection
 		targetCollectionWorkspaceID, err := c.cs.GetWorkspaceID(ctx, targetCollectionIDRaw)
@@ -330,17 +345,18 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 		}
 	}
 
-	// Parse targetKind field if provided (for semantic validation)
-	targetKind := req.Msg.GetTargetKind()
-	sourceKind := req.Msg.GetKind()
+    // Parse targetKind field if provided (for semantic validation)
+    targetKind := req.Msg.GetTargetKind()
+    sourceKind := req.Msg.GetKind()
+    // Determine whether caller provided an explicit target (item or parent)
+    hasExplicitTarget := (len(req.Msg.GetTargetItemId()) > 0) || (len(req.Msg.GetTargetParentFolderId()) > 0)
 
-    // Validate targetKind semantics if specified
-    if targetKind != itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
-        // Allow folder positioned relative to endpoint (same level) when no target parent is provided
-        if !(sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER && targetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && req.Msg.TargetParentFolderId == nil) {
-            if err := validateMoveKindCompatibility(sourceKind, targetKind); err != nil {
-                return nil, connect.NewError(connect.CodeInvalidArgument, err)
-            }
+    // Validate targetKind semantics if specified. When explicit target is provided, treat
+    // targetKind as advisory (validation-only). When no explicit target is provided, enforce
+    // compatibility to prevent ambiguous moves.
+    if targetKind != itemv1.ItemKind_ITEM_KIND_UNSPECIFIED && !hasExplicitTarget {
+        if err := validateMoveKindCompatibility(sourceKind, targetKind); err != nil {
+            return nil, connect.NewError(connect.CodeInvalidArgument, err)
         }
     }
 

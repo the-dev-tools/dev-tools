@@ -6,18 +6,39 @@ import (
     "context"
     "database/sql"
     "fmt"
+    "regexp"
+    "strings"
     "the-dev-tools/db/pkg/sqlc"
     "the-dev-tools/db/pkg/sqlc/gen"
 
-    "github.com/oklog/ulid/v2"
     _ "github.com/mattn/go-sqlite3"
 )
 
+// ContextDBNameKey is the context key that, when present, provides a stable
+// test-specific database name so multiple helpers within the same test share
+// the same in-memory SQLite database.
+type ContextDBNameKey string
+
+// CtxDBNameKey is the exported key value to use with context.WithValue.
+const CtxDBNameKey ContextDBNameKey = "dbtest:name"
+
+var nonAlnum = regexp.MustCompile(`[^a-zA-Z0-9_]+`)
+
+func dsnFromContext(ctx context.Context) string {
+    // Default shared name if none provided
+    name, _ := ctx.Value(CtxDBNameKey).(string)
+    if name == "" {
+        return "file:devtools_test?mode=memory&cache=shared&_busy_timeout=5000"
+    }
+    // Sanitize name for DSN
+    norm := strings.ToLower(name)
+    norm = nonAlnum.ReplaceAllString(norm, "_")
+    return fmt.Sprintf("file:devtools_%s?mode=memory&cache=shared&_busy_timeout=5000", norm)
+}
+
 func GetTestDB(ctx context.Context) (*sql.DB, error) {
-    // Generate unique database name for this test to ensure isolation
-    uniqueName := ulid.Make().String()
-    connStr := fmt.Sprintf("file:testdb_%s?mode=memory&cache=shared", uniqueName)
-    db, err := sql.Open("sqlite3", connStr)
+    // Use a shared in-memory database across helpers within the same test
+    db, err := sql.Open("sqlite3", dsnFromContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -32,9 +53,7 @@ func GetTestDB(ctx context.Context) (*sql.DB, error) {
 }
 
 func GetTestPreparedQueries(ctx context.Context) (*gen.Queries, error) {
-    uniqueName := ulid.Make().String()
-    connStr := fmt.Sprintf("file:testdb_%s?mode=memory&cache=shared", uniqueName)
-    db, err := sql.Open("sqlite3", connStr)
+    db, err := sql.Open("sqlite3", dsnFromContext(ctx))
 	if err != nil {
 		return nil, err
 	}

@@ -773,17 +773,67 @@ func (s *CollectionItemService) performCrossFolderMove(ctx context.Context, item
 		return fmt.Errorf("failed to get target parent items: %w", err)
 	}
 
-	// Step 3: Update item's parent_folder_id
-	s.logger.Debug("Updating parent_folder_id",
-		"item_id", itemID.String(),
-		"new_parent", getIDString(newParentFolderID))
-	err = s.queries.UpdateCollectionItemParentFolder(ctx, gen.UpdateCollectionItemParentFolderParams{
-		ParentFolderID: newParentFolderID,
-		ID:             itemID,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update item parent folder: %w", err)
-	}
+    // Step 3: Update item's parent_folder_id in primary table
+    s.logger.Debug("Updating parent_folder_id",
+        "item_id", itemID.String(),
+        "new_parent", getIDString(newParentFolderID))
+    err = s.queries.UpdateCollectionItemParentFolder(ctx, gen.UpdateCollectionItemParentFolderParams{
+        ParentFolderID: newParentFolderID,
+        ID:             itemID,
+    })
+    if err != nil {
+        return fmt.Errorf("failed to update item parent folder: %w", err)
+    }
+
+    // Step 3b: Update legacy tables to keep folder linkage consistent
+    // - For endpoints, set item_api.folder_id to the legacy folder ID (or NULL for root)
+    // - For folders, set item_folder.parent_id to the legacy parent folder ID (or NULL for root)
+    if item.ItemType == int8(CollectionItemTypeEndpoint) && item.EndpointID != nil {
+        api, gerr := s.apiService.GetItemApi(ctx, *item.EndpointID)
+        if gerr != nil {
+            return fmt.Errorf("failed to fetch endpoint for legacy update: %w", gerr)
+        }
+        var newLegacyParent *idwrap.IDWrap
+        if newParentFolderID != nil {
+            // Resolve legacy folder_id from collection_items folder item
+            parentCI, gerr := s.queries.GetCollectionItem(ctx, *newParentFolderID)
+            if gerr != nil {
+                return fmt.Errorf("failed to resolve new parent folder mapping: %w", gerr)
+            }
+            newLegacyParent = parentCI.FolderID
+        }
+        if uerr := s.queries.UpdateItemApi(ctx, gen.UpdateItemApiParams{
+            FolderID: newLegacyParent,
+            Name:     api.Name,
+            Url:      api.Url,
+            Method:   api.Method,
+            Hidden:   api.Hidden,
+            ID:       api.ID,
+        }); uerr != nil {
+            return fmt.Errorf("failed to update legacy endpoint parent: %w", uerr)
+        }
+    }
+    if item.ItemType == int8(CollectionItemTypeFolder) && item.FolderID != nil {
+        folder, gerr := s.folderService.GetFolder(ctx, *item.FolderID)
+        if gerr != nil {
+            return fmt.Errorf("failed to fetch folder for legacy update: %w", gerr)
+        }
+        var newLegacyParent *idwrap.IDWrap
+        if newParentFolderID != nil {
+            parentCI, gerr := s.queries.GetCollectionItem(ctx, *newParentFolderID)
+            if gerr != nil {
+                return fmt.Errorf("failed to resolve new parent folder mapping: %w", gerr)
+            }
+            newLegacyParent = parentCI.FolderID
+        }
+        if uerr := s.queries.UpdateItemFolder(ctx, gen.UpdateItemFolderParams{
+            Name:     folder.Name,
+            ParentID: newLegacyParent,
+            ID:       folder.ID,
+        }); uerr != nil {
+            return fmt.Errorf("failed to update legacy folder parent: %w", uerr)
+        }
+    }
 
 	// Step 4: Calculate insertion position
 	var insertPos int

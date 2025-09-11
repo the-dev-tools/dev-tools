@@ -37,11 +37,13 @@ type BaseTestServices struct {
 }
 
 func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
-	db, err := dbtest.GetTestDB(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	queries, err := gen.Prepare(ctx, db)
+    // Ensure all BaseDB instances within the same test share one in-memory DB
+    ctx = context.WithValue(ctx, dbtest.CtxDBNameKey, t.Name())
+    db, err := dbtest.GetTestDB(ctx)
+    if err != nil {
+        t.Fatal(err)
+    }
+    queries, err := gen.Prepare(ctx, db)
 	if err != nil {
 		t.Fatal(err)
 	}

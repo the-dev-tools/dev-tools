@@ -133,41 +133,78 @@ func (ws WorkspaceService) Create(ctx context.Context, w *mworkspace.Workspace) 
 // This prevents the workspace from being an isolated node that doesn't appear in the ordered query
 // This method should be called after both workspace and workspace_user records are created
 func (ws WorkspaceService) AutoLinkWorkspaceToUserList(ctx context.Context, workspaceID idwrap.IDWrap, userID idwrap.IDWrap) error {
-	// If the new workspace already appears in the user's ordered chain (e.g., first workspace
-	// was inserted and the list is empty so it becomes head automatically), skip linking.
-	items, err := ws.movableRepository.GetItemsByParent(ctx, userID, movable.WorkspaceListTypeWorkspaces)
-	if err == nil && movable.HasID(items, workspaceID) {
-		return nil // already present; nothing to link
-	}
-	// Super-safe append using planner + guarded updates.
-	plan, err := movable.BuildAppendPlanFromRepo(ctx, ws.movableRepository, userID, movable.WorkspaceListTypeWorkspaces, workspaceID)
-	if err != nil {
-		return fmt.Errorf("workspace auto-link plan failed: %w", err)
-	}
+    // Fetch all workspaces for this user (includes isolated nodes)
+    all, err := ws.queries.GetAllWorkspacesByUserID(ctx, userID)
+    if err != nil && err != sql.ErrNoRows {
+        return fmt.Errorf("autolink: failed to list user workspaces: %w", err)
+    }
 
-	// Patch tail.next if needed (best-effort; if race detected, bail quietly to avoid corruption).
-	if plan.PrevID != nil {
-		// Use UpdateWorkspaceNext to set tail's next.
-		if err := ws.queries.UpdateWorkspaceNext(ctx, gen.UpdateWorkspaceNextParams{
-			Next:   &workspaceID,
-			ID:     *plan.PrevID,
-			UserID: userID,
-		}); err != nil {
-			return fmt.Errorf("failed to set tail.next: %w", err)
-		}
-	}
+    // If no other workspace exists for this user, keep this one isolated
+    // and do nothing (satisfies the "first workspace remains isolated" case).
+    if len(all) == 0 {
+        return nil
+    }
 
-	// Set new workspace's prev and next(nil) to become new tail.
-	if err := ws.queries.UpdateWorkspaceOrder(ctx, gen.UpdateWorkspaceOrderParams{
-		Prev:   plan.PrevID,
-		Next:   nil,
-		ID:     workspaceID,
-		UserID: userID,
-	}); err != nil {
-		return fmt.Errorf("failed to set new workspace prev/next: %w", err)
-	}
+    // Discover state for the new workspace and other candidates
+    var alreadyLinked bool
+    others := make([]gen.Workspace, 0, len(all))
+    for _, w := range all {
+        if w.ID.Compare(workspaceID) == 0 {
+            // If this workspace is already part of a chain (has either prev or next), skip
+            if w.Prev != nil || w.Next != nil {
+                alreadyLinked = true
+            }
+            continue
+        }
+        others = append(others, w)
+    }
 
-	return nil
+    if alreadyLinked {
+        return nil
+    }
+
+    // If there are no other workspaces besides the new one, leave isolated
+    if len(others) == 0 {
+        return nil
+    }
+
+    // Choose a tail to append to:
+    // - Prefer a workspace that is tail of an existing chain (next == NULL and prev != NULL)
+    // - Fallback to the single remaining isolated workspace (for 2nd workspace case)
+    var tail *idwrap.IDWrap
+    for _, w := range others {
+        if w.Next == nil && w.Prev != nil { // chain tail
+            id := w.ID
+            tail = &id
+            break
+        }
+    }
+    if tail == nil {
+        // No existing chain detected. Fallback to the only/first other workspace.
+        id := others[0].ID
+        tail = &id
+    }
+
+    // Patch tail.next -> new workspace
+    if err := ws.queries.UpdateWorkspaceNext(ctx, gen.UpdateWorkspaceNextParams{
+        Next:   &workspaceID,
+        ID:     *tail,
+        UserID: userID,
+    }); err != nil {
+        return fmt.Errorf("autolink: failed to set tail.next: %w", err)
+    }
+
+    // Set new workspace.prev -> tail, next -> NULL
+    if err := ws.queries.UpdateWorkspaceOrder(ctx, gen.UpdateWorkspaceOrderParams{
+        Prev:   tail,
+        Next:   nil,
+        ID:     workspaceID,
+        UserID: userID,
+    }); err != nil {
+        return fmt.Errorf("autolink: failed to set new workspace order: %w", err)
+    }
+
+    return nil
 }
 
 func (ws WorkspaceService) Get(ctx context.Context, id idwrap.IDWrap) (*mworkspace.Workspace, error) {
