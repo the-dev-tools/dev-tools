@@ -86,10 +86,7 @@ func setupE2ETestData(t *testing.T) *e2eTestData {
 		CollectionID: collectionID,
 		Name:         "Origin Example",
 	}
-	err = iaes.CreateApiExample(ctx, originExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, originExample)
 
 	// Create delta endpoint (hidden)
 	deltaEndpointID := idwrap.NewNow()
@@ -115,10 +112,7 @@ func setupE2ETestData(t *testing.T) *e2eTestData {
 		Name:            "Delta Example",
 		VersionParentID: &originExampleID,
 	}
-	err = iaes.CreateApiExample(ctx, deltaExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, deltaExample)
 
 	// Create RPC handler
 	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)

@@ -85,10 +85,7 @@ func setupDeltaTestData(t *testing.T) *deltaTestData {
 		Name:            "origin-example",
 		VersionParentID: nil, // This is the origin example
 	}
-	err = iaes.CreateApiExample(ctx, originExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+    createApiExampleSerial(t, iaes, ctx, originExample)
 
 	// Create delta example (with VersionParentID)
 	deltaExampleID := idwrap.NewNow()
@@ -99,10 +96,7 @@ func setupDeltaTestData(t *testing.T) *deltaTestData {
 		Name:            "delta-example",
 		VersionParentID: &originExampleID, // This makes it a delta example
 	}
-	err = iaes.CreateApiExample(ctx, deltaExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+    createApiExampleSerial(t, iaes, ctx, deltaExample)
 
 	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
@@ -227,18 +221,23 @@ func TestQueryDeltaCreateUpdateBehavior(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Get the newly created delta query to check its type
-	newDeltaQueryID, _ := idwrap.NewFromBytes(createDeltaResp.Msg.QueryId)
-	newDeltaQuery, err := data.eqs.GetExampleQuery(data.ctx, newDeltaQueryID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Check if it's correctly identified as a delta item (no parent = pure delta)
-	deltaType := newDeltaQuery.DetermineDeltaType(true) // true because delta example has VersionParentID
-	if deltaType != mexamplequery.QuerySourceDelta {
-		t.Errorf("New delta item (no parent) should have source 'delta', got %v", deltaType)
-	}
+    // Verify via overlay list
+    newDeltaQueryID, _ := idwrap.NewFromBytes(createDeltaResp.Msg.QueryId)
+    listAfter, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    found := false
+    for _, it := range listAfter.Msg.Items {
+        id, _ := idwrap.NewFromBytes(it.QueryId)
+        if id.Compare(newDeltaQueryID) == 0 || it.Key == "new-delta-key" {
+            found = true
+            if it.Source == nil || *it.Source != deltav1.SourceKind_SOURCE_KIND_DELTA {
+                t.Errorf("New delta item should have source DELTA, got %v", it.Source)
+            }
+            if it.Value != "new-delta-value" { t.Error("New delta item value mismatch") }
+            break
+        }
+    }
+    if !found { t.Error("New delta item not found in overlay list") }
 }
 
 // Test Header Delta functionality

@@ -72,10 +72,7 @@ func setupHeaderMoveTestData(t *testing.T) *headerMoveTestData {
 		CollectionID: collectionID,
 		Name:         "test-example",
 	}
-	err = iaes.CreateApiExample(ctx, example)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, example)
 
 	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
@@ -975,4 +972,3 @@ func TestHeaderDeltaMoveIntegrityValidation(t *testing.T) {
 		}
 	})
 }
-

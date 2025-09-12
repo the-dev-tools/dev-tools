@@ -81,10 +81,7 @@ func TestCopyPasteScenarioWithoutVersionParent(t *testing.T) {
 		Name:            "origin-example",
 		VersionParentID: nil, // This is the origin
 	}
-	err = iaes.CreateApiExample(ctx, originExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, originExample)
 
 	// Create headers in origin example
 	headers := []mexampleheader.Header{
@@ -140,10 +137,7 @@ func TestCopyPasteScenarioWithoutVersionParent(t *testing.T) {
 		Name:            "delta-example-1",
 		VersionParentID: nil, // NOT SET - this is the issue
 	}
-	err = iaes.CreateApiExample(ctx, deltaExample1)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, deltaExample1)
 
 	// Call HeaderDeltaList to trigger auto-creation
 	req1 := &requestv1.HeaderDeltaListRequest{
@@ -213,10 +207,7 @@ func TestCopyPasteScenarioWithoutVersionParent(t *testing.T) {
 		Name:            "delta-example-2",
 		VersionParentID: nil, // NOT SET - simulating API behavior
 	}
-	err = iaes.CreateApiExample(ctx, deltaExample2)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, deltaExample2)
 
 	// Copy only modified items from delta1 to delta2 (simulating frontend logic)
 	// First, get the list from delta1

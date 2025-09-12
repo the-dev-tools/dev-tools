@@ -101,10 +101,7 @@ func setupComprehensiveDeltaTestData(t *testing.T) *comprehensiveDeltaTestData {
 		Name:            "origin-example",
 		VersionParentID: nil,
 	}
-	err = iaes.CreateApiExample(ctx, originExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+    createApiExampleSerial(t, iaes, ctx, originExample)
 
 	// Create first delta example
 	deltaExampleID := idwrap.NewNow()
@@ -115,10 +112,7 @@ func setupComprehensiveDeltaTestData(t *testing.T) *comprehensiveDeltaTestData {
 		Name:            "delta-example-1",
 		VersionParentID: &originExampleID,
 	}
-	err = iaes.CreateApiExample(ctx, deltaExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+    createApiExampleSerial(t, iaes, ctx, deltaExample)
 
 	// Create second delta example for multi-delta tests
 	deltaExample2ID := idwrap.NewNow()
@@ -129,10 +123,7 @@ func setupComprehensiveDeltaTestData(t *testing.T) *comprehensiveDeltaTestData {
 		Name:            "delta-example-2",
 		VersionParentID: &originExampleID,
 	}
-	err = iaes.CreateApiExample(ctx, deltaExample2)
-	if err != nil {
-		t.Fatal(err)
-	}
+    createApiExampleSerial(t, iaes, ctx, deltaExample2)
 
 	return &comprehensiveDeltaTestData{
 		ctx:             ctx,
@@ -163,20 +154,11 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 		}
 
 		var originQueryIDs []idwrap.IDWrap
-		for _, q := range queries {
-			resp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
-				ExampleId:   data.originExampleID.Bytes(),
-				Key:         q.key,
-				Enabled:     true,
-				Value:       q.value,
-				Description: "test query",
-			}))
-			if err != nil {
-				t.Fatal(err)
-			}
-			id, _ := idwrap.NewFromBytes(resp.Msg.QueryId)
-			originQueryIDs = append(originQueryIDs, id)
-		}
+        for _, q := range queries {
+            resp := queryCreateSerial(t, data.rpc, data.ctx, data.originExampleID, q.key, q.value, "test query", true)
+            id, _ := idwrap.NewFromBytes(resp.QueryId)
+            originQueryIDs = append(originQueryIDs, id)
+        }
 
 		// Copy to delta example
 		err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
@@ -205,23 +187,11 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 	t.Run("QueryDeltaUpdate_StateTransition", func(t *testing.T) {
 		data := setupComprehensiveDeltaTestData(t)
 
-		// Create origin query
-		_, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
-			ExampleId:   data.originExampleID.Bytes(),
-			Key:         "test-key",
-			Enabled:     true,
-			Value:       "original-value",
-			Description: "original-desc",
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
+        // Create origin query (serialized)
+        _ = queryCreateSerial(t, data.rpc, data.ctx, data.originExampleID, "test-key", "original-value", "original-desc", true)
 
-		// Copy to delta
-		err = data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
-		if err != nil {
-			t.Fatal(err)
-		}
+        // Copy to delta
+        if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
 
 		// Get delta list - should show ORIGIN source
 		deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
@@ -276,23 +246,11 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 	t.Run("QueryDeltaReset", func(t *testing.T) {
 		data := setupComprehensiveDeltaTestData(t)
 
-		// Create origin query
-		_, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
-			ExampleId:   data.originExampleID.Bytes(),
-			Key:         "reset-test",
-			Enabled:     true,
-			Value:       "original",
-			Description: "original-desc",
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
+        // Create origin query (serialized)
+        _ = queryCreateSerial(t, data.rpc, data.ctx, data.originExampleID, "reset-test", "original", "original-desc", true)
 
-		// Copy to delta
-		err = data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
-		if err != nil {
-			t.Fatal(err)
-		}
+        // Copy to delta
+        if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
 
         // Get delta query via overlay list
         list0, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
@@ -330,27 +288,12 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 		data := setupComprehensiveDeltaTestData(t)
 
 		// Create origin query
-		createResp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
-			ExampleId:   data.originExampleID.Bytes(),
-			Key:         "propagate-test",
-			Enabled:     true,
-			Value:       "original",
-			Description: "original-desc",
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
-		originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
+        createResp := queryCreateSerial(t, data.rpc, data.ctx, data.originExampleID, "propagate-test", "original", "original-desc", true)
+        originQueryID, _ := idwrap.NewFromBytes(createResp.QueryId)
 
-		// Copy to both delta examples
-		err = data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExample2ID)
-		if err != nil {
-			t.Fatal(err)
-		}
+        // Copy to both delta examples
+        if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+        if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExample2ID); err != nil { t.Fatal(err) }
 
         // Modify one delta query via overlay
         listd1, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))

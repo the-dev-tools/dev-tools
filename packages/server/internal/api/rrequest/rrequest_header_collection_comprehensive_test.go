@@ -84,10 +84,7 @@ func setupComprehensiveTestData(t *testing.T) *comprehensiveTestData {
 		CollectionID: collectionID,
 		Name:         "comprehensive-test-example",
 	}
-	err = iaes.CreateApiExample(ctx, example)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, example)
 
 	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)

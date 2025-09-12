@@ -79,8 +79,7 @@ func setupHeaderCreateTestData(t *testing.T) *headerCreateTestData {
 		CollectionID: collectionID,
 		Name:         "test-example",
 	}
-	err = iaes.CreateApiExample(ctx, example)
-	require.NoError(t, err)
+createApiExampleSerial(t, iaes, ctx, example)
 
 	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)

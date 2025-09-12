@@ -78,10 +78,7 @@ func TestAssertListOrderedMethod(t *testing.T) {
 		CollectionID: collectionID,
 		Name:         "Test Example",
 	}
-	err = iaes.CreateApiExample(ctx, example)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, example)
 
 	// Create RPC handler
 	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
@@ -194,10 +191,7 @@ func TestAssertListOrderedMethod(t *testing.T) {
 			CollectionID: collectionID,
 			Name:         "Empty Example",
 		}
-		err := iaes.CreateApiExample(ctx, emptyExample)
-		if err != nil {
-			t.Fatal(err)
-		}
+        createApiExampleSerial(t, iaes, ctx, emptyExample)
 
 		// Call AssertList on empty example
 		listResp, err := rpc.AssertList(ctx, connect.NewRequest(&requestv1.AssertListRequest{
@@ -224,10 +218,7 @@ func TestAssertListOrderedMethod(t *testing.T) {
 			CollectionID: collectionID,
 			Name:         "Single Assertion Example",
 		}
-		err := iaes.CreateApiExample(ctx, singleExample)
-		if err != nil {
-			t.Fatal(err)
-		}
+        createApiExampleSerial(t, iaes, ctx, singleExample)
 
 		// Create single assertion
 		condition := &conditionv1.Condition{

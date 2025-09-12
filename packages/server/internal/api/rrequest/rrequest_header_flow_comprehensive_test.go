@@ -121,10 +121,7 @@ func setupFlowTestData(t *testing.T) *flowTestData {
 		CollectionID: collectionID,
 		Name:         "origin-example",
 	}
-	err = iaes.CreateApiExample(ctx, originExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+    createApiExampleSerial(t, iaes, ctx, originExample)
 
 	// Create delta example (with VersionParentID pointing to origin)
 	deltaExampleID := idwrap.NewNow()
@@ -135,10 +132,7 @@ func setupFlowTestData(t *testing.T) *flowTestData {
 		Name:            "delta-example",
 		VersionParentID: &originExampleID,
 	}
-	err = iaes.CreateApiExample(ctx, deltaExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+    createApiExampleSerial(t, iaes, ctx, deltaExample)
 
 	// Create second delta example for cascade testing
 	secondDeltaExampleID := idwrap.NewNow()
@@ -149,10 +143,7 @@ func setupFlowTestData(t *testing.T) *flowTestData {
 		Name:            "second-delta-example",
 		VersionParentID: &originExampleID,
 	}
-	err = iaes.CreateApiExample(ctx, secondDeltaExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+    createApiExampleSerial(t, iaes, ctx, secondDeltaExample)
 
 	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)

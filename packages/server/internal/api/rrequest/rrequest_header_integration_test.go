@@ -96,10 +96,7 @@ func setupIntegrationTestData(t *testing.T) *IntegrationTestData {
 		CollectionID: collectionID,
 		Name:         "Collection Example",
 	}
-	err = iaes.CreateApiExample(ctx, collectionExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, collectionExample)
 
 	// Create delta endpoint (hidden, used for flow view)
 	deltaEndpointID := idwrap.NewNow()
@@ -125,10 +122,7 @@ func setupIntegrationTestData(t *testing.T) *IntegrationTestData {
 		Name:            "Flow Delta Example",
 		VersionParentID: &collectionExampleID, // Links to collection example as parent
 	}
-	err = iaes.CreateApiExample(ctx, deltaExample)
-	if err != nil {
-		t.Fatal(err)
-	}
+createApiExampleSerial(t, iaes, ctx, deltaExample)
 
 	// Create RPC handler
 	rpc := rrequest.New(db, cs, us, ias, iaes, ehs, eqs, as)
