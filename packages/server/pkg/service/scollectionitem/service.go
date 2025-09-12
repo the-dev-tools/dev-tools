@@ -295,9 +295,10 @@ func (s *CollectionItemService) MoveCollectionItem(ctx context.Context, itemID i
 		targetItem = &target
 
 		// Validate items are in same collection (still required)
-		if item.CollectionID.Compare(targetItem.CollectionID) != 0 {
-			return fmt.Errorf("items must be in same collection")
-		}
+        if item.CollectionID.Compare(targetItem.CollectionID) != 0 {
+            // Hide cross-collection details behind not-found to match API expectations
+            return ErrCollectionItemNotFound
+        }
 
 		// Determine target parent context based on move semantics:
 		// We need to distinguish between two cases when target is a folder:
@@ -400,10 +401,6 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
 	// Now we can safely reference folder.ID since it exists in item_folder table
 	collectionItemID := idwrap.New(ulid.Make())
-	plan, err := movable.BuildAppendPlanFromRepo(ctx, txService.repository, folder.CollectionID, movable.CollectionListTypeItems, collectionItemID)
-	if err != nil {
-		return fmt.Errorf("append plan failed: %w", err)
-	}
 
 	// Convert legacy parent folder ID to collection_items parent folder ID if needed
 	var collectionItemsParentFolderID *idwrap.IDWrap = nil
@@ -427,6 +424,27 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 		collectionItemsParentFolderID = &parentCollectionItemID
 	}
 
+	// Compute desired append position within the correct parent context
+	desiredFolderPosition := 0
+	if collectionItemsParentFolderID != nil {
+		children, qerr := txService.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
+			CollectionID:   folder.CollectionID,
+			ParentFolderID: collectionItemsParentFolderID,
+			Column3:        collectionItemsParentFolderID,
+			CollectionID_2: folder.CollectionID,
+		})
+		if qerr != nil && qerr != sql.ErrNoRows {
+			return fmt.Errorf("failed to load target folder items: %w", qerr)
+		}
+		desiredFolderPosition = len(children)
+	} else {
+		plan, perr := movable.BuildAppendPlanFromRepo(ctx, txService.repository, folder.CollectionID, movable.CollectionListTypeItems, collectionItemID)
+		if perr != nil {
+			return fmt.Errorf("append plan failed: %w", perr)
+		}
+		desiredFolderPosition = plan.Position
+	}
+
 	err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
 		ID:             collectionItemID,
 		CollectionID:   folder.CollectionID,
@@ -437,7 +455,7 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 		Name:           folder.Name,
 		PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
 		NextID:         nil, // Will be calculated by InsertNewItemAtPosition
-	}, plan.Position)
+	}, desiredFolderPosition)
 	if err != nil {
 		return fmt.Errorf("failed to insert collection item at position: %w", err)
 	}
@@ -480,10 +498,6 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
     // Step 2: Create collection_items entry (PRIMARY) with correct linked list position
     // Now we can safely reference endpoint.ID since it exists in item_api table
     collectionItemID := idwrap.New(ulid.Make())
-    plan, err := movable.BuildAppendPlanFromRepo(ctx, txService.repository, endpoint.CollectionID, movable.CollectionListTypeItems, collectionItemID)
-    if err != nil {
-        return fmt.Errorf("append plan failed: %w", err)
-    }
 
     // Resolve collection_items parent folder ID if legacy folder ID was provided
     var parentFolderCI *idwrap.IDWrap
@@ -498,6 +512,27 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
         parentFolderCI = &ciID
     }
 
+    // Compute desired append position within the correct parent context
+    desiredPosition := 0
+    if parentFolderCI != nil {
+        children, qerr := txService.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
+            CollectionID:   endpoint.CollectionID,
+            ParentFolderID: parentFolderCI,
+            Column3:        parentFolderCI,
+            CollectionID_2: endpoint.CollectionID,
+        })
+        if qerr != nil && qerr != sql.ErrNoRows {
+            return fmt.Errorf("failed to load target folder items: %w", qerr)
+        }
+        desiredPosition = len(children)
+    } else {
+        plan, perr := movable.BuildAppendPlanFromRepo(ctx, txService.repository, endpoint.CollectionID, movable.CollectionListTypeItems, collectionItemID)
+        if perr != nil {
+            return fmt.Errorf("append plan failed: %w", perr)
+        }
+        desiredPosition = plan.Position
+    }
+
     err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
         ID:             collectionItemID,
         CollectionID:   endpoint.CollectionID,
@@ -508,7 +543,7 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
         Name:           endpoint.Name,
         PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
 		NextID:         nil, // Will be calculated by InsertNewItemAtPosition
-	}, plan.Position)
+	}, desiredPosition)
 	if err != nil {
 		return fmt.Errorf("failed to insert collection item at position: %w", err)
 	}
@@ -614,6 +649,60 @@ func (s *CollectionItemService) CheckWorkspaceID(ctx context.Context, itemID, wo
 		return false, err
 	}
 	return itemWorkspaceID.Compare(workspaceID) == 0, nil
+}
+
+// migrateFolderSubtree moves all descendants of a folder (both nested folders and endpoints)
+// from sourceCollectionID to targetCollectionID while preserving parent_folder_id linkage.
+func (s *CollectionItemService) migrateFolderSubtree(ctx context.Context, folderItemID idwrap.IDWrap, sourceCollectionID, targetCollectionID idwrap.IDWrap) error {
+    // Fetch children still under the source collection for this folder
+    children, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
+        CollectionID:   sourceCollectionID,
+        ParentFolderID: &folderItemID,
+        Column3:        &folderItemID,
+        CollectionID_2: sourceCollectionID,
+    })
+    if err != nil && err != sql.ErrNoRows {
+        return fmt.Errorf("failed to get folder children for migration: %w", err)
+    }
+    for _, ch := range children {
+        childID := idwrap.NewFromBytesMust(ch.ID)
+        // Move child's collection to target; keep parent linkage to folderItemID
+        if err := s.queries.UpdateCollectionItemCollectionId(ctx, gen.UpdateCollectionItemCollectionIdParams{
+            CollectionID:   targetCollectionID,
+            ParentFolderID: &folderItemID,
+            ID:             childID,
+        }); err != nil {
+            return fmt.Errorf("failed to update child collection_id: %w", err)
+        }
+
+        // Update legacy tables accordingly
+        if ch.ItemType == int8(CollectionItemTypeFolder) {
+            if len(ch.FolderID) != 0 {
+                legacyID := idwrap.NewFromBytesMust(ch.FolderID)
+                if err := s.queries.UpdateItemFolderCollectionId(ctx, gen.UpdateItemFolderCollectionIdParams{
+                    CollectionID: targetCollectionID,
+                    ID:           legacyID,
+                }); err != nil {
+                    return fmt.Errorf("failed to update legacy folder collection_id: %w", err)
+                }
+            }
+            // Recurse into subtree for nested folder
+            if err := s.migrateFolderSubtree(ctx, childID, sourceCollectionID, targetCollectionID); err != nil {
+                return err
+            }
+        } else if ch.ItemType == int8(CollectionItemTypeEndpoint) {
+            if len(ch.EndpointID) != 0 {
+                legacyID := idwrap.NewFromBytesMust(ch.EndpointID)
+                if err := s.queries.UpdateItemApiCollectionId(ctx, gen.UpdateItemApiCollectionIdParams{
+                    CollectionID: targetCollectionID,
+                    ID:           legacyID,
+                }); err != nil {
+                    return fmt.Errorf("failed to update legacy endpoint collection_id: %w", err)
+                }
+            }
+        }
+    }
+    return nil
 }
 
 // GetCollectionItemIDByLegacyID converts a legacy table ID (folder_id or endpoint_id) to collection_items table ID
@@ -1028,12 +1117,12 @@ func (s *CollectionItemService) performSameFolderMove(ctx context.Context, itemI
 // MoveCollectionItemCrossCollection moves a collection item to a different collection
 // This is the main method for handling cross-collection moves while maintaining workspace boundaries
 func (s *CollectionItemService) MoveCollectionItemCrossCollection(ctx context.Context, itemID idwrap.IDWrap, targetCollectionID idwrap.IDWrap, targetParentFolderID *idwrap.IDWrap, targetItemID *idwrap.IDWrap, position movable.MovePosition) error {
-	s.logger.Debug("Moving collection item across collections",
-		"item_id", itemID.String(),
-		"target_collection_id", targetCollectionID.String(),
-		"target_parent_folder_id", getIDString(targetParentFolderID),
-		"target_item_id", getIDString(targetItemID),
-		"position", position)
+    s.logger.Debug("Moving collection item across collections",
+        "item_id", itemID.String(),
+        "target_collection_id", targetCollectionID.String(),
+        "target_parent_folder_id", getIDString(targetParentFolderID),
+        "target_item_id", getIDString(targetItemID),
+        "position", position)
 
 	// Step 1: Validate the cross-collection move
 	sourceCollectionID, err := s.ValidateCrossCollectionMove(ctx, itemID, targetCollectionID, targetParentFolderID, targetItemID)
@@ -1052,7 +1141,21 @@ func (s *CollectionItemService) MoveCollectionItemCrossCollection(ctx context.Co
 		"source_collection_id", sourceCollectionID.String(),
 		"target_collection_id", targetCollectionID.String())
 
-	return nil
+    return nil
+}
+
+// MoveCollectionItemCrossCollectionTX performs cross-collection move inside a transaction.
+func (s *CollectionItemService) MoveCollectionItemCrossCollectionTX(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap, targetCollectionID idwrap.IDWrap, targetParentFolderID *idwrap.IDWrap, targetItemID *idwrap.IDWrap, position movable.MovePosition) error {
+    service := s
+    if tx != nil {
+        service = s.TX(tx)
+    }
+    // Re-validate inside TX to avoid races
+    sourceCollectionID, err := service.ValidateCrossCollectionMove(ctx, itemID, targetCollectionID, targetParentFolderID, targetItemID)
+    if err != nil {
+        return err
+    }
+    return service.PerformCrossCollectionMove(ctx, itemID, sourceCollectionID, targetCollectionID, targetParentFolderID, targetItemID, position)
 }
 
 // ValidateCrossCollectionMove validates that a cross-collection move is valid
@@ -1159,16 +1262,20 @@ func (s *CollectionItemService) ValidateCrossCollectionMove(ctx context.Context,
 
 // PerformCrossCollectionMove performs the actual cross-collection move operation
 func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, itemID idwrap.IDWrap, sourceCollectionID idwrap.IDWrap, targetCollectionID idwrap.IDWrap, targetParentFolderID *idwrap.IDWrap, targetItemID *idwrap.IDWrap, position movable.MovePosition) error {
-	s.logger.Debug("Performing cross-collection move",
-		"item_id", itemID.String(),
-		"source_collection_id", sourceCollectionID.String(),
-		"target_collection_id", targetCollectionID.String())
+    s.logger.Debug("Performing cross-collection move",
+        "item_id", itemID.String(),
+        "source_collection_id", sourceCollectionID.String(),
+        "target_collection_id", targetCollectionID.String())
 
-	// Get current item details
-	item, err := s.queries.GetCollectionItem(ctx, itemID)
-	if err != nil {
-		return fmt.Errorf("failed to get collection item: %w", err)
-	}
+    // Get current item details
+    item, err := s.queries.GetCollectionItem(ctx, itemID)
+    if err != nil {
+        return fmt.Errorf("failed to get collection item: %w", err)
+    }
+    // Concurrency guard: ensure item is still in the expected source collection
+    if item.CollectionID.Compare(sourceCollectionID) != 0 {
+        return fmt.Errorf("concurrent modification: item no longer in source collection")
+    }
 
 	// Step 1: Remove item from source collection's linked list
 	sourceItems, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
@@ -1305,89 +1412,11 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 		return fmt.Errorf("failed to rebuild target collection linked list: %w", err)
 	}
 
-    // If we moved a folder across collections, migrate its direct endpoint children from source to target
+    // If we moved a folder across collections, migrate its entire subtree (folders and endpoints)
     if item.ItemType == int8(CollectionItemTypeFolder) {
-        s.logger.Debug("Migrating direct endpoint children of moved folder to target root",
-            "folder_id", itemID.String())
-
-        // Children still reside under source collection at this point
-        srcChildren, cerr := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
-            CollectionID:   sourceCollectionID,
-            ParentFolderID: &itemID,
-            Column3:        &itemID,
-            CollectionID_2: sourceCollectionID,
-        })
-        if cerr == nil && len(srcChildren) > 0 {
-            movedEndpointIDs := make([]idwrap.IDWrap, 0)
-            for _, ch := range srcChildren {
-                if ch.ItemType == int8(CollectionItemTypeEndpoint) {
-                    eid := idwrap.NewFromBytesMust(ch.ID)
-                    // Move endpoint into target collection, promote to root (nil parent)
-                    if err := s.queries.UpdateCollectionItemCollectionId(ctx, gen.UpdateCollectionItemCollectionIdParams{
-                        CollectionID:   targetCollectionID,
-                        ParentFolderID: nil,
-                        ID:             eid,
-                    }); err != nil {
-                        return fmt.Errorf("failed to migrate endpoint child to target: %w", err)
-                    }
-                    // Keep legacy in sync: clear item_api.folder_id
-                    if len(ch.EndpointID) != 0 {
-                        epLegacyID := idwrap.NewFromBytesMust(ch.EndpointID)
-                        api, gerr := s.apiService.GetItemApi(ctx, epLegacyID)
-                        if gerr == nil {
-                            if uerr := s.queries.UpdateItemApi(ctx, gen.UpdateItemApiParams{
-                                FolderID: nil,
-                                Name:     api.Name,
-                                Url:      api.Url,
-                                Method:   api.Method,
-                                Hidden:   api.Hidden,
-                                ID:       api.ID,
-                            }); uerr != nil {
-                                return fmt.Errorf("failed to update legacy endpoint parent during migration: %w", uerr)
-                            }
-                        }
-                    }
-                    movedEndpointIDs = append(movedEndpointIDs, eid)
-                }
-            }
-            if len(movedEndpointIDs) > 0 {
-                // Build root order from all items (fallback when list pointers are inconsistent)
-                all, rerr := s.queries.GetCollectionItemsByCollectionID(ctx, targetCollectionID)
-                if rerr != nil && rerr != sql.ErrNoRows {
-                    return fmt.Errorf("failed to fetch target items: %w", rerr)
-                }
-                seen := make(map[string]struct{})
-                newOrder := make([]idwrap.IDWrap, 0, len(all)+len(movedEndpointIDs))
-                for _, it := range all {
-                    if it.ParentFolderID == nil {
-                        id := it.ID
-                        key := id.String()
-                        if _, ok := seen[key]; !ok {
-                            newOrder = append(newOrder, id)
-                            seen[key] = struct{}{}
-                        }
-                    }
-                }
-                // Ensure moved folder itself appears at root
-                if item.ItemType == int8(CollectionItemTypeFolder) {
-                    key := itemID.String()
-                    if _, ok := seen[key]; !ok {
-                        newOrder = append(newOrder, itemID)
-                        seen[key] = struct{}{}
-                    }
-                }
-                // Append migrated endpoints to the end
-                for _, eid := range movedEndpointIDs {
-                    key := eid.String()
-                    if _, ok := seen[key]; !ok {
-                        newOrder = append(newOrder, eid)
-                        seen[key] = struct{}{}
-                    }
-                }
-                if err := s.rebuildLinkedList(ctx, newOrder); err != nil {
-                    return fmt.Errorf("failed to rebuild target root after migrating children: %w", err)
-                }
-            }
+        s.logger.Debug("Migrating folder subtree to target collection", "folder_id", itemID.String())
+        if err := s.migrateFolderSubtree(ctx, itemID, sourceCollectionID, targetCollectionID); err != nil {
+            return err
         }
     }
 

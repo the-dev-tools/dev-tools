@@ -37,182 +37,122 @@ func (r *CollectionMovableRepository) Remove(ctx context.Context, tx *sql.Tx, it
 // UpdatePosition updates the position of a collection in the linked list
 // For collections, parentID is the workspace_id and listType is ignored
 func (r *CollectionMovableRepository) UpdatePosition(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap, listType movable.ListType, position int) error {
-	// Get repository with transaction support
-	repo := r
-	if tx != nil {
-		repo = r.TX(tx)
-	}
+    // Get repository with transaction support
+    repo := r
+    if tx != nil {
+        repo = r.TX(tx)
+    }
 
-	// Get collection to find workspace_id
-	collection, err := repo.queries.GetCollection(ctx, itemID)
-	if err != nil {
-		return fmt.Errorf("failed to get collection: %w", err)
-	}
+    // Get collection to find workspace_id and current order
+    collection, err := repo.queries.GetCollection(ctx, itemID)
+    if err != nil {
+        return fmt.Errorf("failed to get collection: %w", err)
+    }
+    ordered, err := repo.queries.GetCollectionsInOrder(ctx, gen.GetCollectionsInOrderParams{
+        WorkspaceID:   collection.WorkspaceID,
+        WorkspaceID_2: collection.WorkspaceID,
+    })
+    if err != nil {
+        return fmt.Errorf("failed to get collections in order: %w", err)
+    }
+    if len(ordered) == 0 {
+        return nil
+    }
+    if position < 0 || position >= len(ordered) {
+        return fmt.Errorf("invalid position: %d (valid range: 0-%d)", position, len(ordered)-1)
+    }
 
-	// Get ordered list of collections in workspace
-	orderedCollections, err := repo.queries.GetCollectionsInOrder(ctx, gen.GetCollectionsInOrderParams{
-		WorkspaceID:   collection.WorkspaceID,
-		WorkspaceID_2: collection.WorkspaceID,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get collections in order: %w", err)
-	}
+    // Build final order by moving item to requested position
+    cur := make([]idwrap.IDWrap, 0, len(ordered))
+    idx := -1
+    for i, row := range ordered {
+        id := idwrap.NewFromBytesMust(row.ID)
+        if id.Compare(itemID) == 0 { idx = i; continue }
+        cur = append(cur, id)
+    }
+    if idx == -1 { return fmt.Errorf("collection not found in workspace") }
+    if position > len(cur) { position = len(cur) }
+    newOrder := append(cur[:position], append([]idwrap.IDWrap{itemID}, cur[position:]...)...)
 
-	// Find current position and validate new position
-	currentIdx := -1
-	for i, col := range orderedCollections {
-		if idwrap.NewFromBytesMust(col.ID).Compare(itemID) == 0 {
-			currentIdx = i
-			break
-		}
-	}
-
-	if currentIdx == -1 {
-		return fmt.Errorf("collection not found in workspace")
-	}
-
-	if position < 0 || position >= len(orderedCollections) {
-		return fmt.Errorf("invalid position: %d (valid range: 0-%d)", position, len(orderedCollections)-1)
-	}
-
-	if currentIdx == position {
-		// No change needed
-		return nil
-	}
-
-	// Build the new order by simulating the move operation
-	newOrder := make([]idwrap.IDWrap, len(orderedCollections))
-	for i, col := range orderedCollections {
-		newOrder[i] = idwrap.NewFromBytesMust(col.ID)
-	}
-	
-	// Remove the item from its current position
-	movedItem := newOrder[currentIdx]
-	newOrder = append(newOrder[:currentIdx], newOrder[currentIdx+1:]...)
-	
-	// Insert the item at the target position
-	if position == len(orderedCollections) - 1 {
-		// Moving to last position - append to end
-		newOrder = append(newOrder, movedItem)
-	} else if position <= currentIdx {
-		// Target position is before or at the removed item's original position
-		// Insert at the target position directly
-		newOrder = append(newOrder[:position], append([]idwrap.IDWrap{movedItem}, newOrder[position:]...)...)
-	} else {
-		// Target position is after the removed item's original position
-		// Insert at the original target position (no adjustment needed)
-		if position >= len(newOrder) {
-			// Append to end if target position is beyond the shortened array
-			newOrder = append(newOrder, movedItem)
-		} else {
-			newOrder = append(newOrder[:position], append([]idwrap.IDWrap{movedItem}, newOrder[position:]...)...)
-		}
-	}
-
-	// Update all items with their new prev/next pointers
-	for i, id := range newOrder {
-		var prev, next *idwrap.IDWrap
-		if i > 0 {
-			prev = &newOrder[i-1]
-		}
-		if i < len(newOrder)-1 {
-			next = &newOrder[i+1]
-		}
-		
-		err := repo.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{
-			Prev:        prev,
-			Next:        next,
-			ID:          id,
-			WorkspaceID: collection.WorkspaceID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to update collection %s: %w", id.String(), err)
-		}
-	}
-
-	return nil
+    // Two-phase relink to avoid uniqueness conflicts on (prev,next,workspace)
+    for _, id := range newOrder {
+        if err := repo.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{Prev: nil, Next: nil, ID: id, WorkspaceID: collection.WorkspaceID}); err != nil {
+            return fmt.Errorf("detach failed for %s: %w", id.String(), err)
+        }
+    }
+    for i, id := range newOrder {
+        var prev, next *idwrap.IDWrap
+        if i > 0 { prev = &newOrder[i-1] }
+        if i < len(newOrder)-1 { next = &newOrder[i+1] }
+        if err := repo.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{Prev: prev, Next: next, ID: id, WorkspaceID: collection.WorkspaceID}); err != nil {
+            return fmt.Errorf("relink failed for %s: %w", id.String(), err)
+        }
+    }
+    return nil
 }
 
 // UpdatePositions updates positions for multiple collections in batch
 func (r *CollectionMovableRepository) UpdatePositions(ctx context.Context, tx *sql.Tx, updates []movable.PositionUpdate) error {
-	if len(updates) == 0 {
-		return nil
-	}
-	
-	// Get repository with transaction support
-	repo := r
-	if tx != nil {
-		repo = r.TX(tx)
-	}
+    if len(updates) == 0 { return nil }
 
-	// Get the workspace ID from the first collection to validate all are in same workspace
-	firstCollection, err := repo.queries.GetCollection(ctx, updates[0].ItemID)
-	if err != nil {
-		return fmt.Errorf("failed to get first collection: %w", err)
-	}
-	workspaceID := firstCollection.WorkspaceID
-	
-	// Validate all collections are in the same workspace and create ID position map
-	positionMap := make(map[idwrap.IDWrap]int)
-	for _, update := range updates {
-		collection, err := repo.queries.GetCollection(ctx, update.ItemID)
-		if err != nil {
-			return fmt.Errorf("failed to get collection %s: %w", update.ItemID.String(), err)
-		}
-		if collection.WorkspaceID.Compare(workspaceID) != 0 {
-			return fmt.Errorf("all collections must be in the same workspace")
-		}
-		positionMap[update.ItemID] = update.Position
-	}
-	
-	// Build the complete ordered list with all collections at their new positions
-	orderedIDs := make([]idwrap.IDWrap, len(updates))
-	for _, update := range updates {
-		if update.Position < 0 || update.Position >= len(updates) {
-			return fmt.Errorf("invalid position %d for collection %s (valid range: 0-%d)", 
-				update.Position, update.ItemID.String(), len(updates)-1)
-		}
-		orderedIDs[update.Position] = update.ItemID
-	}
-	
-	// Calculate prev/next pointers for each collection in the new order
-	type ptrUpdate struct {
-		id   idwrap.IDWrap
-		prev *idwrap.IDWrap
-		next *idwrap.IDWrap
-	}
-	
-	ptrUpdates := make([]ptrUpdate, len(orderedIDs))
-	for i, id := range orderedIDs {
-		var prev, next *idwrap.IDWrap
-		
-		if i > 0 {
-			prev = &orderedIDs[i-1]
-		}
-		if i < len(orderedIDs)-1 {
-			next = &orderedIDs[i+1]
-		}
-		
-		ptrUpdates[i] = ptrUpdate{
-			id:   id,
-			prev: prev,
-			next: next,
-		}
-	}
-	
-	// Apply all updates atomically
-	for _, update := range ptrUpdates {
-		if err := repo.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{
-			Prev:        update.prev,
-			Next:        update.next,
-			ID:          update.id,
-			WorkspaceID: workspaceID,
-		}); err != nil {
-			return fmt.Errorf("failed to update collection %s order: %w", update.id.String(), err)
-		}
-	}
+    // Get repository with transaction support
+    repo := r
+    if tx != nil { repo = r.TX(tx) }
 
-	return nil
+    // Determine workspace from the first update and load current order
+    firstCollection, err := repo.queries.GetCollection(ctx, updates[0].ItemID)
+    if err != nil { return fmt.Errorf("failed to get first collection: %w", err) }
+    workspaceID := firstCollection.WorkspaceID
+    current, err := repo.queries.GetCollectionsInOrder(ctx, gen.GetCollectionsInOrderParams{WorkspaceID: workspaceID, WorkspaceID_2: workspaceID})
+    if err != nil { return fmt.Errorf("failed to get collections in order: %w", err) }
+    if len(current) == 0 { return nil }
+
+    // Validate and build map id->desired position
+    desired := make(map[idwrap.IDWrap]int, len(updates))
+    for _, u := range updates {
+        col, err := repo.queries.GetCollection(ctx, u.ItemID)
+        if err != nil { return fmt.Errorf("failed to get collection %s: %w", u.ItemID.String(), err) }
+        if col.WorkspaceID.Compare(workspaceID) != 0 { return fmt.Errorf("all collections must be in the same workspace") }
+        if u.Position < 0 || u.Position >= len(current) { return fmt.Errorf("invalid position %d for collection %s (valid range: 0-%d)", u.Position, u.ItemID.String(), len(current)-1) }
+        if _, ok := desired[u.ItemID]; ok { return fmt.Errorf("duplicate update for %s", u.ItemID.String()) }
+        desired[u.ItemID] = u.Position
+    }
+
+    // Build final order
+    final := make([]idwrap.IDWrap, len(current))
+    occupied := make([]bool, len(current))
+    for id, pos := range desired {
+        if occupied[pos] { return fmt.Errorf("conflicting updates for position %d", pos) }
+        final[pos] = id
+        occupied[pos] = true
+    }
+    // Fill remaining positions preserving current relative order
+    idx := 0
+    for _, row := range current {
+        id := idwrap.NewFromBytesMust(row.ID)
+        if _, isUpdated := desired[id]; isUpdated { continue }
+        for idx < len(final) && occupied[idx] { idx++ }
+        if idx >= len(final) { break }
+        final[idx] = id
+        occupied[idx] = true
+        idx++
+    }
+
+    // Two-phase relink for the workspace
+    for _, id := range final {
+        if err := repo.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{Prev: nil, Next: nil, ID: id, WorkspaceID: workspaceID}); err != nil {
+            return fmt.Errorf("detach failed for %s: %w", id.String(), err)
+        }
+    }
+    for i, id := range final {
+        var prev, next *idwrap.IDWrap
+        if i > 0 { prev = &final[i-1] }
+        if i < len(final)-1 { next = &final[i+1] }
+        if err := repo.queries.UpdateCollectionOrder(ctx, gen.UpdateCollectionOrderParams{Prev: prev, Next: next, ID: id, WorkspaceID: workspaceID}); err != nil {
+            return fmt.Errorf("relink failed for %s: %w", id.String(), err)
+        }
+    }
+    return nil
 }
 
 // GetMaxPosition returns the maximum position value for collections in a workspace

@@ -182,14 +182,19 @@ func (c CollectionItemRPC) CollectionItemList(ctx context.Context, req *connect.
 }
 
 func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.Request[itemv1.CollectionItemMoveRequest]) (*connect.Response[itemv1.CollectionItemMoveResponse], error) {
-	// Validate required fields
-	if len(req.Msg.GetItemId()) == 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("item_id is required"))
-	}
+    // Validate required fields
+    if len(req.Msg.GetItemId()) == 0 {
+        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("item_id is required"))
+    }
 	
-	if len(req.Msg.GetCollectionId()) == 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("collection_id is required"))
-	}
+    if len(req.Msg.GetCollectionId()) == 0 {
+        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("collection_id is required"))
+    }
+
+    // Early validation: when performing cross-collection operations, source kind must be specified
+    if len(req.Msg.GetTargetCollectionId()) > 0 && req.Msg.GetKind() == itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
+        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source kind must be specified"))
+    }
 
     // Parse item ID (accepts either collection_items ID or legacy ID)
     itemIDRaw, err := idwrap.NewFromBytes(req.Msg.GetItemId())
@@ -319,16 +324,25 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
     // Parse target collection ID if provided (for cross-collection moves)
     var targetCollectionID *idwrap.IDWrap
     if len(req.Msg.GetTargetCollectionId()) > 0 {
-		targetCollectionIDRaw, err := idwrap.NewFromBytes(req.Msg.GetTargetCollectionId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		targetCollectionID = &targetCollectionIDRaw
+        targetCollectionIDRaw, err := idwrap.NewFromBytes(req.Msg.GetTargetCollectionId())
+        if err != nil {
+            return nil, connect.NewError(connect.CodeInvalidArgument, err)
+        }
+        targetCollectionID = &targetCollectionIDRaw
+        if req.Msg.GetKind() == itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
+            return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source kind must be specified"))
+        }
 		
 		// Check permission on target collection
         rpcErr := permcheck.CheckPerm(rcollection.CheckOwnerCollection(ctx, c.cs, c.us, targetCollectionIDRaw))
         if rpcErr != nil {
             if rpcErr.Code() == connect.CodeNotFound {
+                if _, e2 := c.cs.GetWorkspaceID(ctx, targetCollectionIDRaw); e2 != nil {
+                    if errors.Is(e2, sql.ErrNoRows) {
+                        return nil, connect.NewError(connect.CodeNotFound, errors.New("target collection not found"))
+                    }
+                    return nil, connect.NewError(connect.CodeInternal, e2)
+                }
                 return nil, connect.NewError(connect.CodePermissionDenied, errors.New("workspace boundary violation: cannot move items across workspaces"))
             }
             return nil, rpcErr
@@ -384,8 +398,15 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
         } else {
             actualTargetKind = itemv1.ItemKind_ITEM_KIND_ENDPOINT
         }
-        // Allow folder positioned relative to an endpoint at the same level (no parent change)
-        if !(sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER && actualTargetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && len(req.Msg.GetTargetParentFolderId()) == 0) {
+        // For same-collection moves, allow folder positioned relative to endpoint at the same level
+        // For cross-collection moves, enforce strict validation
+        if targetCollectionID == nil {
+            if !(sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER && actualTargetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && len(req.Msg.GetTargetParentFolderId()) == 0) {
+                if err := validateMoveKindCompatibility(sourceKind, actualTargetKind); err != nil {
+                    return nil, connect.NewError(connect.CodeInvalidArgument, err)
+                }
+            }
+        } else {
             if err := validateMoveKindCompatibility(sourceKind, actualTargetKind); err != nil {
                 return nil, connect.NewError(connect.CodeInvalidArgument, err)
             }
@@ -415,6 +436,10 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
     currentItem, err := c.cis.GetCollectionItem(ctx, itemID)
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    if currentItem.CollectionID.Compare(collectionID) != 0 {
+        // Map mismatch to NotFound to avoid leaking cross-collection info and match tests
+        return nil, connect.NewError(connect.CodeNotFound, errors.New("collection item not found"))
     }
 
     // Same-collection when targetCollectionID is nil or equals current item's collection
@@ -451,11 +476,24 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
 
 	// Route to appropriate service method based on operation type
     if isCrossCollectionMove {
-        // Cross-collection move: use dedicated cross-collection service method
-        slog.Debug("Executing cross-collection move",
+        // Cross-collection move: execute inside a DB transaction for atomicity
+        slog.Debug("Executing cross-collection move (transactional)",
             "source_collection", collectionID.String(),
             "target_collection", targetCollectionID.String())
-        err = c.cis.MoveCollectionItemCrossCollection(ctx, itemID, *targetCollectionID, targetParentFolderID, targetID, movePosition)
+        tx, e := c.DB.Begin()
+        if e != nil {
+            return nil, connect.NewError(connect.CodeInternal, e)
+        }
+        txService := c.cis.TX(tx)
+        err = txService.MoveCollectionItemCrossCollectionTX(ctx, tx, itemID, *targetCollectionID, targetParentFolderID, targetID, movePosition)
+        if err != nil {
+            _ = tx.Rollback()
+        } else {
+            e = tx.Commit()
+            if e != nil {
+                return nil, connect.NewError(connect.CodeInternal, e)
+            }
+        }
     } else if isTargetParentFolderMove {
         // Same-collection move with target parent folder specified
         slog.Debug("Executing same-collection parent folder move")
