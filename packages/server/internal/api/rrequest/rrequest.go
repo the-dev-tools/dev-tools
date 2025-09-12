@@ -893,53 +893,22 @@ func (c RequestRPC) HeaderDelete(ctx context.Context, req *connect.Request[reque
 // HeaderDeltaExampleCopy copies all headers from an origin example to a delta example
 // This implements the "Delta example create" functionality
 func (c RequestRPC) HeaderDeltaExampleCopy(ctx context.Context, originExampleID, deltaExampleID idwrap.IDWrap) error {
-	// Check permissions for both examples
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
-	if rpcErr != nil {
-		return rpcErr
-	}
-	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
-	if rpcErr != nil {
-		return rpcErr
-	}
+    // Permissions
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return rpcErr }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return rpcErr }
 
-	// Get all headers from the origin example
-	originHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originExampleID)
-	if err != nil {
-		return err
-	}
-
-	// Create corresponding headers in the delta example
-	var deltaHeaders []mexampleheader.Header
-	for _, originHeader := range originHeaders {
-		// Only copy origin headers (not mixed or delta headers)
-		deltaType, err := c.determineHeaderDeltaType(ctx, originHeader)
-		if err != nil {
-			return err
-		}
-		if deltaType == mexampleheader.HeaderSourceOrigin {
-			deltaHeader := mexampleheader.Header{
-				ID:            idwrap.NewNow(),
-				ExampleID:     deltaExampleID,
-				DeltaParentID: &originHeader.ID, // Reference the origin header
-				HeaderKey:     originHeader.HeaderKey,
-				Enable:        originHeader.Enable,
-				Description:   originHeader.Description,
-				Value:         originHeader.Value,
-			}
-			deltaHeaders = append(deltaHeaders, deltaHeader)
-		}
-	}
-
-	// Bulk create all delta headers with proper linked list maintenance
-	if len(deltaHeaders) > 0 {
-		err = c.ehs.AppendBulkHeader(ctx, deltaHeaders)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+    // Seed overlay order for headers in origin order (RefKindOrigin), no DB header writes
+    origin, err := c.ehs.GetHeaderByExampleIDOrdered(ctx, originExampleID)
+    if err != nil { return err }
+    ord := headerOrderStore{ s: c.hov }
+    rank := ""
+    for _, h := range origin {
+        var nr string
+        if rank == "" { nr = orank.First() } else { nr = orank.Between(rank, "") }
+        if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), h.ID, nr, 0); err != nil { return err }
+        rank = nr
+    }
+    return nil
 }
 
 // AssertDeltaExampleCopy copies all asserts from an origin example to a delta example
@@ -1005,19 +974,7 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
     if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
-    // Seed if needed
     ord := headerOrderStore{ s: c.hov }
-    if cnt, err := ord.Count(ctx, deltaExampleID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) } else if cnt == 0 {
-        origin, err := c.ehs.GetHeaderByExampleIDOrdered(ctx, originExampleID)
-        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-        r := ""
-        for _, h := range origin {
-            nr := orank.Between(r, "")
-            if r == "" { nr = orank.First() }
-            if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), h.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-            r = nr
-        }
-    }
     st := headerStateStore{ s: c.hov }
     dl := headerDeltaStore{ s: c.hov }
     // origin values loader
@@ -1837,18 +1794,8 @@ func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[re
     // Permissions on origin (advisory)
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
 
-    // Seed overlay order from origin if needed, then move using rank overlay
+    // Move using overlay ranks only (assumes copy has seeded order)
     ord := headerOrderStore{ s: c.hov }
-    if cnt, err := ord.Count(ctx, exampleID); err == nil && cnt == 0 {
-        origin, err := c.ehs.GetHeaderByExampleIDOrdered(ctx, originExampleID)
-        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-        r := ""
-        for _, h := range origin {
-            nr := orank.Between(r, ""); if r == "" { nr = orank.First() }
-            if err := ord.InsertIgnore(ctx, exampleID, int8(overcore.RefKindOrigin), h.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-            r = nr
-        }
-    }
     after := (pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER)
     if err := overcore.Move(ctx, ord, exampleID, headerID, targetHeaderID, after); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil

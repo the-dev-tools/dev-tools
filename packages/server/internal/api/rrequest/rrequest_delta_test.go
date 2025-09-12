@@ -332,18 +332,22 @@ func TestHeaderDeltaCreateUpdateBehavior(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check the type of the newly created header
-	newDeltaHeaderID, _ := idwrap.NewFromBytes(createDeltaResp.Msg.HeaderId)
-	newDeltaHeader, err := data.ehs.GetHeaderByID(data.ctx, newDeltaHeaderID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Manually check delta type (since we can't call the private method)
-	if newDeltaHeader.DeltaParentID == nil {
-		// Header with no parent in a delta example should be "delta" type
-		t.Log("Created standalone delta header (no parent)")
-	}
+    // Verify via overlay list that the created header is DELTA
+    newDeltaHeaderID, _ := idwrap.NewFromBytes(createDeltaResp.Msg.HeaderId)
+    listAfter, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    found := false
+    for _, it := range listAfter.Msg.Items {
+        id, _ := idwrap.NewFromBytes(it.HeaderId)
+        if id.Compare(newDeltaHeaderID) == 0 || it.Key == "new-delta-header" {
+            found = true
+            if it.Source == nil || *it.Source != deltav1.SourceKind_SOURCE_KIND_DELTA {
+                t.Errorf("Expected DELTA for new header, got %v", it.Source)
+            }
+            break
+        }
+    }
+    if !found { t.Error("New delta header not found in overlay list") }
 }
 
 // Test Assert Delta functionality
