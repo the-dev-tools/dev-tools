@@ -1331,42 +1331,7 @@ func (c RequestRPC) AssertDeltaList(ctx context.Context, req *connect.Request[re
 		}
 	}
 
-	// Collect origin asserts that need delta entries created
-	var originAssertsNeedingDeltas []massert.Assert
-	for _, assert := range originAsserts { // Only check origin asserts
-		if !processedOrigins[assert.ID] { // If not already processed by a delta
-			originAssertsNeedingDeltas = append(originAssertsNeedingDeltas, assert)
-		}
-	}
-
-	// Create delta entries for origin asserts that don't have them
-	newDeltaAsserts := make(map[idwrap.IDWrap]massert.Assert)
-	if len(originAssertsNeedingDeltas) > 0 {
-		var deltaAssertsToCreate []massert.Assert
-		for _, originAssert := range originAssertsNeedingDeltas {
-			deltaAssert := massert.Assert{
-				ID:            idwrap.NewNow(),
-				ExampleID:     deltaExampleID,
-				DeltaParentID: &originAssert.ID,
-				Condition:     originAssert.Condition,
-				Enable:        originAssert.Enable,
-				Prev:          originAssert.Prev,
-				Next:          originAssert.Next,
-			}
-			deltaAssertsToCreate = append(deltaAssertsToCreate, deltaAssert)
-			newDeltaAsserts[originAssert.ID] = deltaAssert
-		}
-
-		// Bulk create the delta asserts
-		if len(deltaAssertsToCreate) > 0 {
-			err = c.as.CreateBulkAssert(ctx, deltaAssertsToCreate)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			// Add newly created asserts to allAsserts so they're processed in the main loop
-			allAsserts = append(allAsserts, deltaAssertsToCreate...)
-		}
-	}
+    // Do not auto-create delta entries at read time (no bridging)
 
 	// Second pass: create result entries
 	var rpcAsserts []*requestv1.AssertDeltaListItem
