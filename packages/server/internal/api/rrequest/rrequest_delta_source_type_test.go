@@ -4,13 +4,12 @@ import (
     "testing"
 
     "the-dev-tools/server/pkg/idwrap"
-    "the-dev-tools/server/pkg/model/massert"
     "the-dev-tools/server/pkg/model/mexampleheader"
     requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
     conditionv1 "the-dev-tools/spec/dist/buf/go/condition/v1"
     deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
 
-	"connectrpc.com/connect"
+    "connectrpc.com/connect"
 )
 
 // TestDeltaSourceTypes - Comprehensive test suite for delta source type functionality
@@ -752,68 +751,60 @@ func testResetHeaderWithParent(t *testing.T) {
 
 // Test 5.3: Reset Assert with Parent
 func testResetAssertWithParent(t *testing.T) {
-	data := setupDeltaTestData(t)
+    data := setupDeltaTestData(t)
 
-	// Create origin assert
-	createResp, err := data.rpc.AssertCreate(data.ctx, connect.NewRequest(&requestv1.AssertCreateRequest{
-		ExampleId: data.originExampleID.Bytes(),
-		Condition: &conditionv1.Condition{
-			Comparison: &conditionv1.Comparison{
-				Expression: "status == 200",
-			},
-		},
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Create origin assert
+    _, err := data.rpc.AssertCreate(data.ctx, connect.NewRequest(&requestv1.AssertCreateRequest{
+        ExampleId: data.originExampleID.Bytes(),
+        Condition: &conditionv1.Condition{
+            Comparison: &conditionv1.Comparison{
+                Expression: "status == 200",
+            },
+        },
+    }))
+    if err != nil { t.Fatal(err) }
 
-	originAssertID, _ := idwrap.NewFromBytes(createResp.Msg.AssertId)
+    // Seed overlay/delta by copying asserts
+    if err := data.rpc.AssertDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    // Find the copied delta assert id via list
+    list, err := data.rpc.AssertDeltaList(data.ctx, connect.NewRequest(&requestv1.AssertDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    if len(list.Msg.Items) != 1 { t.Fatalf("expected 1 assert, got %d", len(list.Msg.Items)) }
+    deltaID := list.Msg.Items[0].AssertId
+    // Modify delta to create MIXED
+    _, err = data.rpc.AssertDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.AssertDeltaUpdateRequest{
+        AssertId: deltaID,
+        Condition: &conditionv1.Condition{ Comparison: &conditionv1.Comparison{ Expression: "status != 200" } },
+    }))
+    if err != nil { t.Fatal(err) }
+    // Reset delta assert
+    _, err = data.rpc.AssertDeltaReset(data.ctx, connect.NewRequest(&requestv1.AssertDeltaResetRequest{ AssertId: deltaID }))
+    if err != nil {
+        t.Fatal(err)
+    }
 
-	// Create modified delta assert
-	deltaAssert := massert.Assert{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: &originAssertID,
-		Enable:        false,
-		// Create a different condition
-		// This would require setting up the condition properly
-	}
+    // Check result
+    deltaListResp, err := data.rpc.AssertDeltaList(data.ctx, connect.NewRequest(&requestv1.AssertDeltaListRequest{
+        ExampleId: data.deltaExampleID.Bytes(),
+        OriginId:  data.originExampleID.Bytes(),
+    }))
+    if err != nil {
+        t.Fatal(err)
+    }
 
-	err = data.as.CreateAssert(data.ctx, deltaAssert)
-	if err != nil {
-		t.Fatal(err)
-	}
+    if len(deltaListResp.Msg.Items) != 1 {
+        t.Fatalf("Expected 1 assert item, got %d", len(deltaListResp.Msg.Items))
+    }
 
-	// Reset delta assert
-	_, err = data.rpc.AssertDeltaReset(data.ctx, connect.NewRequest(&requestv1.AssertDeltaResetRequest{
-		AssertId: deltaAssert.ID.Bytes(),
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    item := deltaListResp.Msg.Items[0]
 
-	// Check result
-	deltaListResp, err := data.rpc.AssertDeltaList(data.ctx, connect.NewRequest(&requestv1.AssertDeltaListRequest{
-		ExampleId: data.deltaExampleID.Bytes(),
-		OriginId:  data.originExampleID.Bytes(),
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Should be ORIGIN after reset
+    if *item.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+        t.Errorf("Reset assert should be ORIGIN, got %v", *item.Source)
+    }
 
-	if len(deltaListResp.Msg.Items) != 1 {
-		t.Fatalf("Expected 1 assert item, got %d", len(deltaListResp.Msg.Items))
-	}
-
-	item := deltaListResp.Msg.Items[0]
-
-	// Should be ORIGIN after reset
-	if *item.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
-		t.Errorf("Reset assert should be ORIGIN, got %v", *item.Source)
-	}
-
-	// AssertDeltaListItem doesn't have Enabled field - we can check via the condition
-	// This is a simplified check
+    // AssertDeltaListItem doesn't have Enabled field - we can check via the condition
+    // This is a simplified check
 	if item.Condition == nil {
 		t.Error("Reset should restore original condition")
 	}
