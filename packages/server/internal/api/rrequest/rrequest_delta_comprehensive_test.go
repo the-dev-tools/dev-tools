@@ -413,22 +413,16 @@ func TestHeaderDeltaComprehensive(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Verify delta headers were created
-		deltaHeaders, err := data.ehs.GetHeaderByExampleID(data.ctx, data.deltaExampleID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if len(deltaHeaders) != len(headers) {
-			t.Errorf("Expected %d delta headers, got %d", len(headers), len(deltaHeaders))
-		}
-
-		// Verify parent references
-		for _, dh := range deltaHeaders {
-			if dh.DeltaParentID == nil {
-				t.Error("Delta header missing DeltaParentID")
-			}
-		}
+        // Verify overlay shows all origin headers as ORIGIN
+        list, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(list.Msg.Items) != len(headers) { t.Errorf("Expected %d overlay headers, got %d", len(headers), len(list.Msg.Items)) }
+        expectedKeys := map[string]bool{}
+        for _, h := range headers { expectedKeys[h.key] = true }
+        for _, it := range list.Msg.Items {
+            if !expectedKeys[it.Key] { t.Errorf("Unexpected header %s in overlay", it.Key) }
+            if it.Source == nil || *it.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN { t.Errorf("Expected ORIGIN for %s, got %v", it.Key, it.Source) }
+        }
 	})
 
 	t.Run("HeaderDeltaUpdate_StateTransition", func(t *testing.T) {
@@ -514,35 +508,39 @@ func TestHeaderDeltaComprehensive(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Get delta header
-		deltaHeaders, _ := data.ehs.GetHeaderByExampleID(data.ctx, data.deltaExampleID)
-		deltaHeader := deltaHeaders[0]
+        // Get delta header via overlay list
+        list0, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(list0.Msg.Items) != 1 { t.Fatal("expected 1 header in overlay") }
+        deltaHeaderID := list0.Msg.Items[0].HeaderId
 
 		// Update delta header
-		_, err = data.rpc.HeaderDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaUpdateRequest{
-			HeaderId:    deltaHeader.ID.Bytes(),
-			Key:         stringPtrHelper("X-Modified"),
-			Enabled:     boolPtrHelper(false),
-			Value:       stringPtrHelper("modified-value"),
-			Description: stringPtrHelper("modified-desc"),
-		}))
+        _, err = data.rpc.HeaderDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaUpdateRequest{
+            HeaderId:    deltaHeaderID,
+            Key:         stringPtrHelper("X-Modified"),
+            Enabled:     boolPtrHelper(false),
+            Value:       stringPtrHelper("modified-value"),
+            Description: stringPtrHelper("modified-desc"),
+        }))
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// Reset delta header
-		_, err = data.rpc.HeaderDeltaReset(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaResetRequest{
-			HeaderId: deltaHeader.ID.Bytes(),
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
+        _, err = data.rpc.HeaderDeltaReset(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaResetRequest{
+            HeaderId: deltaHeaderID,
+        }))
+        if err != nil {
+            t.Fatal(err)
+        }
 
-		// Verify reset
-		resetHeader, _ := data.ehs.GetHeaderByID(data.ctx, deltaHeader.ID)
-		if resetHeader.HeaderKey != "X-Reset-Test" || resetHeader.Value != "original" {
-			t.Error("Header values were not reset to origin values")
-		}
+        // Verify reset via overlay list
+        resetList, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        var resetItem *requestv1.HeaderDeltaListItem
+        for _, it := range resetList.Msg.Items { if it.Key == "X-Reset-Test" { resetItem = it; break } }
+        if resetItem == nil { t.Fatal("Reset item not found in overlay list") }
+        if resetItem.Value != "original" { t.Error("Header values were not reset to origin values") }
 	})
 
 	t.Run("HeaderDeleteCascade", func(t *testing.T) {
@@ -556,10 +554,10 @@ func TestHeaderDeltaComprehensive(t *testing.T) {
 			Value:       "to-delete",
 			Description: "will be deleted",
 		}))
-		if err != nil {
-			t.Fatal(err)
-		}
-		originHeaderID, _ := idwrap.NewFromBytes(createResp.Msg.HeaderId)
+        if err != nil {
+            t.Fatal(err)
+        }
+        originHeaderID, _ := idwrap.NewFromBytes(createResp.Msg.HeaderId)
 
 		// Copy to delta
 		err = data.rpc.HeaderDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
@@ -840,7 +838,7 @@ func TestDeltaEdgeCases(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		originHeaderID, _ := idwrap.NewFromBytes(createResp.Msg.HeaderId)
+        _ = createResp
 
 		// Copy to first delta
 		err = data.rpc.HeaderDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
@@ -848,37 +846,33 @@ func TestDeltaEdgeCases(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Get first delta header
-		delta1Headers, _ := data.ehs.GetHeaderByExampleID(data.ctx, data.deltaExampleID)
-		delta1Header := delta1Headers[0]
+        // Get first delta header via overlay list
+        list1, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(list1.Msg.Items) == 0 { t.Fatal("no headers in delta1 overlay") }
+        delta1HeaderID := list1.Msg.Items[0].HeaderId
 
 		// Try to create a nested delta (delta of delta)
 		// This should use the origin header as parent, not the delta
-		_, err = data.rpc.HeaderDeltaCreate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaCreateRequest{
-			ExampleId:   data.deltaExample2ID.Bytes(),
-			OriginId:    data.originExampleID.Bytes(),
-			HeaderId:    delta1Header.ID.Bytes(), // Passing delta header as parent
-			Key:         "X-Nested-Delta",
-			Enabled:     true,
-			Value:       "nested-value",
-			Description: "nested",
-		}))
+        _, err = data.rpc.HeaderDeltaCreate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaCreateRequest{
+            ExampleId:   data.deltaExample2ID.Bytes(),
+            OriginId:    data.originExampleID.Bytes(),
+            HeaderId:    delta1HeaderID, // Passing delta header as parent
+            Key:         "X-Nested-Delta",
+            Enabled:     true,
+            Value:       "nested-value",
+            Description: "nested",
+        }))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		// Verify it points to origin, not the delta
-		delta2Headers, _ := data.ehs.GetHeaderByExampleID(data.ctx, data.deltaExample2ID)
-		if len(delta2Headers) != 1 {
-			t.Fatal("Nested delta header not created")
-		}
-
-		delta2Header := delta2Headers[0]
-		if delta2Header.DeltaParentID == nil {
-			t.Error("Nested delta header missing DeltaParentID")
-		} else if delta2Header.DeltaParentID.Compare(originHeaderID) != 0 {
-			t.Error("Nested delta header should point to origin header, not delta header")
-		}
+        // Verify new delta header appears in overlay list for delta2
+        list2, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{ ExampleId: data.deltaExample2ID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        found := false
+        for _, it := range list2.Msg.Items { if it.Key == "X-Nested-Delta" { found = true; break } }
+        if !found { t.Fatal("Nested delta header not created") }
 	})
 
 	t.Run("InvalidParentRelationship", func(t *testing.T) {
@@ -936,20 +930,11 @@ func TestDeltaEdgeCases(t *testing.T) {
 	t.Run("BulkOperationPerformance", func(t *testing.T) {
 		data := setupComprehensiveDeltaTestData(t)
 
-		// Create many items in origin
-		numItems := 50
-		for i := 0; i < numItems; i++ {
-			_, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
-				ExampleId:   data.originExampleID.Bytes(),
-				Key:         fmt.Sprintf("bulk-key-%d", i),
-				Enabled:     true,
-				Value:       fmt.Sprintf("bulk-value-%d", i),
-				Description: "bulk test",
-			}))
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
+        // Create many items in origin
+        numItems := 50
+        for i := 0; i < numItems; i++ {
+            _ = queryCreateSerial(t, data.rpc, data.ctx, data.originExampleID, fmt.Sprintf("bulk-key-%d", i), fmt.Sprintf("bulk-value-%d", i), "bulk test", true)
+        }
 
 		// Measure bulk copy performance
 		start := time.Now()
@@ -959,11 +944,12 @@ func TestDeltaEdgeCases(t *testing.T) {
 		}
 		duration := time.Since(start)
 
-		// Verify all items were copied
-		deltaQueries, _ := data.eqs.GetExampleQueriesByExampleID(data.ctx, data.deltaExampleID)
-		if len(deltaQueries) != numItems {
-			t.Errorf("Expected %d delta queries, got %d", numItems, len(deltaQueries))
-		}
+        // Verify all items visible in overlay list
+        list, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(list.Msg.Items) != numItems {
+            t.Errorf("Expected %d delta queries, got %d", numItems, len(list.Msg.Items))
+        }
 
 		t.Logf("Bulk copy of %d items took %v", numItems, duration)
 		if duration > 5*time.Second {

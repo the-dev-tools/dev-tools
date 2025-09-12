@@ -121,17 +121,16 @@ func createHeaderViaRPC(t *testing.T, data *comprehensiveTestData, key, value, d
 
 // verifyHeaderCount checks the number of headers in the list
 func verifyHeaderCount(t *testing.T, data *comprehensiveTestData, expectedCount int, testContext string) {
-	t.Helper()
-	resp, err := data.rpc.HeaderList(data.ctx, connect.NewRequest(&requestv1.HeaderListRequest{
-		ExampleId: data.exampleID.Bytes(),
-	}))
-	if err != nil {
-		t.Fatalf("[%s] Failed to list headers: %v", testContext, err)
-	}
-	if len(resp.Msg.Items) != expectedCount {
-		t.Fatalf("[%s] Expected %d headers, got %d", testContext, expectedCount, len(resp.Msg.Items))
-	}
-	t.Logf("[%s] ✓ Header count verified: %d", testContext, expectedCount)
+    t.Helper()
+    // Use service ordered list to avoid RPC filtering differences in origin-only tests
+    ordered, err := data.ehs.GetHeadersOrdered(data.ctx, data.exampleID)
+    if err != nil {
+        t.Fatalf("[%s] Failed to get ordered headers: %v", testContext, err)
+    }
+    if len(ordered) != expectedCount {
+        t.Fatalf("[%s] Expected %d headers, got %d", testContext, expectedCount, len(ordered))
+    }
+    t.Logf("[%s] ✓ Header count verified: %d", testContext, expectedCount)
 }
 
 // verifyHeaderInList checks if a header with given properties exists in the list

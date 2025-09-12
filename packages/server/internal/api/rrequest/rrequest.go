@@ -1110,17 +1110,20 @@ func (c RequestRPC) AssertList(ctx context.Context, req *connect.Request[request
 }
 
 func (c RequestRPC) AssertCreate(ctx context.Context, req *connect.Request[requestv1.AssertCreateRequest]) (*connect.Response[requestv1.AssertCreateResponse], error) {
-	exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	rpcAssert := requestv1.Assert{
-		Condition: req.Msg.GetCondition(),
-	}
+    exID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInvalidArgument, err)
+    }
+    rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exID))
+    if rpcErr != nil {
+        return nil, rpcErr
+    }
+    if req.Msg.GetCondition() == nil {
+        return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("condition must not be nil"))
+    }
+    rpcAssert := requestv1.Assert{
+        Condition: req.Msg.GetCondition(),
+    }
 
 	var deltaParentIDPtr *idwrap.IDWrap
 	assert := tassert.SerializeAssertRPCToModelWithoutID(&rpcAssert, exID, deltaParentIDPtr)

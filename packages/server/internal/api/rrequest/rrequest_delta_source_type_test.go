@@ -4,7 +4,6 @@ import (
     "testing"
 
     "the-dev-tools/server/pkg/idwrap"
-    "the-dev-tools/server/pkg/model/mexampleheader"
     requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
     conditionv1 "the-dev-tools/spec/dist/buf/go/condition/v1"
     deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
@@ -683,10 +682,10 @@ func testResetQueryWithParent(t *testing.T) {
 
 // Test 5.2: Reset Header with Parent
 func testResetHeaderWithParent(t *testing.T) {
-	data := setupDeltaTestData(t)
+    data := setupDeltaTestData(t)
 
-	// Create origin header
-	createResp, err := data.rpc.HeaderCreate(data.ctx, connect.NewRequest(&requestv1.HeaderCreateRequest{
+    // Create origin header
+    _, err := data.rpc.HeaderCreate(data.ctx, connect.NewRequest(&requestv1.HeaderCreateRequest{
 		ExampleId:   data.originExampleID.Bytes(),
 		Key:         "X-API-Key",
 		Enabled:     true,
@@ -697,34 +696,20 @@ func testResetHeaderWithParent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	originHeaderID, _ := idwrap.NewFromBytes(createResp.Msg.HeaderId)
+    // Seed overlay and modify to create MIXED
+    if err := data.rpc.HeaderDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    list, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    if len(list.Msg.Items) != 1 { t.Fatalf("expected 1 header item, got %d", len(list.Msg.Items)) }
+    hid := list.Msg.Items[0].HeaderId
+    _, err = data.rpc.HeaderDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaUpdateRequest{ HeaderId: hid, Key: stringPtr("X-Custom"), Enabled: boolPtr(false), Value: stringPtr("custom"), Description: stringPtr("Custom") }))
+    if err != nil { t.Fatal(err) }
+    // Reset delta header
+    _, err = data.rpc.HeaderDeltaReset(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaResetRequest{ HeaderId: hid }))
+    if err != nil { t.Fatal(err) }
 
-	// Create modified delta header
-	deltaHeader := mexampleheader.Header{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: &originHeaderID,
-		HeaderKey:     "X-Custom",
-		Enable:        false,
-		Value:         "custom",
-		Description:   "Custom",
-	}
-
-	err = data.ehs.CreateHeader(data.ctx, deltaHeader)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Reset delta header
-	_, err = data.rpc.HeaderDeltaReset(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaResetRequest{
-		HeaderId: deltaHeader.ID.Bytes(),
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Check result
-	deltaListResp, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{
+    // Check result
+    deltaListResp, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{
 		ExampleId: data.deltaExampleID.Bytes(),
 		OriginId:  data.originExampleID.Bytes(),
 	}))

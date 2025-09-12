@@ -254,11 +254,13 @@ func TestHeaderIntegrationCompleteUserWorkflow(t *testing.T) {
 		// PHASE 3: User creates flow with delta headers
 		t.Log("PHASE 3: Creating flow with delta headers")
 		
-		// Call HeaderDeltaList to auto-create delta headers from collection
-		deltaListResp, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{
-			ExampleId: data.deltaExampleID.Bytes(),
-			OriginId:  data.collectionExampleID.Bytes(),
-		}))
+        // Seed overlay from collection into delta
+        if err := data.rpc.HeaderDeltaExampleCopy(data.ctx, data.collectionExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+        // Call HeaderDeltaList to view overlay headers
+        deltaListResp, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{
+            ExampleId: data.deltaExampleID.Bytes(),
+            OriginId:  data.collectionExampleID.Bytes(),
+        }))
 		if err != nil {
 			t.Fatal(err)
 		}

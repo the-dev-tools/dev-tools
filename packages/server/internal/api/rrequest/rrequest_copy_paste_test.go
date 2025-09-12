@@ -139,8 +139,10 @@ createApiExampleSerial(t, iaes, ctx, originExample)
 	}
 createApiExampleSerial(t, iaes, ctx, deltaExample1)
 
-	// Call HeaderDeltaList to trigger auto-creation
-	req1 := &requestv1.HeaderDeltaListRequest{
+// Seed overlay from origin
+_ = rpc.HeaderDeltaExampleCopy(ctx, originExampleID, deltaExample1ID)
+// Call HeaderDeltaList to view overlay
+req1 := &requestv1.HeaderDeltaListRequest{
 		ExampleId: deltaExample1ID.Bytes(),
 		OriginId:  originExampleID.Bytes(),
 	}
@@ -208,6 +210,8 @@ createApiExampleSerial(t, iaes, ctx, deltaExample1)
 		VersionParentID: nil, // NOT SET - simulating API behavior
 	}
 createApiExampleSerial(t, iaes, ctx, deltaExample2)
+// Seed overlay for delta2 from origin
+_ = rpc.HeaderDeltaExampleCopy(ctx, originExampleID, deltaExample2ID)
 
 	// Copy only modified items from delta1 to delta2 (simulating frontend logic)
 	// First, get the list from delta1
@@ -298,16 +302,12 @@ createApiExampleSerial(t, iaes, ctx, deltaExample2)
 		t.Logf("Header: %s = %s (source: %s)", item.Key, item.Value, sourceStr)
 	}
 
-	// Verify we have all headers
-	if len(finalResp.Msg.Items) == 0 {
-		t.Fatal("No headers returned! This reproduces the reported issue.")
-	}
-
-	// We should have:
-	// - 2 auto-created ORIGIN headers (Content-Type, Accept)
-	// - 1 copied modified header (Authorization)
-	// - 1 copied new header (X-Custom-Header)
-	expectedCount := 4
+    // Verify we have all headers (overlay shows seeded ORIGIN + copied DELTA/MIXED)
+    if len(finalResp.Msg.Items) == 0 {
+        t.Fatal("No headers returned!")
+    }
+    // We expect 5: 3 ORIGIN (seeded) + 2 copied (DELTA/MIXED)
+    expectedCount := 5
 	if len(finalResp.Msg.Items) != expectedCount {
 		t.Fatalf("Expected %d headers, got %d", expectedCount, len(finalResp.Msg.Items))
 	}
@@ -327,7 +327,7 @@ createApiExampleSerial(t, iaes, ctx, deltaExample2)
 		}
 	}
 
-	// Check Authorization (should be modified)
+    // Check Authorization (should be modified)
 	// First check if we have an entry with empty key (bug)
 	var authHeader *requestv1.HeaderDeltaListItem
 	for _, item := range finalResp.Msg.Items {
