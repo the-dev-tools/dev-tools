@@ -407,8 +407,12 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
                 }
             }
         } else {
-            if err := validateMoveKindCompatibility(sourceKind, actualTargetKind); err != nil {
-                return nil, connect.NewError(connect.CodeInvalidArgument, err)
+            // Cross-collection: allow folder positioned relative to an endpoint as an anchor at the same level
+            // (before/after), when no explicit target parent folder is provided.
+            if !(sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER && actualTargetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && targetParentFolderID == nil) {
+                if err := validateMoveKindCompatibility(sourceKind, actualTargetKind); err != nil {
+                    return nil, connect.NewError(connect.CodeInvalidArgument, err)
+                }
             }
         }
     }
