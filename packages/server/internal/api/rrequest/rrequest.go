@@ -551,57 +551,22 @@ func (c RequestRPC) QueryDelete(ctx context.Context, req *connect.Request[reques
 //
 // This allows the delta example to track which items have been modified later
 func (c RequestRPC) QueryDeltaExampleCopy(ctx context.Context, originExampleID, deltaExampleID idwrap.IDWrap) error {
-	// Check permissions for both examples
-	rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID))
-	if rpcErr != nil {
-		return rpcErr
-	}
-	rpcErr = permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID))
-	if rpcErr != nil {
-		return rpcErr
-	}
+    // Permissions
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return rpcErr }
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return rpcErr }
 
-	// Get the origin example to determine if it has a version parent
-	originExample, err := c.iaes.GetApiExample(ctx, originExampleID)
-	if err != nil {
-		return err
-	}
-	originExampleHasVersionParent := originExample.VersionParentID != nil
-
-	// Get all queries from the origin example
-	originQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
-	if err != nil {
-		return err
-	}
-
-	// Create corresponding queries in the delta example
-	var deltaQueries []mexamplequery.Query
-	for _, originQuery := range originQueries {
-		// Only copy origin queries (not mixed or delta queries)
-		originDeltaType := originQuery.DetermineDeltaType(originExampleHasVersionParent)
-		if originDeltaType == mexamplequery.QuerySourceOrigin {
-			deltaQuery := mexamplequery.Query{
-				ID:            idwrap.NewNow(),
-				ExampleID:     deltaExampleID,
-				DeltaParentID: &originQuery.ID, // Reference the origin query
-				QueryKey:      originQuery.QueryKey,
-				Enable:        originQuery.Enable,
-				Description:   originQuery.Description,
-				Value:         originQuery.Value,
-			}
-			deltaQueries = append(deltaQueries, deltaQuery)
-		}
-	}
-
-	// Bulk create all delta queries
-	if len(deltaQueries) > 0 {
-		err = c.eqs.CreateBulkQuery(ctx, deltaQueries)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+    // Seed overlay order with origin refs in origin order; no DB delta writes
+    originQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
+    if err != nil { return err }
+    ord := queryOrderStore{ s: c.qov }
+    rank := ""
+    for _, q := range originQueries {
+        var nr string
+        if rank == "" { nr = orank.First() } else { nr = orank.Between(rank, "") }
+        if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), q.ID, nr, 0); err != nil { return err }
+        rank = nr
+    }
+    return nil
 }
 
 func (c RequestRPC) QueryDeltaDelete(ctx context.Context, req *connect.Request[requestv1.QueryDeltaDeleteRequest]) (*connect.Response[requestv1.QueryDeltaDeleteResponse], error) {
@@ -632,15 +597,11 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
     if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
+
     ord := queryOrderStore{ s: c.qov }
-    if cnt, err := ord.Count(ctx, deltaExampleID); err != nil { return nil, connect.NewError(connect.CodeInternal, err) } else if cnt == 0 {
-        origin, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
-        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-        r := ""
-        for _, q := range origin { nr := orank.Between(r, ""); if r == "" { nr = orank.First() }; if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), q.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }; r = nr }
-    }
     st := queryStateStore{ s: c.qov }
     dl := queryDeltaStore{ s: c.qov }
+
     originVals := func(ctx context.Context, ids []idwrap.IDWrap) (map[idwrap.IDWrap]overcore.Values, error) {
         items, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
         if err != nil { return nil, err }
@@ -654,6 +615,7 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
         src := m.Source
         return &requestv1.QueryDeltaListItem{ QueryId: m.ID.Bytes(), Key: m.Values.Key, Enabled: m.Values.Enabled, Value: m.Values.Value, Description: m.Values.Description, Origin: origin, Source: &src }
     }
+    // Overlay-only list: do not seed or bridge legacy rows here
     fetch := func(ctx context.Context, ex idwrap.IDWrap) ([]mexamplequery.Query, error) { return nil, nil }
     extract := func(q mexamplequery.Query) overcore.Values { return overcore.Values{} }
     itemsAny, err := overcore.List[mexamplequery.Query](ctx, ord, st, dl, fetch, extract, originVals, build, deltaExampleID, originExampleID)
@@ -1754,7 +1716,7 @@ func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv
 func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[requestv1.QueryDeltaMoveRequest]) (*connect.Response[requestv1.QueryDeltaMoveResponse], error) {
     deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
     if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
-    originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+    _, err = idwrap.NewFromBytes(req.Msg.GetOriginId())
     if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
     queryID, err := idwrap.NewFromBytes(req.Msg.GetQueryId())
     if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
@@ -1763,14 +1725,7 @@ func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[req
     pos := req.Msg.GetPosition()
     if pos == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("position must be specified")) }
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
-    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
     ord := queryOrderStore{ s: c.qov }
-    if cnt, err := ord.Count(ctx, deltaExampleID); err == nil && cnt == 0 {
-        origin, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
-        if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-        r := ""
-        for _, q := range origin { nr := orank.Between(r, ""); if r == "" { nr = orank.First() }; if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), q.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }; r = nr }
-    }
     after := (pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER)
     if err := overcore.Move(ctx, ord, deltaExampleID, queryID, targetQueryID, after); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     return connect.NewResponse(&requestv1.QueryDeltaMoveResponse{}), nil
@@ -1827,9 +1782,8 @@ func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[request
 }
 
 func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaMoveRequest]) (*connect.Response[requestv1.HeaderDeltaMoveResponse], error) {
-    deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
-    if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
-    originExampleID, err := idwrap.NewFromBytes(req.Msg.GetOriginId())
+    // Required fields
+    exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
     if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
     headerID, err := idwrap.NewFromBytes(req.Msg.GetHeaderId())
     if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
@@ -1837,17 +1791,65 @@ func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[re
     if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
     pos := req.Msg.GetPosition()
     if pos == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED { return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("position must be specified")) }
-    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, deltaExampleID)); rpcErr != nil { return nil, rpcErr }
+
+    // Permission check on the example being modified
+    if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, exampleID)); rpcErr != nil { return nil, rpcErr }
+
+    // Self move guard to match tests
+    if headerID.Compare(targetHeaderID) == 0 {
+        return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot move header relative to itself"))
+    }
+
+    // Decide delta vs origin behavior
+    isDelta, derr := c.isExampleDelta(ctx, exampleID)
+    if derr != nil { return nil, connect.NewError(connect.CodeInternal, derr) }
+
+    // If not a delta example, fall back to direct move on the origin list
+    if !isDelta {
+        var afterHeaderID, beforeHeaderID *idwrap.IDWrap
+        if pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER { afterHeaderID = &targetHeaderID } else { beforeHeaderID = &targetHeaderID }
+        if err := c.ehs.MoveHeader(ctx, headerID, afterHeaderID, beforeHeaderID, exampleID); err != nil {
+            return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to move header: %w", err))
+        }
+        return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil
+    }
+
+    // Delta example path: determine origin example ID
+    var originExampleID idwrap.IDWrap
+    if len(req.Msg.GetOriginId()) > 0 {
+        originExampleID, err = idwrap.NewFromBytes(req.Msg.GetOriginId())
+        if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+    } else {
+        ex, gerr := c.iaes.GetApiExample(ctx, exampleID)
+        if gerr != nil { return nil, connect.NewError(connect.CodeInternal, gerr) }
+        if ex.VersionParentID == nil {
+            // If delta path was chosen but no parent, treat as origin fallback
+            var afterHeaderID, beforeHeaderID *idwrap.IDWrap
+            if pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER { afterHeaderID = &targetHeaderID } else { beforeHeaderID = &targetHeaderID }
+            if err := c.ehs.MoveHeader(ctx, headerID, afterHeaderID, beforeHeaderID, exampleID); err != nil {
+                return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to move header: %w", err))
+            }
+            return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil
+        }
+        originExampleID = *ex.VersionParentID
+    }
+
+    // Permissions on origin (advisory)
     if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, originExampleID)); rpcErr != nil { return nil, rpcErr }
-    // Seed if needed
+
+    // Seed overlay order from origin if needed, then move using rank overlay
     ord := headerOrderStore{ s: c.hov }
-    if cnt, err := ord.Count(ctx, deltaExampleID); err == nil && cnt == 0 {
+    if cnt, err := ord.Count(ctx, exampleID); err == nil && cnt == 0 {
         origin, err := c.ehs.GetHeaderByExampleIDOrdered(ctx, originExampleID)
         if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
         r := ""
-        for _, h := range origin { nr := orank.Between(r, ""); if r == "" { nr = orank.First() }; if err := ord.InsertIgnore(ctx, deltaExampleID, int8(overcore.RefKindOrigin), h.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }; r = nr }
+        for _, h := range origin {
+            nr := orank.Between(r, ""); if r == "" { nr = orank.First() }
+            if err := ord.InsertIgnore(ctx, exampleID, int8(overcore.RefKindOrigin), h.ID, nr, 0); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+            r = nr
+        }
     }
     after := (pos == resourcesv1.MovePosition_MOVE_POSITION_AFTER)
-    if err := overcore.Move(ctx, ord, deltaExampleID, headerID, targetHeaderID, after); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+    if err := overcore.Move(ctx, ord, exampleID, headerID, targetHeaderID, after); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
     return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil
 }

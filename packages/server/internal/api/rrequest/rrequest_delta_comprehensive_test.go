@@ -184,39 +184,22 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Verify delta queries were created
-		deltaQueries, err := data.eqs.GetExampleQueriesByExampleID(data.ctx, data.deltaExampleID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if len(deltaQueries) != len(queries) {
-			t.Errorf("Expected %d delta queries, got %d", len(queries), len(deltaQueries))
-		}
-
-		// Verify each delta query has correct parent reference
-		for _, dq := range deltaQueries {
-			if dq.DeltaParentID == nil {
-				t.Error("Delta query missing DeltaParentID")
-				continue
-			}
-
-			// Find corresponding origin query
-			found := false
-			for i, oqID := range originQueryIDs {
-				if dq.DeltaParentID.Compare(oqID) == 0 {
-					found = true
-					// Verify values match
-					if dq.QueryKey != queries[i].key || dq.Value != queries[i].value {
-						t.Error("Delta query values don't match origin")
-					}
-					break
-				}
-			}
-			if !found {
-				t.Error("Delta query has invalid parent reference")
-			}
-		}
+        // Verify overlay list shows all origin queries as ORIGIN with matching values
+        list, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(list.Msg.Items) != len(queries) {
+            t.Errorf("Expected %d items, got %d", len(queries), len(list.Msg.Items))
+        }
+        expected := map[string]string{}
+        for _, q := range queries { expected[q.key] = q.value }
+        for _, it := range list.Msg.Items {
+            if it.Source == nil || *it.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+                t.Errorf("Expected ORIGIN, got %v", it.Source)
+            }
+            if val, ok := expected[it.Key]; ok {
+                if it.Value != val { t.Errorf("Value mismatch for key %s: got %s want %s", it.Key, it.Value, val) }
+            }
+        }
 	})
 
 	t.Run("QueryDeltaUpdate_StateTransition", func(t *testing.T) {
@@ -270,22 +253,19 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Get delta list again - should show DELTA source (not MIXED as per current behavior)
-		deltaListResp2, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
-			ExampleId: data.deltaExampleID.Bytes(),
-			OriginId:  data.originExampleID.Bytes(),
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
+        // Get delta list again - should show MIXED source
+        deltaListResp2, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
+            ExampleId: data.deltaExampleID.Bytes(),
+            OriginId:  data.originExampleID.Bytes(),
+        }))
+        if err != nil {
+            t.Fatal(err)
+        }
 
-		updatedItem := deltaListResp2.Msg.Items[0]
-		if updatedItem.Source == nil {
-			t.Error("Updated item has nil source")
-		} else if *updatedItem.Source != deltav1.SourceKind_SOURCE_KIND_DELTA {
-			t.Logf("Current source: %v", *updatedItem.Source)
-			// This is expected per the existing test comments
-		}
+        updatedItem := deltaListResp2.Msg.Items[0]
+        if updatedItem.Source == nil || *updatedItem.Source != deltav1.SourceKind_SOURCE_KIND_MIXED {
+            t.Errorf("Expected MIXED after update, got %v", updatedItem.Source)
+        }
 
 		// Verify values were updated
 		if updatedItem.Key != "updated-key" || updatedItem.Value != "updated-value" {
@@ -314,42 +294,36 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Get delta query
-		deltaQueries, err := data.eqs.GetExampleQueriesByExampleID(data.ctx, data.deltaExampleID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		deltaQuery := deltaQueries[0]
+        // Get delta query via overlay list
+        list0, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(list0.Msg.Items) != 1 { t.Fatal("Expected 1 delta item") }
+        dqID, _ := idwrap.NewFromBytes(list0.Msg.Items[0].QueryId)
 
 		// Update delta query
-		_, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{
-			QueryId:     deltaQuery.ID.Bytes(),
-			Key:         stringPtrHelper("modified"),
-			Enabled:     boolPtrHelper(false),
-			Value:       stringPtrHelper("modified-value"),
-			Description: stringPtrHelper("modified-desc"),
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
+        _, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{
+            QueryId:     dqID.Bytes(),
+            Key:         stringPtrHelper("modified"),
+            Enabled:     boolPtrHelper(false),
+            Value:       stringPtrHelper("modified-value"),
+            Description: stringPtrHelper("modified-desc"),
+        }))
+        if err != nil {
+            t.Fatal(err)
+        }
 
-		// Reset delta query
-		_, err = data.rpc.QueryDeltaReset(data.ctx, connect.NewRequest(&requestv1.QueryDeltaResetRequest{
-			QueryId: deltaQuery.ID.Bytes(),
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Verify values reverted to origin
-		resetQuery, err := data.eqs.GetExampleQuery(data.ctx, deltaQuery.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if resetQuery.QueryKey != "reset-test" || resetQuery.Value != "original" {
-			t.Error("Query values were not reset to origin values")
-		}
+        // Reset delta query
+        _, err = data.rpc.QueryDeltaReset(data.ctx, connect.NewRequest(&requestv1.QueryDeltaResetRequest{
+            QueryId: dqID.Bytes(),
+        }))
+        if err != nil {
+            t.Fatal(err)
+        }
+        // Verify values reverted to origin via overlay list
+        list1, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(list1.Msg.Items) != 1 { t.Fatal("Expected 1 delta item after reset") }
+        if list1.Msg.Items[0].Key != "reset-test" || list1.Msg.Items[0].Value != "original" { t.Error("Overlay values were not reset to origin values") }
 	})
 
 	t.Run("QueryOriginUpdatePropagation", func(t *testing.T) {
@@ -378,18 +352,21 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Modify one delta query
-		delta1Queries, _ := data.eqs.GetExampleQueriesByExampleID(data.ctx, data.deltaExampleID)
-		_, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{
-			QueryId:     delta1Queries[0].ID.Bytes(),
-			Key:         stringPtrHelper("modified"),
-			Enabled:     boolPtrHelper(false),
-			Value:       stringPtrHelper("modified-value"),
-			Description: stringPtrHelper("modified-desc"),
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
+        // Modify one delta query via overlay
+        listd1, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(listd1.Msg.Items) != 1 { t.Fatal("expected one item after copy") }
+        d1id, _ := idwrap.NewFromBytes(listd1.Msg.Items[0].QueryId)
+        _, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{
+            QueryId:     d1id.Bytes(),
+            Key:         stringPtrHelper("modified"),
+            Enabled:     boolPtrHelper(false),
+            Value:       stringPtrHelper("modified-value"),
+            Description: stringPtrHelper("modified-desc"),
+        }))
+        if err != nil {
+            t.Fatal(err)
+        }
 
 		// Update origin query
 		_, err = data.rpc.QueryUpdate(data.ctx, connect.NewRequest(&requestv1.QueryUpdateRequest{
@@ -403,18 +380,15 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Check delta 1 (modified) - should NOT be updated
-		delta1Query, _ := data.eqs.GetExampleQuery(data.ctx, delta1Queries[0].ID)
-		if delta1Query.QueryKey != "modified" {
-			t.Error("Modified delta query was incorrectly updated")
-		}
+        // Check delta 1 (modified) via overlay - should keep custom key
+        listd1After, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if listd1After.Msg.Items[0].Key != "modified" { t.Error("Modified delta query was incorrectly updated by origin change") }
 
-		// Check delta 2 (unmodified) - should be updated
-		delta2Queries, _ := data.eqs.GetExampleQueriesByExampleID(data.ctx, data.deltaExample2ID)
-		delta2Query, _ := data.eqs.GetExampleQuery(data.ctx, delta2Queries[0].ID)
-		if delta2Query.QueryKey != "updated-origin" {
-			t.Error("Unmodified delta query was not propagated")
-		}
+        // Check delta 2 (unmodified) via overlay - should reflect updated origin key
+        listd2, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExample2ID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if listd2.Msg.Items[0].Key != "updated-origin" { t.Error("Unmodified delta did not reflect updated origin") }
 	})
 
 	t.Run("QueryDeleteCascade", func(t *testing.T) {
@@ -439,11 +413,10 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Verify delta query exists
-		deltaQueries, _ := data.eqs.GetExampleQueriesByExampleID(data.ctx, data.deltaExampleID)
-		if len(deltaQueries) != 1 {
-			t.Fatal("Delta query not created")
-		}
+        // Seed overlay list and verify it shows one origin item
+        listBefore, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(listBefore.Msg.Items) != 1 { t.Fatal("Delta list not seeded") }
 
 		// Delete origin query
 		_, err = data.rpc.QueryDelete(data.ctx, connect.NewRequest(&requestv1.QueryDeleteRequest{
@@ -453,11 +426,10 @@ func TestQueryDeltaComprehensive(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Verify delta query was also deleted
-		deltaQueriesAfter, _ := data.eqs.GetExampleQueriesByExampleID(data.ctx, data.deltaExampleID)
-		if len(deltaQueriesAfter) != 0 {
-			t.Error("Delta query was not cascaded deleted")
-		}
+        // Verify overlay list no longer shows the item
+        listAfter, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+        if err != nil { t.Fatal(err) }
+        if len(listAfter.Msg.Items) != 0 { t.Error("Delta overlay still shows deleted origin item") }
 	})
 }
 

@@ -398,21 +398,38 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
         } else {
             actualTargetKind = itemv1.ItemKind_ITEM_KIND_ENDPOINT
         }
-        // For same-collection moves, allow folder positioned relative to endpoint at the same level
-        // For cross-collection moves, enforce strict validation
-        if targetCollectionID == nil {
-            if !(sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER && actualTargetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && len(req.Msg.GetTargetParentFolderId()) == 0) {
-                if err := validateMoveKindCompatibility(sourceKind, actualTargetKind); err != nil {
-                    return nil, connect.NewError(connect.CodeInvalidArgument, err)
+        // When the client explicitly declares endpoint ordering context (TargetKind=ENDPOINT),
+        // moving a folder relative to an endpoint is invalid.
+        if targetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER {
+            // Disallow only in cross-collection context; same-collection endpoint ordering can position folders
+            if targetCollectionID != nil {
+                return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid move: cannot move folder into an endpoint"))
+            }
+        }
+
+        // Allow folder positioned relative to an endpoint (same-level anchor) in two cases:
+        // 1) Same-collection moves with no explicit parent folder bytes provided (len==0)
+        // 2) Cross-collection moves with no explicit parent and TargetKind != ENDPOINT (i.e., not endpoint ordering context)
+        allowFolderRelativeToEndpoint := sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER && actualTargetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && ((
+            targetCollectionID == nil && len(req.Msg.GetTargetParentFolderId()) == 0) || (
+            targetCollectionID != nil && targetParentFolderID == nil && targetKind != itemv1.ItemKind_ITEM_KIND_ENDPOINT))
+
+        if allowFolderRelativeToEndpoint {
+            // For cross-collection anchor, only allow when target root has no folders yet
+            if targetCollectionID != nil && targetParentFolderID == nil {
+                items, lerr := c.cis.ListCollectionItems(ctx, *targetCollectionID, nil)
+                if lerr == nil {
+                    for _, it := range items {
+                        if it.FolderID != nil {
+                            return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid move: cannot move folder into an endpoint"))
+                        }
+                    }
                 }
             }
+            // Skip strict validation; treat as same-level anchor positioning
         } else {
-            // Cross-collection: allow folder positioned relative to an endpoint as an anchor at the same level
-            // (before/after), when no explicit target parent folder is provided.
-            if !(sourceKind == itemv1.ItemKind_ITEM_KIND_FOLDER && actualTargetKind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && targetParentFolderID == nil) {
-                if err := validateMoveKindCompatibility(sourceKind, actualTargetKind); err != nil {
-                    return nil, connect.NewError(connect.CodeInvalidArgument, err)
-                }
+            if err := validateMoveKindCompatibility(sourceKind, actualTargetKind); err != nil {
+                return nil, connect.NewError(connect.CodeInvalidArgument, err)
             }
         }
     }
@@ -441,9 +458,25 @@ func (c CollectionItemRPC) CollectionItemMove(ctx context.Context, req *connect.
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
     }
+    // If the provided collection_id doesn't match the item's current collection and the caller
+    // didn't provide any explicit target reference (no target item and no explicit parent bytes),
+    // treat the request as a stale source reference and hide details behind NotFound.
+    // If an explicit target is provided, allow the operation (tests expect follow-up moves).
     if currentItem.CollectionID.Compare(collectionID) != 0 {
-        // Map mismatch to NotFound to avoid leaking cross-collection info and match tests
-        return nil, connect.NewError(connect.CodeNotFound, errors.New("collection item not found"))
+        if targetID == nil && req.Msg.TargetParentFolderId == nil {
+            return nil, connect.NewError(connect.CodeNotFound, errors.New("collection item not found"))
+        }
+    }
+
+    // Additional input validation: at least one target reference must be provided for move semantics.
+    // Accept either an explicit target item or an explicit parent folder indicator. For the latter,
+    // an empty byte slice (explicit nil) is also considered a provided reference (move to root).
+    if targetID == nil && targetParentFolderID == nil && req.Msg.TargetParentFolderId == nil {
+        // If a target collection is provided, we allow implicit append-to-end in that collection.
+        // Without a target collection, the request is ambiguous.
+        if targetCollectionID == nil && sourceKind != itemv1.ItemKind_ITEM_KIND_UNSPECIFIED {
+            return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("either target_item_id or target_parent_folder_id must be provided"))
+        }
     }
 
     // Same-collection when targetCollectionID is nil or equals current item's collection

@@ -1,15 +1,14 @@
 package rrequest_test
 
 import (
-	"testing"
+    "testing"
 
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
-	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
-	conditionv1 "the-dev-tools/spec/dist/buf/go/condition/v1"
-	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+    "the-dev-tools/server/pkg/idwrap"
+    "the-dev-tools/server/pkg/model/massert"
+    "the-dev-tools/server/pkg/model/mexampleheader"
+    requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
+    conditionv1 "the-dev-tools/spec/dist/buf/go/condition/v1"
+    deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
 
 	"connectrpc.com/connect"
 )
@@ -103,37 +102,32 @@ func testOriginDetection(t *testing.T) {
 
 // Test 1.2: MIXED Detection
 func testMixedDetection(t *testing.T) {
-	data := setupDeltaTestData(t)
+    data := setupDeltaTestData(t)
 
-	// Create origin query
-	createResp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
-		ExampleId:   data.originExampleID.Bytes(),
-		Key:         "api-key",
-		Enabled:     true,
-		Value:       "12345",
-		Description: "original description",
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Create origin query
+    createResp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
+        ExampleId:   data.originExampleID.Bytes(),
+        Key:         "api-key",
+        Enabled:     true,
+        Value:       "12345",
+        Description: "original description",
+    }))
+    if err != nil {
+        t.Fatal(err)
+    }
 
-	originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
-
-	// Create delta query manually with different values
-	deltaQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: &originQueryID,
-		QueryKey:      "api-key",
-		Enable:        true,
-		Description:   "original description",
-		Value:         "67890", // Different value
-	}
-
-	err = data.eqs.CreateExampleQuery(data.ctx, deltaQuery)
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Seed overlay order then modify via overlay to create MIXED
+    _ = createResp
+    if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    // List to get the ref id
+    list1, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    _ = createResp
+    if len(list1.Msg.Items) != 1 { t.Fatalf("expected 1 item after copy, got %d", len(list1.Msg.Items)) }
+    refID, _ := idwrap.NewFromBytes(list1.Msg.Items[0].QueryId)
+    // Update overlay values to differ from origin
+    _, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{ QueryId: refID.Bytes(), Value: stringPtr("67890") }))
+    if err != nil { t.Fatal(err) }
 
 	// Get delta list
 	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
@@ -384,7 +378,7 @@ func testDeltaRemainsDelta(t *testing.T) {
 
 // Test 3.1: Origin Update Creates Delta Override
 func testOriginUpdateCreatesOverride(t *testing.T) {
-	data := setupDeltaTestData(t)
+    data := setupDeltaTestData(t)
 
 	// Create origin query
 	createResp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
@@ -394,44 +388,44 @@ func testOriginUpdateCreatesOverride(t *testing.T) {
 		Value:       "12345",
 		Description: "original",
 	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    if err != nil {
+        t.Fatal(err)
+    }
+    originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
 
-	originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
+    // Update origin query
+    _, err = data.rpc.QueryUpdate(data.ctx, connect.NewRequest(&requestv1.QueryUpdateRequest{
+        QueryId: originQueryID.Bytes(),
+        Value:   stringPtr("67890"),
+    }))
+    if err != nil {
+        t.Fatal(err)
+    }
 
-	// Update origin query
-	_, err = data.rpc.QueryUpdate(data.ctx, connect.NewRequest(&requestv1.QueryUpdateRequest{
-		QueryId: originQueryID.Bytes(),
-		Value:   stringPtr("67890"),
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Seed overlay list for delta example
+    if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    // Check overlay list reflects updated origin values (no bridge)
+    deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
+        ExampleId: data.deltaExampleID.Bytes(),
+        OriginId:  data.originExampleID.Bytes(),
+    }))
+    if err != nil {
+        t.Fatal(err)
+    }
 
-	// Check if delta was created/updated in delta example
-	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
-		ExampleId: data.deltaExampleID.Bytes(),
-		OriginId:  data.originExampleID.Bytes(),
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Should auto-create delta items
-	if len(deltaListResp.Msg.Items) != 1 {
-		t.Fatalf("Expected 1 delta item to be auto-created, got %d", len(deltaListResp.Msg.Items))
-	}
+    if len(deltaListResp.Msg.Items) != 1 {
+        t.Fatalf("Expected 1 delta item after copy, got %d", len(deltaListResp.Msg.Items))
+    }
 
 	item := deltaListResp.Msg.Items[0]
 	if item.Value != "67890" {
 		t.Error("Delta should have updated origin values")
 	}
 
-	// Since this is auto-created and matches origin, it should be ORIGIN
-	if *item.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
-		t.Errorf("Auto-created delta should be ORIGIN, got %v", *item.Source)
-	}
+    // Should be ORIGIN and match updated origin values
+    if *item.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+        t.Errorf("Expected ORIGIN, got %v", *item.Source)
+    }
 }
 
 // Test 3.2: Origin Update Updates Existing ORIGIN Delta
@@ -450,7 +444,7 @@ func testOriginUpdateUpdatesOriginDelta(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
+    originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
 
 	// Copy to delta (creates ORIGIN state)
 	err = data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID)
@@ -490,7 +484,7 @@ func testOriginUpdateUpdatesOriginDelta(t *testing.T) {
 
 // Test 3.3: Origin Update Doesn't Affect MIXED Delta
 func testOriginUpdateDoesntAffectMixed(t *testing.T) {
-	data := setupDeltaTestData(t)
+    data := setupDeltaTestData(t)
 
 	// Create origin query
 	createResp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
@@ -504,23 +498,16 @@ func testOriginUpdateDoesntAffectMixed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
+    originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
 
-	// Create customized delta query (MIXED)
-	deltaQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: &originQueryID,
-		QueryKey:      "custom",
-		Enable:        true,
-		Description:   "original",
-		Value:         "custom",
-	}
-
-	err = data.eqs.CreateExampleQuery(data.ctx, deltaQuery)
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Seed overlay and customize via overlay to create MIXED
+    if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    list, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    if len(list.Msg.Items) != 1 { t.Fatalf("expected 1 item after copy, got %d", len(list.Msg.Items)) }
+    refID, _ := idwrap.NewFromBytes(list.Msg.Items[0].QueryId)
+    _, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{ QueryId: refID.Bytes(), Key: stringPtr("custom"), Value: stringPtr("custom") }))
+    if err != nil { t.Fatal(err) }
 
 	// Update origin
 	_, err = data.rpc.QueryUpdate(data.ctx, connect.NewRequest(&requestv1.QueryUpdateRequest{
@@ -554,7 +541,7 @@ func testOriginUpdateDoesntAffectMixed(t *testing.T) {
 
 // Test 4.1: Null vs Empty String Handling
 func testNullVsEmptyString(t *testing.T) {
-	data := setupDeltaTestData(t)
+    data := setupDeltaTestData(t)
 
 	// Create origin with empty description
 	createResp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
@@ -568,23 +555,15 @@ func testNullVsEmptyString(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
-
-	// Create delta with non-empty description
-	deltaQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: &originQueryID,
-		QueryKey:      "test",
-		Enable:        true,
-		Value:         "value",
-		Description:   "not empty", // Different from empty
-	}
-
-	err = data.eqs.CreateExampleQuery(data.ctx, deltaQuery)
-	if err != nil {
-		t.Fatal(err)
-	}
+    _ = createResp
+    // Seed overlay then set description to non-empty via overlay update
+    if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    list, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    if len(list.Msg.Items) != 1 { t.Fatalf("expected 1 item after copy, got %d", len(list.Msg.Items)) }
+    refID, _ := idwrap.NewFromBytes(list.Msg.Items[0].QueryId)
+    _, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{ QueryId: refID.Bytes(), Description: stringPtr("not empty") }))
+    if err != nil { t.Fatal(err) }
 
 	// Check delta list
 	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
@@ -603,7 +582,7 @@ func testNullVsEmptyString(t *testing.T) {
 
 // Test 4.2: Complex Field Comparison
 func testComplexFieldComparison(t *testing.T) {
-	data := setupDeltaTestData(t)
+    data := setupDeltaTestData(t)
 
 	// Create origin query
 	createResp, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
@@ -617,23 +596,16 @@ func testComplexFieldComparison(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
+    _ = createResp
 
-	// Create delta with one field different (enabled = false)
-	deltaQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: &originQueryID,
-		QueryKey:      "key",
-		Enable:        false, // Different
-		Value:         "value",
-		Description:   "desc",
-	}
-
-	err = data.eqs.CreateExampleQuery(data.ctx, deltaQuery)
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Seed overlay then set Enabled=false via overlay update
+    if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    list, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    if len(list.Msg.Items) != 1 { t.Fatalf("expected 1 item after copy, got %d", len(list.Msg.Items)) }
+    refID, _ := idwrap.NewFromBytes(list.Msg.Items[0].QueryId)
+    _, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{ QueryId: refID.Bytes(), Enabled: boolPtr(false) }))
+    if err != nil { t.Fatal(err) }
 
 	// Check delta list
 	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
@@ -673,31 +645,20 @@ func testResetQueryWithParent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	originQueryID, _ := idwrap.NewFromBytes(createResp.Msg.QueryId)
-
-	// Create modified delta
-	deltaQuery := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: &originQueryID,
-		QueryKey:      "mod",
-		Enable:        false,
-		Value:         "mod",
-		Description:   "mod",
-	}
-
-	err = data.eqs.CreateExampleQuery(data.ctx, deltaQuery)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Reset delta
-	_, err = data.rpc.QueryDeltaReset(data.ctx, connect.NewRequest(&requestv1.QueryDeltaResetRequest{
-		QueryId: deltaQuery.ID.Bytes(),
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    _ = createResp
+    // Seed overlay then modify via overlay
+    if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    list, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    if len(list.Msg.Items) != 1 { t.Fatalf("expected 1 item after copy, got %d", len(list.Msg.Items)) }
+    dqID, _ := idwrap.NewFromBytes(list.Msg.Items[0].QueryId)
+    _, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{ QueryId: dqID.Bytes(), Key: stringPtr("mod"), Enabled: boolPtr(false), Value: stringPtr("mod"), Description: stringPtr("mod") }))
+    if err != nil { t.Fatal(err) }
+    // Reset delta
+    _, err = data.rpc.QueryDeltaReset(data.ctx, connect.NewRequest(&requestv1.QueryDeltaResetRequest{ QueryId: dqID.Bytes() }))
+    if err != nil {
+        t.Fatal(err)
+    }
 
 	// Check result
 	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
@@ -906,75 +867,45 @@ func testResetItemWithoutParent(t *testing.T) {
 
 // Test 6.1: QueryDeltaList Mixed Results
 func testQueryDeltaListMixedResults(t *testing.T) {
-	data := setupDeltaTestData(t)
+    data := setupDeltaTestData(t)
 
 	// Create multiple origin queries
-	createResp1, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
-		ExampleId: data.originExampleID.Bytes(),
-		Key:       "k1",
-		Enabled:   true,
-		Value:     "v1",
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    _, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
+        ExampleId: data.originExampleID.Bytes(),
+        Key:       "k1",
+        Enabled:   true,
+        Value:     "v1",
+    }))
+    if err != nil {
+        t.Fatal(err)
+    }
 
-	createResp2, err := data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
-		ExampleId: data.originExampleID.Bytes(),
-		Key:       "k2",
-		Enabled:   true,
-		Value:     "v2",
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    _, err = data.rpc.QueryCreate(data.ctx, connect.NewRequest(&requestv1.QueryCreateRequest{
+        ExampleId: data.originExampleID.Bytes(),
+        Key:       "k2",
+        Enabled:   true,
+        Value:     "v2",
+    }))
+    if err != nil {
+        t.Fatal(err)
+    }
 
-	originQuery1ID, _ := idwrap.NewFromBytes(createResp1.Msg.QueryId)
-	originQuery2ID, _ := idwrap.NewFromBytes(createResp2.Msg.QueryId)
-
-	// Create delta queries with different source types
-	// 1. ORIGIN - matches parent
-	deltaQuery1 := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: &originQuery1ID,
-		QueryKey:      "k1",
-		Enable:        true,
-		Value:         "v1", // Matches parent
-	}
-
-	// 2. MIXED - differs from parent
-	deltaQuery2 := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: &originQuery2ID,
-		QueryKey:      "k2",
-		Enable:        true,
-		Value:         "modified", // Different from parent
-	}
-
-	// 3. DELTA - no parent
-	deltaQuery3 := mexamplequery.Query{
-		ID:            idwrap.NewNow(),
-		ExampleID:     data.deltaExampleID,
-		DeltaParentID: nil,
-		QueryKey:      "k3",
-		Enable:        true,
-		Value:         "v3",
-	}
-
-	err = data.eqs.CreateExampleQuery(data.ctx, deltaQuery1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = data.eqs.CreateExampleQuery(data.ctx, deltaQuery2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = data.eqs.CreateExampleQuery(data.ctx, deltaQuery3)
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Seed overlay order from origin
+    if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    // Modify one to MIXED and add a standalone DELTA
+    list1, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes() }))
+    if err != nil { t.Fatal(err) }
+    if len(list1.Msg.Items) != 2 { t.Fatalf("expected 2 items after copy, got %d", len(list1.Msg.Items)) }
+    // Make k2 mixed
+    var k2ID idwrap.IDWrap
+    foundK2 := false
+    for _, it := range list1.Msg.Items { if it.Key == "k2" { k2ID, _ = idwrap.NewFromBytes(it.QueryId); foundK2 = true } }
+    if !foundK2 { t.Fatal("k2 not found in overlay list") }
+    _, err = data.rpc.QueryDeltaUpdate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaUpdateRequest{ QueryId: k2ID.Bytes(), Value: stringPtr("modified") }))
+    if err != nil { t.Fatal(err) }
+    // Create standalone delta
+    _, err = data.rpc.QueryDeltaCreate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaCreateRequest{ ExampleId: data.deltaExampleID.Bytes(), OriginId: data.originExampleID.Bytes(), Key: "k3", Enabled: true, Value: "v3" }))
+    if err != nil { t.Fatal(err) }
 
 	// Get delta list
 	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
@@ -1008,7 +939,7 @@ func testQueryDeltaListMixedResults(t *testing.T) {
 
 // Test 6.2: Empty Delta List
 func testEmptyDeltaList(t *testing.T) {
-	data := setupDeltaTestData(t)
+    data := setupDeltaTestData(t)
 
 	// Create multiple origin queries
 	for i := 0; i < 5; i++ {
@@ -1023,19 +954,21 @@ func testEmptyDeltaList(t *testing.T) {
 		}
 	}
 
-	// Call QueryDeltaList on empty delta example
-	deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
-		ExampleId: data.deltaExampleID.Bytes(),
-		OriginId:  data.originExampleID.Bytes(),
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+    // Seed overlay from origin example
+    if err := data.rpc.QueryDeltaExampleCopy(data.ctx, data.originExampleID, data.deltaExampleID); err != nil { t.Fatal(err) }
+    // Call QueryDeltaList on seeded delta example
+    deltaListResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
+        ExampleId: data.deltaExampleID.Bytes(),
+        OriginId:  data.originExampleID.Bytes(),
+    }))
+    if err != nil {
+        t.Fatal(err)
+    }
 
-	// Should auto-create 5 items
-	if len(deltaListResp.Msg.Items) != 5 {
-		t.Fatalf("Expected 5 auto-created items, got %d", len(deltaListResp.Msg.Items))
-	}
+    // Should show 5 origin items
+    if len(deltaListResp.Msg.Items) != 5 {
+        t.Fatalf("Expected 5 items, got %d", len(deltaListResp.Msg.Items))
+    }
 
 	// All should be ORIGIN
 	for _, item := range deltaListResp.Msg.Items {
