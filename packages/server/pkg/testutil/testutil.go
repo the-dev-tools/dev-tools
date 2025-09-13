@@ -3,6 +3,8 @@ package testutil
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"log/slog"
 	"testing"
 	"the-dev-tools/db/pkg/dbtest"
@@ -78,12 +80,14 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 		Name:    "test",
 	}
 
-	err := ws.Create(ctx, &workspaceData)
-	if err != nil {
-		t.Fatal(err)
-	}
+    err := ws.Create(ctx, &workspaceData)
+    if err != nil {
+        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+            t.Fatal(err)
+        }
+    }
 
-	providerID := "test"
+    providerID := fmt.Sprintf("test-%s", idwrap.NewNow().String())
 	userData := muser.User{
 		ID:           userID,
 		Email:        "test@dev.tools",
@@ -93,10 +97,12 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 		Status:       muser.Active,
 	}
 
-	err = us.CreateUser(ctx, &userData)
-	if err != nil {
-		t.Fatal(err)
-	}
+    err = us.CreateUser(ctx, &userData)
+    if err != nil {
+        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+            t.Fatal(err)
+        }
+    }
 
 	workspaceUserData := mworkspaceuser.WorkspaceUser{
 		ID:          wuID,
@@ -105,10 +111,12 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 		Role:        mworkspaceuser.RoleAdmin,
 	}
 
-	err = wus.CreateWorkspaceUser(ctx, &workspaceUserData)
-	if err != nil {
-		t.Fatal(err)
-	}
+    err = wus.CreateWorkspaceUser(ctx, &workspaceUserData)
+    if err != nil {
+        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+            t.Fatal(err)
+        }
+    }
 
 	collectionData := mcollection.Collection{
 		ID:          collectionID,

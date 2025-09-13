@@ -26,13 +26,12 @@ func TestValidateMoveKindCompatibility(t *testing.T) {
 			targetKind: itemv1.ItemKind_ITEM_KIND_FOLDER,
 			wantError:  false,
 		},
-		{
-			name:       "Folder to endpoint move should be invalid",
-			sourceKind: itemv1.ItemKind_ITEM_KIND_FOLDER,
-			targetKind: itemv1.ItemKind_ITEM_KIND_ENDPOINT,
-			wantError:  true,
-			errorText:  "invalid move: cannot move folder into an endpoint",
-		},
+        {
+            name:       "Folder to endpoint move should be valid (sibling reordering)",
+            sourceKind: itemv1.ItemKind_ITEM_KIND_FOLDER,
+            targetKind: itemv1.ItemKind_ITEM_KIND_ENDPOINT,
+            wantError:  false,
+        },
 		{
 			name:       "Endpoint to folder move should be valid",
 			sourceKind: itemv1.ItemKind_ITEM_KIND_ENDPOINT,

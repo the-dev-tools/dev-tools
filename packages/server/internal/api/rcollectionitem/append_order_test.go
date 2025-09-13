@@ -16,6 +16,7 @@ import (
     "the-dev-tools/server/pkg/idwrap"
     "the-dev-tools/server/pkg/model/muser"
     "the-dev-tools/server/pkg/model/mworkspace"
+    "the-dev-tools/server/pkg/logger/mocklogger"
     scollection "the-dev-tools/server/pkg/service/scollection"
     sworkspace "the-dev-tools/server/pkg/service/sworkspace"
     "the-dev-tools/server/pkg/service/scollectionitem"
@@ -43,13 +44,14 @@ func setupCI(t *testing.T) (CollectionItemRPC, context.Context, idwrap.IDWrap, i
     require.NoError(t, err)
 
     // base services
-    cs := scollection.New(queries, nil)
+    logger := mocklogger.NewMockLogger()
+    cs := scollection.New(queries, logger)
     ws := sworkspace.New(queries)
     us := suser.New(queries)
     ifs := sitemfolder.New(queries)
     ias := sitemapi.New(queries)
     iaes := sitemapiexample.New(queries)
-    cis := scollectionitem.New(queries, nil)
+    cis := scollectionitem.New(queries, logger)
     res := sexampleresp.New(queries)
 
     rpc := New(db, cs, cis, us, ifs, ias, iaes, res)
