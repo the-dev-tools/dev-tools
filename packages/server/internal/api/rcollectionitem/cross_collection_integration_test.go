@@ -93,8 +93,7 @@ func createTestItemsInCollections(t *testing.T, ctx context.Context,
 		CollectionID: sourceCollectionID,
 		ParentID:     nil,
 	}
-	err := ifs.CreateItemFolder(ctx, sourceFolder)
-	require.NoError(t, err)
+    // Do not pre-insert into legacy tables; CreateFolderTX will create both references atomically
 
 	sourceEndpoint := &mitemapi.ItemApi{
 		ID:           sourceEndpointID,
@@ -104,8 +103,7 @@ func createTestItemsInCollections(t *testing.T, ctx context.Context,
 		CollectionID: sourceCollectionID,
 		FolderID:     nil,
 	}
-	err = ias.CreateItemApi(ctx, sourceEndpoint)
-	require.NoError(t, err)
+    // Do not pre-insert into legacy tables; CreateEndpointTX will create both references atomically
 
 	// Create items in target collection
 	targetFolder := &mitemfolder.ItemFolder{
@@ -114,8 +112,7 @@ func createTestItemsInCollections(t *testing.T, ctx context.Context,
 		CollectionID: targetCollectionID,
 		ParentID:     nil,
 	}
-	err = ifs.CreateItemFolder(ctx, targetFolder)
-	require.NoError(t, err)
+    // Do not pre-insert into legacy tables; CreateFolderTX will create both references atomically
 
 	targetEndpoint := &mitemapi.ItemApi{
 		ID:           targetEndpointID,
@@ -125,8 +122,7 @@ func createTestItemsInCollections(t *testing.T, ctx context.Context,
 		CollectionID: targetCollectionID,
 		FolderID:     nil,
 	}
-	err = ias.CreateItemApi(ctx, targetEndpoint)
-	require.NoError(t, err)
+    // Do not pre-insert into legacy tables; CreateEndpointTX will create both references atomically
 
 	// Create collection items entries for all items
 	tx, err := base.DB.Begin()

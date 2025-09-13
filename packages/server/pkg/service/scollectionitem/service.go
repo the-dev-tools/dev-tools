@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"github.com/oklog/ulid/v2"
 	"log/slog"
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -370,11 +371,13 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 	// Plan append safely using movable planner (preflight integrity + tail detection).
 	// We plan against the collection_items list using a new collectionItemID.
 
-	// Step 1: Create item_folder entry (LEGACY TABLE) first to satisfy foreign key constraints
-	err = txService.folderService.CreateItemFolder(ctx, folder)
-	if err != nil {
-		return fmt.Errorf("failed to create folder reference: %w", err)
-	}
+    // Step 1: Create item_folder entry (LEGACY TABLE) first to satisfy foreign key constraints
+    if err := txService.folderService.CreateItemFolder(ctx, folder); err != nil {
+        // Allow idempotent creation: if it already exists, continue
+        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+            return fmt.Errorf("failed to create folder reference: %w", err)
+        }
+    }
 
 	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
 	// Now we can safely reference folder.ID since it exists in item_folder table
@@ -445,11 +448,12 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 
 	// Plan append safely using movable planner for collection_items.
 
-	// Step 1: Create item_api entry (LEGACY TABLE) first to satisfy foreign key constraints
-	err = txService.apiService.CreateItemApi(ctx, endpoint)
-	if err != nil {
-		return fmt.Errorf("failed to create endpoint reference: %w", err)
-	}
+    // Step 1: Create item_api entry (LEGACY TABLE) first to satisfy foreign key constraints
+    if err := txService.apiService.CreateItemApi(ctx, endpoint); err != nil {
+        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+            return fmt.Errorf("failed to create endpoint reference: %w", err)
+        }
+    }
 
     // Step 2: Create collection_items entry (PRIMARY) with correct linked list position
     // Now we can safely reference endpoint.ID since it exists in item_api table

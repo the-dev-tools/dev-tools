@@ -91,8 +91,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 	defer base.Close()
 	mockLogger := mocklogger.NewMockLogger()
 	cis := scollectionitem.New(base.Queries, mockLogger)
-	ifs := sitemfolder.New(base.Queries)
-	ias := sitemapi.New(base.Queries)
+    ifs := sitemfolder.New(base.Queries)
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
@@ -105,8 +104,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			ParentID:     nil,
 		}
-		err := ifs.CreateItemFolder(ctx, sourceFolder)
-		require.NoError(t, err)
+        // Create folder via TX path only
 
 		targetEndpointID := idwrap.NewNow()
 		targetEndpoint := &mitemapi.ItemApi{
@@ -117,8 +115,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 			CollectionID: targetCollectionID,
 			FolderID:     nil,
 		}
-		err = ias.CreateItemApi(ctx, targetEndpoint)
-		require.NoError(t, err)
+        // Create endpoint via TX path only
 
 		// Create collection items
 		tx, err := base.DB.Begin()
@@ -171,13 +168,12 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			FolderID:     nil,
 		}
-		err := ias.CreateItemApi(ctx, sourceEndpoint)
-		require.NoError(t, err)
+    // endpoint will be created via TX path
 
-		// Create collection item
-		tx, err := base.DB.Begin()
-		require.NoError(t, err)
-		defer tx.Rollback()
+        // Create collection item
+        tx, err := base.DB.Begin()
+        require.NoError(t, err)
+        defer tx.Rollback()
 
 		err = cis.CreateEndpointTX(ctx, tx, sourceEndpoint)
 		require.NoError(t, err)
@@ -225,8 +221,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			ParentID:     nil,
 		}
-		err := ifs.CreateItemFolder(ctx, sourceFolder)
-		require.NoError(t, err)
+    // folder will be created via TX path
 
 		// Create collection item
 		tx, err := base.DB.Begin()
@@ -271,8 +266,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			FolderID:     nil,
 		}
-		err := ias.CreateItemApi(ctx, sourceEndpoint)
-		require.NoError(t, err)
+    // endpoint will be created via TX path
 
 		// Create collection item
 		tx, err := base.DB.Begin()
@@ -322,8 +316,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			FolderID:     nil,
 		}
-		err := ias.CreateItemApi(ctx, sourceEndpoint)
-		require.NoError(t, err)
+    // endpoint will be created via TX path
 
 		// Create collection item
 		tx, err := base.DB.Begin()
@@ -374,8 +367,8 @@ func TestCrossCollectionConsistencyAfterPartialFailure(t *testing.T) {
 	defer base.Close()
 	mockLogger := mocklogger.NewMockLogger()
 	cis := scollectionitem.New(base.Queries, mockLogger)
-	ifs := sitemfolder.New(base.Queries)
-	ias := sitemapi.New(base.Queries)
+	_ = sitemfolder.New(base.Queries)
+	_ = sitemapi.New(base.Queries)
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
@@ -388,8 +381,7 @@ func TestCrossCollectionConsistencyAfterPartialFailure(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			ParentID:     nil,
 		}
-		err := ifs.CreateItemFolder(ctx, folder1)
-		require.NoError(t, err)
+    // will create via TX path
 
 		folder2ID := idwrap.NewNow()
 		folder2 := &mitemfolder.ItemFolder{
@@ -398,8 +390,7 @@ func TestCrossCollectionConsistencyAfterPartialFailure(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			ParentID:     nil,
 		}
-		err = ifs.CreateItemFolder(ctx, folder2)
-		require.NoError(t, err)
+    // via TX path
 
 		endpoint1ID := idwrap.NewNow()
 		endpoint1 := &mitemapi.ItemApi{
@@ -410,8 +401,7 @@ func TestCrossCollectionConsistencyAfterPartialFailure(t *testing.T) {
 			CollectionID: targetCollectionID,
 			FolderID:     nil,
 		}
-		err = ias.CreateItemApi(ctx, endpoint1)
-		require.NoError(t, err)
+    // via TX path
 
 		endpoint2ID := idwrap.NewNow()
 		endpoint2 := &mitemapi.ItemApi{
@@ -422,8 +412,7 @@ func TestCrossCollectionConsistencyAfterPartialFailure(t *testing.T) {
 			CollectionID: targetCollectionID,
 			FolderID:     nil,
 		}
-		err = ias.CreateItemApi(ctx, endpoint2)
-		require.NoError(t, err)
+    // via TX path
 
 		// Create collection items to establish ordering
 		tx, err := base.DB.Begin()
@@ -497,8 +486,7 @@ func TestCrossCollectionConsistencyAfterPartialFailure(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			ParentID:     nil,
 		}
-		err := ifs.CreateItemFolder(ctx, sourceFolder)
-		require.NoError(t, err)
+        // Folder will be created via TX path
 
 		// Create collection item
 		tx, err := base.DB.Begin()
@@ -510,9 +498,10 @@ func TestCrossCollectionConsistencyAfterPartialFailure(t *testing.T) {
 		err = tx.Commit()
 		require.NoError(t, err)
 
-		// Capture initial legacy table state
-		initialFolder, err := ifs.GetFolder(ctx, sourceFolderID)
-		require.NoError(t, err)
+        // Capture initial legacy table state
+        ifs2 := sitemfolder.New(base.Queries)
+        initialFolder, err := ifs2.GetFolder(ctx, sourceFolderID)
+        require.NoError(t, err)
 
 		// Attempt move to non-existent collection (should fail)
 		nonExistentCollectionID := idwrap.NewNow()
@@ -527,9 +516,9 @@ func TestCrossCollectionConsistencyAfterPartialFailure(t *testing.T) {
 		_, err = rpc.CollectionItemMove(authedCtx, req)
 		assert.Error(t, err, "Move to non-existent collection should fail")
 
-		// Verify legacy table state is unchanged
-		finalFolder, err := ifs.GetFolder(ctx, sourceFolderID)
-		require.NoError(t, err)
+        // Verify legacy table state is unchanged
+        finalFolder, err := ifs2.GetFolder(ctx, sourceFolderID)
+        require.NoError(t, err)
 
 		assert.Equal(t, initialFolder.ID, finalFolder.ID, "Folder ID should be unchanged")
 		assert.Equal(t, initialFolder.Name, finalFolder.Name, "Folder name should be unchanged")
@@ -548,10 +537,10 @@ func TestCrossCollectionAtomicOperations(t *testing.T) {
 
 	base := testutil.CreateBaseDB(ctx, t)
 	defer base.Close()
-	mockLogger := mocklogger.NewMockLogger()
-	cis := scollectionitem.New(base.Queries, mockLogger)
-	ifs := sitemfolder.New(base.Queries)
-	ias := sitemapi.New(base.Queries)
+    mockLogger := mocklogger.NewMockLogger()
+    cis := scollectionitem.New(base.Queries, mockLogger)
+    ifs := sitemfolder.New(base.Queries)
+    ias := sitemapi.New(base.Queries)
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
@@ -564,8 +553,7 @@ func TestCrossCollectionAtomicOperations(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			ParentID:     nil,
 		}
-		err := ifs.CreateItemFolder(ctx, parentFolder)
-		require.NoError(t, err)
+    // Create folder via TX path only (avoids duplicate legacy insert)
 
 		childFolderID := idwrap.NewNow()
 		childFolder := &mitemfolder.ItemFolder{
@@ -574,8 +562,7 @@ func TestCrossCollectionAtomicOperations(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			ParentID:     &parentFolderID,
 		}
-		err = ifs.CreateItemFolder(ctx, childFolder)
-		require.NoError(t, err)
+    // Create child via TX path only
 
 		nestedEndpointID := idwrap.NewNow()
 		nestedEndpoint := &mitemapi.ItemApi{
@@ -586,8 +573,7 @@ func TestCrossCollectionAtomicOperations(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			FolderID:     &childFolderID,
 		}
-		err = ias.CreateItemApi(ctx, nestedEndpoint)
-		require.NoError(t, err)
+    // Create endpoint via TX path only
 
 		// Create collection items
 		tx, err := base.DB.Begin()
@@ -744,7 +730,7 @@ func TestCrossCollectionConcurrencyConsistency(t *testing.T) {
 	defer base.Close()
 	mockLogger := mocklogger.NewMockLogger()
 	cis := scollectionitem.New(base.Queries, mockLogger)
-	ias := sitemapi.New(base.Queries)
+	_ = sitemapi.New(base.Queries)
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
@@ -759,8 +745,7 @@ func TestCrossCollectionConcurrencyConsistency(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			FolderID:     nil,
 		}
-		err := ias.CreateItemApi(ctx, endpoint)
-		require.NoError(t, err)
+    // Create endpoint via TX path only
 
 		// Create collection item
 		tx, err := base.DB.Begin()

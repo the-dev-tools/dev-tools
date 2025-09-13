@@ -323,14 +323,14 @@ func TestCollectionItemMove_PermissionChecks(t *testing.T) {
 			expectedCode:  connect.CodePermissionDenied,
 			description:   "Should reject request from user who doesn't own the collection",
 		},
-		{
-			name:          "Non-existent collection",
-			contextUserID: userID,
-			collectionID:  idwrap.NewNow(), // Random non-existent collection
-			itemID:        folderID,
-			expectedCode:  connect.CodeInternal, // Database constraint error when collection doesn't exist
-			description:   "Should reject request for non-existent collection",
-		},
+        {
+            name:          "Non-existent collection",
+            contextUserID: userID,
+            collectionID:  idwrap.NewNow(), // Random non-existent collection
+            itemID:        folderID,
+            expectedCode:  connect.CodeNotFound,
+            description:   "Should reject request for non-existent collection",
+        },
 		{
 			name:          "Non-existent item",
 			contextUserID: userID,
