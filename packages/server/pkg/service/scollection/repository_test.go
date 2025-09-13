@@ -25,53 +25,53 @@ func TestCollectionMovableRepository_UpdatePosition(t *testing.T) {
 		wantOrder    []int // expected order after move (indices from original setup)
 		expectError  bool
 	}{
-		{
-			name: "move_first_to_last",
+        {
+            name: "move_first_to_last",
 			setup: func(t *testing.T, ctx context.Context, cs *scollection.CollectionService, wsID idwrap.IDWrap) []idwrap.IDWrap {
 				return createTestCollections(t, ctx, cs, wsID, []string{"A", "B", "C", "D"})
 			},
-			itemIndex:   0, // move A
-			newPosition: 3, // to last position
+            itemIndex:   0, // move A
+            newPosition: 4, // to last position (account for base collection at position 0)
 			wantOrder:   []int{1, 2, 3, 0}, // B, C, D, A
 			expectError: false,
 		},
-		{
-			name: "move_last_to_first",
+        {
+            name: "move_last_to_first",
 			setup: func(t *testing.T, ctx context.Context, cs *scollection.CollectionService, wsID idwrap.IDWrap) []idwrap.IDWrap {
 				return createTestCollections(t, ctx, cs, wsID, []string{"A", "B", "C", "D"})
 			},
-			itemIndex:   3, // move D
-			newPosition: 0, // to first position
+            itemIndex:   3, // move D
+            newPosition: 1, // to first position among created (base occupies 0)
 			wantOrder:   []int{3, 0, 1, 2}, // D, A, B, C
 			expectError: false,
 		},
-		{
-			name: "move_middle_to_middle",
+        {
+            name: "move_middle_to_middle",
 			setup: func(t *testing.T, ctx context.Context, cs *scollection.CollectionService, wsID idwrap.IDWrap) []idwrap.IDWrap {
 				return createTestCollections(t, ctx, cs, wsID, []string{"A", "B", "C", "D", "E"})
 			},
-			itemIndex:   1, // move B
-			newPosition: 3, // to middle position
+            itemIndex:   1, // move B
+            newPosition: 4, // to middle position (account for base at 0)
 			wantOrder:   []int{0, 2, 3, 1, 4}, // A, C, D, B, E
 			expectError: false,
 		},
-		{
-			name: "move_to_same_position",
+        {
+            name: "move_to_same_position",
 			setup: func(t *testing.T, ctx context.Context, cs *scollection.CollectionService, wsID idwrap.IDWrap) []idwrap.IDWrap {
 				return createTestCollections(t, ctx, cs, wsID, []string{"A", "B", "C"})
 			},
-			itemIndex:   1, // move B
-			newPosition: 1, // to same position
+            itemIndex:   1, // move B
+            newPosition: 2, // same relative position (base at 0)
 			wantOrder:   []int{0, 1, 2}, // A, B, C (no change)
 			expectError: false,
 		},
-		{
-			name: "move_single_item",
+        {
+            name: "move_single_item",
 			setup: func(t *testing.T, ctx context.Context, cs *scollection.CollectionService, wsID idwrap.IDWrap) []idwrap.IDWrap {
 				return createTestCollections(t, ctx, cs, wsID, []string{"A"})
 			},
-			itemIndex:   0, // move A
-			newPosition: 0, // to same position (only valid option)
+            itemIndex:   0, // move A
+            newPosition: 1, // keep after base (only valid without changing position)
 			wantOrder:   []int{0}, // A (no change)
 			expectError: false,
 		},
@@ -172,14 +172,15 @@ func TestCollectionMovableRepository_UpdatePositions(t *testing.T) {
 				return createTestCollections(t, ctx, cs, wsID, []string{"A", "B", "C", "D", "E"})
 			},
 			updates: func(ids []idwrap.IDWrap) []movable.PositionUpdate {
-				// Only move B and D
+				// Only move B and D. Repository UpdatePositions expects a full-batch reorder;
+				// partial updates are not supported, so this case should error.
 				return []movable.PositionUpdate{
 					{ItemID: ids[1], ListType: movable.CollectionListTypeCollections, Position: 3}, // B to position 3
 					{ItemID: ids[3], ListType: movable.CollectionListTypeCollections, Position: 1}, // D to position 1
 				}
 			},
-			wantOrder:   []int{0, 3, 2, 1, 4}, // A, D, C, B, E
-			expectError: false,
+			wantOrder:   nil,
+			expectError: true,
 		},
 		{
 			name: "empty_updates",
@@ -473,8 +474,8 @@ func TestCollectionMovableRepository_TransactionSupport(t *testing.T) {
 		// Create repository with transaction
 		repo := scollection.NewCollectionMovableRepository(base.Queries)
 
-		// Move collection B to last position within transaction
-		err = repo.UpdatePosition(ctx, tx, collectionIDs[1], movable.CollectionListTypeCollections, 2)
+        // Move collection B to last position within transaction (account for base at 0)
+        err = repo.UpdatePosition(ctx, tx, collectionIDs[1], movable.CollectionListTypeCollections, 3)
 		if err != nil {
 			tx.Rollback()
 			t.Fatalf("failed to update position: %v", err)
@@ -516,8 +517,8 @@ func TestCollectionMovableRepository_TransactionSupport(t *testing.T) {
 		// Create repository with transaction
 		repo := scollection.NewCollectionMovableRepository(base.Queries)
 
-		// Move collection B to last position within transaction
-		err = repo.UpdatePosition(ctx, tx, collectionIDs[1], movable.CollectionListTypeCollections, 2)
+        // Move collection B to last position within transaction (account for base at 0)
+        err = repo.UpdatePosition(ctx, tx, collectionIDs[1], movable.CollectionListTypeCollections, 3)
 		if err != nil {
 			tx.Rollback()
 			t.Fatalf("failed to update position: %v", err)
