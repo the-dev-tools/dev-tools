@@ -1142,11 +1142,11 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 		return fmt.Errorf("failed to get target collection items: %w", err)
 	}
 
-	// Step 3: Update item's collection_id and parent_folder_id
-	s.logger.Debug("Updating collection_id and parent_folder_id",
-		"item_id", itemID.String(),
-		"new_collection_id", targetCollectionID.String(),
-		"new_parent_folder_id", getIDString(targetParentFolderID))
+    // Step 3: Update item's collection_id and parent_folder_id
+    s.logger.Debug("Updating collection_id and parent_folder_id",
+        "item_id", itemID.String(),
+        "new_collection_id", targetCollectionID.String(),
+        "new_parent_folder_id", getIDString(targetParentFolderID))
 
 	err = s.queries.UpdateCollectionItemCollectionId(ctx, gen.UpdateCollectionItemCollectionIdParams{
 		CollectionID:   targetCollectionID,
@@ -1157,11 +1157,20 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 		return fmt.Errorf("failed to update collection item collection_id: %w", err)
 	}
 
-	// Step 4: Update legacy table collection_ids
-	err = s.UpdateLegacyTableCollectionIds(ctx, item, targetCollectionID)
-	if err != nil {
-		return fmt.Errorf("failed to update legacy table collection_ids: %w", err)
-	}
+    // Step 4: Update legacy table collection_ids
+    err = s.UpdateLegacyTableCollectionIds(ctx, item, targetCollectionID)
+    if err != nil {
+        return fmt.Errorf("failed to update legacy table collection_ids: %w", err)
+    }
+
+    // Step 4.5: If we're moving a folder across collections, cascade the collection_id
+    // update to all descendant collection_items so they remain visible under the new
+    // collection in queries filtered by collection_id.
+    if item.ItemType == int8(CollectionItemTypeFolder) {
+        if err := s.cascadeUpdateDescendantsCollectionID(ctx, itemID, sourceCollectionID, targetCollectionID); err != nil {
+            return fmt.Errorf("failed to cascade collection_id to descendants: %w", err)
+        }
+    }
 
 	// Step 5: Calculate insertion position in target collection
 	var insertPos int
@@ -1239,6 +1248,80 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 		"target_collection_items", len(newTargetOrder))
 
 	return nil
+}
+
+// cascadeUpdateDescendantsCollectionID updates collection_id for all descendants of the given
+// folder collection_item (identified by its collection_items ID), preserving their parent_folder_id.
+// It also updates legacy tables (item_folder/item_api) for each descendant.
+func (s *CollectionItemService) cascadeUpdateDescendantsCollectionID(ctx context.Context, folderItemID idwrap.IDWrap, sourceCollectionID idwrap.IDWrap, targetCollectionID idwrap.IDWrap) error {
+    s.logger.Debug("Cascading collection_id to descendants",
+        "folder_item_id", folderItemID.String(),
+        "source_collection_id", sourceCollectionID.String(),
+        "target_collection_id", targetCollectionID.String())
+
+    // BFS over folder hierarchy starting at the moved folder
+    queue := []idwrap.IDWrap{folderItemID}
+    for len(queue) > 0 {
+        currentFolder := queue[0]
+        queue = queue[1:]
+
+        // List direct children that are still in the source collection with this parent
+        rows, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
+            CollectionID:   sourceCollectionID,
+            ParentFolderID: &currentFolder,
+            Column3:        &currentFolder,
+            CollectionID_2: sourceCollectionID,
+        })
+        if err != nil {
+            return fmt.Errorf("failed to list children for cascade: %w", err)
+        }
+
+        for _, r := range rows {
+            childID := idwrap.NewFromBytesMust(r.ID)
+            // Parent stays the same (still linked to folderItemID), only collection changes
+            parent := idwrap.NewFromBytesMust(r.ParentFolderID)
+
+            if err := s.queries.UpdateCollectionItemCollectionId(ctx, gen.UpdateCollectionItemCollectionIdParams{
+                CollectionID:   targetCollectionID,
+                ParentFolderID: &parent,
+                ID:             childID,
+            }); err != nil {
+                return fmt.Errorf("failed to update child collection_id: %w", err)
+            }
+
+            // Update legacy tables for the child
+            var folderRef *idwrap.IDWrap
+            var endpointRef *idwrap.IDWrap
+            if len(r.FolderID) > 0 {
+                fid := idwrap.NewFromBytesMust(r.FolderID)
+                folderRef = &fid
+            }
+            if len(r.EndpointID) > 0 {
+                eid := idwrap.NewFromBytesMust(r.EndpointID)
+                endpointRef = &eid
+            }
+
+            if err := s.UpdateLegacyTableCollectionIds(ctx, gen.CollectionItem{
+                ID:             childID,
+                CollectionID:   targetCollectionID,
+                ParentFolderID: &parent,
+                ItemType:       r.ItemType,
+                FolderID:       folderRef,
+                EndpointID:     endpointRef,
+                Name:           r.Name,
+                PrevID:         convertBytesToIDWrap(r.PrevID),
+                NextID:         convertBytesToIDWrap(r.NextID),
+            }, targetCollectionID); err != nil {
+                return fmt.Errorf("failed to update legacy tables for child: %w", err)
+            }
+
+            // If the child is a folder, enqueue it to cascade to its children
+            if r.ItemType == int8(CollectionItemTypeFolder) {
+                queue = append(queue, childID)
+            }
+        }
+    }
+    return nil
 }
 
 // UpdateLegacyTableCollectionIds updates the collection_id in legacy tables (item_api and item_folder)
