@@ -277,24 +277,57 @@ func (r *ExampleMovableRepository) Create(ctx context.Context, tx *sql.Tx, examp
 		return fmt.Errorf("failed to create example: %w", err)
 	}
 
-	// If there was a previous tail, update it to point to the new example
-	if plan.PrevID != nil {
-		// CAS-like guard: ensure current tail still has next=NULL before linking
-		prevRow, gerr := repo.queries.GetItemApiExample(ctx, *plan.PrevID)
-		if gerr != nil {
-			return fmt.Errorf("failed to read tail: %w", gerr)
-		}
-		if prevRow.Next != nil {
-			return fmt.Errorf("concurrent tail advance detected for example tail %s", plan.PrevID.String())
-		}
-		if err := repo.queries.UpdateExampleNext(ctx, gen.UpdateExampleNextParams{
-			Next:      &example.ID,
-			ID:        *plan.PrevID,
-			ItemApiID: example.ItemApiID,
-		}); err != nil {
-			return fmt.Errorf("failed to update previous tail: %w", err)
-		}
-	}
+    // If there was a previous tail, link it to the new example.
+    // Be resilient to benign tail advances between planning and linking by re-linking to the current tail.
+    if plan.PrevID != nil {
+        // Read what we thought was the tail when we planned
+        prevRow, gerr := repo.queries.GetItemApiExample(ctx, *plan.PrevID)
+        if gerr != nil {
+            return fmt.Errorf("failed to read tail: %w", gerr)
+        }
+
+        if prevRow.Next == nil {
+            // Tail did not advance; perform the normal link
+            if err := repo.queries.UpdateExampleNext(ctx, gen.UpdateExampleNextParams{
+                Next:      &example.ID,
+                ID:        *plan.PrevID,
+                ItemApiID: example.ItemApiID,
+            }); err != nil {
+                return fmt.Errorf("failed to update previous tail: %w", err)
+            }
+        } else {
+            // Tail advanced after planning; re-link to the actual current tail.
+            orderedExamples, gerr := repo.queries.GetExamplesByEndpointIDOrdered(ctx, gen.GetExamplesByEndpointIDOrderedParams{
+                ItemApiID:   example.ItemApiID,
+                ItemApiID_2: example.ItemApiID,
+            })
+            if gerr != nil {
+                return fmt.Errorf("failed to fetch ordered examples for tail recovery: %w", gerr)
+            }
+            if len(orderedExamples) > 0 {
+                currentTailID := idwrap.NewFromBytesMust(orderedExamples[len(orderedExamples)-1].ID)
+                // If the new example is already the tail, nothing to do
+                if currentTailID.Compare(example.ID) != 0 {
+                    // Update new example's prev to the current tail, then point current tail to new example
+                    if err := repo.queries.UpdateExamplePrev(ctx, gen.UpdateExamplePrevParams{
+                        Prev:      &currentTailID,
+                        ID:        example.ID,
+                        ItemApiID: example.ItemApiID,
+                    }); err != nil {
+                        return fmt.Errorf("failed to set new example prev during tail recovery: %w", err)
+                    }
+                    if err := repo.queries.UpdateExampleNext(ctx, gen.UpdateExampleNextParams{
+                        Next:      &example.ID,
+                        ID:        currentTailID,
+                        ItemApiID: example.ItemApiID,
+                    }); err != nil {
+                        return fmt.Errorf("failed to set current tail next during tail recovery: %w", err)
+                    }
+                }
+            }
+            // If no ordered examples were returned, we leave the inserted row as-is; next append will correct chain.
+        }
+    }
 
 	return nil
 }
