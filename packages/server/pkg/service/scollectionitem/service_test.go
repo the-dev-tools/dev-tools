@@ -90,7 +90,8 @@ func TestCollectionItemService_CreateFolderTX(t *testing.T) {
 		},
 	}
 
-	var parentFolderID *idwrap.IDWrap
+    var parentFolderID *idwrap.IDWrap
+    var parentFolderCI *idwrap.IDWrap
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -119,9 +120,14 @@ func TestCollectionItemService_CreateFolderTX(t *testing.T) {
 			err = tx.Commit()
 			require.NoError(t, err, "failed to commit transaction")
 
-			// Verify collection_items entry was created
-			items, err := service.ListCollectionItems(ctx, collectionID, tt.folder.ParentID)
-			require.NoError(t, err, "failed to list collection items")
+            // Verify collection_items entry was created
+            // For nested listing, resolve legacy parent folder ID to collection_items ID
+            var parentForList *idwrap.IDWrap
+            if tt.folder.ParentID != nil {
+                parentForList = parentFolderCI
+            }
+            items, err := service.ListCollectionItems(ctx, collectionID, parentForList)
+            require.NoError(t, err, "failed to list collection items")
 			
 			found := false
 			for _, item := range items {
@@ -134,11 +140,16 @@ func TestCollectionItemService_CreateFolderTX(t *testing.T) {
 			}
 			assert.True(t, found, "folder should be found in collection items")
 
-			// Save first folder ID for nested test
-			if tt.name == "create_folder_success" {
-				folderID := tt.folder.ID
-				parentFolderID = &folderID
-			}
+            // Save first folder ID for nested test
+            if tt.name == "create_folder_success" {
+                folderID := tt.folder.ID
+                parentFolderID = &folderID
+
+                // Resolve and cache the collection_items ID for the parent folder
+                ciID, err := service.GetCollectionItemIDByLegacyID(ctx, folderID)
+                require.NoError(t, err, "failed to resolve parent folder collection_items ID")
+                parentFolderCI = &ciID
+            }
 
 			// Verify FK relationship with item_folder table
 			folderItem, err := queries.GetItemFolder(ctx, tt.folder.ID)
@@ -199,12 +210,16 @@ func TestCollectionItemService_CreateEndpointTX(t *testing.T) {
 		ParentID:     nil,
 	}
 
-	tx, err := db.BeginTx(ctx, nil)
-	require.NoError(t, err)
-	err = service.CreateFolderTX(ctx, tx, folder)
-	require.NoError(t, err)
-	err = tx.Commit()
-	require.NoError(t, err)
+    tx, err := db.BeginTx(ctx, nil)
+    require.NoError(t, err)
+    err = service.CreateFolderTX(ctx, tx, folder)
+    require.NoError(t, err)
+    err = tx.Commit()
+    require.NoError(t, err)
+
+    // Resolve collection_items ID for the parent folder to use in list queries under the folder
+    parentFolderCI, err := service.GetCollectionItemIDByLegacyID(ctx, folderID)
+    require.NoError(t, err, "failed to resolve parent folder collection_items ID")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -233,9 +248,14 @@ func TestCollectionItemService_CreateEndpointTX(t *testing.T) {
 			err = tx.Commit()
 			require.NoError(t, err, "failed to commit transaction")
 
-			// Verify collection_items entry was created
-			items, err := service.ListCollectionItems(ctx, collectionID, tt.endpoint.FolderID)
-			require.NoError(t, err, "failed to list collection items")
+            // Verify collection_items entry was created
+            // When endpoint is in a folder, list by the folder's collection_items ID (not legacy ID)
+            var parentForList *idwrap.IDWrap
+            if tt.endpoint.FolderID != nil {
+                parentForList = &parentFolderCI
+            }
+            items, err := service.ListCollectionItems(ctx, collectionID, parentForList)
+            require.NoError(t, err, "failed to list collection items")
 			
 			found := false
 			for _, item := range items {
