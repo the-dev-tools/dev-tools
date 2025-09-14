@@ -103,7 +103,7 @@ func TestBodyUrlEncodedDeltaReset_PreservesParentAndRestoresValues(t *testing.T)
     rpc := rbody.New(db, cs, iaes, us, bfs, bues, brs)
     authed := mwauth.CreateAuthedContext(ctx, userID)
 
-    // Sanity: list ensures a delta proxy exists (DELTA with parent)
+    // Sanity: list ensures a delta proxy exists (origin-ref proxy)
     list1, err := rpc.BodyUrlEncodedDeltaList(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaListRequest{
         ExampleId: deltaExampleID.Bytes(),
         OriginId:  originExampleID.Bytes(),
@@ -114,8 +114,8 @@ func TestBodyUrlEncodedDeltaReset_PreservesParentAndRestoresValues(t *testing.T)
     if len(list1.Msg.Items) != 1 {
         t.Fatalf("expected 1 delta proxy, got %d", len(list1.Msg.Items))
     }
-    if list1.Msg.Items[0].Source == nil || *list1.Msg.Items[0].Source != deltav1.SourceKind_SOURCE_KIND_DELTA {
-        t.Fatalf("expected source DELTA initially, got %v", list1.Msg.Items[0].Source)
+    if list1.Msg.Items[0].Source == nil || *list1.Msg.Items[0].Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+        t.Fatalf("expected source ORIGIN initially, got %v", list1.Msg.Items[0].Source)
     }
 
     // Update via DeltaUpdate using the DELTA proxy id
@@ -130,7 +130,7 @@ func TestBodyUrlEncodedDeltaReset_PreservesParentAndRestoresValues(t *testing.T)
         t.Fatal(err)
     }
 
-    // List again: delta proxy should reflect updated values
+    // List again: delta proxy should reflect updated values and become MIXED
     list2, err := rpc.BodyUrlEncodedDeltaList(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaListRequest{
         ExampleId: deltaExampleID.Bytes(),
         OriginId:  originExampleID.Bytes(),
@@ -140,6 +140,9 @@ func TestBodyUrlEncodedDeltaReset_PreservesParentAndRestoresValues(t *testing.T)
     }
     if len(list2.Msg.Items) != 1 { t.Fatalf("expected 1 delta item, got %d", len(list2.Msg.Items)) }
     updatedItem := list2.Msg.Items[0]
+    if updatedItem.Source == nil || *updatedItem.Source != deltav1.SourceKind_SOURCE_KIND_MIXED {
+        t.Fatalf("expected source MIXED after update, got %v", updatedItem.Source)
+    }
     if updatedItem.Value != "v1x" || updatedItem.Enabled != false || updatedItem.Description != "d1x" {
         t.Fatalf("values not updated as expected: got key=%s val=%s enabled=%v desc=%s", updatedItem.Key, updatedItem.Value, updatedItem.Enabled, updatedItem.Description)
     }
@@ -161,6 +164,9 @@ func TestBodyUrlEncodedDeltaReset_PreservesParentAndRestoresValues(t *testing.T)
     }
     if len(list3.Msg.Items) != 1 { t.Fatalf("expected 1 item after reset, got %d", len(list3.Msg.Items)) }
     after := list3.Msg.Items[0]
+    if after.Source == nil || *after.Source != deltav1.SourceKind_SOURCE_KIND_ORIGIN {
+        t.Fatalf("expected source ORIGIN after reset, got %v", after.Source)
+    }
     if after.Value != "v1" || after.Enabled != true || after.Description != "d1" {
         t.Fatalf("expected values restored from origin (v1,true,d1); got val=%s enabled=%v desc=%s", after.Value, after.Enabled, after.Description)
     }

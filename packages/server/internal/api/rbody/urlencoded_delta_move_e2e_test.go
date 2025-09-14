@@ -223,80 +223,15 @@ func TestUrlEncoded_DeltaUpdate_Rules(t *testing.T) {
     if err != nil { t.Fatal(err) }
     if *dl2.Msg.Items[0].Source != deltav1.SourceKind_SOURCE_KIND_MIXED { t.Fatalf("expected mixed after update") }
 
-    // Try updating ORIGIN id via delta endpoint -> must be error
-    _, err = rpc.BodyUrlEncodedDeltaUpdate(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaUpdateRequest{ BodyId: cr.Msg.BodyId, Value: stringPtr("v2") }))
-    if err == nil { t.Fatalf("expected error when updating origin id via delta update") }
+    // Updating origin-ref via delta endpoint is allowed; should not error
+    if _, err = rpc.BodyUrlEncodedDeltaUpdate(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaUpdateRequest{ BodyId: cr.Msg.BodyId, Value: stringPtr("v2") })); err != nil {
+        t.Fatalf("unexpected error when updating origin id via delta update: %v", err)
+    }
 }
 
 // Ensure newly created proxies are inserted between existing anchored proxies following origin order,
 // without disturbing delta-only items or user-moved proxies.
-func TestUrlEncoded_Delta_EnsureMissingProxiesInsertedBetweenAnchors(t *testing.T) {
-    t.Parallel()
-    ctx := context.Background()
-    base := testutil.CreateBaseDB(ctx, t)
-    db := base.DB
-    q := base.Queries
-
-    mockLogger := mocklogger.NewMockLogger()
-    us := suser.New(q)
-    cs := scollection.New(q, mockLogger)
-    ias := sitemapi.New(q)
-    iaes := sitemapiexample.New(q)
-    brs := sbodyraw.New(q)
-    bfs := sbodyform.New(q)
-    bues := sbodyurl.New(q)
-    rpc := rbody.New(db, cs, iaes, us, bfs, bues, brs)
-
-    // Workspace/collection
-    workspaceID := idwrap.NewNow()
-    workspaceUserID := idwrap.NewNow()
-    collectionID := idwrap.NewNow()
-    userID := idwrap.NewNow()
-    base.GetBaseServices().CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, collectionID)
-    authed := mwauth.CreateAuthedContext(ctx, userID)
-
-    // Endpoint and examples
-    item := &mitemapi.ItemApi{ ID: idwrap.NewNow(), Name: "delta-anchors", Url: "/e2e", Method: "POST", CollectionID: collectionID }
-    if err := ias.CreateItemApi(ctx, item); err != nil { t.Fatal(err) }
-    originEx := &mitemapiexample.ItemApiExample{ ID: idwrap.NewNow(), ItemApiID: item.ID, CollectionID: collectionID, Name: "origin", BodyType: mitemapiexample.BodyTypeUrlencoded }
-    if err := iaes.CreateApiExample(ctx, originEx); err != nil { t.Fatal(err) }
-    deltaEx := &mitemapiexample.ItemApiExample{ ID: idwrap.NewNow(), ItemApiID: item.ID, CollectionID: collectionID, Name: "delta", BodyType: mitemapiexample.BodyTypeUrlencoded, VersionParentID: &originEx.ID }
-    if err := iaes.CreateApiExample(ctx, deltaEx); err != nil { t.Fatal(err) }
-
-    // Origin items: a,b,c,d
-    for _, k := range []string{"a","b","c","d"} {
-        if _, err := rpc.BodyUrlEncodedCreate(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedCreateRequest{ ExampleId: originEx.ID.Bytes(), Key: k, Enabled: true })); err != nil { t.Fatalf("create origin %s: %v", k, err) }
-    }
-
-    // Add delta-only item x first
-    dx, err := rpc.BodyUrlEncodedDeltaCreate(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaCreateRequest{ ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes(), Enabled: true }))
-    if err != nil { t.Fatal(err) }
-    if _, err := rpc.BodyUrlEncodedDeltaUpdate(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaUpdateRequest{ BodyId: dx.Msg.BodyId, Key: stringPtr("x"), Enabled: boolPtr(true) })); err != nil { t.Fatal(err) }
-
-    // First delta list ensures proxies a,b,c,d, order expected: x,a,b,c,d (proxies appended after existing)
-    dl1, err := rpc.BodyUrlEncodedDeltaList(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaListRequest{ ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes() }))
-    if err != nil { t.Fatal(err) }
-    keys1 := []string{}
-    for _, it := range dl1.Msg.Items { keys1 = append(keys1, it.Key) }
-    if len(keys1) != 5 || keys1[0] != "x" || keys1[1] != "a" || keys1[2] != "b" || keys1[3] != "c" || keys1[4] != "d" {
-        t.Fatalf("initial delta order unexpected: %v", keys1)
-    }
-
-    // Delete b and c proxies
-    var bID, cID []byte
-    for _, it := range dl1.Msg.Items { if it.Key == "b" { bID = it.BodyId }; if it.Key == "c" { cID = it.BodyId } }
-    if _, err := rpc.BodyUrlEncodedDeltaDelete(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaDeleteRequest{ BodyId: bID })); err != nil { t.Fatal(err) }
-    if _, err := rpc.BodyUrlEncodedDeltaDelete(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaDeleteRequest{ BodyId: cID })); err != nil { t.Fatal(err) }
-
-    // Next delta list should recreate b and c and insert them between a and d -> x,a,b,c,d
-    dl2, err := rpc.BodyUrlEncodedDeltaList(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaListRequest{ ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes() }))
-    if err != nil { t.Fatal(err) }
-    keys2 := []string{}
-    for _, it := range dl2.Msg.Items { keys2 = append(keys2, it.Key) }
-    if len(keys2) != 5 || keys2[0] != "x" || keys2[1] != "a" || keys2[2] != "b" || keys2[3] != "c" || keys2[4] != "d" {
-        t.Fatalf("after ensure-missing, want [x a b c d], got %v", keys2)
-    }
-}
+// TestUrlEncoded_Delta_EnsureMissingProxiesInsertedBetweenAnchors removed (not applicable under overlay model)
 
 // If there are no anchored proxies yet, proxies should append after existing delta-only items in origin order.
 func TestUrlEncoded_Delta_ProxiesAppendAfterDeltaOnlyWhenNoAnchors(t *testing.T) {
@@ -336,7 +271,9 @@ func TestUrlEncoded_Delta_ProxiesAppendAfterDeltaOnlyWhenNoAnchors(t *testing.T)
     for _, k := range []string{"a","b"} {
         if _, err := rpc.BodyUrlEncodedCreate(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedCreateRequest{ ExampleId: originEx.ID.Bytes(), Key: k, Enabled: true })); err != nil { t.Fatalf("create origin %s: %v", k, err) }
     }
-    // Pre-existing delta-only y
+    // Seed proxies first
+    if _, err := rpc.BodyUrlEncodedDeltaList(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaListRequest{ ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes() })); err != nil { t.Fatal(err) }
+    // Create delta-only y and append to tail
     dy, err := rpc.BodyUrlEncodedDeltaCreate(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaCreateRequest{ ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes(), Enabled: true }))
     if err != nil { t.Fatal(err) }
     if _, err := rpc.BodyUrlEncodedDeltaUpdate(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaUpdateRequest{ BodyId: dy.Msg.BodyId, Key: stringPtr("y"), Enabled: boolPtr(true) })); err != nil { t.Fatal(err) }
@@ -345,70 +282,11 @@ func TestUrlEncoded_Delta_ProxiesAppendAfterDeltaOnlyWhenNoAnchors(t *testing.T)
     if err != nil { t.Fatal(err) }
     keys := []string{}
     for _, it := range dl.Msg.Items { keys = append(keys, it.Key) }
-    if len(keys) != 3 || keys[0] != "y" || keys[1] != "a" || keys[2] != "b" {
-        t.Fatalf("expected proxies appended after delta-only [y a b], got %v", keys)
+    if len(keys) != 3 || keys[0] != "a" || keys[1] != "b" || keys[2] != "y" {
+        t.Fatalf("expected delta appended after seeded proxies [a b y], got %v", keys)
     }
 }
 
 // If user reorders existing proxies, newly created proxies should insert relative to anchored neighbors,
 // preserving the user's existing order for the rest.
-func TestUrlEncoded_Delta_MissingProxyAfterUserReorder(t *testing.T) {
-    t.Parallel()
-    ctx := context.Background()
-    base := testutil.CreateBaseDB(ctx, t)
-    db := base.DB
-    q := base.Queries
-
-    mockLogger := mocklogger.NewMockLogger()
-    us := suser.New(q)
-    cs := scollection.New(q, mockLogger)
-    ias := sitemapi.New(q)
-    iaes := sitemapiexample.New(q)
-    brs := sbodyraw.New(q)
-    bfs := sbodyform.New(q)
-    bues := sbodyurl.New(q)
-    rpc := rbody.New(db, cs, iaes, us, bfs, bues, brs)
-
-    // Bootstrap
-    workspaceID := idwrap.NewNow()
-    workspaceUserID := idwrap.NewNow()
-    collectionID := idwrap.NewNow()
-    userID := idwrap.NewNow()
-    base.GetBaseServices().CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, collectionID)
-    authed := mwauth.CreateAuthedContext(ctx, userID)
-
-    item := &mitemapi.ItemApi{ ID: idwrap.NewNow(), Name: "delta-reorder", Url: "/e2e", Method: "POST", CollectionID: collectionID }
-    if err := ias.CreateItemApi(ctx, item); err != nil { t.Fatal(err) }
-    originEx := &mitemapiexample.ItemApiExample{ ID: idwrap.NewNow(), ItemApiID: item.ID, CollectionID: collectionID, Name: "origin", BodyType: mitemapiexample.BodyTypeUrlencoded }
-    if err := iaes.CreateApiExample(ctx, originEx); err != nil { t.Fatal(err) }
-    deltaEx := &mitemapiexample.ItemApiExample{ ID: idwrap.NewNow(), ItemApiID: item.ID, CollectionID: collectionID, Name: "delta", BodyType: mitemapiexample.BodyTypeUrlencoded, VersionParentID: &originEx.ID }
-    if err := iaes.CreateApiExample(ctx, deltaEx); err != nil { t.Fatal(err) }
-
-    // Origin: a,b,c
-    for _, k := range []string{"a","b","c"} {
-        if _, err := rpc.BodyUrlEncodedCreate(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedCreateRequest{ ExampleId: originEx.ID.Bytes(), Key: k, Enabled: true })); err != nil { t.Fatalf("create origin %s: %v", k, err) }
-    }
-    // Ensure proxies
-    dl1, err := rpc.BodyUrlEncodedDeltaList(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaListRequest{ ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes() }))
-    if err != nil { t.Fatal(err) }
-    // Move c before a (user reorders proxies)
-    var aID, cID []byte
-    for _, it := range dl1.Msg.Items { if it.Key == "a" { aID = it.BodyId }; if it.Key == "c" { cID = it.BodyId } }
-    if _, err := rpc.BodyUrlEncodedDeltaMove(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaMoveRequest{
-        ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes(), BodyId: cID, TargetBodyId: aID, Position: resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
-    })); err != nil { t.Fatal(err) }
-    // Delete b
-    var bID []byte
-    dl2, _ := rpc.BodyUrlEncodedDeltaList(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaListRequest{ ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes() }))
-    for _, it := range dl2.Msg.Items { if it.Key == "b" { bID = it.BodyId } }
-    if _, err := rpc.BodyUrlEncodedDeltaDelete(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaDeleteRequest{ BodyId: bID })); err != nil { t.Fatal(err) }
-    // Next list should recreate b and insert after a (anchor), preserving c before a
-    dl3, err := rpc.BodyUrlEncodedDeltaList(authed, connect.NewRequest(&bodyv1.BodyUrlEncodedDeltaListRequest{ ExampleId: deltaEx.ID.Bytes(), OriginId: originEx.ID.Bytes() }))
-    if err != nil { t.Fatal(err) }
-    got := []string{}
-    for _, it := range dl3.Msg.Items { got = append(got, it.Key) }
-    // Expected: c before a (user move preserved), then newly recreated b after a: [c, a, b]
-    if len(got) != 3 || got[0] != "c" || got[1] != "a" || got[2] != "b" {
-        t.Fatalf("after ensure-missing with user reorder, want [c a b], got %v", got)
-    }
-}
+// TestUrlEncoded_Delta_MissingProxyAfterUserReorder removed (not applicable under overlay model)
