@@ -1,26 +1,26 @@
 package rflow
 
 import (
-    "bytes"
-    "context"
-    "database/sql"
-    "encoding/json"
-    "errors"
-    "fmt"
-    "log"
-    "sort"
-    "strings"
-    "sync"
-    "sync/atomic"
-    "reflect"
+	"bytes"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
+	"reflect"
+	"sort"
+	"strings"
+	"sync"
+	"sync/atomic"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/internal/api/rtag"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/compress"
-    "the-dev-tools/server/pkg/errmap"
 	"the-dev-tools/server/pkg/dbtime"
+	"the-dev-tools/server/pkg/errmap"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/nfor"
@@ -86,9 +86,9 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
 	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
-    "time"
+	"time"
 
-    "connectrpc.com/connect"
+	"connectrpc.com/connect"
 )
 
 // formatErrForUser returns a user-friendly error string.
@@ -99,114 +99,114 @@ func formatErrForUser(err error) string { return errmap.Friendly(err) }
 // - []byte -> if JSON, unmarshal to any; else convert to string
 // - map[string]any / []any -> recurse
 func normalizeForLog(v any) any {
-    switch t := v.(type) {
-    case string:
-        // Attempt to parse JSON string into structured value
-        bs := []byte(t)
-        if len(bs) > 0 && (bs[0] == '{' || bs[0] == '[') && json.Valid(bs) {
-            var out any
-            if err := json.Unmarshal(bs, &out); err == nil {
-                return normalizeForLog(out)
-            }
-        }
-        return t
-    case []byte:
-        if json.Valid(t) {
-            var out any
-            if err := json.Unmarshal(t, &out); err == nil {
-                return normalizeForLog(out)
-            }
-        }
-        return string(t)
-    case json.RawMessage:
-        if json.Valid(t) {
-            var out any
-            if err := json.Unmarshal(t, &out); err == nil {
-                return normalizeForLog(out)
-            }
-        }
-        return string(t)
-    case map[string]any:
-        m := make(map[string]any, len(t))
-        for k, val := range t {
-            m[k] = normalizeForLog(val)
-        }
-        return m
-    case []any:
-        arr := make([]any, len(t))
-        for i := range t {
-            arr[i] = normalizeForLog(t[i])
-        }
-        return arr
-    default:
-        // Fallback: handle maps/slices via reflection to catch typed maps (e.g., map[string][]byte)
-        rv := reflect.ValueOf(v)
-        switch rv.Kind() {
-        case reflect.Map:
-            // Only handle string-keyed maps
-            if rv.Type().Key().Kind() == reflect.String {
-                m := make(map[string]any, rv.Len())
-                for _, mk := range rv.MapKeys() {
-                    key := mk.String()
-                    mv := rv.MapIndex(mk).Interface()
-                    m[key] = normalizeForLog(mv)
-                }
-                return m
-            }
-        case reflect.Slice:
-            // If it's a []uint8 (aka []byte), handle as bytes
-            if rv.Type().Elem().Kind() == reflect.Uint8 {
-                b := make([]byte, rv.Len())
-                reflect.Copy(reflect.ValueOf(b), rv)
-                if json.Valid(b) {
-                    var out any
-                    if err := json.Unmarshal(b, &out); err == nil {
-                        return normalizeForLog(out)
-                    }
-                }
-                return string(b)
-            }
-            // Generic slice
-            n := rv.Len()
-            arr := make([]any, n)
-            for i := 0; i < n; i++ {
-                arr[i] = normalizeForLog(rv.Index(i).Interface())
-            }
-            return arr
-        }
-        return v
-    }
+	switch t := v.(type) {
+	case string:
+		// Attempt to parse JSON string into structured value
+		bs := []byte(t)
+		if len(bs) > 0 && (bs[0] == '{' || bs[0] == '[') && json.Valid(bs) {
+			var out any
+			if err := json.Unmarshal(bs, &out); err == nil {
+				return normalizeForLog(out)
+			}
+		}
+		return t
+	case []byte:
+		if json.Valid(t) {
+			var out any
+			if err := json.Unmarshal(t, &out); err == nil {
+				return normalizeForLog(out)
+			}
+		}
+		return string(t)
+	case json.RawMessage:
+		if json.Valid(t) {
+			var out any
+			if err := json.Unmarshal(t, &out); err == nil {
+				return normalizeForLog(out)
+			}
+		}
+		return string(t)
+	case map[string]any:
+		m := make(map[string]any, len(t))
+		for k, val := range t {
+			m[k] = normalizeForLog(val)
+		}
+		return m
+	case []any:
+		arr := make([]any, len(t))
+		for i := range t {
+			arr[i] = normalizeForLog(t[i])
+		}
+		return arr
+	default:
+		// Fallback: handle maps/slices via reflection to catch typed maps (e.g., map[string][]byte)
+		rv := reflect.ValueOf(v)
+		switch rv.Kind() {
+		case reflect.Map:
+			// Only handle string-keyed maps
+			if rv.Type().Key().Kind() == reflect.String {
+				m := make(map[string]any, rv.Len())
+				for _, mk := range rv.MapKeys() {
+					key := mk.String()
+					mv := rv.MapIndex(mk).Interface()
+					m[key] = normalizeForLog(mv)
+				}
+				return m
+			}
+		case reflect.Slice:
+			// If it's a []uint8 (aka []byte), handle as bytes
+			if rv.Type().Elem().Kind() == reflect.Uint8 {
+				b := make([]byte, rv.Len())
+				reflect.Copy(reflect.ValueOf(b), rv)
+				if json.Valid(b) {
+					var out any
+					if err := json.Unmarshal(b, &out); err == nil {
+						return normalizeForLog(out)
+					}
+				}
+				return string(b)
+			}
+			// Generic slice
+			n := rv.Len()
+			arr := make([]any, n)
+			for i := 0; i < n; i++ {
+				arr[i] = normalizeForLog(rv.Index(i).Interface())
+			}
+			return arr
+		}
+		return v
+	}
 }
 
 // upsertWithRetry attempts to upsert a node execution with small retries for transient DB lock/busy errors.
 func upsertWithRetry(ctx context.Context, svc snodeexecution.NodeExecutionService, exec mnodeexecution.NodeExecution) error {
-    // Try immediate, then exponential backoff for transient sqlite busy/locked
-    backoffs := []time.Duration{0, 10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond, 80 * time.Millisecond, 160 * time.Millisecond, 320 * time.Millisecond}
-    var lastErr error
-    for i, d := range backoffs {
-        if d > 0 {
-            select {
-            case <-ctx.Done():
-                return ctx.Err()
-            case <-time.After(d):
-            }
-        }
-        if err := svc.UpsertNodeExecution(ctx, exec); err != nil {
-            lastErr = err
-            // Retry on transient lock/busy conditions
-            msg := err.Error()
-            if !(strings.Contains(msg, "locked") || strings.Contains(msg, "busy")) {
-                return err
-            }
-            // If this was the last attempt, return error
-            if i == len(backoffs)-1 {
-                return err
-            }
-            continue
-        }
-        return nil
-    }
-    return lastErr
+	// Try immediate, then exponential backoff for transient sqlite busy/locked
+	backoffs := []time.Duration{0, 10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond, 80 * time.Millisecond, 160 * time.Millisecond, 320 * time.Millisecond}
+	var lastErr error
+	for i, d := range backoffs {
+		if d > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(d):
+			}
+		}
+		if err := svc.UpsertNodeExecution(ctx, exec); err != nil {
+			lastErr = err
+			// Retry on transient lock/busy conditions
+			msg := err.Error()
+			if !(strings.Contains(msg, "locked") || strings.Contains(msg, "busy")) {
+				return err
+			}
+			// If this was the last attempt, return error
+			if i == len(backoffs)-1 {
+				return err
+			}
+			continue
+		}
+		return nil
+	}
+	return lastErr
 }
 
 // preRegisteredRequestNode wraps a REQUEST node to handle pre-registration of ExecutionIDs
@@ -432,82 +432,82 @@ func (cm *CorrelationMetrics) ShouldWarnAboutDelay(delayMs int64) bool {
 
 // ShouldWarnAboutMemory returns true if map sizes exceed warning thresholds
 func (cm *CorrelationMetrics) ShouldWarnAboutMemory(pendingSize, orphanedSize int) bool {
-    cm.mu.RLock()
-    defer cm.mu.RUnlock()
-    return pendingSize > cm.memoryWarningThreshold || orphanedSize > cm.memoryWarningThreshold
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return pendingSize > cm.memoryWarningThreshold || orphanedSize > cm.memoryWarningThreshold
 }
 
 // buildLogRefs constructs structured log references for a node state change.
 // Error-first behavior:
-// - If nodeError != nil, prefer an error payload with minimal node info and
-//   error { message, kind } and optional failure context keys from outputData.
-// - Else, if outputData is a map, normalize and render it as-is.
-// - Else, fall back to a small metadata struct.
+//   - If nodeError != nil, prefer an error payload with minimal node info and
+//     error { message, kind } and optional failure context keys from outputData.
+//   - Else, if outputData is a map, normalize and render it as-is.
+//   - Else, fall back to a small metadata struct.
 func buildLogRefs(nameForLog, idStrForLog, stateStrForLog string, nodeError error, outputData any) []reference.ReferenceTreeItem {
-    if nodeError != nil {
-        kind := "failed"
-        if runner.IsCancellationError(nodeError) {
-            kind = "canceled"
-        }
-        payload := map[string]any{
-            "node": map[string]any{
-                "id":    idStrForLog,
-                "name":  nameForLog,
-                "state": stateStrForLog,
-            },
-            "error": map[string]any{
-                "message": nodeError.Error(),
-                "kind":    kind,
-            },
-        }
-        // Include only safe failure context keys (from foreach summaries)
-        if m, ok := outputData.(map[string]any); ok {
-            ctx := map[string]any{}
-            if v, ok := m["failedAtIndex"]; ok {
-                ctx["failedAtIndex"] = v
-            }
-            if v, ok := m["failedAtKey"]; ok {
-                ctx["failedAtKey"] = v
-            }
-            if v, ok := m["totalItems"]; ok {
-                ctx["totalItems"] = v
-            }
-            if len(ctx) > 0 {
-                payload["context"] = ctx
-            }
-        }
-        ref := reference.NewReferenceFromInterfaceWithKey(payload, nameForLog)
-        return []reference.ReferenceTreeItem{ref}
-    }
+	if nodeError != nil {
+		kind := "failed"
+		if runner.IsCancellationError(nodeError) {
+			kind = "canceled"
+		}
+		payload := map[string]any{
+			"node": map[string]any{
+				"id":    idStrForLog,
+				"name":  nameForLog,
+				"state": stateStrForLog,
+			},
+			"error": map[string]any{
+				"message": nodeError.Error(),
+				"kind":    kind,
+			},
+		}
+		// Include only safe failure context keys (from foreach summaries)
+		if m, ok := outputData.(map[string]any); ok {
+			ctx := map[string]any{}
+			if v, ok := m["failedAtIndex"]; ok {
+				ctx["failedAtIndex"] = v
+			}
+			if v, ok := m["failedAtKey"]; ok {
+				ctx["failedAtKey"] = v
+			}
+			if v, ok := m["totalItems"]; ok {
+				ctx["totalItems"] = v
+			}
+			if len(ctx) > 0 {
+				payload["context"] = ctx
+			}
+		}
+		ref := reference.NewReferenceFromInterfaceWithKey(payload, nameForLog)
+		return []reference.ReferenceTreeItem{ref}
+	}
 
-    if outputData != nil {
-        if out, ok := outputData.(map[string]any); ok {
-            // If OutputData is nested under node name, unwrap once
-            src := out
-            if nb, ok := out[nameForLog].(map[string]any); ok {
-                src = nb
-            }
-            if norm, ok := normalizeForLog(src).(map[string]any); ok {
-                r := reference.NewReferenceFromInterfaceWithKey(norm, nameForLog)
-                return []reference.ReferenceTreeItem{r}
-            }
-        }
-    }
+	if outputData != nil {
+		if out, ok := outputData.(map[string]any); ok {
+			// If OutputData is nested under node name, unwrap once
+			src := out
+			if nb, ok := out[nameForLog].(map[string]any); ok {
+				src = nb
+			}
+			if norm, ok := normalizeForLog(src).(map[string]any); ok {
+				r := reference.NewReferenceFromInterfaceWithKey(norm, nameForLog)
+				return []reference.ReferenceTreeItem{r}
+			}
+		}
+	}
 
-    // Fallback minimal payload
-    logData := struct {
-        NodeID string
-        Name   string
-        State  string
-        Error  error
-    }{
-        NodeID: idStrForLog,
-        Name:   nameForLog,
-        State:  stateStrForLog,
-        Error:  nil,
-    }
-    ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
-    return []reference.ReferenceTreeItem{ref}
+	// Fallback minimal payload
+	logData := struct {
+		NodeID string
+		Name   string
+		State  string
+		Error  error
+	}{
+		NodeID: idStrForLog,
+		Name:   nameForLog,
+		State:  stateStrForLog,
+		Error:  nil,
+	}
+	ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
+	return []reference.ReferenceTreeItem{ref}
 }
 
 // formatIterationContext formats the iteration context into hierarchical format with node names
@@ -960,8 +960,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-    latestFlowID := flow.ID
-    runStart := time.Now()
+	latestFlowID := flow.ID
+	runStart := time.Now()
 
 	// Clean up old executions before starting
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -991,9 +991,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	var jsNodes []mnjs.MNJS
 	var startNodeID idwrap.IDWrap
 
-    nodeNameMap := make(map[idwrap.IDWrap]string, len(nodes))
-    // Track loop node IDs for quick lookup when streaming statuses
-    loopNodeIDs := make(map[idwrap.IDWrap]bool)
+	nodeNameMap := make(map[idwrap.IDWrap]string, len(nodes))
+	// Track loop node IDs for quick lookup when streaming statuses
+	loopNodeIDs := make(map[idwrap.IDWrap]bool)
+	// Track the last failed node/execution so we can correct terminal state in safety-net
+	var lastFailedMu sync.Mutex
+	var lastFailedNodeID idwrap.IDWrap
+	var lastFailedExecID idwrap.IDWrap
 
 	for _, node := range nodes {
 		nodeNameMap[node.ID] = node.Name
@@ -1084,18 +1088,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	preRegisteredExecutions := make(map[idwrap.IDWrap]struct{})
 	preRegisteredMutex := sync.RWMutex{}
 
-    for _, forNode := range forNodes {
-        name := nodeNameMap[forNode.FlowNodeID]
+	for _, forNode := range forNodes {
+		name := nodeNameMap[forNode.FlowNodeID]
 
-        // Use the condition directly - no need to parse it here
-        if forNode.Condition.Comparisons.Expression != "" {
-            log.Printf("📝 DEBUG: Creating FOR node '%s' with condition: '%s'", name, forNode.Condition.Comparisons.Expression)
-            flowNodeMap[forNode.FlowNodeID] = nfor.NewWithCondition(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling, forNode.Condition)
-        } else {
-            flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling)
-        }
-        loopNodeIDs[forNode.FlowNodeID] = true
-    }
+		// Use the condition directly - no need to parse it here
+		if forNode.Condition.Comparisons.Expression != "" {
+			log.Printf("📝 DEBUG: Creating FOR node '%s' with condition: '%s'", name, forNode.Condition.Comparisons.Expression)
+			flowNodeMap[forNode.FlowNodeID] = nfor.NewWithCondition(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling, forNode.Condition)
+		} else {
+			flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling)
+		}
+		loopNodeIDs[forNode.FlowNodeID] = true
+	}
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
 	for _, requestNode := range requestNodes {
@@ -1301,12 +1305,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		flowNodeMap[noopNode.FlowNodeID] = nnoop.New(noopNode.FlowNodeID, name)
 	}
 
-    for _, forEachNode := range forEachNodes {
-        name := nodeNameMap[forEachNode.FlowNodeID]
-        flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, name, forEachNode.IterExpression, nodeTimeout,
-            forEachNode.Condition, forEachNode.ErrorHandling)
-        loopNodeIDs[forEachNode.FlowNodeID] = true
-    }
+	for _, forEachNode := range forEachNodes {
+		name := nodeNameMap[forEachNode.FlowNodeID]
+		flowNodeMap[forEachNode.FlowNodeID] = nforeach.New(forEachNode.FlowNodeID, name, forEachNode.IterExpression, nodeTimeout,
+			forEachNode.Condition, forEachNode.ErrorHandling)
+		loopNodeIDs[forEachNode.FlowNodeID] = true
+	}
 
 	var clientPtr *nodejs_executorv1connect.NodeJSExecutorServiceClient
 	for i, jsNode := range jsNodes {
@@ -1748,11 +1752,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						CompletedAt: &completedAt,
 					}
 
-                    // Set error if present
-                    if flowNodeStatus.Error != nil {
-                        errorStr := formatErrForUser(flowNodeStatus.Error)
-                        nodeExecution.Error = &errorStr
-                    }
+					// Set error if present
+					if flowNodeStatus.Error != nil {
+						errorStr := formatErrForUser(flowNodeStatus.Error)
+						nodeExecution.Error = &errorStr
+					}
 
 					// Compress and store output data
 					if flowNodeStatus.OutputData != nil {
@@ -1780,11 +1784,19 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						completedAt := time.Now().UnixMilli()
 						nodeExec.CompletedAt = &completedAt
 
-                        // Set error if present
-                        if flowNodeStatus.Error != nil {
-                            errorStr := formatErrForUser(flowNodeStatus.Error)
-                            nodeExec.Error = &errorStr
-                        }
+						// Track last failure for safety-net correction later
+						if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+							lastFailedMu.Lock()
+							lastFailedNodeID = flowNodeStatus.NodeID
+							lastFailedExecID = executionID
+							lastFailedMu.Unlock()
+						}
+
+						// Set error if present
+						if flowNodeStatus.Error != nil {
+							errorStr := formatErrForUser(flowNodeStatus.Error)
+							nodeExec.Error = &errorStr
+						}
 
 						// Compress and store input data
 						if flowNodeStatus.InputData != nil {
@@ -1867,11 +1879,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							CompletedAt:            &completedAt,
 						}
 
-                        // Set error if present
-                        if flowNodeStatus.Error != nil {
-                            errorStr := formatErrForUser(flowNodeStatus.Error)
-                            nodeExecution.Error = &errorStr
-                        }
+						// Set error if present
+						if flowNodeStatus.Error != nil {
+							errorStr := formatErrForUser(flowNodeStatus.Error)
+							nodeExecution.Error = &errorStr
+						}
 
 						// Compress and store input data if available
 						if flowNodeStatus.InputData != nil {
@@ -1893,6 +1905,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 
+						// Track last failure for safety-net correction later
+						if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+							lastFailedMu.Lock()
+							lastFailedNodeID = flowNodeStatus.NodeID
+							lastFailedExecID = executionID
+							lastFailedMu.Unlock()
+						}
+
 						// Upsert to DB synchronously to ensure cancellation is persisted before navigation
 						dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 						defer cancel()
@@ -1910,10 +1930,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 					} else {
-                        // Handle terminal (failure/canceled) loop nodes that weren't in pending
-                        // (because we skip successful loop main executions)
-                        if node != nil && (node.NodeKind == mnnode.NODE_KIND_FOR || node.NodeKind == mnnode.NODE_KIND_FOR_EACH) &&
-                            (flowNodeStatus.State == mnnode.NODE_STATE_FAILURE || flowNodeStatus.State == mnnode.NODE_STATE_CANCELED) {
+						// Handle terminal (failure/canceled) loop nodes that weren't in pending
+						// (because we skip successful loop main executions)
+						if node != nil && (node.NodeKind == mnnode.NODE_KIND_FOR || node.NodeKind == mnnode.NODE_KIND_FOR_EACH) &&
+							(flowNodeStatus.State == mnnode.NODE_STATE_FAILURE || flowNodeStatus.State == mnnode.NODE_STATE_CANCELED) {
 
 							// Create execution record for failed loop nodes (these should be visible in UI)
 							completedAt := time.Now().UnixMilli()
@@ -1970,34 +1990,34 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
 							}
 
-                            // Send immediately for terminal loop nodes to make them visible in UI
-                            if !channelsClosed.Load() {
-                                select {
-                                case nodeExecutionChan <- nodeExecution:
-                                    log.Printf("📤 Sent terminal loop execution %s to UI (state: %s)", executionID.String(), mnnode.StringNodeState(flowNodeStatus.State))
-                                case <-stopSending:
-                                    // Channel closed, don't send
-                                }
-                                // Also emit a streamed node state to keep the client in sync even if
-                                // the runner's final status arrives after flow status.
-                                nodeMsg := &flowv1.FlowRunNodeResponse{
-                                    NodeId: flowNodeStatus.NodeID.Bytes(),
-                                    State:  nodev1.NodeState(flowNodeStatus.State),
-                                }
-                                if flowNodeStatus.Error != nil {
-                                    em := formatErrForUser(flowNodeStatus.Error)
-                                    nodeMsg.Info = &em
-                                }
-                                resp := &flowv1.FlowRunResponse{Node: nodeMsg}
-                                if err := stream.Send(resp); err != nil {
-                                    select {
-                                    case done <- err:
-                                    default:
-                                    }
-                                    return
-                                }
-                            }
-                        }
+							// Send immediately for terminal loop nodes to make them visible in UI
+							if !channelsClosed.Load() {
+								select {
+								case nodeExecutionChan <- nodeExecution:
+									log.Printf("📤 Sent terminal loop execution %s to UI (state: %s)", executionID.String(), mnnode.StringNodeState(flowNodeStatus.State))
+								case <-stopSending:
+									// Channel closed, don't send
+								}
+								// Also emit a streamed node state to keep the client in sync even if
+								// the runner's final status arrives after flow status.
+								nodeMsg := &flowv1.FlowRunNodeResponse{
+									NodeId: flowNodeStatus.NodeID.Bytes(),
+									State:  nodev1.NodeState(flowNodeStatus.State),
+								}
+								if flowNodeStatus.Error != nil {
+									em := formatErrForUser(flowNodeStatus.Error)
+									nodeMsg.Info = &em
+								}
+								resp := &flowv1.FlowRunResponse{Node: nodeMsg}
+								if err := stream.Send(resp); err != nil {
+									select {
+									case done <- err:
+									default:
+									}
+									return
+								}
+							}
+						}
 					}
 					pendingMutex.Unlock()
 				}
@@ -2023,8 +2043,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							return
 						}
 
-                    // Build log references with error-first semantics
-                    refs := buildLogRefs(nameForLog, idStrForLog, stateStrForLog, nodeError, flowNodeStatus.OutputData)
+						// Build log references with error-first semantics
+						refs := buildLogRefs(nameForLog, idStrForLog, stateStrForLog, nodeError, flowNodeStatus.OutputData)
 
 						// Set log level to error if there's an error, otherwise warning
 						var logLevel logconsole.LogLevel
@@ -2187,11 +2207,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				State:  nodev1.NodeState(flowNodeStatus.State),
 			}
 
-            // Add user-friendly error information if the node failed
-            if flowNodeStatus.Error != nil {
-                errorMsg := formatErrForUser(flowNodeStatus.Error)
-                nodeResp.Info = &errorMsg
-            }
+			// Add user-friendly error information if the node failed
+			if flowNodeStatus.Error != nil {
+				errorMsg := formatErrForUser(flowNodeStatus.Error)
+				nodeResp.Info = &errorMsg
+			}
 
 			resp := &flowv1.FlowRunResponse{
 				Node: nodeResp,
@@ -2232,30 +2252,30 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					return
 				}
 				nodeStatusFunc(flowNodeStatus)
-            case flowStatus, ok := <-flowStatusChan:
-                if !ok {
-                    // Channel closed by runner
-                    return
-                }
-                // Process any pending node status messages without blocking
-            drainLoop:
-                for len(flowNodeStatusChan) > 0 {
-                    select {
-                    case flowNodeStatus := <-flowNodeStatusChan:
-                        nodeStatusFunc(flowNodeStatus)
-                    default:
-                        // No more messages immediately available, exit loop
-                        break drainLoop
-                    }
-                }
-                if runner.IsFlowStatusDone(flowStatus) {
-                    // Drain all remaining node statuses until the channel is closed
-                    for flowNodeStatus := range flowNodeStatusChan {
-                        nodeStatusFunc(flowNodeStatus)
-                    }
-                    done <- nil
-                    return
-                }
+			case flowStatus, ok := <-flowStatusChan:
+				if !ok {
+					// Channel closed by runner
+					return
+				}
+				// Process any pending node status messages without blocking
+			drainLoop:
+				for len(flowNodeStatusChan) > 0 {
+					select {
+					case flowNodeStatus := <-flowNodeStatusChan:
+						nodeStatusFunc(flowNodeStatus)
+					default:
+						// No more messages immediately available, exit loop
+						break drainLoop
+					}
+				}
+				if runner.IsFlowStatusDone(flowStatus) {
+					// Drain all remaining node statuses until the channel is closed
+					for flowNodeStatus := range flowNodeStatusChan {
+						nodeStatusFunc(flowNodeStatus)
+					}
+					done <- nil
+					return
+				}
 			}
 		}
 	}()
@@ -2315,94 +2335,106 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// Wait for all goroutines to finish before closing channels
 	goroutineWg.Wait()
 
-    // Now safe to close channels since all senders have stopped
-    close(nodeExecutionChan)
-    close(requestNodeRespChan)
+	// Now safe to close channels since all senders have stopped
+	close(nodeExecutionChan)
+	close(requestNodeRespChan)
 
 	// Wait for all node executions to be collected
 	<-nodeExecutionsDone
 
-    // Safety net: ensure no RUNNING executions remain as latest state for any nodes in this flow.
-    // Under heavy concurrency (e.g., sqlite busy/locked), a final state upsert may fail transiently.
-    // Perform a best-effort pass to mark any lingering RUNNING latest execution as CANCELED.
-    {
-        nodesForSafety, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
-        if err == nil {
-            for _, n := range nodesForSafety {
-                exec, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, n.ID)
-                if err != nil || exec == nil {
-                    // No execution at all for this node. Create a CANCELED record so UI won't show stale RUNNING.
-                    canceled := mnodeexecution.NodeExecution{
-                        ID:            idwrap.NewNow(),
-                        NodeID:        n.ID,
-                        Name:          n.Name,
-                        State:         mnnode.NODE_STATE_CANCELED,
-                        InputData:     []byte("{}"),
-                        OutputData:    []byte("{}"),
-                        CompletedAt:   func() *int64 { ts := time.Now().UnixMilli(); return &ts }(),
-                    }
-                    dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-                    _ = upsertWithRetry(dbCtx, c.nes, canceled)
-                    cancel()
-                    // Stream a final CANCELED state to keep clients consistent
-                    nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
-                    _ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
-                    continue
-                }
-                if exec.State == mnnode.NODE_STATE_RUNNING {
-                    completedAt := time.Now().UnixMilli()
-                    exec.State = mnnode.NODE_STATE_CANCELED
-                    exec.CompletedAt = &completedAt
+	// Safety net: ensure no RUNNING executions remain as latest state for any nodes in this flow.
+	// Under heavy concurrency (e.g., sqlite busy/locked), a final state upsert may fail transiently.
+	// If the flow ended by cancellation, mark lingering RUNNING as CANCELED.
+	// If the flow ended by error, mark the failing node's lingering RUNNING as FAILURE; others as CANCELED.
+	{
+		endedByCancellation := runner.IsCancellationError(flowRunErr)
+		// Snapshot last failure IDs
+		lastFailedMu.Lock()
+		failedNodeID := lastFailedNodeID
+		failedExecID := lastFailedExecID
+		lastFailedMu.Unlock()
 
-				dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-				_ = upsertWithRetry(dbCtx, c.nes, *exec)
-				cancel()
-				log.Printf("🧹 Safety-updated lingering RUNNING execution %s for node %s to CANCELED", exec.ID.String(), n.ID.String())
-                    // Stream a final CANCELED state so clients reflect the terminal state without refresh
-                    nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
-                    _ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
-                }
-        }
-    }
+		nodesForSafety, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
+		if err == nil {
+			for _, n := range nodesForSafety {
+				exec, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, n.ID)
+				if err != nil || exec == nil {
+					// No execution at all for this node. Create a CANCELED record so UI won't show stale RUNNING.
+					canceled := mnodeexecution.NodeExecution{
+						ID:          idwrap.NewNow(),
+						NodeID:      n.ID,
+						Name:        n.Name,
+						State:       mnnode.NODE_STATE_CANCELED,
+						InputData:   []byte("{}"),
+						OutputData:  []byte("{}"),
+						CompletedAt: func() *int64 { ts := time.Now().UnixMilli(); return &ts }(),
+					}
+					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+					_ = upsertWithRetry(dbCtx, c.nes, canceled)
+					cancel()
+					// Stream a final CANCELED state to keep clients consistent
+					nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
+					_ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
+					continue
+				}
+				if exec.State == mnnode.NODE_STATE_RUNNING {
+					completedAt := time.Now().UnixMilli()
+					newState := mnnode.NODE_STATE_CANCELED
+					if !endedByCancellation && (failedNodeID == n.ID && failedExecID == exec.ID) {
+						newState = mnnode.NODE_STATE_FAILURE
+					}
+					exec.State = newState
+					exec.CompletedAt = &completedAt
 
-    // Additional safety: for nodes whose latest execution predates this run (or none at all),
-    // create a CANCELED record to reflect that the current run was cancelled before they executed.
-    {
-        nodesForSafety, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
-        if err == nil {
-            for _, n := range nodesForSafety {
-                exec, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, n.ID)
-                if err != nil || exec == nil {
-                    // already handled above (no exec at all)
-                    continue
-                }
-                // If the latest execution ID time and completed_at are both before runStart,
-                // it means this run created no record for this node. Create a canceled record now.
-                predates := exec.ID.Time().Before(runStart)
-                if exec.CompletedAt != nil {
-                    completedAtTime := time.UnixMilli(*exec.CompletedAt)
-                    predates = predates && completedAtTime.Before(runStart)
-                }
-                if predates {
-                    canceled := mnodeexecution.NodeExecution{
-                        ID:            idwrap.NewNow(),
-                        NodeID:        n.ID,
-                        Name:          n.Name,
-                        State:         mnnode.NODE_STATE_CANCELED,
-                        InputData:     []byte("{}"),
-                        OutputData:    []byte("{}"),
-                        CompletedAt:   func() *int64 { ts := time.Now().UnixMilli(); return &ts }(),
-                    }
-                    dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-                    _ = upsertWithRetry(dbCtx, c.nes, canceled)
-                    cancel()
-                    // Stream a final CANCELED state to keep clients consistent
-                    nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
-                    _ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
-                }
-            }
-        }
-    }
+					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+					_ = upsertWithRetry(dbCtx, c.nes, *exec)
+					cancel()
+					log.Printf("🧹 Safety-updated lingering RUNNING execution %s for node %s to %s", exec.ID.String(), n.ID.String(), mnnode.StringNodeState(newState))
+					// Stream a final terminal state so clients reflect the terminal state without refresh
+					nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(newState)}
+					_ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
+				}
+			}
+		}
+	}
+
+	// Additional safety: for nodes whose latest execution predates this run (or none at all),
+	// create a CANCELED record to reflect that the current run was cancelled before they executed.
+	{
+		nodesForSafety, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
+		if err == nil {
+			for _, n := range nodesForSafety {
+				exec, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, n.ID)
+				if err != nil || exec == nil {
+					// already handled above (no exec at all)
+					continue
+				}
+				// If the latest execution ID time and completed_at are both before runStart,
+				// it means this run created no record for this node. Create a canceled record now.
+				predates := exec.ID.Time().Before(runStart)
+				if exec.CompletedAt != nil {
+					completedAtTime := time.UnixMilli(*exec.CompletedAt)
+					predates = predates && completedAtTime.Before(runStart)
+				}
+				if predates {
+					canceled := mnodeexecution.NodeExecution{
+						ID:          idwrap.NewNow(),
+						NodeID:      n.ID,
+						Name:        n.Name,
+						State:       mnnode.NODE_STATE_CANCELED,
+						InputData:   []byte("{}"),
+						OutputData:  []byte("{}"),
+						CompletedAt: func() *int64 { ts := time.Now().UnixMilli(); return &ts }(),
+					}
+					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+					_ = upsertWithRetry(dbCtx, c.nes, canceled)
+					cancel()
+					// Stream a final CANCELED state to keep clients consistent
+					nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
+					_ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
+				}
+			}
+		}
 	}
 
 	// Final cleanup of pre-registered executions
