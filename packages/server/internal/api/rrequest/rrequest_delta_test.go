@@ -214,7 +214,7 @@ func TestQueryDeltaCreateUpdateBehavior(t *testing.T) {
 	}
 
 	// 6. Create a new delta item (without parent) to test source type
-	createDeltaResp, err := data.rpc.QueryDeltaCreate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaCreateRequest{
+	_, err = data.rpc.QueryDeltaCreate(data.ctx, connect.NewRequest(&requestv1.QueryDeltaCreateRequest{
 		ExampleId:   data.deltaExampleID.Bytes(),
 		OriginId:    data.originExampleID.Bytes(),
 		Key:         "new-delta-key",
@@ -227,17 +227,26 @@ func TestQueryDeltaCreateUpdateBehavior(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Get the newly created delta query to check its type
-	newDeltaQueryID, _ := idwrap.NewFromBytes(createDeltaResp.Msg.QueryId)
-	newDeltaQuery, err := data.eqs.GetExampleQuery(data.ctx, newDeltaQueryID)
+	// Validate via overlay list: new item should appear with DELTA source
+	listResp, err := data.rpc.QueryDeltaList(data.ctx, connect.NewRequest(&requestv1.QueryDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Check if it's correctly identified as a delta item (no parent = pure delta)
-	deltaType := newDeltaQuery.DetermineDeltaType(true) // true because delta example has VersionParentID
-	if deltaType != mexamplequery.QuerySourceDelta {
-		t.Errorf("New delta item (no parent) should have source 'delta', got %v", deltaType)
+	found := false
+	for _, it := range listResp.Msg.Items {
+		if it.Key == "new-delta-key" {
+			found = true
+			if it.Source == nil || *it.Source != deltav1.SourceKind_SOURCE_KIND_DELTA {
+				t.Errorf("New delta item should have source 'delta', got %v", it.Source)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("New delta item not found in overlay list")
 	}
 }
 
@@ -320,7 +329,7 @@ func TestHeaderDeltaCreateUpdateBehavior(t *testing.T) {
 	}
 
 	// 6. Create a standalone delta header
-	createDeltaResp, err := data.rpc.HeaderDeltaCreate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaCreateRequest{
+	_, err = data.rpc.HeaderDeltaCreate(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaCreateRequest{
 		ExampleId:   data.deltaExampleID.Bytes(),
 		OriginId:    data.originExampleID.Bytes(),
 		Key:         "new-delta-header",
@@ -332,17 +341,26 @@ func TestHeaderDeltaCreateUpdateBehavior(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check the type of the newly created header
-	newDeltaHeaderID, _ := idwrap.NewFromBytes(createDeltaResp.Msg.HeaderId)
-	newDeltaHeader, err := data.ehs.GetHeaderByID(data.ctx, newDeltaHeaderID)
+	// Validate via overlay list: created item should exist with DELTA source
+	hdrListResp, err := data.rpc.HeaderDeltaList(data.ctx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{
+		ExampleId: data.deltaExampleID.Bytes(),
+		OriginId:  data.originExampleID.Bytes(),
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Manually check delta type (since we can't call the private method)
-	if newDeltaHeader.DeltaParentID == nil {
-		// Header with no parent in a delta example should be "delta" type
-		t.Log("Created standalone delta header (no parent)")
+	foundHeader := false
+	for _, it := range hdrListResp.Msg.Items {
+		if it.Key == "new-delta-header" {
+			foundHeader = true
+			if it.Source == nil || *it.Source != deltav1.SourceKind_SOURCE_KIND_DELTA {
+				t.Errorf("New delta header should have source 'delta', got %v", it.Source)
+			}
+			break
+		}
+	}
+	if !foundHeader {
+		t.Error("New delta header not found in overlay list")
 	}
 }
 

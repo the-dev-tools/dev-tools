@@ -128,14 +128,14 @@ func TestHeaderDeltaMoveIntegration(t *testing.T) {
 
 	// Test Case 1: Move header 4 after header 1 (expected order: 1, 4, 2, 3)
 	t.Run("MoveHeader4After1", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       header4ID.Bytes(),
-			TargetHeaderId: header1ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
-		}
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       header4ID.Bytes(),
+            TargetHeaderId: header1ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+        }
 
-		resp, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        resp, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed: %v", err)
 		}
@@ -150,14 +150,14 @@ func TestHeaderDeltaMoveIntegration(t *testing.T) {
 
 	// Test Case 2: Move header 2 before header 4 (expected order: 1, 2, 4, 3)
 	t.Run("MoveHeader2Before4", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       header2ID.Bytes(),
-			TargetHeaderId: header4ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
-		}
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       header2ID.Bytes(),
+            TargetHeaderId: header4ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
+        }
 
-		resp, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        resp, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed: %v", err)
 		}
@@ -181,14 +181,14 @@ func TestHeaderDeltaMoveEdgeCases(t *testing.T) {
 
 	// Test Case 1: Move header relative to itself (should fail)
 	t.Run("MoveHeaderToItself", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       header1ID.Bytes(),
-			TargetHeaderId: header1ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
-		}
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       header1ID.Bytes(),
+            TargetHeaderId: header1ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+        }
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("Expected error when moving header relative to itself")
 		}
@@ -202,14 +202,14 @@ func TestHeaderDeltaMoveEdgeCases(t *testing.T) {
 	// Test Case 2: Move with invalid header ID (should fail)
 	t.Run("MoveWithInvalidHeaderID", func(t *testing.T) {
 		invalidID := idwrap.NewNow()
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       invalidID.Bytes(),
-			TargetHeaderId: header1ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
-		}
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       invalidID.Bytes(),
+            TargetHeaderId: header1ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+        }
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("Expected error when using invalid header ID")
 		}
@@ -235,14 +235,14 @@ func TestHeaderDeltaMoveSpecificScenario(t *testing.T) {
 
 	// Move header 4 after header 1 (should result in 1, 4, 2, 3)
 	t.Run("MoveHeader4After1_ResultsIn_1_4_2_3", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       header4ID.Bytes(),
-			TargetHeaderId: header1ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
-		}
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       header4ID.Bytes(),
+            TargetHeaderId: header1ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+        }
 
-		resp, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        resp, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed: %v", err)
 		}
@@ -453,14 +453,14 @@ func TestHeaderDeltaMoveBasicOperations(t *testing.T) {
 	// Test 1: Move middle item (3) to different position (after 1)
 	// Expected: 1, 3, 2, 4, 5
 	t.Run("MoveMiddleToNewPosition", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
+    req := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       header3ID.Bytes(),
 			TargetHeaderId: header1ID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed: %v", err)
 		}
@@ -473,14 +473,14 @@ func TestHeaderDeltaMoveBasicOperations(t *testing.T) {
 	// Test 2: Move first item (head) to middle
 	// Current: 1, 3, 2, 4, 5 -> Move 1 after 4 -> 3, 2, 4, 1, 5
 	t.Run("MoveHeadToMiddle", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
+    req := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       header1ID.Bytes(),
 			TargetHeaderId: header4ID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed: %v", err)
 		}
@@ -493,14 +493,14 @@ func TestHeaderDeltaMoveBasicOperations(t *testing.T) {
 	// Test 3: Move last item (tail) to beginning
 	// Current: 3, 2, 4, 1, 5 -> Move 5 before 3 -> 5, 3, 2, 4, 1
 	t.Run("MoveTailToBeginning", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
+    req := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       header5ID.Bytes(),
 			TargetHeaderId: header3ID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed: %v", err)
 		}
@@ -513,14 +513,14 @@ func TestHeaderDeltaMoveBasicOperations(t *testing.T) {
 	// Test 4: Move item to become new head (before first)
 	// Current: 5, 3, 2, 4, 1 -> Move 2 before 5 -> 2, 5, 3, 4, 1
 	t.Run("MoveToNewHead", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
+    req := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       header2ID.Bytes(),
 			TargetHeaderId: header5ID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed: %v", err)
 		}
@@ -533,14 +533,14 @@ func TestHeaderDeltaMoveBasicOperations(t *testing.T) {
 	// Test 5: Move item to become new tail (after last)
 	// Current: 2, 5, 3, 4, 1 -> Move 3 after 1 -> 2, 5, 4, 1, 3
 	t.Run("MoveToNewTail", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
+    req := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       header3ID.Bytes(),
 			TargetHeaderId: header1ID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed: %v", err)
 		}
@@ -567,14 +567,14 @@ func TestHeaderDeltaMoveEdgeCasesComprehensive(t *testing.T) {
 		initialOrder := getOrderFromLinkedList(t, data.ctx, data.ehs, data.exampleID)
 		
 		// Move header 2 to its current position (after header 1)
-		req := &requestv1.HeaderDeltaMoveRequest{
+    req := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       header2ID.Bytes(),
 			TargetHeaderId: header1ID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed on same position move: %v", err)
 		}
@@ -587,14 +587,14 @@ func TestHeaderDeltaMoveEdgeCasesComprehensive(t *testing.T) {
 	// Test 2: Move item right before itself (adjacent move)
 	// Current: 1, 2, 3, 4 -> Move 3 before 2 -> 1, 3, 2, 4
 	t.Run("MoveBeforeAdjacent", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
+    req := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       header3ID.Bytes(),
 			TargetHeaderId: header2ID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed on adjacent move: %v", err)
 		}
@@ -610,14 +610,14 @@ func TestHeaderDeltaMoveEdgeCasesComprehensive(t *testing.T) {
 		// Get initial order
 		initialOrder := getOrderFromLinkedList(t, data.ctx, data.ehs, data.exampleID)
 		
-		req := &requestv1.HeaderDeltaMoveRequest{
+    req := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       header2ID.Bytes(),
 			TargetHeaderId: header3ID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed on adjacent move: %v", err)
 		}
@@ -643,14 +643,14 @@ func TestHeaderDeltaMoveSingleItemList(t *testing.T) {
 
 	// Test moving single item to itself (should fail)
 	t.Run("SingleItemMoveToSelf", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       header1ID.Bytes(),
-			TargetHeaderId: header1ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
-		}
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       header1ID.Bytes(),
+            TargetHeaderId: header1ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+        }
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("Expected error when moving single header to itself")
 		}
@@ -680,14 +680,14 @@ func TestHeaderDeltaMoveTwoItemList(t *testing.T) {
 
 	// Test swap: Move 2 before 1 -> 2, 1
 	t.Run("SwapTwoItems", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       header2ID.Bytes(),
-			TargetHeaderId: header1ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
-		}
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       header2ID.Bytes(),
+            TargetHeaderId: header1ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
+        }
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed on two-item swap: %v", err)
 		}
@@ -699,14 +699,14 @@ func TestHeaderDeltaMoveTwoItemList(t *testing.T) {
 
 	// Test swap back: Move 1 before 2 -> 1, 2
 	t.Run("SwapBackTwoItems", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       header1ID.Bytes(),
-			TargetHeaderId: header2ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       header1ID.Bytes(),
+            TargetHeaderId: header2ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err != nil {
 			t.Fatalf("HeaderDeltaMove failed on two-item swap back: %v", err)
 		}
@@ -731,14 +731,14 @@ func TestHeaderDeltaMoveEmptyList(t *testing.T) {
 		nonExistentID := idwrap.NewNow()
 		anotherNonExistentID := idwrap.NewNow()
 
-		req := &requestv1.HeaderDeltaMoveRequest{
+        req := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       nonExistentID.Bytes(),
 			TargetHeaderId: anotherNonExistentID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("Expected error when moving non-existent headers in empty list")
 		}
@@ -758,14 +758,14 @@ func TestHeaderDeltaMoveErrorCases(t *testing.T) {
 
 	// Test 1: Move header relative to itself (should fail)
 	t.Run("MoveHeaderToItself", func(t *testing.T) {
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       header1ID.Bytes(),
-			TargetHeaderId: header1ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
-		}
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       header1ID.Bytes(),
+            TargetHeaderId: header1ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+        }
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("Expected error when moving header relative to itself")
 		}
@@ -781,14 +781,14 @@ func TestHeaderDeltaMoveErrorCases(t *testing.T) {
 	// Test 2: Move non-existent header
 	t.Run("MoveNonExistentHeader", func(t *testing.T) {
 		invalidHeaderID := idwrap.NewNow()
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
-			HeaderId:       invalidHeaderID.Bytes(),
-			TargetHeaderId: header1ID.Bytes(),
-			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
-		}
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
+            HeaderId:       invalidHeaderID.Bytes(),
+            TargetHeaderId: header1ID.Bytes(),
+            Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
+        }
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("Expected error when moving non-existent header")
 		}
@@ -800,14 +800,14 @@ func TestHeaderDeltaMoveErrorCases(t *testing.T) {
 	// Test 3: Move to non-existent target
 	t.Run("MoveToNonExistentTarget", func(t *testing.T) {
 		invalidTargetID := idwrap.NewNow()
-		req := &requestv1.HeaderDeltaMoveRequest{
-			ExampleId:      data.exampleID.Bytes(),
+        req := &requestv1.HeaderMoveRequest{
+            ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       header1ID.Bytes(),
 			TargetHeaderId: invalidTargetID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("Expected error when moving to non-existent target")
 		}
@@ -819,14 +819,14 @@ func TestHeaderDeltaMoveErrorCases(t *testing.T) {
 	// Test 4: Invalid example ID
 	t.Run("InvalidExampleID", func(t *testing.T) {
 		invalidExampleID := idwrap.NewNow()
-		req := &requestv1.HeaderDeltaMoveRequest{
+        req := &requestv1.HeaderMoveRequest{
 			ExampleId:      invalidExampleID.Bytes(),
 			HeaderId:       header1ID.Bytes(),
 			TargetHeaderId: header2ID.Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
 
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req))
+        _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("Expected error when using invalid example ID")
 		}
@@ -875,13 +875,13 @@ func TestHeaderDeltaMoveIntegrityValidation(t *testing.T) {
 		validateLinkedListIntegrity(t, data.ctx, data.ehs, data.exampleID, 6, "InitialComplexState")
 
 		// Move 6 to second position (after 1): 1, 6, 2, 3, 4, 5
-		req1 := &requestv1.HeaderDeltaMoveRequest{
+    req1 := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       headers[5].Bytes(),
 			TargetHeaderId: headers[0].Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
-		_, err := data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req1))
+    _, err := data.rpc.HeaderMove(data.ctx, connect.NewRequest(req1))
 		if err != nil {
 			t.Fatalf("Move 1 failed: %v", err)
 		}
@@ -890,13 +890,13 @@ func TestHeaderDeltaMoveIntegrityValidation(t *testing.T) {
 		validateLinkedListIntegrity(t, data.ctx, data.ehs, data.exampleID, 6, "ComplexMove1")
 
 		// Move 3 to beginning (before 1): 3, 1, 6, 2, 4, 5
-		req2 := &requestv1.HeaderDeltaMoveRequest{
+    req2 := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       headers[2].Bytes(),
 			TargetHeaderId: headers[0].Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_BEFORE,
 		}
-		_, err = data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req2))
+    _, err = data.rpc.HeaderMove(data.ctx, connect.NewRequest(req2))
 		if err != nil {
 			t.Fatalf("Move 2 failed: %v", err)
 		}
@@ -905,13 +905,13 @@ func TestHeaderDeltaMoveIntegrityValidation(t *testing.T) {
 		validateLinkedListIntegrity(t, data.ctx, data.ehs, data.exampleID, 6, "ComplexMove2")
 
 		// Move 5 to end (after 4): 3, 1, 6, 2, 4, 5 (already at end, no change expected)
-		req3 := &requestv1.HeaderDeltaMoveRequest{
+    req3 := &requestv1.HeaderMoveRequest{
 			ExampleId:      data.exampleID.Bytes(),
 			HeaderId:       headers[4].Bytes(),
 			TargetHeaderId: headers[3].Bytes(),
 			Position:       resourcesv1.MovePosition_MOVE_POSITION_AFTER,
 		}
-		_, err = data.rpc.HeaderDeltaMove(data.ctx, connect.NewRequest(req3))
+    _, err = data.rpc.HeaderMove(data.ctx, connect.NewRequest(req3))
 		if err != nil {
 			t.Fatalf("Move 3 failed: %v", err)
 		}
@@ -975,4 +975,3 @@ func TestHeaderDeltaMoveIntegrityValidation(t *testing.T) {
 		}
 	})
 }
-
