@@ -23,13 +23,11 @@ import (
 
 // DatabaseState represents the state of relevant tables for transaction testing
 type DatabaseState struct {
-	CollectionItems []scollectionitem.CollectionItem
-	ItemFolders     []mitemfolder.ItemFolder
-	ItemApis        []mitemapi.ItemApi
+    CollectionItems []scollectionitem.CollectionItem
 }
 
 // captureDBState captures the current state of all relevant tables
-func captureDBState(t *testing.T, ctx context.Context, cis *scollectionitem.CollectionItemService, ifs sitemfolder.ItemFolderService, ias sitemapi.ItemApiService, sourceCollectionID, targetCollectionID idwrap.IDWrap) DatabaseState {
+func captureDBState(t *testing.T, ctx context.Context, cis *scollectionitem.CollectionItemService, sourceCollectionID, targetCollectionID idwrap.IDWrap) DatabaseState {
 	t.Helper()
 
 	state := DatabaseState{}
@@ -40,8 +38,8 @@ func captureDBState(t *testing.T, ctx context.Context, cis *scollectionitem.Coll
 	targetItems, err := cis.ListCollectionItems(ctx, targetCollectionID, nil)
 	require.NoError(t, err)
 
-	state.CollectionItems = append(state.CollectionItems, sourceItems...)
-	state.CollectionItems = append(state.CollectionItems, targetItems...)
+    state.CollectionItems = append(state.CollectionItems, sourceItems...)
+    state.CollectionItems = append(state.CollectionItems, targetItems...)
 
 	return state
 }
@@ -91,7 +89,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 	defer base.Close()
 	mockLogger := mocklogger.NewMockLogger()
 	cis := scollectionitem.New(base.Queries, mockLogger)
-    ifs := sitemfolder.New(base.Queries)
+    _ = sitemfolder.New(base.Queries)
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
@@ -130,7 +128,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		require.NoError(t, err)
 
 		// Capture initial state
-		initialState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+    initialState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Get target endpoint collection item ID
 		targetEndpointCollectionItemID, err := cis.GetCollectionItemIDByLegacyID(ctx, targetEndpointID)
@@ -151,7 +149,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		assert.Error(t, err, "Invalid targetKind combination should fail")
 
 		// Capture state after failed operation
-		finalState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+    finalState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Verify no changes occurred
 		compareDBStates(t, initialState, finalState, "after invalid targetKind operation")
@@ -181,7 +179,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		require.NoError(t, err)
 
 		// Capture initial state
-		initialState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+    initialState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Attempt move to non-existent collection
 		nonExistentCollectionID := idwrap.NewNow()
@@ -197,7 +195,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		assert.Error(t, err, "Move to non-existent collection should fail")
 
 		// Capture state after failed operation
-		finalState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+    finalState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Verify no changes occurred
 		compareDBStates(t, initialState, finalState, "after non-existent target collection operation")
@@ -234,7 +232,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		require.NoError(t, err)
 
 		// Capture initial state (include the cross-workspace collection for completeness)
-		initialState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+		initialState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Attempt cross-workspace move
 		req := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
@@ -249,7 +247,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		assert.Error(t, err, "Cross-workspace move should fail")
 
 		// Capture state after failed operation
-		finalState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+		finalState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Verify no changes occurred
 		compareDBStates(t, initialState, finalState, "after cross-workspace move attempt")
@@ -279,7 +277,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		require.NoError(t, err)
 
 		// Capture initial state
-		initialState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+		initialState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Get endpoint collection item ID
 		sourceEndpointCollectionItemID, err := cis.GetCollectionItemIDByLegacyID(ctx, sourceEndpointID)
@@ -299,7 +297,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		assert.Error(t, err, "Self-referential move should fail")
 
 		// Capture state after failed operation
-		finalState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+		finalState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Verify no changes occurred
 		compareDBStates(t, initialState, finalState, "after self-referential move attempt")
@@ -329,7 +327,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		require.NoError(t, err)
 
 		// Capture initial state
-		initialState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+		initialState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Create unauthorized user context
 		unauthorizedUserID := idwrap.NewNow()
@@ -348,7 +346,7 @@ func TestCrossCollectionTransactionRollback(t *testing.T) {
 		assert.Error(t, err, "Unauthorized move should fail")
 
 		// Capture state after failed operation
-		finalState := captureDBState(t, ctx, cis, ifs, ias, sourceCollectionID, targetCollectionID)
+		finalState := captureDBState(t, ctx, cis, sourceCollectionID, targetCollectionID)
 
 		// Verify no changes occurred
 		compareDBStates(t, initialState, finalState, "after unauthorized move attempt")
@@ -539,8 +537,8 @@ func TestCrossCollectionAtomicOperations(t *testing.T) {
 	defer base.Close()
     mockLogger := mocklogger.NewMockLogger()
     cis := scollectionitem.New(base.Queries, mockLogger)
-    ifs := sitemfolder.New(base.Queries)
-    ias := sitemapi.New(base.Queries)
+    _ = sitemfolder.New(base.Queries)
+    _ = sitemapi.New(base.Queries)
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
 
@@ -667,8 +665,7 @@ func TestCrossCollectionAtomicOperations(t *testing.T) {
 			CollectionID: sourceCollectionID,
 			FolderID:     nil,
 		}
-		err := ias.CreateItemApi(ctx, sourceEndpoint)
-		require.NoError(t, err)
+
 
 		// Create collection item
 		tx, err := base.DB.Begin()

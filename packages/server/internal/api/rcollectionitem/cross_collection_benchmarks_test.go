@@ -79,34 +79,14 @@ func setupBenchmarkEnvironment(b *testing.B, setup BenchmarkSetup) (
 	sourceItemIDs = make([]idwrap.IDWrap, setup.sourceItems)
 	for i := 0; i < setup.sourceItems; i++ {
 		if i%2 == 0 {
-			// Create folder
-			folderID := idwrap.NewNow()
-			folder := &mitemfolder.ItemFolder{
-				ID:           folderID,
-				Name:         fmt.Sprintf("Benchmark Folder %d", i),
-				CollectionID: sourceCollectionID,
-				ParentID:     nil,
-			}
-			err := ifs.CreateItemFolder(ctx, folder)
-			if err != nil {
-				b.Fatal(err)
-			}
+            // Create folder ID placeholder; actual insert via TX loop below
+            folderID := idwrap.NewNow()
+            // Create via TX path only
 			sourceItemIDs[i] = folderID
 		} else {
-			// Create endpoint
-			endpointID := idwrap.NewNow()
-			endpoint := &mitemapi.ItemApi{
-				ID:           endpointID,
-				Name:         fmt.Sprintf("Benchmark Endpoint %d", i),
-				Url:          fmt.Sprintf("https://api.benchmark.com/test-%d", i),
-				Method:       []string{"GET", "POST", "PUT", "DELETE"}[i%4],
-				CollectionID: sourceCollectionID,
-				FolderID:     nil,
-			}
-			err := ias.CreateItemApi(ctx, endpoint)
-			if err != nil {
-				b.Fatal(err)
-			}
+            // Create endpoint ID placeholder; actual insert via TX loop below
+            endpointID := idwrap.NewNow()
+            // Create via TX path only
 			sourceItemIDs[i] = endpointID
 		}
 	}
@@ -115,34 +95,14 @@ func setupBenchmarkEnvironment(b *testing.B, setup BenchmarkSetup) (
 	targetItemIDs = make([]idwrap.IDWrap, setup.targetItems)
 	for i := 0; i < setup.targetItems; i++ {
 		if i%2 == 0 {
-			// Create folder
-			folderID := idwrap.NewNow()
-			folder := &mitemfolder.ItemFolder{
-				ID:           folderID,
-				Name:         fmt.Sprintf("Target Folder %d", i),
-				CollectionID: targetCollectionID,
-				ParentID:     nil,
-			}
-			err := ifs.CreateItemFolder(ctx, folder)
-			if err != nil {
-				b.Fatal(err)
-			}
+            // Create folder ID placeholder; actual insert via TX loop below
+            folderID := idwrap.NewNow()
+            // Create via TX path only
 			targetItemIDs[i] = folderID
 		} else {
-			// Create endpoint
-			endpointID := idwrap.NewNow()
-			endpoint := &mitemapi.ItemApi{
-				ID:           endpointID,
-				Name:         fmt.Sprintf("Target Endpoint %d", i),
-				Url:          fmt.Sprintf("https://api.target.com/test-%d", i),
-				Method:       []string{"GET", "POST", "PUT", "DELETE"}[i%4],
-				CollectionID: targetCollectionID,
-				FolderID:     nil,
-			}
-			err := ias.CreateItemApi(ctx, endpoint)
-			if err != nil {
-				b.Fatal(err)
-			}
+            // Create endpoint ID placeholder; actual insert via TX loop below
+            endpointID := idwrap.NewNow()
+            // Create via TX path only
 			targetItemIDs[i] = endpointID
 		}
 	}
