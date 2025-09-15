@@ -17,6 +17,7 @@
 apps/cli/devtoolscli
 data
 dist
+tmp/
 next-env.d.ts
 node_modules
 out

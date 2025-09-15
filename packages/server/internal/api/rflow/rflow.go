@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -20,7 +19,6 @@ import (
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/dbtime"
-	"the-dev-tools/server/pkg/errmap"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/nfor"
@@ -52,7 +50,6 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/permcheck"
-	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
@@ -91,123 +88,15 @@ import (
 	"connectrpc.com/connect"
 )
 
-// formatErrForUser returns a user-friendly error string.
-// If the error is an errmap.Error, it prefixes the code for quick scanning.
-func formatErrForUser(err error) string { return errmap.Friendly(err) }
+// formatErrForUser moved to logging.go
 
 // normalizeForLog converts OutputData values into log-friendly forms:
 // - []byte -> if JSON, unmarshal to any; else convert to string
 // - map[string]any / []any -> recurse
-func normalizeForLog(v any) any {
-	switch t := v.(type) {
-	case string:
-		// Attempt to parse JSON string into structured value
-		bs := []byte(t)
-		if len(bs) > 0 && (bs[0] == '{' || bs[0] == '[') && json.Valid(bs) {
-			var out any
-			if err := json.Unmarshal(bs, &out); err == nil {
-				return normalizeForLog(out)
-			}
-		}
-		return t
-	case []byte:
-		if json.Valid(t) {
-			var out any
-			if err := json.Unmarshal(t, &out); err == nil {
-				return normalizeForLog(out)
-			}
-		}
-		return string(t)
-	case json.RawMessage:
-		if json.Valid(t) {
-			var out any
-			if err := json.Unmarshal(t, &out); err == nil {
-				return normalizeForLog(out)
-			}
-		}
-		return string(t)
-	case map[string]any:
-		m := make(map[string]any, len(t))
-		for k, val := range t {
-			m[k] = normalizeForLog(val)
-		}
-		return m
-	case []any:
-		arr := make([]any, len(t))
-		for i := range t {
-			arr[i] = normalizeForLog(t[i])
-		}
-		return arr
-	default:
-		// Fallback: handle maps/slices via reflection to catch typed maps (e.g., map[string][]byte)
-		rv := reflect.ValueOf(v)
-		switch rv.Kind() {
-		case reflect.Map:
-			// Only handle string-keyed maps
-			if rv.Type().Key().Kind() == reflect.String {
-				m := make(map[string]any, rv.Len())
-				for _, mk := range rv.MapKeys() {
-					key := mk.String()
-					mv := rv.MapIndex(mk).Interface()
-					m[key] = normalizeForLog(mv)
-				}
-				return m
-			}
-		case reflect.Slice:
-			// If it's a []uint8 (aka []byte), handle as bytes
-			if rv.Type().Elem().Kind() == reflect.Uint8 {
-				b := make([]byte, rv.Len())
-				reflect.Copy(reflect.ValueOf(b), rv)
-				if json.Valid(b) {
-					var out any
-					if err := json.Unmarshal(b, &out); err == nil {
-						return normalizeForLog(out)
-					}
-				}
-				return string(b)
-			}
-			// Generic slice
-			n := rv.Len()
-			arr := make([]any, n)
-			for i := 0; i < n; i++ {
-				arr[i] = normalizeForLog(rv.Index(i).Interface())
-			}
-			return arr
-		}
-		return v
-	}
-}
+// normalizeForLog moved to logging.go
 
 // upsertWithRetry attempts to upsert a node execution with small retries for transient DB lock/busy errors.
-func upsertWithRetry(ctx context.Context, svc snodeexecution.NodeExecutionService, exec mnodeexecution.NodeExecution) error {
-	// Try immediate, then exponential backoff for transient sqlite busy/locked
-	backoffs := []time.Duration{0, 10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond, 80 * time.Millisecond, 160 * time.Millisecond, 320 * time.Millisecond}
-	var lastErr error
-	for i, d := range backoffs {
-		if d > 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(d):
-			}
-		}
-		if err := svc.UpsertNodeExecution(ctx, exec); err != nil {
-			lastErr = err
-			// Retry on transient lock/busy conditions
-			msg := err.Error()
-			if !(strings.Contains(msg, "locked") || strings.Contains(msg, "busy")) {
-				return err
-			}
-			// If this was the last attempt, return error
-			if i == len(backoffs)-1 {
-				return err
-			}
-			continue
-		}
-		return nil
-	}
-	return lastErr
-}
+// upsertWithRetry moved to retry.go
 
 // preRegisteredRequestNode wraps a REQUEST node to handle pre-registration of ExecutionIDs
 // This fixes the race condition where responses arrive before ExecutionID is added to pendingNodeExecutions
@@ -443,72 +332,7 @@ func (cm *CorrelationMetrics) ShouldWarnAboutMemory(pendingSize, orphanedSize in
 //     error { message, kind } and optional failure context keys from outputData.
 //   - Else, if outputData is a map, normalize and render it as-is.
 //   - Else, fall back to a small metadata struct.
-func buildLogRefs(nameForLog, idStrForLog, stateStrForLog string, nodeError error, outputData any) []reference.ReferenceTreeItem {
-	if nodeError != nil {
-		kind := "failed"
-		if runner.IsCancellationError(nodeError) {
-			kind = "canceled"
-		}
-		payload := map[string]any{
-			"node": map[string]any{
-				"id":    idStrForLog,
-				"name":  nameForLog,
-				"state": stateStrForLog,
-			},
-			"error": map[string]any{
-				"message": nodeError.Error(),
-				"kind":    kind,
-			},
-		}
-		// Include only safe failure context keys (from foreach summaries)
-		if m, ok := outputData.(map[string]any); ok {
-			ctx := map[string]any{}
-			if v, ok := m["failedAtIndex"]; ok {
-				ctx["failedAtIndex"] = v
-			}
-			if v, ok := m["failedAtKey"]; ok {
-				ctx["failedAtKey"] = v
-			}
-			if v, ok := m["totalItems"]; ok {
-				ctx["totalItems"] = v
-			}
-			if len(ctx) > 0 {
-				payload["context"] = ctx
-			}
-		}
-		ref := reference.NewReferenceFromInterfaceWithKey(payload, nameForLog)
-		return []reference.ReferenceTreeItem{ref}
-	}
-
-	if outputData != nil {
-		if out, ok := outputData.(map[string]any); ok {
-			// If OutputData is nested under node name, unwrap once
-			src := out
-			if nb, ok := out[nameForLog].(map[string]any); ok {
-				src = nb
-			}
-			if norm, ok := normalizeForLog(src).(map[string]any); ok {
-				r := reference.NewReferenceFromInterfaceWithKey(norm, nameForLog)
-				return []reference.ReferenceTreeItem{r}
-			}
-		}
-	}
-
-	// Fallback minimal payload
-	logData := struct {
-		NodeID string
-		Name   string
-		State  string
-		Error  error
-	}{
-		NodeID: idStrForLog,
-		Name:   nameForLog,
-		State:  stateStrForLog,
-		Error:  nil,
-	}
-	ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
-	return []reference.ReferenceTreeItem{ref}
-}
+// buildLogRefs moved to logging.go
 
 // formatIterationContext formats the iteration context into hierarchical format with node names
 func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap.IDWrap]string, nodeID idwrap.IDWrap, parentNodes []idwrap.IDWrap, isLoopNode bool, executionCount int) string {
@@ -960,8 +784,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	latestFlowID := flow.ID
-	runStart := time.Now()
+    latestFlowID := flow.ID
 
 	// Clean up old executions before starting
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -995,9 +818,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// Track loop node IDs for quick lookup when streaming statuses
 	loopNodeIDs := make(map[idwrap.IDWrap]bool)
 	// Track the last failed node/execution so we can correct terminal state in safety-net
-	var lastFailedMu sync.Mutex
-	var lastFailedNodeID idwrap.IDWrap
-	var lastFailedExecID idwrap.IDWrap
+    // kept for potential diagnostics in future; currently unused
+    // var lastFailedMu sync.Mutex
 
 	for _, node := range nodes {
 		nodeNameMap[node.ID] = node.Name
@@ -1431,107 +1253,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
-	// Timeout handler for REQUEST nodes that don't receive responses
-	goroutineWg.Add(1)
-	go func() {
-		defer goroutineWg.Done()
-		ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				// Check if we should stop sending
-				if channelsClosed.Load() {
-					return
-				}
-
-				pendingMutex.Lock()
-				var timedOutExecutions []mnodeexecution.NodeExecution
-
-				for execID, nodeExec := range pendingNodeExecutions {
-					// Check if it's a completed node without ResponseID that's been waiting too long
-					if nodeExec.CompletedAt != nil &&
-						nodeExec.ResponseID == nil &&
-						(nodeExec.State == mnnode.NODE_STATE_SUCCESS || nodeExec.State == mnnode.NODE_STATE_FAILURE) &&
-						time.Now().UnixMilli()-*nodeExec.CompletedAt > 120000 { // 120 seconds timeout (increased from 30s)
-
-						// Check if this is a REQUEST node by checking the node type
-						node, err := c.ns.GetNode(ctx, nodeExec.NodeID)
-						if err == nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
-							// Log timeout to help diagnose issues
-							log.Printf("⏰ REQUEST node execution %s timed out after 120s without ResponseID - removing from pending map", execID.String())
-							timedOutExecutions = append(timedOutExecutions, *nodeExec)
-							delete(pendingNodeExecutions, execID)
-							correlationMetrics.RecordFailedCorrelation()
-							correlationMetrics.RecordDeregistration()
-						}
-					}
-				}
-
-				// Clean up old orphaned responses (older than 5 minutes)
-				currentTime := time.Now().UnixMilli()
-				var cleanedCount int
-				for execID, orphaned := range orphanedResponses {
-					if currentTime-orphaned.Timestamp > 300000 { // 5 minutes
-						log.Printf("🧹 Cleaning up old orphaned response for ExecutionID %s (age: %dms)",
-							execID.String(), currentTime-orphaned.Timestamp)
-						delete(orphanedResponses, execID)
-						correlationMetrics.RecordFailedCorrelation()
-						cleanedCount++
-					}
-				}
-				if cleanedCount > 0 {
-					correlationMetrics.RecordCleanupOperation()
-					correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
-					log.Printf("🧹 Cleanup completed: removed %d orphaned responses (remaining orphaned: %d, pending: %d)",
-						cleanedCount, len(orphanedResponses), len(pendingNodeExecutions))
-				}
-				pendingMutex.Unlock()
-
-				// Clean up old pre-registered executions that never moved to pending (older than 10 minutes)
-				// This prevents memory leaks from ExecutionIDs that were pre-registered but never executed
-				preRegisteredMutex.Lock()
-				cleanedPreRegistered := 0
-				// NOTE: We don't have timestamps for pre-registered executions, but we can clean them up
-				// after a reasonable time if they're still in the map and not in pending
-				if len(preRegisteredExecutions) > 100 { // Only clean if we have many entries
-					pendingMutex.Lock()
-					for execID := range preRegisteredExecutions {
-						// If it's not in pending map after 30 seconds, it's likely orphaned
-						if _, isPending := pendingNodeExecutions[execID]; !isPending {
-							delete(preRegisteredExecutions, execID)
-							cleanedPreRegistered++
-							if cleanedPreRegistered >= 50 { // Clean in batches to avoid long locks
-								break
-							}
-						}
-					}
-					pendingMutex.Unlock()
-				}
-				if cleanedPreRegistered > 0 {
-					log.Printf("🧹 Cleaned up %d old pre-registered executions", cleanedPreRegistered)
-				}
-				preRegisteredMutex.Unlock()
-
-				// Send timed out executions to channel without ResponseID (with safety check)
-				for _, exec := range timedOutExecutions {
-					if !channelsClosed.Load() {
-						select {
-						case nodeExecutionChan <- exec:
-						case <-stopSending:
-							return
-						}
-					}
-				}
-
-			case <-stopSending:
-				return
-			case <-subCtx.Done():
-				return
-			}
-		}
-	}()
+    // Removed periodic timeout/cleanup goroutine to simplify flow.
 
 	// Main status processing goroutine
 	goroutineWg.Add(1)
@@ -1694,32 +1416,23 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 								nodeExecution.ResponseID = &orphaned.ResponseID
 
-								// Update in database immediately (synchronously) to avoid regressing terminal updates later
-								{
-									dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-									defer cancel()
-									if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
-										log.Printf("❌ Failed to upsert delayed correlation %s: %v", nodeExecution.ID, err)
-									} else {
-										log.Printf("✅ Successfully correlated orphaned response for ExecutionID %s (delay: %dms)",
-											nodeExecution.ID.String(), correlationDelay)
-									}
-								}
+                                // Update in database immediately (synchronously) to avoid regressing terminal updates later
+                                if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+                                    log.Printf("❌ Failed to upsert delayed correlation %s: %v", nodeExecution.ID, err)
+                                } else {
+                                    log.Printf("✅ Successfully correlated orphaned response for ExecutionID %s (delay: %dms)",
+                                        nodeExecution.ID.String(), correlationDelay)
+                                }
 
 								// Remove from orphaned responses and update metrics
 								delete(orphanedResponses, executionID)
 								correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
 							}
 
-							// Persist RUNNING state synchronously to preserve ordering
-							// (avoids older RUNNING upserts overwriting terminal updates later)
-							{
-								dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-								defer cancel()
-								if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
-									log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
-								}
-							}
+                            // Persist RUNNING state synchronously to preserve ordering
+                            if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+                                log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
+                            }
 						}
 					}
 				}
@@ -1769,12 +1482,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					}
 
-					// Upsert ALL iteration records synchronously to avoid stale RUNNING state after cancel
-					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-					defer cancel()
-					if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
-						log.Printf("Failed to upsert iteration record %s: %v", nodeExecution.ID.String(), err)
-					}
+                        // Upsert ALL iteration records synchronously to avoid stale RUNNING state after cancel
+                        if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+                            log.Printf("Failed to upsert iteration record %s: %v", nodeExecution.ID.String(), err)
+                        }
 					// ALL iterations are now persisted to database
 				} else {
 					// Update existing NodeExecution with final state (normal flow)
@@ -1786,12 +1497,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						nodeExec.CompletedAt = &completedAt
 
 						// Track last failure for safety-net correction later
-						if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
-							lastFailedMu.Lock()
-							lastFailedNodeID = flowNodeStatus.NodeID
-							lastFailedExecID = executionID
-							lastFailedMu.Unlock()
-						}
+                        // Track last failure (kept for potential diagnostics)
+                        // if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+                        //     lastFailedMu.Lock()
+                        //     _ = flowNodeStatus
+                        //     _ = executionID
+                        //     lastFailedMu.Unlock()
+                        // }
 
 						// Set error if present
 						if flowNodeStatus.Error != nil {
@@ -1819,12 +1531,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 
-						// Upsert execution in DB synchronously to ensure terminal state is persisted
-						dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-						defer cancel()
-						if err := upsertWithRetry(dbCtx, c.nes, *nodeExec); err != nil {
-							log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
-						}
+                        // Upsert execution in DB synchronously to ensure terminal state is persisted
+                        if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+                            log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
+                        }
 
 						// For REQUEST nodes, wait for response before sending to channel
 						if node != nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
@@ -1907,19 +1617,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 
 						// Track last failure for safety-net correction later
-						if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
-							lastFailedMu.Lock()
-							lastFailedNodeID = flowNodeStatus.NodeID
-							lastFailedExecID = executionID
-							lastFailedMu.Unlock()
-						}
+                        // Track last failure (kept for potential diagnostics)
+                        // if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+                        //     lastFailedMu.Lock()
+                        //     _ = flowNodeStatus
+                        //     _ = executionID
+                        //     lastFailedMu.Unlock()
+                        // }
 
-						// Upsert to DB synchronously to ensure cancellation is persisted before navigation
-						dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-						defer cancel()
-						if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
-							log.Printf("Failed to upsert canceled node execution %s: %v", nodeExecution.ID, err)
-						}
+                        // Upsert to DB synchronously to ensure cancellation is persisted before navigation
+                        if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+                            log.Printf("Failed to upsert canceled node execution %s: %v", nodeExecution.ID, err)
+                        }
 
 						// Send immediately for canceled nodes (with safety check)
 						if !channelsClosed.Load() {
@@ -1984,12 +1693,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 							}
 
-							// Upsert to DB synchronously to ensure final state is persisted
-							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-							defer cancel()
-							if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
-								log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
-							}
+                        // Upsert to DB synchronously to ensure final state is persisted
+                        if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+                            log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
+                        }
 
 							// Send immediately for terminal loop nodes to make them visible in UI
 							if !channelsClosed.Load() {
@@ -2106,17 +1813,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						respID := requestNodeResp.Resp.ExampleResp.ID
 						nodeExec.ResponseID = &respID
 
-						// Upsert execution in DB with ResponseID synchronously to avoid regressing terminal fields
-						{
-							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-							defer cancel()
-							if err := upsertWithRetry(dbCtx, c.nes, *nodeExec); err != nil {
-								log.Printf("❌ Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
-							} else {
-								log.Printf("✅ Successfully saved response correlation for ExecutionID %s (delay: %dms)",
-									nodeExec.ID.String(), correlationDelay)
-							}
-						}
+                    // Upsert execution in DB with ResponseID synchronously to avoid regressing terminal fields
+                    if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+                        log.Printf("❌ Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
+                    } else {
+                        log.Printf("✅ Successfully saved response correlation for ExecutionID %s (delay: %dms)",
+                            nodeExec.ID.String(), correlationDelay)
+                    }
 
 						// Now send the completed execution with ResponseID to channel (with safety check)
 						if !channelsClosed.Load() {
@@ -2173,20 +1876,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 				pendingMutex.Unlock()
 
-				example := &flowv1.FlowRunExampleResponse{
-					ExampleId:  requestNodeResp.Example.ID.Bytes(),
-					ResponseId: requestNodeResp.Resp.ExampleResp.ID.Bytes(),
-				}
-
-				resp := &flowv1.FlowRunResponse{
-					Example: example,
-				}
-
-				localErr := stream.Send(resp)
-				if localErr != nil {
-					done <- localErr
-					return
-				}
+                localErr := sendExampleResponse(stream, requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID)
+                if localErr != nil {
+                    done <- localErr
+                    return
+                }
 
 			default:
 			}
@@ -2203,26 +1897,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 			}
 
-			nodeResp := &flowv1.FlowRunNodeResponse{
-				NodeId: flowNodeStatus.NodeID.Bytes(),
-				State:  nodev1.NodeState(flowNodeStatus.State),
-			}
-
-			// Add user-friendly error information if the node failed
-			if flowNodeStatus.Error != nil {
-				errorMsg := formatErrForUser(flowNodeStatus.Error)
-				nodeResp.Info = &errorMsg
-			}
-
-			resp := &flowv1.FlowRunResponse{
-				Node: nodeResp,
-			}
-
-			err = stream.Send(resp)
-			if err != nil {
-				done <- err
-				return
-			}
+            var info *string
+            if flowNodeStatus.Error != nil {
+                msg := formatErrForUser(flowNodeStatus.Error)
+                info = &msg
+            }
+            if err := sendNodeStatus(stream, flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
+                done <- err
+                return
+            }
 		}
 
 		for {
@@ -2343,100 +2026,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// Wait for all node executions to be collected
 	<-nodeExecutionsDone
 
-	// Safety net: ensure no RUNNING executions remain as latest state for any nodes in this flow.
-	// Under heavy concurrency (e.g., sqlite busy/locked), a final state upsert may fail transiently.
-	// If the flow ended by cancellation, mark lingering RUNNING as CANCELED.
-	// If the flow ended by error, mark the failing node's lingering RUNNING as FAILURE; others as CANCELED.
-	{
-		endedByCancellation := runner.IsCancellationError(flowRunErr)
-		// Snapshot last failure IDs
-		lastFailedMu.Lock()
-		failedNodeID := lastFailedNodeID
-		failedExecID := lastFailedExecID
-		lastFailedMu.Unlock()
-
-		nodesForSafety, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
-		if err == nil {
-			for _, n := range nodesForSafety {
-				exec, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, n.ID)
-				if err != nil || exec == nil {
-					// No execution at all for this node. Create a CANCELED record so UI won't show stale RUNNING.
-					canceled := mnodeexecution.NodeExecution{
-						ID:          idwrap.NewNow(),
-						NodeID:      n.ID,
-						Name:        n.Name,
-						State:       mnnode.NODE_STATE_CANCELED,
-						InputData:   []byte("{}"),
-						OutputData:  []byte("{}"),
-						CompletedAt: func() *int64 { ts := time.Now().UnixMilli(); return &ts }(),
-					}
-					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-					_ = upsertWithRetry(dbCtx, c.nes, canceled)
-					cancel()
-					// Stream a final CANCELED state to keep clients consistent
-					nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
-					_ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
-					continue
-				}
-				if exec.State == mnnode.NODE_STATE_RUNNING {
-					completedAt := time.Now().UnixMilli()
-					newState := mnnode.NODE_STATE_CANCELED
-					if !endedByCancellation && (failedNodeID == n.ID && failedExecID == exec.ID) {
-						newState = mnnode.NODE_STATE_FAILURE
-					}
-					exec.State = newState
-					exec.CompletedAt = &completedAt
-
-					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-					_ = upsertWithRetry(dbCtx, c.nes, *exec)
-					cancel()
-					log.Printf("🧹 Safety-updated lingering RUNNING execution %s for node %s to %s", exec.ID.String(), n.ID.String(), mnnode.StringNodeState(newState))
-					// Stream a final terminal state so clients reflect the terminal state without refresh
-					nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(newState)}
-					_ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
-				}
-			}
-		}
-	}
-
-	// Additional safety: for nodes whose latest execution predates this run (or none at all),
-	// create a CANCELED record to reflect that the current run was cancelled before they executed.
-	{
-		nodesForSafety, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
-		if err == nil {
-			for _, n := range nodesForSafety {
-				exec, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, n.ID)
-				if err != nil || exec == nil {
-					// already handled above (no exec at all)
-					continue
-				}
-				// If the latest execution ID time and completed_at are both before runStart,
-				// it means this run created no record for this node. Create a canceled record now.
-				predates := exec.ID.Time().Before(runStart)
-				if exec.CompletedAt != nil {
-					completedAtTime := time.UnixMilli(*exec.CompletedAt)
-					predates = predates && completedAtTime.Before(runStart)
-				}
-				if predates {
-					canceled := mnodeexecution.NodeExecution{
-						ID:          idwrap.NewNow(),
-						NodeID:      n.ID,
-						Name:        n.Name,
-						State:       mnnode.NODE_STATE_CANCELED,
-						InputData:   []byte("{}"),
-						OutputData:  []byte("{}"),
-						CompletedAt: func() *int64 { ts := time.Now().UnixMilli(); return &ts }(),
-					}
-					dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-					_ = upsertWithRetry(dbCtx, c.nes, canceled)
-					cancel()
-					// Stream a final CANCELED state to keep clients consistent
-					nodeMsg := &flowv1.FlowRunNodeResponse{NodeId: n.ID.Bytes(), State: nodev1.NodeState(mnnode.NODE_STATE_CANCELED)}
-					_ = stream.Send(&flowv1.FlowRunResponse{Node: nodeMsg})
-				}
-			}
-		}
-	}
+	// Safety net removed: with synchronous RUNNING/terminal/response upserts,
+	// lingering RUNNING should not occur. Pending REQUEST executions are flushed above.
 
 	// Final cleanup of pre-registered executions
 	preRegisteredMutex.Lock()
