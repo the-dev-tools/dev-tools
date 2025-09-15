@@ -1694,31 +1694,32 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 								nodeExecution.ResponseID = &orphaned.ResponseID
 
-								// Update in database immediately
-								go func(exec mnodeexecution.NodeExecution, delay int64) {
+								// Update in database immediately (synchronously) to avoid regressing terminal updates later
+								{
 									dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 									defer cancel()
-									if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
-										log.Printf("❌ Failed to upsert delayed correlation %s: %v", exec.ID, err)
+									if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
+										log.Printf("❌ Failed to upsert delayed correlation %s: %v", nodeExecution.ID, err)
 									} else {
 										log.Printf("✅ Successfully correlated orphaned response for ExecutionID %s (delay: %dms)",
-											exec.ID.String(), delay)
+											nodeExecution.ID.String(), correlationDelay)
 									}
-								}(nodeExecution, correlationDelay)
+								}
 
 								// Remove from orphaned responses and update metrics
 								delete(orphanedResponses, executionID)
 								correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
 							}
 
-							// Also save to DB immediately (non-blocking) for non-loop nodes
-							go func(exec mnodeexecution.NodeExecution) {
+							// Persist RUNNING state synchronously to preserve ordering
+							// (avoids older RUNNING upserts overwriting terminal updates later)
+							{
 								dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 								defer cancel()
-								if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
-									log.Printf("Failed to upsert node execution %s: %v", exec.ID, err)
+								if err := upsertWithRetry(dbCtx, c.nes, nodeExecution); err != nil {
+									log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
 								}
-							}(nodeExecution)
+							}
 						}
 					}
 				}
@@ -2105,17 +2106,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						respID := requestNodeResp.Resp.ExampleResp.ID
 						nodeExec.ResponseID = &respID
 
-						// Upsert execution in DB with ResponseID (non-blocking)
-						go func(exec mnodeexecution.NodeExecution, delay int64) {
+						// Upsert execution in DB with ResponseID synchronously to avoid regressing terminal fields
+						{
 							dbCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 							defer cancel()
-							if err := c.nes.UpsertNodeExecution(dbCtx, exec); err != nil {
-								log.Printf("❌ Failed to upsert node execution with response %s: %v", exec.ID, err)
+							if err := upsertWithRetry(dbCtx, c.nes, *nodeExec); err != nil {
+								log.Printf("❌ Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
 							} else {
 								log.Printf("✅ Successfully saved response correlation for ExecutionID %s (delay: %dms)",
-									exec.ID.String(), delay)
+									nodeExec.ID.String(), correlationDelay)
 							}
-						}(*nodeExec, correlationDelay)
+						}
 
 						// Now send the completed execution with ResponseID to channel (with safety check)
 						if !channelsClosed.Load() {
