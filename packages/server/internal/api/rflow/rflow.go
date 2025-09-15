@@ -38,9 +38,13 @@ import (
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
+	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mexampleresp"
+	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -121,7 +125,7 @@ func (p *preRegisteredRequestNode) RunSync(ctx context.Context, req *node.FlowNo
 		p.preRegisteredMutex.Lock()
 		p.preRegisteredExecutions[req.ExecutionID] = struct{}{}
 		p.preRegisteredMutex.Unlock()
-		log.Printf("🔄 Pre-registered ExecutionID %s for REQUEST node", req.ExecutionID.String())
+		// Pre-registration is internal bookkeeping; no user-facing log required
 	}
 
 	// Run the actual request node
@@ -134,196 +138,11 @@ func (p *preRegisteredRequestNode) RunAsync(ctx context.Context, req *node.FlowN
 		p.preRegisteredMutex.Lock()
 		p.preRegisteredExecutions[req.ExecutionID] = struct{}{}
 		p.preRegisteredMutex.Unlock()
-		log.Printf("🔄 Pre-registered ExecutionID %s for REQUEST node (async)", req.ExecutionID.String())
+		// Pre-registration is internal bookkeeping; no user-facing log required
 	}
 
 	// Run the actual request node
 	p.nodeRequest.RunAsync(ctx, req, resultChan)
-}
-
-// CorrelationMetrics tracks correlation effectiveness and performance
-type CorrelationMetrics struct {
-	// Counters
-	successfulCorrelations int64 // Successful immediate correlations
-	orphanedResponses      int64 // Responses that arrived before ExecutionID registration
-	delayedCorrelations    int64 // Orphaned responses later correlated successfully
-	failedCorrelations     int64 // Failed to correlate after timeout
-	preRegistrations       int64 // ExecutionIDs pre-registered
-	deregistrations        int64 // ExecutionIDs removed from pending map
-	cleanupOperations      int64 // Memory cleanup operations
-	retryAttempts          int64 // Correlation retry attempts
-
-	// Timing metrics (in milliseconds)
-	totalCorrelationDelay int64 // Total delay for all correlations
-	maxCorrelationDelay   int64 // Maximum delay observed
-	minCorrelationDelay   int64 // Minimum delay observed (initialized to max value)
-
-	// Map sizes for memory monitoring
-	maxPendingMapSize      int64 // Maximum pending executions map size
-	maxOrphanedMapSize     int64 // Maximum orphaned responses map size
-	currentPendingMapSize  int64 // Current pending executions map size
-	currentOrphanedMapSize int64 // Current orphaned responses map size
-
-	// Performance thresholds
-	delayWarningThreshold  int64 // 100ms default
-	memoryWarningThreshold int   // 1000 entries default
-
-	mu sync.RWMutex // Protects all metrics
-}
-
-// NewCorrelationMetrics creates a new metrics tracker
-func NewCorrelationMetrics() *CorrelationMetrics {
-	return &CorrelationMetrics{
-		minCorrelationDelay:    9223372036854775807, // max int64
-		delayWarningThreshold:  100,                 // 100ms
-		memoryWarningThreshold: 1000,                // 1000 entries
-	}
-}
-
-// RecordSuccessfulCorrelation records an immediate correlation success
-func (cm *CorrelationMetrics) RecordSuccessfulCorrelation(delayMs int64) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.successfulCorrelations++
-	cm.updateDelayMetrics(delayMs)
-}
-
-// RecordOrphanedResponse records when a response arrives before ExecutionID registration
-func (cm *CorrelationMetrics) RecordOrphanedResponse() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.orphanedResponses++
-}
-
-// RecordDelayedCorrelation records when an orphaned response is later correlated
-func (cm *CorrelationMetrics) RecordDelayedCorrelation(delayMs int64) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.delayedCorrelations++
-	cm.updateDelayMetrics(delayMs)
-}
-
-// RecordFailedCorrelation records when correlation fails after timeout
-func (cm *CorrelationMetrics) RecordFailedCorrelation() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.failedCorrelations++
-}
-
-// RecordPreRegistration records when an ExecutionID is pre-registered
-func (cm *CorrelationMetrics) RecordPreRegistration() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.preRegistrations++
-}
-
-// RecordDeregistration records when an ExecutionID is removed from pending map
-func (cm *CorrelationMetrics) RecordDeregistration() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.deregistrations++
-}
-
-// RecordCleanupOperation records memory cleanup operations
-func (cm *CorrelationMetrics) RecordCleanupOperation() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.cleanupOperations++
-}
-
-// RecordRetryAttempt records correlation retry attempts
-func (cm *CorrelationMetrics) RecordRetryAttempt() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.retryAttempts++
-}
-
-// UpdateMapSizes updates current map sizes and tracks maximums
-func (cm *CorrelationMetrics) UpdateMapSizes(pendingSize, orphanedSize int) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-	cm.currentPendingMapSize = int64(pendingSize)
-	cm.currentOrphanedMapSize = int64(orphanedSize)
-	if int64(pendingSize) > cm.maxPendingMapSize {
-		cm.maxPendingMapSize = int64(pendingSize)
-	}
-	if int64(orphanedSize) > cm.maxOrphanedMapSize {
-		cm.maxOrphanedMapSize = int64(orphanedSize)
-	}
-}
-
-// updateDelayMetrics updates delay timing metrics (must be called with lock held)
-func (cm *CorrelationMetrics) updateDelayMetrics(delayMs int64) {
-	cm.totalCorrelationDelay += delayMs
-	if delayMs > cm.maxCorrelationDelay {
-		cm.maxCorrelationDelay = delayMs
-	}
-	if delayMs < cm.minCorrelationDelay {
-		cm.minCorrelationDelay = delayMs
-	}
-}
-
-// GetAverageCorrelationDelay returns the average correlation delay
-func (cm *CorrelationMetrics) GetAverageCorrelationDelay() float64 {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	totalCorrelations := cm.successfulCorrelations + cm.delayedCorrelations
-	if totalCorrelations == 0 {
-		return 0
-	}
-	return float64(cm.totalCorrelationDelay) / float64(totalCorrelations)
-}
-
-// GetMetricsSummary returns a formatted summary of all metrics
-func (cm *CorrelationMetrics) GetMetricsSummary() string {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	totalCorrelations := cm.successfulCorrelations + cm.delayedCorrelations
-	avgDelay := float64(0)
-	if totalCorrelations > 0 {
-		avgDelay = float64(cm.totalCorrelationDelay) / float64(totalCorrelations)
-	}
-	return fmt.Sprintf(
-		"📊 Correlation Metrics Summary: "+
-			"✅ Successful: %d, "+
-			"🔄 Orphaned: %d, "+
-			"⏰ Delayed: %d, "+
-			"❌ Failed: %d, "+
-			"📝 Pre-reg: %d, "+
-			"🗑️ Dereg: %d, "+
-			"🧹 Cleanup: %d, "+
-			"🔁 Retries: %d, "+
-			"⏱️ Avg Delay: %.1fms, "+
-			"⏱️ Max Delay: %dms, "+
-			"📈 Max Pending: %d, "+
-			"📈 Max Orphaned: %d",
-		cm.successfulCorrelations,
-		cm.orphanedResponses,
-		cm.delayedCorrelations,
-		cm.failedCorrelations,
-		cm.preRegistrations,
-		cm.deregistrations,
-		cm.cleanupOperations,
-		cm.retryAttempts,
-		avgDelay,
-		cm.maxCorrelationDelay,
-		cm.maxPendingMapSize,
-		cm.maxOrphanedMapSize,
-	)
-}
-
-// ShouldWarnAboutDelay returns true if the delay exceeds the warning threshold
-func (cm *CorrelationMetrics) ShouldWarnAboutDelay(delayMs int64) bool {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	return delayMs > cm.delayWarningThreshold
-}
-
-// ShouldWarnAboutMemory returns true if map sizes exceed warning thresholds
-func (cm *CorrelationMetrics) ShouldWarnAboutMemory(pendingSize, orphanedSize int) bool {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	return pendingSize > cm.memoryWarningThreshold || orphanedSize > cm.memoryWarningThreshold
 }
 
 // buildLogRefs constructs structured log references for a node state change.
@@ -784,7 +603,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-    latestFlowID := flow.ID
+	latestFlowID := flow.ID
 
 	// Clean up old executions before starting
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -815,14 +634,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	var startNodeID idwrap.IDWrap
 
 	nodeNameMap := make(map[idwrap.IDWrap]string, len(nodes))
+	nodeKindMap := make(map[idwrap.IDWrap]mnnode.NodeKind, len(nodes))
 	// Track loop node IDs for quick lookup when streaming statuses
 	loopNodeIDs := make(map[idwrap.IDWrap]bool)
 	// Track the last failed node/execution so we can correct terminal state in safety-net
-    // kept for potential diagnostics in future; currently unused
-    // var lastFailedMu sync.Mutex
+	// kept for potential diagnostics in future; currently unused
+	// var lastFailedMu sync.Mutex
 
 	for _, node := range nodes {
 		nodeNameMap[node.ID] = node.Name
+		nodeKindMap[node.ID] = node.NodeKind
 
 		switch node.NodeKind {
 		case mnnode.NODE_KIND_REQUEST:
@@ -910,12 +731,110 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	preRegisteredExecutions := make(map[idwrap.IDWrap]struct{})
 	preRegisteredMutex := sync.RWMutex{}
 
+	endpointCache := make(map[idwrap.IDWrap]struct {
+		endpoint *mitemapi.ItemApi
+		err      error
+	})
+	exampleCache := make(map[idwrap.IDWrap]struct {
+		example *mitemapiexample.ItemApiExample
+		err     error
+	})
+	headersCache := make(map[idwrap.IDWrap]struct {
+		headers []mexampleheader.Header
+		err     error
+	})
+	queriesCache := make(map[idwrap.IDWrap]struct {
+		queries []mexamplequery.Query
+		err     error
+	})
+	rawBodyCache := make(map[idwrap.IDWrap]struct {
+		body *mbodyraw.ExampleBodyRaw
+		err  error
+	})
+	formBodyCache := make(map[idwrap.IDWrap]struct {
+		forms []mbodyform.BodyForm
+		err   error
+	})
+	urlBodyCache := make(map[idwrap.IDWrap]struct {
+		values []mbodyurl.BodyURLEncoded
+		err    error
+	})
+	respCache := make(map[idwrap.IDWrap]struct {
+		resp *mexampleresp.ExampleResp
+		err  error
+	})
+	respHeaderCache := make(map[idwrap.IDWrap]struct {
+		headers []mexamplerespheader.ExampleRespHeader
+		err     error
+	})
+	assertCache := make(map[idwrap.IDWrap]struct {
+		asserts []massert.Assert
+		err     error
+	})
+
+	cloneItemAPI := func(src *mitemapi.ItemApi) *mitemapi.ItemApi {
+		if src == nil {
+			return nil
+		}
+		copyVal := *src
+		return &copyVal
+	}
+
+	cloneExample := func(src *mitemapiexample.ItemApiExample) *mitemapiexample.ItemApiExample {
+		if src == nil {
+			return nil
+		}
+		copyVal := *src
+		return &copyVal
+	}
+
+	cloneHeaders := func(src []mexampleheader.Header) []mexampleheader.Header {
+		return append([]mexampleheader.Header(nil), src...)
+	}
+
+	cloneQueries := func(src []mexamplequery.Query) []mexamplequery.Query {
+		return append([]mexamplequery.Query(nil), src...)
+	}
+
+	cloneFormBody := func(src []mbodyform.BodyForm) []mbodyform.BodyForm {
+		return append([]mbodyform.BodyForm(nil), src...)
+	}
+
+	cloneURLBody := func(src []mbodyurl.BodyURLEncoded) []mbodyurl.BodyURLEncoded {
+		return append([]mbodyurl.BodyURLEncoded(nil), src...)
+	}
+
+	cloneRawBody := func(src *mbodyraw.ExampleBodyRaw) *mbodyraw.ExampleBodyRaw {
+		if src == nil {
+			return nil
+		}
+		copyVal := *src
+		copyVal.Data = append([]byte(nil), src.Data...)
+		return &copyVal
+	}
+
+	cloneExampleResp := func(src *mexampleresp.ExampleResp) *mexampleresp.ExampleResp {
+		if src == nil {
+			return nil
+		}
+		copyVal := *src
+		copyVal.Body = append([]byte(nil), src.Body...)
+		return &copyVal
+	}
+
+	cloneRespHeaders := func(src []mexamplerespheader.ExampleRespHeader) []mexamplerespheader.ExampleRespHeader {
+		return append([]mexamplerespheader.ExampleRespHeader(nil), src...)
+	}
+
+	cloneAsserts := func(src []massert.Assert) []massert.Assert {
+		return append([]massert.Assert(nil), src...)
+	}
+
 	for _, forNode := range forNodes {
 		name := nodeNameMap[forNode.FlowNodeID]
 
 		// Use the condition directly - no need to parse it here
 		if forNode.Condition.Comparisons.Expression != "" {
-			log.Printf("📝 DEBUG: Creating FOR node '%s' with condition: '%s'", name, forNode.Condition.Comparisons.Expression)
 			flowNodeMap[forNode.FlowNodeID] = nfor.NewWithCondition(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling, forNode.Condition)
 		} else {
 			flowNodeMap[forNode.FlowNodeID] = nfor.New(forNode.FlowNodeID, name, forNode.IterCount, nodeTimeout, forNode.ErrorHandling)
@@ -926,86 +845,200 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
 	for _, requestNode := range requestNodes {
 
-		// Base Request
 		if requestNode.EndpointID == nil || requestNode.ExampleID == nil {
 			return connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", requestNode.FlowNodeID))
 		}
-		endpoint, err := c.ias.GetItemApi(ctx, *requestNode.EndpointID)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
 
-		example, err := c.es.GetApiExample(ctx, *requestNode.ExampleID)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+		endpointEntry, ok := endpointCache[*requestNode.EndpointID]
+		if !ok {
+			endpoint, err := c.ias.GetItemApi(ctx, *requestNode.EndpointID)
+			endpointEntry = struct {
+				endpoint *mitemapi.ItemApi
+				err      error
+			}{endpoint: endpoint, err: err}
+			endpointCache[*requestNode.EndpointID] = endpointEntry
 		}
+		if endpointEntry.err != nil {
+			return connect.NewError(connect.CodeInternal, endpointEntry.err)
+		}
+		endpoint := cloneItemAPI(endpointEntry.endpoint)
+
+		exampleEntry, ok := exampleCache[*requestNode.ExampleID]
+		if !ok {
+			example, err := c.es.GetApiExample(ctx, *requestNode.ExampleID)
+			exampleEntry = struct {
+				example *mitemapiexample.ItemApiExample
+				err     error
+			}{example: example, err: err}
+			exampleCache[*requestNode.ExampleID] = exampleEntry
+		}
+		if exampleEntry.err != nil {
+			return connect.NewError(connect.CodeInternal, exampleEntry.err)
+		}
+		example := cloneExample(exampleEntry.example)
 
 		if example.ItemApiID != endpoint.ID {
 			return connect.NewError(connect.CodeInternal, errors.New("example and endpoint not match"))
 		}
-		headers, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
-		if err != nil {
+
+		headersEntry, ok := headersCache[example.ID]
+		if !ok {
+			headers, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
+			headersEntry = struct {
+				headers []mexampleheader.Header
+				err     error
+			}{headers: headers, err: err}
+			headersCache[example.ID] = headersEntry
+		}
+		if headersEntry.err != nil {
 			return connect.NewError(connect.CodeInternal, errors.New("get headers"))
 		}
-		queries, err := c.qs.GetExampleQueriesByExampleID(ctx, example.ID)
-		if err != nil {
+		headers := cloneHeaders(headersEntry.headers)
+
+		queriesEntry, ok := queriesCache[example.ID]
+		if !ok {
+			queries, err := c.qs.GetExampleQueriesByExampleID(ctx, example.ID)
+			queriesEntry = struct {
+				queries []mexamplequery.Query
+				err     error
+			}{queries: queries, err: err}
+			queriesCache[example.ID] = queriesEntry
+		}
+		if queriesEntry.err != nil {
 			return connect.NewError(connect.CodeInternal, errors.New("get queries"))
 		}
+		queries := cloneQueries(queriesEntry.queries)
 
-		rawBody, err := c.brs.GetBodyRawByExampleID(ctx, example.ID)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+		rawEntry, ok := rawBodyCache[example.ID]
+		if !ok {
+			raw, err := c.brs.GetBodyRawByExampleID(ctx, example.ID)
+			rawEntry = struct {
+				body *mbodyraw.ExampleBodyRaw
+				err  error
+			}{body: raw, err: err}
+			rawBodyCache[example.ID] = rawEntry
 		}
-
-		formBody, err := c.bfs.GetBodyFormsByExampleID(ctx, example.ID)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+		if rawEntry.err != nil {
+			return connect.NewError(connect.CodeInternal, rawEntry.err)
 		}
+		rawBody := cloneRawBody(rawEntry.body)
 
-		urlBody, err := c.bues.GetBodyURLEncodedByExampleID(ctx, example.ID)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+		formEntry, ok := formBodyCache[example.ID]
+		if !ok {
+			forms, err := c.bfs.GetBodyFormsByExampleID(ctx, example.ID)
+			formEntry = struct {
+				forms []mbodyform.BodyForm
+				err   error
+			}{forms: forms, err: err}
+			formBodyCache[example.ID] = formEntry
 		}
+		if formEntry.err != nil {
+			return connect.NewError(connect.CodeInternal, formEntry.err)
+		}
+		formBody := cloneFormBody(formEntry.forms)
 
-		exampleResp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, example.ID)
-		if err != nil {
-			if err == sexampleresp.ErrNoRespFound {
-				exampleResp = &mexampleresp.ExampleResp{
-					ID:        idwrap.NewNow(),
-					ExampleID: example.ID,
+		urlEntry, ok := urlBodyCache[example.ID]
+		if !ok {
+			values, err := c.bues.GetBodyURLEncodedByExampleID(ctx, example.ID)
+			urlEntry = struct {
+				values []mbodyurl.BodyURLEncoded
+				err    error
+			}{values: values, err: err}
+			urlBodyCache[example.ID] = urlEntry
+		}
+		if urlEntry.err != nil {
+			return connect.NewError(connect.CodeInternal, urlEntry.err)
+		}
+		urlBody := cloneURLBody(urlEntry.values)
+
+		respEntry, ok := respCache[example.ID]
+		if !ok {
+			exampleResp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, example.ID)
+			if err != nil {
+				if err == sexampleresp.ErrNoRespFound {
+					exampleResp = &mexampleresp.ExampleResp{
+						ID:        idwrap.NewNow(),
+						ExampleID: example.ID,
+					}
+					if createErr := c.ers.CreateExampleResp(ctx, *exampleResp); createErr != nil {
+						err = createErr
+					} else {
+						err = nil
+					}
 				}
-				err = c.ers.CreateExampleResp(ctx, *exampleResp)
-				if err != nil {
-					return connect.NewError(connect.CodeInternal, errors.New("create example resp"))
-				}
-			} else {
-				return connect.NewError(connect.CodeInternal, err)
 			}
+			respEntry = struct {
+				resp *mexampleresp.ExampleResp
+				err  error
+			}{resp: exampleResp, err: err}
+			respCache[example.ID] = respEntry
 		}
+		if respEntry.err != nil {
+			return connect.NewError(connect.CodeInternal, respEntry.err)
+		}
+		exampleResp := cloneExampleResp(respEntry.resp)
 
-		exampleRespHeader, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
-		if err != nil {
+		respHeaderEntry, ok := respHeaderCache[exampleResp.ID]
+		if !ok {
+			headers, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
+			respHeaderEntry = struct {
+				headers []mexamplerespheader.ExampleRespHeader
+				err     error
+			}{headers: headers, err: err}
+			respHeaderCache[exampleResp.ID] = respHeaderEntry
+		}
+		if respHeaderEntry.err != nil {
 			return connect.NewError(connect.CodeInternal, errors.New("get example resp header"))
 		}
+		exampleRespHeader := cloneRespHeaders(respHeaderEntry.headers)
 
-		asserts, err := c.as.GetAssertByExampleID(ctx, example.ID)
-		if err != nil && err != sassert.ErrNoAssertFound {
-			return connect.NewError(connect.CodeInternal, err)
-		}
-
-		// Delta Request
-		if requestNode.DeltaExampleID != nil {
-			deltaExample, err := c.es.GetApiExample(ctx, *requestNode.DeltaExampleID)
-			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+		assertEntry, ok := assertCache[example.ID]
+		if !ok {
+			asserts, err := c.as.GetAssertByExampleID(ctx, example.ID)
+			if err == sassert.ErrNoAssertFound {
+				asserts = []massert.Assert{}
+				err = nil
 			}
+			assertEntry = struct {
+				asserts []massert.Assert
+				err     error
+			}{asserts: asserts, err: err}
+			assertCache[example.ID] = assertEntry
+		}
+		if assertEntry.err != nil {
+			return connect.NewError(connect.CodeInternal, assertEntry.err)
+		}
+		asserts := cloneAsserts(assertEntry.asserts)
 
-			// Delta Endpoint
+		if requestNode.DeltaExampleID != nil {
+			deltaExampleEntry, ok := exampleCache[*requestNode.DeltaExampleID]
+			if !ok {
+				deltaExample, err := c.es.GetApiExample(ctx, *requestNode.DeltaExampleID)
+				deltaExampleEntry = struct {
+					example *mitemapiexample.ItemApiExample
+					err     error
+				}{example: deltaExample, err: err}
+				exampleCache[*requestNode.DeltaExampleID] = deltaExampleEntry
+			}
+			if deltaExampleEntry.err != nil {
+				return connect.NewError(connect.CodeInternal, deltaExampleEntry.err)
+			}
+			deltaExample := cloneExample(deltaExampleEntry.example)
+
 			if requestNode.DeltaEndpointID != nil {
-				deltaEndpoint, err := c.ias.GetItemApi(ctx, *requestNode.DeltaEndpointID)
-				if err != nil {
-					return connect.NewError(connect.CodeInternal, err)
+				deltaEndpointEntry, ok := endpointCache[*requestNode.DeltaEndpointID]
+				if !ok {
+					deltaEndpoint, err := c.ias.GetItemApi(ctx, *requestNode.DeltaEndpointID)
+					deltaEndpointEntry = struct {
+						endpoint *mitemapi.ItemApi
+						err      error
+					}{endpoint: deltaEndpoint, err: err}
+					endpointCache[*requestNode.DeltaEndpointID] = deltaEndpointEntry
 				}
+				if deltaEndpointEntry.err != nil {
+					return connect.NewError(connect.CodeInternal, deltaEndpointEntry.err)
+				}
+				deltaEndpoint := cloneItemAPI(deltaEndpointEntry.endpoint)
 				if deltaEndpoint.Url != "" {
 					endpoint.Url = deltaEndpoint.Url
 				}
@@ -1014,26 +1047,50 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 			}
 
-			deltaHeaders, err := c.hs.GetHeaderByExampleID(ctx, deltaExample.ID)
-			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+			deltaHeadersEntry, ok := headersCache[deltaExample.ID]
+			if !ok {
+				dh, err := c.hs.GetHeaderByExampleID(ctx, deltaExample.ID)
+				deltaHeadersEntry = struct {
+					headers []mexampleheader.Header
+					err     error
+				}{headers: dh, err: err}
+				headersCache[deltaExample.ID] = deltaHeadersEntry
 			}
+			if deltaHeadersEntry.err != nil {
+				return connect.NewError(connect.CodeInternal, deltaHeadersEntry.err)
+			}
+			deltaHeaders := cloneHeaders(deltaHeadersEntry.headers)
 
-			// Delta queries: allow none-found (treat as empty)
-			deltaQueries, err := c.qs.GetExampleQueriesByExampleID(ctx, deltaExample.ID)
-			if err != nil {
-				if err == sexamplequery.ErrNoQueryFound {
-					// Use empty slice for no delta queries
+			deltaQueriesEntry, ok := queriesCache[deltaExample.ID]
+			if !ok {
+				dq, err := c.qs.GetExampleQueriesByExampleID(ctx, deltaExample.ID)
+				deltaQueriesEntry = struct {
+					queries []mexamplequery.Query
+					err     error
+				}{queries: dq, err: err}
+				queriesCache[deltaExample.ID] = deltaQueriesEntry
+			}
+			deltaQueries := cloneQueries(deltaQueriesEntry.queries)
+			if deltaQueriesEntry.err != nil {
+				if deltaQueriesEntry.err == sexamplequery.ErrNoQueryFound {
 					deltaQueries = []mexamplequery.Query{}
 				} else {
-					return connect.NewError(connect.CodeInternal, err)
+					return connect.NewError(connect.CodeInternal, deltaQueriesEntry.err)
 				}
 			}
 
-			// Delta raw body: allow none-found (treat as empty body)
-			rawBodyDelta, err := c.brs.GetBodyRawByExampleID(ctx, deltaExample.ID)
-			if err != nil {
-				if err == sbodyraw.ErrNoBodyRawFound {
+			deltaRawEntry, ok := rawBodyCache[deltaExample.ID]
+			if !ok {
+				deltaRaw, err := c.brs.GetBodyRawByExampleID(ctx, deltaExample.ID)
+				deltaRawEntry = struct {
+					body *mbodyraw.ExampleBodyRaw
+					err  error
+				}{body: deltaRaw, err: err}
+				rawBodyCache[deltaExample.ID] = deltaRawEntry
+			}
+			var rawBodyDelta *mbodyraw.ExampleBodyRaw
+			if deltaRawEntry.err != nil {
+				if deltaRawEntry.err == sbodyraw.ErrNoBodyRawFound {
 					tmp := mbodyraw.ExampleBodyRaw{
 						ID:            idwrap.NewNow(),
 						ExampleID:     deltaExample.ID,
@@ -1043,28 +1100,50 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					}
 					rawBodyDelta = &tmp
 				} else {
-					return connect.NewError(connect.CodeInternal, err)
+					return connect.NewError(connect.CodeInternal, deltaRawEntry.err)
 				}
+			} else {
+				rawBodyDelta = cloneRawBody(deltaRawEntry.body)
 			}
 
-			// Delta form body: allow none-found (treat as empty)
-			formBodyDelta, err := c.bfs.GetBodyFormsByExampleID(ctx, deltaExample.ID)
-			if err != nil {
-				if err == sbodyform.ErrNoBodyFormFound {
+			deltaFormEntry, ok := formBodyCache[deltaExample.ID]
+			if !ok {
+				deltaForms, err := c.bfs.GetBodyFormsByExampleID(ctx, deltaExample.ID)
+				deltaFormEntry = struct {
+					forms []mbodyform.BodyForm
+					err   error
+				}{forms: deltaForms, err: err}
+				formBodyCache[deltaExample.ID] = deltaFormEntry
+			}
+			var formBodyDelta []mbodyform.BodyForm
+			if deltaFormEntry.err != nil {
+				if deltaFormEntry.err == sbodyform.ErrNoBodyFormFound {
 					formBodyDelta = []mbodyform.BodyForm{}
 				} else {
-					return connect.NewError(connect.CodeInternal, err)
+					return connect.NewError(connect.CodeInternal, deltaFormEntry.err)
 				}
+			} else {
+				formBodyDelta = cloneFormBody(deltaFormEntry.forms)
 			}
 
-			// Delta URL-encoded body: allow none-found (treat as empty)
-			urlBodyDelta, err := c.bues.GetBodyURLEncodedByExampleID(ctx, deltaExample.ID)
-			if err != nil {
-				if err == sbodyurl.ErrNoBodyUrlEncodedFound {
+			deltaURLEntry, ok := urlBodyCache[deltaExample.ID]
+			if !ok {
+				deltaValues, err := c.bues.GetBodyURLEncodedByExampleID(ctx, deltaExample.ID)
+				deltaURLEntry = struct {
+					values []mbodyurl.BodyURLEncoded
+					err    error
+				}{values: deltaValues, err: err}
+				urlBodyCache[deltaExample.ID] = deltaURLEntry
+			}
+			var urlBodyDelta []mbodyurl.BodyURLEncoded
+			if deltaURLEntry.err != nil {
+				if deltaURLEntry.err == sbodyurl.ErrNoBodyUrlEncodedFound {
 					urlBodyDelta = []mbodyurl.BodyURLEncoded{}
 				} else {
-					return connect.NewError(connect.CodeInternal, err)
+					return connect.NewError(connect.CodeInternal, deltaURLEntry.err)
 				}
+			} else {
+				urlBodyDelta = cloneURLBody(deltaURLEntry.values)
 			}
 
 			mergeExamplesInput := request.MergeExamplesInput{
@@ -1089,10 +1168,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 			mergeExampleOutput := request.MergeExamples(mergeExamplesInput)
 			example = &mergeExampleOutput.Merged
-
 			headers = mergeExampleOutput.MergeHeaders
 			queries = mergeExampleOutput.MergeQueries
-
 			rawBody = &mergeExampleOutput.MergeRawBody
 			formBody = mergeExampleOutput.MergeFormBody
 			urlBody = mergeExampleOutput.MergeUrlEncodedBody
@@ -1102,7 +1179,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		name := nodeNameMap[requestNode.FlowNodeID]
 
-		// Create wrapped REQUEST node with pre-registration capability
 		requestNodeInstance := nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
 			*exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan)
 
@@ -1206,12 +1282,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	pendingMutex := sync.Mutex{}
 
-	// Initialize correlation metrics tracking
-	correlationMetrics := NewCorrelationMetrics()
-
-	// Log flow execution start with initial metrics setup
-	log.Printf("🚀 Flow execution started for FlowID %s with correlation metrics tracking enabled", flowID.String())
-
 	// WaitGroup to track all goroutines that send to channels
 	var goroutineWg sync.WaitGroup
 
@@ -1253,7 +1323,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
-    // Removed periodic timeout/cleanup goroutine to simplify flow.
+	// Removed periodic timeout/cleanup goroutine to simplify flow.
 
 	// Main status processing goroutine
 	goroutineWg.Add(1)
@@ -1291,8 +1361,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				// Create new NodeExecution for RUNNING state
 				pendingMutex.Lock()
 				if _, exists := pendingNodeExecutions[executionID]; !exists {
-					// Record pre-registration metrics
-					correlationMetrics.RecordPreRegistration()
 					// Generate execution name with hierarchical format for loop iterations
 					var execName string
 					if flowNodeStatus.IterationContext != nil && len(flowNodeStatus.IterationContext.IterationPath) > 0 {
@@ -1386,53 +1454,30 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							isLoopNode = node.NodeKind == mnnode.NODE_KIND_FOR || node.NodeKind == mnnode.NODE_KIND_FOR_EACH
 						}
 
-						if isLoopNode {
-							// Skip loop main execution in RUNNING state - don't save to DB or send to UI
-							log.Printf("📝 Skipping loop main execution %s in RUNNING state (only iterations and failures are saved)", executionID.String())
-						} else {
+						if !isLoopNode {
 							// Store in pending map for completion (normal flow execution - will be sent to UI)
 							pendingNodeExecutions[executionID] = &nodeExecution
-							correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
-							log.Printf("📝 Pre-registered ExecutionID %s in pending map (state: %d, name: %s, pending_count: %d)",
-								executionID.String(), nodeExecution.State, nodeExecution.Name, len(pendingNodeExecutions))
 						}
 
 						// Only handle orphaned responses for non-loop nodes (loop nodes don't use pending system)
 						if !isLoopNode {
 							// Check if there's an orphaned response waiting for this ExecutionID
 							if orphaned, exists := orphanedResponses[executionID]; exists {
-								// Calculate correlation delay
-								correlationDelay := time.Now().UnixMilli() - orphaned.Timestamp
-								correlationMetrics.RecordDelayedCorrelation(correlationDelay)
-
-								// Log with timing information
-								if correlationMetrics.ShouldWarnAboutDelay(correlationDelay) {
-									log.Printf("⚠️ Delayed correlation for ExecutionID %s after %dms (above %dms threshold)",
-										executionID.String(), correlationDelay, correlationMetrics.delayWarningThreshold)
-								} else {
-									log.Printf("🔄 Correlating orphaned response for ExecutionID %s (delay: %dms)",
-										executionID.String(), correlationDelay)
-								}
-
 								nodeExecution.ResponseID = &orphaned.ResponseID
 
-                                // Update in database immediately (synchronously) to avoid regressing terminal updates later
-                                if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-                                    log.Printf("❌ Failed to upsert delayed correlation %s: %v", nodeExecution.ID, err)
-                                } else {
-                                    log.Printf("✅ Successfully correlated orphaned response for ExecutionID %s (delay: %dms)",
-                                        nodeExecution.ID.String(), correlationDelay)
-                                }
+								// Update in database immediately (synchronously) to avoid regressing terminal updates later
+								if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+									log.Printf("Failed to upsert delayed correlation %s: %v", nodeExecution.ID, err)
+								}
 
-								// Remove from orphaned responses and update metrics
+								// Remove from orphaned responses now that we've applied it
 								delete(orphanedResponses, executionID)
-								correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
 							}
 
-                            // Persist RUNNING state synchronously to preserve ordering
-                            if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-                                log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
-                            }
+							// Persist RUNNING state synchronously to preserve ordering
+							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+								log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
+							}
 						}
 					}
 				}
@@ -1449,12 +1494,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					}
 				}
 
-				// Get node type for REQUEST node detection
-				node, err := c.ns.GetNode(ctx, flowNodeStatus.NodeID)
-				if err != nil {
-					// Log error but continue - we'll treat as non-REQUEST node
-					log.Printf("Could not get node type for %s: %v", flowNodeStatus.NodeID.String(), err)
-				}
+				// Get node kind from cache for REQUEST/loop handling
+				kind := nodeKindMap[flowNodeStatus.NodeID]
 
 				// Handle iteration records separately (they need updates, not pending lookups)
 				if isIterationRecord {
@@ -1482,10 +1523,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					}
 
-                        // Upsert ALL iteration records synchronously to avoid stale RUNNING state after cancel
-                        if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-                            log.Printf("Failed to upsert iteration record %s: %v", nodeExecution.ID.String(), err)
-                        }
+					// Upsert ALL iteration records synchronously to avoid stale RUNNING state after cancel
+					if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+						log.Printf("Failed to upsert iteration record %s: %v", nodeExecution.ID.String(), err)
+					}
 					// ALL iterations are now persisted to database
 				} else {
 					// Update existing NodeExecution with final state (normal flow)
@@ -1497,13 +1538,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						nodeExec.CompletedAt = &completedAt
 
 						// Track last failure for safety-net correction later
-                        // Track last failure (kept for potential diagnostics)
-                        // if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
-                        //     lastFailedMu.Lock()
-                        //     _ = flowNodeStatus
-                        //     _ = executionID
-                        //     lastFailedMu.Unlock()
-                        // }
+						// Track last failure (kept for potential diagnostics)
+						// if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+						//     lastFailedMu.Lock()
+						//     _ = flowNodeStatus
+						//     _ = executionID
+						//     lastFailedMu.Unlock()
+						// }
 
 						// Set error if present
 						if flowNodeStatus.Error != nil {
@@ -1531,13 +1572,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 
-                        // Upsert execution in DB synchronously to ensure terminal state is persisted
-                        if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-                            log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
-                        }
+						// Upsert execution in DB synchronously to ensure terminal state is persisted
+						if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+							log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
+						}
 
 						// For REQUEST nodes, wait for response before sending to channel
-						if node != nil && node.NodeKind == mnnode.NODE_KIND_REQUEST {
+						if kind == mnnode.NODE_KIND_REQUEST {
 							// Mark as completed but keep in pending map for response handling
 							// Don't send to channel yet - wait for response
 						} else {
@@ -1546,10 +1587,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								select {
 								case nodeExecutionChan <- *nodeExec:
 									delete(pendingNodeExecutions, executionID)
-									correlationMetrics.RecordDeregistration()
-									correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
-									log.Printf("🗑️ Deregistered ExecutionID %s from pending map (non-REQUEST node completion, pending_count: %d)",
-										executionID.String(), len(pendingNodeExecutions))
 								case <-stopSending:
 									// Channel closed, don't send
 								}
@@ -1617,18 +1654,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 
 						// Track last failure for safety-net correction later
-                        // Track last failure (kept for potential diagnostics)
-                        // if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
-                        //     lastFailedMu.Lock()
-                        //     _ = flowNodeStatus
-                        //     _ = executionID
-                        //     lastFailedMu.Unlock()
-                        // }
+						// Track last failure (kept for potential diagnostics)
+						// if flowNodeStatus.State == mnnode.NODE_STATE_FAILURE {
+						//     lastFailedMu.Lock()
+						//     _ = flowNodeStatus
+						//     _ = executionID
+						//     lastFailedMu.Unlock()
+						// }
 
-                        // Upsert to DB synchronously to ensure cancellation is persisted before navigation
-                        if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-                            log.Printf("Failed to upsert canceled node execution %s: %v", nodeExecution.ID, err)
-                        }
+						// Upsert to DB synchronously to ensure cancellation is persisted before navigation
+						if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+							log.Printf("Failed to upsert canceled node execution %s: %v", nodeExecution.ID, err)
+						}
 
 						// Send immediately for canceled nodes (with safety check)
 						if !channelsClosed.Load() {
@@ -1642,7 +1679,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					} else {
 						// Handle terminal (failure/canceled) loop nodes that weren't in pending
 						// (because we skip successful loop main executions)
-						if node != nil && (node.NodeKind == mnnode.NODE_KIND_FOR || node.NodeKind == mnnode.NODE_KIND_FOR_EACH) &&
+						if (kind == mnnode.NODE_KIND_FOR || kind == mnnode.NODE_KIND_FOR_EACH) &&
 							(flowNodeStatus.State == mnnode.NODE_STATE_FAILURE || flowNodeStatus.State == mnnode.NODE_STATE_CANCELED) {
 
 							// Create execution record for failed loop nodes (these should be visible in UI)
@@ -1693,16 +1730,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 							}
 
-                        // Upsert to DB synchronously to ensure final state is persisted
-                        if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-                            log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
-                        }
+							// Upsert to DB synchronously to ensure final state is persisted
+							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+								log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
+							}
 
 							// Send immediately for terminal loop nodes to make them visible in UI
 							if !channelsClosed.Load() {
 								select {
 								case nodeExecutionChan <- nodeExecution:
-									log.Printf("📤 Sent terminal loop execution %s to UI (state: %s)", executionID.String(), mnnode.StringNodeState(flowNodeStatus.State))
 								case <-stopSending:
 									// Channel closed, don't send
 								}
@@ -1784,7 +1820,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 			// Handle request node responses
 			select {
-			case requestNodeResp := <-requestNodeRespChan:
+			case requestNodeResp, ok := <-requestNodeRespChan:
+				if !ok {
+					requestNodeRespChan = nil
+					break
+				}
 				err = c.HandleExampleChanges(ctx, requestNodeResp)
 				if err != nil {
 					log.Println("cannot update example on flow run", err)
@@ -1797,46 +1837,24 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 				if targetExecutionID != (idwrap.IDWrap{}) && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
 					if nodeExec, exists := pendingNodeExecutions[targetExecutionID]; exists {
-						// Calculate correlation delay (response arrived after ExecutionID registration)
-						correlationDelay := int64(50) // Approximate immediate correlation delay (0-100ms)
-						correlationMetrics.RecordSuccessfulCorrelation(correlationDelay)
-
-						// Log with timing information
-						if correlationMetrics.ShouldWarnAboutDelay(correlationDelay) {
-							log.Printf("⚠️ Slow correlation for ExecutionID %s (delay: %dms, above %dms threshold)",
-								targetExecutionID.String(), correlationDelay, correlationMetrics.delayWarningThreshold)
-						} else {
-							log.Printf("✅ Immediate correlation for ExecutionID %s (delay: %dms)",
-								targetExecutionID.String(), correlationDelay)
-						}
-
 						respID := requestNodeResp.Resp.ExampleResp.ID
 						nodeExec.ResponseID = &respID
 
-                    // Upsert execution in DB with ResponseID synchronously to avoid regressing terminal fields
-                    if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-                        log.Printf("❌ Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
-                    } else {
-                        log.Printf("✅ Successfully saved response correlation for ExecutionID %s (delay: %dms)",
-                            nodeExec.ID.String(), correlationDelay)
-                    }
+						// Upsert execution in DB with ResponseID synchronously to avoid regressing terminal fields
+						if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+							log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
+						}
 
 						// Now send the completed execution with ResponseID to channel (with safety check)
 						if !channelsClosed.Load() {
 							select {
 							case nodeExecutionChan <- *nodeExec:
 								delete(pendingNodeExecutions, targetExecutionID)
-								correlationMetrics.RecordDeregistration()
-								correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
-								log.Printf("🗑️ Deregistered ExecutionID %s after successful correlation (pending_count: %d)",
-									targetExecutionID.String(), len(pendingNodeExecutions))
 							case <-stopSending:
 								// Channel closed, don't send
 							}
 						} else {
 							delete(pendingNodeExecutions, targetExecutionID)
-							correlationMetrics.RecordDeregistration()
-							correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses))
 						}
 
 						// Also update the corresponding entry in nodeExecutions array
@@ -1847,17 +1865,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 					} else {
-						// Record orphaned response metrics
-						correlationMetrics.RecordOrphanedResponse()
-						correlationMetrics.UpdateMapSizes(len(pendingNodeExecutions), len(orphanedResponses)+1)
-
-						log.Printf("❌ No pending execution found for ExecutionID %s (pending: %d, orphaned: %d)",
+						log.Printf("No pending execution found for response %s (pending: %d, orphaned: %d)",
 							targetExecutionID.String(), len(pendingNodeExecutions), len(orphanedResponses))
 
 						// RACE CONDITION FIX: Store orphaned response for later correlation
 						respID := requestNodeResp.Resp.ExampleResp.ID
-						log.Printf("🔄 Storing orphaned response for ExecutionID %s (ResponseID: %s, pending: %d, orphaned: %d)",
-							targetExecutionID.String(), respID.String(), len(pendingNodeExecutions), len(orphanedResponses)+1)
 
 						orphanedResponses[targetExecutionID] = struct {
 							ResponseID idwrap.IDWrap
@@ -1866,21 +1878,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							ResponseID: respID,
 							Timestamp:  responseReceivedTime.UnixMilli(),
 						}
-
-						// Check for memory warning
-						if correlationMetrics.ShouldWarnAboutMemory(len(pendingNodeExecutions), len(orphanedResponses)) {
-							log.Printf("⚠️ High memory usage detected: pending=%d, orphaned=%d (threshold: %d)",
-								len(pendingNodeExecutions), len(orphanedResponses), correlationMetrics.memoryWarningThreshold)
-						}
 					}
 				}
 				pendingMutex.Unlock()
 
-                localErr := sendExampleResponse(stream, requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID)
-                if localErr != nil {
-                    done <- localErr
-                    return
-                }
+				localErr := sendExampleResponse(stream, requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID)
+				if localErr != nil {
+					done <- localErr
+					return
+				}
 
 			default:
 			}
@@ -1897,15 +1903,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 			}
 
-            var info *string
-            if flowNodeStatus.Error != nil {
-                msg := formatErrForUser(flowNodeStatus.Error)
-                info = &msg
-            }
-            if err := sendNodeStatus(stream, flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
-                done <- err
-                return
-            }
+			var info *string
+			if flowNodeStatus.Error != nil {
+				msg := formatErrForUser(flowNodeStatus.Error)
+				info = &msg
+			}
+			if err := sendNodeStatus(stream, flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
+				done <- err
+				return
+			}
 		}
 
 		for {
@@ -2013,9 +2019,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 	pendingMutex.Unlock()
 
-	// Log final correlation metrics summary
-	log.Printf("🏁 Flow execution completed. %s", correlationMetrics.GetMetricsSummary())
-
 	// Wait for all goroutines to finish before closing channels
 	goroutineWg.Wait()
 
@@ -2031,12 +2034,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// Final cleanup of pre-registered executions
 	preRegisteredMutex.Lock()
-	remainingPreRegistered := len(preRegisteredExecutions)
-	if remainingPreRegistered > 0 {
-		log.Printf("🧹 Cleaning up %d remaining pre-registered executions", remainingPreRegistered)
-		for execID := range preRegisteredExecutions {
-			delete(preRegisteredExecutions, execID)
-		}
+	for execID := range preRegisteredExecutions {
+		delete(preRegisteredExecutions, execID)
 	}
 	preRegisteredMutex.Unlock()
 
