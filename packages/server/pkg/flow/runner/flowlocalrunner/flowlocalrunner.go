@@ -343,6 +343,23 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			delete(nodeStartTimes, result.executionID)
 			runningNodesMutex.Unlock()
 
+			// Prefer node-specific result error over global cancellation status.
+			// If the node returned an error, report it first; only mark as canceled
+			// due to global context cancellation when there is no node error.
+			if result.err != nil {
+				if runner.IsCancellationError(result.err) {
+					status.State = mnnode.NODE_STATE_CANCELED
+				} else {
+					status.State = mnnode.NODE_STATE_FAILURE
+				}
+				status.Error = result.err
+				statusLogFunc(status)
+				lastNodeError = result.err
+				// Trigger cancellation for remaining nodes after reporting this failure
+				FlowNodeCancelCtxCancel()
+				continue
+			}
+
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
@@ -358,19 +375,6 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				runningNodesMutex.Unlock()
 				continue
 			}
-
-            if result.err != nil {
-                if runner.IsCancellationError(result.err) {
-                    status.State = mnnode.NODE_STATE_CANCELED
-                } else {
-                    status.State = mnnode.NODE_STATE_FAILURE
-                }
-                status.Error = result.err
-                statusLogFunc(status)
-                lastNodeError = result.err
-                FlowNodeCancelCtxCancel()
-                continue
-            }
 
 			// All nodes should report SUCCESS when they complete successfully
 			// Loop nodes handle their own iteration tracking internally
@@ -638,6 +642,23 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			delete(nodeStartTimes, result.executionID)
 			runningNodesMutex.Unlock()
 
+			// Prefer node-specific result error over global cancellation status.
+			// If the node returned an error, report it first; only mark as canceled
+			// due to global context cancellation when there is no node error.
+			if result.err != nil {
+				if runner.IsCancellationError(result.err) {
+					status.State = mnnode.NODE_STATE_CANCELED
+				} else {
+					status.State = mnnode.NODE_STATE_FAILURE
+				}
+				status.Error = result.err
+				statusLogFunc(status)
+				lastNodeError = result.err
+				// Trigger cancellation for remaining nodes after reporting this failure
+				FlowNodeCancelCtxCancelFn()
+				continue
+			}
+
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
@@ -653,18 +674,6 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				runningNodesMutex.Unlock()
 				continue
 			}
-            if result.err != nil {
-                if runner.IsCancellationError(result.err) {
-                    status.State = mnnode.NODE_STATE_CANCELED
-                } else {
-                    status.State = mnnode.NODE_STATE_FAILURE
-                }
-                status.Error = result.err
-                statusLogFunc(status)
-                lastNodeError = result.err
-                FlowNodeCancelCtxCancelFn()
-                continue
-            }
 			// All nodes should report SUCCESS when they complete successfully
 			// Loop nodes handle their own iteration tracking internally
 			// FOR/FOREACH nodes set skipFinalStatus to avoid creating empty main execution
