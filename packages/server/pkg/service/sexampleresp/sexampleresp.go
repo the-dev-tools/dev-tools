@@ -87,6 +87,29 @@ func (s ExampleRespService) GetExampleRespByExampleIDLatest(ctx context.Context,
 	return &a, nil
 }
 
+func (s ExampleRespService) GetExampleRespByExampleIDsLatest(ctx context.Context, exampleIDs []idwrap.IDWrap) (map[idwrap.IDWrap]*mexampleresp.ExampleResp, error) {
+	result := make(map[idwrap.IDWrap]*mexampleresp.ExampleResp, len(exampleIDs))
+	if len(exampleIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := s.Queries.GetExampleRespByExampleIDsLatest(ctx, exampleIDs)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return result, nil
+		}
+		return nil, err
+	}
+
+	for _, row := range rows {
+		model := ConvertToModelExampleResp(row)
+		copy := model
+		result[row.ExampleID] = &copy
+	}
+
+	return result, nil
+}
+
 func (s ExampleRespService) CreateExampleResp(ctx context.Context, item mexampleresp.ExampleResp) error {
 	e := ConvertToDBExampleResp(item)
 	return s.Queries.CreateExampleResp(ctx, gen.CreateExampleRespParams{

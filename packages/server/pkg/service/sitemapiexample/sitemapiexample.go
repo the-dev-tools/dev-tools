@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mexamplebreadcrumb"
@@ -15,6 +14,7 @@ import (
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemfolder"
+	"time"
 )
 
 type ItemApiExampleService struct {
@@ -94,13 +94,13 @@ func ConvertOrderedRowToModelItem(row gen.GetExamplesByEndpointIDOrderedRow) *mi
 		id := idwrap.NewFromBytesMust(row.VersionParentID)
 		versionParentID = &id
 	}
-	
+
 	var prev *idwrap.IDWrap
 	if row.Prev != nil {
 		id := idwrap.NewFromBytesMust(row.Prev)
 		prev = &id
 	}
-	
+
 	var next *idwrap.IDWrap
 	if row.Next != nil {
 		id := idwrap.NewFromBytesMust(row.Next)
@@ -187,16 +187,16 @@ func (iaes ItemApiExampleService) AutoLinkIsolatedExamples(ctx context.Context, 
 	// Compare counts to detect isolated examples
 	if len(allExamples) != len(orderedExamples) {
 		// Found isolated examples - attempt repair
-		fmt.Printf("Auto-linking detected %d isolated examples for endpoint %s (total: %d, connected: %d)\n", 
+		fmt.Printf("Auto-linking detected %d isolated examples for endpoint %s (total: %d, connected: %d)\n",
 			len(allExamples)-len(orderedExamples), endpointID.String(), len(allExamples), len(orderedExamples))
-		
+
 		err = iaes.movableRepository.RepairIsolatedExamples(ctx, nil, endpointID)
 		if err != nil {
 			// Log warning but don't fail the operation - this is defensive repair
 			fmt.Printf("Warning: failed to auto-link isolated examples for endpoint %s: %v\n", endpointID.String(), err)
 			return err
 		}
-		
+
 		fmt.Printf("Successfully auto-linked isolated examples for endpoint %s\n", endpointID.String())
 	}
 
@@ -235,6 +235,26 @@ func (iaes ItemApiExampleService) GetApiExample(ctx context.Context, id idwrap.I
 		return nil, err
 	}
 	return ConvertToModelItem(itemApiExample), nil
+}
+
+func (iaes ItemApiExampleService) GetApiExamplesByIDs(ctx context.Context, ids []idwrap.IDWrap) (map[idwrap.IDWrap]*mitemapiexample.ItemApiExample, error) {
+	result := make(map[idwrap.IDWrap]*mitemapiexample.ItemApiExample, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+
+	examples, err := iaes.Queries.GetItemApiExamplesByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, example := range examples {
+		model := ConvertToModelItem(example)
+		copy := *model
+		result[example.ID] = &copy
+	}
+
+	return result, nil
 }
 
 func (iaes ItemApiExampleService) GetExampleAllParents(ctx context.Context, id idwrap.IDWrap, collectionService scollection.CollectionService, folderService sitemfolder.ItemFolderService, endpointService sitemapi.ItemApiService) ([]mexamplebreadcrumb.ExampleBreadcrumb, error) {
@@ -312,7 +332,6 @@ func (iaes ItemApiExampleService) CreateApiExample(ctx context.Context, item *mi
 	return iaes.movableRepository.Create(ctx, nil, *item)
 }
 
-
 func (iaes ItemApiExampleService) CreateApiExampleBulk(ctx context.Context, items []mitemapiexample.ItemApiExample) error {
 	// For bulk creation, use the individual CreateApiExample method to ensure proper linking
 	// This is simpler and more reliable than trying to handle bulk linking logic
@@ -343,10 +362,10 @@ func (iaes ItemApiExampleService) UpdateItemApiExampleOrder(ctx context.Context,
 }
 
 func (iaes ItemApiExampleService) DeleteApiExample(ctx context.Context, id idwrap.IDWrap) error {
-    mgr := movable.NewDefaultLinkedListManager(iaes.movableRepository)
-    return mgr.SafeDelete(ctx, nil, id, func(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
-        return iaes.Queries.DeleteItemApiExample(ctx, itemID)
-    })
+	mgr := movable.NewDefaultLinkedListManager(iaes.movableRepository)
+	return mgr.SafeDelete(ctx, nil, id, func(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
+		return iaes.Queries.DeleteItemApiExample(ctx, itemID)
+	})
 }
 
 // GetMovableRepository returns the movable repository for example operations
@@ -360,14 +379,14 @@ func (iaes ItemApiExampleService) MoveExample(ctx context.Context, endpointID, e
 	if err != nil {
 		return err
 	}
-	
+
 	// Auto-repair any isolated examples after move (defensive programming)
 	repairErr := iaes.AutoLinkIsolatedExamples(ctx, endpointID)
 	if repairErr != nil {
 		// Log warning but don't fail the move operation - user's move succeeded
 		fmt.Printf("Warning: auto-linking after move failed for endpoint %s: %v\n", endpointID.String(), repairErr)
 	}
-	
+
 	return nil
 }
 
@@ -383,7 +402,7 @@ func (iaes ItemApiExampleService) MoveExampleTX(ctx context.Context, tx *sql.Tx,
 	if err != nil {
 		return fmt.Errorf("example not found: %w", err)
 	}
-	
+
 	if example.ItemApiID.Compare(endpointID) != 0 {
 		return fmt.Errorf("example does not belong to the specified endpoint")
 	}
@@ -399,14 +418,14 @@ func (iaes ItemApiExampleService) MoveExampleAfter(ctx context.Context, endpoint
 	if err != nil {
 		return err
 	}
-	
+
 	// Auto-repair any isolated examples after move (defensive programming)
 	repairErr := iaes.AutoLinkIsolatedExamples(ctx, endpointID)
 	if repairErr != nil {
 		// Log warning but don't fail the move operation - user's move succeeded
 		fmt.Printf("Warning: auto-linking after move failed for endpoint %s: %v\n", endpointID.String(), repairErr)
 	}
-	
+
 	return nil
 }
 
@@ -455,14 +474,14 @@ func (iaes ItemApiExampleService) MoveExampleBefore(ctx context.Context, endpoin
 	if err != nil {
 		return err
 	}
-	
+
 	// Auto-repair any isolated examples after move (defensive programming)
 	repairErr := iaes.AutoLinkIsolatedExamples(ctx, endpointID)
 	if repairErr != nil {
 		// Log warning but don't fail the move operation - user's move succeeded
 		fmt.Printf("Warning: auto-linking after move failed for endpoint %s: %v\n", endpointID.String(), repairErr)
 	}
-	
+
 	return nil
 }
 
@@ -501,7 +520,7 @@ func (iaes ItemApiExampleService) validateExampleMove(ctx context.Context, endpo
 	if err != nil {
 		return fmt.Errorf("source example not found: %w", err)
 	}
-	
+
 	if example.ItemApiID.Compare(endpointID) != 0 {
 		return fmt.Errorf("source example does not belong to the specified endpoint")
 	}
@@ -511,7 +530,7 @@ func (iaes ItemApiExampleService) validateExampleMove(ctx context.Context, endpo
 	if err != nil {
 		return fmt.Errorf("target example not found: %w", err)
 	}
-	
+
 	if targetExample.ItemApiID.Compare(endpointID) != 0 {
 		return fmt.Errorf("target example does not belong to the specified endpoint")
 	}

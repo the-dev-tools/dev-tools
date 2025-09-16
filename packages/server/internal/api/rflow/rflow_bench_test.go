@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -13,11 +15,18 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/pkg/compress"
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logconsole"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
@@ -61,6 +70,12 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 	b.Helper()
 
 	ctx := context.Background()
+
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":"ok"}`))
+	}))
 
 	db, closeDB, err := sqlitemem.NewSQLiteMem(ctx)
 	if err != nil {
@@ -213,6 +228,104 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 		b.Fatalf("create noop node: %v", err)
 	}
 
+	collectionID := idwrap.NewNow()
+	if err := queries.CreateCollection(ctx, gen.CreateCollectionParams{
+		ID:          collectionID,
+		WorkspaceID: workspaceID,
+		Name:        "Bench Collection",
+	}); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create collection: %v", err)
+	}
+
+	endpointID := idwrap.NewNow()
+	endpoint := &mitemapi.ItemApi{
+		ID:           endpointID,
+		CollectionID: collectionID,
+		Name:         "Bench Endpoint",
+		Url:          testServer.URL,
+		Method:       "GET",
+	}
+	if err := flowSvc.ias.CreateItemApi(ctx, endpoint); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create endpoint: %v", err)
+	}
+
+	exampleID := idwrap.NewNow()
+	if err := queries.CreateItemApiExample(ctx, gen.CreateItemApiExampleParams{
+		ID:           exampleID,
+		ItemApiID:    endpointID,
+		CollectionID: collectionID,
+		IsDefault:    true,
+		BodyType:     int8(mitemapiexample.BodyTypeRaw),
+		Name:         "Bench Example",
+	}); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create example: %v", err)
+	}
+
+	if err := flowSvc.brs.CreateBodyRaw(ctx, mbodyraw.ExampleBodyRaw{
+		ID:            idwrap.NewNow(),
+		ExampleID:     exampleID,
+		VisualizeMode: mbodyraw.VisualizeModeJSON,
+		CompressType:  compress.CompressTypeNone,
+		Data:          []byte(`{"message":"hello"}`),
+	}); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create raw body: %v", err)
+	}
+
+	if err := flowSvc.ers.CreateExampleResp(ctx, mexampleresp.ExampleResp{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+		Status:    200,
+		Body:      []byte("{}"),
+	}); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create example response: %v", err)
+	}
+
+	requestNodeID := idwrap.NewNow()
+	requestNode := mnnode.MNode{
+		ID:       requestNodeID,
+		FlowID:   flowID,
+		Name:     "Request",
+		NodeKind: mnnode.NODE_KIND_REQUEST,
+	}
+	if err := flowSvc.ns.CreateNode(ctx, requestNode); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create request node: %v", err)
+	}
+
+	if err := flowSvc.rns.CreateNodeRequest(ctx, mnrequest.MNRequest{
+		FlowNodeID: requestNodeID,
+		EndpointID: &endpointID,
+		ExampleID:  &exampleID,
+	}); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create node request: %v", err)
+	}
+
+	if err := flowSvc.fes.CreateEdge(ctx, edge.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      startNodeID,
+		TargetID:      requestNodeID,
+		SourceHandler: edge.HandleUnspecified,
+		Kind:          int32(edge.EdgeKindNoOp),
+	}); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create flow edge: %v", err)
+	}
+
 	logCh := logMap.AddLogChannel(userID)
 	stopLogs := make(chan struct{})
 	go func() {
@@ -229,6 +342,7 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 	req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes()})
 
 	cleanup := func() {
+		testServer.Close()
 		close(stopLogs)
 		logMap.DeleteLogChannel(userID)
 		if err := queries.Close(); err != nil {

@@ -79,6 +79,29 @@ func (brs BodyRawService) GetBodyRawByExampleID(ctx context.Context, exampleID i
 	return &body, nil
 }
 
+func (brs BodyRawService) GetBodyRawsByExampleIDs(ctx context.Context, exampleIDs []idwrap.IDWrap) (map[idwrap.IDWrap]*mbodyraw.ExampleBodyRaw, error) {
+	result := make(map[idwrap.IDWrap]*mbodyraw.ExampleBodyRaw, len(exampleIDs))
+	if len(exampleIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := brs.queries.GetBodyRawsByExampleIDs(ctx, exampleIDs)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return result, nil
+		}
+		return nil, err
+	}
+
+	for _, row := range rows {
+		model := ConvertGenToModel(row)
+		copy := model
+		result[row.ExampleID] = &copy
+	}
+
+	return result, nil
+}
+
 func (brs BodyRawService) CreateBodyRaw(ctx context.Context, body mbodyraw.ExampleBodyRaw) error {
 	bodyRaw := ConvertModelToGen(body)
 	return brs.queries.CreateBodyRaw(ctx, gen.CreateBodyRawParams{

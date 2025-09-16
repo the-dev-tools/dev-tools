@@ -24,6 +24,24 @@ WHERE
 LIMIT
   1;
 
+-- name: GetItemApisByIDs :many
+SELECT
+  id,
+  collection_id,
+  folder_id,
+  name,
+  url,
+  method,
+  version_parent_id,
+  delta_parent_id,
+  hidden,
+  prev,
+  next
+FROM
+  item_api
+WHERE
+  id IN (sqlc.slice('ids'));
+
 
 -- name: GetItemApiByCollectionIDAndNextIDAndParentID :one
 SELECT
@@ -188,6 +206,22 @@ WHERE
   id = ?
 LIMIT
   1;
+
+-- name: GetItemApiExamplesByIDs :many
+SELECT
+    id,
+    item_api_id,
+    collection_id,
+    is_default,
+    body_type,
+    name,
+    version_parent_id,
+    prev,
+    next
+FROM
+  item_api_example
+WHERE
+  id IN (sqlc.slice('ids'));
 
 -- name: GetItemExampleByCollectionIDAndNextIDAndItemApiID :one
 SELECT
@@ -1479,6 +1513,23 @@ FROM
 WHERE
   example_id = ?;
 
+-- name: GetHeadersByExampleIDs :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  header_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_header
+WHERE
+  example_id IN (sqlc.slice('example_ids'))
+ORDER BY example_id;
+
 -- name: GetHeadersByExampleIDOrdered :many
 -- Uses WITH RECURSIVE CTE to traverse linked list from head to tail for example-scoped ordering
 -- Headers are scoped to specific examples via example_id column
@@ -1708,6 +1759,21 @@ FROM
 WHERE
   example_id = ?;
 
+-- name: GetQueriesByExampleIDs :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  query_key,
+  enable,
+  description,
+  value
+FROM
+  example_query
+WHERE
+  example_id IN (sqlc.slice('example_ids'))
+ORDER BY example_id;
+
 -- name: GetQueryByDeltaParentID :one
 SELECT
   id,
@@ -1800,6 +1866,21 @@ FROM
     example_body_form
 WHERE
     example_id = ?;
+
+-- name: GetBodyFormsByExampleIDs :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  body_key,
+  enable,
+  description,
+  value
+FROM
+    example_body_form
+WHERE
+    example_id IN (sqlc.slice('example_ids'))
+ORDER BY example_id;
 
 -- name: GetBodyFormsByDeltaParentID :many
 SELECT
@@ -1907,6 +1988,23 @@ FROM
   example_body_urlencoded
 WHERE
   example_id = ?;
+
+-- name: GetBodyUrlEncodedsByExampleIDs :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  body_key,
+  enable,
+  description,
+  value,
+  prev,
+  next
+FROM
+  example_body_urlencoded
+WHERE
+  example_id IN (sqlc.slice('example_ids'))
+ORDER BY example_id;
 
 -- name: GetBodyUrlEncodedsByExampleIDOrdered :many
 -- Uses WITH RECURSIVE CTE to traverse linked list from head to tail for example-scoped ordering
@@ -2115,6 +2213,19 @@ FROM
 WHERE
   example_id = ?
 LIMIT 1;
+
+-- name: GetBodyRawsByExampleIDs :many
+SELECT
+  id,
+  example_id,
+  visualize_mode,
+  compress_type,
+  data
+FROM
+  example_body_raw
+WHERE
+  example_id IN (sqlc.slice('example_ids'))
+ORDER BY example_id;
 
 -- name: CreateBodyRaw :exec
 INSERT INTO
@@ -2513,6 +2624,26 @@ WHERE
 ORDER BY id DESC
 LIMIT 1;
 
+-- name: GetExampleRespByExampleIDsLatest :many
+SELECT
+  id,
+  example_id,
+  status,
+  body,
+  body_compress_type,
+  duration
+FROM (
+  SELECT
+    er.*, 
+    ROW_NUMBER() OVER (PARTITION BY er.example_id ORDER BY er.id DESC) AS rn
+  FROM
+    example_resp er
+  WHERE
+    er.example_id IN (sqlc.slice('example_ids'))
+)
+WHERE
+  rn = 1;
+
 -- name: CreateExampleResp :exec
 INSERT INTO
   example_resp (id, example_id, status, body, body_compress_type, duration)
@@ -2561,6 +2692,18 @@ FROM
   example_resp_header
 WHERE
   example_resp_id = ?;
+
+-- name: GetExampleRespHeadersByRespIDs :many
+SELECT
+  id,
+  example_resp_id,
+  header_key,
+  value
+FROM
+  example_resp_header
+WHERE
+  example_resp_id IN (sqlc.slice('resp_ids'))
+ORDER BY example_resp_id;
 
 -- name: CreateExampleRespHeader :exec
 INSERT INTO
@@ -2624,6 +2767,21 @@ FROM
   assertion
 WHERE
   example_id = ?;
+
+-- name: GetAssertsByExampleIDs :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  expression,
+  enable,
+  prev,
+  next
+FROM
+  assertion
+WHERE
+  example_id IN (sqlc.slice('example_ids'))
+ORDER BY example_id;
 
 -- name: CreateAssert :exec
 INSERT INTO

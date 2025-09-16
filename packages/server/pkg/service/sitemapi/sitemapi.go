@@ -79,6 +79,26 @@ func (ias ItemApiService) GetItemApi(ctx context.Context, id idwrap.IDWrap) (*mi
 	return &item, nil
 }
 
+func (ias ItemApiService) GetItemApisByIDs(ctx context.Context, ids []idwrap.IDWrap) (map[idwrap.IDWrap]*mitemapi.ItemApi, error) {
+	result := make(map[idwrap.IDWrap]*mitemapi.ItemApi, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+
+	items, err := ias.queries.GetItemApisByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, item := range items {
+		model := ConvertToModelItemApi(item)
+		copy := model
+		result[item.ID] = &copy
+	}
+
+	return result, nil
+}
+
 func (ias ItemApiService) CreateItemApi(ctx context.Context, item *mitemapi.ItemApi) error {
 	itemConverted := ConvertToDBItemApi(*item)
 	return ias.queries.CreateItemApi(ctx, gen.CreateItemApiParams{

@@ -195,6 +195,29 @@ func (bfs BodyFormService) GetBodyFormsByExampleID(ctx context.Context, exampleI
 	return tgeneric.MassConvert(bodyForms, DeserializeGenToModel), nil
 }
 
+func (bfs BodyFormService) GetBodyFormsByExampleIDs(ctx context.Context, exampleIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]mbodyform.BodyForm, error) {
+	result := make(map[idwrap.IDWrap][]mbodyform.BodyForm, len(exampleIDs))
+	if len(exampleIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := bfs.queries.GetBodyFormsByExampleIDs(ctx, exampleIDs)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return result, nil
+		}
+		return nil, err
+	}
+
+	for _, row := range rows {
+		model := DeserializeGenToModel(row)
+		exampleID := model.ExampleID
+		result[exampleID] = append(result[exampleID], model)
+	}
+
+	return result, nil
+}
+
 func (bfs BodyFormService) CreateBodyForm(ctx context.Context, body *mbodyform.BodyForm) error {
 	bf := SeralizeModeltoGen(*body)
 	return bfs.queries.CreateBodyForm(ctx, gen.CreateBodyFormParams{

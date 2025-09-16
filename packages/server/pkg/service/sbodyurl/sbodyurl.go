@@ -114,6 +114,39 @@ func (bues BodyURLEncodedService) GetBodyURLEncodedByExampleID(ctx context.Conte
 	return out, nil
 }
 
+func (bues BodyURLEncodedService) GetBodyURLEncodedByExampleIDs(ctx context.Context, exampleIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]mbodyurl.BodyURLEncoded, error) {
+	result := make(map[idwrap.IDWrap][]mbodyurl.BodyURLEncoded, len(exampleIDs))
+	if len(exampleIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := bues.queries.GetBodyUrlEncodedsByExampleIDs(ctx, exampleIDs)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return result, nil
+		}
+		return nil, err
+	}
+
+	for _, r := range rows {
+		item := mbodyurl.BodyURLEncoded{
+			ID:          r.ID,
+			ExampleID:   r.ExampleID,
+			BodyKey:     r.BodyKey,
+			Enable:      r.Enable,
+			Description: r.Description,
+			Value:       r.Value,
+		}
+		if r.DeltaParentID != nil {
+			v := *r.DeltaParentID
+			item.DeltaParentID = &v
+		}
+		result[item.ExampleID] = append(result[item.ExampleID], item)
+	}
+
+	return result, nil
+}
+
 // GetBodyURLEncodedByExampleIDOrdered returns URL-encoded bodies ordered by linked list for the example
 func (bues BodyURLEncodedService) GetBodyURLEncodedByExampleIDOrdered(ctx context.Context, exampleID idwrap.IDWrap) ([]mbodyurl.BodyURLEncoded, error) {
 	// Safely reconstruct order in memory to avoid recursive CTE hangs

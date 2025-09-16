@@ -83,6 +83,28 @@ func (as AssertService) GetAssertByExampleID(ctx context.Context, id idwrap.IDWr
 	return tgeneric.MassConvert(asserts, ConvertAssertDBToModel), nil
 }
 
+func (as AssertService) GetAssertsByExampleIDs(ctx context.Context, exampleIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]massert.Assert, error) {
+	result := make(map[idwrap.IDWrap][]massert.Assert, len(exampleIDs))
+	if len(exampleIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := as.queries.GetAssertsByExampleIDs(ctx, exampleIDs)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return result, nil
+		}
+		return nil, err
+	}
+
+	for _, row := range rows {
+		model := ConvertAssertDBToModel(row)
+		result[model.ExampleID] = append(result[model.ExampleID], model)
+	}
+
+	return result, nil
+}
+
 func (as AssertService) UpdateAssert(ctx context.Context, assert massert.Assert) error {
 	arg := ConvertAssertModelToDB(assert)
 	return as.queries.UpdateAssert(ctx, gen.UpdateAssertParams{

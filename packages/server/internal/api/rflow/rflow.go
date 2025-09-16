@@ -17,6 +17,7 @@ import (
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/internal/api/rtag"
 	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/pkg/cachettl"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -209,6 +210,11 @@ func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap
 	return "Execution 1"
 }
 
+const (
+	cacheDefaultTTL      = 3 * time.Second
+	cacheCleanupInterval = time.Minute
+)
+
 type FlowServiceRPC struct {
 	DB *sql.DB
 	ws sworkspace.WorkspaceService
@@ -251,6 +257,18 @@ type FlowServiceRPC struct {
 	nes snodeexecution.NodeExecutionService
 
 	logChanMap logconsole.LogChanMap
+
+	// caches to avoid hot-path DB fetches on repeated requests
+	itemAPICache        *cachettl.Cache[idwrap.IDWrap, *mitemapi.ItemApi]
+	itemApiExampleCache *cachettl.Cache[idwrap.IDWrap, *mitemapiexample.ItemApiExample]
+	headerCache         *cachettl.Cache[idwrap.IDWrap, []mexampleheader.Header]
+	queryCache          *cachettl.Cache[idwrap.IDWrap, []mexamplequery.Query]
+	bodyRawCache        *cachettl.Cache[idwrap.IDWrap, *mbodyraw.ExampleBodyRaw]
+	bodyFormCache       *cachettl.Cache[idwrap.IDWrap, []mbodyform.BodyForm]
+	bodyURLCache        *cachettl.Cache[idwrap.IDWrap, []mbodyurl.BodyURLEncoded]
+	assertCache         *cachettl.Cache[idwrap.IDWrap, []massert.Assert]
+	exampleRespCache    *cachettl.Cache[idwrap.IDWrap, *mexampleresp.ExampleResp]
+	respHeaderCache     *cachettl.Cache[idwrap.IDWrap, []mexamplerespheader.ExampleRespHeader]
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts stag.TagService,
@@ -311,9 +329,233 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 		nes: nes,
 
 		logChanMap: logChanMap,
+
+		itemAPICache:        cachettl.New[idwrap.IDWrap, *mitemapi.ItemApi](cacheDefaultTTL, cacheCleanupInterval),
+		itemApiExampleCache: cachettl.New[idwrap.IDWrap, *mitemapiexample.ItemApiExample](cacheDefaultTTL, cacheCleanupInterval),
+		headerCache:         cachettl.New[idwrap.IDWrap, []mexampleheader.Header](cacheDefaultTTL, cacheCleanupInterval),
+		queryCache:          cachettl.New[idwrap.IDWrap, []mexamplequery.Query](cacheDefaultTTL, cacheCleanupInterval),
+		bodyRawCache:        cachettl.New[idwrap.IDWrap, *mbodyraw.ExampleBodyRaw](cacheDefaultTTL, cacheCleanupInterval),
+		bodyFormCache:       cachettl.New[idwrap.IDWrap, []mbodyform.BodyForm](cacheDefaultTTL, cacheCleanupInterval),
+		bodyURLCache:        cachettl.New[idwrap.IDWrap, []mbodyurl.BodyURLEncoded](cacheDefaultTTL, cacheCleanupInterval),
+		assertCache:         cachettl.New[idwrap.IDWrap, []massert.Assert](cacheDefaultTTL, cacheCleanupInterval),
+		exampleRespCache:    cachettl.New[idwrap.IDWrap, *mexampleresp.ExampleResp](cacheDefaultTTL, cacheCleanupInterval),
+		respHeaderCache:     cachettl.New[idwrap.IDWrap, []mexamplerespheader.ExampleRespHeader](cacheDefaultTTL, cacheCleanupInterval),
 	}
 }
 
+func cloneItemAPI(src *mitemapi.ItemApi) *mitemapi.ItemApi {
+	if src == nil {
+		return nil
+	}
+	copyVal := *src
+	return &copyVal
+}
+
+func cloneExample(src *mitemapiexample.ItemApiExample) *mitemapiexample.ItemApiExample {
+	if src == nil {
+		return nil
+	}
+	copyVal := *src
+	return &copyVal
+}
+
+func cloneHeaders(src []mexampleheader.Header) []mexampleheader.Header {
+	return append([]mexampleheader.Header(nil), src...)
+}
+
+func cloneQueries(src []mexamplequery.Query) []mexamplequery.Query {
+	return append([]mexamplequery.Query(nil), src...)
+}
+
+func cloneFormBody(src []mbodyform.BodyForm) []mbodyform.BodyForm {
+	return append([]mbodyform.BodyForm(nil), src...)
+}
+
+func cloneURLBody(src []mbodyurl.BodyURLEncoded) []mbodyurl.BodyURLEncoded {
+	return append([]mbodyurl.BodyURLEncoded(nil), src...)
+}
+
+func cloneRawBody(src *mbodyraw.ExampleBodyRaw) *mbodyraw.ExampleBodyRaw {
+	if src == nil {
+		return nil
+	}
+	copyVal := *src
+	copyVal.Data = append([]byte(nil), src.Data...)
+	return &copyVal
+}
+
+func cloneExampleResp(src *mexampleresp.ExampleResp) *mexampleresp.ExampleResp {
+	if src == nil {
+		return nil
+	}
+	copyVal := *src
+	copyVal.Body = append([]byte(nil), src.Body...)
+	return &copyVal
+}
+
+func cloneRespHeaders(src []mexamplerespheader.ExampleRespHeader) []mexamplerespheader.ExampleRespHeader {
+	return append([]mexamplerespheader.ExampleRespHeader(nil), src...)
+}
+
+func cloneAsserts(src []massert.Assert) []massert.Assert {
+	return append([]massert.Assert(nil), src...)
+}
+
+func (c *FlowServiceRPC) loadItemApi(ctx context.Context, id idwrap.IDWrap) (*mitemapi.ItemApi, error) {
+	if val, ok := c.itemAPICache.Get(id); ok {
+		return val, nil
+	}
+
+	endpoint, err := c.ias.GetItemApi(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	c.itemAPICache.Set(id, endpoint)
+	return endpoint, nil
+}
+
+func (c *FlowServiceRPC) loadItemApiExample(ctx context.Context, id idwrap.IDWrap) (*mitemapiexample.ItemApiExample, error) {
+	if val, ok := c.itemApiExampleCache.Get(id); ok {
+		return val, nil
+	}
+
+	example, err := c.es.GetApiExample(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	c.itemApiExampleCache.Set(id, example)
+	return example, nil
+}
+
+func (c *FlowServiceRPC) loadHeaders(ctx context.Context, id idwrap.IDWrap) ([]mexampleheader.Header, error) {
+	if val, ok := c.headerCache.Get(id); ok {
+		return val, nil
+	}
+
+	headers, err := c.hs.GetHeaderByExampleID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	c.headerCache.Set(id, headers)
+	return headers, nil
+}
+
+func (c *FlowServiceRPC) loadQueries(ctx context.Context, id idwrap.IDWrap) ([]mexamplequery.Query, error) {
+	if val, ok := c.queryCache.Get(id); ok {
+		return val, nil
+	}
+
+	queries, err := c.qs.GetExampleQueriesByExampleID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sexamplequery.ErrNoQueryFound) {
+			c.queryCache.Set(id, []mexamplequery.Query{})
+			return []mexamplequery.Query{}, nil
+		}
+		return nil, err
+	}
+
+	c.queryCache.Set(id, queries)
+	return queries, nil
+}
+
+func (c *FlowServiceRPC) loadBodyRaw(ctx context.Context, id idwrap.IDWrap) (*mbodyraw.ExampleBodyRaw, error) {
+	if val, ok := c.bodyRawCache.Get(id); ok {
+		return val, nil
+	}
+
+	body, err := c.brs.GetBodyRawByExampleID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	c.bodyRawCache.Set(id, body)
+	return body, nil
+}
+
+func (c *FlowServiceRPC) loadBodyForms(ctx context.Context, id idwrap.IDWrap) ([]mbodyform.BodyForm, error) {
+	if val, ok := c.bodyFormCache.Get(id); ok {
+		return val, nil
+	}
+
+	forms, err := c.bfs.GetBodyFormsByExampleID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sbodyform.ErrNoBodyFormFound) {
+			c.bodyFormCache.Set(id, []mbodyform.BodyForm{})
+			return []mbodyform.BodyForm{}, nil
+		}
+		return nil, err
+	}
+
+	c.bodyFormCache.Set(id, forms)
+	return forms, nil
+}
+
+func (c *FlowServiceRPC) loadBodyURL(ctx context.Context, id idwrap.IDWrap) ([]mbodyurl.BodyURLEncoded, error) {
+	if val, ok := c.bodyURLCache.Get(id); ok {
+		return val, nil
+	}
+
+	values, err := c.bues.GetBodyURLEncodedByExampleID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	c.bodyURLCache.Set(id, values)
+	return values, nil
+}
+
+func (c *FlowServiceRPC) loadAsserts(ctx context.Context, id idwrap.IDWrap) ([]massert.Assert, error) {
+	if val, ok := c.assertCache.Get(id); ok {
+		return val, nil
+	}
+
+	asserts, err := c.as.GetAssertByExampleID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sassert.ErrNoAssertFound) {
+			c.assertCache.Set(id, []massert.Assert{})
+			return []massert.Assert{}, nil
+		}
+		return nil, err
+	}
+
+	c.assertCache.Set(id, asserts)
+	return asserts, nil
+}
+
+func (c *FlowServiceRPC) loadExampleResp(ctx context.Context, id idwrap.IDWrap) (*mexampleresp.ExampleResp, error) {
+	if val, ok := c.exampleRespCache.Get(id); ok {
+		return val, nil
+	}
+
+	resp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, id)
+	if err != nil {
+		if errors.Is(err, sexampleresp.ErrNoRespFound) {
+			c.exampleRespCache.Set(id, nil)
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	c.exampleRespCache.Set(id, resp)
+	return resp, nil
+}
+
+func (c *FlowServiceRPC) loadRespHeaders(ctx context.Context, id idwrap.IDWrap) ([]mexamplerespheader.ExampleRespHeader, error) {
+	if val, ok := c.respHeaderCache.Get(id); ok {
+		return val, nil
+	}
+
+	headers, err := c.erhs.GetHeaderByRespID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	c.respHeaderCache.Set(id, headers)
+	return headers, nil
+}
 func CreateService(srv FlowServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
 	path, handler := flowv1connect.NewFlowServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
@@ -731,105 +973,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	preRegisteredExecutions := make(map[idwrap.IDWrap]struct{})
 	preRegisteredMutex := sync.RWMutex{}
 
-	endpointCache := make(map[idwrap.IDWrap]struct {
-		endpoint *mitemapi.ItemApi
-		err      error
-	})
-	exampleCache := make(map[idwrap.IDWrap]struct {
-		example *mitemapiexample.ItemApiExample
-		err     error
-	})
-	headersCache := make(map[idwrap.IDWrap]struct {
-		headers []mexampleheader.Header
-		err     error
-	})
-	queriesCache := make(map[idwrap.IDWrap]struct {
-		queries []mexamplequery.Query
-		err     error
-	})
-	rawBodyCache := make(map[idwrap.IDWrap]struct {
-		body *mbodyraw.ExampleBodyRaw
-		err  error
-	})
-	formBodyCache := make(map[idwrap.IDWrap]struct {
-		forms []mbodyform.BodyForm
-		err   error
-	})
-	urlBodyCache := make(map[idwrap.IDWrap]struct {
-		values []mbodyurl.BodyURLEncoded
-		err    error
-	})
-	respCache := make(map[idwrap.IDWrap]struct {
-		resp *mexampleresp.ExampleResp
-		err  error
-	})
-	respHeaderCache := make(map[idwrap.IDWrap]struct {
-		headers []mexamplerespheader.ExampleRespHeader
-		err     error
-	})
-	assertCache := make(map[idwrap.IDWrap]struct {
-		asserts []massert.Assert
-		err     error
-	})
-
-	cloneItemAPI := func(src *mitemapi.ItemApi) *mitemapi.ItemApi {
-		if src == nil {
-			return nil
-		}
-		copyVal := *src
-		return &copyVal
-	}
-
-	cloneExample := func(src *mitemapiexample.ItemApiExample) *mitemapiexample.ItemApiExample {
-		if src == nil {
-			return nil
-		}
-		copyVal := *src
-		return &copyVal
-	}
-
-	cloneHeaders := func(src []mexampleheader.Header) []mexampleheader.Header {
-		return append([]mexampleheader.Header(nil), src...)
-	}
-
-	cloneQueries := func(src []mexamplequery.Query) []mexamplequery.Query {
-		return append([]mexamplequery.Query(nil), src...)
-	}
-
-	cloneFormBody := func(src []mbodyform.BodyForm) []mbodyform.BodyForm {
-		return append([]mbodyform.BodyForm(nil), src...)
-	}
-
-	cloneURLBody := func(src []mbodyurl.BodyURLEncoded) []mbodyurl.BodyURLEncoded {
-		return append([]mbodyurl.BodyURLEncoded(nil), src...)
-	}
-
-	cloneRawBody := func(src *mbodyraw.ExampleBodyRaw) *mbodyraw.ExampleBodyRaw {
-		if src == nil {
-			return nil
-		}
-		copyVal := *src
-		copyVal.Data = append([]byte(nil), src.Data...)
-		return &copyVal
-	}
-
-	cloneExampleResp := func(src *mexampleresp.ExampleResp) *mexampleresp.ExampleResp {
-		if src == nil {
-			return nil
-		}
-		copyVal := *src
-		copyVal.Body = append([]byte(nil), src.Body...)
-		return &copyVal
-	}
-
-	cloneRespHeaders := func(src []mexamplerespheader.ExampleRespHeader) []mexamplerespheader.ExampleRespHeader {
-		return append([]mexamplerespheader.ExampleRespHeader(nil), src...)
-	}
-
-	cloneAsserts := func(src []massert.Assert) []massert.Assert {
-		return append([]massert.Assert(nil), src...)
-	}
-
 	for _, forNode := range forNodes {
 		name := nodeNameMap[forNode.FlowNodeID]
 
@@ -843,202 +986,100 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
+	sharedHTTPClient := httpclient.New()
 	for _, requestNode := range requestNodes {
 
 		if requestNode.EndpointID == nil || requestNode.ExampleID == nil {
 			return connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", requestNode.FlowNodeID))
 		}
 
-		endpointEntry, ok := endpointCache[*requestNode.EndpointID]
-		if !ok {
-			endpoint, err := c.ias.GetItemApi(ctx, *requestNode.EndpointID)
-			endpointEntry = struct {
-				endpoint *mitemapi.ItemApi
-				err      error
-			}{endpoint: endpoint, err: err}
-			endpointCache[*requestNode.EndpointID] = endpointEntry
+		endpointModel, err := c.loadItemApi(ctx, *requestNode.EndpointID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
 		}
-		if endpointEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, endpointEntry.err)
-		}
-		endpoint := cloneItemAPI(endpointEntry.endpoint)
+		endpoint := cloneItemAPI(endpointModel)
 
-		exampleEntry, ok := exampleCache[*requestNode.ExampleID]
-		if !ok {
-			example, err := c.es.GetApiExample(ctx, *requestNode.ExampleID)
-			exampleEntry = struct {
-				example *mitemapiexample.ItemApiExample
-				err     error
-			}{example: example, err: err}
-			exampleCache[*requestNode.ExampleID] = exampleEntry
+		exampleModel, err := c.loadItemApiExample(ctx, *requestNode.ExampleID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
 		}
-		if exampleEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, exampleEntry.err)
-		}
-		example := cloneExample(exampleEntry.example)
+		example := cloneExample(exampleModel)
 
 		if example.ItemApiID != endpoint.ID {
 			return connect.NewError(connect.CodeInternal, errors.New("example and endpoint not match"))
 		}
 
-		headersEntry, ok := headersCache[example.ID]
-		if !ok {
-			headers, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
-			headersEntry = struct {
-				headers []mexampleheader.Header
-				err     error
-			}{headers: headers, err: err}
-			headersCache[example.ID] = headersEntry
+		headersData, err := c.loadHeaders(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
 		}
-		if headersEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, errors.New("get headers"))
-		}
-		headers := cloneHeaders(headersEntry.headers)
+		headers := cloneHeaders(headersData)
 
-		queriesEntry, ok := queriesCache[example.ID]
-		if !ok {
-			queries, err := c.qs.GetExampleQueriesByExampleID(ctx, example.ID)
-			queriesEntry = struct {
-				queries []mexamplequery.Query
-				err     error
-			}{queries: queries, err: err}
-			queriesCache[example.ID] = queriesEntry
+		queriesData, err := c.loadQueries(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
 		}
-		if queriesEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, errors.New("get queries"))
-		}
-		queries := cloneQueries(queriesEntry.queries)
+		queries := cloneQueries(queriesData)
 
-		rawEntry, ok := rawBodyCache[example.ID]
-		if !ok {
-			raw, err := c.brs.GetBodyRawByExampleID(ctx, example.ID)
-			rawEntry = struct {
-				body *mbodyraw.ExampleBodyRaw
-				err  error
-			}{body: raw, err: err}
-			rawBodyCache[example.ID] = rawEntry
+		rawModel, err := c.loadBodyRaw(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
 		}
-		if rawEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, rawEntry.err)
-		}
-		rawBody := cloneRawBody(rawEntry.body)
+		rawBody := cloneRawBody(rawModel)
 
-		formEntry, ok := formBodyCache[example.ID]
-		if !ok {
-			forms, err := c.bfs.GetBodyFormsByExampleID(ctx, example.ID)
-			formEntry = struct {
-				forms []mbodyform.BodyForm
-				err   error
-			}{forms: forms, err: err}
-			formBodyCache[example.ID] = formEntry
+		formModels, err := c.loadBodyForms(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
 		}
-		if formEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, formEntry.err)
-		}
-		formBody := cloneFormBody(formEntry.forms)
+		formBody := cloneFormBody(formModels)
 
-		urlEntry, ok := urlBodyCache[example.ID]
-		if !ok {
-			values, err := c.bues.GetBodyURLEncodedByExampleID(ctx, example.ID)
-			urlEntry = struct {
-				values []mbodyurl.BodyURLEncoded
-				err    error
-			}{values: values, err: err}
-			urlBodyCache[example.ID] = urlEntry
+		urlModels, err := c.loadBodyURL(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
 		}
-		if urlEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, urlEntry.err)
-		}
-		urlBody := cloneURLBody(urlEntry.values)
+		urlBody := cloneURLBody(urlModels)
 
-		respEntry, ok := respCache[example.ID]
-		if !ok {
-			exampleResp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, example.ID)
-			if err != nil {
-				if err == sexampleresp.ErrNoRespFound {
-					exampleResp = &mexampleresp.ExampleResp{
-						ID:        idwrap.NewNow(),
-						ExampleID: example.ID,
-					}
-					if createErr := c.ers.CreateExampleResp(ctx, *exampleResp); createErr != nil {
-						err = createErr
-					} else {
-						err = nil
-					}
-				}
+		exampleRespModel, err := c.loadExampleResp(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		if exampleRespModel == nil {
+			exampleRespModel = &mexampleresp.ExampleResp{
+				ID:        idwrap.NewNow(),
+				ExampleID: example.ID,
 			}
-			respEntry = struct {
-				resp *mexampleresp.ExampleResp
-				err  error
-			}{resp: exampleResp, err: err}
-			respCache[example.ID] = respEntry
-		}
-		if respEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, respEntry.err)
-		}
-		exampleResp := cloneExampleResp(respEntry.resp)
-
-		respHeaderEntry, ok := respHeaderCache[exampleResp.ID]
-		if !ok {
-			headers, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
-			respHeaderEntry = struct {
-				headers []mexamplerespheader.ExampleRespHeader
-				err     error
-			}{headers: headers, err: err}
-			respHeaderCache[exampleResp.ID] = respHeaderEntry
-		}
-		if respHeaderEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, errors.New("get example resp header"))
-		}
-		exampleRespHeader := cloneRespHeaders(respHeaderEntry.headers)
-
-		assertEntry, ok := assertCache[example.ID]
-		if !ok {
-			asserts, err := c.as.GetAssertByExampleID(ctx, example.ID)
-			if err == sassert.ErrNoAssertFound {
-				asserts = []massert.Assert{}
-				err = nil
+			if createErr := c.ers.CreateExampleResp(ctx, *exampleRespModel); createErr != nil {
+				return connect.NewError(connect.CodeInternal, createErr)
 			}
-			assertEntry = struct {
-				asserts []massert.Assert
-				err     error
-			}{asserts: asserts, err: err}
-			assertCache[example.ID] = assertEntry
+			c.exampleRespCache.Set(example.ID, exampleRespModel)
 		}
-		if assertEntry.err != nil {
-			return connect.NewError(connect.CodeInternal, assertEntry.err)
+		exampleResp := cloneExampleResp(exampleRespModel)
+
+		respHeaders, err := c.loadRespHeaders(ctx, exampleResp.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
 		}
-		asserts := cloneAsserts(assertEntry.asserts)
+		exampleRespHeader := cloneRespHeaders(respHeaders)
+
+		assertModels, err := c.loadAsserts(ctx, example.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+		asserts := cloneAsserts(assertModels)
 
 		if requestNode.DeltaExampleID != nil {
-			deltaExampleEntry, ok := exampleCache[*requestNode.DeltaExampleID]
-			if !ok {
-				deltaExample, err := c.es.GetApiExample(ctx, *requestNode.DeltaExampleID)
-				deltaExampleEntry = struct {
-					example *mitemapiexample.ItemApiExample
-					err     error
-				}{example: deltaExample, err: err}
-				exampleCache[*requestNode.DeltaExampleID] = deltaExampleEntry
+			deltaExampleModel, err := c.loadItemApiExample(ctx, *requestNode.DeltaExampleID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
 			}
-			if deltaExampleEntry.err != nil {
-				return connect.NewError(connect.CodeInternal, deltaExampleEntry.err)
-			}
-			deltaExample := cloneExample(deltaExampleEntry.example)
+			deltaExample := cloneExample(deltaExampleModel)
 
 			if requestNode.DeltaEndpointID != nil {
-				deltaEndpointEntry, ok := endpointCache[*requestNode.DeltaEndpointID]
-				if !ok {
-					deltaEndpoint, err := c.ias.GetItemApi(ctx, *requestNode.DeltaEndpointID)
-					deltaEndpointEntry = struct {
-						endpoint *mitemapi.ItemApi
-						err      error
-					}{endpoint: deltaEndpoint, err: err}
-					endpointCache[*requestNode.DeltaEndpointID] = deltaEndpointEntry
+				deltaEndpointModel, err := c.loadItemApi(ctx, *requestNode.DeltaEndpointID)
+				if err != nil {
+					return connect.NewError(connect.CodeInternal, err)
 				}
-				if deltaEndpointEntry.err != nil {
-					return connect.NewError(connect.CodeInternal, deltaEndpointEntry.err)
-				}
-				deltaEndpoint := cloneItemAPI(deltaEndpointEntry.endpoint)
+				deltaEndpoint := cloneItemAPI(deltaEndpointModel)
 				if deltaEndpoint.Url != "" {
 					endpoint.Url = deltaEndpoint.Url
 				}
@@ -1047,50 +1088,22 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 			}
 
-			deltaHeadersEntry, ok := headersCache[deltaExample.ID]
-			if !ok {
-				dh, err := c.hs.GetHeaderByExampleID(ctx, deltaExample.ID)
-				deltaHeadersEntry = struct {
-					headers []mexampleheader.Header
-					err     error
-				}{headers: dh, err: err}
-				headersCache[deltaExample.ID] = deltaHeadersEntry
+			deltaHeadersData, err := c.loadHeaders(ctx, deltaExample.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
 			}
-			if deltaHeadersEntry.err != nil {
-				return connect.NewError(connect.CodeInternal, deltaHeadersEntry.err)
-			}
-			deltaHeaders := cloneHeaders(deltaHeadersEntry.headers)
+			deltaHeaders := cloneHeaders(deltaHeadersData)
 
-			deltaQueriesEntry, ok := queriesCache[deltaExample.ID]
-			if !ok {
-				dq, err := c.qs.GetExampleQueriesByExampleID(ctx, deltaExample.ID)
-				deltaQueriesEntry = struct {
-					queries []mexamplequery.Query
-					err     error
-				}{queries: dq, err: err}
-				queriesCache[deltaExample.ID] = deltaQueriesEntry
+			deltaQueriesData, err := c.loadQueries(ctx, deltaExample.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
 			}
-			deltaQueries := cloneQueries(deltaQueriesEntry.queries)
-			if deltaQueriesEntry.err != nil {
-				if deltaQueriesEntry.err == sexamplequery.ErrNoQueryFound {
-					deltaQueries = []mexamplequery.Query{}
-				} else {
-					return connect.NewError(connect.CodeInternal, deltaQueriesEntry.err)
-				}
-			}
+			deltaQueries := cloneQueries(deltaQueriesData)
 
-			deltaRawEntry, ok := rawBodyCache[deltaExample.ID]
-			if !ok {
-				deltaRaw, err := c.brs.GetBodyRawByExampleID(ctx, deltaExample.ID)
-				deltaRawEntry = struct {
-					body *mbodyraw.ExampleBodyRaw
-					err  error
-				}{body: deltaRaw, err: err}
-				rawBodyCache[deltaExample.ID] = deltaRawEntry
-			}
+			rawDeltaModel, err := c.loadBodyRaw(ctx, deltaExample.ID)
 			var rawBodyDelta *mbodyraw.ExampleBodyRaw
-			if deltaRawEntry.err != nil {
-				if deltaRawEntry.err == sbodyraw.ErrNoBodyRawFound {
+			if err != nil {
+				if errors.Is(err, sbodyraw.ErrNoBodyRawFound) {
 					tmp := mbodyraw.ExampleBodyRaw{
 						ID:            idwrap.NewNow(),
 						ExampleID:     deltaExample.ID,
@@ -1100,51 +1113,23 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					}
 					rawBodyDelta = &tmp
 				} else {
-					return connect.NewError(connect.CodeInternal, deltaRawEntry.err)
+					return connect.NewError(connect.CodeInternal, err)
 				}
 			} else {
-				rawBodyDelta = cloneRawBody(deltaRawEntry.body)
+				rawBodyDelta = cloneRawBody(rawDeltaModel)
 			}
 
-			deltaFormEntry, ok := formBodyCache[deltaExample.ID]
-			if !ok {
-				deltaForms, err := c.bfs.GetBodyFormsByExampleID(ctx, deltaExample.ID)
-				deltaFormEntry = struct {
-					forms []mbodyform.BodyForm
-					err   error
-				}{forms: deltaForms, err: err}
-				formBodyCache[deltaExample.ID] = deltaFormEntry
+			formDeltaModels, err := c.loadBodyForms(ctx, deltaExample.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
 			}
-			var formBodyDelta []mbodyform.BodyForm
-			if deltaFormEntry.err != nil {
-				if deltaFormEntry.err == sbodyform.ErrNoBodyFormFound {
-					formBodyDelta = []mbodyform.BodyForm{}
-				} else {
-					return connect.NewError(connect.CodeInternal, deltaFormEntry.err)
-				}
-			} else {
-				formBodyDelta = cloneFormBody(deltaFormEntry.forms)
-			}
+			formBodyDelta := cloneFormBody(formDeltaModels)
 
-			deltaURLEntry, ok := urlBodyCache[deltaExample.ID]
-			if !ok {
-				deltaValues, err := c.bues.GetBodyURLEncodedByExampleID(ctx, deltaExample.ID)
-				deltaURLEntry = struct {
-					values []mbodyurl.BodyURLEncoded
-					err    error
-				}{values: deltaValues, err: err}
-				urlBodyCache[deltaExample.ID] = deltaURLEntry
+			urlDeltaModels, err := c.loadBodyURL(ctx, deltaExample.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
 			}
-			var urlBodyDelta []mbodyurl.BodyURLEncoded
-			if deltaURLEntry.err != nil {
-				if deltaURLEntry.err == sbodyurl.ErrNoBodyUrlEncodedFound {
-					urlBodyDelta = []mbodyurl.BodyURLEncoded{}
-				} else {
-					return connect.NewError(connect.CodeInternal, deltaURLEntry.err)
-				}
-			} else {
-				urlBodyDelta = cloneURLBody(deltaURLEntry.values)
-			}
+			urlBodyDelta := cloneURLBody(urlDeltaModels)
 
 			mergeExamplesInput := request.MergeExamplesInput{
 				Base:  *example,
@@ -1175,12 +1160,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			urlBody = mergeExampleOutput.MergeUrlEncodedBody
 		}
 
-		httpClient := httpclient.New()
-
 		name := nodeNameMap[requestNode.FlowNodeID]
 
 		requestNodeInstance := nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
-			*exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan)
+			*exampleResp, exampleRespHeader, asserts, sharedHTTPClient, requestNodeRespChan)
 
 		// Wrap with pre-registration logic
 		wrappedNode := &preRegisteredRequestNode{
@@ -1447,12 +1430,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							log.Printf("Failed to upsert iteration record %s: %v", executionID.String(), err)
 						}
 					} else {
-						// Check if this is a FOR/FOREACH loop node main execution
-						isLoopNode := false
-						node, err := c.ns.GetNode(ctx, id)
-						if err == nil {
-							isLoopNode = node.NodeKind == mnnode.NODE_KIND_FOR || node.NodeKind == mnnode.NODE_KIND_FOR_EACH
-						}
+						// Check if this is a FOR/FOREACH loop node main execution using cached metadata
+						isLoopNode := loopNodeIDs[id]
 
 						if !isLoopNode {
 							// Store in pending map for completion (normal flow execution - will be sent to UI)

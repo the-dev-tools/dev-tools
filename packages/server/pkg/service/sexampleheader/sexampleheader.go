@@ -78,6 +78,26 @@ func (h HeaderService) GetHeaderByExampleID(ctx context.Context, exampleID idwra
 	return headers, nil
 }
 
+func (h HeaderService) GetHeadersByExampleIDs(ctx context.Context, exampleIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]mexampleheader.Header, error) {
+	result := make(map[idwrap.IDWrap][]mexampleheader.Header, len(exampleIDs))
+	if len(exampleIDs) == 0 {
+		return result, nil
+	}
+
+	dbHeaders, err := h.queries.GetHeadersByExampleIDs(ctx, exampleIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, dbHeader := range dbHeaders {
+		header := SerializeHeaderModelToDB(dbHeader)
+		exampleID := header.ExampleID
+		result[exampleID] = append(result[exampleID], header)
+	}
+
+	return result, nil
+}
+
 func (h HeaderService) GetHeaderByExampleIDOrdered(ctx context.Context, exampleID idwrap.IDWrap) ([]mexampleheader.Header, error) {
 	// Use the ordered query that traverses the linked list
 	dbHeaders, err := h.queries.GetHeadersByExampleIDOrdered(ctx, gen.GetHeadersByExampleIDOrderedParams{

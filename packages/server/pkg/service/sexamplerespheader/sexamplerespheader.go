@@ -145,6 +145,29 @@ func (s *ExampleRespHeaderService) GetHeaderByRespID(ctx context.Context, id idw
 	return tgeneric.MassConvert(items, ConvertFromDBExampleRespHeader), nil
 }
 
+func (s *ExampleRespHeaderService) GetHeadersByRespIDs(ctx context.Context, respIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]mexamplerespheader.ExampleRespHeader, error) {
+	result := make(map[idwrap.IDWrap][]mexamplerespheader.ExampleRespHeader, len(respIDs))
+	if len(respIDs) == 0 {
+		return result, nil
+	}
+
+	items, err := s.queries.GetExampleRespHeadersByRespIDs(ctx, respIDs)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return result, nil
+		}
+		return nil, err
+	}
+
+	for _, item := range items {
+		model := ConvertFromDBExampleRespHeader(item)
+		exampleRespID := model.ExampleRespID
+		result[exampleRespID] = append(result[exampleRespID], model)
+	}
+
+	return result, nil
+}
+
 func (s *ExampleRespHeaderService) UpdateExampleRespHeader(ctx context.Context, item mexamplerespheader.ExampleRespHeader) error {
 	arg := ConvertToDBExampleRespHeader(item)
 	return s.queries.UpdateExampleRespHeader(ctx, gen.UpdateExampleRespHeaderParams{

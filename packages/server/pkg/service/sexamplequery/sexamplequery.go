@@ -81,6 +81,36 @@ func (h ExampleQueryService) GetExampleQueriesByExampleID(ctx context.Context, e
 	return tgeneric.MassConvert(queries, SerializeQueryDBToModel), nil
 }
 
+func (h ExampleQueryService) GetExampleQueriesByExampleIDs(ctx context.Context, exampleIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]mexamplequery.Query, error) {
+	result := make(map[idwrap.IDWrap][]mexamplequery.Query, len(exampleIDs))
+	if len(exampleIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := h.queries.GetQueriesByExampleIDs(ctx, exampleIDs)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return result, nil
+		}
+		return nil, err
+	}
+
+	for _, row := range rows {
+		model := SerializeQueryDBToModel(row)
+		exampleID := model.ExampleID
+		result[exampleID] = append(result[exampleID], model)
+	}
+
+	for exampleID, queries := range result {
+		sort.Slice(queries, func(i, j int) bool {
+			return queries[i].ID.Compare(queries[j].ID) < 0
+		})
+		result[exampleID] = queries
+	}
+
+	return result, nil
+}
+
 func (h ExampleQueryService) GetExampleQueryByDeltaParentID(ctx context.Context, deltaParentID *idwrap.IDWrap) (mexamplequery.Query, error) {
 	query, err := h.queries.GetQueryByDeltaParentID(ctx, deltaParentID)
 	if err != nil {
