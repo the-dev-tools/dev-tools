@@ -58,8 +58,6 @@ func (n *NodeForEach) GetName() string {
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
-	// Track if we had any iteration errors to determine if we need final status
-	hadIterationErrors := false
 	predecessorMap := flowlocalrunner.BuildPredecessorMap(req.EdgeSourceMap)
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
@@ -235,7 +233,6 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			// Handle iteration error according to error policy
 			if result.Err != nil {
-				hadIterationErrors = true // Mark that we had errors
 				switch nr.ErrorHandling {
 				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 					continue // Continue to next iteration
@@ -376,7 +373,6 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			// Handle iteration error according to error policy
 			if result.Err != nil {
-				hadIterationErrors = true // Mark that we had errors
 				switch nr.ErrorHandling {
 				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 					continue // Continue to next iteration
@@ -440,7 +436,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	return node.FlowNodeResult{
 		NextNodeID:      nextID,
 		Err:             nil,
-		SkipFinalStatus: !hadIterationErrors, // Skip only if no iteration errors
+		SkipFinalStatus: false,
 	}
 }
 
