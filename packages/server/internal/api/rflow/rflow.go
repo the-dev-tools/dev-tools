@@ -93,6 +93,8 @@ import (
 	"connectrpc.com/connect"
 )
 
+var logOrphanedResponses = false
+
 // formatErrForUser moved to logging.go
 
 // normalizeForLog converts OutputData values into log-friendly forms:
@@ -1844,8 +1846,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 					} else {
-						log.Printf("No pending execution found for response %s (pending: %d, orphaned: %d)",
-							targetExecutionID.String(), len(pendingNodeExecutions), len(orphanedResponses))
+						if logOrphanedResponses {
+							log.Printf("No pending execution found for response %s (pending: %d, orphaned: %d)",
+								targetExecutionID.String(), len(pendingNodeExecutions), len(orphanedResponses))
+						}
 
 						// RACE CONDITION FIX: Store orphaned response for later correlation
 						respID := requestNodeResp.Resp.ExampleResp.ID

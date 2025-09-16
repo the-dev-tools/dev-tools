@@ -80,7 +80,7 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 		Timeout:          r.Timeout,
 		PendingAtmoicMap: pendingAtmoicMap,
 	}
-	predecessorMap := buildPredecessorMap(r.EdgesMap)
+	predecessorMap := BuildPredecessorMap(r.EdgesMap)
 
 	flowStatusChan <- runner.FlowStatusStarting
 	if r.Timeout == 0 {
@@ -127,7 +127,7 @@ func MaxParallelism() int {
 
 var goroutineCount int = MaxParallelism()
 
-func buildPredecessorMap(edgesMap edge.EdgesMap) map[idwrap.IDWrap][]idwrap.IDWrap {
+func BuildPredecessorMap(edgesMap edge.EdgesMap) map[idwrap.IDWrap][]idwrap.IDWrap {
 	predecessors := make(map[idwrap.IDWrap][]idwrap.IDWrap, len(edgesMap))
 	for sourceID, edges := range edgesMap {
 		for _, targets := range edges {

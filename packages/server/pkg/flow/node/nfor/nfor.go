@@ -101,6 +101,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 	// Track if we had any iteration errors to determine if we need final status
 	hadIterationErrors := false
+	predecessorMap := flowlocalrunner.BuildPredecessorMap(req.EdgeSourceMap)
 
 	// Note: assertSys not needed for simple index comparison
 
@@ -190,7 +191,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			childReq.IterationContext = childIterationContext
 			childReq.ExecutionID = childExecutionID // Set unique execution ID
 
-			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, &childReq, req.LogPushFunc)
+			err := flowlocalrunner.RunNodeSync(ctx, nextNodeID, &childReq, req.LogPushFunc, predecessorMap)
 			if err != nil {
 				iterationError = err
 				break // Exit inner loop on error
@@ -218,49 +219,49 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 		// Handle iteration error according to error policy
 		if iterationError != nil {
 			hadIterationErrors = true // Mark that we had errors
-        switch nr.ErrorHandling {
-        case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-            continue // Continue to next iteration
-        case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-            failedAtIteration = i // Track where we stopped
-            goto Exit             // Stop loop but don't propagate error
-        case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-            // Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
-            // Wrap with a sentinel so the runner marks this loop as CANCELED.
-            loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, iterationError)
-            failedAtIteration = i
-            goto Exit // Fail entire flow
-        }
+			switch nr.ErrorHandling {
+			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+				continue // Continue to next iteration
+			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				failedAtIteration = i // Track where we stopped
+				goto Exit             // Stop loop but don't propagate error
+			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+				// Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
+				// Wrap with a sentinel so the runner marks this loop as CANCELED.
+				loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, iterationError)
+				failedAtIteration = i
+				goto Exit // Fail entire flow
+			}
 		}
 	}
 
 Exit:
 	// Create final summary record
-    if loopError != nil {
-        // Terminal case: loop ended due to error/throw. If it's a cancellation sentinel,
-        // mark the summary as CANCELED; otherwise mark as FAILURE.
-        if req.LogPushFunc != nil {
-            outputData := map[string]any{
-                "failedAtIteration": failedAtIteration,
-                "totalIterations":   nr.IterCount,
-            }
-            executionName := "Error Summary"
-            state := mnnode.NODE_STATE_FAILURE
-            if runner.IsCancellationError(loopError) {
-                state = mnnode.NODE_STATE_CANCELED
-            }
-            req.LogPushFunc(runner.FlowNodeStatus{
-                ExecutionID: idwrap.NewNow(),
-                NodeID:      nr.FlowNodeID,
-                Name:        executionName,
-                State:       state,
-                OutputData:  outputData,
-            })
-        }
-        return node.FlowNodeResult{
-            Err: loopError,
-        }
-    }
+	if loopError != nil {
+		// Terminal case: loop ended due to error/throw. If it's a cancellation sentinel,
+		// mark the summary as CANCELED; otherwise mark as FAILURE.
+		if req.LogPushFunc != nil {
+			outputData := map[string]any{
+				"failedAtIteration": failedAtIteration,
+				"totalIterations":   nr.IterCount,
+			}
+			executionName := "Error Summary"
+			state := mnnode.NODE_STATE_FAILURE
+			if runner.IsCancellationError(loopError) {
+				state = mnnode.NODE_STATE_CANCELED
+			}
+			req.LogPushFunc(runner.FlowNodeStatus{
+				ExecutionID: idwrap.NewNow(),
+				NodeID:      nr.FlowNodeID,
+				Name:        executionName,
+				State:       state,
+				OutputData:  outputData,
+			})
+		}
+		return node.FlowNodeResult{
+			Err: loopError,
+		}
+	}
 	// Note: Break case (failedAtIteration >= 0) doesn't create summary record per test expectations
 
 	// Write final output with total iterations completed (for variable system)
@@ -291,6 +292,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 	// Track if we had any iteration errors to determine if we need final status
 	hadIterationErrors := false
+	predecessorMap := flowlocalrunner.BuildPredecessorMap(req.EdgeSourceMap)
 
 	// Note: assertSys not needed for simple index comparison
 
@@ -382,7 +384,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 			childReq.IterationContext = childIterationContext
 			childReq.ExecutionID = childExecutionID // Set unique execution ID
 
-			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, &childReq, req.LogPushFunc)
+			err := flowlocalrunner.RunNodeASync(ctx, nextNodeID, &childReq, req.LogPushFunc, predecessorMap)
 			if err != nil {
 				iterationError = err
 				break // Exit inner loop on error
@@ -409,48 +411,48 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 		// Handle iteration error according to error policy
 		if iterationError != nil {
 			hadIterationErrors = true // Mark that we had errors
-        switch nr.ErrorHandling {
-        case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
-            continue // Continue to next iteration
-        case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-            failedAtIteration = i // Track where we stopped
-            goto Exit             // Stop loop but don't propagate error
-        case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-            // Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
-            // Wrap with a sentinel so the runner marks this loop as CANCELED.
-            loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, iterationError)
-            failedAtIteration = i
-            goto Exit // Fail entire flow
-        }
+			switch nr.ErrorHandling {
+			case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
+				continue // Continue to next iteration
+			case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
+				failedAtIteration = i // Track where we stopped
+				goto Exit             // Stop loop but don't propagate error
+			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
+				// Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
+				// Wrap with a sentinel so the runner marks this loop as CANCELED.
+				loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, iterationError)
+				failedAtIteration = i
+				goto Exit // Fail entire flow
+			}
 		}
 	}
 
 Exit:
 	// Only create final summary record on failure
-    if loopError != nil {
-        if req.LogPushFunc != nil {
-            outputData := map[string]interface{}{
-                "failedAtIteration": failedAtIteration,
-                "totalIterations":   nr.IterCount,
-            }
-            executionName := "Error Summary"
-            state := mnnode.NODE_STATE_FAILURE
-            if runner.IsCancellationError(loopError) {
-                state = mnnode.NODE_STATE_CANCELED
-            }
-            req.LogPushFunc(runner.FlowNodeStatus{
-                ExecutionID: idwrap.NewNow(),
-                NodeID:      nr.FlowNodeID,
-                Name:        executionName,
-                State:       state,
-                OutputData:  outputData,
-            })
-        }
-        resultChan <- node.FlowNodeResult{
-            Err: loopError,
-        }
-        return
-    }
+	if loopError != nil {
+		if req.LogPushFunc != nil {
+			outputData := map[string]interface{}{
+				"failedAtIteration": failedAtIteration,
+				"totalIterations":   nr.IterCount,
+			}
+			executionName := "Error Summary"
+			state := mnnode.NODE_STATE_FAILURE
+			if runner.IsCancellationError(loopError) {
+				state = mnnode.NODE_STATE_CANCELED
+			}
+			req.LogPushFunc(runner.FlowNodeStatus{
+				ExecutionID: idwrap.NewNow(),
+				NodeID:      nr.FlowNodeID,
+				Name:        executionName,
+				State:       state,
+				OutputData:  outputData,
+			})
+		}
+		resultChan <- node.FlowNodeResult{
+			Err: loopError,
+		}
+		return
+	}
 
 	// Write final output with total iterations completed (for variable system)
 	var err error
