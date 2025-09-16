@@ -9,10 +9,12 @@ import (
 	"iter"
 	"reflect"
 	"strings"
+	"sync"
 	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/varsystem"
 
 	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/vm"
 )
 
 type Env struct {
@@ -45,6 +47,30 @@ func NormalizeExpression(ctx context.Context, expressionString string, varsystem
 var (
 	jsonMarshalerType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
 	textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	structFieldCache  sync.Map // map[reflect.Type][]structFieldInfo
+)
+
+type structFieldInfo struct {
+	name      string
+	omitEmpty bool
+	index     []int
+}
+
+type compileMode uint8
+
+const (
+	compileModeAny compileMode = iota
+	compileModeBool
+)
+
+type programCacheKey struct {
+	expression string
+	mode       compileMode
+}
+
+var (
+	programCache    sync.Map // map[programCacheKey]*vm.Program
+	emptyCompileEnv = map[string]any{}
 )
 
 // convertStructToMapWithJSONTags recursively converts a value to a map/array primitive structure
@@ -100,28 +126,18 @@ func convertStruct(val reflect.Value) (any, error) {
 		return marshalViaJSON(val)
 	}
 
-	result := make(map[string]any)
-	for i := 0; i < val.NumField(); i++ {
-		field := typ.Field(i)
-		if field.PkgPath != "" { // unexported
+	fields := getStructFields(typ)
+	result := make(map[string]any, len(fields))
+	for _, fieldInfo := range fields {
+		fieldVal := val.FieldByIndex(fieldInfo.index)
+		if fieldInfo.omitEmpty && isZeroValue(fieldVal) {
 			continue
 		}
-
-		name, omitEmpty, skip := parseJSONTag(field.Tag.Get("json"), field.Name)
-		if skip {
-			continue
-		}
-
-		fieldVal := val.Field(i)
-		if omitEmpty && isZeroValue(fieldVal) {
-			continue
-		}
-
 		converted, err := convertValue(fieldVal)
 		if err != nil {
 			return nil, err
 		}
-		result[name] = converted
+		result[fieldInfo.name] = converted
 	}
 	return result, nil
 }
@@ -205,6 +221,58 @@ func parseJSONTag(tag string, defaultName string) (name string, omitEmpty bool, 
 	return name, omitEmpty, false
 }
 
+func getStructFields(t reflect.Type) []structFieldInfo {
+	if cached, ok := structFieldCache.Load(t); ok {
+		return cached.([]structFieldInfo)
+	}
+
+	fields := make([]structFieldInfo, 0, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if field.PkgPath != "" { // unexported
+			continue
+		}
+		name, omitEmpty, skip := parseJSONTag(field.Tag.Get("json"), field.Name)
+		if skip {
+			continue
+		}
+		fields = append(fields, structFieldInfo{
+			name:      name,
+			omitEmpty: omitEmpty,
+			index:     field.Index,
+		})
+	}
+	structFieldCache.Store(t, fields)
+	return fields
+}
+
+func compileProgram(expression string, mode compileMode, env map[string]any) (*vm.Program, error) {
+	key := programCacheKey{expression: expression, mode: mode}
+	if cached, ok := programCache.Load(key); ok {
+		return cached.(*vm.Program), nil
+	}
+
+	compileEnv := env
+	if compileEnv == nil {
+		compileEnv = emptyCompileEnv
+	}
+
+	options := []expr.Option{expr.Env(compileEnv)}
+	switch mode {
+	case compileModeBool:
+		options = append(options, expr.AsBool())
+	default:
+		options = append(options, expr.AsAny())
+	}
+
+	program, err := expr.Compile(expression, options...)
+	if err != nil {
+		return nil, err
+	}
+	programCache.Store(key, program)
+	return program, nil
+}
+
 func isZeroValue(val reflect.Value) bool {
 	// reflect.Value.IsZero panics for invalid values, but we've handled invalid earlier.
 	return val.IsZero()
@@ -269,7 +337,7 @@ func NewEnvFromStruct(s any) (Env, error) {
 }
 
 func ExpressionEvaluteAsBool(ctx context.Context, env Env, expressionString string) (bool, error) {
-	program, err := expr.Compile(expressionString, expr.AsBool(), expr.Env(env.varMap))
+	program, err := compileProgram(expressionString, compileModeBool, env.varMap)
 	if err != nil {
 		return false, err
 	}
@@ -284,7 +352,7 @@ func ExpressionEvaluteAsBool(ctx context.Context, env Env, expressionString stri
 }
 
 func ExpressionEvaluteAsArray(ctx context.Context, env Env, expressionString string) ([]any, error) {
-	program, err := expr.Compile(expressionString, expr.AsAny(), expr.Env(env.varMap))
+	program, err := compileProgram(expressionString, compileModeAny, env.varMap)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +380,7 @@ func ExpressionEvaluteAsArray(ctx context.Context, env Env, expressionString str
 // (iter.Seq[any] for slices, iter.Seq2[string, any] for maps) if the result is iterable.
 // Otherwise, it returns an error.
 func ExpressionEvaluateAsIter(ctx context.Context, env Env, expressionString string) (any, error) {
-	program, err := expr.Compile(expressionString, expr.AsAny(), expr.Env(env.varMap))
+	program, err := compileProgram(expressionString, compileModeAny, env.varMap)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +438,7 @@ func ExpressionEvaluteAsBoolWithTracking(ctx context.Context, env Env, expressio
 	// Track all variables as potentially accessed since we can't track individual access
 	trackedEnv.TrackAllVariables()
 
-	program, err := expr.Compile(expressionString, expr.AsBool(), expr.Env(trackedEnv.GetMap()))
+	program, err := compileProgram(expressionString, compileModeBool, trackedEnv.GetMap())
 	if err != nil {
 		return false, err
 	}
@@ -396,7 +464,7 @@ func ExpressionEvaluteAsArrayWithTracking(ctx context.Context, env Env, expressi
 	// Track all variables as potentially accessed since we can't track individual access
 	trackedEnv.TrackAllVariables()
 
-	program, err := expr.Compile(expressionString, expr.AsAny(), expr.Env(trackedEnv.GetMap()))
+	program, err := compileProgram(expressionString, compileModeAny, trackedEnv.GetMap())
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +500,7 @@ func ExpressionEvaluateAsIterWithTracking(ctx context.Context, env Env, expressi
 	// Track all variables as potentially accessed since we can't track individual access
 	trackedEnv.TrackAllVariables()
 
-	program, err := expr.Compile(expressionString, expr.AsAny(), expr.Env(trackedEnv.GetMap()))
+	program, err := compileProgram(expressionString, compileModeAny, trackedEnv.GetMap())
 	if err != nil {
 		return nil, err
 	}
