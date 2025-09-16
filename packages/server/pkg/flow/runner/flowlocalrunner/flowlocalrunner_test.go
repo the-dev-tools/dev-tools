@@ -58,7 +58,7 @@ func BenchmarkLegacyPredecessorLookup(b *testing.B) {
 
 func BenchmarkCachedPredecessorLookup(b *testing.B) {
 	edgesMap := buildDenseEdges(100, 4)
-	predecessors := buildPredecessorMap(edgesMap)
+	predecessors := BuildPredecessorMap(edgesMap)
 	var targets []idwrap.IDWrap
 	for id := range edgesMap {
 		targets = append(targets, id)
@@ -76,6 +76,6 @@ func BenchmarkBuildPredecessorMap(b *testing.B) {
 	edgesMap := buildDenseEdges(100, 4)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = buildPredecessorMap(edgesMap)
+		_ = BuildPredecessorMap(edgesMap)
 	}
 }
