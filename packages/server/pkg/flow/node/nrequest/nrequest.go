@@ -2,7 +2,6 @@ package nrequest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -69,6 +68,39 @@ const (
 type NodeRequestOutput struct {
 	Request  request.RequestResponseVar `json:"request"`
 	Response httpclient.ResponseVar     `json:"response"`
+}
+
+func buildNodeRequestOutputMap(output NodeRequestOutput) map[string]any {
+	result := make(map[string]any, 2)
+	requestMap := map[string]any{
+		"method":  output.Request.Method,
+		"url":     output.Request.URL,
+		"headers": cloneStringMapToAny(output.Request.Headers),
+		"queries": cloneStringMapToAny(output.Request.Queries),
+		"body":    output.Request.Body,
+	}
+
+	responseMap := map[string]any{
+		"status":   float64(output.Response.StatusCode),
+		"body":     node.DeepCopyValue(output.Response.Body),
+		"headers":  cloneStringMapToAny(output.Response.Headers),
+		"duration": float64(output.Response.Duration),
+	}
+
+	result[OUTPUT_REQUEST_NAME] = requestMap
+	result[OUTPUT_RESPONE_NAME] = responseMap
+	return result
+}
+
+func cloneStringMapToAny(src map[string]string) map[string]any {
+	if len(src) == 0 {
+		return map[string]any{}
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }
 
 func New(id idwrap.IDWrap, name string, api mitemapi.ItemApi, example mitemapiexample.ItemApiExample,
@@ -156,26 +188,15 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-    // Build output using measured duration
-    respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
-    respVar.Duration = int32(resp.LapTime.Milliseconds())
-    output := NodeRequestOutput{
-        Request:  request.ConvertRequestToVar(prepareOutput),
-        Response: respVar,
-    }
+	// Build output using measured duration
+	respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
+	respVar.Duration = int32(resp.LapTime.Milliseconds())
+	output := NodeRequestOutput{
+		Request:  request.ConvertRequestToVar(prepareOutput),
+		Response: respVar,
+	}
 
-	respMap := map[string]any{}
-	// TODO: change map conversion non json
-	marshaledResp, err := json.Marshal(output)
-	if err != nil {
-		result.Err = err
-		return result
-	}
-	err = json.Unmarshal(marshaledResp, &respMap)
-	if err != nil {
-		result.Err = err
-		return result
-	}
+	respMap := buildNodeRequestOutputMap(output)
 
 	if req.VariableTracker != nil {
 		err = node.WriteNodeVarBulkWithTracking(req, nr.Name, respMap, req.VariableTracker)
@@ -281,28 +302,15 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-    // Build output using measured duration
-    respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
-    respVar.Duration = int32(resp.LapTime.Milliseconds())
-    output := NodeRequestOutput{
-        Request:  request.ConvertRequestToVar(prepareOutput),
-        Response: respVar,
-    }
+	// Build output using measured duration
+	respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
+	respVar.Duration = int32(resp.LapTime.Milliseconds())
+	output := NodeRequestOutput{
+		Request:  request.ConvertRequestToVar(prepareOutput),
+		Response: respVar,
+	}
 
-	respMap := map[string]any{}
-	// TODO: change map conversion non json
-	marshaledResp, err := json.Marshal(output)
-	if err != nil {
-		result.Err = err
-		resultChan <- result
-		return
-	}
-	err = json.Unmarshal(marshaledResp, &respMap)
-	if err != nil {
-		result.Err = err
-		resultChan <- result
-		return
-	}
+	respMap := buildNodeRequestOutputMap(output)
 
 	if req.VariableTracker != nil {
 		err = node.WriteNodeVarBulkWithTracking(req, nr.Name, respMap, req.VariableTracker)
