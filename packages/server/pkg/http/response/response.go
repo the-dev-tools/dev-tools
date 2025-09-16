@@ -2,7 +2,6 @@ package response
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/http/request"
@@ -117,17 +116,21 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 	mergedVarMap := varsystem.MergeVarMap(varMap, varsystem.NewVarMapFromAnyMap(envMap))
 	exprEnv := expression.NewEnv(envMap)
 
+	normalizedExprCache := make(map[string]string)
 	for _, assertion := range assertions {
 		if assertion.Enable {
 			// Use NormalizeExpression if {{ }} wrapper is found
 			expr := assertion.Condition.Comparisons.Expression
-			var err error
 			if strings.Contains(expr, "{{") && strings.Contains(expr, "}}") {
-				fmt.Println("expr", expr)
-				fmt.Println("varMap", varMap)
-				expr, err = expression.NormalizeExpression(ctx, expr, mergedVarMap)
-				if err != nil {
-					return nil, err
+				if cached, ok := normalizedExprCache[expr]; ok {
+					expr = cached
+				} else {
+					normalized, err := expression.NormalizeExpression(ctx, expr, mergedVarMap)
+					if err != nil {
+						return nil, err
+					}
+					normalizedExprCache[expr] = normalized
+					expr = normalized
 				}
 			}
 
