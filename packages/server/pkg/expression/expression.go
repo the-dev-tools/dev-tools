@@ -2,6 +2,8 @@ package expression
 
 import (
 	"context"
+	"encoding"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"iter"
@@ -40,20 +42,192 @@ func NormalizeExpression(ctx context.Context, expressionString string, varsystem
 }
 
 // convertStructToMapWithJSONTags recursively converts a struct to a map using JSON tags
+var (
+	jsonMarshalerType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
+	textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+)
+
+// convertStructToMapWithJSONTags recursively converts a value to a map/array primitive structure
+// while respecting json struct tags. It mirrors the shape that encoding/json would produce when
+// unmarshalling into map[string]any without paying the serialization cost for every field.
 func convertStructToMapWithJSONTags(v any) (any, error) {
-	// Use JSON marshaling and unmarshaling to handle nested structs with JSON tags
-	jsonData, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
+	return convertValue(reflect.ValueOf(v))
+}
+
+func convertValue(val reflect.Value) (any, error) {
+	if !val.IsValid() {
+		return nil, nil
 	}
 
-	var result any
-	err = json.Unmarshal(jsonData, &result)
-	if err != nil {
-		return nil, err
+	if val.Kind() == reflect.Interface || val.Kind() == reflect.Pointer {
+		if val.IsNil() {
+			return nil, nil
+		}
+		return convertValue(val.Elem())
 	}
 
+	switch val.Kind() {
+	case reflect.Struct:
+		return convertStruct(val)
+	case reflect.Map:
+		return convertMap(val)
+	case reflect.Slice, reflect.Array:
+		return convertSlice(val)
+	case reflect.String:
+		return val.String(), nil
+	case reflect.Bool:
+		return val.Bool(), nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(val.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return float64(val.Uint()), nil
+	case reflect.Float32, reflect.Float64:
+		return val.Convert(reflect.TypeOf(float64(0))).Interface(), nil
+	case reflect.Complex64, reflect.Complex128:
+		// encoding/json marshals complex numbers as maps with real/imag parts; fall back to JSON.
+		return marshalViaJSON(val)
+	default:
+		// For other types (e.g., custom types implementing json.Marshaler) we fall back to JSON
+		// to preserve their custom encoding behaviour.
+		return marshalViaJSON(val)
+	}
+}
+
+func convertStruct(val reflect.Value) (any, error) {
+	// Honour custom JSON/text marshalers.
+	typ := val.Type()
+	if implementsJSONMarshaler(typ) || implementsTextMarshaler(typ) {
+		return marshalViaJSON(val)
+	}
+
+	result := make(map[string]any)
+	for i := 0; i < val.NumField(); i++ {
+		field := typ.Field(i)
+		if field.PkgPath != "" { // unexported
+			continue
+		}
+
+		name, omitEmpty, skip := parseJSONTag(field.Tag.Get("json"), field.Name)
+		if skip {
+			continue
+		}
+
+		fieldVal := val.Field(i)
+		if omitEmpty && isZeroValue(fieldVal) {
+			continue
+		}
+
+		converted, err := convertValue(fieldVal)
+		if err != nil {
+			return nil, err
+		}
+		result[name] = converted
+	}
 	return result, nil
+}
+
+func convertMap(val reflect.Value) (any, error) {
+	if val.IsNil() {
+		return nil, nil
+	}
+	if val.Type().Key().Kind() != reflect.String {
+		return nil, fmt.Errorf("map keys must be strings for JSON conversion, got %s", val.Type().Key())
+	}
+	result := make(map[string]any, val.Len())
+	iter := val.MapRange()
+	for iter.Next() {
+		key := iter.Key().String()
+		converted, err := convertValue(iter.Value())
+		if err != nil {
+			return nil, err
+		}
+		result[key] = converted
+	}
+	return result, nil
+}
+
+func convertSlice(val reflect.Value) (any, error) {
+	if val.Kind() == reflect.Slice && val.IsNil() {
+		return nil, nil
+	}
+	if val.Kind() == reflect.Slice && val.Type().Elem().Kind() == reflect.Uint8 {
+		// Match encoding/json which converts []byte to base64 string
+		bytes := make([]byte, val.Len())
+		reflect.Copy(reflect.ValueOf(bytes), val)
+		return base64.StdEncoding.EncodeToString(bytes), nil
+	}
+	result := make([]any, val.Len())
+	for i := 0; i < val.Len(); i++ {
+		converted, err := convertValue(val.Index(i))
+		if err != nil {
+			return nil, err
+		}
+		result[i] = converted
+	}
+	return result, nil
+}
+
+func marshalViaJSON(val reflect.Value) (any, error) {
+	if !val.CanInterface() {
+		return nil, fmt.Errorf("cannot interface value of type %s", val.Type())
+	}
+	data, err := json.Marshal(val.Interface())
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 {
+		return nil, nil
+	}
+	var result any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func parseJSONTag(tag string, defaultName string) (name string, omitEmpty bool, skip bool) {
+	if tag == "-" {
+		return "", false, true
+	}
+	if tag == "" {
+		return defaultName, false, false
+	}
+	parts := strings.Split(tag, ",")
+	name = parts[0]
+	if name == "" {
+		name = defaultName
+	}
+	for _, part := range parts[1:] {
+		if part == "omitempty" {
+			omitEmpty = true
+		}
+	}
+	return name, omitEmpty, false
+}
+
+func isZeroValue(val reflect.Value) bool {
+	// reflect.Value.IsZero panics for invalid values, but we've handled invalid earlier.
+	return val.IsZero()
+}
+
+func implementsJSONMarshaler(t reflect.Type) bool {
+	if t.Implements(jsonMarshalerType) {
+		return true
+	}
+	if t.Kind() != reflect.Pointer && reflect.PointerTo(t).Implements(jsonMarshalerType) {
+		return true
+	}
+	return false
+}
+
+func implementsTextMarshaler(t reflect.Type) bool {
+	if t.Implements(textMarshalerType) {
+		return true
+	}
+	if t.Kind() != reflect.Pointer && reflect.PointerTo(t).Implements(textMarshalerType) {
+		return true
+	}
+	return false
 }
 
 func NewEnvFromStruct(s any) (Env, error) {
