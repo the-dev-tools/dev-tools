@@ -80,11 +80,13 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 		Timeout:          r.Timeout,
 		PendingAtmoicMap: pendingAtmoicMap,
 	}
+	predecessorMap := buildPredecessorMap(r.EdgesMap)
+
 	flowStatusChan <- runner.FlowStatusStarting
 	if r.Timeout == 0 {
-		err = RunNodeSync(ctx, *nextNodeID, req, logWorkaround)
+		err = RunNodeSync(ctx, *nextNodeID, req, logWorkaround, predecessorMap)
 	} else {
-		err = RunNodeASync(ctx, *nextNodeID, req, logWorkaround)
+		err = RunNodeASync(ctx, *nextNodeID, req, logWorkaround, predecessorMap)
 	}
 
 	if err != nil {
@@ -96,13 +98,13 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 }
 
 type processResult struct {
-	originalID       idwrap.IDWrap
-	executionID      idwrap.IDWrap
-	nextNodes        []idwrap.IDWrap
-	err              error
-	inputData        map[string]any
-	outputData       map[string]any // NEW: From tracker.GetWrittenVars()
-	skipFinalStatus  bool           // From FlowNodeResult.SkipFinalStatus
+	originalID      idwrap.IDWrap
+	executionID     idwrap.IDWrap
+	nextNodes       []idwrap.IDWrap
+	err             error
+	inputData       map[string]any
+	outputData      map[string]any // NEW: From tracker.GetWrittenVars()
+	skipFinalStatus bool           // From FlowNodeResult.SkipFinalStatus
 }
 
 func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest,
@@ -125,27 +127,21 @@ func MaxParallelism() int {
 
 var goroutineCount int = MaxParallelism()
 
-// getPredecessorNodes returns all nodes that have edges pointing to the given node
-func getPredecessorNodes(nodeID idwrap.IDWrap, edgesMap edge.EdgesMap) []idwrap.IDWrap {
-	var predecessors []idwrap.IDWrap
-	seen := make(map[idwrap.IDWrap]bool)
-
+func buildPredecessorMap(edgesMap edge.EdgesMap) map[idwrap.IDWrap][]idwrap.IDWrap {
+	predecessors := make(map[idwrap.IDWrap][]idwrap.IDWrap, len(edgesMap))
 	for sourceID, edges := range edgesMap {
-		for _, targetNodes := range edges {
-			for _, targetID := range targetNodes {
-				if targetID == nodeID && !seen[sourceID] {
-					predecessors = append(predecessors, sourceID)
-					seen[sourceID] = true
-				}
+		for _, targets := range edges {
+			for _, targetID := range targets {
+				predecessors[targetID] = append(predecessors[targetID], sourceID)
 			}
 		}
 	}
-
 	return predecessors
 }
 
 func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
 	statusLogFunc node.LogPushFunc,
+	predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
 ) error {
 	queue := []idwrap.IDWrap{startNodeID}
 
@@ -240,7 +236,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 
 				// Wait for all predecessors to complete before reading their output
 				// This prevents race conditions where we read before predecessors finish writing
-				predecessors := getPredecessorNodes(nodeID, req.EdgeSourceMap)
+				predecessors := predecessorMap[nodeID]
 
 				// For each predecessor, wait until its variable is available
 				inputData := make(map[string]any)
@@ -421,6 +417,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 // RunNodeASync runs nodes with timeout handling
 func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
 	statusLogFunc node.LogPushFunc,
+	predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
 ) error {
 	queue := []idwrap.IDWrap{startNodeID}
 
@@ -520,7 +517,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 				// Wait for all predecessors to complete before reading their output
 				// This prevents race conditions where we read before predecessors finish writing
-				predecessors := getPredecessorNodes(nodeID, req.EdgeSourceMap)
+				predecessors := predecessorMap[nodeID]
 
 				// For each predecessor, wait until its variable is available
 				inputData := make(map[string]any)
