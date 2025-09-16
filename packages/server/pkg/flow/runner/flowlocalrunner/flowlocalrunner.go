@@ -14,6 +14,15 @@ import (
 	"time"
 )
 
+// ExecutionMode controls how FlowLocalRunner schedules nodes.
+type ExecutionMode int
+
+const (
+	ExecutionModeAuto ExecutionMode = iota
+	ExecutionModeSingle
+	ExecutionModeMulti
+)
+
 type FlowLocalRunner struct {
 	ID               idwrap.IDWrap
 	FlowID           idwrap.IDWrap
@@ -23,21 +32,265 @@ type FlowLocalRunner struct {
 	EdgesMap    edge.EdgesMap
 	StartNodeID idwrap.IDWrap
 	Timeout     time.Duration
+
+	mode               ExecutionMode
+	selectedMode       ExecutionMode
+	enableDataTracking bool
 }
 
 func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration) *FlowLocalRunner {
 	return &FlowLocalRunner{
-		ID:               id,
-		FlowID:           flowID,
-		StartNodeID:      StartNodeID,
-		FlowNodeMap:      FlowNodeMap,
-		PendingAtmoicMap: make(map[idwrap.IDWrap]uint32),
-		EdgesMap:         edgesMap,
-		Timeout:          timeout,
+		ID:                 id,
+		FlowID:             flowID,
+		StartNodeID:        StartNodeID,
+		FlowNodeMap:        FlowNodeMap,
+		PendingAtmoicMap:   make(map[idwrap.IDWrap]uint32),
+		EdgesMap:           edgesMap,
+		Timeout:            timeout,
+		mode:               ExecutionModeAuto,
+		selectedMode:       ExecutionModeMulti,
+		enableDataTracking: true,
 	}
 }
 
-func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner.FlowNodeStatus, flowStatusChan chan runner.FlowStatus, baseVars map[string]any) error {
+// SetExecutionMode overrides the default Auto mode for the next run.
+func (r *FlowLocalRunner) SetExecutionMode(mode ExecutionMode) {
+	if mode < ExecutionModeAuto || mode > ExecutionModeMulti {
+		mode = ExecutionModeAuto
+	}
+	r.mode = mode
+}
+
+// SelectedMode reports the effective mode used during the last Run invocation.
+func (r *FlowLocalRunner) SelectedMode() ExecutionMode {
+	return r.selectedMode
+}
+
+// SetDataTrackingEnabled toggles variable tracking during execution.
+func (r *FlowLocalRunner) SetDataTrackingEnabled(enabled bool) {
+	r.enableDataTracking = enabled
+}
+
+func selectExecutionMode(nodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap) ExecutionMode {
+	nodeCount := len(nodeMap)
+	if nodeCount == 0 {
+		return ExecutionModeSingle
+	}
+
+	maxBranchFactor := 0
+	hasLoop := false
+	for _, edges := range edgesMap {
+		for handle, targetIDs := range edges {
+			if len(targetIDs) > maxBranchFactor {
+				maxBranchFactor = len(targetIDs)
+			}
+			if handle == edge.HandleLoop && len(targetIDs) > 0 {
+				hasLoop = true
+			}
+		}
+	}
+	if hasLoop {
+		return ExecutionModeMulti
+	}
+
+	const smallFlowThreshold = 6
+	if nodeCount <= smallFlowThreshold && maxBranchFactor <= 1 {
+		return ExecutionModeSingle
+	}
+	return ExecutionModeMulti
+}
+
+func runNodes(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
+	statusLogFunc node.LogPushFunc, predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
+	mode ExecutionMode, timeout time.Duration, trackData bool,
+) error {
+	switch mode {
+	case ExecutionModeSingle:
+		return runNodesSingle(ctx, startNodeID, req, statusLogFunc, predecessorMap, timeout, trackData)
+	case ExecutionModeMulti:
+		if timeout == 0 {
+			return runNodesMultiNoTimeout(ctx, startNodeID, req, statusLogFunc, predecessorMap, trackData)
+		}
+		return runNodesMultiWithTimeout(ctx, startNodeID, req, statusLogFunc, predecessorMap, timeout, trackData)
+	default:
+		if timeout == 0 {
+			return runNodesMultiNoTimeout(ctx, startNodeID, req, statusLogFunc, predecessorMap, trackData)
+		}
+		return runNodesMultiWithTimeout(ctx, startNodeID, req, statusLogFunc, predecessorMap, timeout, trackData)
+	}
+}
+
+func gatherSingleModeInputData(req *node.FlowNodeRequest, predecessorIDs []idwrap.IDWrap) map[string]any {
+	if len(predecessorIDs) == 0 {
+		return nil
+	}
+
+	inputs := make(map[string]any, len(predecessorIDs))
+	for _, predID := range predecessorIDs {
+		predNode, ok := req.NodeMap[predID]
+		if !ok {
+			continue
+		}
+		predName := predNode.GetName()
+		if predName == "" {
+			continue
+		}
+		if data, err := node.ReadVarRaw(req, predName); err == nil {
+			inputs[predName] = node.DeepCopyValue(data)
+		}
+	}
+
+	if len(inputs) == 0 {
+		return nil
+	}
+	return inputs
+}
+
+func collectSingleModeOutput(req *node.FlowNodeRequest, nodeName string) any {
+	if nodeName == "" {
+		return nil
+	}
+	if data, err := node.ReadVarRaw(req, nodeName); err == nil {
+		return node.DeepCopyValue(data)
+	}
+	return nil
+}
+
+func sendQueuedCancellationStatuses(queue []idwrap.IDWrap, req *node.FlowNodeRequest, statusLogFunc node.LogPushFunc, cancelErr error) {
+	for _, nodeID := range queue {
+		if nodeRef, ok := req.NodeMap[nodeID]; ok {
+			statusLogFunc(runner.FlowNodeStatus{
+				ExecutionID:      idwrap.NewNow(),
+				NodeID:           nodeID,
+				Name:             nodeRef.GetName(),
+				State:            mnnode.NODE_STATE_CANCELED,
+				Error:            cancelErr,
+				IterationContext: req.IterationContext,
+			})
+		}
+	}
+}
+
+func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
+	statusLogFunc node.LogPushFunc, predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
+	timeout time.Duration, trackData bool,
+) error {
+	queue := []idwrap.IDWrap{startNodeID}
+
+	for len(queue) > 0 {
+		if ctx.Err() != nil {
+			sendQueuedCancellationStatuses(queue, req, statusLogFunc, ctx.Err())
+			return ctx.Err()
+		}
+
+		nodeID := queue[0]
+		queue = queue[1:]
+
+		currentNode, ok := req.NodeMap[nodeID]
+		if !ok {
+			return fmt.Errorf("node not found: %v", nodeID)
+		}
+
+		var inputData map[string]any
+		if trackData {
+			inputData = gatherSingleModeInputData(req, predecessorMap[nodeID])
+		}
+
+		executionID := idwrap.NewNow()
+		runningStatus := runner.FlowNodeStatus{
+			ExecutionID:      executionID,
+			NodeID:           nodeID,
+			Name:             currentNode.GetName(),
+			State:            mnnode.NODE_STATE_RUNNING,
+			IterationContext: req.IterationContext,
+		}
+		statusLogFunc(runningStatus)
+
+		nodeReq := *req
+		nodeReq.ExecutionID = executionID
+		nodeReq.VariableTracker = nil // Sequential path skips tracker allocation
+
+		nodeCtx := ctx
+		cancelNodeCtx := func() {}
+		if timeout > 0 {
+			nodeCtx, cancelNodeCtx = context.WithDeadline(ctx, time.Now().Add(timeout))
+		}
+		startTime := time.Now()
+
+		result := processNode(nodeCtx, currentNode, &nodeReq)
+		cancelNodeCtx()
+
+		status := runner.FlowNodeStatus{
+			ExecutionID:      executionID,
+			NodeID:           nodeID,
+			Name:             currentNode.GetName(),
+			IterationContext: req.IterationContext,
+			RunDuration:      time.Since(startTime),
+		}
+
+		if trackData && len(inputData) > 0 {
+			status.InputData = node.DeepCopyValue(inputData)
+		}
+
+		if result.Err != nil {
+			if runner.IsCancellationError(result.Err) {
+				status.State = mnnode.NODE_STATE_CANCELED
+			} else {
+				status.State = mnnode.NODE_STATE_FAILURE
+			}
+			status.Error = result.Err
+			if trackData {
+				status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
+			}
+			statusLogFunc(status)
+			return result.Err
+		}
+
+		if nodeCtx.Err() != nil {
+			status.State = mnnode.NODE_STATE_CANCELED
+			status.Error = nodeCtx.Err()
+			if trackData {
+				status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
+			}
+			statusLogFunc(status)
+			return nodeCtx.Err()
+		}
+
+		if !result.SkipFinalStatus {
+			status.State = mnnode.NODE_STATE_SUCCESS
+			if trackData {
+				status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
+			}
+			statusLogFunc(status)
+		}
+
+		for _, nextID := range result.NextNodeID {
+			if remaining, ok := req.PendingAtmoicMap[nextID]; ok && remaining > 1 {
+				req.PendingAtmoicMap[nextID] = remaining - 1
+				continue
+			}
+			queue = append(queue, nextID)
+		}
+	}
+
+	return nil
+}
+
+// RunNodeSync retains the legacy behaviour for packages that directly invoke the runner.
+func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
+	statusLogFunc node.LogPushFunc, predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
+) error {
+	return runNodes(ctx, startNodeID, req, statusLogFunc, predecessorMap, ExecutionModeMulti, 0, true)
+}
+
+// RunNodeASync retains the legacy behaviour for packages that directly invoke the runner with timeouts.
+func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
+	statusLogFunc node.LogPushFunc, predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
+) error {
+	return runNodes(ctx, startNodeID, req, statusLogFunc, predecessorMap, ExecutionModeMulti, req.Timeout, true)
+}
+
+func (r *FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner.FlowNodeStatus, flowStatusChan chan runner.FlowStatus, baseVars map[string]any) error {
 	defer close(flowNodeStatusChan)
 	defer close(flowStatusChan)
 	nextNodeID := &r.StartNodeID
@@ -82,12 +335,14 @@ func (r FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner
 	}
 	predecessorMap := BuildPredecessorMap(r.EdgesMap)
 
-	flowStatusChan <- runner.FlowStatusStarting
-	if r.Timeout == 0 {
-		err = RunNodeSync(ctx, *nextNodeID, req, logWorkaround, predecessorMap)
-	} else {
-		err = RunNodeASync(ctx, *nextNodeID, req, logWorkaround, predecessorMap)
+	mode := r.mode
+	if mode == ExecutionModeAuto {
+		mode = selectExecutionMode(r.FlowNodeMap, r.EdgesMap)
 	}
+	r.selectedMode = mode
+
+	flowStatusChan <- runner.FlowStatusStarting
+	err = runNodes(ctx, *nextNodeID, req, logWorkaround, predecessorMap, mode, r.Timeout, r.enableDataTracking)
 
 	if err != nil {
 		flowStatusChan <- runner.FlowStatusFailed
@@ -116,6 +371,40 @@ type FlowNodeStatusLocal struct {
 	StartTime time.Time
 }
 
+type nodeSignal struct {
+	once sync.Once
+	ch   chan struct{}
+}
+
+func acquireNodeSignal(signals *sync.Map, id idwrap.IDWrap) *nodeSignal {
+	val, _ := signals.LoadOrStore(id, &nodeSignal{ch: make(chan struct{})})
+	return val.(*nodeSignal)
+}
+
+func waitForPredecessors(ctx context.Context, signals, seen *sync.Map, predecessors []idwrap.IDWrap) error {
+	for _, predID := range predecessors {
+		if seen != nil {
+			if _, ok := seen.Load(predID); !ok {
+				continue
+			}
+		}
+		sig := acquireNodeSignal(signals, predID)
+		select {
+		case <-sig.ch:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
+func signalNodeComplete(signals *sync.Map, id idwrap.IDWrap) {
+	sig := acquireNodeSignal(signals, id)
+	sig.once.Do(func() {
+		close(sig.ch)
+	})
+}
+
 func MaxParallelism() int {
 	maxProcs := runtime.GOMAXPROCS(0)
 	numCPU := runtime.NumCPU()
@@ -125,7 +414,10 @@ func MaxParallelism() int {
 	return numCPU
 }
 
-var goroutineCount int = MaxParallelism()
+var (
+	goroutineCount int = MaxParallelism()
+	trackerPool        = sync.Pool{New: func() any { return tracking.NewVariableTracker() }}
+)
 
 func BuildPredecessorMap(edgesMap edge.EdgesMap) map[idwrap.IDWrap][]idwrap.IDWrap {
 	predecessors := make(map[idwrap.IDWrap][]idwrap.IDWrap, len(edgesMap))
@@ -139,9 +431,10 @@ func BuildPredecessorMap(edgesMap edge.EdgesMap) map[idwrap.IDWrap][]idwrap.IDWr
 	return predecessors
 }
 
-func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
+func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
 	statusLogFunc node.LogPushFunc,
 	predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
+	trackData bool,
 ) error {
 	queue := []idwrap.IDWrap{startNodeID}
 
@@ -206,6 +499,10 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		}
 	}()
 
+	nodeSignals := &sync.Map{}
+	seenNodes := &sync.Map{}
+	seenNodes.Store(startNodeID, struct{}{})
+
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
 		// Check if context was cancelled before processing next batch
 		if ctx.Err() != nil {
@@ -225,42 +522,24 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 		wg.Add(processCount)
 		FlowNodeCancelCtx, FlowNodeCancelCtxCancel := context.WithCancel(ctx)
 		defer FlowNodeCancelCtxCancel()
-		for _, flowNodeId := range subqueue {
-			currentNode, ok := req.NodeMap[flowNodeId]
+		for _, flowNodeID := range subqueue {
+			currentNode, ok := req.NodeMap[flowNodeID]
 			if !ok {
 				return fmt.Errorf("node not found: %v", currentNode)
 			}
-			nodeStateMap[flowNodeId] = FlowNodeStatusLocal{StartTime: time.Now()}
+			nodeStateMap[flowNodeID] = FlowNodeStatusLocal{StartTime: time.Now()}
+			seenNodes.Store(flowNodeID, struct{}{})
 			go func(nodeID idwrap.IDWrap) {
 				defer wg.Done()
 
-				// Wait for all predecessors to complete before reading their output
-				// This prevents race conditions where we read before predecessors finish writing
-				predecessors := predecessorMap[nodeID]
-
-				// For each predecessor, wait until its variable is available
-				inputData := make(map[string]any)
-				for _, predID := range predecessors {
-					if predNode, ok := req.NodeMap[predID]; ok {
-						predName := predNode.GetName()
-
-						// Retry reading with backoff to handle race conditions
-						var predData interface{}
-						var err error
-						maxRetries := 10 // Max ~1ms total wait
-						for retry := 0; retry < maxRetries; retry++ {
-							predData, err = node.ReadVarRaw(req, predName)
-							if err == nil {
-								break
-							}
-							// Very short wait before retry to allow predecessor to complete
-							time.Sleep(100 * time.Microsecond)
+				if predecessors := predecessorMap[nodeID]; len(predecessors) > 0 {
+					if err := waitForPredecessors(FlowNodeCancelCtx, nodeSignals, seenNodes, predecessors); err != nil {
+						resultChan <- processResult{
+							originalID:  currentNode.GetID(),
+							executionID: idwrap.IDWrap{},
+							err:         err,
 						}
-
-						// Only add to inputData if we successfully read the predecessor data
-						if err == nil {
-							inputData[predName] = predData
-						}
+						return
 					}
 				}
 
@@ -288,23 +567,31 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				// This ensures each goroutine has its own tracker and execution ID
 				nodeReq := *req // Shallow copy of the request struct
 
-				// Initialize tracker for this node execution
-				tracker := tracking.NewVariableTracker()
-				nodeReq.VariableTracker = tracker
+				var tracker *tracking.VariableTracker
+				if trackData {
+					tracker = trackerPool.Get().(*tracking.VariableTracker)
+					tracker.Reset()
+					nodeReq.VariableTracker = tracker
+				}
 
 				// Set the execution ID in the copied request
 				nodeReq.ExecutionID = executionID
 
 				result := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
 
-				// Capture tracked data as tree structures
-				outputData := tracker.GetWrittenVarsAsTree()
-
-				// Merge tracked variable reads as tree structure into inputData
-				trackedReads := tracker.GetReadVarsAsTree()
-				if len(trackedReads) > 0 {
-					// Merge the tracked reads into inputData without wrapping
-					inputData = tracking.MergeTreesPreferFirst(inputData, trackedReads)
+				// Capture tracked data as tree structures when enabled
+				var (
+					outputData map[string]any
+					inputData  map[string]any
+				)
+				if tracker != nil {
+					outputData = tracker.GetWrittenVarsAsTree()
+					trackedReads := tracker.GetReadVarsAsTree()
+					if len(trackedReads) > 0 {
+						inputData = trackedReads
+					}
+					tracker.Reset()
+					trackerPool.Put(tracker)
 				}
 
 				resultChan <- processResult{
@@ -316,7 +603,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 					outputData:      outputData,
 					skipFinalStatus: result.SkipFinalStatus,
 				}
-			}(flowNodeId)
+			}(flowNodeID)
 		}
 
 		wg.Wait()
@@ -332,6 +619,9 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			status.IterationContext = req.IterationContext
 			nodeState := nodeStateMap[status.NodeID]
 			status.RunDuration = time.Since(nodeState.StartTime)
+			status.InputData = nil
+			status.OutputData = nil
+			signalNodeComplete(nodeSignals, result.originalID)
 
 			// Remove from running nodes since we're processing its completion
 			runningNodesMutex.Lock()
@@ -359,10 +649,16 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
-				// Capture tracked input/output data even for canceled nodes
-				// This ensures we show what data was read/written before cancellation
-				status.InputData = node.DeepCopyValue(result.inputData)
-				status.OutputData = node.DeepCopyValue(result.outputData)
+				if trackData {
+					// Capture tracked input/output data even for canceled nodes
+					// This ensures we show what data was read/written before cancellation
+					if result.inputData != nil {
+						status.InputData = node.DeepCopyValue(result.inputData)
+					}
+					if result.outputData != nil {
+						status.OutputData = node.DeepCopyValue(result.outputData)
+					}
+				}
 				statusLogFunc(status)
 				// Remove from running nodes since we've sent the CANCELED status
 				runningNodesMutex.Lock()
@@ -378,10 +674,16 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 			if !result.skipFinalStatus {
 				status.State = mnnode.NODE_STATE_SUCCESS
 				status.Error = nil
-				// Use the tracked output data which has the proper tree structure
-				status.OutputData = node.DeepCopyValue(result.outputData)
-				// Deep copy input data as well
-				status.InputData = node.DeepCopyValue(result.inputData)
+				if trackData {
+					// Use the tracked output data which has the proper tree structure
+					if result.outputData != nil {
+						status.OutputData = node.DeepCopyValue(result.outputData)
+					}
+					// Deep copy input data as well
+					if result.inputData != nil {
+						status.InputData = node.DeepCopyValue(result.inputData)
+					}
+				}
 				statusLogFunc(status)
 			}
 
@@ -391,6 +693,7 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 				if !ok || i == 1 {
 					pendingMapMutex.Unlock()
 					queue = append(queue, id)
+					seenNodes.Store(id, struct{}{})
 				} else {
 					req.PendingAtmoicMap[id] = i - 1
 					pendingMapMutex.Unlock()
@@ -415,10 +718,16 @@ func RunNodeSync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowN
 }
 
 // RunNodeASync runs nodes with timeout handling
-func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
+func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req *node.FlowNodeRequest,
 	statusLogFunc node.LogPushFunc,
 	predecessorMap map[idwrap.IDWrap][]idwrap.IDWrap,
+	timeout time.Duration,
+	trackData bool,
 ) error {
+	if timeout <= 0 {
+		return runNodesMultiNoTimeout(ctx, startNodeID, req, statusLogFunc, predecessorMap, trackData)
+	}
+
 	queue := []idwrap.IDWrap{startNodeID}
 
 	var status runner.FlowNodeStatus
@@ -482,6 +791,10 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 		}
 	}()
 
+	nodeSignals := &sync.Map{}
+	seenNodes := &sync.Map{}
+	seenNodes.Store(startNodeID, struct{}{})
+
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
 		// Check if context was cancelled before processing next batch
 		if ctx.Err() != nil {
@@ -490,7 +803,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 		processCount = min(goroutineCount, queueLen)
 
-		ctxTimed, cancelTimeFn := context.WithDeadline(ctx, time.Now().Add(req.Timeout))
+		ctxTimed, cancelTimeFn := context.WithDeadline(ctx, time.Now().Add(timeout))
 		defer cancelTimeFn()
 
 		var wg sync.WaitGroup
@@ -511,37 +824,19 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			}
 
 			timeStart[id] = time.Now()
+			seenNodes.Store(id, struct{}{})
 
 			go func(nodeID idwrap.IDWrap) {
 				defer wg.Done()
 
-				// Wait for all predecessors to complete before reading their output
-				// This prevents race conditions where we read before predecessors finish writing
-				predecessors := predecessorMap[nodeID]
-
-				// For each predecessor, wait until its variable is available
-				inputData := make(map[string]any)
-				for _, predID := range predecessors {
-					if predNode, ok := req.NodeMap[predID]; ok {
-						predName := predNode.GetName()
-
-						// Retry reading with backoff to handle race conditions
-						var predData interface{}
-						var err error
-						maxRetries := 10 // Max ~1ms total wait
-						for retry := 0; retry < maxRetries; retry++ {
-							predData, err = node.ReadVarRaw(req, predName)
-							if err == nil {
-								break
-							}
-							// Very short wait before retry to allow predecessor to complete
-							time.Sleep(100 * time.Microsecond)
+				if predecessors := predecessorMap[nodeID]; len(predecessors) > 0 {
+					if err := waitForPredecessors(FlowNodeCancelCtx, nodeSignals, seenNodes, predecessors); err != nil {
+						resultChan <- processResult{
+							originalID:  currentNode.GetID(),
+							executionID: idwrap.IDWrap{},
+							err:         err,
 						}
-
-						// Only add to inputData if we successfully read the predecessor data
-						if err == nil {
-							inputData[predName] = predData
-						}
+						return
 					}
 				}
 
@@ -569,9 +864,12 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				// This ensures each goroutine has its own tracker and execution ID
 				nodeReq := *req // Shallow copy of the request struct
 
-				// Initialize tracker for this node execution
-				tracker := tracking.NewVariableTracker()
-				nodeReq.VariableTracker = tracker
+				var tracker *tracking.VariableTracker
+				if trackData {
+					tracker = trackerPool.Get().(*tracking.VariableTracker)
+					tracker.Reset()
+					nodeReq.VariableTracker = tracker
+				}
 
 				// Set the execution ID in the copied request
 				nodeReq.ExecutionID = executionID
@@ -580,13 +878,18 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 
 				// Always capture tracked data and send result, even if context timed out
 				// This ensures nodes don't get stuck in RUNNING state
-				outputData := tracker.GetWrittenVarsAsTree()
-
-				// Merge tracked variable reads as tree structure into inputData
-				trackedReads := tracker.GetReadVarsAsTree()
-				if len(trackedReads) > 0 {
-					// Merge the tracked reads into inputData without wrapping
-					inputData = tracking.MergeTreesPreferFirst(inputData, trackedReads)
+				var (
+					outputData map[string]any
+					inputData  map[string]any
+				)
+				if tracker != nil {
+					outputData = tracker.GetWrittenVarsAsTree()
+					trackedReads := tracker.GetReadVarsAsTree()
+					if len(trackedReads) > 0 {
+						inputData = trackedReads
+					}
+					tracker.Reset()
+					trackerPool.Put(tracker)
 				}
 
 				// If context timed out after node execution, mark it as an error
@@ -632,6 +935,9 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			status.Name = currentNode.GetName()
 			status.IterationContext = req.IterationContext
 			status.RunDuration = time.Since(timeStart[status.NodeID])
+			status.InputData = nil
+			status.OutputData = nil
+			signalNodeComplete(nodeSignals, result.originalID)
 
 			// Remove from running nodes since we're processing its completion
 			runningNodesMutex.Lock()
@@ -659,10 +965,14 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			if FlowNodeCancelCtx.Err() != nil {
 				status.State = mnnode.NODE_STATE_CANCELED
 				status.Error = FlowNodeCancelCtx.Err()
-				// Capture tracked input/output data even for canceled nodes
-				// This ensures we show what data was read/written before cancellation
-				status.InputData = node.DeepCopyValue(result.inputData)
-				status.OutputData = node.DeepCopyValue(result.outputData)
+				if trackData {
+					if result.inputData != nil {
+						status.InputData = node.DeepCopyValue(result.inputData)
+					}
+					if result.outputData != nil {
+						status.OutputData = node.DeepCopyValue(result.outputData)
+					}
+				}
 				statusLogFunc(status)
 				// Remove from running nodes since we've sent the CANCELED status
 				runningNodesMutex.Lock()
@@ -677,10 +987,14 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 			if !result.skipFinalStatus {
 				status.State = mnnode.NODE_STATE_SUCCESS
 				status.Error = nil
-				// Use the tracked output data which has the proper tree structure
-				status.OutputData = node.DeepCopyValue(result.outputData)
-				// Deep copy input data as well
-				status.InputData = node.DeepCopyValue(result.inputData)
+				if trackData {
+					if result.outputData != nil {
+						status.OutputData = node.DeepCopyValue(result.outputData)
+					}
+					if result.inputData != nil {
+						status.InputData = node.DeepCopyValue(result.inputData)
+					}
+				}
 				statusLogFunc(status)
 			}
 
@@ -690,6 +1004,7 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 				if !ok || i == 1 {
 					pendingMapMutex.Unlock()
 					queue = append(queue, id)
+					seenNodes.Store(id, struct{}{})
 				} else {
 					req.PendingAtmoicMap[id] = i - 1
 					pendingMapMutex.Unlock()

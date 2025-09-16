@@ -1217,6 +1217,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// Use the same timeout for the flow runner
 	runnerID := idwrap.NewNow()
 	runnerInst := flowlocalrunner.CreateFlowRunner(runnerID, latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
+	runnerInst.SetExecutionMode(flowlocalrunner.ExecutionModeAuto)
 
 	// Calculate buffer size based on expected load
 	// For large iteration counts, we need bigger buffers to prevent blocking
