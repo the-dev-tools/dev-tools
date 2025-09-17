@@ -4,7 +4,6 @@ import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Console, Effect, pipe, Runtime, String } from 'effect';
 import { app, BrowserWindow, dialog, Dialog, ipcMain, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
-
 import { CustomUpdateProvider, UpdateOptions } from './update';
 
 const createWindow = Effect.gen(function* () {
@@ -60,7 +59,7 @@ const server = pipe(
       Effect.flatMap(path.fromFileUrl),
     );
 
-    return yield* pipe(
+    yield* pipe(
       path.join(dist, 'server'),
       String.replaceAll('app.asar', 'app.asar.unpacked'),
       Command.make,
@@ -74,29 +73,36 @@ const server = pipe(
       }),
       Command.stdout('inherit'),
       Command.stderr('inherit'),
-      Command.start,
+      Command.exitCode,
     );
+
+    yield* Effect.interrupt;
   }),
   Effect.ensuring(Console.log('Server exited')),
 );
 
-const worker = Effect.gen(function* () {
-  const path = yield* Path.Path;
+const worker = pipe(
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
 
-  const bundle = yield* pipe(
-    import.meta.resolve('@the-dev-tools/worker-js'),
-    Url.fromString,
-    Effect.flatMap(path.fromFileUrl),
-  );
+    const bundle = yield* pipe(
+      import.meta.resolve('@the-dev-tools/worker-js'),
+      Url.fromString,
+      Effect.flatMap(path.fromFileUrl),
+    );
 
-  return yield* pipe(
-    Command.make(process.execPath, '--experimental-vm-modules', '--disable-warning=ExperimentalWarning', bundle),
-    Command.env({ ELECTRON_RUN_AS_NODE: '1' }),
-    Command.stdout('inherit'),
-    Command.stderr('inherit'),
-    Command.start,
-  );
-});
+    yield* pipe(
+      Command.make(process.execPath, '--experimental-vm-modules', '--disable-warning=ExperimentalWarning', bundle),
+      Command.env({ ELECTRON_RUN_AS_NODE: '1' }),
+      Command.stdout('inherit'),
+      Command.stderr('inherit'),
+      Command.exitCode,
+    );
+
+    yield* Effect.interrupt;
+  }),
+  Effect.ensuring(Console.log('Worker exited')),
+);
 
 const onReady = Effect.gen(function* () {
   autoUpdater.setFeedURL({
@@ -147,7 +153,7 @@ const client = pipe(
     // dock icon is clicked and there are no other windows open.
     app.on('activate', () => void Runtime.runPromise(runtime)(onActivate));
 
-    return Effect.void;
+    return Effect.interrupt;
   }),
   Effect.asyncEffect,
   Effect.ensuring(Console.log('Client exited')),
