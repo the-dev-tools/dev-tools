@@ -18,7 +18,6 @@ import {
 } from 'effect';
 import { releaseChangelog, releaseVersion } from 'nx/release/index.js';
 import { type NxReleaseArgs } from 'nx/src/command-line/release/command-object.js';
-
 import { Repository } from './repository.ts';
 
 const resolveMonorepoRoot = Effect.gen(function* () {
@@ -82,9 +81,9 @@ type ReleaseWorkflow =
 
 const ReleaseWorkflows: Record<string, ReleaseWorkflow> = {
   'api-recorder-extension': 'release-chrome-extension.yaml',
+  cli: 'release-go.yaml',
   desktop: 'release-electron-builder.yaml',
   web: 'release-cloudflare-pages.yaml',
-  cli: 'release-go.yaml',
 };
 
 const release = CliCommand.make(

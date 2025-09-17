@@ -63,7 +63,7 @@ tasks:
   update:pnpm:
     interactive: true
     cmds:
-      - pnpm update --recursive --interactive --latest
+      - aikido-pnpm update --recursive --interactive --latest
       - task: fix:syncpack:mismatches
 
   storybook:

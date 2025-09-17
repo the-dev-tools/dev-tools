@@ -1,6 +1,7 @@
 import { createClient } from '@connectrpc/connect';
 import { ConnectQueryKey, createConnectQueryKey } from '@connectrpc/connect-query';
 import { experimental_streamedQuery as streamedQuery, useQuery } from '@tanstack/react-query';
+import { Array, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { useMemo } from 'react';
 import { Tree as AriaTree } from 'react-aria-components';
@@ -8,7 +9,7 @@ import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
-import { LogLevel, LogService, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
+import { LogLevel, LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
@@ -33,9 +34,10 @@ export const useLogsQuery = () => {
 
   const query = useQuery({
     queryFn: streamedQuery({
-      maxChunks: 100,
-      queryFn: () => logStream({}),
+      initialValue: Array.empty<LogStreamResponse>(),
+      reducer: (acc, value) => pipe(Array.append(acc, value), Array.takeRight(100)),
       refetchMode: 'append',
+      streamFn: () => logStream({}),
     }),
     queryKey,
   });

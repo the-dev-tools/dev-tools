@@ -7,15 +7,15 @@
   },
   "exports": "./dist/main.cjs",
   "devDependencies": {
-    "@bufbuild/protobuf": "~2.7.0",
-    "@connectrpc/connect": "~2.0.4",
-    "@effect/platform": "~0.90.5",
-    "@effect/platform-node": "~0.96.0",
+    "@bufbuild/protobuf": "~2.8.0",
+    "@connectrpc/connect": "~2.1.0",
+    "@effect/platform": "~0.90.9",
+    "@effect/platform-node": "~0.96.1",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@the-dev-tools/spec": "workspace:^",
-    "@types/node": "~24.3.0",
-    "effect": "~3.17.9",
-    "eslint": "~9.33.0",
+    "@types/node": "~24.5.1",
+    "effect": "~3.17.13",
+    "eslint": "~9.35.0",
     "tsup": "~8.5.0",
     "typescript": "~5.9.2"
   }

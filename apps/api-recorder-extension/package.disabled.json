@@ -37,22 +37,12 @@
     "typescript-eslint": "~8.40.0"
   },
   "manifest": {
-    "host_permissions": [
-      "https://*/*"
-    ],
-    "permissions": [
-      "debugger",
-      "tabs",
-      "unlimitedStorage"
-    ],
+    "host_permissions": ["https://*/*"],
+    "permissions": ["debugger", "tabs", "unlimitedStorage"],
     "web_accessible_resources": [
       {
-        "resources": [
-          "tabs/auth-callback.html"
-        ],
-        "matches": [
-          "*://*.magic.link/*"
-        ]
+        "resources": ["tabs/auth-callback.html"],
+        "matches": ["*://*.magic.link/*"]
       }
     ]
   }
