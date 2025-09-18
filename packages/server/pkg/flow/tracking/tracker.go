@@ -19,6 +19,22 @@ func NewVariableTracker() *VariableTracker {
 	}
 }
 
+// Reset clears tracked values so the tracker can be reused.
+func (vt *VariableTracker) Reset() {
+	if vt == nil {
+		return
+	}
+
+	vt.mutex.Lock()
+	defer vt.mutex.Unlock()
+	for k := range vt.readVars {
+		delete(vt.readVars, k)
+	}
+	for k := range vt.writtenVars {
+		delete(vt.writtenVars, k)
+	}
+}
+
 // TrackRead records a variable read operation
 func (vt *VariableTracker) TrackRead(key string, value any) {
 	if vt == nil {

@@ -42,3 +42,9 @@ func TestNew(t *testing.T) {
 		t.Error("Compare failed")
 	}
 }
+
+func BenchmarkNewNow(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = idwrap.NewNow()
+	}
+}

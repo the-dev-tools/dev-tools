@@ -240,9 +240,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					failedAt = itemIndex - 1 // Track where we stopped
 					goto ExitSeq             // Stop loop but don't propagate error
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-					// Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
-					// Wrap with a sentinel so the runner marks this loop as CANCELED.
-					loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, result.Err)
+					loopError = result.Err
 					failedAt = itemIndex - 1 // Store the index where failure occurred
 					goto ExitSeq             // Fail entire flow
 				}
@@ -379,9 +377,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
 					goto ExitSeq2 // Stop loop but don't propagate error
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-					// Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
-					// Wrap with a sentinel so the runner marks this loop as CANCELED.
-					loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, result.Err)
+					loopError = result.Err
 					failedAt = key // Store the key where failure occurred
 					goto ExitSeq2  // Fail entire flow
 				}
@@ -681,9 +677,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})
 						return // Stop loop but don't propagate error
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-						// Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
-						// Wrap with a sentinel so the runner marks this loop as CANCELED.
-						loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, loopResult.Err)
+						loopError = loopResult.Err
 						failedAt = itemIndex - 1 // Fail entire flow
 						goto ExitSeqAsync        // Exit the loop immediately on error
 					}
@@ -825,9 +819,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						sendResult(node.FlowNodeResult{NextNodeID: nextID, Err: nil})
 						return // Stop loop but don't propagate error
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-						// Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
-						// Wrap with a sentinel so the runner marks this loop as CANCELED.
-						loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, loopResult.Err)
+						loopError = loopResult.Err
 						failedAt = key     // Fail entire flow
 						goto ExitSeq2Async // Exit the loop immediately on error
 					}
