@@ -145,8 +145,15 @@ const client = pipe(
     // explicitly with Cmd + Q.
     app.on('window-all-closed', () => {
       if (process.platform === 'darwin') return;
-      // callback(Scope.close(scope, Exit.void));
+      app.quit();
+    });
+
+    let interrupted = false;
+    app.on('before-quit', (event) => {
+      if (interrupted) return;
+      event.preventDefault();
       callback(Effect.interrupt);
+      interrupted = true;
     });
 
     // On OS X it's common to re-create a window in the app when the
@@ -164,12 +171,8 @@ const client = pipe(
 
 pipe(
   Effect.all([import.meta.env.DEV ? Effect.void : server, client, worker], { concurrency: 'unbounded' }),
-  Effect.ensuring(
-    Effect.gen(function* () {
-      yield* Console.log('Program exited');
-      yield* Effect.sync(() => void app.quit());
-    }),
-  ),
+  Effect.ensuring(Console.log('Program exited')),
+  Effect.ensuring(Effect.sync(() => void app.quit())),
   Effect.scoped,
   Effect.provide(NodeContext.layer),
   Effect.provide(FetchHttpClient.layer),
