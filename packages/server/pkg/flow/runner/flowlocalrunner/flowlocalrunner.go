@@ -77,26 +77,62 @@ func selectExecutionMode(nodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.
 		return ExecutionModeSingle
 	}
 
-	maxBranchFactor := 0
-	hasLoop := false
-	for _, edges := range edgesMap {
-		for handle, targetIDs := range edges {
-			if len(targetIDs) > maxBranchFactor {
-				maxBranchFactor = len(targetIDs)
+	const smallFlowThreshold = 6
+
+	simpleStructure := true
+	incomingNonLoop := make(map[idwrap.IDWrap]int)
+
+	for sourceID, handles := range edgesMap {
+		nonLoopTargets := 0
+		for handle, targetIDs := range handles {
+			if len(targetIDs) == 0 {
+				continue
 			}
-			if handle == edge.HandleLoop && len(targetIDs) > 0 {
-				hasLoop = true
+			if handle == edge.HandleLoop {
+				if len(targetIDs) > 1 {
+					simpleStructure = false
+				}
+				continue
+			}
+
+			nonLoopTargets += len(targetIDs)
+			if len(targetIDs) > 1 {
+				simpleStructure = false
+			}
+			for _, targetID := range targetIDs {
+				incomingNonLoop[targetID]++
 			}
 		}
-	}
-	if hasLoop {
-		return ExecutionModeMulti
+		if nonLoopTargets > 1 {
+			simpleStructure = false
+		}
+		if _, ok := handles[edge.HandleLoop]; ok && nonLoopTargets > 0 {
+			// Loop node with additional branch work beyond the loop/then path
+			if nonLoopTargets > 1 {
+				simpleStructure = false
+			}
+		}
+
+		if _, exists := nodeMap[sourceID]; !exists {
+			// Node present in edges but missing from map; treat as complex and bail out
+			simpleStructure = false
+		}
 	}
 
-	const smallFlowThreshold = 6
-	if nodeCount <= smallFlowThreshold && maxBranchFactor <= 1 {
+	for targetID, count := range incomingNonLoop {
+		if count > 1 {
+			simpleStructure = false
+			break
+		}
+		if _, exists := nodeMap[targetID]; !exists {
+			simpleStructure = false
+		}
+	}
+
+	if nodeCount <= smallFlowThreshold && simpleStructure {
 		return ExecutionModeSingle
 	}
+
 	return ExecutionModeMulti
 }
 
@@ -208,7 +244,14 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 
 		nodeReq := *req
 		nodeReq.ExecutionID = executionID
-		nodeReq.VariableTracker = nil // Sequential path skips tracker allocation
+		var tracker *tracking.VariableTracker
+		if trackData {
+			tracker = trackerPool.Get().(*tracking.VariableTracker)
+			tracker.Reset()
+			nodeReq.VariableTracker = tracker
+		} else {
+			nodeReq.VariableTracker = nil
+		}
 
 		nodeCtx := ctx
 		cancelNodeCtx := func() {}
@@ -218,6 +261,21 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 		startTime := time.Now()
 
 		result := processNode(nodeCtx, currentNode, &nodeReq)
+
+		var (
+			trackedOutput map[string]any
+			trackedInput  map[string]any
+		)
+		if tracker != nil {
+			trackedOutput = tracker.GetWrittenVarsAsTree()
+			reads := tracker.GetReadVarsAsTree()
+			if len(reads) > 0 {
+				trackedInput = reads
+			}
+			tracker.Reset()
+			trackerPool.Put(tracker)
+		}
+		nodeCtxErr := nodeCtx.Err()
 		cancelNodeCtx()
 
 		status := runner.FlowNodeStatus{
@@ -228,8 +286,12 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 			RunDuration:      time.Since(startTime),
 		}
 
-		if trackData && len(inputData) > 0 {
-			status.InputData = node.DeepCopyValue(inputData)
+		if trackData {
+			if len(trackedInput) > 0 {
+				status.InputData = node.DeepCopyValue(trackedInput)
+			} else if len(inputData) > 0 {
+				status.InputData = node.DeepCopyValue(inputData)
+			}
 		}
 
 		if result.Err != nil {
@@ -240,26 +302,38 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 			}
 			status.Error = result.Err
 			if trackData {
-				status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
+				if len(trackedOutput) > 0 {
+					status.OutputData = node.DeepCopyValue(trackedOutput)
+				} else {
+					status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
+				}
 			}
 			statusLogFunc(status)
 			return result.Err
 		}
 
-		if nodeCtx.Err() != nil {
+		if nodeCtxErr != nil {
 			status.State = mnnode.NODE_STATE_CANCELED
-			status.Error = nodeCtx.Err()
+			status.Error = nodeCtxErr
 			if trackData {
-				status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
+				if len(trackedOutput) > 0 {
+					status.OutputData = node.DeepCopyValue(trackedOutput)
+				} else {
+					status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
+				}
 			}
 			statusLogFunc(status)
-			return nodeCtx.Err()
+			return nodeCtxErr
 		}
 
 		if !result.SkipFinalStatus {
 			status.State = mnnode.NODE_STATE_SUCCESS
 			if trackData {
-				status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
+				if len(trackedOutput) > 0 {
+					status.OutputData = node.DeepCopyValue(trackedOutput)
+				} else {
+					status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
+				}
 			}
 			statusLogFunc(status)
 		}

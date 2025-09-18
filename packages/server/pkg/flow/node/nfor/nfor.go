@@ -224,9 +224,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				failedAtIteration = i // Track where we stopped
 				goto Exit             // Stop loop but don't propagate error
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-				// Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
-				// Wrap with a sentinel so the runner marks this loop as CANCELED.
-				loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, iterationError)
+				loopError = iterationError
 				failedAtIteration = i
 				goto Exit // Fail entire flow
 			}
@@ -412,9 +410,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				failedAtIteration = i // Track where we stopped
 				goto Exit             // Stop loop but don't propagate error
 			case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
-				// Treat UNSPECIFIED as a user-initiated throw that cancels the loop.
-				// Wrap with a sentinel so the runner marks this loop as CANCELED.
-				loopError = fmt.Errorf("%w: %v", runner.ErrFlowCanceledByThrow, iterationError)
+				loopError = iterationError
 				failedAtIteration = i
 				goto Exit // Fail entire flow
 			}

@@ -827,6 +827,48 @@ func (c *FlowServiceRPC) FlowRun(ctx context.Context, req *connect.Request[flowv
 	return c.FlowRunAdHoc(ctx, req, stream)
 }
 
+func buildLoopNodeExecutionFromStatus(flowNodeStatus runner.FlowNodeStatus, executionID idwrap.IDWrap) mnodeexecution.NodeExecution {
+	completedAt := time.Now().UnixMilli()
+	nodeExecution := mnodeexecution.NodeExecution{
+		ID:                     executionID,
+		NodeID:                 flowNodeStatus.NodeID,
+		Name:                   flowNodeStatus.Name,
+		State:                  flowNodeStatus.State,
+		Error:                  nil,
+		InputData:              []byte("{}"),
+		InputDataCompressType:  0,
+		OutputData:             []byte("{}"),
+		OutputDataCompressType: 0,
+		ResponseID:             nil,
+		CompletedAt:            &completedAt,
+	}
+
+	if flowNodeStatus.Error != nil {
+		errorStr := formatErrForUser(flowNodeStatus.Error)
+		nodeExecution.Error = &errorStr
+	}
+
+	if flowNodeStatus.InputData != nil {
+		if inputJSON, err := json.Marshal(flowNodeStatus.InputData); err == nil {
+			if err := nodeExecution.SetInputJSON(inputJSON); err != nil {
+				nodeExecution.InputData = inputJSON
+				nodeExecution.InputDataCompressType = 0
+			}
+		}
+	}
+
+	if flowNodeStatus.OutputData != nil {
+		if outputJSON, err := json.Marshal(flowNodeStatus.OutputData); err == nil {
+			if err := nodeExecution.SetOutputJSON(outputJSON); err != nil {
+				nodeExecution.OutputData = outputJSON
+				nodeExecution.OutputDataCompressType = 0
+			}
+		}
+	}
+
+	return nodeExecution
+}
+
 func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest], stream api.ServerStreamAdHoc[flowv1.FlowRunResponse]) error {
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
@@ -1572,6 +1614,19 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								case <-stopSending:
 									// Channel closed, don't send
 								}
+							}
+						}
+					} else if loopNodeIDs[flowNodeStatus.NodeID] {
+						nodeExecution := buildLoopNodeExecutionFromStatus(flowNodeStatus, executionID)
+
+						if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+							log.Printf("Failed to upsert loop node execution %s: %v", nodeExecution.ID, err)
+						}
+
+						if !channelsClosed.Load() {
+							select {
+							case nodeExecutionChan <- nodeExecution:
+							case <-stopSending:
 							}
 						}
 					} else if flowNodeStatus.State == mnnode.NODE_STATE_CANCELED {
