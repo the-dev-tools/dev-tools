@@ -4,6 +4,7 @@ import { useDragAndDrop } from 'react-aria-components';
 import { HeaderDeltaListItem, HeaderListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import {
   HeaderCreateEndpoint,
+  HeaderDeleteEndpoint,
   HeaderDeltaCreateEndpoint,
   HeaderDeltaDeleteEndpoint,
   HeaderDeltaListEndpoint,
@@ -103,7 +104,7 @@ const FormTable = ({ exampleId }: FormTableProps) => {
       columns={[
         ...dataColumns,
         columnActionsCommon<GenericMessage<HeaderListItem>>({
-          onDelete: (_) => dataClient.fetch(HeaderDeltaDeleteEndpoint, { headerId: _.headerId }),
+          onDelete: (_) => dataClient.fetch(HeaderDeleteEndpoint, { headerId: _.headerId }),
         }),
       ]}
       data={items}
