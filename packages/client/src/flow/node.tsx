@@ -298,7 +298,7 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
           font-medium tracking-tight text-slate-800
         `}
       >
-        <div>Execution data ({items.length})</div>
+        <div>Execution data</div>
 
         {items.length > 1 && (
           <Select
