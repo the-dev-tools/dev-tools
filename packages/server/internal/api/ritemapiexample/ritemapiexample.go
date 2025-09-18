@@ -1286,6 +1286,18 @@ func HandleResponseCreate(exampleID, exampleRespID idwrap.IDWrap) ([]*changev1.C
 
 // TODO: make this transaction
 func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult) error {
+	// Ensure every copied example has a raw body row so downstream consumers (e.g. flows)
+	// can always resolve raw payload data regardless of UI body type.
+	if result.BodyRaw == nil && result.Example.ID != (idwrap.IDWrap{}) {
+		result.BodyRaw = &mbodyraw.ExampleBodyRaw{
+			ID:            idwrap.NewNow(),
+			ExampleID:     result.Example.ID,
+			VisualizeMode: mbodyraw.VisualizeModeBinary,
+			CompressType:  compress.CompressTypeNone,
+			Data:          []byte{},
+		}
+	}
+
 	// Create the main example
 	txIaes, err := sitemapiexample.NewTX(ctx, tx)
 	if err != nil {
@@ -1318,19 +1330,21 @@ func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult
 		}
 	}
 
+	// Persist a raw body row for every example regardless of UI body type.
+	txBrs, err := sbodyraw.NewTX(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("failed to create body raw service: %w", err)
+	}
+	if result.BodyRaw != nil {
+		if err := txBrs.CreateBodyRaw(ctx, *result.BodyRaw); err != nil {
+			return fmt.Errorf("failed to create body raw: %w", err)
+		}
+	}
+
 	// Create body based on type
 	switch result.Example.BodyType {
 	case mitemapiexample.BodyTypeRaw:
-		if result.BodyRaw != nil {
-			txBrs, err := sbodyraw.NewTX(ctx, tx)
-			if err != nil {
-				return fmt.Errorf("failed to create body raw: %w", err)
-			}
-			err = txBrs.CreateBodyRaw(ctx, *result.BodyRaw)
-			if err != nil {
-				return fmt.Errorf("failed to create body raw: %w", err)
-			}
-		}
+		// Raw body handled above.
 	case mitemapiexample.BodyTypeForm:
 		txBfs, err := sbodyform.NewTX(ctx, tx)
 		if err != nil {
