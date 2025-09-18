@@ -52,8 +52,8 @@ const RequestNodeBody = (props: NodeProps) => {
   const { request } = useQuery(NodeGetEndpoint, { nodeId });
 
   useEffect(() => {
-    if (!selected && !request?.exampleId.length) void deleteElements({ nodes: [{ id }] });
-  }, [deleteElements, id, request?.exampleId.length, selected]);
+    if (request && !selected && !request.exampleId.length) void deleteElements({ nodes: [{ id }] });
+  }, [deleteElements, id, request, selected]);
 
   return (
     <NodeBody {...props} Icon={SendRequestIcon}>

@@ -15,9 +15,10 @@ import {
   TooltipTrigger,
   Tree,
 } from 'react-aria-components';
+import { ErrorBoundary } from 'react-error-boundary';
 import { IconType } from 'react-icons';
 import { FiMoreHorizontal } from 'react-icons/fi';
-import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
+import { TbAlertTriangle, TbArchiveOff, TbCancel, TbRefresh } from 'react-icons/tb';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 import {
@@ -100,21 +101,44 @@ interface NodeContainerProps extends NodeProps {
   handles?: ReactNode;
 }
 
-export const NodeContainer = ({ children, data: { state }, handles, selected }: NodeContainerProps) => (
-  <div className={nodeContainerStyles({ isSelected: selected, state })}>
-    <Suspense
-      fallback={
-        <div className={tw`flex h-full items-center justify-center`}>
-          <Spinner size='md' />
-        </div>
-      }
-    >
-      {children}
-    </Suspense>
+export const NodeContainer = (props: NodeContainerProps) => {
+  const {
+    children,
+    data: { state },
+    handles,
+    selected,
+  } = props;
 
-    {handles}
-  </div>
-);
+  return (
+    <div className={nodeContainerStyles({ isSelected: selected, state })}>
+      <Suspense
+        fallback={
+          <div className={tw`flex h-full items-center justify-center`}>
+            <Spinner size='md' />
+          </div>
+        }
+      >
+        <ErrorBoundary
+          fallback={
+            <NodeBody {...props} Icon={TbArchiveOff}>
+              <div
+                className={tw`
+                  rounded-md border border-slate-200 bg-red-50 p-2 text-xs font-medium text-slate-800 shadow-xs
+                `}
+              >
+                Resource is missing
+              </div>
+            </NodeBody>
+          }
+        >
+          {children}
+        </ErrorBoundary>
+      </Suspense>
+
+      {handles}
+    </div>
+  );
+};
 
 interface NodeBodyProps extends NodeProps {
   children: ReactNode;

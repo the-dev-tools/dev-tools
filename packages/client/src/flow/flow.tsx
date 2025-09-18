@@ -35,6 +35,7 @@ import { Ulid } from 'id128';
 import { PropsWithChildren, ReactNode, Suspense, use, useCallback, useMemo, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
 import { Button as AriaButton, Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
+import { ErrorBoundary } from 'react-error-boundary';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { Example } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
@@ -743,20 +744,22 @@ export const EditPanel = () => {
   if (!view) return null;
 
   return (
-    <ReferenceContext value={{ nodeId: nodeId.value, workspaceId }}>
-      <PanelResizeHandle direction='vertical' />
-      <Panel className={tw`!overflow-auto`} defaultSize={40} id='node' order={2}>
-        <Suspense
-          fallback={
-            <div className={tw`flex h-full items-center justify-center`}>
-              <Spinner size='lg' />
-            </div>
-          }
-          key={Ulid.construct(nodeId.value).toCanonical()}
-        >
-          {view}
-        </Suspense>
-      </Panel>
-    </ReferenceContext>
+    <ErrorBoundary fallback={null}>
+      <ReferenceContext value={{ nodeId: nodeId.value, workspaceId }}>
+        <PanelResizeHandle direction='vertical' />
+        <Panel className={tw`!overflow-auto`} defaultSize={40} id='node' order={2}>
+          <Suspense
+            fallback={
+              <div className={tw`flex h-full items-center justify-center`}>
+                <Spinner size='lg' />
+              </div>
+            }
+            key={Ulid.construct(nodeId.value).toCanonical()}
+          >
+            {view}
+          </Suspense>
+        </Panel>
+      </ReferenceContext>
+    </ErrorBoundary>
   );
 };
