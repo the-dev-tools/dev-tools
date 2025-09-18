@@ -1035,7 +1035,7 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
       </Select>
 
       <CodeMirror
-        className={tw`col-span-full self-stretch select-text`}
+        className={tw`col-span-full self-stretch`}
         extensions={extensions}
         height='100%'
         indentWithTab={false}

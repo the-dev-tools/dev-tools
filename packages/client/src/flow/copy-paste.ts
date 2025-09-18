@@ -3,7 +3,7 @@ import { enumFromJson } from '@bufbuild/protobuf';
 import { useReactFlow } from '@xyflow/react';
 import { Array } from 'effect';
 import { Ulid } from 'id128';
-import { use, useEffect, useRef } from 'react';
+import { RefObject, use, useEffect, useRef } from 'react';
 import type { NodeSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { BodyKind } from '@the-dev-tools/spec/collection/item/body/v1/body_pb';
 import { HeaderDeltaListItem, QueryDeltaListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
@@ -310,7 +310,7 @@ const useCopyNode = () => {
   };
 };
 
-export function useFlowCopyPaste() {
+export function useFlowCopyPaste(ref: RefObject<HTMLDivElement | null>) {
   const { dataClient } = rootRouteApi.useRouteContext();
   const { isReadOnly = false } = use(FlowContext);
   const { addEdges, addNodes, getEdges, getNodes, setEdges, setNodes } = useReactFlow<Node, Edge>();
@@ -326,7 +326,11 @@ export function useFlowCopyPaste() {
 
   useEffect(() => {
     const handleKeyDown = async (event: KeyboardEvent) => {
-      if (isReadOnly) return;
+      const flowHasFocus = !!ref.current?.querySelector(':focus-within');
+      const documentHasFocus = !!document.querySelector(':focus-within');
+      const isFocusSafe = !documentHasFocus || flowHasFocus;
+
+      if (isReadOnly || !isFocusSafe) return;
 
       // Copy (Ctrl+C or Cmd+C)
       if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
@@ -439,6 +443,7 @@ export function useFlowCopyPaste() {
     setNodes,
     setEdges,
     copyNode,
+    ref,
   ]);
 }
 

@@ -245,7 +245,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
     [getEdges, getNode, isReadOnly],
   );
 
-  useFlowCopyPaste();
+  useFlowCopyPaste(ref);
 
   const { dropProps } = useDrop({
     onDrop: async ({ items, x, y }) => {
