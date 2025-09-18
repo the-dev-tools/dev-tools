@@ -115,7 +115,7 @@ const useOnCollectionDelete = () => {
   const endpointProps = useEndpointProps();
   const onEndpointDelete = useOnEndpointDelete();
   const onFolderDelete = useOnFolderDelete();
-  const onCollectionrDelete = (collectionId: Uint8Array) => {
+  const onCollectionrDelete = async (collectionId: Uint8Array) => {
     const state = dataClient.controller.getState();
     const {
       data: { items },
@@ -124,12 +124,12 @@ const useOnCollectionDelete = () => {
       { ...endpointProps, input: { collectionId } },
       state,
     );
-    items?.forEach((_) => {
-      if (_.kind === ItemKind.FOLDER) onFolderDelete(collectionId, _.folder.folderId);
+    for (const _ of items ?? []) {
+      if (_.kind === ItemKind.FOLDER) await onFolderDelete(collectionId, _.folder.folderId);
 
       if (_.kind === ItemKind.ENDPOINT)
-        onEndpointDelete({ endpointId: _.endpoint.endpointId, exampleId: _.example.exampleId });
-    });
+        await onEndpointDelete({ endpointId: _.endpoint.endpointId, exampleId: _.example.exampleId });
+    }
   };
   return onCollectionrDelete;
 };
@@ -138,7 +138,7 @@ const useOnFolderDelete = () => {
   const { dataClient } = rootRouteApi.useRouteContext();
   const endpointProps = useEndpointProps();
   const onEndpointDelete = useOnEndpointDelete();
-  const onFolderDelete = (collectionId: Uint8Array, folderId: Uint8Array) => {
+  const onFolderDelete = async (collectionId: Uint8Array, folderId: Uint8Array) => {
     const state = dataClient.controller.getState();
     const {
       data: { items },
@@ -147,12 +147,12 @@ const useOnFolderDelete = () => {
       { ...endpointProps, input: { collectionId, parentFolderId: folderId } },
       state,
     );
-    items?.forEach((_) => {
-      if (_.kind === ItemKind.FOLDER) onFolderDelete(collectionId, _.folder.folderId);
+    for (const _ of items ?? []) {
+      if (_.kind === ItemKind.FOLDER) await onFolderDelete(collectionId, _.folder.folderId);
 
       if (_.kind === ItemKind.ENDPOINT)
-        onEndpointDelete({ endpointId: _.endpoint.endpointId, exampleId: _.example.exampleId });
-    });
+        await onEndpointDelete({ endpointId: _.endpoint.endpointId, exampleId: _.example.exampleId });
+    }
   };
   return onFolderDelete;
 };
@@ -390,9 +390,9 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
             </MenuItem>
 
             <MenuItem
-              onAction={() => {
-                onCollectionDelete(collectionId);
-                void dataClient.fetch(CollectionDeleteEndpoint, { collectionId });
+              onAction={async () => {
+                await onCollectionDelete(collectionId);
+                await dataClient.fetch(CollectionDeleteEndpoint, { collectionId });
               }}
               variant='danger'
             >
@@ -554,9 +554,9 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
                 </MenuItem>
 
                 <MenuItem
-                  onAction={() => {
-                    onFolderDelete(collectionId, folderId);
-                    void dataClient.fetch(FolderDeleteEndpoint, { folderId });
+                  onAction={async () => {
+                    await onFolderDelete(collectionId, folderId);
+                    await dataClient.fetch(FolderDeleteEndpoint, { folderId });
                   }}
                   variant='danger'
                 >
@@ -695,9 +695,9 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
             </MenuItem>
 
             <MenuItem
-              onAction={() => {
-                onEndpointDelete({ endpointId, exampleId });
-                void dataClient.fetch(EndpointDeleteEndpoint, { endpointId });
+              onAction={async () => {
+                await onEndpointDelete({ endpointId, exampleId });
+                await dataClient.fetch(EndpointDeleteEndpoint, { endpointId });
               }}
               variant='danger'
             >
@@ -815,9 +815,9 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
             </MenuItem>
 
             <MenuItem
-              onAction={() => {
-                onEndpointDelete({ endpointId, exampleId });
-                void dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
+              onAction={async () => {
+                await onEndpointDelete({ endpointId, exampleId });
+                await dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
               }}
               variant='danger'
             >

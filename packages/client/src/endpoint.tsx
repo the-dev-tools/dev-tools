@@ -94,7 +94,7 @@ export const useOnEndpointDelete = () => {
   const endpointProps = useEndpointProps();
   const context = workspaceRouteApi.useRouteContext();
   const removeTab = useRemoveTab();
-  return (props: EndpointTabIdProps) => {
+  return async (props: EndpointTabIdProps) => {
     const state = dataClient.controller.getState();
     const {
       data: { items },
@@ -103,17 +103,18 @@ export const useOnEndpointDelete = () => {
       { ...endpointProps, input: { endpointId: props.endpointId } },
       state,
     );
-    items?.forEach(
-      (_) =>
-        void removeTab({
-          ...context,
-          id: endpointTabId({
-            endpointId: props.endpointId,
-            exampleId: _.exampleId,
-          }),
+
+    for (const _ of items ?? []) {
+      await removeTab({
+        ...context,
+        id: endpointTabId({
+          endpointId: props.endpointId,
+          exampleId: _.exampleId,
         }),
-    );
-    void removeTab({ ...context, id: endpointTabId(props) });
+      });
+    }
+
+    await removeTab({ ...context, id: endpointTabId(props) });
   };
 };
 
@@ -583,9 +584,9 @@ export const EndpointHeader = ({ endpointId, exampleId }: EndpointHeaderProps) =
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
             <MenuItem
-              onAction={() => {
-                onEndpointDelete({ endpointId, exampleId });
-                void dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
+              onAction={async () => {
+                await onEndpointDelete({ endpointId, exampleId });
+                await dataClient.fetch(ExampleDeleteEndpoint, { exampleId });
               }}
               variant='danger'
             >
