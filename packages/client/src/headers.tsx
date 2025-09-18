@@ -74,17 +74,6 @@ const FormTable = ({ exampleId }: FormTableProps) => {
 
   const items: GenericMessage<HeaderListItem>[] = useQuery(HeaderListEndpoint, { exampleId }).items;
 
-  const table = useReactTable({
-    columns: [
-      ...dataColumns,
-      columnActionsCommon<GenericMessage<HeaderListItem>>({
-        onDelete: (_) => dataClient.fetch(HeaderDeltaDeleteEndpoint, { headerId: _.headerId }),
-      }),
-    ],
-    data: items,
-    getRowId: (_) => Ulid.construct(_.headerId).toCanonical(),
-  });
-
   const formTable = useFormTable({
     createLabel: 'New header',
     items,
@@ -109,7 +98,20 @@ const FormTable = ({ exampleId }: FormTableProps) => {
     renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 
-  return <DataTable {...formTable} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />;
+  return (
+    <ReactTableNoMemo
+      columns={[
+        ...dataColumns,
+        columnActionsCommon<GenericMessage<HeaderListItem>>({
+          onDelete: (_) => dataClient.fetch(HeaderDeltaDeleteEndpoint, { headerId: _.headerId }),
+        }),
+      ]}
+      data={items}
+      getRowId={(_) => Ulid.construct(_.headerId).toCanonical()}
+    >
+      {(table) => <DataTable {...formTable} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />}
+    </ReactTableNoMemo>
+  );
 };
 
 interface DeltaFormTableProps {

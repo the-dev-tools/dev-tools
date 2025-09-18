@@ -159,17 +159,6 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
     exampleId,
   }).items;
 
-  const table = useReactTable({
-    columns: [
-      ...formDataColumns,
-      columnActionsCommon<GenericMessage<BodyFormListItem>>({
-        onDelete: (_) => dataClient.fetch(BodyFormDeleteEndpoint, { bodyId: _.bodyId }),
-      }),
-    ],
-    data: items,
-    getRowId: (_) => Ulid.construct(_.bodyId).toCanonical(),
-  });
-
   const formTable = useFormTable({
     createLabel: 'New form data item',
     items,
@@ -195,13 +184,26 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
   });
 
   return (
-    <DataTable
-      {...formTable}
-      aria-label='Body form items'
-      containerClassName={tw`col-span-full`}
-      dragAndDropHooks={dragAndDropHooks}
-      table={table}
-    />
+    <ReactTableNoMemo
+      columns={[
+        ...formDataColumns,
+        columnActionsCommon<GenericMessage<BodyFormListItem>>({
+          onDelete: (_) => dataClient.fetch(BodyFormDeleteEndpoint, { bodyId: _.bodyId }),
+        }),
+      ]}
+      data={items}
+      getRowId={(_) => Ulid.construct(_.bodyId).toCanonical()}
+    >
+      {(table) => (
+        <DataTable
+          {...formTable}
+          aria-label='Body form items'
+          containerClassName={tw`col-span-full`}
+          dragAndDropHooks={dragAndDropHooks}
+          table={table}
+        />
+      )}
+    </ReactTableNoMemo>
   );
 };
 
@@ -305,17 +307,6 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
     exampleId,
   }).items;
 
-  const table = useReactTable({
-    columns: [
-      ...urlEncodedDataColumns,
-      columnActionsCommon<GenericMessage<BodyUrlEncodedListItem>>({
-        onDelete: (_) => dataClient.fetch(BodyUrlEncodedDeleteEndpoint, { bodyId: _.bodyId }),
-      }),
-    ],
-    data: items,
-    getRowId: (_) => Ulid.construct(_.bodyId).toCanonical(),
-  });
-
   const formTable = useFormTable({
     createLabel: 'New URL encoded item',
     items,
@@ -341,13 +332,26 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
   });
 
   return (
-    <DataTable
-      {...formTable}
-      aria-label='URL encoded body form items'
-      containerClassName={tw`col-span-full`}
-      dragAndDropHooks={dragAndDropHooks}
-      table={table}
-    />
+    <ReactTableNoMemo
+      columns={[
+        ...urlEncodedDataColumns,
+        columnActionsCommon<GenericMessage<BodyUrlEncodedListItem>>({
+          onDelete: (_) => dataClient.fetch(BodyUrlEncodedDeleteEndpoint, { bodyId: _.bodyId }),
+        }),
+      ]}
+      data={items}
+      getRowId={(_) => Ulid.construct(_.bodyId).toCanonical()}
+    >
+      {(table) => (
+        <DataTable
+          {...formTable}
+          aria-label='URL encoded body form items'
+          containerClassName={tw`col-span-full`}
+          dragAndDropHooks={dragAndDropHooks}
+          table={table}
+        />
+      )}
+    </ReactTableNoMemo>
   );
 };
 
