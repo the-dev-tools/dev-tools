@@ -97,7 +97,7 @@ export interface TextInputFieldProps
 export const TextInputField = ({ className = '', inputClassName, placeholder, ref, ...props }: TextInputFieldProps) => (
   <TextField {...props} className={className}>
     <RAC.Input
-      className={composeStyleRenderProps(inputClassName, textInputFieldStyles)}
+      className={composeStyleRenderProps(inputClassName, textInputFieldStyles, props)}
       placeholder={placeholder}
       ref={ref}
     />
