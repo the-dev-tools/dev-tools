@@ -947,7 +947,7 @@ const ResponseBodyView = ({ bodyBytes }: ResponseBodyViewProps) => {
         <ResponseBodyPrettyView body={body} />
       </TabPanel>
 
-      <TabPanel className='col-span-full overflow-auto whitespace-pre font-mono' id='raw'>
+      <TabPanel className={tw`col-span-full overflow-auto font-mono whitespace-pre select-text`} id='raw'>
         {body}
       </TabPanel>
 
@@ -1035,7 +1035,7 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
       </Select>
 
       <CodeMirror
-        className='col-span-full self-stretch'
+        className={tw`col-span-full self-stretch select-text`}
         extensions={extensions}
         height='100%'
         indentWithTab={false}
