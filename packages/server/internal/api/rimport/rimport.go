@@ -658,6 +658,11 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
+	txQueries, err := gen.Prepare(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to prepare transaction queries: %w", err))
+	}
+
 	txCollectionService, err := scollection.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -766,73 +771,76 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// CRITICAL FIX: Create collection_items entries for all folders
+	// CRITICAL FIX: Create collection_items entries for all folders while reusing existing ones
 	// The unified collection_items table requires folders to have entries with item_type=0
 	// so they can be properly referenced by endpoints via parent_folder_id
 	folderToCollectionItemMapping := make(map[idwrap.IDWrap]idwrap.IDWrap) // legacy folder ID -> collection_items ID
-	
+
 	if len(existingFoldersList) > 0 {
-		// Get prepared transaction queries
-		txQueries, err := gen.Prepare(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to prepare transaction queries for folder items: %w", err))
+		foldersProcessed := make(map[idwrap.IDWrap]bool)
+
+		// First pass: map any folders that already have collection_items rows
+		for _, folder := range existingFoldersList {
+			item, lookupErr := txQueries.GetCollectionItemByFolderID(ctx, &folder.ID)
+			if lookupErr == nil {
+				folderToCollectionItemMapping[folder.ID] = item.ID
+				foldersProcessed[folder.ID] = true
+				continue
+			}
+			if lookupErr != sql.ErrNoRows {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to look up folder collection item %s: %w", folder.ID.String(), lookupErr))
+			}
 		}
 
-		// Process folders by depth to ensure parents are created before children
-		foldersProcessed := make(map[idwrap.IDWrap]bool)
-		
-		// Keep processing until all folders are handled
+		// Second pass: create collection_items entries for folders that don't have them yet
 		for len(foldersProcessed) < len(existingFoldersList) {
 			progressMade := false
-			
+
 			for _, folder := range existingFoldersList {
 				if foldersProcessed[folder.ID] {
-					continue // Already processed
+					continue
 				}
-				
-				// Check if we can process this folder (parent must be processed first, or no parent)
+
+				// Only process when parent is already resolved (or is root)
 				canProcess := folder.ParentID == nil
 				if folder.ParentID != nil {
-					// Check if parent is already processed
-					if _, parentProcessed := foldersProcessed[*folder.ParentID]; parentProcessed {
+					if _, ok := folderToCollectionItemMapping[*folder.ParentID]; ok {
 						canProcess = true
 					}
 				}
-				
-				if canProcess {
-					// Create collection_items entry for this folder
-					collectionItemID := idwrap.New(ulid.Make())
-					folderToCollectionItemMapping[folder.ID] = collectionItemID
-					
-					// Determine parent collection item ID
-					var parentCollectionItemID *idwrap.IDWrap
-					if folder.ParentID != nil {
-						if parentItemID, exists := folderToCollectionItemMapping[*folder.ParentID]; exists {
-							parentCollectionItemID = &parentItemID
-						}
-					}
-					
-					// Insert collection item for folder
-					err = txQueries.InsertCollectionItem(ctx, gen.InsertCollectionItemParams{
-						ID:             collectionItemID,
-						CollectionID:   folder.CollectionID,
-						ParentFolderID: parentCollectionItemID,
-						ItemType:       int8(scollectionitem.CollectionItemTypeFolder), // 0 = folder
-						FolderID:       &folder.ID, // Reference to legacy folder table
-						EndpointID:     nil,
-						Name:           folder.Name,
-						PrevID:         nil, // For bulk imports, leave ordering for later
-						NextID:         nil, // For bulk imports, leave ordering for later
-					})
-					if err != nil {
-						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create collection item for folder %s: %w", folder.ID.String(), err))
-					}
-					
-					foldersProcessed[folder.ID] = true
-					progressMade = true
+
+				if !canProcess {
+					continue
 				}
+
+				collectionItemID := idwrap.New(ulid.Make())
+				var parentCollectionItemID *idwrap.IDWrap
+				if folder.ParentID != nil {
+					if parentItemID, exists := folderToCollectionItemMapping[*folder.ParentID]; exists {
+						parentCollectionItemID = &parentItemID
+					}
+				}
+
+				err = txQueries.InsertCollectionItem(ctx, gen.InsertCollectionItemParams{
+					ID:             collectionItemID,
+					CollectionID:   folder.CollectionID,
+					ParentFolderID: parentCollectionItemID,
+					ItemType:       int8(scollectionitem.CollectionItemTypeFolder),
+					FolderID:       &folder.ID,
+					EndpointID:     nil,
+					Name:           folder.Name,
+					PrevID:         nil,
+					NextID:         nil,
+				})
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create collection item for folder %s: %w", folder.ID.String(), err))
+				}
+
+				folderToCollectionItemMapping[folder.ID] = collectionItemID
+				foldersProcessed[folder.ID] = true
+				progressMade = true
 			}
-			
+
 			if !progressMade {
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("circular dependency detected in folder hierarchy or orphaned folders"))
 			}
@@ -861,6 +869,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	apiMapping := make(map[idwrap.IDWrap]idwrap.IDWrap) // Map old API ID to new/existing API ID
 	var apisToCreate []mitemapi.ItemApi
 	var apisToUpdate []mitemapi.ItemApi
+	missingEndpointItems := make(map[idwrap.IDWrap]mitemapi.ItemApi)
 
 	// Batch load all existing endpoints for this collection
 	existingApis, err := txItemApiService.GetApisWithCollectionID(ctx, CollectionID)
@@ -904,6 +913,16 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 			if needsUpdate {
 				apisToUpdate = append(apisToUpdate, *existingApi)
 			}
+
+			if _, alreadyScheduled := missingEndpointItems[existingApi.ID]; !alreadyScheduled {
+				if _, err := txQueries.GetCollectionItemByEndpointID(ctx, &existingApi.ID); err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						missingEndpointItems[existingApi.ID] = *existingApi
+					} else {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to check collection item for endpoint %s: %w", existingApi.ID.String(), err))
+					}
+				}
+			}
 		} else {
 			// New endpoint - create it
 			apiMapping[api.ID] = api.ID
@@ -930,26 +949,20 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		// PHASE 1: Create all item_api entries first (legacy tables)
 		// This ensures all endpoint references exist before creating collection_items
 		// Note: apisToCreate only contains original APIs, not delta APIs
-		
+
 		for _, api := range apisToCreate {
 			err = txItemApiService.CreateItemApi(ctx, &api)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create API in item_api table %s: %w", api.ID.String(), err))
 			}
 		}
-		
+
 		// PHASE 2: Create collection_items entries now that all item_api entries exist
-		// Get prepared transaction queries
-		txQueries, err := gen.Prepare(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to prepare transaction queries: %w", err))
-		}
-		
 		// Create collection_items entries for all APIs (now that item_api entries exist)
 		// Since we're doing a bulk import, we can simply insert them in order without complex positioning
 		for _, api := range apisToCreate {
 			collectionItemID := idwrap.New(ulid.Make())
-			
+
 			// CRITICAL FIX: Use collection_items folder ID, not legacy folder ID
 			var parentCollectionItemID *idwrap.IDWrap
 			if api.FolderID != nil {
@@ -958,7 +971,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 				}
 				// If mapping doesn't exist, leave as nil (no parent folder)
 			}
-			
+
 			// Insert collection item directly - for bulk imports we don't need complex linked list management
 			err = txQueries.InsertCollectionItem(ctx, gen.InsertCollectionItemParams{
 				ID:             collectionItemID,
@@ -973,6 +986,34 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 			})
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to insert collection item for API %s: %w", api.ID.String(), err))
+			}
+		}
+	}
+
+	if len(missingEndpointItems) > 0 {
+		for _, api := range missingEndpointItems {
+			collectionItemID := idwrap.New(ulid.Make())
+
+			var parentCollectionItemID *idwrap.IDWrap
+			if api.FolderID != nil {
+				if collectionItemFolderID, exists := folderToCollectionItemMapping[*api.FolderID]; exists {
+					parentCollectionItemID = &collectionItemFolderID
+				}
+			}
+
+			err = txQueries.InsertCollectionItem(ctx, gen.InsertCollectionItemParams{
+				ID:             collectionItemID,
+				CollectionID:   api.CollectionID,
+				ParentFolderID: parentCollectionItemID,
+				ItemType:       int8(scollectionitem.CollectionItemTypeEndpoint),
+				FolderID:       nil,
+				EndpointID:     &api.ID,
+				Name:           api.Name,
+				PrevID:         nil,
+				NextID:         nil,
+			})
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to recreate collection item for API %s: %w", api.ID.String(), err))
 			}
 		}
 	}
@@ -1030,12 +1071,12 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	
+
 	// Separate headers into base headers and delta headers to avoid FK constraint violations
 	// Base headers must be created before delta headers that reference them
 	var baseHeaders []mexampleheader.Header
 	var deltaHeaders []mexampleheader.Header
-	
+
 	for _, header := range resolved.Headers {
 		if header.DeltaParentID == nil {
 			baseHeaders = append(baseHeaders, header)
@@ -1043,7 +1084,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 			deltaHeaders = append(deltaHeaders, header)
 		}
 	}
-	
+
 	// Create base headers first
 	if len(baseHeaders) > 0 {
 		err = txExampleHeaderService.AppendBulkHeader(ctx, baseHeaders)
@@ -1051,7 +1092,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
-	
+
 	// Create delta headers second (they can now reference existing base headers)
 	if len(deltaHeaders) > 0 {
 		err = txExampleHeaderService.AppendBulkHeader(ctx, deltaHeaders)
@@ -1509,14 +1550,14 @@ func calculateFolderDepth(folder *mitemfolder.ItemFolder, allFolders []mitemfold
 func generateCurlCollectionName(curlStr string) string {
 	// Use the tcurl package to extract the URL from the curl command
 	extractedURL := tcurl.ExtractURLForTesting(curlStr)
-	
+
 	if extractedURL == "" {
 		// Fallback to default name if URL extraction fails
 		return "Imported from cURL"
 	}
-	
+
 	var hostname string
-	
+
 	// First try to parse the URL as-is (works for URLs with protocols)
 	if parsedURL, err := url.Parse(extractedURL); err == nil && parsedURL.Host != "" {
 		hostname = parsedURL.Host
@@ -1536,22 +1577,22 @@ func generateCurlCollectionName(curlStr string) string {
 			}
 		}
 	}
-	
+
 	if hostname == "" {
 		// Fallback if no hostname found
 		return "Imported from cURL"
 	}
-	
+
 	// Remove port if present and clean up hostname
 	if colonIndex := strings.Index(hostname, ":"); colonIndex != -1 {
 		hostname = hostname[:colonIndex]
 	}
-	
+
 	// Remove www prefix if present
 	if strings.HasPrefix(hostname, "www.") {
 		hostname = hostname[4:]
 	}
-	
+
 	// Create a user-friendly collection name
 	if hostname != "" {
 		// Capitalize first letter of each word manually to avoid deprecated strings.Title
@@ -1563,7 +1604,7 @@ func generateCurlCollectionName(curlStr string) string {
 		}
 		return fmt.Sprintf("%s API", strings.Join(words, "."))
 	}
-	
+
 	// Final fallback
 	return "Imported from cURL"
 }
