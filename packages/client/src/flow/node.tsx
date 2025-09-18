@@ -300,7 +300,7 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
       >
         <div>Execution data ({items.length})</div>
 
-        {items.length > 0 && (
+        {items.length > 1 && (
           <Select
             aria-label='Node execution'
             isOpen={isOpen}
