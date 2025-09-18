@@ -346,7 +346,7 @@ const NodeExecutionTabs = ({ nodeExecutionId, renderOutput }: NodeExecutionTabsP
   const data = useQuery(NodeExecutionGetEndpoint, { nodeExecutionId });
 
   return (
-    <Tabs className={tw`flex h-full flex-col pb-4`}>
+    <Tabs className={tw`flex h-full flex-col pb-4`} defaultSelectedKey='output'>
       <TabList className={tw`flex items-center gap-3 border-b border-slate-200 text-md`}>
         <Tab
           className={({ isSelected }) =>
