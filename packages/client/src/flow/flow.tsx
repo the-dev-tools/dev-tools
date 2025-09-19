@@ -19,6 +19,7 @@ import {
   Array,
   Boolean,
   Chunk,
+  Duration,
   Effect,
   Fiber,
   HashMap,
@@ -35,6 +36,7 @@ import { Ulid } from 'id128';
 import { PropsWithChildren, ReactNode, Suspense, use, useCallback, useMemo, useRef, useState } from 'react';
 import { useDrop } from 'react-aria';
 import { Button as AriaButton, Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
+import { createPortal } from 'react-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
@@ -141,12 +143,13 @@ const maxZoom = 2;
 
 export const Flow = ({ children }: PropsWithChildren) => {
   const { dataClient } = rootRouteApi.useRouteContext();
+  const { statusBarEndSlotRef } = workspaceRouteApi.useRouteContext();
 
   const { addEdges, addNodes, getEdges, getNode, getNodes, screenToFlowPosition, setNodes } = useReactFlow<
     Node,
     Edge
   >();
-  const { isReadOnly = false } = use(FlowContext);
+  const { flowId, isReadOnly = false } = use(FlowContext);
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -245,6 +248,8 @@ export const Flow = ({ children }: PropsWithChildren) => {
     [getEdges, getNode, isReadOnly],
   );
 
+  const { duration } = useQuery(FlowGetEndpoint, { flowId });
+
   useFlowCopyPaste(ref);
 
   const { dropProps } = useDrop({
@@ -293,45 +298,56 @@ export const Flow = ({ children }: PropsWithChildren) => {
   });
 
   return (
-    <ReactFlow
-      {...(dropProps as object)}
-      colorMode='light'
-      connectionLineComponent={ConnectionLine}
-      defaultEdgeOptions={{ type: 'EDGE_KIND_UNSPECIFIED' satisfies EdgeKindJson }}
-      deleteKeyCode={['Backspace', 'Delete']}
-      edges={edges}
-      edgeTypes={edgeTypes}
-      fitView
-      maxZoom={maxZoom}
-      minZoom={minZoom}
-      nodes={nodes}
-      nodesConnectable={!isReadOnly}
-      nodesDraggable={!isReadOnly}
-      nodeTypes={nodeTypes}
-      onBeforeDelete={onBeforeDelete}
-      onConnect={onConnect}
-      onConnectEnd={onConnectEnd}
-      onEdgesChange={onEdgesChange}
-      onlyRenderVisibleElements
-      onNodeDoubleClick={(_, node) => void navigate({ search: (_) => ({ ..._, node: node.id }), to: '.' })}
-      onNodesChange={onNodesChange}
-      panOnDrag={[1, 2]}
-      panOnScroll
-      proOptions={{ hideAttribution: true }}
-      ref={ref}
-      selectionMode={SelectionMode.Partial}
-      selectionOnDrag
-      selectNodesOnDrag={false}
-    >
-      <Background
-        className={tw`text-slate-300`}
-        color='currentColor'
-        gap={20}
-        size={2}
-        variant={BackgroundVariant.Dots}
-      />
-      {children}
-    </ReactFlow>
+    <>
+      {duration &&
+        statusBarEndSlotRef.current &&
+        createPortal(
+          <div className={tw`flex gap-1 p-2 text-xs leading-none text-slate-800`}>
+            Time: {pipe(duration, Duration.millis, Duration.format)}
+          </div>,
+          statusBarEndSlotRef.current,
+        )}
+
+      <ReactFlow
+        {...(dropProps as object)}
+        colorMode='light'
+        connectionLineComponent={ConnectionLine}
+        defaultEdgeOptions={{ type: 'EDGE_KIND_UNSPECIFIED' satisfies EdgeKindJson }}
+        deleteKeyCode={['Backspace', 'Delete']}
+        edges={edges}
+        edgeTypes={edgeTypes}
+        fitView
+        maxZoom={maxZoom}
+        minZoom={minZoom}
+        nodes={nodes}
+        nodesConnectable={!isReadOnly}
+        nodesDraggable={!isReadOnly}
+        nodeTypes={nodeTypes}
+        onBeforeDelete={onBeforeDelete}
+        onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
+        onEdgesChange={onEdgesChange}
+        onlyRenderVisibleElements
+        onNodeDoubleClick={(_, node) => void navigate({ search: (_) => ({ ..._, node: node.id }), to: '.' })}
+        onNodesChange={onNodesChange}
+        panOnDrag={[1, 2]}
+        panOnScroll
+        proOptions={{ hideAttribution: true }}
+        ref={ref}
+        selectionMode={SelectionMode.Partial}
+        selectionOnDrag
+        selectNodesOnDrag={false}
+      >
+        <Background
+          className={tw`text-slate-300`}
+          color='currentColor'
+          gap={20}
+          size={2}
+          variant={BackgroundVariant.Dots}
+        />
+        {children}
+      </ReactFlow>
+    </>
   );
 };
 
@@ -552,8 +568,10 @@ const ActionBar = () => {
                   NodeExecutionListEndpoint.key({ ...endpointProps, input: { nodeId: node.nodeId } }),
                 );
 
-              if (version)
+              if (version) {
                 MutableHashSet.add(_.expireKeys, FlowVersionsEndpoint.key({ ...endpointProps, input: { flowId } }));
+                MutableHashSet.add(_.expireKeys, FlowGetEndpoint.key({ ...endpointProps, input: { flowId } }));
+              }
 
               return _;
             },

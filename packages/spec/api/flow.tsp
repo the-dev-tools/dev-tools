@@ -25,6 +25,7 @@ namespace API.Flow;
 model Flow {
   @key flowId: Resource.Id;
   name: string;
+  duration?: int32;
 }
 
 @autoFields

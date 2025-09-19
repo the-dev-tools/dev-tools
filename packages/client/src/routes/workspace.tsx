@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
+import { createRef, RefObject } from 'react';
 import { makeTabsAtom, TabsRouteContext } from '@the-dev-tools/ui/router';
 import { workspaceRouteApi } from '~routes';
 import { WorkspaceLayout } from '~workspace/layout';
@@ -9,12 +10,17 @@ export class WorkspaceRouteSearch extends Schema.Class<WorkspaceRouteSearch>('Wo
   showLogs: pipe(Schema.Boolean, Schema.optional),
 }) {}
 
+export interface WorkspaceRouteContext extends Omit<TabsRouteContext, 'runtime'> {
+  statusBarEndSlotRef: RefObject<HTMLDivElement | null>;
+}
+
 /* eslint-disable perfectionist/sort-objects */
 export const Route = createFileRoute('/workspace/$workspaceIdCan')({
   validateSearch: (_) => Schema.decodeSync(WorkspaceRouteSearch)(_),
-  context: ({ params: { workspaceIdCan } }): Omit<TabsRouteContext, 'runtime'> => ({
+  context: ({ params: { workspaceIdCan } }): WorkspaceRouteContext => ({
     baseRoute: { params: { workspaceIdCan }, to: workspaceRouteApi.id },
     tabsAtom: makeTabsAtom(),
+    statusBarEndSlotRef: createRef(),
   }),
   loader: ({ params: { workspaceIdCan } }) => {
     const workspaceId = Ulid.fromCanonical(workspaceIdCan).bytes;

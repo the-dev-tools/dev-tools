@@ -58,7 +58,7 @@ const logTextStyles = tv({
 
 export const StatusBar = () => {
   const { showLogs } = workspaceRouteApi.useSearch();
-  const { queryClient } = workspaceRouteApi.useRouteContext();
+  const { queryClient, statusBarEndSlotRef } = workspaceRouteApi.useRouteContext();
 
   const { data: logs, queryKey } = useLogsQuery();
 
@@ -77,6 +77,8 @@ export const StatusBar = () => {
       </ButtonAsLink>
 
       <div className={tw`flex-1`} />
+
+      <div ref={statusBarEndSlotRef} />
 
       {showLogs && (
         <>
