@@ -81,7 +81,7 @@ export class CustomUpdateProvider extends UpdateProvider<UpdateInfo> {
         path: '',
         releaseDate: '',
         sha512: '',
-        version: this.updater.currentVersion as string,
+        version: this.updater.currentVersion.raw,
       }),
       onSuccess: (_) => _,
     });

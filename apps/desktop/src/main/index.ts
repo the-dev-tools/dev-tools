@@ -2,7 +2,7 @@ import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Console, Effect, pipe, Runtime, String } from 'effect';
-import { app, BrowserWindow, dialog, Dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { CustomUpdateProvider, UpdateOptions } from './update';
 
@@ -45,6 +45,12 @@ const createWindow = Effect.gen(function* () {
     // Open the DevTools.
     mainWindow.webContents.openDevTools();
   } else {
+    // Disable page reload shortcuts
+    globalShortcut.registerAll(['CommandOrControl+R', 'CommandOrControl+Shift+R', 'F5'], () => void {});
+
+    // Disable toolbar
+    mainWindow.setMenu(null);
+
     void mainWindow.loadFile(path.resolve(import.meta.dirname, '../renderer/index.html'));
   }
 });
