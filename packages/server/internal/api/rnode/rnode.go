@@ -44,8 +44,9 @@ import (
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/node/v1/nodev1connect"
 
-	"connectrpc.com/connect"
 	"time"
+
+	"connectrpc.com/connect"
 )
 
 type NodeServiceRPC struct {
@@ -735,17 +736,23 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 		if err != nil {
 			return nil, err
 		}
+
+		foundAnyField := false
 		var rpcExampleID, rpcEndpointID, rpcDeltaExampleID, rpcDeltaEndpointID []byte
 		if nodeReq.ExampleID != nil {
+			foundAnyField = true
 			rpcExampleID = nodeReq.ExampleID.Bytes()
 		}
 		if nodeReq.EndpointID != nil {
+			foundAnyField = true
 			rpcEndpointID = nodeReq.EndpointID.Bytes()
 		}
 		if nodeReq.DeltaExampleID != nil {
+			foundAnyField = true
 			rpcDeltaExampleID = nodeReq.DeltaExampleID.Bytes()
 		}
 		if nodeReq.DeltaEndpointID != nil {
+			foundAnyField = true
 			rpcDeltaEndpointID = nodeReq.DeltaEndpointID.Bytes()
 		}
 
@@ -754,14 +761,18 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			Kind:     nodev1.NodeKind_NODE_KIND_REQUEST,
 			Position: Position,
 			Name:     currentNode.Name,
-			Request: &nodev1.NodeRequest{
+		}
+
+		if foundAnyField {
+			nodeList.Request = &nodev1.NodeRequest{
 				CollectionId:    rpcExampleID,
 				ExampleId:       rpcExampleID,
 				EndpointId:      rpcEndpointID,
 				DeltaExampleId:  rpcDeltaExampleID,
 				DeltaEndpointId: rpcDeltaEndpointID,
-			},
+			}
 		}
+
 		rpcNode = nodeList
 	case mnnode.NODE_KIND_FOR:
 		nodeFor, err := nlfs.GetNodeFor(ctx, currentNode.ID)
@@ -978,13 +989,13 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		forNode := rpcNode.For
 		condition := tcondition.DeserializeConditionRPCToModel(forNode.Condition)
 
-    forNodeConverted := &mnfor.MNFor{
-        FlowNodeID:    nodeID,
-        IterCount:     int64(forNode.Iterations),
-        Condition:     condition,
-        ErrorHandling: mnfor.ErrorHandling(forNode.ErrorHandling),
-    }
-    subNode = forNodeConverted
+		forNodeConverted := &mnfor.MNFor{
+			FlowNodeID:    nodeID,
+			IterCount:     int64(forNode.Iterations),
+			Condition:     condition,
+			ErrorHandling: mnfor.ErrorHandling(forNode.ErrorHandling),
+		}
+		subNode = forNodeConverted
 	case nodev1.NodeKind_NODE_KIND_FOR_EACH:
 		var iterpath string
 
