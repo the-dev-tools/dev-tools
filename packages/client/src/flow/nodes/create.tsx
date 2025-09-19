@@ -94,7 +94,6 @@ export const CreateNode = ({ id, selected }: NodeProps) => {
                 kind: NodeKind.REQUEST,
                 name: `request_${getNodes().length}`,
                 position: getPosition(),
-                request: {},
               });
 
               const edges = Option.isNone(sourceId)

@@ -52,14 +52,14 @@ const RequestNodeBody = (props: NodeProps) => {
   const { request } = useQuery(NodeGetEndpoint, { nodeId });
 
   useEffect(() => {
-    if (request && !selected && !request.exampleId.length) void deleteElements({ nodes: [{ id }] });
+    if (!selected && !request) void deleteElements({ nodes: [{ id }] });
   }, [deleteElements, id, request, selected]);
 
   return (
     <NodeBody {...props} Icon={SendRequestIcon}>
       <div className={tw`rounded-md border border-slate-200 bg-white shadow-xs`}>
-        {request?.exampleId.length !== 0 ? (
-          <RequestNodeSelected request={request!} />
+        {request ? (
+          <RequestNodeSelected request={request} />
         ) : (
           <CollectionListTree
             onAction={async (key) => {
@@ -81,7 +81,6 @@ const RequestNodeBody = (props: NodeProps) => {
               await dataClient.fetch(NodeUpdateEndpoint, {
                 nodeId,
                 request: {
-                  ...request,
                   collectionId,
                   deltaEndpointId,
                   deltaExampleId,
