@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"github.com/oklog/ulid/v2"
 	"log/slog"
+	"strings"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -371,13 +371,13 @@ func (s *CollectionItemService) CreateFolderTX(ctx context.Context, tx *sql.Tx, 
 	// Plan append safely using movable planner (preflight integrity + tail detection).
 	// We plan against the collection_items list using a new collectionItemID.
 
-    // Step 1: Create item_folder entry (LEGACY TABLE) first to satisfy foreign key constraints
-    if err := txService.folderService.CreateItemFolder(ctx, folder); err != nil {
-        // Allow idempotent creation: if it already exists, continue
-        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
-            return fmt.Errorf("failed to create folder reference: %w", err)
-        }
-    }
+	// Step 1: Create item_folder entry (LEGACY TABLE) first to satisfy foreign key constraints
+	if err := txService.folderService.CreateItemFolder(ctx, folder); err != nil {
+		// Allow idempotent creation: if it already exists, continue
+		if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+			return fmt.Errorf("failed to create folder reference: %w", err)
+		}
+	}
 
 	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
 	// Now we can safely reference folder.ID since it exists in item_folder table
@@ -448,43 +448,43 @@ func (s *CollectionItemService) CreateEndpointTX(ctx context.Context, tx *sql.Tx
 
 	// Plan append safely using movable planner for collection_items.
 
-    // Step 1: Create item_api entry (LEGACY TABLE) first to satisfy foreign key constraints
-    if err := txService.apiService.CreateItemApi(ctx, endpoint); err != nil {
-        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
-            return fmt.Errorf("failed to create endpoint reference: %w", err)
-        }
-    }
+	// Step 1: Create item_api entry (LEGACY TABLE) first to satisfy foreign key constraints
+	if err := txService.apiService.CreateItemApi(ctx, endpoint); err != nil {
+		if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+			return fmt.Errorf("failed to create endpoint reference: %w", err)
+		}
+	}
 
-    // Step 2: Create collection_items entry (PRIMARY) with correct linked list position
-    // Now we can safely reference endpoint.ID since it exists in item_api table
-    collectionItemID := idwrap.New(ulid.Make())
-    plan, err := movable.BuildAppendPlanFromRepo(ctx, txService.repository, endpoint.CollectionID, movable.CollectionListTypeItems, collectionItemID)
-    if err != nil {
-        return fmt.Errorf("append plan failed: %w", err)
-    }
+	// Step 2: Create collection_items entry (PRIMARY) with correct linked list position
+	// Now we can safely reference endpoint.ID since it exists in item_api table
+	collectionItemID := idwrap.New(ulid.Make())
+	plan, err := movable.BuildAppendPlanFromRepo(ctx, txService.repository, endpoint.CollectionID, movable.CollectionListTypeItems, collectionItemID)
+	if err != nil {
+		return fmt.Errorf("append plan failed: %w", err)
+	}
 
-    // Resolve collection_items parent folder ID if legacy folder ID was provided
-    var parentFolderCI *idwrap.IDWrap
-    if endpoint.FolderID != nil {
-        ciID, err := txService.GetCollectionItemIDByLegacyID(ctx, *endpoint.FolderID)
-        if err != nil {
-            if err == ErrCollectionItemNotFound {
-                return fmt.Errorf("parent folder not found")
-            }
-            return fmt.Errorf("failed to resolve parent folder mapping: %w", err)
-        }
-        parentFolderCI = &ciID
-    }
+	// Resolve collection_items parent folder ID if legacy folder ID was provided
+	var parentFolderCI *idwrap.IDWrap
+	if endpoint.FolderID != nil {
+		ciID, err := txService.GetCollectionItemIDByLegacyID(ctx, *endpoint.FolderID)
+		if err != nil {
+			if err == ErrCollectionItemNotFound {
+				return fmt.Errorf("parent folder not found")
+			}
+			return fmt.Errorf("failed to resolve parent folder mapping: %w", err)
+		}
+		parentFolderCI = &ciID
+	}
 
-    err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
-        ID:             collectionItemID,
-        CollectionID:   endpoint.CollectionID,
-        ParentFolderID: parentFolderCI,
-        ItemType:       int8(CollectionItemTypeEndpoint),
-        FolderID:       nil,
-        EndpointID:     &endpoint.ID, // Reference to legacy endpoint table (now exists)
-        Name:           endpoint.Name,
-        PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
+	err = txService.repository.InsertNewItemAtPosition(ctx, tx, gen.InsertCollectionItemParams{
+		ID:             collectionItemID,
+		CollectionID:   endpoint.CollectionID,
+		ParentFolderID: parentFolderCI,
+		ItemType:       int8(CollectionItemTypeEndpoint),
+		FolderID:       nil,
+		EndpointID:     &endpoint.ID, // Reference to legacy endpoint table (now exists)
+		Name:           endpoint.Name,
+		PrevID:         nil, // Will be calculated by InsertNewItemAtPosition
 		NextID:         nil, // Will be calculated by InsertNewItemAtPosition
 	}, plan.Position)
 	if err != nil {
@@ -524,21 +524,21 @@ func (s *CollectionItemService) GetCollectionItem(ctx context.Context, id idwrap
 
 // DeleteCollectionItem removes a collection item and its linked list connections
 func (s *CollectionItemService) DeleteCollectionItem(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
-    s.logger.Debug("Deleting collection item", "item_id", itemID.String())
+	s.logger.Debug("Deleting collection item", "item_id", itemID.String())
 
-    // Get service with transaction support
-    txService := s.TX(tx)
+	// Get service with transaction support
+	txService := s.TX(tx)
 
-    // Use unified safe delete via movable manager (unlink then delete)
-    mgr := movable.NewDefaultLinkedListManager(txService.repository)
-    if err := mgr.SafeDelete(ctx, tx, itemID, func(ctx context.Context, tx *sql.Tx, id idwrap.IDWrap) error {
-        return txService.queries.DeleteCollectionItem(ctx, id)
-    }); err != nil {
-        return fmt.Errorf("failed safe delete: %w", err)
-    }
+	// Use unified safe delete via movable manager (unlink then delete)
+	mgr := movable.NewDefaultLinkedListManager(txService.repository)
+	if err := mgr.SafeDelete(ctx, tx, itemID, func(ctx context.Context, tx *sql.Tx, id idwrap.IDWrap) error {
+		return txService.queries.DeleteCollectionItem(ctx, id)
+	}); err != nil {
+		return fmt.Errorf("failed safe delete: %w", err)
+	}
 
-    s.logger.Debug("Successfully deleted collection item", "item_id", itemID.String())
-    return nil
+	s.logger.Debug("Successfully deleted collection item", "item_id", itemID.String())
+	return nil
 }
 
 // Utility functions for type conversion
@@ -1142,11 +1142,11 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 		return fmt.Errorf("failed to get target collection items: %w", err)
 	}
 
-    // Step 3: Update item's collection_id and parent_folder_id
-    s.logger.Debug("Updating collection_id and parent_folder_id",
-        "item_id", itemID.String(),
-        "new_collection_id", targetCollectionID.String(),
-        "new_parent_folder_id", getIDString(targetParentFolderID))
+	// Step 3: Update item's collection_id and parent_folder_id
+	s.logger.Debug("Updating collection_id and parent_folder_id",
+		"item_id", itemID.String(),
+		"new_collection_id", targetCollectionID.String(),
+		"new_parent_folder_id", getIDString(targetParentFolderID))
 
 	err = s.queries.UpdateCollectionItemCollectionId(ctx, gen.UpdateCollectionItemCollectionIdParams{
 		CollectionID:   targetCollectionID,
@@ -1157,20 +1157,20 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 		return fmt.Errorf("failed to update collection item collection_id: %w", err)
 	}
 
-    // Step 4: Update legacy table collection_ids
-    err = s.UpdateLegacyTableCollectionIds(ctx, item, targetCollectionID)
-    if err != nil {
-        return fmt.Errorf("failed to update legacy table collection_ids: %w", err)
-    }
+	// Step 4: Update legacy table collection_ids
+	err = s.UpdateLegacyTableCollectionIds(ctx, item, targetCollectionID)
+	if err != nil {
+		return fmt.Errorf("failed to update legacy table collection_ids: %w", err)
+	}
 
-    // Step 4.5: If we're moving a folder across collections, cascade the collection_id
-    // update to all descendant collection_items so they remain visible under the new
-    // collection in queries filtered by collection_id.
-    if item.ItemType == int8(CollectionItemTypeFolder) {
-        if err := s.cascadeUpdateDescendantsCollectionID(ctx, itemID, sourceCollectionID, targetCollectionID); err != nil {
-            return fmt.Errorf("failed to cascade collection_id to descendants: %w", err)
-        }
-    }
+	// Step 4.5: If we're moving a folder across collections, cascade the collection_id
+	// update to all descendant collection_items so they remain visible under the new
+	// collection in queries filtered by collection_id.
+	if item.ItemType == int8(CollectionItemTypeFolder) {
+		if err := s.cascadeUpdateDescendantsCollectionID(ctx, itemID, sourceCollectionID, targetCollectionID); err != nil {
+			return fmt.Errorf("failed to cascade collection_id to descendants: %w", err)
+		}
+	}
 
 	// Step 5: Calculate insertion position in target collection
 	var insertPos int
@@ -1254,74 +1254,74 @@ func (s *CollectionItemService) PerformCrossCollectionMove(ctx context.Context, 
 // folder collection_item (identified by its collection_items ID), preserving their parent_folder_id.
 // It also updates legacy tables (item_folder/item_api) for each descendant.
 func (s *CollectionItemService) cascadeUpdateDescendantsCollectionID(ctx context.Context, folderItemID idwrap.IDWrap, sourceCollectionID idwrap.IDWrap, targetCollectionID idwrap.IDWrap) error {
-    s.logger.Debug("Cascading collection_id to descendants",
-        "folder_item_id", folderItemID.String(),
-        "source_collection_id", sourceCollectionID.String(),
-        "target_collection_id", targetCollectionID.String())
+	s.logger.Debug("Cascading collection_id to descendants",
+		"folder_item_id", folderItemID.String(),
+		"source_collection_id", sourceCollectionID.String(),
+		"target_collection_id", targetCollectionID.String())
 
-    // BFS over folder hierarchy starting at the moved folder
-    queue := []idwrap.IDWrap{folderItemID}
-    for len(queue) > 0 {
-        currentFolder := queue[0]
-        queue = queue[1:]
+	// BFS over folder hierarchy starting at the moved folder
+	queue := []idwrap.IDWrap{folderItemID}
+	for len(queue) > 0 {
+		currentFolder := queue[0]
+		queue = queue[1:]
 
-        // List direct children that are still in the source collection with this parent
-        rows, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
-            CollectionID:   sourceCollectionID,
-            ParentFolderID: &currentFolder,
-            Column3:        &currentFolder,
-            CollectionID_2: sourceCollectionID,
-        })
-        if err != nil {
-            return fmt.Errorf("failed to list children for cascade: %w", err)
-        }
+		// List direct children that are still in the source collection with this parent
+		rows, err := s.queries.GetCollectionItemsInOrder(ctx, gen.GetCollectionItemsInOrderParams{
+			CollectionID:   sourceCollectionID,
+			ParentFolderID: &currentFolder,
+			Column3:        &currentFolder,
+			CollectionID_2: sourceCollectionID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list children for cascade: %w", err)
+		}
 
-        for _, r := range rows {
-            childID := idwrap.NewFromBytesMust(r.ID)
-            // Parent stays the same (still linked to folderItemID), only collection changes
-            parent := idwrap.NewFromBytesMust(r.ParentFolderID)
+		for _, r := range rows {
+			childID := idwrap.NewFromBytesMust(r.ID)
+			// Parent stays the same (still linked to folderItemID), only collection changes
+			parent := idwrap.NewFromBytesMust(r.ParentFolderID)
 
-            if err := s.queries.UpdateCollectionItemCollectionId(ctx, gen.UpdateCollectionItemCollectionIdParams{
-                CollectionID:   targetCollectionID,
-                ParentFolderID: &parent,
-                ID:             childID,
-            }); err != nil {
-                return fmt.Errorf("failed to update child collection_id: %w", err)
-            }
+			if err := s.queries.UpdateCollectionItemCollectionId(ctx, gen.UpdateCollectionItemCollectionIdParams{
+				CollectionID:   targetCollectionID,
+				ParentFolderID: &parent,
+				ID:             childID,
+			}); err != nil {
+				return fmt.Errorf("failed to update child collection_id: %w", err)
+			}
 
-            // Update legacy tables for the child
-            var folderRef *idwrap.IDWrap
-            var endpointRef *idwrap.IDWrap
-            if len(r.FolderID) > 0 {
-                fid := idwrap.NewFromBytesMust(r.FolderID)
-                folderRef = &fid
-            }
-            if len(r.EndpointID) > 0 {
-                eid := idwrap.NewFromBytesMust(r.EndpointID)
-                endpointRef = &eid
-            }
+			// Update legacy tables for the child
+			var folderRef *idwrap.IDWrap
+			var endpointRef *idwrap.IDWrap
+			if len(r.FolderID) > 0 {
+				fid := idwrap.NewFromBytesMust(r.FolderID)
+				folderRef = &fid
+			}
+			if len(r.EndpointID) > 0 {
+				eid := idwrap.NewFromBytesMust(r.EndpointID)
+				endpointRef = &eid
+			}
 
-            if err := s.UpdateLegacyTableCollectionIds(ctx, gen.CollectionItem{
-                ID:             childID,
-                CollectionID:   targetCollectionID,
-                ParentFolderID: &parent,
-                ItemType:       r.ItemType,
-                FolderID:       folderRef,
-                EndpointID:     endpointRef,
-                Name:           r.Name,
-                PrevID:         convertBytesToIDWrap(r.PrevID),
-                NextID:         convertBytesToIDWrap(r.NextID),
-            }, targetCollectionID); err != nil {
-                return fmt.Errorf("failed to update legacy tables for child: %w", err)
-            }
+			if err := s.UpdateLegacyTableCollectionIds(ctx, gen.CollectionItem{
+				ID:             childID,
+				CollectionID:   targetCollectionID,
+				ParentFolderID: &parent,
+				ItemType:       r.ItemType,
+				FolderID:       folderRef,
+				EndpointID:     endpointRef,
+				Name:           r.Name,
+				PrevID:         convertBytesToIDWrap(r.PrevID),
+				NextID:         convertBytesToIDWrap(r.NextID),
+			}, targetCollectionID); err != nil {
+				return fmt.Errorf("failed to update legacy tables for child: %w", err)
+			}
 
-            // If the child is a folder, enqueue it to cascade to its children
-            if r.ItemType == int8(CollectionItemTypeFolder) {
-                queue = append(queue, childID)
-            }
-        }
-    }
-    return nil
+			// If the child is a folder, enqueue it to cascade to its children
+			if r.ItemType == int8(CollectionItemTypeFolder) {
+				queue = append(queue, childID)
+			}
+		}
+	}
+	return nil
 }
 
 // UpdateLegacyTableCollectionIds updates the collection_id in legacy tables (item_api and item_folder)
