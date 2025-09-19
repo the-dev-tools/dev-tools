@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	devtoolsdb "the-dev-tools/db"
-	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/dbtime"
@@ -58,7 +57,6 @@ import (
 	"the-dev-tools/spec/dist/buf/go/import/v1/importv1connect"
 
 	"connectrpc.com/connect"
-	"github.com/oklog/ulid/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -658,11 +656,6 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	txQueries, err := gen.Prepare(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to prepare transaction queries: %w", err))
-	}
-
 	txCollectionService, err := scollection.NewTX(ctx, tx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -682,6 +675,11 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	txCollectionItemService, err := scollectionitem.NewTX(ctx, tx, mocklogger.NewMockLogger())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -771,72 +769,51 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// CRITICAL FIX: Create collection_items entries for all folders while reusing existing ones
-	// The unified collection_items table requires folders to have entries with item_type=0
-	// so they can be properly referenced by endpoints via parent_folder_id
-	folderToCollectionItemMapping := make(map[idwrap.IDWrap]idwrap.IDWrap) // legacy folder ID -> collection_items ID
+	folderToCollectionItemMapping := make(map[idwrap.IDWrap]idwrap.IDWrap)
 
 	if len(existingFoldersList) > 0 {
 		foldersProcessed := make(map[idwrap.IDWrap]bool)
 
-		// First pass: map any folders that already have collection_items rows
 		for _, folder := range existingFoldersList {
-			item, lookupErr := txQueries.GetCollectionItemByFolderID(ctx, &folder.ID)
-			if lookupErr == nil {
-				folderToCollectionItemMapping[folder.ID] = item.ID
+			ciID, mapErr := txCollectionItemService.GetCollectionItemIDByLegacyID(ctx, folder.ID)
+			if mapErr == nil {
+				folderToCollectionItemMapping[folder.ID] = ciID
 				foldersProcessed[folder.ID] = true
 				continue
 			}
-			if lookupErr != sql.ErrNoRows {
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to look up folder collection item %s: %w", folder.ID.String(), lookupErr))
+			if !errors.Is(mapErr, scollectionitem.ErrCollectionItemNotFound) {
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to map folder %s: %w", folder.ID.String(), mapErr))
 			}
 		}
 
-		// Second pass: create collection_items entries for folders that don't have them yet
 		for len(foldersProcessed) < len(existingFoldersList) {
 			progressMade := false
-
 			for _, folder := range existingFoldersList {
 				if foldersProcessed[folder.ID] {
 					continue
 				}
 
-				// Only process when parent is already resolved (or is root)
-				canProcess := folder.ParentID == nil
+				parentReady := folder.ParentID == nil
 				if folder.ParentID != nil {
 					if _, ok := folderToCollectionItemMapping[*folder.ParentID]; ok {
-						canProcess = true
+						parentReady = true
 					}
 				}
 
-				if !canProcess {
+				if !parentReady {
 					continue
 				}
 
-				collectionItemID := idwrap.New(ulid.Make())
-				var parentCollectionItemID *idwrap.IDWrap
-				if folder.ParentID != nil {
-					if parentItemID, exists := folderToCollectionItemMapping[*folder.ParentID]; exists {
-						parentCollectionItemID = &parentItemID
-					}
+				if err := txCollectionItemService.CreateFolderTX(ctx, tx, &folder); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to backfill folder %s: %w", folder.ID.String(), err))
 				}
 
-				err = txQueries.InsertCollectionItem(ctx, gen.InsertCollectionItemParams{
-					ID:             collectionItemID,
-					CollectionID:   folder.CollectionID,
-					ParentFolderID: parentCollectionItemID,
-					ItemType:       int8(scollectionitem.CollectionItemTypeFolder),
-					FolderID:       &folder.ID,
-					EndpointID:     nil,
-					Name:           folder.Name,
-					PrevID:         nil,
-					NextID:         nil,
-				})
-				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create collection item for folder %s: %w", folder.ID.String(), err))
+				ciID, mapErr := txCollectionItemService.GetCollectionItemIDByLegacyID(ctx, folder.ID)
+				if mapErr != nil {
+					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to map folder %s after creation: %w", folder.ID.String(), mapErr))
 				}
 
-				folderToCollectionItemMapping[folder.ID] = collectionItemID
+				folderToCollectionItemMapping[folder.ID] = ciID
 				foldersProcessed[folder.ID] = true
 				progressMade = true
 			}
@@ -915,8 +892,8 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 			}
 
 			if _, alreadyScheduled := missingEndpointItems[existingApi.ID]; !alreadyScheduled {
-				if _, err := txQueries.GetCollectionItemByEndpointID(ctx, &existingApi.ID); err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
+				if _, err := txCollectionItemService.GetCollectionItemIDByLegacyID(ctx, existingApi.ID); err != nil {
+					if errors.Is(err, scollectionitem.ErrCollectionItemNotFound) {
 						missingEndpointItems[existingApi.ID] = *existingApi
 					} else {
 						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to check collection item for endpoint %s: %w", existingApi.ID.String(), err))
@@ -944,77 +921,15 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		}
 	}
 
-	// Create new endpoints using a two-phase approach to avoid FK constraint issues
-	if len(apisToCreate) > 0 {
-		// PHASE 1: Create all item_api entries first (legacy tables)
-		// This ensures all endpoint references exist before creating collection_items
-		// Note: apisToCreate only contains original APIs, not delta APIs
-
-		for _, api := range apisToCreate {
-			err = txItemApiService.CreateItemApi(ctx, &api)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create API in item_api table %s: %w", api.ID.String(), err))
-			}
-		}
-
-		// PHASE 2: Create collection_items entries now that all item_api entries exist
-		// Create collection_items entries for all APIs (now that item_api entries exist)
-		// Since we're doing a bulk import, we can simply insert them in order without complex positioning
-		for _, api := range apisToCreate {
-			collectionItemID := idwrap.New(ulid.Make())
-
-			// CRITICAL FIX: Use collection_items folder ID, not legacy folder ID
-			var parentCollectionItemID *idwrap.IDWrap
-			if api.FolderID != nil {
-				if collectionItemFolderID, exists := folderToCollectionItemMapping[*api.FolderID]; exists {
-					parentCollectionItemID = &collectionItemFolderID
-				}
-				// If mapping doesn't exist, leave as nil (no parent folder)
-			}
-
-			// Insert collection item directly - for bulk imports we don't need complex linked list management
-			err = txQueries.InsertCollectionItem(ctx, gen.InsertCollectionItemParams{
-				ID:             collectionItemID,
-				CollectionID:   api.CollectionID,
-				ParentFolderID: parentCollectionItemID, // Now correctly references collection_items.id for folder
-				ItemType:       int8(scollectionitem.CollectionItemTypeEndpoint),
-				FolderID:       nil,
-				EndpointID:     &api.ID, // Reference to legacy endpoint table (now exists)
-				Name:           api.Name,
-				PrevID:         nil, // For bulk imports, leave as nil - ordering can be managed later
-				NextID:         nil, // For bulk imports, leave as nil - ordering can be managed later
-			})
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to insert collection item for API %s: %w", api.ID.String(), err))
-			}
+	for _, api := range apisToCreate {
+		if err := txCollectionItemService.CreateEndpointTX(ctx, tx, &api); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create endpoint %s: %w", api.ID.String(), err))
 		}
 	}
 
-	if len(missingEndpointItems) > 0 {
-		for _, api := range missingEndpointItems {
-			collectionItemID := idwrap.New(ulid.Make())
-
-			var parentCollectionItemID *idwrap.IDWrap
-			if api.FolderID != nil {
-				if collectionItemFolderID, exists := folderToCollectionItemMapping[*api.FolderID]; exists {
-					parentCollectionItemID = &collectionItemFolderID
-				}
-			}
-
-			err = txQueries.InsertCollectionItem(ctx, gen.InsertCollectionItemParams{
-				ID:             collectionItemID,
-				CollectionID:   api.CollectionID,
-				ParentFolderID: parentCollectionItemID,
-				ItemType:       int8(scollectionitem.CollectionItemTypeEndpoint),
-				FolderID:       nil,
-				EndpointID:     &api.ID,
-				Name:           api.Name,
-				PrevID:         nil,
-				NextID:         nil,
-			})
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to recreate collection item for API %s: %w", api.ID.String(), err))
-			}
+	for _, api := range missingEndpointItems {
+		if err := txCollectionItemService.CreateEndpointTX(ctx, tx, &api); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to recreate collection item for API %s: %w", api.ID.String(), err))
 		}
 	}
 
