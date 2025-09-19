@@ -12,12 +12,28 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
+	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
+	"the-dev-tools/server/pkg/service/sbodyform"
+	"the-dev-tools/server/pkg/service/sbodyraw"
+	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/scollectionitem"
+	"the-dev-tools/server/pkg/service/sexampleheader"
+	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
+	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
+	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeforeach"
+	"the-dev-tools/server/pkg/service/snodeif"
+	"the-dev-tools/server/pkg/service/snodejs"
+	"the-dev-tools/server/pkg/service/snodenoop"
+	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
@@ -78,8 +94,50 @@ func setupImportService(t *testing.T, ctx context.Context) (ImportRPC, *sql.DB, 
 	iaes := sitemapiexample.New(queries)
 	res := sexampleresp.New(queries)
 	as := sassert.New(queries)
+	cis := scollectionitem.New(queries, logger)
+	brs := sbodyraw.New(queries)
+	bfs := sbodyform.New(queries)
+	bues := sbodyurl.New(queries)
+	ehs := sexampleheader.New(queries)
+	eqs := sexamplequery.New(queries)
+	fs := sflow.New(queries)
+	ns := snode.New(queries)
+	nrs := snoderequest.New(queries)
+	nns := snodenoop.New(queries)
+	es := sedge.New(queries)
+	fvs := sflowvariable.New(queries)
+	nforSrv := snodefor.New(queries)
+	njs := snodejs.New(queries)
+	nfe := snodeforeach.New(queries)
+	nif := snodeif.New(queries)
 
-	svc := New(db, ws, cs, us, ifs, ias, iaes, res, as)
+	svc := New(
+		db,
+		ws,
+		cs,
+		us,
+		ifs,
+		ias,
+		iaes,
+		res,
+		as,
+		cis,
+		brs,
+		bfs,
+		bues,
+		ehs,
+		eqs,
+		fs,
+		ns,
+		nrs,
+		nns,
+		es,
+		fvs,
+		nforSrv,
+		njs,
+		nfe,
+		nif,
+	)
 
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()

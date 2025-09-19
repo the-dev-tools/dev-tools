@@ -15,7 +15,6 @@ import (
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
 	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
-	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -71,34 +70,72 @@ var (
 )
 
 type ImportRPC struct {
-	DB   *sql.DB
-	ws   sworkspace.WorkspaceService
-	cs   scollection.CollectionService
-	us   suser.UserService
-	ifs  sitemfolder.ItemFolderService
-	ias  sitemapi.ItemApiService
-	iaes sitemapiexample.ItemApiExampleService
-	res  sexampleresp.ExampleRespService
-	as   sassert.AssertService
-	cis  *scollectionitem.CollectionItemService
+	DB                    *sql.DB
+	ws                    sworkspace.WorkspaceService
+	cs                    scollection.CollectionService
+	us                    suser.UserService
+	ifs                   sitemfolder.ItemFolderService
+	ias                   sitemapi.ItemApiService
+	iaes                  sitemapiexample.ItemApiExampleService
+	res                   sexampleresp.ExampleRespService
+	as                    sassert.AssertService
+	cis                   *scollectionitem.CollectionItemService
+	bodyRawService        sbodyraw.BodyRawService
+	bodyFormService       sbodyform.BodyFormService
+	bodyURLEncodedService sbodyurl.BodyURLEncodedService
+	headerService         sexampleheader.HeaderService
+	queryService          sexamplequery.ExampleQueryService
+	flowService           sflow.FlowService
+	nodeService           snode.NodeService
+	nodeRequestService    snoderequest.NodeRequestService
+	nodeNoopService       snodenoop.NodeNoopService
+	edgeService           sedge.EdgeService
+	flowVariableService   sflowvariable.FlowVariableService
+	nodeForService        snodefor.NodeForService
+	nodeJSService         snodejs.NodeJSService
+	nodeForEachService    snodeforeach.NodeForEachService
+	nodeIfService         *snodeif.NodeIfService
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService,
 	ifs sitemfolder.ItemFolderService, ias sitemapi.ItemApiService,
 	iaes sitemapiexample.ItemApiExampleService, res sexampleresp.ExampleRespService,
-	as sassert.AssertService,
+	as sassert.AssertService, cis *scollectionitem.CollectionItemService,
+	bodyRawService sbodyraw.BodyRawService, bodyFormService sbodyform.BodyFormService,
+	bodyURLEncodedService sbodyurl.BodyURLEncodedService, headerService sexampleheader.HeaderService,
+	queryService sexamplequery.ExampleQueryService, flowService sflow.FlowService,
+	nodeService snode.NodeService, nodeRequestService snoderequest.NodeRequestService,
+	nodeNoopService snodenoop.NodeNoopService, edgeService sedge.EdgeService,
+	flowVariableService sflowvariable.FlowVariableService, nodeForService snodefor.NodeForService,
+	nodeJSService snodejs.NodeJSService, nodeForEachService snodeforeach.NodeForEachService,
+	nodeIfService *snodeif.NodeIfService,
 ) ImportRPC {
 	return ImportRPC{
-		DB:   db,
-		ws:   ws,
-		cs:   cs,
-		us:   us,
-		ifs:  ifs,
-		ias:  ias,
-		iaes: iaes,
-		res:  res,
-		as:   as,
-		cis:  nil, // Will be created in ImportCurl with proper queries
+		DB:                    db,
+		ws:                    ws,
+		cs:                    cs,
+		us:                    us,
+		ifs:                   ifs,
+		ias:                   ias,
+		iaes:                  iaes,
+		res:                   res,
+		as:                    as,
+		cis:                   cis,
+		bodyRawService:        bodyRawService,
+		bodyFormService:       bodyFormService,
+		bodyURLEncodedService: bodyURLEncodedService,
+		headerService:         headerService,
+		queryService:          queryService,
+		flowService:           flowService,
+		nodeService:           nodeService,
+		nodeRequestService:    nodeRequestService,
+		nodeNoopService:       nodeNoopService,
+		edgeService:           edgeService,
+		flowVariableService:   flowVariableService,
+		nodeForService:        nodeForService,
+		nodeJSService:         nodeJSService,
+		nodeForEachService:    nodeForEachService,
+		nodeIfService:         nodeIfService,
 	}
 }
 
@@ -355,10 +392,7 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 
 	defer devtoolsdb.TxnRollback(tx)
 
-	txCollectionService, err := scollection.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txCollectionService := c.cs.TX(tx)
 
 	// Only create collection if it doesn't exist
 	if !collectionExists {
@@ -368,25 +402,15 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 		}
 	}
 
-	// Create collection item service for proper linked-list ordering
-	mockLogger := mocklogger.NewMockLogger()
-	txCollectionItemService, err := scollectionitem.NewTX(ctx, tx, mockLogger)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
 	// Create endpoints using collection item service for proper ordering
+	txCollectionItemService := c.cis.TX(tx)
 	for _, api := range resolvedCurl.Apis {
-		err = txCollectionItemService.CreateEndpointTX(ctx, tx, &api)
-		if err != nil {
+		if err := txCollectionItemService.CreateEndpointTX(ctx, tx, &api); err != nil {
 			return connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
-	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txItemApiExampleService := c.iaes.TX(tx)
 
 	err = txItemApiExampleService.CreateApiExampleBulk(ctx, resolvedCurl.Examples)
 	if err != nil {
@@ -394,56 +418,38 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	}
 
 	// START BODY
-	txBodyRawService, err := sbodyraw.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txBodyRawService := c.bodyRawService.TX(tx)
 	err = txBodyRawService.CreateBulkBodyRaw(ctx, resolvedCurl.RawBodies)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	txBodyFormService, err := sbodyform.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txBodyFormService := c.bodyFormService.TX(tx)
 	err = txBodyFormService.CreateBulkBodyForm(ctx, resolvedCurl.FormBodies)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	txBodyUrlEncodedService, err := sbodyurl.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txBodyUrlEncodedService := c.bodyURLEncodedService.TX(tx)
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, resolvedCurl.UrlEncodedBodies)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 	// END BODY
 
-	txHeaderService, err := sexampleheader.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txHeaderService := c.headerService.TX(tx)
 	err = txHeaderService.AppendBulkHeader(ctx, resolvedCurl.Headers)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	txQueriesService, err := sexamplequery.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txQueriesService := c.queryService.TX(tx)
 	err = txQueriesService.CreateBulkQuery(ctx, resolvedCurl.Queries)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	// Update workspace counts and timestamp inside transaction
-	txWorkspaceService, err := sworkspace.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txWorkspaceService := c.ws.TX(tx)
 
 	ws, err := txWorkspaceService.Get(ctx, workspaceID)
 	if err != nil {
@@ -495,10 +501,7 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	txCollectionService, err := scollection.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txCollectionService := c.cs.TX(tx)
 
 	// Only create collection if it doesn't exist
 	if !collectionExists {
@@ -508,28 +511,19 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 		}
 	}
 
-	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txItemFolderService := c.ifs.TX(tx)
 	err = txItemFolderService.CreateItemFolderBulk(ctx, items.Folders)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	txItemApiService, err := sitemapi.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txItemApiService := c.ias.TX(tx)
 	err = txItemApiService.CreateItemApiBulk(ctx, items.Apis)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txItemApiExampleService := c.iaes.TX(tx)
 
 	err = txItemApiExampleService.CreateApiExampleBulk(ctx, items.ApiExamples)
 	if err != nil {
@@ -537,56 +531,38 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	}
 
 	// START BODY
-	txBodyRawService, err := sbodyraw.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txBodyRawService := c.bodyRawService.TX(tx)
 	err = txBodyRawService.CreateBulkBodyRaw(ctx, items.BodyRaw)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	txBodyFormService, err := sbodyform.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txBodyFormService := c.bodyFormService.TX(tx)
 	err = txBodyFormService.CreateBulkBodyForm(ctx, items.BodyForm)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
-	txBodyUrlEncodedService, err := sbodyurl.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txBodyUrlEncodedService := c.bodyURLEncodedService.TX(tx)
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, items.BodyUrlEncoded)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 	// END BODY
 
-	txHeaderService, err := sexampleheader.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txHeaderService := c.headerService.TX(tx)
 	err = txHeaderService.AppendBulkHeader(ctx, items.Headers)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
-	txQueriesService, err := sexamplequery.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txQueriesService := c.queryService.TX(tx)
 	err = txQueriesService.CreateBulkQuery(ctx, items.Queries)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
 	// Update workspace counts and timestamp inside transaction
-	txWorkspaceService, err := sworkspace.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txWorkspaceService := c.ws.TX(tx)
 
 	ws, err := txWorkspaceService.Get(ctx, workspaceID)
 	if err != nil {
@@ -656,10 +632,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 	defer devtoolsdb.TxnRollback(tx)
 
-	txCollectionService, err := scollection.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txCollectionService := c.cs.TX(tx)
 
 	// Only create collection if it doesn't exist
 	if !collectionExists {
@@ -669,20 +642,11 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		}
 	}
 
-	txItemApiService, err := sitemapi.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txItemApiService := c.ias.TX(tx)
 
-	txItemFolderService, err := sitemfolder.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txItemFolderService := c.ifs.TX(tx)
 
-	txCollectionItemService, err := scollectionitem.NewTX(ctx, tx, mocklogger.NewMockLogger())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txCollectionItemService := c.cis.TX(tx)
 
 	// Pre-load existing folders to optimize lookup
 	existingFoldersList, err := txItemFolderService.GetFoldersWithCollectionID(ctx, CollectionID)
@@ -941,10 +905,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		}
 	}
 
-	txItemApiExampleService, err := sitemapiexample.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txItemApiExampleService := c.iaes.TX(tx)
 
 	// Update example API IDs based on mapping
 	var updatedExamples []mitemapiexample.ItemApiExample
@@ -982,10 +943,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		}
 	}
 
-	txExampleHeaderService, err := sexampleheader.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txExampleHeaderService := c.headerService.TX(tx)
 
 	// Separate headers into base headers and delta headers to avoid FK constraint violations
 	// Base headers must be created before delta headers that reference them
@@ -1016,38 +974,26 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		}
 	}
 
-	txExampleQueryService, err := sexamplequery.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txExampleQueryService := c.queryService.TX(tx)
 	err = txExampleQueryService.CreateBulkQuery(ctx, resolved.Queries)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	txBodyRawService, err := sbodyraw.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txBodyRawService := c.bodyRawService.TX(tx)
 
 	err = txBodyRawService.CreateBulkBodyRaw(ctx, resolved.RawBodies)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	txBodyFormService, err := sbodyform.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txBodyFormService := c.bodyFormService.TX(tx)
 	err = txBodyFormService.CreateBulkBodyForm(ctx, resolved.FormBodies)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	txBodyUrlEncodedService, err := sbodyurl.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txBodyUrlEncodedService := c.bodyURLEncodedService.TX(tx)
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, resolved.UrlEncodedBodies)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1055,10 +1001,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 
 	// Assertions
 	if len(resolved.Asserts) > 0 {
-		txAssertService, err := sassert.NewTX(ctx, tx)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+		txAssertService := c.as.TX(tx)
 		err = txAssertService.CreateBulkAssert(ctx, resolved.Asserts)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1066,20 +1009,14 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	// Flow Creation
-	txFlowService, err := sflow.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txFlowService := c.flowService.TX(tx)
 	err = txFlowService.CreateFlow(ctx, resolved.Flow)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	// Flow Node
-	txFlowNodeService, err := snode.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txFlowNodeService := c.nodeService.TX(tx)
 	err = txFlowNodeService.CreateNodeBulk(ctx, resolved.Nodes)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1087,11 +1024,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 
 	// Flow Request Nodes
 	// Create flow request nodes
-	txFlowRequestService, err := snoderequest.NewTX(ctx, tx)
-	if err != nil {
-		// Failed to create txFlowRequestService
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txFlowRequestService := c.nodeRequestService.TX(tx)
 
 	// Update request nodes with mapped endpoint IDs
 	var updatedRequestNodes []mnrequest.MNRequest
@@ -1117,30 +1050,21 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	// Flow request nodes created successfully
 
 	// Flow Noop Nodes
-	txFlowNoopService, err := snodenoop.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txFlowNoopService := c.nodeNoopService.TX(tx)
 	err = txFlowNoopService.CreateNodeNoopBulk(ctx, resolved.NoopNodes)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	// Edges
-	txFlowEdgeService, err := sedge.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txFlowEdgeService := c.edgeService.TX(tx)
 	err = txFlowEdgeService.CreateEdgeBulk(ctx, resolved.Edges)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	// Update workspace counts and timestamp inside transaction
-	txWorkspaceService, err := sworkspace.NewTX(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	txWorkspaceService := c.ws.TX(tx)
 
 	ws, err := txWorkspaceService.Get(ctx, workspaceID)
 	if err != nil {
@@ -1179,10 +1103,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import collections
 	if len(resolved.Collections) > 0 {
-		txCollectionService, err := scollection.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txCollectionService := c.cs.TX(tx)
 		for _, collection := range resolved.Collections {
 			collection.WorkspaceID = workspaceID
 			err = txCollectionService.CreateCollection(ctx, &collection)
@@ -1194,10 +1115,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import endpoints
 	if len(resolved.Endpoints) > 0 {
-		txEndpointService, err := sitemapi.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txEndpointService := c.ias.TX(tx)
 		err = txEndpointService.CreateItemApiBulk(ctx, resolved.Endpoints)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
@@ -1206,10 +1124,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import examples
 	if len(resolved.Examples) > 0 {
-		txExampleService, err := sitemapiexample.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txExampleService := c.iaes.TX(tx)
 		err = txExampleService.CreateApiExampleBulk(ctx, resolved.Examples)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
@@ -1218,10 +1133,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import headers
 	if len(resolved.Headers) > 0 {
-		txHeaderService, err := sexampleheader.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txHeaderService := c.headerService.TX(tx)
 		err = txHeaderService.AppendBulkHeader(ctx, resolved.Headers)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
@@ -1230,10 +1142,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import queries
 	if len(resolved.Queries) > 0 {
-		txQueryService, err := sexamplequery.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txQueryService := c.queryService.TX(tx)
 		err = txQueryService.CreateBulkQuery(ctx, resolved.Queries)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
@@ -1242,10 +1151,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import raw bodies
 	if len(resolved.RawBodies) > 0 {
-		txBodyService, err := sbodyraw.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txBodyService := c.bodyRawService.TX(tx)
 		err = txBodyService.CreateBulkBodyRaw(ctx, resolved.RawBodies)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
@@ -1254,10 +1160,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import flows
 	if len(resolved.Flows) > 0 {
-		txFlowService, err := sflow.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txFlowService := c.flowService.TX(tx)
 		for i := range resolved.Flows {
 			resolved.Flows[i].WorkspaceID = workspaceID
 			err = txFlowService.CreateFlow(ctx, resolved.Flows[i])
@@ -1269,10 +1172,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import flow nodes
 	if len(resolved.FlowNodes) > 0 {
-		txNodeService, err := snode.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txNodeService := c.nodeService.TX(tx)
 		err = txNodeService.CreateNodeBulk(ctx, resolved.FlowNodes)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
@@ -1281,10 +1181,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import flow edges
 	if len(resolved.FlowEdges) > 0 {
-		txEdgeService, err := sedge.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txEdgeService := c.edgeService.TX(tx)
 		for _, edge := range resolved.FlowEdges {
 			err = txEdgeService.CreateEdge(ctx, edge)
 			if err != nil {
@@ -1295,10 +1192,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import flow variables
 	if len(resolved.FlowVariables) > 0 {
-		txFlowVariableService, err := sflowvariable.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txFlowVariableService := c.flowVariableService.TX(tx)
 		for _, v := range resolved.FlowVariables {
 			err = txFlowVariableService.CreateFlowVariable(ctx, v)
 			if err != nil {
@@ -1309,10 +1203,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 
 	// Import node implementations
 	if len(resolved.FlowRequestNodes) > 0 {
-		txRequestService, err := snoderequest.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txRequestService := c.nodeRequestService.TX(tx)
 		for _, r := range resolved.FlowRequestNodes {
 			err = txRequestService.CreateNodeRequest(ctx, r)
 			if err != nil {
@@ -1322,12 +1213,9 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 	}
 
 	if len(resolved.FlowConditionNodes) > 0 {
-		txConditionService, err := snodeif.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
-		for _, c := range resolved.FlowConditionNodes {
-			err = txConditionService.CreateNodeIf(ctx, c)
+		txConditionService := c.nodeIfService.TX(tx)
+		for _, cnode := range resolved.FlowConditionNodes {
+			err = txConditionService.CreateNodeIf(ctx, cnode)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, err)
 			}
@@ -1335,10 +1223,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 	}
 
 	if len(resolved.FlowNoopNodes) > 0 {
-		txNoopService, err := snodenoop.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txNoopService := c.nodeNoopService.TX(tx)
 		for _, n := range resolved.FlowNoopNodes {
 			err = txNoopService.CreateNodeNoop(ctx, n)
 			if err != nil {
@@ -1348,10 +1233,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 	}
 
 	if len(resolved.FlowForNodes) > 0 {
-		txForService, err := snodefor.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txForService := c.nodeForService.TX(tx)
 		for _, f := range resolved.FlowForNodes {
 			err = txForService.CreateNodeFor(ctx, f)
 			if err != nil {
@@ -1361,10 +1243,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 	}
 
 	if len(resolved.FlowJSNodes) > 0 {
-		txJsService, err := snodejs.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txJsService := c.nodeJSService.TX(tx)
 		for _, j := range resolved.FlowJSNodes {
 			err = txJsService.CreateNodeJS(ctx, j)
 			if err != nil {
@@ -1374,10 +1253,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 	}
 
 	if len(resolved.FlowForEachNodes) > 0 {
-		txForEachService, err := snodeforeach.NewTX(ctx, tx)
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
+		txForEachService := c.nodeForEachService.TX(tx)
 		for _, fe := range resolved.FlowForEachNodes {
 			err = txForEachService.CreateNodeForEach(ctx, fe)
 			if err != nil {
@@ -1387,10 +1263,7 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 	}
 
 	// Update workspace counts and timestamp
-	txWorkspaceService, err := sworkspace.NewTX(ctx, tx)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
+	txWorkspaceService := c.ws.TX(tx)
 
 	ws, err := txWorkspaceService.Get(ctx, workspaceID)
 	if err != nil {
