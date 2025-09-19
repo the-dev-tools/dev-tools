@@ -166,15 +166,32 @@ const client = pipe(
   Effect.ensuring(Console.log('Client exited')),
 );
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
-
-pipe(
+const desktop = pipe(
   Effect.all([import.meta.env.DEV ? Effect.void : server, client, worker], { concurrency: 'unbounded' }),
   Effect.ensuring(Console.log('Program exited')),
   Effect.ensuring(Effect.sync(() => void app.quit())),
   Effect.scoped,
-  Effect.provide(NodeContext.layer),
-  Effect.provide(FetchHttpClient.layer),
-  NodeRuntime.runMain,
 );
+
+const args = process.argv.slice(process.defaultApp ? 2 : 1);
+const cli = pipe(
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+
+    const dist = yield* pipe(
+      import.meta.resolve('@the-dev-tools/cli'),
+      Url.fromString,
+      Effect.flatMap(path.fromFileUrl),
+    );
+
+    const bin = pipe(path.join(dist, 'cli'), String.replaceAll('app.asar', 'app.asar.unpacked'));
+
+    yield* pipe(Command.make(bin, ...args), Command.stdout('inherit'), Command.stderr('inherit'), Command.exitCode);
+
+    app.quit();
+  }),
+);
+
+const main = args.length > 0 ? cli : desktop;
+
+pipe(main, Effect.provide(NodeContext.layer), Effect.provide(FetchHttpClient.layer), NodeRuntime.runMain);

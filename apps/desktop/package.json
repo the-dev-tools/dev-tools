@@ -18,6 +18,7 @@
     "@effect/platform": "0.90.9",
     "@effect/platform-browser": "0.70.0",
     "@effect/platform-node": "0.96.1",
+    "@the-dev-tools/cli": "workspace:^",
     "@the-dev-tools/client": "workspace:^",
     "@the-dev-tools/server": "workspace:^",
     "@the-dev-tools/worker-js": "workspace:^",
