@@ -237,32 +237,35 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 		Name:      node.Name,
 		NodeId:    node.ID.Bytes(),
 		Kind:      rpcNode.Kind,
-		Request:   rpcNode.Request,
 		For:       rpcNode.For,
 		ForEach:   rpcNode.ForEach,
+		Request:   rpcNode.Request,
 		Condition: rpcNode.Condition,
 		Js:        rpcNode.Js,
 	}
 	if rpcNode.Kind == nodev1.NodeKind_NODE_KIND_REQUEST {
-		if rpcNode.Request.ExampleId != nil {
-			example, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		if rpcNode.Request != nil {
+			if rpcNode.Request.ExampleId != nil {
+				example, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInvalidArgument, err)
+				}
+				ex, err := c.iaes.GetApiExample(ctx, example)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+				resp.Request.CollectionId = ex.CollectionID.Bytes()
 			}
-			ex, err := c.iaes.GetApiExample(ctx, example)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+			// Ensure EndpointId is properly set in the response
+			if rpcNode.Request.EndpointId != nil {
+				resp.Request.EndpointId = rpcNode.Request.EndpointId
 			}
-			resp.Request.CollectionId = ex.CollectionID.Bytes()
+			// Ensure DeltaEndpointId is properly set in the response
+			if rpcNode.Request.DeltaEndpointId != nil {
+				resp.Request.DeltaEndpointId = rpcNode.Request.DeltaEndpointId
+			}
 		}
-		// Ensure EndpointId is properly set in the response
-		if rpcNode.Request.EndpointId != nil {
-			resp.Request.EndpointId = rpcNode.Request.EndpointId
-		}
-		// Ensure DeltaEndpointId is properly set in the response
-		if rpcNode.Request.DeltaEndpointId != nil {
-			resp.Request.DeltaEndpointId = rpcNode.Request.DeltaEndpointId
-		}
+
 	}
 
 	return connect.NewResponse(&resp), nil
