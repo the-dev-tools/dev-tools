@@ -1,8 +1,11 @@
 package tcurl
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
@@ -157,6 +160,211 @@ func ConvertCurl(curlStr string, collectionID idwrap.IDWrap) (CurlResolved, erro
 	}
 
 	return result, nil
+}
+
+// BuildCurl assembles a curl command string from the resolved structures that
+// ConvertCurl produces. Only the first API/example pair is considered – callers
+// should pass a CurlResolved that represents a single request.
+func BuildCurl(resolved CurlResolved) (string, error) {
+	if len(resolved.Apis) == 0 {
+		return "", errors.New("tcurl: no APIs to build curl from")
+	}
+
+	api := resolved.Apis[0]
+	example, ok := findExampleForAPI(api.ID, resolved.Examples)
+	if !ok {
+		return "", fmt.Errorf("tcurl: no example associated with api %s", api.ID.String())
+	}
+
+	method := strings.ToUpper(strings.TrimSpace(api.Method))
+	fullURL := buildURLWithQueries(api.Url, resolved.Queries, example.ID)
+	methodRequiresFlag := method != "" && method != "GET"
+
+	headers := collectEnabledHeaders(resolved.Headers, example.ID)
+	sortHeaders(headers)
+
+	formBodies := collectEnabledFormBodies(resolved.FormBodies, example.ID)
+	sortBodyForms(formBodies)
+
+	urlBodies := collectEnabledURLEncodedBodies(resolved.UrlEncodedBodies, example.ID)
+	sortBodyURLEncoded(urlBodies)
+
+	rawBody, err := selectRawBody(resolved.RawBodies, example.ID)
+	if err != nil {
+		return "", err
+	}
+
+	args := []string{singleQuote(fullURL)}
+	if methodRequiresFlag {
+		args = append(args, "-X "+method)
+	}
+
+	for _, header := range headers {
+		args = append(args, "-H "+singleQuote(fmt.Sprintf("%s: %s", header.HeaderKey, header.Value)))
+	}
+
+	if len(rawBody) > 0 {
+		args = append(args, "--data-raw "+singleQuote(string(rawBody)))
+	}
+
+	for _, form := range formBodies {
+		args = append(args, "-F "+singleQuote(fmt.Sprintf("%s=%s", form.BodyKey, form.Value)))
+	}
+
+	for _, urlBody := range urlBodies {
+		args = append(args, "--data-urlencode "+singleQuote(fmt.Sprintf("%s=%s", urlBody.BodyKey, urlBody.Value)))
+	}
+
+	var builder strings.Builder
+	builder.WriteString("curl ")
+	builder.WriteString(args[0])
+	for i := 1; i < len(args); i++ {
+		builder.WriteString(" \\")
+		builder.WriteString("\n  ")
+		builder.WriteString(args[i])
+	}
+
+	return builder.String(), nil
+}
+
+func findExampleForAPI(apiID idwrap.IDWrap, examples []mitemapiexample.ItemApiExample) (*mitemapiexample.ItemApiExample, bool) {
+	var fallback *mitemapiexample.ItemApiExample
+	for i := range examples {
+		example := &examples[i]
+		if example.ItemApiID != apiID {
+			continue
+		}
+		if example.IsDefault {
+			return example, true
+		}
+		if fallback == nil {
+			fallback = example
+		}
+	}
+	if fallback != nil {
+		return fallback, true
+	}
+	return nil, false
+}
+
+func buildURLWithQueries(baseURL string, queries []mexamplequery.Query, exampleID idwrap.IDWrap) string {
+	values := url.Values{}
+	for _, query := range queries {
+		if query.ExampleID != exampleID {
+			continue
+		}
+		if !query.IsEnabled() {
+			continue
+		}
+		values.Add(query.QueryKey, query.Value)
+	}
+
+	encoded := values.Encode()
+	if encoded == "" {
+		return baseURL
+	}
+
+	separator := "?"
+	if strings.Contains(baseURL, "?") {
+		separator = "&"
+	}
+	return baseURL + separator + encoded
+}
+
+func collectEnabledHeaders(headers []mexampleheader.Header, exampleID idwrap.IDWrap) []mexampleheader.Header {
+	result := make([]mexampleheader.Header, 0, len(headers))
+	for _, header := range headers {
+		if header.ExampleID != exampleID {
+			continue
+		}
+		if !header.IsEnabled() {
+			continue
+		}
+		result = append(result, header)
+	}
+	return result
+}
+
+func sortHeaders(headers []mexampleheader.Header) {
+	sort.SliceStable(headers, func(i, j int) bool {
+		ki := strings.ToLower(headers[i].HeaderKey)
+		kj := strings.ToLower(headers[j].HeaderKey)
+		if ki == kj {
+			return headers[i].HeaderKey < headers[j].HeaderKey
+		}
+		return ki < kj
+	})
+}
+
+func collectEnabledFormBodies(bodies []mbodyform.BodyForm, exampleID idwrap.IDWrap) []mbodyform.BodyForm {
+	result := make([]mbodyform.BodyForm, 0, len(bodies))
+	for _, body := range bodies {
+		if body.ExampleID != exampleID {
+			continue
+		}
+		if !body.IsEnabled() {
+			continue
+		}
+		result = append(result, body)
+	}
+	return result
+}
+
+func sortBodyForms(bodies []mbodyform.BodyForm) {
+	sort.SliceStable(bodies, func(i, j int) bool {
+		if bodies[i].BodyKey == bodies[j].BodyKey {
+			return bodies[i].Value < bodies[j].Value
+		}
+		return bodies[i].BodyKey < bodies[j].BodyKey
+	})
+}
+
+func collectEnabledURLEncodedBodies(bodies []mbodyurl.BodyURLEncoded, exampleID idwrap.IDWrap) []mbodyurl.BodyURLEncoded {
+	result := make([]mbodyurl.BodyURLEncoded, 0, len(bodies))
+	for _, body := range bodies {
+		if body.ExampleID != exampleID {
+			continue
+		}
+		if !body.IsEnabled() {
+			continue
+		}
+		result = append(result, body)
+	}
+	return result
+}
+
+func sortBodyURLEncoded(bodies []mbodyurl.BodyURLEncoded) {
+	sort.SliceStable(bodies, func(i, j int) bool {
+		if bodies[i].BodyKey == bodies[j].BodyKey {
+			return bodies[i].Value < bodies[j].Value
+		}
+		return bodies[i].BodyKey < bodies[j].BodyKey
+	})
+}
+
+func selectRawBody(bodies []mbodyraw.ExampleBodyRaw, exampleID idwrap.IDWrap) ([]byte, error) {
+	for _, body := range bodies {
+		if body.ExampleID != exampleID {
+			continue
+		}
+		data := body.Data
+		if body.CompressType != compress.CompressTypeNone && len(body.Data) > 0 {
+			decompressed, err := compress.Decompress(body.Data, body.CompressType)
+			if err != nil {
+				return nil, fmt.Errorf("tcurl: decompress raw body: %w", err)
+			}
+			data = decompressed
+		}
+		return data, nil
+	}
+	return nil, nil
+}
+
+func singleQuote(value string) string {
+	if value == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
 // Normalize a curl command to handle both single-line and multi-line formats

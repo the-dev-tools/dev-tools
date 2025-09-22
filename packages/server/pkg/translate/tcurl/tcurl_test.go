@@ -3,9 +3,12 @@ package tcurl_test
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/translate/tcurl"
 )
 
@@ -26,6 +29,234 @@ var curlStr string = `curl 'http://localhost:8080/collection.item.v1.CollectionI
   -H 'sec-ch-ua-platform: "Linux"' \
   --data-raw '{"collectionId":"AZX2h4p7aJyUSR0lYMfcfQ=="}' ;
 `
+
+const (
+	curlFormSample       = `curl 'http://example.com/api' -F 'field1=value1' -F 'field2=value2'`
+	curlURLEncodedSample = `curl 'http://example.com/api' --data-urlencode 'param1=value1' --data-urlencode 'param2=value2'`
+	curlQuerySample      = `curl 'http://example.com/api?param1=value1&param2=value2'`
+)
+
+type curlSnapshot struct {
+	Method     string
+	URL        string
+	Headers    map[string]string
+	Queries    map[string]string
+	RawBody    string
+	FormFields map[string]string
+	UrlEncoded map[string]string
+}
+
+func snapshotFromResolved(t *testing.T, resolved tcurl.CurlResolved) curlSnapshot {
+	t.Helper()
+	snapshot := curlSnapshot{
+		Headers:    map[string]string{},
+		Queries:    map[string]string{},
+		FormFields: map[string]string{},
+		UrlEncoded: map[string]string{},
+	}
+
+	if len(resolved.Apis) == 0 {
+		return snapshot
+	}
+
+	api := resolved.Apis[0]
+	snapshot.Method = strings.ToUpper(api.Method)
+	snapshot.URL = api.Url
+
+	example := pickExampleForAPI(resolved, api.ID)
+	if example == nil {
+		return snapshot
+	}
+
+	exampleID := example.ID
+
+	for _, header := range resolved.Headers {
+		if header.ExampleID == exampleID && header.Enable {
+			snapshot.Headers[header.HeaderKey] = header.Value
+		}
+	}
+
+	for _, query := range resolved.Queries {
+		if query.ExampleID == exampleID && query.Enable {
+			snapshot.Queries[query.QueryKey] = query.Value
+		}
+	}
+
+	snapshot.RawBody = extractRawBody(t, resolved, exampleID)
+
+	for _, form := range resolved.FormBodies {
+		if form.ExampleID == exampleID && form.IsEnabled() {
+			snapshot.FormFields[form.BodyKey] = form.Value
+		}
+	}
+
+	for _, body := range resolved.UrlEncodedBodies {
+		if body.ExampleID == exampleID && body.IsEnabled() {
+			snapshot.UrlEncoded[body.BodyKey] = body.Value
+		}
+	}
+
+	return snapshot
+}
+
+func pickExampleForAPI(resolved tcurl.CurlResolved, apiID idwrap.IDWrap) *mitemapiexample.ItemApiExample {
+	var fallback *mitemapiexample.ItemApiExample
+	for i := range resolved.Examples {
+		example := &resolved.Examples[i]
+		if example.ItemApiID != apiID {
+			continue
+		}
+		if example.IsDefault {
+			return example
+		}
+		if fallback == nil {
+			fallback = example
+		}
+	}
+	return fallback
+}
+
+func extractRawBody(t *testing.T, resolved tcurl.CurlResolved, exampleID idwrap.IDWrap) string {
+	t.Helper()
+	for _, body := range resolved.RawBodies {
+		if body.ExampleID != exampleID {
+			continue
+		}
+		data := body.Data
+		if body.CompressType != compress.CompressTypeNone && len(body.Data) > 0 {
+			decompressed, err := compress.Decompress(body.Data, body.CompressType)
+			if err != nil {
+				t.Fatalf("failed to decompress raw body: %v", err)
+			}
+			data = decompressed
+		}
+		return string(data)
+	}
+	return ""
+}
+
+func compareSnapshots(t *testing.T, want, got curlSnapshot) {
+	t.Helper()
+	if want.Method != got.Method {
+		t.Fatalf("method mismatch: want %s, got %s", want.Method, got.Method)
+	}
+	if want.URL != got.URL {
+		t.Fatalf("url mismatch: want %s, got %s", want.URL, got.URL)
+	}
+	if !reflect.DeepEqual(want.Headers, got.Headers) {
+		t.Fatalf("headers mismatch: want %v, got %v", want.Headers, got.Headers)
+	}
+	if !reflect.DeepEqual(want.Queries, got.Queries) {
+		t.Fatalf("queries mismatch: want %v, got %v", want.Queries, got.Queries)
+	}
+	if want.RawBody != got.RawBody {
+		t.Fatalf("raw body mismatch: want %s, got %s", want.RawBody, got.RawBody)
+	}
+	if !reflect.DeepEqual(want.FormFields, got.FormFields) {
+		t.Fatalf("form fields mismatch: want %v, got %v", want.FormFields, got.FormFields)
+	}
+	if !reflect.DeepEqual(want.UrlEncoded, got.UrlEncoded) {
+		t.Fatalf("urlencoded fields mismatch: want %v, got %v", want.UrlEncoded, got.UrlEncoded)
+	}
+}
+
+func TestBuildCurlRoundTripRaw(t *testing.T) {
+	resolved, err := tcurl.ConvertCurl(curlStr, idwrap.NewNow())
+	if err != nil {
+		t.Fatalf("ConvertCurl failed: %v", err)
+	}
+
+	built, err := tcurl.BuildCurl(resolved)
+	if err != nil {
+		t.Fatalf("BuildCurl failed: %v", err)
+	}
+
+	if !strings.Contains(built, "--data-raw") {
+		t.Fatalf("expected raw data flag in built curl, got %s", built)
+	}
+
+	roundTrip, err := tcurl.ConvertCurl(built, idwrap.NewNow())
+	if err != nil {
+		t.Fatalf("ConvertCurl (round trip) failed: %v", err)
+	}
+
+	compareSnapshots(t, snapshotFromResolved(t, resolved), snapshotFromResolved(t, roundTrip))
+}
+
+func TestBuildCurlRoundTripForm(t *testing.T) {
+	resolved, err := tcurl.ConvertCurl(curlFormSample, idwrap.NewNow())
+	if err != nil {
+		t.Fatalf("ConvertCurl failed: %v", err)
+	}
+
+	built, err := tcurl.BuildCurl(resolved)
+	if err != nil {
+		t.Fatalf("BuildCurl failed: %v", err)
+	}
+
+	if !strings.Contains(built, "-F 'field1=value1'") {
+		t.Fatalf("expected form flag in built curl, got %s", built)
+	}
+
+	roundTrip, err := tcurl.ConvertCurl(built, idwrap.NewNow())
+	if err != nil {
+		t.Fatalf("ConvertCurl (round trip) failed: %v", err)
+	}
+
+	compareSnapshots(t, snapshotFromResolved(t, resolved), snapshotFromResolved(t, roundTrip))
+}
+
+func TestBuildCurlRoundTripUrlEncoded(t *testing.T) {
+	resolved, err := tcurl.ConvertCurl(curlURLEncodedSample, idwrap.NewNow())
+	if err != nil {
+		t.Fatalf("ConvertCurl failed: %v", err)
+	}
+
+	built, err := tcurl.BuildCurl(resolved)
+	if err != nil {
+		t.Fatalf("BuildCurl failed: %v", err)
+	}
+
+	if !strings.Contains(built, "--data-urlencode 'param1=value1'") {
+		t.Fatalf("expected data-urlencode in built curl, got %s", built)
+	}
+
+	roundTrip, err := tcurl.ConvertCurl(built, idwrap.NewNow())
+	if err != nil {
+		t.Fatalf("ConvertCurl (round trip) failed: %v", err)
+	}
+
+	compareSnapshots(t, snapshotFromResolved(t, resolved), snapshotFromResolved(t, roundTrip))
+}
+
+func TestBuildCurlRoundTripQuery(t *testing.T) {
+	resolved, err := tcurl.ConvertCurl(curlQuerySample, idwrap.NewNow())
+	if err != nil {
+		t.Fatalf("ConvertCurl failed: %v", err)
+	}
+
+	built, err := tcurl.BuildCurl(resolved)
+	if err != nil {
+		t.Fatalf("BuildCurl failed: %v", err)
+	}
+
+	if !strings.Contains(built, "?param1=value1&param2=value2") {
+		t.Fatalf("expected query parameters in built curl url, got %s", built)
+	}
+
+	roundTrip, err := tcurl.ConvertCurl(built, idwrap.NewNow())
+	if err != nil {
+		t.Fatalf("ConvertCurl (round trip) failed: %v", err)
+	}
+
+	compareSnapshots(t, snapshotFromResolved(t, resolved), snapshotFromResolved(t, roundTrip))
+}
+
+func TestBuildCurlNoAPIs(t *testing.T) {
+	if _, err := tcurl.BuildCurl(tcurl.CurlResolved{}); err == nil {
+		t.Fatal("expected error when building curl without apis")
+	}
+}
 
 func TestCurl(t *testing.T) {
 	curlResolved, err := tcurl.ConvertCurl(curlStr, idwrap.NewNow())
@@ -249,7 +480,7 @@ func TestIndexOutOfRangeBug(t *testing.T) {
 	// This curl command would trigger the index out of range panic before the fix
 	// The issue occurs when the URL regex doesn't match and it falls back to field parsing
 	problematicCurl := `-L https://example.com`
-	
+
 	// This should not panic, it should either extract the URL or return empty string
 	_, err := tcurl.ConvertCurl(problematicCurl, idwrap.NewNow())
 	// We expect an error because it's not a valid curl command, but it shouldn't panic
@@ -273,7 +504,7 @@ func TestExtractURLDirectly(t *testing.T) {
 		{"curl -L https://example.com", "https://example.com", "curl_with_L_and_url"},
 		{"curl https://example.com", "https://example.com", "normal_curl_with_url"},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// This should not panic
@@ -282,7 +513,7 @@ func TestExtractURLDirectly(t *testing.T) {
 					t.Errorf("extractURL panicked for input '%s': %v", tc.input, r)
 				}
 			}()
-			
+
 			result := tcurl.ExtractURLForTesting(tc.input)
 			if result != tc.expected {
 				t.Errorf("Expected '%s', got '%s' for input '%s'", tc.expected, result, tc.input)
@@ -294,13 +525,13 @@ func TestExtractURLDirectly(t *testing.T) {
 // TestEdgeCaseEmptyFields tests edge cases with empty or minimal input
 func TestEdgeCaseEmptyFields(t *testing.T) {
 	testCases := []string{
-		"",                    // Empty string
-		"curl",                // Just curl command
-		"curl ",               // curl with space
-		"-L",                  // Just -L flag
-		"curl -L",             // curl with -L but no URL
+		"",        // Empty string
+		"curl",    // Just curl command
+		"curl ",   // curl with space
+		"-L",      // Just -L flag
+		"curl -L", // curl with -L but no URL
 	}
-	
+
 	for _, testCase := range testCases {
 		t.Run(fmt.Sprintf("input_%s", strings.ReplaceAll(testCase, " ", "_space_")), func(t *testing.T) {
 			// These should not panic, even if they return errors
@@ -309,7 +540,7 @@ func TestEdgeCaseEmptyFields(t *testing.T) {
 					t.Errorf("Panic occurred for input '%s': %v", testCase, r)
 				}
 			}()
-			
+
 			_, err := tcurl.ConvertCurl(testCase, idwrap.NewNow())
 			// We expect errors for these invalid inputs, but no panics
 			if err == nil && testCase != "" && testCase != "curl" && testCase != "curl " {
@@ -333,7 +564,7 @@ func TestProtocolLessURL(t *testing.T) {
 		{"curl https://google.com", "https://google.com", false, "google_com_with_https"},
 		{"curl http://google.com", "http://google.com", false, "google_com_with_http"},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// This should not panic
@@ -342,7 +573,7 @@ func TestProtocolLessURL(t *testing.T) {
 					t.Errorf("ConvertCurl panicked for input '%s': %v", tc.input, r)
 				}
 			}()
-			
+
 			resolved, err := tcurl.ConvertCurl(tc.input, idwrap.NewNow())
 			if tc.shouldFail {
 				if err == nil {
@@ -350,17 +581,17 @@ func TestProtocolLessURL(t *testing.T) {
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("Failed to convert curl command '%s': %v", tc.input, err)
 				return
 			}
-			
+
 			if len(resolved.Apis) != 1 {
 				t.Errorf("Expected 1 API for '%s', got %d", tc.input, len(resolved.Apis))
 				return
 			}
-			
+
 			if resolved.Apis[0].Url != tc.expectedURL {
 				t.Errorf("Expected URL '%s' for input '%s', got '%s'", tc.expectedURL, tc.input, resolved.Apis[0].Url)
 			}
