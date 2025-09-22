@@ -436,6 +436,8 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+			originalConfigured := requestNode.HasRequestConfig
+			configured := originalConfigured
 
 			if len(RpcNodeUpdate.Request.ExampleId) != 0 {
 				examplePtr, err := idwrap.NewFromBytes(RpcNodeUpdate.Request.ExampleId)
@@ -444,6 +446,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 				}
 				requestNode.ExampleID = &examplePtr
 				anyUpdate = true
+				configured = true
 			}
 
 			if len(RpcNodeUpdate.Request.EndpointId) != 0 {
@@ -453,6 +456,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 				}
 				requestNode.EndpointID = &endpointPtr
 				anyUpdate = true
+				configured = true
 			}
 
 			if len(RpcNodeUpdate.Request.DeltaExampleId) != 0 {
@@ -462,6 +466,7 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 				}
 				requestNode.DeltaExampleID = &deltaExamplePtr
 				anyUpdate = true
+				configured = true
 			}
 
 			if len(RpcNodeUpdate.Request.DeltaEndpointId) != 0 {
@@ -471,6 +476,18 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 				}
 				requestNode.DeltaEndpointID = &deltaEndpointPtr
 				anyUpdate = true
+				configured = true
+			}
+
+			if !configured && (requestNode.EndpointID != nil || requestNode.ExampleID != nil || requestNode.DeltaEndpointID != nil || requestNode.DeltaExampleID != nil) {
+				configured = true
+			}
+
+			if configured != originalConfigured {
+				requestNode.HasRequestConfig = configured
+				anyUpdate = true
+			} else {
+				requestNode.HasRequestConfig = configured
 			}
 
 			if anyUpdate {
@@ -740,22 +757,22 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			return nil, err
 		}
 
-		foundAnyField := false
+		hasRequestConfig := nodeReq.HasRequestConfig
 		var rpcExampleID, rpcEndpointID, rpcDeltaExampleID, rpcDeltaEndpointID []byte
 		if nodeReq.ExampleID != nil {
-			foundAnyField = true
+			hasRequestConfig = true
 			rpcExampleID = nodeReq.ExampleID.Bytes()
 		}
 		if nodeReq.EndpointID != nil {
-			foundAnyField = true
+			hasRequestConfig = true
 			rpcEndpointID = nodeReq.EndpointID.Bytes()
 		}
 		if nodeReq.DeltaExampleID != nil {
-			foundAnyField = true
+			hasRequestConfig = true
 			rpcDeltaExampleID = nodeReq.DeltaExampleID.Bytes()
 		}
 		if nodeReq.DeltaEndpointID != nil {
-			foundAnyField = true
+			hasRequestConfig = true
 			rpcDeltaEndpointID = nodeReq.DeltaEndpointID.Bytes()
 		}
 
@@ -766,7 +783,7 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			Name:     currentNode.Name,
 		}
 
-		if foundAnyField {
+		if hasRequestConfig {
 			nodeList.Request = &nodev1.NodeRequest{
 				CollectionId:    rpcExampleID,
 				ExampleId:       rpcExampleID,
@@ -948,6 +965,7 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 	switch rpcNode.Kind {
 	case nodev1.NodeKind_NODE_KIND_REQUEST:
 		var endpointIDPtr, exampleIDPtr, deltaExampleIDPtr, deltaEndpointIDPtr *idwrap.IDWrap
+		hasRequestConfig := false
 		if rpcNode.Request != nil {
 			if rpcNode.Request.EndpointId != nil {
 				endpointID, err := idwrap.NewFromBytes(rpcNode.Request.EndpointId)
@@ -955,6 +973,7 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 					return nil, err
 				}
 				endpointIDPtr = &endpointID
+				hasRequestConfig = true
 			}
 			if rpcNode.Request.ExampleId != nil {
 				exampleID, err := idwrap.NewFromBytes(rpcNode.Request.ExampleId)
@@ -962,6 +981,7 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 					return nil, err
 				}
 				exampleIDPtr = &exampleID
+				hasRequestConfig = true
 			}
 			if rpcNode.Request.DeltaExampleId != nil {
 				deltaExampleID, err := idwrap.NewFromBytes(rpcNode.Request.DeltaExampleId)
@@ -969,6 +989,7 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 					return nil, err
 				}
 				deltaExampleIDPtr = &deltaExampleID
+				hasRequestConfig = true
 			}
 			if rpcNode.Request.DeltaEndpointId != nil {
 				deltaEndpointID, err := idwrap.NewFromBytes(rpcNode.Request.DeltaEndpointId)
@@ -976,15 +997,17 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 					return nil, err
 				}
 				deltaEndpointIDPtr = &deltaEndpointID
+				hasRequestConfig = true
 			}
 		}
 
 		reqNode := &mnrequest.MNRequest{
-			FlowNodeID:      nodeID,
-			EndpointID:      endpointIDPtr,
-			ExampleID:       exampleIDPtr,
-			DeltaExampleID:  deltaExampleIDPtr,
-			DeltaEndpointID: deltaEndpointIDPtr,
+			FlowNodeID:       nodeID,
+			EndpointID:       endpointIDPtr,
+			ExampleID:        exampleIDPtr,
+			DeltaExampleID:   deltaExampleIDPtr,
+			DeltaEndpointID:  deltaEndpointIDPtr,
+			HasRequestConfig: hasRequestConfig,
 		}
 
 		subNode = reqNode

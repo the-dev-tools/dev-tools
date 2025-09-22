@@ -3270,7 +3270,8 @@ SELECT
   endpoint_id,
   example_id,
   delta_example_id,
-  delta_endpoint_id
+  delta_endpoint_id,
+  has_request_config
 FROM
   flow_node_request
 WHERE
@@ -3279,9 +3280,16 @@ LIMIT 1;
 
 -- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, endpoint_id, example_id, delta_example_id, delta_endpoint_id)
+  flow_node_request (
+    flow_node_id,
+    endpoint_id,
+    example_id,
+    delta_example_id,
+    delta_endpoint_id,
+    has_request_config
+  )
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlowNodeRequest :exec
 UPDATE flow_node_request
@@ -3289,7 +3297,8 @@ SET
   endpoint_id = ?,
   example_id = ?,
   delta_example_id = ?,
-  delta_endpoint_id = ?
+  delta_endpoint_id = ?,
+  has_request_config = ?
 WHERE
   flow_node_id = ?;
 

@@ -611,11 +611,12 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 		// Only add a flow node once per unique API.
 		flowNodeID := idwrap.NewNow()
 		request := mnrequest.MNRequest{
-			FlowNodeID:      flowNodeID,
-			EndpointID:      &api.ID,
-			ExampleID:       &exampleID,
-			DeltaExampleID:  &deltaExampleID,
-			DeltaEndpointID: &deltaApiID,
+			FlowNodeID:       flowNodeID,
+			EndpointID:       &api.ID,
+			ExampleID:        &exampleID,
+			DeltaExampleID:   &deltaExampleID,
+			DeltaEndpointID:  &deltaApiID,
+			HasRequestConfig: true,
 		}
 		result.RequestNodes = append(result.RequestNodes, request)
 
@@ -955,13 +956,13 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 	// Two-phase creation for linked list entities to avoid foreign key constraints
 	// Phase 1: All entities are created with prev/next set to nil (already done above)
 	// Phase 2: Database service layer handles proper linking during bulk operations
-	
+
 	// NOTE: We do NOT set up links here because the database service layer (AppendBulkHeader, etc.)
 	// implements proper two-phase creation. Setting links here causes FK constraint violations
 	// because the referenced entities don't exist in the database yet.
-	
+
 	// The following service methods handle linking properly:
-	// - AppendBulkHeader() in sexampleheader 
+	// - AppendBulkHeader() in sexampleheader
 	// - CreateBulkQuery() in sexamplequery
 	// - CreateBulkAssert() in sassert
 	// - CreateItemApiBulk() and CreateApiExampleBulk() handle API/Example linking
@@ -1455,7 +1456,7 @@ func setupAPILinks(result *HarResvoled) {
 	for i, api := range result.Apis {
 		apisByCollection[api.CollectionID] = append(apisByCollection[api.CollectionID], i)
 	}
-	
+
 	for _, apiIndices := range apisByCollection {
 		// Only link within the same collection scope (matches FK constraint scope)
 		for j := range apiIndices {
@@ -1481,7 +1482,7 @@ func setupExampleLinks(result *HarResvoled) {
 	for i, example := range result.Examples {
 		examplesByAPI[example.ItemApiID] = append(examplesByAPI[example.ItemApiID], i)
 	}
-	
+
 	for _, exampleIndices := range examplesByAPI {
 		// Only link within the same API scope (matches FK constraint scope)
 		for j := range exampleIndices {
@@ -1507,7 +1508,7 @@ func setupHeaderLinks(result *HarResvoled) {
 	for i, header := range result.Headers {
 		headersByExample[header.ExampleID] = append(headersByExample[header.ExampleID], i)
 	}
-	
+
 	for _, headerIndices := range headersByExample {
 		// Only link within the same example scope (matches FK constraint scope)
 		for j := range headerIndices {
@@ -1533,7 +1534,7 @@ func setupAssertionLinks(result *HarResvoled) {
 	for i, assert := range result.Asserts {
 		assertsByExample[assert.ExampleID] = append(assertsByExample[assert.ExampleID], i)
 	}
-	
+
 	for _, assertIndices := range assertsByExample {
 		// Only link within the same example scope (matches FK constraint scope)
 		for j := range assertIndices {
@@ -1559,7 +1560,7 @@ func setupFolderLinks(result *HarResvoled) {
 	for i, folder := range result.Folders {
 		foldersByCollection[folder.CollectionID] = append(foldersByCollection[folder.CollectionID], i)
 	}
-	
+
 	for _, folderIndices := range foldersByCollection {
 		// Only link within the same collection scope (matches FK constraint scope)
 		for j := range folderIndices {

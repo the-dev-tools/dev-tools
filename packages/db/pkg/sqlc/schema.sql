@@ -633,6 +633,7 @@ CREATE TABLE flow_node_request (
   example_id BLOB,
   delta_example_id BLOB,
   delta_endpoint_id BLOB,
+  has_request_config BOOLEAN NOT NULL DEFAULT FALSE,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (endpoint_id) REFERENCES item_api (id) ON DELETE SET NULL,
   FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE SET NULL,

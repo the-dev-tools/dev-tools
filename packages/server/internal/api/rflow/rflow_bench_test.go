@@ -304,9 +304,10 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 	}
 
 	if err := flowSvc.rns.CreateNodeRequest(ctx, mnrequest.MNRequest{
-		FlowNodeID: requestNodeID,
-		EndpointID: &endpointID,
-		ExampleID:  &exampleID,
+		FlowNodeID:       requestNodeID,
+		EndpointID:       &endpointID,
+		ExampleID:        &exampleID,
+		HasRequestConfig: true,
 	}); err != nil {
 		queries.Close()
 		closeDB()

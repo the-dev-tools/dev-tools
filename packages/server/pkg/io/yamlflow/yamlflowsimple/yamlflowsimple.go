@@ -866,11 +866,12 @@ func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap,
 
 	// Add request node
 	data.RequestNodes = append(data.RequestNodes, mnrequest.MNRequest{
-		FlowNodeID:      nodeID,
-		EndpointID:      &ctx.endpointID,
-		ExampleID:       &ctx.exampleID,
-		DeltaEndpointID: &ctx.deltaEndpointID,
-		DeltaExampleID:  &ctx.deltaExampleID,
+		FlowNodeID:       nodeID,
+		EndpointID:       &ctx.endpointID,
+		ExampleID:        &ctx.exampleID,
+		DeltaEndpointID:  &ctx.deltaEndpointID,
+		DeltaExampleID:   &ctx.deltaExampleID,
+		HasRequestConfig: true,
 	})
 
 	return ctx

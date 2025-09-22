@@ -247,10 +247,11 @@ func createTestWorkspaceDataWithIDs() ioworkspace.WorkspaceData {
 		switch flowNode.NodeKind {
 		case mnnode.NODE_KIND_REQUEST:
 			wsData.FlowRequestNodes = append(wsData.FlowRequestNodes, mnrequest.MNRequest{
-				FlowNodeID:     flowNode.ID,
-				DeltaExampleID: nil,
-				EndpointID:     &endpointID,
-				ExampleID:      &exampleID,
+				FlowNodeID:       flowNode.ID,
+				DeltaExampleID:   nil,
+				EndpointID:       &endpointID,
+				ExampleID:        &exampleID,
+				HasRequestConfig: true,
 			})
 		case mnnode.NODE_KIND_CONDITION:
 			wsData.FlowConditionNodes = append(wsData.FlowConditionNodes, mnif.MNIF{
@@ -1368,13 +1369,15 @@ func TestMarshalWorkflowYAML(t *testing.T) {
 	// Setup request node
 	wsData.FlowRequestNodes = []mnrequest.MNRequest{
 		{
-			FlowNodeID: requestNodeID,
-			EndpointID: &endpointID,
-			ExampleID:  &exampleID,
+			FlowNodeID:       requestNodeID,
+			EndpointID:       &endpointID,
+			ExampleID:        &exampleID,
+			HasRequestConfig: true,
 		},
 		{
-			FlowNodeID: loopBodyNodeID,
-			EndpointID: &endpointID,
+			FlowNodeID:       loopBodyNodeID,
+			EndpointID:       &endpointID,
+			HasRequestConfig: true,
 		},
 	}
 

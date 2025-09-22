@@ -1083,9 +1083,10 @@ func processRequestStep(workspaceData *WorkspaceData, flowID, nodeID idwrap.IDWr
 	workspaceData.Rawbodies = append(workspaceData.Rawbodies, bodyRaw)
 
 	requestNode := mnrequest.MNRequest{
-		FlowNodeID: nodeID, // This should be the MNode ID
-		EndpointID: &endpointID,
-		ExampleID:  &exampleID,
+		FlowNodeID:       nodeID, // This should be the MNode ID
+		EndpointID:       &endpointID,
+		ExampleID:        &exampleID,
+		HasRequestConfig: true,
 	}
 	workspaceData.FlowRequestNodes = append(workspaceData.FlowRequestNodes, requestNode)
 

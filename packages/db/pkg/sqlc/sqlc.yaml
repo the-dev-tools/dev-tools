@@ -667,6 +667,9 @@ sql:
               package: 'idwrap'
               type: 'IDWrap'
               pointer: true
+          ### has_request_config
+          - column: 'flow_node_request.has_request_config'
+            go_type: 'bool'
           ## flow_node_condition
           ### flow_node_id
           - column: 'flow_node_condition.flow_node_id'

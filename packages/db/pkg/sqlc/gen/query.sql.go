@@ -995,9 +995,16 @@ func (q *Queries) CreateFlowNodeNoop(ctx context.Context, arg CreateFlowNodeNoop
 
 const createFlowNodeRequest = `-- name: CreateFlowNodeRequest :exec
 INSERT INTO
-  flow_node_request (flow_node_id, endpoint_id, example_id, delta_example_id, delta_endpoint_id)
+  flow_node_request (
+    flow_node_id,
+    endpoint_id,
+    example_id,
+    delta_example_id,
+    delta_endpoint_id,
+    has_request_config
+  )
 VALUES
-  (?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowNodeRequestParams struct {
@@ -1006,6 +1013,7 @@ type CreateFlowNodeRequestParams struct {
 	ExampleID       *idwrap.IDWrap
 	DeltaExampleID  *idwrap.IDWrap
 	DeltaEndpointID *idwrap.IDWrap
+	HasRequestConfig bool
 }
 
 func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeRequestParams) error {
@@ -1015,6 +1023,7 @@ func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeR
 		arg.ExampleID,
 		arg.DeltaExampleID,
 		arg.DeltaEndpointID,
+		arg.HasRequestConfig,
 	)
 	return err
 }
@@ -7762,7 +7771,8 @@ SELECT
   endpoint_id,
   example_id,
   delta_example_id,
-  delta_endpoint_id
+  delta_endpoint_id,
+  has_request_config
 FROM
   flow_node_request
 WHERE
@@ -7779,6 +7789,7 @@ func (q *Queries) GetFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWr
 		&i.ExampleID,
 		&i.DeltaExampleID,
 		&i.DeltaEndpointID,
+		&i.HasRequestConfig,
 	)
 	return i, err
 }
@@ -11563,7 +11574,8 @@ SET
   endpoint_id = ?,
   example_id = ?,
   delta_example_id = ?,
-  delta_endpoint_id = ?
+  delta_endpoint_id = ?,
+  has_request_config = ?
 WHERE
   flow_node_id = ?
 `
@@ -11573,6 +11585,7 @@ type UpdateFlowNodeRequestParams struct {
 	ExampleID       *idwrap.IDWrap
 	DeltaExampleID  *idwrap.IDWrap
 	DeltaEndpointID *idwrap.IDWrap
+	HasRequestConfig bool
 	FlowNodeID      idwrap.IDWrap
 }
 
@@ -11582,6 +11595,7 @@ func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeR
 		arg.ExampleID,
 		arg.DeltaExampleID,
 		arg.DeltaEndpointID,
+		arg.HasRequestConfig,
 		arg.FlowNodeID,
 	)
 	return err

@@ -302,6 +302,7 @@ type FlowNodeRequest struct {
 	ExampleID       *idwrap.IDWrap
 	DeltaExampleID  *idwrap.IDWrap
 	DeltaEndpointID *idwrap.IDWrap
+	HasRequestConfig bool
 }
 
 type FlowTag struct {
