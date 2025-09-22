@@ -68,7 +68,7 @@
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
-        "command": "golangci-lint run"
+        "command": "golangci-lint run --allow-parallel-runners"
       },
       "dependsOn": ["copy-worker"]
     },
