@@ -1,4 +1,5 @@
 .golangci.yml
+AGENTS.md
 *.har
 **/routes/__tree.tsx
 CHANGELOG.md
