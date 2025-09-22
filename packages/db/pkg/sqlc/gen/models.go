@@ -246,6 +246,7 @@ type Flow struct {
 	WorkspaceID     idwrap.IDWrap
 	VersionParentID *idwrap.IDWrap
 	Name            string
+	Duration        int32
 }
 
 type FlowEdge struct {
@@ -297,11 +298,11 @@ type FlowNodeNoop struct {
 }
 
 type FlowNodeRequest struct {
-	FlowNodeID      idwrap.IDWrap
-	EndpointID      *idwrap.IDWrap
-	ExampleID       *idwrap.IDWrap
-	DeltaExampleID  *idwrap.IDWrap
-	DeltaEndpointID *idwrap.IDWrap
+	FlowNodeID       idwrap.IDWrap
+	EndpointID       *idwrap.IDWrap
+	ExampleID        *idwrap.IDWrap
+	DeltaExampleID   *idwrap.IDWrap
+	DeltaEndpointID  *idwrap.IDWrap
 	HasRequestConfig bool
 }
 

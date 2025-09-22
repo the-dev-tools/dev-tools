@@ -6,15 +6,21 @@ import (
 )
 
 func SeralizeModelToRPCItem(flow mflow.Flow) *flowv1.FlowListItem {
-	return &flowv1.FlowListItem{
+	item := &flowv1.FlowListItem{
 		FlowId: flow.ID.Bytes(),
 		Name:   flow.Name,
 	}
+	duration := flow.Duration
+	item.Duration = &duration
+	return item
 }
 
 func SeralizeModelToRPC(flow mflow.Flow) *flowv1.Flow {
-	return &flowv1.Flow{
+	msg := &flowv1.Flow{
 		FlowId: flow.ID.Bytes(),
 		Name:   flow.Name,
 	}
+	duration := flow.Duration
+	msg.Duration = &duration
+	return msg
 }

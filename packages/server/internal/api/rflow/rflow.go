@@ -643,8 +643,9 @@ func (c *FlowServiceRPC) FlowGet(ctx context.Context, req *connect.Request[flowv
 	}
 	rpcFlow := tflow.SeralizeModelToRPC(flow)
 	rpcResp := &flowv1.FlowGetResponse{
-		FlowId: rpcFlow.FlowId,
-		Name:   rpcFlow.Name,
+		FlowId:   rpcFlow.FlowId,
+		Name:     rpcFlow.Name,
+		Duration: rpcFlow.Duration,
 	}
 	return connect.NewResponse(rpcResp), nil
 }
@@ -672,6 +673,9 @@ func (c *FlowServiceRPC) FlowCreate(ctx context.Context, req *connect.Request[fl
 		ID:          flowID,
 		WorkspaceID: workspaceID,
 		Name:        name,
+	}
+	if req.Msg.Duration != nil {
+		flow.Duration = *req.Msg.Duration
 	}
 
 	nodeNoopID := idwrap.NewNow()
@@ -743,8 +747,8 @@ func (c *FlowServiceRPC) FlowUpdate(ctx context.Context, req *connect.Request[fl
 	if msg.FlowId == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
 	}
-	if msg.Name == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
+	if msg.Name == nil && msg.Duration == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("nothing to update"))
 	}
 
 	flowID, err := idwrap.NewFromBytes(msg.FlowId)
@@ -762,7 +766,12 @@ func (c *FlowServiceRPC) FlowUpdate(ctx context.Context, req *connect.Request[fl
 		return nil, err
 	}
 
-	flow.Name = *msg.Name
+	if msg.Name != nil {
+		flow.Name = *msg.Name
+	}
+	if msg.Duration != nil {
+		flow.Duration = *msg.Duration
+	}
 
 	err = c.fs.UpdateFlow(ctx, flow)
 	if err != nil {
@@ -2009,10 +2018,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
+	runStartedAt := time.Now()
 	flowRunErr := runnerInst.Run(subCtx, flowNodeStatusChan, flowStatusChan, flowVarsMap)
 
 	// wait for the flow to finish
 	flowErr := <-done
+	// Calculate total duration
+	durationMs := time.Since(runStartedAt).Milliseconds()
 
 	// Signal all goroutines to stop if not already done
 	if !channelsClosed.Load() {
@@ -2077,6 +2089,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		delete(preRegisteredExecutions, execID)
 	}
 	preRegisteredMutex.Unlock()
+
+	const maxDurationMs = int64(1<<31 - 1)
+	if durationMs < 0 {
+		durationMs = 0
+	}
+	if durationMs > maxDurationMs {
+		durationMs = maxDurationMs
+	}
+	flow.Duration = int32(durationMs)
+	if updateErr := c.fs.UpdateFlow(ctx, flow); updateErr != nil {
+		log.Printf("failed to persist flow duration for %s: %v", flowID.String(), updateErr)
+	}
 
 	flow.VersionParentID = &flow.ID
 

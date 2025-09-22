@@ -5,10 +5,19 @@ import (
 	"errors"
 	"testing"
 
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
+
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logconsole"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/reference"
+	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/testutil"
+	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 )
 
 // childByKey returns the direct map child with the given key.
@@ -134,4 +143,59 @@ func TestBuildLoopNodeExecutionFromStatus(t *testing.T) {
 	if execErr.Error == nil || *execErr.Error == "" {
 		t.Fatalf("expected error string to be set")
 	}
+}
+
+func TestFlowDurationLifecycle(t *testing.T) {
+	ctx := context.Background()
+	base := testutil.CreateBaseDB(ctx, t)
+	t.Cleanup(base.Close)
+
+	baseServices := base.GetBaseServices()
+	workspaceID := idwrap.NewNow()
+	workspaceUserID := idwrap.NewNow()
+	userID := idwrap.NewNow()
+	collectionID := idwrap.NewNow()
+	baseServices.CreateTempCollection(t, ctx, workspaceID, workspaceUserID, userID, collectionID)
+
+	flowSvc := sflow.New(base.Queries)
+	initialDuration := int32(1500)
+	flowID := idwrap.NewNow()
+	require.NoError(t, flowSvc.CreateFlow(ctx, mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Latency Test",
+		Duration:    initialDuration,
+	}))
+
+	svc := FlowServiceRPC{
+		DB:         base.DB,
+		ws:         baseServices.Ws,
+		us:         baseServices.Us,
+		fs:         flowSvc,
+		logChanMap: logconsole.NewLogChanMap(),
+	}
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+
+	getResp, err := svc.FlowGet(authedCtx, connect.NewRequest(&flowv1.FlowGetRequest{FlowId: flowID.Bytes()}))
+	require.NoError(t, err)
+	require.NotNil(t, getResp.Msg.Duration)
+	require.Equal(t, initialDuration, getResp.Msg.GetDuration())
+
+	listResp, err := svc.FlowList(authedCtx, connect.NewRequest(&flowv1.FlowListRequest{WorkspaceId: workspaceID.Bytes()}))
+	require.NoError(t, err)
+	require.Len(t, listResp.Msg.Items, 1)
+	require.NotNil(t, listResp.Msg.Items[0].Duration)
+	require.Equal(t, initialDuration, listResp.Msg.Items[0].GetDuration())
+
+	updatedDuration := int32(2750)
+	_, err = svc.FlowUpdate(authedCtx, connect.NewRequest(&flowv1.FlowUpdateRequest{
+		FlowId:   flowID.Bytes(),
+		Duration: &updatedDuration,
+	}))
+	require.NoError(t, err)
+
+	persisted, err := flowSvc.GetFlow(ctx, flowID)
+	require.NoError(t, err)
+	require.Equal(t, updatedDuration, persisted.Duration)
 }

@@ -522,6 +522,9 @@ sql:
               package: 'idwrap'
               type: 'IDWrap'
               pointer: true
+          ### duration
+          - column: 'flow.duration'
+            go_type: 'int32'
           ## flow_tag
           ### id
           - column: 'flow_tag.id'

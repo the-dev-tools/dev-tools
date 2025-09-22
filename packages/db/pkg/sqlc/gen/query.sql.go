@@ -815,9 +815,9 @@ func (q *Queries) CreateExampleRespHeaderBulk(ctx context.Context, arg CreateExa
 
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name)
+  flow (id, workspace_id, version_parent_id, name, duration)
 VALUES
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?)
 `
 
 type CreateFlowParams struct {
@@ -825,6 +825,7 @@ type CreateFlowParams struct {
 	WorkspaceID     idwrap.IDWrap
 	VersionParentID *idwrap.IDWrap
 	Name            string
+	Duration        int32
 }
 
 func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
@@ -833,6 +834,7 @@ func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
 		arg.WorkspaceID,
 		arg.VersionParentID,
 		arg.Name,
+		arg.Duration,
 	)
 	return err
 }
@@ -1008,11 +1010,11 @@ VALUES
 `
 
 type CreateFlowNodeRequestParams struct {
-	FlowNodeID      idwrap.IDWrap
-	EndpointID      *idwrap.IDWrap
-	ExampleID       *idwrap.IDWrap
-	DeltaExampleID  *idwrap.IDWrap
-	DeltaEndpointID *idwrap.IDWrap
+	FlowNodeID       idwrap.IDWrap
+	EndpointID       *idwrap.IDWrap
+	ExampleID        *idwrap.IDWrap
+	DeltaExampleID   *idwrap.IDWrap
+	DeltaEndpointID  *idwrap.IDWrap
 	HasRequestConfig bool
 }
 
@@ -7538,7 +7540,8 @@ SELECT
   id,
   workspace_id,
   version_parent_id,
-  name
+  name,
+  duration
 FROM
   flow
 WHERE
@@ -7554,6 +7557,7 @@ func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 		&i.WorkspaceID,
 		&i.VersionParentID,
 		&i.Name,
+		&i.Duration,
 	)
 	return i, err
 }
@@ -8115,7 +8119,8 @@ SELECT
   id,
   workspace_id,
   version_parent_id,
-  name
+  name,
+  duration
 FROM
   flow
 WHERE
@@ -8136,6 +8141,7 @@ func (q *Queries) GetFlowsByVersionParentID(ctx context.Context, versionParentID
 			&i.WorkspaceID,
 			&i.VersionParentID,
 			&i.Name,
+			&i.Duration,
 		); err != nil {
 			return nil, err
 		}
@@ -8155,7 +8161,8 @@ SELECT
   id,
   workspace_id,
   version_parent_id,
-  name
+  name,
+  duration
 FROM
   flow
 WHERE
@@ -8177,6 +8184,7 @@ func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 			&i.WorkspaceID,
 			&i.VersionParentID,
 			&i.Name,
+			&i.Duration,
 		); err != nil {
 			return nil, err
 		}
@@ -11404,18 +11412,20 @@ func (q *Queries) UpdateExampleRespHeader(ctx context.Context, arg UpdateExample
 const updateFlow = `-- name: UpdateFlow :exec
 UPDATE flow
 SET
-  name = ?
+  name = ?,
+  duration = ?
 WHERE
   id = ?
 `
 
 type UpdateFlowParams struct {
-	Name string
-	ID   idwrap.IDWrap
+	Name     string
+	Duration int32
+	ID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlow(ctx context.Context, arg UpdateFlowParams) error {
-	_, err := q.exec(ctx, q.updateFlowStmt, updateFlow, arg.Name, arg.ID)
+	_, err := q.exec(ctx, q.updateFlowStmt, updateFlow, arg.Name, arg.Duration, arg.ID)
 	return err
 }
 
@@ -11581,12 +11591,12 @@ WHERE
 `
 
 type UpdateFlowNodeRequestParams struct {
-	EndpointID      *idwrap.IDWrap
-	ExampleID       *idwrap.IDWrap
-	DeltaExampleID  *idwrap.IDWrap
-	DeltaEndpointID *idwrap.IDWrap
+	EndpointID       *idwrap.IDWrap
+	ExampleID        *idwrap.IDWrap
+	DeltaExampleID   *idwrap.IDWrap
+	DeltaEndpointID  *idwrap.IDWrap
 	HasRequestConfig bool
-	FlowNodeID      idwrap.IDWrap
+	FlowNodeID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeRequestParams) error {

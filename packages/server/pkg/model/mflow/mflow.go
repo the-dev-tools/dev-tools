@@ -7,4 +7,5 @@ type Flow struct {
 	WorkspaceID     idwrap.IDWrap
 	VersionParentID *idwrap.IDWrap
 	Name            string
+	Duration        int32
 }
