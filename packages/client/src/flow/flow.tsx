@@ -248,7 +248,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
     [getEdges, getNode, isReadOnly],
   );
 
-  const { duration } = useQuery(FlowGetEndpoint, { flowId });
+  const { duration = 0 } = useQuery(FlowGetEndpoint, { flowId });
 
   useFlowCopyPaste(ref);
 
@@ -299,7 +299,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   return (
     <>
-      {duration &&
+      {duration > 0 &&
         statusBarEndSlotRef.current &&
         createPortal(
           <div className={tw`flex gap-1 p-2 text-xs leading-none text-slate-800`}>
