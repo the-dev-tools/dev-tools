@@ -118,6 +118,7 @@ func init() {
 	rootCmd.AddCommand(flowCmd)
 	// Add yamlflowRunCmd directly to flowCmd since we only have one run command now
 	flowCmd.AddCommand(yamlflowRunCmd)
+	yamlflowRunCmd.Flags().StringSliceVar(&reportFormats, "report", []string{"console"}, "Report outputs to produce (format[:path]). Supported formats: console, json, junit.")
 }
 
 var flowCmd = &cobra.Command{
@@ -335,9 +336,19 @@ var yamlflowRunCmd = &cobra.Command{
 			return err
 		}
 
+		specs, err := parseReportSpecs(reportFormats)
+		if err != nil {
+			return err
+		}
+		reporters, err := newReporterGroup(specs)
+		if err != nil {
+			return err
+		}
+
+		var runErr error
 		if runMultiple {
 			// Execute multiple flows based on run field
-			return runMultipleFlows(ctx, fileData, flows, c, logger)
+			runErr = runMultipleFlows(ctx, fileData, flows, c, logger, reporters)
 		} else {
 			// Execute single flow (existing behavior)
 			var flowPtr *mflow.Flow
@@ -353,15 +364,22 @@ var yamlflowRunCmd = &cobra.Command{
 			}
 
 			log.Println("found flow", flowPtr.Name)
-			err = flowRun(ctx, flowPtr, c)
+			_, runErr = flowRun(ctx, flowPtr, c, reporters)
 
-			if err != nil {
-				logger.Error(err.Error())
+			if runErr != nil {
+				logger.Error(runErr.Error())
 			}
-			return err
 		}
+
+		flushErr := reporters.Flush()
+		if runErr != nil {
+			return runErr
+		}
+		return flushErr
 	},
 }
+
+var reportFormats []string
 
 func formatDuration(d time.Duration) string {
 	if d < time.Millisecond {
@@ -376,18 +394,8 @@ func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%.2fh", d.Hours())
 }
 
-// flowExecutionResult holds the result of a flow execution
-type flowExecutionResult struct {
-	flowName    string
-	success     bool
-	duration    time.Duration
-	nodeResults map[string]interface{} // Store node results by name
-	variables   map[string]interface{} // Variables from the flow
-	err         error
-}
-
 // runMultipleFlows executes multiple flows based on the run field configuration
-func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flow, c FlowServiceLocal, logger *slog.Logger) error {
+func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flow, c FlowServiceLocal, logger *slog.Logger, reporters *ReporterGroup) error {
 	// Parse the run field to get flow order and dependencies
 	var rawYAML map[string]interface{}
 	if err := yaml.Unmarshal(fileData, &rawYAML); err != nil {
@@ -443,13 +451,16 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 	}
 
 	// Track execution results
-	executionResults := make(map[string]*flowExecutionResult)
+	executionResults := make(map[string]FlowRunResult)
+	consoleEnabled := reporters != nil && reporters.HasConsole()
 	sharedVariables := make(map[string]interface{})
 	_ = sharedVariables // TODO: Implement variable sharing between flows
 
 	// Execute flows in order
-	fmt.Println("\n=== Multi-Flow Execution Starting ===")
-	fmt.Printf("Flows to execute: %d\n", len(runEntries))
+	if consoleEnabled {
+		fmt.Println("\n=== Multi-Flow Execution Starting ===")
+		fmt.Printf("Flows to execute: %d\n", len(runEntries))
+	}
 
 	overallStartTime := time.Now()
 
@@ -463,66 +474,59 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 		for _, dep := range entry.dependsOn {
 			// Check if dependency is a flow
 			if depResult, ok := executionResults[dep]; ok {
-				if !depResult.success {
+				if !strings.EqualFold(depResult.Status, "success") {
 					return fmt.Errorf("flow '%s' depends on '%s' which failed", entry.flowName, dep)
 				}
 			}
 			// Note: We could also check for node dependencies here in the future
 		}
 
-		fmt.Printf("\n[%d/%d] Executing flow: %s\n", i+1, len(runEntries), entry.flowName)
-		if len(entry.dependsOn) > 0 {
-			fmt.Printf("   Dependencies: %v\n", entry.dependsOn)
+		if consoleEnabled {
+			fmt.Printf("\n[%d/%d] Executing flow: %s\n", i+1, len(runEntries), entry.flowName)
+			if len(entry.dependsOn) > 0 {
+				fmt.Printf("   Dependencies: %v\n", entry.dependsOn)
+			}
 		}
 
-		// Execute the flow
-		startTime := time.Now()
-		err := flowRun(ctx, flow, c)
-		duration := time.Since(startTime)
-
-		result := &flowExecutionResult{
-			flowName:    entry.flowName,
-			success:     err == nil,
-			duration:    duration,
-			nodeResults: make(map[string]interface{}), // TODO: Capture actual results
-			variables:   make(map[string]interface{}), // TODO: Capture flow variables
-			err:         err,
-		}
-
+		result, err := flowRun(ctx, flow, c, reporters)
 		executionResults[entry.flowName] = result
 
 		if err != nil {
-			fmt.Printf("   ❌ Flow failed: %v\n", err)
+			if consoleEnabled {
+				fmt.Printf("   ❌ Flow failed: %v\n", err)
+			}
 			logger.Error("flow execution failed", "flow", entry.flowName, "error", err)
-			// Continue to show summary even if a flow fails
-		} else {
-			fmt.Printf("   ✅ Flow completed successfully (Duration: %s)\n", formatDuration(duration))
+		} else if consoleEnabled {
+			fmt.Printf("   ✅ Flow completed successfully (Duration: %s)\n", formatDuration(result.Duration))
 		}
 	}
 
-	// Display summary
-	overallDuration := time.Since(overallStartTime)
-	fmt.Println("\n=== Multi-Flow Execution Summary ===")
-	fmt.Printf("Total duration: %s\n", formatDuration(overallDuration))
-	fmt.Println("\nFlow Results:")
+	if consoleEnabled {
+		overallDuration := time.Since(overallStartTime)
+		fmt.Println("\n=== Multi-Flow Execution Summary ===")
+		fmt.Printf("Total duration: %s\n", formatDuration(overallDuration))
+		fmt.Println("\nFlow Results:")
 
-	successCount := 0
-	for _, entry := range runEntries {
-		result := executionResults[entry.flowName]
-		status := "✅ Success"
-		if !result.success {
-			status = "❌ Failed"
-		} else {
-			successCount++
+		successCount := 0
+		for _, entry := range runEntries {
+			result := executionResults[entry.flowName]
+			status := "✅ Success"
+			if !strings.EqualFold(result.Status, "success") {
+				status = "❌ Failed"
+			} else {
+				successCount++
+			}
+			fmt.Printf("  %-20s %s (Duration: %s)\n", result.FlowName, status, formatDuration(result.Duration))
 		}
-		fmt.Printf("  %-20s %s (Duration: %s)\n", result.flowName, status, formatDuration(result.duration))
+
+		fmt.Printf("\nFlows completed: %d/%d\n", successCount, len(runEntries))
 	}
 
-	fmt.Printf("\nFlows completed: %d/%d\n", successCount, len(runEntries))
-
-	// Return error if any flow failed
 	for _, result := range executionResults {
-		if !result.success && result.err != nil {
+		if !strings.EqualFold(result.Status, "success") {
+			if result.Error != "" {
+				return fmt.Errorf("multi-flow execution failed: %s", result.Error)
+			}
 			return fmt.Errorf("multi-flow execution failed: one or more flows failed")
 		}
 	}
@@ -530,23 +534,41 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 	return nil
 }
 
-func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error {
+func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, reporters *ReporterGroup) (FlowRunResult, error) {
+	result := FlowRunResult{
+		FlowID:   flowPtr.ID.String(),
+		FlowName: flowPtr.Name,
+		Started:  time.Now(),
+	}
+
+	markFailure := func(err error) (FlowRunResult, error) {
+		if err != nil {
+			result.Error = err.Error()
+		}
+		result.Status = "failed"
+		result.Duration = time.Since(result.Started)
+		if reporters != nil {
+			reporters.HandleFlowResult(result)
+		}
+		return result, err
+	}
+
 	latestFlowID := flowPtr.ID
 
 	nodes, err := c.ns.GetNodesByFlowID(ctx, latestFlowID)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, errors.New("get nodes"))
+		return markFailure(connect.NewError(connect.CodeInternal, errors.New("get nodes")))
 	}
 
 	edges, err := c.fes.GetEdgesByFlowID(ctx, latestFlowID)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, errors.New("get edges"))
+		return markFailure(connect.NewError(connect.CodeInternal, errors.New("get edges")))
 	}
 	edgeMap := edge.NewEdgesMap(edges)
 
 	flowVars, err := c.fvs.GetFlowVariablesByFlowID(ctx, latestFlowID)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, errors.New("get edges"))
+		return markFailure(connect.NewError(connect.CodeInternal, errors.New("get edges")))
 	}
 
 	flowVarsMap := make(map[string]any, len(flowVars))
@@ -589,41 +611,41 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 		case mnnode.NODE_KIND_REQUEST:
 			rn, err := c.rns.GetNodeRequest(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node request: %w", err))
+				return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("get node request: %w", err)))
 			}
 			requestNodes = append(requestNodes, *rn)
 		case mnnode.NODE_KIND_FOR:
 			fn, err := c.fns.GetNodeFor(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node for: %w", err))
+				return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("get node for: %w", err)))
 			}
 			forNodes = append(forNodes, *fn)
 		case mnnode.NODE_KIND_FOR_EACH:
 			fen, err := c.fens.GetNodeForEach(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node for each: %w", err))
+				return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("get node for each: %w", err)))
 			}
 			forEachNodes = append(forEachNodes, *fen)
 		case mnnode.NODE_KIND_NO_OP:
 			sn, err := c.sns.GetNodeNoop(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node start: %w", err))
+				return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("get node start: %w", err)))
 			}
 			noopNodes = append(noopNodes, *sn)
 		case mnnode.NODE_KIND_CONDITION:
 			in, err := c.ins.GetNodeIf(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, errors.New("get node if"))
+				return markFailure(connect.NewError(connect.CodeInternal, errors.New("get node if")))
 			}
 			ifNodes = append(ifNodes, *in)
 		case mnnode.NODE_KIND_JS:
 			jsn, err := c.jsns.GetNodeJS(ctx, node.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, fmt.Errorf("get node js: %w", err))
+				return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("get node js: %w", err)))
 			}
 			jsNodes = append(jsNodes, jsn)
 		default:
-			return connect.NewError(connect.CodeInternal, errors.New("not supported node"))
+			return markFailure(connect.NewError(connect.CodeInternal, errors.New("not supported node")))
 		}
 	}
 
@@ -631,14 +653,14 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 	for _, node := range noopNodes {
 		if node.Type == mnnoop.NODE_NO_OP_KIND_START {
 			if foundStartNode {
-				return connect.NewError(connect.CodeInternal, errors.New("multiple start nodes"))
+				return markFailure(connect.NewError(connect.CodeInternal, errors.New("multiple start nodes")))
 			}
 			foundStartNode = true
 			startNodeID = node.FlowNodeID
 		}
 	}
 	if !foundStartNode {
-		return connect.NewError(connect.CodeInternal, errors.New("no start node"))
+		return markFailure(connect.NewError(connect.CodeInternal, errors.New("no start node")))
 	}
 
 	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, 0)
@@ -668,43 +690,43 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 
 		// Base Request
 		if requestNode.EndpointID == nil || requestNode.ExampleID == nil {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", requestNode.FlowNodeID))
+			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("endpoint or example not found for %s", requestNode.FlowNodeID)))
 		}
 		endpoint, err := c.ias.GetItemApi(ctx, *requestNode.EndpointID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return markFailure(connect.NewError(connect.CodeInternal, err))
 		}
 
 		example, err := c.es.GetApiExample(ctx, *requestNode.ExampleID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return markFailure(connect.NewError(connect.CodeInternal, err))
 		}
 
 		if example.ItemApiID != endpoint.ID {
-			return connect.NewError(connect.CodeInternal, errors.New("example and endpoint not match"))
+			return markFailure(connect.NewError(connect.CodeInternal, errors.New("example and endpoint not match")))
 		}
 		headers, err := c.hs.GetHeaderByExampleID(ctx, example.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, errors.New("get headers"))
+			return markFailure(connect.NewError(connect.CodeInternal, errors.New("get headers")))
 		}
 		queries, err := c.qs.GetExampleQueriesByExampleID(ctx, example.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, errors.New("get queries"))
+			return markFailure(connect.NewError(connect.CodeInternal, errors.New("get queries")))
 		}
 
 		rawBody, err := c.brs.GetBodyRawByExampleID(ctx, example.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return markFailure(connect.NewError(connect.CodeInternal, err))
 		}
 
 		formBody, err := c.bfs.GetBodyFormsByExampleID(ctx, example.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return markFailure(connect.NewError(connect.CodeInternal, err))
 		}
 
 		urlBody, err := c.bues.GetBodyURLEncodedByExampleID(ctx, example.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
+			return markFailure(connect.NewError(connect.CodeInternal, err))
 		}
 
 		exampleResp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, example.ID)
@@ -716,34 +738,34 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 				}
 				err = c.ers.CreateExampleResp(ctx, *exampleResp)
 				if err != nil {
-					return connect.NewError(connect.CodeInternal, errors.New("create example resp"))
+					return markFailure(connect.NewError(connect.CodeInternal, errors.New("create example resp")))
 				}
 			} else {
-				return connect.NewError(connect.CodeInternal, err)
+				return markFailure(connect.NewError(connect.CodeInternal, err))
 			}
 		}
 
 		exampleRespHeader, err := c.erhs.GetHeaderByRespID(ctx, exampleResp.ID)
 		if err != nil {
-			return connect.NewError(connect.CodeInternal, errors.New("get example resp header"))
+			return markFailure(connect.NewError(connect.CodeInternal, errors.New("get example resp header")))
 		}
 
 		asserts, err := c.as.GetAssertByExampleID(ctx, example.ID)
 		if err != nil && err != sassert.ErrNoAssertFound {
-			return connect.NewError(connect.CodeInternal, err)
+			return markFailure(connect.NewError(connect.CodeInternal, err))
 		}
 
 		// Delta Request
 		if requestNode.DeltaExampleID != nil {
 			deltaExample, err := c.es.GetApiExample(ctx, *requestNode.DeltaExampleID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return markFailure(connect.NewError(connect.CodeInternal, err))
 			}
 
 			if requestNode.DeltaEndpointID != nil {
 				deltaEndpoint, err := c.ias.GetItemApi(ctx, *requestNode.DeltaEndpointID)
 				if err != nil {
-					return connect.NewError(connect.CodeInternal, err)
+					return markFailure(connect.NewError(connect.CodeInternal, err))
 				}
 				if deltaEndpoint.Url != "" {
 					endpoint.Url = deltaEndpoint.Url
@@ -755,27 +777,27 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 
 			deltaHeaders, err := c.hs.GetHeaderByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return markFailure(connect.NewError(connect.CodeInternal, err))
 			}
 
 			deltaQueries, err := c.qs.GetExampleQueriesByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return markFailure(connect.NewError(connect.CodeInternal, err))
 			}
 
 			rawBodyDelta, err := c.brs.GetBodyRawByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, errors.New("delta raw body not found"))
+				return markFailure(connect.NewError(connect.CodeInternal, errors.New("delta raw body not found")))
 			}
 
 			formBodyDelta, err := c.bfs.GetBodyFormsByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, errors.New("delta form body not found"))
+				return markFailure(connect.NewError(connect.CodeInternal, errors.New("delta form body not found")))
 			}
 
 			urlBodyDelta, err := c.bues.GetBodyURLEncodedByExampleID(ctx, deltaExample.ID)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, errors.New("delta url body not found"))
+				return markFailure(connect.NewError(connect.CodeInternal, errors.New("delta url body not found")))
 			}
 
 			mergeExamplesInput := request.MergeExamplesInput{
@@ -883,7 +905,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 		}
 
 		if !connected {
-			return connect.NewError(connect.CodeUnavailable, fmt.Errorf("worker-js server failed to start after 3 seconds"))
+			return markFailure(connect.NewError(connect.CodeUnavailable, fmt.Errorf("worker-js server failed to start after 3 seconds")))
 		}
 
 		client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090")
@@ -894,7 +916,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 		if jsNode.CodeCompressType != compress.CompressTypeNone {
 			jsNode.Code, err = compress.Decompress(jsNode.Code, jsNode.CodeCompressType)
 			if err != nil {
-				return connect.NewError(connect.CodeInternal, err)
+				return markFailure(connect.NewError(connect.CodeInternal, err))
 			}
 		}
 
@@ -930,68 +952,36 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var successCount int
-	totalNodes := len(flowNodeMap)
-
-	flowTitle := flowPtr.Name
-
-	// Calculate max step name length
-	maxStepNameLen := len("Step") // Default to header length
+	nodeNames := make([]string, 0, len(nodeNameMap))
 	for _, name := range nodeNameMap {
-		if len(name) > maxStepNameLen {
-			maxStepNameLen = len(name)
-		}
+		nodeNames = append(nodeNames, name)
 	}
 
-	tableWidth := 2 + 20 + 3 + maxStepNameLen + 3 + 8 + 3 + 11 + 2 // Total = maxStepNameLen + 52
-
-	topBottomBorder := strings.Repeat("=", tableWidth)
-	separatorBorder := strings.Repeat("─", tableWidth)
-	tableRowFmt := fmt.Sprintf("| %%-20s | %%-%ds | %%-8s | %%-11s |\n", maxStepNameLen)
-
-	// Format Flow title line to fit within the table width
-	displayTitleContent := fmt.Sprintf(" Flow: %s", flowTitle) // Use original flowTitle
-	maxContentWidthInTitle := tableWidth - 2                   // Available space between '|' and '|'
-
-	if len(displayTitleContent) > maxContentWidthInTitle {
-		if maxContentWidthInTitle > 3 { // Check if space for "..."
-			displayTitleContent = displayTitleContent[:maxContentWidthInTitle-3] + "..."
-		} else if maxContentWidthInTitle >= 0 { // Only truncate if non-negative space
-			displayTitleContent = displayTitleContent[:maxContentWidthInTitle]
-		} else {
-			displayTitleContent = "" // Not enough space for anything
-		}
+	if reporters != nil {
+		reporters.HandleFlowStart(FlowStartInfo{
+			FlowID:     result.FlowID,
+			FlowName:   flowPtr.Name,
+			TotalNodes: len(flowNodeMap),
+			NodeNames:  nodeNames,
+		})
 	}
 
-	paddingLength := maxContentWidthInTitle - len(displayTitleContent)
-	if paddingLength < 0 {
-		paddingLength = 0
-	}
-
-	fmt.Println(topBottomBorder)
-	fmt.Printf("|%s%s|", displayTitleContent, strings.Repeat(" ", paddingLength))
-	fmt.Println() // Ensure newline before separator
-	fmt.Println(separatorBorder)
-	fmt.Printf(tableRowFmt, "Timestamp", "Step", "Duration", "Status") // tableRowFmt includes a newline
-	fmt.Println(separatorBorder)
-
+	nodeResults := make([]NodeRunResult, 0, len(flowNodeMap))
 	done := make(chan error, 1)
 	go func() {
 		defer close(done)
+
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
-			name := flowNodeStatus.Name
-			stateStr := mnnode.StringNodeStateWithIcons(flowNodeStatus.State)
+			if reporters != nil {
+				reporters.HandleNodeStatus(NodeStatusEvent{
+					FlowID:   result.FlowID,
+					FlowName: flowPtr.Name,
+					Status:   flowNodeStatus,
+				})
+			}
 
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
-				fmt.Printf(tableRowFmt, // tableRowFmt includes a newline
-					time.Now().Format("2006-01-02 15:04:05"),
-					name,
-					formatDuration(flowNodeStatus.RunDuration),
-					stateStr)
-
-				if flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS {
-					successCount++
-				}
+				nodeResults = append(nodeResults, buildNodeRunResult(flowNodeStatus))
 			}
 		}
 
@@ -1011,12 +1001,10 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 				if !ok {
 					return
 				}
-				if len(flowNodeStatusChan) > 0 {
+				if runner.IsFlowStatusDone(flowStatus) {
 					for flowNodeStatus := range flowNodeStatusChan {
 						nodeStatusFunc(flowNodeStatus)
 					}
-				}
-				if runner.IsFlowStatusDone(flowStatus) {
 					done <- nil
 					return
 				}
@@ -1024,26 +1012,43 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal) error
 		}
 	}()
 
-	flowTime := time.Now()
+	result.Started = time.Now()
 	flowRunErr := runnerInst.Run(ctx, flowNodeStatusChan, flowStatusChan, flowVarsMap)
 
 	// wait for the flow to finish
 	flowErr := <-done
 
-	flowTimeLapse := time.Since(flowTime)
+	result.Duration = time.Since(result.Started)
+	result.Nodes = nodeResults
 
 	close(requestNodeRespChan)
 
-	fmt.Println(topBottomBorder) // Use dynamic border
-	fmt.Printf("Flow Duration: %v | Steps: %d/%d Successful\n", flowTimeLapse, successCount, totalNodes)
-
+	var finalErr error
 	if flowErr != nil {
-		return flowErr
+		finalErr = flowErr
+	} else if flowRunErr != nil {
+		finalErr = flowRunErr
 	}
 
-	if flowRunErr != nil {
-		return flowRunErr
+	switch {
+	case finalErr == nil:
+		result.Status = "success"
+	case errors.Is(finalErr, context.DeadlineExceeded):
+		result.Status = "timeout"
+		result.Error = finalErr.Error()
+	case errors.Is(finalErr, context.Canceled):
+		result.Status = "canceled"
+		result.Error = finalErr.Error()
+	default:
+		result.Status = "failed"
+		if finalErr != nil {
+			result.Error = finalErr.Error()
+		}
 	}
 
-	return nil
+	if reporters != nil {
+		reporters.HandleFlowResult(result)
+	}
+
+	return result, finalErr
 }
