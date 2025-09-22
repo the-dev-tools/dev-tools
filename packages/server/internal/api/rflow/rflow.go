@@ -1382,6 +1382,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			idStr := id.String()
 			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
 			executionID := flowNodeStatus.ExecutionID
+			displayName := name
 
 			// Handle NodeExecution creation/updates based on state
 			switch flowNodeStatus.State {
@@ -1465,6 +1466,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						ResponseID:             nil,
 						CompletedAt:            nil,
 					}
+					displayName = nodeExecution.Name
 
 					// Set output data for iteration tracking records
 					if isIterationRecord && flowNodeStatus.OutputData != nil {
@@ -1565,6 +1567,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					// Update existing NodeExecution with final state (normal flow)
 					pendingMutex.Lock()
 					if nodeExec, exists := pendingNodeExecutions[executionID]; exists {
+						displayName = nodeExec.Name
 						// Update final state
 						nodeExec.State = flowNodeStatus.State
 						completedAt := time.Now().UnixMilli()
@@ -1627,6 +1630,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					} else if loopNodeIDs[flowNodeStatus.NodeID] {
 						nodeExecution := buildLoopNodeExecutionFromStatus(flowNodeStatus, executionID)
+						displayName = nodeExecution.Name
 
 						if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
 							log.Printf("Failed to upsert loop node execution %s: %v", nodeExecution.ID, err)
@@ -1672,6 +1676,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							ResponseID:             nil,
 							CompletedAt:            &completedAt,
 						}
+						displayName = nodeExecution.Name
 
 						// Set error if present
 						if flowNodeStatus.Error != nil {
@@ -1762,7 +1767,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 							// Set error if present
 							if flowNodeStatus.Error != nil {
-								errorStr := flowNodeStatus.Error.Error()
+								errorStr := formatErrForUser(flowNodeStatus.Error)
 								nodeExecution.Error = &errorStr
 							}
 
@@ -1816,7 +1821,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			// Handle logging for non-running states
 			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
 				// Create copies of values we need for the goroutine
-				nameForLog := name
+				nameForLog := displayName
+				if nameForLog == "" {
+					nameForLog = name
+				}
 				idStrForLog := idStr
 				stateStrForLog := stateStr
 				nodeError := flowNodeStatus.Error
