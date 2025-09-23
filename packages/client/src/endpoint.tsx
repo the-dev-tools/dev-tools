@@ -4,7 +4,6 @@ import { createColumnHelper } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, Match, MutableHashMap, Option, pipe, Schema, String } from 'effect';
 import { Ulid } from 'id128';
-import { format as prettierFormat } from 'prettier/standalone';
 import { Fragment, Suspense, useMemo, useState } from 'react';
 import {
   Button as AriaButton,
@@ -74,6 +73,7 @@ import {
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
 import { useEndpointProps, useMutate, useQuery } from '~data-client';
+import { prettierFormatQueryOptions } from '~prettier';
 import { requestRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 import { AssertionView } from './assertions';
 import { BodyView } from './body';
@@ -983,39 +983,7 @@ const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
 
   const [language, setLanguage] = useState(initialLanguage);
 
-  const { data: prettierBody } = useReactQuery({
-    initialData: 'Formatting...',
-    queryFn: async () => {
-      if (language === 'text') return body;
-
-      const plugins = await pipe(
-        Match.value(language),
-        Match.when('json', () => [import('prettier/plugins/estree'), import('prettier/plugins/babel')]),
-        Match.when('html', () => [import('prettier/plugins/html')]),
-        Match.when('xml', () => [import('@prettier/plugin-xml')]),
-        Match.exhaustive,
-        Array.map((_) => _.then((_) => _.default)),
-        (_) => Promise.all(_),
-      );
-
-      const parser = pipe(
-        Match.value(language),
-        Match.when('json', () => 'json-stringify'),
-        Match.orElse((_) => _),
-      );
-
-      return await prettierFormat(body, {
-        htmlWhitespaceSensitivity: 'ignore',
-        parser,
-        plugins,
-        printWidth: 100,
-        singleAttributePerLine: true,
-        tabWidth: 2,
-        xmlWhitespaceSensitivity: 'ignore',
-      }).catch(() => body);
-    },
-    queryKey: ['prettier', language, body],
-  });
+  const { data: prettierBody } = useReactQuery(prettierFormatQueryOptions({ language, text: body }));
 
   const extensions = useCodeMirrorLanguageExtensions(language);
 

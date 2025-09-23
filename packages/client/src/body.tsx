@@ -43,6 +43,7 @@ import {
   ExampleUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
 import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
+import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
@@ -56,6 +57,7 @@ import {
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
 import { matchAllEndpoint, useQuery } from '~data-client';
+import { prettierFormat } from '~prettier';
 import { useReactRender } from '~react-render';
 import { rootRouteApi } from '~routes';
 import {
@@ -452,19 +454,31 @@ const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
 
   return (
     <>
-      <Select
-        aria-label='Language'
-        className={tw`self-center justify-self-start`}
-        onSelectionChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
-        selectedKey={language}
-        triggerClassName={tw`px-4 py-1`}
-      >
-        {CodeMirrorMarkupLanguages.map((_) => (
-          <SelectItem id={_} key={_}>
-            {_}
-          </SelectItem>
-        ))}
-      </Select>
+      <div className={tw`flex items-center gap-2`}>
+        <Select
+          aria-label='Language'
+          className={tw`self-center justify-self-start`}
+          onSelectionChange={(_) => void setLanguage(_ as CodeMirrorMarkupLanguage)}
+          selectedKey={language}
+          triggerClassName={tw`px-4 py-1`}
+        >
+          {CodeMirrorMarkupLanguages.map((_) => (
+            <SelectItem id={_} key={_}>
+              {_}
+            </SelectItem>
+          ))}
+        </Select>
+
+        <Button
+          className={tw`px-4 py-1`}
+          onPress={async () => {
+            const formattedValue = await prettierFormat({ language, text: value });
+            setValue(formattedValue);
+          }}
+        >
+          Prettify
+        </Button>
+      </div>
 
       <CodeMirror
         className={tw`col-span-full self-stretch`}
