@@ -1,12 +1,14 @@
+import { createClient } from '@connectrpc/connect';
 import { TransportProvider } from '@connectrpc/connect-query';
 import { DataProvider, getDefaultManagers, useController } from '@data-client/react';
 import { Registry, RegistryContext } from '@effect-atom/atom-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { Effect, Layer, Option, Predicate, Runtime, Schema } from 'effect';
+import { Effect, Layer, Option, pipe, Predicate, Runtime, Schedule, Schema } from 'effect';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { scan } from 'react-scan';
+import { HealthService } from '@the-dev-tools/spec/health/v1/health_pb';
 import { AriaRouterProvider } from '@the-dev-tools/ui/router';
 import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
 import { ApiErrorHandler, ApiTransport } from '~/api/transport';
@@ -80,6 +82,13 @@ export const app = Effect.gen(function* () {
   _ = <QueryClientProvider client={queryClient}>{_}</QueryClientProvider>;
   _ = <TransportProvider transport={transport}>{_}</TransportProvider>;
   _ = <StrictMode>{_}</StrictMode>;
+
+  // Wait for the server to start up before first render
+  const { healthCheck } = createClient(HealthService, transport);
+  yield* pipe(
+    Effect.tryPromise((signal) => healthCheck({}, { signal, timeoutMs: 0 })),
+    Effect.retry({ schedule: Schedule.exponential('10 millis'), times: 100 }),
+  );
 
   createRoot(rootEl).render(_);
 });
