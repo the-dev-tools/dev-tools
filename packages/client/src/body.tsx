@@ -435,6 +435,12 @@ const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
   const bodyRaw = useQuery(BodyRawGetEndpoint, { exampleId });
   const deltaBodyRaw = useQuery(BodyRawGetEndpoint, deltaExampleId ? { exampleId: deltaExampleId } : null);
 
+  const save = (newValue?: string) =>
+    dataClient.fetch(BodyRawUpdateEndpoint, {
+      data: new TextEncoder().encode(newValue ?? value),
+      exampleId: deltaExampleId ?? exampleId,
+    });
+
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   const body = new TextDecoder().decode(deltaBodyRaw?.data || bodyRaw.data);
 
@@ -475,6 +481,7 @@ const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
           onPress={async () => {
             const formattedValue = await prettierFormat({ language, text: value });
             setValue(formattedValue);
+            await save(formattedValue);
           }}
         >
           Prettify
@@ -485,12 +492,7 @@ const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
         className={tw`col-span-full self-stretch`}
         extensions={combinedExtensions}
         height='100%'
-        onBlur={() =>
-          void dataClient.fetch(BodyRawUpdateEndpoint, {
-            data: new TextEncoder().encode(value),
-            exampleId: deltaExampleId ?? exampleId,
-          })
-        }
+        onBlur={() => void save()}
         onChange={setValue}
         readOnly={isReadOnly ?? false}
         value={value}
