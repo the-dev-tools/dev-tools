@@ -2,7 +2,7 @@ import { useQuery as useReactQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
-import { Array, Duration, Match, MutableHashMap, Option, pipe, Schema, String } from 'effect';
+import { Array, Duration, MutableHashMap, Option, pipe, String } from 'effect';
 import { Ulid } from 'id128';
 import { Fragment, Suspense, useMemo, useState } from 'react';
 import {
@@ -73,6 +73,7 @@ import {
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
 import { useEndpointProps, useMutate, useQuery } from '~data-client';
+import { guessLanguage } from '~guess-language';
 import { prettierFormatQueryOptions } from '~prettier';
 import { requestRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 import { AssertionView } from './assertions';
@@ -964,27 +965,8 @@ interface ResponseBodyPrettyViewProps {
 }
 
 const ResponseBodyPrettyView = ({ body }: ResponseBodyPrettyViewProps) => {
-  const initialLanguage = pipe(
-    Match.value(body),
-    Match.when(
-      (_) => pipe(_, Schema.decodeUnknownOption(Schema.parseJson()), Option.isSome),
-      (): CodeMirrorMarkupLanguage => 'json',
-    ),
-    Match.when(
-      (_) => /<\?xml|<[a-z]+:[a-z]+/i.test(_),
-      (): CodeMirrorMarkupLanguage => 'xml',
-    ),
-    Match.when(
-      (_) => /<\/?[a-z][\s\S]*>/i.test(_),
-      (): CodeMirrorMarkupLanguage => 'html',
-    ),
-    Match.orElse((): CodeMirrorMarkupLanguage => 'text'),
-  );
-
-  const [language, setLanguage] = useState(initialLanguage);
-
+  const [language, setLanguage] = useState(guessLanguage(body));
   const { data: prettierBody } = useReactQuery(prettierFormatQueryOptions({ language, text: body }));
-
   const extensions = useCodeMirrorLanguageExtensions(language);
 
   return (

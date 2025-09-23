@@ -57,6 +57,7 @@ import {
   useCodeMirrorLanguageExtensions,
 } from '~code-mirror/extensions';
 import { matchAllEndpoint, useQuery } from '~data-client';
+import { guessLanguage } from '~guess-language';
 import { prettierFormat } from '~prettier';
 import { useReactRender } from '~react-render';
 import { rootRouteApi } from '~routes';
@@ -438,7 +439,7 @@ const RawForm = ({ deltaExampleId, exampleId, isReadOnly }: RawFormProps) => {
   const body = new TextDecoder().decode(deltaBodyRaw?.data || bodyRaw.data);
 
   const [value, setValue] = useState(body);
-  const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>('text');
+  const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>(guessLanguage(body));
 
   // Get base language extensions
   const languageExtensions = useCodeMirrorLanguageExtensions(language);
