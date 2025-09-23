@@ -1,4 +1,5 @@
 .claude
+.ai
 .direnv
 .env.*.local
 .env.keys

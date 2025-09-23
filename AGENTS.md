@@ -35,6 +35,11 @@ Testing spans multiple layers. For Go services, default to table-driven tests th
 ## Commit, Review & Release Flow
 Even though you will not commit by default, you must prepare changes as if a maintainer will review them immediately. Run `git status` and ensure only intentional files are touched. Provide diff summaries referencing `path:line`. Before the human author opens a PR, advise them to run `task lint` and `task test`, and to regenerate any derived artifacts touched by the change (`nx run spec:build`, `nx run db:generate`, Storybook snapshots, etc.). Remind them to attach screenshots for UI updates, note breaking changes, and generate an Nx Version Plan with `task version-plan --project=<scope>` or `nx release plan`. PR descriptions should include rationale, testing evidence, and linked issues. Encourage small, focused branches; if the change spans unrelated concerns, recommend splitting it into separate tasks.
 
+### Commit Message Voice
+- Start subject lines with an area tag or Conventional Commit type, optionally include scope parentheses, and keep the action in the imperative mood (e.g. `server(rnode): Ensure request IDs hydrate correctly`, `feat(cli): add modular flow reporters`).
+- When no obvious type applies, stick with a short capitalized imperative phrase (`Fix flow run logs to use execution names`, `Export service: add curl text export path`).
+- Separate additional detail with a blank line and use dash-prefixed bullets for follow-up points to match existing multi-line commit narratives.
+
 ## Security, Secrets & Compliance
 Never check in secrets or personal data. Environment variables belong in `.env.development` (loaded via direnv) and must be mocked or stubbed in tests. Avoid adding dependencies that reach out to the network or write outside the workspace unless explicitly required. The repository ships under MIT + Commons Clause: reiterate this in documentation changes when relevant and ensure new code respects third-party license compatibility. When handling authentication flows, reuse existing middleware such as `mwauth` and avoid storing tokens in plaintext logs. Generated code destined for deployment (binaries, bundles) must stay out of the repository; use `dist/` or temporary directories and clean them up when you are done. If you discover sensitive data already committed, pause and escalate to the user.
 
