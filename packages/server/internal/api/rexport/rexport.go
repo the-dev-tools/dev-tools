@@ -175,26 +175,29 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 
 	var exampleIDs []idwrap.IDWrap
 	if len(req.Msg.ExampleIds) != 0 {
-		for _, exampleId := range req.Msg.ExampleIds {
-			exampleId, err := idwrap.NewFromBytes(exampleId)
+		for _, exampleID := range req.Msg.ExampleIds {
+			decoded, err := idwrap.NewFromBytes(exampleID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, err)
 			}
-			exampleIDs = append(exampleIDs, exampleId)
+			exampleIDs = append(exampleIDs, decoded)
 		}
 		filterExport.FilterExampleIds = &exampleIDs
 	}
 
-	payload, err := c.performExport(ctx, workspaceID, filterExport, exampleIDs, req.Msg.GetFormat(), exportv1.ExportFormat_EXPORT_FORMAT_BINARY)
+	workspaceData, err := c.exportWorkspaceData(ctx, workspaceID, filterExport)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &exportv1.ExportResponse{Name: payload.name}
-	if payload.text != nil {
-		resp.TextData = payload.text
-	} else {
-		resp.Data = payload.data
+	data, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	resp := &exportv1.ExportResponse{
+		Name: constructExportName(workspaceData.Workspace.Name, ".yaml"),
+		Data: data,
 	}
 
 	return connect.NewResponse(resp), nil
@@ -220,39 +223,9 @@ func (c *ExportRPC) ExportSimplified(ctx context.Context, req *connect.Request[e
 		filterExport.FilterFlowIds = &filterIds
 	}
 
-	ioWorkspace := ioworkspace.NewIOWorkspaceService(
-		c.DB,
-		c.workspaceService,
-		c.collectionService,
-		c.folderservice,
-		c.endpointService,
-		c.exampleService,
-		c.exampleHeaderService,
-		c.exampleQueryService,
-		c.exampleAssertService,
-		c.rawBodyService,
-		c.formBodyService,
-		c.urlBodyService,
-		c.responseService,
-		c.responseHeaderService,
-		c.responseAssertService,
-		c.flowService,
-		c.flowNodeService,
-		c.flowEdgeService,
-		c.flowVariableService,
-		c.flowRequestService,
-		c.flowConditionService,
-		c.flowNoopService,
-		c.flowForService,
-		c.flowForEachService,
-		c.flowJSService,
-		c.envService,
-		c.varService,
-	)
-
-	workspaceData, err := ioWorkspace.ExportWorkspace(ctx, workspaceID, filterExport)
+	workspaceData, err := c.exportWorkspaceData(ctx, workspaceID, filterExport)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return nil, err
 	}
 
 	// Convert to simplified format
@@ -262,63 +235,59 @@ func (c *ExportRPC) ExportSimplified(ctx context.Context, req *connect.Request[e
 	}
 
 	resp := &exportv1.ExportResponse{
-		Name: workspaceData.Workspace.Name + "_simplified.yaml",
+		Name: constructExportName(workspaceData.Workspace.Name, "_simplified.yaml"),
 		Data: simplifiedYAML,
 	}
 
 	return connect.NewResponse(resp), nil
 }
 
-func (c *ExportRPC) ExportExample(ctx context.Context, req *connect.Request[exportv1.ExportExampleRequest]) (*connect.Response[exportv1.ExportExampleResponse], error) {
+func (c *ExportRPC) ExportCurl(ctx context.Context, req *connect.Request[exportv1.ExportCurlRequest]) (*connect.Response[exportv1.ExportCurlResponse], error) {
 	workspaceID, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	exampleID, err := idwrap.NewFromBytes(req.Msg.ExampleId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
 	filterExport := ioworkspace.FilterExport{}
-	exampleIDs := []idwrap.IDWrap{exampleID}
-	filterExport.FilterExampleIds = &exampleIDs
 
-	format := req.Msg.GetFormat()
-	if format == exportv1.ExportFormat_EXPORT_FORMAT_UNSPECIFIED {
-		format = exportv1.ExportFormat_EXPORT_FORMAT_CURL
+	var exampleIDs []idwrap.IDWrap
+	if len(req.Msg.ExampleIds) != 0 {
+		for _, rawID := range req.Msg.ExampleIds {
+			decoded, err := idwrap.NewFromBytes(rawID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
+			exampleIDs = append(exampleIDs, decoded)
+		}
+		filterExport.FilterExampleIds = &exampleIDs
 	}
 
-	payload, err := c.performExport(ctx, workspaceID, filterExport, exampleIDs, format, format)
+	workspaceData, err := c.exportWorkspaceData(ctx, workspaceID, filterExport)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &exportv1.ExportExampleResponse{Name: payload.name}
-	if payload.text != nil {
-		resp.TextData = payload.text
-	} else {
-		resp.Data = payload.data
+	curlText, err := buildCurlExport(workspaceData, exampleIDs)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	resp := &exportv1.ExportCurlResponse{Data: curlText}
 	return connect.NewResponse(resp), nil
 }
 
-type exportPayload struct {
-	name string
-	data []byte
-	text *string
+func (c *ExportRPC) exportWorkspaceData(ctx context.Context, workspaceID idwrap.IDWrap, filterExport ioworkspace.FilterExport) (*ioworkspace.WorkspaceData, error) {
+	ioWorkspace := c.newIOWorkspaceService()
+	workspaceData, err := ioWorkspace.ExportWorkspace(ctx, workspaceID, filterExport)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	return workspaceData, nil
 }
 
-func (c *ExportRPC) performExport(
-	ctx context.Context,
-	workspaceID idwrap.IDWrap,
-	filterExport ioworkspace.FilterExport,
-	exampleIDs []idwrap.IDWrap,
-	reqFormat exportv1.ExportFormat,
-	defaultFormat exportv1.ExportFormat,
-) (*exportPayload, error) {
-	ioWorkspace := ioworkspace.NewIOWorkspaceService(
+func (c *ExportRPC) newIOWorkspaceService() *ioworkspace.IOWorkspaceService {
+	return ioworkspace.NewIOWorkspaceService(
 		c.DB,
 		c.workspaceService,
 		c.collectionService,
@@ -347,45 +316,13 @@ func (c *ExportRPC) performExport(
 		c.envService,
 		c.varService,
 	)
+}
 
-	workspaceData, err := ioWorkspace.ExportWorkspace(ctx, workspaceID, filterExport)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+func constructExportName(base, suffix string) string {
+	if base == "" {
+		base = "export"
 	}
-
-	format := reqFormat
-	if format == exportv1.ExportFormat_EXPORT_FORMAT_UNSPECIFIED {
-		format = defaultFormat
-	}
-
-	switch format {
-	case exportv1.ExportFormat_EXPORT_FORMAT_CURL:
-		curlText, err := buildCurlExport(workspaceData, exampleIDs)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-
-		name := workspaceData.Workspace.Name
-		if name == "" {
-			name = "export"
-		}
-		name += ".curl.txt"
-
-		return &exportPayload{name: name, text: &curlText}, nil
-
-	default:
-		simplifiedYAML, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-
-		name := workspaceData.Workspace.Name
-		if name == "" {
-			name = "export"
-		}
-
-		return &exportPayload{name: name + ".yaml", data: simplifiedYAML}, nil
-	}
+	return base + suffix
 }
 
 func buildCurlExport(workspaceData *ioworkspace.WorkspaceData, requested []idwrap.IDWrap) (string, error) {

@@ -64,7 +64,6 @@ func TestExport_DefaultBinary(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NotEmpty(t, resp.Msg.GetData())
-	require.Empty(t, resp.Msg.GetTextData())
 	require.True(t, strings.HasSuffix(resp.Msg.Name, ".yaml"))
 
 	// ensure YAML output carries workspace metadata
@@ -72,42 +71,23 @@ func TestExport_DefaultBinary(t *testing.T) {
 	require.Contains(t, body, "workspace_name")
 }
 
-func TestExport_CurlFormat(t *testing.T) {
+func TestExportCurl(t *testing.T) {
 	ctx := context.Background()
 	svc, workspaceID, exampleID := setupExportRPC(t, ctx)
 
-	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
+	resp, err := svc.ExportCurl(ctx, connect.NewRequest(&exportv1.ExportCurlRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		ExampleIds:  [][]byte{exampleID.Bytes()},
-		Format:      exportv1.ExportFormat_EXPORT_FORMAT_CURL.Enum(),
 	}))
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	require.Empty(t, resp.Msg.GetData())
-	text := resp.Msg.GetTextData()
+	text := resp.Msg.GetData()
 	require.NotEmpty(t, text)
-	require.True(t, strings.HasSuffix(resp.Msg.Name, ".curl.txt"))
 	require.Contains(t, text, "curl '")
 	require.Contains(t, text, "--data-raw")
 	require.Contains(t, text, "-H 'Content-Type: application/json'")
 	require.Contains(t, text, "?param=value")
-}
-
-func TestExportExample_SingleCommand(t *testing.T) {
-	ctx := context.Background()
-	svc, workspaceID, exampleID := setupExportRPC(t, ctx)
-
-	resp, err := svc.ExportExample(ctx, connect.NewRequest(&exportv1.ExportExampleRequest{
-		WorkspaceId: workspaceID.Bytes(),
-		ExampleId:   exampleID.Bytes(),
-	}))
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	text := resp.Msg.GetTextData()
-	require.NotEmpty(t, text)
-	require.True(t, strings.HasSuffix(resp.Msg.Name, ".curl.txt"))
 	require.Equal(t, 1, strings.Count(text, "curl '"))
 	require.NotContains(t, text, "\n\ncurl '")
 }
