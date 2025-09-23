@@ -135,6 +135,7 @@ const onActivate = Effect.gen(function* () {
   yield* createWindow;
 });
 
+let canQuit = false;
 const client = pipe(
   Effect.fn(function* (callback: (_: typeof Effect.void) => void) {
     const runtime = yield* Effect.runtime<
@@ -154,12 +155,11 @@ const client = pipe(
       app.quit();
     });
 
-    let interrupted = false;
     app.on('before-quit', (event) => {
-      if (interrupted) return;
+      if (canQuit) return;
       event.preventDefault();
       callback(Effect.interrupt);
-      interrupted = true;
+      canQuit = true;
     });
 
     // On OS X it's common to re-create a window in the app when the
@@ -175,7 +175,12 @@ const client = pipe(
 const desktop = pipe(
   Effect.all([import.meta.env.DEV ? Effect.void : server, client, worker], { concurrency: 'unbounded' }),
   Effect.ensuring(Console.log('Program exited')),
-  Effect.ensuring(Effect.sync(() => void app.quit())),
+  Effect.ensuring(
+    Effect.sync(() => {
+      canQuit = true;
+      app.quit();
+    }),
+  ),
   Effect.scoped,
 );
 
