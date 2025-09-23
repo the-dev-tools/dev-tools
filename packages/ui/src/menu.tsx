@@ -1,5 +1,6 @@
 import { RefObject, useCallback, useRef, useState } from 'react';
 import * as RAC from 'react-aria-components';
+import { FiChevronRight } from 'react-icons/fi';
 import { tv, VariantProps } from 'tailwind-variants';
 import { listBoxItemStyles, listBoxStyles } from './list-box';
 import { Popover } from './popover';
@@ -17,7 +18,10 @@ export const Menu = <T extends object>({ className, contextMenuPosition, context
   <>
     {contextMenuRef && <div className={tw`fixed`} ref={contextMenuRef} style={contextMenuPosition} />}
 
-    <Popover {...(contextMenuPosition && { triggerRef: contextMenuRef })}>
+    <Popover
+      className={tw`data-[trigger=SubmenuTrigger]:placement-right:-ml-1`}
+      {...(contextMenuPosition && { triggerRef: contextMenuRef })}
+    >
       <RAC.Menu {...props} className={composeStyleRenderProps(className, menuStyles)} />
     </Popover>
   </>
@@ -70,8 +74,16 @@ export const menuItemStyles = tv({ extend: listBoxItemStyles });
 
 export interface MenuItemProps extends RAC.MenuItemProps, VariantProps<typeof menuItemStyles> {}
 
-export const MenuItem = ({ className, ...props }: MenuItemProps) => (
-  <RAC.MenuItem {...props} className={composeStyleRenderProps(className, listBoxItemStyles)} />
+export const MenuItem = ({ children, className, ...props }: MenuItemProps) => (
+  <RAC.MenuItem {...props} className={composeStyleRenderProps(className, menuItemStyles)}>
+    {RAC.composeRenderProps(children, (children, { hasSubmenu }) => (
+      <>
+        {children}
+        <div className={tw`flex-1`} />
+        {hasSubmenu && <FiChevronRight className={tw`size-3 text-slate-500`} />}
+      </>
+    ))}
+  </RAC.MenuItem>
 );
 
 export const MenuItemLink: LinkComponent<MenuItemProps> = (props) => {

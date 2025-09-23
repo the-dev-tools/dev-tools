@@ -9,7 +9,7 @@ export const Popover = ({ className, ...props }: PopoverProps) => (
     {...props}
     className={composeTailwindRenderProps(
       className,
-      tw`pointer-events-none flex h-full min-w-(--trigger-width) flex-col placement-top:flex-col-reverse`,
+      tw`pointer-events-none flex min-w-(--trigger-width) flex-col placement-top:flex-col-reverse`,
     )}
   />
 );
