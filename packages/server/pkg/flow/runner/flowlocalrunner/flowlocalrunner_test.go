@@ -201,6 +201,86 @@ func buildLinearStubFlow(count int, captureOrder bool) (idwrap.IDWrap, map[idwra
 	return ids[0], nodeMap, edgesMap, callLog
 }
 
+func drainStates(ch <-chan runner.FlowNodeStatus) []runner.FlowNodeStatus {
+	var statuses []runner.FlowNodeStatus
+	for status := range ch {
+		statuses = append(statuses, status)
+	}
+	return statuses
+}
+
+func drainLogs(ch <-chan runner.FlowNodeLogPayload) []runner.FlowNodeLogPayload {
+	var logs []runner.FlowNodeLogPayload
+	for entry := range ch {
+		logs = append(logs, entry)
+	}
+	return logs
+}
+
+func drainFlowStatus(ch <-chan runner.FlowStatus) []runner.FlowStatus {
+	var statuses []runner.FlowStatus
+	for status := range ch {
+		statuses = append(statuses, status)
+	}
+	return statuses
+}
+
+func TestFlowLocalRunnerEmitsLogEvents(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	startID := idwrap.NewNow()
+	stub := &stubNode{id: startID, name: "start"}
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		startID: stub,
+	}
+	edgesMap := edge.EdgesMap{
+		startID: {
+			edge.HandleUnspecified: nil,
+		},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0)
+
+	stateChan := make(chan runner.FlowNodeStatus, 8)
+	logChan := make(chan runner.FlowNodeLogPayload, 8)
+	flowStatusChan := make(chan runner.FlowStatus, 8)
+
+	err := flowRunner.RunWithEvents(ctx, runner.FlowEventChannels{
+		NodeStates: stateChan,
+		NodeLogs:   logChan,
+		FlowStatus: flowStatusChan,
+	}, nil)
+	if err != nil {
+		t.Fatalf("RunWithEvents returned error: %v", err)
+	}
+
+	states := drainStates(stateChan)
+	if len(states) == 0 {
+		t.Fatalf("expected node states, got none")
+	}
+
+	logs := drainLogs(logChan)
+	if len(logs) == 0 {
+		t.Fatalf("expected log payloads, got none")
+	}
+	for _, entry := range logs {
+		if entry.State == mnnode.NODE_STATE_RUNNING {
+			t.Fatalf("unexpected running state in log payloads: %+v", entry)
+		}
+	}
+
+	flowStatuses := drainFlowStatus(flowStatusChan)
+	if len(flowStatuses) == 0 {
+		t.Fatalf("expected flow statuses, got none")
+	}
+	if flowStatuses[0] != runner.FlowStatusStarting {
+		t.Fatalf("expected first flow status to be Starting, got %v", flowStatuses[0])
+	}
+	if flowStatuses[len(flowStatuses)-1] != runner.FlowStatusSuccess {
+		t.Fatalf("expected final flow status Success, got %v", flowStatuses[len(flowStatuses)-1])
+	}
+}
+
 func buildBranchingStubFlow() (idwrap.IDWrap, map[idwrap.IDWrap]node.FlowNode, edge.EdgesMap) {
 	startID := idwrap.NewNow()
 	leftID := idwrap.NewNow()

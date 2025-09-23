@@ -1288,7 +1288,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}
 
-	flowNodeStatusChan := make(chan runner.FlowNodeStatus, bufferSize)
+	nodeStateChan := make(chan runner.FlowNodeStatus, bufferSize)
+	nodeLogChan := make(chan runner.FlowNodeLogPayload, bufferSize)
 	flowStatusChan := make(chan runner.FlowStatus, 100)
 
 	// Create a new context without the gRPC deadline for flow execution
@@ -1307,6 +1308,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	nodeExecutionCounts := make(map[idwrap.IDWrap]int) // nodeID -> execution count
 	executionIDToCount := make(map[idwrap.IDWrap]int)  // executionID -> execution number
 	nodeExecutionCountsMutex := sync.Mutex{}
+	executionDisplayNames := make(map[idwrap.IDWrap]string)
+	executionDisplayNamesMutex := sync.RWMutex{}
 
 	// Map to store node executions by execution ID for state transitions
 	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
@@ -1321,9 +1324,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// WaitGroup to track all goroutines that send to channels
 	var goroutineWg sync.WaitGroup
-
-	// WaitGroup specifically for nested logging goroutines
-	var loggingWg sync.WaitGroup
 
 	// Channel to signal that sending should stop
 	stopSending := make(chan struct{})
@@ -1360,17 +1360,91 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
-	// Removed periodic timeout/cleanup goroutine to simplify flow.
+	processLogPayload := func(payload runner.FlowNodeLogPayload) {
+		if payload.State == mnnode.NODE_STATE_RUNNING {
+			return
+		}
 
-	// Main status processing goroutine
+		executionID := payload.ExecutionID
+		nameForLog := payload.Name
+		if executionID != (idwrap.IDWrap{}) {
+			executionDisplayNamesMutex.RLock()
+			if display, ok := executionDisplayNames[executionID]; ok && display != "" {
+				nameForLog = display
+			}
+			executionDisplayNamesMutex.RUnlock()
+		}
+
+		if (nameForLog == "" || nameForLog == payload.Name) && payload.Name != "" {
+			nodeExecutionCountsMutex.Lock()
+			if execCount, ok := executionIDToCount[executionID]; ok {
+				nameForLog = fmt.Sprintf("%s - Execution %d", payload.Name, execCount)
+			}
+			nodeExecutionCountsMutex.Unlock()
+		}
+
+		if nameForLog == "" {
+			nameForLog = payload.NodeID.String()
+		}
+
+		stateStrForLog := mnnode.StringNodeState(payload.State)
+		idStrForLog := payload.NodeID.String()
+		refs := buildLogRefs(nameForLog, idStrForLog, stateStrForLog, payload.Error, payload.OutputData)
+
+		logLevel := logconsole.LogLevelUnspecified
+		if payload.Error != nil {
+			logLevel = logconsole.LogLevelError
+		}
+
+		if channelsClosed.Load() {
+			return
+		}
+
+		if err := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", nameForLog, stateStrForLog), logLevel, refs); err != nil {
+			if !channelsClosed.Load() {
+				select {
+				case done <- err:
+				case <-stopSending:
+				default:
+					log.Printf("Failed to send log error to done channel: %v", err)
+				}
+			}
+		}
+	}
+
+	// Log processing goroutine
 	goroutineWg.Add(1)
 	go func() {
 		defer goroutineWg.Done()
-		defer func() {
-			// Wait for all logging goroutines to finish before closing done channel
-			loggingWg.Wait()
-			close(done)
-		}()
+		for {
+			select {
+			case payload, ok := <-nodeLogChan:
+				if !ok {
+					return
+				}
+				processLogPayload(payload)
+			case <-stopSending:
+				for {
+					select {
+					case payload, ok := <-nodeLogChan:
+						if !ok {
+							return
+						}
+						processLogPayload(payload)
+					default:
+						return
+					}
+				}
+			}
+		}
+	}()
+
+	// Removed periodic timeout/cleanup goroutine to simplify flow.
+
+	// Main state processing goroutine
+	goroutineWg.Add(1)
+	go func() {
+		defer goroutineWg.Done()
 		nodeStatusFunc := func(flowNodeStatus runner.FlowNodeStatus) {
 			// Check if we should stop processing
 			if channelsClosed.Load() {
@@ -1379,10 +1453,20 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 			id := flowNodeStatus.NodeID
 			name := flowNodeStatus.Name
-			idStr := id.String()
-			stateStr := mnnode.StringNodeState(flowNodeStatus.State)
 			executionID := flowNodeStatus.ExecutionID
 			displayName := name
+			defer func() {
+				if executionID == (idwrap.IDWrap{}) {
+					return
+				}
+				executionDisplayNamesMutex.Lock()
+				if displayName != "" {
+					executionDisplayNames[executionID] = displayName
+				} else {
+					delete(executionDisplayNames, executionID)
+				}
+				executionDisplayNamesMutex.Unlock()
+			}()
 
 			// Handle NodeExecution creation/updates based on state
 			switch flowNodeStatus.State {
@@ -1820,67 +1904,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 			}
 
-			// Handle logging for non-running states
-			if flowNodeStatus.State != mnnode.NODE_STATE_RUNNING {
-				// Create copies of values we need for the goroutine
-				nameForLog := displayName
-				if nameForLog == "" {
-					nameForLog = name
-				}
-				if (nameForLog == "" || nameForLog == name) && name != "" {
-					nodeExecutionCountsMutex.Lock()
-					if execCount, ok := executionIDToCount[executionID]; ok {
-						nameForLog = fmt.Sprintf("%s - Execution %d", name, execCount)
-					}
-					nodeExecutionCountsMutex.Unlock()
-				}
-				idStrForLog := idStr
-				stateStrForLog := stateStr
-				nodeError := flowNodeStatus.Error
-
-				// Don't spawn goroutine if channels are closing
-				if !channelsClosed.Load() {
-					// Use the logging WaitGroup to track this nested goroutine
-					loggingWg.Add(1)
-					go func() {
-						defer loggingWg.Done()
-
-						// Double-check channels aren't closed
-						if channelsClosed.Load() {
-							return
-						}
-
-						// Build log references with error-first semantics
-						refs := buildLogRefs(nameForLog, idStrForLog, stateStrForLog, nodeError, flowNodeStatus.OutputData)
-
-						// Set log level to error if there's an error, otherwise warning
-						var logLevel logconsole.LogLevel
-						if nodeError != nil {
-							logLevel = logconsole.LogLevelError
-						} else {
-							logLevel = logconsole.LogLevelUnspecified
-						}
-
-						// Log only the node name and state (omit ID in the title)
-						localErr := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", nameForLog, stateStrForLog), logLevel, refs)
-						if localErr != nil {
-							// Check if we should still try to send the error
-							if !channelsClosed.Load() {
-								select {
-								case done <- localErr:
-								case <-stopSending:
-									// Stop signal received, don't send
-								default:
-									// Channel is full or closed, log the error instead
-									log.Printf("Failed to send log error to done channel: %v", localErr)
-								}
-							}
-							return
-						}
-					}()
-				}
-			}
-
 			// Handle request node responses
 			select {
 			case requestNodeResp, ok := <-requestNodeRespChan:
@@ -2004,7 +2027,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				// DO NOT close channels here - let the runner close them
 				done <- errors.New("flow execution cancelled")
 				return
-			case flowNodeStatus, ok := <-flowNodeStatusChan:
+			case flowNodeStatus, ok := <-nodeStateChan:
 				if !ok {
 					// Channel closed by runner
 					return
@@ -2017,9 +2040,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 				// Process any pending node status messages without blocking
 			drainLoop:
-				for len(flowNodeStatusChan) > 0 {
+				for len(nodeStateChan) > 0 {
 					select {
-					case flowNodeStatus := <-flowNodeStatusChan:
+					case flowNodeStatus := <-nodeStateChan:
 						nodeStatusFunc(flowNodeStatus)
 					default:
 						// No more messages immediately available, exit loop
@@ -2028,7 +2051,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 				if runner.IsFlowStatusDone(flowStatus) {
 					// Drain all remaining node statuses until the channel is closed
-					for flowNodeStatus := range flowNodeStatusChan {
+					for flowNodeStatus := range nodeStateChan {
 						nodeStatusFunc(flowNodeStatus)
 					}
 					done <- nil
@@ -2039,7 +2062,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}()
 
 	runStartedAt := time.Now()
-	flowRunErr := runnerInst.Run(subCtx, flowNodeStatusChan, flowStatusChan, flowVarsMap)
+	flowRunErr := runnerInst.RunWithEvents(subCtx, runner.FlowEventChannels{
+		NodeStates: nodeStateChan,
+		NodeLogs:   nodeLogChan,
+		FlowStatus: flowStatusChan,
+	}, flowVarsMap)
 
 	// wait for the flow to finish
 	flowErr := <-done

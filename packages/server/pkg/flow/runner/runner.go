@@ -14,7 +14,7 @@ var (
 )
 
 type FlowRunner interface {
-	Run(context.Context, chan FlowNodeStatus, chan FlowStatus) error
+	RunWithEvents(context.Context, FlowEventChannels, map[string]any) error
 }
 
 type FlowStatus int8
@@ -63,5 +63,54 @@ func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mnnode.NodeState, output []b
 		State:      status,
 		OutputData: output,
 		Error:      nil,
+	}
+}
+
+type FlowNodeEventTarget uint8
+
+const (
+	FlowNodeEventTargetState FlowNodeEventTarget = 1 << iota
+	FlowNodeEventTargetLog
+)
+
+func (t FlowNodeEventTarget) includes(target FlowNodeEventTarget) bool {
+	return t&target != 0
+}
+
+type FlowNodeLogPayload struct {
+	ExecutionID      idwrap.IDWrap
+	NodeID           idwrap.IDWrap
+	Name             string
+	State            mnnode.NodeState
+	Error            error
+	OutputData       any
+	RunDuration      time.Duration
+	IterationContext *IterationContext
+}
+
+type FlowNodeEvent struct {
+	Status     FlowNodeStatus
+	Targets    FlowNodeEventTarget
+	LogPayload *FlowNodeLogPayload
+}
+
+func (e FlowNodeEvent) ShouldSend(target FlowNodeEventTarget) bool {
+	return e.Targets.includes(target)
+}
+
+type FlowEventChannels struct {
+	NodeStates chan FlowNodeStatus
+	NodeLogs   chan FlowNodeLogPayload
+	FlowStatus chan FlowStatus
+}
+
+func (c FlowEventChannels) HasLogChannel() bool {
+	return c.NodeLogs != nil
+}
+
+func LegacyFlowEventChannels(nodeStates chan FlowNodeStatus, flowStatus chan FlowStatus) FlowEventChannels {
+	return FlowEventChannels{
+		NodeStates: nodeStates,
+		FlowStatus: flowStatus,
 	}
 }

@@ -38,6 +38,8 @@ type FlowLocalRunner struct {
 	enableDataTracking bool
 }
 
+var _ runner.FlowRunner = (*FlowLocalRunner)(nil)
+
 func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration) *FlowLocalRunner {
 	return &FlowLocalRunner{
 		ID:                 id,
@@ -50,6 +52,48 @@ func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idw
 		mode:               ExecutionModeAuto,
 		selectedMode:       ExecutionModeMulti,
 		enableDataTracking: true,
+	}
+}
+
+type nodeStatusEmitter struct {
+	channels runner.FlowEventChannels
+}
+
+func newNodeStatusEmitter(channels runner.FlowEventChannels) *nodeStatusEmitter {
+	return &nodeStatusEmitter{channels: channels}
+}
+
+func (e *nodeStatusEmitter) emit(status runner.FlowNodeStatus) {
+	targets := runner.FlowNodeEventTargetState
+	if status.State != mnnode.NODE_STATE_RUNNING {
+		targets |= runner.FlowNodeEventTargetLog
+	}
+	e.emitWithTargets(status, targets)
+}
+
+func (e *nodeStatusEmitter) emitWithTargets(status runner.FlowNodeStatus, targets runner.FlowNodeEventTarget) {
+	if e == nil {
+		return
+	}
+	event := runner.FlowNodeEvent{
+		Status:  status,
+		Targets: targets,
+	}
+	if event.ShouldSend(runner.FlowNodeEventTargetState) && e.channels.NodeStates != nil {
+		e.channels.NodeStates <- event.Status
+	}
+	if event.ShouldSend(runner.FlowNodeEventTargetLog) && e.channels.NodeLogs != nil {
+		payload := runner.FlowNodeLogPayload{
+			ExecutionID:      status.ExecutionID,
+			NodeID:           status.NodeID,
+			Name:             status.Name,
+			State:            status.State,
+			Error:            status.Error,
+			OutputData:       status.OutputData,
+			RunDuration:      status.RunDuration,
+			IterationContext: status.IterationContext,
+		}
+		e.channels.NodeLogs <- payload
 	}
 }
 
@@ -365,24 +409,31 @@ func RunNodeASync(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Flow
 }
 
 func (r *FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runner.FlowNodeStatus, flowStatusChan chan runner.FlowStatus, baseVars map[string]any) error {
-	defer close(flowNodeStatusChan)
-	defer close(flowStatusChan)
-	nextNodeID := &r.StartNodeID
-	var err error
+	return r.RunWithEvents(ctx, runner.LegacyFlowEventChannels(flowNodeStatusChan, flowStatusChan), baseVars)
+}
 
-	logWorkaround := func(status runner.FlowNodeStatus) {
-		flowNodeStatusChan <- status
+func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.FlowEventChannels, baseVars map[string]any) error {
+	if channels.NodeStates != nil {
+		defer close(channels.NodeStates)
 	}
+	if channels.NodeLogs != nil {
+		defer close(channels.NodeLogs)
+	}
+	if channels.FlowStatus != nil {
+		defer close(channels.FlowStatus)
+	}
+
+	nextNodeID := &r.StartNodeID
 
 	flowEdgeDepCounter := make(map[idwrap.IDWrap]uint32)
 	for _, v := range r.EdgesMap {
 		for _, targetIDs := range v {
 			for _, targetID := range targetIDs {
-				v, ok := flowEdgeDepCounter[targetID]
+				current, ok := flowEdgeDepCounter[targetID]
 				if !ok {
 					flowEdgeDepCounter[targetID] = 0
 				}
-				flowEdgeDepCounter[targetID] = v + 1
+				flowEdgeDepCounter[targetID] = current + 1
 			}
 		}
 	}
@@ -398,12 +449,18 @@ func (r *FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runne
 		baseVars = make(map[string]any)
 	}
 
+	statusEmitter := newNodeStatusEmitter(channels)
+	statusFunc := node.LogPushFunc(func(runner.FlowNodeStatus) {})
+	if channels.NodeStates != nil || channels.NodeLogs != nil {
+		statusFunc = node.LogPushFunc(statusEmitter.emit)
+	}
+
 	req := &node.FlowNodeRequest{
 		VarMap:           baseVars,
 		ReadWriteLock:    &sync.RWMutex{},
 		NodeMap:          r.FlowNodeMap,
 		EdgeSourceMap:    r.EdgesMap,
-		LogPushFunc:      node.LogPushFunc(logWorkaround),
+		LogPushFunc:      statusFunc,
 		Timeout:          r.Timeout,
 		PendingAtmoicMap: pendingAtmoicMap,
 	}
@@ -415,13 +472,18 @@ func (r *FlowLocalRunner) Run(ctx context.Context, flowNodeStatusChan chan runne
 	}
 	r.selectedMode = mode
 
-	flowStatusChan <- runner.FlowStatusStarting
-	err = runNodes(ctx, *nextNodeID, req, logWorkaround, predecessorMap, mode, r.Timeout, r.enableDataTracking)
+	if channels.FlowStatus != nil {
+		channels.FlowStatus <- runner.FlowStatusStarting
+	}
 
-	if err != nil {
-		flowStatusChan <- runner.FlowStatusFailed
-	} else {
-		flowStatusChan <- runner.FlowStatusSuccess
+	err := runNodes(ctx, *nextNodeID, req, statusFunc, predecessorMap, mode, r.Timeout, r.enableDataTracking)
+
+	if channels.FlowStatus != nil {
+		if err != nil {
+			channels.FlowStatus <- runner.FlowStatusFailed
+		} else {
+			channels.FlowStatus <- runner.FlowStatusSuccess
+		}
 	}
 	return err
 }
