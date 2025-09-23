@@ -2,6 +2,7 @@ package nforeach
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"iter"
 	"sync"
@@ -152,7 +153,6 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		itemIndex := 0
 		totalItems := 0
 		var loopError error
-		var failedAt = -1
 
 		for item := range seq {
 			// Write the item and key (index) to the node variables
@@ -229,7 +229,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					IterationContext: iterContext,
 				})
 			}
-			// Note: No FAILURE updates are created - errors are handled via Error Summary records only
+			// Loop node avoids emitting FAILURE updates; final state handled via FlowNodeResult.
 
 			// Handle iteration error according to error policy
 			if result.Err != nil {
@@ -237,45 +237,23 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				case mnfor.ErrorHandling_ERROR_HANDLING_IGNORE:
 					continue // Continue to next iteration
 				case mnfor.ErrorHandling_ERROR_HANDLING_BREAK:
-					failedAt = itemIndex - 1 // Track where we stopped
-					goto ExitSeq             // Stop loop but don't propagate error
+					goto ExitSeq // Stop loop but don't propagate error
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					loopError = result.Err
-					failedAt = itemIndex - 1 // Store the index where failure occurred
-					goto ExitSeq             // Fail entire flow
+					goto ExitSeq // Fail entire flow
 				}
 			}
 		}
 
 	ExitSeq:
-		// Create final summary record
 		if loopError != nil {
-			// Failure/cancel case: loop ended due to error/throw. If it's a cancellation sentinel,
-			// mark the summary as CANCELED; otherwise mark as FAILURE.
-			if req.LogPushFunc != nil {
-				outputData := map[string]interface{}{
-					"failedAtIndex": failedAt,
-					"totalItems":    totalItems,
-				}
-				executionName := "Error Summary"
-				state := mnnode.NODE_STATE_FAILURE
-				if runner.IsCancellationError(loopError) {
-					state = mnnode.NODE_STATE_CANCELED
-				}
-				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID: idwrap.NewNow(),
-					NodeID:      nr.FlowNodeID,
-					Name:        executionName,
-					State:       state,
-					OutputData:  outputData,
-					Error:       loopError,
-				})
+			if !runner.IsCancellationError(loopError) {
+				loopError = errors.Join(runner.ErrFlowCanceledByThrow, loopError)
 			}
 			return node.FlowNodeResult{
 				Err: loopError,
 			}
 		}
-		// Note: Break case (failedAt >= 0) doesn't create summary record per test expectations
 		// Write total items processed
 		if req.VariableTracker != nil {
 			err = node.WriteNodeVarWithTracking(req, nr.Name, "totalItems", totalItems, req.VariableTracker)
@@ -291,7 +269,6 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		// Handle map sequence
 		totalItems := 0
 		var loopError error
-		var failedAt interface{} = nil
 
 		for key, value := range seq {
 			// Write the key and item (value) to the node variables
@@ -367,7 +344,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					IterationContext: iterContext,
 				})
 			}
-			// Note: No FAILURE updates are created - errors are handled via Error Summary records only
+			// Loop node avoids emitting FAILURE updates; final state handled via FlowNodeResult.
 
 			// Handle iteration error according to error policy
 			if result.Err != nil {
@@ -378,33 +355,15 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					goto ExitSeq2 // Stop loop but don't propagate error
 				case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 					loopError = result.Err
-					failedAt = key // Store the key where failure occurred
-					goto ExitSeq2  // Fail entire flow
+					goto ExitSeq2 // Fail entire flow
 				}
 			}
 		}
 
 	ExitSeq2:
-		// Only create final summary record on failure
 		if loopError != nil {
-			if req.LogPushFunc != nil {
-				outputData := map[string]interface{}{
-					"failedAtKey": failedAt,
-					"totalItems":  totalItems,
-				}
-				executionName := "Error Summary"
-				state := mnnode.NODE_STATE_FAILURE
-				if runner.IsCancellationError(loopError) {
-					state = mnnode.NODE_STATE_CANCELED
-				}
-				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID: idwrap.NewNow(),
-					NodeID:      nr.FlowNodeID,
-					Name:        executionName,
-					State:       state,
-					OutputData:  outputData,
-					Error:       loopError,
-				})
+			if !runner.IsCancellationError(loopError) {
+				loopError = errors.Join(runner.ErrFlowCanceledByThrow, loopError)
 			}
 			return node.FlowNodeResult{
 				Err: loopError,
@@ -587,7 +546,6 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			itemIndex := 0
 			totalItems := 0
 			var loopError error
-			var failedAt interface{} = nil
 
 			for item := range seq {
 				// Write the item and key (index) to the node variables
@@ -666,7 +624,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						IterationContext: iterContext,
 					})
 				}
-				// Note: No FAILURE updates are created - errors are handled via Error Summary records only
+				// Loop node avoids emitting FAILURE updates; final state handled via FlowNodeResult.
 
 				// Handle iteration error according to error policy
 				if loopResult.Err != nil {
@@ -678,33 +636,15 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						return // Stop loop but don't propagate error
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						loopError = loopResult.Err
-						failedAt = itemIndex - 1 // Fail entire flow
-						goto ExitSeqAsync        // Exit the loop immediately on error
+						goto ExitSeqAsync // Exit the loop immediately on error
 					}
 				}
 			}
 
 		ExitSeqAsync:
-			// Only create final summary record on terminal (failure/cancel)
 			if loopError != nil {
-				if req.LogPushFunc != nil {
-					outputData := map[string]interface{}{
-						"failedAtIndex": failedAt,
-						"totalItems":    totalItems,
-					}
-					executionName := "Error Summary"
-					state := mnnode.NODE_STATE_FAILURE
-					if runner.IsCancellationError(loopError) {
-						state = mnnode.NODE_STATE_CANCELED
-					}
-					req.LogPushFunc(runner.FlowNodeStatus{
-						ExecutionID: idwrap.NewNow(),
-						NodeID:      nr.FlowNodeID,
-						Name:        executionName,
-						State:       state,
-						OutputData:  outputData,
-						Error:       loopError,
-					})
+				if !runner.IsCancellationError(loopError) {
+					loopError = errors.Join(runner.ErrFlowCanceledByThrow, loopError)
 				}
 				sendResult(node.FlowNodeResult{Err: loopError})
 				return
@@ -730,7 +670,6 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		go func() {
 			totalItems := 0
 			var loopError error
-			var failedAt interface{} = nil
 
 			for key, value := range seq {
 				// Write the key and item (value) to the node variables
@@ -808,7 +747,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						IterationContext: iterContext,
 					})
 				}
-				// Note: No FAILURE updates are created - errors are handled via Error Summary records only
+				// Loop node avoids emitting FAILURE updates; final state handled via FlowNodeResult.
 
 				// Handle iteration error according to error policy
 				if loopResult.Err != nil {
@@ -820,33 +759,15 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						return // Stop loop but don't propagate error
 					case mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED:
 						loopError = loopResult.Err
-						failedAt = key     // Fail entire flow
-						goto ExitSeq2Async // Exit the loop immediately on error
+						goto ExitSeq2Async
 					}
 				}
 			}
 
 		ExitSeq2Async:
-			// Only create final summary record on terminal (failure/cancel)
 			if loopError != nil {
-				if req.LogPushFunc != nil {
-					outputData := map[string]interface{}{
-						"failedAtKey": failedAt,
-						"totalItems":  totalItems,
-					}
-					executionName := "Error Summary"
-					state := mnnode.NODE_STATE_FAILURE
-					if runner.IsCancellationError(loopError) {
-						state = mnnode.NODE_STATE_CANCELED
-					}
-					req.LogPushFunc(runner.FlowNodeStatus{
-						ExecutionID: idwrap.NewNow(),
-						NodeID:      nr.FlowNodeID,
-						Name:        executionName,
-						State:       state,
-						OutputData:  outputData,
-						Error:       loopError,
-					})
+				if !runner.IsCancellationError(loopError) {
+					loopError = errors.Join(runner.ErrFlowCanceledByThrow, loopError)
 				}
 				sendResult(node.FlowNodeResult{Err: loopError})
 				return

@@ -852,7 +852,7 @@ func buildLoopNodeExecutionFromStatus(flowNodeStatus runner.FlowNodeStatus, exec
 		CompletedAt:            &completedAt,
 	}
 
-	if flowNodeStatus.Error != nil {
+	if flowNodeStatus.State != mnnode.NODE_STATE_CANCELED && flowNodeStatus.Error != nil {
 		errorStr := formatErrForUser(flowNodeStatus.Error)
 		nodeExecution.Error = &errorStr
 	}
@@ -1800,8 +1800,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 									State:  nodev1.NodeState(flowNodeStatus.State),
 								}
 								if flowNodeStatus.Error != nil {
-									em := formatErrForUser(flowNodeStatus.Error)
-									nodeMsg.Info = &em
+									if !(loopNodeIDs[flowNodeStatus.NodeID] && flowNodeStatus.State == mnnode.NODE_STATE_CANCELED) {
+										em := formatErrForUser(flowNodeStatus.Error)
+										nodeMsg.Info = &em
+									}
 								}
 								resp := &flowv1.FlowRunResponse{Node: nodeMsg}
 								if err := stream.Send(resp); err != nil {
@@ -1824,6 +1826,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				nameForLog := displayName
 				if nameForLog == "" {
 					nameForLog = name
+				}
+				if (nameForLog == "" || nameForLog == name) && name != "" {
+					nodeExecutionCountsMutex.Lock()
+					if execCount, ok := executionIDToCount[executionID]; ok {
+						nameForLog = fmt.Sprintf("%s - Execution %d", name, execCount)
+					}
+					nodeExecutionCountsMutex.Unlock()
 				}
 				idStrForLog := idStr
 				stateStrForLog := stateStr
@@ -1961,8 +1970,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 			var info *string
 			if flowNodeStatus.Error != nil {
-				msg := formatErrForUser(flowNodeStatus.Error)
-				info = &msg
+				skipInfo := loopNodeIDs[flowNodeStatus.NodeID] && flowNodeStatus.State == mnnode.NODE_STATE_CANCELED
+				if !skipInfo {
+					msg := formatErrForUser(flowNodeStatus.Error)
+					info = &msg
+				}
 			}
 			if err := sendNodeStatus(stream, flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
 				done <- err
