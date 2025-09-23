@@ -15,43 +15,32 @@ using TypeSpec.Protobuf;
 })
 namespace API.Export;
 
-enum ExportFormat {
-  EXPORT_FORMAT_UNSPECIFIED: 0,
-  EXPORT_FORMAT_BINARY: 1,
-  EXPORT_FORMAT_CURL: 2,
-}
-
 @autoFields
 model ExportRequest {
   workspaceId: Resource.Id;
   flowIds?: Resource.Id[];
   exampleIds?: Resource.Id[];
-  format?: ExportFormat;
-}
-
-@autoFields
-model ExportExampleRequest {
-  workspaceId: Resource.Id;
-  exampleId: Resource.Id;
-  format?: ExportFormat;
 }
 
 @autoFields
 model ExportResponse {
   name: string;
-  data?: bytes;
-  textData?: string;
+  data: bytes;
 }
 
 @autoFields
-model ExportExampleResponse {
-  name: string;
-  data?: bytes;
-  textData?: string;
+model ExportCurlRequest {
+  workspaceId: Resource.Id;
+  exampleIds?: Resource.Id[];
+}
+
+@autoFields
+model ExportCurlResponse {
+  data: string;
 }
 
 @Protobuf.service
 interface ExportService {
   Export(...ExportRequest): ExportResponse;
-  ExportExample(...ExportExampleRequest): ExportExampleResponse;
+  ExportCurl(...ExportCurlRequest): ExportCurlResponse;
 }
