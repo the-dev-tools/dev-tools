@@ -878,6 +878,83 @@ func buildLoopNodeExecutionFromStatus(flowNodeStatus runner.FlowNodeStatus, exec
 	return nodeExecution
 }
 
+func pruneIntermediateNoopNodes(
+	edgeMap edge.EdgesMap,
+	noopNodes []mnnoop.NoopNode,
+	startNodeID idwrap.IDWrap,
+	nodeNameMap map[idwrap.IDWrap]string,
+) map[idwrap.IDWrap]struct{} {
+	skipped := make(map[idwrap.IDWrap]struct{})
+
+	for _, noop := range noopNodes {
+		if noop.FlowNodeID == startNodeID {
+			continue
+		}
+		skipped[noop.FlowNodeID] = struct{}{}
+	}
+
+	if len(skipped) == 0 {
+		return skipped
+	}
+
+	containsID := func(list []idwrap.IDWrap, target idwrap.IDWrap) bool {
+		for _, existing := range list {
+			if existing == target {
+				return true
+			}
+		}
+		return false
+	}
+
+	for noopID := range skipped {
+		targetsByHandle := edgeMap[noopID]
+		delete(nodeNameMap, noopID)
+
+		for sourceID, handles := range edgeMap {
+			if sourceID == noopID {
+				continue
+			}
+			for handle, targets := range handles {
+				changed := false
+				newTargets := make([]idwrap.IDWrap, 0, len(targets))
+				for _, targetID := range targets {
+					if targetID == noopID {
+						changed = true
+						replacements := targetsByHandle[handle]
+						if len(replacements) == 0 && handle != edge.HandleUnspecified {
+							replacements = targetsByHandle[edge.HandleUnspecified]
+						}
+						for _, replacement := range replacements {
+							if replacement == noopID {
+								continue
+							}
+							if !containsID(newTargets, replacement) {
+								newTargets = append(newTargets, replacement)
+							}
+						}
+						continue
+					}
+					newTargets = append(newTargets, targetID)
+				}
+				if changed {
+					if len(newTargets) == 0 {
+						delete(handles, handle)
+					} else {
+						handles[handle] = newTargets
+					}
+				}
+			}
+			if len(handles) == 0 {
+				delete(edgeMap, sourceID)
+			}
+		}
+
+		delete(edgeMap, noopID)
+	}
+
+	return skipped
+}
+
 func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest], stream api.ServerStreamAdHoc[flowv1.FlowRunResponse]) error {
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
@@ -995,6 +1072,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	if !foundStartNode {
 		return connect.NewError(connect.CodeInternal, errors.New("no start node"))
 	}
+
+	prunedNoopIDs := pruneIntermediateNoopNodes(edgeMap, noopNodes, startNodeID, nodeNameMap)
 
 	// Get flow variables first to check for timeout override
 	flowVarsMap := make(map[string]any, len(flowVars))
@@ -1235,6 +1314,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	for _, noopNode := range noopNodes {
+		if _, skipped := prunedNoopIDs[noopNode.FlowNodeID]; skipped {
+			continue
+		}
 		name := nodeNameMap[noopNode.FlowNodeID]
 		flowNodeMap[noopNode.FlowNodeID] = nnoop.New(noopNode.FlowNodeID, name)
 	}
