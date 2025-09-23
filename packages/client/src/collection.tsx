@@ -1,10 +1,11 @@
 import { MessageInitShape } from '@bufbuild/protobuf';
 import { ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
+import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
-import { createContext, RefObject, useContext, useRef, useState } from 'react';
-import { MenuTrigger, Text, Tree, useDragAndDrop } from 'react-aria-components';
-import { FiFolder, FiMoreHorizontal } from 'react-icons/fi';
+import { createContext, ReactNode, RefObject, useContext, useRef, useState } from 'react';
+import { Dialog, DialogTrigger, MenuTrigger, SubmenuTrigger, Text, Tree, useDragAndDrop } from 'react-aria-components';
+import { FiFolder, FiMoreHorizontal, FiX } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
 import {
@@ -16,7 +17,7 @@ import { ExampleListItem } from '@the-dev-tools/spec/collection/item/example/v1/
 import { Folder, FolderListItem } from '@the-dev-tools/spec/collection/item/folder/v1/folder_pb';
 import { CollectionItem, ItemKind } from '@the-dev-tools/spec/collection/item/v1/item_pb';
 import { Collection, CollectionListItem } from '@the-dev-tools/spec/collection/v1/collection_pb';
-import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
+import { export$, exportCurl } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
 import {
   EndpointCreateEndpoint,
   EndpointDeleteEndpoint,
@@ -51,6 +52,7 @@ import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
+import { Modal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
@@ -597,6 +599,8 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
   const exampleIdCan = Ulid.construct(exampleId).toCanonical();
   const lastResponseIdCan = lastResponseId && Ulid.construct(lastResponseId).toCanonical();
 
+  const [modal, setModal] = useState<ReactNode>(null);
+
   const [enabled, setEnabled] = useState(false);
 
   const {
@@ -608,6 +612,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
   // TODO: switch to Data Client Endpoint
   const exportMutation = useConnectMutation(export$);
+  const exportCurlMutation = useConnectMutation(exportCurl);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
@@ -629,6 +634,8 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
   const content = (
     <>
+      {modal}
+
       {method && <MethodBadge method={method} />}
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
@@ -685,14 +692,46 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
               Duplicate
             </MenuItem>
 
-            <MenuItem
-              onAction={async () => {
-                const { data, name } = await exportMutation.mutateAsync({ exampleIds: [exampleId], workspaceId });
-                saveFile({ blobParts: [data], name });
-              }}
-            >
-              Export
-            </MenuItem>
+            <SubmenuTrigger>
+              <MenuItem>Export</MenuItem>
+              <Menu>
+                <MenuItem
+                  onAction={async () => {
+                    const { data, name } = await exportMutation.mutateAsync({ exampleIds: [exampleId], workspaceId });
+                    saveFile({ blobParts: [data], name });
+                  }}
+                >
+                  YAML (DevTools)
+                </MenuItem>
+
+                <MenuItem
+                  onAction={async () => {
+                    const { data } = await exportCurlMutation.mutateAsync({ exampleIds: [exampleId], workspaceId });
+                    setModal(
+                      <DialogTrigger isOpen onOpenChange={() => void setModal(null)}>
+                        <Modal size='sm'>
+                          <Dialog className={tw`flex h-full flex-col gap-4 p-6`}>
+                            <div className={tw`flex items-center justify-between`}>
+                              <div className={tw`text-xl leading-6 font-semibold tracking-tighter text-slate-800`}>
+                                cURL export
+                              </div>
+
+                              <Button className={tw`p-1`} onPress={() => void setModal(null)} variant='ghost'>
+                                <FiX className={tw`size-5 text-slate-500`} />
+                              </Button>
+                            </div>
+
+                            <CodeMirror className={tw`flex-1`} height='100%' readOnly value={data} />
+                          </Dialog>
+                        </Modal>
+                      </DialogTrigger>,
+                    );
+                  }}
+                >
+                  cURL
+                </MenuItem>
+              </Menu>
+            </SubmenuTrigger>
 
             <MenuItem
               onAction={async () => {
