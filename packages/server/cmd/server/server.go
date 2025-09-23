@@ -25,6 +25,7 @@ import (
 	"the-dev-tools/server/internal/api/rexport"
 	"the-dev-tools/server/internal/api/rflow"
 	"the-dev-tools/server/internal/api/rflowvariable"
+	"the-dev-tools/server/internal/api/rhealth"
 	"the-dev-tools/server/internal/api/rimport"
 	"the-dev-tools/server/internal/api/ritemapi"
 	"the-dev-tools/server/internal/api/ritemapiexample"
@@ -203,6 +204,9 @@ func main() {
 
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(30)
+
+	healthSrv := rhealth.New()
+	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
 	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService)
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))

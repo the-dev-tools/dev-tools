@@ -6,6 +6,7 @@ import "./flow.tsp";
 import "./flow-variable.tsp";
 import "./import.tsp";
 import "./export.tsp";
+import "./health.tsp";
 import "./log.tsp";
 import "./nodejs-executor.tsp";
 import "./reference.tsp";
