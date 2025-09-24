@@ -77,7 +77,7 @@ func TestNodeForDefaultErrorDoesNotLogLoopFailure(t *testing.T) {
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, map[idwrap.IDWrap]node.FlowNode{
 		loopID:  loop,
 		childID: child,
-	}, edgeMap, 0)
+	}, edgeMap, 0, nil)
 
 	statusCh := make(chan runner.FlowNodeStatus, 16)
 	flowCh := make(chan runner.FlowStatus, 4)

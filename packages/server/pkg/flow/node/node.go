@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/runner"
@@ -36,6 +37,7 @@ type FlowNodeRequest struct {
 	VariableTracker  *tracking.VariableTracker // Optional tracking for input/output data
 	IterationContext *runner.IterationContext  // For hierarchical execution naming in loops
 	ExecutionID      idwrap.IDWrap             // Unique ID for this specific execution of the node
+	Logger           *slog.Logger              // Optional structured logger for node diagnostics
 }
 
 type LogPushFunc func(status runner.FlowNodeStatus)

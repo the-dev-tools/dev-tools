@@ -3,7 +3,9 @@ package request
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"mime"
 	"mime/multipart"
 	"net/textproto"
@@ -25,16 +27,17 @@ import (
 	"the-dev-tools/server/pkg/sort/sortenabled"
 	"the-dev-tools/server/pkg/varsystem"
 	"time"
+	"unicode/utf8"
 
 	"connectrpc.com/connect"
 )
 
 type RequestResponseVar struct {
-    Method  string            `json:"method"`
-    URL     string            `json:"url"`
-    Headers map[string]string `json:"headers"`
-    Queries map[string]string `json:"queries"`
-    Body    string            `json:"body"`
+	Method  string            `json:"method"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+	Queries map[string]string `json:"queries"`
+	Body    string            `json:"body"`
 }
 
 type RequestResponse struct {
@@ -43,22 +46,90 @@ type RequestResponse struct {
 }
 
 func ConvertRequestToVar(r *httpclient.Request) RequestResponseVar {
-    headersMaps := make(map[string]string, len(r.Headers))
-    queriesMaps := make(map[string]string, len(r.Queries))
-    for _, header := range r.Headers {
-        headersMaps[header.HeaderKey] = header.Value
-    }
+	headersMaps := make(map[string]string, len(r.Headers))
+	queriesMaps := make(map[string]string, len(r.Queries))
+	for _, header := range r.Headers {
+		headersMaps[header.HeaderKey] = header.Value
+	}
 
-    for _, query := range r.Queries {
-        queriesMaps[query.QueryKey] = query.Value
-    }
-    return RequestResponseVar{
-        Method:  r.Method,
-        URL:     r.URL,
-        Headers: headersMaps,
-        Queries: queriesMaps,
-        Body:    string(r.Body),
-    }
+	for _, query := range r.Queries {
+		queriesMaps[query.QueryKey] = query.Value
+	}
+	return RequestResponseVar{
+		Method:  r.Method,
+		URL:     r.URL,
+		Headers: headersMaps,
+		Queries: queriesMaps,
+		Body:    string(r.Body),
+	}
+}
+
+const logBodyLimit = 2048
+
+func sanitizeHeadersForLog(headers []mexampleheader.Header) []map[string]string {
+	if len(headers) == 0 {
+		return nil
+	}
+	result := make([]map[string]string, 0, len(headers))
+	for _, header := range headers {
+		value := header.Value
+		if strings.EqualFold(header.HeaderKey, "Authorization") {
+			value = "[REDACTED]"
+		}
+		result = append(result, map[string]string{
+			"key":   header.HeaderKey,
+			"value": value,
+		})
+	}
+	return result
+}
+
+func formatQueriesForLog(queries []mexamplequery.Query) []map[string]string {
+	if len(queries) == 0 {
+		return nil
+	}
+	result := make([]map[string]string, 0, len(queries))
+	for _, query := range queries {
+		result = append(result, map[string]string{
+			"key":   query.QueryKey,
+			"value": query.Value,
+		})
+	}
+	return result
+}
+
+func formatBodyForLog(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+	if !utf8.Valid(body) {
+		encoded := base64.StdEncoding.EncodeToString(body)
+		if len(encoded) > logBodyLimit {
+			return "[base64]" + encoded[:logBodyLimit] + "...(truncated)"
+		}
+		return "[base64]" + encoded
+	}
+	text := string(body)
+	if len(text) > logBodyLimit {
+		return text[:logBodyLimit] + "...(truncated)"
+	}
+	return text
+}
+
+func LogPreparedRequest(ctx context.Context, logger *slog.Logger, executionID, nodeID idwrap.IDWrap, nodeName string, prepared *httpclient.Request) {
+	if logger == nil || prepared == nil {
+		return
+	}
+	logger.InfoContext(ctx, "Dispatching HTTP request",
+		"execution_id", executionID.String(),
+		"node_id", nodeID.String(),
+		"node_name", nodeName,
+		"method", prepared.Method,
+		"url", prepared.URL,
+		"queries", formatQueriesForLog(prepared.Queries),
+		"headers", sanitizeHeadersForLog(prepared.Headers),
+		"body", formatBodyForLog(prepared.Body),
+	)
 }
 
 // quoteEscaper is used to escape quotes in MIME headers.
@@ -586,26 +657,26 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 }
 
 func SendRequest(req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {
-    now := time.Now()
-    respHttp, err := httpclient.SendRequestAndConvert(client, req, exampleID)
-    lapse := time.Since(now)
-    if err != nil {
-        return nil, errmap.MapRequestError(req.Method, req.URL, err)
-    }
+	now := time.Now()
+	respHttp, err := httpclient.SendRequestAndConvert(client, req, exampleID)
+	lapse := time.Since(now)
+	if err != nil {
+		return nil, errmap.MapRequestError(req.Method, req.URL, err)
+	}
 
-    return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
+	return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
 }
 
 func SendRequestWithContext(ctx context.Context, req *httpclient.Request, exampleID idwrap.IDWrap, client httpclient.HttpClient) (*RequestResponse, error) {
-    now := time.Now()
-    respHttp, err := httpclient.SendRequestAndConvertWithContext(ctx, client, req, exampleID)
-    lapse := time.Since(now)
-    if err != nil {
-        // Preserve context cancellation/timeout classification and annotate with request data
-        return nil, errmap.MapRequestError(req.Method, req.URL, err)
-    }
+	now := time.Now()
+	respHttp, err := httpclient.SendRequestAndConvertWithContext(ctx, client, req, exampleID)
+	lapse := time.Since(now)
+	if err != nil {
+		// Preserve context cancellation/timeout classification and annotate with request data
+		return nil, errmap.MapRequestError(req.Method, req.URL, err)
+	}
 
-    return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
+	return &RequestResponse{HttpResp: respHttp, LapTime: lapse}, nil
 }
 
 type MergeExamplesInput struct {

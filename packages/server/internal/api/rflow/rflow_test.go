@@ -310,6 +310,7 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 		jsns,
 		nes,
 		logMap,
+		nil,
 	)
 	flowSvc := &flowSvcValue
 

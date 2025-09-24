@@ -269,7 +269,7 @@ func main() {
 		exampleResponseService, exampleResponseHeaderService, assertService, assertResultService,
 		// subnodes
 		flowNodeService, flowNodeRequestSevice, flowNodeForService, flowNodeForeachService,
-		flowNodeNoOpService, *flowNodeCondition, flowNodeJsService, nodeExecutionService, logMap)
+		flowNodeNoOpService, *flowNodeCondition, flowNodeJsService, nodeExecutionService, logMap, logger)
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service

@@ -3,6 +3,7 @@ package flowlocalrunner
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"sync"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -36,11 +37,12 @@ type FlowLocalRunner struct {
 	mode               ExecutionMode
 	selectedMode       ExecutionMode
 	enableDataTracking bool
+	logger             *slog.Logger
 }
 
 var _ runner.FlowRunner = (*FlowLocalRunner)(nil)
 
-func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration) *FlowLocalRunner {
+func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idwrap.IDWrap]node.FlowNode, edgesMap edge.EdgesMap, timeout time.Duration, logger *slog.Logger) *FlowLocalRunner {
 	return &FlowLocalRunner{
 		ID:                 id,
 		FlowID:             flowID,
@@ -52,6 +54,7 @@ func CreateFlowRunner(id, flowID, StartNodeID idwrap.IDWrap, FlowNodeMap map[idw
 		mode:               ExecutionModeAuto,
 		selectedMode:       ExecutionModeMulti,
 		enableDataTracking: true,
+		logger:             logger,
 	}
 }
 
@@ -463,6 +466,7 @@ func (r *FlowLocalRunner) RunWithEvents(ctx context.Context, channels runner.Flo
 		LogPushFunc:      statusFunc,
 		Timeout:          r.Timeout,
 		PendingAtmoicMap: pendingAtmoicMap,
+		Logger:           r.logger,
 	}
 	predecessorMap := BuildPredecessorMap(r.EdgesMap)
 

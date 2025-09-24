@@ -720,7 +720,7 @@ func (c *NodeServiceRPC) NodeRun(ctx context.Context, req *connect.Request[nodev
 
 		// TODO: add name
 		nrequest.New(nodeReq.FlowNodeID, "", *itemApi, *example, queries, headers, *rawBody, formBody, urlBody,
-			exampleResp, exampleRespHeader, asserts, httpclient.New(), requestNodeRespChan)
+			exampleResp, exampleRespHeader, asserts, httpclient.New(), requestNodeRespChan, nil)
 
 	case mnnode.NODE_KIND_FOR:
 	default:

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"sort"
 	"strings"
 	"sync"
@@ -253,6 +254,7 @@ type FlowServiceRPC struct {
 	nes snodeexecution.NodeExecutionService
 
 	logChanMap logconsole.LogChanMap
+	logger     *slog.Logger
 
 	// caches to avoid hot-path DB fetches on repeated requests
 	itemAPICache        *cachettl.Cache[idwrap.IDWrap, *mitemapi.ItemApi]
@@ -282,6 +284,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 	// node execution
 	nes snodeexecution.NodeExecutionService,
 	logChanMap logconsole.LogChanMap,
+	logger *slog.Logger,
 ) FlowServiceRPC {
 	return FlowServiceRPC{
 		DB: db,
@@ -325,6 +328,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 		nes: nes,
 
 		logChanMap: logChanMap,
+		logger:     logger,
 
 		itemAPICache:        cachettl.New[idwrap.IDWrap, *mitemapi.ItemApi](cacheDefaultTTL, cacheCleanupInterval),
 		itemApiExampleCache: cachettl.New[idwrap.IDWrap, *mitemapiexample.ItemApiExample](cacheDefaultTTL, cacheCleanupInterval),
@@ -1289,7 +1293,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		name := nodeNameMap[requestNode.FlowNodeID]
 
 		requestNodeInstance := nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
-			*exampleResp, exampleRespHeader, asserts, sharedHTTPClient, requestNodeRespChan)
+			*exampleResp, exampleRespHeader, asserts, sharedHTTPClient, requestNodeRespChan, c.logger)
 
 		// Wrap with pre-registration logic
 		wrappedNode := &preRegisteredRequestNode{
@@ -1343,7 +1347,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// Use the same timeout for the flow runner
 	runnerID := idwrap.NewNow()
-	runnerInst := flowlocalrunner.CreateFlowRunner(runnerID, latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
+	runnerInst := flowlocalrunner.CreateFlowRunner(runnerID, latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout, c.logger)
 	runnerInst.SetExecutionMode(flowlocalrunner.ExecutionModeAuto)
 
 	// Calculate buffer size based on expected load

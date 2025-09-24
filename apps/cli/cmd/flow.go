@@ -836,7 +836,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 		name := nodeNameMap[requestNode.FlowNodeID]
 
 		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
-			*exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan)
+			*exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan, nil)
 	}
 
 	for _, ifNode := range ifNodes {
@@ -926,7 +926,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	}
 
 	// Use the same timeout for the flow runner
-	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout)
+	runnerInst := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), latestFlowID, startNodeID, flowNodeMap, edgeMap, nodeTimeout, nil)
 
 	// Calculate buffer size based on expected load
 	// For large iteration counts, we need bigger buffers to prevent blocking
