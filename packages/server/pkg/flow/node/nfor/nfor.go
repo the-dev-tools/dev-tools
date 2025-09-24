@@ -139,13 +139,21 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 		// Create iteration context for this execution
 		var parentPath []int
 		var parentNodes []idwrap.IDWrap
+		var parentLabels []runner.IterationLabel
 		if req.IterationContext != nil {
 			parentPath = req.IterationContext.IterationPath
 			parentNodes = req.IterationContext.ParentNodes
+			parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 		}
+		labels := append(parentLabels, runner.IterationLabel{
+			NodeID:    nr.FlowNodeID,
+			Name:      nr.Name,
+			Iteration: int(i) + 1,
+		})
 		iterContext := &runner.IterationContext{
 			IterationPath: append(parentPath, int(i)),
 			ParentNodes:   append(parentNodes, nr.FlowNodeID),
+			Labels:        labels,
 		}
 
 		// Create initial RUNNING record
@@ -153,7 +161,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 			outputData := map[string]any{
 				"index": i,
 			}
-			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
+			executionName := fmt.Sprintf("%s Iteration %d", nr.Name, i+1)
 
 			req.LogPushFunc(runner.FlowNodeStatus{
 				ExecutionID:      executionID, // Store this ID for update
@@ -170,16 +178,11 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 		for _, nextNodeID := range loopID {
 
 			// Create iteration context for child nodes
-			var parentPath []int
-			var parentNodes []idwrap.IDWrap
-			if req.IterationContext != nil {
-				parentPath = req.IterationContext.IterationPath
-				parentNodes = req.IterationContext.ParentNodes
-			}
 			childIterationContext := &runner.IterationContext{
-				IterationPath:  append(parentPath, int(i)),
-				ExecutionIndex: int(i),                             // Use iteration index to differentiate executions
-				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
+				IterationPath:  append([]int(nil), iterContext.IterationPath...),
+				ExecutionIndex: int(i),
+				ParentNodes:    append([]idwrap.IDWrap(nil), iterContext.ParentNodes...),
+				Labels:         node.CloneIterationLabels(iterContext.Labels),
 			}
 
 			// Generate unique execution ID for child node
@@ -199,7 +202,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 		// Update iteration record based on result
 		if req.LogPushFunc != nil {
-			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
+			executionName := fmt.Sprintf("%s Iteration %d", nr.Name, i+1)
 			if iterationError == nil {
 				// Update to SUCCESS (iteration completed successfully)
 				req.LogPushFunc(runner.FlowNodeStatus{
@@ -304,13 +307,21 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 		// Create iteration context for this execution
 		var parentPath []int
 		var parentNodes []idwrap.IDWrap
+		var parentLabels []runner.IterationLabel
 		if req.IterationContext != nil {
 			parentPath = req.IterationContext.IterationPath
 			parentNodes = req.IterationContext.ParentNodes
+			parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 		}
+		labels := append(parentLabels, runner.IterationLabel{
+			NodeID:    nr.FlowNodeID,
+			Name:      nr.Name,
+			Iteration: int(i) + 1,
+		})
 		iterContext := &runner.IterationContext{
 			IterationPath: append(parentPath, int(i)),
 			ParentNodes:   append(parentNodes, nr.FlowNodeID),
+			Labels:        labels,
 		}
 
 		// Create initial RUNNING record
@@ -335,16 +346,11 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 		for _, nextNodeID := range loopID {
 
 			// Create iteration context for child nodes
-			var parentPath []int
-			var parentNodes []idwrap.IDWrap
-			if req.IterationContext != nil {
-				parentPath = req.IterationContext.IterationPath
-				parentNodes = req.IterationContext.ParentNodes
-			}
 			childIterationContext := &runner.IterationContext{
-				IterationPath:  append(parentPath, int(i)),
-				ExecutionIndex: int(i),                             // Use iteration index to differentiate executions
-				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
+				IterationPath:  append([]int(nil), iterContext.IterationPath...),
+				ExecutionIndex: int(i),
+				ParentNodes:    append([]idwrap.IDWrap(nil), iterContext.ParentNodes...),
+				Labels:         node.CloneIterationLabels(iterContext.Labels),
 			}
 
 			// Generate unique execution ID for child node

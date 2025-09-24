@@ -156,60 +156,45 @@ func (p *preRegisteredRequestNode) RunAsync(ctx context.Context, req *node.FlowN
 //   - Else, fall back to a small metadata struct.
 // buildLogRefs moved to logging.go
 
-// formatIterationContext formats the iteration context into hierarchical format with node names
-func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap.IDWrap]string, nodeID idwrap.IDWrap, parentNodes []idwrap.IDWrap, isLoopNode bool, executionCount int) string {
-	if ctx == nil || len(ctx.IterationPath) == 0 {
-		// For non-loop nodes without iteration context, add execution number
-		if !isLoopNode {
-			nodeName := nodeNameMap[nodeID]
-			if nodeName != "" {
-				return fmt.Sprintf("%s - Execution %d", nodeName, executionCount)
+// formatIterationContext renders iteration-aware execution names using label segments.
+func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap.IDWrap]string, nodeID idwrap.IDWrap, fallbackName string, isLoopNode bool, executionCount int) string {
+	if ctx == nil || len(ctx.Labels) == 0 {
+		if fallbackName != "" {
+			if executionCount > 0 {
+				return fmt.Sprintf("%s - Execution %d", fallbackName, executionCount)
 			}
+			return fallbackName
 		}
-		return "Execution 1"
-	}
-
-	// Use parent nodes from the IterationContext if available, otherwise fall back to passed parentNodes
-	actualParentNodes := ctx.ParentNodes
-	if len(actualParentNodes) == 0 {
-		actualParentNodes = parentNodes
-	}
-
-	// Build hierarchical format with pipe separators (no "Execution 1" prefix for loop iterations)
-	var parts []string
-
-	// Add parent loop nodes with their iteration numbers (deepest to shallowest)
-	for i := len(ctx.IterationPath) - 1; i >= 0; i-- {
-		if i < len(actualParentNodes) {
-			parentName := nodeNameMap[actualParentNodes[i]]
-			if parentName != "" {
-				parts = append(parts, fmt.Sprintf("%s iteration %d", parentName, ctx.IterationPath[i]+1))
-			}
+		if executionCount > 0 {
+			return fmt.Sprintf("Execution %d", executionCount)
 		}
+		return ""
 	}
 
-	// For non-loop nodes, add the current node name with execution number (shallowest level)
-	if !isLoopNode {
-		currentNodeName := nodeNameMap[nodeID]
-		if currentNodeName != "" {
-			// Use ExecutionIndex from context if available (for child nodes in loops)
-			// Otherwise use the global execution count
-			execNum := executionCount
-			if ctx != nil && len(ctx.IterationPath) > 0 {
-				// For child nodes within loops, use ExecutionIndex + 1 (1-based)
-				execNum = ctx.ExecutionIndex + 1
-			}
-			parts = append(parts, fmt.Sprintf("%s - Execution %d", currentNodeName, execNum))
+	segments := make([]string, 0, len(ctx.Labels)+1)
+	for _, label := range ctx.Labels {
+		displayName := label.Name
+		if displayName == "" {
+			displayName = nodeNameMap[label.NodeID]
+		}
+		if displayName == "" {
+			displayName = label.NodeID.String()
+		}
+		segments = append(segments, fmt.Sprintf("%s Iteration %d", displayName, label.Iteration))
+	}
+
+	lastLabel := ctx.Labels[len(ctx.Labels)-1]
+	if !isLoopNode || lastLabel.NodeID != nodeID {
+		childName := fallbackName
+		if childName == "" {
+			childName = nodeNameMap[nodeID]
+		}
+		if childName != "" {
+			segments = append(segments, childName)
 		}
 	}
 
-	// Join with pipe separator
-	if len(parts) > 0 {
-		return strings.Join(parts, " | ")
-	}
-
-	// Fallback if no parent nodes found
-	return "Execution 1"
+	return strings.Join(segments, " | ")
 }
 
 const (
@@ -1567,37 +1552,21 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				if _, exists := pendingNodeExecutions[executionID]; !exists {
 					// Generate execution name with hierarchical format for loop iterations
 					var execName string
-					if flowNodeStatus.IterationContext != nil && len(flowNodeStatus.IterationContext.IterationPath) > 0 {
-						// For loop executions, build hierarchical name using the full parent chain
-						var parentNodes []idwrap.IDWrap // Empty fallback
+					if ctx := flowNodeStatus.IterationContext; ctx != nil && len(ctx.Labels) > 0 {
+						isLoopNode := loopNodeIDs[id]
 
-						// Check if this is a loop node (FOR or FOR_EACH) by checking if it's in the parent chain
-						isLoopNode := false
-						if flowNodeStatus.IterationContext.ParentNodes != nil {
-							for _, parentNodeID := range flowNodeStatus.IterationContext.ParentNodes {
-								if parentNodeID == id {
-									isLoopNode = true
-									break
-								}
-							}
-						}
-
-						// Get execution count for non-loop nodes (only increment once per ExecutionID)
 						nodeExecutionCountsMutex.Lock()
 						if _, exists := executionIDToCount[executionID]; !exists {
-							// First time seeing this ExecutionID, increment the node's counter
 							nodeExecutionCounts[id]++
-							executionIDToCount[executionID] = nodeExecutionCounts[id] // Store the execution number for this ExecutionID
+							executionIDToCount[executionID] = nodeExecutionCounts[id]
 						}
 						execCount := executionIDToCount[executionID]
 						nodeExecutionCountsMutex.Unlock()
 
-						execName = formatIterationContext(flowNodeStatus.IterationContext, nodeNameMap, id, parentNodes, isLoopNode, execCount)
+						execName = formatIterationContext(ctx, nodeNameMap, id, flowNodeStatus.Name, isLoopNode, execCount)
 					} else if flowNodeStatus.Name != "" {
-						// For non-loop executions, add execution number (only increment once per ExecutionID)
 						nodeExecutionCountsMutex.Lock()
 						if _, exists := executionIDToCount[executionID]; !exists {
-							// First time seeing this ExecutionID, increment the node's counter
 							if nodeExecutionCounts == nil {
 								nodeExecutionCounts = make(map[idwrap.IDWrap]int)
 							}

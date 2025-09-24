@@ -119,14 +119,22 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			// Create iteration context for child nodes
 			var parentPath []int
 			var parentNodes []idwrap.IDWrap
+			var parentLabels []runner.IterationLabel
 			if req.IterationContext != nil {
 				parentPath = req.IterationContext.IterationPath
 				parentNodes = req.IterationContext.ParentNodes
+				parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 			}
+			labels := append(parentLabels, runner.IterationLabel{
+				NodeID:    nr.FlowNodeID,
+				Name:      nr.Name,
+				Iteration: iterationIndex + 1,
+			})
 			childIterationContext := &runner.IterationContext{
 				IterationPath:  append(parentPath, iterationIndex),
 				ExecutionIndex: iterationIndex,                     // Use iteration index to differentiate executions
 				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
+				Labels:         labels,
 			}
 
 			// Generate unique execution ID for child node
@@ -182,16 +190,27 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			// Store execution ID for later update
 			executionID := idwrap.NewNow()
 
+			currentIndex := itemIndex
+
 			// Create iteration context for this execution
 			var parentPath []int
 			var parentNodes []idwrap.IDWrap
+			var parentLabels []runner.IterationLabel
 			if req.IterationContext != nil {
 				parentPath = req.IterationContext.IterationPath
 				parentNodes = req.IterationContext.ParentNodes
+				parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 			}
+			labels := append(parentLabels, runner.IterationLabel{
+				NodeID:    nr.FlowNodeID,
+				Name:      nr.Name,
+				Iteration: currentIndex + 1,
+			})
 			iterContext := &runner.IterationContext{
-				IterationPath: append(parentPath, itemIndex),
-				ParentNodes:   append(parentNodes, nr.FlowNodeID),
+				IterationPath:  append(parentPath, currentIndex),
+				ExecutionIndex: currentIndex,
+				ParentNodes:    append(parentNodes, nr.FlowNodeID),
+				Labels:         labels,
 			}
 
 			// Create initial RUNNING record
@@ -200,7 +219,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					"item": item,
 					"key":  itemIndex,
 				}
-				executionName := fmt.Sprintf("Iteration %d", itemIndex)
+				executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID:      executionID, // Store this ID for update
 					NodeID:           nr.FlowNodeID,
@@ -214,18 +233,18 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			itemIndex++
 			totalItems++
 
-			result := processNode(itemIndex - 1)
+			result := processNode(currentIndex)
 
 			// Update iteration record based on result
 			if req.LogPushFunc != nil && result.Err == nil {
 				// Update to SUCCESS (iteration completed successfully)
-				executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
+				executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID:      executionID, // Same ID = UPDATE
 					NodeID:           nr.FlowNodeID,
 					Name:             executionName,
 					State:            mnnode.NODE_STATE_SUCCESS,
-					OutputData:       map[string]any{"item": item, "key": itemIndex - 1},
+					OutputData:       map[string]any{"item": item, "key": currentIndex},
 					IterationContext: iterContext,
 				})
 			}
@@ -298,16 +317,27 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			// Store execution ID for later update
 			executionID := idwrap.NewNow()
 
+			currentIndex := totalItems
+
 			// Create iteration context for this execution
 			var parentPath []int
 			var parentNodes []idwrap.IDWrap
+			var parentLabels []runner.IterationLabel
 			if req.IterationContext != nil {
 				parentPath = req.IterationContext.IterationPath
 				parentNodes = req.IterationContext.ParentNodes
+				parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 			}
+			labels := append(parentLabels, runner.IterationLabel{
+				NodeID:    nr.FlowNodeID,
+				Name:      nr.Name,
+				Iteration: currentIndex + 1,
+			})
 			iterContext := &runner.IterationContext{
-				IterationPath: append(parentPath, totalItems),
-				ParentNodes:   append(parentNodes, nr.FlowNodeID),
+				IterationPath:  append(parentPath, currentIndex),
+				ExecutionIndex: currentIndex,
+				ParentNodes:    append(parentNodes, nr.FlowNodeID),
+				Labels:         labels,
 			}
 
 			// Create initial RUNNING record
@@ -316,7 +346,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 					"item": value,
 					"key":  key,
 				}
-				executionName := fmt.Sprintf("Iteration %d", totalItems)
+				executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID:      executionID, // Store this ID for update
 					NodeID:           nr.FlowNodeID,
@@ -329,12 +359,12 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			totalItems++
 
-			result := processNode(totalItems - 1)
+			result := processNode(currentIndex)
 
 			// Update iteration record based on result
 			if req.LogPushFunc != nil && result.Err == nil {
 				// Update to SUCCESS (iteration completed successfully)
-				executionName := fmt.Sprintf("Iteration %d", totalItems-1)
+				executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID:      executionID, // Same ID = UPDATE
 					NodeID:           nr.FlowNodeID,
@@ -501,14 +531,22 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 			// Create iteration context for child nodes
 			var parentPath []int
 			var parentNodes []idwrap.IDWrap
+			var parentLabels []runner.IterationLabel
 			if req.IterationContext != nil {
 				parentPath = req.IterationContext.IterationPath
 				parentNodes = req.IterationContext.ParentNodes
+				parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 			}
+			labels := append(parentLabels, runner.IterationLabel{
+				NodeID:    nr.FlowNodeID,
+				Name:      nr.Name,
+				Iteration: iterationIndex + 1,
+			})
 			childIterationContext := &runner.IterationContext{
 				IterationPath:  append(parentPath, iterationIndex),
 				ExecutionIndex: iterationIndex,                     // Use iteration index to differentiate executions
 				ParentNodes:    append(parentNodes, nr.FlowNodeID), // Add current loop node to parent chain
+				Labels:         labels,
 			}
 
 			// Generate unique execution ID for child node
@@ -577,16 +615,27 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				// Store execution ID for later update
 				executionID := idwrap.NewNow()
 
+				currentIndex := itemIndex
+
 				// Create iteration context for this execution
 				var parentPath []int
 				var parentNodes []idwrap.IDWrap
+				var parentLabels []runner.IterationLabel
 				if req.IterationContext != nil {
 					parentPath = req.IterationContext.IterationPath
 					parentNodes = req.IterationContext.ParentNodes
+					parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 				}
+				labels := append(parentLabels, runner.IterationLabel{
+					NodeID:    nr.FlowNodeID,
+					Name:      nr.Name,
+					Iteration: currentIndex + 1,
+				})
 				iterContext := &runner.IterationContext{
-					IterationPath: append(parentPath, itemIndex),
-					ParentNodes:   append(parentNodes, nr.FlowNodeID),
+					IterationPath:  append(parentPath, currentIndex),
+					ExecutionIndex: currentIndex,
+					ParentNodes:    append(parentNodes, nr.FlowNodeID),
+					Labels:         labels,
 				}
 
 				// Create initial RUNNING record
@@ -595,7 +644,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						"item": item,
 						"key":  itemIndex,
 					}
-					executionName := fmt.Sprintf("Iteration %d", itemIndex)
+					executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID:      executionID, // Store this ID for update
 						NodeID:           nr.FlowNodeID,
@@ -609,18 +658,18 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				itemIndex++
 				totalItems++
 
-				loopResult := processNode(itemIndex - 1)
+				loopResult := processNode(currentIndex)
 
 				// Update iteration record based on result
 				if req.LogPushFunc != nil && loopResult.Err == nil {
 					// Update to SUCCESS (iteration completed successfully)
-					executionName := fmt.Sprintf("Iteration %d", itemIndex-1)
+					executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID:      executionID, // Same ID = UPDATE
 						NodeID:           nr.FlowNodeID,
 						Name:             executionName,
 						State:            mnnode.NODE_STATE_SUCCESS,
-						OutputData:       map[string]any{"item": item, "key": itemIndex - 1},
+						OutputData:       map[string]any{"item": item, "key": currentIndex},
 						IterationContext: iterContext,
 					})
 				}
@@ -701,16 +750,27 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				// Store execution ID for later update
 				executionID := idwrap.NewNow()
 
+				currentIndex := totalItems
+
 				// Create iteration context for this execution
 				var parentPath []int
 				var parentNodes []idwrap.IDWrap
+				var parentLabels []runner.IterationLabel
 				if req.IterationContext != nil {
 					parentPath = req.IterationContext.IterationPath
 					parentNodes = req.IterationContext.ParentNodes
+					parentLabels = node.CloneIterationLabels(req.IterationContext.Labels)
 				}
+				labels := append(parentLabels, runner.IterationLabel{
+					NodeID:    nr.FlowNodeID,
+					Name:      nr.Name,
+					Iteration: currentIndex + 1,
+				})
 				iterContext := &runner.IterationContext{
-					IterationPath: append(parentPath, totalItems),
-					ParentNodes:   append(parentNodes, nr.FlowNodeID),
+					IterationPath:  append(parentPath, currentIndex),
+					ExecutionIndex: currentIndex,
+					ParentNodes:    append(parentNodes, nr.FlowNodeID),
+					Labels:         labels,
 				}
 
 				// Create initial RUNNING record
@@ -719,7 +779,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 						"item": value,
 						"key":  key,
 					}
-					executionName := fmt.Sprintf("Iteration %d", totalItems)
+					executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID:      executionID, // Store this ID for update
 						NodeID:           nr.FlowNodeID,
@@ -732,12 +792,12 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 				totalItems++
 
-				loopResult := processNode(totalItems - 1)
+				loopResult := processNode(currentIndex)
 
 				// Update iteration record based on result
 				if req.LogPushFunc != nil && loopResult.Err == nil {
 					// Update to SUCCESS (iteration completed successfully)
-					executionName := fmt.Sprintf("Iteration %d", totalItems-1)
+					executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
 					req.LogPushFunc(runner.FlowNodeStatus{
 						ExecutionID:      executionID, // Same ID = UPDATE
 						NodeID:           nr.FlowNodeID,

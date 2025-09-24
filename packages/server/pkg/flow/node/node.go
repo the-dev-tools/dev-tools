@@ -160,6 +160,16 @@ func WriteNodeVarBulk(a *FlowNodeRequest, name string, v map[string]interface{})
 	return nil
 }
 
+// CloneIterationLabels returns a defensive copy of iteration labels to avoid slice aliasing.
+func CloneIterationLabels(labels []runner.IterationLabel) []runner.IterationLabel {
+	if len(labels) == 0 {
+		return nil
+	}
+	copyLabels := make([]runner.IterationLabel, len(labels))
+	copy(copyLabels, labels)
+	return copyLabels
+}
+
 func ReadVarRaw(a *FlowNodeRequest, key string) (interface{}, error) {
 	a.ReadWriteLock.RLock()
 	v, ok := a.VarMap[key]

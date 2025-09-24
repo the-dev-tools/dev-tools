@@ -40,9 +40,17 @@ func IsFlowStatusDone(f FlowStatus) bool {
 }
 
 type IterationContext struct {
-	IterationPath  []int           `json:"iteration_path"`         // [1, 2, 3] for nested loops
-	ExecutionIndex int             `json:"execution_index"`        // Current execution within current loop
-	ParentNodes    []idwrap.IDWrap `json:"parent_nodes,omitempty"` // Parent loop node IDs for hierarchical naming
+	IterationPath  []int            `json:"iteration_path"`         // [1, 2, 3] for nested loops
+	ExecutionIndex int              `json:"execution_index"`        // Current execution within current loop
+	ParentNodes    []idwrap.IDWrap  `json:"parent_nodes,omitempty"` // Parent loop node IDs for hierarchical naming
+	Labels         []IterationLabel `json:"labels,omitempty"`
+}
+
+// IterationLabel captures a single segment of a loop execution chain.
+type IterationLabel struct {
+	NodeID    idwrap.IDWrap `json:"node_id"`
+	Name      string        `json:"name"`
+	Iteration int           `json:"iteration"`
 }
 
 type FlowNodeStatus struct {
