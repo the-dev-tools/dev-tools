@@ -1,22 +1,22 @@
 package ritemapiexample
 
 import (
-    "context"
-    "database/sql"
-    "errors"
-    "fmt"
-    "sort"
-    devtoolsdb "the-dev-tools/db"
-    "the-dev-tools/server/internal/api"
-    "the-dev-tools/server/internal/api/rcollection"
-    "the-dev-tools/server/internal/api/ritemapi"
-    "the-dev-tools/server/pkg/compress"
-    "the-dev-tools/server/pkg/errmap"
-    "the-dev-tools/server/pkg/http/request"
-    "the-dev-tools/server/pkg/http/response"
-    "the-dev-tools/server/pkg/httpclient"
-    "the-dev-tools/server/pkg/idwrap"
-    "the-dev-tools/server/pkg/logconsole"
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"sort"
+	devtoolsdb "the-dev-tools/db"
+	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/rcollection"
+	"the-dev-tools/server/internal/api/ritemapi"
+	"the-dev-tools/server/pkg/compress"
+	"the-dev-tools/server/pkg/errmap"
+	"the-dev-tools/server/pkg/http/request"
+	"the-dev-tools/server/pkg/http/response"
+	"the-dev-tools/server/pkg/httpclient"
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mbodyform"
@@ -54,9 +54,9 @@ import (
 	"the-dev-tools/server/pkg/varsystem"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
-    resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
 
-    "connectrpc.com/connect"
+	"connectrpc.com/connect"
 )
 
 type ItemAPIExampleRPC struct {
@@ -153,7 +153,7 @@ func (c *ItemAPIExampleRPC) ExampleList(ctx context.Context, req *connect.Reques
 			}
 			return connect.NewResponse(resp), nil
 		}
-		
+
 		// For other errors, try fallback to all examples
 		fmt.Printf("Warning: ordered query failed for endpoint %s, falling back to all examples: %v\n", apiUlid.String(), err)
 		examples, err = c.iaes.GetAllApiExamples(ctx, apiUlid)
@@ -256,74 +256,74 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-    // Attempt to find a default example for this endpoint (outside TX to avoid holding locks)
-    examplesWithDefaults, err := c.iaes.GetApiExamplesWithDefaults(ctx, apiIDWrap)
-    if err != nil {
-        return nil, connect.NewError(connect.CodeInternal, err)
-    }
-    var defaultExample *mitemapiexample.ItemApiExample
-    for i := range examplesWithDefaults {
-        if examplesWithDefaults[i].IsDefault {
-            defaultExample = &examplesWithDefaults[i]
-            break
-        }
-    }
+	// Attempt to find a default example for this endpoint (outside TX to avoid holding locks)
+	examplesWithDefaults, err := c.iaes.GetApiExamplesWithDefaults(ctx, apiIDWrap)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	var defaultExample *mitemapiexample.ItemApiExample
+	for i := range examplesWithDefaults {
+		if examplesWithDefaults[i].IsDefault {
+			defaultExample = &examplesWithDefaults[i]
+			break
+		}
+	}
 
-    // If copying: prepare outside TX to avoid holding write locks during reads
-    var copyRes *CopyExampleResult
-    if defaultExample != nil {
-        r, prepErr := PrepareCopyExample(ctx, apiIDWrap, *defaultExample, *c.hs, *c.qs, *c.brs, *c.bfs, *c.bues, *c.ers, *c.erhs, *c.as, *c.ars)
-        if prepErr != nil {
-            return nil, connect.NewError(connect.CodeInternal, prepErr)
-        }
-        r.Example.Name = req.Msg.Name
-        r.Example.IsDefault = false
-        copyRes = &r
-    }
+	// If copying: prepare outside TX to avoid holding write locks during reads
+	var copyRes *CopyExampleResult
+	if defaultExample != nil {
+		r, prepErr := PrepareCopyExample(ctx, apiIDWrap, *defaultExample, *c.hs, *c.qs, *c.brs, *c.bfs, *c.bues, *c.ers, *c.erhs, *c.as, *c.ars)
+		if prepErr != nil {
+			return nil, connect.NewError(connect.CodeInternal, prepErr)
+		}
+		r.Example.Name = req.Msg.Name
+		r.Example.IsDefault = false
+		copyRes = &r
+	}
 
-    // Create within a transaction (write-only phase)
-    tx, err := c.DB.Begin()
-    if err != nil {
-        return nil, connect.NewError(connect.CodeInternal, err)
-    }
-    defer devtoolsdb.TxnRollback(tx)
+	// Create within a transaction (write-only phase)
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
 
-    var newExampleID idwrap.IDWrap
-    if copyRes != nil {
-        if err := CreateCopyExample(ctx, tx, *copyRes); err != nil {
-            return nil, connect.NewError(connect.CodeInternal, err)
-        }
-        newExampleID = copyRes.Example.ID
-    } else {
-        // Fallback: create an empty example with raw body
-        exampleID := idwrap.NewNow()
-        ex := &mitemapiexample.ItemApiExample{
-            ID:           exampleID,
-            ItemApiID:    apiIDWrap,
-            CollectionID: itemApi.CollectionID,
-            Name:         req.Msg.Name,
-            BodyType:     mitemapiexample.BodyTypeNone,
-            IsDefault:    false,
-        }
-        if err := c.iaes.TX(tx).CreateApiExample(ctx, ex); err != nil {
-            return nil, connect.NewError(connect.CodeInternal, err)
-        }
-        bodyRaw := mbodyraw.ExampleBodyRaw{
-            ID:            idwrap.NewNow(),
-            ExampleID:     exampleID,
-            VisualizeMode: mbodyraw.VisualizeModeBinary,
-            CompressType:  compress.CompressTypeNone,
-            Data:          []byte{},
-        }
-        if err := c.brs.TX(tx).CreateBodyRaw(ctx, bodyRaw); err != nil {
-            return nil, connect.NewError(connect.CodeInternal, err)
-        }
-        newExampleID = exampleID
-    }
+	var newExampleID idwrap.IDWrap
+	if copyRes != nil {
+		if err := CreateCopyExample(ctx, tx, *copyRes); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		newExampleID = copyRes.Example.ID
+	} else {
+		// Fallback: create an empty example with raw body
+		exampleID := idwrap.NewNow()
+		ex := &mitemapiexample.ItemApiExample{
+			ID:           exampleID,
+			ItemApiID:    apiIDWrap,
+			CollectionID: itemApi.CollectionID,
+			Name:         req.Msg.Name,
+			BodyType:     mitemapiexample.BodyTypeNone,
+			IsDefault:    false,
+		}
+		if err := c.iaes.TX(tx).CreateApiExample(ctx, ex); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		bodyRaw := mbodyraw.ExampleBodyRaw{
+			ID:            idwrap.NewNow(),
+			ExampleID:     exampleID,
+			VisualizeMode: mbodyraw.VisualizeModeBinary,
+			CompressType:  compress.CompressTypeNone,
+			Data:          []byte{},
+		}
+		if err := c.brs.TX(tx).CreateBodyRaw(ctx, bodyRaw); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		newExampleID = exampleID
+	}
 
-    if err := tx.Commit(); err != nil {
-        return nil, connect.NewError(connect.CodeInternal, err)
-    }
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	// TODO: refactor changes stuff
 	/*
@@ -372,9 +372,9 @@ func (c *ItemAPIExampleRPC) ExampleCreate(ctx context.Context, req *connect.Requ
 		}
 	*/
 
-    return connect.NewResponse(&examplev1.ExampleCreateResponse{
-        ExampleId: newExampleID.Bytes(),
-    }), nil
+	return connect.NewResponse(&examplev1.ExampleCreateResponse{
+		ExampleId: newExampleID.Bytes(),
+	}), nil
 }
 
 func (c *ItemAPIExampleRPC) ExampleUpdate(ctx context.Context, req *connect.Request[examplev1.ExampleUpdateRequest]) (*connect.Response[examplev1.ExampleUpdateResponse], error) {
@@ -758,32 +758,32 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, fmt.Errorf("failed to prepare request: %w", err)
 	}
 
-    requestResp, err := request.SendRequest(preparedRequest, example.ID, client)
-    if err != nil {
-        // Map and present a friendly message to the client instead of a raw wrapped error
-        mapped := errmap.MapRequestError(preparedRequest.Method, preparedRequest.URL, err)
-        friendly := errmap.Friendly(mapped)
+	requestResp, err := request.SendRequest(preparedRequest, example.ID, client)
+	if err != nil {
+		// Map and present a friendly message to the client instead of a raw wrapped error
+		mapped := errmap.MapRequestError(preparedRequest.Method, preparedRequest.URL, err)
+		friendly := errmap.Friendly(mapped)
 
-        // Pick a connect code based on the mapped error code
-        var code connect.Code = connect.CodeUnknown
-        if me, ok := mapped.(*errmap.Error); ok {
-            switch me.Code {
-            case errmap.CodeUnsupportedScheme, errmap.CodeInvalidURL:
-                code = connect.CodeInvalidArgument
-            case errmap.CodeTimeout:
-                code = connect.CodeDeadlineExceeded
-            case errmap.CodeCanceled:
-                code = connect.CodeCanceled
-            case errmap.CodeDNSError, errmap.CodeConnectionRefused, errmap.CodeConnectionReset,
-                errmap.CodeNetworkUnreachable, errmap.CodeTLSUnknownAuthority, errmap.CodeTLSHostnameMismatch,
-                errmap.CodeTLSHandshake, errmap.CodeIO:
-                code = connect.CodeUnavailable
-            default:
-                code = connect.CodeUnknown
-            }
-        }
-        return nil, connect.NewError(code, errors.New(friendly))
-    }
+		// Pick a connect code based on the mapped error code
+		var code connect.Code = connect.CodeUnknown
+		if me, ok := mapped.(*errmap.Error); ok {
+			switch me.Code {
+			case errmap.CodeUnsupportedScheme, errmap.CodeInvalidURL:
+				code = connect.CodeInvalidArgument
+			case errmap.CodeTimeout:
+				code = connect.CodeDeadlineExceeded
+			case errmap.CodeCanceled:
+				code = connect.CodeCanceled
+			case errmap.CodeDNSError, errmap.CodeConnectionRefused, errmap.CodeConnectionReset,
+				errmap.CodeNetworkUnreachable, errmap.CodeTLSUnknownAuthority, errmap.CodeTLSHostnameMismatch,
+				errmap.CodeTLSHandshake, errmap.CodeIO:
+				code = connect.CodeUnavailable
+			default:
+				code = connect.CodeUnknown
+			}
+		}
+		return nil, connect.NewError(code, errors.New(friendly))
+	}
 
 	// TODO: simplify this package deps
 	exampleRunLog := ExampleRunLog{
@@ -818,7 +818,7 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	responseOutput, err := response.ResponseCreate(ctx, *requestResp, exampleResp, currentRespHeaders, assertions, *varMap)
+	responseOutput, err := response.ResponseCreate(ctx, *requestResp, exampleResp, currentRespHeaders, assertions, *varMap, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -1385,7 +1385,7 @@ func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult
 		}
 		err = txErs.CreateExampleResp(ctx, result.Resp)
 		if err != nil {
-			return fmt.Errorf("failed to create example response (ID: %s, ExampleID: %s): %w", 
+			return fmt.Errorf("failed to create example response (ID: %s, ExampleID: %s): %w",
 				result.Resp.ID.String(), result.Resp.ExampleID.String(), err)
 		}
 	}

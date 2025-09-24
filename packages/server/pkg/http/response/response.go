@@ -2,6 +2,8 @@ package response
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"strings"
 	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/http/request"
@@ -33,7 +35,7 @@ type AssertCouple struct {
 	AssertRes massertres.AssertResult
 }
 
-func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp mexampleresp.ExampleResp, lastResonseHeaders []mexamplerespheader.ExampleRespHeader, assertions []massert.Assert, varMap varsystem.VarMap) (*ResponseCreateOutput, error) {
+func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp mexampleresp.ExampleResp, lastResonseHeaders []mexamplerespheader.ExampleRespHeader, assertions []massert.Assert, varMap varsystem.VarMap, flowVars map[string]any) (*ResponseCreateOutput, error) {
 	ResponseCreateOutput := ResponseCreateOutput{}
 	respHttp := r.HttpResp
 	lapse := r.LapTime
@@ -105,16 +107,16 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 	responseVar := httpclient.ConvertResponseToVar(respHttp)
 
 	// Create environment manually to ensure proper structure
-	envMap := map[string]any{
-		"response": map[string]any{
-			"status":   responseVar.StatusCode,
-			"body":     responseVar.Body,
-			"headers":  responseVar.Headers,
-			"duration": responseVar.Duration,
-		},
+	responseBinding := map[string]any{
+		"status":   responseVar.StatusCode,
+		"body":     responseVar.Body,
+		"headers":  responseVar.Headers,
+		"duration": responseVar.Duration,
 	}
-	mergedVarMap := varsystem.MergeVarMap(varMap, varsystem.NewVarMapFromAnyMap(envMap))
-	exprEnv := expression.NewEnv(envMap)
+	responseEnv := map[string]any{"response": responseBinding}
+	mergedVarMap := varsystem.MergeVarMap(varMap, varsystem.NewVarMapFromAnyMap(responseEnv))
+	evalEnvMap := buildAssertionEnv(flowVars, responseBinding)
+	exprEnv := expression.NewEnv(evalEnvMap)
 
 	normalizedExprCache := make(map[string]string)
 	for _, assertion := range assertions {
@@ -136,7 +138,8 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 
 			ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, expr)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				annotatedErr := annotateUnknownNameError(err, evalEnvMap)
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", expr, annotatedErr))
 			}
 			res := massertres.AssertResult{
 				ID:         idwrap.NewNow(),
@@ -156,4 +159,43 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 	ResponseCreateOutput.AssertCouples = resultArr
 
 	return &ResponseCreateOutput, nil
+}
+
+func buildAssertionEnv(flowVars map[string]any, responseBinding map[string]any) map[string]any {
+	envSize := 1
+	if len(flowVars) > 0 {
+		envSize += len(flowVars)
+	}
+	env := make(map[string]any, envSize)
+	for k, v := range flowVars {
+		env[k] = v
+	}
+	env["response"] = responseBinding
+	return env
+}
+
+func annotateUnknownNameError(err error, env map[string]any) error {
+	if err == nil {
+		return nil
+	}
+	lower := strings.ToLower(err.Error())
+	if strings.Contains(lower, "unknown name") {
+		keys := collectEnvKeys(env)
+		if len(keys) > 0 {
+			return fmt.Errorf("%w (available variables: %s)", err, strings.Join(keys, ", "))
+		}
+	}
+	return err
+}
+
+func collectEnvKeys(env map[string]any) []string {
+	if len(env) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
