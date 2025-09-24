@@ -234,6 +234,71 @@ func TestHarResvoledBodyUrlEncoded(t *testing.T) {
 	}
 }
 
+func TestConvertHAR_SequentialDeleteEdge(t *testing.T) {
+	require := require.New(t)
+	base := time.Date(2025, time.January, 1, 12, 0, 0, 0, time.UTC)
+
+	makeEntry := func(method, urlStr, body string, started time.Time) thar.Entry {
+		var postData *thar.PostData
+		if body != "" {
+			postData = &thar.PostData{
+				MimeType: thar.RawBodyCheck,
+				Text:     body,
+			}
+		}
+		return thar.Entry{
+			StartedDateTime: started,
+			Request: thar.Request{
+				Method:   method,
+				URL:      urlStr,
+				Headers:  []thar.Header{{Name: "Content-Type", Value: "application/json"}},
+				PostData: postData,
+			},
+			Response: thar.Response{
+				Status: 200,
+				Content: thar.Content{
+					MimeType: "application/json",
+					Text:     "{}",
+				},
+			},
+		}
+	}
+
+	entries := []thar.Entry{
+		makeEntry("POST", "https://example.com/api/categories", "{\"name\":\"hardware\"}", base),
+		makeEntry("POST", "https://example.com/api/products", "{\"name\":\"laptop\"}", base.Add(200*time.Millisecond)),
+		makeEntry("DELETE", "https://example.com/api/categories/123", "", base.Add(400*time.Millisecond)),
+	}
+
+	harFile := thar.HAR{Log: thar.Log{Entries: entries}}
+	flowID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+
+	resolved, err := thar.ConvertHAR(&harFile, flowID, workspaceID)
+	require.NoError(err)
+
+	var postProductNode, deleteNode idwrap.IDWrap
+	for _, node := range resolved.Nodes {
+		switch node.Name {
+		case "request_1":
+			postProductNode = node.ID
+		case "request_2":
+			deleteNode = node.ID
+		}
+	}
+	require.NotEqual(idwrap.IDWrap{}, postProductNode, "expected node for second request")
+	require.NotEqual(idwrap.IDWrap{}, deleteNode, "expected node for delete request")
+
+	found := false
+	for _, e := range resolved.Edges {
+		if e.SourceID == postProductNode && e.TargetID == deleteNode {
+			found = true
+			break
+		}
+	}
+	require.True(found, "expected delete request to be sequenced after prior request")
+}
+
 func TestHarEmptyLog(t *testing.T) {
 	testHar := thar.HAR{
 		Log: thar.Log{
@@ -1228,14 +1293,14 @@ func TestHarNoJSONBodyTemplating(t *testing.T) {
 		} else {
 			bodyData = rawBody.Data
 		}
-		
+
 		bodyStr := string(bodyData)
 
 		// Check if this is the products request
 		if strings.Contains(bodyStr, "category_id") {
 			// Determine if this is a delta example
 			isDelta := strings.Contains(example.Name, "Delta")
-			
+
 			if isDelta {
 				// Delta examples SHOULD have templated values
 				if !strings.Contains(bodyStr, "{{") || !strings.Contains(bodyStr, "}}") {
@@ -2519,7 +2584,7 @@ func TestHarComprehensiveIntegration(t *testing.T) {
 			} else {
 				bodyData = body.Data
 			}
-			
+
 			bodyStr := string(bodyData)
 			if strings.Contains(bodyStr, "user_id") || strings.Contains(bodyStr, "category_id") {
 				// This is a JSON body that might have had dependencies
@@ -2531,7 +2596,7 @@ func TestHarComprehensiveIntegration(t *testing.T) {
 						break
 					}
 				}
-				
+
 				if isDelta {
 					// Delta examples can have template variables
 					// This is expected behavior now

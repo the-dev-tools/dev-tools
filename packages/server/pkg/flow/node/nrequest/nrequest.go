@@ -2,7 +2,10 @@ package nrequest
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"log/slog"
+	"strings"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/http/request"
@@ -20,6 +23,7 @@ import (
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/varsystem"
+	"unicode/utf8"
 )
 
 type NodeRequest struct {
@@ -103,6 +107,74 @@ func cloneStringMapToAny(src map[string]string) map[string]any {
 	return dst
 }
 
+const logBodyLimit = 2048
+
+func sanitizeHeadersForLog(headers []mexampleheader.Header) []map[string]string {
+	if len(headers) == 0 {
+		return nil
+	}
+	result := make([]map[string]string, 0, len(headers))
+	for _, header := range headers {
+		value := header.Value
+		if strings.EqualFold(header.HeaderKey, "Authorization") {
+			value = "[REDACTED]"
+		}
+		result = append(result, map[string]string{
+			"key":   header.HeaderKey,
+			"value": value,
+		})
+	}
+	return result
+}
+
+func formatQueriesForLog(queries []mexamplequery.Query) []map[string]string {
+	if len(queries) == 0 {
+		return nil
+	}
+	result := make([]map[string]string, 0, len(queries))
+	for _, query := range queries {
+		result = append(result, map[string]string{
+			"key":   query.QueryKey,
+			"value": query.Value,
+		})
+	}
+	return result
+}
+
+func formatBodyForLog(body []byte) string {
+	if len(body) == 0 {
+		return ""
+	}
+	if !utf8.Valid(body) {
+		encoded := base64.StdEncoding.EncodeToString(body)
+		if len(encoded) > logBodyLimit {
+			return "[base64]" + encoded[:logBodyLimit] + "...(truncated)"
+		}
+		return "[base64]" + encoded
+	}
+	text := string(body)
+	if len(text) > logBodyLimit {
+		return text[:logBodyLimit] + "...(truncated)"
+	}
+	return text
+}
+
+func logRequestDispatch(ctx context.Context, executionID idwrap.IDWrap, nodeID idwrap.IDWrap, nodeName string, prepared *httpclient.Request) {
+	if ctx == nil || prepared == nil {
+		return
+	}
+	slog.InfoContext(ctx, "Dispatching HTTP request",
+		"execution_id", executionID.String(),
+		"node_id", nodeID.String(),
+		"node_name", nodeName,
+		"method", prepared.Method,
+		"url", prepared.URL,
+		"queries", formatQueriesForLog(prepared.Queries),
+		"headers", sanitizeHeadersForLog(prepared.Headers),
+		"body", formatBodyForLog(prepared.Body),
+	)
+}
+
 func New(id idwrap.IDWrap, name string, api mitemapi.ItemApi, example mitemapiexample.ItemApiExample,
 	Queries []mexamplequery.Query, Headers []mexampleheader.Header,
 	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded,
@@ -166,6 +238,8 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	prepareOutput := prepareResult.Request
 	inputVars := prepareResult.ReadVars
+
+	logRequestDispatch(ctx, req.ExecutionID, nr.FlownNodeID, nr.Name, prepareOutput)
 
 	// Track variable reads if tracker is available
 	if req.VariableTracker != nil {
@@ -279,6 +353,8 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	prepareOutput := prepareResult.Request
 	inputVars := prepareResult.ReadVars
+
+	logRequestDispatch(ctx, req.ExecutionID, nr.FlownNodeID, nr.Name, prepareOutput)
 
 	// Track variable reads if tracker is available
 	if req.VariableTracker != nil {

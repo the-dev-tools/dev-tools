@@ -114,6 +114,28 @@ const (
 	TimestampSequencingThreshold = 50 * time.Millisecond // Connect requests within 50ms for better sequencing
 )
 
+func requiresSequentialOrdering(method string) bool {
+	return strings.EqualFold(method, "DELETE")
+}
+
+func isMutationMethod(method string) bool {
+	switch strings.ToUpper(method) {
+	case "POST", "PUT", "PATCH", "DELETE":
+		return true
+	default:
+		return false
+	}
+}
+
+func edgeExists(edges []edge.Edge, source, target idwrap.IDWrap) bool {
+	for _, e := range edges {
+		if e.SourceID == source && e.TargetID == target {
+			return true
+		}
+	}
+	return false
+}
+
 func ConvertRaw(data []byte) (*HAR, error) {
 	var harFile HAR
 	err := json.Unmarshal(data, &harFile)
@@ -470,8 +492,14 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 	}
 
 	// sort by started time
-	sort.Slice(har.Log.Entries, func(i, j int) bool {
-		return har.Log.Entries[i].StartedDateTime.Before(har.Log.Entries[j].StartedDateTime)
+	sort.SliceStable(har.Log.Entries, func(i, j int) bool {
+		ti := har.Log.Entries[i].StartedDateTime
+		tj := har.Log.Entries[j].StartedDateTime
+		// Preserve original ordering when timestamps match exactly
+		if ti.Equal(tj) {
+			return false
+		}
+		return ti.Before(tj)
 	})
 
 	flowID := idwrap.NewNow()
@@ -522,6 +550,8 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 
 	// Track previous node for timestamp-based sequencing
 	var previousNodeID *idwrap.IDWrap
+	var lastMutationNodeID idwrap.IDWrap
+	var hasMutation bool
 	var previousTimestamp *time.Time
 
 	// Process each entry in the HAR file
@@ -642,9 +672,37 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 			}
 		}
 
+		if previousNodeID != nil && requiresSequentialOrdering(entry.Request.Method) {
+			if !edgeExists(result.Edges, *previousNodeID, flowNodeID) {
+				result.Edges = append(result.Edges, edge.Edge{
+					ID:            idwrap.NewNow(),
+					FlowID:        flowID,
+					SourceID:      *previousNodeID,
+					TargetID:      flowNodeID,
+					SourceHandler: edge.HandleUnspecified,
+				})
+			}
+		}
+
 		// Update previous node tracking
 		previousNodeID = &flowNodeID
 		previousTimestamp = &currentTimestamp
+
+		if isMutationMethod(entry.Request.Method) {
+			if hasMutation && lastMutationNodeID != flowNodeID {
+				if !edgeExists(result.Edges, lastMutationNodeID, flowNodeID) {
+					result.Edges = append(result.Edges, edge.Edge{
+						ID:            idwrap.NewNow(),
+						FlowID:        flowID,
+						SourceID:      lastMutationNodeID,
+						TargetID:      flowNodeID,
+						SourceHandler: edge.HandleUnspecified,
+					})
+				}
+			}
+			lastMutationNodeID = flowNodeID
+			hasMutation = true
+		}
 
 		// Add edges for URL path parameter dependencies
 		for _, couple := range urlCouples {
