@@ -5,15 +5,18 @@ import (
 	"encoding"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"iter"
 	"reflect"
 	"strings"
 	"sync"
+	"the-dev-tools/server/pkg/errmap"
 	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/varsystem"
 
 	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/file"
 	"github.com/expr-lang/expr/vm"
 )
 
@@ -61,6 +64,13 @@ type compileMode uint8
 const (
 	compileModeAny compileMode = iota
 	compileModeBool
+)
+
+type expressionPhase uint8
+
+const (
+	expressionPhaseCompile expressionPhase = iota
+	expressionPhaseRun
 )
 
 type programCacheKey struct {
@@ -267,10 +277,46 @@ func compileProgram(expression string, mode compileMode, env map[string]any) (*v
 
 	program, err := expr.Compile(expression, options...)
 	if err != nil {
-		return nil, err
+		return nil, wrapExpressionError(expression, expressionPhaseCompile, err)
 	}
 	programCache.Store(key, program)
 	return program, nil
+}
+
+func wrapExpressionError(expression string, phase expressionPhase, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	code := errmap.CodeExpressionRuntime
+	phaseVerb := "evaluating"
+	if phase == expressionPhaseCompile {
+		code = errmap.CodeExpressionSyntax
+		phaseVerb = "parsing"
+	}
+
+	var fileErr *file.Error
+	if errors.As(err, &fileErr) {
+		line := fileErr.Line
+		column := fileErr.Column + 1
+		location := ""
+		if line > 0 {
+			location = fmt.Sprintf(" at line %d", line)
+			if column > 0 {
+				location += fmt.Sprintf(" column %d", column)
+			}
+		}
+
+		message := fmt.Sprintf("error %s expression%s: %s", phaseVerb, location, fileErr.Message)
+		if snippet := fileErr.Snippet; snippet != "" {
+			message += snippet
+		}
+
+		return errmap.New(code, message, err)
+	}
+
+	message := fmt.Sprintf("error %s expression: %v", phaseVerb, err)
+	return errmap.New(code, message, err)
 }
 
 func isZeroValue(val reflect.Value) bool {
@@ -344,7 +390,7 @@ func ExpressionEvaluteAsBool(ctx context.Context, env Env, expressionString stri
 
 	output, err := expr.Run(program, env.varMap)
 	if err != nil {
-		return false, err
+		return false, wrapExpressionError(expressionString, expressionPhaseRun, err)
 	}
 
 	ok := output.(bool)
@@ -359,7 +405,7 @@ func ExpressionEvaluteAsArray(ctx context.Context, env Env, expressionString str
 
 	output, err := expr.Run(program, env.varMap) // Pass the map directly
 	if err != nil {
-		return nil, err
+		return nil, wrapExpressionError(expressionString, expressionPhaseRun, err)
 	}
 
 	// expr.Run can return []interface{} for arrays. Convert it to []any.
@@ -387,7 +433,7 @@ func ExpressionEvaluateAsIter(ctx context.Context, env Env, expressionString str
 
 	output, err := expr.Run(program, env.varMap)
 	if err != nil {
-		return nil, err
+		return nil, wrapExpressionError(expressionString, expressionPhaseRun, err)
 	}
 
 	// Check if the result is an iterable type (map or slice/array)
@@ -445,7 +491,7 @@ func ExpressionEvaluteAsBoolWithTracking(ctx context.Context, env Env, expressio
 
 	output, err := expr.Run(program, trackedEnv.GetMap())
 	if err != nil {
-		return false, err
+		return false, wrapExpressionError(expressionString, expressionPhaseRun, err)
 	}
 
 	ok := output.(bool)
@@ -471,7 +517,7 @@ func ExpressionEvaluteAsArrayWithTracking(ctx context.Context, env Env, expressi
 
 	output, err := expr.Run(program, trackedEnv.GetMap())
 	if err != nil {
-		return nil, err
+		return nil, wrapExpressionError(expressionString, expressionPhaseRun, err)
 	}
 
 	// expr.Run can return []interface{} for arrays. Convert it to []any.
@@ -507,7 +553,7 @@ func ExpressionEvaluateAsIterWithTracking(ctx context.Context, env Env, expressi
 
 	output, err := expr.Run(program, trackedEnv.GetMap())
 	if err != nil {
-		return nil, err
+		return nil, wrapExpressionError(expressionString, expressionPhaseRun, err)
 	}
 
 	// Check if the result is an iterable type (map or slice/array)

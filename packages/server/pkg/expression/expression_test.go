@@ -1,10 +1,16 @@
 package expression
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/expr-lang/expr/file"
+	"the-dev-tools/server/pkg/errmap"
 )
 
 type sampleNested struct {
@@ -89,6 +95,72 @@ func TestConvertHandlesMapAndSlice(t *testing.T) {
 
 	if !reflect.DeepEqual(got, expected) {
 		t.Fatalf("conversion mismatch\nexpected: %#v\n     got: %#v", expected, got)
+	}
+}
+
+func TestExpressionEvaluteAsBool_SyntaxErrorFriendly(t *testing.T) {
+	env := NewEnv(map[string]any{
+		"flag": true,
+	})
+
+	_, err := ExpressionEvaluteAsBool(context.Background(), env, "flag &&")
+	if err == nil {
+		t.Fatal("expected syntax error, got nil")
+	}
+
+	var friendly *errmap.Error
+	if !errors.As(err, &friendly) {
+		t.Fatalf("expected errmap.Error, got %T", err)
+	}
+
+	if friendly.Code != errmap.CodeExpressionSyntax {
+		t.Fatalf("expected CodeExpressionSyntax, got %s", friendly.Code)
+	}
+
+	if !strings.Contains(friendly.Message, "line 1") {
+		t.Fatalf("expected line information in message, got %q", friendly.Message)
+	}
+
+	if !strings.Contains(friendly.Message, "^") {
+		t.Fatalf("expected caret indicator in message, got %q", friendly.Message)
+	}
+
+	var fileErr *file.Error
+	if !errors.As(err, &fileErr) {
+		t.Fatalf("expected underlying file.Error, got %T", err)
+	}
+}
+
+func TestExpressionEvaluteAsBool_RuntimeErrorFriendly(t *testing.T) {
+	env := NewEnv(map[string]any{
+		"boom": func() bool { panic("boom panic") },
+	})
+
+	_, err := ExpressionEvaluteAsBool(context.Background(), env, "boom()")
+	if err == nil {
+		t.Fatal("expected runtime error, got nil")
+	}
+
+	var friendly *errmap.Error
+	if !errors.As(err, &friendly) {
+		t.Fatalf("expected errmap.Error, got %T", err)
+	}
+
+	if friendly.Code != errmap.CodeExpressionRuntime {
+		t.Fatalf("expected CodeExpressionRuntime, got %s", friendly.Code)
+	}
+
+	if !strings.Contains(friendly.Message, "boom") {
+		t.Fatalf("expected panic description in message, got %q", friendly.Message)
+	}
+
+	if !strings.Contains(friendly.Message, "line 1") {
+		t.Fatalf("expected line information in message, got %q", friendly.Message)
+	}
+
+	var fileErr *file.Error
+	if !errors.As(err, &fileErr) {
+		t.Fatalf("expected underlying file.Error, got %T", err)
 	}
 }
 
