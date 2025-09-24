@@ -159,16 +159,25 @@ func (p *preRegisteredRequestNode) RunAsync(ctx context.Context, req *node.FlowN
 // formatIterationContext renders iteration-aware execution names using label segments.
 func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap.IDWrap]string, nodeID idwrap.IDWrap, fallbackName string, isLoopNode bool, executionCount int) string {
 	if ctx == nil || len(ctx.Labels) == 0 {
-		if fallbackName != "" {
-			if executionCount > 0 {
-				return fmt.Sprintf("%s - Execution %d", fallbackName, executionCount)
+		name := fallbackName
+		if name == "" {
+			name = nodeNameMap[nodeID]
+		}
+		if name == "" {
+			name = nodeID.String()
+		}
+
+		iteration := executionCount
+		if iteration <= 0 {
+			if ctx != nil {
+				iteration = ctx.ExecutionIndex + 1
 			}
-			return fallbackName
+			if iteration <= 0 {
+				iteration = 1
+			}
 		}
-		if executionCount > 0 {
-			return fmt.Sprintf("Execution %d", executionCount)
-		}
-		return ""
+
+		return fmt.Sprintf("%s Iteration %d", name, iteration)
 	}
 
 	segments := make([]string, 0, len(ctx.Labels)+1)
@@ -1454,6 +1463,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			nameForLog = payload.NodeID.String()
 		}
 
+		if payload.State == mnnode.NODE_STATE_RUNNING {
+			return
+		}
+
 		stateStrForLog := mnnode.StringNodeState(payload.State)
 		idStrForLog := payload.NodeID.String()
 		refs := buildLogRefs(nameForLog, idStrForLog, stateStrForLog, payload.Error, payload.OutputData)
@@ -1467,7 +1480,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			return
 		}
 
-		if err := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Node %s: %s", nameForLog, stateStrForLog), logLevel, refs); err != nil {
+		if err := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("%s: %s", nameForLog, stateStrForLog), logLevel, refs); err != nil {
 			if !channelsClosed.Load() {
 				select {
 				case done <- err:

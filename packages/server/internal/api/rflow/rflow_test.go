@@ -201,12 +201,10 @@ func TestFlowRunLogsUseExecutionName(t *testing.T) {
 	for {
 		select {
 		case msg := <-harness.logCh:
-			if strings.HasPrefix(msg.Name, "Node ") {
-				seenNames = append(seenNames, msg.Name)
-				if strings.Contains(msg.Name, "Request 8") {
-					nodeLog = msg
-					goto haveLog
-				}
+			seenNames = append(seenNames, msg.Name)
+			if strings.Contains(msg.Name, "Request 8") {
+				nodeLog = msg
+				goto haveLog
 			}
 		case <-deadline:
 			t.Fatalf("timed out waiting for request node log; seen=%v", seenNames)
