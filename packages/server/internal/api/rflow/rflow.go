@@ -1385,11 +1385,55 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	nodeExecutionsDone := make(chan struct{})
 
 	// Track execution counts per node for naming
-	nodeExecutionCounts := make(map[idwrap.IDWrap]int) // nodeID -> execution count
-	executionIDToCount := make(map[idwrap.IDWrap]int)  // executionID -> execution number
-	nodeExecutionCountsMutex := sync.Mutex{}
+	var nodeExecutionCounters sync.Map                // nodeID -> *atomic.Int64
+	executionIDToCount := make(map[idwrap.IDWrap]int) // executionID -> execution number
+	executionIDToCountMutex := sync.Mutex{}
 	executionDisplayNames := make(map[idwrap.IDWrap]string)
 	executionDisplayNamesMutex := sync.RWMutex{}
+
+	getOrCreateCounter := func(nodeID idwrap.IDWrap) *atomic.Int64 {
+		if nodeID == (idwrap.IDWrap{}) {
+			return nil
+		}
+		counterAny, _ := nodeExecutionCounters.LoadOrStore(nodeID, &atomic.Int64{})
+		return counterAny.(*atomic.Int64)
+	}
+
+	ensureExecutionCount := func(nodeID, executionID idwrap.IDWrap) int {
+		if executionID == (idwrap.IDWrap{}) {
+			if counter := getOrCreateCounter(nodeID); counter != nil {
+				return int(counter.Add(1))
+			}
+			return 0
+		}
+		executionIDToCountMutex.Lock()
+		defer executionIDToCountMutex.Unlock()
+		if count, ok := executionIDToCount[executionID]; ok {
+			return count
+		}
+		counter := getOrCreateCounter(nodeID)
+		if counter == nil {
+			executionIDToCount[executionID] = 0
+			return 0
+		}
+		count := int(counter.Add(1))
+		executionIDToCount[executionID] = count
+		return count
+	}
+
+	lookupExecutionCount := func(executionID idwrap.IDWrap) (int, bool) {
+		executionIDToCountMutex.Lock()
+		defer executionIDToCountMutex.Unlock()
+		count, ok := executionIDToCount[executionID]
+		return count, ok
+	}
+
+	currentNodeExecutionCount := func(nodeID idwrap.IDWrap) int {
+		if counterAny, ok := nodeExecutionCounters.Load(nodeID); ok {
+			return int(counterAny.(*atomic.Int64).Load())
+		}
+		return 0
+	}
 
 	// Map to store node executions by execution ID for state transitions
 	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
@@ -1456,14 +1500,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 
 		if (nameForLog == "" || nameForLog == payload.Name) && payload.Name != "" {
-			nodeExecutionCountsMutex.Lock()
-			execCount, ok := executionIDToCount[executionID]
-			if !ok && executionID != (idwrap.IDWrap{}) {
-				execCount = nodeExecutionCounts[payload.NodeID]
-			}
-			nodeExecutionCountsMutex.Unlock()
-			if execCount > 0 {
+			if execCount, ok := lookupExecutionCount(executionID); ok && execCount > 0 {
 				nameForLog = fmt.Sprintf("%s - Execution %d", payload.Name, execCount)
+			} else if executionID != (idwrap.IDWrap{}) {
+				if execCount := ensureExecutionCount(payload.NodeID, executionID); execCount > 0 {
+					nameForLog = fmt.Sprintf("%s - Execution %d", payload.Name, execCount)
+				}
+			} else if count := currentNodeExecutionCount(payload.NodeID); count > 0 {
+				nameForLog = fmt.Sprintf("%s - Execution %d", payload.Name, count)
 			}
 		}
 
@@ -1580,36 +1624,26 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					if ctx := flowNodeStatus.IterationContext; ctx != nil && len(ctx.Labels) > 0 {
 						isLoopNode := loopNodeIDs[id]
 
-						nodeExecutionCountsMutex.Lock()
-						if _, exists := executionIDToCount[executionID]; !exists {
-							nodeExecutionCounts[id]++
-							executionIDToCount[executionID] = nodeExecutionCounts[id]
+						execCount := ensureExecutionCount(id, executionID)
+						if execCount == 0 {
+							execCount = currentNodeExecutionCount(id)
 						}
-						execCount := executionIDToCount[executionID]
-						nodeExecutionCountsMutex.Unlock()
-
 						execName = formatIterationContext(ctx, nodeNameMap, id, flowNodeStatus.Name, isLoopNode, execCount)
 					} else if flowNodeStatus.Name != "" {
-						nodeExecutionCountsMutex.Lock()
-						if _, exists := executionIDToCount[executionID]; !exists {
-							if nodeExecutionCounts == nil {
-								nodeExecutionCounts = make(map[idwrap.IDWrap]int)
-							}
-							if executionIDToCount == nil {
-								executionIDToCount = make(map[idwrap.IDWrap]int)
-							}
-							nodeExecutionCounts[id]++
-							executionIDToCount[executionID] = nodeExecutionCounts[id] // Store the execution number for this ExecutionID
+						execCount := ensureExecutionCount(id, executionID)
+						if execCount == 0 {
+							execCount = currentNodeExecutionCount(id)
 						}
-						execCount := executionIDToCount[executionID]
-						nodeExecutionCountsMutex.Unlock()
 						execName = fmt.Sprintf("%s - Execution %d", flowNodeStatus.Name, execCount)
 					} else {
 						// Fallback to execution count
-						nodeExecutionCountsMutex.Lock()
-						nodeExecutionCounts[id]++
-						execCount := nodeExecutionCounts[id]
-						nodeExecutionCountsMutex.Unlock()
+						execCount := ensureExecutionCount(id, executionID)
+						if execCount == 0 {
+							execCount = currentNodeExecutionCount(id)
+							if execCount == 0 {
+								execCount = 1
+							}
+						}
 						execName = fmt.Sprintf("Execution %d", execCount)
 					}
 
@@ -1810,14 +1844,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						// Get execution name
 						var execName string
 						if flowNodeStatus.Name != "" {
-							nodeExecutionCountsMutex.Lock()
-							// Check if we already have a count for this execution ID
-							if _, exists := executionIDToCount[executionID]; !exists {
-								nodeExecutionCounts[flowNodeStatus.NodeID]++
-								executionIDToCount[executionID] = nodeExecutionCounts[flowNodeStatus.NodeID]
+							execCount := ensureExecutionCount(flowNodeStatus.NodeID, executionID)
+							if execCount == 0 {
+								execCount = currentNodeExecutionCount(flowNodeStatus.NodeID)
 							}
-							execCount := executionIDToCount[executionID]
-							nodeExecutionCountsMutex.Unlock()
 							execName = fmt.Sprintf("%s - Execution %d", flowNodeStatus.Name, execCount)
 						} else {
 							execName = "Canceled Node"
@@ -1899,13 +1929,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							// Get execution name
 							var execName string
 							if flowNodeStatus.Name != "" {
-								nodeExecutionCountsMutex.Lock()
-								if _, exists := executionIDToCount[executionID]; !exists {
-									nodeExecutionCounts[flowNodeStatus.NodeID]++
-									executionIDToCount[executionID] = nodeExecutionCounts[flowNodeStatus.NodeID]
+								execCount := ensureExecutionCount(flowNodeStatus.NodeID, executionID)
+								if execCount == 0 {
+									execCount = currentNodeExecutionCount(flowNodeStatus.NodeID)
 								}
-								execCount := executionIDToCount[executionID]
-								nodeExecutionCountsMutex.Unlock()
 								execName = fmt.Sprintf("%s - Execution %d", flowNodeStatus.Name, execCount)
 							} else {
 								execName = "Failed Loop"
