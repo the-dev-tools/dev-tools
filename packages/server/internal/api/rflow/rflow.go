@@ -1607,14 +1607,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			// Handle NodeExecution creation/updates based on state
 			switch flowNodeStatus.State {
 			case mnnode.NODE_STATE_RUNNING:
-				// Check if this is an iteration tracking record (has iteration data in OutputData)
-				isIterationRecord := false
-				if flowNodeStatus.OutputData != nil {
-					if outputMap, ok := flowNodeStatus.OutputData.(map[string]interface{}); ok {
-						isIterationRecord = outputMap["index"] != nil ||
-							outputMap["key"] != nil
-					}
-				}
+				// Check if this is an iteration tracking record via explicit flag
+				isIterationRecord := flowNodeStatus.IterationEvent
 
 				// Create new NodeExecution for RUNNING state
 				pendingMutex.Lock()
@@ -1713,15 +1707,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				pendingMutex.Unlock()
 
 			case mnnode.NODE_STATE_SUCCESS, mnnode.NODE_STATE_FAILURE, mnnode.NODE_STATE_CANCELED:
-				// Check if this is an iteration tracking record (has iteration data in OutputData)
-				isIterationRecord := false
-				if flowNodeStatus.OutputData != nil {
-					if outputMap, ok := flowNodeStatus.OutputData.(map[string]interface{}); ok {
-						isIterationRecord = outputMap["index"] != nil ||
-							outputMap["key"] != nil ||
-							outputMap["completed"] != nil
-					}
-				}
+				// Check if this is an iteration tracking record via explicit flag
+				isIterationRecord := flowNodeStatus.IterationEvent
 
 				// Get node kind from cache for REQUEST/loop handling
 				kind := nodeKindMap[flowNodeStatus.NodeID]
@@ -2083,15 +2070,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 
 			// Send node status response
-			// Skip per-iteration RUNNING/SUCCESS updates for loop nodes to avoid
-			// briefly showing the loop as SUCCESS in the live stream.
-			if loopNodeIDs[flowNodeStatus.NodeID] {
-				if outMap, ok := flowNodeStatus.OutputData.(map[string]any); ok {
-					if outMap["index"] != nil || outMap["key"] != nil || outMap["completed"] != nil {
-						// This is an iteration-level status; don't stream as node state
-						return
-					}
-				}
+			// Skip per-iteration RUNNING/SUCCESS updates for loop nodes using the explicit flag.
+			if flowNodeStatus.IterationEvent && (flowNodeStatus.State == mnnode.NODE_STATE_RUNNING || flowNodeStatus.State == mnnode.NODE_STATE_SUCCESS) {
+				return
 			}
 
 			var info *string

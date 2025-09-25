@@ -63,6 +63,9 @@ type FlowNodeStatus struct {
 	RunDuration      time.Duration
 	Error            error
 	IterationContext *IterationContext `json:"iteration_context,omitempty"`
+	IterationEvent   bool              `json:"iteration_event,omitempty"`
+	IterationIndex   int               `json:"iteration_index,omitempty"`
+	LoopNodeID       idwrap.IDWrap     `json:"loop_node_id,omitempty"`
 }
 
 func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mnnode.NodeState, output []byte) FlowNodeStatus {
@@ -94,6 +97,9 @@ type FlowNodeLogPayload struct {
 	OutputData       any
 	RunDuration      time.Duration
 	IterationContext *IterationContext
+	IterationEvent   bool
+	IterationIndex   int
+	LoopNodeID       idwrap.IDWrap
 }
 
 type FlowNodeEvent struct {

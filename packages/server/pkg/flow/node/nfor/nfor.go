@@ -169,6 +169,9 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				Name:             executionName,
 				State:            mnnode.NODE_STATE_RUNNING,
 				OutputData:       outputData,
+				IterationEvent:   true,
+				IterationIndex:   int(i),
+				LoopNodeID:       nr.FlowNodeID,
 				IterationContext: iterContext,
 			})
 		}
@@ -211,6 +214,9 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 					Name:             executionName,
 					State:            mnnode.NODE_STATE_SUCCESS,
 					OutputData:       map[string]any{"index": i, "completed": true},
+					IterationEvent:   true,
+					IterationIndex:   int(i),
+					LoopNodeID:       nr.FlowNodeID,
 					IterationContext: iterContext,
 				})
 			}
@@ -337,6 +343,9 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				Name:             executionName,
 				State:            mnnode.NODE_STATE_RUNNING,
 				OutputData:       outputData,
+				IterationEvent:   true,
+				IterationIndex:   int(i),
+				LoopNodeID:       nr.FlowNodeID,
 				IterationContext: iterContext,
 			})
 		}
@@ -379,6 +388,9 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 					Name:             executionName,
 					State:            mnnode.NODE_STATE_SUCCESS,
 					OutputData:       map[string]interface{}{"index": i, "completed": true},
+					IterationEvent:   true,
+					IterationIndex:   int(i),
+					LoopNodeID:       nr.FlowNodeID,
 					IterationContext: iterContext,
 				})
 			}

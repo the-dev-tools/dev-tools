@@ -95,6 +95,9 @@ func (e *nodeStatusEmitter) emitWithTargets(status runner.FlowNodeStatus, target
 			OutputData:       status.OutputData,
 			RunDuration:      status.RunDuration,
 			IterationContext: status.IterationContext,
+			IterationEvent:   status.IterationEvent,
+			IterationIndex:   status.IterationIndex,
+			LoopNodeID:       status.LoopNodeID,
 		}
 		e.channels.NodeLogs <- payload
 	}

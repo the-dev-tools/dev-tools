@@ -115,3 +115,50 @@ func TestNodeForEachDefaultErrorDoesNotLogLoopFailure(t *testing.T) {
 	require.True(t, loopCancelled, "expected foreach node to emit canceled status")
 	require.True(t, childRan, "child node did not execute")
 }
+
+func TestNodeForEachSetsIterationEventFlag(t *testing.T) {
+	loopID := idwrap.NewNow()
+	loop := New(loopID, "ForEachNode", "items", 0, mcondition.Condition{}, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+
+	edgeMap := edge.EdgesMap{
+		loopID: {
+			edge.HandleLoop: []idwrap.IDWrap{},
+		},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, map[idwrap.IDWrap]node.FlowNode{
+		loopID: loop,
+	}, edgeMap, 0, nil)
+
+	statusCh := make(chan runner.FlowNodeStatus, 16)
+	flowCh := make(chan runner.FlowStatus, 4)
+
+	vars := map[string]any{"items": []any{"a", "b"}}
+	require.NoError(t, flowRunner.Run(context.Background(), statusCh, flowCh, vars))
+
+	var iterationEvents []runner.FlowNodeStatus
+	var finalStatus *runner.FlowNodeStatus
+	for st := range statusCh {
+		if st.NodeID != loopID {
+			continue
+		}
+		if st.IterationEvent {
+			iterationEvents = append(iterationEvents, st)
+		} else {
+			copy := st
+			finalStatus = &copy
+		}
+	}
+	for range flowCh {
+	}
+
+	require.Len(t, iterationEvents, 4, "expected two iterations with RUNNING/SUCCESS updates")
+	for _, st := range iterationEvents {
+		require.Equal(t, loopID, st.LoopNodeID)
+		require.True(t, st.IterationIndex == 0 || st.IterationIndex == 1)
+		require.True(t, st.State == mnnode.NODE_STATE_RUNNING || st.State == mnnode.NODE_STATE_SUCCESS)
+	}
+	require.NotNil(t, finalStatus, "expected foreach terminal status")
+	require.False(t, finalStatus.IterationEvent)
+	require.Equal(t, loopID, finalStatus.NodeID)
+}
