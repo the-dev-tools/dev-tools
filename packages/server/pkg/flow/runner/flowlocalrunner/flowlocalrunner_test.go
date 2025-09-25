@@ -374,10 +374,8 @@ func TestFlowLocalRunnerMultiFailureIncludesOutputData(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected map output data, got %T", failureLog.OutputData)
 	}
-	if nested, ok := outputData[failure.GetName()]; ok {
-		if nestedMap, ok := nested.(map[string]any); ok {
-			outputData = nestedMap
-		}
+	if _, ok := outputData[failure.GetName()]; ok {
+		t.Fatalf("unexpected node-scoped key in output data: %#v", outputData)
 	}
 	if _, ok := outputData["request"]; !ok {
 		t.Fatalf("expected request payload in output data: %#v", outputData)

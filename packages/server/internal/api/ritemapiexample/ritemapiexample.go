@@ -28,7 +28,6 @@ import (
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/permcheck"
-	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
 	"the-dev-tools/server/pkg/service/sbodyform"
@@ -791,10 +790,9 @@ func (c *ItemAPIExampleRPC) ExampleRun(ctx context.Context, req *connect.Request
 		Response: httpclient.ConvertResponseToVar(requestResp.HttpResp),
 	}
 
-	ref := reference.NewReferenceFromInterfaceWithKey(exampleRunLog, example.Name)
-	refs := []reference.ReferenceTreeItem{ref}
+	logPayload := map[string]any{example.Name: exampleRunLog}
 
-	err = c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Request %s:%s", example.Name, example.ID.String()), logconsole.LogLevelUnspecified, refs)
+	err = c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("Request %s:%s", example.Name, example.ID.String()), logconsole.LogLevelUnspecified, logPayload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}

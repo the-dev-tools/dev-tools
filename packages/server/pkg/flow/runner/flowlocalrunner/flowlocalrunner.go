@@ -239,6 +239,31 @@ func collectSingleModeOutput(req *node.FlowNodeRequest, nodeName string) any {
 	return nil
 }
 
+func flattenNodeOutput(nodeName string, output any) any {
+	if nodeName == "" || output == nil {
+		return output
+	}
+	m, ok := output.(map[string]any)
+	if !ok {
+		return output
+	}
+	nested, ok := m[nodeName]
+	if !ok {
+		return output
+	}
+	nestedMap, ok := nested.(map[string]any)
+	if !ok {
+		return output
+	}
+	delete(m, nodeName)
+	for k, v := range nestedMap {
+		if _, exists := m[k]; !exists {
+			m[k] = v
+		}
+	}
+	return m
+}
+
 func sendQueuedCancellationStatuses(queue []idwrap.IDWrap, req *node.FlowNodeRequest, statusLogFunc node.LogPushFunc, cancelErr error) {
 	for _, nodeID := range queue {
 		if nodeRef, ok := req.NodeMap[nodeID]; ok {
@@ -355,6 +380,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 					status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
 				}
 			}
+			status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 			statusLogFunc(status)
 			return result.Err
 		}
@@ -369,6 +395,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 					status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
 				}
 			}
+			status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 			statusLogFunc(status)
 			return nodeCtxErr
 		}
@@ -382,6 +409,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 					status.OutputData = collectSingleModeOutput(&nodeReq, currentNode.GetName())
 				}
 			}
+			status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 			statusLogFunc(status)
 		}
 
@@ -789,6 +817,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 						status.InputData = node.DeepCopyValue(result.inputData)
 					}
 				}
+				status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 				statusLogFunc(status)
 				lastNodeError = result.err
 				// Trigger cancellation for remaining nodes after reporting this failure
@@ -809,6 +838,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 						status.OutputData = node.DeepCopyValue(result.outputData)
 					}
 				}
+				status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 				statusLogFunc(status)
 				// Remove from running nodes since we've sent the CANCELED status
 				runningNodesMutex.Lock()
@@ -834,6 +864,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 						status.InputData = node.DeepCopyValue(result.inputData)
 					}
 				}
+				status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 				statusLogFunc(status)
 			}
 
@@ -1115,6 +1146,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 						status.InputData = node.DeepCopyValue(result.inputData)
 					}
 				}
+				status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 				statusLogFunc(status)
 				lastNodeError = result.err
 				// Trigger cancellation for remaining nodes after reporting this failure
@@ -1133,6 +1165,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 						status.OutputData = node.DeepCopyValue(result.outputData)
 					}
 				}
+				status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 				statusLogFunc(status)
 				// Remove from running nodes since we've sent the CANCELED status
 				runningNodesMutex.Lock()
@@ -1155,6 +1188,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 						status.InputData = node.DeepCopyValue(result.inputData)
 					}
 				}
+				status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 				statusLogFunc(status)
 			}
 

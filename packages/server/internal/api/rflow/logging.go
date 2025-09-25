@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"the-dev-tools/server/pkg/errmap"
 	"the-dev-tools/server/pkg/flow/runner"
-	"the-dev-tools/server/pkg/reference"
 )
 
 // formatErrForUser returns a user-friendly error string.
@@ -95,13 +94,13 @@ func normalizeForLog(v any) any {
 	}
 }
 
-// buildLogRefs constructs structured log references for a node state change.
+// buildLogPayload constructs structured log payloads for a node state change.
 // Error-first behavior:
 //   - If nodeError != nil, prefer an error payload with minimal node info and
 //     error { message, kind } and optional failure context keys from outputData.
 //   - Else, if outputData is a map, normalize and render it as-is.
 //   - Else, fall back to a small metadata struct.
-func buildLogRefs(nameForLog, idStrForLog, stateStrForLog string, nodeError error, outputData any) []reference.ReferenceTreeItem {
+func buildLogPayload(nameForLog, idStrForLog, stateStrForLog string, nodeError error, outputData any) map[string]any {
 	if nodeError != nil {
 		kind := "failed"
 		if runner.IsCancellationError(nodeError) {
@@ -141,33 +140,14 @@ func buildLogRefs(nameForLog, idStrForLog, stateStrForLog string, nodeError erro
 				payload["context"] = ctx
 			}
 		}
-
-		mergeFailureOutput := func(src any, skipKey string) {
-			if src == nil {
-				return
-			}
-			if norm, ok := normalizeForLog(src).(map[string]any); ok {
-				for k, v := range norm {
-					if skipKey != "" && k == skipKey {
-						continue
-					}
-					if _, exists := payload[k]; !exists {
-						payload[k] = v
-					}
+		if norm, ok := normalizeForLog(outputData).(map[string]any); ok {
+			for k, v := range norm {
+				if _, exists := payload[k]; !exists {
+					payload[k] = v
 				}
 			}
 		}
-
-		if m, ok := outputData.(map[string]any); ok {
-			if nested, ok := m[nameForLog]; ok {
-				mergeFailureOutput(nested, "")
-			}
-			mergeFailureOutput(m, nameForLog)
-		} else {
-			mergeFailureOutput(outputData, "")
-		}
-		ref := reference.NewReferenceFromInterfaceWithKey(payload, nameForLog)
-		return []reference.ReferenceTreeItem{ref}
+		return payload
 	}
 
 	if outputData != nil {
@@ -178,24 +158,15 @@ func buildLogRefs(nameForLog, idStrForLog, stateStrForLog string, nodeError erro
 				src = nb
 			}
 			if norm, ok := normalizeForLog(src).(map[string]any); ok {
-				r := reference.NewReferenceFromInterfaceWithKey(norm, nameForLog)
-				return []reference.ReferenceTreeItem{r}
+				return norm
 			}
 		}
 	}
 
-	// Fallback minimal payload
-	logData := struct {
-		NodeID string
-		Name   string
-		State  string
-		Error  error
-	}{
-		NodeID: idStrForLog,
-		Name:   nameForLog,
-		State:  stateStrForLog,
-		Error:  nil,
+	return map[string]any{
+		"NodeID": idStrForLog,
+		"Name":   nameForLog,
+		"State":  stateStrForLog,
+		"Error":  nil,
 	}
-	ref := reference.NewReferenceFromInterfaceWithKey(logData, nameForLog)
-	return []reference.ReferenceTreeItem{ref}
 }

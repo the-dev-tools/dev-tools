@@ -375,7 +375,7 @@ func BenchmarkFlowRunAdHoc(b *testing.B) {
 	}
 }
 
-func BenchmarkBuildLogRefs_Error(b *testing.B) {
+func BenchmarkBuildLogPayload_Error(b *testing.B) {
 	b.ReportAllocs()
 	name := "request-1"
 	idStr := idwrap.NewNow().String()
@@ -386,11 +386,11 @@ func BenchmarkBuildLogRefs_Error(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = buildLogRefs(name, idStr, state, err, out)
+		_ = buildLogPayload(name, idStr, state, err, out)
 	}
 }
 
-func BenchmarkBuildLogRefs_OutputMap(b *testing.B) {
+func BenchmarkBuildLogPayload_OutputMap(b *testing.B) {
 	b.ReportAllocs()
 	name := "node-json"
 	idStr := idwrap.NewNow().String()
@@ -411,7 +411,7 @@ func BenchmarkBuildLogRefs_OutputMap(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = buildLogRefs(name, idStr, state, nil, out)
+		_ = buildLogPayload(name, idStr, state, nil, out)
 	}
 }
 

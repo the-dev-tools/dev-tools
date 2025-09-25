@@ -31,7 +31,6 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
@@ -63,141 +62,65 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 )
 
-// childByKey returns the direct map child with the given key.
-func childByKey(r reference.ReferenceTreeItem, key string) (reference.ReferenceTreeItem, bool) {
-	if r.Kind != reference.ReferenceKind_REFERENCE_KIND_MAP {
-		return reference.ReferenceTreeItem{}, false
-	}
-	for _, ch := range r.Map {
-		if ch.Key.Kind == reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY && ch.Key.Key == key {
-			return ch, true
-		}
-	}
-	return reference.ReferenceTreeItem{}, false
-}
-
-// stringValue extracts the Value from a VALUE node.
-func stringValue(r reference.ReferenceTreeItem) (string, bool) {
-	if r.Kind != reference.ReferenceKind_REFERENCE_KIND_VALUE {
-		return "", false
-	}
-	return r.Value, true
-}
-
-func TestBuildLogRefs_ErrorKindClassification(t *testing.T) {
+func TestBuildLogPayload_ErrorKindClassification(t *testing.T) {
 	// Non-cancellation error should be labeled as "failed"
-	refs := buildLogRefs("nodeA", "id-1", "FAILURE", errors.New("boom"), nil)
-	if len(refs) == 0 {
-		t.Fatalf("expected reference items")
-	}
-	root := refs[0]
-	errRef, ok := childByKey(root, "error")
-	if !ok {
-		t.Fatalf("missing error map")
-	}
-	kindRef, ok := childByKey(errRef, "kind")
-	if !ok {
-		t.Fatalf("missing error.kind")
-	}
-	if kind, ok := stringValue(kindRef); !ok || kind != "failed" {
-		t.Fatalf("expected kind 'failed'")
-	}
+	payload := buildLogPayload("nodeA", "id-1", "FAILURE", errors.New("boom"), nil)
+	require.NotNil(t, payload)
+	errMap, ok := payload["error"].(map[string]any)
+	require.True(t, ok, "expected error map")
+	require.Equal(t, "failed", errMap["kind"])
 
 	// Cancellation by throw should be labeled as "canceled"
-	refs = buildLogRefs("nodeB", "id-2", "CANCELED", runner.ErrFlowCanceledByThrow, nil)
-	root = refs[0]
-	errRef, ok = childByKey(root, "error")
-	if !ok {
-		t.Fatalf("missing error map")
-	}
-	kindRef, ok = childByKey(errRef, "kind")
-	if !ok {
-		t.Fatalf("missing error.kind")
-	}
-	if kind, ok := stringValue(kindRef); !ok || kind != "canceled" {
-		t.Fatalf("expected kind 'canceled' for throw")
-	}
+	payload = buildLogPayload("nodeB", "id-2", "CANCELED", runner.ErrFlowCanceledByThrow, nil)
+	require.NotNil(t, payload)
+	errMap, ok = payload["error"].(map[string]any)
+	require.True(t, ok, "expected error map")
+	require.Equal(t, "canceled", errMap["kind"])
 
 	// Context cancellation should be labeled as "canceled"
-	refs = buildLogRefs("nodeC", "id-3", "CANCELED", context.Canceled, nil)
-	root = refs[0]
-	errRef, ok = childByKey(root, "error")
-	if !ok {
-		t.Fatalf("missing error map")
-	}
-	kindRef, ok = childByKey(errRef, "kind")
-	if !ok {
-		t.Fatalf("missing error.kind")
-	}
-	if kind, ok := stringValue(kindRef); !ok || kind != "canceled" {
-		t.Fatalf("expected kind 'canceled' for context cancellation")
-	}
+	payload = buildLogPayload("nodeC", "id-3", "CANCELED", context.Canceled, nil)
+	require.NotNil(t, payload)
+	errMap, ok = payload["error"].(map[string]any)
+	require.True(t, ok, "expected error map")
+	require.Equal(t, "canceled", errMap["kind"])
 }
 
-func TestBuildLogRefs_ErrorIncludesRequestDetails(t *testing.T) {
+func TestBuildLogPayload_ErrorIncludesRequestDetails(t *testing.T) {
 	requestOutput := map[string]any{
-		"Request Node": map[string]any{
-			"request": map[string]any{
-				"method": "POST",
-				"url":    "https://example.test",
-			},
-			"response": map[string]any{
-				"status": float64(500),
-				"body":   "{\"error\":true}",
-			},
+		"request": map[string]any{
+			"method": "POST",
+			"url":    "https://example.test",
+		},
+		"response": map[string]any{
+			"status": float64(500),
+			"body":   "{\"error\":true}",
 		},
 	}
 
-	refs := buildLogRefs("Request Node", "req-1", "FAILURE", errors.New("assertion failed: status == 200"), requestOutput)
-	if len(refs) == 0 {
-		t.Fatalf("expected reference tree with request details")
+	payload := buildLogPayload("Request Node", "req-1", "FAILURE", errors.New("assertion failed: status == 200"), requestOutput)
+	require.NotNil(t, payload)
+
+	requestMap, ok := payload["request"].(map[string]any)
+	require.True(t, ok, "missing request payload in error log")
+	require.Equal(t, "POST", requestMap["method"])
+	require.Equal(t, "https://example.test", requestMap["url"])
+
+	responseMap, ok := payload["response"].(map[string]any)
+	require.True(t, ok, "missing response payload in error log")
+	require.Equal(t, float64(500), responseMap["status"])
+	body, ok := responseMap["body"]
+	require.True(t, ok, "missing response.body in error log")
+	switch v := body.(type) {
+	case string:
+		require.Equal(t, "{\"error\":true}", v)
+	case map[string]any:
+		require.True(t, v["error"].(bool))
+	default:
+		t.Fatalf("unexpected response.body type: %T", body)
 	}
 
-	root := refs[0]
-	requestRef, ok := childByKey(root, "request")
-	if !ok {
-		t.Fatalf("missing request payload in error log")
-	}
-	if requestRef.Kind != reference.ReferenceKind_REFERENCE_KIND_MAP {
-		t.Fatalf("request payload should be a map, got kind %v", requestRef.Kind)
-	}
-
-	methodRef, ok := childByKey(requestRef, "method")
-	if !ok {
-		t.Fatalf("missing request.method entry in error log")
-	}
-	method, ok := stringValue(methodRef)
-	if !ok || method != "POST" {
-		t.Fatalf("expected request.method to be POST, got %q", method)
-	}
-
-	responseRef, ok := childByKey(root, "response")
-	if !ok {
-		t.Fatalf("missing response payload in error log")
-	}
-	if responseRef.Kind != reference.ReferenceKind_REFERENCE_KIND_MAP {
-		t.Fatalf("response payload should be a map, got kind %v", responseRef.Kind)
-	}
-
-	if _, dup := childByKey(root, "Request Node"); dup {
-		t.Fatalf("unexpected duplicate node map in payload: %+v", root)
-	}
-
-	statusRef, ok := childByKey(responseRef, "status")
-	if !ok {
-		t.Fatalf("missing response.status in error log")
-	}
-	if statusRef.Kind != reference.ReferenceKind_REFERENCE_KIND_VALUE {
-		t.Fatalf("response.status should be a value kind, got %v", statusRef.Kind)
-	}
-
-	bodyRef, ok := childByKey(responseRef, "body")
-	if !ok {
-		t.Fatalf("missing response.body in error log")
-	}
-	if bodyRef.Kind != reference.ReferenceKind_REFERENCE_KIND_VALUE && bodyRef.Kind != reference.ReferenceKind_REFERENCE_KIND_MAP {
-		t.Fatalf("response.body should be map or value kind, got %v", bodyRef.Kind)
-	}
+	_, dup := payload["Request Node"]
+	require.False(t, dup, "unexpected duplicate node map in payload: %#v", payload)
 }
 
 func TestBuildLoopNodeExecutionFromStatus(t *testing.T) {

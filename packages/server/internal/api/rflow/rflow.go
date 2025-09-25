@@ -149,13 +149,13 @@ func (p *preRegisteredRequestNode) RunAsync(ctx context.Context, req *node.FlowN
 	p.nodeRequest.RunAsync(ctx, req, resultChan)
 }
 
-// buildLogRefs constructs structured log references for a node state change.
+// buildLogPayload constructs structured log payloads for a node state change.
 // Error-first behavior:
 //   - If nodeError != nil, prefer an error payload with minimal node info and
 //     error { message, kind } and optional failure context keys from outputData.
 //   - Else, if outputData is a map, normalize and render it as-is.
 //   - Else, fall back to a small metadata struct.
-// buildLogRefs moved to logging.go
+// buildLogPayload moved to logging.go
 
 // formatIterationContext renders iteration-aware execution names using label segments.
 func formatIterationContext(ctx *runner.IterationContext, nodeNameMap map[idwrap.IDWrap]string, nodeID idwrap.IDWrap, fallbackName string, isLoopNode bool, executionCount int) string {
@@ -1457,10 +1457,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		if (nameForLog == "" || nameForLog == payload.Name) && payload.Name != "" {
 			nodeExecutionCountsMutex.Lock()
-			if execCount, ok := executionIDToCount[executionID]; ok {
-				nameForLog = fmt.Sprintf("%s - Execution %d", payload.Name, execCount)
+			execCount, ok := executionIDToCount[executionID]
+			if !ok && executionID != (idwrap.IDWrap{}) {
+				execCount = nodeExecutionCounts[payload.NodeID]
 			}
 			nodeExecutionCountsMutex.Unlock()
+			if execCount > 0 {
+				nameForLog = fmt.Sprintf("%s - Execution %d", payload.Name, execCount)
+			}
 		}
 
 		if nameForLog == "" {
@@ -1473,7 +1477,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		stateStrForLog := mnnode.StringNodeState(payload.State)
 		idStrForLog := payload.NodeID.String()
-		refs := buildLogRefs(nameForLog, idStrForLog, stateStrForLog, payload.Error, payload.OutputData)
+		logPayload := buildLogPayload(nameForLog, idStrForLog, stateStrForLog, payload.Error, payload.OutputData)
+		if logPayload == nil {
+			logPayload = map[string]any{}
+		}
+		message := map[string]any{nameForLog: logPayload}
 
 		logLevel := logconsole.LogLevelUnspecified
 		if payload.Error != nil {
@@ -1484,7 +1492,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			return
 		}
 
-		if err := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("%s: %s", nameForLog, stateStrForLog), logLevel, refs); err != nil {
+		if err := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("%s: %s", nameForLog, stateStrForLog), logLevel, message); err != nil {
 			if !channelsClosed.Load() {
 				select {
 				case done <- err:
