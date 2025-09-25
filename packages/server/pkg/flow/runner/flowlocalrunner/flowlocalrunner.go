@@ -779,6 +779,16 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 					status.State = mnnode.NODE_STATE_FAILURE
 				}
 				status.Error = result.err
+				if trackData {
+					if result.outputData != nil {
+						status.OutputData = node.DeepCopyValue(result.outputData)
+					} else {
+						status.OutputData = collectSingleModeOutput(req, status.Name)
+					}
+					if result.inputData != nil {
+						status.InputData = node.DeepCopyValue(result.inputData)
+					}
+				}
 				statusLogFunc(status)
 				lastNodeError = result.err
 				// Trigger cancellation for remaining nodes after reporting this failure
@@ -1095,6 +1105,16 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 					status.State = mnnode.NODE_STATE_FAILURE
 				}
 				status.Error = result.err
+				if trackData {
+					if result.outputData != nil {
+						status.OutputData = node.DeepCopyValue(result.outputData)
+					} else {
+						status.OutputData = collectSingleModeOutput(req, status.Name)
+					}
+					if result.inputData != nil {
+						status.InputData = node.DeepCopyValue(result.inputData)
+					}
+				}
 				statusLogFunc(status)
 				lastNodeError = result.err
 				// Trigger cancellation for remaining nodes after reporting this failure

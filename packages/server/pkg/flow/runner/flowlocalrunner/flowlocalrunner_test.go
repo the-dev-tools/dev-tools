@@ -3,6 +3,7 @@ package flowlocalrunner_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -117,6 +118,40 @@ func (s *stubNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 func (s *stubNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
 	resultChan <- s.RunSync(ctx, req)
+}
+
+type failingNode struct {
+	id     idwrap.IDWrap
+	name   string
+	output map[string]any
+	err    error
+}
+
+func newFailingNode(id idwrap.IDWrap, name string, output map[string]any, err error) *failingNode {
+	return &failingNode{id: id, name: name, output: output, err: err}
+}
+
+func (f *failingNode) GetID() idwrap.IDWrap { return f.id }
+
+func (f *failingNode) GetName() string { return f.name }
+
+func (f *failingNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
+	if f.output != nil {
+		var err error
+		if req.VariableTracker != nil {
+			err = node.WriteNodeVarBulkWithTracking(req, f.name, f.output, req.VariableTracker)
+		} else {
+			err = node.WriteNodeVarBulk(req, f.name, f.output)
+		}
+		if err != nil {
+			return node.FlowNodeResult{Err: err}
+		}
+	}
+	return node.FlowNodeResult{Err: f.err}
+}
+
+func (f *failingNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
+	resultChan <- f.RunSync(ctx, req)
 }
 
 type blockingNode struct {
@@ -278,6 +313,77 @@ func TestFlowLocalRunnerEmitsLogEvents(t *testing.T) {
 	}
 	if flowStatuses[len(flowStatuses)-1] != runner.FlowStatusSuccess {
 		t.Fatalf("expected final flow status Success, got %v", flowStatuses[len(flowStatuses)-1])
+	}
+}
+
+func TestFlowLocalRunnerMultiFailureIncludesOutputData(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	startID := idwrap.NewNow()
+	failID := idwrap.NewNow()
+	failErr := errors.New("boom")
+	outputSnapshot := map[string]any{
+		"request":  map[string]any{"method": "POST", "url": "https://example.test"},
+		"response": map[string]any{"status": float64(500)},
+	}
+
+	start := &stubNode{id: startID, name: "root", next: []idwrap.IDWrap{failID}}
+	failure := newFailingNode(failID, "request_node", outputSnapshot, failErr)
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		startID: start,
+		failID:  failure,
+	}
+
+	edgesMap := edge.EdgesMap{
+		startID: {
+			edge.HandleUnspecified: []idwrap.IDWrap{failID},
+		},
+		failID: {
+			edge.HandleUnspecified: nil,
+		},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), startID, nodeMap, edgesMap, 0, nil)
+	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
+
+	stateChan := make(chan runner.FlowNodeStatus, 8)
+	logChan := make(chan runner.FlowNodeLogPayload, 8)
+
+	err := flowRunner.RunWithEvents(ctx, runner.FlowEventChannels{
+		NodeStates: stateChan,
+		NodeLogs:   logChan,
+	}, map[string]any{})
+	if !errors.Is(err, failErr) {
+		t.Fatalf("expected error %v, got %v", failErr, err)
+	}
+
+	logs := drainLogs(logChan)
+	var failureLog runner.FlowNodeLogPayload
+	for _, entry := range logs {
+		if entry.NodeID == failID && entry.State == mnnode.NODE_STATE_FAILURE {
+			failureLog = entry
+			break
+		}
+	}
+	if failureLog.NodeID == (idwrap.IDWrap{}) {
+		t.Fatalf("did not observe failure log for node %s", failID)
+	}
+
+	outputData, ok := failureLog.OutputData.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map output data, got %T", failureLog.OutputData)
+	}
+	if nested, ok := outputData[failure.GetName()]; ok {
+		if nestedMap, ok := nested.(map[string]any); ok {
+			outputData = nestedMap
+		}
+	}
+	if _, ok := outputData["request"]; !ok {
+		t.Fatalf("expected request payload in output data: %#v", outputData)
+	}
+	if _, ok := outputData["response"]; !ok {
+		t.Fatalf("expected response payload in output data: %#v", outputData)
 	}
 }
 

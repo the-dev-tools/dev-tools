@@ -141,6 +141,31 @@ func buildLogRefs(nameForLog, idStrForLog, stateStrForLog string, nodeError erro
 				payload["context"] = ctx
 			}
 		}
+
+		mergeFailureOutput := func(src any, skipKey string) {
+			if src == nil {
+				return
+			}
+			if norm, ok := normalizeForLog(src).(map[string]any); ok {
+				for k, v := range norm {
+					if skipKey != "" && k == skipKey {
+						continue
+					}
+					if _, exists := payload[k]; !exists {
+						payload[k] = v
+					}
+				}
+			}
+		}
+
+		if m, ok := outputData.(map[string]any); ok {
+			if nested, ok := m[nameForLog]; ok {
+				mergeFailureOutput(nested, "")
+			}
+			mergeFailureOutput(m, nameForLog)
+		} else {
+			mergeFailureOutput(outputData, "")
+		}
 		ref := reference.NewReferenceFromInterfaceWithKey(payload, nameForLog)
 		return []reference.ReferenceTreeItem{ref}
 	}

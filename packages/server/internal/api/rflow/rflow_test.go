@@ -134,6 +134,72 @@ func TestBuildLogRefs_ErrorKindClassification(t *testing.T) {
 	}
 }
 
+func TestBuildLogRefs_ErrorIncludesRequestDetails(t *testing.T) {
+	requestOutput := map[string]any{
+		"Request Node": map[string]any{
+			"request": map[string]any{
+				"method": "POST",
+				"url":    "https://example.test",
+			},
+			"response": map[string]any{
+				"status": float64(500),
+				"body":   "{\"error\":true}",
+			},
+		},
+	}
+
+	refs := buildLogRefs("Request Node", "req-1", "FAILURE", errors.New("assertion failed: status == 200"), requestOutput)
+	if len(refs) == 0 {
+		t.Fatalf("expected reference tree with request details")
+	}
+
+	root := refs[0]
+	requestRef, ok := childByKey(root, "request")
+	if !ok {
+		t.Fatalf("missing request payload in error log")
+	}
+	if requestRef.Kind != reference.ReferenceKind_REFERENCE_KIND_MAP {
+		t.Fatalf("request payload should be a map, got kind %v", requestRef.Kind)
+	}
+
+	methodRef, ok := childByKey(requestRef, "method")
+	if !ok {
+		t.Fatalf("missing request.method entry in error log")
+	}
+	method, ok := stringValue(methodRef)
+	if !ok || method != "POST" {
+		t.Fatalf("expected request.method to be POST, got %q", method)
+	}
+
+	responseRef, ok := childByKey(root, "response")
+	if !ok {
+		t.Fatalf("missing response payload in error log")
+	}
+	if responseRef.Kind != reference.ReferenceKind_REFERENCE_KIND_MAP {
+		t.Fatalf("response payload should be a map, got kind %v", responseRef.Kind)
+	}
+
+	if _, dup := childByKey(root, "Request Node"); dup {
+		t.Fatalf("unexpected duplicate node map in payload: %+v", root)
+	}
+
+	statusRef, ok := childByKey(responseRef, "status")
+	if !ok {
+		t.Fatalf("missing response.status in error log")
+	}
+	if statusRef.Kind != reference.ReferenceKind_REFERENCE_KIND_VALUE {
+		t.Fatalf("response.status should be a value kind, got %v", statusRef.Kind)
+	}
+
+	bodyRef, ok := childByKey(responseRef, "body")
+	if !ok {
+		t.Fatalf("missing response.body in error log")
+	}
+	if bodyRef.Kind != reference.ReferenceKind_REFERENCE_KIND_VALUE && bodyRef.Kind != reference.ReferenceKind_REFERENCE_KIND_MAP {
+		t.Fatalf("response.body should be map or value kind, got %v", bodyRef.Kind)
+	}
+}
+
 func TestBuildLoopNodeExecutionFromStatus(t *testing.T) {
 	loopID := idwrap.NewNow()
 	execID := idwrap.NewNow()
