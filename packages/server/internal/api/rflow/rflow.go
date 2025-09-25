@@ -79,6 +79,8 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/soverlayheader"
+	"the-dev-tools/server/pkg/service/soverlayquery"
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -229,6 +231,8 @@ type FlowServiceRPC struct {
 	es  sitemapiexample.ItemApiExampleService
 	qs  sexamplequery.ExampleQueryService
 	hs  sexampleheader.HeaderService
+	qov *soverlayquery.Service
+	hov *soverlayheader.Service
 
 	// body
 	brs  sbodyraw.BodyRawService
@@ -303,6 +307,14 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 		es:  es,
 		qs:  qs,
 		hs:  hs,
+		qov: func() *soverlayquery.Service {
+			s, _ := soverlayquery.New(db)
+			return s
+		}(),
+		hov: func() *soverlayheader.Service {
+			s, _ := soverlayheader.New(db)
+			return s
+		}(),
 
 		// body
 		brs:  brs,
@@ -399,6 +411,293 @@ func cloneRespHeaders(src []mexamplerespheader.ExampleRespHeader) []mexampleresp
 
 func cloneAsserts(src []massert.Assert) []massert.Assert {
 	return append([]massert.Assert(nil), src...)
+}
+
+const (
+	overlayRefKindOrigin int8 = 1
+	overlayRefKindDelta  int8 = 2
+)
+
+func (c *FlowServiceRPC) applyHeaderOverlay(ctx context.Context, originHeaders []mexampleheader.Header, deltaHeaders []mexampleheader.Header, deltaExampleID idwrap.IDWrap) ([]mexampleheader.Header, error) {
+	if c.hov == nil {
+		return deltaHeaders, nil
+	}
+
+	orderRows, err := c.hov.SelectAsc(ctx, deltaExampleID)
+	if err != nil {
+		return nil, err
+	}
+
+	originByID := make(map[string]mexampleheader.Header, len(originHeaders))
+	for _, header := range originHeaders {
+		originByID[header.ID.String()] = header
+	}
+
+	deltaByID := make(map[string]mexampleheader.Header, len(deltaHeaders))
+	parentToDelta := make(map[string]mexampleheader.Header, len(deltaHeaders))
+	for _, header := range deltaHeaders {
+		deltaByID[header.ID.String()] = header
+		if header.DeltaParentID != nil {
+			parentToDelta[header.DeltaParentID.String()] = header
+		}
+	}
+
+	finalHeaders := make([]mexampleheader.Header, 0, len(deltaHeaders))
+	processed := make(map[string]struct{}, len(deltaHeaders))
+
+	for _, row := range orderRows {
+		refID, convErr := idwrap.NewFromBytes(row.RefID)
+		if convErr != nil {
+			return nil, convErr
+		}
+
+		switch row.RefKind {
+		case overlayRefKindOrigin:
+			header, exists := parentToDelta[refID.String()]
+			if !exists {
+				if originHeader, ok := originByID[refID.String()]; ok {
+					header = originHeader
+					header.ID = refID
+					parent := refID
+					header.DeltaParentID = &parent
+					header.ExampleID = deltaExampleID
+				} else {
+					continue
+				}
+			}
+
+			stateRow, hasState, stateErr := c.hov.GetState(ctx, deltaExampleID, refID)
+			if stateErr != nil {
+				return nil, stateErr
+			}
+			if hasState {
+				if stateRow.Suppressed {
+					processed[header.ID.String()] = struct{}{}
+					continue
+				}
+				if stateRow.Key.Valid {
+					header.HeaderKey = stateRow.Key.String
+				}
+				if stateRow.Val.Valid {
+					header.Value = stateRow.Val.String
+				}
+				if stateRow.Desc.Valid {
+					header.Description = stateRow.Desc.String
+				}
+				if stateRow.Enabled.Valid {
+					header.Enable = stateRow.Enabled.Bool
+				}
+			}
+
+			finalHeaders = append(finalHeaders, header)
+			processed[header.ID.String()] = struct{}{}
+
+		case overlayRefKindDelta:
+			existing, exists := deltaByID[refID.String()]
+			key, value, desc, enabled, found, deltaErr := c.hov.GetDelta(ctx, deltaExampleID, refID)
+			if deltaErr != nil {
+				return nil, deltaErr
+			}
+			if !found {
+				continue
+			}
+
+			if exists {
+				existing.HeaderKey = key
+				existing.Value = value
+				existing.Description = desc
+				existing.Enable = enabled
+				existing.DeltaParentID = nil
+				finalHeaders = append(finalHeaders, existing)
+				processed[existing.ID.String()] = struct{}{}
+				continue
+			}
+
+			deltaHeader := mexampleheader.Header{
+				ID:          refID,
+				ExampleID:   deltaExampleID,
+				HeaderKey:   key,
+				Value:       value,
+				Description: desc,
+				Enable:      enabled,
+			}
+			finalHeaders = append(finalHeaders, deltaHeader)
+			processed[deltaHeader.ID.String()] = struct{}{}
+		}
+	}
+
+	for _, header := range deltaHeaders {
+		if _, seen := processed[header.ID.String()]; seen {
+			continue
+		}
+		if header.DeltaParentID != nil {
+			stateRow, hasState, stateErr := c.hov.GetState(ctx, deltaExampleID, *header.DeltaParentID)
+			if stateErr != nil {
+				return nil, stateErr
+			}
+			if hasState {
+				if stateRow.Suppressed {
+					continue
+				}
+				if stateRow.Key.Valid {
+					header.HeaderKey = stateRow.Key.String
+				}
+				if stateRow.Val.Valid {
+					header.Value = stateRow.Val.String
+				}
+				if stateRow.Desc.Valid {
+					header.Description = stateRow.Desc.String
+				}
+				if stateRow.Enabled.Valid {
+					header.Enable = stateRow.Enabled.Bool
+				}
+			}
+		}
+		finalHeaders = append(finalHeaders, header)
+	}
+
+	return finalHeaders, nil
+}
+
+func (c *FlowServiceRPC) applyQueryOverlay(ctx context.Context, originQueries []mexamplequery.Query, deltaQueries []mexamplequery.Query, deltaExampleID idwrap.IDWrap) ([]mexamplequery.Query, error) {
+	if c.qov == nil {
+		return deltaQueries, nil
+	}
+
+	orderRows, err := c.qov.SelectAsc(ctx, deltaExampleID)
+	if err != nil {
+		return nil, err
+	}
+
+	originByID := make(map[string]mexamplequery.Query, len(originQueries))
+	for _, query := range originQueries {
+		originByID[query.ID.String()] = query
+	}
+
+	deltaByID := make(map[string]mexamplequery.Query, len(deltaQueries))
+	parentToDelta := make(map[string]mexamplequery.Query, len(deltaQueries))
+	for _, query := range deltaQueries {
+		deltaByID[query.ID.String()] = query
+		if query.DeltaParentID != nil {
+			parentToDelta[query.DeltaParentID.String()] = query
+		}
+	}
+
+	finalQueries := make([]mexamplequery.Query, 0, len(deltaQueries))
+	processed := make(map[string]struct{}, len(deltaQueries))
+
+	for _, row := range orderRows {
+		refID, convErr := idwrap.NewFromBytes(row.RefID)
+		if convErr != nil {
+			return nil, convErr
+		}
+
+		switch row.RefKind {
+		case overlayRefKindOrigin:
+			query, exists := parentToDelta[refID.String()]
+			if !exists {
+				if originQuery, ok := originByID[refID.String()]; ok {
+					query = originQuery
+					query.ID = refID
+					parent := refID
+					query.DeltaParentID = &parent
+					query.ExampleID = deltaExampleID
+				} else {
+					continue
+				}
+			}
+
+			stateRow, hasState, stateErr := c.qov.GetState(ctx, deltaExampleID, refID)
+			if stateErr != nil {
+				return nil, stateErr
+			}
+			if hasState {
+				if stateRow.Suppressed {
+					processed[query.ID.String()] = struct{}{}
+					continue
+				}
+				if stateRow.Key.Valid {
+					query.QueryKey = stateRow.Key.String
+				}
+				if stateRow.Val.Valid {
+					query.Value = stateRow.Val.String
+				}
+				if stateRow.Desc.Valid {
+					query.Description = stateRow.Desc.String
+				}
+				if stateRow.Enabled.Valid {
+					query.Enable = stateRow.Enabled.Bool
+				}
+			}
+
+			finalQueries = append(finalQueries, query)
+			processed[query.ID.String()] = struct{}{}
+
+		case overlayRefKindDelta:
+			existing, exists := deltaByID[refID.String()]
+			key, value, desc, enabled, found, deltaErr := c.qov.GetDelta(ctx, deltaExampleID, refID)
+			if deltaErr != nil {
+				return nil, deltaErr
+			}
+			if !found {
+				continue
+			}
+
+			if exists {
+				existing.QueryKey = key
+				existing.Value = value
+				existing.Description = desc
+				existing.Enable = enabled
+				existing.DeltaParentID = nil
+				finalQueries = append(finalQueries, existing)
+				processed[existing.ID.String()] = struct{}{}
+				continue
+			}
+
+			deltaQuery := mexamplequery.Query{
+				ID:          refID,
+				ExampleID:   deltaExampleID,
+				QueryKey:    key,
+				Value:       value,
+				Description: desc,
+				Enable:      enabled,
+			}
+			finalQueries = append(finalQueries, deltaQuery)
+			processed[deltaQuery.ID.String()] = struct{}{}
+		}
+	}
+
+	for _, query := range deltaQueries {
+		if _, seen := processed[query.ID.String()]; seen {
+			continue
+		}
+		if query.DeltaParentID != nil {
+			stateRow, hasState, stateErr := c.qov.GetState(ctx, deltaExampleID, *query.DeltaParentID)
+			if stateErr != nil {
+				return nil, stateErr
+			}
+			if hasState {
+				if stateRow.Suppressed {
+					continue
+				}
+				if stateRow.Key.Valid {
+					query.QueryKey = stateRow.Key.String
+				}
+				if stateRow.Val.Valid {
+					query.Value = stateRow.Val.String
+				}
+				if stateRow.Desc.Valid {
+					query.Description = stateRow.Desc.String
+				}
+				if stateRow.Enabled.Valid {
+					query.Enable = stateRow.Enabled.Bool
+				}
+			}
+		}
+		finalQueries = append(finalQueries, query)
+	}
+
+	return finalQueries, nil
 }
 
 func (c *FlowServiceRPC) loadItemApi(ctx context.Context, id idwrap.IDWrap) (*mitemapi.ItemApi, error) {
@@ -1223,12 +1522,22 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				return connect.NewError(connect.CodeInternal, err)
 			}
 			deltaHeaders := cloneHeaders(deltaHeadersData)
+			if updated, overlayErr := c.applyHeaderOverlay(ctx, headers, deltaHeaders, deltaExample.ID); overlayErr != nil {
+				return connect.NewError(connect.CodeInternal, overlayErr)
+			} else {
+				deltaHeaders = updated
+			}
 
 			deltaQueriesData, err := c.loadQueries(ctx, deltaExample.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, err)
 			}
 			deltaQueries := cloneQueries(deltaQueriesData)
+			if updated, overlayErr := c.applyQueryOverlay(ctx, queries, deltaQueries, deltaExample.ID); overlayErr != nil {
+				return connect.NewError(connect.CodeInternal, overlayErr)
+			} else {
+				deltaQueries = updated
+			}
 
 			rawDeltaModel, err := c.loadBodyRaw(ctx, deltaExample.ID)
 			var rawBodyDelta *mbodyraw.ExampleBodyRaw
