@@ -10,20 +10,29 @@ import (
 	"the-dev-tools/server/pkg/service/soverlayquery"
 )
 
+// Package merge provides a thin facade over overlay order/state/delta services so
+// callers can request merged views without duplicating the wiring logic.
+
 const (
 	refKindOrigin int8 = 1
 	refKindDelta  int8 = 2
 )
 
+// Manager exposes helpers for merging overlay data with origin records.
 type Manager struct {
 	header *soverlayheader.Service
 	query  *soverlayquery.Service
 }
 
+// New wires overlay services into a Manager facade. Services may be nil when a
+// given family is unsupported in the current environment.
 func New(header *soverlayheader.Service, query *soverlayquery.Service) *Manager {
 	return &Manager{header: header, query: query}
 }
 
+// MergeHeaders folds overlay order/state/delta entries into the provided delta
+// headers, returning the slice that should represent the effective state for
+// the given delta example.
 func (m *Manager) MergeHeaders(ctx context.Context, originHeaders []mexampleheader.Header, deltaHeaders []mexampleheader.Header, deltaExampleID idwrap.IDWrap) ([]mexampleheader.Header, error) {
 	if m == nil || m.header == nil {
 		return deltaHeaders, nil
@@ -165,6 +174,7 @@ func (m *Manager) MergeHeaders(ctx context.Context, originHeaders []mexamplehead
 	return finalHeaders, nil
 }
 
+// MergeQueries mirrors MergeHeaders but for example queries.
 func (m *Manager) MergeQueries(ctx context.Context, originQueries []mexamplequery.Query, deltaQueries []mexamplequery.Query, deltaExampleID idwrap.IDWrap) ([]mexamplequery.Query, error) {
 	if m == nil || m.query == nil {
 		return deltaQueries, nil
