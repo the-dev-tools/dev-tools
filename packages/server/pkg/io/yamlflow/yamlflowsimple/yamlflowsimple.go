@@ -933,6 +933,17 @@ func processNameValuePairsForExamples(
 	appendFunc func(interface{}),
 	data *YamlFlowData,
 ) {
+	getID := func(item interface{}) idwrap.IDWrap {
+		switch v := item.(type) {
+		case mexampleheader.Header:
+			return v.ID
+		case mexamplequery.Query:
+			return v.ID
+		default:
+			return idwrap.IDWrap{}
+		}
+	}
+
 	if usingTemplate {
 		templateMap := convertToNameValueMap(templatePairs)
 		overrideMap := convertToNameValueMap(overridePairs)
@@ -945,23 +956,21 @@ func processNameValuePairsForExamples(
 			// Base item
 			baseItem := createFunc(name, templateValue, idwrap.NewNow(), exampleID, nil)
 			appendFunc(baseItem)
+			baseID := getID(baseItem)
 
 			// Default item with resolved value
 			resolvedValue, _ := varMap.ReplaceVars(templateValue)
 			defaultItem := createFunc(name, resolvedValue, idwrap.NewNow(), defaultExampleID, nil)
 			appendFunc(defaultItem)
+			defaultID := getID(defaultItem)
+			if baseID == (idwrap.IDWrap{}) {
+				// Fallback to default ID if we couldn't detect the base ID type
+				baseID = defaultID
+			}
 
 			// Check if overridden
 			if overrideValue, isOverridden := overrideMap[name]; isOverridden {
-				// Need to get ID from the actual type
-				var defaultID idwrap.IDWrap
-				switch v := defaultItem.(type) {
-				case mexampleheader.Header:
-					defaultID = v.ID
-				case mexamplequery.Query:
-					defaultID = v.ID
-				}
-				deltaItem := createFunc(name, overrideValue, idwrap.NewNow(), deltaExampleID, &defaultID)
+				deltaItem := createFunc(name, overrideValue, idwrap.NewNow(), deltaExampleID, &baseID)
 				appendFunc(deltaItem)
 			}
 		}
@@ -972,21 +981,19 @@ func processNameValuePairsForExamples(
 				// Base item
 				baseItem := createFunc(name, overrideValue, idwrap.NewNow(), exampleID, nil)
 				appendFunc(baseItem)
+				baseID := getID(baseItem)
 
 				// Default item
 				resolvedValue, _ := varMap.ReplaceVars(overrideValue)
 				defaultItem := createFunc(name, resolvedValue, idwrap.NewNow(), defaultExampleID, nil)
 				appendFunc(defaultItem)
+				defaultID := getID(defaultItem)
+				if baseID == (idwrap.IDWrap{}) {
+					baseID = defaultID
+				}
 
 				// Delta item
-				var defaultID idwrap.IDWrap
-				switch v := defaultItem.(type) {
-				case mexampleheader.Header:
-					defaultID = v.ID
-				case mexamplequery.Query:
-					defaultID = v.ID
-				}
-				deltaItem := createFunc(name, overrideValue, idwrap.NewNow(), deltaExampleID, &defaultID)
+				deltaItem := createFunc(name, overrideValue, idwrap.NewNow(), deltaExampleID, &baseID)
 				appendFunc(deltaItem)
 			}
 		}
@@ -997,22 +1004,20 @@ func processNameValuePairsForExamples(
 			// Base item
 			baseItem := createFunc(name, value, idwrap.NewNow(), exampleID, nil)
 			appendFunc(baseItem)
+			baseID := getID(baseItem)
 
 			// Default item
 			resolvedValue, _ := varMap.ReplaceVars(value)
 			defaultItem := createFunc(name, resolvedValue, idwrap.NewNow(), defaultExampleID, nil)
 			appendFunc(defaultItem)
+			defaultID := getID(defaultItem)
+			if baseID == (idwrap.IDWrap{}) {
+				baseID = defaultID
+			}
 
 			// Delta item if has variables
 			if varsystem.CheckStringHasAnyVarKey(value) {
-				var defaultID idwrap.IDWrap
-				switch v := defaultItem.(type) {
-				case mexampleheader.Header:
-					defaultID = v.ID
-				case mexamplequery.Query:
-					defaultID = v.ID
-				}
-				deltaItem := createFunc(name, value, idwrap.NewNow(), deltaExampleID, &defaultID)
+				deltaItem := createFunc(name, value, idwrap.NewNow(), deltaExampleID, &baseID)
 				appendFunc(deltaItem)
 			}
 		}
