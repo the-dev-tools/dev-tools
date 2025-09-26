@@ -171,6 +171,11 @@ func IsFileReference(key string) bool {
 	return strings.HasPrefix(strings.TrimSpace(key), "#file:")
 }
 
+// IsEnvReference checks if a variable key refers to an environment variable (starts with "#env:")
+func IsEnvReference(key string) bool {
+	return strings.HasPrefix(strings.TrimSpace(key), "#env:")
+}
+
 // VarMapTracker wraps a VarMap and tracks variable reads
 type VarMapTracker struct {
 	VarMap   VarMap
@@ -227,14 +232,25 @@ func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 			// Track file reference read
 			vmt.ReadVars[key] = fileContent
 			result += raw[:startIndex] + fileContent
+		} else if IsEnvReference(key) {
+			envValue, err := ReadEnvValueAsString(key)
+			if err != nil {
+				return "", err
+			}
+			vmt.ReadVars[key] = envValue
+			result += raw[:startIndex] + envValue
 		} else {
 			val, ok := vmt.VarMap.Get(key)
 			if !ok {
 				return "", fmt.Errorf("%s %v", key, ErrKeyNotFound)
 			}
 			// Track variable read
-			vmt.ReadVars[key] = val.Value
-			result += raw[:startIndex] + val.Value
+			value, err := resolveIndirectValue(val.Value)
+			if err != nil {
+				return "", err
+			}
+			vmt.ReadVars[key] = value
+			result += raw[:startIndex] + value
 		}
 
 		raw = raw[startIndex+len(rawVar):]
@@ -264,6 +280,19 @@ func ReadFileContentAsString(filePath string) (string, error) {
 func GetIsFileReferencePath(filePath string) string {
 	path := strings.TrimPrefix(strings.TrimSpace(filePath), "#file:")
 	return path
+}
+
+// ReadEnvValueAsString resolves a #env: reference to its environment value.
+func ReadEnvValueAsString(ref string) (string, error) {
+	name := strings.TrimPrefix(strings.TrimSpace(ref), "#env:")
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", fmt.Errorf("invalid environment reference")
+	}
+	if value, ok := os.LookupEnv(name); ok {
+		return value, nil
+	}
+	return "", fmt.Errorf("environment variable %s: %w", name, ErrKeyNotFound)
 }
 
 // Get {{ url }}/api/{{ version }}/path or {{url}}/api/{{version}}/path
@@ -298,16 +327,34 @@ func (vm VarMap) ReplaceVars(raw string) (string, error) {
 				return "", err
 			}
 			result += raw[:startIndex] + fileContent
+		} else if IsEnvReference(key) {
+			envValue, err := ReadEnvValueAsString(key)
+			if err != nil {
+				return "", err
+			}
+			result += raw[:startIndex] + envValue
 		} else {
 			val, ok := vm.Get(key)
 			if !ok {
 				return "", fmt.Errorf("%s %v", key, ErrKeyNotFound)
 			}
-			result += raw[:startIndex] + val.Value
+			value, err := resolveIndirectValue(val.Value)
+			if err != nil {
+				return "", err
+			}
+			result += raw[:startIndex] + value
 		}
 
 		raw = raw[startIndex+len(rawVar):]
 	}
 
 	return result, nil
+}
+
+func resolveIndirectValue(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if IsEnvReference(trimmed) {
+		return ReadEnvValueAsString(trimmed)
+	}
+	return value, nil
 }

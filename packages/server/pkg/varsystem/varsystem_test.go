@@ -1,9 +1,11 @@
 package varsystem_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"testing"
+
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
@@ -208,5 +210,82 @@ func TestFileReferenceReplace(t *testing.T) {
 
 	if result != expected {
 		t.Errorf("Expected: %q, got: %q", expected, result)
+	}
+}
+
+func TestEnvReferenceReplace(t *testing.T) {
+	const envKey = "VARSYSTEM_TEST_ENV"
+	const envValue = "env-value"
+	prevValue, had := os.LookupEnv(envKey)
+	if err := os.Setenv(envKey, envValue); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+	defer func() {
+		if had {
+			_ = os.Setenv(envKey, prevValue)
+		} else {
+			_ = os.Unsetenv(envKey)
+		}
+	}()
+
+	input := fmt.Sprintf("Value: {{#env:%s}}", envKey)
+	expected := fmt.Sprintf("Value: %s", envValue)
+
+	result, err := varsystem.VarMap{}.ReplaceVars(input)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != expected {
+		t.Fatalf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestEnvReferenceReplaceFromVar(t *testing.T) {
+	const envKey = "VARSYSTEM_TEST_ENV_VAR"
+	const envValue = "env-value-var"
+	prevValue, had := os.LookupEnv(envKey)
+	if err := os.Setenv(envKey, envValue); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+	defer func() {
+		if had {
+			_ = os.Setenv(envKey, prevValue)
+		} else {
+			_ = os.Unsetenv(envKey)
+		}
+	}()
+
+	vars := varsystem.NewVarMap([]mvar.Var{
+		{VarKey: "token", Value: "#env:" + envKey},
+	})
+
+	result, err := vars.ReplaceVars("Bearer {{token}}")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != "Bearer "+envValue {
+		t.Fatalf("expected %q, got %q", "Bearer "+envValue, result)
+	}
+}
+
+func TestEnvReferenceMissing(t *testing.T) {
+	const envKey = "VARSYSTEM_TEST_MISSING_ENV"
+	_ = os.Unsetenv(envKey)
+
+	_, err := varsystem.VarMap{}.ReplaceVars(fmt.Sprintf("{{#env:%s}}", envKey))
+	if err == nil {
+		t.Fatalf("expected error for missing env")
+	}
+	if !errors.Is(err, varsystem.ErrKeyNotFound) {
+		t.Fatalf("expected ErrKeyNotFound, got %v", err)
+	}
+
+	vars := varsystem.NewVarMap([]mvar.Var{{VarKey: "token", Value: "#env:" + envKey}})
+	_, err = vars.ReplaceVars("{{token}}")
+	if err == nil {
+		t.Fatalf("expected error for missing env in var map")
+	}
+	if !errors.Is(err, varsystem.ErrKeyNotFound) {
+		t.Fatalf("expected ErrKeyNotFound, got %v", err)
 	}
 }

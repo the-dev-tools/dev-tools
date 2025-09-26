@@ -81,9 +81,12 @@ type FlowServiceLocal struct {
 	ws sworkspace.WorkspaceService
 
 	// flow
-	fs  sflow.FlowService
-	fes sedge.EdgeService
-	fvs sflowvariable.FlowVariableService
+	fs           sflow.FlowService
+	fes          sedge.EdgeService
+	fvs          sflowvariable.FlowVariableService
+	envs         senv.EnvironmentService
+	vars         svar.VarService
+	envOverrides map[string]string
 
 	// request
 	ias sitemapi.ItemApiService
@@ -167,6 +170,11 @@ var yamlflowRunCmd = &cobra.Command{
 		fileData, err := os.ReadFile(yamlflowFilePath)
 		if err != nil {
 			return err
+		}
+
+		envOverrides, err := parseEnvOverrides(fileData)
+		if err != nil {
+			return fmt.Errorf("failed to parse env overrides: %w", err)
 		}
 
 		// Check if flow name was provided as argument
@@ -295,30 +303,33 @@ var yamlflowRunCmd = &cobra.Command{
 		logMap := logconsole.NewLogChanMap()
 
 		flowServiceLocal := FlowServiceLocal{
-			DB:         db,
-			ws:         workspaceService,
-			fs:         flowService,
-			fes:        flowEdges,
-			fvs:        flowVariableService,
-			ias:        endpointService,
-			es:         exampleService,
-			qs:         exampleQueryService,
-			hs:         exampleHeaderService,
-			brs:        rawBodyService,
-			bfs:        formBodyService,
-			bues:       urlBodyService,
-			ers:        responseService,
-			erhs:       responseHeaderService,
-			as:         exampleAssertService,
-			ars:        responseAssertService,
-			ns:         flowNodeService,
-			rns:        flowRequestService,
-			fns:        flowForService,
-			fens:       flowForEachService,
-			sns:        flowNoopService,
-			ins:        *flowConditionService,
-			jsns:       flowJSService,
-			logChanMap: logMap,
+			DB:           db,
+			ws:           workspaceService,
+			fs:           flowService,
+			fes:          flowEdges,
+			fvs:          flowVariableService,
+			envs:         envService,
+			vars:         varService,
+			envOverrides: envOverrides,
+			ias:          endpointService,
+			es:           exampleService,
+			qs:           exampleQueryService,
+			hs:           exampleHeaderService,
+			brs:          rawBodyService,
+			bfs:          formBodyService,
+			bues:         urlBodyService,
+			ers:          responseService,
+			erhs:         responseHeaderService,
+			as:           exampleAssertService,
+			ars:          responseAssertService,
+			ns:           flowNodeService,
+			rns:          flowRequestService,
+			fns:          flowForService,
+			fens:         flowForEachService,
+			sns:          flowNoopService,
+			ins:          *flowConditionService,
+			jsns:         flowJSService,
+			logChanMap:   logMap,
 		}
 
 		// Import the workspace data
@@ -392,6 +403,201 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%.2fm", d.Minutes())
 	}
 	return fmt.Sprintf("%.2fh", d.Hours())
+}
+
+func (c FlowServiceLocal) resolveEnvironmentVariables(ctx context.Context, workspaceID idwrap.IDWrap) (map[string]string, error) {
+	result := make(map[string]string)
+
+	lookup := func(name string) (string, bool) {
+		if name == "" {
+			return "", false
+		}
+		val, ok := os.LookupEnv(name)
+		return val, ok
+	}
+
+	envs, err := c.envs.GetEnvironmentsByWorkspaceIDOrdered(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	for _, env := range envs {
+		vars, err := c.vars.GetVariablesByEnvIDOrdered(ctx, env.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range vars {
+			override := ""
+			if c.envOverrides != nil {
+				override = c.envOverrides[v.VarKey]
+			}
+			value := resolveEnvVariableValue(v.VarKey, override, v.Value, lookup)
+			result[v.VarKey] = value
+		}
+	}
+
+	if c.envOverrides != nil {
+		for key, override := range c.envOverrides {
+			if _, exists := result[key]; exists {
+				continue
+			}
+			result[key] = resolveEnvVariableValue(key, override, "", lookup)
+		}
+	}
+
+	return result, nil
+}
+
+func resolveEnvVariableValue(key, override, existing string, lookup func(string) (string, bool)) string {
+	if name, ok := extractEnvReferenceName(override); ok {
+		if val, found := lookup(name); found {
+			return val
+		}
+		if existing != "" {
+			return resolveEnvVariableValue("", "", existing, lookup)
+		}
+		if val, found := lookup(key); found {
+			return val
+		}
+		return ""
+	}
+
+	if strings.TrimSpace(override) != "" {
+		return override
+	}
+
+	if name, ok := extractEnvReferenceName(existing); ok {
+		if val, found := lookup(name); found {
+			return val
+		}
+		if val, found := lookup(key); found {
+			return val
+		}
+		return ""
+	}
+
+	if strings.TrimSpace(existing) != "" {
+		return existing
+	}
+
+	if val, found := lookup(key); found {
+		return val
+	}
+
+	return ""
+}
+
+func extractEnvReferenceName(raw string) (string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", false
+	}
+
+	if strings.HasPrefix(trimmed, "#env:") {
+		name := strings.TrimSpace(trimmed[len("#env:"):])
+		if name == "" {
+			return "", false
+		}
+		return name, true
+	}
+
+	if strings.HasPrefix(trimmed, "${{") && strings.HasSuffix(trimmed, "}}") {
+		inner := strings.TrimSpace(trimmed[3 : len(trimmed)-2])
+		return simplifyEnvReference(inner)
+	}
+
+	if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") {
+		inner := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
+		return simplifyEnvReference(inner)
+	}
+
+	if strings.HasPrefix(trimmed, "${") && strings.HasSuffix(trimmed, "}") {
+		inner := strings.TrimSpace(trimmed[2 : len(trimmed)-1])
+		return simplifyEnvReference(inner)
+	}
+
+	if strings.HasPrefix(trimmed, "$") {
+		inner := strings.TrimSpace(trimmed[1:])
+		return simplifyEnvReference(inner)
+	}
+
+	return "", false
+}
+
+func simplifyEnvReference(inner string) (string, bool) {
+	inner = strings.TrimSpace(inner)
+	if inner == "" {
+		return "", false
+	}
+	if idx := strings.LastIndex(inner, "."); idx >= 0 {
+		inner = inner[idx+1:]
+	}
+	if idx := strings.Index(inner, "::"); idx >= 0 {
+		inner = inner[:idx]
+	}
+	if idx := strings.Index(inner, ":-"); idx >= 0 {
+		inner = inner[:idx]
+	}
+	for i, r := range inner {
+		if !(r == '_' || r == '-' || r == '.' || (r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z')) {
+			inner = inner[:i]
+			break
+		}
+	}
+	inner = strings.TrimSpace(inner)
+	if inner == "" {
+		return "", false
+	}
+	return inner, true
+}
+
+func parseEnvOverrides(data []byte) (map[string]string, error) {
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+
+	section, ok := raw["env"]
+	if !ok {
+		return nil, nil
+	}
+
+	entries, ok := section.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("env section must be a mapping")
+	}
+
+	result := make(map[string]string, len(entries))
+	for key, val := range entries {
+		name := strings.TrimSpace(key)
+		if name == "" {
+			continue
+		}
+		switch typed := val.(type) {
+		case string:
+			result[name] = normalizeEnvValue(typed)
+		case nil:
+			result[name] = ""
+		default:
+			result[name] = normalizeEnvValue(fmt.Sprintf("%v", typed))
+		}
+	}
+
+	if len(result) == 0 {
+		return nil, nil
+	}
+
+	return result, nil
+}
+
+func normalizeEnvValue(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if name, ok := extractEnvReferenceName(trimmed); ok {
+		return "#env:" + name
+	}
+	return raw
 }
 
 // runMultipleFlows executes multiple flows based on the run field configuration

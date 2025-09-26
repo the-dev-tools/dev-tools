@@ -1,7 +1,9 @@
 package varsystem_test
 
 import (
+	"os"
 	"testing"
+
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 )
@@ -204,5 +206,39 @@ func TestVarMapTracker_GetReadVars_IsolatedCopy(t *testing.T) {
 	readVars3 := tracker.GetReadVars()
 	if readVars3["token"] != "abc123" {
 		t.Errorf("Expected tracker internal state to be unaffected, got '%s'", readVars3["token"])
+	}
+}
+
+func TestVarMapTracker_ReplaceVars_EnvReference(t *testing.T) {
+	const envKey = "VARSYSTEM_TRACKER_ENV"
+	const envValue = "tracker-env-value"
+	prevValue, had := os.LookupEnv(envKey)
+	if err := os.Setenv(envKey, envValue); err != nil {
+		t.Fatalf("failed to set env: %v", err)
+	}
+	defer func() {
+		if had {
+			_ = os.Setenv(envKey, prevValue)
+		} else {
+			_ = os.Unsetenv(envKey)
+		}
+	}()
+
+	vars := []mvar.Var{
+		{VarKey: "token", Value: "#env:" + envKey},
+	}
+	tracker := varsystem.NewVarMapTracker(varsystem.NewVarMap(vars))
+
+	result, err := tracker.ReplaceVars("Bearer {{token}}")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result != "Bearer "+envValue {
+		t.Fatalf("expected %q, got %q", "Bearer "+envValue, result)
+	}
+
+	readVars := tracker.GetReadVars()
+	if readVars["token"] != envValue {
+		t.Fatalf("expected tracked value %q, got %q", envValue, readVars["token"])
 	}
 }
