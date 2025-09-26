@@ -34,16 +34,16 @@ Workspace environments travel with the exported data, but CI pipelines often nee
 
 ```yaml
 env:
-  LOGIN_EMAIL: "#env:LOGIN_EMAIL"
-  LOGIN_PASSWORD: "#env:LOGIN_PASSWORD"
+  LOGIN_EMAIL: '#env:LOGIN_EMAIL'
+  LOGIN_PASSWORD: '#env:LOGIN_PASSWORD'
 ```
 
 `#env:NAME` instructs the CLI to read the process environment (`os.Getenv("NAME")`). If the variable is missing, the CLI falls back to whatever value is stored in the workspace. You can mix literal fallbacks and template references:
 
 ```yaml
 env:
-  API_KEY: "plain-text-fallback"
-  API_SECRET: "{{ secrets.MY_SECRET }}"
+  API_KEY: 'plain-text-fallback'
+  API_SECRET: '{{ secrets.MY_SECRET }}'
 ```
 
 The importer normalises `${{ secrets.MY_SECRET }}` (and other `$` forms) to `#env:MY_SECRET`, so in GitHub Actions you can expose secrets with:
@@ -106,4 +106,3 @@ jobs:
 ## Getting Help
 
 For bugs or feature requests file an issue on GitHub with the CLI version (`devtoolscli version`), the flow snippet that fails, and the console report. Pull requests are welcome; consult `docs/CONTRIBUTING.md` for coding standards and testing expectations. The CLI lives under `apps/cli/`; tests are in `apps/cli/cmd` and sample flows in `apps/cli/test/yamlflow/`.
-
