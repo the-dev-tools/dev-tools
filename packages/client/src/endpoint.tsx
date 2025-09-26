@@ -344,7 +344,7 @@ export const useEndpointUrlForm = ({
     deltaExampleId ? { exampleId: deltaExampleId, originId: exampleId } : null,
   );
 
-  const method = deltaEndpoint?.method ?? endpoint.method;
+  const method = deltaEndpoint?.method?.trim() ? deltaEndpoint.method : endpoint.method;
   const queries: GenericMessage<QueryDeltaListItem>[] = deltaQueryList.items ?? queryList.items;
 
   const url = useEndpointUrl({ deltaEndpointId, deltaExampleId, endpointId, exampleId });
