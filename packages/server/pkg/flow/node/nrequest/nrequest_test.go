@@ -1,11 +1,26 @@
 package nrequest
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"net/http"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
+
+	"the-dev-tools/server/pkg/flow/edge"
+	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/massert"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/mexampleresp"
+	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
 )
 
 func legacyBuildNodeRequestOutputMap(output NodeRequestOutput) (map[string]any, error) {
@@ -73,5 +88,67 @@ func BenchmarkNewBuildNodeRequestOutputMap(b *testing.B) {
 		if result := buildNodeRequestOutputMap(output); len(result) == 0 {
 			b.Fatalf("builder returned empty map")
 		}
+	}
+}
+
+type stubHTTPClient struct{}
+
+func (stubHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader("{}")),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}, nil
+}
+
+func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
+	nodeID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	endpoint := mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "req", Url: "https://example.dev", Method: "GET"}
+	example := mitemapiexample.ItemApiExample{ID: exampleID, ItemApiID: endpoint.ID, Name: "req"}
+	rawBody := mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: example.ID, Data: []byte("{}")}
+	exampleResp := mexampleresp.ExampleResp{ID: idwrap.NewNow(), ExampleID: example.ID}
+	asserts := []massert.Assert{
+		{
+			ID:        idwrap.NewNow(),
+			ExampleID: example.ID,
+			Enable:    true,
+			Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "response.status == 205"}},
+		},
+	}
+
+	respChan := make(chan NodeRequestSideResp, 1)
+	requestNode := New(
+		nodeID,
+		"req",
+		endpoint,
+		example,
+		nil,
+		nil,
+		rawBody,
+		nil,
+		nil,
+		exampleResp,
+		nil,
+		asserts,
+		stubHTTPClient{},
+		respChan,
+		nil,
+	)
+
+	req := &node.FlowNodeRequest{
+		VarMap:        map[string]any{},
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
+		EdgeSourceMap: edge.EdgesMap{},
+		ExecutionID:   idwrap.NewNow(),
+	}
+
+	result := requestNode.RunSync(context.Background(), req)
+	if result.Err == nil {
+		t.Fatalf("expected assertion failure, got nil error")
+	}
+	if !strings.Contains(result.Err.Error(), "assertion failed") {
+		t.Fatalf("expected assertion failure message, got %v", result.Err)
 	}
 }
