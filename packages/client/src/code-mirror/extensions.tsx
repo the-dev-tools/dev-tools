@@ -16,7 +16,7 @@ import {
   LRLanguage,
   syntaxHighlighting,
 } from '@codemirror/language';
-import { ChangeSpec, EditorSelection, EditorState, Extension, Text } from '@codemirror/state';
+import { ChangeSpec, EditorSelection, EditorState, Extension, Prec, Text } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { Client } from '@connectrpc/connect';
 import { styleTags, tags } from '@lezer/highlight';
@@ -319,28 +319,37 @@ const expressionBracketSpacing = EditorView.updateListener.of((update) => {
 });
 
 // https://discuss.codemirror.net/t/codemirror-6-single-line-and-or-avoid-carriage-return/2979/8
-const singleLineModeExtension = EditorState.transactionFilter.of((tr) => {
-  if (tr.changes.empty) return tr;
-  if (tr.newDoc.lines > 1 && !tr.isUserEvent('input.paste')) {
-    return [];
-  }
-
-  const removeNLs: ChangeSpec[] = [];
-  tr.changes.iterChanges((_fromA, _toA, fromB, _toB, ins) => {
-    const lineIter = ins.iterLines().next();
-    if (ins.lines <= 1) return;
-    // skip the first line
-    let len = fromB + lineIter.value.length;
-    lineIter.next();
-    // for the next lines, remove the leading NL
-    for (; !lineIter.done; lineIter.next()) {
-      removeNLs.push({ from: len, to: len + 1 });
-      len += lineIter.value.length + 1;
+const singleLineModeExtensions = [
+  EditorState.transactionFilter.of((tr) => {
+    if (tr.changes.empty) return tr;
+    if (tr.newDoc.lines > 1 && !tr.isUserEvent('input.paste')) {
+      return [];
     }
-  });
 
-  return [tr, { changes: removeNLs, sequential: true }];
-});
+    const removeNLs: ChangeSpec[] = [];
+    tr.changes.iterChanges((_fromA, _toA, fromB, _toB, ins) => {
+      const lineIter = ins.iterLines().next();
+      if (ins.lines <= 1) return;
+      // skip the first line
+      let len = fromB + lineIter.value.length;
+      lineIter.next();
+      // for the next lines, remove the leading NL
+      for (; !lineIter.done; lineIter.next()) {
+        removeNLs.push({ from: len, to: len + 1 });
+        len += lineIter.value.length + 1;
+      }
+    });
+
+    return [tr, { changes: removeNLs, sequential: true }];
+  }),
+
+  Prec.high(
+    keymap.of([
+      { key: 'ArrowUp', run: () => true },
+      { key: 'ArrowDown', run: () => true },
+    ]),
+  ),
+];
 
 const keymaps = keymap.of([...standardKeymap, ...historyKeymap, ...closeBracketsKeymap, ...completionKeymap]);
 
@@ -401,7 +410,7 @@ export const baseCodeMirrorExtensions = ({ singleLineMode, ...props }: BaseCodeM
     language(props),
   ];
 
-  if (singleLineMode) extensions.push(singleLineModeExtension);
+  if (singleLineMode) extensions.push(...singleLineModeExtensions);
 
   return extensions;
 };
