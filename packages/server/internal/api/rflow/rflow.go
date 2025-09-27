@@ -1406,6 +1406,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	defer cancel()
 
 	done := make(chan error, 1)
+	var doneOnce sync.Once
+	signalDone := func(err error) {
+		doneOnce.Do(func() {
+			done <- err
+		})
+	}
 	nodeExecutionChan := make(chan mnodeexecution.NodeExecution, bufferSize)
 
 	// Collector goroutine for node executions
@@ -1566,13 +1572,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		if err := c.logChanMap.SendMsgToUserWithContext(ctx, idwrap.NewNow(), fmt.Sprintf("%s: %s", nameForLog, stateStrForLog), logLevel, message); err != nil {
 			if !channelsClosed.Load() {
-				select {
-				case done <- err:
-				case <-stopSending:
-				default:
-					log.Printf("Failed to send log error to done channel: %v", err)
-				}
+				signalDone(err)
 			}
+			log.Printf("Failed to send log error to done channel: %v", err)
 		}
 	}
 
@@ -2009,10 +2011,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								}
 								resp := &flowv1.FlowRunResponse{Node: nodeMsg}
 								if err := stream.Send(resp); err != nil {
-									select {
-									case done <- err:
-									default:
-									}
+									signalDone(err)
 									return
 								}
 							}
@@ -2088,9 +2087,8 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 				pendingMutex.Unlock()
 
-				localErr := sendExampleResponse(stream, requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID)
-				if localErr != nil {
-					done <- localErr
+				if localErr := sendExampleResponse(stream, requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID); localErr != nil {
+					signalDone(localErr)
 					return
 				}
 
@@ -2112,11 +2110,18 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 			}
 			if err := sendNodeStatus(stream, flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
-				done <- err
+				signalDone(err)
 				return
 			}
 		}
 
+		nodeStatesClosed := false
+		flowStatusClosed := false
+		sendCompletionIfChannelsClosed := func() {
+			if nodeStatesClosed && flowStatusClosed {
+				signalDone(nil)
+			}
+		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -2129,7 +2134,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 				// DO NOT close channels here - let the runner close them
 				// The runner has deferred closes for these channels
-				done <- errors.New("client disconnected")
+				signalDone(errors.New("client disconnected"))
 				return
 			case <-subCtx.Done():
 				// Flow execution cancelled
@@ -2137,22 +2142,28 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				close(stopSending)
 
 				// DO NOT close channels here - let the runner close them
-				done <- errors.New("flow execution cancelled")
+				signalDone(errors.New("flow execution cancelled"))
 				return
 			case flowNodeStatus, ok := <-nodeStateChan:
 				if !ok {
 					// Channel closed by runner
-					return
+					nodeStateChan = nil
+					nodeStatesClosed = true
+					sendCompletionIfChannelsClosed()
+					continue
 				}
 				nodeStatusFunc(flowNodeStatus)
 			case flowStatus, ok := <-flowStatusChan:
 				if !ok {
-					// Channel closed by runner
+					// Channel closed by runner without terminal status
+					flowStatusChan = nil
+					flowStatusClosed = true
+					signalDone(errors.New("flow status channel closed unexpectedly"))
 					return
 				}
 				// Process any pending node status messages without blocking
 			drainLoop:
-				for len(nodeStateChan) > 0 {
+				for nodeStateChan != nil && len(nodeStateChan) > 0 {
 					select {
 					case flowNodeStatus := <-nodeStateChan:
 						nodeStatusFunc(flowNodeStatus)
@@ -2163,10 +2174,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				}
 				if runner.IsFlowStatusDone(flowStatus) {
 					// Drain all remaining node statuses until the channel is closed
-					for flowNodeStatus := range nodeStateChan {
-						nodeStatusFunc(flowNodeStatus)
+					if nodeStateChan != nil {
+						for flowNodeStatus := range nodeStateChan {
+							nodeStatusFunc(flowNodeStatus)
+						}
+						nodeStateChan = nil
+						nodeStatesClosed = true
 					}
-					done <- nil
+					flowStatusChan = nil
+					flowStatusClosed = true
+					signalDone(nil)
 					return
 				}
 			}

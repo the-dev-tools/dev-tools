@@ -209,6 +209,35 @@ haveLog:
 	require.Containsf(t, nodeLog.Name, execName, "log %q should reference execution %q", nodeLog.Name, execName)
 }
 
+func TestFlowRunAdHocMultipleSequentialRuns(t *testing.T) {
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	flowID := harness.req.Msg.FlowId
+	if len(flowID) == 0 {
+		t.Fatalf("harness request missing flow id")
+	}
+
+	const runCount = 5
+	for i := 0; i < runCount; i++ {
+		iteration := i
+		req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: append([]byte(nil), flowID...)})
+		stream := noopStream{}
+
+		resultCh := make(chan error, 1)
+		go func() {
+			resultCh <- harness.svc.FlowRunAdHoc(harness.authedCtx, req, stream)
+		}()
+
+		select {
+		case err := <-resultCh:
+			require.NoErrorf(t, err, "flow run %d returned error", iteration)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("flow run %d timed out waiting for completion", iteration)
+		}
+	}
+}
+
 type flowRunHarness struct {
 	svc           *FlowServiceRPC
 	authedCtx     context.Context
