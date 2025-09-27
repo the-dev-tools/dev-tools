@@ -12,6 +12,7 @@ import {
   Panel as RFPanel,
   SelectionMode,
   useReactFlow,
+  useStore,
   useStoreApi,
   useViewport,
 } from '@xyflow/react';
@@ -299,11 +300,11 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   return (
     <>
-      {duration > 0 &&
-        statusBarEndSlotRef.current &&
+      {statusBarEndSlotRef.current &&
         createPortal(
-          <div className={tw`flex gap-1 p-2 text-xs leading-none text-slate-800`}>
-            Time: {pipe(duration, Duration.millis, Duration.format)}
+          <div className={tw`flex gap-4 text-xs leading-none text-slate-800`}>
+            <NodeSelectionIndicator />
+            {duration > 0 && <div>Time: {pipe(duration, Duration.millis, Duration.format)}</div>}
           </div>,
           statusBarEndSlotRef.current,
         )}
@@ -349,6 +350,12 @@ export const Flow = ({ children }: PropsWithChildren) => {
       </ReactFlow>
     </>
   );
+};
+
+const NodeSelectionIndicator = () => {
+  const count = useStore((_) => _.nodes.filter((_) => _.selected).length);
+  if (count === 0) return null;
+  return <div>{count} nodes selected</div>;
 };
 
 interface TopBarProps {
