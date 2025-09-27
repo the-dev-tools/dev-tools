@@ -1824,10 +1824,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
 						}
 
-						// For REQUEST nodes, wait for response before sending to channel
+						// For REQUEST nodes, wait for response before sending to channel.
+						// If the response already arrived, we can forward the execution now.
 						if kind == mnnode.NODE_KIND_REQUEST {
-							// Mark as completed but keep in pending map for response handling
-							// Don't send to channel yet - wait for response
+							if nodeExec.ResponseID != nil && !channelsClosed.Load() {
+								select {
+								case nodeExecutionChan <- *nodeExec:
+									delete(pendingNodeExecutions, executionID)
+								case <-stopSending:
+									// Channel closed, don't send
+								}
+							}
 						} else {
 							// For non-REQUEST nodes, send immediately (with safety check)
 							if !channelsClosed.Load() {
@@ -2048,15 +2055,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
 						}
 
-						// Now send the completed execution with ResponseID to channel (with safety check)
-						if !channelsClosed.Load() {
+						// If the node already has a terminal status, forward it now.
+						if nodeExec.CompletedAt != nil && !channelsClosed.Load() {
 							select {
 							case nodeExecutionChan <- *nodeExec:
 								delete(pendingNodeExecutions, targetExecutionID)
 							case <-stopSending:
 								// Channel closed, don't send
 							}
-						} else {
+						} else if nodeExec.CompletedAt != nil {
 							delete(pendingNodeExecutions, targetExecutionID)
 						}
 
