@@ -572,7 +572,7 @@ func collectOrderedAssertsForExample(workspaceData *ioworkspace.WorkspaceData, e
 	if len(filtered) == 0 {
 		return filtered
 	}
-	return orderAssertions(filtered)
+	return dedupAssertionsOrdered(orderAssertions(filtered))
 }
 
 func orderAssertions(asserts []massert.Assert) []massert.Assert {
@@ -625,6 +625,24 @@ func orderAssertions(asserts []massert.Assert) []massert.Assert {
 	return ordered
 }
 
+func dedupAssertionsOrdered(asserts []massert.Assert) []massert.Assert {
+	if len(asserts) <= 1 {
+		return asserts
+	}
+
+	seen := make(map[string]struct{}, len(asserts))
+	result := make([]massert.Assert, 0, len(asserts))
+	for _, assert := range asserts {
+		key := assert.Condition.Comparisons.Expression + "|" + strconv.FormatBool(assert.Enable)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, assert)
+	}
+	return result
+}
+
 func headersToMap(headers []mexampleheader.Header) map[string]string {
 	if len(headers) == 0 {
 		return nil
@@ -661,7 +679,7 @@ func assertsToEntries(asserts []massert.Assert) []map[string]any {
 		return nil
 	}
 
-	ordered := orderAssertions(asserts)
+	ordered := dedupAssertionsOrdered(orderAssertions(asserts))
 	entries := make([]map[string]any, 0, len(ordered))
 	for _, assertModel := range ordered {
 		expr := assertModel.Condition.Comparisons.Expression
@@ -681,22 +699,17 @@ func assertsToEntries(asserts []massert.Assert) []map[string]any {
 }
 
 func assertionsEqual(a, b []massert.Assert) bool {
+	a = dedupAssertionsOrdered(orderAssertions(a))
+	b = dedupAssertionsOrdered(orderAssertions(b))
 	if len(a) != len(b) {
 		return false
 	}
 
-	orderedA := orderAssertions(a)
-	orderedB := orderAssertions(b)
-
-	if len(orderedA) != len(orderedB) {
-		return false
-	}
-
-	for i := range orderedA {
-		if orderedA[i].Condition.Comparisons.Expression != orderedB[i].Condition.Comparisons.Expression {
+	for i := range a {
+		if a[i].Condition.Comparisons.Expression != b[i].Condition.Comparisons.Expression {
 			return false
 		}
-		if orderedA[i].Enable != orderedB[i].Enable {
+		if a[i].Enable != b[i].Enable {
 			return false
 		}
 	}
