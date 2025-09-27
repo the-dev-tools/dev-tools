@@ -40,6 +40,7 @@ const fauxEvent =
   <E extends SyntheticEvent>(handler: React.EventHandler<E> | undefined, defaultEvent?: Partial<E>) =>
   (event?: object) =>
     handler?.({
+      currentTarget: {},
       defaultPrevented: false,
       preventDefault: () => undefined,
       ...defaultEvent,

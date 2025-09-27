@@ -6,20 +6,20 @@
     "@the-dev-tools/spec": "workspace:^"
   },
   "devDependencies": {
-    "@aikidosec/safe-chain": "~1.0.22",
-    "@nx/eslint": "~21.5.2",
-    "@nx/js": "~21.5.2",
-    "@nx/react": "~21.5.2",
-    "@nx/storybook": "~21.5.2",
-    "@nx/vite": "~21.5.2",
-    "@nx/web": "~21.5.2",
+    "@aikidosec/safe-chain": "~1.0.24",
+    "@nx/eslint": "~21.5.3",
+    "@nx/js": "~21.5.3",
+    "@nx/react": "~21.5.3",
+    "@nx/storybook": "~21.5.3",
+    "@nx/vite": "~21.5.3",
+    "@nx/web": "~21.5.3",
     "@the-dev-tools/eslint-config": "workspace:^",
-    "@tsconfig/strictest": "~2.0.5",
+    "@tsconfig/strictest": "~2.0.6",
     "@typespec/compiler": "~1.4.0",
     "@typespec/prettier-plugin-typespec": "~1.4.0",
-    "eslint": "~9.35.0",
-    "jiti": "~2.5.1",
-    "nx": "~21.5.2",
+    "eslint": "~9.36.0",
+    "jiti": "~2.6.0",
+    "nx": "~21.5.3",
     "prettier": "~3.6.2",
     "react": "~19.1.1",
     "swc-node": "~1.0.0",
@@ -27,6 +27,6 @@
     "tailwindcss": "~4.1.11",
     "ts-node": "~10.9.2",
     "typescript": "~5.9.2",
-    "typescript-eslint": "~8.44.0"
+    "typescript-eslint": "~8.44.1"
   }
 }
