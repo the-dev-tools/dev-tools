@@ -20,7 +20,9 @@ import (
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logconsole"
+	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -273,6 +275,40 @@ func TestFlowRunAdHoc_NodeExecutionsReachTerminalState(t *testing.T) {
 	}
 }
 
+func TestFlowRunAdHoc_RequestFailureTransitions(t *testing.T) {
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	ctx := context.Background()
+
+	failingAssert := massert.Assert{
+		ID:        idwrap.NewNow(),
+		ExampleID: harness.exampleID,
+		Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "response.status == 201"}},
+		Enable:    true,
+	}
+	require.NoError(t, harness.svc.as.CreateAssert(ctx, failingAssert))
+
+	stream := noopStream{}
+	err := harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream)
+	require.Error(t, err, "expected flow run to fail when assertion fails")
+
+	execs, execErr := harness.svc.nes.GetNodeExecutionsByNodeID(ctx, harness.requestNodeID)
+	require.NoError(t, execErr)
+	require.NotEmpty(t, execs)
+
+	var sawFailure bool
+	for _, exec := range execs {
+		require.NotEqualf(t, mnnode.NODE_STATE_RUNNING, exec.State, "execution %s should not remain running", exec.ID.String())
+		if exec.State == mnnode.NODE_STATE_FAILURE {
+			sawFailure = true
+			require.NotNilf(t, exec.CompletedAt, "failure execution %s missing completion timestamp", exec.ID.String())
+		}
+	}
+
+	require.True(t, sawFailure, "expected failure execution to be recorded")
+}
+
 type flowRunHarness struct {
 	svc           *FlowServiceRPC
 	authedCtx     context.Context
@@ -282,6 +318,7 @@ type flowRunHarness struct {
 	requestNodeID idwrap.IDWrap
 	startNodeID   idwrap.IDWrap
 	flowID        idwrap.IDWrap
+	exampleID     idwrap.IDWrap
 }
 
 func setupFlowRunHarness(t *testing.T) flowRunHarness {
@@ -569,6 +606,7 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 		requestNodeID: requestNodeID,
 		startNodeID:   startNodeID,
 		flowID:        flowID,
+		exampleID:     exampleID,
 	}
 }
 
