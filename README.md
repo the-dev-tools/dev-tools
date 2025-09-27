@@ -62,13 +62,13 @@ This visual approach makes it easy to create sophisticated API workflows without
 Install the DevTools CLI with a single command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/the-dev-tools/dev-tools/main/apps/cli/install.sh | bash
+curl -fsSL https://sh.dev.tools/install.sh | bash
 ```
 
 Or if you prefer wget:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/the-dev-tools/dev-tools/main/apps/cli/install.sh | bash
+wget -qO- https://sh.dev.tools/install.sh | bash
 ```
 
 The installer will:
