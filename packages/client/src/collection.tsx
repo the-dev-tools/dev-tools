@@ -4,7 +4,16 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Match, pipe, Schema } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, ReactNode, RefObject, useContext, useRef, useState } from 'react';
-import { Dialog, DialogTrigger, MenuTrigger, SubmenuTrigger, Text, Tree, useDragAndDrop } from 'react-aria-components';
+import {
+  Dialog,
+  DialogTrigger,
+  MenuTrigger,
+  SubmenuTrigger,
+  Text,
+  Tree,
+  TreeProps,
+  useDragAndDrop,
+} from 'react-aria-components';
 import { FiFolder, FiMoreHorizontal, FiX } from 'react-icons/fi';
 import { MdLightbulbOutline } from 'react-icons/md';
 import { twJoin } from 'tailwind-merge';
@@ -47,6 +56,7 @@ import {
   CollectionMoveEndpoint,
   CollectionUpdateEndpoint,
 } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
+import { CollectionListItemEntity } from '@the-dev-tools/spec/meta/collection/v1/collection.entities.js';
 import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { FolderOpenedIcon } from '@the-dev-tools/ui/icons';
@@ -159,11 +169,19 @@ const useOnFolderDelete = () => {
   return onFolderDelete;
 };
 
-interface CollectionListTreeProps extends Omit<CollectionListTreeContext, 'containerRef'> {
+interface CollectionListTreeProps
+  extends Omit<CollectionListTreeContext, 'containerRef'>,
+    Pick<TreeProps<CollectionListItemEntity>, 'onSelectionChange' | 'selectedKeys' | 'selectionMode'> {
   onAction?: (key: typeof TreeKey.Type) => void;
 }
 
-export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeProps) => {
+export const CollectionListTree = ({
+  onAction,
+  onSelectionChange,
+  selectedKeys,
+  selectionMode,
+  ...context
+}: CollectionListTreeProps) => {
   const { dataClient } = rootRouteApi.useRouteContext();
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
@@ -281,6 +299,9 @@ export const CollectionListTree = ({ onAction, ...context }: CollectionListTreeP
                 }
               : undefined!
           }
+          onSelectionChange={onSelectionChange!}
+          selectedKeys={selectedKeys!}
+          selectionMode={selectionMode!}
         >
           {(_) => {
             const collectionIdCan = Ulid.construct(_.collectionId).toCanonical();

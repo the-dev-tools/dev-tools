@@ -48,6 +48,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useMutate, useQuery } from '~data-client';
 import { rootRouteApi, workspaceRouteApi } from '~routes';
+import { ExportDialog } from '~workspace/export';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -103,6 +104,8 @@ export const EnvironmentsWidget = () => {
       <div className={tw`flex-1`} />
 
       <ImportDialog />
+
+      <ExportDialog />
 
       <DialogTrigger>
         <TooltipTrigger delay={750}>
