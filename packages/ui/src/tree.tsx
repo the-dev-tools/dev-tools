@@ -1,6 +1,6 @@
 import { type CollectionProps } from '@react-aria/collections';
 import { AnyRouter, LinkOptions, RegisteredRouter } from '@tanstack/react-router';
-import { ComponentProps, ReactNode, useState } from 'react';
+import { ComponentProps, ReactNode, RefAttributes, useState } from 'react';
 import * as RAC from 'react-aria-components';
 import { FiMove } from 'react-icons/fi';
 import { Button } from './button';
@@ -11,7 +11,9 @@ import { Spinner } from './spinner';
 import { tw } from './tailwind-literal';
 import { composeTailwindRenderProps } from './utils';
 
-export interface TreeItemProps<T extends object> extends Omit<RAC.TreeItemProps, 'children' | 'textValue'> {
+export interface TreeItemProps<T extends object>
+  extends Omit<RAC.TreeItemProps, 'children' | 'textValue'>,
+    RefAttributes<HTMLDivElement> {
   children: RAC.TreeItemContentProps['children'];
   isLoading?: boolean;
   item?: CollectionProps<T>['children'];
@@ -29,6 +31,7 @@ export const TreeItem = <T extends object>({
   items,
   onContextMenu,
   onExpand,
+  ref,
   textValue,
   ...props
 }: TreeItemProps<T>) => {
@@ -68,6 +71,10 @@ export const TreeItem = <T extends object>({
       )}
       ref={(node) => {
         if (!node) return;
+
+        if (typeof ref === 'object') ref = { current: node };
+        if (typeof ref === 'function') ref(node);
+
         const handler = () => {
           const isExpanded = node.attributes.getNamedItem('data-expanded')?.value === 'true';
           if (isExpanded) onExpand?.();

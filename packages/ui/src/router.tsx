@@ -214,14 +214,24 @@ export const useLink = ({ children, onAuxClick, ref: refProp, ...props }: UseLin
     let element: HTMLElement | undefined;
     if (node && typeof node === 'object' && 'addEventListener' in node) element = node as HTMLElement;
 
+    const onClickHandler = (event: MouseEvent) => {
+      // Prevent opening links in external browser
+      if (event.ctrlKey) event.preventDefault();
+    };
+
     const onAuxClickHandler = (event: MouseEvent) => {
       event.preventDefault();
       if (onAuxClick) fauxEvent(onAuxClick)(event);
       else onAction();
     };
 
+    element?.addEventListener('click', onClickHandler);
     element?.addEventListener('auxclick', onAuxClickHandler);
-    return () => element?.removeEventListener('auxclick', onAuxClickHandler);
+
+    return () => {
+      element?.removeEventListener('click', onClickHandler);
+      element?.removeEventListener('auxclick', onAuxClickHandler);
+    };
   };
 
   return {
