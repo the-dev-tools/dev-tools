@@ -238,6 +238,41 @@ func TestFlowRunAdHocMultipleSequentialRuns(t *testing.T) {
 	}
 }
 
+func TestFlowRunAdHoc_NodeExecutionsReachTerminalState(t *testing.T) {
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	stream := noopStream{}
+	require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
+
+	ctx := context.Background()
+	nodes, err := harness.svc.ns.GetNodesByFlowID(ctx, harness.flowID)
+	require.NoError(t, err)
+	require.NotEmpty(t, nodes, "expected harness flow to have nodes")
+
+	terminalStates := map[mnnode.NodeState]struct{}{
+		mnnode.NODE_STATE_SUCCESS:  {},
+		mnnode.NODE_STATE_FAILURE:  {},
+		mnnode.NODE_STATE_CANCELED: {},
+	}
+
+	for _, node := range nodes {
+		execs, execErr := harness.svc.nes.GetNodeExecutionsByNodeID(ctx, node.ID)
+		require.NoErrorf(t, execErr, "failed to load executions for node %s", node.Name)
+
+		require.NotEmptyf(t, execs, "expected executions for node %s", node.Name)
+
+		for _, exec := range execs {
+			state := exec.State
+			if _, ok := terminalStates[state]; !ok {
+				t.Fatalf("node %s execution %s stuck in %s (CompletedAt=%v)", node.Name, exec.ID.String(), mnnode.StringNodeState(state), exec.CompletedAt)
+			}
+
+			require.NotNilf(t, exec.CompletedAt, "node %s execution %s missing completion timestamp", node.Name, exec.ID.String())
+		}
+	}
+}
+
 type flowRunHarness struct {
 	svc           *FlowServiceRPC
 	authedCtx     context.Context
@@ -245,6 +280,8 @@ type flowRunHarness struct {
 	cleanup       func()
 	logCh         chan logconsole.LogMessage
 	requestNodeID idwrap.IDWrap
+	startNodeID   idwrap.IDWrap
+	flowID        idwrap.IDWrap
 }
 
 func setupFlowRunHarness(t *testing.T) flowRunHarness {
@@ -530,6 +567,8 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 		cleanup:       cleanup,
 		logCh:         logCh,
 		requestNodeID: requestNodeID,
+		startNodeID:   startNodeID,
+		flowID:        flowID,
 	}
 }
 
