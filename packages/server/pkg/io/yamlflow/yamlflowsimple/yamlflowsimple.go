@@ -7,6 +7,7 @@ import (
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mcondition"
@@ -40,6 +41,7 @@ const (
 	fieldHeaders     = "headers"
 	fieldQueryParams = "query_params"
 	fieldBody        = "body"
+	fieldAssertions  = "assertions"
 	fieldCondition   = "condition"
 	fieldIterCount   = "iter_count"
 	fieldItems       = "items"
@@ -60,6 +62,11 @@ const (
 	stepTypeFor     = "for"
 	stepTypeForEach = "for_each"
 	stepTypeJS      = "js"
+)
+
+const (
+	fieldAssertionExpression = "expression"
+	fieldAssertionEnabled    = "enabled"
 )
 
 // ========================================
@@ -116,6 +123,11 @@ type requestContext struct {
 	exampleID        idwrap.IDWrap
 	defaultExampleID idwrap.IDWrap
 	deltaExampleID   idwrap.IDWrap
+}
+
+type assertionConfig struct {
+	Expression string
+	Enabled    bool
 }
 
 // ========================================
@@ -189,6 +201,7 @@ func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap)
 	result.Headers = yamlflowData.Headers
 	result.Queries = yamlflowData.Queries
 	result.RawBodies = yamlflowData.RawBodies
+	result.Asserts = yamlflowData.Asserts
 
 	// Set Prev/Next for endpoints
 	for i := range result.Endpoints {
@@ -272,6 +285,7 @@ func Parse(data []byte) (*YamlFlowData, error) {
 		Headers:        make([]mexampleheader.Header, 0),
 		Queries:        make([]mexamplequery.Query, 0),
 		RawBodies:      make([]mbodyraw.ExampleBodyRaw, 0),
+		Asserts:        make([]massert.Assert, 0),
 	}
 
 	// Determine which flow to process
@@ -578,6 +592,10 @@ func parseRequestDataFromMap(data map[string]any) *requestTemplate {
 		rt.body = body
 	}
 
+	if assertions, ok := data[fieldAssertions]; ok {
+		rt.assertions = parseAssertionsFromAny(assertions)
+	}
+
 	return rt
 }
 
@@ -602,6 +620,7 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 	var templateHeaders, templateQueries, stepHeaderOverrides, stepQueryOverrides []map[string]string
 	var templateBody, stepBodyOverride map[string]any
 	var usingTemplate bool
+	var templateAssertions, stepAssertions []assertionConfig
 
 	// Check if using template
 	if useRequest, ok := stepData[fieldUseRequest].(string); ok && useRequest != "" {
@@ -610,6 +629,7 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 			templateHeaders = tmpl.headers
 			templateQueries = tmpl.queryParams
 			templateBody = tmpl.body
+			templateAssertions = tmpl.assertions
 			if tmpl.method != "" {
 				method = tmpl.method
 			}
@@ -650,6 +670,9 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 	}
 	if b, ok := stepData[fieldBody].(map[string]any); ok {
 		stepBodyOverride = b
+	}
+	if assertions, ok := stepData[fieldAssertions]; ok {
+		stepAssertions = parseAssertionsFromAny(assertions)
 	}
 
 	// Create all request entities
@@ -728,6 +751,8 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 		// No body at all
 		addBodyToExamples(ctx, nil, data)
 	}
+
+	processAssertionsForExamples(ctx, templateAssertions, stepAssertions, usingTemplate, data)
 
 	return nil
 }
@@ -896,6 +921,167 @@ func addBodyToExamples(ctx *requestContext, bodyData []byte, data *YamlFlowData)
 			CompressType:  compress.CompressTypeNone,
 			VisualizeMode: visualMode,
 		})
+	}
+}
+
+func parseAssertionsFromAny(value interface{}) []assertionConfig {
+	result := make([]assertionConfig, 0)
+	appendConfig := func(raw map[string]any) {
+		if cfg, ok := convertAssertionMap(raw); ok {
+			result = append(result, cfg)
+		}
+	}
+
+	switch v := value.(type) {
+	case []any:
+		for _, item := range v {
+			if raw, ok := item.(map[string]any); ok {
+				appendConfig(raw)
+			} else if rawStr, ok := item.(map[string]string); ok {
+				rawAny := make(map[string]any, len(rawStr))
+				for k, val := range rawStr {
+					rawAny[k] = val
+				}
+				appendConfig(rawAny)
+			}
+		}
+	case []map[string]any:
+		for _, item := range v {
+			appendConfig(item)
+		}
+	case []map[string]string:
+		for _, item := range v {
+			raw := make(map[string]any, len(item))
+			for k, val := range item {
+				raw[k] = val
+			}
+			appendConfig(raw)
+		}
+	}
+
+	return result
+}
+
+func convertAssertionMap(raw map[string]any) (assertionConfig, bool) {
+	expr, ok := raw[fieldAssertionExpression].(string)
+	if !ok || expr == "" {
+		return assertionConfig{}, false
+	}
+	enabled := true
+	if enabledRaw, exists := raw[fieldAssertionEnabled]; exists {
+		switch v := enabledRaw.(type) {
+		case bool:
+			enabled = v
+		case string:
+			if v == "false" || v == "0" {
+				enabled = false
+			}
+		case int:
+			enabled = v != 0
+		case int64:
+			enabled = v != 0
+		}
+	}
+
+	return assertionConfig{Expression: expr, Enabled: enabled}, true
+}
+
+func processAssertionsForExamples(ctx *requestContext, templateAssertions, stepAssertions []assertionConfig, usingTemplate bool, data *YamlFlowData) {
+	var baseConfigs []assertionConfig
+	var deltaConfigs []assertionConfig
+
+	if usingTemplate {
+		if len(templateAssertions) > 0 {
+			baseConfigs = append(baseConfigs, templateAssertions...)
+		}
+		if len(stepAssertions) > 0 {
+			deltaConfigs = append(deltaConfigs, stepAssertions...)
+		}
+	} else {
+		if len(stepAssertions) > 0 {
+			baseConfigs = append(baseConfigs, stepAssertions...)
+		} else if len(templateAssertions) > 0 {
+			baseConfigs = append(baseConfigs, templateAssertions...)
+		}
+	}
+
+	if len(baseConfigs) == 0 && len(deltaConfigs) == 0 {
+		return
+	}
+
+	if len(baseConfigs) == 0 {
+		baseConfigs = append(baseConfigs, deltaConfigs...)
+	}
+
+	// Ensure base configs can cover delta entries for parent mapping
+	if len(deltaConfigs) > len(baseConfigs) {
+		baseConfigs = append(baseConfigs, deltaConfigs[len(baseConfigs):]...)
+	}
+
+	baseAsserts := buildAssertionsForExample(ctx.exampleID, baseConfigs, nil)
+	defaultAsserts := buildAssertionsForExample(ctx.defaultExampleID, baseConfigs, nil)
+	data.Asserts = append(data.Asserts, baseAsserts...)
+	data.Asserts = append(data.Asserts, defaultAsserts...)
+
+	if len(baseAsserts) == 0 {
+		return
+	}
+
+	if !usingTemplate {
+		deltaConfigs = baseConfigs
+	} else if len(deltaConfigs) == 0 {
+		deltaConfigs = baseConfigs
+	}
+
+	if len(deltaConfigs) == 0 {
+		return
+	}
+
+	deltaAsserts := buildAssertionsForExample(ctx.deltaExampleID, deltaConfigs, baseAsserts)
+	data.Asserts = append(data.Asserts, deltaAsserts...)
+}
+
+func buildAssertionsForExample(exampleID idwrap.IDWrap, configs []assertionConfig, parentRefs []massert.Assert) []massert.Assert {
+	if len(configs) == 0 {
+		return nil
+	}
+
+	asserts := make([]massert.Assert, len(configs))
+	for i, cfg := range configs {
+		assert := massert.Assert{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			Condition: mcondition.Condition{
+				Comparisons: mcondition.Comparison{Expression: cfg.Expression},
+			},
+			Enable: cfg.Enabled,
+		}
+		if parentRefs != nil && i < len(parentRefs) {
+			parentID := parentRefs[i].ID
+			assert.DeltaParentID = &parentID
+		}
+		asserts[i] = assert
+	}
+
+	linkAssertionList(asserts)
+	return asserts
+}
+
+func linkAssertionList(asserts []massert.Assert) {
+	for i := range asserts {
+		if i > 0 {
+			prevID := asserts[i-1].ID
+			asserts[i].Prev = &prevID
+		} else {
+			asserts[i].Prev = nil
+		}
+
+		if i < len(asserts)-1 {
+			nextID := asserts[i+1].ID
+			asserts[i].Next = &nextID
+		} else {
+			asserts[i].Next = nil
+		}
 	}
 }
 

@@ -1279,6 +1279,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 			urlBodyDelta := cloneURLBody(urlDeltaModels)
 
+			deltaAssertModels, err := c.loadAsserts(ctx, deltaExample.ID)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+			deltaAsserts := cloneAsserts(deltaAssertModels)
+
 			mergeExamplesInput := request.MergeExamplesInput{
 				Base:  *example,
 				Delta: *deltaExample,
@@ -1297,6 +1303,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 				BaseUrlEncodedBody:  urlBody,
 				DeltaUrlEncodedBody: urlBodyDelta,
+
+				BaseAsserts:  asserts,
+				DeltaAsserts: deltaAsserts,
 			}
 
 			mergeExampleOutput := request.MergeExamples(mergeExamplesInput)
@@ -1306,6 +1315,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			rawBody = &mergeExampleOutput.MergeRawBody
 			formBody = mergeExampleOutput.MergeFormBody
 			urlBody = mergeExampleOutput.MergeUrlEncodedBody
+			asserts = mergeExampleOutput.MergeAsserts
 		}
 
 		name := nodeNameMap[requestNode.FlowNodeID]

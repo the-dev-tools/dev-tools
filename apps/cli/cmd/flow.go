@@ -751,8 +751,11 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 		}
 
 		asserts, err := c.as.GetAssertByExampleID(ctx, example.ID)
-		if err != nil && err != sassert.ErrNoAssertFound {
-			return markFailure(connect.NewError(connect.CodeInternal, err))
+		if err != nil {
+			if err != sassert.ErrNoAssertFound {
+				return markFailure(connect.NewError(connect.CodeInternal, err))
+			}
+			asserts = nil
 		}
 
 		// Delta Request
@@ -783,6 +786,14 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 			deltaQueries, err := c.qs.GetExampleQueriesByExampleID(ctx, deltaExample.ID)
 			if err != nil {
 				return markFailure(connect.NewError(connect.CodeInternal, err))
+			}
+
+			deltaAsserts, err := c.as.GetAssertByExampleID(ctx, deltaExample.ID)
+			if err != nil {
+				if err != sassert.ErrNoAssertFound {
+					return markFailure(connect.NewError(connect.CodeInternal, err))
+				}
+				deltaAsserts = nil
 			}
 
 			rawBodyDelta, err := c.brs.GetBodyRawByExampleID(ctx, deltaExample.ID)
@@ -818,6 +829,9 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 
 				BaseUrlEncodedBody:  urlBody,
 				DeltaUrlEncodedBody: urlBodyDelta,
+
+				BaseAsserts:  asserts,
+				DeltaAsserts: deltaAsserts,
 			}
 
 			mergeExampleOutput := request.MergeExamples(mergeExamplesInput)
@@ -829,6 +843,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 			rawBody = &mergeExampleOutput.MergeRawBody
 			formBody = mergeExampleOutput.MergeFormBody
 			urlBody = mergeExampleOutput.MergeUrlEncodedBody
+			asserts = mergeExampleOutput.MergeAsserts
 		}
 
 		httpClient := httpclient.New()

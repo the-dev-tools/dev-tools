@@ -11,9 +11,11 @@ import (
 	"testing"
 
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -322,6 +324,17 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		},
 	}
 
+	baseAsserts := []massert.Assert{
+		{
+			ID:        idwrap.NewNow(),
+			ExampleID: baseExampleID,
+			Condition: mcondition.Condition{
+				Comparisons: mcondition.Comparison{Expression: "response.status == 200"},
+			},
+			Enable: true,
+		},
+	}
+
 	// Create delta queries and headers with nil DeltaParentID (legacy format)
 	deltaQueries := []mexamplequery.Query{
 		{
@@ -340,6 +353,17 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 			HeaderKey:     "Authorization",
 			Value:         "Bearer {{ token }}",
 			DeltaParentID: nil, // This would cause a panic in the old code
+		},
+	}
+
+	deltaAsserts := []massert.Assert{
+		{
+			ID:        idwrap.NewNow(),
+			ExampleID: deltaExampleID,
+			Condition: mcondition.Condition{
+				Comparisons: mcondition.Comparison{Expression: "response.status == 201"},
+			},
+			Enable: true,
 		},
 	}
 
@@ -373,6 +397,8 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		DeltaFormBody:       []mbodyform.BodyForm{},
 		BaseUrlEncodedBody:  []mbodyurl.BodyURLEncoded{},
 		DeltaUrlEncodedBody: []mbodyurl.BodyURLEncoded{},
+		BaseAsserts:         baseAsserts,
+		DeltaAsserts:        deltaAsserts,
 	}
 
 	// This should not panic even with nil DeltaParentID
@@ -423,6 +449,14 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		t.Errorf("Expected exactly 1 merged header, got %d", len(output.MergeHeaders))
 	}
 
+	if len(output.MergeAsserts) != 2 {
+		t.Fatalf("Expected merged asserts to include base and delta entries, got %d", len(output.MergeAsserts))
+	}
+
+	if output.MergeAsserts[1].Condition.Comparisons.Expression != "response.status == 201" {
+		t.Errorf("Expected delta assertion expression to be preserved, got %s", output.MergeAsserts[1].Condition.Comparisons.Expression)
+	}
+
 	t.Logf("✅ MergeExamples handled nil DeltaParentID successfully")
 	t.Logf("📊 Merged %d queries and %d headers", len(output.MergeQueries), len(output.MergeHeaders))
 }
@@ -466,6 +500,18 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		},
 	}
 
+	baseAssertIDWithParent := idwrap.NewNow()
+	baseAssertsWithParent := []massert.Assert{
+		{
+			ID:        baseAssertIDWithParent,
+			ExampleID: baseExampleID,
+			Condition: mcondition.Condition{
+				Comparisons: mcondition.Comparison{Expression: "response.status == 200"},
+			},
+			Enable: true,
+		},
+	}
+
 	// Create delta queries and headers with proper DeltaParentID (new format)
 	deltaQueries := []mexamplequery.Query{
 		{
@@ -484,6 +530,18 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 			HeaderKey:     "Authorization",
 			Value:         "Bearer {{ request-1.response.body.token }}",
 			DeltaParentID: &baseHeaderID, // Proper reference to base header
+		},
+	}
+
+	deltaAsserts := []massert.Assert{
+		{
+			ID:            idwrap.NewNow(),
+			ExampleID:     deltaExampleID,
+			DeltaParentID: &baseAssertIDWithParent,
+			Condition: mcondition.Condition{
+				Comparisons: mcondition.Comparison{Expression: "response.status == 201"},
+			},
+			Enable: true,
 		},
 	}
 
@@ -517,6 +575,8 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		DeltaFormBody:       []mbodyform.BodyForm{},
 		BaseUrlEncodedBody:  []mbodyurl.BodyURLEncoded{},
 		DeltaUrlEncodedBody: []mbodyurl.BodyURLEncoded{},
+		BaseAsserts:         baseAssertsWithParent,
+		DeltaAsserts:        deltaAsserts,
 	}
 
 	// This should work correctly with proper parent references
@@ -533,6 +593,14 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 
 	if len(output.MergeHeaders) != 1 {
 		t.Errorf("Expected exactly 1 merged header, got %d", len(output.MergeHeaders))
+	}
+
+	if len(output.MergeAsserts) != 1 {
+		t.Fatalf("Expected merged asserts to reuse base slot and stay at 1 entry, got %d", len(output.MergeAsserts))
+	}
+
+	if output.MergeAsserts[0].Condition.Comparisons.Expression != "response.status == 201" {
+		t.Errorf("Expected merged assertion to reflect delta expression, got %s", output.MergeAsserts[0].Condition.Comparisons.Expression)
 	}
 
 	// Verify that delta values replaced base values correctly

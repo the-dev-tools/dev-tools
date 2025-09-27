@@ -5,11 +5,20 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"sort"
+	"strconv"
 	"the-dev-tools/server/pkg/flow/edge"
+	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
+	"the-dev-tools/server/pkg/model/massert"
+	"the-dev-tools/server/pkg/model/mbodyform"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
+	"the-dev-tools/server/pkg/model/mexampleheader"
+	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -151,7 +160,52 @@ func createOrderedRequestNode(req map[string]any) *yaml.Node {
 			createAnyNode(body))
 	}
 
+	if assertions, ok := req["assertions"].([]map[string]any); ok && len(assertions) > 0 {
+		node.Content = append(node.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "assertions"},
+			createAssertionsNode(assertions))
+	}
+
 	return node
+}
+
+func createAssertionsNode(assertions []map[string]any) *yaml.Node {
+	seq := &yaml.Node{Kind: yaml.SequenceNode}
+	for _, assertion := range assertions {
+		item := &yaml.Node{Kind: yaml.MappingNode}
+		if expression, ok := assertion["expression"].(string); ok {
+			item.Content = append(item.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "expression"},
+				&yaml.Node{Kind: yaml.ScalarNode, Value: expression},
+			)
+		}
+
+		enabled := true
+		switch v := assertion["enabled"].(type) {
+		case bool:
+			enabled = v
+		case string:
+			enabled = v != "false" && v != "0"
+		case int:
+			enabled = v != 0
+		case int64:
+			enabled = v != 0
+		case nil:
+			// leave default true
+		default:
+			// leave default true
+		}
+
+		enabledNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: strconv.FormatBool(enabled)}
+		item.Content = append(item.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "enabled"},
+			enabledNode,
+		)
+
+		seq.Content = append(seq.Content, item)
+	}
+
+	return seq
 }
 
 // createOrderedFlowNode creates a YAML node for flow with proper field ordering
@@ -300,11 +354,9 @@ func createAnyNode(data any) *yaml.Node {
 func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[string]map[string]any {
 	requests := make(map[string]map[string]any)
 
-	// Map node names to their request nodes for direct lookup
 	nodeNameToRequestNode := make(map[string]*mnrequest.MNRequest)
 	for i := range workspaceData.FlowRequestNodes {
 		reqNode := &workspaceData.FlowRequestNodes[i]
-		// Find the node name for this request node
 		for _, node := range workspaceData.FlowNodes {
 			if node.ID == reqNode.FlowNodeID {
 				nodeNameToRequestNode[node.Name] = reqNode
@@ -313,8 +365,6 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 		}
 	}
 
-	// Create a unique request definition for each request node
-	// This ensures each request has its own headers/params/body
 	processedNodes := make(map[string]bool)
 
 	for _, node := range workspaceData.FlowNodes {
@@ -323,129 +373,335 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 		}
 
 		reqNode, exists := nodeNameToRequestNode[node.Name]
-		if !exists || reqNode.EndpointID == nil {
+		if !exists || reqNode.EndpointID == nil || reqNode.ExampleID == nil {
 			continue
 		}
 
-		// Skip if already processed
 		if processedNodes[node.Name] {
 			continue
 		}
 		processedNodes[node.Name] = true
 
-		// Find the endpoint
-		var endpoint *mitemapi.ItemApi
-		for i := range workspaceData.Endpoints {
-			if workspaceData.Endpoints[i].ID == *reqNode.EndpointID {
-				endpoint = &workspaceData.Endpoints[i]
-				break
-			}
-		}
+		endpoint := findEndpointByID(workspaceData, *reqNode.EndpointID)
 		if endpoint == nil {
 			continue
 		}
 
-		// Build request definition for this specific node
-		req := map[string]any{
+		requestEntry := map[string]any{
 			"name": node.Name,
 		}
 
-		// Only add method if not empty
 		if endpoint.Method != "" {
-			req["method"] = endpoint.Method
+			requestEntry["method"] = endpoint.Method
 		}
-
-		// Only add url if not empty
 		if endpoint.Url != "" {
-			req["url"] = endpoint.Url
+			requestEntry["url"] = endpoint.Url
 		}
 
-		// Check if there's a delta endpoint with overrides
 		if reqNode.DeltaEndpointID != nil {
-			for _, deltaEndpoint := range workspaceData.Endpoints {
-				if deltaEndpoint.ID == *reqNode.DeltaEndpointID {
-					// Use delta endpoint's method/URL if different
-					if deltaEndpoint.Method != endpoint.Method && deltaEndpoint.Method != "" {
-						req["method"] = deltaEndpoint.Method
-					}
-					if deltaEndpoint.Url != endpoint.Url && deltaEndpoint.Url != "" {
-						req["url"] = deltaEndpoint.Url
-					}
-					break
+			if deltaEndpoint := findEndpointByID(workspaceData, *reqNode.DeltaEndpointID); deltaEndpoint != nil {
+				if deltaEndpoint.Method != "" {
+					requestEntry["method"] = deltaEndpoint.Method
+				}
+				if deltaEndpoint.Url != "" {
+					requestEntry["url"] = deltaEndpoint.Url
 				}
 			}
 		}
 
-		// Collect headers - use base example only (has hardcoded values)
-		headerMap := make(map[string]string)
-		if reqNode.ExampleID != nil {
-			for _, h := range workspaceData.ExampleHeaders {
-				if h.ExampleID == *reqNode.ExampleID && h.Enable {
-					headerMap[h.HeaderKey] = h.Value
+		baseExample := findExampleByID(workspaceData, *reqNode.ExampleID)
+		if baseExample == nil {
+			continue
+		}
+
+		baseHeaders := collectHeadersByExampleID(workspaceData, baseExample.ID)
+		baseQueries := collectQueriesByExampleID(workspaceData, baseExample.ID)
+		baseRawBody, baseRawFound := collectRawBodyByExampleID(workspaceData, baseExample.ID)
+		baseFormBody := collectFormBodiesByExampleID(workspaceData, baseExample.ID)
+		baseUrlBody := collectUrlBodiesByExampleID(workspaceData, baseExample.ID)
+		baseAsserts := collectOrderedAssertsForExample(workspaceData, baseExample.ID)
+
+		finalHeaders := baseHeaders
+		finalQueries := baseQueries
+		finalRawBody := baseRawBody
+		finalAsserts := baseAsserts
+
+		if reqNode.DeltaExampleID != nil {
+			deltaExample := findExampleByID(workspaceData, *reqNode.DeltaExampleID)
+			if deltaExample != nil {
+				deltaHeaders := collectHeadersByExampleID(workspaceData, deltaExample.ID)
+				deltaQueries := collectQueriesByExampleID(workspaceData, deltaExample.ID)
+				deltaRawBody, deltaRawFound := collectRawBodyByExampleID(workspaceData, deltaExample.ID)
+				deltaFormBody := collectFormBodiesByExampleID(workspaceData, deltaExample.ID)
+				deltaUrlBody := collectUrlBodiesByExampleID(workspaceData, deltaExample.ID)
+				deltaAsserts := collectOrderedAssertsForExample(workspaceData, deltaExample.ID)
+
+				mergeInput := request.MergeExamplesInput{
+					Base:                *baseExample,
+					Delta:               *deltaExample,
+					BaseQueries:         baseQueries,
+					DeltaQueries:        deltaQueries,
+					BaseHeaders:         baseHeaders,
+					DeltaHeaders:        deltaHeaders,
+					BaseRawBody:         baseRawBody,
+					DeltaRawBody:        deltaRawBody,
+					BaseFormBody:        baseFormBody,
+					DeltaFormBody:       deltaFormBody,
+					BaseUrlEncodedBody:  baseUrlBody,
+					DeltaUrlEncodedBody: deltaUrlBody,
+					BaseAsserts:         baseAsserts,
+					DeltaAsserts:        deltaAsserts,
 				}
+
+				if !baseRawFound {
+					mergeInput.BaseRawBody = mbodyraw.ExampleBodyRaw{}
+				}
+				if !deltaRawFound {
+					mergeInput.DeltaRawBody = mbodyraw.ExampleBodyRaw{}
+				}
+
+				mergeOutput := request.MergeExamples(mergeInput)
+				finalHeaders = mergeOutput.MergeHeaders
+				finalQueries = mergeOutput.MergeQueries
+				finalRawBody = mergeOutput.MergeRawBody
+				finalAsserts = mergeOutput.MergeAsserts
 			}
 		}
 
+		headerMap := headersToMap(finalHeaders)
 		if len(headerMap) > 0 {
-			// Create sorted headers for consistent output
-			headerKeys := make([]string, 0, len(headerMap))
-			for key := range headerMap {
-				headerKeys = append(headerKeys, key)
-			}
-			sort.Strings(headerKeys)
-
-			// Build ordered header map
-			orderedHeaders := make(map[string]string)
-			for _, key := range headerKeys {
-				orderedHeaders[key] = headerMap[key]
-			}
-			req["headers"] = orderedHeaders
+			requestEntry["headers"] = headerMap
 		}
 
-		// Collect query params - use base example only
-		queryMap := make(map[string]string)
-		if reqNode.ExampleID != nil {
-			for _, q := range workspaceData.ExampleQueries {
-				if q.ExampleID == *reqNode.ExampleID {
-					queryMap[q.QueryKey] = q.Value
-				}
-			}
-		}
-
+		queryMap := queriesToMap(finalQueries)
 		if len(queryMap) > 0 {
-			// Create sorted query params for consistent output
-			queryKeys := make([]string, 0, len(queryMap))
-			for key := range queryMap {
-				queryKeys = append(queryKeys, key)
-			}
-			sort.Strings(queryKeys)
-
-			// Build ordered query map
-			orderedQueries := make(map[string]string)
-			for _, key := range queryKeys {
-				orderedQueries[key] = queryMap[key]
-			}
-			req["query_params"] = orderedQueries
+			requestEntry["query_params"] = queryMap
 		}
 
-		// Collect body - use base example only
-		if reqNode.ExampleID != nil {
-			for _, b := range workspaceData.Rawbodies {
-				if b.ExampleID == *reqNode.ExampleID && len(b.Data) > 0 {
-					var bodyData any
-					if err := json.Unmarshal(b.Data, &bodyData); err == nil {
-						req["body"] = bodyData
-						break
-					}
-				}
+		if len(finalRawBody.Data) > 0 {
+			var bodyData any
+			if err := json.Unmarshal(finalRawBody.Data, &bodyData); err == nil {
+				requestEntry["body"] = bodyData
 			}
 		}
 
-		// Store with node name as key
-		requests[node.Name] = req
+		if assertionEntries := assertsToEntries(finalAsserts); len(assertionEntries) > 0 {
+			requestEntry["assertions"] = assertionEntries
+		}
+
+		requests[node.Name] = requestEntry
 	}
 
 	return requests
+}
+
+func findEndpointByID(workspaceData *ioworkspace.WorkspaceData, id idwrap.IDWrap) *mitemapi.ItemApi {
+	for i := range workspaceData.Endpoints {
+		if workspaceData.Endpoints[i].ID == id {
+			return &workspaceData.Endpoints[i]
+		}
+	}
+	return nil
+}
+
+func findExampleByID(workspaceData *ioworkspace.WorkspaceData, id idwrap.IDWrap) *mitemapiexample.ItemApiExample {
+	for i := range workspaceData.Examples {
+		if workspaceData.Examples[i].ID == id {
+			return &workspaceData.Examples[i]
+		}
+	}
+	return nil
+}
+
+func collectHeadersByExampleID(workspaceData *ioworkspace.WorkspaceData, exampleID idwrap.IDWrap) []mexampleheader.Header {
+	headers := make([]mexampleheader.Header, 0)
+	for _, header := range workspaceData.ExampleHeaders {
+		if header.ExampleID == exampleID {
+			headers = append(headers, header)
+		}
+	}
+	return headers
+}
+
+func collectQueriesByExampleID(workspaceData *ioworkspace.WorkspaceData, exampleID idwrap.IDWrap) []mexamplequery.Query {
+	queries := make([]mexamplequery.Query, 0)
+	for _, query := range workspaceData.ExampleQueries {
+		if query.ExampleID == exampleID {
+			queries = append(queries, query)
+		}
+	}
+	return queries
+}
+
+func collectRawBodyByExampleID(workspaceData *ioworkspace.WorkspaceData, exampleID idwrap.IDWrap) (mbodyraw.ExampleBodyRaw, bool) {
+	for _, body := range workspaceData.Rawbodies {
+		if body.ExampleID == exampleID {
+			return body, true
+		}
+	}
+	return mbodyraw.ExampleBodyRaw{}, false
+}
+
+func collectFormBodiesByExampleID(workspaceData *ioworkspace.WorkspaceData, exampleID idwrap.IDWrap) []mbodyform.BodyForm {
+	forms := make([]mbodyform.BodyForm, 0)
+	for _, body := range workspaceData.FormBodies {
+		if body.ExampleID == exampleID {
+			forms = append(forms, body)
+		}
+	}
+	return forms
+}
+
+func collectUrlBodiesByExampleID(workspaceData *ioworkspace.WorkspaceData, exampleID idwrap.IDWrap) []mbodyurl.BodyURLEncoded {
+	encoded := make([]mbodyurl.BodyURLEncoded, 0)
+	for _, body := range workspaceData.UrlBodies {
+		if body.ExampleID == exampleID {
+			encoded = append(encoded, body)
+		}
+	}
+	return encoded
+}
+
+func collectOrderedAssertsForExample(workspaceData *ioworkspace.WorkspaceData, exampleID idwrap.IDWrap) []massert.Assert {
+	filtered := make([]massert.Assert, 0)
+	for _, assert := range workspaceData.ExampleAsserts {
+		if assert.ExampleID == exampleID {
+			filtered = append(filtered, assert)
+		}
+	}
+	if len(filtered) == 0 {
+		return filtered
+	}
+	return orderAssertions(filtered)
+}
+
+func orderAssertions(asserts []massert.Assert) []massert.Assert {
+	if len(asserts) <= 1 {
+		return append([]massert.Assert(nil), asserts...)
+	}
+
+	byID := make(map[idwrap.IDWrap]*massert.Assert, len(asserts))
+	var head *massert.Assert
+	for i := range asserts {
+		assert := &asserts[i]
+		byID[assert.ID] = assert
+		if assert.Prev == nil {
+			head = assert
+		}
+	}
+
+	ordered := make([]massert.Assert, 0, len(asserts))
+	visited := make(map[idwrap.IDWrap]bool, len(asserts))
+
+	for current := head; current != nil; {
+		if visited[current.ID] {
+			break
+		}
+		ordered = append(ordered, *current)
+		visited[current.ID] = true
+		if current.Next == nil {
+			break
+		}
+		next, ok := byID[*current.Next]
+		if !ok {
+			break
+		}
+		current = next
+	}
+
+	if len(ordered) < len(asserts) {
+		remaining := make([]massert.Assert, 0, len(asserts)-len(ordered))
+		for _, assert := range asserts {
+			if !visited[assert.ID] {
+				remaining = append(remaining, assert)
+			}
+		}
+		sort.Slice(remaining, func(i, j int) bool {
+			return remaining[i].Condition.Comparisons.Expression < remaining[j].Condition.Comparisons.Expression
+		})
+		ordered = append(ordered, remaining...)
+	}
+
+	return ordered
+}
+
+func headersToMap(headers []mexampleheader.Header) map[string]string {
+	if len(headers) == 0 {
+		return nil
+	}
+	result := make(map[string]string)
+	for _, header := range headers {
+		if !header.Enable {
+			continue
+		}
+		result[header.HeaderKey] = header.Value
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func queriesToMap(queries []mexamplequery.Query) map[string]string {
+	if len(queries) == 0 {
+		return nil
+	}
+	result := make(map[string]string)
+	for _, query := range queries {
+		result[query.QueryKey] = query.Value
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func assertsToEntries(asserts []massert.Assert) []map[string]any {
+	if len(asserts) == 0 {
+		return nil
+	}
+
+	ordered := orderAssertions(asserts)
+	entries := make([]map[string]any, 0, len(ordered))
+	for _, assertModel := range ordered {
+		expr := assertModel.Condition.Comparisons.Expression
+		if expr == "" {
+			continue
+		}
+		entries = append(entries, map[string]any{
+			"expression": expr,
+			"enabled":    assertModel.Enable,
+		})
+	}
+
+	if len(entries) == 0 {
+		return nil
+	}
+	return entries
+}
+
+func assertionsEqual(a, b []massert.Assert) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	orderedA := orderAssertions(a)
+	orderedB := orderAssertions(b)
+
+	if len(orderedA) != len(orderedB) {
+		return false
+	}
+
+	for i := range orderedA {
+		if orderedA[i].Condition.Comparisons.Expression != orderedB[i].Condition.Comparisons.Expression {
+			return false
+		}
+		if orderedA[i].Enable != orderedB[i].Enable {
+			return false
+		}
+	}
+
+	return true
 }
 
 // exportFlow exports a single flow
@@ -699,6 +955,19 @@ func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 					}
 				}
 				break
+			}
+		}
+
+		deltaAsserts := collectOrderedAssertsForExample(workspaceData, *requestNode.DeltaExampleID)
+		if len(deltaAsserts) > 0 {
+			var baseAsserts []massert.Assert
+			if requestNode.ExampleID != nil {
+				baseAsserts = collectOrderedAssertsForExample(workspaceData, *requestNode.ExampleID)
+			}
+			if !assertionsEqual(baseAsserts, deltaAsserts) {
+				if entries := assertsToEntries(deltaAsserts); len(entries) > 0 {
+					step["assertions"] = entries
+				}
 			}
 		}
 	}

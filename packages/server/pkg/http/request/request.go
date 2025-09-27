@@ -12,11 +12,13 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/errmap"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
@@ -688,6 +690,7 @@ type MergeExamplesInput struct {
 	BaseRawBody, DeltaRawBody               mbodyraw.ExampleBodyRaw
 	BaseFormBody, DeltaFormBody             []mbodyform.BodyForm
 	BaseUrlEncodedBody, DeltaUrlEncodedBody []mbodyurl.BodyURLEncoded
+	BaseAsserts, DeltaAsserts               []massert.Assert
 }
 
 type MergeExamplesOutput struct {
@@ -697,6 +700,7 @@ type MergeExamplesOutput struct {
 	MergeRawBody        mbodyraw.ExampleBodyRaw
 	MergeFormBody       []mbodyform.BodyForm
 	MergeUrlEncodedBody []mbodyurl.BodyURLEncoded
+	MergeAsserts        []massert.Assert
 }
 
 // Function will merge two examples
@@ -813,5 +817,97 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 		output.MergeUrlEncodedBody = append(output.MergeUrlEncodedBody, f)
 	}
 
+	output.MergeAsserts = mergeAsserts(input.BaseAsserts, input.DeltaAsserts)
+
 	return output
+}
+
+func mergeAsserts(baseAsserts, deltaAsserts []massert.Assert) []massert.Assert {
+	orderedBase := orderAsserts(baseAsserts)
+	if len(deltaAsserts) == 0 {
+		return orderedBase
+	}
+
+	orderedDelta := orderAsserts(deltaAsserts)
+	baseMap := make(map[idwrap.IDWrap]massert.Assert, len(orderedBase))
+	baseOrder := make([]idwrap.IDWrap, 0, len(orderedBase))
+
+	for _, assert := range orderedBase {
+		baseMap[assert.ID] = assert
+		baseOrder = append(baseOrder, assert.ID)
+	}
+
+	additions := make([]massert.Assert, 0)
+	for _, deltaAssert := range orderedDelta {
+		if deltaAssert.DeltaParentID != nil {
+			if _, exists := baseMap[*deltaAssert.DeltaParentID]; exists {
+				baseMap[*deltaAssert.DeltaParentID] = deltaAssert
+				continue
+			}
+		}
+		additions = append(additions, deltaAssert)
+	}
+
+	merged := make([]massert.Assert, 0, len(baseMap)+len(additions))
+	for _, id := range baseOrder {
+		if assert, exists := baseMap[id]; exists {
+			merged = append(merged, assert)
+		}
+	}
+
+	if len(additions) > 0 {
+		merged = append(merged, orderAsserts(additions)...)
+	}
+
+	return merged
+}
+
+func orderAsserts(asserts []massert.Assert) []massert.Assert {
+	if len(asserts) <= 1 {
+		return append([]massert.Assert(nil), asserts...)
+	}
+
+	byID := make(map[idwrap.IDWrap]*massert.Assert, len(asserts))
+	var head *massert.Assert
+	for i := range asserts {
+		assert := &asserts[i]
+		byID[assert.ID] = assert
+		if assert.Prev == nil {
+			head = assert
+		}
+	}
+
+	ordered := make([]massert.Assert, 0, len(asserts))
+	visited := make(map[idwrap.IDWrap]bool, len(asserts))
+
+	for current := head; current != nil; {
+		if visited[current.ID] {
+			break
+		}
+		ordered = append(ordered, *current)
+		visited[current.ID] = true
+		if current.Next == nil {
+			break
+		}
+		next, ok := byID[*current.Next]
+		if !ok {
+			break
+		}
+		current = next
+	}
+
+	if len(ordered) < len(asserts) {
+		remaining := make([]massert.Assert, 0, len(asserts)-len(ordered))
+		for _, assert := range asserts {
+			if !visited[assert.ID] {
+				remaining = append(remaining, assert)
+			}
+		}
+		sort.Slice(remaining, func(i, j int) bool {
+			return remaining[i].Condition.Comparisons.Expression < remaining[j].Condition.Comparisons.Expression
+		})
+		ordered = append(ordered, remaining...)
+	}
+
+	return ordered
 }

@@ -3,6 +3,7 @@ package yamlflowsimple
 import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mexampleheader"
@@ -115,6 +116,7 @@ type YamlFlowData struct {
 	Headers   []mexampleheader.Header
 	Queries   []mexamplequery.Query
 	RawBodies []mbodyraw.ExampleBodyRaw
+	Asserts   []massert.Assert
 }
 
 // SimplifiedYAMLResolved contains all entities parsed from simplified YAML
@@ -126,6 +128,7 @@ type SimplifiedYAMLResolved struct {
 	Headers     []mexampleheader.Header
 	Queries     []mexamplequery.Query
 	RawBodies   []mbodyraw.ExampleBodyRaw
+	Asserts     []massert.Assert
 
 	// Flow Items
 	Flows              []mflow.Flow
@@ -155,6 +158,7 @@ type requestTemplate struct {
 	headers     []map[string]string
 	queryParams []map[string]string
 	body        map[string]any
+	assertions  []assertionConfig
 }
 
 // RunEntry represents a single run configuration entry

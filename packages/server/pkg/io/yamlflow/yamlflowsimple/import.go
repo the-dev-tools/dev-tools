@@ -103,7 +103,7 @@ func ImportYamlFlowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 		Examples:               resolved.Examples,
 		ExampleHeaders:         resolved.Headers,
 		ExampleQueries:         resolved.Queries,
-		ExampleAsserts:         make([]massert.Assert, 0),
+		ExampleAsserts:         resolved.Asserts,
 		Rawbodies:              resolved.RawBodies,
 		FormBodies:             make([]mbodyform.BodyForm, 0),
 		UrlBodies:              make([]mbodyurl.BodyURLEncoded, 0),
@@ -248,6 +248,7 @@ func ImportYamlFlowYAMLMultiFlow(data []byte) (*ioworkspace.WorkspaceData, error
 		workspaceData.Examples = append(workspaceData.Examples, resolved.Examples...)
 		workspaceData.ExampleHeaders = append(workspaceData.ExampleHeaders, resolved.Headers...)
 		workspaceData.ExampleQueries = append(workspaceData.ExampleQueries, resolved.Queries...)
+		workspaceData.ExampleAsserts = append(workspaceData.ExampleAsserts, resolved.Asserts...)
 		workspaceData.Rawbodies = append(workspaceData.Rawbodies, resolved.RawBodies...)
 	}
 
