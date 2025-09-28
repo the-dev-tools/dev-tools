@@ -31,7 +31,6 @@ import (
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
-	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logconsole"
@@ -56,6 +55,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/overlay/merge"
+	"the-dev-tools/server/pkg/overlay/resolve"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
@@ -1205,6 +1205,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 		asserts := cloneAsserts(assertModels)
 
+		resolveInput := resolve.RequestInput{
+			BaseExample:  *example,
+			BaseHeaders:  headers,
+			BaseQueries:  queries,
+			BaseRawBody:  rawBody,
+			BaseFormBody: formBody,
+			BaseURLBody:  urlBody,
+			BaseAsserts:  asserts,
+		}
+
 		if requestNode.DeltaExampleID != nil {
 			deltaExampleModel, err := c.loadItemApiExample(ctx, *requestNode.DeltaExampleID)
 			if err != nil {
@@ -1230,22 +1240,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, err)
 			}
-			deltaHeaders := cloneHeaders(deltaHeadersData)
-			if updated, overlayErr := c.overlayMgr.MergeHeaders(ctx, headers, deltaHeaders, deltaExample.ID); overlayErr != nil {
-				return connect.NewError(connect.CodeInternal, overlayErr)
-			} else {
-				deltaHeaders = updated
-			}
-
 			deltaQueriesData, err := c.loadQueries(ctx, deltaExample.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, err)
-			}
-			deltaQueries := cloneQueries(deltaQueriesData)
-			if updated, overlayErr := c.overlayMgr.MergeQueries(ctx, queries, deltaQueries, deltaExample.ID); overlayErr != nil {
-				return connect.NewError(connect.CodeInternal, overlayErr)
-			} else {
-				deltaQueries = updated
 			}
 
 			rawDeltaModel, err := c.loadBodyRaw(ctx, deltaExample.ID)
@@ -1271,52 +1268,37 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, err)
 			}
-			formBodyDelta := cloneFormBody(formDeltaModels)
-
 			urlDeltaModels, err := c.loadBodyURL(ctx, deltaExample.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, err)
 			}
-			urlBodyDelta := cloneURLBody(urlDeltaModels)
-
 			deltaAssertModels, err := c.loadAsserts(ctx, deltaExample.ID)
 			if err != nil {
 				return connect.NewError(connect.CodeInternal, err)
 			}
-			deltaAsserts := cloneAsserts(deltaAssertModels)
 
-			mergeExamplesInput := request.MergeExamplesInput{
-				Base:  *example,
-				Delta: *deltaExample,
-
-				BaseQueries:  queries,
-				DeltaQueries: deltaQueries,
-
-				BaseHeaders:  headers,
-				DeltaHeaders: deltaHeaders,
-
-				BaseRawBody:  *rawBody,
-				DeltaRawBody: *rawBodyDelta,
-
-				BaseFormBody:  formBody,
-				DeltaFormBody: formBodyDelta,
-
-				BaseUrlEncodedBody:  urlBody,
-				DeltaUrlEncodedBody: urlBodyDelta,
-
-				BaseAsserts:  asserts,
-				DeltaAsserts: deltaAsserts,
-			}
-
-			mergeExampleOutput := request.MergeExamples(mergeExamplesInput)
-			example = &mergeExampleOutput.Merged
-			headers = mergeExampleOutput.MergeHeaders
-			queries = mergeExampleOutput.MergeQueries
-			rawBody = &mergeExampleOutput.MergeRawBody
-			formBody = mergeExampleOutput.MergeFormBody
-			urlBody = mergeExampleOutput.MergeUrlEncodedBody
-			asserts = mergeExampleOutput.MergeAsserts
+			resolveInput.DeltaExample = deltaExample
+			resolveInput.DeltaHeaders = cloneHeaders(deltaHeadersData)
+			resolveInput.DeltaQueries = cloneQueries(deltaQueriesData)
+			resolveInput.DeltaRawBody = rawBodyDelta
+			resolveInput.DeltaFormBody = cloneFormBody(formDeltaModels)
+			resolveInput.DeltaURLBody = cloneURLBody(urlDeltaModels)
+			resolveInput.DeltaAsserts = cloneAsserts(deltaAssertModels)
 		}
+
+		mergeOutput, err := resolve.Request(ctx, c.overlayMgr, resolveInput, requestNode.DeltaExampleID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
+
+		example = &mergeOutput.Merged
+		headers = mergeOutput.MergeHeaders
+		queries = mergeOutput.MergeQueries
+		mergedRaw := mergeOutput.MergeRawBody
+		rawBody = &mergedRaw
+		formBody = mergeOutput.MergeFormBody
+		urlBody = mergeOutput.MergeUrlEncodedBody
+		asserts = mergeOutput.MergeAsserts
 
 		name := nodeNameMap[requestNode.FlowNodeID]
 

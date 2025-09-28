@@ -1,6 +1,7 @@
 package yamlflowsimple
 
 import (
+	"context"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -43,7 +44,7 @@ func TestYamlFlowRoundTripWithAssertions(t *testing.T) {
 		t.Fatalf("imported workspace missing expected assertion")
 	}
 
-	exported, err := ExportYamlFlowYAML(workspace)
+	exported, err := ExportYamlFlowYAML(context.Background(), workspace, nil)
 	if err != nil {
 		t.Fatalf("export failed: %v", err)
 	}
@@ -142,7 +143,10 @@ func TestBuildRequestDefinitionsDedupsAssertions(t *testing.T) {
 		},
 	}
 
-	requests := buildRequestDefinitions(workspace)
+	requests, err := buildRequestDefinitions(context.Background(), workspace, nil)
+	if err != nil {
+		t.Fatalf("buildRequestDefinitions failed: %v", err)
+	}
 	req, ok := requests["request_1"]
 	if !ok {
 		t.Fatalf("expected request_1 in definitions")

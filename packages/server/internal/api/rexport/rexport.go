@@ -16,6 +16,7 @@ import (
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/overlay/merge"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
@@ -40,6 +41,8 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/soverlayheader"
+	"the-dev-tools/server/pkg/service/soverlayquery"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/translate/tcurl"
@@ -62,6 +65,7 @@ type ExportRPC struct {
 	exampleHeaderService sexampleheader.HeaderService
 	exampleQueryService  sexamplequery.ExampleQueryService
 	exampleAssertService sassert.AssertService
+	overlayMgr           *merge.Manager
 
 	rawBodyService  sbodyraw.BodyRawService
 	formBodyService sbodyform.BodyFormService
@@ -117,6 +121,10 @@ func New(
 	envService senv.EnvService,
 	varService svar.VarService,
 ) ExportRPC {
+	headerOverlay, _ := soverlayheader.New(DB)
+	queryOverlay, _ := soverlayquery.New(DB)
+	overlayMgr := merge.New(headerOverlay, queryOverlay)
+
 	return ExportRPC{
 		DB:                    DB,
 		workspaceService:      workspaceService,
@@ -127,6 +135,7 @@ func New(
 		exampleHeaderService:  exampleHeaderService,
 		exampleQueryService:   exampleQueryService,
 		exampleAssertService:  exampleAssertService,
+		overlayMgr:            overlayMgr,
 		rawBodyService:        rawBodyService,
 		formBodyService:       formBodyService,
 		urlBodyService:        urlBodyService,
@@ -190,7 +199,7 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 		return nil, err
 	}
 
-	data, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
+	data, err := yamlflowsimple.ExportYamlFlowYAML(ctx, workspaceData, c.overlayMgr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -229,7 +238,7 @@ func (c *ExportRPC) ExportSimplified(ctx context.Context, req *connect.Request[e
 	}
 
 	// Convert to simplified format
-	simplifiedYAML, err := yamlflowsimple.ExportYamlFlowYAML(workspaceData)
+	simplifiedYAML, err := yamlflowsimple.ExportYamlFlowYAML(ctx, workspaceData, c.overlayMgr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

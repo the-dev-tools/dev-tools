@@ -1,13 +1,14 @@
 package yamlflowsimple
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"sort"
 	"strconv"
 	"the-dev-tools/server/pkg/flow/edge"
-	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/massert"
@@ -26,10 +27,13 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/overlay/merge"
+	"the-dev-tools/server/pkg/overlay/resolve"
 )
 
-// ExportYamlFlowYAML converts ioworkspace.WorkspaceData to simplified yamlflow YAML
-func ExportYamlFlowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error) {
+// ExportYamlFlowYAML converts ioworkspace.WorkspaceData to simplified yamlflow YAML.
+// Overlay manager may be nil when delta resolution is unnecessary.
+func ExportYamlFlowYAML(ctx context.Context, workspaceData *ioworkspace.WorkspaceData, overlayMgr *merge.Manager) ([]byte, error) {
 	if workspaceData == nil {
 		return nil, fmt.Errorf("workspace data cannot be nil")
 	}
@@ -39,12 +43,18 @@ func ExportYamlFlowYAML(workspaceData *ioworkspace.WorkspaceData) ([]byte, error
 	}
 
 	// Build request definitions from all endpoints across all flows
-	requests := buildRequestDefinitions(workspaceData)
+	requests, err := buildRequestDefinitions(ctx, workspaceData, overlayMgr)
+	if err != nil {
+		return nil, err
+	}
 
 	// Build flows
 	flows := []map[string]any{}
 	for _, flow := range workspaceData.Flows {
-		flowData := exportFlow(flow, workspaceData, requests)
+		flowData, err := exportFlow(ctx, flow, workspaceData, requests, overlayMgr)
+		if err != nil {
+			return nil, err
+		}
 		if flowData != nil {
 			flows = append(flows, flowData)
 		}
@@ -351,7 +361,7 @@ func createAnyNode(data any) *yaml.Node {
 }
 
 // buildRequestDefinitions creates global request definitions from endpoints
-func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[string]map[string]any {
+func buildRequestDefinitions(ctx context.Context, workspaceData *ioworkspace.WorkspaceData, overlayMgr *merge.Manager) (map[string]map[string]any, error) {
 	requests := make(map[string]map[string]any)
 
 	nodeNameToRequestNode := make(map[string]*mnrequest.MNRequest)
@@ -409,90 +419,170 @@ func buildRequestDefinitions(workspaceData *ioworkspace.WorkspaceData) map[strin
 			}
 		}
 
-		baseExample := findExampleByID(workspaceData, *reqNode.ExampleID)
-		if baseExample == nil {
+		resolveInput, ok := requestInputForNode(workspaceData, reqNode)
+		if !ok {
 			continue
 		}
 
-		baseHeaders := collectHeadersByExampleID(workspaceData, baseExample.ID)
-		baseQueries := collectQueriesByExampleID(workspaceData, baseExample.ID)
-		baseRawBody, baseRawFound := collectRawBodyByExampleID(workspaceData, baseExample.ID)
-		baseFormBody := collectFormBodiesByExampleID(workspaceData, baseExample.ID)
-		baseUrlBody := collectUrlBodiesByExampleID(workspaceData, baseExample.ID)
-		baseAsserts := collectOrderedAssertsForExample(workspaceData, baseExample.ID)
-
-		finalHeaders := baseHeaders
-		finalQueries := baseQueries
-		finalRawBody := baseRawBody
-		finalAsserts := baseAsserts
-
-		if reqNode.DeltaExampleID != nil {
-			deltaExample := findExampleByID(workspaceData, *reqNode.DeltaExampleID)
-			if deltaExample != nil {
-				deltaHeaders := collectHeadersByExampleID(workspaceData, deltaExample.ID)
-				deltaQueries := collectQueriesByExampleID(workspaceData, deltaExample.ID)
-				deltaRawBody, deltaRawFound := collectRawBodyByExampleID(workspaceData, deltaExample.ID)
-				deltaFormBody := collectFormBodiesByExampleID(workspaceData, deltaExample.ID)
-				deltaUrlBody := collectUrlBodiesByExampleID(workspaceData, deltaExample.ID)
-				deltaAsserts := collectOrderedAssertsForExample(workspaceData, deltaExample.ID)
-
-				mergeInput := request.MergeExamplesInput{
-					Base:                *baseExample,
-					Delta:               *deltaExample,
-					BaseQueries:         baseQueries,
-					DeltaQueries:        deltaQueries,
-					BaseHeaders:         baseHeaders,
-					DeltaHeaders:        deltaHeaders,
-					BaseRawBody:         baseRawBody,
-					DeltaRawBody:        deltaRawBody,
-					BaseFormBody:        baseFormBody,
-					DeltaFormBody:       deltaFormBody,
-					BaseUrlEncodedBody:  baseUrlBody,
-					DeltaUrlEncodedBody: deltaUrlBody,
-					BaseAsserts:         baseAsserts,
-					DeltaAsserts:        deltaAsserts,
-				}
-
-				if !baseRawFound {
-					mergeInput.BaseRawBody = mbodyraw.ExampleBodyRaw{}
-				}
-				if !deltaRawFound {
-					mergeInput.DeltaRawBody = mbodyraw.ExampleBodyRaw{}
-				}
-
-				mergeOutput := request.MergeExamples(mergeInput)
-				finalHeaders = mergeOutput.MergeHeaders
-				finalQueries = mergeOutput.MergeQueries
-				finalRawBody = mergeOutput.MergeRawBody
-				finalAsserts = mergeOutput.MergeAsserts
-			}
+		mergeOutput, err := resolve.Request(ctx, overlayMgr, resolveInput, reqNode.DeltaExampleID)
+		if err != nil {
+			return nil, err
 		}
 
-		headerMap := headersToMap(finalHeaders)
+		headerMap := headersToMap(mergeOutput.MergeHeaders)
 		if len(headerMap) > 0 {
 			requestEntry["headers"] = headerMap
 		}
 
-		queryMap := queriesToMap(finalQueries)
+		queryMap := queriesToMap(mergeOutput.MergeQueries)
 		if len(queryMap) > 0 {
 			requestEntry["query_params"] = queryMap
 		}
 
-		if len(finalRawBody.Data) > 0 {
+		if len(mergeOutput.MergeRawBody.Data) > 0 {
 			var bodyData any
-			if err := json.Unmarshal(finalRawBody.Data, &bodyData); err == nil {
+			if err := json.Unmarshal(mergeOutput.MergeRawBody.Data, &bodyData); err == nil {
 				requestEntry["body"] = bodyData
 			}
 		}
 
-		if assertionEntries := assertsToEntries(finalAsserts); len(assertionEntries) > 0 {
+		if assertionEntries := assertsToEntries(mergeOutput.MergeAsserts); len(assertionEntries) > 0 {
 			requestEntry["assertions"] = assertionEntries
 		}
 
 		requests[node.Name] = requestEntry
 	}
 
-	return requests
+	return requests, nil
+}
+
+func requestInputForNode(workspaceData *ioworkspace.WorkspaceData, reqNode *mnrequest.MNRequest) (resolve.RequestInput, bool) {
+	if reqNode.ExampleID == nil {
+		return resolve.RequestInput{}, false
+	}
+
+	baseExample := findExampleByID(workspaceData, *reqNode.ExampleID)
+	if baseExample == nil {
+		return resolve.RequestInput{}, false
+	}
+
+	baseHeaders := collectHeadersByExampleID(workspaceData, baseExample.ID)
+	baseQueries := collectQueriesByExampleID(workspaceData, baseExample.ID)
+	baseRawBody, baseRawFound := collectRawBodyByExampleID(workspaceData, baseExample.ID)
+	baseFormBody := collectFormBodiesByExampleID(workspaceData, baseExample.ID)
+	baseURLBody := collectUrlBodiesByExampleID(workspaceData, baseExample.ID)
+	baseAsserts := collectOrderedAssertsForExample(workspaceData, baseExample.ID)
+
+	var baseRawPtr *mbodyraw.ExampleBodyRaw
+	if baseRawFound {
+		copyRaw := baseRawBody
+		baseRawPtr = &copyRaw
+	}
+
+	input := resolve.RequestInput{
+		BaseExample:  *baseExample,
+		BaseHeaders:  baseHeaders,
+		BaseQueries:  baseQueries,
+		BaseRawBody:  baseRawPtr,
+		BaseFormBody: baseFormBody,
+		BaseURLBody:  baseURLBody,
+		BaseAsserts:  baseAsserts,
+	}
+
+	if reqNode.DeltaExampleID != nil {
+		deltaExample := findExampleByID(workspaceData, *reqNode.DeltaExampleID)
+		if deltaExample != nil {
+			copyDelta := *deltaExample
+
+			deltaHeaders := collectHeadersByExampleID(workspaceData, deltaExample.ID)
+			deltaQueries := collectQueriesByExampleID(workspaceData, deltaExample.ID)
+			deltaRawBody, deltaRawFound := collectRawBodyByExampleID(workspaceData, deltaExample.ID)
+			deltaFormBody := collectFormBodiesByExampleID(workspaceData, deltaExample.ID)
+			deltaURLBody := collectUrlBodiesByExampleID(workspaceData, deltaExample.ID)
+			deltaAsserts := collectOrderedAssertsForExample(workspaceData, deltaExample.ID)
+
+			var deltaRawPtr *mbodyraw.ExampleBodyRaw
+			if deltaRawFound {
+				copyRaw := deltaRawBody
+				deltaRawPtr = &copyRaw
+			}
+
+			input.DeltaExample = &copyDelta
+			input.DeltaHeaders = deltaHeaders
+			input.DeltaQueries = deltaQueries
+			input.DeltaRawBody = deltaRawPtr
+			input.DeltaFormBody = deltaFormBody
+			input.DeltaURLBody = deltaURLBody
+			input.DeltaAsserts = deltaAsserts
+		}
+	}
+
+	return input, true
+}
+
+func diffHeaderOverrides(base []mexampleheader.Header, final []mexampleheader.Header) map[string]string {
+	if len(final) == 0 {
+		return nil
+	}
+	baseMap := make(map[string]string, len(base))
+	for _, h := range base {
+		if h.Enable {
+			baseMap[h.HeaderKey] = h.Value
+		}
+	}
+
+	overrides := make(map[string]string)
+	for _, h := range final {
+		if !h.Enable {
+			continue
+		}
+		if baseVal, ok := baseMap[h.HeaderKey]; !ok || baseVal != h.Value {
+			overrides[h.HeaderKey] = h.Value
+		}
+	}
+	if len(overrides) == 0 {
+		return nil
+	}
+	return overrides
+}
+
+func diffQueryOverrides(base []mexamplequery.Query, final []mexamplequery.Query) map[string]string {
+	if len(final) == 0 {
+		return nil
+	}
+	baseMap := make(map[string]string, len(base))
+	for _, q := range base {
+		baseMap[q.QueryKey] = q.Value
+	}
+
+	overrides := make(map[string]string)
+	for _, q := range final {
+		if baseVal, ok := baseMap[q.QueryKey]; !ok || baseVal != q.Value {
+			overrides[q.QueryKey] = q.Value
+		}
+	}
+	if len(overrides) == 0 {
+		return nil
+	}
+	return overrides
+}
+
+func diffBody(base *mbodyraw.ExampleBodyRaw, final mbodyraw.ExampleBodyRaw) (any, bool) {
+	if len(final.Data) == 0 {
+		return nil, false
+	}
+	var baseData []byte
+	if base != nil {
+		baseData = base.Data
+	}
+	if bytes.Equal(baseData, final.Data) {
+		return nil, false
+	}
+	var body any
+	if err := json.Unmarshal(final.Data, &body); err != nil {
+		return nil, false
+	}
+	return body, true
 }
 
 func findEndpointByID(workspaceData *ioworkspace.WorkspaceData, id idwrap.IDWrap) *mitemapi.ItemApi {
@@ -718,7 +808,7 @@ func assertionsEqual(a, b []massert.Assert) bool {
 }
 
 // exportFlow exports a single flow
-func exportFlow(flow mflow.Flow, workspaceData *ioworkspace.WorkspaceData, requests map[string]map[string]any) map[string]any {
+func exportFlow(ctx context.Context, flow mflow.Flow, workspaceData *ioworkspace.WorkspaceData, requests map[string]map[string]any, overlayMgr *merge.Manager) (map[string]any, error) {
 	// Build node map for this flow
 	nodeMap := make(map[idwrap.IDWrap]mnnode.MNode)
 	for _, node := range workspaceData.FlowNodes {
@@ -767,7 +857,10 @@ func exportFlow(flow mflow.Flow, workspaceData *ioworkspace.WorkspaceData, reque
 	}
 
 	// Process nodes to create steps
-	steps := processFlowNodes(nodeMap, incomingEdges, outgoingEdges, startNodeID, workspaceData, nodeToRequest)
+	steps, err := processFlowNodes(ctx, nodeMap, incomingEdges, outgoingEdges, startNodeID, workspaceData, nodeToRequest, overlayMgr)
+	if err != nil {
+		return nil, err
+	}
 
 	// Build flow data
 	flowData := map[string]any{
@@ -782,42 +875,46 @@ func exportFlow(flow mflow.Flow, workspaceData *ioworkspace.WorkspaceData, reque
 		flowData["steps"] = steps
 	}
 
-	return flowData
+	return flowData, nil
 }
 
 // processFlowNodes processes all nodes in a flow and returns steps
-func processFlowNodes(nodeMap map[idwrap.IDWrap]mnnode.MNode, incomingEdges map[idwrap.IDWrap][]edge.Edge,
+func processFlowNodes(ctx context.Context, nodeMap map[idwrap.IDWrap]mnnode.MNode, incomingEdges map[idwrap.IDWrap][]edge.Edge,
 	outgoingEdges map[idwrap.IDWrap][]edge.Edge, startNodeID idwrap.IDWrap,
-	workspaceData *ioworkspace.WorkspaceData, nodeToRequest map[string]string) []map[string]any {
+	workspaceData *ioworkspace.WorkspaceData, nodeToRequest map[string]string, overlayMgr *merge.Manager) ([]map[string]any, error) {
 
 	processed := make(map[idwrap.IDWrap]bool)
 	steps := make([]map[string]any, 0)
 
-	var processNode func(nodeID idwrap.IDWrap)
-	processNode = func(nodeID idwrap.IDWrap) {
+	var processNode func(nodeID idwrap.IDWrap) error
+	processNode = func(nodeID idwrap.IDWrap) error {
 		if processed[nodeID] || nodeID == startNodeID {
-			return
+			return nil
 		}
 		processed[nodeID] = true
 
 		node, exists := nodeMap[nodeID]
 		if !exists {
-			return
+			return nil
 		}
 
-		// Process dependencies first
 		for _, e := range incomingEdges[nodeID] {
 			if e.SourceID != startNodeID {
-				processNode(e.SourceID)
+				if err := processNode(e.SourceID); err != nil {
+					return err
+				}
 			}
 		}
 
-		// Convert node to step
-		var step map[string]any
+		var (
+			step map[string]any
+			err  error
+		)
+
 		switch node.NodeKind {
 		case mnnode.NODE_KIND_REQUEST:
-			step = convertRequestNodeClean(node, incomingEdges, outgoingEdges, startNodeID,
-				nodeMap, workspaceData, nodeToRequest)
+			step, err = convertRequestNodeClean(ctx, node, incomingEdges, outgoingEdges, startNodeID,
+				nodeMap, workspaceData, nodeToRequest, overlayMgr)
 		case mnnode.NODE_KIND_JS:
 			step = convertJSNodeClean(node, incomingEdges, startNodeID, nodeMap, workspaceData)
 		case mnnode.NODE_KIND_CONDITION:
@@ -831,24 +928,31 @@ func processFlowNodes(nodeMap map[idwrap.IDWrap]mnnode.MNode, incomingEdges map[
 				nodeMap, workspaceData)
 		}
 
+		if err != nil {
+			return err
+		}
+
 		if step != nil {
 			steps = append(steps, step)
 		}
+
+		return nil
 	}
 
-	// Process all nodes
 	for nodeID := range nodeMap {
-		processNode(nodeID)
+		if err := processNode(nodeID); err != nil {
+			return nil, err
+		}
 	}
 
-	return steps
+	return steps, nil
 }
 
 // convertRequestNodeClean converts a request node to clean format
-func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap][]edge.Edge,
+func convertRequestNodeClean(ctx context.Context, node mnnode.MNode, incomingEdges map[idwrap.IDWrap][]edge.Edge,
 	outgoingEdges map[idwrap.IDWrap][]edge.Edge, startNodeID idwrap.IDWrap,
 	nodeMap map[idwrap.IDWrap]mnnode.MNode, workspaceData *ioworkspace.WorkspaceData,
-	nodeToRequest map[string]string) map[string]any {
+	nodeToRequest map[string]string, overlayMgr *merge.Manager) (map[string]any, error) {
 
 	// Find request node data
 	var requestNode *mnrequest.MNRequest
@@ -859,7 +963,7 @@ func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 		}
 	}
 	if requestNode == nil {
-		return nil
+		return nil, nil
 	}
 
 	step := map[string]any{
@@ -886,11 +990,9 @@ func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 		}
 
 		if baseEndpoint != nil && deltaEndpoint != nil {
-			// Add method override if different and not empty
 			if deltaEndpoint.Method != baseEndpoint.Method && deltaEndpoint.Method != "" {
 				step["method"] = deltaEndpoint.Method
 			}
-			// Add URL override if different and not empty
 			if deltaEndpoint.Url != baseEndpoint.Url && deltaEndpoint.Url != "" {
 				step["url"] = deltaEndpoint.Url
 			}
@@ -898,88 +1000,30 @@ func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 	}
 
 	if requestNode.DeltaExampleID != nil {
-		// Check for header overrides
-		headerOverrides := make(map[string]string)
-		for _, h := range workspaceData.ExampleHeaders {
-			if h.ExampleID == *requestNode.DeltaExampleID && h.Enable {
-				// Only include if different from base
-				var baseValue string
-				if requestNode.ExampleID != nil {
-					for _, baseH := range workspaceData.ExampleHeaders {
-						if baseH.ExampleID == *requestNode.ExampleID && baseH.HeaderKey == h.HeaderKey && baseH.Enable {
-							baseValue = baseH.Value
-							break
-						}
-					}
-				}
-				if h.Value != baseValue {
-					headerOverrides[h.HeaderKey] = h.Value
-				}
+		input, ok := requestInputForNode(workspaceData, requestNode)
+		if ok {
+			merged, err := resolve.Request(ctx, overlayMgr, input, requestNode.DeltaExampleID)
+			if err != nil {
+				return nil, err
 			}
-		}
-		if len(headerOverrides) > 0 {
-			step["headers"] = headerOverrides
-		}
 
-		// Check for query param overrides
-		queryOverrides := make(map[string]string)
-		for _, q := range workspaceData.ExampleQueries {
-			if q.ExampleID == *requestNode.DeltaExampleID {
-				// Only include if different from base
-				var baseValue string
-				if requestNode.ExampleID != nil {
-					for _, baseQ := range workspaceData.ExampleQueries {
-						if baseQ.ExampleID == *requestNode.ExampleID && baseQ.QueryKey == q.QueryKey {
-							baseValue = baseQ.Value
-							break
-						}
-					}
-				}
-				if q.Value != baseValue {
-					queryOverrides[q.QueryKey] = q.Value
-				}
+			headerOverrides := diffHeaderOverrides(input.BaseHeaders, merged.MergeHeaders)
+			if len(headerOverrides) > 0 {
+				step["headers"] = headerOverrides
 			}
-		}
-		if len(queryOverrides) > 0 {
-			step["query_params"] = queryOverrides
-		}
 
-		// Check for body overrides
-		for _, b := range workspaceData.Rawbodies {
-			if b.ExampleID == *requestNode.DeltaExampleID && len(b.Data) > 0 {
-				var deltaBodyData any
-				if err := json.Unmarshal(b.Data, &deltaBodyData); err == nil {
-					// Check if different from base
-					var baseBodyData any
-					if requestNode.ExampleID != nil {
-						for _, baseB := range workspaceData.Rawbodies {
-							if baseB.ExampleID == *requestNode.ExampleID && len(baseB.Data) > 0 {
-								if err := json.Unmarshal(baseB.Data, &baseBodyData); err != nil {
-									// If base body can't be unmarshaled, treat as different
-									baseBodyData = nil
-								}
-								break
-							}
-						}
-					}
-					// Simple comparison - if they're different, include the override
-					if fmt.Sprintf("%v", deltaBodyData) != fmt.Sprintf("%v", baseBodyData) {
-						step["body"] = deltaBodyData
-					}
-				}
-				break
+			queryOverrides := diffQueryOverrides(input.BaseQueries, merged.MergeQueries)
+			if len(queryOverrides) > 0 {
+				step["query_params"] = queryOverrides
 			}
-		}
 
-		deltaAsserts := collectOrderedAssertsForExample(workspaceData, *requestNode.DeltaExampleID)
-		if len(deltaAsserts) > 0 {
-			var baseAsserts []massert.Assert
-			if requestNode.ExampleID != nil {
-				baseAsserts = collectOrderedAssertsForExample(workspaceData, *requestNode.ExampleID)
+			if bodyData, ok := diffBody(input.BaseRawBody, merged.MergeRawBody); ok {
+				step["body"] = bodyData
 			}
-			if !assertionsEqual(baseAsserts, deltaAsserts) {
-				if entries := assertsToEntries(deltaAsserts); len(entries) > 0 {
-					step["assertions"] = entries
+
+			if !assertionsEqual(input.BaseAsserts, merged.MergeAsserts) {
+				if assertionEntries := assertsToEntries(merged.MergeAsserts); len(assertionEntries) > 0 {
+					step["assertions"] = assertionEntries
 				}
 			}
 		}
@@ -998,7 +1042,7 @@ func convertRequestNodeClean(node mnnode.MNode, incomingEdges map[idwrap.IDWrap]
 		step["depends_on"] = dependencies
 	}
 
-	return map[string]any{"request": step}
+	return map[string]any{"request": step}, nil
 }
 
 // convertJSNodeClean converts a JS node to clean format
