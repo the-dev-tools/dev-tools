@@ -105,6 +105,17 @@ func (as AssertService) GetAssertsByExampleIDs(ctx context.Context, exampleIDs [
 	return result, nil
 }
 
+func (as AssertService) GetAssertsByDeltaParent(ctx context.Context, parent idwrap.IDWrap) ([]massert.Assert, error) {
+	rows, err := as.queries.GetAssertsByDeltaParent(ctx, &parent)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return tgeneric.MassConvert(rows, ConvertAssertDBToModel), nil
+}
+
 func (as AssertService) UpdateAssert(ctx context.Context, assert massert.Assert) error {
 	arg := ConvertAssertModelToDB(assert)
 	return as.queries.UpdateAssert(ctx, gen.UpdateAssertParams{

@@ -2783,6 +2783,20 @@ WHERE
   example_id IN (sqlc.slice('example_ids'))
 ORDER BY example_id;
 
+-- name: GetAssertsByDeltaParent :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  expression,
+  enable,
+  prev,
+  next
+FROM
+  assertion
+WHERE
+  delta_parent_id = ?;
+
 -- name: CreateAssert :exec
 INSERT INTO
   assertion (id, example_id, delta_parent_id, expression, enable, prev, next)

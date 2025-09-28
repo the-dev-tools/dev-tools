@@ -5136,6 +5136,52 @@ func (q *Queries) GetAssertTail(ctx context.Context, exampleID idwrap.IDWrap) (A
 	return i, err
 }
 
+const getAssertsByDeltaParent = `-- name: GetAssertsByDeltaParent :many
+SELECT
+  id,
+  example_id,
+  delta_parent_id,
+  expression,
+  enable,
+  prev,
+  next
+FROM
+  assertion
+WHERE
+  delta_parent_id = ?
+`
+
+func (q *Queries) GetAssertsByDeltaParent(ctx context.Context, deltaParentID *idwrap.IDWrap) ([]Assertion, error) {
+	rows, err := q.query(ctx, q.getAssertsByDeltaParentStmt, getAssertsByDeltaParent, deltaParentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Assertion{}
+	for rows.Next() {
+		var i Assertion
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExampleID,
+			&i.DeltaParentID,
+			&i.Expression,
+			&i.Enable,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAssertsByExampleID = `-- name: GetAssertsByExampleID :many
 SELECT
   id,

@@ -516,6 +516,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getAssertTailStmt, err = db.PrepareContext(ctx, getAssertTail); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAssertTail: %w", err)
 	}
+	if q.getAssertsByDeltaParentStmt, err = db.PrepareContext(ctx, getAssertsByDeltaParent); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAssertsByDeltaParent: %w", err)
+	}
 	if q.getAssertsByExampleIDStmt, err = db.PrepareContext(ctx, getAssertsByExampleID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAssertsByExampleID: %w", err)
 	}
@@ -1926,6 +1929,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getAssertTailStmt: %w", cerr)
 		}
 	}
+	if q.getAssertsByDeltaParentStmt != nil {
+		if cerr := q.getAssertsByDeltaParentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAssertsByDeltaParentStmt: %w", cerr)
+		}
+	}
 	if q.getAssertsByExampleIDStmt != nil {
 		if cerr := q.getAssertsByExampleIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAssertsByExampleIDStmt: %w", cerr)
@@ -3104,6 +3112,7 @@ type Queries struct {
 	getAssertResultsByAssertIDStmt                        *sql.Stmt
 	getAssertResultsByResponseIDStmt                      *sql.Stmt
 	getAssertTailStmt                                     *sql.Stmt
+	getAssertsByDeltaParentStmt                           *sql.Stmt
 	getAssertsByExampleIDStmt                             *sql.Stmt
 	getAssertsByExampleIDOrderedStmt                      *sql.Stmt
 	getAssertsByExampleIDsStmt                            *sql.Stmt
@@ -3469,6 +3478,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getAssertResultsByAssertIDStmt:                        q.getAssertResultsByAssertIDStmt,
 		getAssertResultsByResponseIDStmt:                      q.getAssertResultsByResponseIDStmt,
 		getAssertTailStmt:                                     q.getAssertTailStmt,
+		getAssertsByDeltaParentStmt:                           q.getAssertsByDeltaParentStmt,
 		getAssertsByExampleIDStmt:                             q.getAssertsByExampleIDStmt,
 		getAssertsByExampleIDOrderedStmt:                      q.getAssertsByExampleIDOrderedStmt,
 		getAssertsByExampleIDsStmt:                            q.getAssertsByExampleIDsStmt,
