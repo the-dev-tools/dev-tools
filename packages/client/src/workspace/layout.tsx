@@ -117,7 +117,7 @@ export const WorkspaceLayout = () => {
 
         <PanelResizeHandle direction='horizontal' />
 
-        <Panel>
+        <Panel defaultSize={80}>
           <PanelGroup direction='vertical'>
             <div className={tw`-mt-px pt-2`}>
               <RouteTabList baseRoute={baseRoute} runtime={runtime} tabsAtom={context.tabsAtom} />

@@ -132,7 +132,7 @@ export const EndpointPage = () => {
       }
     >
       <PanelGroup direction='vertical'>
-        <Panel className='flex h-full flex-col' id='request' order={1}>
+        <Panel className='flex h-full flex-col' defaultSize={60} id='request' order={1}>
           <ReferenceContext value={{ exampleId, workspaceId }}>
             <EndpointHeader endpointId={endpointId} exampleId={exampleId} />
 

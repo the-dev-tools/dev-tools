@@ -115,27 +115,19 @@ export const FlowEditPage = () => {
   const { flowId } = flowLayoutRouteApi.useLoaderData();
 
   return (
-    <Suspense
-      fallback={
-        <div className={tw`flex h-full items-center justify-center`}>
-          <Spinner size='xl' />
-        </div>
-      }
-    >
-      <FlowContext.Provider value={{ flowId }}>
-        <ReactFlowProvider>
-          <PanelGroup direction='vertical'>
-            <TopBarWithControls />
-            <Panel className='flex h-full flex-col' id='flow' order={1}>
-              <Flow key={Ulid.construct(flowId).toCanonical()}>
-                <ActionBar />
-              </Flow>
-            </Panel>
-            <EditPanel />
-          </PanelGroup>
-        </ReactFlowProvider>
-      </FlowContext.Provider>
-    </Suspense>
+    <FlowContext.Provider value={{ flowId }}>
+      <ReactFlowProvider>
+        <PanelGroup direction='vertical'>
+          <TopBarWithControls />
+          <Panel className='flex h-full flex-col' defaultSize={60} id='flow' order={1}>
+            <Flow key={Ulid.construct(flowId).toCanonical()}>
+              <ActionBar />
+            </Flow>
+          </Panel>
+          <EditPanel />
+        </PanelGroup>
+      </ReactFlowProvider>
+    </FlowContext.Provider>
   );
 };
 

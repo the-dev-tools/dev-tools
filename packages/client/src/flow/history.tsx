@@ -50,7 +50,7 @@ export const FlowHistoryPage = () => {
 
   return (
     <PanelGroup direction='horizontal'>
-      <Panel>
+      <Panel defaultSize={80}>
         <PanelGroup direction='vertical'>
           {!state.selectedKey && <TopBar />}
           <Panel className='flex h-full flex-col' id='flow' order={1}>
