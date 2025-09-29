@@ -6,9 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"gopkg.in/yaml.v3"
+	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"the-dev-tools/server/pkg/flow/edge"
+	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/massert"
@@ -444,11 +447,8 @@ func buildRequestDefinitions(ctx context.Context, workspaceData *ioworkspace.Wor
 			requestEntry["query_params"] = queryMap
 		}
 
-		if len(mergeOutput.MergeRawBody.Data) > 0 {
-			var bodyData any
-			if err := json.Unmarshal(mergeOutput.MergeRawBody.Data, &bodyData); err == nil {
-				requestEntry["body"] = bodyData
-			}
+		if bodyEntry, ok := encodeMergedBody(mergeOutput); ok {
+			requestEntry["body"] = bodyEntry
 		}
 
 		if assertionEntries := assertsToEntries(mergeOutput.MergeAsserts); len(assertionEntries) > 0 {
@@ -570,6 +570,235 @@ func diffQueryOverrides(base []mexamplequery.Query, final []mexamplequery.Query)
 		return nil
 	}
 	return overrides
+}
+
+func encodeMergedBody(mergeOutput request.MergeExamplesOutput) (any, bool) {
+	if body, ok := encodeFormBody(mergeOutput.MergeFormBody); ok {
+		return body, true
+	}
+	if body, ok := encodeURLEncodedBody(mergeOutput.MergeUrlEncodedBody); ok {
+		return body, true
+	}
+	if mergeOutput.Merged.BodyType == mitemapiexample.BodyTypeForm {
+		if body, ok := encodeFormBodyFromRaw(mergeOutput.MergeRawBody.Data); ok {
+			return body, true
+		}
+	}
+	if mergeOutput.Merged.BodyType == mitemapiexample.BodyTypeUrlencoded {
+		if body, ok := encodeURLEncodedBodyFromRaw(mergeOutput.MergeRawBody.Data); ok {
+			return body, true
+		}
+	}
+	if len(mergeOutput.MergeRawBody.Data) == 0 {
+		return nil, false
+	}
+	var bodyData any
+	if err := json.Unmarshal(mergeOutput.MergeRawBody.Data, &bodyData); err != nil {
+		return nil, false
+	}
+	if isEmptyBodyData(bodyData) {
+		return nil, false
+	}
+	return bodyData, true
+}
+
+func baseMergeOutputFromInput(input resolve.RequestInput) request.MergeExamplesOutput {
+	baseRaw := mbodyraw.ExampleBodyRaw{}
+	if input.BaseRawBody != nil {
+		baseRaw = *input.BaseRawBody
+	}
+
+	baseHeaders := make([]mexampleheader.Header, len(input.BaseHeaders))
+	copy(baseHeaders, input.BaseHeaders)
+
+	baseQueries := make([]mexamplequery.Query, len(input.BaseQueries))
+	copy(baseQueries, input.BaseQueries)
+
+	baseForm := make([]mbodyform.BodyForm, len(input.BaseFormBody))
+	copy(baseForm, input.BaseFormBody)
+
+	baseURL := make([]mbodyurl.BodyURLEncoded, len(input.BaseURLBody))
+	copy(baseURL, input.BaseURLBody)
+
+	baseAsserts := make([]massert.Assert, len(input.BaseAsserts))
+	copy(baseAsserts, input.BaseAsserts)
+
+	return request.MergeExamplesOutput{
+		Merged:              input.BaseExample,
+		MergeHeaders:        baseHeaders,
+		MergeQueries:        baseQueries,
+		MergeRawBody:        baseRaw,
+		MergeFormBody:       baseForm,
+		MergeUrlEncodedBody: baseURL,
+		MergeAsserts:        baseAsserts,
+	}
+}
+
+func encodeFormBody(items []mbodyform.BodyForm) (map[string]any, bool) {
+	if len(items) == 0 {
+		return nil, false
+	}
+	filtered := make([]mbodyform.BodyForm, 0, len(items))
+	for _, item := range items {
+		if strings.TrimSpace(item.BodyKey) == "" {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	if len(filtered) == 0 {
+		return nil, false
+	}
+	sort.Slice(filtered, func(i, j int) bool {
+		if filtered[i].BodyKey != filtered[j].BodyKey {
+			return filtered[i].BodyKey < filtered[j].BodyKey
+		}
+		return filtered[i].Value < filtered[j].Value
+	})
+	encoded := make([]map[string]any, 0, len(filtered))
+	for _, item := range filtered {
+		entry := map[string]any{
+			"name":    strings.TrimSpace(item.BodyKey),
+			"value":   item.Value,
+			"enabled": item.Enable,
+		}
+		if desc := strings.TrimSpace(item.Description); desc != "" {
+			entry["description"] = desc
+		}
+		encoded = append(encoded, entry)
+	}
+	if len(encoded) == 0 {
+		return nil, false
+	}
+	return map[string]any{
+		"type":  "form-data",
+		"items": encoded,
+	}, true
+}
+
+func encodeURLEncodedBody(items []mbodyurl.BodyURLEncoded) (map[string]any, bool) {
+	if len(items) == 0 {
+		return nil, false
+	}
+	filtered := make([]mbodyurl.BodyURLEncoded, 0, len(items))
+	for _, item := range items {
+		if strings.TrimSpace(item.BodyKey) == "" {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	if len(filtered) == 0 {
+		return nil, false
+	}
+	sort.Slice(filtered, func(i, j int) bool {
+		if filtered[i].BodyKey != filtered[j].BodyKey {
+			return filtered[i].BodyKey < filtered[j].BodyKey
+		}
+		return filtered[i].Value < filtered[j].Value
+	})
+	encoded := make([]map[string]any, 0, len(filtered))
+	for _, item := range filtered {
+		entry := map[string]any{
+			"name":    strings.TrimSpace(item.BodyKey),
+			"value":   item.Value,
+			"enabled": item.Enable,
+		}
+		if desc := strings.TrimSpace(item.Description); desc != "" {
+			entry["description"] = desc
+		}
+		encoded = append(encoded, entry)
+	}
+	if len(encoded) == 0 {
+		return nil, false
+	}
+	return map[string]any{
+		"type":  "x-www-form-urlencoded",
+		"items": encoded,
+	}, true
+}
+
+func isEmptyBodyData(body any) bool {
+	switch v := body.(type) {
+	case nil:
+		return true
+	case map[string]any:
+		return len(v) == 0
+	case []any:
+		return len(v) == 0
+	case string:
+		return strings.TrimSpace(v) == ""
+	default:
+		return false
+	}
+}
+
+func encodeFormBodyFromRaw(raw []byte) (map[string]any, bool) {
+	if len(raw) == 0 {
+		return nil, false
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil, false
+	}
+	if len(parsed) == 0 {
+		return nil, false
+	}
+	keys := make([]string, 0, len(parsed))
+	for k := range parsed {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	items := make([]map[string]any, 0, len(keys))
+	for _, key := range keys {
+		val := parsed[key]
+		entry := map[string]any{
+			"name":    key,
+			"value":   fmt.Sprint(val),
+			"enabled": true,
+		}
+		items = append(items, entry)
+	}
+	if len(items) == 0 {
+		return nil, false
+	}
+	return map[string]any{
+		"type":  "form-data",
+		"items": items,
+	}, true
+}
+
+func encodeURLEncodedBodyFromRaw(raw []byte) (map[string]any, bool) {
+	if len(raw) == 0 {
+		return nil, false
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil, false
+	}
+	if len(parsed) == 0 {
+		return nil, false
+	}
+	keys := make([]string, 0, len(parsed))
+	for k := range parsed {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	items := make([]map[string]any, 0, len(keys))
+	for _, key := range keys {
+		val := parsed[key]
+		entry := map[string]any{
+			"name":    key,
+			"value":   fmt.Sprint(val),
+			"enabled": true,
+		}
+		items = append(items, entry)
+	}
+	if len(items) == 0 {
+		return nil, false
+	}
+	return map[string]any{
+		"type":  "x-www-form-urlencoded",
+		"items": items,
+	}, true
 }
 
 func diffBody(base *mbodyraw.ExampleBodyRaw, final mbodyraw.ExampleBodyRaw) (any, bool) {
@@ -1092,6 +1321,8 @@ func convertRequestNodeClean(ctx context.Context, node mnnode.MNode, incomingEdg
 				return nil, err
 			}
 
+			baseOutput := baseMergeOutputFromInput(input)
+
 			headerOverrides := diffHeaderOverrides(input.BaseHeaders, merged.MergeHeaders)
 			if len(headerOverrides) > 0 {
 				step["headers"] = headerOverrides
@@ -1102,8 +1333,10 @@ func convertRequestNodeClean(ctx context.Context, node mnnode.MNode, incomingEdg
 				step["query_params"] = queryOverrides
 			}
 
-			if bodyData, ok := diffBody(input.BaseRawBody, merged.MergeRawBody); ok {
-				step["body"] = bodyData
+			if mergedBody, ok := encodeMergedBody(merged); ok {
+				if baseBody, baseOK := encodeMergedBody(baseOutput); !baseOK || !reflect.DeepEqual(baseBody, mergedBody) {
+					step["body"] = mergedBody
+				}
 			}
 
 			if !assertionsEqual(input.BaseAsserts, merged.MergeAsserts) {

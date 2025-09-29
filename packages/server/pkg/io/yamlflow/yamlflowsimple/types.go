@@ -4,7 +4,9 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/massert"
+	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
@@ -111,12 +113,14 @@ type YamlFlowData struct {
 	JSNodes        []mnjs.MNJS
 
 	// Collection items
-	Endpoints []mitemapi.ItemApi
-	Examples  []mitemapiexample.ItemApiExample
-	Headers   []mexampleheader.Header
-	Queries   []mexamplequery.Query
-	RawBodies []mbodyraw.ExampleBodyRaw
-	Asserts   []massert.Assert
+	Endpoints  []mitemapi.ItemApi
+	Examples   []mitemapiexample.ItemApiExample
+	Headers    []mexampleheader.Header
+	Queries    []mexamplequery.Query
+	RawBodies  []mbodyraw.ExampleBodyRaw
+	FormBodies []mbodyform.BodyForm
+	UrlBodies  []mbodyurl.BodyURLEncoded
+	Asserts    []massert.Assert
 }
 
 // SimplifiedYAMLResolved contains all entities parsed from simplified YAML
@@ -128,6 +132,8 @@ type SimplifiedYAMLResolved struct {
 	Headers     []mexampleheader.Header
 	Queries     []mexamplequery.Query
 	RawBodies   []mbodyraw.ExampleBodyRaw
+	FormBodies  []mbodyform.BodyForm
+	UrlBodies   []mbodyurl.BodyURLEncoded
 	Asserts     []massert.Assert
 
 	// Flow Items
@@ -151,13 +157,35 @@ type nodeInfo struct {
 	dependsOn []string
 }
 
+type bodyKind int
+
+const (
+	bodyKindRaw bodyKind = iota
+	bodyKindForm
+	bodyKindUrlEncoded
+)
+
+type bodyItem struct {
+	Name        string
+	Value       string
+	Description string
+	Enabled     bool
+}
+
+type bodyDefinition struct {
+	kind      bodyKind
+	raw       map[string]any
+	formItems []bodyItem
+	urlItems  []bodyItem
+}
+
 // requestTemplate stores parsed request template data
 type requestTemplate struct {
 	method      string
 	url         string
 	headers     []map[string]string
 	queryParams []map[string]string
-	body        map[string]any
+	body        *bodyDefinition
 	assertions  []assertionConfig
 }
 

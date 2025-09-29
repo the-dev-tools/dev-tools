@@ -2,14 +2,19 @@ package yamlflowsimple
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 
 	"the-dev-tools/server/pkg/flow/edge"
+	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/massert"
+	"the-dev-tools/server/pkg/model/mbodyform"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -34,6 +39,37 @@ flows:
       - request:
           name: Fetch User
           use_request: get-user
+`
+
+const bodyTypesYAML = `workspace_name: Body Types
+requests:
+  - name: form-template
+    method: POST
+    url: https://example.dev/upload
+    body:
+      type: form-data
+      items:
+        - name: file
+          value: '{{ #file:./payload.bin }}'
+          description: upload
+flows:
+  - name: sample
+    steps:
+      - request:
+          name: UploadStep
+          use_request: form-template
+      - request:
+          name: SearchStep
+          method: POST
+          url: https://example.dev/search
+          body:
+            type: x-www-form-urlencoded
+            items:
+              - name: q
+                value: search
+              - name: page
+                value: '2'
+                enabled: false
 `
 
 func TestYamlFlowRoundTripWithAssertions(t *testing.T) {
@@ -165,6 +201,621 @@ func TestBuildRequestDefinitionsDedupsAssertions(t *testing.T) {
 
 	if expr, _ := assertionsAny[0]["expression"].(string); expr != "response.status == 201" {
 		t.Fatalf("unexpected assertion expression %q", expr)
+	}
+}
+
+func TestBuildRequestDefinitionsIncludesFormBody(t *testing.T) {
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+	endpointID := idwrap.NewNow()
+	deltaEndpointID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+	baseFormID := idwrap.NewNow()
+
+	workspace := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{ID: idwrap.NewNow(), Name: "workspace"},
+		Flows:     []mflow.Flow{{ID: flowID, Name: "flow"}},
+		FlowNodes: []mnnode.MNode{{ID: nodeID, FlowID: flowID, Name: "request_form", NodeKind: mnnode.NODE_KIND_REQUEST}},
+		FlowRequestNodes: []mnrequest.MNRequest{{
+			FlowNodeID:       nodeID,
+			EndpointID:       &endpointID,
+			ExampleID:        &exampleID,
+			DeltaEndpointID:  &deltaEndpointID,
+			DeltaExampleID:   &deltaExampleID,
+			HasRequestConfig: true,
+		}},
+		Endpoints: []mitemapi.ItemApi{
+			{ID: endpointID, Name: "request_form", Method: "POST", Url: "https://example.dev"},
+			{ID: deltaEndpointID, Name: "request_form (delta)", Method: "POST", Url: "https://example.dev", DeltaParentID: &endpointID},
+		},
+		Examples: []mitemapiexample.ItemApiExample{
+			{ID: exampleID, ItemApiID: endpointID, Name: "request_form", BodyType: mitemapiexample.BodyTypeForm},
+			{ID: deltaExampleID, ItemApiID: deltaEndpointID, Name: "request_form (delta)", BodyType: mitemapiexample.BodyTypeForm, VersionParentID: &exampleID},
+		},
+		FormBodies: []mbodyform.BodyForm{
+			{ID: baseFormID, ExampleID: exampleID, BodyKey: "file", Value: "{{ #file:./payload.bin }}", Enable: true, Description: "upload"},
+		},
+	}
+
+	requests, err := buildRequestDefinitions(context.Background(), workspace, nil)
+	if err != nil {
+		t.Fatalf("buildRequestDefinitions failed: %v", err)
+	}
+
+	req, ok := requests["request_form"]
+	if !ok {
+		t.Fatalf("expected request_form in definitions")
+	}
+
+	body, ok := req["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map body entry, got %T", req["body"])
+	}
+	if bodyType, _ := body["type"].(string); bodyType != "form-data" {
+		t.Fatalf("expected form-data type, got %q", bodyType)
+	}
+
+	itemsAny, ok := body["items"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected slice items, got %T", body["items"])
+	}
+	if len(itemsAny) != 1 {
+		t.Fatalf("expected 1 form item, got %d", len(itemsAny))
+	}
+
+	item := itemsAny[0]
+	if name, _ := item["name"].(string); name != "file" {
+		t.Fatalf("unexpected form name %q", name)
+	}
+	if value, _ := item["value"].(string); value != "{{ #file:./payload.bin }}" {
+		t.Fatalf("unexpected form value %q", value)
+	}
+	if enabled, _ := item["enabled"].(bool); !enabled {
+		t.Fatalf("expected enabled true for first item")
+	}
+	if desc, _ := item["description"].(string); desc != "upload" {
+		t.Fatalf("unexpected description %q", desc)
+	}
+}
+
+func TestBuildRequestDefinitionsPrefersFormBodyOverRaw(t *testing.T) {
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+	endpointID := idwrap.NewNow()
+	deltaEndpointID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+
+	workspace := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{ID: idwrap.NewNow(), Name: "workspace"},
+		Flows:     []mflow.Flow{{ID: flowID, Name: "flow"}},
+		FlowNodes: []mnnode.MNode{{ID: nodeID, FlowID: flowID, Name: "request_form", NodeKind: mnnode.NODE_KIND_REQUEST}},
+		FlowRequestNodes: []mnrequest.MNRequest{{
+			FlowNodeID:       nodeID,
+			EndpointID:       &endpointID,
+			ExampleID:        &exampleID,
+			DeltaEndpointID:  &deltaEndpointID,
+			DeltaExampleID:   &deltaExampleID,
+			HasRequestConfig: true,
+		}},
+		Endpoints: []mitemapi.ItemApi{
+			{ID: endpointID, Name: "request_form", Method: "POST", Url: "https://example.dev"},
+			{ID: deltaEndpointID, Name: "request_form (delta)", Method: "POST", Url: "https://example.dev", DeltaParentID: &endpointID},
+		},
+		Examples: []mitemapiexample.ItemApiExample{
+			{ID: exampleID, ItemApiID: endpointID, Name: "request_form", BodyType: mitemapiexample.BodyTypeRaw},
+			{ID: deltaExampleID, ItemApiID: deltaEndpointID, Name: "request_form (delta)", BodyType: mitemapiexample.BodyTypeForm, VersionParentID: &exampleID},
+		},
+		Rawbodies: []mbodyraw.ExampleBodyRaw{{
+			ID:        idwrap.NewNow(),
+			ExampleID: exampleID,
+			Data:      []byte(`{"legacy":true}`),
+		}},
+		FormBodies: []mbodyform.BodyForm{
+			{ID: idwrap.NewNow(), ExampleID: deltaExampleID, BodyKey: "file", Value: "{{ #file:./payload.bin }}", Enable: true},
+		},
+	}
+
+	requests, err := buildRequestDefinitions(context.Background(), workspace, nil)
+	if err != nil {
+		t.Fatalf("buildRequestDefinitions failed: %v", err)
+	}
+
+	req, ok := requests["request_form"]
+	if !ok {
+		t.Fatalf("expected request_form in definitions")
+	}
+
+	body, ok := req["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map body entry, got %T", req["body"])
+	}
+	if bodyType, _ := body["type"].(string); bodyType != "form-data" {
+		t.Fatalf("expected form-data type, got %q", bodyType)
+	}
+}
+
+func TestExportYamlFlowYAMLIncludesFormType(t *testing.T) {
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+	endpointID := idwrap.NewNow()
+	deltaEndpointID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+
+	workspace := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{ID: idwrap.NewNow(), Name: "workspace"},
+		Flows:     []mflow.Flow{{ID: flowID, Name: "flow"}},
+		FlowNodes: []mnnode.MNode{{ID: nodeID, FlowID: flowID, Name: "node", NodeKind: mnnode.NODE_KIND_REQUEST}},
+		FlowRequestNodes: []mnrequest.MNRequest{{
+			FlowNodeID:       nodeID,
+			EndpointID:       &endpointID,
+			ExampleID:        &exampleID,
+			DeltaEndpointID:  &deltaEndpointID,
+			DeltaExampleID:   &deltaExampleID,
+			HasRequestConfig: true,
+		}},
+		Endpoints: []mitemapi.ItemApi{
+			{ID: endpointID, Name: "node", Method: "POST", Url: "https://example.dev"},
+			{ID: deltaEndpointID, Name: "node (delta)", Method: "POST", Url: "https://example.dev", DeltaParentID: &endpointID},
+		},
+		Examples: []mitemapiexample.ItemApiExample{
+			{ID: exampleID, ItemApiID: endpointID, Name: "node", BodyType: mitemapiexample.BodyTypeForm},
+			{ID: deltaExampleID, ItemApiID: deltaEndpointID, Name: "node (delta)", BodyType: mitemapiexample.BodyTypeForm, VersionParentID: &exampleID},
+		},
+		FormBodies: []mbodyform.BodyForm{
+			{ID: idwrap.NewNow(), ExampleID: exampleID, BodyKey: "file", Value: "{{ #file:./payload.bin }}", Enable: true},
+		},
+	}
+
+	output, err := ExportYamlFlowYAML(context.Background(), workspace, nil)
+	if err != nil {
+		t.Fatalf("export failed: %v", err)
+	}
+
+	if !strings.Contains(string(output), "type: form-data") {
+		t.Fatalf("expected exported yaml to contain form-data type:\n%s", string(output))
+	}
+}
+
+func TestEncodeMergedBodyFormFallbackToRaw(t *testing.T) {
+	mergeOutput := request.MergeExamplesOutput{
+		Merged:       mitemapiexample.ItemApiExample{BodyType: mitemapiexample.BodyTypeForm},
+		MergeRawBody: mbodyraw.ExampleBodyRaw{Data: []byte(`{"email":"admin@example.com","password":"admin123"}`)},
+	}
+
+	body, ok := encodeMergedBody(mergeOutput)
+	if !ok {
+		t.Fatalf("expected body encoding to succeed")
+	}
+	bodyMap, ok := body.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map body entry, got %T", body)
+	}
+	if bodyType, _ := bodyMap["type"].(string); bodyType != "form-data" {
+		t.Fatalf("expected form-data fallback, got %q", bodyType)
+	}
+	items, _ := bodyMap["items"].([]map[string]any)
+	if len(items) != 2 {
+		t.Fatalf("expected fallback to create 2 items, got %d", len(items))
+	}
+}
+
+func TestBuildRequestDefinitionsIncludesUrlEncodedBody(t *testing.T) {
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+	endpointID := idwrap.NewNow()
+	deltaEndpointID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+
+	workspace := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{ID: idwrap.NewNow(), Name: "workspace"},
+		Flows:     []mflow.Flow{{ID: flowID, Name: "flow"}},
+		FlowNodes: []mnnode.MNode{{ID: nodeID, FlowID: flowID, Name: "request_urlencoded", NodeKind: mnnode.NODE_KIND_REQUEST}},
+		FlowRequestNodes: []mnrequest.MNRequest{{
+			FlowNodeID:       nodeID,
+			EndpointID:       &endpointID,
+			ExampleID:        &exampleID,
+			DeltaEndpointID:  &deltaEndpointID,
+			DeltaExampleID:   &deltaExampleID,
+			HasRequestConfig: true,
+		}},
+		Endpoints: []mitemapi.ItemApi{
+			{ID: endpointID, Name: "request_urlencoded", Method: "POST", Url: "https://example.dev"},
+			{ID: deltaEndpointID, Name: "request_urlencoded (delta)", Method: "POST", Url: "https://example.dev", DeltaParentID: &endpointID},
+		},
+		Examples: []mitemapiexample.ItemApiExample{
+			{ID: exampleID, ItemApiID: endpointID, Name: "request_urlencoded", BodyType: mitemapiexample.BodyTypeUrlencoded},
+			{ID: deltaExampleID, ItemApiID: deltaEndpointID, Name: "request_urlencoded (delta)", BodyType: mitemapiexample.BodyTypeUrlencoded, VersionParentID: &exampleID},
+		},
+		UrlBodies: []mbodyurl.BodyURLEncoded{
+			{ID: idwrap.NewNow(), ExampleID: exampleID, BodyKey: "search", Value: "foo", Enable: true},
+			{ID: idwrap.NewNow(), ExampleID: deltaExampleID, BodyKey: "page", Value: "2", Enable: true},
+		},
+	}
+
+	requests, err := buildRequestDefinitions(context.Background(), workspace, nil)
+	if err != nil {
+		t.Fatalf("buildRequestDefinitions failed: %v", err)
+	}
+
+	req, ok := requests["request_urlencoded"]
+	if !ok {
+		t.Fatalf("expected request_urlencoded in definitions")
+	}
+
+	body, ok := req["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map body entry, got %T", req["body"])
+	}
+	if bodyType, _ := body["type"].(string); bodyType != "x-www-form-urlencoded" {
+		t.Fatalf("expected x-www-form-urlencoded type, got %q", bodyType)
+	}
+
+	itemsAny, ok := body["items"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected slice items, got %T", body["items"])
+	}
+	if len(itemsAny) != 2 {
+		t.Fatalf("expected 2 urlencoded items, got %d", len(itemsAny))
+	}
+
+	params := make(map[string]map[string]any, len(itemsAny))
+	for _, item := range itemsAny {
+		if name, _ := item["name"].(string); name != "" {
+			params[name] = item
+		}
+	}
+
+	first, ok := params["search"]
+	if !ok {
+		t.Fatalf("missing search param")
+	}
+	if value, _ := first["value"].(string); value != "foo" {
+		t.Fatalf("unexpected search value %q", value)
+	}
+	if enabled, _ := first["enabled"].(bool); !enabled {
+		t.Fatalf("expected enabled true for search param")
+	}
+
+	if _, ok := params["page"]; !ok {
+		t.Fatalf("missing page param")
+	}
+}
+
+func TestConvertRequestNodeCleanAddsFormBodyOverride(t *testing.T) {
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+	endpointID := idwrap.NewNow()
+	deltaEndpointID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+
+	workspace := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{ID: idwrap.NewNow(), Name: "workspace"},
+		Flows:     []mflow.Flow{{ID: flowID, Name: "flow"}},
+		FlowNodes: []mnnode.MNode{{ID: nodeID, FlowID: flowID, Name: "node", NodeKind: mnnode.NODE_KIND_REQUEST}},
+		FlowRequestNodes: []mnrequest.MNRequest{{
+			FlowNodeID:       nodeID,
+			EndpointID:       &endpointID,
+			ExampleID:        &exampleID,
+			DeltaEndpointID:  &deltaEndpointID,
+			DeltaExampleID:   &deltaExampleID,
+			HasRequestConfig: true,
+		}},
+		Endpoints: []mitemapi.ItemApi{
+			{ID: endpointID, Name: "node", Method: "POST", Url: "https://example.dev"},
+			{ID: deltaEndpointID, Name: "node (delta)", Method: "POST", Url: "https://example.dev", DeltaParentID: &endpointID},
+		},
+		Examples: []mitemapiexample.ItemApiExample{
+			{ID: exampleID, ItemApiID: endpointID, Name: "node", BodyType: mitemapiexample.BodyTypeForm},
+			{ID: deltaExampleID, ItemApiID: deltaEndpointID, Name: "node (delta)", BodyType: mitemapiexample.BodyTypeForm, VersionParentID: &exampleID},
+		},
+		FormBodies: []mbodyform.BodyForm{
+			{ID: idwrap.NewNow(), ExampleID: deltaExampleID, BodyKey: "file", Value: "{{ #file:./data.bin }}", Enable: true},
+		},
+	}
+
+	node := workspace.FlowNodes[0]
+	incoming := map[idwrap.IDWrap][]edge.Edge{}
+	outgoing := map[idwrap.IDWrap][]edge.Edge{}
+	nodeMap := map[idwrap.IDWrap]mnnode.MNode{node.ID: node}
+	nodeToRequest := map[string]string{node.Name: node.Name}
+
+	step, err := convertRequestNodeClean(context.Background(), node, incoming, outgoing, idwrap.IDWrap{}, nodeMap, workspace, nodeToRequest, nil)
+	if err != nil {
+		t.Fatalf("convertRequestNodeClean returned error: %v", err)
+	}
+
+	requestStep, ok := step["request"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected request step, got %T", step["request"])
+	}
+
+	body, ok := requestStep["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map body entry, got %T", requestStep["body"])
+	}
+	if bodyType, _ := body["type"].(string); bodyType != "form-data" {
+		t.Fatalf("expected form-data type, got %q", bodyType)
+	}
+
+	itemsAny, ok := body["items"].([]map[string]any)
+	if !ok || len(itemsAny) != 1 {
+		t.Fatalf("expected single form item slice, got %#v", body["items"])
+	}
+	if name, _ := itemsAny[0]["name"].(string); name != "file" {
+		t.Fatalf("unexpected form item name %q", name)
+	}
+	if value, _ := itemsAny[0]["value"].(string); value != "{{ #file:./data.bin }}" {
+		t.Fatalf("unexpected form item value %q", value)
+	}
+}
+
+func TestConvertRequestNodeCleanAddsUrlEncodedOverride(t *testing.T) {
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+	endpointID := idwrap.NewNow()
+	deltaEndpointID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+
+	workspace := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{ID: idwrap.NewNow(), Name: "workspace"},
+		Flows:     []mflow.Flow{{ID: flowID, Name: "flow"}},
+		FlowNodes: []mnnode.MNode{{ID: nodeID, FlowID: flowID, Name: "node", NodeKind: mnnode.NODE_KIND_REQUEST}},
+		FlowRequestNodes: []mnrequest.MNRequest{{
+			FlowNodeID:       nodeID,
+			EndpointID:       &endpointID,
+			ExampleID:        &exampleID,
+			DeltaEndpointID:  &deltaEndpointID,
+			DeltaExampleID:   &deltaExampleID,
+			HasRequestConfig: true,
+		}},
+		Endpoints: []mitemapi.ItemApi{
+			{ID: endpointID, Name: "node", Method: "POST", Url: "https://example.dev"},
+			{ID: deltaEndpointID, Name: "node (delta)", Method: "POST", Url: "https://example.dev", DeltaParentID: &endpointID},
+		},
+		Examples: []mitemapiexample.ItemApiExample{
+			{ID: exampleID, ItemApiID: endpointID, Name: "node", BodyType: mitemapiexample.BodyTypeUrlencoded},
+			{ID: deltaExampleID, ItemApiID: deltaEndpointID, Name: "node (delta)", BodyType: mitemapiexample.BodyTypeUrlencoded, VersionParentID: &exampleID},
+		},
+		UrlBodies: []mbodyurl.BodyURLEncoded{
+			{ID: idwrap.NewNow(), ExampleID: deltaExampleID, BodyKey: "search", Value: "query", Enable: true},
+		},
+	}
+
+	node := workspace.FlowNodes[0]
+	incoming := map[idwrap.IDWrap][]edge.Edge{}
+	outgoing := map[idwrap.IDWrap][]edge.Edge{}
+	nodeMap := map[idwrap.IDWrap]mnnode.MNode{node.ID: node}
+	nodeToRequest := map[string]string{node.Name: node.Name}
+
+	step, err := convertRequestNodeClean(context.Background(), node, incoming, outgoing, idwrap.IDWrap{}, nodeMap, workspace, nodeToRequest, nil)
+	if err != nil {
+		t.Fatalf("convertRequestNodeClean returned error: %v", err)
+	}
+
+	requestStep, ok := step["request"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected request step, got %T", step["request"])
+	}
+
+	body, ok := requestStep["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map body entry, got %T", requestStep["body"])
+	}
+	if bodyType, _ := body["type"].(string); bodyType != "x-www-form-urlencoded" {
+		t.Fatalf("expected x-www-form-urlencoded type, got %q", bodyType)
+	}
+
+	itemsAny, ok := body["items"].([]map[string]any)
+	if !ok || len(itemsAny) != 1 {
+		t.Fatalf("expected single urlencoded item slice, got %#v", body["items"])
+	}
+	if name, _ := itemsAny[0]["name"].(string); name != "search" {
+		t.Fatalf("unexpected urlencoded item name %q", name)
+	}
+	if value, _ := itemsAny[0]["value"].(string); value != "query" {
+		t.Fatalf("unexpected urlencoded item value %q", value)
+	}
+}
+
+func TestImportYamlFlowWithTypedBodies(t *testing.T) {
+	workspace, err := ImportYamlFlowYAML([]byte(bodyTypesYAML))
+	if err != nil {
+		t.Fatalf("import failed: %v", err)
+	}
+
+	findNodeName := func(id idwrap.IDWrap) string {
+		for _, node := range workspace.FlowNodes {
+			if node.ID == id {
+				return node.Name
+			}
+		}
+		return ""
+	}
+
+	findExample := func(id idwrap.IDWrap) *mitemapiexample.ItemApiExample {
+		for i := range workspace.Examples {
+			if workspace.Examples[i].ID == id {
+				return &workspace.Examples[i]
+			}
+		}
+		return nil
+	}
+
+	var uploadExampleID, uploadDeltaID idwrap.IDWrap
+	var searchExampleID, searchDeltaID idwrap.IDWrap
+	for _, reqNode := range workspace.FlowRequestNodes {
+		name := findNodeName(reqNode.FlowNodeID)
+		switch name {
+		case "UploadStep":
+			if reqNode.ExampleID != nil {
+				uploadExampleID = *reqNode.ExampleID
+			}
+			if reqNode.DeltaExampleID != nil {
+				uploadDeltaID = *reqNode.DeltaExampleID
+			}
+		case "SearchStep":
+			if reqNode.ExampleID != nil {
+				searchExampleID = *reqNode.ExampleID
+			}
+			if reqNode.DeltaExampleID != nil {
+				searchDeltaID = *reqNode.DeltaExampleID
+			}
+		}
+	}
+
+	if uploadExampleID == (idwrap.IDWrap{}) || uploadDeltaID == (idwrap.IDWrap{}) {
+		t.Fatalf("missing upload example identifiers")
+	}
+	if searchExampleID == (idwrap.IDWrap{}) || searchDeltaID == (idwrap.IDWrap{}) {
+		t.Fatalf("missing search example identifiers")
+	}
+
+	uploadExample := findExample(uploadExampleID)
+	uploadDelta := findExample(uploadDeltaID)
+	if uploadExample == nil || uploadDelta == nil {
+		t.Fatalf("missing upload examples")
+	}
+	if uploadExample.BodyType != mitemapiexample.BodyTypeForm || uploadDelta.BodyType != mitemapiexample.BodyTypeForm {
+		t.Fatalf("expected upload examples to use form body type")
+	}
+
+	searchExample := findExample(searchExampleID)
+	searchDelta := findExample(searchDeltaID)
+	if searchExample == nil || searchDelta == nil {
+		t.Fatalf("missing search examples")
+	}
+	if searchExample.BodyType != mitemapiexample.BodyTypeUrlencoded || searchDelta.BodyType != mitemapiexample.BodyTypeUrlencoded {
+		t.Fatalf("expected search examples to use urlencoded body type")
+	}
+
+	var foundForm bool
+	for _, form := range workspace.FormBodies {
+		if form.ExampleID == uploadExampleID && form.Value == "{{ #file:./payload.bin }}" {
+			foundForm = true
+			break
+		}
+	}
+	if !foundForm {
+		t.Fatalf("expected form body entry for upload example")
+	}
+
+	var searchParams int
+	for _, param := range workspace.UrlBodies {
+		if param.ExampleID == searchExampleID {
+			searchParams++
+		}
+	}
+	if searchParams == 0 {
+		t.Fatalf("expected urlencoded parameters for search example")
+	}
+
+	var rawFormFallback bool
+	for _, raw := range workspace.Rawbodies {
+		if raw.ExampleID == uploadExampleID || raw.ExampleID == searchExampleID {
+			rawFormFallback = true
+		}
+	}
+	if !rawFormFallback {
+		t.Fatalf("expected raw fallback body for typed example")
+	}
+
+	exported, err := ExportYamlFlowYAML(context.Background(), workspace, nil)
+	if err != nil {
+		t.Fatalf("export failed: %v", err)
+	}
+
+	var doc map[string]any
+	if err := yaml.Unmarshal(exported, &doc); err != nil {
+		t.Fatalf("failed to unmarshal exported yaml: %v", err)
+	}
+
+	requestsAny, ok := doc["requests"].([]any)
+	if !ok {
+		t.Fatalf("expected requests array in export")
+	}
+	var formRequest map[string]any
+	for _, reqAny := range requestsAny {
+		if reqMap, ok := reqAny.(map[string]any); ok {
+			if name, _ := reqMap["name"].(string); name == "UploadStep" {
+				formRequest = reqMap
+				break
+			}
+		}
+	}
+	if formRequest == nil {
+		t.Fatalf("UploadStep request definition not found in export")
+	}
+	body, ok := formRequest["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured body for form-template request")
+	}
+	if bodyType, _ := body["type"].(string); bodyType != "form-data" {
+		t.Fatalf("expected form-data type in exported request, got %q", bodyType)
+	}
+
+	flowsAny, ok := doc["flows"].([]any)
+	if !ok || len(flowsAny) == 0 {
+		t.Fatalf("exported yaml missing flows section")
+	}
+	flowMap, ok := flowsAny[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected flow map in export")
+	}
+	stepsAny, ok := flowMap["steps"].([]any)
+	if !ok {
+		t.Fatalf("expected steps array in export flow")
+	}
+	var searchStep map[string]any
+	for _, stepAny := range stepsAny {
+		if stepMap, ok := stepAny.(map[string]any); ok {
+			if req, ok := stepMap["request"].(map[string]any); ok {
+				if name, _ := req["name"].(string); name == "SearchStep" {
+					searchStep = req
+					break
+				}
+			}
+		}
+	}
+	if searchStep == nil {
+		t.Fatalf("search step not found in export")
+	}
+	stepBody, ok := searchStep["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected body on search step override")
+	}
+	if bodyType, _ := stepBody["type"].(string); bodyType != "x-www-form-urlencoded" {
+		t.Fatalf("expected urlencoded type in search step, got %q", bodyType)
+	}
+
+	reimported, err := ImportYamlFlowYAML(exported)
+	if err != nil {
+		t.Fatalf("re-import failed: %v", err)
+	}
+	var reimportFoundForm bool
+	for _, form := range reimported.FormBodies {
+		if form.Value == "{{ #file:./payload.bin }}" {
+			reimportFoundForm = true
+			break
+		}
+	}
+	if !reimportFoundForm {
+		t.Fatalf("expected form body to round-trip through export/import")
+	}
+	var reimportFoundParam bool
+	for _, param := range reimported.UrlBodies {
+		if param.BodyKey == "q" && param.Value == "search" {
+			reimportFoundParam = true
+			break
+		}
+	}
+	if !reimportFoundParam {
+		t.Fatalf("expected urlencoded param to round-trip through export/import")
 	}
 }
 

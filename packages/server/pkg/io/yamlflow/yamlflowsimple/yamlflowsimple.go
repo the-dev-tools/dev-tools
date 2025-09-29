@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"gopkg.in/yaml.v3"
+	"strings"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/massert"
+	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mexampleheader"
@@ -201,6 +204,8 @@ func ConvertSimplifiedYAML(data []byte, collectionID, workspaceID idwrap.IDWrap)
 	result.Headers = yamlflowData.Headers
 	result.Queries = yamlflowData.Queries
 	result.RawBodies = yamlflowData.RawBodies
+	result.FormBodies = yamlflowData.FormBodies
+	result.UrlBodies = yamlflowData.UrlBodies
 	result.Asserts = yamlflowData.Asserts
 
 	// Set Prev/Next for endpoints
@@ -285,6 +290,8 @@ func Parse(data []byte) (*YamlFlowData, error) {
 		Headers:        make([]mexampleheader.Header, 0),
 		Queries:        make([]mexamplequery.Query, 0),
 		RawBodies:      make([]mbodyraw.ExampleBodyRaw, 0),
+		FormBodies:     make([]mbodyform.BodyForm, 0),
+		UrlBodies:      make([]mbodyurl.BodyURLEncoded, 0),
 		Asserts:        make([]massert.Assert, 0),
 	}
 
@@ -589,7 +596,9 @@ func parseRequestDataFromMap(data map[string]any) *requestTemplate {
 	}
 
 	if body, ok := data[fieldBody].(map[string]any); ok {
-		rt.body = body
+		if def, err := parseBodyDefinition(body); err == nil {
+			rt.body = def
+		}
 	}
 
 	if assertions, ok := data[fieldAssertions]; ok {
@@ -597,6 +606,251 @@ func parseRequestDataFromMap(data map[string]any) *requestTemplate {
 	}
 
 	return rt
+}
+
+func parseBodyDefinition(body map[string]any) (*bodyDefinition, error) {
+	if body == nil {
+		return nil, nil
+	}
+	typRaw, _ := body["type"].(string)
+	typ := strings.TrimSpace(strings.ToLower(typRaw))
+	switch typ {
+	case "form-data":
+		items := parseBodyItems(body["items"])
+		if len(items) == 0 {
+			return &bodyDefinition{kind: bodyKindRaw, raw: cloneBodyMap(body, "type")}, nil
+		}
+		return &bodyDefinition{kind: bodyKindForm, formItems: items}, nil
+	case "x-www-form-urlencoded":
+		items := parseBodyItems(body["items"])
+		if len(items) == 0 {
+			return &bodyDefinition{kind: bodyKindRaw, raw: cloneBodyMap(body, "type")}, nil
+		}
+		return &bodyDefinition{kind: bodyKindUrlEncoded, urlItems: items}, nil
+	case "", "json":
+		return &bodyDefinition{kind: bodyKindRaw, raw: cloneBodyMap(body, "type")}, nil
+	default:
+		return &bodyDefinition{kind: bodyKindRaw, raw: cloneBodyMap(body, "type")}, nil
+	}
+}
+
+func parseBodyItems(raw any) []bodyItem {
+	items := make([]bodyItem, 0)
+	appendItem := func(m map[string]any) {
+		if item, ok := bodyItemFromMap(m); ok {
+			items = append(items, item)
+		}
+	}
+	switch v := raw.(type) {
+	case []any:
+		for _, entry := range v {
+			if m, ok := entry.(map[string]any); ok {
+				appendItem(m)
+			}
+		}
+	case []map[string]any:
+		for _, m := range v {
+			appendItem(m)
+		}
+	}
+	return items
+}
+
+func bodyItemFromMap(raw map[string]any) (bodyItem, bool) {
+	name, _ := raw["name"].(string)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return bodyItem{}, false
+	}
+	valueStr := ""
+	if val, ok := raw["value"].(string); ok {
+		valueStr = val
+	} else if val, exists := raw["value"]; exists && val != nil {
+		valueStr = fmt.Sprint(val)
+	}
+	item := bodyItem{
+		Name:    name,
+		Value:   valueStr,
+		Enabled: true,
+	}
+	if desc, ok := raw["description"].(string); ok {
+		item.Description = desc
+	}
+	if enabledRaw, ok := raw["enabled"]; ok {
+		item.Enabled = parseEnabledFlag(enabledRaw)
+	}
+	return item, true
+}
+
+func cloneBodyMap(body map[string]any, skipKeys ...string) map[string]any {
+	if len(body) == 0 {
+		return nil
+	}
+	skip := make(map[string]struct{}, len(skipKeys))
+	for _, key := range skipKeys {
+		skip[key] = struct{}{}
+	}
+	result := make(map[string]any, len(body))
+	for k, v := range body {
+		if _, ignore := skip[k]; ignore {
+			continue
+		}
+		result[k] = v
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func parseEnabledFlag(value any) bool {
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		s := strings.TrimSpace(strings.ToLower(v))
+		return s != "false" && s != "0" && s != "no" && s != "off"
+	case float64:
+		return v != 0
+	case int:
+		return v != 0
+	case int64:
+		return v != 0
+	default:
+		return true
+	}
+}
+
+func selectBodyDefinitions(usingTemplate bool, templateDef, stepDef *bodyDefinition) (*bodyDefinition, *bodyDefinition) {
+	base := templateDef
+	if base == nil && !usingTemplate {
+		base = stepDef
+	}
+	delta := stepDef
+	if delta == nil {
+		delta = base
+	}
+	return base, delta
+}
+
+func bodyDefinitionToExampleType(def *bodyDefinition) mitemapiexample.BodyType {
+	if def == nil {
+		return mitemapiexample.BodyTypeRaw
+	}
+	switch def.kind {
+	case bodyKindForm:
+		return mitemapiexample.BodyTypeForm
+	case bodyKindUrlEncoded:
+		return mitemapiexample.BodyTypeUrlencoded
+	default:
+		return mitemapiexample.BodyTypeRaw
+	}
+}
+
+func applyBodyDefinitions(ctx *requestContext, baseDef, deltaDef *bodyDefinition, data *YamlFlowData) error {
+	if baseDef == nil {
+		baseDef = &bodyDefinition{kind: bodyKindRaw}
+	}
+	if deltaDef == nil {
+		deltaDef = baseDef
+	}
+	if err := setBodyForExample(ctx.exampleID, baseDef, data); err != nil {
+		return err
+	}
+	if err := setBodyForExample(ctx.defaultExampleID, baseDef, data); err != nil {
+		return err
+	}
+	if err := setBodyForExample(ctx.deltaExampleID, deltaDef, data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func setBodyForExample(exampleID idwrap.IDWrap, def *bodyDefinition, data *YamlFlowData) error {
+	kind := bodyKindRaw
+	if def != nil {
+		kind = def.kind
+	}
+	switch kind {
+	case bodyKindForm:
+		formMap := make(map[string]any, len(def.formItems))
+		for _, item := range def.formItems {
+			data.FormBodies = append(data.FormBodies, mbodyform.BodyForm{
+				ID:          idwrap.NewNow(),
+				ExampleID:   exampleID,
+				BodyKey:     item.Name,
+				Value:       item.Value,
+				Description: item.Description,
+				Enable:      item.Enabled,
+			})
+			if _, exists := formMap[item.Name]; !exists {
+				formMap[item.Name] = item.Value
+			}
+		}
+		bodyBytes, err := marshalBodyMap(formMap)
+		if err != nil {
+			return err
+		}
+		addRawBody(exampleID, bodyBytes, data)
+	case bodyKindUrlEncoded:
+		urlMap := make(map[string]any, len(def.urlItems))
+		for _, item := range def.urlItems {
+			data.UrlBodies = append(data.UrlBodies, mbodyurl.BodyURLEncoded{
+				ID:          idwrap.NewNow(),
+				ExampleID:   exampleID,
+				BodyKey:     item.Name,
+				Value:       item.Value,
+				Description: item.Description,
+				Enable:      item.Enabled,
+			})
+			if _, exists := urlMap[item.Name]; !exists {
+				urlMap[item.Name] = item.Value
+			}
+		}
+		bodyBytes, err := marshalBodyMap(urlMap)
+		if err != nil {
+			return err
+		}
+		addRawBody(exampleID, bodyBytes, data)
+	default:
+		bodyBytes, err := marshalBodyMap(nil)
+		if def != nil {
+			bodyBytes, err = marshalBodyMap(def.raw)
+		}
+		if err != nil {
+			return err
+		}
+		addRawBody(exampleID, bodyBytes, data)
+	}
+	return nil
+}
+
+func marshalBodyMap(raw map[string]any) ([]byte, error) {
+	if len(raw) == 0 {
+		return []byte("{}"), nil
+	}
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return []byte("{}"), nil
+	}
+	return data, nil
+}
+
+func addRawBody(exampleID idwrap.IDWrap, bodyData []byte, data *YamlFlowData) {
+	if bodyData == nil {
+		bodyData = []byte("{}")
+	}
+	visualMode := mbodyraw.VisualizeModeJSON
+	if !json.Valid(bodyData) {
+		visualMode = mbodyraw.VisualizeModeText
+	}
+	data.RawBodies = append(data.RawBodies, mbodyraw.ExampleBodyRaw{
+		ID:            idwrap.NewNow(),
+		ExampleID:     exampleID,
+		Data:          bodyData,
+		CompressType:  compress.CompressTypeNone,
+		VisualizeMode: visualMode,
+	})
 }
 
 // ========================================
@@ -618,9 +872,10 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 	// Initialize request configuration
 	method, url := "GET", ""
 	var templateHeaders, templateQueries, stepHeaderOverrides, stepQueryOverrides []map[string]string
-	var templateBody, stepBodyOverride map[string]any
 	var usingTemplate bool
 	var templateAssertions, stepAssertions []assertionConfig
+	var templateBodyDef *bodyDefinition
+	var stepBodyDef *bodyDefinition
 
 	// Check if using template
 	if useRequest, ok := stepData[fieldUseRequest].(string); ok && useRequest != "" {
@@ -628,7 +883,7 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 			usingTemplate = true
 			templateHeaders = tmpl.headers
 			templateQueries = tmpl.queryParams
-			templateBody = tmpl.body
+			templateBodyDef = tmpl.body
 			templateAssertions = tmpl.assertions
 			if tmpl.method != "" {
 				method = tmpl.method
@@ -669,14 +924,22 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 		}
 	}
 	if b, ok := stepData[fieldBody].(map[string]any); ok {
-		stepBodyOverride = b
+		def, err := parseBodyDefinition(b)
+		if err != nil {
+			return fmt.Errorf("request step '%s' has invalid body: %w", nodeName, err)
+		}
+		stepBodyDef = def
 	}
 	if assertions, ok := stepData[fieldAssertions]; ok {
 		stepAssertions = parseAssertionsFromAny(assertions)
 	}
 
+	baseDef, deltaDef := selectBodyDefinitions(usingTemplate, templateBodyDef, stepBodyDef)
+	baseBodyType := bodyDefinitionToExampleType(baseDef)
+	deltaBodyType := bodyDefinitionToExampleType(deltaDef)
+
 	// Create all request entities
-	ctx := createRequestEntitiesForNode(nodeName, nodeID, flowID, url, method, data)
+	ctx := createRequestEntitiesForNode(nodeName, nodeID, flowID, url, method, baseBodyType, deltaBodyType, data)
 
 	// Process headers
 	processNameValuePairsForExamples(
@@ -722,34 +985,8 @@ func processRequestStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, st
 		data,
 	)
 
-	// Process body
-	var bodyData []byte
-	if usingTemplate && templateBody != nil {
-		// Use template body for base
-		bodyData, _ = json.Marshal(templateBody)
-		addBodyToExamples(ctx, bodyData, data)
-
-		// If there's an override, update delta only
-		if stepBodyOverride != nil {
-			overrideData, err := json.Marshal(stepBodyOverride)
-			if err != nil {
-				return fmt.Errorf("failed to marshal body: %w", err)
-			}
-			// Update only the delta body
-			for i := range data.RawBodies {
-				if data.RawBodies[i].ExampleID == ctx.deltaExampleID {
-					data.RawBodies[i].Data = overrideData
-					break
-				}
-			}
-		}
-	} else if stepBodyOverride != nil {
-		// No template, use step body for all
-		bodyData, _ = json.Marshal(stepBodyOverride)
-		addBodyToExamples(ctx, bodyData, data)
-	} else {
-		// No body at all
-		addBodyToExamples(ctx, nil, data)
+	if err := applyBodyDefinitions(ctx, baseDef, deltaDef, data); err != nil {
+		return err
 	}
 
 	processAssertionsForExamples(ctx, templateAssertions, stepAssertions, usingTemplate, data)
@@ -832,7 +1069,7 @@ func processJSStepForNode(nodeName string, nodeID, flowID idwrap.IDWrap, stepDat
 // ========================================
 
 // createRequestEntitiesForNode creates all the entities needed for a request node
-func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap, url, method string, data *YamlFlowData) *requestContext {
+func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap, url, method string, baseBodyType, deltaBodyType mitemapiexample.BodyType, data *YamlFlowData) *requestContext {
 	ctx := &requestContext{
 		nodeID:           nodeID,
 		endpointID:       idwrap.NewNow(),
@@ -840,6 +1077,13 @@ func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap,
 		exampleID:        idwrap.NewNow(),
 		defaultExampleID: idwrap.NewNow(),
 		deltaExampleID:   idwrap.NewNow(),
+	}
+
+	if baseBodyType == mitemapiexample.BodyTypeNone {
+		baseBodyType = mitemapiexample.BodyTypeRaw
+	}
+	if deltaBodyType == mitemapiexample.BodyTypeNone {
+		deltaBodyType = baseBodyType
 	}
 
 	// Add node
@@ -870,14 +1114,14 @@ func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap,
 			Name:      nodeName,
 			ItemApiID: ctx.endpointID,
 			IsDefault: true,
-			BodyType:  mitemapiexample.BodyTypeRaw,
+			BodyType:  baseBodyType,
 		},
 		mitemapiexample.ItemApiExample{
 			ID:        ctx.defaultExampleID,
 			Name:      fmt.Sprintf("%s (default)", nodeName),
 			ItemApiID: ctx.endpointID,
 			IsDefault: false,
-			BodyType:  mitemapiexample.BodyTypeRaw,
+			BodyType:  baseBodyType,
 		},
 		mitemapiexample.ItemApiExample{
 			ID:              ctx.deltaExampleID,
@@ -885,7 +1129,7 @@ func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap,
 			ItemApiID:       ctx.deltaEndpointID,
 			IsDefault:       true,
 			VersionParentID: &ctx.defaultExampleID,
-			BodyType:        mitemapiexample.BodyTypeRaw,
+			BodyType:        deltaBodyType,
 		},
 	)
 
@@ -900,28 +1144,6 @@ func createRequestEntitiesForNode(nodeName string, nodeID, flowID idwrap.IDWrap,
 	})
 
 	return ctx
-}
-
-// addBodyToExamples adds body data for all three examples
-func addBodyToExamples(ctx *requestContext, bodyData []byte, data *YamlFlowData) {
-	if bodyData == nil {
-		bodyData = []byte("{}")
-	}
-
-	visualMode := mbodyraw.VisualizeModeJSON
-	if !json.Valid(bodyData) {
-		visualMode = mbodyraw.VisualizeModeText
-	}
-
-	for _, exampleID := range []idwrap.IDWrap{ctx.exampleID, ctx.defaultExampleID, ctx.deltaExampleID} {
-		data.RawBodies = append(data.RawBodies, mbodyraw.ExampleBodyRaw{
-			ID:            idwrap.NewNow(),
-			ExampleID:     exampleID,
-			Data:          bodyData,
-			CompressType:  compress.CompressTypeNone,
-			VisualizeMode: visualMode,
-		})
-	}
 }
 
 func parseAssertionsFromAny(value interface{}) []assertionConfig {
