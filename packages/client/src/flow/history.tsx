@@ -1,4 +1,5 @@
 import { ReactFlowProvider } from '@xyflow/react';
+import { Option } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useRef } from 'react';
 import { useTab, useTabList, useTabPanel } from 'react-aria';
@@ -11,11 +12,12 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useQuery } from '~data-client';
-import { flowHistoryRouteApi } from '~routes';
+import { flowHistoryRouteApi, flowLayoutRouteApi } from '~routes';
 import { EditPanel, Flow, TopBar, TopBarWithControls } from './flow';
 import { FlowContext } from './internal';
 
 export const FlowHistoryPage = () => {
+  const { nodeId } = flowLayoutRouteApi.useLoaderData();
   const { flowIdCan } = flowHistoryRouteApi.useParams();
   const flowId = Ulid.fromCanonical(flowIdCan).bytes;
 
@@ -33,11 +35,18 @@ export const FlowHistoryPage = () => {
         >
           <FlowContext.Provider value={{ flowId, isReadOnly: true }}>
             <ReactFlowProvider>
-              <TopBarWithControls />
-              <Panel className='flex h-full flex-col' id='flow' order={1}>
-                <Flow key={Ulid.construct(flowId).toCanonical()} />
-              </Panel>
-              <EditPanel />
+              <PanelGroup autoSaveId='flow-edit' direction='vertical'>
+                <TopBarWithControls />
+                <Panel
+                  className='flex h-full flex-col'
+                  defaultSize={Option.isNone(nodeId) ? 100 : 60}
+                  id='flow'
+                  order={1}
+                >
+                  <Flow key={Ulid.construct(flowId).toCanonical()} />
+                </Panel>
+                <EditPanel />
+              </PanelGroup>
             </ReactFlowProvider>
           </FlowContext.Provider>
         </Suspense>
@@ -49,14 +58,10 @@ export const FlowHistoryPage = () => {
   const { tabListProps } = useTabList({ items, orientation: 'vertical' }, state, tabListRef);
 
   return (
-    <PanelGroup direction='horizontal'>
+    <PanelGroup autoSaveId='flow-history' direction='horizontal'>
       <Panel defaultSize={80}>
-        <PanelGroup direction='vertical'>
-          {!state.selectedKey && <TopBar />}
-          <Panel className='flex h-full flex-col' id='flow' order={1}>
-            <TabPanel state={state} />
-          </Panel>
-        </PanelGroup>
+        {!state.selectedKey && <TopBar />}
+        <TabPanel state={state} />
       </Panel>
 
       <PanelResizeHandle direction='horizontal' />

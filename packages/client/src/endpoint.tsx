@@ -131,7 +131,7 @@ export const EndpointPage = () => {
         </div>
       }
     >
-      <PanelGroup direction='vertical'>
+      <PanelGroup autoSaveId='endpoint' direction='vertical'>
         <Panel className='flex h-full flex-col' defaultSize={60} id='request' order={1}>
           <ReferenceContext value={{ exampleId, workspaceId }}>
             <EndpointHeader endpointId={endpointId} exampleId={exampleId} />
@@ -719,7 +719,7 @@ const ExampleVersionsView = ({ endpointId, item: { exampleId, lastResponseId } }
   const url = useEndpointUrl({ endpointId, exampleId });
 
   return (
-    <PanelGroup direction='vertical'>
+    <PanelGroup autoSaveId='endpoint-versions' direction='vertical'>
       <Panel className={tw`flex flex-col`}>
         <div className='shadow-xs m-5 mb-2 flex items-center gap-3 rounded-lg border border-slate-300 px-3 py-2'>
           <MethodBadge method={endpoint.method} size='lg' />

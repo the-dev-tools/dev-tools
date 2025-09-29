@@ -112,14 +112,14 @@ export const nodeTypes: Record<NodeKindJson, NodeTypesCore[string]> = {
 };
 
 export const FlowEditPage = () => {
-  const { flowId } = flowLayoutRouteApi.useLoaderData();
+  const { flowId, nodeId } = flowLayoutRouteApi.useLoaderData();
 
   return (
     <FlowContext.Provider value={{ flowId }}>
       <ReactFlowProvider>
-        <PanelGroup direction='vertical'>
+        <PanelGroup autoSaveId='flow-edit' direction='vertical'>
           <TopBarWithControls />
-          <Panel className='flex h-full flex-col' defaultSize={60} id='flow' order={1}>
+          <Panel className='flex h-full flex-col' defaultSize={Option.isNone(nodeId) ? 100 : 60} id='flow' order={1}>
             <Flow key={Ulid.construct(flowId).toCanonical()}>
               <ActionBar />
             </Flow>

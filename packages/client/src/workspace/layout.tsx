@@ -66,7 +66,7 @@ export const WorkspaceLayout = () => {
         </>
       }
     >
-      <PanelGroup direction='horizontal'>
+      <PanelGroup autoSaveId='workspace-sidebar' direction='horizontal'>
         <Panel
           className={tw`flex flex-col bg-slate-50`}
           defaultSize={20}
@@ -118,7 +118,7 @@ export const WorkspaceLayout = () => {
         <PanelResizeHandle direction='horizontal' />
 
         <Panel defaultSize={80}>
-          <PanelGroup direction='vertical'>
+          <PanelGroup autoSaveId='workspace-outlet' direction='vertical'>
             <div className={tw`-mt-px pt-2`}>
               <RouteTabList baseRoute={baseRoute} runtime={runtime} tabsAtom={context.tabsAtom} />
             </div>
