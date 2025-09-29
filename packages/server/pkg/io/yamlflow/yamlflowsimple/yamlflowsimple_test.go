@@ -6,6 +6,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/massert"
@@ -14,6 +15,7 @@ import (
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mworkspace"
 )
@@ -163,5 +165,114 @@ func TestBuildRequestDefinitionsDedupsAssertions(t *testing.T) {
 
 	if expr, _ := assertionsAny[0]["expression"].(string); expr != "response.status == 201" {
 		t.Fatalf("unexpected assertion expression %q", expr)
+	}
+}
+
+func TestExportYamlFlowYAMLSkipsOrphanNodes(t *testing.T) {
+	flowID := idwrap.NewNow()
+	startID := idwrap.NewNow()
+	connectedID := idwrap.NewNow()
+	orphanID := idwrap.NewNow()
+	endpointConnectedID := idwrap.NewNow()
+	exampleConnectedID := idwrap.NewNow()
+	endpointOrphanID := idwrap.NewNow()
+	exampleOrphanID := idwrap.NewNow()
+
+	workspace := &ioworkspace.WorkspaceData{
+		Workspace: mworkspace.Workspace{ID: idwrap.NewNow(), Name: "workspace"},
+		Flows: []mflow.Flow{
+			{ID: flowID, Name: "flow"},
+		},
+		FlowNodes: []mnnode.MNode{
+			{ID: startID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP},
+			{ID: connectedID, FlowID: flowID, Name: "connected", NodeKind: mnnode.NODE_KIND_REQUEST},
+			{ID: orphanID, FlowID: flowID, Name: "orphan", NodeKind: mnnode.NODE_KIND_REQUEST},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{FlowNodeID: startID, Type: mnnoop.NODE_NO_OP_KIND_START},
+		},
+		FlowRequestNodes: []mnrequest.MNRequest{
+			{FlowNodeID: connectedID, EndpointID: &endpointConnectedID, ExampleID: &exampleConnectedID},
+			{FlowNodeID: orphanID, EndpointID: &endpointOrphanID, ExampleID: &exampleOrphanID},
+		},
+		FlowEdges: []edge.Edge{
+			{FlowID: flowID, SourceID: startID, TargetID: connectedID},
+		},
+		Endpoints: []mitemapi.ItemApi{
+			{ID: endpointConnectedID, Name: "connected", Method: "GET", Url: "https://example.dev/connected"},
+			{ID: endpointOrphanID, Name: "orphan", Method: "GET", Url: "https://example.dev/orphan"},
+		},
+		Examples: []mitemapiexample.ItemApiExample{
+			{ID: exampleConnectedID, ItemApiID: endpointConnectedID, Name: "connected"},
+			{ID: exampleOrphanID, ItemApiID: endpointOrphanID, Name: "orphan"},
+		},
+	}
+
+	data, err := ExportYamlFlowYAML(context.Background(), workspace, nil)
+	if err != nil {
+		t.Fatalf("export failed: %v", err)
+	}
+
+	var exported map[string]any
+	if err := yaml.Unmarshal(data, &exported); err != nil {
+		t.Fatalf("failed to unmarshal export: %v", err)
+	}
+
+	flowsAny, ok := exported["flows"].([]any)
+	if !ok || len(flowsAny) != 1 {
+		t.Fatalf("expected a single exported flow, got %v", exported["flows"])
+	}
+
+	flowMap, ok := flowsAny[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected flow entry type %T", flowsAny[0])
+	}
+
+	stepsAny, ok := flowMap["steps"].([]any)
+	if !ok {
+		t.Fatalf("expected steps in exported flow, got %v", flowMap["steps"])
+	}
+
+	var names []string
+	for _, stepAny := range stepsAny {
+		stepMap, ok := stepAny.(map[string]any)
+		if !ok {
+			continue
+		}
+		requestData, ok := stepMap["request"].(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := requestData["name"].(string)
+		names = append(names, name)
+	}
+
+	if len(names) != 1 {
+		t.Fatalf("expected exactly one exported step, got %v", names)
+	}
+	if names[0] != "connected" {
+		t.Fatalf("expected step for connected node, got %q", names[0])
+	}
+	for _, name := range names {
+		if name == "orphan" {
+			t.Fatalf("orphan node should not be exported: %v", names)
+		}
+	}
+
+	requestsAny, ok := exported["requests"].([]any)
+	if !ok {
+		t.Fatalf("expected requests in export, got %T", exported["requests"])
+	}
+	var requestNames []string
+	for _, reqAny := range requestsAny {
+		reqMap, ok := reqAny.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := reqMap["name"].(string)
+		requestNames = append(requestNames, name)
+	}
+	if len(requestNames) != 1 || requestNames[0] != "connected" {
+		t.Fatalf("expected only connected request definition, got %v", requestNames)
 	}
 }

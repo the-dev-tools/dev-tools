@@ -375,9 +375,14 @@ func buildRequestDefinitions(ctx context.Context, workspaceData *ioworkspace.Wor
 		}
 	}
 
+	reachableNodes, flowsWithStart := computeReachableNodesForWorkspace(workspaceData)
+
 	processedNodes := make(map[string]bool)
 
 	for _, node := range workspaceData.FlowNodes {
+		if flowsWithStart[node.FlowID] && !reachableNodes[node.ID] {
+			continue
+		}
 		if node.NodeKind != mnnode.NODE_KIND_REQUEST {
 			continue
 		}
@@ -879,15 +884,22 @@ func exportFlow(ctx context.Context, flow mflow.Flow, workspaceData *ioworkspace
 }
 
 // processFlowNodes processes all nodes in a flow and returns steps
+
 func processFlowNodes(ctx context.Context, nodeMap map[idwrap.IDWrap]mnnode.MNode, incomingEdges map[idwrap.IDWrap][]edge.Edge,
 	outgoingEdges map[idwrap.IDWrap][]edge.Edge, startNodeID idwrap.IDWrap,
 	workspaceData *ioworkspace.WorkspaceData, nodeToRequest map[string]string, overlayMgr *merge.Manager) ([]map[string]any, error) {
+
+	reachable := computeReachableNodeSet(outgoingEdges, startNodeID)
+	checkReachable := len(reachable) > 0
 
 	processed := make(map[idwrap.IDWrap]bool)
 	steps := make([]map[string]any, 0)
 
 	var processNode func(nodeID idwrap.IDWrap) error
 	processNode = func(nodeID idwrap.IDWrap) error {
+		if checkReachable && !reachable[nodeID] {
+			return nil
+		}
 		if processed[nodeID] || nodeID == startNodeID {
 			return nil
 		}
@@ -940,12 +952,85 @@ func processFlowNodes(ctx context.Context, nodeMap map[idwrap.IDWrap]mnnode.MNod
 	}
 
 	for nodeID := range nodeMap {
+		if checkReachable && !reachable[nodeID] {
+			continue
+		}
 		if err := processNode(nodeID); err != nil {
 			return nil, err
 		}
 	}
 
 	return steps, nil
+}
+
+func computeReachableNodesForWorkspace(workspaceData *ioworkspace.WorkspaceData) (map[idwrap.IDWrap]bool, map[idwrap.IDWrap]bool) {
+	reachable := make(map[idwrap.IDWrap]bool)
+	flowsWithStart := make(map[idwrap.IDWrap]bool)
+
+	nodeByID := make(map[idwrap.IDWrap]mnnode.MNode)
+	for _, node := range workspaceData.FlowNodes {
+		nodeByID[node.ID] = node
+	}
+
+	outgoingByFlow := make(map[idwrap.IDWrap]map[idwrap.IDWrap][]edge.Edge)
+	for _, e := range workspaceData.FlowEdges {
+		perFlow := outgoingByFlow[e.FlowID]
+		if perFlow == nil {
+			perFlow = make(map[idwrap.IDWrap][]edge.Edge)
+			outgoingByFlow[e.FlowID] = perFlow
+		}
+		perFlow[e.SourceID] = append(perFlow[e.SourceID], e)
+	}
+
+	startByFlow := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	for _, noop := range workspaceData.FlowNoopNodes {
+		if noop.Type != mnnoop.NODE_NO_OP_KIND_START {
+			continue
+		}
+		node, ok := nodeByID[noop.FlowNodeID]
+		if !ok {
+			continue
+		}
+		flowsWithStart[node.FlowID] = true
+		if _, exists := startByFlow[node.FlowID]; !exists {
+			startByFlow[node.FlowID] = noop.FlowNodeID
+		}
+	}
+
+	for flowID, start := range startByFlow {
+		for nodeID := range computeReachableNodeSet(outgoingByFlow[flowID], start) {
+			reachable[nodeID] = true
+		}
+	}
+
+	return reachable, flowsWithStart
+}
+
+func computeReachableNodeSet(outgoingEdges map[idwrap.IDWrap][]edge.Edge, startNodeID idwrap.IDWrap) map[idwrap.IDWrap]bool {
+	if startNodeID == (idwrap.IDWrap{}) {
+		return nil
+	}
+
+	reachable := make(map[idwrap.IDWrap]bool)
+	reachable[startNodeID] = true
+	queue := []idwrap.IDWrap{startNodeID}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for _, e := range outgoingEdges[current] {
+			target := e.TargetID
+			if target == (idwrap.IDWrap{}) {
+				continue
+			}
+			if !reachable[target] {
+				reachable[target] = true
+				queue = append(queue, target)
+			}
+		}
+	}
+
+	return reachable
 }
 
 // convertRequestNodeClean converts a request node to clean format
