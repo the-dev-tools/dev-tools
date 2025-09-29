@@ -2,6 +2,7 @@ package rflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
+	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logconsole"
@@ -307,6 +309,49 @@ func TestFlowRunAdHoc_RequestFailureTransitions(t *testing.T) {
 	}
 
 	require.True(t, sawFailure, "expected failure execution to be recorded")
+}
+
+func TestFlowRunAdHoc_PersistsRequestOutput(t *testing.T) {
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	stream := noopStream{}
+	require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
+
+	execs, err := harness.svc.nes.GetNodeExecutionsByNodeID(context.Background(), harness.requestNodeID)
+	require.NoError(t, err)
+	require.NotEmpty(t, execs, "expected at least one request node execution")
+
+	sawResponse := false
+	for _, exec := range execs {
+		raw, err := exec.GetOutputJSON()
+		require.NoErrorf(t, err, "get output json for execution %s", exec.ID)
+		require.NotNilf(t, raw, "execution %s output json nil", exec.ID)
+		require.Greaterf(t, len(raw), 2, "execution %s output unexpectedly empty", exec.ID)
+
+		var output map[string]any
+		require.NoError(t, json.Unmarshal(raw, &output))
+		require.NotEmptyf(t, output, "execution %s output map empty", exec.ID)
+
+		if reqVal, ok := output[nrequest.OUTPUT_REQUEST_NAME]; ok {
+			reqMap, ok := reqVal.(map[string]any)
+			require.True(t, ok, "request payload shape mismatch")
+			method, ok := reqMap["method"].(string)
+			require.True(t, ok, "request.method missing")
+			require.NotEmpty(t, method)
+		}
+
+		if respVal, ok := output[nrequest.OUTPUT_RESPONE_NAME]; ok {
+			reqResp, ok := respVal.(map[string]any)
+			require.True(t, ok, "response payload shape mismatch")
+			status, ok := reqResp["status"].(float64)
+			require.True(t, ok, "response.status missing or wrong type")
+			require.Greater(t, status, float64(0))
+			sawResponse = true
+		}
+	}
+
+	require.True(t, sawResponse, "expected to observe response output for request node")
 }
 
 type flowRunHarness struct {
