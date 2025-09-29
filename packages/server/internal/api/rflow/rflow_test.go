@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -25,14 +27,18 @@ import (
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/muser"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
@@ -41,6 +47,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -60,6 +67,7 @@ import (
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
@@ -354,16 +362,74 @@ func TestFlowRunAdHoc_PersistsRequestOutput(t *testing.T) {
 	require.True(t, sawResponse, "expected to observe response output for request node")
 }
 
+func TestFlowRunAdHoc_SelectedEnvironmentOverridesVariables(t *testing.T) {
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	ctx := context.Background()
+
+	flowVar := mflowvariable.FlowVariable{
+		ID:      idwrap.NewNow(),
+		FlowID:  harness.flowID,
+		Name:    "authToken",
+		Value:   "flow-value",
+		Enabled: true,
+	}
+	require.NoError(t, harness.svc.fvs.CreateFlowVariable(ctx, flowVar))
+
+	globalVar := mvar.Var{
+		ID:      idwrap.NewNow(),
+		EnvID:   harness.globalEnvID,
+		VarKey:  "authToken",
+		Value:   "global-value",
+		Enabled: true,
+	}
+	require.NoError(t, harness.svc.vars.Create(ctx, globalVar))
+
+	selectedVar := mvar.Var{
+		ID:      idwrap.NewNow(),
+		EnvID:   harness.environmentID,
+		VarKey:  "authToken",
+		Value:   "selected-value",
+		Enabled: true,
+	}
+	require.NoError(t, harness.svc.vars.Create(ctx, selectedVar))
+
+	query := mexamplequery.Query{
+		ID:        idwrap.NewNow(),
+		ExampleID: harness.exampleID,
+		QueryKey:  "token",
+		Value:     "{{authToken}}",
+		Enable:    true,
+	}
+	require.NoError(t, harness.svc.qs.CreateExampleQuery(ctx, query))
+
+	stream := noopStream{}
+	require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
+
+	var observedReq *http.Request
+	select {
+	case observedReq = <-harness.requestRecorder:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("request not captured")
+	}
+	require.NotNil(t, observedReq)
+	require.Equal(t, "selected-value", observedReq.URL.Query().Get("token"))
+}
+
 type flowRunHarness struct {
-	svc           *FlowServiceRPC
-	authedCtx     context.Context
-	req           *connect.Request[flowv1.FlowRunRequest]
-	cleanup       func()
-	logCh         chan logconsole.LogMessage
-	requestNodeID idwrap.IDWrap
-	startNodeID   idwrap.IDWrap
-	flowID        idwrap.IDWrap
-	exampleID     idwrap.IDWrap
+	svc             *FlowServiceRPC
+	authedCtx       context.Context
+	req             *connect.Request[flowv1.FlowRunRequest]
+	cleanup         func()
+	logCh           chan logconsole.LogMessage
+	requestNodeID   idwrap.IDWrap
+	startNodeID     idwrap.IDWrap
+	flowID          idwrap.IDWrap
+	exampleID       idwrap.IDWrap
+	environmentID   idwrap.IDWrap
+	globalEnvID     idwrap.IDWrap
+	requestRecorder chan *http.Request
 }
 
 func setupFlowRunHarness(t *testing.T) flowRunHarness {
@@ -371,7 +437,14 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 
 	ctx := context.Background()
 
+	requestRecorder := make(chan *http.Request, 1)
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqClone := r.Clone(context.Background())
+		reqClone.Body = http.NoBody
+		select {
+		case requestRecorder <- reqClone:
+		default:
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"message":"ok"}`))
@@ -388,6 +461,8 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 		t.Fatalf("prepare queries: %v", err)
 	}
 
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
@@ -395,6 +470,8 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
 	fvs := sflowvariable.New(queries)
+	envs := senv.New(queries, logger)
+	vs := svar.New(queries, logger)
 	ias := sitemapi.New(queries)
 	es := sitemapiexample.New(queries)
 	qs := sexamplequery.New(queries)
@@ -427,6 +504,8 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 		fts,
 		fes,
 		fvs,
+		envs,
+		vs,
 		ias,
 		es,
 		qs,
@@ -452,12 +531,14 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 	flowSvc := &flowSvcValue
 
 	workspaceID := idwrap.NewNow()
+	activeEnvID := idwrap.NewNow()
+	globalEnvID := idwrap.NewNow()
 	workspace := mworkspace.Workspace{
 		ID:              workspaceID,
 		Name:            "harness-workspace",
 		Updated:         time.Now(),
-		ActiveEnv:       idwrap.NewNow(),
-		GlobalEnv:       idwrap.NewNow(),
+		ActiveEnv:       activeEnvID,
+		GlobalEnv:       globalEnvID,
 		FlowCount:       0,
 		CollectionCount: 0,
 	}
@@ -465,6 +546,27 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 		queries.Close()
 		closeDB()
 		t.Fatalf("create workspace: %v", err)
+	}
+
+	globalEnv := menv.Env{
+		ID:          globalEnvID,
+		WorkspaceID: workspaceID,
+		Name:        "Harness Global",
+	}
+	if err := envs.CreateEnvironment(ctx, &globalEnv); err != nil {
+		queries.Close()
+		closeDB()
+		t.Fatalf("create global environment: %v", err)
+	}
+	selectedEnv := menv.Env{
+		ID:          activeEnvID,
+		WorkspaceID: workspaceID,
+		Name:        "Harness Selected",
+	}
+	if err := envs.CreateEnvironment(ctx, &selectedEnv); err != nil {
+		queries.Close()
+		closeDB()
+		t.Fatalf("create selected environment: %v", err)
 	}
 
 	userID := idwrap.NewNow()
@@ -631,11 +733,12 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 
 	logCh := logMap.AddLogChannel(userID)
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-	req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes()})
+	req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes(), EnvironmentId: activeEnvID.Bytes()})
 
 	cleanup := func() {
 		testServer.Close()
 		logMap.DeleteLogChannel(userID)
+		close(requestRecorder)
 		if err := queries.Close(); err != nil {
 			t.Fatalf("close queries: %v", err)
 		}
@@ -643,15 +746,18 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 	}
 
 	return flowRunHarness{
-		svc:           flowSvc,
-		authedCtx:     authedCtx,
-		req:           req,
-		cleanup:       cleanup,
-		logCh:         logCh,
-		requestNodeID: requestNodeID,
-		startNodeID:   startNodeID,
-		flowID:        flowID,
-		exampleID:     exampleID,
+		svc:             flowSvc,
+		authedCtx:       authedCtx,
+		req:             req,
+		cleanup:         cleanup,
+		logCh:           logCh,
+		requestNodeID:   requestNodeID,
+		startNodeID:     startNodeID,
+		flowID:          flowID,
+		exampleID:       exampleID,
+		environmentID:   activeEnvID,
+		globalEnvID:     globalEnvID,
+		requestRecorder: requestRecorder,
 	}
 }
 

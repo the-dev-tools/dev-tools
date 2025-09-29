@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -36,6 +38,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -55,6 +58,7 @@ import (
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
@@ -88,6 +92,8 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 		b.Fatalf("prepare queries: %v", err)
 	}
 
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
@@ -95,6 +101,8 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
 	fvs := sflowvariable.New(queries)
+	envs := senv.New(queries, logger)
+	vs := svar.New(queries, logger)
 	ias := sitemapi.New(queries)
 	es := sitemapiexample.New(queries)
 	qs := sexamplequery.New(queries)
@@ -127,6 +135,8 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 		fts,
 		fes,
 		fvs,
+		envs,
+		vs,
 		ias,
 		es,
 		qs,
@@ -152,12 +162,14 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 	flowSvc := &flowSvcValue
 
 	workspaceID := idwrap.NewNow()
+	activeEnvID := idwrap.NewNow()
+	globalEnvID := idwrap.NewNow()
 	workspace := mworkspace.Workspace{
 		ID:              workspaceID,
 		Name:            "bench-workspace",
 		Updated:         time.Now(),
-		ActiveEnv:       idwrap.NewNow(),
-		GlobalEnv:       idwrap.NewNow(),
+		ActiveEnv:       activeEnvID,
+		GlobalEnv:       globalEnvID,
 		FlowCount:       0,
 		CollectionCount: 0,
 	}
@@ -165,6 +177,27 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 		queries.Close()
 		closeDB()
 		b.Fatalf("create workspace: %v", err)
+	}
+
+	globalEnv := menv.Env{
+		ID:          globalEnvID,
+		WorkspaceID: workspaceID,
+		Name:        "Bench Global",
+	}
+	if err := envs.CreateEnvironment(ctx, &globalEnv); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create global environment: %v", err)
+	}
+	selectedEnv := menv.Env{
+		ID:          activeEnvID,
+		WorkspaceID: workspaceID,
+		Name:        "Bench Selected",
+	}
+	if err := envs.CreateEnvironment(ctx, &selectedEnv); err != nil {
+		queries.Close()
+		closeDB()
+		b.Fatalf("create selected environment: %v", err)
 	}
 
 	userID := idwrap.NewNow()
@@ -342,7 +375,7 @@ func setupFlowRunAdHocBench(b *testing.B) (*FlowServiceRPC, context.Context, *co
 	}()
 
 	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
-	req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes()})
+	req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes(), EnvironmentId: activeEnvID.Bytes()})
 
 	cleanup := func() {
 		testServer.Close()

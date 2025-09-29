@@ -54,6 +54,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/overlay/merge"
 	"the-dev-tools/server/pkg/overlay/resolve"
 	"the-dev-tools/server/pkg/permcheck"
@@ -63,6 +64,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -84,6 +86,7 @@ import (
 	"the-dev-tools/server/pkg/service/soverlayquery"
 	"the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/translate/tflow"
 	"the-dev-tools/server/pkg/translate/tflowversion"
@@ -222,10 +225,12 @@ type FlowServiceRPC struct {
 	ts stag.TagService
 
 	// flow
-	fs  sflow.FlowService
-	fts sflowtag.FlowTagService
-	fes sedge.EdgeService
-	fvs sflowvariable.FlowVariableService
+	fs   sflow.FlowService
+	fts  sflowtag.FlowTagService
+	fes  sedge.EdgeService
+	fvs  sflowvariable.FlowVariableService
+	envs senv.EnvService
+	vars svar.VarService
 
 	// request
 	ias        sitemapi.ItemApiService
@@ -275,7 +280,7 @@ type FlowServiceRPC struct {
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts stag.TagService,
 	// flow
-	fs sflow.FlowService, fts sflowtag.FlowTagService, fes sedge.EdgeService, fvs sflowvariable.FlowVariableService,
+	fs sflow.FlowService, fts sflowtag.FlowTagService, fes sedge.EdgeService, fvs sflowvariable.FlowVariableService, envs senv.EnvService, vars svar.VarService,
 	// req
 	ias sitemapi.ItemApiService, es sitemapiexample.ItemApiExampleService, qs sexamplequery.ExampleQueryService, hs sexampleheader.HeaderService,
 	// body
@@ -300,10 +305,12 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, us suser.UserService, ts st
 		ts: ts,
 
 		// flow
-		fs:  fs,
-		fes: fes,
-		fts: fts,
-		fvs: fvs,
+		fs:   fs,
+		fes:  fes,
+		fts:  fts,
+		fvs:  fvs,
+		envs: envs,
+		vars: vars,
 
 		// request
 		ias:        ias,
@@ -976,6 +983,63 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
+	workspace, err := c.ws.Get(ctx, flow.WorkspaceID)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	selectedEnvID := workspace.ActiveEnv
+	if len(req.Msg.EnvironmentId) > 0 {
+		selectedEnvID, err = idwrap.NewFromBytes(req.Msg.EnvironmentId)
+		if err != nil {
+			return connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	}
+
+	var globalVars []mvar.Var
+	if workspace.GlobalEnv != (idwrap.IDWrap{}) {
+		globalEnv, envErr := c.envs.Get(ctx, workspace.GlobalEnv)
+		if envErr != nil {
+			if !errors.Is(envErr, senv.ErrNoEnvironmentFound) {
+				return connect.NewError(connect.CodeInternal, envErr)
+			}
+		} else if globalEnv.WorkspaceID != workspace.ID {
+			return connect.NewError(connect.CodeInternal, errors.New("global environment does not belong to workspace"))
+		} else {
+			vars, varErr := c.vars.GetVariableByEnvID(ctx, workspace.GlobalEnv)
+			if varErr != nil {
+				if !errors.Is(varErr, svar.ErrNoVarFound) {
+					return connect.NewError(connect.CodeInternal, varErr)
+				}
+			} else {
+				globalVars = vars
+			}
+		}
+	}
+
+	var selectedVars []mvar.Var
+	if selectedEnvID != (idwrap.IDWrap{}) {
+		selectedEnv, envErr := c.envs.Get(ctx, selectedEnvID)
+		if envErr != nil {
+			if errors.Is(envErr, senv.ErrNoEnvironmentFound) {
+				return connect.NewError(connect.CodeInvalidArgument, errors.New("environment not found"))
+			}
+			return connect.NewError(connect.CodeInternal, envErr)
+		}
+		if selectedEnv.WorkspaceID != workspace.ID {
+			return connect.NewError(connect.CodeInvalidArgument, errors.New("environment does not belong to workspace"))
+		}
+
+		vars, varErr := c.vars.GetVariableByEnvID(ctx, selectedEnvID)
+		if varErr != nil {
+			if !errors.Is(varErr, svar.ErrNoVarFound) {
+				return connect.NewError(connect.CodeInternal, varErr)
+			}
+		} else {
+			selectedVars = vars
+		}
+	}
+
 	flowVars, err := c.fvs.GetFlowVariablesByFlowID(ctx, flowID)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
@@ -1082,12 +1146,21 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	prunedNoopIDs := pruneIntermediateNoopNodes(edgeMap, noopNodes, startNodeID, nodeNameMap)
 
 	// Get flow variables first to check for timeout override
-	flowVarsMap := make(map[string]any, len(flowVars))
+	flowVarsMap := make(map[string]any, len(flowVars)+len(globalVars)+len(selectedVars))
 	for _, flowVar := range flowVars {
 		if flowVar.Enabled {
 			flowVarsMap[flowVar.Name] = flowVar.Value
 		}
 	}
+	applyEnvVars := func(vars []mvar.Var) {
+		for _, envVar := range vars {
+			if envVar.IsEnabled() {
+				flowVarsMap[envVar.VarKey] = envVar.Value
+			}
+		}
+	}
+	applyEnvVars(globalVars)
+	applyEnvVars(selectedVars)
 
 	// Create temporary request to safely read timeout variable
 	tempReq := &node.FlowNodeRequest{
