@@ -1,3 +1,4 @@
+import { ReactNode, useState } from 'react';
 import * as RAC from 'react-aria-components';
 import { tv, VariantProps } from 'tailwind-variants';
 import { tw } from './tailwind-literal';
@@ -31,11 +32,32 @@ export interface ModalProps extends RAC.ModalOverlayProps, VariantProps<typeof m
   overlayClassName?: RAC.ModalOverlayProps['className'];
 }
 
-export const Modal = ({ className, overlayClassName, style, ...props }: ModalProps) => {
+export const Modal = ({ children, className, overlayClassName, style, ...props }: ModalProps) => {
   const styles = modalStyles(props);
   return (
     <RAC.ModalOverlay {...props} className={composeStyleRenderProps(overlayClassName, styles.overlay)}>
-      <RAC.Modal {...props} className={composeStyleRenderProps(className, styles.base)} style={style!} />
+      <RAC.Modal className={composeStyleRenderProps(className, styles.base)} style={style!}>
+        {children}
+      </RAC.Modal>
     </RAC.ModalOverlay>
   );
+};
+
+export const useProgrammaticModal = (closeAnimationDuration = 150) => {
+  const [keepOpen, setKeepOpen] = useState(false); // needed for closing animation
+  const [children, setChildren] = useState<ReactNode>(null);
+
+  const isOpen = !!children && keepOpen;
+
+  const onOpenChange = (isOpen: boolean, node?: ReactNode) => {
+    if (!isOpen) {
+      setKeepOpen(false);
+      setTimeout(() => void setChildren(null), closeAnimationDuration);
+    } else if (node) {
+      setKeepOpen(true);
+      setChildren(node);
+    }
+  };
+
+  return { children, isOpen, onOpenChange };
 };
