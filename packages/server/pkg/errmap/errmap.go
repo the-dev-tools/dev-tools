@@ -146,7 +146,7 @@ func Map(err error) error {
 		if strings.Contains(lower, "unsupported protocol scheme") {
 			return &Error{Code: CodeUnsupportedScheme, cause: err}
 		}
-		if strings.Contains(lower, "invalid") {
+		if isInvalidURLMessage(lower, uerr.Err) {
 			return &Error{Code: CodeInvalidURL, cause: err}
 		}
 		// Fallthrough: analyze underlying
@@ -208,6 +208,28 @@ func Map(err error) error {
 	}
 
 	return &Error{Code: CodeUnexpected, cause: err}
+}
+
+func isInvalidURLMessage(message string, cause error) bool {
+	if strings.Contains(message, "invalid url") {
+		return true
+	}
+	if strings.Contains(message, "invalid uri") {
+		return true
+	}
+	if strings.Contains(message, "malformed url") {
+		return true
+	}
+
+	var parseErr *neturl.Error
+	if errors.As(cause, &parseErr) {
+		inner := strings.ToLower(parseErr.Error())
+		if strings.Contains(inner, "invalid url") || strings.Contains(inner, "invalid uri") || strings.Contains(inner, "malformed url") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // New constructs an Error with the supplied code, message, and underlying cause.

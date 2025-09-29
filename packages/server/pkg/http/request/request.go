@@ -118,6 +118,40 @@ func formatBodyForLog(body []byte) string {
 	return text
 }
 
+func validateHeadersForHTTP(headers []mexampleheader.Header) error {
+	for _, header := range headers {
+		if header.HeaderKey == "" && header.Value == "" {
+			continue
+		}
+		if hasInvalidHeaderCharacters(header.HeaderKey, false) {
+			return fmt.Errorf("header %q can only contain visible ASCII characters", header.HeaderKey)
+		}
+		if hasInvalidHeaderCharacters(header.Value, true) {
+			return fmt.Errorf("header %q cannot include line breaks or other control characters; trim file contents or encode them before use", header.HeaderKey)
+		}
+	}
+	return nil
+}
+
+func hasInvalidHeaderCharacters(input string, allowTab bool) bool {
+	for i := 0; i < len(input); i++ {
+		b := input[i]
+		switch b {
+		case '\r', '\n':
+			return true
+		case '\t':
+			if allowTab {
+				continue
+			}
+			return true
+		}
+		if b < 0x20 || b == 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
 func LogPreparedRequest(ctx context.Context, logger *slog.Logger, executionID, nodeID idwrap.IDWrap, nodeName string, prepared *httpclient.Request) {
 	if logger == nil || prepared == nil {
 		return
@@ -386,6 +420,10 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 		bodyBytes = bytes.NewBuffer(compressedData)
 	}
 
+	if err := validateHeadersForHTTP(headers); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	httpReq := &httpclient.Request{
 		Method:  endpoint.Method,
 		URL:     endpoint.Url,
@@ -642,6 +680,10 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		bodyBytes = bytes.NewBuffer(compressedData)
+	}
+
+	if err := validateHeadersForHTTP(headers); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	httpReq := &httpclient.Request{
