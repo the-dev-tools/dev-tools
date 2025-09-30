@@ -327,6 +327,8 @@ func main() {
 		flowNodeJsService,
 		flowNodeForeachService,
 		flowNodeCondition,
+		environmentService,
+		variableService,
 	)
 	importService, err := rimport.CreateService(importServiceRPC, opitonsAll)
 	if err != nil {

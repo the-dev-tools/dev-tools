@@ -19,6 +19,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/scollectionitem"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -35,6 +36,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
 	"the-dev-tools/server/pkg/translate/thar"
@@ -110,6 +112,8 @@ func setupImportService(t *testing.T, ctx context.Context) (ImportRPC, *sql.DB, 
 	njs := snodejs.New(queries)
 	nfe := snodeforeach.New(queries)
 	nif := snodeif.New(queries)
+	envs := senv.New(queries, logger)
+	vars := svar.New(queries, logger)
 
 	svc := New(
 		db,
@@ -137,6 +141,8 @@ func setupImportService(t *testing.T, ctx context.Context) (ImportRPC, *sql.DB, 
 		njs,
 		nfe,
 		nif,
+		envs,
+		vars,
 	)
 
 	workspaceID := idwrap.NewNow()
@@ -158,8 +164,14 @@ func TestImportHar_ReimportRegression(t *testing.T) {
 	req := connect.NewRequest(&importv1.ImportRequest{
 		WorkspaceId: workspaceID.Bytes(),
 		Data:        []byte(minimalHAR),
-		Filter:      []string{"api.example.com"},
-		Name:        "Example HAR",
+		DomainData: []*importv1.ImportDomainData{
+			{
+				Domain:   "api.example.com",
+				Variable: "main_url",
+				Enabled:  true,
+			},
+		},
+		Name: "Example HAR",
 	})
 
 	_, err := svc.Import(authedCtx, req)
@@ -204,4 +216,66 @@ func TestImportHar_ReimportRegression(t *testing.T) {
 		require.NoError(t, err)
 		require.Equalf(t, 1, count, "folder %s should map to exactly one collection_items row", folder.ID.String())
 	}
+}
+
+func TestImportHar_CreatesDomainVariables(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _, cs, ias, workspaceID, userID, _ := setupImportService(t, ctx)
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+
+	req := connect.NewRequest(&importv1.ImportRequest{
+		WorkspaceId: workspaceID.Bytes(),
+		Data:        []byte(minimalHAR),
+		DomainData: []*importv1.ImportDomainData{
+			{
+				Domain:   "api.example.com",
+				Variable: "base_url",
+				Enabled:  true,
+			},
+		},
+		Name: "Example HAR",
+	})
+
+	resp, err := svc.Import(authedCtx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp.Msg.Flow)
+
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
+	require.NoError(t, err)
+
+	apis, err := ias.GetApisWithCollectionID(ctx, collection.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, apis)
+	require.Equal(t, "{{base_url}}/v1/users", apis[0].Url)
+
+	flowID, err := idwrap.NewFromBytes(resp.Msg.Flow.GetFlowId())
+	require.NoError(t, err)
+
+	flowVars, err := svc.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
+	require.NoError(t, err)
+	require.Len(t, flowVars, 1)
+	require.Equal(t, "base_url", flowVars[0].Name)
+	require.Equal(t, "https://api.example.com", flowVars[0].Value)
+
+	ws, err := svc.ws.Get(ctx, workspaceID)
+	require.NoError(t, err)
+	envID := ws.GlobalEnv
+	if envID == (idwrap.IDWrap{}) {
+		envID = ws.ActiveEnv
+	}
+	require.NotEqual(t, idwrap.IDWrap{}, envID)
+
+	envVars, err := svc.varService.GetVariableByEnvID(ctx, envID)
+	require.NoError(t, err)
+
+	var found bool
+	for _, v := range envVars {
+		if v.VarKey == "base_url" {
+			found = true
+			require.Equal(t, "https://api.example.com", v.Value)
+			require.True(t, v.Enabled)
+		}
+	}
+	require.True(t, found, "expected environment variable base_url to be created")
 }

@@ -16,12 +16,16 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
 	"the-dev-tools/server/pkg/model/mcollection"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mvar"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/postman/v21/mpostmancollection"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/flow/sedge"
@@ -31,6 +35,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/scollectionitem"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -47,6 +52,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/translate/tcurl"
 	"the-dev-tools/server/pkg/translate/thar"
@@ -95,6 +101,8 @@ type ImportRPC struct {
 	nodeJSService         snodejs.NodeJSService
 	nodeForEachService    snodeforeach.NodeForEachService
 	nodeIfService         *snodeif.NodeIfService
+	envService            senv.EnvService
+	varService            svar.VarService
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService,
@@ -108,7 +116,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionSe
 	nodeNoopService snodenoop.NodeNoopService, edgeService sedge.EdgeService,
 	flowVariableService sflowvariable.FlowVariableService, nodeForService snodefor.NodeForService,
 	nodeJSService snodejs.NodeJSService, nodeForEachService snodeforeach.NodeForEachService,
-	nodeIfService *snodeif.NodeIfService,
+	nodeIfService *snodeif.NodeIfService, envService senv.EnvService, varService svar.VarService,
 ) ImportRPC {
 	return ImportRPC{
 		DB:                    db,
@@ -136,6 +144,8 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionSe
 		nodeJSService:         nodeJSService,
 		nodeForEachService:    nodeForEachService,
 		nodeIfService:         nodeIfService,
+		envService:            envService,
+		varService:            varService,
 	}
 }
 
@@ -155,23 +165,19 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	}
 
 	data := req.Msg.Data
-	textData := req.Msg.TextData
+	textData := strings.TrimSpace(req.Msg.TextData)
 	resp := &importv1.ImportResponse{}
 
-	// Check if a collection with this name already exists in the workspace
+	domainSet := newDomainVariableSet(req.Msg.GetDomainData())
+
 	var collectionID idwrap.IDWrap
-	// Determine collection name based on import type
-	// For HAR imports (when we have data that's valid JSON), use "Imported"
-	// For other imports (curl with textData), use the provided name or generate default
-	collectionName := req.Msg.Name
-	// Check if this is a HAR import (either initial parse or filtered import)
-	isHARImport := len(textData) == 0 && (json.Valid(data) || len(req.Msg.Filter) > 0)
-	if isHARImport {
-		// This is a HAR import, use "Imported" as collection name
+	collectionName := strings.TrimSpace(req.Msg.Name)
+
+	isHARCandidate := len(textData) == 0 && (json.Valid(data) || len(domainSet.raw) > 0)
+	if isHARCandidate {
 		collectionName = "Imported"
 	} else if len(textData) > 0 {
-		// This is a curl import - validate and generate name if needed
-		if strings.TrimSpace(collectionName) == "" {
+		if collectionName == "" {
 			collectionName = generateCurlCollectionName(textData)
 		}
 	}
@@ -179,58 +185,43 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 	existingCollection, err := c.cs.GetCollectionByWorkspaceIDAndName(ctx, wsUlid, collectionName)
 	switch err {
 	case nil:
-		// Collection exists, use its ID
 		collectionID = existingCollection.ID
-		// Found existing collection, will merge endpoints into it
 	case scollection.ErrNoCollectionFound:
-		// Collection doesn't exist, generate new ID
 		collectionID = idwrap.NewNow()
-		// Collection doesn't exist, will create new one
 	default:
-		// Some other error occurred
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// If no filter provided, we need to parse and present filter options
-	if len(req.Msg.Filter) == 0 {
-		// Handle curl import
+	if len(domainSet.raw) == 0 {
 		if len(textData) > 0 {
 			curlResolved, err := tcurl.ConvertCurl(textData, collectionID)
 			if err != nil {
-				return nil, err
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
 			}
-
 			if len(curlResolved.Apis) == 0 {
 				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no api found"))
 			}
 
-			err = c.ImportCurl(ctx, wsUlid, collectionID, collectionName, curlResolved)
-			if err != nil {
+			if err := c.ImportCurl(ctx, wsUlid, collectionID, collectionName, curlResolved, domainSet); err != nil {
 				return nil, err
 			}
 
 			return connect.NewResponse(resp), nil
 		}
 
-		// Try to detect simplified YAML format first
 		var yamlCheck map[string]any
 		if err := yaml.Unmarshal(data, &yamlCheck); err == nil {
-			// Check if it has the markers for simplified format
 			if _, hasWorkspace := yamlCheck["workspace_name"]; hasWorkspace {
 				if _, hasFlows := yamlCheck["flows"]; hasFlows {
-					// This appears to be a simplified workflow YAML
 					resolvedYAML, err := yamlflowsimple.ConvertSimplifiedYAML(data, collectionID, wsUlid)
 					if err != nil {
 						return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to convert simplified workflow: %w", err))
 					}
 
-					// Import the simplified YAML data
-					err = c.ImportSimplifiedYAML(ctx, wsUlid, resolvedYAML)
-					if err != nil {
+					if err := c.ImportSimplifiedYAML(ctx, wsUlid, resolvedYAML); err != nil {
 						return nil, err
 					}
 
-					// Return the first flow if any
 					if len(resolvedYAML.Flows) > 0 {
 						flow := resolvedYAML.Flows[0]
 						resp.Flow = &flowv1.FlowListItem{
@@ -244,136 +235,114 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 			}
 		}
 
-		// Handle other imports
 		if !json.Valid(data) {
-			return nil, errors.New("invalid json")
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid json"))
 		}
 
-		// Determine the type of file (HAR file)
 		har, err := thar.ConvertRaw(data)
-		if err != nil {
+		if err == nil {
+			domains := collectHarDomains(har)
+			if len(domains) == 0 {
+				flow, importErr := c.ImportHar(ctx, wsUlid, collectionID, collectionName, har, domainSet)
+				if importErr != nil {
+					return nil, importErr
+				}
+				if flow != nil {
+					resp.Flow = &flowv1.FlowListItem{
+						FlowId: flow.ID.Bytes(),
+						Name:   flow.Name,
+					}
+				}
+				lastHar = thar.HAR{}
+				return connect.NewResponse(resp), nil
+			}
+
+			resp.MissingData = importv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_DOMAIN
+			resp.Domains = domains
+			lastHar = *har
+			return connect.NewResponse(resp), nil
+		}
+
+		postman, perr := tpostman.ParsePostmanCollection(data)
+		if perr != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to parse as HAR or Postman collection: %w", perr))
+		}
+
+		if err := c.ImportPostmanCollection(ctx, wsUlid, collectionID, collectionName, postman, domainSet); err != nil {
 			return nil, err
 		}
-
-		// Extract unique domains for filtering
-		domains := make(map[string]struct{}, len(har.Log.Entries))
-		for _, entry := range har.Log.Entries {
-			if thar.IsXHRRequest(entry) {
-				urlData, err := url.Parse(entry.Request.URL)
-				if err != nil {
-					return nil, err
-				}
-				domains[urlData.Host] = struct{}{}
-			}
-		}
-
-		// Return filter options to the client
-		resp.Kind = importv1.ImportKind_IMPORT_KIND_FILTER
-		keys := make([]string, 0, len(domains))
-		for k := range domains {
-			keys = append(keys, k)
-		}
-		resp.Filter = keys
-
-		// Save HAR for subsequent filtered import
-		lastHar = *har
 
 		return connect.NewResponse(resp), nil
 	}
 
-	// Process filtered entries
-	var filteredEntries []thar.Entry
-	urlMap := make(map[string][]thar.Entry)
+	if len(domainSet.selected) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no domains selected"))
+	}
 
-	// If lastHar is empty but we have data, parse it
-	// This handles cases where the filter request comes from a different context
-	if len(lastHar.Log.Entries) == 0 && len(data) > 0 && json.Valid(data) {
+	harToUse := lastHar
+	if len(harToUse.Log.Entries) == 0 {
+		if !json.Valid(data) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid json"))
+		}
+
 		har, err := thar.ConvertRaw(data)
 		if err != nil {
-			return nil, err
-		}
-		lastHar = *har
-	}
-
-	for _, entry := range lastHar.Log.Entries {
-		if thar.IsXHRRequest(entry) {
-			urlData, err := url.Parse(entry.Request.URL)
-			if err != nil {
+			postman, perr := tpostman.ParsePostmanCollection(data)
+			if perr != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to parse as HAR or Postman collection: %w", err))
+			}
+			if err := c.ImportPostmanCollection(ctx, wsUlid, collectionID, collectionName, postman, domainSet); err != nil {
 				return nil, err
 			}
-
-			host := urlData.Host
-			entries, ok := urlMap[host]
-			if !ok {
-				entries = make([]thar.Entry, 0)
-			}
-			entries = append(entries, entry)
-			urlMap[host] = entries
+			lastHar = thar.HAR{}
+			return connect.NewResponse(resp), nil
 		}
+		harToUse = *har
 	}
 
-	for _, filter := range req.Msg.Filter {
-		if entries, ok := urlMap[filter]; ok {
-			filteredEntries = append(filteredEntries, entries...)
-		}
+	filteredEntries := filterHarEntries(harToUse.Log.Entries, domainSet)
+	if len(filteredEntries) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no matching HAR entries for selected domains"))
 	}
-	lastHar.Log.Entries = filteredEntries
+	harToUse.Log.Entries = filteredEntries
 
-	// Try to import as HAR
-	// Attempt HAR import with filtered entries
-	// Use "Imported" as the collection name for HAR imports
-	flow, err := c.ImportHar(ctx, wsUlid, collectionID, "Imported", &lastHar)
+	flow, err := c.ImportHar(ctx, wsUlid, collectionID, collectionName, &harToUse, domainSet)
 	if err == nil {
-		// For HAR imports, we also create a flow
 		if flow != nil {
 			resp.Flow = &flowv1.FlowListItem{
 				FlowId: flow.ID.Bytes(),
 				Name:   flow.Name,
 			}
 		}
-
+		lastHar = thar.HAR{}
 		return connect.NewResponse(resp), nil
 	}
 
-	// Check if error is due to database operation failure
-	// In this case, we should not attempt fallback
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) && connectErr.Code() == connect.CodeInternal {
-		// Database error occurred, return immediately without fallback
+	if connectErr, ok := err.(*connect.Error); ok && connectErr.Code() == connect.CodeInternal {
 		return nil, err
 	}
 
-	// HAR import failed due to parsing/conversion, try Postman Collection
-
-	// Try to import as Postman Collection
-	postman, err := tpostman.ParsePostmanCollection(data)
-	if err != nil {
-		// Postman collection parsing also failed
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to parse as HAR or Postman collection: %w", err))
+	postman, postmanErr := tpostman.ParsePostmanCollection(data)
+	if postmanErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to parse as HAR or Postman collection: %w", postmanErr))
 	}
 
-	// Postman collection parsed successfully, attempting import
-	// For consistency, use "Imported" collection name if this was originally a HAR import attempt
-	postmanCollectionName := req.Msg.Name
-	if isHARImport {
-		postmanCollectionName = "Imported"
-	}
-	err = c.ImportPostmanCollection(ctx, wsUlid, collectionID, postmanCollectionName, postman)
-	if err == nil {
-		// Postman collection import successful (no flow created)
-		return connect.NewResponse(resp), nil
+	if importErr := c.ImportPostmanCollection(ctx, wsUlid, collectionID, collectionName, postman, domainSet); importErr != nil {
+		return nil, importErr
 	}
 
-	// Return the actual error from import
-	return nil, err
+	lastHar = thar.HAR{}
+	return connect.NewResponse(resp), nil
 }
 
-func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, resolvedCurl tcurl.CurlResolved) error {
+func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, resolvedCurl tcurl.CurlResolved, domains domainVariableSet) error {
 	collection := mcollection.Collection{
 		ID:          CollectionID,
 		Name:        name,
 		WorkspaceID: workspaceID,
 	}
+
+	usage := applyDomainVariablesToApis(resolvedCurl.Apis, domains)
 
 	// Check if collection already exists
 	collectionExists := false
@@ -455,6 +424,9 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
+	if err := c.ensureDomainEnvironmentVariables(ctx, tx, ws, usage); err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
 	// Only increment collection count if we created a new collection
 	if !collectionExists {
 		ws.CollectionCount++
@@ -473,7 +445,7 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	return nil
 }
 
-func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, collectionData mpostmancollection.Collection) error {
+func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, collectionData mpostmancollection.Collection, domains domainVariableSet) error {
 	collection := mcollection.Collection{
 		ID:          CollectionID,
 		Name:        name,
@@ -494,6 +466,8 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
+
+	usage := applyDomainVariablesToApis(items.Apis, domains)
 
 	tx, err := c.DB.Begin()
 	if err != nil {
@@ -568,6 +542,9 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
+	if err := c.ensureDomainEnvironmentVariables(ctx, tx, ws, usage); err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
 	// Only increment collection count if we created a new collection
 	if !collectionExists {
 		ws.CollectionCount++
@@ -586,7 +563,7 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	return nil
 }
 
-func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, harData *thar.HAR) (*mflow.Flow, error) {
+func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idwrap.IDWrap, name string, harData *thar.HAR, domains domainVariableSet) (*mflow.Flow, error) {
 	// Check if collection already exists
 	collectionExists := false
 	_, err := c.cs.GetCollection(ctx, CollectionID)
@@ -612,6 +589,8 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		// HAR conversion failed
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+
+	usage := applyDomainVariablesToApis(resolved.Apis, domains)
 
 	// HAR conversion successful
 
@@ -1014,6 +993,9 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	if err := c.createFlowVariables(ctx, tx, resolved.Flow.ID, usage); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	// Flow Node
 	txFlowNodeService := c.nodeService.TX(tx)
@@ -1068,6 +1050,9 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 
 	ws, err := txWorkspaceService.Get(ctx, workspaceID)
 	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if err := c.ensureDomainEnvironmentVariables(ctx, tx, ws, usage); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	// Only increment collection count if we created a new collection
@@ -1293,6 +1278,254 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 }
 
 // sortFoldersByDepth sorts folders so that parent folders come before their children
+type domainVariableAssignment struct {
+	Domain   string
+	Variable string
+}
+
+type domainVariableSet struct {
+	raw      []*importv1.ImportDomainData
+	selected map[string]domainVariableAssignment
+}
+
+type domainVariableUsage struct {
+	variable string
+	baseURL  string
+	domain   string
+}
+
+func newDomainVariableSet(data []*importv1.ImportDomainData) domainVariableSet {
+	set := domainVariableSet{
+		raw:      data,
+		selected: make(map[string]domainVariableAssignment),
+	}
+
+	for _, entry := range data {
+		if entry == nil {
+			continue
+		}
+		if !entry.GetEnabled() {
+			continue
+		}
+		domain := strings.TrimSpace(entry.GetDomain())
+		if domain == "" {
+			continue
+		}
+		assignment := domainVariableAssignment{
+			Domain:   domain,
+			Variable: sanitizeVariableName(entry.GetVariable()),
+		}
+		set.selected[strings.ToLower(domain)] = assignment
+	}
+
+	return set
+}
+
+func collectHarDomains(har *thar.HAR) []string {
+	domains := make(map[string]struct{}, len(har.Log.Entries))
+	for _, entry := range har.Log.Entries {
+		if !thar.IsXHRRequest(entry) {
+			continue
+		}
+		urlData, err := url.Parse(entry.Request.URL)
+		if err != nil {
+			continue
+		}
+		if urlData.Host != "" {
+			domains[urlData.Host] = struct{}{}
+		}
+	}
+
+	keys := make([]string, 0, len(domains))
+	for domain := range domains {
+		keys = append(keys, domain)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func filterHarEntries(entries []thar.Entry, domains domainVariableSet) []thar.Entry {
+	if len(domains.selected) == 0 {
+		return entries
+	}
+
+	filtered := make([]thar.Entry, 0, len(entries))
+	for _, entry := range entries {
+		if !thar.IsXHRRequest(entry) {
+			continue
+		}
+		urlData, err := url.Parse(entry.Request.URL)
+		if err != nil {
+			continue
+		}
+		if _, ok := domains.selected[strings.ToLower(urlData.Host)]; ok {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
+}
+
+func applyDomainVariablesToApis(apis []mitemapi.ItemApi, domains domainVariableSet) map[string]domainVariableUsage {
+	usage := make(map[string]domainVariableUsage)
+	if len(domains.selected) == 0 {
+		return usage
+	}
+
+	for i := range apis {
+		parsedURL, err := url.Parse(apis[i].Url)
+		if err != nil || parsedURL.Host == "" {
+			continue
+		}
+
+		assignment, ok := domains.selected[strings.ToLower(parsedURL.Host)]
+		if !ok {
+			continue
+		}
+
+		if assignment.Variable != "" {
+			baseURL := parsedURL.Host
+			if parsedURL.Scheme != "" {
+				baseURL = fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+			}
+			if existing, exists := usage[assignment.Variable]; !exists {
+				usage[assignment.Variable] = domainVariableUsage{
+					variable: assignment.Variable,
+					baseURL:  baseURL,
+					domain:   parsedURL.Host,
+				}
+			} else if existing.baseURL == "" {
+				existing.baseURL = baseURL
+				existing.domain = parsedURL.Host
+				usage[assignment.Variable] = existing
+			}
+
+			suffix := parsedURL.RequestURI()
+			if suffix == "/" {
+				suffix = ""
+			}
+			apis[i].Url = buildTemplatedURL(assignment.Variable, suffix)
+		}
+	}
+
+	return usage
+}
+
+func buildTemplatedURL(variable, suffix string) string {
+	if variable == "" {
+		return suffix
+	}
+	if suffix == "" {
+		return fmt.Sprintf("{{%s}}", variable)
+	}
+	if !strings.HasPrefix(suffix, "/") && !strings.HasPrefix(suffix, "?") && !strings.HasPrefix(suffix, "#") {
+		suffix = "/" + suffix
+	}
+	return fmt.Sprintf("{{%s}}%s", variable, suffix)
+}
+
+func sanitizeVariableName(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	trimmed = strings.Trim(trimmed, "{}\t \n")
+	trimmed = strings.TrimSpace(trimmed)
+	trimmed = strings.ReplaceAll(trimmed, " ", "_")
+	return trimmed
+}
+
+func (c *ImportRPC) ensureDomainEnvironmentVariables(ctx context.Context, tx *sql.Tx, ws *mworkspace.Workspace, usages map[string]domainVariableUsage) error {
+	if len(usages) == 0 {
+		return nil
+	}
+
+	envID := ws.GlobalEnv
+	if envID == (idwrap.IDWrap{}) {
+		envID = ws.ActiveEnv
+	}
+	if envID == (idwrap.IDWrap{}) {
+		envID = idwrap.NewNow()
+		env := menv.Env{
+			ID:          envID,
+			WorkspaceID: ws.ID,
+			Name:        "default",
+			Type:        menv.EnvGlobal,
+		}
+		if err := c.envService.TX(tx).Create(ctx, env); err != nil {
+			return err
+		}
+		ws.ActiveEnv = envID
+		ws.GlobalEnv = envID
+	}
+
+	txVarService := c.varService.TX(tx)
+	existingVars, err := txVarService.GetVariableByEnvID(ctx, envID)
+	if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
+		return err
+	}
+
+	existingMap := make(map[string]mvar.Var, len(existingVars))
+	for _, v := range existingVars {
+		existingMap[v.VarKey] = v
+	}
+
+	for variable, usage := range usages {
+		if variable == "" || usage.baseURL == "" {
+			continue
+		}
+
+		if current, ok := existingMap[variable]; ok {
+			if current.Value != usage.baseURL || !current.Enabled {
+				current.Value = usage.baseURL
+				current.Enabled = true
+				if err := txVarService.Update(ctx, &current); err != nil {
+					return err
+				}
+				existingMap[variable] = current
+			}
+			continue
+		}
+
+		description := fmt.Sprintf("Base URL for %s", usage.domain)
+		newVar := mvar.Var{
+			ID:          idwrap.NewNow(),
+			EnvID:       envID,
+			VarKey:      variable,
+			Value:       usage.baseURL,
+			Enabled:     true,
+			Description: description,
+		}
+		if err := txVarService.Create(ctx, newVar); err != nil {
+			return err
+		}
+		existingMap[variable] = newVar
+	}
+
+	return nil
+}
+
+func (c *ImportRPC) createFlowVariables(ctx context.Context, tx *sql.Tx, flowID idwrap.IDWrap, usages map[string]domainVariableUsage) error {
+	if len(usages) == 0 {
+		return nil
+	}
+
+	txFlowVarService := c.flowVariableService.TX(tx)
+	for _, usage := range usages {
+		if usage.variable == "" || usage.baseURL == "" {
+			continue
+		}
+		fv := mflowvariable.FlowVariable{
+			ID:      idwrap.NewNow(),
+			FlowID:  flowID,
+			Name:    usage.variable,
+			Value:   usage.baseURL,
+			Enabled: true,
+		}
+		if err := txFlowVarService.CreateFlowVariable(ctx, fv); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func sortFoldersByDepth(folders []mitemfolder.ItemFolder) {
 	// Build a map of folder IDs to their indices
 	folderIndex := make(map[idwrap.IDWrap]int)
