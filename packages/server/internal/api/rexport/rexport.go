@@ -199,6 +199,12 @@ func (c *ExportRPC) Export(ctx context.Context, req *connect.Request[exportv1.Ex
 		return nil, err
 	}
 
+	if len(exampleIDs) > 0 {
+		if err := ioworkspace.FilterWorkspaceDataByExamples(workspaceData, exampleIDs); err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	}
+
 	data, err := yamlflowsimple.ExportYamlFlowYAML(ctx, workspaceData, c.overlayMgr)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -232,9 +238,27 @@ func (c *ExportRPC) ExportSimplified(ctx context.Context, req *connect.Request[e
 		filterExport.FilterFlowIds = &filterIds
 	}
 
+	var exampleIDs []idwrap.IDWrap
+	if len(req.Msg.ExampleIds) != 0 {
+		for _, rawID := range req.Msg.ExampleIds {
+			decoded, err := idwrap.NewFromBytes(rawID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
+			exampleIDs = append(exampleIDs, decoded)
+		}
+		filterExport.FilterExampleIds = &exampleIDs
+	}
+
 	workspaceData, err := c.exportWorkspaceData(ctx, workspaceID, filterExport)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(exampleIDs) > 0 {
+		if err := ioworkspace.FilterWorkspaceDataByExamples(workspaceData, exampleIDs); err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
 	}
 
 	// Convert to simplified format

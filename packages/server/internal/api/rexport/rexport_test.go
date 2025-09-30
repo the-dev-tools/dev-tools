@@ -2,12 +2,14 @@ package rexport
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
@@ -92,7 +94,125 @@ func TestExportCurl(t *testing.T) {
 	require.NotContains(t, text, "\n\ncurl '")
 }
 
+func TestExport_WithExampleFilterLimitsOutput(t *testing.T) {
+	ctx := context.Background()
+	workspaceData, workspaceID, _, secondExampleID := buildWorkspaceDataWithTwoRequests()
+	svc := setupExportRPCWithWorkspaceData(t, ctx, workspaceData)
+
+	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
+		WorkspaceId: workspaceID.Bytes(),
+		ExampleIds:  [][]byte{secondExampleID.Bytes()},
+	}))
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	body := string(resp.Msg.GetData())
+	require.NotContains(t, body, "First Request")
+	require.Contains(t, body, "Second Request")
+
+	var doc map[string]any
+	require.NoError(t, yaml.Unmarshal(resp.Msg.GetData(), &doc))
+
+	requests, ok := doc["requests"].([]any)
+	require.True(t, ok)
+	require.Len(t, requests, 1)
+	reqMap, ok := requests[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "Second Request", reqMap["name"])
+
+	flowsAny, ok := doc["flows"].([]any)
+	require.True(t, ok)
+	require.Len(t, flowsAny, 1)
+	flowMap, ok := flowsAny[0].(map[string]any)
+	require.True(t, ok)
+	steps, ok := flowMap["steps"].([]any)
+	require.True(t, ok)
+	require.Len(t, steps, 1)
+	stepMap, ok := steps[0].(map[string]any)
+	require.True(t, ok)
+	requestStep, ok := stepMap["request"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "Second Request", requestStep["name"])
+}
+
+func TestExport_WithExampleFilterStandaloneExample(t *testing.T) {
+	ctx := context.Background()
+	workspaceData, workspaceID, exampleID := buildWorkspaceDataWithoutFlows()
+	svc := setupExportRPCWithWorkspaceData(t, ctx, workspaceData)
+
+	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
+		WorkspaceId: workspaceID.Bytes(),
+		ExampleIds:  [][]byte{exampleID.Bytes()},
+	}))
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	body := string(resp.Msg.GetData())
+	require.Contains(t, body, "Standalone Example")
+
+	var doc map[string]any
+	require.NoError(t, yaml.Unmarshal(resp.Msg.GetData(), &doc))
+
+	flowsAny, ok := doc["flows"].([]any)
+	require.True(t, ok)
+	require.Len(t, flowsAny, 1)
+	flowMap, ok := flowsAny[0].(map[string]any)
+	require.True(t, ok)
+	steps, ok := flowMap["steps"].([]any)
+	require.True(t, ok)
+	require.Len(t, steps, 1)
+	stepMap, ok := steps[0].(map[string]any)
+	require.True(t, ok)
+	requestStep, ok := stepMap["request"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "Standalone Example", requestStep["name"])
+}
+
 func setupExportRPC(t *testing.T, ctx context.Context) (ExportRPC, idwrap.IDWrap, idwrap.IDWrap) {
+	deps := newExportDeps(t, ctx)
+	workspaceData, workspaceID, exampleID := buildWorkspaceData()
+	require.NoError(t, deps.ioWorkspace.ImportWorkspace(ctx, workspaceData))
+	return deps.newExportRPC(), workspaceID, exampleID
+}
+
+func setupExportRPCWithWorkspaceData(t *testing.T, ctx context.Context, workspaceData ioworkspace.WorkspaceData) ExportRPC {
+	deps := newExportDeps(t, ctx)
+	require.NoError(t, deps.ioWorkspace.ImportWorkspace(ctx, workspaceData))
+	return deps.newExportRPC()
+}
+
+type exportDeps struct {
+	db                    *sql.DB
+	workspaceService      sworkspace.WorkspaceService
+	collectionService     scollection.CollectionService
+	folderService         sitemfolder.ItemFolderService
+	endpointService       sitemapi.ItemApiService
+	exampleService        sitemapiexample.ItemApiExampleService
+	exampleHeaderService  sexampleheader.HeaderService
+	exampleQueryService   sexamplequery.ExampleQueryService
+	exampleAssertService  sassert.AssertService
+	rawBodyService        sbodyraw.BodyRawService
+	formBodyService       sbodyform.BodyFormService
+	urlBodyService        sbodyurl.BodyURLEncodedService
+	responseService       sexampleresp.ExampleRespService
+	responseHeaderService sexamplerespheader.ExampleRespHeaderService
+	responseAssertService sassertres.AssertResultService
+	flowService           sflow.FlowService
+	flowNodeService       snode.NodeService
+	flowEdgeService       sedge.EdgeService
+	flowVariableService   sflowvariable.FlowVariableService
+	flowRequestService    snoderequest.NodeRequestService
+	flowConditionService  *snodeif.NodeIfService
+	flowNoopService       snodenoop.NodeNoopService
+	flowForService        snodefor.NodeForService
+	flowForEachService    snodeforeach.NodeForEachService
+	flowJSService         snodejs.NodeJSService
+	envService            senv.EnvService
+	varService            svar.VarService
+	ioWorkspace           *ioworkspace.IOWorkspaceService
+}
+
+func newExportDeps(t *testing.T, ctx context.Context) exportDeps {
 	base := testutil.CreateBaseDB(ctx, t)
 	t.Cleanup(base.Close)
 
@@ -157,40 +277,68 @@ func setupExportRPC(t *testing.T, ctx context.Context) (ExportRPC, idwrap.IDWrap
 		varService,
 	)
 
-	workspaceData, workspaceID, exampleID := buildWorkspaceData()
-	require.NoError(t, ioWorkspace.ImportWorkspace(ctx, workspaceData))
+	return exportDeps{
+		db:                    db,
+		workspaceService:      workspaceService,
+		collectionService:     collectionService,
+		folderService:         folderService,
+		endpointService:       endpointService,
+		exampleService:        exampleService,
+		exampleHeaderService:  exampleHeaderService,
+		exampleQueryService:   exampleQueryService,
+		exampleAssertService:  exampleAssertService,
+		rawBodyService:        rawBodyService,
+		formBodyService:       formBodyService,
+		urlBodyService:        urlBodyService,
+		responseService:       responseService,
+		responseHeaderService: responseHeaderService,
+		responseAssertService: responseAssertService,
+		flowService:           flowService,
+		flowNodeService:       flowNodeService,
+		flowEdgeService:       flowEdgeService,
+		flowVariableService:   flowVariableService,
+		flowRequestService:    flowRequestService,
+		flowConditionService:  flowConditionService,
+		flowNoopService:       flowNoopService,
+		flowForService:        flowForService,
+		flowForEachService:    flowForEachService,
+		flowJSService:         flowJSService,
+		envService:            envService,
+		varService:            varService,
+		ioWorkspace:           ioWorkspace,
+	}
+}
 
-	svc := New(
-		db,
-		workspaceService,
-		collectionService,
-		folderService,
-		endpointService,
-		exampleService,
-		exampleHeaderService,
-		exampleQueryService,
-		exampleAssertService,
-		rawBodyService,
-		formBodyService,
-		urlBodyService,
-		responseService,
-		responseHeaderService,
-		responseAssertService,
-		flowService,
-		flowNodeService,
-		flowEdgeService,
-		flowVariableService,
-		flowRequestService,
-		*flowConditionService,
-		flowNoopService,
-		flowForService,
-		flowForEachService,
-		flowJSService,
-		envService,
-		varService,
+func (d exportDeps) newExportRPC() ExportRPC {
+	return New(
+		d.db,
+		d.workspaceService,
+		d.collectionService,
+		d.folderService,
+		d.endpointService,
+		d.exampleService,
+		d.exampleHeaderService,
+		d.exampleQueryService,
+		d.exampleAssertService,
+		d.rawBodyService,
+		d.formBodyService,
+		d.urlBodyService,
+		d.responseService,
+		d.responseHeaderService,
+		d.responseAssertService,
+		d.flowService,
+		d.flowNodeService,
+		d.flowEdgeService,
+		d.flowVariableService,
+		d.flowRequestService,
+		*d.flowConditionService,
+		d.flowNoopService,
+		d.flowForService,
+		d.flowForEachService,
+		d.flowJSService,
+		d.envService,
+		d.varService,
 	)
-
-	return svc, workspaceID, exampleID
 }
 
 func buildWorkspaceData() (ioworkspace.WorkspaceData, idwrap.IDWrap, idwrap.IDWrap) {
@@ -313,6 +461,259 @@ func buildWorkspaceData() (ioworkspace.WorkspaceData, idwrap.IDWrap, idwrap.IDWr
 		FlowEdges:        []edge.Edge{flowEdge},
 		FlowRequestNodes: []mnrequest.MNRequest{flowRequest},
 		FlowNoopNodes:    []mnnoop.NoopNode{startNoop},
+	}
+
+	return workspaceData, workspaceID, exampleID
+}
+
+func buildWorkspaceDataWithTwoRequests() (ioworkspace.WorkspaceData, idwrap.IDWrap, idwrap.IDWrap, idwrap.IDWrap) {
+	workspaceID := idwrap.NewNow()
+	collectionID := idwrap.NewNow()
+	endpointID := idwrap.NewNow()
+	firstExampleID := idwrap.NewNow()
+	secondExampleID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	firstRequestNodeID := idwrap.NewNow()
+	secondRequestNodeID := idwrap.NewNow()
+
+	workspace := mworkspace.Workspace{
+		ID:      workspaceID,
+		Name:    "Workspace",
+		Updated: time.Now(),
+	}
+
+	collection := mcollection.Collection{
+		ID:          collectionID,
+		WorkspaceID: workspaceID,
+		Name:        "Collection",
+		Updated:     time.Now(),
+	}
+
+	endpoint := mitemapi.ItemApi{
+		ID:           endpointID,
+		CollectionID: collectionID,
+		Name:         "Shared Endpoint",
+		Method:       "POST",
+		Url:          "https://example.dev/api",
+	}
+
+	firstExample := mitemapiexample.ItemApiExample{
+		ID:           firstExampleID,
+		ItemApiID:    endpointID,
+		CollectionID: collectionID,
+		Name:         "First Request",
+		BodyType:     mitemapiexample.BodyTypeRaw,
+	}
+
+	secondExample := mitemapiexample.ItemApiExample{
+		ID:           secondExampleID,
+		ItemApiID:    endpointID,
+		CollectionID: collectionID,
+		Name:         "Second Request",
+		BodyType:     mitemapiexample.BodyTypeRaw,
+	}
+
+	firstBody := mbodyraw.ExampleBodyRaw{
+		ID:            idwrap.NewNow(),
+		ExampleID:     firstExampleID,
+		Data:          []byte(`{"first":true}`),
+		VisualizeMode: mbodyraw.VisualizeModeJSON,
+	}
+
+	secondBody := mbodyraw.ExampleBodyRaw{
+		ID:            idwrap.NewNow(),
+		ExampleID:     secondExampleID,
+		Data:          []byte(`{"second":true}`),
+		VisualizeMode: mbodyraw.VisualizeModeJSON,
+	}
+
+	firstHeader := mexampleheader.Header{
+		ID:        idwrap.NewNow(),
+		ExampleID: firstExampleID,
+		HeaderKey: "X-First",
+		Value:     "true",
+		Enable:    true,
+	}
+
+	secondHeader := mexampleheader.Header{
+		ID:        idwrap.NewNow(),
+		ExampleID: secondExampleID,
+		HeaderKey: "X-Second",
+		Value:     "true",
+		Enable:    true,
+	}
+
+	firstQuery := mexamplequery.Query{
+		ID:        idwrap.NewNow(),
+		ExampleID: firstExampleID,
+		QueryKey:  "one",
+		Value:     "1",
+		Enable:    true,
+	}
+
+	secondQuery := mexamplequery.Query{
+		ID:        idwrap.NewNow(),
+		ExampleID: secondExampleID,
+		QueryKey:  "two",
+		Value:     "2",
+		Enable:    true,
+	}
+
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Multi Request Flow",
+	}
+
+	startNode := mnnode.MNode{
+		ID:        startNodeID,
+		FlowID:    flowID,
+		Name:      "Start",
+		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		PositionX: 0,
+		PositionY: 0,
+	}
+
+	firstRequestNode := mnnode.MNode{
+		ID:        firstRequestNodeID,
+		FlowID:    flowID,
+		Name:      "First Request",
+		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		PositionX: 120,
+		PositionY: 0,
+	}
+
+	secondRequestNode := mnnode.MNode{
+		ID:        secondRequestNodeID,
+		FlowID:    flowID,
+		Name:      "Second Request",
+		NodeKind:  mnnode.NODE_KIND_REQUEST,
+		PositionX: 240,
+		PositionY: 0,
+	}
+
+	firstRequest := mnrequest.MNRequest{
+		FlowNodeID:       firstRequestNodeID,
+		EndpointID:       &endpointID,
+		ExampleID:        &firstExampleID,
+		HasRequestConfig: true,
+	}
+
+	secondRequest := mnrequest.MNRequest{
+		FlowNodeID:       secondRequestNodeID,
+		EndpointID:       &endpointID,
+		ExampleID:        &secondExampleID,
+		HasRequestConfig: true,
+	}
+
+	firstEdge := edge.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      startNodeID,
+		TargetID:      firstRequestNodeID,
+		SourceHandler: edge.HandleThen,
+		Kind:          int32(edge.EdgeKindNoOp),
+	}
+
+	secondEdge := edge.Edge{
+		ID:            idwrap.NewNow(),
+		FlowID:        flowID,
+		SourceID:      firstRequestNodeID,
+		TargetID:      secondRequestNodeID,
+		SourceHandler: edge.HandleThen,
+		Kind:          int32(edge.EdgeKindNoOp),
+	}
+
+	startNoop := mnnoop.NoopNode{
+		FlowNodeID: startNodeID,
+		Type:       mnnoop.NODE_NO_OP_KIND_START,
+	}
+
+	workspaceData := ioworkspace.WorkspaceData{
+		Workspace:        workspace,
+		Collections:      []mcollection.Collection{collection},
+		Endpoints:        []mitemapi.ItemApi{endpoint},
+		Examples:         []mitemapiexample.ItemApiExample{firstExample, secondExample},
+		ExampleHeaders:   []mexampleheader.Header{firstHeader, secondHeader},
+		ExampleQueries:   []mexamplequery.Query{firstQuery, secondQuery},
+		Rawbodies:        []mbodyraw.ExampleBodyRaw{firstBody, secondBody},
+		Flows:            []mflow.Flow{flow},
+		FlowNodes:        []mnnode.MNode{startNode, firstRequestNode, secondRequestNode},
+		FlowEdges:        []edge.Edge{firstEdge, secondEdge},
+		FlowRequestNodes: []mnrequest.MNRequest{firstRequest, secondRequest},
+		FlowNoopNodes:    []mnnoop.NoopNode{startNoop},
+	}
+
+	return workspaceData, workspaceID, firstExampleID, secondExampleID
+}
+
+func buildWorkspaceDataWithoutFlows() (ioworkspace.WorkspaceData, idwrap.IDWrap, idwrap.IDWrap) {
+	workspaceID := idwrap.NewNow()
+	collectionID := idwrap.NewNow()
+	endpointID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+
+	workspace := mworkspace.Workspace{
+		ID:      workspaceID,
+		Name:    "Standalone Workspace",
+		Updated: time.Now(),
+	}
+
+	collection := mcollection.Collection{
+		ID:          collectionID,
+		WorkspaceID: workspaceID,
+		Name:        "Standalone Collection",
+		Updated:     time.Now(),
+	}
+
+	endpoint := mitemapi.ItemApi{
+		ID:           endpointID,
+		CollectionID: collectionID,
+		Name:         "Standalone Endpoint",
+		Method:       "GET",
+		Url:          "https://example.dev/standalone",
+	}
+
+	example := mitemapiexample.ItemApiExample{
+		ID:           exampleID,
+		ItemApiID:    endpointID,
+		CollectionID: collectionID,
+		Name:         "Standalone Example",
+		BodyType:     mitemapiexample.BodyTypeRaw,
+	}
+
+	header := mexampleheader.Header{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+		HeaderKey: "X-Standalone",
+		Value:     "true",
+		Enable:    true,
+	}
+
+	query := mexamplequery.Query{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+		QueryKey:  "mode",
+		Value:     "solo",
+		Enable:    true,
+	}
+
+	rawBody := mbodyraw.ExampleBodyRaw{
+		ID:            idwrap.NewNow(),
+		ExampleID:     exampleID,
+		Data:          []byte(`{"standalone":true}`),
+		VisualizeMode: mbodyraw.VisualizeModeJSON,
+	}
+
+	workspaceData := ioworkspace.WorkspaceData{
+		Workspace:      workspace,
+		Collections:    []mcollection.Collection{collection},
+		Endpoints:      []mitemapi.ItemApi{endpoint},
+		Examples:       []mitemapiexample.ItemApiExample{example},
+		ExampleHeaders: []mexampleheader.Header{header},
+		ExampleQueries: []mexamplequery.Query{query},
+		Rawbodies:      []mbodyraw.ExampleBodyRaw{rawBody},
 	}
 
 	return workspaceData, workspaceID, exampleID
