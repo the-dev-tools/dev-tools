@@ -86,6 +86,7 @@ import {
   columnReferenceField,
   columnTextField,
   useFormTable,
+  useFormTableAddRow,
 } from '~form-table';
 import { flowHistoryRouteApi, flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 import { ReferenceContext } from '../reference';
@@ -694,7 +695,11 @@ const SettingsPanel = () => {
     getRowId: (_) => Ulid.construct(_.variableId).toCanonical(),
   });
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<FlowVariableListItemEntity>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(FlowVariableUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New variable',
     items,
     onCreate: () =>
@@ -703,7 +708,6 @@ const SettingsPanel = () => {
         flowId,
         name: `FLOW_VARIABLE_${items.length}`,
       }),
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(FlowVariableUpdateEndpoint, item),
     primaryColumn: 'name',
   });
 
@@ -733,7 +737,13 @@ const SettingsPanel = () => {
       </div>
 
       <div className={tw`m-5`}>
-        <DataTable {...formTable} aria-label='Flow variables' dragAndDropHooks={dragAndDropHooks} table={table} />
+        <DataTable
+          {...formTable}
+          {...addRow}
+          aria-label='Flow variables'
+          dragAndDropHooks={dragAndDropHooks}
+          table={table}
+        />
       </div>
     </>
   );

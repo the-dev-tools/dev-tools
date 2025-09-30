@@ -71,6 +71,7 @@ import {
   makeDeltaItems,
   ReactTableNoMemo,
   useFormTable,
+  useFormTableAddRow,
 } from './form-table';
 import { ReferenceContext } from './reference';
 
@@ -162,14 +163,17 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
     exampleId,
   }).items;
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<GenericMessage<BodyFormListItem>>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyFormUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New form data item',
     items,
     onCreate: async () => {
       await dataClient.fetch(BodyFormCreateEndpoint, { enabled: true, exampleId });
       await dataClient.controller.expireAll({ testKey: matchAllEndpoint(BodyFormDeltaListEndpoint) });
     },
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyFormUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -200,6 +204,7 @@ const FormDataTable = ({ exampleId }: FormDataTableProps) => {
       {(table) => (
         <DataTable
           {...formTable}
+          {...addRow}
           aria-label='Body form items'
           containerClassName={tw`col-span-full`}
           dragAndDropHooks={dragAndDropHooks}
@@ -222,11 +227,14 @@ const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: 
     makeDeltaItems(_, 'bodyId'),
   );
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<GenericMessage<BodyFormDeltaListItem>>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyFormDeltaUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New form data item',
     items,
     onCreate: () => dataClient.fetch(BodyFormDeltaCreateEndpoint, { enabled: true, exampleId, originId }),
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyFormDeltaUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -260,6 +268,7 @@ const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: 
       {(table) => (
         <DataTable
           {...formTable}
+          {...addRow}
           aria-label='Body form items'
           containerClassName={tw`col-span-full`}
           dragAndDropHooks={dragAndDropHooks}
@@ -310,14 +319,17 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
     exampleId,
   }).items;
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<GenericMessage<BodyUrlEncodedListItem>>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyUrlEncodedUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New URL encoded item',
     items,
     onCreate: async () => {
       await dataClient.fetch(BodyUrlEncodedCreateEndpoint, { enabled: true, exampleId });
       await dataClient.controller.expireAll({ testKey: matchAllEndpoint(BodyUrlEncodedDeltaListEndpoint) });
     },
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyUrlEncodedUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -348,6 +360,7 @@ const UrlEncodedFormTable = ({ exampleId }: UrlEncodedFormTableProps) => {
       {(table) => (
         <DataTable
           {...formTable}
+          {...addRow}
           aria-label='URL encoded body form items'
           containerClassName={tw`col-span-full`}
           dragAndDropHooks={dragAndDropHooks}
@@ -374,11 +387,14 @@ const UrlEncodedDeltaFormTable = ({
     (_: BodyUrlEncodedDeltaListItem[]) => makeDeltaItems(_, 'bodyId'),
   );
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<GenericMessage<BodyUrlEncodedDeltaListItem>>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyUrlEncodedDeltaUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New URL encoded item',
     items,
     onCreate: () => dataClient.fetch(BodyUrlEncodedDeltaCreateEndpoint, { enabled: true, exampleId, originId }),
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyUrlEncodedDeltaUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -412,6 +428,7 @@ const UrlEncodedDeltaFormTable = ({
       {(table) => (
         <DataTable
           {...formTable}
+          {...addRow}
           aria-label='URL encoded body form items'
           containerClassName={tw`col-span-full`}
           dragAndDropHooks={dragAndDropHooks}

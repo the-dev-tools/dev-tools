@@ -30,6 +30,7 @@ import {
   makeDeltaItems,
   ReactTableNoMemo,
   useFormTable,
+  useFormTableAddRow,
 } from './form-table';
 
 interface QueryTableProps {
@@ -75,14 +76,17 @@ const FormTable = ({ exampleId }: FormTableProps) => {
 
   const items: GenericMessage<QueryListItem>[] = useQuery(QueryListEndpoint, { exampleId }).items;
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<GenericMessage<QueryListItem>>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(QueryUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New param',
     items,
     onCreate: async () => {
       await dataClient.fetch(QueryCreateEndpoint, { enabled: true, exampleId });
       await dataClient.controller.expireAll({ testKey: matchAllEndpoint(QueryDeltaListEndpoint) });
     },
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(QueryUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -111,7 +115,13 @@ const FormTable = ({ exampleId }: FormTableProps) => {
       getRowId={(_) => Ulid.construct(_.queryId).toCanonical()}
     >
       {(table) => (
-        <DataTable {...formTable} aria-label='Query items' dragAndDropHooks={dragAndDropHooks} table={table} />
+        <DataTable
+          {...formTable}
+          {...addRow}
+          aria-label='Query items'
+          dragAndDropHooks={dragAndDropHooks}
+          table={table}
+        />
       )}
     </ReactTableNoMemo>
   );
@@ -129,11 +139,14 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
     makeDeltaItems(_, 'queryId'),
   );
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<GenericMessage<QueryDeltaListItem>>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(QueryDeltaUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New param',
     items,
     onCreate: () => dataClient.fetch(QueryDeltaCreateEndpoint, { enabled: true, exampleId, originId }),
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(QueryDeltaUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -165,7 +178,13 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       getRowId={(_) => Ulid.construct(_.queryId).toCanonical()}
     >
       {(table) => (
-        <DataTable {...formTable} aria-label='Query items' dragAndDropHooks={dragAndDropHooks} table={table} />
+        <DataTable
+          {...formTable}
+          {...addRow}
+          aria-label='Query items'
+          dragAndDropHooks={dragAndDropHooks}
+          table={table}
+        />
       )}
     </ReactTableNoMemo>
   );

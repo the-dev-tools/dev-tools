@@ -55,6 +55,7 @@ import {
   columnReferenceField,
   columnTextField,
   useFormTable,
+  useFormTableAddRow,
 } from './form-table';
 import { ImportDialog } from './workspace/import';
 
@@ -375,7 +376,11 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
     getRowId: (_) => Ulid.construct(_.variableId).toCanonical(),
   });
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<VariableListItemEntity>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(VariableUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New variable',
     items,
     onCreate: () =>
@@ -384,7 +389,6 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
         environmentId,
         name: `VARIABLE_${items.length}`,
       }),
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(VariableUpdateEndpoint, item),
     primaryColumn: 'name',
   });
 
@@ -402,6 +406,12 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   });
 
   return (
-    <DataTable {...formTable} aria-label='Environment variables' dragAndDropHooks={dragAndDropHooks} table={table} />
+    <DataTable
+      {...formTable}
+      {...addRow}
+      aria-label='Environment variables'
+      dragAndDropHooks={dragAndDropHooks}
+      table={table}
+    />
   );
 };

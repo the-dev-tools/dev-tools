@@ -43,7 +43,7 @@ export const ReactTableNoMemo = <TData extends RowData>({ children, ...props }: 
 
 interface UseFormAutoSaveProps<TFieldValues extends FieldValues> {
   handleSubmit: UseFormHandleSubmit<TFieldValues>;
-  onSubmit: (value: TFieldValues) => Promise<unknown>;
+  onSubmit: (value: TFieldValues) => unknown;
   watch: UseFormWatch<TFieldValues>;
 }
 
@@ -65,7 +65,7 @@ const useFormAutoSave = <TFieldValues extends FieldValues>({
 
 interface FormTableRowProps<T extends FieldValues> {
   children: RowRenderProps<T>['rowNode'];
-  onUpdate: (value: T) => Promise<unknown>;
+  onUpdate: (value: T) => unknown;
   value: T;
 }
 
@@ -80,21 +80,35 @@ const FormTableRow = <T extends FieldValues>({ children, onUpdate, value }: Form
   return children(({ cellNode }) => <FormProvider {...form}>{cellNode}</FormProvider>);
 };
 
-interface UseFormTableProps<TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>> {
+export interface UseFormTableProps<TFieldValues extends FieldValues> {
+  onUpdate: (value: TFieldValues) => unknown;
+}
+
+export const useFormTable = <TFieldValues extends FieldValues>({ onUpdate }: UseFormTableProps<TFieldValues>) =>
+  ({
+    rowRender: ({ row, rowNode }) => (
+      <FormTableRow onUpdate={onUpdate} value={row.original}>
+        {rowNode}
+      </FormTableRow>
+    ),
+  }) satisfies Partial<DataTableProps<TFieldValues>>;
+
+export interface UseFormTableAddRowProps<
+  TFieldValues extends FieldValues,
+  TPrimaryName extends FieldPath<TFieldValues>,
+> {
   createLabel?: ReactNode;
   items: TFieldValues[];
   onCreate: () => Promise<unknown>;
-  onUpdate: (value: TFieldValues) => Promise<unknown>;
   primaryColumn?: TPrimaryName;
 }
 
-export const useFormTable = <TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>>({
+export const useFormTableAddRow = <TFieldValues extends FieldValues, TPrimaryName extends FieldPath<TFieldValues>>({
   createLabel = 'New item',
   items,
   onCreate,
-  onUpdate,
   primaryColumn,
-}: UseFormTableProps<TFieldValues, TPrimaryName>) => {
+}: UseFormTableAddRowProps<TFieldValues, TPrimaryName>) => {
   const lengthPrev = useRef<null | number>(null);
 
   useEffect(() => {
@@ -124,11 +138,6 @@ export const useFormTable = <TFieldValues extends FieldValues, TPrimaryName exte
         <FiPlus className={tw`size-4 text-slate-500`} />
         {createLabel}
       </Button>
-    ),
-    rowRender: ({ row, rowNode }) => (
-      <FormTableRow onUpdate={onUpdate} value={row.original}>
-        {rowNode}
-      </FormTableRow>
     ),
   } satisfies Partial<DataTableProps<TFieldValues>>;
 };

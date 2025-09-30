@@ -30,6 +30,7 @@ import {
   makeDeltaItems,
   ReactTableNoMemo,
   useFormTable,
+  useFormTableAddRow,
 } from './form-table';
 
 interface HeaderTableProps {
@@ -75,14 +76,17 @@ const FormTable = ({ exampleId }: FormTableProps) => {
 
   const items: GenericMessage<HeaderListItem>[] = useQuery(HeaderListEndpoint, { exampleId }).items;
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<GenericMessage<HeaderListItem>>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(HeaderUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New header',
     items,
     onCreate: async () => {
       await dataClient.fetch(HeaderCreateEndpoint, { enabled: true, exampleId });
       await dataClient.controller.expireAll({ testKey: matchAllEndpoint(HeaderDeltaListEndpoint) });
     },
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(HeaderUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -110,7 +114,9 @@ const FormTable = ({ exampleId }: FormTableProps) => {
       data={items}
       getRowId={(_) => Ulid.construct(_.headerId).toCanonical()}
     >
-      {(table) => <DataTable {...formTable} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />}
+      {(table) => (
+        <DataTable {...formTable} {...addRow} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />
+      )}
     </ReactTableNoMemo>
   );
 };
@@ -127,11 +133,14 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
     makeDeltaItems(_, 'headerId'),
   );
 
-  const formTable = useFormTable({
+  const formTable = useFormTable<GenericMessage<HeaderDeltaListItem>>({
+    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(HeaderDeltaUpdateEndpoint, item),
+  });
+
+  const addRow = useFormTableAddRow({
     createLabel: 'New header',
     items,
     onCreate: () => dataClient.fetch(HeaderDeltaCreateEndpoint, { enabled: true, exampleId, originId }),
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(HeaderDeltaUpdateEndpoint, item),
     primaryColumn: 'key',
   });
 
@@ -162,7 +171,9 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       data={items}
       getRowId={(_) => Ulid.construct(_.headerId).toCanonical()}
     >
-      {(table) => <DataTable {...formTable} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />}
+      {(table) => (
+        <DataTable {...formTable} {...addRow} aria-label='Headers' dragAndDropHooks={dragAndDropHooks} table={table} />
+      )}
     </ReactTableNoMemo>
   );
 };
