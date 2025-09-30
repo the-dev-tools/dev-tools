@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -16,12 +17,14 @@ import (
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
@@ -104,6 +107,128 @@ func TestYamlFlowRoundTripWithAssertions(t *testing.T) {
 
 	if !workspaceHasAssertion(reimported, "response.status == 200") {
 		t.Fatalf("re-imported workspace missing expected assertion")
+	}
+}
+
+func TestExportYamlFlowYAMLEnvironments(t *testing.T) {
+	workspace, err := ImportYamlFlowYAML([]byte(roundTripYAML))
+	if err != nil {
+		t.Fatalf("import failed: %v", err)
+	}
+
+	workspaceID := workspace.Workspace.ID
+	activeEnvID := idwrap.NewNow()
+	globalEnvID := idwrap.NewNow()
+	now := time.Now()
+
+	workspace.Workspace.ActiveEnv = activeEnvID
+	workspace.Workspace.GlobalEnv = globalEnvID
+	workspace.Environments = []menv.Env{
+		{
+			ID:          globalEnvID,
+			WorkspaceID: workspaceID,
+			Type:        menv.EnvGlobal,
+			Name:        "global",
+			Description: "Global scope",
+			Updated:     now,
+		},
+		{
+			ID:          activeEnvID,
+			WorkspaceID: workspaceID,
+			Type:        menv.EnvNormal,
+			Name:        "dev",
+			Description: "Development",
+			Updated:     now,
+		},
+	}
+	workspace.Variables = []mvar.Var{
+		{
+			ID:      idwrap.NewNow(),
+			EnvID:   activeEnvID,
+			VarKey:  "api_base",
+			Value:   "https://dev.example.local",
+			Enabled: true,
+		},
+		{
+			ID:          idwrap.NewNow(),
+			EnvID:       globalEnvID,
+			VarKey:      "auth_token",
+			Value:       "token-123",
+			Enabled:     false,
+			Description: "Temporarily disabled",
+		},
+	}
+
+	exported, err := ExportYamlFlowYAML(context.Background(), workspace, nil)
+	if err != nil {
+		t.Fatalf("export failed: %v", err)
+	}
+
+	var yamlDoc YamlFlowFormat
+	if err := yaml.Unmarshal(exported, &yamlDoc); err != nil {
+		t.Fatalf("unmarshal exported yaml failed: %v", err)
+	}
+
+	if yamlDoc.ActiveEnvironment != "dev" {
+		t.Fatalf("expected active environment 'dev', got %q", yamlDoc.ActiveEnvironment)
+	}
+	if yamlDoc.GlobalEnvironment != "global" {
+		t.Fatalf("expected global environment 'global', got %q", yamlDoc.GlobalEnvironment)
+	}
+	if len(yamlDoc.Environments) != 2 {
+		t.Fatalf("expected 2 environments in export, got %d", len(yamlDoc.Environments))
+	}
+
+	imported, err := ImportYamlFlowYAML(exported)
+	if err != nil {
+		t.Fatalf("re-import failed: %v", err)
+	}
+
+	if len(imported.Environments) != 2 {
+		t.Fatalf("expected 2 environments after import, got %d", len(imported.Environments))
+	}
+
+	nameByID := make(map[idwrap.IDWrap]string)
+	for _, env := range imported.Environments {
+		nameByID[env.ID] = env.Name
+	}
+
+	activeName := nameByID[imported.Workspace.ActiveEnv]
+	if activeName != "dev" {
+		t.Fatalf("expected active environment name 'dev', got %q", activeName)
+	}
+
+	globalName := nameByID[imported.Workspace.GlobalEnv]
+	if globalName != "global" {
+		t.Fatalf("expected global environment name 'global', got %q", globalName)
+	}
+
+	if len(imported.Variables) != 2 {
+		t.Fatalf("expected 2 environment variables, got %d", len(imported.Variables))
+	}
+
+	var authVar mvar.Var
+	var apiVar mvar.Var
+	for _, v := range imported.Variables {
+		switch v.VarKey {
+		case "auth_token":
+			authVar = v
+		case "api_base":
+			apiVar = v
+		}
+	}
+
+	if authVar.VarKey != "auth_token" {
+		t.Fatalf("expected auth_token variable to be present")
+	}
+	if authVar.Enabled {
+		t.Fatalf("expected auth_token variable to be disabled after re-import")
+	}
+	if authVar.Description != "Temporarily disabled" {
+		t.Fatalf("expected auth_token description to round-trip, got %q", authVar.Description)
+	}
+	if apiVar.VarKey != "api_base" || !apiVar.Enabled {
+		t.Fatalf("expected api_base variable to remain enabled after re-import")
 	}
 }
 

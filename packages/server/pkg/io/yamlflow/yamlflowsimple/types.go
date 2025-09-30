@@ -26,11 +26,28 @@ import (
 
 // YamlFlowFormat represents the top-level YAML structure
 type YamlFlowFormat struct {
-	WorkspaceName    string                    `yaml:"workspace_name"`
-	Run              []map[string]any          `yaml:"run,omitempty"`
-	RequestTemplates map[string]map[string]any `yaml:"request_templates,omitempty"` // Old format
-	Requests         []map[string]any          `yaml:"requests,omitempty"`          // New format
-	Flows            []YamlFlowFlow            `yaml:"flows"`
+	WorkspaceName     string                    `yaml:"workspace_name"`
+	ActiveEnvironment string                    `yaml:"active_environment,omitempty"`
+	GlobalEnvironment string                    `yaml:"global_environment,omitempty"`
+	Run               []map[string]any          `yaml:"run,omitempty"`
+	RequestTemplates  map[string]map[string]any `yaml:"request_templates,omitempty"` // Old format
+	Requests          []map[string]any          `yaml:"requests,omitempty"`          // New format
+	Flows             []YamlFlowFlow            `yaml:"flows"`
+	Environments      []YamlEnvironment         `yaml:"environments,omitempty"`
+}
+
+type YamlEnvironment struct {
+	Name        string                    `yaml:"name"`
+	Type        string                    `yaml:"type,omitempty"`
+	Description string                    `yaml:"description,omitempty"`
+	Variables   []YamlEnvironmentVariable `yaml:"variables,omitempty"`
+}
+
+type YamlEnvironmentVariable struct {
+	Key         string `yaml:"key"`
+	Value       string `yaml:"value"`
+	Enabled     *bool  `yaml:"enabled,omitempty"`
+	Description string `yaml:"description,omitempty"`
 }
 
 // YamlFlowFlow represents a single flow definition

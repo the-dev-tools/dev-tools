@@ -3,6 +3,7 @@ package yamlflowsimple
 import (
 	"fmt"
 	"gopkg.in/yaml.v3"
+	"strings"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
@@ -34,8 +35,135 @@ import (
 	"time"
 )
 
+func convertYamlEnvironments(format YamlFlowFormat, workspaceID idwrap.IDWrap, inferredVars []mvar.Var) ([]menv.Env, []mvar.Var, idwrap.IDWrap, idwrap.IDWrap, error) {
+	const defaultEnvDescription = "Default environment for imported workflows"
+	now := time.Now()
+
+	toLowerKey := func(s string) string {
+		return strings.ToLower(strings.TrimSpace(s))
+	}
+
+	if len(format.Environments) == 0 {
+		defaultEnv := menv.Env{
+			ID:          idwrap.NewNow(),
+			WorkspaceID: workspaceID,
+			Type:        menv.EnvNormal,
+			Name:        "Default Environment",
+			Description: defaultEnvDescription,
+			Updated:     now,
+		}
+
+		vars := make([]mvar.Var, 0, len(inferredVars))
+		for _, v := range inferredVars {
+			vars = append(vars, mvar.Var{
+				ID:          idwrap.NewNow(),
+				EnvID:       defaultEnv.ID,
+				VarKey:      v.VarKey,
+				Value:       v.Value,
+				Enabled:     true,
+				Description: "Imported from workflow",
+			})
+		}
+
+		return []menv.Env{defaultEnv}, vars, defaultEnv.ID, idwrap.IDWrap{}, nil
+	}
+
+	envs := make([]menv.Env, 0, len(format.Environments))
+	vars := make([]mvar.Var, 0)
+	envNameToID := make(map[string]idwrap.IDWrap, len(format.Environments))
+	for _, spec := range format.Environments {
+		name := strings.TrimSpace(spec.Name)
+		if name == "" {
+			return nil, nil, idwrap.IDWrap{}, idwrap.IDWrap{}, fmt.Errorf("environment name cannot be empty")
+		}
+
+		lookupKey := toLowerKey(name)
+		if _, exists := envNameToID[lookupKey]; exists {
+			return nil, nil, idwrap.IDWrap{}, idwrap.IDWrap{}, fmt.Errorf("duplicate environment name '%s'", name)
+		}
+
+		var envType menv.EnvType
+		switch toLowerKey(spec.Type) {
+		case "global":
+			envType = menv.EnvGlobal
+		case "", "normal":
+			envType = menv.EnvNormal
+		default:
+			envType = menv.EnvNormal
+		}
+
+		envID := idwrap.NewNow()
+		env := menv.Env{
+			ID:          envID,
+			WorkspaceID: workspaceID,
+			Type:        envType,
+			Name:        name,
+			Description: strings.TrimSpace(spec.Description),
+			Updated:     now,
+		}
+
+		envs = append(envs, env)
+		envNameToID[lookupKey] = envID
+
+		for _, variable := range spec.Variables {
+			enabled := true
+			if variable.Enabled != nil {
+				enabled = *variable.Enabled
+			}
+
+			vars = append(vars, mvar.Var{
+				ID:          idwrap.NewNow(),
+				EnvID:       envID,
+				VarKey:      variable.Key,
+				Value:       variable.Value,
+				Enabled:     enabled,
+				Description: strings.TrimSpace(variable.Description),
+			})
+		}
+	}
+
+	var activeEnvID idwrap.IDWrap
+	if key := toLowerKey(format.ActiveEnvironment); key != "" {
+		activeEnvID = envNameToID[key]
+	}
+
+	var globalEnvID idwrap.IDWrap
+	if key := toLowerKey(format.GlobalEnvironment); key != "" {
+		globalEnvID = envNameToID[key]
+	}
+
+	if globalEnvID == (idwrap.IDWrap{}) {
+		for _, env := range envs {
+			if env.Type == menv.EnvGlobal {
+				globalEnvID = env.ID
+				break
+			}
+		}
+	}
+
+	if activeEnvID == (idwrap.IDWrap{}) {
+		for _, env := range envs {
+			if env.Type != menv.EnvGlobal {
+				activeEnvID = env.ID
+				break
+			}
+		}
+	}
+
+	if activeEnvID == (idwrap.IDWrap{}) && len(envs) > 0 {
+		activeEnvID = envs[0].ID
+	}
+
+	return envs, vars, activeEnvID, globalEnvID, nil
+}
+
 // ImportYamlFlowYAML converts simplified yamlflow YAML to ioworkspace.WorkspaceData
 func ImportYamlFlowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
+	var yamlFormat YamlFlowFormat
+	if err := yaml.Unmarshal(data, &yamlFormat); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal yamlflow format: %w", err)
+	}
+
 	// Generate workspace ID first
 	workspaceID := idwrap.NewNow()
 	collectionID := idwrap.NewNow()
@@ -48,12 +176,8 @@ func ImportYamlFlowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 
 	// Extract workspace name from the workflow
 	workspaceName := "Imported Workspace"
-	// Check for workspace name in the original YAML
-	var yamlCheck map[string]any
-	if err := yaml.Unmarshal(data, &yamlCheck); err == nil {
-		if name, ok := yamlCheck["workspace_name"].(string); ok && name != "" {
-			workspaceName = name
-		}
+	if yamlFormat.WorkspaceName != "" {
+		workspaceName = yamlFormat.WorkspaceName
 	}
 	// Parse the data to extract variables
 	workflowData, err := Parse(data)
@@ -67,35 +191,18 @@ func ImportYamlFlowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 	// Separate into flow and environment variables
 	_, envVarsToCreate := SeparateVariablesByType(variableRefs)
 
-	// Create a default environment for the workspace
-	defaultEnv := menv.Env{
-		ID:          idwrap.NewNow(),
-		WorkspaceID: workspaceID,
-		Type:        menv.EnvNormal,
-		Name:        "Default Environment",
-		Description: "Default environment for imported workflows",
-		Updated:     time.Now(),
-	}
-
-	// Convert environment variables to proper format with EnvID
-	var environmentVariables []mvar.Var
-	for _, v := range envVarsToCreate {
-		envVar := mvar.Var{
-			ID:          idwrap.NewNow(),
-			EnvID:       defaultEnv.ID,
-			VarKey:      v.VarKey,
-			Value:       v.Value,
-			Enabled:     true,
-			Description: "Imported from workflow",
-		}
-		environmentVariables = append(environmentVariables, envVar)
+	envs, envVars, activeEnvID, globalEnvID, err := convertYamlEnvironments(yamlFormat, workspaceID, envVarsToCreate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare environments: %w", err)
 	}
 
 	// Create workspace data
 	workspaceData := &ioworkspace.WorkspaceData{
 		Workspace: mworkspace.Workspace{
-			ID:   workspaceID,
-			Name: workspaceName,
+			ID:        workspaceID,
+			Name:      workspaceName,
+			ActiveEnv: activeEnvID,
+			GlobalEnv: globalEnvID,
 		},
 		Collections:            resolved.Collections,
 		Folders:                make([]mitemfolder.ItemFolder, 0),
@@ -120,8 +227,8 @@ func ImportYamlFlowYAML(data []byte) (*ioworkspace.WorkspaceData, error) {
 		FlowForNodes:           resolved.FlowForNodes,
 		FlowForEachNodes:       make([]mnforeach.MNForEach, 0),
 		FlowJSNodes:            resolved.FlowJSNodes,
-		Environments:           []menv.Env{defaultEnv},
-		Variables:              environmentVariables,
+		Environments:           envs,
+		Variables:              envVars,
 	}
 
 	// Copy for and for_each nodes directly
@@ -179,16 +286,14 @@ func ImportYamlFlowYAMLMultiFlow(data []byte) (*ioworkspace.WorkspaceData, error
 		Variables:              make([]mvar.Var, 0),
 	}
 
-	// Create a default environment
-	defaultEnv := menv.Env{
-		ID:          idwrap.NewNow(),
-		WorkspaceID: workspaceID,
-		Type:        menv.EnvNormal,
-		Name:        "Default Environment",
-		Description: "Default environment for imported workflows",
-		Updated:     time.Now(),
+	envs, envVars, activeEnvID, globalEnvID, err := convertYamlEnvironments(workflow, workspaceID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare environments: %w", err)
 	}
-	workspaceData.Environments = append(workspaceData.Environments, defaultEnv)
+	workspaceData.Environments = envs
+	workspaceData.Variables = envVars
+	workspaceData.Workspace.ActiveEnv = activeEnvID
+	workspaceData.Workspace.GlobalEnv = globalEnvID
 
 	// Create one collection for all flows
 	collectionID := idwrap.NewNow()

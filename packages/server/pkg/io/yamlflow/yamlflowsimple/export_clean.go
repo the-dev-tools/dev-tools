@@ -18,6 +18,7 @@ import (
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -30,6 +31,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/overlay/merge"
 	"the-dev-tools/server/pkg/overlay/resolve"
 )
@@ -74,6 +76,32 @@ func ExportYamlFlowYAML(ctx context.Context, workspaceData *ioworkspace.Workspac
 	root.Content = append(root.Content,
 		&yaml.Node{Kind: yaml.ScalarNode, Value: "workspace_name"},
 		&yaml.Node{Kind: yaml.ScalarNode, Value: workspaceData.Workspace.Name})
+
+	activeEnvName, globalEnvName, environmentsNode, err := buildEnvironmentNodes(workspaceData)
+	if err != nil {
+		return nil, err
+	}
+
+	if activeEnvName != "" {
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "active_environment"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: activeEnvName},
+		)
+	}
+
+	if globalEnvName != "" {
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "global_environment"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: globalEnvName},
+		)
+	}
+
+	if environmentsNode != nil && len(environmentsNode.Content) > 0 {
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "environments"},
+			environmentsNode,
+		)
+	}
 
 	// Add run field with all exported flows
 	runEntries := buildRunEntries(workspaceData)
@@ -125,6 +153,126 @@ func ExportYamlFlowYAML(ctx context.Context, workspaceData *ioworkspace.Workspac
 
 	doc.Content = append(doc.Content, &root)
 	return yaml.Marshal(&doc)
+}
+
+func buildEnvironmentNodes(workspaceData *ioworkspace.WorkspaceData) (activeEnvName string, globalEnvName string, environmentsNode *yaml.Node, err error) {
+	if len(workspaceData.Environments) == 0 {
+		return "", "", nil, nil
+	}
+
+	envByID := make(map[idwrap.IDWrap]menv.Env, len(workspaceData.Environments))
+	envs := make([]menv.Env, len(workspaceData.Environments))
+	copy(envs, workspaceData.Environments)
+	for _, env := range envs {
+		envByID[env.ID] = env
+	}
+
+	sort.Slice(envs, func(i, j int) bool {
+		if envs[i].Type != envs[j].Type {
+			return envs[i].Type < envs[j].Type
+		}
+		return strings.ToLower(envs[i].Name) < strings.ToLower(envs[j].Name)
+	})
+
+	varsByEnv := make(map[idwrap.IDWrap][]mvar.Var)
+	for _, v := range workspaceData.Variables {
+		varsByEnv[v.EnvID] = append(varsByEnv[v.EnvID], v)
+	}
+
+	environmentsNode = &yaml.Node{Kind: yaml.SequenceNode}
+	for _, env := range envs {
+		if env.ID == workspaceData.Workspace.ActiveEnv {
+			activeEnvName = env.Name
+		}
+		if env.ID == workspaceData.Workspace.GlobalEnv {
+			globalEnvName = env.Name
+		}
+
+		envNode := &yaml.Node{Kind: yaml.MappingNode}
+		envNode.Content = append(envNode.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "name"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: env.Name},
+		)
+
+		typeValue := exportEnvType(env.Type)
+		if typeValue != "" {
+			envNode.Content = append(envNode.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "type"},
+				&yaml.Node{Kind: yaml.ScalarNode, Value: typeValue},
+			)
+		}
+
+		if env.Description != "" {
+			envNode.Content = append(envNode.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "description"},
+				&yaml.Node{Kind: yaml.ScalarNode, Value: env.Description},
+			)
+		}
+
+		vars := varsByEnv[env.ID]
+		if len(vars) > 0 {
+			sort.Slice(vars, func(i, j int) bool {
+				return strings.ToLower(vars[i].VarKey) < strings.ToLower(vars[j].VarKey)
+			})
+
+			varSeq := &yaml.Node{Kind: yaml.SequenceNode}
+			for _, variable := range vars {
+				varNode := &yaml.Node{Kind: yaml.MappingNode}
+				varNode.Content = append(varNode.Content,
+					&yaml.Node{Kind: yaml.ScalarNode, Value: "key"},
+					&yaml.Node{Kind: yaml.ScalarNode, Value: variable.VarKey},
+				)
+				varNode.Content = append(varNode.Content,
+					&yaml.Node{Kind: yaml.ScalarNode, Value: "value"},
+					&yaml.Node{Kind: yaml.ScalarNode, Value: variable.Value},
+				)
+				if !variable.Enabled {
+					varNode.Content = append(varNode.Content,
+						&yaml.Node{Kind: yaml.ScalarNode, Value: "enabled"},
+						&yaml.Node{Kind: yaml.ScalarNode, Value: strconv.FormatBool(variable.Enabled)},
+					)
+				}
+				if variable.Description != "" {
+					varNode.Content = append(varNode.Content,
+						&yaml.Node{Kind: yaml.ScalarNode, Value: "description"},
+						&yaml.Node{Kind: yaml.ScalarNode, Value: variable.Description},
+					)
+				}
+				varSeq.Content = append(varSeq.Content, varNode)
+			}
+			envNode.Content = append(envNode.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "variables"},
+				varSeq,
+			)
+		}
+
+		environmentsNode.Content = append(environmentsNode.Content, envNode)
+	}
+
+	if activeEnvName == "" {
+		if env, ok := envByID[workspaceData.Workspace.ActiveEnv]; ok {
+			activeEnvName = env.Name
+		}
+	}
+
+	if globalEnvName == "" {
+		if env, ok := envByID[workspaceData.Workspace.GlobalEnv]; ok {
+			globalEnvName = env.Name
+		}
+	}
+
+	return activeEnvName, globalEnvName, environmentsNode, nil
+}
+
+func exportEnvType(t menv.EnvType) string {
+	switch t {
+	case menv.EnvGlobal:
+		return "global"
+	case menv.EnvNormal:
+		return "normal"
+	default:
+		return ""
+	}
 }
 
 // createOrderedRequestNode creates a YAML node with fields in the desired order
