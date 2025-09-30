@@ -228,6 +228,18 @@ export const columnTextField = <TFieldValues extends FieldValues>(
   ...props,
 });
 
+export const columnText = <TFieldValues extends FieldValues>(
+  name: FieldPath<TFieldValues>,
+  { title = name, ...props }: Partial<AccessorKeyColumnDef<TFieldValues>> & { title?: string } = {},
+): AccessorKeyColumnDef<TFieldValues> => ({
+  accessorKey: name,
+  cell: function Cell({ cell }) {
+    return <div className={tw`px-5 py-1.5`}>{cell.renderValue() as ReactNode}</div>;
+  },
+  header: String.capitalize(title),
+  ...props,
+});
+
 export const columnActions = <T,>({ cell, ...props }: Partial<DisplayColumnDef<T>>): DisplayColumnDef<T> => ({
   cell: (props) => (
     <div className={tw`flex justify-center gap-1 px-1`}>{typeof cell === 'function' ? cell(props) : cell}</div>

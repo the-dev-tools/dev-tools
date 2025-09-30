@@ -16,25 +16,31 @@ using TypeSpec.Protobuf;
 })
 namespace API.Import;
 
-enum ImportKind {
-  IMPORT_KIND_UNSPECIFIED: 0,
-  IMPORT_KIND_FILTER: 1,
+enum ImportMissingDataKind {
+  IMPORT_MISSING_DATA_KIND_UNSPECIFIED: 0,
+  IMPORT_MISSING_DATA_KIND_DOMAIN: 1,
+}
+
+@autoFields
+model ImportDomainData {
+  enabled: boolean;
+  domain: string;
+  variable: string;
 }
 
 @autoFields
 model ImportRequest {
   workspaceId: Resource.Id;
   name: string;
-  kind: ImportKind;
   data: bytes;
   textData: string;
-  filter?: string[];
+  domainData?: ImportDomainData[];
 }
 
 @autoFields
 model ImportResponse {
-  kind: ImportKind;
-  filter?: string[];
+  missingData: ImportMissingDataKind;
+  domains?: string[];
   flow?: Flow.FlowListItem;
 }
 

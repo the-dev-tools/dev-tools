@@ -1,38 +1,30 @@
-import { MessageInitShape } from '@bufbuild/protobuf';
+import { create, MessageInitShape } from '@bufbuild/protobuf';
 import { useNavigate } from '@tanstack/react-router';
-import { Array, Option, pipe } from 'effect';
+import { Array, HashMap, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { ReactNode, useState, useTransition } from 'react';
-import {
-  Cell,
-  Column,
-  Dialog,
-  Heading,
-  Row,
-  Selection,
-  Table,
-  TableBody,
-  TableHeader,
-  Tooltip,
-  TooltipTrigger,
-} from 'react-aria-components';
+import { Dialog, Heading, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiInfo, FiX } from 'react-icons/fi';
-import { twMerge } from 'tailwind-merge';
-import { ImportKind, ImportRequestSchema } from '@the-dev-tools/spec/import/v1/import_pb';
+import {
+  ImportDomainData,
+  ImportDomainDataSchema,
+  ImportMissingDataKind,
+  ImportRequestSchema,
+} from '@the-dev-tools/spec/import/v1/import_pb';
 import { ExampleListEndpoint } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
 import { CollectionItemListEndpoint } from '@the-dev-tools/spec/meta/collection/item/v1/item.endpoints.js';
 import { CollectionListEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.js';
 import { FlowListEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.js';
 import { ImportEndpoint } from '@the-dev-tools/spec/meta/import/v1/import.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
-import { Checkbox } from '@the-dev-tools/ui/checkbox';
-import { tableStyles } from '@the-dev-tools/ui/data-table';
+import { DataTable } from '@the-dev-tools/ui/data-table';
 import { FileDropZone } from '@the-dev-tools/ui/file-drop-zone';
 import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
 import { matchAllEndpoint, setQueryChild } from '~data-client';
+import { columnCheckboxField, columnText, columnTextField, ReactTableNoMemo, useFormTable } from '~form-table';
 import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
 
 export const ImportDialog = () => {
@@ -145,8 +137,8 @@ const InitialDialog = ({ setModal, successAction }: InitialDialogProps) => {
 
     const result = await dataClient.fetch(ImportEndpoint, input);
 
-    if (result.kind === ImportKind.FILTER)
-      setModal(<DomainDialog domains={result.filter} input={input} successAction={successAction} />);
+    if (result.missingData === ImportMissingDataKind.DOMAIN)
+      setModal(<DomainDialog domains={result.domains} input={input} successAction={successAction} />);
     else await successAction();
   };
 
@@ -198,24 +190,20 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
 
   const navigate = useNavigate();
 
-  const [selection, setSelection] = useState<Selection>('all');
   const [isPending, startTransition] = useTransition();
+  const [domainData, setDomainData] = useState(
+    pipe(
+      Array.map(domains, (_) => [_, create(ImportDomainDataSchema, { domain: _, enabled: true })] as const),
+      HashMap.fromIterable,
+    ),
+  );
+
+  const formTable = useFormTable<ImportDomainData>({
+    onUpdate: (_) => void setDomainData(HashMap.modify(_.domain, () => _)),
+  });
 
   const importAction = async () => {
-    const finalFilters =
-      selection === 'all'
-        ? domains
-        : pipe(
-            selection.values(),
-            Array.fromIterable,
-            Array.filterMap((_) => Option.fromNullable(domains[_ as number])),
-          );
-
-    const { flow } = await dataClient.fetch(ImportEndpoint, {
-      ...input,
-      filter: finalFilters,
-      kind: ImportKind.FILTER,
-    });
+    const { flow } = await dataClient.fetch(ImportEndpoint, { ...input, domainData: HashMap.toValues(domainData) });
 
     if (flow) {
       await setQueryChild(
@@ -242,12 +230,7 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
   return (
     <InnerDialog
       action={
-        <Button
-          isDisabled={selection !== 'all' && selection.size === 0}
-          isPending={isPending}
-          onPress={() => void startTransition(importAction)}
-          variant='primary'
-        >
+        <Button isPending={isPending} onPress={() => void startTransition(importAction)} variant='primary'>
           Import
         </Button>
       }
@@ -257,37 +240,19 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
         import.
       </div>
 
-      <div className={twMerge(tableStyles().container(), tw`mt-4 flex-1`)}>
-        <Table
-          aria-label='Filters'
-          className={twMerge(tableStyles().base(), tw`grid-cols-[auto_1fr]`)}
-          onSelectionChange={setSelection}
-          selectedKeys={selection}
-          selectionMode='multiple'
-        >
-          <TableHeader className={twMerge(tableStyles().header(), tw`sticky top-0 z-10`)}>
-            <Column className={twMerge(tableStyles().headerColumn(), tw`!border-r-0 px-2`)}>
-              <Checkbox isTableCell slot='selection' />
-            </Column>
-            <Column className={tableStyles().headerColumn()} isRowHeader>
-              Domain
-            </Column>
-          </TableHeader>
-
-          <TableBody className={tableStyles().body()} items={domains.map((value, index) => ({ index, value }))}>
-            {(_) => (
-              <Row className={twMerge(tableStyles().row(), tw`cursor-pointer`)} id={_.index}>
-                <Cell className={twMerge(tableStyles().cell(), tw`!border-r-0`)}>
-                  <div className={tw`flex justify-center`}>
-                    <Checkbox isTableCell slot='selection' />
-                  </div>
-                </Cell>
-                <Cell className={twMerge(tableStyles().cell(), tw`px-5 py-1.5`)}>{_.value}</Cell>
-              </Row>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <ReactTableNoMemo
+        columns={[
+          columnCheckboxField<ImportDomainData>('enabled', { meta: { divider: false } }),
+          columnText<ImportDomainData>('domain', { meta: { isRowHeader: true } }),
+          columnTextField<ImportDomainData>('variable'),
+        ]}
+        data={HashMap.toValues(domainData)}
+        getRowId={(_) => _.domain}
+      >
+        {(table) => (
+          <DataTable {...formTable} aria-label='Import domains' containerClassName={tw`mt-4`} table={table} />
+        )}
+      </ReactTableNoMemo>
     </InnerDialog>
   );
 };
