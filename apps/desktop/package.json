@@ -2,7 +2,7 @@
   "name": "@the-dev-tools/desktop",
   "description": "DevTools is a powerful API testing tool that records your browser interactions, automatically generates requests, and seamlessly chains them for functional testing. With built-in CI integration, it streamlines API validation from development to deployment.",
   "author": "DevTools",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",
