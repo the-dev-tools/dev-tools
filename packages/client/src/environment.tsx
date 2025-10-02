@@ -1,3 +1,5 @@
+'use no memo'; // TODO: fix variable table incorrect first render with compiler
+
 import { Array, HashMap, Option, pipe, Predicate } from 'effect';
 import { Ulid } from 'id128';
 import { Suspense, useState } from 'react';

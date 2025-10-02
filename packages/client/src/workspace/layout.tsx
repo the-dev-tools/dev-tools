@@ -1,3 +1,5 @@
+'use no memo'; // TODO: fix collection tree incorrect first render with compiler
+
 import { Outlet, ToOptions, useNavigate } from '@tanstack/react-router';
 import { Config, pipe, Runtime } from 'effect';
 import { Ulid } from 'id128';
