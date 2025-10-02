@@ -16,6 +16,7 @@ import { CollectionItemListEndpoint } from '@the-dev-tools/spec/meta/collection/
 import { CollectionListEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.js';
 import { FlowListEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.js';
 import { ImportEndpoint } from '@the-dev-tools/spec/meta/import/v1/import.endpoints.ts';
+import { VariableListEndpoint } from '@the-dev-tools/spec/meta/variable/v1/variable.endpoints.js';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { FileDropZone } from '@the-dev-tools/ui/file-drop-zone';
@@ -36,6 +37,7 @@ export const ImportDialog = () => {
     modal.onOpenChange(false);
     await dataClient.controller.expireAll({
       testKey: (_) => {
+        if (matchAllEndpoint(VariableListEndpoint)(_)) return true;
         if (matchAllEndpoint(CollectionListEndpoint)(_)) return true;
         if (matchAllEndpoint(CollectionItemListEndpoint)(_)) return true;
         if (matchAllEndpoint(ExampleListEndpoint)(_)) return true;
