@@ -8,6 +8,7 @@
 
   "targets": {
     "build": {
+      "dependsOn": ["db:generate"],
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
@@ -15,6 +16,7 @@
       }
     },
     "dev": {
+      "dependsOn": ["db:generate"],
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
@@ -22,6 +24,7 @@
       }
     },
     "test": {
+      "dependsOn": ["db:generate"],
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
@@ -29,6 +32,7 @@
       }
     },
     "test:ci": {
+      "dependsOn": ["db:generate"],
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
@@ -41,6 +45,7 @@
       }
     },
     "lint": {
+      "dependsOn": ["db:generate"],
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",
