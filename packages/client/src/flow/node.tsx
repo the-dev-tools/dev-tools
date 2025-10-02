@@ -160,7 +160,7 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
   const ref = useRef<HTMLDivElement>(null);
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const escape = useEscapePortal<HTMLButtonElement>(ref);
+  const { escapeRef, escapeRender } = useEscapePortal<HTMLButtonElement>(ref);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => nodeUpdate({ name: _, nodeId }),
@@ -206,13 +206,13 @@ export const NodeBody = ({ children, data: { info, state }, Icon, id }: NodeBody
         <AriaButton
           className={tw`cursor-text truncate text-xs leading-5 font-medium tracking-tight`}
           onPress={() => void edit()}
-          ref={escape.ref}
+          ref={escapeRef}
         >
           {name}
         </AriaButton>
 
         {isEditing &&
-          escape.render(
+          escapeRender(
             <TextInputField
               aria-label='New node name'
               inputClassName={tw`-mx-2 mt-2 bg-white py-0.75`}

@@ -121,7 +121,10 @@ export const TextInputFieldRHF = <
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
-  const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
+  const {
+    field: { ref, ...field },
+    fieldState,
+  } = useController({ defaultValue: '' as never, ...controllerProps });
 
   const fieldProps: TextInputFieldProps = {
     error: fieldState.error?.message,
@@ -134,7 +137,7 @@ export const TextInputFieldRHF = <
     value: field.value,
   };
 
-  return <TextInputField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
+  return <TextInputField {...mergeProps(fieldProps, forwardedProps)} ref={ref} />;
 };
 
 // Text area field
@@ -167,7 +170,10 @@ export const TextAreaFieldRHF = <
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
-  const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
+  const {
+    field: { ref, ...field },
+    fieldState,
+  } = useController({ defaultValue: '' as never, ...controllerProps });
 
   const fieldProps: TextInputFieldProps = {
     error: fieldState.error?.message,
@@ -180,5 +186,5 @@ export const TextAreaFieldRHF = <
     value: field.value,
   };
 
-  return <TextAreaField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
+  return <TextAreaField {...mergeProps(fieldProps, forwardedProps)} ref={ref} />;
 };

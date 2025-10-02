@@ -137,7 +137,6 @@ const maxZoom = 2;
 
 export const Flow = ({ children }: PropsWithChildren) => {
   const { dataClient } = rootRouteApi.useRouteContext();
-  const { statusBarEndSlotRef } = workspaceRouteApi.useRouteContext();
 
   const { addEdges, addNodes, getEdges, getNode, getNodes, screenToFlowPosition, setNodes } = useReactFlow<
     Node,
@@ -293,14 +292,13 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
   return (
     <>
-      {statusBarEndSlotRef.current &&
-        createPortal(
-          <div className={tw`flex gap-4 text-xs leading-none text-slate-800`}>
-            <NodeSelectionIndicator />
-            {duration > 0 && <div>Time: {pipe(duration, Duration.millis, Duration.format)}</div>}
-          </div>,
-          statusBarEndSlotRef.current,
-        )}
+      {createPortal(
+        <div className={tw`flex gap-4 text-xs leading-none text-slate-800`}>
+          <NodeSelectionIndicator />
+          {duration > 0 && <div>Time: {pipe(duration, Duration.millis, Duration.format)}</div>}
+        </div>,
+        document.getElementById('statusBarEndSlot')!,
+      )}
 
       <ReactFlow
         {...(dropProps as object)}

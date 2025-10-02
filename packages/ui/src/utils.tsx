@@ -55,7 +55,7 @@ export const useEscapePortal = <T extends HTMLElement = HTMLDivElement>(
     [containerRef],
   );
 
-  return { ref, render };
+  return { escapeRef: ref, escapeRender: render };
 };
 
 export const formatSize = (bytes: number) => {

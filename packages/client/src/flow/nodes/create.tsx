@@ -1,7 +1,7 @@
 import { Position, useReactFlow } from '@xyflow/react';
 import { Option, pipe } from 'effect';
 import { Ulid } from 'id128';
-import { ComponentProps, useCallback, useEffect, useMemo } from 'react';
+import { ComponentProps, useCallback, useEffect } from 'react';
 import { Header, ListBoxSection } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiTerminal } from 'react-icons/fi';
@@ -38,20 +38,16 @@ const CreateNodeItem = ({ description, Icon, title, ...props }: CreateNodeItemPr
 export const CreateNode = ({ id, selected }: NodeProps) => {
   const { addEdges, addNodes, deleteElements, getEdges, getNode, getNodes, setNodes } = useReactFlow();
 
-  const edge = useMemo(
-    () =>
-      pipe(
-        getEdges().find((_) => _.target === id),
-        Option.fromNullable,
-      ),
-    [getEdges, id],
+  const edge = pipe(
+    getEdges().find((_) => _.target === id),
+    Option.fromNullable,
   );
 
   useEffect(() => {
     if (!selected) void deleteElements({ nodes: [{ id }] });
   }, [deleteElements, id, selected]);
 
-  const sourceId = useMemo(() => Option.map(edge, (_) => Ulid.fromCanonical(_.source).bytes), [edge]);
+  const sourceId = Option.map(edge, (_) => Ulid.fromCanonical(_.source).bytes);
 
   const add = useCallback(
     async (nodes: NodeListItem[], edges: EdgeListItem[]) => {

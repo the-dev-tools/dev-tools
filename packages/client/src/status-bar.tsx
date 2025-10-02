@@ -3,7 +3,6 @@ import { ConnectQueryKey, createConnectQueryKey } from '@connectrpc/connect-quer
 import { experimental_streamedQuery as streamedQuery, useQuery } from '@tanstack/react-query';
 import { Array, pipe } from 'effect';
 import { Ulid } from 'id128';
-import { useMemo } from 'react';
 import { Tree as AriaTree } from 'react-aria-components';
 import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
@@ -20,17 +19,13 @@ import { workspaceRouteApi } from '~routes';
 export const useLogsQuery = () => {
   const { transport } = workspaceRouteApi.useRouteContext();
 
-  const { logStream } = useMemo(() => createClient(LogService, transport), [transport]);
+  const { logStream } = createClient(LogService, transport);
 
-  const queryKey = useMemo(
-    (): ConnectQueryKey<typeof LogStreamResponseSchema> =>
-      createConnectQueryKey({
-        cardinality: 'infinite',
-        schema: { ...LogService.method.logStream, methodKind: 'unary' },
-        transport,
-      }),
-    [transport],
-  );
+  const queryKey: ConnectQueryKey<typeof LogStreamResponseSchema> = createConnectQueryKey({
+    cardinality: 'infinite',
+    schema: { ...LogService.method.logStream, methodKind: 'unary' },
+    transport,
+  });
 
   const query = useQuery({
     queryFn: streamedQuery({
@@ -58,7 +53,7 @@ const logTextStyles = tv({
 
 export const StatusBar = () => {
   const { showLogs } = workspaceRouteApi.useSearch();
-  const { queryClient, statusBarEndSlotRef } = workspaceRouteApi.useRouteContext();
+  const { queryClient } = workspaceRouteApi.useRouteContext();
 
   const { data: logs, queryKey } = useLogsQuery();
 
@@ -78,13 +73,13 @@ export const StatusBar = () => {
 
       <div className={tw`flex-1`} />
 
-      <div ref={statusBarEndSlotRef} />
+      <div id='statusBarEndSlot' />
 
       {showLogs && (
         <>
           <Button
             className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
-            onPress={() => void queryClient.setQueryData(queryKey, [])}
+            onPress={() => void queryClient.setQueryData(queryKey, { pageParams: [], pages: [] })}
             variant='ghost'
           >
             <FiTrash2 className={tw`size-3 text-slate-500`} />

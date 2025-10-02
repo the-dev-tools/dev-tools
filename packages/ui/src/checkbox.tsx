@@ -87,7 +87,10 @@ export const CheckboxRHF = <
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
-  const { field, fieldState } = useController({ defaultValue: false as never, ...controllerProps });
+  const {
+    field: { ref, ...field },
+    fieldState,
+  } = useController({ defaultValue: false as never, ...controllerProps });
 
   const fieldProps: CheckboxProps = {
     isDisabled: field.disabled ?? false,
@@ -99,5 +102,5 @@ export const CheckboxRHF = <
     validationBehavior: 'aria',
   };
 
-  return <Checkbox {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
+  return <Checkbox {...mergeProps(fieldProps, forwardedProps)} ref={ref} />;
 };

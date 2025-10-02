@@ -7,14 +7,12 @@
   },
   "devDependencies": {
     "@eslint/compat": "~1.4.0",
-    "@eslint/eslintrc": "~3.3.1",
     "@eslint/js": "~9.36.0",
-    "@tanstack/eslint-plugin-router": "~1.132.0",
-    "@types/eslint-config-prettier": "~6.11.3",
+    "@tanstack/eslint-plugin-router": "~1.132.31",
     "@types/eslint-plugin-jsx-a11y": "~6.10.0",
-    "@types/node": "~24.5.2",
-    "@typescript-eslint/parser": "~8.44.1",
-    "effect": "~3.17.14",
+    "@types/node": "~24.6.1",
+    "@typescript-eslint/parser": "~8.45.0",
+    "effect": "~3.18.1",
     "eslint": "~9.36.0",
     "eslint-config-prettier": "~10.1.8",
     "eslint-import-resolver-typescript": "~4.4.4",
@@ -23,10 +21,9 @@
     "eslint-plugin-jsx-a11y": "~6.10.2",
     "eslint-plugin-perfectionist": "~4.15.0",
     "eslint-plugin-react": "~7.37.5",
-    "eslint-plugin-react-compiler": "19.1.0-rc.2",
-    "eslint-plugin-react-hooks": "~5.2.0",
+    "eslint-plugin-react-hooks": "~6.1.0",
     "globals": "~16.4.0",
-    "typescript": "~5.9.2",
-    "typescript-eslint": "~8.44.1"
+    "typescript": "~5.9.3",
+    "typescript-eslint": "~8.45.0"
   }
 }

@@ -6,15 +6,16 @@ import { Array, pipe, Record } from 'effect';
 import { Linter } from 'eslint';
 import prettier from 'eslint-config-prettier';
 import tailwindPlugin from 'eslint-plugin-better-tailwindcss';
-import { flatConfigs as importX } from 'eslint-plugin-import-x';
+import { importX } from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import perfectionistRaw from 'eslint-plugin-perfectionist';
 import react from 'eslint-plugin-react';
-import * as reactCompilerPlugin from 'eslint-plugin-react-compiler';
-import { configs as reactHooks } from 'eslint-plugin-react-hooks';
+// eslint-disable-next-line import-x/default
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import { resolve } from 'node:path';
-import { ConfigArray, configs as ts } from 'typescript-eslint';
+import { configs as ts } from 'typescript-eslint';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -22,13 +23,13 @@ const gitignore = includeIgnoreFile(resolve(root, '.gitignore'));
 
 const isIDE = process.env['NODE_ENV'] === 'IDE';
 
-const nodejs: Linter.Config = {
+const nodejs = defineConfig({
   files: ['*.js', '*.mjs', '*.ts'],
   ignores: ['src/*'],
   languageOptions: { globals: { ...globals.node } },
-};
+});
 
-const settings: Linter.Config = {
+const settings = defineConfig({
   languageOptions: {
     globals: globals.browser,
     parser: tsParser,
@@ -40,14 +41,33 @@ const settings: Linter.Config = {
   settings: {
     react: { version: 'detect' },
   },
-};
+});
 
-const reactCompiler: Linter.Config = {
-  plugins: { 'react-compiler': reactCompilerPlugin },
-  rules: { 'react-compiler/react-compiler': 'error' },
-};
+const reactHooks = defineConfig({
+  extends: ['react-hooks/flat/recommended'],
+  plugins: { 'react-hooks': reactHooksPlugin },
+  // Opt-in additional rules
+  // https://react.dev/reference/eslint-plugin-react-hooks#additional-rules
+  rules: {
+    'react-hooks/component-hook-factories': 'error',
+    'react-hooks/config': 'error',
+    'react-hooks/error-boundaries': 'error',
+    'react-hooks/gating': 'error',
+    'react-hooks/globals': 'error',
+    'react-hooks/immutability': 'error',
+    'react-hooks/incompatible-library': 'warn',
+    'react-hooks/preserve-manual-memoization': 'error',
+    'react-hooks/purity': 'error',
+    'react-hooks/refs': 'error',
+    'react-hooks/set-state-in-effect': 'error',
+    'react-hooks/set-state-in-render': 'error',
+    'react-hooks/static-components': 'error',
+    'react-hooks/unsupported-syntax': 'error',
+    'react-hooks/use-memo': 'error',
+  },
+});
 
-const tailwind: Linter.Config = {
+const tailwind = defineConfig({
   plugins: { 'better-tailwindcss': tailwindPlugin },
   rules: tailwindPlugin.configs['recommended']!.rules,
   settings: {
@@ -60,9 +80,9 @@ const tailwind: Linter.Config = {
       variables: [],
     },
   },
-};
+});
 
-const perfectionist = {
+const perfectionist = defineConfig({
   plugins: { perfectionist: perfectionistRaw },
   // Convert errors to warnings
   rules: Record.map(perfectionistRaw.configs['recommended-natural'].rules ?? {}, (rule) => {
@@ -74,7 +94,7 @@ const perfectionist = {
       partitionByNewLine: true,
     },
   },
-};
+});
 
 // Consistent Tailwind Variants order
 const sortTVObject = pipe(
@@ -95,7 +115,7 @@ const sizeObject = pipe(['sm', 'md', 'lg', 'xl'], (groups) => ({
   useConfigurationIf: { allNamesMatchPattern: groups },
 }));
 
-const rules: Linter.Config = {
+const rules = defineConfig({
   rules: {
     '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
     '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'with-single-extends' }],
@@ -140,9 +160,11 @@ const rules: Linter.Config = {
     ],
     'better-tailwindcss/enforce-consistent-variable-syntax': ['warn', { syntax: 'parentheses' }],
   },
-};
+});
 
-const config: ConfigArray = [
+// TODO: remove type castings when fixed upstream
+// https://github.com/typescript-eslint/typescript-eslint/issues/11543
+export default defineConfig(
   gitignore,
   settings,
   nodejs,
@@ -153,25 +175,22 @@ const config: ConfigArray = [
 
   js.configs.recommended,
 
-  ...ts.strictTypeChecked,
-  ...ts.stylisticTypeChecked,
+  ts.strictTypeChecked,
+  ts.stylisticTypeChecked,
 
-  importX.recommended,
-  importX.typescript,
-  importX.react,
+  importX.flatConfigs.recommended as Linter.Config,
+  importX.flatConfigs.typescript as Linter.Config,
+  importX.flatConfigs.react as Linter.Config,
 
   react.configs.flat['recommended']!,
   react.configs.flat['jsx-runtime']!,
-  reactHooks['recommended-latest'],
-  reactCompiler,
+  reactHooks,
 
   jsxA11y.flatConfigs.recommended,
 
   tailwind,
 
-  ...tanStackRouter.configs['flat/recommended'],
+  tanStackRouter.configs['flat/recommended'],
 
   rules,
-];
-
-export default config;
+);

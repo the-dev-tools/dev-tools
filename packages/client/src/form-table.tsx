@@ -35,7 +35,6 @@ interface ReactTableNoMemoProps<TData extends RowData> extends TableOptions<TDat
  * @see https://github.com/TanStack/table/issues/5567
  */
 export const ReactTableNoMemo = <TData extends RowData>({ children, ...props }: ReactTableNoMemoProps<TData>) => {
-  // eslint-disable-next-line react-compiler/react-compiler
   'use no memo';
   const table = useReactTable(props);
   return children(table);

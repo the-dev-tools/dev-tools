@@ -337,7 +337,7 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const escape = useEscapePortal(containerRef);
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => collectionUpdate({ collectionId, name: _ }),
@@ -359,12 +359,12 @@ const CollectionTree = ({ collection }: CollectionTreeProps) => {
       onExpand={() => void setEnabled(true)}
       textValue={collection.name}
     >
-      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
         {collection.name}
       </Text>
 
       {isEditing &&
-        escape.render(
+        escapeRender(
           <TextInputField
             aria-label='Collection name'
             className={tw`w-full`}
@@ -479,7 +479,7 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const escape = useEscapePortal(containerRef);
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) =>
@@ -514,12 +514,12 @@ const FolderTree = ({ collectionId, folder: { folderId, ...folder }, parentFolde
             <FiFolder className={tw`size-4 text-slate-500`} />
           )}
 
-          <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
+          <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
             {folder.name}
           </Text>
 
           {isEditing &&
-            escape.render(
+            escapeRender(
               <TextInputField
                 aria-label='Folder name'
                 className={tw`w-full`}
@@ -637,7 +637,7 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const escape = useEscapePortal(containerRef);
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => endpointUpdate({ endpointId, name: _ }),
@@ -659,12 +659,12 @@ const EndpointTree = ({ collectionId, endpoint, example, id: endpointIdCan, pare
 
       {method && <MethodBadge method={method} />}
 
-      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
         {name}
       </Text>
 
       {isEditing &&
-        escape.render(
+        escapeRender(
           <TextInputField
             aria-label='Endpoint name'
             className={tw`w-full`}
@@ -821,7 +821,7 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const escape = useEscapePortal(containerRef);
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => exampleUpdate({ exampleId, name: _ }),
@@ -839,12 +839,12 @@ const ExampleItem = ({ collectionId, endpointId, example, id: exampleIdCan }: Ex
     <>
       <MdLightbulbOutline className={tw`size-4 text-violet-600`} />
 
-      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref}>
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
         {name}
       </Text>
 
       {isEditing &&
-        escape.render(
+        escapeRender(
           <TextInputField
             aria-label='Example name'
             className={tw`w-full`}

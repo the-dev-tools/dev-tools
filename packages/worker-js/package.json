@@ -9,14 +9,14 @@
   "devDependencies": {
     "@bufbuild/protobuf": "~2.9.0",
     "@connectrpc/connect": "~2.1.0",
-    "@effect/platform": "~0.91.1",
-    "@effect/platform-node": "~0.97.1",
+    "@effect/platform": "~0.92.1",
+    "@effect/platform-node": "~0.98.2",
     "@the-dev-tools/eslint-config": "workspace:^",
     "@the-dev-tools/spec": "workspace:^",
-    "@types/node": "~24.5.2",
-    "effect": "~3.17.14",
+    "@types/node": "~24.6.1",
+    "effect": "~3.18.1",
     "eslint": "~9.36.0",
     "tsup": "~8.5.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.3"
   }
 }

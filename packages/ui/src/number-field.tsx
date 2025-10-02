@@ -58,7 +58,10 @@ export const NumberFieldRHF = <
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
-  const { field, fieldState } = useController({ defaultValue: '' as never, ...controllerProps });
+  const {
+    field: { ref, ...field },
+    fieldState,
+  } = useController({ defaultValue: '' as never, ...controllerProps });
 
   const fieldProps: NumberFieldProps = {
     isDisabled: field.disabled ?? false,
@@ -70,5 +73,5 @@ export const NumberFieldRHF = <
     value: field.value,
   };
 
-  return <NumberField {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
+  return <NumberField {...mergeProps(fieldProps, forwardedProps)} ref={ref} />;
 };

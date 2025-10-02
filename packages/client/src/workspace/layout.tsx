@@ -206,7 +206,7 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const escape = useEscapePortal(listRef);
+  const { escapeRef, escapeRender } = useEscapePortal(listRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => flowUpdate({ flowId, name: _ }),
@@ -222,12 +222,12 @@ const FlowItem = ({ flow: { flowId, name }, id: flowIdCan, listRef }: FlowItemPr
       to={flowLayoutRouteApi.id}
     >
       <div className={tw`contents`} onContextMenu={onContextMenu}>
-        <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escape.ref} slot='label'>
+        <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef} slot='label'>
           {name}
         </Text>
 
         {isEditing &&
-          escape.render(
+          escapeRender(
             <TextInputField
               aria-label='Flow name'
               className={tw`w-full`}

@@ -82,7 +82,10 @@ export const SelectRHF = <
   const forwardedProps = Struct.omit(props, ...controllerPropKeys);
   const controllerProps = Struct.pick(props, ...controllerPropKeys);
 
-  const { field, fieldState } = useController({ defaultValue: null as never, ...controllerProps });
+  const {
+    field: { ref, ...field },
+    fieldState,
+  } = useController({ defaultValue: null as never, ...controllerProps });
 
   const fieldProps: SelectProps<TFieldValues> = {
     error: fieldState.error?.message,
@@ -95,5 +98,5 @@ export const SelectRHF = <
     validationBehavior: 'aria',
   };
 
-  return <Select {...mergeProps(fieldProps, forwardedProps)} ref={field.ref} />;
+  return <Select {...mergeProps(fieldProps, forwardedProps)} ref={ref} />;
 };

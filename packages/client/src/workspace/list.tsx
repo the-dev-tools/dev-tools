@@ -97,7 +97,7 @@ const Item = ({
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  const escape = useEscapePortal(containerRef);
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
     onSuccess: (_) => workspaceUpdate({ name: _, workspaceId }),
@@ -122,7 +122,7 @@ const Item = ({
               tw`text-md leading-5 font-semibold tracking-tight text-slate-800`,
               isEditing && tw`opacity-0`,
             )}
-            ref={escape.ref}
+            ref={escapeRef}
           >
             <Link params={{ workspaceIdCan }} to={workspaceRouteApi.id}>
               {name}
@@ -130,7 +130,7 @@ const Item = ({
           </div>
 
           {isEditing &&
-            escape.render(
+            escapeRender(
               <TextInputField
                 aria-label='Workspace name'
                 className={tw`justify-self-start`}

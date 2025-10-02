@@ -2,6 +2,7 @@ import { lezer } from '@lezer/generator/rollup';
 import TailwindVite from '@tailwindcss/vite';
 import ReactVite from '@vitejs/plugin-react';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+import { Plugin } from 'vite';
 import TSConfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
@@ -18,7 +19,7 @@ export default defineConfig({
       TSConfigPaths(),
       ReactVite({ babel: { plugins: [['babel-plugin-react-compiler', {}]] } }),
       TailwindVite(),
-      lezer(),
+      lezer() as Plugin,
     ],
   },
 });
