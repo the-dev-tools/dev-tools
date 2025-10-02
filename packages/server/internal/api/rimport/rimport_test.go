@@ -12,6 +12,8 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
+	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sbodyform"
@@ -278,4 +280,96 @@ func TestImportHar_CreatesDomainVariables(t *testing.T) {
 		}
 	}
 	require.True(t, found, "expected environment variable base_url to be created")
+}
+
+func TestEnsureDomainEnvironmentVariablesAddsVarsToAllEnvironments(t *testing.T) {
+	ctx := context.Background()
+	svc, db, _, _, _, workspaceID, _, _ := setupImportService(t, ctx)
+
+	ws, err := svc.ws.Get(ctx, workspaceID)
+	require.NoError(t, err)
+
+	envDefs := []menv.Env{
+		{ID: idwrap.NewNow(), WorkspaceID: workspaceID, Name: "Global", Type: menv.EnvGlobal},
+		{ID: idwrap.NewNow(), WorkspaceID: workspaceID, Name: "Staging", Type: menv.EnvNormal},
+	}
+	for i := range envDefs {
+		require.NoError(t, svc.envService.CreateEnvironment(ctx, &envDefs[i]))
+	}
+
+	usages := map[string]domainVariableUsage{
+		"base_url": {
+			variable: "base_url",
+			baseURL:  "https://api.example.com",
+			domain:   "api.example.com",
+		},
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	require.NoError(t, svc.ensureDomainEnvironmentVariables(ctx, tx, ws, usages))
+	require.NoError(t, tx.Commit())
+
+	require.NotEqual(t, idwrap.IDWrap{}, ws.ActiveEnv)
+	require.NotEqual(t, idwrap.IDWrap{}, ws.GlobalEnv)
+
+	for _, envDef := range envDefs {
+		vars, err := svc.varService.GetVariableByEnvID(ctx, envDef.ID)
+		require.NoError(t, err)
+		require.Len(t, vars, 1, "expected exactly one variable in environment %s", envDef.Name)
+
+		v := vars[0]
+		require.Equal(t, "base_url", v.VarKey)
+		require.Equal(t, "https://api.example.com", v.Value)
+		require.True(t, v.Enabled)
+	}
+}
+
+func TestEnsureDomainEnvironmentVariablesUpdatesExistingVars(t *testing.T) {
+	ctx := context.Background()
+	svc, db, _, _, _, workspaceID, _, _ := setupImportService(t, ctx)
+
+	ws, err := svc.ws.Get(ctx, workspaceID)
+	require.NoError(t, err)
+
+	envDefs := []menv.Env{
+		{ID: idwrap.NewNow(), WorkspaceID: workspaceID, Name: "Primary", Type: menv.EnvGlobal},
+		{ID: idwrap.NewNow(), WorkspaceID: workspaceID, Name: "QA", Type: menv.EnvNormal},
+	}
+	for i := range envDefs {
+		require.NoError(t, svc.envService.CreateEnvironment(ctx, &envDefs[i]))
+	}
+
+	for _, envDef := range envDefs {
+		require.NoError(t, svc.varService.Create(ctx, mvar.Var{
+			ID:          idwrap.NewNow(),
+			EnvID:       envDef.ID,
+			VarKey:      "base_url",
+			Value:       "https://old.example.com",
+			Enabled:     false,
+			Description: "old base",
+		}))
+	}
+
+	usages := map[string]domainVariableUsage{
+		"base_url": {
+			variable: "base_url",
+			baseURL:  "https://api.example.com",
+			domain:   "api.example.com",
+		},
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	require.NoError(t, svc.ensureDomainEnvironmentVariables(ctx, tx, ws, usages))
+	require.NoError(t, tx.Commit())
+
+	for _, envDef := range envDefs {
+		vars, err := svc.varService.GetVariableByEnvID(ctx, envDef.ID)
+		require.NoError(t, err)
+		require.Len(t, vars, 1, "expected single variable in environment %s after update", envDef.Name)
+		v := vars[0]
+		require.Equal(t, "https://api.example.com", v.Value)
+		require.True(t, v.Enabled)
+	}
 }

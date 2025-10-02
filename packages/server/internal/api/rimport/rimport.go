@@ -1436,66 +1436,86 @@ func (c *ImportRPC) ensureDomainEnvironmentVariables(ctx context.Context, tx *sq
 		return nil
 	}
 
-	envID := ws.GlobalEnv
-	if envID == (idwrap.IDWrap{}) {
-		envID = ws.ActiveEnv
+	txEnvService := c.envService.TX(tx)
+	envs, err := txEnvService.GetByWorkspace(ctx, ws.ID)
+	if err != nil && !errors.Is(err, senv.ErrNoEnvironmentFound) {
+		return err
 	}
-	if envID == (idwrap.IDWrap{}) {
-		envID = idwrap.NewNow()
+
+	if len(envs) == 0 {
+		envID := ws.GlobalEnv
+		if envID == (idwrap.IDWrap{}) {
+			envID = ws.ActiveEnv
+		}
+		if envID == (idwrap.IDWrap{}) {
+			envID = idwrap.NewNow()
+		}
+
 		env := menv.Env{
 			ID:          envID,
 			WorkspaceID: ws.ID,
 			Name:        "default",
 			Type:        menv.EnvGlobal,
 		}
-		if err := c.envService.TX(tx).Create(ctx, env); err != nil {
+		if err := txEnvService.Create(ctx, env); err != nil {
 			return err
 		}
-		ws.ActiveEnv = envID
-		ws.GlobalEnv = envID
+		envs = append(envs, env)
+		ws.ActiveEnv = env.ID
+		ws.GlobalEnv = env.ID
+	} else {
+		if ws.ActiveEnv == (idwrap.IDWrap{}) {
+			ws.ActiveEnv = envs[0].ID
+		}
+		if ws.GlobalEnv == (idwrap.IDWrap{}) {
+			ws.GlobalEnv = envs[0].ID
+		}
 	}
 
 	txVarService := c.varService.TX(tx)
-	existingVars, err := txVarService.GetVariableByEnvID(ctx, envID)
-	if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
-		return err
-	}
 
-	existingMap := make(map[string]mvar.Var, len(existingVars))
-	for _, v := range existingVars {
-		existingMap[v.VarKey] = v
-	}
-
-	for variable, usage := range usages {
-		if variable == "" || usage.baseURL == "" {
-			continue
-		}
-
-		if current, ok := existingMap[variable]; ok {
-			if current.Value != usage.baseURL || !current.Enabled {
-				current.Value = usage.baseURL
-				current.Enabled = true
-				if err := txVarService.Update(ctx, &current); err != nil {
-					return err
-				}
-				existingMap[variable] = current
-			}
-			continue
-		}
-
-		description := fmt.Sprintf("Base URL for %s", usage.domain)
-		newVar := mvar.Var{
-			ID:          idwrap.NewNow(),
-			EnvID:       envID,
-			VarKey:      variable,
-			Value:       usage.baseURL,
-			Enabled:     true,
-			Description: description,
-		}
-		if err := txVarService.Create(ctx, newVar); err != nil {
+	for _, env := range envs {
+		existingVars, err := txVarService.GetVariableByEnvID(ctx, env.ID)
+		if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
 			return err
 		}
-		existingMap[variable] = newVar
+
+		existingMap := make(map[string]mvar.Var, len(existingVars))
+		for _, v := range existingVars {
+			existingMap[v.VarKey] = v
+		}
+
+		for variable, usage := range usages {
+			if variable == "" || usage.baseURL == "" {
+				continue
+			}
+
+			if current, ok := existingMap[variable]; ok {
+				if current.Value != usage.baseURL || !current.Enabled {
+					current.Value = usage.baseURL
+					current.Enabled = true
+					if err := txVarService.Update(ctx, &current); err != nil {
+						return err
+					}
+					existingMap[variable] = current
+				}
+				continue
+			}
+
+			description := fmt.Sprintf("Base URL for %s", usage.domain)
+			newVar := mvar.Var{
+				ID:          idwrap.NewNow(),
+				EnvID:       env.ID,
+				VarKey:      variable,
+				Value:       usage.baseURL,
+				Enabled:     true,
+				Description: description,
+			}
+			if err := txVarService.Create(ctx, newVar); err != nil {
+				return err
+			}
+			existingMap[variable] = newVar
+		}
 	}
 
 	return nil
