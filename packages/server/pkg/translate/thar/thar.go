@@ -1004,10 +1004,9 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 			assertDefault := createStatusCodeAssertion(defaultExampleID, entry.Response.Status)
 			result.Asserts = append(result.Asserts, assertDefault)
 
-			// Create delta assertion for the delta example
-			// The delta assertion references the default assertion as its parent
-			assertDelta := createStatusCodeAssertionWithDeltaParent(deltaExampleID, &assertDefault.ID, entry.Response.Status)
-			result.Asserts = append(result.Asserts, assertDelta)
+			// Delta assertions are skipped until the delta-aware UI ships. Without
+			// frontend support, storing them causes the delta overlay to override
+			// origin edits after import.
 		}
 	}
 
@@ -1485,25 +1484,6 @@ func createStatusCodeAssertion(exampleID idwrap.IDWrap, statusCode int) massert.
 		// For HAR imports, we don't set Prev/Next as assertions don't have ordering in this context
 		Prev: nil,
 		Next: nil,
-	}
-}
-
-// createStatusCodeAssertionWithDeltaParent creates a delta assertion for status code check
-func createStatusCodeAssertionWithDeltaParent(deltaExampleID idwrap.IDWrap, deltaParentID *idwrap.IDWrap, statusCode int) massert.Assert {
-	expression := fmt.Sprintf("response.status == %d", statusCode)
-
-	return massert.Assert{
-		ID:            idwrap.NewNow(),
-		ExampleID:     deltaExampleID,
-		DeltaParentID: deltaParentID,
-		Condition: mcondition.Condition{
-			Comparisons: mcondition.Comparison{
-				Expression: expression,
-			},
-		},
-		Enable: true,
-		Prev:   nil,
-		Next:   nil,
 	}
 }
 
