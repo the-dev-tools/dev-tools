@@ -33,7 +33,7 @@ export const NoOpNode = (props: NodeProps) => {
         <span className={tw`flex-1 py-1 text-xs leading-5 font-medium`}>
           {pipe(
             Match.value(kind),
-            Match.when(NodeNoOpKind.START, () => 'Manual start'),
+            Match.when(NodeNoOpKind.START, () => 'Start'),
             Match.when(NodeNoOpKind.THEN, () => 'Then'),
             Match.when(NodeNoOpKind.ELSE, () => 'Else'),
             Match.when(NodeNoOpKind.LOOP, () => 'Loop'),
