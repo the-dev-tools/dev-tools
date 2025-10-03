@@ -1682,17 +1682,32 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 		pendingMutex.Lock()
 		targetExecutionID := requestNodeResp.ExecutionID
+		responseID := requestNodeResp.Resp.ExampleResp.ID
 		responseReceivedTime := time.Now()
 
-		if targetExecutionID != (idwrap.IDWrap{}) && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
-			if nodeExec, exists := pendingNodeExecutions[targetExecutionID]; exists {
-				respID := requestNodeResp.Resp.ExampleResp.ID
-				nodeExec.ResponseID = &respID
+		var (
+			nodeExec        *mnodeexecution.NodeExecution
+			exists          bool
+			shouldStoreOrph bool
+		)
+
+		if targetExecutionID != (idwrap.IDWrap{}) && responseID != (idwrap.IDWrap{}) {
+			nodeExec, exists = pendingNodeExecutions[targetExecutionID]
+			if !exists {
+				shouldStoreOrph = true
+			}
+		}
+		pendingMutex.Unlock()
+
+		if targetExecutionID != (idwrap.IDWrap{}) && responseID != (idwrap.IDWrap{}) {
+			if exists && nodeExec != nil {
+				nodeExec.ResponseID = &responseID
 
 				if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
 					log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
 				}
 
+				pendingMutex.Lock()
 				if nodeExec.CompletedAt != nil && !channelsClosed.Load() {
 					select {
 					case nodeExecutionChan <- *nodeExec:
@@ -1703,30 +1718,46 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				} else if nodeExec.CompletedAt != nil {
 					delete(pendingNodeExecutions, targetExecutionID)
 				}
+				pendingMutex.Unlock()
 
 				for i := range nodeExecutions {
 					if nodeExecutions[i].ID == targetExecutionID {
-						nodeExecutions[i].ResponseID = &respID
+						nodeExecutions[i].ResponseID = &responseID
 						break
 					}
 				}
 			} else {
-				if logOrphanedResponses {
-					log.Printf("No pending execution found for response %s (pending: %d, orphaned: %d)",
-						targetExecutionID.String(), len(pendingNodeExecutions), len(orphanedResponses))
+				persisted := false
+				if shouldStoreOrph {
+					if exec, err := c.nes.GetNodeExecution(ctx, targetExecutionID); err == nil {
+						exec.ResponseID = &responseID
+						if err := persistUpsert2s(c.nes, *exec); err != nil {
+							log.Printf("Failed to upsert late node execution response %s: %v", targetExecutionID, err)
+						} else {
+							persisted = true
+						}
+					} else if !errors.Is(err, sql.ErrNoRows) {
+						log.Printf("Failed to fetch node execution %s for orphan response: %v", targetExecutionID, err)
+					}
 				}
 
-				respID := requestNodeResp.Resp.ExampleResp.ID
-				orphanedResponses[targetExecutionID] = struct {
-					ResponseID idwrap.IDWrap
-					Timestamp  int64
-				}{
-					ResponseID: respID,
-					Timestamp:  responseReceivedTime.UnixMilli(),
+				if !persisted {
+					pendingMutex.Lock()
+					if logOrphanedResponses {
+						log.Printf("No pending execution found for response %s (pending: %d, orphaned: %d)",
+							targetExecutionID.String(), len(pendingNodeExecutions), len(orphanedResponses))
+					}
+					orphanedResponses[targetExecutionID] = struct {
+						ResponseID idwrap.IDWrap
+						Timestamp  int64
+					}{
+						ResponseID: responseID,
+						Timestamp:  responseReceivedTime.UnixMilli(),
+					}
+					pendingMutex.Unlock()
 				}
 			}
 		}
-		pendingMutex.Unlock()
 
 		if localErr := sendExampleResponseSync(requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID); localErr != nil {
 			return localErr
@@ -2308,6 +2339,15 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// mark them as CANCELED and persist synchronously to avoid stale RUNNING state.
 	pendingMutex.Lock()
 	for execID, nodeExec := range pendingNodeExecutions {
+		if respInfo, exists := orphanedResponses[execID]; exists {
+			respID := respInfo.ResponseID
+			nodeExec.ResponseID = &respID
+			if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+				log.Printf("Failed to upsert orphaned response for execution %s: %v", execID, err)
+			}
+			delete(orphanedResponses, execID)
+		}
+
 		if nodeExec.CompletedAt != nil {
 			// Already completed: forward to channel and remove
 			select {

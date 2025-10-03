@@ -234,3 +234,64 @@ func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 		t.Fatalf("request url not tracked: %#v", requestSection)
 	}
 }
+
+func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
+	nodeID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	endpoint := mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "req", Url: "https://example.dev", Method: "GET"}
+	example := mitemapiexample.ItemApiExample{ID: exampleID, ItemApiID: endpoint.ID, Name: "req"}
+	rawBody := mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: example.ID, Data: []byte("{}")}
+	exampleResp := mexampleresp.ExampleResp{ExampleID: example.ID}
+	asserts := []massert.Assert{
+		{
+			ID:        idwrap.NewNow(),
+			ExampleID: example.ID,
+			Enable:    true,
+			Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "response.status == 205"}},
+		},
+	}
+
+	respChan := make(chan NodeRequestSideResp, 1)
+	requestNode := New(
+		nodeID,
+		"req",
+		endpoint,
+		example,
+		nil,
+		nil,
+		rawBody,
+		nil,
+		nil,
+		exampleResp,
+		nil,
+		asserts,
+		stubHTTPClient{},
+		respChan,
+		nil,
+	)
+
+	req := &node.FlowNodeRequest{
+		VarMap:        map[string]any{},
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
+		EdgeSourceMap: edge.EdgesMap{},
+		ExecutionID:   idwrap.NewNow(),
+	}
+
+	result := requestNode.RunSync(context.Background(), req)
+	if result.Err == nil {
+		t.Fatalf("expected assertion failure, got nil error")
+	}
+
+	select {
+	case resp := <-respChan:
+		if resp.Resp.ExampleResp.ID == (idwrap.IDWrap{}) {
+			t.Fatalf("expected response ID to be set: %#v", resp.Resp.ExampleResp)
+		}
+		if resp.Resp.ExampleResp.ExampleID != example.ID {
+			t.Fatalf("expected response to target example %s, got %s", example.ID, resp.Resp.ExampleResp.ExampleID)
+		}
+	default:
+		t.Fatalf("expected response side channel to receive entry")
+	}
+}

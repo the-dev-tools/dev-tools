@@ -288,7 +288,6 @@ func TestFlowRunAdHoc_NodeExecutionsReachTerminalState(t *testing.T) {
 func TestFlowRunAdHoc_RequestFailureTransitions(t *testing.T) {
 	harness := setupFlowRunHarness(t)
 	defer harness.cleanup()
-
 	ctx := context.Background()
 
 	failingAssert := massert.Assert{
@@ -313,6 +312,11 @@ func TestFlowRunAdHoc_RequestFailureTransitions(t *testing.T) {
 		if exec.State == mnnode.NODE_STATE_FAILURE {
 			sawFailure = true
 			require.NotNilf(t, exec.CompletedAt, "failure execution %s missing completion timestamp", exec.ID.String())
+			require.NotNilf(t, exec.ResponseID, "failure execution %s missing response id", exec.ID.String())
+
+			resp, err := harness.svc.ers.GetExampleResp(ctx, *exec.ResponseID)
+			require.NoErrorf(t, err, "expected response %s to be persisted", exec.ResponseID.String())
+			require.NotNilf(t, resp, "expected response %s lookup to succeed", exec.ResponseID.String())
 		}
 	}
 
