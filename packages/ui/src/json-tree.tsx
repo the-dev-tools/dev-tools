@@ -73,7 +73,12 @@ export const JsonTreeItem = ({ id = 'root', jsonIndex, jsonKey, jsonValue }: Jso
   );
 
   return (
-    <TreeItem id={id} textValue={valueText ?? jsonKey ?? indexText ?? ''} {...(itemProps as TreeItemProps<object>)}>
+    <TreeItem
+      className={tw`select-text`}
+      id={id}
+      textValue={valueText ?? jsonKey ?? indexText ?? ''}
+      {...(itemProps as TreeItemProps<object>)}
+    >
       {jsonKey && <span className={tw`font-mono text-xs leading-5 text-red-700`}>{jsonKey}</span>}
 
       {indexText && (
