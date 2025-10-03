@@ -396,14 +396,14 @@ func TestReplaceURLPathParams(t *testing.T) {
 		{
 			name:            "URL with UUID in path",
 			url:             "https://example.com/api/products/6d316d59-4cb4-451e-b5b1-673ecbdd5609",
-			expectedURL:     "https://example.com/api/products/{{ request_1.response.body.id }}",
+			expectedURL:     "https://example.com/api/products/{{request_1.response.body.id}}",
 			expectedFound:   true,
 			expectedCouples: 1,
 		},
 		{
 			name:            "URL with multiple UUIDs",
 			url:             "https://example.com/api/products/6d316d59-4cb4-451e-b5b1-673ecbdd5609/tags/ef2574d1-1781-4ca9-bfcd-c571e124be02",
-			expectedURL:     "https://example.com/api/products/{{ request_1.response.body.id }}/tags/{{ request_2.response.body.id }}",
+			expectedURL:     "https://example.com/api/products/{{request_1.response.body.id}}/tags/{{request_2.response.body.id}}",
 			expectedFound:   true,
 			expectedCouples: 2,
 		},

@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/depfinder"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
+	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/translate/thar"
 )
 
@@ -73,12 +73,12 @@ func TestUUIDTemplatingInURLs(t *testing.T) {
 		}
 
 		require.NotNil(t, getAPI, "Should find GET API")
-		
+
 		// The URL should have the UUID templated
 		t.Logf("GET API URL: %s", getAPI.Url)
-		require.Contains(t, getAPI.Url, "{{ request_0.response.body.id }}", 
+		require.Contains(t, getAPI.Url, "{{request_0.response.body.id}}",
 			"UUID in URL should be replaced with template variable")
-		
+
 		// Check that an edge was created between the two nodes
 		var foundEdge bool
 		for _, edge := range resolved.Edges {
@@ -150,10 +150,10 @@ func TestUUIDTemplatingInURLs(t *testing.T) {
 
 		require.NotNil(t, getAPI)
 		t.Logf("GET API URL: %s", getAPI.Url)
-		
+
 		// Both UUIDs should be templated
-		require.Contains(t, getAPI.Url, "{{ request_0.response.body.orgId }}")
-		require.Contains(t, getAPI.Url, "{{ request_0.response.body.projectId }}")
+		require.Contains(t, getAPI.Url, "{{request_0.response.body.orgId}}")
+		require.Contains(t, getAPI.Url, "{{request_0.response.body.projectId}}")
 	})
 
 	t.Run("Bearer_token_in_header_should_be_templated", func(t *testing.T) {
@@ -216,7 +216,7 @@ func TestUUIDTemplatingInURLs(t *testing.T) {
 
 		require.NotNil(t, authHeader, "Should find delta Authorization header")
 		t.Logf("Authorization header value: %s", authHeader.Value)
-		
+
 		// The Bearer token should be templated
 		require.Equal(t, "Bearer {{ request_0.response.body.token }}", authHeader.Value,
 			"Bearer token should be replaced with template variable")
@@ -284,7 +284,7 @@ func TestUUIDTemplatingInURLs(t *testing.T) {
 
 		require.NotNil(t, sessionQuery, "Should find delta session query parameter")
 		t.Logf("Session query value: %s", sessionQuery.Value)
-		
+
 		// The session ID should be templated
 		require.Equal(t, "{{ request_0.response.body.sessionId }}", sessionQuery.Value,
 			"Session ID in query should be replaced with template variable")
@@ -295,7 +295,7 @@ func TestDepFinderIntegration(t *testing.T) {
 	t.Run("DepFinder_should_track_response_values", func(t *testing.T) {
 		df := depfinder.NewDepFinder()
 		nodeID := idwrap.NewNow()
-		
+
 		// Simulate adding response data from first request
 		responseData := `{
 			"id": "550e8400-e29b-41d4-a716-446655440000",
@@ -304,22 +304,22 @@ func TestDepFinderIntegration(t *testing.T) {
 				"value": "nested-value"
 			}
 		}`
-		
+
 		err := df.AddJsonBytes([]byte(responseData), depfinder.VarCouple{
 			Path:   "request_0.response.body",
 			NodeID: nodeID,
 		})
 		require.NoError(t, err)
-		
+
 		// Test that values can be found
 		couple, err := df.FindVar("550e8400-e29b-41d4-a716-446655440000")
 		require.NoError(t, err)
 		require.Equal(t, "request_0.response.body.id", couple.Path)
-		
+
 		couple, err = df.FindVar("secret-token-123")
 		require.NoError(t, err)
 		require.Equal(t, "request_0.response.body.token", couple.Path)
-		
+
 		couple, err = df.FindVar("nested-value")
 		require.NoError(t, err)
 		require.Equal(t, "request_0.response.body.nested.value", couple.Path)
@@ -328,20 +328,22 @@ func TestDepFinderIntegration(t *testing.T) {
 	t.Run("URL_templating_should_replace_UUIDs", func(t *testing.T) {
 		df := depfinder.NewDepFinder()
 		nodeID := idwrap.NewNow()
-		
+
 		// Add a UUID to the depfinder
 		uuid := "550e8400-e29b-41d4-a716-446655440000"
 		df.AddVar(uuid, depfinder.VarCouple{
 			Path:   "request_0.response.body.id",
 			NodeID: nodeID,
 		})
-		
+
 		// Test URL templating
 		url := "https://api.example.com/users/550e8400-e29b-41d4-a716-446655440000/profile"
 		templatedURL, found, couples := df.ReplaceURLPathParams(url)
-		
+
 		require.True(t, found, "Should find UUID in URL")
-		require.Equal(t, "https://api.example.com/users/{{ request_0.response.body.id }}/profile", templatedURL)
+		require.Equal(t, "https://api.example.com/users/{{request_0.response.body.id}}/profile", templatedURL)
+		require.NotContains(t, templatedURL, "%7B")
+		require.NotContains(t, templatedURL, " ")
 		require.Len(t, couples, 1)
 		require.Equal(t, "request_0.response.body.id", couples[0].Path)
 	})

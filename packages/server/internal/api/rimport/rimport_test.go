@@ -13,6 +13,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
@@ -372,4 +373,36 @@ func TestEnsureDomainEnvironmentVariablesUpdatesExistingVars(t *testing.T) {
 		require.Equal(t, "https://api.example.com", v.Value)
 		require.True(t, v.Enabled)
 	}
+}
+
+func TestApplyDomainVariablesToApis_PreservesTemplatedSegments(t *testing.T) {
+	apis := []mitemapi.ItemApi{
+		{
+			Url: "https://api.example.com/api/categories/{{request_4.response.body.id}}",
+		},
+		{
+			Url: "https://api.example.com/api/items/{{request_4.response.body.id}}?include=all",
+		},
+	}
+
+	domains := newDomainVariableSet([]*importv1.ImportDomainData{
+		{
+			Enabled:  true,
+			Domain:   "api.example.com",
+			Variable: "api",
+		},
+	})
+
+	usage := applyDomainVariablesToApis(apis, domains)
+	require.Contains(t, usage, "api")
+	require.Equal(t, "api", usage["api"].variable)
+	require.Equal(t, "https://api.example.com", usage["api"].baseURL)
+	require.Equal(t, "api.example.com", usage["api"].domain)
+
+	require.Equal(t, "{{api}}/api/categories/{{request_4.response.body.id}}", apis[0].Url)
+	require.Equal(t, "{{api}}/api/items/{{request_4.response.body.id}}?include=all", apis[1].Url)
+	require.NotContains(t, apis[0].Url, "%7B")
+	require.NotContains(t, apis[1].Url, "%7B")
+	require.NotContains(t, apis[0].Url, " ")
+	require.NotContains(t, apis[1].Url, " ")
 }

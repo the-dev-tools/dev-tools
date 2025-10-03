@@ -288,7 +288,7 @@ func (d DepFinder) ReplaceURLPathParams(url string) (string, bool, []VarCouple) 
 		if IsUUID(part) {
 			// Try to find this UUID in our vars
 			if couple, err := d.FindVar(part); err == nil {
-				parts[i] = fmt.Sprintf("{{ %s }}", couple.Path)
+				parts[i] = fmt.Sprintf("{{%s}}", couple.Path)
 				couples = append(couples, couple)
 				foundAny = true
 			}

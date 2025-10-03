@@ -109,7 +109,7 @@ func TestJSONBodyTemplating(t *testing.T) {
 		// The categoryId should be templated
 		categoryID, ok := bodyJSON["categoryId"].(string)
 		require.True(t, ok, "Should have categoryId field")
-		require.Equal(t, "{{ request_0.response.body.id }}", categoryID, 
+		require.Equal(t, "{{ request_0.response.body.id }}", categoryID,
 			"Category ID in JSON body should be replaced with template variable")
 
 		// Other fields should remain unchanged
@@ -213,7 +213,7 @@ func TestJSONBodyTemplating(t *testing.T) {
 		// Check nested context object
 		context, ok := bodyJSON["context"].(map[string]interface{})
 		require.True(t, ok, "Should have context object")
-		
+
 		require.Equal(t, "{{ request_0.response.body.user.id }}", context["userId"],
 			"Nested userId should be templated")
 		require.Equal(t, "{{ request_0.response.body.session.token }}", context["sessionToken"],
@@ -319,7 +319,7 @@ func TestJSONBodyTemplating(t *testing.T) {
 		members, ok := bodyJSON["members"].([]interface{})
 		require.True(t, ok, "Should have members array")
 		require.Len(t, members, 2, "Should have 2 members")
-		
+
 		// Array values should be templated
 		require.Equal(t, "{{ request_0.response.body.users[0].id }}", members[0],
 			"First member ID should be templated")

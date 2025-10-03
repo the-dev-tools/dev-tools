@@ -1526,6 +1526,25 @@ func TestHarTemplatingInDeltasOnly(t *testing.T) {
 	}
 }
 
+func TestReplaceURLPathParamsRemovesWhitespace(t *testing.T) {
+	df := depfinder.NewDepFinder()
+	nodeID := idwrap.NewNow()
+
+	uuid := "550e8400-e29b-41d4-a716-446655440000"
+	df.AddVar(uuid, depfinder.VarCouple{
+		Path:   "request_4.response.body.id",
+		NodeID: nodeID,
+	})
+
+	templatedURL, found, couples := df.ReplaceURLPathParams("https://api.example.com/api/categories/550e8400-e29b-41d4-a716-446655440000")
+	require.True(t, found)
+	require.Len(t, couples, 1)
+	require.Equal(t, "request_4.response.body.id", couples[0].Path)
+	require.Equal(t, "https://api.example.com/api/categories/{{request_4.response.body.id}}", templatedURL)
+	require.NotContains(t, templatedURL, "%7B")
+	require.NotContains(t, templatedURL, " ")
+}
+
 func TestNodePositioningNoOverlaps(t *testing.T) {
 	// Create a test flow with multiple branches to test positioning
 	result := thar.HarResvoled{

@@ -1399,9 +1399,26 @@ func applyDomainVariablesToApis(apis []mitemapi.ItemApi, domains domainVariableS
 				usage[assignment.Variable] = existing
 			}
 
-			suffix := parsedURL.RequestURI()
+			suffix := parsedURL.Path
+			if suffix == "" && parsedURL.Opaque != "" {
+				suffix = parsedURL.Opaque
+			}
 			if suffix == "/" {
 				suffix = ""
+			}
+			if parsedURL.RawQuery != "" {
+				if suffix == "" {
+					suffix = "?" + parsedURL.RawQuery
+				} else {
+					suffix = fmt.Sprintf("%s?%s", suffix, parsedURL.RawQuery)
+				}
+			}
+			if parsedURL.Fragment != "" {
+				if suffix == "" {
+					suffix = "#" + parsedURL.Fragment
+				} else {
+					suffix = fmt.Sprintf("%s#%s", suffix, parsedURL.Fragment)
+				}
 			}
 			apis[i].Url = buildTemplatedURL(assignment.Variable, suffix)
 		}
