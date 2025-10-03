@@ -1468,21 +1468,40 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		})
 	}
 
-	var streamSendMu sync.Mutex
-	sendNodeStatusSafe := func(nodeID idwrap.IDWrap, state nodev1.NodeState, info *string) error {
-		streamSendMu.Lock()
-		defer streamSendMu.Unlock()
-		return sendNodeStatus(stream, nodeID, state, info)
+	type streamSendRequest struct {
+		fn    func() error
+		errCh chan error
 	}
-	sendExampleResponseSafe := func(exampleID, responseID idwrap.IDWrap) error {
-		streamSendMu.Lock()
-		defer streamSendMu.Unlock()
-		return sendExampleResponse(stream, exampleID, responseID)
+
+	streamSendCh := make(chan streamSendRequest, 128)
+	var streamWg sync.WaitGroup
+	streamWg.Add(1)
+	go func() {
+		defer streamWg.Done()
+		for req := range streamSendCh {
+			err := req.fn()
+			req.errCh <- err
+			close(req.errCh)
+		}
+	}()
+	defer func() {
+		close(streamSendCh)
+		streamWg.Wait()
+	}()
+
+	enqueueStreamSend := func(fn func() error) error {
+		errCh := make(chan error, 1)
+		streamSendCh <- streamSendRequest{fn: fn, errCh: errCh}
+		return <-errCh
 	}
-	sendFlowResponseSafe := func(resp *flowv1.FlowRunResponse) error {
-		streamSendMu.Lock()
-		defer streamSendMu.Unlock()
-		return stream.Send(resp)
+	sendNodeStatusSync := func(nodeID idwrap.IDWrap, state nodev1.NodeState, info *string) error {
+		return enqueueStreamSend(func() error { return sendNodeStatus(stream, nodeID, state, info) })
+	}
+	sendExampleResponseSync := func(exampleID, responseID idwrap.IDWrap) error {
+		return enqueueStreamSend(func() error { return sendExampleResponse(stream, exampleID, responseID) })
+	}
+	sendFlowResponseSync := func(resp *flowv1.FlowRunResponse) error {
+		return enqueueStreamSend(func() error { return stream.Send(resp) })
 	}
 	nodeExecutionChan := make(chan mnodeexecution.NodeExecution, bufferSize)
 
@@ -1731,7 +1750,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 		pendingMutex.Unlock()
 
-		if localErr := sendExampleResponseSafe(requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID); localErr != nil {
+		if localErr := sendExampleResponseSync(requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID); localErr != nil {
 			return localErr
 		}
 		return nil
@@ -2149,7 +2168,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 									}
 								}
 								resp := &flowv1.FlowRunResponse{Node: nodeMsg}
-								if err := sendFlowResponseSafe(resp); err != nil {
+								if err := sendFlowResponseSync(resp); err != nil {
 									signalDone(err)
 									return
 								}
@@ -2174,7 +2193,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					info = &msg
 				}
 			}
-			if err := sendNodeStatusSafe(flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
+			if err := sendNodeStatusSync(flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
 				signalDone(err)
 				return
 			}
@@ -2411,7 +2430,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		Version: tflowversion.ModelToRPC(res.Flow),
 	}
 
-	err = sendFlowResponseSafe(resp)
+	err = sendFlowResponseSync(resp)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
