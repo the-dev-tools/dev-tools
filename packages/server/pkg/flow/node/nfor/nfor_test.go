@@ -100,19 +100,33 @@ func TestNodeForDefaultErrorDoesNotLogLoopFailure(t *testing.T) {
 	require.ErrorIs(t, err, runner.ErrFlowCanceledByThrow)
 
 	childLogged := false
+	loopFailureLogged := false
 	loopCancelled := false
+	var loopFailure runner.FlowNodeStatus
 	for _, st := range statuses {
 		if st.NodeID == childID && st.State == mnnode.NODE_STATE_FAILURE {
 			childLogged = true
 		}
+		if st.NodeID == loopID && st.State == mnnode.NODE_STATE_FAILURE {
+			loopFailureLogged = true
+			loopFailure = st
+		}
 		if st.NodeID == loopID && st.State == mnnode.NODE_STATE_CANCELED {
 			loopCancelled = true
 		}
-		require.False(t, st.NodeID == loopID && st.State == mnnode.NODE_STATE_FAILURE,
-			"unexpected loop failure status: %#v", st)
 		require.NotEqual(t, "Error Summary", st.Name)
 	}
 	require.True(t, childLogged, "expected child node failure to be logged")
+	require.True(t, loopFailureLogged, "expected loop iteration failure to be logged")
+	if loopFailureLogged {
+		require.True(t, loopFailure.IterationEvent, "loop failure should be iteration event")
+		require.NotNil(t, loopFailure.OutputData)
+		if data, ok := loopFailure.OutputData.(map[string]any); ok {
+			require.Contains(t, data, "index")
+		} else {
+			t.Fatalf("loop failure output not map: %#v", loopFailure.OutputData)
+		}
+	}
 	require.True(t, loopCancelled, "expected loop node to emit canceled status")
 	require.True(t, childRan, "child node did not execute")
 }

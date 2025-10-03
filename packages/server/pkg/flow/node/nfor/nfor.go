@@ -157,8 +157,9 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 		}
 
 		// Create initial RUNNING record
+		var iterationData map[string]any
 		if req.LogPushFunc != nil {
-			outputData := map[string]any{
+			iterationData = map[string]any{
 				"index": i,
 			}
 			executionName := fmt.Sprintf("%s Iteration %d", nr.Name, i+1)
@@ -168,7 +169,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 				NodeID:           nr.FlowNodeID,
 				Name:             executionName,
 				State:            mnnode.NODE_STATE_RUNNING,
-				OutputData:       outputData,
+				OutputData:       iterationData,
 				IterationEvent:   true,
 				IterationIndex:   int(i),
 				LoopNodeID:       nr.FlowNodeID,
@@ -206,8 +207,20 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 		// Update iteration record based on result
 		if req.LogPushFunc != nil {
 			executionName := fmt.Sprintf("%s Iteration %d", nr.Name, i+1)
-			if iterationError == nil {
-				// Update to SUCCESS (iteration completed successfully)
+			if iterationError != nil {
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID:      executionID, // Same ID = UPDATE
+					NodeID:           nr.FlowNodeID,
+					Name:             executionName,
+					State:            mnnode.NODE_STATE_FAILURE,
+					Error:            iterationError,
+					OutputData:       iterationData,
+					IterationEvent:   true,
+					IterationIndex:   int(i),
+					LoopNodeID:       nr.FlowNodeID,
+					IterationContext: iterContext,
+				})
+			} else {
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID:      executionID, // Same ID = UPDATE
 					NodeID:           nr.FlowNodeID,
@@ -220,8 +233,6 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 					IterationContext: iterContext,
 				})
 			}
-			// Note: Do not emit iteration-level FAILURE for loop parent.
-			// Cancellation state is emitted after the loop finishes processing.
 		}
 
 		// Handle iteration error according to error policy
@@ -331,8 +342,9 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 		}
 
 		// Create initial RUNNING record
+		var iterationData map[string]any
 		if req.LogPushFunc != nil {
-			outputData := map[string]any{
+			iterationData = map[string]any{
 				"index": i,
 			}
 			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
@@ -342,7 +354,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 				NodeID:           nr.FlowNodeID,
 				Name:             executionName,
 				State:            mnnode.NODE_STATE_RUNNING,
-				OutputData:       outputData,
+				OutputData:       iterationData,
 				IterationEvent:   true,
 				IterationIndex:   int(i),
 				LoopNodeID:       nr.FlowNodeID,
@@ -380,21 +392,32 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 		// Update iteration record based on result
 		if req.LogPushFunc != nil {
 			executionName := fmt.Sprintf("%s iteration %d", nr.Name, i+1)
-			if iterationError == nil {
-				// Update to SUCCESS (iteration completed successfully)
+			if iterationError != nil {
+				req.LogPushFunc(runner.FlowNodeStatus{
+					ExecutionID:      executionID, // Same ID = UPDATE
+					NodeID:           nr.FlowNodeID,
+					Name:             executionName,
+					State:            mnnode.NODE_STATE_FAILURE,
+					Error:            iterationError,
+					OutputData:       iterationData,
+					IterationEvent:   true,
+					IterationIndex:   int(i),
+					LoopNodeID:       nr.FlowNodeID,
+					IterationContext: iterContext,
+				})
+			} else {
 				req.LogPushFunc(runner.FlowNodeStatus{
 					ExecutionID:      executionID, // Same ID = UPDATE
 					NodeID:           nr.FlowNodeID,
 					Name:             executionName,
 					State:            mnnode.NODE_STATE_SUCCESS,
-					OutputData:       map[string]interface{}{"index": i, "completed": true},
+					OutputData:       map[string]any{"index": i, "completed": true},
 					IterationEvent:   true,
 					IterationIndex:   int(i),
 					LoopNodeID:       nr.FlowNodeID,
 					IterationContext: iterContext,
 				})
 			}
-			// Note: Do not emit iteration-level FAILURE for loop parent in FOR node.
 		}
 
 		// Handle iteration error according to error policy
