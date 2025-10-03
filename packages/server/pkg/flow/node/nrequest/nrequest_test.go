@@ -12,6 +12,7 @@ import (
 
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
+	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
@@ -150,5 +151,86 @@ func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 	}
 	if !strings.Contains(result.Err.Error(), "assertion failed") {
 		t.Fatalf("expected assertion failure message, got %v", result.Err)
+	}
+}
+
+func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
+	nodeID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	endpoint := mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "req", Url: "https://example.dev", Method: "GET"}
+	example := mitemapiexample.ItemApiExample{ID: exampleID, ItemApiID: endpoint.ID, Name: "req"}
+	rawBody := mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: example.ID, Data: []byte("{}")}
+	exampleResp := mexampleresp.ExampleResp{ID: idwrap.NewNow(), ExampleID: example.ID}
+	asserts := []massert.Assert{
+		{
+			ID:        idwrap.NewNow(),
+			ExampleID: example.ID,
+			Enable:    true,
+			Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "response.status == 205"}},
+		},
+	}
+
+	respChan := make(chan NodeRequestSideResp, 1)
+	requestNode := New(
+		nodeID,
+		"req",
+		endpoint,
+		example,
+		nil,
+		nil,
+		rawBody,
+		nil,
+		nil,
+		exampleResp,
+		nil,
+		asserts,
+		stubHTTPClient{},
+		respChan,
+		nil,
+	)
+
+	tracker := tracking.NewVariableTracker()
+	req := &node.FlowNodeRequest{
+		VarMap:          map[string]any{},
+		ReadWriteLock:   &sync.RWMutex{},
+		NodeMap:         map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
+		EdgeSourceMap:   edge.EdgesMap{},
+		ExecutionID:     idwrap.NewNow(),
+		VariableTracker: tracker,
+	}
+
+	result := requestNode.RunSync(context.Background(), req)
+	if result.Err == nil {
+		t.Fatalf("expected assertion failure, got nil error")
+	}
+
+	select {
+	case <-respChan:
+	default:
+		t.Fatalf("expected response side channel to receive entry")
+	}
+
+	written := tracker.GetWrittenVarsAsTree()
+	reqData, ok := written["req"]
+	if !ok {
+		t.Fatalf("expected tracker to record req writes, got %+v", written)
+	}
+	reqMap, ok := reqData.(map[string]any)
+	if !ok {
+		t.Fatalf("req entry is not a map: %#v", reqData)
+	}
+	respSection, ok := reqMap["response"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing response payload: %#v", reqMap)
+	}
+	if respSection["status"] == nil {
+		t.Fatalf("response status not tracked: %#v", respSection)
+	}
+	requestSection, ok := reqMap["request"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing request payload: %#v", reqMap)
+	}
+	if requestSection["url"] == nil {
+		t.Fatalf("request url not tracked: %#v", requestSection)
 	}
 }

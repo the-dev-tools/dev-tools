@@ -1467,6 +1467,23 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			done <- err
 		})
 	}
+
+	var streamSendMu sync.Mutex
+	sendNodeStatusSafe := func(nodeID idwrap.IDWrap, state nodev1.NodeState, info *string) error {
+		streamSendMu.Lock()
+		defer streamSendMu.Unlock()
+		return sendNodeStatus(stream, nodeID, state, info)
+	}
+	sendExampleResponseSafe := func(exampleID, responseID idwrap.IDWrap) error {
+		streamSendMu.Lock()
+		defer streamSendMu.Unlock()
+		return sendExampleResponse(stream, exampleID, responseID)
+	}
+	sendFlowResponseSafe := func(resp *flowv1.FlowRunResponse) error {
+		streamSendMu.Lock()
+		defer streamSendMu.Unlock()
+		return stream.Send(resp)
+	}
 	nodeExecutionChan := make(chan mnodeexecution.NodeExecution, bufferSize)
 
 	// Collector goroutine for node executions
@@ -1659,6 +1676,66 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			}
 		}
 	}()
+
+	processRequestResponse := func(requestNodeResp nrequest.NodeRequestSideResp) error {
+		err := c.HandleExampleChanges(ctx, requestNodeResp)
+		if err != nil {
+			log.Println("cannot update example on flow run", err)
+		}
+
+		pendingMutex.Lock()
+		targetExecutionID := requestNodeResp.ExecutionID
+		responseReceivedTime := time.Now()
+
+		if targetExecutionID != (idwrap.IDWrap{}) && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
+			if nodeExec, exists := pendingNodeExecutions[targetExecutionID]; exists {
+				respID := requestNodeResp.Resp.ExampleResp.ID
+				nodeExec.ResponseID = &respID
+
+				if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+					log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
+				}
+
+				if nodeExec.CompletedAt != nil && !channelsClosed.Load() {
+					select {
+					case nodeExecutionChan <- *nodeExec:
+						delete(pendingNodeExecutions, targetExecutionID)
+					case <-stopSending:
+						// Channel closed, don't send
+					}
+				} else if nodeExec.CompletedAt != nil {
+					delete(pendingNodeExecutions, targetExecutionID)
+				}
+
+				for i := range nodeExecutions {
+					if nodeExecutions[i].ID == targetExecutionID {
+						nodeExecutions[i].ResponseID = &respID
+						break
+					}
+				}
+			} else {
+				if logOrphanedResponses {
+					log.Printf("No pending execution found for response %s (pending: %d, orphaned: %d)",
+						targetExecutionID.String(), len(pendingNodeExecutions), len(orphanedResponses))
+				}
+
+				respID := requestNodeResp.Resp.ExampleResp.ID
+				orphanedResponses[targetExecutionID] = struct {
+					ResponseID idwrap.IDWrap
+					Timestamp  int64
+				}{
+					ResponseID: respID,
+					Timestamp:  responseReceivedTime.UnixMilli(),
+				}
+			}
+		}
+		pendingMutex.Unlock()
+
+		if localErr := sendExampleResponseSafe(requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID); localErr != nil {
+			return localErr
+		}
+		return nil
+	}
 
 	// Removed periodic timeout/cleanup goroutine to simplify flow.
 
@@ -2072,7 +2149,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 									}
 								}
 								resp := &flowv1.FlowRunResponse{Node: nodeMsg}
-								if err := stream.Send(resp); err != nil {
+								if err := sendFlowResponseSafe(resp); err != nil {
 									signalDone(err)
 									return
 								}
@@ -2081,80 +2158,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					}
 					pendingMutex.Unlock()
 				}
-			}
-
-			// Handle request node responses
-			select {
-			case requestNodeResp, ok := <-requestNodeRespChan:
-				if !ok {
-					requestNodeRespChan = nil
-					break
-				}
-				err = c.HandleExampleChanges(ctx, requestNodeResp)
-				if err != nil {
-					log.Println("cannot update example on flow run", err)
-				}
-
-				// Use ExecutionID from the response to find the correct execution
-				pendingMutex.Lock()
-				targetExecutionID := requestNodeResp.ExecutionID
-				responseReceivedTime := time.Now()
-
-				if targetExecutionID != (idwrap.IDWrap{}) && requestNodeResp.Resp.ExampleResp.ID != (idwrap.IDWrap{}) {
-					if nodeExec, exists := pendingNodeExecutions[targetExecutionID]; exists {
-						respID := requestNodeResp.Resp.ExampleResp.ID
-						nodeExec.ResponseID = &respID
-
-						// Upsert execution in DB with ResponseID synchronously to avoid regressing terminal fields
-						if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-							log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
-						}
-
-						// If the node already has a terminal status, forward it now.
-						if nodeExec.CompletedAt != nil && !channelsClosed.Load() {
-							select {
-							case nodeExecutionChan <- *nodeExec:
-								delete(pendingNodeExecutions, targetExecutionID)
-							case <-stopSending:
-								// Channel closed, don't send
-							}
-						} else if nodeExec.CompletedAt != nil {
-							delete(pendingNodeExecutions, targetExecutionID)
-						}
-
-						// Also update the corresponding entry in nodeExecutions array
-						for i := range nodeExecutions {
-							if nodeExecutions[i].ID == targetExecutionID {
-								nodeExecutions[i].ResponseID = &respID
-								break
-							}
-						}
-					} else {
-						if logOrphanedResponses {
-							log.Printf("No pending execution found for response %s (pending: %d, orphaned: %d)",
-								targetExecutionID.String(), len(pendingNodeExecutions), len(orphanedResponses))
-						}
-
-						// RACE CONDITION FIX: Store orphaned response for later correlation
-						respID := requestNodeResp.Resp.ExampleResp.ID
-
-						orphanedResponses[targetExecutionID] = struct {
-							ResponseID idwrap.IDWrap
-							Timestamp  int64
-						}{
-							ResponseID: respID,
-							Timestamp:  responseReceivedTime.UnixMilli(),
-						}
-					}
-				}
-				pendingMutex.Unlock()
-
-				if localErr := sendExampleResponse(stream, requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID); localErr != nil {
-					signalDone(localErr)
-					return
-				}
-
-			default:
 			}
 
 			// Send node status response
@@ -2171,7 +2174,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					info = &msg
 				}
 			}
-			if err := sendNodeStatus(stream, flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
+			if err := sendNodeStatusSafe(flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
 				signalDone(err)
 				return
 			}
@@ -2247,6 +2250,39 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					flowStatusClosed = true
 					signalDone(nil)
 					return
+				}
+			}
+		}
+	}()
+
+	// Dedicated goroutine to drain request node responses promptly.
+	goroutineWg.Add(1)
+	go func() {
+		defer goroutineWg.Done()
+		for {
+			select {
+			case requestNodeResp, ok := <-requestNodeRespChan:
+				if !ok {
+					return
+				}
+				if err := processRequestResponse(requestNodeResp); err != nil {
+					signalDone(err)
+					return
+				}
+			case <-stopSending:
+				for {
+					select {
+					case requestNodeResp, ok := <-requestNodeRespChan:
+						if !ok {
+							return
+						}
+						if err := processRequestResponse(requestNodeResp); err != nil {
+							signalDone(err)
+							return
+						}
+					default:
+						return
+					}
 				}
 			}
 		}
@@ -2375,7 +2411,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		Version: tflowversion.ModelToRPC(res.Flow),
 	}
 
-	err = stream.Send(resp)
+	err = sendFlowResponseSafe(resp)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

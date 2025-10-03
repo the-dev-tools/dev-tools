@@ -214,8 +214,9 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			}
 
 			// Create initial RUNNING record
+			var iterationData map[string]any
 			if req.LogPushFunc != nil {
-				iterationData := map[string]any{
+				iterationData = map[string]any{
 					"item": item,
 					"key":  itemIndex,
 				}
@@ -239,20 +240,34 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			result := processNode(currentIndex)
 
 			// Update iteration record based on result
-			if req.LogPushFunc != nil && result.Err == nil {
-				// Update to SUCCESS (iteration completed successfully)
+			if req.LogPushFunc != nil {
 				executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
-				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID:      executionID, // Same ID = UPDATE
-					NodeID:           nr.FlowNodeID,
-					Name:             executionName,
-					State:            mnnode.NODE_STATE_SUCCESS,
-					OutputData:       map[string]any{"item": item, "key": currentIndex},
-					IterationEvent:   true,
-					IterationIndex:   currentIndex,
-					LoopNodeID:       nr.FlowNodeID,
-					IterationContext: iterContext,
-				})
+				if result.Err != nil {
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID:      executionID, // Same ID = UPDATE
+						NodeID:           nr.FlowNodeID,
+						Name:             executionName,
+						State:            mnnode.NODE_STATE_FAILURE,
+						Error:            result.Err,
+						OutputData:       iterationData,
+						IterationEvent:   true,
+						IterationIndex:   currentIndex,
+						LoopNodeID:       nr.FlowNodeID,
+						IterationContext: iterContext,
+					})
+				} else {
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID:      executionID, // Same ID = UPDATE
+						NodeID:           nr.FlowNodeID,
+						Name:             executionName,
+						State:            mnnode.NODE_STATE_SUCCESS,
+						OutputData:       iterationData,
+						IterationEvent:   true,
+						IterationIndex:   currentIndex,
+						LoopNodeID:       nr.FlowNodeID,
+						IterationContext: iterContext,
+					})
+				}
 			}
 			// Loop node avoids emitting FAILURE updates; final state handled via FlowNodeResult.
 
@@ -347,8 +362,9 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			}
 
 			// Create initial RUNNING record
+			var iterationData map[string]any
 			if req.LogPushFunc != nil {
-				iterationData := map[string]any{
+				iterationData = map[string]any{
 					"item": value,
 					"key":  key,
 				}
@@ -371,20 +387,34 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 			result := processNode(currentIndex)
 
 			// Update iteration record based on result
-			if req.LogPushFunc != nil && result.Err == nil {
-				// Update to SUCCESS (iteration completed successfully)
+			if req.LogPushFunc != nil {
 				executionName := fmt.Sprintf("%s Iteration %d", nr.Name, currentIndex+1)
-				req.LogPushFunc(runner.FlowNodeStatus{
-					ExecutionID:      executionID, // Same ID = UPDATE
-					NodeID:           nr.FlowNodeID,
-					Name:             executionName,
-					State:            mnnode.NODE_STATE_SUCCESS,
-					OutputData:       map[string]any{"item": value, "key": key},
-					IterationEvent:   true,
-					IterationIndex:   currentIndex,
-					LoopNodeID:       nr.FlowNodeID,
-					IterationContext: iterContext,
-				})
+				if result.Err != nil {
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID:      executionID, // Same ID = UPDATE
+						NodeID:           nr.FlowNodeID,
+						Name:             executionName,
+						State:            mnnode.NODE_STATE_FAILURE,
+						Error:            result.Err,
+						OutputData:       iterationData,
+						IterationEvent:   true,
+						IterationIndex:   currentIndex,
+						LoopNodeID:       nr.FlowNodeID,
+						IterationContext: iterContext,
+					})
+				} else {
+					req.LogPushFunc(runner.FlowNodeStatus{
+						ExecutionID:      executionID, // Same ID = UPDATE
+						NodeID:           nr.FlowNodeID,
+						Name:             executionName,
+						State:            mnnode.NODE_STATE_SUCCESS,
+						OutputData:       iterationData,
+						IterationEvent:   true,
+						IterationIndex:   currentIndex,
+						LoopNodeID:       nr.FlowNodeID,
+						IterationContext: iterContext,
+					})
+				}
 			}
 			// Loop node avoids emitting FAILURE updates; final state handled via FlowNodeResult.
 
