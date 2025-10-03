@@ -58,6 +58,7 @@ import (
 	"the-dev-tools/server/pkg/overlay/merge"
 	"the-dev-tools/server/pkg/overlay/resolve"
 	"the-dev-tools/server/pkg/permcheck"
+	"the-dev-tools/server/pkg/serialdispatch"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
@@ -1468,40 +1469,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		})
 	}
 
-	type streamSendRequest struct {
-		fn    func() error
-		errCh chan error
-	}
+	dispatcher := serialdispatch.New(128)
+	defer dispatcher.Close()
 
-	streamSendCh := make(chan streamSendRequest, 128)
-	var streamWg sync.WaitGroup
-	streamWg.Add(1)
-	go func() {
-		defer streamWg.Done()
-		for req := range streamSendCh {
-			err := req.fn()
-			req.errCh <- err
-			close(req.errCh)
-		}
-	}()
-	defer func() {
-		close(streamSendCh)
-		streamWg.Wait()
-	}()
-
-	enqueueStreamSend := func(fn func() error) error {
-		errCh := make(chan error, 1)
-		streamSendCh <- streamSendRequest{fn: fn, errCh: errCh}
-		return <-errCh
-	}
 	sendNodeStatusSync := func(nodeID idwrap.IDWrap, state nodev1.NodeState, info *string) error {
-		return enqueueStreamSend(func() error { return sendNodeStatus(stream, nodeID, state, info) })
+		return dispatcher.Dispatch(func() error { return sendNodeStatus(stream, nodeID, state, info) })
 	}
 	sendExampleResponseSync := func(exampleID, responseID idwrap.IDWrap) error {
-		return enqueueStreamSend(func() error { return sendExampleResponse(stream, exampleID, responseID) })
+		return dispatcher.Dispatch(func() error { return sendExampleResponse(stream, exampleID, responseID) })
 	}
 	sendFlowResponseSync := func(resp *flowv1.FlowRunResponse) error {
-		return enqueueStreamSend(func() error { return stream.Send(resp) })
+		return dispatcher.Dispatch(func() error { return stream.Send(resp) })
 	}
 	nodeExecutionChan := make(chan mnodeexecution.NodeExecution, bufferSize)
 
