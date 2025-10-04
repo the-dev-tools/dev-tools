@@ -102,6 +102,53 @@ func (stubHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	}, nil
 }
 
+type requestNodeFixture struct {
+	node      *NodeRequest
+	flowReq   *node.FlowNodeRequest
+	exampleID idwrap.IDWrap
+}
+
+func newRequestNodeFixture(asserts []massert.Assert, respChan chan NodeRequestSideResp) requestNodeFixture {
+	nodeID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+	endpoint := mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "req", Url: "https://example.dev", Method: "GET"}
+	example := mitemapiexample.ItemApiExample{ID: exampleID, ItemApiID: endpoint.ID, Name: "req"}
+	rawBody := mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: example.ID, Data: []byte("{}")}
+	exampleResp := mexampleresp.ExampleResp{ExampleID: example.ID}
+
+	requestNode := New(
+		nodeID,
+		"req",
+		endpoint,
+		example,
+		nil,
+		nil,
+		rawBody,
+		nil,
+		nil,
+		exampleResp,
+		nil,
+		asserts,
+		stubHTTPClient{},
+		respChan,
+		nil,
+	)
+
+	flowReq := &node.FlowNodeRequest{
+		VarMap:        map[string]any{},
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
+		EdgeSourceMap: edge.EdgesMap{},
+		ExecutionID:   idwrap.NewNow(),
+	}
+
+	return requestNodeFixture{
+		node:      requestNode,
+		flowReq:   flowReq,
+		exampleID: exampleID,
+	}
+}
+
 func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	exampleID := idwrap.NewNow()
@@ -293,5 +340,56 @@ func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 		}
 	default:
 		t.Fatalf("expected response side channel to receive entry")
+	}
+}
+
+func TestNodeRequestRunSyncSuccessSendsResponseID(t *testing.T) {
+	respChan := make(chan NodeRequestSideResp, 1)
+	fixture := newRequestNodeFixture(nil, respChan)
+
+	result := fixture.node.RunSync(context.Background(), fixture.flowReq)
+	if result.Err != nil {
+		t.Fatalf("expected success, got error: %v", result.Err)
+	}
+
+	select {
+	case resp := <-respChan:
+		if resp.Resp.ExampleResp.ID == (idwrap.IDWrap{}) {
+			t.Fatalf("expected response id to be set on success: %#v", resp.Resp.ExampleResp)
+		}
+		if resp.Resp.ExampleResp.ExampleID != fixture.exampleID {
+			t.Fatalf("expected response example id %s, got %s", fixture.exampleID, resp.Resp.ExampleResp.ExampleID)
+		}
+	default:
+		t.Fatalf("expected response side channel to receive entry")
+	}
+}
+
+func TestNodeRequestRunAsyncSuccessSendsResponseID(t *testing.T) {
+	respChan := make(chan NodeRequestSideResp, 1)
+	resultChan := make(chan node.FlowNodeResult, 1)
+	fixture := newRequestNodeFixture(nil, respChan)
+
+	fixture.node.RunAsync(context.Background(), fixture.flowReq, resultChan)
+
+	select {
+	case result := <-resultChan:
+		if result.Err != nil {
+			t.Fatalf("expected async success, got error: %v", result.Err)
+		}
+	default:
+		t.Fatalf("expected async result to be delivered")
+	}
+
+	select {
+	case resp := <-respChan:
+		if resp.Resp.ExampleResp.ID == (idwrap.IDWrap{}) {
+			t.Fatalf("expected response id to be set on async success: %#v", resp.Resp.ExampleResp)
+		}
+		if resp.Resp.ExampleResp.ExampleID != fixture.exampleID {
+			t.Fatalf("expected response example id %s, got %s", fixture.exampleID, resp.Resp.ExampleResp.ExampleID)
+		}
+	default:
+		t.Fatalf("expected async response side channel to receive entry")
 	}
 }

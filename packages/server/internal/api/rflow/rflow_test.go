@@ -366,6 +366,35 @@ func TestFlowRunAdHoc_PersistsRequestOutput(t *testing.T) {
 	require.True(t, sawResponse, "expected to observe response output for request node")
 }
 
+func TestFlowRunAdHoc_RequestSuccessHasResponseID(t *testing.T) {
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	stream := noopStream{}
+	require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
+
+	ctx := context.Background()
+	execs, err := harness.svc.nes.GetNodeExecutionsByNodeID(ctx, harness.requestNodeID)
+	require.NoError(t, err)
+	require.NotEmpty(t, execs, "expected at least one request node execution")
+
+	var sawSuccess bool
+	for _, exec := range execs {
+		if exec.State != mnnode.NODE_STATE_SUCCESS {
+			continue
+		}
+		sawSuccess = true
+		require.NotNilf(t, exec.ResponseID, "success execution %s missing response id", exec.ID.String())
+
+		resp, respErr := harness.svc.ers.GetExampleResp(ctx, *exec.ResponseID)
+		require.NoErrorf(t, respErr, "expected response %s to be persisted", exec.ResponseID.String())
+		require.NotNil(t, resp)
+		require.Equalf(t, harness.exampleID, resp.ExampleID, "response %s should belong to harness example", resp.ID.String())
+	}
+
+	require.True(t, sawSuccess, "expected to find successful request execution")
+}
+
 func TestFlowRunAdHoc_SelectedEnvironmentOverridesVariables(t *testing.T) {
 	harness := setupFlowRunHarness(t)
 	defer harness.cleanup()
