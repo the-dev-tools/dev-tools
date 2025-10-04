@@ -75,6 +75,44 @@ func TestHarResvoledSimple(t *testing.T) {
 	}
 }
 
+func TestConvertHARWithExistingDataReusesFolders(t *testing.T) {
+	entry := thar.Entry{}
+	entry.Request.Method = "GET"
+	entry.Request.URL = "https://api.example.com/v1/users"
+	entry.Request.HTTPVersion = "HTTP/1.1"
+	entry.Request.Headers = []thar.Header{{Name: "Content-Type", Value: "application/json"}}
+
+	collectionID := idwrap.NewNow()
+	workspaceID := idwrap.NewNow()
+
+	incoming := thar.HAR{Log: thar.Log{Entries: []thar.Entry{entry}}}
+
+	first, err := thar.ConvertHARWithExistingData(&incoming, collectionID, workspaceID, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, first.Folders)
+	require.NotEmpty(t, first.Apis)
+
+	existingFolders := append([]mitemfolder.ItemFolder(nil), first.Folders...)
+	second, err := thar.ConvertHARWithExistingData(&incoming, collectionID, workspaceID, existingFolders)
+	require.NoError(t, err)
+	require.Empty(t, second.Folders, "expected no new folders when existing structure provided")
+	require.NotEmpty(t, second.Apis)
+	require.NotNil(t, second.Apis[0].FolderID)
+
+	folderIndex := make(map[string]struct{}, len(existingFolders))
+	for _, folder := range existingFolders {
+		folderIndex[folder.ID.String()] = struct{}{}
+	}
+
+	for _, api := range second.Apis {
+		if api.FolderID == nil {
+			t.Fatalf("expected API %s to reference a folder", api.ID.String())
+		}
+		_, ok := folderIndex[api.FolderID.String()]
+		require.Truef(t, ok, "api folder %s should reference an existing folder", api.FolderID.String())
+	}
+}
+
 func TestHarResvoledBodyRaw(t *testing.T) {
 	Entry := thar.Entry{}
 	Entry.Request.Method = "GET"

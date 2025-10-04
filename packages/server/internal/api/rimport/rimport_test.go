@@ -3,6 +3,7 @@ package rimport
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -74,6 +75,137 @@ const minimalHAR = `{
             "size": 15,
             "mimeType": "application/json",
             "text": "{\"ok\":true}"
+          }
+        }
+      }
+    ]
+  }
+}`
+
+const richHAR = `{
+  "log": {
+    "entries": [
+      {
+        "startedDateTime": "2024-01-01T00:00:00Z",
+        "_resourceType": "xhr",
+        "request": {
+          "method": "GET",
+          "url": "https://api.example.com/v1/users",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"}
+          ],
+          "queryString": [
+            {"name": "limit", "value": "10"}
+          ]
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"}
+          ],
+          "content": {
+            "size": 2,
+            "mimeType": "application/json",
+            "text": "{}"
+          }
+        }
+      },
+      {
+        "startedDateTime": "2024-01-01T00:00:01Z",
+        "_resourceType": "xhr",
+        "request": {
+          "method": "POST",
+          "url": "https://api.example.com/v1/users",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"}
+          ],
+          "queryString": [],
+          "postData": {
+            "mimeType": "application/json",
+            "text": "{\"name\":\"Alice\"}"
+          }
+        },
+        "response": {
+          "status": 201,
+          "statusText": "Created",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"}
+          ],
+          "content": {
+            "size": 2,
+            "mimeType": "application/json",
+            "text": "{}"
+          }
+        }
+      },
+      {
+        "startedDateTime": "2024-01-01T00:00:02Z",
+        "_resourceType": "xhr",
+        "request": {
+          "method": "POST",
+          "url": "https://api.example.com/v1/uploads",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "multipart/form-data"}
+          ],
+          "queryString": [],
+          "postData": {
+            "mimeType": "multipart/form-data",
+            "params": [
+              {"name": "avatar", "value": "base64-bytes"},
+              {"name": "description", "value": "headshot"}
+            ]
+          }
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"}
+          ],
+          "content": {
+            "size": 2,
+            "mimeType": "application/json",
+            "text": "{}"
+          }
+        }
+      },
+      {
+        "startedDateTime": "2024-01-01T00:00:03Z",
+        "_resourceType": "xhr",
+        "request": {
+          "method": "POST",
+          "url": "https://api.example.com/v1/preferences",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/x-www-form-urlencoded"}
+          ],
+          "queryString": [],
+          "postData": {
+            "mimeType": "application/x-www-form-urlencoded",
+            "params": [
+              {"name": "theme", "value": "dark"},
+              {"name": "alerts", "value": "email"}
+            ]
+          }
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"}
+          ],
+          "content": {
+            "size": 2,
+            "mimeType": "application/json",
+            "text": "{}"
           }
         }
       }
@@ -218,6 +350,160 @@ func TestImportHar_ReimportRegression(t *testing.T) {
 		err = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM collection_items WHERE folder_id = ?", folder.ID.Bytes()).Scan(&count)
 		require.NoError(t, err)
 		require.Equalf(t, 1, count, "folder %s should map to exactly one collection_items row", folder.ID.String())
+	}
+}
+
+func TestImportHar_ReimportDoesNotDuplicateExamples(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _, cs, ias, workspaceID, userID, _ := setupImportService(t, ctx)
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+
+	req := connect.NewRequest(&importv1.ImportRequest{
+		WorkspaceId: workspaceID.Bytes(),
+		Data:        []byte(richHAR),
+		DomainData: []*importv1.ImportDomainData{
+			{
+				Domain:   "api.example.com",
+				Variable: "main_url",
+				Enabled:  true,
+			},
+		},
+		Name: "Rich HAR",
+	})
+
+	_, err := svc.Import(authedCtx, req)
+	require.NoError(t, err)
+
+	collection, err := cs.GetCollectionByWorkspaceIDAndName(ctx, workspaceID, "Imported")
+	require.NoError(t, err)
+
+	apis, err := ias.GetApisWithCollectionID(ctx, collection.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, apis)
+
+	type exampleSnapshot struct {
+		headers    int
+		queries    int
+		rawBody    bool
+		formBodies int
+		urlBodies  int
+		asserts    int
+	}
+
+	initialExamplesByEndpoint := make(map[idwrap.IDWrap]map[string]struct{})
+	initialSnapshotsByExample := make(map[string]exampleSnapshot)
+
+	var seenHeaders, seenQueries, seenRaw, seenForm, seenUrl, seenAsserts bool
+
+	captureSnapshot := func(exampleID idwrap.IDWrap) exampleSnapshot {
+		snap := exampleSnapshot{}
+
+		headers, headerErr := svc.headerService.GetHeaderByExampleID(ctx, exampleID)
+		if headerErr != nil {
+			require.True(t, errors.Is(headerErr, sexampleheader.ErrNoHeaderFound))
+		} else {
+			snap.headers = len(headers)
+		}
+
+		queries, queryErr := svc.queryService.GetExampleQueriesByExampleID(ctx, exampleID)
+		if queryErr != nil {
+			require.True(t, errors.Is(queryErr, sexamplequery.ErrNoQueryFound))
+		} else {
+			snap.queries = len(queries)
+		}
+
+		if raw, rawErr := svc.bodyRawService.GetBodyRawByExampleID(ctx, exampleID); rawErr != nil {
+			require.True(t, errors.Is(rawErr, sbodyraw.ErrNoBodyRawFound))
+		} else if raw != nil {
+			snap.rawBody = true
+		}
+
+		forms, formErr := svc.bodyFormService.GetBodyFormsByExampleID(ctx, exampleID)
+		if formErr != nil {
+			require.True(t, errors.Is(formErr, sbodyform.ErrNoBodyFormFound))
+		} else {
+			snap.formBodies = len(forms)
+		}
+
+		urls, urlErr := svc.bodyURLEncodedService.GetBodyURLEncodedByExampleID(ctx, exampleID)
+		if urlErr != nil {
+			require.True(t, errors.Is(urlErr, sbodyurl.ErrNoBodyUrlEncodedFound))
+		} else {
+			snap.urlBodies = len(urls)
+		}
+
+		asserts, assertErr := svc.as.GetAssertByExampleID(ctx, exampleID)
+		if assertErr != nil {
+			require.True(t, errors.Is(assertErr, sassert.ErrNoAssertFound))
+		} else {
+			snap.asserts = len(asserts)
+		}
+
+		return snap
+	}
+
+	for _, api := range apis {
+		examples, getErr := svc.iaes.GetApiExamples(ctx, api.ID)
+		require.NoError(t, getErr)
+		if len(examples) == 0 {
+			continue
+		}
+		exampleSet := make(map[string]struct{}, len(examples))
+		for _, example := range examples {
+			exampleSet[example.ID.String()] = struct{}{}
+			snap := captureSnapshot(example.ID)
+			initialSnapshotsByExample[example.ID.String()] = snap
+			if snap.headers > 0 {
+				seenHeaders = true
+			}
+			if snap.queries > 0 {
+				seenQueries = true
+			}
+			if snap.rawBody {
+				seenRaw = true
+			}
+			if snap.formBodies > 0 {
+				seenForm = true
+			}
+			if snap.urlBodies > 0 {
+				seenUrl = true
+			}
+			if snap.asserts > 0 {
+				seenAsserts = true
+			}
+		}
+		initialExamplesByEndpoint[api.ID] = exampleSet
+	}
+
+	require.True(t, seenHeaders, "expected at least one header to be created")
+	require.True(t, seenQueries, "expected at least one query param to be created")
+	require.True(t, seenRaw, "expected at least one raw body to be created")
+	require.True(t, seenForm, "expected at least one form body to be created")
+	require.True(t, seenUrl, "expected at least one urlencoded body to be created")
+	require.True(t, seenAsserts, "expected at least one assertion to be created")
+
+	_, err = svc.Import(authedCtx, req)
+	require.NoError(t, err)
+
+	apisAfter, err := ias.GetApisWithCollectionID(ctx, collection.ID)
+	require.NoError(t, err)
+	require.Len(t, apisAfter, len(apis))
+
+	for _, api := range apisAfter {
+		examples, getErr := svc.iaes.GetApiExamples(ctx, api.ID)
+		require.NoError(t, getErr)
+		initialSet := initialExamplesByEndpoint[api.ID]
+		require.Len(t, examples, len(initialSet))
+		for _, example := range examples {
+			_, exists := initialSet[example.ID.String()]
+			require.Truef(t, exists, "expected example %s to be reused on re-import", example.ID.String())
+
+			initialSnap, ok := initialSnapshotsByExample[example.ID.String()]
+			require.True(t, ok, "missing baseline snapshot for example %s", example.ID.String())
+			currentSnap := captureSnapshot(example.ID)
+			require.Equalf(t, initialSnap, currentSnap, "example %s payloads changed after re-import", example.ID.String())
+		}
 	}
 }
 

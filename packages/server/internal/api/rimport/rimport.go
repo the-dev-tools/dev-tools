@@ -15,9 +15,14 @@ import (
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
 	yamlflowsimple "the-dev-tools/server/pkg/io/yamlflow/yamlflowsimple"
+	"the-dev-tools/server/pkg/model/massert"
+	"the-dev-tools/server/pkg/model/mbodyform"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mexampleheader"
+	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mitemapi"
@@ -886,34 +891,82 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 
 	txItemApiExampleService := c.iaes.TX(tx)
 
-	// Update example API IDs based on mapping
-	var updatedExamples []mitemapiexample.ItemApiExample
+	exampleMapping := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	newExampleIDs := make(map[idwrap.IDWrap]struct{})
+	existingExamplesCache := make(map[idwrap.IDWrap]map[string]mitemapiexample.ItemApiExample)
+
+	var examplesToCreate []mitemapiexample.ItemApiExample
+	var examplesToUpdate []mitemapiexample.ItemApiExample
+
 	for _, example := range resolved.Examples {
-		if mappedID, ok := apiMapping[example.ItemApiID]; ok {
-			example.ItemApiID = mappedID
-			updatedExamples = append(updatedExamples, example)
+		mappedAPIID, ok := apiMapping[example.ItemApiID]
+		if !ok {
+			continue
 		}
-		// Skip examples that don't have a corresponding API in this collection
-		// This can happen when filtering by domain in HAR import
+
+		originalExampleID := example.ID
+		example.ItemApiID = mappedAPIID
+
+		if example.VersionParentID != nil {
+			if mappedParentID, ok := exampleMapping[*example.VersionParentID]; ok {
+				example.VersionParentID = &mappedParentID
+			}
+		}
+
+		existingByKey, cached := existingExamplesCache[mappedAPIID]
+		if !cached {
+			existingByKey = make(map[string]mitemapiexample.ItemApiExample)
+			existingExamples, getErr := txItemApiExampleService.GetApiExamples(ctx, mappedAPIID)
+			if getErr != nil && !errors.Is(getErr, sitemapiexample.ErrNoItemApiExampleFound) {
+				return nil, connect.NewError(connect.CodeInternal, getErr)
+			}
+			for _, existingExample := range existingExamples {
+				existingByKey[harExampleMergeKey(existingExample)] = existingExample
+			}
+			existingExamplesCache[mappedAPIID] = existingByKey
+		}
+
+		key := harExampleMergeKey(example)
+		if existingExample, found := existingByKey[key]; found {
+			exampleMapping[originalExampleID] = existingExample.ID
+			example.ID = existingExample.ID
+
+			needsUpdate := example.Name != existingExample.Name ||
+				example.BodyType != existingExample.BodyType ||
+				example.IsDefault != existingExample.IsDefault
+
+			if !needsUpdate {
+				if (example.VersionParentID == nil) != (existingExample.VersionParentID == nil) {
+					needsUpdate = true
+				} else if example.VersionParentID != nil && existingExample.VersionParentID != nil && example.VersionParentID.Compare(*existingExample.VersionParentID) != 0 {
+					needsUpdate = true
+				}
+			}
+
+			if needsUpdate {
+				examplesToUpdate = append(examplesToUpdate, example)
+			}
+			continue
+		}
+
+		exampleMapping[originalExampleID] = example.ID
+		newExampleIDs[example.ID] = struct{}{}
+		examplesToCreate = append(examplesToCreate, example)
+		existingByKey[key] = example
 	}
 
-	// TODO: For existing endpoints, we should check if we need to delete old examples
-	// For now, just create new examples
-	if len(updatedExamples) > 0 {
-		// CreateApiExampleBulk expects exactly 10 items, so we need to batch or create individually
-		for i := 0; i < len(updatedExamples); i += 10 {
+	if len(examplesToCreate) > 0 {
+		for i := 0; i < len(examplesToCreate); i += 10 {
 			end := i + 10
-			if end > len(updatedExamples) {
-				// Create remaining items individually
-				for j := i; j < len(updatedExamples); j++ {
-					err = txItemApiExampleService.CreateApiExample(ctx, &updatedExamples[j])
+			if end > len(examplesToCreate) {
+				for j := i; j < len(examplesToCreate); j++ {
+					err = txItemApiExampleService.CreateApiExample(ctx, &examplesToCreate[j])
 					if err != nil {
 						return nil, connect.NewError(connect.CodeInternal, err)
 					}
 				}
 			} else {
-				// Create batch of exactly 10
-				batch := updatedExamples[i:end]
+				batch := examplesToCreate[i:end]
 				err = txItemApiExampleService.CreateApiExampleBulk(ctx, batch)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
@@ -921,6 +974,282 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 			}
 		}
 	}
+
+	for i := range examplesToUpdate {
+		if err := txItemApiExampleService.UpdateItemApiExample(ctx, &examplesToUpdate[i]); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	mergeHeaderService := c.headerService.TX(tx)
+	mergeQueryService := c.queryService.TX(tx)
+	mergeBodyRawService := c.bodyRawService.TX(tx)
+	mergeBodyFormService := c.bodyFormService.TX(tx)
+	mergeBodyUrlService := c.bodyURLEncodedService.TX(tx)
+
+	headerIDMapping := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	queryIDMapping := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	formIDMapping := make(map[idwrap.IDWrap]idwrap.IDWrap)
+	urlBodyIDMapping := make(map[idwrap.IDWrap]idwrap.IDWrap)
+
+	existingHeadersCache := make(map[idwrap.IDWrap]map[string]mexampleheader.Header)
+	existingQueriesCache := make(map[idwrap.IDWrap]map[string]mexamplequery.Query)
+	existingFormBodiesCache := make(map[idwrap.IDWrap]map[string]mbodyform.BodyForm)
+	existingUrlBodiesCache := make(map[idwrap.IDWrap]map[string]mbodyurl.BodyURLEncoded)
+
+	loadExistingHeaders := func(exampleID idwrap.IDWrap) (map[string]mexampleheader.Header, error) {
+		if cached, ok := existingHeadersCache[exampleID]; ok {
+			return cached, nil
+		}
+		headers, err := mergeHeaderService.GetHeaderByExampleID(ctx, exampleID)
+		if err != nil && !errors.Is(err, sexampleheader.ErrNoHeaderFound) {
+			return nil, err
+		}
+		cache := make(map[string]mexampleheader.Header, len(headers))
+		for _, h := range headers {
+			cache[harHeaderMergeKey(h)] = h
+			headerIDMapping[h.ID] = h.ID
+		}
+		existingHeadersCache[exampleID] = cache
+		return cache, nil
+	}
+
+	loadExistingQueries := func(exampleID idwrap.IDWrap) (map[string]mexamplequery.Query, error) {
+		if cached, ok := existingQueriesCache[exampleID]; ok {
+			return cached, nil
+		}
+		queries, err := mergeQueryService.GetExampleQueriesByExampleID(ctx, exampleID)
+		if err != nil && !errors.Is(err, sexamplequery.ErrNoQueryFound) {
+			return nil, err
+		}
+		cache := make(map[string]mexamplequery.Query, len(queries))
+		for _, q := range queries {
+			cache[harQueryMergeKey(q)] = q
+			queryIDMapping[q.ID] = q.ID
+		}
+		existingQueriesCache[exampleID] = cache
+		return cache, nil
+	}
+
+	loadExistingFormBodies := func(exampleID idwrap.IDWrap) (map[string]mbodyform.BodyForm, error) {
+		if cached, ok := existingFormBodiesCache[exampleID]; ok {
+			return cached, nil
+		}
+		bodies, err := mergeBodyFormService.GetBodyFormsByExampleID(ctx, exampleID)
+		if err != nil && !errors.Is(err, sbodyform.ErrNoBodyFormFound) {
+			return nil, err
+		}
+		cache := make(map[string]mbodyform.BodyForm, len(bodies))
+		for _, b := range bodies {
+			cache[harBodyFormMergeKey(b)] = b
+			formIDMapping[b.ID] = b.ID
+		}
+		existingFormBodiesCache[exampleID] = cache
+		return cache, nil
+	}
+
+	loadExistingUrlBodies := func(exampleID idwrap.IDWrap) (map[string]mbodyurl.BodyURLEncoded, error) {
+		if cached, ok := existingUrlBodiesCache[exampleID]; ok {
+			return cached, nil
+		}
+		bodies, err := mergeBodyUrlService.GetBodyURLEncodedByExampleID(ctx, exampleID)
+		if err != nil && !errors.Is(err, sbodyurl.ErrNoBodyUrlEncodedFound) {
+			return nil, err
+		}
+		cache := make(map[string]mbodyurl.BodyURLEncoded, len(bodies))
+		for _, b := range bodies {
+			cache[harBodyURLEncodedMergeKey(b)] = b
+			urlBodyIDMapping[b.ID] = b.ID
+		}
+		existingUrlBodiesCache[exampleID] = cache
+		return cache, nil
+	}
+
+	filterHeaders := make([]mexampleheader.Header, 0, len(resolved.Headers))
+	for _, header := range resolved.Headers {
+		mappedExampleID, ok := exampleMapping[header.ExampleID]
+		if !ok {
+			continue
+		}
+		header.ExampleID = mappedExampleID
+
+		if header.DeltaParentID != nil {
+			if mappedParentID, ok := headerIDMapping[*header.DeltaParentID]; ok {
+				header.DeltaParentID = &mappedParentID
+			}
+		}
+		if header.Prev != nil {
+			if mappedPrev, ok := headerIDMapping[*header.Prev]; ok {
+				header.Prev = &mappedPrev
+			} else {
+				header.Prev = nil
+			}
+		}
+		if header.Next != nil {
+			if mappedNext, ok := headerIDMapping[*header.Next]; ok {
+				header.Next = &mappedNext
+			} else {
+				header.Next = nil
+			}
+		}
+
+		if _, isNew := newExampleIDs[mappedExampleID]; !isNew {
+			existingHeaders, err := loadExistingHeaders(mappedExampleID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			key := harHeaderMergeKey(header)
+			if existing, found := existingHeaders[key]; found {
+				headerIDMapping[header.ID] = existing.ID
+				continue
+			}
+		}
+
+		filterHeaders = append(filterHeaders, header)
+		headerIDMapping[header.ID] = header.ID
+	}
+	resolved.Headers = filterHeaders
+
+	filterQueries := make([]mexamplequery.Query, 0, len(resolved.Queries))
+	for _, query := range resolved.Queries {
+		mappedExampleID, ok := exampleMapping[query.ExampleID]
+		if !ok {
+			continue
+		}
+		query.ExampleID = mappedExampleID
+
+		if query.DeltaParentID != nil {
+			if mappedParentID, ok := queryIDMapping[*query.DeltaParentID]; ok {
+				query.DeltaParentID = &mappedParentID
+			}
+		}
+
+		if _, isNew := newExampleIDs[mappedExampleID]; !isNew {
+			existingQueries, err := loadExistingQueries(mappedExampleID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			key := harQueryMergeKey(query)
+			if existing, found := existingQueries[key]; found {
+				queryIDMapping[query.ID] = existing.ID
+				continue
+			}
+		}
+
+		filterQueries = append(filterQueries, query)
+		queryIDMapping[query.ID] = query.ID
+	}
+	resolved.Queries = filterQueries
+
+	existingRawBodiesCache := make(map[idwrap.IDWrap]bool)
+	newRawBodiesInserted := make(map[idwrap.IDWrap]struct{})
+
+	filterRawBodies := make([]mbodyraw.ExampleBodyRaw, 0, len(resolved.RawBodies))
+	for _, body := range resolved.RawBodies {
+		mappedExampleID, ok := exampleMapping[body.ExampleID]
+		if !ok {
+			continue
+		}
+		body.ExampleID = mappedExampleID
+		if _, isNew := newExampleIDs[mappedExampleID]; !isNew {
+			exists, cached := existingRawBodiesCache[mappedExampleID]
+			if !cached {
+				if _, err := mergeBodyRawService.GetBodyRawByExampleID(ctx, mappedExampleID); err != nil {
+					if !errors.Is(err, sbodyraw.ErrNoBodyRawFound) {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+					exists = false
+				} else {
+					exists = true
+				}
+				existingRawBodiesCache[mappedExampleID] = exists
+			}
+			if exists {
+				continue
+			}
+		}
+		if _, seen := newRawBodiesInserted[mappedExampleID]; seen {
+			continue
+		}
+		newRawBodiesInserted[mappedExampleID] = struct{}{}
+		filterRawBodies = append(filterRawBodies, body)
+	}
+	resolved.RawBodies = filterRawBodies
+
+	filterFormBodies := make([]mbodyform.BodyForm, 0, len(resolved.FormBodies))
+	for _, body := range resolved.FormBodies {
+		mappedExampleID, ok := exampleMapping[body.ExampleID]
+		if !ok {
+			continue
+		}
+		body.ExampleID = mappedExampleID
+
+		if body.DeltaParentID != nil {
+			if mappedParentID, ok := formIDMapping[*body.DeltaParentID]; ok {
+				body.DeltaParentID = &mappedParentID
+			}
+		}
+
+		if _, isNew := newExampleIDs[mappedExampleID]; !isNew {
+			existingBodies, err := loadExistingFormBodies(mappedExampleID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			key := harBodyFormMergeKey(body)
+			if existing, found := existingBodies[key]; found {
+				formIDMapping[body.ID] = existing.ID
+				continue
+			}
+		}
+
+		filterFormBodies = append(filterFormBodies, body)
+		formIDMapping[body.ID] = body.ID
+	}
+	resolved.FormBodies = filterFormBodies
+
+	filterUrlBodies := make([]mbodyurl.BodyURLEncoded, 0, len(resolved.UrlEncodedBodies))
+	for _, body := range resolved.UrlEncodedBodies {
+		mappedExampleID, ok := exampleMapping[body.ExampleID]
+		if !ok {
+			continue
+		}
+		body.ExampleID = mappedExampleID
+
+		if body.DeltaParentID != nil {
+			if mappedParentID, ok := urlBodyIDMapping[*body.DeltaParentID]; ok {
+				body.DeltaParentID = &mappedParentID
+			}
+		}
+
+		if _, isNew := newExampleIDs[mappedExampleID]; !isNew {
+			existingBodies, err := loadExistingUrlBodies(mappedExampleID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			key := harBodyURLEncodedMergeKey(body)
+			if existing, found := existingBodies[key]; found {
+				urlBodyIDMapping[body.ID] = existing.ID
+				continue
+			}
+		}
+
+		filterUrlBodies = append(filterUrlBodies, body)
+		urlBodyIDMapping[body.ID] = body.ID
+	}
+	resolved.UrlEncodedBodies = filterUrlBodies
+
+	filterAsserts := make([]massert.Assert, 0, len(resolved.Asserts))
+	for _, assertion := range resolved.Asserts {
+		mappedExampleID, ok := exampleMapping[assertion.ExampleID]
+		if !ok {
+			continue
+		}
+		assertion.ExampleID = mappedExampleID
+		if _, isNew := newExampleIDs[mappedExampleID]; isNew {
+			filterAsserts = append(filterAsserts, assertion)
+		}
+	}
+	resolved.Asserts = filterAsserts
 
 	txExampleHeaderService := c.headerService.TX(tx)
 
@@ -1019,6 +1348,16 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 		if node.DeltaEndpointID != nil {
 			if mappedID, ok := apiMapping[*node.DeltaEndpointID]; ok {
 				node.DeltaEndpointID = &mappedID
+			}
+		}
+		if node.ExampleID != nil {
+			if mappedExampleID, ok := exampleMapping[*node.ExampleID]; ok {
+				node.ExampleID = &mappedExampleID
+			}
+		}
+		if node.DeltaExampleID != nil {
+			if mappedExampleID, ok := exampleMapping[*node.DeltaExampleID]; ok {
+				node.DeltaExampleID = &mappedExampleID
 			}
 		}
 		updatedRequestNodes = append(updatedRequestNodes, node)
@@ -1425,6 +1764,46 @@ func applyDomainVariablesToApis(apis []mitemapi.ItemApi, domains domainVariableS
 	}
 
 	return usage
+}
+
+func harExampleMergeKey(example mitemapiexample.ItemApiExample) string {
+	var parent string
+	if example.VersionParentID != nil {
+		parent = example.VersionParentID.String()
+	}
+	return fmt.Sprintf("%t|%s|%s", example.IsDefault, example.Name, parent)
+}
+
+func harHeaderMergeKey(header mexampleheader.Header) string {
+	parent := ""
+	if header.DeltaParentID != nil {
+		parent = header.DeltaParentID.String()
+	}
+	return fmt.Sprintf("%s|%s|%t|%s|%s", strings.ToLower(header.HeaderKey), header.Value, header.Enable, parent, header.Description)
+}
+
+func harQueryMergeKey(query mexamplequery.Query) string {
+	parent := ""
+	if query.DeltaParentID != nil {
+		parent = query.DeltaParentID.String()
+	}
+	return fmt.Sprintf("%s|%s|%t|%s|%s", strings.ToLower(query.QueryKey), query.Value, query.Enable, parent, query.Description)
+}
+
+func harBodyFormMergeKey(body mbodyform.BodyForm) string {
+	parent := ""
+	if body.DeltaParentID != nil {
+		parent = body.DeltaParentID.String()
+	}
+	return fmt.Sprintf("%s|%s|%t|%s|%s", strings.ToLower(body.BodyKey), body.Value, body.Enable, parent, body.Description)
+}
+
+func harBodyURLEncodedMergeKey(body mbodyurl.BodyURLEncoded) string {
+	parent := ""
+	if body.DeltaParentID != nil {
+		parent = body.DeltaParentID.String()
+	}
+	return fmt.Sprintf("%s|%s|%t|%s|%s", strings.ToLower(body.BodyKey), body.Value, body.Enable, parent, body.Description)
 }
 
 func buildTemplatedURL(variable, suffix string) string {
