@@ -823,14 +823,46 @@ func (c RequestRPC) QueryDeltaList(ctx context.Context, req *connect.Request[req
 	}
 	st := queryStateStore{s: c.qov}
 	dl := queryDeltaStore{s: c.qov}
-	originVals := func(ctx context.Context, ids []idwrap.IDWrap) (map[idwrap.IDWrap]overcore.Values, error) {
-		items, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
-		if err != nil {
-			return nil, err
+
+	originQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, originExampleID)
+	if err != nil {
+		if errors.Is(err, sexamplequery.ErrNoQueryFound) {
+			originQueries = nil
+		} else {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		m := make(map[idwrap.IDWrap]overcore.Values, len(items))
-		for _, it := range items {
-			m[it.ID] = overcore.Values{Key: it.QueryKey, Value: it.Value, Description: it.Description, Enabled: it.Enable}
+	}
+	deltaQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		if errors.Is(err, sexamplequery.ErrNoQueryFound) {
+			deltaQueries = nil
+		} else {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	originQueryByID := make(map[idwrap.IDWrap]mexamplequery.Query, len(originQueries))
+	originValuesByID := make(map[idwrap.IDWrap]overcore.Values, len(originQueries))
+	for _, q := range originQueries {
+		originQueryByID[q.ID] = q
+		originValuesByID[q.ID] = overcore.Values{Key: q.QueryKey, Value: q.Value, Description: q.Description, Enabled: q.Enable}
+	}
+
+	if len(deltaQueries) > 0 {
+		if err := seedMissingQueryStateFromDelta(ctx, st, deltaQueries, originQueryByID, deltaExampleID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	originVals := func(ctx context.Context, ids []idwrap.IDWrap) (map[idwrap.IDWrap]overcore.Values, error) {
+		if len(ids) == 0 || len(originValuesByID) == 0 {
+			return map[idwrap.IDWrap]overcore.Values{}, nil
+		}
+		m := make(map[idwrap.IDWrap]overcore.Values, len(ids))
+		for _, id := range ids {
+			if val, ok := originValuesByID[id]; ok {
+				m[id] = val
+			}
 		}
 		return m, nil
 	}
@@ -1424,6 +1456,47 @@ func headerBoolPtrIfDifferent(origin, next bool) *bool {
 	}
 	v := next
 	return &v
+}
+
+func seedMissingQueryStateFromDelta(ctx context.Context, st queryStateStore, deltaQueries []mexamplequery.Query, originQueries map[idwrap.IDWrap]mexamplequery.Query, deltaExampleID idwrap.IDWrap) error {
+	for _, query := range deltaQueries {
+		if query.DeltaParentID == nil {
+			continue
+		}
+
+		base, ok := originQueries[*query.DeltaParentID]
+		if !ok {
+			continue
+		}
+
+		state, exists, err := st.Get(ctx, deltaExampleID, base.ID)
+		if err != nil {
+			return err
+		}
+		if exists {
+			if state.Suppressed {
+				continue
+			}
+			if state.Key != nil || state.Val != nil || state.Desc != nil || state.Enabled != nil {
+				continue
+			}
+		}
+
+		keyPtr := headerStringPtrIfDifferent(base.QueryKey, query.QueryKey)
+		valPtr := headerStringPtrIfDifferent(base.Value, query.Value)
+		descPtr := headerStringPtrIfDifferent(base.Description, query.Description)
+		enabledPtr := headerBoolPtrIfDifferent(base.Enable, query.Enable)
+
+		if keyPtr == nil && valPtr == nil && descPtr == nil && enabledPtr == nil {
+			continue
+		}
+
+		if err := st.Upsert(ctx, deltaExampleID, base.ID, false, keyPtr, valPtr, descPtr, enabledPtr); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaCreateRequest]) (*connect.Response[requestv1.HeaderDeltaCreateResponse], error) {

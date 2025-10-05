@@ -57,6 +57,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/soverlayheader"
+	"the-dev-tools/server/pkg/service/soverlayquery"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -98,6 +99,7 @@ type ImportRPC struct {
 	headerService         sexampleheader.HeaderService
 	queryService          sexamplequery.ExampleQueryService
 	overlayHeaderService  *soverlayheader.Service
+	overlayQueryService   *soverlayquery.Service
 	flowService           sflow.FlowService
 	nodeService           snode.NodeService
 	nodeRequestService    snoderequest.NodeRequestService
@@ -180,6 +182,58 @@ func seedHeaderOverlayState(ctx context.Context, overlay *soverlayheader.Service
 	return nil
 }
 
+func seedQueryOverlayState(ctx context.Context, overlay *soverlayquery.Service, queries []mexamplequery.Query, examples []mitemapiexample.ItemApiExample) error {
+	if overlay == nil || len(queries) == 0 {
+		return nil
+	}
+
+	deltaExamples := make(map[idwrap.IDWrap]struct{})
+	for _, ex := range examples {
+		if ex.VersionParentID != nil {
+			deltaExamples[ex.ID] = struct{}{}
+		}
+	}
+
+	if len(deltaExamples) == 0 {
+		return nil
+	}
+
+	queryByID := make(map[idwrap.IDWrap]mexamplequery.Query, len(queries))
+	for _, q := range queries {
+		queryByID[q.ID] = q
+	}
+
+	for _, query := range queries {
+		if query.DeltaParentID == nil {
+			continue
+		}
+		if _, isDelta := deltaExamples[query.ExampleID]; !isDelta {
+			continue
+		}
+
+		parent := *query.DeltaParentID
+		base, ok := queryByID[parent]
+		if !ok {
+			continue
+		}
+
+		keyPtr := stringPtrIfDifferent(base.QueryKey, query.QueryKey)
+		valPtr := stringPtrIfDifferent(base.Value, query.Value)
+		descPtr := stringPtrIfDifferent(base.Description, query.Description)
+		enabledPtr := boolPtrIfDifferent(base.Enable, query.Enable)
+
+		if keyPtr == nil && valPtr == nil && descPtr == nil && enabledPtr == nil {
+			continue
+		}
+
+		if err := overlay.UpsertState(ctx, query.ExampleID, parent, false, keyPtr, valPtr, descPtr, enabledPtr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService,
 	ifs sitemfolder.ItemFolderService, ias sitemapi.ItemApiService,
 	iaes sitemapiexample.ItemApiExampleService, res sexampleresp.ExampleRespService,
@@ -210,6 +264,7 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionSe
 		headerService:         headerService,
 		queryService:          queryService,
 		overlayHeaderService:  func() *soverlayheader.Service { srv, _ := soverlayheader.New(db); return srv }(),
+		overlayQueryService:   func() *soverlayquery.Service { srv, _ := soverlayquery.New(db); return srv }(),
 		flowService:           flowService,
 		nodeService:           nodeService,
 		nodeRequestService:    nodeRequestService,
@@ -486,6 +541,10 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	if c.overlayHeaderService != nil {
 		txOverlayHeaderService = c.overlayHeaderService.TX(tx)
 	}
+	var txOverlayQueryService *soverlayquery.Service
+	if c.overlayQueryService != nil {
+		txOverlayQueryService = c.overlayQueryService.TX(tx)
+	}
 	txHeaderService := c.headerService.TX(tx)
 	err = txHeaderService.AppendBulkHeader(ctx, resolvedCurl.Headers)
 	if err != nil {
@@ -500,6 +559,11 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	err = txQueriesService.CreateBulkQuery(ctx, resolvedCurl.Queries)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
+	}
+	if txOverlayQueryService != nil {
+		if err := seedQueryOverlayState(ctx, txOverlayQueryService, resolvedCurl.Queries, resolvedCurl.Examples); err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	// Update workspace counts and timestamp inside transaction
@@ -613,6 +677,10 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	if c.overlayHeaderService != nil {
 		txOverlayHeaderService = c.overlayHeaderService.TX(tx)
 	}
+	var txOverlayQueryService *soverlayquery.Service
+	if c.overlayQueryService != nil {
+		txOverlayQueryService = c.overlayQueryService.TX(tx)
+	}
 	txHeaderService := c.headerService.TX(tx)
 	err = txHeaderService.AppendBulkHeader(ctx, items.Headers)
 	if err != nil {
@@ -627,6 +695,11 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	err = txQueriesService.CreateBulkQuery(ctx, items.Queries)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
+	}
+	if txOverlayQueryService != nil {
+		if err := seedQueryOverlayState(ctx, txOverlayQueryService, items.Queries, items.ApiExamples); err != nil {
+			return connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	// Update workspace counts and timestamp inside transaction
@@ -1548,6 +1621,10 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 	if c.overlayHeaderService != nil {
 		txOverlayHeaderService = c.overlayHeaderService.TX(tx)
 	}
+	var txOverlayQueryService *soverlayquery.Service
+	if c.overlayQueryService != nil {
+		txOverlayQueryService = c.overlayQueryService.TX(tx)
+	}
 
 	// Import headers
 	if len(resolved.Headers) > 0 {
@@ -1569,6 +1646,11 @@ func (c *ImportRPC) ImportSimplifiedYAML(ctx context.Context, workspaceID idwrap
 		err = txQueryService.CreateBulkQuery(ctx, resolved.Queries)
 		if err != nil {
 			return connect.NewError(connect.CodeInternal, err)
+		}
+		if txOverlayQueryService != nil {
+			if err := seedQueryOverlayState(ctx, txOverlayQueryService, resolved.Queries, resolved.Examples); err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
 		}
 	}
 
