@@ -1,7 +1,7 @@
-import { DescMessage, DescMethodUnary, MessageInitShape, MessageShape } from '@bufbuild/protobuf';
-import { ConnectError, createContextValues } from '@connectrpc/connect';
-import { UseMutationOptions, useTransport } from '@connectrpc/connect-query';
-import { useMutation, UseMutationResult } from '@tanstack/react-query';
+import { DescMessage, DescMethodStreaming, DescMethodUnary, MessageInitShape, MessageShape } from '@bufbuild/protobuf';
+import { ConnectError, createContextValues, Transport } from '@connectrpc/connect';
+import { ConnectQueryKey, createConnectQueryKey, UseMutationOptions, useTransport } from '@connectrpc/connect-query';
+import { AnyDataTag, DataTag, SkipToken, useMutation, UseMutationResult } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 import { enableErrorInterceptorKey } from './transport';
@@ -47,3 +47,17 @@ export function useConnectMutation<I extends DescMessage, O extends DescMessage,
     mutationFn,
   });
 }
+
+export type ConnectStreamingQueryKey<O extends DescMessage> = DataTag<
+  Omit<ConnectQueryKey, keyof AnyDataTag>,
+  O[],
+  ConnectError
+>;
+
+// TODO: replace with an official solution once implemented upstream
+// https://github.com/connectrpc/connect-query-es/issues/524
+export const createConnectStreamingQueryKey = <I extends DescMessage, O extends DescMessage>(params: {
+  input?: MessageInitShape<I> | SkipToken | undefined;
+  schema: DescMethodStreaming<I, O>;
+  transport?: Transport;
+}) => createConnectQueryKey({ ...params, cardinality: 'finite' } as never) as unknown as ConnectStreamingQueryKey<O>;

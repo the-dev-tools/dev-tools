@@ -1,5 +1,4 @@
 import { createClient } from '@connectrpc/connect';
-import { ConnectQueryKey, createConnectQueryKey } from '@connectrpc/connect-query';
 import { experimental_streamedQuery as streamedQuery, useQuery } from '@tanstack/react-query';
 import { Array, pipe } from 'effect';
 import { Ulid } from 'id128';
@@ -14,6 +13,7 @@ import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItem } from '@the-dev-tools/ui/tree';
+import { ConnectStreamingQueryKey, createConnectStreamingQueryKey } from '~api/connect-query';
 import { workspaceRouteApi } from '~routes';
 
 export const useLogsQuery = () => {
@@ -21,9 +21,8 @@ export const useLogsQuery = () => {
 
   const { logStream } = createClient(LogService, transport);
 
-  const queryKey: ConnectQueryKey<typeof LogStreamResponseSchema> = createConnectQueryKey({
-    cardinality: 'infinite',
-    schema: { ...LogService.method.logStream, methodKind: 'unary' },
+  const queryKey: ConnectStreamingQueryKey<typeof LogStreamResponseSchema> = createConnectStreamingQueryKey({
+    schema: LogService.method.logStream,
     transport,
   });
 
@@ -79,7 +78,7 @@ export const StatusBar = () => {
         <>
           <Button
             className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
-            onPress={() => void queryClient.setQueryData(queryKey, { pageParams: [], pages: [] })}
+            onPress={() => void queryClient.setQueryData(queryKey, [])}
             variant='ghost'
           >
             <FiTrash2 className={tw`size-3 text-slate-500`} />
