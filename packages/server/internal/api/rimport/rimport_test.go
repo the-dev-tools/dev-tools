@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -11,10 +12,12 @@ import (
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rrequest"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
@@ -44,6 +47,8 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/testutil"
 	"the-dev-tools/server/pkg/translate/thar"
+	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
+	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
 )
 
@@ -194,6 +199,70 @@ const richHAR = `{
               {"name": "alerts", "value": "email"}
             ]
           }
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"}
+          ],
+          "content": {
+            "size": 2,
+            "mimeType": "application/json",
+            "text": "{}"
+          }
+        }
+      }
+    ]
+  }
+}`
+
+const authHeaderHAR = `{
+  "log": {
+    "entries": [
+      {
+        "startedDateTime": "2024-01-01T00:00:00Z",
+        "_resourceType": "xhr",
+        "request": {
+          "method": "POST",
+          "url": "https://ecommerce-admin-panel.fly.dev/api/auth/login",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"}
+          ],
+          "postData": {
+            "mimeType": "application/json",
+            "text": "{\"email\":\"admin@example.com\",\"password\":\"admin123\"}"
+          },
+          "queryString": []
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"}
+          ],
+          "content": {
+            "size": 280,
+            "mimeType": "application/json",
+            "text": "{\"user\":{\"id\":\"592ab774-e783-4495-9b77-ad85689f84d7\",\"email\":\"admin@example.com\"},\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5MmFiNzc0LWU3ODMtNDQ5NS05Yjc3LWFkODU2ODlmODRkNyIsImlhdCI6MTc0ODQzODkyMSwiZXhwIjoxNzQ4NTI1MzIxfQ.nRJ8x6ItgC8aOXj8P8jonmjwwOgs2lVTCOd7-KbYlxQ\"}"
+          }
+        }
+      },
+      {
+        "startedDateTime": "2024-01-01T00:00:01Z",
+        "_resourceType": "xhr",
+        "request": {
+          "method": "GET",
+          "url": "https://ecommerce-admin-panel.fly.dev/api/categories",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjU5MmFiNzc0LWU3ODMtNDQ5NS05Yjc3LWFkODU2ODlmODRkNyIsImlhdCI6MTc0ODQzODkyMSwiZXhwIjoxNzQ4NTI1MzIxfQ.nRJ8x6ItgC8aOXj8P8jonmjwwOgs2lVTCOd7-KbYlxQ"}
+          ],
+          "queryString": []
         },
         "response": {
           "status": 200,
@@ -659,6 +728,144 @@ func TestEnsureDomainEnvironmentVariablesUpdatesExistingVars(t *testing.T) {
 		require.Equal(t, "https://api.example.com", v.Value)
 		require.True(t, v.Enabled)
 	}
+}
+
+func TestImportHar_SeedsAuthorizationHeaderOverlay(t *testing.T) {
+	ctx := context.Background()
+	svc, db, queries, cs, ias, workspaceID, userID, _ := setupImportService(t, ctx)
+
+	authedCtx := mwauth.CreateAuthedContext(ctx, userID)
+
+	collectionID := idwrap.NewNow()
+	harData, err := thar.ConvertRaw([]byte(authHeaderHAR))
+	require.NoError(t, err)
+
+	preview, err := thar.ConvertHAR(harData, collectionID, workspaceID)
+	require.NoError(t, err)
+	var previewCategoriesAPI idwrap.IDWrap
+	for _, api := range preview.Apis {
+		if api.DeltaParentID == nil && strings.Contains(api.Url, "/api/categories") && strings.EqualFold(api.Method, "GET") {
+			previewCategoriesAPI = api.ID
+			break
+		}
+	}
+	require.NotEqual(t, idwrap.IDWrap{}, previewCategoriesAPI, "expected categories API in preview")
+
+	var previewDeltaExampleID idwrap.IDWrap
+	for _, ex := range preview.Examples {
+		if ex.ItemApiID.Compare(previewCategoriesAPI) != 0 {
+			continue
+		}
+		if ex.VersionParentID != nil {
+			previewDeltaExampleID = ex.ID
+			break
+		}
+	}
+	require.NotEqual(t, idwrap.IDWrap{}, previewDeltaExampleID, "expected delta example in preview")
+
+	_, err = svc.ImportHar(authedCtx, workspaceID, collectionID, "Imported", harData, newDomainVariableSet(nil))
+	require.NoError(t, err)
+
+	collection, err := cs.GetCollection(ctx, collectionID)
+	require.NoError(t, err)
+
+	apis, err := ias.GetApisWithCollectionID(ctx, collection.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, apis)
+
+	var baseAPI *mitemapi.ItemApi
+	for i := range apis {
+		if !strings.Contains(apis[i].Url, "/api/categories") || !strings.EqualFold(apis[i].Method, "GET") {
+			continue
+		}
+		if apis[i].DeltaParentID == nil {
+			baseAPI = &apis[i]
+		}
+	}
+	require.NotNil(t, baseAPI, "expected base categories endpoint to be imported")
+	iaesSvc := sitemapiexample.New(queries)
+	baseExamples, err := iaesSvc.GetApiExamplesWithDefaults(ctx, baseAPI.ID)
+	require.NoError(t, err)
+	var originExample *mitemapiexample.ItemApiExample
+	for i := range baseExamples {
+		ex := baseExamples[i]
+		if ex.IsDefault {
+			continue
+		}
+		if ex.VersionParentID != nil {
+			continue
+		}
+		originExample = &ex
+		break
+	}
+	require.NotNil(t, originExample, "origin example should be present")
+
+	rows, err := db.QueryContext(ctx, "SELECT id, version_parent_id, is_default FROM item_api_example WHERE item_api_id = ?", baseAPI.ID.Bytes())
+	require.NoError(t, err)
+	defer rows.Close()
+	count := 0
+	var deltaExampleID idwrap.IDWrap
+	var deltaParentID idwrap.IDWrap
+	for rows.Next() {
+		var idBytes, parentBytes []byte
+		var isDefault bool
+		require.NoError(t, rows.Scan(&idBytes, &parentBytes, &isDefault))
+		id := idwrap.NewFromBytesMust(idBytes)
+		var parent idwrap.IDWrap
+		if len(parentBytes) > 0 {
+			parent = idwrap.NewFromBytesMust(parentBytes)
+			deltaExampleID = id
+			deltaParentID = parent
+		}
+		count++
+	}
+	require.NoError(t, rows.Err())
+
+	if count < 3 {
+		t.Fatalf("expected at least 3 examples in DB; got %d", count)
+	}
+	require.NotEqual(t, idwrap.IDWrap{}, deltaExampleID, "delta example missing from DB")
+	require.NotEqual(t, idwrap.IDWrap{}, deltaParentID, "delta example parent missing")
+
+	deltaExample, err := iaesSvc.GetApiExample(ctx, deltaExampleID)
+	require.NoError(t, err)
+	require.NotNil(t, deltaExample)
+	require.NotNil(t, deltaExample.VersionParentID)
+	require.Equal(t, deltaParentID, *deltaExample.VersionParentID)
+
+	// Sanity check that the delta example persisted with the same ID we previewed
+	savedDelta, err := iaesSvc.GetApiExample(ctx, deltaExample.ID)
+	require.NoError(t, err)
+	require.NotNil(t, savedDelta)
+	require.NotNil(t, savedDelta.VersionParentID)
+
+	us := suser.New(queries)
+	ehs := sexampleheader.New(queries)
+	eqs := sexamplequery.New(queries)
+	as := sassert.New(queries)
+
+	requestRPC := rrequest.New(db, cs, us, ias, iaesSvc, ehs, eqs, as)
+
+	resp, err := requestRPC.HeaderDeltaList(authedCtx, connect.NewRequest(&requestv1.HeaderDeltaListRequest{
+		ExampleId: deltaExample.ID.Bytes(),
+		OriginId:  originExample.ID.Bytes(),
+	}))
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	var authHeader *requestv1.HeaderDeltaListItem
+	for _, item := range resp.Msg.GetItems() {
+		if strings.EqualFold(item.GetKey(), "Authorization") {
+			authHeader = item
+			break
+		}
+	}
+	require.NotNil(t, authHeader, "expected Authorization header in delta list")
+	require.Contains(t, authHeader.GetValue(), "{{", "delta header should reference dependency template")
+	require.NotNil(t, authHeader.GetOrigin(), "origin header should be populated")
+	require.Contains(t, authHeader.GetOrigin().GetValue(), "Bearer ")
+	require.NotContains(t, authHeader.GetOrigin().GetValue(), "{{", "origin value should remain literal")
+	require.Equal(t, deltav1.SourceKind_SOURCE_KIND_MIXED, authHeader.GetSource())
 }
 
 func TestApplyDomainVariablesToApis_PreservesTemplatedSegments(t *testing.T) {

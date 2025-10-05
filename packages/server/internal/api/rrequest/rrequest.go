@@ -1305,15 +1305,45 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 	}
 	st := headerStateStore{s: c.hov}
 	dl := headerDeltaStore{s: c.hov}
+
+	originHeaders, err := c.ehs.GetHeaderByExampleID(ctx, originExampleID)
+	if err != nil {
+		if !errors.Is(err, sexampleheader.ErrNoHeaderFound) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		originHeaders = nil
+	}
+
+	deltaHeaders, err := c.ehs.GetHeaderByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		if !errors.Is(err, sexampleheader.ErrNoHeaderFound) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		deltaHeaders = nil
+	}
+
+	originHeaderByID := make(map[idwrap.IDWrap]mexampleheader.Header, len(originHeaders))
+	originValuesByID := make(map[idwrap.IDWrap]overcore.Values, len(originHeaders))
+	for _, h := range originHeaders {
+		originHeaderByID[h.ID] = h
+		originValuesByID[h.ID] = overcore.Values{Key: h.HeaderKey, Value: h.Value, Description: h.Description, Enabled: h.Enable}
+	}
+
+	if len(deltaHeaders) > 0 {
+		if err := seedMissingHeaderStateFromDelta(ctx, st, deltaHeaders, originHeaderByID, deltaExampleID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
 	// origin values loader
 	originVals := func(ctx context.Context, ids []idwrap.IDWrap) (map[idwrap.IDWrap]overcore.Values, error) {
-		items, err := c.ehs.GetHeaderByExampleID(ctx, originExampleID)
-		if err != nil {
-			return nil, err
+		if len(ids) == 0 || len(originValuesByID) == 0 {
+			return map[idwrap.IDWrap]overcore.Values{}, nil
 		}
-		m := make(map[idwrap.IDWrap]overcore.Values, len(items))
-		for _, it := range items {
-			m[it.ID] = overcore.Values{Key: it.HeaderKey, Value: it.Value, Description: it.Description, Enabled: it.Enable}
+		m := make(map[idwrap.IDWrap]overcore.Values, len(ids))
+		for _, id := range ids {
+			if val, ok := originValuesByID[id]; ok {
+				m[id] = val
+			}
 		}
 		return m, nil
 	}
@@ -1337,6 +1367,63 @@ func (c RequestRPC) HeaderDeltaList(ctx context.Context, req *connect.Request[re
 		out = append(out, it.(*requestv1.HeaderDeltaListItem))
 	}
 	return connect.NewResponse(&requestv1.HeaderDeltaListResponse{ExampleId: deltaExampleID.Bytes(), Items: out}), nil
+}
+
+func seedMissingHeaderStateFromDelta(ctx context.Context, st headerStateStore, deltaHeaders []mexampleheader.Header, originHeaders map[idwrap.IDWrap]mexampleheader.Header, deltaExampleID idwrap.IDWrap) error {
+	for _, header := range deltaHeaders {
+		if header.DeltaParentID == nil {
+			continue
+		}
+
+		base, ok := originHeaders[*header.DeltaParentID]
+		if !ok {
+			continue
+		}
+
+		state, exists, err := st.Get(ctx, deltaExampleID, base.ID)
+		if err != nil {
+			return err
+		}
+		if exists {
+			if state.Suppressed {
+				continue
+			}
+			if state.Key != nil || state.Val != nil || state.Desc != nil || state.Enabled != nil {
+				continue
+			}
+		}
+
+		keyPtr := headerStringPtrIfDifferent(base.HeaderKey, header.HeaderKey)
+		valPtr := headerStringPtrIfDifferent(base.Value, header.Value)
+		descPtr := headerStringPtrIfDifferent(base.Description, header.Description)
+		enabledPtr := headerBoolPtrIfDifferent(base.Enable, header.Enable)
+
+		if keyPtr == nil && valPtr == nil && descPtr == nil && enabledPtr == nil {
+			continue
+		}
+
+		if err := st.Upsert(ctx, deltaExampleID, base.ID, false, keyPtr, valPtr, descPtr, enabledPtr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func headerStringPtrIfDifferent(origin, next string) *string {
+	if origin == next {
+		return nil
+	}
+	v := next
+	return &v
+}
+
+func headerBoolPtrIfDifferent(origin, next bool) *bool {
+	if origin == next {
+		return nil
+	}
+	v := next
+	return &v
 }
 
 func (c RequestRPC) HeaderDeltaCreate(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaCreateRequest]) (*connect.Response[requestv1.HeaderDeltaCreateResponse], error) {
