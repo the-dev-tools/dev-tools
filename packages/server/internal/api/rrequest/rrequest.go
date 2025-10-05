@@ -979,10 +979,53 @@ func (c RequestRPC) QueryDeltaReset(ctx context.Context, req *connect.Request[re
 	}
 	st := queryStateStore{s: c.qov}
 	dl := queryDeltaStore{s: c.qov}
+	hasDeltaRow, err := dl.Exists(ctx, ex, queryID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	if err := overcore.Reset(ctx, st, dl, ex, queryID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	if !hasDeltaRow {
+		if err := c.syncQueryDeltaFromOrigin(ctx, ex, queryID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
 	return connect.NewResponse(&requestv1.QueryDeltaResetResponse{}), nil
+}
+
+func (c RequestRPC) syncQueryDeltaFromOrigin(ctx context.Context, deltaExampleID, originQueryID idwrap.IDWrap) error {
+	deltaQueries, err := c.eqs.GetExampleQueriesByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		if errors.Is(err, sexamplequery.ErrNoQueryFound) {
+			return nil
+		}
+		return err
+	}
+	var deltaQuery mexamplequery.Query
+	found := false
+	for _, q := range deltaQueries {
+		if q.DeltaParentID != nil && q.DeltaParentID.Compare(originQueryID) == 0 {
+			deltaQuery = q
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
+	originQuery, err := c.eqs.GetExampleQuery(ctx, originQueryID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, sexamplequery.ErrNoQueryFound) {
+			return nil
+		}
+		return err
+	}
+	deltaQuery.QueryKey = originQuery.QueryKey
+	deltaQuery.Enable = originQuery.Enable
+	deltaQuery.Description = originQuery.Description
+	deltaQuery.Value = originQuery.Value
+	return c.eqs.UpdateExampleQuery(ctx, deltaQuery)
 }
 
 func (c RequestRPC) HeaderList(ctx context.Context, req *connect.Request[requestv1.HeaderListRequest]) (*connect.Response[requestv1.HeaderListResponse], error) {
@@ -1600,10 +1643,53 @@ func (c RequestRPC) HeaderDeltaReset(ctx context.Context, req *connect.Request[r
 	}
 	st := headerStateStore{s: c.hov}
 	dl := headerDeltaStore{s: c.hov}
+	hasDeltaRow, err := dl.Exists(ctx, ex, headerID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	if err := overcore.Reset(ctx, st, dl, ex, headerID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	if !hasDeltaRow {
+		if err := c.syncHeaderDeltaFromOrigin(ctx, ex, headerID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
 	return connect.NewResponse(&requestv1.HeaderDeltaResetResponse{}), nil
+}
+
+func (c RequestRPC) syncHeaderDeltaFromOrigin(ctx context.Context, deltaExampleID, originHeaderID idwrap.IDWrap) error {
+	deltaHeaders, err := c.ehs.GetHeaderByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		if errors.Is(err, sexampleheader.ErrNoHeaderFound) {
+			return nil
+		}
+		return err
+	}
+	var deltaHeader mexampleheader.Header
+	found := false
+	for _, h := range deltaHeaders {
+		if h.DeltaParentID != nil && h.DeltaParentID.Compare(originHeaderID) == 0 {
+			deltaHeader = h
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
+	originHeader, err := c.ehs.GetHeaderByID(ctx, originHeaderID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, sexampleheader.ErrNoHeaderFound) {
+			return nil
+		}
+		return err
+	}
+	deltaHeader.HeaderKey = originHeader.HeaderKey
+	deltaHeader.Enable = originHeader.Enable
+	deltaHeader.Description = originHeader.Description
+	deltaHeader.Value = originHeader.Value
+	return c.ehs.UpdateHeader(ctx, deltaHeader)
 }
 
 func (c RequestRPC) AssertList(ctx context.Context, req *connect.Request[requestv1.AssertListRequest]) (*connect.Response[requestv1.AssertListResponse], error) {

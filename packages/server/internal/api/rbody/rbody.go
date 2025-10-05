@@ -10,6 +10,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/movable"
 	overcore "the-dev-tools/server/pkg/overlay/core"
 	orank "the-dev-tools/server/pkg/overlay/rank"
@@ -719,10 +720,53 @@ func (c *BodyRPC) BodyFormDeltaReset(ctx context.Context, req *connect.Request[b
 	}
 	st := formStateStore{s: c.fov}
 	dl := formDeltaStore{s: c.fov}
+	hasDeltaRow, err := dl.Exists(ctx, ex, ID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	if err := overcore.Reset(ctx, st, dl, ex, ID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	if !hasDeltaRow {
+		if err := c.syncBodyFormDeltaFromOrigin(ctx, ex, ID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
 	return connect.NewResponse(&bodyv1.BodyFormDeltaResetResponse{}), nil
+}
+
+func (c *BodyRPC) syncBodyFormDeltaFromOrigin(ctx context.Context, deltaExampleID, originBodyID idwrap.IDWrap) error {
+	bodyForms, err := c.bfs.GetBodyFormsByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		if errors.Is(err, sbodyform.ErrNoBodyFormFound) {
+			return nil
+		}
+		return err
+	}
+	var deltaForm mbodyform.BodyForm
+	found := false
+	for _, form := range bodyForms {
+		if form.DeltaParentID != nil && form.DeltaParentID.Compare(originBodyID) == 0 {
+			deltaForm = form
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
+	originForm, err := c.bfs.GetBodyForm(ctx, originBodyID)
+	if err != nil {
+		if errors.Is(err, sbodyform.ErrNoBodyFormFound) {
+			return nil
+		}
+		return err
+	}
+	deltaForm.BodyKey = originForm.BodyKey
+	deltaForm.Enable = originForm.Enable
+	deltaForm.Description = originForm.Description
+	deltaForm.Value = originForm.Value
+	return c.bfs.UpdateBodyForm(ctx, &deltaForm)
 }
 
 func (c *BodyRPC) BodyUrlEncodedDeltaList(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaListRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaListResponse], error) {
@@ -849,7 +893,44 @@ func (c *BodyRPC) BodyUrlEncodedDeltaReset(ctx context.Context, req *connect.Req
 	if err := c.overlay.Reset(ctx, ex2, ID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	if err := c.syncBodyUrlEncodedDeltaFromOrigin(ctx, ex2, ID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaResetResponse{}), nil
+}
+
+func (c *BodyRPC) syncBodyUrlEncodedDeltaFromOrigin(ctx context.Context, deltaExampleID, originBodyID idwrap.IDWrap) error {
+	items, err := c.bues.GetBodyURLEncodedByExampleID(ctx, deltaExampleID)
+	if err != nil {
+		if errors.Is(err, sbodyurl.ErrNoBodyUrlEncodedFound) || errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	var deltaItem mbodyurl.BodyURLEncoded
+	found := false
+	for _, item := range items {
+		if item.DeltaParentID != nil && item.DeltaParentID.Compare(originBodyID) == 0 {
+			deltaItem = item
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
+	originItem, err := c.bues.GetBodyURLEncoded(ctx, originBodyID)
+	if err != nil {
+		if errors.Is(err, sbodyurl.ErrNoBodyUrlEncodedFound) || errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	deltaItem.BodyKey = originItem.BodyKey
+	deltaItem.Enable = originItem.Enable
+	deltaItem.Description = originItem.Description
+	deltaItem.Value = originItem.Value
+	return c.bues.UpdateBodyURLEncoded(ctx, &deltaItem)
 }
 
 func CheckOwnerBodyForm(ctx context.Context, bfs sbodyform.BodyFormService, iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService, bodyFormUlid idwrap.IDWrap) (bool, error) {
