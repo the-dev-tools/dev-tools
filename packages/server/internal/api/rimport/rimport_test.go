@@ -15,6 +15,8 @@ import (
 	"the-dev-tools/server/internal/api/rrequest"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
+	"the-dev-tools/server/pkg/model/mbodyform"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
@@ -1027,6 +1029,184 @@ func TestImportHar_SeedsQueryOverlay(t *testing.T) {
 	require.False(t, strings.Contains(origin.GetValue(), "{{"))
 	require.True(t, strings.HasPrefix(origin.GetValue(), "eyJ"))
 	require.Equal(t, deltav1.SourceKind_SOURCE_KIND_MIXED, tokenQuery.GetSource())
+}
+
+type overlayUpsertCall struct {
+	exampleID  idwrap.IDWrap
+	originID   idwrap.IDWrap
+	suppressed bool
+	keyPtr     *string
+	valPtr     *string
+	descPtr    *string
+	enPtr      *bool
+}
+
+type stubFormOverlay struct{ calls []overlayUpsertCall }
+
+func (s *stubFormOverlay) UpsertState(_ context.Context, ex, origin idwrap.IDWrap, suppressed bool, key, val, desc *string, enabled *bool) error {
+	s.calls = append(s.calls, overlayUpsertCall{exampleID: ex, originID: origin, suppressed: suppressed, keyPtr: key, valPtr: val, descPtr: desc, enPtr: enabled})
+	return nil
+}
+
+func TestSeedFormOverlayStateSeedsDifferences(t *testing.T) {
+	ctx := context.Background()
+	overlay := &stubFormOverlay{}
+	originExampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+	originFormID := idwrap.NewNow()
+
+	origin := mbodyform.BodyForm{
+		ID:          originFormID,
+		ExampleID:   originExampleID,
+		BodyKey:     "token",
+		Value:       "static",
+		Description: "auth token",
+		Enable:      true,
+	}
+	delta := mbodyform.BodyForm{
+		ID:            idwrap.NewNow(),
+		ExampleID:     deltaExampleID,
+		DeltaParentID: &originFormID,
+		BodyKey:       origin.BodyKey,
+		Value:         "{{token}}",
+		Description:   origin.Description,
+		Enable:        false,
+	}
+	examples := []mitemapiexample.ItemApiExample{
+		{ID: originExampleID},
+		{ID: deltaExampleID, VersionParentID: &originExampleID},
+	}
+
+	err := seedFormOverlayState(ctx, overlay, []mbodyform.BodyForm{origin, delta}, examples)
+	require.NoError(t, err)
+	require.Len(t, overlay.calls, 1)
+	call := overlay.calls[0]
+	require.Equal(t, deltaExampleID, call.exampleID)
+	require.Equal(t, originFormID, call.originID)
+	require.Nil(t, call.keyPtr)
+	require.NotNil(t, call.valPtr)
+	require.Equal(t, delta.Value, *call.valPtr)
+	require.Nil(t, call.descPtr)
+	require.NotNil(t, call.enPtr)
+	require.Equal(t, delta.Enable, *call.enPtr)
+}
+
+func TestSeedFormOverlayStateSkipsWhenNoDifferences(t *testing.T) {
+	ctx := context.Background()
+	overlay := &stubFormOverlay{}
+	originExampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+	originFormID := idwrap.NewNow()
+
+	origin := mbodyform.BodyForm{
+		ID:          originFormID,
+		ExampleID:   originExampleID,
+		BodyKey:     "token",
+		Value:       "static",
+		Description: "auth token",
+		Enable:      true,
+	}
+	delta := mbodyform.BodyForm{
+		ID:            idwrap.NewNow(),
+		ExampleID:     deltaExampleID,
+		DeltaParentID: &originFormID,
+		BodyKey:       origin.BodyKey,
+		Value:         origin.Value,
+		Description:   origin.Description,
+		Enable:        origin.Enable,
+	}
+	examples := []mitemapiexample.ItemApiExample{
+		{ID: originExampleID},
+		{ID: deltaExampleID, VersionParentID: &originExampleID},
+	}
+
+	err := seedFormOverlayState(ctx, overlay, []mbodyform.BodyForm{origin, delta}, examples)
+	require.NoError(t, err)
+	require.Empty(t, overlay.calls)
+}
+
+type stubUrlOverlay struct{ calls []overlayUpsertCall }
+
+func (s *stubUrlOverlay) UpsertState(_ context.Context, ex, origin idwrap.IDWrap, suppressed bool, key, val, desc *string, enabled *bool) error {
+	s.calls = append(s.calls, overlayUpsertCall{exampleID: ex, originID: origin, suppressed: suppressed, keyPtr: key, valPtr: val, descPtr: desc, enPtr: enabled})
+	return nil
+}
+
+func TestSeedUrlOverlayStateSeedsDifferences(t *testing.T) {
+	ctx := context.Background()
+	overlay := &stubUrlOverlay{}
+	originExampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+	originBodyID := idwrap.NewNow()
+
+	origin := mbodyurl.BodyURLEncoded{
+		ID:          originBodyID,
+		ExampleID:   originExampleID,
+		BodyKey:     "token",
+		Value:       "static",
+		Description: "auth token",
+		Enable:      true,
+	}
+	delta := mbodyurl.BodyURLEncoded{
+		ID:            idwrap.NewNow(),
+		ExampleID:     deltaExampleID,
+		DeltaParentID: &originBodyID,
+		BodyKey:       origin.BodyKey,
+		Value:         "{{token}}",
+		Description:   origin.Description,
+		Enable:        false,
+	}
+	examples := []mitemapiexample.ItemApiExample{
+		{ID: originExampleID},
+		{ID: deltaExampleID, VersionParentID: &originExampleID},
+	}
+
+	err := seedUrlOverlayState(ctx, overlay, []mbodyurl.BodyURLEncoded{origin, delta}, examples)
+	require.NoError(t, err)
+	require.Len(t, overlay.calls, 1)
+	call := overlay.calls[0]
+	require.Equal(t, deltaExampleID, call.exampleID)
+	require.Equal(t, originBodyID, call.originID)
+	require.Nil(t, call.keyPtr)
+	require.NotNil(t, call.valPtr)
+	require.Equal(t, delta.Value, *call.valPtr)
+	require.Nil(t, call.descPtr)
+	require.NotNil(t, call.enPtr)
+	require.Equal(t, delta.Enable, *call.enPtr)
+}
+
+func TestSeedUrlOverlayStateSkipsWhenNoDifferences(t *testing.T) {
+	ctx := context.Background()
+	overlay := &stubUrlOverlay{}
+	originExampleID := idwrap.NewNow()
+	deltaExampleID := idwrap.NewNow()
+	originBodyID := idwrap.NewNow()
+
+	origin := mbodyurl.BodyURLEncoded{
+		ID:          originBodyID,
+		ExampleID:   originExampleID,
+		BodyKey:     "token",
+		Value:       "static",
+		Description: "auth token",
+		Enable:      true,
+	}
+	delta := mbodyurl.BodyURLEncoded{
+		ID:            idwrap.NewNow(),
+		ExampleID:     deltaExampleID,
+		DeltaParentID: &originBodyID,
+		BodyKey:       origin.BodyKey,
+		Value:         origin.Value,
+		Description:   origin.Description,
+		Enable:        origin.Enable,
+	}
+	examples := []mitemapiexample.ItemApiExample{
+		{ID: originExampleID},
+		{ID: deltaExampleID, VersionParentID: &originExampleID},
+	}
+
+	err := seedUrlOverlayState(ctx, overlay, []mbodyurl.BodyURLEncoded{origin, delta}, examples)
+	require.NoError(t, err)
+	require.Empty(t, overlay.calls)
 }
 
 func TestApplyDomainVariablesToApis_PreservesTemplatedSegments(t *testing.T) {

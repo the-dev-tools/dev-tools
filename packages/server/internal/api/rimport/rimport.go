@@ -56,8 +56,10 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/soverlayform"
 	"the-dev-tools/server/pkg/service/soverlayheader"
 	"the-dev-tools/server/pkg/service/soverlayquery"
+	"the-dev-tools/server/pkg/service/soverlayurlenc"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -100,6 +102,8 @@ type ImportRPC struct {
 	queryService          sexamplequery.ExampleQueryService
 	overlayHeaderService  *soverlayheader.Service
 	overlayQueryService   *soverlayquery.Service
+	overlayFormService    *soverlayform.Service
+	overlayUrlService     *soverlayurlenc.Service
 	flowService           sflow.FlowService
 	nodeService           snode.NodeService
 	nodeRequestService    snoderequest.NodeRequestService
@@ -112,6 +116,14 @@ type ImportRPC struct {
 	nodeIfService         *snodeif.NodeIfService
 	envService            senv.EnvService
 	varService            svar.VarService
+}
+
+type formOverlayStateWriter interface {
+	UpsertState(ctx context.Context, ex, origin idwrap.IDWrap, suppressed bool, key, val, desc *string, enabled *bool) error
+}
+
+type urlOverlayStateWriter interface {
+	UpsertState(ctx context.Context, ex, origin idwrap.IDWrap, suppressed bool, key, val, desc *string, enabled *bool) error
 }
 
 func stringPtrIfDifferent(origin, next string) *string {
@@ -234,6 +246,110 @@ func seedQueryOverlayState(ctx context.Context, overlay *soverlayquery.Service, 
 	return nil
 }
 
+func seedFormOverlayState(ctx context.Context, overlay formOverlayStateWriter, forms []mbodyform.BodyForm, examples []mitemapiexample.ItemApiExample) error {
+	if overlay == nil || len(forms) == 0 {
+		return nil
+	}
+
+	deltaExamples := make(map[idwrap.IDWrap]struct{})
+	for _, ex := range examples {
+		if ex.VersionParentID != nil {
+			deltaExamples[ex.ID] = struct{}{}
+		}
+	}
+
+	if len(deltaExamples) == 0 {
+		return nil
+	}
+
+	formByID := make(map[idwrap.IDWrap]mbodyform.BodyForm, len(forms))
+	for _, f := range forms {
+		formByID[f.ID] = f
+	}
+
+	for _, form := range forms {
+		if form.DeltaParentID == nil {
+			continue
+		}
+		if _, isDelta := deltaExamples[form.ExampleID]; !isDelta {
+			continue
+		}
+
+		parent := *form.DeltaParentID
+		base, ok := formByID[parent]
+		if !ok {
+			continue
+		}
+
+		keyPtr := stringPtrIfDifferent(base.BodyKey, form.BodyKey)
+		valPtr := stringPtrIfDifferent(base.Value, form.Value)
+		descPtr := stringPtrIfDifferent(base.Description, form.Description)
+		enabledPtr := boolPtrIfDifferent(base.Enable, form.Enable)
+
+		if keyPtr == nil && valPtr == nil && descPtr == nil && enabledPtr == nil {
+			continue
+		}
+
+		if err := overlay.UpsertState(ctx, form.ExampleID, parent, false, keyPtr, valPtr, descPtr, enabledPtr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func seedUrlOverlayState(ctx context.Context, overlay urlOverlayStateWriter, bodies []mbodyurl.BodyURLEncoded, examples []mitemapiexample.ItemApiExample) error {
+	if overlay == nil || len(bodies) == 0 {
+		return nil
+	}
+
+	deltaExamples := make(map[idwrap.IDWrap]struct{})
+	for _, ex := range examples {
+		if ex.VersionParentID != nil {
+			deltaExamples[ex.ID] = struct{}{}
+		}
+	}
+
+	if len(deltaExamples) == 0 {
+		return nil
+	}
+
+	bodyByID := make(map[idwrap.IDWrap]mbodyurl.BodyURLEncoded, len(bodies))
+	for _, b := range bodies {
+		bodyByID[b.ID] = b
+	}
+
+	for _, body := range bodies {
+		if body.DeltaParentID == nil {
+			continue
+		}
+		if _, isDelta := deltaExamples[body.ExampleID]; !isDelta {
+			continue
+		}
+
+		parent := *body.DeltaParentID
+		base, ok := bodyByID[parent]
+		if !ok {
+			continue
+		}
+
+		keyPtr := stringPtrIfDifferent(base.BodyKey, body.BodyKey)
+		valPtr := stringPtrIfDifferent(base.Value, body.Value)
+		descPtr := stringPtrIfDifferent(base.Description, body.Description)
+		enabledPtr := boolPtrIfDifferent(base.Enable, body.Enable)
+
+		if keyPtr == nil && valPtr == nil && descPtr == nil && enabledPtr == nil {
+			continue
+		}
+
+		if err := overlay.UpsertState(ctx, body.ExampleID, parent, false, keyPtr, valPtr, descPtr, enabledPtr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionService, us suser.UserService,
 	ifs sitemfolder.ItemFolderService, ias sitemapi.ItemApiService,
 	iaes sitemapiexample.ItemApiExampleService, res sexampleresp.ExampleRespService,
@@ -265,6 +381,8 @@ func New(db *sql.DB, ws sworkspace.WorkspaceService, cs scollection.CollectionSe
 		queryService:          queryService,
 		overlayHeaderService:  func() *soverlayheader.Service { srv, _ := soverlayheader.New(db); return srv }(),
 		overlayQueryService:   func() *soverlayquery.Service { srv, _ := soverlayquery.New(db); return srv }(),
+		overlayFormService:    func() *soverlayform.Service { srv, _ := soverlayform.New(db); return srv }(),
+		overlayUrlService:     func() *soverlayurlenc.Service { srv, _ := soverlayurlenc.New(db); return srv }(),
 		flowService:           flowService,
 		nodeService:           nodeService,
 		nodeRequestService:    nodeRequestService,
@@ -529,11 +647,25 @@ func (c *ImportRPC) ImportCurl(ctx context.Context, workspaceID, CollectionID id
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
+	if c.overlayFormService != nil {
+		if txOverlayFormService := c.overlayFormService.TX(tx); txOverlayFormService != nil {
+			if err := seedFormOverlayState(ctx, txOverlayFormService, resolvedCurl.FormBodies, resolvedCurl.Examples); err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
 
 	txBodyUrlEncodedService := c.bodyURLEncodedService.TX(tx)
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, resolvedCurl.UrlEncodedBodies)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
+	}
+	if c.overlayUrlService != nil {
+		if txOverlayUrlService := c.overlayUrlService.TX(tx); txOverlayUrlService != nil {
+			if err := seedUrlOverlayState(ctx, txOverlayUrlService, resolvedCurl.UrlEncodedBodies, resolvedCurl.Examples); err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
 	}
 	// END BODY
 
@@ -665,11 +797,25 @@ func (c *ImportRPC) ImportPostmanCollection(ctx context.Context, workspaceID, Co
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
+	if c.overlayFormService != nil {
+		if txOverlayForm := c.overlayFormService.TX(tx); txOverlayForm != nil {
+			if err := seedFormOverlayState(ctx, txOverlayForm, items.BodyForm, items.ApiExamples); err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
 
 	txBodyUrlEncodedService := c.bodyURLEncodedService.TX(tx)
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, items.BodyUrlEncoded)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
+	}
+	if c.overlayUrlService != nil {
+		if txOverlayUrl := c.overlayUrlService.TX(tx); txOverlayUrl != nil {
+			if err := seedUrlOverlayState(ctx, txOverlayUrl, items.BodyUrlEncoded, items.ApiExamples); err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+		}
 	}
 	// END BODY
 
@@ -1462,11 +1608,25 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	if c.overlayFormService != nil {
+		if txOverlayForm := c.overlayFormService.TX(tx); txOverlayForm != nil {
+			if err := seedFormOverlayState(ctx, txOverlayForm, resolved.FormBodies, resolved.Examples); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+	}
 
 	txBodyUrlEncodedService := c.bodyURLEncodedService.TX(tx)
 	err = txBodyUrlEncodedService.CreateBulkBodyURLEncoded(ctx, resolved.UrlEncodedBodies)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if c.overlayUrlService != nil {
+		if txOverlayUrl := c.overlayUrlService.TX(tx); txOverlayUrl != nil {
+			if err := seedUrlOverlayState(ctx, txOverlayUrl, resolved.UrlEncodedBodies, resolved.Examples); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
 	}
 
 	// Assertions
