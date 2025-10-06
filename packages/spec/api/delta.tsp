@@ -49,9 +49,32 @@ model CreateRequest<TResource extends Model> {
   @normalKey originId: Resource.Id;
 }
 
+@autoFields
+@move(Delta, TResource)
+@friendlyName("{name}DeltaUpdateRequest", TResource)
+model UpdateRequest<
+  TResource extends Model,
+  TDelta extends Model = Item<TResource>
+> {
+  ...ParentKeyOf<TResource>;
+  ...Resource.Update.Request<TDelta>;
+}
+
+@autoFields
+@move(Delta, TResource)
+@friendlyName("{name}DeltaDeleteRequest", TResource)
+model DeleteRequest<
+  TResource extends Model,
+  TDelta extends Model = Item<TResource>
+> {
+  ...ParentKeyOf<TResource>;
+  ...Resource.Delete.Request<TDelta>;
+}
+
 @move(Delta, TResource)
 @friendlyName("{name}DeltaResetRequest", TResource)
 model ResetRequest<TResource extends Model> {
+  ...ParentKeyOf<TResource>;
   ...KeyOf<TResource>;
 }
 
@@ -63,11 +86,13 @@ interface Interface<
   TResource extends Model,
   TDelta extends Model = Item<TResource>,
   TListRequest extends Model = ListRequest<TResource>,
-  TCreateRequest extends Model = CreateRequest<TResource>
+  TCreateRequest extends Model = CreateRequest<TResource>,
+  TUpdateRequest extends Model = UpdateRequest<TResource, TDelta>,
+  TDeleteRequest extends Model = DeleteRequest<TResource, TDelta>
 >
   extends Resource.List.Interface<TDelta, TMove = TResource, TRequest = TListRequest>,
     Resource.Create.Interface<TDelta, TMove = TResource, TRequest = TCreateRequest, TListRequest = TListRequest>,
-    Resource.Delete.Interface<TDelta, TMove = TResource> {
+    Resource.Delete.Interface<TDelta, TMove = TResource, TRequest = TDeleteRequest> {
   @move(Delta, TResource)
   @useFriendlyName
   @friendlyName("{name}Update", TDelta)
@@ -77,7 +102,7 @@ interface Interface<
       schema: Schema<TDelta>,
     }
   )
-  Update is Resource.Update.Operation<TDelta, TMove = TResource>;
+  Update is Resource.Update.Operation<TDelta, TMove = TResource, TRequest = TUpdateRequest>;
 
   @move(Delta, TResource)
   @useFriendlyName

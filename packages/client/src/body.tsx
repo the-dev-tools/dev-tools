@@ -228,7 +228,11 @@ const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: 
   );
 
   const formTable = useFormTable<GenericMessage<BodyFormDeltaListItem>>({
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyFormDeltaUpdateEndpoint, item),
+    onUpdate: ({ $typeName: _, ...item }) =>
+      dataClient.fetch(BodyFormDeltaUpdateEndpoint, {
+        ...item,
+        exampleId,
+      }),
   });
 
   const addRow = useFormTableAddRow({
@@ -257,8 +261,16 @@ const FormDeltaDataTable = ({ deltaExampleId: exampleId, exampleId: originId }: 
       columns={[
         ...formDataColumns,
         columnActionsDeltaCommon<GenericMessage<BodyFormDeltaListItem>>({
-          onDelete: (_) => dataClient.fetch(BodyFormDeltaDeleteEndpoint, { bodyId: _.bodyId }),
-          onReset: (_) => dataClient.fetch(BodyFormDeltaResetEndpoint, { bodyId: _.bodyId }),
+          onDelete: (_) =>
+            dataClient.fetch(BodyFormDeltaDeleteEndpoint, {
+              bodyId: _.bodyId,
+              exampleId,
+            }),
+          onReset: (_) =>
+            dataClient.fetch(BodyFormDeltaResetEndpoint, {
+              bodyId: _.bodyId,
+              exampleId,
+            }),
           source: (_) => _.source,
         }),
       ]}
@@ -388,7 +400,11 @@ const UrlEncodedDeltaFormTable = ({
   );
 
   const formTable = useFormTable<GenericMessage<BodyUrlEncodedDeltaListItem>>({
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(BodyUrlEncodedDeltaUpdateEndpoint, item),
+    onUpdate: ({ $typeName: _, ...item }) =>
+      dataClient.fetch(BodyUrlEncodedDeltaUpdateEndpoint, {
+        ...item,
+        exampleId,
+      }),
   });
 
   const addRow = useFormTableAddRow({
@@ -417,8 +433,16 @@ const UrlEncodedDeltaFormTable = ({
       columns={[
         ...urlEncodedDataColumns,
         columnActionsDeltaCommon<GenericMessage<BodyUrlEncodedDeltaListItem>>({
-          onDelete: (_) => dataClient.fetch(BodyUrlEncodedDeltaDeleteEndpoint, { bodyId: _.bodyId }),
-          onReset: (_) => dataClient.fetch(BodyUrlEncodedDeltaResetEndpoint, { bodyId: _.bodyId }),
+          onDelete: (_) =>
+            dataClient.fetch(BodyUrlEncodedDeltaDeleteEndpoint, {
+              bodyId: _.bodyId,
+              exampleId,
+            }),
+          onReset: (_) =>
+            dataClient.fetch(BodyUrlEncodedDeltaResetEndpoint, {
+              bodyId: _.bodyId,
+              exampleId,
+            }),
           source: (_) => _.source,
         }),
       ]}

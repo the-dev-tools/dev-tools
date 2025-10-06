@@ -134,7 +134,11 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
   );
 
   const formTable = useFormTable<GenericMessage<HeaderDeltaListItem>>({
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(HeaderDeltaUpdateEndpoint, item),
+    onUpdate: ({ $typeName: _, ...item }) =>
+      dataClient.fetch(HeaderDeltaUpdateEndpoint, {
+        ...item,
+        exampleId,
+      }),
   });
 
   const addRow = useFormTableAddRow({
@@ -163,8 +167,16 @@ const DeltaFormTable = ({ deltaExampleId: exampleId, exampleId: originId }: Delt
       columns={[
         ...dataColumns,
         columnActionsDeltaCommon<GenericMessage<HeaderDeltaListItem>>({
-          onDelete: (_) => dataClient.fetch(HeaderDeltaDeleteEndpoint, { headerId: _.headerId }),
-          onReset: (_) => dataClient.fetch(HeaderDeltaResetEndpoint, { headerId: _.headerId }),
+          onDelete: (_) =>
+            dataClient.fetch(HeaderDeltaDeleteEndpoint, {
+              exampleId,
+              headerId: _.headerId,
+            }),
+          onReset: (_) =>
+            dataClient.fetch(HeaderDeltaResetEndpoint, {
+              exampleId,
+              headerId: _.headerId,
+            }),
           source: (_) => _.source,
         }),
       ]}

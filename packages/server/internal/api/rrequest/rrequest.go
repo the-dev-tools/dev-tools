@@ -757,12 +757,21 @@ func (c RequestRPC) QueryDeltaDelete(ctx context.Context, req *connect.Request[r
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ex, ok, _ := c.qov.ResolveExampleByDeltaID(ctx, queryID)
-	if !ok {
-		ex, ok, _ = c.qov.ResolveExampleByOrderRefID(ctx, queryID)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for delete"))
+	var ex idwrap.IDWrap
+	if exampleBytes := req.Msg.GetExampleId(); len(exampleBytes) > 0 {
+		ex, err = idwrap.NewFromBytes(exampleBytes)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	} else {
+		var ok bool
+		ex, ok, _ = c.qov.ResolveExampleByDeltaID(ctx, queryID)
+		if !ok {
+			ex, ok, _ = c.qov.ResolveExampleByOrderRefID(ctx, queryID)
+		}
+		if !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for delete"))
+		}
 	}
 	if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil {
 		return nil, rpcErr
@@ -923,12 +932,21 @@ func (c RequestRPC) QueryDeltaUpdate(ctx context.Context, req *connect.Request[r
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ex, ok, _ := c.qov.ResolveExampleByDeltaID(ctx, queryID)
-	if !ok {
-		ex, ok, _ = c.qov.ResolveExampleByOrderRefID(ctx, queryID)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for update"))
+	var ex idwrap.IDWrap
+	if exampleBytes := req.Msg.GetExampleId(); len(exampleBytes) > 0 {
+		ex, err = idwrap.NewFromBytes(exampleBytes)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	} else {
+		var ok bool
+		ex, ok, _ = c.qov.ResolveExampleByDeltaID(ctx, queryID)
+		if !ok {
+			ex, ok, _ = c.qov.ResolveExampleByOrderRefID(ctx, queryID)
+		}
+		if !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for update"))
+		}
 	}
 	if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil {
 		return nil, rpcErr
@@ -967,12 +985,21 @@ func (c RequestRPC) QueryDeltaReset(ctx context.Context, req *connect.Request[re
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ex, ok, _ := c.qov.ResolveExampleByDeltaID(ctx, queryID)
-	if !ok {
-		ex, ok, _ = c.qov.ResolveExampleByOrderRefID(ctx, queryID)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for reset"))
+	var ex idwrap.IDWrap
+	if exampleBytes := req.Msg.GetExampleId(); len(exampleBytes) > 0 {
+		ex, err = idwrap.NewFromBytes(exampleBytes)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	} else {
+		var ok bool
+		ex, ok, _ = c.qov.ResolveExampleByDeltaID(ctx, queryID)
+		if !ok {
+			ex, ok, _ = c.qov.ResolveExampleByOrderRefID(ctx, queryID)
+		}
+		if !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for reset"))
+		}
 	}
 	if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil {
 		return nil, rpcErr
@@ -1570,13 +1597,21 @@ func (c RequestRPC) HeaderDeltaUpdate(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	// Resolve example scope
-	ex, ok, _ := c.hov.ResolveExampleByDeltaID(ctx, headerID)
-	if !ok {
-		ex, ok, _ = c.hov.ResolveExampleByOrderRefID(ctx, headerID)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for update"))
+	var ex idwrap.IDWrap
+	if exampleBytes := req.Msg.GetExampleId(); len(exampleBytes) > 0 {
+		ex, err = idwrap.NewFromBytes(exampleBytes)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	} else {
+		var ok bool
+		ex, ok, _ = c.hov.ResolveExampleByDeltaID(ctx, headerID)
+		if !ok {
+			ex, ok, _ = c.hov.ResolveExampleByOrderRefID(ctx, headerID)
+		}
+		if !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for update"))
+		}
 	}
 	if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil {
 		return nil, rpcErr
@@ -1607,12 +1642,21 @@ func (c RequestRPC) HeaderDeltaDelete(ctx context.Context, req *connect.Request[
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ex, ok, _ := c.hov.ResolveExampleByDeltaID(ctx, headerID)
-	if !ok {
-		ex, ok, _ = c.hov.ResolveExampleByOrderRefID(ctx, headerID)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for delete"))
+	var ex idwrap.IDWrap
+	if exampleBytes := req.Msg.GetExampleId(); len(exampleBytes) > 0 {
+		ex, err = idwrap.NewFromBytes(exampleBytes)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	} else {
+		var ok bool
+		ex, ok, _ = c.hov.ResolveExampleByDeltaID(ctx, headerID)
+		if !ok {
+			ex, ok, _ = c.hov.ResolveExampleByOrderRefID(ctx, headerID)
+		}
+		if !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for delete"))
+		}
 	}
 	if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil {
 		return nil, rpcErr
@@ -1631,12 +1675,21 @@ func (c RequestRPC) HeaderDeltaReset(ctx context.Context, req *connect.Request[r
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	ex, ok, _ := c.hov.ResolveExampleByDeltaID(ctx, headerID)
-	if !ok {
-		ex, ok, _ = c.hov.ResolveExampleByOrderRefID(ctx, headerID)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for reset"))
+	var ex idwrap.IDWrap
+	if exampleBytes := req.Msg.GetExampleId(); len(exampleBytes) > 0 {
+		ex, err = idwrap.NewFromBytes(exampleBytes)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	} else {
+		var ok bool
+		ex, ok, _ = c.hov.ResolveExampleByDeltaID(ctx, headerID)
+		if !ok {
+			ex, ok, _ = c.hov.ResolveExampleByOrderRefID(ctx, headerID)
+		}
+		if !ok {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("cannot resolve example for reset"))
+		}
 	}
 	if rpcErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, ex)); rpcErr != nil {
 		return nil, rpcErr

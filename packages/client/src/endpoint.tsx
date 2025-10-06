@@ -420,6 +420,7 @@ export const useEndpointUrlForm = ({
           const { enabled, key, queryId, source, value } = change;
           if (deltaExampleId) {
             await dataClient.fetch(QueryDeltaUpdateEndpoint, {
+              exampleId: deltaExampleId,
               enabled,
               key,
               queryId,
