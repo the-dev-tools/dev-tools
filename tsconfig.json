@@ -34,7 +34,7 @@
       "path": "./tools/storybook"
     },
     {
-      "path": "./configs/spec-lib"
+      "path": "./tools/spec-lib"
     }
   ]
 }

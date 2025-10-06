@@ -208,49 +208,6 @@ importers:
         specifier: ~5.1.4
         version: 5.1.4(typescript@5.9.3)(vite@7.1.7(@types/node@24.6.1)(jiti@2.6.1)(lightningcss@1.30.1)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))
 
-  configs/spec-lib:
-    dependencies:
-      '@connectrpc/connect':
-        specifier: 2.0.2
-        version: 2.0.2(@bufbuild/protobuf@2.6.2)
-      '@data-client/core':
-        specifier: 0.14.24
-        version: 0.14.24
-      '@data-client/endpoint':
-        specifier: 0.14.26
-        version: 0.14.26
-    devDependencies:
-      '@alloy-js/cli':
-        specifier: ~0.18.0
-        version: 0.18.0
-      '@alloy-js/core':
-        specifier: ~0.18.2
-        version: 0.18.2
-      '@alloy-js/typescript':
-        specifier: ~0.18.0
-        version: 0.18.0
-      '@bufbuild/protobuf':
-        specifier: ~2.6.2
-        version: 2.6.2
-      '@the-dev-tools/eslint-config':
-        specifier: workspace:^
-        version: link:../eslint
-      '@types/node':
-        specifier: ~24.1.0
-        version: 24.1.0
-      '@typespec/emitter-framework':
-        specifier: ~0.9.0
-        version: 0.9.0(@alloy-js/core@0.18.2)(@alloy-js/csharp@0.18.0)(@alloy-js/typescript@0.18.0)(@typespec/compiler@1.2.1(@types/node@24.1.0))(@typespec/http@1.2.1(@typespec/compiler@1.2.1(@types/node@24.1.0)))(@typespec/rest@0.72.1(@typespec/compiler@1.2.1(@types/node@24.1.0))(@typespec/http@1.2.1(@typespec/compiler@1.2.1(@types/node@24.1.0))))
-      effect:
-        specifier: ~3.17.1
-        version: 3.17.1
-      prettier:
-        specifier: ~3.6.2
-        version: 3.6.2
-      typescript:
-        specifier: ~5.8.3
-        version: 5.8.3
-
   packages/client:
     dependencies:
       '@bufbuild/protobuf':
@@ -474,6 +431,15 @@ importers:
         specifier: 0.14.26
         version: 0.14.26
     devDependencies:
+      '@alloy-js/cli':
+        specifier: ~0.20.0
+        version: 0.20.0
+      '@alloy-js/core':
+        specifier: ~0.20.0
+        version: 0.20.0
+      '@alloy-js/typescript':
+        specifier: ~0.20.0
+        version: 0.20.0
       '@bufbuild/buf':
         specifier: ~1.57.0
         version: 1.57.2
@@ -488,10 +454,7 @@ importers:
         version: 2.2.0(@bufbuild/protoc-gen-es@2.9.0(@bufbuild/protobuf@2.9.0))
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
-        version: link:../../configs/eslint
-      '@the-dev-tools/spec-lib':
-        specifier: workspace:^
-        version: link:../../configs/spec-lib
+        version: link:../../tools/eslint
       '@types/node':
         specifier: ~24.6.1
         version: 24.6.1
@@ -745,6 +708,49 @@ importers:
       nx:
         specifier: ~21.6.2
         version: 21.6.2(@swc-node/register@1.11.1(@swc/core@1.13.5(@swc/helpers@0.5.17))(@swc/types@0.1.25)(typescript@5.9.3))(@swc/core@1.13.5(@swc/helpers@0.5.17))
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  tools/spec-lib:
+    dependencies:
+      '@connectrpc/connect':
+        specifier: 2.1.0
+        version: 2.1.0(@bufbuild/protobuf@2.9.0)
+      '@data-client/core':
+        specifier: 0.14.24
+        version: 0.14.24
+      '@data-client/endpoint':
+        specifier: 0.14.26
+        version: 0.14.26
+    devDependencies:
+      '@alloy-js/cli':
+        specifier: ~0.20.0
+        version: 0.20.0
+      '@alloy-js/core':
+        specifier: ~0.20.0
+        version: 0.20.0
+      '@alloy-js/typescript':
+        specifier: ~0.20.0
+        version: 0.20.0
+      '@bufbuild/protobuf':
+        specifier: ~2.9.0
+        version: 2.9.0
+      '@the-dev-tools/eslint-config':
+        specifier: workspace:^
+        version: link:../eslint
+      '@types/node':
+        specifier: ~24.6.1
+        version: 24.6.1
+      '@typespec/emitter-framework':
+        specifier: ~0.11.0
+        version: 0.11.0(@alloy-js/core@0.20.0)(@alloy-js/csharp@0.20.0)(@alloy-js/typescript@0.20.0)(@typespec/compiler@1.4.0(@types/node@24.6.1))
+      effect:
+        specifier: ~3.18.1
+        version: 3.18.1
+      prettier:
+        specifier: ~3.6.2
+        version: 3.6.2
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -12694,617 +12700,17 @@ snapshots:
 
   '@oxc-resolver/binding-wasm32-wasi@11.8.4':
     dependencies:
-      '@parcel/core': 2.9.3
-      '@parcel/fs': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/logger': 2.9.3
-      '@parcel/utils': 2.9.3
-      lmdb: 2.7.11
+      '@napi-rs/wasm-runtime': 1.0.5
+    optional: true
 
-  '@parcel/codeframe@2.8.3':
-    dependencies:
-      chalk: 4.1.2
+  '@oxc-resolver/binding-win32-arm64-msvc@11.8.4':
+    optional: true
 
-  '@parcel/codeframe@2.9.3':
-    dependencies:
-      chalk: 4.1.2
+  '@oxc-resolver/binding-win32-ia32-msvc@11.8.4':
+    optional: true
 
-  '@parcel/compressor-raw@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/config-default@2.9.3(@parcel/core@2.9.3)(@swc/helpers@0.5.17)(postcss@8.5.6)(typescript@5.8.2)':
-    dependencies:
-      '@parcel/bundler-default': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/compressor-raw': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/core': 2.9.3
-      '@parcel/namer-default': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/optimizer-css': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/optimizer-htmlnano': 2.9.3(@parcel/core@2.9.3)(postcss@8.5.6)(typescript@5.8.2)
-      '@parcel/optimizer-image': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/optimizer-svgo': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/optimizer-swc': 2.9.3(@parcel/core@2.9.3)(@swc/helpers@0.5.17)
-      '@parcel/packager-css': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/packager-html': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/packager-js': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/packager-raw': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/packager-svg': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/reporter-dev-server': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/resolver-default': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/runtime-browser-hmr': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/runtime-js': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/runtime-react-refresh': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/runtime-service-worker': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-babel': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-css': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-html': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-image': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-js': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-json': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-postcss': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-posthtml': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-raw': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-react-refresh-wrap': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/transformer-svg': 2.9.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@swc/helpers'
-      - cssnano
-      - postcss
-      - purgecss
-      - relateurl
-      - srcset
-      - terser
-      - typescript
-      - uncss
-
-  '@parcel/core@2.9.3':
-    dependencies:
-      '@mischnic/json-sourcemap': 0.1.1
-      '@parcel/cache': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/events': 2.9.3
-      '@parcel/fs': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/graph': 2.9.3
-      '@parcel/hash': 2.9.3
-      '@parcel/logger': 2.9.3
-      '@parcel/package-manager': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/profiler': 2.9.3
-      '@parcel/source-map': 2.1.1
-      '@parcel/types': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      '@parcel/workers': 2.9.3(@parcel/core@2.9.3)
-      abortcontroller-polyfill: 1.7.8
-      base-x: 3.0.11
-      browserslist: 4.25.1
-      clone: 2.1.2
-      dotenv: 7.0.0
-      dotenv-expand: 5.1.0
-      json5: 2.2.3
-      msgpackr: 1.11.5
-      nullthrows: 1.1.1
-      semver: 7.7.1
-
-  '@parcel/diagnostic@2.8.3':
-    dependencies:
-      '@mischnic/json-sourcemap': 0.1.1
-      nullthrows: 1.1.1
-
-  '@parcel/diagnostic@2.9.3':
-    dependencies:
-      '@mischnic/json-sourcemap': 0.1.1
-      nullthrows: 1.1.1
-
-  '@parcel/events@2.8.3': {}
-
-  '@parcel/events@2.9.3': {}
-
-  '@parcel/fs-search@2.8.3':
-    dependencies:
-      detect-libc: 1.0.3
-
-  '@parcel/fs-search@2.9.3': {}
-
-  '@parcel/fs@2.8.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/core': 2.9.3
-      '@parcel/fs-search': 2.8.3
-      '@parcel/types': 2.8.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.8.3
-      '@parcel/watcher': 2.5.1
-      '@parcel/workers': 2.8.3(@parcel/core@2.9.3)
-
-  '@parcel/fs@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/core': 2.9.3
-      '@parcel/fs-search': 2.9.3
-      '@parcel/types': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      '@parcel/watcher': 2.5.1
-      '@parcel/workers': 2.9.3(@parcel/core@2.9.3)
-
-  '@parcel/graph@2.9.3':
-    dependencies:
-      nullthrows: 1.1.1
-
-  '@parcel/hash@2.8.3':
-    dependencies:
-      detect-libc: 1.0.3
-      xxhash-wasm: 0.4.2
-
-  '@parcel/hash@2.9.3':
-    dependencies:
-      xxhash-wasm: 0.4.2
-
-  '@parcel/logger@2.8.3':
-    dependencies:
-      '@parcel/diagnostic': 2.8.3
-      '@parcel/events': 2.8.3
-
-  '@parcel/logger@2.9.3':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/events': 2.9.3
-
-  '@parcel/markdown-ansi@2.8.3':
-    dependencies:
-      chalk: 4.1.2
-
-  '@parcel/markdown-ansi@2.9.3':
-    dependencies:
-      chalk: 4.1.2
-
-  '@parcel/namer-default@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      nullthrows: 1.1.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/node-resolver-core@3.0.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@mischnic/json-sourcemap': 0.1.1
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/fs': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      nullthrows: 1.1.1
-      semver: 7.7.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/optimizer-css@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      '@parcel/utils': 2.9.3
-      browserslist: 4.25.1
-      lightningcss: 1.30.1
-      nullthrows: 1.1.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/optimizer-data-url@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      isbinaryfile: 4.0.10
-      mime: 2.6.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/optimizer-htmlnano@2.9.3(@parcel/core@2.9.3)(postcss@8.5.6)(typescript@5.8.2)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      htmlnano: 2.1.2(postcss@8.5.6)(svgo@2.8.0)(typescript@5.8.2)
-      nullthrows: 1.1.1
-      posthtml: 0.16.6
-      svgo: 2.8.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-      - cssnano
-      - postcss
-      - purgecss
-      - relateurl
-      - srcset
-      - terser
-      - typescript
-      - uncss
-
-  '@parcel/optimizer-image@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/core': 2.9.3
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      '@parcel/workers': 2.9.3(@parcel/core@2.9.3)
-
-  '@parcel/optimizer-svgo@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      svgo: 2.8.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/optimizer-swc@2.9.3(@parcel/core@2.9.3)(@swc/helpers@0.5.17)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      '@parcel/utils': 2.9.3
-      '@swc/core': 1.13.2(@swc/helpers@0.5.17)
-      nullthrows: 1.1.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-      - '@swc/helpers'
-
-  '@parcel/package-manager@2.8.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/core': 2.9.3
-      '@parcel/diagnostic': 2.8.3
-      '@parcel/fs': 2.8.3(@parcel/core@2.9.3)
-      '@parcel/logger': 2.8.3
-      '@parcel/types': 2.8.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.8.3
-      '@parcel/workers': 2.8.3(@parcel/core@2.9.3)
-      semver: 5.7.2
-
-  '@parcel/package-manager@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/core': 2.9.3
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/fs': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/logger': 2.9.3
-      '@parcel/node-resolver-core': 3.0.3(@parcel/core@2.9.3)
-      '@parcel/types': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      '@parcel/workers': 2.9.3(@parcel/core@2.9.3)
-      semver: 7.7.1
-
-  '@parcel/packager-css@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      '@parcel/utils': 2.9.3
-      nullthrows: 1.1.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/packager-html@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/types': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      nullthrows: 1.1.1
-      posthtml: 0.16.6
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/packager-js@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/hash': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      '@parcel/utils': 2.9.3
-      globals: 13.24.0
-      nullthrows: 1.1.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/packager-raw@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/packager-svg@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/types': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      posthtml: 0.16.6
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/plugin@2.8.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/types': 2.8.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/plugin@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/types': 2.9.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/profiler@2.9.3':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/events': 2.9.3
-      chrome-trace-event: 1.0.4
-
-  '@parcel/reporter-bundle-buddy@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/reporter-dev-server@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/resolver-default@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/node-resolver-core': 3.0.3(@parcel/core@2.9.3)
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/runtime-browser-hmr@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/runtime-js@2.8.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.8.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.8.3
-      nullthrows: 1.1.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/runtime-js@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      nullthrows: 1.1.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/runtime-react-refresh@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      react-error-overlay: 6.0.9
-      react-refresh: 0.9.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/runtime-service-worker@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      nullthrows: 1.1.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/source-map@2.1.1':
-    dependencies:
-      detect-libc: 1.0.3
-
-  '@parcel/transformer-babel@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      '@parcel/utils': 2.9.3
-      browserslist: 4.25.1
-      json5: 2.2.3
-      nullthrows: 1.1.1
-      semver: 7.7.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-css@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      '@parcel/utils': 2.9.3
-      browserslist: 4.25.1
-      lightningcss: 1.30.1
-      nullthrows: 1.1.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-graphql@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      graphql: 15.10.1
-      graphql-import-macro: 1.0.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-html@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/hash': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      nullthrows: 1.1.1
-      posthtml: 0.16.6
-      posthtml-parser: 0.10.2
-      posthtml-render: 3.0.0
-      semver: 7.7.1
-      srcset: 4.0.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-image@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/core': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      '@parcel/workers': 2.9.3(@parcel/core@2.9.3)
-      nullthrows: 1.1.1
-
-  '@parcel/transformer-inline-string@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-js@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/core': 2.9.3
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      '@parcel/utils': 2.9.3
-      '@parcel/workers': 2.9.3(@parcel/core@2.9.3)
-      '@swc/helpers': 0.5.17
-      browserslist: 4.25.1
-      nullthrows: 1.1.1
-      regenerator-runtime: 0.13.11
-      semver: 7.7.1
-
-  '@parcel/transformer-json@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      json5: 2.2.3
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-less@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      less: 4.4.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-postcss@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/hash': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      clone: 2.1.2
-      nullthrows: 1.1.1
-      postcss-value-parser: 4.2.0
-      semver: 7.7.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-posthtml@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      nullthrows: 1.1.1
-      posthtml: 0.16.6
-      posthtml-parser: 0.10.2
-      posthtml-render: 3.0.0
-      semver: 7.7.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-raw@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-react-refresh-wrap@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/utils': 2.9.3
-      react-refresh: 0.9.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-sass@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      sass: 1.89.2
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-svg-react@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      '@svgr/core': 6.5.1
-      '@svgr/plugin-jsx': 6.5.1(@svgr/core@6.5.1)
-      '@svgr/plugin-svgo': 6.5.1(@svgr/core@6.5.1)
-    transitivePeerDependencies:
-      - '@parcel/core'
-      - supports-color
-
-  '@parcel/transformer-svg@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/hash': 2.9.3
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-      nullthrows: 1.1.1
-      posthtml: 0.16.6
-      posthtml-parser: 0.10.2
-      posthtml-render: 3.0.0
-      semver: 7.7.1
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/transformer-worklet@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/plugin': 2.9.3(@parcel/core@2.9.3)
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/types@2.8.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/cache': 2.8.3(@parcel/core@2.9.3)
-      '@parcel/diagnostic': 2.8.3
-      '@parcel/fs': 2.8.3(@parcel/core@2.9.3)
-      '@parcel/package-manager': 2.8.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      '@parcel/workers': 2.8.3(@parcel/core@2.9.3)
-      utility-types: 3.11.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/types@2.9.3(@parcel/core@2.9.3)':
-    dependencies:
-      '@parcel/cache': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/fs': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/package-manager': 2.9.3(@parcel/core@2.9.3)
-      '@parcel/source-map': 2.1.1
-      '@parcel/workers': 2.9.3(@parcel/core@2.9.3)
-      utility-types: 3.11.0
-    transitivePeerDependencies:
-      - '@parcel/core'
-
-  '@parcel/utils@2.8.3':
-    dependencies:
-      '@parcel/codeframe': 2.8.3
-      '@parcel/diagnostic': 2.8.3
-      '@parcel/hash': 2.8.3
-      '@parcel/logger': 2.8.3
-      '@parcel/markdown-ansi': 2.8.3
-      '@parcel/source-map': 2.1.1
-      chalk: 4.1.2
-
-  '@parcel/utils@2.9.3':
-    dependencies:
-      '@parcel/codeframe': 2.9.3
-      '@parcel/diagnostic': 2.9.3
-      '@parcel/hash': 2.9.3
-      '@parcel/logger': 2.9.3
-      '@parcel/markdown-ansi': 2.9.3
-      '@parcel/source-map': 2.1.1
-      chalk: 4.1.2
-      nullthrows: 1.1.1
+  '@oxc-resolver/binding-win32-x64-msvc@11.8.4':
+    optional: true
 
   '@parcel/watcher-android-arm64@2.5.1':
     optional: true
