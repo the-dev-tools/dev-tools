@@ -65,14 +65,12 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
     const scopes = new Map<string, TSModuleScope>();
 
     const outputSymbol = (path: string, name: string, refkeys: Refkey) => {
-      const scope = scopes.get(path) ?? new TSModuleScope(path, { parent: binder.globalScope });
+      const scope = scopes.get(path) ?? new TSModuleScope(path, undefined, { binder });
       scopes.set(path, scope);
-      binder.notifyScopeCreated(scope);
 
       if (scope.exportedSymbols.has(refkeys)) return;
-      const symbol = new TSOutputSymbol(name, { refkeys, scope });
+      const symbol = new TSOutputSymbol(name, scope.spaces, { binder, refkeys });
       scope.exportedSymbols.set(refkeys, symbol);
-      binder.notifySymbolCreated(symbol);
     };
 
     const getProtobufPath = (namespace?: Namespace) => {
@@ -94,17 +92,15 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
       );
     };
 
-    const libPackageScope = new TSPackageScope('@the-dev-tools/spec-lib', '', '', { parent: binder.globalScope });
-    const utilsScope = new TSModuleScope('', { parent: libPackageScope });
+    const libPackageScope = new TSPackageScope('@the-dev-tools/spec-lib', '', '', { binder });
+    const utilsScope = new TSModuleScope('', libPackageScope, { binder });
 
     const addUtil = (name: string) => {
       const refkeys = refkey(name);
-      const symbol = new TSOutputSymbol(name, { refkeys, scope: utilsScope });
+      const symbol = new TSOutputSymbol(name, utilsScope.spaces, { binder, refkeys });
       utilsScope.exportedSymbols.set(refkeys, symbol);
-      binder.notifySymbolCreated(symbol);
     };
 
-    binder.notifyScopeCreated(libPackageScope);
     libPackageScope.addExport('data-client/utils.js', utilsScope);
     addUtil('makeEntity');
 

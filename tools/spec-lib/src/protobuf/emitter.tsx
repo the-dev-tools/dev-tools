@@ -1,4 +1,6 @@
 import {
+  BasicScope,
+  BasicSymbol,
   Binder,
   Block,
   Children,
@@ -11,6 +13,7 @@ import {
   OutputScope,
   OutputScopeOptions,
   OutputSymbol,
+  OutputSymbolOptions,
   reactive,
   Ref,
   Refkey,
@@ -60,33 +63,30 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
   const root = program.getGlobalNamespaceType().namespaces.get(options.rootNamespace);
   if (!root) return;
 
+  const globalScope = new BasicScope('global', undefined);
+
   const bindExternals = (binder: Binder) => {
     const scopeMap = new Map<string, ExternalScope>();
 
     externals(program).forEach(([path, name], type) => {
-      let scope = scopeMap.get(path);
-      if (!scope) {
-        scope = new ExternalScope(path, { parent: binder.globalScope });
-        scopeMap.set(path, scope);
-      }
-
-      const symbol = new OutputSymbol(name, { refkeys: refkey(type), scope });
-
-      binder.notifyScopeCreated(scope);
-      binder.notifySymbolCreated(symbol);
+      const scope = scopeMap.get(path) ?? new ExternalScope(path, globalScope, { binder });
+      scopeMap.set(path, scope);
+      new BasicSymbol(name, scope.spaces, { binder, refkeys: refkey(type) });
     });
   };
 
   await writeOutput(
     program,
     <EmitterOptionsContext.Provider value={options}>
-      <Output externals={[{ [getSymbolCreatorSymbol()]: bindExternals }]} program={program}>
-        {pipe(
-          root.namespaces.values(),
-          Array.fromIterable,
-          Array.map((_) => <Package namespace={_} />),
-        )}
-      </Output>
+      <Scope value={globalScope}>
+        <Output externals={[{ [getSymbolCreatorSymbol()]: bindExternals }]} program={program}>
+          {pipe(
+            root.namespaces.values(),
+            Array.fromIterable,
+            Array.map((_) => <Package namespace={_} />),
+          )}
+        </Output>
+      </Scope>
     </EmitterOptionsContext.Provider>,
     join(emitterOutputDir, 'protobuf'),
   );
@@ -184,29 +184,36 @@ const useProtoTypeMap = () => {
   return getProtoType;
 };
 
-class ExternalScope extends OutputScope {
-  override get kind() {
-    return 'external' as const;
-  }
+class ExternalScope extends BasicScope {
+  kind = 'external' as const;
 }
 
 interface PackageScopeOptions extends OutputScopeOptions {
   specifier: string;
 }
 
-class PackageScope extends OutputScope {
+class PackageScope extends BasicScope {
+  kind = 'package' as const;
+
   imports = reactive(new Set()) as Set<ExternalScope | PackageScope>;
   specifier: string;
 
-  override get kind() {
-    return 'package' as const;
-  }
-
-  constructor(name: string, options: PackageScopeOptions) {
-    super(name, options);
+  constructor(name: string, parentScope: OutputScope | undefined, options: PackageScopeOptions) {
+    super(name, parentScope, options);
     this.specifier = options.specifier;
   }
 }
+
+interface BasicDeclarationProps extends OutputSymbolOptions {
+  children: Children;
+  name: string;
+}
+
+const BasicDeclaration = ({ children, name, ...props }: BasicDeclarationProps) => {
+  const scope = useScope();
+  const symbol = new BasicSymbol(name, scope.spaces, props);
+  return <Declaration symbol={symbol}>{children}</Declaration>;
+};
 
 interface PackageProps {
   namespace: Namespace;
@@ -225,7 +232,8 @@ const Package = ({ namespace }: PackageProps) => {
 
   const specifier = path.replaceAll('/', '.');
 
-  const scope = new PackageScope(`${path}/${name}.proto`, { specifier });
+  const parentScope = useScope();
+  const scope = new PackageScope(`${path}/${name}.proto`, parentScope, { specifier });
 
   const packages = pipe(
     namespace.namespaces.values(),
@@ -328,13 +336,13 @@ const Reference = ({ refkey }: ReferenceProps) => {
       Option.gen(function* () {
         const result = yield* Option.fromNullable(resolveResult.value);
 
-        if (scope === result.commonScope) return result.targetDeclaration.name;
+        if (scope === result.commonScope) return result.lexicalDeclaration.name;
 
         const targetScope = yield* Array.head(result.pathDown);
 
         scope.imports.add(targetScope);
 
-        const targetName = result.targetDeclaration.name;
+        const targetName = result.lexicalDeclaration.name;
         if (targetScope.kind === 'external') return targetName;
 
         const packageName = targetScope.specifier;
@@ -366,9 +374,9 @@ const ProtoEnum = ({ _enum }: ProtoEnumProps) => {
   );
 
   return (
-    <Declaration name={_enum.name} refkey={refkey(_enum)}>
+    <BasicDeclaration name={_enum.name} refkeys={refkey(_enum)}>
       enum <Name /> {fields}
-    </Declaration>
+    </BasicDeclaration>
   );
 };
 
@@ -392,9 +400,9 @@ const Message = ({ model }: MessageProps) => {
   );
 
   return (
-    <Declaration name={getModelName(program, model)} refkey={getModelRefKey(program, model)}>
+    <BasicDeclaration name={getModelName(program, model)} refkeys={getModelRefKey(program, model)}>
       message <Name /> {fields}
-    </Declaration>
+    </BasicDeclaration>
   );
 };
 
@@ -484,8 +492,8 @@ const Service = ({ _interface }: ServiceProps) => {
   );
 
   return (
-    <Declaration name={_interface.name} refkey={refkey(_interface)}>
+    <BasicDeclaration name={_interface.name} refkeys={refkey(_interface)}>
       service <Name /> {fields}
-    </Declaration>
+    </BasicDeclaration>
   );
 };

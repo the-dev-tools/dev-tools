@@ -6,13 +6,13 @@ import {
   Operation,
   StringLiteral,
 } from '@typespec/compiler';
-import { JSONSchema, pipe, Schema } from 'effect';
+import { JSONSchema } from 'effect';
 import { EmitterOptions } from '../core/index.js';
 import { makeStateFactory } from '../utils.js';
 
 export const $lib = createTypeSpecLibrary({
   diagnostics: {},
-  emitter: { options: pipe(EmitterOptions.fields, Schema.Struct, JSONSchema.make) as JSONSchemaType<EmitterOptions> },
+  emitter: { options: JSONSchema.make(EmitterOptions) as JSONSchemaType<EmitterOptions> },
   name: '@the-dev-tools/spec-lib/data-client',
 });
 
