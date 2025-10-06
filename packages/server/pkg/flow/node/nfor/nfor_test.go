@@ -23,6 +23,32 @@ type failingNode struct {
 	ran  *bool
 }
 
+type recordingNode struct {
+	id       idwrap.IDWrap
+	name     string
+	runCount *int
+}
+
+func (n recordingNode) GetID() idwrap.IDWrap { return n.id }
+
+func (n recordingNode) GetName() string { return n.name }
+
+func (n recordingNode) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
+	if n.runCount != nil {
+		*n.runCount++
+	}
+	next := edge.GetNextNodeID(req.EdgeSourceMap, n.id, edge.HandleThen)
+	return node.FlowNodeResult{NextNodeID: next}
+}
+
+func (n recordingNode) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
+	if n.runCount != nil {
+		*n.runCount++
+	}
+	next := edge.GetNextNodeID(req.EdgeSourceMap, n.id, edge.HandleThen)
+	resultChan <- node.FlowNodeResult{NextNodeID: next}
+}
+
 func (n failingNode) GetID() idwrap.IDWrap { return n.id }
 
 func (n failingNode) GetName() string { return n.name }
@@ -175,4 +201,55 @@ func TestNodeForSetsIterationEventFlag(t *testing.T) {
 	require.NotNil(t, finalStatus, "expected loop terminal status")
 	require.False(t, finalStatus.IterationEvent)
 	require.Equal(t, loopID, finalStatus.NodeID)
+}
+
+func TestNodeForSkipsDuplicateLoopEntryTargets(t *testing.T) {
+	loopID := idwrap.NewNow()
+	nodeAID := idwrap.NewNow()
+	nodeBID := idwrap.NewNow()
+	nodeCID := idwrap.NewNow()
+
+	loop := New(loopID, "LoopNode", 1, 0, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+
+	var nodeARuns, nodeBRuns, nodeCRuns int
+
+	nodeA := recordingNode{id: nodeAID, name: "A", runCount: &nodeARuns}
+	nodeB := recordingNode{id: nodeBID, name: "B", runCount: &nodeBRuns}
+	nodeC := recordingNode{id: nodeCID, name: "C", runCount: &nodeCRuns}
+
+	edges := edge.NewEdgesMap(edge.NewEdges(
+		edge.NewEdge(idwrap.NewNow(), loopID, nodeAID, edge.HandleLoop, 0),
+		edge.NewEdge(idwrap.NewNow(), loopID, nodeCID, edge.HandleLoop, 0),
+		edge.NewEdge(idwrap.NewNow(), nodeAID, nodeBID, edge.HandleThen, 0),
+		edge.NewEdge(idwrap.NewNow(), nodeBID, nodeCID, edge.HandleThen, 0),
+	))
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(
+		idwrap.NewNow(),
+		idwrap.NewNow(),
+		loopID,
+		map[idwrap.IDWrap]node.FlowNode{
+			loopID:  loop,
+			nodeAID: nodeA,
+			nodeBID: nodeB,
+			nodeCID: nodeC,
+		},
+		edges,
+		0,
+		nil,
+	)
+
+	statusCh := make(chan runner.FlowNodeStatus, 16)
+	flowCh := make(chan runner.FlowStatus, 4)
+
+	require.NoError(t, flowRunner.Run(context.Background(), statusCh, flowCh, map[string]any{}))
+
+	for range statusCh {
+	}
+	for range flowCh {
+	}
+
+	require.Equal(t, 1, nodeARuns, "node A should execute exactly once")
+	require.Equal(t, 1, nodeBRuns, "node B should execute exactly once")
+	require.Equal(t, 1, nodeCRuns, "node C should execute exactly once")
 }

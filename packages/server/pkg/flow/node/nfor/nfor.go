@@ -98,10 +98,13 @@ func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRe
 }
 
 func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
+	loopEdgeMap := node.BuildLoopExecutionEdgeMap(req.EdgeSourceMap, nr.FlowNodeID, loopTargets)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 	// Track if we had any iteration errors to determine if we need final status
-	predecessorMap := flowlocalrunner.BuildPredecessorMap(req.EdgeSourceMap)
+	predecessorMap := flowlocalrunner.BuildPredecessorMap(loopEdgeMap)
+	pendingTemplate := node.BuildPendingMap(predecessorMap)
 
 	// Note: assertSys not needed for simple index comparison
 
@@ -179,7 +182,7 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 		// Execute child nodes
 		var iterationError error
-		for _, nextNodeID := range loopID {
+		for _, nextNodeID := range loopTargets {
 
 			// Create iteration context for child nodes
 			childIterationContext := &runner.IterationContext{
@@ -194,6 +197,8 @@ func (nr *NodeFor) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.
 
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
+			childReq.EdgeSourceMap = loopEdgeMap
+			childReq.PendingAtmoicMap = node.ClonePendingMap(pendingTemplate)
 			childReq.IterationContext = childIterationContext
 			childReq.ExecutionID = childExecutionID // Set unique execution ID
 
@@ -281,10 +286,13 @@ Exit:
 }
 
 func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
+	loopEdgeMap := node.BuildLoopExecutionEdgeMap(req.EdgeSourceMap, nr.FlowNodeID, loopTargets)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
 	// Track if we had any iteration errors to determine if we need final status
-	predecessorMap := flowlocalrunner.BuildPredecessorMap(req.EdgeSourceMap)
+	predecessorMap := flowlocalrunner.BuildPredecessorMap(loopEdgeMap)
+	pendingTemplate := node.BuildPendingMap(predecessorMap)
 
 	// Note: assertSys not needed for simple index comparison
 
@@ -364,7 +372,7 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 		// Execute child nodes
 		var iterationError error
-		for _, nextNodeID := range loopID {
+		for _, nextNodeID := range loopTargets {
 
 			// Create iteration context for child nodes
 			childIterationContext := &runner.IterationContext{
@@ -379,6 +387,8 @@ func (nr *NodeFor) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resu
 
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
+			childReq.EdgeSourceMap = loopEdgeMap
+			childReq.PendingAtmoicMap = node.ClonePendingMap(pendingTemplate)
 			childReq.IterationContext = childIterationContext
 			childReq.ExecutionID = childExecutionID // Set unique execution ID
 

@@ -57,9 +57,12 @@ func (n *NodeForEach) GetName() string {
 }
 
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
-	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
+	loopEdgeMap := node.BuildLoopExecutionEdgeMap(req.EdgeSourceMap, nr.FlowNodeID, loopTargets)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
-	predecessorMap := flowlocalrunner.BuildPredecessorMap(req.EdgeSourceMap)
+	predecessorMap := flowlocalrunner.BuildPredecessorMap(loopEdgeMap)
+	pendingTemplate := node.BuildPendingMap(predecessorMap)
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
@@ -96,7 +99,7 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	}
 
 	processNode := func(iterationIndex int) node.FlowNodeResult {
-		for _, nextNodeID := range loopID {
+		for _, nextNodeID := range loopTargets {
 			if breakExpr != "" {
 				// Use tracking version if tracker is available
 				var ok bool
@@ -142,6 +145,8 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
+			childReq.EdgeSourceMap = loopEdgeMap
+			childReq.PendingAtmoicMap = node.ClonePendingMap(pendingTemplate)
 			childReq.IterationContext = childIterationContext
 			childReq.ExecutionID = childExecutionID // Set unique execution ID
 
@@ -468,9 +473,12 @@ func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 }
 
 func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultChan chan node.FlowNodeResult) {
-	loopID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
+	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)
+	loopEdgeMap := node.BuildLoopExecutionEdgeMap(req.EdgeSourceMap, nr.FlowNodeID, loopTargets)
 	nextID := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleThen)
-	predecessorMap := flowlocalrunner.BuildPredecessorMap(req.EdgeSourceMap)
+	predecessorMap := flowlocalrunner.BuildPredecessorMap(loopEdgeMap)
+	pendingTemplate := node.BuildPendingMap(predecessorMap)
 
 	// Use mutex and sync.Once to ensure thread-safe channel access
 	var once sync.Once
@@ -551,7 +559,7 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	// Define the function to process the child node(s) within the loop
 	processNode := func(iterationIndex int) node.FlowNodeResult {
-		for _, nextNodeID := range loopID {
+		for _, nextNodeID := range loopTargets {
 			// Evaluate the break condition if it exists
 			if breakExpr != "" {
 				// Use tracking version if tracker is available
@@ -596,6 +604,8 @@ func (nr *NodeForEach) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 			// Create new request with iteration context for child nodes
 			childReq := *req // Copy the request
+			childReq.EdgeSourceMap = loopEdgeMap
+			childReq.PendingAtmoicMap = node.ClonePendingMap(pendingTemplate)
 			childReq.IterationContext = childIterationContext
 			childReq.ExecutionID = childExecutionID // Set unique execution ID
 

@@ -172,6 +172,132 @@ func CloneIterationLabels(labels []runner.IterationLabel) []runner.IterationLabe
 	return copyLabels
 }
 
+// FilterLoopEntryNodes removes loop targets that are reachable from other loop
+// targets, ensuring we only return the true entry nodes for a loop body. This
+// prevents downstream nodes from being re-executed when the loop handle fan-out
+// includes both the body head and interior nodes (can happen after noop pruning).
+//
+// If filtering removes every target (e.g. due to a cycle), we fall back to the
+// original slice so execution can still proceed.
+func FilterLoopEntryNodes(edgeMap edge.EdgesMap, loopTargets []idwrap.IDWrap) []idwrap.IDWrap {
+	if len(loopTargets) < 2 {
+		return loopTargets
+	}
+
+	filtered := make([]idwrap.IDWrap, 0, len(loopTargets))
+	for _, candidate := range loopTargets {
+		skip := false
+		for _, other := range loopTargets {
+			if other == candidate {
+				continue
+			}
+			if edge.IsNodeCheckTarget(edgeMap, other, candidate) == edge.NodeBefore {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			filtered = append(filtered, candidate)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return loopTargets
+	}
+
+	return filtered
+}
+
+// BuildLoopExecutionEdgeMap returns an edge map suitable for executing loop
+// bodies. It rewrites the loop handle to include only the provided entry
+// targets so duplicate edges to downstream nodes do not participate in
+// scheduling decisions.
+//
+// When the requested targets already match the existing loop edges, the
+// original map is returned to avoid unnecessary allocations.
+func BuildLoopExecutionEdgeMap(edgeMap edge.EdgesMap, loopNodeID idwrap.IDWrap, loopTargets []idwrap.IDWrap) edge.EdgesMap {
+	if len(loopTargets) == 0 {
+		return edgeMap
+	}
+
+	loopHandles, ok := edgeMap[loopNodeID]
+	if ok {
+		if current, ok := loopHandles[edge.HandleLoop]; ok && equalIDSlice(current, loopTargets) {
+			return edgeMap
+		}
+	}
+
+	cloned := make(edge.EdgesMap, len(edgeMap))
+	for sourceID, handles := range edgeMap {
+		handleMap := make(map[edge.EdgeHandle][]idwrap.IDWrap, len(handles))
+		for handle, targets := range handles {
+			if sourceID == loopNodeID && handle == edge.HandleLoop {
+				handleMap[handle] = append([]idwrap.IDWrap(nil), loopTargets...)
+				continue
+			}
+			handleMap[handle] = append([]idwrap.IDWrap(nil), targets...)
+		}
+		cloned[sourceID] = handleMap
+	}
+
+	if _, exists := cloned[loopNodeID]; !exists {
+		cloned[loopNodeID] = map[edge.EdgeHandle][]idwrap.IDWrap{
+			edge.HandleLoop: append([]idwrap.IDWrap(nil), loopTargets...),
+		}
+	} else if _, ok := cloned[loopNodeID][edge.HandleLoop]; !ok {
+		cloned[loopNodeID][edge.HandleLoop] = append([]idwrap.IDWrap(nil), loopTargets...)
+	}
+
+	return cloned
+}
+
+// BuildPendingMap constructs a PendingAtmoicMap compatible with the runner by
+// counting predecessors for each node. Only entries with more than one
+// predecessor are retained to match runner expectations.
+func BuildPendingMap(predecessors map[idwrap.IDWrap][]idwrap.IDWrap) map[idwrap.IDWrap]uint32 {
+	if len(predecessors) == 0 {
+		return nil
+	}
+
+	pending := make(map[idwrap.IDWrap]uint32)
+	for nodeID, preds := range predecessors {
+		if len(preds) > 1 {
+			pending[nodeID] = uint32(len(preds))
+		}
+	}
+
+	if len(pending) == 0 {
+		return nil
+	}
+
+	return pending
+}
+
+// ClonePendingMap makes a shallow copy of a PendingAtmoicMap. It returns nil
+// when the source is empty to keep downstream checks simple.
+func ClonePendingMap(src map[idwrap.IDWrap]uint32) map[idwrap.IDWrap]uint32 {
+	if len(src) == 0 {
+		return nil
+	}
+	clone := make(map[idwrap.IDWrap]uint32, len(src))
+	for k, v := range src {
+		clone[k] = v
+	}
+	return clone
+}
+
+func equalIDSlice(a, b []idwrap.IDWrap) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func ReadVarRaw(a *FlowNodeRequest, key string) (interface{}, error) {
 	a.ReadWriteLock.RLock()
 	v, ok := a.VarMap[key]
