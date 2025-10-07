@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -393,6 +394,59 @@ func TestFlowRunAdHoc_RequestSuccessHasResponseID(t *testing.T) {
 	}
 
 	require.True(t, sawSuccess, "expected to find successful request execution")
+}
+
+func TestFlowRunAdHoc_RequestResponseIDPersistsAcrossRuns(t *testing.T) {
+	const iterations = 10
+
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	ctx := context.Background()
+	drainCtx, cancelDrain := context.WithCancel(context.Background())
+	var drainWG sync.WaitGroup
+	drainWG.Add(1)
+	go func() {
+		defer drainWG.Done()
+		for {
+			select {
+			case <-drainCtx.Done():
+				return
+			case _, ok := <-harness.logCh:
+				if !ok {
+					return
+				}
+			}
+		}
+	}()
+	defer func() {
+		cancelDrain()
+		drainWG.Wait()
+	}()
+
+	var previous idwrap.IDWrap
+
+	for i := 0; i < iterations; i++ {
+		stream := noopStream{}
+		require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
+
+		latest, err := harness.svc.nes.GetLatestNodeExecutionByNodeID(ctx, harness.requestNodeID)
+		require.NoError(t, err)
+		require.NotNilf(t, latest, "iteration %d expected latest node execution", i)
+
+		require.NotNilf(t, latest.CompletedAt, "iteration %d latest execution missing completion timestamp", i)
+		require.NotEqualf(t, mnnode.NODE_STATE_RUNNING, latest.State, "iteration %d latest execution stuck running", i)
+		require.NotNilf(t, latest.ResponseID, "iteration %d execution %s missing response id", i, latest.ID.String())
+
+		resp, respErr := harness.svc.ers.GetExampleResp(ctx, *latest.ResponseID)
+		require.NoErrorf(t, respErr, "iteration %d expected response lookup to succeed for %s", i, latest.ResponseID.String())
+		require.NotNilf(t, resp, "iteration %d expected response %s to exist", i, latest.ResponseID.String())
+
+		if previous != (idwrap.IDWrap{}) {
+			require.Greaterf(t, latest.ID.Compare(previous), 0, "iteration %d latest execution did not advance ULID ordering", i)
+		}
+		previous = latest.ID
+	}
 }
 
 func TestFlowRunAdHoc_SelectedEnvironmentOverridesVariables(t *testing.T) {

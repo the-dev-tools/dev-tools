@@ -6,6 +6,7 @@ import (
 	"the-dev-tools/server/internal/api/rflow"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -16,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/translate/tnodeexecution"
 	nodeexecutionv1 "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/node/execution/v1/nodeexecutionv1connect"
+	"time"
 
 	"connectrpc.com/connect"
 )
@@ -131,6 +133,15 @@ func (s *NodeExecutionServiceRPC) NodeExecutionGet(
 		return nil, rpcErr
 	}
 
+	// For REQUEST nodes in a terminal state, small wait to surface response correlation.
+	if node.NodeKind == mnnode.NODE_KIND_REQUEST && execution.ResponseID == nil && isTerminalNodeState(execution.State) {
+		if refreshed, err := s.awaitResponseID(ctx, execution.ID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		} else if refreshed != nil {
+			execution = refreshed
+		}
+	}
+
 	// Convert to RPC
 	rpcExec, err := tnodeexecution.SerializeNodeExecutionModelToRPCGetResponse(execution)
 	if err != nil {
@@ -152,4 +163,44 @@ func (s *NodeExecutionServiceRPC) NodeExecutionGet(
 
 	resp := rpcExec
 	return connect.NewResponse(resp), nil
+}
+
+const (
+	responsePollInterval = 10 * time.Millisecond
+	responsePollTimeout  = 250 * time.Millisecond
+)
+
+func (s *NodeExecutionServiceRPC) awaitResponseID(ctx context.Context, executionID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
+	waitCtx, cancel := context.WithTimeout(ctx, responsePollTimeout)
+	defer cancel()
+
+	ticker := time.NewTicker(responsePollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-waitCtx.Done():
+			if waitCtx.Err() == context.DeadlineExceeded || waitCtx.Err() == context.Canceled {
+				return nil, nil
+			}
+			return nil, waitCtx.Err()
+		case <-ticker.C:
+			exec, err := s.nes.GetNodeExecution(waitCtx, executionID)
+			if err != nil {
+				return nil, err
+			}
+			if exec.ResponseID != nil {
+				return exec, nil
+			}
+		}
+	}
+}
+
+func isTerminalNodeState(state int8) bool {
+	switch state {
+	case mnnode.NODE_STATE_SUCCESS, mnnode.NODE_STATE_FAILURE, mnnode.NODE_STATE_CANCELED:
+		return true
+	default:
+		return false
+	}
 }
