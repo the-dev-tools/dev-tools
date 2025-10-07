@@ -301,15 +301,18 @@ export const Flow = ({ children }: PropsWithChildren) => {
     ref,
   });
 
+  const statusBarEndSlot = document.getElementById('statusBarEndSlot');
+
   return (
     <>
-      {createPortal(
-        <div className={tw`flex gap-4 text-xs leading-none text-slate-800`}>
-          <NodeSelectionIndicator />
-          {duration > 0 && <div>Time: {pipe(duration, Duration.millis, Duration.format)}</div>}
-        </div>,
-        document.getElementById('statusBarEndSlot')!,
-      )}
+      {statusBarEndSlot &&
+        createPortal(
+          <div className={tw`flex gap-4 text-xs leading-none text-slate-800`}>
+            <NodeSelectionIndicator />
+            {duration > 0 && <div>Time: {pipe(duration, Duration.millis, Duration.format)}</div>}
+          </div>,
+          statusBarEndSlot,
+        )}
 
       <ReactFlow
         {...(dropProps as object)}
