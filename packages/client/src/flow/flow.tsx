@@ -274,7 +274,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
 
       const node = await makeNode({
         kind: NodeKind.REQUEST,
-        name: `request_${getNodes().length}`,
+        name: `request_${getNodes().length + 1}`,
         position: screenToFlowPosition({ x: x + canvas.x, y: y + canvas.y }),
         request: {
           collectionId,
