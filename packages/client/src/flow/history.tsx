@@ -24,34 +24,40 @@ export const FlowHistoryPage = () => {
   const { items } = useQuery(FlowVersionsEndpoint, { flowId });
 
   const state = useTabListState({
-    children: ({ flowId }) => (
-      <Item key={Ulid.construct(flowId).toCanonical()}>
-        <Suspense
-          fallback={
-            <div className={tw`flex h-full items-center justify-center`}>
-              <Spinner size='xl' />
-            </div>
-          }
-        >
-          <FlowContext.Provider value={{ flowId, isReadOnly: true }}>
-            <ReactFlowProvider>
-              <PanelGroup autoSaveId='flow-edit' direction='vertical'>
-                <TopBarWithControls />
-                <Panel
-                  className='flex h-full flex-col'
-                  defaultSize={Option.isNone(nodeId) ? 100 : 60}
-                  id='flow'
-                  order={1}
-                >
-                  <Flow key={Ulid.construct(flowId).toCanonical()} />
-                </Panel>
-                <EditPanel />
-              </PanelGroup>
-            </ReactFlowProvider>
-          </FlowContext.Provider>
-        </Suspense>
-      </Item>
-    ),
+    children: ({ flowId }) => {
+      const flow = <Flow key={Ulid.construct(flowId).toCanonical()} />;
+
+      return (
+        <Item key={Ulid.construct(flowId).toCanonical()}>
+          <Suspense
+            fallback={
+              <div className={tw`flex h-full items-center justify-center`}>
+                <Spinner size='xl' />
+              </div>
+            }
+          >
+            <FlowContext.Provider value={{ flowId, isReadOnly: true }}>
+              <ReactFlowProvider>
+                {Option.isNone(nodeId) ? (
+                  <div className={tw`flex h-full flex-col`}>
+                    <TopBarWithControls />
+                    {flow}
+                  </div>
+                ) : (
+                  <PanelGroup autoSaveId='flow-edit' direction='vertical'>
+                    <TopBarWithControls />
+                    <Panel className={tw`flex h-full flex-col`} defaultSize={60} id='flow' order={1}>
+                      {flow}
+                    </Panel>
+                    <EditPanel nodeId={nodeId.value} />
+                  </PanelGroup>
+                )}
+              </ReactFlowProvider>
+            </FlowContext.Provider>
+          </Suspense>
+        </Item>
+      );
+    },
     items,
   });
   const tabListRef = useRef(null);

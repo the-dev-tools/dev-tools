@@ -115,18 +115,29 @@ export const nodeTypes: Record<NodeKindJson, NodeTypesCore[string]> = {
 export const FlowEditPage = () => {
   const { flowId, nodeId } = flowLayoutRouteApi.useLoaderData();
 
+  const flow = (
+    <Flow key={Ulid.construct(flowId).toCanonical()}>
+      <ActionBar />
+    </Flow>
+  );
+
   return (
     <FlowContext.Provider value={{ flowId }}>
       <ReactFlowProvider>
-        <PanelGroup autoSaveId='flow-edit' direction='vertical'>
-          <TopBarWithControls />
-          <Panel className='flex h-full flex-col' defaultSize={Option.isNone(nodeId) ? 100 : 60} id='flow' order={1}>
-            <Flow key={Ulid.construct(flowId).toCanonical()}>
-              <ActionBar />
-            </Flow>
-          </Panel>
-          <EditPanel />
-        </PanelGroup>
+        {Option.isNone(nodeId) ? (
+          <div className={tw`flex h-full flex-col`}>
+            <TopBarWithControls />
+            {flow}
+          </div>
+        ) : (
+          <PanelGroup autoSaveId='flow-edit' direction='vertical'>
+            <TopBarWithControls />
+            <Panel className={tw`flex h-full flex-col`} defaultSize={60} id='flow' order={1}>
+              {flow}
+            </Panel>
+            <EditPanel nodeId={nodeId.value} />
+          </PanelGroup>
+        )}
       </ReactFlowProvider>
     </FlowContext.Provider>
   );
@@ -747,22 +758,22 @@ const SettingsPanel = () => {
   );
 };
 
-export const EditPanel = () => {
+interface EditPanelProps {
+  nodeId: Uint8Array;
+}
+
+export const EditPanel = ({ nodeId }: EditPanelProps) => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
-  const { nodeId } = flowLayoutRouteApi.useLoaderData();
-
-  const { data } = useDLE(NodeGetEndpoint, Option.isSome(nodeId) ? { nodeId: nodeId.value } : null);
-
-  if (Option.isNone(nodeId) || !data) return null;
+  const { data } = useDLE(NodeGetEndpoint, { nodeId });
 
   const view = pipe(
     Match.value(data),
     Match.when({ kind: NodeKind.NO_OP, noOp: NodeNoOpKind.START }, () => <SettingsPanel />),
-    Match.when({ kind: NodeKind.CONDITION }, () => <ConditionPanel node={data} />),
-    Match.when({ kind: NodeKind.FOR_EACH }, () => <ForEachPanel node={data} />),
-    Match.when({ kind: NodeKind.FOR }, () => <ForPanel node={data} />),
-    Match.when({ kind: NodeKind.JS }, () => <JavaScriptPanel node={data} />),
-    Match.when({ kind: NodeKind.REQUEST }, () => <RequestPanel node={data} />),
+    Match.when({ kind: NodeKind.CONDITION }, (_) => <ConditionPanel node={_} />),
+    Match.when({ kind: NodeKind.FOR_EACH }, (_) => <ForEachPanel node={_} />),
+    Match.when({ kind: NodeKind.FOR }, (_) => <ForPanel node={_} />),
+    Match.when({ kind: NodeKind.JS }, (_) => <JavaScriptPanel node={_} />),
+    Match.when({ kind: NodeKind.REQUEST }, (_) => <RequestPanel node={_} />),
     Match.orElse(() => null),
   );
 
@@ -770,7 +781,7 @@ export const EditPanel = () => {
 
   return (
     <ErrorBoundary fallback={null}>
-      <ReferenceContext value={{ nodeId: nodeId.value, workspaceId }}>
+      <ReferenceContext value={{ nodeId, workspaceId }}>
         <PanelResizeHandle direction='vertical' />
         <Panel className={tw`!overflow-auto`} defaultSize={40} id='node' order={2}>
           <Suspense
@@ -779,7 +790,7 @@ export const EditPanel = () => {
                 <Spinner size='lg' />
               </div>
             }
-            key={Ulid.construct(nodeId.value).toCanonical()}
+            key={Ulid.construct(nodeId).toCanonical()}
           >
             {view}
           </Suspense>
