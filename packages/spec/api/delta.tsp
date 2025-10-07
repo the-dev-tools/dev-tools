@@ -52,10 +52,7 @@ model CreateRequest<TResource extends Model> {
 @autoFields
 @move(Delta, TResource)
 @friendlyName("{name}DeltaUpdateRequest", TResource)
-model UpdateRequest<
-  TResource extends Model,
-  TDelta extends Model = Item<TResource>
-> {
+model UpdateRequest<TResource extends Model, TDelta extends Model = Item<TResource>> {
   ...ParentKeyOf<TResource>;
   ...Resource.Update.Request<TDelta>;
 }
@@ -63,10 +60,7 @@ model UpdateRequest<
 @autoFields
 @move(Delta, TResource)
 @friendlyName("{name}DeltaDeleteRequest", TResource)
-model DeleteRequest<
-  TResource extends Model,
-  TDelta extends Model = Item<TResource>
-> {
+model DeleteRequest<TResource extends Model, TDelta extends Model = Item<TResource>> {
   ...ParentKeyOf<TResource>;
   ...Resource.Delete.Request<TDelta>;
 }
