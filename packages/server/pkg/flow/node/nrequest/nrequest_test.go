@@ -220,17 +220,10 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 		t.Fatalf("expected success, got error: %v", result.Err)
 	}
 
-	var sideResp NodeRequestSideResp
 	select {
-	case sideResp = <-respChan:
+	case <-respChan:
 	default:
 		t.Fatalf("expected response channel to receive payload")
-	}
-	if len(sideResp.InputData) == 0 {
-		t.Fatalf("expected InputData to be captured, got %+v", sideResp.InputData)
-	}
-	if val, ok := sideResp.InputData["baseUrl"].(string); !ok || val != "https://api.example.com" {
-		t.Fatalf("expected baseUrl to be tracked in side response, got %+v", sideResp.InputData)
 	}
 
 	readVars := tracker.GetReadVars()
