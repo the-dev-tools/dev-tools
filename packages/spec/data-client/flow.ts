@@ -1,5 +1,4 @@
 import { create } from '@bufbuild/protobuf';
-import { Endpoint } from '@data-client/endpoint';
 import { Array, Match, Option, pipe } from 'effect';
 import {
   FlowVariableMoveRequestSchema,
@@ -8,7 +7,7 @@ import {
 import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
 import { FlowVariableListItemEntity } from '../dist/meta/flowvariable/v1/flowvariable.entities';
 import { MakeEndpointProps } from './resource';
-import { EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
+import { Endpoint, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
 export const moveVariable = ({
   method,

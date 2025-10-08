@@ -1,5 +1,4 @@
 import { create } from '@bufbuild/protobuf';
-import { Endpoint } from '@data-client/endpoint';
 import { Array, Match, Option, pipe } from 'effect';
 import {
   BodyFormDeltaMoveRequestSchema,
@@ -29,7 +28,7 @@ import {
   QueryListItemEntity,
 } from '../dist/meta/collection/item/request/v1/request.entities';
 import { MakeEndpointProps } from './resource';
-import { EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
+import { Endpoint, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
 export const moveBodyForm = ({ method, name }: MakeEndpointProps<typeof BodyService.method.bodyFormMove>) => {
   const list = makeListCollection({ inputPrimaryKeys: ['exampleId'], itemSchema: BodyFormListItemEntity, method });

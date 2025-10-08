@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import { Endpoint, schema } from '@data-client/endpoint';
+import { schema } from '@data-client/endpoint';
 import { Array, Equivalence, Match, Option, pipe, Record, Struct } from 'effect';
 import { EndpointService } from '../dist/buf/typescript/collection/item/endpoint/v1/endpoint_pb';
 import {
@@ -26,7 +26,7 @@ import {
 import { FolderListItemEntity } from '../dist/meta/collection/item/folder/v1/folder.entities';
 import { ResponseGetResponseEntity } from '../dist/meta/collection/item/response/v1/response.entities';
 import { MakeEndpointProps } from './resource';
-import { createMethodKeyRecord, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
+import { createMethodKeyRecord, Endpoint, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
 const listKeys: (keyof CollectionItemListRequest)[] = ['collectionId', 'parentFolderId'];
 
