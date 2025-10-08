@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
+	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/http/response"
 	"the-dev-tools/server/pkg/httpclient"
@@ -59,7 +61,8 @@ type NodeRequestSideResp struct {
 	UrlBody  []mbodyurl.BodyURLEncoded
 
 	// Resp
-	Resp response.ResponseCreateOutput
+	Resp      response.ResponseCreateOutput
+	InputData map[string]any
 }
 
 const (
@@ -70,6 +73,28 @@ const (
 type NodeRequestOutput struct {
 	Request  request.RequestResponseVar `json:"request"`
 	Response httpclient.ResponseVar     `json:"response"`
+}
+
+func buildTrackedInputTree(readVars map[string]string) map[string]any {
+	if len(readVars) == 0 {
+		return nil
+	}
+	flat := make(map[string]any, len(readVars))
+	for key, value := range readVars {
+		trimmedKey := strings.TrimSpace(key)
+		if trimmedKey == "" {
+			continue
+		}
+		flat[trimmedKey] = value
+	}
+	if len(flat) == 0 {
+		return nil
+	}
+	tree := tracking.BuildTree(flat)
+	if len(tree) == 0 {
+		return nil
+	}
+	return tree
 }
 
 func buildNodeRequestOutputMap(output NodeRequestOutput) map[string]any {
@@ -169,6 +194,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	prepareOutput := prepareResult.Request
 	inputVars := prepareResult.ReadVars
+	inputTree := buildTrackedInputTree(inputVars)
 
 	request.LogPreparedRequest(ctx, nr.logger, req.ExecutionID, nr.FlownNodeID, nr.Name, prepareOutput)
 
@@ -238,7 +264,8 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				FormBody: nr.FormBody,
 				UrlBody:  nr.UrlBody,
 
-				Resp: *respCreate,
+				Resp:      *respCreate,
+				InputData: inputTree,
 			}
 			return result
 		}
@@ -254,7 +281,8 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		FormBody: nr.FormBody,
 		UrlBody:  nr.UrlBody,
 
-		Resp: *respCreate,
+		Resp:      *respCreate,
+		InputData: inputTree,
 	}
 
 	return result
@@ -284,6 +312,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	prepareOutput := prepareResult.Request
 	inputVars := prepareResult.ReadVars
+	inputTree := buildTrackedInputTree(inputVars)
 
 	request.LogPreparedRequest(ctx, nr.logger, req.ExecutionID, nr.FlownNodeID, nr.Name, prepareOutput)
 
@@ -354,7 +383,8 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				FormBody: nr.FormBody,
 				UrlBody:  nr.UrlBody,
 
-				Resp: *respCreate,
+				Resp:      *respCreate,
+				InputData: inputTree,
 			}
 			resultChan <- result
 			return
@@ -371,7 +401,8 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		FormBody: nr.FormBody,
 		UrlBody:  nr.UrlBody,
 
-		Resp: *respCreate,
+		Resp:      *respCreate,
+		InputData: inputTree,
 	}
 	if ctx.Err() != nil {
 		return

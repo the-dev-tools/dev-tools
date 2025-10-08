@@ -12429,6 +12429,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   state = excluded.state,
   error = excluded.error, 
+  input_data = excluded.input_data,
+  input_data_compress_type = excluded.input_data_compress_type,
   output_data = excluded.output_data,
   output_data_compress_type = excluded.output_data_compress_type,
   response_id = excluded.response_id,

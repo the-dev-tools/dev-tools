@@ -195,7 +195,8 @@ func (vmt *VarMapTracker) Get(varKey string) (mvar.Var, bool) {
 	val, ok := vmt.VarMap.Get(varKey)
 	if ok {
 		// Track this variable read
-		vmt.ReadVars[varKey] = val.Value
+		trimmedKey := strings.TrimSpace(varKey)
+		vmt.ReadVars[trimmedKey] = val.Value
 	}
 	return val, ok
 }
@@ -221,7 +222,7 @@ func (vmt *VarMapTracker) ReplaceVars(raw string) (string, error) {
 		}
 
 		// Check if key is present in the map
-		key := GetVarKeyFromRaw(rawVar)
+		key := strings.TrimSpace(GetVarKeyFromRaw(rawVar))
 
 		// Check if this is a file reference
 		if IsFileReference(key) {

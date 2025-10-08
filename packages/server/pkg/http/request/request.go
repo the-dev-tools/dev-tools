@@ -459,22 +459,20 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 	compressType := compress.CompressTypeNone
 	if varMap != nil {
 		for i, query := range queries {
-			if varsystem.CheckIsVar(query.QueryKey) {
-				key := varsystem.GetVarKeyFromRaw(query.QueryKey)
-				if val, ok := tracker.Get(key); ok {
-					queries[i].QueryKey = val.Value
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
+			if varsystem.CheckStringHasAnyVarKey(query.QueryKey) {
+				resolvedKey, err := tracker.ReplaceVars(query.QueryKey)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
+				queries[i].QueryKey = resolvedKey
 			}
 
-			if varsystem.CheckIsVar(query.Value) {
-				key := varsystem.GetVarKeyFromRaw(query.Value)
-				if val, ok := tracker.Get(key); ok {
-					queries[i].Value = val.Value
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
+			if varsystem.CheckStringHasAnyVarKey(query.Value) {
+				resolvedValue, err := tracker.ReplaceVars(query.Value)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
+				queries[i].Value = resolvedValue
 			}
 		}
 	}
@@ -496,13 +494,12 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 		}
 
 		if varMap != nil {
-			if varsystem.CheckIsVar(header.HeaderKey) {
-				key := varsystem.GetVarKeyFromRaw(header.HeaderKey)
-				if val, ok := tracker.Get(key); ok {
-					headers[i].HeaderKey = val.Value
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
+			if varsystem.CheckStringHasAnyVarKey(header.HeaderKey) {
+				resolvedKey, err := tracker.ReplaceVars(header.HeaderKey)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
+				headers[i].HeaderKey = resolvedKey
 			}
 
 			if varsystem.CheckStringHasAnyVarKey(header.Value) {
@@ -550,13 +547,12 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 
 		for _, v := range formBody {
 			actualBodyKey := v.BodyKey
-			if varsystem.CheckIsVar(v.BodyKey) {
-				key := varsystem.GetVarKeyFromRaw(v.BodyKey)
-				if val, ok := tracker.Get(key); ok {
-					actualBodyKey = val.Value
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+			if varsystem.CheckStringHasAnyVarKey(v.BodyKey) {
+				resolvedKey, err := tracker.ReplaceVars(v.BodyKey)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
+				actualBodyKey = resolvedKey
 			}
 
 			// First check if this value contains file references (before variable replacement)
@@ -568,17 +564,19 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 				trimmedRef := strings.TrimSpace(ref)
 				// Check if this is a variable containing a file reference
 				if varsystem.CheckIsVar(trimmedRef) {
-					key := varsystem.GetVarKeyFromRaw(trimmedRef)
+					key := strings.TrimSpace(varsystem.GetVarKeyFromRaw(trimmedRef))
 					if varsystem.IsFileReference(key) {
 						// This is {{#file:path}} format
 						filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(key))
 						// Track the file reference read
-						tracker.ReadVars[key], _ = varsystem.ReadFileContentAsString(key)
+						fileKey := strings.TrimSpace(key)
+						tracker.ReadVars[fileKey], _ = varsystem.ReadFileContentAsString(fileKey)
 					} else {
 						// This is a regular variable, try to resolve it
 						if val, ok := tracker.Get(key); ok {
 							if varsystem.IsFileReference(val.Value) {
-								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(val.Value))
+								fileKey := strings.TrimSpace(val.Value)
+								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(fileKey))
 							} else {
 								allAreFileReferences = false
 								break
@@ -592,7 +590,8 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 					// This is direct #file:path format
 					filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(trimmedRef))
 					// Track the file reference read
-					tracker.ReadVars[trimmedRef], _ = varsystem.ReadFileContentAsString(trimmedRef)
+					fileKey := strings.TrimSpace(trimmedRef)
+					tracker.ReadVars[fileKey], _ = varsystem.ReadFileContentAsString(fileKey)
 				} else {
 					allAreFileReferences = false
 					break
@@ -652,24 +651,24 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 	case mitemapiexample.BodyTypeUrlencoded:
 		urlVal := url.Values{}
 		for _, url := range urlBody {
-			if varsystem.CheckIsVar(url.BodyKey) {
-				key := varsystem.GetVarKeyFromRaw(url.Value)
-				if val, ok := tracker.Get(key); ok {
-					url.BodyKey = val.Value
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+			bodyKey := url.BodyKey
+			if varsystem.CheckStringHasAnyVarKey(bodyKey) {
+				resolvedKey, err := tracker.ReplaceVars(bodyKey)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
+				bodyKey = resolvedKey
 			}
-			if varsystem.CheckIsVar(url.Value) {
-				key := varsystem.GetVarKeyFromRaw(url.Value)
-				if val, ok := tracker.Get(key); ok {
-					url.Value = val.Value
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
+			bodyValue := url.Value
+			if varsystem.CheckStringHasAnyVarKey(bodyValue) {
+				resolvedValue, err := tracker.ReplaceVars(bodyValue)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
+				bodyValue = resolvedValue
 			}
 
-			urlVal.Add(url.BodyKey, url.Value)
+			urlVal.Add(bodyKey, bodyValue)
 		}
 		endpoint.Url += urlVal.Encode()
 	}

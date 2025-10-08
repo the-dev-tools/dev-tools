@@ -1540,10 +1540,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// Map to store node executions by execution ID for state transitions
 	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
+	trackedInputData := make(map[idwrap.IDWrap]map[string]any)
 
 	// Map to store orphaned responses that arrive before ExecutionID is registered
 	orphanedResponses := make(map[idwrap.IDWrap]struct {
 		ResponseID idwrap.IDWrap
+		InputJSON  []byte
 		Timestamp  int64
 	})
 
@@ -1680,6 +1682,27 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			log.Println("cannot update example on flow run", err)
 		}
 
+		var (
+			inputJSON []byte
+			hasInput  bool
+		)
+		if len(requestNodeResp.InputData) > 0 {
+			if data, err := json.Marshal(requestNodeResp.InputData); err == nil {
+				inputJSON = data
+				hasInput = true
+			}
+		}
+
+		applyInputData := func(exec *mnodeexecution.NodeExecution) {
+			if exec == nil || !hasInput {
+				return
+			}
+			if err := exec.SetInputJSON(inputJSON); err != nil {
+				exec.InputData = inputJSON
+				exec.InputDataCompressType = 0
+			}
+		}
+
 		pendingMutex.Lock()
 		targetExecutionID := requestNodeResp.ExecutionID
 		responseID := requestNodeResp.Resp.ExampleResp.ID
@@ -1696,11 +1719,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			if !exists {
 				shouldStoreOrph = true
 			}
+			if hasInput {
+				trackedInputData[targetExecutionID] = requestNodeResp.InputData
+			}
 		}
 		pendingMutex.Unlock()
 
 		if targetExecutionID != (idwrap.IDWrap{}) && responseID != (idwrap.IDWrap{}) {
 			if exists && nodeExec != nil {
+				if hasInput {
+					applyInputData(nodeExec)
+				}
 				nodeExec.ResponseID = &responseID
 
 				if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
@@ -1723,6 +1752,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				for i := range nodeExecutions {
 					if nodeExecutions[i].ID == targetExecutionID {
 						nodeExecutions[i].ResponseID = &responseID
+						if hasInput {
+							nodeExecutions[i].InputData = nodeExec.InputData
+							nodeExecutions[i].InputDataCompressType = nodeExec.InputDataCompressType
+						}
 						break
 					}
 				}
@@ -1730,6 +1763,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				persisted := false
 				if shouldStoreOrph {
 					if exec, err := c.nes.GetNodeExecution(ctx, targetExecutionID); err == nil {
+						if hasInput {
+							applyInputData(exec)
+						}
 						exec.ResponseID = &responseID
 						if err := persistUpsert2s(c.nes, *exec); err != nil {
 							log.Printf("Failed to upsert late node execution response %s: %v", targetExecutionID, err)
@@ -1749,9 +1785,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					}
 					orphanedResponses[targetExecutionID] = struct {
 						ResponseID idwrap.IDWrap
+						InputJSON  []byte
 						Timestamp  int64
 					}{
 						ResponseID: responseID,
+						InputJSON:  inputJSON,
 						Timestamp:  responseReceivedTime.UnixMilli(),
 					}
 					pendingMutex.Unlock()
@@ -1877,6 +1915,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							// Check if there's an orphaned response waiting for this ExecutionID
 							if orphaned, exists := orphanedResponses[executionID]; exists {
 								nodeExecution.ResponseID = &orphaned.ResponseID
+								if len(orphaned.InputJSON) > 0 {
+									if err := nodeExecution.SetInputJSON(orphaned.InputJSON); err != nil {
+										nodeExecution.InputData = orphaned.InputJSON
+										nodeExecution.InputDataCompressType = 0
+									}
+								}
 
 								// Update in database immediately (synchronously) to avoid regressing terminal updates later
 								if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
@@ -1960,12 +2004,27 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 
 						// Compress and store input data
+						sourceFromStatus := false
 						if flowNodeStatus.InputData != nil {
-							if inputJSON, err := json.Marshal(flowNodeStatus.InputData); err == nil {
-								if err := nodeExec.SetInputJSON(inputJSON); err != nil {
-									nodeExec.InputData = inputJSON
-									nodeExec.InputDataCompressType = 0
+							if mapData, ok := flowNodeStatus.InputData.(map[string]any); !ok || len(mapData) > 0 {
+								if inputJSON, err := json.Marshal(flowNodeStatus.InputData); err == nil {
+									if err := nodeExec.SetInputJSON(inputJSON); err != nil {
+										nodeExec.InputData = inputJSON
+										nodeExec.InputDataCompressType = 0
+									}
+									sourceFromStatus = true
 								}
+							}
+						}
+						if !sourceFromStatus {
+							if tree, ok := trackedInputData[executionID]; ok {
+								if inputJSON, err := json.Marshal(tree); err == nil {
+									if err := nodeExec.SetInputJSON(inputJSON); err != nil {
+										nodeExec.InputData = inputJSON
+										nodeExec.InputDataCompressType = 0
+									}
+								}
+								delete(trackedInputData, executionID)
 							}
 						}
 
@@ -1983,6 +2042,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
 							log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
 						}
+						delete(trackedInputData, executionID)
 
 						// For REQUEST nodes, wait for response before sending to channel.
 						// If the response already arrived, we can forward the execution now.
@@ -2342,10 +2402,17 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		if respInfo, exists := orphanedResponses[execID]; exists {
 			respID := respInfo.ResponseID
 			nodeExec.ResponseID = &respID
+			if len(respInfo.InputJSON) > 0 {
+				if err := nodeExec.SetInputJSON(respInfo.InputJSON); err != nil {
+					nodeExec.InputData = respInfo.InputJSON
+					nodeExec.InputDataCompressType = 0
+				}
+			}
 			if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
 				log.Printf("Failed to upsert orphaned response for execution %s: %v", execID, err)
 			}
 			delete(orphanedResponses, execID)
+			delete(trackedInputData, execID)
 		}
 
 		if nodeExec.CompletedAt != nil {

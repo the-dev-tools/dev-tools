@@ -66,6 +66,55 @@ func TestPrepareRequestWithTracking_URL(t *testing.T) {
 	}
 }
 
+func TestPrepareRequestWithTracking_TrimsVariableKeys(t *testing.T) {
+	varMap := varsystem.NewVarMapFromAnyMap(map[string]any{
+		"baseUrl": "https://api.example.com",
+		"foreach_4": map[string]any{
+			"item": map[string]any{
+				"id": "abc123",
+			},
+		},
+	})
+
+	endpoint := mitemapi.ItemApi{
+		Method: "GET",
+		Url:    "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}",
+	}
+
+	example := mitemapiexample.ItemApiExample{
+		BodyType: mitemapiexample.BodyTypeRaw,
+	}
+
+	result, err := request.PrepareRequestWithTracking(
+		endpoint,
+		example,
+		nil,
+		nil,
+		mbodyraw.ExampleBodyRaw{},
+		nil,
+		nil,
+		varMap,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := map[string]string{
+		"baseUrl":           "https://api.example.com",
+		"foreach_4.item.id": "abc123",
+	}
+
+	if len(result.ReadVars) != len(expected) {
+		t.Fatalf("expected %d tracked vars, got %d (%v)", len(expected), len(result.ReadVars), result.ReadVars)
+	}
+
+	for key, value := range expected {
+		if got := result.ReadVars[key]; got != value {
+			t.Fatalf("expected %s=%s, got %s", key, value, got)
+		}
+	}
+}
+
 func TestPrepareRequestWithTracking_Headers(t *testing.T) {
 	// Setup variables
 	vars := []mvar.Var{

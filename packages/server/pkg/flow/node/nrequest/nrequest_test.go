@@ -19,6 +19,8 @@ import (
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/mexampleheader"
+	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
@@ -146,6 +148,110 @@ func newRequestNodeFixture(asserts []massert.Assert, respChan chan NodeRequestSi
 		node:      requestNode,
 		flowReq:   flowReq,
 		exampleID: exampleID,
+	}
+}
+
+func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
+	nodeID := idwrap.NewNow()
+	exampleID := idwrap.NewNow()
+
+	endpoint := mitemapi.ItemApi{
+		ID:     idwrap.NewNow(),
+		Name:   "req",
+		Method: "POST",
+		Url:    "{{baseUrl}}/users",
+	}
+	example := mitemapiexample.ItemApiExample{
+		ID:        exampleID,
+		ItemApiID: endpoint.ID,
+		Name:      "req",
+		BodyType:  mitemapiexample.BodyTypeRaw,
+	}
+	rawBody := mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: example.ID,
+		Data:      []byte(`{"name": "{{name}}"}`),
+	}
+
+	queries := []mexamplequery.Query{
+		{QueryKey: "limit", Value: "{{limit}}", Enable: true},
+	}
+	headers := []mexampleheader.Header{
+		{HeaderKey: "Authorization", Value: "Bearer {{token}}", Enable: true},
+	}
+
+	respChan := make(chan NodeRequestSideResp, 1)
+
+	requestNode := New(
+		nodeID,
+		"req",
+		endpoint,
+		example,
+		queries,
+		headers,
+		rawBody,
+		nil,
+		nil,
+		mexampleresp.ExampleResp{ExampleID: example.ID},
+		nil,
+		nil,
+		stubHTTPClient{},
+		respChan,
+		nil,
+	)
+
+	tracker := tracking.NewVariableTracker()
+	req := &node.FlowNodeRequest{
+		VarMap: map[string]any{
+			"baseUrl": "https://api.example.com",
+			"limit":   "10",
+			"token":   "abc123",
+			"name":    "Ada Lovelace",
+		},
+		ReadWriteLock:   &sync.RWMutex{},
+		NodeMap:         map[idwrap.IDWrap]node.FlowNode{nodeID: requestNode},
+		EdgeSourceMap:   edge.EdgesMap{},
+		ExecutionID:     idwrap.NewNow(),
+		VariableTracker: tracker,
+	}
+
+	result := requestNode.RunSync(context.Background(), req)
+	if result.Err != nil {
+		t.Fatalf("expected success, got error: %v", result.Err)
+	}
+
+	var sideResp NodeRequestSideResp
+	select {
+	case sideResp = <-respChan:
+	default:
+		t.Fatalf("expected response channel to receive payload")
+	}
+	if len(sideResp.InputData) == 0 {
+		t.Fatalf("expected InputData to be captured, got %+v", sideResp.InputData)
+	}
+	if val, ok := sideResp.InputData["baseUrl"].(string); !ok || val != "https://api.example.com" {
+		t.Fatalf("expected baseUrl to be tracked in side response, got %+v", sideResp.InputData)
+	}
+
+	readVars := tracker.GetReadVars()
+	expectedValues := map[string]string{
+		"baseUrl": "https://api.example.com",
+		"limit":   "10",
+		"token":   "abc123",
+		"name":    "Ada Lovelace",
+	}
+	for key, expected := range expectedValues {
+		value, ok := readVars[key]
+		if !ok {
+			t.Fatalf("expected tracker to capture %s, got %#v", key, readVars)
+		}
+		strValue, ok := value.(string)
+		if !ok {
+			t.Fatalf("expected %s to be a string, got %T", key, value)
+		}
+		if strValue != expected {
+			t.Fatalf("expected tracker to capture %s=%s, got %s", key, expected, strValue)
+		}
 	}
 }
 

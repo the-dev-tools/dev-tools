@@ -367,6 +367,82 @@ func TestFlowRunAdHoc_PersistsRequestOutput(t *testing.T) {
 	require.True(t, sawResponse, "expected to observe response output for request node")
 }
 
+func TestFlowRunAdHoc_PersistsRequestInputData(t *testing.T) {
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	ctx := context.Background()
+
+	endpoint, err := harness.svc.ias.GetItemApi(ctx, harness.endpointID)
+	require.NoError(t, err)
+	endpoint.Url = "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}"
+	require.NoError(t, harness.svc.ias.UpdateItemApi(ctx, endpoint))
+	harness.svc.itemAPICache.Delete(endpoint.ID)
+
+	baseVar := mvar.Var{
+		ID:      idwrap.NewNow(),
+		EnvID:   harness.environmentID,
+		VarKey:  "baseUrl",
+		Value:   harness.serverURL,
+		Enabled: true,
+	}
+	require.NoError(t, harness.svc.vars.Create(ctx, baseVar))
+
+	foreachVar := mflowvariable.FlowVariable{
+		ID:      idwrap.NewNow(),
+		FlowID:  harness.flowID,
+		Name:    "foreach_4.item.id",
+		Value:   "cat-42",
+		Enabled: true,
+	}
+	require.NoError(t, harness.svc.fvs.CreateFlowVariable(ctx, foreachVar))
+
+	stream := noopStream{}
+	require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
+
+	var observedReq *http.Request
+	select {
+	case observedReq = <-harness.requestRecorder:
+	case <-time.After(2 * time.Second):
+		t.Fatal("request not captured")
+	}
+	require.NotNil(t, observedReq)
+	require.Equal(t, "/api/categories/cat-42", observedReq.URL.Path)
+
+	latest, err := harness.svc.nes.GetLatestNodeExecutionByNodeID(ctx, harness.requestNodeID)
+	require.NoError(t, err)
+	require.NotNil(t, latest, "expected a request node execution")
+	require.Equal(t, mnnode.NODE_STATE_SUCCESS, latest.State, "expected latest execution to succeed")
+
+	inputRaw, err := latest.GetInputJSON()
+	require.NoError(t, err)
+	require.NotNil(t, inputRaw)
+	require.Greater(t, len(inputRaw), 2, "expected non-empty input json, got %s", string(inputRaw))
+
+	var input map[string]any
+	require.NoError(t, json.Unmarshal(inputRaw, &input))
+	require.Equal(t, harness.serverURL, input["baseUrl"])
+
+	foreachVal, ok := input["foreach_4"].(map[string]any)
+	require.True(t, ok, "expected foreach_4 subtree in input json: %s", string(inputRaw))
+	itemVal, ok := foreachVal["item"].(map[string]any)
+	require.True(t, ok, "expected foreach_4.item subtree: %s", string(inputRaw))
+	require.Equal(t, "cat-42", itemVal["id"])
+
+	outputRaw, err := latest.GetOutputJSON()
+	require.NoError(t, err)
+	require.NotNil(t, outputRaw)
+
+	var output map[string]any
+	require.NoError(t, json.Unmarshal(outputRaw, &output))
+
+	requestBlock, ok := output[nrequest.OUTPUT_REQUEST_NAME].(map[string]any)
+	require.True(t, ok, "expected request block in output data")
+	requestURL, ok := requestBlock["url"].(string)
+	require.True(t, ok, "expected request url string in output data")
+	require.Equal(t, harness.serverURL+"/api/categories/cat-42", requestURL)
+}
+
 func TestFlowRunAdHoc_RequestSuccessHasResponseID(t *testing.T) {
 	harness := setupFlowRunHarness(t)
 	defer harness.cleanup()
@@ -514,8 +590,10 @@ type flowRunHarness struct {
 	startNodeID     idwrap.IDWrap
 	flowID          idwrap.IDWrap
 	exampleID       idwrap.IDWrap
+	endpointID      idwrap.IDWrap
 	environmentID   idwrap.IDWrap
 	globalEnvID     idwrap.IDWrap
+	serverURL       string
 	requestRecorder chan *http.Request
 }
 
@@ -842,8 +920,10 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 		startNodeID:     startNodeID,
 		flowID:          flowID,
 		exampleID:       exampleID,
+		endpointID:      endpointID,
 		environmentID:   activeEnvID,
 		globalEnvID:     globalEnvID,
+		serverURL:       testServer.URL,
 		requestRecorder: requestRecorder,
 	}
 }
