@@ -25,11 +25,11 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Lint
-        run: task lint
+        run: task lint -- --configuration=ci
 
       - id: test
         name: Test
-        run: task test:ci
+        run: task test:ci -- --configuration=ci
 
       - id: go-test-modules
         name: Find modules with Go test results
