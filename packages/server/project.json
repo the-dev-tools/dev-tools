@@ -11,11 +11,15 @@
       "dependsOn": ["db:generate"],
       "executor": "nx:run-commands",
       "cache": false,
-      "configurations": {
-        "ci": {
-          "cache": true
-        }
-      },
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "go build -o dist/server cmd/server/server.go"
+      }
+    },
+    "build-ci": {
+      "dependsOn": ["db:generate-ci"],
+      "executor": "nx:run-commands",
+      "cache": true,
       "options": {
         "cwd": "{projectRoot}",
         "command": "go build -o dist/server cmd/server/server.go"
@@ -38,7 +42,7 @@
       }
     },
     "test:ci": {
-      "dependsOn": ["db:generate"],
+      "dependsOn": ["db:generate-ci"],
       "executor": "nx:run-commands",
       "options": {
         "cwd": "{projectRoot}",

@@ -9,11 +9,15 @@
       "executor": "nx:run-commands",
       "outputs": ["{projectRoot}/pkg/sqlc/gen"],
       "cache": false,
-      "configurations": {
-        "ci": {
-          "cache": true
-        }
-      },
+      "options": {
+        "cwd": "{projectRoot}/pkg/sqlc",
+        "command": "nix develop -c sqlc generate"
+      }
+    },
+    "generate-ci": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/pkg/sqlc/gen"],
+      "cache": true,
       "options": {
         "cwd": "{projectRoot}/pkg/sqlc",
         "command": "nix develop -c sqlc generate"
