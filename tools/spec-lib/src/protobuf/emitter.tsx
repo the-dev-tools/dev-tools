@@ -42,13 +42,7 @@ import {
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, flow, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
 import { join } from 'node:path/posix';
-import {
-  EmitterOptions,
-  getModelDerivations,
-  getModelName,
-  getModelProperties,
-  getModelRefKey,
-} from '../core/index.js';
+import { EmitterOptions } from '../core/index.js';
 import { externals, maps, streams } from './lib.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
@@ -167,7 +161,7 @@ const useProtoTypeMap = () => {
       ),
       Match.when(
         (_) => $.model.is(_),
-        (_) => Option.some(getModelRefKey(program, _)),
+        (_) => Option.some(refkey(_)),
       ),
       Match.when(
         (_) => $.enum.is(_),
@@ -220,7 +214,7 @@ interface PackageProps {
 }
 
 const Package = ({ namespace }: PackageProps) => {
-  const { $, program } = useTsp();
+  const { $ } = useTsp();
   const { goPackage, version } = useContext(EmitterOptionsContext)!;
 
   const name = String.pascalToSnake(namespace.name);
@@ -270,20 +264,15 @@ const Package = ({ namespace }: PackageProps) => {
     </Show>
   );
 
-  const messages = pipe(
-    namespace.models.values().toArray(),
-    Array.flatMap((_) => getModelDerivations(program, _)),
-    Array.dedupe,
-    (_) => (
-      <Show when={_.length > 0}>
-        <hbr />
-        <For doubleHardline each={_}>
-          {(_) => <Message model={_} />}
-        </For>
-        <hbr />
-      </Show>
-    ),
-  );
+  const messages = pipe(namespace.models.values().toArray(), (_) => (
+    <Show when={_.length > 0}>
+      <hbr />
+      <For doubleHardline each={_}>
+        {(_) => <Message model={_} />}
+      </For>
+      <hbr />
+    </Show>
+  ));
 
   const services = pipe(
     namespace.interfaces.values(),
@@ -385,11 +374,11 @@ interface MessageProps {
 }
 
 const Message = ({ model }: MessageProps) => {
-  const { program } = useTsp();
+  const { $ } = useTsp();
 
   const fields = pipe(
-    getModelProperties(program, model),
-    HashMap.toValues,
+    $.model.getProperties(model).values(),
+    Array.fromIterable,
     Option.liftPredicate(Array.isNonEmptyArray),
     Option.map((_) => (
       <Block>
@@ -400,7 +389,7 @@ const Message = ({ model }: MessageProps) => {
   );
 
   return (
-    <BasicDeclaration name={getModelName(program, model)} refkeys={getModelRefKey(program, model)}>
+    <BasicDeclaration name={model.name} refkeys={refkey(model)}>
       message <Name /> {fields}
     </BasicDeclaration>
   );

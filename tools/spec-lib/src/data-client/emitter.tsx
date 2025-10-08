@@ -36,17 +36,9 @@ import {
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
-import { Array, flow, HashMap, Option, pipe, Predicate, Schema, String, Tuple } from 'effect';
+import { Array, flow, Option, pipe, Predicate, Schema, String, Tuple } from 'effect';
 import { join } from 'node:path/posix';
-import {
-  EmitterOptions,
-  getModelDerivations,
-  getModelName,
-  getModelNamespace,
-  getModelProperties,
-  getModelRefKey,
-  normalKeys,
-} from '../core/index.js';
+import { EmitterOptions, normalKeys } from '../core/index.js';
 import { EndpointMeta, endpoints, entities } from './lib.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
@@ -108,11 +100,8 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
       entities(program).entries().toArray(),
       Array.filter(([_]) => !isTemplateDeclaration(_)),
       Array.forEach(([model, base]) => {
-        const namespace = getModelNamespace(program, base);
-        const path = getProtobufPath(namespace);
-        const name = getModelName(program, model);
-        const key = getModelRefKey(program, model);
-        outputSymbol(path, name + 'Schema', refkey('schema', key));
+        const path = getProtobufPath(base.namespace);
+        outputSymbol(path, model.name + 'Schema', refkey('schema', model));
       }),
     );
 
@@ -173,8 +162,6 @@ const Directory = ({ namespace }: DirectoryProps) => {
 
   const entityFile = pipe(
     namespace.models.values().toArray(),
-    Array.flatMap((_) => getModelDerivations(program, _)),
-    Array.dedupe,
     Array.filter((_) => entities(program).has(_)),
     (_) => (
       <SourceFile path={`${name}.entities.ts`}>
@@ -217,8 +204,7 @@ const Directory = ({ namespace }: DirectoryProps) => {
 
 const getPrimaryKeys = (program: Program, model: Model) =>
   pipe(
-    getModelProperties(program, model),
-    HashMap.toValues,
+    $(program).model.getProperties(model).values(),
     Array.filterMap(
       flow(
         Option.liftPredicate((_) => isKey(program, _) || normalKeys(program).has(_)),
@@ -232,16 +218,15 @@ interface EntityProps {
 }
 
 const Entity = ({ model }: EntityProps) => {
-  const { program } = useTsp();
+  const { $, program } = useTsp();
 
-  const baseName = pipe(entities(program).get(model)!, (_) => getModelName(program, _));
+  const baseName = entities(program).get(model)!.name;
   const key = `${useContext(SourceDirectoryContext)?.path}/${baseName}`;
 
   const primaryKeys = getPrimaryKeys(program, model);
 
   const requiredKeys = pipe(
-    getModelProperties(program, model),
-    HashMap.toValues,
+    $.model.getProperties(model).values(),
     Array.filterMap(
       flow(
         Option.liftPredicate((_) => !_.optional),
@@ -250,7 +235,7 @@ const Entity = ({ model }: EntityProps) => {
     ),
   );
 
-  const refkeys = refkey('schema', getModelRefKey(program, model));
+  const refkeys = refkey('schema', model);
 
   return (
     <ClassDeclaration
@@ -275,7 +260,7 @@ const Entity = ({ model }: EntityProps) => {
           target={refkey('makeEntity')}
         />
       }
-      name={`${getModelName(program, model)}Entity`}
+      name={`${model.name}Entity`}
       refkey={refkey(model)}
     />
   );
@@ -364,8 +349,7 @@ const schemaOutput = ({ origin, program, type }: SchemaOutputProps): Option.Opti
   if (!origin && entities(program).has(type)) return Option.some(refkey(type));
 
   return pipe(
-    getModelProperties(program, type),
-    HashMap.toValues,
+    $(program).model.getProperties(type).values(),
     Array.filterMap(({ name, type }) =>
       pipe(
         schemaOutput({ program, type }),

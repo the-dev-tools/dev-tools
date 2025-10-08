@@ -4,10 +4,6 @@ namespace DevTools;
 
 using Reflection;
 
-extern dec instanceOf(instance: Model, template: Model);
-
-extern dec templateOf(template: Model | Interface, base: Model);
-
 extern dec parent(target: Model, parent: Model);
 
 extern dec copyParent(target: Model, base: Model);
