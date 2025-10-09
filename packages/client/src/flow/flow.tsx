@@ -224,24 +224,27 @@ export const Flow = ({ children }: PropsWithChildren) => {
         Array.getSomes,
       );
 
-      for (const edge of edgesWithHandles) {
-        if (
-          !Boolean.some([
-            MutableHashMap.has(deleteEdgeMap, edge.id),
-            MutableHashMap.has(deleteNodeMap, edge.source),
-            MutableHashMap.has(deleteNodeMap, edge.target),
-          ])
-        ) {
-          continue;
+      // Do 2 passes to find indirectly referenced edges through edge source
+      for (let i = 0; i < 2; i++) {
+        for (const edge of edgesWithHandles) {
+          if (
+            !Boolean.some([
+              MutableHashMap.has(deleteEdgeMap, edge.id),
+              MutableHashMap.has(deleteNodeMap, edge.source),
+              MutableHashMap.has(deleteNodeMap, edge.target),
+            ])
+          ) {
+            continue;
+          }
+
+          MutableHashMap.set(deleteEdgeMap, edge.id, edge);
+
+          const source = getNode(edge.source);
+          if (source) MutableHashMap.set(deleteNodeMap, source.id, source);
+
+          const target = getNode(edge.target);
+          if (target) MutableHashMap.set(deleteNodeMap, target.id, target);
         }
-
-        MutableHashMap.set(deleteEdgeMap, edge.id, edge);
-
-        const source = getNode(edge.source);
-        if (source) MutableHashMap.set(deleteNodeMap, source.id, source);
-
-        const target = getNode(edge.target);
-        if (target) MutableHashMap.set(deleteNodeMap, target.id, target);
       }
 
       return Promise.resolve({
