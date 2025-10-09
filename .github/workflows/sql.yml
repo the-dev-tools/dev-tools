@@ -13,6 +13,6 @@ jobs:
       - uses: actions/checkout@v3
       - uses: sqlc-dev/setup-sqlc@v4
         with:
-          sqlc-version: '1.27.0'
+          sqlc-version: '1.30.0'
       - run: sqlc vet
         working-directory: './packages/db/pkg/sqlc'
