@@ -56,6 +56,10 @@ func (n *NodeForEach) GetName() string {
 	return n.Name
 }
 
+func (nr *NodeForEach) IsLoopCoordinator() bool {
+	return true
+}
+
 func (nr *NodeForEach) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.FlowNodeResult {
 	loopTargets := edge.GetNextNodeID(req.EdgeSourceMap, nr.FlowNodeID, edge.HandleLoop)
 	loopTargets = node.FilterLoopEntryNodes(req.EdgeSourceMap, loopTargets)

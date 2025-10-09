@@ -65,6 +65,10 @@ func (n *NodeFor) GetName() string {
 	return n.Name
 }
 
+func (nr *NodeFor) IsLoopCoordinator() bool {
+	return true
+}
+
 // checkBreakCondition evaluates the break condition and returns (shouldBreak, error)
 func (nr *NodeFor) checkBreakCondition(ctx context.Context, req *node.FlowNodeRequest) (bool, error) {
 	if nr.Condition.Comparisons.Expression == "" {

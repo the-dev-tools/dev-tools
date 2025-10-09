@@ -2,6 +2,7 @@ package flowlocalrunner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"runtime"
@@ -331,7 +332,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 		nodeCtx := ctx
 		cancelNodeCtx := func() {}
 		if timeout > 0 {
-			nodeCtx, cancelNodeCtx = context.WithDeadline(ctx, time.Now().Add(timeout))
+			nodeCtx, cancelNodeCtx = context.WithTimeout(ctx, timeout)
 		}
 		startTime := time.Now()
 
@@ -916,27 +917,19 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 
 	var status runner.FlowNodeStatus
 	var processCount int
-	// Mutex to protect PendingAtmoicMap from concurrent access
 	var pendingMapMutex sync.Mutex
-	// Track nodes that have been sent RUNNING status but haven't completed
-	// Map from executionID to the full status for proper state transitions
 	runningNodes := make(map[idwrap.IDWrap]runner.FlowNodeStatus)
 	runningNodesMutex := sync.Mutex{}
-	// Track start times for duration calculation
 	nodeStartTimes := make(map[idwrap.IDWrap]time.Time)
 
-	// Cleanup function to send CANCELED status for all running/queued nodes
 	sendCanceledStatuses := func(cancelErr error) {
-		// Send CANCELED status for any nodes still in RUNNING state
 		runningNodesMutex.Lock()
 		for execID, runningStatus := range runningNodes {
-			// Calculate actual duration if we have a start time
 			duration := time.Duration(0)
 			if startTime, ok := nodeStartTimes[execID]; ok {
 				duration = time.Since(startTime)
 			}
-
-			canceledStatus := runner.FlowNodeStatus{
+			statusLogFunc(runner.FlowNodeStatus{
 				ExecutionID:      execID,
 				NodeID:           runningStatus.NodeID,
 				Name:             runningStatus.Name,
@@ -944,31 +937,26 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 				Error:            cancelErr,
 				IterationContext: runningStatus.IterationContext,
 				RunDuration:      duration,
-			}
-			statusLogFunc(canceledStatus)
+			})
 		}
-		// Clear the maps after sending all canceled statuses
 		runningNodes = make(map[idwrap.IDWrap]runner.FlowNodeStatus)
 		nodeStartTimes = make(map[idwrap.IDWrap]time.Time)
 		runningNodesMutex.Unlock()
 
-		// Send CANCELED status for any nodes still in the queue
 		for _, nodeID := range queue {
-			if node, ok := req.NodeMap[nodeID]; ok {
-				canceledStatus := runner.FlowNodeStatus{
+			if nodeRef, ok := req.NodeMap[nodeID]; ok {
+				statusLogFunc(runner.FlowNodeStatus{
 					ExecutionID:      idwrap.NewNow(),
 					NodeID:           nodeID,
-					Name:             node.GetName(),
+					Name:             nodeRef.GetName(),
 					State:            mnnode.NODE_STATE_CANCELED,
 					Error:            cancelErr,
 					IterationContext: req.IterationContext,
-				}
-				statusLogFunc(canceledStatus)
+				})
 			}
 		}
 	}
 
-	// Ensure we send canceled statuses on any return path
 	defer func() {
 		if ctx.Err() != nil {
 			sendCanceledStatuses(ctx.Err())
@@ -980,73 +968,59 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 	seenNodes.Store(startNodeID, struct{}{})
 
 	for queueLen := len(queue); queueLen != 0; queueLen = len(queue) {
-		// Check if context was cancelled before processing next batch
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 
 		processCount = min(goroutineCount, queueLen)
 
-		ctxTimed, cancelTimeFn := context.WithDeadline(ctx, time.Now().Add(timeout))
-		defer cancelTimeFn()
-
 		var wg sync.WaitGroup
 		resultChan := make(chan processResult, processCount)
-
-		// TODO: can be done better
 		timeStart := make(map[idwrap.IDWrap]time.Time, processCount)
 
+		batch := queue[:processCount]
 		wg.Add(processCount)
-		FlowNodeCancelCtx, FlowNodeCancelCtxCancelFn := context.WithCancel(ctxTimed)
-		defer FlowNodeCancelCtxCancelFn()
-		for i := range processCount {
-			id := queue[i]
+		flowCtx, flowCancel := context.WithCancel(ctx)
+		defer flowCancel()
 
-			currentNode, ok := req.NodeMap[id]
+		for _, nodeID := range batch {
+			currentNode, ok := req.NodeMap[nodeID]
 			if !ok {
-				return fmt.Errorf("node not found: %v", currentNode)
+				flowCancel()
+				return fmt.Errorf("node not found: %v", nodeID)
 			}
 
-			timeStart[id] = time.Now()
-			seenNodes.Store(id, struct{}{})
+			timeStart[nodeID] = time.Now()
+			seenNodes.Store(nodeID, struct{}{})
 
-			go func(nodeID idwrap.IDWrap) {
+			go func(nodeID idwrap.IDWrap, flowNode node.FlowNode) {
 				defer wg.Done()
 
 				if predecessors := predecessorMap[nodeID]; len(predecessors) > 0 {
-					if err := waitForPredecessors(FlowNodeCancelCtx, nodeSignals, seenNodes, predecessors); err != nil {
-						resultChan <- processResult{
-							originalID:  currentNode.GetID(),
-							executionID: idwrap.IDWrap{},
-							err:         err,
-						}
+					if err := waitForPredecessors(flowCtx, nodeSignals, seenNodes, predecessors); err != nil {
+						resultChan <- processResult{originalID: flowNode.GetID(), err: err}
 						return
 					}
 				}
 
-				// Generate execution ID right before processing
 				executionID := idwrap.NewNow()
 
-				// Log RUNNING status with execution ID
 				runningStatus := runner.FlowNodeStatus{
 					ExecutionID:      executionID,
 					NodeID:           nodeID,
-					Name:             currentNode.GetName(),
+					Name:             flowNode.GetName(),
 					State:            mnnode.NODE_STATE_RUNNING,
 					Error:            nil,
 					IterationContext: req.IterationContext,
 				}
 				statusLogFunc(runningStatus)
 
-				// Track this node as running with its start time
 				runningNodesMutex.Lock()
 				runningNodes[executionID] = runningStatus
 				nodeStartTimes[executionID] = time.Now()
 				runningNodesMutex.Unlock()
 
-				// Create a copy of the request for this execution to avoid race conditions
-				// This ensures each goroutine has its own tracker and execution ID
-				nodeReq := *req // Shallow copy of the request struct
+				nodeReq := *req
 
 				var tracker *tracking.VariableTracker
 				if trackData {
@@ -1055,13 +1029,21 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 					nodeReq.VariableTracker = tracker
 				}
 
-				// Set the execution ID in the copied request
 				nodeReq.ExecutionID = executionID
 
-				result := processNode(FlowNodeCancelCtx, currentNode, &nodeReq)
+				nodeCtx := flowCtx
+				var cancelNode context.CancelFunc
+				if timeout > 0 {
+					if _, isLoop := flowNode.(node.LoopCoordinator); !isLoop {
+						nodeCtx, cancelNode = context.WithTimeout(flowCtx, timeout)
+					}
+				}
+				if cancelNode != nil {
+					defer cancelNode()
+				}
 
-				// Always capture tracked data and send result, even if context timed out
-				// This ensures nodes don't get stuck in RUNNING state
+				result := processNode(nodeCtx, flowNode, &nodeReq)
+
 				var (
 					outputData map[string]any
 					inputData  map[string]any
@@ -1076,13 +1058,12 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 					trackerPool.Put(tracker)
 				}
 
-				// If context timed out after node execution, mark it as an error
-				if ctxTimed.Err() != nil && result.Err == nil {
-					result.Err = ctxTimed.Err()
+				if result.Err == nil && errors.Is(nodeCtx.Err(), context.DeadlineExceeded) {
+					result.Err = nodeCtx.Err()
 				}
 
 				resultChan <- processResult{
-					originalID:      currentNode.GetID(),
+					originalID:      flowNode.GetID(),
 					executionID:     executionID,
 					nextNodes:       result.NextNodeID,
 					err:             result.Err,
@@ -1090,28 +1071,17 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 					outputData:      outputData,
 					skipFinalStatus: result.SkipFinalStatus,
 				}
-			}(id)
+			}(nodeID, currentNode)
 		}
 
-		waitCh := make(chan struct{}, 1)
-		go func() {
-			wg.Wait()
-			close(waitCh)
-		}()
-
-		// Wait for all goroutines to complete or timeout
-		timedOut := false
-		select {
-		case <-ctxTimed.Done():
-			timedOut = true
-			<-waitCh // Wait for goroutines to finish sending their results
-		case <-waitCh:
-		}
-
+		wg.Wait()
 		close(resultChan)
+
 		queue = queue[processCount:]
 
 		var lastNodeError error
+		timedOut := false
+
 		for result := range resultChan {
 			status.NodeID = result.originalID
 			status.ExecutionID = result.executionID
@@ -1121,18 +1091,19 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 			status.RunDuration = time.Since(timeStart[status.NodeID])
 			status.InputData = nil
 			status.OutputData = nil
+			_, isLoop := currentNode.(node.LoopCoordinator)
+
 			signalNodeComplete(nodeSignals, result.originalID)
 
-			// Remove from running nodes since we're processing its completion
 			runningNodesMutex.Lock()
 			delete(runningNodes, result.executionID)
 			delete(nodeStartTimes, result.executionID)
 			runningNodesMutex.Unlock()
 
-			// Prefer node-specific result error over global cancellation status.
-			// If the node returned an error, report it first; only mark as canceled
-			// due to global context cancellation when there is no node error.
 			if result.err != nil {
+				if errors.Is(result.err, context.DeadlineExceeded) {
+					timedOut = true
+				}
 				if runner.IsCancellationError(result.err) {
 					status.State = mnnode.NODE_STATE_CANCELED
 				} else {
@@ -1152,14 +1123,12 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 				status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 				statusLogFunc(status)
 				lastNodeError = result.err
-				// Trigger cancellation for remaining nodes after reporting this failure
-				FlowNodeCancelCtxCancelFn()
 				continue
 			}
 
-			if FlowNodeCancelCtx.Err() != nil {
+			if flowCtx.Err() != nil && !isLoop {
 				status.State = mnnode.NODE_STATE_CANCELED
-				status.Error = FlowNodeCancelCtx.Err()
+				status.Error = flowCtx.Err()
 				if trackData {
 					if result.inputData != nil {
 						status.InputData = node.DeepCopyValue(result.inputData)
@@ -1170,16 +1139,10 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 				}
 				status.OutputData = flattenNodeOutput(status.Name, status.OutputData)
 				statusLogFunc(status)
-				// Remove from running nodes since we've sent the CANCELED status
-				runningNodesMutex.Lock()
-				delete(runningNodes, result.executionID)
-				delete(nodeStartTimes, result.executionID)
-				runningNodesMutex.Unlock()
+				timedOut = true
 				continue
 			}
-			// All nodes should report SUCCESS when they complete successfully
-			// Loop nodes handle their own iteration tracking internally
-			// FOR/FOREACH nodes set skipFinalStatus to avoid creating empty main execution
+
 			if !result.skipFinalStatus {
 				status.State = mnnode.NODE_STATE_SUCCESS
 				status.Error = nil
@@ -1213,15 +1176,14 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 			return lastNodeError
 		}
 
-		// Check if flow was canceled - the defer will handle sending CANCELED statuses
-		if FlowNodeCancelCtx.Err() != nil {
-			return FlowNodeCancelCtx.Err()
+		if cancelErr := flowCtx.Err(); cancelErr != nil {
+			if !timedOut {
+				return cancelErr
+			}
 		}
 
-		// If we timed out but no specific node error, return the timeout error
-		// The defer will handle sending CANCELED statuses
 		if timedOut {
-			return ctxTimed.Err()
+			return context.DeadlineExceeded
 		}
 	}
 

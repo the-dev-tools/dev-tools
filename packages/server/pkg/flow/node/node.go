@@ -26,6 +26,11 @@ type FlowNode interface {
 	RunAsync(ctx context.Context, req *FlowNodeRequest, resultChan chan FlowNodeResult)
 }
 
+// LoopCoordinator marks nodes that orchestrate loop execution.
+type LoopCoordinator interface {
+	IsLoopCoordinator() bool
+}
+
 type FlowNodeRequest struct {
 	VarMap           map[string]any
 	ReadWriteLock    *sync.RWMutex

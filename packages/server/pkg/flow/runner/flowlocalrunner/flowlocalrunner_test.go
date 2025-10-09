@@ -13,6 +13,7 @@ import (
 
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
+	"the-dev-tools/server/pkg/flow/node/mocknode"
 	"the-dev-tools/server/pkg/flow/node/nfor"
 	"the-dev-tools/server/pkg/flow/node/nnoop"
 	"the-dev-tools/server/pkg/flow/runner"
@@ -857,6 +858,55 @@ func TestFlowLocalRunnerModeOverride(t *testing.T) {
 
 	if flowRunner.SelectedMode() != flowlocalrunner.ExecutionModeMulti {
 		t.Fatalf("expected selected mode MULTI when override is set, got %v", flowRunner.SelectedMode())
+	}
+}
+
+func TestLoopCoordinatorPerNodeTimeout(t *testing.T) {
+	const iterations = 4
+	const perNodeTimeout = 25 * time.Millisecond
+	const slowDelay = 20 * time.Millisecond
+
+	loopID := idwrap.NewNow()
+	bodyID := idwrap.NewNow()
+	bodyNode := mocknode.NewDelayedMockNode(bodyID, nil, slowDelay)
+	loopNode := nfor.New(loopID, "loop", iterations, 0, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		loopID: loopNode,
+		bodyID: bodyNode,
+	}
+	edgesMap := edge.EdgesMap{
+		loopID: {
+			edge.HandleLoop: []idwrap.IDWrap{bodyID},
+		},
+		bodyID: map[edge.EdgeHandle][]idwrap.IDWrap{},
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), idwrap.NewNow(), loopID, nodeMap, edgesMap, perNodeTimeout, nil)
+	flowRunner.SetExecutionMode(flowlocalrunner.ExecutionModeMulti)
+
+	stateChan := make(chan runner.FlowNodeStatus, 64)
+	flowStatusChan := make(chan runner.FlowStatus, 8)
+
+	start := time.Now()
+	err := flowRunner.Run(context.Background(), stateChan, flowStatusChan, nil)
+	duration := time.Since(start)
+
+	statuses := drainStates(stateChan)
+	_ = drainFlowStatus(flowStatusChan)
+
+	if err != nil {
+		t.Fatalf("flow runner returned error: %v statuses=%+v", err, statuses)
+	}
+
+	if duration < perNodeTimeout*time.Duration(iterations-1) {
+		t.Fatalf("expected total duration to exceed per-node timeout, got %v", duration)
+	}
+
+	for _, st := range statuses {
+		if st.NodeID == loopID && st.State == mnnode.NODE_STATE_CANCELED {
+			t.Fatalf("loop node was canceled unexpectedly: %+v", st)
+		}
 	}
 }
 
