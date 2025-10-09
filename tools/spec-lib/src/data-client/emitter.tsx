@@ -26,6 +26,7 @@ import {
 } from '@alloy-js/typescript';
 import {
   EmitContext,
+  isDeclaredInNamespace,
   isKey,
   isTemplateDeclaration,
   Model,
@@ -38,8 +39,8 @@ import { $ } from '@typespec/compiler/typekit';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, flow, Option, pipe, Predicate, Schema, String, Tuple } from 'effect';
 import { join } from 'node:path/posix';
-import { EmitterOptions, normalKeys } from '../core/index.js';
-import { EndpointMeta, endpoints, entities } from './lib.js';
+import { normalKeys, Projects, projects, useProject } from '../core/index.js';
+import { EmitterOptions, EndpointMeta, endpoints, entities } from './lib.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -49,9 +50,6 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
   const options = Schema.decodeSync(EmitterOptions)(context.options);
 
   if (program.compilerOptions.noEmit) return;
-
-  const root = program.getGlobalNamespaceType().namespaces.get(options.rootNamespace);
-  if (!root) return;
 
   const bindExternals = (binder: Binder) => {
     const scopes = new Map<string, TSModuleScope>();
@@ -65,9 +63,15 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
       scope.exportedSymbols.set(refkeys, symbol);
     };
 
-    const getProtobufPath = (namespace?: Namespace) => {
+    const getProtobufPath = (namespace: Namespace) => {
+      const project = projects(program)
+        .values()
+        .find((_) => isDeclaredInNamespace(namespace, _.namespace, { recursive: true }));
+
+      if (!project) return;
+
       const getNamespacePath = (namespace?: Namespace): Namespace[] => {
-        if (!namespace || namespace === root) return [];
+        if (!namespace || namespace === project.namespace) return [];
         return pipe(getNamespacePath(namespace.namespace), Array.append(namespace));
       };
 
@@ -79,7 +83,7 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
       return join(
         options.bufTypeScriptPath,
         ...namespacePath,
-        `v${options.version}`,
+        `v${project.version}`,
         pipe(Array.last(namespacePath), Option.getOrThrow, (_) => `${_}_pb.js`),
       );
     };
@@ -100,8 +104,8 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
       entities(program).entries().toArray(),
       Array.filter(([_]) => !isTemplateDeclaration(_)),
       Array.forEach(([model, base]) => {
-        const path = getProtobufPath(base.namespace);
-        outputSymbol(path, model.name + 'Schema', refkey('schema', model));
+        const path = getProtobufPath(base.namespace!);
+        if (path) outputSymbol(path, model.name + 'Schema', refkey('schema', model));
       }),
     );
 
@@ -124,8 +128,8 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
         const methodPath = join(options.dataClientPath, methodPathRelative);
         outputSymbol(methodPath, method, refkey('method', meta.method));
 
-        const path = getProtobufPath(interface_.namespace);
-        outputSymbol(path, interface_.name, refkey('service', interface_));
+        const path = getProtobufPath(interface_.namespace!);
+        if (path) outputSymbol(path, interface_.name, refkey('service', interface_));
       }),
     );
   };
@@ -134,10 +138,14 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
     program,
     <EmitterOptionsContext.Provider value={options}>
       <Output externals={[{ [getSymbolCreatorSymbol()]: bindExternals }]} program={program}>
-        {pipe(
-          root.namespaces.values().toArray(),
-          Array.map((_) => <Directory namespace={_} />),
-        )}
+        <Projects>
+          {(_) =>
+            pipe(
+              _.namespace.namespaces.values().toArray(),
+              Array.map((_) => <Directory namespace={_} />),
+            )
+          }
+        </Projects>
       </Output>
     </EmitterOptionsContext.Provider>,
     join(emitterOutputDir, 'data-client'),
@@ -150,7 +158,7 @@ interface DirectoryProps {
 
 const Directory = ({ namespace }: DirectoryProps) => {
   const { program } = useTsp();
-  const { version } = useContext(EmitterOptionsContext)!;
+  const { version } = useProject();
 
   const name = String.pascalToSnake(namespace.name);
 

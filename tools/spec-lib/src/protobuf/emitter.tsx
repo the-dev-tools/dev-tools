@@ -42,8 +42,8 @@ import {
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import { Array, flow, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
 import { join } from 'node:path/posix';
-import { EmitterOptions } from '../core/index.js';
-import { externals, maps, streams } from './lib.js';
+import { Projects, useProject } from '../core/index.js';
+import { EmitterOptions, externals, maps, streams } from './lib.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -53,9 +53,6 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
   const options = Schema.decodeSync(EmitterOptions)(context.options);
 
   if (program.compilerOptions.noEmit) return;
-
-  const root = program.getGlobalNamespaceType().namespaces.get(options.rootNamespace);
-  if (!root) return;
 
   const globalScope = new BasicScope('global', undefined);
 
@@ -74,11 +71,15 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
     <EmitterOptionsContext.Provider value={options}>
       <Scope value={globalScope}>
         <Output externals={[{ [getSymbolCreatorSymbol()]: bindExternals }]} program={program}>
-          {pipe(
-            root.namespaces.values(),
-            Array.fromIterable,
-            Array.map((_) => <Package namespace={_} />),
-          )}
+          <Projects>
+            {(_) =>
+              pipe(
+                _.namespace.namespaces.values(),
+                Array.fromIterable,
+                Array.map((_) => <Package namespace={_} />),
+              )
+            }
+          </Projects>
         </Output>
       </Scope>
     </EmitterOptionsContext.Provider>,
@@ -215,7 +216,8 @@ interface PackageProps {
 
 const Package = ({ namespace }: PackageProps) => {
   const { $ } = useTsp();
-  const { goPackage, version } = useContext(EmitterOptionsContext)!;
+  const { goPackage } = useContext(EmitterOptionsContext)!;
+  const { version } = useProject();
 
   const name = String.pascalToSnake(namespace.name);
 

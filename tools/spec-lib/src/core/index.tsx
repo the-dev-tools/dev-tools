@@ -1,6 +1,16 @@
-import { createTypeSpecLibrary, DecoratorContext, isKey, Model, ModelProperty, Program } from '@typespec/compiler';
+import { Children, createContext, SourceDirectory, useContext } from '@alloy-js/core';
+import {
+  createTypeSpecLibrary,
+  DecoratorContext,
+  isKey,
+  Model,
+  ModelProperty,
+  Namespace,
+  Program,
+} from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
-import { Array, Option, pipe, Schema } from 'effect';
+import { useTsp } from '@typespec/emitter-framework';
+import { Array, Match, Option, pipe } from 'effect';
 import { makeStateFactory } from '../utils.js';
 
 export const $lib = createTypeSpecLibrary({
@@ -13,6 +23,7 @@ export const $decorators = {
     copyParent,
     normalKey,
     parent,
+    project,
   },
   'DevTools.Private': {
     copyKey,
@@ -21,20 +32,12 @@ export const $decorators = {
   },
 };
 
-export class EmitterOptions extends Schema.Class<EmitterOptions>('EmitterOptions')({
-  bufTypeScriptPath: Schema.String,
-  dataClientPath: Schema.String,
-  goPackage: pipe(Schema.String, Schema.optionalWith({ as: 'Option' })),
-  rootNamespace: pipe(Schema.String, Schema.optionalWith({ default: () => 'API' })),
-  version: pipe(Schema.Positive, Schema.int(), Schema.optionalWith({ default: () => 1 })),
-}) {}
-
 const { makeStateMap, makeStateSet } = makeStateFactory((_) => $lib.createStateSymbol(_));
 
 export const normalKeys = makeStateSet<ModelProperty>('normalKeys');
 export const parents = makeStateMap<Model, Model>('parents');
 
-export const getModelKey = (program: Program, model: Model) =>
+const getModelKey = (program: Program, model: Model) =>
   pipe(
     $(program).model.getProperties(model),
     Array.fromIterable,
@@ -76,3 +79,46 @@ function omitKey({ program }: DecoratorContext, target: Model) {
 function normalKey({ program }: DecoratorContext, target: ModelProperty) {
   normalKeys(program).add(target);
 }
+
+interface Project {
+  namespace: Namespace;
+  version: number;
+}
+
+export const projects = makeStateSet<Project>('projects');
+
+function project({ program }: DecoratorContext, target: Namespace, version = 1) {
+  projects(program).add({ namespace: target, version });
+}
+
+const ProjectContext = createContext<Project>();
+
+export const useProject = () => useContext(ProjectContext)!;
+
+interface ProjectsProps {
+  children: (project_: Project) => Children;
+}
+
+export const Projects = ({ children }: ProjectsProps) => {
+  const { program } = useTsp();
+
+  return pipe(
+    projects(program).values(),
+    Array.fromIterable,
+    Match.value,
+    Match.when(
+      (_) => _.length === 1,
+      (_) => {
+        const project_ = _[0]!;
+        return <ProjectContext.Provider value={project_}>{children(_[0]!)}</ProjectContext.Provider>;
+      },
+    ),
+    Match.orElse((_) =>
+      _.map((_) => (
+        <ProjectContext.Provider value={_}>
+          <SourceDirectory path={_.namespace.name}>{children(_)}</SourceDirectory>
+        </ProjectContext.Provider>
+      )),
+    ),
+  );
+};

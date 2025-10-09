@@ -6,9 +6,13 @@ import {
   Operation,
   StringLiteral,
 } from '@typespec/compiler';
-import { JSONSchema } from 'effect';
-import { EmitterOptions } from '../core/index.js';
+import { JSONSchema, Schema } from 'effect';
 import { makeStateFactory } from '../utils.js';
+
+export class EmitterOptions extends Schema.Class<EmitterOptions>('EmitterOptions')({
+  bufTypeScriptPath: Schema.String,
+  dataClientPath: Schema.String,
+}) {}
 
 export const $lib = createTypeSpecLibrary({
   diagnostics: {},
