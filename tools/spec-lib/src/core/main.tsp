@@ -10,6 +10,8 @@ extern dec copyParent(target: Model, base: Model);
 
 extern dec normalKey(target: ModelProperty);
 
+extern dec project(target: Namespace, version?: int8);
+
 @Private.copyKey(Source)
 model KeyOf<Source extends Model> {}
 
