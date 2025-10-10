@@ -28,7 +28,7 @@
 
 import { Registry } from '@effect-atom/atom-react';
 import { BrowserKeyValueStore } from '@effect/platform-browser';
-import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe, Record } from 'effect';
+import { ConfigProvider, Effect, Layer, Logger, LogLevel, pipe, Record } from 'effect';
 import { ApiTransport } from '@the-dev-tools/client/api/transport';
 import { app } from '@the-dev-tools/client/index';
 import packageJson from '../../package.json';
@@ -55,6 +55,12 @@ const layer = pipe(
   Layer.provideMerge(BrowserKeyValueStore.layerLocalStorage),
 );
 
-const Runtime = ManagedRuntime.make(layer);
+const onClose = Effect.async((resume) => void window.electron.onClose(() => void resume(Effect.interrupt)));
 
-void Runtime.runPromise(app);
+void pipe(
+  Effect.all([app, onClose], { concurrency: 'unbounded' }),
+  Effect.provide(layer),
+  Effect.scoped,
+  Effect.ensuring(Effect.sync(() => void window.electron.onCloseDone())),
+  Effect.runPromiseExit,
+);

@@ -5,4 +5,6 @@ import { contextBridge, Dialog, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electron', {
   dialog: <T extends keyof Dialog>(method: T, ...options: Parameters<Dialog[T]>) =>
     ipcRenderer.invoke('dialog', method, options),
+  onClose: (callback: () => void) => ipcRenderer.on('on-close', callback),
+  onCloseDone: () => void ipcRenderer.send('on-close-done'),
 });

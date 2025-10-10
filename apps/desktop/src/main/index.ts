@@ -30,6 +30,19 @@ const createWindow = Effect.gen(function* () {
     return { action: 'deny' };
   });
 
+  // Run cleanup in window
+  let canClose = false;
+  mainWindow.on('close', (event) => {
+    if (canClose) return;
+    event.preventDefault();
+    mainWindow.webContents.send('on-close');
+  });
+
+  ipcMain.on('on-close-done', () => {
+    canClose = true;
+    mainWindow.close();
+  });
+
   // and load the index.html of the app.
   if (import.meta.env.DEV && process.env.ELECTRON_RENDERER_URL) {
     // Install dev extensions
