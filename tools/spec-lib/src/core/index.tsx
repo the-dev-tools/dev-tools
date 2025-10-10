@@ -6,7 +6,9 @@ import {
   Model,
   ModelProperty,
   Namespace,
+  Operation,
   Program,
+  Type,
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { useTsp } from '@typespec/emitter-framework';
@@ -24,6 +26,7 @@ export const $decorators = {
     normalKey,
     parent,
     project,
+    rename,
   },
   'DevTools.Private': {
     copyKey,
@@ -78,6 +81,13 @@ function omitKey({ program }: DecoratorContext, target: Model) {
 
 function normalKey({ program }: DecoratorContext, target: ModelProperty) {
   normalKeys(program).add(target);
+}
+
+function rename(_: DecoratorContext, target: Model | Operation, name: string, sourceObject: Type | undefined) {
+  if (sourceObject)
+    name = name.replace(/{(\w+)}/g, (_, propName) => (sourceObject as never)[propName as never] as string);
+
+  target.name = name;
 }
 
 interface Project {
