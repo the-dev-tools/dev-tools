@@ -42,6 +42,7 @@
     "@tanstack/table-core": "8.21.3",
     "@tanstack/virtual-file-routes": "1.132.31",
     "@the-dev-tools/spec": "workspace:^",
+    "@the-dev-tools/spec-lib": "workspace:^",
     "@the-dev-tools/ui": "workspace:^",
     "@uiw/react-codemirror": "4.25.2",
     "@xyflow/react": "12.8.6",

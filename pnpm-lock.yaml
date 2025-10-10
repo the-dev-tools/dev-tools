@@ -300,6 +300,9 @@ importers:
       '@the-dev-tools/spec':
         specifier: workspace:^
         version: link:../spec
+      '@the-dev-tools/spec-lib':
+        specifier: workspace:^
+        version: link:../../tools/spec-lib
       '@the-dev-tools/ui':
         specifier: workspace:^
         version: link:../ui

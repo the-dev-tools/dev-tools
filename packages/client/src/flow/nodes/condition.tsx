@@ -4,7 +4,7 @@ import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiPlus, FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
-import { NodeGetEndpoint, NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
+import { NodeGetEndpoint, NodeUpdateEndpoint } from '@the-dev-tools/spec/data-client/flow/node/v1/node.endpoints.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';

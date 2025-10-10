@@ -16,7 +16,7 @@ import {
   useSuspense,
 } from '@data-client/react';
 import { Option, pipe } from 'effect';
-import { EndpointProps } from '@the-dev-tools/spec/data-client/utils';
+import { EndpointProps } from '@the-dev-tools/spec-lib/data-client/utils.ts';
 import { useToastQueue } from '@the-dev-tools/ui/toast';
 import { kErrorHandler } from '~api/interceptors';
 import { rootRouteApi } from '~routes';

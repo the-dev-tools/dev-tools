@@ -3,13 +3,16 @@
   "files": [],
   "references": [
     {
-      "path": "../ui"
+      "path": "../../tools/spec-lib"
     },
     {
       "path": "../spec"
     },
     {
       "path": "../../tools/eslint"
+    },
+    {
+      "path": "../ui"
     },
     {
       "path": "./tsconfig.lib.json"

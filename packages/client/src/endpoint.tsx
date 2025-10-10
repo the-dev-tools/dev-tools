@@ -22,15 +22,14 @@ import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin, twMerge } from 'tailwind-merge';
 import {
   ExampleBreadcrumbKindSchema,
-  ExampleVersionsItem,
+  ExampleVersionListItem,
 } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import { QueryDeltaListItem } from '@the-dev-tools/spec/collection/item/request/v1/request_pb';
 import { ResponseHeaderListItem } from '@the-dev-tools/spec/collection/item/response/v1/response_pb';
-import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
 import {
   EndpointGetEndpoint,
   EndpointUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection/item/endpoint/v1/endpoint.endpoints.ts';
 import {
   ExampleCreateEndpoint,
   ExampleDeleteEndpoint,
@@ -38,8 +37,8 @@ import {
   ExampleListEndpoint,
   ExampleRunEndpoint,
   ExampleUpdateEndpoint,
-  ExampleVersionsEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
+  ExampleVersionListEndpoint,
+} from '@the-dev-tools/spec/data-client/collection/item/example/v1/example.endpoints.ts';
 import {
   QueryCreateEndpoint,
   QueryDeltaCreateEndpoint,
@@ -47,12 +46,13 @@ import {
   QueryDeltaUpdateEndpoint,
   QueryListEndpoint,
   QueryUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection/item/request/v1/request.endpoints.ts';
 import {
   ResponseAssertListEndpoint,
   ResponseGetEndpoint,
   ResponseHeaderListEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/response/v1/response.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection/item/response/v1/response.endpoints.ts';
+import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -420,8 +420,8 @@ export const useEndpointUrlForm = ({
           const { enabled, key, queryId, source, value } = change;
           if (deltaExampleId) {
             await dataClient.fetch(QueryDeltaUpdateEndpoint, {
-              exampleId: deltaExampleId,
               enabled,
+              exampleId: deltaExampleId,
               key,
               queryId,
               source: source!,
@@ -629,7 +629,7 @@ interface HistoryModalProps {
 }
 
 const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
-  const { items: versions } = useQuery(ExampleVersionsEndpoint, { exampleId });
+  const { items: versions } = useQuery(ExampleVersionListEndpoint, { exampleId });
 
   return (
     <Modal isDismissable size='lg'>
@@ -711,7 +711,7 @@ const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
 
 interface ExampleVersionsViewProps {
   endpointId: Uint8Array;
-  item: ExampleVersionsItem;
+  item: ExampleVersionListItem;
 }
 
 const ExampleVersionsView = ({ endpointId, item: { exampleId, lastResponseId } }: ExampleVersionsViewProps) => {

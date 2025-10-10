@@ -2,7 +2,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { Position } from '@xyflow/react';
 import { use, useState } from 'react';
 import { FiTerminal, FiX } from 'react-icons/fi';
-import { NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
+import { NodeUpdateEndpoint } from '@the-dev-tools/spec/data-client/flow/node/v1/node.endpoints.ts';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useCodeMirrorLanguageExtensions } from '~code-mirror/extensions';

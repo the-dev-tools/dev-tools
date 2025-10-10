@@ -3,17 +3,17 @@ import { Ulid } from 'id128';
 import { Suspense, use, useEffect } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
-import { NodeRequest } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import {
   EndpointCreateEndpoint,
   EndpointGetEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection/item/endpoint/v1/endpoint.endpoints.ts';
 import {
   ExampleCreateEndpoint,
   ExampleGetEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
-import { CollectionGetEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
-import { NodeGetEndpoint, NodeUpdateEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
+} from '@the-dev-tools/spec/data-client/collection/item/example/v1/example.endpoints.ts';
+import { CollectionGetEndpoint } from '@the-dev-tools/spec/data-client/collection/v1/collection.endpoints.ts';
+import { NodeGetEndpoint, NodeUpdateEndpoint } from '@the-dev-tools/spec/data-client/flow/node/v1/node.endpoints.js';
+import { NodeRequest } from '@the-dev-tools/spec/flow/node/v1/node_pb';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';

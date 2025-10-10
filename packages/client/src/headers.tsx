@@ -14,7 +14,7 @@ import {
   HeaderListEndpoint,
   HeaderMoveEndpoint,
   HeaderUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/request/v1/request.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection/item/request/v1/request.endpoints.ts';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { GenericMessage } from '~api/utils';

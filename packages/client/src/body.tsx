@@ -37,11 +37,11 @@ import {
   BodyUrlEncodedListEndpoint,
   BodyUrlEncodedMoveEndpoint,
   BodyUrlEncodedUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/body/v1/body.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection/item/body/v1/body.endpoints.ts';
 import {
   ExampleGetEndpoint,
   ExampleUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/collection/item/example/v1/example.endpoints.ts';
 import { ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';

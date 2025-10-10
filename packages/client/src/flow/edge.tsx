@@ -14,6 +14,7 @@ import { Ulid } from 'id128';
 import { use, useCallback } from 'react';
 import { FiX } from 'react-icons/fi';
 import { tv } from 'tailwind-variants';
+import { EdgeCreateEndpoint } from '@the-dev-tools/spec/data-client/flow/edge/v1/edge.endpoints.ts';
 import {
   EdgeKind,
   EdgeKindJson,
@@ -24,7 +25,6 @@ import {
   HandleSchema as HandleKindSchema,
 } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
 import { NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { EdgeCreateEndpoint } from '@the-dev-tools/spec/meta/flow/edge/v1/edge.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { rootRouteApi } from '~routes';

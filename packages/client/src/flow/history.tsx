@@ -6,8 +6,8 @@ import { useTab, useTabList, useTabPanel } from 'react-aria';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { Item, Node, TabListState, useTabListState } from 'react-stately';
 import { twJoin } from 'tailwind-merge';
-import { FlowVersionsItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { FlowVersionsEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.ts';
+import { FlowVersionListEndpoint } from '@the-dev-tools/spec/data-client/flow/v1/flow.endpoints.ts';
+import { FlowVersionListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
@@ -21,7 +21,7 @@ export const FlowHistoryPage = () => {
   const { flowIdCan } = flowHistoryRouteApi.useParams();
   const flowId = Ulid.fromCanonical(flowIdCan).bytes;
 
-  const { items } = useQuery(FlowVersionsEndpoint, { flowId });
+  const { items } = useQuery(FlowVersionListEndpoint, { flowId });
 
   const state = useTabListState({
     children: ({ flowId }) => {
@@ -118,8 +118,8 @@ export const FlowHistoryPage = () => {
 };
 
 interface TabProps {
-  item: Node<FlowVersionsItem>;
-  state: TabListState<FlowVersionsItem>;
+  item: Node<FlowVersionListItem>;
+  state: TabListState<FlowVersionListItem>;
 }
 
 const Tab = ({ item, state }: TabProps) => {
@@ -145,7 +145,7 @@ const Tab = ({ item, state }: TabProps) => {
 };
 
 interface TabPanelProps {
-  state: TabListState<FlowVersionsItem>;
+  state: TabListState<FlowVersionListItem>;
 }
 
 const TabPanel = ({ state }: TabPanelProps) => {
