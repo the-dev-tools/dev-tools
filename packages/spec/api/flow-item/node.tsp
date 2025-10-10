@@ -1,68 +1,46 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
+namespace API.Flow.Node;
 
-import "../condition.tsp";
-import "../flow.tsp";
-import "../resource.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "flow.node.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/flow/node/v1;nodev1",
-  },
-})
-namespace API.FlowItem.Node;
-
-@autoFields
 model Position {
   x: float32;
   y: float32;
 }
 
 enum NodeKind {
-  NODE_KIND_UNSPECIFIED: 0,
-  NODE_KIND_NO_OP: 1,
-  NODE_KIND_REQUEST: 2,
-  NODE_KIND_CONDITION: 3,
-  NODE_KIND_FOR: 4,
-  NODE_KIND_FOR_EACH: 5,
-  NODE_KIND_JS: 6,
+  NoOp,
+  Request,
+  Condition,
+  For,
+  ForEach,
+  Js,
 }
 
-@parentResource(Flow.Flow)
-@normalize
-@entity
-@autoFields
+@DataClient.entity
+@parent(Flow)
 model Node {
   @key nodeId: Resource.Id;
   kind: NodeKind;
-  @visibility(Resource.Query.List) position: Position;
-  @visibility(Resource.Query.List) noOp?: NodeNoOpKind;
-  @visibility(Resource.Query.List, Resource.Mutation.None) state: NodeState;
-  @visibility(Resource.Query.List, Resource.Mutation.None) info?: string;
-  @visibility(Resource.Query.Get) name: string;
-  @visibility(Resource.Query.Get) request?: NodeRequest;
-  @visibility(Resource.Query.Get) condition?: NodeCondition;
-  @visibility(Resource.Query.Get) for?: NodeFor;
-  @visibility(Resource.Query.Get) forEach?: NodeForEach;
-  @visibility(Resource.Query.Get) js?: NodeJS;
+  @visibility(T.Resource.Query.List) position: Position;
+  @visibility(T.Resource.Query.List) noOp?: NodeNoOpKind;
+  @visibility(T.Resource.Query.List, T.Resource.Mutation.None) state: NodeState;
+  @visibility(T.Resource.Query.List, T.Resource.Mutation.None) info?: string;
+  @visibility(T.Resource.Query.Get) name: string;
+  @visibility(T.Resource.Query.Get) request?: NodeRequest;
+  @visibility(T.Resource.Query.Get) condition?: NodeCondition;
+  @visibility(T.Resource.Query.Get) for?: NodeFor;
+  @visibility(T.Resource.Query.Get) forEach?: NodeForEach;
+  @visibility(T.Resource.Query.Get) js?: NodeJS;
 }
 
 enum NodeNoOpKind {
-  NODE_NO_OP_KIND_UNSPECIFIED: 0,
-  NODE_NO_OP_KIND_START: 1,
-  NODE_NO_OP_KIND_CREATE: 2,
-  NODE_NO_OP_KIND_THEN: 3,
-  NODE_NO_OP_KIND_ELSE: 4,
-  NODE_NO_OP_KIND_LOOP: 5,
+  Start,
+  Create,
+  Then,
+  Else,
+  Loop,
 }
 
-@autoFields
 model NodeRequest {
   collectionId: bytes;
   endpointId: bytes;
@@ -72,56 +50,82 @@ model NodeRequest {
 }
 
 enum ErrorHandling {
-  ERROR_HANDLING_UNSPECIFIED: 0,
-  ERROR_HANDLING_IGNORE: 1,
-  ERROR_HANDLING_BREAK: 2,
+  Ignore,
+  Break,
 }
 
-@autoFields
 model NodeFor {
   iterations: int32;
   condition: Condition.Condition;
   errorHandling: ErrorHandling;
 }
 
-@autoFields
 model NodeForEach {
   path: string;
   condition: Condition.Condition;
   errorHandling: ErrorHandling;
 }
 
-@autoFields
 model NodeCondition {
   condition: Condition.Condition;
 }
 
-@autoFields
 model NodeJS {
   code: string;
 }
 
-@autoFields
+model NodeListRequest is T.Resource.List.Request<Node>;
+model NodeListResponse is T.Resource.List.Response<TRequest = NodeListRequest, TItem = NodeListItem>;
+model NodeListItem is T.Resource.List.Item<Node>;
+
+model NodeGetRequest is T.Resource.Get.Request<Node>;
+model NodeGetResponse is T.Resource.Get.Response<Node>;
+
+model NodeCreateRequest is T.Resource.Create.Request<Node>;
+model NodeCreateResponse is T.Resource.Create.Response<Node>;
+
+model NodeUpdateRequest is T.Resource.Update.Request<Node>;
+model NodeUpdateResponse is T.Resource.Update.Response<Node>;
+
+model NodeDeleteRequest is T.Resource.Delete.Request<Node>;
+model NodeDeleteResponse is T.Resource.Delete.Response<Node>;
+
 model NodeRunRequest {
   nodeId: Resource.Id;
   environmentId: Resource.Id;
 }
 
-enum NodeState {
-  NODE_STATE_UNSPECIFIED: 0,
-  NODE_STATE_RUNNING: 1,
-  NODE_STATE_SUCCESS: 2,
-  NODE_STATE_FAILURE: 3,
-  NODE_STATE_CANCELED: 4,
-}
-
-@autoFields
 model NodeRunResponse {
   state: NodeState;
 }
 
-@Protobuf.service
-interface NodeService extends Resource.CRUD<Node> {
-  @stream(StreamMode.Out)
+enum NodeState {
+  Running,
+  Success,
+  Failure,
+  Canceled,
+}
+
+interface NodeService
+  extends T.Resource.CRUD<
+      TResource = Node,
+      // List
+      TListRequest = NodeListRequest,
+      TListResponse = NodeListResponse,
+      TListItem = NodeListItem,
+      // Get
+      TGetRequest = NodeGetRequest,
+      TGetResponse = NodeGetResponse,
+      // Create
+      TCreateRequest = NodeCreateRequest,
+      TCreateResponse = NodeCreateResponse,
+      // Update
+      TUpdateRequest = NodeUpdateRequest,
+      TUpdateResponse = NodeUpdateResponse,
+      // Delete
+      TDeleteRequest = NodeDeleteRequest,
+      TDeleteResponse = NodeDeleteResponse
+    > {
+  @Protobuf.stream(Protobuf.StreamMode.Out)
   NodeRun(...NodeRunRequest): NodeRunResponse;
 }

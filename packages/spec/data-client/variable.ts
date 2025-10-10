@@ -1,10 +1,16 @@
 import { create } from '@bufbuild/protobuf';
 import { Array, Match, Option, pipe } from 'effect';
-import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
+import {
+  Endpoint,
+  EndpointProps,
+  makeEndpointFn,
+  makeKey,
+  makeListCollection,
+} from '@the-dev-tools/spec-lib/data-client/utils.ts';
+import { MovePosition } from '../dist/buf/typescript/resource/v1/resource_pb';
 import { VariableMoveRequestSchema, VariableService } from '../dist/buf/typescript/variable/v1/variable_pb';
-import { VariableListItemEntity } from '../dist/meta/variable/v1/variable.entities';
+import { VariableListItemEntity } from '../dist/data-client/variable/v1/variable.entities';
 import { MakeEndpointProps } from './resource';
-import { Endpoint, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
 export const move = ({ method, name }: MakeEndpointProps<typeof VariableService.method.variableMove>) => {
   const list = makeListCollection({ inputPrimaryKeys: ['environmentId'], itemSchema: VariableListItemEntity, method });

@@ -2,7 +2,14 @@ import { DescMethodUnary, MessageShape } from '@bufbuild/protobuf';
 import { Queryable } from '@data-client/core';
 import { EntityMap, schema, Schema } from '@data-client/endpoint';
 import { Equivalence, Record } from 'effect';
-import { createMethodKeyRecord, Endpoint, EndpointProps, EntitySchema, makeEndpointFn, makeKey } from './utils';
+import {
+  createMethodKeyRecord,
+  Endpoint,
+  EndpointProps,
+  EntitySchema,
+  makeEndpointFn,
+  makeKey,
+} from '@the-dev-tools/spec-lib/data-client/utils.ts';
 
 export interface MakeEndpointProps<M extends DescMethodUnary> {
   method: M;

@@ -1,26 +1,9 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "./lib.tsp";
-
-import "./environment.tsp";
-import "./resource.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "variable.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/variable/v1;variablev1",
-  },
-})
 namespace API.Variable;
 
-@autoFields
-@normalize
-@entity
-@parentResource(Environment.Environment)
+@DataClient.entity
+@parent(Environment.Environment)
 model Variable {
   @key variableId: Resource.Id;
   name: string;
@@ -29,14 +12,26 @@ model Variable {
   description: string;
 }
 
-model VariableCreateRequest is Resource.Create.Request<Variable> {
-  @autoField @normalKey workspaceId?: Resource.Id;
+model VariableListRequest is T.Resource.List.Request<Variable> {
+  @normalKey workspaceId?: Resource.Id;
 }
-model VariableListRequest is Resource.List.Request<Variable> {
-  @autoField @normalKey workspaceId?: Resource.Id;
-}
+model VariableListResponse is T.Resource.List.Response<TRequest = VariableListRequest, TItem = VariableListItem>;
+model VariableListItem is T.Resource.List.Item<Variable>;
 
-@autoFields
+model VariableGetRequest is T.Resource.Get.Request<Variable>;
+model VariableGetResponse is T.Resource.Get.Response<Variable>;
+
+model VariableCreateRequest is T.Resource.Create.Request<Variable> {
+  @normalKey workspaceId?: Resource.Id;
+}
+model VariableCreateResponse is T.Resource.Create.Response<Variable>;
+
+model VariableUpdateRequest is T.Resource.Update.Request<Variable>;
+model VariableUpdateResponse is T.Resource.Update.Response<Variable>;
+
+model VariableDeleteRequest is T.Resource.Delete.Request<Variable>;
+model VariableDeleteResponse is T.Resource.Delete.Response<Variable>;
+
 model VariableMoveRequest {
   ...ParentKeyOf<Variable>;
   ...KeyOf<Variable>;
@@ -44,11 +39,26 @@ model VariableMoveRequest {
   targetVariableId: Resource.Id;
 }
 
-model VariableMoveResponse {}
-
-@Protobuf.service
 interface VariableService
-  extends Resource.CRUD<Variable, TCreateRequest = VariableCreateRequest, TListRequest = VariableListRequest> {
-  @endpoint("variable.js:move")
-  VariableMove(...VariableMoveRequest): VariableMoveResponse;
+  extends T.Resource.CRUD<
+      TResource = Variable,
+      // List
+      TListRequest = VariableListRequest,
+      TListResponse = VariableListResponse,
+      TListItem = VariableListItem,
+      // Get
+      TGetRequest = VariableGetRequest,
+      TGetResponse = VariableGetResponse,
+      // Create
+      TCreateRequest = VariableCreateRequest,
+      TCreateResponse = VariableCreateResponse,
+      // Update
+      TUpdateRequest = VariableUpdateRequest,
+      TUpdateResponse = VariableUpdateResponse,
+      // Delete
+      TDeleteRequest = VariableDeleteRequest,
+      TDeleteResponse = VariableDeleteResponse
+    > {
+  @DataClient.endpoint("variable.js:move")
+  VariableMove(...VariableMoveRequest): {};
 }

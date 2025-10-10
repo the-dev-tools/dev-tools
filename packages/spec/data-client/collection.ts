@@ -1,10 +1,16 @@
 import { create } from '@bufbuild/protobuf';
 import { Array, Match, Option, pipe } from 'effect';
+import {
+  Endpoint,
+  EndpointProps,
+  makeEndpointFn,
+  makeKey,
+  makeListCollection,
+} from '@the-dev-tools/spec-lib/data-client/utils.ts';
 import { CollectionMoveRequestSchema, CollectionService } from '../dist/buf/typescript/collection/v1/collection_pb';
-import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
-import { CollectionListItemEntity } from '../dist/meta/collection/v1/collection.entities';
+import { MovePosition } from '../dist/buf/typescript/resource/v1/resource_pb';
+import { CollectionListItemEntity } from '../dist/data-client/collection/v1/collection.entities';
 import { MakeEndpointProps } from './resource';
-import { Endpoint, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
 export const move = ({ method, name }: MakeEndpointProps<typeof CollectionService.method.collectionMove>) => {
   const list = makeListCollection({ inputPrimaryKeys: ['workspaceId'], itemSchema: CollectionListItemEntity, method });

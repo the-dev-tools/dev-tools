@@ -1,6 +1,14 @@
 import { create } from '@bufbuild/protobuf';
 import { schema } from '@data-client/endpoint';
 import { Array, Equivalence, Match, Option, pipe, Record, Struct } from 'effect';
+import {
+  createMethodKeyRecord,
+  Endpoint,
+  EndpointProps,
+  makeEndpointFn,
+  makeKey,
+  makeListCollection,
+} from '@the-dev-tools/spec-lib/data-client/utils.ts';
 import { EndpointService } from '../dist/buf/typescript/collection/item/endpoint/v1/endpoint_pb';
 import {
   ExampleMoveRequestSchema,
@@ -16,17 +24,16 @@ import {
   CollectionItemService,
   ItemKind,
 } from '../dist/buf/typescript/collection/item/v1/item_pb';
-import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
-import { EndpointListItemEntity } from '../dist/meta/collection/item/endpoint/v1/endpoint.entities';
+import { MovePosition } from '../dist/buf/typescript/resource/v1/resource_pb';
+import { EndpointListItemEntity } from '../dist/data-client/collection/item/endpoint/v1/endpoint.entities';
 import {
   ExampleEntity,
   ExampleListItemEntity,
-  ExampleVersionsItemEntity,
-} from '../dist/meta/collection/item/example/v1/example.entities';
-import { FolderListItemEntity } from '../dist/meta/collection/item/folder/v1/folder.entities';
-import { ResponseGetResponseEntity } from '../dist/meta/collection/item/response/v1/response.entities';
+  ExampleVersionListItemEntity,
+} from '../dist/data-client/collection/item/example/v1/example.entities';
+import { FolderListItemEntity } from '../dist/data-client/collection/item/folder/v1/folder.entities';
+import { ResponseGetResponseEntity } from '../dist/data-client/collection/item/response/v1/response.entities';
 import { MakeEndpointProps } from './resource';
-import { createMethodKeyRecord, Endpoint, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
 const listKeys: (keyof CollectionItemListRequest)[] = ['collectionId', 'parentFolderId'];
 
@@ -123,7 +130,7 @@ export const runExample = ({ method, name }: MakeEndpointProps<typeof ExampleSer
       return compare(argsKey, collectionKey);
     };
 
-  const versions = new schema.Collection([ExampleVersionsItemEntity], { createCollectionFilter });
+  const versions = new schema.Collection([ExampleVersionListItemEntity], { createCollectionFilter });
 
   return new Endpoint(endpointFn, {
     key: makeKey(method, name),

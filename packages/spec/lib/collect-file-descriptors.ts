@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const dir = pipe('../buf/typescript/', (_) => import.meta.resolve(_), fileURLToPath);
+const dir = pipe('../dist/buf/typescript/', (_) => import.meta.resolve(_), fileURLToPath);
 const dirents = readdirSync(dir, { recursive: true, withFileTypes: true });
 
 const imports = [];

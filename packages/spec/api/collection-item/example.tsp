@@ -1,84 +1,69 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
+namespace API.Collection.Item.Example;
 
-import "../collection.tsp";
-import "./folder.tsp";
-import "./endpoint.tsp";
-import "./example.tsp";
-
-import "./body.tsp";
-import "./request.tsp";
-import "./response.tsp";
-// import "./breadcrumb.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-using TypeSpec.Rest.Resource;
-
-@package({
-  name: "collection.item.example.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/example/v1;examplev1",
-  },
-})
-namespace API.CollectionItem.Example;
-
-@autoFields
-@normalize
-@entity
-@parentResource(Endpoint.Endpoint)
+@DataClient.entity
+@parent(Endpoint.Endpoint)
 model Example {
   @key exampleId: Resource.Id;
   lastResponseId?: Resource.Id;
   name: string;
-  @visibility(Resource.Mutation.Create, Resource.Query.List) hidden?: boolean;
-  @visibility(Resource.Mutation.None, Resource.Query.Get) breadcrumbs: ExampleBreadcrumb[];
-  @visibility(Resource.Query.Get) bodyKind: Body.BodyKind;
-  @visibility(Resource.Query.Get) queryCount: int32;
-  @visibility(Resource.Query.Get) headerCount: int32;
-  @visibility(Resource.Query.Get) bodyCount: int32;
-  @visibility(Resource.Query.Get) assertCount: int32;
+  @visibility(T.Resource.Mutation.Create, T.Resource.Query.List) hidden?: boolean;
+  @visibility(T.Resource.Mutation.None, T.Resource.Query.Get) breadcrumbs: ExampleBreadcrumb[];
+  @visibility(T.Resource.Query.Get) bodyKind: Body.BodyKind;
+  @visibility(T.Resource.Query.Get) queryCount: int32;
+  @visibility(T.Resource.Query.Get) headerCount: int32;
+  @visibility(T.Resource.Query.Get) bodyCount: int32;
+  @visibility(T.Resource.Query.Get) assertCount: int32;
 }
 
 enum ExampleBreadcrumbKind {
-  EXAMPLE_BREADCRUMB_KIND_UNSPECIFIED: 0,
-  EXAMPLE_BREADCRUMB_KIND_COLLECTION: 1,
-  EXAMPLE_BREADCRUMB_KIND_FOLDER: 2,
-  EXAMPLE_BREADCRUMB_KIND_ENDPOINT: 3,
+  Collection,
+  Folder,
+  Endpoint,
 }
 
-@autoFields
 model ExampleBreadcrumb {
   kind: ExampleBreadcrumbKind;
-  collection?: Collection.CollectionListItem;
+  collection?: CollectionListItem;
   folder?: Folder.FolderListItem;
   endpoint?: Endpoint.EndpointListItem;
 }
 
-model ExampleListItem is Resource.List.Item<Example>;
-model ExampleListResponse is Resource.List.Response<Example, TItem = ExampleListItem>;
-model ExampleVersionsItem is Resource.List.Item<Example>;
-model ExampleVersionsRequest is KeyOf<Example>;
-model ExampleVersionsResponse
-  is Resource.List.Response<Example, TRequest = ExampleVersionsRequest, TItem = ExampleVersionsItem>;
+model ExampleListRequest is T.Resource.List.Request<Example>;
+model ExampleListResponse is T.Resource.List.Response<TRequest = ExampleListRequest, TItem = ExampleListItem>;
+model ExampleListItem is T.Resource.List.Item<Example>;
+
+model ExampleGetRequest is T.Resource.Get.Request<Example>;
+model ExampleGetResponse is T.Resource.Get.Response<Example>;
+
+model ExampleCreateRequest is T.Resource.Create.Request<Example>;
+model ExampleCreateResponse is T.Resource.Create.Response<Example>;
+
+model ExampleUpdateRequest is T.Resource.Update.Request<Example>;
+model ExampleUpdateResponse is T.Resource.Update.Response<Example>;
+
+model ExampleDeleteRequest is T.Resource.Delete.Request<Example>;
+model ExampleDeleteResponse is T.Resource.Delete.Response<Example>;
+
+model ExampleVersionListRequest is KeyOf<Example>;
+model ExampleVersionListResponse
+  is T.Resource.List.Response<TRequest = ExampleVersionListRequest, TItem = ExampleVersionListItem>;
+model ExampleVersionListItem is T.Resource.List.Item<Example>;
 
 model ExampleDuplicateRequest {
   ...KeyOf<Example>;
   ...ParentKeyOf<Example>;
 }
-model ExampleDuplicateResponse is Resource.Create.Response<Example>;
+model ExampleDuplicateResponse is T.Resource.Create.Response<Example>;
 
 model ExampleRunRequest is KeyOf<Example>;
 
-@autoFields
 model ExampleRunResponse {
-  response: Resource.Get.Response<Response.Response>;
-  version: ExampleVersionsItem;
+  response: Response.ResponseGetResponse;
+  version: ExampleVersionListItem;
 }
 
-@autoFields
 model ExampleMoveRequest {
   ...ParentKeyOf<Example>;
   ...KeyOf<Example>;
@@ -88,26 +73,42 @@ model ExampleMoveRequest {
 
 model ExampleMoveResponse {}
 
-@Protobuf.service
 interface ExampleService
-  extends Resource.CRUD<Example, TListItem = ExampleListItem, TListResponse = ExampleListResponse> {
-  ExampleVersions is Resource.List.Operation<
-    Example,
-    TItem = ExampleVersionsItem,
-    TRequest = ExampleVersionsRequest,
-    TResponse = ExampleVersionsResponse
+  extends T.Resource.CRUD<
+      TResource = Example,
+      // List
+      TListRequest = ExampleListRequest,
+      TListResponse = ExampleListResponse,
+      TListItem = ExampleListItem,
+      // Get
+      TGetRequest = ExampleGetRequest,
+      TGetResponse = ExampleGetResponse,
+      // Create
+      TCreateRequest = ExampleCreateRequest,
+      TCreateResponse = ExampleCreateResponse,
+      // Update
+      TUpdateRequest = ExampleUpdateRequest,
+      TUpdateResponse = ExampleUpdateResponse,
+      // Delete
+      TDeleteRequest = ExampleDeleteRequest,
+      TDeleteResponse = ExampleDeleteResponse
+    > {
+  ExampleVersionList is T.Resource.List.Operation<
+    TRequest = ExampleVersionListRequest,
+    TResponse = ExampleVersionListResponse,
+    TItem = ExampleVersionListItem
   >;
 
-  ExampleDuplicate is Resource.Create.Operation<
-    Example,
+  ExampleDuplicate is T.Resource.Create.Operation<
     TRequest = ExampleDuplicateRequest,
     TResponse = ExampleDuplicateResponse,
+    TListRequest = ExampleListRequest,
     TListItem = ExampleListItem
   >;
 
-  @endpoint("collection-item.js:runExample")
+  @DataClient.endpoint("collection-item.js:runExample")
   ExampleRun(...ExampleRunRequest): ExampleRunResponse;
 
-  @endpoint("collection-item.js:moveExample")
+  @DataClient.endpoint("collection-item.js:moveExample")
   ExampleMove(...ExampleMoveRequest): ExampleMoveResponse;
 }

@@ -1,43 +1,59 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "./lib.tsp";
-
-import "./workspace.tsp";
-import "./resource.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "tag.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/tag/v1;tagv1",
-  },
-})
 namespace API.Tag;
 
 enum TagColor {
-  TAG_COLOR_UNSPECIFIED: 0,
-  TAG_COLOR_SLATE: 1,
-  TAG_COLOR_GREEN: 2,
-  TAG_COLOR_AMBER: 3,
-  TAG_COLOR_SKY: 4,
-  TAG_COLOR_PURPLE: 5,
-  TAG_COLOR_ROSE: 6,
-  TAG_COLOR_BLUE: 7,
-  TAG_COLOR_FUCHSIA: 8,
+  Slate,
+  Green,
+  Amber,
+  Sky,
+  Purple,
+  Rose,
+  Blue,
+  Fuchsia,
 }
 
-@autoFields
-@normalize
-@entity
-@parentResource(Workspace.Workspace)
+@DataClient.entity
+@parent(Workspace.Workspace)
 model Tag {
   @key tagId: Resource.Id;
   name: string;
   color: TagColor;
 }
 
-@Protobuf.service
-interface TagService extends Resource.CRUD<Tag> {}
+model TagListRequest is T.Resource.List.Request<Tag>;
+model TagListResponse is T.Resource.List.Response<TRequest = TagListRequest, TItem = TagListItem>;
+model TagListItem is T.Resource.List.Item<Tag>;
+
+model TagGetRequest is T.Resource.Get.Request<Tag>;
+model TagGetResponse is T.Resource.Get.Response<Tag>;
+
+model TagCreateRequest is T.Resource.Create.Request<Tag>;
+model TagCreateResponse is T.Resource.Create.Response<Tag>;
+
+model TagUpdateRequest is T.Resource.Update.Request<Tag>;
+model TagUpdateResponse is T.Resource.Update.Response<Tag>;
+
+model TagDeleteRequest is T.Resource.Delete.Request<Tag>;
+model TagDeleteResponse is T.Resource.Delete.Response<Tag>;
+
+interface TagService
+  extends T.Resource.CRUD<
+      TResource = Tag,
+      // List
+      TListRequest = TagListRequest,
+      TListResponse = TagListResponse,
+      TListItem = TagListItem,
+      // Get
+      TGetRequest = TagGetRequest,
+      TGetResponse = TagGetResponse,
+      // Create
+      TCreateRequest = TagCreateRequest,
+      TCreateResponse = TagCreateResponse,
+      // Update
+      TUpdateRequest = TagUpdateRequest,
+      TUpdateResponse = TagUpdateResponse,
+      // Delete
+      TDeleteRequest = TagDeleteRequest,
+      TDeleteResponse = TagDeleteResponse
+    > {}

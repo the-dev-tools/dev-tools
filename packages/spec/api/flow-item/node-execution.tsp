@@ -1,37 +1,38 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
-import "../resource.tsp";
-import "../well-known.tsp";
+namespace API.Flow.Node.Execution;
 
-import "./node.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "flow.node.execution.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1;nodeexecutionv1",
-  },
-})
-namespace API.FlowItem.NodeExecution;
-
-@parentResource(Node.Node)
-@entity
-@autoFields
+@DataClient.entity
+@parent(Node)
 model NodeExecution {
   @key nodeExecutionId: Resource.Id;
   nodeId: Resource.Id;
   name: string;
-  state: Node.NodeState;
+  state: NodeState;
   error?: string;
-  input?: WellKnown.JsonValue;
-  output?: WellKnown.JsonValue;
+  input?: Protobuf.WellKnown.Json;
+  output?: Protobuf.WellKnown.Json;
   responseId?: Resource.Id; // present when execution belongs to a request node
-  completedAt?: WellKnown.Timestamp;
+  completedAt?: Protobuf.WellKnown.Timestamp;
 }
 
-@Protobuf.service
-interface NodeExecutionService extends Resource.List.Interface<NodeExecution>, Resource.Get.Interface<NodeExecution> {}
+model NodeExecutionListRequest is T.Resource.List.Request<NodeExecution>;
+model NodeExecutionListResponse
+  is T.Resource.List.Response<TRequest = NodeExecutionListRequest, TItem = NodeExecutionListItem>;
+model NodeExecutionListItem is T.Resource.List.Item<NodeExecution>;
+
+model NodeExecutionGetRequest is T.Resource.Get.Request<NodeExecution>;
+model NodeExecutionGetResponse is T.Resource.Get.Response<NodeExecution>;
+
+interface NodeExecutionService
+  extends T.Resource.List.Interface<
+      TResource = NodeExecution,
+      TRequest = NodeExecutionListRequest,
+      TResponse = NodeExecutionListResponse,
+      TItem = NodeExecutionListItem
+    >,
+    T.Resource.Get.Interface<
+      TResource = NodeExecution,
+      TRequest = NodeExecutionGetRequest,
+      TResponse = NodeExecutionGetResponse
+    > {}

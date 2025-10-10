@@ -4,20 +4,20 @@
   "type": "module",
   "exports": {
     "./core": {
-      "typespec": "./src/core/main.tsp",
       "types": "./dist/src/core/index.d.ts",
-      "default": "./dist/src/core/index.js"
+      "default": "./dist/src/core/index.js",
+      "typespec": "./src/core/main.tsp"
     },
     "./data-client": {
-      "typespec": "./src/data-client/main.tsp",
       "types": "./dist/src/data-client/index.d.ts",
-      "default": "./dist/src/data-client/index.js"
+      "default": "./dist/src/data-client/index.js",
+      "typespec": "./src/data-client/main.tsp"
     },
     "./data-client/*": "./src/data-client/*",
     "./protobuf": {
-      "typespec": "./src/protobuf/main.tsp",
       "types": "./dist/src/protobuf/index.d.ts",
-      "default": "./dist/src/protobuf/index.js"
+      "default": "./dist/src/protobuf/index.js",
+      "typespec": "./src/protobuf/main.tsp"
     }
   },
   "dependencies": {

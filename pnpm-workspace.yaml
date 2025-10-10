@@ -26,7 +26,6 @@ onlyBuiltDependencies:
 patchedDependencies:
   '@nx/eslint': patches/@nx__eslint.patch
   '@react-stately/table': patches/@react-stately__table.patch
-  '@typespec/protobuf': patches/@typespec__protobuf.patch
 
 overrides:
   '@types/eslint': '-'

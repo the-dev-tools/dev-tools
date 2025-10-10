@@ -1,8 +1,22 @@
 import { create, DescMessage, DescMethodUnary, MessageInitShape, MessageShape, toJson } from '@bufbuild/protobuf';
 import { ContextValues, Transport } from '@connectrpc/connect';
 import { Controller } from '@data-client/core';
-import { EntityMixin, Schema, schema, SchemaSimple } from '@data-client/endpoint';
+import { Endpoint as CoreEndpoint, EntityMixin, Schema, schema, SchemaSimple } from '@data-client/endpoint';
 import { Schema as EffectSchema, Equivalence, Option, pipe, Predicate, Record, Struct } from 'effect';
+
+// Setting default expiry length in NetworkManager does not seemt to work, so this is needed as a workaround
+// @ts-expect-error type too complex to fix
+export const Endpoint = class Endpoint extends CoreEndpoint {
+  constructor(fetchFunction: unknown, options?: object) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    super(fetchFunction, {
+      ...options,
+      // Do not expire data automatically
+      dataExpiryLength: Infinity,
+      errorExpiryLength: Infinity,
+    });
+  }
+} as typeof CoreEndpoint;
 
 export type EntitySchema = (new (input: MessageInitShape<DescMessage>) => unknown) & Schema;
 
