@@ -6,12 +6,12 @@ import (
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 )
 
-func ModelToRPC(example mitemapiexample.ItemApiExample, responseID *idwrap.IDWrap) *examplev1.ExampleVersionsItem {
+func ModelToRPC(example mitemapiexample.ItemApiExample, responseID *idwrap.IDWrap) *examplev1.ExampleVersionListItem {
 	var responseIDBytes []byte
 	if responseID != nil {
 		responseIDBytes = responseID.Bytes()
 	}
-	return &examplev1.ExampleVersionsItem{
+	return &examplev1.ExampleVersionListItem{
 		ExampleId:      example.ID.Bytes(),
 		LastResponseId: responseIDBytes,
 	}

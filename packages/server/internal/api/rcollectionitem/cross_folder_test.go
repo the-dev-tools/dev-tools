@@ -25,7 +25,7 @@ import (
 	endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
 	folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
 	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 )
 
 // TestCrossFolderMoveScenarios tests various cross-folder move operations
@@ -88,7 +88,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 		// Move endpoint AFTER folder at root level (consistent positioning behavior)
 		// This positions the endpoint at the same level as the folder (root), after it
 		moveReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       endpointID.Bytes(),
 			TargetItemId: folderID.Bytes(),
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER.Enum(),
@@ -100,7 +100,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 		// Verify both items remain at root level with correct order: folder, then endpoint
 		listRootReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: nil, // Root level
 		})
 		listRootResp, err := collectionItemRPC.CollectionItemList(authedCtx, listRootReq)
@@ -111,7 +111,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 		// Verify folder itself is empty (endpoint was positioned at same level, not inside)
 		listFolderReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: folderID.Bytes(),
 		})
 		listFolderResp, err := collectionItemRPC.CollectionItemList(authedCtx, listFolderReq)
@@ -145,7 +145,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 		// Get a root level item to use as target
 		listRootReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: nil,
 		})
 		listRootResp, err := collectionItemRPC.CollectionItemList(authedCtx, listRootReq)
@@ -165,7 +165,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 		// Move endpoint from inside folder to root level, positioned BEFORE the target folder
 		// This demonstrates cross-folder move: item moves from inside Auth folder to root level
 		moveReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       endpointID.Bytes(),
 			TargetItemId: targetID,
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_BEFORE.Enum(),
@@ -178,7 +178,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 		// Verify endpoint is now at root level
 		listRootAfterResp, err := collectionItemRPC.CollectionItemList(authedCtx, listRootReq)
 		require.NoError(t, err)
-		
+
 		endpointFound := false
 		for _, item := range listRootAfterResp.Msg.Items {
 			if item.Kind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && item.Endpoint.Name == "Login" {
@@ -190,7 +190,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 		// Verify folder no longer contains the endpoint
 		listFolderReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: folderID.Bytes(),
 		})
 		listFolderResp, err := collectionItemRPC.CollectionItemList(authedCtx, listFolderReq)
@@ -245,7 +245,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 		// Move endpoint from folder1 to folder2
 		moveReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       endpoint1ID.Bytes(),
 			TargetItemId: endpoint2ID.Bytes(),
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER.Enum(),
@@ -257,7 +257,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 		// Verify folder1 is empty
 		listFolder1Req := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: folder1ID.Bytes(),
 		})
 		listFolder1Resp, err := collectionItemRPC.CollectionItemList(authedCtx, listFolder1Req)
@@ -266,13 +266,13 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 		// Verify folder2 contains both endpoints in correct order
 		listFolder2Req := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: folder2ID.Bytes(),
 		})
 		listFolder2Resp, err := collectionItemRPC.CollectionItemList(authedCtx, listFolder2Req)
 		require.NoError(t, err)
 		assert.Len(t, listFolder2Resp.Msg.Items, 2, "Folder v2 should contain 2 endpoints")
-		
+
 		// Order should be: Create Post, Get Posts (Get Posts moved after Create Post)
 		assert.Equal(t, "Create Post", listFolder2Resp.Msg.Items[0].Endpoint.Name)
 		assert.Equal(t, "Get Posts", listFolder2Resp.Msg.Items[1].Endpoint.Name)
@@ -282,7 +282,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 	t.Run("ComplexMultipleMoves", func(t *testing.T) {
 		// Create a complex hierarchy: Root -> [Admin folder, Public folder]
-		// Admin folder -> [Users endpoint, Settings endpoint]  
+		// Admin folder -> [Users endpoint, Settings endpoint]
 		// Public folder -> [About endpoint]
 		// Test multiple cross-folder operations
 
@@ -341,7 +341,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 		// Test 1: Move "List Users" from Admin to Public folder
 		moveUsersReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       usersID.Bytes(),
 			TargetItemId: aboutID.Bytes(),
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_BEFORE.Enum(),
@@ -352,7 +352,7 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 		// Test 2: Move "Update Settings" from Admin to root level, positioned AFTER Admin folder
 		// With consistent positioning, this places the endpoint at root level after the Admin folder
 		moveSettingsReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       settingsID.Bytes(),
 			TargetItemId: adminFolderID.Bytes(),
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER.Enum(),
@@ -363,16 +363,16 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 		// Verify final state
 		// Admin folder should be empty
 		listAdminReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: adminFolderID.Bytes(),
 		})
 		listAdminResp, err := collectionItemRPC.CollectionItemList(authedCtx, listAdminReq)
 		require.NoError(t, err)
 		assert.Len(t, listAdminResp.Msg.Items, 0, "Admin folder should be empty")
 
-		// Public folder should contain: List Users, Get About  
+		// Public folder should contain: List Users, Get About
 		listPublicReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: publicFolderID.Bytes(),
 		})
 		listPublicResp, err := collectionItemRPC.CollectionItemList(authedCtx, listPublicReq)
@@ -383,12 +383,12 @@ func TestCrossFolderMoveScenarios(t *testing.T) {
 
 		// Root should contain: Admin, Public, Update Settings (somewhere)
 		listRootReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: nil,
 		})
 		listRootResp, err := collectionItemRPC.CollectionItemList(authedCtx, listRootReq)
 		require.NoError(t, err)
-		
+
 		settingsFound := false
 		for _, item := range listRootResp.Msg.Items {
 			if item.Kind == itemv1.ItemKind_ITEM_KIND_ENDPOINT && item.Endpoint.Name == "Update Settings" {
@@ -414,7 +414,7 @@ func TestCrossFolderMoveEdgeCases(t *testing.T) {
 	db := base.DB
 	mockLogger := mocklogger.NewMockLogger()
 
-	// Setup test infrastructure  
+	// Setup test infrastructure
 	workspaceID := idwrap.NewNow()
 	workspaceUserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -447,7 +447,7 @@ func TestCrossFolderMoveEdgeCases(t *testing.T) {
 		})
 		_, err := folderRPC.FolderCreate(authedCtx, emptyFolderReq)
 		require.NoError(t, err)
-		
+
 		endpointReq := connect.NewRequest(&endpointv1.EndpointCreateRequest{
 			CollectionId:   collectionID.Bytes(),
 			Name:           "Test Endpoint",
@@ -461,7 +461,7 @@ func TestCrossFolderMoveEdgeCases(t *testing.T) {
 
 		// Move endpoint into empty folder (no target specified)
 		moveReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       endpointID.Bytes(),
 			TargetItemId: nil, // No target - should add to end of empty folder
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER.Enum(),

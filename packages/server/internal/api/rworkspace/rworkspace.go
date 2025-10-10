@@ -17,7 +17,7 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/translate/tworkspace"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 	workspacev1 "the-dev-tools/spec/dist/buf/go/workspace/v1"
 	"the-dev-tools/spec/dist/buf/go/workspace/v1/workspacev1connect"
 
@@ -89,7 +89,7 @@ func (c *WorkspaceServiceRPC) GetWorkspace(ctx context.Context, req *connect.Req
 	return connect.NewResponse(resp), nil
 }
 
-func (c *WorkspaceServiceRPC) WorkspaceList(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[workspacev1.WorkspaceListResponse], error) {
+func (c *WorkspaceServiceRPC) WorkspaceList(ctx context.Context, req *connect.Request[workspacev1.WorkspaceListRequest]) (*connect.Response[workspacev1.WorkspaceListResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
@@ -458,7 +458,7 @@ func CheckOwnerWorkspace(ctx context.Context, su suser.UserService, workspaceID 
 	return su.CheckUserBelongsToWorkspace(ctx, userID, workspaceID)
 }
 
-func (c *WorkspaceServiceRPC) WorkspaceMove(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMoveRequest]) (*connect.Response[workspacev1.WorkspaceMoveResponse], error) {
+func (c *WorkspaceServiceRPC) WorkspaceMove(ctx context.Context, req *connect.Request[workspacev1.WorkspaceMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	// Get user ID from authenticated context
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -523,5 +523,5 @@ func (c *WorkspaceServiceRPC) WorkspaceMove(ctx context.Context, req *connect.Re
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&workspacev1.WorkspaceMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

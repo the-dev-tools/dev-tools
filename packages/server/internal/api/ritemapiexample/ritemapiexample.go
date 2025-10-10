@@ -53,7 +53,7 @@ import (
 	"the-dev-tools/server/pkg/varsystem"
 	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/example/v1/examplev1connect"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 
 	"connectrpc.com/connect"
 )
@@ -1405,7 +1405,7 @@ func CreateCopyExample(ctx context.Context, tx *sql.Tx, result CopyExampleResult
 	return err
 }
 
-func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Request[examplev1.ExampleVersionsRequest]) (*connect.Response[examplev1.ExampleVersionsResponse], error) {
+func (c *ItemAPIExampleRPC) ExampleVersionList(ctx context.Context, req *connect.Request[examplev1.ExampleVersionListRequest]) (*connect.Response[examplev1.ExampleVersionListResponse], error) {
 	versionParentID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid item api id"))
@@ -1421,7 +1421,7 @@ func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Re
 		return nil, err
 	}
 
-	resp := &examplev1.ExampleVersionsResponse{
+	resp := &examplev1.ExampleVersionListResponse{
 		ExampleId: req.Msg.GetExampleId(),
 		Items:     exampleVersionItems,
 	}
@@ -1429,7 +1429,7 @@ func (c *ItemAPIExampleRPC) ExampleVersions(ctx context.Context, req *connect.Re
 	return connect.NewResponse(resp), nil
 }
 
-func (c *ItemAPIExampleRPC) GetVersion(ctx context.Context, versionParentID idwrap.IDWrap) ([]*examplev1.ExampleVersionsItem, error) {
+func (c *ItemAPIExampleRPC) GetVersion(ctx context.Context, versionParentID idwrap.IDWrap) ([]*examplev1.ExampleVersionListItem, error) {
 	examples, err := c.iaes.GetApiExampleByVersionParentID(ctx, versionParentID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1439,10 +1439,10 @@ func (c *ItemAPIExampleRPC) GetVersion(ctx context.Context, versionParentID idwr
 	sort.Slice(examples, func(i, j int) bool {
 		return examples[i].ID.Compare(examples[j].ID) > 0
 	})
-	items := make([]*examplev1.ExampleVersionsItem, len(examples))
+	items := make([]*examplev1.ExampleVersionListItem, len(examples))
 
 	for i, example := range examples {
-		a := &examplev1.ExampleVersionsItem{}
+		a := &examplev1.ExampleVersionListItem{}
 		items[i] = a
 
 		a.ExampleId = example.ID.Bytes()

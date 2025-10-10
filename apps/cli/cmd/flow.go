@@ -66,7 +66,7 @@ import (
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
+	"the-dev-tools/spec/dist/buf/go/node_js_executor/v1/node_js_executorv1connect"
 	"time"
 
 	"the-dev-tools/cli/embeded/embededJS"
@@ -871,7 +871,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 			forEachNode.Condition, forEachNode.ErrorHandling)
 	}
 
-	var clientPtr *nodejs_executorv1connect.NodeJSExecutorServiceClient
+	var clientPtr *node_js_executorv1connect.NodeJsExecutorServiceClient
 	if len(jsNodes) > 0 {
 		// Attempt to start the NodeJS worker if node is available
 		nodePath, err := exec.LookPath("node")
@@ -923,7 +923,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 			return markFailure(connect.NewError(connect.CodeUnavailable, fmt.Errorf("worker-js server failed to start after 3 seconds")))
 		}
 
-		client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090")
+		client := node_js_executorv1connect.NewNodeJsExecutorServiceClient(httpclient.New(), "http://localhost:9090")
 		clientPtr = &client
 	}
 

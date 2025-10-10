@@ -29,9 +29,10 @@ import (
 	"the-dev-tools/server/pkg/zstdcompress"
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/body/v1/bodyv1connect"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type BodyRPC struct {
@@ -1055,12 +1056,12 @@ func (s *BodyRPC) deleteDeltaBodyFormsForOrigin(ctx context.Context, originBodyF
 }
 
 // TODO: implement move RPC
-func (c *BodyRPC) BodyFormMove(ctx context.Context, req *connect.Request[bodyv1.BodyFormMoveRequest]) (*connect.Response[bodyv1.BodyFormMoveResponse], error) {
-	return connect.NewResponse(&bodyv1.BodyFormMoveResponse{}), nil
+func (c *BodyRPC) BodyFormMove(ctx context.Context, req *connect.Request[bodyv1.BodyFormMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // TODO: implement move RPC
-func (c *BodyRPC) BodyFormDeltaMove(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaMoveRequest]) (*connect.Response[bodyv1.BodyFormDeltaMoveResponse], error) {
+func (c *BodyRPC) BodyFormDeltaMove(ctx context.Context, req *connect.Request[bodyv1.BodyFormDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -1109,11 +1110,11 @@ func (c *BodyRPC) BodyFormDeltaMove(ctx context.Context, req *connect.Request[bo
 	if err := overcore.Move(ctx, ord, deltaExampleID, bodyID, targetID, after); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&bodyv1.BodyFormDeltaMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // TODO: implement move RPC
-func (c *BodyRPC) BodyUrlEncodedMove(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedMoveRequest]) (*connect.Response[bodyv1.BodyUrlEncodedMoveResponse], error) {
+func (c *BodyRPC) BodyUrlEncodedMove(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -1134,7 +1135,7 @@ func (c *BodyRPC) BodyUrlEncodedMove(ctx context.Context, req *connect.Request[b
 		return nil, rpcErr
 	}
 	if bodyID.Compare(targetID) == 0 {
-		return connect.NewResponse(&bodyv1.BodyUrlEncodedMoveResponse{}), nil
+		return connect.NewResponse(&emptypb.Empty{}), nil
 	}
 	// Use Movable repository directly: compute desired index outside TX and apply inside
 	repo := c.bues.Repository()
@@ -1173,11 +1174,11 @@ func (c *BodyRPC) BodyUrlEncodedMove(ctx context.Context, req *connect.Request[b
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // TODO: implement move RPC
-func (c *BodyRPC) BodyUrlEncodedDeltaMove(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaMoveRequest]) (*connect.Response[bodyv1.BodyUrlEncodedDeltaMoveResponse], error) {
+func (c *BodyRPC) BodyUrlEncodedDeltaMove(ctx context.Context, req *connect.Request[bodyv1.BodyUrlEncodedDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -1206,7 +1207,7 @@ func (c *BodyRPC) BodyUrlEncodedDeltaMove(ctx context.Context, req *connect.Requ
 	}
 	// Overlay only
 	if bodyID.Compare(targetID) == 0 {
-		return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaMoveResponse{}), nil
+		return connect.NewResponse(&emptypb.Empty{}), nil
 	}
 	if err := c.overlay.EnsureSeeded(ctx, deltaExampleID, originExampleID); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -1215,7 +1216,7 @@ func (c *BodyRPC) BodyUrlEncodedDeltaMove(ctx context.Context, req *connect.Requ
 	if err := c.overlay.Move(ctx, deltaExampleID, originExampleID, bodyID, targetID, after); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&bodyv1.BodyUrlEncodedDeltaMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // URL-encoded ordering is handled fully in sbodyurl service.

@@ -95,7 +95,7 @@ import (
 	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/flow/v1/flowv1connect"
-	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
+	"the-dev-tools/spec/dist/buf/go/node_js_executor/v1/node_js_executorv1connect"
 	"time"
 
 	"connectrpc.com/connect"
@@ -1410,10 +1410,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		loopNodeIDs[forEachNode.FlowNodeID] = true
 	}
 
-	var clientPtr *nodejs_executorv1connect.NodeJSExecutorServiceClient
+	var clientPtr *node_js_executorv1connect.NodeJsExecutorServiceClient
 	for i, jsNode := range jsNodes {
 		if i == 0 {
-			client := nodejs_executorv1connect.NewNodeJSExecutorServiceClient(httpclient.New(), "http://localhost:9090")
+			client := node_js_executorv1connect.NewNodeJsExecutorServiceClient(httpclient.New(), "http://localhost:9090")
 			clientPtr = &client
 		}
 
@@ -2812,7 +2812,7 @@ func (c *FlowServiceRPC) CopyFlow(ctx context.Context, tx *sql.Tx, copyData Copy
 	return nil
 }
 
-func (c *FlowServiceRPC) FlowVersions(ctx context.Context, req *connect.Request[flowv1.FlowVersionsRequest]) (*connect.Response[flowv1.FlowVersionsResponse], error) {
+func (c *FlowServiceRPC) FlowVersionList(ctx context.Context, req *connect.Request[flowv1.FlowVersionListRequest]) (*connect.Response[flowv1.FlowVersionListResponse], error) {
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -2829,7 +2829,7 @@ func (c *FlowServiceRPC) FlowVersions(ctx context.Context, req *connect.Request[
 	}
 
 	translatedFlows := tgeneric.MassConvert(flows, tflowversion.ModelToRPC)
-	resp := &flowv1.FlowVersionsResponse{
+	resp := &flowv1.FlowVersionListResponse{
 		Items: translatedFlows,
 	}
 

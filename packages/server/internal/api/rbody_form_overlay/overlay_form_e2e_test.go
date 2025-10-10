@@ -18,7 +18,7 @@ import (
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/testutil"
 	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 
 	"connectrpc.com/connect"
 )

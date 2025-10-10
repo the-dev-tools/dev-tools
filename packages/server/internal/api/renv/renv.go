@@ -18,10 +18,11 @@ import (
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	environmentv1 "the-dev-tools/spec/dist/buf/go/environment/v1"
 	"the-dev-tools/spec/dist/buf/go/environment/v1/environmentv1connect"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type EnvRPC struct {
@@ -190,7 +191,7 @@ func CheckOwnerEnv(ctx context.Context, su suser.UserService, es senv.EnvService
 	return su.CheckUserBelongsToWorkspace(ctx, userID, env.WorkspaceID)
 }
 
-func (c *EnvRPC) EnvironmentMove(ctx context.Context, req *connect.Request[environmentv1.EnvironmentMoveRequest]) (*connect.Response[environmentv1.EnvironmentMoveResponse], error) {
+func (c *EnvRPC) EnvironmentMove(ctx context.Context, req *connect.Request[environmentv1.EnvironmentMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	// Validate environment ID
 	environmentID, err := idwrap.NewFromBytes(req.Msg.GetEnvironmentId())
 	if err != nil {
@@ -209,7 +210,7 @@ func (c *EnvRPC) EnvironmentMove(ctx context.Context, req *connect.Request[envir
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		
+
 		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, workspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
@@ -223,7 +224,7 @@ func (c *EnvRPC) EnvironmentMove(ctx context.Context, req *connect.Request[envir
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		
+
 		if environmentWorkspaceID.Compare(workspaceID) != 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("environment does not belong to specified workspace"))
 		}
@@ -294,5 +295,5 @@ func (c *EnvRPC) EnvironmentMove(ctx context.Context, req *connect.Request[envir
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&environmentv1.EnvironmentMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

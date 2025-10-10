@@ -18,11 +18,12 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	"the-dev-tools/server/pkg/translate/tvar"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 	variablev1 "the-dev-tools/spec/dist/buf/go/variable/v1"
 	"the-dev-tools/spec/dist/buf/go/variable/v1/variablev1connect"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type VarRPC struct {
@@ -221,7 +222,7 @@ func CheckOwnerVar(ctx context.Context, us suser.UserService, vs svar.VarService
 	return renv.CheckOwnerEnv(ctx, us, es, variable.EnvID)
 }
 
-func (c *VarRPC) VariableMove(ctx context.Context, req *connect.Request[variablev1.VariableMoveRequest]) (*connect.Response[variablev1.VariableMoveResponse], error) {
+func (c *VarRPC) VariableMove(ctx context.Context, req *connect.Request[variablev1.VariableMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	// Validate variable ID
 	variableID, err := idwrap.NewFromBytes(req.Msg.GetVariableId())
 	if err != nil {
@@ -309,5 +310,5 @@ func (c *VarRPC) VariableMove(ctx context.Context, req *connect.Request[variable
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&variablev1.VariableMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

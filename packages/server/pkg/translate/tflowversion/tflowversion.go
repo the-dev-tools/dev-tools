@@ -5,15 +5,15 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 )
 
-func ModelToRPC(flow mflow.Flow) *flowv1.FlowVersionsItem {
-	return &flowv1.FlowVersionsItem{
+func ModelToRPC(flow mflow.Flow) *flowv1.FlowVersionListItem {
+	return &flowv1.FlowVersionListItem{
 		FlowId: flow.ID.Bytes(),
 		Name:   flow.Name,
 	}
 }
 
-func RPCToModel(flow mflow.Flow) *flowv1.FlowVersionsItem {
-	return &flowv1.FlowVersionsItem{
+func RPCToModel(flow mflow.Flow) *flowv1.FlowVersionListItem {
+	return &flowv1.FlowVersionListItem{
 		FlowId: flow.ID.Bytes(),
 		Name:   flow.Name,
 	}
