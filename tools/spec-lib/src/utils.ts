@@ -1,4 +1,5 @@
-import { Program } from '@typespec/compiler';
+import { JSONSchemaType, Program } from '@typespec/compiler';
+import { JSONSchema, Schema } from 'effect';
 
 export const makeStateFactory = (createStateSymbol: (name: string) => symbol) => {
   const makeStateMap = <K, V>(name: string) => {
@@ -12,4 +13,10 @@ export const makeStateFactory = (createStateSymbol: (name: string) => symbol) =>
   };
 
   return { makeStateMap, makeStateSet };
+};
+
+export const makeEmitterOptions = <A, I, R>(schema: Schema.Schema<A, I, R>) => {
+  const definitions: Record<string, never> = {};
+  const jsonSchema = JSONSchema.fromAST(schema.ast, { additionalPropertiesStrategy: 'allow', definitions });
+  return { ...jsonSchema, $defs: definitions } as JSONSchemaType<A>;
 };

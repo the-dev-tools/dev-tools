@@ -1,13 +1,6 @@
-import {
-  createTypeSpecLibrary,
-  DecoratorContext,
-  JSONSchemaType,
-  Model,
-  Operation,
-  StringLiteral,
-} from '@typespec/compiler';
-import { JSONSchema, Schema } from 'effect';
-import { makeStateFactory } from '../utils.js';
+import { createTypeSpecLibrary, DecoratorContext, Model, Operation, StringLiteral } from '@typespec/compiler';
+import { Schema } from 'effect';
+import { makeEmitterOptions, makeStateFactory } from '../utils.js';
 
 export class EmitterOptions extends Schema.Class<EmitterOptions>('EmitterOptions')({
   bufTypeScriptPath: Schema.String,
@@ -16,7 +9,7 @@ export class EmitterOptions extends Schema.Class<EmitterOptions>('EmitterOptions
 
 export const $lib = createTypeSpecLibrary({
   diagnostics: {},
-  emitter: { options: JSONSchema.make(EmitterOptions) as JSONSchemaType<EmitterOptions> },
+  emitter: { options: makeEmitterOptions(EmitterOptions) },
   name: '@the-dev-tools/spec-lib/data-client',
 });
 
