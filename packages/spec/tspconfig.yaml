@@ -1,5 +1,12 @@
 output-dir: '{project-root}/dist'
 
 emit:
-  - ../dist/lib
-  - '@typespec/protobuf'
+  - '@the-dev-tools/spec-lib/protobuf'
+  - '@the-dev-tools/spec-lib/data-client'
+
+options:
+  '@the-dev-tools/spec-lib':
+    emitter-output-dir: '{output-dir}'
+    goPackage: 'the-dev-tools/spec/dist/buf/go'
+    bufTypeScriptPath: '../buf/typescript'
+    dataClientPath: '../../data-client'

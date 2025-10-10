@@ -1,79 +1,86 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "./lib.tsp";
-
-import "./workspace.tsp";
-import "./resource.tsp";
-import "./flow-item";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "flow.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/flow/v1;flowv1",
-  },
-})
 namespace API.Flow;
 
-@autoFields
-@normalize
-@entity
-@parentResource(Workspace.Workspace)
+@DataClient.entity
+@parent(Workspace.Workspace)
 model Flow {
   @key flowId: Resource.Id;
   name: string;
   duration?: int32;
 }
 
-@autoFields
-model FlowListRequest is Resource.List.Request<Flow> {
+model FlowListRequest is T.Resource.List.Request<Flow> {
   tagId?: Resource.Id;
 }
+model FlowListResponse is T.Resource.List.Response<TRequest = FlowListRequest, TItem = FlowListItem>;
+model FlowListItem is T.Resource.List.Item<Flow>;
 
-model FlowListItem is Resource.List.Item<Flow>;
+model FlowGetRequest is T.Resource.Get.Request<Flow>;
+model FlowGetResponse is T.Resource.Get.Response<Flow>;
 
-model FlowVersionsItem is Resource.List.Item<Flow>;
-model FlowVersionsRequest is KeyOf<Flow>;
-model FlowVersionsResponse is Resource.List.Response<Flow, TRequest = FlowVersionsRequest, TItem = FlowVersionsItem>;
+model FlowCreateRequest is T.Resource.Create.Request<Flow>;
+model FlowCreateResponse is T.Resource.Create.Response<Flow>;
 
-@autoFields
+model FlowUpdateRequest is T.Resource.Update.Request<Flow>;
+model FlowUpdateResponse is T.Resource.Update.Response<Flow>;
+
+model FlowDeleteRequest is T.Resource.Delete.Request<Flow>;
+model FlowDeleteResponse is T.Resource.Delete.Response<Flow>;
+
+model FlowVersionListRequest is KeyOf<Flow>;
+model FlowVersionListResponse
+  is T.Resource.List.Response<TRequest = FlowVersionListRequest, TItem = FlowVersionListItem>;
+model FlowVersionListItem is T.Resource.List.Item<Flow>;
+
 model FlowRunRequest {
   flowId: Resource.Id;
   environmentId: Resource.Id;
 }
 
-@autoFields
 model FlowRunNodeResponse {
-  ...KeyOf<FlowItem.Node.Node>;
-  ...PickProperties<FlowItem.Node.Node, "state" | "info">;
+  ...KeyOf<Node.Node>;
+  ...PickProperties<Node.Node, "state" | "info">;
 }
 
-@autoFields
 model FlowRunExampleResponse {
   exampleId: Resource.Id;
   responseId: Resource.Id;
   versionId: Resource.Id;
 }
 
-@autoFields
 model FlowRunResponse {
   node?: FlowRunNodeResponse;
-  version?: FlowVersionsItem;
+  version?: FlowVersionListItem;
   example?: FlowRunExampleResponse;
 }
 
-@Protobuf.service
-interface FlowService extends Resource.CRUD<Flow, TListItem = FlowListItem, TListRequest = FlowListRequest> {
-  FlowVersions is Resource.List.Operation<
-    Flow,
-    TItem = FlowVersionsItem,
-    TRequest = FlowVersionsRequest,
-    TResponse = FlowVersionsResponse
+interface FlowService
+  extends T.Resource.CRUD<
+      TResource = Flow,
+      // List
+      TListRequest = FlowListRequest,
+      TListResponse = FlowListResponse,
+      TListItem = FlowListItem,
+      // Get
+      TGetRequest = FlowGetRequest,
+      TGetResponse = FlowGetResponse,
+      // Create
+      TCreateRequest = FlowCreateRequest,
+      TCreateResponse = FlowCreateResponse,
+      // Update
+      TUpdateRequest = FlowUpdateRequest,
+      TUpdateResponse = FlowUpdateResponse,
+      // Delete
+      TDeleteRequest = FlowDeleteRequest,
+      TDeleteResponse = FlowDeleteResponse
+    > {
+  FlowVersionList is T.Resource.List.Operation<
+    TRequest = FlowVersionListRequest,
+    TResponse = FlowVersionListResponse,
+    TItem = FlowVersionListItem
   >;
 
-  @stream(StreamMode.Out)
+  @Protobuf.stream(Protobuf.StreamMode.Out)
   FlowRun(...FlowRunRequest): FlowRunResponse;
 }

@@ -2,7 +2,7 @@
 version: v2
 
 modules:
-  - path: ./dist/@typespec/protobuf
+  - path: ./dist/protobuf
 
 lint:
   use:
@@ -10,3 +10,4 @@ lint:
   except:
     - FIELD_LOWER_SNAKE_CASE
   rpc_allow_google_protobuf_empty_requests: true
+  rpc_allow_google_protobuf_empty_responses: true

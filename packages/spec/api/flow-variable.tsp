@@ -1,25 +1,9 @@
-import "@typespec/protobuf";
+using DevTools;
 
-import "./lib.tsp";
-
-import "./resource.tsp";
-import "./flow.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "flowvariable.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/flowvariable/v1;flowvariablev1",
-  },
-})
 namespace API.FlowVariable;
 
-@autoFields
-@normalize
-@entity
-@parentResource(Flow.Flow)
+@DataClient.entity
+@parent(Flow.Flow)
 model FlowVariable {
   @key variableId: Resource.Id;
   name: string;
@@ -28,7 +12,23 @@ model FlowVariable {
   description: string;
 }
 
-@autoFields
+model FlowVariableListRequest is T.Resource.List.Request<FlowVariable>;
+model FlowVariableListResponse
+  is T.Resource.List.Response<TRequest = FlowVariableListRequest, TItem = FlowVariableListItem>;
+model FlowVariableListItem is T.Resource.List.Item<FlowVariable>;
+
+model FlowVariableGetRequest is T.Resource.Get.Request<FlowVariable>;
+model FlowVariableGetResponse is T.Resource.Get.Response<FlowVariable>;
+
+model FlowVariableCreateRequest is T.Resource.Create.Request<FlowVariable>;
+model FlowVariableCreateResponse is T.Resource.Create.Response<FlowVariable>;
+
+model FlowVariableUpdateRequest is T.Resource.Update.Request<FlowVariable>;
+model FlowVariableUpdateResponse is T.Resource.Update.Response<FlowVariable>;
+
+model FlowVariableDeleteRequest is T.Resource.Delete.Request<FlowVariable>;
+model FlowVariableDeleteResponse is T.Resource.Delete.Response<FlowVariable>;
+
 model FlowVariableMoveRequest {
   ...ParentKeyOf<FlowVariable>;
   ...KeyOf<FlowVariable>;
@@ -36,10 +36,26 @@ model FlowVariableMoveRequest {
   targetVariableId: Resource.Id;
 }
 
-model FlowVariableMoveResponse {}
-
-@Protobuf.service
-interface FlowVariableService extends Resource.CRUD<FlowVariable> {
-  @endpoint("flow.js:moveVariable")
-  FlowVariableMove(...FlowVariableMoveRequest): FlowVariableMoveResponse;
+interface FlowVariableService
+  extends T.Resource.CRUD<
+      TResource = FlowVariable,
+      // List
+      TListRequest = FlowVariableListRequest,
+      TListResponse = FlowVariableListResponse,
+      TListItem = FlowVariableListItem,
+      // Get
+      TGetRequest = FlowVariableGetRequest,
+      TGetResponse = FlowVariableGetResponse,
+      // Create
+      TCreateRequest = FlowVariableCreateRequest,
+      TCreateResponse = FlowVariableCreateResponse,
+      // Update
+      TUpdateRequest = FlowVariableUpdateRequest,
+      TUpdateResponse = FlowVariableUpdateResponse,
+      // Delete
+      TDeleteRequest = FlowVariableDeleteRequest,
+      TDeleteResponse = FlowVariableDeleteResponse
+    > {
+  @DataClient.endpoint("flow.js:moveVariable")
+  FlowVariableMove(...FlowVariableMoveRequest): {};
 }

@@ -18,14 +18,7 @@
       "options": {
         "cwd": "{projectRoot}",
         "parallel": false,
-        "commands": [
-          "rimraf dist",
-          "alloy",
-          "tsp compile api",
-          "node dist/lib/patch-paths.js",
-          "buf generate",
-          "node dist/lib/collect-file-descriptors.js"
-        ]
+        "commands": ["tsp compile api", "buf generate", "node lib/collect-file-descriptors.ts"]
       }
     },
 

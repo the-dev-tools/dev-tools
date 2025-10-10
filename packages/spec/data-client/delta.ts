@@ -1,8 +1,14 @@
 import { DescMethodUnary } from '@bufbuild/protobuf';
 import { Queryable } from '@data-client/endpoint';
+import {
+  Endpoint,
+  EndpointProps,
+  EntitySchema,
+  makeEndpointFn,
+  makeKey,
+} from '@the-dev-tools/spec-lib/data-client/utils.ts';
 import { SourceKind } from '../dist/buf/typescript/delta/v1/delta_pb';
 import { UpdateProps } from './resource';
-import { Endpoint, EndpointProps, EntitySchema, makeEndpointFn, makeKey } from './utils';
 
 export const deltaUpdate = <M extends DescMethodUnary, S extends EntitySchema>({
   method,

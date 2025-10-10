@@ -17,9 +17,6 @@ patchedDependencies:
   '@react-stately/table':
     hash: 5ac384399a7b8e18c4e19f25e434b2f2f27fbd45e7a91cdeb30408330b7243b4
     path: patches/@react-stately__table.patch
-  '@typespec/protobuf':
-    hash: 43b6d67d0177150528dbb80326cfc5be8e05568791fe729e402fa2ad191bb74d
-    path: patches/@typespec__protobuf.patch
 
 importers:
 
@@ -431,15 +428,6 @@ importers:
         specifier: 0.14.26
         version: 0.14.26
     devDependencies:
-      '@alloy-js/cli':
-        specifier: ~0.20.0
-        version: 0.20.0
-      '@alloy-js/core':
-        specifier: ~0.20.0
-        version: 0.20.0
-      '@alloy-js/typescript':
-        specifier: ~0.20.0
-        version: 0.20.0
       '@bufbuild/buf':
         specifier: ~1.57.0
         version: 1.57.2
@@ -455,18 +443,12 @@ importers:
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../../tools/eslint
+      '@the-dev-tools/spec-lib':
+        specifier: workspace:^
+        version: link:../../tools/spec-lib
       '@types/node':
         specifier: ~24.6.1
         version: 24.6.1
-      '@typespec/emitter-framework':
-        specifier: ~0.11.0
-        version: 0.11.0(@alloy-js/core@0.20.0)(@alloy-js/csharp@0.20.0)(@alloy-js/typescript@0.20.0)(@typespec/compiler@1.4.0(@types/node@24.6.1))
-      '@typespec/protobuf':
-        specifier: ~0.74.0
-        version: 0.74.0(patch_hash=43b6d67d0177150528dbb80326cfc5be8e05568791fe729e402fa2ad191bb74d)(@typespec/compiler@1.4.0(@types/node@24.6.1))
-      '@typespec/rest':
-        specifier: ~0.74.0
-        version: 0.74.0(@typespec/compiler@1.4.0(@types/node@24.6.1))(@typespec/http@1.4.0(@typespec/compiler@1.4.0(@types/node@24.6.1)))
       effect:
         specifier: ~3.18.1
         version: 3.18.1
@@ -4732,30 +4714,8 @@ packages:
       '@alloy-js/typescript': ^0.20.0
       '@typespec/compiler': ^1.4.0
 
-  '@typespec/http@1.4.0':
-    resolution: {integrity: sha512-Y0PDDtBu+oZnwivfhbL0lN6Mk3QiCxZ66DgB5kFjcgKNpnXf0u440PPyaL42a8lbchzz5lVwz+cinyIMI89FIQ==}
-    engines: {node: '>=20.0.0'}
-    peerDependencies:
-      '@typespec/compiler': ^1.4.0
-      '@typespec/streams': ^0.74.0
-    peerDependenciesMeta:
-      '@typespec/streams':
-        optional: true
-
   '@typespec/prettier-plugin-typespec@1.4.0':
     resolution: {integrity: sha512-P4ATX7Ryu4IKlzJWv36WbEPCn4xrusaJdb2tbm2wJWobhHW6jt7bWGpJXrXvdHMcfk2IYyIpbOx0+EZb7Aof+g==}
-
-  '@typespec/protobuf@0.74.0':
-    resolution: {integrity: sha512-9Mn/gGgrrPrFG46t7DyUztUwLDOfjrksC3q2KjkSqGK5xw744/76OsqY51iAnd4DMKUg7twMqNFrKrTr6AqH2g==}
-    peerDependencies:
-      '@typespec/compiler': ^1.4.0
-
-  '@typespec/rest@0.74.0':
-    resolution: {integrity: sha512-dE+Xmv01AQ7m8jUvEbGsUQLSVo3sLzMpnHRbQEOnJX42oDqtIsz/2GEOXKQpNm1AKBISK66E2FFB5boz999Ziw==}
-    engines: {node: '>=20.0.0'}
-    peerDependencies:
-      '@typespec/compiler': ^1.4.0
-      '@typespec/http': ^1.4.0
 
   '@uiw/codemirror-extensions-basic-setup@4.25.2':
     resolution: {integrity: sha512-s2fbpdXrSMWEc86moll/d007ZFhu6jzwNu5cWv/2o7egymvLeZO52LWkewgbr+BUCGWGPsoJVWeaejbsb/hLcw==}
@@ -14858,22 +14818,9 @@ snapshots:
       '@alloy-js/typescript': 0.20.0
       '@typespec/compiler': 1.4.0(@types/node@24.6.1)
 
-  '@typespec/http@1.4.0(@typespec/compiler@1.4.0(@types/node@24.6.1))':
-    dependencies:
-      '@typespec/compiler': 1.4.0(@types/node@24.6.1)
-
   '@typespec/prettier-plugin-typespec@1.4.0':
     dependencies:
       prettier: 3.6.2
-
-  '@typespec/protobuf@0.74.0(patch_hash=43b6d67d0177150528dbb80326cfc5be8e05568791fe729e402fa2ad191bb74d)(@typespec/compiler@1.4.0(@types/node@24.6.1))':
-    dependencies:
-      '@typespec/compiler': 1.4.0(@types/node@24.6.1)
-
-  '@typespec/rest@0.74.0(@typespec/compiler@1.4.0(@types/node@24.6.1))(@typespec/http@1.4.0(@typespec/compiler@1.4.0(@types/node@24.6.1)))':
-    dependencies:
-      '@typespec/compiler': 1.4.0(@types/node@24.6.1)
-      '@typespec/http': 1.4.0(@typespec/compiler@1.4.0(@types/node@24.6.1))
 
   '@uiw/codemirror-extensions-basic-setup@4.25.2(@codemirror/autocomplete@6.19.0)(@codemirror/commands@6.8.1)(@codemirror/language@6.11.3)(@codemirror/lint@6.8.5)(@codemirror/search@6.5.11)(@codemirror/state@6.5.2)(@codemirror/view@6.38.4)':
     dependencies:

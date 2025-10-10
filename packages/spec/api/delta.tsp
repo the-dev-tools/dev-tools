@@ -1,111 +1,167 @@
-import "@typespec/protobuf";
-
-import "./lib.tsp";
-import "./resource.tsp";
-
-using TypeSpec.Protobuf;
+using DevTools;
 using TypeSpec.Reflection;
 
-@package({
-  name: "delta.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/delta/v1;deltav1",
-  },
-})
-namespace API.Delta;
-
-enum SourceKind {
-  SOURCE_KIND_UNSPECIFIED: 0,
-  SOURCE_KIND_ORIGIN: 1,
-  SOURCE_KIND_MIXED: 2,
-  SOURCE_KIND_DELTA: 3,
+namespace API.Delta {
+  enum SourceKind {
+    Origin,
+    Mixed,
+    Delta,
+  }
 }
 
-@autoFields
-@entity
-@move(Delta, TResource)
-@useFriendlyName
-@friendlyName("{name}Delta", TResource)
-@parentResourceOf(TResource)
-model Item<TResource extends Model> {
-  ...TResource;
-  @visibility(Resource.Mutation.None) origin?: TResource;
-  @visibility(Resource.Mutation.None) source?: SourceKind;
-}
+namespace T.Delta {
+  using API;
+  using API.Delta;
 
-@autoFields
-@move(Delta, TResource)
-@friendlyName("{name}DeltaListRequest", TResource)
-model ListRequest<TResource extends Model> {
-  ...Resource.List.Request<TResource>;
-  @normalKey originId: Resource.Id;
-}
+  @DataClient.entity
+  @copyParent(TResource)
+  model Item<TResource extends Model> {
+    ...TResource;
+    @visibility(T.Resource.Mutation.None) origin?: TResource;
+    @visibility(T.Resource.Mutation.None) source?: SourceKind;
+  }
 
-@autoFields
-@move(Delta, TResource)
-@friendlyName("{name}DeltaCreateRequest", TResource)
-model CreateRequest<TResource extends Model> {
-  ...Resource.Create.Request<TResource>;
-  @normalKey originId: Resource.Id;
-}
-
-@autoFields
-@move(Delta, TResource)
-@friendlyName("{name}DeltaUpdateRequest", TResource)
-model UpdateRequest<TResource extends Model, TDelta extends Model = Item<TResource>> {
-  ...ParentKeyOf<TResource>;
-  ...Resource.Update.Request<TDelta>;
-}
-
-@autoFields
-@move(Delta, TResource)
-@friendlyName("{name}DeltaDeleteRequest", TResource)
-model DeleteRequest<TResource extends Model, TDelta extends Model = Item<TResource>> {
-  ...ParentKeyOf<TResource>;
-  ...Resource.Delete.Request<TDelta>;
-}
-
-@move(Delta, TResource)
-@friendlyName("{name}DeltaResetRequest", TResource)
-model ResetRequest<TResource extends Model> {
-  ...ParentKeyOf<TResource>;
-  ...KeyOf<TResource>;
-}
-
-@move(Delta, TResource)
-@friendlyName("{name}DeltaResetResponse", TResource)
-model ResetResponse<TResource extends Model> {}
-
-interface Interface<
-  TResource extends Model,
-  TDelta extends Model = Item<TResource>,
-  TListRequest extends Model = ListRequest<TResource>,
-  TCreateRequest extends Model = CreateRequest<TResource>,
-  TUpdateRequest extends Model = UpdateRequest<TResource, TDelta>,
-  TDeleteRequest extends Model = DeleteRequest<TResource, TDelta>
->
-  extends Resource.List.Interface<TDelta, TMove = TResource, TRequest = TListRequest>,
-    Resource.Create.Interface<TDelta, TMove = TResource, TRequest = TCreateRequest, TListRequest = TListRequest>,
-    Resource.Delete.Interface<TDelta, TMove = TResource, TRequest = TDeleteRequest> {
-  @move(Delta, TResource)
-  @useFriendlyName
-  @friendlyName("{name}Update", TDelta)
-  @endpoint(
-    "delta.js:deltaUpdate",
-    {
-      schema: Schema<TDelta>,
+  namespace List {
+    model Request<TResource extends Model> is T.Resource.List.Request<TResource> {
+      @normalKey originId: Resource.Id;
     }
-  )
-  Update is Resource.Update.Operation<TDelta, TMove = TResource, TRequest = TUpdateRequest>;
 
-  @move(Delta, TResource)
-  @useFriendlyName
-  @friendlyName("{name}Reset", TDelta)
-  @endpoint(
-    "delta.js:deltaReset",
-    {
-      schema: Schema<TDelta>,
+    model Response<TRequest extends Model, TItem extends Model>
+      is T.Resource.List.Response<TRequest = TRequest, TItem = TItem>;
+
+    model Item<TResource extends Model> is T.Resource.List.Item<TResource>;
+  }
+
+  namespace Create {
+    model Request<TResource extends Model> is T.Resource.Create.Request<TResource> {
+      @normalKey originId: Resource.Id;
     }
-  )
-  Reset(...ResetRequest<TResource>): ResetResponse<TResource>;
+
+    model Response<TResource extends Model> is T.Resource.Create.Response<TResource>;
+  }
+
+  namespace Update {
+    model Request<TResource extends Model> is T.Resource.Update.Request<TResource> {
+      ...ParentKeyOf<TResource>;
+    }
+
+    model Response<TResource extends Model> is T.Resource.Update.Response<TResource>;
+  }
+
+  namespace Delete {
+    model Request<TResource extends Model> is T.Resource.Delete.Request<TResource> {
+      ...ParentKeyOf<TResource>;
+    }
+
+    model Response<TResource extends Model> is T.Resource.Delete.Response<TResource>;
+  }
+
+  namespace Reset {
+    model Request<TResource extends Model> {
+      ...ParentKeyOf<TResource>;
+      ...KeyOf<TResource>;
+    }
+
+    model Response<TResource extends Model> {}
+  }
+
+  interface Interface<
+    TResource extends Model,
+    // List
+    TListRequest extends Model,
+    TListResponse extends Model,
+    TListItem extends Model,
+    // Create
+    TCreateRequest extends Model,
+    TCreateResponse extends Model,
+    // Update
+    TUpdateRequest extends Model,
+    TUpdateResponse extends Model,
+    // Delete
+    TDeleteRequest extends Model,
+    TDeleteResponse extends Model,
+    // Reset
+    TResetRequest extends Model,
+    TResetResponse extends Model
+  >
+    extends T.Resource.List.Interface<
+        TResource = TResource,
+        TRequest = TListRequest,
+        TItem = TListItem,
+        TResponse = TListResponse
+      >,
+      T.Resource.Create.Interface<
+        TResource = TResource,
+        TRequest = TCreateRequest,
+        TResponse = TCreateResponse,
+        TListRequest = TListRequest,
+        TListItem = TListItem
+      >,
+      T.Resource.Delete.Interface<TResource = TResource, TRequest = TDeleteRequest, TResponse = TDeleteResponse> {
+    @rename("{name}Update", TResource)
+    @DataClient.endpoint(
+      "delta.js:deltaUpdate",
+      {
+        schema: DataClient.Schema<TResource>,
+      }
+    )
+    Update is T.Resource.Update.Operation<
+      TResource = TResource,
+      TRequest = TUpdateRequest,
+      TResponse = TUpdateResponse
+    >;
+
+    @rename("{name}Reset", TResource)
+    @DataClient.endpoint(
+      "delta.js:deltaReset",
+      {
+        schema: DataClient.Schema<TResource>,
+      }
+    )
+    Reset(...TResetRequest): TResetResponse;
+  }
+
+  namespace _BOILERPLATE_ {
+    model _RESOURCE_NAME_ {}
+
+    model _RESOURCE_NAME_Delta is T.Delta.Item<_RESOURCE_NAME_>;
+
+    model _RESOURCE_NAME_DeltaListRequest is T.Delta.List.Request<_RESOURCE_NAME_Delta>;
+    model _RESOURCE_NAME_DeltaListResponse
+      is T.Delta.List.Response<TRequest = _RESOURCE_NAME_DeltaListRequest, TItem = _RESOURCE_NAME_DeltaListItem>;
+    model _RESOURCE_NAME_DeltaListItem is T.Delta.List.Item<_RESOURCE_NAME_Delta>;
+
+    model _RESOURCE_NAME_DeltaCreateRequest is T.Delta.Create.Request<_RESOURCE_NAME_Delta>;
+    model _RESOURCE_NAME_DeltaCreateResponse is T.Delta.Create.Response<_RESOURCE_NAME_Delta>;
+
+    model _RESOURCE_NAME_DeltaUpdateRequest is T.Delta.Update.Request<_RESOURCE_NAME_Delta>;
+    model _RESOURCE_NAME_DeltaUpdateResponse is T.Delta.Update.Response<_RESOURCE_NAME_Delta>;
+
+    model _RESOURCE_NAME_DeltaDeleteRequest is T.Delta.Delete.Request<_RESOURCE_NAME_Delta>;
+    model _RESOURCE_NAME_DeltaDeleteResponse is T.Delta.Delete.Response<_RESOURCE_NAME_Delta>;
+
+    model _RESOURCE_NAME_DeltaResetRequest is T.Delta.Reset.Request<_RESOURCE_NAME_Delta>;
+    model _RESOURCE_NAME_DeltaResetResponse is T.Delta.Reset.Response<_RESOURCE_NAME_Delta>;
+
+    interface TDelta
+      extends T.Delta.Interface<
+          TResource = _RESOURCE_NAME_Delta,
+          // List
+          TListRequest = _RESOURCE_NAME_DeltaListRequest,
+          TListResponse = _RESOURCE_NAME_DeltaListResponse,
+          TListItem = _RESOURCE_NAME_DeltaListItem,
+          // Create
+          TCreateRequest = _RESOURCE_NAME_DeltaCreateRequest,
+          TCreateResponse = _RESOURCE_NAME_DeltaCreateResponse,
+          // Update
+          TUpdateRequest = _RESOURCE_NAME_DeltaUpdateRequest,
+          TUpdateResponse = _RESOURCE_NAME_DeltaUpdateResponse,
+          // Delete
+          TDeleteRequest = _RESOURCE_NAME_DeltaDeleteRequest,
+          TDeleteResponse = _RESOURCE_NAME_DeltaDeleteResponse,
+          // Reset
+          TResetRequest = _RESOURCE_NAME_DeltaResetRequest,
+          TResetResponse = _RESOURCE_NAME_DeltaResetResponse
+        > {}
+  }
 }

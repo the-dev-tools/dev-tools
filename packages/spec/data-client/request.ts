@@ -1,6 +1,13 @@
 import { create } from '@bufbuild/protobuf';
 import { Array, Match, Option, pipe } from 'effect';
 import {
+  Endpoint,
+  EndpointProps,
+  makeEndpointFn,
+  makeKey,
+  makeListCollection,
+} from '@the-dev-tools/spec-lib/data-client/utils.ts';
+import {
   BodyFormDeltaMoveRequestSchema,
   BodyFormMoveRequestSchema,
   BodyService,
@@ -14,21 +21,20 @@ import {
   QueryMoveRequestSchema,
   RequestService,
 } from '../dist/buf/typescript/collection/item/request/v1/request_pb';
-import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
+import { MovePosition } from '../dist/buf/typescript/resource/v1/resource_pb';
 import {
   BodyFormDeltaListItemEntity,
   BodyFormListItemEntity,
   BodyUrlEncodedDeltaListItemEntity,
   BodyUrlEncodedListItemEntity,
-} from '../dist/meta/collection/item/body/v1/body.entities';
+} from '../dist/data-client/collection/item/body/v1/body.entities';
 import {
   HeaderDeltaListItemEntity,
   HeaderListItemEntity,
   QueryDeltaListItemEntity,
   QueryListItemEntity,
-} from '../dist/meta/collection/item/request/v1/request.entities';
+} from '../dist/data-client/collection/item/request/v1/request.entities';
 import { MakeEndpointProps } from './resource';
-import { Endpoint, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
 export const moveBodyForm = ({ method, name }: MakeEndpointProps<typeof BodyService.method.bodyFormMove>) => {
   const list = makeListCollection({ inputPrimaryKeys: ['exampleId'], itemSchema: BodyFormListItemEntity, method });

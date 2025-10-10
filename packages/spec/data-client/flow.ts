@@ -1,13 +1,19 @@
 import { create } from '@bufbuild/protobuf';
 import { Array, Match, Option, pipe } from 'effect';
 import {
+  Endpoint,
+  EndpointProps,
+  makeEndpointFn,
+  makeKey,
+  makeListCollection,
+} from '@the-dev-tools/spec-lib/data-client/utils.ts';
+import {
   FlowVariableMoveRequestSchema,
   FlowVariableService,
-} from '../dist/buf/typescript/flowvariable/v1/flowvariable_pb';
-import { MovePosition } from '../dist/buf/typescript/resources/v1/resources_pb';
-import { FlowVariableListItemEntity } from '../dist/meta/flowvariable/v1/flowvariable.entities';
+} from '../dist/buf/typescript/flow_variable/v1/flow_variable_pb';
+import { MovePosition } from '../dist/buf/typescript/resource/v1/resource_pb';
+import { FlowVariableListItemEntity } from '../dist/data-client/flow_variable/v1/flow_variable.entities';
 import { MakeEndpointProps } from './resource';
-import { Endpoint, EndpointProps, makeEndpointFn, makeKey, makeListCollection } from './utils';
 
 export const moveVariable = ({
   method,

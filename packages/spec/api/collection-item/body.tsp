@@ -1,33 +1,15 @@
-import "@typespec/protobuf";
-import "@typespec/rest";
+using DevTools;
 
-import "../lib.tsp";
-
-import "../delta.tsp";
-import "./example.tsp";
-
-using TypeSpec.Protobuf;
-using TypeSpec.Rest;
-
-@package({
-  name: "collection.item.body.v1",
-  options: {
-    go_package: "the-dev-tools/spec/dist/buf/go/collection/item/body/v1;bodyv1",
-  },
-})
-namespace API.CollectionItem.Body;
+namespace API.Collection.Item.Body;
 
 enum BodyKind {
-  BODY_KIND_UNSPECIFIED: 0,
-  BODY_KIND_FORM_ARRAY: 1,
-  BODY_KIND_URL_ENCODED_ARRAY: 2,
-  BODY_KIND_RAW: 3,
+  FormArray,
+  UrlEncodedArray,
+  Raw,
 }
 
-@autoFields
-@normalize
-@entity
-@parentResource(Example.Example)
+@DataClient.entity
+@parent(Example.Example)
 model BodyForm {
   @key bodyId: Resource.Id;
   key: string;
@@ -36,9 +18,19 @@ model BodyForm {
   description: string;
 }
 
-model BodyFormDelta is Delta.Item<BodyForm>;
+model BodyFormListRequest is T.Resource.List.Request<BodyForm>;
+model BodyFormListResponse is T.Resource.List.Response<TRequest = BodyFormListRequest, TItem = BodyFormListItem>;
+model BodyFormListItem is T.Resource.List.Item<BodyForm>;
 
-@autoFields
+model BodyFormCreateRequest is T.Resource.Create.Request<BodyForm>;
+model BodyFormCreateResponse is T.Resource.Create.Response<BodyForm>;
+
+model BodyFormUpdateRequest is T.Resource.Update.Request<BodyForm>;
+model BodyFormUpdateResponse is T.Resource.Update.Response<BodyForm>;
+
+model BodyFormDeleteRequest is T.Resource.Delete.Request<BodyForm>;
+model BodyFormDeleteResponse is T.Resource.Delete.Response<BodyForm>;
+
 model BodyFormMoveRequest {
   ...ParentKeyOf<BodyForm>;
   ...KeyOf<BodyForm>;
@@ -46,9 +38,25 @@ model BodyFormMoveRequest {
   targetBodyId: Resource.Id;
 }
 
-model BodyFormMoveResponse {}
+model BodyFormDelta is T.Delta.Item<BodyForm>;
 
-@autoFields
+model BodyFormDeltaListRequest is T.Delta.List.Request<BodyFormDelta>;
+model BodyFormDeltaListResponse
+  is T.Delta.List.Response<TRequest = BodyFormDeltaListRequest, TItem = BodyFormDeltaListItem>;
+model BodyFormDeltaListItem is T.Delta.List.Item<BodyFormDelta>;
+
+model BodyFormDeltaCreateRequest is T.Delta.Create.Request<BodyFormDelta>;
+model BodyFormDeltaCreateResponse is T.Delta.Create.Response<BodyFormDelta>;
+
+model BodyFormDeltaUpdateRequest is T.Delta.Update.Request<BodyFormDelta>;
+model BodyFormDeltaUpdateResponse is T.Delta.Update.Response<BodyFormDelta>;
+
+model BodyFormDeltaDeleteRequest is T.Delta.Delete.Request<BodyFormDelta>;
+model BodyFormDeltaDeleteResponse is T.Delta.Delete.Response<BodyFormDelta>;
+
+model BodyFormDeltaResetRequest is T.Delta.Reset.Request<BodyFormDelta>;
+model BodyFormDeltaResetResponse is T.Delta.Reset.Response<BodyFormDelta>;
+
 model BodyFormDeltaMoveRequest {
   ...ParentKeyOf<BodyFormDelta>;
   ...KeyOf<BodyFormDelta>;
@@ -57,12 +65,8 @@ model BodyFormDeltaMoveRequest {
   targetBodyId: Resource.Id;
 }
 
-model BodyFormDeltaMoveResponse {}
-
-@autoFields
-@normalize
-@entity
-@parentResource(Example.Example)
+@DataClient.entity
+@parent(Example.Example)
 model BodyUrlEncoded {
   @key bodyId: Resource.Id;
   key: string;
@@ -71,9 +75,20 @@ model BodyUrlEncoded {
   description: string;
 }
 
-model BodyUrlEncodedDelta is Delta.Item<BodyUrlEncoded>;
+model BodyUrlEncodedListRequest is T.Resource.List.Request<BodyUrlEncoded>;
+model BodyUrlEncodedListResponse
+  is T.Resource.List.Response<TRequest = BodyUrlEncodedListRequest, TItem = BodyUrlEncodedListItem>;
+model BodyUrlEncodedListItem is T.Resource.List.Item<BodyUrlEncoded>;
 
-@autoFields
+model BodyUrlEncodedCreateRequest is T.Resource.Create.Request<BodyUrlEncoded>;
+model BodyUrlEncodedCreateResponse is T.Resource.Create.Response<BodyUrlEncoded>;
+
+model BodyUrlEncodedUpdateRequest is T.Resource.Update.Request<BodyUrlEncoded>;
+model BodyUrlEncodedUpdateResponse is T.Resource.Update.Response<BodyUrlEncoded>;
+
+model BodyUrlEncodedDeleteRequest is T.Resource.Delete.Request<BodyUrlEncoded>;
+model BodyUrlEncodedDeleteResponse is T.Resource.Delete.Response<BodyUrlEncoded>;
+
 model BodyUrlEncodedMoveRequest {
   ...ParentKeyOf<BodyUrlEncoded>;
   ...KeyOf<BodyUrlEncoded>;
@@ -81,9 +96,25 @@ model BodyUrlEncodedMoveRequest {
   targetBodyId: Resource.Id;
 }
 
-model BodyUrlEncodedMoveResponse {}
+model BodyUrlEncodedDelta is T.Delta.Item<BodyUrlEncoded>;
 
-@autoFields
+model BodyUrlEncodedDeltaListRequest is T.Delta.List.Request<BodyUrlEncodedDelta>;
+model BodyUrlEncodedDeltaListResponse
+  is T.Delta.List.Response<TRequest = BodyUrlEncodedDeltaListRequest, TItem = BodyUrlEncodedDeltaListItem>;
+model BodyUrlEncodedDeltaListItem is T.Delta.List.Item<BodyUrlEncodedDelta>;
+
+model BodyUrlEncodedDeltaCreateRequest is T.Delta.Create.Request<BodyUrlEncodedDelta>;
+model BodyUrlEncodedDeltaCreateResponse is T.Delta.Create.Response<BodyUrlEncodedDelta>;
+
+model BodyUrlEncodedDeltaUpdateRequest is T.Delta.Update.Request<BodyUrlEncodedDelta>;
+model BodyUrlEncodedDeltaUpdateResponse is T.Delta.Update.Response<BodyUrlEncodedDelta>;
+
+model BodyUrlEncodedDeltaDeleteRequest is T.Delta.Delete.Request<BodyUrlEncodedDelta>;
+model BodyUrlEncodedDeltaDeleteResponse is T.Delta.Delete.Response<BodyUrlEncodedDelta>;
+
+model BodyUrlEncodedDeltaResetRequest is T.Delta.Reset.Request<BodyUrlEncodedDelta>;
+model BodyUrlEncodedDeltaResetResponse is T.Delta.Reset.Response<BodyUrlEncodedDelta>;
+
 model BodyUrlEncodedDeltaMoveRequest {
   ...ParentKeyOf<BodyUrlEncodedDelta>;
   ...KeyOf<BodyUrlEncodedDelta>;
@@ -92,39 +123,119 @@ model BodyUrlEncodedDeltaMoveRequest {
   targetBodyId: Resource.Id;
 }
 
-model BodyUrlEncodedDeltaMoveResponse {}
-
-@autoFields
-@entity
+@DataClient.entity
 model BodyRaw {
   ...KeyOf<Example.Example>;
   data: bytes;
 }
 
-@Protobuf.service
+model BodyRawGetRequest is T.Resource.Get.Request<BodyRaw>;
+model BodyRawGetResponse is T.Resource.Get.Response<BodyRaw>;
+
+model BodyRawUpdateRequest is T.Resource.Update.Request<BodyRaw>;
+model BodyRawUpdateResponse is T.Resource.Update.Response<BodyRaw>;
+
 interface BodyService
   extends BlankInterface,
     // Form Array
-    Resource.List.Interface<BodyForm>,
-    Resource.Create.Interface<BodyForm>,
-    Resource.Update.Interface<BodyForm>,
-    Resource.Delete.Interface<BodyForm>,
-    Delta.Interface<BodyForm, TDelta = BodyFormDelta>,
+    T.Resource.List.Interface<
+      TResource = BodyForm,
+      TRequest = BodyFormListRequest,
+      TResponse = BodyFormListResponse,
+      TItem = BodyFormListItem
+    >,
+    T.Resource.Create.Interface<
+      TResource = BodyForm,
+      TRequest = BodyFormCreateRequest,
+      TResponse = BodyFormCreateResponse,
+      TListRequest = BodyFormListRequest,
+      TListItem = BodyFormListItem
+    >,
+    T.Resource.Update.Interface<
+      TResource = BodyForm,
+      TRequest = BodyFormUpdateRequest,
+      TResponse = BodyFormUpdateResponse
+    >,
+    T.Resource.Delete.Interface<
+      TResource = BodyForm,
+      TRequest = BodyFormDeleteRequest,
+      TResponse = BodyFormDeleteResponse
+    >,
+    T.Delta.Interface<
+      TResource = BodyFormDelta,
+      // List
+      TListRequest = BodyFormDeltaListRequest,
+      TListResponse = BodyFormDeltaListResponse,
+      TListItem = BodyFormDeltaListItem,
+      // Create
+      TCreateRequest = BodyFormDeltaCreateRequest,
+      TCreateResponse = BodyFormDeltaCreateResponse,
+      // Update
+      TUpdateRequest = BodyFormDeltaUpdateRequest,
+      TUpdateResponse = BodyFormDeltaUpdateResponse,
+      // Delete
+      TDeleteRequest = BodyFormDeltaDeleteRequest,
+      TDeleteResponse = BodyFormDeltaDeleteResponse,
+      // Reset
+      TResetRequest = BodyFormDeltaResetRequest,
+      TResetResponse = BodyFormDeltaResetResponse
+    >,
     // URL Encoded Array
-    Resource.List.Interface<BodyUrlEncoded>,
-    Resource.Create.Interface<BodyUrlEncoded>,
-    Resource.Update.Interface<BodyUrlEncoded>,
-    Resource.Delete.Interface<BodyUrlEncoded>,
-    Delta.Interface<BodyUrlEncoded, TDelta = BodyUrlEncodedDelta>,
+    T.Resource.List.Interface<
+      TResource = BodyUrlEncoded,
+      TRequest = BodyUrlEncodedListRequest,
+      TResponse = BodyUrlEncodedListResponse,
+      TItem = BodyUrlEncodedListItem
+    >,
+    T.Resource.Create.Interface<
+      TResource = BodyUrlEncoded,
+      TRequest = BodyUrlEncodedCreateRequest,
+      TResponse = BodyUrlEncodedCreateResponse,
+      TListRequest = BodyUrlEncodedListRequest,
+      TListItem = BodyUrlEncodedListItem
+    >,
+    T.Resource.Update.Interface<
+      TResource = BodyUrlEncoded,
+      TRequest = BodyUrlEncodedUpdateRequest,
+      TResponse = BodyUrlEncodedUpdateResponse
+    >,
+    T.Resource.Delete.Interface<
+      TResource = BodyUrlEncoded,
+      TRequest = BodyUrlEncodedDeleteRequest,
+      TResponse = BodyUrlEncodedDeleteResponse
+    >,
+    T.Delta.Interface<
+      TResource = BodyUrlEncodedDelta,
+      // List
+      TListRequest = BodyUrlEncodedDeltaListRequest,
+      TListResponse = BodyUrlEncodedDeltaListResponse,
+      TListItem = BodyUrlEncodedDeltaListItem,
+      // Create
+      TCreateRequest = BodyUrlEncodedDeltaCreateRequest,
+      TCreateResponse = BodyUrlEncodedDeltaCreateResponse,
+      // Update
+      TUpdateRequest = BodyUrlEncodedDeltaUpdateRequest,
+      TUpdateResponse = BodyUrlEncodedDeltaUpdateResponse,
+      // Delete
+      TDeleteRequest = BodyUrlEncodedDeltaDeleteRequest,
+      TDeleteResponse = BodyUrlEncodedDeltaDeleteResponse,
+      // Reset
+      TResetRequest = BodyUrlEncodedDeltaResetRequest,
+      TResetResponse = BodyUrlEncodedDeltaResetResponse
+    >,
     // Raw
-    Resource.Get.Interface<BodyRaw>,
-    Resource.Update.Interface<BodyRaw> {
-  @endpoint("request.js:moveBodyForm")
-  BodyFormMove(...BodyFormMoveRequest): BodyFormMoveResponse;
-  @endpoint("request.js:moveBodyFormDelta")
-  BodyFormDeltaMove(...BodyFormDeltaMoveRequest): BodyFormDeltaMoveResponse;
-  @endpoint("request.js:moveBodyUrlEncoded")
-  BodyUrlEncodedMove(...BodyUrlEncodedMoveRequest): BodyUrlEncodedMoveResponse;
-  @endpoint("request.js:moveBodyUrlEncodedDelta")
-  BodyUrlEncodedDeltaMove(...BodyUrlEncodedDeltaMoveRequest): BodyUrlEncodedDeltaMoveResponse;
+    T.Resource.Get.Interface<TResource = BodyRaw, TRequest = BodyRawGetRequest, TResponse = BodyRawGetResponse>,
+    T.Resource.Update.Interface<
+      TResource = BodyRaw,
+      TRequest = BodyRawUpdateRequest,
+      TResponse = BodyRawUpdateResponse
+    > {
+  @DataClient.endpoint("request.js:moveBodyForm")
+  BodyFormMove(...BodyFormMoveRequest): {};
+  @DataClient.endpoint("request.js:moveBodyFormDelta")
+  BodyFormDeltaMove(...BodyFormDeltaMoveRequest): {};
+  @DataClient.endpoint("request.js:moveBodyUrlEncoded")
+  BodyUrlEncodedMove(...BodyUrlEncodedMoveRequest): {};
+  @DataClient.endpoint("request.js:moveBodyUrlEncodedDelta")
+  BodyUrlEncodedDeltaMove(...BodyUrlEncodedDeltaMoveRequest): {};
 }
