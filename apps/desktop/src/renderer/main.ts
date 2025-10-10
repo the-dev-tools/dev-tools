@@ -28,7 +28,7 @@
 
 import { Registry } from '@effect-atom/atom-react';
 import { BrowserKeyValueStore } from '@effect/platform-browser';
-import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe } from 'effect';
+import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe, Record } from 'effect';
 import { ApiLayer } from '@the-dev-tools/client/api/layer';
 import { ApiErrorHandlerLive, app } from '@the-dev-tools/client/index';
 import packageJson from '../../package.json';
@@ -39,7 +39,10 @@ const ConfigLive = pipe(
     PUBLIC_LOCAL_MODE: true,
     VERSION: packageJson.version,
   },
-  ConfigProvider.fromJson,
+  Record.mapKeys((_) => _.replaceAll('__', '.')),
+  Record.toEntries,
+  (_) => new Map(_ as [string, string][]),
+  ConfigProvider.fromMap,
   Layer.setConfigProvider,
 );
 

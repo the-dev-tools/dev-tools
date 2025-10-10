@@ -14,6 +14,7 @@ import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
 import { ApiErrorHandler, ApiTransport } from '~/api/transport';
 import { makeDataClient } from '~data-client';
 import { RouterContext } from '~routes/context';
+import { Track } from '~tracker';
 import { routeTree } from './routes/__tree';
 
 import './styles.css';
@@ -65,6 +66,8 @@ export const app = Effect.gen(function* () {
   const rootEl = document.getElementById('root');
 
   if (!rootEl) return;
+
+  yield* Track;
 
   const transport = yield* ApiTransport;
   const queryClient = new QueryClient();
