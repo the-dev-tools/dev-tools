@@ -122,12 +122,13 @@ func main() {
 	}
 	fmt.Println("DB_MODE: ", dbMode)
 
-	var currentDB *sql.DB
+	var writeDB *sql.DB
+	var readDB *sql.DB
 	var dbCloseFunc func()
 	var err error
 	switch dbMode {
 	case devtoolsdb.LOCAL:
-		currentDB, dbCloseFunc, err = GetDBLocal(ctx)
+		writeDB, readDB, dbCloseFunc, err = GetDBLocal(ctx)
 	default:
 		err = errors.New("invalid db mode")
 	}
@@ -136,7 +137,12 @@ func main() {
 	}
 	defer dbCloseFunc()
 
-	queries, err := gen.Prepare(ctx, currentDB)
+	queries, err := gen.Prepare(ctx, writeDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	readQueries, err := gen.Prepare(ctx, readDB)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -177,6 +183,7 @@ func main() {
 	flowNodeNoOpService := snodenoop.New(queries)
 	flowNodeJsService := snodejs.New(queries)
 	nodeExecutionService := snodeexecution.New(queries)
+	nodeExecutionServiceRead := snodeexecution.New(readQueries)
 
 	// log/console
 	logMap := logconsole.NewLogChanMap()
@@ -208,57 +215,57 @@ func main() {
 	healthSrv := rhealth.New()
 	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
-	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService)
+	workspaceSrv := rworkspace.New(writeDB, workspaceService, workspaceUserService, userService, environmentService)
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
 
 	// Collection Service
-	collectionSrv := rcollection.New(currentDB, collectionService, workspaceService,
+	collectionSrv := rcollection.New(writeDB, collectionService, workspaceService,
 		userService)
 	newServiceManager.AddService(rcollection.CreateService(collectionSrv, opitonsAll))
 
 	// Collection Item Service
-	collectionItemSrv := rcollectionitem.New(currentDB, collectionService, collectionItemService, userService, folderService, endpointService, exampleService, exampleResponseService)
+	collectionItemSrv := rcollectionitem.New(writeDB, collectionService, collectionItemService, userService, folderService, endpointService, exampleService, exampleResponseService)
 	newServiceManager.AddService(rcollectionitem.CreateService(collectionItemSrv, opitonsAll))
 
 	// Result API Service
-	resultapiSrv := resultapi.New(currentDB, userService, collectionService, endpointService, exampleService, workspaceService, exampleResponseService, exampleResponseHeaderService, assertService, assertResultService)
+	resultapiSrv := resultapi.New(writeDB, userService, collectionService, endpointService, exampleService, workspaceService, exampleResponseService, exampleResponseHeaderService, assertService, assertResultService)
 	newServiceManager.AddService(resultapi.CreateService(resultapiSrv, opitonsAll))
 
 	// Item API Service
-	itemapiSrv := ritemapi.New(currentDB, endpointService, collectionService,
+	itemapiSrv := ritemapi.New(writeDB, endpointService, collectionService,
 		folderService, userService, exampleService, exampleResponseService, collectionItemService)
 	newServiceManager.AddService(ritemapi.CreateService(itemapiSrv, opitonsAll))
 
 	// Folder API Service
-	folderItemSrv := ritemfolder.New(currentDB, folderService, userService, collectionService, collectionItemService)
+	folderItemSrv := ritemfolder.New(writeDB, folderService, userService, collectionService, collectionItemService)
 	newServiceManager.AddService(ritemfolder.CreateService(folderItemSrv, opitonsAll))
 
 	// Api Item Example
-	itemApiExampleSrv := ritemapiexample.New(currentDB, exampleService, endpointService, folderService,
+	itemApiExampleSrv := ritemapiexample.New(writeDB, exampleService, endpointService, folderService,
 		workspaceService, collectionService, userService, exampleHeaderService, exampleQueryService, bodyFormService, bodyUrlService,
 		bodyRawService, exampleResponseHeaderService, exampleResponseService, environmentService, variableService, assertService, assertResultService, logMap)
 	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))
 
-	requestSrv := rrequest.New(currentDB, collectionService, userService, endpointService, exampleService, exampleHeaderService, exampleQueryService, assertService)
+	requestSrv := rrequest.New(writeDB, collectionService, userService, endpointService, exampleService, exampleHeaderService, exampleQueryService, assertService)
 	newServiceManager.AddService(rrequest.CreateService(requestSrv, opitonsAll))
 
 	// BodyRaw Service
-	bodySrv := rbody.New(currentDB, collectionService, exampleService, userService, bodyFormService, bodyUrlService, bodyRawService)
+	bodySrv := rbody.New(writeDB, collectionService, exampleService, userService, bodyFormService, bodyUrlService, bodyRawService)
 	newServiceManager.AddService(rbody.CreateService(bodySrv, opitonsAll))
 
 	// Env Service
-	envSrv := renv.New(currentDB, environmentService, variableService, userService)
+	envSrv := renv.New(writeDB, environmentService, variableService, userService)
 	newServiceManager.AddService(renv.CreateService(envSrv, opitonsAll))
 
 	// Var Service
-	varSrv := rvar.New(currentDB, userService, environmentService, variableService)
+	varSrv := rvar.New(writeDB, userService, environmentService, variableService)
 	newServiceManager.AddService(rvar.CreateService(varSrv, opitonsAll))
 
-	tagSrv := rtag.New(currentDB, workspaceService, userService, tagService)
+	tagSrv := rtag.New(writeDB, workspaceService, userService, tagService)
 	newServiceManager.AddService(rtag.CreateService(tagSrv, opitonsAll))
 
 	// Flow Service
-	flowSrv := rflow.New(currentDB, workspaceService, userService, tagService,
+	flowSrv := rflow.New(writeDB, workspaceService, userService, tagService,
 		// flow
 		flowService, flowTagService, flowEdgeService, flowVariableService, environmentService, variableService,
 		// req
@@ -273,7 +280,7 @@ func main() {
 	newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
 
 	// Node Service
-	nodeSrv := rnode.NewNodeServiceRPC(currentDB, userService,
+	nodeSrv := rnode.NewNodeServiceRPC(writeDB, userService,
 		flowService, *flowNodeCondition,
 		flowNodeRequestSevice, flowNodeForService, flowNodeForeachService, flowNodeService, flowNodeNoOpService, flowNodeJsService,
 		endpointService, exampleService, exampleQueryService, exampleHeaderService, bodyRawService, bodyFormService, bodyUrlService,
@@ -281,7 +288,7 @@ func main() {
 	newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
 
 	// NodeExecution Service
-	nodeExecutionSrv := rnodeexecution.New(&nodeExecutionService, &flowNodeService, &flowService, &userService, &exampleResponseService, &flowNodeRequestSevice)
+	nodeExecutionSrv := rnodeexecution.New(&nodeExecutionServiceRead, &flowNodeService, &flowService, &userService, &exampleResponseService, &flowNodeRequestSevice)
 	nodeExecutionService_svc, err := rnodeexecution.CreateService(nodeExecutionSrv, opitonsAll)
 	if err != nil {
 		log.Fatal(err)
@@ -289,7 +296,7 @@ func main() {
 	newServiceManager.AddService(nodeExecutionService_svc, err)
 
 	// Edge Service
-	edgeSrv := redge.NewEdgeServiceRPC(currentDB, flowService, userService, flowEdgeService, flowNodeService)
+	edgeSrv := redge.NewEdgeServiceRPC(writeDB, flowService, userService, flowEdgeService, flowNodeService)
 	newServiceManager.AddService(redge.CreateService(edgeSrv, opitonsAll))
 
 	// Log Service
@@ -297,12 +304,12 @@ func main() {
 	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
 
 	// Refernce Service
-	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService,
+	refServiceRPC := rreference.NewNodeServiceRPC(writeDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService,
 		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService, nodeExecutionService)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
 
 	importServiceRPC := rimport.New(
-		currentDB,
+		writeDB,
 		workspaceService,
 		collectionService,
 		userService,
@@ -336,11 +343,11 @@ func main() {
 	}
 	newServiceManager.AddService(importService, err)
 
-	flowServiceRPC := rflowvariable.New(currentDB, flowService, userService, flowVariableService)
+	flowServiceRPC := rflowvariable.New(writeDB, flowService, userService, flowVariableService)
 	newServiceManager.AddService(rflowvariable.CreateService(flowServiceRPC, opitonsAll))
 
 	exportServiceRPC := rexport.New(
-		currentDB,
+		writeDB,
 		workspaceService, collectionService, folderService,
 		endpointService, exampleService, exampleHeaderService, exampleQueryService, assertService,
 		bodyRawService, bodyFormService, bodyUrlService,
@@ -396,22 +403,22 @@ func (sm *ServiceManager) GetServices() []api.Service {
 	return sm.s
 }
 
-func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
+func GetDBLocal(ctx context.Context) (*sql.DB, *sql.DB, func(), error) {
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
-		return nil, nil, errors.New("DB_NAME env var is required")
+		return nil, nil, nil, errors.New("DB_NAME env var is required")
 	}
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
-		return nil, nil, errors.New("DB_PATH env var is required")
+		return nil, nil, nil, errors.New("DB_PATH env var is required")
 	}
 	encryptKey := os.Getenv("DB_ENCRYPTION_KEY")
 	if encryptKey == "" {
-		return nil, nil, errors.New("DB_ENCRYPT_KEY env var is required")
+		return nil, nil, nil, errors.New("DB_ENCRYPT_KEY env var is required")
 	}
-	db, a, err := tursolocal.NewTursoLocal(ctx, dbName, dbPath, encryptKey)
+	writeDB, readDB, cleanup, err := tursolocal.NewTursoLocal(ctx, dbName, dbPath, encryptKey)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return db, a, nil
+	return writeDB, readDB, cleanup, nil
 }

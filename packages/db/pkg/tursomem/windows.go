@@ -16,22 +16,27 @@ var (
 	ErrDBPathNotFound = fmt.Errorf("db path not found")
 )
 
-func NewTursoLocal(ctx context.Context) (*sql.DB, func(), error) {
+func NewTursoLocal(ctx context.Context) (LocalDB, error) {
+	var result LocalDB
+
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open database: %w", err)
+		return result, fmt.Errorf("failed to open database: %w", err)
 	}
 	db.SetMaxOpenConns(1)
-	a := func() {
-		db.Close()
-	}
 	fmt.Println("Creating tables")
-	err = sqlc.CreateLocalTables(ctx, db)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create tables: %w", err)
+	if err := sqlc.CreateLocalTables(ctx, db); err != nil {
+		db.Close()
+		return result, fmt.Errorf("failed to create tables: %w", err)
 	}
 
 	fmt.Println("Tables created")
 
-	return db, a, nil
+	result = LocalDB{
+		Write: db,
+		Read:  db,
+		Close: func() { _ = db.Close() },
+	}
+
+	return result, nil
 }

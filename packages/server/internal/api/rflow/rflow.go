@@ -101,8 +101,6 @@ import (
 	"connectrpc.com/connect"
 )
 
-var logOrphanedResponses = false
-
 // formatErrForUser moved to logging.go
 
 // normalizeForLog converts OutputData values into log-friendly forms:
@@ -1541,12 +1539,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// Map to store node executions by execution ID for state transitions
 	pendingNodeExecutions := make(map[idwrap.IDWrap]*mnodeexecution.NodeExecution)
 
-	// Map to store orphaned responses that arrive before ExecutionID is registered
-	orphanedResponses := make(map[idwrap.IDWrap]struct {
-		ResponseID idwrap.IDWrap
-		Timestamp  int64
-	})
-
 	pendingMutex := sync.Mutex{}
 
 	// WaitGroup to track all goroutines that send to channels
@@ -1557,6 +1549,24 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 
 	// Atomic flag to prevent sends after closure initiated
 	var channelsClosed atomic.Bool
+
+	sendRequestNodeExecution := func(exec mnodeexecution.NodeExecution) error {
+		if channelsClosed.Load() {
+			return nil
+		}
+		select {
+		case nodeExecutionChan <- exec:
+			return nil
+		case <-stopSending:
+			return nil
+		}
+	}
+
+	requestCoordinator := newRequestExecutionCoordinator(
+		c.nes,
+		sendRequestNodeExecution,
+		sendExampleResponseSync,
+	)
 
 	// Collector goroutine for node executions
 	goroutineWg.Add(1)
@@ -1675,93 +1685,33 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}()
 
 	processRequestResponse := func(requestNodeResp nrequest.NodeRequestSideResp) error {
-		err := c.HandleExampleChanges(ctx, requestNodeResp)
-		if err != nil {
-			log.Println("cannot update example on flow run", err)
-		}
-
-		pendingMutex.Lock()
-		targetExecutionID := requestNodeResp.ExecutionID
-		responseID := requestNodeResp.Resp.ExampleResp.ID
-		responseReceivedTime := time.Now()
-
-		var (
-			nodeExec        *mnodeexecution.NodeExecution
-			exists          bool
-			shouldStoreOrph bool
-		)
-
-		if targetExecutionID != (idwrap.IDWrap{}) && responseID != (idwrap.IDWrap{}) {
-			nodeExec, exists = pendingNodeExecutions[targetExecutionID]
-			if !exists {
-				shouldStoreOrph = true
+		if requestNodeResp.ExecutionID == (idwrap.IDWrap{}) {
+			if err := c.HandleExampleChanges(ctx, requestNodeResp); err != nil {
+				log.Println("cannot update example on flow run", err)
 			}
-		}
-		pendingMutex.Unlock()
-
-		if targetExecutionID != (idwrap.IDWrap{}) && responseID != (idwrap.IDWrap{}) {
-			if exists && nodeExec != nil {
-				nodeExec.ResponseID = &responseID
-
-				if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-					log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
-				}
-
-				pendingMutex.Lock()
-				if nodeExec.CompletedAt != nil && !channelsClosed.Load() {
-					select {
-					case nodeExecutionChan <- *nodeExec:
-						delete(pendingNodeExecutions, targetExecutionID)
-					case <-stopSending:
-						// Channel closed, don't send
-					}
-				} else if nodeExec.CompletedAt != nil {
-					delete(pendingNodeExecutions, targetExecutionID)
-				}
-				pendingMutex.Unlock()
-
-				for i := range nodeExecutions {
-					if nodeExecutions[i].ID == targetExecutionID {
-						nodeExecutions[i].ResponseID = &responseID
-						break
-					}
-				}
-			} else {
-				persisted := false
-				if shouldStoreOrph {
-					if exec, err := c.nes.GetNodeExecution(ctx, targetExecutionID); err == nil {
-						exec.ResponseID = &responseID
-						if err := persistUpsert2s(c.nes, *exec); err != nil {
-							log.Printf("Failed to upsert late node execution response %s: %v", targetExecutionID, err)
-						} else {
-							persisted = true
-						}
-					} else if !errors.Is(err, sql.ErrNoRows) {
-						log.Printf("Failed to fetch node execution %s for orphan response: %v", targetExecutionID, err)
-					}
-				}
-
-				if !persisted {
-					pendingMutex.Lock()
-					if logOrphanedResponses {
-						log.Printf("No pending execution found for response %s (pending: %d, orphaned: %d)",
-							targetExecutionID.String(), len(pendingNodeExecutions), len(orphanedResponses))
-					}
-					orphanedResponses[targetExecutionID] = struct {
-						ResponseID idwrap.IDWrap
-						Timestamp  int64
-					}{
-						ResponseID: responseID,
-						Timestamp:  responseReceivedTime.UnixMilli(),
-					}
-					pendingMutex.Unlock()
-				}
+			if channelsClosed.Load() {
+				return nil
 			}
+			return sendExampleResponseSync(requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID)
 		}
 
-		if localErr := sendExampleResponseSync(requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID); localErr != nil {
-			return localErr
+		if err := requestCoordinator.RecordResponse(requestNodeResp, false); err != nil {
+			return err
 		}
+
+		respCopy := requestNodeResp
+		go func() {
+			persistCtx, cancelPersist := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancelPersist()
+
+			if err := c.HandleExampleChanges(persistCtx, respCopy); err != nil {
+				log.Println("cannot update example on flow run", err)
+			}
+			if err := requestCoordinator.MarkResponsePersisted(respCopy); err != nil {
+				log.Printf("failed to mark response persisted for execution %s: %v", respCopy.ExecutionID, err)
+			}
+		}()
+
 		return nil
 	}
 
@@ -1856,41 +1806,31 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						}
 					}
 
-					// For iteration tracking records, create immediately to avoid race condition
-					// Save ALL iterations to database (both successful and failed)
 					if isIterationRecord {
 						// ALWAYS save ALL iteration records to database
 						if err := c.nes.UpsertNodeExecution(ctx, nodeExecution); err != nil {
 							log.Printf("Failed to upsert iteration record %s: %v", executionID.String(), err)
 						}
-					} else {
-						// Check if this is a FOR/FOREACH loop node main execution using cached metadata
-						isLoopNode := loopNodeIDs[id]
+						pendingMutex.Unlock()
+						break
+					}
 
-						if !isLoopNode {
-							// Store in pending map for completion (normal flow execution - will be sent to UI)
-							pendingNodeExecutions[executionID] = &nodeExecution
+					isLoopNode := loopNodeIDs[id]
+					kind := nodeKindMap[id]
+					if kind == mnnode.NODE_KIND_REQUEST {
+						pendingMutex.Unlock()
+						if err := requestCoordinator.Register(nodeExecution); err != nil {
+							log.Printf("Failed to register request execution %s: %v", executionID, err)
 						}
+						break
+					}
 
-						// Only handle orphaned responses for non-loop nodes (loop nodes don't use pending system)
-						if !isLoopNode {
-							// Check if there's an orphaned response waiting for this ExecutionID
-							if orphaned, exists := orphanedResponses[executionID]; exists {
-								nodeExecution.ResponseID = &orphaned.ResponseID
-
-								// Update in database immediately (synchronously) to avoid regressing terminal updates later
-								if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-									log.Printf("Failed to upsert delayed correlation %s: %v", nodeExecution.ID, err)
-								}
-
-								// Remove from orphaned responses now that we've applied it
-								delete(orphanedResponses, executionID)
-							}
-
-							// Persist RUNNING state synchronously to preserve ordering
-							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-								log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
-							}
+					if !isLoopNode {
+						// Store in pending map for completion (normal flow execution - will be sent to UI)
+						pendingNodeExecutions[executionID] = &nodeExecution
+						// Persist RUNNING state synchronously to preserve ordering
+						if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+							log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
 						}
 					}
 				}
@@ -1899,9 +1839,6 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			case mnnode.NODE_STATE_SUCCESS, mnnode.NODE_STATE_FAILURE, mnnode.NODE_STATE_CANCELED:
 				// Check if this is an iteration tracking record via explicit flag
 				isIterationRecord := flowNodeStatus.IterationEvent
-
-				// Get node kind from cache for REQUEST/loop handling
-				kind := nodeKindMap[flowNodeStatus.NodeID]
 
 				// Handle iteration records separately (they need updates, not pending lookups)
 				if isIterationRecord {
@@ -1935,6 +1872,48 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					}
 					// ALL iterations are now persisted to database
 				} else {
+					kind := nodeKindMap[flowNodeStatus.NodeID]
+					if kind == mnnode.NODE_KIND_REQUEST {
+						updateFn := func(exec *mnodeexecution.NodeExecution) error {
+							exec.State = flowNodeStatus.State
+							completedAt := time.Now().UnixMilli()
+							exec.CompletedAt = &completedAt
+							if flowNodeStatus.Error != nil {
+								errorStr := formatErrForUser(flowNodeStatus.Error)
+								exec.Error = &errorStr
+							} else {
+								exec.Error = nil
+							}
+							if flowNodeStatus.InputData != nil {
+								if mapData, ok := flowNodeStatus.InputData.(map[string]any); !ok || len(mapData) > 0 {
+									inputJSON, err := json.Marshal(flowNodeStatus.InputData)
+									if err != nil {
+										return err
+									}
+									if err := exec.SetInputJSON(inputJSON); err != nil {
+										exec.InputData = inputJSON
+										exec.InputDataCompressType = 0
+									}
+								}
+							}
+							if flowNodeStatus.OutputData != nil {
+								outputJSON, err := json.Marshal(flowNodeStatus.OutputData)
+								if err != nil {
+									return err
+								}
+								if err := exec.SetOutputJSON(outputJSON); err != nil {
+									exec.OutputData = outputJSON
+									exec.OutputDataCompressType = 0
+								}
+							}
+							return nil
+						}
+						if err := requestCoordinator.Complete(executionID, updateFn); err != nil {
+							log.Printf("Failed to complete request execution %s: %v", executionID, err)
+						}
+						break
+					}
+
 					// Update existing NodeExecution with final state (normal flow)
 					pendingMutex.Lock()
 					if nodeExec, exists := pendingNodeExecutions[executionID]; exists {
@@ -1986,26 +1965,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
 						}
 
-						// For REQUEST nodes, wait for response before sending to channel.
-						// If the response already arrived, we can forward the execution now.
-						if kind == mnnode.NODE_KIND_REQUEST {
-							if nodeExec.ResponseID != nil && !channelsClosed.Load() {
-								select {
-								case nodeExecutionChan <- *nodeExec:
-									delete(pendingNodeExecutions, executionID)
-								case <-stopSending:
-									// Channel closed, don't send
-								}
-							}
-						} else {
-							// For non-REQUEST nodes, send immediately (with safety check)
-							if !channelsClosed.Load() {
-								select {
-								case nodeExecutionChan <- *nodeExec:
-									delete(pendingNodeExecutions, executionID)
-								case <-stopSending:
-									// Channel closed, don't send
-								}
+						// For non-REQUEST nodes, send immediately (with safety check)
+						if !channelsClosed.Load() {
+							select {
+							case nodeExecutionChan <- *nodeExec:
+								delete(pendingNodeExecutions, executionID)
+							case <-stopSending:
+								// Channel closed, don't send
 							}
 						}
 					} else if loopNodeIDs[flowNodeStatus.NodeID] {
@@ -2336,20 +2302,16 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		close(stopSending)
 	}
 
-	// After flow completes, flush any pending REQUEST node executions
+	// After flow completes, ensure request node executions are flushed.
+	if err := requestCoordinator.Flush(); err != nil {
+		log.Printf("Failed to flush request executions: %v", err)
+	}
+
+	// After flow completes, flush any pending non-request node executions
 	// that didn't receive responses yet. If any are still RUNNING (no CompletedAt),
 	// mark them as CANCELED and persist synchronously to avoid stale RUNNING state.
 	pendingMutex.Lock()
 	for execID, nodeExec := range pendingNodeExecutions {
-		if respInfo, exists := orphanedResponses[execID]; exists {
-			respID := respInfo.ResponseID
-			nodeExec.ResponseID = &respID
-			if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-				log.Printf("Failed to upsert orphaned response for execution %s: %v", execID, err)
-			}
-			delete(orphanedResponses, execID)
-		}
-
 		if nodeExec.CompletedAt != nil {
 			// Already completed: forward to channel and remove
 			select {
