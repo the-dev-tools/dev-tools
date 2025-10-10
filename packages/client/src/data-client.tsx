@@ -1,5 +1,6 @@
 import { DescMethodUnary } from '@bufbuild/protobuf';
-import { createContextValues, Transport } from '@connectrpc/connect';
+import { createContextValues } from '@connectrpc/connect';
+import { useTransport } from '@connectrpc/connect-query';
 import {
   Controller,
   Denormalize,
@@ -10,12 +11,14 @@ import {
   Schema,
   SchemaArgs,
   useDLE as useBaseDLE,
+  useController,
   useLoading,
   useSuspense,
 } from '@data-client/react';
 import { Option, pipe } from 'effect';
 import { EndpointProps } from '@the-dev-tools/spec/data-client/utils';
-import { enableErrorInterceptorKey } from '~api/transport';
+import { useToastQueue } from '@the-dev-tools/ui/toast';
+import { kErrorHandler } from '~api/interceptors';
 import { rootRouteApi } from '~routes';
 
 export const useMutate = <E extends EndpointInterface<(props: EndpointProps<DescMethodUnary>) => Promise<unknown>>>(
@@ -85,19 +88,18 @@ export const useQuery = <
   return useSuspense(endpoint, ...args) as Result;
 };
 
-interface MakeDataClientProps {
-  controller: Controller;
-  transport: Transport;
-}
+export const useMakeDataClient = () => {
+  const controller = useController();
+  const toastQueue = useToastQueue();
+  const transport = useTransport();
 
-export const makeDataClient = ({ controller, transport }: MakeDataClientProps) => {
   const fetch = <E extends EndpointInterface<(props: EndpointProps<DescMethodUnary>) => Promise<unknown>>>(
     endpoint: E,
     input: Parameters<E>[0]['input'],
     params?: Partial<Omit<Parameters<E>[0], 'input'>>,
   ) => {
     const contextValues = params?.contextValues ?? createContextValues();
-    contextValues.set(enableErrorInterceptorKey, true);
+    contextValues.set(kErrorHandler, (error) => void toastQueue.add({ title: error.message }));
     return controller.fetch(
       endpoint,
       ...([{ controller: () => controller, input, transport, ...params, contextValues }] as Parameters<E>),
@@ -107,6 +109,6 @@ export const makeDataClient = ({ controller, transport }: MakeDataClientProps) =
   return { controller, fetch };
 };
 
-export interface DataClient extends ReturnType<typeof makeDataClient> {}
+export interface DataClient extends ReturnType<typeof useMakeDataClient> {}
 
 export const matchAllEndpoint = (endpoint: { name: string }) => (key: string) => key.startsWith(`["${endpoint.name}"`);

@@ -2,9 +2,8 @@ import { DescMessage, DescMethodStreaming, DescMethodUnary, MessageInitShape, Me
 import { ConnectError, createContextValues, Transport } from '@connectrpc/connect';
 import { ConnectQueryKey, createConnectQueryKey, UseMutationOptions, useTransport } from '@connectrpc/connect-query';
 import { AnyDataTag, DataTag, SkipToken, useMutation, UseMutationResult } from '@tanstack/react-query';
-import { useCallback } from 'react';
-
-import { enableErrorInterceptorKey } from './transport';
+import { useToastQueue } from '@the-dev-tools/ui/toast';
+import { kErrorHandler } from './interceptors';
 
 export {
   useInfiniteQuery as useConnectInfiniteQuery,
@@ -20,23 +19,21 @@ export function useConnectMutation<I extends DescMessage, O extends DescMessage,
   schema: DescMethodUnary<I, O>,
   { transport, ...queryOptions }: UseMutationOptions<I, O, Ctx> = {},
 ): UseMutationResult<MessageShape<O>, ConnectError, MessageInitShape<I>, Ctx> {
+  const toastQueue = useToastQueue();
   const transportFromCtx = useTransport();
   const transportToUse = transport ?? transportFromCtx;
 
-  const mutationFn = useCallback(
-    async (input: MessageInitShape<I>) => {
-      const response = await transportToUse.unary(
-        schema,
-        undefined,
-        undefined,
-        undefined,
-        input,
-        createContextValues().set(enableErrorInterceptorKey, true),
-      );
-      return response.message;
-    },
-    [transportToUse, schema],
-  );
+  const mutationFn = async (input: MessageInitShape<I>) => {
+    const response = await transportToUse.unary(
+      schema,
+      undefined,
+      undefined,
+      undefined,
+      input,
+      createContextValues().set(kErrorHandler, (error) => void toastQueue.add({ title: error.message })),
+    );
+    return response.message;
+  };
 
   return useMutation({
     ...queryOptions,

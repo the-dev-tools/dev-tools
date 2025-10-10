@@ -1,20 +1,29 @@
-import { create, DescEnum, DescField, DescMessage, Message, ScalarType, toJsonString } from '@bufbuild/protobuf';
+import {
+  create,
+  DescEnum,
+  DescField,
+  DescMessage,
+  DescService,
+  Message,
+  ScalarType,
+  toJsonString,
+} from '@bufbuild/protobuf';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
-import { createRouterTransport, ServiceImpl } from '@connectrpc/connect';
+import { createRouterTransport, Interceptor, ServiceImpl } from '@connectrpc/connect';
 import { Faker as FakerClass, base as fakerLocaleBase, en as fakerLocaleEn } from '@faker-js/faker';
-import { Context, Effect, flow, Layer, MutableHashMap, Option, pipe, Record } from 'effect';
+import { Effect, MutableHashMap, Option, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
 import { files } from '@the-dev-tools/spec/files';
 import { NodeKind, NodeListResponseSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { AnyFnEffect, ApiTransport, effectInterceptor, errorInterceptor, Request } from './transport';
+import { defaultInterceptors } from './interceptors';
 
-export class Faker extends Context.Tag('Faker')<Faker, FakerClass>() {}
-
-export const FakerLive = Layer.sync(Faker, () => {
-  const faker = new FakerClass({ locale: [fakerLocaleEn, fakerLocaleBase] });
-  faker.seed(0);
-  return faker;
-});
+class Faker extends Effect.Service<Faker>()('Faker', {
+  sync: () => {
+    const faker = new FakerClass({ locale: [fakerLocaleEn, fakerLocaleBase] });
+    faker.seed(0);
+    return faker;
+  },
+}) {}
 
 const fakeScalar = (faker: (typeof Faker)['Service'], scalar: ScalarType, field: DescField) => {
   if (field.name.endsWith('Id')) {
@@ -118,74 +127,71 @@ const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage, dep
 const cache = MutableHashMap.empty<string, Message>();
 const streamCache = MutableHashMap.empty<string, AsyncIterable<Message>>();
 
-const ApiTransportMock = Layer.effect(
-  ApiTransport,
-  Effect.gen(function* () {
+const mockInterceptor: Interceptor = (next) => async (request) => {
+  const response = await next(request);
+  console.log(`Mocking ${request.url}`, { request, response });
+  await new Promise((_) => setTimeout(_, 500));
+  return response;
+};
+
+const mockServiceMethods = (faker: Faker, service: DescService): ServiceImpl<never> =>
+  Record.map(service.method, (method) => {
+    const makeKey = (input: Message) => method.input.typeName + toJsonString(method.input, input);
+    const makeMessage = () => fakeMessage(faker, method.output);
+
+    switch (method.methodKind) {
+      case 'server_streaming':
+        return (input: Message) => {
+          const key = makeKey(input);
+
+          const stream = pipe(
+            MutableHashMap.get(streamCache, key),
+            Option.getOrElse(() =>
+              (async function* () {
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                while (true) {
+                  await new Promise((_) => setTimeout(_, 2000));
+                  yield makeMessage();
+                }
+              })(),
+            ),
+          );
+
+          MutableHashMap.set(streamCache, key, stream);
+          return stream;
+        };
+
+      case 'unary':
+        return (input: Message) => {
+          const key = makeKey(input);
+          const message = pipe(MutableHashMap.get(cache, key), Option.getOrElse(makeMessage));
+          MutableHashMap.set(cache, key, message);
+          return message;
+        };
+
+      default:
+        throw new Error('Unimplemented method kind');
+    }
+  });
+
+export class ApiTransportMock extends Effect.Service<ApiTransportMock>()('ApiTransportMock', {
+  dependencies: [Faker.Default],
+  effect: Effect.gen(function* () {
     const faker = yield* Faker;
     return createRouterTransport(
       (router) => {
         files.forEach((file) => {
           file.services.forEach((service) => {
-            const methods = Record.map(service.method, (method) => {
-              const makeKey = (input: Message) => method.input.typeName + toJsonString(method.input, input);
-              const makeMessage = () => fakeMessage(faker, method.output);
-
-              switch (method.methodKind) {
-                case 'server_streaming':
-                  return (input: Message) => {
-                    const key = makeKey(input);
-
-                    const stream = pipe(
-                      MutableHashMap.get(streamCache, key),
-                      Option.getOrElse(() =>
-                        (async function* () {
-                          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                          while (true) {
-                            await new Promise((_) => setTimeout(_, 2000));
-                            yield makeMessage();
-                          }
-                        })(),
-                      ),
-                    );
-
-                    MutableHashMap.set(streamCache, key, stream);
-                    return stream;
-                  };
-
-                case 'unary':
-                  return (input: Message) => {
-                    const key = makeKey(input);
-                    const message = pipe(MutableHashMap.get(cache, key), Option.getOrElse(makeMessage));
-                    MutableHashMap.set(cache, key, message);
-                    return message;
-                  };
-
-                default:
-                  throw new Error('Unimplemented method kind');
-              }
-            });
-            router.service(service, methods as ServiceImpl<never>);
+            const methods = mockServiceMethods(faker, service);
+            router.service(service, methods);
           });
         });
       },
       {
         transport: {
-          // Interceptor flow order is reversed
-          interceptors: [yield* effectInterceptor(flow(errorInterceptor, mockInterceptor))],
+          interceptors: [mockInterceptor, ...defaultInterceptors],
         },
       },
     );
   }),
-);
-
-export const ApiMock = pipe(ApiTransportMock, Layer.provide(FakerLive));
-
-const mockInterceptor =
-  <E, R>(next: AnyFnEffect<E, R>) =>
-  (request: Request) =>
-    Effect.gen(function* () {
-      const response = yield* next(request);
-      yield* Effect.logDebug(`Mocking ${request.url}`, { request, response });
-      yield* Effect.sleep('500 millis');
-      return response;
-    });
+}) {}

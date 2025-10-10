@@ -29,8 +29,8 @@
 import { Registry } from '@effect-atom/atom-react';
 import { BrowserKeyValueStore } from '@effect/platform-browser';
 import { ConfigProvider, Layer, Logger, LogLevel, ManagedRuntime, pipe, Record } from 'effect';
-import { ApiLayer } from '@the-dev-tools/client/api/layer';
-import { ApiErrorHandlerLive, app } from '@the-dev-tools/client/index';
+import { ApiTransport } from '@the-dev-tools/client/api/transport';
+import { app } from '@the-dev-tools/client/index';
 import packageJson from '../../package.json';
 
 const ConfigLive = pipe(
@@ -47,9 +47,8 @@ const ConfigLive = pipe(
 );
 
 const layer = pipe(
-  ApiLayer,
+  ApiTransport.Default,
   Layer.provideMerge(Registry.layer),
-  Layer.provideMerge(ApiErrorHandlerLive),
   Layer.provideMerge(ConfigLive),
   Layer.provideMerge(Logger.pretty),
   Layer.provideMerge(Logger.minimumLogLevel(LogLevel.Debug)),
