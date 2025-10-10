@@ -14,7 +14,7 @@ import {
   useSuspense,
 } from '@data-client/react';
 import { Option, pipe } from 'effect';
-import { EndpointProps } from '@the-dev-tools/spec/data-client/utils';
+import { EndpointProps } from '@the-dev-tools/spec-lib/data-client/utils.ts';
 import { enableErrorInterceptorKey } from '~api/transport';
 import { rootRouteApi } from '~routes';
 

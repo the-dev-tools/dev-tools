@@ -2,11 +2,10 @@ import { fromJson, type JsonValue, toJson } from '@bufbuild/protobuf';
 import { ValueSchema } from '@bufbuild/protobuf/wkt';
 import { Code, ConnectError, type ConnectRouter } from '@connectrpc/connect';
 import { SourceTextModule } from 'node:vm';
+import { NodeJsExecutorService as NodeJsExecutorServiceSchema } from '@the-dev-tools/spec/node_js_executor/v1/node_js_executor_pb';
 
-import { NodeJSExecutorService as NodeJSExecutorServiceSchema } from '@the-dev-tools/spec/nodejs_executor/v1/nodejs_executor_pb';
-
-export const NodeJSExecutorService = (router: ConnectRouter) =>
-  router.service(NodeJSExecutorServiceSchema, {
+export const NodeJsExecutorService = (router: ConnectRouter) =>
+  router.service(NodeJsExecutorServiceSchema, {
     executeNodeJS: async (request) => {
       const module = new SourceTextModule(request.code);
 

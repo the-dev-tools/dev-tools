@@ -5,18 +5,18 @@ import { Ulid } from 'id128';
 import { ReactNode, useState, useTransition } from 'react';
 import { Dialog, Heading, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiInfo, FiX } from 'react-icons/fi';
+import { ExampleListEndpoint } from '@the-dev-tools/spec/data-client/collection/item/example/v1/example.endpoints.js';
+import { CollectionItemListEndpoint } from '@the-dev-tools/spec/data-client/collection/item/v1/item.endpoints.js';
+import { CollectionListEndpoint } from '@the-dev-tools/spec/data-client/collection/v1/collection.endpoints.js';
+import { FlowListEndpoint } from '@the-dev-tools/spec/data-client/flow/v1/flow.endpoints.js';
+import { ImportEndpoint } from '@the-dev-tools/spec/data-client/import/v1/import.endpoints.ts';
+import { VariableListEndpoint } from '@the-dev-tools/spec/data-client/variable/v1/variable.endpoints.js';
 import {
   ImportDomainData,
   ImportDomainDataSchema,
   ImportMissingDataKind,
   ImportRequestSchema,
 } from '@the-dev-tools/spec/import/v1/import_pb';
-import { ExampleListEndpoint } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
-import { CollectionItemListEndpoint } from '@the-dev-tools/spec/meta/collection/item/v1/item.endpoints.js';
-import { CollectionListEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.js';
-import { FlowListEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.js';
-import { ImportEndpoint } from '@the-dev-tools/spec/meta/import/v1/import.endpoints.ts';
-import { VariableListEndpoint } from '@the-dev-tools/spec/meta/variable/v1/variable.endpoints.js';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { FileDropZone } from '@the-dev-tools/ui/file-drop-zone';

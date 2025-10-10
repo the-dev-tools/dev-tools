@@ -13,11 +13,11 @@ import * as NodeHttpServerRequest from '@effect/platform-node/NodeHttpServerRequ
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
 import { Array, Effect, Layer, pipe, Stream } from 'effect';
 import { createServer, IncomingMessage } from 'http';
-import { NodeJSExecutorService } from './nodejs-executor.ts';
+import { NodeJsExecutorService } from './nodejs-executor.ts';
 
 const connectRouter = createConnectRouter();
 
-NodeJSExecutorService(connectRouter);
+NodeJsExecutorService(connectRouter);
 
 const WorkerServerLive = NodeHttpServer.layer(createServer, { port: 9090 });
 

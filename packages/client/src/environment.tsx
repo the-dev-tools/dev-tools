@@ -18,26 +18,26 @@ import {
 } from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
-import { EnvironmentListItem } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import {
   EnvironmentCreateEndpoint,
   EnvironmentDeleteEndpoint,
   EnvironmentListEndpoint,
   EnvironmentMoveEndpoint,
   EnvironmentUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/environment/v1/environment.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/environment/v1/environment.endpoints.ts';
 import {
   VariableCreateEndpoint,
   VariableDeleteEndpoint,
   VariableListEndpoint,
   VariableMoveEndpoint,
   VariableUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/variable/v1/variable.endpoints.ts';
-import { VariableListItemEntity } from '@the-dev-tools/spec/meta/variable/v1/variable.entities.ts';
+} from '@the-dev-tools/spec/data-client/variable/v1/variable.endpoints.ts';
+import { VariableListItemEntity } from '@the-dev-tools/spec/data-client/variable/v1/variable.entities.ts';
 import {
   WorkspaceGetEndpoint,
   WorkspaceUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/workspace/v1/workspace.endpoints.ts';
+import { EnvironmentListItem } from '@the-dev-tools/spec/environment/v1/environment_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';

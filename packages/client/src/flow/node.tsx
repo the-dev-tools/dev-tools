@@ -22,6 +22,16 @@ import { TbAlertTriangle, TbArchiveOff, TbCancel, TbRefresh } from 'react-icons/
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
 import {
+  NodeExecutionGetEndpoint,
+  NodeExecutionListEndpoint,
+} from '@the-dev-tools/spec/data-client/flow/node/execution/v1/execution.endpoints.ts';
+import { NodeExecutionGetResponseEntity } from '@the-dev-tools/spec/data-client/flow/node/execution/v1/execution.entities.js';
+import {
+  NodeCreateEndpoint,
+  NodeGetEndpoint,
+  NodeUpdateEndpoint,
+} from '@the-dev-tools/spec/data-client/flow/node/v1/node.endpoints.ts';
+import {
   NodeGetResponse,
   NodeKind,
   NodeKindSchema,
@@ -31,16 +41,6 @@ import {
   NodeState,
   PositionSchema,
 } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import {
-  NodeExecutionGetEndpoint,
-  NodeExecutionListEndpoint,
-} from '@the-dev-tools/spec/meta/flow/node/execution/v1/execution.endpoints.ts';
-import { NodeExecutionGetResponseEntity } from '@the-dev-tools/spec/meta/flow/node/execution/v1/execution.entities.js';
-import {
-  NodeCreateEndpoint,
-  NodeGetEndpoint,
-  NodeUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';

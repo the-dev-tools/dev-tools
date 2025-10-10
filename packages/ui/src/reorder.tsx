@@ -1,7 +1,7 @@
 import { Array, Match, Option, pipe, Predicate } from 'effect';
 import { ElementType } from 'react';
 import { DroppableCollectionReorderEvent } from 'react-aria-components';
-import { MovePosition } from '@the-dev-tools/spec/resources/v1/resources_pb';
+import { MovePosition } from '@the-dev-tools/spec/resource/v1/resource_pb';
 import { tw } from './tailwind-literal';
 
 interface BasicReorderCallbackProps {

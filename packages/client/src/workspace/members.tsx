@@ -1,6 +1,6 @@
 import { Effect, pipe, Runtime, Schema } from 'effect';
 import { Form } from 'react-aria-components';
-import { WorkspaceMemberCreateEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
+import { WorkspaceMemberCreateEndpoint } from '@the-dev-tools/spec/data-client/workspace/v1/workspace.endpoints.ts';
 import { Button } from '@the-dev-tools/ui/button';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
 import { rootRouteApi, workspaceRouteApi } from '~routes';

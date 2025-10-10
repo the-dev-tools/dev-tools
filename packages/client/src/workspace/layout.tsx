@@ -8,16 +8,16 @@ import { ListBox, MenuTrigger, Text, Tooltip, TooltipTrigger } from 'react-aria-
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
-import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
-import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { CollectionCreateEndpoint } from '@the-dev-tools/spec/meta/collection/v1/collection.endpoints.ts';
+import { CollectionCreateEndpoint } from '@the-dev-tools/spec/data-client/collection/v1/collection.endpoints.ts';
 import {
   FlowCreateEndpoint,
   FlowDeleteEndpoint,
   FlowListEndpoint,
   FlowUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.ts';
-import { WorkspaceGetEndpoint } from '@the-dev-tools/spec/meta/workspace/v1/workspace.endpoints.ts';
+} from '@the-dev-tools/spec/data-client/flow/v1/flow.endpoints.ts';
+import { WorkspaceGetEndpoint } from '@the-dev-tools/spec/data-client/workspace/v1/workspace.endpoints.ts';
+import { export$ } from '@the-dev-tools/spec/export/v1/export-ExportService_connectquery';
+import { FlowListItem } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CollectionIcon, FlowsIcon, OverviewIcon } from '@the-dev-tools/ui/icons';

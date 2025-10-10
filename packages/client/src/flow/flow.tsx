@@ -42,31 +42,31 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { Example } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
-import { EdgeKind, EdgeKindJson } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
-import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
-import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
-import { EndpointCreateEndpoint } from '@the-dev-tools/spec/meta/collection/item/endpoint/v1/endpoint.endpoints.js';
+import { EndpointCreateEndpoint } from '@the-dev-tools/spec/data-client/collection/item/endpoint/v1/endpoint.endpoints.js';
 import {
   ExampleCreateEndpoint,
-  ExampleVersionsEndpoint,
-} from '@the-dev-tools/spec/meta/collection/item/example/v1/example.endpoints.js';
-import { ExampleEntity } from '@the-dev-tools/spec/meta/collection/item/example/v1/example.entities.js';
-import { NodeExecutionListEndpoint } from '@the-dev-tools/spec/meta/flow/node/execution/v1/execution.endpoints.js';
-import { NodeGetEndpoint } from '@the-dev-tools/spec/meta/flow/node/v1/node.endpoints.js';
-import {
-  FlowDeleteEndpoint,
-  FlowGetEndpoint,
-  FlowUpdateEndpoint,
-  FlowVersionsEndpoint,
-} from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.ts';
+  ExampleVersionListEndpoint,
+} from '@the-dev-tools/spec/data-client/collection/item/example/v1/example.endpoints.js';
+import { ExampleEntity } from '@the-dev-tools/spec/data-client/collection/item/example/v1/example.entities.js';
 import {
   FlowVariableCreateEndpoint,
   FlowVariableDeleteEndpoint,
   FlowVariableListEndpoint,
   FlowVariableMoveEndpoint,
   FlowVariableUpdateEndpoint,
-} from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.endpoints.ts';
-import { FlowVariableListItemEntity } from '@the-dev-tools/spec/meta/flowvariable/v1/flowvariable.entities.ts';
+} from '@the-dev-tools/spec/data-client/flow_variable/v1/flow_variable.endpoints.ts';
+import { FlowVariableListItemEntity } from '@the-dev-tools/spec/data-client/flow_variable/v1/flow_variable.entities.ts';
+import { NodeExecutionListEndpoint } from '@the-dev-tools/spec/data-client/flow/node/execution/v1/execution.endpoints.js';
+import { NodeGetEndpoint } from '@the-dev-tools/spec/data-client/flow/node/v1/node.endpoints.js';
+import {
+  FlowDeleteEndpoint,
+  FlowGetEndpoint,
+  FlowUpdateEndpoint,
+  FlowVersionListEndpoint,
+} from '@the-dev-tools/spec/data-client/flow/v1/flow.endpoints.ts';
+import { EdgeKind, EdgeKindJson } from '@the-dev-tools/spec/flow/edge/v1/edge_pb';
+import { NodeKind, NodeKindJson, NodeNoOpKind, NodeState } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { FlowService } from '@the-dev-tools/spec/flow/v1/flow_pb';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { PlayCircleIcon } from '@the-dev-tools/ui/icons';
@@ -573,7 +573,7 @@ const ActionBar = () => {
 
                 MutableHashSet.add(
                   _.expireKeys,
-                  ExampleVersionsEndpoint.key({ ...endpointProps, input: { exampleId } }),
+                  ExampleVersionListEndpoint.key({ ...endpointProps, input: { exampleId } }),
                 );
               }
 
@@ -584,7 +584,7 @@ const ActionBar = () => {
                 );
 
               if (version) {
-                MutableHashSet.add(_.expireKeys, FlowVersionsEndpoint.key({ ...endpointProps, input: { flowId } }));
+                MutableHashSet.add(_.expireKeys, FlowVersionListEndpoint.key({ ...endpointProps, input: { flowId } }));
                 MutableHashSet.add(_.expireKeys, FlowGetEndpoint.key({ ...endpointProps, input: { flowId } }));
               }
 

@@ -2,7 +2,7 @@ import { QueryErrorResetBoundary } from '@tanstack/react-query';
 import { createFileRoute, ErrorComponent, Outlet } from '@tanstack/react-router';
 import { Option, pipe, Schema, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { FlowGetEndpoint } from '@the-dev-tools/spec/meta/flow/v1/flow.endpoints.js';
+import { FlowGetEndpoint } from '@the-dev-tools/spec/data-client/flow/v1/flow.endpoints.js';
 import { FlowsIcon } from '@the-dev-tools/ui/icons';
 import { addTab } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
