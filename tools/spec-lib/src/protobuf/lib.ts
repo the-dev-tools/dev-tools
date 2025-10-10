@@ -2,15 +2,14 @@ import {
   createTypeSpecLibrary,
   DecoratorContext,
   EnumMember,
-  JSONSchemaType,
   Model,
   Operation,
   Scalar,
   StringLiteral,
   Type,
 } from '@typespec/compiler';
-import { JSONSchema, pipe, Schema } from 'effect';
-import { makeStateFactory } from '../utils.js';
+import { pipe, Schema } from 'effect';
+import { makeEmitterOptions, makeStateFactory } from '../utils.js';
 
 export class EmitterOptions extends Schema.Class<EmitterOptions>('EmitterOptions')({
   goPackage: pipe(Schema.String, Schema.optionalWith({ as: 'Option' })),
@@ -18,7 +17,7 @@ export class EmitterOptions extends Schema.Class<EmitterOptions>('EmitterOptions
 
 export const $lib = createTypeSpecLibrary({
   diagnostics: {},
-  emitter: { options: JSONSchema.make(EmitterOptions) as JSONSchemaType<EmitterOptions> },
+  emitter: { options: makeEmitterOptions(EmitterOptions) },
   name: '@the-dev-tools/spec-lib/protobuf',
 });
 
