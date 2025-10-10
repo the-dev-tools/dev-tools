@@ -11,6 +11,12 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type LocalDB struct {
+	Write *sql.DB
+	Read  *sql.DB
+	Close func()
+}
+
 var (
 	ErrDBNameNotFound = fmt.Errorf("db name not found")
 	ErrDBPathNotFound = fmt.Errorf("db path not found")
