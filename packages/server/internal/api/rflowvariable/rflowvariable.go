@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rflow"
@@ -20,9 +21,9 @@ import (
 
 	"the-dev-tools/server/pkg/translate/tflowvariable"
 
-	flowvariablev1 "the-dev-tools/spec/dist/buf/go/flowvariable/v1"
-	"the-dev-tools/spec/dist/buf/go/flowvariable/v1/flowvariablev1connect"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	flow_variablev1 "the-dev-tools/spec/dist/buf/go/flow_variable/v1"
+	"the-dev-tools/spec/dist/buf/go/flow_variable/v1/flow_variablev1connect"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 )
 
 type FlowVariableServiceRPC struct {
@@ -42,11 +43,11 @@ func New(db *sql.DB, fs sflow.FlowService, us suser.UserService, fvs sflowvariab
 }
 
 func CreateService(srv FlowVariableServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := flowvariablev1connect.NewFlowVariableServiceHandler(&srv, options...)
+	path, handler := flow_variablev1connect.NewFlowVariableServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c *FlowVariableServiceRPC) FlowVariableList(ctx context.Context, req *connect.Request[flowvariablev1.FlowVariableListRequest]) (*connect.Response[flowvariablev1.FlowVariableListResponse], error) {
+func (c *FlowVariableServiceRPC) FlowVariableList(ctx context.Context, req *connect.Request[flow_variablev1.FlowVariableListRequest]) (*connect.Response[flow_variablev1.FlowVariableListResponse], error) {
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -62,12 +63,12 @@ func (c *FlowVariableServiceRPC) FlowVariableList(ctx context.Context, req *conn
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var items []*flowvariablev1.FlowVariableListItem
+	var items []*flow_variablev1.FlowVariableListItem
 	for _, variable := range variables {
 		items = append(items, tflowvariable.ModelToRPCListItem(variable))
 	}
 
-	response := &flowvariablev1.FlowVariableListResponse{
+	response := &flow_variablev1.FlowVariableListResponse{
 		FlowId: flowID.Bytes(),
 		Items:  items,
 	}
@@ -75,7 +76,7 @@ func (c *FlowVariableServiceRPC) FlowVariableList(ctx context.Context, req *conn
 	return connect.NewResponse(response), nil
 }
 
-func (c *FlowVariableServiceRPC) FlowVariableGet(ctx context.Context, req *connect.Request[flowvariablev1.FlowVariableGetRequest]) (*connect.Response[flowvariablev1.FlowVariableGetResponse], error) {
+func (c *FlowVariableServiceRPC) FlowVariableGet(ctx context.Context, req *connect.Request[flow_variablev1.FlowVariableGetRequest]) (*connect.Response[flow_variablev1.FlowVariableGetResponse], error) {
 	variableID, err := idwrap.NewFromBytes(req.Msg.VariableId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -91,7 +92,7 @@ func (c *FlowVariableServiceRPC) FlowVariableGet(ctx context.Context, req *conne
 		return nil, rpcErr
 	}
 
-	response := &flowvariablev1.FlowVariableGetResponse{
+	response := &flow_variablev1.FlowVariableGetResponse{
 		VariableId:  variableID.Bytes(),
 		Name:        variable.Name,
 		Value:       variable.Value,
@@ -102,7 +103,7 @@ func (c *FlowVariableServiceRPC) FlowVariableGet(ctx context.Context, req *conne
 	return connect.NewResponse(response), nil
 }
 
-func (c *FlowVariableServiceRPC) FlowVariableCreate(ctx context.Context, req *connect.Request[flowvariablev1.FlowVariableCreateRequest]) (*connect.Response[flowvariablev1.FlowVariableCreateResponse], error) {
+func (c *FlowVariableServiceRPC) FlowVariableCreate(ctx context.Context, req *connect.Request[flow_variablev1.FlowVariableCreateRequest]) (*connect.Response[flow_variablev1.FlowVariableCreateResponse], error) {
 	flowID, err := idwrap.NewFromBytes(req.Msg.FlowId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -161,7 +162,7 @@ func (c *FlowVariableServiceRPC) FlowVariableCreate(ctx context.Context, req *co
 			}
 	*/
 
-	response := &flowvariablev1.FlowVariableCreateResponse{
+	response := &flow_variablev1.FlowVariableCreateResponse{
 		VariableId: variableID.Bytes(),
 		// Changes:    changes,
 	}
@@ -169,7 +170,7 @@ func (c *FlowVariableServiceRPC) FlowVariableCreate(ctx context.Context, req *co
 	return connect.NewResponse(response), nil
 }
 
-func (c *FlowVariableServiceRPC) FlowVariableUpdate(ctx context.Context, req *connect.Request[flowvariablev1.FlowVariableUpdateRequest]) (*connect.Response[flowvariablev1.FlowVariableUpdateResponse], error) {
+func (c *FlowVariableServiceRPC) FlowVariableUpdate(ctx context.Context, req *connect.Request[flow_variablev1.FlowVariableUpdateRequest]) (*connect.Response[flow_variablev1.FlowVariableUpdateResponse], error) {
 	variableID, err := idwrap.NewFromBytes(req.Msg.VariableId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -241,14 +242,14 @@ func (c *FlowVariableServiceRPC) FlowVariableUpdate(ctx context.Context, req *co
 		}
 
 	*/
-	response := &flowvariablev1.FlowVariableUpdateResponse{
+	response := &flow_variablev1.FlowVariableUpdateResponse{
 		// 	Changes: changes,
 	}
 
 	return connect.NewResponse(response), nil
 }
 
-func (c *FlowVariableServiceRPC) FlowVariableDelete(ctx context.Context, req *connect.Request[flowvariablev1.FlowVariableDeleteRequest]) (*connect.Response[flowvariablev1.FlowVariableDeleteResponse], error) {
+func (c *FlowVariableServiceRPC) FlowVariableDelete(ctx context.Context, req *connect.Request[flow_variablev1.FlowVariableDeleteRequest]) (*connect.Response[flow_variablev1.FlowVariableDeleteResponse], error) {
 	variableID, err := idwrap.NewFromBytes(req.Msg.VariableId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -292,14 +293,14 @@ func (c *FlowVariableServiceRPC) FlowVariableDelete(ctx context.Context, req *co
 		}
 	*/
 
-	response := &flowvariablev1.FlowVariableDeleteResponse{
+	response := &flow_variablev1.FlowVariableDeleteResponse{
 		// Changes: changes,
 	}
 
 	return connect.NewResponse(response), nil
 }
 
-func (c *FlowVariableServiceRPC) FlowVariableMove(ctx context.Context, req *connect.Request[flowvariablev1.FlowVariableMoveRequest]) (*connect.Response[flowvariablev1.FlowVariableMoveResponse], error) {
+func (c *FlowVariableServiceRPC) FlowVariableMove(ctx context.Context, req *connect.Request[flow_variablev1.FlowVariableMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	// Validate flow ID
 	flowID, err := idwrap.NewFromBytes(req.Msg.GetFlowId())
 	if err != nil {
@@ -383,5 +384,5 @@ func (c *FlowVariableServiceRPC) FlowVariableMove(ctx context.Context, req *conn
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&flowvariablev1.FlowVariableMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

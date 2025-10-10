@@ -17,9 +17,10 @@ import (
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/v1/collectionv1connect"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type CollectionServiceRPC struct {
@@ -234,7 +235,7 @@ func CheckOwnerCollection(ctx context.Context, cs scollection.CollectionService,
 	return CheckOwnerWorkspace(ctx, us, workspaceID)
 }
 
-func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.Request[collectionv1.CollectionMoveRequest]) (*connect.Response[collectionv1.CollectionMoveResponse], error) {
+func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.Request[collectionv1.CollectionMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	// Validate collection ID
 	collectionID, err := idwrap.NewFromBytes(req.Msg.GetCollectionId())
 	if err != nil {
@@ -253,7 +254,7 @@ func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		
+
 		rpcErr := permcheck.CheckPerm(CheckOwnerWorkspace(ctx, c.us, workspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
@@ -267,7 +268,7 @@ func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		
+
 		if collectionWorkspaceID.Compare(workspaceID) != 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("collection does not belong to specified workspace"))
 		}
@@ -331,5 +332,5 @@ func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&collectionv1.CollectionMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

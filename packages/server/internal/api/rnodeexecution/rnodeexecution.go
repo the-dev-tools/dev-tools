@@ -16,7 +16,7 @@ import (
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/translate/tnodeexecution"
 	nodeexecutionv1 "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1"
-	"the-dev-tools/spec/dist/buf/go/flow/node/execution/v1/nodeexecutionv1connect"
+	"the-dev-tools/spec/dist/buf/go/flow/node/execution/v1/executionv1connect"
 	"time"
 
 	"connectrpc.com/connect"
@@ -50,7 +50,7 @@ func New(
 }
 
 func CreateService(srv *NodeExecutionServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := nodeexecutionv1connect.NewNodeExecutionServiceHandler(srv, options...)
+	path, handler := executionv1connect.NewNodeExecutionServiceHandler(srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 

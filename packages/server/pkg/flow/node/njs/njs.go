@@ -6,8 +6,8 @@ import (
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/idwrap"
-	nodejs_executorv1 "the-dev-tools/spec/dist/buf/go/nodejs_executor/v1"
-	"the-dev-tools/spec/dist/buf/go/nodejs_executor/v1/nodejs_executorv1connect"
+	node_js_executorv1 "the-dev-tools/spec/dist/buf/go/node_js_executor/v1"
+	"the-dev-tools/spec/dist/buf/go/node_js_executor/v1/node_js_executorv1connect"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -17,10 +17,10 @@ type NodeJS struct {
 	FlowNodeID   idwrap.IDWrap
 	Name         string
 	jsCode       string
-	nodejsClient nodejs_executorv1connect.NodeJSExecutorServiceClient
+	nodejsClient node_js_executorv1connect.NodeJsExecutorServiceClient
 }
 
-func New(id idwrap.IDWrap, name, jsCode string, nodejsv1Cleint nodejs_executorv1connect.NodeJSExecutorServiceClient) *NodeJS {
+func New(id idwrap.IDWrap, name, jsCode string, nodejsv1Cleint node_js_executorv1connect.NodeJsExecutorServiceClient) *NodeJS {
 	return &NodeJS{
 		FlowNodeID:   id,
 		Name:         name,
@@ -54,7 +54,7 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 
-	rpcReqRaw := nodejs_executorv1.ExecuteNodeJSRequest{
+	rpcReqRaw := node_js_executorv1.ExecuteNodeJsRequest{
 		Context: val,
 		Code:    n.jsCode,
 	}
@@ -94,7 +94,7 @@ func (n NodeJS) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		return
 	}
 
-	rpcReqRaw := nodejs_executorv1.ExecuteNodeJSRequest{
+	rpcReqRaw := node_js_executorv1.ExecuteNodeJsRequest{
 		Context: val,
 		Code:    n.jsCode,
 	}

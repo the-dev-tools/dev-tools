@@ -1,27 +1,27 @@
 package rcollectionitem_test
 
 import (
-    "context"
-    "testing"
+	"context"
+	"testing"
 
-    "the-dev-tools/server/internal/api/middleware/mwauth"
-    "the-dev-tools/server/internal/api/rcollectionitem"
-    "the-dev-tools/server/pkg/idwrap"
-    "the-dev-tools/server/pkg/logger/mocklogger"
-    "the-dev-tools/server/pkg/model/mitemapi"
-    "the-dev-tools/server/pkg/model/mitemfolder"
-    "the-dev-tools/server/pkg/service/scollectionitem"
-    "the-dev-tools/server/pkg/service/sexampleresp"
-    "the-dev-tools/server/pkg/service/sitemapi"
-    "the-dev-tools/server/pkg/service/sitemapiexample"
-    "the-dev-tools/server/pkg/service/sitemfolder"
-    "the-dev-tools/server/pkg/testutil"
-    itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
-    resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rcollectionitem"
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/logger/mocklogger"
+	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemfolder"
+	"the-dev-tools/server/pkg/service/scollectionitem"
+	"the-dev-tools/server/pkg/service/sexampleresp"
+	"the-dev-tools/server/pkg/service/sitemapi"
+	"the-dev-tools/server/pkg/service/sitemapiexample"
+	"the-dev-tools/server/pkg/service/sitemfolder"
+	"the-dev-tools/server/pkg/testutil"
+	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 
-    "connectrpc.com/connect"
-    "github.com/stretchr/testify/assert"
-    "github.com/stretchr/testify/require"
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // setupMoveTestRPC creates a test RPC service with all dependencies
@@ -219,10 +219,10 @@ func TestCollectionItemMove_InputValidation(t *testing.T) {
 			assert.Error(t, err, tt.description)
 			if connectErr := new(connect.Error); assert.ErrorAs(t, err, &connectErr) {
 				if connectErr.Code() != tt.expectedCode {
-					t.Logf("Test: %s, Expected code: %v, Got code: %v, Error message: %s", 
+					t.Logf("Test: %s, Expected code: %v, Got code: %v, Error message: %s",
 						tt.name, tt.expectedCode, connectErr.Code(), connectErr.Message())
 				}
-				assert.Equal(t, tt.expectedCode, connectErr.Code(), 
+				assert.Equal(t, tt.expectedCode, connectErr.Code(),
 					"Expected error code %v but got %v for: %s", tt.expectedCode, connectErr.Code(), tt.description)
 			}
 		})
@@ -246,12 +246,12 @@ func TestCollectionItemMove_PermissionChecks(t *testing.T) {
 	collectionID, folderID, _ := createTestCollectionWithItems(t, ctx, services, userID)
 
 	tests := []struct {
-		name         string
+		name          string
 		contextUserID idwrap.IDWrap
 		collectionID  idwrap.IDWrap
 		itemID        idwrap.IDWrap
-		expectedCode connect.Code
-		description  string
+		expectedCode  connect.Code
+		description   string
 	}{
 		{
 			name:          "Unauthorized user",
@@ -261,14 +261,14 @@ func TestCollectionItemMove_PermissionChecks(t *testing.T) {
 			expectedCode:  connect.CodePermissionDenied,
 			description:   "Should reject request from user who doesn't own the collection",
 		},
-        {
-            name:          "Non-existent collection",
-            contextUserID: userID,
-            collectionID:  idwrap.NewNow(), // Random non-existent collection
-            itemID:        folderID,
-            expectedCode:  connect.CodeNotFound,
-            description:   "Should reject request for non-existent collection",
-        },
+		{
+			name:          "Non-existent collection",
+			contextUserID: userID,
+			collectionID:  idwrap.NewNow(), // Random non-existent collection
+			itemID:        folderID,
+			expectedCode:  connect.CodeNotFound,
+			description:   "Should reject request for non-existent collection",
+		},
 		{
 			name:          "Non-existent item",
 			contextUserID: userID,
@@ -367,8 +367,8 @@ func TestCollectionItemMove_ErrorScenarios(t *testing.T) {
 // TestCollectionItemMove_ServiceLayerIntegration tests integration with the service layer
 // NOTE: Requires complex database setup with collection_items
 func XTestCollectionItemMove_ServiceLayerIntegration_SKIP(t *testing.T) {
-    t.Parallel()
-    t.Skip("Skipping legacy service-layer integration test pending TX-path rewrite")
+	t.Parallel()
+	t.Skip("Skipping legacy service-layer integration test pending TX-path rewrite")
 
 	rpc, ctx, services, cleanup := setupMoveTestRPC(t)
 	defer cleanup()
@@ -401,10 +401,10 @@ func XTestCollectionItemMove_ServiceLayerIntegration_SKIP(t *testing.T) {
 	err = cis.CreateFolderTX(ctx, tx, folder)
 	require.NoError(t, err)
 
-	// Create endpoint collection item  
+	// Create endpoint collection item
 	endpoint := &mitemapi.ItemApi{
 		ID:           endpointID,
-		Name:         "Test Endpoint", 
+		Name:         "Test Endpoint",
 		Url:          "https://api.example.com/test",
 		Method:       "GET",
 		CollectionID: collectionID,

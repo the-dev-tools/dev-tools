@@ -25,7 +25,7 @@ import (
 	endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
 	folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
 	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 )
 
 // TestCollectionItemMoveWithTargetParentFolderId tests the targetParentFolderId functionality
@@ -100,12 +100,12 @@ func TestCollectionItemMoveWithTargetParentFolderId(t *testing.T) {
 
 		// Verify the endpoint is now inside the folder
 		listReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:     collectionID.Bytes(),
-			ParentFolderId:   folderID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
+			ParentFolderId: folderID.Bytes(),
 		})
 		listResp, err := collectionItemRPC.CollectionItemList(authedCtx, listReq)
 		require.NoError(t, err)
-		
+
 		// Should have one item (the endpoint) inside the folder
 		assert.Len(t, listResp.Msg.Items, 1)
 		assert.Equal(t, itemv1.ItemKind_ITEM_KIND_ENDPOINT, listResp.Msg.Items[0].Kind)
@@ -147,12 +147,12 @@ func TestCollectionItemMoveWithTargetParentFolderId(t *testing.T) {
 
 		// Verify folder1 is now inside folder2
 		listReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:     collectionID.Bytes(),
-			ParentFolderId:   folder2ID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
+			ParentFolderId: folder2ID.Bytes(),
 		})
 		listResp, err := collectionItemRPC.CollectionItemList(authedCtx, listReq)
 		require.NoError(t, err)
-		
+
 		// Should have one item (folder1) inside folder2
 		assert.Len(t, listResp.Msg.Items, 1)
 		assert.Equal(t, itemv1.ItemKind_ITEM_KIND_FOLDER, listResp.Msg.Items[0].Kind)
@@ -202,7 +202,7 @@ func TestCollectionItemMoveWithTargetParentFolderId(t *testing.T) {
 		})
 		listRootResp, err := collectionItemRPC.CollectionItemList(authedCtx, listRootReq)
 		require.NoError(t, err)
-		
+
 		// Find the endpoint in root items
 		endpointFound := false
 		for _, item := range listRootResp.Msg.Items {
@@ -327,7 +327,7 @@ func TestCollectionItemMoveExactFailingPayload(t *testing.T) {
 	})
 	listResp, err := collectionItemRPC.CollectionItemList(authedCtx, listReq)
 	require.NoError(t, err)
-	
+
 	assert.Len(t, listResp.Msg.Items, 1, "Folder should contain exactly one item")
 	assert.Equal(t, itemv1.ItemKind_ITEM_KIND_ENDPOINT, listResp.Msg.Items[0].Kind)
 	assert.Equal(t, "Test Endpoint", listResp.Msg.Items[0].Endpoint.Name)

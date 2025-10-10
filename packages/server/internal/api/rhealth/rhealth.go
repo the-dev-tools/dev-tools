@@ -3,7 +3,6 @@ package rhealth
 import (
 	"context"
 	"the-dev-tools/server/internal/api"
-	healthv1 "the-dev-tools/spec/dist/buf/go/health/v1"
 	"the-dev-tools/spec/dist/buf/go/health/v1/healthv1connect"
 
 	"connectrpc.com/connect"
@@ -21,6 +20,6 @@ func CreateService(srv *HealthServiceRPC, options []connect.HandlerOption) (*api
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (c *HealthServiceRPC) HealthCheck(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[healthv1.HealthCheckResponse], error) {
-	return connect.NewResponse(&healthv1.HealthCheckResponse{}), nil
+func (c *HealthServiceRPC) HealthCheck(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

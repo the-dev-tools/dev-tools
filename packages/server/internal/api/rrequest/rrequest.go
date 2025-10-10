@@ -78,9 +78,10 @@ import (
 	requestv1 "the-dev-tools/spec/dist/buf/go/collection/item/request/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/request/v1/requestv1connect"
 	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type RequestRPC struct {
@@ -2307,12 +2308,12 @@ func (c RequestRPC) AssertDeltaReset(ctx context.Context, req *connect.Request[r
 }
 
 // TODO: implement move RPC
-func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv1.QueryMoveRequest]) (*connect.Response[requestv1.QueryMoveResponse], error) {
-	return connect.NewResponse(&requestv1.QueryMoveResponse{}), nil
+func (c RequestRPC) QueryMove(ctx context.Context, req *connect.Request[requestv1.QueryMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // TODO: implement move RPC
-func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[requestv1.QueryDeltaMoveRequest]) (*connect.Response[requestv1.QueryDeltaMoveResponse], error) {
+func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[requestv1.QueryDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -2361,10 +2362,10 @@ func (c RequestRPC) QueryDeltaMove(ctx context.Context, req *connect.Request[req
 	if err := overcore.Move(ctx, ord, deltaExampleID, queryID, targetQueryID, after); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&requestv1.QueryDeltaMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[requestv1.HeaderMoveRequest]) (*connect.Response[requestv1.HeaderMoveResponse], error) {
+func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[requestv1.HeaderMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	// Parse request parameters
 	exampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
@@ -2411,10 +2412,10 @@ func (c RequestRPC) HeaderMove(ctx context.Context, req *connect.Request[request
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to move header: %w", err))
 	}
 
-	return connect.NewResponse(&requestv1.HeaderMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaMoveRequest]) (*connect.Response[requestv1.HeaderDeltaMoveResponse], error) {
+func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[requestv1.HeaderDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	deltaExampleID, err := idwrap.NewFromBytes(req.Msg.GetExampleId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -2474,5 +2475,5 @@ func (c RequestRPC) HeaderDeltaMove(ctx context.Context, req *connect.Request[re
 	if err := overcore.Move(ctx, ord, deltaExampleID, headerID, targetHeaderID, after); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&requestv1.HeaderDeltaMoveResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

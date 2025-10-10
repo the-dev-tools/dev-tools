@@ -18,8 +18,8 @@ import (
 	"the-dev-tools/server/internal/api/ritemapi"
 	"the-dev-tools/server/internal/api/ritemfolder"
 	"the-dev-tools/server/pkg/idwrap"
-    "the-dev-tools/server/pkg/logger/mocklogger"
-    "the-dev-tools/server/pkg/model/mcollection"
+	"the-dev-tools/server/pkg/logger/mocklogger"
+	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/scollectionitem"
 	"the-dev-tools/server/pkg/service/sexampleresp"
@@ -31,7 +31,7 @@ import (
 	endpointv1 "the-dev-tools/spec/dist/buf/go/collection/item/endpoint/v1"
 	folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
 	itemv1 "the-dev-tools/spec/dist/buf/go/collection/item/v1"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resources/v1"
+	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
 )
 
 // TestCollectionItemsEndToEndWorkflow tests the complete workflow from creation to movement
@@ -46,7 +46,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 
 	// Setup test infrastructure
 	workspaceID := idwrap.NewNow()
-	workspaceUserID := idwrap.NewNow() 
+	workspaceUserID := idwrap.NewNow()
 	userID := idwrap.NewNow()
 	collectionID := idwrap.NewNow()
 
@@ -171,7 +171,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 		folderEndpointReq := connect.NewRequest(&endpointv1.EndpointCreateRequest{
 			CollectionId:   collectionID.Bytes(),
 			Name:           "Get Version",
-			Method:         "GET", 
+			Method:         "GET",
 			Url:            "/v1/version",
 			ParentFolderId: rootFolderID.Bytes(),
 		})
@@ -264,7 +264,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 	t.Run("ListItemsWithMixedOrder", func(t *testing.T) {
 		// List items in root collection
 		listRootReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: nil,
 		})
 
@@ -287,7 +287,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 
 		// List items in "API v1" folder
 		listFolderReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: apiV1FolderID.Bytes(),
 		})
 
@@ -316,7 +316,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 		usersFolderID := idwrap.NewFromBytesMust(folderItems[0].Folder.FolderId)
 
 		listUsersReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: usersFolderID.Bytes(),
 		})
 
@@ -327,20 +327,20 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 		usersItems := listUsersResp.Msg.Items
 		require.Len(t, usersItems, 4) // 4 user endpoints
 
-            // Verify all are endpoints and contain the expected names (order-agnostic)
-            expectedNames := map[string]bool{"Get Users": true, "Create User": true, "Update User": true, "Delete User": true}
-            for _, item := range usersItems {
-                assert.Equal(t, itemv1.ItemKind_ITEM_KIND_ENDPOINT, item.Kind)
-                delete(expectedNames, item.Endpoint.Name)
-            }
-            assert.Empty(t, expectedNames, "missing expected endpoint names: %v", expectedNames)
+		// Verify all are endpoints and contain the expected names (order-agnostic)
+		expectedNames := map[string]bool{"Get Users": true, "Create User": true, "Update User": true, "Delete User": true}
+		for _, item := range usersItems {
+			assert.Equal(t, itemv1.ItemKind_ITEM_KIND_ENDPOINT, item.Kind)
+			delete(expectedNames, item.Endpoint.Name)
+		}
+		assert.Empty(t, expectedNames, "missing expected endpoint names: %v", expectedNames)
 	})
 
 	// Test 4: Complex move operations
 	t.Run("ComplexMoveOperations", func(t *testing.T) {
 		// Get current state for move operations
 		listRootReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: nil,
 		})
 
@@ -353,7 +353,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 
 		// Move "Health Check" before "API v1" folder (endpoint before folder)
 		moveReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       healthCheckEndpointID.Bytes(),
 			TargetItemId: apiV1FolderID.Bytes(),
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_BEFORE.Enum(),
@@ -376,7 +376,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 		// Test cross-folder move: Move "Get Version" from "API v1" to root
 		apiV1Items, err := collectionItemRPC.CollectionItemList(authedCtx, &connect.Request[itemv1.CollectionItemListRequest]{
 			Msg: &itemv1.CollectionItemListRequest{
-				CollectionId:    collectionID.Bytes(),
+				CollectionId:   collectionID.Bytes(),
 				ParentFolderId: apiV1FolderID.Bytes(),
 			},
 		})
@@ -387,7 +387,7 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 
 		// Move "Get Version" after "Health Check" in root
 		crossFolderMoveReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       getVersionEndpointID.Bytes(),
 			TargetItemId: healthCheckEndpointID.Bytes(),
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_AFTER.Enum(),
@@ -407,8 +407,8 @@ func TestCollectionItemsEndToEndWorkflow(t *testing.T) {
 		assert.Equal(t, "Get Version", rootItemsAfterCrossMove[1].Endpoint.Name)
 		assert.Equal(t, "API v1", rootItemsAfterCrossMove[2].Folder.Name)
 
-        // Endpoint appears in root in collection items listing; parent folder in endpoint record may be preserved
-        // depending on service semantics. Listing verification above is sufficient.
+		// Endpoint appears in root in collection items listing; parent folder in endpoint record may be preserved
+		// depending on service semantics. Listing verification above is sufficient.
 	})
 }
 
@@ -446,7 +446,7 @@ func TestCollectionItemsErrorScenarios(t *testing.T) {
 	t.Run("EmptyCollectionOperations", func(t *testing.T) {
 		// List empty collection
 		listReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: nil,
 		})
 
@@ -466,9 +466,9 @@ func TestCollectionItemsErrorScenarios(t *testing.T) {
 		moveResp, err := collectionItemRPC.CollectionItemMove(authedCtx, moveReq)
 		assert.Error(t, err)
 		assert.Nil(t, moveResp)
-		
-            connectErr := err.(*connect.Error)
-            assert.Contains(t, []connect.Code{connect.CodeNotFound, connect.CodeInternal}, connectErr.Code())
+
+		connectErr := err.(*connect.Error)
+		assert.Contains(t, []connect.Code{connect.CodeNotFound, connect.CodeInternal}, connectErr.Code())
 	})
 
 	t.Run("InvalidMoveOperations", func(t *testing.T) {
@@ -487,7 +487,7 @@ func TestCollectionItemsErrorScenarios(t *testing.T) {
 
 		// Try to move item relative to itself
 		moveToSelfReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       folderID.Bytes(),
 			TargetItemId: folderID.Bytes(), // Same as item_id
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_BEFORE.Enum(),
@@ -496,14 +496,14 @@ func TestCollectionItemsErrorScenarios(t *testing.T) {
 		moveToSelfResp, err := collectionItemRPC.CollectionItemMove(authedCtx, moveToSelfReq)
 		assert.Error(t, err)
 		assert.Nil(t, moveToSelfResp)
-		
+
 		connectErr := err.(*connect.Error)
 		assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 		assert.Contains(t, connectErr.Message(), "cannot move item relative to itself")
 
 		// Try invalid position with target
 		invalidPosReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       folderID.Bytes(),
 			TargetItemId: folderID.Bytes(),
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED.Enum(),
@@ -512,21 +512,21 @@ func TestCollectionItemsErrorScenarios(t *testing.T) {
 		invalidPosResp, err := collectionItemRPC.CollectionItemMove(authedCtx, invalidPosReq)
 		assert.Error(t, err)
 		assert.Nil(t, invalidPosResp)
-		
+
 		connectErr = err.(*connect.Error)
 		assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 	})
 
-    t.Run("CrossCollectionMoveAttempt", func(t *testing.T) {
-        // Create second collection in the same workspace without recreating workspace/user
-        collection2ID := idwrap.NewNow()
-        err := cs.CreateCollection(ctx, &mcollection.Collection{
-            ID:          collection2ID,
-            WorkspaceID: workspaceID,
-            Name:        "Second",
-            Updated:     time.Now(),
-        })
-        require.NoError(t, err)
+	t.Run("CrossCollectionMoveAttempt", func(t *testing.T) {
+		// Create second collection in the same workspace without recreating workspace/user
+		collection2ID := idwrap.NewNow()
+		err := cs.CreateCollection(ctx, &mcollection.Collection{
+			ID:          collection2ID,
+			WorkspaceID: workspaceID,
+			Name:        "Second",
+			Updated:     time.Now(),
+		})
+		require.NoError(t, err)
 
 		folderRPC := ritemfolder.New(db, ifs, us, cs, cis)
 
@@ -553,7 +553,7 @@ func TestCollectionItemsErrorScenarios(t *testing.T) {
 
 		// Try to move folder from collection1 relative to folder in collection2
 		crossCollectionMoveReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       folder1ID.Bytes(),
 			TargetItemId: folder2ID.Bytes(),
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_BEFORE.Enum(),
@@ -562,9 +562,9 @@ func TestCollectionItemsErrorScenarios(t *testing.T) {
 		crossCollectionMoveResp, err := collectionItemRPC.CollectionItemMove(authedCtx, crossCollectionMoveReq)
 		assert.Error(t, err)
 		assert.Nil(t, crossCollectionMoveResp)
-		
-            connectErr := err.(*connect.Error)
-            assert.Contains(t, []connect.Code{connect.CodeNotFound, connect.CodeInternal}, connectErr.Code())
+
+		connectErr := err.(*connect.Error)
+		assert.Contains(t, []connect.Code{connect.CodeNotFound, connect.CodeInternal}, connectErr.Code())
 	})
 }
 
@@ -669,7 +669,7 @@ func TestCollectionItemsPerformance(t *testing.T) {
 		start := time.Now()
 
 		listReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: nil,
 		})
 
@@ -689,7 +689,7 @@ func TestCollectionItemsPerformance(t *testing.T) {
 	t.Run("MoveLargeCollectionPerformance", func(t *testing.T) {
 		// Get items for move operation
 		listReq := connect.NewRequest(&itemv1.CollectionItemListRequest{
-			CollectionId:    collectionID.Bytes(),
+			CollectionId:   collectionID.Bytes(),
 			ParentFolderId: nil,
 		})
 
@@ -718,7 +718,7 @@ func TestCollectionItemsPerformance(t *testing.T) {
 		start := time.Now()
 
 		moveReq := connect.NewRequest(&itemv1.CollectionItemMoveRequest{
-			CollectionId:  collectionID.Bytes(),
+			CollectionId: collectionID.Bytes(),
 			ItemId:       lastItemID,
 			TargetItemId: firstItemID,
 			Position:     resourcesv1.MovePosition_MOVE_POSITION_BEFORE.Enum(),
@@ -737,7 +737,7 @@ func TestCollectionItemsPerformance(t *testing.T) {
 		// Verify the move worked
 		listAfterMoveResp, err := collectionItemRPC.CollectionItemList(authedCtx, listReq)
 		require.NoError(t, err)
-		
+
 		afterMoveItems := listAfterMoveResp.Msg.Items
 		require.Len(t, afterMoveItems, len(items))
 
@@ -925,7 +925,7 @@ func TestCollectionItemsDataConsistency(t *testing.T) {
 
 			assert.NotNil(t, currentItem.NextID, "Current item should have next ID")
 			assert.Equal(t, currentItem.NextID.Compare(nextItem.ID), 0, "Current.NextID should equal Next.ID")
-			
+
 			assert.NotNil(t, nextItem.PrevID, "Next item should have prev ID")
 			assert.Equal(t, nextItem.PrevID.Compare(currentItem.ID), 0, "Next.PrevID should equal Current.ID")
 		}
