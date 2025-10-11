@@ -1,8 +1,9 @@
 import { create, enumFromJson, enumToJson, isEnumJson, Message, MessageInitShape } from '@bufbuild/protobuf';
+import { Code, ConnectError } from '@connectrpc/connect';
 import { getConnectedEdges, Node as NodeCore, NodeProps as NodePropsCore, useReactFlow } from '@xyflow/react';
 import { Array, Match, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { ReactNode, Suspense, use, useCallback, useRef, useState } from 'react';
+import { ReactNode, Suspense, use, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button as AriaButton,
   Key,
@@ -51,7 +52,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { GenericMessage } from '~api/utils';
-import { useMutate, useQuery } from '~data-client';
+import { useEndpointProps, useMutate, useQuery } from '~data-client';
 import { rootRouteApi } from '~routes';
 import { useNodeDuplicate } from './copy-paste';
 import { FlowContext } from './internal';
@@ -349,11 +350,24 @@ export const NodeExecutionPanel = ({ nodeId, renderOutput }: NodeExecutionPanelP
               </div>
             }
           >
-            <NodeExecutionTabs
-              key={selectedKey}
-              nodeExecutionId={Ulid.fromCanonical(selectedKey).bytes}
-              renderOutput={renderOutput}
-            />
+            <ErrorBoundary
+              fallbackRender={({ error, resetErrorBoundary }) => {
+                const shouldRetry = error instanceof ConnectError && error.code === Code.NotFound;
+                return (
+                  <NodeExecutionGetRetryFallback
+                    shouldRetry={shouldRetry}
+                    nodeExecutionId={Ulid.fromCanonical(selectedKey).bytes}
+                    resetErrorBoundary={resetErrorBoundary}
+                  />
+                );
+              }}
+            >
+              <NodeExecutionTabs
+                key={selectedKey}
+                nodeExecutionId={Ulid.fromCanonical(selectedKey).bytes}
+                renderOutput={renderOutput}
+              />
+            </ErrorBoundary>
           </Suspense>
         )}
       </div>
@@ -430,5 +444,46 @@ const NodeExecutionTabs = ({ nodeExecutionId, renderOutput }: NodeExecutionTabsP
         </Suspense>
       </div>
     </Tabs>
+  );
+};
+
+interface NodeExecutionGetRetryFallbackProps {
+  shouldRetry: boolean;
+  nodeExecutionId: Uint8Array;
+  resetErrorBoundary: () => void;
+}
+
+const NodeExecutionGetRetryFallback = ({ shouldRetry, nodeExecutionId, resetErrorBoundary }: NodeExecutionGetRetryFallbackProps) => {
+  const { dataClient } = rootRouteApi.useRouteContext();
+  const endpointProps = useEndpointProps();
+
+  const retried = useRef(false);
+
+  useEffect(() => {
+    if (!shouldRetry) return;
+    if (retried.current) return;
+    retried.current = true;
+    const key = NodeExecutionGetEndpoint.key({ ...endpointProps, input: { nodeExecutionId } });
+    const t = setTimeout(() => {
+      void dataClient.controller.expireAll({ testKey: (k) => k === key });
+      void resetErrorBoundary();
+    }, 200);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [dataClient.controller, endpointProps, shouldRetry, nodeExecutionId, resetErrorBoundary]);
+
+  if (shouldRetry) {
+    return (
+      <div className={tw`flex h-full items-center justify-center p-4 text-sm text-slate-700`}>
+        Preparing execution data…
+      </div>
+    );
+  }
+  // Unexpected error: show a compact message
+  return (
+    <div className={tw`flex h-full items-center justify-center p-4 text-sm text-red-700`}>
+      Failed to load execution.
+    </div>
   );
 };
