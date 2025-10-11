@@ -1198,6 +1198,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}
 
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, len(requestNodes))
+	requestNodeMetaChan := make(chan nrequest.NodeRequestMeta, len(requestNodes))
 	sharedHTTPClient := httpclient.New()
 	for _, requestNode := range requestNodes {
 
@@ -1377,7 +1378,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		name := nodeNameMap[requestNode.FlowNodeID]
 
 		requestNodeInstance := nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
-			*exampleResp, exampleRespHeader, asserts, sharedHTTPClient, requestNodeRespChan, c.logger)
+			*exampleResp, exampleRespHeader, asserts, sharedHTTPClient, requestNodeRespChan, requestNodeMetaChan, c.logger)
 
 		// Wrap with pre-registration logic
 		wrappedNode := &preRegisteredRequestNode{
@@ -1770,6 +1771,27 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		if localErr := sendExampleResponseSync(requestNodeResp.Example.ID, requestNodeResp.Resp.ExampleResp.ID); localErr != nil {
 			return localErr
 		}
+		return nil
+	}
+
+	processRequestMeta := func(meta nrequest.NodeRequestMeta) error {
+		if meta.ExecutionID == (idwrap.IDWrap{}) || meta.ResponseID == (idwrap.IDWrap{}) {
+			return nil
+		}
+		pendingMutex.Lock()
+		if nodeExec, ok := pendingNodeExecutions[meta.ExecutionID]; ok && nodeExec != nil {
+			nodeExec.ResponseID = &meta.ResponseID
+			if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+				log.Printf("Failed to upsert early response id for %s: %v", nodeExec.ID, err)
+			}
+			_ = sendExecutionCommittedSync(nodeExec.NodeID, nodeExec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED)
+		} else {
+			orphanedResponses[meta.ExecutionID] = struct {
+				ResponseID idwrap.IDWrap
+				Timestamp  int64
+			}{ResponseID: meta.ResponseID, Timestamp: time.Now().UnixMilli()}
+		}
+		pendingMutex.Unlock()
 		return nil
 	}
 
@@ -2338,6 +2360,32 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
+	// Dedicated goroutine to drain early request meta promptly.
+	goroutineWg.Add(1)
+	go func() {
+		defer goroutineWg.Done()
+		for {
+			select {
+			case meta, ok := <-requestNodeMetaChan:
+				if !ok { return }
+				if err := processRequestMeta(meta); err != nil {
+					signalDone(err)
+					return
+				}
+			case <-stopSending:
+				for {
+					select {
+					case meta, ok := <-requestNodeMetaChan:
+						if !ok { return }
+						_ = processRequestMeta(meta)
+					default:
+						return
+					}
+				}
+			}
+		}
+	}()
+
 	runStartedAt := time.Now()
 	flowRunErr := runnerInst.RunWithEvents(subCtx, runner.FlowEventChannels{
 		NodeStates: nodeStateChan,
@@ -2409,6 +2457,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	// Now safe to close channels since all senders have stopped
 	close(nodeExecutionChan)
 	close(requestNodeRespChan)
+	close(requestNodeMetaChan)
 
 	// Wait for all node executions to be collected
 	<-nodeExecutionsDone

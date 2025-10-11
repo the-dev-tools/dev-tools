@@ -554,7 +554,7 @@ const ActionBar = () => {
               effectMap: MutableHashMap.empty<string, Effect.Effect<void>>(),
               expireKeys: MutableHashSet.empty<string>(),
             },
-            (_, { example, node, version, execution }) => {
+            (_, { example, version, execution }) => {
               if (example) {
                 const { exampleId, responseId } = example;
 

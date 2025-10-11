@@ -42,6 +42,7 @@ type NodeRequest struct {
 
 	HttpClient              httpclient.HttpClient
 	NodeRequestSideRespChan chan NodeRequestSideResp
+	NodeRequestMetaChan     chan NodeRequestMeta
 	logger                  *slog.Logger
 }
 
@@ -60,6 +61,14 @@ type NodeRequestSideResp struct {
 
 	// Resp
 	Resp response.ResponseCreateOutput
+}
+
+// NodeRequestMeta is an early meta signal emitted as soon as the request node
+// chooses the response ID, before the network I/O completes. It allows the
+// orchestrator to seed ResponseID on the NodeExecution row at creation time.
+type NodeRequestMeta struct {
+    ExecutionID idwrap.IDWrap
+    ResponseID  idwrap.IDWrap
 }
 
 const (
@@ -109,7 +118,7 @@ func New(id idwrap.IDWrap, name string, api mitemapi.ItemApi, example mitemapiex
 	Queries []mexamplequery.Query, Headers []mexampleheader.Header,
 	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded,
 	ExampleResp mexampleresp.ExampleResp, ExampleRespHeader []mexamplerespheader.ExampleRespHeader, asserts []massert.Assert,
-	Httpclient httpclient.HttpClient, NodeRequestSideRespChan chan NodeRequestSideResp, logger *slog.Logger,
+	Httpclient httpclient.HttpClient, NodeRequestSideRespChan chan NodeRequestSideResp, NodeRequestMetaChan chan NodeRequestMeta, logger *slog.Logger,
 ) *NodeRequest {
 	return &NodeRequest{
 		FlownNodeID: id,
@@ -130,6 +139,7 @@ func New(id idwrap.IDWrap, name string, api mitemapi.ItemApi, example mitemapiex
 
 		HttpClient:              Httpclient,
 		NodeRequestSideRespChan: NodeRequestSideRespChan,
+		NodeRequestMetaChan:     NodeRequestMetaChan,
 		logger:                  logger,
 	}
 }
@@ -154,6 +164,15 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	}
 
 	nr.ExampleResp.ID = idwrap.NewNow()
+	// Emit early meta with chosen response ID to orchestrator.
+	if nr.NodeRequestMetaChan != nil && req != nil {
+		meta := NodeRequestMeta{ExecutionID: req.ExecutionID, ResponseID: nr.ExampleResp.ID}
+		select {
+		case nr.NodeRequestMetaChan <- meta:
+		default:
+			// Best-effort; don't block node execution if channel is full.
+		}
+	}
 
 	// TODO: varMap is null create varMap
 	// Create a deep copy of VarMap to prevent concurrent access issues
@@ -268,6 +287,14 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 	}
 
 	nr.ExampleResp.ID = idwrap.NewNow()
+	// Emit early meta with chosen response ID to orchestrator.
+	if nr.NodeRequestMetaChan != nil && req != nil {
+		meta := NodeRequestMeta{ExecutionID: req.ExecutionID, ResponseID: nr.ExampleResp.ID}
+		select {
+		case nr.NodeRequestMetaChan <- meta:
+		default:
+		}
+	}
 
 	// TODO: varMap is null create varMap
 	// Create a deep copy of VarMap to prevent concurrent access issues

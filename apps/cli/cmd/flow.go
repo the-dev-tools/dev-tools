@@ -850,8 +850,8 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 
 		name := nodeNameMap[requestNode.FlowNodeID]
 
-		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
-			*exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan, nil)
+        flowNodeMap[requestNode.FlowNodeID] = nrequest.New(requestNode.FlowNodeID, name, *endpoint, *example, queries, headers, *rawBody, formBody, urlBody,
+            *exampleResp, exampleRespHeader, asserts, httpClient, requestNodeRespChan, nil, nil)
 	}
 
 	for _, ifNode := range ifNodes {

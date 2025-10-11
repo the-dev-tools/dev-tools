@@ -118,7 +118,7 @@ func newRequestNodeFixture(asserts []massert.Assert, respChan chan NodeRequestSi
 	rawBody := mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: example.ID, Data: []byte("{}")}
 	exampleResp := mexampleresp.ExampleResp{ExampleID: example.ID}
 
-	requestNode := New(
+    requestNode := New(
 		nodeID,
 		"req",
 		endpoint,
@@ -131,10 +131,11 @@ func newRequestNodeFixture(asserts []massert.Assert, respChan chan NodeRequestSi
 		exampleResp,
 		nil,
 		asserts,
-		stubHTTPClient{},
-		respChan,
-		nil,
-	)
+        stubHTTPClient{},
+        respChan,
+        nil,
+        nil,
+        )
 
 	flowReq := &node.FlowNodeRequest{
 		VarMap:        map[string]any{},
@@ -182,7 +183,7 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 
 	respChan := make(chan NodeRequestSideResp, 1)
 
-	requestNode := New(
+    requestNode := New(
 		nodeID,
 		"req",
 		endpoint,
@@ -195,10 +196,11 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 		mexampleresp.ExampleResp{ExampleID: example.ID},
 		nil,
 		nil,
-		stubHTTPClient{},
-		respChan,
-		nil,
-	)
+        stubHTTPClient{},
+        respChan,
+        nil,
+        nil,
+        )
 
 	tracker := tracking.NewVariableTracker()
 	req := &node.FlowNodeRequest{
@@ -279,9 +281,10 @@ func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 		nil,
 		asserts,
 		stubHTTPClient{},
-		respChan,
-		nil,
-	)
+        respChan,
+        nil,
+        nil,
+        )
 
 	req := &node.FlowNodeRequest{
 		VarMap:        map[string]any{},
@@ -331,9 +334,10 @@ func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 		nil,
 		asserts,
 		stubHTTPClient{},
-		respChan,
-		nil,
-	)
+        respChan,
+        nil,
+        nil,
+        )
 
 	tracker := tracking.NewVariableTracker()
 	req := &node.FlowNodeRequest{
@@ -412,9 +416,10 @@ func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 		nil,
 		asserts,
 		stubHTTPClient{},
-		respChan,
-		nil,
-	)
+        respChan,
+        nil,
+        nil,
+        )
 
 	req := &node.FlowNodeRequest{
 		VarMap:        map[string]any{},

@@ -204,7 +204,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 		Body:      []byte(`{"ok":true}`),
 	}
 
-	requestNode := nrequest.New(
+    requestNode := nrequest.New(
 		requestNodeID,
 		"request",
 		endpoint,
@@ -217,10 +217,11 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 		exampleResp,
 		nil,
 		nil,
-		staticHTTPClient{},
-		make(chan nrequest.NodeRequestSideResp, 1),
-		nil,
-	)
+        staticHTTPClient{},
+        make(chan nrequest.NodeRequestSideResp, 1),
+        nil,
+        nil,
+        )
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{
 		startID:       startNode,
