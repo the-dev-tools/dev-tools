@@ -9,7 +9,7 @@ interface TrackerReturn {
 
 export class Tracker extends Effect.Service<Tracker>()('Tracker', {
   effect: Effect.gen(function* () {
-    const configNamespace = Config.nested('PUBLIC_OPEN_RELAY');
+    const configNamespace = Config.nested('PUBLIC_OPEN_REPLAY');
 
     const track = yield* pipe(
       Config.boolean('TRACK'),
