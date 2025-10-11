@@ -4,7 +4,8 @@ import { createColumnHelper } from '@tanstack/react-table';
 import CodeMirror from '@uiw/react-codemirror';
 import { Array, Duration, MutableHashMap, Option, pipe, String } from 'effect';
 import { Ulid } from 'id128';
-import { Fragment, Suspense, useMemo, useState } from 'react';
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Code, ConnectError } from '@connectrpc/connect';
 import {
   Button as AriaButton,
   Collection,
@@ -16,6 +17,7 @@ import {
   TabPanel,
   Tabs,
 } from 'react-aria-components';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useForm } from 'react-hook-form';
 import { FiClock, FiMoreHorizontal } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
@@ -761,7 +763,13 @@ const ResponsePanel = () => {
             </div>
           }
         >
-          <ResponseTabs fullWidth responseId={lastResponseId} />
+          <ErrorBoundary
+            fallbackRender={({ error, resetErrorBoundary }) => (
+              <ResponseGetRetryFallback error={error} responseId={lastResponseId} reset={resetErrorBoundary} />
+            )}
+          >
+            <ResponseTabs fullWidth responseId={lastResponseId} />
+          </ErrorBoundary>
         </Suspense>
       </Panel>
     </>
@@ -896,6 +904,51 @@ export const ResponseTabs = ({ className, fullWidth = false, responseId }: Respo
         </Suspense>
       </div>
     </Tabs>
+  );
+};
+
+interface ResponseGetRetryFallbackProps {
+  error: unknown;
+  responseId: Uint8Array;
+  reset: () => void;
+}
+
+const ResponseGetRetryFallback = ({ error, responseId, reset }: ResponseGetRetryFallbackProps) => {
+  const { dataClient } = rootRouteApi.useRouteContext();
+  const endpointProps = useEndpointProps();
+  const attemptsRef = useRef(0);
+
+  useEffect(() => {
+    const notFound = error instanceof ConnectError && error.code === Code.NotFound;
+    if (!notFound) return;
+
+    const attempt = attemptsRef.current;
+    if (attempt >= 12) return;
+
+    const delay = Math.min(1000, 75 * 2 ** attempt);
+    const key = ResponseGetEndpoint.key({ ...endpointProps, input: { responseId } });
+
+    const timer = setTimeout(() => {
+      attemptsRef.current += 1;
+      void dataClient.controller.expireAll({ testKey: (k) => k === key });
+      reset();
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [dataClient.controller, endpointProps, error, responseId, reset]);
+
+  if (error instanceof ConnectError && error.code === Code.NotFound) {
+    return (
+      <div className={tw`flex h-full items-center justify-center p-4 text-sm text-slate-700`}>
+        Preparing response…
+      </div>
+    );
+  }
+
+  return (
+    <div className={tw`flex h-full items-center justify-center p-4 text-sm text-red-700`}>
+      Failed to load response.
+    </div>
   );
 };
 

@@ -1680,14 +1680,72 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	}()
 
 	processRequestResponse := func(requestNodeResp nrequest.NodeRequestSideResp) error {
-		err := c.HandleExampleChanges(ctx, requestNodeResp)
+		targetExecutionID := requestNodeResp.ExecutionID
+		responseID := requestNodeResp.Resp.ExampleResp.ID
+
+		var (
+			txClone      *mnodeexecution.NodeExecution
+			upsertedInTx bool
+		)
+
+		if targetExecutionID != (idwrap.IDWrap{}) && responseID != (idwrap.IDWrap{}) {
+			pendingMutex.Lock()
+			if nodeExec, exists := pendingNodeExecutions[targetExecutionID]; exists && nodeExec != nil {
+				nodeExec.ResponseID = &responseID
+				copyVal := *nodeExec
+				txClone = &copyVal
+			}
+			pendingMutex.Unlock()
+		}
+
+		err := c.HandleExampleChanges(ctx, requestNodeResp, func(cbCtx context.Context, tx *sql.Tx) error {
+			var txNES *snodeexecution.NodeExecutionService
+
+			if txClone == nil && targetExecutionID != (idwrap.IDWrap{}) {
+				svc, err := snodeexecution.NewTX(cbCtx, tx)
+				if err != nil {
+					return err
+				}
+
+				exec, err := svc.GetNodeExecution(cbCtx, targetExecutionID)
+				if err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						return nil
+					}
+					return err
+				}
+
+				exec.ResponseID = &responseID
+				txClone = exec
+				txNES = svc
+			}
+
+			if txClone == nil {
+				return nil
+			}
+
+			if txNES == nil {
+				svc, err := snodeexecution.NewTX(cbCtx, tx)
+				if err != nil {
+					return err
+				}
+				txNES = svc
+			}
+
+			if err := txNES.UpsertNodeExecution(cbCtx, *txClone); err != nil {
+				return err
+			}
+
+			upsertedInTx = true
+			return nil
+		})
 		if err != nil {
 			log.Println("cannot update example on flow run", err)
 		}
 
 		pendingMutex.Lock()
-		targetExecutionID := requestNodeResp.ExecutionID
-		responseID := requestNodeResp.Resp.ExampleResp.ID
+		targetExecutionID = requestNodeResp.ExecutionID
+		responseID = requestNodeResp.Resp.ExampleResp.ID
 		responseReceivedTime := time.Now()
 
 		var (
@@ -1708,11 +1766,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			if exists && nodeExec != nil {
 				nodeExec.ResponseID = &responseID
 
-						if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-							log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
-						}
-						// Optional commit-ack for response linkage (env gated)
-						_ = sendExecutionCommittedSync(nodeExec.NodeID, nodeExec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED)
+				if !upsertedInTx {
+					if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+						log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
+					}
+				}
+				// Optional commit-ack for response linkage (env gated)
+				_ = sendExecutionCommittedSync(nodeExec.NodeID, nodeExec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED)
 
 				pendingMutex.Lock()
 				if nodeExec.CompletedAt != nil && !channelsClosed.Load() {
@@ -1738,13 +1798,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				if shouldStoreOrph {
 					if exec, err := c.nes.GetNodeExecution(ctx, targetExecutionID); err == nil {
 						exec.ResponseID = &responseID
-							if err := persistUpsert2s(c.nes, *exec); err != nil {
-								log.Printf("Failed to upsert late node execution response %s: %v", targetExecutionID, err)
-							} else {
-								persisted = true
-								// Optional commit-ack for response linkage (env gated)
-								_ = sendExecutionCommittedSync(exec.NodeID, exec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED)
-							}
+						if err := persistUpsert2s(c.nes, *exec); err != nil {
+							log.Printf("Failed to upsert late node execution response %s: %v", targetExecutionID, err)
+						} else {
+							persisted = true
+							// Optional commit-ack for response linkage (env gated)
+							_ = sendExecutionCommittedSync(exec.NodeID, exec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED)
+						}
 					} else if !errors.Is(err, sql.ErrNoRows) {
 						log.Printf("Failed to fetch node execution %s for orphan response: %v", targetExecutionID, err)
 					}
@@ -1781,16 +1841,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		pendingMutex.Lock()
 		if nodeExec, ok := pendingNodeExecutions[meta.ExecutionID]; ok && nodeExec != nil {
 			nodeExec.ResponseID = &meta.ResponseID
-			if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-				log.Printf("Failed to upsert early response id for %s: %v", nodeExec.ID, err)
-			}
-			_ = sendExecutionCommittedSync(nodeExec.NodeID, nodeExec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED)
-		} else {
-			orphanedResponses[meta.ExecutionID] = struct {
-				ResponseID idwrap.IDWrap
-				Timestamp  int64
-			}{ResponseID: meta.ResponseID, Timestamp: time.Now().UnixMilli()}
 		}
+		orphanedResponses[meta.ExecutionID] = struct {
+			ResponseID idwrap.IDWrap
+			Timestamp  int64
+		}{ResponseID: meta.ResponseID, Timestamp: time.Now().UnixMilli()}
 		pendingMutex.Unlock()
 		return nil
 	}
@@ -1920,11 +1975,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 
 							// Persist RUNNING state synchronously to preserve ordering
-								if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-									log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
-								}
-								// Optional commit-ack for creation (env gated)
-								_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_CREATED)
+							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+								log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
+							}
+							// Optional commit-ack for creation (env gated)
+							_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_CREATED)
 						}
 					}
 				}
@@ -2015,12 +2070,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 
-							// Upsert execution in DB synchronously to ensure terminal state is persisted
-							if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-								log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
-							}
-							// Optional commit-ack for finalized state (env gated)
-							_ = sendExecutionCommittedSync(nodeExec.NodeID, nodeExec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
+						// Upsert execution in DB synchronously to ensure terminal state is persisted
+						if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+							log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
+						}
+						// Optional commit-ack for finalized state (env gated)
+						_ = sendExecutionCommittedSync(nodeExec.NodeID, nodeExec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
 
 						// For REQUEST nodes, wait for response before sending to channel.
 						// If the response already arrived, we can forward the execution now.
@@ -2048,11 +2103,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						nodeExecution := buildLoopNodeExecutionFromStatus(flowNodeStatus, executionID)
 						displayName = nodeExecution.Name
 
-							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-								log.Printf("Failed to upsert loop node execution %s: %v", nodeExecution.ID, err)
-							}
-							// Optional commit-ack for finalized loop state (env gated)
-							_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
+						if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+							log.Printf("Failed to upsert loop node execution %s: %v", nodeExecution.ID, err)
+						}
+						// Optional commit-ack for finalized loop state (env gated)
+						_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
 
 						if !channelsClosed.Load() {
 							select {
@@ -2128,11 +2183,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						// }
 
 						// Upsert to DB synchronously to ensure cancellation is persisted before navigation
-							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-								log.Printf("Failed to upsert canceled node execution %s: %v", nodeExecution.ID, err)
-							}
-							// Optional commit-ack for finalized cancel (env gated)
-							_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
+						if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+							log.Printf("Failed to upsert canceled node execution %s: %v", nodeExecution.ID, err)
+						}
+						// Optional commit-ack for finalized cancel (env gated)
+						_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
 
 						// Send immediately for canceled nodes (with safety check)
 						if !channelsClosed.Load() {
@@ -2195,11 +2250,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 
 							// Upsert to DB synchronously to ensure final state is persisted
-								if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-									log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
-								}
-								// Optional commit-ack for finalized loop state (env gated)
-								_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
+							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+								log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
+							}
+							// Optional commit-ack for finalized loop state (env gated)
+							_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
 
 							// Send immediately for terminal loop nodes to make them visible in UI
 							if !channelsClosed.Load() {
@@ -2367,7 +2422,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		for {
 			select {
 			case meta, ok := <-requestNodeMetaChan:
-				if !ok { return }
+				if !ok {
+					return
+				}
 				if err := processRequestMeta(meta); err != nil {
 					signalDone(err)
 					return
@@ -2376,7 +2433,9 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				for {
 					select {
 					case meta, ok := <-requestNodeMetaChan:
-						if !ok { return }
+						if !ok {
+							return
+						}
 						_ = processRequestMeta(meta)
 					default:
 						return
@@ -2535,7 +2594,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	return nil
 }
 
-func (c *FlowServiceRPC) HandleExampleChanges(ctx context.Context, requestNodeResp nrequest.NodeRequestSideResp) error {
+func (c *FlowServiceRPC) HandleExampleChanges(
+	ctx context.Context,
+	requestNodeResp nrequest.NodeRequestSideResp,
+	withNodeExecution func(context.Context, *sql.Tx) error,
+) error {
 	FullHeaders := append(requestNodeResp.Resp.CreateHeaders, requestNodeResp.Resp.UpdateHeaders...)
 
 	var assertResults []massertres.AssertResult
@@ -2629,6 +2692,12 @@ func (c *FlowServiceRPC) HandleExampleChanges(ctx context.Context, requestNodeRe
 	err = ritemapiexample.CreateCopyExample(ctx, tx2, res)
 	if err != nil {
 		return err
+	}
+
+	if withNodeExecution != nil {
+		if err := withNodeExecution(ctx, tx2); err != nil {
+			return err
+		}
 	}
 
 	err = tx2.Commit()

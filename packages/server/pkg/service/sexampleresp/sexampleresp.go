@@ -57,6 +57,9 @@ func ConvertToModelExampleResp(item gen.ExampleResp) mexampleresp.ExampleResp {
 func (s ExampleRespService) GetExampleResp(ctx context.Context, respID idwrap.IDWrap) (*mexampleresp.ExampleResp, error) {
 	exampleResp, err := s.Queries.GetExampleResp(ctx, respID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoRespFound
+		}
 		return nil, err
 	}
 	a := ConvertToModelExampleResp(exampleResp)

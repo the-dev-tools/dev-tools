@@ -19,6 +19,7 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/resultapi"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
@@ -38,6 +39,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
@@ -48,6 +50,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
+	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
@@ -72,6 +75,7 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
+	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
 	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
 )
 
@@ -270,9 +274,7 @@ func TestFlowRunAdHoc_NodeExecutionsReachTerminalState(t *testing.T) {
 	}
 
 	for _, node := range nodes {
-		execs, execErr := harness.svc.nes.GetNodeExecutionsByNodeID(ctx, node.ID)
-		require.NoErrorf(t, execErr, "failed to load executions for node %s", node.Name)
-
+		execs := waitForTerminalExecutions(t, harness.svc, node.ID)
 		require.NotEmptyf(t, execs, "expected executions for node %s", node.Name)
 
 		for _, exec := range execs {
@@ -290,7 +292,6 @@ func TestFlowRunAdHoc_RequestFailureTransitions(t *testing.T) {
 	harness := setupFlowRunHarness(t)
 	defer harness.cleanup()
 	ctx := context.Background()
-
 	failingAssert := massert.Assert{
 		ID:        idwrap.NewNow(),
 		ExampleID: harness.exampleID,
@@ -303,8 +304,21 @@ func TestFlowRunAdHoc_RequestFailureTransitions(t *testing.T) {
 	err := harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream)
 	require.Error(t, err, "expected flow run to fail when assertion fails")
 
-	execs, execErr := harness.svc.nes.GetNodeExecutionsByNodeID(ctx, harness.requestNodeID)
-	require.NoError(t, execErr)
+	var execs []mnodeexecution.NodeExecution
+	require.Eventually(t, func() bool {
+		var evtErr error
+		execs, evtErr = harness.svc.nes.GetNodeExecutionsByNodeID(ctx, harness.requestNodeID)
+		require.NoError(t, evtErr)
+		if len(execs) == 0 {
+			return false
+		}
+		for _, exec := range execs {
+			if exec.State != mnnode.NODE_STATE_RUNNING {
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second, 10*time.Millisecond)
 	require.NotEmpty(t, execs)
 
 	var sawFailure bool
@@ -330,6 +344,8 @@ func TestFlowRunAdHoc_PersistsRequestOutput(t *testing.T) {
 
 	stream := noopStream{}
 	require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
+
+	_ = waitForLatestExecution(t, harness.svc, harness.requestNodeID)
 
 	execs, err := harness.svc.nes.GetNodeExecutionsByNodeID(context.Background(), harness.requestNodeID)
 	require.NoError(t, err)
@@ -409,10 +425,13 @@ func TestFlowRunAdHoc_PersistsRequestInputData(t *testing.T) {
 	require.NotNil(t, observedReq)
 	require.Equal(t, "/api/categories/cat-42", observedReq.URL.Path)
 
-	latest, err := harness.svc.nes.GetLatestNodeExecutionByNodeID(ctx, harness.requestNodeID)
-	require.NoError(t, err)
-	require.NotNil(t, latest, "expected a request node execution")
-	require.Equal(t, mnnode.NODE_STATE_SUCCESS, latest.State, "expected latest execution to succeed")
+	var latest *mnodeexecution.NodeExecution
+	require.Eventually(t, func() bool {
+		var err error
+		latest, err = harness.svc.nes.GetLatestNodeExecutionByNodeID(ctx, harness.requestNodeID)
+		require.NoError(t, err)
+		return latest != nil && latest.CompletedAt != nil && latest.State == mnnode.NODE_STATE_SUCCESS
+	}, 2*time.Second, 10*time.Millisecond, "expected latest request execution to reach success")
 
 	inputRaw, err := latest.GetInputJSON()
 	require.NoError(t, err)
@@ -451,16 +470,13 @@ func TestFlowRunAdHoc_RequestSuccessHasResponseID(t *testing.T) {
 	require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
 
 	ctx := context.Background()
-	execs, err := harness.svc.nes.GetNodeExecutionsByNodeID(ctx, harness.requestNodeID)
-	require.NoError(t, err)
-	require.NotEmpty(t, execs, "expected at least one request node execution")
+	execs := waitForNodeExecutions(t, harness.svc, harness.requestNodeID)
+	require.NotEmpty(t, execs, "expected to find request node executions")
 
-	var sawSuccess bool
 	for _, exec := range execs {
 		if exec.State != mnnode.NODE_STATE_SUCCESS {
 			continue
 		}
-		sawSuccess = true
 		require.NotNilf(t, exec.ResponseID, "success execution %s missing response id", exec.ID.String())
 
 		resp, respErr := harness.svc.ers.GetExampleResp(ctx, *exec.ResponseID)
@@ -468,13 +484,207 @@ func TestFlowRunAdHoc_RequestSuccessHasResponseID(t *testing.T) {
 		require.NotNil(t, resp)
 		require.Equalf(t, harness.exampleID, resp.ExampleID, "response %s should belong to harness example", resp.ID.String())
 	}
+}
 
-	require.True(t, sawSuccess, "expected to find successful request execution")
+func TestFlowRunAdHoc_ResponseGetStress(t *testing.T) {
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	const (
+		iterations      = 5
+		workerCount     = 24
+		requestsPerWork = 5
+	)
+
+	for i := 0; i < iterations; i++ {
+		stream := noopStream{}
+		require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
+
+		latest := waitForLatestExecution(t, harness.svc, harness.requestNodeID)
+		require.NotNilf(t, latest.ResponseID, "iteration %d missing response id", i)
+		respIDBytes := latest.ResponseID.Bytes()
+		execID := latest.ID
+
+		var wg sync.WaitGroup
+		errCh := make(chan error, workerCount)
+
+		for w := 0; w < workerCount; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for c := 0; c < requestsPerWork; c++ {
+					// Simulate frontend polling execution before fetching response.
+					if _, err := harness.svc.nes.GetNodeExecution(harness.authedCtx, execID); err != nil {
+						errCh <- err
+						return
+					}
+
+					req := connect.NewRequest(&responsev1.ResponseGetRequest{ResponseId: respIDBytes})
+					if _, err := harness.resultSvc.ResponseGet(harness.authedCtx, req); err != nil {
+						errCh <- err
+						return
+					}
+				}
+			}()
+		}
+
+		wg.Wait()
+		close(errCh)
+		for err := range errCh {
+			require.NoErrorf(t, err, "iteration %d encountered response get error", i)
+		}
+	}
+}
+
+func TestFlowRunAdHoc_ResponseLinkedPersistsAtomically(t *testing.T) {
+	harness := setupFlowRunHarness(t)
+	defer harness.cleanup()
+
+	stream := newCaptureStream()
+	errCh := make(chan error, 1)
+
+	go func() {
+		errCh <- harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream)
+	}()
+
+	var exampleEvent *flowv1.FlowRunExampleResponse
+	select {
+	case exampleEvent = <-stream.exampleCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for example linkage")
+	}
+	require.NotNil(t, exampleEvent)
+
+	respID, err := idwrap.NewFromBytes(exampleEvent.ResponseId)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	respModel, err := harness.svc.ers.GetExampleResp(ctx, respID)
+	require.NoError(t, err, "expected response lookup to succeed immediately after example event")
+	require.NotNil(t, respModel)
+
+	require.Eventually(t, func() bool {
+		execs, err := harness.svc.nes.GetNodeExecutionsByNodeID(ctx, harness.requestNodeID)
+		require.NoError(t, err)
+		for _, exec := range execs {
+			if exec.ResponseID != nil && *exec.ResponseID == respID {
+				return true
+			}
+		}
+		return false
+	}, time.Second, 10*time.Millisecond, "expected node execution to reference response before commit ack")
+
+	start := time.Now()
+	var commitEvent *flowv1.FlowRunExecutionCommitted
+waitForCommit:
+	for {
+		select {
+		case commitEvent = <-stream.execCh:
+			if commitEvent != nil && commitEvent.Stage == flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED {
+				break waitForCommit
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for response-linked commit ack")
+		}
+	}
+	require.WithinDuration(t, time.Now(), start, time.Second, "response-linked commit ack arrived too slowly")
+
+	execID, err := idwrap.NewFromBytes(commitEvent.NodeExecutionId)
+	require.NoError(t, err)
+
+	execModel, err := harness.svc.nes.GetNodeExecution(ctx, execID)
+	require.NoError(t, err)
+	require.NotNil(t, execModel.ResponseID)
+	require.Equal(t, respID, *execModel.ResponseID)
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("flow run did not complete")
+	}
+}
+
+type captureStream struct {
+	exampleCh chan *flowv1.FlowRunExampleResponse
+	execCh    chan *flowv1.FlowRunExecutionCommitted
+}
+
+func newCaptureStream() *captureStream {
+	return &captureStream{
+		exampleCh: make(chan *flowv1.FlowRunExampleResponse, 4),
+		execCh:    make(chan *flowv1.FlowRunExecutionCommitted, 8),
+	}
+}
+
+func (s *captureStream) Send(resp *flowv1.FlowRunResponse) error {
+	if resp == nil {
+		return nil
+	}
+	if resp.Example != nil {
+		select {
+		case s.exampleCh <- resp.Example:
+		default:
+		}
+	}
+	if resp.Execution != nil {
+		select {
+		case s.execCh <- resp.Execution:
+		default:
+		}
+	}
+	return nil
+}
+
+func waitForNodeExecutions(t *testing.T, svc *FlowServiceRPC, nodeID idwrap.IDWrap) []mnodeexecution.NodeExecution {
+	t.Helper()
+	ctx := context.Background()
+	var execs []mnodeexecution.NodeExecution
+	require.Eventually(t, func() bool {
+		var err error
+		execs, err = svc.nes.GetNodeExecutionsByNodeID(ctx, nodeID)
+		require.NoError(t, err)
+		return len(execs) > 0
+	}, 2*time.Second, 10*time.Millisecond)
+	return execs
+}
+
+func waitForLatestExecution(t *testing.T, svc *FlowServiceRPC, nodeID idwrap.IDWrap) *mnodeexecution.NodeExecution {
+	t.Helper()
+	ctx := context.Background()
+	var latest *mnodeexecution.NodeExecution
+	require.Eventually(t, func() bool {
+		var err error
+		latest, err = svc.nes.GetLatestNodeExecutionByNodeID(ctx, nodeID)
+		require.NoError(t, err)
+		return latest != nil && latest.ResponseID != nil
+	}, 5*time.Second, 10*time.Millisecond)
+	return latest
+}
+
+func waitForTerminalExecutions(t *testing.T, svc *FlowServiceRPC, nodeID idwrap.IDWrap) []mnodeexecution.NodeExecution {
+	t.Helper()
+	ctx := context.Background()
+	var execs []mnodeexecution.NodeExecution
+	require.Eventually(t, func() bool {
+		var err error
+		execs, err = svc.nes.GetNodeExecutionsByNodeID(ctx, nodeID)
+		require.NoError(t, err)
+		if len(execs) == 0 {
+			return false
+		}
+		for _, exec := range execs {
+			if exec.State == mnnode.NODE_STATE_RUNNING || exec.CompletedAt == nil {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, 10*time.Millisecond)
+	return execs
 }
 
 func TestFlowRunAdHoc_RequestResponseIDPersistsAcrossRuns(t *testing.T) {
 	const iterations = 10
-
 	harness := setupFlowRunHarness(t)
 	defer harness.cleanup()
 
@@ -506,12 +716,8 @@ func TestFlowRunAdHoc_RequestResponseIDPersistsAcrossRuns(t *testing.T) {
 		stream := noopStream{}
 		require.NoError(t, harness.svc.FlowRunAdHoc(harness.authedCtx, harness.req, stream))
 
-		latest, err := harness.svc.nes.GetLatestNodeExecutionByNodeID(ctx, harness.requestNodeID)
-		require.NoError(t, err)
-		require.NotNilf(t, latest, "iteration %d expected latest node execution", i)
+		latest := waitForLatestExecution(t, harness.svc, harness.requestNodeID)
 
-		require.NotNilf(t, latest.CompletedAt, "iteration %d latest execution missing completion timestamp", i)
-		require.NotEqualf(t, mnnode.NODE_STATE_RUNNING, latest.State, "iteration %d latest execution stuck running", i)
 		require.NotNilf(t, latest.ResponseID, "iteration %d execution %s missing response id", i, latest.ID.String())
 
 		resp, respErr := harness.svc.ers.GetExampleResp(ctx, *latest.ResponseID)
@@ -595,6 +801,7 @@ type flowRunHarness struct {
 	globalEnvID     idwrap.IDWrap
 	serverURL       string
 	requestRecorder chan *http.Request
+	resultSvc       resultapi.ResultService
 }
 
 func setupFlowRunHarness(t *testing.T) flowRunHarness {
@@ -631,6 +838,7 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 	ws := sworkspace.New(queries)
 	us := suser.New(queries)
 	ts := stag.New(queries)
+	cs := scollection.New(queries, logger)
 	fs := sflow.New(queries)
 	fts := sflowtag.New(queries)
 	fes := sedge.New(queries)
@@ -694,6 +902,19 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 		nil,
 	)
 	flowSvc := &flowSvcValue
+
+	resultSvc := resultapi.New(
+		db,
+		us,
+		cs,
+		ias,
+		es,
+		ws,
+		ers,
+		erhs,
+		as,
+		ars,
+	)
 
 	workspaceID := idwrap.NewNow()
 	activeEnvID := idwrap.NewNow()
@@ -925,6 +1146,7 @@ func setupFlowRunHarness(t *testing.T) flowRunHarness {
 		globalEnvID:     globalEnvID,
 		serverURL:       testServer.URL,
 		requestRecorder: requestRecorder,
+		resultSvc:       resultSvc,
 	}
 }
 

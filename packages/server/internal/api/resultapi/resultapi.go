@@ -3,9 +3,11 @@ package resultapi
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/permcheck"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
@@ -20,6 +22,7 @@ import (
 	"the-dev-tools/server/pkg/translate/texampleresp"
 	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
 	"the-dev-tools/spec/dist/buf/go/collection/item/response/v1/responsev1connect"
+	"time"
 
 	"connectrpc.com/connect"
 )
@@ -65,20 +68,25 @@ func CreateService(srv ResultService, options []connect.HandlerOption) (*api.Ser
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
+const (
+	responseLookupAttempts = 12
+	responseLookupDelay    = 60 * time.Millisecond
+)
+
 func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[responsev1.ResponseGetRequest]) (*connect.Response[responsev1.ResponseGetResponse], error) {
 	ResponseID, err := idwrap.NewFromBytes(req.Msg.ResponseId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerResp(ctx, ResponseID, c.ers, c.iaes, c.cs, c.us))
+	result, rpcErr := fetchExampleRespWithRetry(ctx, c.ers, ResponseID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	result, err := c.ers.GetExampleResp(ctx, ResponseID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	permErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, result.ExampleID))
+	if permErr != nil {
+		return nil, permErr
 	}
 
 	rpcResp, err := texampleresp.SeralizeModelToRPC(*result)
@@ -100,15 +108,62 @@ func (c *ResultService) ResponseGet(ctx context.Context, req *connect.Request[re
 	return connect.NewResponse(resp), nil
 }
 
+func waitOnContext(ctx context.Context, d time.Duration) *connect.Error {
+	if d <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return connect.NewError(connect.CodeDeadlineExceeded, ctx.Err())
+		}
+		return connect.NewError(connect.CodeCanceled, ctx.Err())
+	case <-timer.C:
+		return nil
+	}
+}
+
+func fetchExampleRespWithRetry(ctx context.Context, ers sexampleresp.ExampleRespService, respID idwrap.IDWrap) (*mexampleresp.ExampleResp, *connect.Error) {
+	var lastErr error
+	for attempt := 0; attempt < responseLookupAttempts; attempt++ {
+		resp, err := ers.GetExampleResp(ctx, respID)
+		if err == nil {
+			return resp, nil
+		}
+
+		lastErr = err
+		if !errors.Is(err, sexampleresp.ErrNoRespFound) && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if attempt == responseLookupAttempts-1 {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+
+		if waitErr := waitOnContext(ctx, responseLookupDelay); waitErr != nil {
+			return nil, waitErr
+		}
+	}
+
+	return nil, connect.NewError(connect.CodeNotFound, lastErr)
+}
+
 func (c *ResultService) ResponseHeaderList(ctx context.Context, req *connect.Request[responsev1.ResponseHeaderListRequest]) (*connect.Response[responsev1.ResponseHeaderListResponse], error) {
 	ResponseID, err := idwrap.NewFromBytes(req.Msg.ResponseId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerResp(ctx, ResponseID, c.ers, c.iaes, c.cs, c.us))
+	respModel, rpcErr := fetchExampleRespWithRetry(ctx, c.ers, ResponseID)
 	if rpcErr != nil {
 		return nil, rpcErr
+	}
+
+	permErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, respModel.ExampleID))
+	if permErr != nil {
+		return nil, permErr
 	}
 
 	headers, err := c.erhs.GetHeaderByRespID(ctx, ResponseID)
@@ -141,9 +196,14 @@ func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	rpcErr := permcheck.CheckPerm(CheckOwnerResp(ctx, ResponseID, c.ers, c.iaes, c.cs, c.us))
+	respModel, rpcErr := fetchExampleRespWithRetry(ctx, c.ers, ResponseID)
 	if rpcErr != nil {
 		return nil, rpcErr
+	}
+
+	permErr := permcheck.CheckPerm(ritemapiexample.CheckOwnerExample(ctx, c.iaes, c.cs, c.us, respModel.ExampleID))
+	if permErr != nil {
+		return nil, permErr
 	}
 
 	assertResponse, err := c.asrs.GetAssertResultsByResponseID(ctx, ResponseID)
@@ -182,10 +242,9 @@ func (c *ResultService) ResponseAssertList(ctx context.Context, req *connect.Req
 func CheckOwnerResp(ctx context.Context, respID idwrap.IDWrap, ers sexampleresp.ExampleRespService,
 	iaes sitemapiexample.ItemApiExampleService, cs scollection.CollectionService, us suser.UserService,
 ) (bool, error) {
-	resp, err := ers.GetExampleResp(ctx, respID)
-	if err != nil {
-		return false, err
+	resp, rpcErr := fetchExampleRespWithRetry(ctx, ers, respID)
+	if rpcErr != nil {
+		return false, rpcErr
 	}
-
 	return ritemapiexample.CheckOwnerExample(ctx, iaes, cs, us, resp.ExampleID)
 }
