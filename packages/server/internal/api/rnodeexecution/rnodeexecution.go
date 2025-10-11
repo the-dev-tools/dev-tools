@@ -1,7 +1,8 @@
 package rnodeexecution
 
 import (
-	"context"
+    "context"
+    "errors"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rflow"
 	"the-dev-tools/server/pkg/idwrap"
@@ -171,29 +172,32 @@ const (
 )
 
 func (s *NodeExecutionServiceRPC) awaitResponseID(ctx context.Context, executionID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
-	waitCtx, cancel := context.WithTimeout(ctx, responsePollTimeout)
-	defer cancel()
+    waitCtx, cancel := context.WithTimeout(ctx, responsePollTimeout)
+    defer cancel()
 
-	ticker := time.NewTicker(responsePollInterval)
-	defer ticker.Stop()
+    ticker := time.NewTicker(responsePollInterval)
+    defer ticker.Stop()
 
-	for {
-		select {
-		case <-waitCtx.Done():
-			if waitCtx.Err() == context.DeadlineExceeded || waitCtx.Err() == context.Canceled {
-				return nil, nil
-			}
-			return nil, waitCtx.Err()
-		case <-ticker.C:
-			exec, err := s.nes.GetNodeExecution(waitCtx, executionID)
-			if err != nil {
-				return nil, err
-			}
-			if exec.ResponseID != nil {
-				return exec, nil
-			}
-		}
-	}
+    for {
+        select {
+        case <-waitCtx.Done():
+            // Gracefully stop waiting without surfacing a timeout upstream.
+            return nil, nil
+        case <-ticker.C:
+            exec, err := s.nes.GetNodeExecution(waitCtx, executionID)
+            if err != nil {
+                // If the context timed out or was canceled, treat as no result.
+                if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) || waitCtx.Err() != nil {
+                    return nil, nil
+                }
+                // For transient errors, continue until timeout elapses.
+                continue
+            }
+            if exec.ResponseID != nil {
+                return exec, nil
+            }
+        }
+    }
 }
 
 func isTerminalNodeState(state int8) bool {

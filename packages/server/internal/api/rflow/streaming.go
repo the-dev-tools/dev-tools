@@ -19,3 +19,13 @@ func sendExampleResponse(stream api.ServerStreamAdHoc[flowv1.FlowRunResponse], e
     return stream.Send(&flowv1.FlowRunResponse{Example: example})
 }
 
+// sendExecutionCommitted emits a typed commit acknowledgment after a DB write
+// completes for a NodeExecution lifecycle stage.
+func sendExecutionCommitted(stream api.ServerStreamAdHoc[flowv1.FlowRunResponse], nodeID, execID idwrap.IDWrap, stage flowv1.ExecutionCommitStage) error {
+    exec := &flowv1.FlowRunExecutionCommitted{
+        NodeId:         nodeID.Bytes(),
+        NodeExecutionId: execID.Bytes(),
+        Stage:          stage,
+    }
+    return stream.Send(&flowv1.FlowRunResponse{Execution: exec})
+}

@@ -1481,6 +1481,10 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	sendFlowResponseSync := func(resp *flowv1.FlowRunResponse) error {
 		return dispatcher.Dispatch(func() error { return stream.Send(resp) })
 	}
+	// Commit-ack sender; emits typed execution acks after DB commit
+	sendExecutionCommittedSync := func(nodeID, execID idwrap.IDWrap, stage flowv1.ExecutionCommitStage) error {
+		return dispatcher.Dispatch(func() error { return sendExecutionCommitted(stream, nodeID, execID, stage) })
+	}
 	nodeExecutionChan := make(chan mnodeexecution.NodeExecution, bufferSize)
 
 	// Collector goroutine for node executions
@@ -1703,9 +1707,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			if exists && nodeExec != nil {
 				nodeExec.ResponseID = &responseID
 
-				if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-					log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
-				}
+						if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+							log.Printf("Failed to upsert node execution with response %s: %v", nodeExec.ID, err)
+						}
+						// Optional commit-ack for response linkage (env gated)
+						_ = sendExecutionCommittedSync(nodeExec.NodeID, nodeExec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED)
 
 				pendingMutex.Lock()
 				if nodeExec.CompletedAt != nil && !channelsClosed.Load() {
@@ -1731,11 +1737,13 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 				if shouldStoreOrph {
 					if exec, err := c.nes.GetNodeExecution(ctx, targetExecutionID); err == nil {
 						exec.ResponseID = &responseID
-						if err := persistUpsert2s(c.nes, *exec); err != nil {
-							log.Printf("Failed to upsert late node execution response %s: %v", targetExecutionID, err)
-						} else {
-							persisted = true
-						}
+							if err := persistUpsert2s(c.nes, *exec); err != nil {
+								log.Printf("Failed to upsert late node execution response %s: %v", targetExecutionID, err)
+							} else {
+								persisted = true
+								// Optional commit-ack for response linkage (env gated)
+								_ = sendExecutionCommittedSync(exec.NodeID, exec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED)
+							}
 					} else if !errors.Is(err, sql.ErrNoRows) {
 						log.Printf("Failed to fetch node execution %s for orphan response: %v", targetExecutionID, err)
 					}
@@ -1882,15 +1890,19 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
 									log.Printf("Failed to upsert delayed correlation %s: %v", nodeExecution.ID, err)
 								}
+								// Optional commit-ack for response linkage applied during RUNNING (env gated)
+								_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_RESPONSE_LINKED)
 
 								// Remove from orphaned responses now that we've applied it
 								delete(orphanedResponses, executionID)
 							}
 
 							// Persist RUNNING state synchronously to preserve ordering
-							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-								log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
-							}
+								if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+									log.Printf("Failed to upsert node execution %s: %v", nodeExecution.ID, err)
+								}
+								// Optional commit-ack for creation (env gated)
+								_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_CREATED)
 						}
 					}
 				}
@@ -1981,10 +1993,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 						}
 
-						// Upsert execution in DB synchronously to ensure terminal state is persisted
-						if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
-							log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
-						}
+							// Upsert execution in DB synchronously to ensure terminal state is persisted
+							if err := persistUpsert2s(c.nes, *nodeExec); err != nil {
+								log.Printf("Failed to upsert node execution %s: %v", nodeExec.ID, err)
+							}
+							// Optional commit-ack for finalized state (env gated)
+							_ = sendExecutionCommittedSync(nodeExec.NodeID, nodeExec.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
 
 						// For REQUEST nodes, wait for response before sending to channel.
 						// If the response already arrived, we can forward the execution now.
@@ -2012,9 +2026,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						nodeExecution := buildLoopNodeExecutionFromStatus(flowNodeStatus, executionID)
 						displayName = nodeExecution.Name
 
-						if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-							log.Printf("Failed to upsert loop node execution %s: %v", nodeExecution.ID, err)
-						}
+							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+								log.Printf("Failed to upsert loop node execution %s: %v", nodeExecution.ID, err)
+							}
+							// Optional commit-ack for finalized loop state (env gated)
+							_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
 
 						if !channelsClosed.Load() {
 							select {
@@ -2090,9 +2106,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 						// }
 
 						// Upsert to DB synchronously to ensure cancellation is persisted before navigation
-						if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-							log.Printf("Failed to upsert canceled node execution %s: %v", nodeExecution.ID, err)
-						}
+							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+								log.Printf("Failed to upsert canceled node execution %s: %v", nodeExecution.ID, err)
+							}
+							// Optional commit-ack for finalized cancel (env gated)
+							_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
 
 						// Send immediately for canceled nodes (with safety check)
 						if !channelsClosed.Load() {
@@ -2155,9 +2173,11 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 							}
 
 							// Upsert to DB synchronously to ensure final state is persisted
-							if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
-								log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
-							}
+								if err := persistUpsert2s(c.nes, nodeExecution); err != nil {
+									log.Printf("Failed to upsert failed loop node execution %s: %v", nodeExecution.ID, err)
+								}
+								// Optional commit-ack for finalized loop state (env gated)
+								_ = sendExecutionCommittedSync(nodeExecution.NodeID, nodeExecution.ID, flowv1.ExecutionCommitStage_EXECUTION_COMMIT_STAGE_FINALIZED)
 
 							// Send immediately for terminal loop nodes to make them visible in UI
 							if !channelsClosed.Load() {

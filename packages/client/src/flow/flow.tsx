@@ -554,7 +554,7 @@ const ActionBar = () => {
               effectMap: MutableHashMap.empty<string, Effect.Effect<void>>(),
               expireKeys: MutableHashSet.empty<string>(),
             },
-            (_, { example, node, version }) => {
+            (_, { example, node, version, execution }) => {
               if (example) {
                 const { exampleId, responseId } = example;
 
@@ -577,10 +577,11 @@ const ActionBar = () => {
                 );
               }
 
-              if (node)
+              // Prefer commit-ack for execution list refresh to avoid races.
+              if (execution)
                 MutableHashSet.add(
                   _.expireKeys,
-                  NodeExecutionListEndpoint.key({ ...endpointProps, input: { nodeId: node.nodeId } }),
+                  NodeExecutionListEndpoint.key({ ...endpointProps, input: { nodeId: execution.nodeId } }),
                 );
 
               if (version) {

@@ -63,6 +63,7 @@ model FlowRunResponse {
   node?: FlowRunNodeResponse;
   version?: FlowVersionsItem;
   example?: FlowRunExampleResponse;
+  execution?: FlowRunExecutionCommitted;
 }
 
 @Protobuf.service
@@ -76,4 +77,20 @@ interface FlowService extends Resource.CRUD<Flow, TListItem = FlowListItem, TLis
 
   @stream(StreamMode.Out)
   FlowRun(...FlowRunRequest): FlowRunResponse;
+}
+
+// Commit-ack for NodeExecution persistence boundaries
+@autoFields
+model FlowRunExecutionCommitted {
+  nodeId: Resource.Id;
+  nodeExecutionId: Resource.Id;
+  stage: ExecutionCommitStage;
+}
+
+enum ExecutionCommitStage {
+  EXECUTION_COMMIT_STAGE_UNSPECIFIED: 0,
+  EXECUTION_COMMIT_STAGE_CREATED: 1,
+  EXECUTION_COMMIT_STAGE_UPDATED: 2,
+  EXECUTION_COMMIT_STAGE_RESPONSE_LINKED: 3,
+  EXECUTION_COMMIT_STAGE_FINALIZED: 4,
 }
