@@ -2,8 +2,6 @@ package rnodeexecution
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rflow"
 	"the-dev-tools/server/pkg/idwrap"
@@ -113,18 +111,10 @@ func (s *NodeExecutionServiceRPC) NodeExecutionGet(
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	execution, err := s.getNodeExecutionWithWait(ctx, executionID)
+	// Get execution
+	execution, err := s.nes.GetNodeExecution(ctx, executionID)
 	if err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			return nil, connect.NewError(connect.CodeDeadlineExceeded, err)
-		case errors.Is(err, context.Canceled):
-			return nil, connect.NewError(connect.CodeCanceled, err)
-		case errors.Is(err, sql.ErrNoRows):
-			return nil, connect.NewError(connect.CodeNotFound, err)
-		default:
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
+		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
 
 	// Check permissions through node -> flow ownership
@@ -177,51 +167,8 @@ func (s *NodeExecutionServiceRPC) NodeExecutionGet(
 
 const (
 	responsePollInterval = 10 * time.Millisecond
-	responsePollTimeout  = time.Second
+	responsePollTimeout  = 250 * time.Millisecond
 )
-
-func (s *NodeExecutionServiceRPC) getNodeExecutionWithWait(ctx context.Context, executionID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
-	execution, err := s.nes.GetNodeExecution(ctx, executionID)
-	if err == nil {
-		return execution, nil
-	}
-
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, err
-	}
-
-	waitCtx, cancel := context.WithTimeout(context.Background(), responsePollTimeout)
-	defer cancel()
-
-	ticker := time.NewTicker(responsePollInterval)
-	defer ticker.Stop()
-
-	lastErr := err
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-waitCtx.Done():
-			if errors.Is(lastErr, context.DeadlineExceeded) {
-				return nil, context.DeadlineExceeded
-			}
-			return nil, lastErr
-		case <-ticker.C:
-			exec, err := s.nes.GetNodeExecution(waitCtx, executionID)
-			if err == nil {
-				return exec, nil
-			}
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, err
-			}
-			lastErr = err
-		}
-	}
-}
 
 func (s *NodeExecutionServiceRPC) awaitResponseID(ctx context.Context, executionID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
 	waitCtx, cancel := context.WithTimeout(ctx, responsePollTimeout)
