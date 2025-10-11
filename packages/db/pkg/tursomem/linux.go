@@ -11,12 +11,6 @@ import (
 	_ "github.com/tursodatabase/go-libsql"
 )
 
-type LocalDB struct {
-	Write *sql.DB
-	Read  *sql.DB
-	Close func()
-}
-
 var (
 	ErrDBNameNotFound = fmt.Errorf("db name not found")
 	ErrDBPathNotFound = fmt.Errorf("db path not found")
