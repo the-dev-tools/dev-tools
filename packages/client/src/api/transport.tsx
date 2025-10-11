@@ -17,7 +17,8 @@ export class ApiTransport extends Effect.Service<ApiTransport>()('ApiTransport',
     // TODO: remove when bug gets fixed upstream
     // https://github.com/openreplay/openreplay/issues/3723
     const openReplayWorkaround = yield* pipe(
-      Config.boolean('PUBLIC_OPEN_REPLAY__CONNECT_RPC_WORKAROUND'),
+      Config.boolean('CONNECT_RPC_WORKAROUND'),
+      Config.nested('PUBLIC_OPEN_REPLAY'),
       Config.orElse(() => Config.succeed(false)),
     );
 
