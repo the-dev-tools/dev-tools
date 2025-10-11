@@ -1,26 +1,50 @@
-import Tracker from '@openreplay/tracker';
-import { Config, Effect, Option, pipe, Redacted } from 'effect';
+import ORTracker from '@openreplay/tracker';
+import { Config, Data, Effect, identity, Option, pipe, Redacted } from 'effect';
 
-export const Track = Effect.gen(function* () {
-  const configNamespace = Config.nested('PUBLIC_OPEN_RELAY');
+export class TrackerStartError extends Data.TaggedError('TrackerStartError')<{ reason: string }> {}
 
-  const track = yield* pipe(Config.boolean('TRACK'), configNamespace);
-  if (!track) return;
+interface TrackerReturn {
+  tracker?: ORTracker;
+}
 
-  const projectKey = yield* pipe(Config.redacted('PROJECT_KEY'), configNamespace);
-  const tracker = new Tracker({
-    projectKey: Redacted.value(projectKey),
+export class Tracker extends Effect.Service<Tracker>()('Tracker', {
+  effect: Effect.gen(function* () {
+    const configNamespace = Config.nested('PUBLIC_OPEN_RELAY');
 
-    __DISABLE_SECURE_MODE: true,
-  });
+    const track = yield* pipe(
+      Config.boolean('TRACK'),
+      configNamespace,
+      Config.orElse(() => Config.succeed(false)),
+    );
+    if (!track) return identity<TrackerReturn>({});
 
-  const sessionName = yield* pipe(Config.string('SESSION_NAME'), configNamespace, Config.option);
-  Option.map(sessionName, (_) => void tracker.setMetadata('session-name', _));
+    const projectKey = yield* pipe(Config.redacted('PROJECT_KEY'), configNamespace);
+    const tracker = new ORTracker({
+      projectKey: Redacted.value(projectKey),
 
-  const userId = yield* pipe(Config.string('USER_ID'), configNamespace, Config.option);
-  Option.map(userId, (_) => void tracker.setUserID(_));
+      __DISABLE_SECURE_MODE: true,
 
-  yield* Effect.logInfo('Tracking started', { sessionName, userId });
+      network: {
+        captureInIframes: true,
+        capturePayload: true,
+        failuresOnly: false,
+        ignoreHeaders: false,
+        sessionTokenHeader: false,
+      },
+    });
 
-  yield* Effect.tryPromise(() => tracker.start());
-}).pipe(Effect.ignore);
+    const sessionName = yield* pipe(Config.string('SESSION_NAME'), configNamespace, Config.option);
+    Option.map(sessionName, (_) => void tracker.setMetadata('session-name', _));
+
+    const userId = yield* pipe(Config.string('USER_ID'), configNamespace, Config.option);
+    Option.map(userId, (_) => void tracker.setUserID(_));
+
+    const result = yield* Effect.promise(() => tracker.start());
+    if (!result.success) return yield* Effect.fail(new TrackerStartError({ reason: result.reason }));
+    yield* Effect.logInfo('Tracking started', { ...result, sessionName, userId });
+
+    yield* Effect.addFinalizer(() => Effect.sync(() => tracker.stop()));
+
+    return identity<TrackerReturn>({ tracker });
+  }),
+}) {}
