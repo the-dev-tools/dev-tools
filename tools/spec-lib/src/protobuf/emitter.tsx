@@ -95,7 +95,7 @@ const fieldNumberFromName = (value: string) => {
 };
 
 // https://protobuf.dev/programming-guides/proto3/#enum
-const enumNumberFromName = (value: string) => Math.abs(Hash.string(value) % 2 ** 32);
+// const enumNumberFromName = (value: string) => Math.abs(Hash.string(value) % 2 ** 32);
 
 // https://protobuf.dev/programming-guides/proto3/#scalar
 const protoScalarsMapCache = new WeakMap<Program, HashMap.HashMap<Type, string>>();
@@ -356,9 +356,10 @@ const ProtoEnum = ({ _enum }: ProtoEnumProps) => {
       {fieldName('Unspecified')} = 0;
       <hbr />
       <For each={_enum.members.values()} enderPunctuation hardline semicolon>
-        {(_) => {
+        {(_, index) => {
           const name = fieldName(_.name);
-          return `${name} = ${_.value ?? enumNumberFromName(name)}`;
+          // TODO: use `enumNumberFromName(name)` instead of `index + 1` once server enum usage is fixed
+          return `${name} = ${_.value ?? index + 1}`;
         }}
       </For>
     </Block>
