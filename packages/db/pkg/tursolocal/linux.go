@@ -30,7 +30,7 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*sq
 
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		err := os.MkdirAll(path, os.ModeAppend)
+		err := os.MkdirAll(path, 0o755)
 		fmt.Println("Creating directory")
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
@@ -47,17 +47,21 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*sq
 	connectionUrlParams := make(url.Values)
 	connectionUrlParams.Add("_txlock", "immediate")
 	connectionUrlParams.Add("_journal_mode", "WAL")
-	connectionUrlParams.Add("_busy_timeout", "5000")
+	connectionUrlParams.Add("_busy_timeout", "10000")
 	connectionUrlParams.Add("_synchronous", "NORMAL")
-	connectionUrlParams.Add("_cache_size", "1000000000")
+	connectionUrlParams.Add("_cache_size", "-524288")
 	connectionUrlParams.Add("_foreign_keys", "true")
+	connectionUrlParams.Add("_wal_autocheckpoint", "1000")
+	connectionUrlParams.Add("_mmap_size", "268435456")
+	connectionUrlParams.Add("_temp_store", "memory")
 
 	connectionUrl := fmt.Sprintf("file:%s?%s", dbFilePath, connectionUrlParams.Encode())
 	db, err := sql.Open("libsql", connectionUrl)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}
-	db.SetMaxOpenConns(1)
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(50)
 	err = db.Ping()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to ping database: %w", err)
