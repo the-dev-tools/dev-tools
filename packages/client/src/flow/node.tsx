@@ -2,7 +2,7 @@ import { create, enumFromJson, enumToJson, isEnumJson, Message, MessageInitShape
 import { getConnectedEdges, Node as NodeCore, NodeProps as NodePropsCore, useReactFlow } from '@xyflow/react';
 import { Array, Match, Option, pipe, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { ReactNode, Suspense, use, useCallback, useRef, useState } from 'react';
+import { ReactNode, Suspense, use, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button as AriaButton,
   Key,
@@ -367,7 +367,10 @@ interface NodeExecutionTabsProps {
 }
 
 const NodeExecutionTabs = ({ nodeExecutionId, renderOutput }: NodeExecutionTabsProps) => {
-  const data = useQuery(NodeExecutionGetEndpoint, { nodeExecutionId });
+  const [controller] = useState(new AbortController());
+  const data = useQuery(NodeExecutionGetEndpoint, { nodeExecutionId }, { signal: controller.signal });
+
+  useEffect(() => () => void controller.abort(), [controller]);
 
   return (
     <Tabs className={tw`flex h-full flex-col pb-4`} defaultSelectedKey='output'>
