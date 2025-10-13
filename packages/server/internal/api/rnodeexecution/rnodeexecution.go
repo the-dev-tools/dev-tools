@@ -168,7 +168,7 @@ func (s *NodeExecutionServiceRPC) NodeExecutionGet(
 
 const (
 	responsePollInterval = 10 * time.Millisecond
-	responsePollTimeout  = 250 * time.Millisecond
+	responsePollTimeout  = 10 * time.Second
 )
 
 func (s *NodeExecutionServiceRPC) awaitResponseID(ctx context.Context, executionID idwrap.IDWrap) (*mnodeexecution.NodeExecution, error) {
