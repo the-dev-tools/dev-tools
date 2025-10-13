@@ -1,25 +1,26 @@
 package rnodeexecution
 
 import (
-	"context"
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/rflow"
-	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
-	"the-dev-tools/server/pkg/permcheck"
-	"the-dev-tools/server/pkg/service/sexampleresp"
-	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snoderequest"
-	"the-dev-tools/server/pkg/service/suser"
-	"the-dev-tools/server/pkg/translate/tnodeexecution"
-	nodeexecutionv1 "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1"
-	"the-dev-tools/spec/dist/buf/go/flow/node/execution/v1/nodeexecutionv1connect"
-	"time"
+    "context"
+    "errors"
+    "the-dev-tools/server/internal/api"
+    "the-dev-tools/server/internal/api/rflow"
+    "the-dev-tools/server/pkg/idwrap"
+    "the-dev-tools/server/pkg/model/mnnode"
+    "the-dev-tools/server/pkg/model/mnodeexecution"
+    "the-dev-tools/server/pkg/permcheck"
+    "the-dev-tools/server/pkg/service/sexampleresp"
+    "the-dev-tools/server/pkg/service/sflow"
+    "the-dev-tools/server/pkg/service/snode"
+    "the-dev-tools/server/pkg/service/snodeexecution"
+    "the-dev-tools/server/pkg/service/snoderequest"
+    "the-dev-tools/server/pkg/service/suser"
+    "the-dev-tools/server/pkg/translate/tnodeexecution"
+    nodeexecutionv1 "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1"
+    "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1/nodeexecutionv1connect"
+    "time"
 
-	"connectrpc.com/connect"
+    "connectrpc.com/connect"
 )
 
 type NodeExecutionServiceRPC struct {
@@ -184,14 +185,18 @@ func (s *NodeExecutionServiceRPC) awaitResponseID(ctx context.Context, execution
 				return nil, nil
 			}
 			return nil, waitCtx.Err()
-		case <-ticker.C:
-			exec, err := s.nes.GetNodeExecution(waitCtx, executionID)
-			if err != nil {
-				return nil, err
-			}
-			if exec.ResponseID != nil {
-				return exec, nil
-			}
+    case <-ticker.C:
+        exec, err := s.nes.GetNodeExecution(waitCtx, executionID)
+        if err != nil {
+            // Treat short poll deadline/cancel as "no update yet" instead of an error
+            if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+                return nil, nil
+            }
+            return nil, err
+        }
+        if exec.ResponseID != nil {
+            return exec, nil
+        }
 		}
 	}
 }

@@ -55,7 +55,9 @@ func NewSQLiteLocal(ctx context.Context, dbName, path, encryptionKey string) (*s
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}
-	db.SetMaxOpenConns(1)
+    // Allow ample concurrent readers alongside a single writer in WAL mode
+    db.SetMaxOpenConns(50)
+    db.SetMaxIdleConns(50)
 	err = db.Ping()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to ping database: %w", err)

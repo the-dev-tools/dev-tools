@@ -1674,11 +1674,35 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 		}
 	}()
 
-	processRequestResponse := func(requestNodeResp nrequest.NodeRequestSideResp) error {
-		err := c.HandleExampleChanges(ctx, requestNodeResp)
-		if err != nil {
-			log.Println("cannot update example on flow run", err)
-		}
+    processRequestResponse := func(requestNodeResp nrequest.NodeRequestSideResp) error {
+        // Keep DB writes atomic and avoid pool deadlocks by using a single tx for the whole write sequence
+        ctxTx, cancel := context.WithTimeout(ctx, 5*time.Second)
+        defer cancel()
+
+        tx, err := c.DB.BeginTx(ctxTx, &sql.TxOptions{})
+        if err != nil {
+            return err
+        }
+        defer devtoolsdb.TxnRollback(tx)
+
+        if err := c.HandleExampleChanges(ctxTx, tx, requestNodeResp); err != nil {
+            log.Println("cannot update example on flow run", err)
+            // Skip linking if we couldn't persist response; rollback via defer
+            return nil
+        }
+
+        if err := tx.Commit(); err != nil {
+            log.Println("cannot commit response changes on flow run", err)
+            // Skip linking if commit failed
+            return nil
+        }
+
+        // After commit, run the heavier copy/versioning work asynchronously so linking is not delayed
+        go func(r nrequest.NodeRequestSideResp) {
+            if err := c.createVersionedExampleAfterCommit(ctx, r); err != nil {
+                log.Println("post-commit example copy failed", err)
+            }
+        }(requestNodeResp)
 
 		pendingMutex.Lock()
 		targetExecutionID := requestNodeResp.ExecutionID
@@ -2466,108 +2490,102 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	return nil
 }
 
-func (c *FlowServiceRPC) HandleExampleChanges(ctx context.Context, requestNodeResp nrequest.NodeRequestSideResp) error {
-	FullHeaders := append(requestNodeResp.Resp.CreateHeaders, requestNodeResp.Resp.UpdateHeaders...)
+func (c *FlowServiceRPC) HandleExampleChanges(ctx context.Context, tx *sql.Tx, requestNodeResp nrequest.NodeRequestSideResp) error {
+    // Only persist the immediate response data inside this transaction to keep the
+    // critical section short. The heavier example copy/versioning runs after commit.
 
-	var assertResults []massertres.AssertResult
-	var assert []massert.Assert
-	for _, assertCouple := range requestNodeResp.Resp.AssertCouples {
-		assertResults = append(assertResults, assertCouple.AssertRes)
-		assert = append(assert, assertCouple.Assert)
-	}
+    // Use tx-bound services
+    txErs := c.ers.TX(tx)
+    txErhs := c.erhs.TX(tx)
+    txArs := c.ars.TX(tx)
 
-	example := requestNodeResp.Example
-	endpoint, err := c.ias.GetItemApi(ctx, example.ItemApiID)
-	if err != nil {
-		return err
-	}
+    // Persist response
+    if err := txErs.CreateExampleResp(ctx, requestNodeResp.Resp.ExampleResp); err != nil {
+        return err
+    }
+    for _, header := range requestNodeResp.Resp.CreateHeaders {
+        if err := txErhs.CreateExampleRespHeader(ctx, header); err != nil {
+            return err
+        }
+    }
+    for _, header := range requestNodeResp.Resp.UpdateHeaders {
+        if err := txErhs.UpdateExampleRespHeader(ctx, header); err != nil {
+            return err
+        }
+    }
+    for _, headerID := range requestNodeResp.Resp.DeleteHeaderIds {
+        if err := txErhs.DeleteExampleRespHeader(ctx, headerID); err != nil {
+            return err
+        }
+    }
 
-	endpoint.VersionParentID = &endpoint.ID
-	endpointNewID := idwrap.NewNow()
-	endpoint.ID = endpointNewID
+    if len(requestNodeResp.Resp.AssertCouples) > 0 {
+        for _, couple := range requestNodeResp.Resp.AssertCouples {
+            if err := txArs.CreateAssertResult(ctx, couple.AssertRes); err != nil {
+                return err
+            }
+        }
+    }
+    return nil
+}
 
-	err = c.ias.CreateItemApi(ctx, endpoint)
-	if err != nil {
-		return err
-	}
+// createVersionedExampleAfterCommit runs outside the response write transaction.
+// It creates a new endpoint version, prepares a copy of the example and persists it.
+func (c *FlowServiceRPC) createVersionedExampleAfterCommit(ctx context.Context, requestNodeResp nrequest.NodeRequestSideResp) error {
+    FullHeaders := append(requestNodeResp.Resp.CreateHeaders, requestNodeResp.Resp.UpdateHeaders...)
 
-	example.VersionParentID = &example.ID
+    // Gather asserts from couples
+    var (
+        assertResults []massertres.AssertResult
+        asserts       []massert.Assert
+    )
+    for _, couple := range requestNodeResp.Resp.AssertCouples {
+        assertResults = append(assertResults, couple.AssertRes)
+        asserts = append(asserts, couple.Assert)
+    }
 
-	// TODO: should use same transaction as flow
-	tx2, err := c.DB.BeginTx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return err
-	}
-	defer devtoolsdb.TxnRollback(tx2)
+    example := requestNodeResp.Example
 
-	txExampleResp, err := sexampleresp.NewTX(ctx, tx2)
-	if err != nil {
-		return err
-	}
+    // Read original endpoint outside a write transaction
+    endpoint, err := c.ias.GetItemApi(ctx, example.ItemApiID)
+    if err != nil {
+        return err
+    }
 
-	err = txExampleResp.CreateExampleResp(ctx, requestNodeResp.Resp.ExampleResp)
-	if err != nil {
-		return err
-	}
+    // Prepare new endpoint row
+    endpoint.VersionParentID = &endpoint.ID
+    endpointNewID := idwrap.NewNow()
+    endpoint.ID = endpointNewID
 
-	txHeaderResp, err := sexamplerespheader.NewTX(ctx, tx2)
-	if err != nil {
-		return err
-	}
+    // Prepare the copy result (no DB work yet)
+    example.VersionParentID = &example.ID
+    copyRes, err := ritemapiexample.PrepareCopyExampleNoService(ctx, endpointNewID, example,
+        requestNodeResp.Queries, requestNodeResp.Headers, asserts,
+        &requestNodeResp.RawBody, requestNodeResp.FormBody, requestNodeResp.UrlBody,
+        &requestNodeResp.Resp.ExampleResp, FullHeaders, assertResults)
+    if err != nil {
+        return err
+    }
 
-	for _, header := range requestNodeResp.Resp.CreateHeaders {
-		err = txHeaderResp.CreateExampleRespHeader(ctx, header)
-		if err != nil {
-			return err
-		}
-	}
-	for _, header := range requestNodeResp.Resp.UpdateHeaders {
-		err = txHeaderResp.UpdateExampleRespHeader(ctx, header)
-		if err != nil {
-			return err
-		}
-	}
-	for _, headerID := range requestNodeResp.Resp.DeleteHeaderIds {
-		err = txHeaderResp.DeleteExampleRespHeader(ctx, headerID)
-		if err != nil {
-			return err
-		}
-	}
+    // Persist endpoint + example copy in a short, separate transaction
+    ctxTx, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+    tx, err := c.DB.BeginTx(ctxTx, &sql.TxOptions{})
+    if err != nil {
+        return err
+    }
+    defer devtoolsdb.TxnRollback(tx)
 
-	// Handle assert results - create/update them in the database
-	if len(assertResults) > 0 {
-		txAssertRes, err := sassertres.NewTX(ctx, tx2)
-		if err != nil {
-			return err
-		}
-
-		for _, assertResult := range assertResults {
-			err = txAssertRes.CreateAssertResult(ctx, assertResult)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	res, err := ritemapiexample.PrepareCopyExampleNoService(ctx, endpointNewID, example,
-		requestNodeResp.Queries, requestNodeResp.Headers, assert,
-		&requestNodeResp.RawBody, requestNodeResp.FormBody, requestNodeResp.UrlBody,
-		&requestNodeResp.Resp.ExampleResp, FullHeaders, assertResults)
-	if err != nil {
-		return err
-	}
-
-	err = ritemapiexample.CreateCopyExample(ctx, tx2, res)
-	if err != nil {
-		return err
-	}
-
-	err = tx2.Commit()
-	if err != nil {
-		return err
-	}
-
-	return nil
+    if err := c.ias.TX(tx).CreateItemApi(ctxTx, endpoint); err != nil {
+        return err
+    }
+    if err := ritemapiexample.CreateCopyExample(ctxTx, tx, copyRes); err != nil {
+        return err
+    }
+    if err := tx.Commit(); err != nil {
+        return err
+    }
+    return nil
 }
 
 type CopyFlowResult struct {
