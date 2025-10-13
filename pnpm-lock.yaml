@@ -11,6 +11,9 @@ patchedDependencies:
   '@nx/eslint':
     hash: 45d7a0a2e2d55c4ffd4beb467a0e02fac3f27bc1857270f522acafd5365d2c6b
     path: patches/@nx__eslint.patch
+  '@openreplay/tracker@16.4.9':
+    hash: 6fba2a76ac2e1f3f9080082e42c6f8cb7da653e1c4be3d83e8c824ab9b58fddd
+    path: patches/@openreplay__tracker@16.4.9.patch
   '@react-stately/table':
     hash: 5ac384399a7b8e18c4e19f25e434b2f2f27fbd45e7a91cdeb30408330b7243b4
     path: patches/@react-stately__table.patch
@@ -275,7 +278,7 @@ importers:
         version: 1.4.2
       '@openreplay/tracker':
         specifier: 16.4.9
-        version: 16.4.9
+        version: 16.4.9(patch_hash=6fba2a76ac2e1f3f9080082e42c6f8cb7da653e1c4be3d83e8c824ab9b58fddd)
       '@prettier/plugin-xml':
         specifier: 3.4.2
         version: 3.4.2(prettier@3.6.2)
@@ -12599,7 +12602,7 @@ snapshots:
 
   '@openreplay/network-proxy@1.2.0': {}
 
-  '@openreplay/tracker@16.4.9':
+  '@openreplay/tracker@16.4.9(patch_hash=6fba2a76ac2e1f3f9080082e42c6f8cb7da653e1c4be3d83e8c824ab9b58fddd)':
     dependencies:
       '@openreplay/network-proxy': 1.2.0
       error-stack-parser: 2.1.4

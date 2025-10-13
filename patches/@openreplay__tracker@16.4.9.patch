@@ -1,0 +1,89 @@
+# TODO
+# Remove once resolved: https://github.com/openreplay/openreplay/issues/3723#issuecomment-3396944974
+# Based on: https://github.com/openreplay/openreplay/commit/7f6ac79eb95e3ed07d7fbd3beb0296b816421e36
+diff --git a/dist/lib/entry.js b/dist/lib/entry.js
+index 36c1bd609e8fa2c9c3323078af6e501bae80f550..dde9c2ee20df44e6352702ee4ae8c159b7775bbd 100644
+--- a/dist/lib/entry.js
++++ b/dist/lib/entry.js
+@@ -8899,6 +8899,31 @@ class FetchProxyHandler {
+         }
+         const item = new NetworkMessage(this.ignoredHeaders, this.setSessionTokenHeader, this.sanitize);
+         this.beforeFetch(item, input, init);
++
++        const signal =
++            (argsList[0] instanceof Request ? argsList[0].signal : undefined) ||
++            (argsList[1]?.signal);
++        // guard to avoid double-send
++        let abortedNotified = false;
++        const notifyAbort = () => {
++            if (abortedNotified) return;
++            abortedNotified = true;
++            item.endTime = performance.now();
++            item.duration = item.endTime - (item.startTime || item.endTime);
++            item.status = 0;
++            item.statusText = 'Aborted';
++            item.readyState = 0;
++            const msg = item.getMessage();
++            if (msg) this.sendMessage(msg);
++        };
++        if (signal) {
++            if (signal.aborted) {
++                notifyAbort();
++            } else {
++                signal.addEventListener('abort', notifyAbort, { once: true });
++            }
++        }
++
+         this.setSessionTokenHeader((name, value) => {
+             if (this.tokenUrlMatcher !== undefined) {
+                 if (!this.tokenUrlMatcher(item.url)) {
+@@ -8927,11 +8952,21 @@ class FetchProxyHandler {
+             }
+         });
+         return target.apply(window, argsList)
+-            .then(this.afterFetch(item))
++            .then(this.afterFetch(item, () => {
++                abortedNotified = true;
++            }))
+             .catch((e) => {
+-            // mock finally
+             item.endTime = performance.now();
+             item.duration = item.endTime - (item.startTime || item.endTime);
++            if (e && e.name === 'AbortError') {
++                item.status = 0;
++                item.statusText = 'Aborted';
++                item.readyState = 0;
++                if (!abortedNotified) {
++                    const msg = item.getMessage();
++                    if (msg) this.sendMessage(msg);
++                }
++            }
+             throw e;
+         });
+     }
+@@ -8983,8 +9018,9 @@ class FetchProxyHandler {
+             item.requestData = genStringBody(init.body);
+         }
+     }
+-    afterFetch(item) {
++    afterFetch(item, onResolved) {
+         return (resp) => {
++            if (onResolved) onResolved?.();
+             item.endTime = performance.now();
+             item.duration = item.endTime - (item.startTime || item.endTime);
+             item.status = resp.status;
+@@ -9017,7 +9053,13 @@ class FetchProxyHandler {
+                     }
+                 })
+                     .catch((e) => {
+-                    if (e.name !== 'AbortError') {
++                    if (e.name === 'AbortError') {
++                        item.status = 0;
++                        item.statusText = 'Aborted';
++                        item.readyState = 0;
++                        const msg = item.getMessage();
++                        if (msg) this.sendMessage(msg);
++                    } else {
+                         throw e;
+                     }
+                 });

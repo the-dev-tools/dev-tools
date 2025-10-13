@@ -23,10 +23,11 @@ onlyBuiltDependencies:
   - unrs-resolver
   - utf-8-validate
 
-patchedDependencies:
-  '@nx/eslint': patches/@nx__eslint.patch
-  '@react-stately/table': patches/@react-stately__table.patch
-  '@typespec/protobuf': patches/@typespec__protobuf.patch
-
 overrides:
   '@types/eslint': '-'
+
+patchedDependencies:
+  '@nx/eslint': patches/@nx__eslint.patch
+  '@openreplay/tracker@16.4.9': patches/@openreplay__tracker@16.4.9.patch
+  '@react-stately/table': patches/@react-stately__table.patch
+  '@typespec/protobuf': patches/@typespec__protobuf.patch

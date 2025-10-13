@@ -12,24 +12,8 @@ export class ApiTransport extends Effect.Service<ApiTransport>()('ApiTransport',
     const mock = yield* pipe(Config.boolean('PUBLIC_MOCK'), Config.withDefault(false));
     if (mock) return yield* ApiTransportMock;
 
-    const { tracker } = yield* Tracker;
-
-    // TODO: remove when bug gets fixed upstream
-    // https://github.com/openreplay/openreplay/issues/3723
-    const openReplayWorkaround = yield* pipe(
-      Config.boolean('CONNECT_RPC_WORKAROUND'),
-      Config.nested('PUBLIC_OPEN_REPLAY'),
-      Config.orElse(() => Config.succeed(false)),
-    );
-
-    const fetch: typeof globalThis.fetch = (input, init) => {
-      if (openReplayWorkaround && tracker?.isActive() && init) delete init.signal;
-      return globalThis.fetch(input, init);
-    };
-
     return createConnectTransport({
       baseUrl: 'http://localhost:8080',
-      fetch,
       interceptors: defaultInterceptors,
       jsonOptions: { registry: createRegistry(...files) },
       useHttpGet: true,
