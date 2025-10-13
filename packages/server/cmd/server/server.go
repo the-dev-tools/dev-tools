@@ -409,9 +409,13 @@ func GetDBLocal(ctx context.Context) (*sql.DB, func(), error) {
 	if encryptKey == "" {
 		return nil, nil, errors.New("DB_ENCRYPT_KEY env var is required")
 	}
-	db, a, err := tursolocal.NewTursoLocal(ctx, dbName, dbPath, encryptKey)
+	localDB, err := tursolocal.NewTursoLocal(ctx, dbName, dbPath, encryptKey)
 	if err != nil {
 		return nil, nil, err
 	}
-	return db, a, nil
+	cleanup := localDB.CleanupFunc
+	if cleanup == nil {
+		cleanup = func() {}
+	}
+	return localDB.WriteDB, cleanup, nil
 }

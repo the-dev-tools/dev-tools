@@ -6,8 +6,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"the-dev-tools/db/pkg/sqlc"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -19,51 +21,98 @@ var (
 	ErrDBPathNotFound   = fmt.Errorf("db path not found")
 )
 
-func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*sql.DB, func(), error) {
+func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*LocalDB, error) {
 	if dbName == "" {
-		return nil, nil, ErrDBNameNotFound
+		return nil, ErrDBNameNotFound
 	}
 	if path == "" {
-		return nil, nil, ErrDBNameNotFound
+		return nil, ErrDBNameNotFound
 	}
 
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		err := os.MkdirAll(path, os.ModeAppend)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
 		fmt.Println("Creating directory")
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		if err := os.MkdirAll(path, os.ModeAppend); err != nil {
+			return nil, fmt.Errorf("failed to create directory: %w", err)
 		}
 	}
 
-	dbFilePath := filepath.Join(path, dbName+".db")
-	_, err = os.Stat(dbFilePath)
-	var firstTime bool
-	if os.IsNotExist(err) {
-		firstTime = true
+	dbFile := filepath.Join(path, dbName+".db")
+	_, statErr := os.Stat(dbFile)
+	firstTime := os.IsNotExist(statErr)
+
+	writerParams := url.Values{
+		"mode":                []string{"rwc"},
+		"_journal_mode":       []string{"WAL"},
+		"_busy_timeout":       []string{"10000"},
+		"_foreign_keys":       []string{"true"},
+		"_synchronous":        []string{"NORMAL"},
+		"_cache_size":         []string{"-524288"},
+		"_temp_store":         []string{"memory"},
+		"_wal_autocheckpoint": []string{"1000"},
 	}
-	dbFilePath = fmt.Sprintf("file:%s?mode=rwc&_journal_mode=WAL", dbFilePath)
-	db, err := sql.Open("sqlite3", dbFilePath)
+
+	writerDSN := fmt.Sprintf("file:%s?%s", dbFile, writerParams.Encode())
+	writeDB, err := sql.Open("sqlite3", writerDSN)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("failed to open write database: %w", err)
 	}
-	db.SetMaxOpenConns(1)
-	err = db.Ping()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to ping database: %w", err)
+	writeDB.SetMaxOpenConns(1)
+	writeDB.SetMaxIdleConns(1)
+	if err := writeDB.PingContext(ctx); err != nil {
+		writeDB.Close()
+		return nil, fmt.Errorf("failed to ping write database: %w", err)
 	}
-	a := func() {
-		db.Close()
-	}
+
 	if firstTime {
 		fmt.Println("Creating tables")
-		err = sqlc.CreateLocalTables(ctx, db)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create tables: %w", err)
+		if err := sqlc.CreateLocalTables(ctx, writeDB); err != nil {
+			writeDB.Close()
+			return nil, fmt.Errorf("failed to create tables: %w", err)
 		}
-
 		fmt.Println("Tables created")
 	}
 
-	return db, a, nil
+	readerParams := cloneValues(writerParams)
+	readerParams.Set("mode", "ro")
+	readerParams.Del("_wal_autocheckpoint")
+
+	readerDSN := fmt.Sprintf("file:%s?%s", dbFile, readerParams.Encode())
+	readDB, err := sql.Open("sqlite3", readerDSN)
+	if err != nil {
+		writeDB.Close()
+		return nil, fmt.Errorf("failed to open read database: %w", err)
+	}
+	readDB.SetMaxOpenConns(10)
+	readDB.SetMaxIdleConns(10)
+	if err := readDB.PingContext(ctx); err != nil {
+		readDB.Close()
+		writeDB.Close()
+		return nil, fmt.Errorf("failed to ping read database: %w", err)
+	}
+
+	localDB := &LocalDB{
+		WriteDB: writeDB,
+		ReadDB:  readDB,
+	}
+
+	var closeOnce sync.Once
+	var closeErr error
+	closeAll := func() {
+		if err := writeDB.Close(); err != nil && closeErr == nil {
+			closeErr = err
+		}
+		if err := readDB.Close(); err != nil && closeErr == nil {
+			closeErr = err
+		}
+	}
+
+	localDB.CloseFunc = func(context.Context) error {
+		closeOnce.Do(closeAll)
+		return closeErr
+	}
+	localDB.CleanupFunc = func() {
+		closeOnce.Do(closeAll)
+	}
+
+	return localDB, nil
 }

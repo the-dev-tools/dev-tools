@@ -21,7 +21,11 @@ import (
 
 // openCurrent mirrors the exported constructor so benchmarks capture the default configuration.
 func openCurrent(ctx context.Context, dbName, path string) (*sql.DB, func(), error) {
-	return NewTursoLocal(ctx, dbName, path, "")
+	local, err := NewTursoLocal(ctx, dbName, path, "")
+	if err != nil {
+		return nil, nil, err
+	}
+	return local.WriteDB, local.CleanupFunc, nil
 }
 
 // openLegacy recreates the previous single-connection configuration to provide a comparison point.
