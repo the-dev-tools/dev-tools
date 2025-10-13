@@ -54,13 +54,13 @@ func (n NodeJS) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 		return result
 	}
 
-	rpcReqRaw := node_js_executorv1.ExecuteNodeJsRequest{
+	rpcReqRaw := node_js_executorv1.NodeJsExecutorRunRequest{
 		Context: val,
 		Code:    n.jsCode,
 	}
 	rpcReq := connect.NewRequest(&rpcReqRaw)
 
-	rpcResp, err := n.nodejsClient.ExecuteNodeJS(ctx, rpcReq)
+	rpcResp, err := n.nodejsClient.NodeJsExecutorRun(ctx, rpcReq)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to execute nodejs: %w", err)
 		return result
@@ -94,13 +94,13 @@ func (n NodeJS) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 		return
 	}
 
-	rpcReqRaw := node_js_executorv1.ExecuteNodeJsRequest{
+	rpcReqRaw := node_js_executorv1.NodeJsExecutorRunRequest{
 		Context: val,
 		Code:    n.jsCode,
 	}
 	rpcReq := connect.NewRequest(&rpcReqRaw)
 
-	rpcResp, err := n.nodejsClient.ExecuteNodeJS(ctx, rpcReq)
+	rpcResp, err := n.nodejsClient.NodeJsExecutorRun(ctx, rpcReq)
 	if err != nil {
 		result.Err = fmt.Errorf("failed to execute nodejs: %w", err)
 		resultChan <- result

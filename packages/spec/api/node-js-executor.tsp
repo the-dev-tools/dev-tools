@@ -2,15 +2,15 @@ using DevTools;
 
 namespace API.NodeJsExecutor;
 
-model ExecuteNodeJsRequest {
+model NodeJsExecutorRunRequest {
   context: Protobuf.WellKnown.Json;
   code: string;
 }
 
-model ExecuteNodeJsResponse {
+model NodeJsExecutorRunResponse {
   result: Protobuf.WellKnown.Json;
 }
 
 interface NodeJsExecutorService {
-  ExecuteNodeJS(...ExecuteNodeJsRequest): ExecuteNodeJsResponse;
+  NodeJsExecutorRun(...NodeJsExecutorRunRequest): NodeJsExecutorRunResponse;
 }

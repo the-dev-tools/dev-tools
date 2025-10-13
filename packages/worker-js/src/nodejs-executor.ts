@@ -6,7 +6,7 @@ import { NodeJsExecutorService as NodeJsExecutorServiceSchema } from '@the-dev-t
 
 export const NodeJsExecutorService = (router: ConnectRouter) =>
   router.service(NodeJsExecutorServiceSchema, {
-    executeNodeJS: async (request) => {
+    nodeJsExecutorRun: async (request) => {
       const module = new SourceTextModule(request.code);
 
       await module.link(() => {
