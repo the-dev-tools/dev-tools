@@ -1,6 +1,6 @@
 module the-dev-tools/spec
 
-go 1.24.1
+go 1.25
 
 require (
 	connectrpc.com/connect v1.18.1

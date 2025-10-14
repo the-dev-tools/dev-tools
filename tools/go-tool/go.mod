@@ -1,6 +1,6 @@
 module tools
 
-go 1.24.1
+go 1.25
 
 tool (
 	connectrpc.com/connect/cmd/protoc-gen-connect-go

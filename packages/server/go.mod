@@ -1,6 +1,6 @@
 module the-dev-tools/server
 
-go 1.24.1
+go 1.25
 
 require (
 	connectrpc.com/connect v1.18.1

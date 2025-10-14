@@ -35,7 +35,7 @@
         devShells.runner = let
           gha-scripts = pkgs.writeShellApplication {
             name = "gha-scripts";
-            runtimeInputs = with pkgs; [pnpm];
+            runtimeInputs = with pkgs; [pnpm jq];
             runtimeEnv.NODE_OPTIONS = "--disable-warning=ExperimentalWarning";
             text = ''pnpm run --filter="*/gha-scripts" cli "$@"'';
           };
@@ -62,7 +62,7 @@
               gcc
               gh
               gha-scripts
-              go
+              go_1_25
               go-task
               jq
               nodejs_latest
