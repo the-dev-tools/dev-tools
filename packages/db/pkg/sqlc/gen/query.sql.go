@@ -9380,7 +9380,11 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID id
 }
 
 const getLatestNodeExecutionByNodeID = `-- name: GetLatestNodeExecutionByNodeID :one
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution WHERE node_id = ? ORDER BY id DESC LIMIT 1
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
+FROM node_execution
+WHERE node_id = ? AND completed_at IS NOT NULL
+ORDER BY completed_at DESC, id DESC
+LIMIT 1
 `
 
 func (q *Queries) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idwrap.IDWrap) (NodeExecution, error) {
@@ -9491,7 +9495,10 @@ func (q *Queries) GetNodeExecution(ctx context.Context, id idwrap.IDWrap) (NodeE
 }
 
 const getNodeExecutionsByNodeID = `-- name: GetNodeExecutionsByNodeID :many
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution WHERE node_id = ? ORDER BY id DESC
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
+FROM node_execution
+WHERE node_id = ? AND completed_at IS NOT NULL
+ORDER BY completed_at DESC, id DESC
 `
 
 func (q *Queries) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.IDWrap) ([]NodeExecution, error) {

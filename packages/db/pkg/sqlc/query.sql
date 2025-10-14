@@ -3644,10 +3644,17 @@ ON CONFLICT(id) DO UPDATE SET
 RETURNING *;
 
 -- name: GetNodeExecutionsByNodeID :many
-SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC;
+SELECT *
+FROM node_execution
+WHERE node_id = ? AND completed_at IS NOT NULL
+ORDER BY completed_at DESC, id DESC;
 
 -- name: GetLatestNodeExecutionByNodeID :one
-SELECT * FROM node_execution WHERE node_id = ? ORDER BY id DESC LIMIT 1;
+SELECT *
+FROM node_execution
+WHERE node_id = ? AND completed_at IS NOT NULL
+ORDER BY completed_at DESC, id DESC
+LIMIT 1;
 
 -- name: DeleteNodeExecutionsByNodeID :exec
 DELETE FROM node_execution WHERE node_id = ?;
