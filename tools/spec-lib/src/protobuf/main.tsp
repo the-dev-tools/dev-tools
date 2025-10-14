@@ -49,3 +49,7 @@ namespace WellKnown {
   model Json is External<"google/protobuf/struct.proto", "google.protobuf.Value">;
   model Timestamp is External<"google/protobuf/timestamp.proto", "google.protobuf.Timestamp">;
 }
+
+namespace Validate {
+  model Field is External<"buf/validate/validate.proto", "buf.validate.field">;
+}

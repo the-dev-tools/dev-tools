@@ -8,6 +8,7 @@ import {
   Declaration,
   For,
   getSymbolCreatorSymbol,
+  List,
   memo,
   Name,
   OutputScope,
@@ -403,16 +404,21 @@ interface FieldProps {
 }
 
 const Field = ({ property }: FieldProps) => {
-  const { $ } = useTsp();
+  const { $, program } = useTsp();
   const protoTypeMap = useProtoTypeMap();
 
   const type = pipe(property.type, protoTypeMap, Option.getOrThrow);
   const number = fieldNumberFromName(property.name);
 
+  const repeatedOrOptional = $.array.is(property.type) ? 'repeated' : property.optional && 'optional';
+
+  const options = $.model.is(property.type) && !$.array.is(property.type) && !property.optional && (
+    <>[({refkey(program.resolveTypeReference('DevTools.Protobuf.Validate.Field')[0])}).required = true]</>
+  );
+
   return (
     <>
-      {$.array.is(property.type) ? 'repeated ' : property.optional && 'optional '}
-      {type} {property.name} = {number};
+      <List space>{[repeatedOrOptional, type, `${property.name} = ${number}`, options]}</List>;
     </>
   );
 };

@@ -1,6 +1,9 @@
 # yaml-language-server: $schema=https://json.schemastore.org/buf.json
 version: v2
 
+deps:
+  - buf.build/bufbuild/protovalidate
+
 modules:
   - path: ./dist/protobuf
 
