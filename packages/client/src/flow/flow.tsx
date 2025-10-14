@@ -1,5 +1,6 @@
 import { enumFromJson, isEnumJson } from '@bufbuild/protobuf';
 import { ConnectError, createClient } from '@connectrpc/connect';
+import { Atom, useAtom } from '@effect-atom/atom-react';
 import { useBlocker, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import {
   Background,
@@ -34,7 +35,7 @@ import {
   Stream,
 } from 'effect';
 import { Ulid } from 'id128';
-import { PropsWithChildren, ReactNode, Suspense, use, useCallback, useMemo, useRef, useState } from 'react';
+import { PropsWithChildren, ReactNode, Suspense, use, useCallback, useMemo, useRef } from 'react';
 import { useDrop } from 'react-aria';
 import { Button as AriaButton, Dialog, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { createPortal } from 'react-dom';
@@ -481,6 +482,8 @@ export const TopBarWithControls = () => {
   );
 };
 
+const flowRunControllerAtom = Atom.make(Option.none<AbortController>());
+
 const ActionBar = () => {
   const { flowId } = use(FlowContext);
   const { dataClient, transport } = rootRouteApi.useRouteContext();
@@ -489,20 +492,21 @@ const ActionBar = () => {
   const storeApi = useStoreApi<Node, Edge>();
   const endpointProps = useEndpointProps();
 
-  const [controller, setController] = useState<AbortController>();
+  const [controllerMaybe, setControllerMaybe] = useAtom(flowRunControllerAtom);
 
   const makeNode = useMakeNode();
 
   const { proceed, reset, status } = useBlocker({
-    disabled: !controller,
+    disabled: Option.isNone(controllerMaybe),
     shouldBlockFn: (_) => _.current.pathname !== _.next.pathname,
     withResolver: true,
   });
 
   const onRun = () =>
     Effect.gen(function* () {
+      Option.map(controllerMaybe, (_) => void _.abort());
       const controller = new AbortController();
-      setController(controller);
+      setControllerMaybe(Option.some(controller));
 
       flow.getNodes().forEach((_) => void flow.updateNodeData(_.id, { ..._.data, state: NodeState.UNSPECIFIED }));
       flow.getEdges().forEach((_) => void flow.updateEdgeData(_.id, { ..._.data, state: NodeState.UNSPECIFIED }));
@@ -604,10 +608,14 @@ const ActionBar = () => {
       );
 
       yield* pipe(Fiber.join(fiber1), Effect.zip(Fiber.join(fiber2), { concurrent: true }));
-    }).pipe(Effect.scoped, Effect.ensuring(Effect.sync(() => void setController(undefined))), Effect.runPromise);
+    }).pipe(
+      Effect.scoped,
+      Effect.ensuring(Effect.sync(() => void setControllerMaybe(Option.none()))),
+      Effect.runPromise,
+    );
 
   const onStop = () => {
-    controller?.abort();
+    Option.map(controllerMaybe, (_) => void _.abort());
 
     flow.getNodes().forEach((_) => {
       if (_.data.state !== NodeState.RUNNING) return;
@@ -673,7 +681,7 @@ const ActionBar = () => {
           Add Node
         </Button>
 
-        {controller ? (
+        {Option.isSome(controllerMaybe) ? (
           <Button onPress={onStop} variant='primary'>
             <FiStopCircle className={tw`size-4`} />
             Stop
