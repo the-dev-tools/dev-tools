@@ -80,7 +80,7 @@ import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { EndpointKey, ExampleKey, TreeKey } from '~collection';
-import { useDLE, useEndpointProps, useMutate, useQuery } from '~data-client';
+import { matchAllEndpoint, useDLE, useEndpointProps, useMutate, useQuery } from '~data-client';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -530,8 +530,10 @@ const ActionBar = () => {
 
       const fiber1 = yield* pipe(
         stream1,
-        Stream.runForEach(({ node }) =>
-          Effect.try(() => {
+        Stream.runForEach(({ node, ready }) =>
+          Effect.tryPromise(async () => {
+            if (ready) await dataClient.controller.expireAll({ testKey: matchAllEndpoint(NodeExecutionListEndpoint) });
+
             if (!node) return;
 
             const nodeIdCan = Ulid.construct(node.nodeId).toCanonical();
