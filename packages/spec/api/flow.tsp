@@ -50,6 +50,7 @@ model FlowRunExampleResponse {
 }
 
 model FlowRunResponse {
+  ready?: boolean;
   node?: FlowRunNodeResponse;
   version?: FlowVersionListItem;
   example?: FlowRunExampleResponse;

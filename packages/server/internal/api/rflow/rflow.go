@@ -1481,6 +1481,12 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 	sendFlowResponseSync := func(resp *flowv1.FlowRunResponse) error {
 		return dispatcher.Dispatch(func() error { return stream.Send(resp) })
 	}
+
+	ready := true
+	if err := sendFlowResponseSync(&flowv1.FlowRunResponse{Ready: &ready}); err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
 	nodeExecutionChan := make(chan mnodeexecution.NodeExecution, bufferSize)
 
 	// Collector goroutine for node executions
