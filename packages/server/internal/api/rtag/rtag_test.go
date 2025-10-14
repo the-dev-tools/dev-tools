@@ -40,7 +40,7 @@ func TestGetTag(t *testing.T) {
 		ID:          testTagID,
 		WorkspaceID: wsID,
 		Name:        "test",
-		Color:       uint8(5),
+		Color:       mtag.ColorRose,
 	}
 
 	err := ts.CreateTag(ctx, tagData)
@@ -73,7 +73,7 @@ func TestGetTag(t *testing.T) {
 	}
 
 	testutil.Assert(t, tagData.Name, msg.Name)
-	testutil.Assert(t, tagData.Color, uint8(msg.Color))
+	testutil.Assert(t, tagv1.TagColor_TAG_COLOR_ROSE, msg.Color)
 	testutil.Assert(t, testTagID, respTagID)
 }
 
@@ -97,13 +97,13 @@ func TestCreateTag(t *testing.T) {
 		wsuserID, userID, baseCollectionID)
 
 	const ExpectedName = "test"
-	const ExpectedColor = uint8(5)
+	const ExpectedColor = mtag.ColorRose
 
 	req := connect.NewRequest(
 		&tagv1.TagCreateRequest{
 			WorkspaceId: wsID.Bytes(),
 			Name:        ExpectedName,
-			Color:       tagv1.TagColor(ExpectedColor),
+			Color:       tagv1.TagColor_TAG_COLOR_ROSE,
 		},
 	)
 
@@ -153,7 +153,7 @@ func TestUpdateTag(t *testing.T) {
 		ID:          testTagID,
 		WorkspaceID: wsID,
 		Name:        "test",
-		Color:       uint8(5),
+		Color:       mtag.ColorRose,
 	}
 
 	err := ts.CreateTag(ctx, tagData)
@@ -162,14 +162,14 @@ func TestUpdateTag(t *testing.T) {
 	}
 
 	UpdatedName := "updated"
-	UpdatedColor := uint8(7)
-	UpdatedTagColor := tagv1.TagColor(UpdatedColor)
+	UpdatedColor := mtag.ColorFuchsia
+	updatedProtoColor := tagv1.TagColor_TAG_COLOR_FUCHSIA
 
 	req := connect.NewRequest(
 		&tagv1.TagUpdateRequest{
 			TagId: testTagID.Bytes(),
 			Name:  &UpdatedName,
-			Color: &UpdatedTagColor,
+			Color: &updatedProtoColor,
 		},
 	)
 
@@ -209,7 +209,7 @@ func TestDeleteTag(t *testing.T) {
 		ID:          testTagID,
 		WorkspaceID: wsID,
 		Name:        "test",
-		Color:       uint8(5),
+		Color:       mtag.ColorRose,
 	}
 
 	err := ts.CreateTag(ctx, tagData)

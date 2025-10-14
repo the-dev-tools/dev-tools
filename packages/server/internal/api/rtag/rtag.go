@@ -105,8 +105,12 @@ func (c TagServiceRPC) TagCreate(ctx context.Context, req *connect.Request[tagv1
 		Color: req.Msg.Color,
 	}
 
+	tag, err := ttag.SeralizeRpcToModelWithoutID(&rpcTag, wsID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	tagID := idwrap.NewNow()
-	tag := ttag.SeralizeRpcToModelWithoutID(&rpcTag, wsID)
 	tag.ID = tagID
 	err = c.ts.CreateTag(ctx, *tag)
 	if err != nil {

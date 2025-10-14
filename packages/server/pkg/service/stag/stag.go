@@ -38,7 +38,7 @@ func ConvertDBToModel(item gen.Tag) mtag.Tag {
 		ID:          item.ID,
 		WorkspaceID: item.WorkspaceID,
 		Name:        item.Name,
-		Color:       uint8(item.Color),
+		Color:       mtag.Color(item.Color),
 	}
 }
 
