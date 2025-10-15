@@ -8,6 +8,30 @@ import (
 	tagv1 "the-dev-tools/spec/dist/buf/go/tag/v1"
 )
 
+var (
+	modelToProtoColor = map[mtag.Color]tagv1.TagColor{
+		mtag.ColorSlate:   tagv1.TagColor_TAG_COLOR_SLATE,
+		mtag.ColorGreen:   tagv1.TagColor_TAG_COLOR_GREEN,
+		mtag.ColorAmber:   tagv1.TagColor_TAG_COLOR_AMBER,
+		mtag.ColorSky:     tagv1.TagColor_TAG_COLOR_SKY,
+		mtag.ColorPurple:  tagv1.TagColor_TAG_COLOR_PURPLE,
+		mtag.ColorRose:    tagv1.TagColor_TAG_COLOR_ROSE,
+		mtag.ColorBlue:    tagv1.TagColor_TAG_COLOR_BLUE,
+		mtag.ColorFuchsia: tagv1.TagColor_TAG_COLOR_FUCHSIA,
+	}
+
+	protoToModelColor = func() map[tagv1.TagColor]mtag.Color {
+		inverse := make(map[tagv1.TagColor]mtag.Color, len(modelToProtoColor))
+		for model, proto := range modelToProtoColor {
+			if proto == fallbackTagColor() {
+				continue
+			}
+			inverse[proto] = model
+		}
+		return inverse
+	}()
+)
+
 func SeralizeModelToRPCItem(e mtag.Tag) *tagv1.TagListItem {
 	color := fallbackTagColor()
 	if converted, err := modelTagColorToProto(e.Color); err == nil {
@@ -62,51 +86,23 @@ func SeralizeRpcToModelWithoutID(e *tagv1.Tag, workspaceID idwrap.IDWrap) (*mtag
 }
 
 func modelTagColorToProto(color mtag.Color) (tagv1.TagColor, error) {
-	switch color {
-	case mtag.ColorSlate:
-		return tagv1.TagColor_TAG_COLOR_SLATE, nil
-	case mtag.ColorGreen:
-		return tagv1.TagColor_TAG_COLOR_GREEN, nil
-	case mtag.ColorAmber:
-		return tagv1.TagColor_TAG_COLOR_AMBER, nil
-	case mtag.ColorSky:
-		return tagv1.TagColor_TAG_COLOR_SKY, nil
-	case mtag.ColorPurple:
-		return tagv1.TagColor_TAG_COLOR_PURPLE, nil
-	case mtag.ColorRose:
-		return tagv1.TagColor_TAG_COLOR_ROSE, nil
-	case mtag.ColorBlue:
-		return tagv1.TagColor_TAG_COLOR_BLUE, nil
-	case mtag.ColorFuchsia:
-		return tagv1.TagColor_TAG_COLOR_FUCHSIA, nil
-	default:
-		return tagv1.TagColor_TAG_COLOR_UNSPECIFIED, fmt.Errorf("unknown tag color %d", color)
+	if proto, ok := modelToProtoColor[color]; ok {
+		return proto, nil
 	}
+
+	return fallbackTagColor(), fmt.Errorf("unknown tag color %d", color)
 }
 
 func protoTagColorToModel(color tagv1.TagColor) (mtag.Color, error) {
-	switch color {
-	case tagv1.TagColor_TAG_COLOR_SLATE:
-		return mtag.ColorSlate, nil
-	case tagv1.TagColor_TAG_COLOR_GREEN:
-		return mtag.ColorGreen, nil
-	case tagv1.TagColor_TAG_COLOR_AMBER:
-		return mtag.ColorAmber, nil
-	case tagv1.TagColor_TAG_COLOR_SKY:
-		return mtag.ColorSky, nil
-	case tagv1.TagColor_TAG_COLOR_PURPLE:
-		return mtag.ColorPurple, nil
-	case tagv1.TagColor_TAG_COLOR_ROSE:
-		return mtag.ColorRose, nil
-	case tagv1.TagColor_TAG_COLOR_BLUE:
-		return mtag.ColorBlue, nil
-	case tagv1.TagColor_TAG_COLOR_FUCHSIA:
-		return mtag.ColorFuchsia, nil
-	case tagv1.TagColor_TAG_COLOR_UNSPECIFIED:
+	if color == fallbackTagColor() {
 		return 0, fmt.Errorf("tag color cannot be unspecified")
-	default:
-		return 0, fmt.Errorf("unknown tag color enum %v", color)
 	}
+
+	if model, ok := protoToModelColor[color]; ok {
+		return model, nil
+	}
+
+	return 0, fmt.Errorf("unknown tag color enum %v", color)
 }
 
 func fallbackTagColor() tagv1.TagColor {
