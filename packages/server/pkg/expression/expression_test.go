@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/expr-lang/expr/file"
+	"iter"
 	"the-dev-tools/server/pkg/errmap"
 )
 
@@ -161,6 +162,47 @@ func TestExpressionEvaluteAsBool_RuntimeErrorFriendly(t *testing.T) {
 	var fileErr *file.Error
 	if !errors.As(err, &fileErr) {
 		t.Fatalf("expected underlying file.Error, got %T", err)
+	}
+}
+
+func TestExpressionEvaluateAsIter_ReturnsEmptySeqForNil(t *testing.T) {
+	env := NewEnv(map[string]any{"value": nil})
+
+	seqAny, err := ExpressionEvaluateAsIter(context.Background(), env, "value")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	seq, ok := seqAny.(iter.Seq[any])
+	if !ok {
+		t.Fatalf("expected iter.Seq[any], got %T", seqAny)
+	}
+
+	count := 0
+	for range seq {
+		count++
+	}
+
+	if count != 0 {
+		t.Fatalf("expected empty sequence, got %d elements", count)
+	}
+}
+
+func TestExpressionEvaluateAsIter_ReturnsEmptySeqForEmptyString(t *testing.T) {
+	env := NewEnv(map[string]any{"value": ""})
+
+	seqAny, err := ExpressionEvaluateAsIter(context.Background(), env, "value")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	seq, ok := seqAny.(iter.Seq[any])
+	if !ok {
+		t.Fatalf("expected iter.Seq[any], got %T", seqAny)
+	}
+
+	for range seq {
+		t.Fatalf("expected empty sequence, but iterator yielded elements")
 	}
 }
 

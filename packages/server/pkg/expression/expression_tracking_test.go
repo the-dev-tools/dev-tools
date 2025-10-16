@@ -3,6 +3,8 @@ package expression
 import (
 	"context"
 	"testing"
+
+	"iter"
 	"the-dev-tools/server/pkg/flow/tracking"
 )
 
@@ -128,6 +130,35 @@ func TestExpressionEvaluateAsIter_WithTracking(t *testing.T) {
 		}
 	} else {
 		t.Errorf("Expected data to be map[string]any, got %T", readVars["data"])
+	}
+}
+
+func TestExpressionEvaluateAsIterWithTracking_EmptyString(t *testing.T) {
+	env := NewEnv(map[string]any{"value": ""})
+
+	tracker := tracking.NewVariableTracker()
+
+	seqAny, err := ExpressionEvaluateAsIterWithTracking(context.Background(), env, "value", tracker)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	seq, ok := seqAny.(iter.Seq[any])
+	if !ok {
+		t.Fatalf("expected iter.Seq[any], got %T", seqAny)
+	}
+
+	for range seq {
+		t.Fatalf("expected empty sequence, but iterator yielded elements")
+	}
+
+	readVars := tracker.GetReadVars()
+	val, ok := readVars["value"]
+	if !ok {
+		t.Fatalf("expected tracker to record read for value")
+	}
+	if val != "" {
+		t.Fatalf("expected tracker to record empty string, got %v", val)
 	}
 }
 

@@ -436,6 +436,16 @@ func ExpressionEvaluateAsIter(ctx context.Context, env Env, expressionString str
 		return nil, wrapExpressionError(expressionString, expressionPhaseRun, err)
 	}
 
+	if output == nil {
+		return iter.Seq[any](func(func(any) bool) {}), nil
+	}
+
+	if str, ok := output.(string); ok {
+		if strings.TrimSpace(str) == "" {
+			return iter.Seq[any](func(func(any) bool) {}), nil
+		}
+	}
+
 	// Check if the result is an iterable type (map or slice/array)
 	val := reflect.ValueOf(output)
 	switch val.Kind() {
@@ -554,6 +564,16 @@ func ExpressionEvaluateAsIterWithTracking(ctx context.Context, env Env, expressi
 	output, err := expr.Run(program, trackedEnv.GetMap())
 	if err != nil {
 		return nil, wrapExpressionError(expressionString, expressionPhaseRun, err)
+	}
+
+	if output == nil {
+		return iter.Seq[any](func(func(any) bool) {}), nil
+	}
+
+	if str, ok := output.(string); ok {
+		if strings.TrimSpace(str) == "" {
+			return iter.Seq[any](func(func(any) bool) {}), nil
+		}
 	}
 
 	// Check if the result is an iterable type (map or slice/array)
