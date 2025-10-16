@@ -55,6 +55,13 @@ namespace Validate {
   const path = "buf/validate/validate.proto";
 
   namespace Field {
-    model Required is External<path, "(buf.validate.field).required">;
+    const _ = "(buf.validate.field)";
+    model Required is External<path, "${_}.required">;
+    model Ignore is External<path, "${_}.ignore">;
+    model Enum is External<path, "${_}.enum">;
+  }
+
+  namespace Message {
+    model OneOf is External<path, "(buf.validate.message).oneof">;
   }
 }

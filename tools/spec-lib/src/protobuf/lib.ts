@@ -37,6 +37,7 @@ export const streams = makeStateMap<Operation, 'Duplex' | 'In' | 'None' | 'Out'>
 export const externals = makeStateMap<Type, [string, string]>('externals');
 export const maps = makeStateMap<Type, [Type, Type]>('maps');
 export const optionMap = makeStateMap<Type, [string, unknown][]>('options');
+export const fieldNumber = makeStateMap<ModelProperty, number>('fieldNumber');
 
 function stream({ program }: DecoratorContext, target: Operation, mode: EnumMember) {
   streams(program).set(target, mode.name as never);

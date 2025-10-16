@@ -40,6 +40,7 @@ import {
   Namespace,
   Program,
   Type,
+  Union,
 } from '@typespec/compiler';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
 import {
@@ -59,7 +60,7 @@ import {
 } from 'effect';
 import { join } from 'node:path/posix';
 import { Projects, useProject } from '../core/index.js';
-import { EmitterOptions, externals, maps, optionMap, streams } from './lib.js';
+import { EmitterOptions, externals, fieldNumber, maps, optionMap, streams } from './lib.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -177,11 +178,7 @@ const useProtoTypeMap = () => {
           ),
       ),
       Match.when(
-        (_) => $.model.is(_),
-        (_) => Option.some(refkey(_)),
-      ),
-      Match.when(
-        (_) => $.enum.is(_),
+        (_) => $.model.is(_) || $.enum.is(_) || $.union.is(_),
         (_) => Option.some(refkey(_)),
       ),
       Match.when(isNullType, (_) =>
@@ -404,12 +401,22 @@ const ProtoEnum = ({ _enum }: ProtoEnumProps) => {
   );
 };
 
-interface MessageProps {
-  model: Model;
+interface MessageContext {
+  nested: Map<Type, Children>;
 }
 
-const Message = ({ model }: MessageProps) => {
+const MessageContext = createContext<MessageContext>();
+
+interface MessageProps {
+  model: Model;
+  refkeys?: Refkey;
+}
+
+const Message = ({ model, refkeys }: MessageProps) => {
   const { $, program } = useTsp();
+
+  const messageContext = useContext(MessageContext);
+  const nested: MessageContext['nested'] = messageContext?.nested ?? reactive(new Map());
 
   const options = pipe(
     optionMap(program).get(model) ?? [],
@@ -435,12 +442,14 @@ const Message = ({ model }: MessageProps) => {
   );
 
   return (
-    <BasicDeclaration name={model.name} refkeys={refkey(model)}>
-      message <Name />{' '}
-      <Block>
-        <List doubleHardline>{...[options, fields]}</List>
-      </Block>
-    </BasicDeclaration>
+    <MessageContext.Provider value={{ nested }}>
+      <BasicDeclaration name={model.name} refkeys={refkeys ?? refkey(model)}>
+        message <Name />{' '}
+        <Block>
+          <List doubleHardline>{...[options, ...nested.values(), fields]}</List>
+        </Block>
+      </BasicDeclaration>
+    </MessageContext.Provider>
   );
 };
 
@@ -452,6 +461,8 @@ const Field = ({ property }: FieldProps) => {
   const { $, program } = useTsp();
   const protoTypeMap = useProtoTypeMap();
 
+  const messageContext = useContext(MessageContext);
+
   const type = pipe(property.type, protoTypeMap, Option.getOrThrow);
   const number = fieldNumber(program).get(property) ?? fieldNumberFromName(property.name);
 
@@ -461,6 +472,12 @@ const Field = ({ property }: FieldProps) => {
 
   if ($.model.is(property.type) && !$.array.is(property.type) && !property.optional)
     options.push(['DevTools.Protobuf.Validate.Field.Required', true]);
+
+  if ($.union.is(property.type) && !messageContext?.nested.has(property.type))
+    messageContext?.nested.set(
+      property.type,
+      <OneOfMessage name={String.capitalize(property.name) + 'Union'} union={property.type} />,
+    );
 
   return (
     <>
@@ -480,6 +497,83 @@ const Field = ({ property }: FieldProps) => {
       </List>
       ;
     </>
+  );
+};
+
+interface OneOfMessageProps {
+  name?: string;
+  union: Union;
+}
+
+const OneOfMessage = ({ name, union }: OneOfMessageProps) => {
+  const { $, program } = useTsp();
+  const protoScalarsMap = useProtoScalarsMap();
+
+  const properties = pipe(
+    union.variants.values(),
+    Array.fromIterable,
+    Array.map((_) => {
+      const typeName = pipe(
+        Match.value(_.type),
+        Match.when(
+          (_) => $.model.is(_) || $.enum.is(_),
+          (_) => Option.some(_.name),
+        ),
+        Match.when(
+          (_) => $.scalar.is(_),
+          (_) => HashMap.get(protoScalarsMap, _),
+        ),
+        Match.when(isNullType, () => Option.some('null')),
+        Match.option,
+        Option.flatten,
+        Option.map(String.uncapitalize),
+        Option.getOrElse(() => 'UNRESOLVED_TYPE_NAME'),
+      );
+
+      const name = typeof _.name === 'string' ? _.name : typeName;
+      const property = $.modelProperty.create({ name, optional: true, type: _.type });
+
+      optionMap(program).set(property, [
+        ['DevTools.Protobuf.Validate.Field.Ignore', new ValueLiteral('IGNORE_UNSPECIFIED')],
+      ]);
+
+      return [name, property] as const;
+    }),
+    Record.fromEntries,
+  );
+
+  const kindEnum = $.enum.create({
+    members: pipe(
+      Record.keys(properties),
+      Array.map((key) =>
+        $.enumMember.create({
+          name: String.capitalize(key),
+          value: fieldNumberFromName(key),
+        }),
+      ),
+    ),
+    name: 'Kind',
+  });
+
+  const kind = $.modelProperty.create({ name: 'kind', type: kindEnum });
+  fieldNumber(program).set(kind, 1);
+  optionMap(program).set(kind, [['DevTools.Protobuf.Validate.Field.Enum', { not_in: [0] }]]);
+
+  const model = $.model.create({
+    name: union.name ?? name ?? 'UNRESOLVED_UNION_NAME',
+    properties: { kind, ...properties },
+  });
+
+  optionMap(program).set(model, [
+    ['DevTools.Protobuf.Validate.Message.OneOf', { fields: Record.keys(properties), required: true }],
+  ]);
+
+  const nested: MessageContext['nested'] = new Map([[kindEnum, <ProtoEnum _enum={kindEnum} />]]);
+
+  return (
+    <MessageContext.Provider value={{ nested }}>
+      <Message model={model} refkeys={refkey(union)} />
+    </MessageContext.Provider>
   );
 };
 
