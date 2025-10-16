@@ -41,10 +41,24 @@ import {
   Type,
 } from '@typespec/compiler';
 import { Output, useTsp, writeOutput } from '@typespec/emitter-framework';
-import { Array, flow, Hash, HashMap, Match, Number, Option, pipe, Schema, String, Tuple } from 'effect';
+import {
+  Array,
+  flow,
+  Hash,
+  HashMap,
+  Match,
+  Number,
+  Option,
+  pipe,
+  Predicate,
+  Record,
+  Schema,
+  String,
+  Tuple,
+} from 'effect';
 import { join } from 'node:path/posix';
 import { Projects, useProject } from '../core/index.js';
-import { EmitterOptions, externals, maps, streams } from './lib.js';
+import { EmitterOptions, externals, maps, optionMap, streams } from './lib.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -180,6 +194,15 @@ const useProtoTypeMap = () => {
   return getProtoType;
 };
 
+interface TypeReferenceProps {
+  path: string;
+}
+
+const TypeReference = ({ path }: TypeReferenceProps) => {
+  const { program } = useTsp();
+  return <>{refkey(program.resolveTypeReference(path)[0])}</>;
+};
+
 class ExternalScope extends BasicScope {
   kind = 'external' as const;
 }
@@ -300,7 +323,7 @@ const Package = ({ namespace }: PackageProps) => {
       {packages}
 
       <SourceDirectory path={`v${version}`}>
-        <SourceFile filetype='string' path={`${name}.proto`} reference={Reference}>
+        <SourceFile filetype='string' path={`${name}.proto`} reference={PackageReference}>
           <Scope value={scope}>
             {header}
             <hbr />
@@ -315,11 +338,11 @@ const Package = ({ namespace }: PackageProps) => {
   );
 };
 
-interface ReferenceProps {
+interface PackageReferenceProps {
   refkey: Refkey;
 }
 
-const Reference = ({ refkey }: ReferenceProps) => {
+const PackageReference = ({ refkey }: PackageReferenceProps) => {
   const resolveResult: Ref<ResolutionResult<ExternalScope | PackageScope, OutputSymbol> | undefined> = resolve(refkey);
   const scope = useScope() as PackageScope;
 
@@ -378,23 +401,37 @@ interface MessageProps {
 }
 
 const Message = ({ model }: MessageProps) => {
-  const { $ } = useTsp();
+  const { $, program } = useTsp();
+
+  const options = pipe(
+    optionMap(program).get(model) ?? [],
+    Option.liftPredicate(Array.isNonEmptyArray),
+    Option.map((_) => (
+      <For each={_}>
+        {(_) => (
+          <>
+            option <OptionValue>{_}</OptionValue>;
+          </>
+        )}
+      </For>
+    )),
+    Option.getOrNull,
+  );
 
   const fields = pipe(
     $.model.getProperties(model).values(),
     Array.fromIterable,
     Option.liftPredicate(Array.isNonEmptyArray),
-    Option.map((_) => (
-      <Block>
-        <For each={_}>{(_) => <Field property={_} />}</For>
-      </Block>
-    )),
-    Option.getOrElse(() => '{}'),
+    Option.map((_) => <For each={_}>{(_) => <Field property={_} />}</For>),
+    Option.getOrNull,
   );
 
   return (
     <BasicDeclaration name={model.name} refkeys={refkey(model)}>
-      message <Name /> {fields}
+      message <Name />{' '}
+      <Block>
+        <List doubleHardline>{...[options, fields]}</List>
+      </Block>
     </BasicDeclaration>
   );
 };
@@ -408,20 +445,84 @@ const Field = ({ property }: FieldProps) => {
   const protoTypeMap = useProtoTypeMap();
 
   const type = pipe(property.type, protoTypeMap, Option.getOrThrow);
-  const number = fieldNumberFromName(property.name);
+  const number = fieldNumber(program).get(property) ?? fieldNumberFromName(property.name);
 
   const repeatedOrOptional = $.array.is(property.type) ? 'repeated' : property.optional && 'optional';
 
-  const options = $.model.is(property.type) && !$.array.is(property.type) && !property.optional && (
-    <>[({refkey(program.resolveTypeReference('DevTools.Protobuf.Validate.Field')[0])}).required = true]</>
-  );
+  const options = optionMap(program).get(property) ?? [];
+
+  if ($.model.is(property.type) && !$.array.is(property.type) && !property.optional)
+    options.push(['DevTools.Protobuf.Validate.Field.Required', true]);
 
   return (
     <>
-      <List space>{[repeatedOrOptional, type, `${property.name} = ${number}`, options]}</List>;
+      <List space>
+        {[
+          repeatedOrOptional,
+          type,
+          `${String.camelToSnake(property.name)} = ${number}`,
+          options.length > 0 && (
+            <Block closer=']' inline opener='['>
+              <For comma each={options} line>
+                {(_) => <OptionValue>{_}</OptionValue>}
+              </For>
+            </Block>
+          ),
+        ]}
+      </List>
+      ;
     </>
   );
 };
+
+interface OptionValueProps {
+  children: [string, unknown];
+}
+
+const OptionValue = ({ children: [reference, value] }: OptionValueProps) => (
+  <>
+    <TypeReference path={reference} /> = <Value>{value}</Value>
+  </>
+);
+
+class ValueLiteral {
+  constructor(public value: string) {}
+}
+
+interface ValueProps {
+  children: unknown;
+}
+
+const Value = ({ children }: ValueProps) =>
+  pipe(
+    Match.value(children),
+    Match.when(Predicate.isString, (_) => `"${_}"`),
+    Match.when(Predicate.isNumber, (_) => _.toString()),
+    Match.when(Predicate.isBoolean, (_) => _.toString()),
+    Match.when(
+      (_: unknown) => _ instanceof ValueLiteral,
+      (_) => _.value,
+    ),
+    Match.when(Predicate.isIterable, (_) => (
+      <Block closer=']' inline opener='['>
+        <For comma each={Array.fromIterable(_)} line>
+          {(_) => <Value>{_}</Value>}
+        </For>
+      </Block>
+    )),
+    Match.when(Predicate.isRecord, (_) => (
+      <Block inline>
+        <For comma each={Record.toEntries(_)} line>
+          {([key, _]) => (
+            <>
+              {key}: <Value>{_}</Value>
+            </>
+          )}
+        </For>
+      </Block>
+    )),
+    Match.orElse(() => null),
+  );
 
 interface ServiceProps {
   _interface: Interface;

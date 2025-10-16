@@ -27,7 +27,7 @@ alias keyType =
 scalar Map<Key extends keyType, Value>;
 
 @Private.external(Path, Name)
-model External<Path extends string, Name extends string> {}
+model External<Path extends valueof string, Name extends valueof string> {}
 
 enum StreamMode {
   Duplex,
@@ -40,7 +40,7 @@ extern dec stream(target: Reflection.Operation, mode: StreamMode);
 
 namespace Private {
   extern dec map(target: Reflection.Scalar, key: keyType, value);
-  extern dec external(target: Reflection.Model, path: string, name: string);
+  extern dec external(target: Reflection.Model, path: valueof string, name: valueof string);
 }
 
 namespace WellKnown {
@@ -51,5 +51,9 @@ namespace WellKnown {
 }
 
 namespace Validate {
-  model Field is External<"buf/validate/validate.proto", "buf.validate.field">;
+  const path = "buf/validate/validate.proto";
+
+  namespace Field {
+    model Required is External<path, "(buf.validate.field).required">;
+  }
 }

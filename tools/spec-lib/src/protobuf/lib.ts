@@ -3,9 +3,9 @@ import {
   DecoratorContext,
   EnumMember,
   Model,
+  ModelProperty,
   Operation,
   Scalar,
-  StringLiteral,
   Type,
 } from '@typespec/compiler';
 import { pipe, Schema } from 'effect';
@@ -36,14 +36,15 @@ const { makeStateMap } = makeStateFactory((_) => $lib.createStateSymbol(_));
 export const streams = makeStateMap<Operation, 'Duplex' | 'In' | 'None' | 'Out'>('streams');
 export const externals = makeStateMap<Type, [string, string]>('externals');
 export const maps = makeStateMap<Type, [Type, Type]>('maps');
+export const optionMap = makeStateMap<Type, [string, unknown][]>('options');
 
 function stream({ program }: DecoratorContext, target: Operation, mode: EnumMember) {
   streams(program).set(target, mode.name as never);
 }
 
-function external({ program }: DecoratorContext, target: Model, path: StringLiteral, name: StringLiteral) {
+function external({ program }: DecoratorContext, target: Model, path: string, name: string) {
   if (target.sourceModel === undefined) return;
-  externals(program).set(target, [path.value, name.value]);
+  externals(program).set(target, [path, name]);
 }
 
 function _map({ program }: DecoratorContext, target: Scalar, key: Type, value: Type) {
