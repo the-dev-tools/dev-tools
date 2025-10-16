@@ -126,12 +126,16 @@ export const FlowEditPage = () => {
     <FlowContext.Provider value={{ flowId }}>
       <ReactFlowProvider>
         {Option.isNone(nodeId) ? (
-          <div className={tw`flex h-full flex-col`}>
+          <PanelGroup direction='vertical'>
             <TopBarWithControls />
-            {flow}
-          </div>
+            <Panel className={tw`flex h-full flex-col`} defaultSize={100} id='flow' minSize={100} order={1}>
+              {flow}
+            </Panel>
+            <PanelResizeHandle direction='vertical' />
+            <Panel defaultSize={0} id='node' maxSize={0} order={2} />
+          </PanelGroup>
         ) : (
-          <PanelGroup autoSaveId='flow-edit' direction='vertical'>
+          <PanelGroup autoSaveId='flow-edit-node' direction='vertical'>
             <TopBarWithControls />
             <Panel className={tw`flex h-full flex-col`} defaultSize={60} id='flow' order={1}>
               {flow}
