@@ -33,6 +33,7 @@ import {
   EmitContext,
   Enum,
   Interface,
+  isNullType,
   isTemplateDeclaration,
   Model,
   ModelProperty,
@@ -182,6 +183,13 @@ const useProtoTypeMap = () => {
       Match.when(
         (_) => $.enum.is(_),
         (_) => Option.some(refkey(_)),
+      ),
+      Match.when(isNullType, (_) =>
+        pipe(
+          program.resolveTypeReference('DevTools.Protobuf.WellKnown.Null')[0],
+          Option.fromNullable,
+          Option.map(refkey),
+        ),
       ),
       Match.when(
         (_) => $.scalar.is(_),
