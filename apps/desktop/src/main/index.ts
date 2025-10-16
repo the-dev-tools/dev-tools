@@ -1,7 +1,7 @@
 import { Command, FetchHttpClient, Path, Url } from '@effect/platform';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeRuntime from '@effect/platform-node/NodeRuntime';
-import { Console, Effect, pipe, Runtime, String } from 'effect';
+import { Config, Console, Effect, pipe, Runtime, String } from 'effect';
 import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { CustomUpdateProvider, UpdateOptions } from './update';
@@ -58,13 +58,24 @@ const createWindow = Effect.gen(function* () {
     // Open the DevTools.
     mainWindow.webContents.openDevTools();
   } else {
+    // TODO: re-disable once app is more stable
     // Disable page reload shortcuts
-    globalShortcut.registerAll(['CommandOrControl+R', 'CommandOrControl+Shift+R', 'F5'], () => void {});
+    // globalShortcut.registerAll(['CommandOrControl+R', 'CommandOrControl+Shift+R', 'F5'], () => void {});
+    globalShortcut.unregisterAll();
 
     // Disable toolbar
     mainWindow.setMenu(null);
 
     void mainWindow.loadFile(path.resolve(import.meta.dirname, '../renderer/index.html'));
+
+    // TODO: remove once app is more stable
+    if (
+      yield* pipe(
+        Config.boolean('OPEN_DEV_TOOLS'),
+        Config.orElse(() => Config.succeed(false)),
+      )
+    )
+      mainWindow.webContents.openDevTools();
   }
 });
 
@@ -164,7 +175,8 @@ const client = pipe(
     // for applications and their menu bar to stay active until the user quits
     // explicitly with Cmd + Q.
     app.on('window-all-closed', () => {
-      if (process.platform === 'darwin') return;
+      // TODO: re-enable with improved instanc management
+      // if (process.platform === 'darwin') return;
       app.quit();
     });
 
