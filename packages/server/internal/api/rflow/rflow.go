@@ -1799,7 +1799,14 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 			name := flowNodeStatus.Name
 			executionID := flowNodeStatus.ExecutionID
 			displayName := name
+
+			protoState, stateErr := nodeStateModelToProto(flowNodeStatus.State)
+			if stateErr != nil {
+				log.Printf("unknown node state for node %s: %v", flowNodeStatus.NodeID, stateErr)
+			}
+
 			defer func() {
+
 				if executionID == (idwrap.IDWrap{}) {
 					return
 				}
@@ -2188,7 +2195,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 								// the runner's final status arrives after flow status.
 								nodeMsg := &flowv1.FlowRunNodeResponse{
 									NodeId: flowNodeStatus.NodeID.Bytes(),
-									State:  nodev1.NodeState(flowNodeStatus.State),
+									State:  protoState,
 								}
 								if flowNodeStatus.Error != nil {
 									if !(loopNodeIDs[flowNodeStatus.NodeID] && flowNodeStatus.State == mnnode.NODE_STATE_CANCELED) {
@@ -2222,7 +2229,7 @@ func (c *FlowServiceRPC) FlowRunAdHoc(ctx context.Context, req *connect.Request[
 					info = &msg
 				}
 			}
-			if err := sendNodeStatusSync(flowNodeStatus.NodeID, nodev1.NodeState(flowNodeStatus.State), info); err != nil {
+			if err := sendNodeStatusSync(flowNodeStatus.NodeID, protoState, info); err != nil {
 				signalDone(err)
 				return
 			}

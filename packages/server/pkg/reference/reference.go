@@ -28,6 +28,74 @@ const (
 	ReferenceKind_REFERENCE_KIND_VARIABLE    ReferenceKind = 4
 )
 
+func referenceKindToProto(kind ReferenceKind) (referencev1.ReferenceKind, error) {
+	switch kind {
+	case ReferenceKind_REFERENCE_KIND_UNSPECIFIED:
+		return referencev1.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, nil
+	case ReferenceKind_REFERENCE_KIND_MAP:
+		return referencev1.ReferenceKind_REFERENCE_KIND_MAP, nil
+	case ReferenceKind_REFERENCE_KIND_ARRAY:
+		return referencev1.ReferenceKind_REFERENCE_KIND_ARRAY, nil
+	case ReferenceKind_REFERENCE_KIND_VALUE:
+		return referencev1.ReferenceKind_REFERENCE_KIND_VALUE, nil
+	case ReferenceKind_REFERENCE_KIND_VARIABLE:
+		return referencev1.ReferenceKind_REFERENCE_KIND_VARIABLE, nil
+	default:
+		return referencev1.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, fmt.Errorf("reference: unknown ReferenceKind %d", kind)
+	}
+}
+
+func referenceKindFromProto(kind referencev1.ReferenceKind) (ReferenceKind, error) {
+	switch kind {
+	case referencev1.ReferenceKind_REFERENCE_KIND_UNSPECIFIED:
+		return ReferenceKind_REFERENCE_KIND_UNSPECIFIED, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_MAP:
+		return ReferenceKind_REFERENCE_KIND_MAP, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_ARRAY:
+		return ReferenceKind_REFERENCE_KIND_ARRAY, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_VALUE:
+		return ReferenceKind_REFERENCE_KIND_VALUE, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_VARIABLE:
+		return ReferenceKind_REFERENCE_KIND_VARIABLE, nil
+	default:
+		return ReferenceKind_REFERENCE_KIND_UNSPECIFIED, fmt.Errorf("reference: unknown referencev1.ReferenceKind %d", kind)
+	}
+}
+
+func referenceKeyKindToProto(kind ReferenceKeyKind) (referencev1.ReferenceKeyKind, error) {
+	switch kind {
+	case ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED:
+		return referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED, nil
+	case ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP:
+		return referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP, nil
+	case ReferenceKeyKind_REFERENCE_KEY_KIND_KEY:
+		return referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, nil
+	case ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX:
+		return referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, nil
+	case ReferenceKeyKind_REFERENCE_KEY_KIND_ANY:
+		return referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_ANY, nil
+	default:
+		return referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED, fmt.Errorf("reference: unknown ReferenceKeyKind %d", kind)
+	}
+}
+
+func referenceKeyKindFromProto(kind referencev1.ReferenceKeyKind) (ReferenceKeyKind, error) {
+	switch kind {
+	case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED:
+		return ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED, nil
+	case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP:
+		return ReferenceKeyKind_REFERENCE_KEY_KIND_GROUP, nil
+	case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY:
+		return ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, nil
+	case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX:
+		return ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, nil
+	case referencev1.ReferenceKeyKind_REFERENCE_KEY_KIND_ANY:
+		return ReferenceKeyKind_REFERENCE_KEY_KIND_ANY, nil
+	default:
+		return ReferenceKeyKind_REFERENCE_KEY_KIND_UNSPECIFIED, fmt.Errorf("reference: unknown referencev1.ReferenceKeyKind %d", kind)
+	}
+}
+
 type ReferenceKey struct {
 	Kind  ReferenceKeyKind `protobuf:"varint,6661032,opt,name=kind,proto3,enum=reference.v1.ReferenceKeyKind" json:"kind,omitempty"`
 	Group string           `protobuf:"bytes,49400938,opt,name=group,proto3,oneof" json:"group,omitempty"`
@@ -94,62 +162,110 @@ func ConvertMapToReference(m map[string]interface{}, key string) (ReferenceTreeI
 	return ref, nil
 }
 
-func ConvertPkgToRpcTree(ref ReferenceTreeItem) *referencev1.ReferenceTreeItem {
+func ConvertPkgToRpcTree(ref ReferenceTreeItem) (*referencev1.ReferenceTreeItem, error) {
+	kind, err := referenceKindToProto(ref.Kind)
+	if err != nil {
+		return nil, fmt.Errorf("reference: convert pkg tree kind: %w", err)
+	}
+
+	key, err := ConvertPkgKeyToRpc(ref.Key)
+	if err != nil {
+		return nil, fmt.Errorf("reference: convert pkg tree key: %w", err)
+	}
+
+	mapRefs, err := convertReferenceMap(ref.Map)
+	if err != nil {
+		return nil, fmt.Errorf("reference: convert pkg tree map: %w", err)
+	}
+
+	arrayRefs, err := convertReferenceMap(ref.Array)
+	if err != nil {
+		return nil, fmt.Errorf("reference: convert pkg tree array: %w", err)
+	}
+
+	value := ref.Value
+
 	return &referencev1.ReferenceTreeItem{
-		Kind: referencev1.ReferenceKind(ref.Kind),
-		Key: &referencev1.ReferenceKey{
-			Kind:  referencev1.ReferenceKeyKind(ref.Key.Kind),
-			Key:   &ref.Key.Key,
-			Index: &ref.Key.Index,
-			Group: &ref.Key.Group,
-		},
-		Value:    &ref.Value,
-		Map:      convertReferenceMap(ref.Map),
-		Array:    convertReferenceMap(ref.Array),
+		Kind:     kind,
+		Key:      key,
+		Value:    &value,
+		Map:      mapRefs,
+		Array:    arrayRefs,
 		Variable: ref.Variable,
-	}
+	}, nil
 }
 
-func ConvertPkgKeyToRpc(ref ReferenceKey) *referencev1.ReferenceKey {
+func ConvertPkgKeyToRpc(ref ReferenceKey) (*referencev1.ReferenceKey, error) {
+	kind, err := referenceKeyKindToProto(ref.Kind)
+	if err != nil {
+		return nil, fmt.Errorf("reference: convert pkg key kind: %w", err)
+	}
+
+	group := ref.Group
+	key := ref.Key
+	index := ref.Index
+
 	return &referencev1.ReferenceKey{
-		Kind:  referencev1.ReferenceKeyKind(ref.Kind),
-		Group: &ref.Group,
-		Key:   &ref.Key,
-		Index: &ref.Index,
-	}
+		Kind:  kind,
+		Group: &group,
+		Key:   &key,
+		Index: &index,
+	}, nil
 }
 
-func ConvertRpcToPkg(ref *referencev1.ReferenceTreeItem) ReferenceTreeItem {
+func ConvertRpcToPkg(ref *referencev1.ReferenceTreeItem) (ReferenceTreeItem, error) {
+	if ref == nil {
+		return ReferenceTreeItem{}, nil
+	}
+
 	mapRefs := make([]ReferenceTreeItem, len(ref.Map))
-	arrayRefs := make([]ReferenceTreeItem, len(ref.Array))
-	value := ""
-
 	for i, v := range ref.Map {
-		mapRefs[i] = ConvertRpcToPkg(v)
+		converted, err := ConvertRpcToPkg(v)
+		if err != nil {
+			return ReferenceTreeItem{}, fmt.Errorf("reference: convert rpc map[%d]: %w", i, err)
+		}
+		mapRefs[i] = converted
 	}
 
+	arrayRefs := make([]ReferenceTreeItem, len(ref.Array))
 	for i, v := range ref.Array {
-		arrayRefs[i] = ConvertRpcToPkg(v)
+		converted, err := ConvertRpcToPkg(v)
+		if err != nil {
+			return ReferenceTreeItem{}, fmt.Errorf("reference: convert rpc array[%d]: %w", i, err)
+		}
+		arrayRefs[i] = converted
 	}
 
+	key, err := ConvertRpcKeyToPkgKey(ref.Key)
+	if err != nil {
+		return ReferenceTreeItem{}, fmt.Errorf("reference: convert rpc key: %w", err)
+	}
+
+	kind, err := referenceKindFromProto(ref.Kind)
+	if err != nil {
+		return ReferenceTreeItem{}, fmt.Errorf("reference: convert rpc kind: %w", err)
+	}
+
+	value := ""
 	if ref.Value != nil {
 		value = *ref.Value
 	}
 
 	return ReferenceTreeItem{
-		Kind:     ReferenceKind(ref.Kind),
-		Key:      ConvertRpcKeyToPkgKey(ref.Key),
+		Kind:     kind,
+		Key:      key,
 		Map:      mapRefs,
 		Array:    arrayRefs,
 		Value:    value,
 		Variable: ref.Variable,
-	}
+	}, nil
 }
 
-func ConvertRpcKeyToPkgKey(ref *referencev1.ReferenceKey) ReferenceKey {
+func ConvertRpcKeyToPkgKey(ref *referencev1.ReferenceKey) (ReferenceKey, error) {
 	if ref == nil {
-		return ReferenceKey{}
+		return ReferenceKey{}, nil
 	}
+
 	group := ""
 	key := ""
 	index := int32(0)
@@ -163,20 +279,29 @@ func ConvertRpcKeyToPkgKey(ref *referencev1.ReferenceKey) ReferenceKey {
 		index = *ref.Index
 	}
 
+	kind, err := referenceKeyKindFromProto(ref.Kind)
+	if err != nil {
+		return ReferenceKey{}, fmt.Errorf("reference: convert rpc key kind: %w", err)
+	}
+
 	return ReferenceKey{
-		Kind:  ReferenceKeyKind(ref.Kind),
+		Kind:  kind,
 		Group: group,
 		Key:   key,
 		Index: index,
-	}
+	}, nil
 }
 
-func convertReferenceMap(refs []ReferenceTreeItem) []*referencev1.ReferenceTreeItem {
-	var result []*referencev1.ReferenceTreeItem
+func convertReferenceMap(refs []ReferenceTreeItem) ([]*referencev1.ReferenceTreeItem, error) {
+	result := make([]*referencev1.ReferenceTreeItem, 0, len(refs))
 	for _, ref := range refs {
-		result = append(result, ConvertPkgToRpcTree(ref))
+		converted, err := ConvertPkgToRpcTree(ref)
+		if err != nil {
+			return nil, fmt.Errorf("reference: convert reference map item: %w", err)
+		}
+		result = append(result, converted)
 	}
-	return result
+	return result, nil
 }
 
 func ConvertRefernceKeyArrayToStringPath(refKey []ReferenceKey) (string, error) {

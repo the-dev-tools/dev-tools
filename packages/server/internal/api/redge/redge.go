@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rflow"
 	"the-dev-tools/server/pkg/flow/edge"
@@ -61,21 +62,46 @@ func (c *EdgeServiceRPC) EdgeList(ctx context.Context, req *connect.Request[edge
 	}
 
 	rpcItems := make([]*edgev1.EdgeListItem, len(edges))
-	for i, edge := range edges {
+	var convErr error
+	appendConvErr := func(err error) {
+		if err == nil {
+			return
+		}
+		if convErr == nil {
+			convErr = err
+			return
+		}
+		convErr = errors.Join(convErr, err)
+	}
+	for i, edgeModel := range edges {
+		sourceHandle, handleErr := edgeHandleToProto(edgeModel.SourceHandler)
+		if handleErr != nil {
+			appendConvErr(connect.NewError(connect.CodeInternal, fmt.Errorf("convert edge %s source handle: %w", edgeModel.ID.String(), handleErr)))
+		}
+
+		kind, kindErr := edgeKindToProto(edge.EdgeKind(edgeModel.Kind))
+		if kindErr != nil {
+			appendConvErr(connect.NewError(connect.CodeInternal, fmt.Errorf("convert edge %s kind: %w", edgeModel.ID.String(), kindErr)))
+		}
+
 		rpcItems[i] = &edgev1.EdgeListItem{
-			EdgeId:       edge.ID.Bytes(),
-			SourceId:     edge.SourceID.Bytes(),
-			TargetId:     edge.TargetID.Bytes(),
-			SourceHandle: edgev1.Handle(edge.SourceHandler),
-			Kind:         edgev1.EdgeKind(edge.Kind),
+			EdgeId:       edgeModel.ID.Bytes(),
+			SourceId:     edgeModel.SourceID.Bytes(),
+			TargetId:     edgeModel.TargetID.Bytes(),
+			SourceHandle: sourceHandle,
+			Kind:         kind,
 		}
 	}
 
-	resp := &edgev1.EdgeListResponse{
+	resp := connect.NewResponse(&edgev1.EdgeListResponse{
 		Items: rpcItems,
+	})
+
+	if convErr != nil {
+		return resp, convErr
 	}
 
-	return connect.NewResponse(resp), nil
+	return resp, nil
 }
 
 func (c *EdgeServiceRPC) EdgeGet(ctx context.Context, req *connect.Request[edgev1.EdgeGetRequest]) (*connect.Response[edgev1.EdgeGetResponse], error) {
@@ -88,20 +114,41 @@ func (c *EdgeServiceRPC) EdgeGet(ctx context.Context, req *connect.Request[edgev
 		return nil, rpcErr
 	}
 
-	edge, err := c.es.GetEdge(ctx, EdgeID)
+	edgeModel, err := c.es.GetEdge(ctx, EdgeID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	resp := &edgev1.EdgeGetResponse{
-		EdgeId:       edge.ID.Bytes(),
-		Kind:         edgev1.EdgeKind(edge.Kind),
-		SourceId:     edge.SourceID.Bytes(),
-		TargetId:     edge.TargetID.Bytes(),
-		SourceHandle: edgev1.Handle(edge.SourceHandler),
+	sourceHandle, handleErr := edgeHandleToProto(edgeModel.SourceHandler)
+	kind, kindErr := edgeKindToProto(edge.EdgeKind(edgeModel.Kind))
+
+	resp := connect.NewResponse(&edgev1.EdgeGetResponse{
+		EdgeId:       edgeModel.ID.Bytes(),
+		Kind:         kind,
+		SourceId:     edgeModel.SourceID.Bytes(),
+		TargetId:     edgeModel.TargetID.Bytes(),
+		SourceHandle: sourceHandle,
+	})
+
+	var convErr error
+	if handleErr != nil {
+		convErr = connect.NewError(connect.CodeInternal, fmt.Errorf("convert edge %s source handle: %w", edgeModel.ID.String(), handleErr))
+	}
+	if kindErr != nil {
+		nextErr := connect.NewError(connect.CodeInternal, fmt.Errorf("convert edge %s kind: %w", edgeModel.ID.String(), kindErr))
+		if convErr == nil {
+			convErr = nextErr
+		} else {
+			convErr = errors.Join(convErr, nextErr)
+		}
 	}
 
-	return connect.NewResponse(resp), nil
+	if convErr != nil {
+		return resp, convErr
+	}
+
+	return resp, nil
+
 }
 
 func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[edgev1.EdgeCreateRequest]) (*connect.Response[edgev1.EdgeCreateResponse], error) {
@@ -142,18 +189,27 @@ func (c *EdgeServiceRPC) EdgeCreate(ctx context.Context, req *connect.Request[ed
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source and target nodes must be in the same flow"))
 	}
 
+	modelHandle, handleErr := edgeHandleFromProto(req.Msg.SourceHandle)
+	if handleErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid edge source handle: %w", handleErr))
+	}
+
+	modelKind, kindErr := edgeKindFromProto(req.Msg.Kind)
+	if kindErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid edge kind: %w", kindErr))
+	}
+
 	edgeID := idwrap.NewNow()
 	modelEdge := &edge.Edge{
 		ID:            edgeID,
 		FlowID:        latestFlowID,
 		SourceID:      sourceID,
 		TargetID:      targetID,
-		SourceHandler: edge.EdgeHandle(req.Msg.SourceHandle),
-		Kind:          int32(req.Msg.Kind),
+		SourceHandler: modelHandle,
+		Kind:          int32(modelKind),
 	}
 
-	err = c.es.CreateEdge(ctx, *modelEdge)
-	if err != nil {
+	if err = c.es.CreateEdge(ctx, *modelEdge); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -205,7 +261,11 @@ func (c *EdgeServiceRPC) EdgeUpdate(ctx context.Context, req *connect.Request[ed
 		requestedEdge.TargetID = targetID
 	}
 	if req.Msg.Kind != nil {
-		requestedEdge.Kind = int32(*req.Msg.Kind)
+		modelKind, kindErr := edgeKindFromProto(*req.Msg.Kind)
+		if kindErr != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid edge kind: %w", kindErr))
+		}
+		requestedEdge.Kind = int32(modelKind)
 	}
 	err = c.es.UpdateEdge(ctx, *requestedEdge)
 	if err != nil {

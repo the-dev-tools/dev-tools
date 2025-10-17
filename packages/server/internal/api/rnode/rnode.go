@@ -125,12 +125,20 @@ func CreateService(srv *NodeServiceRPC, options []connect.HandlerOption) (*api.S
 func (c *NodeServiceRPC) effectiveNodeState(ctx context.Context, nodeID idwrap.IDWrap) nodev1.NodeState {
 	latest, err := c.nes.GetLatestNodeExecutionByNodeID(ctx, nodeID)
 	if err != nil || latest == nil {
-		return nodev1.NodeState_NODE_STATE_UNSPECIFIED
+		return nodeStateProtoFallback
+	}
+
+	toProto := func(state int8) nodev1.NodeState {
+		protoState, convErr := nodeStateModelToProto(state)
+		if convErr != nil {
+			return nodeStateProtoFallback
+		}
+		return protoState
 	}
 
 	// If we have a terminal state or CompletedAt, return it directly
 	if latest.CompletedAt != nil || latest.State != mnnode.NODE_STATE_RUNNING {
-		return nodev1.NodeState(latest.State)
+		return toProto(latest.State)
 	}
 
 	// Prefer a terminal execution if present
@@ -138,7 +146,7 @@ func (c *NodeServiceRPC) effectiveNodeState(ctx context.Context, nodeID idwrap.I
 	if err == nil {
 		for _, ex := range executions { // assumed latest-first
 			if ex.CompletedAt != nil {
-				return nodev1.NodeState(ex.State)
+				return toProto(ex.State)
 			}
 		}
 	}
@@ -146,10 +154,10 @@ func (c *NodeServiceRPC) effectiveNodeState(ctx context.Context, nodeID idwrap.I
 	// If still RUNNING with no CompletedAt, treat very old records as unspecified (ghost-run protection)
 	age := time.Since(latest.ID.Time())
 	if age > 5*time.Second {
-		return nodev1.NodeState_NODE_STATE_UNSPECIFIED
+		return nodeStateProtoFallback
 	}
 
-	return nodev1.NodeState(latest.State)
+	return toProto(latest.State)
 }
 
 func (c *NodeServiceRPC) NodeList(ctx context.Context, req *connect.Request[nodev1.NodeListRequest]) (*connect.Response[nodev1.NodeListResponse], error) {
@@ -231,7 +239,7 @@ func (c *NodeServiceRPC) NodeGet(ctx context.Context, req *connect.Request[nodev
 	}
 	rpcNode, err := GetNodeSub(ctx, *node, c.ns, c.nis, c.nrs, c.nfls, c.nlfes, c.nss, c.njss, c.nes)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, errors.New("sub node not found"))
+		return nil, err
 	}
 	resp := nodev1.NodeGetResponse{
 		Name:      node.Name,
@@ -426,7 +434,11 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 		node.Name = *req.Msg.Name
 	}
 
-	RpcNodeUpdate.Kind = nodev1.NodeKind(node.NodeKind)
+	kind, kindErr := nodeKindModelToProto(node.NodeKind)
+	if kindErr != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("convert node kind: %w", kindErr))
+	}
+	RpcNodeUpdate.Kind = kind
 
 	switch RpcNodeUpdate.Kind {
 	case nodev1.NodeKind_NODE_KIND_REQUEST:
@@ -509,11 +521,15 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 				anyUpdate = true
 				forNode.Condition = condition
 			}
-			if RpcNodeUpdate.For.ErrorHandling != nodev1.ErrorHandling(mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED) {
-				errorHandling := mnfor.ErrorHandling(RpcNodeUpdate.For.ErrorHandling)
+			if RpcNodeUpdate.For.ErrorHandling != nodev1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED {
+				errorHandling, convErr := loopErrorHandlingProtoToModel(RpcNodeUpdate.For.ErrorHandling)
+				if convErr != nil {
+					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid for error handling: %w", convErr))
+				}
 				forNode.ErrorHandling = errorHandling
 				anyUpdate = true
 			}
+
 			if RpcNodeUpdate.For.Iterations != 0 {
 				forNode.IterCount = int64(RpcNodeUpdate.For.Iterations)
 				anyUpdate = true
@@ -542,8 +558,11 @@ func (c *NodeServiceRPC) NodeUpdate(ctx context.Context, req *connect.Request[no
 				anyUpdate = true
 			}
 
-			if RpcNodeUpdate.ForEach.ErrorHandling != nodev1.ErrorHandling(mnfor.ErrorHandling_ERROR_HANDLING_UNSPECIFIED) {
-				errorHandling := mnfor.ErrorHandling(RpcNodeUpdate.ForEach.ErrorHandling)
+			if RpcNodeUpdate.ForEach.ErrorHandling != nodev1.ErrorHandling_ERROR_HANDLING_UNSPECIFIED {
+				errorHandling, convErr := loopErrorHandlingProtoToModel(RpcNodeUpdate.ForEach.ErrorHandling)
+				if convErr != nil {
+					return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid for-each error handling: %w", convErr))
+				}
 				forEachNode.ErrorHandling = errorHandling
 				anyUpdate = true
 			}
@@ -743,18 +762,23 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 	nlfs snodefor.NodeForService, nlfes snodeforeach.NodeForEachService, nss snodenoop.NodeNoopService, njss snodejs.NodeJSService,
 	nes snodeexecution.NodeExecutionService,
 ) (*nodev1.Node, error) {
-	var rpcNode *nodev1.Node
+	protoKind, err := nodeKindModelToProto(currentNode.NodeKind)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("convert node kind: %w", err))
+	}
 
-	Position := &nodev1.Position{
+	position := &nodev1.Position{
 		X: float32(currentNode.PositionX),
 		Y: float32(currentNode.PositionY),
 	}
+
+	var rpcNode *nodev1.Node
 
 	switch currentNode.NodeKind {
 	case mnnode.NODE_KIND_REQUEST:
 		nodeReq, err := nrs.GetNodeRequest(ctx, currentNode.ID)
 		if err != nil {
-			return nil, err
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get request node: %w", err))
 		}
 
 		hasRequestConfig := nodeReq.HasRequestConfig
@@ -776,15 +800,15 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			rpcDeltaEndpointID = nodeReq.DeltaEndpointID.Bytes()
 		}
 
-		nodeList := &nodev1.Node{
+		rpcNode = &nodev1.Node{
 			NodeId:   currentNode.ID.Bytes(),
-			Kind:     nodev1.NodeKind_NODE_KIND_REQUEST,
-			Position: Position,
+			Kind:     protoKind,
+			Position: position,
 			Name:     currentNode.Name,
 		}
 
 		if hasRequestConfig {
-			nodeList.Request = &nodev1.NodeRequest{
+			rpcNode.Request = &nodev1.NodeRequest{
 				CollectionId:    rpcExampleID,
 				ExampleId:       rpcExampleID,
 				EndpointId:      rpcEndpointID,
@@ -793,141 +817,159 @@ func GetNodeSub(ctx context.Context, currentNode mnnode.MNode, ns snode.NodeServ
 			}
 		}
 
-		rpcNode = nodeList
 	case mnnode.NODE_KIND_FOR:
 		nodeFor, err := nlfs.GetNodeFor(ctx, currentNode.ID)
 		if err != nil {
-			return nil, err
-		}
-		rpcCond := tcondition.SeralizeConditionModelToRPC(nodeFor.Condition)
-		if err != nil {
-			return nil, err
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get for node: %w", err))
 		}
 
-		nodeList := &nodev1.Node{
+		rpcCond := tcondition.SeralizeConditionModelToRPC(nodeFor.Condition)
+
+		errorHandling, convErr := loopErrorHandlingModelToProto(nodeFor.ErrorHandling)
+		if convErr != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("convert for error handling: %w", convErr))
+		}
+
+		rpcNode = &nodev1.Node{
 			NodeId:   currentNode.ID.Bytes(),
-			Kind:     nodev1.NodeKind_NODE_KIND_FOR,
-			Position: Position,
+			Kind:     protoKind,
+			Position: position,
 			Name:     currentNode.Name,
 			For: &nodev1.NodeFor{
-				ErrorHandling: nodev1.ErrorHandling(nodeFor.ErrorHandling),
+				ErrorHandling: errorHandling,
 				Iterations:    int32(nodeFor.IterCount),
 				Condition:     rpcCond,
 			},
 		}
-		rpcNode = nodeList
+
 	case mnnode.NODE_KIND_FOR_EACH:
 		nodeForEach, err := nlfes.GetNodeForEach(ctx, currentNode.ID)
 		if err != nil {
-			return nil, err
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get for-each node: %w", err))
 		}
 
 		rpcCond := tcondition.SeralizeConditionModelToRPC(nodeForEach.Condition)
 
-		nodeList := &nodev1.Node{
+		errorHandling, convErr := loopErrorHandlingModelToProto(nodeForEach.ErrorHandling)
+		if convErr != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("convert for-each error handling: %w", convErr))
+		}
+
+		rpcNode = &nodev1.Node{
 			NodeId:   currentNode.ID.Bytes(),
-			Kind:     nodev1.NodeKind_NODE_KIND_FOR_EACH,
-			Position: Position,
+			Kind:     protoKind,
+			Position: position,
 			Name:     currentNode.Name,
 			ForEach: &nodev1.NodeForEach{
-				ErrorHandling: nodev1.ErrorHandling(nodeForEach.ErrorHandling),
+				ErrorHandling: errorHandling,
 				Condition:     rpcCond,
 				Path:          nodeForEach.IterExpression,
 			},
 		}
-		rpcNode = nodeList
+
 	case mnnode.NODE_KIND_NO_OP:
 		nodeNoop, err := nss.GetNodeNoop(ctx, currentNode.ID)
 		if err != nil {
-			return nil, err
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get noop node: %w", err))
 		}
-		NoOpKind := nodev1.NodeNoOpKind(nodeNoop.Type)
+
+		noOpKind, convErr := nodeNoOpModelToProto(nodeNoop.Type)
+		if convErr != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("convert noop kind: %w", convErr))
+		}
 
 		rpcNode = &nodev1.Node{
 			NodeId:   nodeNoop.FlowNodeID.Bytes(),
-			Kind:     nodev1.NodeKind_NODE_KIND_NO_OP,
+			Kind:     protoKind,
 			Name:     currentNode.Name,
-			Position: Position,
-			NoOp:     &NoOpKind,
+			Position: position,
+			NoOp:     &noOpKind,
 		}
 
 	case mnnode.NODE_KIND_CONDITION:
 		nodeCondition, err := nis.GetNodeIf(ctx, currentNode.ID)
 		if err != nil {
-			return nil, err
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get condition node: %w", err))
 		}
 
 		rpcCondition := tcondition.SeralizeConditionModelToRPC(nodeCondition.Condition)
 
 		rpcNode = &nodev1.Node{
 			NodeId:   nodeCondition.FlowNodeID.Bytes(),
-			Position: Position,
-			Kind:     nodev1.NodeKind_NODE_KIND_CONDITION,
+			Position: position,
+			Kind:     protoKind,
 			Name:     currentNode.Name,
 			Condition: &nodev1.NodeCondition{
 				Condition: rpcCondition,
 			},
 		}
-	case mnnode.NODE_KIND_JS:
 
+	case mnnode.NODE_KIND_JS:
 		nodeJS, err := njss.GetNodeJS(ctx, currentNode.ID)
 		if err != nil {
-			return nil, err
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get js node: %w", err))
 		}
 
 		if nodeJS.CodeCompressType != compress.CompressTypeNone {
 			nodeJS.Code, err = compress.Decompress(nodeJS.Code, nodeJS.CodeCompressType)
 			if err != nil {
-				return nil, err
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("decompress js code: %w", err))
 			}
 		}
 
 		rpcNode = &nodev1.Node{
 			NodeId:   nodeJS.FlowNodeID.Bytes(),
-			Position: Position,
-			Kind:     nodev1.NodeKind_NODE_KIND_JS,
+			Position: position,
+			Kind:     protoKind,
 			Name:     currentNode.Name,
 			Js: &nodev1.NodeJS{
 				Code: string(nodeJS.Code),
 			},
 		}
+
+	default:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("unsupported node kind %d", currentNode.NodeKind))
 	}
 
-	// Get the latest execution state for this node with stale RUNNING protection
+	toProtoState := func(state int8) nodev1.NodeState {
+		protoState, convErr := nodeStateModelToProto(state)
+		if convErr != nil {
+			return nodeStateProtoFallback
+		}
+		return protoState
+	}
+
 	latestExecution, err := nes.GetLatestNodeExecutionByNodeID(ctx, currentNode.ID)
 	if err == nil && latestExecution != nil {
 		if latestExecution.CompletedAt != nil || latestExecution.State != mnnode.NODE_STATE_RUNNING {
-			rpcNode.State = nodev1.NodeState(latestExecution.State)
+			rpcNode.State = toProtoState(latestExecution.State)
 		} else {
-			// Prefer a terminal execution if present
-			if execs, err := nes.ListNodeExecutionsByNodeID(ctx, currentNode.ID); err == nil {
+			if execs, listErr := nes.ListNodeExecutionsByNodeID(ctx, currentNode.ID); listErr == nil {
 				found := false
-				for _, ex := range execs { // assumed latest-first
+				for _, ex := range execs {
 					if ex.CompletedAt != nil {
-						rpcNode.State = nodev1.NodeState(ex.State)
+						rpcNode.State = toProtoState(ex.State)
 						found = true
 						break
 					}
 				}
 				if !found {
-					// If still RUNNING and very old, treat as unspecified (ghost protection)
 					if time.Since(latestExecution.ID.Time()) > 5*time.Second {
-						rpcNode.State = nodev1.NodeState_NODE_STATE_UNSPECIFIED
+						rpcNode.State = nodeStateProtoFallback
 					} else {
 						rpcNode.State = nodev1.NodeState_NODE_STATE_RUNNING
 					}
 				}
 			} else {
-				// Fallback
 				if time.Since(latestExecution.ID.Time()) > 5*time.Second {
-					rpcNode.State = nodev1.NodeState_NODE_STATE_UNSPECIFIED
+					rpcNode.State = nodeStateProtoFallback
 				} else {
 					rpcNode.State = nodev1.NodeState_NODE_STATE_RUNNING
 				}
 			}
 		}
 	} else {
-		rpcNode.State = nodev1.NodeState_NODE_STATE_UNSPECIFIED
+		rpcNode.State = nodeStateProtoFallback
 	}
 
 	return rpcNode, nil
@@ -953,11 +995,16 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		rpcNode.Position = &nodev1.Position{}
 	}
 
+	modelKind, err := nodeKindProtoToModel(rpcNode.Kind)
+	if err != nil {
+		return nil, fmt.Errorf("invalid node kind: %w", err)
+	}
+
 	baseNode := &mnnode.MNode{
 		ID:        nodeID,
 		FlowID:    flowID,
 		Name:      rpcNode.Name,
-		NodeKind:  mnnode.NodeKind(rpcNode.Kind),
+		NodeKind:  modelKind,
 		PositionX: float64(rpcNode.Position.X),
 		PositionY: float64(rpcNode.Position.Y),
 	}
@@ -1015,11 +1062,16 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 		forNode := rpcNode.For
 		condition := tcondition.DeserializeConditionRPCToModel(forNode.Condition)
 
+		errorHandling, err := loopErrorHandlingProtoToModel(forNode.ErrorHandling)
+		if err != nil {
+			return nil, fmt.Errorf("invalid for error handling: %w", err)
+		}
+
 		forNodeConverted := &mnfor.MNFor{
 			FlowNodeID:    nodeID,
 			IterCount:     int64(forNode.Iterations),
 			Condition:     condition,
-			ErrorHandling: mnfor.ErrorHandling(forNode.ErrorHandling),
+			ErrorHandling: errorHandling,
 		}
 		subNode = forNodeConverted
 	case nodev1.NodeKind_NODE_KIND_FOR_EACH:
@@ -1032,18 +1084,31 @@ func ConvertRPCNodeToModelWithoutID(ctx context.Context, rpcNode *nodev1.Node, f
 
 		condition := tcondition.DeserializeConditionRPCToModel(forEach.Condition)
 
+		errorHandling, err := loopErrorHandlingProtoToModel(forEach.ErrorHandling)
+		if err != nil {
+			return nil, fmt.Errorf("invalid for-each error handling: %w", err)
+		}
+
 		forNode := &mnforeach.MNForEach{
 			FlowNodeID:     nodeID,
 			IterExpression: iterpath,
 			Condition:      condition,
-			ErrorHandling:  mnfor.ErrorHandling(forEach.ErrorHandling),
+			ErrorHandling:  errorHandling,
 		}
 		subNode = forNode
 	case nodev1.NodeKind_NODE_KIND_NO_OP:
-		a := mnnoop.NoopTypes(*rpcNode.NoOp)
+		if rpcNode.NoOp == nil {
+			return nil, fmt.Errorf("no-op kind is required for no-op node")
+		}
+
+		noOpKind, err := nodeNoOpProtoToModel(*rpcNode.NoOp)
+		if err != nil {
+			return nil, fmt.Errorf("invalid no-op kind: %w", err)
+		}
+
 		noopNode := &mnnoop.NoopNode{
 			FlowNodeID: nodeID,
-			Type:       a,
+			Type:       noOpKind,
 		}
 		subNode = noopNode
 	case nodev1.NodeKind_NODE_KIND_CONDITION:

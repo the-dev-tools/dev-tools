@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/compress"
@@ -104,8 +105,71 @@ var (
 	ErrEnvNotFound       = errors.New("env not found")
 )
 
+// referenceKindProtoFallback is emitted when a completion kind is unknown.
+const referenceKindProtoFallback = referencev1.ReferenceKind_REFERENCE_KIND_UNSPECIFIED
+
+func referenceKindToProto(kind reference.ReferenceKind) (referencev1.ReferenceKind, error) {
+	switch kind {
+	case reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED:
+		return referencev1.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, nil
+	case reference.ReferenceKind_REFERENCE_KIND_MAP:
+		return referencev1.ReferenceKind_REFERENCE_KIND_MAP, nil
+	case reference.ReferenceKind_REFERENCE_KIND_ARRAY:
+		return referencev1.ReferenceKind_REFERENCE_KIND_ARRAY, nil
+	case reference.ReferenceKind_REFERENCE_KIND_VALUE:
+		return referencev1.ReferenceKind_REFERENCE_KIND_VALUE, nil
+	case reference.ReferenceKind_REFERENCE_KIND_VARIABLE:
+		return referencev1.ReferenceKind_REFERENCE_KIND_VARIABLE, nil
+	default:
+		return referenceKindProtoFallback, fmt.Errorf("unknown reference kind: %d", kind)
+	}
+}
+
+func referenceKindFromProto(kind referencev1.ReferenceKind) (reference.ReferenceKind, error) {
+	switch kind {
+	case referencev1.ReferenceKind_REFERENCE_KIND_UNSPECIFIED:
+		return reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_MAP:
+		return reference.ReferenceKind_REFERENCE_KIND_MAP, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_ARRAY:
+		return reference.ReferenceKind_REFERENCE_KIND_ARRAY, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_VALUE:
+		return reference.ReferenceKind_REFERENCE_KIND_VALUE, nil
+	case referencev1.ReferenceKind_REFERENCE_KIND_VARIABLE:
+		return reference.ReferenceKind_REFERENCE_KIND_VARIABLE, nil
+	default:
+		return reference.ReferenceKind_REFERENCE_KIND_UNSPECIFIED, fmt.Errorf("unknown proto reference kind: %d", kind)
+	}
+}
+
+var convertReferenceCompletionItemsFn = convertReferenceCompletionItems
+
+func convertReferenceCompletionItems(items []referencecompletion.ReferenceCompletionItem) ([]*referencev1.ReferenceCompletion, error) {
+	if len(items) == 0 {
+		return nil, nil
+	}
+
+	converted := make([]*referencev1.ReferenceCompletion, 0, len(items))
+	for _, item := range items {
+		kind, err := referenceKindToProto(item.Kind)
+		if err != nil {
+			return nil, fmt.Errorf("reference kind to proto: %w", err)
+		}
+
+		converted = append(converted, &referencev1.ReferenceCompletion{
+			Kind:         kind,
+			EndToken:     item.EndToken,
+			EndIndex:     item.EndIndex,
+			ItemCount:    item.ItemCount,
+			Environments: item.Environments,
+		})
+	}
+
+	return converted, nil
+}
 
 func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Request[referencev1.ReferenceTreeRequest]) (*connect.Response[referencev1.ReferenceTreeResponse], error) {
+
 	var Items []*referencev1.ReferenceTreeItem
 
 	var workspaceID, exampleID, nodeIDPtr *idwrap.IDWrap
@@ -202,7 +266,11 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 				return nil, err
 			}
 		} else {
-			Items = append(Items, reference.ConvertPkgToRpcTree(*respRef))
+			converted, convErr := reference.ConvertPkgToRpcTree(*respRef)
+			if convErr != nil {
+				return nil, fmt.Errorf("convert example reference tree: %w", convErr)
+			}
+			Items = append(Items, converted)
 		}
 
 	}
@@ -234,6 +302,15 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 	}
 
 	var nodeRefs []*referencev1.ReferenceTreeItem
+	appendNodeRef := func(item reference.ReferenceTreeItem, context string) error {
+		converted, err := reference.ConvertPkgToRpcTree(item)
+		if err != nil {
+			return fmt.Errorf("convert %s: %w", context, err)
+		}
+		nodeRefs = append(nodeRefs, converted)
+		return nil
+	}
+
 	flowVars, err := c.flowVariableService.GetFlowVariablesByFlowID(ctx, flowID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -242,7 +319,9 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 	sortenabled.GetAllWithState(&flowVars, true)
 	for _, flowVar := range flowVars {
 		flowVarRef := reference.NewReferenceFromInterfaceWithKey(flowVar.Value, flowVar.Name)
-		nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(flowVarRef))
+		if err := appendNodeRef(flowVarRef, fmt.Sprintf("flow variable %q", flowVar.Name)); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	// Edges
@@ -270,7 +349,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 			// Use the latest execution (first one, as they're ordered by ID DESC)
 			// This includes iteration executions which now contain the actual values
 			latestExecution := &executions[0]
-			
+
 			// Always use the latest execution
 			if latestExecution != nil {
 				// Decompress data if needed
@@ -301,16 +380,22 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 				if nodeSpecificData, hasNodeKey := nodeMap[node.Name]; hasNodeKey {
 					// Use the node-specific data
 					nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeSpecificData, node.Name)
-					nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+					if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q execution data", node.Name)); err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
 				} else {
 					// Data doesn't have the expected structure, use it as-is
 					nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeData, node.Name)
-					nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+					if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q execution data fallback", node.Name)); err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
 				}
 			} else {
 				// Not a map, use directly
 				nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeData, node.Name)
-				nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+				if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q execution data direct", node.Name)); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
 			}
 			continue
 		}
@@ -324,7 +409,9 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 				"key":  0,   // Index for arrays, string key for maps
 			}
 			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
-			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q foreach schema", node.Name)); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 
 		case mnnode.NODE_KIND_FOR:
 			// For for loops, they write 'index' variable
@@ -332,7 +419,9 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 				"index": 0,
 			}
 			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
-			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q for schema", node.Name)); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 
 		case mnnode.NODE_KIND_REQUEST:
 			// For REQUEST nodes, provide the schema structure
@@ -350,7 +439,9 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 				},
 			}
 			nodeVarRef := reference.NewReferenceFromInterfaceWithKey(nodeVarsMap, node.Name)
-			nodeRefs = append(nodeRefs, reference.ConvertPkgToRpcTree(nodeVarRef))
+			if err := appendNodeRef(nodeVarRef, fmt.Sprintf("node %q request schema", node.Name)); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 		}
 		// Other node types (JS, CONDITION, etc.) don't have default schemas
 	}
@@ -837,20 +928,13 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 	items := creator.FindMatchAndCalcCompletionData(req.Msg.Start)
 
-	var Items []*referencev1.ReferenceCompletion
-
-	for _, item := range items {
-		Items = append(Items, &referencev1.ReferenceCompletion{
-			Kind:         referencev1.ReferenceKind(item.Kind),
-			EndToken:     item.EndToken,
-			EndIndex:     item.EndIndex,
-			ItemCount:    item.ItemCount,
-			Environments: item.Environments,
-		})
+	completions, err := convertReferenceCompletionItemsFn(items)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("convert reference completion items: %w", err))
 	}
 
 	response := &referencev1.ReferenceCompletionResponse{
-		Items: Items,
+		Items: completions,
 	}
 
 	return connect.NewResponse(response), nil
@@ -1156,61 +1240,61 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 					}
 
 				case mnnode.NODE_KIND_REQUEST:
-				// REQUEST nodes can reference their own response and request directly (without prefix)
-				var nodeData interface{}
-				hasExecutionData := false
+					// REQUEST nodes can reference their own response and request directly (without prefix)
+					var nodeData interface{}
+					hasExecutionData := false
 
-				// Try to get the current node's execution data
-				executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
-				if err == nil && len(executions) > 0 {
-					// Use the latest execution (first one, as they're ordered by ID DESC)
-					latestExecution := executions[0]
+					// Try to get the current node's execution data
+					executions, err := c.nodeExecutionService.GetNodeExecutionsByNodeID(ctx, currentNode.ID)
+					if err == nil && len(executions) > 0 {
+						// Use the latest execution (first one, as they're ordered by ID DESC)
+						latestExecution := executions[0]
 
-					// Decompress data if needed
-					data := latestExecution.OutputData
-					if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
-						decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
-						if err == nil {
-							data = decompressed
+						// Decompress data if needed
+						data := latestExecution.OutputData
+						if latestExecution.OutputDataCompressType != compress.CompressTypeNone {
+							decompressed, err := compress.Decompress(data, latestExecution.OutputDataCompressType)
+							if err == nil {
+								data = decompressed
+							}
+						}
+
+						// Try to unmarshal as generic JSON
+						var genericOutput interface{}
+						if err := json.Unmarshal(data, &genericOutput); err == nil {
+							nodeData = genericOutput
+							hasExecutionData = true
 						}
 					}
 
-					// Try to unmarshal as generic JSON
-					var genericOutput interface{}
-					if err := json.Unmarshal(data, &genericOutput); err == nil {
-						nodeData = genericOutput
-						hasExecutionData = true
-					}
-				}
-
-				if hasExecutionData && nodeData != nil {
-					// Extract the node-specific data
-					if nodeMap, ok := nodeData.(map[string]interface{}); ok {
-						if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
-							// Add the entire node data at ROOT level
-							// This allows direct access to response.* and request.*
-							if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
-								// Add all variables from the node directly at root
-								for key, value := range nodeVars {
-									lookup.AddWithKey(key, value)
+					if hasExecutionData && nodeData != nil {
+						// Extract the node-specific data
+						if nodeMap, ok := nodeData.(map[string]interface{}); ok {
+							if nodeSpecificData, hasNodeKey := nodeMap[currentNode.Name]; hasNodeKey {
+								// Add the entire node data at ROOT level
+								// This allows direct access to response.* and request.*
+								if nodeVars, ok := nodeSpecificData.(map[string]interface{}); ok {
+									// Add all variables from the node directly at root
+									for key, value := range nodeVars {
+										lookup.AddWithKey(key, value)
+									}
 								}
 							}
 						}
+					} else {
+						// No execution data, provide the schema at root level
+						lookup.AddWithKey("request", map[string]interface{}{
+							"headers": map[string]string{},
+							"queries": map[string]string{},
+							"body":    "string",
+						})
+						lookup.AddWithKey("response", map[string]interface{}{
+							"status":   200,
+							"body":     map[string]interface{}{},
+							"headers":  map[string]string{},
+							"duration": 0,
+						})
 					}
-				} else {
-					// No execution data, provide the schema at root level
-					lookup.AddWithKey("request", map[string]interface{}{
-						"headers": map[string]string{},
-						"queries": map[string]string{},
-						"body":    "string",
-					})
-					lookup.AddWithKey("response", map[string]interface{}{
-						"status":   200,
-						"body":     map[string]interface{}{},
-						"headers":  map[string]string{},
-						"duration": 0,
-					})
-				}
 				}
 			}
 		}

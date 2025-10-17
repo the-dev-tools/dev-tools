@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
@@ -28,14 +30,58 @@ import (
 
 var ErrWorkspaceNotFound = errors.New("workspace not found")
 
+// workspaceUserService captures the workspace user operations used by the RPC layer.
+type workspaceUserService interface {
+	CreateWorkspaceUser(ctx context.Context, user *mworkspaceuser.WorkspaceUser) error
+	DeleteWorkspaceUser(ctx context.Context, id idwrap.IDWrap) error
+	GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mworkspaceuser.WorkspaceUser, error)
+	GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context, workspaceID, userID idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error)
+	UpdateWorkspaceUser(ctx context.Context, user *mworkspaceuser.WorkspaceUser) error
+}
+
+// userService captures the subset of user operations required by the workspace RPCs.
+type userService interface {
+	CheckUserBelongsToWorkspace(ctx context.Context, userID, workspaceID idwrap.IDWrap) (bool, error)
+	GetUser(ctx context.Context, id idwrap.IDWrap) (*muser.User, error)
+}
+
+// workspaceMemberRoleFallback is used when serialized data contains an unknown workspace user role.
+const workspaceMemberRoleFallback = workspacev1.MemberRole_MEMBER_ROLE_UNSPECIFIED
+
 type WorkspaceServiceRPC struct {
 	DB  *sql.DB
 	ws  sworkspace.WorkspaceService
-	wus sworkspacesusers.WorkspaceUserService
-	us  suser.UserService
+	wus workspaceUserService
+	us  userService
 
 	// env
 	es senv.EnvService
+}
+
+func modelRoleToProto(role mworkspaceuser.Role) (workspacev1.MemberRole, error) {
+	switch role {
+	case mworkspaceuser.RoleUser:
+		return workspacev1.MemberRole_MEMBER_ROLE_BASIC, nil
+	case mworkspaceuser.RoleAdmin:
+		return workspacev1.MemberRole_MEMBER_ROLE_ADMIN, nil
+	case mworkspaceuser.RoleOwner:
+		return workspacev1.MemberRole_MEMBER_ROLE_OWNER, nil
+	default:
+		return workspaceMemberRoleFallback, fmt.Errorf("unknown workspace user role: %d", role)
+	}
+}
+
+func protoRoleToModel(role workspacev1.MemberRole) (mworkspaceuser.Role, error) {
+	switch role {
+	case workspacev1.MemberRole_MEMBER_ROLE_BASIC:
+		return mworkspaceuser.RoleUser, nil
+	case workspacev1.MemberRole_MEMBER_ROLE_ADMIN:
+		return mworkspaceuser.RoleAdmin, nil
+	case workspacev1.MemberRole_MEMBER_ROLE_OWNER:
+		return mworkspaceuser.RoleOwner, nil
+	default:
+		return mworkspaceuser.RoleUnknown, fmt.Errorf("unknown workspace member role: %s", role.String())
+	}
 }
 
 func New(db *sql.DB, ws sworkspace.WorkspaceService, wus sworkspacesusers.WorkspaceUserService, us suser.UserService, es senv.EnvService) WorkspaceServiceRPC {
@@ -356,10 +402,15 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberList(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		protoRole, convErr := modelRoleToProto(wsUser.Role)
+		if convErr != nil {
+			protoRole = workspaceMemberRoleFallback
+		}
+
 		rpcUser[i] = &workspacev1.WorkspaceMemberListItem{
 			UserID: wsUser.UserID.Bytes(),
 			Email:  user.Email,
-			Role:   workspacev1.MemberRole(wsUser.Role),
+			Role:   protoRole,
 		}
 	}
 
@@ -423,6 +474,11 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberUpdate(ctx context.Context, req *co
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("user id not found"))
 	}
 
+	targetRole, convErr := protoRoleToModel(req.Msg.GetRole())
+	if convErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid member role: %w", convErr))
+	}
+
 	ActionUser, err := c.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceULID, actionUserUlid)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -440,9 +496,8 @@ func (c *WorkspaceServiceRPC) WorkspaceMemberUpdate(ctx context.Context, req *co
 	if !ok {
 		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 	}
-	TargetUser.Role = mworkspaceuser.Role(req.Msg.GetRole())
+	TargetUser.Role = targetRole
 
-	// TODO: add check for user role such bigger then enum etc
 	err = c.wus.UpdateWorkspaceUser(ctx, TargetUser)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
