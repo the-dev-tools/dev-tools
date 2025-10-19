@@ -32,12 +32,11 @@ import {
 import {
   EmitContext,
   Enum,
-  Interface,
   isNullType,
-  isTemplateDeclaration,
   Model,
   ModelProperty,
   Namespace,
+  Operation,
   Program,
   Type,
   Union,
@@ -244,7 +243,6 @@ interface PackageProps {
 }
 
 const Package = ({ namespace }: PackageProps) => {
-  const { $ } = useTsp();
   const { goPackage } = useContext(EmitterOptionsContext)!;
   const { version } = useProject();
 
@@ -305,22 +303,24 @@ const Package = ({ namespace }: PackageProps) => {
     </Show>
   ));
 
-  const services = pipe(
-    namespace.interfaces.values(),
-    Array.fromIterable,
-    Array.filter((_) => {
-      if (!_.isFinished) $.type.finishType(_);
-      return !isTemplateDeclaration(_);
-    }),
-    (_) => (
-      <Show when={_.length > 0}>
-        <hbr />
-        <For doubleHardline each={_}>
-          {(_) => <Service _interface={_} />}
-        </For>
-        <hbr />
-      </Show>
-    ),
+  const operations = pipe(
+    namespace.interfaces.entries(),
+    Record.fromEntries,
+    Record.map((_) => _.operations.values().toArray()),
+  );
+
+  const defaultService = `${namespace.name}Service`;
+  const defaultServiceOperations = [...(operations[defaultService] ?? []), ...namespace.operations.values()];
+  operations[defaultService] = defaultServiceOperations;
+
+  const services = (
+    <>
+      <hbr />
+      <For doubleHardline each={Record.toEntries(operations)}>
+        {([name, operations]) => <Service name={name} operations={operations} />}
+      </For>
+      <hbr />
+    </>
   );
 
   return (
@@ -627,16 +627,16 @@ const Value = ({ children }: ValueProps) =>
   );
 
 interface ServiceProps {
-  _interface: Interface;
+  name: string;
+  operations: Operation[];
 }
 
-const Service = ({ _interface }: ServiceProps) => {
+const Service = ({ name, operations }: ServiceProps) => {
   const { $, program } = useTsp();
   const protoTypeMap = useProtoTypeMap();
 
   const fields = pipe(
-    _interface.operations.values(),
-    Array.fromIterable,
+    operations,
     Option.liftPredicate(Array.isNonEmptyArray),
     Option.map((_) => (
       <Block>
@@ -693,7 +693,7 @@ const Service = ({ _interface }: ServiceProps) => {
   );
 
   return (
-    <BasicDeclaration name={_interface.name} refkeys={refkey(_interface)}>
+    <BasicDeclaration name={name} refkeys={refkey('service', name)}>
       service <Name /> {fields}
     </BasicDeclaration>
   );
