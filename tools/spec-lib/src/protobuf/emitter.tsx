@@ -235,7 +235,7 @@ interface BasicDeclarationProps extends OutputSymbolOptions {
 
 const BasicDeclaration = ({ children, name, ...props }: BasicDeclarationProps) => {
   const scope = useScope();
-  const symbol = new BasicSymbol(name, scope.spaces, props);
+  const symbol = new BasicSymbol(name, scope.spaces, { ignoreNameConflict: true, ...props });
   return <Declaration symbol={symbol}>{children}</Declaration>;
 };
 
