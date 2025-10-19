@@ -186,11 +186,22 @@ func TestNodeAsync(t *testing.T, testNode node.FlowNode, opts TestNodeOptions) {
 	}
 }
 
-// RunNodeTests runs a set of test cases for a node
+// RunNodeTests runs a set of test cases for a node using table-driven test pattern
 func RunNodeTests(t *testing.T, testNode node.FlowNode, testCases []NodeTestCase) {
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctx := NewTestContext(t, TestContextOptions{Timeout: 10 * time.Second})
+			defer ctx.Cleanup()
+			tc.TestFunc(t, ctx, testNode)
+		})
+	}
+}
+
+// RunNodeTestsWithOptions runs a set of test cases for a node with custom options
+func RunNodeTestsWithOptions(t *testing.T, testNode node.FlowNode, testCases []NodeTestCase, opts TestContextOptions) {
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := NewTestContext(t, opts)
 			defer ctx.Cleanup()
 			tc.TestFunc(t, ctx, testNode)
 		})
@@ -256,5 +267,26 @@ func validateErrorStatuses(t *testing.T, statuses []runner.FlowNodeStatus) {
 	// Should have at least one error status if we have any statuses
 	if len(statuses) > 0 && !hasError {
 		t.Log("Note: No error status found, node may handle errors gracefully")
+	}
+}
+
+// TestNodeWithConfig tests a node with a specific configuration using a table-driven approach
+func TestNodeWithConfig(t *testing.T, testNode node.FlowNode, configs []struct {
+	name string
+	opts TestNodeOptions
+	test func(*testing.T, node.FlowNode, TestNodeOptions)
+}) {
+	for _, config := range configs {
+		t.Run(config.name, func(t *testing.T) {
+			config.test(t, testNode, config.opts)
+		})
+	}
+}
+
+// CreateNodeTest is a simple helper that creates a test function for common scenarios
+func CreateNodeTest(testFunc func(*testing.T, node.FlowNode, TestNodeOptions)) func(*testing.T, *TestContext, node.FlowNode) {
+	return func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+		opts := DefaultTestNodeOptions()
+		testFunc(t, testNode, opts)
 	}
 }

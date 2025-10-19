@@ -45,8 +45,8 @@ func TestMyNode(t *testing.T) {
 
 ```go
 func TestAllNodeTypes(t *testing.T) {
-    // Get all available node test suites
-    nodeSuites := testing.GetAllNodeSuites()
+    // Get all available node test configurations
+    nodeTests := testing.AllNodeTests()
 
     for nodeName, suite := range nodeSuites {
         t.Run(nodeName, func(t *testing.T) {
@@ -109,35 +109,35 @@ func RunNodeTests(t *testing.T, testNode node.FlowNode, testCases []NodeTestCase
 
 ### 2. Node Suites (`nodes.go`)
 
-#### Predefined Node Factories
+#### Predefined Node Creators
 
 ```go
-// Get test suite for FOR nodes
-func GetFORNodeSuite() NodeTestSuite
+// Get test configuration for FOR nodes
+func FORNodeTests() NodeTests
 
-// Get test suite for FOREACH nodes
-func GetFOREACHNodeSuite() NodeTestSuite
+// Get test configuration for FOREACH nodes
+func FOREACHNodeTests() NodeTests
 
-// Get test suite for IF nodes
-func GetIFNodeSuite() NodeTestSuite
+// Get test configuration for IF nodes
+func IFNodeTests() NodeTests
 
-// Get test suite for NOOP nodes
-func GetNOOPNodeSuite() NodeTestSuite
+// Get test configuration for NOOP nodes
+func NOOPNodeTests() NodeTests
 
-// Get all available node suites
-func GetAllNodeSuites() map[string]NodeTestSuite
+// Get all available node test configurations
+func AllNodeTests() map[string]NodeTests
 ```
 
-#### Node Suite Structure
+#### Node Test Configuration Structure
 
 ```go
-type NodeTestSuite struct {
-    Factory     NodeFactory           // Creates node instances
+type NodeTests struct {
+    CreateNode  NodeCreator           // Creates node instances
     TestCases   []NodeTestCase        // Test cases to run
     BaseOptions TestNodeOptions       // Base configuration
 }
 
-type NodeFactory func() node.FlowNode
+type NodeCreator func() node.FlowNode
 ```
 
 ## 🔧 Advanced Usage
@@ -218,9 +218,9 @@ func TestErrorScenarios(t *testing.T) {
 
 ```go
 // In nodes.go or your test file
-func GetMyCustomNodeSuite() testing.NodeTestSuite {
-    return testing.NodeTestSuite{
-        Factory: func() node.FlowNode {
+func MyCustomNodeTests() testing.NodeTests {
+    return testing.NodeTests{
+        CreateNode: func() node.FlowNode {
             return mycustom.New(
                 idwrap.NewNow(),
                 "TestCustom",
@@ -252,16 +252,16 @@ func GetMyCustomNodeSuite() testing.NodeTestSuite {
 }
 ```
 
-#### 2. Register in All Suites (Optional)
+#### 2. Register in All Tests (Optional)
 
 ```go
-func GetAllNodeSuites() map[string]testing.NodeTestSuite {
-    return map[string]testing.NodeTestSuite{
-        "FOR":     GetFORNodeSuite(),
-        "FOREACH": GetFOREACHNodeSuite(),
-        "IF":      GetIFNodeSuite(),
-        "NOOP":    GetNOOPNodeSuite(),
-        "CUSTOM":  GetMyCustomNodeSuite(), // Add your node
+func AllNodeTests() map[string]testing.NodeTests {
+    return map[string]testing.NodeTests{
+        "FOR":     FORNodeTests(),
+        "FOREACH": FOREACHNodeTests(),
+        "IF":      IFNodeTests(),
+        "NOOP":    NOOPNodeTests(),
+        "CUSTOM":  MyCustomNodeTests(), // Add your node
     }
 }
 ```
@@ -538,8 +538,8 @@ opts.ExpectStatusEvents = false // For NOOP, IF, etc.
 ```go
 // Fix: Ensure factory returns valid node
 func GetMyNodeSuite() testing.NodeTestSuite {
-    return testing.NodeTestSuite{
-        Factory: func() node.FlowNode {
+    return testing.NodeTests{
+        CreateNode: func() node.FlowNode {
             // Make sure this returns a valid node
             return mynode.New(idwrap.NewNow(), "TestNode")
         },
@@ -605,11 +605,11 @@ func TestNodeDebug(t *testing.T) {
 
 #### Node Factories
 
-- `GetFORNodeSuite()` - FOR node test suite
-- `GetFOREACHNodeSuite()` - FOREACH node test suite
-- `GetIFNodeSuite()` - IF node test suite
-- `GetNOOPNodeSuite()` - NOOP node test suite
-- `GetAllNodeSuites()` - All node suites
+- `FORNodeTests()` - FOR node test configuration
+- `FOREACHNodeTests()` - FOREACH node test configuration
+- `IFNodeTests()` - IF node test configuration
+- `NOOPNodeTests()` - NOOP node test configuration
+- `AllNodeTests()` - All node test configurations
 
 ### Type Definitions
 
@@ -619,8 +619,8 @@ type NodeTestCase struct {
     TestFunc func(t *testing.T, ctx *TestContext, testNode node.FlowNode)
 }
 
-type NodeTestSuite struct {
-    Factory     NodeFactory
+type NodeTests struct {
+    CreateNode  NodeCreator
     TestCases   []NodeTestCase
     BaseOptions TestNodeOptions
 }

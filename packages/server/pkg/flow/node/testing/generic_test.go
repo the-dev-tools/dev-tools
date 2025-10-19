@@ -2,54 +2,67 @@ package testing
 
 import (
 	"testing"
+
+	"the-dev-tools/server/pkg/flow/node"
+	"the-dev-tools/server/pkg/flow/node/nfor"
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 )
 
-// TestAllNodes runs all test suites for all node types using the new idiomatic approach
+// TestAllNodes runs all test configurations for all node types using idiomatic Go patterns
 func TestAllNodes(t *testing.T) {
-	nodeSuites := GetAllNodeSuites()
+	// Create FOR node creator to avoid circular imports
+	forCreator := func() node.FlowNode {
+		return nfor.New(idwrap.NewNow(), "TestFOR", 3, 0, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	}
 
-	for nodeName, suite := range nodeSuites {
+	nodeTests := AllNodeTestsWithFOR(forCreator)
+
+	for nodeName, tests := range nodeTests {
 		t.Run(nodeName, func(t *testing.T) {
 			t.Logf("Running tests for node type: %s", nodeName)
 
 			// Create a fresh node instance for this test run
-			testNode := suite.Factory()
+			testNode := tests.CreateNode()
 			if testNode == nil {
-				t.Fatalf("Node factory returned nil for %s", nodeName)
+				t.Fatalf("Node creator returned nil for %s", nodeName)
 			}
 
 			// Run all test cases for this node
-			RunNodeTests(t, testNode, suite.TestCases)
+			RunNodeTests(t, testNode, tests.TestCases)
 		})
 	}
 }
 
 // TestFORNode runs specific tests for FOR nodes
 func TestFORNode(t *testing.T) {
-	suite := GetFORNodeSuite()
-	testNode := suite.Factory()
-	RunNodeTests(t, testNode, suite.TestCases)
+	forCreator := func() node.FlowNode {
+		return nfor.New(idwrap.NewNow(), "TestFOR", 3, 0, mnfor.ErrorHandling_ERROR_HANDLING_IGNORE)
+	}
+	tests := FORNodeTests(forCreator)
+	testNode := tests.CreateNode()
+	RunNodeTests(t, testNode, tests.TestCases)
 }
 
 // TestFOREACHNode runs specific tests for FOREACH nodes
 func TestFOREACHNode(t *testing.T) {
-	suite := GetFOREACHNodeSuite()
-	testNode := suite.Factory()
-	RunNodeTests(t, testNode, suite.TestCases)
+	tests := FOREACHNodeTests()
+	testNode := tests.CreateNode()
+	RunNodeTests(t, testNode, tests.TestCases)
 }
 
 // TestIFNode runs specific tests for IF nodes
 func TestIFNode(t *testing.T) {
-	suite := GetIFNodeSuite()
-	testNode := suite.Factory()
-	RunNodeTests(t, testNode, suite.TestCases)
+	tests := IFNodeTests()
+	testNode := tests.CreateNode()
+	RunNodeTests(t, testNode, tests.TestCases)
 }
 
 // TestNOOPNode runs specific tests for NOOP nodes
 func TestNOOPNode(t *testing.T) {
-	suite := GetNOOPNodeSuite()
-	testNode := suite.Factory()
-	RunNodeTests(t, testNode, suite.TestCases)
+	tests := NOOPNodeTests()
+	testNode := tests.CreateNode()
+	RunNodeTests(t, testNode, tests.TestCases)
 }
 
 // TestGenericNodeExecutionLegacy maintains compatibility with the old test framework

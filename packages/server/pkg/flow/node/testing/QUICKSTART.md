@@ -99,9 +99,9 @@ opts.VarMap = map[string]any{            // Add variables
 ## 🔧 Add New Node
 
 ```go
-func GetMyNodeSuite() testing.NodeTestSuite {
-    return testing.NodeTestSuite{
-        Factory: func() node.FlowNode {
+func MyNodeTests() testing.NodeTests {
+    return testing.NodeTests{
+        CreateNode: func() node.FlowNode {
             return mynode.New(idwrap.NewNow(), "TestNode")
         },
         TestCases: []testing.NodeTestCase{
