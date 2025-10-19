@@ -11,6 +11,7 @@ import (
 	"the-dev-tools/server/pkg/flow/node/nforeach"
 	"the-dev-tools/server/pkg/flow/node/nif"
 	"the-dev-tools/server/pkg/flow/node/nnoop"
+	"the-dev-tools/server/pkg/flow/node/nstart"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
@@ -333,13 +334,167 @@ func NOOPNodeTests() NodeTests {
 	}
 }
 
-// AllNodeTests returns all available node test configurations
-// Note: FOR node tests require a creator function to avoid circular imports
+// JSNodeTests returns the test configuration for JS nodes
+// Note: This function requires the caller to provide a JS node creator to avoid circular imports
+func JSNodeTests(creator func() node.FlowNode) NodeTests {
+	return NodeTests{
+		CreateNode: creator,
+		BaseOptions: TestNodeOptions{
+			ExpectStatusEvents: false, // JS nodes don't emit status by default
+		},
+		TestCases: []NodeTestCase{
+			{
+				Name: "Basic Success",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					opts.ExpectStatusEvents = false
+					TestNodeSuccess(t, testNode, opts)
+				},
+			},
+			{
+				Name: "Error Handling",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					TestNodeError(t, testNode, opts, func(req *node.FlowNodeRequest) {
+						req.Timeout = 1 * time.Nanosecond // Force timeout error
+					})
+				},
+			},
+			{
+				Name: "Timeout",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					TestNodeTimeout(t, testNode, opts)
+				},
+			},
+			{
+				Name: "Async Execution",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					opts.ExpectStatusEvents = false
+					TestNodeAsync(t, testNode, opts)
+				},
+			},
+			{
+				Name: "JS Code Configuration",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					// Test that JS node has basic configuration
+					require.NotEmpty(t, testNode.GetName(), "JS node should have a name")
+					require.NotEmpty(t, testNode.GetID(), "JS node should have an ID")
+					t.Log("JS node configuration test passed")
+				},
+			},
+		},
+	}
+}
+
+// REQUESTNodeTests returns the test configuration for REQUEST nodes
+// Note: This function requires the caller to provide a REQUEST node creator to avoid circular imports
+func REQUESTNodeTests(creator func() node.FlowNode) NodeTests {
+	return NodeTests{
+		CreateNode: creator,
+		BaseOptions: TestNodeOptions{
+			ExpectStatusEvents: false, // REQUEST nodes don't emit status by default
+		},
+		TestCases: []NodeTestCase{
+			{
+				Name: "Basic Success",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					opts.ExpectStatusEvents = false
+					TestNodeSuccess(t, testNode, opts)
+				},
+			},
+			{
+				Name: "Error Handling",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					TestNodeError(t, testNode, opts, func(req *node.FlowNodeRequest) {
+						req.Timeout = 1 * time.Nanosecond // Force timeout error
+					})
+				},
+			},
+			{
+				Name: "Timeout",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					TestNodeTimeout(t, testNode, opts)
+				},
+			},
+			{
+				Name: "Async Execution",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					opts.ExpectStatusEvents = false
+					TestNodeAsync(t, testNode, opts)
+				},
+			},
+			{
+				Name: "Request Configuration",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					// Test that REQUEST node is configured correctly
+					require.NotEmpty(t, testNode.GetName(), "REQUEST node should have a name")
+					require.NotEmpty(t, testNode.GetID(), "REQUEST node should have an ID")
+					t.Log("REQUEST node configuration test passed")
+				},
+			},
+		},
+	}
+}
+
+// STARTNodeTests returns the test configuration for START nodes
+func STARTNodeTests() NodeTests {
+	return NodeTests{
+		CreateNode: func() node.FlowNode {
+			return nstart.New(idwrap.NewNow(), "TestSTART")
+		},
+		BaseOptions: TestNodeOptions{
+			ExpectStatusEvents: false, // START nodes don't emit status
+		},
+		TestCases: []NodeTestCase{
+			{
+				Name: "Basic Success",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					opts.ExpectStatusEvents = false
+					TestNodeSuccess(t, testNode, opts)
+				},
+			},
+			{
+				Name: "Timeout",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					TestNodeTimeout(t, testNode, opts)
+				},
+			},
+			{
+				Name: "Async Execution",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					opts := DefaultTestNodeOptions()
+					opts.ExpectStatusEvents = false
+					TestNodeAsync(t, testNode, opts)
+				},
+			},
+			{
+				Name: "Start Node Behavior",
+				TestFunc: func(t *testing.T, ctx *TestContext, testNode node.FlowNode) {
+					// Test that START node is configured correctly
+					require.Equal(t, "TestSTART", testNode.GetName(), "START node should have correct name")
+					t.Log("START node basic behavior test passed")
+				},
+			},
+		},
+	}
+}
+
+// AllNodeTests returns all available node test configurations that don't require creator functions
+// Note: FOR, JS, and REQUEST node tests require creator functions to avoid circular imports
 func AllNodeTests() map[string]NodeTests {
 	return map[string]NodeTests{
 		"FOREACH": FOREACHNodeTests(),
 		"IF":      IFNodeTests(),
 		"NOOP":    NOOPNodeTests(),
+		"START":   STARTNodeTests(),
 	}
 }
 
@@ -348,5 +503,21 @@ func AllNodeTests() map[string]NodeTests {
 func AllNodeTestsWithFOR(forCreator func() node.FlowNode) map[string]NodeTests {
 	tests := AllNodeTests()
 	tests["FOR"] = FORNodeTests(forCreator)
+	return tests
+}
+
+// AllNodeTestsWithSpecial returns all available node test configurations including special nodes
+// The caller must provide creator functions for nodes that require them
+func AllNodeTestsWithSpecial(forCreator, jsCreator, requestCreator func() node.FlowNode) map[string]NodeTests {
+	tests := AllNodeTests()
+	if forCreator != nil {
+		tests["FOR"] = FORNodeTests(forCreator)
+	}
+	if jsCreator != nil {
+		tests["JS"] = JSNodeTests(jsCreator)
+	}
+	if requestCreator != nil {
+		tests["REQUEST"] = REQUESTNodeTests(requestCreator)
+	}
 	return tests
 }

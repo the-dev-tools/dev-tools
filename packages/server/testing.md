@@ -189,11 +189,197 @@ The flow runner and streaming API are concurrent; prefer these testing tactics:
 - When testing stream processing, read until the producer closes the channel, then assert on the collected states instead of asserting mid‑stream.
 - Persisting RUNNING vs terminal states: if you stub services, record call ordering and assert terminal upserts aren’t regressed by RUNNING upserts.
 
+## Flow Node Testing Framework
+
+The server includes a comprehensive testing framework for flow nodes located at `packages/server/pkg/flow/node/testing/`. This framework provides consistent patterns, reduced boilerplate, and built-in validation for all node types.
+
+### Quick Start
+
+```go
+import nodetesting "the-dev-tools/server/pkg/flow/node/testing"
+
+func TestMyNode(t *testing.T) {
+    creator := func() node.FlowNode {
+        return mynode.New(idwrap.NewNow(), "test", config)
+    }
+
+    opts := nodetesting.DefaultTestNodeOptions()
+    opts.EdgeMap = edge.EdgesMap{
+        creator().GetID(): {
+            edge.HandleThen: {idwrap.NewNow()},
+        },
+    }
+
+    nodetesting.TestNodeSuccess(t, creator(), opts)
+}
+```
+
+### Framework Benefits
+
+- **Reduced boilerplate**: ~50 lines → ~10 lines per test
+- **Consistent patterns**: All nodes use the same testing approach
+- **Built-in validation**: Status event handling, timeout testing, error scenarios
+- **Table-driven support**: Easy to add multiple test cases
+- **Node-specific helpers**: FOR loops, IF conditions, variable operations
+
+### Available Node Types
+
+The framework supports all node types:
+
+- **FOR nodes**: Status event collection, iteration testing
+- **FOREACH nodes**: Collection iteration support
+- **IF nodes**: Condition evaluation and branch selection
+- **NOOP nodes**: Basic execution testing
+- **START nodes**: Entry point testing
+- **JS nodes**: JavaScript execution (requires creator function)
+- **REQUEST nodes**: HTTP request testing (requires creator function)
+
+### Core Test Functions
+
+```go
+// Basic success test
+nodetesting.TestNodeSuccess(t, node, opts)
+
+// Error handling test
+nodetesting.TestNodeError(t, node, opts, func(req *node.FlowNodeRequest) {
+    req.Timeout = 1 * time.Nanosecond // Force error
+})
+
+// Timeout behavior test
+nodetesting.TestNodeTimeout(t, node, opts)
+
+// Async execution test
+nodetesting.TestNodeAsync(t, node, opts)
+
+// Multiple test cases
+testCases := []nodetesting.NodeTestCase{
+    {Name: "Success", TestFunc: successTest},
+    {Name: "Error", TestFunc: errorTest},
+}
+nodetesting.RunNodeTests(t, node, testCases)
+```
+
+### Built-in Test Suites
+
+Use the framework's built-in test suites for comprehensive coverage:
+
+```go
+// Run all built-in tests for a node type
+tests := nodetesting.IFNodeTests()
+for _, testCase := range tests.TestCases {
+    t.Run(testCase.Name, func(t *testing.T) {
+        testNode := tests.CreateNode()
+        testCase.TestFunc(t, nodetesting.NewTestContext(t), testNode)
+    })
+}
+
+// Run tests for all supported node types
+allTests := nodetesting.AllNodeTests()
+for nodeType, nodeTests := range allTests {
+    t.Run(nodeType, func(t *testing.T) {
+        // Run nodeTests.TestCases...
+    })
+}
+```
+
+### Test Context Helpers
+
+The framework provides a rich test context for complex scenarios:
+
+```go
+ctx := nodetesting.NewTestContext(t)
+
+// Create requests with defaults
+req := ctx.CreateNodeRequest(nodeID, nodeName)
+
+// Create with custom options
+req := ctx.CreateNodeRequest(nodeID, nodeName, nodetesting.NodeRequestOptions{
+    VarMap: map[string]any{"key": "value"},
+    Timeout: 5 * time.Second,
+})
+
+// Create iteration contexts for loops
+iterCtx := ctx.CreateIterationContext(1, 3)
+
+// Status collection and validation
+collector := ctx.GetStatusCollector()
+validator := ctx.GetStatusValidator()
+```
+
+### Migration Guide
+
+Existing manual tests can be easily migrated to the framework. See `packages/server/pkg/flow/node/testing/MIGRATION.md` for detailed examples and step-by-step instructions.
+
+Typical migration:
+
+```go
+// Before: 50+ lines of manual setup
+func TestMyNode_Manual(t *testing.T) {
+    id := idwrap.NewNow()
+    node := mynode.New(id, "test", config)
+    // ... lots of boilerplate ...
+    result := node.RunSync(ctx, req)
+    // ... manual assertions ...
+}
+
+// After: 10 lines with framework
+func TestMyNode_Framework(t *testing.T) {
+    creator := func() node.FlowNode {
+        return mynode.New(idwrap.NewNow(), "test", config)
+    }
+    opts := nodetesting.DefaultTestNodeOptions()
+    nodetesting.TestNodeSuccess(t, creator(), opts)
+}
+```
+
+### Framework in CI
+
+The node testing framework integrates seamlessly with existing CI:
+
+- **No additional setup required**: Framework tests run with standard `go test`
+- **JSON output compatible**: Works with `task test:ci` for CI reporting
+- **Race detection ready**: Use `-race` flag as with other tests
+- **Parallel test friendly**: Each test gets isolated context
+
+Run framework tests in CI:
+
+```bash
+# All node tests
+go test ./pkg/flow/node/testing/... -race -count=1
+
+# Specific node type tests
+go test ./pkg/flow/node/nif -v -run TestIFNode_Framework
+
+# Framework integration tests
+go test ./pkg/flow/node -v -run TestNodeVariableOperations_Framework
+```
+
+### Documentation
+
+- **README.md**: Comprehensive framework documentation
+- **QUICKSTART.md**: 5-minute getting started guide
+- **MIGRATION.md**: Step-by-step migration examples
+- **TESTING_STRATEGY.md**: When to use normal unit tests vs framework
+- **example_test.go**: Working code examples
+
+### Testing Strategy: Normal Unit Tests vs Framework
+
+Understanding when to use each approach is crucial for effective testing:
+
+- **Normal Unit Tests**: Use for business logic, algorithms, utilities, and data transformations
+- **Flow Node Framework**: Use for node execution patterns, status events, and integration behavior
+
+See `packages/server/pkg/flow/node/testing/TESTING_STRATEGY.md` for a comprehensive guide with examples, decision matrices, and best practices.
+
 ## Command Cheatsheet
 
 - Run all server tests with race:
   - `cd packages/server && go test ./... -race -count=1`
 - Focus a package:
   - `go test ./pkg/flow/runner/flowlocalrunner -race -count=1`
+- Run node testing framework:
+  - `go test ./pkg/flow/node/testing/... -v`
+- Run framework-based node tests:
+  - `go test ./pkg/flow/node/... -v -run Framework`
 - Repo tasks:
   - `task test` or `pnpm nx run server:test`
