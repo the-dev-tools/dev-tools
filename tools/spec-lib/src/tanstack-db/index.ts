@@ -1,0 +1,222 @@
+import {
+  $withVisibilityFilter,
+  createTypeSpecLibrary,
+  DecoratorContext,
+  EnumMember,
+  EnumValue,
+  getLifecycleVisibilityEnum,
+  isKey,
+  Model,
+  ModelProperty,
+  Program,
+} from '@typespec/compiler';
+import { $ } from '@typespec/compiler/typekit';
+import { pipe, Record } from 'effect';
+import { fieldNumberMap, streams } from '../protobuf/lib.js';
+
+export const $lib = createTypeSpecLibrary({
+  diagnostics: {},
+  name: '@the-dev-tools/spec-lib/tanstack-db',
+});
+
+export const $decorators = {
+  'DevTools.TanStackDB': {
+    collection,
+  },
+};
+
+const getOrMake = <Key, Value>(map: Map<Key, Value>, key: Key, make: (key: Key) => Value) => {
+  const value = map.get(key) ?? make(key);
+  map.set(key, value);
+  return value;
+};
+
+const toDeltaProperty = (program: Program) => (property: ModelProperty) => {
+  if (isKey(program, property)) return property;
+
+  let type = property.type;
+
+  if (property.optional) {
+    const variants = $(program).union.is(type)
+      ? type.variants.values().toArray()
+      : [$(program).unionVariant.create({ type })];
+
+    const nullVariant = $(program).unionVariant.create({ type: $(program).intrinsic.null });
+    fieldNumberMap(program).set(nullVariant, 2);
+    variants.unshift(nullVariant);
+
+    type = $(program).union.create({ variants });
+  }
+
+  return $(program).modelProperty.create({
+    name: property.name,
+    optional: true,
+    type,
+  });
+};
+
+function collection({ program }: DecoratorContext, base: Model) {
+  const { namespace } = base;
+  if (!namespace) return;
+
+  const lifecycle = pipe(
+    getLifecycleVisibilityEnum(program).members.entries(),
+    (_) => Record.fromEntries(_) as Record<'Create' | 'Delete' | 'Query' | 'Read' | 'Update', EnumMember>,
+    Record.map((_): EnumValue => ({ entityKind: 'Value', type: _, value: _, valueKind: 'EnumValue' })),
+  );
+
+  const makeOperation = (name: string, { input, output }: { input?: Model; output?: Model }) => {
+    const opertion = $(program).operation.create({
+      name,
+      parameters: input?.properties.values().toArray() ?? [],
+      returnType: output ?? $(program).model.create({ properties: {} }),
+    });
+
+    if (input) opertion.parameters.sourceModels = [{ model: input, usage: 'spread' }];
+
+    namespace.operations.set(opertion.name, opertion);
+
+    return opertion;
+  };
+
+  const collectionResponse = getOrMake(namespace.models, `${base.name}CollectionResponse`, (name) =>
+    $(program).model.create({
+      name,
+      properties: {
+        items: $(program).modelProperty.create({
+          name: 'items',
+          type: $(program).array.create(base),
+        }),
+      },
+    }),
+  );
+
+  makeOperation(`${base.name}Collection`, { output: collectionResponse });
+
+  const createItem = getOrMake(namespace.models, `${base.name}Create`, (name) =>
+    $(program).model.create({
+      decorators: [[$withVisibilityFilter, { all: [lifecycle.Create] }]],
+      name,
+      properties: Record.fromEntries(base.properties.entries()),
+    }),
+  );
+
+  const createRequest = getOrMake(namespace.models, `${base.name}CreateRequest`, (name) =>
+    $(program).model.create({
+      name,
+      properties: {
+        items: $(program).modelProperty.create({
+          name: 'items',
+          type: $(program).array.create(createItem),
+        }),
+      },
+    }),
+  );
+
+  makeOperation(`${base.name}Create`, { input: createRequest });
+
+  const updateItem = getOrMake(namespace.models, `${base.name}Update`, (name) =>
+    $(program).model.create({
+      decorators: [[$withVisibilityFilter, { all: [lifecycle.Create] }]],
+      name,
+      properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program))),
+    }),
+  );
+
+  const updateRequest = getOrMake(namespace.models, `${base.name}UpdateRequest`, (name) =>
+    $(program).model.create({
+      name,
+      properties: {
+        items: $(program).modelProperty.create({
+          name: 'items',
+          type: $(program).array.create(updateItem),
+        }),
+      },
+    }),
+  );
+
+  makeOperation(`${base.name}Update`, { input: updateRequest });
+
+  const deleteItem = getOrMake(namespace.models, `${base.name}Delete`, (name) =>
+    $(program).model.create({
+      name,
+      properties: pipe(
+        base.properties.entries(),
+        Record.fromEntries,
+        Record.filter((_) => isKey(program, _)),
+      ),
+    }),
+  );
+
+  const deleteRequest = getOrMake(namespace.models, `${base.name}DeleteRequest`, (name) =>
+    $(program).model.create({
+      name,
+      properties: {
+        items: $(program).modelProperty.create({
+          name: 'items',
+          type: $(program).array.create(deleteItem),
+        }),
+      },
+    }),
+  );
+
+  makeOperation(`${base.name}Delete`, { input: deleteRequest });
+
+  const syncCreateItem = getOrMake(namespace.models, `${base.name}SyncCreate`, (name) =>
+    $(program).model.create({
+      name,
+      properties: Record.fromEntries(base.properties.entries()),
+    }),
+  );
+
+  const syncUpdateItem = getOrMake(namespace.models, `${base.name}SyncUpdate`, (name) =>
+    $(program).model.create({
+      name,
+      properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program))),
+    }),
+  );
+
+  const syncDeleteItem = getOrMake(namespace.models, `${base.name}SyncDelete`, (name) =>
+    $(program).model.create({
+      name,
+      properties: pipe(
+        base.properties.entries(),
+        Record.fromEntries,
+        Record.filter((_) => isKey(program, _)),
+      ),
+    }),
+  );
+
+  const syncItem = getOrMake(namespace.models, `${base.name}Sync`, (name) =>
+    $(program).model.create({
+      name,
+      properties: {
+        value: $(program).modelProperty.create({
+          name: 'value',
+          type: $(program).union.create({
+            variants: [
+              $(program).unionVariant.create({ name: 'create', type: syncCreateItem }),
+              $(program).unionVariant.create({ name: 'update', type: syncUpdateItem }),
+              $(program).unionVariant.create({ name: 'delete', type: syncDeleteItem }),
+            ],
+          }),
+        }),
+      },
+    }),
+  );
+
+  const syncResponse = getOrMake(namespace.models, `${base.name}SyncResponse`, (name) =>
+    $(program).model.create({
+      name,
+      properties: {
+        items: $(program).modelProperty.create({
+          name: 'items',
+          type: $(program).array.create(syncItem),
+        }),
+      },
+    }),
+  );
+
+  const sync = makeOperation(`${base.name}Sync`, { output: syncResponse });
+  streams(program).set(sync, 'Out');
+}

@@ -18,6 +18,11 @@
       "types": "./dist/src/protobuf/index.d.ts",
       "default": "./dist/src/protobuf/index.js",
       "typespec": "./src/protobuf/main.tsp"
+    },
+    "./tanstack-db": {
+      "types": "./dist/src/tanstack-db/index.d.ts",
+      "default": "./dist/src/tanstack-db/index.js",
+      "typespec": "./src/tanstack-db/main.tsp"
     }
   },
   "dependencies": {
