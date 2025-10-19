@@ -59,7 +59,7 @@ import {
 } from 'effect';
 import { join } from 'node:path/posix';
 import { Projects, useProject } from '../core/index.js';
-import { EmitterOptions, externals, fieldNumber, maps, optionMap, streams } from './lib.js';
+import { EmitterOptions, externals, fieldNumberMap, maps, optionMap, streams } from './lib.js';
 
 const EmitterOptionsContext = createContext<EmitterOptions>();
 
@@ -464,7 +464,7 @@ const Field = ({ property }: FieldProps) => {
   const messageContext = useContext(MessageContext);
 
   const type = pipe(property.type, protoTypeMap, Option.getOrThrow);
-  const number = fieldNumber(program).get(property) ?? fieldNumberFromName(property.name);
+  const number = fieldNumberMap(program).get(property) ?? fieldNumberFromName(property.name);
 
   const repeatedOrOptional = $.array.is(property.type) ? 'repeated' : property.optional && 'optional';
 
@@ -533,6 +533,9 @@ const OneOfMessage = ({ name, union }: OneOfMessageProps) => {
       const name = typeof _.name === 'string' ? _.name : typeName;
       const property = $.modelProperty.create({ name, optional: true, type: _.type });
 
+      const fieldNumber = fieldNumberMap(program).get(_);
+      if (fieldNumber) fieldNumberMap(program).set(property, fieldNumber);
+
       optionMap(program).set(property, [
         ['DevTools.Protobuf.Validate.Field.Ignore', new ValueLiteral('IGNORE_UNSPECIFIED')],
       ]);
@@ -544,19 +547,21 @@ const OneOfMessage = ({ name, union }: OneOfMessageProps) => {
 
   const kindEnum = $.enum.create({
     members: pipe(
-      Record.keys(properties),
-      Array.map((key) =>
-        $.enumMember.create({
+      Record.map(properties, (property, key) => {
+        const fieldNumber = fieldNumberMap(program).get(property) ?? fieldNumberFromName(key);
+
+        return $.enumMember.create({
           name: String.capitalize(key),
-          value: fieldNumberFromName(key),
-        }),
-      ),
+          value: fieldNumber,
+        });
+      }),
+      Record.values,
     ),
     name: 'Kind',
   });
 
   const kind = $.modelProperty.create({ name: 'kind', type: kindEnum });
-  fieldNumber(program).set(kind, 1);
+  fieldNumberMap(program).set(kind, 1);
   optionMap(program).set(kind, [['DevTools.Protobuf.Validate.Field.Enum', { not_in: [0] }]]);
 
   const model = $.model.create({

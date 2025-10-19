@@ -7,6 +7,7 @@ import {
   Operation,
   Scalar,
   Type,
+  UnionVariant,
 } from '@typespec/compiler';
 import { pipe, Schema } from 'effect';
 import { makeEmitterOptions, makeStateFactory } from '../utils.js';
@@ -37,7 +38,7 @@ export const streams = makeStateMap<Operation, 'Duplex' | 'In' | 'None' | 'Out'>
 export const externals = makeStateMap<Type, [string, string]>('externals');
 export const maps = makeStateMap<Type, [Type, Type]>('maps');
 export const optionMap = makeStateMap<Type, [string, unknown][]>('options');
-export const fieldNumber = makeStateMap<ModelProperty, number>('fieldNumber');
+export const fieldNumberMap = makeStateMap<ModelProperty | UnionVariant, number>('fieldNumber');
 
 function stream({ program }: DecoratorContext, target: Operation, mode: EnumMember) {
   streams(program).set(target, mode.name as never);
