@@ -8,6 +8,9 @@ overrides:
   '@types/eslint': '-'
 
 patchedDependencies:
+  '@data-client/core':
+    hash: 2d0ba9c82eef30d313cadf0b3ea40cee3c73902f247eebb61412a3054f117498
+    path: patches/@data-client__core.patch
   '@nx/eslint':
     hash: 45d7a0a2e2d55c4ffd4beb467a0e02fac3f27bc1857270f522acafd5365d2c6b
     path: patches/@nx__eslint.patch
@@ -426,7 +429,7 @@ importers:
         version: 2.1.0(@bufbuild/protobuf@2.9.0)
       '@data-client/core':
         specifier: 0.14.24
-        version: 0.14.24
+        version: 0.14.24(patch_hash=2d0ba9c82eef30d313cadf0b3ea40cee3c73902f247eebb61412a3054f117498)
       '@data-client/endpoint':
         specifier: 0.14.26
         version: 0.14.26
@@ -704,7 +707,7 @@ importers:
         version: 2.1.0(@bufbuild/protobuf@2.9.0)
       '@data-client/core':
         specifier: 0.14.24
-        version: 0.14.24
+        version: 0.14.24(patch_hash=2d0ba9c82eef30d313cadf0b3ea40cee3c73902f247eebb61412a3054f117498)
       '@data-client/endpoint':
         specifier: 0.14.26
         version: 0.14.26
@@ -10862,7 +10865,7 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@data-client/core@0.14.24':
+  '@data-client/core@0.14.24(patch_hash=2d0ba9c82eef30d313cadf0b3ea40cee3c73902f247eebb61412a3054f117498)':
     dependencies:
       '@babel/runtime': 7.28.4
       '@data-client/normalizr': 0.14.22
@@ -10879,7 +10882,7 @@ snapshots:
   '@data-client/react@0.14.25(@types/react@19.2.0)(react@19.2.0)':
     dependencies:
       '@babel/runtime': 7.28.4
-      '@data-client/core': 0.14.24
+      '@data-client/core': 0.14.24(patch_hash=2d0ba9c82eef30d313cadf0b3ea40cee3c73902f247eebb61412a3054f117498)
       '@data-client/use-enhanced-reducer': 0.1.14(@types/react@19.2.0)(react@19.2.0)
       react: 19.2.0
     optionalDependencies:

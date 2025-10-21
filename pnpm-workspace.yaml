@@ -27,6 +27,7 @@ overrides:
   '@types/eslint': '-'
 
 patchedDependencies:
+  '@data-client/core': patches/@data-client__core.patch
   '@nx/eslint': patches/@nx__eslint.patch
   '@openreplay/tracker@16.4.9': patches/@openreplay__tracker@16.4.9.patch
   '@react-stately/table': patches/@react-stately__table.patch
