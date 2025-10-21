@@ -16,6 +16,8 @@ import {
   useSuspense,
 } from '@data-client/react';
 import { Option, pipe } from 'effect';
+import { ReactNode, useEffect, useRef } from 'react';
+import { FallbackProps } from 'react-error-boundary';
 import { EndpointProps } from '@the-dev-tools/spec-lib/data-client/utils.ts';
 import { useToastQueue } from '@the-dev-tools/ui/toast';
 import { kErrorHandler } from '~api/interceptors';
@@ -112,3 +114,20 @@ export const useMakeDataClient = () => {
 export interface DataClient extends ReturnType<typeof useMakeDataClient> {}
 
 export const matchAllEndpoint = (endpoint: { name: string }) => (key: string) => key.startsWith(`["${endpoint.name}"`);
+
+export interface FallbackWithAutoRetry extends FallbackProps {
+  children?: ReactNode;
+  onRetry: () => Promise<void>;
+}
+
+export const FallbackWithAutoRetry = ({ children, error, onRetry, resetErrorBoundary }: FallbackWithAutoRetry) => {
+  const haveRetried = useRef(false);
+
+  useEffect(() => {
+    if (haveRetried.current) return;
+    haveRetried.current = true;
+    void onRetry().then(() => void resetErrorBoundary());
+  }, [error, onRetry, resetErrorBoundary]);
+
+  return children;
+};

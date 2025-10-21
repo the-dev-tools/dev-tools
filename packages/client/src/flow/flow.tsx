@@ -57,7 +57,10 @@ import {
   FlowVariableUpdateEndpoint,
 } from '@the-dev-tools/spec/data-client/flow_variable/v1/flow_variable.endpoints.ts';
 import { FlowVariableListItemEntity } from '@the-dev-tools/spec/data-client/flow_variable/v1/flow_variable.entities.ts';
-import { NodeExecutionListEndpoint } from '@the-dev-tools/spec/data-client/flow/node/execution/v1/execution.endpoints.js';
+import {
+  NodeExecutionGetEndpoint,
+  NodeExecutionListEndpoint,
+} from '@the-dev-tools/spec/data-client/flow/node/execution/v1/execution.endpoints.js';
 import { NodeGetEndpoint } from '@the-dev-tools/spec/data-client/flow/node/v1/node.endpoints.js';
 import {
   FlowDeleteEndpoint,
@@ -80,7 +83,7 @@ import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { EndpointKey, ExampleKey, TreeKey } from '~collection';
-import { matchAllEndpoint, useDLE, useEndpointProps, useMutate, useQuery } from '~data-client';
+import { FallbackWithAutoRetry, matchAllEndpoint, useDLE, useEndpointProps, useMutate, useQuery } from '~data-client';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -783,6 +786,7 @@ interface EditPanelProps {
 }
 
 export const EditPanel = ({ nodeId }: EditPanelProps) => {
+  const { dataClient } = rootRouteApi.useRouteContext();
   const { workspaceId } = workspaceRouteApi.useLoaderData();
   const { data } = useDLE(NodeGetEndpoint, { nodeId });
 
@@ -800,7 +804,14 @@ export const EditPanel = ({ nodeId }: EditPanelProps) => {
   if (!view) return null;
 
   return (
-    <ErrorBoundary fallback={null}>
+    <ErrorBoundary
+      fallbackRender={(props) => (
+        <FallbackWithAutoRetry
+          {...props}
+          onRetry={() => dataClient.controller.expireAll({ testKey: matchAllEndpoint(NodeExecutionGetEndpoint) })}
+        />
+      )}
+    >
       <ReferenceContext value={{ nodeId, workspaceId }}>
         <PanelResizeHandle direction='vertical' />
         <Panel className={tw`!overflow-auto`} defaultSize={40} id='node' order={2}>

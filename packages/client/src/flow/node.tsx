@@ -21,6 +21,8 @@ import { FiMoreHorizontal } from 'react-icons/fi';
 import { TbAlertTriangle, TbArchiveOff, TbCancel, TbRefresh } from 'react-icons/tb';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
+import { EndpointGetEndpoint } from '@the-dev-tools/spec/data-client/collection/item/endpoint/v1/endpoint.endpoints.js';
+import { ExampleGetEndpoint } from '@the-dev-tools/spec/data-client/collection/item/example/v1/example.endpoints.js';
 import {
   NodeExecutionGetEndpoint,
   NodeExecutionListEndpoint,
@@ -51,7 +53,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
 import { GenericMessage } from '~api/utils';
-import { useMutate, useQuery } from '~data-client';
+import { FallbackWithAutoRetry, matchAllEndpoint, useMutate, useQuery } from '~data-client';
 import { rootRouteApi } from '~routes';
 import { useNodeDuplicate } from './copy-paste';
 import { FlowContext } from './internal';
@@ -102,6 +104,8 @@ interface NodeContainerProps extends NodeProps {
 }
 
 export const NodeContainer = (props: NodeContainerProps) => {
+  const { dataClient } = rootRouteApi.useRouteContext();
+
   const {
     children,
     data: { state },
@@ -119,17 +123,30 @@ export const NodeContainer = (props: NodeContainerProps) => {
         }
       >
         <ErrorBoundary
-          fallback={
-            <NodeBody {...props} Icon={TbArchiveOff}>
-              <div
-                className={tw`
-                  rounded-md border border-slate-200 bg-red-50 p-2 text-xs font-medium text-slate-800 shadow-xs
-                `}
-              >
-                Resource is missing
-              </div>
-            </NodeBody>
-          }
+          fallbackRender={(errorProps) => (
+            <FallbackWithAutoRetry
+              {...errorProps}
+              onRetry={() =>
+                dataClient.controller.expireAll({
+                  testKey: (_) => {
+                    if (matchAllEndpoint(EndpointGetEndpoint)(_)) return true;
+                    if (matchAllEndpoint(ExampleGetEndpoint)(_)) return true;
+                    return false;
+                  },
+                })
+              }
+            >
+              <NodeBody {...props} Icon={TbArchiveOff}>
+                <div
+                  className={tw`
+                    rounded-md border border-slate-200 bg-red-50 p-2 text-xs font-medium text-slate-800 shadow-xs
+                  `}
+                >
+                  Resource is missing
+                </div>
+              </NodeBody>
+            </FallbackWithAutoRetry>
+          )}
         >
           {children}
         </ErrorBoundary>
