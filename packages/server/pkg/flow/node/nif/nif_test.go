@@ -105,6 +105,174 @@ func TestForNode_RunSync_false(t *testing.T) {
 	testutil.Assert(t, mockNode2ID, resault.NextNodeID[0])
 }
 
+func TestForNode_RunSync_ThenOnlyTrue(t *testing.T) {
+	mockNode1ID := idwrap.NewNow()
+
+	var runCounter int
+	testFuncInc := func() {
+		runCounter++
+	}
+
+	mockNode1 := mocknode.NewMockNode(mockNode1ID, nil, testFuncInc)
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		mockNode1ID: mockNode1,
+	}
+
+	id := idwrap.NewNow()
+	nodeName := "test-node"
+
+	nodeFor := nif.New(id, nodeName, mcondition.Condition{
+		Comparisons: mcondition.Comparison{
+			Expression: "1 == 1",
+		},
+	})
+	ctx := context.Background()
+
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen, edge.EdgeKindUnspecified)
+	edgesMap := edge.NewEdgesMap([]edge.Edge{edge1})
+
+	req := &node.FlowNodeRequest{
+		VarMap:        map[string]interface{}{},
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgesMap,
+	}
+
+	resault := nodeFor.RunSync(ctx, req)
+	if resault.Err != nil {
+		t.Fatalf("Expected err to be nil, but got %v", resault.Err)
+	}
+	testutil.Assert(t, mockNode1ID, resault.NextNodeID[0])
+}
+
+func TestForNode_RunSync_ThenOnlyFalse(t *testing.T) {
+	mockNode1ID := idwrap.NewNow()
+
+	var runCounter int
+	testFuncInc := func() {
+		runCounter++
+	}
+
+	mockNode1 := mocknode.NewMockNode(mockNode1ID, nil, testFuncInc)
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		mockNode1ID: mockNode1,
+	}
+
+	id := idwrap.NewNow()
+	nodeName := "test-node"
+
+	nodeFor := nif.New(id, nodeName, mcondition.Condition{
+		Comparisons: mcondition.Comparison{
+			Expression: "1 == 2",
+		},
+	})
+	ctx := context.Background()
+
+	edge1 := edge.NewEdge(idwrap.NewNow(), id, mockNode1ID, edge.HandleThen, edge.EdgeKindUnspecified)
+	edgesMap := edge.NewEdgesMap([]edge.Edge{edge1})
+
+	req := &node.FlowNodeRequest{
+		VarMap:        map[string]interface{}{},
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgesMap,
+	}
+
+	resault := nodeFor.RunSync(ctx, req)
+	if resault.Err != nil {
+		t.Fatalf("Expected err to be nil, but got %v", resault.Err)
+	}
+	if len(resault.NextNodeID) != 0 {
+		t.Fatalf("Expected no next node, but got %v", resault.NextNodeID)
+	}
+}
+
+func TestForNode_RunSync_ElseOnlyTrue(t *testing.T) {
+	mockElseID := idwrap.NewNow()
+
+	var runCounter int
+	testFuncInc := func() {
+		runCounter++
+	}
+
+	mockElse := mocknode.NewMockNode(mockElseID, nil, testFuncInc)
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		mockElseID: mockElse,
+	}
+
+	id := idwrap.NewNow()
+	nodeName := "test-node"
+
+	nodeFor := nif.New(id, nodeName, mcondition.Condition{
+		Comparisons: mcondition.Comparison{
+			Expression: "1 == 1",
+		},
+	})
+	ctx := context.Background()
+
+	edgeElse := edge.NewEdge(idwrap.NewNow(), id, mockElseID, edge.HandleElse, edge.EdgeKindUnspecified)
+	edgesMap := edge.NewEdgesMap([]edge.Edge{edgeElse})
+
+	req := &node.FlowNodeRequest{
+		VarMap:        map[string]interface{}{},
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgesMap,
+	}
+
+	resault := nodeFor.RunSync(ctx, req)
+	if resault.Err != nil {
+		t.Fatalf("Expected err to be nil, but got %v", resault.Err)
+	}
+	if len(resault.NextNodeID) != 0 {
+		t.Fatalf("Expected no next node, but got %v", resault.NextNodeID)
+	}
+}
+
+func TestForNode_RunSync_ElseOnlyFalse(t *testing.T) {
+	mockElseID := idwrap.NewNow()
+
+	var runCounter int
+	testFuncInc := func() {
+		runCounter++
+	}
+
+	mockElse := mocknode.NewMockNode(mockElseID, nil, testFuncInc)
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		mockElseID: mockElse,
+	}
+
+	id := idwrap.NewNow()
+	nodeName := "test-node"
+
+	nodeFor := nif.New(id, nodeName, mcondition.Condition{
+		Comparisons: mcondition.Comparison{
+			Expression: "1 == 2",
+		},
+	})
+	ctx := context.Background()
+
+	edgeElse := edge.NewEdge(idwrap.NewNow(), id, mockElseID, edge.HandleElse, edge.EdgeKindUnspecified)
+	edgesMap := edge.NewEdgesMap([]edge.Edge{edgeElse})
+
+	req := &node.FlowNodeRequest{
+		VarMap:        map[string]interface{}{},
+		ReadWriteLock: &sync.RWMutex{},
+		NodeMap:       nodeMap,
+		EdgeSourceMap: edgesMap,
+	}
+
+	resault := nodeFor.RunSync(ctx, req)
+	if resault.Err != nil {
+		t.Fatalf("Expected err to be nil, but got %v", resault.Err)
+	}
+	testutil.Assert(t, mockElseID, resault.NextNodeID[0])
+}
+
 func TestForNode_RunSync_VarTrue(t *testing.T) {
 	mockNode1ID := idwrap.NewNow()
 	mockNode2ID := idwrap.NewNow()

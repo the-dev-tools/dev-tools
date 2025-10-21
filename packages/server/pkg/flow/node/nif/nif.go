@@ -41,10 +41,6 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleThen)
 	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleElse)
 	var result node.FlowNodeResult
-	if trueID == nil || falseID == nil {
-		result.Err = fmt.Errorf("%w: missing true or false branch for node %s", node.ErrNodeNotFound, n.FlowNodeID)
-		return result
-	}
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
 
@@ -87,8 +83,10 @@ func (n NodeIf) RunSync(ctx context.Context, req *node.FlowNodeRequest) node.Flo
 	}
 
 	if ok {
-		result.NextNodeID = trueID
-	} else {
+		if len(trueID) > 0 {
+			result.NextNodeID = trueID
+		}
+	} else if len(falseID) > 0 {
 		result.NextNodeID = falseID
 	}
 	return result
@@ -98,11 +96,6 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	trueID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleThen)
 	falseID := edge.GetNextNodeID(req.EdgeSourceMap, n.FlowNodeID, edge.HandleElse)
 	var result node.FlowNodeResult
-	if trueID == nil || falseID == nil {
-		result.Err = fmt.Errorf("%w: missing true or false branch for node %s", node.ErrNodeNotFound, n.FlowNodeID)
-		resultChan <- result
-		return
-	}
 
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
@@ -149,8 +142,10 @@ func (n NodeIf) RunAsync(ctx context.Context, req *node.FlowNodeRequest, resultC
 	}
 
 	if ok {
-		result.NextNodeID = trueID
-	} else {
+		if len(trueID) > 0 {
+			result.NextNodeID = trueID
+		}
+	} else if len(falseID) > 0 {
 		result.NextNodeID = falseID
 	}
 
