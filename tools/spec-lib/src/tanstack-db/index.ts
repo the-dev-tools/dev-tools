@@ -9,10 +9,11 @@ import {
   Model,
   ModelProperty,
   Program,
+  Type,
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { pipe, Record } from 'effect';
-import { fieldNumberMap, streams } from '../protobuf/lib.js';
+import { streams } from '../protobuf/lib.js';
 
 export const $lib = createTypeSpecLibrary({
   diagnostics: {},
@@ -31,7 +32,7 @@ const getOrMake = <Key, Value>(map: Map<Key, Value>, key: Key, make: (key: Key) 
   return value;
 };
 
-const toDeltaProperty = (program: Program) => (property: ModelProperty) => {
+const toDeltaProperty = (program: Program, unset: Type) => (property: ModelProperty) => {
   if (isKey(program, property)) return property;
 
   let type = property.type;
@@ -41,9 +42,8 @@ const toDeltaProperty = (program: Program) => (property: ModelProperty) => {
       ? type.variants.values().toArray()
       : [$(program).unionVariant.create({ type })];
 
-    const nullVariant = $(program).unionVariant.create({ type: $(program).intrinsic.null });
-    fieldNumberMap(program).set(nullVariant, 2);
-    variants.unshift(nullVariant);
+    const unsetVariant = $(program).unionVariant.create({ type: unset });
+    variants.unshift(unsetVariant);
 
     type = $(program).union.create({ variants });
   }
@@ -64,6 +64,8 @@ function collection({ program }: DecoratorContext, base: Model) {
     (_) => Record.fromEntries(_) as Record<'Create' | 'Delete' | 'Query' | 'Read' | 'Update', EnumMember>,
     Record.map((_): EnumValue => ({ entityKind: 'Value', type: _, value: _, valueKind: 'EnumValue' })),
   );
+
+  const unset = $(program).type.resolve('DevTools.Global.Unset')!;
 
   const makeOperation = (name: string, { input, output }: { input?: Model; output?: Model }) => {
     const opertion = $(program).operation.create({
@@ -119,7 +121,7 @@ function collection({ program }: DecoratorContext, base: Model) {
     $(program).model.create({
       decorators: [[$withVisibilityFilter, { all: [lifecycle.Create] }]],
       name,
-      properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program))),
+      properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program, unset))),
     }),
   );
 
@@ -172,7 +174,7 @@ function collection({ program }: DecoratorContext, base: Model) {
   const syncUpdateItem = getOrMake(namespace.models, `${base.name}SyncUpdate`, (name) =>
     $(program).model.create({
       name,
-      properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program))),
+      properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program, unset))),
     }),
   );
 
