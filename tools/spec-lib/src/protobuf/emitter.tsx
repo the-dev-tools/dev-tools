@@ -182,7 +182,11 @@ const useProtoTypeMap = () => {
       ),
       Match.when(
         (_) => $.scalar.is(_),
-        (_) => HashMap.get(protoScalarsMap, _),
+        (_) =>
+          pipe(
+            HashMap.get(protoScalarsMap, _),
+            Option.orElseSome(() => refkey(_)),
+          ),
       ),
       Match.option,
       Option.flatten,
@@ -542,7 +546,11 @@ const OneOfMessage = ({ name, union }: OneOfMessageProps) => {
         ),
         Match.when(
           (_) => $.scalar.is(_),
-          (_) => HashMap.get(protoScalarsMap, _),
+          (_) =>
+            pipe(
+              HashMap.get(protoScalarsMap, _),
+              Option.orElseSome(() => _.name),
+            ),
         ),
         Match.when(isNullType, () => Option.some('null')),
         Match.option,
