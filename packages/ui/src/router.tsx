@@ -336,7 +336,7 @@ export const RouteTabList = (props: RouteTabListProps) => {
     <ListBox
       aria-label='Tabs'
       className={tw`
-        relative flex h-11 w-full overflow-auto
+        relative flex h-11 w-full overflow-x-auto overflow-y-hidden
 
         before:absolute before:bottom-0 before:w-full before:border-b before:border-gray-200
       `}
@@ -344,6 +344,7 @@ export const RouteTabList = (props: RouteTabListProps) => {
       items={tabs}
       orientation='horizontal'
       selectionMode='none'
+      style={{ scrollbarWidth: 'thin' }}
     >
       {(_) => <TabItem id={_.id} tab={_} {...props} />}
     </ListBox>
