@@ -38,6 +38,7 @@ import {
   Namespace,
   Operation,
   Program,
+  Scalar,
   Type,
   Union,
 } from '@typespec/compiler';
@@ -283,6 +284,16 @@ const Package = ({ namespace }: PackageProps) => {
     </Show>
   );
 
+  const singletons = pipe(namespace.scalars.values().toArray(), (_) => (
+    <Show when={_.length > 0}>
+      <hbr />
+      <For doubleHardline each={_}>
+        {(_) => <Singleton scalar={_} />}
+      </For>
+      <hbr />
+    </Show>
+  ));
+
   const enums = (
     <Show when={namespace.enums.size > 0}>
       <hbr />
@@ -333,6 +344,7 @@ const Package = ({ namespace }: PackageProps) => {
             {header}
             <hbr />
             {imports}
+            {singletons}
             {enums}
             {messages}
             {services}
@@ -372,6 +384,23 @@ const PackageReference = ({ refkey }: PackageReferenceProps) => {
     ),
   );
 };
+
+interface SingletonProps {
+  scalar: Scalar;
+}
+
+const Singleton = ({ scalar }: SingletonProps) => (
+  <BasicDeclaration name={scalar.name} refkeys={refkey(scalar)}>
+    enum <Name />{' '}
+    <Block>
+      {'// buf:lint:ignore ENUM_VALUE_PREFIX'}
+      <hbr />
+      {'// buf:lint:ignore ENUM_ZERO_VALUE_SUFFIX'}
+      <hbr />
+      {pipe(String.pascalToSnake(scalar.name), String.toUpperCase)} = 0;
+    </Block>
+  </BasicDeclaration>
+);
 
 interface ProtoEnumProps {
   _enum: Enum;
