@@ -88,15 +88,7 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
     <EmitterOptionsContext.Provider value={options}>
       <Scope value={globalScope}>
         <Output externals={[{ [getSymbolCreatorSymbol()]: bindExternals }]} printWidth={120} program={program}>
-          <Projects>
-            {(_) =>
-              pipe(
-                _.namespace.namespaces.values(),
-                Array.fromIterable,
-                Array.map((_) => <Package namespace={_} />),
-              )
-            }
-          </Projects>
+          <Projects>{(_) => <Package namespace={_.namespace} />}</Projects>
         </Output>
       </Scope>
     </EmitterOptionsContext.Provider>,
