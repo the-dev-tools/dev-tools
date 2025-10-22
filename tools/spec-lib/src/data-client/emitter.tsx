@@ -138,14 +138,7 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
     program,
     <EmitterOptionsContext.Provider value={options}>
       <Output externals={[{ [getSymbolCreatorSymbol()]: bindExternals }]} program={program}>
-        <Projects>
-          {(_) =>
-            pipe(
-              _.namespace.namespaces.values().toArray(),
-              Array.map((_) => <Directory namespace={_} />),
-            )
-          }
-        </Projects>
+        <Projects>{(_) => <Directory namespace={_.namespace} />}</Projects>
       </Output>
     </EmitterOptionsContext.Provider>,
     join(emitterOutputDir, 'data-client'),

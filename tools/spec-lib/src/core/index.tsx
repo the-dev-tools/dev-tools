@@ -1,4 +1,4 @@
-import { Children, createContext, SourceDirectory, useContext } from '@alloy-js/core';
+import { Children, createContext, useContext } from '@alloy-js/core';
 import {
   createTypeSpecLibrary,
   DecoratorContext,
@@ -123,12 +123,6 @@ export const Projects = ({ children }: ProjectsProps) => {
         return <ProjectContext.Provider value={project_}>{children(_[0]!)}</ProjectContext.Provider>;
       },
     ),
-    Match.orElse((_) =>
-      _.map((_) => (
-        <ProjectContext.Provider value={_}>
-          <SourceDirectory path={_.namespace.name}>{children(_)}</SourceDirectory>
-        </ProjectContext.Provider>
-      )),
-    ),
+    Match.orElse((_) => _.map((_) => <ProjectContext.Provider value={_}>{children(_)}</ProjectContext.Provider>)),
   );
 };
