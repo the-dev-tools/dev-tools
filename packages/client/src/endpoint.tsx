@@ -629,6 +629,8 @@ interface HistoryModalProps {
 }
 
 const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
+  'use no memo';
+
   const { items: versions } = useQuery(ExampleVersionListEndpoint, { exampleId });
 
   return (
@@ -640,7 +642,7 @@ const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
               <div className={tw`mb-0.5 text-sm leading-5 font-semibold text-slate-800`}>Response History</div>
               <div className={tw`text-xs leading-4 text-slate-500`}>History of your API response</div>
             </div>
-            <div className={tw`grid grid-cols-[auto_1fr] gap-x-0.5`}>
+            <div className={tw`grid min-h-0 grid-cols-[auto_1fr] gap-x-0.5`}>
               <div className={tw`flex flex-col items-center gap-0.5`}>
                 <div className={tw`flex-1`} />
                 <div className={tw`size-2 rounded-full border border-violet-700 p-px`}>
@@ -665,7 +667,7 @@ const HistoryModal = ({ endpointId, exampleId }: HistoryModalProps) => {
 
               <div className={tw`mb-2 w-px flex-1 justify-self-center bg-slate-200`} />
 
-              <TabList items={versions}>
+              <TabList className={tw`overflow-auto`} items={versions}>
                 {(item) => (
                   <Tab
                     className={({ isSelected }) =>
