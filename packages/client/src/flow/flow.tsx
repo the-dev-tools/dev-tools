@@ -42,6 +42,7 @@ import { createPortal } from 'react-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
+import { twJoin } from 'tailwind-merge';
 import { Example } from '@the-dev-tools/spec/collection/item/example/v1/example_pb';
 import { EndpointCreateEndpoint } from '@the-dev-tools/spec/data-client/collection/item/endpoint/v1/endpoint.endpoints.js';
 import {
@@ -423,7 +424,7 @@ export const TopBar = ({ children }: TopBarProps) => {
       {children}
 
       <ButtonAsLink
-        className={tw`px-2 py-1 text-slate-800`}
+        className={twJoin(tw`px-1 py-0 text-slate-800`, matchRoute({ to: flowHistoryRouteApi.id }) && tw`bg-slate-200`)}
         params={{ flowIdCan, workspaceIdCan }}
         to={matchRoute({ to: flowHistoryRouteApi.id }) ? flowLayoutRouteApi.id : flowHistoryRouteApi.id}
         variant='ghost'
