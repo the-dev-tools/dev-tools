@@ -625,3 +625,158 @@ func TestCreateMockFlow_TimeoutBehavior(t *testing.T) {
 	t.Logf("Timeout test completed: %d total nodes, %d succeeded, %d canceled, %d failed, execution time: %v",
 		totalNodes, successCount, canceledCount, failureCount, executionTime)
 }
+
+// Benchmark functions for performance CI
+
+// BenchmarkCreateMockFlow_Small benchmarks flow creation with small parameters
+func BenchmarkCreateMockFlow_Small(b *testing.B) {
+	params := MockFlowParams{
+		RequestCount: 2,
+		ForLoopCount: 1,
+		Delay:        0,
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = CreateMockFlow(params)
+	}
+}
+
+// BenchmarkCreateMockFlow_Medium benchmarks flow creation with medium parameters
+func BenchmarkCreateMockFlow_Medium(b *testing.B) {
+	params := MockFlowParams{
+		RequestCount: 5,
+		ForLoopCount: 3,
+		Delay:        0,
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = CreateMockFlow(params)
+	}
+}
+
+// BenchmarkCreateMockFlow_Large benchmarks flow creation with large parameters
+func BenchmarkCreateMockFlow_Large(b *testing.B) {
+	params := MockFlowParams{
+		RequestCount: 15,
+		ForLoopCount: 8,
+		Delay:        0,
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = CreateMockFlow(params)
+	}
+}
+
+// BenchmarkFlowExecution_Small benchmarks flow execution with small flows
+func BenchmarkFlowExecution_Small(b *testing.B) {
+	params := MockFlowParams{
+		RequestCount: 2,
+		ForLoopCount: 1,
+		Delay:        1 * time.Millisecond,
+	}
+
+	result := CreateMockFlow(params)
+	flowID := idwrap.NewNow()
+	flowRunner := flowlocalrunner.CreateFlowRunner(
+		idwrap.NewNow(),
+		flowID,
+		result.StartNodeID,
+		result.Nodes,
+		result.EdgesMap,
+		5*time.Second,
+		nil,
+	)
+
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		nodeStatusChan := make(chan runner.FlowNodeStatus, len(result.Nodes)*2)
+		flowStatusChan := make(chan runner.FlowStatus, 5)
+
+		_ = flowRunner.Run(ctx, nodeStatusChan, flowStatusChan, nil)
+
+		// Drain channels to avoid goroutine leaks
+		for range nodeStatusChan {
+		}
+		for range flowStatusChan {
+		}
+	}
+}
+
+// BenchmarkFlowExecution_Medium benchmarks flow execution with medium flows
+func BenchmarkFlowExecution_Medium(b *testing.B) {
+	params := MockFlowParams{
+		RequestCount: 5,
+		ForLoopCount: 3,
+		Delay:        1 * time.Millisecond,
+	}
+
+	result := CreateMockFlow(params)
+	flowID := idwrap.NewNow()
+	flowRunner := flowlocalrunner.CreateFlowRunner(
+		idwrap.NewNow(),
+		flowID,
+		result.StartNodeID,
+		result.Nodes,
+		result.EdgesMap,
+		10*time.Second,
+		nil,
+	)
+
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		nodeStatusChan := make(chan runner.FlowNodeStatus, len(result.Nodes)*2)
+		flowStatusChan := make(chan runner.FlowStatus, 5)
+
+		_ = flowRunner.Run(ctx, nodeStatusChan, flowStatusChan, nil)
+
+		// Drain channels to avoid goroutine leaks
+		for range nodeStatusChan {
+		}
+		for range flowStatusChan {
+		}
+	}
+}
+
+// BenchmarkFlowExecution_Large benchmarks flow execution with large flows
+func BenchmarkFlowExecution_Large(b *testing.B) {
+	params := MockFlowParams{
+		RequestCount: 15,
+		ForLoopCount: 8,
+		Delay:        1 * time.Millisecond,
+	}
+
+	result := CreateMockFlow(params)
+	flowID := idwrap.NewNow()
+	flowRunner := flowlocalrunner.CreateFlowRunner(
+		idwrap.NewNow(),
+		flowID,
+		result.StartNodeID,
+		result.Nodes,
+		result.EdgesMap,
+		30*time.Second,
+		nil,
+	)
+
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		nodeStatusChan := make(chan runner.FlowNodeStatus, len(result.Nodes)*2)
+		flowStatusChan := make(chan runner.FlowStatus, 5)
+
+		_ = flowRunner.Run(ctx, nodeStatusChan, flowStatusChan, nil)
+
+		// Drain channels to avoid goroutine leaks
+		for range nodeStatusChan {
+		}
+		for range flowStatusChan {
+		}
+	}
+}
