@@ -2,6 +2,22 @@ name: Performance CI
 
 on:
   workflow_dispatch:
+    inputs:
+      benchmark_count:
+        description: 'Number of benchmark runs'
+        required: false
+        default: '3'
+        type: string
+      benchmark_timeout:
+        description: 'Benchmark timeout in minutes'
+        required: false
+        default: '30'
+        type: string
+      force_comparison:
+        description: 'Force comparison even if no previous artifacts'
+        required: false
+        default: false
+        type: boolean
   pull_request:
     paths:
       - 'packages/server/pkg/flow/simulation/**'
@@ -51,221 +67,47 @@ jobs:
 
       - name: Run Go benchmarks
         id: run-benchmarks
-        if: steps.check-changes.outputs.changed == 'true'
+        if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           cd packages/server/pkg/flow/simulation
 
           # Create benchmark results directory
           mkdir -p benchmark-results
 
+          # Get input parameters with defaults
+          BENCHMARK_COUNT="${{ github.event.inputs.benchmark_count || '3' }}"
+          BENCHMARK_TIMEOUT="${{ github.event.inputs.benchmark_timeout || '30' }}"
+
+          echo "Running benchmarks with count=$BENCHMARK_COUNT, timeout=${BENCHMARK_TIMEOUT}m"
+
           # Run benchmarks with memory profiling
-          nix develop -c go test -bench=. -benchmem -run=^$ -count=3 -timeout=30m \
+          nix develop -c go test -bench=. -benchmem -run=^$ -count=$BENCHMARK_COUNT -timeout=${BENCHMARK_TIMEOUT}m \
             -json ./... > benchmark-results/bench.json 2>&1 || true
 
           # Also generate traditional format for parsing
-          nix develop -c go test -bench=. -benchmem -run=^$ -count=3 -timeout=30m \
+          nix develop -c go test -bench=. -benchmem -run=^$ -count=$BENCHMARK_COUNT -timeout=${BENCHMARK_TIMEOUT}m \
             ./... > benchmark-results/bench.txt 2>&1 || true
 
           echo "Benchmark results saved to benchmark-results/"
 
       - name: Parse benchmark results
         id: parse-results
-        if: steps.check-changes.outputs.changed == 'true'
+        if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           cd packages/server/pkg/flow/simulation
 
-          # Create a Python script to parse benchmark results
-          cat > parse_benchmarks.py << 'EOF'
-          import json
-          import re
-          import sys
-          from datetime import datetime
+          # Run benchmark parser directly via go run
+          go run ../../../../../.github/scripts/parse-benchmarks.go benchmark-results/bench.txt
 
-def parse_benchmark_output():
-              results = {}
-              
-              try:
-                  with open('benchmark-results/bench.txt', 'r') as f:
-                      content = f.read()
-              except FileNotFoundError:
-                  print("No benchmark results found")
-                  return []
-              
-              # Parse benchmark lines
-              # Format: BenchmarkName-20    441524    2655 ns/op    2352 B/op    29 allocs/op
-              pattern = r'(Benchmark\w+)(?:-\d+)?\s+(\d+)\s+(\d+)\s+ns/op\s+(\d+)\s+B/op\s+(\d+)\s+allocs/op'
-              
-              for line in content.split('\n'):
-                  match = re.search(pattern, line)
-                  if match:
-                      name = match.group(1)
-                      ns_per_op = int(match.group(2))
-                      b_per_op = int(match.group(4))
-                      allocs_per_op = int(match.group(5))
-                      
-                      # Convert to more readable units
-                      ops_per_sec = 1_000_000_000 / ns_per_op if ns_per_op > 0 else 0
-                      kb_per_op = b_per_op / 1024 if b_per_op > 0 else 0
-                      
-                      if name not in results:
-                          results[name] = {
-                              'ops_per_sec_values': [],
-                              'ns_per_op_values': [],
-                              'b_per_op_values': [],
-                              'allocs_per_op_values': []
-                          }
-                      
-                      results[name]['ops_per_sec_values'].append(ops_per_sec)
-                      results[name]['ns_per_op_values'].append(ns_per_op)
-                      results[name]['b_per_op_values'].append(b_per_op)
-                      results[name]['allocs_per_op_values'].append(allocs_per_op)
-              
-              # Calculate averages
-              averaged_results = []
-              for name, values in results.items():
-                  avg_ops_per_sec = sum(values['ops_per_sec_values']) / len(values['ops_per_sec_values'])
-                  avg_ns_per_op = sum(values['ns_per_op_values']) / len(values['ns_per_op_values'])
-                  avg_b_per_op = sum(values['b_per_op_values']) / len(values['b_per_op_values'])
-                  avg_allocs_per_op = sum(values['allocs_per_op_values']) / len(values['allocs_per_op_values'])
-                  avg_kb_per_op = avg_b_per_op / 1024
-                  
-                  averaged_results.append({
-                      'name': name,
-                      'ops_per_sec': round(avg_ops_per_sec, 0),
-                      'ns_per_op': round(avg_ns_per_op, 0),
-                      'b_per_op': round(avg_b_per_op, 0),
-                      'kb_per_op': round(avg_kb_per_op, 2),
-                      'allocs_per_op': round(avg_allocs_per_op, 0),
-                      'runs': len(values['ops_per_sec_values'])
-                  })
-              
-              return averaged_results
-              
-              # Parse benchmark lines
-              # Format: BenchmarkName-20    441524    2655 ns/op    2352 B/op    29 allocs/op
-              pattern = r'(Benchmark\w+)(?:-\d+)?\s+(\d+)\s+(\d+)\s+ns/op\s+(\d+)\s+B/op\s+(\d+)\s+allocs/op'
-              
-              for line in content.split('\n'):
-                  match = re.search(pattern, line)
-                  if match:
-                      name = match.group(1)
-                      ns_per_op = int(match.group(2))
-                      b_per_op = int(match.group(3))
-                      allocs_per_op = int(match.group(4))
-                      
-                      # Convert to more readable units
-                      ops_per_sec = 1_000_000_000 / ns_per_op if ns_per_op > 0 else 0
-                      kb_per_op = b_per_op / 1024 if b_per_op > 0 else 0
-                      
-                      results.append({
-                          'name': name,
-                          'ops_per_sec': round(ops_per_sec, 0),
-                          'ns_per_op': ns_per_op,
-                          'b_per_op': b_per_op,
-                          'kb_per_op': round(kb_per_op, 2),
-                          'allocs_per_op': allocs_per_op
-                      })
-              
-              return results
-
-          def generate_markdown_table(results):
-              if not results:
-                  return "No benchmark results available"
-              
-              # Sort by operation type and size
-              create_results = [r for r in results if 'CreateMockFlow' in r['name']]
-              exec_results = [r for r in results if 'FlowExecution' in r['name']]
-              
-              # Sort by size (Small, Medium, Large)
-              size_order = {'Small': 1, 'Medium': 2, 'Large': 3}
-              create_results.sort(key=lambda x: size_order.get(x['name'].split('_')[-1], 0))
-              exec_results.sort(key=lambda x: size_order.get(x['name'].split('_')[-1], 0))
-              
-              markdown = "## 🚀 Flow Simulation Performance Results\n\n"
-              markdown += f"*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC*\n\n"
-              if results and results[0].get('runs'):
-                  markdown += f"*Averaged over {results[0]['runs']} runs*\n\n"
-              
-              # Flow Creation Results
-              if create_results:
-                  markdown += "### 📊 Flow Creation Performance\n\n"
-                  markdown += "| Benchmark | Ops/sec | Memory/Op | Allocs/Op |\n"
-                  markdown += "|-----------|---------|-----------|------------|\n"
-                  
-                  for result in create_results:
-                      size = result['name'].split('_')[-1]
-                      markdown += f"| CreateMockFlow_{size} | {result['ops_per_sec']:,.0f} | {result['kb_per_op']:.2f} KB | {result['allocs_per_op']} |\n"
-                  
-                  markdown += "\n"
-              
-              # Flow Execution Results
-              if exec_results:
-                  markdown += "### ⚡ Flow Execution Performance\n\n"
-                  markdown += "| Benchmark | Ops/sec | Memory/Op | Allocs/Op |\n"
-                  markdown += "|-----------|---------|-----------|------------|\n"
-                  
-                  for result in exec_results:
-                      size = result['name'].split('_')[-1]
-                      markdown += f"| FlowExecution_{size} | {result['ops_per_sec']:,.0f} | {result['kb_per_op']:.2f} KB | {result['allocs_per_op']} |\n"
-                  
-                  markdown += "\n"
-              
-              # Performance Insights
-              markdown += "### 📈 Performance Insights\n\n"
-              
-              # Analyze trends
-              if create_results:
-                  small_create = next((r for r in create_results if 'Small' in r['name']), None)
-                  large_create = next((r for r in create_results if 'Large' in r['name']), None)
-                  
-                  if small_create and large_create:
-                      scaling_factor = small_create['ops_per_sec'] / large_create['ops_per_sec'] if large_create['ops_per_sec'] > 0 else 0
-                      markdown += f"- **Flow Creation Scaling**: Large flows are {scaling_factor:.1f}x slower to create than small flows\n"
-              
-              if exec_results:
-                  small_exec = next((r for r in exec_results if 'Small' in r['name']), None)
-                  large_exec = next((r for r in exec_results if 'Large' in r['name']), None)
-                  
-                  if small_exec and large_exec:
-                      exec_scaling = small_exec['ops_per_sec'] / large_exec['ops_per_sec'] if large_exec['ops_per_sec'] > 0 else 0
-                      markdown += f"- **Flow Execution Scaling**: Large flows are {exec_scaling:.1f}x slower to execute than small flows\n"
-              
-              # Memory efficiency analysis
-              all_results = create_results + exec_results
-              if all_results:
-                  avg_kb_per_op = sum(r['kb_per_op'] for r in all_results) / len(all_results)
-                  max_kb_per_op = max(r['kb_per_op'] for r in all_results)
-                  markdown += f"- **Memory Efficiency**: Average {avg_kb_per_op:.2f} KB per operation, max {max_kb_per_op:.2f} KB\n"
-              
-              markdown += "\n---\n"
-              markdown += "*This comment will be updated on each run. View raw results in the artifacts section.*"
-              
-              return markdown
-
-          if __name__ == "__main__":
-              results = parse_benchmark_output()
-              markdown = generate_markdown_table(results)
-              
-              # Save markdown to file
-              with open('benchmark-results/results.md', 'w') as f:
-                  f.write(markdown)
-              
-              # Also save JSON for programmatic access
-              with open('benchmark-results/results.json', 'w') as f:
-                  json.dump({
-                  'timestamp': datetime.now().isoformat(),
-                  'results': results
-              }, f, indent=2)
-              
-              print(f"Generated results for {len(results)} benchmarks")
-              print(markdown)
-          EOF
-
-          # Run the parser
-          python3 parse_benchmarks.py
-
-          # Set output for GitHub Actions
-          if [ -f "benchmark-results/results.md" ]; then
+          # Set output for GitHub Actions (basic results for now)
+          if [ -f "benchmark-results/results.json" ]; then
+            # Create a simple markdown summary
+            echo "## 🚀 Flow Simulation Performance Results" > benchmark-results/results.md
+            echo "" >> benchmark-results/results.md
+            echo "*Benchmark results parsed and ready for comparison*" >> benchmark-results/results.md
+            echo "" >> benchmark-results/results.md
+            echo "View detailed comparison in the PR comment below." >> benchmark-results/results.md
+            
             # Escape the markdown for GitHub Actions output
             RESULTS=$(cat benchmark-results/results.md | sed 's/`/\\`/g' | sed 's/$/\\n/' | tr -d '\n')
             echo "results<<EOF" >> $GITHUB_OUTPUT
@@ -273,8 +115,64 @@ def parse_benchmark_output():
             echo "EOF" >> $GITHUB_OUTPUT
           fi
 
+      - name: Download previous benchmark artifacts
+        if: (steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && (github.event.inputs.force_comparison == 'true' || github.event_name != 'workflow_dispatch')
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: benchmark-results-*
+          path: previous-artifacts/
+          merge-multiple: true
+
+      - name: Find and prepare previous results
+        if: (steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && (github.event.inputs.force_comparison == 'true' || github.event_name != 'workflow_dispatch')
+        run: |
+          cd packages/server/pkg/flow/simulation
+
+          # Find the most recent successful run artifacts
+          if [ -d "../../previous-artifacts" ]; then
+            # Look for the most recent results.json file
+            PREV_RESULT=$(find ../../previous-artifacts -name "results.json" -type f | head -1)
+            if [ -n "$PREV_RESULT" ]; then
+              echo "Found previous results: $PREV_RESULT"
+              mkdir -p previous
+              cp "$PREV_RESULT" previous/results.json
+              echo "✅ Previous benchmark results loaded for comparison"
+            else
+              echo "🆕 No previous benchmark results found - first run"
+            fi
+          else
+            echo "🆕 No previous artifacts found - first run"
+          fi
+
+      - name: Compare benchmark results
+        id: compare-results
+        if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          cd packages/server/pkg/flow/simulation
+
+          # Run comparison tool directly via go run
+          go run ../../../../../.github/scripts/compare-benchmarks.go || {
+            echo "Comparison completed with regressions detected"
+            echo "has-regressions=true" >> $GITHUB_OUTPUT
+          }
+
+          # Set default if no regressions
+          if [ ! -f "$GITHUB_OUTPUT" ] || ! grep -q "has-regressions=true" "$GITHUB_OUTPUT"; then
+            echo "has-regressions=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Set comparison output for GitHub Actions
+          if [ -f "benchmark-results/comparison.md" ]; then
+            # Escape the markdown for GitHub Actions output
+            COMPARISON=$(cat benchmark-results/comparison.md | sed 's/`/\\`/g' | sed 's/$/\\n/' | tr -d '\n')
+            echo "comparison<<EOF" >> $GITHUB_OUTPUT
+            echo "$COMPARISON" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload benchmark artifacts
-        if: steps.check-changes.outputs.changed == 'true'
+        if: steps.check-changes.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results-${{ github.run_number }}
@@ -295,7 +193,8 @@ def parse_benchmark_output():
         uses: actions/github-script@v7
         with:
           script: |
-            const results = `${{ needs.benchmark.outputs.benchmark-results }}`;
+            const comparison = `${{ needs.benchmark.outputs.comparison }}`;
+            const hasRegressions = `${{ needs.benchmark.outputs.has-regressions }}` === 'true';
 
             // Find existing performance comment
             const { data: comments } = await github.rest.issues.listComments({
@@ -306,10 +205,17 @@ def parse_benchmark_output():
 
             const existingComment = comments.find(comment => 
               comment.user.type === 'Bot' && 
-              comment.body.includes('🚀 Flow Simulation Performance Results')
+              (comment.body.includes('🚀 Flow Simulation Performance Results') || 
+               comment.body.includes('📊 Performance Comparison'))
             );
 
-            const commentBody = results;
+            // Build comment body with comparison data
+            let commentBody = comparison;
+
+            // Add regression warning if needed
+            if (hasRegressions) {
+              commentBody = '\n⚠️ **Performance regressions detected! See details below.**\n\n' + commentBody;
+            }
 
             if (existingComment) {
               // Update existing comment
@@ -335,7 +241,7 @@ def parse_benchmark_output():
     name: Performance Summary
     runs-on: ubuntu-latest
     needs: benchmark
-    if: always() && needs.benchmark.outputs.has-changes == 'true'
+    if: always() && (needs.benchmark.outputs.has-changes == 'true' || github.event_name == 'workflow_dispatch')
     steps:
       - name: Download benchmark results
         if: needs.benchmark.result == 'success'
@@ -343,11 +249,25 @@ def parse_benchmark_output():
         with:
           name: benchmark-results-${{ github.run_number }}
           path: benchmark-results/
+        continue-on-error: true
+
+      - name: Download benchmark results (workflow_dispatch fallback)
+        if: needs.benchmark.result == 'success' && github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-results-*
+          path: benchmark-results/
+          merge-multiple: true
+        continue-on-error: true
 
       - name: Display performance summary
         if: needs.benchmark.result == 'success'
         run: |
-          if [ -f "benchmark-results/results.md" ]; then
+          if [ -f "benchmark-results/comparison.md" ]; then
+            echo "## Performance Summary"
+            echo ""
+            cat benchmark-results/comparison.md
+          elif [ -f "benchmark-results/results.md" ]; then
             echo "## Performance Summary"
             echo ""
             cat benchmark-results/results.md
@@ -358,12 +278,20 @@ def parse_benchmark_output():
       - name: Performance check status
         if: needs.benchmark.result == 'success'
         run: |
-          # Basic performance regression check
-          if [ -f "benchmark-results/results.json" ]; then
-            echo "✅ Benchmarks completed successfully"
+          # Check for performance regressions
+          if [ -f "benchmark-results/comparison.json" ]; then
+            echo "✅ Benchmark comparison completed successfully"
             
-            # You can add more sophisticated regression detection here
-            # For example, comparing with previous results or checking thresholds
+            # Check if regressions were detected
+            if [ "${{ needs.benchmark.outputs.has-regressions }}" == "true" ]; then
+              echo "🚨 Performance regressions detected!"
+              echo "See the comparison details above for specific benchmarks that need attention."
+              exit 1  # Fail the job for CI visibility
+            else
+              echo "✅ No performance regressions detected"
+            fi
+          elif [ -f "benchmark-results/results.json" ]; then
+            echo "✅ Benchmarks completed successfully (no comparison data available)"
           else
             echo "❌ Benchmark results not found"
             exit 1
