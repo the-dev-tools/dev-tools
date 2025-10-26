@@ -55,7 +55,18 @@ const toDeltaProperty = (program: Program, unset: Type) => (property: ModelPrope
   });
 };
 
-function collection({ program }: DecoratorContext, base: Model) {
+interface CollectionOptions {
+  canCreate?: boolean;
+  canDelete?: boolean;
+  canUpdate?: boolean;
+  isReadOnly?: boolean;
+}
+
+function collection(
+  { program }: DecoratorContext,
+  base: Model,
+  { canCreate = true, canDelete = true, canUpdate = true, isReadOnly = false }: CollectionOptions = {},
+) {
   const { namespace } = base;
   if (!namespace) return;
 
@@ -95,74 +106,80 @@ function collection({ program }: DecoratorContext, base: Model) {
 
   makeOperation(`${base.name}Collection`, { output: collectionResponse });
 
-  const createItem = getOrMake(namespace.models, `${base.name}Create`, (name) =>
-    $(program).model.create({
-      decorators: [[$withVisibilityFilter, { all: [lifecycle.Create] }]],
-      name,
-      properties: Record.fromEntries(base.properties.entries()),
-    }),
-  );
+  if (canCreate && !isReadOnly) {
+    const createItem = getOrMake(namespace.models, `${base.name}Create`, (name) =>
+      $(program).model.create({
+        decorators: [[$withVisibilityFilter, { all: [lifecycle.Create] }]],
+        name,
+        properties: Record.fromEntries(base.properties.entries()),
+      }),
+    );
 
-  const createRequest = getOrMake(namespace.models, `${base.name}CreateRequest`, (name) =>
-    $(program).model.create({
-      name,
-      properties: {
-        items: $(program).modelProperty.create({
-          name: 'items',
-          type: $(program).array.create(createItem),
-        }),
-      },
-    }),
-  );
+    const createRequest = getOrMake(namespace.models, `${base.name}CreateRequest`, (name) =>
+      $(program).model.create({
+        name,
+        properties: {
+          items: $(program).modelProperty.create({
+            name: 'items',
+            type: $(program).array.create(createItem),
+          }),
+        },
+      }),
+    );
 
-  makeOperation(`${base.name}Create`, { input: createRequest });
+    makeOperation(`${base.name}Create`, { input: createRequest });
+  }
 
-  const updateItem = getOrMake(namespace.models, `${base.name}Update`, (name) =>
-    $(program).model.create({
-      decorators: [[$withVisibilityFilter, { all: [lifecycle.Create] }]],
-      name,
-      properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program, unset))),
-    }),
-  );
+  if (canUpdate && !isReadOnly) {
+    const updateItem = getOrMake(namespace.models, `${base.name}Update`, (name) =>
+      $(program).model.create({
+        decorators: [[$withVisibilityFilter, { all: [lifecycle.Update] }]],
+        name,
+        properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program, unset))),
+      }),
+    );
 
-  const updateRequest = getOrMake(namespace.models, `${base.name}UpdateRequest`, (name) =>
-    $(program).model.create({
-      name,
-      properties: {
-        items: $(program).modelProperty.create({
-          name: 'items',
-          type: $(program).array.create(updateItem),
-        }),
-      },
-    }),
-  );
+    const updateRequest = getOrMake(namespace.models, `${base.name}UpdateRequest`, (name) =>
+      $(program).model.create({
+        name,
+        properties: {
+          items: $(program).modelProperty.create({
+            name: 'items',
+            type: $(program).array.create(updateItem),
+          }),
+        },
+      }),
+    );
 
-  makeOperation(`${base.name}Update`, { input: updateRequest });
+    makeOperation(`${base.name}Update`, { input: updateRequest });
+  }
 
-  const deleteItem = getOrMake(namespace.models, `${base.name}Delete`, (name) =>
-    $(program).model.create({
-      name,
-      properties: pipe(
-        base.properties.entries(),
-        Record.fromEntries,
-        Record.filter((_) => isKey(program, _)),
-      ),
-    }),
-  );
+  if (canDelete && !isReadOnly) {
+    const deleteItem = getOrMake(namespace.models, `${base.name}Delete`, (name) =>
+      $(program).model.create({
+        name,
+        properties: pipe(
+          base.properties.entries(),
+          Record.fromEntries,
+          Record.filter((_) => isKey(program, _)),
+        ),
+      }),
+    );
 
-  const deleteRequest = getOrMake(namespace.models, `${base.name}DeleteRequest`, (name) =>
-    $(program).model.create({
-      name,
-      properties: {
-        items: $(program).modelProperty.create({
-          name: 'items',
-          type: $(program).array.create(deleteItem),
-        }),
-      },
-    }),
-  );
+    const deleteRequest = getOrMake(namespace.models, `${base.name}DeleteRequest`, (name) =>
+      $(program).model.create({
+        name,
+        properties: {
+          items: $(program).modelProperty.create({
+            name: 'items',
+            type: $(program).array.create(deleteItem),
+          }),
+        },
+      }),
+    );
 
-  makeOperation(`${base.name}Delete`, { input: deleteRequest });
+    makeOperation(`${base.name}Delete`, { input: deleteRequest });
+  }
 
   const syncCreateItem = getOrMake(namespace.models, `${base.name}SyncCreate`, (name) =>
     $(program).model.create({
