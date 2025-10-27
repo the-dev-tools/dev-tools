@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log/slog"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
@@ -14,11 +13,8 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
-	"the-dev-tools/server/pkg/translate/tenv"
-	"the-dev-tools/server/pkg/translate/tgeneric"
-	environmentv1 "the-dev-tools/spec/dist/buf/go/environment/v1"
-	"the-dev-tools/spec/dist/buf/go/environment/v1/environmentv1connect"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
+	apiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
+	"the-dev-tools/spec/dist/buf/go/api/environment/v1/environmentv1connect"
 	"time"
 
 	"connectrpc.com/connect"
@@ -47,18 +43,39 @@ func CreateService(srv EnvRPC, options []connect.HandlerOption) (*api.Service, e
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[environmentv1.EnvironmentCreateRequest]) (*connect.Response[environmentv1.EnvironmentCreateResponse], error) {
-	ReqEnv := req.Msg
-	workspaceID, err := idwrap.NewFromBytes(ReqEnv.WorkspaceId)
+// EnvironmentCollection returns all environments the user has access to
+func (e *EnvRPC) EnvironmentCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.EnvironmentCollectionResponse], error) {
+	// For now, return empty collection as this is a proof of concept
+	// In a full implementation, we would:
+	// 1. Get user ID from context
+	// 2. Get user's workspaces using sworkspace.GetWorkspacesByUserIDOrdered
+	// 3. Get all environments from those workspaces
+	// 4. Convert to TanStack DB format with proper ordering
+
+	return connect.NewResponse(&apiv1.EnvironmentCollectionResponse{
+		Items: []*apiv1.Environment{},
+	}), nil
+}
+
+// EnvironmentCreate creates a new environment
+func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[apiv1.EnvironmentCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.Items) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
+	}
+
+	// Process first environment for now (TanStack DB supports batch creation)
+	envCreate := req.Msg.Items[0]
+	workspaceID, err := idwrap.NewFromBytes(envCreate.WorkspaceId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+
 	envReq := menv.Env{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
-		Type:        menv.EnvNormal,
-		Description: ReqEnv.Description,
-		Name:        ReqEnv.Name,
+		Type:        menv.EnvNormal, // Default to normal environment
+		Description: envCreate.Description,
+		Name:        envCreate.Name,
 		Updated:     time.Now(),
 	}
 
@@ -66,119 +83,126 @@ func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[env
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+
 	err = e.es.Create(ctx, envReq)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	envResp := &environmentv1.EnvironmentCreateResponse{
-		EnvironmentId: envReq.ID.Bytes(),
-	}
 
-	return connect.NewResponse(envResp), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (e *EnvRPC) EnvironmentList(ctx context.Context, req *connect.Request[environmentv1.EnvironmentListRequest]) (*connect.Response[environmentv1.EnvironmentListResponse], error) {
-	workspaceID, err := idwrap.NewFromBytes(req.Msg.WorkspaceId)
+// EnvironmentUpdate updates an existing environment
+func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[apiv1.EnvironmentUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.Items) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
+	}
+
+	// Process first environment for now
+	envUpdate := req.Msg.Items[0]
+	envID, err := idwrap.NewFromBytes(envUpdate.EnvironmentId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, workspaceID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	envs, err := e.es.GetByWorkspace(ctx, workspaceID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
 
-	items := tgeneric.MassConvert(envs, tenv.SeralizeModelToRPCItem)
-	resp := &environmentv1.EnvironmentListResponse{
-		WorkspaceId: req.Msg.WorkspaceId,
-		Items:       items,
-	}
-
-	return connect.NewResponse(resp), nil
-}
-
-func (e *EnvRPC) EnvironmentGet(ctx context.Context, req *connect.Request[environmentv1.EnvironmentGetRequest]) (*connect.Response[environmentv1.EnvironmentGetResponse], error) {
-	id, err := idwrap.NewFromBytes(req.Msg.EnvironmentId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, id))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	ok, err := CheckOwnerEnv(ctx, e.us, e.es, id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if !ok {
-		return nil, connect.NewError(connect.CodePermissionDenied, nil)
-	}
-	env, err := e.es.Get(ctx, id)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	resp := tenv.SeralizeModelToRPC(*env)
-	respRaw := &environmentv1.EnvironmentGetResponse{
-		EnvironmentId: resp.EnvironmentId,
-		Name:          resp.Name,
-		Description:   resp.Description,
-		Updated:       resp.Updated,
-		IsGlobal:      resp.IsGlobal,
-	}
-	return connect.NewResponse(respRaw), nil
-}
-
-func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[environmentv1.EnvironmentUpdateRequest]) (*connect.Response[environmentv1.EnvironmentUpdateResponse], error) {
-	msg := req.Msg
-	envID, err := idwrap.NewFromBytes(msg.EnvironmentId)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
+	// Check permissions
 	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	if msg.EnvironmentId == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("environment id is required"))
-	}
+	// Get existing environment
 	env, err := e.es.Get(ctx, envID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if msg.Name != nil {
-		env.Name = *msg.Name
+
+	// Update fields if provided
+	if envUpdate.Name != nil {
+		env.Name = *envUpdate.Name
 	}
-	if msg.Description != nil {
-		env.Description = *msg.Description
+	if envUpdate.Description != nil {
+		env.Description = *envUpdate.Description
 	}
+
 	err = e.es.Update(ctx, env)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&environmentv1.EnvironmentUpdateResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[environmentv1.EnvironmentDeleteRequest]) (*connect.Response[environmentv1.EnvironmentDeleteResponse], error) {
-	id, err := idwrap.NewFromBytes(req.Msg.EnvironmentId)
+// EnvironmentDelete deletes an environment
+func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[apiv1.EnvironmentDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.Items) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
+	}
+
+	// Process first environment for now
+	envDelete := req.Msg.Items[0]
+	envID, err := idwrap.NewFromBytes(envDelete.EnvironmentId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, id))
+
+	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	err = e.es.Delete(ctx, id)
+
+	err = e.es.Delete(ctx, envID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&environmentv1.EnvironmentDeleteResponse{}), nil
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+// EnvironmentSync handles real-time synchronization for environments
+func (e *EnvRPC) EnvironmentSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.EnvironmentSyncResponse]) error {
+	// For now, this is a placeholder for real-time sync
+	// In a full implementation, this would:
+	// 1. Subscribe to database changes for environments the user has access to
+	// 2. Stream changes to the client
+	// 3. Handle connection cleanup
+
+	return nil
+}
+
+// EnvironmentVariableCollection returns all environment variables for environments the user has access to
+func (e *EnvRPC) EnvironmentVariableCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.EnvironmentVariableCollectionResponse], error) {
+	// Placeholder implementation
+	return connect.NewResponse(&apiv1.EnvironmentVariableCollectionResponse{
+		Items: []*apiv1.EnvironmentVariable{},
+	}), nil
+}
+
+// EnvironmentVariableCreate creates new environment variables
+func (e *EnvRPC) EnvironmentVariableCreate(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	// Placeholder implementation
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// EnvironmentVariableUpdate updates existing environment variables
+func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	// Placeholder implementation
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// EnvironmentVariableDelete deletes environment variables
+func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	// Placeholder implementation
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// EnvironmentVariableSync handles real-time synchronization for environment variables
+func (e *EnvRPC) EnvironmentVariableSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.EnvironmentVariableSyncResponse]) error {
+	// Placeholder implementation
+	return nil
+}
+
+// Helper function to check environment ownership
 func CheckOwnerEnv(ctx context.Context, su suser.UserService, es senv.EnvService, envid idwrap.IDWrap) (bool, error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -189,111 +213,4 @@ func CheckOwnerEnv(ctx context.Context, su suser.UserService, es senv.EnvService
 		return false, err
 	}
 	return su.CheckUserBelongsToWorkspace(ctx, userID, env.WorkspaceID)
-}
-
-func (c *EnvRPC) EnvironmentMove(ctx context.Context, req *connect.Request[environmentv1.EnvironmentMoveRequest]) (*connect.Response[emptypb.Empty], error) {
-	// Validate environment ID
-	environmentID, err := idwrap.NewFromBytes(req.Msg.GetEnvironmentId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	// Check permissions for the environment being moved
-	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, c.us, c.es, environmentID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Validate workspace ID if provided (for additional permission checking)
-	if len(req.Msg.GetWorkspaceId()) > 0 {
-		workspaceID, err := idwrap.NewFromBytes(req.Msg.GetWorkspaceId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, workspaceID))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
-		// Verify environment belongs to the specified workspace
-		environmentWorkspaceID, err := c.es.GetWorkspaceID(ctx, environmentID)
-		if err != nil {
-			if err == senv.ErrNoEnvironmentFound {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("environment not found"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		if environmentWorkspaceID.Compare(workspaceID) != 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("environment does not belong to specified workspace"))
-		}
-	}
-
-	// Validate target environment ID
-	targetEnvironmentID, err := idwrap.NewFromBytes(req.Msg.GetTargetEnvironmentId())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	// Check permissions for target environment (must be in same workspace)
-	rpcErr = permcheck.CheckPerm(CheckOwnerEnv(ctx, c.us, c.es, targetEnvironmentID))
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	// Validate position
-	position := req.Msg.GetPosition()
-	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified"))
-	}
-
-	// Prevent moving environment relative to itself
-	if environmentID.Compare(targetEnvironmentID) == 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cannot move environment relative to itself"))
-	}
-
-	// Verify both environments are in the same workspace
-	sourceWorkspaceID, err := c.es.GetWorkspaceID(ctx, environmentID)
-	if err != nil {
-		if err == senv.ErrNoEnvironmentFound {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("environment not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	targetWorkspaceID, err := c.es.GetWorkspaceID(ctx, targetEnvironmentID)
-	if err != nil {
-		if err == senv.ErrNoEnvironmentFound {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("target environment not found"))
-		}
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	if sourceWorkspaceID.Compare(targetWorkspaceID) != 0 {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("environments must be in the same workspace"))
-	}
-
-	// Add debug logging for move operations
-	slog.DebugContext(ctx, "EnvironmentMove request",
-		"environment_id", environmentID.String(),
-		"target_environment_id", targetEnvironmentID.String(),
-		"position", position.String(),
-		"workspace_id", sourceWorkspaceID.String())
-
-	// Execute the move operation
-	switch position {
-	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
-		err = c.es.MoveEnvironmentAfter(ctx, environmentID, targetEnvironmentID)
-	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
-		err = c.es.MoveEnvironmentBefore(ctx, environmentID, targetEnvironmentID)
-	default:
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid position"))
-	}
-
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
 }
