@@ -2,17 +2,14 @@ import { Children, createContext, useContext } from '@alloy-js/core';
 import {
   createTypeSpecLibrary,
   DecoratorContext,
-  isKey,
+  EnumValue,
   Model,
   ModelProperty,
   Namespace,
-  Operation,
-  Program,
-  Type,
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { useTsp } from '@typespec/emitter-framework';
-import { Array, Match, Option, pipe } from 'effect';
+import { Array, Match, pipe } from 'effect';
 import { makeStateFactory } from '../utils.js';
 
 export const $lib = createTypeSpecLibrary({
@@ -22,73 +19,18 @@ export const $lib = createTypeSpecLibrary({
 
 export const $decorators = {
   DevTools: {
-    copyParent,
-    normalKey,
-    parent,
+    foreignKey,
+    primaryKey,
     project,
-    rename,
   },
   'DevTools.Private': {
-    copyKey,
-    copyParentKey,
-    omitKey,
+    copyKeys,
   },
 };
 
-const { makeStateMap, makeStateSet } = makeStateFactory((_) => $lib.createStateSymbol(_));
+const { makeStateSet } = makeStateFactory((_) => $lib.createStateSymbol(_));
 
-export const normalKeys = makeStateSet<ModelProperty>('normalKeys');
-export const parents = makeStateMap<Model, Model>('parents');
-
-const getModelKey = (program: Program, model: Model) =>
-  pipe(
-    $(program).model.getProperties(model),
-    Array.fromIterable,
-    Array.findFirst(([_key, value]) => isKey(program, value)),
-  );
-
-function parent({ program }: DecoratorContext, target: Model, parent: Model) {
-  parents(program).set(target, parent);
-}
-
-function copyParent({ program }: DecoratorContext, target: Model, base: Model) {
-  const parent = parents(program).get(base);
-  if (parent) parents(program).set(target, parent);
-}
-
-function copyKey({ program }: DecoratorContext, target: Model, source: Model) {
-  Option.gen(function* () {
-    const [key, value] = yield* getModelKey(program, source);
-    target.properties.set(key, value);
-  });
-}
-
-function copyParentKey({ program }: DecoratorContext, target: Model, base: Model) {
-  Option.gen(function* () {
-    const parent = yield* Option.fromNullable(parents(program).get(base));
-    const [key, value] = yield* getModelKey(program, parent);
-    target.properties.set(key, value);
-    normalKeys(program).add(value);
-  });
-}
-
-function omitKey({ program }: DecoratorContext, target: Model) {
-  Option.gen(function* () {
-    const [key] = yield* getModelKey(program, target);
-    target.properties.delete(key);
-  });
-}
-
-function normalKey({ program }: DecoratorContext, target: ModelProperty) {
-  normalKeys(program).add(target);
-}
-
-function rename(_: DecoratorContext, target: Model | Operation, name: string, sourceObject: Type | undefined) {
-  if (sourceObject)
-    name = name.replace(/{(\w+)}/g, (_, propName) => (sourceObject as never)[propName as never] as string);
-
-  target.name = name;
-}
+export const normalKeys = makeStateSet<ModelProperty>('primaryKeys');
 
 interface Project {
   namespace: Namespace;
@@ -126,3 +68,40 @@ export const Projects = ({ children }: ProjectsProps) => {
     Match.orElse((_) => _.map((_) => <ProjectContext.Provider value={_}>{children(_)}</ProjectContext.Provider>)),
   );
 };
+
+export const primaryKeys = makeStateSet<ModelProperty>('primaryKeys');
+export const foreignKeys = makeStateSet<ModelProperty>('foreignKeys');
+
+function primaryKey({ program }: DecoratorContext, target: ModelProperty) {
+  primaryKeys(program).add(target);
+}
+
+function foreignKey({ program }: DecoratorContext, target: ModelProperty) {
+  foreignKeys(program).add(target);
+}
+
+function copyKeys(
+  { program }: DecoratorContext,
+  target: Model,
+  source: Model,
+  asKeys: { foreign?: EnumValue; primary?: EnumValue },
+) {
+  type AsKey = 'Foreign' | 'None' | 'Omit' | 'Primary';
+  const primaryAs = (asKeys.primary?.value.name as AsKey | undefined) ?? 'Primary';
+  const foreignAs = (asKeys.foreign?.value.name as AsKey | undefined) ?? 'Foreign';
+
+  const addKey = (key: ModelProperty, asKey: AsKey) => {
+    if (asKey === 'Omit') return;
+
+    const copiedKey = $(program).modelProperty.create(key);
+    target.properties.set(key.name, copiedKey);
+
+    if (asKey === 'Primary') copiedKey.decorators.push({ args: [], decorator: primaryKey });
+    if (asKey === 'Foreign') copiedKey.decorators.push({ args: [], decorator: foreignKey });
+  };
+
+  source.properties.forEach((_) => {
+    if (primaryKeys(program).has(_)) addKey(_, primaryAs);
+    if (foreignKeys(program).has(_)) addKey(_, foreignAs);
+  });
+}

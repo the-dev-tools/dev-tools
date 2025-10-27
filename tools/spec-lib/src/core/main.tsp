@@ -4,29 +4,26 @@ namespace DevTools;
 
 using Reflection;
 
-extern dec parent(target: Model, parent: Model);
-
-extern dec copyParent(target: Model, base: Model);
-
-extern dec normalKey(target: ModelProperty);
-
-extern dec rename(target: Model | Operation, name: valueof string, formatArgs?: unknown);
-
 extern dec project(target: Namespace, version?: int8);
 
-@Private.copyKey(Source)
-model KeyOf<Source extends Model> {}
+extern dec primaryKey(target: ModelProperty);
+extern dec foreignKey(target: ModelProperty);
 
-@Private.copyParentKey(Source)
-model ParentKeyOf<Source extends Model> {}
-
-@Private.omitKey
-model OmitKey<Resource> {
-  ...Resource;
+enum KeyAs {
+  Primary,
+  Foreign,
+  None,
+  Omit,
 }
 
+model KeysAs {
+  primary?: KeyAs;
+  foreign?: KeyAs;
+}
+
+@Private.copyKeys(TResource, TKeysAs)
+model Keys<TResource extends Model, TKeysAs extends valueof KeysAs = #{}> {}
+
 namespace Private {
-  extern dec copyKey(target: Model, source: Model);
-  extern dec copyParentKey(target: Model, base: Model);
-  extern dec omitKey(target: Model);
+  extern dec copyKeys(target: Model, source: Model, keysAs: valueof KeysAs);
 }

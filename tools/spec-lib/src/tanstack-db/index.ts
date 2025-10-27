@@ -5,7 +5,6 @@ import {
   EnumMember,
   EnumValue,
   getLifecycleVisibilityEnum,
-  isKey,
   Model,
   ModelProperty,
   Program,
@@ -13,6 +12,7 @@ import {
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { pipe, Record } from 'effect';
+import { primaryKeys } from '../core/index.jsx';
 import { streams } from '../protobuf/lib.js';
 
 export const $lib = createTypeSpecLibrary({
@@ -33,7 +33,7 @@ const getOrMake = <Key, Value>(map: Map<Key, Value>, key: Key, make: (key: Key) 
 };
 
 const toDeltaProperty = (program: Program, unset: Type) => (property: ModelProperty) => {
-  if (isKey(program, property)) return property;
+  if (primaryKeys(program).has(property)) return property;
 
   let type = property.type;
 
@@ -69,6 +69,8 @@ function collection(
 ) {
   const { namespace } = base;
   if (!namespace) return;
+
+  base.properties.forEach((_) => void $(program).type.finishType(_));
 
   const lifecycle = pipe(
     getLifecycleVisibilityEnum(program).members.entries(),
@@ -161,7 +163,7 @@ function collection(
         properties: pipe(
           base.properties.entries(),
           Record.fromEntries,
-          Record.filter((_) => isKey(program, _)),
+          Record.filter((_) => primaryKeys(program).has(_)),
         ),
       }),
     );
@@ -201,7 +203,7 @@ function collection(
       properties: pipe(
         base.properties.entries(),
         Record.fromEntries,
-        Record.filter((_) => isKey(program, _)),
+        Record.filter((_) => primaryKeys(program).has(_)),
       ),
     }),
   );
