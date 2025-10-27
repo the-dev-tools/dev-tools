@@ -18,7 +18,7 @@
       "options": {
         "cwd": "{projectRoot}",
         "parallel": false,
-        "commands": ["tsp compile api", "buf generate", "node lib/collect-file-descriptors.ts"]
+        "commands": ["tsp compile api-new", "buf generate", "node lib/collect-file-descriptors.ts"]
       }
     },
 
