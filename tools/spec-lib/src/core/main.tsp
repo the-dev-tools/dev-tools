@@ -27,3 +27,10 @@ model Keys<TResource extends Model, TKeysAs extends valueof KeysAs = #{}> {}
 namespace Private {
   extern dec copyKeys(target: Model, source: Model, keysAs: valueof KeysAs);
 }
+
+extern dec withDelta(target: Model);
+
+@project
+namespace Global {
+  scalar UnsetDelta;
+}

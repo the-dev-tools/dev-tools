@@ -6,13 +6,10 @@ import {
   EnumValue,
   getLifecycleVisibilityEnum,
   Model,
-  ModelProperty,
-  Program,
-  Type,
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { pipe, Record } from 'effect';
-import { primaryKeys } from '../core/index.jsx';
+import { deltaProperty, primaryKeys } from '../core/index.jsx';
 import { streams } from '../protobuf/lib.js';
 
 export const $lib = createTypeSpecLibrary({
@@ -30,29 +27,6 @@ const getOrMake = <Key, Value>(map: Map<Key, Value>, key: Key, make: (key: Key) 
   const value = map.get(key) ?? make(key);
   map.set(key, value);
   return value;
-};
-
-const toDeltaProperty = (program: Program, unset: Type) => (property: ModelProperty) => {
-  if (primaryKeys(program).has(property)) return property;
-
-  let type = property.type;
-
-  if (property.optional) {
-    const variants = $(program).union.is(type)
-      ? type.variants.values().toArray()
-      : [$(program).unionVariant.create({ type })];
-
-    const unsetVariant = $(program).unionVariant.create({ type: unset });
-    variants.unshift(unsetVariant);
-
-    type = $(program).union.create({ variants });
-  }
-
-  return $(program).modelProperty.create({
-    name: property.name,
-    optional: true,
-    type,
-  });
 };
 
 interface CollectionOptions {
@@ -137,7 +111,14 @@ function collection(
       $(program).model.create({
         decorators: [[$withVisibilityFilter, { all: [lifecycle.Update] }]],
         name,
-        properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program, unset))),
+        properties: pipe(
+          base.properties.entries(),
+          Record.fromEntries,
+          Record.map((_) => {
+            if (primaryKeys(program).has(_)) return _;
+            return deltaProperty(_, program, unset);
+          }),
+        ),
       }),
     );
 
@@ -193,7 +174,14 @@ function collection(
   const syncUpdateItem = getOrMake(namespace.models, `${base.name}SyncUpdate`, (name) =>
     $(program).model.create({
       name,
-      properties: pipe(base.properties.entries(), Record.fromEntries, Record.map(toDeltaProperty(program, unset))),
+      properties: pipe(
+        base.properties.entries(),
+        Record.fromEntries,
+        Record.map((_) => {
+          if (primaryKeys(program).has(_)) return _;
+          return deltaProperty(_, program, unset);
+        }),
+      ),
     }),
   );
 

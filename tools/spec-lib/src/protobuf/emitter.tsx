@@ -599,7 +599,10 @@ const OneOfMessage = ({ name, union }: OneOfMessageProps) => {
   });
 
   optionMap(program).set(model, [
-    ['DevTools.Protobuf.Validate.Message.OneOf', { fields: Record.keys(properties), required: true }],
+    [
+      'DevTools.Protobuf.Validate.Message.OneOf',
+      { fields: pipe(Record.keys(properties), Array.map(String.camelToSnake)), required: true },
+    ],
   ]);
 
   const nested: MessageContext['nested'] = new Map([[kindEnum, <ProtoEnum _enum={kindEnum} />]]);

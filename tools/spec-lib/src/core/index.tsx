@@ -2,14 +2,17 @@ import { Children, createContext, useContext } from '@alloy-js/core';
 import {
   createTypeSpecLibrary,
   DecoratorContext,
+  DecoratorFunction,
   EnumValue,
   Model,
   ModelProperty,
   Namespace,
+  Program,
+  Type,
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { useTsp } from '@typespec/emitter-framework';
-import { Array, Match, pipe } from 'effect';
+import { Array, Match, Option, pipe, Record, String } from 'effect';
 import { makeStateFactory } from '../utils.js';
 
 export const $lib = createTypeSpecLibrary({
@@ -22,6 +25,7 @@ export const $decorators = {
     foreignKey,
     primaryKey,
     project,
+    withDelta,
   },
   'DevTools.Private': {
     copyKeys,
@@ -31,6 +35,51 @@ export const $decorators = {
 const { makeStateSet } = makeStateFactory((_) => $lib.createStateSymbol(_));
 
 export const normalKeys = makeStateSet<ModelProperty>('primaryKeys');
+
+function withDelta({ program }: DecoratorContext, target: Model) {
+  const { namespace } = target;
+  if (!namespace) return;
+
+  const unset = $(program).type.resolve('DevTools.Global.UnsetDelta')!;
+
+  const properties = pipe(
+    target.properties.values().toArray(),
+    Array.map((_) => {
+      if (primaryKeys(program).has(_)) {
+        const primaryKey = $(program).modelProperty.create({ ..._, name: 'delta' + String.capitalize(_.name) });
+        primaryKeys(program).add(primaryKey);
+
+        const foreignKey = $(program).modelProperty.create(_);
+        foreignKeys(program).add(foreignKey);
+
+        return [primaryKey, foreignKey];
+      }
+
+      if (foreignKeys(program).has(_)) return [_];
+
+      return [deltaProperty(_, program, unset)];
+    }),
+    Array.flatten,
+    Array.map((_) => [_.name, _] as const),
+    Record.fromEntries,
+  );
+
+  $(program).model.create({
+    decorators: pipe(
+      Array.filterMap(target.decorators, (_) => {
+        if (_.decorator === withDelta) return Option.none();
+        return Option.some<[DecoratorFunction, ...unknown[]]>([_.decorator, ..._.args]);
+      }),
+      Array.prepend<DecoratorFunction>((_, target: Model) => {
+        namespace.models.set(target.name, target);
+        target.namespace = namespace;
+      }),
+    ),
+    name: `${target.name}Delta`,
+    properties,
+    sourceModels: [{ model: target, usage: 'is' }],
+  });
+}
 
 interface Project {
   namespace: Namespace;
@@ -105,3 +154,24 @@ function copyKeys(
     if (foreignKeys(program).has(_)) addKey(_, foreignAs);
   });
 }
+
+export const deltaProperty = (property: ModelProperty, program: Program, unset: Type) => {
+  let type = property.type;
+
+  if (property.optional) {
+    const variants = $(program).union.is(type)
+      ? type.variants.values().toArray()
+      : [$(program).unionVariant.create({ type })];
+
+    const unsetVariant = $(program).unionVariant.create({ type: unset });
+    variants.unshift(unsetVariant);
+
+    type = $(program).union.create({ variants });
+  }
+
+  return $(program).modelProperty.create({
+    name: property.name,
+    optional: true,
+    type,
+  });
+};
