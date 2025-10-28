@@ -2,8 +2,11 @@ output-dir: '{project-root}/dist'
 
 emit:
   - '@the-dev-tools/spec-lib/protobuf'
+  - '@the-dev-tools/spec-lib/tanstack-db-go'
 
 options:
   '@the-dev-tools/spec-lib':
     emitter-output-dir: '{output-dir}'
     goPackage: 'the-dev-tools/spec/dist/buf/go'
+  '@the-dev-tools/spec-lib/tanstack-db-go':
+    emitter-output-dir: '{project-root}/../..'

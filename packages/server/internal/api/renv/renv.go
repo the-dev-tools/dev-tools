@@ -63,16 +63,16 @@ func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[api
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
 	}
 
-	// Process first environment for now (TanStack DB supports batch creation)
-	envCreate := req.Msg.Items[0]
-	workspaceID, err := idwrap.NewFromBytes(envCreate.WorkspaceId)
+	inputs, err := DecodeEnvironmentCreateItems(req.Msg.Items)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
+	envCreate := inputs[0]
+
 	envReq := menv.Env{
 		ID:          idwrap.NewNow(),
-		WorkspaceID: workspaceID,
+		WorkspaceID: envCreate.WorkspaceID,
 		Type:        menv.EnvNormal, // Default to normal environment
 		Description: envCreate.Description,
 		Name:        envCreate.Name,
@@ -98,12 +98,13 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
 	}
 
-	// Process first environment for now
-	envUpdate := req.Msg.Items[0]
-	envID, err := idwrap.NewFromBytes(envUpdate.EnvironmentId)
+	inputs, err := DecodeEnvironmentUpdateItems(req.Msg.Items)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+
+	envUpdate := inputs[0]
+	envID := envUpdate.EnvironmentID
 
 	// Check permissions
 	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
@@ -139,12 +140,12 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
 	}
 
-	// Process first environment for now
-	envDelete := req.Msg.Items[0]
-	envID, err := idwrap.NewFromBytes(envDelete.EnvironmentId)
+	inputs, err := DecodeEnvironmentDeleteItems(req.Msg.Items)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+
+	envID := inputs[0].EnvironmentID
 
 	rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
 	if rpcErr != nil {

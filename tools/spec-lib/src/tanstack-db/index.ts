@@ -6,11 +6,13 @@ import {
   EnumValue,
   getLifecycleVisibilityEnum,
   Model,
+  Operation,
 } from '@typespec/compiler';
 import { $ } from '@typespec/compiler/typekit';
 import { pipe, Record } from 'effect';
 import { deltaProperty, primaryKeys } from '../core/index.jsx';
 import { streams } from '../protobuf/lib.js';
+import { makeStateFactory } from '../utils.js';
 
 export const $lib = createTypeSpecLibrary({
   diagnostics: {},
@@ -28,6 +30,29 @@ const getOrMake = <Key, Value>(map: Map<Key, Value>, key: Key, make: (key: Key) 
   map.set(key, value);
   return value;
 };
+
+const { makeStateMap } = makeStateFactory((_) => $lib.createStateSymbol(_));
+
+export interface CollectionOperationMeta {
+  operation: Operation;
+  request?: Model;
+  response?: Model;
+  item?: Model;
+}
+
+export interface CollectionMeta {
+  base: Model;
+  options: CollectionOptions;
+  operations: {
+    collection: CollectionOperationMeta;
+    create?: CollectionOperationMeta;
+    update?: CollectionOperationMeta;
+    delete?: CollectionOperationMeta;
+    sync: CollectionOperationMeta;
+  };
+}
+
+export const collections = makeStateMap<Model, CollectionMeta>('collections');
 
 interface CollectionOptions {
   canCreate?: boolean;
@@ -80,7 +105,11 @@ function collection(
     }),
   );
 
-  makeOperation(`${base.name}Collection`, { output: collectionResponse });
+  const collectionOperation = makeOperation(`${base.name}Collection`, { output: collectionResponse });
+
+  const operations: Partial<CollectionMeta['operations']> = {
+    collection: { operation: collectionOperation, response: collectionResponse },
+  };
 
   if (canCreate && !isReadOnly) {
     const createItem = getOrMake(namespace.models, `${base.name}Create`, (name) =>
@@ -103,7 +132,13 @@ function collection(
       }),
     );
 
-    makeOperation(`${base.name}Create`, { input: createRequest });
+    const createOperation = makeOperation(`${base.name}Create`, { input: createRequest });
+
+    operations.create = {
+      operation: createOperation,
+      request: createRequest,
+      item: createItem,
+    };
   }
 
   if (canUpdate && !isReadOnly) {
@@ -134,7 +169,13 @@ function collection(
       }),
     );
 
-    makeOperation(`${base.name}Update`, { input: updateRequest });
+    const updateOperation = makeOperation(`${base.name}Update`, { input: updateRequest });
+
+    operations.update = {
+      operation: updateOperation,
+      request: updateRequest,
+      item: updateItem,
+    };
   }
 
   if (canDelete && !isReadOnly) {
@@ -161,7 +202,13 @@ function collection(
       }),
     );
 
-    makeOperation(`${base.name}Delete`, { input: deleteRequest });
+    const deleteOperation = makeOperation(`${base.name}Delete`, { input: deleteRequest });
+
+    operations.delete = {
+      operation: deleteOperation,
+      request: deleteRequest,
+      item: deleteItem,
+    };
   }
 
   const syncCreateItem = getOrMake(namespace.models, `${base.name}SyncCreate`, (name) =>
@@ -228,4 +275,12 @@ function collection(
 
   const sync = makeOperation(`${base.name}Sync`, { output: syncResponse });
   streams(program).set(sync, 'Out');
+
+  operations.sync = { operation: sync, response: syncResponse };
+
+  collections(program).set(base, {
+    base,
+    options: { canCreate, canDelete, canUpdate, isReadOnly },
+    operations: operations as CollectionMeta['operations'],
+  });
 }

@@ -23,6 +23,10 @@
       "types": "./dist/src/tanstack-db/index.d.ts",
       "default": "./dist/src/tanstack-db/index.js",
       "typespec": "./src/tanstack-db/main.tsp"
+    },
+    "./tanstack-db-go": {
+      "types": "./dist/src/tanstack-db/go-emitter.d.ts",
+      "default": "./dist/src/tanstack-db/go-emitter.js"
     }
   },
   "dependencies": {
