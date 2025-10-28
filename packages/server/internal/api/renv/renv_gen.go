@@ -3,11 +3,60 @@
 package renv
 
 import (
+	"context"
+	"errors"
 	"fmt"
+
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	idwrap "the-dev-tools/server/pkg/idwrap"
 	environmentv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 )
+
+var (
+	errEnvironmentHooksMissing      = errors.New("environment hooks not configured")
+	errEnvironmentPrincipalProvider = errors.New("environment principal provider not configured")
+)
+
+type EnvironmentPrincipal struct {
+	UserID idwrap.IDWrap
+}
+
+type EnvironmentPrincipalProvider func(context.Context) (EnvironmentPrincipal, error)
+
+type EnvironmentHooks interface {
+	OnEnvironmentCollection(ctx context.Context, principal EnvironmentPrincipal) (*environmentv1.EnvironmentCollectionResponse, error)
+	OnEnvironmentCreate(ctx context.Context, principal EnvironmentPrincipal, items []EnvironmentCreateInput) error
+	OnEnvironmentUpdate(ctx context.Context, principal EnvironmentPrincipal, items []EnvironmentUpdateInput) error
+	OnEnvironmentDelete(ctx context.Context, principal EnvironmentPrincipal, items []EnvironmentDeleteInput) error
+}
+
+type EnvironmentHandler struct {
+	Hooks     EnvironmentHooks
+	Principal EnvironmentPrincipalProvider
+}
+
+func NewEnvironmentHandler(hooks EnvironmentHooks, principal EnvironmentPrincipalProvider) EnvironmentHandler {
+	return EnvironmentHandler{
+		Hooks:     hooks,
+		Principal: principal,
+	}
+}
+
+func (h EnvironmentHandler) principal(ctx context.Context) (EnvironmentPrincipal, error) {
+	if h.Principal == nil {
+		return EnvironmentPrincipal{}, connect.NewError(connect.CodeInternal, errEnvironmentPrincipalProvider)
+	}
+	return h.Principal(ctx)
+}
+
+func (h EnvironmentHandler) ensureHooks() error {
+	if h.Hooks == nil {
+		return connect.NewError(connect.CodeInternal, errEnvironmentHooksMissing)
+	}
+	return nil
+}
 
 type EnvironmentCreateInput struct {
 	WorkspaceID idwrap.IDWrap
@@ -75,4 +124,99 @@ func DecodeEnvironmentDeleteItems(items []*environmentv1.EnvironmentDelete) ([]E
 	}
 
 	return result, nil
+}
+
+func (h EnvironmentHandler) EnvironmentCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[environmentv1.EnvironmentCollectionResponse], error) {
+	if err := h.ensureHooks(); err != nil {
+		return nil, err
+	}
+
+	principal, err := h.principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := h.Hooks.OnEnvironmentCollection(ctx, principal)
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		resp = &environmentv1.EnvironmentCollectionResponse{}
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (h EnvironmentHandler) EnvironmentCreate(ctx context.Context, req *connect.Request[environmentv1.EnvironmentCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	if err := h.ensureHooks(); err != nil {
+		return nil, err
+	}
+	if len(req.Msg.Items) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
+	}
+
+	items, err := DecodeEnvironmentCreateItems(req.Msg.Items)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	principal, err := h.principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.Hooks.OnEnvironmentCreate(ctx, principal, items); err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h EnvironmentHandler) EnvironmentUpdate(ctx context.Context, req *connect.Request[environmentv1.EnvironmentUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	if err := h.ensureHooks(); err != nil {
+		return nil, err
+	}
+	if len(req.Msg.Items) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
+	}
+
+	items, err := DecodeEnvironmentUpdateItems(req.Msg.Items)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	principal, err := h.principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.Hooks.OnEnvironmentUpdate(ctx, principal, items); err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h EnvironmentHandler) EnvironmentDelete(ctx context.Context, req *connect.Request[environmentv1.EnvironmentDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	if err := h.ensureHooks(); err != nil {
+		return nil, err
+	}
+	if len(req.Msg.Items) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
+	}
+
+	items, err := DecodeEnvironmentDeleteItems(req.Msg.Items)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	principal, err := h.principal(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := h.Hooks.OnEnvironmentDelete(ctx, principal, items); err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

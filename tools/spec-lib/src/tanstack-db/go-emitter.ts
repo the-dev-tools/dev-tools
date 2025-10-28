@@ -39,88 +39,229 @@ const DEFAULT_OPTIONS: GeneratorOptions = {
   ],
 };
 
-const buildEnvironmentFile = (options: GeneratorOptions, target: TargetConfig) => {
-  return [
-    GENERATED_HEADER,
-    `package ${target.package}`,
-    '',
-    'import (',
-    '\t"fmt"',
-    '',
-    `\t${target.pbImportAlias} "${target.pbImportPath}"`,
-    `\tidwrap "${options.idwrapImportPath}"`,
-    ')',
-    '',
-    'type EnvironmentCreateInput struct {',
-    '\tWorkspaceID idwrap.IDWrap',
-    '\tName        string',
-    '\tDescription string',
-    '}',
-    '',
-    'func DecodeEnvironmentCreateItems(items []*' + target.pbImportAlias + '.EnvironmentCreate) ([]EnvironmentCreateInput, error) {',
-    '\tresult := make([]EnvironmentCreateInput, len(items))',
-    '\tfor i, item := range items {',
-    '\t\tworkspaceID, err := idwrap.NewFromBytes(item.GetWorkspaceId())',
-    '\t\tif err != nil {',
-    '\t\t\treturn nil, fmt.Errorf("environment[%d]: invalid workspace_id: %w", i, err)',
-    '\t\t}',
-    '',
-    '\t\tresult[i] = EnvironmentCreateInput{',
-    '\t\t\tWorkspaceID: workspaceID,',
-    '\t\t\tName:        item.GetName(),',
-    '\t\t\tDescription: item.GetDescription(),',
-    '\t\t}',
-    '\t}',
-    '',
-    '\treturn result, nil',
-    '}',
-    '',
-    'type EnvironmentUpdateInput struct {',
-    '\tEnvironmentID idwrap.IDWrap',
-    '\tName          *string',
-    '\tDescription   *string',
-    '}',
-    '',
-    'func DecodeEnvironmentUpdateItems(items []*' + target.pbImportAlias + '.EnvironmentUpdate) ([]EnvironmentUpdateInput, error) {',
-    '\tresult := make([]EnvironmentUpdateInput, len(items))',
-    '\tfor i, item := range items {',
-    '\t\tenvironmentID, err := idwrap.NewFromBytes(item.GetEnvironmentId())',
-    '\t\tif err != nil {',
-    '\t\t\treturn nil, fmt.Errorf("environment[%d]: invalid environment_id: %w", i, err)',
-    '\t\t}',
-    '',
-    '\t\tresult[i] = EnvironmentUpdateInput{',
-    '\t\t\tEnvironmentID: environmentID,',
-    '\t\t\tName:          item.Name,',
-    '\t\t\tDescription:   item.Description,',
-    '\t\t}',
-    '\t}',
-    '',
-    '\treturn result, nil',
-    '}',
-    '',
-    'type EnvironmentDeleteInput struct {',
-    '\tEnvironmentID idwrap.IDWrap',
-    '}',
-    '',
-    'func DecodeEnvironmentDeleteItems(items []*' + target.pbImportAlias + '.EnvironmentDelete) ([]EnvironmentDeleteInput, error) {',
-    '\tresult := make([]EnvironmentDeleteInput, len(items))',
-    '\tfor i, item := range items {',
-    '\t\tenvironmentID, err := idwrap.NewFromBytes(item.GetEnvironmentId())',
-    '\t\tif err != nil {',
-    '\t\t\treturn nil, fmt.Errorf("environment[%d]: invalid environment_id: %w", i, err)',
-    '\t\t}',
-    '',
-    '\t\tresult[i] = EnvironmentDeleteInput{',
-    '\t\t\tEnvironmentID: environmentID,',
-    '\t\t}',
-    '\t}',
-    '',
-    '\treturn result, nil',
-    '}',
-    '',
-  ].join('\n');
-};
+const buildEnvironmentFile = (options: GeneratorOptions, target: TargetConfig) => `\
+${GENERATED_HEADER}
+package ${target.package}
+
+import (
+\t"context"
+\t"errors"
+\t"fmt"
+
+\t"connectrpc.com/connect"
+\t"google.golang.org/protobuf/types/known/emptypb"
+
+\t${target.pbImportAlias} "${target.pbImportPath}"
+\tidwrap "${options.idwrapImportPath}"
+)
+
+var (
+\terrEnvironmentHooksMissing      = errors.New("environment hooks not configured")
+\terrEnvironmentPrincipalProvider = errors.New("environment principal provider not configured")
+)
+
+type EnvironmentPrincipal struct {
+\tUserID idwrap.IDWrap
+}
+
+type EnvironmentPrincipalProvider func(context.Context) (EnvironmentPrincipal, error)
+
+type EnvironmentHooks interface {
+\tOnEnvironmentCollection(ctx context.Context, principal EnvironmentPrincipal) (*${target.pbImportAlias}.EnvironmentCollectionResponse, error)
+\tOnEnvironmentCreate(ctx context.Context, principal EnvironmentPrincipal, items []EnvironmentCreateInput) error
+\tOnEnvironmentUpdate(ctx context.Context, principal EnvironmentPrincipal, items []EnvironmentUpdateInput) error
+\tOnEnvironmentDelete(ctx context.Context, principal EnvironmentPrincipal, items []EnvironmentDeleteInput) error
+}
+
+type EnvironmentHandler struct {
+\tHooks     EnvironmentHooks
+\tPrincipal EnvironmentPrincipalProvider
+}
+
+func NewEnvironmentHandler(hooks EnvironmentHooks, principal EnvironmentPrincipalProvider) EnvironmentHandler {
+\treturn EnvironmentHandler{
+\t\tHooks:     hooks,
+\t\tPrincipal: principal,
+\t}
+}
+
+func (h EnvironmentHandler) principal(ctx context.Context) (EnvironmentPrincipal, error) {
+\tif h.Principal == nil {
+\t\treturn EnvironmentPrincipal{}, connect.NewError(connect.CodeInternal, errEnvironmentPrincipalProvider)
+\t}
+\treturn h.Principal(ctx)
+}
+
+func (h EnvironmentHandler) ensureHooks() error {
+\tif h.Hooks == nil {
+\t\treturn connect.NewError(connect.CodeInternal, errEnvironmentHooksMissing)
+\t}
+\treturn nil
+}
+
+type EnvironmentCreateInput struct {
+\tWorkspaceID idwrap.IDWrap
+\tName        string
+\tDescription string
+}
+
+func DecodeEnvironmentCreateItems(items []*${target.pbImportAlias}.EnvironmentCreate) ([]EnvironmentCreateInput, error) {
+\tresult := make([]EnvironmentCreateInput, len(items))
+\tfor i, item := range items {
+\t\tworkspaceID, err := idwrap.NewFromBytes(item.GetWorkspaceId())
+\t\tif err != nil {
+\t\t\treturn nil, fmt.Errorf("environment[%d]: invalid workspace_id: %w", i, err)
+\t\t}
+
+\t\tresult[i] = EnvironmentCreateInput{
+\t\t\tWorkspaceID: workspaceID,
+\t\t\tName:        item.GetName(),
+\t\t\tDescription: item.GetDescription(),
+\t\t}
+\t}
+
+\treturn result, nil
+}
+
+type EnvironmentUpdateInput struct {
+\tEnvironmentID idwrap.IDWrap
+\tName          *string
+\tDescription   *string
+}
+
+func DecodeEnvironmentUpdateItems(items []*${target.pbImportAlias}.EnvironmentUpdate) ([]EnvironmentUpdateInput, error) {
+\tresult := make([]EnvironmentUpdateInput, len(items))
+\tfor i, item := range items {
+\t\tenvironmentID, err := idwrap.NewFromBytes(item.GetEnvironmentId())
+\t\tif err != nil {
+\t\t\treturn nil, fmt.Errorf("environment[%d]: invalid environment_id: %w", i, err)
+\t\t}
+
+\t\tresult[i] = EnvironmentUpdateInput{
+\t\t\tEnvironmentID: environmentID,
+\t\t\tName:          item.Name,
+\t\t\tDescription:   item.Description,
+\t\t}
+\t}
+
+\treturn result, nil
+}
+
+type EnvironmentDeleteInput struct {
+\tEnvironmentID idwrap.IDWrap
+}
+
+func DecodeEnvironmentDeleteItems(items []*${target.pbImportAlias}.EnvironmentDelete) ([]EnvironmentDeleteInput, error) {
+\tresult := make([]EnvironmentDeleteInput, len(items))
+\tfor i, item := range items {
+\t\tenvironmentID, err := idwrap.NewFromBytes(item.GetEnvironmentId())
+\t\tif err != nil {
+\t\t\treturn nil, fmt.Errorf("environment[%d]: invalid environment_id: %w", i, err)
+\t\t}
+
+\t\tresult[i] = EnvironmentDeleteInput{
+\t\t\tEnvironmentID: environmentID,
+\t\t}
+\t}
+
+\treturn result, nil
+}
+
+func (h EnvironmentHandler) EnvironmentCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[${target.pbImportAlias}.EnvironmentCollectionResponse], error) {
+\tif err := h.ensureHooks(); err != nil {
+\t\treturn nil, err
+\t}
+
+\tprincipal, err := h.principal(ctx)
+\tif err != nil {
+\t\treturn nil, err
+\t}
+
+\tresp, err := h.Hooks.OnEnvironmentCollection(ctx, principal)
+\tif err != nil {
+\t\treturn nil, err
+\t}
+\tif resp == nil {
+\t\tresp = &${target.pbImportAlias}.EnvironmentCollectionResponse{}
+\t}
+\treturn connect.NewResponse(resp), nil
+}
+
+func (h EnvironmentHandler) EnvironmentCreate(ctx context.Context, req *connect.Request[${target.pbImportAlias}.EnvironmentCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+\tif err := h.ensureHooks(); err != nil {
+\t\treturn nil, err
+\t}
+\tif len(req.Msg.Items) == 0 {
+\t\treturn nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
+\t}
+
+\titems, err := DecodeEnvironmentCreateItems(req.Msg.Items)
+\tif err != nil {
+\t\treturn nil, connect.NewError(connect.CodeInvalidArgument, err)
+\t}
+
+\tprincipal, err := h.principal(ctx)
+\tif err != nil {
+\t\treturn nil, err
+\t}
+
+\tif err := h.Hooks.OnEnvironmentCreate(ctx, principal, items); err != nil {
+\t\treturn nil, err
+\t}
+
+\treturn connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h EnvironmentHandler) EnvironmentUpdate(ctx context.Context, req *connect.Request[${target.pbImportAlias}.EnvironmentUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+\tif err := h.ensureHooks(); err != nil {
+\t\treturn nil, err
+\t}
+\tif len(req.Msg.Items) == 0 {
+\t\treturn nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
+\t}
+
+\titems, err := DecodeEnvironmentUpdateItems(req.Msg.Items)
+\tif err != nil {
+\t\treturn nil, connect.NewError(connect.CodeInvalidArgument, err)
+\t}
+
+\tprincipal, err := h.principal(ctx)
+\tif err != nil {
+\t\treturn nil, err
+\t}
+
+\tif err := h.Hooks.OnEnvironmentUpdate(ctx, principal, items); err != nil {
+\t\treturn nil, err
+\t}
+
+\treturn connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h EnvironmentHandler) EnvironmentDelete(ctx context.Context, req *connect.Request[${target.pbImportAlias}.EnvironmentDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+\tif err := h.ensureHooks(); err != nil {
+\t\treturn nil, err
+\t}
+\tif len(req.Msg.Items) == 0 {
+\t\treturn nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
+\t}
+
+\titems, err := DecodeEnvironmentDeleteItems(req.Msg.Items)
+\tif err != nil {
+\t\treturn nil, connect.NewError(connect.CodeInvalidArgument, err)
+\t}
+
+\tprincipal, err := h.principal(ctx)
+\tif err != nil {
+\t\treturn nil, err
+\t}
+
+\tif err := h.Hooks.OnEnvironmentDelete(ctx, principal, items); err != nil {
+\t\treturn nil, err
+\t}
+
+\treturn connect.NewResponse(&emptypb.Empty{}), nil
+}
+`;
 
 const ensureDirectory = async (path: string) => {
   await mkdir(path, { recursive: true });
