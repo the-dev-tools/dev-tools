@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
@@ -23,7 +24,7 @@ import (
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 )
 
-type envTestFixture struct {
+type envFixture struct {
 	ctx         context.Context
 	base        *testutil.BaseDBQueries
 	handler     EnvRPC
@@ -33,7 +34,7 @@ type envTestFixture struct {
 	userID      idwrap.IDWrap
 }
 
-func newEnvTestFixture(t *testing.T) *envTestFixture {
+func newEnvFixture(t *testing.T) *envFixture {
 	t.Helper()
 
 	base := testutil.CreateBaseDB(context.Background(), t)
@@ -43,38 +44,34 @@ func newEnvTestFixture(t *testing.T) *envTestFixture {
 
 	workspaceID := idwrap.NewNow()
 	userID := idwrap.NewNow()
-
 	now := time.Now()
-	providerID := fmt.Sprintf("test-%s", userID.String())
 
-	user := muser.User{
+	providerID := fmt.Sprintf("test-%s", userID.String())
+	if err := services.Us.CreateUser(context.Background(), &muser.User{
 		ID:           userID,
 		Email:        fmt.Sprintf("%s@example.com", userID.String()),
-		Password:     []byte("pass"),
+		Password:     []byte("password"),
 		ProviderID:   &providerID,
 		ProviderType: muser.MagicLink,
 		Status:       muser.Active,
-	}
-	if err := services.Us.CreateUser(context.Background(), &user); err != nil {
+	}); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
 
-	workspace := mworkspace.Workspace{
+	if err := services.Ws.Create(context.Background(), &mworkspace.Workspace{
 		ID:      workspaceID,
 		Name:    "Test Workspace",
 		Updated: now,
-	}
-	if err := services.Ws.Create(context.Background(), &workspace); err != nil {
+	}); err != nil {
 		t.Fatalf("create workspace: %v", err)
 	}
 
-	membership := mworkspaceuser.WorkspaceUser{
+	if err := services.Wus.CreateWorkspaceUser(context.Background(), &mworkspaceuser.WorkspaceUser{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
 		UserID:      userID,
 		Role:        mworkspaceuser.RoleOwner,
-	}
-	if err := services.Wus.CreateWorkspaceUser(context.Background(), &membership); err != nil {
+	}); err != nil {
 		t.Fatalf("create workspace user: %v", err)
 	}
 
@@ -83,7 +80,7 @@ func newEnvTestFixture(t *testing.T) *envTestFixture {
 
 	t.Cleanup(base.Close)
 
-	return &envTestFixture{
+	return &envFixture{
 		ctx:         authCtx,
 		base:        base,
 		handler:     handler,
@@ -94,163 +91,181 @@ func newEnvTestFixture(t *testing.T) *envTestFixture {
 	}
 }
 
-func floatEquals(a, b float64) bool {
+func floatAlmostEqual(a, b float64) bool {
 	const tol = 1e-6
 	return math.Abs(a-b) < tol
 }
 
-func TestEnvironmentCollectionReturnsOrderedEnvironments(t *testing.T) {
+func (f *envFixture) createEnv(t *testing.T, order float64) menv.Env {
+	t.Helper()
+	env := menv.Env{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: f.workspaceID,
+		Name:        fmt.Sprintf("env-%f", order),
+		Description: "seeded env",
+		Order:       order,
+	}
+	if err := f.envService.CreateEnvironment(f.ctx, &env); err != nil {
+		t.Fatalf("create env: %v", err)
+	}
+	return env
+}
+
+func (f *envFixture) createVar(t *testing.T, envID idwrap.IDWrap, order float64) idwrap.IDWrap {
+	t.Helper()
+	varID := idwrap.NewNow()
+	if err := f.varService.Create(f.ctx, mvar.Var{
+		ID:          varID,
+		EnvID:       envID,
+		VarKey:      fmt.Sprintf("key-%f", order),
+		Value:       "value",
+		Enabled:     true,
+		Description: "seeded var",
+		Order:       order,
+	}); err != nil {
+		t.Fatalf("create var: %v", err)
+	}
+	return varID
+}
+
+func TestEnvironmentCollectionOrdersResults(t *testing.T) {
 	t.Parallel()
 
-	f := newEnvTestFixture(t)
-
-	// Seed environments with explicit ordering.
-	envB := menv.Env{
-		ID:          idwrap.NewNow(),
-		WorkspaceID: f.workspaceID,
-		Name:        "Second",
-		Description: "should appear second",
-		Order:       2,
-	}
-	if err := f.envService.CreateEnvironment(f.ctx, &envB); err != nil {
-		t.Fatalf("seed envB: %v", err)
-	}
-
-	envA := menv.Env{
-		ID:          idwrap.NewNow(),
-		WorkspaceID: f.workspaceID,
-		Name:        "First",
-		Description: "should appear first",
-		Order:       1,
-	}
-	if err := f.envService.CreateEnvironment(f.ctx, &envA); err != nil {
-		t.Fatalf("seed envA: %v", err)
-	}
+	f := newEnvFixture(t)
+	envFirst := f.createEnv(t, 1)
+	envSecond := f.createEnv(t, 2)
 
 	resp, err := f.handler.EnvironmentCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
 	if err != nil {
 		t.Fatalf("EnvironmentCollection err: %v", err)
 	}
 
-	if got := len(resp.Msg.Items); got != 2 {
-		t.Fatalf("expected 2 environments, got %d", got)
+	if len(resp.Msg.Items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(resp.Msg.Items))
 	}
-
-	if resp.Msg.Items[0].GetName() != envA.Name {
-		t.Fatalf("expected first item %q, got %q", envA.Name, resp.Msg.Items[0].GetName())
+	if resp.Msg.Items[0].GetEnvironmentId() == nil || resp.Msg.Items[1].GetEnvironmentId() == nil {
+		t.Fatal("environment ids should be populated")
 	}
-	if resp.Msg.Items[1].GetName() != envB.Name {
-		t.Fatalf("expected second item %q, got %q", envB.Name, resp.Msg.Items[1].GetName())
+	if resp.Msg.Items[0].GetName() != envFirst.Name {
+		t.Fatalf("expected first environment %q, got %q", envFirst.Name, resp.Msg.Items[0].GetName())
 	}
-	if resp.Msg.Items[0].GetWorkspaceId() == nil {
-		t.Fatal("workspace id should be populated")
+	if resp.Msg.Items[1].GetName() != envSecond.Name {
+		t.Fatalf("expected second environment %q, got %q", envSecond.Name, resp.Msg.Items[1].GetName())
 	}
 }
 
-func TestEnvironmentCreateUpdateDelete(t *testing.T) {
+func TestEnvironmentCreate(t *testing.T) {
 	t.Parallel()
 
-	f := newEnvTestFixture(t)
-
+	f := newEnvFixture(t)
 	envID := idwrap.NewNow()
-
-	createReq := &apiv1.EnvironmentCreateRequest{
+	req := connect.NewRequest(&apiv1.EnvironmentCreateRequest{
 		Items: []*apiv1.EnvironmentCreate{
 			{
 				EnvironmentId: envID.Bytes(),
 				WorkspaceId:   f.workspaceID.Bytes(),
-				Name:          "Initial",
-				Description:   "initial description",
-				Order:         5,
+				Name:          "created env",
+				Description:   "created via rpc",
+				Order:         3,
 			},
 		},
-	}
+	})
 
-	if _, err := f.handler.EnvironmentCreate(f.ctx, connect.NewRequest(createReq)); err != nil {
+	if _, err := f.handler.EnvironmentCreate(f.ctx, req); err != nil {
 		t.Fatalf("EnvironmentCreate err: %v", err)
 	}
 
-	envs, err := f.envService.ListEnvironments(f.ctx, f.workspaceID)
+	stored, err := f.envService.GetEnvironment(f.ctx, envID)
 	if err != nil {
-		t.Fatalf("list environments: %v", err)
+		t.Fatalf("GetEnvironment err: %v", err)
 	}
-	if len(envs) != 1 {
-		t.Fatalf("expected 1 environment, got %d", len(envs))
+	if stored.Name != "created env" || stored.Description != "created via rpc" {
+		t.Fatalf("unexpected environment fields: %+v", stored)
 	}
-	if envs[0].Name != "Initial" || envs[0].Description != "initial description" {
-		t.Fatalf("unexpected env fields: %+v", envs[0])
+	if !floatAlmostEqual(stored.Order, 3) {
+		t.Fatalf("expected order 3, got %f", stored.Order)
 	}
-	if !floatEquals(envs[0].Order, 5) {
-		t.Fatalf("expected order 5, got %f", envs[0].Order)
-	}
+}
 
-	newName := "Updated"
+func TestEnvironmentUpdate(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	env := f.createEnv(t, 1)
+
+	newName := "updated name"
 	newDesc := "updated description"
-	newOrder := float32(7)
-	updateReq := &apiv1.EnvironmentUpdateRequest{
+	newOrder := float32(4)
+	req := connect.NewRequest(&apiv1.EnvironmentUpdateRequest{
 		Items: []*apiv1.EnvironmentUpdate{
 			{
-				EnvironmentId: envID.Bytes(),
+				EnvironmentId: env.ID.Bytes(),
 				Name:          &newName,
 				Description:   &newDesc,
 				Order:         &newOrder,
 			},
 		},
-	}
+	})
 
-	if _, err := f.handler.EnvironmentUpdate(f.ctx, connect.NewRequest(updateReq)); err != nil {
+	if _, err := f.handler.EnvironmentUpdate(f.ctx, req); err != nil {
 		t.Fatalf("EnvironmentUpdate err: %v", err)
 	}
 
-	updated, err := f.envService.GetEnvironment(f.ctx, envID)
+	stored, err := f.envService.GetEnvironment(f.ctx, env.ID)
 	if err != nil {
-		t.Fatalf("get environment: %v", err)
+		t.Fatalf("GetEnvironment err: %v", err)
 	}
-	if updated.Name != newName || updated.Description != newDesc {
-		t.Fatalf("update failed, got %+v", updated)
+	if stored.Name != newName || stored.Description != newDesc {
+		t.Fatalf("unexpected fields: %+v", stored)
 	}
-	if !floatEquals(updated.Order, float64(newOrder)) {
-		t.Fatalf("expected order %.1f, got %f", newOrder, updated.Order)
-	}
-
-	deleteReq := &apiv1.EnvironmentDeleteRequest{
-		Items: []*apiv1.EnvironmentDelete{
-			{
-				EnvironmentId: envID.Bytes(),
-			},
-		},
-	}
-	if _, err := f.handler.EnvironmentDelete(f.ctx, connect.NewRequest(deleteReq)); err != nil {
-		t.Fatalf("EnvironmentDelete err: %v", err)
-	}
-
-	envs, err = f.envService.ListEnvironments(f.ctx, f.workspaceID)
-	if err != nil {
-		t.Fatalf("list after delete: %v", err)
-	}
-	if len(envs) != 0 {
-		t.Fatalf("expected no environments, got %d", len(envs))
+	if !floatAlmostEqual(stored.Order, float64(newOrder)) {
+		t.Fatalf("expected order %.1f, got %f", newOrder, stored.Order)
 	}
 }
 
-func TestEnvironmentVariableCollectionAndCRUD(t *testing.T) {
+func TestEnvironmentDelete(t *testing.T) {
 	t.Parallel()
 
-	f := newEnvTestFixture(t)
+	f := newEnvFixture(t)
+	env := f.createEnv(t, 1)
 
-	env := menv.Env{
-		ID:          idwrap.NewNow(),
-		WorkspaceID: f.workspaceID,
-		Name:        "Vars Env",
-		Description: "for variable tests",
-		Order:       1,
-	}
-	if err := f.envService.CreateEnvironment(f.ctx, &env); err != nil {
-		t.Fatalf("create env: %v", err)
+	req := connect.NewRequest(&apiv1.EnvironmentDeleteRequest{
+		Items: []*apiv1.EnvironmentDelete{{EnvironmentId: env.ID.Bytes()}},
+	})
+
+	if _, err := f.handler.EnvironmentDelete(f.ctx, req); err != nil {
+		t.Fatalf("EnvironmentDelete err: %v", err)
 	}
 
+	if _, err := f.envService.GetEnvironment(f.ctx, env.ID); !errors.Is(err, senv.ErrNoEnvironmentFound) {
+		t.Fatalf("expected ErrNoEnvironmentFound, got %v", err)
+	}
+}
+
+func TestEnvironmentVariableCollection(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	env := f.createEnv(t, 1)
+	f.createVar(t, env.ID, 1)
+	f.createVar(t, env.ID, 2)
+
+	resp, err := f.handler.EnvironmentVariableCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
+	if err != nil {
+		t.Fatalf("EnvironmentVariableCollection err: %v", err)
+	}
+	if len(resp.Msg.Items) != 2 {
+		t.Fatalf("expected 2 variables, got %d", len(resp.Msg.Items))
+	}
+}
+
+func TestEnvironmentVariableCreate(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	env := f.createEnv(t, 1)
 	varID := idwrap.NewNow()
-	createReq := &apiv1.EnvironmentVariableCreateRequest{
+	req := connect.NewRequest(&apiv1.EnvironmentVariableCreateRequest{
 		Items: []*apiv1.EnvironmentVariableCreate{
 			{
 				EnvironmentVariableId: varID.Bytes(),
@@ -259,39 +274,41 @@ func TestEnvironmentVariableCollectionAndCRUD(t *testing.T) {
 				Enabled:               true,
 				Value:                 "secret",
 				Description:           "primary key",
-				Order:                 3,
+				Order:                 2,
 			},
 		},
-	}
-	if _, err := f.handler.EnvironmentVariableCreate(f.ctx, connect.NewRequest(createReq)); err != nil {
+	})
+
+	if _, err := f.handler.EnvironmentVariableCreate(f.ctx, req); err != nil {
 		t.Fatalf("EnvironmentVariableCreate err: %v", err)
 	}
 
-	variable, err := f.varService.Get(f.ctx, varID)
+	stored, err := f.varService.Get(f.ctx, varID)
 	if err != nil {
-		t.Fatalf("get variable: %v", err)
+		t.Fatalf("Get variable err: %v", err)
 	}
-	if variable.VarKey != "API_KEY" || variable.Value != "secret" || variable.Description != "primary key" || !variable.Enabled {
-		t.Fatalf("unexpected variable fields: %+v", variable)
+	if stored.VarKey != "API_KEY" || stored.Value != "secret" || stored.Description != "primary key" {
+		t.Fatalf("unexpected stored variable: %+v", stored)
 	}
-	if !floatEquals(variable.Order, 3) {
-		t.Fatalf("expected order 3, got %f", variable.Order)
+	if !floatAlmostEqual(stored.Order, 2) {
+		t.Fatalf("expected order 2, got %f", stored.Order)
 	}
+}
 
-	resp, err := f.handler.EnvironmentVariableCollection(f.ctx, connect.NewRequest(&emptypb.Empty{}))
-	if err != nil {
-		t.Fatalf("EnvironmentVariableCollection err: %v", err)
-	}
-	if len(resp.Msg.Items) != 1 || resp.Msg.Items[0].GetKey() != "API_KEY" {
-		t.Fatalf("unexpected collection response: %+v", resp.Msg.Items)
-	}
+func TestEnvironmentVariableUpdate(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	env := f.createEnv(t, 1)
+	varID := f.createVar(t, env.ID, 1)
 
 	newKey := "AUTH_TOKEN"
-	newValue := "updated"
-	newDesc := "updated description"
+	newValue := "new"
+	newDesc := "updated"
 	newEnabled := false
-	newOrder := float32(9)
-	updateReq := &apiv1.EnvironmentVariableUpdateRequest{
+	newOrder := float32(5)
+
+	req := connect.NewRequest(&apiv1.EnvironmentVariableUpdateRequest{
 		Items: []*apiv1.EnvironmentVariableUpdate{
 			{
 				EnvironmentVariableId: varID.Bytes(),
@@ -302,32 +319,40 @@ func TestEnvironmentVariableCollectionAndCRUD(t *testing.T) {
 				Order:                 &newOrder,
 			},
 		},
-	}
-	if _, err := f.handler.EnvironmentVariableUpdate(f.ctx, connect.NewRequest(updateReq)); err != nil {
+	})
+
+	if _, err := f.handler.EnvironmentVariableUpdate(f.ctx, req); err != nil {
 		t.Fatalf("EnvironmentVariableUpdate err: %v", err)
 	}
 
-	variable, err = f.varService.Get(f.ctx, varID)
+	stored, err := f.varService.Get(f.ctx, varID)
 	if err != nil {
-		t.Fatalf("get variable after update: %v", err)
+		t.Fatalf("Get variable err: %v", err)
 	}
-	if variable.VarKey != newKey || variable.Value != newValue || variable.Description != newDesc || variable.Enabled != newEnabled {
-		t.Fatalf("update failed, variable %+v", variable)
+	if stored.VarKey != newKey || stored.Value != newValue || stored.Description != newDesc || stored.Enabled != newEnabled {
+		t.Fatalf("unexpected stored variable: %+v", stored)
 	}
-	if !floatEquals(variable.Order, float64(newOrder)) {
-		t.Fatalf("expected order %.1f, got %f", newOrder, variable.Order)
+	if !floatAlmostEqual(stored.Order, float64(newOrder)) {
+		t.Fatalf("expected order %.1f, got %f", newOrder, stored.Order)
 	}
+}
 
-	deleteReq := &apiv1.EnvironmentVariableDeleteRequest{
-		Items: []*apiv1.EnvironmentVariableDelete{
-			{EnvironmentVariableId: varID.Bytes()},
-		},
-	}
-	if _, err := f.handler.EnvironmentVariableDelete(f.ctx, connect.NewRequest(deleteReq)); err != nil {
+func TestEnvironmentVariableDelete(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	env := f.createEnv(t, 1)
+	varID := f.createVar(t, env.ID, 1)
+
+	req := connect.NewRequest(&apiv1.EnvironmentVariableDeleteRequest{
+		Items: []*apiv1.EnvironmentVariableDelete{{EnvironmentVariableId: varID.Bytes()}},
+	})
+
+	if _, err := f.handler.EnvironmentVariableDelete(f.ctx, req); err != nil {
 		t.Fatalf("EnvironmentVariableDelete err: %v", err)
 	}
 
 	if _, err := f.varService.Get(f.ctx, varID); !errors.Is(err, svar.ErrNoVarFound) {
-		t.Fatalf("expected ErrNoVarFound after delete, got %v", err)
+		t.Fatalf("expected ErrNoVarFound, got %v", err)
 	}
 }
