@@ -3,247 +3,379 @@ package rworkspace
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/pkg/dbtime"
+	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-
-	workspacev1 "the-dev-tools/spec/dist/buf/go/workspace/v1"
+	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/sworkspace"
+	"the-dev-tools/server/pkg/service/sworkspacesusers"
+	"the-dev-tools/server/pkg/testutil"
+	apiv1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
 )
 
-type stubWorkspaceUserService struct {
-	members []mworkspaceuser.WorkspaceUser
+type workspaceFixture struct {
+	ctx     context.Context
+	base    *testutil.BaseDBQueries
+	handler WorkspaceServiceRPC
+
+	ws  sworkspace.WorkspaceService
+	wus sworkspacesusers.WorkspaceUserService
+	es  senv.EnvService
+	us  suser.UserService
+
+	userID idwrap.IDWrap
 }
 
-func (s *stubWorkspaceUserService) CreateWorkspaceUser(ctx context.Context, user *mworkspaceuser.WorkspaceUser) error {
-	panic("unexpected call to CreateWorkspaceUser")
-}
+func newWorkspaceFixture(t *testing.T) *workspaceFixture {
+	t.Helper()
 
-func (s *stubWorkspaceUserService) DeleteWorkspaceUser(ctx context.Context, id idwrap.IDWrap) error {
-	panic("unexpected call to DeleteWorkspaceUser")
-}
+	base := testutil.CreateBaseDB(context.Background(), t)
+	services := base.GetBaseServices()
+	envService := senv.New(base.Queries, base.Logger())
+	stream := memory.NewInMemorySyncStreamer[WorkspaceTopic, WorkspaceEvent]()
+	t.Cleanup(stream.Shutdown)
 
-func (s *stubWorkspaceUserService) GetWorkspaceUserByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mworkspaceuser.WorkspaceUser, error) {
-	return s.members, nil
-}
-
-func (s *stubWorkspaceUserService) GetWorkspaceUsersByWorkspaceIDAndUserID(ctx context.Context, workspaceID, userID idwrap.IDWrap) (*mworkspaceuser.WorkspaceUser, error) {
-	panic("unexpected call to GetWorkspaceUsersByWorkspaceIDAndUserID")
-}
-
-func (s *stubWorkspaceUserService) UpdateWorkspaceUser(ctx context.Context, user *mworkspaceuser.WorkspaceUser) error {
-	panic("unexpected call to UpdateWorkspaceUser")
-}
-
-type stubUserService struct {
-	belongs bool
-	users   map[string]*muser.User
-}
-
-func (s *stubUserService) CheckUserBelongsToWorkspace(ctx context.Context, userID, workspaceID idwrap.IDWrap) (bool, error) {
-	return s.belongs, nil
-}
-
-func (s *stubUserService) GetUser(ctx context.Context, id idwrap.IDWrap) (*muser.User, error) {
-	if user, ok := s.users[id.String()]; ok {
-		return user, nil
-	}
-	return nil, errors.New("user not found")
-}
-
-func TestModelRoleToProto(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name    string
-		role    mworkspaceuser.Role
-		want    workspacev1.MemberRole
-		wantErr bool
-	}{
-		{
-			name:    "user maps to basic",
-			role:    mworkspaceuser.RoleUser,
-			want:    workspacev1.MemberRole_MEMBER_ROLE_BASIC,
-			wantErr: false,
-		},
-		{
-			name:    "admin maps to admin",
-			role:    mworkspaceuser.RoleAdmin,
-			want:    workspacev1.MemberRole_MEMBER_ROLE_ADMIN,
-			wantErr: false,
-		},
-		{
-			name:    "owner maps to owner",
-			role:    mworkspaceuser.RoleOwner,
-			want:    workspacev1.MemberRole_MEMBER_ROLE_OWNER,
-			wantErr: false,
-		},
-		{
-			name:    "unknown role errors and falls back",
-			role:    mworkspaceuser.RoleUnknown,
-			want:    workspaceMemberRoleFallback,
-			wantErr: true,
-		},
+	userID := idwrap.NewNow()
+	providerID := fmt.Sprintf("test-%s", userID.String())
+	if err := services.Us.CreateUser(context.Background(), &muser.User{
+		ID:           userID,
+		Email:        fmt.Sprintf("%s@example.com", userID.String()),
+		Password:     []byte("password"),
+		ProviderID:   &providerID,
+		ProviderType: muser.MagicLink,
+		Status:       muser.Active,
+	}); err != nil {
+		t.Fatalf("create user: %v", err)
 	}
 
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	handler := New(base.DB, services.Ws, services.Wus, services.Us, envService, stream)
 
-			got, err := modelRoleToProto(tc.role)
-			if tc.wantErr {
-				if err == nil {
-					t.Fatalf("expected error, got nil")
-				}
-				if got != tc.want {
-					t.Fatalf("expected fallback role %v, got %v", tc.want, got)
-				}
-				return
-			}
+	t.Cleanup(base.Close)
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tc.want {
-				t.Fatalf("unexpected role: want %v, got %v", tc.want, got)
-			}
-		})
+	return &workspaceFixture{
+		ctx:     mwauth.CreateAuthedContext(context.Background(), userID),
+		base:    base,
+		handler: handler,
+		ws:      services.Ws,
+		wus:     services.Wus,
+		es:      envService,
+		us:      services.Us,
+		userID:  userID,
 	}
 }
 
-func TestProtoRoleToModel(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name    string
-		role    workspacev1.MemberRole
-		want    mworkspaceuser.Role
-		wantErr bool
-	}{
-		{
-			name: "basic maps to user",
-			role: workspacev1.MemberRole_MEMBER_ROLE_BASIC,
-			want: mworkspaceuser.RoleUser,
-		},
-		{
-			name: "admin maps to admin",
-			role: workspacev1.MemberRole_MEMBER_ROLE_ADMIN,
-			want: mworkspaceuser.RoleAdmin,
-		},
-		{
-			name: "owner maps to owner",
-			role: workspacev1.MemberRole_MEMBER_ROLE_OWNER,
-			want: mworkspaceuser.RoleOwner,
-		},
-		{
-			name:    "unspecified errors",
-			role:    workspacev1.MemberRole_MEMBER_ROLE_UNSPECIFIED,
-			want:    mworkspaceuser.RoleUnknown,
-			wantErr: true,
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, err := protoRoleToModel(tc.role)
-			if tc.wantErr {
-				if err == nil {
-					t.Fatalf("expected error, got nil")
-				}
-				if got != tc.want {
-					t.Fatalf("expected role %v, got %v", tc.want, got)
-				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tc.want {
-				t.Fatalf("unexpected role: want %v, got %v", tc.want, got)
-			}
-		})
-	}
-}
-
-func TestWorkspaceMemberUpdateRejectsInvalidRole(t *testing.T) {
-	t.Parallel()
-
-	svc := WorkspaceServiceRPC{}
+func (f *workspaceFixture) createWorkspace(t *testing.T, name string) idwrap.IDWrap {
+	t.Helper()
 
 	workspaceID := idwrap.NewNow()
-	targetUserID := idwrap.NewNow()
-	ctx := mwauth.CreateAuthedContext(context.Background(), idwrap.NewNow())
+	envID := idwrap.NewNow()
 
-	role := workspaceMemberRoleFallback
-	req := connect.NewRequest(&workspacev1.WorkspaceMemberUpdateRequest{
-		WorkspaceId: workspaceID.Bytes(),
-		UserID:      targetUserID.Bytes(),
-		Role:        &role,
-	})
-
-	_, err := svc.WorkspaceMemberUpdate(ctx, req)
-	if err == nil {
-		t.Fatalf("expected error for invalid role, got nil")
+	ws := &mworkspace.Workspace{
+		ID:        workspaceID,
+		Name:      name,
+		Updated:   dbtime.DBNow(),
+		ActiveEnv: envID,
+		GlobalEnv: envID,
+	}
+	if err := f.ws.Create(f.ctx, ws); err != nil {
+		t.Fatalf("create workspace: %v", err)
 	}
 
-	if code := connect.CodeOf(err); code != connect.CodeInvalidArgument {
-		t.Fatalf("expected invalid argument, got %v", code)
+	env := menv.Env{
+		ID:          envID,
+		WorkspaceID: workspaceID,
+		Name:        "default",
+		Type:        menv.EnvGlobal,
+	}
+	if err := f.es.CreateEnvironment(f.ctx, &env); err != nil {
+		t.Fatalf("create environment: %v", err)
+	}
+
+	member := &mworkspaceuser.WorkspaceUser{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      f.userID,
+		Role:        mworkspaceuser.RoleOwner,
+	}
+	if err := f.wus.CreateWorkspaceUser(f.ctx, member); err != nil {
+		t.Fatalf("create workspace user: %v", err)
+	}
+
+	if err := f.ws.AutoLinkWorkspaceToUserList(f.ctx, workspaceID, f.userID); err != nil {
+		t.Fatalf("autolink workspace: %v", err)
+	}
+
+	return workspaceID
+}
+
+func collectWorkspaceSyncItems(t *testing.T, ch <-chan *apiv1.WorkspaceSyncResponse, count int) []*apiv1.WorkspaceSync {
+	t.Helper()
+
+	var items []*apiv1.WorkspaceSync
+	timeout := time.After(2 * time.Second)
+
+	for len(items) < count {
+		select {
+		case resp, ok := <-ch:
+			if !ok {
+				t.Fatalf("channel closed before collecting %d items", count)
+			}
+			for _, item := range resp.GetItems() {
+				if item != nil {
+					items = append(items, item)
+					if len(items) == count {
+						break
+					}
+				}
+			}
+		case <-timeout:
+			t.Fatalf("timeout waiting for %d items, collected %d", count, len(items))
+		}
+	}
+
+	return items
+}
+
+func TestWorkspaceSyncStreamsSnapshotAndUpdates(t *testing.T) {
+	t.Parallel()
+
+	f := newWorkspaceFixture(t)
+	wsA := f.createWorkspace(t, "workspace-a")
+	wsB := f.createWorkspace(t, "workspace-b")
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *apiv1.WorkspaceSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamWorkspaceSync(ctx, f.userID, func(resp *apiv1.WorkspaceSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	snapshot := collectWorkspaceSyncItems(t, msgCh, 2)
+	seen := make(map[string]bool)
+	for _, item := range snapshot {
+		val := item.GetValue()
+		if val == nil {
+			t.Fatal("snapshot item missing value union")
+		}
+		if val.GetKind() != apiv1.WorkspaceSync_ValueUnion_KIND_CREATE {
+			t.Fatalf("expected create kind for snapshot, got %v", val.GetKind())
+		}
+		seen[string(val.GetCreate().GetWorkspaceId())] = true
+	}
+	if !seen[string(wsA.Bytes())] || !seen[string(wsB.Bytes())] {
+		t.Fatalf("snapshot missing expected workspaces, seen=%v", seen)
+	}
+
+	newName := "renamed workspace"
+	updateReq := connect.NewRequest(&apiv1.WorkspaceUpdateRequest{
+		Items: []*apiv1.WorkspaceUpdate{
+			{
+				WorkspaceId: wsA.Bytes(),
+				Name:        &newName,
+			},
+		},
+	})
+	if _, err := f.handler.WorkspaceUpdate(f.ctx, updateReq); err != nil {
+		t.Fatalf("WorkspaceUpdate err: %v", err)
+	}
+
+	updateItems := collectWorkspaceSyncItems(t, msgCh, 1)
+	updateVal := updateItems[0].GetValue()
+	if updateVal == nil {
+		t.Fatal("update response missing value union")
+	}
+	if updateVal.GetKind() != apiv1.WorkspaceSync_ValueUnion_KIND_UPDATE {
+		t.Fatalf("expected update kind, got %v", updateVal.GetKind())
+	}
+	if got := updateVal.GetUpdate().GetName(); got != newName {
+		t.Fatalf("expected updated name %q, got %q", newName, got)
+	}
+
+	deleteReq := connect.NewRequest(&apiv1.WorkspaceDeleteRequest{
+		Items: []*apiv1.WorkspaceDelete{
+			{
+				WorkspaceId: wsB.Bytes(),
+			},
+		},
+	})
+	if _, err := f.handler.WorkspaceDelete(f.ctx, deleteReq); err != nil {
+		t.Fatalf("WorkspaceDelete err: %v", err)
+	}
+
+	deleteItems := collectWorkspaceSyncItems(t, msgCh, 1)
+	deleteVal := deleteItems[0].GetValue()
+	if deleteVal == nil {
+		t.Fatal("delete response missing value union")
+	}
+	if deleteVal.GetKind() != apiv1.WorkspaceSync_ValueUnion_KIND_DELETE {
+		t.Fatalf("expected delete kind, got %v", deleteVal.GetKind())
+	}
+	if got := deleteVal.GetDelete().GetWorkspaceId(); string(got) != string(wsB.Bytes()) {
+		t.Fatalf("expected deleted workspace %s, got %x", wsB.String(), got)
+	}
+
+	cancel()
+	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("stream returned error: %v", err)
 	}
 }
 
-func TestWorkspaceMemberListFallsBackOnInvalidRole(t *testing.T) {
+func TestWorkspaceSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	t.Parallel()
 
-	workspaceID := idwrap.NewNow()
-	memberRecordID := idwrap.NewNow()
-	targetUserID := idwrap.NewNow()
-	actorID := idwrap.NewNow()
+	f := newWorkspaceFixture(t)
+	f.createWorkspace(t, "visible")
 
-	svc := WorkspaceServiceRPC{
-		wus: &stubWorkspaceUserService{
-			members: []mworkspaceuser.WorkspaceUser{
-				{
-					ID:          memberRecordID,
-					WorkspaceID: workspaceID,
-					UserID:      targetUserID,
-					Role:        mworkspaceuser.Role(99),
-				},
-			},
-		},
-		us: &stubUserService{
-			belongs: true,
-			users: map[string]*muser.User{
-				memberRecordID.String(): {
-					Email: "user@example.com",
-				},
-			},
-		},
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *apiv1.WorkspaceSyncResponse, 5)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamWorkspaceSync(ctx, f.userID, func(resp *apiv1.WorkspaceSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	_ = collectWorkspaceSyncItems(t, msgCh, 1)
+
+	otherUserID := idwrap.NewNow()
+	providerID := fmt.Sprintf("other-%s", otherUserID.String())
+	if err := f.us.CreateUser(context.Background(), &muser.User{
+		ID:           otherUserID,
+		Email:        fmt.Sprintf("%s@example.com", otherUserID.String()),
+		Password:     []byte("password"),
+		ProviderID:   &providerID,
+		ProviderType: muser.MagicLink,
+		Status:       muser.Active,
+	}); err != nil {
+		t.Fatalf("create other user: %v", err)
 	}
 
-	ctx := mwauth.CreateAuthedContext(context.Background(), actorID)
-	req := connect.NewRequest(&workspacev1.WorkspaceMemberListRequest{
-		WorkspaceId: workspaceID.Bytes(),
+	otherWorkspaceID := idwrap.NewNow()
+	otherEnvID := idwrap.NewNow()
+
+	ws := &mworkspace.Workspace{
+		ID:        otherWorkspaceID,
+		Name:      "hidden",
+		Updated:   dbtime.DBNow(),
+		ActiveEnv: otherEnvID,
+		GlobalEnv: otherEnvID,
+	}
+	if err := f.ws.Create(context.Background(), ws); err != nil {
+		t.Fatalf("create other workspace: %v", err)
+	}
+
+	env := menv.Env{
+		ID:          otherEnvID,
+		WorkspaceID: otherWorkspaceID,
+		Name:        "default",
+		Type:        menv.EnvGlobal,
+	}
+	if err := f.es.CreateEnvironment(context.Background(), &env); err != nil {
+		t.Fatalf("create other env: %v", err)
+	}
+
+	otherMember := &mworkspaceuser.WorkspaceUser{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: otherWorkspaceID,
+		UserID:      otherUserID,
+		Role:        mworkspaceuser.RoleOwner,
+	}
+	if err := f.wus.CreateWorkspaceUser(context.Background(), otherMember); err != nil {
+		t.Fatalf("create other workspace user: %v", err)
+	}
+
+	f.handler.stream.Publish(WorkspaceTopic{WorkspaceID: otherWorkspaceID}, WorkspaceEvent{
+		Type: eventTypeCreate,
+		Workspace: &apiv1.Workspace{
+			WorkspaceId:           otherWorkspaceID.Bytes(),
+			SelectedEnvironmentId: otherEnvID.Bytes(),
+			Name:                  "hidden",
+		},
 	})
 
-	resp, err := svc.WorkspaceMemberList(ctx, req)
-	if err != nil {
-		t.Fatalf("WorkspaceMemberList() error = %v", err)
+	select {
+	case resp := <-msgCh:
+		t.Fatalf("unexpected event for unauthorized workspace: %+v", resp)
+	case <-time.After(150 * time.Millisecond):
 	}
 
-	if len(resp.Msg.Items) != 1 {
-		t.Fatalf("expected 1 item, got %d", len(resp.Msg.Items))
+	cancel()
+	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("stream returned error: %v", err)
+	}
+}
+
+func TestWorkspaceCreatePublishesEvent(t *testing.T) {
+	t.Parallel()
+
+	f := newWorkspaceFixture(t)
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *apiv1.WorkspaceSyncResponse, 5)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamWorkspaceSync(ctx, f.userID, func(resp *apiv1.WorkspaceSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	createReq := connect.NewRequest(&apiv1.WorkspaceCreateRequest{
+		Items: []*apiv1.WorkspaceCreate{
+			{
+				Name: "api-created",
+			},
+		},
+	})
+	if _, err := f.handler.WorkspaceCreate(f.ctx, createReq); err != nil {
+		t.Fatalf("WorkspaceCreate err: %v", err)
 	}
 
-	if resp.Msg.Items[0].Role != workspaceMemberRoleFallback {
-		t.Fatalf("expected fallback role %v, got %v", workspaceMemberRoleFallback, resp.Msg.Items[0].Role)
+	items := collectWorkspaceSyncItems(t, msgCh, 1)
+	val := items[0].GetValue()
+	if val == nil {
+		t.Fatal("create response missing value union")
+	}
+	if val.GetKind() != apiv1.WorkspaceSync_ValueUnion_KIND_CREATE {
+		t.Fatalf("expected create kind, got %v", val.GetKind())
+	}
+	if got := val.GetCreate().GetName(); got != "api-created" {
+		t.Fatalf("expected created name api-created, got %q", got)
+	}
+
+	cancel()
+	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("stream returned error: %v", err)
 	}
 }

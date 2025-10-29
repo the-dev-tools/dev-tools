@@ -209,7 +209,10 @@ func main() {
 	healthSrv := rhealth.New()
 	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
-	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService)
+	workspaceStreamer := memory.NewInMemorySyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent]()
+	defer workspaceStreamer.Shutdown()
+
+	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService, workspaceStreamer)
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
 
 	// Collection Service
