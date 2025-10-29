@@ -164,13 +164,12 @@ type DeltaUrlencState struct {
 }
 
 type Environment struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Type        int8
-	Name        string
-	Description string
-	Prev        *idwrap.IDWrap
-	Next        *idwrap.IDWrap
+	ID           idwrap.IDWrap
+	WorkspaceID  idwrap.IDWrap
+	Type         int8
+	Name         string
+	Description  string
+	DisplayOrder float64
 }
 
 type ExampleBodyForm struct {
@@ -396,14 +395,13 @@ type User struct {
 }
 
 type Variable struct {
-	ID          idwrap.IDWrap
-	EnvID       idwrap.IDWrap
-	VarKey      string
-	Value       string
-	Enabled     bool
-	Description string
-	Prev        *idwrap.IDWrap
-	Next        *idwrap.IDWrap
+	ID           idwrap.IDWrap
+	EnvID        idwrap.IDWrap
+	VarKey       string
+	Value        string
+	Enabled      bool
+	Description  string
+	DisplayOrder float64
 }
 
 type Workspace struct {

@@ -2276,8 +2276,7 @@ SELECT
   type,
   name,
   description,
-  prev,
-  next
+  display_order
 FROM
   environment
 WHERE
@@ -2291,24 +2290,26 @@ SELECT
   type,
   name,
   description,
-  prev,
-  next
+  display_order
 FROM
   environment
 WHERE
-  workspace_id = ?;
+  workspace_id = ?
+ORDER BY
+  display_order;
 
 -- name: CreateEnvironment :exec
 INSERT INTO
-  environment (id, workspace_id, type, name, description, prev, next)
+  environment (id, workspace_id, type, name, description, display_order)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateEnvironment :exec
 UPDATE environment
 SET
     name = ?,
-    description = ?
+    description = ?,
+    display_order = ?
 WHERE
     id = ?;
 
@@ -2318,59 +2319,21 @@ WHERE
   id = ?;
 
 -- name: GetEnvironmentsByWorkspaceIDOrdered :many
--- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
--- Requires index on (workspace_id, prev) for optimal performance
-WITH RECURSIVE ordered_environments AS (
-  -- Base case: Find the head (prev IS NULL)
-  SELECT
-    e.id,
-    e.workspace_id,
-    e.type,
-    e.name,
-    e.description,
-    e.prev,
-    e.next,
-    0 as position
-  FROM
-    environment e
-  WHERE
-    e.workspace_id = ? AND
-    e.prev IS NULL
-  
-  UNION ALL
-  
-  -- Recursive case: Follow the next pointers
-  SELECT
-    e.id,
-    e.workspace_id,
-    e.type,
-    e.name,
-    e.description,
-    e.prev,
-    e.next,
-    oe.position + 1
-  FROM
-    environment e
-  INNER JOIN ordered_environments oe ON e.prev = oe.id
-  WHERE
-    e.workspace_id = ?
-)
 SELECT
-  oe.id,
-  oe.workspace_id,
-  oe.type,
-  oe.name,
-  oe.description,
-  oe.prev,
-  oe.next,
-  oe.position
+  id,
+  workspace_id,
+  type,
+  name,
+  description,
+  display_order
 FROM
-  ordered_environments oe
+  environment
+WHERE
+  workspace_id = ?
 ORDER BY
-  oe.position;
+  display_order;
 
 -- name: GetEnvironmentWorkspaceID :one
--- Get workspace ID for environment (validation for move operations)
 SELECT
   workspace_id
 FROM
@@ -2379,73 +2342,6 @@ WHERE
   id = ?
 LIMIT
   1;
-
--- name: UpdateEnvironmentOrder :exec
--- Update the prev/next pointers for a single environment
--- Used for moving environments within the linked list
-UPDATE environment
-SET
-  prev = ?,
-  next = ?
-WHERE
-  id = ? AND
-  workspace_id = ?;
-
--- name: GetEnvironmentMaxPosition :one
--- Get the last environment in the list (tail) for a workspace
--- Used when appending new environments to the end of the list
-SELECT
-  id,
-  workspace_id,
-  type,
-  name,
-  description,
-  prev,
-  next
-FROM
-  environment
-WHERE
-  workspace_id = ? AND
-  next IS NULL
-LIMIT
-  1;
-
--- name: GetEnvironmentByPrevNext :one
--- Find environment by its prev/next references for position-based operations
-SELECT
-  id,
-  workspace_id,
-  type,
-  name,
-  description,
-  prev,
-  next
-FROM
-  environment
-WHERE
-  workspace_id = ? AND
-  prev = ? AND
-  next = ?
-LIMIT
-  1;
-
--- name: UpdateEnvironmentNext :exec
--- Update only the next pointer for an environment (used in deletion)
-UPDATE environment
-SET
-  next = ?
-WHERE
-  id = ? AND
-  workspace_id = ?;
-
--- name: UpdateEnvironmentPrev :exec
--- Update only the prev pointer for an environment (used in deletion)
-UPDATE environment
-SET
-  prev = ?
-WHERE
-  id = ? AND
-  workspace_id = ?;
 
 /*
 * Variables
@@ -2459,8 +2355,7 @@ SELECT
   value,
   enabled,
   description,
-  prev,
-  next
+  display_order
 FROM
   variable
 WHERE
@@ -2475,82 +2370,44 @@ SELECT
   value,
   enabled,
   description,
-  prev,
-  next
+  display_order
 FROM
   variable
 WHERE
-  env_id = ?;
+  env_id = ?
+ORDER BY
+  display_order;
 
 -- name: GetVariablesByEnvironmentIDOrdered :many
--- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
--- Requires index on (env_id, prev) for optimal performance
-WITH RECURSIVE ordered_variables AS (
-  -- Base case: Find the head (prev IS NULL)
-  SELECT
-    v.id,
-    v.env_id,
-    v.var_key,
-    v.value,
-    v.enabled,
-    v.description,
-    v.prev,
-    v.next,
-    0 as position
-  FROM
-    variable v
-  WHERE
-    v.env_id = ? AND
-    v.prev IS NULL
-  
-  UNION ALL
-  
-  -- Recursive case: Follow the next pointers
-  SELECT
-    v.id,
-    v.env_id,
-    v.var_key,
-    v.value,
-    v.enabled,
-    v.description,
-    v.prev,
-    v.next,
-    ov.position + 1
-  FROM
-    variable v
-  INNER JOIN ordered_variables ov ON v.prev = ov.id
-  WHERE
-    v.env_id = ?
-)
 SELECT
-  ov.id,
-  ov.env_id,
-  ov.var_key,
-  ov.value,
-  ov.enabled,
-  ov.description,
-  ov.prev,
-  ov.next,
-  ov.position
+  id,
+  env_id,
+  var_key,
+  value,
+  enabled,
+  description,
+  display_order
 FROM
-  ordered_variables ov
+  variable
+WHERE
+  env_id = ?
 ORDER BY
-  ov.position;
+  display_order;
 
 -- name: CreateVariable :exec
 INSERT INTO
-  variable (id, env_id, var_key, value, enabled, description, prev, next)
+  variable (id, env_id, var_key, value, enabled, description, display_order)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateVariableBulk :exec
 INSERT INTO
-  variable (id, env_id, var_key, value, enabled, description, prev, next)
+  variable (id, env_id, var_key, value, enabled, description, display_order)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateVariable :exec
 UPDATE variable
@@ -2558,7 +2415,8 @@ SET
   var_key = ?,
   value = ?,
   enabled = ?,
-  description = ?
+  description = ?,
+  display_order = ?
 WHERE
   id = ?;
 
@@ -2566,35 +2424,6 @@ WHERE
 DELETE FROM variable
 WHERE
   id = ?;
-
--- name: UpdateVariableOrder :exec
--- Update the prev/next pointers for a single variable
--- Used for moving variables within the linked list
-UPDATE variable
-SET
-  prev = ?,
-  next = ?
-WHERE
-  id = ? AND
-  env_id = ?;
-
--- name: UpdateVariablePrev :exec
--- Update only the prev pointer for a variable (used in deletion)
-UPDATE variable
-SET
-  prev = ?
-WHERE
-  id = ? AND
-  env_id = ?;
-
--- name: UpdateVariableNext :exec
--- Update only the next pointer for a variable (used in deletion)
-UPDATE variable
-SET
-  next = ?
-WHERE
-  id = ? AND
-  env_id = ?;
 
 -- name: GetExampleResp :one
 SELECT
