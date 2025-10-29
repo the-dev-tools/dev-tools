@@ -247,7 +247,7 @@ func main() {
 	newServiceManager.AddService(rbody.CreateService(bodySrv, opitonsAll))
 
 	// Env Service
-	envSrv := renv.New(currentDB, environmentService, variableService, userService)
+	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService)
 	newServiceManager.AddService(renv.CreateService(envSrv, opitonsAll))
 
 	// Var Service

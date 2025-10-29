@@ -2307,6 +2307,7 @@ VALUES
 -- name: UpdateEnvironment :exec
 UPDATE environment
 SET
+    type = ?,
     name = ?,
     description = ?,
     display_order = ?

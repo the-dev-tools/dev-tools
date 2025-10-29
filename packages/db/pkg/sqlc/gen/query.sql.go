@@ -11047,6 +11047,7 @@ func (q *Queries) UpdateCollectionPositions(ctx context.Context, arg UpdateColle
 const updateEnvironment = `-- name: UpdateEnvironment :exec
 UPDATE environment
 SET
+    type = ?,
     name = ?,
     description = ?,
     display_order = ?
@@ -11055,6 +11056,7 @@ WHERE
 `
 
 type UpdateEnvironmentParams struct {
+	Type         int8
 	Name         string
 	Description  string
 	DisplayOrder float64
@@ -11063,6 +11065,7 @@ type UpdateEnvironmentParams struct {
 
 func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error {
 	_, err := q.exec(ctx, q.updateEnvironmentStmt, updateEnvironment,
+		arg.Type,
 		arg.Name,
 		arg.Description,
 		arg.DisplayOrder,

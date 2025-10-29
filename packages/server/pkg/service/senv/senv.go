@@ -140,6 +140,7 @@ func (s EnvironmentService) UpdateEnvironment(ctx context.Context, env *menv.Env
 
 	dbEnv := ConvertToDBEnv(*env)
 	return s.queries.UpdateEnvironment(ctx, gen.UpdateEnvironmentParams{
+		Type:         dbEnv.Type,
 		ID:           dbEnv.ID,
 		Name:         dbEnv.Name,
 		Description:  dbEnv.Description,
