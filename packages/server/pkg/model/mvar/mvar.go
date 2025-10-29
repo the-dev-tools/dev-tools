@@ -19,6 +19,7 @@ type Var struct {
 	Value       string
 	Enabled     bool
 	Description string
+	Order       float64
 }
 
 // IsEnabled returns whether the variable is enabled
