@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/muser"
@@ -41,6 +42,10 @@ func newEnvFixture(t *testing.T) *envFixture {
 	services := base.GetBaseServices()
 	envService := senv.New(base.Queries, base.Logger())
 	varService := svar.New(base.Queries, base.Logger())
+	envStream := memory.NewInMemorySyncStreamer[EnvironmentTopic, EnvironmentEvent]()
+	varStream := memory.NewInMemorySyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent]()
+	t.Cleanup(envStream.Shutdown)
+	t.Cleanup(varStream.Shutdown)
 
 	workspaceID := idwrap.NewNow()
 	userID := idwrap.NewNow()
@@ -76,7 +81,7 @@ func newEnvFixture(t *testing.T) *envFixture {
 	}
 
 	authCtx := mwauth.CreateAuthedContext(context.Background(), userID)
-	handler := New(base.DB, envService, varService, services.Us, services.Ws)
+	handler := New(base.DB, envService, varService, services.Us, services.Ws, envStream, varStream)
 
 	t.Cleanup(base.Close)
 
@@ -355,4 +360,260 @@ func TestEnvironmentVariableDelete(t *testing.T) {
 	if _, err := f.varService.Get(f.ctx, varID); !errors.Is(err, svar.ErrNoVarFound) {
 		t.Fatalf("expected ErrNoVarFound, got %v", err)
 	}
+}
+
+func TestEnvironmentSyncStreamsSnapshotAndUpdates(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	envA := f.createEnv(t, 1)
+	envB := f.createEnv(t, 2)
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *apiv1.EnvironmentSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamEnvironmentSync(ctx, f.userID, func(resp *apiv1.EnvironmentSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	snapshot := collectEnvironmentSyncItems(t, msgCh, 2)
+	seen := map[string]bool{}
+	for _, item := range snapshot {
+		val := item.GetValue()
+		if val == nil {
+			t.Fatal("snapshot item missing value union")
+		}
+		if val.GetKind() != apiv1.EnvironmentSync_ValueUnion_KIND_CREATE {
+			t.Fatalf("expected create kind for snapshot, got %v", val.GetKind())
+		}
+		envID := string(val.GetCreate().GetEnvironmentId())
+		seen[envID] = true
+	}
+	if !seen[string(envA.ID.Bytes())] || !seen[string(envB.ID.Bytes())] {
+		t.Fatalf("snapshot missing expected environments, seen=%v", seen)
+	}
+
+	newName := "updated env"
+	req := connect.NewRequest(&apiv1.EnvironmentUpdateRequest{
+		Items: []*apiv1.EnvironmentUpdate{
+			{
+				EnvironmentId: envA.ID.Bytes(),
+				Name:          &newName,
+			},
+		},
+	})
+	if _, err := f.handler.EnvironmentUpdate(f.ctx, req); err != nil {
+		t.Fatalf("EnvironmentUpdate err: %v", err)
+	}
+
+	updateItems := collectEnvironmentSyncItems(t, msgCh, 1)
+	updateVal := updateItems[0].GetValue()
+	if updateVal == nil {
+		t.Fatal("update response missing value union")
+	}
+	if updateVal.GetKind() != apiv1.EnvironmentSync_ValueUnion_KIND_UPDATE {
+		t.Fatalf("expected update kind, got %v", updateVal.GetKind())
+	}
+	if got := updateVal.GetUpdate().GetName(); got != newName {
+		t.Fatalf("expected updated name %q, got %q", newName, got)
+	}
+
+	cancel()
+	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("stream returned error: %v", err)
+	}
+}
+
+func TestEnvironmentVariableSyncStreamsSnapshotAndUpdates(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	env := f.createEnv(t, 1)
+	varA := f.createVar(t, env.ID, 1)
+	f.createVar(t, env.ID, 2)
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *apiv1.EnvironmentVariableSyncResponse, 10)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamEnvironmentVariableSync(ctx, f.userID, func(resp *apiv1.EnvironmentVariableSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	snapshot := collectEnvironmentVariableSyncItems(t, msgCh, 2)
+	varSeen := map[string]bool{}
+	for _, item := range snapshot {
+		val := item.GetValue()
+		if val == nil {
+			t.Fatal("snapshot variable missing value union")
+		}
+		if val.GetKind() != apiv1.EnvironmentVariableSync_ValueUnion_KIND_CREATE {
+			t.Fatalf("expected create kind for snapshot, got %v", val.GetKind())
+		}
+		varSeen[string(val.GetCreate().GetEnvironmentVariableId())] = true
+	}
+	if len(varSeen) != 2 {
+		t.Fatalf("expected snapshot to contain 2 variables, got %d", len(varSeen))
+	}
+
+	newValue := "changed"
+	req := connect.NewRequest(&apiv1.EnvironmentVariableUpdateRequest{
+		Items: []*apiv1.EnvironmentVariableUpdate{
+			{
+				EnvironmentVariableId: varA.Bytes(),
+				Value:                 &newValue,
+			},
+		},
+	})
+	if _, err := f.handler.EnvironmentVariableUpdate(f.ctx, req); err != nil {
+		t.Fatalf("EnvironmentVariableUpdate err: %v", err)
+	}
+
+	updateItems := collectEnvironmentVariableSyncItems(t, msgCh, 1)
+	updateVal := updateItems[0].GetValue()
+	if updateVal == nil {
+		t.Fatal("update response missing value union")
+	}
+	if updateVal.GetKind() != apiv1.EnvironmentVariableSync_ValueUnion_KIND_UPDATE {
+		t.Fatalf("expected update kind, got %v", updateVal.GetKind())
+	}
+	if got := updateVal.GetUpdate().GetValue(); got != newValue {
+		t.Fatalf("expected updated value %q, got %q", newValue, got)
+	}
+
+	cancel()
+	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("stream returned error: %v", err)
+	}
+}
+
+func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
+	t.Parallel()
+
+	f := newEnvFixture(t)
+	f.createEnv(t, 1)
+
+	ctx, cancel := context.WithCancel(f.ctx)
+	defer cancel()
+
+	msgCh := make(chan *apiv1.EnvironmentSyncResponse, 5)
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := f.handler.streamEnvironmentSync(ctx, f.userID, func(resp *apiv1.EnvironmentSyncResponse) error {
+			msgCh <- resp
+			return nil
+		})
+		errCh <- err
+		close(msgCh)
+	}()
+
+	_ = collectEnvironmentSyncItems(t, msgCh, 1)
+
+	otherWorkspaceID := idwrap.NewNow()
+	services := f.base.GetBaseServices()
+	if err := services.Ws.Create(context.Background(), &mworkspace.Workspace{
+		ID:      otherWorkspaceID,
+		Name:    "other",
+		Updated: time.Now(),
+	}); err != nil {
+		t.Fatalf("create workspace: %v", err)
+	}
+
+	otherEnv := menv.Env{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: otherWorkspaceID,
+		Name:        "alien",
+		Description: "hidden",
+		Order:       42,
+	}
+
+	f.handler.envStream.Publish(EnvironmentTopic{WorkspaceID: otherWorkspaceID}, EnvironmentEvent{
+		Type:        eventTypeCreate,
+		Environment: toAPIEnvironment(otherEnv),
+	})
+
+	select {
+	case resp := <-msgCh:
+		t.Fatalf("unexpected event for unauthorized workspace: %+v", resp)
+	case <-time.After(150 * time.Millisecond):
+		// success: no events delivered
+	}
+
+	cancel()
+	if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("stream returned error: %v", err)
+	}
+
+}
+
+func collectEnvironmentSyncItems(t *testing.T, ch <-chan *apiv1.EnvironmentSyncResponse, count int) []*apiv1.EnvironmentSync {
+	t.Helper()
+
+	var items []*apiv1.EnvironmentSync
+	timeout := time.After(2 * time.Second)
+
+	for len(items) < count {
+		select {
+		case resp, ok := <-ch:
+			if !ok {
+				t.Fatalf("channel closed before collecting %d items", count)
+			}
+			for _, item := range resp.GetItems() {
+				if item != nil {
+					items = append(items, item)
+				}
+				if len(items) == count {
+					break
+				}
+			}
+		case <-timeout:
+			t.Fatalf("timeout waiting for %d items, collected %d", count, len(items))
+		}
+	}
+
+	return items
+}
+
+func collectEnvironmentVariableSyncItems(t *testing.T, ch <-chan *apiv1.EnvironmentVariableSyncResponse, count int) []*apiv1.EnvironmentVariableSync {
+	t.Helper()
+
+	var items []*apiv1.EnvironmentVariableSync
+	timeout := time.After(2 * time.Second)
+
+	for len(items) < count {
+		select {
+		case resp, ok := <-ch:
+			if !ok {
+				t.Fatalf("channel closed before collecting %d items", count)
+			}
+			for _, item := range resp.GetItems() {
+				if item != nil {
+					items = append(items, item)
+				}
+				if len(items) == count {
+					break
+				}
+			}
+		case <-timeout:
+			t.Fatalf("timeout waiting for %d items, collected %d", count, len(items))
+		}
+	}
+
+	return items
 }

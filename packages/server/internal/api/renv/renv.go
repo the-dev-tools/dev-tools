@@ -4,10 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
+
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mvar"
@@ -18,27 +23,61 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 	"the-dev-tools/spec/dist/buf/go/api/environment/v1/environmentv1connect"
-
-	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type EnvRPC struct {
 	DB *sql.DB
 
-	es senv.EnvService
-	vs svar.VarService
-	us suser.UserService
-	ws sworkspace.WorkspaceService
+	es        senv.EnvService
+	vs        svar.VarService
+	us        suser.UserService
+	ws        sworkspace.WorkspaceService
+	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent]
+	varStream eventstream.SyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent]
 }
 
-func New(db *sql.DB, es senv.EnvService, vs svar.VarService, us suser.UserService, ws sworkspace.WorkspaceService) EnvRPC {
+const (
+	eventTypeCreate = "create"
+	eventTypeUpdate = "update"
+	eventTypeDelete = "delete"
+)
+
+type EnvironmentTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+type EnvironmentEvent struct {
+	Type        string
+	Environment *apiv1.Environment
+}
+
+type EnvironmentVariableTopic struct {
+	WorkspaceID   idwrap.IDWrap
+	EnvironmentID idwrap.IDWrap
+}
+
+type EnvironmentVariableEvent struct {
+	Type     string
+	Variable *apiv1.EnvironmentVariable
+}
+
+func New(
+	db *sql.DB,
+	es senv.EnvService,
+	vs svar.VarService,
+	us suser.UserService,
+	ws sworkspace.WorkspaceService,
+	envStream eventstream.SyncStreamer[EnvironmentTopic, EnvironmentEvent],
+	varStream eventstream.SyncStreamer[EnvironmentVariableTopic, EnvironmentVariableEvent],
+) EnvRPC {
 	return EnvRPC{
-		DB: db,
-		es: es,
-		vs: vs,
-		us: us,
-		ws: ws,
+		DB:        db,
+		es:        es,
+		vs:        vs,
+		us:        us,
+		ws:        ws,
+		envStream: envStream,
+		varStream: varStream,
 	}
 }
 
@@ -67,6 +106,116 @@ func toAPIEnvironmentVariable(v mvar.Var) *apiv1.EnvironmentVariable {
 		Value:                 v.Value,
 		Description:           v.Description,
 		Order:                 float32(v.Order),
+	}
+}
+
+func stringPtr(s string) *string { return &s }
+
+func boolPtr(b bool) *bool { return &b }
+
+func float32Ptr(f float32) *float32 { return &f }
+
+func environmentSyncResponseFrom(evt EnvironmentEvent) *apiv1.EnvironmentSyncResponse {
+	if evt.Environment == nil {
+		return nil
+	}
+
+	switch evt.Type {
+	case eventTypeCreate:
+		msg := &apiv1.EnvironmentSync{
+			Value: &apiv1.EnvironmentSync_ValueUnion{
+				Kind: apiv1.EnvironmentSync_ValueUnion_KIND_CREATE,
+				Create: &apiv1.EnvironmentSyncCreate{
+					EnvironmentId: evt.Environment.EnvironmentId,
+					WorkspaceId:   evt.Environment.WorkspaceId,
+					Name:          evt.Environment.Name,
+					Description:   evt.Environment.Description,
+					IsGlobal:      evt.Environment.IsGlobal,
+					Order:         evt.Environment.Order,
+				},
+			},
+		}
+		return &apiv1.EnvironmentSyncResponse{Items: []*apiv1.EnvironmentSync{msg}}
+	case eventTypeUpdate:
+		msg := &apiv1.EnvironmentSync{
+			Value: &apiv1.EnvironmentSync_ValueUnion{
+				Kind: apiv1.EnvironmentSync_ValueUnion_KIND_UPDATE,
+				Update: &apiv1.EnvironmentSyncUpdate{
+					EnvironmentId: evt.Environment.EnvironmentId,
+					WorkspaceId:   evt.Environment.WorkspaceId,
+					Name:          stringPtr(evt.Environment.Name),
+					Description:   stringPtr(evt.Environment.Description),
+					IsGlobal:      boolPtr(evt.Environment.IsGlobal),
+					Order:         float32Ptr(evt.Environment.Order),
+				},
+			},
+		}
+		return &apiv1.EnvironmentSyncResponse{Items: []*apiv1.EnvironmentSync{msg}}
+	case eventTypeDelete:
+		msg := &apiv1.EnvironmentSync{
+			Value: &apiv1.EnvironmentSync_ValueUnion{
+				Kind: apiv1.EnvironmentSync_ValueUnion_KIND_DELETE,
+				Delete: &apiv1.EnvironmentSyncDelete{
+					EnvironmentId: evt.Environment.EnvironmentId,
+				},
+			},
+		}
+		return &apiv1.EnvironmentSyncResponse{Items: []*apiv1.EnvironmentSync{msg}}
+	default:
+		return nil
+	}
+}
+
+func environmentVariableSyncResponseFrom(evt EnvironmentVariableEvent) *apiv1.EnvironmentVariableSyncResponse {
+	if evt.Variable == nil {
+		return nil
+	}
+
+	switch evt.Type {
+	case eventTypeCreate:
+		msg := &apiv1.EnvironmentVariableSync{
+			Value: &apiv1.EnvironmentVariableSync_ValueUnion{
+				Kind: apiv1.EnvironmentVariableSync_ValueUnion_KIND_CREATE,
+				Create: &apiv1.EnvironmentVariableSyncCreate{
+					EnvironmentVariableId: evt.Variable.EnvironmentVariableId,
+					EnvironmentId:         evt.Variable.EnvironmentId,
+					Key:                   evt.Variable.Key,
+					Enabled:               evt.Variable.Enabled,
+					Value:                 evt.Variable.Value,
+					Description:           evt.Variable.Description,
+					Order:                 evt.Variable.Order,
+				},
+			},
+		}
+		return &apiv1.EnvironmentVariableSyncResponse{Items: []*apiv1.EnvironmentVariableSync{msg}}
+	case eventTypeUpdate:
+		msg := &apiv1.EnvironmentVariableSync{
+			Value: &apiv1.EnvironmentVariableSync_ValueUnion{
+				Kind: apiv1.EnvironmentVariableSync_ValueUnion_KIND_UPDATE,
+				Update: &apiv1.EnvironmentVariableSyncUpdate{
+					EnvironmentVariableId: evt.Variable.EnvironmentVariableId,
+					EnvironmentId:         evt.Variable.EnvironmentId,
+					Key:                   stringPtr(evt.Variable.Key),
+					Enabled:               boolPtr(evt.Variable.Enabled),
+					Value:                 stringPtr(evt.Variable.Value),
+					Description:           stringPtr(evt.Variable.Description),
+					Order:                 float32Ptr(evt.Variable.Order),
+				},
+			},
+		}
+		return &apiv1.EnvironmentVariableSyncResponse{Items: []*apiv1.EnvironmentVariableSync{msg}}
+	case eventTypeDelete:
+		msg := &apiv1.EnvironmentVariableSync{
+			Value: &apiv1.EnvironmentVariableSync_ValueUnion{
+				Kind: apiv1.EnvironmentVariableSync_ValueUnion_KIND_DELETE,
+				Delete: &apiv1.EnvironmentVariableSyncDelete{
+					EnvironmentVariableId: evt.Variable.EnvironmentVariableId,
+				},
+			},
+		}
+		return &apiv1.EnvironmentVariableSyncResponse{Items: []*apiv1.EnvironmentVariableSync{msg}}
+	default:
+		return nil
 	}
 }
 
@@ -126,6 +275,7 @@ func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[api
 	defer tx.Rollback()
 
 	envService := e.es.TX(tx)
+	var createdEnvs []menv.Env
 
 	for _, envCreate := range req.Msg.Items {
 		workspaceID, err := idwrap.NewFromBytes(envCreate.WorkspaceId)
@@ -160,10 +310,18 @@ func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[api
 		if err := envService.CreateEnvironment(ctx, &envReq); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdEnvs = append(createdEnvs, envReq)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, env := range createdEnvs {
+		e.envStream.Publish(EnvironmentTopic{WorkspaceID: env.WorkspaceID}, EnvironmentEvent{
+			Type:        eventTypeCreate,
+			Environment: toAPIEnvironment(env),
+		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -182,6 +340,7 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 	defer tx.Rollback()
 
 	envService := e.es.TX(tx)
+	var updatedEnvs []*menv.Env
 
 	for _, envUpdate := range req.Msg.Items {
 		envID, err := idwrap.NewFromBytes(envUpdate.EnvironmentId)
@@ -232,10 +391,21 @@ func (e *EnvRPC) EnvironmentUpdate(ctx context.Context, req *connect.Request[api
 		if err := envService.UpdateEnvironment(ctx, env); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		updatedEnvs = append(updatedEnvs, env)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, env := range updatedEnvs {
+		if env == nil {
+			continue
+		}
+		e.envStream.Publish(EnvironmentTopic{WorkspaceID: env.WorkspaceID}, EnvironmentEvent{
+			Type:        eventTypeUpdate,
+			Environment: toAPIEnvironment(*env),
+		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -254,6 +424,7 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 	defer tx.Rollback()
 
 	envService := e.es.TX(tx)
+	var deletedEnvs []menv.Env
 
 	for _, envDelete := range req.Msg.Items {
 		envID, err := idwrap.NewFromBytes(envDelete.EnvironmentId)
@@ -266,16 +437,35 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 			return nil, rpcErr
 		}
 
+		env, err := envService.GetEnvironment(ctx, envID)
+		if err != nil {
+			if errors.Is(err, senv.ErrNoEnvironmentFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
 		if err := envService.DeleteEnvironment(ctx, envID); err != nil {
 			if errors.Is(err, senv.ErrNoEnvironmentFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		deletedEnvs = append(deletedEnvs, *env)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, env := range deletedEnvs {
+		e.envStream.Publish(EnvironmentTopic{WorkspaceID: env.WorkspaceID}, EnvironmentEvent{
+			Type: eventTypeDelete,
+			Environment: &apiv1.Environment{
+				EnvironmentId: env.ID.Bytes(),
+				WorkspaceId:   env.WorkspaceID.Bytes(),
+			},
+		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -283,8 +473,71 @@ func (e *EnvRPC) EnvironmentDelete(ctx context.Context, req *connect.Request[api
 
 // EnvironmentSync handles real-time synchronization for environments
 func (e *EnvRPC) EnvironmentSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.EnvironmentSyncResponse]) error {
-	// Not yet implemented for TanStack DB
-	return nil
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return e.streamEnvironmentSync(ctx, userID, stream.Send)
+}
+
+func (e *EnvRPC) streamEnvironmentSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.EnvironmentSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[EnvironmentTopic, EnvironmentEvent], error) {
+		envs, err := e.listUserEnvironments(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[EnvironmentTopic, EnvironmentEvent], 0, len(envs))
+		for _, env := range envs {
+			workspaceSet.Store(env.WorkspaceID.String(), struct{}{})
+			events = append(events, eventstream.Event[EnvironmentTopic, EnvironmentEvent]{
+				Topic: EnvironmentTopic{WorkspaceID: env.WorkspaceID},
+				Payload: EnvironmentEvent{
+					Type:        eventTypeCreate,
+					Environment: toAPIEnvironment(env),
+				},
+			})
+		}
+		return events, nil
+	}
+
+	filter := func(topic EnvironmentTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := e.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	events, err := e.envStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := environmentSyncResponseFrom(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // EnvironmentVariableCollection returns all environment variables for environments the user has access to
@@ -324,6 +577,11 @@ func (e *EnvRPC) EnvironmentVariableCreate(ctx context.Context, req *connect.Req
 	defer tx.Rollback()
 
 	varService := e.vs.TX(tx)
+	workspaceCache := map[string]idwrap.IDWrap{}
+	createdVars := []struct {
+		variable    mvar.Var
+		workspaceID idwrap.IDWrap
+	}{}
 
 	for _, item := range req.Msg.Items {
 		envID, err := idwrap.NewFromBytes(item.EnvironmentId)
@@ -334,6 +592,16 @@ func (e *EnvRPC) EnvironmentVariableCreate(ctx context.Context, req *connect.Req
 		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
 		if rpcErr != nil {
 			return nil, rpcErr
+		}
+
+		workspaceID := workspaceCache[envID.String()]
+		if workspaceID == (idwrap.IDWrap{}) {
+			env, err := e.es.GetEnvironment(ctx, envID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			workspaceID = env.WorkspaceID
+			workspaceCache[envID.String()] = workspaceID
 		}
 
 		varID := idwrap.NewNow()
@@ -357,10 +625,21 @@ func (e *EnvRPC) EnvironmentVariableCreate(ctx context.Context, req *connect.Req
 		if err := varService.Create(ctx, varReq); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		createdVars = append(createdVars, struct {
+			variable    mvar.Var
+			workspaceID idwrap.IDWrap
+		}{variable: varReq, workspaceID: workspaceID})
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, evt := range createdVars {
+		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
+			Type:     eventTypeCreate,
+			Variable: toAPIEnvironmentVariable(evt.variable),
+		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -379,6 +658,11 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 	defer tx.Rollback()
 
 	varService := e.vs.TX(tx)
+	var updatedVars []struct {
+		variable    *mvar.Var
+		workspaceID idwrap.IDWrap
+	}
+	workspaceCache := map[string]idwrap.IDWrap{}
 
 	for _, item := range req.Msg.Items {
 		varID, err := idwrap.NewFromBytes(item.EnvironmentVariableId)
@@ -432,10 +716,30 @@ func (e *EnvRPC) EnvironmentVariableUpdate(ctx context.Context, req *connect.Req
 		if err := varService.Update(ctx, variable); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		workspaceID := workspaceCache[variable.EnvID.String()]
+		if workspaceID == (idwrap.IDWrap{}) {
+			env, err := e.es.GetEnvironment(ctx, variable.EnvID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			workspaceID = env.WorkspaceID
+			workspaceCache[variable.EnvID.String()] = workspaceID
+		}
+		updatedVars = append(updatedVars, struct {
+			variable    *mvar.Var
+			workspaceID idwrap.IDWrap
+		}{variable: variable, workspaceID: workspaceID})
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, evt := range updatedVars {
+		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
+			Type:     eventTypeUpdate,
+			Variable: toAPIEnvironmentVariable(*evt.variable),
+		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -454,6 +758,11 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 	defer tx.Rollback()
 
 	varService := e.vs.TX(tx)
+	deletedVars := []struct {
+		variable    mvar.Var
+		workspaceID idwrap.IDWrap
+	}{}
+	workspaceCache := map[string]idwrap.IDWrap{}
 
 	for _, item := range req.Msg.Items {
 		varID, err := idwrap.NewFromBytes(item.EnvironmentVariableId)
@@ -466,16 +775,47 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 			return nil, rpcErr
 		}
 
+		variable, err := varService.Get(ctx, varID)
+		if err != nil {
+			if errors.Is(err, svar.ErrNoVarFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
 		if err := varService.Delete(ctx, varID); err != nil {
 			if errors.Is(err, svar.ErrNoVarFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		workspaceID := workspaceCache[variable.EnvID.String()]
+		if workspaceID == (idwrap.IDWrap{}) {
+			env, err := e.es.GetEnvironment(ctx, variable.EnvID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			workspaceID = env.WorkspaceID
+			workspaceCache[variable.EnvID.String()] = workspaceID
+		}
+		deletedVars = append(deletedVars, struct {
+			variable    mvar.Var
+			workspaceID idwrap.IDWrap
+		}{variable: *variable, workspaceID: workspaceID})
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, evt := range deletedVars {
+		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
+			Type: eventTypeDelete,
+			Variable: &apiv1.EnvironmentVariable{
+				EnvironmentVariableId: evt.variable.ID.Bytes(),
+				EnvironmentId:         evt.variable.EnvID.Bytes(),
+			},
+		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -483,8 +823,81 @@ func (e *EnvRPC) EnvironmentVariableDelete(ctx context.Context, req *connect.Req
 
 // EnvironmentVariableSync handles real-time synchronization for environment variables
 func (e *EnvRPC) EnvironmentVariableSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.EnvironmentVariableSyncResponse]) error {
-	// Not yet implemented for TanStack DB
-	return nil
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return e.streamEnvironmentVariableSync(ctx, userID, stream.Send)
+}
+
+func (e *EnvRPC) streamEnvironmentVariableSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.EnvironmentVariableSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[EnvironmentVariableTopic, EnvironmentVariableEvent], error) {
+		envs, err := e.listUserEnvironments(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		var events []eventstream.Event[EnvironmentVariableTopic, EnvironmentVariableEvent]
+		for _, env := range envs {
+			workspaceSet.Store(env.WorkspaceID.String(), struct{}{})
+			vars, err := e.vs.GetVariableByEnvID(ctx, env.ID)
+			if err != nil {
+				if errors.Is(err, svar.ErrNoVarFound) {
+					continue
+				}
+				return nil, err
+			}
+			for _, v := range vars {
+				copyVar := v
+				events = append(events, eventstream.Event[EnvironmentVariableTopic, EnvironmentVariableEvent]{
+					Topic: EnvironmentVariableTopic{WorkspaceID: env.WorkspaceID, EnvironmentID: env.ID},
+					Payload: EnvironmentVariableEvent{
+						Type:     eventTypeCreate,
+						Variable: toAPIEnvironmentVariable(copyVar),
+					},
+				})
+			}
+		}
+		return events, nil
+	}
+
+	filter := func(topic EnvironmentVariableTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := e.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	events, err := e.varStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := environmentVariableSyncResponseFrom(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // Helper function to check environment ownership

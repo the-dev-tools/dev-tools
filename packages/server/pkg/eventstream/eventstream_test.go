@@ -2,6 +2,7 @@ package eventstream_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -9,265 +10,160 @@ import (
 	"the-dev-tools/server/pkg/eventstream/memory"
 )
 
-// TestEvent is a simple event type for testing
-type TestEvent struct {
+type testTopic struct {
+	workspace string
+}
+
+type testPayload struct {
 	ID   string
 	Data string
 }
 
-func TestInMemorySyncStreamer_BasicPublishSubscribe(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[TestEvent]()
-	defer streamer.Shutdown()
+func allowAll(_ testTopic) bool { return true }
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func TestInMemorySyncStreamer_PublishSubscribe(t *testing.T) {
+	streamer := memory.NewInMemorySyncStreamer[testTopic, testPayload]()
+	t.Cleanup(streamer.Shutdown)
 
-	events := streamer.Subscribe(ctx)
-	time.Sleep(10 * time.Millisecond) // Let subscriber register
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	t.Cleanup(cancel)
 
-	testEvent := TestEvent{ID: "1", Data: "hello"}
-	streamer.Publish(testEvent)
+	ch, err := streamer.Subscribe(ctx, allowAll)
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+
+	streamer.Publish(testTopic{workspace: "w"}, testPayload{ID: "1", Data: "hello"})
 
 	select {
-	case received := <-events:
-		if received.ID != "1" || received.Data != "hello" {
-			t.Errorf("expected event {ID:1, Data:hello}, got %+v", received)
+	case evt := <-ch:
+		if evt.Payload.ID != "1" || evt.Payload.Data != "hello" {
+			t.Fatalf("unexpected payload: %+v", evt.Payload)
+		}
+		if evt.Topic.workspace != "w" {
+			t.Fatalf("unexpected topic: %+v", evt.Topic)
 		}
 	case <-time.After(100 * time.Millisecond):
-		t.Error("did not receive event within timeout")
+		t.Fatal("timeout waiting for event")
 	}
 }
 
-func TestInMemorySyncStreamer_MultipleSubscribers(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[TestEvent]()
-	defer streamer.Shutdown()
+func TestInMemorySyncStreamer_RespectsFilter(t *testing.T) {
+	streamer := memory.NewInMemorySyncStreamer[testTopic, testPayload]()
+	t.Cleanup(streamer.Shutdown)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	t.Cleanup(cancel)
 
-	subs := make([]<-chan TestEvent, 3)
-	for i := range subs {
-		subs[i] = streamer.Subscribe(ctx)
+	filterA := func(topic testTopic) bool { return topic.workspace == "A" }
+	filterB := func(topic testTopic) bool { return topic.workspace == "B" }
+
+	subA, err := streamer.Subscribe(ctx, filterA)
+	if err != nil {
+		t.Fatalf("subscribe A: %v", err)
+	}
+	subB, err := streamer.Subscribe(ctx, filterB)
+	if err != nil {
+		t.Fatalf("subscribe B: %v", err)
 	}
 
-	time.Sleep(10 * time.Millisecond) // Let subscribers register
-
-	testEvent := TestEvent{ID: "multi", Data: "broadcast"}
-	streamer.Publish(testEvent)
-
-	for i, sub := range subs {
-		select {
-		case received := <-sub:
-			if received.ID != "multi" || received.Data != "broadcast" {
-				t.Errorf("subscriber %d: expected {ID:multi, Data:broadcast}, got %+v", i, received)
-			}
-		case <-time.After(100 * time.Millisecond):
-			t.Errorf("subscriber %d: did not receive event within timeout", i)
-		}
-	}
-}
-
-func TestInMemorySyncStreamer_SubscriberCancellation(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[TestEvent]()
-	defer streamer.Shutdown()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	events := streamer.Subscribe(ctx)
-
-	cancel() // Cancel immediately
+	streamer.Publish(testTopic{workspace: "A"}, testPayload{ID: "1"})
+	streamer.Publish(testTopic{workspace: "B"}, testPayload{ID: "2"})
 
 	select {
-	case _, ok := <-events:
-		if ok {
-			t.Error("expected channel to be closed after context cancellation")
+	case evt := <-subA:
+		if evt.Payload.ID != "1" {
+			t.Fatalf("subscriber A got wrong event: %+v", evt)
 		}
-	case <-time.After(50 * time.Millisecond):
-		t.Error("channel was not closed within timeout")
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("subscriber A did not receive event")
+	}
+
+	select {
+	case evt := <-subB:
+		if evt.Payload.ID != "2" {
+			t.Fatalf("subscriber B got wrong event: %+v", evt)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("subscriber B did not receive event")
 	}
 }
 
-func TestInMemorySyncStreamer_MultipleEvents(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[TestEvent]()
-	defer streamer.Shutdown()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	events := streamer.Subscribe(ctx)
-	time.Sleep(10 * time.Millisecond)
-
-	expectedEvents := []TestEvent{
-		{ID: "1", Data: "first"},
-		{ID: "2", Data: "second"},
-		{ID: "3", Data: "third"},
-	}
-
-	for _, event := range expectedEvents {
-		streamer.Publish(event)
-	}
-
-	receivedEvents := make([]TestEvent, 0, len(expectedEvents))
-	for i := 0; i < len(expectedEvents); i++ {
-		select {
-		case event := <-events:
-			receivedEvents = append(receivedEvents, event)
-		case <-time.After(100 * time.Millisecond):
-			t.Errorf("did not receive event %d within timeout", i)
-		}
-	}
-
-	for i, expected := range expectedEvents {
-		if receivedEvents[i].ID != expected.ID || receivedEvents[i].Data != expected.Data {
-			t.Errorf("event %d: expected %+v, got %+v", i, expected, receivedEvents[i])
-		}
-	}
-}
-
-func TestInMemorySyncStreamer_ContextCancellationBeforeSubscribe(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[TestEvent]()
-	defer streamer.Shutdown()
+func TestInMemorySyncStreamer_ContextCancellation(t *testing.T) {
+	streamer := memory.NewInMemorySyncStreamer[testTopic, testPayload]()
+	t.Cleanup(streamer.Shutdown)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	ch, err := streamer.Subscribe(ctx, allowAll)
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+
 	cancel()
 
-	events := streamer.Subscribe(ctx)
-
 	select {
-	case _, ok := <-events:
+	case _, ok := <-ch:
 		if ok {
-			t.Error("expected channel to be closed for cancelled context")
-		}
-	case <-time.After(50 * time.Millisecond):
-		t.Error("channel was not closed immediately")
-	}
-}
-
-func TestInMemorySyncStreamer_ConcurrentOperations(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[TestEvent]()
-	defer streamer.Shutdown()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	const numSubscribers = 3
-	const numEvents = 10
-
-	subs := make([]<-chan TestEvent, numSubscribers)
-	for i := range subs {
-		subs[i] = streamer.Subscribe(ctx)
-	}
-
-	time.Sleep(10 * time.Millisecond) // Let subscribers register
-
-	// Publish events
-	for i := 0; i < numEvents; i++ {
-		streamer.Publish(TestEvent{ID: string(rune('A' + i)), Data: "concurrent"})
-	}
-
-	// Check that subscribers receive events (allowing for some loss due to backpressure)
-	for i, sub := range subs {
-		receivedCount := 0
-		timeout := time.After(200 * time.Millisecond)
-
-		for receivedCount < numEvents {
-			select {
-			case <-sub:
-				receivedCount++
-			case <-timeout:
-				t.Logf("subscriber %d: received %d/%d events (acceptable due to backpressure)", i, receivedCount, numEvents)
-				break
-			}
-		}
-	}
-}
-
-func TestEvent_GenericUsage(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[eventstream.Event[TestEvent]]()
-	defer streamer.Shutdown()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	events := streamer.Subscribe(ctx)
-	time.Sleep(10 * time.Millisecond)
-
-	testData := TestEvent{ID: "generic", Data: "test"}
-	event := eventstream.Event[TestEvent]{
-		Type:      "create",
-		Entity:    "test",
-		UserID:    "user123",
-		Workspace: "workspace456",
-		Data:      testData,
-	}
-	streamer.Publish(event)
-
-	select {
-	case received := <-events:
-		if received.Type != "create" || received.Entity != "test" {
-			t.Errorf("expected type=create, entity=test, got type=%s, entity=%s", received.Type, received.Entity)
-		}
-		if received.Data.ID != "generic" || received.Data.Data != "test" {
-			t.Errorf("expected data {ID:generic, Data:test}, got %+v", received.Data)
+			t.Fatal("expected channel to close after cancellation")
 		}
 	case <-time.After(100 * time.Millisecond):
-		t.Error("did not receive generic event within timeout")
+		t.Fatal("channel did not close after cancellation")
 	}
 }
 
-func TestInMemorySyncStreamer_Shutdown(t *testing.T) {
-	streamer := memory.NewInMemorySyncStreamer[TestEvent]()
+func TestInMemorySyncStreamer_Snapshot(t *testing.T) {
+	streamer := memory.NewInMemorySyncStreamer[testTopic, testPayload]()
+	t.Cleanup(streamer.Shutdown)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	snapshot := func(context.Context) ([]eventstream.Event[testTopic, testPayload], error) {
+		return []eventstream.Event[testTopic, testPayload]{
+			{Topic: testTopic{workspace: "A"}, Payload: testPayload{ID: "snap"}},
+		}, nil
+	}
 
-	events := streamer.Subscribe(ctx)
-	time.Sleep(10 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	t.Cleanup(cancel)
 
-	// Shutdown streamer
-	streamer.Shutdown()
+	ch, err := streamer.Subscribe(ctx, allowAll, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
 
-	// Channel should be closed
 	select {
-	case _, ok := <-events:
-		if ok {
-			t.Error("expected channel to be closed after shutdown")
+	case evt := <-ch:
+		if evt.Payload.ID != "snap" {
+			t.Fatalf("expected snapshot event, got %+v", evt)
 		}
-	case <-time.After(50 * time.Millisecond):
-		t.Error("channel was not closed after shutdown")
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("did not receive snapshot event")
+	}
+}
+
+func TestInMemorySyncStreamer_SnapshotErrorIgnored(t *testing.T) {
+	streamer := memory.NewInMemorySyncStreamer[testTopic, testPayload]()
+	t.Cleanup(streamer.Shutdown)
+
+	snapshotErr := errors.New("boom")
+	snapshot := func(context.Context) ([]eventstream.Event[testTopic, testPayload], error) {
+		return nil, snapshotErr
 	}
 
-	// Publishing after shutdown should not panic
-	streamer.Publish(TestEvent{ID: "after", Data: "shutdown"})
-}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	t.Cleanup(cancel)
 
-// BenchmarkInMemorySyncStreamer_Publish benchmarks publish operation
-func BenchmarkInMemorySyncStreamer_Publish(b *testing.B) {
-	streamer := memory.NewInMemorySyncStreamer[TestEvent]()
-	defer streamer.Shutdown()
+	ch, err := streamer.Subscribe(ctx, allowAll, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	streamer.Publish(testTopic{workspace: "A"}, testPayload{ID: "live"})
 
-	_ = streamer.Subscribe(ctx)
-	time.Sleep(10 * time.Millisecond) // Let subscriber register
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			streamer.Publish(TestEvent{ID: "bench", Data: "test"})
+	select {
+	case evt := <-ch:
+		if evt.Payload.ID != "live" {
+			t.Fatalf("expected live event, got %+v", evt)
 		}
-	})
-}
-
-// BenchmarkInMemorySyncStreamer_Subscribe benchmarks subscribe operation
-func BenchmarkInMemorySyncStreamer_Subscribe(b *testing.B) {
-	streamer := memory.NewInMemorySyncStreamer[TestEvent]()
-	defer streamer.Shutdown()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
-		_ = streamer.Subscribe(ctx)
-		cancel()
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("did not receive live event")
 	}
 }

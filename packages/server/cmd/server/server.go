@@ -38,6 +38,7 @@ import (
 	"the-dev-tools/server/internal/api/rtag"
 	"the-dev-tools/server/internal/api/rvar"
 	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
@@ -247,7 +248,12 @@ func main() {
 	newServiceManager.AddService(rbody.CreateService(bodySrv, opitonsAll))
 
 	// Env Service
-	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService)
+	environmentStreamer := memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]()
+	defer environmentStreamer.Shutdown()
+	environmentVariableStreamer := memory.NewInMemorySyncStreamer[renv.EnvironmentVariableTopic, renv.EnvironmentVariableEvent]()
+	defer environmentVariableStreamer.Shutdown()
+
+	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService, environmentStreamer, environmentVariableStreamer)
 	newServiceManager.AddService(renv.CreateService(envSrv, opitonsAll))
 
 	// Var Service

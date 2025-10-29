@@ -236,7 +236,6 @@ func (s VarService) moveVariable(ctx context.Context, varID, targetVarID idwrap.
 
 	var (
 		targetOrder float64
-		sourceOrder float64
 		hasTarget   bool
 		hasSource   bool
 		nextOrder   *float64
@@ -268,7 +267,6 @@ func (s VarService) moveVariable(ctx context.Context, varID, targetVarID idwrap.
 		}
 
 		if row.ID.Compare(varID) == 0 {
-			sourceOrder = row.DisplayOrder
 			hasSource = true
 		}
 	}
@@ -277,7 +275,7 @@ func (s VarService) moveVariable(ctx context.Context, varID, targetVarID idwrap.
 		return ErrNoVarFound
 	}
 
-	newOrder := sourceOrder
+	var newOrder float64
 	if after {
 		if nextOrder != nil {
 			newOrder = (targetOrder + *nextOrder) / 2

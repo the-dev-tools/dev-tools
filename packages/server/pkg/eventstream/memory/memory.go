@@ -2,107 +2,181 @@ package memory
 
 import (
 	"context"
+	"errors"
+	"sync"
+	"sync/atomic"
+
 	"the-dev-tools/server/pkg/eventstream"
 )
 
-// NewInMemorySyncStreamer creates a new lockless in-memory sync streamer.
-// It uses a single goroutine dispatcher and channels for lockless operation.
-func NewInMemorySyncStreamer[T any]() eventstream.SyncStreamer[T] {
-	s := &inMemorySyncStreamer[T]{
-		subscribers: make(chan chan T),
-		broadcast:   make(chan T, 100),
-		done:        make(chan struct{}),
+const defaultSubscriberBuffer = 32
+
+type subscriber[Topic any, Payload any] struct {
+	ctx    context.Context
+	filter eventstream.TopicFilter[Topic]
+	ch     chan eventstream.Event[Topic, Payload]
+	closed atomic.Bool
+}
+
+type inMemorySyncStreamer[Topic any, Payload any] struct {
+	mu          sync.RWMutex
+	subscribers map[*subscriber[Topic, Payload]]struct{}
+	closed      atomic.Bool
+}
+
+// NewInMemorySyncStreamer creates a new in-memory streamer that supports topic
+// filtering and optional snapshot delivery.
+func NewInMemorySyncStreamer[Topic any, Payload any]() eventstream.SyncStreamer[Topic, Payload] {
+	return &inMemorySyncStreamer[Topic, Payload]{
+		subscribers: make(map[*subscriber[Topic, Payload]]struct{}),
+	}
+}
+
+func (s *inMemorySyncStreamer[Topic, Payload]) Publish(topic Topic, payload Payload) {
+	if s.closed.Load() {
+		return
 	}
 
-	go s.dispatch()
-	return s
+	event := eventstream.Event[Topic, Payload]{Topic: topic, Payload: payload}
+
+	s.mu.RLock()
+	subs := make([]*subscriber[Topic, Payload], 0, len(s.subscribers))
+	for sub := range s.subscribers {
+		subs = append(subs, sub)
+	}
+	s.mu.RUnlock()
+
+	for _, sub := range subs {
+		if sub.closed.Load() {
+			continue
+		}
+		if sub.filter != nil && !sub.filter(topic) {
+			continue
+		}
+		s.trySend(sub, event)
+	}
 }
 
-// inMemorySyncStreamer is a lockless implementation using channels and a single dispatcher goroutine.
-type inMemorySyncStreamer[T any] struct {
-	subscribers chan chan T   // Channel for adding new subscribers
-	broadcast   chan T        // Single broadcast channel
-	done        chan struct{} // Shutdown signal
+func (s *inMemorySyncStreamer[Topic, Payload]) Subscribe(
+	ctx context.Context,
+	filter eventstream.TopicFilter[Topic],
+	opts ...eventstream.SubscribeOption[Topic, Payload],
+) (<-chan eventstream.Event[Topic, Payload], error) {
+	if s.closed.Load() {
+		return nil, errStreamerClosed
+	}
+
+	if filter == nil {
+		filter = func(Topic) bool { return true }
+	}
+
+	cfg := eventstream.SubscribeOptions[Topic, Payload]{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	sub := &subscriber[Topic, Payload]{
+		ctx:    ctx,
+		filter: filter,
+		ch:     make(chan eventstream.Event[Topic, Payload], defaultSubscriberBuffer),
+	}
+
+	s.mu.Lock()
+	if s.closed.Load() {
+		s.mu.Unlock()
+		return nil, errStreamerClosed
+	}
+	s.subscribers[sub] = struct{}{}
+	s.mu.Unlock()
+
+	if cfg.Snapshot != nil {
+		go s.deliverSnapshot(sub, cfg.Snapshot)
+	}
+
+	go s.monitorContext(sub)
+
+	return sub.ch, nil
 }
 
-func (s *inMemorySyncStreamer[T]) Subscribe(ctx context.Context) <-chan T {
-	events := make(chan T, 10)
+func (s *inMemorySyncStreamer[Topic, Payload]) Shutdown() {
+	if !s.closed.CompareAndSwap(false, true) {
+		return
+	}
 
-	// Register subscriber and handle cleanup
-	go func() {
-		defer close(events) // Always close the channel
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-		// Try to register subscriber
-		select {
-		case s.subscribers <- events:
-			// Successfully registered, now wait for cleanup
-			select {
-			case <-ctx.Done():
-				// Context cancelled - channel closed by defer
-			case <-s.done:
-				// Streamer shutting down - channel closed by defer
-			}
-		case <-s.done:
-			// Streamer shutting down - channel closed by defer
-		case <-ctx.Done():
-			// Context cancelled - channel closed by defer
+	for sub := range s.subscribers {
+		if sub.closed.CompareAndSwap(false, true) {
+			close(sub.ch)
+		}
+	}
+	s.subscribers = nil
+}
+
+func (s *inMemorySyncStreamer[Topic, Payload]) monitorContext(sub *subscriber[Topic, Payload]) {
+	<-sub.ctx.Done()
+	s.removeSubscriber(sub)
+}
+
+func (s *inMemorySyncStreamer[Topic, Payload]) removeSubscriber(sub *subscriber[Topic, Payload]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.subscribers == nil {
+		return
+	}
+
+	if _, ok := s.subscribers[sub]; !ok {
+		return
+	}
+	delete(s.subscribers, sub)
+	if sub.closed.CompareAndSwap(false, true) {
+		close(sub.ch)
+	}
+}
+
+func (s *inMemorySyncStreamer[Topic, Payload]) deliverSnapshot(sub *subscriber[Topic, Payload], provider eventstream.SnapshotProvider[Topic, Payload]) {
+	events, err := provider(sub.ctx)
+	if err != nil {
+		return
+	}
+	for _, evt := range events {
+		if sub.closed.Load() {
+			return
+		}
+		s.sendSnapshot(sub, evt)
+	}
+}
+
+func (s *inMemorySyncStreamer[Topic, Payload]) trySend(sub *subscriber[Topic, Payload], evt eventstream.Event[Topic, Payload]) {
+	defer func() {
+		if r := recover(); r != nil {
+			sub.closed.Store(true)
 		}
 	}()
 
-	return events
-}
-
-func (s *inMemorySyncStreamer[T]) Publish(event T) {
 	select {
-	case s.broadcast <- event:
-		// Event queued for broadcast
-	case <-s.done:
-		// Streamer shutting down, drop event
+	case sub.ch <- evt:
+	default:
 	}
 }
 
-func (s *inMemorySyncStreamer[T]) Shutdown() {
-	close(s.done)
-}
-
-// dispatch runs in a single goroutine and handles all subscriber management and event broadcasting.
-// This lockless design uses channel operations instead of mutexes.
-func (s *inMemorySyncStreamer[T]) dispatch() {
-	var subscribers []chan T
-
-	for {
-		select {
-		case newSub, ok := <-s.subscribers:
-			if !ok {
-				// subscribers channel closed, shutdown
-				return
-			}
-			// Add new subscriber
-			subscribers = append(subscribers, newSub)
-
-		case event, ok := <-s.broadcast:
-			if !ok {
-				// broadcast channel closed, shutdown
-				return
-			}
-
-			// Broadcast event to all subscribers
-			activeSubscribers := subscribers[:0]
-			for _, sub := range subscribers {
-				select {
-				case sub <- event:
-					// Event sent successfully, keep subscriber
-					activeSubscribers = append(activeSubscribers, sub)
-				default:
-					// Slow subscriber, remove them by not adding to active list
-					// Don't close here - let's subscriber goroutine close on context cancellation
-				}
-			}
-			subscribers = activeSubscribers
-
-		case <-s.done:
-			// Shutdown signal received
-			return
+func (s *inMemorySyncStreamer[Topic, Payload]) sendSnapshot(sub *subscriber[Topic, Payload], evt eventstream.Event[Topic, Payload]) {
+	if s.closed.Load() {
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			sub.closed.Store(true)
 		}
+	}()
+
+	select {
+	case <-sub.ctx.Done():
+		return
+	case sub.ch <- evt:
 	}
 }
+
+var errStreamerClosed = errors.New("eventstream: streamer closed")
