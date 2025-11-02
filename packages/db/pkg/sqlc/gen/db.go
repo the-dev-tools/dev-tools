@@ -69,6 +69,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createExampleRespHeaderBulkStmt, err = db.PrepareContext(ctx, createExampleRespHeaderBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateExampleRespHeaderBulk: %w", err)
 	}
+	if q.createFileStmt, err = db.PrepareContext(ctx, createFile); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateFile: %w", err)
+	}
 	if q.createFlowStmt, err = db.PrepareContext(ctx, createFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFlow: %w", err)
 	}
@@ -188,6 +191,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteExampleRespHeaderStmt, err = db.PrepareContext(ctx, deleteExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteExampleRespHeader: %w", err)
+	}
+	if q.deleteFileStmt, err = db.PrepareContext(ctx, deleteFile); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteFile: %w", err)
 	}
 	if q.deleteFlowStmt, err = db.PrepareContext(ctx, deleteFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFlow: %w", err)
@@ -489,6 +495,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deltaUrlencStateUpsertStmt, err = db.PrepareContext(ctx, deltaUrlencStateUpsert); err != nil {
 		return nil, fmt.Errorf("error preparing query DeltaUrlencStateUpsert: %w", err)
 	}
+	if q.getAPIContentStmt, err = db.PrepareContext(ctx, getAPIContent); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAPIContent: %w", err)
+	}
 	if q.getAllExamplesByEndpointIDStmt, err = db.PrepareContext(ctx, getAllExamplesByEndpointID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllExamplesByEndpointID: %w", err)
 	}
@@ -663,8 +672,32 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getExamplesByEndpointIDOrderedStmt, err = db.PrepareContext(ctx, getExamplesByEndpointIDOrdered); err != nil {
 		return nil, fmt.Errorf("error preparing query GetExamplesByEndpointIDOrdered: %w", err)
 	}
+	if q.getFileStmt, err = db.PrepareContext(ctx, getFile); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFile: %w", err)
+	}
+	if q.getFileWithContentStmt, err = db.PrepareContext(ctx, getFileWithContent); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFileWithContent: %w", err)
+	}
+	if q.getFileWorkspaceIDStmt, err = db.PrepareContext(ctx, getFileWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFileWorkspaceID: %w", err)
+	}
+	if q.getFilesByFolderIDStmt, err = db.PrepareContext(ctx, getFilesByFolderID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFilesByFolderID: %w", err)
+	}
+	if q.getFilesByFolderIDOrderedStmt, err = db.PrepareContext(ctx, getFilesByFolderIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFilesByFolderIDOrdered: %w", err)
+	}
+	if q.getFilesByWorkspaceIDStmt, err = db.PrepareContext(ctx, getFilesByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFilesByWorkspaceID: %w", err)
+	}
+	if q.getFilesByWorkspaceIDOrderedStmt, err = db.PrepareContext(ctx, getFilesByWorkspaceIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFilesByWorkspaceIDOrdered: %w", err)
+	}
 	if q.getFlowStmt, err = db.PrepareContext(ctx, getFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlow: %w", err)
+	}
+	if q.getFlowContentStmt, err = db.PrepareContext(ctx, getFlowContent); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFlowContent: %w", err)
 	}
 	if q.getFlowEdgeStmt, err = db.PrepareContext(ctx, getFlowEdge); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowEdge: %w", err)
@@ -719,6 +752,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getFlowsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getFlowsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowsByWorkspaceID: %w", err)
+	}
+	if q.getFolderContentStmt, err = db.PrepareContext(ctx, getFolderContent); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFolderContent: %w", err)
 	}
 	if q.getHeaderStmt, err = db.PrepareContext(ctx, getHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeader: %w", err)
@@ -818,6 +854,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getQueryByDeltaParentIDStmt, err = db.PrepareContext(ctx, getQueryByDeltaParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetQueryByDeltaParentID: %w", err)
+	}
+	if q.getRootFilesByWorkspaceIDStmt, err = db.PrepareContext(ctx, getRootFilesByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetRootFilesByWorkspaceID: %w", err)
 	}
 	if q.getTagStmt, err = db.PrepareContext(ctx, getTag); err != nil {
 		return nil, fmt.Errorf("error preparing query GetTag: %w", err)
@@ -965,6 +1004,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateExampleRespHeaderStmt, err = db.PrepareContext(ctx, updateExampleRespHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateExampleRespHeader: %w", err)
+	}
+	if q.updateFileStmt, err = db.PrepareContext(ctx, updateFile); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateFile: %w", err)
 	}
 	if q.updateFlowStmt, err = db.PrepareContext(ctx, updateFlow); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlow: %w", err)
@@ -1158,6 +1200,11 @@ func (q *Queries) Close() error {
 	if q.createExampleRespHeaderBulkStmt != nil {
 		if cerr := q.createExampleRespHeaderBulkStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createExampleRespHeaderBulkStmt: %w", cerr)
+		}
+	}
+	if q.createFileStmt != nil {
+		if cerr := q.createFileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createFileStmt: %w", cerr)
 		}
 	}
 	if q.createFlowStmt != nil {
@@ -1358,6 +1405,11 @@ func (q *Queries) Close() error {
 	if q.deleteExampleRespHeaderStmt != nil {
 		if cerr := q.deleteExampleRespHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteExampleRespHeaderStmt: %w", cerr)
+		}
+	}
+	if q.deleteFileStmt != nil {
+		if cerr := q.deleteFileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteFileStmt: %w", cerr)
 		}
 	}
 	if q.deleteFlowStmt != nil {
@@ -1860,6 +1912,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deltaUrlencStateUpsertStmt: %w", cerr)
 		}
 	}
+	if q.getAPIContentStmt != nil {
+		if cerr := q.getAPIContentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAPIContentStmt: %w", cerr)
+		}
+	}
 	if q.getAllExamplesByEndpointIDStmt != nil {
 		if cerr := q.getAllExamplesByEndpointIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllExamplesByEndpointIDStmt: %w", cerr)
@@ -2150,9 +2207,49 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getExamplesByEndpointIDOrderedStmt: %w", cerr)
 		}
 	}
+	if q.getFileStmt != nil {
+		if cerr := q.getFileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFileStmt: %w", cerr)
+		}
+	}
+	if q.getFileWithContentStmt != nil {
+		if cerr := q.getFileWithContentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFileWithContentStmt: %w", cerr)
+		}
+	}
+	if q.getFileWorkspaceIDStmt != nil {
+		if cerr := q.getFileWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFileWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getFilesByFolderIDStmt != nil {
+		if cerr := q.getFilesByFolderIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFilesByFolderIDStmt: %w", cerr)
+		}
+	}
+	if q.getFilesByFolderIDOrderedStmt != nil {
+		if cerr := q.getFilesByFolderIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFilesByFolderIDOrderedStmt: %w", cerr)
+		}
+	}
+	if q.getFilesByWorkspaceIDStmt != nil {
+		if cerr := q.getFilesByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFilesByWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getFilesByWorkspaceIDOrderedStmt != nil {
+		if cerr := q.getFilesByWorkspaceIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFilesByWorkspaceIDOrderedStmt: %w", cerr)
+		}
+	}
 	if q.getFlowStmt != nil {
 		if cerr := q.getFlowStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowStmt: %w", cerr)
+		}
+	}
+	if q.getFlowContentStmt != nil {
+		if cerr := q.getFlowContentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFlowContentStmt: %w", cerr)
 		}
 	}
 	if q.getFlowEdgeStmt != nil {
@@ -2243,6 +2340,11 @@ func (q *Queries) Close() error {
 	if q.getFlowsByWorkspaceIDStmt != nil {
 		if cerr := q.getFlowsByWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getFlowsByWorkspaceIDStmt: %w", cerr)
+		}
+	}
+	if q.getFolderContentStmt != nil {
+		if cerr := q.getFolderContentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFolderContentStmt: %w", cerr)
 		}
 	}
 	if q.getHeaderStmt != nil {
@@ -2408,6 +2510,11 @@ func (q *Queries) Close() error {
 	if q.getQueryByDeltaParentIDStmt != nil {
 		if cerr := q.getQueryByDeltaParentIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getQueryByDeltaParentIDStmt: %w", cerr)
+		}
+	}
+	if q.getRootFilesByWorkspaceIDStmt != nil {
+		if cerr := q.getRootFilesByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getRootFilesByWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getTagStmt != nil {
@@ -2655,6 +2762,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateExampleRespHeaderStmt: %w", cerr)
 		}
 	}
+	if q.updateFileStmt != nil {
+		if cerr := q.updateFileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateFileStmt: %w", cerr)
+		}
+	}
 	if q.updateFlowStmt != nil {
 		if cerr := q.updateFlowStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowStmt: %w", cerr)
@@ -2899,6 +3011,7 @@ type Queries struct {
 	createExampleRespStmt                                 *sql.Stmt
 	createExampleRespHeaderStmt                           *sql.Stmt
 	createExampleRespHeaderBulkStmt                       *sql.Stmt
+	createFileStmt                                        *sql.Stmt
 	createFlowStmt                                        *sql.Stmt
 	createFlowEdgeStmt                                    *sql.Stmt
 	createFlowNodeStmt                                    *sql.Stmt
@@ -2939,6 +3052,7 @@ type Queries struct {
 	deleteEnvironmentStmt                                 *sql.Stmt
 	deleteExampleRespStmt                                 *sql.Stmt
 	deleteExampleRespHeaderStmt                           *sql.Stmt
+	deleteFileStmt                                        *sql.Stmt
 	deleteFlowStmt                                        *sql.Stmt
 	deleteFlowEdgeStmt                                    *sql.Stmt
 	deleteFlowNodeStmt                                    *sql.Stmt
@@ -3039,6 +3153,7 @@ type Queries struct {
 	deltaUrlencStateSuppressStmt                          *sql.Stmt
 	deltaUrlencStateUnsuppressStmt                        *sql.Stmt
 	deltaUrlencStateUpsertStmt                            *sql.Stmt
+	getAPIContentStmt                                     *sql.Stmt
 	getAllExamplesByEndpointIDStmt                        *sql.Stmt
 	getAllHeadersByExampleIDStmt                          *sql.Stmt
 	getAllItemsApiByCollectionIDStmt                      *sql.Stmt
@@ -3097,7 +3212,15 @@ type Queries struct {
 	getExampleRespHeadersByRespIDStmt                     *sql.Stmt
 	getExampleRespHeadersByRespIDsStmt                    *sql.Stmt
 	getExamplesByEndpointIDOrderedStmt                    *sql.Stmt
+	getFileStmt                                           *sql.Stmt
+	getFileWithContentStmt                                *sql.Stmt
+	getFileWorkspaceIDStmt                                *sql.Stmt
+	getFilesByFolderIDStmt                                *sql.Stmt
+	getFilesByFolderIDOrderedStmt                         *sql.Stmt
+	getFilesByWorkspaceIDStmt                             *sql.Stmt
+	getFilesByWorkspaceIDOrderedStmt                      *sql.Stmt
 	getFlowStmt                                           *sql.Stmt
+	getFlowContentStmt                                    *sql.Stmt
 	getFlowEdgeStmt                                       *sql.Stmt
 	getFlowEdgesByFlowIDStmt                              *sql.Stmt
 	getFlowNodeStmt                                       *sql.Stmt
@@ -3116,6 +3239,7 @@ type Queries struct {
 	getFlowVariablesByFlowIDOrderedStmt                   *sql.Stmt
 	getFlowsByVersionParentIDStmt                         *sql.Stmt
 	getFlowsByWorkspaceIDStmt                             *sql.Stmt
+	getFolderContentStmt                                  *sql.Stmt
 	getHeaderStmt                                         *sql.Stmt
 	getHeaderByDeltaParentIDStmt                          *sql.Stmt
 	getHeaderTailStmt                                     *sql.Stmt
@@ -3149,6 +3273,7 @@ type Queries struct {
 	getQueriesByExampleIDsStmt                            *sql.Stmt
 	getQueryStmt                                          *sql.Stmt
 	getQueryByDeltaParentIDStmt                           *sql.Stmt
+	getRootFilesByWorkspaceIDStmt                         *sql.Stmt
 	getTagStmt                                            *sql.Stmt
 	getTagsByWorkspaceIDStmt                              *sql.Stmt
 	getUserStmt                                           *sql.Stmt
@@ -3198,6 +3323,7 @@ type Queries struct {
 	updateExamplePrevStmt                                 *sql.Stmt
 	updateExampleRespStmt                                 *sql.Stmt
 	updateExampleRespHeaderStmt                           *sql.Stmt
+	updateFileStmt                                        *sql.Stmt
 	updateFlowStmt                                        *sql.Stmt
 	updateFlowEdgeStmt                                    *sql.Stmt
 	updateFlowNodeStmt                                    *sql.Stmt
@@ -3257,6 +3383,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createExampleRespStmt:                                 q.createExampleRespStmt,
 		createExampleRespHeaderStmt:                           q.createExampleRespHeaderStmt,
 		createExampleRespHeaderBulkStmt:                       q.createExampleRespHeaderBulkStmt,
+		createFileStmt:                                        q.createFileStmt,
 		createFlowStmt:                                        q.createFlowStmt,
 		createFlowEdgeStmt:                                    q.createFlowEdgeStmt,
 		createFlowNodeStmt:                                    q.createFlowNodeStmt,
@@ -3297,6 +3424,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteEnvironmentStmt:                                 q.deleteEnvironmentStmt,
 		deleteExampleRespStmt:                                 q.deleteExampleRespStmt,
 		deleteExampleRespHeaderStmt:                           q.deleteExampleRespHeaderStmt,
+		deleteFileStmt:                                        q.deleteFileStmt,
 		deleteFlowStmt:                                        q.deleteFlowStmt,
 		deleteFlowEdgeStmt:                                    q.deleteFlowEdgeStmt,
 		deleteFlowNodeStmt:                                    q.deleteFlowNodeStmt,
@@ -3397,6 +3525,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deltaUrlencStateSuppressStmt:                          q.deltaUrlencStateSuppressStmt,
 		deltaUrlencStateUnsuppressStmt:                        q.deltaUrlencStateUnsuppressStmt,
 		deltaUrlencStateUpsertStmt:                            q.deltaUrlencStateUpsertStmt,
+		getAPIContentStmt:                                     q.getAPIContentStmt,
 		getAllExamplesByEndpointIDStmt:                        q.getAllExamplesByEndpointIDStmt,
 		getAllHeadersByExampleIDStmt:                          q.getAllHeadersByExampleIDStmt,
 		getAllItemsApiByCollectionIDStmt:                      q.getAllItemsApiByCollectionIDStmt,
@@ -3455,7 +3584,15 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getExampleRespHeadersByRespIDStmt:                     q.getExampleRespHeadersByRespIDStmt,
 		getExampleRespHeadersByRespIDsStmt:                    q.getExampleRespHeadersByRespIDsStmt,
 		getExamplesByEndpointIDOrderedStmt:                    q.getExamplesByEndpointIDOrderedStmt,
+		getFileStmt:                                           q.getFileStmt,
+		getFileWithContentStmt:                                q.getFileWithContentStmt,
+		getFileWorkspaceIDStmt:                                q.getFileWorkspaceIDStmt,
+		getFilesByFolderIDStmt:                                q.getFilesByFolderIDStmt,
+		getFilesByFolderIDOrderedStmt:                         q.getFilesByFolderIDOrderedStmt,
+		getFilesByWorkspaceIDStmt:                             q.getFilesByWorkspaceIDStmt,
+		getFilesByWorkspaceIDOrderedStmt:                      q.getFilesByWorkspaceIDOrderedStmt,
 		getFlowStmt:                                           q.getFlowStmt,
+		getFlowContentStmt:                                    q.getFlowContentStmt,
 		getFlowEdgeStmt:                                       q.getFlowEdgeStmt,
 		getFlowEdgesByFlowIDStmt:                              q.getFlowEdgesByFlowIDStmt,
 		getFlowNodeStmt:                                       q.getFlowNodeStmt,
@@ -3474,6 +3611,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowVariablesByFlowIDOrderedStmt:                   q.getFlowVariablesByFlowIDOrderedStmt,
 		getFlowsByVersionParentIDStmt:                         q.getFlowsByVersionParentIDStmt,
 		getFlowsByWorkspaceIDStmt:                             q.getFlowsByWorkspaceIDStmt,
+		getFolderContentStmt:                                  q.getFolderContentStmt,
 		getHeaderStmt:                                         q.getHeaderStmt,
 		getHeaderByDeltaParentIDStmt:                          q.getHeaderByDeltaParentIDStmt,
 		getHeaderTailStmt:                                     q.getHeaderTailStmt,
@@ -3507,6 +3645,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getQueriesByExampleIDsStmt:                            q.getQueriesByExampleIDsStmt,
 		getQueryStmt:                                          q.getQueryStmt,
 		getQueryByDeltaParentIDStmt:                           q.getQueryByDeltaParentIDStmt,
+		getRootFilesByWorkspaceIDStmt:                         q.getRootFilesByWorkspaceIDStmt,
 		getTagStmt:                                            q.getTagStmt,
 		getTagsByWorkspaceIDStmt:                              q.getTagsByWorkspaceIDStmt,
 		getUserStmt:                                           q.getUserStmt,
@@ -3556,6 +3695,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateExamplePrevStmt:                                 q.updateExamplePrevStmt,
 		updateExampleRespStmt:                                 q.updateExampleRespStmt,
 		updateExampleRespHeaderStmt:                           q.updateExampleRespHeaderStmt,
+		updateFileStmt:                                        q.updateFileStmt,
 		updateFlowStmt:                                        q.updateFlowStmt,
 		updateFlowEdgeStmt:                                    q.updateFlowEdgeStmt,
 		updateFlowNodeStmt:                                    q.updateFlowNodeStmt,

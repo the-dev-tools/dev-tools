@@ -811,6 +811,37 @@ func (q *Queries) CreateExampleRespHeaderBulk(ctx context.Context, arg CreateExa
 	return err
 }
 
+const createFile = `-- name: CreateFile :exec
+INSERT INTO files (id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateFileParams struct {
+	ID           idwrap.IDWrap
+	WorkspaceID  idwrap.IDWrap
+	FolderID     *idwrap.IDWrap
+	ContentID    *idwrap.IDWrap
+	ContentKind  int8
+	Name         string
+	DisplayOrder float64
+	UpdatedAt    int64
+}
+
+// Create a new file
+func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) error {
+	_, err := q.exec(ctx, q.createFileStmt, createFile,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.FolderID,
+		arg.ContentID,
+		arg.ContentKind,
+		arg.Name,
+		arg.DisplayOrder,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
   flow (id, workspace_id, version_parent_id, name, duration)
@@ -2914,6 +2945,16 @@ func (q *Queries) DeleteExampleRespHeader(ctx context.Context, id idwrap.IDWrap)
 	return err
 }
 
+const deleteFile = `-- name: DeleteFile :exec
+DELETE FROM files WHERE id = ?
+`
+
+// Delete a file by ID
+func (q *Queries) DeleteFile(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFileStmt, deleteFile, id)
+	return err
+}
+
 const deleteFlow = `-- name: DeleteFlow :exec
 DELETE FROM flow
 WHERE
@@ -4719,6 +4760,32 @@ func (q *Queries) DeltaUrlencStateUpsert(ctx context.Context, arg DeltaUrlencSta
 		arg.Enabled,
 	)
 	return err
+}
+
+const getAPIContent = `-- name: GetAPIContent :one
+SELECT id, name, url, method
+FROM item_api
+WHERE id = ?
+`
+
+type GetAPIContentRow struct {
+	ID     idwrap.IDWrap
+	Name   string
+	Url    string
+	Method string
+}
+
+// Get API content by content_id (for union type resolution)
+func (q *Queries) GetAPIContent(ctx context.Context, id idwrap.IDWrap) (GetAPIContentRow, error) {
+	row := q.queryRow(ctx, q.getAPIContentStmt, getAPIContent, id)
+	var i GetAPIContentRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Url,
+		&i.Method,
+	)
+	return i, err
 }
 
 const getAllExamplesByEndpointID = `-- name: GetAllExamplesByEndpointID :many
@@ -7435,6 +7502,227 @@ func (q *Queries) GetExamplesByEndpointIDOrdered(ctx context.Context, arg GetExa
 	return items, nil
 }
 
+const getFile = `-- name: GetFile :one
+
+SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+FROM files
+WHERE id = ?
+`
+
+// File System
+//
+// Get a single file by ID
+func (q *Queries) GetFile(ctx context.Context, id idwrap.IDWrap) (File, error) {
+	row := q.queryRow(ctx, q.getFileStmt, getFile, id)
+	var i File
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.FolderID,
+		&i.ContentID,
+		&i.ContentKind,
+		&i.Name,
+		&i.DisplayOrder,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getFileWithContent = `-- name: GetFileWithContent :one
+SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+FROM files
+WHERE id = ?
+`
+
+// Get a file with its content (two-query pattern for union types)
+func (q *Queries) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) (File, error) {
+	row := q.queryRow(ctx, q.getFileWithContentStmt, getFileWithContent, id)
+	var i File
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.FolderID,
+		&i.ContentID,
+		&i.ContentKind,
+		&i.Name,
+		&i.DisplayOrder,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getFileWorkspaceID = `-- name: GetFileWorkspaceID :one
+SELECT workspace_id 
+FROM files
+WHERE id = ?
+`
+
+// Get the workspace_id for a file
+func (q *Queries) GetFileWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
+	row := q.queryRow(ctx, q.getFileWorkspaceIDStmt, getFileWorkspaceID, id)
+	var workspace_id idwrap.IDWrap
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
+}
+
+const getFilesByFolderID = `-- name: GetFilesByFolderID :many
+SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+FROM files
+WHERE folder_id = ?
+`
+
+// Get all files directly under a folder (unordered)
+func (q *Queries) GetFilesByFolderID(ctx context.Context, folderID *idwrap.IDWrap) ([]File, error) {
+	rows, err := q.query(ctx, q.getFilesByFolderIDStmt, getFilesByFolderID, folderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []File{}
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.ContentID,
+			&i.ContentKind,
+			&i.Name,
+			&i.DisplayOrder,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFilesByFolderIDOrdered = `-- name: GetFilesByFolderIDOrdered :many
+SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+FROM files
+WHERE folder_id = ?
+ORDER BY display_order, id
+`
+
+// Get all files directly under a folder ordered by display_order
+func (q *Queries) GetFilesByFolderIDOrdered(ctx context.Context, folderID *idwrap.IDWrap) ([]File, error) {
+	rows, err := q.query(ctx, q.getFilesByFolderIDOrderedStmt, getFilesByFolderIDOrdered, folderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []File{}
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.ContentID,
+			&i.ContentKind,
+			&i.Name,
+			&i.DisplayOrder,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFilesByWorkspaceID = `-- name: GetFilesByWorkspaceID :many
+SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+FROM files
+WHERE workspace_id = ?
+`
+
+// Get all files in a workspace (unordered)
+func (q *Queries) GetFilesByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]File, error) {
+	rows, err := q.query(ctx, q.getFilesByWorkspaceIDStmt, getFilesByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []File{}
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.ContentID,
+			&i.ContentKind,
+			&i.Name,
+			&i.DisplayOrder,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFilesByWorkspaceIDOrdered = `-- name: GetFilesByWorkspaceIDOrdered :many
+SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+FROM files
+WHERE workspace_id = ?
+ORDER BY display_order, id
+`
+
+// Get all files in a workspace ordered by display_order
+func (q *Queries) GetFilesByWorkspaceIDOrdered(ctx context.Context, workspaceID idwrap.IDWrap) ([]File, error) {
+	rows, err := q.query(ctx, q.getFilesByWorkspaceIDOrderedStmt, getFilesByWorkspaceIDOrdered, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []File{}
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.ContentID,
+			&i.ContentKind,
+			&i.Name,
+			&i.DisplayOrder,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFlow = `-- name: GetFlow :one
 SELECT
   id,
@@ -7459,6 +7747,26 @@ func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 		&i.Name,
 		&i.Duration,
 	)
+	return i, err
+}
+
+const getFlowContent = `-- name: GetFlowContent :one
+SELECT id, name, duration
+FROM flow
+WHERE id = ?
+`
+
+type GetFlowContentRow struct {
+	ID       idwrap.IDWrap
+	Name     string
+	Duration int32
+}
+
+// Get flow content by content_id (for union type resolution)
+func (q *Queries) GetFlowContent(ctx context.Context, id idwrap.IDWrap) (GetFlowContentRow, error) {
+	row := q.queryRow(ctx, q.getFlowContentStmt, getFlowContent, id)
+	var i GetFlowContentRow
+	err := row.Scan(&i.ID, &i.Name, &i.Duration)
 	return i, err
 }
 
@@ -8097,6 +8405,25 @@ func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 		return nil, err
 	}
 	return items, nil
+}
+
+const getFolderContent = `-- name: GetFolderContent :one
+SELECT id, name
+FROM item_folder
+WHERE id = ?
+`
+
+type GetFolderContentRow struct {
+	ID   idwrap.IDWrap
+	Name string
+}
+
+// Get folder content by content_id (for union type resolution)
+func (q *Queries) GetFolderContent(ctx context.Context, id idwrap.IDWrap) (GetFolderContentRow, error) {
+	row := q.queryRow(ctx, q.getFolderContentStmt, getFolderContent, id)
+	var i GetFolderContentRow
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
 }
 
 const getHeader = `-- name: GetHeader :one
@@ -9559,6 +9886,46 @@ func (q *Queries) GetQueryByDeltaParentID(ctx context.Context, deltaParentID *id
 		&i.Value,
 	)
 	return i, err
+}
+
+const getRootFilesByWorkspaceID = `-- name: GetRootFilesByWorkspaceID :many
+SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+FROM files
+WHERE workspace_id = ? AND folder_id IS NULL
+ORDER BY display_order, id
+`
+
+// Get root-level files (no parent folder) in a workspace ordered by display_order
+func (q *Queries) GetRootFilesByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]File, error) {
+	rows, err := q.query(ctx, q.getRootFilesByWorkspaceIDStmt, getRootFilesByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []File{}
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.ContentID,
+			&i.ContentKind,
+			&i.Name,
+			&i.DisplayOrder,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getTag = `-- name: GetTag :one
@@ -11192,6 +11559,38 @@ type UpdateExampleRespHeaderParams struct {
 
 func (q *Queries) UpdateExampleRespHeader(ctx context.Context, arg UpdateExampleRespHeaderParams) error {
 	_, err := q.exec(ctx, q.updateExampleRespHeaderStmt, updateExampleRespHeader, arg.HeaderKey, arg.Value, arg.ID)
+	return err
+}
+
+const updateFile = `-- name: UpdateFile :exec
+UPDATE files 
+SET workspace_id = ?, folder_id = ?, content_id = ?, content_kind = ?, name = ?, display_order = ?, updated_at = ?
+WHERE id = ?
+`
+
+type UpdateFileParams struct {
+	WorkspaceID  idwrap.IDWrap
+	FolderID     *idwrap.IDWrap
+	ContentID    *idwrap.IDWrap
+	ContentKind  int8
+	Name         string
+	DisplayOrder float64
+	UpdatedAt    int64
+	ID           idwrap.IDWrap
+}
+
+// Update an existing file
+func (q *Queries) UpdateFile(ctx context.Context, arg UpdateFileParams) error {
+	_, err := q.exec(ctx, q.updateFileStmt, updateFile,
+		arg.WorkspaceID,
+		arg.FolderID,
+		arg.ContentID,
+		arg.ContentKind,
+		arg.Name,
+		arg.DisplayOrder,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	return err
 }
 

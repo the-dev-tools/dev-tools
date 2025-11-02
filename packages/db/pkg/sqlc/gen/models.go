@@ -240,6 +240,17 @@ type ExampleRespHeader struct {
 	Value         string
 }
 
+type File struct {
+	ID           idwrap.IDWrap
+	WorkspaceID  idwrap.IDWrap
+	FolderID     *idwrap.IDWrap
+	ContentID    *idwrap.IDWrap
+	ContentKind  int8
+	Name         string
+	DisplayOrder float64
+	UpdatedAt    int64
+}
+
 type Flow struct {
 	ID              idwrap.IDWrap
 	WorkspaceID     idwrap.IDWrap
