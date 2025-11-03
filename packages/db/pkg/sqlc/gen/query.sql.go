@@ -671,32 +671,6 @@ func (q *Queries) CreateBodyUrlEncodedBulk(ctx context.Context, arg CreateBodyUr
 	return err
 }
 
-const createCollection = `-- name: CreateCollection :exec
-INSERT INTO
-  collections (id, workspace_id, name, prev, next)
-VALUES
-  (?, ?, ?, ?, ?)
-`
-
-type CreateCollectionParams struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Name        string
-	Prev        *idwrap.IDWrap
-	Next        *idwrap.IDWrap
-}
-
-func (q *Queries) CreateCollection(ctx context.Context, arg CreateCollectionParams) error {
-	_, err := q.exec(ctx, q.createCollectionStmt, createCollection,
-		arg.ID,
-		arg.WorkspaceID,
-		arg.Name,
-		arg.Prev,
-		arg.Next,
-	)
-	return err
-}
-
 const createEnvironment = `-- name: CreateEnvironment :exec
 INSERT INTO
   environment (id, workspace_id, type, name, description, display_order)
@@ -3885,14 +3859,13 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 
 const createItemApi = `-- name: CreateItemApi :exec
 INSERT INTO
-  item_api (id, collection_id, folder_id, name, url, method, version_parent_id, delta_parent_id, hidden, prev, next)
+  item_api (id, folder_id, name, url, method, version_parent_id, delta_parent_id, hidden, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiParams struct {
 	ID              idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
 	FolderID        *idwrap.IDWrap
 	Name            string
 	Url             string
@@ -3907,7 +3880,6 @@ type CreateItemApiParams struct {
 func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) error {
 	_, err := q.exec(ctx, q.createItemApiStmt, createItemApi,
 		arg.ID,
-		arg.CollectionID,
 		arg.FolderID,
 		arg.Name,
 		arg.Url,
@@ -3923,23 +3895,22 @@ func (q *Queries) CreateItemApi(ctx context.Context, arg CreateItemApiParams) er
 
 const createItemApiBulk = `-- name: CreateItemApiBulk :exec
 INSERT INTO
-  item_api (id, collection_id, folder_id, name, url, method, version_parent_id, delta_parent_id, hidden, prev, next)
+  item_api (id, folder_id, name, url, method, version_parent_id, delta_parent_id, hidden, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiBulkParams struct {
 	ID                 idwrap.IDWrap
-	CollectionID       idwrap.IDWrap
 	FolderID           *idwrap.IDWrap
 	Name               string
 	Url                string
@@ -3950,7 +3921,6 @@ type CreateItemApiBulkParams struct {
 	Prev               *idwrap.IDWrap
 	Next               *idwrap.IDWrap
 	ID_2               idwrap.IDWrap
-	CollectionID_2     idwrap.IDWrap
 	FolderID_2         *idwrap.IDWrap
 	Name_2             string
 	Url_2              string
@@ -3961,7 +3931,6 @@ type CreateItemApiBulkParams struct {
 	Prev_2             *idwrap.IDWrap
 	Next_2             *idwrap.IDWrap
 	ID_3               idwrap.IDWrap
-	CollectionID_3     idwrap.IDWrap
 	FolderID_3         *idwrap.IDWrap
 	Name_3             string
 	Url_3              string
@@ -3972,7 +3941,6 @@ type CreateItemApiBulkParams struct {
 	Prev_3             *idwrap.IDWrap
 	Next_3             *idwrap.IDWrap
 	ID_4               idwrap.IDWrap
-	CollectionID_4     idwrap.IDWrap
 	FolderID_4         *idwrap.IDWrap
 	Name_4             string
 	Url_4              string
@@ -3983,7 +3951,6 @@ type CreateItemApiBulkParams struct {
 	Prev_4             *idwrap.IDWrap
 	Next_4             *idwrap.IDWrap
 	ID_5               idwrap.IDWrap
-	CollectionID_5     idwrap.IDWrap
 	FolderID_5         *idwrap.IDWrap
 	Name_5             string
 	Url_5              string
@@ -3994,7 +3961,6 @@ type CreateItemApiBulkParams struct {
 	Prev_5             *idwrap.IDWrap
 	Next_5             *idwrap.IDWrap
 	ID_6               idwrap.IDWrap
-	CollectionID_6     idwrap.IDWrap
 	FolderID_6         *idwrap.IDWrap
 	Name_6             string
 	Url_6              string
@@ -4005,7 +3971,6 @@ type CreateItemApiBulkParams struct {
 	Prev_6             *idwrap.IDWrap
 	Next_6             *idwrap.IDWrap
 	ID_7               idwrap.IDWrap
-	CollectionID_7     idwrap.IDWrap
 	FolderID_7         *idwrap.IDWrap
 	Name_7             string
 	Url_7              string
@@ -4016,7 +3981,6 @@ type CreateItemApiBulkParams struct {
 	Prev_7             *idwrap.IDWrap
 	Next_7             *idwrap.IDWrap
 	ID_8               idwrap.IDWrap
-	CollectionID_8     idwrap.IDWrap
 	FolderID_8         *idwrap.IDWrap
 	Name_8             string
 	Url_8              string
@@ -4027,7 +3991,6 @@ type CreateItemApiBulkParams struct {
 	Prev_8             *idwrap.IDWrap
 	Next_8             *idwrap.IDWrap
 	ID_9               idwrap.IDWrap
-	CollectionID_9     idwrap.IDWrap
 	FolderID_9         *idwrap.IDWrap
 	Name_9             string
 	Url_9              string
@@ -4038,7 +4001,6 @@ type CreateItemApiBulkParams struct {
 	Prev_9             *idwrap.IDWrap
 	Next_9             *idwrap.IDWrap
 	ID_10              idwrap.IDWrap
-	CollectionID_10    idwrap.IDWrap
 	FolderID_10        *idwrap.IDWrap
 	Name_10            string
 	Url_10             string
@@ -4053,7 +4015,6 @@ type CreateItemApiBulkParams struct {
 func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkParams) error {
 	_, err := q.exec(ctx, q.createItemApiBulkStmt, createItemApiBulk,
 		arg.ID,
-		arg.CollectionID,
 		arg.FolderID,
 		arg.Name,
 		arg.Url,
@@ -4064,7 +4025,6 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Prev,
 		arg.Next,
 		arg.ID_2,
-		arg.CollectionID_2,
 		arg.FolderID_2,
 		arg.Name_2,
 		arg.Url_2,
@@ -4075,7 +4035,6 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Prev_2,
 		arg.Next_2,
 		arg.ID_3,
-		arg.CollectionID_3,
 		arg.FolderID_3,
 		arg.Name_3,
 		arg.Url_3,
@@ -4086,7 +4045,6 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Prev_3,
 		arg.Next_3,
 		arg.ID_4,
-		arg.CollectionID_4,
 		arg.FolderID_4,
 		arg.Name_4,
 		arg.Url_4,
@@ -4097,7 +4055,6 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Prev_4,
 		arg.Next_4,
 		arg.ID_5,
-		arg.CollectionID_5,
 		arg.FolderID_5,
 		arg.Name_5,
 		arg.Url_5,
@@ -4108,7 +4065,6 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Prev_5,
 		arg.Next_5,
 		arg.ID_6,
-		arg.CollectionID_6,
 		arg.FolderID_6,
 		arg.Name_6,
 		arg.Url_6,
@@ -4119,7 +4075,6 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Prev_6,
 		arg.Next_6,
 		arg.ID_7,
-		arg.CollectionID_7,
 		arg.FolderID_7,
 		arg.Name_7,
 		arg.Url_7,
@@ -4130,7 +4085,6 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Prev_7,
 		arg.Next_7,
 		arg.ID_8,
-		arg.CollectionID_8,
 		arg.FolderID_8,
 		arg.Name_8,
 		arg.Url_8,
@@ -4141,7 +4095,6 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Prev_8,
 		arg.Next_8,
 		arg.ID_9,
-		arg.CollectionID_9,
 		arg.FolderID_9,
 		arg.Name_9,
 		arg.Url_9,
@@ -4152,7 +4105,6 @@ func (q *Queries) CreateItemApiBulk(ctx context.Context, arg CreateItemApiBulkPa
 		arg.Prev_9,
 		arg.Next_9,
 		arg.ID_10,
-		arg.CollectionID_10,
 		arg.FolderID_10,
 		arg.Name_10,
 		arg.Url_10,
@@ -4171,7 +4123,6 @@ INSERT INTO
   item_api_example (
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -4180,13 +4131,12 @@ INSERT INTO
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleParams struct {
 	ID              idwrap.IDWrap
 	ItemApiID       idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
 	IsDefault       bool
 	BodyType        int8
 	Name            string
@@ -4199,7 +4149,6 @@ func (q *Queries) CreateItemApiExample(ctx context.Context, arg CreateItemApiExa
 	_, err := q.exec(ctx, q.createItemApiExampleStmt, createItemApiExample,
 		arg.ID,
 		arg.ItemApiID,
-		arg.CollectionID,
 		arg.IsDefault,
 		arg.BodyType,
 		arg.Name,
@@ -4215,7 +4164,6 @@ INSERT INTO
   item_api_example (
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -4224,22 +4172,21 @@ INSERT INTO
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateItemApiExampleBulkParams struct {
 	ID                 idwrap.IDWrap
 	ItemApiID          idwrap.IDWrap
-	CollectionID       idwrap.IDWrap
 	IsDefault          bool
 	BodyType           int8
 	Name               string
@@ -4248,7 +4195,6 @@ type CreateItemApiExampleBulkParams struct {
 	Next               *idwrap.IDWrap
 	ID_2               idwrap.IDWrap
 	ItemApiID_2        idwrap.IDWrap
-	CollectionID_2     idwrap.IDWrap
 	IsDefault_2        bool
 	BodyType_2         int8
 	Name_2             string
@@ -4257,7 +4203,6 @@ type CreateItemApiExampleBulkParams struct {
 	Next_2             *idwrap.IDWrap
 	ID_3               idwrap.IDWrap
 	ItemApiID_3        idwrap.IDWrap
-	CollectionID_3     idwrap.IDWrap
 	IsDefault_3        bool
 	BodyType_3         int8
 	Name_3             string
@@ -4266,7 +4211,6 @@ type CreateItemApiExampleBulkParams struct {
 	Next_3             *idwrap.IDWrap
 	ID_4               idwrap.IDWrap
 	ItemApiID_4        idwrap.IDWrap
-	CollectionID_4     idwrap.IDWrap
 	IsDefault_4        bool
 	BodyType_4         int8
 	Name_4             string
@@ -4275,7 +4219,6 @@ type CreateItemApiExampleBulkParams struct {
 	Next_4             *idwrap.IDWrap
 	ID_5               idwrap.IDWrap
 	ItemApiID_5        idwrap.IDWrap
-	CollectionID_5     idwrap.IDWrap
 	IsDefault_5        bool
 	BodyType_5         int8
 	Name_5             string
@@ -4284,7 +4227,6 @@ type CreateItemApiExampleBulkParams struct {
 	Next_5             *idwrap.IDWrap
 	ID_6               idwrap.IDWrap
 	ItemApiID_6        idwrap.IDWrap
-	CollectionID_6     idwrap.IDWrap
 	IsDefault_6        bool
 	BodyType_6         int8
 	Name_6             string
@@ -4293,7 +4235,6 @@ type CreateItemApiExampleBulkParams struct {
 	Next_6             *idwrap.IDWrap
 	ID_7               idwrap.IDWrap
 	ItemApiID_7        idwrap.IDWrap
-	CollectionID_7     idwrap.IDWrap
 	IsDefault_7        bool
 	BodyType_7         int8
 	Name_7             string
@@ -4302,7 +4243,6 @@ type CreateItemApiExampleBulkParams struct {
 	Next_7             *idwrap.IDWrap
 	ID_8               idwrap.IDWrap
 	ItemApiID_8        idwrap.IDWrap
-	CollectionID_8     idwrap.IDWrap
 	IsDefault_8        bool
 	BodyType_8         int8
 	Name_8             string
@@ -4311,7 +4251,6 @@ type CreateItemApiExampleBulkParams struct {
 	Next_8             *idwrap.IDWrap
 	ID_9               idwrap.IDWrap
 	ItemApiID_9        idwrap.IDWrap
-	CollectionID_9     idwrap.IDWrap
 	IsDefault_9        bool
 	BodyType_9         int8
 	Name_9             string
@@ -4320,7 +4259,6 @@ type CreateItemApiExampleBulkParams struct {
 	Next_9             *idwrap.IDWrap
 	ID_10              idwrap.IDWrap
 	ItemApiID_10       idwrap.IDWrap
-	CollectionID_10    idwrap.IDWrap
 	IsDefault_10       bool
 	BodyType_10        int8
 	Name_10            string
@@ -4333,7 +4271,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 	_, err := q.exec(ctx, q.createItemApiExampleBulkStmt, createItemApiExampleBulk,
 		arg.ID,
 		arg.ItemApiID,
-		arg.CollectionID,
 		arg.IsDefault,
 		arg.BodyType,
 		arg.Name,
@@ -4342,7 +4279,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Next,
 		arg.ID_2,
 		arg.ItemApiID_2,
-		arg.CollectionID_2,
 		arg.IsDefault_2,
 		arg.BodyType_2,
 		arg.Name_2,
@@ -4351,7 +4287,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Next_2,
 		arg.ID_3,
 		arg.ItemApiID_3,
-		arg.CollectionID_3,
 		arg.IsDefault_3,
 		arg.BodyType_3,
 		arg.Name_3,
@@ -4360,7 +4295,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Next_3,
 		arg.ID_4,
 		arg.ItemApiID_4,
-		arg.CollectionID_4,
 		arg.IsDefault_4,
 		arg.BodyType_4,
 		arg.Name_4,
@@ -4369,7 +4303,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Next_4,
 		arg.ID_5,
 		arg.ItemApiID_5,
-		arg.CollectionID_5,
 		arg.IsDefault_5,
 		arg.BodyType_5,
 		arg.Name_5,
@@ -4378,7 +4311,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Next_5,
 		arg.ID_6,
 		arg.ItemApiID_6,
-		arg.CollectionID_6,
 		arg.IsDefault_6,
 		arg.BodyType_6,
 		arg.Name_6,
@@ -4387,7 +4319,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Next_6,
 		arg.ID_7,
 		arg.ItemApiID_7,
-		arg.CollectionID_7,
 		arg.IsDefault_7,
 		arg.BodyType_7,
 		arg.Name_7,
@@ -4396,7 +4327,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Next_7,
 		arg.ID_8,
 		arg.ItemApiID_8,
-		arg.CollectionID_8,
 		arg.IsDefault_8,
 		arg.BodyType_8,
 		arg.Name_8,
@@ -4405,7 +4335,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Next_8,
 		arg.ID_9,
 		arg.ItemApiID_9,
-		arg.CollectionID_9,
 		arg.IsDefault_9,
 		arg.BodyType_9,
 		arg.Name_9,
@@ -4414,7 +4343,6 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 		arg.Next_9,
 		arg.ID_10,
 		arg.ItemApiID_10,
-		arg.CollectionID_10,
 		arg.IsDefault_10,
 		arg.BodyType_10,
 		arg.Name_10,
@@ -4427,18 +4355,17 @@ func (q *Queries) CreateItemApiExampleBulk(ctx context.Context, arg CreateItemAp
 
 const createItemFolder = `-- name: CreateItemFolder :exec
 INSERT INTO
-    item_folder (id, name, parent_id, collection_id, prev, next)
+    item_folder (id, name, parent_id, prev, next)
 VALUES
-    (?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?)
 `
 
 type CreateItemFolderParams struct {
-	ID           idwrap.IDWrap
-	Name         string
-	ParentID     *idwrap.IDWrap
-	CollectionID idwrap.IDWrap
-	Prev         *idwrap.IDWrap
-	Next         *idwrap.IDWrap
+	ID       idwrap.IDWrap
+	Name     string
+	ParentID *idwrap.IDWrap
+	Prev     *idwrap.IDWrap
+	Next     *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderParams) error {
@@ -4446,7 +4373,6 @@ func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderPara
 		arg.ID,
 		arg.Name,
 		arg.ParentID,
-		arg.CollectionID,
 		arg.Prev,
 		arg.Next,
 	)
@@ -4455,81 +4381,71 @@ func (q *Queries) CreateItemFolder(ctx context.Context, arg CreateItemFolderPara
 
 const createItemFolderBulk = `-- name: CreateItemFolderBulk :exec
 INSERT INTO
-    item_folder (id, name, parent_id, collection_id, prev, next)
+    item_folder (id, name, parent_id, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?)
 `
 
 type CreateItemFolderBulkParams struct {
-	ID              idwrap.IDWrap
-	Name            string
-	ParentID        *idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
-	Prev            *idwrap.IDWrap
-	Next            *idwrap.IDWrap
-	ID_2            idwrap.IDWrap
-	Name_2          string
-	ParentID_2      *idwrap.IDWrap
-	CollectionID_2  idwrap.IDWrap
-	Prev_2          *idwrap.IDWrap
-	Next_2          *idwrap.IDWrap
-	ID_3            idwrap.IDWrap
-	Name_3          string
-	ParentID_3      *idwrap.IDWrap
-	CollectionID_3  idwrap.IDWrap
-	Prev_3          *idwrap.IDWrap
-	Next_3          *idwrap.IDWrap
-	ID_4            idwrap.IDWrap
-	Name_4          string
-	ParentID_4      *idwrap.IDWrap
-	CollectionID_4  idwrap.IDWrap
-	Prev_4          *idwrap.IDWrap
-	Next_4          *idwrap.IDWrap
-	ID_5            idwrap.IDWrap
-	Name_5          string
-	ParentID_5      *idwrap.IDWrap
-	CollectionID_5  idwrap.IDWrap
-	Prev_5          *idwrap.IDWrap
-	Next_5          *idwrap.IDWrap
-	ID_6            idwrap.IDWrap
-	Name_6          string
-	ParentID_6      *idwrap.IDWrap
-	CollectionID_6  idwrap.IDWrap
-	Prev_6          *idwrap.IDWrap
-	Next_6          *idwrap.IDWrap
-	ID_7            idwrap.IDWrap
-	Name_7          string
-	ParentID_7      *idwrap.IDWrap
-	CollectionID_7  idwrap.IDWrap
-	Prev_7          *idwrap.IDWrap
-	Next_7          *idwrap.IDWrap
-	ID_8            idwrap.IDWrap
-	Name_8          string
-	ParentID_8      *idwrap.IDWrap
-	CollectionID_8  idwrap.IDWrap
-	Prev_8          *idwrap.IDWrap
-	Next_8          *idwrap.IDWrap
-	ID_9            idwrap.IDWrap
-	Name_9          string
-	ParentID_9      *idwrap.IDWrap
-	CollectionID_9  idwrap.IDWrap
-	Prev_9          *idwrap.IDWrap
-	Next_9          *idwrap.IDWrap
-	ID_10           idwrap.IDWrap
-	Name_10         string
-	ParentID_10     *idwrap.IDWrap
-	CollectionID_10 idwrap.IDWrap
-	Prev_10         *idwrap.IDWrap
-	Next_10         *idwrap.IDWrap
+	ID          idwrap.IDWrap
+	Name        string
+	ParentID    *idwrap.IDWrap
+	Prev        *idwrap.IDWrap
+	Next        *idwrap.IDWrap
+	ID_2        idwrap.IDWrap
+	Name_2      string
+	ParentID_2  *idwrap.IDWrap
+	Prev_2      *idwrap.IDWrap
+	Next_2      *idwrap.IDWrap
+	ID_3        idwrap.IDWrap
+	Name_3      string
+	ParentID_3  *idwrap.IDWrap
+	Prev_3      *idwrap.IDWrap
+	Next_3      *idwrap.IDWrap
+	ID_4        idwrap.IDWrap
+	Name_4      string
+	ParentID_4  *idwrap.IDWrap
+	Prev_4      *idwrap.IDWrap
+	Next_4      *idwrap.IDWrap
+	ID_5        idwrap.IDWrap
+	Name_5      string
+	ParentID_5  *idwrap.IDWrap
+	Prev_5      *idwrap.IDWrap
+	Next_5      *idwrap.IDWrap
+	ID_6        idwrap.IDWrap
+	Name_6      string
+	ParentID_6  *idwrap.IDWrap
+	Prev_6      *idwrap.IDWrap
+	Next_6      *idwrap.IDWrap
+	ID_7        idwrap.IDWrap
+	Name_7      string
+	ParentID_7  *idwrap.IDWrap
+	Prev_7      *idwrap.IDWrap
+	Next_7      *idwrap.IDWrap
+	ID_8        idwrap.IDWrap
+	Name_8      string
+	ParentID_8  *idwrap.IDWrap
+	Prev_8      *idwrap.IDWrap
+	Next_8      *idwrap.IDWrap
+	ID_9        idwrap.IDWrap
+	Name_9      string
+	ParentID_9  *idwrap.IDWrap
+	Prev_9      *idwrap.IDWrap
+	Next_9      *idwrap.IDWrap
+	ID_10       idwrap.IDWrap
+	Name_10     string
+	ParentID_10 *idwrap.IDWrap
+	Prev_10     *idwrap.IDWrap
+	Next_10     *idwrap.IDWrap
 }
 
 func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolderBulkParams) error {
@@ -4537,61 +4453,51 @@ func (q *Queries) CreateItemFolderBulk(ctx context.Context, arg CreateItemFolder
 		arg.ID,
 		arg.Name,
 		arg.ParentID,
-		arg.CollectionID,
 		arg.Prev,
 		arg.Next,
 		arg.ID_2,
 		arg.Name_2,
 		arg.ParentID_2,
-		arg.CollectionID_2,
 		arg.Prev_2,
 		arg.Next_2,
 		arg.ID_3,
 		arg.Name_3,
 		arg.ParentID_3,
-		arg.CollectionID_3,
 		arg.Prev_3,
 		arg.Next_3,
 		arg.ID_4,
 		arg.Name_4,
 		arg.ParentID_4,
-		arg.CollectionID_4,
 		arg.Prev_4,
 		arg.Next_4,
 		arg.ID_5,
 		arg.Name_5,
 		arg.ParentID_5,
-		arg.CollectionID_5,
 		arg.Prev_5,
 		arg.Next_5,
 		arg.ID_6,
 		arg.Name_6,
 		arg.ParentID_6,
-		arg.CollectionID_6,
 		arg.Prev_6,
 		arg.Next_6,
 		arg.ID_7,
 		arg.Name_7,
 		arg.ParentID_7,
-		arg.CollectionID_7,
 		arg.Prev_7,
 		arg.Next_7,
 		arg.ID_8,
 		arg.Name_8,
 		arg.ParentID_8,
-		arg.CollectionID_8,
 		arg.Prev_8,
 		arg.Next_8,
 		arg.ID_9,
 		arg.Name_9,
 		arg.ParentID_9,
-		arg.CollectionID_9,
 		arg.Prev_9,
 		arg.Next_9,
 		arg.ID_10,
 		arg.Name_10,
 		arg.ParentID_10,
-		arg.CollectionID_10,
 		arg.Prev_10,
 		arg.Next_10,
 	)
@@ -5142,28 +5048,6 @@ WHERE
 
 func (q *Queries) DeleteBodyURLEncoded(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteBodyURLEncodedStmt, deleteBodyURLEncoded, id)
-	return err
-}
-
-const deleteCollection = `-- name: DeleteCollection :exec
-DELETE FROM collections
-WHERE
-  id = ?
-`
-
-func (q *Queries) DeleteCollection(ctx context.Context, id idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteCollectionStmt, deleteCollection, id)
-	return err
-}
-
-const deleteCollectionItem = `-- name: DeleteCollectionItem :exec
-DELETE FROM collection_items
-WHERE
-  id = ?
-`
-
-func (q *Queries) DeleteCollectionItem(ctx context.Context, id idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteCollectionItemStmt, deleteCollectionItem, id)
 	return err
 }
 
@@ -7157,7 +7041,6 @@ const getAllExamplesByEndpointID = `-- name: GetAllExamplesByEndpointID :many
 SELECT
   id,
   item_api_id,
-  collection_id,
   is_default,
   body_type,
   name,
@@ -7189,7 +7072,6 @@ func (q *Queries) GetAllExamplesByEndpointID(ctx context.Context, itemApiID idwr
 		if err := rows.Scan(
 			&i.ID,
 			&i.ItemApiID,
-			&i.CollectionID,
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
@@ -7265,10 +7147,9 @@ func (q *Queries) GetAllHeadersByExampleID(ctx context.Context, exampleID idwrap
 	return items, nil
 }
 
-const getAllItemsApiByCollectionID = `-- name: GetAllItemsApiByCollectionID :many
+const getAllItemsApiByFolderID = `-- name: GetAllItemsApiByFolderID :many
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -7281,13 +7162,13 @@ SELECT
 FROM
   item_api
 WHERE
-  collection_id = ? AND
+  folder_id = ? AND
   version_parent_id is NULL AND
   delta_parent_id is NULL
 `
 
-func (q *Queries) GetAllItemsApiByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]ItemApi, error) {
-	rows, err := q.query(ctx, q.getAllItemsApiByCollectionIDStmt, getAllItemsApiByCollectionID, collectionID)
+func (q *Queries) GetAllItemsApiByFolderID(ctx context.Context, folderID *idwrap.IDWrap) ([]ItemApi, error) {
+	rows, err := q.query(ctx, q.getAllItemsApiByFolderIDStmt, getAllItemsApiByFolderID, folderID)
 	if err != nil {
 		return nil, err
 	}
@@ -7297,7 +7178,6 @@ func (q *Queries) GetAllItemsApiByCollectionID(ctx context.Context, collectionID
 		var i ItemApi
 		if err := rows.Scan(
 			&i.ID,
-			&i.CollectionID,
 			&i.FolderID,
 			&i.Name,
 			&i.Url,
@@ -8531,829 +8411,6 @@ func (q *Queries) GetBodyUrlEncodedsByExampleIDs(ctx context.Context, exampleIds
 	return items, nil
 }
 
-const getCollection = `-- name: GetCollection :one
-SELECT
-  id,
-  workspace_id,
-  name,
-  prev,
-  next
-FROM
-  collections
-WHERE
-  id = ?
-LIMIT
-  1
-`
-
-// Collections
-func (q *Queries) GetCollection(ctx context.Context, id idwrap.IDWrap) (Collection, error) {
-	row := q.queryRow(ctx, q.getCollectionStmt, getCollection, id)
-	var i Collection
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceID,
-		&i.Name,
-		&i.Prev,
-		&i.Next,
-	)
-	return i, err
-}
-
-const getCollectionByPlatformIDandType = `-- name: GetCollectionByPlatformIDandType :many
-SELECT
-  id,
-  workspace_id,
-  name
-FROM
-  collections
-WHERE
-  id = ?
-`
-
-type GetCollectionByPlatformIDandTypeRow struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Name        string
-}
-
-func (q *Queries) GetCollectionByPlatformIDandType(ctx context.Context, id idwrap.IDWrap) ([]GetCollectionByPlatformIDandTypeRow, error) {
-	rows, err := q.query(ctx, q.getCollectionByPlatformIDandTypeStmt, getCollectionByPlatformIDandType, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetCollectionByPlatformIDandTypeRow{}
-	for rows.Next() {
-		var i GetCollectionByPlatformIDandTypeRow
-		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.Name); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getCollectionByPrevNext = `-- name: GetCollectionByPrevNext :one
-SELECT
-  id,
-  workspace_id,
-  name,
-  prev,
-  next
-FROM
-  collections
-WHERE
-  workspace_id = ? AND
-  prev = ? AND
-  next = ?
-LIMIT
-  1
-`
-
-type GetCollectionByPrevNextParams struct {
-	WorkspaceID idwrap.IDWrap
-	Prev        *idwrap.IDWrap
-	Next        *idwrap.IDWrap
-}
-
-// Find collection by its prev/next references for position-based operations
-func (q *Queries) GetCollectionByPrevNext(ctx context.Context, arg GetCollectionByPrevNextParams) (Collection, error) {
-	row := q.queryRow(ctx, q.getCollectionByPrevNextStmt, getCollectionByPrevNext, arg.WorkspaceID, arg.Prev, arg.Next)
-	var i Collection
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceID,
-		&i.Name,
-		&i.Prev,
-		&i.Next,
-	)
-	return i, err
-}
-
-const getCollectionByWorkspaceID = `-- name: GetCollectionByWorkspaceID :many
-SELECT
-  id,
-  workspace_id,
-  name
-FROM
-  collections
-WHERE
-  workspace_id = ?
-`
-
-type GetCollectionByWorkspaceIDRow struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Name        string
-}
-
-func (q *Queries) GetCollectionByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]GetCollectionByWorkspaceIDRow, error) {
-	rows, err := q.query(ctx, q.getCollectionByWorkspaceIDStmt, getCollectionByWorkspaceID, workspaceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetCollectionByWorkspaceIDRow{}
-	for rows.Next() {
-		var i GetCollectionByWorkspaceIDRow
-		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.Name); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getCollectionByWorkspaceIDAndName = `-- name: GetCollectionByWorkspaceIDAndName :one
-SELECT
-  id,
-  workspace_id,
-  name
-FROM
-  collections
-WHERE
-  workspace_id = ? AND
-  name = ?
-LIMIT
-  1
-`
-
-type GetCollectionByWorkspaceIDAndNameParams struct {
-	WorkspaceID idwrap.IDWrap
-	Name        string
-}
-
-type GetCollectionByWorkspaceIDAndNameRow struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Name        string
-}
-
-func (q *Queries) GetCollectionByWorkspaceIDAndName(ctx context.Context, arg GetCollectionByWorkspaceIDAndNameParams) (GetCollectionByWorkspaceIDAndNameRow, error) {
-	row := q.queryRow(ctx, q.getCollectionByWorkspaceIDAndNameStmt, getCollectionByWorkspaceIDAndName, arg.WorkspaceID, arg.Name)
-	var i GetCollectionByWorkspaceIDAndNameRow
-	err := row.Scan(&i.ID, &i.WorkspaceID, &i.Name)
-	return i, err
-}
-
-const getCollectionItem = `-- name: GetCollectionItem :one
-
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  id = ?
-LIMIT
-  1
-`
-
-// Collection Items Unified Table Queries
-// These queries handle both folders and endpoints through a unified interface
-func (q *Queries) GetCollectionItem(ctx context.Context, id idwrap.IDWrap) (CollectionItem, error) {
-	row := q.queryRow(ctx, q.getCollectionItemStmt, getCollectionItem, id)
-	var i CollectionItem
-	err := row.Scan(
-		&i.ID,
-		&i.CollectionID,
-		&i.ParentFolderID,
-		&i.ItemType,
-		&i.FolderID,
-		&i.EndpointID,
-		&i.Name,
-		&i.PrevID,
-		&i.NextID,
-	)
-	return i, err
-}
-
-const getCollectionItemByEndpointID = `-- name: GetCollectionItemByEndpointID :one
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  endpoint_id = ?
-LIMIT
-  1
-`
-
-// Get collection item by endpoint_id (for legacy ID compatibility)
-func (q *Queries) GetCollectionItemByEndpointID(ctx context.Context, endpointID *idwrap.IDWrap) (CollectionItem, error) {
-	row := q.queryRow(ctx, q.getCollectionItemByEndpointIDStmt, getCollectionItemByEndpointID, endpointID)
-	var i CollectionItem
-	err := row.Scan(
-		&i.ID,
-		&i.CollectionID,
-		&i.ParentFolderID,
-		&i.ItemType,
-		&i.FolderID,
-		&i.EndpointID,
-		&i.Name,
-		&i.PrevID,
-		&i.NextID,
-	)
-	return i, err
-}
-
-const getCollectionItemByFolderID = `-- name: GetCollectionItemByFolderID :one
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  folder_id = ?
-LIMIT
-  1
-`
-
-// Get collection item by folder_id (for legacy ID compatibility)
-func (q *Queries) GetCollectionItemByFolderID(ctx context.Context, folderID *idwrap.IDWrap) (CollectionItem, error) {
-	row := q.queryRow(ctx, q.getCollectionItemByFolderIDStmt, getCollectionItemByFolderID, folderID)
-	var i CollectionItem
-	err := row.Scan(
-		&i.ID,
-		&i.CollectionID,
-		&i.ParentFolderID,
-		&i.ItemType,
-		&i.FolderID,
-		&i.EndpointID,
-		&i.Name,
-		&i.PrevID,
-		&i.NextID,
-	)
-	return i, err
-}
-
-const getCollectionItemTail = `-- name: GetCollectionItemTail :one
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  collection_id = ? AND
-  (parent_folder_id = ? OR (? IS NULL AND parent_folder_id IS NULL)) AND
-  next_id IS NULL
-LIMIT
-  1
-`
-
-type GetCollectionItemTailParams struct {
-	CollectionID   idwrap.IDWrap
-	ParentFolderID *idwrap.IDWrap
-	Column3        interface{}
-}
-
-// Get the last item in the list (tail) for a collection/parent folder
-// Used when appending new items to the end of the list
-func (q *Queries) GetCollectionItemTail(ctx context.Context, arg GetCollectionItemTailParams) (CollectionItem, error) {
-	row := q.queryRow(ctx, q.getCollectionItemTailStmt, getCollectionItemTail, arg.CollectionID, arg.ParentFolderID, arg.Column3)
-	var i CollectionItem
-	err := row.Scan(
-		&i.ID,
-		&i.CollectionID,
-		&i.ParentFolderID,
-		&i.ItemType,
-		&i.FolderID,
-		&i.EndpointID,
-		&i.Name,
-		&i.PrevID,
-		&i.NextID,
-	)
-	return i, err
-}
-
-const getCollectionItemsByCollectionID = `-- name: GetCollectionItemsByCollectionID :many
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  collection_id = ?
-`
-
-func (q *Queries) GetCollectionItemsByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]CollectionItem, error) {
-	rows, err := q.query(ctx, q.getCollectionItemsByCollectionIDStmt, getCollectionItemsByCollectionID, collectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CollectionItem{}
-	for rows.Next() {
-		var i CollectionItem
-		if err := rows.Scan(
-			&i.ID,
-			&i.CollectionID,
-			&i.ParentFolderID,
-			&i.ItemType,
-			&i.FolderID,
-			&i.EndpointID,
-			&i.Name,
-			&i.PrevID,
-			&i.NextID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getCollectionItemsByParentFolderID = `-- name: GetCollectionItemsByParentFolderID :many
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  collection_id = ? AND
-  parent_folder_id = ?
-`
-
-type GetCollectionItemsByParentFolderIDParams struct {
-	CollectionID   idwrap.IDWrap
-	ParentFolderID *idwrap.IDWrap
-}
-
-func (q *Queries) GetCollectionItemsByParentFolderID(ctx context.Context, arg GetCollectionItemsByParentFolderIDParams) ([]CollectionItem, error) {
-	rows, err := q.query(ctx, q.getCollectionItemsByParentFolderIDStmt, getCollectionItemsByParentFolderID, arg.CollectionID, arg.ParentFolderID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CollectionItem{}
-	for rows.Next() {
-		var i CollectionItem
-		if err := rows.Scan(
-			&i.ID,
-			&i.CollectionID,
-			&i.ParentFolderID,
-			&i.ItemType,
-			&i.FolderID,
-			&i.EndpointID,
-			&i.Name,
-			&i.PrevID,
-			&i.NextID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getCollectionItemsByType = `-- name: GetCollectionItemsByType :many
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  collection_id = ? AND
-  (parent_folder_id = ? OR (? IS NULL AND parent_folder_id IS NULL)) AND
-  item_type = ?
-`
-
-type GetCollectionItemsByTypeParams struct {
-	CollectionID   idwrap.IDWrap
-	ParentFolderID *idwrap.IDWrap
-	Column3        interface{}
-	ItemType       int8
-}
-
-// Get items filtered by type (0 = folder, 1 = endpoint)
-func (q *Queries) GetCollectionItemsByType(ctx context.Context, arg GetCollectionItemsByTypeParams) ([]CollectionItem, error) {
-	rows, err := q.query(ctx, q.getCollectionItemsByTypeStmt, getCollectionItemsByType,
-		arg.CollectionID,
-		arg.ParentFolderID,
-		arg.Column3,
-		arg.ItemType,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CollectionItem{}
-	for rows.Next() {
-		var i CollectionItem
-		if err := rows.Scan(
-			&i.ID,
-			&i.CollectionID,
-			&i.ParentFolderID,
-			&i.ItemType,
-			&i.FolderID,
-			&i.EndpointID,
-			&i.Name,
-			&i.PrevID,
-			&i.NextID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getCollectionItemsInOrder = `-- name: GetCollectionItemsInOrder :many
-WITH RECURSIVE ordered_items AS (
-  -- Base case: Find the head (prev_id IS NULL)
-  SELECT
-    ci.id,
-    ci.collection_id,
-    ci.parent_folder_id,
-    ci.item_type,
-    ci.folder_id,
-    ci.endpoint_id,
-    ci.name,
-    ci.prev_id,
-    ci.next_id,
-    0 as position
-  FROM
-    collection_items ci
-  WHERE
-    ci.collection_id = ? AND
-    (ci.parent_folder_id = ? OR (? IS NULL AND ci.parent_folder_id IS NULL)) AND
-    ci.prev_id IS NULL
-  
-  UNION ALL
-  
-  -- Recursive case: Follow the next_id pointers
-  SELECT
-    ci.id,
-    ci.collection_id,
-    ci.parent_folder_id,
-    ci.item_type,
-    ci.folder_id,
-    ci.endpoint_id,
-    ci.name,
-    ci.prev_id,
-    ci.next_id,
-    oi.position + 1
-  FROM
-    collection_items ci
-  INNER JOIN ordered_items oi ON ci.prev_id = oi.id
-  WHERE
-    ci.collection_id = ?
-)
-SELECT
-  oi.id,
-  oi.collection_id,
-  oi.parent_folder_id,
-  oi.item_type,
-  oi.folder_id,
-  oi.endpoint_id,
-  oi.name,
-  oi.prev_id,
-  oi.next_id,
-  oi.position
-FROM
-  ordered_items oi
-ORDER BY
-  oi.position
-`
-
-type GetCollectionItemsInOrderParams struct {
-	CollectionID   idwrap.IDWrap
-	ParentFolderID *idwrap.IDWrap
-	Column3        interface{}
-	CollectionID_2 idwrap.IDWrap
-}
-
-type GetCollectionItemsInOrderRow struct {
-	ID             []byte
-	CollectionID   []byte
-	ParentFolderID []byte
-	ItemType       int8
-	FolderID       []byte
-	EndpointID     []byte
-	Name           string
-	PrevID         []byte
-	NextID         []byte
-	Position       int64
-}
-
-// Uses WITH RECURSIVE CTE to traverse linked list from head to tail
-// Returns items in correct order for a collection/parent folder
-func (q *Queries) GetCollectionItemsInOrder(ctx context.Context, arg GetCollectionItemsInOrderParams) ([]GetCollectionItemsInOrderRow, error) {
-	rows, err := q.query(ctx, q.getCollectionItemsInOrderStmt, getCollectionItemsInOrder,
-		arg.CollectionID,
-		arg.ParentFolderID,
-		arg.Column3,
-		arg.CollectionID_2,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetCollectionItemsInOrderRow{}
-	for rows.Next() {
-		var i GetCollectionItemsInOrderRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.CollectionID,
-			&i.ParentFolderID,
-			&i.ItemType,
-			&i.FolderID,
-			&i.EndpointID,
-			&i.Name,
-			&i.PrevID,
-			&i.NextID,
-			&i.Position,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getCollectionItemsInOrderForCollection = `-- name: GetCollectionItemsInOrderForCollection :many
-SELECT id, collection_id, parent_folder_id, item_type, folder_id, endpoint_id, name, prev_id, next_id
-FROM collection_items 
-WHERE collection_id = ? AND parent_folder_id IS NULL
-ORDER BY CASE WHEN prev_id IS NULL THEN 0 ELSE 1 END, id
-`
-
-// Get all collection items in order for a specific collection (used for cross-collection validation)
-func (q *Queries) GetCollectionItemsInOrderForCollection(ctx context.Context, collectionID idwrap.IDWrap) ([]CollectionItem, error) {
-	rows, err := q.query(ctx, q.getCollectionItemsInOrderForCollectionStmt, getCollectionItemsInOrderForCollection, collectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CollectionItem{}
-	for rows.Next() {
-		var i CollectionItem
-		if err := rows.Scan(
-			&i.ID,
-			&i.CollectionID,
-			&i.ParentFolderID,
-			&i.ItemType,
-			&i.FolderID,
-			&i.EndpointID,
-			&i.Name,
-			&i.PrevID,
-			&i.NextID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getCollectionMaxPosition = `-- name: GetCollectionMaxPosition :one
-SELECT
-  id,
-  workspace_id,
-  name,
-  prev,
-  next
-FROM
-  collections
-WHERE
-  workspace_id = ? AND
-  next IS NULL
-LIMIT
-  1
-`
-
-// Get the last collection in the list (tail) for a workspace
-// Used when appending new collections to the end of the list
-func (q *Queries) GetCollectionMaxPosition(ctx context.Context, workspaceID idwrap.IDWrap) (Collection, error) {
-	row := q.queryRow(ctx, q.getCollectionMaxPositionStmt, getCollectionMaxPosition, workspaceID)
-	var i Collection
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceID,
-		&i.Name,
-		&i.Prev,
-		&i.Next,
-	)
-	return i, err
-}
-
-const getCollectionWorkspaceByItemId = `-- name: GetCollectionWorkspaceByItemId :one
-SELECT c.workspace_id 
-FROM collections c
-JOIN collection_items ci ON ci.collection_id = c.id
-WHERE ci.id = ?
-`
-
-// Get the workspace_id for a collection that contains a specific collection item
-func (q *Queries) GetCollectionWorkspaceByItemId(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
-	row := q.queryRow(ctx, q.getCollectionWorkspaceByItemIdStmt, getCollectionWorkspaceByItemId, id)
-	var workspace_id idwrap.IDWrap
-	err := row.Scan(&workspace_id)
-	return workspace_id, err
-}
-
-const getCollectionWorkspaceID = `-- name: GetCollectionWorkspaceID :one
-SELECT
-  workspace_id
-FROM
-  collections
-WHERE
-  id = ?
-LIMIT
-  1
-`
-
-func (q *Queries) GetCollectionWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
-	row := q.queryRow(ctx, q.getCollectionWorkspaceIDStmt, getCollectionWorkspaceID, id)
-	var workspace_id idwrap.IDWrap
-	err := row.Scan(&workspace_id)
-	return workspace_id, err
-}
-
-const getCollectionsInOrder = `-- name: GetCollectionsInOrder :many
-WITH RECURSIVE ordered_collections AS (
-  -- Base case: Find the head (prev IS NULL)
-  SELECT
-    c.id,
-    c.workspace_id,
-    c.name,
-    c.prev,
-    c.next,
-    0 as position
-  FROM
-    collections c
-  WHERE
-    c.workspace_id = ? AND
-    c.prev IS NULL
-  
-  UNION ALL
-  
-  -- Recursive case: Follow the next pointers
-  SELECT
-    c.id,
-    c.workspace_id,
-    c.name,
-    c.prev,
-    c.next,
-    oc.position + 1
-  FROM
-    collections c
-  INNER JOIN ordered_collections oc ON c.prev = oc.id
-  WHERE
-    c.workspace_id = ?
-)
-SELECT
-  oc.id,
-  oc.workspace_id,
-  oc.name,
-  oc.prev,
-  oc.next,
-  oc.position
-FROM
-  ordered_collections oc
-ORDER BY
-  oc.position
-`
-
-type GetCollectionsInOrderParams struct {
-	WorkspaceID   idwrap.IDWrap
-	WorkspaceID_2 idwrap.IDWrap
-}
-
-type GetCollectionsInOrderRow struct {
-	ID          []byte
-	WorkspaceID []byte
-	Name        string
-	Prev        []byte
-	Next        []byte
-	Position    int64
-}
-
-// Uses WITH RECURSIVE CTE to traverse linked list from head to tail
-// Requires index on (workspace_id, prev) for optimal performance
-func (q *Queries) GetCollectionsInOrder(ctx context.Context, arg GetCollectionsInOrderParams) ([]GetCollectionsInOrderRow, error) {
-	rows, err := q.query(ctx, q.getCollectionsInOrderStmt, getCollectionsInOrder, arg.WorkspaceID, arg.WorkspaceID_2)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetCollectionsInOrderRow{}
-	for rows.Next() {
-		var i GetCollectionsInOrderRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.WorkspaceID,
-			&i.Name,
-			&i.Prev,
-			&i.Next,
-			&i.Position,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getEnvironment = `-- name: GetEnvironment :one
 /*
 * Environment
@@ -9757,7 +8814,6 @@ WITH RECURSIVE ordered_examples AS (
   SELECT
     e.id,
     e.item_api_id,
-    e.collection_id,
     e.is_default,
     e.body_type,
     e.name,
@@ -9779,7 +8835,6 @@ WITH RECURSIVE ordered_examples AS (
   SELECT
     e.id,
     e.item_api_id,
-    e.collection_id,
     e.is_default,
     e.body_type,
     e.name,
@@ -9798,7 +8853,6 @@ WITH RECURSIVE ordered_examples AS (
 SELECT
   oe.id,
   oe.item_api_id,
-  oe.collection_id,
   oe.is_default,
   oe.body_type,
   oe.name,
@@ -9820,7 +8874,6 @@ type GetExamplesByEndpointIDOrderedParams struct {
 type GetExamplesByEndpointIDOrderedRow struct {
 	ID              []byte
 	ItemApiID       []byte
-	CollectionID    []byte
 	IsDefault       bool
 	BodyType        int8
 	Name            string
@@ -9845,7 +8898,6 @@ func (q *Queries) GetExamplesByEndpointIDOrdered(ctx context.Context, arg GetExa
 		if err := rows.Scan(
 			&i.ID,
 			&i.ItemApiID,
-			&i.CollectionID,
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
@@ -9868,6 +8920,12 @@ func (q *Queries) GetExamplesByEndpointIDOrdered(ctx context.Context, arg GetExa
 }
 
 const getFile = `-- name: GetFile :one
+
+
+
+
+
+
 
 SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
 FROM files
@@ -13324,7 +12382,6 @@ func (q *Queries) GetHeadersByExampleIDs(ctx context.Context, exampleIds []idwra
 const getItemApi = `-- name: GetItemApi :one
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -13350,7 +12407,6 @@ func (q *Queries) GetItemApi(ctx context.Context, id idwrap.IDWrap) (ItemApi, er
 	var i ItemApi
 	err := row.Scan(
 		&i.ID,
-		&i.CollectionID,
 		&i.FolderID,
 		&i.Name,
 		&i.Url,
@@ -13364,10 +12420,9 @@ func (q *Queries) GetItemApi(ctx context.Context, id idwrap.IDWrap) (ItemApi, er
 	return i, err
 }
 
-const getItemApiByCollectionIDAndNextIDAndParentID = `-- name: GetItemApiByCollectionIDAndNextIDAndParentID :one
+const getItemApiByFolderIDAndNextID = `-- name: GetItemApiByFolderIDAndNextID :one
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -13381,24 +12436,21 @@ FROM
   item_api
 WHERE
   next = ? AND
-  folder_id = ? AND
-  collection_id = ?
+  folder_id = ?
 LIMIT
   1
 `
 
-type GetItemApiByCollectionIDAndNextIDAndParentIDParams struct {
-	Next         *idwrap.IDWrap
-	FolderID     *idwrap.IDWrap
-	CollectionID idwrap.IDWrap
+type GetItemApiByFolderIDAndNextIDParams struct {
+	Next     *idwrap.IDWrap
+	FolderID *idwrap.IDWrap
 }
 
-func (q *Queries) GetItemApiByCollectionIDAndNextIDAndParentID(ctx context.Context, arg GetItemApiByCollectionIDAndNextIDAndParentIDParams) (ItemApi, error) {
-	row := q.queryRow(ctx, q.getItemApiByCollectionIDAndNextIDAndParentIDStmt, getItemApiByCollectionIDAndNextIDAndParentID, arg.Next, arg.FolderID, arg.CollectionID)
+func (q *Queries) GetItemApiByFolderIDAndNextID(ctx context.Context, arg GetItemApiByFolderIDAndNextIDParams) (ItemApi, error) {
+	row := q.queryRow(ctx, q.getItemApiByFolderIDAndNextIDStmt, getItemApiByFolderIDAndNextID, arg.Next, arg.FolderID)
 	var i ItemApi
 	err := row.Scan(
 		&i.ID,
-		&i.CollectionID,
 		&i.FolderID,
 		&i.Name,
 		&i.Url,
@@ -13412,10 +12464,9 @@ func (q *Queries) GetItemApiByCollectionIDAndNextIDAndParentID(ctx context.Conte
 	return i, err
 }
 
-const getItemApiByCollectionIDAndURLAndMethod = `-- name: GetItemApiByCollectionIDAndURLAndMethod :one
+const getItemApiByFolderIDAndURLAndMethod = `-- name: GetItemApiByFolderIDAndURLAndMethod :one
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -13428,7 +12479,7 @@ SELECT
 FROM
   item_api
 WHERE
-  collection_id = ? AND
+  folder_id = ? AND
   url = ? AND
   method = ? AND
   version_parent_id is NULL AND
@@ -13437,18 +12488,17 @@ LIMIT
   1
 `
 
-type GetItemApiByCollectionIDAndURLAndMethodParams struct {
-	CollectionID idwrap.IDWrap
-	Url          string
-	Method       string
+type GetItemApiByFolderIDAndURLAndMethodParams struct {
+	FolderID *idwrap.IDWrap
+	Url      string
+	Method   string
 }
 
-func (q *Queries) GetItemApiByCollectionIDAndURLAndMethod(ctx context.Context, arg GetItemApiByCollectionIDAndURLAndMethodParams) (ItemApi, error) {
-	row := q.queryRow(ctx, q.getItemApiByCollectionIDAndURLAndMethodStmt, getItemApiByCollectionIDAndURLAndMethod, arg.CollectionID, arg.Url, arg.Method)
+func (q *Queries) GetItemApiByFolderIDAndURLAndMethod(ctx context.Context, arg GetItemApiByFolderIDAndURLAndMethodParams) (ItemApi, error) {
+	row := q.queryRow(ctx, q.getItemApiByFolderIDAndURLAndMethodStmt, getItemApiByFolderIDAndURLAndMethod, arg.FolderID, arg.Url, arg.Method)
 	var i ItemApi
 	err := row.Scan(
 		&i.ID,
-		&i.CollectionID,
 		&i.FolderID,
 		&i.Name,
 		&i.Url,
@@ -13466,7 +12516,6 @@ const getItemApiExample = `-- name: GetItemApiExample :one
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -13488,7 +12537,6 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id idwrap.IDWrap) (Item
 	err := row.Scan(
 		&i.ID,
 		&i.ItemApiID,
-		&i.CollectionID,
 		&i.IsDefault,
 		&i.BodyType,
 		&i.Name,
@@ -13499,62 +12547,10 @@ func (q *Queries) GetItemApiExample(ctx context.Context, id idwrap.IDWrap) (Item
 	return i, err
 }
 
-const getItemApiExampleByCollectionID = `-- name: GetItemApiExampleByCollectionID :many
-SELECT
-    id,
-    item_api_id,
-    collection_id,
-    is_default,
-    body_type,
-    name,
-    version_parent_id,
-    prev,
-    next
-FROM
-  item_api_example
-WHERE
-  collection_id = ? AND
-  version_parent_id is NULL
-`
-
-func (q *Queries) GetItemApiExampleByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]ItemApiExample, error) {
-	rows, err := q.query(ctx, q.getItemApiExampleByCollectionIDStmt, getItemApiExampleByCollectionID, collectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ItemApiExample{}
-	for rows.Next() {
-		var i ItemApiExample
-		if err := rows.Scan(
-			&i.ID,
-			&i.ItemApiID,
-			&i.CollectionID,
-			&i.IsDefault,
-			&i.BodyType,
-			&i.Name,
-			&i.VersionParentID,
-			&i.Prev,
-			&i.Next,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getItemApiExampleByVersionParentID = `-- name: GetItemApiExampleByVersionParentID :many
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -13579,7 +12575,6 @@ func (q *Queries) GetItemApiExampleByVersionParentID(ctx context.Context, versio
 		if err := rows.Scan(
 			&i.ID,
 			&i.ItemApiID,
-			&i.CollectionID,
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
@@ -13604,7 +12599,6 @@ const getItemApiExampleDefault = `-- name: GetItemApiExampleDefault :one
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -13626,7 +12620,6 @@ func (q *Queries) GetItemApiExampleDefault(ctx context.Context, itemApiID idwrap
 	err := row.Scan(
 		&i.ID,
 		&i.ItemApiID,
-		&i.CollectionID,
 		&i.IsDefault,
 		&i.BodyType,
 		&i.Name,
@@ -13641,7 +12634,6 @@ const getItemApiExamples = `-- name: GetItemApiExamples :many
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -13668,7 +12660,6 @@ func (q *Queries) GetItemApiExamples(ctx context.Context, itemApiID idwrap.IDWra
 		if err := rows.Scan(
 			&i.ID,
 			&i.ItemApiID,
-			&i.CollectionID,
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
@@ -13693,7 +12684,6 @@ const getItemApiExamplesByIDs = `-- name: GetItemApiExamplesByIDs :many
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -13728,7 +12718,55 @@ func (q *Queries) GetItemApiExamplesByIDs(ctx context.Context, ids []idwrap.IDWr
 		if err := rows.Scan(
 			&i.ID,
 			&i.ItemApiID,
-			&i.CollectionID,
+			&i.IsDefault,
+			&i.BodyType,
+			&i.Name,
+			&i.VersionParentID,
+			&i.Prev,
+			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getItemApiExamplesByItemApiID = `-- name: GetItemApiExamplesByItemApiID :many
+SELECT
+    id,
+    item_api_id,
+    is_default,
+    body_type,
+    name,
+    version_parent_id,
+    prev,
+    next
+FROM
+  item_api_example
+WHERE
+  item_api_id = ? AND
+  version_parent_id is NULL
+`
+
+func (q *Queries) GetItemApiExamplesByItemApiID(ctx context.Context, itemApiID idwrap.IDWrap) ([]ItemApiExample, error) {
+	rows, err := q.query(ctx, q.getItemApiExamplesByItemApiIDStmt, getItemApiExamplesByItemApiID, itemApiID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ItemApiExample{}
+	for rows.Next() {
+		var i ItemApiExample
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemApiID,
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
@@ -13753,7 +12791,6 @@ const getItemApiExamplesWithDefaults = `-- name: GetItemApiExamplesWithDefaults 
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -13779,7 +12816,6 @@ func (q *Queries) GetItemApiExamplesWithDefaults(ctx context.Context, itemApiID 
 		if err := rows.Scan(
 			&i.ID,
 			&i.ItemApiID,
-			&i.CollectionID,
 			&i.IsDefault,
 			&i.BodyType,
 			&i.Name,
@@ -13800,29 +12836,9 @@ func (q *Queries) GetItemApiExamplesWithDefaults(ctx context.Context, itemApiID 
 	return items, nil
 }
 
-const getItemApiWorkspaceID = `-- name: GetItemApiWorkspaceID :one
-SELECT
-  c.workspace_id
-FROM
-  collections c
-  INNER JOIN item_api i ON c.id = i.collection_id
-WHERE
-  i.id = ?
-LIMIT
-  1
-`
-
-func (q *Queries) GetItemApiWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
-	row := q.queryRow(ctx, q.getItemApiWorkspaceIDStmt, getItemApiWorkspaceID, id)
-	var workspace_id idwrap.IDWrap
-	err := row.Scan(&workspace_id)
-	return workspace_id, err
-}
-
 const getItemApisByIDs = `-- name: GetItemApisByIDs :many
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -13859,7 +12875,6 @@ func (q *Queries) GetItemApisByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]
 		var i ItemApi
 		if err := rows.Scan(
 			&i.ID,
-			&i.CollectionID,
 			&i.FolderID,
 			&i.Name,
 			&i.Url,
@@ -13883,11 +12898,10 @@ func (q *Queries) GetItemApisByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]
 	return items, nil
 }
 
-const getItemExampleByCollectionIDAndNextIDAndItemApiID = `-- name: GetItemExampleByCollectionIDAndNextIDAndItemApiID :one
+const getItemExampleByNextIDAndItemApiID = `-- name: GetItemExampleByNextIDAndItemApiID :one
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -13897,26 +12911,23 @@ SELECT
 FROM
   item_api_example
 WHERE
-  collection_id = ? AND
   next = ? AND
   prev = ?
 LIMIT
   1
 `
 
-type GetItemExampleByCollectionIDAndNextIDAndItemApiIDParams struct {
-	CollectionID idwrap.IDWrap
-	Next         *idwrap.IDWrap
-	Prev         *idwrap.IDWrap
+type GetItemExampleByNextIDAndItemApiIDParams struct {
+	Next *idwrap.IDWrap
+	Prev *idwrap.IDWrap
 }
 
-func (q *Queries) GetItemExampleByCollectionIDAndNextIDAndItemApiID(ctx context.Context, arg GetItemExampleByCollectionIDAndNextIDAndItemApiIDParams) (ItemApiExample, error) {
-	row := q.queryRow(ctx, q.getItemExampleByCollectionIDAndNextIDAndItemApiIDStmt, getItemExampleByCollectionIDAndNextIDAndItemApiID, arg.CollectionID, arg.Next, arg.Prev)
+func (q *Queries) GetItemExampleByNextIDAndItemApiID(ctx context.Context, arg GetItemExampleByNextIDAndItemApiIDParams) (ItemApiExample, error) {
+	row := q.queryRow(ctx, q.getItemExampleByNextIDAndItemApiIDStmt, getItemExampleByNextIDAndItemApiID, arg.Next, arg.Prev)
 	var i ItemApiExample
 	err := row.Scan(
 		&i.ID,
 		&i.ItemApiID,
-		&i.CollectionID,
 		&i.IsDefault,
 		&i.BodyType,
 		&i.Name,
@@ -13932,7 +12943,6 @@ const getItemFolder = `-- name: GetItemFolder :one
 
 SELECT
   id,
-  collection_id,
   parent_id,
   name,
   prev,
@@ -13951,7 +12961,6 @@ func (q *Queries) GetItemFolder(ctx context.Context, id idwrap.IDWrap) (ItemFold
 	var i ItemFolder
 	err := row.Scan(
 		&i.ID,
-		&i.CollectionID,
 		&i.ParentID,
 		&i.Name,
 		&i.Prev,
@@ -13960,10 +12969,9 @@ func (q *Queries) GetItemFolder(ctx context.Context, id idwrap.IDWrap) (ItemFold
 	return i, err
 }
 
-const getItemFolderByCollectionIDAndNextIDAndParentID = `-- name: GetItemFolderByCollectionIDAndNextIDAndParentID :one
+const getItemFolderByParentIDAndNextID = `-- name: GetItemFolderByParentIDAndNextID :one
 SELECT
   id,
-  collection_id,
   parent_id,
   name,
   prev,
@@ -13972,24 +12980,21 @@ FROM
   item_folder
 WHERE
   next = ? AND
-  parent_id = ? AND
-  collection_id = ?
+  parent_id = ?
 LIMIT
   1
 `
 
-type GetItemFolderByCollectionIDAndNextIDAndParentIDParams struct {
-	Next         *idwrap.IDWrap
-	ParentID     *idwrap.IDWrap
-	CollectionID idwrap.IDWrap
+type GetItemFolderByParentIDAndNextIDParams struct {
+	Next     *idwrap.IDWrap
+	ParentID *idwrap.IDWrap
 }
 
-func (q *Queries) GetItemFolderByCollectionIDAndNextIDAndParentID(ctx context.Context, arg GetItemFolderByCollectionIDAndNextIDAndParentIDParams) (ItemFolder, error) {
-	row := q.queryRow(ctx, q.getItemFolderByCollectionIDAndNextIDAndParentIDStmt, getItemFolderByCollectionIDAndNextIDAndParentID, arg.Next, arg.ParentID, arg.CollectionID)
+func (q *Queries) GetItemFolderByParentIDAndNextID(ctx context.Context, arg GetItemFolderByParentIDAndNextIDParams) (ItemFolder, error) {
+	row := q.queryRow(ctx, q.getItemFolderByParentIDAndNextIDStmt, getItemFolderByParentIDAndNextID, arg.Next, arg.ParentID)
 	var i ItemFolder
 	err := row.Scan(
 		&i.ID,
-		&i.CollectionID,
 		&i.ParentID,
 		&i.Name,
 		&i.Prev,
@@ -13998,29 +13003,9 @@ func (q *Queries) GetItemFolderByCollectionIDAndNextIDAndParentID(ctx context.Co
 	return i, err
 }
 
-const getItemFolderWorkspaceID = `-- name: GetItemFolderWorkspaceID :one
-SELECT
-  c.workspace_id
-FROM
-  collections c
-  INNER JOIN item_folder i ON c.id = i.collection_id
-WHERE
-  i.id = ?
-LIMIT
-  1
-`
-
-func (q *Queries) GetItemFolderWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
-	row := q.queryRow(ctx, q.getItemFolderWorkspaceIDStmt, getItemFolderWorkspaceID, id)
-	var workspace_id idwrap.IDWrap
-	err := row.Scan(&workspace_id)
-	return workspace_id, err
-}
-
-const getItemFoldersByCollectionID = `-- name: GetItemFoldersByCollectionID :many
+const getItemFoldersByParentID = `-- name: GetItemFoldersByParentID :many
 SELECT
   id,
-  collection_id,
   parent_id,
   name,
   prev,
@@ -14028,11 +13013,11 @@ SELECT
 FROM
   item_folder
 WHERE
-  collection_id = ?
+  parent_id = ?
 `
 
-func (q *Queries) GetItemFoldersByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]ItemFolder, error) {
-	rows, err := q.query(ctx, q.getItemFoldersByCollectionIDStmt, getItemFoldersByCollectionID, collectionID)
+func (q *Queries) GetItemFoldersByParentID(ctx context.Context, parentID *idwrap.IDWrap) ([]ItemFolder, error) {
+	rows, err := q.query(ctx, q.getItemFoldersByParentIDStmt, getItemFoldersByParentID, parentID)
 	if err != nil {
 		return nil, err
 	}
@@ -14042,7 +13027,6 @@ func (q *Queries) GetItemFoldersByCollectionID(ctx context.Context, collectionID
 		var i ItemFolder
 		if err := rows.Scan(
 			&i.ID,
-			&i.CollectionID,
 			&i.ParentID,
 			&i.Name,
 			&i.Prev,
@@ -14061,10 +13045,9 @@ func (q *Queries) GetItemFoldersByCollectionID(ctx context.Context, collectionID
 	return items, nil
 }
 
-const getItemsApiByCollectionID = `-- name: GetItemsApiByCollectionID :many
+const getItemsApiByFolderID = `-- name: GetItemsApiByFolderID :many
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -14077,14 +13060,14 @@ SELECT
 FROM
   item_api
 WHERE
-  collection_id = ? AND
+  folder_id = ? AND
   version_parent_id is NULL AND
   delta_parent_id is NULL AND
   hidden = FALSE
 `
 
-func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID idwrap.IDWrap) ([]ItemApi, error) {
-	rows, err := q.query(ctx, q.getItemsApiByCollectionIDStmt, getItemsApiByCollectionID, collectionID)
+func (q *Queries) GetItemsApiByFolderID(ctx context.Context, folderID *idwrap.IDWrap) ([]ItemApi, error) {
+	rows, err := q.query(ctx, q.getItemsApiByFolderIDStmt, getItemsApiByFolderID, folderID)
 	if err != nil {
 		return nil, err
 	}
@@ -14094,7 +13077,6 @@ func (q *Queries) GetItemsApiByCollectionID(ctx context.Context, collectionID id
 		var i ItemApi
 		if err := rows.Scan(
 			&i.ID,
-			&i.CollectionID,
 			&i.FolderID,
 			&i.Name,
 			&i.Url,
@@ -15292,50 +14274,6 @@ func (q *Queries) GetWorkspacesByUserIDOrdered(ctx context.Context, arg GetWorks
 	return items, nil
 }
 
-const insertCollectionItem = `-- name: InsertCollectionItem :exec
-INSERT INTO
-  collection_items (
-    id,
-    collection_id,
-    parent_folder_id,
-    item_type,
-    folder_id,
-    endpoint_id,
-    name,
-    prev_id,
-    next_id
-  )
-VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type InsertCollectionItemParams struct {
-	ID             idwrap.IDWrap
-	CollectionID   idwrap.IDWrap
-	ParentFolderID *idwrap.IDWrap
-	ItemType       int8
-	FolderID       *idwrap.IDWrap
-	EndpointID     *idwrap.IDWrap
-	Name           string
-	PrevID         *idwrap.IDWrap
-	NextID         *idwrap.IDWrap
-}
-
-func (q *Queries) InsertCollectionItem(ctx context.Context, arg InsertCollectionItemParams) error {
-	_, err := q.exec(ctx, q.insertCollectionItemStmt, insertCollectionItem,
-		arg.ID,
-		arg.CollectionID,
-		arg.ParentFolderID,
-		arg.ItemType,
-		arg.FolderID,
-		arg.EndpointID,
-		arg.Name,
-		arg.PrevID,
-		arg.NextID,
-	)
-	return err
-}
-
 const listNodeExecutions = `-- name: ListNodeExecutions :many
 SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution
 WHERE node_id = ?
@@ -15935,174 +14873,6 @@ type UpdateBodyUrlEncodedPrevParams struct {
 // Update only the prev pointer for a URL-encoded body with example validation (used in deletion or moves)
 func (q *Queries) UpdateBodyUrlEncodedPrev(ctx context.Context, arg UpdateBodyUrlEncodedPrevParams) error {
 	_, err := q.exec(ctx, q.updateBodyUrlEncodedPrevStmt, updateBodyUrlEncodedPrev, arg.Prev, arg.ID, arg.ExampleID)
-	return err
-}
-
-const updateCollection = `-- name: UpdateCollection :exec
-UPDATE collections
-SET
-  workspace_id = ?,
-  name = ?
-WHERE
-  id = ?
-`
-
-type UpdateCollectionParams struct {
-	WorkspaceID idwrap.IDWrap
-	Name        string
-	ID          idwrap.IDWrap
-}
-
-func (q *Queries) UpdateCollection(ctx context.Context, arg UpdateCollectionParams) error {
-	_, err := q.exec(ctx, q.updateCollectionStmt, updateCollection, arg.WorkspaceID, arg.Name, arg.ID)
-	return err
-}
-
-const updateCollectionItemCollectionId = `-- name: UpdateCollectionItemCollectionId :exec
-UPDATE collection_items 
-SET collection_id = ?, parent_folder_id = ?
-WHERE id = ?
-`
-
-type UpdateCollectionItemCollectionIdParams struct {
-	CollectionID   idwrap.IDWrap
-	ParentFolderID *idwrap.IDWrap
-	ID             idwrap.IDWrap
-}
-
-// Update the collection_id and parent_folder_id for cross-collection moves
-func (q *Queries) UpdateCollectionItemCollectionId(ctx context.Context, arg UpdateCollectionItemCollectionIdParams) error {
-	_, err := q.exec(ctx, q.updateCollectionItemCollectionIdStmt, updateCollectionItemCollectionId, arg.CollectionID, arg.ParentFolderID, arg.ID)
-	return err
-}
-
-const updateCollectionItemOrder = `-- name: UpdateCollectionItemOrder :exec
-UPDATE collection_items
-SET
-  prev_id = ?,
-  next_id = ?
-WHERE
-  id = ?
-`
-
-type UpdateCollectionItemOrderParams struct {
-	PrevID *idwrap.IDWrap
-	NextID *idwrap.IDWrap
-	ID     idwrap.IDWrap
-}
-
-// Update the prev_id/next_id pointers for a single collection item
-// Used for moving items within the linked list
-func (q *Queries) UpdateCollectionItemOrder(ctx context.Context, arg UpdateCollectionItemOrderParams) error {
-	_, err := q.exec(ctx, q.updateCollectionItemOrderStmt, updateCollectionItemOrder, arg.PrevID, arg.NextID, arg.ID)
-	return err
-}
-
-const updateCollectionItemParent = `-- name: UpdateCollectionItemParent :exec
-UPDATE collection_items
-SET
-  parent_folder_id = ?,
-  prev_id = ?,
-  next_id = ?
-WHERE
-  id = ?
-`
-
-type UpdateCollectionItemParentParams struct {
-	ParentFolderID *idwrap.IDWrap
-	PrevID         *idwrap.IDWrap
-	NextID         *idwrap.IDWrap
-	ID             idwrap.IDWrap
-}
-
-// Move an item to a different parent folder while maintaining linked list integrity
-func (q *Queries) UpdateCollectionItemParent(ctx context.Context, arg UpdateCollectionItemParentParams) error {
-	_, err := q.exec(ctx, q.updateCollectionItemParentStmt, updateCollectionItemParent,
-		arg.ParentFolderID,
-		arg.PrevID,
-		arg.NextID,
-		arg.ID,
-	)
-	return err
-}
-
-const updateCollectionItemParentFolder = `-- name: UpdateCollectionItemParentFolder :exec
-UPDATE collection_items
-SET
-  parent_folder_id = ?
-WHERE
-  id = ?
-`
-
-type UpdateCollectionItemParentFolderParams struct {
-	ParentFolderID *idwrap.IDWrap
-	ID             idwrap.IDWrap
-}
-
-// Update only the parent_folder_id for cross-folder moves
-func (q *Queries) UpdateCollectionItemParentFolder(ctx context.Context, arg UpdateCollectionItemParentFolderParams) error {
-	_, err := q.exec(ctx, q.updateCollectionItemParentFolderStmt, updateCollectionItemParentFolder, arg.ParentFolderID, arg.ID)
-	return err
-}
-
-const updateCollectionOrder = `-- name: UpdateCollectionOrder :exec
-UPDATE collections
-SET
-  prev = ?,
-  next = ?
-WHERE
-  id = ? AND
-  workspace_id = ?
-`
-
-type UpdateCollectionOrderParams struct {
-	Prev        *idwrap.IDWrap
-	Next        *idwrap.IDWrap
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-}
-
-// Update the prev/next pointers for a single collection
-// Used for moving collections within the linked list
-func (q *Queries) UpdateCollectionOrder(ctx context.Context, arg UpdateCollectionOrderParams) error {
-	_, err := q.exec(ctx, q.updateCollectionOrderStmt, updateCollectionOrder,
-		arg.Prev,
-		arg.Next,
-		arg.ID,
-		arg.WorkspaceID,
-	)
-	return err
-}
-
-const updateCollectionPositions = `-- name: UpdateCollectionPositions :exec
-UPDATE collections
-SET
-  prev = ?,
-  next = ?
-WHERE
-  id = ? AND
-  workspace_id = ?
-`
-
-type UpdateCollectionPositionsParams struct {
-	Prev        *idwrap.IDWrap
-	Next        *idwrap.IDWrap
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-}
-
-// Batch update positions for multiple collections (for efficient reordering)
-// This query updates prev/next based on the position parameter
-// Usage: Call with arrays of (id, prev_id, next_id, workspace_id) for each collection
-// Note: In practice, this would be used with multiple individual UPDATE statements
-// since SQLite doesn't support arrays directly in prepared statements
-func (q *Queries) UpdateCollectionPositions(ctx context.Context, arg UpdateCollectionPositionsParams) error {
-	_, err := q.exec(ctx, q.updateCollectionPositionsStmt, updateCollectionPositions,
-		arg.Prev,
-		arg.Next,
-		arg.ID,
-		arg.WorkspaceID,
-	)
 	return err
 }
 
@@ -17278,23 +16048,6 @@ func (q *Queries) UpdateItemApi(ctx context.Context, arg UpdateItemApiParams) er
 	return err
 }
 
-const updateItemApiCollectionId = `-- name: UpdateItemApiCollectionId :exec
-UPDATE item_api
-SET collection_id = ?
-WHERE id = ?
-`
-
-type UpdateItemApiCollectionIdParams struct {
-	CollectionID idwrap.IDWrap
-	ID           idwrap.IDWrap
-}
-
-// Update legacy item_api table collection_id for cross-collection moves
-func (q *Queries) UpdateItemApiCollectionId(ctx context.Context, arg UpdateItemApiCollectionIdParams) error {
-	_, err := q.exec(ctx, q.updateItemApiCollectionIdStmt, updateItemApiCollectionId, arg.CollectionID, arg.ID)
-	return err
-}
-
 const updateItemApiExample = `-- name: UpdateItemApiExample :exec
 UPDATE item_api_example
 SET
@@ -17372,23 +16125,6 @@ type UpdateItemFolderParams struct {
 
 func (q *Queries) UpdateItemFolder(ctx context.Context, arg UpdateItemFolderParams) error {
 	_, err := q.exec(ctx, q.updateItemFolderStmt, updateItemFolder, arg.Name, arg.ParentID, arg.ID)
-	return err
-}
-
-const updateItemFolderCollectionId = `-- name: UpdateItemFolderCollectionId :exec
-UPDATE item_folder
-SET collection_id = ?
-WHERE id = ?
-`
-
-type UpdateItemFolderCollectionIdParams struct {
-	CollectionID idwrap.IDWrap
-	ID           idwrap.IDWrap
-}
-
-// Update legacy item_folder table collection_id for cross-collection moves
-func (q *Queries) UpdateItemFolderCollectionId(ctx context.Context, arg UpdateItemFolderCollectionIdParams) error {
-	_, err := q.exec(ctx, q.updateItemFolderCollectionIdStmt, updateItemFolderCollectionId, arg.CollectionID, arg.ID)
 	return err
 }
 
@@ -17798,37 +16534,5 @@ func (q *Queries) UpsertNodeExecution(ctx context.Context, arg UpsertNodeExecuti
 		&i.ResponseID,
 		&i.CompletedAt,
 	)
-	return i, err
-}
-
-const validateCollectionsInSameWorkspace = `-- name: ValidateCollectionsInSameWorkspace :one
-
-SELECT 
-  c1.workspace_id = c2.workspace_id AS same_workspace,
-  c1.workspace_id AS source_workspace_id,
-  c2.workspace_id AS target_workspace_id
-FROM collections c1, collections c2 
-WHERE c1.id = ? AND c2.id = ?
-`
-
-type ValidateCollectionsInSameWorkspaceParams struct {
-	ID   idwrap.IDWrap
-	ID_2 idwrap.IDWrap
-}
-
-type ValidateCollectionsInSameWorkspaceRow struct {
-	SameWorkspace     bool
-	SourceWorkspaceID idwrap.IDWrap
-	TargetWorkspaceID idwrap.IDWrap
-}
-
-// Cross-Collection Move Support Queries
-// These queries support moving collection items between different collections
-//
-// Validate that two collections are in the same workspace
-func (q *Queries) ValidateCollectionsInSameWorkspace(ctx context.Context, arg ValidateCollectionsInSameWorkspaceParams) (ValidateCollectionsInSameWorkspaceRow, error) {
-	row := q.queryRow(ctx, q.validateCollectionsInSameWorkspaceStmt, validateCollectionsInSameWorkspace, arg.ID, arg.ID_2)
-	var i ValidateCollectionsInSameWorkspaceRow
-	err := row.Scan(&i.SameWorkspace, &i.SourceWorkspaceID, &i.TargetWorkspaceID)
 	return i, err
 }

@@ -27,26 +27,6 @@ type AssertionResult struct {
 	Result      bool
 }
 
-type Collection struct {
-	ID          idwrap.IDWrap
-	WorkspaceID idwrap.IDWrap
-	Name        string
-	Prev        *idwrap.IDWrap
-	Next        *idwrap.IDWrap
-}
-
-type CollectionItem struct {
-	ID             idwrap.IDWrap
-	CollectionID   idwrap.IDWrap
-	ParentFolderID *idwrap.IDWrap
-	ItemType       int8
-	FolderID       *idwrap.IDWrap
-	EndpointID     *idwrap.IDWrap
-	Name           string
-	PrevID         *idwrap.IDWrap
-	NextID         *idwrap.IDWrap
-}
-
 type DeltaFormDeltum struct {
 	ExampleID   []byte
 	ID          []byte
@@ -490,7 +470,6 @@ type HttpVersion struct {
 
 type ItemApi struct {
 	ID              idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
 	FolderID        *idwrap.IDWrap
 	Name            string
 	Url             string
@@ -505,7 +484,6 @@ type ItemApi struct {
 type ItemApiExample struct {
 	ID              idwrap.IDWrap
 	ItemApiID       idwrap.IDWrap
-	CollectionID    idwrap.IDWrap
 	IsDefault       bool
 	BodyType        int8
 	Name            string
@@ -515,12 +493,11 @@ type ItemApiExample struct {
 }
 
 type ItemFolder struct {
-	ID           idwrap.IDWrap
-	CollectionID idwrap.IDWrap
-	ParentID     *idwrap.IDWrap
-	Name         string
-	Prev         *idwrap.IDWrap
-	Next         *idwrap.IDWrap
+	ID       idwrap.IDWrap
+	ParentID *idwrap.IDWrap
+	Name     string
+	Prev     *idwrap.IDWrap
+	Next     *idwrap.IDWrap
 }
 
 type Migration struct {

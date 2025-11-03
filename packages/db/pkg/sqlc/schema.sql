@@ -48,18 +48,7 @@ CREATE INDEX workspaces_users_idx1 ON workspaces_users (
   role
 );
 
--- COLLECTIONS
-CREATE TABLE collections (
-  id BLOB NOT NULL PRIMARY KEY,
-  workspace_id BLOB NOT NULL,
-  name TEXT NOT NULL,
-  prev BLOB,
-  next BLOB,
-  UNIQUE (prev, next, workspace_id),
-  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
-);
 
-CREATE INDEX collection_idx1 ON collections (workspace_id);
 
 /*
  *
@@ -69,17 +58,15 @@ CREATE INDEX collection_idx1 ON collections (workspace_id);
 -- ITEM FOLDER BASE TABLE
 CREATE TABLE item_folder (
   id BLOB NOT NULL PRIMARY KEY,
-  collection_id BLOB NOT NULL,
   parent_id BLOB,
   name TEXT NOT NULL,
   prev BLOB,
   next BLOB,
   UNIQUE (prev, next, parent_id),
-  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_id) REFERENCES item_folder (id) ON DELETE CASCADE
 );
 
-CREATE INDEX item_folder_idx1 ON item_folder (collection_id, parent_id);
+CREATE INDEX item_folder_idx1 ON item_folder (parent_id);
 
 /*
  *
@@ -89,7 +76,6 @@ CREATE INDEX item_folder_idx1 ON item_folder (collection_id, parent_id);
 -- ITEM API
 CREATE TABLE item_api (
   id BLOB NOT NULL PRIMARY KEY,
-  collection_id BLOB NOT NULL,
   folder_id BLOB,
   name TEXT NOT NULL,
   url TEXT NOT NULL,
@@ -107,14 +93,12 @@ CREATE TABLE item_api (
   -- ordering
   prev BLOB,
   next BLOB,
-  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (folder_id) REFERENCES item_folder (id) ON DELETE CASCADE,
   FOREIGN KEY (version_parent_id) REFERENCES item_api (id) ON DELETE CASCADE,
   FOREIGN KEY (delta_parent_id) REFERENCES item_api (id) ON DELETE CASCADE
 );
 
 CREATE INDEX item_api_idx1 ON item_api (
-  collection_id,
   folder_id,
   version_parent_id,
   delta_parent_id
@@ -128,7 +112,6 @@ CREATE INDEX item_api_idx1 ON item_api (
 CREATE TABLE item_api_example (
   id BLOB NOT NULL PRIMARY KEY,
   item_api_id BLOB NOT NULL,
-  collection_id BLOB NOT NULL,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
   body_type INT8 NOT NULL DEFAULT 0,
   name TEXT NOT NULL,
@@ -140,13 +123,11 @@ CREATE TABLE item_api_example (
   prev BLOB,
   next BLOB,
   FOREIGN KEY (item_api_id) REFERENCES item_api (id) ON DELETE CASCADE,
-  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
   FOREIGN KEY (version_parent_id) REFERENCES item_api_example (id) ON DELETE CASCADE
 );
 
 CREATE INDEX item_api_example_idx1 ON item_api_example (
   item_api_id,
-  collection_id,
   is_default,
   version_parent_id
 );
@@ -699,72 +680,7 @@ CREATE INDEX node_execution_idx1 ON node_execution (node_id);
 CREATE INDEX node_execution_idx2 ON node_execution (completed_at DESC);
 CREATE INDEX node_execution_idx3 ON node_execution (state);
 
-/*
- * UNIFIED COLLECTION ITEMS TABLE
- * Enables mixed folder/endpoint ordering with drag-and-drop functionality
- */
-CREATE TABLE collection_items (
-  id BLOB NOT NULL PRIMARY KEY,
-  collection_id BLOB NOT NULL,
-  parent_folder_id BLOB,
-  item_type INT8 NOT NULL,                         -- 0 = folder, 1 = endpoint
-  folder_id BLOB,
-  endpoint_id BLOB,
-  name TEXT NOT NULL,
-  prev_id BLOB,
-  next_id BLOB,
-  CHECK (item_type IN (0, 1)),
-  CHECK (
-    (item_type = 0 AND folder_id IS NOT NULL AND endpoint_id IS NULL) OR
-    (item_type = 1 AND folder_id IS NULL AND endpoint_id IS NOT NULL)
-  ),
-  FOREIGN KEY (collection_id) REFERENCES collections (id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_folder_id) REFERENCES collection_items (id) ON DELETE CASCADE,
-  FOREIGN KEY (folder_id) REFERENCES item_folder (id) ON DELETE CASCADE,
-  FOREIGN KEY (endpoint_id) REFERENCES item_api (id) ON DELETE CASCADE,
-  UNIQUE (prev_id, next_id, parent_folder_id, collection_id)
-);
 
-CREATE INDEX collection_items_idx1 ON collection_items (
-  collection_id, 
-  parent_folder_id, 
-  item_type
-);
-
-CREATE INDEX collection_items_idx2 ON collection_items (
-  folder_id
-) WHERE folder_id IS NOT NULL;
-
-CREATE INDEX collection_items_idx3 ON collection_items (
-  endpoint_id  
-) WHERE endpoint_id IS NOT NULL;
-
-CREATE INDEX collection_items_idx4 ON collection_items (
-  prev_id, 
-  next_id
-);
-
-CREATE INDEX collection_items_idx5 ON collection_items (
-  collection_id,
-  name
-);
-
--- Performance indexes for cross-collection move operations
--- Optimize workspace validation queries for collections
-CREATE INDEX collections_workspace_lookup ON collections (id, workspace_id);
-
--- Optimize cross-collection validation queries for collection items  
-CREATE INDEX collection_items_workspace_lookup ON collection_items (id, collection_id);
-
--- Optimize user access validation for cross-collection moves
-CREATE INDEX workspaces_users_collection_access ON workspaces_users (user_id, workspace_id);
-
--- Optimize collection-workspace JOIN operations in cross-collection queries
-CREATE INDEX collections_workspace_id_lookup ON collections (workspace_id, id);
-
--- Optimize legacy table updates for cross-collection moves
-CREATE INDEX item_api_collection_update ON item_api (id, collection_id);
-CREATE INDEX item_folder_collection_update ON item_folder (id, collection_id);
 
 /*
  *

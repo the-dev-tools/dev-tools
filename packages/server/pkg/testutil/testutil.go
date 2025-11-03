@@ -3,25 +3,15 @@ package testutil
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log/slog"
-	"strings"
 	"testing"
 	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/db/pkg/sqlc/gen"
-	"the-dev-tools/server/internal/api/rcollection"
-	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
-	"the-dev-tools/server/pkg/model/mcollection"
-	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/model/mworkspace"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
-	"time"
 )
 
 type BaseDBQueries struct {
@@ -33,7 +23,6 @@ type BaseDBQueries struct {
 
 type BaseTestServices struct {
 	DB  *sql.DB
-	Cs  scollection.CollectionService
 	Us  suser.UserService
 	Ws  sworkspace.WorkspaceService
 	Wus sworkspacesusers.WorkspaceUserService
@@ -57,95 +46,17 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	queries := c.Queries
 
 	mockLogger := mocklogger.NewMockLogger()
-	cs := scollection.New(queries, mockLogger)
 	ws := sworkspace.New(queries)
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
 	hs := shttp.New(queries, mockLogger)
 	return BaseTestServices{
 		DB:  c.DB,
-		Cs:  cs,
 		Us:  us,
 		Ws:  ws,
 		Wus: wus,
 		Hs:  hs,
 	}
-}
-
-func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context, wsID, wuID, userID, collectionID idwrap.IDWrap) {
-	cs := c.Cs
-	ws := c.Ws
-	wus := c.Wus
-	us := c.Us
-
-	workspaceData := mworkspace.Workspace{
-		ID:      wsID,
-		Updated: time.Now(),
-		Name:    "test",
-	}
-
-	err := ws.Create(ctx, &workspaceData)
-	if err != nil {
-		if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
-			t.Fatal(err)
-		}
-	}
-
-	providerID := fmt.Sprintf("test-%s", idwrap.NewNow().String())
-	userData := muser.User{
-		ID:           userID,
-		Email:        "test@dev.tools",
-		Password:     []byte("test"),
-		ProviderID:   &providerID,
-		ProviderType: muser.MagicLink,
-		Status:       muser.Active,
-	}
-
-	err = us.CreateUser(ctx, &userData)
-	if err != nil {
-		if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
-			t.Fatal(err)
-		}
-	}
-
-	workspaceUserData := mworkspaceuser.WorkspaceUser{
-		ID:          wuID,
-		WorkspaceID: wsID,
-		UserID:      userID,
-		Role:        mworkspaceuser.RoleAdmin,
-	}
-
-	err = wus.CreateWorkspaceUser(ctx, &workspaceUserData)
-	if err != nil {
-		if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
-			t.Fatal(err)
-		}
-	}
-
-	collectionData := mcollection.Collection{
-		ID:          collectionID,
-		WorkspaceID: wsID,
-		Name:        "test",
-		Updated:     time.Now(),
-	}
-
-	err = cs.CreateCollection(ctx, &collectionData)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	collectionGet, err := cs.GetCollection(ctx, collectionID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if collectionGet == nil {
-		t.Fatal("Collection not found")
-	}
-}
-
-func (c BaseTestServices) CreateCollectionRPC() rcollection.CollectionServiceRPC {
-	return rcollection.New(c.DB, c.Cs, c.Ws, c.Us)
 }
 
 func (b BaseDBQueries) Close() {

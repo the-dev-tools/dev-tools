@@ -16,26 +16,19 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/middleware/mwcompress"
-	"the-dev-tools/server/internal/api/rbody"
-	"the-dev-tools/server/internal/api/rcollection"
-	"the-dev-tools/server/internal/api/rcollectionitem"
 	"the-dev-tools/server/internal/api/redge"
 	"the-dev-tools/server/internal/api/renv"
-	"the-dev-tools/server/internal/api/resultapi"
-	"the-dev-tools/server/internal/api/rexport"
+
 	"the-dev-tools/server/internal/api/rflow"
 	"the-dev-tools/server/internal/api/rflowvariable"
 	"the-dev-tools/server/internal/api/rhealth"
 	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/internal/api/rimport"
-	"the-dev-tools/server/internal/api/ritemapi"
-	"the-dev-tools/server/internal/api/ritemapiexample"
-	"the-dev-tools/server/internal/api/ritemfolder"
+
 	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/internal/api/rnode"
 	"the-dev-tools/server/internal/api/rnodeexecution"
 	"the-dev-tools/server/internal/api/rreference"
-	"the-dev-tools/server/internal/api/rrequest"
+
 	"the-dev-tools/server/internal/api/rtag"
 	"the-dev-tools/server/internal/api/rvar"
 	"the-dev-tools/server/internal/api/rworkspace"
@@ -48,8 +41,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
-	"the-dev-tools/server/pkg/service/scollection"
-	"the-dev-tools/server/pkg/service/scollectionitem"
+
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
@@ -61,7 +53,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
-	"the-dev-tools/server/pkg/service/sitemfolder"
+
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
@@ -144,13 +136,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	collectionService := scollection.New(queries, logger)
-	collectionItemService := scollectionitem.New(queries, logger)
 	workspaceService := sworkspace.New(queries)
 	workspaceUserService := sworkspacesusers.New(queries)
 	userService := suser.New(queries)
 	endpointService := sitemapi.New(queries)
-	folderService := sitemfolder.New(queries)
+
 	exampleService := sitemapiexample.New(queries)
 	exampleHeaderService := sexampleheader.New(queries)
 	exampleQueryService := sexamplequery.New(queries)
@@ -217,41 +207,6 @@ func main() {
 
 	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService, workspaceStreamer)
 	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
-
-	// Collection Service
-	collectionSrv := rcollection.New(currentDB, collectionService, workspaceService,
-		userService)
-	newServiceManager.AddService(rcollection.CreateService(collectionSrv, opitonsAll))
-
-	// Collection Item Service
-	collectionItemSrv := rcollectionitem.New(currentDB, collectionService, collectionItemService, userService, folderService, endpointService, exampleService, exampleResponseService)
-	newServiceManager.AddService(rcollectionitem.CreateService(collectionItemSrv, opitonsAll))
-
-	// Result API Service
-	resultapiSrv := resultapi.New(currentDB, userService, collectionService, endpointService, exampleService, workspaceService, exampleResponseService, exampleResponseHeaderService, assertService, assertResultService)
-	newServiceManager.AddService(resultapi.CreateService(resultapiSrv, opitonsAll))
-
-	// Item API Service
-	itemapiSrv := ritemapi.New(currentDB, endpointService, collectionService,
-		folderService, userService, exampleService, exampleResponseService, collectionItemService)
-	newServiceManager.AddService(ritemapi.CreateService(itemapiSrv, opitonsAll))
-
-	// Folder API Service
-	folderItemSrv := ritemfolder.New(currentDB, folderService, userService, collectionService, collectionItemService)
-	newServiceManager.AddService(ritemfolder.CreateService(folderItemSrv, opitonsAll))
-
-	// Api Item Example
-	itemApiExampleSrv := ritemapiexample.New(currentDB, exampleService, endpointService, folderService,
-		workspaceService, collectionService, userService, exampleHeaderService, exampleQueryService, bodyFormService, bodyUrlService,
-		bodyRawService, exampleResponseHeaderService, exampleResponseService, environmentService, variableService, assertService, assertResultService, logMap)
-	newServiceManager.AddService(ritemapiexample.CreateService(itemApiExampleSrv, opitonsAll))
-
-	requestSrv := rrequest.New(currentDB, collectionService, userService, endpointService, exampleService, exampleHeaderService, exampleQueryService, assertService)
-	newServiceManager.AddService(rrequest.CreateService(requestSrv, opitonsAll))
-
-	// BodyRaw Service
-	bodySrv := rbody.New(currentDB, collectionService, exampleService, userService, bodyFormService, bodyUrlService, bodyRawService)
-	newServiceManager.AddService(rbody.CreateService(bodySrv, opitonsAll))
 
 	// Env Service
 	environmentStreamer := memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]()
@@ -320,63 +275,8 @@ func main() {
 		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService, nodeExecutionService)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
 
-	importServiceRPC := rimport.New(
-		currentDB,
-		workspaceService,
-		collectionService,
-		userService,
-		folderService,
-		endpointService,
-		exampleService,
-		exampleResponseService,
-		assertService,
-		collectionItemService,
-		bodyRawService,
-		bodyFormService,
-		bodyUrlService,
-		exampleHeaderService,
-		exampleQueryService,
-		flowService,
-		flowNodeService,
-		flowNodeRequestSevice,
-		flowNodeNoOpService,
-		flowEdgeService,
-		flowVariableService,
-		flowNodeForService,
-		flowNodeJsService,
-		flowNodeForeachService,
-		flowNodeCondition,
-		environmentService,
-		variableService,
-	)
-	importService, err := rimport.CreateService(importServiceRPC, opitonsAll)
-	if err != nil {
-		log.Fatal(err)
-	}
-	newServiceManager.AddService(importService, err)
-
 	flowServiceRPC := rflowvariable.New(currentDB, flowService, userService, flowVariableService)
 	newServiceManager.AddService(rflowvariable.CreateService(flowServiceRPC, opitonsAll))
-
-	exportServiceRPC := rexport.New(
-		currentDB,
-		workspaceService, collectionService, folderService,
-		endpointService, exampleService, exampleHeaderService, exampleQueryService, assertService,
-		bodyRawService, bodyFormService, bodyUrlService,
-		exampleResponseService, exampleResponseHeaderService, assertResultService,
-		// flow
-		flowService,
-		// nodes
-		flowNodeService, flowEdgeService, flowVariableService, flowNodeRequestSevice,
-		*flowNodeCondition, flowNodeNoOpService,
-		flowNodeForService, flowNodeForeachService, flowNodeJsService,
-		environmentService, variableService,
-	)
-	exportService, err := rexport.CreateService(exportServiceRPC, opitonsAll)
-	if err != nil {
-		log.Fatal(err)
-	}
-	newServiceManager.AddService(exportService, err)
 
 	// Start services
 	go func() {

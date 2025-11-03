@@ -7,7 +7,6 @@
 -- name: GetItemApi :one
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -27,7 +26,6 @@ LIMIT
 -- name: GetItemApisByIDs :many
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -43,10 +41,9 @@ WHERE
   id IN (sqlc.slice('ids'));
 
 
--- name: GetItemApiByCollectionIDAndNextIDAndParentID :one
+-- name: GetItemApiByFolderIDAndNextID :one
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -60,15 +57,13 @@ FROM
   item_api
 WHERE
   next = ? AND
-  folder_id = ? AND
-  collection_id = ?
+  folder_id = ?
 LIMIT
   1;
 
--- name: GetItemsApiByCollectionID :many
+-- name: GetItemsApiByFolderID :many
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -81,15 +76,14 @@ SELECT
 FROM
   item_api
 WHERE
-  collection_id = ? AND
+  folder_id = ? AND
   version_parent_id is NULL AND
   delta_parent_id is NULL AND
   hidden = FALSE;
 
--- name: GetAllItemsApiByCollectionID :many
+-- name: GetAllItemsApiByFolderID :many
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -102,41 +96,32 @@ SELECT
 FROM
   item_api
 WHERE
-  collection_id = ? AND
+  folder_id = ? AND
   version_parent_id is NULL AND
   delta_parent_id is NULL;
 
--- name: GetItemApiWorkspaceID :one
-SELECT
-  c.workspace_id
-FROM
-  collections c
-  INNER JOIN item_api i ON c.id = i.collection_id
-WHERE
-  i.id = ?
-LIMIT
-  1;
+
 
 -- name: CreateItemApi :exec
 INSERT INTO
-  item_api (id, collection_id, folder_id, name, url, method, version_parent_id, delta_parent_id, hidden, prev, next)
+  item_api (id, folder_id, name, url, method, version_parent_id, delta_parent_id, hidden, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiBulk :exec
 INSERT INTO
-  item_api (id, collection_id, folder_id, name, url, method, version_parent_id, delta_parent_id, hidden, prev, next)
+  item_api (id, folder_id, name, url, method, version_parent_id, delta_parent_id, hidden, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApi :exec
 UPDATE item_api
@@ -162,10 +147,9 @@ DELETE FROM item_api
 WHERE
   id = ?;
 
--- name: GetItemApiByCollectionIDAndURLAndMethod :one
+-- name: GetItemApiByFolderIDAndURLAndMethod :one
 SELECT
   id,
-  collection_id,
   folder_id,
   name,
   url,
@@ -178,7 +162,7 @@ SELECT
 FROM
   item_api
 WHERE
-  collection_id = ? AND
+  folder_id = ? AND
   url = ? AND
   method = ? AND
   version_parent_id is NULL AND
@@ -193,7 +177,6 @@ LIMIT
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -211,7 +194,6 @@ LIMIT
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -223,11 +205,10 @@ FROM
 WHERE
   id IN (sqlc.slice('ids'));
 
--- name: GetItemExampleByCollectionIDAndNextIDAndItemApiID :one
+-- name: GetItemExampleByNextIDAndItemApiID :one
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -237,7 +218,6 @@ SELECT
 FROM
   item_api_example
 WHERE
-  collection_id = ? AND
   next = ? AND
   prev = ?
 LIMIT
@@ -247,7 +227,6 @@ LIMIT
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -265,7 +244,6 @@ WHERE
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -282,7 +260,6 @@ WHERE
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -297,11 +274,10 @@ WHERE
 LIMIT
   1;
 
--- name: GetItemApiExampleByCollectionID :many
+-- name: GetItemApiExamplesByItemApiID :many
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -311,14 +287,13 @@ SELECT
 FROM
   item_api_example
 WHERE
-  collection_id = ? AND
+  item_api_id = ? AND
   version_parent_id is NULL;
 
 -- name: GetItemApiExampleByVersionParentID :many
 SELECT
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -335,7 +310,6 @@ INSERT INTO
   item_api_example (
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -344,14 +318,13 @@ INSERT INTO
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: CreateItemApiExampleBulk :exec
 INSERT INTO
   item_api_example (
     id,
     item_api_id,
-    collection_id,
     is_default,
     body_type,
     name,
@@ -360,16 +333,16 @@ INSERT INTO
     next
   )
 VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?),
-    (?, ?, ?, ?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?),
+    (?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateItemApiExample :exec
 UPDATE item_api_example
@@ -402,7 +375,6 @@ WITH RECURSIVE ordered_examples AS (
   SELECT
     e.id,
     e.item_api_id,
-    e.collection_id,
     e.is_default,
     e.body_type,
     e.name,
@@ -424,7 +396,6 @@ WITH RECURSIVE ordered_examples AS (
   SELECT
     e.id,
     e.item_api_id,
-    e.collection_id,
     e.is_default,
     e.body_type,
     e.name,
@@ -443,7 +414,6 @@ WITH RECURSIVE ordered_examples AS (
 SELECT
   oe.id,
   oe.item_api_id,
-  oe.collection_id,
   oe.is_default,
   oe.body_type,
   oe.name,
@@ -463,7 +433,6 @@ ORDER BY
 SELECT
   id,
   item_api_id,
-  collection_id,
   is_default,
   body_type,
   name,
@@ -773,7 +742,6 @@ SELECT example_id FROM delta_form_order WHERE ref_id = ? LIMIT 1;
 -- name: GetItemFolder :one
 SELECT
   id,
-  collection_id,
   parent_id,
   name,
   prev,
@@ -785,10 +753,9 @@ WHERE
 LIMIT
   1;
 
--- name: GetItemFoldersByCollectionID :many
+-- name: GetItemFoldersByParentID :many
 SELECT
   id,
-  collection_id,
   parent_id,
   name,
   prev,
@@ -796,13 +763,12 @@ SELECT
 FROM
   item_folder
 WHERE
-  collection_id = ?;
+  parent_id = ?;
 
 
--- name: GetItemFolderByCollectionIDAndNextIDAndParentID :one
+-- name: GetItemFolderByParentIDAndNextID :one
 SELECT
   id,
-  collection_id,
   parent_id,
   name,
   prev,
@@ -811,42 +777,32 @@ FROM
   item_folder
 WHERE
   next = ? AND
-  parent_id = ? AND
-  collection_id = ?
+  parent_id = ?
 LIMIT
   1;
 
--- name: GetItemFolderWorkspaceID :one
-SELECT
-  c.workspace_id
-FROM
-  collections c
-  INNER JOIN item_folder i ON c.id = i.collection_id
-WHERE
-  i.id = ?
-LIMIT
-  1;
+
 
 -- name: CreateItemFolder :exec
 INSERT INTO
-    item_folder (id, name, parent_id, collection_id, prev, next)
+    item_folder (id, name, parent_id, prev, next)
 VALUES
-    (?, ?, ?, ?, ?, ?);
+    (?, ?, ?, ?, ?);
 
 -- name: CreateItemFolderBulk :exec
 INSERT INTO
-    item_folder (id, name, parent_id, collection_id, prev, next)
+    item_folder (id, name, parent_id, prev, next)
 VALUES
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?);
 
 -- name: UpdateItemFolder :exec
 UPDATE item_folder
@@ -955,189 +911,7 @@ DELETE FROM users
 WHERE
   id = ?;
 
---
--- Collections
---
--- name: GetCollection :one
-SELECT
-  id,
-  workspace_id,
-  name,
-  prev,
-  next
-FROM
-  collections
-WHERE
-  id = ?
-LIMIT
-  1;
 
--- name: GetCollectionByPlatformIDandType :many
-SELECT
-  id,
-  workspace_id,
-  name
-FROM
-  collections
-WHERE
-  id = ?;
-
--- name: GetCollectionWorkspaceID :one
-SELECT
-  workspace_id
-FROM
-  collections
-WHERE
-  id = ?
-LIMIT
-  1;
-
--- name: GetCollectionByWorkspaceID :many
-SELECT
-  id,
-  workspace_id,
-  name
-FROM
-  collections
-WHERE
-  workspace_id = ?;
-
--- name: GetCollectionByWorkspaceIDAndName :one
-SELECT
-  id,
-  workspace_id,
-  name
-FROM
-  collections
-WHERE
-  workspace_id = ? AND
-  name = ?
-LIMIT
-  1;
-
--- name: CreateCollection :exec
-INSERT INTO
-  collections (id, workspace_id, name, prev, next)
-VALUES
-  (?, ?, ?, ?, ?);
-
--- name: UpdateCollection :exec
-UPDATE collections
-SET
-  workspace_id = ?,
-  name = ?
-WHERE
-  id = ?;
-
--- name: DeleteCollection :exec
-DELETE FROM collections
-WHERE
-  id = ?;
-
--- name: GetCollectionsInOrder :many
--- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
--- Requires index on (workspace_id, prev) for optimal performance
-WITH RECURSIVE ordered_collections AS (
-  -- Base case: Find the head (prev IS NULL)
-  SELECT
-    c.id,
-    c.workspace_id,
-    c.name,
-    c.prev,
-    c.next,
-    0 as position
-  FROM
-    collections c
-  WHERE
-    c.workspace_id = ? AND
-    c.prev IS NULL
-  
-  UNION ALL
-  
-  -- Recursive case: Follow the next pointers
-  SELECT
-    c.id,
-    c.workspace_id,
-    c.name,
-    c.prev,
-    c.next,
-    oc.position + 1
-  FROM
-    collections c
-  INNER JOIN ordered_collections oc ON c.prev = oc.id
-  WHERE
-    c.workspace_id = ?
-)
-SELECT
-  oc.id,
-  oc.workspace_id,
-  oc.name,
-  oc.prev,
-  oc.next,
-  oc.position
-FROM
-  ordered_collections oc
-ORDER BY
-  oc.position;
-
--- name: GetCollectionByPrevNext :one
--- Find collection by its prev/next references for position-based operations
-SELECT
-  id,
-  workspace_id,
-  name,
-  prev,
-  next
-FROM
-  collections
-WHERE
-  workspace_id = ? AND
-  prev = ? AND
-  next = ?
-LIMIT
-  1;
-
--- name: UpdateCollectionOrder :exec
--- Update the prev/next pointers for a single collection
--- Used for moving collections within the linked list
-UPDATE collections
-SET
-  prev = ?,
-  next = ?
-WHERE
-  id = ? AND
-  workspace_id = ?;
-
--- name: UpdateCollectionPositions :exec
--- Batch update positions for multiple collections (for efficient reordering)
--- This query updates prev/next based on the position parameter
--- Usage: Call with arrays of (id, prev_id, next_id, workspace_id) for each collection
--- Note: In practice, this would be used with multiple individual UPDATE statements
--- since SQLite doesn't support arrays directly in prepared statements
-UPDATE collections
-SET
-  prev = ?,
-  next = ?
-WHERE
-  id = ? AND
-  workspace_id = ?;
-
--- name: GetCollectionMaxPosition :one
--- Get the last collection in the list (tail) for a workspace
--- Used when appending new collections to the end of the list
-SELECT
-  id,
-  workspace_id,
-  name,
-  prev,
-  next
-FROM
-  collections
-WHERE
-  workspace_id = ? AND
-  next IS NULL
-LIMIT
-  1;
 
 --
 -- Workspaces
@@ -3780,293 +3554,11 @@ DELETE FROM node_execution WHERE node_id = ?;
 DELETE FROM node_execution WHERE node_id IN (sqlc.slice('node_ids'));
 
 -- 
--- Collection Items Unified Table Queries
--- These queries handle both folders and endpoints through a unified interface
---
 
--- name: GetCollectionItem :one
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  id = ?
-LIMIT
-  1;
 
--- name: GetCollectionItemsInOrder :many
--- Uses WITH RECURSIVE CTE to traverse linked list from head to tail
--- Returns items in correct order for a collection/parent folder
-WITH RECURSIVE ordered_items AS (
-  -- Base case: Find the head (prev_id IS NULL)
-  SELECT
-    ci.id,
-    ci.collection_id,
-    ci.parent_folder_id,
-    ci.item_type,
-    ci.folder_id,
-    ci.endpoint_id,
-    ci.name,
-    ci.prev_id,
-    ci.next_id,
-    0 as position
-  FROM
-    collection_items ci
-  WHERE
-    ci.collection_id = ? AND
-    (ci.parent_folder_id = ? OR (? IS NULL AND ci.parent_folder_id IS NULL)) AND
-    ci.prev_id IS NULL
-  
-  UNION ALL
-  
-  -- Recursive case: Follow the next_id pointers
-  SELECT
-    ci.id,
-    ci.collection_id,
-    ci.parent_folder_id,
-    ci.item_type,
-    ci.folder_id,
-    ci.endpoint_id,
-    ci.name,
-    ci.prev_id,
-    ci.next_id,
-    oi.position + 1
-  FROM
-    collection_items ci
-  INNER JOIN ordered_items oi ON ci.prev_id = oi.id
-  WHERE
-    ci.collection_id = ?
-)
-SELECT
-  oi.id,
-  oi.collection_id,
-  oi.parent_folder_id,
-  oi.item_type,
-  oi.folder_id,
-  oi.endpoint_id,
-  oi.name,
-  oi.prev_id,
-  oi.next_id,
-  oi.position
-FROM
-  ordered_items oi
-ORDER BY
-  oi.position;
 
--- name: GetCollectionItemsByCollectionID :many
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  collection_id = ?;
 
--- name: GetCollectionItemsByParentFolderID :many
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  collection_id = ? AND
-  parent_folder_id = ?;
 
--- name: GetCollectionItemTail :one
--- Get the last item in the list (tail) for a collection/parent folder
--- Used when appending new items to the end of the list
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  collection_id = ? AND
-  (parent_folder_id = ? OR (? IS NULL AND parent_folder_id IS NULL)) AND
-  next_id IS NULL
-LIMIT
-  1;
-
--- name: InsertCollectionItem :exec
-INSERT INTO
-  collection_items (
-    id,
-    collection_id,
-    parent_folder_id,
-    item_type,
-    folder_id,
-    endpoint_id,
-    name,
-    prev_id,
-    next_id
-  )
-VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?);
-
--- name: UpdateCollectionItemOrder :exec
--- Update the prev_id/next_id pointers for a single collection item
--- Used for moving items within the linked list
-UPDATE collection_items
-SET
-  prev_id = ?,
-  next_id = ?
-WHERE
-  id = ?;
-
--- name: UpdateCollectionItemParent :exec
--- Move an item to a different parent folder while maintaining linked list integrity
-UPDATE collection_items
-SET
-  parent_folder_id = ?,
-  prev_id = ?,
-  next_id = ?
-WHERE
-  id = ?;
-
--- name: DeleteCollectionItem :exec
-DELETE FROM collection_items
-WHERE
-  id = ?;
-
--- name: GetCollectionItemsByType :many
--- Get items filtered by type (0 = folder, 1 = endpoint)
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  collection_id = ? AND
-  (parent_folder_id = ? OR (? IS NULL AND parent_folder_id IS NULL)) AND
-  item_type = ?;
-
--- name: GetCollectionItemByFolderID :one
--- Get collection item by folder_id (for legacy ID compatibility)
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  folder_id = ?
-LIMIT
-  1;
-
--- name: GetCollectionItemByEndpointID :one
--- Get collection item by endpoint_id (for legacy ID compatibility)  
-SELECT
-  id,
-  collection_id,
-  parent_folder_id,
-  item_type,
-  folder_id,
-  endpoint_id,
-  name,
-  prev_id,
-  next_id
-FROM
-  collection_items
-WHERE
-  endpoint_id = ?
-LIMIT
-  1;
-
--- name: UpdateCollectionItemParentFolder :exec
--- Update only the parent_folder_id for cross-folder moves
-UPDATE collection_items
-SET
-  parent_folder_id = ?
-WHERE
-  id = ?;
-
--- 
--- Cross-Collection Move Support Queries
--- These queries support moving collection items between different collections
---
-
--- name: ValidateCollectionsInSameWorkspace :one
--- Validate that two collections are in the same workspace
-SELECT 
-  c1.workspace_id = c2.workspace_id AS same_workspace,
-  c1.workspace_id AS source_workspace_id,
-  c2.workspace_id AS target_workspace_id
-FROM collections c1, collections c2 
-WHERE c1.id = ? AND c2.id = ?;
-
--- name: GetCollectionWorkspaceByItemId :one
--- Get the workspace_id for a collection that contains a specific collection item
-SELECT c.workspace_id 
-FROM collections c
-JOIN collection_items ci ON ci.collection_id = c.id
-WHERE ci.id = ?;
-
--- name: UpdateCollectionItemCollectionId :exec
--- Update the collection_id and parent_folder_id for cross-collection moves
-UPDATE collection_items 
-SET collection_id = ?, parent_folder_id = ?
-WHERE id = ?;
-
--- name: GetCollectionItemsInOrderForCollection :many
--- Get all collection items in order for a specific collection (used for cross-collection validation)
-SELECT id, collection_id, parent_folder_id, item_type, folder_id, endpoint_id, name, prev_id, next_id
-FROM collection_items 
-WHERE collection_id = ? AND parent_folder_id IS NULL
-ORDER BY CASE WHEN prev_id IS NULL THEN 0 ELSE 1 END, id;
-
--- name: UpdateItemApiCollectionId :exec
--- Update legacy item_api table collection_id for cross-collection moves
-UPDATE item_api
-SET collection_id = ?
-WHERE id = ?;
-
--- name: UpdateItemFolderCollectionId :exec
--- Update legacy item_folder table collection_id for cross-collection moves  
-UPDATE item_folder
-SET collection_id = ?
-WHERE id = ?;
 
 --
 -- File System
