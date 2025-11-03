@@ -822,3 +822,352 @@ sql:
           ### updated_at
           - column: 'files.updated_at'
             go_type: 'int64'
+          ## HTTP system
+          ### http table
+          - column: 'http.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http.workspace_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http.folder_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http.parent_http_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http.created_at'
+            go_type: 'int64'
+          - column: 'http.updated_at'
+            go_type: 'int64'
+          - column: 'http.delta_name'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http.delta_url'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http.delta_method'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http.delta_description'
+            go_type:
+              type: 'string'
+              pointer: true
+          ### http_search_param table
+          - column: 'http_search_param.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_search_param.http_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_search_param.parent_search_param_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_search_param.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_search_param.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_search_param.created_at'
+            go_type: 'int64'
+          - column: 'http_search_param.updated_at'
+            go_type: 'int64'
+          - column: 'http_search_param.delta_param_key'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_search_param.delta_param_value'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_search_param.delta_description'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_search_param.delta_enabled'
+            go_type:
+              type: 'bool'
+              pointer: true
+          ### http_header table
+          - column: 'http_header.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_header.http_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_header.parent_header_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_header.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_header.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_header.created_at'
+            go_type: 'int64'
+          - column: 'http_header.updated_at'
+            go_type: 'int64'
+          - column: 'http_header.delta_key'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_header.delta_value'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_header.delta_description'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_header.delta_enabled'
+            go_type:
+              type: 'bool'
+              pointer: true
+          ### http_body_form table
+          - column: 'http_body_form.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_body_form.http_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_body_form.parent_body_form_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_body_form.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_body_form.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_body_form.created_at'
+            go_type: 'int64'
+          - column: 'http_body_form.updated_at'
+            go_type: 'int64'
+          - column: 'http_body_form.delta_form_key'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_body_form.delta_form_value'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_body_form.delta_description'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_body_form.delta_enabled'
+            go_type:
+              type: 'bool'
+              pointer: true
+          ### http_body_urlencoded table
+          - column: 'http_body_urlencoded.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_body_urlencoded.http_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_body_urlencoded.parent_body_urlencoded_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_body_urlencoded.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_body_urlencoded.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_body_urlencoded.created_at'
+            go_type: 'int64'
+          - column: 'http_body_urlencoded.updated_at'
+            go_type: 'int64'
+          - column: 'http_body_urlencoded.delta_key'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_body_urlencoded.delta_value'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_body_urlencoded.delta_description'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_body_urlencoded.delta_enabled'
+            go_type:
+              type: 'bool'
+              pointer: true
+          ### http_body_raw table
+          - column: 'http_body_raw.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_body_raw.http_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_body_raw.parent_body_raw_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_body_raw.created_at'
+            go_type: 'int64'
+          - column: 'http_body_raw.updated_at'
+            go_type: 'int64'
+          ### http_version table
+          - column: 'http_version.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_version.http_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_version.created_by'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_version.created_at'
+            go_type: 'int64'
+          ### http_response table
+          - column: 'http_response.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_response.http_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_response.status_code'
+            go_type: 'int16'
+          - column: 'http_response.response_time_ms'
+            go_type: 'int32'
+          - column: 'http_response.response_size_bytes'
+            go_type: 'int32'
+          - column: 'http_response.executed_at'
+            go_type: 'int64'
+          - column: 'http_response.created_by'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          ### http_response_header table
+          - column: 'http_response_header.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_response_header.response_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          ### http_assert table
+          - column: 'http_assert.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_assert.http_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_assert.parent_assert_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_assert.prev'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_assert.next'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+              pointer: true
+          - column: 'http_assert.created_at'
+            go_type: 'int64'
+          - column: 'http_assert.updated_at'
+            go_type: 'int64'

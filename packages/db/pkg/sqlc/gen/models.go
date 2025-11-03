@@ -333,6 +333,161 @@ type FlowVariable struct {
 	Next        *idwrap.IDWrap
 }
 
+type Http struct {
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Method           string
+	Description      string
+	ParentHttpID     *idwrap.IDWrap
+	IsDelta          bool
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaDescription *string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+type HttpAssert struct {
+	ID                     idwrap.IDWrap
+	HttpID                 idwrap.IDWrap
+	AssertExpression       string
+	AssertDescription      string
+	Enabled                bool
+	ParentAssertID         *idwrap.IDWrap
+	IsDelta                bool
+	DeltaAssertExpression  interface{}
+	DeltaAssertDescription interface{}
+	DeltaEnabled           interface{}
+	Prev                   *idwrap.IDWrap
+	Next                   *idwrap.IDWrap
+	CreatedAt              int64
+	UpdatedAt              int64
+}
+
+type HttpBodyForm struct {
+	ID               idwrap.IDWrap
+	HttpID           idwrap.IDWrap
+	FormKey          string
+	FormValue        string
+	Description      string
+	Enabled          bool
+	ParentBodyFormID *idwrap.IDWrap
+	IsDelta          bool
+	DeltaFormKey     *string
+	DeltaFormValue   *string
+	DeltaDescription *string
+	DeltaEnabled     *bool
+	Prev             *idwrap.IDWrap
+	Next             *idwrap.IDWrap
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+type HttpBodyRaw struct {
+	ID                   idwrap.IDWrap
+	HttpID               idwrap.IDWrap
+	RawData              []byte
+	ContentType          string
+	CompressionType      int8
+	ParentBodyRawID      *idwrap.IDWrap
+	IsDelta              bool
+	DeltaRawData         interface{}
+	DeltaContentType     interface{}
+	DeltaCompressionType interface{}
+	CreatedAt            int64
+	UpdatedAt            int64
+}
+
+type HttpBodyUrlencoded struct {
+	ID                     idwrap.IDWrap
+	HttpID                 idwrap.IDWrap
+	UrlencodedKey          string
+	UrlencodedValue        string
+	Description            string
+	Enabled                bool
+	ParentBodyUrlencodedID *idwrap.IDWrap
+	IsDelta                bool
+	DeltaUrlencodedKey     *string
+	DeltaUrlencodedValue   *string
+	DeltaDescription       *string
+	DeltaEnabled           *bool
+	Prev                   *idwrap.IDWrap
+	Next                   *idwrap.IDWrap
+	CreatedAt              int64
+	UpdatedAt              int64
+}
+
+type HttpHeader struct {
+	ID               idwrap.IDWrap
+	HttpID           idwrap.IDWrap
+	HeaderKey        string
+	HeaderValue      string
+	Description      string
+	Enabled          bool
+	ParentHeaderID   *idwrap.IDWrap
+	IsDelta          bool
+	DeltaHeaderKey   *string
+	DeltaHeaderValue *string
+	DeltaDescription *string
+	DeltaEnabled     *bool
+	Prev             *idwrap.IDWrap
+	Next             *idwrap.IDWrap
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+type HttpResponse struct {
+	ID                      idwrap.IDWrap
+	HttpID                  idwrap.IDWrap
+	StatusCode              int16
+	ResponseTimeMs          int32
+	ResponseSizeBytes       int32
+	ResponseBody            []byte
+	ResponseCompressionType int8
+	ExecutedAt              int64
+	CreatedBy               *idwrap.IDWrap
+}
+
+type HttpResponseHeader struct {
+	ID          idwrap.IDWrap
+	ResponseID  idwrap.IDWrap
+	HeaderKey   string
+	HeaderValue string
+}
+
+type HttpSearchParam struct {
+	ID                  idwrap.IDWrap
+	HttpID              idwrap.IDWrap
+	ParamKey            string
+	ParamValue          string
+	Description         string
+	Enabled             bool
+	ParentSearchParamID *idwrap.IDWrap
+	IsDelta             bool
+	DeltaParamKey       *string
+	DeltaParamValue     *string
+	DeltaDescription    *string
+	DeltaEnabled        *bool
+	Prev                *idwrap.IDWrap
+	Next                *idwrap.IDWrap
+	CreatedAt           int64
+	UpdatedAt           int64
+}
+
+type HttpVersion struct {
+	ID                 idwrap.IDWrap
+	HttpID             idwrap.IDWrap
+	VersionName        string
+	VersionDescription string
+	IsActive           bool
+	CreatedAt          int64
+	CreatedBy          *idwrap.IDWrap
+}
+
 type ItemApi struct {
 	ID              idwrap.IDWrap
 	CollectionID    idwrap.IDWrap

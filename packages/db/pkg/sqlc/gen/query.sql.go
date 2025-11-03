@@ -43,6 +43,32 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 	return column_1, err
 }
 
+const countHTTPByFolder = `-- name: CountHTTPByFolder :one
+SELECT COUNT(*) as count
+FROM http
+WHERE folder_id = ? AND is_delta = FALSE
+`
+
+func (q *Queries) CountHTTPByFolder(ctx context.Context, folderID *idwrap.IDWrap) (int64, error) {
+	row := q.queryRow(ctx, q.countHTTPByFolderStmt, countHTTPByFolder, folderID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countHTTPByWorkspace = `-- name: CountHTTPByWorkspace :one
+SELECT COUNT(*) as count
+FROM http
+WHERE workspace_id = ? AND is_delta = FALSE
+`
+
+func (q *Queries) CountHTTPByWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (int64, error) {
+	row := q.queryRow(ctx, q.countHTTPByWorkspaceStmt, countHTTPByWorkspace, workspaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAssert = `-- name: CreateAssert :exec
 INSERT INTO
   assertion (id, example_id, delta_parent_id, expression, enable, prev, next)
@@ -1290,6 +1316,2235 @@ func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVari
 		arg.Description_10,
 		arg.Prev_10,
 		arg.Next_10,
+	)
+	return err
+}
+
+const createHTTP = `-- name: CreateHTTP :exec
+INSERT INTO http (
+  id, workspace_id, folder_id, name, url, method, description,
+  parent_http_id, is_delta, delta_name, delta_url, delta_method, delta_description,
+  created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPParams struct {
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Method           string
+	Description      string
+	ParentHttpID     *idwrap.IDWrap
+	IsDelta          bool
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaDescription *string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+func (q *Queries) CreateHTTP(ctx context.Context, arg CreateHTTPParams) error {
+	_, err := q.exec(ctx, q.createHTTPStmt, createHTTP,
+		arg.ID,
+		arg.WorkspaceID,
+		arg.FolderID,
+		arg.Name,
+		arg.Url,
+		arg.Method,
+		arg.Description,
+		arg.ParentHttpID,
+		arg.IsDelta,
+		arg.DeltaName,
+		arg.DeltaUrl,
+		arg.DeltaMethod,
+		arg.DeltaDescription,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createHTTPAssert = `-- name: CreateHTTPAssert :exec
+INSERT INTO http_assert (
+  id, http_id, assert_expression, assert_description, enabled,
+  parent_assert_id, is_delta, delta_assert_expression, delta_assert_description,
+  delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPAssertParams struct {
+	ID                     idwrap.IDWrap
+	HttpID                 idwrap.IDWrap
+	AssertExpression       string
+	AssertDescription      string
+	Enabled                bool
+	ParentAssertID         *idwrap.IDWrap
+	IsDelta                bool
+	DeltaAssertExpression  interface{}
+	DeltaAssertDescription interface{}
+	DeltaEnabled           interface{}
+	Prev                   *idwrap.IDWrap
+	Next                   *idwrap.IDWrap
+	CreatedAt              int64
+	UpdatedAt              int64
+}
+
+func (q *Queries) CreateHTTPAssert(ctx context.Context, arg CreateHTTPAssertParams) error {
+	_, err := q.exec(ctx, q.createHTTPAssertStmt, createHTTPAssert,
+		arg.ID,
+		arg.HttpID,
+		arg.AssertExpression,
+		arg.AssertDescription,
+		arg.Enabled,
+		arg.ParentAssertID,
+		arg.IsDelta,
+		arg.DeltaAssertExpression,
+		arg.DeltaAssertDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createHTTPAssertsBulk = `-- name: CreateHTTPAssertsBulk :exec
+INSERT INTO http_assert (
+  id, http_id, assert_expression, assert_description, enabled,
+  parent_assert_id, is_delta, delta_assert_expression, delta_assert_description,
+  delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPAssertsBulkParams struct {
+	ID                        idwrap.IDWrap
+	HttpID                    idwrap.IDWrap
+	AssertExpression          string
+	AssertDescription         string
+	Enabled                   bool
+	ParentAssertID            *idwrap.IDWrap
+	IsDelta                   bool
+	DeltaAssertExpression     interface{}
+	DeltaAssertDescription    interface{}
+	DeltaEnabled              interface{}
+	Prev                      *idwrap.IDWrap
+	Next                      *idwrap.IDWrap
+	CreatedAt                 int64
+	UpdatedAt                 int64
+	ID_2                      idwrap.IDWrap
+	HttpID_2                  idwrap.IDWrap
+	AssertExpression_2        string
+	AssertDescription_2       string
+	Enabled_2                 bool
+	ParentAssertID_2          *idwrap.IDWrap
+	IsDelta_2                 bool
+	DeltaAssertExpression_2   interface{}
+	DeltaAssertDescription_2  interface{}
+	DeltaEnabled_2            interface{}
+	Prev_2                    *idwrap.IDWrap
+	Next_2                    *idwrap.IDWrap
+	CreatedAt_2               int64
+	UpdatedAt_2               int64
+	ID_3                      idwrap.IDWrap
+	HttpID_3                  idwrap.IDWrap
+	AssertExpression_3        string
+	AssertDescription_3       string
+	Enabled_3                 bool
+	ParentAssertID_3          *idwrap.IDWrap
+	IsDelta_3                 bool
+	DeltaAssertExpression_3   interface{}
+	DeltaAssertDescription_3  interface{}
+	DeltaEnabled_3            interface{}
+	Prev_3                    *idwrap.IDWrap
+	Next_3                    *idwrap.IDWrap
+	CreatedAt_3               int64
+	UpdatedAt_3               int64
+	ID_4                      idwrap.IDWrap
+	HttpID_4                  idwrap.IDWrap
+	AssertExpression_4        string
+	AssertDescription_4       string
+	Enabled_4                 bool
+	ParentAssertID_4          *idwrap.IDWrap
+	IsDelta_4                 bool
+	DeltaAssertExpression_4   interface{}
+	DeltaAssertDescription_4  interface{}
+	DeltaEnabled_4            interface{}
+	Prev_4                    *idwrap.IDWrap
+	Next_4                    *idwrap.IDWrap
+	CreatedAt_4               int64
+	UpdatedAt_4               int64
+	ID_5                      idwrap.IDWrap
+	HttpID_5                  idwrap.IDWrap
+	AssertExpression_5        string
+	AssertDescription_5       string
+	Enabled_5                 bool
+	ParentAssertID_5          *idwrap.IDWrap
+	IsDelta_5                 bool
+	DeltaAssertExpression_5   interface{}
+	DeltaAssertDescription_5  interface{}
+	DeltaEnabled_5            interface{}
+	Prev_5                    *idwrap.IDWrap
+	Next_5                    *idwrap.IDWrap
+	CreatedAt_5               int64
+	UpdatedAt_5               int64
+	ID_6                      idwrap.IDWrap
+	HttpID_6                  idwrap.IDWrap
+	AssertExpression_6        string
+	AssertDescription_6       string
+	Enabled_6                 bool
+	ParentAssertID_6          *idwrap.IDWrap
+	IsDelta_6                 bool
+	DeltaAssertExpression_6   interface{}
+	DeltaAssertDescription_6  interface{}
+	DeltaEnabled_6            interface{}
+	Prev_6                    *idwrap.IDWrap
+	Next_6                    *idwrap.IDWrap
+	CreatedAt_6               int64
+	UpdatedAt_6               int64
+	ID_7                      idwrap.IDWrap
+	HttpID_7                  idwrap.IDWrap
+	AssertExpression_7        string
+	AssertDescription_7       string
+	Enabled_7                 bool
+	ParentAssertID_7          *idwrap.IDWrap
+	IsDelta_7                 bool
+	DeltaAssertExpression_7   interface{}
+	DeltaAssertDescription_7  interface{}
+	DeltaEnabled_7            interface{}
+	Prev_7                    *idwrap.IDWrap
+	Next_7                    *idwrap.IDWrap
+	CreatedAt_7               int64
+	UpdatedAt_7               int64
+	ID_8                      idwrap.IDWrap
+	HttpID_8                  idwrap.IDWrap
+	AssertExpression_8        string
+	AssertDescription_8       string
+	Enabled_8                 bool
+	ParentAssertID_8          *idwrap.IDWrap
+	IsDelta_8                 bool
+	DeltaAssertExpression_8   interface{}
+	DeltaAssertDescription_8  interface{}
+	DeltaEnabled_8            interface{}
+	Prev_8                    *idwrap.IDWrap
+	Next_8                    *idwrap.IDWrap
+	CreatedAt_8               int64
+	UpdatedAt_8               int64
+	ID_9                      idwrap.IDWrap
+	HttpID_9                  idwrap.IDWrap
+	AssertExpression_9        string
+	AssertDescription_9       string
+	Enabled_9                 bool
+	ParentAssertID_9          *idwrap.IDWrap
+	IsDelta_9                 bool
+	DeltaAssertExpression_9   interface{}
+	DeltaAssertDescription_9  interface{}
+	DeltaEnabled_9            interface{}
+	Prev_9                    *idwrap.IDWrap
+	Next_9                    *idwrap.IDWrap
+	CreatedAt_9               int64
+	UpdatedAt_9               int64
+	ID_10                     idwrap.IDWrap
+	HttpID_10                 idwrap.IDWrap
+	AssertExpression_10       string
+	AssertDescription_10      string
+	Enabled_10                bool
+	ParentAssertID_10         *idwrap.IDWrap
+	IsDelta_10                bool
+	DeltaAssertExpression_10  interface{}
+	DeltaAssertDescription_10 interface{}
+	DeltaEnabled_10           interface{}
+	Prev_10                   *idwrap.IDWrap
+	Next_10                   *idwrap.IDWrap
+	CreatedAt_10              int64
+	UpdatedAt_10              int64
+}
+
+func (q *Queries) CreateHTTPAssertsBulk(ctx context.Context, arg CreateHTTPAssertsBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPAssertsBulkStmt, createHTTPAssertsBulk,
+		arg.ID,
+		arg.HttpID,
+		arg.AssertExpression,
+		arg.AssertDescription,
+		arg.Enabled,
+		arg.ParentAssertID,
+		arg.IsDelta,
+		arg.DeltaAssertExpression,
+		arg.DeltaAssertDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.ID_2,
+		arg.HttpID_2,
+		arg.AssertExpression_2,
+		arg.AssertDescription_2,
+		arg.Enabled_2,
+		arg.ParentAssertID_2,
+		arg.IsDelta_2,
+		arg.DeltaAssertExpression_2,
+		arg.DeltaAssertDescription_2,
+		arg.DeltaEnabled_2,
+		arg.Prev_2,
+		arg.Next_2,
+		arg.CreatedAt_2,
+		arg.UpdatedAt_2,
+		arg.ID_3,
+		arg.HttpID_3,
+		arg.AssertExpression_3,
+		arg.AssertDescription_3,
+		arg.Enabled_3,
+		arg.ParentAssertID_3,
+		arg.IsDelta_3,
+		arg.DeltaAssertExpression_3,
+		arg.DeltaAssertDescription_3,
+		arg.DeltaEnabled_3,
+		arg.Prev_3,
+		arg.Next_3,
+		arg.CreatedAt_3,
+		arg.UpdatedAt_3,
+		arg.ID_4,
+		arg.HttpID_4,
+		arg.AssertExpression_4,
+		arg.AssertDescription_4,
+		arg.Enabled_4,
+		arg.ParentAssertID_4,
+		arg.IsDelta_4,
+		arg.DeltaAssertExpression_4,
+		arg.DeltaAssertDescription_4,
+		arg.DeltaEnabled_4,
+		arg.Prev_4,
+		arg.Next_4,
+		arg.CreatedAt_4,
+		arg.UpdatedAt_4,
+		arg.ID_5,
+		arg.HttpID_5,
+		arg.AssertExpression_5,
+		arg.AssertDescription_5,
+		arg.Enabled_5,
+		arg.ParentAssertID_5,
+		arg.IsDelta_5,
+		arg.DeltaAssertExpression_5,
+		arg.DeltaAssertDescription_5,
+		arg.DeltaEnabled_5,
+		arg.Prev_5,
+		arg.Next_5,
+		arg.CreatedAt_5,
+		arg.UpdatedAt_5,
+		arg.ID_6,
+		arg.HttpID_6,
+		arg.AssertExpression_6,
+		arg.AssertDescription_6,
+		arg.Enabled_6,
+		arg.ParentAssertID_6,
+		arg.IsDelta_6,
+		arg.DeltaAssertExpression_6,
+		arg.DeltaAssertDescription_6,
+		arg.DeltaEnabled_6,
+		arg.Prev_6,
+		arg.Next_6,
+		arg.CreatedAt_6,
+		arg.UpdatedAt_6,
+		arg.ID_7,
+		arg.HttpID_7,
+		arg.AssertExpression_7,
+		arg.AssertDescription_7,
+		arg.Enabled_7,
+		arg.ParentAssertID_7,
+		arg.IsDelta_7,
+		arg.DeltaAssertExpression_7,
+		arg.DeltaAssertDescription_7,
+		arg.DeltaEnabled_7,
+		arg.Prev_7,
+		arg.Next_7,
+		arg.CreatedAt_7,
+		arg.UpdatedAt_7,
+		arg.ID_8,
+		arg.HttpID_8,
+		arg.AssertExpression_8,
+		arg.AssertDescription_8,
+		arg.Enabled_8,
+		arg.ParentAssertID_8,
+		arg.IsDelta_8,
+		arg.DeltaAssertExpression_8,
+		arg.DeltaAssertDescription_8,
+		arg.DeltaEnabled_8,
+		arg.Prev_8,
+		arg.Next_8,
+		arg.CreatedAt_8,
+		arg.UpdatedAt_8,
+		arg.ID_9,
+		arg.HttpID_9,
+		arg.AssertExpression_9,
+		arg.AssertDescription_9,
+		arg.Enabled_9,
+		arg.ParentAssertID_9,
+		arg.IsDelta_9,
+		arg.DeltaAssertExpression_9,
+		arg.DeltaAssertDescription_9,
+		arg.DeltaEnabled_9,
+		arg.Prev_9,
+		arg.Next_9,
+		arg.CreatedAt_9,
+		arg.UpdatedAt_9,
+		arg.ID_10,
+		arg.HttpID_10,
+		arg.AssertExpression_10,
+		arg.AssertDescription_10,
+		arg.Enabled_10,
+		arg.ParentAssertID_10,
+		arg.IsDelta_10,
+		arg.DeltaAssertExpression_10,
+		arg.DeltaAssertDescription_10,
+		arg.DeltaEnabled_10,
+		arg.Prev_10,
+		arg.Next_10,
+		arg.CreatedAt_10,
+		arg.UpdatedAt_10,
+	)
+	return err
+}
+
+const createHTTPBodyForm = `-- name: CreateHTTPBodyForm :exec
+INSERT INTO http_body_form (
+  id, http_id, form_key, form_value, description, enabled,
+  parent_body_form_id, is_delta, delta_form_key, delta_form_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPBodyFormParams struct {
+	ID               idwrap.IDWrap
+	HttpID           idwrap.IDWrap
+	FormKey          string
+	FormValue        string
+	Description      string
+	Enabled          bool
+	ParentBodyFormID *idwrap.IDWrap
+	IsDelta          bool
+	DeltaFormKey     *string
+	DeltaFormValue   *string
+	DeltaDescription *string
+	DeltaEnabled     *bool
+	Prev             *idwrap.IDWrap
+	Next             *idwrap.IDWrap
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+func (q *Queries) CreateHTTPBodyForm(ctx context.Context, arg CreateHTTPBodyFormParams) error {
+	_, err := q.exec(ctx, q.createHTTPBodyFormStmt, createHTTPBodyForm,
+		arg.ID,
+		arg.HttpID,
+		arg.FormKey,
+		arg.FormValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ParentBodyFormID,
+		arg.IsDelta,
+		arg.DeltaFormKey,
+		arg.DeltaFormValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createHTTPBodyFormsBulk = `-- name: CreateHTTPBodyFormsBulk :exec
+INSERT INTO http_body_form (
+  id, http_id, form_key, form_value, description, enabled,
+  parent_body_form_id, is_delta, delta_form_key, delta_form_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPBodyFormsBulkParams struct {
+	ID                  idwrap.IDWrap
+	HttpID              idwrap.IDWrap
+	FormKey             string
+	FormValue           string
+	Description         string
+	Enabled             bool
+	ParentBodyFormID    *idwrap.IDWrap
+	IsDelta             bool
+	DeltaFormKey        *string
+	DeltaFormValue      *string
+	DeltaDescription    *string
+	DeltaEnabled        *bool
+	Prev                *idwrap.IDWrap
+	Next                *idwrap.IDWrap
+	CreatedAt           int64
+	UpdatedAt           int64
+	ID_2                idwrap.IDWrap
+	HttpID_2            idwrap.IDWrap
+	FormKey_2           string
+	FormValue_2         string
+	Description_2       string
+	Enabled_2           bool
+	ParentBodyFormID_2  *idwrap.IDWrap
+	IsDelta_2           bool
+	DeltaFormKey_2      *string
+	DeltaFormValue_2    *string
+	DeltaDescription_2  *string
+	DeltaEnabled_2      *bool
+	Prev_2              *idwrap.IDWrap
+	Next_2              *idwrap.IDWrap
+	CreatedAt_2         int64
+	UpdatedAt_2         int64
+	ID_3                idwrap.IDWrap
+	HttpID_3            idwrap.IDWrap
+	FormKey_3           string
+	FormValue_3         string
+	Description_3       string
+	Enabled_3           bool
+	ParentBodyFormID_3  *idwrap.IDWrap
+	IsDelta_3           bool
+	DeltaFormKey_3      *string
+	DeltaFormValue_3    *string
+	DeltaDescription_3  *string
+	DeltaEnabled_3      *bool
+	Prev_3              *idwrap.IDWrap
+	Next_3              *idwrap.IDWrap
+	CreatedAt_3         int64
+	UpdatedAt_3         int64
+	ID_4                idwrap.IDWrap
+	HttpID_4            idwrap.IDWrap
+	FormKey_4           string
+	FormValue_4         string
+	Description_4       string
+	Enabled_4           bool
+	ParentBodyFormID_4  *idwrap.IDWrap
+	IsDelta_4           bool
+	DeltaFormKey_4      *string
+	DeltaFormValue_4    *string
+	DeltaDescription_4  *string
+	DeltaEnabled_4      *bool
+	Prev_4              *idwrap.IDWrap
+	Next_4              *idwrap.IDWrap
+	CreatedAt_4         int64
+	UpdatedAt_4         int64
+	ID_5                idwrap.IDWrap
+	HttpID_5            idwrap.IDWrap
+	FormKey_5           string
+	FormValue_5         string
+	Description_5       string
+	Enabled_5           bool
+	ParentBodyFormID_5  *idwrap.IDWrap
+	IsDelta_5           bool
+	DeltaFormKey_5      *string
+	DeltaFormValue_5    *string
+	DeltaDescription_5  *string
+	DeltaEnabled_5      *bool
+	Prev_5              *idwrap.IDWrap
+	Next_5              *idwrap.IDWrap
+	CreatedAt_5         int64
+	UpdatedAt_5         int64
+	ID_6                idwrap.IDWrap
+	HttpID_6            idwrap.IDWrap
+	FormKey_6           string
+	FormValue_6         string
+	Description_6       string
+	Enabled_6           bool
+	ParentBodyFormID_6  *idwrap.IDWrap
+	IsDelta_6           bool
+	DeltaFormKey_6      *string
+	DeltaFormValue_6    *string
+	DeltaDescription_6  *string
+	DeltaEnabled_6      *bool
+	Prev_6              *idwrap.IDWrap
+	Next_6              *idwrap.IDWrap
+	CreatedAt_6         int64
+	UpdatedAt_6         int64
+	ID_7                idwrap.IDWrap
+	HttpID_7            idwrap.IDWrap
+	FormKey_7           string
+	FormValue_7         string
+	Description_7       string
+	Enabled_7           bool
+	ParentBodyFormID_7  *idwrap.IDWrap
+	IsDelta_7           bool
+	DeltaFormKey_7      *string
+	DeltaFormValue_7    *string
+	DeltaDescription_7  *string
+	DeltaEnabled_7      *bool
+	Prev_7              *idwrap.IDWrap
+	Next_7              *idwrap.IDWrap
+	CreatedAt_7         int64
+	UpdatedAt_7         int64
+	ID_8                idwrap.IDWrap
+	HttpID_8            idwrap.IDWrap
+	FormKey_8           string
+	FormValue_8         string
+	Description_8       string
+	Enabled_8           bool
+	ParentBodyFormID_8  *idwrap.IDWrap
+	IsDelta_8           bool
+	DeltaFormKey_8      *string
+	DeltaFormValue_8    *string
+	DeltaDescription_8  *string
+	DeltaEnabled_8      *bool
+	Prev_8              *idwrap.IDWrap
+	Next_8              *idwrap.IDWrap
+	CreatedAt_8         int64
+	UpdatedAt_8         int64
+	ID_9                idwrap.IDWrap
+	HttpID_9            idwrap.IDWrap
+	FormKey_9           string
+	FormValue_9         string
+	Description_9       string
+	Enabled_9           bool
+	ParentBodyFormID_9  *idwrap.IDWrap
+	IsDelta_9           bool
+	DeltaFormKey_9      *string
+	DeltaFormValue_9    *string
+	DeltaDescription_9  *string
+	DeltaEnabled_9      *bool
+	Prev_9              *idwrap.IDWrap
+	Next_9              *idwrap.IDWrap
+	CreatedAt_9         int64
+	UpdatedAt_9         int64
+	ID_10               idwrap.IDWrap
+	HttpID_10           idwrap.IDWrap
+	FormKey_10          string
+	FormValue_10        string
+	Description_10      string
+	Enabled_10          bool
+	ParentBodyFormID_10 *idwrap.IDWrap
+	IsDelta_10          bool
+	DeltaFormKey_10     *string
+	DeltaFormValue_10   *string
+	DeltaDescription_10 *string
+	DeltaEnabled_10     *bool
+	Prev_10             *idwrap.IDWrap
+	Next_10             *idwrap.IDWrap
+	CreatedAt_10        int64
+	UpdatedAt_10        int64
+}
+
+func (q *Queries) CreateHTTPBodyFormsBulk(ctx context.Context, arg CreateHTTPBodyFormsBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPBodyFormsBulkStmt, createHTTPBodyFormsBulk,
+		arg.ID,
+		arg.HttpID,
+		arg.FormKey,
+		arg.FormValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ParentBodyFormID,
+		arg.IsDelta,
+		arg.DeltaFormKey,
+		arg.DeltaFormValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.ID_2,
+		arg.HttpID_2,
+		arg.FormKey_2,
+		arg.FormValue_2,
+		arg.Description_2,
+		arg.Enabled_2,
+		arg.ParentBodyFormID_2,
+		arg.IsDelta_2,
+		arg.DeltaFormKey_2,
+		arg.DeltaFormValue_2,
+		arg.DeltaDescription_2,
+		arg.DeltaEnabled_2,
+		arg.Prev_2,
+		arg.Next_2,
+		arg.CreatedAt_2,
+		arg.UpdatedAt_2,
+		arg.ID_3,
+		arg.HttpID_3,
+		arg.FormKey_3,
+		arg.FormValue_3,
+		arg.Description_3,
+		arg.Enabled_3,
+		arg.ParentBodyFormID_3,
+		arg.IsDelta_3,
+		arg.DeltaFormKey_3,
+		arg.DeltaFormValue_3,
+		arg.DeltaDescription_3,
+		arg.DeltaEnabled_3,
+		arg.Prev_3,
+		arg.Next_3,
+		arg.CreatedAt_3,
+		arg.UpdatedAt_3,
+		arg.ID_4,
+		arg.HttpID_4,
+		arg.FormKey_4,
+		arg.FormValue_4,
+		arg.Description_4,
+		arg.Enabled_4,
+		arg.ParentBodyFormID_4,
+		arg.IsDelta_4,
+		arg.DeltaFormKey_4,
+		arg.DeltaFormValue_4,
+		arg.DeltaDescription_4,
+		arg.DeltaEnabled_4,
+		arg.Prev_4,
+		arg.Next_4,
+		arg.CreatedAt_4,
+		arg.UpdatedAt_4,
+		arg.ID_5,
+		arg.HttpID_5,
+		arg.FormKey_5,
+		arg.FormValue_5,
+		arg.Description_5,
+		arg.Enabled_5,
+		arg.ParentBodyFormID_5,
+		arg.IsDelta_5,
+		arg.DeltaFormKey_5,
+		arg.DeltaFormValue_5,
+		arg.DeltaDescription_5,
+		arg.DeltaEnabled_5,
+		arg.Prev_5,
+		arg.Next_5,
+		arg.CreatedAt_5,
+		arg.UpdatedAt_5,
+		arg.ID_6,
+		arg.HttpID_6,
+		arg.FormKey_6,
+		arg.FormValue_6,
+		arg.Description_6,
+		arg.Enabled_6,
+		arg.ParentBodyFormID_6,
+		arg.IsDelta_6,
+		arg.DeltaFormKey_6,
+		arg.DeltaFormValue_6,
+		arg.DeltaDescription_6,
+		arg.DeltaEnabled_6,
+		arg.Prev_6,
+		arg.Next_6,
+		arg.CreatedAt_6,
+		arg.UpdatedAt_6,
+		arg.ID_7,
+		arg.HttpID_7,
+		arg.FormKey_7,
+		arg.FormValue_7,
+		arg.Description_7,
+		arg.Enabled_7,
+		arg.ParentBodyFormID_7,
+		arg.IsDelta_7,
+		arg.DeltaFormKey_7,
+		arg.DeltaFormValue_7,
+		arg.DeltaDescription_7,
+		arg.DeltaEnabled_7,
+		arg.Prev_7,
+		arg.Next_7,
+		arg.CreatedAt_7,
+		arg.UpdatedAt_7,
+		arg.ID_8,
+		arg.HttpID_8,
+		arg.FormKey_8,
+		arg.FormValue_8,
+		arg.Description_8,
+		arg.Enabled_8,
+		arg.ParentBodyFormID_8,
+		arg.IsDelta_8,
+		arg.DeltaFormKey_8,
+		arg.DeltaFormValue_8,
+		arg.DeltaDescription_8,
+		arg.DeltaEnabled_8,
+		arg.Prev_8,
+		arg.Next_8,
+		arg.CreatedAt_8,
+		arg.UpdatedAt_8,
+		arg.ID_9,
+		arg.HttpID_9,
+		arg.FormKey_9,
+		arg.FormValue_9,
+		arg.Description_9,
+		arg.Enabled_9,
+		arg.ParentBodyFormID_9,
+		arg.IsDelta_9,
+		arg.DeltaFormKey_9,
+		arg.DeltaFormValue_9,
+		arg.DeltaDescription_9,
+		arg.DeltaEnabled_9,
+		arg.Prev_9,
+		arg.Next_9,
+		arg.CreatedAt_9,
+		arg.UpdatedAt_9,
+		arg.ID_10,
+		arg.HttpID_10,
+		arg.FormKey_10,
+		arg.FormValue_10,
+		arg.Description_10,
+		arg.Enabled_10,
+		arg.ParentBodyFormID_10,
+		arg.IsDelta_10,
+		arg.DeltaFormKey_10,
+		arg.DeltaFormValue_10,
+		arg.DeltaDescription_10,
+		arg.DeltaEnabled_10,
+		arg.Prev_10,
+		arg.Next_10,
+		arg.CreatedAt_10,
+		arg.UpdatedAt_10,
+	)
+	return err
+}
+
+const createHTTPBodyRaw = `-- name: CreateHTTPBodyRaw :exec
+INSERT INTO http_body_raw (
+  id, http_id, raw_data, content_type, compression_type,
+  parent_body_raw_id, is_delta, delta_raw_data, delta_content_type,
+  delta_compression_type, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPBodyRawParams struct {
+	ID                   idwrap.IDWrap
+	HttpID               idwrap.IDWrap
+	RawData              []byte
+	ContentType          string
+	CompressionType      int8
+	ParentBodyRawID      *idwrap.IDWrap
+	IsDelta              bool
+	DeltaRawData         interface{}
+	DeltaContentType     interface{}
+	DeltaCompressionType interface{}
+	CreatedAt            int64
+	UpdatedAt            int64
+}
+
+func (q *Queries) CreateHTTPBodyRaw(ctx context.Context, arg CreateHTTPBodyRawParams) error {
+	_, err := q.exec(ctx, q.createHTTPBodyRawStmt, createHTTPBodyRaw,
+		arg.ID,
+		arg.HttpID,
+		arg.RawData,
+		arg.ContentType,
+		arg.CompressionType,
+		arg.ParentBodyRawID,
+		arg.IsDelta,
+		arg.DeltaRawData,
+		arg.DeltaContentType,
+		arg.DeltaCompressionType,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createHTTPBodyUrlencoded = `-- name: CreateHTTPBodyUrlencoded :exec
+INSERT INTO http_body_urlencoded (
+  id, http_id, urlencoded_key, urlencoded_value, description, enabled,
+  parent_body_urlencoded_id, is_delta, delta_urlencoded_key, delta_urlencoded_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPBodyUrlencodedParams struct {
+	ID                     idwrap.IDWrap
+	HttpID                 idwrap.IDWrap
+	UrlencodedKey          string
+	UrlencodedValue        string
+	Description            string
+	Enabled                bool
+	ParentBodyUrlencodedID *idwrap.IDWrap
+	IsDelta                bool
+	DeltaUrlencodedKey     interface{}
+	DeltaUrlencodedValue   interface{}
+	DeltaDescription       *string
+	DeltaEnabled           *bool
+	Prev                   *idwrap.IDWrap
+	Next                   *idwrap.IDWrap
+	CreatedAt              int64
+	UpdatedAt              int64
+}
+
+func (q *Queries) CreateHTTPBodyUrlencoded(ctx context.Context, arg CreateHTTPBodyUrlencodedParams) error {
+	_, err := q.exec(ctx, q.createHTTPBodyUrlencodedStmt, createHTTPBodyUrlencoded,
+		arg.ID,
+		arg.HttpID,
+		arg.UrlencodedKey,
+		arg.UrlencodedValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ParentBodyUrlencodedID,
+		arg.IsDelta,
+		arg.DeltaUrlencodedKey,
+		arg.DeltaUrlencodedValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createHTTPBodyUrlencodedBulk = `-- name: CreateHTTPBodyUrlencodedBulk :exec
+INSERT INTO http_body_urlencoded (
+  id, http_id, urlencoded_key, urlencoded_value, description, enabled,
+  parent_body_urlencoded_id, is_delta, delta_urlencoded_key, delta_urlencoded_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPBodyUrlencodedBulkParams struct {
+	ID                        idwrap.IDWrap
+	HttpID                    idwrap.IDWrap
+	UrlencodedKey             string
+	UrlencodedValue           string
+	Description               string
+	Enabled                   bool
+	ParentBodyUrlencodedID    *idwrap.IDWrap
+	IsDelta                   bool
+	DeltaUrlencodedKey        interface{}
+	DeltaUrlencodedValue      interface{}
+	DeltaDescription          *string
+	DeltaEnabled              *bool
+	Prev                      *idwrap.IDWrap
+	Next                      *idwrap.IDWrap
+	CreatedAt                 int64
+	UpdatedAt                 int64
+	ID_2                      idwrap.IDWrap
+	HttpID_2                  idwrap.IDWrap
+	UrlencodedKey_2           string
+	UrlencodedValue_2         string
+	Description_2             string
+	Enabled_2                 bool
+	ParentBodyUrlencodedID_2  *idwrap.IDWrap
+	IsDelta_2                 bool
+	DeltaUrlencodedKey_2      interface{}
+	DeltaUrlencodedValue_2    interface{}
+	DeltaDescription_2        *string
+	DeltaEnabled_2            *bool
+	Prev_2                    *idwrap.IDWrap
+	Next_2                    *idwrap.IDWrap
+	CreatedAt_2               int64
+	UpdatedAt_2               int64
+	ID_3                      idwrap.IDWrap
+	HttpID_3                  idwrap.IDWrap
+	UrlencodedKey_3           string
+	UrlencodedValue_3         string
+	Description_3             string
+	Enabled_3                 bool
+	ParentBodyUrlencodedID_3  *idwrap.IDWrap
+	IsDelta_3                 bool
+	DeltaUrlencodedKey_3      interface{}
+	DeltaUrlencodedValue_3    interface{}
+	DeltaDescription_3        *string
+	DeltaEnabled_3            *bool
+	Prev_3                    *idwrap.IDWrap
+	Next_3                    *idwrap.IDWrap
+	CreatedAt_3               int64
+	UpdatedAt_3               int64
+	ID_4                      idwrap.IDWrap
+	HttpID_4                  idwrap.IDWrap
+	UrlencodedKey_4           string
+	UrlencodedValue_4         string
+	Description_4             string
+	Enabled_4                 bool
+	ParentBodyUrlencodedID_4  *idwrap.IDWrap
+	IsDelta_4                 bool
+	DeltaUrlencodedKey_4      interface{}
+	DeltaUrlencodedValue_4    interface{}
+	DeltaDescription_4        *string
+	DeltaEnabled_4            *bool
+	Prev_4                    *idwrap.IDWrap
+	Next_4                    *idwrap.IDWrap
+	CreatedAt_4               int64
+	UpdatedAt_4               int64
+	ID_5                      idwrap.IDWrap
+	HttpID_5                  idwrap.IDWrap
+	UrlencodedKey_5           string
+	UrlencodedValue_5         string
+	Description_5             string
+	Enabled_5                 bool
+	ParentBodyUrlencodedID_5  *idwrap.IDWrap
+	IsDelta_5                 bool
+	DeltaUrlencodedKey_5      interface{}
+	DeltaUrlencodedValue_5    interface{}
+	DeltaDescription_5        *string
+	DeltaEnabled_5            *bool
+	Prev_5                    *idwrap.IDWrap
+	Next_5                    *idwrap.IDWrap
+	CreatedAt_5               int64
+	UpdatedAt_5               int64
+	ID_6                      idwrap.IDWrap
+	HttpID_6                  idwrap.IDWrap
+	UrlencodedKey_6           string
+	UrlencodedValue_6         string
+	Description_6             string
+	Enabled_6                 bool
+	ParentBodyUrlencodedID_6  *idwrap.IDWrap
+	IsDelta_6                 bool
+	DeltaUrlencodedKey_6      interface{}
+	DeltaUrlencodedValue_6    interface{}
+	DeltaDescription_6        *string
+	DeltaEnabled_6            *bool
+	Prev_6                    *idwrap.IDWrap
+	Next_6                    *idwrap.IDWrap
+	CreatedAt_6               int64
+	UpdatedAt_6               int64
+	ID_7                      idwrap.IDWrap
+	HttpID_7                  idwrap.IDWrap
+	UrlencodedKey_7           string
+	UrlencodedValue_7         string
+	Description_7             string
+	Enabled_7                 bool
+	ParentBodyUrlencodedID_7  *idwrap.IDWrap
+	IsDelta_7                 bool
+	DeltaUrlencodedKey_7      interface{}
+	DeltaUrlencodedValue_7    interface{}
+	DeltaDescription_7        *string
+	DeltaEnabled_7            *bool
+	Prev_7                    *idwrap.IDWrap
+	Next_7                    *idwrap.IDWrap
+	CreatedAt_7               int64
+	UpdatedAt_7               int64
+	ID_8                      idwrap.IDWrap
+	HttpID_8                  idwrap.IDWrap
+	UrlencodedKey_8           string
+	UrlencodedValue_8         string
+	Description_8             string
+	Enabled_8                 bool
+	ParentBodyUrlencodedID_8  *idwrap.IDWrap
+	IsDelta_8                 bool
+	DeltaUrlencodedKey_8      interface{}
+	DeltaUrlencodedValue_8    interface{}
+	DeltaDescription_8        *string
+	DeltaEnabled_8            *bool
+	Prev_8                    *idwrap.IDWrap
+	Next_8                    *idwrap.IDWrap
+	CreatedAt_8               int64
+	UpdatedAt_8               int64
+	ID_9                      idwrap.IDWrap
+	HttpID_9                  idwrap.IDWrap
+	UrlencodedKey_9           string
+	UrlencodedValue_9         string
+	Description_9             string
+	Enabled_9                 bool
+	ParentBodyUrlencodedID_9  *idwrap.IDWrap
+	IsDelta_9                 bool
+	DeltaUrlencodedKey_9      interface{}
+	DeltaUrlencodedValue_9    interface{}
+	DeltaDescription_9        *string
+	DeltaEnabled_9            *bool
+	Prev_9                    *idwrap.IDWrap
+	Next_9                    *idwrap.IDWrap
+	CreatedAt_9               int64
+	UpdatedAt_9               int64
+	ID_10                     idwrap.IDWrap
+	HttpID_10                 idwrap.IDWrap
+	UrlencodedKey_10          string
+	UrlencodedValue_10        string
+	Description_10            string
+	Enabled_10                bool
+	ParentBodyUrlencodedID_10 *idwrap.IDWrap
+	IsDelta_10                bool
+	DeltaUrlencodedKey_10     interface{}
+	DeltaUrlencodedValue_10   interface{}
+	DeltaDescription_10       *string
+	DeltaEnabled_10           *bool
+	Prev_10                   *idwrap.IDWrap
+	Next_10                   *idwrap.IDWrap
+	CreatedAt_10              int64
+	UpdatedAt_10              int64
+}
+
+func (q *Queries) CreateHTTPBodyUrlencodedBulk(ctx context.Context, arg CreateHTTPBodyUrlencodedBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPBodyUrlencodedBulkStmt, createHTTPBodyUrlencodedBulk,
+		arg.ID,
+		arg.HttpID,
+		arg.UrlencodedKey,
+		arg.UrlencodedValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ParentBodyUrlencodedID,
+		arg.IsDelta,
+		arg.DeltaUrlencodedKey,
+		arg.DeltaUrlencodedValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.ID_2,
+		arg.HttpID_2,
+		arg.UrlencodedKey_2,
+		arg.UrlencodedValue_2,
+		arg.Description_2,
+		arg.Enabled_2,
+		arg.ParentBodyUrlencodedID_2,
+		arg.IsDelta_2,
+		arg.DeltaUrlencodedKey_2,
+		arg.DeltaUrlencodedValue_2,
+		arg.DeltaDescription_2,
+		arg.DeltaEnabled_2,
+		arg.Prev_2,
+		arg.Next_2,
+		arg.CreatedAt_2,
+		arg.UpdatedAt_2,
+		arg.ID_3,
+		arg.HttpID_3,
+		arg.UrlencodedKey_3,
+		arg.UrlencodedValue_3,
+		arg.Description_3,
+		arg.Enabled_3,
+		arg.ParentBodyUrlencodedID_3,
+		arg.IsDelta_3,
+		arg.DeltaUrlencodedKey_3,
+		arg.DeltaUrlencodedValue_3,
+		arg.DeltaDescription_3,
+		arg.DeltaEnabled_3,
+		arg.Prev_3,
+		arg.Next_3,
+		arg.CreatedAt_3,
+		arg.UpdatedAt_3,
+		arg.ID_4,
+		arg.HttpID_4,
+		arg.UrlencodedKey_4,
+		arg.UrlencodedValue_4,
+		arg.Description_4,
+		arg.Enabled_4,
+		arg.ParentBodyUrlencodedID_4,
+		arg.IsDelta_4,
+		arg.DeltaUrlencodedKey_4,
+		arg.DeltaUrlencodedValue_4,
+		arg.DeltaDescription_4,
+		arg.DeltaEnabled_4,
+		arg.Prev_4,
+		arg.Next_4,
+		arg.CreatedAt_4,
+		arg.UpdatedAt_4,
+		arg.ID_5,
+		arg.HttpID_5,
+		arg.UrlencodedKey_5,
+		arg.UrlencodedValue_5,
+		arg.Description_5,
+		arg.Enabled_5,
+		arg.ParentBodyUrlencodedID_5,
+		arg.IsDelta_5,
+		arg.DeltaUrlencodedKey_5,
+		arg.DeltaUrlencodedValue_5,
+		arg.DeltaDescription_5,
+		arg.DeltaEnabled_5,
+		arg.Prev_5,
+		arg.Next_5,
+		arg.CreatedAt_5,
+		arg.UpdatedAt_5,
+		arg.ID_6,
+		arg.HttpID_6,
+		arg.UrlencodedKey_6,
+		arg.UrlencodedValue_6,
+		arg.Description_6,
+		arg.Enabled_6,
+		arg.ParentBodyUrlencodedID_6,
+		arg.IsDelta_6,
+		arg.DeltaUrlencodedKey_6,
+		arg.DeltaUrlencodedValue_6,
+		arg.DeltaDescription_6,
+		arg.DeltaEnabled_6,
+		arg.Prev_6,
+		arg.Next_6,
+		arg.CreatedAt_6,
+		arg.UpdatedAt_6,
+		arg.ID_7,
+		arg.HttpID_7,
+		arg.UrlencodedKey_7,
+		arg.UrlencodedValue_7,
+		arg.Description_7,
+		arg.Enabled_7,
+		arg.ParentBodyUrlencodedID_7,
+		arg.IsDelta_7,
+		arg.DeltaUrlencodedKey_7,
+		arg.DeltaUrlencodedValue_7,
+		arg.DeltaDescription_7,
+		arg.DeltaEnabled_7,
+		arg.Prev_7,
+		arg.Next_7,
+		arg.CreatedAt_7,
+		arg.UpdatedAt_7,
+		arg.ID_8,
+		arg.HttpID_8,
+		arg.UrlencodedKey_8,
+		arg.UrlencodedValue_8,
+		arg.Description_8,
+		arg.Enabled_8,
+		arg.ParentBodyUrlencodedID_8,
+		arg.IsDelta_8,
+		arg.DeltaUrlencodedKey_8,
+		arg.DeltaUrlencodedValue_8,
+		arg.DeltaDescription_8,
+		arg.DeltaEnabled_8,
+		arg.Prev_8,
+		arg.Next_8,
+		arg.CreatedAt_8,
+		arg.UpdatedAt_8,
+		arg.ID_9,
+		arg.HttpID_9,
+		arg.UrlencodedKey_9,
+		arg.UrlencodedValue_9,
+		arg.Description_9,
+		arg.Enabled_9,
+		arg.ParentBodyUrlencodedID_9,
+		arg.IsDelta_9,
+		arg.DeltaUrlencodedKey_9,
+		arg.DeltaUrlencodedValue_9,
+		arg.DeltaDescription_9,
+		arg.DeltaEnabled_9,
+		arg.Prev_9,
+		arg.Next_9,
+		arg.CreatedAt_9,
+		arg.UpdatedAt_9,
+		arg.ID_10,
+		arg.HttpID_10,
+		arg.UrlencodedKey_10,
+		arg.UrlencodedValue_10,
+		arg.Description_10,
+		arg.Enabled_10,
+		arg.ParentBodyUrlencodedID_10,
+		arg.IsDelta_10,
+		arg.DeltaUrlencodedKey_10,
+		arg.DeltaUrlencodedValue_10,
+		arg.DeltaDescription_10,
+		arg.DeltaEnabled_10,
+		arg.Prev_10,
+		arg.Next_10,
+		arg.CreatedAt_10,
+		arg.UpdatedAt_10,
+	)
+	return err
+}
+
+const createHTTPHeader = `-- name: CreateHTTPHeader :exec
+INSERT INTO http_header (
+  id, http_id, header_key, header_value, description, enabled,
+  parent_header_id, is_delta, delta_header_key, delta_header_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPHeaderParams struct {
+	ID               idwrap.IDWrap
+	HttpID           idwrap.IDWrap
+	HeaderKey        string
+	HeaderValue      string
+	Description      string
+	Enabled          bool
+	ParentHeaderID   *idwrap.IDWrap
+	IsDelta          bool
+	DeltaHeaderKey   interface{}
+	DeltaHeaderValue interface{}
+	DeltaDescription *string
+	DeltaEnabled     *bool
+	Prev             *idwrap.IDWrap
+	Next             *idwrap.IDWrap
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+func (q *Queries) CreateHTTPHeader(ctx context.Context, arg CreateHTTPHeaderParams) error {
+	_, err := q.exec(ctx, q.createHTTPHeaderStmt, createHTTPHeader,
+		arg.ID,
+		arg.HttpID,
+		arg.HeaderKey,
+		arg.HeaderValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ParentHeaderID,
+		arg.IsDelta,
+		arg.DeltaHeaderKey,
+		arg.DeltaHeaderValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createHTTPHeadersBulk = `-- name: CreateHTTPHeadersBulk :exec
+INSERT INTO http_header (
+  id, http_id, header_key, header_value, description, enabled,
+  parent_header_id, is_delta, delta_header_key, delta_header_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPHeadersBulkParams struct {
+	ID                  idwrap.IDWrap
+	HttpID              idwrap.IDWrap
+	HeaderKey           string
+	HeaderValue         string
+	Description         string
+	Enabled             bool
+	ParentHeaderID      *idwrap.IDWrap
+	IsDelta             bool
+	DeltaHeaderKey      interface{}
+	DeltaHeaderValue    interface{}
+	DeltaDescription    *string
+	DeltaEnabled        *bool
+	Prev                *idwrap.IDWrap
+	Next                *idwrap.IDWrap
+	CreatedAt           int64
+	UpdatedAt           int64
+	ID_2                idwrap.IDWrap
+	HttpID_2            idwrap.IDWrap
+	HeaderKey_2         string
+	HeaderValue_2       string
+	Description_2       string
+	Enabled_2           bool
+	ParentHeaderID_2    *idwrap.IDWrap
+	IsDelta_2           bool
+	DeltaHeaderKey_2    interface{}
+	DeltaHeaderValue_2  interface{}
+	DeltaDescription_2  *string
+	DeltaEnabled_2      *bool
+	Prev_2              *idwrap.IDWrap
+	Next_2              *idwrap.IDWrap
+	CreatedAt_2         int64
+	UpdatedAt_2         int64
+	ID_3                idwrap.IDWrap
+	HttpID_3            idwrap.IDWrap
+	HeaderKey_3         string
+	HeaderValue_3       string
+	Description_3       string
+	Enabled_3           bool
+	ParentHeaderID_3    *idwrap.IDWrap
+	IsDelta_3           bool
+	DeltaHeaderKey_3    interface{}
+	DeltaHeaderValue_3  interface{}
+	DeltaDescription_3  *string
+	DeltaEnabled_3      *bool
+	Prev_3              *idwrap.IDWrap
+	Next_3              *idwrap.IDWrap
+	CreatedAt_3         int64
+	UpdatedAt_3         int64
+	ID_4                idwrap.IDWrap
+	HttpID_4            idwrap.IDWrap
+	HeaderKey_4         string
+	HeaderValue_4       string
+	Description_4       string
+	Enabled_4           bool
+	ParentHeaderID_4    *idwrap.IDWrap
+	IsDelta_4           bool
+	DeltaHeaderKey_4    interface{}
+	DeltaHeaderValue_4  interface{}
+	DeltaDescription_4  *string
+	DeltaEnabled_4      *bool
+	Prev_4              *idwrap.IDWrap
+	Next_4              *idwrap.IDWrap
+	CreatedAt_4         int64
+	UpdatedAt_4         int64
+	ID_5                idwrap.IDWrap
+	HttpID_5            idwrap.IDWrap
+	HeaderKey_5         string
+	HeaderValue_5       string
+	Description_5       string
+	Enabled_5           bool
+	ParentHeaderID_5    *idwrap.IDWrap
+	IsDelta_5           bool
+	DeltaHeaderKey_5    interface{}
+	DeltaHeaderValue_5  interface{}
+	DeltaDescription_5  *string
+	DeltaEnabled_5      *bool
+	Prev_5              *idwrap.IDWrap
+	Next_5              *idwrap.IDWrap
+	CreatedAt_5         int64
+	UpdatedAt_5         int64
+	ID_6                idwrap.IDWrap
+	HttpID_6            idwrap.IDWrap
+	HeaderKey_6         string
+	HeaderValue_6       string
+	Description_6       string
+	Enabled_6           bool
+	ParentHeaderID_6    *idwrap.IDWrap
+	IsDelta_6           bool
+	DeltaHeaderKey_6    interface{}
+	DeltaHeaderValue_6  interface{}
+	DeltaDescription_6  *string
+	DeltaEnabled_6      *bool
+	Prev_6              *idwrap.IDWrap
+	Next_6              *idwrap.IDWrap
+	CreatedAt_6         int64
+	UpdatedAt_6         int64
+	ID_7                idwrap.IDWrap
+	HttpID_7            idwrap.IDWrap
+	HeaderKey_7         string
+	HeaderValue_7       string
+	Description_7       string
+	Enabled_7           bool
+	ParentHeaderID_7    *idwrap.IDWrap
+	IsDelta_7           bool
+	DeltaHeaderKey_7    interface{}
+	DeltaHeaderValue_7  interface{}
+	DeltaDescription_7  *string
+	DeltaEnabled_7      *bool
+	Prev_7              *idwrap.IDWrap
+	Next_7              *idwrap.IDWrap
+	CreatedAt_7         int64
+	UpdatedAt_7         int64
+	ID_8                idwrap.IDWrap
+	HttpID_8            idwrap.IDWrap
+	HeaderKey_8         string
+	HeaderValue_8       string
+	Description_8       string
+	Enabled_8           bool
+	ParentHeaderID_8    *idwrap.IDWrap
+	IsDelta_8           bool
+	DeltaHeaderKey_8    interface{}
+	DeltaHeaderValue_8  interface{}
+	DeltaDescription_8  *string
+	DeltaEnabled_8      *bool
+	Prev_8              *idwrap.IDWrap
+	Next_8              *idwrap.IDWrap
+	CreatedAt_8         int64
+	UpdatedAt_8         int64
+	ID_9                idwrap.IDWrap
+	HttpID_9            idwrap.IDWrap
+	HeaderKey_9         string
+	HeaderValue_9       string
+	Description_9       string
+	Enabled_9           bool
+	ParentHeaderID_9    *idwrap.IDWrap
+	IsDelta_9           bool
+	DeltaHeaderKey_9    interface{}
+	DeltaHeaderValue_9  interface{}
+	DeltaDescription_9  *string
+	DeltaEnabled_9      *bool
+	Prev_9              *idwrap.IDWrap
+	Next_9              *idwrap.IDWrap
+	CreatedAt_9         int64
+	UpdatedAt_9         int64
+	ID_10               idwrap.IDWrap
+	HttpID_10           idwrap.IDWrap
+	HeaderKey_10        string
+	HeaderValue_10      string
+	Description_10      string
+	Enabled_10          bool
+	ParentHeaderID_10   *idwrap.IDWrap
+	IsDelta_10          bool
+	DeltaHeaderKey_10   interface{}
+	DeltaHeaderValue_10 interface{}
+	DeltaDescription_10 *string
+	DeltaEnabled_10     *bool
+	Prev_10             *idwrap.IDWrap
+	Next_10             *idwrap.IDWrap
+	CreatedAt_10        int64
+	UpdatedAt_10        int64
+}
+
+func (q *Queries) CreateHTTPHeadersBulk(ctx context.Context, arg CreateHTTPHeadersBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPHeadersBulkStmt, createHTTPHeadersBulk,
+		arg.ID,
+		arg.HttpID,
+		arg.HeaderKey,
+		arg.HeaderValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ParentHeaderID,
+		arg.IsDelta,
+		arg.DeltaHeaderKey,
+		arg.DeltaHeaderValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.ID_2,
+		arg.HttpID_2,
+		arg.HeaderKey_2,
+		arg.HeaderValue_2,
+		arg.Description_2,
+		arg.Enabled_2,
+		arg.ParentHeaderID_2,
+		arg.IsDelta_2,
+		arg.DeltaHeaderKey_2,
+		arg.DeltaHeaderValue_2,
+		arg.DeltaDescription_2,
+		arg.DeltaEnabled_2,
+		arg.Prev_2,
+		arg.Next_2,
+		arg.CreatedAt_2,
+		arg.UpdatedAt_2,
+		arg.ID_3,
+		arg.HttpID_3,
+		arg.HeaderKey_3,
+		arg.HeaderValue_3,
+		arg.Description_3,
+		arg.Enabled_3,
+		arg.ParentHeaderID_3,
+		arg.IsDelta_3,
+		arg.DeltaHeaderKey_3,
+		arg.DeltaHeaderValue_3,
+		arg.DeltaDescription_3,
+		arg.DeltaEnabled_3,
+		arg.Prev_3,
+		arg.Next_3,
+		arg.CreatedAt_3,
+		arg.UpdatedAt_3,
+		arg.ID_4,
+		arg.HttpID_4,
+		arg.HeaderKey_4,
+		arg.HeaderValue_4,
+		arg.Description_4,
+		arg.Enabled_4,
+		arg.ParentHeaderID_4,
+		arg.IsDelta_4,
+		arg.DeltaHeaderKey_4,
+		arg.DeltaHeaderValue_4,
+		arg.DeltaDescription_4,
+		arg.DeltaEnabled_4,
+		arg.Prev_4,
+		arg.Next_4,
+		arg.CreatedAt_4,
+		arg.UpdatedAt_4,
+		arg.ID_5,
+		arg.HttpID_5,
+		arg.HeaderKey_5,
+		arg.HeaderValue_5,
+		arg.Description_5,
+		arg.Enabled_5,
+		arg.ParentHeaderID_5,
+		arg.IsDelta_5,
+		arg.DeltaHeaderKey_5,
+		arg.DeltaHeaderValue_5,
+		arg.DeltaDescription_5,
+		arg.DeltaEnabled_5,
+		arg.Prev_5,
+		arg.Next_5,
+		arg.CreatedAt_5,
+		arg.UpdatedAt_5,
+		arg.ID_6,
+		arg.HttpID_6,
+		arg.HeaderKey_6,
+		arg.HeaderValue_6,
+		arg.Description_6,
+		arg.Enabled_6,
+		arg.ParentHeaderID_6,
+		arg.IsDelta_6,
+		arg.DeltaHeaderKey_6,
+		arg.DeltaHeaderValue_6,
+		arg.DeltaDescription_6,
+		arg.DeltaEnabled_6,
+		arg.Prev_6,
+		arg.Next_6,
+		arg.CreatedAt_6,
+		arg.UpdatedAt_6,
+		arg.ID_7,
+		arg.HttpID_7,
+		arg.HeaderKey_7,
+		arg.HeaderValue_7,
+		arg.Description_7,
+		arg.Enabled_7,
+		arg.ParentHeaderID_7,
+		arg.IsDelta_7,
+		arg.DeltaHeaderKey_7,
+		arg.DeltaHeaderValue_7,
+		arg.DeltaDescription_7,
+		arg.DeltaEnabled_7,
+		arg.Prev_7,
+		arg.Next_7,
+		arg.CreatedAt_7,
+		arg.UpdatedAt_7,
+		arg.ID_8,
+		arg.HttpID_8,
+		arg.HeaderKey_8,
+		arg.HeaderValue_8,
+		arg.Description_8,
+		arg.Enabled_8,
+		arg.ParentHeaderID_8,
+		arg.IsDelta_8,
+		arg.DeltaHeaderKey_8,
+		arg.DeltaHeaderValue_8,
+		arg.DeltaDescription_8,
+		arg.DeltaEnabled_8,
+		arg.Prev_8,
+		arg.Next_8,
+		arg.CreatedAt_8,
+		arg.UpdatedAt_8,
+		arg.ID_9,
+		arg.HttpID_9,
+		arg.HeaderKey_9,
+		arg.HeaderValue_9,
+		arg.Description_9,
+		arg.Enabled_9,
+		arg.ParentHeaderID_9,
+		arg.IsDelta_9,
+		arg.DeltaHeaderKey_9,
+		arg.DeltaHeaderValue_9,
+		arg.DeltaDescription_9,
+		arg.DeltaEnabled_9,
+		arg.Prev_9,
+		arg.Next_9,
+		arg.CreatedAt_9,
+		arg.UpdatedAt_9,
+		arg.ID_10,
+		arg.HttpID_10,
+		arg.HeaderKey_10,
+		arg.HeaderValue_10,
+		arg.Description_10,
+		arg.Enabled_10,
+		arg.ParentHeaderID_10,
+		arg.IsDelta_10,
+		arg.DeltaHeaderKey_10,
+		arg.DeltaHeaderValue_10,
+		arg.DeltaDescription_10,
+		arg.DeltaEnabled_10,
+		arg.Prev_10,
+		arg.Next_10,
+		arg.CreatedAt_10,
+		arg.UpdatedAt_10,
+	)
+	return err
+}
+
+const createHTTPResponse = `-- name: CreateHTTPResponse :exec
+INSERT INTO http_response (
+  id, http_id, status_code, response_time_ms, response_size_bytes,
+  response_body, response_compression_type, executed_at, created_by
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPResponseParams struct {
+	ID                      idwrap.IDWrap
+	HttpID                  idwrap.IDWrap
+	StatusCode              int16
+	ResponseTimeMs          int32
+	ResponseSizeBytes       int32
+	ResponseBody            []byte
+	ResponseCompressionType int8
+	ExecutedAt              int64
+	CreatedBy               *idwrap.IDWrap
+}
+
+func (q *Queries) CreateHTTPResponse(ctx context.Context, arg CreateHTTPResponseParams) error {
+	_, err := q.exec(ctx, q.createHTTPResponseStmt, createHTTPResponse,
+		arg.ID,
+		arg.HttpID,
+		arg.StatusCode,
+		arg.ResponseTimeMs,
+		arg.ResponseSizeBytes,
+		arg.ResponseBody,
+		arg.ResponseCompressionType,
+		arg.ExecutedAt,
+		arg.CreatedBy,
+	)
+	return err
+}
+
+const createHTTPResponseHeader = `-- name: CreateHTTPResponseHeader :exec
+INSERT INTO http_response_header (id, response_id, header_key, header_value)
+VALUES (?, ?, ?, ?)
+`
+
+type CreateHTTPResponseHeaderParams struct {
+	ID          idwrap.IDWrap
+	ResponseID  idwrap.IDWrap
+	HeaderKey   string
+	HeaderValue string
+}
+
+func (q *Queries) CreateHTTPResponseHeader(ctx context.Context, arg CreateHTTPResponseHeaderParams) error {
+	_, err := q.exec(ctx, q.createHTTPResponseHeaderStmt, createHTTPResponseHeader,
+		arg.ID,
+		arg.ResponseID,
+		arg.HeaderKey,
+		arg.HeaderValue,
+	)
+	return err
+}
+
+const createHTTPResponseHeadersBulk = `-- name: CreateHTTPResponseHeadersBulk :exec
+INSERT INTO http_response_header (id, response_id, header_key, header_value)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?)
+`
+
+type CreateHTTPResponseHeadersBulkParams struct {
+	ID             idwrap.IDWrap
+	ResponseID     idwrap.IDWrap
+	HeaderKey      string
+	HeaderValue    string
+	ID_2           idwrap.IDWrap
+	ResponseID_2   idwrap.IDWrap
+	HeaderKey_2    string
+	HeaderValue_2  string
+	ID_3           idwrap.IDWrap
+	ResponseID_3   idwrap.IDWrap
+	HeaderKey_3    string
+	HeaderValue_3  string
+	ID_4           idwrap.IDWrap
+	ResponseID_4   idwrap.IDWrap
+	HeaderKey_4    string
+	HeaderValue_4  string
+	ID_5           idwrap.IDWrap
+	ResponseID_5   idwrap.IDWrap
+	HeaderKey_5    string
+	HeaderValue_5  string
+	ID_6           idwrap.IDWrap
+	ResponseID_6   idwrap.IDWrap
+	HeaderKey_6    string
+	HeaderValue_6  string
+	ID_7           idwrap.IDWrap
+	ResponseID_7   idwrap.IDWrap
+	HeaderKey_7    string
+	HeaderValue_7  string
+	ID_8           idwrap.IDWrap
+	ResponseID_8   idwrap.IDWrap
+	HeaderKey_8    string
+	HeaderValue_8  string
+	ID_9           idwrap.IDWrap
+	ResponseID_9   idwrap.IDWrap
+	HeaderKey_9    string
+	HeaderValue_9  string
+	ID_10          idwrap.IDWrap
+	ResponseID_10  idwrap.IDWrap
+	HeaderKey_10   string
+	HeaderValue_10 string
+}
+
+func (q *Queries) CreateHTTPResponseHeadersBulk(ctx context.Context, arg CreateHTTPResponseHeadersBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPResponseHeadersBulkStmt, createHTTPResponseHeadersBulk,
+		arg.ID,
+		arg.ResponseID,
+		arg.HeaderKey,
+		arg.HeaderValue,
+		arg.ID_2,
+		arg.ResponseID_2,
+		arg.HeaderKey_2,
+		arg.HeaderValue_2,
+		arg.ID_3,
+		arg.ResponseID_3,
+		arg.HeaderKey_3,
+		arg.HeaderValue_3,
+		arg.ID_4,
+		arg.ResponseID_4,
+		arg.HeaderKey_4,
+		arg.HeaderValue_4,
+		arg.ID_5,
+		arg.ResponseID_5,
+		arg.HeaderKey_5,
+		arg.HeaderValue_5,
+		arg.ID_6,
+		arg.ResponseID_6,
+		arg.HeaderKey_6,
+		arg.HeaderValue_6,
+		arg.ID_7,
+		arg.ResponseID_7,
+		arg.HeaderKey_7,
+		arg.HeaderValue_7,
+		arg.ID_8,
+		arg.ResponseID_8,
+		arg.HeaderKey_8,
+		arg.HeaderValue_8,
+		arg.ID_9,
+		arg.ResponseID_9,
+		arg.HeaderKey_9,
+		arg.HeaderValue_9,
+		arg.ID_10,
+		arg.ResponseID_10,
+		arg.HeaderKey_10,
+		arg.HeaderValue_10,
+	)
+	return err
+}
+
+const createHTTPSearchParam = `-- name: CreateHTTPSearchParam :exec
+INSERT INTO http_search_param (
+  id, http_id, param_key, param_value, description, enabled,
+  parent_search_param_id, is_delta, delta_param_key, delta_param_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPSearchParamParams struct {
+	ID                  idwrap.IDWrap
+	HttpID              idwrap.IDWrap
+	ParamKey            string
+	ParamValue          string
+	Description         string
+	Enabled             bool
+	ParentSearchParamID *idwrap.IDWrap
+	IsDelta             bool
+	DeltaParamKey       *string
+	DeltaParamValue     *string
+	DeltaDescription    *string
+	DeltaEnabled        *bool
+	Prev                *idwrap.IDWrap
+	Next                *idwrap.IDWrap
+	CreatedAt           int64
+	UpdatedAt           int64
+}
+
+func (q *Queries) CreateHTTPSearchParam(ctx context.Context, arg CreateHTTPSearchParamParams) error {
+	_, err := q.exec(ctx, q.createHTTPSearchParamStmt, createHTTPSearchParam,
+		arg.ID,
+		arg.HttpID,
+		arg.ParamKey,
+		arg.ParamValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ParentSearchParamID,
+		arg.IsDelta,
+		arg.DeltaParamKey,
+		arg.DeltaParamValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createHTTPSearchParamsBulk = `-- name: CreateHTTPSearchParamsBulk :exec
+
+INSERT INTO http_search_param (
+  id, http_id, param_key, param_value, description, enabled,
+  parent_search_param_id, is_delta, delta_param_key, delta_param_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPSearchParamsBulkParams struct {
+	ID                     idwrap.IDWrap
+	HttpID                 idwrap.IDWrap
+	ParamKey               string
+	ParamValue             string
+	Description            string
+	Enabled                bool
+	ParentSearchParamID    *idwrap.IDWrap
+	IsDelta                bool
+	DeltaParamKey          *string
+	DeltaParamValue        *string
+	DeltaDescription       *string
+	DeltaEnabled           *bool
+	Prev                   *idwrap.IDWrap
+	Next                   *idwrap.IDWrap
+	CreatedAt              int64
+	UpdatedAt              int64
+	ID_2                   idwrap.IDWrap
+	HttpID_2               idwrap.IDWrap
+	ParamKey_2             string
+	ParamValue_2           string
+	Description_2          string
+	Enabled_2              bool
+	ParentSearchParamID_2  *idwrap.IDWrap
+	IsDelta_2              bool
+	DeltaParamKey_2        *string
+	DeltaParamValue_2      *string
+	DeltaDescription_2     *string
+	DeltaEnabled_2         *bool
+	Prev_2                 *idwrap.IDWrap
+	Next_2                 *idwrap.IDWrap
+	CreatedAt_2            int64
+	UpdatedAt_2            int64
+	ID_3                   idwrap.IDWrap
+	HttpID_3               idwrap.IDWrap
+	ParamKey_3             string
+	ParamValue_3           string
+	Description_3          string
+	Enabled_3              bool
+	ParentSearchParamID_3  *idwrap.IDWrap
+	IsDelta_3              bool
+	DeltaParamKey_3        *string
+	DeltaParamValue_3      *string
+	DeltaDescription_3     *string
+	DeltaEnabled_3         *bool
+	Prev_3                 *idwrap.IDWrap
+	Next_3                 *idwrap.IDWrap
+	CreatedAt_3            int64
+	UpdatedAt_3            int64
+	ID_4                   idwrap.IDWrap
+	HttpID_4               idwrap.IDWrap
+	ParamKey_4             string
+	ParamValue_4           string
+	Description_4          string
+	Enabled_4              bool
+	ParentSearchParamID_4  *idwrap.IDWrap
+	IsDelta_4              bool
+	DeltaParamKey_4        *string
+	DeltaParamValue_4      *string
+	DeltaDescription_4     *string
+	DeltaEnabled_4         *bool
+	Prev_4                 *idwrap.IDWrap
+	Next_4                 *idwrap.IDWrap
+	CreatedAt_4            int64
+	UpdatedAt_4            int64
+	ID_5                   idwrap.IDWrap
+	HttpID_5               idwrap.IDWrap
+	ParamKey_5             string
+	ParamValue_5           string
+	Description_5          string
+	Enabled_5              bool
+	ParentSearchParamID_5  *idwrap.IDWrap
+	IsDelta_5              bool
+	DeltaParamKey_5        *string
+	DeltaParamValue_5      *string
+	DeltaDescription_5     *string
+	DeltaEnabled_5         *bool
+	Prev_5                 *idwrap.IDWrap
+	Next_5                 *idwrap.IDWrap
+	CreatedAt_5            int64
+	UpdatedAt_5            int64
+	ID_6                   idwrap.IDWrap
+	HttpID_6               idwrap.IDWrap
+	ParamKey_6             string
+	ParamValue_6           string
+	Description_6          string
+	Enabled_6              bool
+	ParentSearchParamID_6  *idwrap.IDWrap
+	IsDelta_6              bool
+	DeltaParamKey_6        *string
+	DeltaParamValue_6      *string
+	DeltaDescription_6     *string
+	DeltaEnabled_6         *bool
+	Prev_6                 *idwrap.IDWrap
+	Next_6                 *idwrap.IDWrap
+	CreatedAt_6            int64
+	UpdatedAt_6            int64
+	ID_7                   idwrap.IDWrap
+	HttpID_7               idwrap.IDWrap
+	ParamKey_7             string
+	ParamValue_7           string
+	Description_7          string
+	Enabled_7              bool
+	ParentSearchParamID_7  *idwrap.IDWrap
+	IsDelta_7              bool
+	DeltaParamKey_7        *string
+	DeltaParamValue_7      *string
+	DeltaDescription_7     *string
+	DeltaEnabled_7         *bool
+	Prev_7                 *idwrap.IDWrap
+	Next_7                 *idwrap.IDWrap
+	CreatedAt_7            int64
+	UpdatedAt_7            int64
+	ID_8                   idwrap.IDWrap
+	HttpID_8               idwrap.IDWrap
+	ParamKey_8             string
+	ParamValue_8           string
+	Description_8          string
+	Enabled_8              bool
+	ParentSearchParamID_8  *idwrap.IDWrap
+	IsDelta_8              bool
+	DeltaParamKey_8        *string
+	DeltaParamValue_8      *string
+	DeltaDescription_8     *string
+	DeltaEnabled_8         *bool
+	Prev_8                 *idwrap.IDWrap
+	Next_8                 *idwrap.IDWrap
+	CreatedAt_8            int64
+	UpdatedAt_8            int64
+	ID_9                   idwrap.IDWrap
+	HttpID_9               idwrap.IDWrap
+	ParamKey_9             string
+	ParamValue_9           string
+	Description_9          string
+	Enabled_9              bool
+	ParentSearchParamID_9  *idwrap.IDWrap
+	IsDelta_9              bool
+	DeltaParamKey_9        *string
+	DeltaParamValue_9      *string
+	DeltaDescription_9     *string
+	DeltaEnabled_9         *bool
+	Prev_9                 *idwrap.IDWrap
+	Next_9                 *idwrap.IDWrap
+	CreatedAt_9            int64
+	UpdatedAt_9            int64
+	ID_10                  idwrap.IDWrap
+	HttpID_10              idwrap.IDWrap
+	ParamKey_10            string
+	ParamValue_10          string
+	Description_10         string
+	Enabled_10             bool
+	ParentSearchParamID_10 *idwrap.IDWrap
+	IsDelta_10             bool
+	DeltaParamKey_10       *string
+	DeltaParamValue_10     *string
+	DeltaDescription_10    *string
+	DeltaEnabled_10        *bool
+	Prev_10                *idwrap.IDWrap
+	Next_10                *idwrap.IDWrap
+	CreatedAt_10           int64
+	UpdatedAt_10           int64
+}
+
+// Batch Operations for Performance
+func (q *Queries) CreateHTTPSearchParamsBulk(ctx context.Context, arg CreateHTTPSearchParamsBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPSearchParamsBulkStmt, createHTTPSearchParamsBulk,
+		arg.ID,
+		arg.HttpID,
+		arg.ParamKey,
+		arg.ParamValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ParentSearchParamID,
+		arg.IsDelta,
+		arg.DeltaParamKey,
+		arg.DeltaParamValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.Prev,
+		arg.Next,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.ID_2,
+		arg.HttpID_2,
+		arg.ParamKey_2,
+		arg.ParamValue_2,
+		arg.Description_2,
+		arg.Enabled_2,
+		arg.ParentSearchParamID_2,
+		arg.IsDelta_2,
+		arg.DeltaParamKey_2,
+		arg.DeltaParamValue_2,
+		arg.DeltaDescription_2,
+		arg.DeltaEnabled_2,
+		arg.Prev_2,
+		arg.Next_2,
+		arg.CreatedAt_2,
+		arg.UpdatedAt_2,
+		arg.ID_3,
+		arg.HttpID_3,
+		arg.ParamKey_3,
+		arg.ParamValue_3,
+		arg.Description_3,
+		arg.Enabled_3,
+		arg.ParentSearchParamID_3,
+		arg.IsDelta_3,
+		arg.DeltaParamKey_3,
+		arg.DeltaParamValue_3,
+		arg.DeltaDescription_3,
+		arg.DeltaEnabled_3,
+		arg.Prev_3,
+		arg.Next_3,
+		arg.CreatedAt_3,
+		arg.UpdatedAt_3,
+		arg.ID_4,
+		arg.HttpID_4,
+		arg.ParamKey_4,
+		arg.ParamValue_4,
+		arg.Description_4,
+		arg.Enabled_4,
+		arg.ParentSearchParamID_4,
+		arg.IsDelta_4,
+		arg.DeltaParamKey_4,
+		arg.DeltaParamValue_4,
+		arg.DeltaDescription_4,
+		arg.DeltaEnabled_4,
+		arg.Prev_4,
+		arg.Next_4,
+		arg.CreatedAt_4,
+		arg.UpdatedAt_4,
+		arg.ID_5,
+		arg.HttpID_5,
+		arg.ParamKey_5,
+		arg.ParamValue_5,
+		arg.Description_5,
+		arg.Enabled_5,
+		arg.ParentSearchParamID_5,
+		arg.IsDelta_5,
+		arg.DeltaParamKey_5,
+		arg.DeltaParamValue_5,
+		arg.DeltaDescription_5,
+		arg.DeltaEnabled_5,
+		arg.Prev_5,
+		arg.Next_5,
+		arg.CreatedAt_5,
+		arg.UpdatedAt_5,
+		arg.ID_6,
+		arg.HttpID_6,
+		arg.ParamKey_6,
+		arg.ParamValue_6,
+		arg.Description_6,
+		arg.Enabled_6,
+		arg.ParentSearchParamID_6,
+		arg.IsDelta_6,
+		arg.DeltaParamKey_6,
+		arg.DeltaParamValue_6,
+		arg.DeltaDescription_6,
+		arg.DeltaEnabled_6,
+		arg.Prev_6,
+		arg.Next_6,
+		arg.CreatedAt_6,
+		arg.UpdatedAt_6,
+		arg.ID_7,
+		arg.HttpID_7,
+		arg.ParamKey_7,
+		arg.ParamValue_7,
+		arg.Description_7,
+		arg.Enabled_7,
+		arg.ParentSearchParamID_7,
+		arg.IsDelta_7,
+		arg.DeltaParamKey_7,
+		arg.DeltaParamValue_7,
+		arg.DeltaDescription_7,
+		arg.DeltaEnabled_7,
+		arg.Prev_7,
+		arg.Next_7,
+		arg.CreatedAt_7,
+		arg.UpdatedAt_7,
+		arg.ID_8,
+		arg.HttpID_8,
+		arg.ParamKey_8,
+		arg.ParamValue_8,
+		arg.Description_8,
+		arg.Enabled_8,
+		arg.ParentSearchParamID_8,
+		arg.IsDelta_8,
+		arg.DeltaParamKey_8,
+		arg.DeltaParamValue_8,
+		arg.DeltaDescription_8,
+		arg.DeltaEnabled_8,
+		arg.Prev_8,
+		arg.Next_8,
+		arg.CreatedAt_8,
+		arg.UpdatedAt_8,
+		arg.ID_9,
+		arg.HttpID_9,
+		arg.ParamKey_9,
+		arg.ParamValue_9,
+		arg.Description_9,
+		arg.Enabled_9,
+		arg.ParentSearchParamID_9,
+		arg.IsDelta_9,
+		arg.DeltaParamKey_9,
+		arg.DeltaParamValue_9,
+		arg.DeltaDescription_9,
+		arg.DeltaEnabled_9,
+		arg.Prev_9,
+		arg.Next_9,
+		arg.CreatedAt_9,
+		arg.UpdatedAt_9,
+		arg.ID_10,
+		arg.HttpID_10,
+		arg.ParamKey_10,
+		arg.ParamValue_10,
+		arg.Description_10,
+		arg.Enabled_10,
+		arg.ParentSearchParamID_10,
+		arg.IsDelta_10,
+		arg.DeltaParamKey_10,
+		arg.DeltaParamValue_10,
+		arg.DeltaDescription_10,
+		arg.DeltaEnabled_10,
+		arg.Prev_10,
+		arg.Next_10,
+		arg.CreatedAt_10,
+		arg.UpdatedAt_10,
+	)
+	return err
+}
+
+const createHTTPVersion = `-- name: CreateHTTPVersion :exec
+INSERT INTO http_version (
+  id, http_id, version_name, version_description, is_active, created_at, created_by
+)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPVersionParams struct {
+	ID                 idwrap.IDWrap
+	HttpID             idwrap.IDWrap
+	VersionName        string
+	VersionDescription string
+	IsActive           bool
+	CreatedAt          int64
+	CreatedBy          *idwrap.IDWrap
+}
+
+func (q *Queries) CreateHTTPVersion(ctx context.Context, arg CreateHTTPVersionParams) error {
+	_, err := q.exec(ctx, q.createHTTPVersionStmt, createHTTPVersion,
+		arg.ID,
+		arg.HttpID,
+		arg.VersionName,
+		arg.VersionDescription,
+		arg.IsActive,
+		arg.CreatedAt,
+		arg.CreatedBy,
 	)
 	return err
 }
@@ -3074,6 +5329,116 @@ WHERE
 
 func (q *Queries) DeleteFlowVariable(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteFlowVariableStmt, deleteFlowVariable, id)
+	return err
+}
+
+const deleteHTTP = `-- name: DeleteHTTP :exec
+DELETE FROM http
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHTTP(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPStmt, deleteHTTP, id)
+	return err
+}
+
+const deleteHTTPAssert = `-- name: DeleteHTTPAssert :exec
+DELETE FROM http_assert
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHTTPAssert(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPAssertStmt, deleteHTTPAssert, id)
+	return err
+}
+
+const deleteHTTPBodyForm = `-- name: DeleteHTTPBodyForm :exec
+DELETE FROM http_body_form
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHTTPBodyForm(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPBodyFormStmt, deleteHTTPBodyForm, id)
+	return err
+}
+
+const deleteHTTPBodyRaw = `-- name: DeleteHTTPBodyRaw :exec
+DELETE FROM http_body_raw
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHTTPBodyRaw(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPBodyRawStmt, deleteHTTPBodyRaw, id)
+	return err
+}
+
+const deleteHTTPBodyUrlencoded = `-- name: DeleteHTTPBodyUrlencoded :exec
+DELETE FROM http_body_urlencoded
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHTTPBodyUrlencoded(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPBodyUrlencodedStmt, deleteHTTPBodyUrlencoded, id)
+	return err
+}
+
+const deleteHTTPHeader = `-- name: DeleteHTTPHeader :exec
+DELETE FROM http_header
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHTTPHeader(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPHeaderStmt, deleteHTTPHeader, id)
+	return err
+}
+
+const deleteHTTPResponse = `-- name: DeleteHTTPResponse :exec
+DELETE FROM http_response
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHTTPResponse(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPResponseStmt, deleteHTTPResponse, id)
+	return err
+}
+
+const deleteHTTPResponseHeaders = `-- name: DeleteHTTPResponseHeaders :exec
+DELETE FROM http_response_header
+WHERE response_id = ?
+`
+
+func (q *Queries) DeleteHTTPResponseHeaders(ctx context.Context, responseID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPResponseHeadersStmt, deleteHTTPResponseHeaders, responseID)
+	return err
+}
+
+const deleteHTTPResponsesByHTTPID = `-- name: DeleteHTTPResponsesByHTTPID :exec
+DELETE FROM http_response
+WHERE http_id = ?
+`
+
+func (q *Queries) DeleteHTTPResponsesByHTTPID(ctx context.Context, httpID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPResponsesByHTTPIDStmt, deleteHTTPResponsesByHTTPID, httpID)
+	return err
+}
+
+const deleteHTTPSearchParam = `-- name: DeleteHTTPSearchParam :exec
+DELETE FROM http_search_param
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHTTPSearchParam(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPSearchParamStmt, deleteHTTPSearchParam, id)
+	return err
+}
+
+const deleteHTTPVersion = `-- name: DeleteHTTPVersion :exec
+DELETE FROM http_version
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHTTPVersion(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPVersionStmt, deleteHTTPVersion, id)
 	return err
 }
 
@@ -8426,6 +10791,1478 @@ func (q *Queries) GetFolderContent(ctx context.Context, id idwrap.IDWrap) (GetFo
 	return i, err
 }
 
+const getHTTP = `-- name: GetHTTP :one
+/*
+ *
+ * HTTP SYSTEM QUERIES
+ * Single-table approach with delta fields for Phase 1 HTTP implementation
+ *
+ */
+
+
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE id = ?
+LIMIT 1
+`
+
+// HTTP Core Queries
+func (q *Queries) GetHTTP(ctx context.Context, id idwrap.IDWrap) (Http, error) {
+	row := q.queryRow(ctx, q.getHTTPStmt, getHTTP, id)
+	var i Http
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.FolderID,
+		&i.Name,
+		&i.Url,
+		&i.Method,
+		&i.Description,
+		&i.ParentHttpID,
+		&i.IsDelta,
+		&i.DeltaName,
+		&i.DeltaUrl,
+		&i.DeltaMethod,
+		&i.DeltaDescription,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getHTTPActiveVersion = `-- name: GetHTTPActiveVersion :one
+SELECT
+  id,
+  http_id,
+  version_name,
+  version_description,
+  is_active,
+  created_at,
+  created_by
+FROM http_version
+WHERE http_id = ? AND is_active = TRUE
+LIMIT 1
+`
+
+func (q *Queries) GetHTTPActiveVersion(ctx context.Context, httpID idwrap.IDWrap) (HttpVersion, error) {
+	row := q.queryRow(ctx, q.getHTTPActiveVersionStmt, getHTTPActiveVersion, httpID)
+	var i HttpVersion
+	err := row.Scan(
+		&i.ID,
+		&i.HttpID,
+		&i.VersionName,
+		&i.VersionDescription,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getHTTPAsserts = `-- name: GetHTTPAsserts :many
+
+SELECT
+  id,
+  http_id,
+  assert_expression,
+  assert_description,
+  enabled,
+  parent_assert_id,
+  is_delta,
+  delta_assert_expression,
+  delta_assert_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_assert
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC
+`
+
+// HTTP Assert Queries
+func (q *Queries) GetHTTPAsserts(ctx context.Context, httpID idwrap.IDWrap) ([]HttpAssert, error) {
+	rows, err := q.query(ctx, q.getHTTPAssertsStmt, getHTTPAsserts, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpAssert{}
+	for rows.Next() {
+		var i HttpAssert
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.AssertExpression,
+			&i.AssertDescription,
+			&i.Enabled,
+			&i.ParentAssertID,
+			&i.IsDelta,
+			&i.DeltaAssertExpression,
+			&i.DeltaAssertDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPAssertsByIDs = `-- name: GetHTTPAssertsByIDs :many
+SELECT
+  id,
+  http_id,
+  assert_expression,
+  assert_description,
+  enabled,
+  parent_assert_id,
+  is_delta,
+  delta_assert_expression,
+  delta_assert_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_assert
+WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) GetHTTPAssertsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpAssert, error) {
+	query := getHTTPAssertsByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpAssert{}
+	for rows.Next() {
+		var i HttpAssert
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.AssertExpression,
+			&i.AssertDescription,
+			&i.Enabled,
+			&i.ParentAssertID,
+			&i.IsDelta,
+			&i.DeltaAssertExpression,
+			&i.DeltaAssertDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPBodyForms = `-- name: GetHTTPBodyForms :many
+
+SELECT
+  id,
+  http_id,
+  form_key,
+  form_value,
+  description,
+  enabled,
+  parent_body_form_id,
+  is_delta,
+  delta_form_key,
+  delta_form_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_body_form
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC
+`
+
+// HTTP Body Form Queries
+func (q *Queries) GetHTTPBodyForms(ctx context.Context, httpID idwrap.IDWrap) ([]HttpBodyForm, error) {
+	rows, err := q.query(ctx, q.getHTTPBodyFormsStmt, getHTTPBodyForms, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpBodyForm{}
+	for rows.Next() {
+		var i HttpBodyForm
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.FormKey,
+			&i.FormValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentBodyFormID,
+			&i.IsDelta,
+			&i.DeltaFormKey,
+			&i.DeltaFormValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPBodyFormsByIDs = `-- name: GetHTTPBodyFormsByIDs :many
+SELECT
+  id,
+  http_id,
+  form_key,
+  form_value,
+  description,
+  enabled,
+  parent_body_form_id,
+  is_delta,
+  delta_form_key,
+  delta_form_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_body_form
+WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) GetHTTPBodyFormsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpBodyForm, error) {
+	query := getHTTPBodyFormsByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpBodyForm{}
+	for rows.Next() {
+		var i HttpBodyForm
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.FormKey,
+			&i.FormValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentBodyFormID,
+			&i.IsDelta,
+			&i.DeltaFormKey,
+			&i.DeltaFormValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPBodyRaw = `-- name: GetHTTPBodyRaw :one
+
+SELECT
+  id,
+  http_id,
+  raw_data,
+  content_type,
+  compression_type,
+  parent_body_raw_id,
+  is_delta,
+  delta_raw_data,
+  delta_content_type,
+  delta_compression_type,
+  created_at,
+  updated_at
+FROM http_body_raw
+WHERE http_id = ?
+LIMIT 1
+`
+
+// HTTP Body Raw Queries
+func (q *Queries) GetHTTPBodyRaw(ctx context.Context, httpID idwrap.IDWrap) (HttpBodyRaw, error) {
+	row := q.queryRow(ctx, q.getHTTPBodyRawStmt, getHTTPBodyRaw, httpID)
+	var i HttpBodyRaw
+	err := row.Scan(
+		&i.ID,
+		&i.HttpID,
+		&i.RawData,
+		&i.ContentType,
+		&i.CompressionType,
+		&i.ParentBodyRawID,
+		&i.IsDelta,
+		&i.DeltaRawData,
+		&i.DeltaContentType,
+		&i.DeltaCompressionType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getHTTPBodyRawByID = `-- name: GetHTTPBodyRawByID :one
+SELECT
+  id,
+  http_id,
+  raw_data,
+  content_type,
+  compression_type,
+  parent_body_raw_id,
+  is_delta,
+  delta_raw_data,
+  delta_content_type,
+  delta_compression_type,
+  created_at,
+  updated_at
+FROM http_body_raw
+WHERE id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetHTTPBodyRawByID(ctx context.Context, id idwrap.IDWrap) (HttpBodyRaw, error) {
+	row := q.queryRow(ctx, q.getHTTPBodyRawByIDStmt, getHTTPBodyRawByID, id)
+	var i HttpBodyRaw
+	err := row.Scan(
+		&i.ID,
+		&i.HttpID,
+		&i.RawData,
+		&i.ContentType,
+		&i.CompressionType,
+		&i.ParentBodyRawID,
+		&i.IsDelta,
+		&i.DeltaRawData,
+		&i.DeltaContentType,
+		&i.DeltaCompressionType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getHTTPBodyUrlencoded = `-- name: GetHTTPBodyUrlencoded :many
+
+SELECT
+  id,
+  http_id,
+  urlencoded_key,
+  urlencoded_value,
+  description,
+  enabled,
+  parent_body_urlencoded_id,
+  is_delta,
+  delta_urlencoded_key,
+  delta_urlencoded_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_body_urlencoded
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC
+`
+
+// HTTP Body URL-encoded Queries
+func (q *Queries) GetHTTPBodyUrlencoded(ctx context.Context, httpID idwrap.IDWrap) ([]HttpBodyUrlencoded, error) {
+	rows, err := q.query(ctx, q.getHTTPBodyUrlencodedStmt, getHTTPBodyUrlencoded, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpBodyUrlencoded{}
+	for rows.Next() {
+		var i HttpBodyUrlencoded
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.UrlencodedKey,
+			&i.UrlencodedValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentBodyUrlencodedID,
+			&i.IsDelta,
+			&i.DeltaUrlencodedKey,
+			&i.DeltaUrlencodedValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPBodyUrlencodedByIDs = `-- name: GetHTTPBodyUrlencodedByIDs :many
+SELECT
+  id,
+  http_id,
+  urlencoded_key,
+  urlencoded_value,
+  description,
+  enabled,
+  parent_body_urlencoded_id,
+  is_delta,
+  delta_urlencoded_key,
+  delta_urlencoded_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_body_urlencoded
+WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) GetHTTPBodyUrlencodedByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpBodyUrlencoded, error) {
+	query := getHTTPBodyUrlencodedByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpBodyUrlencoded{}
+	for rows.Next() {
+		var i HttpBodyUrlencoded
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.UrlencodedKey,
+			&i.UrlencodedValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentBodyUrlencodedID,
+			&i.IsDelta,
+			&i.DeltaUrlencodedKey,
+			&i.DeltaUrlencodedValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPByWorkspaceAccess = `-- name: GetHTTPByWorkspaceAccess :one
+SELECT
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+INNER JOIN workspaces_users wu ON h.workspace_id = wu.workspace_id
+WHERE h.id = ? AND wu.user_id = ?
+LIMIT 1
+`
+
+type GetHTTPByWorkspaceAccessParams struct {
+	ID     idwrap.IDWrap
+	UserID idwrap.IDWrap
+}
+
+func (q *Queries) GetHTTPByWorkspaceAccess(ctx context.Context, arg GetHTTPByWorkspaceAccessParams) (Http, error) {
+	row := q.queryRow(ctx, q.getHTTPByWorkspaceAccessStmt, getHTTPByWorkspaceAccess, arg.ID, arg.UserID)
+	var i Http
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.FolderID,
+		&i.Name,
+		&i.Url,
+		&i.Method,
+		&i.Description,
+		&i.ParentHttpID,
+		&i.IsDelta,
+		&i.DeltaName,
+		&i.DeltaUrl,
+		&i.DeltaMethod,
+		&i.DeltaDescription,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getHTTPDeltasByParentID = `-- name: GetHTTPDeltasByParentID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE parent_http_id = ? AND is_delta = TRUE
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetHTTPDeltasByParentID(ctx context.Context, parentHttpID *idwrap.IDWrap) ([]Http, error) {
+	rows, err := q.query(ctx, q.getHTTPDeltasByParentIDStmt, getHTTPDeltasByParentID, parentHttpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaDescription,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPHeaders = `-- name: GetHTTPHeaders :many
+
+SELECT
+  id,
+  http_id,
+  header_key,
+  header_value,
+  description,
+  enabled,
+  parent_header_id,
+  is_delta,
+  delta_header_key,
+  delta_header_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_header
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC
+`
+
+// HTTP Header Queries
+func (q *Queries) GetHTTPHeaders(ctx context.Context, httpID idwrap.IDWrap) ([]HttpHeader, error) {
+	rows, err := q.query(ctx, q.getHTTPHeadersStmt, getHTTPHeaders, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpHeader{}
+	for rows.Next() {
+		var i HttpHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.HeaderKey,
+			&i.HeaderValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentHeaderID,
+			&i.IsDelta,
+			&i.DeltaHeaderKey,
+			&i.DeltaHeaderValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPHeadersByIDs = `-- name: GetHTTPHeadersByIDs :many
+SELECT
+  id,
+  http_id,
+  header_key,
+  header_value,
+  description,
+  enabled,
+  parent_header_id,
+  is_delta,
+  delta_header_key,
+  delta_header_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_header
+WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) GetHTTPHeadersByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpHeader, error) {
+	query := getHTTPHeadersByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpHeader{}
+	for rows.Next() {
+		var i HttpHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.HeaderKey,
+			&i.HeaderValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentHeaderID,
+			&i.IsDelta,
+			&i.DeltaHeaderKey,
+			&i.DeltaHeaderValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPResponse = `-- name: GetHTTPResponse :one
+SELECT
+  id,
+  http_id,
+  status_code,
+  response_time_ms,
+  response_size_bytes,
+  response_body,
+  response_compression_type,
+  executed_at,
+  created_by
+FROM http_response
+WHERE id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetHTTPResponse(ctx context.Context, id idwrap.IDWrap) (HttpResponse, error) {
+	row := q.queryRow(ctx, q.getHTTPResponseStmt, getHTTPResponse, id)
+	var i HttpResponse
+	err := row.Scan(
+		&i.ID,
+		&i.HttpID,
+		&i.StatusCode,
+		&i.ResponseTimeMs,
+		&i.ResponseSizeBytes,
+		&i.ResponseBody,
+		&i.ResponseCompressionType,
+		&i.ExecutedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getHTTPResponseHeaders = `-- name: GetHTTPResponseHeaders :many
+
+SELECT
+  id,
+  response_id,
+  header_key,
+  header_value
+FROM http_response_header
+WHERE response_id = ?
+ORDER BY header_key
+`
+
+// HTTP Response Header Queries
+func (q *Queries) GetHTTPResponseHeaders(ctx context.Context, responseID idwrap.IDWrap) ([]HttpResponseHeader, error) {
+	rows, err := q.query(ctx, q.getHTTPResponseHeadersStmt, getHTTPResponseHeaders, responseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseHeader{}
+	for rows.Next() {
+		var i HttpResponseHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.HeaderKey,
+			&i.HeaderValue,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPResponseHeadersByIDs = `-- name: GetHTTPResponseHeadersByIDs :many
+SELECT
+  id,
+  response_id,
+  header_key,
+  header_value
+FROM http_response_header
+WHERE response_id IN (/*SLICE:response_ids*/?)
+ORDER BY response_id, header_key
+`
+
+func (q *Queries) GetHTTPResponseHeadersByIDs(ctx context.Context, responseIds []idwrap.IDWrap) ([]HttpResponseHeader, error) {
+	query := getHTTPResponseHeadersByIDs
+	var queryParams []interface{}
+	if len(responseIds) > 0 {
+		for _, v := range responseIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:response_ids*/?", strings.Repeat(",?", len(responseIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:response_ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseHeader{}
+	for rows.Next() {
+		var i HttpResponseHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.HeaderKey,
+			&i.HeaderValue,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPResponses = `-- name: GetHTTPResponses :many
+
+SELECT
+  id,
+  http_id,
+  status_code,
+  response_time_ms,
+  response_size_bytes,
+  response_body,
+  response_compression_type,
+  executed_at,
+  created_by
+FROM http_response
+WHERE http_id = ?
+ORDER BY executed_at DESC
+`
+
+// HTTP Response Queries
+func (q *Queries) GetHTTPResponses(ctx context.Context, httpID idwrap.IDWrap) ([]HttpResponse, error) {
+	rows, err := q.query(ctx, q.getHTTPResponsesStmt, getHTTPResponses, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponse{}
+	for rows.Next() {
+		var i HttpResponse
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.StatusCode,
+			&i.ResponseTimeMs,
+			&i.ResponseSizeBytes,
+			&i.ResponseBody,
+			&i.ResponseCompressionType,
+			&i.ExecutedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPSearchParams = `-- name: GetHTTPSearchParams :many
+
+SELECT
+  id,
+  http_id,
+  param_key,
+  param_value,
+  description,
+  enabled,
+  parent_search_param_id,
+  is_delta,
+  delta_param_key,
+  delta_param_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_search_param
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC
+`
+
+// HTTP Search Parameter Queries
+func (q *Queries) GetHTTPSearchParams(ctx context.Context, httpID idwrap.IDWrap) ([]HttpSearchParam, error) {
+	rows, err := q.query(ctx, q.getHTTPSearchParamsStmt, getHTTPSearchParams, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpSearchParam{}
+	for rows.Next() {
+		var i HttpSearchParam
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.ParamKey,
+			&i.ParamValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentSearchParamID,
+			&i.IsDelta,
+			&i.DeltaParamKey,
+			&i.DeltaParamValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPSearchParamsByIDs = `-- name: GetHTTPSearchParamsByIDs :many
+SELECT
+  id,
+  http_id,
+  param_key,
+  param_value,
+  description,
+  enabled,
+  parent_search_param_id,
+  is_delta,
+  delta_param_key,
+  delta_param_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_search_param
+WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) GetHTTPSearchParamsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpSearchParam, error) {
+	query := getHTTPSearchParamsByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpSearchParam{}
+	for rows.Next() {
+		var i HttpSearchParam
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.ParamKey,
+			&i.ParamValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentSearchParamID,
+			&i.IsDelta,
+			&i.DeltaParamKey,
+			&i.DeltaParamValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.Prev,
+			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPVersion = `-- name: GetHTTPVersion :one
+SELECT
+  id,
+  http_id,
+  version_name,
+  version_description,
+  is_active,
+  created_at,
+  created_by
+FROM http_version
+WHERE id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetHTTPVersion(ctx context.Context, id idwrap.IDWrap) (HttpVersion, error) {
+	row := q.queryRow(ctx, q.getHTTPVersionStmt, getHTTPVersion, id)
+	var i HttpVersion
+	err := row.Scan(
+		&i.ID,
+		&i.HttpID,
+		&i.VersionName,
+		&i.VersionDescription,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getHTTPVersions = `-- name: GetHTTPVersions :many
+
+SELECT
+  id,
+  http_id,
+  version_name,
+  version_description,
+  is_active,
+  created_at,
+  created_by
+FROM http_version
+WHERE http_id = ?
+ORDER BY created_at DESC
+`
+
+// HTTP Version Queries
+func (q *Queries) GetHTTPVersions(ctx context.Context, httpID idwrap.IDWrap) ([]HttpVersion, error) {
+	rows, err := q.query(ctx, q.getHTTPVersionsStmt, getHTTPVersions, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpVersion{}
+	for rows.Next() {
+		var i HttpVersion
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.VersionName,
+			&i.VersionDescription,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPWorkspaceID = `-- name: GetHTTPWorkspaceID :one
+SELECT workspace_id
+FROM http
+WHERE id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetHTTPWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idwrap.IDWrap, error) {
+	row := q.queryRow(ctx, q.getHTTPWorkspaceIDStmt, getHTTPWorkspaceID, id)
+	var workspace_id idwrap.IDWrap
+	err := row.Scan(&workspace_id)
+	return workspace_id, err
+}
+
+const getHTTPsByFolderID = `-- name: GetHTTPsByFolderID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE folder_id = ? AND is_delta = FALSE
+ORDER BY updated_at DESC
+`
+
+func (q *Queries) GetHTTPsByFolderID(ctx context.Context, folderID *idwrap.IDWrap) ([]Http, error) {
+	rows, err := q.query(ctx, q.getHTTPsByFolderIDStmt, getHTTPsByFolderID, folderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaDescription,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPsByIDs = `-- name: GetHTTPsByIDs :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) GetHTTPsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]Http, error) {
+	query := getHTTPsByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaDescription,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPsByWorkspaceID = `-- name: GetHTTPsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE workspace_id = ? AND is_delta = FALSE
+ORDER BY updated_at DESC
+`
+
+func (q *Queries) GetHTTPsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Http, error) {
+	rows, err := q.query(ctx, q.getHTTPsByWorkspaceIDStmt, getHTTPsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaDescription,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPsWithWorkspaceAccess = `-- name: GetHTTPsWithWorkspaceAccess :many
+
+SELECT
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+INNER JOIN workspaces_users wu ON h.workspace_id = wu.workspace_id
+WHERE wu.user_id = ? AND h.is_delta = FALSE
+ORDER BY h.updated_at DESC
+`
+
+// Workspace-scoped queries for permission filtering
+func (q *Queries) GetHTTPsWithWorkspaceAccess(ctx context.Context, userID idwrap.IDWrap) ([]Http, error) {
+	rows, err := q.query(ctx, q.getHTTPsWithWorkspaceAccessStmt, getHTTPsWithWorkspaceAccess, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaDescription,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHeader = `-- name: GetHeader :one
 /*
 *
@@ -10940,6 +14777,25 @@ func (q *Queries) SetBodyFormEnable(ctx context.Context, arg SetBodyFormEnablePa
 	return err
 }
 
+const setHTTPVersionActive = `-- name: SetHTTPVersionActive :exec
+UPDATE http_version
+SET is_active = CASE 
+  WHEN id = ? THEN TRUE
+  ELSE FALSE
+END
+WHERE http_id = ?
+`
+
+type SetHTTPVersionActiveParams struct {
+	ID     idwrap.IDWrap
+	HttpID idwrap.IDWrap
+}
+
+func (q *Queries) SetHTTPVersionActive(ctx context.Context, arg SetHTTPVersionActiveParams) error {
+	_, err := q.exec(ctx, q.setHTTPVersionActiveStmt, setHTTPVersionActive, arg.ID, arg.HttpID)
+	return err
+}
+
 const setHeaderEnable = `-- name: SetHeaderEnable :exec
 UPDATE example_header
     SET
@@ -11894,6 +15750,558 @@ type UpdateFlowVariablePrevParams struct {
 // Update only the prev pointer for a flow variable (used in deletion)
 func (q *Queries) UpdateFlowVariablePrev(ctx context.Context, arg UpdateFlowVariablePrevParams) error {
 	_, err := q.exec(ctx, q.updateFlowVariablePrevStmt, updateFlowVariablePrev, arg.Prev, arg.ID, arg.FlowID)
+	return err
+}
+
+const updateHTTP = `-- name: UpdateHTTP :exec
+UPDATE http
+SET
+  folder_id = ?,
+  name = ?,
+  url = ?,
+  method = ?,
+  description = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPParams struct {
+	FolderID    *idwrap.IDWrap
+	Name        string
+	Url         string
+	Method      string
+	Description string
+	ID          idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTP(ctx context.Context, arg UpdateHTTPParams) error {
+	_, err := q.exec(ctx, q.updateHTTPStmt, updateHTTP,
+		arg.FolderID,
+		arg.Name,
+		arg.Url,
+		arg.Method,
+		arg.Description,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPAssert = `-- name: UpdateHTTPAssert :exec
+UPDATE http_assert
+SET
+  assert_expression = ?,
+  assert_description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPAssertParams struct {
+	AssertExpression  string
+	AssertDescription string
+	Enabled           bool
+	ID                idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPAssert(ctx context.Context, arg UpdateHTTPAssertParams) error {
+	_, err := q.exec(ctx, q.updateHTTPAssertStmt, updateHTTPAssert,
+		arg.AssertExpression,
+		arg.AssertDescription,
+		arg.Enabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPAssertDelta = `-- name: UpdateHTTPAssertDelta :exec
+UPDATE http_assert
+SET
+  delta_assert_expression = ?,
+  delta_assert_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPAssertDeltaParams struct {
+	DeltaAssertExpression  interface{}
+	DeltaAssertDescription interface{}
+	DeltaEnabled           interface{}
+	ID                     idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPAssertDelta(ctx context.Context, arg UpdateHTTPAssertDeltaParams) error {
+	_, err := q.exec(ctx, q.updateHTTPAssertDeltaStmt, updateHTTPAssertDelta,
+		arg.DeltaAssertExpression,
+		arg.DeltaAssertDescription,
+		arg.DeltaEnabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPAssertOrder = `-- name: UpdateHTTPAssertOrder :exec
+UPDATE http_assert
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?
+`
+
+type UpdateHTTPAssertOrderParams struct {
+	Prev   *idwrap.IDWrap
+	Next   *idwrap.IDWrap
+	ID     idwrap.IDWrap
+	HttpID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPAssertOrder(ctx context.Context, arg UpdateHTTPAssertOrderParams) error {
+	_, err := q.exec(ctx, q.updateHTTPAssertOrderStmt, updateHTTPAssertOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.HttpID,
+	)
+	return err
+}
+
+const updateHTTPBodyForm = `-- name: UpdateHTTPBodyForm :exec
+UPDATE http_body_form
+SET
+  form_key = ?,
+  form_value = ?,
+  description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPBodyFormParams struct {
+	FormKey     string
+	FormValue   string
+	Description string
+	Enabled     bool
+	ID          idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyForm(ctx context.Context, arg UpdateHTTPBodyFormParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyFormStmt, updateHTTPBodyForm,
+		arg.FormKey,
+		arg.FormValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPBodyFormDelta = `-- name: UpdateHTTPBodyFormDelta :exec
+UPDATE http_body_form
+SET
+  delta_form_key = ?,
+  delta_form_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPBodyFormDeltaParams struct {
+	DeltaFormKey     *string
+	DeltaFormValue   *string
+	DeltaDescription *string
+	DeltaEnabled     *bool
+	ID               idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyFormDelta(ctx context.Context, arg UpdateHTTPBodyFormDeltaParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyFormDeltaStmt, updateHTTPBodyFormDelta,
+		arg.DeltaFormKey,
+		arg.DeltaFormValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPBodyFormOrder = `-- name: UpdateHTTPBodyFormOrder :exec
+UPDATE http_body_form
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?
+`
+
+type UpdateHTTPBodyFormOrderParams struct {
+	Prev   *idwrap.IDWrap
+	Next   *idwrap.IDWrap
+	ID     idwrap.IDWrap
+	HttpID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyFormOrder(ctx context.Context, arg UpdateHTTPBodyFormOrderParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyFormOrderStmt, updateHTTPBodyFormOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.HttpID,
+	)
+	return err
+}
+
+const updateHTTPBodyRaw = `-- name: UpdateHTTPBodyRaw :exec
+UPDATE http_body_raw
+SET
+  raw_data = ?,
+  content_type = ?,
+  compression_type = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPBodyRawParams struct {
+	RawData         []byte
+	ContentType     string
+	CompressionType int8
+	ID              idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyRaw(ctx context.Context, arg UpdateHTTPBodyRawParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyRawStmt, updateHTTPBodyRaw,
+		arg.RawData,
+		arg.ContentType,
+		arg.CompressionType,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPBodyRawDelta = `-- name: UpdateHTTPBodyRawDelta :exec
+UPDATE http_body_raw
+SET
+  delta_raw_data = ?,
+  delta_content_type = ?,
+  delta_compression_type = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPBodyRawDeltaParams struct {
+	DeltaRawData         interface{}
+	DeltaContentType     interface{}
+	DeltaCompressionType interface{}
+	ID                   idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyRawDelta(ctx context.Context, arg UpdateHTTPBodyRawDeltaParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyRawDeltaStmt, updateHTTPBodyRawDelta,
+		arg.DeltaRawData,
+		arg.DeltaContentType,
+		arg.DeltaCompressionType,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPBodyUrlencoded = `-- name: UpdateHTTPBodyUrlencoded :exec
+UPDATE http_body_urlencoded
+SET
+  urlencoded_key = ?,
+  urlencoded_value = ?,
+  description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPBodyUrlencodedParams struct {
+	UrlencodedKey   string
+	UrlencodedValue string
+	Description     string
+	Enabled         bool
+	ID              idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyUrlencoded(ctx context.Context, arg UpdateHTTPBodyUrlencodedParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyUrlencodedStmt, updateHTTPBodyUrlencoded,
+		arg.UrlencodedKey,
+		arg.UrlencodedValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPBodyUrlencodedDelta = `-- name: UpdateHTTPBodyUrlencodedDelta :exec
+UPDATE http_body_urlencoded
+SET
+  delta_urlencoded_key = ?,
+  delta_urlencoded_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPBodyUrlencodedDeltaParams struct {
+	DeltaUrlencodedKey   interface{}
+	DeltaUrlencodedValue interface{}
+	DeltaDescription     *string
+	DeltaEnabled         *bool
+	ID                   idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyUrlencodedDelta(ctx context.Context, arg UpdateHTTPBodyUrlencodedDeltaParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyUrlencodedDeltaStmt, updateHTTPBodyUrlencodedDelta,
+		arg.DeltaUrlencodedKey,
+		arg.DeltaUrlencodedValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPBodyUrlencodedOrder = `-- name: UpdateHTTPBodyUrlencodedOrder :exec
+UPDATE http_body_urlencoded
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?
+`
+
+type UpdateHTTPBodyUrlencodedOrderParams struct {
+	Prev   *idwrap.IDWrap
+	Next   *idwrap.IDWrap
+	ID     idwrap.IDWrap
+	HttpID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyUrlencodedOrder(ctx context.Context, arg UpdateHTTPBodyUrlencodedOrderParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyUrlencodedOrderStmt, updateHTTPBodyUrlencodedOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.HttpID,
+	)
+	return err
+}
+
+const updateHTTPDelta = `-- name: UpdateHTTPDelta :exec
+UPDATE http
+SET
+  delta_name = ?,
+  delta_url = ?,
+  delta_method = ?,
+  delta_description = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPDeltaParams struct {
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaDescription *string
+	ID               idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPDelta(ctx context.Context, arg UpdateHTTPDeltaParams) error {
+	_, err := q.exec(ctx, q.updateHTTPDeltaStmt, updateHTTPDelta,
+		arg.DeltaName,
+		arg.DeltaUrl,
+		arg.DeltaMethod,
+		arg.DeltaDescription,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPHeader = `-- name: UpdateHTTPHeader :exec
+UPDATE http_header
+SET
+  header_key = ?,
+  header_value = ?,
+  description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPHeaderParams struct {
+	HeaderKey   string
+	HeaderValue string
+	Description string
+	Enabled     bool
+	ID          idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPHeader(ctx context.Context, arg UpdateHTTPHeaderParams) error {
+	_, err := q.exec(ctx, q.updateHTTPHeaderStmt, updateHTTPHeader,
+		arg.HeaderKey,
+		arg.HeaderValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPHeaderDelta = `-- name: UpdateHTTPHeaderDelta :exec
+UPDATE http_header
+SET
+  delta_header_key = ?,
+  delta_header_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPHeaderDeltaParams struct {
+	DeltaHeaderKey   interface{}
+	DeltaHeaderValue interface{}
+	DeltaDescription *string
+	DeltaEnabled     *bool
+	ID               idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPHeaderDelta(ctx context.Context, arg UpdateHTTPHeaderDeltaParams) error {
+	_, err := q.exec(ctx, q.updateHTTPHeaderDeltaStmt, updateHTTPHeaderDelta,
+		arg.DeltaHeaderKey,
+		arg.DeltaHeaderValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPHeaderOrder = `-- name: UpdateHTTPHeaderOrder :exec
+UPDATE http_header
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?
+`
+
+type UpdateHTTPHeaderOrderParams struct {
+	Prev   *idwrap.IDWrap
+	Next   *idwrap.IDWrap
+	ID     idwrap.IDWrap
+	HttpID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPHeaderOrder(ctx context.Context, arg UpdateHTTPHeaderOrderParams) error {
+	_, err := q.exec(ctx, q.updateHTTPHeaderOrderStmt, updateHTTPHeaderOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.HttpID,
+	)
+	return err
+}
+
+const updateHTTPSearchParam = `-- name: UpdateHTTPSearchParam :exec
+UPDATE http_search_param
+SET
+  param_key = ?,
+  param_value = ?,
+  description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPSearchParamParams struct {
+	ParamKey    string
+	ParamValue  string
+	Description string
+	Enabled     bool
+	ID          idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPSearchParam(ctx context.Context, arg UpdateHTTPSearchParamParams) error {
+	_, err := q.exec(ctx, q.updateHTTPSearchParamStmt, updateHTTPSearchParam,
+		arg.ParamKey,
+		arg.ParamValue,
+		arg.Description,
+		arg.Enabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPSearchParamDelta = `-- name: UpdateHTTPSearchParamDelta :exec
+UPDATE http_search_param
+SET
+  delta_param_key = ?,
+  delta_param_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+type UpdateHTTPSearchParamDeltaParams struct {
+	DeltaParamKey    *string
+	DeltaParamValue  *string
+	DeltaDescription *string
+	DeltaEnabled     *bool
+	ID               idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPSearchParamDelta(ctx context.Context, arg UpdateHTTPSearchParamDeltaParams) error {
+	_, err := q.exec(ctx, q.updateHTTPSearchParamDeltaStmt, updateHTTPSearchParamDelta,
+		arg.DeltaParamKey,
+		arg.DeltaParamValue,
+		arg.DeltaDescription,
+		arg.DeltaEnabled,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPSearchParamOrder = `-- name: UpdateHTTPSearchParamOrder :exec
+UPDATE http_search_param
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?
+`
+
+type UpdateHTTPSearchParamOrderParams struct {
+	Prev   *idwrap.IDWrap
+	Next   *idwrap.IDWrap
+	ID     idwrap.IDWrap
+	HttpID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPSearchParamOrder(ctx context.Context, arg UpdateHTTPSearchParamOrderParams) error {
+	_, err := q.exec(ctx, q.updateHTTPSearchParamOrderStmt, updateHTTPSearchParamOrder,
+		arg.Prev,
+		arg.Next,
+		arg.ID,
+		arg.HttpID,
+	)
+	return err
+}
+
+const updateHTTPVersion = `-- name: UpdateHTTPVersion :exec
+UPDATE http_version
+SET
+  version_name = ?,
+  version_description = ?,
+  is_active = ?
+WHERE id = ?
+`
+
+type UpdateHTTPVersionParams struct {
+	VersionName        string
+	VersionDescription string
+	IsActive           bool
+	ID                 idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPVersion(ctx context.Context, arg UpdateHTTPVersionParams) error {
+	_, err := q.exec(ctx, q.updateHTTPVersionStmt, updateHTTPVersion,
+		arg.VersionName,
+		arg.VersionDescription,
+		arg.IsActive,
+		arg.ID,
+	)
 	return err
 }
 

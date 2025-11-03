@@ -3868,3 +3868,957 @@ WHERE id = ?;
 SELECT id, name, duration
 FROM flow
 WHERE id = ?;
+
+/*
+ *
+ * HTTP SYSTEM QUERIES
+ * Single-table approach with delta fields for Phase 1 HTTP implementation
+ *
+ */
+
+--
+-- HTTP Core Queries
+--
+
+-- name: GetHTTP :one
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE id = ?
+LIMIT 1;
+
+-- name: GetHTTPsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE workspace_id = ? AND is_delta = FALSE
+ORDER BY updated_at DESC;
+
+-- name: GetHTTPsByFolderID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE folder_id = ? AND is_delta = FALSE
+ORDER BY updated_at DESC;
+
+-- name: GetHTTPsByIDs :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE id IN (sqlc.slice('ids'));
+
+-- name: GetHTTPWorkspaceID :one
+SELECT workspace_id
+FROM http
+WHERE id = ?
+LIMIT 1;
+
+-- name: CreateHTTP :exec
+INSERT INTO http (
+  id, workspace_id, folder_id, name, url, method, description,
+  parent_http_id, is_delta, delta_name, delta_url, delta_method, delta_description,
+  created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHTTP :exec
+UPDATE http
+SET
+  folder_id = ?,
+  name = ?,
+  url = ?,
+  method = ?,
+  description = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPDelta :exec
+UPDATE http
+SET
+  delta_name = ?,
+  delta_url = ?,
+  delta_method = ?,
+  delta_description = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: DeleteHTTP :exec
+DELETE FROM http
+WHERE id = ?;
+
+-- name: GetHTTPDeltasByParentID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM http
+WHERE parent_http_id = ? AND is_delta = TRUE
+ORDER BY created_at DESC;
+
+--
+-- HTTP Search Parameter Queries
+--
+
+-- name: GetHTTPSearchParams :many
+SELECT
+  id,
+  http_id,
+  param_key,
+  param_value,
+  description,
+  enabled,
+  parent_search_param_id,
+  is_delta,
+  delta_param_key,
+  delta_param_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_search_param
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC;
+
+-- name: GetHTTPSearchParamsByIDs :many
+SELECT
+  id,
+  http_id,
+  param_key,
+  param_value,
+  description,
+  enabled,
+  parent_search_param_id,
+  is_delta,
+  delta_param_key,
+  delta_param_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_search_param
+WHERE id IN (sqlc.slice('ids'));
+
+-- name: CreateHTTPSearchParam :exec
+INSERT INTO http_search_param (
+  id, http_id, param_key, param_value, description, enabled,
+  parent_search_param_id, is_delta, delta_param_key, delta_param_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHTTPSearchParam :exec
+UPDATE http_search_param
+SET
+  param_key = ?,
+  param_value = ?,
+  description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPSearchParamDelta :exec
+UPDATE http_search_param
+SET
+  delta_param_key = ?,
+  delta_param_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPSearchParamOrder :exec
+UPDATE http_search_param
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?;
+
+-- name: DeleteHTTPSearchParam :exec
+DELETE FROM http_search_param
+WHERE id = ?;
+
+--
+-- HTTP Header Queries
+--
+
+-- name: GetHTTPHeaders :many
+SELECT
+  id,
+  http_id,
+  header_key,
+  header_value,
+  description,
+  enabled,
+  parent_header_id,
+  is_delta,
+  delta_header_key,
+  delta_header_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_header
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC;
+
+-- name: GetHTTPHeadersByIDs :many
+SELECT
+  id,
+  http_id,
+  header_key,
+  header_value,
+  description,
+  enabled,
+  parent_header_id,
+  is_delta,
+  delta_header_key,
+  delta_header_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_header
+WHERE id IN (sqlc.slice('ids'));
+
+-- name: CreateHTTPHeader :exec
+INSERT INTO http_header (
+  id, http_id, header_key, header_value, description, enabled,
+  parent_header_id, is_delta, delta_header_key, delta_header_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHTTPHeader :exec
+UPDATE http_header
+SET
+  header_key = ?,
+  header_value = ?,
+  description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPHeaderDelta :exec
+UPDATE http_header
+SET
+  delta_header_key = ?,
+  delta_header_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPHeaderOrder :exec
+UPDATE http_header
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?;
+
+-- name: DeleteHTTPHeader :exec
+DELETE FROM http_header
+WHERE id = ?;
+
+--
+-- HTTP Body Form Queries
+--
+
+-- name: GetHTTPBodyForms :many
+SELECT
+  id,
+  http_id,
+  form_key,
+  form_value,
+  description,
+  enabled,
+  parent_body_form_id,
+  is_delta,
+  delta_form_key,
+  delta_form_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_body_form
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC;
+
+-- name: GetHTTPBodyFormsByIDs :many
+SELECT
+  id,
+  http_id,
+  form_key,
+  form_value,
+  description,
+  enabled,
+  parent_body_form_id,
+  is_delta,
+  delta_form_key,
+  delta_form_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_body_form
+WHERE id IN (sqlc.slice('ids'));
+
+-- name: CreateHTTPBodyForm :exec
+INSERT INTO http_body_form (
+  id, http_id, form_key, form_value, description, enabled,
+  parent_body_form_id, is_delta, delta_form_key, delta_form_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHTTPBodyForm :exec
+UPDATE http_body_form
+SET
+  form_key = ?,
+  form_value = ?,
+  description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPBodyFormDelta :exec
+UPDATE http_body_form
+SET
+  delta_form_key = ?,
+  delta_form_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPBodyFormOrder :exec
+UPDATE http_body_form
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?;
+
+-- name: DeleteHTTPBodyForm :exec
+DELETE FROM http_body_form
+WHERE id = ?;
+
+--
+-- HTTP Body URL-encoded Queries
+--
+
+-- name: GetHTTPBodyUrlencoded :many
+SELECT
+  id,
+  http_id,
+  urlencoded_key,
+  urlencoded_value,
+  description,
+  enabled,
+  parent_body_urlencoded_id,
+  is_delta,
+  delta_urlencoded_key,
+  delta_urlencoded_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_body_urlencoded
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC;
+
+-- name: GetHTTPBodyUrlencodedByIDs :many
+SELECT
+  id,
+  http_id,
+  urlencoded_key,
+  urlencoded_value,
+  description,
+  enabled,
+  parent_body_urlencoded_id,
+  is_delta,
+  delta_urlencoded_key,
+  delta_urlencoded_value,
+  delta_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_body_urlencoded
+WHERE id IN (sqlc.slice('ids'));
+
+-- name: CreateHTTPBodyUrlencoded :exec
+INSERT INTO http_body_urlencoded (
+  id, http_id, urlencoded_key, urlencoded_value, description, enabled,
+  parent_body_urlencoded_id, is_delta, delta_urlencoded_key, delta_urlencoded_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHTTPBodyUrlencoded :exec
+UPDATE http_body_urlencoded
+SET
+  urlencoded_key = ?,
+  urlencoded_value = ?,
+  description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPBodyUrlencodedDelta :exec
+UPDATE http_body_urlencoded
+SET
+  delta_urlencoded_key = ?,
+  delta_urlencoded_value = ?,
+  delta_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPBodyUrlencodedOrder :exec
+UPDATE http_body_urlencoded
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?;
+
+-- name: DeleteHTTPBodyUrlencoded :exec
+DELETE FROM http_body_urlencoded
+WHERE id = ?;
+
+--
+-- HTTP Body Raw Queries
+--
+
+-- name: GetHTTPBodyRaw :one
+SELECT
+  id,
+  http_id,
+  raw_data,
+  content_type,
+  compression_type,
+  parent_body_raw_id,
+  is_delta,
+  delta_raw_data,
+  delta_content_type,
+  delta_compression_type,
+  created_at,
+  updated_at
+FROM http_body_raw
+WHERE http_id = ?
+LIMIT 1;
+
+-- name: GetHTTPBodyRawByID :one
+SELECT
+  id,
+  http_id,
+  raw_data,
+  content_type,
+  compression_type,
+  parent_body_raw_id,
+  is_delta,
+  delta_raw_data,
+  delta_content_type,
+  delta_compression_type,
+  created_at,
+  updated_at
+FROM http_body_raw
+WHERE id = ?
+LIMIT 1;
+
+-- name: CreateHTTPBodyRaw :exec
+INSERT INTO http_body_raw (
+  id, http_id, raw_data, content_type, compression_type,
+  parent_body_raw_id, is_delta, delta_raw_data, delta_content_type,
+  delta_compression_type, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHTTPBodyRaw :exec
+UPDATE http_body_raw
+SET
+  raw_data = ?,
+  content_type = ?,
+  compression_type = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPBodyRawDelta :exec
+UPDATE http_body_raw
+SET
+  delta_raw_data = ?,
+  delta_content_type = ?,
+  delta_compression_type = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: DeleteHTTPBodyRaw :exec
+DELETE FROM http_body_raw
+WHERE id = ?;
+
+--
+-- HTTP Version Queries
+--
+
+-- name: GetHTTPVersions :many
+SELECT
+  id,
+  http_id,
+  version_name,
+  version_description,
+  is_active,
+  created_at,
+  created_by
+FROM http_version
+WHERE http_id = ?
+ORDER BY created_at DESC;
+
+-- name: GetHTTPVersion :one
+SELECT
+  id,
+  http_id,
+  version_name,
+  version_description,
+  is_active,
+  created_at,
+  created_by
+FROM http_version
+WHERE id = ?
+LIMIT 1;
+
+-- name: GetHTTPActiveVersion :one
+SELECT
+  id,
+  http_id,
+  version_name,
+  version_description,
+  is_active,
+  created_at,
+  created_by
+FROM http_version
+WHERE http_id = ? AND is_active = TRUE
+LIMIT 1;
+
+-- name: CreateHTTPVersion :exec
+INSERT INTO http_version (
+  id, http_id, version_name, version_description, is_active, created_at, created_by
+)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHTTPVersion :exec
+UPDATE http_version
+SET
+  version_name = ?,
+  version_description = ?,
+  is_active = ?
+WHERE id = ?;
+
+-- name: SetHTTPVersionActive :exec
+UPDATE http_version
+SET is_active = CASE 
+  WHEN id = ? THEN TRUE
+  ELSE FALSE
+END
+WHERE http_id = ?;
+
+-- name: DeleteHTTPVersion :exec
+DELETE FROM http_version
+WHERE id = ?;
+
+--
+-- HTTP Response Queries
+--
+
+-- name: GetHTTPResponses :many
+SELECT
+  id,
+  http_id,
+  status_code,
+  response_time_ms,
+  response_size_bytes,
+  response_body,
+  response_compression_type,
+  executed_at,
+  created_by
+FROM http_response
+WHERE http_id = ?
+ORDER BY executed_at DESC;
+
+-- name: GetHTTPResponse :one
+SELECT
+  id,
+  http_id,
+  status_code,
+  response_time_ms,
+  response_size_bytes,
+  response_body,
+  response_compression_type,
+  executed_at,
+  created_by
+FROM http_response
+WHERE id = ?
+LIMIT 1;
+
+-- name: CreateHTTPResponse :exec
+INSERT INTO http_response (
+  id, http_id, status_code, response_time_ms, response_size_bytes,
+  response_body, response_compression_type, executed_at, created_by
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: DeleteHTTPResponse :exec
+DELETE FROM http_response
+WHERE id = ?;
+
+-- name: DeleteHTTPResponsesByHTTPID :exec
+DELETE FROM http_response
+WHERE http_id = ?;
+
+--
+-- HTTP Response Header Queries
+--
+
+-- name: GetHTTPResponseHeaders :many
+SELECT
+  id,
+  response_id,
+  header_key,
+  header_value
+FROM http_response_header
+WHERE response_id = ?
+ORDER BY header_key;
+
+-- name: GetHTTPResponseHeadersByIDs :many
+SELECT
+  id,
+  response_id,
+  header_key,
+  header_value
+FROM http_response_header
+WHERE response_id IN (sqlc.slice('response_ids'))
+ORDER BY response_id, header_key;
+
+-- name: CreateHTTPResponseHeader :exec
+INSERT INTO http_response_header (id, response_id, header_key, header_value)
+VALUES (?, ?, ?, ?);
+
+-- name: CreateHTTPResponseHeadersBulk :exec
+INSERT INTO http_response_header (id, response_id, header_key, header_value)
+VALUES
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?),
+  (?, ?, ?, ?);
+
+-- name: DeleteHTTPResponseHeaders :exec
+DELETE FROM http_response_header
+WHERE response_id = ?;
+
+--
+-- HTTP Assert Queries
+--
+
+-- name: GetHTTPAsserts :many
+SELECT
+  id,
+  http_id,
+  assert_expression,
+  assert_description,
+  enabled,
+  parent_assert_id,
+  is_delta,
+  delta_assert_expression,
+  delta_assert_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_assert
+WHERE http_id = ? AND is_delta = FALSE
+ORDER BY created_at ASC;
+
+-- name: GetHTTPAssertsByIDs :many
+SELECT
+  id,
+  http_id,
+  assert_expression,
+  assert_description,
+  enabled,
+  parent_assert_id,
+  is_delta,
+  delta_assert_expression,
+  delta_assert_description,
+  delta_enabled,
+  prev,
+  next,
+  created_at,
+  updated_at
+FROM http_assert
+WHERE id IN (sqlc.slice('ids'));
+
+-- name: CreateHTTPAssert :exec
+INSERT INTO http_assert (
+  id, http_id, assert_expression, assert_description, enabled,
+  parent_assert_id, is_delta, delta_assert_expression, delta_assert_description,
+  delta_enabled, prev, next, created_at, updated_at
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHTTPAssert :exec
+UPDATE http_assert
+SET
+  assert_expression = ?,
+  assert_description = ?,
+  enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPAssertDelta :exec
+UPDATE http_assert
+SET
+  delta_assert_expression = ?,
+  delta_assert_description = ?,
+  delta_enabled = ?,
+  updated_at = unixepoch()
+WHERE id = ?;
+
+-- name: UpdateHTTPAssertOrder :exec
+UPDATE http_assert
+SET prev = ?, next = ?
+WHERE id = ? AND http_id = ?;
+
+-- name: DeleteHTTPAssert :exec
+DELETE FROM http_assert
+WHERE id = ?;
+
+--
+-- Batch Operations for Performance
+--
+
+-- name: CreateHTTPSearchParamsBulk :exec
+INSERT INTO http_search_param (
+  id, http_id, param_key, param_value, description, enabled,
+  parent_search_param_id, is_delta, delta_param_key, delta_param_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: CreateHTTPHeadersBulk :exec
+INSERT INTO http_header (
+  id, http_id, header_key, header_value, description, enabled,
+  parent_header_id, is_delta, delta_header_key, delta_header_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: CreateHTTPBodyFormsBulk :exec
+INSERT INTO http_body_form (
+  id, http_id, form_key, form_value, description, enabled,
+  parent_body_form_id, is_delta, delta_form_key, delta_form_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: CreateHTTPBodyUrlencodedBulk :exec
+INSERT INTO http_body_urlencoded (
+  id, http_id, urlencoded_key, urlencoded_value, description, enabled,
+  parent_body_urlencoded_id, is_delta, delta_urlencoded_key, delta_urlencoded_value,
+  delta_description, delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: CreateHTTPAssertsBulk :exec
+INSERT INTO http_assert (
+  id, http_id, assert_expression, assert_description, enabled,
+  parent_assert_id, is_delta, delta_assert_expression, delta_assert_description,
+  delta_enabled, prev, next, created_at, updated_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+--
+-- Workspace-scoped queries for permission filtering
+--
+
+-- name: GetHTTPsWithWorkspaceAccess :many
+SELECT
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+INNER JOIN workspaces_users wu ON h.workspace_id = wu.workspace_id
+WHERE wu.user_id = ? AND h.is_delta = FALSE
+ORDER BY h.updated_at DESC;
+
+-- name: GetHTTPByWorkspaceAccess :one
+SELECT
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+INNER JOIN workspaces_users wu ON h.workspace_id = wu.workspace_id
+WHERE h.id = ? AND wu.user_id = ?
+LIMIT 1;
+
+-- name: CountHTTPByWorkspace :one
+SELECT COUNT(*) as count
+FROM http
+WHERE workspace_id = ? AND is_delta = FALSE;
+
+-- name: CountHTTPByFolder :one
+SELECT COUNT(*) as count
+FROM http
+WHERE folder_id = ? AND is_delta = FALSE;

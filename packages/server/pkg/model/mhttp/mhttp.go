@@ -1,0 +1,114 @@
+package mhttp
+
+import (
+	"the-dev-tools/server/pkg/idwrap"
+)
+
+type HTTP struct {
+	ID               idwrap.IDWrap  `json:"id"`
+	WorkspaceID      idwrap.IDWrap  `json:"workspace_id"`
+	FolderID         *idwrap.IDWrap `json:"folder_id,omitempty"`
+	Name             string         `json:"name"`
+	Url              string         `json:"url"`
+	Method           string         `json:"method"`
+	Description      string         `json:"description"`
+	ParentHttpID     *idwrap.IDWrap `json:"parent_http_id,omitempty"`
+	IsDelta          bool           `json:"is_delta"`
+	DeltaName        *string        `json:"delta_name,omitempty"`
+	DeltaUrl         *string        `json:"delta_url,omitempty"`
+	DeltaMethod      *string        `json:"delta_method,omitempty"`
+	DeltaDescription *string        `json:"delta_description,omitempty"`
+	CreatedAt        int64          `json:"created_at"`
+	UpdatedAt        int64          `json:"updated_at"`
+}
+
+type HTTPSearchParam struct {
+	ID                  idwrap.IDWrap  `json:"id"`
+	HttpID              idwrap.IDWrap  `json:"http_id"`
+	ParamKey            string         `json:"param_key"`
+	ParamValue          string         `json:"param_value"`
+	Description         string         `json:"description"`
+	Enabled             bool           `json:"enabled"`
+	ParentSearchParamID *idwrap.IDWrap `json:"parent_search_param_id,omitempty"`
+	IsDelta             bool           `json:"is_delta"`
+	DeltaParamKey       *string        `json:"delta_param_key,omitempty"`
+	DeltaParamValue     *string        `json:"delta_param_value,omitempty"`
+	DeltaDescription    *string        `json:"delta_description,omitempty"`
+	DeltaEnabled        *bool          `json:"delta_enabled,omitempty"`
+	Prev                *idwrap.IDWrap `json:"prev,omitempty"`
+	Next                *idwrap.IDWrap `json:"next,omitempty"`
+	CreatedAt           int64          `json:"created_at"`
+	UpdatedAt           int64          `json:"updated_at"`
+}
+
+type HTTPHeader struct {
+	ID               idwrap.IDWrap  `json:"id"`
+	HttpID           idwrap.IDWrap  `json:"http_id"`
+	HeaderKey        string         `json:"header_key"`
+	HeaderValue      string         `json:"header_value"`
+	Description      string         `json:"description"`
+	Enabled          bool           `json:"enabled"`
+	ParentHeaderID   *idwrap.IDWrap `json:"parent_header_id,omitempty"`
+	IsDelta          bool           `json:"is_delta"`
+	DeltaHeaderKey   *string        `json:"delta_header_key,omitempty"`
+	DeltaHeaderValue *string        `json:"delta_header_value,omitempty"`
+	DeltaDescription *string        `json:"delta_description,omitempty"`
+	DeltaEnabled     *bool          `json:"delta_enabled,omitempty"`
+	Prev             *idwrap.IDWrap `json:"prev,omitempty"`
+	Next             *idwrap.IDWrap `json:"next,omitempty"`
+	CreatedAt        int64          `json:"created_at"`
+	UpdatedAt        int64          `json:"updated_at"`
+}
+
+type HTTPBodyForm struct {
+	ID               idwrap.IDWrap  `json:"id"`
+	HttpID           idwrap.IDWrap  `json:"http_id"`
+	FormKey          string         `json:"form_key"`
+	FormValue        string         `json:"form_value"`
+	Description      string         `json:"description"`
+	Enabled          bool           `json:"enabled"`
+	ParentBodyFormID *idwrap.IDWrap `json:"parent_body_form_id,omitempty"`
+	IsDelta          bool           `json:"is_delta"`
+	DeltaFormKey     *string        `json:"delta_form_key,omitempty"`
+	DeltaFormValue   *string        `json:"delta_form_value,omitempty"`
+	DeltaDescription *string        `json:"delta_description,omitempty"`
+	DeltaEnabled     *bool          `json:"delta_enabled,omitempty"`
+	Prev             *idwrap.IDWrap `json:"prev,omitempty"`
+	Next             *idwrap.IDWrap `json:"next,omitempty"`
+	CreatedAt        int64          `json:"created_at"`
+	UpdatedAt        int64          `json:"updated_at"`
+}
+
+type HTTPBodyUrlencoded struct {
+	ID                     idwrap.IDWrap  `json:"id"`
+	HttpID                 idwrap.IDWrap  `json:"http_id"`
+	UrlencodedKey          string         `json:"urlencoded_key"`
+	UrlencodedValue        string         `json:"urlencoded_value"`
+	Description            string         `json:"description"`
+	Enabled                bool           `json:"enabled"`
+	ParentBodyUrlencodedID *idwrap.IDWrap `json:"parent_body_urlencoded_id,omitempty"`
+	IsDelta                bool           `json:"is_delta"`
+	DeltaUrlencodedKey     *string        `json:"delta_urlencoded_key,omitempty"`
+	DeltaUrlencodedValue   *string        `json:"delta_urlencoded_value,omitempty"`
+	DeltaDescription       *string        `json:"delta_description,omitempty"`
+	DeltaEnabled           *bool          `json:"delta_enabled,omitempty"`
+	Prev                   *idwrap.IDWrap `json:"prev,omitempty"`
+	Next                   *idwrap.IDWrap `json:"next,omitempty"`
+	CreatedAt              int64          `json:"created_at"`
+	UpdatedAt              int64          `json:"updated_at"`
+}
+
+type HTTPBodyRaw struct {
+	ID                   idwrap.IDWrap  `json:"id"`
+	HttpID               idwrap.IDWrap  `json:"http_id"`
+	RawData              []byte         `json:"raw_data"`
+	ContentType          string         `json:"content_type"`
+	CompressionType      int8           `json:"compression_type"`
+	ParentBodyRawID      *idwrap.IDWrap `json:"parent_body_raw_id,omitempty"`
+	IsDelta              bool           `json:"is_delta"`
+	DeltaRawData         interface{}    `json:"delta_raw_data,omitempty"`
+	DeltaContentType     interface{}    `json:"delta_content_type,omitempty"`
+	DeltaCompressionType interface{}    `json:"delta_compression_type,omitempty"`
+	CreatedAt            int64          `json:"created_at"`
+	UpdatedAt            int64          `json:"updated_at"`
+}
