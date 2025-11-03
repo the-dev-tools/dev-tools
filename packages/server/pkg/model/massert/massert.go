@@ -3,7 +3,7 @@ package massert
 import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
-	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+	// deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1" // TODO: Re-enable when delta v1 is available
 )
 
 type AssertType int8
@@ -22,6 +22,8 @@ const (
 )
 
 // ToSourceKind converts AssertSource to deltav1.SourceKind
+// TODO: Re-enable when delta v1 is available
+/*
 func (s AssertSource) ToSourceKind() deltav1.SourceKind {
 	switch s {
 	case AssertSourceOrigin:
@@ -48,6 +50,7 @@ func FromSourceKind(kind deltav1.SourceKind) AssertSource {
 		return AssertSourceOrigin // default to origin
 	}
 }
+*/
 
 const (
 	AssertTypeUndefined      AssertType = 0

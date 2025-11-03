@@ -2,7 +2,7 @@ package mbodyform
 
 import (
 	"the-dev-tools/server/pkg/idwrap"
-	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+	// deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1" // TODO: Re-enable when delta v1 is available
 )
 
 // BodyFormSource represents the source type for body forms
@@ -15,6 +15,8 @@ const (
 )
 
 // ToSourceKind converts BodyFormSource to deltav1.SourceKind
+// TODO: Re-enable when delta v1 is available
+/*
 func (s BodyFormSource) ToSourceKind() deltav1.SourceKind {
 	switch s {
 	case BodyFormSourceOrigin:
@@ -41,6 +43,7 @@ func FromSourceKind(kind deltav1.SourceKind) BodyFormSource {
 		return BodyFormSourceOrigin
 	}
 }
+*/
 
 type BodyForm struct {
 	BodyKey       string         `json:"body_key"`

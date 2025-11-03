@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -56,6 +57,7 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 	base := testutil.CreateBaseDB(context.Background(), t)
 	services := base.GetBaseServices()
 	envService := senv.New(base.Queries, base.Logger())
+	varService := svar.New(base.Queries, base.Logger())
 	stream := memory.NewInMemorySyncStreamer[HttpTopic, HttpEvent]()
 	t.Cleanup(stream.Shutdown)
 
@@ -91,8 +93,13 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 	httpBodyFormStream := memory.NewInMemorySyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent]()
 	httpBodyUrlEncodedStream := memory.NewInMemorySyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]()
 	httpAssertStream := memory.NewInMemorySyncStreamer[HttpAssertTopic, HttpAssertEvent]()
+	httpVersionStream := memory.NewInMemorySyncStreamer[HttpVersionTopic, HttpVersionEvent]()
+	httpResponseStream := memory.NewInMemorySyncStreamer[HttpResponseTopic, HttpResponseEvent]()
+	httpResponseHeaderStream := memory.NewInMemorySyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent]()
+	httpResponseAssertStream := memory.NewInMemorySyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]()
+	httpBodyRawStream := memory.NewInMemorySyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]()
 
-	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, headerService, queryService, bodyService, respService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream)
+	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, headerService, queryService, bodyService, respService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream)
 
 	t.Cleanup(base.Close)
 

@@ -414,9 +414,8 @@ func TestHttpBodyUrlEncodedService_GetByHttpIDOrdered(t *testing.T) {
 		}
 	}
 
-	// Note: GetByHttpIDOrdered method is not available in the current service
-	// We'll use GetHttpBodyUrlEncodedByHttpID instead and verify the results
-	orderedBodies, err := service.GetHttpBodyUrlEncodedByHttpID(ctx, httpID)
+	// Test GetByHttpIDOrdered
+	orderedBodies, err := service.GetByHttpIDOrdered(ctx, httpID)
 	if err != nil {
 		t.Fatalf("Failed to get HttpBodyUrlEncoded by HttpID: %v", err)
 	}
