@@ -81,7 +81,7 @@ function withDelta({ program }: DecoratorContext, target: Model) {
   });
 }
 
-interface Project {
+export interface Project {
   namespace: Namespace;
   version: number;
 }

@@ -9,6 +9,8 @@
   ],
   "exports": {
     "./*": "./dist/buf/typescript/*.ts",
+    "./buf/*": "./dist/buf/typescript/*.ts",
+    "./tanstack-db/*": "./dist/tanstack-db/typescript/*.ts",
     "./data-client/*": "./dist/data-client/*",
     "./data-client/utils": "./data-client/utils.ts"
   },

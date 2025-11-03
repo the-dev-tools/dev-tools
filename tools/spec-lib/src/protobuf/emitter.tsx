@@ -495,7 +495,7 @@ const Field = ({ property }: FieldProps) => {
 
   const options = optionMap(program).get(property) ?? [];
 
-  if ($.model.is(property.type) && !$.array.is(property.type) && !property.optional)
+  if (($.model.is(property.type) || $.union.is(property.type)) && !$.array.is(property.type) && !property.optional)
     options.push(['DevTools.Protobuf.Validate.Field.Required', true]);
 
   if ($.union.is(property.type) && !messageContext?.nested.has(property.type))
