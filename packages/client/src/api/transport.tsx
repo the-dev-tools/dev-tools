@@ -1,7 +1,6 @@
-import { createRegistry } from '@bufbuild/protobuf';
 import { createConnectTransport } from '@connectrpc/connect-web';
 import { Config, Effect, pipe } from 'effect';
-import { files } from '@the-dev-tools/spec/files';
+import { Protobuf } from '~api-new';
 import { Tracker } from '~tracker';
 import { defaultInterceptors } from './interceptors';
 import { ApiTransportMock } from './mock';
@@ -15,7 +14,7 @@ export class ApiTransport extends Effect.Service<ApiTransport>()('ApiTransport',
     return createConnectTransport({
       baseUrl: 'http://localhost:8080',
       interceptors: defaultInterceptors,
-      jsonOptions: { registry: createRegistry(...files) },
+      jsonOptions: { registry: Protobuf.registry },
       useHttpGet: true,
     });
   }),

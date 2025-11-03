@@ -213,6 +213,9 @@ importers:
       '@bufbuild/protobuf':
         specifier: 2.9.0
         version: 2.9.0
+      '@bufbuild/protovalidate':
+        specifier: ^1.0.0
+        version: 1.0.0(@bufbuild/protobuf@2.9.0)
       '@codemirror/autocomplete':
         specifier: 6.19.0
         version: 6.19.0
@@ -285,6 +288,12 @@ importers:
       '@react-aria/collections':
         specifier: 3.0.0-rc.7
         version: 3.0.0-rc.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@standard-schema/spec':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@tanstack/react-db':
+        specifier: ^0.1.36
+        version: 0.1.36(react@19.2.0)(typescript@5.9.3)
       '@tanstack/react-query':
         specifier: 5.90.2
         version: 5.90.2(react@19.2.0)
@@ -1476,6 +1485,16 @@ packages:
     engines: {node: '>=12'}
     hasBin: true
 
+  '@bufbuild/cel-spec@0.3.0':
+    resolution: {integrity: sha512-mN669LGlXkYNco6NzSTpFoW52UwGb0h5UJNct43nkOjk9YrgUtzcBn9PfjrwbyAe3OlUtasvXAFf1Tjs3NQLOg==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.6.2
+
+  '@bufbuild/cel@0.3.0':
+    resolution: {integrity: sha512-vIdcn0Ot6XDKakcDqEQvvlCtMlYwLlxc++SrVjjCmYIiZRH+tlr1GRYpe5R9kguSiTS3BLh7C+I7ZoektVPICQ==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.6.2
+
   '@bufbuild/protobuf@2.9.0':
     resolution: {integrity: sha512-rnJenoStJ8nvmt9Gzye8nkYd6V22xUAnu4086ER7h1zJ508vStko4pMvDeQ446ilDTFpV5wnoc5YS7XvMwwMqA==}
 
@@ -1491,6 +1510,11 @@ packages:
 
   '@bufbuild/protoplugin@2.9.0':
     resolution: {integrity: sha512-uoiwNVYoTq+AyqaV1L6pBazGx5fXOO89L0NSR9/7hEfo0Y8n9T1jsKGu4mkitLmP3z+8gJREaule1mMuKBPyYw==}
+
+  '@bufbuild/protovalidate@1.0.0':
+    resolution: {integrity: sha512-ICGANMQXaPKdR5BJ+6/L3nySHOZQQEZQvvivSZCFb799138obPLjNk32rSIKOMrA/YHc4Y2W738e+SL3CbZXSg==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.8.0
 
   '@clack/core@0.3.5':
     resolution: {integrity: sha512-5cfhQNH+1VQ2xLQlmzXMqUoiaH0lRBq9/CLW9lTyMbuKLC3+xEK01tHVvyut++mLOn5urSHmkm6I0Lg9MaJSTQ==}
@@ -4349,6 +4373,16 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
 
+  '@tanstack/db-ivm@0.1.12':
+    resolution: {integrity: sha512-QTs2dgrjTCkATZh12nb854K/Of80QyyR6URYyxnGPnJgXFchvw25Ve3TtFW51fHR5hheQltkbtpPgBjSZvoMVA==}
+    peerDependencies:
+      typescript: '>=4.7'
+
+  '@tanstack/db@0.4.14':
+    resolution: {integrity: sha512-OwYuXpoRjUihbHBAf7+SgDORyyUQ+ca4a85um8gX/NdnIFbUYuFYL+vItjC3WHesIzBskDs7VYLHXZWCM9hrUA==}
+    peerDependencies:
+      typescript: '>=4.7'
+
   '@tanstack/eslint-plugin-router@1.132.31':
     resolution: {integrity: sha512-LjNs9rYaaXAefqpKxXRsYYR3QzwbqCgSOlfKWT9siXxTCGe76GEPLIYxxNmsk2Epbe9Uy3S9DU0OzCFflpQnnw==}
     peerDependencies:
@@ -4363,6 +4397,11 @@ packages:
 
   '@tanstack/query-devtools@5.90.1':
     resolution: {integrity: sha512-GtINOPjPUH0OegJExZ70UahT9ykmAhmtNVcmtdnOZbxLwT7R5OmRztR5Ahe3/Cu7LArEmR6/588tAycuaWb1xQ==}
+
+  '@tanstack/react-db@0.1.36':
+    resolution: {integrity: sha512-dACmqVjD0gmvPQT4fuMpEh2Vgm2JbmDdG7ZFrLajcutBbOG22oiGFGcmU5DuTQi74lrn8CTG/YfZeDnA3xMw+g==}
+    peerDependencies:
+      react: '>=16.8.0'
 
   '@tanstack/react-query-devtools@5.90.2':
     resolution: {integrity: sha512-vAXJzZuBXtCQtrY3F/yUNJCV4obT/A/n81kb3+YqLbro5Z2+phdAbceO+deU3ywPw8B42oyJlp4FhO0SoivDFQ==}
@@ -6454,6 +6493,10 @@ packages:
 
   fraction.js@4.3.7:
     resolution: {integrity: sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==}
+
+  fractional-indexing@3.2.0:
+    resolution: {integrity: sha512-PcOxmqwYCW7O2ovKRU8OoQQj2yqTfEB/yeTYk4gPid6dN5ODRfU1hXd9tTVZzax/0NkO7AxpHykvZnT1aYp/BQ==}
+    engines: {node: ^14.13.1 || >=16.0.0}
 
   fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
@@ -8817,6 +8860,9 @@ packages:
   sorted-array-functions@1.3.0:
     resolution: {integrity: sha512-2sqgzeFlid6N4Z2fUQ1cvFmTOLRi/sEDzSQ0OKYchqgoPmQBVyM3959qYx3fpS6Esef80KjmpgPeEr028dP3OA==}
 
+  sorted-btree@1.8.1:
+    resolution: {integrity: sha512-395+XIP+wqNn3USkFSrNz7G3Ss/MXlZEqesxvzCRFwL14h6e8LukDHdLBePn5pwbm5OQ9vGu8mDyz2lLDIqamQ==}
+
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -10692,6 +10738,15 @@ snapshots:
       '@bufbuild/buf-win32-arm64': 1.57.2
       '@bufbuild/buf-win32-x64': 1.57.2
 
+  '@bufbuild/cel-spec@0.3.0(@bufbuild/protobuf@2.9.0)':
+    dependencies:
+      '@bufbuild/protobuf': 2.9.0
+
+  '@bufbuild/cel@0.3.0(@bufbuild/protobuf@2.9.0)':
+    dependencies:
+      '@bufbuild/cel-spec': 0.3.0(@bufbuild/protobuf@2.9.0)
+      '@bufbuild/protobuf': 2.9.0
+
   '@bufbuild/protobuf@2.9.0': {}
 
   '@bufbuild/protoc-gen-es@2.9.0(@bufbuild/protobuf@2.9.0)':
@@ -10709,6 +10764,11 @@ snapshots:
       typescript: 5.4.5
     transitivePeerDependencies:
       - supports-color
+
+  '@bufbuild/protovalidate@1.0.0(@bufbuild/protobuf@2.9.0)':
+    dependencies:
+      '@bufbuild/cel': 0.3.0(@bufbuild/protobuf@2.9.0)
+      '@bufbuild/protobuf': 2.9.0
 
   '@clack/core@0.3.5':
     dependencies:
@@ -14325,6 +14385,18 @@ snapshots:
       tailwindcss: 4.1.14
       vite: 7.1.7(@types/node@24.6.1)(jiti@2.6.1)(lightningcss@1.30.1)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1)
 
+  '@tanstack/db-ivm@0.1.12(typescript@5.9.3)':
+    dependencies:
+      fractional-indexing: 3.2.0
+      sorted-btree: 1.8.1
+      typescript: 5.9.3
+
+  '@tanstack/db@0.4.14(typescript@5.9.3)':
+    dependencies:
+      '@standard-schema/spec': 1.0.0
+      '@tanstack/db-ivm': 0.1.12(typescript@5.9.3)
+      typescript: 5.9.3
+
   '@tanstack/eslint-plugin-router@1.132.31(eslint@9.36.0(jiti@2.6.1))(typescript@5.9.3)':
     dependencies:
       '@typescript-eslint/utils': 8.45.0(eslint@9.36.0(jiti@2.6.1))(typescript@5.9.3)
@@ -14338,6 +14410,14 @@ snapshots:
   '@tanstack/query-core@5.90.2': {}
 
   '@tanstack/query-devtools@5.90.1': {}
+
+  '@tanstack/react-db@0.1.36(react@19.2.0)(typescript@5.9.3)':
+    dependencies:
+      '@tanstack/db': 0.4.14(typescript@5.9.3)
+      react: 19.2.0
+      use-sync-external-store: 1.6.0(react@19.2.0)
+    transitivePeerDependencies:
+      - typescript
 
   '@tanstack/react-query-devtools@5.90.2(@tanstack/react-query@5.90.2(react@19.2.0))(react@19.2.0)':
     dependencies:
@@ -16962,6 +17042,8 @@ snapshots:
 
   fraction.js@4.3.7: {}
 
+  fractional-indexing@3.2.0: {}
+
   fresh@0.5.2: {}
 
   front-matter@4.0.2:
@@ -19574,6 +19656,8 @@ snapshots:
       seroval-plugins: 1.3.3(seroval@1.3.2)
 
   sorted-array-functions@1.3.0: {}
+
+  sorted-btree@1.8.1: {}
 
   source-map-js@1.2.1: {}
 
