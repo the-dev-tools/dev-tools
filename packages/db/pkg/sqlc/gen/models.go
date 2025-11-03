@@ -359,9 +359,9 @@ type HttpAssert struct {
 	Enabled                bool
 	ParentAssertID         *idwrap.IDWrap
 	IsDelta                bool
-	DeltaAssertExpression  interface{}
-	DeltaAssertDescription interface{}
-	DeltaEnabled           interface{}
+	DeltaAssertExpression  *string
+	DeltaAssertDescription *string
+	DeltaEnabled           *bool
 	Prev                   *idwrap.IDWrap
 	Next                   *idwrap.IDWrap
 	CreatedAt              int64

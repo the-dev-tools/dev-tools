@@ -15,13 +15,47 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/translate/tcollection"
 	"the-dev-tools/server/pkg/translate/tgeneric"
-	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
-	"the-dev-tools/spec/dist/buf/go/collection/v1/collectionv1connect"
-	resourcesv1 "the-dev-tools/spec/dist/buf/go/resource/v1"
+	collectionv1 "the-dev-tools/spec/dist/buf/go/api/collection/v1"
+	"the-dev-tools/spec/dist/buf/go/api/collection/v1/collectionv1connect"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+// TODO: Fix resource MovePosition enum generation from TypeSpec
+// Temporary workaround until resource.proto generation is fixed
+type MovePosition int32
+
+const (
+	MovePositionUnspecified MovePosition = 0
+	MovePositionAfter       MovePosition = 1
+	MovePositionBefore      MovePosition = 2
+)
+
+// TODO: Fix CollectionMoveRequest generation from TypeSpec
+// Temporary workaround until service generation is fixed
+type CollectionMoveRequest struct {
+	WorkspaceId        []byte
+	CollectionId       []byte
+	Position           MovePosition
+	TargetCollectionId []byte
+}
+
+func (r *CollectionMoveRequest) GetWorkspaceId() []byte {
+	return r.WorkspaceId
+}
+
+func (r *CollectionMoveRequest) GetCollectionId() []byte {
+	return r.CollectionId
+}
+
+func (r *CollectionMoveRequest) GetPosition() MovePosition {
+	return r.Position
+}
+
+func (r *CollectionMoveRequest) GetTargetCollectionId() []byte {
+	return r.TargetCollectionId
+}
 
 type CollectionServiceRPC struct {
 	DB *sql.DB
@@ -68,8 +102,7 @@ func (c *CollectionServiceRPC) CollectionList(ctx context.Context, req *connect.
 	}
 
 	respRaw := &collectionv1.CollectionListResponse{
-		WorkspaceId: req.Msg.WorkspaceId,
-		Items:       tgeneric.MassConvert(simpleCollections, tcollection.SerializeCollectionModelToRPC),
+		Collections: tgeneric.MassConvert(simpleCollections, tcollection.SerializeCollectionModelToRPC),
 	}
 	return connect.NewResponse(respRaw), nil
 }
@@ -113,8 +146,20 @@ func (c *CollectionServiceRPC) CollectionCreate(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	collectionModel, err := c.cs.GetCollection(ctx, collectionID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Convert CollectionListItem to Collection since they have same fields
+	listItem := tcollection.SerializeCollectionModelToRPC(*collectionModel)
+	collectionRPC := &collectionv1.Collection{
+		CollectionId: listItem.CollectionId,
+		Name:         listItem.Name,
+	}
+
 	return connect.NewResponse(&collectionv1.CollectionCreateResponse{
-		CollectionId: collectionID.Bytes(),
+		Collection: collectionRPC,
 	}), nil
 }
 
@@ -133,9 +178,14 @@ func (c *CollectionServiceRPC) CollectionGet(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	// Convert CollectionListItem to Collection since they have same fields
+	listItem := tcollection.SerializeCollectionModelToRPC(*collection)
+	collectionRPC := &collectionv1.Collection{
+		CollectionId: listItem.CollectionId,
+		Name:         listItem.Name,
+	}
 	respRaw := &collectionv1.CollectionGetResponse{
-		CollectionId: collection.ID.Bytes(),
-		Name:         collection.Name,
+		Collection: collectionRPC,
 	}
 
 	return connect.NewResponse(respRaw), nil
@@ -235,7 +285,7 @@ func CheckOwnerCollection(ctx context.Context, cs scollection.CollectionService,
 	return CheckOwnerWorkspace(ctx, us, workspaceID)
 }
 
-func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.Request[collectionv1.CollectionMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.Request[CollectionMoveRequest]) (*connect.Response[emptypb.Empty], error) {
 	// Validate collection ID
 	collectionID, err := idwrap.NewFromBytes(req.Msg.GetCollectionId())
 	if err != nil {
@@ -276,7 +326,7 @@ func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.
 
 	// Validate position first (before checking permissions)
 	position := req.Msg.GetPosition()
-	if position == resourcesv1.MovePosition_MOVE_POSITION_UNSPECIFIED {
+	if position == MovePositionUnspecified {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("position must be specified"))
 	}
 
@@ -320,9 +370,9 @@ func (c *CollectionServiceRPC) CollectionMove(ctx context.Context, req *connect.
 
 	// Execute the move operation
 	switch position {
-	case resourcesv1.MovePosition_MOVE_POSITION_AFTER:
+	case MovePositionAfter:
 		err = c.cs.MoveCollectionAfter(ctx, collectionID, targetCollectionID)
-	case resourcesv1.MovePosition_MOVE_POSITION_BEFORE:
+	case MovePositionBefore:
 		err = c.cs.MoveCollectionBefore(ctx, collectionID, targetCollectionID)
 	default:
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid position"))

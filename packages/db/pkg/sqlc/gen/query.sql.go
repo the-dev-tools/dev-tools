@@ -1385,9 +1385,9 @@ type CreateHTTPAssertParams struct {
 	Enabled                bool
 	ParentAssertID         *idwrap.IDWrap
 	IsDelta                bool
-	DeltaAssertExpression  interface{}
-	DeltaAssertDescription interface{}
-	DeltaEnabled           interface{}
+	DeltaAssertExpression  *string
+	DeltaAssertDescription *string
+	DeltaEnabled           *bool
 	Prev                   *idwrap.IDWrap
 	Next                   *idwrap.IDWrap
 	CreatedAt              int64
@@ -1441,9 +1441,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled                   bool
 	ParentAssertID            *idwrap.IDWrap
 	IsDelta                   bool
-	DeltaAssertExpression     interface{}
-	DeltaAssertDescription    interface{}
-	DeltaEnabled              interface{}
+	DeltaAssertExpression     *string
+	DeltaAssertDescription    *string
+	DeltaEnabled              *bool
 	Prev                      *idwrap.IDWrap
 	Next                      *idwrap.IDWrap
 	CreatedAt                 int64
@@ -1455,9 +1455,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled_2                 bool
 	ParentAssertID_2          *idwrap.IDWrap
 	IsDelta_2                 bool
-	DeltaAssertExpression_2   interface{}
-	DeltaAssertDescription_2  interface{}
-	DeltaEnabled_2            interface{}
+	DeltaAssertExpression_2   *string
+	DeltaAssertDescription_2  *string
+	DeltaEnabled_2            *bool
 	Prev_2                    *idwrap.IDWrap
 	Next_2                    *idwrap.IDWrap
 	CreatedAt_2               int64
@@ -1469,9 +1469,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled_3                 bool
 	ParentAssertID_3          *idwrap.IDWrap
 	IsDelta_3                 bool
-	DeltaAssertExpression_3   interface{}
-	DeltaAssertDescription_3  interface{}
-	DeltaEnabled_3            interface{}
+	DeltaAssertExpression_3   *string
+	DeltaAssertDescription_3  *string
+	DeltaEnabled_3            *bool
 	Prev_3                    *idwrap.IDWrap
 	Next_3                    *idwrap.IDWrap
 	CreatedAt_3               int64
@@ -1483,9 +1483,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled_4                 bool
 	ParentAssertID_4          *idwrap.IDWrap
 	IsDelta_4                 bool
-	DeltaAssertExpression_4   interface{}
-	DeltaAssertDescription_4  interface{}
-	DeltaEnabled_4            interface{}
+	DeltaAssertExpression_4   *string
+	DeltaAssertDescription_4  *string
+	DeltaEnabled_4            *bool
 	Prev_4                    *idwrap.IDWrap
 	Next_4                    *idwrap.IDWrap
 	CreatedAt_4               int64
@@ -1497,9 +1497,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled_5                 bool
 	ParentAssertID_5          *idwrap.IDWrap
 	IsDelta_5                 bool
-	DeltaAssertExpression_5   interface{}
-	DeltaAssertDescription_5  interface{}
-	DeltaEnabled_5            interface{}
+	DeltaAssertExpression_5   *string
+	DeltaAssertDescription_5  *string
+	DeltaEnabled_5            *bool
 	Prev_5                    *idwrap.IDWrap
 	Next_5                    *idwrap.IDWrap
 	CreatedAt_5               int64
@@ -1511,9 +1511,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled_6                 bool
 	ParentAssertID_6          *idwrap.IDWrap
 	IsDelta_6                 bool
-	DeltaAssertExpression_6   interface{}
-	DeltaAssertDescription_6  interface{}
-	DeltaEnabled_6            interface{}
+	DeltaAssertExpression_6   *string
+	DeltaAssertDescription_6  *string
+	DeltaEnabled_6            *bool
 	Prev_6                    *idwrap.IDWrap
 	Next_6                    *idwrap.IDWrap
 	CreatedAt_6               int64
@@ -1525,9 +1525,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled_7                 bool
 	ParentAssertID_7          *idwrap.IDWrap
 	IsDelta_7                 bool
-	DeltaAssertExpression_7   interface{}
-	DeltaAssertDescription_7  interface{}
-	DeltaEnabled_7            interface{}
+	DeltaAssertExpression_7   *string
+	DeltaAssertDescription_7  *string
+	DeltaEnabled_7            *bool
 	Prev_7                    *idwrap.IDWrap
 	Next_7                    *idwrap.IDWrap
 	CreatedAt_7               int64
@@ -1539,9 +1539,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled_8                 bool
 	ParentAssertID_8          *idwrap.IDWrap
 	IsDelta_8                 bool
-	DeltaAssertExpression_8   interface{}
-	DeltaAssertDescription_8  interface{}
-	DeltaEnabled_8            interface{}
+	DeltaAssertExpression_8   *string
+	DeltaAssertDescription_8  *string
+	DeltaEnabled_8            *bool
 	Prev_8                    *idwrap.IDWrap
 	Next_8                    *idwrap.IDWrap
 	CreatedAt_8               int64
@@ -1553,9 +1553,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled_9                 bool
 	ParentAssertID_9          *idwrap.IDWrap
 	IsDelta_9                 bool
-	DeltaAssertExpression_9   interface{}
-	DeltaAssertDescription_9  interface{}
-	DeltaEnabled_9            interface{}
+	DeltaAssertExpression_9   *string
+	DeltaAssertDescription_9  *string
+	DeltaEnabled_9            *bool
 	Prev_9                    *idwrap.IDWrap
 	Next_9                    *idwrap.IDWrap
 	CreatedAt_9               int64
@@ -1567,9 +1567,9 @@ type CreateHTTPAssertsBulkParams struct {
 	Enabled_10                bool
 	ParentAssertID_10         *idwrap.IDWrap
 	IsDelta_10                bool
-	DeltaAssertExpression_10  interface{}
-	DeltaAssertDescription_10 interface{}
-	DeltaEnabled_10           interface{}
+	DeltaAssertExpression_10  *string
+	DeltaAssertDescription_10 *string
+	DeltaEnabled_10           *bool
 	Prev_10                   *idwrap.IDWrap
 	Next_10                   *idwrap.IDWrap
 	CreatedAt_10              int64
@@ -2180,8 +2180,8 @@ type CreateHTTPBodyUrlencodedParams struct {
 	Enabled                bool
 	ParentBodyUrlencodedID *idwrap.IDWrap
 	IsDelta                bool
-	DeltaUrlencodedKey     interface{}
-	DeltaUrlencodedValue   interface{}
+	DeltaUrlencodedKey     *string
+	DeltaUrlencodedValue   *string
 	DeltaDescription       *string
 	DeltaEnabled           *bool
 	Prev                   *idwrap.IDWrap
@@ -2240,8 +2240,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled                   bool
 	ParentBodyUrlencodedID    *idwrap.IDWrap
 	IsDelta                   bool
-	DeltaUrlencodedKey        interface{}
-	DeltaUrlencodedValue      interface{}
+	DeltaUrlencodedKey        *string
+	DeltaUrlencodedValue      *string
 	DeltaDescription          *string
 	DeltaEnabled              *bool
 	Prev                      *idwrap.IDWrap
@@ -2256,8 +2256,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled_2                 bool
 	ParentBodyUrlencodedID_2  *idwrap.IDWrap
 	IsDelta_2                 bool
-	DeltaUrlencodedKey_2      interface{}
-	DeltaUrlencodedValue_2    interface{}
+	DeltaUrlencodedKey_2      *string
+	DeltaUrlencodedValue_2    *string
 	DeltaDescription_2        *string
 	DeltaEnabled_2            *bool
 	Prev_2                    *idwrap.IDWrap
@@ -2272,8 +2272,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled_3                 bool
 	ParentBodyUrlencodedID_3  *idwrap.IDWrap
 	IsDelta_3                 bool
-	DeltaUrlencodedKey_3      interface{}
-	DeltaUrlencodedValue_3    interface{}
+	DeltaUrlencodedKey_3      *string
+	DeltaUrlencodedValue_3    *string
 	DeltaDescription_3        *string
 	DeltaEnabled_3            *bool
 	Prev_3                    *idwrap.IDWrap
@@ -2288,8 +2288,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled_4                 bool
 	ParentBodyUrlencodedID_4  *idwrap.IDWrap
 	IsDelta_4                 bool
-	DeltaUrlencodedKey_4      interface{}
-	DeltaUrlencodedValue_4    interface{}
+	DeltaUrlencodedKey_4      *string
+	DeltaUrlencodedValue_4    *string
 	DeltaDescription_4        *string
 	DeltaEnabled_4            *bool
 	Prev_4                    *idwrap.IDWrap
@@ -2304,8 +2304,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled_5                 bool
 	ParentBodyUrlencodedID_5  *idwrap.IDWrap
 	IsDelta_5                 bool
-	DeltaUrlencodedKey_5      interface{}
-	DeltaUrlencodedValue_5    interface{}
+	DeltaUrlencodedKey_5      *string
+	DeltaUrlencodedValue_5    *string
 	DeltaDescription_5        *string
 	DeltaEnabled_5            *bool
 	Prev_5                    *idwrap.IDWrap
@@ -2320,8 +2320,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled_6                 bool
 	ParentBodyUrlencodedID_6  *idwrap.IDWrap
 	IsDelta_6                 bool
-	DeltaUrlencodedKey_6      interface{}
-	DeltaUrlencodedValue_6    interface{}
+	DeltaUrlencodedKey_6      *string
+	DeltaUrlencodedValue_6    *string
 	DeltaDescription_6        *string
 	DeltaEnabled_6            *bool
 	Prev_6                    *idwrap.IDWrap
@@ -2336,8 +2336,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled_7                 bool
 	ParentBodyUrlencodedID_7  *idwrap.IDWrap
 	IsDelta_7                 bool
-	DeltaUrlencodedKey_7      interface{}
-	DeltaUrlencodedValue_7    interface{}
+	DeltaUrlencodedKey_7      *string
+	DeltaUrlencodedValue_7    *string
 	DeltaDescription_7        *string
 	DeltaEnabled_7            *bool
 	Prev_7                    *idwrap.IDWrap
@@ -2352,8 +2352,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled_8                 bool
 	ParentBodyUrlencodedID_8  *idwrap.IDWrap
 	IsDelta_8                 bool
-	DeltaUrlencodedKey_8      interface{}
-	DeltaUrlencodedValue_8    interface{}
+	DeltaUrlencodedKey_8      *string
+	DeltaUrlencodedValue_8    *string
 	DeltaDescription_8        *string
 	DeltaEnabled_8            *bool
 	Prev_8                    *idwrap.IDWrap
@@ -2368,8 +2368,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled_9                 bool
 	ParentBodyUrlencodedID_9  *idwrap.IDWrap
 	IsDelta_9                 bool
-	DeltaUrlencodedKey_9      interface{}
-	DeltaUrlencodedValue_9    interface{}
+	DeltaUrlencodedKey_9      *string
+	DeltaUrlencodedValue_9    *string
 	DeltaDescription_9        *string
 	DeltaEnabled_9            *bool
 	Prev_9                    *idwrap.IDWrap
@@ -2384,8 +2384,8 @@ type CreateHTTPBodyUrlencodedBulkParams struct {
 	Enabled_10                bool
 	ParentBodyUrlencodedID_10 *idwrap.IDWrap
 	IsDelta_10                bool
-	DeltaUrlencodedKey_10     interface{}
-	DeltaUrlencodedValue_10   interface{}
+	DeltaUrlencodedKey_10     *string
+	DeltaUrlencodedValue_10   *string
 	DeltaDescription_10       *string
 	DeltaEnabled_10           *bool
 	Prev_10                   *idwrap.IDWrap
@@ -2578,8 +2578,8 @@ type CreateHTTPHeaderParams struct {
 	Enabled          bool
 	ParentHeaderID   *idwrap.IDWrap
 	IsDelta          bool
-	DeltaHeaderKey   interface{}
-	DeltaHeaderValue interface{}
+	DeltaHeaderKey   *string
+	DeltaHeaderValue *string
 	DeltaDescription *string
 	DeltaEnabled     *bool
 	Prev             *idwrap.IDWrap
@@ -2638,8 +2638,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled             bool
 	ParentHeaderID      *idwrap.IDWrap
 	IsDelta             bool
-	DeltaHeaderKey      interface{}
-	DeltaHeaderValue    interface{}
+	DeltaHeaderKey      *string
+	DeltaHeaderValue    *string
 	DeltaDescription    *string
 	DeltaEnabled        *bool
 	Prev                *idwrap.IDWrap
@@ -2654,8 +2654,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled_2           bool
 	ParentHeaderID_2    *idwrap.IDWrap
 	IsDelta_2           bool
-	DeltaHeaderKey_2    interface{}
-	DeltaHeaderValue_2  interface{}
+	DeltaHeaderKey_2    *string
+	DeltaHeaderValue_2  *string
 	DeltaDescription_2  *string
 	DeltaEnabled_2      *bool
 	Prev_2              *idwrap.IDWrap
@@ -2670,8 +2670,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled_3           bool
 	ParentHeaderID_3    *idwrap.IDWrap
 	IsDelta_3           bool
-	DeltaHeaderKey_3    interface{}
-	DeltaHeaderValue_3  interface{}
+	DeltaHeaderKey_3    *string
+	DeltaHeaderValue_3  *string
 	DeltaDescription_3  *string
 	DeltaEnabled_3      *bool
 	Prev_3              *idwrap.IDWrap
@@ -2686,8 +2686,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled_4           bool
 	ParentHeaderID_4    *idwrap.IDWrap
 	IsDelta_4           bool
-	DeltaHeaderKey_4    interface{}
-	DeltaHeaderValue_4  interface{}
+	DeltaHeaderKey_4    *string
+	DeltaHeaderValue_4  *string
 	DeltaDescription_4  *string
 	DeltaEnabled_4      *bool
 	Prev_4              *idwrap.IDWrap
@@ -2702,8 +2702,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled_5           bool
 	ParentHeaderID_5    *idwrap.IDWrap
 	IsDelta_5           bool
-	DeltaHeaderKey_5    interface{}
-	DeltaHeaderValue_5  interface{}
+	DeltaHeaderKey_5    *string
+	DeltaHeaderValue_5  *string
 	DeltaDescription_5  *string
 	DeltaEnabled_5      *bool
 	Prev_5              *idwrap.IDWrap
@@ -2718,8 +2718,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled_6           bool
 	ParentHeaderID_6    *idwrap.IDWrap
 	IsDelta_6           bool
-	DeltaHeaderKey_6    interface{}
-	DeltaHeaderValue_6  interface{}
+	DeltaHeaderKey_6    *string
+	DeltaHeaderValue_6  *string
 	DeltaDescription_6  *string
 	DeltaEnabled_6      *bool
 	Prev_6              *idwrap.IDWrap
@@ -2734,8 +2734,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled_7           bool
 	ParentHeaderID_7    *idwrap.IDWrap
 	IsDelta_7           bool
-	DeltaHeaderKey_7    interface{}
-	DeltaHeaderValue_7  interface{}
+	DeltaHeaderKey_7    *string
+	DeltaHeaderValue_7  *string
 	DeltaDescription_7  *string
 	DeltaEnabled_7      *bool
 	Prev_7              *idwrap.IDWrap
@@ -2750,8 +2750,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled_8           bool
 	ParentHeaderID_8    *idwrap.IDWrap
 	IsDelta_8           bool
-	DeltaHeaderKey_8    interface{}
-	DeltaHeaderValue_8  interface{}
+	DeltaHeaderKey_8    *string
+	DeltaHeaderValue_8  *string
 	DeltaDescription_8  *string
 	DeltaEnabled_8      *bool
 	Prev_8              *idwrap.IDWrap
@@ -2766,8 +2766,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled_9           bool
 	ParentHeaderID_9    *idwrap.IDWrap
 	IsDelta_9           bool
-	DeltaHeaderKey_9    interface{}
-	DeltaHeaderValue_9  interface{}
+	DeltaHeaderKey_9    *string
+	DeltaHeaderValue_9  *string
 	DeltaDescription_9  *string
 	DeltaEnabled_9      *bool
 	Prev_9              *idwrap.IDWrap
@@ -2782,8 +2782,8 @@ type CreateHTTPHeadersBulkParams struct {
 	Enabled_10          bool
 	ParentHeaderID_10   *idwrap.IDWrap
 	IsDelta_10          bool
-	DeltaHeaderKey_10   interface{}
-	DeltaHeaderValue_10 interface{}
+	DeltaHeaderKey_10   *string
+	DeltaHeaderValue_10 *string
 	DeltaDescription_10 *string
 	DeltaEnabled_10     *bool
 	Prev_10             *idwrap.IDWrap
@@ -11003,6 +11003,182 @@ func (q *Queries) GetHTTPAssertsByIDs(ctx context.Context, ids []idwrap.IDWrap) 
 	return items, nil
 }
 
+const getHTTPBatchForStreaming = `-- name: GetHTTPBatchForStreaming :many
+SELECT 
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+WHERE h.id IN (/*SLICE:http_ids*/?)
+  AND h.updated_at <= ?
+ORDER BY h.updated_at DESC
+`
+
+type GetHTTPBatchForStreamingParams struct {
+	HttpIds   []idwrap.IDWrap
+	UpdatedAt int64
+}
+
+// HTTP Batch Operations for Streaming
+// Batch query for processing multiple HTTP records efficiently
+// Optimized for high-throughput streaming operations
+func (q *Queries) GetHTTPBatchForStreaming(ctx context.Context, arg GetHTTPBatchForStreamingParams) ([]Http, error) {
+	query := getHTTPBatchForStreaming
+	var queryParams []interface{}
+	if len(arg.HttpIds) > 0 {
+		for _, v := range arg.HttpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(arg.HttpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	queryParams = append(queryParams, arg.UpdatedAt)
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaDescription,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPBodyFormStreaming = `-- name: GetHTTPBodyFormStreaming :many
+SELECT 
+  hbf.id,
+  hbf.http_id,
+  hbf.form_key,
+  hbf.form_value,
+  hbf.description,
+  hbf.enabled,
+  hbf.parent_body_form_id,
+  hbf.is_delta,
+  hbf.delta_form_key,
+  hbf.delta_form_value,
+  hbf.delta_description,
+  hbf.delta_enabled,
+  hbf.created_at,
+  hbf.updated_at
+FROM http_body_form hbf
+WHERE hbf.http_id IN (/*SLICE:http_ids*/?)
+  AND hbf.enabled = TRUE
+  AND hbf.updated_at <= ?
+ORDER BY hbf.http_id, hbf.updated_at DESC
+`
+
+type GetHTTPBodyFormStreamingParams struct {
+	HttpIds   []idwrap.IDWrap
+	UpdatedAt int64
+}
+
+type GetHTTPBodyFormStreamingRow struct {
+	ID               idwrap.IDWrap
+	HttpID           idwrap.IDWrap
+	FormKey          string
+	FormValue        string
+	Description      string
+	Enabled          bool
+	ParentBodyFormID *idwrap.IDWrap
+	IsDelta          bool
+	DeltaFormKey     *string
+	DeltaFormValue   *string
+	DeltaDescription *string
+	DeltaEnabled     *bool
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+// Optimized form body query for streaming
+func (q *Queries) GetHTTPBodyFormStreaming(ctx context.Context, arg GetHTTPBodyFormStreamingParams) ([]GetHTTPBodyFormStreamingRow, error) {
+	query := getHTTPBodyFormStreaming
+	var queryParams []interface{}
+	if len(arg.HttpIds) > 0 {
+		for _, v := range arg.HttpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(arg.HttpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	queryParams = append(queryParams, arg.UpdatedAt)
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPBodyFormStreamingRow{}
+	for rows.Next() {
+		var i GetHTTPBodyFormStreamingRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.FormKey,
+			&i.FormValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentBodyFormID,
+			&i.IsDelta,
+			&i.DeltaFormKey,
+			&i.DeltaFormValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHTTPBodyForms = `-- name: GetHTTPBodyForms :many
 
 SELECT
@@ -11469,6 +11645,90 @@ func (q *Queries) GetHTTPDeltasByParentID(ctx context.Context, parentHttpID *idw
 	return items, nil
 }
 
+const getHTTPDeltasSince = `-- name: GetHTTPDeltasSince :many
+SELECT 
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+WHERE h.parent_http_id IN (/*SLICE:parent_ids*/?)
+  AND h.is_delta = TRUE
+  AND h.updated_at > ?
+  AND h.updated_at <= ?
+ORDER BY h.parent_http_id, h.updated_at ASC
+`
+
+type GetHTTPDeltasSinceParams struct {
+	ParentIds   []*idwrap.IDWrap
+	UpdatedAt   int64
+	UpdatedAt_2 int64
+}
+
+// Delta-specific streaming query for conflict resolution
+// Uses delta resolution index for optimal performance
+func (q *Queries) GetHTTPDeltasSince(ctx context.Context, arg GetHTTPDeltasSinceParams) ([]Http, error) {
+	query := getHTTPDeltasSince
+	var queryParams []interface{}
+	if len(arg.ParentIds) > 0 {
+		for _, v := range arg.ParentIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:parent_ids*/?", strings.Repeat(",?", len(arg.ParentIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:parent_ids*/?", "NULL", 1)
+	}
+	queryParams = append(queryParams, arg.UpdatedAt)
+	queryParams = append(queryParams, arg.UpdatedAt_2)
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaDescription,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHTTPHeaders = `-- name: GetHTTPHeaders :many
 
 SELECT
@@ -11590,6 +11850,174 @@ func (q *Queries) GetHTTPHeadersByIDs(ctx context.Context, ids []idwrap.IDWrap) 
 			&i.DeltaEnabled,
 			&i.Prev,
 			&i.Next,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPHeadersStreaming = `-- name: GetHTTPHeadersStreaming :many
+SELECT 
+  hh.id,
+  hh.http_id,
+  hh.header_key,
+  hh.header_value,
+  hh.description,
+  hh.enabled,
+  hh.parent_header_id,
+  hh.is_delta,
+  hh.delta_header_key,
+  hh.delta_header_value,
+  hh.delta_description,
+  hh.delta_enabled,
+  hh.created_at,
+  hh.updated_at
+FROM http_header hh
+WHERE hh.http_id IN (/*SLICE:http_ids*/?)
+  AND hh.enabled = TRUE
+  AND hh.updated_at <= ?
+ORDER BY hh.http_id, hh.updated_at DESC
+`
+
+type GetHTTPHeadersStreamingParams struct {
+	HttpIds   []idwrap.IDWrap
+	UpdatedAt int64
+}
+
+type GetHTTPHeadersStreamingRow struct {
+	ID               idwrap.IDWrap
+	HttpID           idwrap.IDWrap
+	HeaderKey        string
+	HeaderValue      string
+	Description      string
+	Enabled          bool
+	ParentHeaderID   *idwrap.IDWrap
+	IsDelta          bool
+	DeltaHeaderKey   *string
+	DeltaHeaderValue *string
+	DeltaDescription *string
+	DeltaEnabled     *bool
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+// HTTP Child Record Streaming Queries
+// Optimized headers query for streaming with enabled filter
+func (q *Queries) GetHTTPHeadersStreaming(ctx context.Context, arg GetHTTPHeadersStreamingParams) ([]GetHTTPHeadersStreamingRow, error) {
+	query := getHTTPHeadersStreaming
+	var queryParams []interface{}
+	if len(arg.HttpIds) > 0 {
+		for _, v := range arg.HttpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(arg.HttpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	queryParams = append(queryParams, arg.UpdatedAt)
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPHeadersStreamingRow{}
+	for rows.Next() {
+		var i GetHTTPHeadersStreamingRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.HeaderKey,
+			&i.HeaderValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentHeaderID,
+			&i.IsDelta,
+			&i.DeltaHeaderKey,
+			&i.DeltaHeaderValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPIncrementalUpdates = `-- name: GetHTTPIncrementalUpdates :many
+SELECT 
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+WHERE h.workspace_id = ? 
+  AND h.updated_at > ?
+  AND h.updated_at <= ?
+ORDER BY h.updated_at ASC, h.id
+`
+
+type GetHTTPIncrementalUpdatesParams struct {
+	WorkspaceID idwrap.IDWrap
+	UpdatedAt   int64
+	UpdatedAt_2 int64
+}
+
+// HTTP Incremental Streaming Queries
+// Real-time streaming query for changes since last update
+// Optimized with streaming indexes for minimal latency
+func (q *Queries) GetHTTPIncrementalUpdates(ctx context.Context, arg GetHTTPIncrementalUpdatesParams) ([]Http, error) {
+	rows, err := q.query(ctx, q.getHTTPIncrementalUpdatesStmt, getHTTPIncrementalUpdates, arg.WorkspaceID, arg.UpdatedAt, arg.UpdatedAt_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaDescription,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -11917,6 +12345,244 @@ func (q *Queries) GetHTTPSearchParamsByIDs(ctx context.Context, ids []idwrap.IDW
 	return items, nil
 }
 
+const getHTTPSearchParamsStreaming = `-- name: GetHTTPSearchParamsStreaming :many
+SELECT 
+  hsp.id,
+  hsp.http_id,
+  hsp.param_key,
+  hsp.param_value,
+  hsp.description,
+  hsp.enabled,
+  hsp.parent_search_param_id,
+  hsp.is_delta,
+  hsp.delta_param_key,
+  hsp.delta_param_value,
+  hsp.delta_description,
+  hsp.delta_enabled,
+  hsp.created_at,
+  hsp.updated_at
+FROM http_search_param hsp
+WHERE hsp.http_id IN (/*SLICE:http_ids*/?)
+  AND hsp.enabled = TRUE
+  AND hsp.updated_at <= ?
+ORDER BY hsp.http_id, hsp.updated_at DESC
+`
+
+type GetHTTPSearchParamsStreamingParams struct {
+	HttpIds   []idwrap.IDWrap
+	UpdatedAt int64
+}
+
+type GetHTTPSearchParamsStreamingRow struct {
+	ID                  idwrap.IDWrap
+	HttpID              idwrap.IDWrap
+	ParamKey            string
+	ParamValue          string
+	Description         string
+	Enabled             bool
+	ParentSearchParamID *idwrap.IDWrap
+	IsDelta             bool
+	DeltaParamKey       *string
+	DeltaParamValue     *string
+	DeltaDescription    *string
+	DeltaEnabled        *bool
+	CreatedAt           int64
+	UpdatedAt           int64
+}
+
+// Optimized search parameters query for streaming
+func (q *Queries) GetHTTPSearchParamsStreaming(ctx context.Context, arg GetHTTPSearchParamsStreamingParams) ([]GetHTTPSearchParamsStreamingRow, error) {
+	query := getHTTPSearchParamsStreaming
+	var queryParams []interface{}
+	if len(arg.HttpIds) > 0 {
+		for _, v := range arg.HttpIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", strings.Repeat(",?", len(arg.HttpIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:http_ids*/?", "NULL", 1)
+	}
+	queryParams = append(queryParams, arg.UpdatedAt)
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPSearchParamsStreamingRow{}
+	for rows.Next() {
+		var i GetHTTPSearchParamsStreamingRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.ParamKey,
+			&i.ParamValue,
+			&i.Description,
+			&i.Enabled,
+			&i.ParentSearchParamID,
+			&i.IsDelta,
+			&i.DeltaParamKey,
+			&i.DeltaParamValue,
+			&i.DeltaDescription,
+			&i.DeltaEnabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPSnapshotCount = `-- name: GetHTTPSnapshotCount :one
+SELECT COUNT(*) as total_count
+FROM http h
+WHERE h.workspace_id = ? 
+  AND h.is_delta = FALSE
+  AND h.updated_at <= ?
+`
+
+type GetHTTPSnapshotCountParams struct {
+	WorkspaceID idwrap.IDWrap
+	UpdatedAt   int64
+}
+
+// Count query for pagination progress tracking
+func (q *Queries) GetHTTPSnapshotCount(ctx context.Context, arg GetHTTPSnapshotCountParams) (int64, error) {
+	row := q.queryRow(ctx, q.getHTTPSnapshotCountStmt, getHTTPSnapshotCount, arg.WorkspaceID, arg.UpdatedAt)
+	var total_count int64
+	err := row.Scan(&total_count)
+	return total_count, err
+}
+
+const getHTTPSnapshotPage = `-- name: GetHTTPSnapshotPage :many
+/*
+ *
+ * HTTP STREAMING OPTIMIZATION QUERIES
+ * High-performance queries for Phase 2a HTTP streaming implementation
+ *
+ */
+
+SELECT 
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+WHERE h.workspace_id = ? 
+  AND h.is_delta = FALSE
+  AND h.updated_at <= ?
+ORDER BY h.updated_at DESC, h.id
+LIMIT ?
+`
+
+type GetHTTPSnapshotPageParams struct {
+	WorkspaceID idwrap.IDWrap
+	UpdatedAt   int64
+	Limit       int64
+}
+
+// HTTP Snapshot Queries for Streaming
+// High-performance paginated snapshot query for initial data load
+// Uses optimized streaming indexes for fast workspace-scoped access
+func (q *Queries) GetHTTPSnapshotPage(ctx context.Context, arg GetHTTPSnapshotPageParams) ([]Http, error) {
+	rows, err := q.query(ctx, q.getHTTPSnapshotPageStmt, getHTTPSnapshotPage, arg.WorkspaceID, arg.UpdatedAt, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaDescription,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPStreamingMetrics = `-- name: GetHTTPStreamingMetrics :one
+SELECT 
+  COUNT(*) as total_http_records,
+  COUNT(CASE WHEN is_delta = FALSE THEN 1 END) as base_records,
+  COUNT(CASE WHEN is_delta = TRUE THEN 1 END) as delta_records,
+  MAX(updated_at) as latest_update,
+  MIN(updated_at) as earliest_update,
+  COUNT(CASE WHEN updated_at > ? THEN 1 END) as recent_changes
+FROM http 
+WHERE workspace_id = ?
+`
+
+type GetHTTPStreamingMetricsParams struct {
+	UpdatedAt   int64
+	WorkspaceID idwrap.IDWrap
+}
+
+type GetHTTPStreamingMetricsRow struct {
+	TotalHttpRecords int64
+	BaseRecords      int64
+	DeltaRecords     int64
+	LatestUpdate     interface{}
+	EarliestUpdate   interface{}
+	RecentChanges    int64
+}
+
+// HTTP Performance Monitoring Queries
+// Performance metrics query for monitoring streaming operations
+func (q *Queries) GetHTTPStreamingMetrics(ctx context.Context, arg GetHTTPStreamingMetricsParams) (GetHTTPStreamingMetricsRow, error) {
+	row := q.queryRow(ctx, q.getHTTPStreamingMetricsStmt, getHTTPStreamingMetrics, arg.UpdatedAt, arg.WorkspaceID)
+	var i GetHTTPStreamingMetricsRow
+	err := row.Scan(
+		&i.TotalHttpRecords,
+		&i.BaseRecords,
+		&i.DeltaRecords,
+		&i.LatestUpdate,
+		&i.EarliestUpdate,
+		&i.RecentChanges,
+	)
+	return i, err
+}
+
 const getHTTPVersion = `-- name: GetHTTPVersion :one
 SELECT
   id,
@@ -11979,6 +12645,61 @@ func (q *Queries) GetHTTPVersions(ctx context.Context, httpID idwrap.IDWrap) ([]
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPWorkspaceActivity = `-- name: GetHTTPWorkspaceActivity :many
+SELECT 
+  DATE(updated_at, 'unixepoch') as activity_date,
+  COUNT(*) as changes_count,
+  COUNT(CASE WHEN is_delta = TRUE THEN 1 END) as delta_count,
+  COUNT(CASE WHEN is_delta = FALSE THEN 1 END) as base_count
+FROM http
+WHERE workspace_id = ?
+  AND updated_at >= ?
+GROUP BY DATE(updated_at, 'unixepoch')
+ORDER BY activity_date DESC
+LIMIT 30
+`
+
+type GetHTTPWorkspaceActivityParams struct {
+	WorkspaceID idwrap.IDWrap
+	UpdatedAt   int64
+}
+
+type GetHTTPWorkspaceActivityRow struct {
+	ActivityDate interface{}
+	ChangesCount int64
+	DeltaCount   int64
+	BaseCount    int64
+}
+
+// Activity monitoring query for workspace streaming health
+func (q *Queries) GetHTTPWorkspaceActivity(ctx context.Context, arg GetHTTPWorkspaceActivityParams) ([]GetHTTPWorkspaceActivityRow, error) {
+	rows, err := q.query(ctx, q.getHTTPWorkspaceActivityStmt, getHTTPWorkspaceActivity, arg.WorkspaceID, arg.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetHTTPWorkspaceActivityRow{}
+	for rows.Next() {
+		var i GetHTTPWorkspaceActivityRow
+		if err := rows.Scan(
+			&i.ActivityDate,
+			&i.ChangesCount,
+			&i.DeltaCount,
+			&i.BaseCount,
 		); err != nil {
 			return nil, err
 		}
@@ -14759,6 +15480,124 @@ func (q *Queries) ListNodeExecutionsByState(ctx context.Context, arg ListNodeExe
 	return items, nil
 }
 
+const resolveHTTPWithDeltas = `-- name: ResolveHTTPWithDeltas :one
+WITH RECURSIVE delta_chain AS (
+  -- Base case: Start with the parent HTTP record
+  SELECT 
+    h.id,
+    h.workspace_id,
+    h.folder_id,
+    h.name,
+    h.url,
+    h.method,
+    h.description,
+    h.parent_http_id,
+    h.is_delta,
+    h.delta_name,
+    h.delta_url,
+    h.delta_method,
+    h.delta_description,
+    h.created_at,
+    h.updated_at,
+    0 as delta_level
+  FROM http h
+  WHERE h.id = ? AND h.is_delta = FALSE
+  
+  UNION ALL
+  
+  -- Recursive case: Apply deltas in chronological order
+  SELECT 
+    h.id,
+    h.workspace_id,
+    h.folder_id,
+    COALESCE(h.delta_name, dc.name, dc.name) as name,
+    COALESCE(h.delta_url, dc.url, dc.url) as url,
+    COALESCE(h.delta_method, dc.method, dc.method) as method,
+    COALESCE(h.delta_description, dc.description, dc.description) as description,
+    h.parent_http_id,
+    h.is_delta,
+    h.delta_name,
+    h.delta_url,
+    h.delta_method,
+    h.delta_description,
+    h.created_at,
+    h.updated_at,
+    dc.delta_level + 1
+  FROM http h
+  INNER JOIN delta_chain dc ON h.parent_http_id = dc.id
+  WHERE h.is_delta = TRUE
+    AND h.updated_at <= ?
+)
+SELECT 
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_description,
+  created_at,
+  updated_at
+FROM delta_chain
+ORDER BY delta_level DESC
+LIMIT 1
+`
+
+type ResolveHTTPWithDeltasParams struct {
+	ID        idwrap.IDWrap
+	UpdatedAt int64
+}
+
+type ResolveHTTPWithDeltasRow struct {
+	ID               []byte
+	WorkspaceID      []byte
+	FolderID         []byte
+	Name             string
+	Url              string
+	Method           string
+	Description      string
+	ParentHttpID     []byte
+	IsDelta          bool
+	DeltaName        interface{}
+	DeltaUrl         interface{}
+	DeltaMethod      interface{}
+	DeltaDescription interface{}
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+// HTTP Delta Resolution Queries
+// CTE-optimized query to resolve HTTP record with all applicable deltas
+// Single query for complete delta resolution with minimal joins
+func (q *Queries) ResolveHTTPWithDeltas(ctx context.Context, arg ResolveHTTPWithDeltasParams) (ResolveHTTPWithDeltasRow, error) {
+	row := q.queryRow(ctx, q.resolveHTTPWithDeltasStmt, resolveHTTPWithDeltas, arg.ID, arg.UpdatedAt)
+	var i ResolveHTTPWithDeltasRow
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.FolderID,
+		&i.Name,
+		&i.Url,
+		&i.Method,
+		&i.Description,
+		&i.ParentHttpID,
+		&i.IsDelta,
+		&i.DeltaName,
+		&i.DeltaUrl,
+		&i.DeltaMethod,
+		&i.DeltaDescription,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const setBodyFormEnable = `-- name: SetBodyFormEnable :exec
 UPDATE example_body_form
 SET
@@ -15824,9 +16663,9 @@ WHERE id = ?
 `
 
 type UpdateHTTPAssertDeltaParams struct {
-	DeltaAssertExpression  interface{}
-	DeltaAssertDescription interface{}
-	DeltaEnabled           interface{}
+	DeltaAssertExpression  *string
+	DeltaAssertDescription *string
+	DeltaEnabled           *bool
 	ID                     idwrap.IDWrap
 }
 
@@ -16042,8 +16881,8 @@ WHERE id = ?
 `
 
 type UpdateHTTPBodyUrlencodedDeltaParams struct {
-	DeltaUrlencodedKey   interface{}
-	DeltaUrlencodedValue interface{}
+	DeltaUrlencodedKey   *string
+	DeltaUrlencodedValue *string
 	DeltaDescription     *string
 	DeltaEnabled         *bool
 	ID                   idwrap.IDWrap
@@ -16155,8 +16994,8 @@ WHERE id = ?
 `
 
 type UpdateHTTPHeaderDeltaParams struct {
-	DeltaHeaderKey   interface{}
-	DeltaHeaderValue interface{}
+	DeltaHeaderKey   *string
+	DeltaHeaderValue *string
 	DeltaDescription *string
 	DeltaEnabled     *bool
 	ID               idwrap.IDWrap

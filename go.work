@@ -2,8 +2,8 @@ go 1.25
 
 use (
 	./apps/cli
-	./tools/go-tool
 	./packages/db
 	./packages/server
 	./packages/spec
+	./tools/go-tool
 )

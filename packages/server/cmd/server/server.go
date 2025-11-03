@@ -26,6 +26,7 @@ import (
 	"the-dev-tools/server/internal/api/rflow"
 	"the-dev-tools/server/internal/api/rflowvariable"
 	"the-dev-tools/server/internal/api/rhealth"
+	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/api/rimport"
 	"the-dev-tools/server/internal/api/ritemapi"
 	"the-dev-tools/server/internal/api/ritemapiexample"
@@ -57,6 +58,7 @@ import (
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowtag"
 	"the-dev-tools/server/pkg/service/sflowvariable"
+	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 	"the-dev-tools/server/pkg/service/sitemfolder"
@@ -162,6 +164,7 @@ func main() {
 	variableService := svar.New(queries, logger)
 	environmentService := senv.New(queries, logger)
 	tagService := stag.New(queries)
+	httpService := shttp.New(queries, logger)
 
 	// Flow
 	flowService := sflow.New(queries)
@@ -258,6 +261,13 @@ func main() {
 
 	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService, environmentStreamer, environmentVariableStreamer)
 	newServiceManager.AddService(renv.CreateService(envSrv, opitonsAll))
+
+	// HTTP Service
+	httpStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
+	defer httpStreamer.Shutdown()
+
+	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpStreamer)
+	newServiceManager.AddService(rhttp.CreateService(httpSrv, opitonsAll))
 
 	// Var Service
 	varSrv := rvar.New(currentDB, userService, environmentService, variableService)

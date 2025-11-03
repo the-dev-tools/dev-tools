@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"log/slog"
+	"strings"
 	"testing"
 	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -17,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
@@ -36,6 +37,7 @@ type BaseTestServices struct {
 	Us  suser.UserService
 	Ws  sworkspace.WorkspaceService
 	Wus sworkspacesusers.WorkspaceUserService
+	Hs  shttp.HTTPService
 }
 
 func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
@@ -59,12 +61,14 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	ws := sworkspace.New(queries)
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
+	hs := shttp.New(queries, mockLogger)
 	return BaseTestServices{
 		DB:  c.DB,
 		Cs:  cs,
 		Us:  us,
 		Ws:  ws,
 		Wus: wus,
+		Hs:  hs,
 	}
 }
 
@@ -80,14 +84,14 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 		Name:    "test",
 	}
 
-    err := ws.Create(ctx, &workspaceData)
-    if err != nil {
-        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
-            t.Fatal(err)
-        }
-    }
+	err := ws.Create(ctx, &workspaceData)
+	if err != nil {
+		if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+			t.Fatal(err)
+		}
+	}
 
-    providerID := fmt.Sprintf("test-%s", idwrap.NewNow().String())
+	providerID := fmt.Sprintf("test-%s", idwrap.NewNow().String())
 	userData := muser.User{
 		ID:           userID,
 		Email:        "test@dev.tools",
@@ -97,12 +101,12 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 		Status:       muser.Active,
 	}
 
-    err = us.CreateUser(ctx, &userData)
-    if err != nil {
-        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
-            t.Fatal(err)
-        }
-    }
+	err = us.CreateUser(ctx, &userData)
+	if err != nil {
+		if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+			t.Fatal(err)
+		}
+	}
 
 	workspaceUserData := mworkspaceuser.WorkspaceUser{
 		ID:          wuID,
@@ -111,12 +115,12 @@ func (c BaseTestServices) CreateTempCollection(t *testing.T, ctx context.Context
 		Role:        mworkspaceuser.RoleAdmin,
 	}
 
-    err = wus.CreateWorkspaceUser(ctx, &workspaceUserData)
-    if err != nil {
-        if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
-            t.Fatal(err)
-        }
-    }
+	err = wus.CreateWorkspaceUser(ctx, &workspaceUserData)
+	if err != nil {
+		if !strings.Contains(strings.ToLower(err.Error()), "unique constraint failed") {
+			t.Fatal(err)
+		}
+	}
 
 	collectionData := mcollection.Collection{
 		ID:          collectionID,

@@ -948,11 +948,11 @@ sql:
             go_type: 'int64'
           - column: 'http_header.updated_at'
             go_type: 'int64'
-          - column: 'http_header.delta_key'
+          - column: 'http_header.delta_header_key'
             go_type:
               type: 'string'
               pointer: true
-          - column: 'http_header.delta_value'
+          - column: 'http_header.delta_header_value'
             go_type:
               type: 'string'
               pointer: true
@@ -1046,11 +1046,11 @@ sql:
             go_type: 'int64'
           - column: 'http_body_urlencoded.updated_at'
             go_type: 'int64'
-          - column: 'http_body_urlencoded.delta_key'
+          - column: 'http_body_urlencoded.delta_urlencoded_key'
             go_type:
               type: 'string'
               pointer: true
-          - column: 'http_body_urlencoded.delta_value'
+          - column: 'http_body_urlencoded.delta_urlencoded_value'
             go_type:
               type: 'string'
               pointer: true
@@ -1171,3 +1171,15 @@ sql:
             go_type: 'int64'
           - column: 'http_assert.updated_at'
             go_type: 'int64'
+          - column: 'http_assert.delta_assert_expression'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_assert.delta_assert_description'
+            go_type:
+              type: 'string'
+              pointer: true
+          - column: 'http_assert.delta_enabled'
+            go_type:
+              type: 'bool'
+              pointer: true

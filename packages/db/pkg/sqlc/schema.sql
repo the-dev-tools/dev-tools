@@ -921,6 +921,10 @@ CREATE INDEX http_search_param_parent_delta_idx ON http_search_param (parent_sea
 CREATE INDEX http_search_param_ordering_idx ON http_search_param (http_id, prev, next);
 CREATE INDEX http_search_param_key_idx ON http_search_param (param_key);
 
+-- Streaming performance indexes for search parameters
+CREATE INDEX http_search_param_streaming_idx ON http_search_param (http_id, enabled, updated_at DESC) WHERE enabled = TRUE;
+CREATE INDEX http_search_param_delta_streaming_idx ON http_search_param (parent_search_param_id, is_delta, updated_at DESC);
+
 -- HTTP headers
 CREATE TABLE http_header (
   id BLOB NOT NULL PRIMARY KEY,
@@ -963,6 +967,10 @@ CREATE INDEX http_header_http_idx ON http_header (http_id);
 CREATE INDEX http_header_parent_delta_idx ON http_header (parent_header_id, is_delta);
 CREATE INDEX http_header_ordering_idx ON http_header (http_id, prev, next);
 CREATE INDEX http_header_key_idx ON http_header (header_key);
+
+-- Streaming performance indexes for headers
+CREATE INDEX http_header_streaming_idx ON http_header (http_id, enabled, updated_at DESC) WHERE enabled = TRUE;
+CREATE INDEX http_header_delta_streaming_idx ON http_header (parent_header_id, is_delta, updated_at DESC);
 
 -- HTTP body form data
 CREATE TABLE http_body_form (
@@ -1007,6 +1015,10 @@ CREATE INDEX http_body_form_parent_delta_idx ON http_body_form (parent_body_form
 CREATE INDEX http_body_form_ordering_idx ON http_body_form (http_id, prev, next);
 CREATE INDEX http_body_form_key_idx ON http_body_form (form_key);
 
+-- Streaming performance indexes for form body
+CREATE INDEX http_body_form_streaming_idx ON http_body_form (http_id, enabled, updated_at DESC) WHERE enabled = TRUE;
+CREATE INDEX http_body_form_delta_streaming_idx ON http_body_form (parent_body_form_id, is_delta, updated_at DESC);
+
 -- HTTP body URL-encoded data
 CREATE TABLE http_body_urlencoded (
   id BLOB NOT NULL PRIMARY KEY,
@@ -1050,6 +1062,10 @@ CREATE INDEX http_body_urlencoded_parent_delta_idx ON http_body_urlencoded (pare
 CREATE INDEX http_body_urlencoded_ordering_idx ON http_body_urlencoded (http_id, prev, next);
 CREATE INDEX http_body_urlencoded_key_idx ON http_body_urlencoded (urlencoded_key);
 
+-- Streaming performance indexes for URL-encoded body
+CREATE INDEX http_body_urlencoded_streaming_idx ON http_body_urlencoded (http_id, enabled, updated_at DESC) WHERE enabled = TRUE;
+CREATE INDEX http_body_urlencoded_delta_streaming_idx ON http_body_urlencoded (parent_body_urlencoded_id, is_delta, updated_at DESC);
+
 -- HTTP body raw data
 CREATE TABLE http_body_raw (
   id BLOB NOT NULL PRIMARY KEY,
@@ -1083,6 +1099,10 @@ CREATE TABLE http_body_raw (
 -- Indexes for raw body
 CREATE INDEX http_body_raw_http_idx ON http_body_raw (http_id);
 CREATE INDEX http_body_raw_parent_delta_idx ON http_body_raw (parent_body_raw_id, is_delta);
+
+-- Streaming performance indexes for raw body
+CREATE INDEX http_body_raw_streaming_idx ON http_body_raw (http_id, updated_at DESC);
+CREATE INDEX http_body_raw_delta_streaming_idx ON http_body_raw (parent_body_raw_id, is_delta, updated_at DESC);
 
 -- HTTP version management
 CREATE TABLE http_version (
@@ -1192,9 +1212,21 @@ CREATE INDEX http_assert_parent_delta_idx ON http_assert (parent_assert_id, is_d
 CREATE INDEX http_assert_ordering_idx ON http_assert (http_id, prev, next);
 CREATE INDEX http_assert_enabled_idx ON http_assert (enabled) WHERE enabled = TRUE;
 
+-- Streaming performance indexes for assertions
+CREATE INDEX http_assert_streaming_idx ON http_assert (http_id, enabled, updated_at DESC) WHERE enabled = TRUE;
+CREATE INDEX http_assert_delta_streaming_idx ON http_assert (parent_assert_id, is_delta, updated_at DESC);
+
 -- Performance indexes for workspace-scoped access patterns
 CREATE INDEX http_workspace_access_idx ON http (workspace_id, folder_id, is_delta);
 CREATE INDEX http_workspace_streaming_idx ON http (workspace_id, updated_at DESC);
+
+-- Critical streaming performance indexes (Priority 1 optimizations)
+-- Optimizes real-time streaming queries and delta resolution
+CREATE INDEX http_delta_resolution_idx ON http (parent_http_id, is_delta, updated_at DESC);
+CREATE INDEX http_workspace_method_streaming_idx ON http (workspace_id, method, updated_at DESC);
+
+-- Partial indexes for streaming performance (only index non-delta records for streaming)
+CREATE INDEX http_active_streaming_idx ON http (workspace_id, updated_at DESC) WHERE is_delta = FALSE;
 
 -- Composite indexes for common query patterns
 CREATE INDEX http_workspace_method_idx ON http (workspace_id, method);
