@@ -2,6 +2,7 @@ import { CallOptions, Transport } from '@connectrpc/connect';
 import * as Protobuf from './protobuf';
 
 export * from '@connectrpc/connect';
+export * from '@connectrpc/connect-web';
 
 interface SimpleCallOptions<I extends Protobuf.DescMessage> extends Omit<CallOptions, 'onHeader' | 'onTrailer'> {
   input?: Protobuf.MessageInitShape<I>;

@@ -1,0 +1,79 @@
+import { scan } from 'react-scan';
+
+import { TransportProvider } from '@connectrpc/connect-query';
+import { Atom, Result, useAtomValue } from '@effect-atom/atom-react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
+import { Effect, Option, Runtime } from 'effect';
+import { StrictMode } from 'react';
+import { AriaRouterProvider } from '@the-dev-tools/ui/router';
+import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
+import { ApiCollections } from '~/api-new';
+import { ApiTransport } from '~/api/transport';
+import { RouterContext } from '~/routes/context';
+import { atomRuntime, startOpenReplay } from '~/utils';
+import { routeTree } from './routes/__tree';
+
+import './styles.css';
+
+scan({ enabled: !import.meta.env.PROD, showToolbar: false });
+
+const router = createRouter({
+  context: {} as RouterContext,
+  history: createHashHistory(),
+  routeTree,
+});
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+
+const appAtom = atomRuntime.atom(
+  Effect.gen(function* () {
+    yield* startOpenReplay;
+    yield* ApiCollections;
+
+    const runtime = yield* Effect.runtime<RouterContext['runtime'] extends Runtime.Runtime<infer R> ? R : never>();
+    const transport = yield* ApiTransport;
+    const queryClient = new QueryClient();
+    const toastQueue = makeToastQueue();
+
+    return { queryClient, runtime, toastQueue, transport };
+  }),
+);
+
+const finalizerAtom = Atom.family((callback?: () => void) =>
+  Atom.make((get) => {
+    get.addFinalizer(() => {
+      callback?.();
+    });
+  }),
+);
+
+interface AppProps {
+  finalizer?: () => void;
+}
+
+export const App = ({ finalizer }: AppProps) => {
+  const context = useAtomValue(appAtom);
+
+  useAtomValue(finalizerAtom(finalizer));
+
+  return Result.match(context, {
+    onFailure: () => <div>App startup error</div>,
+    onInitial: () => <div>Loading...</div>,
+    onSuccess: ({ value }) => {
+      let _ = <RouterProvider context={value} router={router} />;
+      _ = <ToastQueueContext.Provider value={Option.some(value.toastQueue)}>{_}</ToastQueueContext.Provider>;
+      _ = <AriaRouterProvider>{_}</AriaRouterProvider>;
+      _ = <QueryClientProvider client={value.queryClient}>{_}</QueryClientProvider>;
+      _ = <TransportProvider transport={value.transport}>{_}</TransportProvider>;
+      _ = <StrictMode>{_}</StrictMode>;
+      return _;
+    },
+  });
+};
+
+export const addGlobalLayer: Atom.RuntimeFactory['addGlobalLayer'] = Atom.runtime.addGlobalLayer;

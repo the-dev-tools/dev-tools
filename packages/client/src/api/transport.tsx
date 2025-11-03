@@ -1,21 +1,38 @@
-import { createConnectTransport } from '@connectrpc/connect-web';
-import { Config, Effect, pipe } from 'effect';
-import { Protobuf } from '~api-new';
-import { Tracker } from '~tracker';
+import { Config, Effect, pipe, Schedule } from 'effect';
+import { HealthService } from '@the-dev-tools/spec/api/health/v1/health_pb';
+import { Connect, Protobuf } from '~/api-new';
 import { defaultInterceptors } from './interceptors';
 import { ApiTransportMock } from './mock';
 
 export class ApiTransport extends Effect.Service<ApiTransport>()('ApiTransport', {
-  dependencies: [Tracker.Default, ApiTransportMock.Default],
+  dependencies: [ApiTransportMock.Default],
   effect: Effect.gen(function* () {
     const mock = yield* pipe(Config.boolean('PUBLIC_MOCK'), Config.withDefault(false));
     if (mock) return yield* ApiTransportMock;
 
-    return createConnectTransport({
+    const transport = Connect.createConnectTransport({
       baseUrl: 'http://localhost:8080',
       interceptors: defaultInterceptors,
       jsonOptions: { registry: Protobuf.registry },
       useHttpGet: true,
     });
+
+    // Wait for the server to start up
+    yield* pipe(
+      Effect.tryPromise((signal) =>
+        Connect.request({
+          method: HealthService.method.healthCheck,
+          signal,
+          timeoutMs: 0,
+          transport,
+        }),
+      ),
+      Effect.retry({
+        schedule: Schedule.exponential('10 millis'),
+        times: 100,
+      }),
+    );
+
+    return transport;
   }),
 }) {}

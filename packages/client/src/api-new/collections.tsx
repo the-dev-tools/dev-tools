@@ -3,8 +3,8 @@ import { Array, Effect, HashMap, Match, pipe, Predicate, Record, Runtime } from 
 import { Ulid } from 'id128';
 import { UnsetSchema } from '@the-dev-tools/spec/global/v1/global_pb';
 import { schemas_v1_api } from '@the-dev-tools/spec/tanstack-db/v1/api';
-import { ApiTransport } from '~api/transport';
-import { rootRouteApi } from '~routes';
+import { ApiTransport } from '~/api/transport';
+import { rootRouteApi } from '~/routes';
 import * as Connect from './connect-rpc';
 import * as Protobuf from './protobuf';
 
@@ -166,7 +166,7 @@ export class ApiCollections extends Effect.Service<ApiCollections>()('ApiCollect
   }),
 }) {}
 
-export const ApiCollection = Effect.fn(function* <T extends Protobuf.DescMessage>(schema: CollectionSchema<T>) {
+export const getApiCollection = Effect.fn(function* <T extends Protobuf.DescMessage>(schema: CollectionSchema<T>) {
   const collectionMap = yield* ApiCollections;
   const collection = yield* HashMap.get(collectionMap, schema);
   return collection as unknown as ReturnType<typeof createApiCollection<T>>;
@@ -174,5 +174,5 @@ export const ApiCollection = Effect.fn(function* <T extends Protobuf.DescMessage
 
 export const useApiCollection = <T extends Protobuf.DescMessage>(schema: CollectionSchema<T>) => {
   const { runtime } = rootRouteApi.useRouteContext();
-  return Runtime.runSync(runtime, ApiCollection(schema));
+  return Runtime.runSync(runtime, getApiCollection(schema));
 };
