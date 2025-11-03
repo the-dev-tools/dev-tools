@@ -244,8 +244,18 @@ func main() {
 	defer httpBodyUrlEncodedStreamer.Shutdown()
 	httpAssertStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]()
 	defer httpAssertStreamer.Shutdown()
+	httpVersionStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpVersionTopic, rhttp.HttpVersionEvent]()
+	defer httpVersionStreamer.Shutdown()
+	httpResponseStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]()
+	defer httpResponseStreamer.Shutdown()
+	httpResponseHeaderStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]()
+	defer httpResponseHeaderStreamer.Shutdown()
+	httpResponseAssertStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]()
+	defer httpResponseAssertStreamer.Shutdown()
+	httpBodyRawStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
+	defer httpBodyRawStreamer.Shutdown()
 
-	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer)
+	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, opitonsAll))
 
 	// Var Service

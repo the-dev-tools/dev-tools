@@ -2,7 +2,7 @@ package mbodyurl
 
 import (
 	"the-dev-tools/server/pkg/idwrap"
-	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+	// deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1" // TODO: Re-enable when delta v1 is available
 )
 
 type BodyURLEncodedSource int8
@@ -13,6 +13,8 @@ const (
 	BodyURLEncodedSourceMixed  BodyURLEncodedSource = 3
 )
 
+// TODO: Re-enable when delta v1 is available
+/*
 func (s BodyURLEncodedSource) ToSourceKind() deltav1.SourceKind {
 	switch s {
 	case BodyURLEncodedSourceOrigin:
@@ -38,6 +40,7 @@ func FromSourceKind(kind deltav1.SourceKind) BodyURLEncodedSource {
 		return BodyURLEncodedSourceOrigin
 	}
 }
+*/
 
 type BodyURLEncoded struct {
 	BodyKey       string         `json:"body_key"`

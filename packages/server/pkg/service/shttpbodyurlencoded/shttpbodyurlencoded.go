@@ -153,6 +153,10 @@ func (hues HttpBodyUrlEncodedService) GetHttpBodyUrlEncodedByHttpID(ctx context.
 	return result, nil
 }
 
+func (hues HttpBodyUrlEncodedService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttpbodyurlencoded.HttpBodyUrlEncoded, error) {
+	return hues.GetHttpBodyUrlEncodedByHttpID(ctx, httpID)
+}
+
 func (hues HttpBodyUrlEncodedService) GetHttpBodyUrlEncodedsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]mhttpbodyurlencoded.HttpBodyUrlEncoded, error) {
 	if len(ids) == 0 {
 		return []mhttpbodyurlencoded.HttpBodyUrlEncoded{}, nil

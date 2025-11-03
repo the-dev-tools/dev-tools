@@ -3,6 +3,7 @@ package rhttp
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -10,16 +11,25 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	dbmodels "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/eventstream"
+	"the-dev-tools/server/pkg/expression"
+	// "the-dev-tools/server/pkg/http/request" // TODO: Use if needed
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
+	// "the-dev-tools/server/pkg/model/mbodyform" // TODO: Use if needed
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	// "the-dev-tools/server/pkg/model/mbodyurl" // TODO: Use if needed
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mexampleresp"
@@ -29,11 +39,16 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	"the-dev-tools/server/pkg/model/mhttpheader"
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
+	// "the-dev-tools/server/pkg/model/mitemapi" // TODO: Use if needed
+	// "the-dev-tools/server/pkg/model/mitemapiexample" // TODO: Use if needed
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/sbodyraw"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
@@ -43,6 +58,8 @@ import (
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
+	// "the-dev-tools/server/pkg/sort/sortenabled" // TODO: Use if needed
+	"the-dev-tools/server/pkg/varsystem"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	httpv1connect "the-dev-tools/spec/dist/buf/go/api/http/v1/httpv1connect"
 )
@@ -152,6 +169,61 @@ type HttpAssertEvent struct {
 	HttpAssert *apiv1.HttpAssert
 }
 
+// HttpVersionTopic defines the streaming topic for HTTP version events
+type HttpVersionTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+// HttpVersionEvent defines the event payload for HTTP version streaming
+type HttpVersionEvent struct {
+	Type        string
+	HttpVersion *apiv1.HttpVersion
+}
+
+// HttpResponseTopic defines the streaming topic for HTTP response events
+type HttpResponseTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+// HttpResponseEvent defines the event payload for HTTP response streaming
+type HttpResponseEvent struct {
+	Type         string
+	HttpResponse *apiv1.HttpResponse
+}
+
+// HttpResponseHeaderTopic defines the streaming topic for HTTP response header events
+type HttpResponseHeaderTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+// HttpResponseHeaderEvent defines the event payload for HTTP response header streaming
+type HttpResponseHeaderEvent struct {
+	Type               string
+	HttpResponseHeader *apiv1.HttpResponseHeader
+}
+
+// HttpResponseAssertTopic defines the streaming topic for HTTP response assert events
+type HttpResponseAssertTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+// HttpResponseAssertEvent defines the event payload for HTTP response assert streaming
+type HttpResponseAssertEvent struct {
+	Type               string
+	HttpResponseAssert *apiv1.HttpResponseAssert
+}
+
+// HttpBodyRawTopic defines the streaming topic for HTTP body raw events
+type HttpBodyRawTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+// HttpBodyRawEvent defines the event payload for HTTP body raw streaming
+type HttpBodyRawEvent struct {
+	Type        string
+	HttpBodyRaw *apiv1.HttpBodyRaw
+}
+
 // HttpServiceRPC handles HTTP RPC operations with streaming support
 type HttpServiceRPC struct {
 	DB *sql.DB
@@ -160,6 +232,10 @@ type HttpServiceRPC struct {
 	us  suser.UserService
 	ws  sworkspace.WorkspaceService
 	wus sworkspacesusers.WorkspaceUserService
+
+	// Environment and variable services
+	es  senv.EnvService
+	vs  svar.VarService
 
 	// Additional services for HTTP components
 	headerService sexampleheader.HeaderService
@@ -181,6 +257,13 @@ type HttpServiceRPC struct {
 	httpBodyFormStream       eventstream.SyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent]
 	httpBodyUrlEncodedStream eventstream.SyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]
 	httpAssertStream         eventstream.SyncStreamer[HttpAssertTopic, HttpAssertEvent]
+	httpVersionStream        eventstream.SyncStreamer[HttpVersionTopic, HttpVersionEvent]
+
+	// Streamers for response entities
+	httpResponseStream       eventstream.SyncStreamer[HttpResponseTopic, HttpResponseEvent]
+	httpResponseHeaderStream eventstream.SyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent]
+	httpResponseAssertStream eventstream.SyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]
+	httpBodyRawStream        eventstream.SyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]
 }
 
 // New creates a new HttpServiceRPC instance
@@ -190,6 +273,8 @@ func New(
 	us suser.UserService,
 	ws sworkspace.WorkspaceService,
 	wus sworkspacesusers.WorkspaceUserService,
+	es senv.EnvService,
+	vs svar.VarService,
 	headerService sexampleheader.HeaderService,
 	queryService sexamplequery.ExampleQueryService,
 	bodyService sbodyraw.BodyRawService,
@@ -205,6 +290,11 @@ func New(
 	httpBodyFormStream eventstream.SyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent],
 	httpBodyUrlEncodedStream eventstream.SyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent],
 	httpAssertStream eventstream.SyncStreamer[HttpAssertTopic, HttpAssertEvent],
+	httpVersionStream eventstream.SyncStreamer[HttpVersionTopic, HttpVersionEvent],
+	httpResponseStream eventstream.SyncStreamer[HttpResponseTopic, HttpResponseEvent],
+	httpResponseHeaderStream eventstream.SyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent],
+	httpResponseAssertStream eventstream.SyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent],
+	httpBodyRawStream eventstream.SyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent],
 ) HttpServiceRPC {
 	return HttpServiceRPC{
 		DB:                        db,
@@ -212,6 +302,8 @@ func New(
 		us:                        us,
 		ws:                        ws,
 		wus:                       wus,
+		es:                        es,
+		vs:                        vs,
 		headerService:             headerService,
 		queryService:              queryService,
 		bodyService:               bodyService,
@@ -227,6 +319,11 @@ func New(
 		httpBodyFormStream:        httpBodyFormStream,
 		httpBodyUrlEncodedStream:  httpBodyUrlEncodedStream,
 		httpAssertStream:          httpAssertStream,
+		httpVersionStream:         httpVersionStream,
+		httpResponseStream:        httpResponseStream,
+		httpResponseHeaderStream:  httpResponseHeaderStream,
+		httpResponseAssertStream:  httpResponseAssertStream,
+		httpBodyRawStream:         httpBodyRawStream,
 	}
 }
 
@@ -337,6 +434,55 @@ func toAPIHttpAssert(assert mhttpassert.HttpAssert) *apiv1.HttpAssert {
 	}
 }
 
+// toAPIHttpVersion converts model HttpVersion to API HttpVersion
+func toAPIHttpVersion(version dbmodels.HttpVersion) *apiv1.HttpVersion {
+	return &apiv1.HttpVersion{
+		HttpVersionId: version.ID.Bytes(),
+		HttpId:        version.HttpID.Bytes(),
+	}
+}
+
+// toAPIHttpResponse converts DB HttpResponse to API HttpResponse
+func toAPIHttpResponse(response dbmodels.HttpResponse) *apiv1.HttpResponse {
+	return &apiv1.HttpResponse{
+		HttpResponseId: response.ID.Bytes(),
+		HttpId:         response.HttpID.Bytes(),
+		Status:         int32(response.Status.(int32)),
+		Body:           response.Body,
+		Time:           timestamppb.New(response.Time),
+		Duration:       int32(response.Duration.(int32)),
+		Size:           int32(response.Size.(int32)),
+	}
+}
+
+// toAPIHttpResponseHeader converts DB HttpResponseHeader to API HttpResponseHeader
+func toAPIHttpResponseHeader(header dbmodels.HttpResponseHeader) *apiv1.HttpResponseHeader {
+	return &apiv1.HttpResponseHeader{
+		HttpResponseHeaderId: header.ID.Bytes(),
+		HttpId:               header.HttpID,
+		Key:                  header.Key,
+		Value:                header.Value,
+	}
+}
+
+// toAPIHttpResponseAssert converts DB HttpResponseAssert to API HttpResponseAssert
+func toAPIHttpResponseAssert(assert dbmodels.HttpResponseAssert) *apiv1.HttpResponseAssert {
+	return &apiv1.HttpResponseAssert{
+		HttpResponseAssertId: assert.ID,
+		HttpId:               assert.HttpID,
+		Value:                assert.Value,
+		Success:              assert.Success,
+	}
+}
+
+// toAPIHttpBodyRaw converts DB HttpBodyRaw to API HttpBodyRaw
+func toAPIHttpBodyRaw(httpID []byte, data string) *apiv1.HttpBodyRaw {
+	return &apiv1.HttpBodyRaw{
+		HttpId: httpID,
+		Data:   data,
+	}
+}
+
 // fromAPIHttpMethod converts API HttpMethod to string
 func fromAPIHttpMethod(method apiv1.HttpMethod) string {
 	switch method {
@@ -410,6 +556,50 @@ func (h *HttpServiceRPC) listUserHttp(ctx context.Context) ([]mhttp.HTTP, error)
 	}
 
 	return allHttp, nil
+}
+
+// getHttpVersionsByHttpID retrieves all versions for a specific HTTP entry
+func (h *HttpServiceRPC) getHttpVersionsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]dbmodels.HttpVersion, error) {
+	rows, err := h.DB.QueryContext(ctx, `
+		SELECT id, http_id, version_name, version_description, is_active, created_at, created_by
+		FROM http_version
+		WHERE http_id = ?
+		ORDER BY created_at DESC
+	`, httpID.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var versions []dbmodels.HttpVersion
+	for rows.Next() {
+		var version dbmodels.HttpVersion
+		var createdByBytes []byte
+		err := rows.Scan(
+			&version.ID,
+			&version.HttpID,
+			&version.VersionName,
+			&version.VersionDescription,
+			&version.IsActive,
+			&version.CreatedAt,
+			&createdByBytes,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(createdByBytes) > 0 {
+			createdByID, err := idwrap.NewFromBytes(createdByBytes)
+			if err != nil {
+				return nil, err
+			}
+			version.CreatedBy = &createdByID
+		}
+
+		versions = append(versions, version)
+	}
+
+	return versions, rows.Err()
 }
 
 // httpSyncResponseFrom converts HttpEvent to HttpSync response
@@ -623,6 +813,313 @@ func httpAssertSyncResponseFrom(event HttpAssertEvent) *apiv1.HttpAssertSyncResp
 	}
 }
 
+// httpVersionSyncResponseFrom converts HttpVersionEvent to HttpVersionSync response
+func httpVersionSyncResponseFrom(event HttpVersionEvent) *apiv1.HttpVersionSyncResponse {
+	var value *apiv1.HttpVersionSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		value = &apiv1.HttpVersionSync_ValueUnion{
+			Kind: apiv1.HttpVersionSync_ValueUnion_KIND_CREATE,
+			Create: &apiv1.HttpVersionSyncCreate{
+				HttpVersionId: event.HttpVersion.GetHttpVersionId(),
+				HttpId:        event.HttpVersion.GetHttpId(),
+			},
+		}
+	case eventTypeUpdate:
+		value = &apiv1.HttpVersionSync_ValueUnion{
+			Kind: apiv1.HttpVersionSync_ValueUnion_KIND_UPDATE,
+			Update: &apiv1.HttpVersionSyncUpdate{
+				HttpVersionId: event.HttpVersion.GetHttpVersionId(),
+			},
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpVersionSync_ValueUnion{
+			Kind: apiv1.HttpVersionSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpVersionSyncDelete{
+				HttpVersionId: event.HttpVersion.GetHttpVersionId(),
+			},
+		}
+	}
+
+	return &apiv1.HttpVersionSyncResponse{
+		Items: []*apiv1.HttpVersionSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// httpResponseSyncResponseFrom converts HttpResponseEvent to HttpResponseSync response
+func httpResponseSyncResponseFrom(event HttpResponseEvent) *apiv1.HttpResponseSyncResponse {
+	var value *apiv1.HttpResponseSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		status := event.HttpResponse.GetStatus()
+		body := event.HttpResponse.GetBody()
+		time := event.HttpResponse.GetTime()
+		duration := event.HttpResponse.GetDuration()
+		size := event.HttpResponse.GetSize()
+		value = &apiv1.HttpResponseSync_ValueUnion{
+			Kind: apiv1.HttpResponseSync_ValueUnion_KIND_CREATE,
+			Create: &apiv1.HttpResponseSyncCreate{
+				HttpResponseId: event.HttpResponse.GetHttpResponseId(),
+				HttpId:         event.HttpResponse.GetHttpId(),
+				Status:         status,
+				Body:           body,
+				Time:           time,
+				Duration:       duration,
+				Size:           size,
+			},
+		}
+	case eventTypeUpdate:
+		status := event.HttpResponse.GetStatus()
+		body := event.HttpResponse.GetBody()
+		time := event.HttpResponse.GetTime()
+		duration := event.HttpResponse.GetDuration()
+		size := event.HttpResponse.GetSize()
+		value = &apiv1.HttpResponseSync_ValueUnion{
+			Kind: apiv1.HttpResponseSync_ValueUnion_KIND_UPDATE,
+			Update: &apiv1.HttpResponseSyncUpdate{
+				HttpResponseId: event.HttpResponse.GetHttpResponseId(),
+				Status:         &status,
+				Body:           body,
+				Time:           time,
+				Duration:       &duration,
+				Size:           &size,
+			},
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpResponseSync_ValueUnion{
+			Kind: apiv1.HttpResponseSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpResponseSyncDelete{
+				HttpResponseId: event.HttpResponse.GetHttpResponseId(),
+			},
+		}
+	}
+
+	return &apiv1.HttpResponseSyncResponse{
+		Items: []*apiv1.HttpResponseSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// httpResponseHeaderSyncResponseFrom converts HttpResponseHeaderEvent to HttpResponseHeaderSync response
+func httpResponseHeaderSyncResponseFrom(event HttpResponseHeaderEvent) *apiv1.HttpResponseHeaderSyncResponse {
+	var value *apiv1.HttpResponseHeaderSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		key := event.HttpResponseHeader.GetKey()
+		value_ := event.HttpResponseHeader.GetValue()
+		value = &apiv1.HttpResponseHeaderSync_ValueUnion{
+			Kind: apiv1.HttpResponseHeaderSync_ValueUnion_KIND_CREATE,
+			Create: &apiv1.HttpResponseHeaderSyncCreate{
+				HttpResponseHeaderId: event.HttpResponseHeader.GetHttpResponseHeaderId(),
+				HttpId:               event.HttpResponseHeader.GetHttpId(),
+				Key:                  key,
+				Value:                value_,
+			},
+		}
+	case eventTypeUpdate:
+		key := event.HttpResponseHeader.GetKey()
+		value_ := event.HttpResponseHeader.GetValue()
+		value = &apiv1.HttpResponseHeaderSync_ValueUnion{
+			Kind: apiv1.HttpResponseHeaderSync_ValueUnion_KIND_UPDATE,
+			Update: &apiv1.HttpResponseHeaderSyncUpdate{
+				HttpResponseHeaderId: event.HttpResponseHeader.GetHttpResponseHeaderId(),
+				Key:                  &key,
+				Value:                &value_,
+			},
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpResponseHeaderSync_ValueUnion{
+			Kind: apiv1.HttpResponseHeaderSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpResponseHeaderSyncDelete{
+				HttpResponseHeaderId: event.HttpResponseHeader.GetHttpResponseHeaderId(),
+			},
+		}
+	}
+
+	return &apiv1.HttpResponseHeaderSyncResponse{
+		Items: []*apiv1.HttpResponseHeaderSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// httpResponseAssertSyncResponseFrom converts HttpResponseAssertEvent to HttpResponseAssertSync response
+func httpResponseAssertSyncResponseFrom(event HttpResponseAssertEvent) *apiv1.HttpResponseAssertSyncResponse {
+	var value *apiv1.HttpResponseAssertSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		value_ := event.HttpResponseAssert.GetValue()
+		success := event.HttpResponseAssert.GetSuccess()
+		value = &apiv1.HttpResponseAssertSync_ValueUnion{
+			Kind: apiv1.HttpResponseAssertSync_ValueUnion_KIND_CREATE,
+			Create: &apiv1.HttpResponseAssertSyncCreate{
+				HttpResponseAssertId: event.HttpResponseAssert.GetHttpResponseAssertId(),
+				HttpId:               event.HttpResponseAssert.GetHttpId(),
+				Value:                value_,
+				Success:              success,
+			},
+		}
+	case eventTypeUpdate:
+		value_ := event.HttpResponseAssert.GetValue()
+		success := event.HttpResponseAssert.GetSuccess()
+		value = &apiv1.HttpResponseAssertSync_ValueUnion{
+			Kind: apiv1.HttpResponseAssertSync_ValueUnion_KIND_UPDATE,
+			Update: &apiv1.HttpResponseAssertSyncUpdate{
+				HttpResponseAssertId: event.HttpResponseAssert.GetHttpResponseAssertId(),
+				Value:                &value_,
+				Success:              &success,
+			},
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpResponseAssertSync_ValueUnion{
+			Kind: apiv1.HttpResponseAssertSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpResponseAssertSyncDelete{
+				HttpResponseAssertId: event.HttpResponseAssert.GetHttpResponseAssertId(),
+			},
+		}
+	}
+
+	return &apiv1.HttpResponseAssertSyncResponse{
+		Items: []*apiv1.HttpResponseAssertSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// httpBodyRawSyncResponseFrom converts HttpBodyRawEvent to HttpBodyRawSync response
+func httpBodyRawSyncResponseFrom(event HttpBodyRawEvent) *apiv1.HttpBodyRawSyncResponse {
+	var value *apiv1.HttpBodyRawSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		data := event.HttpBodyRaw.GetData()
+		value = &apiv1.HttpBodyRawSync_ValueUnion{
+			Kind: apiv1.HttpBodyRawSync_ValueUnion_KIND_CREATE,
+			Create: &apiv1.HttpBodyRawSyncCreate{
+				HttpId: event.HttpBodyRaw.GetHttpId(),
+				Data:   data,
+			},
+		}
+	case eventTypeUpdate:
+		data := event.HttpBodyRaw.GetData()
+		value = &apiv1.HttpBodyRawSync_ValueUnion{
+			Kind: apiv1.HttpBodyRawSync_ValueUnion_KIND_UPDATE,
+			Update: &apiv1.HttpBodyRawSyncUpdate{
+				HttpId: event.HttpBodyRaw.GetHttpId(),
+				Data:   &data,
+			},
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpBodyRawSync_ValueUnion{
+			Kind: apiv1.HttpBodyRawSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpBodyRawSyncDelete{
+				HttpId: event.HttpBodyRaw.GetHttpId(),
+			},
+		}
+	}
+
+	return &apiv1.HttpBodyRawSyncResponse{
+		Items: []*apiv1.HttpBodyRawSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// httpDeltaSyncResponseFrom converts HttpEvent to HttpDeltaSync response
+func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDeltaSyncResponse {
+	var value *apiv1.HttpDeltaSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		delta := &apiv1.HttpDeltaSyncCreate{
+			DeltaHttpId: http.ID.Bytes(),
+		}
+		if http.ParentHttpID != nil {
+			delta.HttpId = http.ParentHttpID.Bytes()
+		}
+		if http.DeltaName != nil {
+			delta.Name = http.DeltaName
+		}
+		if http.DeltaMethod != nil {
+			method := toAPIHttpMethod(*http.DeltaMethod)
+			delta.Method = &method
+		}
+		if http.DeltaUrl != nil {
+			delta.Url = http.DeltaUrl
+		}
+		// Note: BodyKind delta not implemented yet
+		value = &apiv1.HttpDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpDeltaSync_ValueUnion_KIND_CREATE,
+			Create: delta,
+		}
+	case eventTypeUpdate:
+		delta := &apiv1.HttpDeltaSyncUpdate{
+			DeltaHttpId: http.ID.Bytes(),
+		}
+		if http.ParentHttpID != nil {
+			delta.HttpId = http.ParentHttpID.Bytes()
+		}
+		if http.DeltaName != nil {
+			nameStr := *http.DeltaName
+			delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &nameStr,
+			}
+		}
+		if http.DeltaMethod != nil {
+			method := toAPIHttpMethod(*http.DeltaMethod)
+			delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
+				Kind:       470142787, // KIND_HTTP_METHOD
+				HttpMethod: &method,
+			}
+		}
+		if http.DeltaUrl != nil {
+			urlStr := *http.DeltaUrl
+			delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &urlStr,
+			}
+		}
+		// Note: BodyKind delta not implemented yet
+		value = &apiv1.HttpDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpDeltaSync_ValueUnion_KIND_UPDATE,
+			Update: delta,
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpDeltaSync_ValueUnion{
+			Kind: apiv1.HttpDeltaSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpDeltaSyncDelete{
+				DeltaHttpId: http.ID.Bytes(),
+			},
+		}
+	}
+
+	return &apiv1.HttpDeltaSyncResponse{
+		Items: []*apiv1.HttpDeltaSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
 // HttpSync handles real-time synchronization for HTTP entries
 func (h *HttpServiceRPC) HttpSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpSyncResponse]) error {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -802,6 +1299,20 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		body = nil
 	}
 
+	// Build variable context from previous HTTP responses in the workspace
+	varMap, err := h.buildWorkspaceVarMap(ctx, httpEntry.WorkspaceID)
+	if err != nil {
+		log.Printf("Failed to build workspace variable map: %v", err)
+		// Continue with empty varMap rather than failing
+		varMap = varsystem.VarMap{}
+	}
+
+	// Apply variable substitution to HTTP request components
+	httpEntry, headers, queries, body, err = h.applyVariableSubstitution(ctx, httpEntry, headers, queries, body, varMap)
+	if err != nil {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("variable substitution failed: %w", err))
+	}
+
 	// Prepare the HTTP request using existing utilities
 	httpReq := &httpclient.Request{
 		Method:  httpEntry.Method,
@@ -811,6 +1322,8 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		Queries: queries,
 	}
 
+	// Start timing the HTTP request
+	startTime := time.Now()
 	// Execute the request with context and convert to Response struct
 	httpResp, err := httpclient.SendRequestAndConvertWithContext(ctx, client, httpReq, httpEntry.ID)
 	if err != nil {
@@ -844,15 +1357,186 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	}
 
 	// Store HTTP response in database
-	if err := h.storeHttpResponse(ctx, httpEntry.ID, httpResp); err != nil {
-		// Log error but don't fail the request
-		log.Printf("Failed to store HTTP response: %v", err)
+	duration := time.Since(startTime).Milliseconds()
+	responseID, err := h.storeHttpResponse(ctx, httpEntry.ID, httpResp, duration)
+	if err != nil {
+		// Log detailed error but don't fail the request
+		log.Printf("Failed to store HTTP response for %s (status %d, duration %dms): %v",
+			httpEntry.ID.String(), httpResp.StatusCode, duration, err)
+		// Continue with assertion evaluation even if response storage fails
+		responseID = idwrap.IDWrap{} // Use empty ID as fallback
 	}
 
-	// TODO: Load and evaluate assertions when assertion system is implemented
-	// For now, we skip assertion evaluation
+	// Load and evaluate assertions with comprehensive error handling
+	if err := h.evaluateAndStoreAssertions(ctx, httpEntry.ID, responseID, httpResp); err != nil {
+		// Log detailed error but don't fail the request
+		log.Printf("Failed to evaluate assertions for HTTP %s (response %s): %v",
+			httpEntry.ID.String(), responseID.String(), err)
+	}
+
+	// Extract variables from HTTP response for downstream usage
+	if err := h.extractResponseVariables(ctx, httpEntry.WorkspaceID, httpEntry.Name, &httpResp); err != nil {
+		// Log error but don't fail the request
+		log.Printf("Failed to extract response variables: %v", err)
+	}
 
 	return nil
+}
+
+// buildWorkspaceVarMap creates a variable map from workspace environments
+func (h *HttpServiceRPC) buildWorkspaceVarMap(ctx context.Context, workspaceID idwrap.IDWrap) (varsystem.VarMap, error) {
+	// Get workspace to find global environment
+	workspace, err := h.ws.Get(ctx, workspaceID)
+	if err != nil {
+		return varsystem.VarMap{}, fmt.Errorf("failed to get workspace: %w", err)
+	}
+
+	// Get global environment variables
+	var globalVars []mvar.Var
+	if workspace.GlobalEnv != (idwrap.IDWrap{}) {
+		globalVars, err = h.vs.GetVariableByEnvID(ctx, workspace.GlobalEnv)
+		if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
+			return varsystem.VarMap{}, fmt.Errorf("failed to get global environment variables: %w", err)
+		}
+	}
+
+	// Create variable map by merging global environment variables
+	varMap := make(map[string]any)
+
+	// Add global environment variables
+	for _, envVar := range globalVars {
+		if envVar.IsEnabled() {
+			varMap[envVar.VarKey] = envVar.Value
+		}
+	}
+
+	// Convert to varsystem.VarMap
+	result := varsystem.NewVarMapFromAnyMap(varMap)
+	log.Printf("Created workspace variable map with %d variables from global environment for workspace %s", len(result), workspaceID.String())
+
+	return result, nil
+}
+
+// applyVariableSubstitution applies variable substitution to HTTP request components
+func (h *HttpServiceRPC) applyVariableSubstitution(ctx context.Context, httpEntry *mhttp.HTTP,
+	headers []mexampleheader.Header, queries []mexamplequery.Query, body []byte,
+	varMap varsystem.VarMap) (*mhttp.HTTP, []mexampleheader.Header, []mexamplequery.Query, []byte, error) {
+
+	// Create a tracking wrapper around the varMap to track variable usage
+	tracker := varsystem.NewVarMapTracker(varMap)
+
+	// Apply variable substitution to URL
+	if varsystem.CheckStringHasAnyVarKey(httpEntry.Url) {
+		resolvedURL, err := tracker.ReplaceVars(httpEntry.Url)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in URL: %w", err)
+		}
+		httpEntry.Url = resolvedURL
+	}
+
+	// Apply variable substitution to headers
+	for i, header := range headers {
+		if varsystem.CheckStringHasAnyVarKey(header.HeaderKey) {
+			resolvedKey, err := tracker.ReplaceVars(header.HeaderKey)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in header key '%s': %w", header.HeaderKey, err)
+			}
+			headers[i].HeaderKey = resolvedKey
+		}
+
+		if varsystem.CheckStringHasAnyVarKey(header.Value) {
+			resolvedValue, err := tracker.ReplaceVars(header.Value)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in header value '%s': %w", header.Value, err)
+			}
+			headers[i].Value = resolvedValue
+		}
+	}
+
+	// Apply variable substitution to queries
+	for i, query := range queries {
+		if varsystem.CheckStringHasAnyVarKey(query.QueryKey) {
+			resolvedKey, err := tracker.ReplaceVars(query.QueryKey)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in query key '%s': %w", query.QueryKey, err)
+			}
+			queries[i].QueryKey = resolvedKey
+		}
+
+		if varsystem.CheckStringHasAnyVarKey(query.Value) {
+			resolvedValue, err := tracker.ReplaceVars(query.Value)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in query value '%s': %w", query.Value, err)
+			}
+			queries[i].Value = resolvedValue
+		}
+	}
+
+	// Apply variable substitution to body
+	if len(body) > 0 {
+		bodyStr := string(body)
+		if varsystem.CheckStringHasAnyVarKey(bodyStr) {
+			resolvedBody, err := tracker.ReplaceVars(bodyStr)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in request body: %w", err)
+			}
+			body = []byte(resolvedBody)
+		}
+	}
+
+	// Log the variables that were used
+	if len(tracker.ReadVars) > 0 {
+		log.Printf("Variables used in HTTP request '%s': %v", httpEntry.Name, tracker.ReadVars)
+	}
+
+	return httpEntry, headers, queries, body, nil
+}
+
+// extractResponseVariables extracts variables from HTTP response for downstream usage
+func (h *HttpServiceRPC) extractResponseVariables(ctx context.Context, workspaceID idwrap.IDWrap, httpName string, httpResp *httpclient.Response) error {
+	// Convert HTTP response to variable format similar to nrequest pattern
+	respVar := httpclient.ConvertResponseToVar(*httpResp)
+
+	// Create response map following the nrequest pattern
+	// TODO: Use responseMap when variable storage is implemented
+	_ = map[string]any{
+		"status":  float64(respVar.StatusCode),
+		"body":    respVar.Body,
+		"headers": cloneStringMapToAny(respVar.Headers),
+	}
+
+	// Store the response variables for future HTTP requests
+	// TODO: Implement variable storage mechanism
+	// This could store variables in:
+	// 1. A dedicated HTTP response variable table
+	// 2. Workspace-scoped variable storage
+	// 3. In-memory cache for the session
+
+	// Handle respVar.Body which might be interface{} type
+	var bodyLength int
+	if bodyStr, ok := respVar.Body.(string); ok {
+		bodyLength = len(bodyStr)
+	} else if bodyBytes, ok := respVar.Body.([]byte); ok {
+		bodyLength = len(bodyBytes)
+	}
+
+	log.Printf("Extracted variables from HTTP response '%s': status=%d, body_length=%d, headers=%d",
+		httpName, respVar.StatusCode, bodyLength, len(respVar.Headers))
+
+	return nil
+}
+
+// cloneStringMapToAny converts a map[string]string to map[string]any
+// This follows the pattern from nrequest.go
+func cloneStringMapToAny(src map[string]string) map[string]any {
+	if len(src) == 0 {
+		return map[string]any{}
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }
 
 // isNetworkError checks if the error is a network-related error
@@ -1226,9 +1910,15 @@ func (h *HttpServiceRPC) HttpDeltaCreate(ctx context.Context, req *connect.Reque
 			IsDelta:      true,
 			DeltaName:    item.Name,
 			DeltaUrl:     item.Url,
-			DeltaMethod:  httpMethodToString(item.Method),
-			CreatedAt:    0, // Will be set by service
-			UpdatedAt:    0, // Will be set by service
+			DeltaMethod: func() *string {
+				if item.Method != nil {
+					methodStr := fromAPIHttpMethod(*item.Method)
+					return &methodStr
+				}
+				return nil
+			}(),
+			CreatedAt: 0, // Will be set by service
+			UpdatedAt: 0, // Will be set by service
 		}
 
 		// Create in database
@@ -1242,15 +1932,257 @@ func (h *HttpServiceRPC) HttpDeltaCreate(ctx context.Context, req *connect.Reque
 }
 
 func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP delta must be provided"))
+	}
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	hsService := h.hs.TX(tx)
+
+	var updatedDeltas []mhttp.HTTP
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta HTTP entry within transaction for consistency
+		existingDelta, err := hsService.Get(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingDelta.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP entry is not a delta"))
+		}
+
+		// Check write access to the workspace
+		if err := h.checkWorkspaceWriteAccess(ctx, existingDelta.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Update delta fields if provided
+		if item.Name != nil {
+			switch item.Name.GetKind() {
+			case 183079996: // KIND_UNSET
+				existingDelta.DeltaName = nil
+			case 315301840: // KIND_STRING
+				nameStr := item.Name.GetString_()
+				existingDelta.DeltaName = &nameStr
+			}
+		}
+		if item.Method != nil {
+			switch item.Method.GetKind() {
+			case 183079996: // KIND_UNSET
+				existingDelta.DeltaMethod = nil
+			case 470142787: // KIND_HTTP_METHOD
+				method := item.Method.GetHttpMethod()
+				existingDelta.DeltaMethod = httpMethodToString(&method)
+			}
+		}
+		if item.Url != nil {
+			switch item.Url.GetKind() {
+			case 183079996: // KIND_UNSET
+				existingDelta.DeltaUrl = nil
+			case 315301840: // KIND_STRING
+				urlStr := item.Url.GetString_()
+				existingDelta.DeltaUrl = &urlStr
+			}
+		}
+		if item.BodyKind != nil {
+			// Note: BodyKind is not currently in the mhttp.HTTP model delta fields
+			// This would need to be added to the model and database schema if needed
+		}
+
+		if err := hsService.Update(ctx, existingDelta); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		updatedDeltas = append(updatedDeltas, *existingDelta)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish update events for real-time sync after successful commit
+	for _, delta := range updatedDeltas {
+		h.stream.Publish(HttpTopic{WorkspaceID: delta.WorkspaceID}, HttpEvent{
+			Type: eventTypeUpdate,
+			Http: toAPIHttp(delta),
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP delta must be provided"))
+	}
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	hsService := h.hs.TX(tx)
+
+	var deletedDeltas []mhttp.HTTP
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta HTTP entry within transaction for consistency
+		existingDelta, err := hsService.Get(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingDelta.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP entry is not a delta"))
+		}
+
+		// Check delete access to the workspace
+		if err := h.checkWorkspaceDeleteAccess(ctx, existingDelta.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Delete the delta record
+		if err := hsService.Delete(ctx, deltaID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		deletedDeltas = append(deletedDeltas, *existingDelta)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, existingDelta.WorkspaceID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish delete events for real-time sync after successful commit
+	for i, delta := range deletedDeltas {
+		h.stream.Publish(HttpTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpEvent{
+			Type: eventTypeDelete,
+			Http: toAPIHttp(delta),
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpDeltaSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpDeltaSync(ctx, userID, stream.Send)
+}
+
+// streamHttpDeltaSync streams HTTP delta events to the client
+func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpDeltaSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpTopic, HttpEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpTopic, HttpEvent], 0)
+		for _, http := range httpList {
+			if !http.IsDelta {
+				continue // Only include delta records
+			}
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+			events = append(events, eventstream.Event[HttpTopic, HttpEvent]{
+				Topic: HttpTopic{WorkspaceID: http.WorkspaceID},
+				Payload: HttpEvent{
+					Type: eventTypeCreate,
+					Http: toAPIHttp(http),
+				},
+			})
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.stream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			// Get the full HTTP record for delta sync response
+			httpID, err := idwrap.NewFromBytes(evt.Payload.Http.HttpId)
+			if err != nil {
+				continue // Skip if can't parse ID
+			}
+			httpRecord, err := h.hs.Get(ctx, httpID)
+			if err != nil {
+				continue // Skip if can't get the record
+			}
+			resp := httpDeltaSyncResponseFrom(evt.Payload, *httpRecord)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1.HttpRunRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -1296,11 +2228,50 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 }
 
 func (h *HttpServiceRPC) HttpVersionCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpVersionCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	// Get user's workspaces
+	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	var allVersions []*apiv1.HttpVersion
+	for _, workspace := range workspaces {
+		// Get HTTP entries for this workspace
+		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Get versions for each HTTP entry
+		for _, http := range httpList {
+			versions, err := h.getHttpVersionsByHttpID(ctx, http.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			// Convert to API format
+			for _, version := range versions {
+				apiVersion := toAPIHttpVersion(version)
+				allVersions = append(allVersions, apiVersion)
+			}
+		}
+	}
+
+	return connect.NewResponse(&apiv1.HttpVersionCollectionResponse{Items: allVersions}), nil
 }
 
 func (h *HttpServiceRPC) HttpVersionSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpVersionSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpVersionSync(ctx, userID, stream.Send)
 }
 
 func (h *HttpServiceRPC) HttpSearchParamCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpSearchParamCollectionResponse], error) {
@@ -1744,6 +2715,80 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 	}
 }
 
+// streamHttpVersionSync streams HTTP version events to the client
+func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpVersionSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpVersionTopic, HttpVersionEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpVersionTopic, HttpVersionEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get versions for this HTTP entry
+			versions, err := h.getHttpVersionsByHttpID(ctx, http.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, version := range versions {
+				events = append(events, eventstream.Event[HttpVersionTopic, HttpVersionEvent]{
+					Topic: HttpVersionTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpVersionEvent{
+						Type:        eventTypeCreate,
+						HttpVersion: toAPIHttpVersion(version),
+					},
+				})
+			}
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpVersionTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpVersionStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := httpVersionSyncResponseFrom(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpSearchParamDeltaCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -1857,15 +2902,212 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaCreate(ctx context.Context, req *co
 }
 
 func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("HttpSearchParamDeltaUpdate not implemented yet"))
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP search param delta must be provided"))
+	}
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpSearchParamService := h.httpSearchParamService.TX(tx)
+
+	var updatedParams []mhttpsearchparam.HttpSearchParam
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpSearchParamId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_search_param_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpSearchParamId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta param within transaction for consistency
+		existingParam, err := httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingParam.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP search param is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access
+		httpEntry, err := h.hs.Get(ctx, existingParam.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check write access to the workspace
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Update delta fields if provided
+		var deltaKey, deltaValue, deltaDescription *string
+		var deltaEnabled *bool
+
+		if item.Key != nil {
+			switch item.Key.GetKind() {
+			case 183079996: // KIND_UNSET
+				deltaKey = nil
+			case 315301840: // KIND_STRING
+				keyStr := item.Key.GetString_()
+				deltaKey = &keyStr
+			}
+		}
+		if item.Value != nil {
+			switch item.Value.GetKind() {
+			case 183079996: // KIND_UNSET
+				deltaValue = nil
+			case 315301840: // KIND_STRING
+				valueStr := item.Value.GetString_()
+				deltaValue = &valueStr
+			}
+		}
+		if item.Enabled != nil {
+			switch item.Enabled.GetKind() {
+			case 183079996: // KIND_UNSET
+				deltaEnabled = nil
+			case 477045804: // KIND_BOOL
+				enabledBool := item.Enabled.GetBool()
+				deltaEnabled = &enabledBool
+			}
+		}
+		if item.Description != nil {
+			switch item.Description.GetKind() {
+			case 183079996: // KIND_UNSET
+				deltaDescription = nil
+			case 315301840: // KIND_STRING
+				descStr := item.Description.GetString_()
+				deltaDescription = &descStr
+			}
+		}
+
+		if err := httpSearchParamService.UpdateHttpSearchParamDelta(ctx, deltaID, deltaKey, deltaValue, deltaEnabled, deltaDescription, nil); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Get updated param for event publishing
+		updatedParam, err := httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		updatedParams = append(updatedParams, *updatedParam)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish update events for real-time sync after successful commit
+	for _, param := range updatedParams {
+		// Get workspace ID for the HTTP entry
+		httpEntry, err := h.hs.Get(ctx, param.HttpID)
+		if err != nil {
+			// Log error but continue - event publishing shouldn't fail the operation
+			continue
+		}
+		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
+			Type:            eventTypeUpdate,
+			HttpSearchParam: toAPIHttpSearchParam(param),
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("HttpSearchParamDeltaDelete not implemented yet"))
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP search param delta must be provided"))
+	}
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpSearchParamService := h.httpSearchParamService.TX(tx)
+
+	var deletedParams []mhttpsearchparam.HttpSearchParam
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpSearchParamId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_search_param_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpSearchParamId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta param within transaction for consistency
+		existingParam, err := httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingParam.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP search param is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access
+		httpEntry, err := h.hs.Get(ctx, existingParam.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check delete access to the workspace
+		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Delete the delta record
+		if err := httpSearchParamService.Delete(ctx, deltaID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		deletedParams = append(deletedParams, *existingParam)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, httpEntry.WorkspaceID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish delete events for real-time sync after successful commit
+	for i, param := range deletedParams {
+		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
+			Type:            eventTypeDelete,
+			HttpSearchParam: toAPIHttpSearchParam(param),
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpSearchParamDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpSearchParamDeltaSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("HttpSearchParamDeltaSync not implemented yet"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpSearchParamDeltaSync(ctx, userID, stream.Send)
 }
 
 func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpAssertCollectionResponse], error) {
@@ -2259,32 +3501,534 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 }
 
 func (h *HttpServiceRPC) HttpAssertDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpAssertDeltaSyncResponse]) error {
-	// Stub implementation - delta sync is not implemented
-	return connect.NewError(connect.CodeUnimplemented, errors.New("HttpAssertDeltaSync not implemented yet"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpAssertDeltaSync(ctx, userID, stream.Send)
 }
 
 func (h *HttpServiceRPC) HttpResponseCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpResponseCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	// Get user's workspaces
+	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	var allResponses []*apiv1.HttpResponse
+	for _, workspace := range workspaces {
+		// Get HTTP entries for this workspace
+		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Get responses for each HTTP entry
+		for _, http := range httpList {
+			responses, err := h.DB.QueryContext(ctx, `
+				SELECT id, http_id, status, body, time, duration, size, created_at
+				FROM http_response
+				WHERE http_id = ?
+				ORDER BY time DESC
+			`, http.ID.Bytes())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			for responses.Next() {
+				var response dbmodels.HttpResponse
+				var status int32
+				var duration int32
+				var size int32
+				err := responses.Scan(
+					&response.ID,
+					&response.HttpID,
+					&status,
+					&response.Body,
+					&response.Time,
+					&duration,
+					&size,
+					&response.CreatedAt,
+				)
+				if err != nil {
+					responses.Close()
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+				response.Status = status
+				response.Duration = duration
+				response.Size = size
+
+				apiResponse := toAPIHttpResponse(response)
+				allResponses = append(allResponses, apiResponse)
+			}
+
+			if err := responses.Err(); err != nil {
+				responses.Close()
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			responses.Close()
+		}
+	}
+
+	return connect.NewResponse(&apiv1.HttpResponseCollectionResponse{Items: allResponses}), nil
 }
 
 func (h *HttpServiceRPC) HttpResponseSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpResponseSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpResponseSync(ctx, userID, stream.Send)
+}
+
+// streamHttpResponseSync streams HTTP response events to the client
+func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpResponseSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpResponseTopic, HttpResponseEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpResponseTopic, HttpResponseEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get responses for this HTTP entry
+			responses, err := h.DB.QueryContext(ctx, `
+				SELECT id, http_id, status, body, time, duration, size, created_at
+				FROM http_response
+				WHERE http_id = ?
+				ORDER BY time DESC
+			`, http.ID.Bytes())
+			if err != nil {
+				return nil, err
+			}
+
+			for responses.Next() {
+				var response dbmodels.HttpResponse
+				var status int32
+				var duration int32
+				var size int32
+				err := responses.Scan(
+					&response.ID,
+					&response.HttpID,
+					&status,
+					&response.Body,
+					&response.Time,
+					&duration,
+					&size,
+					&response.CreatedAt,
+				)
+				if err != nil {
+					responses.Close()
+					return nil, err
+				}
+				response.Status = status
+				response.Duration = duration
+				response.Size = size
+
+				events = append(events, eventstream.Event[HttpResponseTopic, HttpResponseEvent]{
+					Topic: HttpResponseTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpResponseEvent{
+						Type:         eventTypeCreate,
+						HttpResponse: toAPIHttpResponse(response),
+					},
+				})
+			}
+
+			if err := responses.Err(); err != nil {
+				responses.Close()
+				return nil, err
+			}
+			responses.Close()
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpResponseTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpResponseStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := httpResponseSyncResponseFrom(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (h *HttpServiceRPC) HttpResponseHeaderCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpResponseHeaderCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	// Get user's workspaces
+	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	var allHeaders []*apiv1.HttpResponseHeader
+	for _, workspace := range workspaces {
+		// Get HTTP entries for this workspace
+		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Get response headers for each HTTP entry
+		for _, http := range httpList {
+			headers, err := h.DB.QueryContext(ctx, `
+				SELECT id, http_id, key, value, created_at
+				FROM http_response_header
+				WHERE http_id = ?
+				ORDER BY created_at DESC
+			`, http.ID.Bytes())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			for headers.Next() {
+				var header dbmodels.HttpResponseHeader
+				err := headers.Scan(
+					&header.ID,
+					&header.HttpID,
+					&header.Key,
+					&header.Value,
+					&header.CreatedAt,
+				)
+				if err != nil {
+					headers.Close()
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+
+				apiHeader := toAPIHttpResponseHeader(header)
+				allHeaders = append(allHeaders, apiHeader)
+			}
+
+			if err := headers.Err(); err != nil {
+				headers.Close()
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			headers.Close()
+		}
+	}
+
+	return connect.NewResponse(&apiv1.HttpResponseHeaderCollectionResponse{Items: allHeaders}), nil
 }
 
 func (h *HttpServiceRPC) HttpResponseHeaderSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpResponseHeaderSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpResponseHeaderSync(ctx, userID, stream.Send)
+}
+
+// streamHttpResponseHeaderSync streams HTTP response header events to the client
+func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpResponseHeaderSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpResponseHeaderTopic, HttpResponseHeaderEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpResponseHeaderTopic, HttpResponseHeaderEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get response headers for this HTTP entry
+			headers, err := h.DB.QueryContext(ctx, `
+				SELECT id, http_id, key, value, created_at
+				FROM http_response_header
+				WHERE http_id = ?
+				ORDER BY created_at DESC
+			`, http.ID.Bytes())
+			if err != nil {
+				return nil, err
+			}
+
+			for headers.Next() {
+				var header dbmodels.HttpResponseHeader
+				err := headers.Scan(
+					&header.ID,
+					&header.HttpID,
+					&header.Key,
+					&header.Value,
+					&header.CreatedAt,
+				)
+				if err != nil {
+					headers.Close()
+					return nil, err
+				}
+
+				events = append(events, eventstream.Event[HttpResponseHeaderTopic, HttpResponseHeaderEvent]{
+					Topic: HttpResponseHeaderTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpResponseHeaderEvent{
+						Type:               eventTypeCreate,
+						HttpResponseHeader: toAPIHttpResponseHeader(header),
+					},
+				})
+			}
+
+			if err := headers.Err(); err != nil {
+				headers.Close()
+				return nil, err
+			}
+			headers.Close()
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpResponseHeaderTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpResponseHeaderStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := httpResponseHeaderSyncResponseFrom(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (h *HttpServiceRPC) HttpResponseAssertCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpResponseAssertCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	// Get user's workspaces
+	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	var allAsserts []*apiv1.HttpResponseAssert
+	for _, workspace := range workspaces {
+		// Get HTTP entries for this workspace
+		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Get response asserts for each HTTP entry
+		for _, http := range httpList {
+			asserts, err := h.DB.QueryContext(ctx, `
+				SELECT id, http_id, value, success, created_at
+				FROM http_response_assert
+				WHERE http_id = ?
+				ORDER BY created_at DESC
+			`, http.ID.Bytes())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			for asserts.Next() {
+				var assert dbmodels.HttpResponseAssert
+				err := asserts.Scan(
+					&assert.ID,
+					&assert.HttpID,
+					&assert.Value,
+					&assert.Success,
+					&assert.CreatedAt,
+				)
+				if err != nil {
+					asserts.Close()
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+
+				apiAssert := toAPIHttpResponseAssert(assert)
+				allAsserts = append(allAsserts, apiAssert)
+			}
+
+			if err := asserts.Err(); err != nil {
+				asserts.Close()
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			asserts.Close()
+		}
+	}
+
+	return connect.NewResponse(&apiv1.HttpResponseAssertCollectionResponse{Items: allAsserts}), nil
 }
 
 func (h *HttpServiceRPC) HttpResponseAssertSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpResponseAssertSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpResponseAssertSync(ctx, userID, stream.Send)
+}
+
+// streamHttpResponseAssertSync streams HTTP response assert events to the client
+func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpResponseAssertSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpResponseAssertTopic, HttpResponseAssertEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpResponseAssertTopic, HttpResponseAssertEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get response asserts for this HTTP entry
+			asserts, err := h.DB.QueryContext(ctx, `
+				SELECT id, http_id, value, success, created_at
+				FROM http_response_assert
+				WHERE http_id = ?
+				ORDER BY created_at DESC
+			`, http.ID.Bytes())
+			if err != nil {
+				return nil, err
+			}
+
+			for asserts.Next() {
+				var assert dbmodels.HttpResponseAssert
+				err := asserts.Scan(
+					&assert.ID,
+					&assert.HttpID,
+					&assert.Value,
+					&assert.Success,
+					&assert.CreatedAt,
+				)
+				if err != nil {
+					asserts.Close()
+					return nil, err
+				}
+
+				events = append(events, eventstream.Event[HttpResponseAssertTopic, HttpResponseAssertEvent]{
+					Topic: HttpResponseAssertTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpResponseAssertEvent{
+						Type:               eventTypeCreate,
+						HttpResponseAssert: toAPIHttpResponseAssert(assert),
+					},
+				})
+			}
+
+			if err := asserts.Err(); err != nil {
+				asserts.Close()
+				return nil, err
+			}
+			asserts.Close()
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpResponseAssertTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpResponseAssertStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := httpResponseAssertSyncResponseFrom(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (h *HttpServiceRPC) HttpHeaderCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpHeaderCollectionResponse], error) {
@@ -2762,15 +4506,212 @@ func (h *HttpServiceRPC) HttpHeaderDeltaCreate(ctx context.Context, req *connect
 }
 
 func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpHeaderDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("HttpHeaderDeltaUpdate not implemented yet"))
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header delta must be provided"))
+	}
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpHeaderService := h.httpHeaderService.TX(tx)
+
+	var updatedHeaders []mhttpheader.HttpHeader
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpHeaderId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_header_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpHeaderId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta header within transaction for consistency
+		existingHeader, err := httpHeaderService.GetByID(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingHeader.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP header is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access
+		httpEntry, err := h.hs.Get(ctx, existingHeader.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check write access to the workspace
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Update delta fields if provided
+		var deltaKey, deltaValue, deltaDescription *string
+		var deltaEnabled *bool
+
+		if item.Key != nil {
+			switch item.Key.GetKind() {
+			case 183079996: // KIND_UNSET
+				deltaKey = nil
+			case 315301840: // KIND_STRING
+				keyStr := item.Key.GetString_()
+				deltaKey = &keyStr
+			}
+		}
+		if item.Value != nil {
+			switch item.Value.GetKind() {
+			case 183079996: // KIND_UNSET
+				deltaValue = nil
+			case 315301840: // KIND_STRING
+				valueStr := item.Value.GetString_()
+				deltaValue = &valueStr
+			}
+		}
+		if item.Enabled != nil {
+			switch item.Enabled.GetKind() {
+			case 183079996: // KIND_UNSET
+				deltaEnabled = nil
+			case 477045804: // KIND_BOOL
+				enabledBool := item.Enabled.GetBool()
+				deltaEnabled = &enabledBool
+			}
+		}
+		if item.Description != nil {
+			switch item.Description.GetKind() {
+			case 183079996: // KIND_UNSET
+				deltaDescription = nil
+			case 315301840: // KIND_STRING
+				descStr := item.Description.GetString_()
+				deltaDescription = &descStr
+			}
+		}
+
+		if err := httpHeaderService.UpdateDelta(ctx, deltaID, deltaKey, deltaValue, deltaDescription, deltaEnabled); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Get updated header for event publishing
+		updatedHeader, err := httpHeaderService.GetByID(ctx, deltaID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		updatedHeaders = append(updatedHeaders, updatedHeader)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish update events for real-time sync after successful commit
+	for _, header := range updatedHeaders {
+		// Get workspace ID for the HTTP entry
+		httpEntry, err := h.hs.Get(ctx, header.HttpID)
+		if err != nil {
+			// Log error but continue - event publishing shouldn't fail the operation
+			continue
+		}
+		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpHeaderEvent{
+			Type:       eventTypeUpdate,
+			HttpHeader: toAPIHttpHeader(header),
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpHeaderDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("HttpHeaderDeltaDelete not implemented yet"))
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header delta must be provided"))
+	}
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpHeaderService := h.httpHeaderService.TX(tx)
+
+	var deletedHeaders []mhttpheader.HttpHeader
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpHeaderId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_header_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpHeaderId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta header within transaction for consistency
+		existingHeader, err := httpHeaderService.GetByID(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingHeader.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP header is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access
+		httpEntry, err := h.hs.Get(ctx, existingHeader.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check delete access to the workspace
+		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Delete the delta record
+		if err := httpHeaderService.Delete(ctx, deltaID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		deletedHeaders = append(deletedHeaders, existingHeader)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, httpEntry.WorkspaceID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish delete events for real-time sync after successful commit
+	for i, header := range deletedHeaders {
+		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpHeaderEvent{
+			Type:       eventTypeDelete,
+			HttpHeader: toAPIHttpHeader(header),
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpHeaderDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpHeaderDeltaSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("HttpHeaderDeltaSync not implemented yet"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpHeaderDeltaSync(ctx, userID, stream.Send)
 }
 
 func (h *HttpServiceRPC) HttpBodyFormCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormCollectionResponse], error) {
@@ -3122,6 +5063,350 @@ func httpBodyFormSyncResponseFrom(event HttpBodyFormEvent) *apiv1.HttpBodyFormSy
 	}
 }
 
+// streamHttpSearchParamDeltaSync streams HTTP search param delta events to the client
+func (h *HttpServiceRPC) streamHttpSearchParamDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpSearchParamDeltaSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get params for this HTTP entry
+			params, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, http.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, param := range params {
+				if !param.IsDelta {
+					continue // Only include delta records
+				}
+				events = append(events, eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent]{
+					Topic: HttpSearchParamTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpSearchParamEvent{
+						Type:            eventTypeCreate,
+						HttpSearchParam: toAPIHttpSearchParam(param),
+					},
+				})
+			}
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpSearchParamTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpSearchParamStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			// Get the full param record for delta sync response
+			paramID, err := idwrap.NewFromBytes(evt.Payload.HttpSearchParam.GetHttpSearchParamId())
+			if err != nil {
+				continue // Skip if can't parse ID
+			}
+			paramRecord, err := h.httpSearchParamService.GetHttpSearchParam(ctx, paramID)
+			if err != nil {
+				continue // Skip if can't get the record
+			}
+			resp := httpSearchParamDeltaSyncResponseFrom(evt.Payload, *paramRecord)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// streamHttpHeaderDeltaSync streams HTTP header delta events to the client
+func (h *HttpServiceRPC) streamHttpHeaderDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpHeaderDeltaSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpHeaderTopic, HttpHeaderEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpHeaderTopic, HttpHeaderEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get headers for this HTTP entry
+			headers, err := h.httpHeaderService.GetByHttpID(ctx, http.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, header := range headers {
+				if !header.IsDelta {
+					continue // Only include delta records
+				}
+				events = append(events, eventstream.Event[HttpHeaderTopic, HttpHeaderEvent]{
+					Topic: HttpHeaderTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpHeaderEvent{
+						Type:       eventTypeCreate,
+						HttpHeader: toAPIHttpHeader(header),
+					},
+				})
+			}
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpHeaderTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpHeaderStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			// Get the full header record for delta sync response
+			headerID, err := idwrap.NewFromBytes(evt.Payload.HttpHeader.GetHttpHeaderId())
+			if err != nil {
+				continue // Skip if can't parse ID
+			}
+			headerRecord, err := h.httpHeaderService.GetByID(ctx, headerID)
+			if err != nil {
+				continue // Skip if can't get the record
+			}
+			resp := httpHeaderDeltaSyncResponseFrom(evt.Payload, headerRecord)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// streamHttpBodyFormDeltaSync streams HTTP body form delta events to the client
+func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyFormDeltaSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get body forms for this HTTP entry
+			bodyForms, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, http.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, bodyForm := range bodyForms {
+				if !bodyForm.IsDelta {
+					continue // Only include delta records
+				}
+				events = append(events, eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent]{
+					Topic: HttpBodyFormTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpBodyFormEvent{
+						Type:         eventTypeCreate,
+						HttpBodyForm: toAPIHttpBodyForm(bodyForm),
+					},
+				})
+			}
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpBodyFormTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpBodyFormStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			// Get the full body form record for delta sync response
+			bodyFormID, err := idwrap.NewFromBytes(evt.Payload.HttpBodyForm.GetHttpBodyFormId())
+			if err != nil {
+				continue // Skip if can't parse ID
+			}
+			bodyFormRecord, err := h.httpBodyFormService.GetHttpBodyForm(ctx, bodyFormID)
+			if err != nil {
+				continue // Skip if can't get the record
+			}
+			resp := httpBodyFormDeltaSyncResponseFrom(evt.Payload, *bodyFormRecord)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// streamHttpAssertDeltaSync streams HTTP assert delta events to the client
+func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpAssertDeltaSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpAssertTopic, HttpAssertEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpAssertTopic, HttpAssertEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get asserts for this HTTP entry
+			asserts, err := h.httpAssertService.GetHttpAssertsByHttpID(ctx, http.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, assert := range asserts {
+				if !assert.IsDelta {
+					continue // Only include delta records
+				}
+				events = append(events, eventstream.Event[HttpAssertTopic, HttpAssertEvent]{
+					Topic: HttpAssertTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpAssertEvent{
+						Type:       eventTypeCreate,
+						HttpAssert: toAPIHttpAssert(assert),
+					},
+				})
+			}
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpAssertTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpAssertStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			// Get the full assert record for delta sync response
+			assertID, err := idwrap.NewFromBytes(evt.Payload.HttpAssert.GetHttpAssertId())
+			if err != nil {
+				continue // Skip if can't parse ID
+			}
+			assertRecord, err := h.httpAssertService.GetHttpAssert(ctx, assertID)
+			if err != nil {
+				continue // Skip if can't get the record
+			}
+			resp := httpAssertDeltaSyncResponseFrom(evt.Payload, *assertRecord)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 // streamHttpBodyFormSync streams HTTP body form events to the client
 func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyFormSyncResponse) error) error {
 	var workspaceSet sync.Map
@@ -3310,8 +5595,12 @@ func (h *HttpServiceRPC) HttpBodyFormDeltaDelete(ctx context.Context, req *conne
 }
 
 func (h *HttpServiceRPC) HttpBodyFormDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyFormDeltaSyncResponse]) error {
-	// Stub implementation - delta sync is not implemented
-	return connect.NewError(connect.CodeUnimplemented, errors.New("HttpBodyFormDeltaSync not implemented yet"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpBodyFormDeltaSync(ctx, userID, stream.Send)
 }
 
 func (h *HttpServiceRPC) HttpBodyUrlEncodedCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyUrlEncodedCollectionResponse], error) {
@@ -3663,6 +5952,538 @@ func httpBodyUrlEncodedSyncResponseFrom(event HttpBodyUrlEncodedEvent) *apiv1.Ht
 	}
 }
 
+// httpSearchParamDeltaSyncResponseFrom converts HttpSearchParamEvent and param record to HttpSearchParamDeltaSync response
+func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhttpsearchparam.HttpSearchParam) *apiv1.HttpSearchParamDeltaSyncResponse {
+	var value *apiv1.HttpSearchParamDeltaSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		delta := &apiv1.HttpSearchParamDeltaSyncCreate{
+			DeltaHttpSearchParamId: param.ID.Bytes(),
+		}
+		if param.ParentHttpSearchParamID != nil {
+			delta.HttpSearchParamId = param.ParentHttpSearchParamID.Bytes()
+		}
+		delta.HttpId = param.HttpID.Bytes()
+		if param.DeltaKey != nil {
+			delta.Key = param.DeltaKey
+		}
+		if param.DeltaValue != nil {
+			delta.Value = param.DeltaValue
+		}
+		if param.DeltaEnabled != nil {
+			delta.Enabled = param.DeltaEnabled
+		}
+		if param.DeltaDescription != nil {
+			delta.Description = param.DeltaDescription
+		}
+		if param.DeltaOrder != nil {
+			order := float32(*param.DeltaOrder)
+			delta.Order = &order
+		}
+		value = &apiv1.HttpSearchParamDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpSearchParamDeltaSync_ValueUnion_KIND_CREATE,
+			Create: delta,
+		}
+	case eventTypeUpdate:
+		delta := &apiv1.HttpSearchParamDeltaSyncUpdate{
+			DeltaHttpSearchParamId: param.ID.Bytes(),
+		}
+		if param.ParentHttpSearchParamID != nil {
+			delta.HttpSearchParamId = param.ParentHttpSearchParamID.Bytes()
+		}
+		delta.HttpId = param.HttpID.Bytes()
+		if param.DeltaKey != nil {
+			keyStr := *param.DeltaKey
+			delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &keyStr,
+			}
+		}
+		if param.DeltaValue != nil {
+			valueStr := *param.DeltaValue
+			delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &valueStr,
+			}
+		}
+		if param.DeltaEnabled != nil {
+			enabledBool := *param.DeltaEnabled
+			delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
+				Kind: 477045804, // KIND_BOOL
+				Bool: &enabledBool,
+			}
+		}
+		if param.DeltaDescription != nil {
+			descStr := *param.DeltaDescription
+			delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &descStr,
+			}
+		}
+		if param.DeltaOrder != nil {
+			orderFloat := float32(*param.DeltaOrder)
+			delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
+				Kind:  182966389, // KIND_FLOAT
+				Float: &orderFloat,
+			}
+		}
+		value = &apiv1.HttpSearchParamDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpSearchParamDeltaSync_ValueUnion_KIND_UPDATE,
+			Update: delta,
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpSearchParamDeltaSync_ValueUnion{
+			Kind: apiv1.HttpSearchParamDeltaSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpSearchParamDeltaSyncDelete{
+				DeltaHttpSearchParamId: param.ID.Bytes(),
+			},
+		}
+	}
+
+	return &apiv1.HttpSearchParamDeltaSyncResponse{
+		Items: []*apiv1.HttpSearchParamDeltaSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// httpHeaderDeltaSyncResponseFrom converts HttpHeaderEvent and header record to HttpHeaderDeltaSync response
+func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttpheader.HttpHeader) *apiv1.HttpHeaderDeltaSyncResponse {
+	var value *apiv1.HttpHeaderDeltaSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		delta := &apiv1.HttpHeaderDeltaSyncCreate{
+			DeltaHttpHeaderId: header.ID.Bytes(),
+		}
+		if header.ParentHttpHeaderID != nil {
+			delta.HttpHeaderId = header.ParentHttpHeaderID.Bytes()
+		}
+		delta.HttpId = header.HttpID.Bytes()
+		if header.DeltaKey != nil {
+			delta.Key = header.DeltaKey
+		}
+		if header.DeltaValue != nil {
+			delta.Value = header.DeltaValue
+		}
+		if header.DeltaEnabled != nil {
+			delta.Enabled = header.DeltaEnabled
+		}
+		if header.DeltaDescription != nil {
+			delta.Description = header.DeltaDescription
+		}
+		if header.DeltaOrder != nil {
+			delta.Order = header.DeltaOrder
+		}
+		value = &apiv1.HttpHeaderDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpHeaderDeltaSync_ValueUnion_KIND_CREATE,
+			Create: delta,
+		}
+	case eventTypeUpdate:
+		delta := &apiv1.HttpHeaderDeltaSyncUpdate{
+			DeltaHttpHeaderId: header.ID.Bytes(),
+		}
+		if header.ParentHttpHeaderID != nil {
+			delta.HttpHeaderId = header.ParentHttpHeaderID.Bytes()
+		}
+		delta.HttpId = header.HttpID.Bytes()
+		if header.DeltaKey != nil {
+			keyStr := *header.DeltaKey
+			delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &keyStr,
+			}
+		}
+		if header.DeltaValue != nil {
+			valueStr := *header.DeltaValue
+			delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &valueStr,
+			}
+		}
+		if header.DeltaEnabled != nil {
+			enabledBool := *header.DeltaEnabled
+			delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
+				Kind: 477045804, // KIND_BOOL
+				Bool: &enabledBool,
+			}
+		}
+		if header.DeltaDescription != nil {
+			descStr := *header.DeltaDescription
+			delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &descStr,
+			}
+		}
+		if header.DeltaOrder != nil {
+			orderFloat := *header.DeltaOrder
+			delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
+				Kind:  182966389, // KIND_FLOAT
+				Float: &orderFloat,
+			}
+		}
+		value = &apiv1.HttpHeaderDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpHeaderDeltaSync_ValueUnion_KIND_UPDATE,
+			Update: delta,
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpHeaderDeltaSync_ValueUnion{
+			Kind: apiv1.HttpHeaderDeltaSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpHeaderDeltaSyncDelete{
+				DeltaHttpHeaderId: header.ID.Bytes(),
+			},
+		}
+	}
+
+	return &apiv1.HttpHeaderDeltaSyncResponse{
+		Items: []*apiv1.HttpHeaderDeltaSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// httpBodyFormDeltaSyncResponseFrom converts HttpBodyFormEvent and form record to HttpBodyFormDeltaSync response
+func httpBodyFormDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttpbodyform.HttpBodyForm) *apiv1.HttpBodyFormDeltaSyncResponse {
+	var value *apiv1.HttpBodyFormDeltaSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		delta := &apiv1.HttpBodyFormDeltaSyncCreate{
+			DeltaHttpBodyFormId: form.ID.Bytes(),
+		}
+		if form.ParentHttpBodyFormID != nil {
+			delta.HttpBodyFormId = form.ParentHttpBodyFormID.Bytes()
+		}
+		delta.HttpId = form.HttpID.Bytes()
+		if form.DeltaKey != nil {
+			delta.Key = form.DeltaKey
+		}
+		if form.DeltaValue != nil {
+			delta.Value = form.DeltaValue
+		}
+		if form.DeltaEnabled != nil {
+			delta.Enabled = form.DeltaEnabled
+		}
+		if form.DeltaDescription != nil {
+			delta.Description = form.DeltaDescription
+		}
+		if form.DeltaOrder != nil {
+			delta.Order = form.DeltaOrder
+		}
+		value = &apiv1.HttpBodyFormDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpBodyFormDeltaSync_ValueUnion_KIND_CREATE,
+			Create: delta,
+		}
+	case eventTypeUpdate:
+		delta := &apiv1.HttpBodyFormDeltaSyncUpdate{
+			DeltaHttpBodyFormId: form.ID.Bytes(),
+		}
+		if form.ParentHttpBodyFormID != nil {
+			delta.HttpBodyFormId = form.ParentHttpBodyFormID.Bytes()
+		}
+		delta.HttpId = form.HttpID.Bytes()
+		if form.DeltaKey != nil {
+			keyStr := *form.DeltaKey
+			delta.Key = &apiv1.HttpBodyFormDeltaSyncUpdate_KeyUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &keyStr,
+			}
+		}
+		if form.DeltaValue != nil {
+			valueStr := *form.DeltaValue
+			delta.Value = &apiv1.HttpBodyFormDeltaSyncUpdate_ValueUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &valueStr,
+			}
+		}
+		if form.DeltaEnabled != nil {
+			enabledBool := *form.DeltaEnabled
+			delta.Enabled = &apiv1.HttpBodyFormDeltaSyncUpdate_EnabledUnion{
+				Kind: 477045804, // KIND_BOOL
+				Bool: &enabledBool,
+			}
+		}
+		if form.DeltaDescription != nil {
+			descStr := *form.DeltaDescription
+			delta.Description = &apiv1.HttpBodyFormDeltaSyncUpdate_DescriptionUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &descStr,
+			}
+		}
+		if form.DeltaOrder != nil {
+			orderFloat := *form.DeltaOrder
+			delta.Order = &apiv1.HttpBodyFormDeltaSyncUpdate_OrderUnion{
+				Kind:  182966389, // KIND_FLOAT
+				Float: &orderFloat,
+			}
+		}
+		value = &apiv1.HttpBodyFormDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpBodyFormDeltaSync_ValueUnion_KIND_UPDATE,
+			Update: delta,
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpBodyFormDeltaSync_ValueUnion{
+			Kind: apiv1.HttpBodyFormDeltaSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpBodyFormDeltaSyncDelete{
+				DeltaHttpBodyFormId: form.ID.Bytes(),
+			},
+		}
+	}
+
+	return &apiv1.HttpBodyFormDeltaSyncResponse{
+		Items: []*apiv1.HttpBodyFormDeltaSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// httpAssertDeltaSyncResponseFrom converts HttpAssertEvent and assert record to HttpAssertDeltaSync response
+func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttpassert.HttpAssert) *apiv1.HttpAssertDeltaSyncResponse {
+	var value *apiv1.HttpAssertDeltaSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		delta := &apiv1.HttpAssertDeltaSyncCreate{
+			DeltaHttpAssertId: assert.ID.Bytes(),
+		}
+		if assert.ParentHttpAssertID != nil {
+			delta.HttpAssertId = assert.ParentHttpAssertID.Bytes()
+		}
+		delta.HttpId = assert.HttpID.Bytes()
+		if assert.DeltaValue != nil {
+			delta.Value = assert.DeltaValue
+		}
+		value = &apiv1.HttpAssertDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpAssertDeltaSync_ValueUnion_KIND_CREATE,
+			Create: delta,
+		}
+	case eventTypeUpdate:
+		delta := &apiv1.HttpAssertDeltaSyncUpdate{
+			DeltaHttpAssertId: assert.ID.Bytes(),
+		}
+		if assert.ParentHttpAssertID != nil {
+			delta.HttpAssertId = assert.ParentHttpAssertID.Bytes()
+		}
+		delta.HttpId = assert.HttpID.Bytes()
+		if assert.DeltaValue != nil {
+			valueStr := *assert.DeltaValue
+			delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &valueStr,
+			}
+		}
+		value = &apiv1.HttpAssertDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpAssertDeltaSync_ValueUnion_KIND_UPDATE,
+			Update: delta,
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpAssertDeltaSync_ValueUnion{
+			Kind: apiv1.HttpAssertDeltaSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpAssertDeltaSyncDelete{
+				DeltaHttpAssertId: assert.ID.Bytes(),
+			},
+		}
+	}
+
+	return &apiv1.HttpAssertDeltaSyncResponse{
+		Items: []*apiv1.HttpAssertDeltaSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// httpBodyUrlEncodedDeltaSyncResponseFrom converts HttpBodyUrlEncodedEvent and body record to HttpBodyUrlEncodedDeltaSync response
+func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body mhttpbodyurlencoded.HttpBodyUrlEncoded) *apiv1.HttpBodyUrlEncodedDeltaSyncResponse {
+	var value *apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion
+
+	switch event.Type {
+	case eventTypeCreate:
+		delta := &apiv1.HttpBodyUrlEncodedDeltaSyncCreate{
+			DeltaHttpBodyUrlEncodedId: body.ID.Bytes(),
+		}
+		if body.ParentHttpBodyUrlEncodedID != nil {
+			delta.HttpBodyUrlEncodedId = body.ParentHttpBodyUrlEncodedID.Bytes()
+		}
+		delta.HttpId = body.HttpID.Bytes()
+		if body.DeltaKey != nil {
+			delta.Key = body.DeltaKey
+		}
+		if body.DeltaValue != nil {
+			delta.Value = body.DeltaValue
+		}
+		if body.DeltaEnabled != nil {
+			delta.Enabled = body.DeltaEnabled
+		}
+		if body.DeltaDescription != nil {
+			delta.Description = body.DeltaDescription
+		}
+		if body.DeltaOrder != nil {
+			delta.Order = body.DeltaOrder
+		}
+		value = &apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion_KIND_CREATE,
+			Create: delta,
+		}
+	case eventTypeUpdate:
+		delta := &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate{
+			DeltaHttpBodyUrlEncodedId: body.ID.Bytes(),
+		}
+		if body.ParentHttpBodyUrlEncodedID != nil {
+			delta.HttpBodyUrlEncodedId = body.ParentHttpBodyUrlEncodedID.Bytes()
+		}
+		delta.HttpId = body.HttpID.Bytes()
+		if body.DeltaKey != nil {
+			keyStr := *body.DeltaKey
+			delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &keyStr,
+			}
+		}
+		if body.DeltaValue != nil {
+			valueStr := *body.DeltaValue
+			delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &valueStr,
+			}
+		}
+		if body.DeltaEnabled != nil {
+			enabledBool := *body.DeltaEnabled
+			delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
+				Kind: 477045804, // KIND_BOOL
+				Bool: &enabledBool,
+			}
+		}
+		if body.DeltaDescription != nil {
+			descStr := *body.DeltaDescription
+			delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
+				Kind:    315301840, // KIND_STRING
+				String_: &descStr,
+			}
+		}
+		if body.DeltaOrder != nil {
+			orderFloat := *body.DeltaOrder
+			delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
+				Kind:  182966389, // KIND_FLOAT
+				Float: &orderFloat,
+			}
+		}
+		value = &apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion_KIND_UPDATE,
+			Update: delta,
+		}
+	case eventTypeDelete:
+		value = &apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion{
+			Kind: apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpBodyUrlEncodedDeltaSyncDelete{
+				DeltaHttpBodyUrlEncodedId: body.ID.Bytes(),
+			},
+		}
+	}
+
+	return &apiv1.HttpBodyUrlEncodedDeltaSyncResponse{
+		Items: []*apiv1.HttpBodyUrlEncodedDeltaSync{
+			{
+				Value: value,
+			},
+		},
+	}
+}
+
+// streamHttpBodyUrlEncodedDeltaSync streams HTTP body URL encoded delta events to the client
+func (h *HttpServiceRPC) streamHttpBodyUrlEncodedDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyUrlEncodedDeltaSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get body URL encoded for this HTTP entry
+			bodyUrlEncodeds, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, http.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, bodyUrlEncoded := range bodyUrlEncodeds {
+				if !bodyUrlEncoded.IsDelta {
+					continue // Only include delta records
+				}
+				events = append(events, eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]{
+					Topic: HttpBodyUrlEncodedTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpBodyUrlEncodedEvent{
+						Type:               eventTypeCreate,
+						HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+					},
+				})
+			}
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpBodyUrlEncodedTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpBodyUrlEncodedStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			// Get the full body URL encoded record for delta sync response
+			bodyID, err := idwrap.NewFromBytes(evt.Payload.HttpBodyUrlEncoded.GetHttpBodyUrlEncodedId())
+			if err != nil {
+				continue // Skip if can't parse ID
+			}
+			bodyRecord, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyID)
+			if err != nil {
+				continue // Skip if can't get the record
+			}
+			resp := httpBodyUrlEncodedDeltaSyncResponseFrom(evt.Payload, *bodyRecord)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 // streamHttpBodyUrlEncodedSync streams HTTP body URL encoded events to the client
 func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyUrlEncodedSyncResponse) error) error {
 	var workspaceSet sync.Map
@@ -3851,8 +6672,12 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 }
 
 func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyUrlEncodedDeltaSyncResponse]) error {
-	// Stub implementation - delta sync is not implemented
-	return connect.NewError(connect.CodeUnimplemented, errors.New("HttpBodyUrlEncodedDeltaSync not implemented yet"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpBodyUrlEncodedDeltaSync(ctx, userID, stream.Send)
 }
 
 func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyRawCollectionResponse], error) {
@@ -3898,15 +6723,241 @@ func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect
 }
 
 func (h *HttpServiceRPC) HttpBodyRawCreate(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw must be provided"))
+	}
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	bodyRawService := h.bodyService.TX(tx)
+
+	for _, item := range req.Msg.Items {
+		if len(item.HttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required"))
+		}
+
+		httpID, err := idwrap.NewFromBytes(item.HttpId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Verify the HTTP entry exists and user has access
+		httpEntry, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check write access to the workspace
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Determine visualize mode based on content
+		visualizeMode := mbodyraw.VisualizeModeText
+		if json.Valid([]byte(item.Data)) {
+			visualizeMode = mbodyraw.VisualizeModeJSON
+		}
+
+		// Create the body raw
+		bodyRawModel := &mbodyraw.ExampleBodyRaw{
+			ID:            idwrap.NewNow(),
+			ExampleID:     httpID,
+			Data:          []byte(item.Data),
+			VisualizeMode: visualizeMode,
+			CompressType:  compress.CompressTypeNone,
+		}
+
+		if err := bodyRawService.CreateBodyRaw(ctx, *bodyRawModel); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw must be provided"))
+	}
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	bodyRawService := h.bodyService.TX(tx)
+
+	for _, item := range req.Msg.Items {
+		if len(item.HttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required"))
+		}
+
+		httpID, err := idwrap.NewFromBytes(item.HttpId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing body raw
+		existingBodyRaw, err := bodyRawService.GetBodyRawByExampleID(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, sbodyraw.ErrNoBodyRawFound) {
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("raw body not found for this HTTP entry"))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify the HTTP entry exists and user has access
+		httpEntry, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check write access to the workspace
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Update fields if provided
+		if item.Data != nil {
+			existingBodyRaw.Data = []byte(*item.Data)
+
+			// Re-determine visualize mode based on new content
+			visualizeMode := mbodyraw.VisualizeModeText
+			if json.Valid([]byte(*item.Data)) {
+				visualizeMode = mbodyraw.VisualizeModeJSON
+			}
+			existingBodyRaw.VisualizeMode = visualizeMode
+		}
+
+		if err := bodyRawService.UpdateBodyRawBody(ctx, *existingBodyRaw); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyRawSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyRawSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("not implemented"))
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpBodyRawSync(ctx, userID, stream.Send)
+}
+
+// streamHttpBodyRawSync streams HTTP body raw events to the client
+func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyRawSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Snapshot provider for initial state
+	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpBodyRawTopic, HttpBodyRawEvent], error) {
+		// Get all HTTP entries for user
+		httpList, err := h.listUserHttp(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[HttpBodyRawTopic, HttpBodyRawEvent], 0)
+		for _, http := range httpList {
+			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
+
+			// Get body raw for this HTTP entry
+			rows, err := h.DB.QueryContext(ctx, `
+				SELECT http_id, data
+				FROM http_body_raw
+				WHERE http_id = ?
+			`, http.ID.Bytes())
+			if err != nil {
+				return nil, err
+			}
+
+			for rows.Next() {
+				var httpID []byte
+				var data string
+				err := rows.Scan(
+					&httpID,
+					&data,
+				)
+				if err != nil {
+					rows.Close()
+					return nil, err
+				}
+
+				events = append(events, eventstream.Event[HttpBodyRawTopic, HttpBodyRawEvent]{
+					Topic: HttpBodyRawTopic{WorkspaceID: http.WorkspaceID},
+					Payload: HttpBodyRawEvent{
+						Type:        eventTypeCreate,
+						HttpBodyRaw: toAPIHttpBodyRaw(httpID, data),
+					},
+				})
+			}
+
+			if err := rows.Err(); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			rows.Close()
+		}
+		return events, nil
+	}
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpBodyRawTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events with snapshot
+	events, err := h.httpBodyRawStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := httpBodyRawSyncResponseFrom(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // Helper methods for HTTP request execution
@@ -3988,7 +7039,7 @@ func (h *HttpServiceRPC) loadHttpBody(ctx context.Context, httpID idwrap.IDWrap)
 }
 
 // storeHttpResponse stores the HTTP response in the database
-func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpID idwrap.IDWrap, resp httpclient.Response) error {
+func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpID idwrap.IDWrap, resp httpclient.Response, duration int64) (idwrap.IDWrap, error) {
 	// Create response model
 	responseModel := mexampleresp.ExampleResp{
 		ID:               idwrap.NewNow(), // Generate new ID for response
@@ -3996,15 +7047,570 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpID idwrap.ID
 		Status:           uint16(resp.StatusCode),
 		Body:             resp.Body,
 		BodyCompressType: mexampleresp.BodyCompressTypeNone, // No compression for now
-		Duration:         0,                                 // TODO: Capture actual request duration
+		Duration:         int32(duration),                   // Actual request duration in milliseconds
 	}
 
 	// Store using response service
 	err := h.respService.CreateExampleResp(ctx, responseModel)
 	if err != nil {
-		return fmt.Errorf("failed to store HTTP response: %w", err)
+		return idwrap.IDWrap{}, fmt.Errorf("failed to store HTTP response: %w", err)
 	}
 
-	log.Printf("Stored HTTP Response for %s: Status=%d, Content-Length=%d", httpID.String(), resp.StatusCode, len(resp.Body))
+	log.Printf("Stored HTTP Response %s for %s: Status=%d, Content-Length=%d, Duration=%dms",
+		responseModel.ID.String(), httpID.String(), resp.StatusCode, len(resp.Body), duration)
+	return responseModel.ID, nil
+}
+
+// evaluateAndStoreAssertions loads assertions for an HTTP entry, evaluates them against the response, and stores the results
+// AssertionResult represents the result of an assertion evaluation
+type AssertionResult struct {
+	AssertionID idwrap.IDWrap
+	Expression  string
+	Success     bool
+	Error       error
+	EvaluatedAt time.Time
+}
+
+func (h *HttpServiceRPC) evaluateAndStoreAssertions(ctx context.Context, httpID idwrap.IDWrap, responseID idwrap.IDWrap, resp httpclient.Response) error {
+	// Load assertions for this HTTP entry
+	asserts, err := h.httpAssertService.GetHttpAssertsByHttpID(ctx, httpID)
+	if err != nil {
+		return fmt.Errorf("failed to load assertions for HTTP %s: %w", httpID.String(), err)
+	}
+
+	if len(asserts) == 0 {
+		// No assertions to evaluate
+		log.Printf("No assertions found for HTTP %s", httpID.String())
+		return nil
+	}
+
+	// Filter enabled assertions and log statistics
+	enabledAsserts := make([]mhttpassert.HttpAssert, 0, len(asserts))
+	disabledCount := 0
+	for _, assert := range asserts {
+		if assert.Enabled {
+			enabledAsserts = append(enabledAsserts, assert)
+		} else {
+			disabledCount++
+		}
+	}
+
+	if len(enabledAsserts) == 0 {
+		// No enabled assertions to evaluate
+		log.Printf("No enabled assertions to evaluate for HTTP %s (%d total, %d disabled)",
+			httpID.String(), len(asserts), disabledCount)
+		return nil
+	}
+
+	log.Printf("Evaluating %d enabled assertions for HTTP %s (%d total, %d disabled)",
+		len(enabledAsserts), httpID.String(), len(asserts), disabledCount)
+
+	// Create evaluation context with response data (shared across all assertions)
+	evalContext := h.createAssertionEvalContext(resp)
+
+	// Evaluate assertions in parallel and collect results
+	results := h.evaluateAssertionsParallel(ctx, enabledAsserts, evalContext)
+
+	// Log evaluation summary before storage
+	evalSuccessCount := 0
+	evalErrorCount := 0
+	for _, result := range results {
+		if result.Error != nil {
+			evalErrorCount++
+		} else if result.Success {
+			evalSuccessCount++
+		}
+	}
+
+	log.Printf("Assertion evaluation completed for HTTP %s: %d succeeded, %d failed, %d had errors",
+		httpID.String(), evalSuccessCount, len(results)-evalSuccessCount-evalErrorCount, evalErrorCount)
+
+	// Store assertion results in batch with enhanced error handling
+	if err := h.storeAssertionResultsBatch(ctx, httpID, responseID, results); err != nil {
+		return fmt.Errorf("failed to store assertion results for HTTP %s: %w", httpID.String(), err)
+	}
+
+	return nil
+}
+
+// evaluateAssertionsParallel evaluates multiple assertions in parallel with timeout and error handling
+func (h *HttpServiceRPC) evaluateAssertionsParallel(ctx context.Context, asserts []mhttpassert.HttpAssert, evalContext map[string]any) []AssertionResult {
+	results := make([]AssertionResult, len(asserts))
+	resultChan := make(chan AssertionResult, len(asserts))
+
+	// Use a WaitGroup to wait for all goroutines to complete
+	var wg sync.WaitGroup
+
+	// Create a context with timeout for assertion evaluation (30 seconds per assertion batch)
+	evalCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	// Evaluate each assertion in a separate goroutine
+	for i, assert := range asserts {
+		wg.Add(1)
+		go func(idx int, assertion mhttpassert.HttpAssert) {
+			defer wg.Done()
+			startTime := time.Now()
+			result := AssertionResult{
+				AssertionID: assertion.ID,
+				EvaluatedAt: startTime,
+			}
+
+			// Recover from panics in assertion evaluation
+			defer func() {
+				if r := recover(); r != nil {
+					result.Error = fmt.Errorf("panic during assertion evaluation: %v", r)
+					result.Success = false
+					resultChan <- result
+				}
+			}()
+
+			// Construct the expression to evaluate
+			expression := assertion.Value
+			if assertion.Key != "" {
+				// If Key is provided, construct expression based on key type
+				expression = h.constructAssertionExpression(assertion.Key, assertion.Value)
+			}
+			result.Expression = expression
+
+			// Evaluate the assertion expression with context
+			success, err := h.evaluateAssertion(evalCtx, expression, evalContext)
+			if err != nil {
+				// Check for context timeout
+				if evalCtx.Err() == context.DeadlineExceeded {
+					result.Error = fmt.Errorf("assertion evaluation timed out: %w", err)
+				} else {
+					result.Error = fmt.Errorf("evaluation failed: %w", err)
+				}
+				result.Success = false
+			} else {
+				result.Success = success
+			}
+
+			// Add evaluation duration for monitoring
+			duration := time.Since(startTime)
+			if duration > 5*time.Second {
+				log.Printf("Slow assertion evaluation for %s: took %v", assertion.ID.String(), duration)
+			}
+
+			resultChan <- result
+		}(i, assert)
+	}
+
+	// Close the result channel when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// Collect results preserving order with timeout
+	collectCtx, collectCancel := context.WithTimeout(ctx, 35*time.Second)
+	defer collectCancel()
+
+	collectedCount := 0
+	for {
+		select {
+		case result, ok := <-resultChan:
+			if !ok {
+				// Channel closed, all results collected
+				goto done
+			}
+			// Find the original index for this result
+			for j, assert := range asserts {
+				if assert.ID == result.AssertionID {
+					results[j] = result
+					collectedCount++
+					break
+				}
+			}
+
+		case <-collectCtx.Done():
+			// Collection timeout - fill missing results with timeout error
+			log.Printf("Assertion result collection timed out after 35 seconds")
+			for j, assert := range asserts {
+				if results[j].AssertionID.String() == "" {
+					results[j] = AssertionResult{
+						AssertionID: assert.ID,
+						Expression:  assert.Value,
+						Success:     false,
+						Error:       fmt.Errorf("collection timeout"),
+						EvaluatedAt: time.Now(),
+					}
+				}
+			}
+			goto done
+
+		case <-evalCtx.Done():
+			// Evaluation context cancelled
+			log.Printf("Assertion evaluation context cancelled: %v", evalCtx.Err())
+			for j, assert := range asserts {
+				if results[j].AssertionID.String() == "" {
+					results[j] = AssertionResult{
+						AssertionID: assert.ID,
+						Expression:  assert.Value,
+						Success:     false,
+						Error:       fmt.Errorf("evaluation cancelled: %w", evalCtx.Err()),
+						EvaluatedAt: time.Now(),
+					}
+				}
+			}
+			goto done
+		}
+	}
+
+done:
+	if collectedCount != len(asserts) {
+		log.Printf("Only collected %d out of %d assertion results", collectedCount, len(asserts))
+	}
+
+	return results
+}
+
+// storeAssertionResultsBatch stores multiple assertion results in a single database transaction
+func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID idwrap.IDWrap, responseID idwrap.IDWrap, results []AssertionResult) error {
+	if len(results) == 0 {
+		return nil
+	}
+
+	// Start transaction for batch insertion
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			// Rollback on error
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("Failed to rollback transaction: %v", rbErr)
+			}
+		}
+	}()
+
+	// Prepare batch insert statement matching existing database schema
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO http_response_assert (id, http_id, value, success, created_at)
+		VALUES (?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	// Insert all results in batch
+	now := time.Now().Unix()
+	for _, result := range results {
+		var value string
+		var success bool
+
+		if result.Error != nil {
+			// Store error information in the value field
+			value = fmt.Sprintf("ERROR: %s", result.Error.Error())
+			success = false
+		} else {
+			// Store successful assertion result
+			value = result.Expression
+			success = result.Success
+		}
+
+		_, err := stmt.ExecContext(ctx,
+			idwrap.NewNow().Bytes(),
+			httpID.Bytes(),
+			value,
+			success,
+			now,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to insert assertion result for %s: %w", result.AssertionID.String(), err)
+		}
+	}
+
+	log.Printf("Stored %d assertion results for HTTP %s (response %s)",
+		len(results), httpID.String(), responseID.String())
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// createAssertionEvalContext creates the evaluation context with response data and dynamic variables
+func (h *HttpServiceRPC) createAssertionEvalContext(resp httpclient.Response) map[string]any {
+	// Parse response body as JSON if possible, providing multiple formats
+	var body any
+	var bodyMap map[string]any
+	bodyString := string(resp.Body)
+
+	if json.Valid(resp.Body) {
+		if err := json.Unmarshal(resp.Body, &body); err != nil {
+			// If JSON parsing fails, use as string
+			body = bodyString
+		} else {
+			// Also try to parse as map for easier access
+			if mapBody, ok := body.(map[string]any); ok {
+				bodyMap = mapBody
+			}
+		}
+	} else {
+		body = bodyString
+	}
+
+	// Convert headers to map with both original and lowercase keys
+	headers := make(map[string]string)
+	headersLower := make(map[string]string)
+	contentType := ""
+	contentLength := "0"
+
+	for _, header := range resp.Headers {
+		lowerKey := strings.ToLower(header.HeaderKey)
+		headers[header.HeaderKey] = header.Value
+		headersLower[lowerKey] = header.Value
+
+		// Extract commonly used headers
+		switch lowerKey {
+		case "content-type":
+			contentType = header.Value
+		case "content-length":
+			contentLength = header.Value
+		}
+	}
+
+	// Extract JSON path helpers
+	jsonPathHelpers := h.createJSONPathHelpers(bodyMap)
+
+	// Create comprehensive evaluation context
+	context := map[string]any{
+		// Main response object
+		"response": map[string]any{
+			"status":         resp.StatusCode,
+			"status_text":    h.getStatusText(resp.StatusCode),
+			"body":           body,
+			"body_string":    bodyString,
+			"body_size":      len(resp.Body),
+			"headers":        headers,
+			"headers_lower":  headersLower,
+			"content_type":   contentType,
+			"content_length": contentLength,
+		},
+
+		// Direct access variables
+		"status":         resp.StatusCode,
+		"status_code":    resp.StatusCode,
+		"status_text":    h.getStatusText(resp.StatusCode),
+		"body":           body,
+		"body_string":    bodyString,
+		"body_size":      len(resp.Body),
+		"headers":        headers,
+		"headers_lower":  headersLower,
+		"content_type":   contentType,
+		"content_length": contentLength,
+
+		// Convenience variables
+		"success":      resp.StatusCode >= 200 && resp.StatusCode < 300,
+		"client_error": resp.StatusCode >= 400 && resp.StatusCode < 500,
+		"server_error": resp.StatusCode >= 500 && resp.StatusCode < 600,
+		"is_json":      strings.HasPrefix(contentType, "application/json"),
+		"is_html":      strings.HasPrefix(contentType, "text/html"),
+		"is_text":      strings.HasPrefix(contentType, "text/"),
+		"has_body":     len(resp.Body) > 0,
+
+		// JSON path helpers
+		"json": jsonPathHelpers,
+	}
+
+	return context
+}
+
+// createJSONPathHelpers creates helper functions for JSON path navigation
+func (h *HttpServiceRPC) createJSONPathHelpers(bodyMap map[string]any) map[string]any {
+	helpers := make(map[string]any)
+
+	if bodyMap == nil {
+		return helpers
+	}
+
+	// Helper function to get nested value by path
+	getPath := func(path string) any {
+		parts := strings.Split(path, ".")
+		current := bodyMap
+
+		for _, part := range parts {
+			if next, ok := current[part]; ok {
+				if nextMap, ok := next.(map[string]any); ok {
+					current = nextMap
+				} else {
+					return next
+				}
+			} else {
+				return nil
+			}
+		}
+
+		return current
+	}
+
+	// Helper function to check if path exists
+	hasPath := func(path string) bool {
+		return getPath(path) != nil
+	}
+
+	// Helper function to get string value
+	getString := func(path string) string {
+		if val := getPath(path); val != nil {
+			if str, ok := val.(string); ok {
+				return str
+			}
+			return fmt.Sprintf("%v", val)
+		}
+		return ""
+	}
+
+	// Helper function to get numeric value
+	getNumber := func(path string) float64 {
+		if val := getPath(path); val != nil {
+			if num, ok := val.(float64); ok {
+				return num
+			}
+			if num, ok := val.(int); ok {
+				return float64(num)
+			}
+		}
+		return 0
+	}
+
+	helpers["path"] = getPath
+	helpers["has"] = hasPath
+	helpers["string"] = getString
+	helpers["number"] = getNumber
+
+	return helpers
+}
+
+// getStatusText returns the standard HTTP status text for a status code
+func (h *HttpServiceRPC) getStatusText(statusCode int) string {
+	switch {
+	case statusCode >= 100 && statusCode < 200:
+		switch statusCode {
+		case 100:
+			return "Continue"
+		case 101:
+			return "Switching Protocols"
+		case 102:
+			return "Processing"
+		case 103:
+			return "Early Hints"
+		default:
+			return "Informational"
+		}
+	case statusCode >= 200 && statusCode < 300:
+		switch statusCode {
+		case 200:
+			return "OK"
+		case 201:
+			return "Created"
+		case 202:
+			return "Accepted"
+		case 204:
+			return "No Content"
+		case 206:
+			return "Partial Content"
+		default:
+			return "Success"
+		}
+	case statusCode >= 300 && statusCode < 400:
+		switch statusCode {
+		case 300:
+			return "Multiple Choices"
+		case 301:
+			return "Moved Permanently"
+		case 302:
+			return "Found"
+		case 304:
+			return "Not Modified"
+		case 307:
+			return "Temporary Redirect"
+		case 308:
+			return "Permanent Redirect"
+		default:
+			return "Redirection"
+		}
+	case statusCode >= 400 && statusCode < 500:
+		switch statusCode {
+		case 400:
+			return "Bad Request"
+		case 401:
+			return "Unauthorized"
+		case 403:
+			return "Forbidden"
+		case 404:
+			return "Not Found"
+		case 405:
+			return "Method Not Allowed"
+		case 408:
+			return "Request Timeout"
+		case 409:
+			return "Conflict"
+		case 422:
+			return "Unprocessable Entity"
+		case 429:
+			return "Too Many Requests"
+		default:
+			return "Client Error"
+		}
+	case statusCode >= 500 && statusCode < 600:
+		switch statusCode {
+		case 500:
+			return "Internal Server Error"
+		case 501:
+			return "Not Implemented"
+		case 502:
+			return "Bad Gateway"
+		case 503:
+			return "Service Unavailable"
+		case 504:
+			return "Gateway Timeout"
+		default:
+			return "Server Error"
+		}
+	default:
+		return "Unknown"
+	}
+}
+
+// constructAssertionExpression constructs an expression from key and value
+func (h *HttpServiceRPC) constructAssertionExpression(key, value string) string {
+	switch key {
+	case "status_code":
+		return fmt.Sprintf("response.status == %s", value)
+	case "response_time":
+		return fmt.Sprintf("response_time %s", value)
+	case "content_type":
+		return fmt.Sprintf("response.headers['content-type'] == '%s'", value)
+	case "body":
+		return fmt.Sprintf("response.body == %s", value)
+	default:
+		// For unknown keys, assume it's a direct expression
+		return value
+	}
+}
+
+// evaluateAssertion evaluates an assertion expression against the provided context
+func (h *HttpServiceRPC) evaluateAssertion(ctx context.Context, expressionStr string, context map[string]any) (bool, error) {
+	env := expression.NewEnv(context)
+	return expression.ExpressionEvaluteAsBool(ctx, env, expressionStr)
+}
+
+// storeAssertionResult stores the result of an assertion evaluation
+func (h *HttpServiceRPC) storeAssertionResult(ctx context.Context, httpID idwrap.IDWrap, assertionValue string, success bool) error {
+	_, err := h.DB.ExecContext(ctx, `
+		INSERT INTO http_response_assert (id, http_id, value, success, created_at)
+		VALUES (?, ?, ?, ?, ?)
+	`, idwrap.NewNow().Bytes(), httpID.Bytes(), assertionValue, success, time.Now().Unix())
+
+	if err != nil {
+		return fmt.Errorf("failed to insert assertion result: %w", err)
+	}
+
 	return nil
 }
