@@ -3,7 +3,7 @@ package tcollection
 import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcollection"
-	collectionv1 "the-dev-tools/spec/dist/buf/go/collection/v1"
+	collectionv1 "the-dev-tools/spec/dist/buf/go/api/collection/v1"
 )
 
 func SerializeCollectionModelToRPC(collection mcollection.Collection) *collectionv1.CollectionListItem {

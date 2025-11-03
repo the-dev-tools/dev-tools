@@ -2,7 +2,16 @@ package mexampleheader
 
 import (
 	"the-dev-tools/server/pkg/idwrap"
-	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+)
+
+// Temporary delta types until delta.tsp generation is fixed
+type SourceKind int32
+
+const (
+	SourceKind_SOURCE_KIND_UNSPECIFIED SourceKind = 0
+	SourceKind_SOURCE_KIND_ORIGIN      SourceKind = 1
+	SourceKind_SOURCE_KIND_MIXED       SourceKind = 2
+	SourceKind_SOURCE_KIND_DELTA       SourceKind = 3
 )
 
 // HeaderSource represents the source kind of header for delta operations
@@ -14,28 +23,28 @@ const (
 	HeaderSourceDelta  HeaderSource = 3 // SOURCE_KIND_DELTA
 )
 
-// ToSourceKind converts HeaderSource to deltav1.SourceKind
-func (s HeaderSource) ToSourceKind() deltav1.SourceKind {
+// ToSourceKind converts HeaderSource to SourceKind
+func (s HeaderSource) ToSourceKind() SourceKind {
 	switch s {
 	case HeaderSourceOrigin:
-		return deltav1.SourceKind_SOURCE_KIND_ORIGIN
+		return SourceKind_SOURCE_KIND_ORIGIN
 	case HeaderSourceMixed:
-		return deltav1.SourceKind_SOURCE_KIND_MIXED
+		return SourceKind_SOURCE_KIND_MIXED
 	case HeaderSourceDelta:
-		return deltav1.SourceKind_SOURCE_KIND_DELTA
+		return SourceKind_SOURCE_KIND_DELTA
 	default:
-		return deltav1.SourceKind_SOURCE_KIND_UNSPECIFIED
+		return SourceKind_SOURCE_KIND_UNSPECIFIED
 	}
 }
 
-// FromSourceKind converts deltav1.SourceKind to HeaderSource
-func FromSourceKind(kind deltav1.SourceKind) HeaderSource {
+// FromSourceKind converts SourceKind to HeaderSource
+func FromSourceKind(kind SourceKind) HeaderSource {
 	switch kind {
-	case deltav1.SourceKind_SOURCE_KIND_ORIGIN:
+	case SourceKind_SOURCE_KIND_ORIGIN:
 		return HeaderSourceOrigin
-	case deltav1.SourceKind_SOURCE_KIND_MIXED:
+	case SourceKind_SOURCE_KIND_MIXED:
 		return HeaderSourceMixed
-	case deltav1.SourceKind_SOURCE_KIND_DELTA:
+	case SourceKind_SOURCE_KIND_DELTA:
 		return HeaderSourceDelta
 	default:
 		return HeaderSourceOrigin // default to origin

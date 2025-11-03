@@ -2,7 +2,7 @@ package mexamplequery
 
 import (
 	"the-dev-tools/server/pkg/idwrap"
-	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+	// deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1" // Temporarily commented out
 )
 
 // QuerySource represents the source kind of query for delta operations
@@ -15,6 +15,8 @@ const (
 )
 
 // ToSourceKind converts QuerySource to deltav1.SourceKind
+// TODO: Re-enable when delta spec is available
+/*
 func (s QuerySource) ToSourceKind() deltav1.SourceKind {
 	switch s {
 	case QuerySourceOrigin:
@@ -41,6 +43,7 @@ func FromSourceKind(kind deltav1.SourceKind) QuerySource {
 		return QuerySourceOrigin // default to origin
 	}
 }
+*/
 
 type Query struct {
 	QueryKey      string
