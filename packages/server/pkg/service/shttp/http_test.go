@@ -2,9 +2,11 @@ package shttp
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
+	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -14,18 +16,19 @@ func TestHttpService(t *testing.T) {
 	ctx := context.Background()
 
 	// Create in-memory database for testing
-	db, err := gen.GetTestPreparedQueries(ctx)
+	db, err := dbtest.GetTestPreparedQueries(ctx)
 	if err != nil {
 		t.Fatalf("Failed to create in-memory database: %v", err)
 	}
 	defer db.Close()
 
 	// Create service
-	service := New(db, nil)
+	logger := slog.Default()
+	service := New(db, logger)
 
 	// Test data
-	workspaceID := idwrap.NewIDWrap()
-	httpID := idwrap.NewIDWrap()
+	workspaceID := idwrap.NewNow()
+	httpID := idwrap.NewNow()
 	now := time.Now().Unix()
 
 	// Create test HTTP
@@ -141,32 +144,36 @@ func TestHttpService_TX(t *testing.T) {
 	ctx := context.Background()
 
 	// Create in-memory database for testing
-	db, err := gen.GetTestPreparedQueries(ctx)
+	db, err := dbtest.GetTestPreparedQueries(ctx)
 	if err != nil {
 		t.Fatalf("Failed to create in-memory database: %v", err)
 	}
 	defer db.Close()
 
 	// Create service
-	service := New(db, nil)
+	logger := slog.Default()
+	service := New(db, logger)
 
-	// Test transaction wrapper
-	txService := service.TX(nil)
-	if txService == nil {
-		t.Errorf("Expected non-nil TX service")
+	// Test TX wrapper
+	txService := service.TX(nil) // nil tx for testing
+
+	// The TX service should have the same type but different queries instance
+	if txService.queries == service.queries {
+		t.Errorf("TX service should have different queries instance")
 	}
 }
 
 func TestHttpService_ConvertToDBHTTP(t *testing.T) {
 	now := time.Now().Unix()
+	parentID := idwrap.NewNow()
 	http := mhttp.HTTP{
-		ID:               idwrap.NewIDWrap(),
-		WorkspaceID:      idwrap.NewIDWrap(),
+		ID:               idwrap.NewNow(),
+		WorkspaceID:      idwrap.NewNow(),
 		Name:             "Test HTTP",
 		Url:              "https://api.example.com/test",
 		Method:           "GET",
 		Description:      "Test description",
-		ParentHttpID:     idwrap.NewIDWrap(),
+		ParentHttpID:     &parentID,
 		IsDelta:          true,
 		DeltaName:        stringPtr("Delta Name"),
 		DeltaUrl:         stringPtr("https://delta.example.com"),
@@ -205,14 +212,15 @@ func TestHttpService_ConvertToDBHTTP(t *testing.T) {
 
 func TestHttpService_ConvertToModelHTTP(t *testing.T) {
 	now := time.Now().Unix()
+	parentID := idwrap.NewNow()
 	dbHttp := gen.Http{
-		ID:               idwrap.NewIDWrap(),
-		WorkspaceID:      idwrap.NewIDWrap(),
+		ID:               idwrap.NewNow(),
+		WorkspaceID:      idwrap.NewNow(),
 		Name:             "Test HTTP",
 		Url:              "https://api.example.com/test",
 		Method:           "GET",
 		Description:      "Test description",
-		ParentHttpID:     idwrap.NewIDWrap(),
+		ParentHttpID:     &parentID,
 		IsDelta:          true,
 		DeltaName:        stringPtr("Delta Name"),
 		DeltaUrl:         stringPtr("https://delta.example.com"),
@@ -253,18 +261,19 @@ func TestHttpService_GetWorkspaceID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create in-memory database for testing
-	db, err := gen.GetTestPreparedQueries(ctx)
+	db, err := dbtest.GetTestPreparedQueries(ctx)
 	if err != nil {
 		t.Fatalf("Failed to create in-memory database: %v", err)
 	}
 	defer db.Close()
 
 	// Create service
-	service := New(db, nil)
+	logger := slog.Default()
+	service := New(db, logger)
 
 	// Test data
-	workspaceID := idwrap.NewIDWrap()
-	httpID := idwrap.NewIDWrap()
+	workspaceID := idwrap.NewNow()
+	httpID := idwrap.NewNow()
 	now := time.Now().Unix()
 
 	// Create test HTTP
@@ -279,7 +288,7 @@ func TestHttpService_GetWorkspaceID(t *testing.T) {
 		UpdatedAt:   now,
 	}
 
-	err := service.Create(ctx, http)
+	err = service.Create(ctx, http)
 	if err != nil {
 		t.Fatalf("Failed to create HTTP: %v", err)
 	}
@@ -295,7 +304,7 @@ func TestHttpService_GetWorkspaceID(t *testing.T) {
 	}
 
 	// Test with non-existent HTTP
-	nonExistentID := idwrap.NewIDWrap()
+	nonExistentID := idwrap.NewNow()
 	_, err = service.GetWorkspaceID(ctx, nonExistentID)
 	if err == nil {
 		t.Errorf("Expected error when getting workspace ID for non-existent HTTP")
@@ -306,21 +315,50 @@ func TestHttpService_GetWorkspaceID(t *testing.T) {
 	}
 }
 
+func TestHttpService_NewTX(t *testing.T) {
+	ctx := context.Background()
+
+	// Create in-memory database for testing
+	testDB, err := dbtest.GetTestDB(ctx)
+	if err != nil {
+		t.Fatalf("Failed to create in-memory database: %v", err)
+	}
+	defer testDB.Close()
+
+	// Start a transaction
+	tx, err := testDB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("Failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	// Test NewTX with real transaction
+	txService, err := NewTX(ctx, tx)
+	if err != nil {
+		t.Fatalf("Failed to create TX service: %v", err)
+	}
+
+	if txService == nil {
+		t.Fatal("Expected non-nil TX service")
+	}
+}
+
 func TestHttpService_ErrorHandling(t *testing.T) {
 	ctx := context.Background()
 
 	// Create in-memory database for testing
-	db, err := gen.GetTestPreparedQueries(ctx)
+	db, err := dbtest.GetTestPreparedQueries(ctx)
 	if err != nil {
 		t.Fatalf("Failed to create in-memory database: %v", err)
 	}
 	defer db.Close()
 
 	// Create service
-	service := New(db, nil)
+	logger := slog.Default()
+	service := New(db, logger)
 
 	// Test operations with non-existent IDs
-	nonExistentID := idwrap.NewIDWrap()
+	nonExistentID := idwrap.NewNow()
 
 	// Get non-existent HTTP
 	_, err = service.Get(ctx, nonExistentID)

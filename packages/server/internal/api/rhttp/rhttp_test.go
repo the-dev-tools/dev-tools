@@ -24,6 +24,11 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/shttpassert"
+	"the-dev-tools/server/pkg/service/shttpbodyform"
+	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
+	"the-dev-tools/server/pkg/service/shttpheader"
+	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
@@ -73,7 +78,21 @@ func newHttpFixture(t *testing.T) *httpFixture {
 	bodyService := sbodyraw.New(base.Queries)
 	respService := sexampleresp.New(base.Queries)
 
-	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, headerService, queryService, bodyService, respService, stream)
+	// Child entity services
+	httpHeaderService := shttpheader.New(base.Queries)
+	httpSearchParamService := shttpsearchparam.New(base.Queries)
+	httpBodyFormService := shttpbodyform.New(base.Queries)
+	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
+	httpAssertService := shttpassert.New(base.Queries)
+
+	// Streamers
+	httpHeaderStream := memory.NewInMemorySyncStreamer[HttpHeaderTopic, HttpHeaderEvent]()
+	httpSearchParamStream := memory.NewInMemorySyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent]()
+	httpBodyFormStream := memory.NewInMemorySyncStreamer[HttpBodyFormTopic, HttpBodyFormEvent]()
+	httpBodyUrlEncodedStream := memory.NewInMemorySyncStreamer[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]()
+	httpAssertStream := memory.NewInMemorySyncStreamer[HttpAssertTopic, HttpAssertEvent]()
+
+	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, headerService, queryService, bodyService, respService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream)
 
 	t.Cleanup(base.Close)
 

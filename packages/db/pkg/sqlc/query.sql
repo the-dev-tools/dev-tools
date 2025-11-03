@@ -4041,6 +4041,19 @@ SET
   updated_at = unixepoch()
 WHERE id = ?;
 
+-- name: ResetHTTPBodyFormDelta :exec
+UPDATE http_body_form
+SET
+  is_delta = false,
+  parent_http_body_form_id = NULL,
+  delta_key = NULL,
+  delta_value = NULL,
+  delta_description = NULL,
+  delta_enabled = NULL,
+  delta_order = NULL,
+  updated_at = unixepoch()
+WHERE id = ?;
+
 -- name: UpdateHTTPBodyFormOrder :exec
 UPDATE http_body_form
 SET "order" = ?

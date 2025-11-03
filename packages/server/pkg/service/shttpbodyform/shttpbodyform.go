@@ -330,20 +330,8 @@ func (hfs HttpBodyFormService) DeleteHttpBodyForm(ctx context.Context, id idwrap
 }
 
 func (hfs HttpBodyFormService) ResetHttpBodyFormDelta(ctx context.Context, id idwrap.IDWrap) error {
-	bodyForm, err := hfs.GetHttpBodyForm(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	bodyForm.ParentHttpBodyFormID = nil
-	bodyForm.IsDelta = false
-	bodyForm.DeltaKey = nil
-	bodyForm.DeltaValue = nil
-	bodyForm.DeltaEnabled = nil
-	bodyForm.DeltaDescription = nil
-	bodyForm.DeltaOrder = nil
-
-	return hfs.UpdateHttpBodyFormDelta(ctx, id, bodyForm.DeltaKey, bodyForm.DeltaValue, bodyForm.DeltaEnabled, bodyForm.DeltaDescription, bodyForm.DeltaOrder)
+	// Use the new ResetHTTPBodyFormDelta query to reset all delta fields at once
+	return hfs.queries.ResetHTTPBodyFormDelta(ctx, id)
 }
 
 func (hfs HttpBodyFormService) GetHttpBodyFormsByParentID(ctx context.Context, parentID idwrap.IDWrap) ([]mhttpbodyform.HttpBodyForm, error) {

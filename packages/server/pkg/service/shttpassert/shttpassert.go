@@ -9,6 +9,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/translate/tgeneric"
+	"time"
 )
 
 // Utility functions for null handling
@@ -166,18 +167,15 @@ func (has HttpAssertService) GetHttpAssertsByHttpIDs(ctx context.Context, httpID
 		return result, nil
 	}
 
-	rows, err := has.queries.GetHTTPAssertsByIDs(ctx, httpIDs)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return result, nil
+	// For each HttpID, get the asserts and group them
+	for _, httpID := range httpIDs {
+		asserts, err := has.GetHttpAssertsByHttpID(ctx, httpID)
+		if err != nil {
+			return nil, err
 		}
-		return nil, err
-	}
-
-	for _, row := range rows {
-		model := DeserializeGenToModel(row)
-		httpID := model.HttpID
-		result[httpID] = append(result[httpID], model)
+		if len(asserts) > 0 {
+			result[httpID] = asserts
+		}
 	}
 
 	return result, nil
@@ -243,20 +241,60 @@ func (has HttpAssertService) CreateHttpAssertRaw(ctx context.Context, af gen.Htt
 }
 
 func (has HttpAssertService) UpdateHttpAssert(ctx context.Context, assert *mhttpassert.HttpAssert) error {
+	// First check if the assert exists
+	_, err := has.GetHttpAssert(ctx, assert.ID)
+	if err != nil {
+		return err
+	}
+
+	// Get the current assert to preserve fields not being updated
+	currentAssert, err := has.GetHttpAssert(ctx, assert.ID)
+	if err != nil {
+		return err
+	}
+
+	// Update with all fields, preserving delta fields from current assert
 	return has.queries.UpdateHTTPAssert(ctx, gen.UpdateHTTPAssertParams{
-		Key:         assert.Key,
-		Value:       assert.Value,
-		Description: assert.Description,
-		Enabled:     assert.Enabled,
-		ID:          assert.ID,
+		Key:              assert.Key,
+		Value:            assert.Value,
+		Description:      assert.Description,
+		Enabled:          assert.Enabled,
+		Order:            float64(currentAssert.Order), // Preserve current order
+		DeltaKey:         stringToNull(currentAssert.DeltaKey),
+		DeltaValue:       stringToNull(currentAssert.DeltaValue),
+		DeltaEnabled:     currentAssert.DeltaEnabled,
+		DeltaDescription: stringToNull(currentAssert.DeltaDescription),
+		DeltaOrder:       float32ToNull(currentAssert.DeltaOrder),
+		UpdatedAt:        time.Now().Unix(),
+		ID:               assert.ID,
 	})
 }
 
 func (has HttpAssertService) UpdateHttpAssertOrder(ctx context.Context, id idwrap.IDWrap, httpID idwrap.IDWrap, order float32) error {
-	// Note: UpdateHTTPAssertOrder query doesn't exist in generated code
-	// This would need to be implemented using UpdateHTTPAssert with all fields
-	// For now, return nil as this is a specialized operation
-	return nil
+	// First check if the assert exists
+	assert, err := has.GetHttpAssert(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Update the order using the general UpdateHTTPAssert query
+	assert.Order = order
+	assert.UpdatedAt = time.Now().Unix()
+
+	return has.queries.UpdateHTTPAssert(ctx, gen.UpdateHTTPAssertParams{
+		Key:              assert.Key,
+		Value:            assert.Value,
+		Description:      assert.Description,
+		Enabled:          assert.Enabled,
+		Order:            float64(assert.Order),
+		DeltaKey:         stringToNull(assert.DeltaKey),
+		DeltaValue:       stringToNull(assert.DeltaValue),
+		DeltaEnabled:     assert.DeltaEnabled,
+		DeltaDescription: stringToNull(assert.DeltaDescription),
+		DeltaOrder:       float32ToNull(assert.DeltaOrder),
+		UpdatedAt:        assert.UpdatedAt,
+		ID:               assert.ID,
+	})
 }
 
 func (has HttpAssertService) UpdateHttpAssertDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
@@ -271,6 +309,12 @@ func (has HttpAssertService) UpdateHttpAssertDelta(ctx context.Context, id idwra
 }
 
 func (has HttpAssertService) DeleteHttpAssert(ctx context.Context, id idwrap.IDWrap) error {
+	// First check if the assert exists
+	_, err := has.GetHttpAssert(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	return has.queries.DeleteHTTPAssert(ctx, id)
 }
 
@@ -280,6 +324,7 @@ func (has HttpAssertService) ResetHttpAssertDelta(ctx context.Context, id idwrap
 		return err
 	}
 
+	// Reset all delta fields
 	assert.ParentHttpAssertID = nil
 	assert.IsDelta = false
 	assert.DeltaKey = nil
@@ -287,8 +332,34 @@ func (has HttpAssertService) ResetHttpAssertDelta(ctx context.Context, id idwrap
 	assert.DeltaEnabled = nil
 	assert.DeltaDescription = nil
 	assert.DeltaOrder = nil
+	assert.UpdatedAt = time.Now().Unix()
 
-	return has.UpdateHttpAssertDelta(ctx, id, assert.DeltaKey, assert.DeltaValue, assert.DeltaEnabled, assert.DeltaDescription, assert.DeltaOrder)
+	// Since UpdateHTTPAssert doesn't include is_delta field, we need to delete and recreate
+	// First delete the existing assert
+	err = has.queries.DeleteHTTPAssert(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Then recreate it with IsDelta = false
+	return has.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
+		ID:                 assert.ID,
+		HttpID:             assert.HttpID,
+		Key:                assert.Key,
+		Value:              assert.Value,
+		Enabled:            assert.Enabled,
+		Description:        assert.Description,
+		Order:              float64(assert.Order),
+		ParentHttpAssertID: idWrapToBytes(assert.ParentHttpAssertID),
+		IsDelta:            assert.IsDelta,
+		DeltaKey:           stringToNull(assert.DeltaKey),
+		DeltaValue:         stringToNull(assert.DeltaValue),
+		DeltaEnabled:       assert.DeltaEnabled,
+		DeltaDescription:   stringToNull(assert.DeltaDescription),
+		DeltaOrder:         float32ToNull(assert.DeltaOrder),
+		CreatedAt:          assert.CreatedAt,
+		UpdatedAt:          assert.UpdatedAt,
+	})
 }
 
 func (has HttpAssertService) GetHttpAssertsByParentID(ctx context.Context, parentID idwrap.IDWrap) ([]mhttpassert.HttpAssert, error) {

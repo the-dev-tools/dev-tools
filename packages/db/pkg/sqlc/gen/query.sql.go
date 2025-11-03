@@ -13719,6 +13719,25 @@ func (q *Queries) ListNodeExecutionsByState(ctx context.Context, arg ListNodeExe
 	return items, nil
 }
 
+const resetHTTPBodyFormDelta = `-- name: ResetHTTPBodyFormDelta :exec
+UPDATE http_body_form
+SET
+  is_delta = false,
+  parent_http_body_form_id = NULL,
+  delta_key = NULL,
+  delta_value = NULL,
+  delta_description = NULL,
+  delta_enabled = NULL,
+  delta_order = NULL,
+  updated_at = unixepoch()
+WHERE id = ?
+`
+
+func (q *Queries) ResetHTTPBodyFormDelta(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.resetHTTPBodyFormDeltaStmt, resetHTTPBodyFormDelta, id)
+	return err
+}
+
 const resolveHTTPWithDeltas = `-- name: ResolveHTTPWithDeltas :one
 WITH RECURSIVE delta_chain AS (
   -- Base case: Start with the parent HTTP record

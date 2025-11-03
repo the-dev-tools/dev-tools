@@ -51,6 +51,11 @@ import (
 	"the-dev-tools/server/pkg/service/sflowtag"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/shttpassert"
+	"the-dev-tools/server/pkg/service/shttpbodyform"
+	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
+	"the-dev-tools/server/pkg/service/shttpheader"
+	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/sitemapi"
 	"the-dev-tools/server/pkg/service/sitemapiexample"
 
@@ -156,6 +161,13 @@ func main() {
 	tagService := stag.New(queries)
 	httpService := shttp.New(queries, logger)
 
+	// HTTP child entity services
+	httpHeaderService := shttpheader.New(queries)
+	httpSearchParamService := shttpsearchparam.New(queries)
+	httpBodyFormService := shttpbodyform.New(queries)
+	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
+	httpAssertService := shttpassert.New(queries)
+
 	// Flow
 	flowService := sflow.New(queries)
 	flowTagService := sflowtag.New(queries)
@@ -221,7 +233,19 @@ func main() {
 	httpStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
 	defer httpStreamer.Shutdown()
 
-	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpStreamer)
+	// HTTP child entity streamers
+	httpHeaderStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]()
+	defer httpHeaderStreamer.Shutdown()
+	httpSearchParamStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]()
+	defer httpSearchParamStreamer.Shutdown()
+	httpBodyFormStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]()
+	defer httpBodyFormStreamer.Shutdown()
+	httpBodyUrlEncodedStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]()
+	defer httpBodyUrlEncodedStreamer.Shutdown()
+	httpAssertStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]()
+	defer httpAssertStreamer.Shutdown()
+
+	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, opitonsAll))
 
 	// Var Service

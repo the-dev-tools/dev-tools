@@ -1032,6 +1032,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listNodeExecutionsByStateStmt, err = db.PrepareContext(ctx, listNodeExecutionsByState); err != nil {
 		return nil, fmt.Errorf("error preparing query ListNodeExecutionsByState: %w", err)
 	}
+	if q.resetHTTPBodyFormDeltaStmt, err = db.PrepareContext(ctx, resetHTTPBodyFormDelta); err != nil {
+		return nil, fmt.Errorf("error preparing query ResetHTTPBodyFormDelta: %w", err)
+	}
 	if q.resolveHTTPWithDeltasStmt, err = db.PrepareContext(ctx, resolveHTTPWithDeltas); err != nil {
 		return nil, fmt.Errorf("error preparing query ResolveHTTPWithDeltas: %w", err)
 	}
@@ -2942,6 +2945,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listNodeExecutionsByStateStmt: %w", cerr)
 		}
 	}
+	if q.resetHTTPBodyFormDeltaStmt != nil {
+		if cerr := q.resetHTTPBodyFormDeltaStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing resetHTTPBodyFormDeltaStmt: %w", cerr)
+		}
+	}
 	if q.resolveHTTPWithDeltasStmt != nil {
 		if cerr := q.resolveHTTPWithDeltasStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing resolveHTTPWithDeltasStmt: %w", cerr)
@@ -3692,6 +3700,7 @@ type Queries struct {
 	listNodeExecutionsStmt                     *sql.Stmt
 	listNodeExecutionsByFlowRunStmt            *sql.Stmt
 	listNodeExecutionsByStateStmt              *sql.Stmt
+	resetHTTPBodyFormDeltaStmt                 *sql.Stmt
 	resolveHTTPWithDeltasStmt                  *sql.Stmt
 	setBodyFormEnableStmt                      *sql.Stmt
 	setHeaderEnableStmt                        *sql.Stmt
@@ -4109,6 +4118,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listNodeExecutionsStmt:                     q.listNodeExecutionsStmt,
 		listNodeExecutionsByFlowRunStmt:            q.listNodeExecutionsByFlowRunStmt,
 		listNodeExecutionsByStateStmt:              q.listNodeExecutionsByStateStmt,
+		resetHTTPBodyFormDeltaStmt:                 q.resetHTTPBodyFormDeltaStmt,
 		resolveHTTPWithDeltasStmt:                  q.resolveHTTPWithDeltasStmt,
 		setBodyFormEnableStmt:                      q.setBodyFormEnableStmt,
 		setHeaderEnableStmt:                        q.setHeaderEnableStmt,
