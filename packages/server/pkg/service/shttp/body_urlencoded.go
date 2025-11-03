@@ -18,6 +18,41 @@ func NewHttpBodyUrlencodedService(q *gen.Queries) *HttpBodyUrlencodedService {
 	return &HttpBodyUrlencodedService{q: q}
 }
 
+func ConvertToModelHttpBodyUrlencoded(dbBody gen.HttpBodyUrlencoded) mhttp.HTTPBodyUrlencoded {
+	var parentID *idwrap.IDWrap
+	if len(dbBody.ParentHttpBodyUrlencodedID) > 0 {
+		wrappedID := idwrap.NewFromBytesMust(dbBody.ParentHttpBodyUrlencodedID)
+		parentID = &wrappedID
+	}
+
+	var deltaKey *string
+	if dbBody.DeltaKey.Valid {
+		deltaKey = &dbBody.DeltaKey.String
+	}
+
+	var deltaValue *string
+	if dbBody.DeltaValue.Valid {
+		deltaValue = &dbBody.DeltaValue.String
+	}
+
+	return mhttp.HTTPBodyUrlencoded{
+		ID:                     dbBody.ID,
+		HttpID:                 dbBody.HttpID,
+		UrlencodedKey:          dbBody.Key,
+		UrlencodedValue:        dbBody.Value,
+		Description:            dbBody.Description,
+		Enabled:                dbBody.Enabled,
+		ParentBodyUrlencodedID: parentID,
+		IsDelta:                dbBody.IsDelta,
+		DeltaUrlencodedKey:     deltaKey,
+		DeltaUrlencodedValue:   deltaValue,
+		DeltaDescription:       dbBody.DeltaDescription,
+		DeltaEnabled:           dbBody.DeltaEnabled,
+		CreatedAt:              dbBody.CreatedAt,
+		UpdatedAt:              dbBody.UpdatedAt,
+	}
+}
+
 func (s *HttpBodyUrlencodedService) Create(ctx context.Context, httpID idwrap.IDWrap, key string, value string, description string) (*mhttp.HTTPBodyUrlencoded, error) {
 	// Check permissions
 	_, err := s.q.GetHTTP(ctx, httpID)
@@ -27,22 +62,23 @@ func (s *HttpBodyUrlencodedService) Create(ctx context.Context, httpID idwrap.ID
 
 	// Create the body urlencoded
 	id := idwrap.NewNow()
-	err = s.q.CreateHTTPBodyUrlencoded(ctx, gen.CreateHTTPBodyUrlencodedParams{
-		ID:              id,
-		HttpID:          httpID,
-		UrlencodedKey:   key,
-		UrlencodedValue: value,
-		Description:     description,
-		Enabled:         true,
-		CreatedAt:       0, // Will be set by database
-		UpdatedAt:       0, // Will be set by database
+	err = s.q.CreateHTTPBodyUrlEncoded(ctx, gen.CreateHTTPBodyUrlEncodedParams{
+		ID:                         id,
+		HttpID:                     httpID,
+		Key:                        key,
+		Value:                      value,
+		Description:                description,
+		Enabled:                    true,
+		Order:                      0,
+		ParentHttpBodyUrlencodedID: nil,
+		IsDelta:                    false,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	// Get the created record
-	bodyUrlencodeds, err := s.q.GetHTTPBodyUrlencodedByIDs(ctx, []idwrap.IDWrap{id})
+	bodyUrlencodeds, err := s.q.GetHTTPBodyUrlEncodedsByIDs(ctx, []idwrap.IDWrap{id})
 	if err != nil {
 		return nil, err
 	}
@@ -51,28 +87,12 @@ func (s *HttpBodyUrlencodedService) Create(ctx context.Context, httpID idwrap.ID
 	}
 
 	bodyUrlencoded := bodyUrlencodeds[0]
-	return &mhttp.HTTPBodyUrlencoded{
-		ID:                     bodyUrlencoded.ID,
-		HttpID:                 bodyUrlencoded.HttpID,
-		UrlencodedKey:          bodyUrlencoded.UrlencodedKey,
-		UrlencodedValue:        bodyUrlencoded.UrlencodedValue,
-		Description:            bodyUrlencoded.Description,
-		Enabled:                bodyUrlencoded.Enabled,
-		ParentBodyUrlencodedID: bodyUrlencoded.ParentBodyUrlencodedID,
-		IsDelta:                bodyUrlencoded.IsDelta,
-		DeltaUrlencodedKey:     bodyUrlencoded.DeltaUrlencodedKey,
-		DeltaUrlencodedValue:   bodyUrlencoded.DeltaUrlencodedValue,
-		DeltaDescription:       bodyUrlencoded.DeltaDescription,
-		DeltaEnabled:           bodyUrlencoded.DeltaEnabled,
-		Prev:                   bodyUrlencoded.Prev,
-		Next:                   bodyUrlencoded.Next,
-		CreatedAt:              bodyUrlencoded.CreatedAt,
-		UpdatedAt:              bodyUrlencoded.UpdatedAt,
-	}, nil
+	result := ConvertToModelHttpBodyUrlencoded(bodyUrlencoded)
+	return &result, nil
 }
 
 func (s *HttpBodyUrlencodedService) Get(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPBodyUrlencoded, error) {
-	bodyUrlencodeds, err := s.q.GetHTTPBodyUrlencodedByIDs(ctx, []idwrap.IDWrap{id})
+	bodyUrlencodeds, err := s.q.GetHTTPBodyUrlEncodedsByIDs(ctx, []idwrap.IDWrap{id})
 	if err != nil {
 		return nil, err
 	}
@@ -81,24 +101,8 @@ func (s *HttpBodyUrlencodedService) Get(ctx context.Context, id idwrap.IDWrap) (
 	}
 
 	bodyUrlencoded := bodyUrlencodeds[0]
-	return &mhttp.HTTPBodyUrlencoded{
-		ID:                     bodyUrlencoded.ID,
-		HttpID:                 bodyUrlencoded.HttpID,
-		UrlencodedKey:          bodyUrlencoded.UrlencodedKey,
-		UrlencodedValue:        bodyUrlencoded.UrlencodedValue,
-		Description:            bodyUrlencoded.Description,
-		Enabled:                bodyUrlencoded.Enabled,
-		ParentBodyUrlencodedID: bodyUrlencoded.ParentBodyUrlencodedID,
-		IsDelta:                bodyUrlencoded.IsDelta,
-		DeltaUrlencodedKey:     bodyUrlencoded.DeltaUrlencodedKey,
-		DeltaUrlencodedValue:   bodyUrlencoded.DeltaUrlencodedValue,
-		DeltaDescription:       bodyUrlencoded.DeltaDescription,
-		DeltaEnabled:           bodyUrlencoded.DeltaEnabled,
-		Prev:                   bodyUrlencoded.Prev,
-		Next:                   bodyUrlencoded.Next,
-		CreatedAt:              bodyUrlencoded.CreatedAt,
-		UpdatedAt:              bodyUrlencoded.UpdatedAt,
-	}, nil
+	result := ConvertToModelHttpBodyUrlencoded(bodyUrlencoded)
+	return &result, nil
 }
 
 func (s *HttpBodyUrlencodedService) Update(ctx context.Context, id idwrap.IDWrap, key string, value string, description string, enabled bool) (*mhttp.HTTPBodyUrlencoded, error) {
@@ -115,12 +119,12 @@ func (s *HttpBodyUrlencodedService) Update(ctx context.Context, id idwrap.IDWrap
 	}
 
 	// Update the body urlencoded
-	err = s.q.UpdateHTTPBodyUrlencoded(ctx, gen.UpdateHTTPBodyUrlencodedParams{
-		ID:              id,
-		UrlencodedKey:   key,
-		UrlencodedValue: value,
-		Description:     description,
-		Enabled:         enabled,
+	err = s.q.UpdateHTTPBodyUrlEncoded(ctx, gen.UpdateHTTPBodyUrlEncodedParams{
+		ID:          id,
+		Key:         key,
+		Value:       value,
+		Description: description,
+		Enabled:     enabled,
 	})
 	if err != nil {
 		return nil, err
@@ -144,7 +148,7 @@ func (s *HttpBodyUrlencodedService) Delete(ctx context.Context, id idwrap.IDWrap
 	}
 
 	// Delete the body urlencoded
-	return s.q.DeleteHTTPBodyUrlencoded(ctx, id)
+	return s.q.DeleteHTTPBodyUrlEncoded(ctx, id)
 }
 
 func (s *HttpBodyUrlencodedService) List(ctx context.Context, httpID idwrap.IDWrap) ([]*mhttp.HTTPBodyUrlencoded, error) {
@@ -155,31 +159,15 @@ func (s *HttpBodyUrlencodedService) List(ctx context.Context, httpID idwrap.IDWr
 	}
 
 	// Get all body urlencoded for this HTTP
-	bodyUrlencodeds, err := s.q.GetHTTPBodyUrlencoded(ctx, httpID)
+	bodyUrlencodeds, err := s.q.GetHTTPBodyUrlEncodedByHttpID(ctx, httpID)
 	if err != nil {
 		return nil, err
 	}
 
 	result := make([]*mhttp.HTTPBodyUrlencoded, len(bodyUrlencodeds))
 	for i, bodyUrlencoded := range bodyUrlencodeds {
-		result[i] = &mhttp.HTTPBodyUrlencoded{
-			ID:                     bodyUrlencoded.ID,
-			HttpID:                 bodyUrlencoded.HttpID,
-			UrlencodedKey:          bodyUrlencoded.UrlencodedKey,
-			UrlencodedValue:        bodyUrlencoded.UrlencodedValue,
-			Description:            bodyUrlencoded.Description,
-			Enabled:                bodyUrlencoded.Enabled,
-			ParentBodyUrlencodedID: bodyUrlencoded.ParentBodyUrlencodedID,
-			IsDelta:                bodyUrlencoded.IsDelta,
-			DeltaUrlencodedKey:     bodyUrlencoded.DeltaUrlencodedKey,
-			DeltaUrlencodedValue:   bodyUrlencoded.DeltaUrlencodedValue,
-			DeltaDescription:       bodyUrlencoded.DeltaDescription,
-			DeltaEnabled:           bodyUrlencoded.DeltaEnabled,
-			Prev:                   bodyUrlencoded.Prev,
-			Next:                   bodyUrlencoded.Next,
-			CreatedAt:              bodyUrlencoded.CreatedAt,
-			UpdatedAt:              bodyUrlencoded.UpdatedAt,
-		}
+		converted := ConvertToModelHttpBodyUrlencoded(bodyUrlencoded)
+		result[i] = &converted
 	}
 
 	return result, nil

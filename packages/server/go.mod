@@ -11,7 +11,6 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/klauspost/compress v1.18.0
 	github.com/lithammer/fuzzysearch v1.1.8
-	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/oklog/ulid/v2 v2.1.0
 	github.com/rs/cors v1.11.0
 	github.com/stretchr/testify v1.11.1

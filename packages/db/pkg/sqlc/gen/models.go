@@ -6,6 +6,7 @@ package gen
 
 import (
 	"database/sql"
+	"time"
 
 	idwrap "the-dev-tools/server/pkg/idwrap"
 )
@@ -332,39 +333,41 @@ type Http struct {
 }
 
 type HttpAssert struct {
-	ID                     idwrap.IDWrap
-	HttpID                 idwrap.IDWrap
-	AssertExpression       string
-	AssertDescription      string
-	Enabled                bool
-	ParentAssertID         *idwrap.IDWrap
-	IsDelta                bool
-	DeltaAssertExpression  *string
-	DeltaAssertDescription *string
-	DeltaEnabled           *bool
-	Prev                   *idwrap.IDWrap
-	Next                   *idwrap.IDWrap
-	CreatedAt              int64
-	UpdatedAt              int64
+	ID                 idwrap.IDWrap
+	HttpID             idwrap.IDWrap
+	Key                string
+	Value              string
+	Enabled            bool
+	Description        string
+	Order              float64
+	ParentHttpAssertID []byte
+	IsDelta            bool
+	DeltaKey           sql.NullString
+	DeltaValue         sql.NullString
+	DeltaEnabled       *bool
+	DeltaDescription   sql.NullString
+	DeltaOrder         sql.NullFloat64
+	CreatedAt          int64
+	UpdatedAt          int64
 }
 
 type HttpBodyForm struct {
-	ID               idwrap.IDWrap
-	HttpID           idwrap.IDWrap
-	FormKey          string
-	FormValue        string
-	Description      string
-	Enabled          bool
-	ParentBodyFormID *idwrap.IDWrap
-	IsDelta          bool
-	DeltaFormKey     *string
-	DeltaFormValue   *string
-	DeltaDescription *string
-	DeltaEnabled     *bool
-	Prev             *idwrap.IDWrap
-	Next             *idwrap.IDWrap
-	CreatedAt        int64
-	UpdatedAt        int64
+	ID                   idwrap.IDWrap
+	HttpID               idwrap.IDWrap
+	Key                  string
+	Value                string
+	Enabled              bool
+	Description          string
+	Order                float64
+	ParentHttpBodyFormID []byte
+	IsDelta              bool
+	DeltaKey             sql.NullString
+	DeltaValue           sql.NullString
+	DeltaEnabled         *bool
+	DeltaDescription     *string
+	DeltaOrder           sql.NullFloat64
+	CreatedAt            int64
+	UpdatedAt            int64
 }
 
 type HttpBodyRaw struct {
@@ -383,22 +386,22 @@ type HttpBodyRaw struct {
 }
 
 type HttpBodyUrlencoded struct {
-	ID                     idwrap.IDWrap
-	HttpID                 idwrap.IDWrap
-	UrlencodedKey          string
-	UrlencodedValue        string
-	Description            string
-	Enabled                bool
-	ParentBodyUrlencodedID *idwrap.IDWrap
-	IsDelta                bool
-	DeltaUrlencodedKey     *string
-	DeltaUrlencodedValue   *string
-	DeltaDescription       *string
-	DeltaEnabled           *bool
-	Prev                   *idwrap.IDWrap
-	Next                   *idwrap.IDWrap
-	CreatedAt              int64
-	UpdatedAt              int64
+	ID                         idwrap.IDWrap
+	HttpID                     idwrap.IDWrap
+	Key                        string
+	Value                      string
+	Enabled                    bool
+	Description                string
+	Order                      float64
+	ParentHttpBodyUrlencodedID []byte
+	IsDelta                    bool
+	DeltaKey                   sql.NullString
+	DeltaValue                 sql.NullString
+	DeltaEnabled               *bool
+	DeltaDescription           *string
+	DeltaOrder                 sql.NullFloat64
+	CreatedAt                  int64
+	UpdatedAt                  int64
 }
 
 type HttpHeader struct {
@@ -421,41 +424,49 @@ type HttpHeader struct {
 }
 
 type HttpResponse struct {
-	ID                      idwrap.IDWrap
-	HttpID                  idwrap.IDWrap
-	StatusCode              int16
-	ResponseTimeMs          int32
-	ResponseSizeBytes       int32
-	ResponseBody            []byte
-	ResponseCompressionType int8
-	ExecutedAt              int64
-	CreatedBy               *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	HttpID    idwrap.IDWrap
+	Status    interface{}
+	Body      []byte
+	Time      time.Time
+	Duration  interface{}
+	Size      interface{}
+	CreatedAt int64
+}
+
+type HttpResponseAssert struct {
+	ID        []byte
+	HttpID    []byte
+	Value     string
+	Success   bool
+	CreatedAt int64
 }
 
 type HttpResponseHeader struct {
-	ID          idwrap.IDWrap
-	ResponseID  idwrap.IDWrap
-	HeaderKey   string
-	HeaderValue string
+	ID        idwrap.IDWrap
+	HttpID    []byte
+	Key       string
+	Value     string
+	CreatedAt int64
 }
 
 type HttpSearchParam struct {
-	ID                  idwrap.IDWrap
-	HttpID              idwrap.IDWrap
-	ParamKey            string
-	ParamValue          string
-	Description         string
-	Enabled             bool
-	ParentSearchParamID *idwrap.IDWrap
-	IsDelta             bool
-	DeltaParamKey       *string
-	DeltaParamValue     *string
-	DeltaDescription    *string
-	DeltaEnabled        *bool
-	Prev                *idwrap.IDWrap
-	Next                *idwrap.IDWrap
-	CreatedAt           int64
-	UpdatedAt           int64
+	ID                      idwrap.IDWrap
+	HttpID                  idwrap.IDWrap
+	Key                     string
+	Value                   string
+	Enabled                 bool
+	Description             string
+	Order                   float64
+	ParentHttpSearchParamID []byte
+	IsDelta                 bool
+	DeltaKey                sql.NullString
+	DeltaValue              sql.NullString
+	DeltaEnabled            *bool
+	DeltaDescription        *string
+	DeltaOrder              sql.NullFloat64
+	CreatedAt               int64
+	UpdatedAt               int64
 }
 
 type HttpVersion struct {

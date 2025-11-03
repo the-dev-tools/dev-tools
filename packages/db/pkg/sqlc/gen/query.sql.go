@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	idwrap "the-dev-tools/server/pkg/idwrap"
 )
@@ -41,32 +42,6 @@ func (q *Queries) CheckIFWorkspaceUserExists(ctx context.Context, arg CheckIFWor
 	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err
-}
-
-const countHTTPByFolder = `-- name: CountHTTPByFolder :one
-SELECT COUNT(*) as count
-FROM http
-WHERE folder_id = ? AND is_delta = FALSE
-`
-
-func (q *Queries) CountHTTPByFolder(ctx context.Context, folderID *idwrap.IDWrap) (int64, error) {
-	row := q.queryRow(ctx, q.countHTTPByFolderStmt, countHTTPByFolder, folderID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countHTTPByWorkspace = `-- name: CountHTTPByWorkspace :one
-SELECT COUNT(*) as count
-FROM http
-WHERE workspace_id = ? AND is_delta = FALSE
-`
-
-func (q *Queries) CountHTTPByWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (int64, error) {
-	row := q.queryRow(ctx, q.countHTTPByWorkspaceStmt, countHTTPByWorkspace, workspaceID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
 }
 
 const createAssert = `-- name: CreateAssert :exec
@@ -1344,352 +1319,396 @@ func (q *Queries) CreateHTTP(ctx context.Context, arg CreateHTTPParams) error {
 
 const createHTTPAssert = `-- name: CreateHTTPAssert :exec
 INSERT INTO http_assert (
-  id, http_id, assert_expression, assert_description, enabled,
-  parent_assert_id, is_delta, delta_assert_expression, delta_assert_description,
-  delta_enabled, prev, next, created_at, updated_at
+  id, http_id, key, value, enabled, description, "order",
+  parent_http_assert_id, is_delta, delta_key, delta_value,
+  delta_enabled, delta_description, delta_order, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPAssertParams struct {
-	ID                     idwrap.IDWrap
-	HttpID                 idwrap.IDWrap
-	AssertExpression       string
-	AssertDescription      string
-	Enabled                bool
-	ParentAssertID         *idwrap.IDWrap
-	IsDelta                bool
-	DeltaAssertExpression  *string
-	DeltaAssertDescription *string
-	DeltaEnabled           *bool
-	Prev                   *idwrap.IDWrap
-	Next                   *idwrap.IDWrap
-	CreatedAt              int64
-	UpdatedAt              int64
+	ID                 idwrap.IDWrap
+	HttpID             idwrap.IDWrap
+	Key                string
+	Value              string
+	Enabled            bool
+	Description        string
+	Order              float64
+	ParentHttpAssertID []byte
+	IsDelta            bool
+	DeltaKey           sql.NullString
+	DeltaValue         sql.NullString
+	DeltaEnabled       *bool
+	DeltaDescription   sql.NullString
+	DeltaOrder         sql.NullFloat64
+	CreatedAt          int64
+	UpdatedAt          int64
 }
 
 func (q *Queries) CreateHTTPAssert(ctx context.Context, arg CreateHTTPAssertParams) error {
 	_, err := q.exec(ctx, q.createHTTPAssertStmt, createHTTPAssert,
 		arg.ID,
 		arg.HttpID,
-		arg.AssertExpression,
-		arg.AssertDescription,
+		arg.Key,
+		arg.Value,
 		arg.Enabled,
-		arg.ParentAssertID,
+		arg.Description,
+		arg.Order,
+		arg.ParentHttpAssertID,
 		arg.IsDelta,
-		arg.DeltaAssertExpression,
-		arg.DeltaAssertDescription,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
+		arg.DeltaDescription,
+		arg.DeltaOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
 	return err
 }
 
-const createHTTPAssertsBulk = `-- name: CreateHTTPAssertsBulk :exec
+const createHTTPAssertBulk = `-- name: CreateHTTPAssertBulk :exec
 INSERT INTO http_assert (
-  id, http_id, assert_expression, assert_description, enabled,
-  parent_assert_id, is_delta, delta_assert_expression, delta_assert_description,
-  delta_enabled, prev, next, created_at, updated_at
+  id, http_id, key, value, enabled, description, "order",
+  parent_http_assert_id, is_delta, delta_key, delta_value,
+  delta_enabled, delta_description, delta_order, created_at, updated_at
 )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
-type CreateHTTPAssertsBulkParams struct {
-	ID                        idwrap.IDWrap
-	HttpID                    idwrap.IDWrap
-	AssertExpression          string
-	AssertDescription         string
-	Enabled                   bool
-	ParentAssertID            *idwrap.IDWrap
-	IsDelta                   bool
-	DeltaAssertExpression     *string
-	DeltaAssertDescription    *string
-	DeltaEnabled              *bool
-	Prev                      *idwrap.IDWrap
-	Next                      *idwrap.IDWrap
-	CreatedAt                 int64
-	UpdatedAt                 int64
-	ID_2                      idwrap.IDWrap
-	HttpID_2                  idwrap.IDWrap
-	AssertExpression_2        string
-	AssertDescription_2       string
-	Enabled_2                 bool
-	ParentAssertID_2          *idwrap.IDWrap
-	IsDelta_2                 bool
-	DeltaAssertExpression_2   *string
-	DeltaAssertDescription_2  *string
-	DeltaEnabled_2            *bool
-	Prev_2                    *idwrap.IDWrap
-	Next_2                    *idwrap.IDWrap
-	CreatedAt_2               int64
-	UpdatedAt_2               int64
-	ID_3                      idwrap.IDWrap
-	HttpID_3                  idwrap.IDWrap
-	AssertExpression_3        string
-	AssertDescription_3       string
-	Enabled_3                 bool
-	ParentAssertID_3          *idwrap.IDWrap
-	IsDelta_3                 bool
-	DeltaAssertExpression_3   *string
-	DeltaAssertDescription_3  *string
-	DeltaEnabled_3            *bool
-	Prev_3                    *idwrap.IDWrap
-	Next_3                    *idwrap.IDWrap
-	CreatedAt_3               int64
-	UpdatedAt_3               int64
-	ID_4                      idwrap.IDWrap
-	HttpID_4                  idwrap.IDWrap
-	AssertExpression_4        string
-	AssertDescription_4       string
-	Enabled_4                 bool
-	ParentAssertID_4          *idwrap.IDWrap
-	IsDelta_4                 bool
-	DeltaAssertExpression_4   *string
-	DeltaAssertDescription_4  *string
-	DeltaEnabled_4            *bool
-	Prev_4                    *idwrap.IDWrap
-	Next_4                    *idwrap.IDWrap
-	CreatedAt_4               int64
-	UpdatedAt_4               int64
-	ID_5                      idwrap.IDWrap
-	HttpID_5                  idwrap.IDWrap
-	AssertExpression_5        string
-	AssertDescription_5       string
-	Enabled_5                 bool
-	ParentAssertID_5          *idwrap.IDWrap
-	IsDelta_5                 bool
-	DeltaAssertExpression_5   *string
-	DeltaAssertDescription_5  *string
-	DeltaEnabled_5            *bool
-	Prev_5                    *idwrap.IDWrap
-	Next_5                    *idwrap.IDWrap
-	CreatedAt_5               int64
-	UpdatedAt_5               int64
-	ID_6                      idwrap.IDWrap
-	HttpID_6                  idwrap.IDWrap
-	AssertExpression_6        string
-	AssertDescription_6       string
-	Enabled_6                 bool
-	ParentAssertID_6          *idwrap.IDWrap
-	IsDelta_6                 bool
-	DeltaAssertExpression_6   *string
-	DeltaAssertDescription_6  *string
-	DeltaEnabled_6            *bool
-	Prev_6                    *idwrap.IDWrap
-	Next_6                    *idwrap.IDWrap
-	CreatedAt_6               int64
-	UpdatedAt_6               int64
-	ID_7                      idwrap.IDWrap
-	HttpID_7                  idwrap.IDWrap
-	AssertExpression_7        string
-	AssertDescription_7       string
-	Enabled_7                 bool
-	ParentAssertID_7          *idwrap.IDWrap
-	IsDelta_7                 bool
-	DeltaAssertExpression_7   *string
-	DeltaAssertDescription_7  *string
-	DeltaEnabled_7            *bool
-	Prev_7                    *idwrap.IDWrap
-	Next_7                    *idwrap.IDWrap
-	CreatedAt_7               int64
-	UpdatedAt_7               int64
-	ID_8                      idwrap.IDWrap
-	HttpID_8                  idwrap.IDWrap
-	AssertExpression_8        string
-	AssertDescription_8       string
-	Enabled_8                 bool
-	ParentAssertID_8          *idwrap.IDWrap
-	IsDelta_8                 bool
-	DeltaAssertExpression_8   *string
-	DeltaAssertDescription_8  *string
-	DeltaEnabled_8            *bool
-	Prev_8                    *idwrap.IDWrap
-	Next_8                    *idwrap.IDWrap
-	CreatedAt_8               int64
-	UpdatedAt_8               int64
-	ID_9                      idwrap.IDWrap
-	HttpID_9                  idwrap.IDWrap
-	AssertExpression_9        string
-	AssertDescription_9       string
-	Enabled_9                 bool
-	ParentAssertID_9          *idwrap.IDWrap
-	IsDelta_9                 bool
-	DeltaAssertExpression_9   *string
-	DeltaAssertDescription_9  *string
-	DeltaEnabled_9            *bool
-	Prev_9                    *idwrap.IDWrap
-	Next_9                    *idwrap.IDWrap
-	CreatedAt_9               int64
-	UpdatedAt_9               int64
-	ID_10                     idwrap.IDWrap
-	HttpID_10                 idwrap.IDWrap
-	AssertExpression_10       string
-	AssertDescription_10      string
-	Enabled_10                bool
-	ParentAssertID_10         *idwrap.IDWrap
-	IsDelta_10                bool
-	DeltaAssertExpression_10  *string
-	DeltaAssertDescription_10 *string
-	DeltaEnabled_10           *bool
-	Prev_10                   *idwrap.IDWrap
-	Next_10                   *idwrap.IDWrap
-	CreatedAt_10              int64
-	UpdatedAt_10              int64
+type CreateHTTPAssertBulkParams struct {
+	ID                    idwrap.IDWrap
+	HttpID                idwrap.IDWrap
+	Key                   string
+	Value                 string
+	Enabled               bool
+	Description           string
+	Order                 float64
+	ParentHttpAssertID    []byte
+	IsDelta               bool
+	DeltaKey              sql.NullString
+	DeltaValue            sql.NullString
+	DeltaEnabled          *bool
+	DeltaDescription      sql.NullString
+	DeltaOrder            sql.NullFloat64
+	CreatedAt             int64
+	UpdatedAt             int64
+	ID_2                  idwrap.IDWrap
+	HttpID_2              idwrap.IDWrap
+	Key_2                 string
+	Value_2               string
+	Enabled_2             bool
+	Description_2         string
+	Order_2               float64
+	ParentHttpAssertID_2  []byte
+	IsDelta_2             bool
+	DeltaKey_2            sql.NullString
+	DeltaValue_2          sql.NullString
+	DeltaEnabled_2        *bool
+	DeltaDescription_2    sql.NullString
+	DeltaOrder_2          sql.NullFloat64
+	CreatedAt_2           int64
+	UpdatedAt_2           int64
+	ID_3                  idwrap.IDWrap
+	HttpID_3              idwrap.IDWrap
+	Key_3                 string
+	Value_3               string
+	Enabled_3             bool
+	Description_3         string
+	Order_3               float64
+	ParentHttpAssertID_3  []byte
+	IsDelta_3             bool
+	DeltaKey_3            sql.NullString
+	DeltaValue_3          sql.NullString
+	DeltaEnabled_3        *bool
+	DeltaDescription_3    sql.NullString
+	DeltaOrder_3          sql.NullFloat64
+	CreatedAt_3           int64
+	UpdatedAt_3           int64
+	ID_4                  idwrap.IDWrap
+	HttpID_4              idwrap.IDWrap
+	Key_4                 string
+	Value_4               string
+	Enabled_4             bool
+	Description_4         string
+	Order_4               float64
+	ParentHttpAssertID_4  []byte
+	IsDelta_4             bool
+	DeltaKey_4            sql.NullString
+	DeltaValue_4          sql.NullString
+	DeltaEnabled_4        *bool
+	DeltaDescription_4    sql.NullString
+	DeltaOrder_4          sql.NullFloat64
+	CreatedAt_4           int64
+	UpdatedAt_4           int64
+	ID_5                  idwrap.IDWrap
+	HttpID_5              idwrap.IDWrap
+	Key_5                 string
+	Value_5               string
+	Enabled_5             bool
+	Description_5         string
+	Order_5               float64
+	ParentHttpAssertID_5  []byte
+	IsDelta_5             bool
+	DeltaKey_5            sql.NullString
+	DeltaValue_5          sql.NullString
+	DeltaEnabled_5        *bool
+	DeltaDescription_5    sql.NullString
+	DeltaOrder_5          sql.NullFloat64
+	CreatedAt_5           int64
+	UpdatedAt_5           int64
+	ID_6                  idwrap.IDWrap
+	HttpID_6              idwrap.IDWrap
+	Key_6                 string
+	Value_6               string
+	Enabled_6             bool
+	Description_6         string
+	Order_6               float64
+	ParentHttpAssertID_6  []byte
+	IsDelta_6             bool
+	DeltaKey_6            sql.NullString
+	DeltaValue_6          sql.NullString
+	DeltaEnabled_6        *bool
+	DeltaDescription_6    sql.NullString
+	DeltaOrder_6          sql.NullFloat64
+	CreatedAt_6           int64
+	UpdatedAt_6           int64
+	ID_7                  idwrap.IDWrap
+	HttpID_7              idwrap.IDWrap
+	Key_7                 string
+	Value_7               string
+	Enabled_7             bool
+	Description_7         string
+	Order_7               float64
+	ParentHttpAssertID_7  []byte
+	IsDelta_7             bool
+	DeltaKey_7            sql.NullString
+	DeltaValue_7          sql.NullString
+	DeltaEnabled_7        *bool
+	DeltaDescription_7    sql.NullString
+	DeltaOrder_7          sql.NullFloat64
+	CreatedAt_7           int64
+	UpdatedAt_7           int64
+	ID_8                  idwrap.IDWrap
+	HttpID_8              idwrap.IDWrap
+	Key_8                 string
+	Value_8               string
+	Enabled_8             bool
+	Description_8         string
+	Order_8               float64
+	ParentHttpAssertID_8  []byte
+	IsDelta_8             bool
+	DeltaKey_8            sql.NullString
+	DeltaValue_8          sql.NullString
+	DeltaEnabled_8        *bool
+	DeltaDescription_8    sql.NullString
+	DeltaOrder_8          sql.NullFloat64
+	CreatedAt_8           int64
+	UpdatedAt_8           int64
+	ID_9                  idwrap.IDWrap
+	HttpID_9              idwrap.IDWrap
+	Key_9                 string
+	Value_9               string
+	Enabled_9             bool
+	Description_9         string
+	Order_9               float64
+	ParentHttpAssertID_9  []byte
+	IsDelta_9             bool
+	DeltaKey_9            sql.NullString
+	DeltaValue_9          sql.NullString
+	DeltaEnabled_9        *bool
+	DeltaDescription_9    sql.NullString
+	DeltaOrder_9          sql.NullFloat64
+	CreatedAt_9           int64
+	UpdatedAt_9           int64
+	ID_10                 idwrap.IDWrap
+	HttpID_10             idwrap.IDWrap
+	Key_10                string
+	Value_10              string
+	Enabled_10            bool
+	Description_10        string
+	Order_10              float64
+	ParentHttpAssertID_10 []byte
+	IsDelta_10            bool
+	DeltaKey_10           sql.NullString
+	DeltaValue_10         sql.NullString
+	DeltaEnabled_10       *bool
+	DeltaDescription_10   sql.NullString
+	DeltaOrder_10         sql.NullFloat64
+	CreatedAt_10          int64
+	UpdatedAt_10          int64
 }
 
-func (q *Queries) CreateHTTPAssertsBulk(ctx context.Context, arg CreateHTTPAssertsBulkParams) error {
-	_, err := q.exec(ctx, q.createHTTPAssertsBulkStmt, createHTTPAssertsBulk,
+func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssertBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPAssertBulkStmt, createHTTPAssertBulk,
 		arg.ID,
 		arg.HttpID,
-		arg.AssertExpression,
-		arg.AssertDescription,
+		arg.Key,
+		arg.Value,
 		arg.Enabled,
-		arg.ParentAssertID,
+		arg.Description,
+		arg.Order,
+		arg.ParentHttpAssertID,
 		arg.IsDelta,
-		arg.DeltaAssertExpression,
-		arg.DeltaAssertDescription,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
+		arg.DeltaDescription,
+		arg.DeltaOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.ID_2,
 		arg.HttpID_2,
-		arg.AssertExpression_2,
-		arg.AssertDescription_2,
+		arg.Key_2,
+		arg.Value_2,
 		arg.Enabled_2,
-		arg.ParentAssertID_2,
+		arg.Description_2,
+		arg.Order_2,
+		arg.ParentHttpAssertID_2,
 		arg.IsDelta_2,
-		arg.DeltaAssertExpression_2,
-		arg.DeltaAssertDescription_2,
+		arg.DeltaKey_2,
+		arg.DeltaValue_2,
 		arg.DeltaEnabled_2,
-		arg.Prev_2,
-		arg.Next_2,
+		arg.DeltaDescription_2,
+		arg.DeltaOrder_2,
 		arg.CreatedAt_2,
 		arg.UpdatedAt_2,
 		arg.ID_3,
 		arg.HttpID_3,
-		arg.AssertExpression_3,
-		arg.AssertDescription_3,
+		arg.Key_3,
+		arg.Value_3,
 		arg.Enabled_3,
-		arg.ParentAssertID_3,
+		arg.Description_3,
+		arg.Order_3,
+		arg.ParentHttpAssertID_3,
 		arg.IsDelta_3,
-		arg.DeltaAssertExpression_3,
-		arg.DeltaAssertDescription_3,
+		arg.DeltaKey_3,
+		arg.DeltaValue_3,
 		arg.DeltaEnabled_3,
-		arg.Prev_3,
-		arg.Next_3,
+		arg.DeltaDescription_3,
+		arg.DeltaOrder_3,
 		arg.CreatedAt_3,
 		arg.UpdatedAt_3,
 		arg.ID_4,
 		arg.HttpID_4,
-		arg.AssertExpression_4,
-		arg.AssertDescription_4,
+		arg.Key_4,
+		arg.Value_4,
 		arg.Enabled_4,
-		arg.ParentAssertID_4,
+		arg.Description_4,
+		arg.Order_4,
+		arg.ParentHttpAssertID_4,
 		arg.IsDelta_4,
-		arg.DeltaAssertExpression_4,
-		arg.DeltaAssertDescription_4,
+		arg.DeltaKey_4,
+		arg.DeltaValue_4,
 		arg.DeltaEnabled_4,
-		arg.Prev_4,
-		arg.Next_4,
+		arg.DeltaDescription_4,
+		arg.DeltaOrder_4,
 		arg.CreatedAt_4,
 		arg.UpdatedAt_4,
 		arg.ID_5,
 		arg.HttpID_5,
-		arg.AssertExpression_5,
-		arg.AssertDescription_5,
+		arg.Key_5,
+		arg.Value_5,
 		arg.Enabled_5,
-		arg.ParentAssertID_5,
+		arg.Description_5,
+		arg.Order_5,
+		arg.ParentHttpAssertID_5,
 		arg.IsDelta_5,
-		arg.DeltaAssertExpression_5,
-		arg.DeltaAssertDescription_5,
+		arg.DeltaKey_5,
+		arg.DeltaValue_5,
 		arg.DeltaEnabled_5,
-		arg.Prev_5,
-		arg.Next_5,
+		arg.DeltaDescription_5,
+		arg.DeltaOrder_5,
 		arg.CreatedAt_5,
 		arg.UpdatedAt_5,
 		arg.ID_6,
 		arg.HttpID_6,
-		arg.AssertExpression_6,
-		arg.AssertDescription_6,
+		arg.Key_6,
+		arg.Value_6,
 		arg.Enabled_6,
-		arg.ParentAssertID_6,
+		arg.Description_6,
+		arg.Order_6,
+		arg.ParentHttpAssertID_6,
 		arg.IsDelta_6,
-		arg.DeltaAssertExpression_6,
-		arg.DeltaAssertDescription_6,
+		arg.DeltaKey_6,
+		arg.DeltaValue_6,
 		arg.DeltaEnabled_6,
-		arg.Prev_6,
-		arg.Next_6,
+		arg.DeltaDescription_6,
+		arg.DeltaOrder_6,
 		arg.CreatedAt_6,
 		arg.UpdatedAt_6,
 		arg.ID_7,
 		arg.HttpID_7,
-		arg.AssertExpression_7,
-		arg.AssertDescription_7,
+		arg.Key_7,
+		arg.Value_7,
 		arg.Enabled_7,
-		arg.ParentAssertID_7,
+		arg.Description_7,
+		arg.Order_7,
+		arg.ParentHttpAssertID_7,
 		arg.IsDelta_7,
-		arg.DeltaAssertExpression_7,
-		arg.DeltaAssertDescription_7,
+		arg.DeltaKey_7,
+		arg.DeltaValue_7,
 		arg.DeltaEnabled_7,
-		arg.Prev_7,
-		arg.Next_7,
+		arg.DeltaDescription_7,
+		arg.DeltaOrder_7,
 		arg.CreatedAt_7,
 		arg.UpdatedAt_7,
 		arg.ID_8,
 		arg.HttpID_8,
-		arg.AssertExpression_8,
-		arg.AssertDescription_8,
+		arg.Key_8,
+		arg.Value_8,
 		arg.Enabled_8,
-		arg.ParentAssertID_8,
+		arg.Description_8,
+		arg.Order_8,
+		arg.ParentHttpAssertID_8,
 		arg.IsDelta_8,
-		arg.DeltaAssertExpression_8,
-		arg.DeltaAssertDescription_8,
+		arg.DeltaKey_8,
+		arg.DeltaValue_8,
 		arg.DeltaEnabled_8,
-		arg.Prev_8,
-		arg.Next_8,
+		arg.DeltaDescription_8,
+		arg.DeltaOrder_8,
 		arg.CreatedAt_8,
 		arg.UpdatedAt_8,
 		arg.ID_9,
 		arg.HttpID_9,
-		arg.AssertExpression_9,
-		arg.AssertDescription_9,
+		arg.Key_9,
+		arg.Value_9,
 		arg.Enabled_9,
-		arg.ParentAssertID_9,
+		arg.Description_9,
+		arg.Order_9,
+		arg.ParentHttpAssertID_9,
 		arg.IsDelta_9,
-		arg.DeltaAssertExpression_9,
-		arg.DeltaAssertDescription_9,
+		arg.DeltaKey_9,
+		arg.DeltaValue_9,
 		arg.DeltaEnabled_9,
-		arg.Prev_9,
-		arg.Next_9,
+		arg.DeltaDescription_9,
+		arg.DeltaOrder_9,
 		arg.CreatedAt_9,
 		arg.UpdatedAt_9,
 		arg.ID_10,
 		arg.HttpID_10,
-		arg.AssertExpression_10,
-		arg.AssertDescription_10,
+		arg.Key_10,
+		arg.Value_10,
 		arg.Enabled_10,
-		arg.ParentAssertID_10,
+		arg.Description_10,
+		arg.Order_10,
+		arg.ParentHttpAssertID_10,
 		arg.IsDelta_10,
-		arg.DeltaAssertExpression_10,
-		arg.DeltaAssertDescription_10,
+		arg.DeltaKey_10,
+		arg.DeltaValue_10,
 		arg.DeltaEnabled_10,
-		arg.Prev_10,
-		arg.Next_10,
+		arg.DeltaDescription_10,
+		arg.DeltaOrder_10,
 		arg.CreatedAt_10,
 		arg.UpdatedAt_10,
 	)
@@ -1698,499 +1717,107 @@ func (q *Queries) CreateHTTPAssertsBulk(ctx context.Context, arg CreateHTTPAsser
 
 const createHTTPBodyForm = `-- name: CreateHTTPBodyForm :exec
 INSERT INTO http_body_form (
-  id, http_id, form_key, form_value, description, enabled,
-  parent_body_form_id, is_delta, delta_form_key, delta_form_value,
-  delta_description, delta_enabled, prev, next, created_at, updated_at
+  id, http_id, key, value, description, enabled, "order",
+  parent_http_body_form_id, is_delta, delta_key, delta_value,
+  delta_description, delta_enabled, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPBodyFormParams struct {
-	ID               idwrap.IDWrap
-	HttpID           idwrap.IDWrap
-	FormKey          string
-	FormValue        string
-	Description      string
-	Enabled          bool
-	ParentBodyFormID *idwrap.IDWrap
-	IsDelta          bool
-	DeltaFormKey     *string
-	DeltaFormValue   *string
-	DeltaDescription *string
-	DeltaEnabled     *bool
-	Prev             *idwrap.IDWrap
-	Next             *idwrap.IDWrap
-	CreatedAt        int64
-	UpdatedAt        int64
+	ID                   idwrap.IDWrap
+	HttpID               idwrap.IDWrap
+	Key                  string
+	Value                string
+	Description          string
+	Enabled              bool
+	Order                float64
+	ParentHttpBodyFormID []byte
+	IsDelta              bool
+	DeltaKey             sql.NullString
+	DeltaValue           sql.NullString
+	DeltaDescription     *string
+	DeltaEnabled         *bool
+	CreatedAt            int64
+	UpdatedAt            int64
 }
 
 func (q *Queries) CreateHTTPBodyForm(ctx context.Context, arg CreateHTTPBodyFormParams) error {
 	_, err := q.exec(ctx, q.createHTTPBodyFormStmt, createHTTPBodyForm,
 		arg.ID,
 		arg.HttpID,
-		arg.FormKey,
-		arg.FormValue,
+		arg.Key,
+		arg.Value,
 		arg.Description,
 		arg.Enabled,
-		arg.ParentBodyFormID,
+		arg.Order,
+		arg.ParentHttpBodyFormID,
 		arg.IsDelta,
-		arg.DeltaFormKey,
-		arg.DeltaFormValue,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
 	return err
 }
 
-const createHTTPBodyFormsBulk = `-- name: CreateHTTPBodyFormsBulk :exec
-INSERT INTO http_body_form (
-  id, http_id, form_key, form_value, description, enabled,
-  parent_body_form_id, is_delta, delta_form_key, delta_form_value,
-  delta_description, delta_enabled, prev, next, created_at, updated_at
-)
-VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type CreateHTTPBodyFormsBulkParams struct {
-	ID                  idwrap.IDWrap
-	HttpID              idwrap.IDWrap
-	FormKey             string
-	FormValue           string
-	Description         string
-	Enabled             bool
-	ParentBodyFormID    *idwrap.IDWrap
-	IsDelta             bool
-	DeltaFormKey        *string
-	DeltaFormValue      *string
-	DeltaDescription    *string
-	DeltaEnabled        *bool
-	Prev                *idwrap.IDWrap
-	Next                *idwrap.IDWrap
-	CreatedAt           int64
-	UpdatedAt           int64
-	ID_2                idwrap.IDWrap
-	HttpID_2            idwrap.IDWrap
-	FormKey_2           string
-	FormValue_2         string
-	Description_2       string
-	Enabled_2           bool
-	ParentBodyFormID_2  *idwrap.IDWrap
-	IsDelta_2           bool
-	DeltaFormKey_2      *string
-	DeltaFormValue_2    *string
-	DeltaDescription_2  *string
-	DeltaEnabled_2      *bool
-	Prev_2              *idwrap.IDWrap
-	Next_2              *idwrap.IDWrap
-	CreatedAt_2         int64
-	UpdatedAt_2         int64
-	ID_3                idwrap.IDWrap
-	HttpID_3            idwrap.IDWrap
-	FormKey_3           string
-	FormValue_3         string
-	Description_3       string
-	Enabled_3           bool
-	ParentBodyFormID_3  *idwrap.IDWrap
-	IsDelta_3           bool
-	DeltaFormKey_3      *string
-	DeltaFormValue_3    *string
-	DeltaDescription_3  *string
-	DeltaEnabled_3      *bool
-	Prev_3              *idwrap.IDWrap
-	Next_3              *idwrap.IDWrap
-	CreatedAt_3         int64
-	UpdatedAt_3         int64
-	ID_4                idwrap.IDWrap
-	HttpID_4            idwrap.IDWrap
-	FormKey_4           string
-	FormValue_4         string
-	Description_4       string
-	Enabled_4           bool
-	ParentBodyFormID_4  *idwrap.IDWrap
-	IsDelta_4           bool
-	DeltaFormKey_4      *string
-	DeltaFormValue_4    *string
-	DeltaDescription_4  *string
-	DeltaEnabled_4      *bool
-	Prev_4              *idwrap.IDWrap
-	Next_4              *idwrap.IDWrap
-	CreatedAt_4         int64
-	UpdatedAt_4         int64
-	ID_5                idwrap.IDWrap
-	HttpID_5            idwrap.IDWrap
-	FormKey_5           string
-	FormValue_5         string
-	Description_5       string
-	Enabled_5           bool
-	ParentBodyFormID_5  *idwrap.IDWrap
-	IsDelta_5           bool
-	DeltaFormKey_5      *string
-	DeltaFormValue_5    *string
-	DeltaDescription_5  *string
-	DeltaEnabled_5      *bool
-	Prev_5              *idwrap.IDWrap
-	Next_5              *idwrap.IDWrap
-	CreatedAt_5         int64
-	UpdatedAt_5         int64
-	ID_6                idwrap.IDWrap
-	HttpID_6            idwrap.IDWrap
-	FormKey_6           string
-	FormValue_6         string
-	Description_6       string
-	Enabled_6           bool
-	ParentBodyFormID_6  *idwrap.IDWrap
-	IsDelta_6           bool
-	DeltaFormKey_6      *string
-	DeltaFormValue_6    *string
-	DeltaDescription_6  *string
-	DeltaEnabled_6      *bool
-	Prev_6              *idwrap.IDWrap
-	Next_6              *idwrap.IDWrap
-	CreatedAt_6         int64
-	UpdatedAt_6         int64
-	ID_7                idwrap.IDWrap
-	HttpID_7            idwrap.IDWrap
-	FormKey_7           string
-	FormValue_7         string
-	Description_7       string
-	Enabled_7           bool
-	ParentBodyFormID_7  *idwrap.IDWrap
-	IsDelta_7           bool
-	DeltaFormKey_7      *string
-	DeltaFormValue_7    *string
-	DeltaDescription_7  *string
-	DeltaEnabled_7      *bool
-	Prev_7              *idwrap.IDWrap
-	Next_7              *idwrap.IDWrap
-	CreatedAt_7         int64
-	UpdatedAt_7         int64
-	ID_8                idwrap.IDWrap
-	HttpID_8            idwrap.IDWrap
-	FormKey_8           string
-	FormValue_8         string
-	Description_8       string
-	Enabled_8           bool
-	ParentBodyFormID_8  *idwrap.IDWrap
-	IsDelta_8           bool
-	DeltaFormKey_8      *string
-	DeltaFormValue_8    *string
-	DeltaDescription_8  *string
-	DeltaEnabled_8      *bool
-	Prev_8              *idwrap.IDWrap
-	Next_8              *idwrap.IDWrap
-	CreatedAt_8         int64
-	UpdatedAt_8         int64
-	ID_9                idwrap.IDWrap
-	HttpID_9            idwrap.IDWrap
-	FormKey_9           string
-	FormValue_9         string
-	Description_9       string
-	Enabled_9           bool
-	ParentBodyFormID_9  *idwrap.IDWrap
-	IsDelta_9           bool
-	DeltaFormKey_9      *string
-	DeltaFormValue_9    *string
-	DeltaDescription_9  *string
-	DeltaEnabled_9      *bool
-	Prev_9              *idwrap.IDWrap
-	Next_9              *idwrap.IDWrap
-	CreatedAt_9         int64
-	UpdatedAt_9         int64
-	ID_10               idwrap.IDWrap
-	HttpID_10           idwrap.IDWrap
-	FormKey_10          string
-	FormValue_10        string
-	Description_10      string
-	Enabled_10          bool
-	ParentBodyFormID_10 *idwrap.IDWrap
-	IsDelta_10          bool
-	DeltaFormKey_10     *string
-	DeltaFormValue_10   *string
-	DeltaDescription_10 *string
-	DeltaEnabled_10     *bool
-	Prev_10             *idwrap.IDWrap
-	Next_10             *idwrap.IDWrap
-	CreatedAt_10        int64
-	UpdatedAt_10        int64
-}
-
-func (q *Queries) CreateHTTPBodyFormsBulk(ctx context.Context, arg CreateHTTPBodyFormsBulkParams) error {
-	_, err := q.exec(ctx, q.createHTTPBodyFormsBulkStmt, createHTTPBodyFormsBulk,
-		arg.ID,
-		arg.HttpID,
-		arg.FormKey,
-		arg.FormValue,
-		arg.Description,
-		arg.Enabled,
-		arg.ParentBodyFormID,
-		arg.IsDelta,
-		arg.DeltaFormKey,
-		arg.DeltaFormValue,
-		arg.DeltaDescription,
-		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-		arg.ID_2,
-		arg.HttpID_2,
-		arg.FormKey_2,
-		arg.FormValue_2,
-		arg.Description_2,
-		arg.Enabled_2,
-		arg.ParentBodyFormID_2,
-		arg.IsDelta_2,
-		arg.DeltaFormKey_2,
-		arg.DeltaFormValue_2,
-		arg.DeltaDescription_2,
-		arg.DeltaEnabled_2,
-		arg.Prev_2,
-		arg.Next_2,
-		arg.CreatedAt_2,
-		arg.UpdatedAt_2,
-		arg.ID_3,
-		arg.HttpID_3,
-		arg.FormKey_3,
-		arg.FormValue_3,
-		arg.Description_3,
-		arg.Enabled_3,
-		arg.ParentBodyFormID_3,
-		arg.IsDelta_3,
-		arg.DeltaFormKey_3,
-		arg.DeltaFormValue_3,
-		arg.DeltaDescription_3,
-		arg.DeltaEnabled_3,
-		arg.Prev_3,
-		arg.Next_3,
-		arg.CreatedAt_3,
-		arg.UpdatedAt_3,
-		arg.ID_4,
-		arg.HttpID_4,
-		arg.FormKey_4,
-		arg.FormValue_4,
-		arg.Description_4,
-		arg.Enabled_4,
-		arg.ParentBodyFormID_4,
-		arg.IsDelta_4,
-		arg.DeltaFormKey_4,
-		arg.DeltaFormValue_4,
-		arg.DeltaDescription_4,
-		arg.DeltaEnabled_4,
-		arg.Prev_4,
-		arg.Next_4,
-		arg.CreatedAt_4,
-		arg.UpdatedAt_4,
-		arg.ID_5,
-		arg.HttpID_5,
-		arg.FormKey_5,
-		arg.FormValue_5,
-		arg.Description_5,
-		arg.Enabled_5,
-		arg.ParentBodyFormID_5,
-		arg.IsDelta_5,
-		arg.DeltaFormKey_5,
-		arg.DeltaFormValue_5,
-		arg.DeltaDescription_5,
-		arg.DeltaEnabled_5,
-		arg.Prev_5,
-		arg.Next_5,
-		arg.CreatedAt_5,
-		arg.UpdatedAt_5,
-		arg.ID_6,
-		arg.HttpID_6,
-		arg.FormKey_6,
-		arg.FormValue_6,
-		arg.Description_6,
-		arg.Enabled_6,
-		arg.ParentBodyFormID_6,
-		arg.IsDelta_6,
-		arg.DeltaFormKey_6,
-		arg.DeltaFormValue_6,
-		arg.DeltaDescription_6,
-		arg.DeltaEnabled_6,
-		arg.Prev_6,
-		arg.Next_6,
-		arg.CreatedAt_6,
-		arg.UpdatedAt_6,
-		arg.ID_7,
-		arg.HttpID_7,
-		arg.FormKey_7,
-		arg.FormValue_7,
-		arg.Description_7,
-		arg.Enabled_7,
-		arg.ParentBodyFormID_7,
-		arg.IsDelta_7,
-		arg.DeltaFormKey_7,
-		arg.DeltaFormValue_7,
-		arg.DeltaDescription_7,
-		arg.DeltaEnabled_7,
-		arg.Prev_7,
-		arg.Next_7,
-		arg.CreatedAt_7,
-		arg.UpdatedAt_7,
-		arg.ID_8,
-		arg.HttpID_8,
-		arg.FormKey_8,
-		arg.FormValue_8,
-		arg.Description_8,
-		arg.Enabled_8,
-		arg.ParentBodyFormID_8,
-		arg.IsDelta_8,
-		arg.DeltaFormKey_8,
-		arg.DeltaFormValue_8,
-		arg.DeltaDescription_8,
-		arg.DeltaEnabled_8,
-		arg.Prev_8,
-		arg.Next_8,
-		arg.CreatedAt_8,
-		arg.UpdatedAt_8,
-		arg.ID_9,
-		arg.HttpID_9,
-		arg.FormKey_9,
-		arg.FormValue_9,
-		arg.Description_9,
-		arg.Enabled_9,
-		arg.ParentBodyFormID_9,
-		arg.IsDelta_9,
-		arg.DeltaFormKey_9,
-		arg.DeltaFormValue_9,
-		arg.DeltaDescription_9,
-		arg.DeltaEnabled_9,
-		arg.Prev_9,
-		arg.Next_9,
-		arg.CreatedAt_9,
-		arg.UpdatedAt_9,
-		arg.ID_10,
-		arg.HttpID_10,
-		arg.FormKey_10,
-		arg.FormValue_10,
-		arg.Description_10,
-		arg.Enabled_10,
-		arg.ParentBodyFormID_10,
-		arg.IsDelta_10,
-		arg.DeltaFormKey_10,
-		arg.DeltaFormValue_10,
-		arg.DeltaDescription_10,
-		arg.DeltaEnabled_10,
-		arg.Prev_10,
-		arg.Next_10,
-		arg.CreatedAt_10,
-		arg.UpdatedAt_10,
-	)
-	return err
-}
-
-const createHTTPBodyRaw = `-- name: CreateHTTPBodyRaw :exec
-INSERT INTO http_body_raw (
-  id, http_id, raw_data, content_type, compression_type,
-  parent_body_raw_id, is_delta, delta_raw_data, delta_content_type,
-  delta_compression_type, created_at, updated_at
-)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type CreateHTTPBodyRawParams struct {
-	ID                   idwrap.IDWrap
-	HttpID               idwrap.IDWrap
-	RawData              []byte
-	ContentType          string
-	CompressionType      int8
-	ParentBodyRawID      *idwrap.IDWrap
-	IsDelta              bool
-	DeltaRawData         interface{}
-	DeltaContentType     interface{}
-	DeltaCompressionType interface{}
-	CreatedAt            int64
-	UpdatedAt            int64
-}
-
-func (q *Queries) CreateHTTPBodyRaw(ctx context.Context, arg CreateHTTPBodyRawParams) error {
-	_, err := q.exec(ctx, q.createHTTPBodyRawStmt, createHTTPBodyRaw,
-		arg.ID,
-		arg.HttpID,
-		arg.RawData,
-		arg.ContentType,
-		arg.CompressionType,
-		arg.ParentBodyRawID,
-		arg.IsDelta,
-		arg.DeltaRawData,
-		arg.DeltaContentType,
-		arg.DeltaCompressionType,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-	)
-	return err
-}
-
-const createHTTPBodyUrlencoded = `-- name: CreateHTTPBodyUrlencoded :exec
+const createHTTPBodyUrlEncoded = `-- name: CreateHTTPBodyUrlEncoded :exec
 INSERT INTO http_body_urlencoded (
-  id, http_id, urlencoded_key, urlencoded_value, description, enabled,
-  parent_body_urlencoded_id, is_delta, delta_urlencoded_key, delta_urlencoded_value,
-  delta_description, delta_enabled, prev, next, created_at, updated_at
+  id, http_id, key, value, enabled, description, "order",
+  parent_http_body_urlencoded_id, is_delta, delta_key, delta_value,
+  delta_enabled, delta_description, delta_order, created_at, updated_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
-type CreateHTTPBodyUrlencodedParams struct {
-	ID                     idwrap.IDWrap
-	HttpID                 idwrap.IDWrap
-	UrlencodedKey          string
-	UrlencodedValue        string
-	Description            string
-	Enabled                bool
-	ParentBodyUrlencodedID *idwrap.IDWrap
-	IsDelta                bool
-	DeltaUrlencodedKey     *string
-	DeltaUrlencodedValue   *string
-	DeltaDescription       *string
-	DeltaEnabled           *bool
-	Prev                   *idwrap.IDWrap
-	Next                   *idwrap.IDWrap
-	CreatedAt              int64
-	UpdatedAt              int64
+type CreateHTTPBodyUrlEncodedParams struct {
+	ID                         idwrap.IDWrap
+	HttpID                     idwrap.IDWrap
+	Key                        string
+	Value                      string
+	Enabled                    bool
+	Description                string
+	Order                      float64
+	ParentHttpBodyUrlencodedID []byte
+	IsDelta                    bool
+	DeltaKey                   sql.NullString
+	DeltaValue                 sql.NullString
+	DeltaEnabled               *bool
+	DeltaDescription           *string
+	DeltaOrder                 sql.NullFloat64
+	CreatedAt                  int64
+	UpdatedAt                  int64
 }
 
-func (q *Queries) CreateHTTPBodyUrlencoded(ctx context.Context, arg CreateHTTPBodyUrlencodedParams) error {
-	_, err := q.exec(ctx, q.createHTTPBodyUrlencodedStmt, createHTTPBodyUrlencoded,
+func (q *Queries) CreateHTTPBodyUrlEncoded(ctx context.Context, arg CreateHTTPBodyUrlEncodedParams) error {
+	_, err := q.exec(ctx, q.createHTTPBodyUrlEncodedStmt, createHTTPBodyUrlEncoded,
 		arg.ID,
 		arg.HttpID,
-		arg.UrlencodedKey,
-		arg.UrlencodedValue,
-		arg.Description,
+		arg.Key,
+		arg.Value,
 		arg.Enabled,
-		arg.ParentBodyUrlencodedID,
+		arg.Description,
+		arg.Order,
+		arg.ParentHttpBodyUrlencodedID,
 		arg.IsDelta,
-		arg.DeltaUrlencodedKey,
-		arg.DeltaUrlencodedValue,
-		arg.DeltaDescription,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
+		arg.DeltaDescription,
+		arg.DeltaOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
 	return err
 }
 
-const createHTTPBodyUrlencodedBulk = `-- name: CreateHTTPBodyUrlencodedBulk :exec
+const createHTTPBodyUrlEncodedBulk = `-- name: CreateHTTPBodyUrlEncodedBulk :exec
 INSERT INTO http_body_urlencoded (
-  id, http_id, urlencoded_key, urlencoded_value, description, enabled,
-  parent_body_urlencoded_id, is_delta, delta_urlencoded_key, delta_urlencoded_value,
-  delta_description, delta_enabled, prev, next, created_at, updated_at
+  id, http_id, key, value, enabled, description, "order",
+  parent_http_body_urlencoded_id, is_delta, delta_key, delta_value,
+  delta_enabled, delta_description, delta_order, created_at, updated_at
 )
 VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
@@ -2205,329 +1832,329 @@ VALUES
   (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
-type CreateHTTPBodyUrlencodedBulkParams struct {
-	ID                        idwrap.IDWrap
-	HttpID                    idwrap.IDWrap
-	UrlencodedKey             string
-	UrlencodedValue           string
-	Description               string
-	Enabled                   bool
-	ParentBodyUrlencodedID    *idwrap.IDWrap
-	IsDelta                   bool
-	DeltaUrlencodedKey        *string
-	DeltaUrlencodedValue      *string
-	DeltaDescription          *string
-	DeltaEnabled              *bool
-	Prev                      *idwrap.IDWrap
-	Next                      *idwrap.IDWrap
-	CreatedAt                 int64
-	UpdatedAt                 int64
-	ID_2                      idwrap.IDWrap
-	HttpID_2                  idwrap.IDWrap
-	UrlencodedKey_2           string
-	UrlencodedValue_2         string
-	Description_2             string
-	Enabled_2                 bool
-	ParentBodyUrlencodedID_2  *idwrap.IDWrap
-	IsDelta_2                 bool
-	DeltaUrlencodedKey_2      *string
-	DeltaUrlencodedValue_2    *string
-	DeltaDescription_2        *string
-	DeltaEnabled_2            *bool
-	Prev_2                    *idwrap.IDWrap
-	Next_2                    *idwrap.IDWrap
-	CreatedAt_2               int64
-	UpdatedAt_2               int64
-	ID_3                      idwrap.IDWrap
-	HttpID_3                  idwrap.IDWrap
-	UrlencodedKey_3           string
-	UrlencodedValue_3         string
-	Description_3             string
-	Enabled_3                 bool
-	ParentBodyUrlencodedID_3  *idwrap.IDWrap
-	IsDelta_3                 bool
-	DeltaUrlencodedKey_3      *string
-	DeltaUrlencodedValue_3    *string
-	DeltaDescription_3        *string
-	DeltaEnabled_3            *bool
-	Prev_3                    *idwrap.IDWrap
-	Next_3                    *idwrap.IDWrap
-	CreatedAt_3               int64
-	UpdatedAt_3               int64
-	ID_4                      idwrap.IDWrap
-	HttpID_4                  idwrap.IDWrap
-	UrlencodedKey_4           string
-	UrlencodedValue_4         string
-	Description_4             string
-	Enabled_4                 bool
-	ParentBodyUrlencodedID_4  *idwrap.IDWrap
-	IsDelta_4                 bool
-	DeltaUrlencodedKey_4      *string
-	DeltaUrlencodedValue_4    *string
-	DeltaDescription_4        *string
-	DeltaEnabled_4            *bool
-	Prev_4                    *idwrap.IDWrap
-	Next_4                    *idwrap.IDWrap
-	CreatedAt_4               int64
-	UpdatedAt_4               int64
-	ID_5                      idwrap.IDWrap
-	HttpID_5                  idwrap.IDWrap
-	UrlencodedKey_5           string
-	UrlencodedValue_5         string
-	Description_5             string
-	Enabled_5                 bool
-	ParentBodyUrlencodedID_5  *idwrap.IDWrap
-	IsDelta_5                 bool
-	DeltaUrlencodedKey_5      *string
-	DeltaUrlencodedValue_5    *string
-	DeltaDescription_5        *string
-	DeltaEnabled_5            *bool
-	Prev_5                    *idwrap.IDWrap
-	Next_5                    *idwrap.IDWrap
-	CreatedAt_5               int64
-	UpdatedAt_5               int64
-	ID_6                      idwrap.IDWrap
-	HttpID_6                  idwrap.IDWrap
-	UrlencodedKey_6           string
-	UrlencodedValue_6         string
-	Description_6             string
-	Enabled_6                 bool
-	ParentBodyUrlencodedID_6  *idwrap.IDWrap
-	IsDelta_6                 bool
-	DeltaUrlencodedKey_6      *string
-	DeltaUrlencodedValue_6    *string
-	DeltaDescription_6        *string
-	DeltaEnabled_6            *bool
-	Prev_6                    *idwrap.IDWrap
-	Next_6                    *idwrap.IDWrap
-	CreatedAt_6               int64
-	UpdatedAt_6               int64
-	ID_7                      idwrap.IDWrap
-	HttpID_7                  idwrap.IDWrap
-	UrlencodedKey_7           string
-	UrlencodedValue_7         string
-	Description_7             string
-	Enabled_7                 bool
-	ParentBodyUrlencodedID_7  *idwrap.IDWrap
-	IsDelta_7                 bool
-	DeltaUrlencodedKey_7      *string
-	DeltaUrlencodedValue_7    *string
-	DeltaDescription_7        *string
-	DeltaEnabled_7            *bool
-	Prev_7                    *idwrap.IDWrap
-	Next_7                    *idwrap.IDWrap
-	CreatedAt_7               int64
-	UpdatedAt_7               int64
-	ID_8                      idwrap.IDWrap
-	HttpID_8                  idwrap.IDWrap
-	UrlencodedKey_8           string
-	UrlencodedValue_8         string
-	Description_8             string
-	Enabled_8                 bool
-	ParentBodyUrlencodedID_8  *idwrap.IDWrap
-	IsDelta_8                 bool
-	DeltaUrlencodedKey_8      *string
-	DeltaUrlencodedValue_8    *string
-	DeltaDescription_8        *string
-	DeltaEnabled_8            *bool
-	Prev_8                    *idwrap.IDWrap
-	Next_8                    *idwrap.IDWrap
-	CreatedAt_8               int64
-	UpdatedAt_8               int64
-	ID_9                      idwrap.IDWrap
-	HttpID_9                  idwrap.IDWrap
-	UrlencodedKey_9           string
-	UrlencodedValue_9         string
-	Description_9             string
-	Enabled_9                 bool
-	ParentBodyUrlencodedID_9  *idwrap.IDWrap
-	IsDelta_9                 bool
-	DeltaUrlencodedKey_9      *string
-	DeltaUrlencodedValue_9    *string
-	DeltaDescription_9        *string
-	DeltaEnabled_9            *bool
-	Prev_9                    *idwrap.IDWrap
-	Next_9                    *idwrap.IDWrap
-	CreatedAt_9               int64
-	UpdatedAt_9               int64
-	ID_10                     idwrap.IDWrap
-	HttpID_10                 idwrap.IDWrap
-	UrlencodedKey_10          string
-	UrlencodedValue_10        string
-	Description_10            string
-	Enabled_10                bool
-	ParentBodyUrlencodedID_10 *idwrap.IDWrap
-	IsDelta_10                bool
-	DeltaUrlencodedKey_10     *string
-	DeltaUrlencodedValue_10   *string
-	DeltaDescription_10       *string
-	DeltaEnabled_10           *bool
-	Prev_10                   *idwrap.IDWrap
-	Next_10                   *idwrap.IDWrap
-	CreatedAt_10              int64
-	UpdatedAt_10              int64
+type CreateHTTPBodyUrlEncodedBulkParams struct {
+	ID                            idwrap.IDWrap
+	HttpID                        idwrap.IDWrap
+	Key                           string
+	Value                         string
+	Enabled                       bool
+	Description                   string
+	Order                         float64
+	ParentHttpBodyUrlencodedID    []byte
+	IsDelta                       bool
+	DeltaKey                      sql.NullString
+	DeltaValue                    sql.NullString
+	DeltaEnabled                  *bool
+	DeltaDescription              *string
+	DeltaOrder                    sql.NullFloat64
+	CreatedAt                     int64
+	UpdatedAt                     int64
+	ID_2                          idwrap.IDWrap
+	HttpID_2                      idwrap.IDWrap
+	Key_2                         string
+	Value_2                       string
+	Enabled_2                     bool
+	Description_2                 string
+	Order_2                       float64
+	ParentHttpBodyUrlencodedID_2  []byte
+	IsDelta_2                     bool
+	DeltaKey_2                    sql.NullString
+	DeltaValue_2                  sql.NullString
+	DeltaEnabled_2                *bool
+	DeltaDescription_2            *string
+	DeltaOrder_2                  sql.NullFloat64
+	CreatedAt_2                   int64
+	UpdatedAt_2                   int64
+	ID_3                          idwrap.IDWrap
+	HttpID_3                      idwrap.IDWrap
+	Key_3                         string
+	Value_3                       string
+	Enabled_3                     bool
+	Description_3                 string
+	Order_3                       float64
+	ParentHttpBodyUrlencodedID_3  []byte
+	IsDelta_3                     bool
+	DeltaKey_3                    sql.NullString
+	DeltaValue_3                  sql.NullString
+	DeltaEnabled_3                *bool
+	DeltaDescription_3            *string
+	DeltaOrder_3                  sql.NullFloat64
+	CreatedAt_3                   int64
+	UpdatedAt_3                   int64
+	ID_4                          idwrap.IDWrap
+	HttpID_4                      idwrap.IDWrap
+	Key_4                         string
+	Value_4                       string
+	Enabled_4                     bool
+	Description_4                 string
+	Order_4                       float64
+	ParentHttpBodyUrlencodedID_4  []byte
+	IsDelta_4                     bool
+	DeltaKey_4                    sql.NullString
+	DeltaValue_4                  sql.NullString
+	DeltaEnabled_4                *bool
+	DeltaDescription_4            *string
+	DeltaOrder_4                  sql.NullFloat64
+	CreatedAt_4                   int64
+	UpdatedAt_4                   int64
+	ID_5                          idwrap.IDWrap
+	HttpID_5                      idwrap.IDWrap
+	Key_5                         string
+	Value_5                       string
+	Enabled_5                     bool
+	Description_5                 string
+	Order_5                       float64
+	ParentHttpBodyUrlencodedID_5  []byte
+	IsDelta_5                     bool
+	DeltaKey_5                    sql.NullString
+	DeltaValue_5                  sql.NullString
+	DeltaEnabled_5                *bool
+	DeltaDescription_5            *string
+	DeltaOrder_5                  sql.NullFloat64
+	CreatedAt_5                   int64
+	UpdatedAt_5                   int64
+	ID_6                          idwrap.IDWrap
+	HttpID_6                      idwrap.IDWrap
+	Key_6                         string
+	Value_6                       string
+	Enabled_6                     bool
+	Description_6                 string
+	Order_6                       float64
+	ParentHttpBodyUrlencodedID_6  []byte
+	IsDelta_6                     bool
+	DeltaKey_6                    sql.NullString
+	DeltaValue_6                  sql.NullString
+	DeltaEnabled_6                *bool
+	DeltaDescription_6            *string
+	DeltaOrder_6                  sql.NullFloat64
+	CreatedAt_6                   int64
+	UpdatedAt_6                   int64
+	ID_7                          idwrap.IDWrap
+	HttpID_7                      idwrap.IDWrap
+	Key_7                         string
+	Value_7                       string
+	Enabled_7                     bool
+	Description_7                 string
+	Order_7                       float64
+	ParentHttpBodyUrlencodedID_7  []byte
+	IsDelta_7                     bool
+	DeltaKey_7                    sql.NullString
+	DeltaValue_7                  sql.NullString
+	DeltaEnabled_7                *bool
+	DeltaDescription_7            *string
+	DeltaOrder_7                  sql.NullFloat64
+	CreatedAt_7                   int64
+	UpdatedAt_7                   int64
+	ID_8                          idwrap.IDWrap
+	HttpID_8                      idwrap.IDWrap
+	Key_8                         string
+	Value_8                       string
+	Enabled_8                     bool
+	Description_8                 string
+	Order_8                       float64
+	ParentHttpBodyUrlencodedID_8  []byte
+	IsDelta_8                     bool
+	DeltaKey_8                    sql.NullString
+	DeltaValue_8                  sql.NullString
+	DeltaEnabled_8                *bool
+	DeltaDescription_8            *string
+	DeltaOrder_8                  sql.NullFloat64
+	CreatedAt_8                   int64
+	UpdatedAt_8                   int64
+	ID_9                          idwrap.IDWrap
+	HttpID_9                      idwrap.IDWrap
+	Key_9                         string
+	Value_9                       string
+	Enabled_9                     bool
+	Description_9                 string
+	Order_9                       float64
+	ParentHttpBodyUrlencodedID_9  []byte
+	IsDelta_9                     bool
+	DeltaKey_9                    sql.NullString
+	DeltaValue_9                  sql.NullString
+	DeltaEnabled_9                *bool
+	DeltaDescription_9            *string
+	DeltaOrder_9                  sql.NullFloat64
+	CreatedAt_9                   int64
+	UpdatedAt_9                   int64
+	ID_10                         idwrap.IDWrap
+	HttpID_10                     idwrap.IDWrap
+	Key_10                        string
+	Value_10                      string
+	Enabled_10                    bool
+	Description_10                string
+	Order_10                      float64
+	ParentHttpBodyUrlencodedID_10 []byte
+	IsDelta_10                    bool
+	DeltaKey_10                   sql.NullString
+	DeltaValue_10                 sql.NullString
+	DeltaEnabled_10               *bool
+	DeltaDescription_10           *string
+	DeltaOrder_10                 sql.NullFloat64
+	CreatedAt_10                  int64
+	UpdatedAt_10                  int64
 }
 
-func (q *Queries) CreateHTTPBodyUrlencodedBulk(ctx context.Context, arg CreateHTTPBodyUrlencodedBulkParams) error {
-	_, err := q.exec(ctx, q.createHTTPBodyUrlencodedBulkStmt, createHTTPBodyUrlencodedBulk,
+func (q *Queries) CreateHTTPBodyUrlEncodedBulk(ctx context.Context, arg CreateHTTPBodyUrlEncodedBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPBodyUrlEncodedBulkStmt, createHTTPBodyUrlEncodedBulk,
 		arg.ID,
 		arg.HttpID,
-		arg.UrlencodedKey,
-		arg.UrlencodedValue,
-		arg.Description,
+		arg.Key,
+		arg.Value,
 		arg.Enabled,
-		arg.ParentBodyUrlencodedID,
+		arg.Description,
+		arg.Order,
+		arg.ParentHttpBodyUrlencodedID,
 		arg.IsDelta,
-		arg.DeltaUrlencodedKey,
-		arg.DeltaUrlencodedValue,
-		arg.DeltaDescription,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
+		arg.DeltaDescription,
+		arg.DeltaOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.ID_2,
 		arg.HttpID_2,
-		arg.UrlencodedKey_2,
-		arg.UrlencodedValue_2,
-		arg.Description_2,
+		arg.Key_2,
+		arg.Value_2,
 		arg.Enabled_2,
-		arg.ParentBodyUrlencodedID_2,
+		arg.Description_2,
+		arg.Order_2,
+		arg.ParentHttpBodyUrlencodedID_2,
 		arg.IsDelta_2,
-		arg.DeltaUrlencodedKey_2,
-		arg.DeltaUrlencodedValue_2,
-		arg.DeltaDescription_2,
+		arg.DeltaKey_2,
+		arg.DeltaValue_2,
 		arg.DeltaEnabled_2,
-		arg.Prev_2,
-		arg.Next_2,
+		arg.DeltaDescription_2,
+		arg.DeltaOrder_2,
 		arg.CreatedAt_2,
 		arg.UpdatedAt_2,
 		arg.ID_3,
 		arg.HttpID_3,
-		arg.UrlencodedKey_3,
-		arg.UrlencodedValue_3,
-		arg.Description_3,
+		arg.Key_3,
+		arg.Value_3,
 		arg.Enabled_3,
-		arg.ParentBodyUrlencodedID_3,
+		arg.Description_3,
+		arg.Order_3,
+		arg.ParentHttpBodyUrlencodedID_3,
 		arg.IsDelta_3,
-		arg.DeltaUrlencodedKey_3,
-		arg.DeltaUrlencodedValue_3,
-		arg.DeltaDescription_3,
+		arg.DeltaKey_3,
+		arg.DeltaValue_3,
 		arg.DeltaEnabled_3,
-		arg.Prev_3,
-		arg.Next_3,
+		arg.DeltaDescription_3,
+		arg.DeltaOrder_3,
 		arg.CreatedAt_3,
 		arg.UpdatedAt_3,
 		arg.ID_4,
 		arg.HttpID_4,
-		arg.UrlencodedKey_4,
-		arg.UrlencodedValue_4,
-		arg.Description_4,
+		arg.Key_4,
+		arg.Value_4,
 		arg.Enabled_4,
-		arg.ParentBodyUrlencodedID_4,
+		arg.Description_4,
+		arg.Order_4,
+		arg.ParentHttpBodyUrlencodedID_4,
 		arg.IsDelta_4,
-		arg.DeltaUrlencodedKey_4,
-		arg.DeltaUrlencodedValue_4,
-		arg.DeltaDescription_4,
+		arg.DeltaKey_4,
+		arg.DeltaValue_4,
 		arg.DeltaEnabled_4,
-		arg.Prev_4,
-		arg.Next_4,
+		arg.DeltaDescription_4,
+		arg.DeltaOrder_4,
 		arg.CreatedAt_4,
 		arg.UpdatedAt_4,
 		arg.ID_5,
 		arg.HttpID_5,
-		arg.UrlencodedKey_5,
-		arg.UrlencodedValue_5,
-		arg.Description_5,
+		arg.Key_5,
+		arg.Value_5,
 		arg.Enabled_5,
-		arg.ParentBodyUrlencodedID_5,
+		arg.Description_5,
+		arg.Order_5,
+		arg.ParentHttpBodyUrlencodedID_5,
 		arg.IsDelta_5,
-		arg.DeltaUrlencodedKey_5,
-		arg.DeltaUrlencodedValue_5,
-		arg.DeltaDescription_5,
+		arg.DeltaKey_5,
+		arg.DeltaValue_5,
 		arg.DeltaEnabled_5,
-		arg.Prev_5,
-		arg.Next_5,
+		arg.DeltaDescription_5,
+		arg.DeltaOrder_5,
 		arg.CreatedAt_5,
 		arg.UpdatedAt_5,
 		arg.ID_6,
 		arg.HttpID_6,
-		arg.UrlencodedKey_6,
-		arg.UrlencodedValue_6,
-		arg.Description_6,
+		arg.Key_6,
+		arg.Value_6,
 		arg.Enabled_6,
-		arg.ParentBodyUrlencodedID_6,
+		arg.Description_6,
+		arg.Order_6,
+		arg.ParentHttpBodyUrlencodedID_6,
 		arg.IsDelta_6,
-		arg.DeltaUrlencodedKey_6,
-		arg.DeltaUrlencodedValue_6,
-		arg.DeltaDescription_6,
+		arg.DeltaKey_6,
+		arg.DeltaValue_6,
 		arg.DeltaEnabled_6,
-		arg.Prev_6,
-		arg.Next_6,
+		arg.DeltaDescription_6,
+		arg.DeltaOrder_6,
 		arg.CreatedAt_6,
 		arg.UpdatedAt_6,
 		arg.ID_7,
 		arg.HttpID_7,
-		arg.UrlencodedKey_7,
-		arg.UrlencodedValue_7,
-		arg.Description_7,
+		arg.Key_7,
+		arg.Value_7,
 		arg.Enabled_7,
-		arg.ParentBodyUrlencodedID_7,
+		arg.Description_7,
+		arg.Order_7,
+		arg.ParentHttpBodyUrlencodedID_7,
 		arg.IsDelta_7,
-		arg.DeltaUrlencodedKey_7,
-		arg.DeltaUrlencodedValue_7,
-		arg.DeltaDescription_7,
+		arg.DeltaKey_7,
+		arg.DeltaValue_7,
 		arg.DeltaEnabled_7,
-		arg.Prev_7,
-		arg.Next_7,
+		arg.DeltaDescription_7,
+		arg.DeltaOrder_7,
 		arg.CreatedAt_7,
 		arg.UpdatedAt_7,
 		arg.ID_8,
 		arg.HttpID_8,
-		arg.UrlencodedKey_8,
-		arg.UrlencodedValue_8,
-		arg.Description_8,
+		arg.Key_8,
+		arg.Value_8,
 		arg.Enabled_8,
-		arg.ParentBodyUrlencodedID_8,
+		arg.Description_8,
+		arg.Order_8,
+		arg.ParentHttpBodyUrlencodedID_8,
 		arg.IsDelta_8,
-		arg.DeltaUrlencodedKey_8,
-		arg.DeltaUrlencodedValue_8,
-		arg.DeltaDescription_8,
+		arg.DeltaKey_8,
+		arg.DeltaValue_8,
 		arg.DeltaEnabled_8,
-		arg.Prev_8,
-		arg.Next_8,
+		arg.DeltaDescription_8,
+		arg.DeltaOrder_8,
 		arg.CreatedAt_8,
 		arg.UpdatedAt_8,
 		arg.ID_9,
 		arg.HttpID_9,
-		arg.UrlencodedKey_9,
-		arg.UrlencodedValue_9,
-		arg.Description_9,
+		arg.Key_9,
+		arg.Value_9,
 		arg.Enabled_9,
-		arg.ParentBodyUrlencodedID_9,
+		arg.Description_9,
+		arg.Order_9,
+		arg.ParentHttpBodyUrlencodedID_9,
 		arg.IsDelta_9,
-		arg.DeltaUrlencodedKey_9,
-		arg.DeltaUrlencodedValue_9,
-		arg.DeltaDescription_9,
+		arg.DeltaKey_9,
+		arg.DeltaValue_9,
 		arg.DeltaEnabled_9,
-		arg.Prev_9,
-		arg.Next_9,
+		arg.DeltaDescription_9,
+		arg.DeltaOrder_9,
 		arg.CreatedAt_9,
 		arg.UpdatedAt_9,
 		arg.ID_10,
 		arg.HttpID_10,
-		arg.UrlencodedKey_10,
-		arg.UrlencodedValue_10,
-		arg.Description_10,
+		arg.Key_10,
+		arg.Value_10,
 		arg.Enabled_10,
-		arg.ParentBodyUrlencodedID_10,
+		arg.Description_10,
+		arg.Order_10,
+		arg.ParentHttpBodyUrlencodedID_10,
 		arg.IsDelta_10,
-		arg.DeltaUrlencodedKey_10,
-		arg.DeltaUrlencodedValue_10,
-		arg.DeltaDescription_10,
+		arg.DeltaKey_10,
+		arg.DeltaValue_10,
 		arg.DeltaEnabled_10,
-		arg.Prev_10,
-		arg.Next_10,
+		arg.DeltaDescription_10,
+		arg.DeltaOrder_10,
 		arg.CreatedAt_10,
 		arg.UpdatedAt_10,
 	)
@@ -2584,941 +2211,572 @@ func (q *Queries) CreateHTTPHeader(ctx context.Context, arg CreateHTTPHeaderPara
 	return err
 }
 
-const createHTTPHeadersBulk = `-- name: CreateHTTPHeadersBulk :exec
-INSERT INTO http_header (
-  id, http_id, header_key, header_value, description, enabled,
-  parent_header_id, is_delta, delta_header_key, delta_header_value,
-  delta_description, delta_enabled, prev, next, created_at, updated_at
-)
-VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type CreateHTTPHeadersBulkParams struct {
-	ID                  idwrap.IDWrap
-	HttpID              idwrap.IDWrap
-	HeaderKey           string
-	HeaderValue         string
-	Description         string
-	Enabled             bool
-	ParentHeaderID      *idwrap.IDWrap
-	IsDelta             bool
-	DeltaHeaderKey      *string
-	DeltaHeaderValue    *string
-	DeltaDescription    *string
-	DeltaEnabled        *bool
-	Prev                *idwrap.IDWrap
-	Next                *idwrap.IDWrap
-	CreatedAt           int64
-	UpdatedAt           int64
-	ID_2                idwrap.IDWrap
-	HttpID_2            idwrap.IDWrap
-	HeaderKey_2         string
-	HeaderValue_2       string
-	Description_2       string
-	Enabled_2           bool
-	ParentHeaderID_2    *idwrap.IDWrap
-	IsDelta_2           bool
-	DeltaHeaderKey_2    *string
-	DeltaHeaderValue_2  *string
-	DeltaDescription_2  *string
-	DeltaEnabled_2      *bool
-	Prev_2              *idwrap.IDWrap
-	Next_2              *idwrap.IDWrap
-	CreatedAt_2         int64
-	UpdatedAt_2         int64
-	ID_3                idwrap.IDWrap
-	HttpID_3            idwrap.IDWrap
-	HeaderKey_3         string
-	HeaderValue_3       string
-	Description_3       string
-	Enabled_3           bool
-	ParentHeaderID_3    *idwrap.IDWrap
-	IsDelta_3           bool
-	DeltaHeaderKey_3    *string
-	DeltaHeaderValue_3  *string
-	DeltaDescription_3  *string
-	DeltaEnabled_3      *bool
-	Prev_3              *idwrap.IDWrap
-	Next_3              *idwrap.IDWrap
-	CreatedAt_3         int64
-	UpdatedAt_3         int64
-	ID_4                idwrap.IDWrap
-	HttpID_4            idwrap.IDWrap
-	HeaderKey_4         string
-	HeaderValue_4       string
-	Description_4       string
-	Enabled_4           bool
-	ParentHeaderID_4    *idwrap.IDWrap
-	IsDelta_4           bool
-	DeltaHeaderKey_4    *string
-	DeltaHeaderValue_4  *string
-	DeltaDescription_4  *string
-	DeltaEnabled_4      *bool
-	Prev_4              *idwrap.IDWrap
-	Next_4              *idwrap.IDWrap
-	CreatedAt_4         int64
-	UpdatedAt_4         int64
-	ID_5                idwrap.IDWrap
-	HttpID_5            idwrap.IDWrap
-	HeaderKey_5         string
-	HeaderValue_5       string
-	Description_5       string
-	Enabled_5           bool
-	ParentHeaderID_5    *idwrap.IDWrap
-	IsDelta_5           bool
-	DeltaHeaderKey_5    *string
-	DeltaHeaderValue_5  *string
-	DeltaDescription_5  *string
-	DeltaEnabled_5      *bool
-	Prev_5              *idwrap.IDWrap
-	Next_5              *idwrap.IDWrap
-	CreatedAt_5         int64
-	UpdatedAt_5         int64
-	ID_6                idwrap.IDWrap
-	HttpID_6            idwrap.IDWrap
-	HeaderKey_6         string
-	HeaderValue_6       string
-	Description_6       string
-	Enabled_6           bool
-	ParentHeaderID_6    *idwrap.IDWrap
-	IsDelta_6           bool
-	DeltaHeaderKey_6    *string
-	DeltaHeaderValue_6  *string
-	DeltaDescription_6  *string
-	DeltaEnabled_6      *bool
-	Prev_6              *idwrap.IDWrap
-	Next_6              *idwrap.IDWrap
-	CreatedAt_6         int64
-	UpdatedAt_6         int64
-	ID_7                idwrap.IDWrap
-	HttpID_7            idwrap.IDWrap
-	HeaderKey_7         string
-	HeaderValue_7       string
-	Description_7       string
-	Enabled_7           bool
-	ParentHeaderID_7    *idwrap.IDWrap
-	IsDelta_7           bool
-	DeltaHeaderKey_7    *string
-	DeltaHeaderValue_7  *string
-	DeltaDescription_7  *string
-	DeltaEnabled_7      *bool
-	Prev_7              *idwrap.IDWrap
-	Next_7              *idwrap.IDWrap
-	CreatedAt_7         int64
-	UpdatedAt_7         int64
-	ID_8                idwrap.IDWrap
-	HttpID_8            idwrap.IDWrap
-	HeaderKey_8         string
-	HeaderValue_8       string
-	Description_8       string
-	Enabled_8           bool
-	ParentHeaderID_8    *idwrap.IDWrap
-	IsDelta_8           bool
-	DeltaHeaderKey_8    *string
-	DeltaHeaderValue_8  *string
-	DeltaDescription_8  *string
-	DeltaEnabled_8      *bool
-	Prev_8              *idwrap.IDWrap
-	Next_8              *idwrap.IDWrap
-	CreatedAt_8         int64
-	UpdatedAt_8         int64
-	ID_9                idwrap.IDWrap
-	HttpID_9            idwrap.IDWrap
-	HeaderKey_9         string
-	HeaderValue_9       string
-	Description_9       string
-	Enabled_9           bool
-	ParentHeaderID_9    *idwrap.IDWrap
-	IsDelta_9           bool
-	DeltaHeaderKey_9    *string
-	DeltaHeaderValue_9  *string
-	DeltaDescription_9  *string
-	DeltaEnabled_9      *bool
-	Prev_9              *idwrap.IDWrap
-	Next_9              *idwrap.IDWrap
-	CreatedAt_9         int64
-	UpdatedAt_9         int64
-	ID_10               idwrap.IDWrap
-	HttpID_10           idwrap.IDWrap
-	HeaderKey_10        string
-	HeaderValue_10      string
-	Description_10      string
-	Enabled_10          bool
-	ParentHeaderID_10   *idwrap.IDWrap
-	IsDelta_10          bool
-	DeltaHeaderKey_10   *string
-	DeltaHeaderValue_10 *string
-	DeltaDescription_10 *string
-	DeltaEnabled_10     *bool
-	Prev_10             *idwrap.IDWrap
-	Next_10             *idwrap.IDWrap
-	CreatedAt_10        int64
-	UpdatedAt_10        int64
-}
-
-func (q *Queries) CreateHTTPHeadersBulk(ctx context.Context, arg CreateHTTPHeadersBulkParams) error {
-	_, err := q.exec(ctx, q.createHTTPHeadersBulkStmt, createHTTPHeadersBulk,
-		arg.ID,
-		arg.HttpID,
-		arg.HeaderKey,
-		arg.HeaderValue,
-		arg.Description,
-		arg.Enabled,
-		arg.ParentHeaderID,
-		arg.IsDelta,
-		arg.DeltaHeaderKey,
-		arg.DeltaHeaderValue,
-		arg.DeltaDescription,
-		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-		arg.ID_2,
-		arg.HttpID_2,
-		arg.HeaderKey_2,
-		arg.HeaderValue_2,
-		arg.Description_2,
-		arg.Enabled_2,
-		arg.ParentHeaderID_2,
-		arg.IsDelta_2,
-		arg.DeltaHeaderKey_2,
-		arg.DeltaHeaderValue_2,
-		arg.DeltaDescription_2,
-		arg.DeltaEnabled_2,
-		arg.Prev_2,
-		arg.Next_2,
-		arg.CreatedAt_2,
-		arg.UpdatedAt_2,
-		arg.ID_3,
-		arg.HttpID_3,
-		arg.HeaderKey_3,
-		arg.HeaderValue_3,
-		arg.Description_3,
-		arg.Enabled_3,
-		arg.ParentHeaderID_3,
-		arg.IsDelta_3,
-		arg.DeltaHeaderKey_3,
-		arg.DeltaHeaderValue_3,
-		arg.DeltaDescription_3,
-		arg.DeltaEnabled_3,
-		arg.Prev_3,
-		arg.Next_3,
-		arg.CreatedAt_3,
-		arg.UpdatedAt_3,
-		arg.ID_4,
-		arg.HttpID_4,
-		arg.HeaderKey_4,
-		arg.HeaderValue_4,
-		arg.Description_4,
-		arg.Enabled_4,
-		arg.ParentHeaderID_4,
-		arg.IsDelta_4,
-		arg.DeltaHeaderKey_4,
-		arg.DeltaHeaderValue_4,
-		arg.DeltaDescription_4,
-		arg.DeltaEnabled_4,
-		arg.Prev_4,
-		arg.Next_4,
-		arg.CreatedAt_4,
-		arg.UpdatedAt_4,
-		arg.ID_5,
-		arg.HttpID_5,
-		arg.HeaderKey_5,
-		arg.HeaderValue_5,
-		arg.Description_5,
-		arg.Enabled_5,
-		arg.ParentHeaderID_5,
-		arg.IsDelta_5,
-		arg.DeltaHeaderKey_5,
-		arg.DeltaHeaderValue_5,
-		arg.DeltaDescription_5,
-		arg.DeltaEnabled_5,
-		arg.Prev_5,
-		arg.Next_5,
-		arg.CreatedAt_5,
-		arg.UpdatedAt_5,
-		arg.ID_6,
-		arg.HttpID_6,
-		arg.HeaderKey_6,
-		arg.HeaderValue_6,
-		arg.Description_6,
-		arg.Enabled_6,
-		arg.ParentHeaderID_6,
-		arg.IsDelta_6,
-		arg.DeltaHeaderKey_6,
-		arg.DeltaHeaderValue_6,
-		arg.DeltaDescription_6,
-		arg.DeltaEnabled_6,
-		arg.Prev_6,
-		arg.Next_6,
-		arg.CreatedAt_6,
-		arg.UpdatedAt_6,
-		arg.ID_7,
-		arg.HttpID_7,
-		arg.HeaderKey_7,
-		arg.HeaderValue_7,
-		arg.Description_7,
-		arg.Enabled_7,
-		arg.ParentHeaderID_7,
-		arg.IsDelta_7,
-		arg.DeltaHeaderKey_7,
-		arg.DeltaHeaderValue_7,
-		arg.DeltaDescription_7,
-		arg.DeltaEnabled_7,
-		arg.Prev_7,
-		arg.Next_7,
-		arg.CreatedAt_7,
-		arg.UpdatedAt_7,
-		arg.ID_8,
-		arg.HttpID_8,
-		arg.HeaderKey_8,
-		arg.HeaderValue_8,
-		arg.Description_8,
-		arg.Enabled_8,
-		arg.ParentHeaderID_8,
-		arg.IsDelta_8,
-		arg.DeltaHeaderKey_8,
-		arg.DeltaHeaderValue_8,
-		arg.DeltaDescription_8,
-		arg.DeltaEnabled_8,
-		arg.Prev_8,
-		arg.Next_8,
-		arg.CreatedAt_8,
-		arg.UpdatedAt_8,
-		arg.ID_9,
-		arg.HttpID_9,
-		arg.HeaderKey_9,
-		arg.HeaderValue_9,
-		arg.Description_9,
-		arg.Enabled_9,
-		arg.ParentHeaderID_9,
-		arg.IsDelta_9,
-		arg.DeltaHeaderKey_9,
-		arg.DeltaHeaderValue_9,
-		arg.DeltaDescription_9,
-		arg.DeltaEnabled_9,
-		arg.Prev_9,
-		arg.Next_9,
-		arg.CreatedAt_9,
-		arg.UpdatedAt_9,
-		arg.ID_10,
-		arg.HttpID_10,
-		arg.HeaderKey_10,
-		arg.HeaderValue_10,
-		arg.Description_10,
-		arg.Enabled_10,
-		arg.ParentHeaderID_10,
-		arg.IsDelta_10,
-		arg.DeltaHeaderKey_10,
-		arg.DeltaHeaderValue_10,
-		arg.DeltaDescription_10,
-		arg.DeltaEnabled_10,
-		arg.Prev_10,
-		arg.Next_10,
-		arg.CreatedAt_10,
-		arg.UpdatedAt_10,
-	)
-	return err
-}
-
 const createHTTPResponse = `-- name: CreateHTTPResponse :exec
 INSERT INTO http_response (
-  id, http_id, status_code, response_time_ms, response_size_bytes,
-  response_body, response_compression_type, executed_at, created_by
+  id, http_id, status, body, time, duration, size, created_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPResponseParams struct {
-	ID                      idwrap.IDWrap
-	HttpID                  idwrap.IDWrap
-	StatusCode              int16
-	ResponseTimeMs          int32
-	ResponseSizeBytes       int32
-	ResponseBody            []byte
-	ResponseCompressionType int8
-	ExecutedAt              int64
-	CreatedBy               *idwrap.IDWrap
+	ID        idwrap.IDWrap
+	HttpID    idwrap.IDWrap
+	Status    interface{}
+	Body      []byte
+	Time      time.Time
+	Duration  interface{}
+	Size      interface{}
+	CreatedAt int64
 }
 
 func (q *Queries) CreateHTTPResponse(ctx context.Context, arg CreateHTTPResponseParams) error {
 	_, err := q.exec(ctx, q.createHTTPResponseStmt, createHTTPResponse,
 		arg.ID,
 		arg.HttpID,
-		arg.StatusCode,
-		arg.ResponseTimeMs,
-		arg.ResponseSizeBytes,
-		arg.ResponseBody,
-		arg.ResponseCompressionType,
-		arg.ExecutedAt,
-		arg.CreatedBy,
+		arg.Status,
+		arg.Body,
+		arg.Time,
+		arg.Duration,
+		arg.Size,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const createHTTPResponseAssert = `-- name: CreateHTTPResponseAssert :exec
+INSERT INTO http_response_assert (
+  id, http_id, value, success, created_at
+)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type CreateHTTPResponseAssertParams struct {
+	ID        []byte
+	HttpID    []byte
+	Value     string
+	Success   bool
+	CreatedAt int64
+}
+
+func (q *Queries) CreateHTTPResponseAssert(ctx context.Context, arg CreateHTTPResponseAssertParams) error {
+	_, err := q.exec(ctx, q.createHTTPResponseAssertStmt, createHTTPResponseAssert,
+		arg.ID,
+		arg.HttpID,
+		arg.Value,
+		arg.Success,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const createHTTPResponseAssertBulk = `-- name: CreateHTTPResponseAssertBulk :exec
+INSERT INTO http_response_assert (
+  id, http_id, value, success, created_at
+)
+VALUES
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?)
+`
+
+type CreateHTTPResponseAssertBulkParams struct {
+	ID           []byte
+	HttpID       []byte
+	Value        string
+	Success      bool
+	CreatedAt    int64
+	ID_2         []byte
+	HttpID_2     []byte
+	Value_2      string
+	Success_2    bool
+	CreatedAt_2  int64
+	ID_3         []byte
+	HttpID_3     []byte
+	Value_3      string
+	Success_3    bool
+	CreatedAt_3  int64
+	ID_4         []byte
+	HttpID_4     []byte
+	Value_4      string
+	Success_4    bool
+	CreatedAt_4  int64
+	ID_5         []byte
+	HttpID_5     []byte
+	Value_5      string
+	Success_5    bool
+	CreatedAt_5  int64
+	ID_6         []byte
+	HttpID_6     []byte
+	Value_6      string
+	Success_6    bool
+	CreatedAt_6  int64
+	ID_7         []byte
+	HttpID_7     []byte
+	Value_7      string
+	Success_7    bool
+	CreatedAt_7  int64
+	ID_8         []byte
+	HttpID_8     []byte
+	Value_8      string
+	Success_8    bool
+	CreatedAt_8  int64
+	ID_9         []byte
+	HttpID_9     []byte
+	Value_9      string
+	Success_9    bool
+	CreatedAt_9  int64
+	ID_10        []byte
+	HttpID_10    []byte
+	Value_10     string
+	Success_10   bool
+	CreatedAt_10 int64
+}
+
+func (q *Queries) CreateHTTPResponseAssertBulk(ctx context.Context, arg CreateHTTPResponseAssertBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPResponseAssertBulkStmt, createHTTPResponseAssertBulk,
+		arg.ID,
+		arg.HttpID,
+		arg.Value,
+		arg.Success,
+		arg.CreatedAt,
+		arg.ID_2,
+		arg.HttpID_2,
+		arg.Value_2,
+		arg.Success_2,
+		arg.CreatedAt_2,
+		arg.ID_3,
+		arg.HttpID_3,
+		arg.Value_3,
+		arg.Success_3,
+		arg.CreatedAt_3,
+		arg.ID_4,
+		arg.HttpID_4,
+		arg.Value_4,
+		arg.Success_4,
+		arg.CreatedAt_4,
+		arg.ID_5,
+		arg.HttpID_5,
+		arg.Value_5,
+		arg.Success_5,
+		arg.CreatedAt_5,
+		arg.ID_6,
+		arg.HttpID_6,
+		arg.Value_6,
+		arg.Success_6,
+		arg.CreatedAt_6,
+		arg.ID_7,
+		arg.HttpID_7,
+		arg.Value_7,
+		arg.Success_7,
+		arg.CreatedAt_7,
+		arg.ID_8,
+		arg.HttpID_8,
+		arg.Value_8,
+		arg.Success_8,
+		arg.CreatedAt_8,
+		arg.ID_9,
+		arg.HttpID_9,
+		arg.Value_9,
+		arg.Success_9,
+		arg.CreatedAt_9,
+		arg.ID_10,
+		arg.HttpID_10,
+		arg.Value_10,
+		arg.Success_10,
+		arg.CreatedAt_10,
+	)
+	return err
+}
+
+const createHTTPResponseBulk = `-- name: CreateHTTPResponseBulk :exec
+INSERT INTO http_response (
+  id, http_id, status, body, time, duration, size, created_at
+)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPResponseBulkParams struct {
+	ID           idwrap.IDWrap
+	HttpID       idwrap.IDWrap
+	Status       interface{}
+	Body         []byte
+	Time         time.Time
+	Duration     interface{}
+	Size         interface{}
+	CreatedAt    int64
+	ID_2         idwrap.IDWrap
+	HttpID_2     idwrap.IDWrap
+	Status_2     interface{}
+	Body_2       []byte
+	Time_2       time.Time
+	Duration_2   interface{}
+	Size_2       interface{}
+	CreatedAt_2  int64
+	ID_3         idwrap.IDWrap
+	HttpID_3     idwrap.IDWrap
+	Status_3     interface{}
+	Body_3       []byte
+	Time_3       time.Time
+	Duration_3   interface{}
+	Size_3       interface{}
+	CreatedAt_3  int64
+	ID_4         idwrap.IDWrap
+	HttpID_4     idwrap.IDWrap
+	Status_4     interface{}
+	Body_4       []byte
+	Time_4       time.Time
+	Duration_4   interface{}
+	Size_4       interface{}
+	CreatedAt_4  int64
+	ID_5         idwrap.IDWrap
+	HttpID_5     idwrap.IDWrap
+	Status_5     interface{}
+	Body_5       []byte
+	Time_5       time.Time
+	Duration_5   interface{}
+	Size_5       interface{}
+	CreatedAt_5  int64
+	ID_6         idwrap.IDWrap
+	HttpID_6     idwrap.IDWrap
+	Status_6     interface{}
+	Body_6       []byte
+	Time_6       time.Time
+	Duration_6   interface{}
+	Size_6       interface{}
+	CreatedAt_6  int64
+	ID_7         idwrap.IDWrap
+	HttpID_7     idwrap.IDWrap
+	Status_7     interface{}
+	Body_7       []byte
+	Time_7       time.Time
+	Duration_7   interface{}
+	Size_7       interface{}
+	CreatedAt_7  int64
+	ID_8         idwrap.IDWrap
+	HttpID_8     idwrap.IDWrap
+	Status_8     interface{}
+	Body_8       []byte
+	Time_8       time.Time
+	Duration_8   interface{}
+	Size_8       interface{}
+	CreatedAt_8  int64
+	ID_9         idwrap.IDWrap
+	HttpID_9     idwrap.IDWrap
+	Status_9     interface{}
+	Body_9       []byte
+	Time_9       time.Time
+	Duration_9   interface{}
+	Size_9       interface{}
+	CreatedAt_9  int64
+	ID_10        idwrap.IDWrap
+	HttpID_10    idwrap.IDWrap
+	Status_10    interface{}
+	Body_10      []byte
+	Time_10      time.Time
+	Duration_10  interface{}
+	Size_10      interface{}
+	CreatedAt_10 int64
+}
+
+func (q *Queries) CreateHTTPResponseBulk(ctx context.Context, arg CreateHTTPResponseBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPResponseBulkStmt, createHTTPResponseBulk,
+		arg.ID,
+		arg.HttpID,
+		arg.Status,
+		arg.Body,
+		arg.Time,
+		arg.Duration,
+		arg.Size,
+		arg.CreatedAt,
+		arg.ID_2,
+		arg.HttpID_2,
+		arg.Status_2,
+		arg.Body_2,
+		arg.Time_2,
+		arg.Duration_2,
+		arg.Size_2,
+		arg.CreatedAt_2,
+		arg.ID_3,
+		arg.HttpID_3,
+		arg.Status_3,
+		arg.Body_3,
+		arg.Time_3,
+		arg.Duration_3,
+		arg.Size_3,
+		arg.CreatedAt_3,
+		arg.ID_4,
+		arg.HttpID_4,
+		arg.Status_4,
+		arg.Body_4,
+		arg.Time_4,
+		arg.Duration_4,
+		arg.Size_4,
+		arg.CreatedAt_4,
+		arg.ID_5,
+		arg.HttpID_5,
+		arg.Status_5,
+		arg.Body_5,
+		arg.Time_5,
+		arg.Duration_5,
+		arg.Size_5,
+		arg.CreatedAt_5,
+		arg.ID_6,
+		arg.HttpID_6,
+		arg.Status_6,
+		arg.Body_6,
+		arg.Time_6,
+		arg.Duration_6,
+		arg.Size_6,
+		arg.CreatedAt_6,
+		arg.ID_7,
+		arg.HttpID_7,
+		arg.Status_7,
+		arg.Body_7,
+		arg.Time_7,
+		arg.Duration_7,
+		arg.Size_7,
+		arg.CreatedAt_7,
+		arg.ID_8,
+		arg.HttpID_8,
+		arg.Status_8,
+		arg.Body_8,
+		arg.Time_8,
+		arg.Duration_8,
+		arg.Size_8,
+		arg.CreatedAt_8,
+		arg.ID_9,
+		arg.HttpID_9,
+		arg.Status_9,
+		arg.Body_9,
+		arg.Time_9,
+		arg.Duration_9,
+		arg.Size_9,
+		arg.CreatedAt_9,
+		arg.ID_10,
+		arg.HttpID_10,
+		arg.Status_10,
+		arg.Body_10,
+		arg.Time_10,
+		arg.Duration_10,
+		arg.Size_10,
+		arg.CreatedAt_10,
 	)
 	return err
 }
 
 const createHTTPResponseHeader = `-- name: CreateHTTPResponseHeader :exec
-INSERT INTO http_response_header (id, response_id, header_key, header_value)
-VALUES (?, ?, ?, ?)
+INSERT INTO http_response_header (
+  id, http_id, key, value, created_at
+)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateHTTPResponseHeaderParams struct {
-	ID          idwrap.IDWrap
-	ResponseID  idwrap.IDWrap
-	HeaderKey   string
-	HeaderValue string
+	ID        idwrap.IDWrap
+	HttpID    []byte
+	Key       string
+	Value     string
+	CreatedAt int64
 }
 
 func (q *Queries) CreateHTTPResponseHeader(ctx context.Context, arg CreateHTTPResponseHeaderParams) error {
 	_, err := q.exec(ctx, q.createHTTPResponseHeaderStmt, createHTTPResponseHeader,
 		arg.ID,
-		arg.ResponseID,
-		arg.HeaderKey,
-		arg.HeaderValue,
+		arg.HttpID,
+		arg.Key,
+		arg.Value,
+		arg.CreatedAt,
 	)
 	return err
 }
 
-const createHTTPResponseHeadersBulk = `-- name: CreateHTTPResponseHeadersBulk :exec
-INSERT INTO http_response_header (id, response_id, header_key, header_value)
+const createHTTPResponseHeaderBulk = `-- name: CreateHTTPResponseHeaderBulk :exec
+INSERT INTO http_response_header (
+  id, http_id, key, value, created_at
+)
 VALUES
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?),
-  (?, ?, ?, ?)
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?)
 `
 
-type CreateHTTPResponseHeadersBulkParams struct {
-	ID             idwrap.IDWrap
-	ResponseID     idwrap.IDWrap
-	HeaderKey      string
-	HeaderValue    string
-	ID_2           idwrap.IDWrap
-	ResponseID_2   idwrap.IDWrap
-	HeaderKey_2    string
-	HeaderValue_2  string
-	ID_3           idwrap.IDWrap
-	ResponseID_3   idwrap.IDWrap
-	HeaderKey_3    string
-	HeaderValue_3  string
-	ID_4           idwrap.IDWrap
-	ResponseID_4   idwrap.IDWrap
-	HeaderKey_4    string
-	HeaderValue_4  string
-	ID_5           idwrap.IDWrap
-	ResponseID_5   idwrap.IDWrap
-	HeaderKey_5    string
-	HeaderValue_5  string
-	ID_6           idwrap.IDWrap
-	ResponseID_6   idwrap.IDWrap
-	HeaderKey_6    string
-	HeaderValue_6  string
-	ID_7           idwrap.IDWrap
-	ResponseID_7   idwrap.IDWrap
-	HeaderKey_7    string
-	HeaderValue_7  string
-	ID_8           idwrap.IDWrap
-	ResponseID_8   idwrap.IDWrap
-	HeaderKey_8    string
-	HeaderValue_8  string
-	ID_9           idwrap.IDWrap
-	ResponseID_9   idwrap.IDWrap
-	HeaderKey_9    string
-	HeaderValue_9  string
-	ID_10          idwrap.IDWrap
-	ResponseID_10  idwrap.IDWrap
-	HeaderKey_10   string
-	HeaderValue_10 string
+type CreateHTTPResponseHeaderBulkParams struct {
+	ID           idwrap.IDWrap
+	HttpID       []byte
+	Key          string
+	Value        string
+	CreatedAt    int64
+	ID_2         idwrap.IDWrap
+	HttpID_2     []byte
+	Key_2        string
+	Value_2      string
+	CreatedAt_2  int64
+	ID_3         idwrap.IDWrap
+	HttpID_3     []byte
+	Key_3        string
+	Value_3      string
+	CreatedAt_3  int64
+	ID_4         idwrap.IDWrap
+	HttpID_4     []byte
+	Key_4        string
+	Value_4      string
+	CreatedAt_4  int64
+	ID_5         idwrap.IDWrap
+	HttpID_5     []byte
+	Key_5        string
+	Value_5      string
+	CreatedAt_5  int64
+	ID_6         idwrap.IDWrap
+	HttpID_6     []byte
+	Key_6        string
+	Value_6      string
+	CreatedAt_6  int64
+	ID_7         idwrap.IDWrap
+	HttpID_7     []byte
+	Key_7        string
+	Value_7      string
+	CreatedAt_7  int64
+	ID_8         idwrap.IDWrap
+	HttpID_8     []byte
+	Key_8        string
+	Value_8      string
+	CreatedAt_8  int64
+	ID_9         idwrap.IDWrap
+	HttpID_9     []byte
+	Key_9        string
+	Value_9      string
+	CreatedAt_9  int64
+	ID_10        idwrap.IDWrap
+	HttpID_10    []byte
+	Key_10       string
+	Value_10     string
+	CreatedAt_10 int64
 }
 
-func (q *Queries) CreateHTTPResponseHeadersBulk(ctx context.Context, arg CreateHTTPResponseHeadersBulkParams) error {
-	_, err := q.exec(ctx, q.createHTTPResponseHeadersBulkStmt, createHTTPResponseHeadersBulk,
+func (q *Queries) CreateHTTPResponseHeaderBulk(ctx context.Context, arg CreateHTTPResponseHeaderBulkParams) error {
+	_, err := q.exec(ctx, q.createHTTPResponseHeaderBulkStmt, createHTTPResponseHeaderBulk,
 		arg.ID,
-		arg.ResponseID,
-		arg.HeaderKey,
-		arg.HeaderValue,
+		arg.HttpID,
+		arg.Key,
+		arg.Value,
+		arg.CreatedAt,
 		arg.ID_2,
-		arg.ResponseID_2,
-		arg.HeaderKey_2,
-		arg.HeaderValue_2,
+		arg.HttpID_2,
+		arg.Key_2,
+		arg.Value_2,
+		arg.CreatedAt_2,
 		arg.ID_3,
-		arg.ResponseID_3,
-		arg.HeaderKey_3,
-		arg.HeaderValue_3,
+		arg.HttpID_3,
+		arg.Key_3,
+		arg.Value_3,
+		arg.CreatedAt_3,
 		arg.ID_4,
-		arg.ResponseID_4,
-		arg.HeaderKey_4,
-		arg.HeaderValue_4,
+		arg.HttpID_4,
+		arg.Key_4,
+		arg.Value_4,
+		arg.CreatedAt_4,
 		arg.ID_5,
-		arg.ResponseID_5,
-		arg.HeaderKey_5,
-		arg.HeaderValue_5,
+		arg.HttpID_5,
+		arg.Key_5,
+		arg.Value_5,
+		arg.CreatedAt_5,
 		arg.ID_6,
-		arg.ResponseID_6,
-		arg.HeaderKey_6,
-		arg.HeaderValue_6,
+		arg.HttpID_6,
+		arg.Key_6,
+		arg.Value_6,
+		arg.CreatedAt_6,
 		arg.ID_7,
-		arg.ResponseID_7,
-		arg.HeaderKey_7,
-		arg.HeaderValue_7,
+		arg.HttpID_7,
+		arg.Key_7,
+		arg.Value_7,
+		arg.CreatedAt_7,
 		arg.ID_8,
-		arg.ResponseID_8,
-		arg.HeaderKey_8,
-		arg.HeaderValue_8,
+		arg.HttpID_8,
+		arg.Key_8,
+		arg.Value_8,
+		arg.CreatedAt_8,
 		arg.ID_9,
-		arg.ResponseID_9,
-		arg.HeaderKey_9,
-		arg.HeaderValue_9,
+		arg.HttpID_9,
+		arg.Key_9,
+		arg.Value_9,
+		arg.CreatedAt_9,
 		arg.ID_10,
-		arg.ResponseID_10,
-		arg.HeaderKey_10,
-		arg.HeaderValue_10,
+		arg.HttpID_10,
+		arg.Key_10,
+		arg.Value_10,
+		arg.CreatedAt_10,
 	)
 	return err
 }
 
 const createHTTPSearchParam = `-- name: CreateHTTPSearchParam :exec
 INSERT INTO http_search_param (
-  id, http_id, param_key, param_value, description, enabled,
-  parent_search_param_id, is_delta, delta_param_key, delta_param_value,
-  delta_description, delta_enabled, prev, next, created_at, updated_at
+  id, http_id, key, value, description, enabled, "order",
+  parent_http_search_param_id, is_delta, delta_key, delta_value,
+  delta_description, delta_enabled, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPSearchParamParams struct {
-	ID                  idwrap.IDWrap
-	HttpID              idwrap.IDWrap
-	ParamKey            string
-	ParamValue          string
-	Description         string
-	Enabled             bool
-	ParentSearchParamID *idwrap.IDWrap
-	IsDelta             bool
-	DeltaParamKey       *string
-	DeltaParamValue     *string
-	DeltaDescription    *string
-	DeltaEnabled        *bool
-	Prev                *idwrap.IDWrap
-	Next                *idwrap.IDWrap
-	CreatedAt           int64
-	UpdatedAt           int64
+	ID                      idwrap.IDWrap
+	HttpID                  idwrap.IDWrap
+	Key                     string
+	Value                   string
+	Description             string
+	Enabled                 bool
+	Order                   float64
+	ParentHttpSearchParamID []byte
+	IsDelta                 bool
+	DeltaKey                sql.NullString
+	DeltaValue              sql.NullString
+	DeltaDescription        *string
+	DeltaEnabled            *bool
+	CreatedAt               int64
+	UpdatedAt               int64
 }
 
 func (q *Queries) CreateHTTPSearchParam(ctx context.Context, arg CreateHTTPSearchParamParams) error {
 	_, err := q.exec(ctx, q.createHTTPSearchParamStmt, createHTTPSearchParam,
 		arg.ID,
 		arg.HttpID,
-		arg.ParamKey,
-		arg.ParamValue,
+		arg.Key,
+		arg.Value,
 		arg.Description,
 		arg.Enabled,
-		arg.ParentSearchParamID,
+		arg.Order,
+		arg.ParentHttpSearchParamID,
 		arg.IsDelta,
-		arg.DeltaParamKey,
-		arg.DeltaParamValue,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
 		arg.CreatedAt,
 		arg.UpdatedAt,
-	)
-	return err
-}
-
-const createHTTPSearchParamsBulk = `-- name: CreateHTTPSearchParamsBulk :exec
-
-INSERT INTO http_search_param (
-  id, http_id, param_key, param_value, description, enabled,
-  parent_search_param_id, is_delta, delta_param_key, delta_param_value,
-  delta_description, delta_enabled, prev, next, created_at, updated_at
-)
-VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type CreateHTTPSearchParamsBulkParams struct {
-	ID                     idwrap.IDWrap
-	HttpID                 idwrap.IDWrap
-	ParamKey               string
-	ParamValue             string
-	Description            string
-	Enabled                bool
-	ParentSearchParamID    *idwrap.IDWrap
-	IsDelta                bool
-	DeltaParamKey          *string
-	DeltaParamValue        *string
-	DeltaDescription       *string
-	DeltaEnabled           *bool
-	Prev                   *idwrap.IDWrap
-	Next                   *idwrap.IDWrap
-	CreatedAt              int64
-	UpdatedAt              int64
-	ID_2                   idwrap.IDWrap
-	HttpID_2               idwrap.IDWrap
-	ParamKey_2             string
-	ParamValue_2           string
-	Description_2          string
-	Enabled_2              bool
-	ParentSearchParamID_2  *idwrap.IDWrap
-	IsDelta_2              bool
-	DeltaParamKey_2        *string
-	DeltaParamValue_2      *string
-	DeltaDescription_2     *string
-	DeltaEnabled_2         *bool
-	Prev_2                 *idwrap.IDWrap
-	Next_2                 *idwrap.IDWrap
-	CreatedAt_2            int64
-	UpdatedAt_2            int64
-	ID_3                   idwrap.IDWrap
-	HttpID_3               idwrap.IDWrap
-	ParamKey_3             string
-	ParamValue_3           string
-	Description_3          string
-	Enabled_3              bool
-	ParentSearchParamID_3  *idwrap.IDWrap
-	IsDelta_3              bool
-	DeltaParamKey_3        *string
-	DeltaParamValue_3      *string
-	DeltaDescription_3     *string
-	DeltaEnabled_3         *bool
-	Prev_3                 *idwrap.IDWrap
-	Next_3                 *idwrap.IDWrap
-	CreatedAt_3            int64
-	UpdatedAt_3            int64
-	ID_4                   idwrap.IDWrap
-	HttpID_4               idwrap.IDWrap
-	ParamKey_4             string
-	ParamValue_4           string
-	Description_4          string
-	Enabled_4              bool
-	ParentSearchParamID_4  *idwrap.IDWrap
-	IsDelta_4              bool
-	DeltaParamKey_4        *string
-	DeltaParamValue_4      *string
-	DeltaDescription_4     *string
-	DeltaEnabled_4         *bool
-	Prev_4                 *idwrap.IDWrap
-	Next_4                 *idwrap.IDWrap
-	CreatedAt_4            int64
-	UpdatedAt_4            int64
-	ID_5                   idwrap.IDWrap
-	HttpID_5               idwrap.IDWrap
-	ParamKey_5             string
-	ParamValue_5           string
-	Description_5          string
-	Enabled_5              bool
-	ParentSearchParamID_5  *idwrap.IDWrap
-	IsDelta_5              bool
-	DeltaParamKey_5        *string
-	DeltaParamValue_5      *string
-	DeltaDescription_5     *string
-	DeltaEnabled_5         *bool
-	Prev_5                 *idwrap.IDWrap
-	Next_5                 *idwrap.IDWrap
-	CreatedAt_5            int64
-	UpdatedAt_5            int64
-	ID_6                   idwrap.IDWrap
-	HttpID_6               idwrap.IDWrap
-	ParamKey_6             string
-	ParamValue_6           string
-	Description_6          string
-	Enabled_6              bool
-	ParentSearchParamID_6  *idwrap.IDWrap
-	IsDelta_6              bool
-	DeltaParamKey_6        *string
-	DeltaParamValue_6      *string
-	DeltaDescription_6     *string
-	DeltaEnabled_6         *bool
-	Prev_6                 *idwrap.IDWrap
-	Next_6                 *idwrap.IDWrap
-	CreatedAt_6            int64
-	UpdatedAt_6            int64
-	ID_7                   idwrap.IDWrap
-	HttpID_7               idwrap.IDWrap
-	ParamKey_7             string
-	ParamValue_7           string
-	Description_7          string
-	Enabled_7              bool
-	ParentSearchParamID_7  *idwrap.IDWrap
-	IsDelta_7              bool
-	DeltaParamKey_7        *string
-	DeltaParamValue_7      *string
-	DeltaDescription_7     *string
-	DeltaEnabled_7         *bool
-	Prev_7                 *idwrap.IDWrap
-	Next_7                 *idwrap.IDWrap
-	CreatedAt_7            int64
-	UpdatedAt_7            int64
-	ID_8                   idwrap.IDWrap
-	HttpID_8               idwrap.IDWrap
-	ParamKey_8             string
-	ParamValue_8           string
-	Description_8          string
-	Enabled_8              bool
-	ParentSearchParamID_8  *idwrap.IDWrap
-	IsDelta_8              bool
-	DeltaParamKey_8        *string
-	DeltaParamValue_8      *string
-	DeltaDescription_8     *string
-	DeltaEnabled_8         *bool
-	Prev_8                 *idwrap.IDWrap
-	Next_8                 *idwrap.IDWrap
-	CreatedAt_8            int64
-	UpdatedAt_8            int64
-	ID_9                   idwrap.IDWrap
-	HttpID_9               idwrap.IDWrap
-	ParamKey_9             string
-	ParamValue_9           string
-	Description_9          string
-	Enabled_9              bool
-	ParentSearchParamID_9  *idwrap.IDWrap
-	IsDelta_9              bool
-	DeltaParamKey_9        *string
-	DeltaParamValue_9      *string
-	DeltaDescription_9     *string
-	DeltaEnabled_9         *bool
-	Prev_9                 *idwrap.IDWrap
-	Next_9                 *idwrap.IDWrap
-	CreatedAt_9            int64
-	UpdatedAt_9            int64
-	ID_10                  idwrap.IDWrap
-	HttpID_10              idwrap.IDWrap
-	ParamKey_10            string
-	ParamValue_10          string
-	Description_10         string
-	Enabled_10             bool
-	ParentSearchParamID_10 *idwrap.IDWrap
-	IsDelta_10             bool
-	DeltaParamKey_10       *string
-	DeltaParamValue_10     *string
-	DeltaDescription_10    *string
-	DeltaEnabled_10        *bool
-	Prev_10                *idwrap.IDWrap
-	Next_10                *idwrap.IDWrap
-	CreatedAt_10           int64
-	UpdatedAt_10           int64
-}
-
-// Batch Operations for Performance
-func (q *Queries) CreateHTTPSearchParamsBulk(ctx context.Context, arg CreateHTTPSearchParamsBulkParams) error {
-	_, err := q.exec(ctx, q.createHTTPSearchParamsBulkStmt, createHTTPSearchParamsBulk,
-		arg.ID,
-		arg.HttpID,
-		arg.ParamKey,
-		arg.ParamValue,
-		arg.Description,
-		arg.Enabled,
-		arg.ParentSearchParamID,
-		arg.IsDelta,
-		arg.DeltaParamKey,
-		arg.DeltaParamValue,
-		arg.DeltaDescription,
-		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-		arg.ID_2,
-		arg.HttpID_2,
-		arg.ParamKey_2,
-		arg.ParamValue_2,
-		arg.Description_2,
-		arg.Enabled_2,
-		arg.ParentSearchParamID_2,
-		arg.IsDelta_2,
-		arg.DeltaParamKey_2,
-		arg.DeltaParamValue_2,
-		arg.DeltaDescription_2,
-		arg.DeltaEnabled_2,
-		arg.Prev_2,
-		arg.Next_2,
-		arg.CreatedAt_2,
-		arg.UpdatedAt_2,
-		arg.ID_3,
-		arg.HttpID_3,
-		arg.ParamKey_3,
-		arg.ParamValue_3,
-		arg.Description_3,
-		arg.Enabled_3,
-		arg.ParentSearchParamID_3,
-		arg.IsDelta_3,
-		arg.DeltaParamKey_3,
-		arg.DeltaParamValue_3,
-		arg.DeltaDescription_3,
-		arg.DeltaEnabled_3,
-		arg.Prev_3,
-		arg.Next_3,
-		arg.CreatedAt_3,
-		arg.UpdatedAt_3,
-		arg.ID_4,
-		arg.HttpID_4,
-		arg.ParamKey_4,
-		arg.ParamValue_4,
-		arg.Description_4,
-		arg.Enabled_4,
-		arg.ParentSearchParamID_4,
-		arg.IsDelta_4,
-		arg.DeltaParamKey_4,
-		arg.DeltaParamValue_4,
-		arg.DeltaDescription_4,
-		arg.DeltaEnabled_4,
-		arg.Prev_4,
-		arg.Next_4,
-		arg.CreatedAt_4,
-		arg.UpdatedAt_4,
-		arg.ID_5,
-		arg.HttpID_5,
-		arg.ParamKey_5,
-		arg.ParamValue_5,
-		arg.Description_5,
-		arg.Enabled_5,
-		arg.ParentSearchParamID_5,
-		arg.IsDelta_5,
-		arg.DeltaParamKey_5,
-		arg.DeltaParamValue_5,
-		arg.DeltaDescription_5,
-		arg.DeltaEnabled_5,
-		arg.Prev_5,
-		arg.Next_5,
-		arg.CreatedAt_5,
-		arg.UpdatedAt_5,
-		arg.ID_6,
-		arg.HttpID_6,
-		arg.ParamKey_6,
-		arg.ParamValue_6,
-		arg.Description_6,
-		arg.Enabled_6,
-		arg.ParentSearchParamID_6,
-		arg.IsDelta_6,
-		arg.DeltaParamKey_6,
-		arg.DeltaParamValue_6,
-		arg.DeltaDescription_6,
-		arg.DeltaEnabled_6,
-		arg.Prev_6,
-		arg.Next_6,
-		arg.CreatedAt_6,
-		arg.UpdatedAt_6,
-		arg.ID_7,
-		arg.HttpID_7,
-		arg.ParamKey_7,
-		arg.ParamValue_7,
-		arg.Description_7,
-		arg.Enabled_7,
-		arg.ParentSearchParamID_7,
-		arg.IsDelta_7,
-		arg.DeltaParamKey_7,
-		arg.DeltaParamValue_7,
-		arg.DeltaDescription_7,
-		arg.DeltaEnabled_7,
-		arg.Prev_7,
-		arg.Next_7,
-		arg.CreatedAt_7,
-		arg.UpdatedAt_7,
-		arg.ID_8,
-		arg.HttpID_8,
-		arg.ParamKey_8,
-		arg.ParamValue_8,
-		arg.Description_8,
-		arg.Enabled_8,
-		arg.ParentSearchParamID_8,
-		arg.IsDelta_8,
-		arg.DeltaParamKey_8,
-		arg.DeltaParamValue_8,
-		arg.DeltaDescription_8,
-		arg.DeltaEnabled_8,
-		arg.Prev_8,
-		arg.Next_8,
-		arg.CreatedAt_8,
-		arg.UpdatedAt_8,
-		arg.ID_9,
-		arg.HttpID_9,
-		arg.ParamKey_9,
-		arg.ParamValue_9,
-		arg.Description_9,
-		arg.Enabled_9,
-		arg.ParentSearchParamID_9,
-		arg.IsDelta_9,
-		arg.DeltaParamKey_9,
-		arg.DeltaParamValue_9,
-		arg.DeltaDescription_9,
-		arg.DeltaEnabled_9,
-		arg.Prev_9,
-		arg.Next_9,
-		arg.CreatedAt_9,
-		arg.UpdatedAt_9,
-		arg.ID_10,
-		arg.HttpID_10,
-		arg.ParamKey_10,
-		arg.ParamValue_10,
-		arg.Description_10,
-		arg.Enabled_10,
-		arg.ParentSearchParamID_10,
-		arg.IsDelta_10,
-		arg.DeltaParamKey_10,
-		arg.DeltaParamValue_10,
-		arg.DeltaDescription_10,
-		arg.DeltaEnabled_10,
-		arg.Prev_10,
-		arg.Next_10,
-		arg.CreatedAt_10,
-		arg.UpdatedAt_10,
-	)
-	return err
-}
-
-const createHTTPVersion = `-- name: CreateHTTPVersion :exec
-INSERT INTO http_version (
-  id, http_id, version_name, version_description, is_active, created_at, created_by
-)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-`
-
-type CreateHTTPVersionParams struct {
-	ID                 idwrap.IDWrap
-	HttpID             idwrap.IDWrap
-	VersionName        string
-	VersionDescription string
-	IsActive           bool
-	CreatedAt          int64
-	CreatedBy          *idwrap.IDWrap
-}
-
-func (q *Queries) CreateHTTPVersion(ctx context.Context, arg CreateHTTPVersionParams) error {
-	_, err := q.exec(ctx, q.createHTTPVersionStmt, createHTTPVersion,
-		arg.ID,
-		arg.HttpID,
-		arg.VersionName,
-		arg.VersionDescription,
-		arg.IsActive,
-		arg.CreatedAt,
-		arg.CreatedBy,
 	)
 	return err
 }
@@ -5227,8 +4485,7 @@ func (q *Queries) DeleteHTTP(ctx context.Context, id idwrap.IDWrap) error {
 }
 
 const deleteHTTPAssert = `-- name: DeleteHTTPAssert :exec
-DELETE FROM http_assert
-WHERE id = ?
+DELETE FROM http_assert WHERE id = ?
 `
 
 func (q *Queries) DeleteHTTPAssert(ctx context.Context, id idwrap.IDWrap) error {
@@ -5237,8 +4494,7 @@ func (q *Queries) DeleteHTTPAssert(ctx context.Context, id idwrap.IDWrap) error 
 }
 
 const deleteHTTPBodyForm = `-- name: DeleteHTTPBodyForm :exec
-DELETE FROM http_body_form
-WHERE id = ?
+DELETE FROM http_body_form WHERE id = ?
 `
 
 func (q *Queries) DeleteHTTPBodyForm(ctx context.Context, id idwrap.IDWrap) error {
@@ -5246,23 +4502,12 @@ func (q *Queries) DeleteHTTPBodyForm(ctx context.Context, id idwrap.IDWrap) erro
 	return err
 }
 
-const deleteHTTPBodyRaw = `-- name: DeleteHTTPBodyRaw :exec
-DELETE FROM http_body_raw
-WHERE id = ?
+const deleteHTTPBodyUrlEncoded = `-- name: DeleteHTTPBodyUrlEncoded :exec
+DELETE FROM http_body_urlencoded WHERE id = ?
 `
 
-func (q *Queries) DeleteHTTPBodyRaw(ctx context.Context, id idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteHTTPBodyRawStmt, deleteHTTPBodyRaw, id)
-	return err
-}
-
-const deleteHTTPBodyUrlencoded = `-- name: DeleteHTTPBodyUrlencoded :exec
-DELETE FROM http_body_urlencoded
-WHERE id = ?
-`
-
-func (q *Queries) DeleteHTTPBodyUrlencoded(ctx context.Context, id idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteHTTPBodyUrlencodedStmt, deleteHTTPBodyUrlencoded, id)
+func (q *Queries) DeleteHTTPBodyUrlEncoded(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPBodyUrlEncodedStmt, deleteHTTPBodyUrlEncoded, id)
 	return err
 }
 
@@ -5277,8 +4522,7 @@ func (q *Queries) DeleteHTTPHeader(ctx context.Context, id idwrap.IDWrap) error 
 }
 
 const deleteHTTPResponse = `-- name: DeleteHTTPResponse :exec
-DELETE FROM http_response
-WHERE id = ?
+DELETE FROM http_response WHERE id = ?
 `
 
 func (q *Queries) DeleteHTTPResponse(ctx context.Context, id idwrap.IDWrap) error {
@@ -5286,23 +4530,21 @@ func (q *Queries) DeleteHTTPResponse(ctx context.Context, id idwrap.IDWrap) erro
 	return err
 }
 
-const deleteHTTPResponseHeaders = `-- name: DeleteHTTPResponseHeaders :exec
-DELETE FROM http_response_header
-WHERE response_id = ?
+const deleteHTTPResponseAssert = `-- name: DeleteHTTPResponseAssert :exec
+DELETE FROM http_response_assert WHERE id = ?
 `
 
-func (q *Queries) DeleteHTTPResponseHeaders(ctx context.Context, responseID idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteHTTPResponseHeadersStmt, deleteHTTPResponseHeaders, responseID)
+func (q *Queries) DeleteHTTPResponseAssert(ctx context.Context, id []byte) error {
+	_, err := q.exec(ctx, q.deleteHTTPResponseAssertStmt, deleteHTTPResponseAssert, id)
 	return err
 }
 
-const deleteHTTPResponsesByHTTPID = `-- name: DeleteHTTPResponsesByHTTPID :exec
-DELETE FROM http_response
-WHERE http_id = ?
+const deleteHTTPResponseHeader = `-- name: DeleteHTTPResponseHeader :exec
+DELETE FROM http_response_header WHERE id = ?
 `
 
-func (q *Queries) DeleteHTTPResponsesByHTTPID(ctx context.Context, httpID idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteHTTPResponsesByHTTPIDStmt, deleteHTTPResponsesByHTTPID, httpID)
+func (q *Queries) DeleteHTTPResponseHeader(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPResponseHeaderStmt, deleteHTTPResponseHeader, id)
 	return err
 }
 
@@ -5313,16 +4555,6 @@ WHERE id = ?
 
 func (q *Queries) DeleteHTTPSearchParam(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteHTTPSearchParamStmt, deleteHTTPSearchParam, id)
-	return err
-}
-
-const deleteHTTPVersion = `-- name: DeleteHTTPVersion :exec
-DELETE FROM http_version
-WHERE id = ?
-`
-
-func (q *Queries) DeleteHTTPVersion(ctx context.Context, id idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteHTTPVersionStmt, deleteHTTPVersion, id)
 	return err
 }
 
@@ -9903,60 +9135,80 @@ func (q *Queries) GetHTTP(ctx context.Context, id idwrap.IDWrap) (Http, error) {
 	return i, err
 }
 
-const getHTTPActiveVersion = `-- name: GetHTTPActiveVersion :one
+const getHTTPAssert = `-- name: GetHTTPAssert :one
+
 SELECT
   id,
   http_id,
-  version_name,
-  version_description,
-  is_active,
+  key,
+  value,
+  enabled,
+  description,
+  "order",
+  parent_http_assert_id,
+  is_delta,
+  delta_key,
+  delta_value,
+  delta_enabled,
+  delta_description,
+  delta_order,
   created_at,
-  created_by
-FROM http_version
-WHERE http_id = ? AND is_active = TRUE
+  updated_at
+FROM http_assert
+WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) GetHTTPActiveVersion(ctx context.Context, httpID idwrap.IDWrap) (HttpVersion, error) {
-	row := q.queryRow(ctx, q.getHTTPActiveVersionStmt, getHTTPActiveVersion, httpID)
-	var i HttpVersion
+// HTTP Assert Queries (TypeSpec-compliant)
+func (q *Queries) GetHTTPAssert(ctx context.Context, id idwrap.IDWrap) (HttpAssert, error) {
+	row := q.queryRow(ctx, q.getHTTPAssertStmt, getHTTPAssert, id)
+	var i HttpAssert
 	err := row.Scan(
 		&i.ID,
 		&i.HttpID,
-		&i.VersionName,
-		&i.VersionDescription,
-		&i.IsActive,
+		&i.Key,
+		&i.Value,
+		&i.Enabled,
+		&i.Description,
+		&i.Order,
+		&i.ParentHttpAssertID,
+		&i.IsDelta,
+		&i.DeltaKey,
+		&i.DeltaValue,
+		&i.DeltaEnabled,
+		&i.DeltaDescription,
+		&i.DeltaOrder,
 		&i.CreatedAt,
-		&i.CreatedBy,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const getHTTPAsserts = `-- name: GetHTTPAsserts :many
-
+const getHTTPAssertsByHttpID = `-- name: GetHTTPAssertsByHttpID :many
 SELECT
   id,
   http_id,
-  assert_expression,
-  assert_description,
+  key,
+  value,
   enabled,
-  parent_assert_id,
+  description,
+  "order",
+  parent_http_assert_id,
   is_delta,
-  delta_assert_expression,
-  delta_assert_description,
+  delta_key,
+  delta_value,
   delta_enabled,
-  prev,
-  next,
+  delta_description,
+  delta_order,
   created_at,
   updated_at
 FROM http_assert
 WHERE http_id = ? AND is_delta = FALSE
-ORDER BY created_at ASC
+ORDER BY "order"
 `
 
-// HTTP Assert Queries
-func (q *Queries) GetHTTPAsserts(ctx context.Context, httpID idwrap.IDWrap) ([]HttpAssert, error) {
-	rows, err := q.query(ctx, q.getHTTPAssertsStmt, getHTTPAsserts, httpID)
+func (q *Queries) GetHTTPAssertsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]HttpAssert, error) {
+	rows, err := q.query(ctx, q.getHTTPAssertsByHttpIDStmt, getHTTPAssertsByHttpID, httpID)
 	if err != nil {
 		return nil, err
 	}
@@ -9967,16 +9219,18 @@ func (q *Queries) GetHTTPAsserts(ctx context.Context, httpID idwrap.IDWrap) ([]H
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.AssertExpression,
-			&i.AssertDescription,
+			&i.Key,
+			&i.Value,
 			&i.Enabled,
-			&i.ParentAssertID,
+			&i.Description,
+			&i.Order,
+			&i.ParentHttpAssertID,
 			&i.IsDelta,
-			&i.DeltaAssertExpression,
-			&i.DeltaAssertDescription,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.DeltaDescription,
+			&i.DeltaOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -9997,16 +9251,18 @@ const getHTTPAssertsByIDs = `-- name: GetHTTPAssertsByIDs :many
 SELECT
   id,
   http_id,
-  assert_expression,
-  assert_description,
+  key,
+  value,
   enabled,
-  parent_assert_id,
+  description,
+  "order",
+  parent_http_assert_id,
   is_delta,
-  delta_assert_expression,
-  delta_assert_description,
+  delta_key,
+  delta_value,
   delta_enabled,
-  prev,
-  next,
+  delta_description,
+  delta_order,
   created_at,
   updated_at
 FROM http_assert
@@ -10035,16 +9291,18 @@ func (q *Queries) GetHTTPAssertsByIDs(ctx context.Context, ids []idwrap.IDWrap) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.AssertExpression,
-			&i.AssertDescription,
+			&i.Key,
+			&i.Value,
 			&i.Enabled,
-			&i.ParentAssertID,
+			&i.Description,
+			&i.Order,
+			&i.ParentHttpAssertID,
 			&i.IsDelta,
-			&i.DeltaAssertExpression,
-			&i.DeltaAssertDescription,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.DeltaDescription,
+			&i.DeltaOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -10146,14 +9404,14 @@ const getHTTPBodyFormStreaming = `-- name: GetHTTPBodyFormStreaming :many
 SELECT 
   hbf.id,
   hbf.http_id,
-  hbf.form_key,
-  hbf.form_value,
+  hbf.key,
+  hbf.value,
   hbf.description,
   hbf.enabled,
-  hbf.parent_body_form_id,
+  hbf.parent_http_body_form_id,
   hbf.is_delta,
-  hbf.delta_form_key,
-  hbf.delta_form_value,
+  hbf.delta_key,
+  hbf.delta_value,
   hbf.delta_description,
   hbf.delta_enabled,
   hbf.created_at,
@@ -10171,20 +9429,20 @@ type GetHTTPBodyFormStreamingParams struct {
 }
 
 type GetHTTPBodyFormStreamingRow struct {
-	ID               idwrap.IDWrap
-	HttpID           idwrap.IDWrap
-	FormKey          string
-	FormValue        string
-	Description      string
-	Enabled          bool
-	ParentBodyFormID *idwrap.IDWrap
-	IsDelta          bool
-	DeltaFormKey     *string
-	DeltaFormValue   *string
-	DeltaDescription *string
-	DeltaEnabled     *bool
-	CreatedAt        int64
-	UpdatedAt        int64
+	ID                   idwrap.IDWrap
+	HttpID               idwrap.IDWrap
+	Key                  string
+	Value                string
+	Description          string
+	Enabled              bool
+	ParentHttpBodyFormID []byte
+	IsDelta              bool
+	DeltaKey             sql.NullString
+	DeltaValue           sql.NullString
+	DeltaDescription     *string
+	DeltaEnabled         *bool
+	CreatedAt            int64
+	UpdatedAt            int64
 }
 
 // Optimized form body query for streaming
@@ -10211,14 +9469,14 @@ func (q *Queries) GetHTTPBodyFormStreaming(ctx context.Context, arg GetHTTPBodyF
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.FormKey,
-			&i.FormValue,
+			&i.Key,
+			&i.Value,
 			&i.Description,
 			&i.Enabled,
-			&i.ParentBodyFormID,
+			&i.ParentHttpBodyFormID,
 			&i.IsDelta,
-			&i.DeltaFormKey,
-			&i.DeltaFormValue,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
 			&i.CreatedAt,
@@ -10242,50 +9500,66 @@ const getHTTPBodyForms = `-- name: GetHTTPBodyForms :many
 SELECT
   id,
   http_id,
-  form_key,
-  form_value,
+  key,
+  value,
   description,
   enabled,
-  parent_body_form_id,
+  parent_http_body_form_id,
   is_delta,
-  delta_form_key,
-  delta_form_value,
+  delta_key,
+  delta_value,
   delta_description,
   delta_enabled,
-  prev,
-  next,
+  "order",
   created_at,
   updated_at
 FROM http_body_form
 WHERE http_id = ? AND is_delta = FALSE
-ORDER BY created_at ASC
+ORDER BY "order"
 `
 
+type GetHTTPBodyFormsRow struct {
+	ID                   idwrap.IDWrap
+	HttpID               idwrap.IDWrap
+	Key                  string
+	Value                string
+	Description          string
+	Enabled              bool
+	ParentHttpBodyFormID []byte
+	IsDelta              bool
+	DeltaKey             sql.NullString
+	DeltaValue           sql.NullString
+	DeltaDescription     *string
+	DeltaEnabled         *bool
+	Order                float64
+	CreatedAt            int64
+	UpdatedAt            int64
+}
+
 // HTTP Body Form Queries
-func (q *Queries) GetHTTPBodyForms(ctx context.Context, httpID idwrap.IDWrap) ([]HttpBodyForm, error) {
+func (q *Queries) GetHTTPBodyForms(ctx context.Context, httpID idwrap.IDWrap) ([]GetHTTPBodyFormsRow, error) {
 	rows, err := q.query(ctx, q.getHTTPBodyFormsStmt, getHTTPBodyForms, httpID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []HttpBodyForm{}
+	items := []GetHTTPBodyFormsRow{}
 	for rows.Next() {
-		var i HttpBodyForm
+		var i GetHTTPBodyFormsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.FormKey,
-			&i.FormValue,
+			&i.Key,
+			&i.Value,
 			&i.Description,
 			&i.Enabled,
-			&i.ParentBodyFormID,
+			&i.ParentHttpBodyFormID,
 			&i.IsDelta,
-			&i.DeltaFormKey,
-			&i.DeltaFormValue,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.Order,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -10306,25 +9580,42 @@ const getHTTPBodyFormsByIDs = `-- name: GetHTTPBodyFormsByIDs :many
 SELECT
   id,
   http_id,
-  form_key,
-  form_value,
+  key,
+  value,
   description,
   enabled,
-  parent_body_form_id,
+  parent_http_body_form_id,
   is_delta,
-  delta_form_key,
-  delta_form_value,
+  delta_key,
+  delta_value,
   delta_description,
   delta_enabled,
-  prev,
-  next,
+  "order",
   created_at,
   updated_at
 FROM http_body_form
 WHERE id IN (/*SLICE:ids*/?)
 `
 
-func (q *Queries) GetHTTPBodyFormsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpBodyForm, error) {
+type GetHTTPBodyFormsByIDsRow struct {
+	ID                   idwrap.IDWrap
+	HttpID               idwrap.IDWrap
+	Key                  string
+	Value                string
+	Description          string
+	Enabled              bool
+	ParentHttpBodyFormID []byte
+	IsDelta              bool
+	DeltaKey             sql.NullString
+	DeltaValue           sql.NullString
+	DeltaDescription     *string
+	DeltaEnabled         *bool
+	Order                float64
+	CreatedAt            int64
+	UpdatedAt            int64
+}
+
+func (q *Queries) GetHTTPBodyFormsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]GetHTTPBodyFormsByIDsRow, error) {
 	query := getHTTPBodyFormsByIDs
 	var queryParams []interface{}
 	if len(ids) > 0 {
@@ -10340,24 +9631,23 @@ func (q *Queries) GetHTTPBodyFormsByIDs(ctx context.Context, ids []idwrap.IDWrap
 		return nil, err
 	}
 	defer rows.Close()
-	items := []HttpBodyForm{}
+	items := []GetHTTPBodyFormsByIDsRow{}
 	for rows.Next() {
-		var i HttpBodyForm
+		var i GetHTTPBodyFormsByIDsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.FormKey,
-			&i.FormValue,
+			&i.Key,
+			&i.Value,
 			&i.Description,
 			&i.Enabled,
-			&i.ParentBodyFormID,
+			&i.ParentHttpBodyFormID,
 			&i.IsDelta,
-			&i.DeltaFormKey,
-			&i.DeltaFormValue,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.Order,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -10374,113 +9664,80 @@ func (q *Queries) GetHTTPBodyFormsByIDs(ctx context.Context, ids []idwrap.IDWrap
 	return items, nil
 }
 
-const getHTTPBodyRaw = `-- name: GetHTTPBodyRaw :one
+const getHTTPBodyUrlEncoded = `-- name: GetHTTPBodyUrlEncoded :one
 
 SELECT
   id,
   http_id,
-  raw_data,
-  content_type,
-  compression_type,
-  parent_body_raw_id,
+  key,
+  value,
+  enabled,
+  description,
+  "order",
+  parent_http_body_urlencoded_id,
   is_delta,
-  delta_raw_data,
-  delta_content_type,
-  delta_compression_type,
+  delta_key,
+  delta_value,
+  delta_enabled,
+  delta_description,
+  delta_order,
   created_at,
   updated_at
-FROM http_body_raw
-WHERE http_id = ?
-LIMIT 1
-`
-
-// HTTP Body Raw Queries
-func (q *Queries) GetHTTPBodyRaw(ctx context.Context, httpID idwrap.IDWrap) (HttpBodyRaw, error) {
-	row := q.queryRow(ctx, q.getHTTPBodyRawStmt, getHTTPBodyRaw, httpID)
-	var i HttpBodyRaw
-	err := row.Scan(
-		&i.ID,
-		&i.HttpID,
-		&i.RawData,
-		&i.ContentType,
-		&i.CompressionType,
-		&i.ParentBodyRawID,
-		&i.IsDelta,
-		&i.DeltaRawData,
-		&i.DeltaContentType,
-		&i.DeltaCompressionType,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getHTTPBodyRawByID = `-- name: GetHTTPBodyRawByID :one
-SELECT
-  id,
-  http_id,
-  raw_data,
-  content_type,
-  compression_type,
-  parent_body_raw_id,
-  is_delta,
-  delta_raw_data,
-  delta_content_type,
-  delta_compression_type,
-  created_at,
-  updated_at
-FROM http_body_raw
+FROM http_body_urlencoded
 WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) GetHTTPBodyRawByID(ctx context.Context, id idwrap.IDWrap) (HttpBodyRaw, error) {
-	row := q.queryRow(ctx, q.getHTTPBodyRawByIDStmt, getHTTPBodyRawByID, id)
-	var i HttpBodyRaw
+// HTTP Body URL-Encoded Queries (TypeSpec-compliant)
+func (q *Queries) GetHTTPBodyUrlEncoded(ctx context.Context, id idwrap.IDWrap) (HttpBodyUrlencoded, error) {
+	row := q.queryRow(ctx, q.getHTTPBodyUrlEncodedStmt, getHTTPBodyUrlEncoded, id)
+	var i HttpBodyUrlencoded
 	err := row.Scan(
 		&i.ID,
 		&i.HttpID,
-		&i.RawData,
-		&i.ContentType,
-		&i.CompressionType,
-		&i.ParentBodyRawID,
+		&i.Key,
+		&i.Value,
+		&i.Enabled,
+		&i.Description,
+		&i.Order,
+		&i.ParentHttpBodyUrlencodedID,
 		&i.IsDelta,
-		&i.DeltaRawData,
-		&i.DeltaContentType,
-		&i.DeltaCompressionType,
+		&i.DeltaKey,
+		&i.DeltaValue,
+		&i.DeltaEnabled,
+		&i.DeltaDescription,
+		&i.DeltaOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const getHTTPBodyUrlencoded = `-- name: GetHTTPBodyUrlencoded :many
-
+const getHTTPBodyUrlEncodedByHttpID = `-- name: GetHTTPBodyUrlEncodedByHttpID :many
 SELECT
   id,
   http_id,
-  urlencoded_key,
-  urlencoded_value,
-  description,
+  key,
+  value,
   enabled,
-  parent_body_urlencoded_id,
+  description,
+  "order",
+  parent_http_body_urlencoded_id,
   is_delta,
-  delta_urlencoded_key,
-  delta_urlencoded_value,
-  delta_description,
+  delta_key,
+  delta_value,
   delta_enabled,
-  prev,
-  next,
+  delta_description,
+  delta_order,
   created_at,
   updated_at
 FROM http_body_urlencoded
 WHERE http_id = ? AND is_delta = FALSE
-ORDER BY created_at ASC
+ORDER BY "order"
 `
 
-// HTTP Body URL-encoded Queries
-func (q *Queries) GetHTTPBodyUrlencoded(ctx context.Context, httpID idwrap.IDWrap) ([]HttpBodyUrlencoded, error) {
-	rows, err := q.query(ctx, q.getHTTPBodyUrlencodedStmt, getHTTPBodyUrlencoded, httpID)
+func (q *Queries) GetHTTPBodyUrlEncodedByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]HttpBodyUrlencoded, error) {
+	rows, err := q.query(ctx, q.getHTTPBodyUrlEncodedByHttpIDStmt, getHTTPBodyUrlEncodedByHttpID, httpID)
 	if err != nil {
 		return nil, err
 	}
@@ -10491,18 +9748,18 @@ func (q *Queries) GetHTTPBodyUrlencoded(ctx context.Context, httpID idwrap.IDWra
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.UrlencodedKey,
-			&i.UrlencodedValue,
-			&i.Description,
+			&i.Key,
+			&i.Value,
 			&i.Enabled,
-			&i.ParentBodyUrlencodedID,
+			&i.Description,
+			&i.Order,
+			&i.ParentHttpBodyUrlencodedID,
 			&i.IsDelta,
-			&i.DeltaUrlencodedKey,
-			&i.DeltaUrlencodedValue,
-			&i.DeltaDescription,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.DeltaDescription,
+			&i.DeltaOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -10519,30 +9776,30 @@ func (q *Queries) GetHTTPBodyUrlencoded(ctx context.Context, httpID idwrap.IDWra
 	return items, nil
 }
 
-const getHTTPBodyUrlencodedByIDs = `-- name: GetHTTPBodyUrlencodedByIDs :many
+const getHTTPBodyUrlEncodedsByIDs = `-- name: GetHTTPBodyUrlEncodedsByIDs :many
 SELECT
   id,
   http_id,
-  urlencoded_key,
-  urlencoded_value,
-  description,
+  key,
+  value,
   enabled,
-  parent_body_urlencoded_id,
+  description,
+  "order",
+  parent_http_body_urlencoded_id,
   is_delta,
-  delta_urlencoded_key,
-  delta_urlencoded_value,
-  delta_description,
+  delta_key,
+  delta_value,
   delta_enabled,
-  prev,
-  next,
+  delta_description,
+  delta_order,
   created_at,
   updated_at
 FROM http_body_urlencoded
 WHERE id IN (/*SLICE:ids*/?)
 `
 
-func (q *Queries) GetHTTPBodyUrlencodedByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpBodyUrlencoded, error) {
-	query := getHTTPBodyUrlencodedByIDs
+func (q *Queries) GetHTTPBodyUrlEncodedsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpBodyUrlencoded, error) {
+	query := getHTTPBodyUrlEncodedsByIDs
 	var queryParams []interface{}
 	if len(ids) > 0 {
 		for _, v := range ids {
@@ -10563,18 +9820,18 @@ func (q *Queries) GetHTTPBodyUrlencodedByIDs(ctx context.Context, ids []idwrap.I
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.UrlencodedKey,
-			&i.UrlencodedValue,
-			&i.Description,
+			&i.Key,
+			&i.Value,
 			&i.Enabled,
-			&i.ParentBodyUrlencodedID,
+			&i.Description,
+			&i.Order,
+			&i.ParentHttpBodyUrlencodedID,
 			&i.IsDelta,
-			&i.DeltaUrlencodedKey,
-			&i.DeltaUrlencodedValue,
-			&i.DeltaDescription,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.DeltaDescription,
+			&i.DeltaOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -10589,57 +9846,6 @@ func (q *Queries) GetHTTPBodyUrlencodedByIDs(ctx context.Context, ids []idwrap.I
 		return nil, err
 	}
 	return items, nil
-}
-
-const getHTTPByWorkspaceAccess = `-- name: GetHTTPByWorkspaceAccess :one
-SELECT
-  h.id,
-  h.workspace_id,
-  h.folder_id,
-  h.name,
-  h.url,
-  h.method,
-  h.description,
-  h.parent_http_id,
-  h.is_delta,
-  h.delta_name,
-  h.delta_url,
-  h.delta_method,
-  h.delta_description,
-  h.created_at,
-  h.updated_at
-FROM http h
-INNER JOIN workspaces_users wu ON h.workspace_id = wu.workspace_id
-WHERE h.id = ? AND wu.user_id = ?
-LIMIT 1
-`
-
-type GetHTTPByWorkspaceAccessParams struct {
-	ID     idwrap.IDWrap
-	UserID idwrap.IDWrap
-}
-
-func (q *Queries) GetHTTPByWorkspaceAccess(ctx context.Context, arg GetHTTPByWorkspaceAccessParams) (Http, error) {
-	row := q.queryRow(ctx, q.getHTTPByWorkspaceAccessStmt, getHTTPByWorkspaceAccess, arg.ID, arg.UserID)
-	var i Http
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceID,
-		&i.FolderID,
-		&i.Name,
-		&i.Url,
-		&i.Method,
-		&i.Description,
-		&i.ParentHttpID,
-		&i.IsDelta,
-		&i.DeltaName,
-		&i.DeltaUrl,
-		&i.DeltaMethod,
-		&i.DeltaDescription,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
 }
 
 const getHTTPDeltasByParentID = `-- name: GetHTTPDeltasByParentID :many
@@ -11093,53 +10299,200 @@ func (q *Queries) GetHTTPIncrementalUpdates(ctx context.Context, arg GetHTTPIncr
 }
 
 const getHTTPResponse = `-- name: GetHTTPResponse :one
+
 SELECT
   id,
   http_id,
-  status_code,
-  response_time_ms,
-  response_size_bytes,
-  response_body,
-  response_compression_type,
-  executed_at,
-  created_by
+  status,
+  body,
+  time,
+  duration,
+  size,
+  created_at
 FROM http_response
 WHERE id = ?
 LIMIT 1
 `
 
+// HTTP Response Queries (TypeSpec-compliant)
+//
+// HTTP Response Queries (TypeSpec-compliant)
 func (q *Queries) GetHTTPResponse(ctx context.Context, id idwrap.IDWrap) (HttpResponse, error) {
 	row := q.queryRow(ctx, q.getHTTPResponseStmt, getHTTPResponse, id)
 	var i HttpResponse
 	err := row.Scan(
 		&i.ID,
 		&i.HttpID,
-		&i.StatusCode,
-		&i.ResponseTimeMs,
-		&i.ResponseSizeBytes,
-		&i.ResponseBody,
-		&i.ResponseCompressionType,
-		&i.ExecutedAt,
-		&i.CreatedBy,
+		&i.Status,
+		&i.Body,
+		&i.Time,
+		&i.Duration,
+		&i.Size,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const getHTTPResponseHeaders = `-- name: GetHTTPResponseHeaders :many
+const getHTTPResponseAssert = `-- name: GetHTTPResponseAssert :one
 
 SELECT
   id,
-  response_id,
-  header_key,
-  header_value
-FROM http_response_header
-WHERE response_id = ?
-ORDER BY header_key
+  http_id,
+  value,
+  success,
+  created_at
+FROM http_response_assert
+WHERE id = ?
+LIMIT 1
 `
 
-// HTTP Response Header Queries
-func (q *Queries) GetHTTPResponseHeaders(ctx context.Context, responseID idwrap.IDWrap) ([]HttpResponseHeader, error) {
-	rows, err := q.query(ctx, q.getHTTPResponseHeadersStmt, getHTTPResponseHeaders, responseID)
+// HTTP Response Assert Queries (TypeSpec-compliant)
+func (q *Queries) GetHTTPResponseAssert(ctx context.Context, id []byte) (HttpResponseAssert, error) {
+	row := q.queryRow(ctx, q.getHTTPResponseAssertStmt, getHTTPResponseAssert, id)
+	var i HttpResponseAssert
+	err := row.Scan(
+		&i.ID,
+		&i.HttpID,
+		&i.Value,
+		&i.Success,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getHTTPResponseAssertsByHttpID = `-- name: GetHTTPResponseAssertsByHttpID :many
+SELECT
+  id,
+  http_id,
+  value,
+  success,
+  created_at
+FROM http_response_assert
+WHERE http_id = ?
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetHTTPResponseAssertsByHttpID(ctx context.Context, httpID []byte) ([]HttpResponseAssert, error) {
+	rows, err := q.query(ctx, q.getHTTPResponseAssertsByHttpIDStmt, getHTTPResponseAssertsByHttpID, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseAssert{}
+	for rows.Next() {
+		var i HttpResponseAssert
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.Value,
+			&i.Success,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPResponseAssertsByIDs = `-- name: GetHTTPResponseAssertsByIDs :many
+SELECT
+  id,
+  http_id,
+  value,
+  success,
+  created_at
+FROM http_response_assert
+WHERE id IN (/*SLICE:ids*/?)
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetHTTPResponseAssertsByIDs(ctx context.Context, ids [][]byte) ([]HttpResponseAssert, error) {
+	query := getHTTPResponseAssertsByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseAssert{}
+	for rows.Next() {
+		var i HttpResponseAssert
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.Value,
+			&i.Success,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPResponseHeader = `-- name: GetHTTPResponseHeader :one
+
+SELECT
+  id,
+  http_id,
+  key,
+  value,
+  created_at
+FROM http_response_header
+WHERE id = ?
+LIMIT 1
+`
+
+// HTTP Response Header Queries (TypeSpec-compliant)
+func (q *Queries) GetHTTPResponseHeader(ctx context.Context, id idwrap.IDWrap) (HttpResponseHeader, error) {
+	row := q.queryRow(ctx, q.getHTTPResponseHeaderStmt, getHTTPResponseHeader, id)
+	var i HttpResponseHeader
+	err := row.Scan(
+		&i.ID,
+		&i.HttpID,
+		&i.Key,
+		&i.Value,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getHTTPResponseHeadersByHttpID = `-- name: GetHTTPResponseHeadersByHttpID :many
+SELECT
+  id,
+  http_id,
+  key,
+  value,
+  created_at
+FROM http_response_header
+WHERE http_id = ?
+ORDER BY key
+`
+
+func (q *Queries) GetHTTPResponseHeadersByHttpID(ctx context.Context, httpID []byte) ([]HttpResponseHeader, error) {
+	rows, err := q.query(ctx, q.getHTTPResponseHeadersByHttpIDStmt, getHTTPResponseHeadersByHttpID, httpID)
 	if err != nil {
 		return nil, err
 	}
@@ -11149,9 +10502,10 @@ func (q *Queries) GetHTTPResponseHeaders(ctx context.Context, responseID idwrap.
 		var i HttpResponseHeader
 		if err := rows.Scan(
 			&i.ID,
-			&i.ResponseID,
-			&i.HeaderKey,
-			&i.HeaderValue,
+			&i.HttpID,
+			&i.Key,
+			&i.Value,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -11169,24 +10523,25 @@ func (q *Queries) GetHTTPResponseHeaders(ctx context.Context, responseID idwrap.
 const getHTTPResponseHeadersByIDs = `-- name: GetHTTPResponseHeadersByIDs :many
 SELECT
   id,
-  response_id,
-  header_key,
-  header_value
+  http_id,
+  key,
+  value,
+  created_at
 FROM http_response_header
-WHERE response_id IN (/*SLICE:response_ids*/?)
-ORDER BY response_id, header_key
+WHERE id IN (/*SLICE:ids*/?)
+ORDER BY http_id, key
 `
 
-func (q *Queries) GetHTTPResponseHeadersByIDs(ctx context.Context, responseIds []idwrap.IDWrap) ([]HttpResponseHeader, error) {
+func (q *Queries) GetHTTPResponseHeadersByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpResponseHeader, error) {
 	query := getHTTPResponseHeadersByIDs
 	var queryParams []interface{}
-	if len(responseIds) > 0 {
-		for _, v := range responseIds {
+	if len(ids) > 0 {
+		for _, v := range ids {
 			queryParams = append(queryParams, v)
 		}
-		query = strings.Replace(query, "/*SLICE:response_ids*/?", strings.Repeat(",?", len(responseIds))[1:], 1)
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
 	} else {
-		query = strings.Replace(query, "/*SLICE:response_ids*/?", "NULL", 1)
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
 	}
 	rows, err := q.query(ctx, nil, query, queryParams...)
 	if err != nil {
@@ -11198,9 +10553,10 @@ func (q *Queries) GetHTTPResponseHeadersByIDs(ctx context.Context, responseIds [
 		var i HttpResponseHeader
 		if err := rows.Scan(
 			&i.ID,
-			&i.ResponseID,
-			&i.HeaderKey,
-			&i.HeaderValue,
+			&i.HttpID,
+			&i.Key,
+			&i.Value,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -11215,26 +10571,23 @@ func (q *Queries) GetHTTPResponseHeadersByIDs(ctx context.Context, responseIds [
 	return items, nil
 }
 
-const getHTTPResponses = `-- name: GetHTTPResponses :many
-
+const getHTTPResponsesByHttpID = `-- name: GetHTTPResponsesByHttpID :many
 SELECT
   id,
   http_id,
-  status_code,
-  response_time_ms,
-  response_size_bytes,
-  response_body,
-  response_compression_type,
-  executed_at,
-  created_by
+  status,
+  body,
+  time,
+  duration,
+  size,
+  created_at
 FROM http_response
 WHERE http_id = ?
-ORDER BY executed_at DESC
+ORDER BY time DESC
 `
 
-// HTTP Response Queries
-func (q *Queries) GetHTTPResponses(ctx context.Context, httpID idwrap.IDWrap) ([]HttpResponse, error) {
-	rows, err := q.query(ctx, q.getHTTPResponsesStmt, getHTTPResponses, httpID)
+func (q *Queries) GetHTTPResponsesByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]HttpResponse, error) {
+	rows, err := q.query(ctx, q.getHTTPResponsesByHttpIDStmt, getHTTPResponsesByHttpID, httpID)
 	if err != nil {
 		return nil, err
 	}
@@ -11245,13 +10598,69 @@ func (q *Queries) GetHTTPResponses(ctx context.Context, httpID idwrap.IDWrap) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.StatusCode,
-			&i.ResponseTimeMs,
-			&i.ResponseSizeBytes,
-			&i.ResponseBody,
-			&i.ResponseCompressionType,
-			&i.ExecutedAt,
-			&i.CreatedBy,
+			&i.Status,
+			&i.Body,
+			&i.Time,
+			&i.Duration,
+			&i.Size,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPResponsesByIDs = `-- name: GetHTTPResponsesByIDs :many
+SELECT
+  id,
+  http_id,
+  status,
+  body,
+  time,
+  duration,
+  size,
+  created_at
+FROM http_response
+WHERE id IN (/*SLICE:ids*/?)
+ORDER BY time DESC
+`
+
+func (q *Queries) GetHTTPResponsesByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpResponse, error) {
+	query := getHTTPResponsesByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.query(ctx, nil, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponse{}
+	for rows.Next() {
+		var i HttpResponse
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.Status,
+			&i.Body,
+			&i.Time,
+			&i.Duration,
+			&i.Size,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -11271,50 +10680,66 @@ const getHTTPSearchParams = `-- name: GetHTTPSearchParams :many
 SELECT
   id,
   http_id,
-  param_key,
-  param_value,
+  key,
+  value,
   description,
   enabled,
-  parent_search_param_id,
+  parent_http_search_param_id,
   is_delta,
-  delta_param_key,
-  delta_param_value,
+  delta_key,
+  delta_value,
   delta_description,
   delta_enabled,
-  prev,
-  next,
+  "order",
   created_at,
   updated_at
 FROM http_search_param
 WHERE http_id = ? AND is_delta = FALSE
-ORDER BY created_at ASC
+ORDER BY "order"
 `
 
+type GetHTTPSearchParamsRow struct {
+	ID                      idwrap.IDWrap
+	HttpID                  idwrap.IDWrap
+	Key                     string
+	Value                   string
+	Description             string
+	Enabled                 bool
+	ParentHttpSearchParamID []byte
+	IsDelta                 bool
+	DeltaKey                sql.NullString
+	DeltaValue              sql.NullString
+	DeltaDescription        *string
+	DeltaEnabled            *bool
+	Order                   float64
+	CreatedAt               int64
+	UpdatedAt               int64
+}
+
 // HTTP Search Parameter Queries
-func (q *Queries) GetHTTPSearchParams(ctx context.Context, httpID idwrap.IDWrap) ([]HttpSearchParam, error) {
+func (q *Queries) GetHTTPSearchParams(ctx context.Context, httpID idwrap.IDWrap) ([]GetHTTPSearchParamsRow, error) {
 	rows, err := q.query(ctx, q.getHTTPSearchParamsStmt, getHTTPSearchParams, httpID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []HttpSearchParam{}
+	items := []GetHTTPSearchParamsRow{}
 	for rows.Next() {
-		var i HttpSearchParam
+		var i GetHTTPSearchParamsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.ParamKey,
-			&i.ParamValue,
+			&i.Key,
+			&i.Value,
 			&i.Description,
 			&i.Enabled,
-			&i.ParentSearchParamID,
+			&i.ParentHttpSearchParamID,
 			&i.IsDelta,
-			&i.DeltaParamKey,
-			&i.DeltaParamValue,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.Order,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -11335,25 +10760,42 @@ const getHTTPSearchParamsByIDs = `-- name: GetHTTPSearchParamsByIDs :many
 SELECT
   id,
   http_id,
-  param_key,
-  param_value,
+  key,
+  value,
   description,
   enabled,
-  parent_search_param_id,
+  parent_http_search_param_id,
   is_delta,
-  delta_param_key,
-  delta_param_value,
+  delta_key,
+  delta_value,
   delta_description,
   delta_enabled,
-  prev,
-  next,
+  "order",
   created_at,
   updated_at
 FROM http_search_param
 WHERE id IN (/*SLICE:ids*/?)
 `
 
-func (q *Queries) GetHTTPSearchParamsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpSearchParam, error) {
+type GetHTTPSearchParamsByIDsRow struct {
+	ID                      idwrap.IDWrap
+	HttpID                  idwrap.IDWrap
+	Key                     string
+	Value                   string
+	Description             string
+	Enabled                 bool
+	ParentHttpSearchParamID []byte
+	IsDelta                 bool
+	DeltaKey                sql.NullString
+	DeltaValue              sql.NullString
+	DeltaDescription        *string
+	DeltaEnabled            *bool
+	Order                   float64
+	CreatedAt               int64
+	UpdatedAt               int64
+}
+
+func (q *Queries) GetHTTPSearchParamsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]GetHTTPSearchParamsByIDsRow, error) {
 	query := getHTTPSearchParamsByIDs
 	var queryParams []interface{}
 	if len(ids) > 0 {
@@ -11369,24 +10811,23 @@ func (q *Queries) GetHTTPSearchParamsByIDs(ctx context.Context, ids []idwrap.IDW
 		return nil, err
 	}
 	defer rows.Close()
-	items := []HttpSearchParam{}
+	items := []GetHTTPSearchParamsByIDsRow{}
 	for rows.Next() {
-		var i HttpSearchParam
+		var i GetHTTPSearchParamsByIDsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.ParamKey,
-			&i.ParamValue,
+			&i.Key,
+			&i.Value,
 			&i.Description,
 			&i.Enabled,
-			&i.ParentSearchParamID,
+			&i.ParentHttpSearchParamID,
 			&i.IsDelta,
-			&i.DeltaParamKey,
-			&i.DeltaParamValue,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.Order,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -11407,14 +10848,14 @@ const getHTTPSearchParamsStreaming = `-- name: GetHTTPSearchParamsStreaming :man
 SELECT 
   hsp.id,
   hsp.http_id,
-  hsp.param_key,
-  hsp.param_value,
+  hsp.key,
+  hsp.value,
   hsp.description,
   hsp.enabled,
-  hsp.parent_search_param_id,
+  hsp.parent_http_search_param_id,
   hsp.is_delta,
-  hsp.delta_param_key,
-  hsp.delta_param_value,
+  hsp.delta_key,
+  hsp.delta_value,
   hsp.delta_description,
   hsp.delta_enabled,
   hsp.created_at,
@@ -11432,20 +10873,20 @@ type GetHTTPSearchParamsStreamingParams struct {
 }
 
 type GetHTTPSearchParamsStreamingRow struct {
-	ID                  idwrap.IDWrap
-	HttpID              idwrap.IDWrap
-	ParamKey            string
-	ParamValue          string
-	Description         string
-	Enabled             bool
-	ParentSearchParamID *idwrap.IDWrap
-	IsDelta             bool
-	DeltaParamKey       *string
-	DeltaParamValue     *string
-	DeltaDescription    *string
-	DeltaEnabled        *bool
-	CreatedAt           int64
-	UpdatedAt           int64
+	ID                      idwrap.IDWrap
+	HttpID                  idwrap.IDWrap
+	Key                     string
+	Value                   string
+	Description             string
+	Enabled                 bool
+	ParentHttpSearchParamID []byte
+	IsDelta                 bool
+	DeltaKey                sql.NullString
+	DeltaValue              sql.NullString
+	DeltaDescription        *string
+	DeltaEnabled            *bool
+	CreatedAt               int64
+	UpdatedAt               int64
 }
 
 // Optimized search parameters query for streaming
@@ -11472,14 +10913,14 @@ func (q *Queries) GetHTTPSearchParamsStreaming(ctx context.Context, arg GetHTTPS
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.ParamKey,
-			&i.ParamValue,
+			&i.Key,
+			&i.Value,
 			&i.Description,
 			&i.Enabled,
-			&i.ParentSearchParamID,
+			&i.ParentHttpSearchParamID,
 			&i.IsDelta,
-			&i.DeltaParamKey,
-			&i.DeltaParamValue,
+			&i.DeltaKey,
+			&i.DeltaValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
 			&i.CreatedAt,
@@ -11639,82 +11080,6 @@ func (q *Queries) GetHTTPStreamingMetrics(ctx context.Context, arg GetHTTPStream
 		&i.RecentChanges,
 	)
 	return i, err
-}
-
-const getHTTPVersion = `-- name: GetHTTPVersion :one
-SELECT
-  id,
-  http_id,
-  version_name,
-  version_description,
-  is_active,
-  created_at,
-  created_by
-FROM http_version
-WHERE id = ?
-LIMIT 1
-`
-
-func (q *Queries) GetHTTPVersion(ctx context.Context, id idwrap.IDWrap) (HttpVersion, error) {
-	row := q.queryRow(ctx, q.getHTTPVersionStmt, getHTTPVersion, id)
-	var i HttpVersion
-	err := row.Scan(
-		&i.ID,
-		&i.HttpID,
-		&i.VersionName,
-		&i.VersionDescription,
-		&i.IsActive,
-		&i.CreatedAt,
-		&i.CreatedBy,
-	)
-	return i, err
-}
-
-const getHTTPVersions = `-- name: GetHTTPVersions :many
-
-SELECT
-  id,
-  http_id,
-  version_name,
-  version_description,
-  is_active,
-  created_at,
-  created_by
-FROM http_version
-WHERE http_id = ?
-ORDER BY created_at DESC
-`
-
-// HTTP Version Queries
-func (q *Queries) GetHTTPVersions(ctx context.Context, httpID idwrap.IDWrap) ([]HttpVersion, error) {
-	rows, err := q.query(ctx, q.getHTTPVersionsStmt, getHTTPVersions, httpID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []HttpVersion{}
-	for rows.Next() {
-		var i HttpVersion
-		if err := rows.Scan(
-			&i.ID,
-			&i.HttpID,
-			&i.VersionName,
-			&i.VersionDescription,
-			&i.IsActive,
-			&i.CreatedAt,
-			&i.CreatedBy,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getHTTPWorkspaceActivity = `-- name: GetHTTPWorkspaceActivity :many
@@ -11941,70 +11306,6 @@ ORDER BY updated_at DESC
 
 func (q *Queries) GetHTTPsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Http, error) {
 	rows, err := q.query(ctx, q.getHTTPsByWorkspaceIDStmt, getHTTPsByWorkspaceID, workspaceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Http{}
-	for rows.Next() {
-		var i Http
-		if err := rows.Scan(
-			&i.ID,
-			&i.WorkspaceID,
-			&i.FolderID,
-			&i.Name,
-			&i.Url,
-			&i.Method,
-			&i.Description,
-			&i.ParentHttpID,
-			&i.IsDelta,
-			&i.DeltaName,
-			&i.DeltaUrl,
-			&i.DeltaMethod,
-			&i.DeltaDescription,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getHTTPsWithWorkspaceAccess = `-- name: GetHTTPsWithWorkspaceAccess :many
-
-SELECT
-  h.id,
-  h.workspace_id,
-  h.folder_id,
-  h.name,
-  h.url,
-  h.method,
-  h.description,
-  h.parent_http_id,
-  h.is_delta,
-  h.delta_name,
-  h.delta_url,
-  h.delta_method,
-  h.delta_description,
-  h.created_at,
-  h.updated_at
-FROM http h
-INNER JOIN workspaces_users wu ON h.workspace_id = wu.workspace_id
-WHERE wu.user_id = ? AND h.is_delta = FALSE
-ORDER BY h.updated_at DESC
-`
-
-// Workspace-scoped queries for permission filtering
-func (q *Queries) GetHTTPsWithWorkspaceAccess(ctx context.Context, userID idwrap.IDWrap) ([]Http, error) {
-	rows, err := q.query(ctx, q.getHTTPsWithWorkspaceAccessStmt, getHTTPsWithWorkspaceAccess, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -14554,25 +13855,6 @@ func (q *Queries) SetBodyFormEnable(ctx context.Context, arg SetBodyFormEnablePa
 	return err
 }
 
-const setHTTPVersionActive = `-- name: SetHTTPVersionActive :exec
-UPDATE http_version
-SET is_active = CASE 
-  WHEN id = ? THEN TRUE
-  ELSE FALSE
-END
-WHERE http_id = ?
-`
-
-type SetHTTPVersionActiveParams struct {
-	ID     idwrap.IDWrap
-	HttpID idwrap.IDWrap
-}
-
-func (q *Queries) SetHTTPVersionActive(ctx context.Context, arg SetHTTPVersionActiveParams) error {
-	_, err := q.exec(ctx, q.setHTTPVersionActiveStmt, setHTTPVersionActive, arg.ID, arg.HttpID)
-	return err
-}
-
 const setHeaderEnable = `-- name: SetHeaderEnable :exec
 UPDATE example_header
     SET
@@ -15398,25 +14680,48 @@ func (q *Queries) UpdateHTTP(ctx context.Context, arg UpdateHTTPParams) error {
 const updateHTTPAssert = `-- name: UpdateHTTPAssert :exec
 UPDATE http_assert
 SET
-  assert_expression = ?,
-  assert_description = ?,
+  key = ?,
+  value = ?,
   enabled = ?,
-  updated_at = unixepoch()
+  description = ?,
+  "order" = ?,
+  delta_key = ?,
+  delta_value = ?,
+  delta_enabled = ?,
+  delta_description = ?,
+  delta_order = ?,
+  updated_at = ?
 WHERE id = ?
 `
 
 type UpdateHTTPAssertParams struct {
-	AssertExpression  string
-	AssertDescription string
-	Enabled           bool
-	ID                idwrap.IDWrap
+	Key              string
+	Value            string
+	Enabled          bool
+	Description      string
+	Order            float64
+	DeltaKey         sql.NullString
+	DeltaValue       sql.NullString
+	DeltaEnabled     *bool
+	DeltaDescription sql.NullString
+	DeltaOrder       sql.NullFloat64
+	UpdatedAt        int64
+	ID               idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPAssert(ctx context.Context, arg UpdateHTTPAssertParams) error {
 	_, err := q.exec(ctx, q.updateHTTPAssertStmt, updateHTTPAssert,
-		arg.AssertExpression,
-		arg.AssertDescription,
+		arg.Key,
+		arg.Value,
 		arg.Enabled,
+		arg.Description,
+		arg.Order,
+		arg.DeltaKey,
+		arg.DeltaValue,
+		arg.DeltaEnabled,
+		arg.DeltaDescription,
+		arg.DeltaOrder,
+		arg.UpdatedAt,
 		arg.ID,
 	)
 	return err
@@ -15425,49 +14730,32 @@ func (q *Queries) UpdateHTTPAssert(ctx context.Context, arg UpdateHTTPAssertPara
 const updateHTTPAssertDelta = `-- name: UpdateHTTPAssertDelta :exec
 UPDATE http_assert
 SET
-  delta_assert_expression = ?,
-  delta_assert_description = ?,
+  delta_key = ?,
+  delta_value = ?,
   delta_enabled = ?,
+  delta_description = ?,
+  delta_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPAssertDeltaParams struct {
-	DeltaAssertExpression  *string
-	DeltaAssertDescription *string
-	DeltaEnabled           *bool
-	ID                     idwrap.IDWrap
+	DeltaKey         sql.NullString
+	DeltaValue       sql.NullString
+	DeltaEnabled     *bool
+	DeltaDescription sql.NullString
+	DeltaOrder       sql.NullFloat64
+	ID               idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPAssertDelta(ctx context.Context, arg UpdateHTTPAssertDeltaParams) error {
 	_, err := q.exec(ctx, q.updateHTTPAssertDeltaStmt, updateHTTPAssertDelta,
-		arg.DeltaAssertExpression,
-		arg.DeltaAssertDescription,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaEnabled,
+		arg.DeltaDescription,
+		arg.DeltaOrder,
 		arg.ID,
-	)
-	return err
-}
-
-const updateHTTPAssertOrder = `-- name: UpdateHTTPAssertOrder :exec
-UPDATE http_assert
-SET prev = ?, next = ?
-WHERE id = ? AND http_id = ?
-`
-
-type UpdateHTTPAssertOrderParams struct {
-	Prev   *idwrap.IDWrap
-	Next   *idwrap.IDWrap
-	ID     idwrap.IDWrap
-	HttpID idwrap.IDWrap
-}
-
-func (q *Queries) UpdateHTTPAssertOrder(ctx context.Context, arg UpdateHTTPAssertOrderParams) error {
-	_, err := q.exec(ctx, q.updateHTTPAssertOrderStmt, updateHTTPAssertOrder,
-		arg.Prev,
-		arg.Next,
-		arg.ID,
-		arg.HttpID,
 	)
 	return err
 }
@@ -15475,8 +14763,8 @@ func (q *Queries) UpdateHTTPAssertOrder(ctx context.Context, arg UpdateHTTPAsser
 const updateHTTPBodyForm = `-- name: UpdateHTTPBodyForm :exec
 UPDATE http_body_form
 SET
-  form_key = ?,
-  form_value = ?,
+  key = ?,
+  value = ?,
   description = ?,
   enabled = ?,
   updated_at = unixepoch()
@@ -15484,8 +14772,8 @@ WHERE id = ?
 `
 
 type UpdateHTTPBodyFormParams struct {
-	FormKey     string
-	FormValue   string
+	Key         string
+	Value       string
 	Description string
 	Enabled     bool
 	ID          idwrap.IDWrap
@@ -15493,8 +14781,8 @@ type UpdateHTTPBodyFormParams struct {
 
 func (q *Queries) UpdateHTTPBodyForm(ctx context.Context, arg UpdateHTTPBodyFormParams) error {
 	_, err := q.exec(ctx, q.updateHTTPBodyFormStmt, updateHTTPBodyForm,
-		arg.FormKey,
-		arg.FormValue,
+		arg.Key,
+		arg.Value,
 		arg.Description,
 		arg.Enabled,
 		arg.ID,
@@ -15505,8 +14793,8 @@ func (q *Queries) UpdateHTTPBodyForm(ctx context.Context, arg UpdateHTTPBodyForm
 const updateHTTPBodyFormDelta = `-- name: UpdateHTTPBodyFormDelta :exec
 UPDATE http_body_form
 SET
-  delta_form_key = ?,
-  delta_form_value = ?,
+  delta_key = ?,
+  delta_value = ?,
   delta_description = ?,
   delta_enabled = ?,
   updated_at = unixepoch()
@@ -15514,8 +14802,8 @@ WHERE id = ?
 `
 
 type UpdateHTTPBodyFormDeltaParams struct {
-	DeltaFormKey     *string
-	DeltaFormValue   *string
+	DeltaKey         sql.NullString
+	DeltaValue       sql.NullString
 	DeltaDescription *string
 	DeltaEnabled     *bool
 	ID               idwrap.IDWrap
@@ -15523,8 +14811,8 @@ type UpdateHTTPBodyFormDeltaParams struct {
 
 func (q *Queries) UpdateHTTPBodyFormDelta(ctx context.Context, arg UpdateHTTPBodyFormDeltaParams) error {
 	_, err := q.exec(ctx, q.updateHTTPBodyFormDeltaStmt, updateHTTPBodyFormDelta,
-		arg.DeltaFormKey,
-		arg.DeltaFormValue,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
 		arg.ID,
@@ -15534,160 +14822,100 @@ func (q *Queries) UpdateHTTPBodyFormDelta(ctx context.Context, arg UpdateHTTPBod
 
 const updateHTTPBodyFormOrder = `-- name: UpdateHTTPBodyFormOrder :exec
 UPDATE http_body_form
-SET prev = ?, next = ?
+SET "order" = ?
 WHERE id = ? AND http_id = ?
 `
 
 type UpdateHTTPBodyFormOrderParams struct {
-	Prev   *idwrap.IDWrap
-	Next   *idwrap.IDWrap
+	Order  float64
 	ID     idwrap.IDWrap
 	HttpID idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPBodyFormOrder(ctx context.Context, arg UpdateHTTPBodyFormOrderParams) error {
-	_, err := q.exec(ctx, q.updateHTTPBodyFormOrderStmt, updateHTTPBodyFormOrder,
-		arg.Prev,
-		arg.Next,
-		arg.ID,
-		arg.HttpID,
-	)
+	_, err := q.exec(ctx, q.updateHTTPBodyFormOrderStmt, updateHTTPBodyFormOrder, arg.Order, arg.ID, arg.HttpID)
 	return err
 }
 
-const updateHTTPBodyRaw = `-- name: UpdateHTTPBodyRaw :exec
-UPDATE http_body_raw
-SET
-  raw_data = ?,
-  content_type = ?,
-  compression_type = ?,
-  updated_at = unixepoch()
-WHERE id = ?
-`
-
-type UpdateHTTPBodyRawParams struct {
-	RawData         []byte
-	ContentType     string
-	CompressionType int8
-	ID              idwrap.IDWrap
-}
-
-func (q *Queries) UpdateHTTPBodyRaw(ctx context.Context, arg UpdateHTTPBodyRawParams) error {
-	_, err := q.exec(ctx, q.updateHTTPBodyRawStmt, updateHTTPBodyRaw,
-		arg.RawData,
-		arg.ContentType,
-		arg.CompressionType,
-		arg.ID,
-	)
-	return err
-}
-
-const updateHTTPBodyRawDelta = `-- name: UpdateHTTPBodyRawDelta :exec
-UPDATE http_body_raw
-SET
-  delta_raw_data = ?,
-  delta_content_type = ?,
-  delta_compression_type = ?,
-  updated_at = unixepoch()
-WHERE id = ?
-`
-
-type UpdateHTTPBodyRawDeltaParams struct {
-	DeltaRawData         interface{}
-	DeltaContentType     interface{}
-	DeltaCompressionType interface{}
-	ID                   idwrap.IDWrap
-}
-
-func (q *Queries) UpdateHTTPBodyRawDelta(ctx context.Context, arg UpdateHTTPBodyRawDeltaParams) error {
-	_, err := q.exec(ctx, q.updateHTTPBodyRawDeltaStmt, updateHTTPBodyRawDelta,
-		arg.DeltaRawData,
-		arg.DeltaContentType,
-		arg.DeltaCompressionType,
-		arg.ID,
-	)
-	return err
-}
-
-const updateHTTPBodyUrlencoded = `-- name: UpdateHTTPBodyUrlencoded :exec
+const updateHTTPBodyUrlEncoded = `-- name: UpdateHTTPBodyUrlEncoded :exec
 UPDATE http_body_urlencoded
 SET
-  urlencoded_key = ?,
-  urlencoded_value = ?,
-  description = ?,
+  key = ?,
+  value = ?,
   enabled = ?,
-  updated_at = unixepoch()
+  description = ?,
+  "order" = ?,
+  delta_key = ?,
+  delta_value = ?,
+  delta_enabled = ?,
+  delta_description = ?,
+  delta_order = ?,
+  updated_at = ?
 WHERE id = ?
 `
 
-type UpdateHTTPBodyUrlencodedParams struct {
-	UrlencodedKey   string
-	UrlencodedValue string
-	Description     string
-	Enabled         bool
-	ID              idwrap.IDWrap
+type UpdateHTTPBodyUrlEncodedParams struct {
+	Key              string
+	Value            string
+	Enabled          bool
+	Description      string
+	Order            float64
+	DeltaKey         sql.NullString
+	DeltaValue       sql.NullString
+	DeltaEnabled     *bool
+	DeltaDescription *string
+	DeltaOrder       sql.NullFloat64
+	UpdatedAt        int64
+	ID               idwrap.IDWrap
 }
 
-func (q *Queries) UpdateHTTPBodyUrlencoded(ctx context.Context, arg UpdateHTTPBodyUrlencodedParams) error {
-	_, err := q.exec(ctx, q.updateHTTPBodyUrlencodedStmt, updateHTTPBodyUrlencoded,
-		arg.UrlencodedKey,
-		arg.UrlencodedValue,
-		arg.Description,
+func (q *Queries) UpdateHTTPBodyUrlEncoded(ctx context.Context, arg UpdateHTTPBodyUrlEncodedParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyUrlEncodedStmt, updateHTTPBodyUrlEncoded,
+		arg.Key,
+		arg.Value,
 		arg.Enabled,
+		arg.Description,
+		arg.Order,
+		arg.DeltaKey,
+		arg.DeltaValue,
+		arg.DeltaEnabled,
+		arg.DeltaDescription,
+		arg.DeltaOrder,
+		arg.UpdatedAt,
 		arg.ID,
 	)
 	return err
 }
 
-const updateHTTPBodyUrlencodedDelta = `-- name: UpdateHTTPBodyUrlencodedDelta :exec
+const updateHTTPBodyUrlEncodedDelta = `-- name: UpdateHTTPBodyUrlEncodedDelta :exec
 UPDATE http_body_urlencoded
 SET
-  delta_urlencoded_key = ?,
-  delta_urlencoded_value = ?,
-  delta_description = ?,
+  delta_key = ?,
+  delta_value = ?,
   delta_enabled = ?,
+  delta_description = ?,
+  delta_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
-type UpdateHTTPBodyUrlencodedDeltaParams struct {
-	DeltaUrlencodedKey   *string
-	DeltaUrlencodedValue *string
-	DeltaDescription     *string
-	DeltaEnabled         *bool
-	ID                   idwrap.IDWrap
+type UpdateHTTPBodyUrlEncodedDeltaParams struct {
+	DeltaKey         sql.NullString
+	DeltaValue       sql.NullString
+	DeltaEnabled     *bool
+	DeltaDescription *string
+	DeltaOrder       sql.NullFloat64
+	ID               idwrap.IDWrap
 }
 
-func (q *Queries) UpdateHTTPBodyUrlencodedDelta(ctx context.Context, arg UpdateHTTPBodyUrlencodedDeltaParams) error {
-	_, err := q.exec(ctx, q.updateHTTPBodyUrlencodedDeltaStmt, updateHTTPBodyUrlencodedDelta,
-		arg.DeltaUrlencodedKey,
-		arg.DeltaUrlencodedValue,
-		arg.DeltaDescription,
+func (q *Queries) UpdateHTTPBodyUrlEncodedDelta(ctx context.Context, arg UpdateHTTPBodyUrlEncodedDeltaParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyUrlEncodedDeltaStmt, updateHTTPBodyUrlEncodedDelta,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaEnabled,
+		arg.DeltaDescription,
+		arg.DeltaOrder,
 		arg.ID,
-	)
-	return err
-}
-
-const updateHTTPBodyUrlencodedOrder = `-- name: UpdateHTTPBodyUrlencodedOrder :exec
-UPDATE http_body_urlencoded
-SET prev = ?, next = ?
-WHERE id = ? AND http_id = ?
-`
-
-type UpdateHTTPBodyUrlencodedOrderParams struct {
-	Prev   *idwrap.IDWrap
-	Next   *idwrap.IDWrap
-	ID     idwrap.IDWrap
-	HttpID idwrap.IDWrap
-}
-
-func (q *Queries) UpdateHTTPBodyUrlencodedOrder(ctx context.Context, arg UpdateHTTPBodyUrlencodedOrderParams) error {
-	_, err := q.exec(ctx, q.updateHTTPBodyUrlencodedOrderStmt, updateHTTPBodyUrlencodedOrder,
-		arg.Prev,
-		arg.Next,
-		arg.ID,
-		arg.HttpID,
 	)
 	return err
 }
@@ -15805,11 +15033,81 @@ func (q *Queries) UpdateHTTPHeaderOrder(ctx context.Context, arg UpdateHTTPHeade
 	return err
 }
 
+const updateHTTPResponse = `-- name: UpdateHTTPResponse :exec
+UPDATE http_response
+SET
+  status = ?,
+  body = ?,
+  time = ?,
+  duration = ?,
+  size = ?
+WHERE id = ?
+`
+
+type UpdateHTTPResponseParams struct {
+	Status   interface{}
+	Body     []byte
+	Time     time.Time
+	Duration interface{}
+	Size     interface{}
+	ID       idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPResponse(ctx context.Context, arg UpdateHTTPResponseParams) error {
+	_, err := q.exec(ctx, q.updateHTTPResponseStmt, updateHTTPResponse,
+		arg.Status,
+		arg.Body,
+		arg.Time,
+		arg.Duration,
+		arg.Size,
+		arg.ID,
+	)
+	return err
+}
+
+const updateHTTPResponseAssert = `-- name: UpdateHTTPResponseAssert :exec
+UPDATE http_response_assert
+SET
+  value = ?,
+  success = ?
+WHERE id = ?
+`
+
+type UpdateHTTPResponseAssertParams struct {
+	Value   string
+	Success bool
+	ID      []byte
+}
+
+func (q *Queries) UpdateHTTPResponseAssert(ctx context.Context, arg UpdateHTTPResponseAssertParams) error {
+	_, err := q.exec(ctx, q.updateHTTPResponseAssertStmt, updateHTTPResponseAssert, arg.Value, arg.Success, arg.ID)
+	return err
+}
+
+const updateHTTPResponseHeader = `-- name: UpdateHTTPResponseHeader :exec
+UPDATE http_response_header
+SET
+  key = ?,
+  value = ?
+WHERE id = ?
+`
+
+type UpdateHTTPResponseHeaderParams struct {
+	Key   string
+	Value string
+	ID    idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPResponseHeader(ctx context.Context, arg UpdateHTTPResponseHeaderParams) error {
+	_, err := q.exec(ctx, q.updateHTTPResponseHeaderStmt, updateHTTPResponseHeader, arg.Key, arg.Value, arg.ID)
+	return err
+}
+
 const updateHTTPSearchParam = `-- name: UpdateHTTPSearchParam :exec
 UPDATE http_search_param
 SET
-  param_key = ?,
-  param_value = ?,
+  key = ?,
+  value = ?,
   description = ?,
   enabled = ?,
   updated_at = unixepoch()
@@ -15817,8 +15115,8 @@ WHERE id = ?
 `
 
 type UpdateHTTPSearchParamParams struct {
-	ParamKey    string
-	ParamValue  string
+	Key         string
+	Value       string
 	Description string
 	Enabled     bool
 	ID          idwrap.IDWrap
@@ -15826,8 +15124,8 @@ type UpdateHTTPSearchParamParams struct {
 
 func (q *Queries) UpdateHTTPSearchParam(ctx context.Context, arg UpdateHTTPSearchParamParams) error {
 	_, err := q.exec(ctx, q.updateHTTPSearchParamStmt, updateHTTPSearchParam,
-		arg.ParamKey,
-		arg.ParamValue,
+		arg.Key,
+		arg.Value,
 		arg.Description,
 		arg.Enabled,
 		arg.ID,
@@ -15838,8 +15136,8 @@ func (q *Queries) UpdateHTTPSearchParam(ctx context.Context, arg UpdateHTTPSearc
 const updateHTTPSearchParamDelta = `-- name: UpdateHTTPSearchParamDelta :exec
 UPDATE http_search_param
 SET
-  delta_param_key = ?,
-  delta_param_value = ?,
+  delta_key = ?,
+  delta_value = ?,
   delta_description = ?,
   delta_enabled = ?,
   updated_at = unixepoch()
@@ -15847,8 +15145,8 @@ WHERE id = ?
 `
 
 type UpdateHTTPSearchParamDeltaParams struct {
-	DeltaParamKey    *string
-	DeltaParamValue  *string
+	DeltaKey         sql.NullString
+	DeltaValue       sql.NullString
 	DeltaDescription *string
 	DeltaEnabled     *bool
 	ID               idwrap.IDWrap
@@ -15856,8 +15154,8 @@ type UpdateHTTPSearchParamDeltaParams struct {
 
 func (q *Queries) UpdateHTTPSearchParamDelta(ctx context.Context, arg UpdateHTTPSearchParamDeltaParams) error {
 	_, err := q.exec(ctx, q.updateHTTPSearchParamDeltaStmt, updateHTTPSearchParamDelta,
-		arg.DeltaParamKey,
-		arg.DeltaParamValue,
+		arg.DeltaKey,
+		arg.DeltaValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
 		arg.ID,
@@ -15867,50 +15165,18 @@ func (q *Queries) UpdateHTTPSearchParamDelta(ctx context.Context, arg UpdateHTTP
 
 const updateHTTPSearchParamOrder = `-- name: UpdateHTTPSearchParamOrder :exec
 UPDATE http_search_param
-SET prev = ?, next = ?
+SET "order" = ?
 WHERE id = ? AND http_id = ?
 `
 
 type UpdateHTTPSearchParamOrderParams struct {
-	Prev   *idwrap.IDWrap
-	Next   *idwrap.IDWrap
+	Order  float64
 	ID     idwrap.IDWrap
 	HttpID idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPSearchParamOrder(ctx context.Context, arg UpdateHTTPSearchParamOrderParams) error {
-	_, err := q.exec(ctx, q.updateHTTPSearchParamOrderStmt, updateHTTPSearchParamOrder,
-		arg.Prev,
-		arg.Next,
-		arg.ID,
-		arg.HttpID,
-	)
-	return err
-}
-
-const updateHTTPVersion = `-- name: UpdateHTTPVersion :exec
-UPDATE http_version
-SET
-  version_name = ?,
-  version_description = ?,
-  is_active = ?
-WHERE id = ?
-`
-
-type UpdateHTTPVersionParams struct {
-	VersionName        string
-	VersionDescription string
-	IsActive           bool
-	ID                 idwrap.IDWrap
-}
-
-func (q *Queries) UpdateHTTPVersion(ctx context.Context, arg UpdateHTTPVersionParams) error {
-	_, err := q.exec(ctx, q.updateHTTPVersionStmt, updateHTTPVersion,
-		arg.VersionName,
-		arg.VersionDescription,
-		arg.IsActive,
-		arg.ID,
-	)
+	_, err := q.exec(ctx, q.updateHTTPSearchParamOrderStmt, updateHTTPSearchParamOrder, arg.Order, arg.ID, arg.HttpID)
 	return err
 }
 

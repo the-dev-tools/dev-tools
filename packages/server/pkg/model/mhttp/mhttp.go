@@ -112,3 +112,49 @@ type HTTPBodyRaw struct {
 	CreatedAt            int64          `json:"created_at"`
 	UpdatedAt            int64          `json:"updated_at"`
 }
+
+type HTTPAssert struct {
+	ID               idwrap.IDWrap  `json:"id"`
+	HttpID           idwrap.IDWrap  `json:"http_id"`
+	AssertKey        string         `json:"assert_key"`
+	AssertValue      string         `json:"assert_value"`
+	Description      string         `json:"description"`
+	Enabled          bool           `json:"enabled"`
+	ParentAssertID   *idwrap.IDWrap `json:"parent_assert_id,omitempty"`
+	IsDelta          bool           `json:"is_delta"`
+	DeltaAssertKey   *string        `json:"delta_assert_key,omitempty"`
+	DeltaAssertValue *string        `json:"delta_assert_value,omitempty"`
+	DeltaDescription *string        `json:"delta_description,omitempty"`
+	DeltaEnabled     *bool          `json:"delta_enabled,omitempty"`
+	Prev             *idwrap.IDWrap `json:"prev,omitempty"`
+	Next             *idwrap.IDWrap `json:"next,omitempty"`
+	CreatedAt        int64          `json:"created_at"`
+	UpdatedAt        int64          `json:"updated_at"`
+}
+
+type HTTPResponse struct {
+	ID        idwrap.IDWrap `json:"id"`
+	HttpID    idwrap.IDWrap `json:"http_id"`
+	Status    int32         `json:"status"`
+	Body      []byte        `json:"body"`
+	Time      int64         `json:"time"`
+	Duration  int32         `json:"duration"`
+	Size      int32         `json:"size"`
+	CreatedAt int64         `json:"created_at"`
+}
+
+type HTTPResponseHeader struct {
+	ID          idwrap.IDWrap `json:"id"`
+	HttpID      idwrap.IDWrap `json:"http_id"`
+	HeaderKey   string        `json:"header_key"`
+	HeaderValue string        `json:"header_value"`
+	CreatedAt   int64         `json:"created_at"`
+}
+
+type HTTPResponseAssert struct {
+	ID        idwrap.IDWrap `json:"id"`
+	HttpID    idwrap.IDWrap `json:"http_id"`
+	Value     string        `json:"value"`
+	Success   bool          `json:"success"`
+	CreatedAt int64         `json:"created_at"`
+}

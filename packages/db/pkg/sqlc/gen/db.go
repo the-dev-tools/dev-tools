@@ -27,12 +27,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.checkIFWorkspaceUserExistsStmt, err = db.PrepareContext(ctx, checkIFWorkspaceUserExists); err != nil {
 		return nil, fmt.Errorf("error preparing query CheckIFWorkspaceUserExists: %w", err)
 	}
-	if q.countHTTPByFolderStmt, err = db.PrepareContext(ctx, countHTTPByFolder); err != nil {
-		return nil, fmt.Errorf("error preparing query CountHTTPByFolder: %w", err)
-	}
-	if q.countHTTPByWorkspaceStmt, err = db.PrepareContext(ctx, countHTTPByWorkspace); err != nil {
-		return nil, fmt.Errorf("error preparing query CountHTTPByWorkspace: %w", err)
-	}
 	if q.createAssertStmt, err = db.PrepareContext(ctx, createAssert); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateAssert: %w", err)
 	}
@@ -117,47 +111,41 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createHTTPAssertStmt, err = db.PrepareContext(ctx, createHTTPAssert); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTPAssert: %w", err)
 	}
-	if q.createHTTPAssertsBulkStmt, err = db.PrepareContext(ctx, createHTTPAssertsBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHTTPAssertsBulk: %w", err)
+	if q.createHTTPAssertBulkStmt, err = db.PrepareContext(ctx, createHTTPAssertBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHTTPAssertBulk: %w", err)
 	}
 	if q.createHTTPBodyFormStmt, err = db.PrepareContext(ctx, createHTTPBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTPBodyForm: %w", err)
 	}
-	if q.createHTTPBodyFormsBulkStmt, err = db.PrepareContext(ctx, createHTTPBodyFormsBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHTTPBodyFormsBulk: %w", err)
+	if q.createHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, createHTTPBodyUrlEncoded); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHTTPBodyUrlEncoded: %w", err)
 	}
-	if q.createHTTPBodyRawStmt, err = db.PrepareContext(ctx, createHTTPBodyRaw); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHTTPBodyRaw: %w", err)
-	}
-	if q.createHTTPBodyUrlencodedStmt, err = db.PrepareContext(ctx, createHTTPBodyUrlencoded); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHTTPBodyUrlencoded: %w", err)
-	}
-	if q.createHTTPBodyUrlencodedBulkStmt, err = db.PrepareContext(ctx, createHTTPBodyUrlencodedBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHTTPBodyUrlencodedBulk: %w", err)
+	if q.createHTTPBodyUrlEncodedBulkStmt, err = db.PrepareContext(ctx, createHTTPBodyUrlEncodedBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHTTPBodyUrlEncodedBulk: %w", err)
 	}
 	if q.createHTTPHeaderStmt, err = db.PrepareContext(ctx, createHTTPHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTPHeader: %w", err)
 	}
-	if q.createHTTPHeadersBulkStmt, err = db.PrepareContext(ctx, createHTTPHeadersBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHTTPHeadersBulk: %w", err)
-	}
 	if q.createHTTPResponseStmt, err = db.PrepareContext(ctx, createHTTPResponse); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTPResponse: %w", err)
+	}
+	if q.createHTTPResponseAssertStmt, err = db.PrepareContext(ctx, createHTTPResponseAssert); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHTTPResponseAssert: %w", err)
+	}
+	if q.createHTTPResponseAssertBulkStmt, err = db.PrepareContext(ctx, createHTTPResponseAssertBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHTTPResponseAssertBulk: %w", err)
+	}
+	if q.createHTTPResponseBulkStmt, err = db.PrepareContext(ctx, createHTTPResponseBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHTTPResponseBulk: %w", err)
 	}
 	if q.createHTTPResponseHeaderStmt, err = db.PrepareContext(ctx, createHTTPResponseHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTPResponseHeader: %w", err)
 	}
-	if q.createHTTPResponseHeadersBulkStmt, err = db.PrepareContext(ctx, createHTTPResponseHeadersBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHTTPResponseHeadersBulk: %w", err)
+	if q.createHTTPResponseHeaderBulkStmt, err = db.PrepareContext(ctx, createHTTPResponseHeaderBulk); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHTTPResponseHeaderBulk: %w", err)
 	}
 	if q.createHTTPSearchParamStmt, err = db.PrepareContext(ctx, createHTTPSearchParam); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTPSearchParam: %w", err)
-	}
-	if q.createHTTPSearchParamsBulkStmt, err = db.PrepareContext(ctx, createHTTPSearchParamsBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHTTPSearchParamsBulk: %w", err)
-	}
-	if q.createHTTPVersionStmt, err = db.PrepareContext(ctx, createHTTPVersion); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHTTPVersion: %w", err)
 	}
 	if q.createHeaderStmt, err = db.PrepareContext(ctx, createHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHeader: %w", err)
@@ -282,11 +270,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteHTTPBodyFormStmt, err = db.PrepareContext(ctx, deleteHTTPBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHTTPBodyForm: %w", err)
 	}
-	if q.deleteHTTPBodyRawStmt, err = db.PrepareContext(ctx, deleteHTTPBodyRaw); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteHTTPBodyRaw: %w", err)
-	}
-	if q.deleteHTTPBodyUrlencodedStmt, err = db.PrepareContext(ctx, deleteHTTPBodyUrlencoded); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteHTTPBodyUrlencoded: %w", err)
+	if q.deleteHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, deleteHTTPBodyUrlEncoded); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteHTTPBodyUrlEncoded: %w", err)
 	}
 	if q.deleteHTTPHeaderStmt, err = db.PrepareContext(ctx, deleteHTTPHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHTTPHeader: %w", err)
@@ -294,17 +279,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteHTTPResponseStmt, err = db.PrepareContext(ctx, deleteHTTPResponse); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHTTPResponse: %w", err)
 	}
-	if q.deleteHTTPResponseHeadersStmt, err = db.PrepareContext(ctx, deleteHTTPResponseHeaders); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteHTTPResponseHeaders: %w", err)
+	if q.deleteHTTPResponseAssertStmt, err = db.PrepareContext(ctx, deleteHTTPResponseAssert); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteHTTPResponseAssert: %w", err)
 	}
-	if q.deleteHTTPResponsesByHTTPIDStmt, err = db.PrepareContext(ctx, deleteHTTPResponsesByHTTPID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteHTTPResponsesByHTTPID: %w", err)
+	if q.deleteHTTPResponseHeaderStmt, err = db.PrepareContext(ctx, deleteHTTPResponseHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteHTTPResponseHeader: %w", err)
 	}
 	if q.deleteHTTPSearchParamStmt, err = db.PrepareContext(ctx, deleteHTTPSearchParam); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHTTPSearchParam: %w", err)
-	}
-	if q.deleteHTTPVersionStmt, err = db.PrepareContext(ctx, deleteHTTPVersion); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteHTTPVersion: %w", err)
 	}
 	if q.deleteHeaderStmt, err = db.PrepareContext(ctx, deleteHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHeader: %w", err)
@@ -783,11 +765,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPStmt, err = db.PrepareContext(ctx, getHTTP); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTP: %w", err)
 	}
-	if q.getHTTPActiveVersionStmt, err = db.PrepareContext(ctx, getHTTPActiveVersion); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPActiveVersion: %w", err)
+	if q.getHTTPAssertStmt, err = db.PrepareContext(ctx, getHTTPAssert); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPAssert: %w", err)
 	}
-	if q.getHTTPAssertsStmt, err = db.PrepareContext(ctx, getHTTPAsserts); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPAsserts: %w", err)
+	if q.getHTTPAssertsByHttpIDStmt, err = db.PrepareContext(ctx, getHTTPAssertsByHttpID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPAssertsByHttpID: %w", err)
 	}
 	if q.getHTTPAssertsByIDsStmt, err = db.PrepareContext(ctx, getHTTPAssertsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPAssertsByIDs: %w", err)
@@ -804,20 +786,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPBodyFormsByIDsStmt, err = db.PrepareContext(ctx, getHTTPBodyFormsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyFormsByIDs: %w", err)
 	}
-	if q.getHTTPBodyRawStmt, err = db.PrepareContext(ctx, getHTTPBodyRaw); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPBodyRaw: %w", err)
+	if q.getHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, getHTTPBodyUrlEncoded); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBodyUrlEncoded: %w", err)
 	}
-	if q.getHTTPBodyRawByIDStmt, err = db.PrepareContext(ctx, getHTTPBodyRawByID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPBodyRawByID: %w", err)
+	if q.getHTTPBodyUrlEncodedByHttpIDStmt, err = db.PrepareContext(ctx, getHTTPBodyUrlEncodedByHttpID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBodyUrlEncodedByHttpID: %w", err)
 	}
-	if q.getHTTPBodyUrlencodedStmt, err = db.PrepareContext(ctx, getHTTPBodyUrlencoded); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPBodyUrlencoded: %w", err)
-	}
-	if q.getHTTPBodyUrlencodedByIDsStmt, err = db.PrepareContext(ctx, getHTTPBodyUrlencodedByIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPBodyUrlencodedByIDs: %w", err)
-	}
-	if q.getHTTPByWorkspaceAccessStmt, err = db.PrepareContext(ctx, getHTTPByWorkspaceAccess); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPByWorkspaceAccess: %w", err)
+	if q.getHTTPBodyUrlEncodedsByIDsStmt, err = db.PrepareContext(ctx, getHTTPBodyUrlEncodedsByIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBodyUrlEncodedsByIDs: %w", err)
 	}
 	if q.getHTTPDeltasByParentIDStmt, err = db.PrepareContext(ctx, getHTTPDeltasByParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPDeltasByParentID: %w", err)
@@ -840,14 +816,29 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPResponseStmt, err = db.PrepareContext(ctx, getHTTPResponse); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponse: %w", err)
 	}
-	if q.getHTTPResponseHeadersStmt, err = db.PrepareContext(ctx, getHTTPResponseHeaders); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeaders: %w", err)
+	if q.getHTTPResponseAssertStmt, err = db.PrepareContext(ctx, getHTTPResponseAssert); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponseAssert: %w", err)
+	}
+	if q.getHTTPResponseAssertsByHttpIDStmt, err = db.PrepareContext(ctx, getHTTPResponseAssertsByHttpID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponseAssertsByHttpID: %w", err)
+	}
+	if q.getHTTPResponseAssertsByIDsStmt, err = db.PrepareContext(ctx, getHTTPResponseAssertsByIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponseAssertsByIDs: %w", err)
+	}
+	if q.getHTTPResponseHeaderStmt, err = db.PrepareContext(ctx, getHTTPResponseHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeader: %w", err)
+	}
+	if q.getHTTPResponseHeadersByHttpIDStmt, err = db.PrepareContext(ctx, getHTTPResponseHeadersByHttpID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeadersByHttpID: %w", err)
 	}
 	if q.getHTTPResponseHeadersByIDsStmt, err = db.PrepareContext(ctx, getHTTPResponseHeadersByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeadersByIDs: %w", err)
 	}
-	if q.getHTTPResponsesStmt, err = db.PrepareContext(ctx, getHTTPResponses); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPResponses: %w", err)
+	if q.getHTTPResponsesByHttpIDStmt, err = db.PrepareContext(ctx, getHTTPResponsesByHttpID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponsesByHttpID: %w", err)
+	}
+	if q.getHTTPResponsesByIDsStmt, err = db.PrepareContext(ctx, getHTTPResponsesByIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponsesByIDs: %w", err)
 	}
 	if q.getHTTPSearchParamsStmt, err = db.PrepareContext(ctx, getHTTPSearchParams); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPSearchParams: %w", err)
@@ -867,12 +858,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPStreamingMetricsStmt, err = db.PrepareContext(ctx, getHTTPStreamingMetrics); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPStreamingMetrics: %w", err)
 	}
-	if q.getHTTPVersionStmt, err = db.PrepareContext(ctx, getHTTPVersion); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPVersion: %w", err)
-	}
-	if q.getHTTPVersionsStmt, err = db.PrepareContext(ctx, getHTTPVersions); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPVersions: %w", err)
-	}
 	if q.getHTTPWorkspaceActivityStmt, err = db.PrepareContext(ctx, getHTTPWorkspaceActivity); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPWorkspaceActivity: %w", err)
 	}
@@ -887,9 +872,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getHTTPsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPsByWorkspaceID: %w", err)
-	}
-	if q.getHTTPsWithWorkspaceAccessStmt, err = db.PrepareContext(ctx, getHTTPsWithWorkspaceAccess); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPsWithWorkspaceAccess: %w", err)
 	}
 	if q.getHeaderStmt, err = db.PrepareContext(ctx, getHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeader: %w", err)
@@ -1056,9 +1038,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.setBodyFormEnableStmt, err = db.PrepareContext(ctx, setBodyFormEnable); err != nil {
 		return nil, fmt.Errorf("error preparing query SetBodyFormEnable: %w", err)
 	}
-	if q.setHTTPVersionActiveStmt, err = db.PrepareContext(ctx, setHTTPVersionActive); err != nil {
-		return nil, fmt.Errorf("error preparing query SetHTTPVersionActive: %w", err)
-	}
 	if q.setHeaderEnableStmt, err = db.PrepareContext(ctx, setHeaderEnable); err != nil {
 		return nil, fmt.Errorf("error preparing query SetHeaderEnable: %w", err)
 	}
@@ -1164,9 +1143,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateHTTPAssertDeltaStmt, err = db.PrepareContext(ctx, updateHTTPAssertDelta); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPAssertDelta: %w", err)
 	}
-	if q.updateHTTPAssertOrderStmt, err = db.PrepareContext(ctx, updateHTTPAssertOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHTTPAssertOrder: %w", err)
-	}
 	if q.updateHTTPBodyFormStmt, err = db.PrepareContext(ctx, updateHTTPBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyForm: %w", err)
 	}
@@ -1176,20 +1152,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateHTTPBodyFormOrderStmt, err = db.PrepareContext(ctx, updateHTTPBodyFormOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyFormOrder: %w", err)
 	}
-	if q.updateHTTPBodyRawStmt, err = db.PrepareContext(ctx, updateHTTPBodyRaw); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyRaw: %w", err)
+	if q.updateHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, updateHTTPBodyUrlEncoded); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyUrlEncoded: %w", err)
 	}
-	if q.updateHTTPBodyRawDeltaStmt, err = db.PrepareContext(ctx, updateHTTPBodyRawDelta); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyRawDelta: %w", err)
-	}
-	if q.updateHTTPBodyUrlencodedStmt, err = db.PrepareContext(ctx, updateHTTPBodyUrlencoded); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyUrlencoded: %w", err)
-	}
-	if q.updateHTTPBodyUrlencodedDeltaStmt, err = db.PrepareContext(ctx, updateHTTPBodyUrlencodedDelta); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyUrlencodedDelta: %w", err)
-	}
-	if q.updateHTTPBodyUrlencodedOrderStmt, err = db.PrepareContext(ctx, updateHTTPBodyUrlencodedOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyUrlencodedOrder: %w", err)
+	if q.updateHTTPBodyUrlEncodedDeltaStmt, err = db.PrepareContext(ctx, updateHTTPBodyUrlEncodedDelta); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyUrlEncodedDelta: %w", err)
 	}
 	if q.updateHTTPDeltaStmt, err = db.PrepareContext(ctx, updateHTTPDelta); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPDelta: %w", err)
@@ -1203,6 +1170,15 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateHTTPHeaderOrderStmt, err = db.PrepareContext(ctx, updateHTTPHeaderOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPHeaderOrder: %w", err)
 	}
+	if q.updateHTTPResponseStmt, err = db.PrepareContext(ctx, updateHTTPResponse); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHTTPResponse: %w", err)
+	}
+	if q.updateHTTPResponseAssertStmt, err = db.PrepareContext(ctx, updateHTTPResponseAssert); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHTTPResponseAssert: %w", err)
+	}
+	if q.updateHTTPResponseHeaderStmt, err = db.PrepareContext(ctx, updateHTTPResponseHeader); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHTTPResponseHeader: %w", err)
+	}
 	if q.updateHTTPSearchParamStmt, err = db.PrepareContext(ctx, updateHTTPSearchParam); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPSearchParam: %w", err)
 	}
@@ -1211,9 +1187,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateHTTPSearchParamOrderStmt, err = db.PrepareContext(ctx, updateHTTPSearchParamOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPSearchParamOrder: %w", err)
-	}
-	if q.updateHTTPVersionStmt, err = db.PrepareContext(ctx, updateHTTPVersion); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHTTPVersion: %w", err)
 	}
 	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
@@ -1292,16 +1265,6 @@ func (q *Queries) Close() error {
 	if q.checkIFWorkspaceUserExistsStmt != nil {
 		if cerr := q.checkIFWorkspaceUserExistsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing checkIFWorkspaceUserExistsStmt: %w", cerr)
-		}
-	}
-	if q.countHTTPByFolderStmt != nil {
-		if cerr := q.countHTTPByFolderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing countHTTPByFolderStmt: %w", cerr)
-		}
-	}
-	if q.countHTTPByWorkspaceStmt != nil {
-		if cerr := q.countHTTPByWorkspaceStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing countHTTPByWorkspaceStmt: %w", cerr)
 		}
 	}
 	if q.createAssertStmt != nil {
@@ -1444,9 +1407,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createHTTPAssertStmt: %w", cerr)
 		}
 	}
-	if q.createHTTPAssertsBulkStmt != nil {
-		if cerr := q.createHTTPAssertsBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHTTPAssertsBulkStmt: %w", cerr)
+	if q.createHTTPAssertBulkStmt != nil {
+		if cerr := q.createHTTPAssertBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHTTPAssertBulkStmt: %w", cerr)
 		}
 	}
 	if q.createHTTPBodyFormStmt != nil {
@@ -1454,24 +1417,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createHTTPBodyFormStmt: %w", cerr)
 		}
 	}
-	if q.createHTTPBodyFormsBulkStmt != nil {
-		if cerr := q.createHTTPBodyFormsBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHTTPBodyFormsBulkStmt: %w", cerr)
+	if q.createHTTPBodyUrlEncodedStmt != nil {
+		if cerr := q.createHTTPBodyUrlEncodedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHTTPBodyUrlEncodedStmt: %w", cerr)
 		}
 	}
-	if q.createHTTPBodyRawStmt != nil {
-		if cerr := q.createHTTPBodyRawStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHTTPBodyRawStmt: %w", cerr)
-		}
-	}
-	if q.createHTTPBodyUrlencodedStmt != nil {
-		if cerr := q.createHTTPBodyUrlencodedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHTTPBodyUrlencodedStmt: %w", cerr)
-		}
-	}
-	if q.createHTTPBodyUrlencodedBulkStmt != nil {
-		if cerr := q.createHTTPBodyUrlencodedBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHTTPBodyUrlencodedBulkStmt: %w", cerr)
+	if q.createHTTPBodyUrlEncodedBulkStmt != nil {
+		if cerr := q.createHTTPBodyUrlEncodedBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHTTPBodyUrlEncodedBulkStmt: %w", cerr)
 		}
 	}
 	if q.createHTTPHeaderStmt != nil {
@@ -1479,14 +1432,24 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createHTTPHeaderStmt: %w", cerr)
 		}
 	}
-	if q.createHTTPHeadersBulkStmt != nil {
-		if cerr := q.createHTTPHeadersBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHTTPHeadersBulkStmt: %w", cerr)
-		}
-	}
 	if q.createHTTPResponseStmt != nil {
 		if cerr := q.createHTTPResponseStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createHTTPResponseStmt: %w", cerr)
+		}
+	}
+	if q.createHTTPResponseAssertStmt != nil {
+		if cerr := q.createHTTPResponseAssertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHTTPResponseAssertStmt: %w", cerr)
+		}
+	}
+	if q.createHTTPResponseAssertBulkStmt != nil {
+		if cerr := q.createHTTPResponseAssertBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHTTPResponseAssertBulkStmt: %w", cerr)
+		}
+	}
+	if q.createHTTPResponseBulkStmt != nil {
+		if cerr := q.createHTTPResponseBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHTTPResponseBulkStmt: %w", cerr)
 		}
 	}
 	if q.createHTTPResponseHeaderStmt != nil {
@@ -1494,24 +1457,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createHTTPResponseHeaderStmt: %w", cerr)
 		}
 	}
-	if q.createHTTPResponseHeadersBulkStmt != nil {
-		if cerr := q.createHTTPResponseHeadersBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHTTPResponseHeadersBulkStmt: %w", cerr)
+	if q.createHTTPResponseHeaderBulkStmt != nil {
+		if cerr := q.createHTTPResponseHeaderBulkStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHTTPResponseHeaderBulkStmt: %w", cerr)
 		}
 	}
 	if q.createHTTPSearchParamStmt != nil {
 		if cerr := q.createHTTPSearchParamStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createHTTPSearchParamStmt: %w", cerr)
-		}
-	}
-	if q.createHTTPSearchParamsBulkStmt != nil {
-		if cerr := q.createHTTPSearchParamsBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHTTPSearchParamsBulkStmt: %w", cerr)
-		}
-	}
-	if q.createHTTPVersionStmt != nil {
-		if cerr := q.createHTTPVersionStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHTTPVersionStmt: %w", cerr)
 		}
 	}
 	if q.createHeaderStmt != nil {
@@ -1719,14 +1672,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteHTTPBodyFormStmt: %w", cerr)
 		}
 	}
-	if q.deleteHTTPBodyRawStmt != nil {
-		if cerr := q.deleteHTTPBodyRawStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteHTTPBodyRawStmt: %w", cerr)
-		}
-	}
-	if q.deleteHTTPBodyUrlencodedStmt != nil {
-		if cerr := q.deleteHTTPBodyUrlencodedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteHTTPBodyUrlencodedStmt: %w", cerr)
+	if q.deleteHTTPBodyUrlEncodedStmt != nil {
+		if cerr := q.deleteHTTPBodyUrlEncodedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteHTTPBodyUrlEncodedStmt: %w", cerr)
 		}
 	}
 	if q.deleteHTTPHeaderStmt != nil {
@@ -1739,24 +1687,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteHTTPResponseStmt: %w", cerr)
 		}
 	}
-	if q.deleteHTTPResponseHeadersStmt != nil {
-		if cerr := q.deleteHTTPResponseHeadersStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteHTTPResponseHeadersStmt: %w", cerr)
+	if q.deleteHTTPResponseAssertStmt != nil {
+		if cerr := q.deleteHTTPResponseAssertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteHTTPResponseAssertStmt: %w", cerr)
 		}
 	}
-	if q.deleteHTTPResponsesByHTTPIDStmt != nil {
-		if cerr := q.deleteHTTPResponsesByHTTPIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteHTTPResponsesByHTTPIDStmt: %w", cerr)
+	if q.deleteHTTPResponseHeaderStmt != nil {
+		if cerr := q.deleteHTTPResponseHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteHTTPResponseHeaderStmt: %w", cerr)
 		}
 	}
 	if q.deleteHTTPSearchParamStmt != nil {
 		if cerr := q.deleteHTTPSearchParamStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteHTTPSearchParamStmt: %w", cerr)
-		}
-	}
-	if q.deleteHTTPVersionStmt != nil {
-		if cerr := q.deleteHTTPVersionStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteHTTPVersionStmt: %w", cerr)
 		}
 	}
 	if q.deleteHeaderStmt != nil {
@@ -2554,14 +2497,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPActiveVersionStmt != nil {
-		if cerr := q.getHTTPActiveVersionStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPActiveVersionStmt: %w", cerr)
+	if q.getHTTPAssertStmt != nil {
+		if cerr := q.getHTTPAssertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPAssertStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPAssertsStmt != nil {
-		if cerr := q.getHTTPAssertsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPAssertsStmt: %w", cerr)
+	if q.getHTTPAssertsByHttpIDStmt != nil {
+		if cerr := q.getHTTPAssertsByHttpIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPAssertsByHttpIDStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPAssertsByIDsStmt != nil {
@@ -2589,29 +2532,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPBodyFormsByIDsStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPBodyRawStmt != nil {
-		if cerr := q.getHTTPBodyRawStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPBodyRawStmt: %w", cerr)
+	if q.getHTTPBodyUrlEncodedStmt != nil {
+		if cerr := q.getHTTPBodyUrlEncodedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBodyUrlEncodedStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPBodyRawByIDStmt != nil {
-		if cerr := q.getHTTPBodyRawByIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPBodyRawByIDStmt: %w", cerr)
+	if q.getHTTPBodyUrlEncodedByHttpIDStmt != nil {
+		if cerr := q.getHTTPBodyUrlEncodedByHttpIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBodyUrlEncodedByHttpIDStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPBodyUrlencodedStmt != nil {
-		if cerr := q.getHTTPBodyUrlencodedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPBodyUrlencodedStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPBodyUrlencodedByIDsStmt != nil {
-		if cerr := q.getHTTPBodyUrlencodedByIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPBodyUrlencodedByIDsStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPByWorkspaceAccessStmt != nil {
-		if cerr := q.getHTTPByWorkspaceAccessStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPByWorkspaceAccessStmt: %w", cerr)
+	if q.getHTTPBodyUrlEncodedsByIDsStmt != nil {
+		if cerr := q.getHTTPBodyUrlEncodedsByIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBodyUrlEncodedsByIDsStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPDeltasByParentIDStmt != nil {
@@ -2649,9 +2582,29 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPResponseStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPResponseHeadersStmt != nil {
-		if cerr := q.getHTTPResponseHeadersStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPResponseHeadersStmt: %w", cerr)
+	if q.getHTTPResponseAssertStmt != nil {
+		if cerr := q.getHTTPResponseAssertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponseAssertStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPResponseAssertsByHttpIDStmt != nil {
+		if cerr := q.getHTTPResponseAssertsByHttpIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponseAssertsByHttpIDStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPResponseAssertsByIDsStmt != nil {
+		if cerr := q.getHTTPResponseAssertsByIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponseAssertsByIDsStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPResponseHeaderStmt != nil {
+		if cerr := q.getHTTPResponseHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponseHeaderStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPResponseHeadersByHttpIDStmt != nil {
+		if cerr := q.getHTTPResponseHeadersByHttpIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponseHeadersByHttpIDStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPResponseHeadersByIDsStmt != nil {
@@ -2659,9 +2612,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPResponseHeadersByIDsStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPResponsesStmt != nil {
-		if cerr := q.getHTTPResponsesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPResponsesStmt: %w", cerr)
+	if q.getHTTPResponsesByHttpIDStmt != nil {
+		if cerr := q.getHTTPResponsesByHttpIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponsesByHttpIDStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPResponsesByIDsStmt != nil {
+		if cerr := q.getHTTPResponsesByIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponsesByIDsStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPSearchParamsStmt != nil {
@@ -2694,16 +2652,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPStreamingMetricsStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPVersionStmt != nil {
-		if cerr := q.getHTTPVersionStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPVersionStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPVersionsStmt != nil {
-		if cerr := q.getHTTPVersionsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPVersionsStmt: %w", cerr)
-		}
-	}
 	if q.getHTTPWorkspaceActivityStmt != nil {
 		if cerr := q.getHTTPWorkspaceActivityStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPWorkspaceActivityStmt: %w", cerr)
@@ -2727,11 +2675,6 @@ func (q *Queries) Close() error {
 	if q.getHTTPsByWorkspaceIDStmt != nil {
 		if cerr := q.getHTTPsByWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPsByWorkspaceIDStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPsWithWorkspaceAccessStmt != nil {
-		if cerr := q.getHTTPsWithWorkspaceAccessStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPsWithWorkspaceAccessStmt: %w", cerr)
 		}
 	}
 	if q.getHeaderStmt != nil {
@@ -3009,11 +2952,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing setBodyFormEnableStmt: %w", cerr)
 		}
 	}
-	if q.setHTTPVersionActiveStmt != nil {
-		if cerr := q.setHTTPVersionActiveStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing setHTTPVersionActiveStmt: %w", cerr)
-		}
-	}
 	if q.setHeaderEnableStmt != nil {
 		if cerr := q.setHeaderEnableStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing setHeaderEnableStmt: %w", cerr)
@@ -3189,11 +3127,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateHTTPAssertDeltaStmt: %w", cerr)
 		}
 	}
-	if q.updateHTTPAssertOrderStmt != nil {
-		if cerr := q.updateHTTPAssertOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHTTPAssertOrderStmt: %w", cerr)
-		}
-	}
 	if q.updateHTTPBodyFormStmt != nil {
 		if cerr := q.updateHTTPBodyFormStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHTTPBodyFormStmt: %w", cerr)
@@ -3209,29 +3142,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateHTTPBodyFormOrderStmt: %w", cerr)
 		}
 	}
-	if q.updateHTTPBodyRawStmt != nil {
-		if cerr := q.updateHTTPBodyRawStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHTTPBodyRawStmt: %w", cerr)
+	if q.updateHTTPBodyUrlEncodedStmt != nil {
+		if cerr := q.updateHTTPBodyUrlEncodedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHTTPBodyUrlEncodedStmt: %w", cerr)
 		}
 	}
-	if q.updateHTTPBodyRawDeltaStmt != nil {
-		if cerr := q.updateHTTPBodyRawDeltaStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHTTPBodyRawDeltaStmt: %w", cerr)
-		}
-	}
-	if q.updateHTTPBodyUrlencodedStmt != nil {
-		if cerr := q.updateHTTPBodyUrlencodedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHTTPBodyUrlencodedStmt: %w", cerr)
-		}
-	}
-	if q.updateHTTPBodyUrlencodedDeltaStmt != nil {
-		if cerr := q.updateHTTPBodyUrlencodedDeltaStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHTTPBodyUrlencodedDeltaStmt: %w", cerr)
-		}
-	}
-	if q.updateHTTPBodyUrlencodedOrderStmt != nil {
-		if cerr := q.updateHTTPBodyUrlencodedOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHTTPBodyUrlencodedOrderStmt: %w", cerr)
+	if q.updateHTTPBodyUrlEncodedDeltaStmt != nil {
+		if cerr := q.updateHTTPBodyUrlEncodedDeltaStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHTTPBodyUrlEncodedDeltaStmt: %w", cerr)
 		}
 	}
 	if q.updateHTTPDeltaStmt != nil {
@@ -3254,6 +3172,21 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateHTTPHeaderOrderStmt: %w", cerr)
 		}
 	}
+	if q.updateHTTPResponseStmt != nil {
+		if cerr := q.updateHTTPResponseStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHTTPResponseStmt: %w", cerr)
+		}
+	}
+	if q.updateHTTPResponseAssertStmt != nil {
+		if cerr := q.updateHTTPResponseAssertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHTTPResponseAssertStmt: %w", cerr)
+		}
+	}
+	if q.updateHTTPResponseHeaderStmt != nil {
+		if cerr := q.updateHTTPResponseHeaderStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHTTPResponseHeaderStmt: %w", cerr)
+		}
+	}
 	if q.updateHTTPSearchParamStmt != nil {
 		if cerr := q.updateHTTPSearchParamStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHTTPSearchParamStmt: %w", cerr)
@@ -3267,11 +3200,6 @@ func (q *Queries) Close() error {
 	if q.updateHTTPSearchParamOrderStmt != nil {
 		if cerr := q.updateHTTPSearchParamOrderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHTTPSearchParamOrderStmt: %w", cerr)
-		}
-	}
-	if q.updateHTTPVersionStmt != nil {
-		if cerr := q.updateHTTPVersionStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHTTPVersionStmt: %w", cerr)
 		}
 	}
 	if q.updateHeaderStmt != nil {
@@ -3429,8 +3357,6 @@ type Queries struct {
 	db                                         DBTX
 	tx                                         *sql.Tx
 	checkIFWorkspaceUserExistsStmt             *sql.Stmt
-	countHTTPByFolderStmt                      *sql.Stmt
-	countHTTPByWorkspaceStmt                   *sql.Stmt
 	createAssertStmt                           *sql.Stmt
 	createAssertBulkStmt                       *sql.Stmt
 	createAssertResultStmt                     *sql.Stmt
@@ -3459,20 +3385,18 @@ type Queries struct {
 	createFlowVariableBulkStmt                 *sql.Stmt
 	createHTTPStmt                             *sql.Stmt
 	createHTTPAssertStmt                       *sql.Stmt
-	createHTTPAssertsBulkStmt                  *sql.Stmt
+	createHTTPAssertBulkStmt                   *sql.Stmt
 	createHTTPBodyFormStmt                     *sql.Stmt
-	createHTTPBodyFormsBulkStmt                *sql.Stmt
-	createHTTPBodyRawStmt                      *sql.Stmt
-	createHTTPBodyUrlencodedStmt               *sql.Stmt
-	createHTTPBodyUrlencodedBulkStmt           *sql.Stmt
+	createHTTPBodyUrlEncodedStmt               *sql.Stmt
+	createHTTPBodyUrlEncodedBulkStmt           *sql.Stmt
 	createHTTPHeaderStmt                       *sql.Stmt
-	createHTTPHeadersBulkStmt                  *sql.Stmt
 	createHTTPResponseStmt                     *sql.Stmt
+	createHTTPResponseAssertStmt               *sql.Stmt
+	createHTTPResponseAssertBulkStmt           *sql.Stmt
+	createHTTPResponseBulkStmt                 *sql.Stmt
 	createHTTPResponseHeaderStmt               *sql.Stmt
-	createHTTPResponseHeadersBulkStmt          *sql.Stmt
+	createHTTPResponseHeaderBulkStmt           *sql.Stmt
 	createHTTPSearchParamStmt                  *sql.Stmt
-	createHTTPSearchParamsBulkStmt             *sql.Stmt
-	createHTTPVersionStmt                      *sql.Stmt
 	createHeaderStmt                           *sql.Stmt
 	createHeaderBulkStmt                       *sql.Stmt
 	createItemApiStmt                          *sql.Stmt
@@ -3514,14 +3438,12 @@ type Queries struct {
 	deleteHTTPStmt                             *sql.Stmt
 	deleteHTTPAssertStmt                       *sql.Stmt
 	deleteHTTPBodyFormStmt                     *sql.Stmt
-	deleteHTTPBodyRawStmt                      *sql.Stmt
-	deleteHTTPBodyUrlencodedStmt               *sql.Stmt
+	deleteHTTPBodyUrlEncodedStmt               *sql.Stmt
 	deleteHTTPHeaderStmt                       *sql.Stmt
 	deleteHTTPResponseStmt                     *sql.Stmt
-	deleteHTTPResponseHeadersStmt              *sql.Stmt
-	deleteHTTPResponsesByHTTPIDStmt            *sql.Stmt
+	deleteHTTPResponseAssertStmt               *sql.Stmt
+	deleteHTTPResponseHeaderStmt               *sql.Stmt
 	deleteHTTPSearchParamStmt                  *sql.Stmt
-	deleteHTTPVersionStmt                      *sql.Stmt
 	deleteHeaderStmt                           *sql.Stmt
 	deleteItemApiStmt                          *sql.Stmt
 	deleteItemApiExampleStmt                   *sql.Stmt
@@ -3681,18 +3603,16 @@ type Queries struct {
 	getFlowsByWorkspaceIDStmt                  *sql.Stmt
 	getFolderContentStmt                       *sql.Stmt
 	getHTTPStmt                                *sql.Stmt
-	getHTTPActiveVersionStmt                   *sql.Stmt
-	getHTTPAssertsStmt                         *sql.Stmt
+	getHTTPAssertStmt                          *sql.Stmt
+	getHTTPAssertsByHttpIDStmt                 *sql.Stmt
 	getHTTPAssertsByIDsStmt                    *sql.Stmt
 	getHTTPBatchForStreamingStmt               *sql.Stmt
 	getHTTPBodyFormStreamingStmt               *sql.Stmt
 	getHTTPBodyFormsStmt                       *sql.Stmt
 	getHTTPBodyFormsByIDsStmt                  *sql.Stmt
-	getHTTPBodyRawStmt                         *sql.Stmt
-	getHTTPBodyRawByIDStmt                     *sql.Stmt
-	getHTTPBodyUrlencodedStmt                  *sql.Stmt
-	getHTTPBodyUrlencodedByIDsStmt             *sql.Stmt
-	getHTTPByWorkspaceAccessStmt               *sql.Stmt
+	getHTTPBodyUrlEncodedStmt                  *sql.Stmt
+	getHTTPBodyUrlEncodedByHttpIDStmt          *sql.Stmt
+	getHTTPBodyUrlEncodedsByIDsStmt            *sql.Stmt
 	getHTTPDeltasByParentIDStmt                *sql.Stmt
 	getHTTPDeltasSinceStmt                     *sql.Stmt
 	getHTTPHeadersStmt                         *sql.Stmt
@@ -3700,23 +3620,25 @@ type Queries struct {
 	getHTTPHeadersStreamingStmt                *sql.Stmt
 	getHTTPIncrementalUpdatesStmt              *sql.Stmt
 	getHTTPResponseStmt                        *sql.Stmt
-	getHTTPResponseHeadersStmt                 *sql.Stmt
+	getHTTPResponseAssertStmt                  *sql.Stmt
+	getHTTPResponseAssertsByHttpIDStmt         *sql.Stmt
+	getHTTPResponseAssertsByIDsStmt            *sql.Stmt
+	getHTTPResponseHeaderStmt                  *sql.Stmt
+	getHTTPResponseHeadersByHttpIDStmt         *sql.Stmt
 	getHTTPResponseHeadersByIDsStmt            *sql.Stmt
-	getHTTPResponsesStmt                       *sql.Stmt
+	getHTTPResponsesByHttpIDStmt               *sql.Stmt
+	getHTTPResponsesByIDsStmt                  *sql.Stmt
 	getHTTPSearchParamsStmt                    *sql.Stmt
 	getHTTPSearchParamsByIDsStmt               *sql.Stmt
 	getHTTPSearchParamsStreamingStmt           *sql.Stmt
 	getHTTPSnapshotCountStmt                   *sql.Stmt
 	getHTTPSnapshotPageStmt                    *sql.Stmt
 	getHTTPStreamingMetricsStmt                *sql.Stmt
-	getHTTPVersionStmt                         *sql.Stmt
-	getHTTPVersionsStmt                        *sql.Stmt
 	getHTTPWorkspaceActivityStmt               *sql.Stmt
 	getHTTPWorkspaceIDStmt                     *sql.Stmt
 	getHTTPsByFolderIDStmt                     *sql.Stmt
 	getHTTPsByIDsStmt                          *sql.Stmt
 	getHTTPsByWorkspaceIDStmt                  *sql.Stmt
-	getHTTPsWithWorkspaceAccessStmt            *sql.Stmt
 	getHeaderStmt                              *sql.Stmt
 	getHeaderByDeltaParentIDStmt               *sql.Stmt
 	getHeaderTailStmt                          *sql.Stmt
@@ -3772,7 +3694,6 @@ type Queries struct {
 	listNodeExecutionsByStateStmt              *sql.Stmt
 	resolveHTTPWithDeltasStmt                  *sql.Stmt
 	setBodyFormEnableStmt                      *sql.Stmt
-	setHTTPVersionActiveStmt                   *sql.Stmt
 	setHeaderEnableStmt                        *sql.Stmt
 	setQueryEnableStmt                         *sql.Stmt
 	updateAssertStmt                           *sql.Stmt
@@ -3808,23 +3729,21 @@ type Queries struct {
 	updateHTTPStmt                             *sql.Stmt
 	updateHTTPAssertStmt                       *sql.Stmt
 	updateHTTPAssertDeltaStmt                  *sql.Stmt
-	updateHTTPAssertOrderStmt                  *sql.Stmt
 	updateHTTPBodyFormStmt                     *sql.Stmt
 	updateHTTPBodyFormDeltaStmt                *sql.Stmt
 	updateHTTPBodyFormOrderStmt                *sql.Stmt
-	updateHTTPBodyRawStmt                      *sql.Stmt
-	updateHTTPBodyRawDeltaStmt                 *sql.Stmt
-	updateHTTPBodyUrlencodedStmt               *sql.Stmt
-	updateHTTPBodyUrlencodedDeltaStmt          *sql.Stmt
-	updateHTTPBodyUrlencodedOrderStmt          *sql.Stmt
+	updateHTTPBodyUrlEncodedStmt               *sql.Stmt
+	updateHTTPBodyUrlEncodedDeltaStmt          *sql.Stmt
 	updateHTTPDeltaStmt                        *sql.Stmt
 	updateHTTPHeaderStmt                       *sql.Stmt
 	updateHTTPHeaderDeltaStmt                  *sql.Stmt
 	updateHTTPHeaderOrderStmt                  *sql.Stmt
+	updateHTTPResponseStmt                     *sql.Stmt
+	updateHTTPResponseAssertStmt               *sql.Stmt
+	updateHTTPResponseHeaderStmt               *sql.Stmt
 	updateHTTPSearchParamStmt                  *sql.Stmt
 	updateHTTPSearchParamDeltaStmt             *sql.Stmt
 	updateHTTPSearchParamOrderStmt             *sql.Stmt
-	updateHTTPVersionStmt                      *sql.Stmt
 	updateHeaderStmt                           *sql.Stmt
 	updateHeaderNextStmt                       *sql.Stmt
 	updateHeaderOrderStmt                      *sql.Stmt
@@ -3855,8 +3774,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		db:                                         tx,
 		tx:                                         tx,
 		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,
-		countHTTPByFolderStmt:                      q.countHTTPByFolderStmt,
-		countHTTPByWorkspaceStmt:                   q.countHTTPByWorkspaceStmt,
 		createAssertStmt:                           q.createAssertStmt,
 		createAssertBulkStmt:                       q.createAssertBulkStmt,
 		createAssertResultStmt:                     q.createAssertResultStmt,
@@ -3885,20 +3802,18 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createFlowVariableBulkStmt:                 q.createFlowVariableBulkStmt,
 		createHTTPStmt:                             q.createHTTPStmt,
 		createHTTPAssertStmt:                       q.createHTTPAssertStmt,
-		createHTTPAssertsBulkStmt:                  q.createHTTPAssertsBulkStmt,
+		createHTTPAssertBulkStmt:                   q.createHTTPAssertBulkStmt,
 		createHTTPBodyFormStmt:                     q.createHTTPBodyFormStmt,
-		createHTTPBodyFormsBulkStmt:                q.createHTTPBodyFormsBulkStmt,
-		createHTTPBodyRawStmt:                      q.createHTTPBodyRawStmt,
-		createHTTPBodyUrlencodedStmt:               q.createHTTPBodyUrlencodedStmt,
-		createHTTPBodyUrlencodedBulkStmt:           q.createHTTPBodyUrlencodedBulkStmt,
+		createHTTPBodyUrlEncodedStmt:               q.createHTTPBodyUrlEncodedStmt,
+		createHTTPBodyUrlEncodedBulkStmt:           q.createHTTPBodyUrlEncodedBulkStmt,
 		createHTTPHeaderStmt:                       q.createHTTPHeaderStmt,
-		createHTTPHeadersBulkStmt:                  q.createHTTPHeadersBulkStmt,
 		createHTTPResponseStmt:                     q.createHTTPResponseStmt,
+		createHTTPResponseAssertStmt:               q.createHTTPResponseAssertStmt,
+		createHTTPResponseAssertBulkStmt:           q.createHTTPResponseAssertBulkStmt,
+		createHTTPResponseBulkStmt:                 q.createHTTPResponseBulkStmt,
 		createHTTPResponseHeaderStmt:               q.createHTTPResponseHeaderStmt,
-		createHTTPResponseHeadersBulkStmt:          q.createHTTPResponseHeadersBulkStmt,
+		createHTTPResponseHeaderBulkStmt:           q.createHTTPResponseHeaderBulkStmt,
 		createHTTPSearchParamStmt:                  q.createHTTPSearchParamStmt,
-		createHTTPSearchParamsBulkStmt:             q.createHTTPSearchParamsBulkStmt,
-		createHTTPVersionStmt:                      q.createHTTPVersionStmt,
 		createHeaderStmt:                           q.createHeaderStmt,
 		createHeaderBulkStmt:                       q.createHeaderBulkStmt,
 		createItemApiStmt:                          q.createItemApiStmt,
@@ -3940,14 +3855,12 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteHTTPStmt:                             q.deleteHTTPStmt,
 		deleteHTTPAssertStmt:                       q.deleteHTTPAssertStmt,
 		deleteHTTPBodyFormStmt:                     q.deleteHTTPBodyFormStmt,
-		deleteHTTPBodyRawStmt:                      q.deleteHTTPBodyRawStmt,
-		deleteHTTPBodyUrlencodedStmt:               q.deleteHTTPBodyUrlencodedStmt,
+		deleteHTTPBodyUrlEncodedStmt:               q.deleteHTTPBodyUrlEncodedStmt,
 		deleteHTTPHeaderStmt:                       q.deleteHTTPHeaderStmt,
 		deleteHTTPResponseStmt:                     q.deleteHTTPResponseStmt,
-		deleteHTTPResponseHeadersStmt:              q.deleteHTTPResponseHeadersStmt,
-		deleteHTTPResponsesByHTTPIDStmt:            q.deleteHTTPResponsesByHTTPIDStmt,
+		deleteHTTPResponseAssertStmt:               q.deleteHTTPResponseAssertStmt,
+		deleteHTTPResponseHeaderStmt:               q.deleteHTTPResponseHeaderStmt,
 		deleteHTTPSearchParamStmt:                  q.deleteHTTPSearchParamStmt,
-		deleteHTTPVersionStmt:                      q.deleteHTTPVersionStmt,
 		deleteHeaderStmt:                           q.deleteHeaderStmt,
 		deleteItemApiStmt:                          q.deleteItemApiStmt,
 		deleteItemApiExampleStmt:                   q.deleteItemApiExampleStmt,
@@ -4107,18 +4020,16 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowsByWorkspaceIDStmt:                  q.getFlowsByWorkspaceIDStmt,
 		getFolderContentStmt:                       q.getFolderContentStmt,
 		getHTTPStmt:                                q.getHTTPStmt,
-		getHTTPActiveVersionStmt:                   q.getHTTPActiveVersionStmt,
-		getHTTPAssertsStmt:                         q.getHTTPAssertsStmt,
+		getHTTPAssertStmt:                          q.getHTTPAssertStmt,
+		getHTTPAssertsByHttpIDStmt:                 q.getHTTPAssertsByHttpIDStmt,
 		getHTTPAssertsByIDsStmt:                    q.getHTTPAssertsByIDsStmt,
 		getHTTPBatchForStreamingStmt:               q.getHTTPBatchForStreamingStmt,
 		getHTTPBodyFormStreamingStmt:               q.getHTTPBodyFormStreamingStmt,
 		getHTTPBodyFormsStmt:                       q.getHTTPBodyFormsStmt,
 		getHTTPBodyFormsByIDsStmt:                  q.getHTTPBodyFormsByIDsStmt,
-		getHTTPBodyRawStmt:                         q.getHTTPBodyRawStmt,
-		getHTTPBodyRawByIDStmt:                     q.getHTTPBodyRawByIDStmt,
-		getHTTPBodyUrlencodedStmt:                  q.getHTTPBodyUrlencodedStmt,
-		getHTTPBodyUrlencodedByIDsStmt:             q.getHTTPBodyUrlencodedByIDsStmt,
-		getHTTPByWorkspaceAccessStmt:               q.getHTTPByWorkspaceAccessStmt,
+		getHTTPBodyUrlEncodedStmt:                  q.getHTTPBodyUrlEncodedStmt,
+		getHTTPBodyUrlEncodedByHttpIDStmt:          q.getHTTPBodyUrlEncodedByHttpIDStmt,
+		getHTTPBodyUrlEncodedsByIDsStmt:            q.getHTTPBodyUrlEncodedsByIDsStmt,
 		getHTTPDeltasByParentIDStmt:                q.getHTTPDeltasByParentIDStmt,
 		getHTTPDeltasSinceStmt:                     q.getHTTPDeltasSinceStmt,
 		getHTTPHeadersStmt:                         q.getHTTPHeadersStmt,
@@ -4126,23 +4037,25 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPHeadersStreamingStmt:                q.getHTTPHeadersStreamingStmt,
 		getHTTPIncrementalUpdatesStmt:              q.getHTTPIncrementalUpdatesStmt,
 		getHTTPResponseStmt:                        q.getHTTPResponseStmt,
-		getHTTPResponseHeadersStmt:                 q.getHTTPResponseHeadersStmt,
+		getHTTPResponseAssertStmt:                  q.getHTTPResponseAssertStmt,
+		getHTTPResponseAssertsByHttpIDStmt:         q.getHTTPResponseAssertsByHttpIDStmt,
+		getHTTPResponseAssertsByIDsStmt:            q.getHTTPResponseAssertsByIDsStmt,
+		getHTTPResponseHeaderStmt:                  q.getHTTPResponseHeaderStmt,
+		getHTTPResponseHeadersByHttpIDStmt:         q.getHTTPResponseHeadersByHttpIDStmt,
 		getHTTPResponseHeadersByIDsStmt:            q.getHTTPResponseHeadersByIDsStmt,
-		getHTTPResponsesStmt:                       q.getHTTPResponsesStmt,
+		getHTTPResponsesByHttpIDStmt:               q.getHTTPResponsesByHttpIDStmt,
+		getHTTPResponsesByIDsStmt:                  q.getHTTPResponsesByIDsStmt,
 		getHTTPSearchParamsStmt:                    q.getHTTPSearchParamsStmt,
 		getHTTPSearchParamsByIDsStmt:               q.getHTTPSearchParamsByIDsStmt,
 		getHTTPSearchParamsStreamingStmt:           q.getHTTPSearchParamsStreamingStmt,
 		getHTTPSnapshotCountStmt:                   q.getHTTPSnapshotCountStmt,
 		getHTTPSnapshotPageStmt:                    q.getHTTPSnapshotPageStmt,
 		getHTTPStreamingMetricsStmt:                q.getHTTPStreamingMetricsStmt,
-		getHTTPVersionStmt:                         q.getHTTPVersionStmt,
-		getHTTPVersionsStmt:                        q.getHTTPVersionsStmt,
 		getHTTPWorkspaceActivityStmt:               q.getHTTPWorkspaceActivityStmt,
 		getHTTPWorkspaceIDStmt:                     q.getHTTPWorkspaceIDStmt,
 		getHTTPsByFolderIDStmt:                     q.getHTTPsByFolderIDStmt,
 		getHTTPsByIDsStmt:                          q.getHTTPsByIDsStmt,
 		getHTTPsByWorkspaceIDStmt:                  q.getHTTPsByWorkspaceIDStmt,
-		getHTTPsWithWorkspaceAccessStmt:            q.getHTTPsWithWorkspaceAccessStmt,
 		getHeaderStmt:                              q.getHeaderStmt,
 		getHeaderByDeltaParentIDStmt:               q.getHeaderByDeltaParentIDStmt,
 		getHeaderTailStmt:                          q.getHeaderTailStmt,
@@ -4198,7 +4111,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listNodeExecutionsByStateStmt:              q.listNodeExecutionsByStateStmt,
 		resolveHTTPWithDeltasStmt:                  q.resolveHTTPWithDeltasStmt,
 		setBodyFormEnableStmt:                      q.setBodyFormEnableStmt,
-		setHTTPVersionActiveStmt:                   q.setHTTPVersionActiveStmt,
 		setHeaderEnableStmt:                        q.setHeaderEnableStmt,
 		setQueryEnableStmt:                         q.setQueryEnableStmt,
 		updateAssertStmt:                           q.updateAssertStmt,
@@ -4234,23 +4146,21 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateHTTPStmt:                             q.updateHTTPStmt,
 		updateHTTPAssertStmt:                       q.updateHTTPAssertStmt,
 		updateHTTPAssertDeltaStmt:                  q.updateHTTPAssertDeltaStmt,
-		updateHTTPAssertOrderStmt:                  q.updateHTTPAssertOrderStmt,
 		updateHTTPBodyFormStmt:                     q.updateHTTPBodyFormStmt,
 		updateHTTPBodyFormDeltaStmt:                q.updateHTTPBodyFormDeltaStmt,
 		updateHTTPBodyFormOrderStmt:                q.updateHTTPBodyFormOrderStmt,
-		updateHTTPBodyRawStmt:                      q.updateHTTPBodyRawStmt,
-		updateHTTPBodyRawDeltaStmt:                 q.updateHTTPBodyRawDeltaStmt,
-		updateHTTPBodyUrlencodedStmt:               q.updateHTTPBodyUrlencodedStmt,
-		updateHTTPBodyUrlencodedDeltaStmt:          q.updateHTTPBodyUrlencodedDeltaStmt,
-		updateHTTPBodyUrlencodedOrderStmt:          q.updateHTTPBodyUrlencodedOrderStmt,
+		updateHTTPBodyUrlEncodedStmt:               q.updateHTTPBodyUrlEncodedStmt,
+		updateHTTPBodyUrlEncodedDeltaStmt:          q.updateHTTPBodyUrlEncodedDeltaStmt,
 		updateHTTPDeltaStmt:                        q.updateHTTPDeltaStmt,
 		updateHTTPHeaderStmt:                       q.updateHTTPHeaderStmt,
 		updateHTTPHeaderDeltaStmt:                  q.updateHTTPHeaderDeltaStmt,
 		updateHTTPHeaderOrderStmt:                  q.updateHTTPHeaderOrderStmt,
+		updateHTTPResponseStmt:                     q.updateHTTPResponseStmt,
+		updateHTTPResponseAssertStmt:               q.updateHTTPResponseAssertStmt,
+		updateHTTPResponseHeaderStmt:               q.updateHTTPResponseHeaderStmt,
 		updateHTTPSearchParamStmt:                  q.updateHTTPSearchParamStmt,
 		updateHTTPSearchParamDeltaStmt:             q.updateHTTPSearchParamDeltaStmt,
 		updateHTTPSearchParamOrderStmt:             q.updateHTTPSearchParamOrderStmt,
-		updateHTTPVersionStmt:                      q.updateHTTPVersionStmt,
 		updateHeaderStmt:                           q.updateHeaderStmt,
 		updateHeaderNextStmt:                       q.updateHeaderNextStmt,
 		updateHeaderOrderStmt:                      q.updateHeaderOrderStmt,

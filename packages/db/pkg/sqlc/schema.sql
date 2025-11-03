@@ -798,48 +798,35 @@ CREATE INDEX http_method_idx ON http (method);
 CREATE TABLE http_search_param (
   id BLOB NOT NULL PRIMARY KEY,
   http_id BLOB NOT NULL,
-  param_key TEXT NOT NULL,
-  param_value TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  description TEXT NOT NULL DEFAULT '',
+  "order" REAL NOT NULL DEFAULT 0,
   
-  -- Delta system fields
-  parent_search_param_id BLOB DEFAULT NULL,
+  -- Delta relationship fields
+  parent_http_search_param_id BLOB,
   is_delta BOOLEAN NOT NULL DEFAULT FALSE,
   
-  -- Delta override fields
-  delta_param_key TEXT NULL,
-  delta_param_value TEXT NULL,
-  delta_description TEXT NULL,
-  delta_enabled BOOLEAN NULL,
+  -- Delta fields (NULL means "no change" for delta records)
+  delta_key TEXT,
+  delta_value TEXT,
+  delta_enabled BOOLEAN,
+  delta_description TEXT,
+  delta_order REAL,
   
-  -- Ordering
-  prev BLOB DEFAULT NULL,
-  next BLOB DEFAULT NULL,
-  
-  -- Metadata
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
   
-  -- Foreign keys
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_search_param_id) REFERENCES http_search_param (id) ON DELETE CASCADE,
-  FOREIGN KEY (prev) REFERENCES http_search_param (id) ON DELETE SET NULL,
-  FOREIGN KEY (next) REFERENCES http_search_param (id) ON DELETE SET NULL,
-  
-  -- Constraints
-  CHECK (is_delta = FALSE OR parent_search_param_id IS NOT NULL)
+  FOREIGN KEY (parent_http_search_param_id) REFERENCES http_search_param (id) ON DELETE CASCADE
 );
 
--- Indexes for search parameters
+-- Performance indexes
 CREATE INDEX http_search_param_http_idx ON http_search_param (http_id);
-CREATE INDEX http_search_param_parent_delta_idx ON http_search_param (parent_search_param_id, is_delta);
-CREATE INDEX http_search_param_ordering_idx ON http_search_param (http_id, prev, next);
-CREATE INDEX http_search_param_key_idx ON http_search_param (param_key);
-
--- Streaming performance indexes for search parameters
-CREATE INDEX http_search_param_streaming_idx ON http_search_param (http_id, enabled, updated_at DESC) WHERE enabled = TRUE;
-CREATE INDEX http_search_param_delta_streaming_idx ON http_search_param (parent_search_param_id, is_delta, updated_at DESC);
+CREATE INDEX http_search_param_key_idx ON http_search_param (http_id, key);
+CREATE INDEX http_search_param_order_idx ON http_search_param (http_id, "order");
+CREATE INDEX http_search_param_delta_idx ON http_search_param (parent_http_search_param_id) WHERE is_delta = TRUE;
 
 -- HTTP headers
 CREATE TABLE http_header (
@@ -892,95 +879,37 @@ CREATE INDEX http_header_delta_streaming_idx ON http_header (parent_header_id, i
 CREATE TABLE http_body_form (
   id BLOB NOT NULL PRIMARY KEY,
   http_id BLOB NOT NULL,
-  form_key TEXT NOT NULL,
-  form_value TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  description TEXT NOT NULL DEFAULT '',
+  "order" REAL NOT NULL DEFAULT 0,
   
-  -- Delta system fields
-  parent_body_form_id BLOB DEFAULT NULL,
+  -- Delta relationship fields
+  parent_http_body_form_id BLOB,
   is_delta BOOLEAN NOT NULL DEFAULT FALSE,
   
-  -- Delta override fields
-  delta_form_key TEXT NULL,
-  delta_form_value TEXT NULL,
-  delta_description TEXT NULL,
-  delta_enabled BOOLEAN NULL,
+  -- Delta fields (NULL means "no change" for delta records)
+  delta_key TEXT,
+  delta_value TEXT,
+  delta_enabled BOOLEAN,
+  delta_description TEXT,
+  delta_order REAL,
   
-  -- Ordering
-  prev BLOB DEFAULT NULL,
-  next BLOB DEFAULT NULL,
-  
-  -- Metadata
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
   
-  -- Foreign keys
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_body_form_id) REFERENCES http_body_form (id) ON DELETE CASCADE,
-  FOREIGN KEY (prev) REFERENCES http_body_form (id) ON DELETE SET NULL,
-  FOREIGN KEY (next) REFERENCES http_body_form (id) ON DELETE SET NULL,
-  
-  -- Constraints
-  CHECK (is_delta = FALSE OR parent_body_form_id IS NOT NULL)
+  FOREIGN KEY (parent_http_body_form_id) REFERENCES http_body_form (id) ON DELETE CASCADE
 );
 
--- Indexes for form body
+-- Performance indexes
 CREATE INDEX http_body_form_http_idx ON http_body_form (http_id);
-CREATE INDEX http_body_form_parent_delta_idx ON http_body_form (parent_body_form_id, is_delta);
-CREATE INDEX http_body_form_ordering_idx ON http_body_form (http_id, prev, next);
-CREATE INDEX http_body_form_key_idx ON http_body_form (form_key);
+CREATE INDEX http_body_form_key_idx ON http_body_form (http_id, key);
+CREATE INDEX http_body_form_order_idx ON http_body_form (http_id, "order");
+CREATE INDEX http_body_form_delta_idx ON http_body_form (parent_http_body_form_id) WHERE is_delta = TRUE;
 
--- Streaming performance indexes for form body
-CREATE INDEX http_body_form_streaming_idx ON http_body_form (http_id, enabled, updated_at DESC) WHERE enabled = TRUE;
-CREATE INDEX http_body_form_delta_streaming_idx ON http_body_form (parent_body_form_id, is_delta, updated_at DESC);
 
--- HTTP body URL-encoded data
-CREATE TABLE http_body_urlencoded (
-  id BLOB NOT NULL PRIMARY KEY,
-  http_id BLOB NOT NULL,
-  urlencoded_key TEXT NOT NULL,
-  urlencoded_value TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  
-  -- Delta system fields
-  parent_body_urlencoded_id BLOB DEFAULT NULL,
-  is_delta BOOLEAN NOT NULL DEFAULT FALSE,
-  
-  -- Delta override fields
-  delta_urlencoded_key TEXT NULL,
-  delta_urlencoded_value TEXT NULL,
-  delta_description TEXT NULL,
-  delta_enabled BOOLEAN NULL,
-  
-  -- Ordering
-  prev BLOB DEFAULT NULL,
-  next BLOB DEFAULT NULL,
-  
-  -- Metadata
-  created_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
-  -- Foreign keys
-  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_body_urlencoded_id) REFERENCES http_body_urlencoded (id) ON DELETE CASCADE,
-  FOREIGN KEY (prev) REFERENCES http_body_urlencoded (id) ON DELETE SET NULL,
-  FOREIGN KEY (next) REFERENCES http_body_urlencoded (id) ON DELETE SET NULL,
-  
-  -- Constraints
-  CHECK (is_delta = FALSE OR parent_body_urlencoded_id IS NOT NULL)
-);
-
--- Indexes for URL-encoded body
-CREATE INDEX http_body_urlencoded_http_idx ON http_body_urlencoded (http_id);
-CREATE INDEX http_body_urlencoded_parent_delta_idx ON http_body_urlencoded (parent_body_urlencoded_id, is_delta);
-CREATE INDEX http_body_urlencoded_ordering_idx ON http_body_urlencoded (http_id, prev, next);
-CREATE INDEX http_body_urlencoded_key_idx ON http_body_urlencoded (urlencoded_key);
-
--- Streaming performance indexes for URL-encoded body
-CREATE INDEX http_body_urlencoded_streaming_idx ON http_body_urlencoded (http_id, enabled, updated_at DESC) WHERE enabled = TRUE;
-CREATE INDEX http_body_urlencoded_delta_streaming_idx ON http_body_urlencoded (parent_body_urlencoded_id, is_delta, updated_at DESC);
 
 -- HTTP body raw data
 CREATE TABLE http_body_raw (
@@ -1045,92 +974,45 @@ CREATE INDEX http_version_http_idx ON http_version (http_id);
 CREATE INDEX http_version_active_idx ON http_version (is_active) WHERE is_active = TRUE;
 CREATE INDEX http_version_created_by_idx ON http_version (created_by);
 
--- HTTP responses
-CREATE TABLE http_response (
-  id BLOB NOT NULL PRIMARY KEY,
-  http_id BLOB NOT NULL,
-  status_code INT NOT NULL,
-  response_time_ms INT NOT NULL DEFAULT 0,
-  response_size_bytes INT NOT NULL DEFAULT 0,
-  
-  -- Response data
-  response_body BLOB,
-  response_compression_type INT8 NOT NULL DEFAULT 0,
-  
-  -- Metadata
-  executed_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  created_by BLOB, -- User ID who executed this request
-  
-  -- Foreign keys
-  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
-  FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
-);
 
--- Indexes for responses
-CREATE INDEX http_response_http_idx ON http_response (http_id);
-CREATE INDEX http_response_status_idx ON http_response (status_code);
-CREATE INDEX http_response_executed_at_idx ON http_response (executed_at DESC);
-CREATE INDEX http_response_created_by_idx ON http_response (created_by);
 
--- HTTP response headers
-CREATE TABLE http_response_header (
-  id BLOB NOT NULL PRIMARY KEY,
-  response_id BLOB NOT NULL,
-  header_key TEXT NOT NULL,
-  header_value TEXT NOT NULL,
-  
-  -- Foreign keys
-  FOREIGN KEY (response_id) REFERENCES http_response (id) ON DELETE CASCADE
-);
-
--- Indexes for response headers
-CREATE INDEX http_response_header_response_idx ON http_response_header (response_id);
-CREATE INDEX http_response_header_key_idx ON http_response_header (header_key);
-
--- HTTP assertions
+-- HTTP assertions (TypeSpec-compliant)
+-- Single-table approach with delta fields for HttpAssert entities
 CREATE TABLE http_assert (
   id BLOB NOT NULL PRIMARY KEY,
   http_id BLOB NOT NULL,
-  assert_expression TEXT NOT NULL,
-  assert_description TEXT NOT NULL DEFAULT '',
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  description TEXT NOT NULL DEFAULT '',
+  "order" REAL NOT NULL DEFAULT 0,
   
-  -- Delta system fields
-  parent_assert_id BLOB DEFAULT NULL,
+  -- Delta relationship fields
+  parent_http_assert_id BLOB,
   is_delta BOOLEAN NOT NULL DEFAULT FALSE,
   
-  -- Delta override fields
-  delta_assert_expression TEXT NULL,
-  delta_assert_description TEXT NULL,
-  delta_enabled BOOLEAN NULL,
+  -- Delta fields (NULL means "no change" for delta records)
+  delta_key TEXT,
+  delta_value TEXT,
+  delta_enabled BOOLEAN,
+  delta_description TEXT,
+  delta_order REAL,
   
-  -- Ordering
-  prev BLOB DEFAULT NULL,
-  next BLOB DEFAULT NULL,
-  
-  -- Metadata
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
   
-  -- Foreign keys
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
-  FOREIGN KEY (parent_assert_id) REFERENCES http_assert (id) ON DELETE CASCADE,
-  FOREIGN KEY (prev) REFERENCES http_assert (id) ON DELETE SET NULL,
-  FOREIGN KEY (next) REFERENCES http_assert (id) ON DELETE SET NULL,
+  FOREIGN KEY (parent_http_assert_id) REFERENCES http_assert (id) ON DELETE CASCADE,
   
   -- Constraints
-  CHECK (is_delta = FALSE OR parent_assert_id IS NOT NULL)
+  CHECK (is_delta = FALSE OR parent_http_assert_id IS NOT NULL) -- Delta records must have a parent
 );
 
--- Indexes for assertions
+-- Performance indexes for HttpAssert
 CREATE INDEX http_assert_http_idx ON http_assert (http_id);
-CREATE INDEX http_assert_parent_delta_idx ON http_assert (parent_assert_id, is_delta);
-CREATE INDEX http_assert_ordering_idx ON http_assert (http_id, prev, next);
-CREATE INDEX http_assert_enabled_idx ON http_assert (enabled) WHERE enabled = TRUE;
-
--- Streaming performance indexes for assertions
-CREATE INDEX http_assert_streaming_idx ON http_assert (http_id, enabled, updated_at DESC) WHERE enabled = TRUE;
-CREATE INDEX http_assert_delta_streaming_idx ON http_assert (parent_assert_id, is_delta, updated_at DESC);
+CREATE INDEX http_assert_key_idx ON http_assert (http_id, key);
+CREATE INDEX http_assert_order_idx ON http_assert (http_id, "order");
+CREATE INDEX http_assert_delta_idx ON http_assert (parent_http_assert_id) WHERE is_delta = TRUE;
 
 -- Performance indexes for workspace-scoped access patterns
 CREATE INDEX http_workspace_access_idx ON http (workspace_id, folder_id, is_delta);
@@ -1147,3 +1029,102 @@ CREATE INDEX http_active_streaming_idx ON http (workspace_id, updated_at DESC) W
 -- Composite indexes for common query patterns
 CREATE INDEX http_workspace_method_idx ON http (workspace_id, method);
 CREATE INDEX http_folder_method_idx ON http (folder_id, method) WHERE folder_id IS NOT NULL;
+
+/*
+ *
+ * HTTP BODY URL-ENCODED (TypeSpec-compliant)
+ * Single-table approach with delta fields for HttpBodyUrlEncoded entities
+ *
+ */
+
+-- HttpBodyUrlEncoded table following TypeSpec specification
+CREATE TABLE http_body_urlencoded (
+  id BLOB NOT NULL PRIMARY KEY,
+  http_id BLOB NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  description TEXT NOT NULL DEFAULT '',
+  "order" REAL NOT NULL DEFAULT 0,
+  
+  -- Delta relationship fields
+  parent_http_body_urlencoded_id BLOB,
+  is_delta BOOLEAN NOT NULL DEFAULT FALSE,
+  
+  -- Delta fields (NULL means "no change" for delta records)
+  delta_key TEXT,
+  delta_value TEXT,
+  delta_enabled BOOLEAN,
+  delta_description TEXT,
+  delta_order REAL,
+  
+  created_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  
+  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_http_body_urlencoded_id) REFERENCES http_body_urlencoded (id) ON DELETE CASCADE,
+  
+  -- Constraints
+  CHECK (is_delta = FALSE OR parent_http_body_urlencoded_id IS NOT NULL) -- Delta records must have a parent
+);
+
+-- Performance indexes for HttpBodyUrlEncoded
+CREATE INDEX http_body_urlencoded_http_idx ON http_body_urlencoded (http_id);
+CREATE INDEX http_body_urlencoded_key_idx ON http_body_urlencoded (http_id, key);
+CREATE INDEX http_body_urlencoded_order_idx ON http_body_urlencoded (http_id, "order");
+CREATE INDEX http_body_urlencoded_delta_idx ON http_body_urlencoded (parent_http_body_urlencoded_id) WHERE is_delta = TRUE;
+
+/*
+ *
+ * HTTP RESPONSE (TypeSpec-compliant)
+ * Read-only tables following TypeSpec HttpResponse specification
+ *
+ */
+
+-- HttpResponse table (read-only, no delta fields)
+CREATE TABLE http_response (
+  id BLOB NOT NULL PRIMARY KEY,
+  http_id BLOB NOT NULL,
+  status INT32 NOT NULL,
+  body BLOB,
+  time DATETIME NOT NULL,
+  duration INT32 NOT NULL,
+  size INT32 NOT NULL,
+  created_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  
+  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
+);
+
+-- HttpResponseHeader table (read-only, no delta fields)
+CREATE TABLE http_response_header (
+  id BLOB NOT NULL PRIMARY KEY,
+  http_id BLOB NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  created_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  
+  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
+);
+
+-- Performance indexes for HttpResponse
+CREATE INDEX http_response_http_idx ON http_response (http_id);
+CREATE INDEX http_response_time_idx ON http_response (http_id, time DESC);
+
+-- Performance indexes for HttpResponseHeader
+CREATE INDEX http_response_header_http_idx ON http_response_header (http_id);
+CREATE INDEX http_response_header_key_idx ON http_response_header (http_id, key);
+
+-- HttpResponseAssert table (read-only, no delta fields)
+CREATE TABLE http_response_assert (
+  id BLOB NOT NULL PRIMARY KEY,
+  http_id BLOB NOT NULL,
+  value TEXT NOT NULL,
+  success BOOLEAN NOT NULL,
+  created_at BIGINT NOT NULL DEFAULT (unixepoch()),
+  
+  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
+);
+
+-- Performance indexes for HttpResponseAssert
+CREATE INDEX http_response_assert_http_idx ON http_response_assert (http_id);
+CREATE INDEX http_response_assert_success_idx ON http_response_assert (http_id, success);
