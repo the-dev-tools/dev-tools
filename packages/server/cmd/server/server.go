@@ -29,7 +29,6 @@ import (
 	"the-dev-tools/server/internal/api/rnodeexecution"
 	"the-dev-tools/server/internal/api/rreference"
 
-	"the-dev-tools/server/internal/api/rtag"
 	"the-dev-tools/server/internal/api/rvar"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/eventstream/memory"
@@ -262,9 +261,7 @@ func main() {
 	varSrv := rvar.New(currentDB, userService, environmentService, variableService)
 	newServiceManager.AddService(rvar.CreateService(varSrv, opitonsAll))
 
-	tagSrv := rtag.New(currentDB, workspaceService, userService, tagService)
-	newServiceManager.AddService(rtag.CreateService(tagSrv, opitonsAll))
-
+	
 	// Flow Service
 	flowSrv := rflow.New(currentDB, workspaceService, userService, tagService,
 		// flow

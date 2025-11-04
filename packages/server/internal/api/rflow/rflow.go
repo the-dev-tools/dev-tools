@@ -16,7 +16,6 @@ import (
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/ritemapiexample"
-	"the-dev-tools/server/internal/api/rtag"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/cachettl"
 	"the-dev-tools/server/pkg/compress"
@@ -583,51 +582,18 @@ func (c *FlowServiceRPC) FlowList(ctx context.Context, req *connect.Request[flow
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	var tagIDPtr *idwrap.IDWrap
-	if len(req.Msg.TagId) > 0 {
-		tagID, err := idwrap.NewFromBytes(req.Msg.TagId)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		tagIDPtr = &tagID
-	}
-
+	
 	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, c.us, workspaceID))
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	var rpcFlows []*flowv1.FlowListItem
-
-	if tagIDPtr == nil {
-		flow, err := c.fs.GetFlowsByWorkspaceID(ctx, workspaceID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		rpcFlows = append(rpcFlows, tgeneric.MassConvert(flow, tflow.SeralizeModelToRPCItem)...)
-
-	} else {
-		rpcErr := permcheck.CheckPerm(rtag.CheckOwnerTag(ctx, c.ts, c.us, *tagIDPtr))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-		tagFlows, err := c.fts.GetFlowTagsByTagID(ctx, *tagIDPtr)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
-		// TODO: make this one query
-		for _, tagFlow := range tagFlows {
-			latestFlow, err := c.fs.GetFlow(ctx, tagFlow.FlowID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-
-			rpcFlow := tflow.SeralizeModelToRPCItem(latestFlow)
-			rpcFlows = append(rpcFlows, rpcFlow)
-		}
+	flow, err := c.fs.GetFlowsByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	rpcFlows := tgeneric.MassConvert(flow, tflow.SeralizeModelToRPCItem)
 
 	rpcResp := &flowv1.FlowListResponse{
 		WorkspaceId: req.Msg.WorkspaceId,
