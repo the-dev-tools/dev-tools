@@ -135,7 +135,7 @@ const Files = ({ includeNestedSchemas, namespace }: FilesProps) => {
     (_) => (
       <SourceFile path={`${name}.ts`}>
         <For doubleHardline each={_} ender>
-          {({ collection }) => (
+          {({ collection, options }) => (
             <VarDeclaration
               const
               export
@@ -188,6 +188,39 @@ const Files = ({ includeNestedSchemas, namespace }: FilesProps) => {
                           name='delete'
                           value={refkey('message', collection.namespace, `${collection.name}SyncDelete`)}
                         />
+                      </CommaList>
+                    </ObjectExpression>
+                  </ObjectProperty>
+
+                  <ObjectProperty name='operations'>
+                    <ObjectExpression>
+                      <CommaList>
+                        {options.canCreate && (
+                          <ObjectProperty name='insert'>
+                            {refkey('service', collection.namespace)}
+                            .method.
+                            {String.uncapitalize(collection.name)}
+                            Create
+                          </ObjectProperty>
+                        )}
+
+                        {options.canUpdate && (
+                          <ObjectProperty name='update'>
+                            {refkey('service', collection.namespace)}
+                            .method.
+                            {String.uncapitalize(collection.name)}
+                            Update
+                          </ObjectProperty>
+                        )}
+
+                        {options.canDelete && (
+                          <ObjectProperty name='delete'>
+                            {refkey('service', collection.namespace)}
+                            .method.
+                            {String.uncapitalize(collection.name)}
+                            Delete
+                          </ObjectProperty>
+                        )}
                       </CommaList>
                     </ObjectExpression>
                   </ObjectProperty>

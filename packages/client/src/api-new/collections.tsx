@@ -1,4 +1,4 @@
-import { CollectionConfig, createCollection } from '@tanstack/react-db';
+import { CollectionConfig, createCollection, createOptimisticAction, Transaction } from '@tanstack/react-db';
 import { Array, Effect, HashMap, Match, pipe, Predicate, Record, Runtime } from 'effect';
 import { Ulid } from 'id128';
 import { UnsetSchema } from '@the-dev-tools/spec/global/v1/global_pb';
@@ -8,8 +8,8 @@ import { rootRouteApi } from '~/routes';
 import * as Connect from './connect-rpc';
 import * as Protobuf from './protobuf';
 
-interface CollectionSchema<T extends Protobuf.DescMessage = Protobuf.DescMessage> {
-  item: T;
+interface CollectionSchema {
+  item: Protobuf.DescMessage;
   keys: readonly string[];
 
   collection: Protobuf.DescMethodUnary;
@@ -21,14 +21,20 @@ interface CollectionSchema<T extends Protobuf.DescMessage = Protobuf.DescMessage
     insert: Protobuf.DescMessage;
     update: Protobuf.DescMessage;
   };
+
+  operations: {
+    delete?: Protobuf.DescMethodUnary;
+    insert?: Protobuf.DescMethodUnary;
+    update?: Protobuf.DescMethodUnary;
+  };
 }
 
-const createApiCollection = <T extends Protobuf.DescMessage>(
-  schema: CollectionSchema<T>,
-  transport: Connect.Transport,
-) => {
-  type Item = Protobuf.MessageValidType<T>;
+const createApiCollection = <TSchema extends CollectionSchema>(schema: TSchema, transport: Connect.Transport) => {
+  type Item = Protobuf.MessageValidType<TSchema['item']>;
   type SpecCollectionOptions = CollectionConfig<Item, string>;
+
+  let params: Parameters<SpecCollectionOptions['sync']['sync']>[0];
+  let lastSyncTime = 0;
 
   const getKey: SpecCollectionOptions['getKey'] = (item) =>
     pipe(
@@ -40,7 +46,8 @@ const createApiCollection = <T extends Protobuf.DescMessage>(
       JSON.stringify,
     );
 
-  const sync: SpecCollectionOptions['sync']['sync'] = (params) => {
+  const sync: SpecCollectionOptions['sync']['sync'] = (_) => {
+    params = _;
     const { begin, collection, commit, markReady, write } = params;
 
     const processSync = (items: Protobuf.Message[]) => {
@@ -74,6 +81,7 @@ const createApiCollection = <T extends Protobuf.DescMessage>(
         );
       });
       commit();
+      lastSyncTime = Date.now();
     };
 
     const syncController = new AbortController();
@@ -135,12 +143,99 @@ const createApiCollection = <T extends Protobuf.DescMessage>(
     };
   };
 
+  const makeUtils = () => {
+    const waitForSync = (afterTime: number): Promise<void> => {
+      if (lastSyncTime > afterTime) return Promise.resolve();
+
+      return new Promise((resolve) => {
+        const check = setInterval(() => {
+          if (lastSyncTime > afterTime) {
+            clearInterval(check);
+            resolve();
+          }
+        }, 100);
+      });
+    };
+
+    type Operations = {
+      [Key in keyof TSchema['operations']]: (
+        input: TSchema['operations'][Key] extends Protobuf.DescMethodUnary<infer Input>
+          ? Protobuf.MessageShape<Input> extends { items: (infer Item)[] }
+            ? Item | Item[]
+            : never
+          : never,
+      ) => Transaction;
+    };
+
+    const operations = {} as Operations;
+    const { delete: delete_, insert, update } = schema.operations;
+
+    if (insert) {
+      operations.insert = createOptimisticAction({
+        mutationFn: async (input) => {
+          const mutationTime = Date.now();
+          const items = Array.ensure(input);
+          await Connect.request({ input: { items }, method: insert, transport });
+          await waitForSync(mutationTime);
+        },
+        onMutate: (input) => {
+          params.collection.insert(input);
+        },
+      });
+    }
+
+    if (update) {
+      operations.update = createOptimisticAction({
+        mutationFn: async (input) => {
+          const mutationTime = Date.now();
+          const items = Array.ensure(input);
+          await Connect.request({ input: { items }, method: update, transport });
+          await waitForSync(mutationTime);
+        },
+        onMutate: (input) => {
+          const deltaMap = pipe(
+            Array.ensure(input),
+            Array.map((_) => [getKey(_), _] as const),
+            HashMap.fromIterable,
+          );
+
+          params.collection.update(HashMap.keys(deltaMap), (draft: Item) => {
+            const key = getKey(draft);
+            const delta = HashMap.unsafeGet(deltaMap, key);
+            Protobuf.draftDelta(draft, delta, UnsetSchema);
+          });
+        },
+      });
+    }
+
+    if (delete_) {
+      operations.delete = createOptimisticAction({
+        mutationFn: async (input) => {
+          const mutationTime = Date.now();
+          const items = Array.ensure(input);
+          await Connect.request({ input: { items }, method: delete_, transport });
+          await waitForSync(mutationTime);
+        },
+        onMutate: (input) => {
+          const keys = pipe(Array.ensure(input), Array.map(getKey));
+          params.collection.delete(keys);
+        },
+      });
+    }
+
+    return {
+      ...operations,
+      waitForSync,
+    };
+  };
+
   return createCollection({
     gcTime: Infinity,
     getKey,
     id: schema.item.typeName,
     startSync: true,
     sync: { rowUpdateMode: 'full', sync },
+    utils: makeUtils(),
   });
 };
 
@@ -166,13 +261,13 @@ export class ApiCollections extends Effect.Service<ApiCollections>()('ApiCollect
   }),
 }) {}
 
-export const getApiCollection = Effect.fn(function* <T extends Protobuf.DescMessage>(schema: CollectionSchema<T>) {
+export const getApiCollection = Effect.fn(function* <TSchema extends CollectionSchema>(schema: TSchema) {
   const collectionMap = yield* ApiCollections;
   const collection = yield* HashMap.get(collectionMap, schema);
-  return collection as unknown as ReturnType<typeof createApiCollection<T>>;
+  return collection as unknown as ReturnType<typeof createApiCollection<TSchema>>;
 });
 
-export const useApiCollection = <T extends Protobuf.DescMessage>(schema: CollectionSchema<T>) => {
+export const useApiCollection = <TSchema extends CollectionSchema>(schema: TSchema) => {
   const { runtime } = rootRouteApi.useRouteContext();
   return Runtime.runSync(runtime, getApiCollection(schema));
 };
