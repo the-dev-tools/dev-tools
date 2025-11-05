@@ -264,6 +264,11 @@ func main() {
 	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, opitonsAll))
 
+	nodeStreamer := memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]()
+	defer nodeStreamer.Shutdown()
+	edgeStreamer := memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]()
+	defer edgeStreamer.Shutdown()
+
 	flowSrvV2 := rflowv2.New(
 		&workspaceService,
 		&flowService,
@@ -282,6 +287,8 @@ func main() {
 		&httpBodyFormAgg,
 		httpBodyUrlAgg,
 		&httpAssertAgg,
+		nodeStreamer,
+		edgeStreamer,
 	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, opitonsAll))
 

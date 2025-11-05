@@ -3,6 +3,7 @@ package rflowv2
 import (
 	"context"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
+	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -83,6 +85,11 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		Type:       mnnoop.NODE_NO_OP_KIND_START,
 	}))
 
+	nodeStream := memory.NewInMemorySyncStreamer[NodeTopic, NodeEvent]()
+	t.Cleanup(nodeStream.Shutdown)
+	edgeStream := memory.NewInMemorySyncStreamer[EdgeTopic, EdgeEvent]()
+	t.Cleanup(edgeStream.Shutdown)
+
 	srv := New(
 		&services.Ws,
 		&flowService,
@@ -101,6 +108,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		services.Hbf,
 		services.Hbu,
 		services.Has,
+		nodeStream,
+		edgeStream,
 	)
 
 	ctx := mwauth.CreateAuthedContext(context.Background(), userID)
@@ -597,6 +606,258 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 
 		_, err = edgeService.GetEdge(context.Background(), edgeID)
 		require.Error(t, err)
+	})
+
+	t.Run("node sync streams snapshot and updates", func(t *testing.T) {
+		nodeUserID := idwrap.NewNow()
+		require.NoError(t, services.Us.CreateUser(context.Background(), &muser.User{
+			ID:           nodeUserID,
+			Email:        "node-sync@example.com",
+			Password:     []byte("secret"),
+			ProviderType: muser.MagicLink,
+		}))
+
+		nodeWorkspaceID := createWorkspaceMembership(t, services.Ws, services.Wus, nodeUserID)
+
+		nodeFlowID := idwrap.NewNow()
+		require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
+			ID:          nodeFlowID,
+			WorkspaceID: nodeWorkspaceID,
+			Name:        "node-sync-flow",
+		}))
+
+		startNodeID := idwrap.NewNow()
+		require.NoError(t, nodeService.CreateNode(context.Background(), mnnode.MNode{
+			ID:        startNodeID,
+			FlowID:    nodeFlowID,
+			Name:      "Start",
+			NodeKind:  mnnode.NODE_KIND_NO_OP,
+			PositionX: 0,
+			PositionY: 0,
+		}))
+		require.NoError(t, nodeNoOpService.CreateNodeNoop(context.Background(), mnnoop.NoopNode{
+			FlowNodeID: startNodeID,
+			Type:       mnnoop.NODE_NO_OP_KIND_START,
+		}))
+
+		syncCtx := mwauth.CreateAuthedContext(context.Background(), nodeUserID)
+
+		syncNodeID := idwrap.NewNow()
+		_, err := srv.NodeCreate(syncCtx, connect.NewRequest(&flowv1.NodeCreateRequest{
+			Items: []*flowv1.NodeCreate{{
+				FlowId: nodeFlowID.Bytes(),
+				NodeId: syncNodeID.Bytes(),
+				Name:   "sync-node",
+				Kind:   flowv1.NodeKind_NODE_KIND_NO_OP,
+			}},
+		}))
+		require.NoError(t, err)
+
+		received := make(chan *flowv1.NodeSyncResponse, 4)
+		ctxSync, cancelSync := context.WithCancel(syncCtx)
+		defer cancelSync()
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- srv.streamNodeSync(ctxSync, func(resp *flowv1.NodeSyncResponse) error {
+				received <- resp
+				return nil
+			})
+		}()
+
+		var first *flowv1.NodeSyncResponse
+		select {
+		case first = <-received:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for node sync snapshot")
+		}
+
+		require.Len(t, first.GetItems(), 1)
+		firstValue := first.GetItems()[0].GetValue()
+		require.NotNil(t, firstValue)
+		require.Equal(t, flowv1.NodeSync_ValueUnion_KIND_CREATE, firstValue.GetKind())
+		firstCreate := firstValue.GetCreate()
+		require.NotNil(t, firstCreate)
+		require.Equal(t, syncNodeID.Bytes(), firstCreate.GetNodeId())
+		require.Equal(t, "sync-node", firstCreate.GetName())
+		require.Equal(t, nodeFlowID.Bytes(), firstCreate.GetFlowId())
+
+		newName := "sync-node-renamed"
+		_, err = srv.NodeUpdate(syncCtx, connect.NewRequest(&flowv1.NodeUpdateRequest{
+			Items: []*flowv1.NodeUpdate{{
+				NodeId: syncNodeID.Bytes(),
+				Name:   ptrString(newName),
+			}},
+		}))
+		require.NoError(t, err)
+
+		var update *flowv1.NodeSyncResponse
+		select {
+		case update = <-received:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for node sync update")
+		}
+
+		require.Len(t, update.GetItems(), 1)
+		updateValue := update.GetItems()[0].GetValue()
+		require.NotNil(t, updateValue)
+		require.Equal(t, flowv1.NodeSync_ValueUnion_KIND_UPDATE, updateValue.GetKind())
+		updateMsg := updateValue.GetUpdate()
+		require.NotNil(t, updateMsg)
+		require.Equal(t, syncNodeID.Bytes(), updateMsg.GetNodeId())
+		require.Equal(t, newName, updateMsg.GetName())
+
+		cancelSync()
+		if err := <-errCh; err != nil {
+			require.ErrorIs(t, err, context.Canceled)
+		}
+	})
+
+	t.Run("edge sync streams snapshot and updates", func(t *testing.T) {
+		edgeUserID := idwrap.NewNow()
+		require.NoError(t, services.Us.CreateUser(context.Background(), &muser.User{
+			ID:           edgeUserID,
+			Email:        "edge-sync@example.com",
+			Password:     []byte("secret"),
+			ProviderType: muser.MagicLink,
+		}))
+
+		edgeWorkspaceID := createWorkspaceMembership(t, services.Ws, services.Wus, edgeUserID)
+
+		edgeFlowID := idwrap.NewNow()
+		require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
+			ID:          edgeFlowID,
+			WorkspaceID: edgeWorkspaceID,
+			Name:        "edge-sync-flow",
+		}))
+
+		startNodeID := idwrap.NewNow()
+		require.NoError(t, nodeService.CreateNode(context.Background(), mnnode.MNode{
+			ID:        startNodeID,
+			FlowID:    edgeFlowID,
+			Name:      "Start",
+			NodeKind:  mnnode.NODE_KIND_NO_OP,
+			PositionX: 0,
+			PositionY: 0,
+		}))
+		require.NoError(t, nodeNoOpService.CreateNodeNoop(context.Background(), mnnoop.NoopNode{
+			FlowNodeID: startNodeID,
+			Type:       mnnoop.NODE_NO_OP_KIND_START,
+		}))
+
+		edgeCtx := mwauth.CreateAuthedContext(context.Background(), edgeUserID)
+
+		sourceNodeID := idwrap.NewNow()
+		targetNodeID := idwrap.NewNow()
+		_, err := srv.NodeCreate(edgeCtx, connect.NewRequest(&flowv1.NodeCreateRequest{
+			Items: []*flowv1.NodeCreate{
+				{
+					FlowId: edgeFlowID.Bytes(),
+					NodeId: sourceNodeID.Bytes(),
+					Name:   "edge-sync-source",
+					Kind:   flowv1.NodeKind_NODE_KIND_NO_OP,
+				},
+				{
+					FlowId: edgeFlowID.Bytes(),
+					NodeId: targetNodeID.Bytes(),
+					Name:   "edge-sync-target",
+					Kind:   flowv1.NodeKind_NODE_KIND_NO_OP,
+				},
+			},
+		}))
+		require.NoError(t, err)
+
+		edgeID := idwrap.NewNow()
+		_, err = srv.EdgeCreate(edgeCtx, connect.NewRequest(&flowv1.EdgeCreateRequest{
+			Items: []*flowv1.EdgeCreate{{
+				EdgeId:       edgeID.Bytes(),
+				FlowId:       edgeFlowID.Bytes(),
+				SourceId:     sourceNodeID.Bytes(),
+				TargetId:     targetNodeID.Bytes(),
+				SourceHandle: flowv1.Handle_HANDLE_THEN,
+				Kind:         flowv1.EdgeKind_EDGE_KIND_NO_OP,
+			}},
+		}))
+		require.NoError(t, err)
+
+		edgeReceived := make(chan *flowv1.EdgeSyncResponse, 6)
+		ctxEdge, cancelEdge := context.WithCancel(edgeCtx)
+		defer cancelEdge()
+
+		edgeErrCh := make(chan error, 1)
+		go func() {
+			edgeErrCh <- srv.streamEdgeSync(ctxEdge, func(resp *flowv1.EdgeSyncResponse) error {
+				edgeReceived <- resp
+				return nil
+			})
+		}()
+
+		var create *flowv1.EdgeSyncResponse
+		select {
+		case create = <-edgeReceived:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for edge sync snapshot")
+		}
+
+		require.Len(t, create.GetItems(), 1)
+		createValue := create.GetItems()[0].GetValue()
+		require.NotNil(t, createValue)
+		require.Equal(t, flowv1.EdgeSync_ValueUnion_KIND_CREATE, createValue.GetKind())
+		createMsg := createValue.GetCreate()
+		require.NotNil(t, createMsg)
+		require.Equal(t, edgeID.Bytes(), createMsg.GetEdgeId())
+		require.Equal(t, edgeFlowID.Bytes(), createMsg.GetFlowId())
+
+		_, err = srv.EdgeUpdate(edgeCtx, connect.NewRequest(&flowv1.EdgeUpdateRequest{
+			Items: []*flowv1.EdgeUpdate{{
+				EdgeId:       edgeID.Bytes(),
+				SourceHandle: ptrHandle(flowv1.Handle_HANDLE_ELSE),
+			}},
+		}))
+		require.NoError(t, err)
+
+		var update *flowv1.EdgeSyncResponse
+		select {
+		case update = <-edgeReceived:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for edge sync update")
+		}
+
+		require.Len(t, update.GetItems(), 1)
+		updateValue := update.GetItems()[0].GetValue()
+		require.NotNil(t, updateValue)
+		require.Equal(t, flowv1.EdgeSync_ValueUnion_KIND_UPDATE, updateValue.GetKind())
+		updateMsg := updateValue.GetUpdate()
+		require.NotNil(t, updateMsg)
+		require.Equal(t, edgeID.Bytes(), updateMsg.GetEdgeId())
+		require.Equal(t, flowv1.Handle_HANDLE_ELSE, updateMsg.GetSourceHandle())
+
+		_, err = srv.EdgeDelete(edgeCtx, connect.NewRequest(&flowv1.EdgeDeleteRequest{
+			Items: []*flowv1.EdgeDelete{{
+				EdgeId: edgeID.Bytes(),
+			}},
+		}))
+		require.NoError(t, err)
+
+		var deleteResp *flowv1.EdgeSyncResponse
+		select {
+		case deleteResp = <-edgeReceived:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for edge sync delete")
+		}
+
+		require.Len(t, deleteResp.GetItems(), 1)
+		deleteValue := deleteResp.GetItems()[0].GetValue()
+		require.NotNil(t, deleteValue)
+		require.Equal(t, flowv1.EdgeSync_ValueUnion_KIND_DELETE, deleteValue.GetKind())
+		deleteMsg := deleteValue.GetDelete()
+		require.NotNil(t, deleteMsg)
+		require.Equal(t, edgeID.Bytes(), deleteMsg.GetEdgeId())
+
+		cancelEdge()
+		if err := <-edgeErrCh; err != nil {
+			require.ErrorIs(t, err, context.Canceled)
+		}
 	})
 
 	t.Run("flow variable lifecycle", func(t *testing.T) {

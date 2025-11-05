@@ -19,6 +19,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/dbtime"
+	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
 	"the-dev-tools/server/pkg/flow/node/nfor"
@@ -69,24 +70,60 @@ import (
 
 var errUnimplemented = errors.New("rflowv2: method not implemented")
 
+// NodeTopic identifies the flow whose nodes are being published.
+type NodeTopic struct {
+	FlowID idwrap.IDWrap
+}
+
+// NodeEvent describes a node change for sync streaming.
+type NodeEvent struct {
+	Type   string
+	FlowID idwrap.IDWrap
+	Node   *flowv1.Node
+}
+
+// EdgeTopic identifies the flow whose edges are being published.
+type EdgeTopic struct {
+	FlowID idwrap.IDWrap
+}
+
+// EdgeEvent describes an edge change for sync streaming.
+type EdgeEvent struct {
+	Type   string
+	FlowID idwrap.IDWrap
+	Edge   *flowv1.Edge
+}
+
+const (
+	nodeEventCreate = "create"
+	nodeEventUpdate = "update"
+	nodeEventDelete = "delete"
+
+	edgeEventCreate = "create"
+	edgeEventUpdate = "update"
+	edgeEventDelete = "delete"
+)
+
 type FlowServiceV2RPC struct {
-	ws   *sworkspace.WorkspaceService
-	fs   *sflow.FlowService
-	es   *sedge.EdgeService
-	ns   *snode.NodeService
-	nrs  *snoderequest.NodeRequestService
-	nfs  *snodefor.NodeForService
-	nfes *snodeforeach.NodeForEachService
-	nifs *snodeif.NodeIfService
-	nnos *snodenoop.NodeNoopService
-	njss *snodejs.NodeJSService
-	fvs  *sflowvariable.FlowVariableService
-	hs   *shttp.HTTPService
-	hh   *shttp.HttpHeaderService
-	hsp  *shttp.HttpSearchParamService
-	hbf  *shttp.HttpBodyFormService
-	hbu  *shttp.HttpBodyUrlencodedService
-	has  *shttp.HttpAssertService
+	ws         *sworkspace.WorkspaceService
+	fs         *sflow.FlowService
+	es         *sedge.EdgeService
+	ns         *snode.NodeService
+	nrs        *snoderequest.NodeRequestService
+	nfs        *snodefor.NodeForService
+	nfes       *snodeforeach.NodeForEachService
+	nifs       *snodeif.NodeIfService
+	nnos       *snodenoop.NodeNoopService
+	njss       *snodejs.NodeJSService
+	fvs        *sflowvariable.FlowVariableService
+	hs         *shttp.HTTPService
+	hh         *shttp.HttpHeaderService
+	hsp        *shttp.HttpSearchParamService
+	hbf        *shttp.HttpBodyFormService
+	hbu        *shttp.HttpBodyUrlencodedService
+	has        *shttp.HttpAssertService
+	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent]
+	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
 }
 
 func New(
@@ -107,25 +144,29 @@ func New(
 	hbf *shttp.HttpBodyFormService,
 	hbu *shttp.HttpBodyUrlencodedService,
 	has *shttp.HttpAssertService,
+	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent],
+	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
-		ws:   ws,
-		fs:   fs,
-		es:   es,
-		ns:   ns,
-		nrs:  nrs,
-		nfs:  nfs,
-		nfes: nfes,
-		nifs: nifs,
-		nnos: nnos,
-		njss: njss,
-		fvs:  fvs,
-		hs:   hs,
-		hh:   hh,
-		hsp:  hsp,
-		hbf:  hbf,
-		hbu:  hbu,
-		has:  has,
+		ws:         ws,
+		fs:         fs,
+		es:         es,
+		ns:         ns,
+		nrs:        nrs,
+		nfs:        nfs,
+		nfes:       nfes,
+		nifs:       nifs,
+		nnos:       nnos,
+		njss:       njss,
+		fvs:        fvs,
+		hs:         hs,
+		hh:         hh,
+		hsp:        hsp,
+		hbf:        hbf,
+		hbu:        hbu,
+		has:        has,
+		nodeStream: nodeStream,
+		edgeStream: edgeStream,
 	}
 }
 
@@ -194,6 +235,9 @@ func (s *FlowServiceV2RPC) NodeCollection(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, node := range nodes {
+			if isStartNode(node) {
+				continue
+			}
 			nodesPB = append(nodesPB, serializeNode(node))
 		}
 	}
@@ -813,6 +857,8 @@ func (s *FlowServiceV2RPC) EdgeCreate(ctx context.Context, req *connect.Request[
 		if err := s.es.CreateEdge(ctx, model); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		s.publishEdgeEvent(edgeEventCreate, model)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -867,6 +913,8 @@ func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[
 		if err := s.es.UpdateEdge(ctx, *existing); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		s.publishEdgeEvent(edgeEventUpdate, *existing)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -879,20 +927,140 @@ func (s *FlowServiceV2RPC) EdgeDelete(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid edge id: %w", err))
 		}
 
-		if _, err := s.ensureEdgeAccess(ctx, edgeID); err != nil {
+		existing, err := s.ensureEdgeAccess(ctx, edgeID)
+		if err != nil {
 			return nil, err
 		}
 
 		if err := s.es.DeleteEdge(ctx, edgeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		if existing != nil {
+			s.publishEdgeEvent(edgeEventDelete, *existing)
+		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) EdgeSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.EdgeSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) EdgeSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.EdgeSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamEdgeSync(ctx, func(resp *flowv1.EdgeSyncResponse) error {
+		return stream.Send(resp)
+	})
+}
+
+func (s *FlowServiceV2RPC) streamEdgeSync(
+	ctx context.Context,
+	send func(*flowv1.EdgeSyncResponse) error,
+) error {
+	if s.edgeStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("edge stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[EdgeTopic, EdgeEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[EdgeTopic, EdgeEvent], 0)
+
+		for _, flow := range flows {
+			flowSet.Store(flow.ID.String(), struct{}{})
+
+			edges, err := s.es.GetEdgesByFlowID(ctx, flow.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, err
+			}
+
+			for _, edgeModel := range edges {
+				events = append(events, eventstream.Event[EdgeTopic, EdgeEvent]{
+					Topic: EdgeTopic{FlowID: flow.ID},
+					Payload: EdgeEvent{
+						Type:   edgeEventCreate,
+						FlowID: flow.ID,
+						Edge:   serializeEdge(edgeModel),
+					},
+				})
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic EdgeTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.edgeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := edgeEventToSyncResponse(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *FlowServiceV2RPC) publishNodeEvent(eventType string, model mnnode.MNode) {
+	if s.nodeStream == nil {
+		return
+	}
+	if isStartNode(model) {
+		return
+	}
+	nodePB := serializeNode(model)
+	s.nodeStream.Publish(NodeTopic{FlowID: model.FlowID}, NodeEvent{
+		Type:   eventType,
+		FlowID: model.FlowID,
+		Node:   nodePB,
+	})
+}
+
+func (s *FlowServiceV2RPC) publishEdgeEvent(eventType string, model edge.Edge) {
+	if s.edgeStream == nil {
+		return
+	}
+	edgePB := serializeEdge(model)
+	s.edgeStream.Publish(EdgeTopic{FlowID: model.FlowID}, EdgeEvent{
+		Type:   eventType,
+		FlowID: model.FlowID,
+		Edge:   edgePB,
+	})
 }
 
 func (s *FlowServiceV2RPC) NodeCreate(
@@ -912,6 +1080,8 @@ func (s *FlowServiceV2RPC) NodeCreate(
 		if err := s.ns.CreateNode(ctx, *nodeModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		s.publishNodeEvent(nodeEventCreate, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -951,6 +1121,8 @@ func (s *FlowServiceV2RPC) NodeUpdate(
 		if err := s.ns.UpdateNode(ctx, *existing); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		s.publishNodeEvent(nodeEventUpdate, *existing)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -966,20 +1138,114 @@ func (s *FlowServiceV2RPC) NodeDelete(
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		existing, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
 		if err := s.ns.DeleteNode(ctx, nodeID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		s.publishNodeEvent(nodeEventDelete, *existing)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.NodeSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamNodeSync(ctx, func(resp *flowv1.NodeSyncResponse) error {
+		return stream.Send(resp)
+	})
+}
+
+func (s *FlowServiceV2RPC) streamNodeSync(
+	ctx context.Context,
+	send func(*flowv1.NodeSyncResponse) error,
+) error {
+	if s.nodeStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("node stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
+
+		for _, flow := range flows {
+			flowSet.Store(flow.ID.String(), struct{}{})
+
+			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, err
+			}
+
+			for _, nodeModel := range nodes {
+				if isStartNode(nodeModel) {
+					continue
+				}
+				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
+					Topic: NodeTopic{FlowID: flow.ID},
+					Payload: NodeEvent{
+						Type:   nodeEventCreate,
+						FlowID: flow.ID,
+						Node:   serializeNode(nodeModel),
+					},
+				})
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic NodeTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := nodeEventToSyncResponse(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (s *FlowServiceV2RPC) NodeNoOpCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.NodeNoOpCollectionResponse], error) {
@@ -1570,6 +1836,166 @@ func buildFlowSyncCreates(flows []mflow.Flow) []*flowv1.FlowSync {
 	return items
 }
 
+func nodeEventToSyncResponse(evt NodeEvent) *flowv1.NodeSyncResponse {
+	if evt.Node == nil {
+		return nil
+	}
+
+	node := evt.Node
+
+	if strings.EqualFold(node.GetName(), "start") && node.GetKind() == flowv1.NodeKind_NODE_KIND_NO_OP {
+		return nil
+	}
+
+	switch evt.Type {
+	case nodeEventCreate:
+		create := &flowv1.NodeSyncCreate{
+			NodeId:   node.GetNodeId(),
+			FlowId:   node.GetFlowId(),
+			Kind:     node.GetKind(),
+			Name:     node.GetName(),
+			Position: node.GetPosition(),
+			State:    node.GetState(),
+		}
+		if info := node.GetInfo(); info != "" {
+			create.Info = &info
+		}
+		return &flowv1.NodeSyncResponse{
+			Items: []*flowv1.NodeSync{{
+				Value: &flowv1.NodeSync_ValueUnion{
+					Kind:   flowv1.NodeSync_ValueUnion_KIND_CREATE,
+					Create: create,
+				},
+			}},
+		}
+	case nodeEventUpdate:
+		update := &flowv1.NodeSyncUpdate{
+			NodeId: node.GetNodeId(),
+		}
+		if flowID := node.GetFlowId(); len(flowID) > 0 {
+			update.FlowId = flowID
+		}
+		if kind := node.GetKind(); kind != flowv1.NodeKind_NODE_KIND_UNSPECIFIED {
+			k := kind
+			update.Kind = &k
+		}
+		if name := node.GetName(); name != "" {
+			update.Name = &name
+		}
+		if pos := node.GetPosition(); pos != nil {
+			update.Position = pos
+		}
+		if state := node.GetState(); state != flowv1.NodeState_NODE_STATE_UNSPECIFIED {
+			st := state
+			update.State = &st
+		}
+		if info := node.GetInfo(); info != "" {
+			update.Info = &flowv1.NodeSyncUpdate_InfoUnion{
+				Kind:    flowv1.NodeSyncUpdate_InfoUnion_KIND_STRING,
+				String_: &info,
+			}
+		}
+		return &flowv1.NodeSyncResponse{
+			Items: []*flowv1.NodeSync{{
+				Value: &flowv1.NodeSync_ValueUnion{
+					Kind:   flowv1.NodeSync_ValueUnion_KIND_UPDATE,
+					Update: update,
+				},
+			}},
+		}
+	case nodeEventDelete:
+		return &flowv1.NodeSyncResponse{
+			Items: []*flowv1.NodeSync{{
+				Value: &flowv1.NodeSync_ValueUnion{
+					Kind: flowv1.NodeSync_ValueUnion_KIND_DELETE,
+					Delete: &flowv1.NodeSyncDelete{
+						NodeId: node.GetNodeId(),
+					},
+				},
+			}},
+		}
+	default:
+		return nil
+	}
+}
+
+func edgeEventToSyncResponse(evt EdgeEvent) *flowv1.EdgeSyncResponse {
+	if evt.Edge == nil {
+		return nil
+	}
+
+	edgePB := evt.Edge
+
+	switch evt.Type {
+	case edgeEventCreate:
+		create := &flowv1.EdgeSyncCreate{
+			EdgeId:       edgePB.GetEdgeId(),
+			FlowId:       edgePB.GetFlowId(),
+			Kind:         edgePB.GetKind(),
+			SourceId:     edgePB.GetSourceId(),
+			TargetId:     edgePB.GetTargetId(),
+			SourceHandle: edgePB.GetSourceHandle(),
+		}
+		return &flowv1.EdgeSyncResponse{
+			Items: []*flowv1.EdgeSync{{
+				Value: &flowv1.EdgeSync_ValueUnion{
+					Kind:   flowv1.EdgeSync_ValueUnion_KIND_CREATE,
+					Create: create,
+				},
+			}},
+		}
+	case edgeEventUpdate:
+		update := &flowv1.EdgeSyncUpdate{
+			EdgeId: edgePB.GetEdgeId(),
+		}
+		if flowID := edgePB.GetFlowId(); len(flowID) > 0 {
+			update.FlowId = flowID
+		}
+		if kind := edgePB.GetKind(); kind != flowv1.EdgeKind_EDGE_KIND_UNSPECIFIED {
+			k := kind
+			update.Kind = &k
+		}
+		if sourceID := edgePB.GetSourceId(); len(sourceID) > 0 {
+			update.SourceId = sourceID
+		}
+		if targetID := edgePB.GetTargetId(); len(targetID) > 0 {
+			update.TargetId = targetID
+		}
+		if handle := edgePB.GetSourceHandle(); handle != flowv1.Handle_HANDLE_UNSPECIFIED {
+			h := handle
+			update.SourceHandle = &h
+		}
+		return &flowv1.EdgeSyncResponse{
+			Items: []*flowv1.EdgeSync{{
+				Value: &flowv1.EdgeSync_ValueUnion{
+					Kind:   flowv1.EdgeSync_ValueUnion_KIND_UPDATE,
+					Update: update,
+				},
+			}},
+		}
+	case edgeEventDelete:
+		return &flowv1.EdgeSyncResponse{
+			Items: []*flowv1.EdgeSync{{
+				Value: &flowv1.EdgeSync_ValueUnion{
+					Kind: flowv1.EdgeSync_ValueUnion_KIND_DELETE,
+					Delete: &flowv1.EdgeSyncDelete{
+						EdgeId: edgePB.GetEdgeId(),
+					},
+				},
+			}},
+		}
+	default:
+		return nil
+	}
+}
+
+func isStartNode(node mnnode.MNode) bool {
+	if node.NodeKind != mnnode.NODE_KIND_NO_OP {
+		return false
+	}
+	return strings.EqualFold(node.Name, "start")
+}
+
 func (s *FlowServiceV2RPC) buildRequestFlowNode(
 	ctx context.Context,
 	flow mflow.Flow,
@@ -1592,21 +2018,36 @@ func (s *FlowServiceV2RPC) buildRequestFlowNode(
 		Method:       httpRecord.Method,
 	}
 
-	headers, err := s.hh.GetByHttpID(ctx, cfg.HttpID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http headers: %w", err))
+	var headers []mhttp.HTTPHeader
+	if s.hh != nil {
+		headers, err = s.hh.GetByHttpID(ctx, cfg.HttpID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http headers: %w", err))
+		}
 	}
-	queries, err := s.hsp.GetByHttpID(ctx, cfg.HttpID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http queries: %w", err))
+
+	var queries []mhttp.HTTPSearchParam
+	if s.hsp != nil {
+		queries, err = s.hsp.GetByHttpID(ctx, cfg.HttpID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http queries: %w", err))
+		}
 	}
-	forms, err := s.hbf.GetByHttpID(ctx, cfg.HttpID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body forms: %w", err))
+
+	var forms []mhttp.HTTPBodyForm
+	if s.hbf != nil {
+		forms, err = s.hbf.GetByHttpID(ctx, cfg.HttpID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body forms: %w", err))
+		}
 	}
-	urlEncoded, err := s.hbu.List(ctx, cfg.HttpID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body urlencoded: %w", err))
+
+	var urlEncoded []*mhttp.HTTPBodyUrlencoded
+	if s.hbu != nil {
+		urlEncoded, err = s.hbu.List(ctx, cfg.HttpID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body urlencoded: %w", err))
+		}
 	}
 
 	headersOld := convertHTTPHeadersToExampleHeaders(headers, exampleID)
