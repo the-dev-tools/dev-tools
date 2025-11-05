@@ -1,8 +1,10 @@
 import { Array, Data, Effect, MutableHashMap, Option, pipe, Queue, Record, Runtime, Stream } from 'effect';
 import { Ulid } from 'id128';
 import { files } from '@the-dev-tools/spec/files';
-import { Connect, Protobuf } from '~/api-new';
+import { schemas_v1_api as collections } from '@the-dev-tools/spec/tanstack-db/v1/api';
+import { ApiCollectionSchema, Connect, Protobuf } from '~/api-new';
 import { Faker } from '~/utils/faker';
+import { registry } from '~api-new/protobuf';
 import { defaultInterceptors } from './interceptors';
 
 export class UnimplementedMockError extends Data.TaggedError('UnimplementedMockError')<{ reason: string }> {}
@@ -149,15 +151,15 @@ const mockMethod = Effect.fn(function* (method: Protobuf.DescMethod) {
 const getStreamQueue = Effect.fn(function* (method: Protobuf.DescMethod, input?: Protobuf.Message) {
   const { streamQueueMap } = yield* ApiMockState;
 
-  let key = method.input.typeName;
+  let key = method.output.typeName;
   if (input) key += Protobuf.toJsonString(method.input, input);
 
   let queue = pipe(MutableHashMap.get(streamQueueMap, key), Option.getOrUndefined);
 
-  if (!queue) {
-    queue = yield* Queue.unbounded<Protobuf.Message>();
-    MutableHashMap.set(streamQueueMap, key, queue);
-  }
+  if (queue) return queue;
+
+  queue = yield* Queue.unbounded<Protobuf.Message>();
+  MutableHashMap.set(streamQueueMap, key, queue);
 
   return queue;
 });
@@ -179,6 +181,8 @@ class ApiMockState extends Effect.Service<ApiMockState>()('ApiMockState', {
 export class ApiTransportMock extends Effect.Service<ApiTransportMock>()('ApiTransportMock', {
   dependencies: [ApiMockState.Default, Faker.Default],
   effect: Effect.gen(function* () {
+    yield* mockCollections;
+
     const { methodImplMap } = yield* ApiMockState;
 
     const methods = pipe(
@@ -206,3 +210,47 @@ export class ApiTransportMock extends Effect.Service<ApiTransportMock>()('ApiTra
     );
   }),
 }) {}
+
+const mockCollections = Effect.gen(function* () {
+  const runtime = yield* Effect.runtime();
+  const { methodImplMap } = yield* ApiMockState;
+
+  for (const collection of collections as ApiCollectionSchema[]) {
+    const syncQueue = yield* getStreamQueue(collection.sync.method);
+
+    const syncImpl = () => pipe(syncQueue, Stream.fromQueue, Stream.toAsyncIterable);
+    MutableHashMap.set(methodImplMap, collection.sync.method, syncImpl);
+
+    const { delete: delete_, insert, update } = collection.operations;
+
+    const syncUnion = registry.getMessage(`${collection.item.typeName}Sync.ValueUnion`)!;
+
+    const toSyncOutput = Effect.fn(function* (input: Protobuf.Message, operation: string) {
+      const items = (input as Protobuf.Message & { items: Protobuf.Message[] }).items.map((item) => ({
+        value: {
+          kind: syncUnion.field[operation]!.number,
+          [operation]: item,
+        },
+      }));
+
+      const sync = Protobuf.create(collection.sync.method.output, { items });
+
+      yield* Queue.offer(syncQueue, sync);
+    });
+
+    if (insert) {
+      const insertImpl = (input: Protobuf.Message) => toSyncOutput(input, 'create').pipe(Runtime.runPromise(runtime));
+      MutableHashMap.set(methodImplMap, insert, insertImpl);
+    }
+
+    if (update) {
+      const updateImpl = (input: Protobuf.Message) => toSyncOutput(input, 'update').pipe(Runtime.runPromise(runtime));
+      MutableHashMap.set(methodImplMap, update, updateImpl);
+    }
+
+    if (delete_) {
+      const deleteImpl = (input: Protobuf.Message) => toSyncOutput(input, 'delete').pipe(Runtime.runPromise(runtime));
+      MutableHashMap.set(methodImplMap, delete_, deleteImpl);
+    }
+  }
+});

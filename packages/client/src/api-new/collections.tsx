@@ -8,7 +8,7 @@ import { rootRouteApi } from '~/routes';
 import * as Connect from './connect-rpc';
 import * as Protobuf from './protobuf';
 
-interface CollectionSchema {
+export interface ApiCollectionSchema {
   item: Protobuf.DescMessage;
   keys: readonly string[];
 
@@ -29,7 +29,7 @@ interface CollectionSchema {
   };
 }
 
-const createApiCollection = <TSchema extends CollectionSchema>(schema: TSchema, transport: Connect.Transport) => {
+const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchema, transport: Connect.Transport) => {
   type Item = Protobuf.MessageValidType<TSchema['item']>;
   type SpecCollectionOptions = CollectionConfig<Item, string>;
 
@@ -54,7 +54,7 @@ const createApiCollection = <TSchema extends CollectionSchema>(schema: TSchema, 
       begin();
       items.forEach((_) => {
         pipe(
-          _ as Protobuf.MessageUnion,
+          (_ as Protobuf.Message & { value: Protobuf.MessageUnion }).value,
           (_) => Protobuf.toUnion(_) as Protobuf.Message,
           Match.value,
           Match.when(
@@ -160,7 +160,7 @@ const createApiCollection = <TSchema extends CollectionSchema>(schema: TSchema, 
     type Operations = {
       [Key in keyof TSchema['operations']]: (
         input: TSchema['operations'][Key] extends Protobuf.DescMethodUnary<infer Input>
-          ? Protobuf.MessageShape<Input> extends { items: (infer Item)[] }
+          ? Protobuf.MessageInitShape<Input> extends { items?: (infer Item)[] }
             ? Item | Item[]
             : never
           : never,
@@ -179,7 +179,11 @@ const createApiCollection = <TSchema extends CollectionSchema>(schema: TSchema, 
           await waitForSync(mutationTime);
         },
         onMutate: (input) => {
-          params.collection.insert(input);
+          pipe(
+            Array.ensure(input),
+            (_) => Protobuf.create(insert.input, { items: _ }) as Protobuf.Message & { items: Item[] },
+            (_) => params.collection.insert(_.items),
+          );
         },
       });
     }
@@ -193,17 +197,16 @@ const createApiCollection = <TSchema extends CollectionSchema>(schema: TSchema, 
           await waitForSync(mutationTime);
         },
         onMutate: (input) => {
-          const deltaMap = pipe(
+          pipe(
             Array.ensure(input),
-            Array.map((_) => [getKey(_), _] as const),
-            HashMap.fromIterable,
+            (_) => Protobuf.create(update.input, { items: _ }) as Protobuf.Message & { items: Item[] },
+            (_) =>
+              Array.map(_.items, (delta) => {
+                params.collection.update(getKey(delta), (draft: Item) => {
+                  Protobuf.draftDelta(draft, delta, UnsetSchema);
+                });
+              }),
           );
-
-          params.collection.update(HashMap.keys(deltaMap), (draft: Item) => {
-            const key = getKey(draft);
-            const delta = HashMap.unsafeGet(deltaMap, key);
-            Protobuf.draftDelta(draft, delta, UnsetSchema);
-          });
         },
       });
     }
@@ -217,8 +220,12 @@ const createApiCollection = <TSchema extends CollectionSchema>(schema: TSchema, 
           await waitForSync(mutationTime);
         },
         onMutate: (input) => {
-          const keys = pipe(Array.ensure(input), Array.map(getKey));
-          params.collection.delete(keys);
+          pipe(
+            Array.ensure(input),
+            (_) => Protobuf.create(delete_.input, { items: _ }) as Protobuf.Message & { items: Item[] },
+            (_) => Array.map(_.items, getKey),
+            params.collection.delete,
+          );
         },
       });
     }
@@ -244,7 +251,7 @@ export class ApiCollections extends Effect.Service<ApiCollections>()('ApiCollect
     const transport = yield* ApiTransport;
 
     const collections = pipe(
-      Array.map(schemas_v1_api, (schema: CollectionSchema) => {
+      Array.map(schemas_v1_api, (schema: ApiCollectionSchema) => {
         const collection = createApiCollection(schema, transport);
         return [schema, collection] as const;
       }),
@@ -261,13 +268,13 @@ export class ApiCollections extends Effect.Service<ApiCollections>()('ApiCollect
   }),
 }) {}
 
-export const getApiCollection = Effect.fn(function* <TSchema extends CollectionSchema>(schema: TSchema) {
+export const getApiCollection = Effect.fn(function* <TSchema extends ApiCollectionSchema>(schema: TSchema) {
   const collectionMap = yield* ApiCollections;
   const collection = yield* HashMap.get(collectionMap, schema);
   return collection as unknown as ReturnType<typeof createApiCollection<TSchema>>;
 });
 
-export const useApiCollection = <TSchema extends CollectionSchema>(schema: TSchema) => {
+export const useApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchema) => {
   const { runtime } = rootRouteApi.useRouteContext();
   return Runtime.runSync(runtime, getApiCollection(schema));
 };
