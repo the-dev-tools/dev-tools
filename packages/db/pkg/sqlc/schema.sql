@@ -601,18 +601,11 @@ CREATE TABLE flow_node_for_each (
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
 );
 
-CREATE TABLE flow_node_request (
+CREATE TABLE flow_node_http (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  endpoint_id BLOB,
-  example_id BLOB,
-  delta_example_id BLOB,
-  delta_endpoint_id BLOB,
-  has_request_config BOOLEAN NOT NULL DEFAULT FALSE,
+  http_id BLOB NOT NULL,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (endpoint_id) REFERENCES item_api (id) ON DELETE SET NULL,
-  FOREIGN KEY (example_id) REFERENCES item_api_example (id) ON DELETE SET NULL,
-  FOREIGN KEY (delta_example_id) REFERENCES item_api_example (id) ON DELETE SET NULL,
-  FOREIGN KEY (delta_endpoint_id) REFERENCES item_api (id) ON DELETE SET NULL
+  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
 );
 
 -- TODO: move conditions to new condition table
@@ -671,9 +664,10 @@ CREATE TABLE node_execution (
   output_data BLOB, -- Compressed JSON
   output_data_compress_type INT8 NOT NULL DEFAULT 0,
   -- Add new fields
-  response_id BLOB, -- Response ID for REQUEST nodes (NULL for non-request nodes)
+  http_response_id BLOB, -- Response ID for HTTP request nodes (NULL for non-request nodes)
   completed_at BIGINT, -- Unix timestamp in milliseconds
-  FOREIGN KEY (node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+  FOREIGN KEY (node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
+  FOREIGN KEY (http_response_id) REFERENCES http_response (id) ON DELETE SET NULL
 );
 
 CREATE INDEX node_execution_idx1 ON node_execution (node_id);

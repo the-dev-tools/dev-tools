@@ -3,6 +3,8 @@ package snoderequest
 import (
 	"context"
 	"database/sql"
+	"errors"
+
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
@@ -30,59 +32,63 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeRequestService, error) {
 	}, nil
 }
 
-func ConvertToDBNodeRequest(nr mnrequest.MNRequest) gen.FlowNodeRequest {
-	return gen.FlowNodeRequest{
-		FlowNodeID:       nr.FlowNodeID,
-		EndpointID:       nr.EndpointID,
-		ExampleID:        nr.ExampleID,
-		DeltaExampleID:   nr.DeltaExampleID,
-		DeltaEndpointID:  nr.DeltaEndpointID,
-		HasRequestConfig: nr.HasRequestConfig,
+func ConvertToDBNodeHTTP(nr mnrequest.MNRequest) (gen.FlowNodeHttp, bool) {
+	if isZeroID(nr.HttpID) {
+		return gen.FlowNodeHttp{}, false
 	}
+
+	return gen.FlowNodeHttp{
+		FlowNodeID: nr.FlowNodeID,
+		HttpID:     nr.HttpID,
+	}, true
 }
 
-func ConvertToModelNodeRequest(nr gen.FlowNodeRequest) *mnrequest.MNRequest {
-	return &mnrequest.MNRequest{
-		FlowNodeID:       nr.FlowNodeID,
-		EndpointID:       nr.EndpointID,
-		ExampleID:        nr.ExampleID,
-		DeltaExampleID:   nr.DeltaExampleID,
-		DeltaEndpointID:  nr.DeltaEndpointID,
-		HasRequestConfig: nr.HasRequestConfig,
+func ConvertToModelNodeHTTP(nr gen.FlowNodeHttp) *mnrequest.MNRequest {
+	result := &mnrequest.MNRequest{
+		FlowNodeID: nr.FlowNodeID,
+		HttpID:     nr.HttpID,
 	}
+	result.HasRequestConfig = !isZeroID(nr.HttpID)
+	return result
+}
+
+func isZeroID(id idwrap.IDWrap) bool {
+	return id == idwrap.IDWrap{}
 }
 
 func (nrs NodeRequestService) GetNodeRequest(ctx context.Context, id idwrap.IDWrap) (*mnrequest.MNRequest, error) {
-	nodeRequest, err := nrs.queries.GetFlowNodeRequest(ctx, id)
+	nodeHTTP, err := nrs.queries.GetFlowNodeHTTP(ctx, id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
-	return ConvertToModelNodeRequest(nodeRequest), nil
+	return ConvertToModelNodeHTTP(nodeHTTP), nil
 }
 
 func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
-	nodeRequest := ConvertToDBNodeRequest(nr)
-	return nrs.queries.CreateFlowNodeRequest(ctx, gen.CreateFlowNodeRequestParams{
-		FlowNodeID:       nodeRequest.FlowNodeID,
-		EndpointID:       nodeRequest.EndpointID,
-		ExampleID:        nodeRequest.ExampleID,
-		DeltaExampleID:   nodeRequest.DeltaExampleID,
-		DeltaEndpointID:  nodeRequest.DeltaEndpointID,
-		HasRequestConfig: nodeRequest.HasRequestConfig,
+	nodeHTTP, ok := ConvertToDBNodeHTTP(nr)
+	if !ok {
+		return nil
+	}
+	return nrs.queries.CreateFlowNodeHTTP(ctx, gen.CreateFlowNodeHTTPParams{
+		FlowNodeID: nodeHTTP.FlowNodeID,
+		HttpID:     nodeHTTP.HttpID,
 	})
 }
 
-func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nr []mnrequest.MNRequest) error {
-	for _, nodeRequest := range nr {
-		err := nrs.queries.CreateFlowNodeRequest(ctx, gen.CreateFlowNodeRequestParams{
-			FlowNodeID:       nodeRequest.FlowNodeID,
-			EndpointID:       nodeRequest.EndpointID,
-			ExampleID:        nodeRequest.ExampleID,
-			DeltaExampleID:   nodeRequest.DeltaExampleID,
-			DeltaEndpointID:  nodeRequest.DeltaEndpointID,
-			HasRequestConfig: nodeRequest.HasRequestConfig,
-		})
-		if err != nil {
+func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nodes []mnrequest.MNRequest) error {
+	for _, node := range nodes {
+		nodeHTTP, ok := ConvertToDBNodeHTTP(node)
+		if !ok {
+			continue
+		}
+
+		if err := nrs.queries.CreateFlowNodeHTTP(ctx, gen.CreateFlowNodeHTTPParams{
+			FlowNodeID: nodeHTTP.FlowNodeID,
+			HttpID:     nodeHTTP.HttpID,
+		}); err != nil {
 			return err
 		}
 	}
@@ -90,21 +96,20 @@ func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nr []mn
 }
 
 func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnrequest.MNRequest) error {
-	nodeRequest := ConvertToDBNodeRequest(nr)
-	return nrs.queries.UpdateFlowNodeRequest(ctx, gen.UpdateFlowNodeRequestParams{
-		FlowNodeID:       nodeRequest.FlowNodeID,
-		EndpointID:       nodeRequest.EndpointID,
-		ExampleID:        nodeRequest.ExampleID,
-		DeltaExampleID:   nodeRequest.DeltaExampleID,
-		DeltaEndpointID:  nodeRequest.DeltaEndpointID,
-		HasRequestConfig: nodeRequest.HasRequestConfig,
+	nodeHTTP, ok := ConvertToDBNodeHTTP(nr)
+	if !ok {
+		// Treat removal of HttpID as request to delete any existing binding.
+		if err := nrs.queries.DeleteFlowNodeHTTP(ctx, nr.FlowNodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		return nil
+	}
+	return nrs.queries.UpdateFlowNodeHTTP(ctx, gen.UpdateFlowNodeHTTPParams{
+		FlowNodeID: nodeHTTP.FlowNodeID,
+		HttpID:     nodeHTTP.HttpID,
 	})
 }
 
 func (nrs NodeRequestService) DeleteNodeRequest(ctx context.Context, id idwrap.IDWrap) error {
-	err := nrs.queries.DeleteFlowNodeRequest(ctx, id)
-	if err != nil {
-		return err
-	}
-	return nil
+	return nrs.queries.DeleteFlowNodeHTTP(ctx, id)
 }

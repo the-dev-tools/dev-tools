@@ -964,6 +964,26 @@ func (q *Queries) CreateFlowNodeForEach(ctx context.Context, arg CreateFlowNodeF
 	return err
 }
 
+const createFlowNodeHTTP = `-- name: CreateFlowNodeHTTP :exec
+INSERT INTO
+  flow_node_http (
+    flow_node_id,
+    http_id
+  )
+VALUES
+  (?, ?)
+`
+
+type CreateFlowNodeHTTPParams struct {
+	FlowNodeID idwrap.IDWrap
+	HttpID     idwrap.IDWrap
+}
+
+func (q *Queries) CreateFlowNodeHTTP(ctx context.Context, arg CreateFlowNodeHTTPParams) error {
+	_, err := q.exec(ctx, q.createFlowNodeHTTPStmt, createFlowNodeHTTP, arg.FlowNodeID, arg.HttpID)
+	return err
+}
+
 const createFlowNodeJs = `-- name: CreateFlowNodeJs :exec
 INSERT INTO
   flow_node_js (flow_node_id, code, code_compress_type)
@@ -996,41 +1016,6 @@ type CreateFlowNodeNoopParams struct {
 
 func (q *Queries) CreateFlowNodeNoop(ctx context.Context, arg CreateFlowNodeNoopParams) error {
 	_, err := q.exec(ctx, q.createFlowNodeNoopStmt, createFlowNodeNoop, arg.FlowNodeID, arg.NodeType)
-	return err
-}
-
-const createFlowNodeRequest = `-- name: CreateFlowNodeRequest :exec
-INSERT INTO
-  flow_node_request (
-    flow_node_id,
-    endpoint_id,
-    example_id,
-    delta_example_id,
-    delta_endpoint_id,
-    has_request_config
-  )
-VALUES
-  (?, ?, ?, ?, ?, ?)
-`
-
-type CreateFlowNodeRequestParams struct {
-	FlowNodeID       idwrap.IDWrap
-	EndpointID       *idwrap.IDWrap
-	ExampleID        *idwrap.IDWrap
-	DeltaExampleID   *idwrap.IDWrap
-	DeltaEndpointID  *idwrap.IDWrap
-	HasRequestConfig bool
-}
-
-func (q *Queries) CreateFlowNodeRequest(ctx context.Context, arg CreateFlowNodeRequestParams) error {
-	_, err := q.exec(ctx, q.createFlowNodeRequestStmt, createFlowNodeRequest,
-		arg.FlowNodeID,
-		arg.EndpointID,
-		arg.ExampleID,
-		arg.DeltaExampleID,
-		arg.DeltaEndpointID,
-		arg.HasRequestConfig,
-	)
 	return err
 }
 
@@ -3789,10 +3774,10 @@ func (q *Queries) CreateMigration(ctx context.Context, arg CreateMigrationParams
 const createNodeExecution = `-- name: CreateNodeExecution :one
 INSERT INTO node_execution (
   id, node_id, name, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, response_id, completed_at
+  output_data, output_data_compress_type, http_response_id, completed_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
+RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
 `
 
 type CreateNodeExecutionParams struct {
@@ -3805,7 +3790,7 @@ type CreateNodeExecutionParams struct {
 	InputDataCompressType  int8
 	OutputData             []byte
 	OutputDataCompressType int8
-	ResponseID             []byte
+	HttpResponseID         *idwrap.IDWrap
 	CompletedAt            sql.NullInt64
 }
 
@@ -3820,7 +3805,7 @@ func (q *Queries) CreateNodeExecution(ctx context.Context, arg CreateNodeExecuti
 		arg.InputDataCompressType,
 		arg.OutputData,
 		arg.OutputDataCompressType,
-		arg.ResponseID,
+		arg.HttpResponseID,
 		arg.CompletedAt,
 	)
 	var i NodeExecution
@@ -3834,7 +3819,7 @@ func (q *Queries) CreateNodeExecution(ctx context.Context, arg CreateNodeExecuti
 		&i.InputDataCompressType,
 		&i.OutputData,
 		&i.OutputDataCompressType,
-		&i.ResponseID,
+		&i.HttpResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
@@ -4419,6 +4404,17 @@ func (q *Queries) DeleteFlowNodeForEach(ctx context.Context, flowNodeID idwrap.I
 	return err
 }
 
+const deleteFlowNodeHTTP = `-- name: DeleteFlowNodeHTTP :exec
+DELETE FROM flow_node_http
+WHERE
+  flow_node_id = ?
+`
+
+func (q *Queries) DeleteFlowNodeHTTP(ctx context.Context, flowNodeID idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteFlowNodeHTTPStmt, deleteFlowNodeHTTP, flowNodeID)
+	return err
+}
+
 const deleteFlowNodeJs = `-- name: DeleteFlowNodeJs :exec
 DELETE FROM flow_node_js
 WHERE
@@ -4438,17 +4434,6 @@ WHERE
 
 func (q *Queries) DeleteFlowNodeNoop(ctx context.Context, flowNodeID idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteFlowNodeNoopStmt, deleteFlowNodeNoop, flowNodeID)
-	return err
-}
-
-const deleteFlowNodeRequest = `-- name: DeleteFlowNodeRequest :exec
-DELETE FROM flow_node_request
-WHERE
-  flow_node_id = ?
-`
-
-func (q *Queries) DeleteFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWrap) error {
-	_, err := q.exec(ctx, q.deleteFlowNodeRequestStmt, deleteFlowNodeRequest, flowNodeID)
 	return err
 }
 
@@ -8595,6 +8580,24 @@ func (q *Queries) GetFlowNodeForEach(ctx context.Context, flowNodeID idwrap.IDWr
 	return i, err
 }
 
+const getFlowNodeHTTP = `-- name: GetFlowNodeHTTP :one
+SELECT
+  flow_node_id,
+  http_id
+FROM
+  flow_node_http
+WHERE
+  flow_node_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetFlowNodeHTTP(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeHttp, error) {
+	row := q.queryRow(ctx, q.getFlowNodeHTTPStmt, getFlowNodeHTTP, flowNodeID)
+	var i FlowNodeHttp
+	err := row.Scan(&i.FlowNodeID, &i.HttpID)
+	return i, err
+}
+
 const getFlowNodeJs = `-- name: GetFlowNodeJs :one
 SELECT
   flow_node_id,
@@ -8629,35 +8632,6 @@ func (q *Queries) GetFlowNodeNoop(ctx context.Context, flowNodeID idwrap.IDWrap)
 	row := q.queryRow(ctx, q.getFlowNodeNoopStmt, getFlowNodeNoop, flowNodeID)
 	var i FlowNodeNoop
 	err := row.Scan(&i.FlowNodeID, &i.NodeType)
-	return i, err
-}
-
-const getFlowNodeRequest = `-- name: GetFlowNodeRequest :one
-SELECT
-  flow_node_id,
-  endpoint_id,
-  example_id,
-  delta_example_id,
-  delta_endpoint_id,
-  has_request_config
-FROM
-  flow_node_request
-WHERE
-  flow_node_id = ?
-LIMIT 1
-`
-
-func (q *Queries) GetFlowNodeRequest(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeRequest, error) {
-	row := q.queryRow(ctx, q.getFlowNodeRequestStmt, getFlowNodeRequest, flowNodeID)
-	var i FlowNodeRequest
-	err := row.Scan(
-		&i.FlowNodeID,
-		&i.EndpointID,
-		&i.ExampleID,
-		&i.DeltaExampleID,
-		&i.DeltaEndpointID,
-		&i.HasRequestConfig,
-	)
 	return i, err
 }
 
@@ -12402,7 +12376,7 @@ func (q *Queries) GetItemsApiByFolderID(ctx context.Context, folderID *idwrap.ID
 }
 
 const getLatestNodeExecutionByNodeID = `-- name: GetLatestNodeExecutionByNodeID :one
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
 FROM node_execution
 WHERE node_id = ? AND completed_at IS NOT NULL
 ORDER BY completed_at DESC, id DESC
@@ -12422,7 +12396,7 @@ func (q *Queries) GetLatestNodeExecutionByNodeID(ctx context.Context, nodeID idw
 		&i.InputDataCompressType,
 		&i.OutputData,
 		&i.OutputDataCompressType,
-		&i.ResponseID,
+		&i.HttpResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
@@ -12492,7 +12466,7 @@ func (q *Queries) GetMigrations(ctx context.Context) ([]Migration, error) {
 }
 
 const getNodeExecution = `-- name: GetNodeExecution :one
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at FROM node_execution
 WHERE id = ?
 `
 
@@ -12510,14 +12484,14 @@ func (q *Queries) GetNodeExecution(ctx context.Context, id idwrap.IDWrap) (NodeE
 		&i.InputDataCompressType,
 		&i.OutputData,
 		&i.OutputDataCompressType,
-		&i.ResponseID,
+		&i.HttpResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
 }
 
 const getNodeExecutionsByNodeID = `-- name: GetNodeExecutionsByNodeID :many
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
 FROM node_execution
 WHERE node_id = ? AND completed_at IS NOT NULL
 ORDER BY completed_at DESC, id DESC
@@ -12542,7 +12516,7 @@ func (q *Queries) GetNodeExecutionsByNodeID(ctx context.Context, nodeID idwrap.I
 			&i.InputDataCompressType,
 			&i.OutputData,
 			&i.OutputDataCompressType,
-			&i.ResponseID,
+			&i.HttpResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -13576,7 +13550,7 @@ func (q *Queries) GetWorkspacesByUserIDOrdered(ctx context.Context, arg GetWorks
 }
 
 const listNodeExecutions = `-- name: ListNodeExecutions :many
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at FROM node_execution
 WHERE node_id = ?
 ORDER BY completed_at DESC
 LIMIT ? OFFSET ?
@@ -13607,7 +13581,7 @@ func (q *Queries) ListNodeExecutions(ctx context.Context, arg ListNodeExecutions
 			&i.InputDataCompressType,
 			&i.OutputData,
 			&i.OutputDataCompressType,
-			&i.ResponseID,
+			&i.HttpResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -13624,7 +13598,7 @@ func (q *Queries) ListNodeExecutions(ctx context.Context, arg ListNodeExecutions
 }
 
 const listNodeExecutionsByFlowRun = `-- name: ListNodeExecutionsByFlowRun :many
-SELECT ne.id, ne.node_id, ne.name, ne.state, ne.error, ne.input_data, ne.input_data_compress_type, ne.output_data, ne.output_data_compress_type, ne.response_id, ne.completed_at FROM node_execution ne
+SELECT ne.id, ne.node_id, ne.name, ne.state, ne.error, ne.input_data, ne.input_data_compress_type, ne.output_data, ne.output_data_compress_type, ne.http_response_id, ne.completed_at FROM node_execution ne
 JOIN flow_node fn ON ne.node_id = fn.id
 WHERE fn.flow_id = ?
 ORDER BY ne.completed_at DESC
@@ -13649,7 +13623,7 @@ func (q *Queries) ListNodeExecutionsByFlowRun(ctx context.Context, flowID idwrap
 			&i.InputDataCompressType,
 			&i.OutputData,
 			&i.OutputDataCompressType,
-			&i.ResponseID,
+			&i.HttpResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -13666,7 +13640,7 @@ func (q *Queries) ListNodeExecutionsByFlowRun(ctx context.Context, flowID idwrap
 }
 
 const listNodeExecutionsByState = `-- name: ListNodeExecutionsByState :many
-SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at FROM node_execution
+SELECT id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at FROM node_execution
 WHERE node_id = ? AND state = ?
 ORDER BY completed_at DESC
 LIMIT ? OFFSET ?
@@ -13703,7 +13677,7 @@ func (q *Queries) ListNodeExecutionsByState(ctx context.Context, arg ListNodeExe
 			&i.InputDataCompressType,
 			&i.OutputData,
 			&i.OutputDataCompressType,
-			&i.ResponseID,
+			&i.HttpResponseID,
 			&i.CompletedAt,
 		); err != nil {
 			return nil, err
@@ -14509,6 +14483,24 @@ func (q *Queries) UpdateFlowNodeForEach(ctx context.Context, arg UpdateFlowNodeF
 	return err
 }
 
+const updateFlowNodeHTTP = `-- name: UpdateFlowNodeHTTP :exec
+UPDATE flow_node_http
+SET
+  http_id = ?
+WHERE
+  flow_node_id = ?
+`
+
+type UpdateFlowNodeHTTPParams struct {
+	HttpID     idwrap.IDWrap
+	FlowNodeID idwrap.IDWrap
+}
+
+func (q *Queries) UpdateFlowNodeHTTP(ctx context.Context, arg UpdateFlowNodeHTTPParams) error {
+	_, err := q.exec(ctx, q.updateFlowNodeHTTPStmt, updateFlowNodeHTTP, arg.HttpID, arg.FlowNodeID)
+	return err
+}
+
 const updateFlowNodeJs = `-- name: UpdateFlowNodeJs :exec
 UPDATE flow_node_js
 SET
@@ -14526,39 +14518,6 @@ type UpdateFlowNodeJsParams struct {
 
 func (q *Queries) UpdateFlowNodeJs(ctx context.Context, arg UpdateFlowNodeJsParams) error {
 	_, err := q.exec(ctx, q.updateFlowNodeJsStmt, updateFlowNodeJs, arg.Code, arg.CodeCompressType, arg.FlowNodeID)
-	return err
-}
-
-const updateFlowNodeRequest = `-- name: UpdateFlowNodeRequest :exec
-UPDATE flow_node_request
-SET
-  endpoint_id = ?,
-  example_id = ?,
-  delta_example_id = ?,
-  delta_endpoint_id = ?,
-  has_request_config = ?
-WHERE
-  flow_node_id = ?
-`
-
-type UpdateFlowNodeRequestParams struct {
-	EndpointID       *idwrap.IDWrap
-	ExampleID        *idwrap.IDWrap
-	DeltaExampleID   *idwrap.IDWrap
-	DeltaEndpointID  *idwrap.IDWrap
-	HasRequestConfig bool
-	FlowNodeID       idwrap.IDWrap
-}
-
-func (q *Queries) UpdateFlowNodeRequest(ctx context.Context, arg UpdateFlowNodeRequestParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeRequestStmt, updateFlowNodeRequest,
-		arg.EndpointID,
-		arg.ExampleID,
-		arg.DeltaExampleID,
-		arg.DeltaEndpointID,
-		arg.HasRequestConfig,
-		arg.FlowNodeID,
-	)
 	return err
 }
 
@@ -15436,9 +15395,9 @@ func (q *Queries) UpdateItemFolderOrder(ctx context.Context, arg UpdateItemFolde
 const updateNodeExecution = `-- name: UpdateNodeExecution :one
 UPDATE node_execution
 SET state = ?, error = ?, output_data = ?, 
-    output_data_compress_type = ?, response_id = ?, completed_at = ?
+    output_data_compress_type = ?, http_response_id = ?, completed_at = ?
 WHERE id = ?
-RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
+RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
 `
 
 type UpdateNodeExecutionParams struct {
@@ -15446,7 +15405,7 @@ type UpdateNodeExecutionParams struct {
 	Error                  sql.NullString
 	OutputData             []byte
 	OutputDataCompressType int8
-	ResponseID             []byte
+	HttpResponseID         *idwrap.IDWrap
 	CompletedAt            sql.NullInt64
 	ID                     idwrap.IDWrap
 }
@@ -15457,7 +15416,7 @@ func (q *Queries) UpdateNodeExecution(ctx context.Context, arg UpdateNodeExecuti
 		arg.Error,
 		arg.OutputData,
 		arg.OutputDataCompressType,
-		arg.ResponseID,
+		arg.HttpResponseID,
 		arg.CompletedAt,
 		arg.ID,
 	)
@@ -15472,7 +15431,7 @@ func (q *Queries) UpdateNodeExecution(ctx context.Context, arg UpdateNodeExecuti
 		&i.InputDataCompressType,
 		&i.OutputData,
 		&i.OutputDataCompressType,
-		&i.ResponseID,
+		&i.HttpResponseID,
 		&i.CompletedAt,
 	)
 	return i, err
@@ -15762,7 +15721,7 @@ func (q *Queries) UpdateWorkspaceUser(ctx context.Context, arg UpdateWorkspaceUs
 const upsertNodeExecution = `-- name: UpsertNodeExecution :one
 INSERT INTO node_execution (
   id, node_id, name, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, response_id, completed_at
+  output_data, output_data_compress_type, http_response_id, completed_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
@@ -15772,9 +15731,9 @@ ON CONFLICT(id) DO UPDATE SET
   input_data_compress_type = excluded.input_data_compress_type,
   output_data = excluded.output_data,
   output_data_compress_type = excluded.output_data_compress_type,
-  response_id = excluded.response_id,
+  http_response_id = excluded.http_response_id,
   completed_at = excluded.completed_at
-RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, response_id, completed_at
+RETURNING id, node_id, name, state, error, input_data, input_data_compress_type, output_data, output_data_compress_type, http_response_id, completed_at
 `
 
 type UpsertNodeExecutionParams struct {
@@ -15787,7 +15746,7 @@ type UpsertNodeExecutionParams struct {
 	InputDataCompressType  int8
 	OutputData             []byte
 	OutputDataCompressType int8
-	ResponseID             []byte
+	HttpResponseID         *idwrap.IDWrap
 	CompletedAt            sql.NullInt64
 }
 
@@ -15802,7 +15761,7 @@ func (q *Queries) UpsertNodeExecution(ctx context.Context, arg UpsertNodeExecuti
 		arg.InputDataCompressType,
 		arg.OutputData,
 		arg.OutputDataCompressType,
-		arg.ResponseID,
+		arg.HttpResponseID,
 		arg.CompletedAt,
 	)
 	var i NodeExecution
@@ -15816,7 +15775,7 @@ func (q *Queries) UpsertNodeExecution(ctx context.Context, arg UpsertNodeExecuti
 		&i.InputDataCompressType,
 		&i.OutputData,
 		&i.OutputDataCompressType,
-		&i.ResponseID,
+		&i.HttpResponseID,
 		&i.CompletedAt,
 	)
 	return i, err

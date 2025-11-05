@@ -277,6 +277,11 @@ type FlowNodeForEach struct {
 	Expression     string
 }
 
+type FlowNodeHttp struct {
+	FlowNodeID idwrap.IDWrap
+	HttpID     idwrap.IDWrap
+}
+
 type FlowNodeJ struct {
 	FlowNodeID       idwrap.IDWrap
 	Code             []byte
@@ -286,15 +291,6 @@ type FlowNodeJ struct {
 type FlowNodeNoop struct {
 	FlowNodeID idwrap.IDWrap
 	NodeType   int16
-}
-
-type FlowNodeRequest struct {
-	FlowNodeID       idwrap.IDWrap
-	EndpointID       *idwrap.IDWrap
-	ExampleID        *idwrap.IDWrap
-	DeltaExampleID   *idwrap.IDWrap
-	DeltaEndpointID  *idwrap.IDWrap
-	HasRequestConfig bool
 }
 
 type FlowTag struct {
@@ -528,7 +524,7 @@ type NodeExecution struct {
 	InputDataCompressType  int8
 	OutputData             []byte
 	OutputDataCompressType int8
-	ResponseID             []byte
+	HttpResponseID         *idwrap.IDWrap
 	CompletedAt            sql.NullInt64
 }
 

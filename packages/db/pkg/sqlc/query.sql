@@ -3173,46 +3173,34 @@ DELETE FROM flow_node_for_each
 WHERE
   flow_node_id = ?;
 
--- name: GetFlowNodeRequest :one
+-- name: GetFlowNodeHTTP :one
 SELECT
   flow_node_id,
-  endpoint_id,
-  example_id,
-  delta_example_id,
-  delta_endpoint_id,
-  has_request_config
+  http_id
 FROM
-  flow_node_request
+  flow_node_http
 WHERE
   flow_node_id = ?
 LIMIT 1;
 
--- name: CreateFlowNodeRequest :exec
+-- name: CreateFlowNodeHTTP :exec
 INSERT INTO
-  flow_node_request (
+  flow_node_http (
     flow_node_id,
-    endpoint_id,
-    example_id,
-    delta_example_id,
-    delta_endpoint_id,
-    has_request_config
+    http_id
   )
 VALUES
-  (?, ?, ?, ?, ?, ?);
+  (?, ?);
 
--- name: UpdateFlowNodeRequest :exec
-UPDATE flow_node_request
+-- name: UpdateFlowNodeHTTP :exec
+UPDATE flow_node_http
 SET
-  endpoint_id = ?,
-  example_id = ?,
-  delta_example_id = ?,
-  delta_endpoint_id = ?,
-  has_request_config = ?
+  http_id = ?
 WHERE
   flow_node_id = ?;
 
--- name: DeleteFlowNodeRequest :exec
-DELETE FROM flow_node_request
+-- name: DeleteFlowNodeHTTP :exec
+DELETE FROM flow_node_http
 WHERE
   flow_node_id = ?;
 
@@ -3505,7 +3493,7 @@ ORDER BY ne.completed_at DESC;
 -- name: CreateNodeExecution :one
 INSERT INTO node_execution (
   id, node_id, name, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, response_id, completed_at
+  output_data, output_data_compress_type, http_response_id, completed_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
@@ -3513,14 +3501,14 @@ RETURNING *;
 -- name: UpdateNodeExecution :one
 UPDATE node_execution
 SET state = ?, error = ?, output_data = ?, 
-    output_data_compress_type = ?, response_id = ?, completed_at = ?
+    output_data_compress_type = ?, http_response_id = ?, completed_at = ?
 WHERE id = ?
 RETURNING *;
 
 -- name: UpsertNodeExecution :one
 INSERT INTO node_execution (
   id, node_id, name, state, error, input_data, input_data_compress_type,
-  output_data, output_data_compress_type, response_id, completed_at
+  output_data, output_data_compress_type, http_response_id, completed_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
@@ -3530,7 +3518,7 @@ ON CONFLICT(id) DO UPDATE SET
   input_data_compress_type = excluded.input_data_compress_type,
   output_data = excluded.output_data,
   output_data_compress_type = excluded.output_data_compress_type,
-  response_id = excluded.response_id,
+  http_response_id = excluded.http_response_id,
   completed_at = excluded.completed_at
 RETURNING *;
 

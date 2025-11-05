@@ -10,6 +10,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"connectrpc.com/connect"
+
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/tursolocal"
@@ -18,8 +21,8 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwcompress"
 	// "the-dev-tools/server/internal/api/redge"
 	"the-dev-tools/server/internal/api/renv"
+	"the-dev-tools/server/internal/api/rflowv2"
 
-	// "the-dev-tools/server/internal/api/rflow"
 	// "the-dev-tools/server/internal/api/rflowvariable"
 	// "the-dev-tools/server/internal/api/rhealth"
 	"the-dev-tools/server/internal/api/rhttp"
@@ -34,7 +37,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream/memory"
 	// "the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/muser"
-	// "the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/flow/sedge"
 	// "the-dev-tools/server/pkg/service/sassert"
 	// "the-dev-tools/server/pkg/service/sassertres"
 	// "the-dev-tools/server/pkg/service/sbodyform"
@@ -46,7 +49,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	// "the-dev-tools/server/pkg/service/sexamplerespheader"
-	// "the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflow"
 	// "the-dev-tools/server/pkg/service/sflowtag"
 	// "the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -58,21 +61,19 @@ import (
 	// "the-dev-tools/server/pkg/service/sitemapi"
 	// "the-dev-tools/server/pkg/service/sitemapiexample"
 
-	// "the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snode"
 	// "the-dev-tools/server/pkg/service/snodeexecution"
 	// "the-dev-tools/server/pkg/service/snodefor"
 	// "the-dev-tools/server/pkg/service/snodeforeach"
 	// "the-dev-tools/server/pkg/service/snodeif"
 	// "the-dev-tools/server/pkg/service/snodejs"
 	// "the-dev-tools/server/pkg/service/snodenoop"
-	// "the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/snoderequest"
 	// "the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
-
-	"connectrpc.com/connect"
 )
 
 func main() {
@@ -168,14 +169,14 @@ func main() {
 	httpAssertService := shttpassert.New(queries)
 
 	// Flow
-	// flowService := sflow.New(queries)
+	flowService := sflow.New(queries)
 	// flowTagService := sflowtag.New(queries)
-	// flowEdgeService := sedge.New(queries)
+	flowEdgeService := sedge.New(queries)
 	// flowVariableService := sflowvariable.New(queries)
 
 	// nodes
-	// flowNodeService := snode.New(queries)
-	// flowNodeRequestSevice := snoderequest.New(queries)
+	flowNodeService := snode.New(queries)
+	flowNodeRequestSevice := snoderequest.New(queries)
 	// flowNodeForService := snodefor.New(queries)
 	// flowNodeForeachService := snodeforeach.New(queries)
 	// flowNodeCondition := snodeif.New(queries)
@@ -256,6 +257,9 @@ func main() {
 
 	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, opitonsAll))
+
+	flowSrvV2 := rflowv2.New(&workspaceService, &flowService, &flowEdgeService, &flowNodeService, &flowNodeRequestSevice)
+	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, opitonsAll))
 
 	// Var Service
 	// varSrv := rvar.New(currentDB, userService, environmentService, variableService)
