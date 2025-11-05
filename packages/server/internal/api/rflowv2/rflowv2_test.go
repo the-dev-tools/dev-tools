@@ -20,6 +20,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodefor"
 	"the-dev-tools/server/pkg/service/snodeforeach"
@@ -58,6 +59,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	nodeConditionService := snodeif.New(base.Queries)
 	nodeNoOpService := snodenoop.New(base.Queries)
 	nodeJsService := snodejs.New(base.Queries)
+	flowVariableService := sflowvariable.New(base.Queries)
 
 	flowID := idwrap.NewNow()
 	require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
@@ -77,6 +79,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		nodeConditionService,
 		&nodeNoOpService,
 		&nodeJsService,
+		&flowVariableService,
 	)
 
 	ctx := mwauth.CreateAuthedContext(context.Background(), userID)
@@ -559,6 +562,71 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		_, err = edgeService.GetEdge(context.Background(), edgeID)
 		require.Error(t, err)
 	})
+
+	t.Run("flow variable lifecycle", func(t *testing.T) {
+		newCollectionReq := func() *connect.Request[emptypb.Empty] {
+			req := connect.NewRequest(&emptypb.Empty{})
+			req.Header().Set("flow-id", flowID.String())
+			return req
+		}
+
+		resp, err := srv.FlowVariableCollection(ctx, newCollectionReq())
+		require.NoError(t, err)
+		require.Empty(t, resp.Msg.GetItems())
+
+		_, err = srv.FlowVariableCreate(ctx, connect.NewRequest(&flowv1.FlowVariableCreateRequest{
+			Items: []*flowv1.FlowVariableCreate{{
+				FlowId:      flowID.Bytes(),
+				Key:         "API_KEY",
+				Value:       "secret",
+				Enabled:     true,
+				Description: "initial",
+			}},
+		}))
+		require.NoError(t, err)
+
+		resp, err = srv.FlowVariableCollection(ctx, newCollectionReq())
+		require.NoError(t, err)
+		require.Len(t, resp.Msg.GetItems(), 1)
+
+		variable := resp.Msg.GetItems()[0]
+		require.Equal(t, "API_KEY", variable.GetKey())
+		require.True(t, variable.GetEnabled())
+		require.Equal(t, "secret", variable.GetValue())
+		require.Equal(t, "initial", variable.GetDescription())
+
+		_, err = srv.FlowVariableUpdate(ctx, connect.NewRequest(&flowv1.FlowVariableUpdateRequest{
+			Items: []*flowv1.FlowVariableUpdate{{
+				FlowVariableId: variable.GetFlowVariableId(),
+				Key:            ptrString("UPDATED_KEY"),
+				Value:          ptrString("updated"),
+				Enabled:        ptrBool(false),
+				Description:    ptrString("updated"),
+			}},
+		}))
+		require.NoError(t, err)
+
+		resp, err = srv.FlowVariableCollection(ctx, newCollectionReq())
+		require.NoError(t, err)
+		require.Len(t, resp.Msg.GetItems(), 1)
+
+		updated := resp.Msg.GetItems()[0]
+		require.Equal(t, "UPDATED_KEY", updated.GetKey())
+		require.False(t, updated.GetEnabled())
+		require.Equal(t, "updated", updated.GetValue())
+		require.Equal(t, "updated", updated.GetDescription())
+
+		_, err = srv.FlowVariableDelete(ctx, connect.NewRequest(&flowv1.FlowVariableDeleteRequest{
+			Items: []*flowv1.FlowVariableDelete{{
+				FlowVariableId: updated.GetFlowVariableId(),
+			}},
+		}))
+		require.NoError(t, err)
+
+		resp, err = srv.FlowVariableCollection(ctx, newCollectionReq())
+		require.NoError(t, err)
+		require.Empty(t, resp.Msg.GetItems())
+	})
 }
 
 func createWorkspaceMembership(t *testing.T, ws sworkspace.WorkspaceService, wus sworkspacesusers.WorkspaceUserService, userID idwrap.IDWrap) idwrap.IDWrap {
@@ -596,6 +664,10 @@ func ptrInt32(v int32) *int32 {
 }
 
 func ptrHandle(v flowv1.Handle) *flowv1.Handle {
+	return &v
+}
+
+func ptrBool(v bool) *bool {
 	return &v
 }
 

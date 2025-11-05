@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -31,6 +32,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodefor"
 	"the-dev-tools/server/pkg/service/snodeforeach"
@@ -56,6 +58,7 @@ type FlowServiceV2RPC struct {
 	nifs *snodeif.NodeIfService
 	nnos *snodenoop.NodeNoopService
 	njss *snodejs.NodeJSService
+	fvs  *sflowvariable.FlowVariableService
 }
 
 func New(
@@ -69,6 +72,7 @@ func New(
 	nifs *snodeif.NodeIfService,
 	nnos *snodenoop.NodeNoopService,
 	njss *snodejs.NodeJSService,
+	fvs *sflowvariable.FlowVariableService,
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		ws:   ws,
@@ -81,6 +85,7 @@ func New(
 		nifs: nifs,
 		nnos: nnos,
 		njss: njss,
+		fvs:  fvs,
 	}
 }
 
@@ -395,20 +400,162 @@ func (s *FlowServiceV2RPC) FlowVersionSync(context.Context, *connect.Request[emp
 	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) FlowVariableCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.FlowVariableCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowVariableCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.FlowVariableCollectionResponse], error) {
+	flowID, err := flowIDFromHeaders(req.Header())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+		return nil, err
+	}
+
+	variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flowID)
+	if err != nil {
+		if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+			variables = nil
+		} else {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	items := make([]*flowv1.FlowVariable, 0, len(variables))
+	for idx, variable := range variables {
+		items = append(items, serializeFlowVariable(variable, float32(idx)))
+	}
+
+	return connect.NewResponse(&flowv1.FlowVariableCollectionResponse{Items: items}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowVariableCreate(context.Context, *connect.Request[flowv1.FlowVariableCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowVariableCreate(ctx context.Context, req *connect.Request[flowv1.FlowVariableCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		if len(item.GetFlowId()) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
+		}
+
+		flowID, err := idwrap.NewFromBytes(item.GetFlowId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
+		}
+
+		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+			return nil, err
+		}
+
+		variableID := idwrap.NewNow()
+		if len(item.GetFlowVariableId()) != 0 {
+			variableID, err = idwrap.NewFromBytes(item.GetFlowVariableId())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow variable id: %w", err))
+			}
+		}
+
+		key := strings.TrimSpace(item.GetKey())
+		if key == "" {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable key is required"))
+		}
+
+		variable := mflowvariable.FlowVariable{
+			ID:          variableID,
+			FlowID:      flowID,
+			Name:        key,
+			Value:       item.GetValue(),
+			Enabled:     item.GetEnabled(),
+			Description: item.GetDescription(),
+		}
+
+		if err := s.fvs.CreateFlowVariable(ctx, variable); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowVariableUpdate(context.Context, *connect.Request[flowv1.FlowVariableUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.Request[flowv1.FlowVariableUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		if len(item.GetFlowVariableId()) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable id is required"))
+		}
+
+		variableID, err := idwrap.NewFromBytes(item.GetFlowVariableId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow variable id: %w", err))
+		}
+
+		variable, err := s.fvs.GetFlowVariable(ctx, variableID)
+		if err != nil {
+			if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("flow variable %s not found", variableID.String()))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if err := s.ensureFlowAccess(ctx, variable.FlowID); err != nil {
+			return nil, err
+		}
+
+		if len(item.GetFlowId()) != 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow reassignment is not supported"))
+		}
+
+		if item.Key != nil {
+			key := strings.TrimSpace(item.GetKey())
+			if key == "" {
+				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable key cannot be empty"))
+			}
+			variable.Name = key
+		}
+
+		if item.Value != nil {
+			variable.Value = item.GetValue()
+		}
+
+		if item.Enabled != nil {
+			variable.Enabled = item.GetEnabled()
+		}
+
+		if item.Description != nil {
+			variable.Description = item.GetDescription()
+		}
+
+		if item.Order != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable order updates are not supported"))
+		}
+
+		if err := s.fvs.UpdateFlowVariable(ctx, variable); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowVariableDelete(context.Context, *connect.Request[flowv1.FlowVariableDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.Request[flowv1.FlowVariableDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		variableID, err := idwrap.NewFromBytes(item.GetFlowVariableId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow variable id: %w", err))
+		}
+
+		variable, err := s.fvs.GetFlowVariable(ctx, variableID)
+		if err != nil {
+			if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+				continue
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if err := s.ensureFlowAccess(ctx, variable.FlowID); err != nil {
+			return nil, err
+		}
+
+		if err := s.fvs.DeleteFlowVariable(ctx, variableID); err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) FlowVariableSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.FlowVariableSyncResponse]) error {
@@ -1240,6 +1387,18 @@ func serializeNodeHTTP(n mnrequest.MNRequest) *flowv1.NodeHttp {
 	return &flowv1.NodeHttp{
 		NodeId: n.FlowNodeID.Bytes(),
 		HttpId: n.HttpID.Bytes(),
+	}
+}
+
+func serializeFlowVariable(variable mflowvariable.FlowVariable, order float32) *flowv1.FlowVariable {
+	return &flowv1.FlowVariable{
+		FlowVariableId: variable.ID.Bytes(),
+		FlowId:         variable.FlowID.Bytes(),
+		Key:            variable.Name,
+		Value:          variable.Value,
+		Enabled:        variable.Enabled,
+		Description:    variable.Description,
+		Order:          order,
 	}
 }
 
