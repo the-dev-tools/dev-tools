@@ -91,6 +91,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	t.Cleanup(edgeStream.Shutdown)
 	flowVarStream := memory.NewInMemorySyncStreamer[FlowVariableTopic, FlowVariableEvent]()
 	t.Cleanup(flowVarStream.Shutdown)
+	flowVersionStream := memory.NewInMemorySyncStreamer[FlowVersionTopic, FlowVersionEvent]()
+	t.Cleanup(flowVersionStream.Shutdown)
 
 	srv := New(
 		&services.Ws,
@@ -113,6 +115,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		nodeStream,
 		edgeStream,
 		flowVarStream,
+		flowVersionStream,
 	)
 
 	ctx := mwauth.CreateAuthedContext(context.Background(), userID)
@@ -1067,6 +1070,113 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		cancelSync()
 		err = <-errCh
 		require.ErrorIs(t, err, context.Canceled)
+	})
+
+	t.Run("flow version sync streams snapshot and events", func(t *testing.T) {
+		versionUserID := idwrap.NewNow()
+		require.NoError(t, services.Us.CreateUser(context.Background(), &muser.User{
+			ID:           versionUserID,
+			Email:        "flowversion-sync@example.com",
+			Password:     []byte("secret"),
+			ProviderType: muser.MagicLink,
+		}))
+
+		versionWorkspaceID := createWorkspaceMembership(t, services.Ws, services.Wus, versionUserID)
+
+		baseFlowID := idwrap.NewNow()
+		require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
+			ID:          baseFlowID,
+			WorkspaceID: versionWorkspaceID,
+			Name:        "base",
+		}))
+
+		versionID := idwrap.NewNow()
+		require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
+			ID:              versionID,
+			WorkspaceID:     versionWorkspaceID,
+			Name:            "v1",
+			VersionParentID: &baseFlowID,
+		}))
+
+		versionCtx := mwauth.CreateAuthedContext(context.Background(), versionUserID)
+
+		received := make(chan *flowv1.FlowVersionSyncResponse, 6)
+		ctxSync, cancelSync := context.WithCancel(versionCtx)
+		t.Cleanup(cancelSync)
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- srv.streamFlowVersionSync(ctxSync, func(resp *flowv1.FlowVersionSyncResponse) error {
+				received <- resp
+				return nil
+			})
+		}()
+
+		var snapshot *flowv1.FlowVersionSyncResponse
+		select {
+		case snapshot = <-received:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for flow version snapshot")
+		}
+
+		require.Len(t, snapshot.GetItems(), 1)
+		snapshotValue := snapshot.GetItems()[0].GetValue()
+		require.NotNil(t, snapshotValue)
+		require.Equal(t, flowv1.FlowVersionSync_ValueUnion_KIND_CREATE, snapshotValue.GetKind())
+		require.Equal(t, versionID.Bytes(), snapshotValue.GetCreate().GetFlowVersionId())
+		require.Equal(t, baseFlowID.Bytes(), snapshotValue.GetCreate().GetFlowId())
+
+		newVersionID := idwrap.NewNow()
+		flowVersionStream.Publish(FlowVersionTopic{FlowID: baseFlowID}, FlowVersionEvent{
+			Type:      flowVersionEventCreate,
+			FlowID:    baseFlowID,
+			VersionID: newVersionID,
+		})
+
+		var createEvent *flowv1.FlowVersionSyncResponse
+		select {
+		case createEvent = <-received:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for flow version create event")
+		}
+
+		require.Len(t, createEvent.GetItems(), 1)
+		createValue := createEvent.GetItems()[0].GetValue()
+		require.NotNil(t, createValue)
+		require.Equal(t, flowv1.FlowVersionSync_ValueUnion_KIND_CREATE, createValue.GetKind())
+		require.Equal(t, newVersionID.Bytes(), createValue.GetCreate().GetFlowVersionId())
+
+		versionToDelete := idwrap.NewNow()
+		require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
+			ID:              versionToDelete,
+			WorkspaceID:     versionWorkspaceID,
+			Name:            "v-delete",
+			VersionParentID: &baseFlowID,
+		}))
+
+		deleteReq := connect.NewRequest(&flowv1.FlowDeleteRequest{
+			Items: []*flowv1.FlowDelete{{FlowId: versionToDelete.Bytes()}},
+		})
+		_, err := srv.FlowDelete(versionCtx, deleteReq)
+		require.NoError(t, err)
+
+		var deleteEvent *flowv1.FlowVersionSyncResponse
+		select {
+		case deleteEvent = <-received:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for flow version delete event")
+		}
+
+		require.Len(t, deleteEvent.GetItems(), 1)
+		deleteValue := deleteEvent.GetItems()[0].GetValue()
+		require.NotNil(t, deleteValue)
+		require.Equal(t, flowv1.FlowVersionSync_ValueUnion_KIND_DELETE, deleteValue.GetKind())
+		require.Equal(t, versionToDelete.Bytes(), deleteValue.GetDelete().GetFlowVersionId())
+
+		cancelSync()
+		if err := <-errCh; err != nil {
+			require.ErrorIs(t, err, context.Canceled)
+		}
 	})
 }
 

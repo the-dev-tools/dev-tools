@@ -94,6 +94,18 @@ type EdgeEvent struct {
 	Edge   *flowv1.Edge
 }
 
+// FlowVersionTopic identifies the flow whose versions are being published.
+type FlowVersionTopic struct {
+	FlowID idwrap.IDWrap
+}
+
+// FlowVersionEvent describes a flow version change for sync streaming.
+type FlowVersionEvent struct {
+	Type      string
+	FlowID    idwrap.IDWrap
+	VersionID idwrap.IDWrap
+}
+
 // FlowVariableTopic identifies the flow whose variables are being published.
 type FlowVariableTopic struct {
 	FlowID idwrap.IDWrap
@@ -119,29 +131,34 @@ const (
 	flowVarEventCreate = "create"
 	flowVarEventUpdate = "update"
 	flowVarEventDelete = "delete"
+
+	flowVersionEventCreate = "create"
+	flowVersionEventUpdate = "update"
+	flowVersionEventDelete = "delete"
 )
 
 type FlowServiceV2RPC struct {
-	ws         *sworkspace.WorkspaceService
-	fs         *sflow.FlowService
-	es         *sedge.EdgeService
-	ns         *snode.NodeService
-	nrs        *snoderequest.NodeRequestService
-	nfs        *snodefor.NodeForService
-	nfes       *snodeforeach.NodeForEachService
-	nifs       *snodeif.NodeIfService
-	nnos       *snodenoop.NodeNoopService
-	njss       *snodejs.NodeJSService
-	fvs        *sflowvariable.FlowVariableService
-	hs         *shttp.HTTPService
-	hh         *shttp.HttpHeaderService
-	hsp        *shttp.HttpSearchParamService
-	hbf        *shttp.HttpBodyFormService
-	hbu        *shttp.HttpBodyUrlencodedService
-	has        *shttp.HttpAssertService
-	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent]
-	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
-	varStream  eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+	ws            *sworkspace.WorkspaceService
+	fs            *sflow.FlowService
+	es            *sedge.EdgeService
+	ns            *snode.NodeService
+	nrs           *snoderequest.NodeRequestService
+	nfs           *snodefor.NodeForService
+	nfes          *snodeforeach.NodeForEachService
+	nifs          *snodeif.NodeIfService
+	nnos          *snodenoop.NodeNoopService
+	njss          *snodejs.NodeJSService
+	fvs           *sflowvariable.FlowVariableService
+	hs            *shttp.HTTPService
+	hh            *shttp.HttpHeaderService
+	hsp           *shttp.HttpSearchParamService
+	hbf           *shttp.HttpBodyFormService
+	hbu           *shttp.HttpBodyUrlencodedService
+	has           *shttp.HttpAssertService
+	nodeStream    eventstream.SyncStreamer[NodeTopic, NodeEvent]
+	edgeStream    eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+	varStream     eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+	versionStream eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
 }
 
 func New(
@@ -165,28 +182,30 @@ func New(
 	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent],
 	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent],
 	varStream eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent],
+	versionStream eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
-		ws:         ws,
-		fs:         fs,
-		es:         es,
-		ns:         ns,
-		nrs:        nrs,
-		nfs:        nfs,
-		nfes:       nfes,
-		nifs:       nifs,
-		nnos:       nnos,
-		njss:       njss,
-		fvs:        fvs,
-		hs:         hs,
-		hh:         hh,
-		hsp:        hsp,
-		hbf:        hbf,
-		hbu:        hbu,
-		has:        has,
-		nodeStream: nodeStream,
-		edgeStream: edgeStream,
-		varStream:  varStream,
+		ws:            ws,
+		fs:            fs,
+		es:            es,
+		ns:            ns,
+		nrs:           nrs,
+		nfs:           nfs,
+		nfes:          nfes,
+		nifs:          nifs,
+		nnos:          nnos,
+		njss:          njss,
+		fvs:           fvs,
+		hs:            hs,
+		hh:            hh,
+		hsp:           hsp,
+		hbf:           hbf,
+		hbu:           hbu,
+		has:           has,
+		nodeStream:    nodeStream,
+		edgeStream:    edgeStream,
+		varStream:     varStream,
+		versionStream: versionStream,
 	}
 }
 
@@ -366,6 +385,12 @@ func (s *FlowServiceV2RPC) FlowCreate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		if created, err := s.fs.GetFlow(ctx, flowID); err == nil {
+			if created.VersionParentID != nil {
+				s.publishFlowVersionEvent(flowVersionEventCreate, created)
+			}
+		}
+
 		workspace.FlowCount++
 	}
 
@@ -419,6 +444,10 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 		if err := s.fs.UpdateFlow(ctx, flow); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		if flow.VersionParentID != nil {
+			s.publishFlowVersionEvent(flowVersionEventUpdate, flow)
+		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -445,6 +474,10 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 
 		if err := s.fs.DeleteFlow(ctx, flowID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if flow.VersionParentID != nil {
+			s.publishFlowVersionEvent(flowVersionEventDelete, flow)
 		}
 
 		workspace, err := s.ws.Get(ctx, flow.WorkspaceID)
@@ -655,8 +688,17 @@ func (s *FlowServiceV2RPC) FlowVersionCollection(ctx context.Context, req *conne
 	return connect.NewResponse(&flowv1.FlowVersionCollectionResponse{Items: items}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowVersionSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.FlowVersionSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowVersionSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.FlowVersionSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamFlowVersionSync(ctx, func(resp *flowv1.FlowVersionSyncResponse) error {
+		return stream.Send(resp)
+	})
 }
 
 func (s *FlowServiceV2RPC) FlowVariableCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.FlowVariableCollectionResponse], error) {
@@ -1118,6 +1160,21 @@ func (s *FlowServiceV2RPC) publishFlowVariableEvent(eventType string, variable m
 	})
 }
 
+func (s *FlowServiceV2RPC) publishFlowVersionEvent(eventType string, flow mflow.Flow) {
+	if s.versionStream == nil {
+		return
+	}
+	if flow.VersionParentID == nil {
+		return
+	}
+	parent := *flow.VersionParentID
+	s.versionStream.Publish(FlowVersionTopic{FlowID: parent}, FlowVersionEvent{
+		Type:      eventType,
+		FlowID:    parent,
+		VersionID: flow.ID,
+	})
+}
+
 func (s *FlowServiceV2RPC) NodeCreate(
 	ctx context.Context,
 	req *connect.Request[flowv1.NodeCreateRequest],
@@ -1371,6 +1428,92 @@ func (s *FlowServiceV2RPC) streamFlowVariableSync(
 				return nil
 			}
 			resp := flowVariableEventToSyncResponse(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *FlowServiceV2RPC) streamFlowVersionSync(
+	ctx context.Context,
+	send func(*flowv1.FlowVersionSyncResponse) error,
+) error {
+	if s.versionStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("flow version stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[FlowVersionTopic, FlowVersionEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		topics := make(map[string]struct{}, len(flows))
+		events := make([]eventstream.Event[FlowVersionTopic, FlowVersionEvent], 0)
+
+		for _, flow := range flows {
+			parentID := flow.ID
+			key := parentID.String()
+			if _, seen := topics[key]; seen {
+				continue
+			}
+			topics[key] = struct{}{}
+			flowSet.Store(key, struct{}{})
+
+			versions, err := s.fs.GetFlowsByVersionParentID(ctx, parentID)
+			if err != nil {
+				if errors.Is(err, sflow.ErrNoFlowFound) {
+					continue
+				}
+				return nil, err
+			}
+
+			for _, version := range versions {
+				events = append(events, eventstream.Event[FlowVersionTopic, FlowVersionEvent]{
+					Topic: FlowVersionTopic{FlowID: parentID},
+					Payload: FlowVersionEvent{
+						Type:      flowVersionEventCreate,
+						FlowID:    parentID,
+						VersionID: version.ID,
+					},
+				})
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic FlowVersionTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.versionStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := flowVersionEventToSyncResponse(evt.Payload)
 			if resp == nil {
 				continue
 			}
@@ -2182,6 +2325,62 @@ func flowVariableEventToSyncResponse(evt FlowVariableEvent) *flowv1.FlowVariable
 					},
 				},
 			}},
+		}
+	default:
+		return nil
+	}
+}
+
+func flowVersionEventToSyncResponse(evt FlowVersionEvent) *flowv1.FlowVersionSyncResponse {
+	if evt.VersionID == (idwrap.IDWrap{}) {
+		return nil
+	}
+
+	switch evt.Type {
+	case flowVersionEventCreate:
+		create := &flowv1.FlowVersionSyncCreate{
+			FlowVersionId: evt.VersionID.Bytes(),
+			FlowId:        evt.FlowID.Bytes(),
+		}
+		return &flowv1.FlowVersionSyncResponse{
+			Items: []*flowv1.FlowVersionSync{
+				{
+					Value: &flowv1.FlowVersionSync_ValueUnion{
+						Kind:   flowv1.FlowVersionSync_ValueUnion_KIND_CREATE,
+						Create: create,
+					},
+				},
+			},
+		}
+	case flowVersionEventUpdate:
+		update := &flowv1.FlowVersionSyncUpdate{
+			FlowVersionId: evt.VersionID.Bytes(),
+		}
+		if evt.FlowID != (idwrap.IDWrap{}) {
+			update.FlowId = evt.FlowID.Bytes()
+		}
+		return &flowv1.FlowVersionSyncResponse{
+			Items: []*flowv1.FlowVersionSync{
+				{
+					Value: &flowv1.FlowVersionSync_ValueUnion{
+						Kind:   flowv1.FlowVersionSync_ValueUnion_KIND_UPDATE,
+						Update: update,
+					},
+				},
+			},
+		}
+	case flowVersionEventDelete:
+		return &flowv1.FlowVersionSyncResponse{
+			Items: []*flowv1.FlowVersionSync{
+				{
+					Value: &flowv1.FlowVersionSync_ValueUnion{
+						Kind: flowv1.FlowVersionSync_ValueUnion_KIND_DELETE,
+						Delete: &flowv1.FlowVersionSyncDelete{
+							FlowVersionId: evt.VersionID.Bytes(),
+						},
+					},
+				},
+			},
 		}
 	default:
 		return nil
