@@ -81,6 +81,79 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 
 	ctx := mwauth.CreateAuthedContext(context.Background(), userID)
 
+	t.Run("flow crud lifecycle", func(t *testing.T) {
+		flowID := idwrap.NewNow()
+
+		createReq := connect.NewRequest(&flowv1.FlowCreateRequest{
+			Items: []*flowv1.FlowCreate{{
+				FlowId: flowID.Bytes(),
+				Name:   "new flow",
+			}},
+		})
+		createReq.Header().Set("workspace-id", workspaceID.String())
+
+		_, err := srv.FlowCreate(ctx, createReq)
+		require.NoError(t, err)
+
+		created, err := flowService.GetFlow(context.Background(), flowID)
+		require.NoError(t, err)
+		require.Equal(t, "new flow", created.Name)
+		require.Equal(t, workspaceID, created.WorkspaceID)
+
+		updateReq := connect.NewRequest(&flowv1.FlowUpdateRequest{
+			Items: []*flowv1.FlowUpdate{{
+				FlowId: flowID.Bytes(),
+				Name:   ptrString("updated flow"),
+			}},
+		})
+		updateReq.Header().Set("workspace-id", workspaceID.String())
+
+		_, err = srv.FlowUpdate(ctx, updateReq)
+		require.NoError(t, err)
+
+		updated, err := flowService.GetFlow(context.Background(), flowID)
+		require.NoError(t, err)
+		require.Equal(t, "updated flow", updated.Name)
+
+		deleteReq := connect.NewRequest(&flowv1.FlowDeleteRequest{
+			Items: []*flowv1.FlowDelete{{FlowId: flowID.Bytes()}},
+		})
+		deleteReq.Header().Set("workspace-id", workspaceID.String())
+
+		_, err = srv.FlowDelete(ctx, deleteReq)
+		require.NoError(t, err)
+
+		_, err = flowService.GetFlow(context.Background(), flowID)
+		require.Error(t, err)
+	})
+
+	t.Run("flow version collection", func(t *testing.T) {
+		parentID := idwrap.NewNow()
+		versionID := idwrap.NewNow()
+
+		require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
+			ID:          parentID,
+			WorkspaceID: workspaceID,
+			Name:        "parent",
+		}))
+
+		require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
+			ID:              versionID,
+			WorkspaceID:     workspaceID,
+			VersionParentID: &parentID,
+			Name:            "version",
+		}))
+
+		versionReq := connect.NewRequest(&emptypb.Empty{})
+		versionReq.Header().Set("flow-id", parentID.String())
+
+		resp, err := srv.FlowVersionCollection(ctx, versionReq)
+		require.NoError(t, err)
+		require.Len(t, resp.Msg.GetItems(), 1)
+		require.Equal(t, versionID.Bytes(), resp.Msg.GetItems()[0].GetFlowVersionId())
+		require.Equal(t, parentID.Bytes(), resp.Msg.GetItems()[0].GetFlowId())
+	})
+
 	t.Run("base node lifecycle", func(t *testing.T) {
 		createReq := &flowv1.NodeCreateRequest{
 			Items: []*flowv1.NodeCreate{

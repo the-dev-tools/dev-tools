@@ -1,10 +1,14 @@
 package rflowv2
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
+	"sort"
+	"strings"
 
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -12,6 +16,7 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/compress"
+	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
@@ -188,16 +193,165 @@ func (s *FlowServiceV2RPC) NodeHttpCollection(
 	return connect.NewResponse(&flowv1.NodeHttpCollectionResponse{Items: items}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowCreate(context.Context, *connect.Request[flowv1.FlowCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowCreate(ctx context.Context, req *connect.Request[flowv1.FlowCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
+	}
+
+	workspaceID, err := workspaceIDFromHeaders(req.Header())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+
+	workspace, err := s.ws.Get(ctx, workspaceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, item := range req.Msg.GetItems() {
+		name := strings.TrimSpace(item.GetName())
+		if name == "" {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow name is required"))
+		}
+
+		flowID := idwrap.NewNow()
+		if len(item.GetFlowId()) != 0 {
+			flowID, err = idwrap.NewFromBytes(item.GetFlowId())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
+			}
+		}
+
+		flow := mflow.Flow{
+			ID:          flowID,
+			WorkspaceID: workspaceID,
+			Name:        name,
+		}
+
+		if err := s.fs.CreateFlow(ctx, flow); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Seed start node so the flow is immediately runnable.
+		startNodeID := idwrap.NewNow()
+		startNode := mnnode.MNode{
+			ID:        startNodeID,
+			FlowID:    flowID,
+			Name:      "Start",
+			NodeKind:  mnnode.NODE_KIND_NO_OP,
+			PositionX: 0,
+			PositionY: 0,
+		}
+		if err := s.ns.CreateNode(ctx, startNode); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if err := s.nnos.CreateNodeNoop(ctx, mnnoop.NoopNode{
+			FlowNodeID: startNodeID,
+			Type:       mnnoop.NODE_NO_OP_KIND_START,
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		workspace.FlowCount++
+	}
+
+	workspace.Updated = dbtime.DBNow()
+	if err := s.ws.Update(ctx, workspace); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowUpdate(context.Context, *connect.Request[flowv1.FlowUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[flowv1.FlowUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		if len(item.GetFlowId()) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
+		}
+
+		flowID, err := idwrap.NewFromBytes(item.GetFlowId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
+		}
+
+		flow, err := s.fs.GetFlow(ctx, flowID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+			return nil, err
+		}
+
+		if item.Name != nil {
+			flow.Name = strings.TrimSpace(item.GetName())
+			if flow.Name == "" {
+				return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow name cannot be empty"))
+			}
+		}
+
+		if du := item.GetDuration(); du != nil {
+			switch du.GetKind() {
+			case flowv1.FlowUpdate_DurationUnion_KIND_UNSET:
+				flow.Duration = 0
+			case flowv1.FlowUpdate_DurationUnion_KIND_INT32:
+				flow.Duration = du.GetInt32()
+			}
+		}
+
+		if err := s.fs.UpdateFlow(ctx, flow); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowDelete(context.Context, *connect.Request[flowv1.FlowDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[flowv1.FlowDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		flowID, err := idwrap.NewFromBytes(item.GetFlowId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
+		}
+
+		flow, err := s.fs.GetFlow(ctx, flowID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+			return nil, err
+		}
+
+		if err := s.fs.DeleteFlow(ctx, flowID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		workspace, err := s.ws.Get(ctx, flow.WorkspaceID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		if workspace.FlowCount > 0 {
+			workspace.FlowCount--
+		}
+		workspace.Updated = dbtime.DBNow()
+		if err := s.ws.Update(ctx, workspace); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) FlowSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.FlowSyncResponse]) error {
@@ -208,8 +362,33 @@ func (s *FlowServiceV2RPC) FlowRun(context.Context, *connect.Request[flowv1.Flow
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) FlowVersionCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.FlowVersionCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowVersionCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.FlowVersionCollectionResponse], error) {
+	flowID, err := flowIDFromHeaders(req.Header())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+		return nil, err
+	}
+
+	versions, err := s.fs.GetFlowsByVersionParentID(ctx, flowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	items := make([]*flowv1.FlowVersion, 0, len(versions))
+	for _, version := range versions {
+		items = append(items, &flowv1.FlowVersion{
+			FlowVersionId: version.ID.Bytes(),
+			FlowId:        flowID.Bytes(),
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return bytes.Compare(items[i].GetFlowVersionId(), items[j].GetFlowVersionId()) < 0
+	})
+
+	return connect.NewResponse(&flowv1.FlowVersionCollectionResponse{Items: items}), nil
 }
 
 func (s *FlowServiceV2RPC) FlowVersionSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.FlowVersionSyncResponse]) error {
@@ -1080,6 +1259,28 @@ func convertHandle(h flowv1.Handle) edge.EdgeHandle {
 	return edge.EdgeHandle(h)
 }
 
+func workspaceIDFromHeaders(header http.Header) (idwrap.IDWrap, error) {
+	value := header.Get("workspace-id")
+	if value == "" {
+		value = header.Get("x-workspace-id")
+	}
+	if value == "" {
+		return idwrap.IDWrap{}, errors.New("workspace id header is required")
+	}
+	return idwrap.NewText(value)
+}
+
+func flowIDFromHeaders(header http.Header) (idwrap.IDWrap, error) {
+	value := header.Get("flow-id")
+	if value == "" {
+		value = header.Get("x-flow-id")
+	}
+	if value == "" {
+		return idwrap.IDWrap{}, errors.New("flow id header is required")
+	}
+	return idwrap.NewText(value)
+}
+
 func (s *FlowServiceV2RPC) deserializeNodeCreate(item *flowv1.NodeCreate) (*mnnode.MNode, error) {
 	if item == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node create item is required"))
@@ -1116,6 +1317,19 @@ func (s *FlowServiceV2RPC) deserializeNodeCreate(item *flowv1.NodeCreate) (*mnno
 		PositionX: posX,
 		PositionY: posY,
 	}, nil
+}
+
+func (s *FlowServiceV2RPC) ensureWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	workspaces, err := s.listUserWorkspaces(ctx)
+	if err != nil {
+		return err
+	}
+	for _, ws := range workspaces {
+		if ws.ID == workspaceID {
+			return nil
+		}
+	}
+	return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("workspace %s not accessible to current user", workspaceID.String()))
 }
 
 func (s *FlowServiceV2RPC) ensureFlowAccess(ctx context.Context, flowID idwrap.IDWrap) error {
