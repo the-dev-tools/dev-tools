@@ -1,4 +1,4 @@
-package rflowv2_test
+package rflowv2
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
@@ -68,7 +67,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		Name:        "example",
 	}))
 
-	srv := rflowv2.New(
+	srv := New(
 		&services.Ws,
 		&flowService,
 		&edgeService,
@@ -128,6 +127,19 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 
 		_, err = flowService.GetFlow(context.Background(), flowID)
 		require.Error(t, err)
+	})
+
+	t.Run("flow run validates access", func(t *testing.T) {
+		runReq := connect.NewRequest(&flowv1.FlowRunRequest{
+			FlowId: flowID.Bytes(),
+		})
+
+		_, err := srv.FlowRun(ctx, runReq)
+		require.NoError(t, err)
+
+		_, err = srv.FlowRun(ctx, connect.NewRequest(&flowv1.FlowRunRequest{}))
+		require.Error(t, err)
+		require.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 	})
 
 	t.Run("flow version collection", func(t *testing.T) {
@@ -671,7 +683,40 @@ func ptrBool(v bool) *bool {
 	return &v
 }
 
-func findNodeIDByName(t *testing.T, srv *rflowv2.FlowServiceV2RPC, ctx context.Context, name string) idwrap.IDWrap {
+func TestBuildFlowSyncCreates(t *testing.T) {
+	idA, err := idwrap.NewText("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+	require.NoError(t, err)
+	idB, err := idwrap.NewText("01ARZ3NDEKTSV4RRFFQ69G5FAW")
+	require.NoError(t, err)
+
+	flows := []mflow.Flow{
+		{ID: idB, Name: "second", Duration: 42},
+		{ID: idA, Name: "first"},
+	}
+
+	items := buildFlowSyncCreates(flows)
+	require.Len(t, items, 2)
+
+	first := items[0]
+	require.NotNil(t, first.GetValue())
+	require.Equal(t, flowv1.FlowSync_ValueUnion_KIND_CREATE, first.GetValue().GetKind())
+	firstCreate := first.GetValue().GetCreate()
+	require.NotNil(t, firstCreate)
+	require.Equal(t, idA.Bytes(), firstCreate.GetFlowId())
+	require.Equal(t, "first", firstCreate.GetName())
+	require.Equal(t, int32(0), firstCreate.GetDuration())
+
+	second := items[1]
+	require.NotNil(t, second.GetValue())
+	require.Equal(t, flowv1.FlowSync_ValueUnion_KIND_CREATE, second.GetValue().GetKind())
+	secondCreate := second.GetValue().GetCreate()
+	require.NotNil(t, secondCreate)
+	require.Equal(t, idB.Bytes(), secondCreate.GetFlowId())
+	require.Equal(t, "second", secondCreate.GetName())
+	require.Equal(t, int32(42), secondCreate.GetDuration())
+}
+
+func findNodeIDByName(t *testing.T, srv *FlowServiceV2RPC, ctx context.Context, name string) idwrap.IDWrap {
 	resp, err := srv.NodeCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 	for _, item := range resp.Msg.GetItems() {

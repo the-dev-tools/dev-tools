@@ -359,12 +359,43 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.FlowSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.FlowSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+
+	flows, err := s.listAccessibleFlows(ctx)
+	if err != nil {
+		return err
+	}
+
+	items := buildFlowSyncCreates(flows)
+	if len(items) == 0 {
+		return nil
+	}
+
+	return stream.Send(&flowv1.FlowSyncResponse{Items: items})
 }
 
-func (s *FlowServiceV2RPC) FlowRun(context.Context, *connect.Request[flowv1.FlowRunRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.GetFlowId()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
+	}
+
+	flowID, err := idwrap.NewFromBytes(req.Msg.GetFlowId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
+	}
+
+	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) FlowVersionCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.FlowVersionCollectionResponse], error) {
@@ -1342,6 +1373,37 @@ func (s *FlowServiceV2RPC) listUserWorkspaces(ctx context.Context) ([]mworkspace
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return workspaces, nil
+}
+
+func buildFlowSyncCreates(flows []mflow.Flow) []*flowv1.FlowSync {
+	if len(flows) == 0 {
+		return nil
+	}
+
+	sort.Slice(flows, func(i, j int) bool {
+		return bytes.Compare(flows[i].ID.Bytes(), flows[j].ID.Bytes()) < 0
+	})
+
+	items := make([]*flowv1.FlowSync, 0, len(flows))
+	for _, flow := range flows {
+		create := &flowv1.FlowSyncCreate{
+			FlowId: flow.ID.Bytes(),
+			Name:   flow.Name,
+		}
+		if flow.Duration != 0 {
+			duration := flow.Duration
+			create.Duration = &duration
+		}
+
+		items = append(items, &flowv1.FlowSync{
+			Value: &flowv1.FlowSync_ValueUnion{
+				Kind:   flowv1.FlowSync_ValueUnion_KIND_CREATE,
+				Create: create,
+			},
+		})
+	}
+
+	return items
 }
 
 func serializeFlow(flow mflow.Flow) *flowv1.Flow {
