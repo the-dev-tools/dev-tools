@@ -63,11 +63,11 @@ import (
 
 	"the-dev-tools/server/pkg/service/snode"
 	// "the-dev-tools/server/pkg/service/snodeexecution"
-	// "the-dev-tools/server/pkg/service/snodefor"
-	// "the-dev-tools/server/pkg/service/snodeforeach"
-	// "the-dev-tools/server/pkg/service/snodeif"
-	// "the-dev-tools/server/pkg/service/snodejs"
-	// "the-dev-tools/server/pkg/service/snodenoop"
+	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeforeach"
+	"the-dev-tools/server/pkg/service/snodeif"
+	"the-dev-tools/server/pkg/service/snodejs"
+	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	// "the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
@@ -177,11 +177,11 @@ func main() {
 	// nodes
 	flowNodeService := snode.New(queries)
 	flowNodeRequestSevice := snoderequest.New(queries)
-	// flowNodeForService := snodefor.New(queries)
-	// flowNodeForeachService := snodeforeach.New(queries)
-	// flowNodeCondition := snodeif.New(queries)
-	// flowNodeNoOpService := snodenoop.New(queries)
-	// flowNodeJsService := snodejs.New(queries)
+	flowNodeForService := snodefor.New(queries)
+	flowNodeForeachService := snodeforeach.New(queries)
+	flowNodeConditionService := snodeif.New(queries)
+	flowNodeNoOpService := snodenoop.New(queries)
+	flowNodeJsService := snodejs.New(queries)
 	// nodeExecutionService := snodeexecution.New(queries)
 
 	// log/console
@@ -258,7 +258,18 @@ func main() {
 	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, opitonsAll))
 
-	flowSrvV2 := rflowv2.New(&workspaceService, &flowService, &flowEdgeService, &flowNodeService, &flowNodeRequestSevice)
+	flowSrvV2 := rflowv2.New(
+		&workspaceService,
+		&flowService,
+		&flowEdgeService,
+		&flowNodeService,
+		&flowNodeRequestSevice,
+		&flowNodeForService,
+		&flowNodeForeachService,
+		flowNodeConditionService,
+		&flowNodeNoOpService,
+		&flowNodeJsService,
+	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, opitonsAll))
 
 	// Var Service

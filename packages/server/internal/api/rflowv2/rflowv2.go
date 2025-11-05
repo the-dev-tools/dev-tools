@@ -11,15 +11,27 @@ import (
 
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
+	"the-dev-tools/server/pkg/model/mnnode/mnif"
+	"the-dev-tools/server/pkg/model/mnnode/mnjs"
+	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodefor"
+	"the-dev-tools/server/pkg/service/snodeforeach"
+	"the-dev-tools/server/pkg/service/snodeif"
+	"the-dev-tools/server/pkg/service/snodejs"
+	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -29,11 +41,16 @@ import (
 var errUnimplemented = errors.New("rflowv2: method not implemented")
 
 type FlowServiceV2RPC struct {
-	ws  *sworkspace.WorkspaceService
-	fs  *sflow.FlowService
-	es  *sedge.EdgeService
-	ns  *snode.NodeService
-	nrs *snoderequest.NodeRequestService
+	ws   *sworkspace.WorkspaceService
+	fs   *sflow.FlowService
+	es   *sedge.EdgeService
+	ns   *snode.NodeService
+	nrs  *snoderequest.NodeRequestService
+	nfs  *snodefor.NodeForService
+	nfes *snodeforeach.NodeForEachService
+	nifs *snodeif.NodeIfService
+	nnos *snodenoop.NodeNoopService
+	njss *snodejs.NodeJSService
 }
 
 func New(
@@ -42,13 +59,23 @@ func New(
 	es *sedge.EdgeService,
 	ns *snode.NodeService,
 	nrs *snoderequest.NodeRequestService,
+	nfs *snodefor.NodeForService,
+	nfes *snodeforeach.NodeForEachService,
+	nifs *snodeif.NodeIfService,
+	nnos *snodenoop.NodeNoopService,
+	njss *snodejs.NodeJSService,
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
-		ws:  ws,
-		fs:  fs,
-		es:  es,
-		ns:  ns,
-		nrs: nrs,
+		ws:   ws,
+		fs:   fs,
+		es:   es,
+		ns:   ns,
+		nrs:  nrs,
+		nfs:  nfs,
+		nfes: nfes,
+		nifs: nifs,
+		nnos: nnos,
+		njss: njss,
 	}
 }
 
@@ -316,32 +343,163 @@ func (s *FlowServiceV2RPC) NodeNoOpCollection(context.Context, *connect.Request[
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeNoOpCreate(context.Context, *connect.Request[flowv1.NodeNoOpCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeNoOpCreate(ctx context.Context, req *connect.Request[flowv1.NodeNoOpCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		noop := mnnoop.NoopNode{
+			FlowNodeID: nodeID,
+			Type:       mnnoop.NoopTypes(item.GetKind()),
+		}
+		if err := s.nnos.CreateNodeNoop(ctx, noop); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeNoOpUpdate(context.Context, *connect.Request[flowv1.NodeNoOpUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeNoOpUpdate(ctx context.Context, req *connect.Request[flowv1.NodeNoOpUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		if item.Kind == nil {
+			continue
+		}
+
+		if err := s.nnos.DeleteNodeNoop(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		noop := mnnoop.NoopNode{
+			FlowNodeID: nodeID,
+			Type:       mnnoop.NoopTypes(item.GetKind()),
+		}
+		if err := s.nnos.CreateNodeNoop(ctx, noop); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeNoOpDelete(context.Context, *connect.Request[flowv1.NodeNoOpDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeNoOpDelete(ctx context.Context, req *connect.Request[flowv1.NodeNoOpDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		if err := s.nnos.DeleteNodeNoop(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeNoOpSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeNoOpSyncResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeHttpCreate(context.Context, *connect.Request[flowv1.NodeHttpCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeHttpCreate(ctx context.Context, req *connect.Request[flowv1.NodeHttpCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		if len(item.GetHttpId()) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http id is required"))
+		}
+
+		httpID, err := idwrap.NewFromBytes(item.GetHttpId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid http id: %w", err))
+		}
+
+		if err := s.nrs.CreateNodeRequest(ctx, mnrequest.MNRequest{
+			FlowNodeID:       nodeID,
+			HttpID:           httpID,
+			HasRequestConfig: !isZeroID(httpID),
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeHttpUpdate(context.Context, *connect.Request[flowv1.NodeHttpUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Request[flowv1.NodeHttpUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		var httpID idwrap.IDWrap
+		if len(item.GetHttpId()) != 0 {
+			httpID, err = idwrap.NewFromBytes(item.GetHttpId())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid http id: %w", err))
+			}
+		}
+
+		if err := s.nrs.UpdateNodeRequest(ctx, mnrequest.MNRequest{
+			FlowNodeID:       nodeID,
+			HttpID:           httpID,
+			HasRequestConfig: !isZeroID(httpID),
+		}); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeHttpDelete(context.Context, *connect.Request[flowv1.NodeHttpDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeHttpDelete(ctx context.Context, req *connect.Request[flowv1.NodeHttpDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		if err := s.nrs.DeleteNodeRequest(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeHttpSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeHttpSyncResponse]) error {
@@ -352,16 +510,86 @@ func (s *FlowServiceV2RPC) NodeForCollection(context.Context, *connect.Request[e
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeForCreate(context.Context, *connect.Request[flowv1.NodeForCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeForCreate(ctx context.Context, req *connect.Request[flowv1.NodeForCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		model := mnfor.MNFor{
+			FlowNodeID:    nodeID,
+			IterCount:     int64(item.GetIterations()),
+			Condition:     buildCondition(item.GetCondition()),
+			ErrorHandling: mnfor.ErrorHandling(item.GetErrorHandling()),
+		}
+
+		if err := s.nfs.CreateNodeFor(ctx, model); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeForUpdate(context.Context, *connect.Request[flowv1.NodeForUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Request[flowv1.NodeForUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		existing, err := s.nfs.GetNodeFor(ctx, nodeID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have FOR config", nodeID.String()))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if item.Iterations != nil {
+			existing.IterCount = int64(item.GetIterations())
+		}
+		if item.Condition != nil {
+			existing.Condition = buildCondition(item.GetCondition())
+		}
+		if item.ErrorHandling != nil {
+			existing.ErrorHandling = mnfor.ErrorHandling(item.GetErrorHandling())
+		}
+
+		if err := s.nfs.UpdateNodeFor(ctx, *existing); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeForDelete(context.Context, *connect.Request[flowv1.NodeForDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeForDelete(ctx context.Context, req *connect.Request[flowv1.NodeForDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		if err := s.nfs.DeleteNodeFor(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeForSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeForSyncResponse]) error {
@@ -372,16 +600,86 @@ func (s *FlowServiceV2RPC) NodeForEachCollection(context.Context, *connect.Reque
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeForEachCreate(context.Context, *connect.Request[flowv1.NodeForEachCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeForEachCreate(ctx context.Context, req *connect.Request[flowv1.NodeForEachCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		model := mnforeach.MNForEach{
+			FlowNodeID:     nodeID,
+			IterExpression: item.GetPath(),
+			Condition:      buildCondition(item.GetCondition()),
+			ErrorHandling:  mnfor.ErrorHandling(item.GetErrorHandling()),
+		}
+
+		if err := s.nfes.CreateNodeForEach(ctx, model); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeForEachUpdate(context.Context, *connect.Request[flowv1.NodeForEachUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeForEachUpdate(ctx context.Context, req *connect.Request[flowv1.NodeForEachUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		existing, err := s.nfes.GetNodeForEach(ctx, nodeID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have FOREACH config", nodeID.String()))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if item.Path != nil {
+			existing.IterExpression = item.GetPath()
+		}
+		if item.Condition != nil {
+			existing.Condition = buildCondition(item.GetCondition())
+		}
+		if item.ErrorHandling != nil {
+			existing.ErrorHandling = mnfor.ErrorHandling(item.GetErrorHandling())
+		}
+
+		if err := s.nfes.UpdateNodeForEach(ctx, *existing); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeForEachDelete(context.Context, *connect.Request[flowv1.NodeForEachDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeForEachDelete(ctx context.Context, req *connect.Request[flowv1.NodeForEachDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		if err := s.nfes.DeleteNodeForEach(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeForEachSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeForEachSyncResponse]) error {
@@ -392,16 +690,78 @@ func (s *FlowServiceV2RPC) NodeConditionCollection(context.Context, *connect.Req
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeConditionCreate(context.Context, *connect.Request[flowv1.NodeConditionCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeConditionCreate(ctx context.Context, req *connect.Request[flowv1.NodeConditionCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		model := mnif.MNIF{
+			FlowNodeID: nodeID,
+			Condition:  buildCondition(item.GetCondition()),
+		}
+
+		if err := s.nifs.CreateNodeIf(ctx, model); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeConditionUpdate(context.Context, *connect.Request[flowv1.NodeConditionUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeConditionUpdate(ctx context.Context, req *connect.Request[flowv1.NodeConditionUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		existing, err := s.nifs.GetNodeIf(ctx, nodeID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have CONDITION config", nodeID.String()))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if item.Condition != nil {
+			existing.Condition = buildCondition(item.GetCondition())
+		}
+
+		if err := s.nifs.UpdateNodeIf(ctx, *existing); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeConditionDelete(context.Context, *connect.Request[flowv1.NodeConditionDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeConditionDelete(ctx context.Context, req *connect.Request[flowv1.NodeConditionDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		if err := s.nifs.DeleteNodeIf(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeConditionSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeConditionSyncResponse]) error {
@@ -412,16 +772,79 @@ func (s *FlowServiceV2RPC) NodeJsCollection(context.Context, *connect.Request[em
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeJsCreate(context.Context, *connect.Request[flowv1.NodeJsCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeJsCreate(ctx context.Context, req *connect.Request[flowv1.NodeJsCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		model := mnjs.MNJS{
+			FlowNodeID:       nodeID,
+			Code:             []byte(item.GetCode()),
+			CodeCompressType: compress.CompressTypeNone,
+		}
+
+		if err := s.njss.CreateNodeJS(ctx, model); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeJsUpdate(context.Context, *connect.Request[flowv1.NodeJsUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeJsUpdate(ctx context.Context, req *connect.Request[flowv1.NodeJsUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		existing, err := s.njss.GetNodeJS(ctx, nodeID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s does not have JS config", nodeID.String()))
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if item.Code != nil {
+			existing.Code = []byte(item.GetCode())
+		}
+
+		if err := s.njss.UpdateNodeJS(ctx, existing); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeJsDelete(context.Context, *connect.Request[flowv1.NodeJsDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeJsDelete(ctx context.Context, req *connect.Request[flowv1.NodeJsDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+
+		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+			return nil, err
+		}
+
+		if err := s.njss.DeleteNodeJS(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeJsSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeJsSyncResponse]) error {
@@ -517,6 +940,14 @@ func serializeNodeHTTP(n mnrequest.MNRequest) *flowv1.NodeHttp {
 
 func isZeroID(id idwrap.IDWrap) bool {
 	return id == (idwrap.IDWrap{})
+}
+
+func buildCondition(expression string) mcondition.Condition {
+	return mcondition.Condition{
+		Comparisons: mcondition.Comparison{
+			Expression: expression,
+		},
+	}
 }
 
 func (s *FlowServiceV2RPC) deserializeNodeCreate(item *flowv1.NodeCreate) (*mnnode.MNode, error) {
