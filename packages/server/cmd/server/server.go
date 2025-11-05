@@ -268,6 +268,8 @@ func main() {
 	defer nodeStreamer.Shutdown()
 	edgeStreamer := memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]()
 	defer edgeStreamer.Shutdown()
+	flowVariableStreamer := memory.NewInMemorySyncStreamer[rflowv2.FlowVariableTopic, rflowv2.FlowVariableEvent]()
+	defer flowVariableStreamer.Shutdown()
 
 	flowSrvV2 := rflowv2.New(
 		&workspaceService,
@@ -289,6 +291,7 @@ func main() {
 		&httpAssertAgg,
 		nodeStreamer,
 		edgeStreamer,
+		flowVariableStreamer,
 	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, opitonsAll))
 

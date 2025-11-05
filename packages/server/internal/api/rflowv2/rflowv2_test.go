@@ -89,6 +89,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	t.Cleanup(nodeStream.Shutdown)
 	edgeStream := memory.NewInMemorySyncStreamer[EdgeTopic, EdgeEvent]()
 	t.Cleanup(edgeStream.Shutdown)
+	flowVarStream := memory.NewInMemorySyncStreamer[FlowVariableTopic, FlowVariableEvent]()
+	t.Cleanup(flowVarStream.Shutdown)
 
 	srv := New(
 		&services.Ws,
@@ -110,6 +112,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		services.Has,
 		nodeStream,
 		edgeStream,
+		flowVarStream,
 	)
 
 	ctx := mwauth.CreateAuthedContext(context.Background(), userID)
@@ -923,6 +926,147 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		resp, err = srv.FlowVariableCollection(ctx, newCollectionReq())
 		require.NoError(t, err)
 		require.Empty(t, resp.Msg.GetItems())
+	})
+
+	t.Run("flow variable sync streams snapshot and updates", func(t *testing.T) {
+		varUserID := idwrap.NewNow()
+		require.NoError(t, services.Us.CreateUser(context.Background(), &muser.User{
+			ID:           varUserID,
+			Email:        "flowvar-sync@example.com",
+			Password:     []byte("secret"),
+			ProviderType: muser.MagicLink,
+		}))
+
+		varWorkspaceID := createWorkspaceMembership(t, services.Ws, services.Wus, varUserID)
+
+		varFlowID := idwrap.NewNow()
+		require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
+			ID:          varFlowID,
+			WorkspaceID: varWorkspaceID,
+			Name:        "flow-var-sync",
+		}))
+
+		varCtx := mwauth.CreateAuthedContext(context.Background(), varUserID)
+
+		varID1 := idwrap.NewNow()
+		_, err := srv.FlowVariableCreate(varCtx, connect.NewRequest(&flowv1.FlowVariableCreateRequest{
+			Items: []*flowv1.FlowVariableCreate{
+				{
+					FlowId:         varFlowID.Bytes(),
+					FlowVariableId: varID1.Bytes(),
+					Key:            "API_KEY",
+					Value:          "secret",
+					Enabled:        true,
+				},
+			},
+		}))
+		require.NoError(t, err)
+
+		received := make(chan *flowv1.FlowVariableSyncResponse, 6)
+		ctxSync, cancelSync := context.WithCancel(varCtx)
+		t.Cleanup(cancelSync)
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- srv.streamFlowVariableSync(ctxSync, func(resp *flowv1.FlowVariableSyncResponse) error {
+				received <- resp
+				return nil
+			})
+		}()
+
+		var snapshot *flowv1.FlowVariableSyncResponse
+		select {
+		case snapshot = <-received:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for flow variable snapshot")
+		}
+
+		require.Len(t, snapshot.GetItems(), 1)
+		snapshotValue := snapshot.GetItems()[0].GetValue()
+		require.NotNil(t, snapshotValue)
+		require.Equal(t, flowv1.FlowVariableSync_ValueUnion_KIND_CREATE, snapshotValue.GetKind())
+		snapshotCreate := snapshotValue.GetCreate()
+		require.NotNil(t, snapshotCreate)
+		require.Equal(t, varID1.Bytes(), snapshotCreate.GetFlowVariableId())
+		require.Equal(t, varFlowID.Bytes(), snapshotCreate.GetFlowId())
+		require.Equal(t, "API_KEY", snapshotCreate.GetKey())
+
+		varID2 := idwrap.NewNow()
+		_, err = srv.FlowVariableCreate(varCtx, connect.NewRequest(&flowv1.FlowVariableCreateRequest{
+			Items: []*flowv1.FlowVariableCreate{
+				{
+					FlowId:         varFlowID.Bytes(),
+					FlowVariableId: varID2.Bytes(),
+					Key:            "SECOND",
+					Value:          "value",
+					Enabled:        false,
+				},
+			},
+		}))
+		require.NoError(t, err)
+
+		var createEvent *flowv1.FlowVariableSyncResponse
+		select {
+		case createEvent = <-received:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for flow variable create event")
+		}
+
+		require.Len(t, createEvent.GetItems(), 1)
+		createValue := createEvent.GetItems()[0].GetValue()
+		require.NotNil(t, createValue)
+		require.Equal(t, flowv1.FlowVariableSync_ValueUnion_KIND_CREATE, createValue.GetKind())
+		require.Equal(t, varID2.Bytes(), createValue.GetCreate().GetFlowVariableId())
+
+		_, err = srv.FlowVariableUpdate(varCtx, connect.NewRequest(&flowv1.FlowVariableUpdateRequest{
+			Items: []*flowv1.FlowVariableUpdate{
+				{
+					FlowVariableId: varID2.Bytes(),
+					Key:            ptrString("RENAMED"),
+					Enabled:        ptrBool(true),
+				},
+			},
+		}))
+		require.NoError(t, err)
+
+		var updateEvent *flowv1.FlowVariableSyncResponse
+		select {
+		case updateEvent = <-received:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for flow variable update event")
+		}
+
+		require.Len(t, updateEvent.GetItems(), 1)
+		updateValue := updateEvent.GetItems()[0].GetValue()
+		require.NotNil(t, updateValue)
+		require.Equal(t, flowv1.FlowVariableSync_ValueUnion_KIND_UPDATE, updateValue.GetKind())
+		require.Equal(t, varID2.Bytes(), updateValue.GetUpdate().GetFlowVariableId())
+		require.Equal(t, "RENAMED", updateValue.GetUpdate().GetKey())
+		require.True(t, updateValue.GetUpdate().GetEnabled())
+
+		_, err = srv.FlowVariableDelete(varCtx, connect.NewRequest(&flowv1.FlowVariableDeleteRequest{
+			Items: []*flowv1.FlowVariableDelete{
+				{FlowVariableId: varID2.Bytes()},
+			},
+		}))
+		require.NoError(t, err)
+
+		var deleteEvent *flowv1.FlowVariableSyncResponse
+		select {
+		case deleteEvent = <-received:
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for flow variable delete event")
+		}
+
+		require.Len(t, deleteEvent.GetItems(), 1)
+		deleteValue := deleteEvent.GetItems()[0].GetValue()
+		require.NotNil(t, deleteValue)
+		require.Equal(t, flowv1.FlowVariableSync_ValueUnion_KIND_DELETE, deleteValue.GetKind())
+		require.Equal(t, varID2.Bytes(), deleteValue.GetDelete().GetFlowVariableId())
+
+		cancelSync()
+		err = <-errCh
+		require.ErrorIs(t, err, context.Canceled)
 	})
 }
 

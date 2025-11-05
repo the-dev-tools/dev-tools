@@ -94,6 +94,19 @@ type EdgeEvent struct {
 	Edge   *flowv1.Edge
 }
 
+// FlowVariableTopic identifies the flow whose variables are being published.
+type FlowVariableTopic struct {
+	FlowID idwrap.IDWrap
+}
+
+// FlowVariableEvent describes a flow variable change for sync streaming.
+type FlowVariableEvent struct {
+	Type     string
+	FlowID   idwrap.IDWrap
+	Variable mflowvariable.FlowVariable
+	Order    float32
+}
+
 const (
 	nodeEventCreate = "create"
 	nodeEventUpdate = "update"
@@ -102,6 +115,10 @@ const (
 	edgeEventCreate = "create"
 	edgeEventUpdate = "update"
 	edgeEventDelete = "delete"
+
+	flowVarEventCreate = "create"
+	flowVarEventUpdate = "update"
+	flowVarEventDelete = "delete"
 )
 
 type FlowServiceV2RPC struct {
@@ -124,6 +141,7 @@ type FlowServiceV2RPC struct {
 	has        *shttp.HttpAssertService
 	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent]
 	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+	varStream  eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
 }
 
 func New(
@@ -146,6 +164,7 @@ func New(
 	has *shttp.HttpAssertService,
 	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent],
 	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent],
+	varStream eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		ws:         ws,
@@ -167,6 +186,7 @@ func New(
 		has:        has,
 		nodeStream: nodeStream,
 		edgeStream: edgeStream,
+		varStream:  varStream,
 	}
 }
 
@@ -706,6 +726,12 @@ func (s *FlowServiceV2RPC) FlowVariableCreate(ctx context.Context, req *connect.
 		if err := s.fvs.CreateFlowVariable(ctx, variable); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		order, err := s.flowVariableOrder(ctx, flowID, variableID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		s.publishFlowVariableEvent(flowVarEventCreate, variable, order)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -765,6 +791,12 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 		if err := s.fvs.UpdateFlowVariable(ctx, variable); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		order, err := s.flowVariableOrder(ctx, variable.FlowID, variable.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		s.publishFlowVariableEvent(flowVarEventUpdate, variable, order)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -792,13 +824,24 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 		if err := s.fvs.DeleteFlowVariable(ctx, variableID); err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		s.publishFlowVariableEvent(flowVarEventDelete, variable, 0)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowVariableSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.FlowVariableSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) FlowVariableSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.FlowVariableSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamFlowVariableSync(ctx, func(resp *flowv1.FlowVariableSyncResponse) error {
+		return stream.Send(resp)
+	})
 }
 
 func (s *FlowServiceV2RPC) EdgeCreate(ctx context.Context, req *connect.Request[flowv1.EdgeCreateRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -1063,6 +1106,18 @@ func (s *FlowServiceV2RPC) publishEdgeEvent(eventType string, model edge.Edge) {
 	})
 }
 
+func (s *FlowServiceV2RPC) publishFlowVariableEvent(eventType string, variable mflowvariable.FlowVariable, order float32) {
+	if s.varStream == nil {
+		return
+	}
+	s.varStream.Publish(FlowVariableTopic{FlowID: variable.FlowID}, FlowVariableEvent{
+		Type:     eventType,
+		FlowID:   variable.FlowID,
+		Variable: variable,
+		Order:    order,
+	})
+}
+
 func (s *FlowServiceV2RPC) NodeCreate(
 	ctx context.Context,
 	req *connect.Request[flowv1.NodeCreateRequest],
@@ -1236,6 +1291,86 @@ func (s *FlowServiceV2RPC) streamNodeSync(
 				return nil
 			}
 			resp := nodeEventToSyncResponse(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *FlowServiceV2RPC) streamFlowVariableSync(
+	ctx context.Context,
+	send func(*flowv1.FlowVariableSyncResponse) error,
+) error {
+	if s.varStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("flow variable stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[FlowVariableTopic, FlowVariableEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[FlowVariableTopic, FlowVariableEvent], 0)
+
+		for _, flow := range flows {
+			flowSet.Store(flow.ID.String(), struct{}{})
+
+			variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flow.ID)
+			if err != nil {
+				if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+					continue
+				}
+				return nil, err
+			}
+
+			for idx, variable := range variables {
+				events = append(events, eventstream.Event[FlowVariableTopic, FlowVariableEvent]{
+					Topic: FlowVariableTopic{FlowID: flow.ID},
+					Payload: FlowVariableEvent{
+						Type:     flowVarEventCreate,
+						FlowID:   flow.ID,
+						Variable: variable,
+						Order:    float32(idx),
+					},
+				})
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic FlowVariableTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.varStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := flowVariableEventToSyncResponse(evt.Payload)
 			if resp == nil {
 				continue
 			}
@@ -1989,6 +2124,70 @@ func edgeEventToSyncResponse(evt EdgeEvent) *flowv1.EdgeSyncResponse {
 	}
 }
 
+func flowVariableEventToSyncResponse(evt FlowVariableEvent) *flowv1.FlowVariableSyncResponse {
+	variable := evt.Variable
+
+	switch evt.Type {
+	case flowVarEventCreate:
+		create := &flowv1.FlowVariableSyncCreate{
+			FlowVariableId: variable.ID.Bytes(),
+			FlowId:         variable.FlowID.Bytes(),
+			Key:            variable.Name,
+			Enabled:        variable.Enabled,
+			Value:          variable.Value,
+			Description:    variable.Description,
+			Order:          evt.Order,
+		}
+		return &flowv1.FlowVariableSyncResponse{
+			Items: []*flowv1.FlowVariableSync{{
+				Value: &flowv1.FlowVariableSync_ValueUnion{
+					Kind:   flowv1.FlowVariableSync_ValueUnion_KIND_CREATE,
+					Create: create,
+				},
+			}},
+		}
+	case flowVarEventUpdate:
+		update := &flowv1.FlowVariableSyncUpdate{
+			FlowVariableId: variable.ID.Bytes(),
+		}
+		if flowID := variable.FlowID.Bytes(); len(flowID) > 0 {
+			update.FlowId = flowID
+		}
+		key := variable.Name
+		update.Key = &key
+		enabled := variable.Enabled
+		update.Enabled = &enabled
+		value := variable.Value
+		update.Value = &value
+		description := variable.Description
+		update.Description = &description
+		order := evt.Order
+		update.Order = &order
+
+		return &flowv1.FlowVariableSyncResponse{
+			Items: []*flowv1.FlowVariableSync{{
+				Value: &flowv1.FlowVariableSync_ValueUnion{
+					Kind:   flowv1.FlowVariableSync_ValueUnion_KIND_UPDATE,
+					Update: update,
+				},
+			}},
+		}
+	case flowVarEventDelete:
+		return &flowv1.FlowVariableSyncResponse{
+			Items: []*flowv1.FlowVariableSync{{
+				Value: &flowv1.FlowVariableSync_ValueUnion{
+					Kind: flowv1.FlowVariableSync_ValueUnion_KIND_DELETE,
+					Delete: &flowv1.FlowVariableSyncDelete{
+						FlowVariableId: variable.ID.Bytes(),
+					},
+				},
+			}},
+		}
+	default:
+		return nil
+	}
+}
+
 func isStartNode(node mnnode.MNode) bool {
 	if node.NodeKind != mnnode.NODE_KIND_NO_OP {
 		return false
@@ -2257,6 +2456,19 @@ func buildCondition(expression string) mcondition.Condition {
 
 func convertHandle(h flowv1.Handle) edge.EdgeHandle {
 	return edge.EdgeHandle(h)
+}
+
+func (s *FlowServiceV2RPC) flowVariableOrder(ctx context.Context, flowID, variableID idwrap.IDWrap) (float32, error) {
+	variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flowID)
+	if err != nil {
+		return 0, err
+	}
+	for idx, item := range variables {
+		if item.ID == variableID {
+			return float32(idx), nil
+		}
+	}
+	return 0, fmt.Errorf("flow variable %s not found in flow %s", variableID.String(), flowID.String())
 }
 
 func workspaceIDFromHeaders(header http.Header) (idwrap.IDWrap, error) {
