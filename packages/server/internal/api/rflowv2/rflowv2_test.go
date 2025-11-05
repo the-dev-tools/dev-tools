@@ -8,18 +8,20 @@ import (
 	"github.com/stretchr/testify/require"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	"strings"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodefor"
 	"the-dev-tools/server/pkg/service/snodeforeach"
@@ -58,13 +60,27 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	nodeConditionService := snodeif.New(base.Queries)
 	nodeNoOpService := snodenoop.New(base.Queries)
 	nodeJsService := snodejs.New(base.Queries)
-	flowVariableService := sflowvariable.New(base.Queries)
+	flowVariableService := services.Fvs
 
 	flowID := idwrap.NewNow()
 	require.NoError(t, flowService.CreateFlow(context.Background(), mflow.Flow{
 		ID:          flowID,
 		WorkspaceID: workspaceID,
 		Name:        "example",
+	}))
+
+	startNodeID := idwrap.NewNow()
+	require.NoError(t, nodeService.CreateNode(context.Background(), mnnode.MNode{
+		ID:        startNodeID,
+		FlowID:    flowID,
+		Name:      "Start",
+		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		PositionX: 0,
+		PositionY: 0,
+	}))
+	require.NoError(t, nodeNoOpService.CreateNodeNoop(context.Background(), mnnoop.NoopNode{
+		FlowNodeID: startNodeID,
+		Type:       mnnoop.NODE_NO_OP_KIND_START,
 	}))
 
 	srv := New(
@@ -79,6 +95,12 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		&nodeNoOpService,
 		&nodeJsService,
 		&flowVariableService,
+		&services.Hs,
+		services.Hh,
+		services.Hsp,
+		services.Hbf,
+		services.Hbu,
+		services.Has,
 	)
 
 	ctx := mwauth.CreateAuthedContext(context.Background(), userID)
@@ -185,10 +207,11 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 
 		nodesResp, err := srv.NodeCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
 		require.NoError(t, err)
-		require.Len(t, nodesResp.Msg.GetItems(), 1)
-		require.Equal(t, "noop", nodesResp.Msg.GetItems()[0].GetName())
+		nodes := nonStartNodes(nodesResp.Msg.GetItems())
+		require.Len(t, nodes, 1)
+		require.Equal(t, "noop", nodes[0].GetName())
 
-		nodeID, err := idwrap.NewFromBytes(nodesResp.Msg.GetItems()[0].GetNodeId())
+		nodeID, err := idwrap.NewFromBytes(nodes[0].GetNodeId())
 		require.NoError(t, err)
 
 		updateReq := &flowv1.NodeUpdateRequest{
@@ -205,7 +228,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 
 		nodesResp, err = srv.NodeCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
 		require.NoError(t, err)
-		require.Equal(t, "renamed", nodesResp.Msg.GetItems()[0].GetName())
+		nodes = nonStartNodes(nodesResp.Msg.GetItems())
+		require.Equal(t, "renamed", nodes[0].GetName())
 
 		deleteReq := &flowv1.NodeDeleteRequest{
 			Items: []*flowv1.NodeDelete{{NodeId: nodeID.Bytes()}},
@@ -216,7 +240,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 
 		nodesResp, err = srv.NodeCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
 		require.NoError(t, err)
-		require.Empty(t, nodesResp.Msg.GetItems())
+		require.Empty(t, nonStartNodes(nodesResp.Msg.GetItems()))
 	})
 
 	t.Run("node http lifecycle", func(t *testing.T) {
@@ -256,7 +280,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.NoError(t, err)
 
 		var nodeID idwrap.IDWrap
-		for _, item := range nodesResp.Msg.GetItems() {
+		for _, item := range nonStartNodes(nodesResp.Msg.GetItems()) {
 			if item.GetName() == "request" {
 				nodeID, err = idwrap.NewFromBytes(item.GetNodeId())
 				require.NoError(t, err)
@@ -317,7 +341,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.NoError(t, err)
 
 		var nodeID idwrap.IDWrap
-		for _, item := range nodesResp.Msg.GetItems() {
+		for _, item := range nonStartNodes(nodesResp.Msg.GetItems()) {
 			if item.GetName() == "for-node" {
 				nodeID, err = idwrap.NewFromBytes(item.GetNodeId())
 				require.NoError(t, err)
@@ -683,6 +707,17 @@ func ptrBool(v bool) *bool {
 	return &v
 }
 
+func nonStartNodes(nodes []*flowv1.Node) []*flowv1.Node {
+	filtered := make([]*flowv1.Node, 0, len(nodes))
+	for _, node := range nodes {
+		if strings.EqualFold(node.GetName(), "start") {
+			continue
+		}
+		filtered = append(filtered, node)
+	}
+	return filtered
+}
+
 func TestBuildFlowSyncCreates(t *testing.T) {
 	idA, err := idwrap.NewText("01ARZ3NDEKTSV4RRFFQ69G5FAV")
 	require.NoError(t, err)
@@ -719,7 +754,7 @@ func TestBuildFlowSyncCreates(t *testing.T) {
 func findNodeIDByName(t *testing.T, srv *FlowServiceV2RPC, ctx context.Context, name string) idwrap.IDWrap {
 	resp, err := srv.NodeCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
-	for _, item := range resp.Msg.GetItems() {
+	for _, item := range nonStartNodes(resp.Msg.GetItems()) {
 		if item.GetName() == name {
 			id, err := idwrap.NewFromBytes(item.GetNodeId())
 			require.NoError(t, err)

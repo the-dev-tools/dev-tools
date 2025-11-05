@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -18,10 +20,29 @@ import (
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/flow/edge"
+	"the-dev-tools/server/pkg/flow/node"
+	"the-dev-tools/server/pkg/flow/node/nfor"
+	"the-dev-tools/server/pkg/flow/node/nforeach"
+	"the-dev-tools/server/pkg/flow/node/nif"
+	"the-dev-tools/server/pkg/flow/node/njs"
+	"the-dev-tools/server/pkg/flow/node/nnoop"
+	"the-dev-tools/server/pkg/flow/node/nrequest"
+	"the-dev-tools/server/pkg/flow/runner"
+	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
+	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mbodyform"
+	"the-dev-tools/server/pkg/model/mbodyraw"
+	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/mexampleheader"
+	"the-dev-tools/server/pkg/model/mexamplequery"
+	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mitemapi"
+	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -33,6 +54,7 @@ import (
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
+	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodefor"
 	"the-dev-tools/server/pkg/service/snodeforeach"
@@ -59,6 +81,12 @@ type FlowServiceV2RPC struct {
 	nnos *snodenoop.NodeNoopService
 	njss *snodejs.NodeJSService
 	fvs  *sflowvariable.FlowVariableService
+	hs   *shttp.HTTPService
+	hh   *shttp.HttpHeaderService
+	hsp  *shttp.HttpSearchParamService
+	hbf  *shttp.HttpBodyFormService
+	hbu  *shttp.HttpBodyUrlencodedService
+	has  *shttp.HttpAssertService
 }
 
 func New(
@@ -73,6 +101,12 @@ func New(
 	nnos *snodenoop.NodeNoopService,
 	njss *snodejs.NodeJSService,
 	fvs *sflowvariable.FlowVariableService,
+	hs *shttp.HTTPService,
+	hh *shttp.HttpHeaderService,
+	hsp *shttp.HttpSearchParamService,
+	hbf *shttp.HttpBodyFormService,
+	hbu *shttp.HttpBodyUrlencodedService,
+	has *shttp.HttpAssertService,
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		ws:   ws,
@@ -86,6 +120,12 @@ func New(
 		nnos: nnos,
 		njss: njss,
 		fvs:  fvs,
+		hs:   hs,
+		hh:   hh,
+		hsp:  hsp,
+		hbf:  hbf,
+		hbu:  hbu,
+		has:  has,
 	}
 }
 
@@ -393,6 +433,130 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 
 	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
 		return nil, err
+	}
+
+	flow, err := s.fs.GetFlow(ctx, flowID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	nodes, err := s.ns.GetNodesByFlowID(ctx, flowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	edges, err := s.es.GetEdgesByFlowID(ctx, flowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	flowVars, err := s.fvs.GetFlowVariablesByFlowID(ctx, flowID)
+	if err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	baseVars := make(map[string]any, len(flowVars))
+	for _, variable := range flowVars {
+		if variable.Enabled {
+			baseVars[variable.Name] = variable.Value
+		}
+	}
+
+	requestRespChan := make(chan nrequest.NodeRequestSideResp, len(nodes)*2+1)
+	var respDrain sync.WaitGroup
+	respDrain.Add(1)
+	go func() {
+		defer respDrain.Done()
+		for range requestRespChan {
+		}
+	}()
+	defer func() {
+		close(requestRespChan)
+		respDrain.Wait()
+	}()
+
+	sharedHTTPClient := httpclient.New()
+	edgeMap := edge.NewEdgesMap(edges)
+	flowNodeMap := make(map[idwrap.IDWrap]node.FlowNode, len(nodes))
+
+	var startNodeID idwrap.IDWrap
+	const defaultNodeTimeout = 60 // seconds
+	timeoutDuration := time.Duration(defaultNodeTimeout) * time.Second
+
+	for _, nodeModel := range nodes {
+		switch nodeModel.NodeKind {
+		case mnnode.NODE_KIND_NO_OP:
+			noopModel, err := s.nnos.GetNodeNoop(ctx, nodeModel.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			flowNodeMap[nodeModel.ID] = nnoop.New(nodeModel.ID, nodeModel.Name)
+			if noopModel.Type == mnnoop.NODE_NO_OP_KIND_START {
+				startNodeID = nodeModel.ID
+			}
+		case mnnode.NODE_KIND_REQUEST:
+			requestCfg, err := s.nrs.GetNodeRequest(ctx, nodeModel.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			if requestCfg == nil || isZeroID(requestCfg.HttpID) {
+				return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("request node %s missing http configuration", nodeModel.ID.String()))
+			}
+			requestNode, err := s.buildRequestFlowNode(ctx, flow, nodeModel, *requestCfg, sharedHTTPClient, requestRespChan)
+			if err != nil {
+				return nil, err
+			}
+			flowNodeMap[nodeModel.ID] = requestNode
+		case mnnode.NODE_KIND_FOR:
+			forCfg, err := s.nfs.GetNodeFor(ctx, nodeModel.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			if forCfg.Condition.Comparisons.Expression != "" {
+				flowNodeMap[nodeModel.ID] = nfor.NewWithCondition(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeoutDuration, forCfg.ErrorHandling, forCfg.Condition)
+			} else {
+				flowNodeMap[nodeModel.ID] = nfor.New(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeoutDuration, forCfg.ErrorHandling)
+			}
+		case mnnode.NODE_KIND_FOR_EACH:
+			forEachCfg, err := s.nfes.GetNodeForEach(ctx, nodeModel.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			flowNodeMap[nodeModel.ID] = nforeach.New(nodeModel.ID, nodeModel.Name, forEachCfg.IterExpression, timeoutDuration, forEachCfg.Condition, forEachCfg.ErrorHandling)
+		case mnnode.NODE_KIND_CONDITION:
+			condCfg, err := s.nifs.GetNodeIf(ctx, nodeModel.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			flowNodeMap[nodeModel.ID] = nif.New(nodeModel.ID, nodeModel.Name, condCfg.Condition)
+		case mnnode.NODE_KIND_JS:
+			jsCfg, err := s.njss.GetNodeJS(ctx, nodeModel.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			codeBytes := jsCfg.Code
+			if jsCfg.CodeCompressType != compress.CompressTypeNone {
+				codeBytes, err = compress.Decompress(jsCfg.Code, jsCfg.CodeCompressType)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("decompress js code: %w", err))
+				}
+			}
+			flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), nil)
+		default:
+			return nil, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("node kind %d not supported in FlowRun", nodeModel.NodeKind))
+		}
+	}
+
+	if startNodeID == (idwrap.IDWrap{}) {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("flow missing start node"))
+	}
+
+	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
+	if err := flowRunner.RunWithEvents(ctx, runner.FlowEventChannels{}, baseVars); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -1404,6 +1568,180 @@ func buildFlowSyncCreates(flows []mflow.Flow) []*flowv1.FlowSync {
 	}
 
 	return items
+}
+
+func (s *FlowServiceV2RPC) buildRequestFlowNode(
+	ctx context.Context,
+	flow mflow.Flow,
+	nodeModel mnnode.MNode,
+	cfg mnrequest.MNRequest,
+	client httpclient.HttpClient,
+	respChan chan nrequest.NodeRequestSideResp,
+) (*nrequest.NodeRequest, error) {
+	httpRecord, err := s.hs.Get(ctx, cfg.HttpID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http %s: %w", cfg.HttpID.String(), err))
+	}
+
+	exampleID := cfg.HttpID
+	endpoint := mitemapi.ItemApi{
+		ID:           httpRecord.ID,
+		CollectionID: flow.WorkspaceID,
+		Name:         httpRecord.Name,
+		Url:          httpRecord.Url,
+		Method:       httpRecord.Method,
+	}
+
+	headers, err := s.hh.GetByHttpID(ctx, cfg.HttpID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http headers: %w", err))
+	}
+	queries, err := s.hsp.GetByHttpID(ctx, cfg.HttpID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http queries: %w", err))
+	}
+	forms, err := s.hbf.GetByHttpID(ctx, cfg.HttpID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body forms: %w", err))
+	}
+	urlEncoded, err := s.hbu.List(ctx, cfg.HttpID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body urlencoded: %w", err))
+	}
+
+	headersOld := convertHTTPHeadersToExampleHeaders(headers, exampleID)
+	queriesOld := convertHTTPQueriesToExampleQueries(queries, exampleID)
+	formsOld := convertHTTPFormsToExample(forms, exampleID)
+	urlEncodedOld := convertHTTPUrlencodedToExample(urlEncoded, exampleID)
+
+	rawBody := mbodyraw.ExampleBodyRaw{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+		Data:      nil,
+	}
+
+	example := mitemapiexample.ItemApiExample{
+		ID:        exampleID,
+		ItemApiID: endpoint.ID,
+		Name:      nodeModel.Name,
+		BodyType:  determineExampleBodyType(formsOld, urlEncodedOld),
+	}
+
+	exampleResp := mexampleresp.ExampleResp{
+		ID:        idwrap.NewNow(),
+		ExampleID: exampleID,
+	}
+
+	requestNode := nrequest.New(
+		nodeModel.ID,
+		nodeModel.Name,
+		endpoint,
+		example,
+		queriesOld,
+		headersOld,
+		rawBody,
+		formsOld,
+		urlEncodedOld,
+		exampleResp,
+		nil,
+		nil,
+		client,
+		respChan,
+		nil,
+	)
+	return requestNode, nil
+}
+
+func convertHTTPHeadersToExampleHeaders(headers []mhttp.HTTPHeader, exampleID idwrap.IDWrap) []mexampleheader.Header {
+	if len(headers) == 0 {
+		return nil
+	}
+	result := make([]mexampleheader.Header, 0, len(headers))
+	for _, header := range headers {
+		result = append(result, mexampleheader.Header{
+			ID:            header.ID,
+			ExampleID:     exampleID,
+			HeaderKey:     header.HeaderKey,
+			Value:         header.HeaderValue,
+			Description:   header.Description,
+			Enable:        header.Enabled,
+			DeltaParentID: header.ParentHeaderID,
+			Prev:          header.Prev,
+			Next:          header.Next,
+		})
+	}
+	return result
+}
+
+func convertHTTPQueriesToExampleQueries(queries []mhttp.HTTPSearchParam, exampleID idwrap.IDWrap) []mexamplequery.Query {
+	if len(queries) == 0 {
+		return nil
+	}
+	result := make([]mexamplequery.Query, 0, len(queries))
+	for _, query := range queries {
+		result = append(result, mexamplequery.Query{
+			ID:            query.ID,
+			ExampleID:     exampleID,
+			QueryKey:      query.ParamKey,
+			Value:         query.ParamValue,
+			Description:   query.Description,
+			Enable:        query.Enabled,
+			DeltaParentID: query.ParentSearchParamID,
+		})
+	}
+	return result
+}
+
+func convertHTTPFormsToExample(forms []mhttp.HTTPBodyForm, exampleID idwrap.IDWrap) []mbodyform.BodyForm {
+	if len(forms) == 0 {
+		return nil
+	}
+	result := make([]mbodyform.BodyForm, 0, len(forms))
+	for _, form := range forms {
+		result = append(result, mbodyform.BodyForm{
+			ID:            form.ID,
+			ExampleID:     exampleID,
+			BodyKey:       form.FormKey,
+			Value:         form.FormValue,
+			Description:   form.Description,
+			Enable:        form.Enabled,
+			DeltaParentID: form.ParentBodyFormID,
+		})
+	}
+	return result
+}
+
+func convertHTTPUrlencodedToExample(items []*mhttp.HTTPBodyUrlencoded, exampleID idwrap.IDWrap) []mbodyurl.BodyURLEncoded {
+	if len(items) == 0 {
+		return nil
+	}
+	result := make([]mbodyurl.BodyURLEncoded, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		result = append(result, mbodyurl.BodyURLEncoded{
+			ID:            item.ID,
+			ExampleID:     exampleID,
+			BodyKey:       item.UrlencodedKey,
+			Value:         item.UrlencodedValue,
+			Description:   item.Description,
+			Enable:        item.Enabled,
+			DeltaParentID: item.ParentBodyUrlencodedID,
+		})
+	}
+	return result
+}
+
+func determineExampleBodyType(forms []mbodyform.BodyForm, urlEncoded []mbodyurl.BodyURLEncoded) mitemapiexample.BodyType {
+	switch {
+	case len(forms) > 0:
+		return mitemapiexample.BodyTypeForm
+	case len(urlEncoded) > 0:
+		return mitemapiexample.BodyTypeUrlencoded
+	default:
+		return mitemapiexample.BodyTypeRaw
+	}
 }
 
 func serializeFlow(flow mflow.Flow) *flowv1.Flow {

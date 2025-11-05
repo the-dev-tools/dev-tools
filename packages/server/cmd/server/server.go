@@ -51,7 +51,7 @@ import (
 	// "the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
 	// "the-dev-tools/server/pkg/service/sflowtag"
-	// "the-dev-tools/server/pkg/service/sflowvariable"
+	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
@@ -167,12 +167,18 @@ func main() {
 	httpBodyFormService := shttpbodyform.New(queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
 	httpAssertService := shttpassert.New(queries)
+	// Aggregated HTTP services used by flow execution
+	httpHeaderAgg := shttp.NewHttpHeaderService(queries)
+	httpSearchAgg := shttp.NewHttpSearchParamService(queries)
+	httpBodyFormAgg := shttp.NewHttpBodyFormService(queries)
+	httpBodyUrlAgg := shttp.NewHttpBodyUrlencodedService(queries)
+	httpAssertAgg := shttp.NewHttpAssertService(queries)
 
 	// Flow
 	flowService := sflow.New(queries)
 	// flowTagService := sflowtag.New(queries)
 	flowEdgeService := sedge.New(queries)
-	// flowVariableService := sflowvariable.New(queries)
+	flowVariableService := sflowvariable.New(queries)
 
 	// nodes
 	flowNodeService := snode.New(queries)
@@ -269,6 +275,13 @@ func main() {
 		flowNodeConditionService,
 		&flowNodeNoOpService,
 		&flowNodeJsService,
+		&flowVariableService,
+		&httpService,
+		httpHeaderAgg,
+		httpSearchAgg,
+		&httpBodyFormAgg,
+		httpBodyUrlAgg,
+		&httpAssertAgg,
 	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, opitonsAll))
 
