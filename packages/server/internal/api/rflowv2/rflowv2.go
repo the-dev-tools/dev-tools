@@ -236,16 +236,138 @@ func (s *FlowServiceV2RPC) FlowVariableSync(context.Context, *connect.Request[em
 	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) EdgeCreate(context.Context, *connect.Request[flowv1.EdgeCreateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) EdgeCreate(ctx context.Context, req *connect.Request[flowv1.EdgeCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		if len(item.GetFlowId()) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
+		}
+		if len(item.GetSourceId()) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source id is required"))
+		}
+		if len(item.GetTargetId()) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("target id is required"))
+		}
+
+		flowID, err := idwrap.NewFromBytes(item.GetFlowId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
+		}
+		if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+			return nil, err
+		}
+
+		sourceID, err := idwrap.NewFromBytes(item.GetSourceId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid source id: %w", err))
+		}
+		if _, err := s.ensureNodeAccess(ctx, sourceID); err != nil {
+			return nil, err
+		}
+
+		targetID, err := idwrap.NewFromBytes(item.GetTargetId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid target id: %w", err))
+		}
+		if _, err := s.ensureNodeAccess(ctx, targetID); err != nil {
+			return nil, err
+		}
+
+		edgeID := idwrap.NewNow()
+		if len(item.GetEdgeId()) != 0 {
+			edgeID, err = idwrap.NewFromBytes(item.GetEdgeId())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid edge id: %w", err))
+			}
+		}
+
+		model := edge.Edge{
+			ID:            edgeID,
+			FlowID:        flowID,
+			SourceID:      sourceID,
+			TargetID:      targetID,
+			SourceHandler: convertHandle(item.GetSourceHandle()),
+			Kind:          int32(item.GetKind()),
+		}
+
+		if err := s.es.CreateEdge(ctx, model); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) EdgeUpdate(context.Context, *connect.Request[flowv1.EdgeUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) EdgeUpdate(ctx context.Context, req *connect.Request[flowv1.EdgeUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		edgeID, err := idwrap.NewFromBytes(item.GetEdgeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid edge id: %w", err))
+		}
+
+		existing, err := s.ensureEdgeAccess(ctx, edgeID)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(item.GetFlowId()) != 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow reassignment is not supported"))
+		}
+
+		if len(item.GetSourceId()) != 0 {
+			sourceID, err := idwrap.NewFromBytes(item.GetSourceId())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid source id: %w", err))
+			}
+			if _, err := s.ensureNodeAccess(ctx, sourceID); err != nil {
+				return nil, err
+			}
+			existing.SourceID = sourceID
+		}
+
+		if len(item.GetTargetId()) != 0 {
+			targetID, err := idwrap.NewFromBytes(item.GetTargetId())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid target id: %w", err))
+			}
+			if _, err := s.ensureNodeAccess(ctx, targetID); err != nil {
+				return nil, err
+			}
+			existing.TargetID = targetID
+		}
+
+		if item.SourceHandle != nil {
+			existing.SourceHandler = convertHandle(item.GetSourceHandle())
+		}
+
+		if item.Kind != nil {
+			existing.Kind = int32(item.GetKind())
+		}
+
+		if err := s.es.UpdateEdge(ctx, *existing); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) EdgeDelete(context.Context, *connect.Request[flowv1.EdgeDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) EdgeDelete(ctx context.Context, req *connect.Request[flowv1.EdgeDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	for _, item := range req.Msg.GetItems() {
+		edgeID, err := idwrap.NewFromBytes(item.GetEdgeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid edge id: %w", err))
+		}
+
+		if _, err := s.ensureEdgeAccess(ctx, edgeID); err != nil {
+			return nil, err
+		}
+
+		if err := s.es.DeleteEdge(ctx, edgeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) EdgeSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.EdgeSyncResponse]) error {
@@ -352,6 +474,10 @@ func (s *FlowServiceV2RPC) NodeNoOpCreate(ctx context.Context, req *connect.Requ
 
 		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
 			return nil, err
+		}
+
+		if err := s.nnos.DeleteNodeNoop(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		noop := mnnoop.NoopNode{
@@ -950,6 +1076,10 @@ func buildCondition(expression string) mcondition.Condition {
 	}
 }
 
+func convertHandle(h flowv1.Handle) edge.EdgeHandle {
+	return edge.EdgeHandle(h)
+}
+
 func (s *FlowServiceV2RPC) deserializeNodeCreate(item *flowv1.NodeCreate) (*mnnode.MNode, error) {
 	if item == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node create item is required"))
@@ -1022,6 +1152,21 @@ func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.I
 		return nil, err
 	}
 	return node, nil
+}
+
+func (s *FlowServiceV2RPC) ensureEdgeAccess(ctx context.Context, edgeID idwrap.IDWrap) (*edge.Edge, error) {
+	edgeModel, err := s.es.GetEdge(ctx, edgeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("edge %s not found", edgeID.String()))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if err := s.ensureFlowAccess(ctx, edgeModel.FlowID); err != nil {
+		return nil, err
+	}
+	return edgeModel, nil
 }
 
 // Ensure FlowServiceV2RPC implements the generated interface.

@@ -11,6 +11,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/pkg/dbtime"
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -274,6 +275,217 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		_, err = nodeForService.GetNodeFor(context.Background(), nodeID)
 		require.Error(t, err)
 	})
+
+	t.Run("node foreach lifecycle", func(t *testing.T) {
+		createReq := &flowv1.NodeCreateRequest{
+			Items: []*flowv1.NodeCreate{{
+				FlowId: flowID.Bytes(),
+				Name:   "foreach-node",
+				Kind:   flowv1.NodeKind_NODE_KIND_FOR_EACH,
+			}},
+		}
+
+		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		require.NoError(t, err)
+
+		nodeID := findNodeIDByName(t, srv, ctx, "foreach-node")
+
+		_, err = srv.NodeForEachCreate(ctx, connect.NewRequest(&flowv1.NodeForEachCreateRequest{
+			Items: []*flowv1.NodeForEachCreate{{
+				NodeId:    nodeID.Bytes(),
+				Path:      "items",
+				Condition: "len(items) > 0",
+			}},
+		}))
+		require.NoError(t, err)
+
+		feModel, err := nodeForEachService.GetNodeForEach(context.Background(), nodeID)
+		require.NoError(t, err)
+		require.Equal(t, "items", feModel.IterExpression)
+		require.Equal(t, "len(items) > 0", feModel.Condition.Comparisons.Expression)
+
+		_, err = srv.NodeForEachUpdate(ctx, connect.NewRequest(&flowv1.NodeForEachUpdateRequest{
+			Items: []*flowv1.NodeForEachUpdate{{
+				NodeId:    nodeID.Bytes(),
+				Path:      ptrString("items2"),
+				Condition: ptrString("len(items2) > 0"),
+			}},
+		}))
+		require.NoError(t, err)
+
+		feModel, err = nodeForEachService.GetNodeForEach(context.Background(), nodeID)
+		require.NoError(t, err)
+		require.Equal(t, "items2", feModel.IterExpression)
+		require.Equal(t, "len(items2) > 0", feModel.Condition.Comparisons.Expression)
+
+		_, err = srv.NodeForEachDelete(ctx, connect.NewRequest(&flowv1.NodeForEachDeleteRequest{
+			Items: []*flowv1.NodeForEachDelete{{NodeId: nodeID.Bytes()}},
+		}))
+		require.NoError(t, err)
+
+		_, err = nodeForEachService.GetNodeForEach(context.Background(), nodeID)
+		require.Error(t, err)
+	})
+
+	t.Run("node condition lifecycle", func(t *testing.T) {
+		createReq := &flowv1.NodeCreateRequest{
+			Items: []*flowv1.NodeCreate{{
+				FlowId: flowID.Bytes(),
+				Name:   "condition-node",
+				Kind:   flowv1.NodeKind_NODE_KIND_CONDITION,
+			}},
+		}
+
+		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		require.NoError(t, err)
+
+		nodeID := findNodeIDByName(t, srv, ctx, "condition-node")
+
+		_, err = srv.NodeConditionCreate(ctx, connect.NewRequest(&flowv1.NodeConditionCreateRequest{
+			Items: []*flowv1.NodeConditionCreate{{
+				NodeId:    nodeID.Bytes(),
+				Condition: "x == 1",
+			}},
+		}))
+		require.NoError(t, err)
+
+		condModel, err := nodeConditionService.GetNodeIf(context.Background(), nodeID)
+		require.NoError(t, err)
+		require.Equal(t, "x == 1", condModel.Condition.Comparisons.Expression)
+
+		_, err = srv.NodeConditionUpdate(ctx, connect.NewRequest(&flowv1.NodeConditionUpdateRequest{
+			Items: []*flowv1.NodeConditionUpdate{{
+				NodeId:    nodeID.Bytes(),
+				Condition: ptrString("x == 2"),
+			}},
+		}))
+		require.NoError(t, err)
+
+		condModel, err = nodeConditionService.GetNodeIf(context.Background(), nodeID)
+		require.NoError(t, err)
+		require.Equal(t, "x == 2", condModel.Condition.Comparisons.Expression)
+
+		_, err = srv.NodeConditionDelete(ctx, connect.NewRequest(&flowv1.NodeConditionDeleteRequest{
+			Items: []*flowv1.NodeConditionDelete{{NodeId: nodeID.Bytes()}},
+		}))
+		require.NoError(t, err)
+
+		_, err = nodeConditionService.GetNodeIf(context.Background(), nodeID)
+		require.Error(t, err)
+	})
+
+	t.Run("node js lifecycle", func(t *testing.T) {
+		createReq := &flowv1.NodeCreateRequest{
+			Items: []*flowv1.NodeCreate{{
+				FlowId: flowID.Bytes(),
+				Name:   "js-node",
+				Kind:   flowv1.NodeKind_NODE_KIND_JS,
+			}},
+		}
+
+		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		require.NoError(t, err)
+
+		nodeID := findNodeIDByName(t, srv, ctx, "js-node")
+
+		_, err = srv.NodeJsCreate(ctx, connect.NewRequest(&flowv1.NodeJsCreateRequest{
+			Items: []*flowv1.NodeJsCreate{{
+				NodeId: nodeID.Bytes(),
+				Code:   "console.log('hello')",
+			}},
+		}))
+		require.NoError(t, err)
+
+		jsModel, err := nodeJsService.GetNodeJS(context.Background(), nodeID)
+		require.NoError(t, err)
+		require.Equal(t, "console.log('hello')", string(jsModel.Code))
+
+		_, err = srv.NodeJsUpdate(ctx, connect.NewRequest(&flowv1.NodeJsUpdateRequest{
+			Items: []*flowv1.NodeJsUpdate{{
+				NodeId: nodeID.Bytes(),
+				Code:   ptrString("console.log('updated')"),
+			}},
+		}))
+		require.NoError(t, err)
+
+		jsModel, err = nodeJsService.GetNodeJS(context.Background(), nodeID)
+		require.NoError(t, err)
+		require.Equal(t, "console.log('updated')", string(jsModel.Code))
+
+		_, err = srv.NodeJsDelete(ctx, connect.NewRequest(&flowv1.NodeJsDeleteRequest{
+			Items: []*flowv1.NodeJsDelete{{NodeId: nodeID.Bytes()}},
+		}))
+		require.NoError(t, err)
+
+		_, err = nodeJsService.GetNodeJS(context.Background(), nodeID)
+		require.Error(t, err)
+	})
+
+	t.Run("edge lifecycle", func(t *testing.T) {
+		createReq := &flowv1.NodeCreateRequest{
+			Items: []*flowv1.NodeCreate{
+				{FlowId: flowID.Bytes(), Name: "edge-source", Kind: flowv1.NodeKind_NODE_KIND_NO_OP},
+				{FlowId: flowID.Bytes(), Name: "edge-target", Kind: flowv1.NodeKind_NODE_KIND_NO_OP},
+			},
+		}
+
+		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		require.NoError(t, err)
+
+		sourceID := findNodeIDByName(t, srv, ctx, "edge-source")
+		targetID := findNodeIDByName(t, srv, ctx, "edge-target")
+
+		_, err = srv.EdgeCreate(ctx, connect.NewRequest(&flowv1.EdgeCreateRequest{
+			Items: []*flowv1.EdgeCreate{{
+				FlowId:       flowID.Bytes(),
+				SourceId:     sourceID.Bytes(),
+				TargetId:     targetID.Bytes(),
+				SourceHandle: flowv1.Handle_HANDLE_THEN,
+				Kind:         flowv1.EdgeKind_EDGE_KIND_NO_OP,
+			}},
+		}))
+		require.NoError(t, err)
+
+		edges, err := edgeService.GetEdgesByFlowID(context.Background(), flowID)
+		require.NoError(t, err)
+		require.Len(t, edges, 1)
+
+		edgeID := edges[0].ID
+
+		// create new target for update
+		_, err = srv.NodeCreate(ctx, connect.NewRequest(&flowv1.NodeCreateRequest{
+			Items: []*flowv1.NodeCreate{{
+				FlowId: flowID.Bytes(),
+				Name:   "edge-target-2",
+				Kind:   flowv1.NodeKind_NODE_KIND_NO_OP,
+			}},
+		}))
+		require.NoError(t, err)
+
+		newTargetID := findNodeIDByName(t, srv, ctx, "edge-target-2")
+
+		_, err = srv.EdgeUpdate(ctx, connect.NewRequest(&flowv1.EdgeUpdateRequest{
+			Items: []*flowv1.EdgeUpdate{{
+				EdgeId:       edgeID.Bytes(),
+				TargetId:     newTargetID.Bytes(),
+				SourceHandle: ptrHandle(flowv1.Handle_HANDLE_ELSE),
+			}},
+		}))
+		require.NoError(t, err)
+
+		edgeModel, err := edgeService.GetEdge(context.Background(), edgeID)
+		require.NoError(t, err)
+		require.Equal(t, newTargetID, edgeModel.TargetID)
+		require.Equal(t, edge.EdgeHandle(flowv1.Handle_HANDLE_ELSE), edgeModel.SourceHandler)
+
+		_, err = srv.EdgeDelete(ctx, connect.NewRequest(&flowv1.EdgeDeleteRequest{
+			Items: []*flowv1.EdgeDelete{{EdgeId: edgeID.Bytes()}},
+		}))
+		require.NoError(t, err)
+
+		_, err = edgeService.GetEdge(context.Background(), edgeID)
+		require.Error(t, err)
+	})
 }
 
 func createWorkspaceMembership(t *testing.T, ws sworkspace.WorkspaceService, wus sworkspacesusers.WorkspaceUserService, userID idwrap.IDWrap) idwrap.IDWrap {
@@ -308,4 +520,22 @@ func ptrString(s string) *string {
 
 func ptrInt32(v int32) *int32 {
 	return &v
+}
+
+func ptrHandle(v flowv1.Handle) *flowv1.Handle {
+	return &v
+}
+
+func findNodeIDByName(t *testing.T, srv *rflowv2.FlowServiceV2RPC, ctx context.Context, name string) idwrap.IDWrap {
+	resp, err := srv.NodeCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+	for _, item := range resp.Msg.GetItems() {
+		if item.GetName() == name {
+			id, err := idwrap.NewFromBytes(item.GetNodeId())
+			require.NoError(t, err)
+			return id
+		}
+	}
+	t.Fatalf("node %s not found", name)
+	return idwrap.IDWrap{}
 }
