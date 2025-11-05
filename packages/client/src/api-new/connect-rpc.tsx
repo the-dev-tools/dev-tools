@@ -1,4 +1,5 @@
-import { CallOptions, Transport } from '@connectrpc/connect';
+import { CallOptions, Interceptor, Transport } from '@connectrpc/connect';
+import { Effect, identity, pipe, Runtime } from 'effect';
 import * as Protobuf from './protobuf';
 
 export * from '@connectrpc/connect';
@@ -43,3 +44,14 @@ export const stream = <I extends Protobuf.DescMessage, O extends Protobuf.DescMe
 async function* createAsyncIterable<T>(items: T[]): AsyncIterable<T> {
   yield* items;
 }
+
+export type InterceptorNext = Parameters<Interceptor>[0];
+export type InterceptorRequest = Parameters<Parameters<Interceptor>[0]>[0];
+export type InterceptorResponse = Awaited<ReturnType<Parameters<Interceptor>[0]>>;
+
+export const effectInterceptor = Effect.fn(function* <E, R>(
+  interceptor: (next: InterceptorNext, request: InterceptorRequest) => Effect.Effect<InterceptorResponse, E, R>,
+) {
+  const runtime = yield* Effect.runtime<R>();
+  return identity<Interceptor>((next) => (request) => pipe(interceptor(next, request), Runtime.runPromise(runtime)));
+});

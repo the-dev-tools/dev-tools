@@ -1,195 +1,206 @@
-import {
-  create,
-  DescEnum,
-  DescField,
-  DescMessage,
-  DescService,
-  Message,
-  ScalarType,
-  toJsonString,
-} from '@bufbuild/protobuf';
-import { timestampFromDate } from '@bufbuild/protobuf/wkt';
-import { createRouterTransport, Interceptor, ServiceImpl } from '@connectrpc/connect';
-import { Faker as FakerClass, base as fakerLocaleBase, en as fakerLocaleEn } from '@faker-js/faker';
-import { Effect, MutableHashMap, Option, pipe, Record } from 'effect';
+import { Array, Data, Effect, MutableHashMap, Option, pipe, Queue, Record, Runtime, Stream } from 'effect';
 import { Ulid } from 'id128';
 import { files } from '@the-dev-tools/spec/files';
-import { NodeKind, NodeListResponseSchema } from '@the-dev-tools/spec/flow/node/v1/node_pb';
+import { Connect, Protobuf } from '~/api-new';
+import { Faker } from '~/utils/faker';
 import { defaultInterceptors } from './interceptors';
 
-class Faker extends Effect.Service<Faker>()('Faker', {
-  sync: () => {
-    const faker = new FakerClass({ locale: [fakerLocaleEn, fakerLocaleBase] });
-    faker.seed(0);
-    return faker;
-  },
-}) {}
+export class UnimplementedMockError extends Data.TaggedError('UnimplementedMockError')<{ reason: string }> {}
 
-const fakeScalar = (faker: (typeof Faker)['Service'], scalar: ScalarType, field: DescField) => {
-  if (field.name.endsWith('Id')) {
-    const id = Ulid.generate({ time: faker.date.anytime() });
-    return id.bytes;
+const mockScalar = Effect.fn(function* (scalar: Protobuf.ScalarType, field: Protobuf.DescField) {
+  const faker = yield* Faker;
+
+  if (scalar === Protobuf.ScalarType.BYTES && field.localName.endsWith('Id')) {
+    return Ulid.generate({ time: faker.date.anytime() }).bytes;
   }
 
   // https://github.com/bufbuild/protobuf-es/blob/main/MANUAL.md#scalar-fields
   switch (scalar) {
-    case ScalarType.BOOL:
+    case Protobuf.ScalarType.BOOL:
       return faker.datatype.boolean();
 
-    case ScalarType.BYTES:
+    case Protobuf.ScalarType.BYTES:
       return new Uint8Array();
 
-    case ScalarType.DOUBLE:
-    case ScalarType.FLOAT:
+    case Protobuf.ScalarType.DOUBLE:
+    case Protobuf.ScalarType.FLOAT:
       return faker.number.float();
 
-    case ScalarType.FIXED32:
-    case ScalarType.INT32:
-    case ScalarType.SFIXED32:
-    case ScalarType.SINT32:
-    case ScalarType.UINT32:
-      return faker.number.int({ max: 2 ** 32 / 2 - 1, min: 0 });
+    case Protobuf.ScalarType.FIXED32:
+    case Protobuf.ScalarType.INT32:
+    case Protobuf.ScalarType.SFIXED32:
+    case Protobuf.ScalarType.SINT32:
+    case Protobuf.ScalarType.UINT32:
+      return faker.number.int({ min: 0, max: 2 ** 32 / 2 - 1 });
 
-    case ScalarType.FIXED64:
-    case ScalarType.INT64:
-    case ScalarType.SFIXED64:
-    case ScalarType.SINT64:
-    case ScalarType.UINT64:
-      return faker.number.bigInt({ max: 2n ** 64n / 2n - 1n, min: 0 });
+    case Protobuf.ScalarType.FIXED64:
+    case Protobuf.ScalarType.INT64:
+    case Protobuf.ScalarType.SFIXED64:
+    case Protobuf.ScalarType.SINT64:
+    case Protobuf.ScalarType.UINT64:
+      return faker.number.bigInt({ min: 0, max: 2n ** 64n / 2n - 1n });
 
-    case ScalarType.STRING:
+    case Protobuf.ScalarType.STRING:
       return faker.word.words();
   }
-};
+});
 
-const fakeEnum = (faker: (typeof Faker)['Service'], enum_: DescEnum) =>
-  faker.number.int({
-    max: enum_.values.length - 1,
-    min: 1,
-  });
+const mockFieldValue = Effect.fn(function* (field: Protobuf.DescField, depth: number) {
+  const faker = yield* Faker;
 
-const fakeMessage = (faker: (typeof Faker)['Service'], message: DescMessage, depth = 0): Message => {
-  switch (message.typeName) {
-    case 'flow.edge.v1.EdgeListResponse':
-      return create(message);
-
-    case 'flow.node.v1.NodeListResponse':
-      return create(NodeListResponseSchema, {
-        items: [
-          {
-            kind: NodeKind.NO_OP,
-            nodeId: new Uint8Array(),
-            position: { x: 0, y: 0 },
-          },
-        ],
-      });
-
-    case 'google.protobuf.Timestamp':
-      return timestampFromDate(faker.date.anytime());
+  /* eslint-disable @typescript-eslint/no-unnecessary-condition */
+  if (
+    field.fieldKind === 'enum' ||
+    (field.fieldKind === 'list' && field.listKind === 'enum') ||
+    (field.fieldKind === 'map' && field.mapKind === 'enum')
+  ) {
+    return faker.helpers.arrayElement(field.enum.values).number;
   }
 
-  const value = Record.map(message.field, (field) => {
-    switch (field.fieldKind) {
-      case 'enum':
-        return fakeEnum(faker, field.enum);
+  if (
+    field.fieldKind === 'message' ||
+    (field.fieldKind === 'list' && field.listKind === 'message') ||
+    (field.fieldKind === 'map' && field.mapKind === 'message')
+  ) {
+    return yield* mockMessage(field.message, depth + 1);
+  }
 
-      case 'list':
-        if (field.name === 'changes' && field.message?.typeName === 'change.v1.Change') return [];
-        if (depth > 5) return [];
-        return faker.helpers.multiple(() => {
-          switch (field.listKind) {
-            case 'enum':
-              return fakeEnum(faker, field.enum);
+  if (
+    field.fieldKind === 'scalar' ||
+    (field.fieldKind === 'list' && field.listKind === 'scalar') ||
+    (field.fieldKind === 'map' && field.mapKind === 'scalar')
+  ) {
+    return yield* mockScalar(field.scalar, field);
+  }
 
-            case 'message':
-              return fakeMessage(faker, field.message, depth + 1);
+  return yield* new UnimplementedMockError({ reason: 'Unimplemented field kind' });
+  /* eslint-enable @typescript-eslint/no-unnecessary-condition */
+});
 
-            case 'scalar':
-              return fakeScalar(faker, field.scalar, field);
+const mockMessage = (
+  message: Protobuf.DescMessage,
+  depth = 0,
+): Effect.Effect<Protobuf.Message, UnimplementedMockError, Faker> =>
+  Effect.gen(function* () {
+    const faker = yield* Faker;
+
+    switch (message.typeName) {
+      case 'google.protobuf.Timestamp':
+        return Protobuf.WKT.timestampFromDate(faker.date.anytime());
+    }
+
+    const value: Record<string, unknown> = {};
+
+    for (const [key, field] of Record.toEntries(message.field)) {
+      switch (field.fieldKind) {
+        case 'list': {
+          const list = Array.empty<unknown>();
+          value[key] = list;
+          if (depth > 5) break;
+          for (let index = 0; index < faker.number.int({ min: 3, max: 10 }); index++)
+            list.push(yield* mockFieldValue(field, depth));
+          break;
+        }
+
+        case 'map': {
+          const map = Record.empty<string, unknown>();
+          value[key] = map;
+          if (depth > 5) break;
+          const length = faker.number.int({ min: 3, max: 10 });
+          const keys = faker.helpers.uniqueArray(() => faker.word.sample(), length);
+          for (const key of keys) map[key] = yield* mockFieldValue(field, depth);
+          break;
+        }
+
+        default:
+          value[key] = yield* mockFieldValue(field, depth);
+      }
+    }
+
+    return Protobuf.create(message, value);
+  });
+
+const mockMethod = Effect.fn(function* (method: Protobuf.DescMethod) {
+  const faker = yield* Faker;
+  const runtime = yield* Effect.runtime<ApiMockState | Faker>();
+
+  switch (method.methodKind) {
+    case 'server_streaming':
+      return (input: Protobuf.Message) =>
+        Effect.gen(function* () {
+          const queue = yield* getStreamQueue(method, input);
+
+          for (let index = 0; index < faker.number.int({ min: 3, max: 10 }); index++) {
+            const message = yield* mockMessage(method.output);
+            yield* Queue.offer(queue, message);
           }
-        });
 
-      case 'message':
-        if (depth > 5) return undefined;
-        return fakeMessage(faker, field.message, depth + 1);
+          return pipe(Stream.fromQueue(queue), Stream.toAsyncIterable);
+        }).pipe(Runtime.runSync(runtime));
 
-      case 'scalar':
-        return fakeScalar(faker, field.scalar, field);
+    case 'unary':
+      return () => pipe(mockMessage(method.output), Runtime.runSync(runtime));
 
-      default:
-        throw new Error('Unimplemented field kind');
-    }
-  });
+    default:
+      return yield* new UnimplementedMockError({ reason: 'Unimplemented method kind' });
+  }
+});
 
-  return create(message, value);
-};
+const getStreamQueue = Effect.fn(function* (method: Protobuf.DescMethod, input?: Protobuf.Message) {
+  const { streamQueueMap } = yield* ApiMockState;
 
-const cache = MutableHashMap.empty<string, Message>();
-const streamCache = MutableHashMap.empty<string, AsyncIterable<Message>>();
+  let key = method.input.typeName;
+  if (input) key += Protobuf.toJsonString(method.input, input);
 
-const mockInterceptor: Interceptor = (next) => async (request) => {
-  const response = await next(request);
-  console.log(`Mocking ${request.url}`, { request, response });
-  await new Promise((_) => setTimeout(_, 500));
+  let queue = pipe(MutableHashMap.get(streamQueueMap, key), Option.getOrUndefined);
+
+  if (!queue) {
+    queue = yield* Queue.unbounded<Protobuf.Message>();
+    MutableHashMap.set(streamQueueMap, key, queue);
+  }
+
+  return queue;
+});
+
+const mockInterceptor = Effect.fn(function* (next: Connect.InterceptorNext, request: Connect.InterceptorRequest) {
+  const response = yield* Effect.tryPromise(() => next(request));
+  yield* Effect.logDebug(`Mocking ${request.url}`, { request, response });
+  yield* Effect.sleep('500 millis');
   return response;
-};
+});
 
-const mockServiceMethods = (faker: Faker, service: DescService): ServiceImpl<never> =>
-  Record.map(service.method, (method) => {
-    const makeKey = (input: Message) => method.input.typeName + toJsonString(method.input, input);
-    const makeMessage = () => fakeMessage(faker, method.output);
-
-    switch (method.methodKind) {
-      case 'server_streaming':
-        return (input: Message) => {
-          const key = makeKey(input);
-
-          const stream = pipe(
-            MutableHashMap.get(streamCache, key),
-            Option.getOrElse(() =>
-              (async function* () {
-                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                while (true) {
-                  await new Promise((_) => setTimeout(_, 2000));
-                  yield makeMessage();
-                }
-              })(),
-            ),
-          );
-
-          MutableHashMap.set(streamCache, key, stream);
-          return stream;
-        };
-
-      case 'unary':
-        return (input: Message) => {
-          const key = makeKey(input);
-          const message = pipe(MutableHashMap.get(cache, key), Option.getOrElse(makeMessage));
-          MutableHashMap.set(cache, key, message);
-          return message;
-        };
-
-      default:
-        throw new Error('Unimplemented method kind');
-    }
-  });
+class ApiMockState extends Effect.Service<ApiMockState>()('ApiMockState', {
+  sync: () => ({
+    methodImplMap: MutableHashMap.empty<Protobuf.DescMethod>(),
+    streamQueueMap: MutableHashMap.empty<string, Queue.Queue<Protobuf.Message>>(),
+  }),
+}) {}
 
 export class ApiTransportMock extends Effect.Service<ApiTransportMock>()('ApiTransportMock', {
-  dependencies: [Faker.Default],
+  dependencies: [ApiMockState.Default, Faker.Default],
   effect: Effect.gen(function* () {
-    const faker = yield* Faker;
-    return createRouterTransport(
+    const { methodImplMap } = yield* ApiMockState;
+
+    const methods = pipe(
+      Array.flatMap(files, (_) => _.services),
+      Array.flatMap((_) => _.methods),
+    );
+
+    for (const method of methods) {
+      if (pipe(MutableHashMap.get(methodImplMap, method), Option.isSome)) continue;
+      MutableHashMap.set(methodImplMap, method, yield* mockMethod(method));
+    }
+
+    return Connect.createRouterTransport(
       (router) => {
-        files.forEach((file) => {
-          file.services.forEach((service) => {
-            const methods = mockServiceMethods(faker, service);
-            router.service(service, methods);
-          });
+        methods.forEach((method) => {
+          const impl = pipe(MutableHashMap.get(methodImplMap, method), Option.getOrThrow);
+          router.rpc(method, impl, {});
         });
       },
       {
         transport: {
-          interceptors: [mockInterceptor, ...defaultInterceptors],
+          interceptors: [yield* Connect.effectInterceptor(mockInterceptor), ...defaultInterceptors],
         },
       },
     );

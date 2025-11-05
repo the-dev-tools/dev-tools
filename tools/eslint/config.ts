@@ -96,24 +96,11 @@ const perfectionist = defineConfig({
   },
 });
 
-// Consistent Tailwind Variants order
-const sortTVObject = pipe(
-  ['extend', 'base', 'slot', 'variants', 'defaultVariants', 'compoundVariants', 'compoundSlots'],
-  (groups) => ({
-    customGroups: Array.map(groups, (name) => ({
-      elementNamePattern: name,
-      groupName: name,
-    })),
-    groups,
-    useConfigurationIf: { callingFunctionNamePattern: 'tv' },
-  }),
-);
-
-const sizeObject = pipe(['sm', 'md', 'lg', 'xl'], (groups) => ({
-  customGroups: Array.map(groups, (name) => ({ elementNamePattern: name, groupName: name })),
-  groups,
-  useConfigurationIf: { allNamesMatchPattern: groups },
-}));
+const sortObject = (keys: string[], callingFunctionNamePattern?: string) => ({
+  customGroups: Array.map(keys, (name) => ({ elementNamePattern: name, groupName: name })),
+  groups: keys,
+  useConfigurationIf: callingFunctionNamePattern ? { callingFunctionNamePattern } : { allNamesMatchPattern: keys },
+});
 
 const rules = defineConfig({
   rules: {
@@ -142,7 +129,13 @@ const rules = defineConfig({
       { internalPattern: ['^@the-dev-tools/.*', '^~.*'], newlinesBetween: 'ignore' },
     ],
     'perfectionist/sort-modules': 'off', // consider re-enabling after https://github.com/azat-io/eslint-plugin-perfectionist/issues/434
-    'perfectionist/sort-objects': ['warn', sortTVObject, sizeObject],
+    'perfectionist/sort-objects': [
+      'warn',
+      // Tailwind Variants function
+      sortObject(['extend', 'base', 'slot', 'variants', 'defaultVariants', 'compoundVariants', 'compoundSlots'], 'tv'),
+      sortObject(['sm', 'md', 'lg', 'xl']),
+      sortObject(['min', 'max']),
+    ],
 
     'react-hooks/exhaustive-deps': [
       'warn',

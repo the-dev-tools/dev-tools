@@ -16,6 +16,7 @@ import { Array, Option, pipe, Record, Struct } from 'effect';
 import { files } from '@the-dev-tools/spec/files';
 
 export * from '@bufbuild/protobuf';
+export * as WKT from '@bufbuild/protobuf/wkt';
 
 export const registry = createRegistry(...files);
 
