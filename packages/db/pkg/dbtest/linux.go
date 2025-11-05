@@ -10,15 +10,15 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 
 	"github.com/oklog/ulid/v2"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func GetTestDB(ctx context.Context) (*sql.DB, error) {
 	// Generate unique database name for this test to ensure isolation
 	uniqueName := ulid.Make().String()
 	connStr := fmt.Sprintf("file:testdb_%s?mode=memory&cache=shared", uniqueName)
-	
-	db, err := sql.Open("sqlite3", connStr)
+
+	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +36,8 @@ func GetTestPreparedQueries(ctx context.Context) (*gen.Queries, error) {
 	// Generate unique database name for this test to ensure isolation
 	uniqueName := ulid.Make().String()
 	connStr := fmt.Sprintf("file:testdb_%s?mode=memory&cache=shared", uniqueName)
-	
-	db, err := sql.Open("sqlite3", connStr)
+
+	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, err
 	}

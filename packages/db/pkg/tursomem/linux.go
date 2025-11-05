@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"the-dev-tools/db/pkg/sqlc"
 
-	_ "github.com/tursodatabase/go-libsql"
+	_ "modernc.org/sqlite"
 )
 
 var (
@@ -17,7 +17,7 @@ var (
 )
 
 func NewTursoLocal(ctx context.Context) (*sql.DB, func(), error) {
-	db, err := sql.Open("libsql", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}

@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/tursodatabase/go-libsql"
+	_ "modernc.org/sqlite"
 
 	"the-dev-tools/db/pkg/sqlc"
 )
@@ -47,7 +47,7 @@ func openLegacy(ctx context.Context, dbName, path string) (*sql.DB, func(), erro
 	connectionParams.Add("_foreign_keys", "true")
 
 	connURL := fmt.Sprintf("file:%s?%s", dbFilePath, connectionParams.Encode())
-	db, err := sql.Open("libsql", connURL)
+	db, err := sql.Open("sqlite", connURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open db: %w", err)
 	}

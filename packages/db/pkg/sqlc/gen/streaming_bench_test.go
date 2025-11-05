@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/oklog/ulid/v2"
+	_ "modernc.org/sqlite"
 	"the-dev-tools/server/pkg/idwrap"
 )
 
@@ -143,7 +143,7 @@ func BenchmarkConcurrentStreaming(b *testing.B) {
 		// Test concurrent access with separate connections
 		b.RunParallel(func(pb *testing.PB) {
 			// Create a new connection for each parallel worker
-			workerDB, err := sql.Open("sqlite3", ":memory:")
+			workerDB, err := sql.Open("sqlite", ":memory:")
 			if err != nil {
 				b.Errorf("Failed to open worker database: %v", err)
 				return
@@ -181,7 +181,7 @@ func BenchmarkConcurrentStreaming(b *testing.B) {
 		// Test concurrent access with separate connections
 		b.RunParallel(func(pb *testing.PB) {
 			// Create a new connection for each parallel worker
-			workerDB, err := sql.Open("sqlite3", ":memory:")
+			workerDB, err := sql.Open("sqlite", ":memory:")
 			if err != nil {
 				b.Errorf("Failed to open worker database: %v", err)
 				return
@@ -220,7 +220,7 @@ func BenchmarkConcurrentStreaming(b *testing.B) {
 // Helper functions for benchmark setup
 
 func setupBenchmarkDB(b *testing.B) *sql.DB {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		b.Fatalf("Failed to open in-memory database: %v", err)
 	}

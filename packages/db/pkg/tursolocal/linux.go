@@ -12,7 +12,7 @@ import (
 	"sync"
 	"the-dev-tools/db/pkg/sqlc"
 
-	_ "github.com/tursodatabase/go-libsql"
+	_ "modernc.org/sqlite"
 )
 
 var (
@@ -54,7 +54,7 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*Lo
 	connectionParams.Set("mode", "rwc")
 
 	writerURL := fmt.Sprintf("file:%s?%s", dbFilePath, connectionParams.Encode())
-	writeDB, err := sql.Open("libsql", writerURL)
+	writeDB, err := sql.Open("sqlite", writerURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open write database: %w", err)
 	}
@@ -79,7 +79,7 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*Lo
 	readParams.Del("_txlock")
 
 	readerURL := fmt.Sprintf("file:%s?%s", dbFilePath, readParams.Encode())
-	readDB, err := sql.Open("libsql", readerURL)
+	readDB, err := sql.Open("sqlite", readerURL)
 	if err != nil {
 		writeDB.Close()
 		return nil, fmt.Errorf("failed to open read database: %w", err)

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"the-dev-tools/db/pkg/sqlc"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 var (
@@ -52,7 +52,7 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*Lo
 	}
 
 	writerDSN := fmt.Sprintf("file:%s?%s", dbFile, writerParams.Encode())
-	writeDB, err := sql.Open("sqlite3", writerDSN)
+	writeDB, err := sql.Open("sqlite", writerDSN)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open write database: %w", err)
 	}
@@ -77,7 +77,7 @@ func NewTursoLocal(ctx context.Context, dbName, path, encryptionKey string) (*Lo
 	readerParams.Del("_wal_autocheckpoint")
 
 	readerDSN := fmt.Sprintf("file:%s?%s", dbFile, readerParams.Encode())
-	readDB, err := sql.Open("sqlite3", readerDSN)
+	readDB, err := sql.Open("sqlite", readerDSN)
 	if err != nil {
 		writeDB.Close()
 		return nil, fmt.Errorf("failed to open read database: %w", err)
