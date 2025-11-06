@@ -40,11 +40,6 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 		}
 	}
 
-	var responseID []byte
-	if ne.ResponseID != nil {
-		responseID = ne.ResponseID.Bytes()
-	}
-
 	var completedAtSQL sql.NullInt64
 	if ne.CompletedAt != nil {
 		completedAtSQL = sql.NullInt64{
@@ -63,7 +58,7 @@ func ConvertNodeExecutionToDB(ne mnodeexecution.NodeExecution) *gen.NodeExecutio
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
 		Error:                  errorSQL,
-		ResponseID:             responseID,
+		HttpResponseID:         ne.ResponseID,
 		CompletedAt:            completedAtSQL,
 	}
 }
@@ -74,13 +69,7 @@ func ConvertNodeExecutionToModel(ne gen.NodeExecution) *mnodeexecution.NodeExecu
 		errorPtr = &ne.Error.String
 	}
 
-	var responseIDPtr *idwrap.IDWrap
-	if len(ne.ResponseID) > 0 {
-		respID, err := idwrap.NewFromBytes(ne.ResponseID)
-		if err == nil {
-			responseIDPtr = &respID
-		}
-	}
+	responseIDPtr := ne.HttpResponseID
 
 	var completedAtPtr *int64
 	if ne.CompletedAt.Valid {
@@ -111,11 +100,6 @@ func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodee
 		}
 	}
 
-	var responseID []byte
-	if ne.ResponseID != nil {
-		responseID = ne.ResponseID.Bytes()
-	}
-
 	var completedAtSQL sql.NullInt64
 	if ne.CompletedAt != nil {
 		completedAtSQL = sql.NullInt64{
@@ -134,7 +118,7 @@ func (s NodeExecutionService) CreateNodeExecution(ctx context.Context, ne mnodee
 		InputDataCompressType:  ne.InputDataCompressType,
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
-		ResponseID:             responseID,
+		HttpResponseID:         ne.ResponseID,
 		CompletedAt:            completedAtSQL,
 	})
 
@@ -185,11 +169,6 @@ func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mnodee
 		}
 	}
 
-	var responseID []byte
-	if ne.ResponseID != nil {
-		responseID = ne.ResponseID.Bytes()
-	}
-
 	var completedAtSQL sql.NullInt64
 	if ne.CompletedAt != nil {
 		completedAtSQL = sql.NullInt64{
@@ -204,7 +183,7 @@ func (s NodeExecutionService) UpdateNodeExecution(ctx context.Context, ne mnodee
 		Error:                  errorSQL,
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
-		ResponseID:             responseID,
+		HttpResponseID:         ne.ResponseID,
 		CompletedAt:            completedAtSQL,
 	})
 
@@ -218,11 +197,6 @@ func (s NodeExecutionService) UpsertNodeExecution(ctx context.Context, ne mnodee
 			String: *ne.Error,
 			Valid:  true,
 		}
-	}
-
-	var responseID []byte
-	if ne.ResponseID != nil {
-		responseID = ne.ResponseID.Bytes()
 	}
 
 	var completedAtSQL sql.NullInt64
@@ -243,7 +217,7 @@ func (s NodeExecutionService) UpsertNodeExecution(ctx context.Context, ne mnodee
 		InputDataCompressType:  ne.InputDataCompressType,
 		OutputData:             ne.OutputData,
 		OutputDataCompressType: ne.OutputDataCompressType,
-		ResponseID:             responseID,
+		HttpResponseID:         ne.ResponseID,
 		CompletedAt:            completedAtSQL,
 	})
 
