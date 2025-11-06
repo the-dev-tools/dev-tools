@@ -167,6 +167,18 @@ type ForEachEvent struct {
 	Node   *flowv1.NodeForEach
 }
 
+// JsTopic identifies the flow whose JavaScript nodes are being published.
+type JsTopic struct {
+	FlowID idwrap.IDWrap
+}
+
+// JsEvent describes a JavaScript node change for sync streaming.
+type JsEvent struct {
+	Type   string
+	FlowID idwrap.IDWrap
+	Node   *flowv1.NodeJs
+}
+
 const (
 	nodeEventInsert = "insert"
 	nodeEventUpdate = "update"
@@ -199,6 +211,10 @@ const (
 	forEachEventInsert = "insert"
 	forEachEventUpdate = "update"
 	forEachEventDelete = "delete"
+
+	jsEventInsert = "insert"
+	jsEventUpdate = "update"
+	jsEventDelete = "delete"
 )
 
 type FlowServiceV2RPC struct {
@@ -227,6 +243,7 @@ type FlowServiceV2RPC struct {
 	forStream       eventstream.SyncStreamer[ForTopic, ForEvent]
 	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
 	forEachStream   eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
+	jsStream        eventstream.SyncStreamer[JsTopic, JsEvent]
 }
 
 func New(
@@ -255,6 +272,7 @@ func New(
 	forStream eventstream.SyncStreamer[ForTopic, ForEvent],
 	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent],
 	forEachStream eventstream.SyncStreamer[ForEachTopic, ForEachEvent],
+	jsStream eventstream.SyncStreamer[JsTopic, JsEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		ws:              ws,
@@ -282,6 +300,7 @@ func New(
 		forStream:       forStream,
 		conditionStream: conditionStream,
 		forEachStream:   forEachStream,
+		jsStream:        jsStream,
 	}
 }
 
@@ -1289,6 +1308,28 @@ func (s *FlowServiceV2RPC) publishForEvent(eventType string, flowID idwrap.IDWra
 
 	nodePB := serializeNodeFor(node)
 	s.forStream.Publish(ForTopic{FlowID: flowID}, ForEvent{
+		Type:   eventType,
+		FlowID: flowID,
+		Node:   nodePB,
+	})
+}
+
+func (s *FlowServiceV2RPC) publishJsEvent(eventType string, flowID idwrap.IDWrap, node mnjs.MNJS) {
+	if s.jsStream == nil {
+		return
+	}
+
+	// Skip publishing events for JS nodes associated with start nodes
+	if baseNode, err := s.ns.GetNode(context.Background(), node.FlowNodeID); err == nil {
+		if isStartNode(*baseNode) {
+			return
+		}
+	} else {
+		return
+	}
+
+	nodePB := serializeNodeJs(node)
+	s.jsStream.Publish(JsTopic{FlowID: flowID}, JsEvent{
 		Type:   eventType,
 		FlowID: flowID,
 		Node:   nodePB,
@@ -2420,6 +2461,105 @@ func (s *FlowServiceV2RPC) streamNodeForEachSync(
 	}
 }
 
+func (s *FlowServiceV2RPC) streamNodeJsSync(
+	ctx context.Context,
+	send func(*flowv1.NodeJsSyncResponse) error,
+) error {
+	if s.jsStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("js stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
+
+		for _, flow := range flows {
+			flowSet.Store(flow.ID.String(), struct{}{})
+
+			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, err
+			}
+
+			for _, nodeModel := range nodes {
+				// Filter for JS nodes
+				if nodeModel.NodeKind != mnnode.NODE_KIND_JS {
+					continue
+				}
+
+				nodeJs, err := s.njss.GetNodeJS(ctx, nodeModel.ID)
+				if err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						continue
+					}
+					return nil, err
+				}
+
+				// Create a custom NodeEvent that includes JS node data
+				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
+					Topic: NodeTopic{FlowID: flow.ID},
+					Payload: NodeEvent{
+						Type:   nodeEventInsert,
+						FlowID: flow.ID,
+						Node: &flowv1.Node{
+							NodeId: nodeJs.FlowNodeID.Bytes(),
+							Kind:   flowv1.NodeKind_NODE_KIND_JS,
+						},
+					},
+				})
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic NodeTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp, err := s.jsEventToSyncResponse(ctx, evt.Payload)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to convert JS node event: %w", err))
+			}
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 	ctx context.Context,
 	evt NodeEvent,
@@ -2626,6 +2766,72 @@ func (s *FlowServiceV2RPC) forEachEventToSyncResponse(
 
 	return &flowv1.NodeForEachSyncResponse{
 		Items: []*flowv1.NodeForEachSync{syncEvent},
+	}, nil
+}
+
+func (s *FlowServiceV2RPC) jsEventToSyncResponse(
+	ctx context.Context,
+	evt NodeEvent,
+) (*flowv1.NodeJsSyncResponse, error) {
+	if evt.Node == nil {
+		return nil, nil
+	}
+
+	// Only process JS nodes
+	if evt.Node.GetKind() != flowv1.NodeKind_NODE_KIND_JS {
+		return nil, nil
+	}
+
+	nodeID, err := idwrap.NewFromBytes(evt.Node.GetNodeId())
+	if err != nil {
+		return nil, fmt.Errorf("invalid node id: %w", err)
+	}
+
+	// Fetch the JavaScript configuration for this node
+	nodeJs, err := s.njss.GetNodeJS(ctx, nodeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Node exists but doesn't have JS config, skip
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var syncEvent *flowv1.NodeJsSync
+	switch evt.Type {
+	case nodeEventInsert:
+		syncEvent = &flowv1.NodeJsSync{
+			Value: &flowv1.NodeJsSync_ValueUnion{
+				Kind: flowv1.NodeJsSync_ValueUnion_KIND_INSERT,
+				Insert: &flowv1.NodeJsSyncInsert{
+					NodeId: nodeJs.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	case nodeEventUpdate:
+		syncEvent = &flowv1.NodeJsSync{
+			Value: &flowv1.NodeJsSync_ValueUnion{
+				Kind: flowv1.NodeJsSync_ValueUnion_KIND_UPDATE,
+				Update: &flowv1.NodeJsSyncUpdate{
+					NodeId: nodeJs.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	case nodeEventDelete:
+		syncEvent = &flowv1.NodeJsSync{
+			Value: &flowv1.NodeJsSync_ValueUnion{
+				Kind: flowv1.NodeJsSync_ValueUnion_KIND_DELETE,
+				Delete: &flowv1.NodeJsSyncDelete{
+					NodeId: nodeJs.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	default:
+		return nil, nil
+	}
+
+	return &flowv1.NodeJsSyncResponse{
+		Items: []*flowv1.NodeJsSync{syncEvent},
 	}, nil
 }
 
@@ -3037,8 +3243,38 @@ func (s *FlowServiceV2RPC) NodeConditionSync(
 	})
 }
 
-func (s *FlowServiceV2RPC) NodeJsCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.NodeJsCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeJsCollection(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+) (*connect.Response[flowv1.NodeJsCollectionResponse], error) {
+	flows, err := s.listAccessibleFlows(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*flowv1.NodeJs, 0)
+
+	for _, flow := range flows {
+		nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		for _, n := range nodes {
+			if n.NodeKind != mnnode.NODE_KIND_JS {
+				continue
+			}
+			nodeJs, err := s.njss.GetNodeJS(ctx, n.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			items = append(items, serializeNodeJs(nodeJs))
+		}
+	}
+
+	return connect.NewResponse(&flowv1.NodeJsCollectionResponse{Items: items}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeJsInsert(ctx context.Context, req *connect.Request[flowv1.NodeJsInsertRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -3116,8 +3352,17 @@ func (s *FlowServiceV2RPC) NodeJsDelete(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeJsSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeJsSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeJsSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.NodeJsSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamNodeJsSync(ctx, func(resp *flowv1.NodeJsSyncResponse) error {
+		return stream.Send(resp)
+	})
 }
 
 func (s *FlowServiceV2RPC) NodeExecutionCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.NodeExecutionCollectionResponse], error) {
@@ -3849,6 +4094,13 @@ func serializeNodeForEach(n mnforeach.MNForEach) *flowv1.NodeForEach {
 		Path:          n.IterExpression,
 		Condition:     n.Condition.Comparisons.Expression,
 		ErrorHandling: flowv1.ErrorHandling(n.ErrorHandling),
+	}
+}
+
+func serializeNodeJs(n mnjs.MNJS) *flowv1.NodeJs {
+	return &flowv1.NodeJs{
+		NodeId:    n.FlowNodeID.Bytes(),
+		Code:      string(n.Code),
 	}
 }
 
