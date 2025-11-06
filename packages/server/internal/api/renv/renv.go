@@ -37,7 +37,7 @@ type EnvRPC struct {
 }
 
 const (
-	eventTypeCreate = "create"
+	eventTypeInsert = "insert"
 	eventTypeUpdate = "update"
 	eventTypeDelete = "delete"
 )
@@ -121,11 +121,11 @@ func environmentSyncResponseFrom(evt EnvironmentEvent) *apiv1.EnvironmentSyncRes
 	}
 
 	switch evt.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		msg := &apiv1.EnvironmentSync{
 			Value: &apiv1.EnvironmentSync_ValueUnion{
-				Kind: apiv1.EnvironmentSync_ValueUnion_KIND_CREATE,
-				Create: &apiv1.EnvironmentSyncCreate{
+				Kind: apiv1.EnvironmentSync_ValueUnion_KIND_INSERT,
+				Insert: &apiv1.EnvironmentSyncInsert{
 					EnvironmentId: evt.Environment.EnvironmentId,
 					WorkspaceId:   evt.Environment.WorkspaceId,
 					Name:          evt.Environment.Name,
@@ -172,11 +172,11 @@ func environmentVariableSyncResponseFrom(evt EnvironmentVariableEvent) *apiv1.En
 	}
 
 	switch evt.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		msg := &apiv1.EnvironmentVariableSync{
 			Value: &apiv1.EnvironmentVariableSync_ValueUnion{
-				Kind: apiv1.EnvironmentVariableSync_ValueUnion_KIND_CREATE,
-				Create: &apiv1.EnvironmentVariableSyncCreate{
+				Kind: apiv1.EnvironmentVariableSync_ValueUnion_KIND_INSERT,
+				Insert: &apiv1.EnvironmentVariableSyncInsert{
 					EnvironmentVariableId: evt.Variable.EnvironmentVariableId,
 					EnvironmentId:         evt.Variable.EnvironmentId,
 					Key:                   evt.Variable.Key,
@@ -262,8 +262,8 @@ func (e *EnvRPC) EnvironmentCollection(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&apiv1.EnvironmentCollectionResponse{Items: items}), nil
 }
 
-// EnvironmentCreate creates a new environment
-func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[apiv1.EnvironmentCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+// EnvironmentInsert creates a new environment
+func (e *EnvRPC) EnvironmentInsert(ctx context.Context, req *connect.Request[apiv1.EnvironmentInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
 	}
@@ -319,7 +319,7 @@ func (e *EnvRPC) EnvironmentCreate(ctx context.Context, req *connect.Request[api
 
 	for _, env := range createdEnvs {
 		e.envStream.Publish(EnvironmentTopic{WorkspaceID: env.WorkspaceID}, EnvironmentEvent{
-			Type:        eventTypeCreate,
+			Type:        eventTypeInsert,
 			Environment: toAPIEnvironment(env),
 		})
 	}
@@ -496,7 +496,7 @@ func (e *EnvRPC) streamEnvironmentSync(ctx context.Context, userID idwrap.IDWrap
 			events = append(events, eventstream.Event[EnvironmentTopic, EnvironmentEvent]{
 				Topic: EnvironmentTopic{WorkspaceID: env.WorkspaceID},
 				Payload: EnvironmentEvent{
-					Type:        eventTypeCreate,
+					Type:        eventTypeInsert,
 					Environment: toAPIEnvironment(env),
 				},
 			})
@@ -564,8 +564,8 @@ func (e *EnvRPC) EnvironmentVariableCollection(ctx context.Context, req *connect
 	return connect.NewResponse(&apiv1.EnvironmentVariableCollectionResponse{Items: items}), nil
 }
 
-// EnvironmentVariableCreate creates new environment variables
-func (e *EnvRPC) EnvironmentVariableCreate(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+// EnvironmentVariableInsert creates new environment variables
+func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Request[apiv1.EnvironmentVariableInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
 	}
@@ -637,7 +637,7 @@ func (e *EnvRPC) EnvironmentVariableCreate(ctx context.Context, req *connect.Req
 
 	for _, evt := range createdVars {
 		e.varStream.Publish(EnvironmentVariableTopic{WorkspaceID: evt.workspaceID, EnvironmentID: evt.variable.EnvID}, EnvironmentVariableEvent{
-			Type:     eventTypeCreate,
+			Type:     eventTypeInsert,
 			Variable: toAPIEnvironmentVariable(evt.variable),
 		})
 	}
@@ -855,7 +855,7 @@ func (e *EnvRPC) streamEnvironmentVariableSync(ctx context.Context, userID idwra
 				events = append(events, eventstream.Event[EnvironmentVariableTopic, EnvironmentVariableEvent]{
 					Topic: EnvironmentVariableTopic{WorkspaceID: env.WorkspaceID, EnvironmentID: env.ID},
 					Payload: EnvironmentVariableEvent{
-						Type:     eventTypeCreate,
+						Type:     eventTypeInsert,
 						Variable: toAPIEnvironmentVariable(copyVar),
 					},
 				})

@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	eventTypeCreate = "create"
+	eventTypeInsert = "insert"
 	eventTypeUpdate = "update"
 	eventTypeDelete = "delete"
 )
@@ -113,11 +113,11 @@ func workspaceSyncResponseFrom(evt WorkspaceEvent) *apiv1.WorkspaceSyncResponse 
 	}
 
 	switch evt.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		msg := &apiv1.WorkspaceSync{
 			Value: &apiv1.WorkspaceSync_ValueUnion{
-				Kind: apiv1.WorkspaceSync_ValueUnion_KIND_CREATE,
-				Create: &apiv1.WorkspaceSyncCreate{
+				Kind: apiv1.WorkspaceSync_ValueUnion_KIND_INSERT,
+				Insert: &apiv1.WorkspaceSyncInsert{
 					WorkspaceId:           evt.Workspace.WorkspaceId,
 					SelectedEnvironmentId: evt.Workspace.SelectedEnvironmentId,
 					Name:                  evt.Workspace.Name,
@@ -209,7 +209,7 @@ func (c *WorkspaceServiceRPC) WorkspaceCollection(ctx context.Context, req *conn
 	return connect.NewResponse(&apiv1.WorkspaceCollectionResponse{Items: items}), nil
 }
 
-func (c *WorkspaceServiceRPC) WorkspaceCreate(ctx context.Context, req *connect.Request[apiv1.WorkspaceCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.Request[apiv1.WorkspaceInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one workspace must be provided"))
 	}
@@ -308,7 +308,7 @@ func (c *WorkspaceServiceRPC) WorkspaceCreate(ctx context.Context, req *connect.
 		}
 		order := orderMap[workspaceID.String()]
 		c.stream.Publish(WorkspaceTopic{WorkspaceID: workspaceID}, WorkspaceEvent{
-			Type:      eventTypeCreate,
+			Type:      eventTypeInsert,
 			Workspace: toAPIWorkspace(*ws, order),
 		})
 	}
@@ -506,7 +506,7 @@ func (c *WorkspaceServiceRPC) streamWorkspaceSync(ctx context.Context, userID id
 			events = append(events, eventstream.Event[WorkspaceTopic, WorkspaceEvent]{
 				Topic: WorkspaceTopic{WorkspaceID: item.workspace.ID},
 				Payload: WorkspaceEvent{
-					Type:      eventTypeCreate,
+					Type:      eventTypeInsert,
 					Workspace: toAPIWorkspace(item.workspace, item.order),
 				},
 			})

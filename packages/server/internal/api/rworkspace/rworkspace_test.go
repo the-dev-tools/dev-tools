@@ -177,10 +177,10 @@ func TestWorkspaceSyncStreamsSnapshotAndUpdates(t *testing.T) {
 		if val == nil {
 			t.Fatal("snapshot item missing value union")
 		}
-		if val.GetKind() != apiv1.WorkspaceSync_ValueUnion_KIND_CREATE {
-			t.Fatalf("expected create kind for snapshot, got %v", val.GetKind())
+		if val.GetKind() != apiv1.WorkspaceSync_ValueUnion_KIND_INSERT {
+			t.Fatalf("expected insert kind for snapshot, got %v", val.GetKind())
 		}
-		seen[string(val.GetCreate().GetWorkspaceId())] = true
+		seen[string(val.GetInsert().GetWorkspaceId())] = true
 	}
 	if !seen[string(wsA.Bytes())] || !seen[string(wsB.Bytes())] {
 		t.Fatalf("snapshot missing expected workspaces, seen=%v", seen)
@@ -311,7 +311,7 @@ func TestWorkspaceSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	}
 
 	f.handler.stream.Publish(WorkspaceTopic{WorkspaceID: otherWorkspaceID}, WorkspaceEvent{
-		Type: eventTypeCreate,
+		Type: eventTypeInsert,
 		Workspace: &apiv1.Workspace{
 			WorkspaceId:           otherWorkspaceID.Bytes(),
 			SelectedEnvironmentId: otherEnvID.Bytes(),
@@ -331,7 +331,7 @@ func TestWorkspaceSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	}
 }
 
-func TestWorkspaceCreatePublishesEvent(t *testing.T) {
+func TestWorkspaceInsertPublishesEvent(t *testing.T) {
 	t.Parallel()
 
 	f := newWorkspaceFixture(t)
@@ -351,15 +351,15 @@ func TestWorkspaceCreatePublishesEvent(t *testing.T) {
 		close(msgCh)
 	}()
 
-	createReq := connect.NewRequest(&apiv1.WorkspaceCreateRequest{
-		Items: []*apiv1.WorkspaceCreate{
+	createReq := connect.NewRequest(&apiv1.WorkspaceInsertRequest{
+		Items: []*apiv1.WorkspaceInsert{
 			{
 				Name: "api-created",
 			},
 		},
 	})
-	if _, err := f.handler.WorkspaceCreate(f.ctx, createReq); err != nil {
-		t.Fatalf("WorkspaceCreate err: %v", err)
+	if _, err := f.handler.WorkspaceInsert(f.ctx, createReq); err != nil {
+		t.Fatalf("WorkspaceInsert err: %v", err)
 	}
 
 	items := collectWorkspaceSyncItems(t, msgCh, 1)
@@ -367,10 +367,10 @@ func TestWorkspaceCreatePublishesEvent(t *testing.T) {
 	if val == nil {
 		t.Fatal("create response missing value union")
 	}
-	if val.GetKind() != apiv1.WorkspaceSync_ValueUnion_KIND_CREATE {
-		t.Fatalf("expected create kind, got %v", val.GetKind())
+	if val.GetKind() != apiv1.WorkspaceSync_ValueUnion_KIND_INSERT {
+		t.Fatalf("expected insert kind, got %v", val.GetKind())
 	}
-	if got := val.GetCreate().GetName(); got != "api-created" {
+	if got := val.GetInsert().GetName(); got != "api-created" {
 		t.Fatalf("expected created name api-created, got %q", got)
 	}
 
