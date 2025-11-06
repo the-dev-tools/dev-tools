@@ -155,6 +155,18 @@ type ConditionEvent struct {
 	Node   *flowv1.NodeCondition
 }
 
+// ForEachTopic identifies the flow whose ForEach nodes are being published.
+type ForEachTopic struct {
+	FlowID idwrap.IDWrap
+}
+
+// ForEachEvent describes a ForEach node change for sync streaming.
+type ForEachEvent struct {
+	Type   string
+	FlowID idwrap.IDWrap
+	Node   *flowv1.NodeForEach
+}
+
 const (
 	nodeEventInsert = "insert"
 	nodeEventUpdate = "update"
@@ -183,6 +195,10 @@ const (
 	conditionEventInsert = "insert"
 	conditionEventUpdate = "update"
 	conditionEventDelete = "delete"
+
+	forEachEventInsert = "insert"
+	forEachEventUpdate = "update"
+	forEachEventDelete = "delete"
 )
 
 type FlowServiceV2RPC struct {
@@ -210,6 +226,7 @@ type FlowServiceV2RPC struct {
 	noopStream      eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
 	forStream       eventstream.SyncStreamer[ForTopic, ForEvent]
 	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
+	forEachStream   eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
 }
 
 func New(
@@ -237,6 +254,7 @@ func New(
 	noopStream eventstream.SyncStreamer[NoOpTopic, NoOpEvent],
 	forStream eventstream.SyncStreamer[ForTopic, ForEvent],
 	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent],
+	forEachStream eventstream.SyncStreamer[ForEachTopic, ForEachEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		ws:              ws,
@@ -263,6 +281,7 @@ func New(
 		noopStream:      noopStream,
 		forStream:       forStream,
 		conditionStream: conditionStream,
+		forEachStream:   forEachStream,
 	}
 }
 
@@ -2299,6 +2318,108 @@ func (s *FlowServiceV2RPC) streamNodeConditionSync(
 	}
 }
 
+func (s *FlowServiceV2RPC) streamNodeForEachSync(
+	ctx context.Context,
+	send func(*flowv1.NodeForEachSyncResponse) error,
+) error {
+	if s.forEachStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("forEach stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
+
+		for _, flow := range flows {
+			flowSet.Store(flow.ID.String(), struct{}{})
+
+			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, err
+			}
+
+			for _, nodeModel := range nodes {
+				// Filter for ForEach nodes
+				if nodeModel.NodeKind != mnnode.NODE_KIND_FOR_EACH {
+					continue
+				}
+
+				nodeForEach, err := s.nfes.GetNodeForEach(ctx, nodeModel.ID)
+				if err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						continue
+					}
+					return nil, err
+				}
+				if nodeForEach == nil {
+					continue
+				}
+
+				// Create a custom NodeEvent that includes ForEach node data
+				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
+					Topic: NodeTopic{FlowID: flow.ID},
+					Payload: NodeEvent{
+						Type:   nodeEventInsert,
+						FlowID: flow.ID,
+						Node: &flowv1.Node{
+							NodeId: nodeForEach.FlowNodeID.Bytes(),
+							Kind:   flowv1.NodeKind_NODE_KIND_FOR_EACH,
+						},
+					},
+				})
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic NodeTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp, err := s.forEachEventToSyncResponse(ctx, evt.Payload)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to convert ForEach node event: %w", err))
+			}
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 	ctx context.Context,
 	evt NodeEvent,
@@ -2436,6 +2557,75 @@ func (s *FlowServiceV2RPC) conditionEventToSyncResponse(
 
 	return &flowv1.NodeConditionSyncResponse{
 		Items: []*flowv1.NodeConditionSync{syncEvent},
+	}, nil
+}
+
+func (s *FlowServiceV2RPC) forEachEventToSyncResponse(
+	ctx context.Context,
+	evt NodeEvent,
+) (*flowv1.NodeForEachSyncResponse, error) {
+	if evt.Node == nil {
+		return nil, nil
+	}
+
+	// Only process ForEach nodes
+	if evt.Node.GetKind() != flowv1.NodeKind_NODE_KIND_FOR_EACH {
+		return nil, nil
+	}
+
+	nodeID, err := idwrap.NewFromBytes(evt.Node.GetNodeId())
+	if err != nil {
+		return nil, fmt.Errorf("invalid node id: %w", err)
+	}
+
+	// Fetch the ForEach configuration for this node
+	nodeForEach, err := s.nfes.GetNodeForEach(ctx, nodeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Node exists but doesn't have ForEach config, skip
+			return nil, nil
+		}
+		return nil, err
+	}
+	if nodeForEach == nil {
+		return nil, nil
+	}
+
+	var syncEvent *flowv1.NodeForEachSync
+	switch evt.Type {
+	case nodeEventInsert:
+		syncEvent = &flowv1.NodeForEachSync{
+			Value: &flowv1.NodeForEachSync_ValueUnion{
+				Kind: flowv1.NodeForEachSync_ValueUnion_KIND_INSERT,
+				Insert: &flowv1.NodeForEachSyncInsert{
+					NodeId: nodeForEach.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	case nodeEventUpdate:
+		syncEvent = &flowv1.NodeForEachSync{
+			Value: &flowv1.NodeForEachSync_ValueUnion{
+				Kind: flowv1.NodeForEachSync_ValueUnion_KIND_UPDATE,
+				Update: &flowv1.NodeForEachSyncUpdate{
+					NodeId: nodeForEach.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	case nodeEventDelete:
+		syncEvent = &flowv1.NodeForEachSync{
+			Value: &flowv1.NodeForEachSync_ValueUnion{
+				Kind: flowv1.NodeForEachSync_ValueUnion_KIND_DELETE,
+				Delete: &flowv1.NodeForEachSyncDelete{
+					NodeId: nodeForEach.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	default:
+		return nil, nil
+	}
+
+	return &flowv1.NodeForEachSyncResponse{
+		Items: []*flowv1.NodeForEachSync{syncEvent},
 	}, nil
 }
 
@@ -2591,8 +2781,41 @@ func (s *FlowServiceV2RPC) NodeForSync(
 	})
 }
 
-func (s *FlowServiceV2RPC) NodeForEachCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.NodeForEachCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeForEachCollection(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+) (*connect.Response[flowv1.NodeForEachCollectionResponse], error) {
+	flows, err := s.listAccessibleFlows(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*flowv1.NodeForEach, 0)
+
+	for _, flow := range flows {
+		nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		for _, n := range nodes {
+			if n.NodeKind != mnnode.NODE_KIND_FOR_EACH {
+				continue
+			}
+			nodeForEach, err := s.nfes.GetNodeForEach(ctx, n.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			if nodeForEach == nil {
+				continue
+			}
+			items = append(items, serializeNodeForEach(*nodeForEach))
+		}
+	}
+
+	return connect.NewResponse(&flowv1.NodeForEachCollectionResponse{Items: items}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeForEachInsert(ctx context.Context, req *connect.Request[flowv1.NodeForEachInsertRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -2677,8 +2900,17 @@ func (s *FlowServiceV2RPC) NodeForEachDelete(ctx context.Context, req *connect.R
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeForEachSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeForEachSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeForEachSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.NodeForEachSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamNodeForEachSync(ctx, func(resp *flowv1.NodeForEachSyncResponse) error {
+		return stream.Send(resp)
+	})
 }
 
 func (s *FlowServiceV2RPC) NodeConditionCollection(
@@ -3608,6 +3840,15 @@ func serializeNodeCondition(n mnif.MNIF) *flowv1.NodeCondition {
 	return &flowv1.NodeCondition{
 		NodeId:    n.FlowNodeID.Bytes(),
 		Condition: n.Condition.Comparisons.Expression,
+	}
+}
+
+func serializeNodeForEach(n mnforeach.MNForEach) *flowv1.NodeForEach {
+	return &flowv1.NodeForEach{
+		NodeId:        n.FlowNodeID.Bytes(),
+		Path:          n.IterExpression,
+		Condition:     n.Condition.Comparisons.Expression,
+		ErrorHandling: flowv1.ErrorHandling(n.ErrorHandling),
 	}
 }
 
