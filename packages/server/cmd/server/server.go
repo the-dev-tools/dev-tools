@@ -276,6 +276,8 @@ func main() {
 	defer noopStreamer.Shutdown()
 	forStreamer := memory.NewInMemorySyncStreamer[rflowv2.ForTopic, rflowv2.ForEvent]()
 	defer forStreamer.Shutdown()
+	conditionStreamer := memory.NewInMemorySyncStreamer[rflowv2.ConditionTopic, rflowv2.ConditionEvent]()
+	defer conditionStreamer.Shutdown()
 
 	flowSrvV2 := rflowv2.New(
 		&workspaceService,
@@ -301,6 +303,7 @@ func main() {
 		flowVersionStreamer,
 		noopStreamer,
 		forStreamer,
+		conditionStreamer,
 	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, opitonsAll))
 
