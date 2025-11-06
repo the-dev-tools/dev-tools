@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/internal/api"
@@ -49,6 +51,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/server/pkg/model/mnnode/mnif"
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
+	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mworkspace"
@@ -57,6 +60,7 @@ import (
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
 	"the-dev-tools/server/pkg/service/snodeforeach"
 	"the-dev-tools/server/pkg/service/snodeif"
@@ -179,6 +183,18 @@ type JsEvent struct {
 	Node   *flowv1.NodeJs
 }
 
+// ExecutionTopic identifies the flow whose node executions are being published.
+type ExecutionTopic struct {
+	FlowID idwrap.IDWrap
+}
+
+// ExecutionEvent describes a node execution change for sync streaming.
+type ExecutionEvent struct {
+	Type     string
+	FlowID   idwrap.IDWrap
+	Execution *flowv1.NodeExecution
+}
+
 const (
 	nodeEventInsert = "insert"
 	nodeEventUpdate = "update"
@@ -215,6 +231,10 @@ const (
 	jsEventInsert = "insert"
 	jsEventUpdate = "update"
 	jsEventDelete = "delete"
+
+	executionEventInsert = "insert"
+	executionEventUpdate = "update"
+	executionEventDelete = "delete"
 )
 
 type FlowServiceV2RPC struct {
@@ -228,6 +248,7 @@ type FlowServiceV2RPC struct {
 	nifs            *snodeif.NodeIfService
 	nnos            *snodenoop.NodeNoopService
 	njss            *snodejs.NodeJSService
+	nes             *snodeexecution.NodeExecutionService
 	fvs             *sflowvariable.FlowVariableService
 	hs              *shttp.HTTPService
 	hh              *shttp.HttpHeaderService
@@ -244,6 +265,7 @@ type FlowServiceV2RPC struct {
 	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
 	forEachStream   eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
 	jsStream        eventstream.SyncStreamer[JsTopic, JsEvent]
+	executionStream eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 }
 
 func New(
@@ -257,6 +279,7 @@ func New(
 	nifs *snodeif.NodeIfService,
 	nnos *snodenoop.NodeNoopService,
 	njss *snodejs.NodeJSService,
+	nes *snodeexecution.NodeExecutionService,
 	fvs *sflowvariable.FlowVariableService,
 	hs *shttp.HTTPService,
 	hh *shttp.HttpHeaderService,
@@ -273,6 +296,7 @@ func New(
 	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent],
 	forEachStream eventstream.SyncStreamer[ForEachTopic, ForEachEvent],
 	jsStream eventstream.SyncStreamer[JsTopic, JsEvent],
+	executionStream eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		ws:              ws,
@@ -285,6 +309,7 @@ func New(
 		nifs:            nifs,
 		nnos:            nnos,
 		njss:            njss,
+		nes:             nes,
 		fvs:             fvs,
 		hs:              hs,
 		hh:              hh,
@@ -301,6 +326,7 @@ func New(
 		conditionStream: conditionStream,
 		forEachStream:   forEachStream,
 		jsStream:        jsStream,
+		executionStream: executionStream,
 	}
 }
 
@@ -3365,12 +3391,274 @@ func (s *FlowServiceV2RPC) NodeJsSync(
 	})
 }
 
-func (s *FlowServiceV2RPC) NodeExecutionCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.NodeExecutionCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeExecutionCollection(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+) (*connect.Response[flowv1.NodeExecutionCollectionResponse], error) {
+	flows, err := s.listAccessibleFlows(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*flowv1.NodeExecution, 0)
+
+	for _, flow := range flows {
+		// Get all nodes for this flow
+		nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// For each node, get its executions
+		for _, node := range nodes {
+			executions, err := s.nes.ListNodeExecutionsByNodeID(ctx, node.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			// Serialize each execution
+			for _, execution := range executions {
+				items = append(items, serializeNodeExecution(execution))
+			}
+		}
+	}
+
+	return connect.NewResponse(&flowv1.NodeExecutionCollectionResponse{Items: items}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeExecutionSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeExecutionSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeExecutionSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.NodeExecutionSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamNodeExecutionSync(ctx, func(resp *flowv1.NodeExecutionSyncResponse) error {
+		return stream.Send(resp)
+	})
+}
+
+func (s *FlowServiceV2RPC) streamNodeExecutionSync(
+	ctx context.Context,
+	send func(*flowv1.NodeExecutionSyncResponse) error,
+) error {
+	if s.executionStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("execution stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[ExecutionTopic, ExecutionEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[ExecutionTopic, ExecutionEvent], 0)
+
+		for _, flow := range flows {
+			flowSet.Store(flow.ID.String(), struct{}{})
+
+			// Get all nodes for this flow
+			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, err
+			}
+
+			// For each node, get its executions
+			for _, node := range nodes {
+				executions, err := s.nes.ListNodeExecutionsByNodeID(ctx, node.ID)
+				if err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						continue
+					}
+					return nil, err
+				}
+
+				// Create events for each execution
+				for _, execution := range executions {
+					serializedExecution := serializeNodeExecution(execution)
+					events = append(events, eventstream.Event[ExecutionTopic, ExecutionEvent]{
+						Topic: ExecutionTopic{FlowID: flow.ID},
+						Payload: ExecutionEvent{
+							Type:      executionEventInsert,
+							FlowID:    flow.ID,
+							Execution: serializedExecution,
+						},
+					})
+				}
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic ExecutionTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.executionStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp, err := s.executionEventToSyncResponse(ctx, evt.Payload)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to convert execution event: %w", err))
+			}
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *FlowServiceV2RPC) executionEventToSyncResponse(
+	ctx context.Context,
+	evt ExecutionEvent,
+) (*flowv1.NodeExecutionSyncResponse, error) {
+	if evt.Execution == nil {
+		return nil, nil
+	}
+
+	var syncEvent *flowv1.NodeExecutionSync
+	switch evt.Type {
+	case executionEventInsert:
+		syncEvent = &flowv1.NodeExecutionSync{
+			Value: &flowv1.NodeExecutionSync_ValueUnion{
+				Kind: flowv1.NodeExecutionSync_ValueUnion_KIND_INSERT,
+				Insert: &flowv1.NodeExecutionSyncInsert{
+					NodeExecutionId: evt.Execution.NodeExecutionId,
+					NodeId:          evt.Execution.NodeId,
+					Name:            evt.Execution.Name,
+					State:           evt.Execution.State,
+				},
+			},
+		}
+
+		// Add optional fields to INSERT event
+		if evt.Execution.Error != nil {
+			syncEvent.Value.GetInsert().Error = evt.Execution.Error
+		}
+		if evt.Execution.Input != nil {
+			syncEvent.Value.GetInsert().Input = evt.Execution.Input
+		}
+		if evt.Execution.Output != nil {
+			syncEvent.Value.GetInsert().Output = evt.Execution.Output
+		}
+		if evt.Execution.HttpResponseId != nil {
+			syncEvent.Value.GetInsert().HttpResponseId = evt.Execution.HttpResponseId
+		}
+		if evt.Execution.CompletedAt != nil {
+			syncEvent.Value.GetInsert().CompletedAt = evt.Execution.CompletedAt
+		}
+
+	case executionEventUpdate:
+		syncEvent = &flowv1.NodeExecutionSync{
+			Value: &flowv1.NodeExecutionSync_ValueUnion{
+				Kind: flowv1.NodeExecutionSync_ValueUnion_KIND_UPDATE,
+				Update: &flowv1.NodeExecutionSyncUpdate{
+					NodeExecutionId: evt.Execution.NodeExecutionId,
+				},
+			},
+		}
+
+		// Add optional fields to UPDATE event
+		update := syncEvent.Value.GetUpdate()
+
+		// Only include NodeId if it's being updated
+		if evt.Execution.NodeId != nil {
+			update.NodeId = evt.Execution.NodeId
+		}
+
+		// Only include Name if it's being updated
+		if evt.Execution.Name != "" {
+			update.Name = &evt.Execution.Name
+		}
+
+		// Only include State if it's being updated
+		if evt.Execution.State != flowv1.NodeState_NODE_STATE_UNSPECIFIED {
+			update.State = &evt.Execution.State
+		}
+
+		// Handle Error union
+		if evt.Execution.Error != nil {
+			update.Error = &flowv1.NodeExecutionSyncUpdate_ErrorUnion{
+				Kind:   flowv1.NodeExecutionSyncUpdate_ErrorUnion_KIND_STRING,
+				String_: evt.Execution.Error,
+			}
+		}
+
+		// Handle Input union
+		if evt.Execution.Input != nil {
+			update.Input = &flowv1.NodeExecutionSyncUpdate_InputUnion{
+				Kind: flowv1.NodeExecutionSyncUpdate_InputUnion_KIND_JSON,
+				Json: evt.Execution.Input,
+			}
+		}
+
+		// Handle Output union
+		if evt.Execution.Output != nil {
+			update.Output = &flowv1.NodeExecutionSyncUpdate_OutputUnion{
+				Kind: flowv1.NodeExecutionSyncUpdate_OutputUnion_KIND_JSON,
+				Json: evt.Execution.Output,
+			}
+		}
+
+		// Handle HttpResponseId union
+		if evt.Execution.HttpResponseId != nil {
+			update.HttpResponseId = &flowv1.NodeExecutionSyncUpdate_HttpResponseIdUnion{
+				Kind:  flowv1.NodeExecutionSyncUpdate_HttpResponseIdUnion_KIND_BYTES,
+				Bytes: evt.Execution.HttpResponseId,
+			}
+		}
+
+		// Handle CompletedAt union
+		if evt.Execution.CompletedAt != nil {
+			update.CompletedAt = &flowv1.NodeExecutionSyncUpdate_CompletedAtUnion{
+				Kind:      flowv1.NodeExecutionSyncUpdate_CompletedAtUnion_KIND_TIMESTAMP,
+				Timestamp: evt.Execution.CompletedAt,
+			}
+		}
+
+	case executionEventDelete:
+		syncEvent = &flowv1.NodeExecutionSync{
+			Value: &flowv1.NodeExecutionSync_ValueUnion{
+				Kind: flowv1.NodeExecutionSync_ValueUnion_KIND_DELETE,
+				Delete: &flowv1.NodeExecutionSyncDelete{
+					NodeExecutionId: evt.Execution.NodeExecutionId,
+				},
+			},
+		}
+	default:
+		return nil, nil
+	}
+
+	return &flowv1.NodeExecutionSyncResponse{
+		Items: []*flowv1.NodeExecutionSync{syncEvent},
+	}, nil
 }
 
 func (s *FlowServiceV2RPC) listAccessibleFlows(ctx context.Context) ([]mflow.Flow, error) {
@@ -4102,6 +4390,50 @@ func serializeNodeJs(n mnjs.MNJS) *flowv1.NodeJs {
 		NodeId:    n.FlowNodeID.Bytes(),
 		Code:      string(n.Code),
 	}
+}
+
+func serializeNodeExecution(execution mnodeexecution.NodeExecution) *flowv1.NodeExecution {
+	result := &flowv1.NodeExecution{
+		NodeExecutionId: execution.ID.Bytes(),
+		NodeId:          execution.NodeID.Bytes(),
+		Name:            execution.Name,
+		State:           flowv1.NodeState(execution.State),
+	}
+
+	// Handle optional fields
+	if execution.Error != nil {
+		result.Error = execution.Error
+	}
+
+	// Handle input data - decompress if needed
+	if execution.InputData != nil {
+		if inputDataJSON, err := execution.GetInputJSON(); err == nil && len(inputDataJSON) > 0 {
+			if inputValue, err := structpb.NewValue(string(inputDataJSON)); err == nil {
+				result.Input = inputValue
+			}
+		}
+	}
+
+	// Handle output data - decompress if needed
+	if execution.OutputData != nil {
+		if outputDataJSON, err := execution.GetOutputJSON(); err == nil && len(outputDataJSON) > 0 {
+			if outputValue, err := structpb.NewValue(string(outputDataJSON)); err == nil {
+				result.Output = outputValue
+			}
+		}
+	}
+
+	// Handle HTTP response ID
+	if execution.ResponseID != nil {
+		result.HttpResponseId = execution.ResponseID.Bytes()
+	}
+
+	// Handle completion timestamp
+	if execution.CompletedAt != nil {
+		result.CompletedAt = timestamppb.New(time.Unix(*execution.CompletedAt, 0))
+	}
+
+	return result
 }
 
 func serializeFlowVariable(variable mflowvariable.FlowVariable, order float32) *flowv1.FlowVariable {
