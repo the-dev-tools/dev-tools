@@ -120,19 +120,19 @@ type FlowVariableEvent struct {
 }
 
 const (
-	nodeEventCreate = "create"
+	nodeEventInsert = "insert"
 	nodeEventUpdate = "update"
 	nodeEventDelete = "delete"
 
-	edgeEventCreate = "create"
+	edgeEventInsert = "insert"
 	edgeEventUpdate = "update"
 	edgeEventDelete = "delete"
 
-	flowVarEventCreate = "create"
+	flowVarEventInsert = "insert"
 	flowVarEventUpdate = "update"
 	flowVarEventDelete = "delete"
 
-	flowVersionEventCreate = "create"
+	flowVersionEventInsert = "insert"
 	flowVersionEventUpdate = "update"
 	flowVersionEventDelete = "delete"
 )
@@ -321,7 +321,7 @@ func (s *FlowServiceV2RPC) NodeHttpCollection(
 	return connect.NewResponse(&flowv1.NodeHttpCollectionResponse{Items: items}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowCreate(ctx context.Context, req *connect.Request[flowv1.FlowCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[flowv1.FlowInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
 	}
@@ -387,7 +387,7 @@ func (s *FlowServiceV2RPC) FlowCreate(ctx context.Context, req *connect.Request[
 
 		if created, err := s.fs.GetFlow(ctx, flowID); err == nil {
 			if created.VersionParentID != nil {
-				s.publishFlowVersionEvent(flowVersionEventCreate, created)
+				s.publishFlowVersionEvent(flowVersionEventInsert, created)
 			}
 		}
 
@@ -510,7 +510,7 @@ func (s *FlowServiceV2RPC) FlowSync(
 		return err
 	}
 
-	items := buildFlowSyncCreates(flows)
+	items := buildFlowSyncInserts(flows)
 	if len(items) == 0 {
 		return nil
 	}
@@ -728,7 +728,7 @@ func (s *FlowServiceV2RPC) FlowVariableCollection(ctx context.Context, req *conn
 	return connect.NewResponse(&flowv1.FlowVariableCollectionResponse{Items: items}), nil
 }
 
-func (s *FlowServiceV2RPC) FlowVariableCreate(ctx context.Context, req *connect.Request[flowv1.FlowVariableCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.Request[flowv1.FlowVariableInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	for _, item := range req.Msg.GetItems() {
 		if len(item.GetFlowId()) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
@@ -773,7 +773,7 @@ func (s *FlowServiceV2RPC) FlowVariableCreate(ctx context.Context, req *connect.
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		s.publishFlowVariableEvent(flowVarEventCreate, variable, order)
+		s.publishFlowVariableEvent(flowVarEventInsert, variable, order)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -886,7 +886,7 @@ func (s *FlowServiceV2RPC) FlowVariableSync(
 	})
 }
 
-func (s *FlowServiceV2RPC) EdgeCreate(ctx context.Context, req *connect.Request[flowv1.EdgeCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *FlowServiceV2RPC) EdgeInsert(ctx context.Context, req *connect.Request[flowv1.EdgeInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	for _, item := range req.Msg.GetItems() {
 		if len(item.GetFlowId()) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
@@ -943,7 +943,7 @@ func (s *FlowServiceV2RPC) EdgeCreate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		s.publishEdgeEvent(edgeEventCreate, model)
+		s.publishEdgeEvent(edgeEventInsert, model)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -1075,7 +1075,7 @@ func (s *FlowServiceV2RPC) streamEdgeSync(
 				events = append(events, eventstream.Event[EdgeTopic, EdgeEvent]{
 					Topic: EdgeTopic{FlowID: flow.ID},
 					Payload: EdgeEvent{
-						Type:   edgeEventCreate,
+						Type:   edgeEventInsert,
 						FlowID: flow.ID,
 						Edge:   serializeEdge(edgeModel),
 					},
@@ -1175,12 +1175,12 @@ func (s *FlowServiceV2RPC) publishFlowVersionEvent(eventType string, flow mflow.
 	})
 }
 
-func (s *FlowServiceV2RPC) NodeCreate(
+func (s *FlowServiceV2RPC) NodeInsert(
 	ctx context.Context,
-	req *connect.Request[flowv1.NodeCreateRequest],
+	req *connect.Request[flowv1.NodeInsertRequest],
 ) (*connect.Response[emptypb.Empty], error) {
 	for _, item := range req.Msg.GetItems() {
-		nodeModel, err := s.deserializeNodeCreate(item)
+		nodeModel, err := s.deserializeNodeInsert(item)
 		if err != nil {
 			return nil, err
 		}
@@ -1193,7 +1193,7 @@ func (s *FlowServiceV2RPC) NodeCreate(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		s.publishNodeEvent(nodeEventCreate, *nodeModel)
+		s.publishNodeEvent(nodeEventInsert, *nodeModel)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -1314,7 +1314,7 @@ func (s *FlowServiceV2RPC) streamNodeSync(
 				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
 					Topic: NodeTopic{FlowID: flow.ID},
 					Payload: NodeEvent{
-						Type:   nodeEventCreate,
+						Type:   nodeEventInsert,
 						FlowID: flow.ID,
 						Node:   serializeNode(nodeModel),
 					},
@@ -1393,7 +1393,7 @@ func (s *FlowServiceV2RPC) streamFlowVariableSync(
 				events = append(events, eventstream.Event[FlowVariableTopic, FlowVariableEvent]{
 					Topic: FlowVariableTopic{FlowID: flow.ID},
 					Payload: FlowVariableEvent{
-						Type:     flowVarEventCreate,
+						Type:     flowVarEventInsert,
 						FlowID:   flow.ID,
 						Variable: variable,
 						Order:    float32(idx),
@@ -1480,7 +1480,7 @@ func (s *FlowServiceV2RPC) streamFlowVersionSync(
 				events = append(events, eventstream.Event[FlowVersionTopic, FlowVersionEvent]{
 					Topic: FlowVersionTopic{FlowID: parentID},
 					Payload: FlowVersionEvent{
-						Type:      flowVersionEventCreate,
+						Type:      flowVersionEventInsert,
 						FlowID:    parentID,
 						VersionID: version.ID,
 					},
@@ -1530,7 +1530,7 @@ func (s *FlowServiceV2RPC) NodeNoOpCollection(context.Context, *connect.Request[
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeNoOpCreate(ctx context.Context, req *connect.Request[flowv1.NodeNoOpCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *FlowServiceV2RPC) NodeNoOpInsert(ctx context.Context, req *connect.Request[flowv1.NodeNoOpInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -1611,7 +1611,7 @@ func (s *FlowServiceV2RPC) NodeNoOpSync(context.Context, *connect.Request[emptyp
 	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeHttpCreate(ctx context.Context, req *connect.Request[flowv1.NodeHttpCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Request[flowv1.NodeHttpInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -1701,7 +1701,7 @@ func (s *FlowServiceV2RPC) NodeForCollection(context.Context, *connect.Request[e
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeForCreate(ctx context.Context, req *connect.Request[flowv1.NodeForCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Request[flowv1.NodeForInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -1791,7 +1791,7 @@ func (s *FlowServiceV2RPC) NodeForEachCollection(context.Context, *connect.Reque
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeForEachCreate(ctx context.Context, req *connect.Request[flowv1.NodeForEachCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *FlowServiceV2RPC) NodeForEachInsert(ctx context.Context, req *connect.Request[flowv1.NodeForEachInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -1881,7 +1881,7 @@ func (s *FlowServiceV2RPC) NodeConditionCollection(context.Context, *connect.Req
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeConditionCreate(ctx context.Context, req *connect.Request[flowv1.NodeConditionCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *FlowServiceV2RPC) NodeConditionInsert(ctx context.Context, req *connect.Request[flowv1.NodeConditionInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -1963,7 +1963,7 @@ func (s *FlowServiceV2RPC) NodeJsCollection(context.Context, *connect.Request[em
 	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeJsCreate(ctx context.Context, req *connect.Request[flowv1.NodeJsCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *FlowServiceV2RPC) NodeJsInsert(ctx context.Context, req *connect.Request[flowv1.NodeJsInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	for _, item := range req.Msg.GetItems() {
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
@@ -2083,7 +2083,7 @@ func (s *FlowServiceV2RPC) listUserWorkspaces(ctx context.Context) ([]mworkspace
 	return workspaces, nil
 }
 
-func buildFlowSyncCreates(flows []mflow.Flow) []*flowv1.FlowSync {
+func buildFlowSyncInserts(flows []mflow.Flow) []*flowv1.FlowSync {
 	if len(flows) == 0 {
 		return nil
 	}
@@ -2094,19 +2094,19 @@ func buildFlowSyncCreates(flows []mflow.Flow) []*flowv1.FlowSync {
 
 	items := make([]*flowv1.FlowSync, 0, len(flows))
 	for _, flow := range flows {
-		create := &flowv1.FlowSyncCreate{
+		insert := &flowv1.FlowSyncInsert{
 			FlowId: flow.ID.Bytes(),
 			Name:   flow.Name,
 		}
 		if flow.Duration != 0 {
 			duration := flow.Duration
-			create.Duration = &duration
+			insert.Duration = &duration
 		}
 
 		items = append(items, &flowv1.FlowSync{
 			Value: &flowv1.FlowSync_ValueUnion{
-				Kind:   flowv1.FlowSync_ValueUnion_KIND_CREATE,
-				Create: create,
+				Kind:   flowv1.FlowSync_ValueUnion_KIND_INSERT,
+				Insert: insert,
 			},
 		})
 	}
@@ -2126,8 +2126,8 @@ func nodeEventToSyncResponse(evt NodeEvent) *flowv1.NodeSyncResponse {
 	}
 
 	switch evt.Type {
-	case nodeEventCreate:
-		create := &flowv1.NodeSyncCreate{
+	case nodeEventInsert:
+		insert := &flowv1.NodeSyncInsert{
 			NodeId:   node.GetNodeId(),
 			FlowId:   node.GetFlowId(),
 			Kind:     node.GetKind(),
@@ -2136,13 +2136,13 @@ func nodeEventToSyncResponse(evt NodeEvent) *flowv1.NodeSyncResponse {
 			State:    node.GetState(),
 		}
 		if info := node.GetInfo(); info != "" {
-			create.Info = &info
+			insert.Info = &info
 		}
 		return &flowv1.NodeSyncResponse{
 			Items: []*flowv1.NodeSync{{
 				Value: &flowv1.NodeSync_ValueUnion{
-					Kind:   flowv1.NodeSync_ValueUnion_KIND_CREATE,
-					Create: create,
+					Kind:   flowv1.NodeSync_ValueUnion_KIND_INSERT,
+					Insert: insert,
 				},
 			}},
 		}
@@ -2205,8 +2205,8 @@ func edgeEventToSyncResponse(evt EdgeEvent) *flowv1.EdgeSyncResponse {
 	edgePB := evt.Edge
 
 	switch evt.Type {
-	case edgeEventCreate:
-		create := &flowv1.EdgeSyncCreate{
+	case edgeEventInsert:
+		insert := &flowv1.EdgeSyncInsert{
 			EdgeId:       edgePB.GetEdgeId(),
 			FlowId:       edgePB.GetFlowId(),
 			Kind:         edgePB.GetKind(),
@@ -2217,8 +2217,8 @@ func edgeEventToSyncResponse(evt EdgeEvent) *flowv1.EdgeSyncResponse {
 		return &flowv1.EdgeSyncResponse{
 			Items: []*flowv1.EdgeSync{{
 				Value: &flowv1.EdgeSync_ValueUnion{
-					Kind:   flowv1.EdgeSync_ValueUnion_KIND_CREATE,
-					Create: create,
+					Kind:   flowv1.EdgeSync_ValueUnion_KIND_INSERT,
+					Insert: insert,
 				},
 			}},
 		}
@@ -2271,8 +2271,8 @@ func flowVariableEventToSyncResponse(evt FlowVariableEvent) *flowv1.FlowVariable
 	variable := evt.Variable
 
 	switch evt.Type {
-	case flowVarEventCreate:
-		create := &flowv1.FlowVariableSyncCreate{
+	case flowVarEventInsert:
+		insert := &flowv1.FlowVariableSyncInsert{
 			FlowVariableId: variable.ID.Bytes(),
 			FlowId:         variable.FlowID.Bytes(),
 			Key:            variable.Name,
@@ -2284,8 +2284,8 @@ func flowVariableEventToSyncResponse(evt FlowVariableEvent) *flowv1.FlowVariable
 		return &flowv1.FlowVariableSyncResponse{
 			Items: []*flowv1.FlowVariableSync{{
 				Value: &flowv1.FlowVariableSync_ValueUnion{
-					Kind:   flowv1.FlowVariableSync_ValueUnion_KIND_CREATE,
-					Create: create,
+					Kind:   flowv1.FlowVariableSync_ValueUnion_KIND_INSERT,
+					Insert: insert,
 				},
 			}},
 		}
@@ -2337,8 +2337,8 @@ func flowVersionEventToSyncResponse(evt FlowVersionEvent) *flowv1.FlowVersionSyn
 	}
 
 	switch evt.Type {
-	case flowVersionEventCreate:
-		create := &flowv1.FlowVersionSyncCreate{
+	case flowVersionEventInsert:
+		insert := &flowv1.FlowVersionSyncInsert{
 			FlowVersionId: evt.VersionID.Bytes(),
 			FlowId:        evt.FlowID.Bytes(),
 		}
@@ -2346,8 +2346,8 @@ func flowVersionEventToSyncResponse(evt FlowVersionEvent) *flowv1.FlowVersionSyn
 			Items: []*flowv1.FlowVersionSync{
 				{
 					Value: &flowv1.FlowVersionSync_ValueUnion{
-						Kind:   flowv1.FlowVersionSync_ValueUnion_KIND_CREATE,
-						Create: create,
+						Kind:   flowv1.FlowVersionSync_ValueUnion_KIND_INSERT,
+						Insert: insert,
 					},
 				},
 			},
@@ -2692,9 +2692,9 @@ func flowIDFromHeaders(header http.Header) (idwrap.IDWrap, error) {
 	return idwrap.NewText(value)
 }
 
-func (s *FlowServiceV2RPC) deserializeNodeCreate(item *flowv1.NodeCreate) (*mnnode.MNode, error) {
+func (s *FlowServiceV2RPC) deserializeNodeInsert(item *flowv1.NodeInsert) (*mnnode.MNode, error) {
 	if item == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node create item is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node insert item is required"))
 	}
 
 	if len(item.GetFlowId()) == 0 {

@@ -123,15 +123,15 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	t.Run("flow crud lifecycle", func(t *testing.T) {
 		flowID := idwrap.NewNow()
 
-		createReq := connect.NewRequest(&flowv1.FlowCreateRequest{
-			Items: []*flowv1.FlowCreate{{
+		createReq := connect.NewRequest(&flowv1.FlowInsertRequest{
+			Items: []*flowv1.FlowInsert{{
 				FlowId: flowID.Bytes(),
 				Name:   "new flow",
 			}},
 		})
 		createReq.Header().Set("workspace-id", workspaceID.String())
 
-		_, err := srv.FlowCreate(ctx, createReq)
+		_, err := srv.FlowInsert(ctx, createReq)
 		require.NoError(t, err)
 
 		created, err := flowService.GetFlow(context.Background(), flowID)
@@ -207,8 +207,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	})
 
 	t.Run("base node lifecycle", func(t *testing.T) {
-		createReq := &flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{
+		createReq := &flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{
 				{
 					FlowId: flowID.Bytes(),
 					Name:   "noop",
@@ -217,7 +217,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 			},
 		}
 
-		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		_, err := srv.NodeInsert(ctx, connect.NewRequest(createReq))
 		require.NoError(t, err)
 
 		nodesResp, err := srv.NodeCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
@@ -278,8 +278,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 			Method:      "POST",
 		}))
 
-		createReq := &flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{
+		createReq := &flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{
 				{
 					FlowId: flowID.Bytes(),
 					Name:   "request",
@@ -288,7 +288,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 			},
 		}
 
-		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		_, err := srv.NodeInsert(ctx, connect.NewRequest(createReq))
 		require.NoError(t, err)
 
 		nodesResp, err := srv.NodeCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
@@ -304,8 +304,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		}
 		require.NotEqual(t, idwrap.IDWrap{}, nodeID)
 
-		_, err = srv.NodeHttpCreate(ctx, connect.NewRequest(&flowv1.NodeHttpCreateRequest{
-			Items: []*flowv1.NodeHttpCreate{{
+		_, err = srv.NodeHttpInsert(ctx, connect.NewRequest(&flowv1.NodeHttpInsertRequest{
+			Items: []*flowv1.NodeHttpInsert{{
 				NodeId: nodeID.Bytes(),
 				HttpId: httpID1.Bytes(),
 			}},
@@ -341,15 +341,15 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	})
 
 	t.Run("node for lifecycle", func(t *testing.T) {
-		createReq := &flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{{
+		createReq := &flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{{
 				FlowId: flowID.Bytes(),
 				Name:   "for-node",
 				Kind:   flowv1.NodeKind_NODE_KIND_FOR,
 			}},
 		}
 
-		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		_, err := srv.NodeInsert(ctx, connect.NewRequest(createReq))
 		require.NoError(t, err)
 
 		nodesResp, err := srv.NodeCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
@@ -365,8 +365,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		}
 		require.NotEqual(t, idwrap.IDWrap{}, nodeID)
 
-		_, err = srv.NodeForCreate(ctx, connect.NewRequest(&flowv1.NodeForCreateRequest{
-			Items: []*flowv1.NodeForCreate{{
+		_, err = srv.NodeForInsert(ctx, connect.NewRequest(&flowv1.NodeForInsertRequest{
+			Items: []*flowv1.NodeForInsert{{
 				NodeId:     nodeID.Bytes(),
 				Iterations: 5,
 				Condition:  "x < 5",
@@ -404,21 +404,21 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	})
 
 	t.Run("node foreach lifecycle", func(t *testing.T) {
-		createReq := &flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{{
+		createReq := &flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{{
 				FlowId: flowID.Bytes(),
 				Name:   "foreach-node",
 				Kind:   flowv1.NodeKind_NODE_KIND_FOR_EACH,
 			}},
 		}
 
-		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		_, err := srv.NodeInsert(ctx, connect.NewRequest(createReq))
 		require.NoError(t, err)
 
 		nodeID := findNodeIDByName(t, srv, ctx, "foreach-node")
 
-		_, err = srv.NodeForEachCreate(ctx, connect.NewRequest(&flowv1.NodeForEachCreateRequest{
-			Items: []*flowv1.NodeForEachCreate{{
+		_, err = srv.NodeForEachInsert(ctx, connect.NewRequest(&flowv1.NodeForEachInsertRequest{
+			Items: []*flowv1.NodeForEachInsert{{
 				NodeId:    nodeID.Bytes(),
 				Path:      "items",
 				Condition: "len(items) > 0",
@@ -455,21 +455,21 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	})
 
 	t.Run("node condition lifecycle", func(t *testing.T) {
-		createReq := &flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{{
+		createReq := &flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{{
 				FlowId: flowID.Bytes(),
 				Name:   "condition-node",
 				Kind:   flowv1.NodeKind_NODE_KIND_CONDITION,
 			}},
 		}
 
-		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		_, err := srv.NodeInsert(ctx, connect.NewRequest(createReq))
 		require.NoError(t, err)
 
 		nodeID := findNodeIDByName(t, srv, ctx, "condition-node")
 
-		_, err = srv.NodeConditionCreate(ctx, connect.NewRequest(&flowv1.NodeConditionCreateRequest{
-			Items: []*flowv1.NodeConditionCreate{{
+		_, err = srv.NodeConditionInsert(ctx, connect.NewRequest(&flowv1.NodeConditionInsertRequest{
+			Items: []*flowv1.NodeConditionInsert{{
 				NodeId:    nodeID.Bytes(),
 				Condition: "x == 1",
 			}},
@@ -502,21 +502,21 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	})
 
 	t.Run("node js lifecycle", func(t *testing.T) {
-		createReq := &flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{{
+		createReq := &flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{{
 				FlowId: flowID.Bytes(),
 				Name:   "js-node",
 				Kind:   flowv1.NodeKind_NODE_KIND_JS,
 			}},
 		}
 
-		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		_, err := srv.NodeInsert(ctx, connect.NewRequest(createReq))
 		require.NoError(t, err)
 
 		nodeID := findNodeIDByName(t, srv, ctx, "js-node")
 
-		_, err = srv.NodeJsCreate(ctx, connect.NewRequest(&flowv1.NodeJsCreateRequest{
-			Items: []*flowv1.NodeJsCreate{{
+		_, err = srv.NodeJsInsert(ctx, connect.NewRequest(&flowv1.NodeJsInsertRequest{
+			Items: []*flowv1.NodeJsInsert{{
 				NodeId: nodeID.Bytes(),
 				Code:   "console.log('hello')",
 			}},
@@ -549,21 +549,21 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	})
 
 	t.Run("edge lifecycle", func(t *testing.T) {
-		createReq := &flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{
+		createReq := &flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{
 				{FlowId: flowID.Bytes(), Name: "edge-source", Kind: flowv1.NodeKind_NODE_KIND_NO_OP},
 				{FlowId: flowID.Bytes(), Name: "edge-target", Kind: flowv1.NodeKind_NODE_KIND_NO_OP},
 			},
 		}
 
-		_, err := srv.NodeCreate(ctx, connect.NewRequest(createReq))
+		_, err := srv.NodeInsert(ctx, connect.NewRequest(createReq))
 		require.NoError(t, err)
 
 		sourceID := findNodeIDByName(t, srv, ctx, "edge-source")
 		targetID := findNodeIDByName(t, srv, ctx, "edge-target")
 
-		_, err = srv.EdgeCreate(ctx, connect.NewRequest(&flowv1.EdgeCreateRequest{
-			Items: []*flowv1.EdgeCreate{{
+		_, err = srv.EdgeInsert(ctx, connect.NewRequest(&flowv1.EdgeInsertRequest{
+			Items: []*flowv1.EdgeInsert{{
 				FlowId:       flowID.Bytes(),
 				SourceId:     sourceID.Bytes(),
 				TargetId:     targetID.Bytes(),
@@ -580,8 +580,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		edgeID := edges[0].ID
 
 		// create new target for update
-		_, err = srv.NodeCreate(ctx, connect.NewRequest(&flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{{
+		_, err = srv.NodeInsert(ctx, connect.NewRequest(&flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{{
 				FlowId: flowID.Bytes(),
 				Name:   "edge-target-2",
 				Kind:   flowv1.NodeKind_NODE_KIND_NO_OP,
@@ -649,8 +649,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		syncCtx := mwauth.CreateAuthedContext(context.Background(), nodeUserID)
 
 		syncNodeID := idwrap.NewNow()
-		_, err := srv.NodeCreate(syncCtx, connect.NewRequest(&flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{{
+		_, err := srv.NodeInsert(syncCtx, connect.NewRequest(&flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{{
 				FlowId: nodeFlowID.Bytes(),
 				NodeId: syncNodeID.Bytes(),
 				Name:   "sync-node",
@@ -681,7 +681,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.Len(t, first.GetItems(), 1)
 		firstValue := first.GetItems()[0].GetValue()
 		require.NotNil(t, firstValue)
-		require.Equal(t, flowv1.NodeSync_ValueUnion_KIND_CREATE, firstValue.GetKind())
+		require.Equal(t, flowv1.NodeSync_ValueUnion_KIND_INSERT, firstValue.GetKind())
 		firstCreate := firstValue.GetCreate()
 		require.NotNil(t, firstCreate)
 		require.Equal(t, syncNodeID.Bytes(), firstCreate.GetNodeId())
@@ -755,8 +755,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 
 		sourceNodeID := idwrap.NewNow()
 		targetNodeID := idwrap.NewNow()
-		_, err := srv.NodeCreate(edgeCtx, connect.NewRequest(&flowv1.NodeCreateRequest{
-			Items: []*flowv1.NodeCreate{
+		_, err := srv.NodeInsert(edgeCtx, connect.NewRequest(&flowv1.NodeInsertRequest{
+			Items: []*flowv1.NodeInsert{
 				{
 					FlowId: edgeFlowID.Bytes(),
 					NodeId: sourceNodeID.Bytes(),
@@ -774,8 +774,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.NoError(t, err)
 
 		edgeID := idwrap.NewNow()
-		_, err = srv.EdgeCreate(edgeCtx, connect.NewRequest(&flowv1.EdgeCreateRequest{
-			Items: []*flowv1.EdgeCreate{{
+		_, err = srv.EdgeInsert(edgeCtx, connect.NewRequest(&flowv1.EdgeInsertRequest{
+			Items: []*flowv1.EdgeInsert{{
 				EdgeId:       edgeID.Bytes(),
 				FlowId:       edgeFlowID.Bytes(),
 				SourceId:     sourceNodeID.Bytes(),
@@ -808,7 +808,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.Len(t, create.GetItems(), 1)
 		createValue := create.GetItems()[0].GetValue()
 		require.NotNil(t, createValue)
-		require.Equal(t, flowv1.EdgeSync_ValueUnion_KIND_CREATE, createValue.GetKind())
+		require.Equal(t, flowv1.EdgeSync_ValueUnion_KIND_INSERT, createValue.GetKind())
 		createMsg := createValue.GetCreate()
 		require.NotNil(t, createMsg)
 		require.Equal(t, edgeID.Bytes(), createMsg.GetEdgeId())
@@ -877,8 +877,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, resp.Msg.GetItems())
 
-		_, err = srv.FlowVariableCreate(ctx, connect.NewRequest(&flowv1.FlowVariableCreateRequest{
-			Items: []*flowv1.FlowVariableCreate{{
+		_, err = srv.FlowVariableInsert(ctx, connect.NewRequest(&flowv1.FlowVariableInsertRequest{
+			Items: []*flowv1.FlowVariableInsert{{
 				FlowId:      flowID.Bytes(),
 				Key:         "API_KEY",
 				Value:       "secret",
@@ -952,8 +952,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		varCtx := mwauth.CreateAuthedContext(context.Background(), varUserID)
 
 		varID1 := idwrap.NewNow()
-		_, err := srv.FlowVariableCreate(varCtx, connect.NewRequest(&flowv1.FlowVariableCreateRequest{
-			Items: []*flowv1.FlowVariableCreate{
+		_, err := srv.FlowVariableInsert(varCtx, connect.NewRequest(&flowv1.FlowVariableInsertRequest{
+			Items: []*flowv1.FlowVariableInsert{
 				{
 					FlowId:         varFlowID.Bytes(),
 					FlowVariableId: varID1.Bytes(),
@@ -987,7 +987,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.Len(t, snapshot.GetItems(), 1)
 		snapshotValue := snapshot.GetItems()[0].GetValue()
 		require.NotNil(t, snapshotValue)
-		require.Equal(t, flowv1.FlowVariableSync_ValueUnion_KIND_CREATE, snapshotValue.GetKind())
+		require.Equal(t, flowv1.FlowVariableSync_ValueUnion_KIND_INSERT, snapshotValue.GetKind())
 		snapshotCreate := snapshotValue.GetCreate()
 		require.NotNil(t, snapshotCreate)
 		require.Equal(t, varID1.Bytes(), snapshotCreate.GetFlowVariableId())
@@ -995,8 +995,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.Equal(t, "API_KEY", snapshotCreate.GetKey())
 
 		varID2 := idwrap.NewNow()
-		_, err = srv.FlowVariableCreate(varCtx, connect.NewRequest(&flowv1.FlowVariableCreateRequest{
-			Items: []*flowv1.FlowVariableCreate{
+		_, err = srv.FlowVariableInsert(varCtx, connect.NewRequest(&flowv1.FlowVariableInsertRequest{
+			Items: []*flowv1.FlowVariableInsert{
 				{
 					FlowId:         varFlowID.Bytes(),
 					FlowVariableId: varID2.Bytes(),
@@ -1018,7 +1018,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.Len(t, createEvent.GetItems(), 1)
 		createValue := createEvent.GetItems()[0].GetValue()
 		require.NotNil(t, createValue)
-		require.Equal(t, flowv1.FlowVariableSync_ValueUnion_KIND_CREATE, createValue.GetKind())
+		require.Equal(t, flowv1.FlowVariableSync_ValueUnion_KIND_INSERT, createValue.GetKind())
 		require.Equal(t, varID2.Bytes(), createValue.GetCreate().GetFlowVariableId())
 
 		_, err = srv.FlowVariableUpdate(varCtx, connect.NewRequest(&flowv1.FlowVariableUpdateRequest{
@@ -1122,13 +1122,13 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.Len(t, snapshot.GetItems(), 1)
 		snapshotValue := snapshot.GetItems()[0].GetValue()
 		require.NotNil(t, snapshotValue)
-		require.Equal(t, flowv1.FlowVersionSync_ValueUnion_KIND_CREATE, snapshotValue.GetKind())
+		require.Equal(t, flowv1.FlowVersionSync_ValueUnion_KIND_INSERT, snapshotValue.GetKind())
 		require.Equal(t, versionID.Bytes(), snapshotValue.GetCreate().GetFlowVersionId())
 		require.Equal(t, baseFlowID.Bytes(), snapshotValue.GetCreate().GetFlowId())
 
 		newVersionID := idwrap.NewNow()
 		flowVersionStream.Publish(FlowVersionTopic{FlowID: baseFlowID}, FlowVersionEvent{
-			Type:      flowVersionEventCreate,
+			Type:      flowVersionEventInsert,
 			FlowID:    baseFlowID,
 			VersionID: newVersionID,
 		})
@@ -1143,7 +1143,7 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		require.Len(t, createEvent.GetItems(), 1)
 		createValue := createEvent.GetItems()[0].GetValue()
 		require.NotNil(t, createValue)
-		require.Equal(t, flowv1.FlowVersionSync_ValueUnion_KIND_CREATE, createValue.GetKind())
+		require.Equal(t, flowv1.FlowVersionSync_ValueUnion_KIND_INSERT, createValue.GetKind())
 		require.Equal(t, newVersionID.Bytes(), createValue.GetCreate().GetFlowVersionId())
 
 		versionToDelete := idwrap.NewNow()
@@ -1249,7 +1249,7 @@ func TestBuildFlowSyncCreates(t *testing.T) {
 
 	first := items[0]
 	require.NotNil(t, first.GetValue())
-	require.Equal(t, flowv1.FlowSync_ValueUnion_KIND_CREATE, first.GetValue().GetKind())
+	require.Equal(t, flowv1.FlowSync_ValueUnion_KIND_INSERT, first.GetValue().GetKind())
 	firstCreate := first.GetValue().GetCreate()
 	require.NotNil(t, firstCreate)
 	require.Equal(t, idA.Bytes(), firstCreate.GetFlowId())
@@ -1258,7 +1258,7 @@ func TestBuildFlowSyncCreates(t *testing.T) {
 
 	second := items[1]
 	require.NotNil(t, second.GetValue())
-	require.Equal(t, flowv1.FlowSync_ValueUnion_KIND_CREATE, second.GetValue().GetKind())
+	require.Equal(t, flowv1.FlowSync_ValueUnion_KIND_INSERT, second.GetValue().GetKind())
 	secondCreate := second.GetValue().GetCreate()
 	require.NotNil(t, secondCreate)
 	require.Equal(t, idB.Bytes(), secondCreate.GetFlowId())

@@ -65,7 +65,7 @@ import (
 )
 
 const (
-	eventTypeCreate = "create"
+	eventTypeInsert = "insert"
 	eventTypeUpdate = "update"
 	eventTypeDelete = "delete"
 )
@@ -507,10 +507,10 @@ func fromAPIHttpMethod(method apiv1.HttpMethod) string {
 	}
 }
 
-// publishCreateEvent publishes a create event for real-time sync
-func (h *HttpServiceRPC) publishCreateEvent(http mhttp.HTTP) {
+// publishInsertEvent publishes an insert event for real-time sync
+func (h *HttpServiceRPC) publishInsertEvent(http mhttp.HTTP) {
 	h.stream.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
-		Type: eventTypeCreate,
+		Type: eventTypeInsert,
 		Http: toAPIHttp(http),
 	})
 }
@@ -607,14 +607,14 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 	var value *apiv1.HttpSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		name := event.Http.GetName()
 		method := event.Http.GetMethod()
 		url := event.Http.GetUrl()
 		bodyKind := event.Http.GetBodyKind()
 		value = &apiv1.HttpSync_ValueUnion{
-			Kind: apiv1.HttpSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpSyncCreate{
+			Kind: apiv1.HttpSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpSyncInsert{
 				HttpId:   event.Http.GetHttpId(),
 				Name:     name,
 				Method:   method,
@@ -660,15 +660,15 @@ func httpHeaderSyncResponseFrom(event HttpHeaderEvent) *apiv1.HttpHeaderSyncResp
 	var value *apiv1.HttpHeaderSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		key := event.HttpHeader.GetKey()
 		value_ := event.HttpHeader.GetValue()
 		enabled := event.HttpHeader.GetEnabled()
 		description := event.HttpHeader.GetDescription()
 		order := event.HttpHeader.GetOrder()
 		value = &apiv1.HttpHeaderSync_ValueUnion{
-			Kind: apiv1.HttpHeaderSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpHeaderSyncCreate{
+			Kind: apiv1.HttpHeaderSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpHeaderSyncInsert{
 				HttpHeaderId: event.HttpHeader.GetHttpHeaderId(),
 				HttpId:       event.HttpHeader.GetHttpId(),
 				Key:          key,
@@ -718,15 +718,15 @@ func httpSearchParamSyncResponseFrom(event HttpSearchParamEvent) *apiv1.HttpSear
 	var value *apiv1.HttpSearchParamSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		key := event.HttpSearchParam.GetKey()
 		value_ := event.HttpSearchParam.GetValue()
 		enabled := event.HttpSearchParam.GetEnabled()
 		description := event.HttpSearchParam.GetDescription()
 		order := event.HttpSearchParam.GetOrder()
 		value = &apiv1.HttpSearchParamSync_ValueUnion{
-			Kind: apiv1.HttpSearchParamSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpSearchParamSyncCreate{
+			Kind: apiv1.HttpSearchParamSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpSearchParamSyncInsert{
 				HttpSearchParamId: event.HttpSearchParam.GetHttpSearchParamId(),
 				HttpId:            event.HttpSearchParam.GetHttpId(),
 				Key:               key,
@@ -776,11 +776,11 @@ func httpAssertSyncResponseFrom(event HttpAssertEvent) *apiv1.HttpAssertSyncResp
 	var value *apiv1.HttpAssertSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		value_ := event.HttpAssert.GetValue()
 		value = &apiv1.HttpAssertSync_ValueUnion{
-			Kind: apiv1.HttpAssertSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpAssertSyncCreate{
+			Kind: apiv1.HttpAssertSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpAssertSyncInsert{
 				HttpAssertId: event.HttpAssert.GetHttpAssertId(),
 				HttpId:       event.HttpAssert.GetHttpId(),
 				Value:        value_,
@@ -818,10 +818,10 @@ func httpVersionSyncResponseFrom(event HttpVersionEvent) *apiv1.HttpVersionSyncR
 	var value *apiv1.HttpVersionSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		value = &apiv1.HttpVersionSync_ValueUnion{
-			Kind: apiv1.HttpVersionSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpVersionSyncCreate{
+			Kind: apiv1.HttpVersionSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpVersionSyncInsert{
 				HttpVersionId: event.HttpVersion.GetHttpVersionId(),
 				HttpId:        event.HttpVersion.GetHttpId(),
 			},
@@ -856,15 +856,15 @@ func httpResponseSyncResponseFrom(event HttpResponseEvent) *apiv1.HttpResponseSy
 	var value *apiv1.HttpResponseSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		status := event.HttpResponse.GetStatus()
 		body := event.HttpResponse.GetBody()
 		time := event.HttpResponse.GetTime()
 		duration := event.HttpResponse.GetDuration()
 		size := event.HttpResponse.GetSize()
 		value = &apiv1.HttpResponseSync_ValueUnion{
-			Kind: apiv1.HttpResponseSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpResponseSyncCreate{
+			Kind: apiv1.HttpResponseSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpResponseSyncInsert{
 				HttpResponseId: event.HttpResponse.GetHttpResponseId(),
 				HttpId:         event.HttpResponse.GetHttpId(),
 				Status:         status,
@@ -914,12 +914,12 @@ func httpResponseHeaderSyncResponseFrom(event HttpResponseHeaderEvent) *apiv1.Ht
 	var value *apiv1.HttpResponseHeaderSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		key := event.HttpResponseHeader.GetKey()
 		value_ := event.HttpResponseHeader.GetValue()
 		value = &apiv1.HttpResponseHeaderSync_ValueUnion{
-			Kind: apiv1.HttpResponseHeaderSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpResponseHeaderSyncCreate{
+			Kind: apiv1.HttpResponseHeaderSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpResponseHeaderSyncInsert{
 				HttpResponseHeaderId: event.HttpResponseHeader.GetHttpResponseHeaderId(),
 				HttpId:               event.HttpResponseHeader.GetHttpId(),
 				Key:                  key,
@@ -960,12 +960,12 @@ func httpResponseAssertSyncResponseFrom(event HttpResponseAssertEvent) *apiv1.Ht
 	var value *apiv1.HttpResponseAssertSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		value_ := event.HttpResponseAssert.GetValue()
 		success := event.HttpResponseAssert.GetSuccess()
 		value = &apiv1.HttpResponseAssertSync_ValueUnion{
-			Kind: apiv1.HttpResponseAssertSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpResponseAssertSyncCreate{
+			Kind: apiv1.HttpResponseAssertSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpResponseAssertSyncInsert{
 				HttpResponseAssertId: event.HttpResponseAssert.GetHttpResponseAssertId(),
 				HttpId:               event.HttpResponseAssert.GetHttpId(),
 				Value:                value_,
@@ -1006,11 +1006,11 @@ func httpBodyRawSyncResponseFrom(event HttpBodyRawEvent) *apiv1.HttpBodyRawSyncR
 	var value *apiv1.HttpBodyRawSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		data := event.HttpBodyRaw.GetData()
 		value = &apiv1.HttpBodyRawSync_ValueUnion{
-			Kind: apiv1.HttpBodyRawSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpBodyRawSyncCreate{
+			Kind: apiv1.HttpBodyRawSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpBodyRawSyncInsert{
 				HttpId: event.HttpBodyRaw.GetHttpId(),
 				Data:   data,
 			},
@@ -1047,8 +1047,8 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 	var value *apiv1.HttpDeltaSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
-		delta := &apiv1.HttpDeltaSyncCreate{
+	case eventTypeInsert:
+		delta := &apiv1.HttpDeltaSyncInsert{
 			DeltaHttpId: http.ID.Bytes(),
 		}
 		if http.ParentHttpID != nil {
@@ -1066,8 +1066,8 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 		}
 		// Note: BodyKind delta not implemented yet
 		value = &apiv1.HttpDeltaSync_ValueUnion{
-			Kind:   apiv1.HttpDeltaSync_ValueUnion_KIND_CREATE,
-			Create: delta,
+			Kind:   apiv1.HttpDeltaSync_ValueUnion_KIND_INSERT,
+			Insert: delta,
 		}
 	case eventTypeUpdate:
 		delta := &apiv1.HttpDeltaSyncUpdate{
@@ -1147,7 +1147,7 @@ func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWra
 			events = append(events, eventstream.Event[HttpTopic, HttpEvent]{
 				Topic: HttpTopic{WorkspaceID: http.WorkspaceID},
 				Payload: HttpEvent{
-					Type: eventTypeCreate,
+					Type: eventTypeInsert,
 					Http: toAPIHttp(http),
 				},
 			})
@@ -1606,7 +1606,7 @@ func (h *HttpServiceRPC) HttpCollection(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(&apiv1.HttpCollectionResponse{Items: items}), nil
 }
 
-func (h *HttpServiceRPC) HttpCreate(ctx context.Context, req *connect.Request[apiv1.HttpCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[apiv1.HttpInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP entry must be provided"))
 	}
@@ -1674,7 +1674,7 @@ func (h *HttpServiceRPC) HttpCreate(ctx context.Context, req *connect.Request[ap
 
 	// Publish create events for real-time sync after successful commit
 	for _, http := range createdHTTPs {
-		h.publishCreateEvent(http)
+		h.publishInsertEvent(http)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -1868,7 +1868,7 @@ func (h *HttpServiceRPC) HttpDeltaCollection(ctx context.Context, req *connect.R
 	}), nil
 }
 
-func (h *HttpServiceRPC) HttpDeltaCreate(ctx context.Context, req *connect.Request[apiv1.HttpDeltaCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
@@ -2129,7 +2129,7 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 			events = append(events, eventstream.Event[HttpTopic, HttpEvent]{
 				Topic: HttpTopic{WorkspaceID: http.WorkspaceID},
 				Payload: HttpEvent{
-					Type: eventTypeCreate,
+					Type: eventTypeInsert,
 					Http: toAPIHttp(http),
 				},
 			})
@@ -2312,7 +2312,7 @@ func (h *HttpServiceRPC) HttpSearchParamCollection(ctx context.Context, req *con
 	return connect.NewResponse(&apiv1.HttpSearchParamCollectionResponse{Items: allParams}), nil
 }
 
-func (h *HttpServiceRPC) HttpSearchParamCreate(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP search param must be provided"))
 	}
@@ -2390,7 +2390,7 @@ func (h *HttpServiceRPC) HttpSearchParamCreate(ctx context.Context, req *connect
 			continue
 		}
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
-			Type:            eventTypeCreate,
+			Type:            eventTypeInsert,
 			HttpSearchParam: toAPIHttpSearchParam(param),
 		})
 	}
@@ -2593,7 +2593,7 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 				events = append(events, eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent]{
 					Topic: HttpSearchParamTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpSearchParamEvent{
-						Type:            eventTypeCreate,
+						Type:            eventTypeInsert,
 						HttpSearchParam: toAPIHttpSearchParam(param),
 					},
 				})
@@ -2667,7 +2667,7 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 				events = append(events, eventstream.Event[HttpAssertTopic, HttpAssertEvent]{
 					Topic: HttpAssertTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpAssertEvent{
-						Type:       eventTypeCreate,
+						Type:       eventTypeInsert,
 						HttpAssert: toAPIHttpAssert(assert),
 					},
 				})
@@ -2741,7 +2741,7 @@ func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwra
 				events = append(events, eventstream.Event[HttpVersionTopic, HttpVersionEvent]{
 					Topic: HttpVersionTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpVersionEvent{
-						Type:        eventTypeCreate,
+						Type:        eventTypeInsert,
 						HttpVersion: toAPIHttpVersion(version),
 					},
 				})
@@ -2852,7 +2852,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req
 	}), nil
 }
 
-func (h *HttpServiceRPC) HttpSearchParamDeltaCreate(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamDeltaCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpSearchParamDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
@@ -3148,7 +3148,7 @@ func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.
 	return connect.NewResponse(&apiv1.HttpAssertCollectionResponse{Items: allAsserts}), nil
 }
 
-func (h *HttpServiceRPC) HttpAssertCreate(ctx context.Context, req *connect.Request[apiv1.HttpAssertCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Request[apiv1.HttpAssertInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP assert must be provided"))
 	}
@@ -3226,7 +3226,7 @@ func (h *HttpServiceRPC) HttpAssertCreate(ctx context.Context, req *connect.Requ
 			continue
 		}
 		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
-			Type:       eventTypeCreate,
+			Type:       eventTypeInsert,
 			HttpAssert: toAPIHttpAssert(assert),
 		})
 	}
@@ -3446,7 +3446,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaCollection(ctx context.Context, req *con
 	}), nil
 }
 
-func (h *HttpServiceRPC) HttpAssertDeltaCreate(ctx context.Context, req *connect.Request[apiv1.HttpAssertDeltaCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpAssertDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpAssertDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
@@ -3641,7 +3641,7 @@ func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwr
 				events = append(events, eventstream.Event[HttpResponseTopic, HttpResponseEvent]{
 					Topic: HttpResponseTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpResponseEvent{
-						Type:         eventTypeCreate,
+						Type:         eventTypeInsert,
 						HttpResponse: toAPIHttpResponse(response),
 					},
 				})
@@ -3809,7 +3809,7 @@ func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userI
 				events = append(events, eventstream.Event[HttpResponseHeaderTopic, HttpResponseHeaderEvent]{
 					Topic: HttpResponseHeaderTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpResponseHeaderEvent{
-						Type:               eventTypeCreate,
+						Type:               eventTypeInsert,
 						HttpResponseHeader: toAPIHttpResponseHeader(header),
 					},
 				})
@@ -3977,7 +3977,7 @@ func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userI
 				events = append(events, eventstream.Event[HttpResponseAssertTopic, HttpResponseAssertEvent]{
 					Topic: HttpResponseAssertTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpResponseAssertEvent{
-						Type:               eventTypeCreate,
+						Type:               eventTypeInsert,
 						HttpResponseAssert: toAPIHttpResponseAssert(assert),
 					},
 				})
@@ -4069,7 +4069,7 @@ func (h *HttpServiceRPC) HttpHeaderCollection(ctx context.Context, req *connect.
 	return connect.NewResponse(&apiv1.HttpHeaderCollectionResponse{Items: allHeaders}), nil
 }
 
-func (h *HttpServiceRPC) HttpHeaderCreate(ctx context.Context, req *connect.Request[apiv1.HttpHeaderCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Request[apiv1.HttpHeaderInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header must be provided"))
 	}
@@ -4147,7 +4147,7 @@ func (h *HttpServiceRPC) HttpHeaderCreate(ctx context.Context, req *connect.Requ
 			continue
 		}
 		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpHeaderEvent{
-			Type:       eventTypeCreate,
+			Type:       eventTypeInsert,
 			HttpHeader: toAPIHttpHeader(header),
 		})
 	}
@@ -4351,7 +4351,7 @@ func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap
 				events = append(events, eventstream.Event[HttpHeaderTopic, HttpHeaderEvent]{
 					Topic: HttpHeaderTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpHeaderEvent{
-						Type:       eventTypeCreate,
+						Type:       eventTypeInsert,
 						HttpHeader: toAPIHttpHeader(header),
 					},
 				})
@@ -4461,7 +4461,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaCollection(ctx context.Context, req *con
 	}), nil
 }
 
-func (h *HttpServiceRPC) HttpHeaderDeltaCreate(ctx context.Context, req *connect.Request[apiv1.HttpHeaderDeltaCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpHeaderDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpHeaderDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
@@ -4752,7 +4752,7 @@ func (h *HttpServiceRPC) HttpBodyFormCollection(ctx context.Context, req *connec
 	return connect.NewResponse(&apiv1.HttpBodyFormCollectionResponse{Items: allBodyForms}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormCreate(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyFormInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
@@ -4830,7 +4830,7 @@ func (h *HttpServiceRPC) HttpBodyFormCreate(ctx context.Context, req *connect.Re
 			continue
 		}
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
-			Type:         eventTypeCreate,
+			Type:         eventTypeInsert,
 			HttpBodyForm: toAPIHttpBodyForm(bodyForm),
 		})
 	}
@@ -5020,15 +5020,15 @@ func httpBodyFormSyncResponseFrom(event HttpBodyFormEvent) *apiv1.HttpBodyFormSy
 	var value *apiv1.HttpBodyFormSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		key := event.HttpBodyForm.GetKey()
 		value_ := event.HttpBodyForm.GetValue()
 		enabled := event.HttpBodyForm.GetEnabled()
 		description := event.HttpBodyForm.GetDescription()
 		order := event.HttpBodyForm.GetOrder()
 		value = &apiv1.HttpBodyFormSync_ValueUnion{
-			Kind: apiv1.HttpBodyFormSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpBodyFormSyncCreate{
+			Kind: apiv1.HttpBodyFormSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpBodyFormSyncInsert{
 				HttpBodyFormId: event.HttpBodyForm.GetHttpBodyFormId(),
 				HttpId:         event.HttpBodyForm.GetHttpId(),
 				Key:            key,
@@ -5092,7 +5092,7 @@ func (h *HttpServiceRPC) streamHttpSearchParamDeltaSync(ctx context.Context, use
 				events = append(events, eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent]{
 					Topic: HttpSearchParamTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpSearchParamEvent{
-						Type:            eventTypeCreate,
+						Type:            eventTypeInsert,
 						HttpSearchParam: toAPIHttpSearchParam(param),
 					},
 				})
@@ -5178,7 +5178,7 @@ func (h *HttpServiceRPC) streamHttpHeaderDeltaSync(ctx context.Context, userID i
 				events = append(events, eventstream.Event[HttpHeaderTopic, HttpHeaderEvent]{
 					Topic: HttpHeaderTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpHeaderEvent{
-						Type:       eventTypeCreate,
+						Type:       eventTypeInsert,
 						HttpHeader: toAPIHttpHeader(header),
 					},
 				})
@@ -5264,7 +5264,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 				events = append(events, eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent]{
 					Topic: HttpBodyFormTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyFormEvent{
-						Type:         eventTypeCreate,
+						Type:         eventTypeInsert,
 						HttpBodyForm: toAPIHttpBodyForm(bodyForm),
 					},
 				})
@@ -5350,7 +5350,7 @@ func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID i
 				events = append(events, eventstream.Event[HttpAssertTopic, HttpAssertEvent]{
 					Topic: HttpAssertTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpAssertEvent{
-						Type:       eventTypeCreate,
+						Type:       eventTypeInsert,
 						HttpAssert: toAPIHttpAssert(assert),
 					},
 				})
@@ -5433,7 +5433,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 				events = append(events, eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent]{
 					Topic: HttpBodyFormTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyFormEvent{
-						Type:         eventTypeCreate,
+						Type:         eventTypeInsert,
 						HttpBodyForm: toAPIHttpBodyForm(bodyForm),
 					},
 				})
@@ -5540,7 +5540,7 @@ func (h *HttpServiceRPC) HttpBodyFormDeltaCollection(ctx context.Context, req *c
 	}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormDeltaCreate(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDeltaCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyFormDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
@@ -5641,7 +5641,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedCollection(ctx context.Context, req *
 	return connect.NewResponse(&apiv1.HttpBodyUrlEncodedCollectionResponse{Items: allBodyUrlEncodeds}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyUrlEncodedCreate(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded must be provided"))
 	}
@@ -5719,7 +5719,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedCreate(ctx context.Context, req *conn
 			continue
 		}
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
-			Type:               eventTypeCreate,
+			Type:               eventTypeInsert,
 			HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
 	}
@@ -5909,15 +5909,15 @@ func httpBodyUrlEncodedSyncResponseFrom(event HttpBodyUrlEncodedEvent) *apiv1.Ht
 	var value *apiv1.HttpBodyUrlEncodedSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
+	case eventTypeInsert:
 		key := event.HttpBodyUrlEncoded.GetKey()
 		value_ := event.HttpBodyUrlEncoded.GetValue()
 		enabled := event.HttpBodyUrlEncoded.GetEnabled()
 		description := event.HttpBodyUrlEncoded.GetDescription()
 		order := event.HttpBodyUrlEncoded.GetOrder()
 		value = &apiv1.HttpBodyUrlEncodedSync_ValueUnion{
-			Kind: apiv1.HttpBodyUrlEncodedSync_ValueUnion_KIND_CREATE,
-			Create: &apiv1.HttpBodyUrlEncodedSyncCreate{
+			Kind: apiv1.HttpBodyUrlEncodedSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpBodyUrlEncodedSyncInsert{
 				HttpBodyUrlEncodedId: event.HttpBodyUrlEncoded.GetHttpBodyUrlEncodedId(),
 				HttpId:               event.HttpBodyUrlEncoded.GetHttpId(),
 				Key:                  key,
@@ -5957,8 +5957,8 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 	var value *apiv1.HttpSearchParamDeltaSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
-		delta := &apiv1.HttpSearchParamDeltaSyncCreate{
+	case eventTypeInsert:
+		delta := &apiv1.HttpSearchParamDeltaSyncInsert{
 			DeltaHttpSearchParamId: param.ID.Bytes(),
 		}
 		if param.ParentHttpSearchParamID != nil {
@@ -5982,8 +5982,8 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 			delta.Order = &order
 		}
 		value = &apiv1.HttpSearchParamDeltaSync_ValueUnion{
-			Kind:   apiv1.HttpSearchParamDeltaSync_ValueUnion_KIND_CREATE,
-			Create: delta,
+			Kind:   apiv1.HttpSearchParamDeltaSync_ValueUnion_KIND_INSERT,
+			Insert: delta,
 		}
 	case eventTypeUpdate:
 		delta := &apiv1.HttpSearchParamDeltaSyncUpdate{
@@ -6055,8 +6055,8 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttpheader.H
 	var value *apiv1.HttpHeaderDeltaSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
-		delta := &apiv1.HttpHeaderDeltaSyncCreate{
+	case eventTypeInsert:
+		delta := &apiv1.HttpHeaderDeltaSyncInsert{
 			DeltaHttpHeaderId: header.ID.Bytes(),
 		}
 		if header.ParentHttpHeaderID != nil {
@@ -6079,8 +6079,8 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttpheader.H
 			delta.Order = header.DeltaOrder
 		}
 		value = &apiv1.HttpHeaderDeltaSync_ValueUnion{
-			Kind:   apiv1.HttpHeaderDeltaSync_ValueUnion_KIND_CREATE,
-			Create: delta,
+			Kind:   apiv1.HttpHeaderDeltaSync_ValueUnion_KIND_INSERT,
+			Insert: delta,
 		}
 	case eventTypeUpdate:
 		delta := &apiv1.HttpHeaderDeltaSyncUpdate{
@@ -6152,8 +6152,8 @@ func httpBodyFormDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttpbodyfo
 	var value *apiv1.HttpBodyFormDeltaSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
-		delta := &apiv1.HttpBodyFormDeltaSyncCreate{
+	case eventTypeInsert:
+		delta := &apiv1.HttpBodyFormDeltaSyncInsert{
 			DeltaHttpBodyFormId: form.ID.Bytes(),
 		}
 		if form.ParentHttpBodyFormID != nil {
@@ -6176,8 +6176,8 @@ func httpBodyFormDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttpbodyfo
 			delta.Order = form.DeltaOrder
 		}
 		value = &apiv1.HttpBodyFormDeltaSync_ValueUnion{
-			Kind:   apiv1.HttpBodyFormDeltaSync_ValueUnion_KIND_CREATE,
-			Create: delta,
+			Kind:   apiv1.HttpBodyFormDeltaSync_ValueUnion_KIND_INSERT,
+			Insert: delta,
 		}
 	case eventTypeUpdate:
 		delta := &apiv1.HttpBodyFormDeltaSyncUpdate{
@@ -6249,8 +6249,8 @@ func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttpassert.H
 	var value *apiv1.HttpAssertDeltaSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
-		delta := &apiv1.HttpAssertDeltaSyncCreate{
+	case eventTypeInsert:
+		delta := &apiv1.HttpAssertDeltaSyncInsert{
 			DeltaHttpAssertId: assert.ID.Bytes(),
 		}
 		if assert.ParentHttpAssertID != nil {
@@ -6261,8 +6261,8 @@ func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttpassert.H
 			delta.Value = assert.DeltaValue
 		}
 		value = &apiv1.HttpAssertDeltaSync_ValueUnion{
-			Kind:   apiv1.HttpAssertDeltaSync_ValueUnion_KIND_CREATE,
-			Create: delta,
+			Kind:   apiv1.HttpAssertDeltaSync_ValueUnion_KIND_INSERT,
+			Insert: delta,
 		}
 	case eventTypeUpdate:
 		delta := &apiv1.HttpAssertDeltaSyncUpdate{
@@ -6306,8 +6306,8 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 	var value *apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion
 
 	switch event.Type {
-	case eventTypeCreate:
-		delta := &apiv1.HttpBodyUrlEncodedDeltaSyncCreate{
+	case eventTypeInsert:
+		delta := &apiv1.HttpBodyUrlEncodedDeltaSyncInsert{
 			DeltaHttpBodyUrlEncodedId: body.ID.Bytes(),
 		}
 		if body.ParentHttpBodyUrlEncodedID != nil {
@@ -6330,8 +6330,8 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 			delta.Order = body.DeltaOrder
 		}
 		value = &apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion{
-			Kind:   apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion_KIND_CREATE,
-			Create: delta,
+			Kind:   apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion_KIND_INSERT,
+			Insert: delta,
 		}
 	case eventTypeUpdate:
 		delta := &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate{
@@ -6427,7 +6427,7 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedDeltaSync(ctx context.Context, 
 				events = append(events, eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]{
 					Topic: HttpBodyUrlEncodedTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyUrlEncodedEvent{
-						Type:               eventTypeCreate,
+						Type:               eventTypeInsert,
 						HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 					},
 				})
@@ -6510,7 +6510,7 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userI
 				events = append(events, eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]{
 					Topic: HttpBodyUrlEncodedTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyUrlEncodedEvent{
-						Type:               eventTypeCreate,
+						Type:               eventTypeInsert,
 						HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 					},
 				})
@@ -6617,7 +6617,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCollection(ctx context.Context, 
 	}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCreate(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeltaCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
@@ -6722,7 +6722,7 @@ func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect
 	}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyRawCreate(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawCreateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw must be provided"))
 	}
@@ -6906,7 +6906,7 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 				events = append(events, eventstream.Event[HttpBodyRawTopic, HttpBodyRawEvent]{
 					Topic: HttpBodyRawTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyRawEvent{
-						Type:        eventTypeCreate,
+						Type:        eventTypeInsert,
 						HttpBodyRaw: toAPIHttpBodyRaw(httpID, data),
 					},
 				})
