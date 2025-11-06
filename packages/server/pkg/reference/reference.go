@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
+	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 )
 
 type ReferenceKeyKind int32

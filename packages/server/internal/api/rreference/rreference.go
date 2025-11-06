@@ -34,8 +34,8 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/sort/sortenabled"
 	"the-dev-tools/server/pkg/zstdcompress"
-	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
-	"the-dev-tools/spec/dist/buf/go/reference/v1/referencev1connect"
+	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
+	"the-dev-tools/spec/dist/buf/go/api/reference/v1/referencev1connect"
 
 	"connectrpc.com/connect"
 )

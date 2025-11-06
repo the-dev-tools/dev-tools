@@ -3,7 +3,7 @@ package rhealth
 import (
 	"context"
 	"the-dev-tools/server/internal/api"
-	"the-dev-tools/spec/dist/buf/go/health/v1/healthv1connect"
+	"the-dev-tools/spec/dist/buf/go/api/health/v1/healthv1connect"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"

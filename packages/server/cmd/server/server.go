@@ -24,13 +24,13 @@ import (
 	"the-dev-tools/server/internal/api/rflowv2"
 
 	// "the-dev-tools/server/internal/api/rflowvariable"
-	// "the-dev-tools/server/internal/api/rhealth"
+	"the-dev-tools/server/internal/api/rhealth"
 	"the-dev-tools/server/internal/api/rhttp"
 
 	// "the-dev-tools/server/internal/api/rlog"
 	// "the-dev-tools/server/internal/api/rnode"
 	// "the-dev-tools/server/internal/api/rnodeexecution"
-	// "the-dev-tools/server/internal/api/rreference"
+	"the-dev-tools/server/internal/api/rreference"
 
 	// "the-dev-tools/server/internal/api/rvar"
 	"the-dev-tools/server/internal/api/rworkspace"
@@ -48,7 +48,7 @@ import (
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
 	"the-dev-tools/server/pkg/service/sexampleresp"
-	// "the-dev-tools/server/pkg/service/sexamplerespheader"
+	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
 	// "the-dev-tools/server/pkg/service/sflowtag"
 	"the-dev-tools/server/pkg/service/sflowvariable"
@@ -153,7 +153,7 @@ func main() {
 	// bodyFormService := sbodyform.New(queries)
 	// bodyUrlService := sbodyurl.New(queries)
 	exampleResponseService := sexampleresp.New(queries)
-	// exampleResponseHeaderService := sexamplerespheader.New(queries)
+	exampleResponseHeaderService := sexamplerespheader.New(queries)
 	// assertService := sassert.New(queries)
 	// assertResultService := sassertres.New(queries)
 	variableService := svar.New(queries, logger)
@@ -217,8 +217,8 @@ func main() {
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(30)
 
-	// healthSrv := rhealth.New()
-	// newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
+	healthSrv := rhealth.New()
+	newServiceManager.AddService(rhealth.CreateService(healthSrv, optionsCompress))
 
 	workspaceStreamer := memory.NewInMemorySyncStreamer[rworkspace.WorkspaceTopic, rworkspace.WorkspaceEvent]()
 	defer workspaceStreamer.Shutdown()
@@ -360,10 +360,10 @@ func main() {
 	// logSrv := rlog.NewRlogRPC(logMap)
 	// newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
 
-	// Refernce Service
-	// refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService,
-	// 	flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService, nodeExecutionService)
-	// newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
+	// Reference Service
+	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService,
+		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService, nodeExecutionService)
+	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
 
 	// flowServiceRPC := rflowvariable.New(currentDB, flowService, userService, flowVariableService)
 	// newServiceManager.AddService(rflowvariable.CreateService(flowServiceRPC, opitonsAll))
