@@ -176,7 +176,7 @@ const Files = ({ includeNestedSchemas, namespace }: FilesProps) => {
 
                         <ObjectProperty
                           name='insert'
-                          value={refkey('message', collection.namespace, `${collection.name}SyncCreate`)}
+                          value={refkey('message', collection.namespace, `${collection.name}SyncInsert`)}
                         />
 
                         <ObjectProperty
@@ -195,12 +195,12 @@ const Files = ({ includeNestedSchemas, namespace }: FilesProps) => {
                   <ObjectProperty name='operations'>
                     <ObjectExpression>
                       <CommaList>
-                        {options.canCreate && (
+                        {options.canInsert && (
                           <ObjectProperty name='insert'>
                             {refkey('service', collection.namespace)}
                             .method.
                             {String.uncapitalize(collection.name)}
-                            Create
+                            Insert
                           </ObjectProperty>
                         )}
 

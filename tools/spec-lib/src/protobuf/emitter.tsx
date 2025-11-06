@@ -99,7 +99,7 @@ export const $onEmit = async (context: EmitContext<(typeof EmitterOptions)['Enco
 // https://protobuf.dev/programming-guides/proto3/#assigning
 const fieldNumberFromName = (value: string) => {
   const fieldNumber = Math.abs(Hash.string(value) % 536_870_911);
-  if (Number.between(fieldNumber, { maximum: 19_999, minimum: 19_000 })) return Math.trunc(fieldNumber / 10);
+  if (Number.between(fieldNumber, { minimum: 19_000, maximum: 19_999 })) return Math.trunc(fieldNumber / 10);
   return fieldNumber;
 };
 

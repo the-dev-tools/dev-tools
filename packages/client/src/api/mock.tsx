@@ -239,7 +239,7 @@ const mockCollections = Effect.gen(function* () {
     });
 
     if (insert) {
-      const insertImpl = (input: Protobuf.Message) => toSyncOutput(input, 'create').pipe(Runtime.runPromise(runtime));
+      const insertImpl = (input: Protobuf.Message) => toSyncOutput(input, 'insert').pipe(Runtime.runPromise(runtime));
       MutableHashMap.set(methodImplMap, insert, insertImpl);
     }
 

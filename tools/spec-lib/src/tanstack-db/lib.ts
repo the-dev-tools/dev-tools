@@ -39,8 +39,8 @@ const getOrMake = <Key, Value>(map: Map<Key, Value>, key: Key, make: (key: Key) 
 export const collections = makeStateMap<Model, CollectionOptions>('collections');
 
 interface CollectionOptions {
-  canCreate: boolean;
   canDelete: boolean;
+  canInsert: boolean;
   canUpdate: boolean;
   isReadOnly: boolean;
 }
@@ -50,8 +50,8 @@ function collection({ program }: DecoratorContext, base: Model, optionsMaybe?: P
   if (!namespace) return;
 
   const options: CollectionOptions = pipe(optionsMaybe ?? {}, (_) => ({
-    canCreate: (_.canCreate ?? true) && !_.isReadOnly,
     canDelete: (_.canDelete ?? true) && !_.isReadOnly,
+    canInsert: (_.canInsert ?? true) && !_.isReadOnly,
     canUpdate: (_.canUpdate ?? true) && !_.isReadOnly,
     isReadOnly: _.isReadOnly ?? false,
   }));
@@ -96,8 +96,8 @@ function collection({ program }: DecoratorContext, base: Model, optionsMaybe?: P
 
   makeOperation(`${base.name}Collection`, { output: collectionResponse });
 
-  if (options.canCreate) {
-    const createItem = getOrMake(namespace.models, `${base.name}Create`, (name) =>
+  if (options.canInsert) {
+    const insertItem = getOrMake(namespace.models, `${base.name}Insert`, (name) =>
       $(program).model.create({
         decorators: [[$withVisibilityFilter, { all: [lifecycle.Create] }]],
         name,
@@ -105,19 +105,19 @@ function collection({ program }: DecoratorContext, base: Model, optionsMaybe?: P
       }),
     );
 
-    const createRequest = getOrMake(namespace.models, `${base.name}CreateRequest`, (name) =>
+    const insertRequest = getOrMake(namespace.models, `${base.name}InsertRequest`, (name) =>
       $(program).model.create({
         name,
         properties: {
           items: $(program).modelProperty.create({
             name: 'items',
-            type: $(program).array.create(createItem),
+            type: $(program).array.create(insertItem),
           }),
         },
       }),
     );
 
-    makeOperation(`${base.name}Create`, { input: createRequest });
+    makeOperation(`${base.name}Insert`, { input: insertRequest });
   }
 
   if (options.canUpdate) {
@@ -178,7 +178,7 @@ function collection({ program }: DecoratorContext, base: Model, optionsMaybe?: P
     makeOperation(`${base.name}Delete`, { input: deleteRequest });
   }
 
-  const syncCreateItem = getOrMake(namespace.models, `${base.name}SyncCreate`, (name) =>
+  const syncInsertItem = getOrMake(namespace.models, `${base.name}SyncInsert`, (name) =>
     $(program).model.create({
       name,
       properties: Record.fromEntries(base.properties.entries()),
@@ -218,7 +218,7 @@ function collection({ program }: DecoratorContext, base: Model, optionsMaybe?: P
           name: 'value',
           type: $(program).union.create({
             variants: [
-              $(program).unionVariant.create({ name: 'create', type: syncCreateItem }),
+              $(program).unionVariant.create({ name: 'insert', type: syncInsertItem }),
               $(program).unionVariant.create({ name: 'update', type: syncUpdateItem }),
               $(program).unionVariant.create({ name: 'delete', type: syncDeleteItem }),
             ],
