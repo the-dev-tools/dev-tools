@@ -26,6 +26,8 @@ import (
 	// "the-dev-tools/server/internal/api/rflowvariable"
 	"the-dev-tools/server/internal/api/rhealth"
 	"the-dev-tools/server/internal/api/rhttp"
+	// "the-dev-tools/server/internal/api/rexport"
+	// "the-dev-tools/server/internal/api/rimport"
 
 	"the-dev-tools/server/internal/api/rlog"
 	// "the-dev-tools/server/internal/api/rnode"
@@ -38,11 +40,11 @@ import (
 	// "the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
-	// "the-dev-tools/server/pkg/service/sassert"
-	// "the-dev-tools/server/pkg/service/sassertres"
-	// "the-dev-tools/server/pkg/service/sbodyform"
+	"the-dev-tools/server/pkg/service/sassert"
+	"the-dev-tools/server/pkg/service/sassertres"
+	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
-	// "the-dev-tools/server/pkg/service/sbodyurl"
+	"the-dev-tools/server/pkg/service/sbodyurl"
 
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
@@ -58,8 +60,10 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
-	// "the-dev-tools/server/pkg/service/sitemapi"
-	// "the-dev-tools/server/pkg/service/sitemapiexample"
+	// "the-dev-tools/server/pkg/service/scollection"
+	"the-dev-tools/server/pkg/service/sitemapi"
+	"the-dev-tools/server/pkg/service/sitemapiexample"
+	// "the-dev-tools/server/pkg/service/sitemfolder"
 
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
@@ -144,18 +148,20 @@ func main() {
 	workspaceService := sworkspace.New(queries)
 	workspaceUserService := sworkspacesusers.New(queries)
 	userService := suser.New(queries)
-	// endpointService := sitemapi.New(queries)
+	// collectionService := scollection.New(queries)
+	// folderService := sitemfolder.New(queries)
+	endpointService := sitemapi.New(queries)
 
-	// exampleService := sitemapiexample.New(queries)
+	exampleService := sitemapiexample.New(queries)
 	exampleHeaderService := sexampleheader.New(queries)
 	exampleQueryService := sexamplequery.New(queries)
 	bodyRawService := sbodyraw.New(queries)
-	// bodyFormService := sbodyform.New(queries)
-	// bodyUrlService := sbodyurl.New(queries)
+	bodyFormService := sbodyform.New(queries)
+	bodyUrlService := sbodyurl.New(queries)
 	exampleResponseService := sexampleresp.New(queries)
 	exampleResponseHeaderService := sexamplerespheader.New(queries)
-	// assertService := sassert.New(queries)
-	// assertResultService := sassertres.New(queries)
+	assertService := sassert.New(queries)
+	assertResultService := sassertres.New(queries)
 	variableService := svar.New(queries, logger)
 	environmentService := senv.New(queries, logger)
 	// tagService := stag.New(queries)
@@ -362,6 +368,55 @@ func main() {
 
 	logSrv := rlog.New(logStreamer)
 	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
+
+	// Export Service - Temporarily disabled due to missing dependencies
+	// exportSrv := rexport.New(
+	// 	currentDB,
+	// 	workspaceService,
+	// 	collectionService,
+	// 	folderService,
+	// 	endpointService,
+	// 	exampleService,
+	// 	exampleHeaderService,
+	// 	exampleQueryService,
+	// 	assertService,
+	// 	bodyRawService,
+	// 	bodyFormService,
+	// 	bodyUrlService,
+	// 	exampleResponseService,
+	// 	exampleResponseHeaderService,
+	// 	assertResultService,
+	// 	flowService,
+	// 	flowNodeService,
+	// 	flowEdgeService,
+	// 	flowVariableService,
+	// )
+	// newServiceManager.AddService(rexport.CreateService(exportSrv, opitonsAll))
+
+	// Import Service - Temporarily disabled due to missing dependencies
+	// importSrv := rimport.New(
+	// 	currentDB,
+	// 	workspaceService,
+	// 	collectionService,
+	// 	userService,
+	// 	folderService,
+	// 	endpointService,
+	// 	exampleService,
+	// 	exampleHeaderService,
+	// 	exampleQueryService,
+	// 	assertService,
+	// 	bodyRawService,
+	// 	bodyFormService,
+	// 	bodyUrlService,
+	// 	exampleResponseService,
+	// 	exampleResponseHeaderService,
+	// 	assertResultService,
+	// 	flowService,
+	// 	flowNodeService,
+	// 	flowEdgeService,
+	// 	flowVariableService,
+	// )
+	// newServiceManager.AddService(rimport.CreateService(importSrv, opitonsAll))
 
 	// Reference Service
 	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService,

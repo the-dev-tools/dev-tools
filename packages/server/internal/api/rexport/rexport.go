@@ -46,8 +46,8 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/translate/tcurl"
-	exportv1 "the-dev-tools/spec/dist/buf/go/export/v1"
-	"the-dev-tools/spec/dist/buf/go/export/v1/exportv1connect"
+	exportv1 "the-dev-tools/spec/dist/buf/go/api/export/v1"
+	"the-dev-tools/spec/dist/buf/go/api/export/v1/exportv1connect"
 
 	"connectrpc.com/connect"
 )

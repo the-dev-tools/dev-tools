@@ -66,9 +66,9 @@ import (
 	"the-dev-tools/server/pkg/translate/tcurl"
 	"the-dev-tools/server/pkg/translate/thar"
 	"the-dev-tools/server/pkg/translate/tpostman"
-	flowv1 "the-dev-tools/spec/dist/buf/go/flow/v1"
-	importv1 "the-dev-tools/spec/dist/buf/go/import/v1"
-	"the-dev-tools/spec/dist/buf/go/import/v1/importv1connect"
+	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+	"the-dev-tools/spec/dist/buf/go/api/import/v1/importv1connect"
 
 	"connectrpc.com/connect"
 	"gopkg.in/yaml.v3"
