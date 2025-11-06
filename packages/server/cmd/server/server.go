@@ -27,7 +27,7 @@ import (
 	"the-dev-tools/server/internal/api/rhealth"
 	"the-dev-tools/server/internal/api/rhttp"
 
-	// "the-dev-tools/server/internal/api/rlog"
+	"the-dev-tools/server/internal/api/rlog"
 	// "the-dev-tools/server/internal/api/rnode"
 	// "the-dev-tools/server/internal/api/rnodeexecution"
 	"the-dev-tools/server/internal/api/rreference"
@@ -357,8 +357,11 @@ func main() {
 	// newServiceManager.AddService(redge.CreateService(edgeSrv, opitonsAll))
 
 	// Log Service
-	// logSrv := rlog.NewRlogRPC(logMap)
-	// newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
+	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
+	defer logStreamer.Shutdown()
+
+	logSrv := rlog.New(logStreamer)
+	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
 
 	// Reference Service
 	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService,

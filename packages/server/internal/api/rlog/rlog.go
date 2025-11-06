@@ -2,95 +2,157 @@ package rlog
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"the-dev-tools/server/internal/api"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
-	"the-dev-tools/server/pkg/logconsole"
-	logv1 "the-dev-tools/spec/dist/buf/go/log/v1"
-	"the-dev-tools/spec/dist/buf/go/log/v1/logv1connect"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+
+	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/pkg/eventstream"
+	"the-dev-tools/server/pkg/idwrap"
+	apiv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
+	"the-dev-tools/spec/dist/buf/go/api/log/v1/logv1connect"
 )
 
-type RlogRPC struct {
-	logChannels logconsole.LogChanMap
+const (
+	eventTypeInsert = "insert"
+	eventTypeUpdate = "update"
+	eventTypeDelete = "delete"
+)
+
+type LogTopic struct {
+	UserID idwrap.IDWrap
 }
 
-func NewRlogRPC(logMap logconsole.LogChanMap) *RlogRPC {
-	return &RlogRPC{
-		logChannels: logMap,
+type LogEvent struct {
+	Type string
+	Log  *apiv1.Log
+}
+
+type LogServiceRPC struct {
+	stream eventstream.SyncStreamer[LogTopic, LogEvent]
+}
+
+func New(stream eventstream.SyncStreamer[LogTopic, LogEvent]) LogServiceRPC {
+	return LogServiceRPC{
+		stream: stream,
 	}
 }
 
-func CreateService(srv *RlogRPC, options []connect.HandlerOption) (*api.Service, error) {
-	path, handler := logv1connect.NewLogServiceHandler(srv, options...)
+func CreateService(srv LogServiceRPC, options []connect.HandlerOption) (*api.Service, error) {
+	path, handler := logv1connect.NewLogServiceHandler(&srv, options...)
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-// protoLogLevelFallback ensures stream serialization always emits a valid enum.
-const protoLogLevelFallback = logv1.LogLevel_LOG_LEVEL_UNSPECIFIED
+func logSyncResponseFrom(evt LogEvent) *apiv1.LogSyncResponse {
+	if evt.Log == nil {
+		return nil
+	}
 
-func logLevelToProto(level logconsole.LogLevel) (logv1.LogLevel, error) {
-	switch level {
-	case logconsole.LogLevelUnspecified:
-		return logv1.LogLevel_LOG_LEVEL_UNSPECIFIED, nil
-	case logconsole.LogLevelWarning:
-		return logv1.LogLevel_LOG_LEVEL_WARNING, nil
-	case logconsole.LogLevelError:
-		return logv1.LogLevel_LOG_LEVEL_ERROR, nil
+	switch evt.Type {
+	case eventTypeInsert:
+		msg := &apiv1.LogSync{
+			Value: &apiv1.LogSync_ValueUnion{
+				Kind: apiv1.LogSync_ValueUnion_KIND_INSERT,
+				Insert: &apiv1.LogSyncInsert{
+					LogId: evt.Log.LogId,
+					Name:  evt.Log.Name,
+					Level: evt.Log.Level,
+					Value: evt.Log.Value,
+				},
+			},
+		}
+		return &apiv1.LogSyncResponse{Items: []*apiv1.LogSync{msg}}
+	case eventTypeUpdate:
+		update := &apiv1.LogSyncUpdate{
+			LogId: evt.Log.LogId,
+		}
+		if evt.Log.Name != "" {
+			update.Name = &evt.Log.Name
+		}
+		if evt.Log.Level != apiv1.LogLevel_LOG_LEVEL_UNSPECIFIED {
+			update.Level = &evt.Log.Level
+		}
+		if evt.Log.Value != nil {
+			update.Value = &apiv1.LogSyncUpdate_ValueUnion{
+				Kind: apiv1.LogSyncUpdate_ValueUnion_KIND_JSON,
+				Json: evt.Log.Value,
+			}
+		}
+		msg := &apiv1.LogSync{
+			Value: &apiv1.LogSync_ValueUnion{
+				Kind:   apiv1.LogSync_ValueUnion_KIND_UPDATE,
+				Update: update,
+			},
+		}
+		return &apiv1.LogSyncResponse{Items: []*apiv1.LogSync{msg}}
+	case eventTypeDelete:
+		msg := &apiv1.LogSync{
+			Value: &apiv1.LogSync_ValueUnion{
+				Kind: apiv1.LogSync_ValueUnion_KIND_DELETE,
+				Delete: &apiv1.LogSyncDelete{
+					LogId: evt.Log.LogId,
+				},
+			},
+		}
+		return &apiv1.LogSyncResponse{Items: []*apiv1.LogSync{msg}}
 	default:
-		return protoLogLevelFallback, fmt.Errorf("unknown log level: %d", level)
+		return nil
 	}
 }
 
-func (c *RlogRPC) LogStream(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[logv1.LogStreamResponse]) error {
-	return c.LogStreamAdHoc(ctx, req, stream)
+func (c *LogServiceRPC) LogCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.LogCollectionResponse], error) {
+	// Authenticate the user
+	_, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	// Since this is a read-only collection for streaming logs, we return an empty collection
+	// The actual logs will be delivered through the sync stream
+	return connect.NewResponse(&apiv1.LogCollectionResponse{Items: []*apiv1.Log{}}), nil
 }
 
-func (c *RlogRPC) LogStreamAdHoc(ctx context.Context, req *connect.Request[emptypb.Empty], stream api.ServerStreamAdHoc[logv1.LogStreamResponse]) error {
+func (c *LogServiceRPC) LogSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.LogSyncResponse]) error {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
-		return err
+		return connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	lmc := c.logChannels.AddLogChannel(userID)
+	return c.streamLogSync(ctx, userID, stream.Send)
+}
+
+func (c *LogServiceRPC) streamLogSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.LogSyncResponse) error) error {
+	snapshot := func(ctx context.Context) ([]eventstream.Event[LogTopic, LogEvent], error) {
+		// Return empty snapshot for logs - they are streaming-only
+		return []eventstream.Event[LogTopic, LogEvent]{}, nil
+	}
+
+	filter := func(topic LogTopic) bool {
+		// Only deliver logs to the user who owns them
+		return topic.UserID == userID
+	}
+
+	events, err := c.stream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
 
 	for {
 		select {
-		case logMessage := <-lmc:
-			var val *structpb.Value
-			if logMessage.JSON != "" {
-				var v any
-				if err := json.Unmarshal([]byte(logMessage.JSON), &v); err == nil {
-					if pv, err2 := structpb.NewValue(v); err2 == nil {
-						val = pv
-					}
-				}
+		case evt, ok := <-events:
+			if !ok {
+				return nil
 			}
-			level, convErr := logLevelToProto(logMessage.Level)
-			if convErr != nil {
-				// debug: unknown log level from logconsole; using proto fallback.
+			resp := logSyncResponseFrom(evt.Payload)
+			if resp == nil {
+				continue
 			}
-			b := &logv1.LogStreamResponse{
-				LogId: logMessage.LogID.Bytes(),
-				Name:  logMessage.Name,
-				Level: level,
-				Value: val,
+			if err := send(resp); err != nil {
+				return err
 			}
-			if sendErr := stream.Send(b); sendErr != nil {
-				return sendErr
-			}
-			continue
 		case <-ctx.Done():
-			err = ctx.Err()
+			return ctx.Err()
 		}
-		break
 	}
-	c.logChannels.DeleteLogChannel(userID)
-	return err
 }
-
-// no helper needed; JSON payload comes from logconsole

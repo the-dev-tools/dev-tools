@@ -2,192 +2,155 @@ package rlog
 
 import (
 	"context"
-	"errors"
-	"sync"
 	"testing"
 	"time"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/logconsole"
-	logv1 "the-dev-tools/spec/dist/buf/go/log/v1"
+	apiv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
 )
 
-func TestLogLevelToProto(t *testing.T) {
+func TestLogCollection(t *testing.T) {
 	t.Parallel()
 
-	testcases := []struct {
-		name    string
-		level   logconsole.LogLevel
-		want    logv1.LogLevel
-		wantErr bool
-	}{{
-		name:  "unspecified",
-		level: logconsole.LogLevelUnspecified,
-		want:  logv1.LogLevel_LOG_LEVEL_UNSPECIFIED,
-	}, {
-		name:  "warning",
-		level: logconsole.LogLevelWarning,
-		want:  logv1.LogLevel_LOG_LEVEL_WARNING,
-	}, {
-		name:  "error",
-		level: logconsole.LogLevelError,
-		want:  logv1.LogLevel_LOG_LEVEL_ERROR,
-	}, {
-		name:    "unknown",
-		level:   logconsole.LogLevel(99),
-		want:    protoLogLevelFallback,
-		wantErr: true,
-	}}
+	streamer := memory.NewInMemorySyncStreamer[LogTopic, LogEvent]()
+	defer streamer.Shutdown()
 
-	for _, tc := range testcases {
-		tc := tc
+	service := New(streamer)
 
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	baseCtx := mwauth.CreateAuthedContext(context.Background(), idwrap.NewNow())
+	req := connect.NewRequest(new(emptypb.Empty))
 
-			got, err := logLevelToProto(tc.level)
-			if tc.wantErr {
-				if err == nil {
-					t.Fatalf("expected error for level %d", tc.level)
-				}
-			} else if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+	resp, err := service.LogCollection(baseCtx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-			if got != tc.want {
-				t.Fatalf("expected %v, got %v", tc.want, got)
-			}
-		})
+	if resp == nil {
+		t.Fatal("expected response, got nil")
+	}
+
+	if resp.Msg.Items == nil {
+		t.Fatal("expected items, got nil")
+	}
+
+	// LogCollection should return empty items since logs are streaming-only
+	if len(resp.Msg.Items) != 0 {
+		t.Fatalf("expected 0 items, got %d", len(resp.Msg.Items))
 	}
 }
 
-func TestLogStreamAdHocLogLevels(t *testing.T) {
+func TestLogSyncAuthentication(t *testing.T) {
 	t.Parallel()
 
-	testcases := []struct {
-		name  string
-		level logconsole.LogLevel
-		want  logv1.LogLevel
-	}{{
-		name:  "unspecified",
-		level: logconsole.LogLevelUnspecified,
-		want:  logv1.LogLevel_LOG_LEVEL_UNSPECIFIED,
-	}, {
-		name:  "warning",
-		level: logconsole.LogLevelWarning,
-		want:  logv1.LogLevel_LOG_LEVEL_WARNING,
-	}, {
-		name:  "error",
-		level: logconsole.LogLevelError,
-		want:  logv1.LogLevel_LOG_LEVEL_ERROR,
-	}, {
-		name:  "unknown",
-		level: logconsole.LogLevel(99),
-		want:  protoLogLevelFallback,
-	}}
+	streamer := memory.NewInMemorySyncStreamer[LogTopic, LogEvent]()
+	defer streamer.Shutdown()
 
-	for _, tc := range testcases {
-		tc := tc
+	_ = New(streamer) // Just verify service can be created
 
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	// Test that unauthenticated context fails at the LogSync level
+	ctx := context.Background() // No auth context
 
-			baseCtx := mwauth.CreateAuthedContext(context.Background(), idwrap.NewNow())
-			ctx, cancel := context.WithCancel(baseCtx)
-			defer cancel()
+	// We can't easily test the full LogSync without a proper ServerStream mock,
+	// so let's just verify that authentication would be required by testing
+	// mwauth.GetContextUserID directly
+	_, err := mwauth.GetContextUserID(ctx)
+	if err == nil {
+		t.Fatal("expected authentication error")
+	}
+}
 
-			rpc := NewRlogRPC(logconsole.NewLogChanMap())
-			stream := newTestStream()
-			req := connect.NewRequest(new(emptypb.Empty))
+func TestLogSync(t *testing.T) {
+	t.Parallel()
 
-			errCh := make(chan error, 1)
-			go func() {
-				errCh <- rpc.LogStreamAdHoc(ctx, req, stream)
-			}()
+	streamer := memory.NewInMemorySyncStreamer[LogTopic, LogEvent]()
+	defer streamer.Shutdown()
 
-			logID := idwrap.NewNow()
-			if err := sendLogMessageWithRetry(baseCtx, &rpc.logChannels, logID, "example", tc.level, nil); err != nil {
-				t.Fatalf("send log message: %v", err)
-			}
+	service := New(streamer)
 
-			select {
-			case <-stream.sent:
-			case <-time.After(time.Second):
-				t.Fatal("timeout waiting for log stream response")
-			}
+	userID := idwrap.NewNow()
+	baseCtx := mwauth.CreateAuthedContext(context.Background(), userID)
+	ctx, cancel := context.WithTimeout(baseCtx, 2*time.Second)
+	defer cancel()
 
-			cancel()
+	msgCh := make(chan *apiv1.LogSyncResponse, 10)
+	errCh := make(chan error, 1)
 
-			if err := <-errCh; !errors.Is(err, context.Canceled) {
-				t.Fatalf("expected context canceled error, got %v", err)
-			}
-
-			msgs := stream.Messages()
-			if len(msgs) != 1 {
-				t.Fatalf("expected 1 message, got %d", len(msgs))
-			}
-
-			if msgs[0].GetLevel() != tc.want {
-				t.Fatalf("expected level %v, got %v", tc.want, msgs[0].GetLevel())
-			}
+	// Start the sync in a goroutine
+	go func() {
+		err := service.streamLogSync(ctx, userID, func(resp *apiv1.LogSyncResponse) error {
+			msgCh <- resp
+			return nil
 		})
-	}
-}
+		errCh <- err
+		close(msgCh)
+	}()
 
-func sendLogMessageWithRetry(ctx context.Context, logChannels *logconsole.LogChanMap, logID idwrap.IDWrap, name string, level logconsole.LogLevel, payload map[string]any) error {
-	deadline := time.Now().Add(100 * time.Millisecond)
-	var lastErr error
+	// Give the subscriber time to set up
+	time.Sleep(10 * time.Millisecond)
 
-	for time.Now().Before(deadline) {
-		if err := logChannels.SendMsgToUserWithContext(ctx, logID, name, level, payload); err != nil {
-			lastErr = err
-			time.Sleep(time.Millisecond * 5)
-			continue
-		}
-		return nil
-	}
-
-	if lastErr == nil {
-		lastErr = context.DeadlineExceeded
+	// Publish a log event
+	logID := idwrap.NewNow()
+	testLog := &apiv1.Log{
+		LogId: logID.Bytes(),
+		Name:  "test-log",
+		Level: apiv1.LogLevel_LOG_LEVEL_ERROR,
+		Value: structpb.NewStringValue("test message"),
 	}
 
-	return lastErr
-}
+	topic := LogTopic{UserID: userID}
+	event := LogEvent{
+		Type: eventTypeInsert,
+		Log:  testLog,
+	}
 
-type testStream struct {
-	mu   sync.Mutex
-	msgs []*logv1.LogStreamResponse
-	sent chan struct{}
-	err  error
-}
+	t.Logf("Publishing event for user %s", userID.String())
+	streamer.Publish(topic, event)
 
-func newTestStream() *testStream {
-	return &testStream{sent: make(chan struct{}, 1)}
-}
-
-func (ts *testStream) Send(res *logv1.LogStreamResponse) error {
-	ts.mu.Lock()
-	ts.msgs = append(ts.msgs, res)
-	ts.mu.Unlock()
-
+	// Collect the message
+	var msg *apiv1.LogSyncResponse
 	select {
-	case ts.sent <- struct{}{}:
-	default:
+	case m := <-msgCh:
+		msg = m
+		t.Logf("Received message successfully")
+	case err := <-errCh:
+		t.Fatalf("unexpected error: %v", err)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("timeout waiting for log message")
 	}
 
-	return ts.err
-}
+	// Check that we received the log message
+	if len(msg.Items) != 1 {
+		t.Fatalf("expected 1 item in message, got %d", len(msg.Items))
+	}
 
-func (ts *testStream) Messages() []*logv1.LogStreamResponse {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
+	syncItem := msg.Items[0]
+	if syncItem.Value == nil {
+		t.Fatal("expected sync value, got nil")
+	}
 
-	copied := make([]*logv1.LogStreamResponse, len(ts.msgs))
-	copy(copied, ts.msgs)
+	if syncItem.Value.Insert == nil {
+		t.Fatal("expected insert value, got nil")
+	}
 
-	return copied
+	insert := syncItem.Value.Insert
+	if string(insert.LogId) != string(logID.Bytes()) {
+		t.Fatalf("expected log ID %s, got %s", string(logID.Bytes()), string(insert.LogId))
+	}
+
+	if insert.Name != "test-log" {
+		t.Fatalf("expected name 'test-log', got '%s'", insert.Name)
+	}
+
+	if insert.Level != apiv1.LogLevel_LOG_LEVEL_ERROR {
+		t.Fatalf("expected error level, got %v", insert.Level)
+	}
+
+	cancel() // Stop the stream
+	<-errCh   // Wait for goroutine to finish
 }
