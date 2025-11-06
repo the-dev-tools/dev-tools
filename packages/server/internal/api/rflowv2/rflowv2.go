@@ -143,6 +143,18 @@ type ForEvent struct {
 	Node   *flowv1.NodeFor
 }
 
+// ConditionTopic identifies the flow whose condition nodes are being published.
+type ConditionTopic struct {
+	FlowID idwrap.IDWrap
+}
+
+// ConditionEvent describes a Condition node change for sync streaming.
+type ConditionEvent struct {
+	Type   string
+	FlowID idwrap.IDWrap
+	Node   *flowv1.NodeCondition
+}
+
 const (
 	nodeEventInsert = "insert"
 	nodeEventUpdate = "update"
@@ -167,32 +179,37 @@ const (
 	forEventInsert = "insert"
 	forEventUpdate = "update"
 	forEventDelete = "delete"
+
+	conditionEventInsert = "insert"
+	conditionEventUpdate = "update"
+	conditionEventDelete = "delete"
 )
 
 type FlowServiceV2RPC struct {
-	ws            *sworkspace.WorkspaceService
-	fs            *sflow.FlowService
-	es            *sedge.EdgeService
-	ns            *snode.NodeService
-	nrs           *snoderequest.NodeRequestService
-	nfs           *snodefor.NodeForService
-	nfes          *snodeforeach.NodeForEachService
-	nifs          *snodeif.NodeIfService
-	nnos          *snodenoop.NodeNoopService
-	njss          *snodejs.NodeJSService
-	fvs           *sflowvariable.FlowVariableService
-	hs            *shttp.HTTPService
-	hh            *shttp.HttpHeaderService
-	hsp           *shttp.HttpSearchParamService
-	hbf           *shttp.HttpBodyFormService
-	hbu           *shttp.HttpBodyUrlencodedService
-	has           *shttp.HttpAssertService
-	nodeStream    eventstream.SyncStreamer[NodeTopic, NodeEvent]
-	edgeStream    eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
-	varStream     eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
-	versionStream eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
-	noopStream    eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
-	forStream     eventstream.SyncStreamer[ForTopic, ForEvent]
+	ws              *sworkspace.WorkspaceService
+	fs              *sflow.FlowService
+	es              *sedge.EdgeService
+	ns              *snode.NodeService
+	nrs             *snoderequest.NodeRequestService
+	nfs             *snodefor.NodeForService
+	nfes            *snodeforeach.NodeForEachService
+	nifs            *snodeif.NodeIfService
+	nnos            *snodenoop.NodeNoopService
+	njss            *snodejs.NodeJSService
+	fvs             *sflowvariable.FlowVariableService
+	hs              *shttp.HTTPService
+	hh              *shttp.HttpHeaderService
+	hsp             *shttp.HttpSearchParamService
+	hbf             *shttp.HttpBodyFormService
+	hbu             *shttp.HttpBodyUrlencodedService
+	has             *shttp.HttpAssertService
+	nodeStream      eventstream.SyncStreamer[NodeTopic, NodeEvent]
+	edgeStream      eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+	varStream       eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+	versionStream   eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
+	noopStream      eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
+	forStream       eventstream.SyncStreamer[ForTopic, ForEvent]
+	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
 }
 
 func New(
@@ -219,31 +236,33 @@ func New(
 	versionStream eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent],
 	noopStream eventstream.SyncStreamer[NoOpTopic, NoOpEvent],
 	forStream eventstream.SyncStreamer[ForTopic, ForEvent],
+	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
-		ws:            ws,
-		fs:            fs,
-		es:            es,
-		ns:            ns,
-		nrs:           nrs,
-		nfs:           nfs,
-		nfes:          nfes,
-		nifs:          nifs,
-		nnos:          nnos,
-		njss:          njss,
-		fvs:           fvs,
-		hs:            hs,
-		hh:            hh,
-		hsp:           hsp,
-		hbf:           hbf,
-		hbu:           hbu,
-		has:           has,
-		nodeStream:    nodeStream,
-		edgeStream:    edgeStream,
-		varStream:     varStream,
-		versionStream: versionStream,
-		noopStream:    noopStream,
-		forStream:     forStream,
+		ws:              ws,
+		fs:              fs,
+		es:              es,
+		ns:              ns,
+		nrs:             nrs,
+		nfs:             nfs,
+		nfes:            nfes,
+		nifs:            nifs,
+		nnos:            nnos,
+		njss:            njss,
+		fvs:             fvs,
+		hs:              hs,
+		hh:              hh,
+		hsp:             hsp,
+		hbf:             hbf,
+		hbu:             hbu,
+		has:             has,
+		nodeStream:      nodeStream,
+		edgeStream:      edgeStream,
+		varStream:       varStream,
+		versionStream:   versionStream,
+		noopStream:      noopStream,
+		forStream:       forStream,
+		conditionStream: conditionStream,
 	}
 }
 
@@ -2178,6 +2197,108 @@ func (s *FlowServiceV2RPC) streamNodeHttpSync(
 	}
 }
 
+func (s *FlowServiceV2RPC) streamNodeConditionSync(
+	ctx context.Context,
+	send func(*flowv1.NodeConditionSyncResponse) error,
+) error {
+	if s.conditionStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("condition stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
+
+		for _, flow := range flows {
+			flowSet.Store(flow.ID.String(), struct{}{})
+
+			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, err
+			}
+
+			for _, nodeModel := range nodes {
+				// Filter for Condition nodes
+				if nodeModel.NodeKind != mnnode.NODE_KIND_CONDITION {
+					continue
+				}
+
+				nodeCondition, err := s.nifs.GetNodeIf(ctx, nodeModel.ID)
+				if err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						continue
+					}
+					return nil, err
+				}
+				if nodeCondition == nil {
+					continue
+				}
+
+				// Create a custom NodeEvent that includes Condition node data
+				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
+					Topic: NodeTopic{FlowID: flow.ID},
+					Payload: NodeEvent{
+						Type:   nodeEventInsert,
+						FlowID: flow.ID,
+						Node: &flowv1.Node{
+							NodeId: nodeCondition.FlowNodeID.Bytes(),
+							Kind:   flowv1.NodeKind_NODE_KIND_CONDITION,
+						},
+					},
+				})
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic NodeTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp, err := s.conditionEventToSyncResponse(ctx, evt.Payload)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to convert Condition node event: %w", err))
+			}
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 	ctx context.Context,
 	evt NodeEvent,
@@ -2246,6 +2367,75 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 
 	return &flowv1.NodeHttpSyncResponse{
 		Items: []*flowv1.NodeHttpSync{syncEvent},
+	}, nil
+}
+
+func (s *FlowServiceV2RPC) conditionEventToSyncResponse(
+	ctx context.Context,
+	evt NodeEvent,
+) (*flowv1.NodeConditionSyncResponse, error) {
+	if evt.Node == nil {
+		return nil, nil
+	}
+
+	// Only process Condition nodes
+	if evt.Node.GetKind() != flowv1.NodeKind_NODE_KIND_CONDITION {
+		return nil, nil
+	}
+
+	nodeID, err := idwrap.NewFromBytes(evt.Node.GetNodeId())
+	if err != nil {
+		return nil, fmt.Errorf("invalid node id: %w", err)
+	}
+
+	// Fetch the Condition configuration for this node
+	nodeCondition, err := s.nifs.GetNodeIf(ctx, nodeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Node exists but doesn't have Condition config, skip
+			return nil, nil
+		}
+		return nil, err
+	}
+	if nodeCondition == nil {
+		return nil, nil
+	}
+
+	var syncEvent *flowv1.NodeConditionSync
+	switch evt.Type {
+	case nodeEventInsert:
+		syncEvent = &flowv1.NodeConditionSync{
+			Value: &flowv1.NodeConditionSync_ValueUnion{
+				Kind: flowv1.NodeConditionSync_ValueUnion_KIND_INSERT,
+				Insert: &flowv1.NodeConditionSyncInsert{
+					NodeId: nodeCondition.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	case nodeEventUpdate:
+		syncEvent = &flowv1.NodeConditionSync{
+			Value: &flowv1.NodeConditionSync_ValueUnion{
+				Kind: flowv1.NodeConditionSync_ValueUnion_KIND_UPDATE,
+				Update: &flowv1.NodeConditionSyncUpdate{
+					NodeId: nodeCondition.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	case nodeEventDelete:
+		syncEvent = &flowv1.NodeConditionSync{
+			Value: &flowv1.NodeConditionSync_ValueUnion{
+				Kind: flowv1.NodeConditionSync_ValueUnion_KIND_DELETE,
+				Delete: &flowv1.NodeConditionSyncDelete{
+					NodeId: nodeCondition.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	default:
+		return nil, nil
+	}
+
+	return &flowv1.NodeConditionSyncResponse{
+		Items: []*flowv1.NodeConditionSync{syncEvent},
 	}, nil
 }
 
@@ -2491,8 +2681,41 @@ func (s *FlowServiceV2RPC) NodeForEachSync(context.Context, *connect.Request[emp
 	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
 }
 
-func (s *FlowServiceV2RPC) NodeConditionCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.NodeConditionCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeConditionCollection(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+) (*connect.Response[flowv1.NodeConditionCollectionResponse], error) {
+	flows, err := s.listAccessibleFlows(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*flowv1.NodeCondition, 0)
+
+	for _, flow := range flows {
+		nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		for _, n := range nodes {
+			if n.NodeKind != mnnode.NODE_KIND_CONDITION {
+				continue
+			}
+			nodeCondition, err := s.nifs.GetNodeIf(ctx, n.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			if nodeCondition == nil {
+				continue
+			}
+			items = append(items, serializeNodeCondition(*nodeCondition))
+		}
+	}
+
+	return connect.NewResponse(&flowv1.NodeConditionCollectionResponse{Items: items}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeConditionInsert(ctx context.Context, req *connect.Request[flowv1.NodeConditionInsertRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -2569,8 +2792,17 @@ func (s *FlowServiceV2RPC) NodeConditionDelete(ctx context.Context, req *connect
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeConditionSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeConditionSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeConditionSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.NodeConditionSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamNodeConditionSync(ctx, func(resp *flowv1.NodeConditionSyncResponse) error {
+		return stream.Send(resp)
+	})
 }
 
 func (s *FlowServiceV2RPC) NodeJsCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.NodeJsCollectionResponse], error) {
@@ -3369,6 +3601,13 @@ func serializeNodeFor(n mnfor.MNFor) *flowv1.NodeFor {
 		Iterations:    int32(n.IterCount),
 		Condition:     n.Condition.Comparisons.Expression,
 		ErrorHandling: flowv1.ErrorHandling(n.ErrorHandling),
+	}
+}
+
+func serializeNodeCondition(n mnif.MNIF) *flowv1.NodeCondition {
+	return &flowv1.NodeCondition{
+		NodeId:    n.FlowNodeID.Bytes(),
+		Condition: n.Condition.Comparisons.Expression,
 	}
 }
 
