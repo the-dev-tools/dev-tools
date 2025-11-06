@@ -119,6 +119,18 @@ type FlowVariableEvent struct {
 	Order    float32
 }
 
+// NoOpTopic identifies the flow whose NoOp nodes are being published.
+type NoOpTopic struct {
+	FlowID idwrap.IDWrap
+}
+
+// NoOpEvent describes a NoOp node change for sync streaming.
+type NoOpEvent struct {
+	Type   string
+	FlowID idwrap.IDWrap
+	Node   *flowv1.NodeNoOp
+}
+
 const (
 	nodeEventInsert = "insert"
 	nodeEventUpdate = "update"
@@ -135,6 +147,10 @@ const (
 	flowVersionEventInsert = "insert"
 	flowVersionEventUpdate = "update"
 	flowVersionEventDelete = "delete"
+
+	noopEventInsert = "insert"
+	noopEventUpdate = "update"
+	noopEventDelete = "delete"
 )
 
 type FlowServiceV2RPC struct {
@@ -159,6 +175,7 @@ type FlowServiceV2RPC struct {
 	edgeStream    eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
 	varStream     eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
 	versionStream eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
+	noopStream    eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
 }
 
 func New(
@@ -183,6 +200,7 @@ func New(
 	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent],
 	varStream eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent],
 	versionStream eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent],
+	noopStream eventstream.SyncStreamer[NoOpTopic, NoOpEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		ws:            ws,
@@ -206,6 +224,7 @@ func New(
 		edgeStream:    edgeStream,
 		varStream:     varStream,
 		versionStream: versionStream,
+		noopStream:    noopStream,
 	}
 }
 
@@ -1175,6 +1194,28 @@ func (s *FlowServiceV2RPC) publishFlowVersionEvent(eventType string, flow mflow.
 	})
 }
 
+func (s *FlowServiceV2RPC) publishNoOpEvent(eventType string, flowID idwrap.IDWrap, node mnnoop.NoopNode) {
+	if s.noopStream == nil {
+		return
+	}
+
+	// Skip publishing events for NoOp nodes associated with start nodes
+	if baseNode, err := s.ns.GetNode(context.Background(), node.FlowNodeID); err == nil {
+		if isStartNode(*baseNode) {
+			return
+		}
+	} else {
+		return
+	}
+
+	nodePB := serializeNodeNoop(node)
+	s.noopStream.Publish(NoOpTopic{FlowID: flowID}, NoOpEvent{
+		Type:   eventType,
+		FlowID: flowID,
+		Node:   nodePB,
+	})
+}
+
 func (s *FlowServiceV2RPC) NodeInsert(
 	ctx context.Context,
 	req *connect.Request[flowv1.NodeInsertRequest],
@@ -1526,8 +1567,157 @@ func (s *FlowServiceV2RPC) streamFlowVersionSync(
 	}
 }
 
-func (s *FlowServiceV2RPC) NodeNoOpCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.NodeNoOpCollectionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) streamNoOpSync(
+	ctx context.Context,
+	send func(*flowv1.NodeNoOpSyncResponse) error,
+) error {
+	if s.noopStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("noop stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[NoOpTopic, NoOpEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[NoOpTopic, NoOpEvent], 0)
+
+		for _, flow := range flows {
+			flowSet.Store(flow.ID.String(), struct{}{})
+
+			// Get all nodes in the flow and filter for NoOp nodes
+			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, err
+			}
+
+			for _, node := range nodes {
+				// Only process NoOp nodes
+				if node.NodeKind != mnnode.NODE_KIND_NO_OP {
+					continue
+				}
+
+				// Skip start nodes
+				if isStartNode(node) {
+					continue
+				}
+
+				// Get the NoOp configuration for this node
+				noopNode, err := s.nnos.GetNodeNoop(ctx, node.ID)
+				if err != nil {
+					if err == sql.ErrNoRows {
+						continue
+					}
+					return nil, err
+				}
+
+				if noopNode == nil {
+					continue
+				}
+
+				noopPB := serializeNodeNoop(*noopNode)
+				events = append(events, eventstream.Event[NoOpTopic, NoOpEvent]{
+					Topic: NoOpTopic{FlowID: flow.ID},
+					Payload: NoOpEvent{
+						Type:   noopEventInsert,
+						FlowID: flow.ID,
+						Node:   noopPB,
+					},
+				})
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic NoOpTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.noopStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := noopEventToSyncResponse(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *FlowServiceV2RPC) NodeNoOpCollection(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+) (*connect.Response[flowv1.NodeNoOpCollectionResponse], error) {
+	flows, err := s.listAccessibleFlows(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*flowv1.NodeNoOp, 0)
+
+	for _, flow := range flows {
+		// Get all nodes in the flow and filter for NoOp nodes
+		nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		for _, node := range nodes {
+			// Only process NoOp nodes
+			if node.NodeKind != mnnode.NODE_KIND_NO_OP {
+				continue
+			}
+
+			// Skip start nodes
+			if isStartNode(node) {
+				continue
+			}
+
+			// Get the NoOp configuration for this node
+			noopNode, err := s.nnos.GetNodeNoop(ctx, node.ID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					continue
+				}
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			if noopNode == nil {
+				continue
+			}
+
+			items = append(items, serializeNodeNoop(*noopNode))
+		}
+	}
+
+	return connect.NewResponse(&flowv1.NodeNoOpCollectionResponse{Items: items}), nil
 }
 
 func (s *FlowServiceV2RPC) NodeNoOpInsert(ctx context.Context, req *connect.Request[flowv1.NodeNoOpInsertRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -1537,7 +1727,8 @@ func (s *FlowServiceV2RPC) NodeNoOpInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		baseNode, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
@@ -1552,6 +1743,9 @@ func (s *FlowServiceV2RPC) NodeNoOpInsert(ctx context.Context, req *connect.Requ
 		if err := s.nnos.CreateNodeNoop(ctx, noop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish insert event
+		s.publishNoOpEvent(noopEventInsert, baseNode.FlowID, noop)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -1564,12 +1758,19 @@ func (s *FlowServiceV2RPC) NodeNoOpUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		baseNode, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
 		}
 
 		if item.Kind == nil {
 			continue
+		}
+
+		// Get existing NoOp node to publish delete event
+		existingNoOp, err := s.nnos.GetNodeNoop(ctx, nodeID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		if err := s.nnos.DeleteNodeNoop(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -1583,6 +1784,12 @@ func (s *FlowServiceV2RPC) NodeNoOpUpdate(ctx context.Context, req *connect.Requ
 		if err := s.nnos.CreateNodeNoop(ctx, noop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish events
+		if existingNoOp != nil {
+			s.publishNoOpEvent(noopEventDelete, baseNode.FlowID, *existingNoOp)
+		}
+		s.publishNoOpEvent(noopEventInsert, baseNode.FlowID, noop)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -1595,20 +1802,41 @@ func (s *FlowServiceV2RPC) NodeNoOpDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
+		baseNode, err := s.ensureNodeAccess(ctx, nodeID)
+		if err != nil {
 			return nil, err
+		}
+
+		// Get existing NoOp node to publish delete event
+		existingNoOp, err := s.nnos.GetNodeNoop(ctx, nodeID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		if err := s.nnos.DeleteNodeNoop(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Publish delete event
+		if existingNoOp != nil {
+			s.publishNoOpEvent(noopEventDelete, baseNode.FlowID, *existingNoOp)
 		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeNoOpSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeNoOpSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeNoOpSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.NodeNoOpSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamNoOpSync(ctx, func(resp *flowv1.NodeNoOpSyncResponse) error {
+		return stream.Send(resp)
+	})
 }
 
 func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Request[flowv1.NodeHttpInsertRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -2387,6 +2615,59 @@ func flowVersionEventToSyncResponse(evt FlowVersionEvent) *flowv1.FlowVersionSyn
 	}
 }
 
+func noopEventToSyncResponse(evt NoOpEvent) *flowv1.NodeNoOpSyncResponse {
+	if evt.Node == nil {
+		return nil
+	}
+
+	node := evt.Node
+
+	switch evt.Type {
+	case noopEventInsert:
+		insert := &flowv1.NodeNoOpSyncInsert{
+			NodeId: node.GetNodeId(),
+			Kind:   node.GetKind(),
+		}
+		return &flowv1.NodeNoOpSyncResponse{
+			Items: []*flowv1.NodeNoOpSync{{
+				Value: &flowv1.NodeNoOpSync_ValueUnion{
+					Kind:   flowv1.NodeNoOpSync_ValueUnion_KIND_INSERT,
+					Insert: insert,
+				},
+			}},
+		}
+	case noopEventUpdate:
+		update := &flowv1.NodeNoOpSyncUpdate{
+			NodeId: node.GetNodeId(),
+		}
+		if kind := node.GetKind(); kind != flowv1.NodeNoOpKind_NODE_NO_OP_KIND_UNSPECIFIED {
+			k := kind
+			update.Kind = &k
+		}
+		return &flowv1.NodeNoOpSyncResponse{
+			Items: []*flowv1.NodeNoOpSync{{
+				Value: &flowv1.NodeNoOpSync_ValueUnion{
+					Kind:   flowv1.NodeNoOpSync_ValueUnion_KIND_UPDATE,
+					Update: update,
+				},
+			}},
+		}
+	case noopEventDelete:
+		return &flowv1.NodeNoOpSyncResponse{
+			Items: []*flowv1.NodeNoOpSync{{
+				Value: &flowv1.NodeNoOpSync_ValueUnion{
+					Kind: flowv1.NodeNoOpSync_ValueUnion_KIND_DELETE,
+					Delete: &flowv1.NodeNoOpSyncDelete{
+						NodeId: node.GetNodeId(),
+					},
+				},
+			}},
+		}
+	default:
+		return nil
+	}
+}
+
 func isStartNode(node mnnode.MNode) bool {
 	if node.NodeKind != mnnode.NODE_KIND_NO_OP {
 		return false
@@ -2626,6 +2907,13 @@ func serializeNodeHTTP(n mnrequest.MNRequest) *flowv1.NodeHttp {
 	return &flowv1.NodeHttp{
 		NodeId: n.FlowNodeID.Bytes(),
 		HttpId: n.HttpID.Bytes(),
+	}
+}
+
+func serializeNodeNoop(n mnnoop.NoopNode) *flowv1.NodeNoOp {
+	return &flowv1.NodeNoOp{
+		NodeId: n.FlowNodeID.Bytes(),
+		Kind:   flowv1.NodeNoOpKind(n.Type),
 	}
 }
 
