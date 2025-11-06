@@ -1921,8 +1921,187 @@ func (s *FlowServiceV2RPC) NodeHttpDelete(ctx context.Context, req *connect.Requ
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (s *FlowServiceV2RPC) NodeHttpSync(context.Context, *connect.Request[emptypb.Empty], *connect.ServerStream[flowv1.NodeHttpSyncResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+func (s *FlowServiceV2RPC) NodeHttpSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.NodeHttpSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamNodeHttpSync(ctx, func(resp *flowv1.NodeHttpSyncResponse) error {
+		return stream.Send(resp)
+	})
+}
+
+func (s *FlowServiceV2RPC) streamNodeHttpSync(
+	ctx context.Context,
+	send func(*flowv1.NodeHttpSyncResponse) error,
+) error {
+	if s.nodeStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("node stream not configured"))
+	}
+
+	var flowSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[NodeTopic, NodeEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[NodeTopic, NodeEvent], 0)
+
+		for _, flow := range flows {
+			flowSet.Store(flow.ID.String(), struct{}{})
+
+			nodes, err := s.ns.GetNodesByFlowID(ctx, flow.ID)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, err
+			}
+
+			for _, nodeModel := range nodes {
+				// Filter for HTTP nodes (REQUEST nodes)
+				if nodeModel.NodeKind != mnnode.NODE_KIND_REQUEST {
+					continue
+				}
+
+				nodeReq, err := s.nrs.GetNodeRequest(ctx, nodeModel.ID)
+				if err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						continue
+					}
+					return nil, err
+				}
+				if nodeReq == nil || isZeroID(nodeReq.HttpID) {
+					continue
+				}
+
+				// Create a custom NodeEvent that includes HTTP node data
+				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
+					Topic: NodeTopic{FlowID: flow.ID},
+					Payload: NodeEvent{
+						Type:   nodeEventInsert,
+						FlowID: flow.ID,
+						Node:   serializeNode(nodeModel), // Pass regular node for compatibility
+					},
+				})
+			}
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic NodeTopic) bool {
+		if _, ok := flowSet.Load(topic.FlowID.String()); ok {
+			return true
+		}
+		if err := s.ensureFlowAccess(ctx, topic.FlowID); err != nil {
+			return false
+		}
+		flowSet.Store(topic.FlowID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.nodeStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp, err := s.nodeHttpEventToSyncResponse(ctx, evt.Payload)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to convert HTTP node event: %w", err))
+			}
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
+	ctx context.Context,
+	evt NodeEvent,
+) (*flowv1.NodeHttpSyncResponse, error) {
+	if evt.Node == nil {
+		return nil, nil
+	}
+
+	// Only process HTTP nodes (REQUEST nodes)
+	if evt.Node.GetKind() != flowv1.NodeKind_NODE_KIND_REQUEST {
+		return nil, nil
+	}
+
+	nodeID, err := idwrap.NewFromBytes(evt.Node.GetNodeId())
+	if err != nil {
+		return nil, fmt.Errorf("invalid node id: %w", err)
+	}
+
+	// Fetch the HTTP configuration for this node
+	nodeReq, err := s.nrs.GetNodeRequest(ctx, nodeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Node exists but doesn't have HTTP config, skip
+			return nil, nil
+		}
+		return nil, err
+	}
+	if nodeReq == nil || isZeroID(nodeReq.HttpID) {
+		return nil, nil
+	}
+
+	var syncEvent *flowv1.NodeHttpSync
+	switch evt.Type {
+	case nodeEventInsert:
+		syncEvent = &flowv1.NodeHttpSync{
+			Value: &flowv1.NodeHttpSync_ValueUnion{
+				Kind: flowv1.NodeHttpSync_ValueUnion_KIND_INSERT,
+				Insert: &flowv1.NodeHttpSyncInsert{
+					NodeId: nodeReq.FlowNodeID.Bytes(),
+					HttpId: nodeReq.HttpID.Bytes(),
+				},
+			},
+		}
+	case nodeEventUpdate:
+		syncEvent = &flowv1.NodeHttpSync{
+			Value: &flowv1.NodeHttpSync_ValueUnion{
+				Kind: flowv1.NodeHttpSync_ValueUnion_KIND_UPDATE,
+				Update: &flowv1.NodeHttpSyncUpdate{
+					NodeId: nodeReq.FlowNodeID.Bytes(),
+					HttpId: nodeReq.HttpID.Bytes(),
+				},
+			},
+		}
+	case nodeEventDelete:
+		syncEvent = &flowv1.NodeHttpSync{
+			Value: &flowv1.NodeHttpSync_ValueUnion{
+				Kind: flowv1.NodeHttpSync_ValueUnion_KIND_DELETE,
+				Delete: &flowv1.NodeHttpSyncDelete{
+					NodeId: nodeReq.FlowNodeID.Bytes(),
+				},
+			},
+		}
+	default:
+		return nil, nil
+	}
+
+	return &flowv1.NodeHttpSyncResponse{
+		Items: []*flowv1.NodeHttpSync{syncEvent},
+	}, nil
 }
 
 func (s *FlowServiceV2RPC) NodeForCollection(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.NodeForCollectionResponse], error) {
