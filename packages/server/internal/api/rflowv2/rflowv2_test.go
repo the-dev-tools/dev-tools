@@ -93,6 +93,10 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 	t.Cleanup(flowVarStream.Shutdown)
 	flowVersionStream := memory.NewInMemorySyncStreamer[FlowVersionTopic, FlowVersionEvent]()
 	t.Cleanup(flowVersionStream.Shutdown)
+	noopStream := memory.NewInMemorySyncStreamer[NoOpTopic, NoOpEvent]()
+	t.Cleanup(noopStream.Shutdown)
+	forStream := memory.NewInMemorySyncStreamer[ForTopic, ForEvent]()
+	t.Cleanup(forStream.Shutdown)
 
 	srv := New(
 		&services.Ws,
@@ -116,6 +120,8 @@ func TestFlowServiceV2_NodeLifecycle(t *testing.T) {
 		edgeStream,
 		flowVarStream,
 		flowVersionStream,
+		noopStream,
+		forStream,
 	)
 
 	ctx := mwauth.CreateAuthedContext(context.Background(), userID)
