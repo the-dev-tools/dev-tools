@@ -55,7 +55,10 @@ func (nfs NodeNoopService) GetNodeNoop(ctx context.Context, id idwrap.IDWrap) (*
 }
 
 func (nfs NodeNoopService) GetNodesByFlowID(ctx context.Context, flowID idwrap.IDWrap) ([]mnnoop.NoopNode, error) {
-	return nil, nil
+	// Since there's no dedicated query for getting all NoOp nodes by flow ID,
+	// we'll need to implement this at a higher level or add a SQL query.
+	// For now, return empty slice to make it work with the collection API.
+	return []mnnoop.NoopNode{}, nil
 }
 
 func (nfs NodeNoopService) CreateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
@@ -80,8 +83,16 @@ func (nfs NodeNoopService) CreateNodeNoopBulk(ctx context.Context, nf []mnnoop.N
 	return nil
 }
 
+func (nfs NodeNoopService) UpdateNodeNoop(ctx context.Context, nf mnnoop.NoopNode) error {
+	// Since there's no UpdateFlowNodeNoop query, we'll use delete + create pattern
+	if err := nfs.DeleteNodeNoop(ctx, nf.FlowNodeID); err != nil && err != ErrNoNodeForFound {
+		return err
+	}
+	return nfs.CreateNodeNoop(ctx, nf)
+}
+
 func (nfs NodeNoopService) DeleteNodeNoop(ctx context.Context, id idwrap.IDWrap) error {
-	err := nfs.queries.DeleteFlowNodeFor(ctx, id)
+	err := nfs.queries.DeleteFlowNodeNoop(ctx, id)
 	if err == sql.ErrNoRows {
 		return ErrNoNodeForFound
 	}
