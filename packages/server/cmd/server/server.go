@@ -62,7 +62,7 @@ import (
 	// "the-dev-tools/server/pkg/service/sitemapiexample"
 
 	"the-dev-tools/server/pkg/service/snode"
-	// "the-dev-tools/server/pkg/service/snodeexecution"
+	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
 	"the-dev-tools/server/pkg/service/snodeforeach"
 	"the-dev-tools/server/pkg/service/snodeif"
@@ -188,7 +188,7 @@ func main() {
 	flowNodeConditionService := snodeif.New(queries)
 	flowNodeNoOpService := snodenoop.New(queries)
 	flowNodeJsService := snodejs.New(queries)
-	// nodeExecutionService := snodeexecution.New(queries)
+	nodeExecutionService := snodeexecution.New(queries)
 
 	// log/console
 	// logMap := logconsole.NewLogChanMap()
@@ -282,6 +282,8 @@ func main() {
 	defer forEachStreamer.Shutdown()
 	jsStreamer := memory.NewInMemorySyncStreamer[rflowv2.JsTopic, rflowv2.JsEvent]()
 	defer jsStreamer.Shutdown()
+	executionStreamer := memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]()
+	defer executionStreamer.Shutdown()
 
 	flowSrvV2 := rflowv2.New(
 		&workspaceService,
@@ -294,6 +296,7 @@ func main() {
 		flowNodeConditionService,
 		&flowNodeNoOpService,
 		&flowNodeJsService,
+		&nodeExecutionService,
 		&flowVariableService,
 		&httpService,
 		httpHeaderAgg,
@@ -310,6 +313,7 @@ func main() {
 		conditionStreamer,
 		forEachStreamer,
 		jsStreamer,
+		executionStreamer,
 	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, opitonsAll))
 
