@@ -1,10 +1,10 @@
 import { Atom, Registry } from '@effect-atom/atom-react';
 import { BrowserKeyValueStore } from '@effect/platform-browser';
 import { Layer, Logger, LogLevel, pipe } from 'effect';
-import { ApiCollections } from '~/api-new';
+import { ApiCollections } from '~/api-new/collection.internal';
 import { ApiTransport } from '~/api/transport';
 
-export const layer = pipe(
+export const runtimeLayer = pipe(
   ApiCollections.Default,
   Layer.provideMerge(ApiTransport.Default),
   Layer.provideMerge(Registry.layer),
@@ -13,4 +13,4 @@ export const layer = pipe(
   Layer.provideMerge(BrowserKeyValueStore.layerLocalStorage),
 );
 
-export const atomRuntime = Atom.runtime(layer);
+export const runtimeAtom = Atom.runtime(runtimeLayer);

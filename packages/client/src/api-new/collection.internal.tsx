@@ -1,10 +1,9 @@
 import { CollectionConfig, createCollection, createOptimisticAction, Transaction } from '@tanstack/react-db';
-import { Array, Effect, HashMap, Match, pipe, Predicate, Record, Runtime } from 'effect';
+import { Array, Effect, HashMap, Match, pipe, Predicate, Record } from 'effect';
 import { Ulid } from 'id128';
 import { UnsetSchema } from '@the-dev-tools/spec/global/v1/global_pb';
 import { schemas_v1_api } from '@the-dev-tools/spec/tanstack-db/v1/api';
 import { ApiTransport } from '~/api/transport';
-import { rootRouteApi } from '~/routes';
 import * as Connect from './connect-rpc';
 import * as Protobuf from './protobuf';
 
@@ -28,6 +27,8 @@ export interface ApiCollectionSchema {
     update?: Protobuf.DescMethodUnary;
   };
 }
+
+export type ApiCollection<TSchema extends ApiCollectionSchema> = ReturnType<typeof createApiCollection<TSchema>>;
 
 const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchema, transport: Connect.Transport) => {
   type Item = Protobuf.MessageValidType<TSchema['item']>;
@@ -267,14 +268,3 @@ export class ApiCollections extends Effect.Service<ApiCollections>()('ApiCollect
     return collections;
   }),
 }) {}
-
-export const getApiCollection = Effect.fn(function* <TSchema extends ApiCollectionSchema>(schema: TSchema) {
-  const collectionMap = yield* ApiCollections;
-  const collection = yield* HashMap.get(collectionMap, schema);
-  return collection as unknown as ReturnType<typeof createApiCollection<TSchema>>;
-});
-
-export const useApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchema) => {
-  const { runtime } = rootRouteApi.useRouteContext();
-  return Runtime.runSync(runtime, getApiCollection(schema));
-};

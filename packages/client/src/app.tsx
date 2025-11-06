@@ -11,7 +11,8 @@ import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
 import { ApiCollections } from '~/api-new';
 import { ApiTransport } from '~/api/transport';
 import { RouterContext } from '~/routes/context';
-import { atomRuntime, startOpenReplay } from '~/utils';
+import { runtimeAtom } from '~/runtime';
+import { startOpenReplay } from '~/utils';
 import { routeTree } from './routes/__tree';
 
 import './styles.css';
@@ -30,7 +31,7 @@ declare module '@tanstack/react-router' {
   }
 }
 
-const appAtom = atomRuntime.atom(
+const appAtom = runtimeAtom.atom(
   Effect.gen(function* () {
     yield* startOpenReplay;
     yield* ApiCollections;
