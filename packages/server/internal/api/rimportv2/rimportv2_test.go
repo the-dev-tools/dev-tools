@@ -28,9 +28,9 @@ func TestNewValidator(t *testing.T) {
 
 // TestNewHARTranslator tests the HAR translator constructor
 func TestNewHARTranslator(t *testing.T) {
-	translator := NewHARTranslator()
+	translator := NewHARTranslatorForTesting()
 	if translator == nil {
-		t.Fatal("NewHARTranslator() returned nil")
+		t.Fatal("NewHARTranslatorForTesting() returned nil")
 	}
 }
 

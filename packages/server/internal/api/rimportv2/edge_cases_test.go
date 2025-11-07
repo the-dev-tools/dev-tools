@@ -252,7 +252,7 @@ func TestHARProcessingErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			translator := NewHARTranslator()
+			translator := NewHARTranslatorForTesting()
 			workspaceID := idwrap.NewNow()
 
 			_, err := translator.ConvertHAR(context.Background(), tt.harData, workspaceID)
@@ -472,32 +472,32 @@ func TestDomainProcessingErrors(t *testing.T) {
 func TestContextCancellation(t *testing.T) {
 	tests := []struct {
 		name        string
-		cancelFunc  func(context.Context) func()
+		cancelFunc  func(context.Context) (context.Context, func())
 		expectError bool
 		errorType   error
 	}{
 		{
 			name: "immediate cancellation",
-			cancelFunc: func(ctx context.Context) func() {
+			cancelFunc: func(ctx context.Context) (context.Context, func()) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel() // Cancel immediately
-				return cancel
+				return ctx, cancel
 			},
 			expectError: true,
 		},
 		{
 			name: "timeout cancellation",
-			cancelFunc: func(ctx context.Context) func() {
+			cancelFunc: func(ctx context.Context) (context.Context, func()) {
 				ctx, cancel := context.WithTimeout(ctx, time.Nanosecond) // Very short timeout
-				return func() { cancel() }
+				return ctx, cancel
 			},
 			expectError: true,
 		},
 		{
 			name: "no cancellation",
-			cancelFunc: func(ctx context.Context) func() {
-				_, cancel := context.WithCancel(ctx) // Don't cancel
-				return cancel
+			cancelFunc: func(ctx context.Context) (context.Context, func()) {
+				ctx, cancel := context.WithCancel(ctx) // Don't cancel
+				return ctx, cancel
 			},
 			expectError: false,
 		},
@@ -534,8 +534,7 @@ func TestContextCancellation(t *testing.T) {
 						WithLogger(slog.Default()),
 		)
 
-		cancel := tt.cancelFunc(context.Background())
-		ctx := context.Background()
+		ctx, cancel := tt.cancelFunc(context.Background())
 		defer cancel()
 
 			req := &ImportRequest{
@@ -734,7 +733,7 @@ func TestInvalidInputFormats(t *testing.T) {
 				harData = nil
 			}
 
-			translator := NewHARTranslator()
+			translator := NewHARTranslatorForTesting()
 			workspaceID := idwrap.NewNow()
 
 			_, err = translator.ConvertHAR(context.Background(), harData, workspaceID)

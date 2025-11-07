@@ -33,7 +33,7 @@ func BenchmarkHARTranslator(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			harData := createSizedHAR(b, tt.size)
-			translator := NewHARTranslator()
+			translator := NewHARTranslatorForTesting()
 			workspaceID := idwrap.NewNow()
 
 			b.ResetTimer()
@@ -179,7 +179,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 				switch impl {
 				case "HARTranslator":
 					harData := createSizedHAR(b, size)
-					translator := NewHARTranslator()
+					translator := NewHARTranslatorForTesting()
 					workspaceID := idwrap.NewNow()
 
 					for i := 0; i < b.N; i++ {
@@ -223,7 +223,7 @@ func BenchmarkConcurrency(b *testing.B) {
 			b.SetParallelism(concurrency)
 
 			b.RunParallel(func(pb *testing.PB) {
-				translator := NewHARTranslator()
+				translator := NewHARTranslatorForTesting()
 				workspaceID := idwrap.NewNow()
 
 				for pb.Next() {
@@ -248,7 +248,7 @@ func TestPerformanceComparison(t *testing.T) {
 
 	for _, size := range sizes {
 		harData := createSizedHAR(t, size)
-		translator := NewHARTranslator()
+		translator := NewHARTranslatorForTesting()
 		workspaceID := idwrap.NewNow()
 
 		// Benchmark HAR translation
@@ -280,7 +280,7 @@ func TestScalability(t *testing.T) {
 
 	for i, size := range sizes {
 		harData := createSizedHAR(t, size)
-		translator := NewHARTranslator()
+		translator := NewHARTranslatorForTesting()
 		workspaceID := idwrap.NewNow()
 
 		translationResults[i] = benchmarkOperation(t, 5, func() error {
@@ -306,7 +306,7 @@ func TestMemoryEfficiency(t *testing.T) {
 	for _, size := range sizes {
 		t.Run(fmt.Sprintf("Size_%d", size), func(t *testing.T) {
 			harData := createSizedHAR(t, size)
-			translator := NewHARTranslator()
+			translator := NewHARTranslatorForTesting()
 			workspaceID := idwrap.NewNow()
 
 			// Reset memory stats
@@ -346,7 +346,7 @@ func TestStressTest(t *testing.T) {
 	)
 
 	harData := createSizedHAR(t, harSize)
-	translator := NewHARTranslator()
+	translator := NewHARTranslatorForTesting()
 	workspaceID := idwrap.NewNow()
 
 	// Track performance metrics

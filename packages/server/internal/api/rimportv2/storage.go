@@ -2,6 +2,7 @@ package rimportv2
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"the-dev-tools/server/pkg/idwrap"
@@ -20,7 +21,7 @@ type DefaultImporter struct {
 	httpService   *shttp.HTTPService
 	flowService   *sflow.FlowService
 	fileService   *sfile.FileService
-	harTranslator *DefaultHARTranslator
+	harTranslator *defaultHARTranslator
 }
 
 // NewImporter creates a new DefaultImporter with service dependencies
@@ -29,13 +30,13 @@ func NewImporter(httpService *shttp.HTTPService, flowService *sflow.FlowService,
 		httpService:   httpService,
 		flowService:   flowService,
 		fileService:   fileService,
-		harTranslator: NewHARTranslator(),
+		harTranslator: newHARTranslator(),
 	}
 }
 
 // ImportAndStore processes HAR data and returns resolved models
 func (imp *DefaultImporter) ImportAndStore(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
-	return imp.harTranslator.ConvertHAR(ctx, data, workspaceID)
+	return imp.harTranslator.convertHAR(ctx, data, workspaceID)
 }
 
 // StoreHTTPEntities stores HTTP request entities using the modern HTTP service
@@ -109,4 +110,67 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	}
 
 	return nil
+}
+
+// Private HAR translator methods moved from translator.go
+
+// newHARTranslator creates a new HAR translator (private method)
+func newHARTranslator() *defaultHARTranslator {
+	return &defaultHARTranslator{}
+}
+
+// defaultHARTranslator handles HAR file processing using the existing harv2 package (private struct)
+type defaultHARTranslator struct{}
+
+// convertHAR converts HAR data to modern models using the harv2 package (private method)
+func (t *defaultHARTranslator) convertHAR(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
+	// Validate basic HAR structure before parsing
+	if err := t.validateHARStructure(data); err != nil {
+		return nil, err
+	}
+
+	// Parse HAR data from bytes
+	har, err := harv2.ConvertRaw(data)
+	if err != nil {
+		return nil, fmt.Errorf("HAR conversion failed: %w", err)
+	}
+
+	// Use the existing harv2 package which already implements modern HAR translation
+	// harv2.ConvertHAR returns HarResolved with modern mhttp.HTTP and mfile.File models
+	resolved, err := harv2.ConvertHAR(har, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("HAR processing failed: %w", err)
+	}
+
+	return resolved, nil
+}
+
+// validateHARStructure validates basic HAR structure (private method)
+func (t *defaultHARTranslator) validateHARStructure(data []byte) error {
+	var har map[string]interface{}
+	if err := json.Unmarshal(data, &har); err != nil {
+		return ErrInvalidHARFormat
+	}
+
+	// Basic HAR structure validation
+	if log, ok := har["log"]; !ok {
+		return ErrInvalidHARFormat
+	} else if logMap, ok := log.(map[string]interface{}); !ok {
+		return ErrInvalidHARFormat
+	} else if _, ok := logMap["entries"]; !ok {
+		return ErrInvalidHARFormat
+	}
+
+	return nil
+}
+
+// NewHARTranslatorForTesting creates a new HAR translator for testing purposes
+// This provides access to the HAR translator for test files while keeping the main implementation private
+func NewHARTranslatorForTesting() *defaultHARTranslator {
+	return newHARTranslator()
+}
+
+// ConvertHARForTesting exposes the ConvertHAR method for testing purposes
+func (t *defaultHARTranslator) ConvertHAR(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
+	return t.convertHAR(ctx, data, workspaceID)
 }

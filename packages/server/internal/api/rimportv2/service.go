@@ -5,6 +5,7 @@ package rimportv2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -16,7 +17,117 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/translate/harv2"
 )
+
+// Error types moved from errors.go
+
+// Common errors for the rimportv2 service
+var (
+	ErrInvalidHARFormat  = errors.New("invalid HAR format")
+	ErrPermissionDenied  = errors.New("permission denied")
+	ErrStorageFailed     = errors.New("storage operation failed")
+	ErrWorkspaceNotFound = errors.New("workspace not found")
+)
+
+// ValidationError represents an input validation error
+type ValidationError struct {
+	Field   string
+	Message string
+	Err     error
+}
+
+func (e *ValidationError) Error() string {
+	if e.Err != nil {
+		return fmt.Errorf("validation failed for field '%s': %w", e.Field, e.Err).Error()
+	}
+	return fmt.Sprintf("validation failed for field '%s': %s", e.Field, e.Message)
+}
+
+func (e *ValidationError) Unwrap() error {
+	return e.Err
+}
+
+// NewValidationError creates a new validation error
+func NewValidationError(field, message string) error {
+	return &ValidationError{
+		Field:   field,
+		Message: message,
+	}
+}
+
+// NewValidationErrorWithCause creates a new validation error with an underlying cause
+func NewValidationErrorWithCause(field string, cause error) error {
+	return &ValidationError{
+		Field: field,
+		Err:   cause,
+	}
+}
+
+// IsValidationError checks if the error is a validation error
+func IsValidationError(err error) bool {
+	var validationErr *ValidationError
+	return errors.As(err, &validationErr)
+}
+
+// Interface definitions moved from interfaces.go
+
+// Importer handles the complete import pipeline: HAR processing and storage
+type Importer interface {
+	// Process and store HAR data with modern models
+	ImportAndStore(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error)
+	// Store individual entity types
+	StoreHTTPEntities(ctx context.Context, httpReqs []*mhttp.HTTP) error
+	StoreFiles(ctx context.Context, files []*mfile.File) error
+	StoreFlow(ctx context.Context, flow *mflow.Flow) error
+	// Store complete import results atomically
+	StoreImportResults(ctx context.Context, results *ImportResults) error
+}
+
+// Validator handles input validation for import requests
+type Validator interface {
+	ValidateImportRequest(ctx context.Context, req *ImportRequest) error
+	ValidateWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error
+}
+
+// ImportResults represents the complete results of an import operation
+type ImportResults struct {
+	Flow        *mflow.Flow
+	HTTPReqs    []*mhttp.HTTP
+	Files       []*mfile.File
+	Domains     []string
+	WorkspaceID idwrap.IDWrap
+}
+
+// ImportRequest represents the incoming import request with domain data
+type ImportRequest struct {
+	WorkspaceID idwrap.IDWrap
+	Name        string
+	Data        []byte
+	TextData    string
+	DomainData  []ImportDomainData
+}
+
+// ImportResponse represents the response to an import request
+type ImportResponse struct {
+	MissingData ImportMissingDataKind
+	Domains     []string
+}
+
+// ImportMissingDataKind represents the type of missing data
+type ImportMissingDataKind int32
+
+const (
+	ImportMissingDataKind_UNSPECIFIED ImportMissingDataKind = 0
+	ImportMissingDataKind_DOMAIN      ImportMissingDataKind = 1
+)
+
+// ImportDomainData represents domain variable configuration
+type ImportDomainData struct {
+	Enabled  bool
+	Domain   string
+	Variable string
+}
 
 // ServiceOption configures the Service during construction
 type ServiceOption func(*Service)
@@ -356,6 +467,13 @@ func buildTemplatedURL(variable, suffix string) string {
 
 // Import processes a HAR file and stores the results using modern models
 func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportResponse, error) {
+	// Check if context is already cancelled
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	// Set up context with timeout
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
@@ -460,15 +578,8 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportRespon
 			return nil, fmt.Errorf("domain template application failed: %w", err)
 		}
 
-		// Update the results with templated requests and re-store
+		// Update the results with templated requests (no need to re-store since already stored above)
 		results.HTTPReqs = httpReqsPtr
-		if err := s.importer.StoreHTTPEntities(ctx, httpReqsPtr); err != nil {
-			s.logger.Error("Failed to store templated HTTP requests - unexpected internal error",
-				"workspace_id", req.WorkspaceID,
-				"domain_data_count", len(req.DomainData),
-				"error", err)
-			return nil, fmt.Errorf("failed to store templated HTTP requests: %w", err)
-		}
 
 		s.logger.Info("Applied domain templates",
 			"workspace_id", req.WorkspaceID,
