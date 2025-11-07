@@ -1,47 +1,42 @@
 import { timestampDate } from '@bufbuild/protobuf/wkt';
-import { DateTime, pipe } from 'effect';
-import { Ulid } from 'id128';
+import { count, useLiveQuery } from '@tanstack/react-db';
+import { DateTime, Option, pipe } from 'effect';
+import { idEqual, Ulid } from 'id128';
 import { RefObject, useRef } from 'react';
 import { ListBox, ListBoxItem, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import TimeAgo from 'react-timeago';
 import { twJoin } from 'tailwind-merge';
-import {
-  WorkspaceCreateEndpoint,
-  WorkspaceDeleteEndpoint,
-  WorkspaceListEndpoint,
-  WorkspaceMoveEndpoint,
-  WorkspaceUpdateEndpoint,
-} from '@the-dev-tools/spec/data-client/workspace/v1/workspace.endpoints.ts';
-import { WorkspaceListItemEntity } from '@the-dev-tools/spec/data-client/workspace/v1/workspace.entities.js';
+import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
+import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Avatar } from '@the-dev-tools/ui/avatar';
 import { Button } from '@the-dev-tools/ui/button';
-import { CollectionIcon, FlowsIcon } from '@the-dev-tools/ui/icons';
+import { CollectionIcon } from '@the-dev-tools/ui/icons';
 import { Link } from '@the-dev-tools/ui/link';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
-import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
+import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
-import { useMutate, useQuery } from '~data-client';
-import { rootRouteApi, workspaceRouteApi } from '~routes';
+import { useApiCollection } from '~/api-new';
+import { workspaceRouteApi } from '~/routes';
+import { getNextOrder, handleCollectionReorder } from '~/utils/order';
+import { pick } from '~/utils/tanstack-db';
 
 export const WorkspaceListPage = () => {
-  const { dataClient } = rootRouteApi.useRouteContext();
+  const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
-  const { items: workspaces } = useQuery(WorkspaceListEndpoint, {});
+  const { data: workspaces } = useLiveQuery((_) =>
+    _.from({ workspace: workspaceCollection })
+      .orderBy((_) => _.workspace.order)
+      .select((_) => pick(_.workspace, 'workspaceId', 'name', 'order')),
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: basicReorder(({ position, source, target }) =>
-      dataClient.fetch(WorkspaceMoveEndpoint, {
-        position,
-        targetWorkspaceId: Ulid.fromCanonical(target).bytes,
-        workspaceId: Ulid.fromCanonical(source).bytes,
-      }),
-    ),
+    onReorder: handleCollectionReorder(workspaceCollection),
     renderDropIndicator: () => <DropIndicatorHorizontal />,
   });
 
@@ -57,9 +52,14 @@ export const WorkspaceListPage = () => {
       <div className={tw`relative flex min-h-0 flex-col rounded-lg border border-slate-200`} ref={containerRef}>
         <div className={tw`flex items-center gap-2 border-b border-inherit px-5 py-3`}>
           <span className={tw`flex-1 font-semibold tracking-tight text-slate-800`}>Your Workspaces</span>
-          {/* <Button>View All Workspaces</Button> */}
           <Button
-            onPress={() => void dataClient.fetch(WorkspaceCreateEndpoint, { name: 'New Workspace' })}
+            onPress={() =>
+              void workspaceCollection.utils.insert({
+                name: 'New Workspace',
+                order: getNextOrder(workspaceCollection),
+                workspaceId: Ulid.generate().bytes,
+              })
+            }
             variant='primary'
           >
             Add Workspace
@@ -73,7 +73,7 @@ export const WorkspaceListPage = () => {
           items={workspaces}
           selectionMode='none'
         >
-          {(_) => <Item containerRef={containerRef} data={_} id={Ulid.construct(_.workspaceId).toCanonical()} />}
+          {(_) => <Item containerRef={containerRef} id={workspaceCollection.utils.getKey(_)} />}
         </ListBox>
       </div>
     </div>
@@ -82,30 +82,47 @@ export const WorkspaceListPage = () => {
 
 interface ItemProps {
   containerRef: RefObject<HTMLDivElement | null>;
-  data: WorkspaceListItemEntity;
   id: string;
 }
 
-const Item = ({
-  containerRef,
-  data: { collectionCount, flowCount, name, updated, workspaceId },
-  id: workspaceIdCan,
-}: ItemProps) => {
-  const { dataClient } = rootRouteApi.useRouteContext();
+const Item = ({ containerRef, id }: ItemProps) => {
+  const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
-  const [workspaceUpdate, workspaceUpdateLoading] = useMutate(WorkspaceUpdateEndpoint);
+  const { workspaceId } = workspaceCollection.utils.parseKeyUnsafe(id);
+
+  const workspaceUlid = Ulid.construct(workspaceId);
+
+  const { name, updated } = pipe(
+    useLiveQuery((_) =>
+      _.from({ workspace: workspaceCollection })
+        .fn.where((_) => idEqual(Ulid.construct(_.workspace.workspaceId), workspaceUlid))
+        .select((_) => pick(_.workspace, 'name', 'updated'))
+        .findOne(),
+    ),
+    (_) => Option.fromNullable(_.data),
+    Option.getOrThrow,
+  );
+
+  const fileCollection = useApiCollection(FileCollectionSchema);
+
+  const { data: { fileCount = 0 } = {} } = useLiveQuery((_) =>
+    _.from({ file: fileCollection })
+      .fn.where((_) => idEqual(Ulid.construct(_.file.workspaceId), workspaceUlid))
+      .select((_) => ({ fileCount: count(_.file.fileId) }))
+      .findOne(),
+  );
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => workspaceUpdate({ name: _, workspaceId }),
+    onSuccess: (_) => workspaceCollection.utils.update({ name: _, workspaceId }),
     value: name,
   });
 
   return (
-    <ListBoxItem id={workspaceIdCan} textValue={name}>
+    <ListBoxItem id={id} textValue={name}>
       <div className={tw`flex items-center gap-3 px-5 py-4`} onContextMenu={onContextMenu}>
         <Avatar shape='square' size='md'>
           {name}
@@ -124,7 +141,7 @@ const Item = ({
             )}
             ref={escapeRef}
           >
-            <Link params={{ workspaceIdCan }} to={workspaceRouteApi.id}>
+            <Link params={{ workspaceIdCan: workspaceUlid.toCanonical() }} to={workspaceRouteApi.id}>
               {name}
             </Link>
           </div>
@@ -135,18 +152,13 @@ const Item = ({
                 aria-label='Workspace name'
                 className={tw`justify-self-start`}
                 inputClassName={tw`-mt-1 py-1 text-md leading-none font-semibold tracking-tight text-slate-800`}
-                isDisabled={workspaceUpdateLoading}
                 {...textFieldProps}
               />,
             )}
 
           <div className={tw`flex items-center gap-2`}>
-            {/* <span>
-            by <strong className={tw`font-medium`}>N/A</strong>
-          </span> */}
-            {/* <div className={tw`size-0.5 rounded-full bg-slate-400`} /> */}
             <span>
-              Created <TimeAgo date={Ulid.construct(workspaceId).time} minPeriod={60} />
+              Created <TimeAgo date={workspaceUlid.time} minPeriod={60} />
             </span>
             {updated && (
               <>
@@ -157,27 +169,11 @@ const Item = ({
               </>
             )}
           </div>
-          <span>Collection</span>
+          <span>Files</span>
           <div className={tw`flex items-center gap-1`}>
             <CollectionIcon />
-            <strong className={tw`font-semibold text-slate-800`}>{collectionCount}</strong>
+            <strong className={tw`font-semibold text-slate-800`}>{fileCount}</strong>
           </div>
-          <span>Flows</span>
-          <div className={tw`flex items-center gap-1`}>
-            <FlowsIcon />
-            <strong className={tw`font-semibold text-slate-800`}>{flowCount}</strong>
-          </div>
-          {/* <span>N/A Members</span> */}
-          {/* <div className={tw`flex gap-2`}>
-          <div className={tw`flex`}>
-            {['A', 'B', 'C', 'D'].map((_) => (
-              <Avatar key={_} className={tw`-ml-1.5 first:ml-0`}>
-                {_}
-              </Avatar>
-            ))}
-          </div>
-          <AddButton />
-        </div> */}
         </div>
 
         <MenuTrigger {...menuTriggerProps}>
@@ -187,7 +183,7 @@ const Item = ({
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
-            <MenuItem onAction={() => void dataClient.fetch(WorkspaceDeleteEndpoint, { workspaceId })} variant='danger'>
+            <MenuItem onAction={() => void workspaceCollection.utils.delete({ workspaceId })} variant='danger'>
               Delete
             </MenuItem>
           </Menu>

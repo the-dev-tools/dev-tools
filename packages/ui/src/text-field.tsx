@@ -13,7 +13,7 @@ import { composeStyleRenderProps, composeTailwindRenderProps } from './utils';
 // Editable text state
 
 export interface UseEditableTextStateProps {
-  onSuccess: (value: string) => Promise<unknown>;
+  onSuccess: (value: string) => unknown;
   value: string;
 }
 
