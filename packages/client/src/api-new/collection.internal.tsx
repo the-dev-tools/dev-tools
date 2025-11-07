@@ -1,5 +1,5 @@
 import { CollectionConfig, createCollection, createOptimisticAction, Transaction } from '@tanstack/react-db';
-import { Array, Effect, HashMap, Match, pipe, Predicate, Record } from 'effect';
+import { Array, Effect, HashMap, Match, pipe, Predicate, Record, Struct } from 'effect';
 import { Ulid } from 'id128';
 import { UnsetSchema } from '@the-dev-tools/spec/global/v1/global_pb';
 import { schemas_v1_api } from '@the-dev-tools/spec/tanstack-db/v1/api';
@@ -32,20 +32,28 @@ export type ApiCollection<TSchema extends ApiCollectionSchema> = ReturnType<type
 
 const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchema, transport: Connect.Transport) => {
   type Item = Protobuf.MessageValidType<TSchema['item']>;
+  type ItemKey<T = TSchema['keys'][number]> = T extends keyof Item ? T : never;
+  type ItemKeyObject = Pick<Item, ItemKey>;
   type SpecCollectionOptions = CollectionConfig<Item, string>;
 
   let params: Parameters<SpecCollectionOptions['sync']['sync']>[0];
   let lastSyncTime = 0;
 
-  const getKey: SpecCollectionOptions['getKey'] = (item) =>
-    pipe(
-      Record.fromIterableWith(schema.keys, (_) => [_, item[_ as keyof Item]]),
-      Record.map((_: unknown, key) => {
-        if (key.includes('Id') && Predicate.isUint8Array(_)) return Ulid.construct(_).toCanonical();
-        return _;
+  const getKeyObject = (item: ItemKeyObject) => Struct.pick(item, ...(schema.keys as ItemKey[]));
+
+  const getKey = (item: ItemKeyObject) =>
+    pipe(getKeyObject(item) as Record<string, unknown>, (_) =>
+      JSON.stringify(_, (key, value: unknown) => {
+        if (key.endsWith('Id') && Predicate.isUint8Array(value)) return Ulid.construct(value).toCanonical();
+        return value;
       }),
-      JSON.stringify,
     );
+
+  const parseKeyUnsafe = (key: string) =>
+    JSON.parse(key, (key, value: unknown) => {
+      if (key.endsWith('Id') && typeof value === 'string') return Ulid.fromCanonical(value).bytes;
+      return value;
+    }) as ItemKeyObject;
 
   const sync: SpecCollectionOptions['sync']['sync'] = (_) => {
     params = _;
@@ -233,6 +241,9 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
 
     return {
       ...operations,
+      getKey,
+      getKeyObject,
+      parseKeyUnsafe,
       waitForSync,
     };
   };
