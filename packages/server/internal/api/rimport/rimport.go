@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	devtoolsdb "the-dev-tools/db"
 	"the-dev-tools/server/internal/api"
@@ -76,6 +78,23 @@ import (
 
 // TODO: this is need be switch to id based system later
 var lastHar thar.HAR
+
+// Feature flag for HAR translator migration
+// Set environment variable USE_MODERN_HAR_TRANSLATOR=true to enable the new implementation
+var useModernHARTranslator = func() bool {
+	val := os.Getenv("USE_MODERN_HAR_TRANSLATOR")
+	if val == "" {
+		return false // Default to legacy for safety
+	}
+	enabled, err := strconv.ParseBool(val)
+	if err != nil {
+		return false
+	}
+	return enabled
+}()
+
+// Global HAR translator instance
+var harTranslator HARTranslator = GetHARTranslator(useModernHARTranslator)
 
 // Custom error types to distinguish between parsing and database errors
 var (
@@ -488,9 +507,9 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid json"))
 		}
 
-		har, err := thar.ConvertRaw(data)
+		har, err := harTranslator.ConvertRaw(data)
 		if err == nil {
-			domains := collectHarDomains(har)
+			domains := harTranslator.collectHarDomains(har)
 			if len(domains) == 0 {
 				flow, importErr := c.ImportHar(ctx, wsUlid, collectionID, collectionName, har, domainSet)
 				if importErr != nil {
@@ -534,7 +553,7 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid json"))
 		}
 
-		har, err := thar.ConvertRaw(data)
+		har, err := harTranslator.ConvertRaw(data)
 		if err != nil {
 			postman, perr := tpostman.ParsePostmanCollection(data)
 			if perr != nil {
@@ -549,7 +568,7 @@ func (c *ImportRPC) Import(ctx context.Context, req *connect.Request[importv1.Im
 		harToUse = *har
 	}
 
-	filteredEntries := filterHarEntries(harToUse.Log.Entries, domainSet)
+	filteredEntries := harTranslator.filterHarEntries(harToUse.Log.Entries, domainSet)
 	if len(filteredEntries) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no matching HAR entries for selected domains"))
 	}
@@ -897,7 +916,7 @@ func (c *ImportRPC) ImportHar(ctx context.Context, workspaceID, CollectionID idw
 	}
 
 	// Import HAR data into collection with existing folder info
-	resolved, err := thar.ConvertHARWithExistingData(harData, CollectionID, workspaceID, existingFolders)
+	resolved, err := harTranslator.ConvertHARWithExistingData(harData, CollectionID, workspaceID, existingFolders)
 	if err != nil {
 		// HAR conversion failed
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -2001,6 +2020,7 @@ func newDomainVariableSet(data []*importv1.ImportDomainData) domainVariableSet {
 	return set
 }
 
+// collectHarDomains is kept for non-interface usage
 func collectHarDomains(har *thar.HAR) []string {
 	domains := make(map[string]struct{}, len(har.Log.Entries))
 	for _, entry := range har.Log.Entries {
@@ -2024,6 +2044,7 @@ func collectHarDomains(har *thar.HAR) []string {
 	return keys
 }
 
+// filterHarEntries is kept for non-interface usage
 func filterHarEntries(entries []thar.Entry, domains domainVariableSet) []thar.Entry {
 	if len(domains.selected) == 0 {
 		return entries
