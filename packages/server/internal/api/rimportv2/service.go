@@ -342,6 +342,20 @@ func isXHRRequest(req *mhttp.HTTP) bool {
 		}
 	}
 
+	// Check hostname for API patterns
+	host := strings.ToLower(parsedURL.Hostname())
+	hostnameAPIIndicators := []string{
+		"api.", "api-", ".api", // API subdomain patterns
+		"rest.", "rest-", ".rest", // REST API patterns
+		"graph.", "graph-", ".graph", // GraphQL patterns
+	}
+
+	for _, indicator := range hostnameAPIIndicators {
+		if strings.Contains(host, indicator) {
+			return true
+		}
+	}
+
 	// Check for HTTP methods commonly used in XHR
 	xhrMethods := map[string]bool{
 		"POST": true, "PUT": true, "PATCH": true, "DELETE": true,

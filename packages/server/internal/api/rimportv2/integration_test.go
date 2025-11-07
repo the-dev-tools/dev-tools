@@ -167,7 +167,7 @@ func TestImportRPC_Integration(t *testing.T) {
 			domainData:  []ImportDomainData{},
 			expectError: false,
 			expectResp: func(resp *apiv1.ImportResponse) bool {
-				return len(resp.Domains) >= 2 // Should find api.example.com and cdn.example.com
+				return len(resp.Domains) >= 1 // Should find api.example.com (XHR request), but not cdn.example.com (CSS file)
 			},
 		},
 		{
