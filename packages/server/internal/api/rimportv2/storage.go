@@ -153,12 +153,25 @@ func (t *defaultHARTranslator) validateHARStructure(data []byte) error {
 	}
 
 	// Basic HAR structure validation
-	if log, ok := har["log"]; !ok {
+	log, ok := har["log"]
+	if !ok {
 		return ErrInvalidHARFormat
-	} else if logMap, ok := log.(map[string]interface{}); !ok {
+	}
+
+	logMap, ok := log.(map[string]interface{})
+	if !ok {
 		return ErrInvalidHARFormat
-	} else if _, ok := logMap["entries"]; !ok {
+	}
+
+	if _, ok := logMap["entries"]; !ok {
 		return ErrInvalidHARFormat
+	}
+
+	// Validate version field type - must be a string according to HAR spec
+	if version, ok := logMap["version"]; ok {
+		if _, ok := version.(string); !ok {
+			return ErrInvalidHARFormat
+		}
 	}
 
 	return nil
