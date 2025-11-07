@@ -10,22 +10,16 @@ import (
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
-// HARTranslator handles HAR file processing and conversion to modern models
-type HARTranslator interface {
-	ConvertHAR(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error)
-}
-
-// StorageManager coordinates all database operations for imported data
-type StorageManager interface {
+// Importer handles the complete import pipeline: HAR processing and storage
+type Importer interface {
+	// Process and store HAR data with modern models
+	ImportAndStore(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error)
+	// Store individual entity types
 	StoreHTTPEntities(ctx context.Context, httpReqs []*mhttp.HTTP) error
 	StoreFiles(ctx context.Context, files []*mfile.File) error
 	StoreFlow(ctx context.Context, flow *mflow.Flow) error
+	// Store complete import results atomically
 	StoreImportResults(ctx context.Context, results *ImportResults) error
-}
-
-// FlowGenerator handles flow creation from imported HTTP requests
-type FlowGenerator interface {
-	CreateFlow(ctx context.Context, workspaceID idwrap.IDWrap, name string, httpReqs []*mhttp.HTTP) (*mflow.Flow, error)
 }
 
 // Validator handles input validation for import requests
@@ -34,18 +28,13 @@ type Validator interface {
 	ValidateWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error
 }
 
-// DomainProcessor handles domain variable processing for templating
-type DomainProcessor interface {
-	ProcessDomainData(ctx context.Context, domainData []ImportDomainData, workspaceID idwrap.IDWrap) error
-	ApplyDomainTemplate(ctx context.Context, httpReqs []*mhttp.HTTP, domainData []ImportDomainData) ([]*mhttp.HTTP, error)
-}
 
 // ImportResults represents the complete results of an import operation
 type ImportResults struct {
-	Flow       *mflow.Flow
-	HTTPReqs   []*mhttp.HTTP
-	Files      []*mfile.File
-	Domains    []string
+	Flow        *mflow.Flow
+	HTTPReqs    []*mhttp.HTTP
+	Files       []*mfile.File
+	Domains     []string
 	WorkspaceID idwrap.IDWrap
 }
 

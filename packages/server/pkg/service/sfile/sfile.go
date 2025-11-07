@@ -151,7 +151,7 @@ func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) 
 		// Convert to domain model and create adapter
 		folder := &mitemfolder.ItemFolder{
 			ID:           folderModel.ID,
-			CollectionID: folderModel.CollectionID,
+			CollectionID: idwrap.IDWrap{}, // Empty CollectionID as it's not in database model
 			ParentID:     folderModel.ParentID,
 			Name:         folderModel.Name,
 			Prev:         folderModel.Prev,
@@ -170,7 +170,7 @@ func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) 
 		// Convert to domain model and create adapter
 		api := &mitemapi.ItemApi{
 			ID:              apiModel.ID,
-			CollectionID:    apiModel.CollectionID,
+			CollectionID:    idwrap.IDWrap{}, // Empty CollectionID as it's not in database model
 			FolderID:        apiModel.FolderID,
 			Name:            apiModel.Name,
 			Url:             apiModel.Url,

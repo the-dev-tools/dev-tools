@@ -22,6 +22,7 @@ import (
 	// "the-dev-tools/server/internal/api/redge"
 	"the-dev-tools/server/internal/api/renv"
 	"the-dev-tools/server/internal/api/rflowv2"
+	"the-dev-tools/server/internal/api/rimportv2"
 
 	// "the-dev-tools/server/internal/api/rflowvariable"
 	"the-dev-tools/server/internal/api/rhealth"
@@ -45,6 +46,7 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
+	"the-dev-tools/server/pkg/service/sfile"
 
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
@@ -179,6 +181,9 @@ func main() {
 	httpBodyFormAgg := shttp.NewHttpBodyFormService(queries)
 	httpBodyUrlAgg := shttp.NewHttpBodyUrlencodedService(queries)
 	httpAssertAgg := shttp.NewHttpAssertService(queries)
+
+	// File Service
+	fileService := sfile.New(queries, logger)
 
 	// Flow
 	flowService := sflow.New(queries)
@@ -368,6 +373,18 @@ func main() {
 
 	logSrv := rlog.New(logStreamer)
 	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
+
+	// ImportV2 Service
+	importV2Srv := rimportv2.NewImportV2RPC(
+		currentDB,
+		workspaceService,
+		userService,
+		&httpService,
+		&flowService,
+		fileService,
+		logger,
+	)
+	newServiceManager.AddService(rimportv2.CreateImportV2Service(*importV2Srv, opitonsAll))
 
 	// Export Service - Temporarily disabled due to missing dependencies
 	// exportSrv := rexport.New(

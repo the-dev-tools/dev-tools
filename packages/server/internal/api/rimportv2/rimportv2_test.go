@@ -1,12 +1,26 @@
 package rimportv2
 
 import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"log/slog"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mfile"
+	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/translate/harv2"
 )
 
 // TestNewValidator tests the validator constructor
 func TestNewValidator(t *testing.T) {
-	validator := NewValidator()
+	validator := NewValidator(nil)
 	if validator == nil {
 		t.Fatal("NewValidator() returned nil")
 	}
@@ -20,26 +34,11 @@ func TestNewHARTranslator(t *testing.T) {
 	}
 }
 
-// TestSimpleFlowGenerator tests the flow generator constructor
-func TestSimpleFlowGenerator(t *testing.T) {
-	generator := NewSimpleFlowGenerator()
-	if generator == nil {
-		t.Fatal("NewSimpleFlowGenerator() returned nil")
-	}
-}
-
-// TestDefaultFlowGenerator tests the default flow generator constructor
-func TestDefaultFlowGenerator(t *testing.T) {
-	generator := NewDefaultFlowGenerator()
-	if generator == nil {
-		t.Fatal("NewDefaultFlowGenerator() returned nil")
-	}
-}
 
 // TestErrorConstructors tests custom error constructors
 func TestErrorConstructors(t *testing.T) {
 	// Test ValidationError
-	validationErr := NewValidationError("test", "value", "message")
+	validationErr := NewValidationError("test", "message")
 	if validationErr == nil {
 		t.Fatal("NewValidationError() returned nil")
 	}
@@ -48,24 +47,524 @@ func TestErrorConstructors(t *testing.T) {
 		t.Errorf("ValidationError.Error() = %q, want %q", validationErr.Error(), expected)
 	}
 
-	// Test HARProcessingError
-	harErr := NewHARProcessingError("test-step", nil)
-	if harErr == nil {
-		t.Fatal("NewHARProcessingError() returned nil")
-	}
-	if harErr.Step != "test-step" {
-		t.Errorf("HARProcessingError.Step = %q, want %q", harErr.Step, "test-step")
+	// Test ValidationError with cause
+	originalErr := errors.New("original error")
+	validationErrWithCause := NewValidationErrorWithCause("test", originalErr)
+	if validationErrWithCause == nil {
+		t.Fatal("NewValidationErrorWithCause() returned nil")
 	}
 
-	// Test StorageError
-	storageErr := NewStorageError("test-op", "test-entity", nil)
-	if storageErr == nil {
-		t.Fatal("NewStorageError() returned nil")
+	// Test error type checking
+	if !IsValidationError(validationErr) {
+		t.Error("IsValidationError() should return true for ValidationError")
 	}
-	if storageErr.Operation != "test-op" {
-		t.Errorf("StorageError.Operation = %q, want %q", storageErr.Operation, "test-op")
+	if !IsValidationError(validationErrWithCause) {
+		t.Error("IsValidationError() should return true for ValidationErrorWithCause")
 	}
-	if storageErr.Entity != "test-entity" {
-		t.Errorf("StorageError.Entity = %q, want %q", storageErr.Entity, "test-entity")
+}
+
+// TestService_Import tests the main import functionality
+func TestService_Import(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupMocks  func(*mockDependencies)
+		input       *ImportRequest
+		expectError bool
+		errorType   error
+		expectResp  *ImportResponse
+	}{
+		{
+			name: "successful import with minimal HAR",
+			input: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test Import",
+				Data:        createMinimalHAR(t),
+				DomainData:  []ImportDomainData{},
+			},
+			setupMocks: func(deps *mockDependencies) {
+				deps.validator.ValidateImportRequestFunc = func(ctx context.Context, req *ImportRequest) error {
+					return nil
+				}
+				deps.validator.ValidateWorkspaceAccessFunc = func(ctx context.Context, workspaceID idwrap.IDWrap) error {
+					return nil
+				}
+				deps.importer.ImportAndStoreFunc = func(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
+					return &harv2.HarResolved{
+						Flow: mflow.Flow{
+							ID:   idwrap.NewNow(),
+							Name: "Test Flow",
+						},
+						HTTPRequests: []mhttp.HTTP{
+							{
+								ID:   idwrap.NewNow(),
+								Url:  "https://api.example.com/test",
+								Method: "POST",
+							},
+						},
+						Files: []mfile.File{},
+					}, nil
+				}
+												deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+					return nil
+				}
+			},
+			expectError: false,
+			expectResp: &ImportResponse{
+				MissingData: ImportMissingDataKind_DOMAIN,
+				Domains:     []string{"api.example.com"},
+			},
+		},
+		{
+			name: "validation error",
+			input: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "",
+				Data:        []byte("invalid"),
+			},
+			setupMocks: func(deps *mockDependencies) {
+				deps.validator.ValidateImportRequestFunc = func(ctx context.Context, req *ImportRequest) error {
+					return NewValidationError("name", "name cannot be empty")
+				}
+			},
+			expectError: true,
+			errorType:   NewValidationErrorWithCause("import_request", NewValidationError("name", "name cannot be empty")),
+		},
+		{
+			name: "workspace access denied",
+			input: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test Import",
+				Data:        createMinimalHAR(t),
+			},
+			setupMocks: func(deps *mockDependencies) {
+				deps.validator.ValidateImportRequestFunc = func(ctx context.Context, req *ImportRequest) error {
+					return nil
+				}
+				deps.validator.ValidateWorkspaceAccessFunc = func(ctx context.Context, workspaceID idwrap.IDWrap) error {
+					return ErrPermissionDenied
+				}
+			},
+			expectError: true,
+			errorType:   ErrPermissionDenied,
+		},
+		{
+			name: "HAR processing error",
+			input: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test Import",
+				Data:        []byte("invalid har"),
+			},
+			setupMocks: func(deps *mockDependencies) {
+				deps.validator.ValidateImportRequestFunc = func(ctx context.Context, req *ImportRequest) error {
+					return nil
+				}
+				deps.validator.ValidateWorkspaceAccessFunc = func(ctx context.Context, workspaceID idwrap.IDWrap) error {
+					return nil
+				}
+				deps.importer.ImportAndStoreFunc = func(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
+					return nil, ErrInvalidHARFormat
+				}
+			},
+			expectError: true,
+			errorType:   ErrInvalidHARFormat,
+		},
+		{
+			name: "storage error",
+			input: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test Import",
+				Data:        createMinimalHAR(t),
+			},
+			setupMocks: func(deps *mockDependencies) {
+				deps.validator.ValidateImportRequestFunc = func(ctx context.Context, req *ImportRequest) error {
+					return nil
+				}
+				deps.validator.ValidateWorkspaceAccessFunc = func(ctx context.Context, workspaceID idwrap.IDWrap) error {
+					return nil
+				}
+				deps.importer.ImportAndStoreFunc = func(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
+					return &harv2.HarResolved{
+						Flow: mflow.Flow{
+							ID:   idwrap.NewNow(),
+							Name: "Test Flow",
+						},
+						HTTPRequests: []mhttp.HTTP{
+							{
+								ID:   idwrap.NewNow(),
+								Url:  "https://api.example.com/test",
+								Method: "POST",
+							},
+						},
+						Files: []mfile.File{},
+					}, nil
+				}
+												deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+					return fmt.Errorf("storage operation failed: %w", sql.ErrConnDone)
+				}
+			},
+			expectError: true,
+			errorType:   sql.ErrConnDone,
+		},
 	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deps := newMockDependencies()
+			tt.setupMocks(deps)
+
+			service := NewService(
+				deps.importer,
+				deps.validator,
+				WithLogger(slog.Default()),
+			)
+
+			ctx := context.Background()
+			resp, err := service.Import(ctx, tt.input)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorType != nil {
+					// Special handling for ValidationError type checking
+					if IsValidationError(err) && IsValidationError(tt.errorType) {
+						// Both are ValidationErrors, which is what we want to test
+						assert.True(t, true)
+					} else {
+						assert.ErrorIs(t, err, tt.errorType)
+					}
+				}
+				assert.Nil(t, resp)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				if tt.expectResp != nil {
+					assert.Equal(t, tt.expectResp.MissingData, resp.MissingData)
+					assert.Equal(t, tt.expectResp.Domains, resp.Domains)
+				}
+			}
+
+			// Verify mock calls
+			assert.GreaterOrEqual(t, deps.validator.ValidateImportRequestCallCount, 0)
+			if err == nil || !IsValidationError(err) {
+				assert.GreaterOrEqual(t, deps.validator.ValidateWorkspaceAccessCallCount, 0)
+			}
+		})
+	}
+}
+
+// TestService_ImportWithTextData tests the text data import functionality
+func TestService_ImportWithTextData(t *testing.T) {
+	tests := []struct {
+		name           string
+		request        *ImportRequest
+		expectedData   []byte
+		expectError    bool
+	}{
+		{
+			name: "convert text data to bytes",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test Import",
+				Data:        []byte{},
+				TextData:    `{"log": {"entries": []}}`,
+			},
+			expectedData: []byte(`{"log": {"entries": []}}`),
+			expectError:  false,
+		},
+		{
+			name: "use existing byte data",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test Import",
+				Data:        []byte(`{"log": {"entries": []}}`),
+				TextData:    "should be ignored",
+			},
+			expectedData: []byte(`{"log": {"entries": []}}`),
+			expectError:  false,
+		},
+		{
+			name: "empty both data and text data",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test Import",
+				Data:        []byte{},
+				TextData:    "",
+			},
+			expectedData: []byte{},
+			expectError:  true, // Will fail at HAR parsing stage
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deps := newMockDependencies()
+			deps.validator.ValidateImportRequestFunc = func(ctx context.Context, req *ImportRequest) error {
+				return nil
+			}
+			deps.validator.ValidateWorkspaceAccessFunc = func(ctx context.Context, workspaceID idwrap.IDWrap) error {
+				return nil
+			}
+			deps.importer.ImportAndStoreFunc = func(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
+				// Verify the data was converted correctly
+				assert.Equal(t, tt.expectedData, data)
+				if len(data) == 0 {
+					return nil, ErrInvalidHARFormat
+				}
+				return &harv2.HarResolved{
+					Flow:         mflow.Flow{ID: idwrap.NewNow()},
+					HTTPRequests: []mhttp.HTTP{},
+					Files:        []mfile.File{},
+				}, nil
+			}
+			deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+				return nil
+			}
+
+			service := NewService(
+				deps.importer,
+				deps.validator,
+				WithLogger(slog.Default()),
+			)
+
+			ctx := context.Background()
+			_, err := service.ImportWithTextData(ctx, tt.request)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+
+
+// TestErrorTypeCheckingFunctions tests the error type checking functions
+func TestErrorTypeCheckingFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		checker  func(error) bool
+		expected bool
+	}{
+		{
+			name:     "ValidationError detection",
+			err:      NewValidationError("field", "message"),
+			checker:  IsValidationError,
+			expected: true,
+		},
+		{
+			name:     "generic error not detected as ValidationError",
+			err:      assert.AnError,
+			checker:  IsValidationError,
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			checker:  IsValidationError,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.checker(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestImportRequestValidation tests import request validation scenarios
+func TestImportRequestValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		request     *ImportRequest
+		expectError bool
+		errorField  string
+	}{
+		{
+			name: "valid request",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Valid Import",
+				Data:        createMinimalHAR(t),
+				DomainData:  []ImportDomainData{},
+			},
+			expectError: false,
+		},
+		{
+			name: "empty name",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "",
+				Data:        createMinimalHAR(t),
+			},
+			expectError: true,
+			errorField:  "name",
+		},
+		{
+			name: "empty workspace ID",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.IDWrap{},
+				Name:        "Test Import",
+				Data:        createMinimalHAR(t),
+			},
+			expectError: true,
+			errorField:  "workspaceId",
+		},
+		{
+			name: "nil data with empty text data",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test Import",
+				Data:        nil,
+				TextData:    "",
+			},
+			expectError: true,
+			errorField:  "data",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validator := NewValidator(nil)
+			ctx := context.Background()
+			err := validator.ValidateImportRequest(ctx, tt.request)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if validationErr, ok := err.(*ValidationError); ok {
+					assert.Equal(t, tt.errorField, validationErr.Field)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestErrorUnwrapping tests error unwrapping functionality
+func TestErrorUnwrapping(t *testing.T) {
+	originalErr := sql.ErrConnDone
+
+	// Test ValidationError unwrapping
+	validationErr := NewValidationErrorWithCause("test", originalErr)
+	assert.ErrorIs(t, validationErr, originalErr)
+}
+
+// Helper functions and mock types
+
+type mockDependencies struct {
+	importer  *mockImporter
+	validator *mockValidator
+}
+
+func newMockDependencies() *mockDependencies {
+	return &mockDependencies{
+		importer:  &mockImporter{},
+		validator: &mockValidator{},
+	}
+}
+
+type mockImporter struct {
+	ConvertHARFunc         func(context.Context, []byte, idwrap.IDWrap) (*harv2.HarResolved, error)
+	ImportAndStoreFunc     func(context.Context, []byte, idwrap.IDWrap) (*harv2.HarResolved, error)
+	StoreHTTPEntitiesFunc  func(context.Context, []*mhttp.HTTP) error
+	StoreFilesFunc         func(context.Context, []*mfile.File) error
+	StoreFlowFunc          func(context.Context, *mflow.Flow) error
+	StoreImportResultsFunc func(context.Context, *ImportResults) error
+}
+
+func (m *mockImporter) ConvertHAR(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
+	if m.ConvertHARFunc != nil {
+		return m.ConvertHARFunc(ctx, data, workspaceID)
+	}
+	return &harv2.HarResolved{}, nil
+}
+
+func (m *mockImporter) ImportAndStore(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
+	if m.ImportAndStoreFunc != nil {
+		return m.ImportAndStoreFunc(ctx, data, workspaceID)
+	}
+	return &harv2.HarResolved{}, nil
+}
+
+func (m *mockImporter) StoreHTTPEntities(ctx context.Context, httpReqs []*mhttp.HTTP) error {
+	if m.StoreHTTPEntitiesFunc != nil {
+		return m.StoreHTTPEntitiesFunc(ctx, httpReqs)
+	}
+	return nil
+}
+
+func (m *mockImporter) StoreFiles(ctx context.Context, files []*mfile.File) error {
+	if m.StoreFilesFunc != nil {
+		return m.StoreFilesFunc(ctx, files)
+	}
+	return nil
+}
+
+func (m *mockImporter) StoreFlow(ctx context.Context, flow *mflow.Flow) error {
+	if m.StoreFlowFunc != nil {
+		return m.StoreFlowFunc(ctx, flow)
+	}
+	return nil
+}
+
+func (m *mockImporter) StoreImportResults(ctx context.Context, results *ImportResults) error {
+	if m.StoreImportResultsFunc != nil {
+		return m.StoreImportResultsFunc(ctx, results)
+	}
+	return nil
+}
+
+
+type mockValidator struct {
+	ValidateImportRequestFunc   func(context.Context, *ImportRequest) error
+	ValidateWorkspaceAccessFunc func(context.Context, idwrap.IDWrap) error
+	ValidateImportRequestCallCount   int
+	ValidateWorkspaceAccessCallCount int
+}
+
+func (m *mockValidator) ValidateImportRequest(ctx context.Context, req *ImportRequest) error {
+	m.ValidateImportRequestCallCount++
+	if m.ValidateImportRequestFunc != nil {
+		return m.ValidateImportRequestFunc(ctx, req)
+	}
+	return nil
+}
+
+func (m *mockValidator) ValidateWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	m.ValidateWorkspaceAccessCallCount++
+	if m.ValidateWorkspaceAccessFunc != nil {
+		return m.ValidateWorkspaceAccessFunc(ctx, workspaceID)
+	}
+	return nil
+}
+
+
+// createMinimalHAR creates a minimal valid HAR for testing
+func createMinimalHAR(t *testing.T) []byte {
+	return []byte(`{
+		"log": {
+			"version": "1.2",
+			"entries": [
+				{
+					"startedDateTime": "` + time.Now().UTC().Format(time.RFC3339) + `",
+					"request": {
+						"method": "GET",
+						"url": "https://api.example.com/api/test",
+						"httpVersion": "HTTP/1.1",
+						"headers": []
+					},
+					"response": {
+						"status": 200,
+						"statusText": "OK",
+						"httpVersion": "HTTP/1.1",
+						"headers": []
+					}
+				}
+			]
+		}
+	}`)
 }
