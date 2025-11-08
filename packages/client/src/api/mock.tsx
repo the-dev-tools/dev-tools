@@ -1,4 +1,17 @@
-import { Array, Data, Effect, MutableHashMap, Option, pipe, Queue, Record, Runtime, Stream } from 'effect';
+import {
+  Array,
+  Cause,
+  Data,
+  Duration,
+  Effect,
+  MutableHashMap,
+  Option,
+  pipe,
+  Queue,
+  Record,
+  Runtime,
+  Stream,
+} from 'effect';
 import { Ulid } from 'id128';
 import { files } from '@the-dev-tools/spec/files';
 import { schemas_v1_api as collections } from '@the-dev-tools/spec/tanstack-db/v1/api';
@@ -165,11 +178,38 @@ const getStreamQueue = Effect.fn(function* (method: Protobuf.DescMethod, input?:
 });
 
 const mockInterceptor = Effect.fn(function* (next: Connect.InterceptorNext, request: Connect.InterceptorRequest) {
+  const { name } = request.method;
+
+  const delay = Duration.decode('500 millis');
+
+  yield* Effect.annotateLogsScoped({ delay: Duration.format(delay), request });
+
+  if (request.stream) yield* Effect.logDebug(`Mock stream init ${name}`);
+
   const response = yield* Effect.tryPromise(() => next(request));
-  yield* Effect.logDebug(`Mocking ${request.url}`, { request, response });
-  yield* Effect.sleep('500 millis');
-  return response;
-});
+
+  yield* Effect.annotateLogsScoped({ response });
+
+  if (response.stream) {
+    const message = yield* pipe(
+      Stream.fromAsyncIterable(response.message, (_) => new Cause.UnknownException(_)),
+      Stream.tap(
+        Effect.fn(function* (message) {
+          yield* Effect.annotateLogsScoped({ message });
+          yield* Effect.logDebug(`Mock stream message ${name}`);
+          yield* Effect.sleep(delay);
+        }, Effect.scoped),
+      ),
+      Stream.toAsyncIterableEffect,
+    );
+
+    return { ...response, message };
+  } else {
+    yield* Effect.logDebug(`Mock request ${name}`);
+    yield* Effect.sleep(delay);
+    return response;
+  }
+}, Effect.scoped);
 
 class ApiMockState extends Effect.Service<ApiMockState>()('ApiMockState', {
   sync: () => ({
