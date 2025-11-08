@@ -53,10 +53,10 @@ export const WorkspaceListPage = () => {
         <div className={tw`flex items-center gap-2 border-b border-inherit px-5 py-3`}>
           <span className={tw`flex-1 font-semibold tracking-tight text-slate-800`}>Your Workspaces</span>
           <Button
-            onPress={() =>
+            onPress={async () =>
               void workspaceCollection.utils.insert({
                 name: 'New Workspace',
-                order: getNextOrder(workspaceCollection),
+                order: await getNextOrder(workspaceCollection),
                 workspaceId: Ulid.generate().bytes,
               })
             }

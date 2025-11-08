@@ -6,10 +6,10 @@ export const pick = <T extends object, K extends (keyof T)[]>(s: T, ...keys: K) 
   return out as Pick<T, K[number]>;
 };
 
-export const queryCollection = <TContext extends Context>(
+export const queryCollection = async <TContext extends Context>(
   query: (q: InitialQueryBuilder) => QueryBuilder<TContext>,
 ) => {
   const liveQueryCollection = createLiveQueryCollection(query);
-  liveQueryCollection.startSyncImmediate();
+  await liveQueryCollection.preload();
   return [...liveQueryCollection.values()];
 };
