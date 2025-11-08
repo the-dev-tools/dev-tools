@@ -30,8 +30,8 @@ export interface StreamOptions<I extends Protobuf.DescMessage, O extends Protobu
   method: Protobuf.DescMethodServerStreaming<I, O>;
 }
 
-export const stream = <I extends Protobuf.DescMessage, O extends Protobuf.DescMessage>(_: StreamOptions<I, O>) =>
-  _.transport.stream(
+export async function* stream<I extends Protobuf.DescMessage, O extends Protobuf.DescMessage>(_: StreamOptions<I, O>) {
+  const response = await _.transport.stream(
     _.method,
     _.signal,
     _.timeoutMs,
@@ -39,6 +39,9 @@ export const stream = <I extends Protobuf.DescMessage, O extends Protobuf.DescMe
     createAsyncIterable([_.input ?? ({} as Protobuf.MessageInitShape<I>)]),
     _.contextValues,
   );
+
+  yield* response.message;
+}
 
 // eslint-disable-next-line @typescript-eslint/require-await
 async function* createAsyncIterable<T>(items: T[]): AsyncIterable<T> {

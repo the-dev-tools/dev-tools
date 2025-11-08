@@ -96,24 +96,29 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
     const syncController = new AbortController();
 
     const sync = async () => {
-      const stream = await Connect.stream({ method: schema.sync.method, signal: syncController.signal, transport });
+      const stream = Connect.stream({ method: schema.sync.method, signal: syncController.signal, transport });
 
-      for await (const response of stream.message) {
-        const valid = Protobuf.validate(schema.sync.method.output, response);
+      try {
+        for await (const response of stream) {
+          const valid = Protobuf.validate(schema.sync.method.output, response);
 
-        if (valid.kind !== 'valid') {
-          console.error('Invalid sync data', valid);
-          continue;
+          if (valid.kind !== 'valid') {
+            console.error('Invalid sync data', valid);
+            continue;
+          }
+
+          const { items } = valid.message as Protobuf.Message & { items: Protobuf.Message[] };
+
+          if (!initialSyncState.isComplete) {
+            initialSyncState.buffer = initialSyncState.buffer.concat(items);
+            continue;
+          }
+
+          processSync(items);
         }
-
-        const { items } = valid.message as Protobuf.Message & { items: Protobuf.Message[] };
-
-        if (!initialSyncState.isComplete) {
-          initialSyncState.buffer = initialSyncState.buffer.concat(items);
-          continue;
-        }
-
-        processSync(items);
+      } catch (error) {
+        if (error instanceof Connect.ConnectError && error.code === Connect.Code.Canceled) return;
+        throw error;
       }
     };
 
@@ -249,7 +254,7 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
   };
 
   return createCollection({
-    gcTime: Infinity,
+    gcTime: 0,
     getKey,
     id: schema.item.typeName,
     startSync: true,
