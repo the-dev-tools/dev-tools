@@ -92,47 +92,65 @@ const mockFieldValue = Effect.fn(function* (field: Protobuf.DescField, depth: nu
   /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 });
 
-const mockMessage = (
-  message: Protobuf.DescMessage,
+const mockField = Effect.fn(function* (field: Protobuf.DescField, depth: number) {
+  const faker = yield* Faker;
+
+  let value: unknown;
+
+  switch (field.fieldKind) {
+    case 'list': {
+      const list = Array.empty<unknown>();
+      value = list;
+      if (depth > 5) break;
+      for (let index = 0; index < faker.number.int({ min: 3, max: 10 }); index++)
+        list.push(yield* mockFieldValue(field, depth));
+      break;
+    }
+
+    case 'map': {
+      const map = Record.empty<string, unknown>();
+      value = map;
+      if (depth > 5) break;
+      const length = faker.number.int({ min: 3, max: 10 });
+      const keys = faker.helpers.uniqueArray(() => faker.word.sample(), length);
+      for (const key of keys) map[key] = yield* mockFieldValue(field, depth);
+      break;
+    }
+
+    default:
+      value = yield* mockFieldValue(field, depth);
+  }
+
+  return value;
+});
+
+const mockMessage = <T extends Protobuf.DescMessage = Protobuf.DescMessage>(
+  message: T,
   depth = 0,
-): Effect.Effect<Protobuf.Message, UnimplementedMockError, Faker> =>
+): Effect.Effect<Protobuf.MessageShape<T>, UnimplementedMockError, Faker> =>
   Effect.gen(function* () {
     const faker = yield* Faker;
 
     switch (message.typeName) {
       case 'google.protobuf.Timestamp':
-        return Protobuf.WKT.timestampFromDate(faker.date.anytime());
+        return Protobuf.WKT.timestampFromDate(faker.date.anytime()) as unknown as Protobuf.MessageShape<T>;
     }
 
     const value: Record<string, unknown> = {};
 
-    for (const [key, field] of Record.toEntries(message.field)) {
-      switch (field.fieldKind) {
-        case 'list': {
-          const list = Array.empty<unknown>();
-          value[key] = list;
-          if (depth > 5) break;
-          for (let index = 0; index < faker.number.int({ min: 3, max: 10 }); index++)
-            list.push(yield* mockFieldValue(field, depth));
-          break;
-        }
-
-        case 'map': {
-          const map = Record.empty<string, unknown>();
-          value[key] = map;
-          if (depth > 5) break;
-          const length = faker.number.int({ min: 3, max: 10 });
-          const keys = faker.helpers.uniqueArray(() => faker.word.sample(), length);
-          for (const key of keys) map[key] = yield* mockFieldValue(field, depth);
-          break;
-        }
-
-        default:
-          value[key] = yield* mockFieldValue(field, depth);
+    for (const member of message.members) {
+      if (member.kind === 'field') {
+        value[member.localName] = yield* mockField(member, depth);
+      } else {
+        const field = faker.helpers.arrayElement(member.fields);
+        value[member.localName] = {
+          case: field.localName,
+          value: yield* mockField(field, depth),
+        };
       }
     }
 
-    return Protobuf.create(message, value);
+    return Protobuf.create(message, value as Protobuf.MessageShape<T>);
   });
 
 const mockMethod = Effect.fn(function* (method: Protobuf.DescMethod) {
@@ -143,7 +161,7 @@ const mockMethod = Effect.fn(function* (method: Protobuf.DescMethod) {
     case 'server_streaming':
       return (input: Protobuf.Message) =>
         Effect.gen(function* () {
-          const queue = yield* getStreamQueue(method, input);
+          const queue = yield* getStreamQueue(method as Protobuf.DescMethodStreaming, input);
 
           for (let index = 0; index < faker.number.int({ min: 3, max: 10 }); index++) {
             const message = yield* mockMessage(method.output);
@@ -161,7 +179,10 @@ const mockMethod = Effect.fn(function* (method: Protobuf.DescMethod) {
   }
 });
 
-const getStreamQueue = Effect.fn(function* (method: Protobuf.DescMethod, input?: Protobuf.Message) {
+const getStreamQueue = Effect.fn(function* <
+  I extends Protobuf.DescMessage = Protobuf.DescMessage,
+  O extends Protobuf.DescMessage = Protobuf.DescMessage,
+>(method: Protobuf.DescMethodStreaming<I, O>, input?: Protobuf.MessageShape<I>) {
   const { streamQueueMap } = yield* ApiMockState;
 
   let key = method.output.typeName;
@@ -169,12 +190,12 @@ const getStreamQueue = Effect.fn(function* (method: Protobuf.DescMethod, input?:
 
   let queue = pipe(MutableHashMap.get(streamQueueMap, key), Option.getOrUndefined);
 
-  if (queue) return queue;
+  if (!queue) {
+    queue = yield* Queue.unbounded();
+    MutableHashMap.set(streamQueueMap, key, queue);
+  }
 
-  queue = yield* Queue.unbounded<Protobuf.Message>();
-  MutableHashMap.set(streamQueueMap, key, queue);
-
-  return queue;
+  return queue as Queue.Queue<Protobuf.MessageInitShape<O>>;
 });
 
 const mockInterceptor = Effect.fn(function* (next: Connect.InterceptorNext, request: Connect.InterceptorRequest) {
@@ -214,7 +235,7 @@ const mockInterceptor = Effect.fn(function* (next: Connect.InterceptorNext, requ
 class ApiMockState extends Effect.Service<ApiMockState>()('ApiMockState', {
   sync: () => ({
     methodImplMap: MutableHashMap.empty<Protobuf.DescMethod>(),
-    streamQueueMap: MutableHashMap.empty<string, Queue.Queue<Protobuf.Message>>(),
+    streamQueueMap: MutableHashMap.empty<string, Queue.Queue<unknown>>(),
   }),
 }) {}
 
