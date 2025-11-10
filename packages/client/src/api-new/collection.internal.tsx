@@ -249,6 +249,7 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
       getKey,
       getKeyObject,
       parseKeyUnsafe,
+      state: () => params,
       waitForSync,
     };
   };

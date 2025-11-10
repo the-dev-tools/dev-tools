@@ -1,43 +1,19 @@
-import { createClient } from '@connectrpc/connect';
-import { experimental_streamedQuery as streamedQuery, useQuery } from '@tanstack/react-query';
-import { Array, pipe } from 'effect';
+import { useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
 import { Tree as AriaTree } from 'react-aria-components';
 import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
-import { LogLevel, LogService, LogStreamResponse, LogStreamResponseSchema } from '@the-dev-tools/spec/log/v1/log_pb';
+import { LogLevel } from '@the-dev-tools/spec/api/log/v1/log_pb';
+import { LogCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/log';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItem } from '@the-dev-tools/ui/tree';
-import { ConnectStreamingQueryKey, createConnectStreamingQueryKey } from '~api/connect-query';
+import { useApiCollection } from '~api-new';
 import { workspaceRouteApi } from '~routes';
-
-export const useLogsQuery = () => {
-  const { transport } = workspaceRouteApi.useRouteContext();
-
-  const { logStream } = createClient(LogService, transport);
-
-  const queryKey: ConnectStreamingQueryKey<typeof LogStreamResponseSchema> = createConnectStreamingQueryKey({
-    schema: LogService.method.logStream,
-    transport,
-  });
-
-  const query = useQuery({
-    queryFn: streamedQuery({
-      initialValue: Array.empty<LogStreamResponse>(),
-      reducer: (acc, value) => pipe(Array.append(acc, value), Array.takeRight(100)),
-      refetchMode: 'append',
-      streamFn: () => logStream({}),
-    }),
-    queryKey,
-  });
-
-  return { ...query, queryKey };
-};
 
 const logTextStyles = tv({
   base: tw`font-mono text-sm`,
@@ -51,10 +27,10 @@ const logTextStyles = tv({
 });
 
 export const StatusBar = () => {
-  const { showLogs } = workspaceRouteApi.useSearch();
-  const { queryClient } = workspaceRouteApi.useRouteContext();
+  const logCollection = useApiCollection(LogCollectionSchema);
+  const { data: logs } = useLiveQuery((_) => _.from({ log: logCollection }));
 
-  const { data: logs, queryKey } = useLogsQuery();
+  const { showLogs } = workspaceRouteApi.useSearch();
 
   const separator = <div className={tw`h-3.5 w-px bg-slate-200`} />;
 
@@ -78,7 +54,12 @@ export const StatusBar = () => {
         <>
           <Button
             className={tw`px-2 py-1 text-xs leading-4 tracking-tight text-slate-800`}
-            onPress={() => void queryClient.setQueryData(queryKey, [])}
+            onPress={() => {
+              const state = logCollection.utils.state();
+              state.begin();
+              state.truncate();
+              state.commit();
+            }}
             variant='ghost'
           >
             <FiTrash2 className={tw`size-3 text-slate-500`} />
@@ -108,7 +89,7 @@ export const StatusBar = () => {
       {showLogs && (
         <Panel>
           <div className={tw`flex size-full flex-col-reverse overflow-auto`}>
-            <AriaTree aria-label='Logs' items={logs ?? []}>
+            <AriaTree aria-label='Logs' items={logs}>
               {(_) => {
                 const ulid = Ulid.construct(_.logId);
                 const id = ulid.toCanonical();

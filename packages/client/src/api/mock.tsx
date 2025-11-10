@@ -1,3 +1,4 @@
+import { ValueSchema } from '@bufbuild/protobuf/wkt';
 import {
   Array,
   Cause,
@@ -13,6 +14,12 @@ import {
   Stream,
 } from 'effect';
 import { Ulid } from 'id128';
+import {
+  LogLevel,
+  LogService,
+  LogSync_ValueUnion_Kind,
+  LogSyncResponseSchema,
+} from '@the-dev-tools/spec/api/log/v1/log_pb';
 import { files } from '@the-dev-tools/spec/files';
 import { schemas_v1_api as collections } from '@the-dev-tools/spec/tanstack-db/v1/api';
 import { ApiCollectionSchema, Connect, Protobuf } from '~/api-new';
@@ -273,7 +280,7 @@ export class ApiTransportMock extends Effect.Service<ApiTransportMock>()('ApiTra
 }) {}
 
 const mockCollections = Effect.gen(function* () {
-  const runtime = yield* Effect.runtime();
+  const runtime = yield* Effect.runtime<ApiMockState>();
   const { methodImplMap } = yield* ApiMockState;
 
   for (const collection of collections as ApiCollectionSchema[]) {
@@ -286,7 +293,9 @@ const mockCollections = Effect.gen(function* () {
 
     const syncUnion = registry.getMessage(`${collection.item.typeName}Sync.ValueUnion`)!;
 
-    const toSyncOutput = Effect.fn(function* (input: Protobuf.Message, operation: string) {
+    const toSyncOutput = Effect.fn(function* (input: Protobuf.Message, operation: string, logLevel?: LogLevel) {
+      yield* mockLog(input, logLevel);
+
       const items = (input as Protobuf.Message & { items: Protobuf.Message[] }).items.map((item) => ({
         value: {
           kind: syncUnion.field[operation]!.number,
@@ -300,7 +309,8 @@ const mockCollections = Effect.gen(function* () {
     });
 
     if (insert) {
-      const insertImpl = (input: Protobuf.Message) => toSyncOutput(input, 'insert').pipe(Runtime.runPromise(runtime));
+      const insertImpl = (input: Protobuf.Message) =>
+        toSyncOutput(input, 'insert', LogLevel.WARNING).pipe(Runtime.runPromise(runtime));
       MutableHashMap.set(methodImplMap, insert, insertImpl);
     }
 
@@ -310,8 +320,32 @@ const mockCollections = Effect.gen(function* () {
     }
 
     if (delete_) {
-      const deleteImpl = (input: Protobuf.Message) => toSyncOutput(input, 'delete').pipe(Runtime.runPromise(runtime));
+      const deleteImpl = (input: Protobuf.Message) =>
+        toSyncOutput(input, 'delete', LogLevel.ERROR).pipe(Runtime.runPromise(runtime));
       MutableHashMap.set(methodImplMap, delete_, deleteImpl);
     }
   }
+});
+
+const mockLog = Effect.fn(function* (message: Protobuf.Message, level: LogLevel = LogLevel.UNSPECIFIED) {
+  const value = pipe(
+    registry.getMessage(message.$typeName)!,
+    (_) => Protobuf.toJson(_, message),
+    (_) => Protobuf.fromJson(ValueSchema, _, { registry }),
+  );
+
+  const queue = yield* getStreamQueue(LogService.method.logSync);
+
+  const sync = Protobuf.create(LogSyncResponseSchema, {
+    items: [
+      {
+        value: {
+          insert: { level, logId: Ulid.generate().bytes, name: message.$typeName, value },
+          kind: LogSync_ValueUnion_Kind.INSERT,
+        },
+      },
+    ],
+  });
+
+  yield* Queue.offer(queue, sync);
 });
