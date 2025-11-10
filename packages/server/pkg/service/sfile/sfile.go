@@ -10,9 +10,6 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemfolder"
 )
 
 // FileService provides operations for managing files in the unified file system
@@ -74,7 +71,7 @@ func ConvertToDBFile(file mfile.File) gen.File {
 		WorkspaceID:  file.WorkspaceID,
 		FolderID:     file.FolderID,
 		ContentID:    file.ContentID,
-		ContentKind:  int8(file.ContentKind),
+		ContentKind:  int8(file.ContentType),
 		Name:         file.Name,
 		DisplayOrder: file.Order,
 		UpdatedAt:    file.UpdatedAt.Unix(),
@@ -88,7 +85,7 @@ func ConvertToModelFile(file gen.File) *mfile.File {
 		WorkspaceID: file.WorkspaceID,
 		FolderID:    file.FolderID,
 		ContentID:   file.ContentID,
-		ContentKind: mfile.ContentKind(file.ContentKind),
+		ContentType: mfile.ContentType(file.ContentKind),
 		Name:        file.Name,
 		Order:       file.DisplayOrder,
 		UpdatedAt:   time.Unix(file.UpdatedAt, 0),
@@ -111,110 +108,20 @@ func (s *FileService) GetFile(ctx context.Context, id idwrap.IDWrap) (*mfile.Fil
 	return ConvertToModelFile(file), nil
 }
 
-// GetFileWithContent retrieves a file with its content using the two-query pattern
-func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) (*mfile.FileWithContent, error) {
-	s.logger.Debug("Getting file with content", "file_id", id.String())
+// GetFileContentID retrieves the content ID for a file
+func (s *FileService) GetFileContentID(ctx context.Context, id idwrap.IDWrap) (*idwrap.IDWrap, mfile.ContentType, error) {
+	s.logger.Debug("Getting file content ID", "file_id", id.String())
 
-	// First query: get file metadata
-	file, err := s.queries.GetFileWithContent(ctx, id)
+	file, err := s.GetFile(ctx, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			s.logger.Debug("File not found", "file_id", id.String())
-			return nil, ErrFileNotFound
-		}
-		return nil, fmt.Errorf("failed to get file: %w", err)
+		return nil, mfile.ContentTypeUnknown, err
 	}
 
-	modelFile := ConvertToModelFile(file)
-	if modelFile == nil {
-		return nil, fmt.Errorf("failed to convert file")
+	if !file.HasContent() {
+		return nil, mfile.ContentTypeUnknown, fmt.Errorf("file has no content")
 	}
 
-	// If file has no content, return without content
-	if !modelFile.HasContent() {
-		return nil, fmt.Errorf("file has no content")
-	}
-
-	// Second query: get content based on content_kind
-	var content mfile.Content
-	contentID := *modelFile.ContentID
-
-	switch modelFile.ContentKind {
-	case mfile.ContentKindFolder:
-		folderModel, err := s.queries.GetItemFolder(ctx, contentID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, fmt.Errorf("%w: folder content not found", ErrContentNotFound)
-			}
-			return nil, fmt.Errorf("failed to get folder content: %w", err)
-		}
-		// Convert to domain model and create content
-		folder := &mitemfolder.ItemFolder{
-			ID:           folderModel.ID,
-			CollectionID: idwrap.IDWrap{}, // Empty CollectionID as it's not in database model
-			ParentID:     folderModel.ParentID,
-			Name:         folderModel.Name,
-			Prev:         folderModel.Prev,
-			Next:         folderModel.Next,
-		}
-		content = mfile.NewContentFromFolder(folder)
-
-	case mfile.ContentKindAPI:
-		apiModel, err := s.queries.GetItemApi(ctx, contentID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, fmt.Errorf("%w: API content not found", ErrContentNotFound)
-			}
-			return nil, fmt.Errorf("failed to get API content: %w", err)
-		}
-		// Convert to domain model and create content
-		api := &mitemapi.ItemApi{
-			ID:              apiModel.ID,
-			CollectionID:    idwrap.IDWrap{}, // Empty CollectionID as it's not in database model
-			FolderID:        apiModel.FolderID,
-			Name:            apiModel.Name,
-			Url:             apiModel.Url,
-			Method:          apiModel.Method,
-			VersionParentID: apiModel.VersionParentID,
-			DeltaParentID:   apiModel.DeltaParentID,
-			Hidden:          apiModel.Hidden,
-			Prev:            apiModel.Prev,
-			Next:            apiModel.Next,
-		}
-		content = mfile.NewContentFromAPI(api)
-
-	case mfile.ContentKindFlow:
-		flowModel, err := s.queries.GetFlow(ctx, contentID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, fmt.Errorf("%w: flow content not found", ErrContentNotFound)
-			}
-			return nil, fmt.Errorf("failed to get flow content: %w", err)
-		}
-		// Convert to domain model and create content
-		flow := &mflow.Flow{
-			ID:              flowModel.ID,
-			WorkspaceID:     flowModel.WorkspaceID,
-			VersionParentID: flowModel.VersionParentID,
-			Name:            flowModel.Name,
-			Duration:        flowModel.Duration,
-		}
-		content = mfile.NewContentFromFlow(flow)
-
-	default:
-		return nil, fmt.Errorf("%w: %d", ErrInvalidContentKind, modelFile.ContentKind)
-	}
-
-	fileWithContent := modelFile.WithContent(content)
-	if err := fileWithContent.Validate(); err != nil {
-		return nil, fmt.Errorf("file with content validation failed: %w", err)
-	}
-
-	s.logger.Debug("Successfully retrieved file with content",
-		"file_id", id.String(),
-		"content_kind", modelFile.ContentKind.String())
-
-	return &fileWithContent, nil
+	return file.ContentID, file.ContentType, nil
 }
 
 // ListFilesByWorkspace retrieves all files for a workspace
@@ -290,7 +197,7 @@ func (s *FileService) CreateFile(ctx context.Context, file *mfile.File) error {
 		"file_id", file.ID.String(),
 		"workspace_id", file.WorkspaceID.String(),
 		"name", file.Name,
-		"content_kind", file.ContentKind.String())
+		"content_kind", file.ContentType.String())
 
 	// Validate file
 	if err := file.Validate(); err != nil {
@@ -331,62 +238,13 @@ func (s *FileService) CreateFile(ctx context.Context, file *mfile.File) error {
 	return nil
 }
 
-// CreateFileWithContent creates a new file with content in a single transaction
-func (s *FileService) CreateFileWithContent(ctx context.Context, fileWithContent *mfile.FileWithContent) error {
-	s.logger.Debug("Creating file with content",
-		"file_id", fileWithContent.File.ID.String(),
-		"workspace_id", fileWithContent.File.WorkspaceID.String(),
-		"name", fileWithContent.File.Name,
-		"content_kind", fileWithContent.File.ContentKind.String())
-
-	// Validate file with content
-	if err := fileWithContent.Validate(); err != nil {
-		return fmt.Errorf("file with content validation failed: %w", err)
-	}
-
-	file := fileWithContent.File
-
-	// Auto-assign order if not provided
-	if file.Order == 0 {
-		nextOrder, err := s.nextDisplayOrder(ctx, file.WorkspaceID, file.FolderID)
-		if err != nil {
-			return fmt.Errorf("failed to get next display order: %w", err)
-		}
-		file.Order = nextOrder
-	}
-
-	// Set updated_at timestamp
-	file.UpdatedAt = time.Now()
-
-	dbFile := ConvertToDBFile(file)
-	err := s.queries.CreateFile(ctx, gen.CreateFileParams{
-		ID:           dbFile.ID,
-		WorkspaceID:  dbFile.WorkspaceID,
-		FolderID:     dbFile.FolderID,
-		ContentID:    dbFile.ContentID,
-		ContentKind:  dbFile.ContentKind,
-		Name:         dbFile.Name,
-		DisplayOrder: dbFile.DisplayOrder,
-		UpdatedAt:    dbFile.UpdatedAt,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-
-	s.logger.Debug("Successfully created file with content",
-		"file_id", file.ID.String(),
-		"name", file.Name,
-		"content_kind", file.ContentKind.String())
-
-	return nil
-}
 
 // UpdateFile updates an existing file
 func (s *FileService) UpdateFile(ctx context.Context, file *mfile.File) error {
 	s.logger.Debug("Updating file",
 		"file_id", file.ID.String(),
 		"name", file.Name,
-		"content_kind", file.ContentKind.String())
+		"content_kind", file.ContentType.String())
 
 	// Validate file
 	if err := file.Validate(); err != nil {

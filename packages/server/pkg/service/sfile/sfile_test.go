@@ -30,7 +30,7 @@ func TestFileService_CreateFile(t *testing.T) {
 		ID:          fileID,
 		WorkspaceID: workspaceID,
 		ContentID:   &contentID,
-		ContentKind: mfile.ContentKindAPI,
+		ContentType: mfile.ContentTypeHTTP,
 		Name:        "test-api",
 		Order:       1.0,
 		UpdatedAt:   time.Now(),
@@ -45,7 +45,7 @@ func TestFileService_CreateFile(t *testing.T) {
 	assert.Equal(t, fileID, retrieved.ID)
 	assert.Equal(t, workspaceID, retrieved.WorkspaceID)
 	assert.Equal(t, "test-api", retrieved.Name)
-	assert.Equal(t, mfile.ContentKindAPI, retrieved.ContentKind)
+	assert.Equal(t, mfile.ContentTypeHTTP, retrieved.ContentType)
 }
 
 func TestFileService_ListFilesByWorkspace(t *testing.T) {
@@ -65,7 +65,7 @@ func TestFileService_ListFilesByWorkspace(t *testing.T) {
 		ID:          idwrap.New(ulid.Make()),
 		WorkspaceID: workspaceID,
 		ContentID:   &folderContentID,
-		ContentKind: mfile.ContentKindFolder,
+		ContentType: mfile.ContentTypeFolder,
 		Name:        "folder1",
 		Order:       1.0,
 		UpdatedAt:   time.Now(),
@@ -75,7 +75,7 @@ func TestFileService_ListFilesByWorkspace(t *testing.T) {
 		ID:          idwrap.New(ulid.Make()),
 		WorkspaceID: workspaceID,
 		ContentID:   &flowContentID,
-		ContentKind: mfile.ContentKindFlow,
+		ContentType: mfile.ContentTypeFlow,
 		Name:        "flow1",
 		Order:       2.0,
 		UpdatedAt:   time.Now(),
@@ -97,22 +97,6 @@ func TestFileService_ListFilesByWorkspace(t *testing.T) {
 	assert.Equal(t, "flow1", files[1].Name)
 }
 
-func TestFileService_GetFileWithContent(t *testing.T) {
-	ctx := context.Background()
-	baseDB := testutil.CreateBaseDB(ctx, t)
-	defer baseDB.DB.Close()
-
-	service := New(baseDB.Queries, nil)
-
-	// This test would require setting up content tables
-	// For now, just test that the method exists and handles missing content correctly
-	fileID := idwrap.New(ulid.Make())
-
-	// Try to get file with content that doesn't exist
-	_, err := service.GetFileWithContent(ctx, fileID)
-	assert.Error(t, err)
-	assert.Equal(t, ErrFileNotFound, err)
-}
 
 func TestFileService_MoveFile(t *testing.T) {
 	ctx := context.Background()
@@ -131,7 +115,7 @@ func TestFileService_MoveFile(t *testing.T) {
 		ID:          folderID,
 		WorkspaceID: workspaceID,
 		ContentID:   &folderContentID,
-		ContentKind: mfile.ContentKindFolder,
+		ContentType: mfile.ContentTypeFolder,
 		Name:        "parent-folder",
 		Order:       1.0,
 		UpdatedAt:   time.Now(),
@@ -148,7 +132,7 @@ func TestFileService_MoveFile(t *testing.T) {
 		WorkspaceID: workspaceID,
 		FolderID:    nil, // Root level
 		ContentID:   &apiContentID,
-		ContentKind: mfile.ContentKindAPI,
+		ContentType: mfile.ContentTypeHTTP,
 		Name:        "test-api",
 		Order:       2.0,
 		UpdatedAt:   time.Now(),
@@ -184,7 +168,7 @@ func TestFileService_DeleteFile(t *testing.T) {
 		ID:          fileID,
 		WorkspaceID: workspaceID,
 		ContentID:   &apiContentID,
-		ContentKind: mfile.ContentKindAPI,
+		ContentType: mfile.ContentTypeHTTP,
 		Name:        "test-api",
 		Order:       1.0,
 		UpdatedAt:   time.Now(),
@@ -207,67 +191,3 @@ func TestFileService_DeleteFile(t *testing.T) {
 	assert.Equal(t, ErrFileNotFound, err)
 }
 
-func TestFileService_GetFileWithContent_Integration(t *testing.T) {
-	ctx := context.Background()
-	baseDB := testutil.CreateBaseDB(ctx, t)
-	defer baseDB.DB.Close()
-
-	service := New(baseDB.Queries, nil)
-
-	// Create test workspace
-	workspaceID := idwrap.NewNow()
-
-	// For this integration test, we'll create a file with folder content
-	// but we need to manually insert the folder content first since we don't
-	// have a service for item_folder creation yet
-	folderContentID := idwrap.NewNow()
-
-	// Insert folder content directly using raw SQL since we don't have generated queries
-	_, err := baseDB.DB.ExecContext(ctx, `
-		INSERT INTO item_folder (id, collection_id, parent_id, name) 
-		VALUES (?, ?, ?, ?)`,
-		folderContentID.Bytes(),
-		idwrap.NewNow().Bytes(), // dummy collection_id
-		nil,                     // no parent
-		"test-folder",
-	)
-	require.NoError(t, err)
-
-	// Create file that references the folder content
-	fileID := idwrap.NewNow()
-	file := &mfile.File{
-		ID:          fileID,
-		WorkspaceID: workspaceID,
-		ContentID:   &folderContentID,
-		ContentKind: mfile.ContentKindFolder,
-		Name:        "folder-file",
-		Order:       1.0,
-		UpdatedAt:   time.Now(),
-	}
-
-	err = service.CreateFile(ctx, file)
-	require.NoError(t, err)
-
-	// Test the two-query pattern: GetFileWithContent should resolve both file and content
-	result, err := service.GetFileWithContent(ctx, fileID)
-	require.NoError(t, err)
-	require.NotNil(t, result)
-
-	// Verify file metadata
-	assert.Equal(t, fileID, result.File.ID)
-	assert.Equal(t, "folder-file", result.File.Name)
-	assert.Equal(t, mfile.ContentKindFolder, result.File.ContentKind)
-	assert.NotNil(t, result.File.ContentID)
-	assert.Equal(t, folderContentID, *result.File.ContentID)
-
-	// Verify resolved content using interface methods
-	assert.NotNil(t, result.Content)
-
-	// Check the content kind
-	assert.Equal(t, mfile.ContentKindFolder, result.Content.Kind)
-	assert.Equal(t, folderContentID, result.Content.GetID())
-	assert.Equal(t, "test-folder", result.Content.GetName())
-
-	// Verify content validates properly
-	assert.NoError(t, result.Content.Validate())
-}

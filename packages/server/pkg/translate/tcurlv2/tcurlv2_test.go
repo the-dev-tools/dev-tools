@@ -58,7 +58,7 @@ func TestConvertCurl(t *testing.T) {
 				WorkspaceID: workspace.ID,
 			}
 
-			result, err := ConvertCurl(tt.curl, workspace, opts)
+			result, err := ConvertCurl(tt.curl, opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ConvertCurl() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -140,7 +140,7 @@ func TestBuildCurl(t *testing.T) {
 		WorkspaceID: workspace.ID,
 	}
 
-	resolved, err := ConvertCurl(curl, workspace, opts)
+	resolved, err := ConvertCurl(curl, opts)
 	if err != nil {
 		t.Fatalf("ConvertCurl() error = %v", err)
 	}

@@ -13,7 +13,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
 // CurlResolvedV2 contains the resolved HTTP request data using the new models
@@ -30,7 +29,6 @@ type CurlResolvedV2 struct {
 
 	// File system integration
 	File      mfile.File
-	Workspace mworkspace.Workspace
 }
 
 // ConvertCurlOptions contains options for the curl conversion
@@ -67,7 +65,7 @@ var (
 )
 
 // ConvertCurl converts a curl command string to the new HTTP model structures
-func ConvertCurl(curlStr string, workspace mworkspace.Workspace, opts ConvertCurlOptions) (*CurlResolvedV2, error) {
+func ConvertCurl(curlStr string, opts ConvertCurlOptions) (*CurlResolvedV2, error) {
 	// Normalize the curl command to handle multi-line input
 	normalizedCurl := normalizeCurlCommand(curlStr)
 
@@ -137,7 +135,7 @@ func ConvertCurl(curlStr string, workspace mworkspace.Workspace, opts ConvertCur
 		WorkspaceID: opts.WorkspaceID,
 		FolderID:    opts.FolderID,
 		ContentID:   &httpID,
-		ContentKind: mfile.ContentKindHTTP,
+		ContentType: mfile.ContentTypeHTTP,
 		Name:        filename,
 		Order:       0, // Will be set by the caller
 		UpdatedAt:   time.Now(),
@@ -152,16 +150,14 @@ func ConvertCurl(curlStr string, workspace mworkspace.Workspace, opts ConvertCur
 		BodyUrlencoded: bodyUrlencoded,
 		BodyRaw:        bodyRaw,
 		File:           file,
-		Workspace:      workspace,
 	}
 
 	return result, nil
 }
 
-// CreateFileWithContent creates a FileWithContent structure from the resolved HTTP data
-func CreateFileWithContent(resolved *CurlResolvedV2) mfile.FileWithContent {
-	content := mfile.NewContentFromHTTP(&resolved.HTTP)
-	return resolved.File.WithContent(content)
+// GetFileContent returns both the file and HTTP content for easy processing
+func GetFileContent(resolved *CurlResolvedV2) (*mfile.File, *mhttp.HTTP) {
+	return &resolved.File, &resolved.HTTP
 }
 
 // BuildCurl assembles a curl command string from the resolved HTTP structure.
