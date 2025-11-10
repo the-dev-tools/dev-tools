@@ -6,6 +6,7 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 )
@@ -16,8 +17,9 @@ type ContentKind int8
 const (
 	ContentKindUnknown ContentKind = -1
 	ContentKindFolder  ContentKind = 0 // item_folder
-	ContentKindAPI     ContentKind = 1 // item_api
+	ContentKindAPI     ContentKind = 1 // item_api (legacy)
 	ContentKindFlow    ContentKind = 2 // flow
+	ContentKindHTTP    ContentKind = 3 // http (new model)
 )
 
 // String returns the string representation of ContentKind
@@ -29,6 +31,8 @@ func (ck ContentKind) String() string {
 		return "api"
 	case ContentKindFlow:
 		return "flow"
+	case ContentKindHTTP:
+		return "http"
 	default:
 		return "unknown"
 	}
@@ -133,6 +137,39 @@ func (f *flowAdapter) Validate() error {
 	}
 	if f.flow.Duration < 0 {
 		return fmt.Errorf("flow duration cannot be negative")
+	}
+	return nil
+}
+
+// httpAdapter implements FileContent interface for *mhttp.HTTP
+type httpAdapter struct {
+	http *mhttp.HTTP
+}
+
+func (h *httpAdapter) GetKind() ContentKind {
+	return ContentKindHTTP
+}
+
+func (h *httpAdapter) GetID() idwrap.IDWrap {
+	return h.http.ID
+}
+
+func (h *httpAdapter) GetName() string {
+	return h.http.Name
+}
+
+func (h *httpAdapter) Validate() error {
+	if h.http.ID.Compare(idwrap.IDWrap{}) == 0 {
+		return fmt.Errorf("HTTP content ID cannot be empty")
+	}
+	if h.http.Name == "" {
+		return fmt.Errorf("HTTP name cannot be empty")
+	}
+	if h.http.Method == "" {
+		return fmt.Errorf("HTTP method cannot be empty")
+	}
+	if h.http.Url == "" {
+		return fmt.Errorf("HTTP URL cannot be empty")
 	}
 	return nil
 }
@@ -260,6 +297,11 @@ func NewFlowContent(flow *mflow.Flow) FileContent {
 	return &flowAdapter{flow: flow}
 }
 
+// NewHTTPContent creates a FileContent from *mhttp.HTTP
+func NewHTTPContent(http *mhttp.HTTP) FileContent {
+	return &httpAdapter{http: http}
+}
+
 // ContentKindFromString converts a string to ContentKind
 func ContentKindFromString(s string) ContentKind {
 	switch s {
@@ -269,6 +311,8 @@ func ContentKindFromString(s string) ContentKind {
 		return ContentKindAPI
 	case "flow":
 		return ContentKindFlow
+	case "http":
+		return ContentKindHTTP
 	default:
 		return ContentKindUnknown
 	}
@@ -276,7 +320,7 @@ func ContentKindFromString(s string) ContentKind {
 
 // IsValidContentKind checks if the content kind is valid
 func IsValidContentKind(kind ContentKind) bool {
-	return kind >= ContentKindFolder && kind <= ContentKindFlow
+	return kind >= ContentKindFolder && kind <= ContentKindHTTP
 }
 
 // IDEquals checks if two IDWrap values are equal
