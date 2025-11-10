@@ -160,7 +160,7 @@ func ConvertCurl(curlStr string, workspace mworkspace.Workspace, opts ConvertCur
 
 // CreateFileWithContent creates a FileWithContent structure from the resolved HTTP data
 func CreateFileWithContent(resolved *CurlResolvedV2) mfile.FileWithContent {
-	content := mfile.NewHTTPContent(&resolved.HTTP)
+	content := mfile.NewContentFromHTTP(&resolved.HTTP)
 	return resolved.File.WithContent(content)
 }
 

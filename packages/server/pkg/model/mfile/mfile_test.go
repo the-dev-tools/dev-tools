@@ -6,6 +6,7 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemfolder"
 )
@@ -18,6 +19,7 @@ func TestContentKind_String(t *testing.T) {
 		{ContentKindFolder, "folder"},
 		{ContentKindAPI, "api"},
 		{ContentKindFlow, "flow"},
+		{ContentKindHTTP, "http"},
 		{ContentKindUnknown, "unknown"},
 		{ContentKind(-1), "unknown"},
 	}
@@ -31,57 +33,39 @@ func TestContentKind_String(t *testing.T) {
 	}
 }
 
-func TestFolderAdapter_Validate(t *testing.T) {
+func TestContent_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		content FileContent
+		content Content
 		wantErr bool
 	}{
 		{
 			name: "valid folder",
-			content: NewFolderContent(&mitemfolder.ItemFolder{
+			content: NewContentFromFolder(&mitemfolder.ItemFolder{
 				ID:   idwrap.NewNow(),
 				Name: "Test Folder",
 			}),
 			wantErr: false,
 		},
 		{
-			name: "empty ID",
-			content: NewFolderContent(&mitemfolder.ItemFolder{
+			name: "empty folder ID",
+			content: NewContentFromFolder(&mitemfolder.ItemFolder{
 				ID:   idwrap.IDWrap{},
 				Name: "Test Folder",
 			}),
 			wantErr: true,
 		},
 		{
-			name: "empty name",
-			content: NewFolderContent(&mitemfolder.ItemFolder{
+			name: "empty folder name",
+			content: NewContentFromFolder(&mitemfolder.ItemFolder{
 				ID:   idwrap.NewNow(),
 				Name: "",
 			}),
 			wantErr: true,
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.content.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("FolderAdapter.Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestAPIAdapter_Validate(t *testing.T) {
-	tests := []struct {
-		name    string
-		content FileContent
-		wantErr bool
-	}{
 		{
 			name: "valid API",
-			content: NewAPIContent(&mitemapi.ItemApi{
+			content: NewContentFromAPI(&mitemapi.ItemApi{
 				ID:     idwrap.NewNow(),
 				Name:   "Test API",
 				Method: "GET",
@@ -90,8 +74,8 @@ func TestAPIAdapter_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "empty ID",
-			content: NewAPIContent(&mitemapi.ItemApi{
+			name: "empty API ID",
+			content: NewContentFromAPI(&mitemapi.ItemApi{
 				ID:     idwrap.IDWrap{},
 				Name:   "Test API",
 				Method: "GET",
@@ -100,8 +84,8 @@ func TestAPIAdapter_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "empty method",
-			content: NewAPIContent(&mitemapi.ItemApi{
+			name: "empty API method",
+			content: NewContentFromAPI(&mitemapi.ItemApi{
 				ID:     idwrap.NewNow(),
 				Name:   "Test API",
 				Method: "",
@@ -109,27 +93,9 @@ func TestAPIAdapter_Validate(t *testing.T) {
 			}),
 			wantErr: true,
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.content.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("APIAdapter.Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestFlowAdapter_Validate(t *testing.T) {
-	tests := []struct {
-		name    string
-		content FileContent
-		wantErr bool
-	}{
 		{
 			name: "valid flow",
-			content: NewFlowContent(&mflow.Flow{
+			content: NewContentFromFlow(&mflow.Flow{
 				ID:       idwrap.NewNow(),
 				Name:     "Test Flow",
 				Duration: 1000,
@@ -137,8 +103,8 @@ func TestFlowAdapter_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "empty ID",
-			content: NewFlowContent(&mflow.Flow{
+			name: "empty flow ID",
+			content: NewContentFromFlow(&mflow.Flow{
 				ID:       idwrap.IDWrap{},
 				Name:     "Test Flow",
 				Duration: 1000,
@@ -146,12 +112,39 @@ func TestFlowAdapter_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "negative duration",
-			content: NewFlowContent(&mflow.Flow{
+			name: "negative flow duration",
+			content: NewContentFromFlow(&mflow.Flow{
 				ID:       idwrap.NewNow(),
 				Name:     "Test Flow",
 				Duration: -1,
 			}),
+			wantErr: true,
+		},
+		{
+			name: "valid HTTP",
+			content: NewContentFromHTTP(&mhttp.HTTP{
+				ID:     idwrap.NewNow(),
+				Name:   "Test HTTP",
+				Method: "POST",
+				Url:    "https://api.example.com",
+			}),
+			wantErr: false,
+		},
+		{
+			name: "empty HTTP method",
+			content: NewContentFromHTTP(&mhttp.HTTP{
+				ID:     idwrap.NewNow(),
+				Name:   "Test HTTP",
+				Method: "",
+				Url:    "https://api.example.com",
+			}),
+			wantErr: true,
+		},
+		{
+			name: "nil content",
+			content: Content{
+				Kind: ContentKindFolder,
+			},
 			wantErr: true,
 		},
 	}
@@ -160,10 +153,150 @@ func TestFlowAdapter_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.content.Validate()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("FlowAdapter.Validate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Content.Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
+}
+
+func TestContent_GetMethods(t *testing.T) {
+	folderID := idwrap.NewNow()
+	apiID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	httpID := idwrap.NewNow()
+
+	tests := []struct {
+		name    string
+		content Content
+		wantID  idwrap.IDWrap
+		wantName string
+	}{
+		{
+			name: "folder content",
+			content: NewContentFromFolder(&mitemfolder.ItemFolder{
+				ID:   folderID,
+				Name: "Test Folder",
+			}),
+			wantID:   folderID,
+			wantName: "Test Folder",
+		},
+		{
+			name: "API content",
+			content: NewContentFromAPI(&mitemapi.ItemApi{
+				ID:     apiID,
+				Name:   "Test API",
+				Method: "GET",
+				Url:    "https://example.com",
+			}),
+			wantID:   apiID,
+			wantName: "Test API",
+		},
+		{
+			name: "flow content",
+			content: NewContentFromFlow(&mflow.Flow{
+				ID:       flowID,
+				Name:     "Test Flow",
+				Duration: 1000,
+			}),
+			wantID:   flowID,
+			wantName: "Test Flow",
+		},
+		{
+			name: "HTTP content",
+			content: NewContentFromHTTP(&mhttp.HTTP{
+				ID:     httpID,
+				Name:   "Test HTTP",
+				Method: "POST",
+				Url:    "https://api.example.com",
+			}),
+			wantID:   httpID,
+			wantName: "Test HTTP",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.content.GetID(); got.Compare(tt.wantID) != 0 {
+				t.Errorf("Content.GetID() = %v, want %v", got.String(), tt.wantID.String())
+			}
+			if got := tt.content.GetName(); got != tt.wantName {
+				t.Errorf("Content.GetName() = %v, want %v", got, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestContent_AsMethods(t *testing.T) {
+	folder := &mitemfolder.ItemFolder{ID: idwrap.NewNow(), Name: "Folder"}
+	api := &mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "API", Method: "GET", Url: "https://example.com"}
+	flow := &mflow.Flow{ID: idwrap.NewNow(), Name: "Flow", Duration: 1000}
+	http := &mhttp.HTTP{ID: idwrap.NewNow(), Name: "HTTP", Method: "POST", Url: "https://api.example.com"}
+
+	tests := []struct {
+		name               string
+		content            Content
+		wantFolder         *mitemfolder.ItemFolder
+		wantAPI            *mitemapi.ItemApi
+		wantFlow           *mflow.Flow
+		wantHTTP           *mhttp.HTTP
+	}{
+		{
+			name:       "folder content",
+			content:    NewContentFromFolder(folder),
+			wantFolder: folder,
+		},
+		{
+			name:    "API content",
+			content: NewContentFromAPI(api),
+			wantAPI: api,
+		},
+		{
+			name:     "flow content",
+			content:  NewContentFromFlow(flow),
+			wantFlow: flow,
+		},
+		{
+			name:    "HTTP content",
+			content: NewContentFromHTTP(http),
+			wantHTTP: http,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.content.AsFolder(); got != tt.wantFolder {
+				t.Errorf("Content.AsFolder() = %v, want %v", got, tt.wantFolder)
+			}
+			if got := tt.content.AsAPI(); got != tt.wantAPI {
+				t.Errorf("Content.AsAPI() = %v, want %v", got, tt.wantAPI)
+			}
+			if got := tt.content.AsFlow(); got != tt.wantFlow {
+				t.Errorf("Content.AsFlow() = %v, want %v", got, tt.wantFlow)
+			}
+			if got := tt.content.AsHTTP(); got != tt.wantHTTP {
+				t.Errorf("Content.AsHTTP() = %v, want %v", got, tt.wantHTTP)
+			}
+		})
+	}
+}
+
+func TestContent_IsZero(t *testing.T) {
+	t.Run("zero content", func(t *testing.T) {
+		content := Content{Kind: ContentKindFolder}
+		if !content.IsZero() {
+			t.Error("Expected content to be zero")
+		}
+	})
+
+	t.Run("non-zero folder content", func(t *testing.T) {
+		content := NewContentFromFolder(&mitemfolder.ItemFolder{
+			ID:   idwrap.NewNow(),
+			Name: "Test",
+		})
+		if content.IsZero() {
+			t.Error("Expected content to be non-zero")
+		}
+	})
 }
 
 func TestFile_Validate(t *testing.T) {
@@ -241,8 +374,8 @@ func TestFile_HelperMethods(t *testing.T) {
 		if !file.IsFolder() {
 			t.Error("Expected file to be folder")
 		}
-		if file.IsAPI() || file.IsFlow() {
-			t.Error("Expected file to not be API or flow")
+		if file.IsAPI() || file.IsFlow() || file.IsHTTP() {
+			t.Error("Expected file to not be API, flow, or HTTP")
 		}
 	})
 
@@ -257,8 +390,8 @@ func TestFile_HelperMethods(t *testing.T) {
 		if !file.IsAPI() {
 			t.Error("Expected file to be API")
 		}
-		if file.IsFolder() || file.IsFlow() {
-			t.Error("Expected file to not be folder or flow")
+		if file.IsFolder() || file.IsFlow() || file.IsHTTP() {
+			t.Error("Expected file to not be folder, flow, or HTTP")
 		}
 	})
 
@@ -273,8 +406,24 @@ func TestFile_HelperMethods(t *testing.T) {
 		if !file.IsFlow() {
 			t.Error("Expected file to be flow")
 		}
-		if file.IsFolder() || file.IsAPI() {
-			t.Error("Expected file to not be folder or API")
+		if file.IsFolder() || file.IsAPI() || file.IsHTTP() {
+			t.Error("Expected file to not be folder, API, or HTTP")
+		}
+	})
+
+	t.Run("IsHTTP", func(t *testing.T) {
+		file := File{
+			ID:          idwrap.NewNow(),
+			WorkspaceID: workspaceID,
+			ContentID:   &contentID,
+			ContentKind: ContentKindHTTP,
+			Name:        "HTTP",
+		}
+		if !file.IsHTTP() {
+			t.Error("Expected file to be HTTP")
+		}
+		if file.IsFolder() || file.IsAPI() || file.IsFlow() {
+			t.Error("Expected file to not be folder, API, or flow")
 		}
 	})
 
@@ -331,7 +480,7 @@ func TestFileWithContent_Validate(t *testing.T) {
 			UpdatedAt:   time.Now(),
 		}
 
-		content := NewAPIContent(&mitemapi.ItemApi{
+		content := NewContentFromAPI(&mitemapi.ItemApi{
 			ID:     contentID,
 			Name:   "Test API",
 			Method: "GET",
@@ -360,7 +509,7 @@ func TestFileWithContent_Validate(t *testing.T) {
 			UpdatedAt:   time.Now(),
 		}
 
-		content := NewFlowContent(&mflow.Flow{
+		content := NewContentFromFlow(&mflow.Flow{
 			ID:       contentID,
 			Name:     "Test Flow",
 			Duration: 1000,
@@ -388,6 +537,7 @@ func TestContentKindFromString(t *testing.T) {
 		{"api", ContentKindAPI},
 		{"item_api", ContentKindAPI},
 		{"flow", ContentKindFlow},
+		{"http", ContentKindHTTP},
 		{"unknown", ContentKindUnknown},
 		{"", ContentKindUnknown},
 	}
@@ -409,6 +559,7 @@ func TestIsValidContentKind(t *testing.T) {
 		{ContentKindFolder, true},
 		{ContentKindAPI, true},
 		{ContentKindFlow, true},
+		{ContentKindHTTP, true},
 		{ContentKindUnknown, false},
 		{ContentKind(-1), false},
 	}
@@ -443,4 +594,31 @@ func TestHelperFunctions(t *testing.T) {
 			t.Error("Expected zero ID to be zero")
 		}
 	})
+}
+
+// Legacy compatibility tests
+func TestLegacyFileContentInterface(t *testing.T) {
+	folder := &mitemfolder.ItemFolder{
+		ID:   idwrap.NewNow(),
+		Name: "Test Folder",
+	}
+
+	// Test legacy interface still works
+	content := NewFolderContent(folder)
+
+	if content.GetKind() != ContentKindFolder {
+		t.Errorf("Expected ContentKindFolder, got %v", content.GetKind())
+	}
+
+	if content.GetID().Compare(folder.ID) != 0 {
+		t.Error("Expected IDs to match")
+	}
+
+	if content.GetName() != folder.Name {
+		t.Error("Expected names to match")
+	}
+
+	if err := content.Validate(); err != nil {
+		t.Errorf("Expected no validation error, got %v", err)
+	}
 }

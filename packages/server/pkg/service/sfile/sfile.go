@@ -136,7 +136,7 @@ func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) 
 	}
 
 	// Second query: get content based on content_kind
-	var content mfile.FileContent
+	var content mfile.Content
 	contentID := *modelFile.ContentID
 
 	switch modelFile.ContentKind {
@@ -148,7 +148,7 @@ func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) 
 			}
 			return nil, fmt.Errorf("failed to get folder content: %w", err)
 		}
-		// Convert to domain model and create adapter
+		// Convert to domain model and create content
 		folder := &mitemfolder.ItemFolder{
 			ID:           folderModel.ID,
 			CollectionID: idwrap.IDWrap{}, // Empty CollectionID as it's not in database model
@@ -157,7 +157,7 @@ func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) 
 			Prev:         folderModel.Prev,
 			Next:         folderModel.Next,
 		}
-		content = mfile.NewFolderContent(folder)
+		content = mfile.NewContentFromFolder(folder)
 
 	case mfile.ContentKindAPI:
 		apiModel, err := s.queries.GetItemApi(ctx, contentID)
@@ -167,7 +167,7 @@ func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) 
 			}
 			return nil, fmt.Errorf("failed to get API content: %w", err)
 		}
-		// Convert to domain model and create adapter
+		// Convert to domain model and create content
 		api := &mitemapi.ItemApi{
 			ID:              apiModel.ID,
 			CollectionID:    idwrap.IDWrap{}, // Empty CollectionID as it's not in database model
@@ -181,7 +181,7 @@ func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) 
 			Prev:            apiModel.Prev,
 			Next:            apiModel.Next,
 		}
-		content = mfile.NewAPIContent(api)
+		content = mfile.NewContentFromAPI(api)
 
 	case mfile.ContentKindFlow:
 		flowModel, err := s.queries.GetFlow(ctx, contentID)
@@ -191,7 +191,7 @@ func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) 
 			}
 			return nil, fmt.Errorf("failed to get flow content: %w", err)
 		}
-		// Convert to domain model and create adapter
+		// Convert to domain model and create content
 		flow := &mflow.Flow{
 			ID:              flowModel.ID,
 			WorkspaceID:     flowModel.WorkspaceID,
@@ -199,7 +199,7 @@ func (s *FileService) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) 
 			Name:            flowModel.Name,
 			Duration:        flowModel.Duration,
 		}
-		content = mfile.NewFlowContent(flow)
+		content = mfile.NewContentFromFlow(flow)
 
 	default:
 		return nil, fmt.Errorf("%w: %d", ErrInvalidContentKind, modelFile.ContentKind)

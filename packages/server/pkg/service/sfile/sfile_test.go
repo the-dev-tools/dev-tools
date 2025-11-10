@@ -264,7 +264,7 @@ func TestFileService_GetFileWithContent_Integration(t *testing.T) {
 	assert.NotNil(t, result.Content)
 
 	// Check the content kind
-	assert.Equal(t, mfile.ContentKindFolder, result.Content.GetKind())
+	assert.Equal(t, mfile.ContentKindFolder, result.Content.Kind)
 	assert.Equal(t, folderContentID, result.Content.GetID())
 	assert.Equal(t, "test-folder", result.Content.GetName())
 

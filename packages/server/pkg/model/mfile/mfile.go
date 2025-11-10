@@ -38,140 +38,199 @@ func (ck ContentKind) String() string {
 	}
 }
 
-// FileContent represents the union interface for all file content types
-// Now works with existing model pointers: *mitemapi.ItemApi, *mflow.Flow, *mitemfolder.ItemFolder
-type FileContent interface {
-	// GetKind returns the content kind
-	GetKind() ContentKind
-	// GetID returns the content ID
-	GetID() idwrap.IDWrap
-	// GetName returns the content name
-	GetName() string
-	// Validate performs content-specific validation
-	Validate() error
+// Content represents any file content using composition instead of adapters
+type Content struct {
+	Kind  ContentKind
+	Folder *mitemfolder.ItemFolder
+	API    *mitemapi.ItemApi
+	Flow   *mflow.Flow
+	HTTP   *mhttp.HTTP
 }
 
-// folderAdapter implements FileContent interface for *mitemfolder.ItemFolder
-type folderAdapter struct {
-	folder *mitemfolder.ItemFolder
+// NewContentFromFolder creates content from a folder
+func NewContentFromFolder(folder *mitemfolder.ItemFolder) Content {
+	return Content{
+		Kind:   ContentKindFolder,
+		Folder: folder,
+	}
 }
 
-func (f *folderAdapter) GetKind() ContentKind {
-	return ContentKindFolder
+// NewContentFromAPI creates content from an API
+func NewContentFromAPI(api *mitemapi.ItemApi) Content {
+	return Content{
+		Kind: ContentKindAPI,
+		API:  api,
+	}
 }
 
-func (f *folderAdapter) GetID() idwrap.IDWrap {
-	return f.folder.ID
+// NewContentFromFlow creates content from a flow
+func NewContentFromFlow(flow *mflow.Flow) Content {
+	return Content{
+		Kind: ContentKindFlow,
+		Flow: flow,
+	}
 }
 
-func (f *folderAdapter) GetName() string {
-	return f.folder.Name
+// NewContentFromHTTP creates content from an HTTP request
+func NewContentFromHTTP(http *mhttp.HTTP) Content {
+	return Content{
+		Kind: ContentKindHTTP,
+		HTTP: http,
+	}
 }
 
-func (f *folderAdapter) Validate() error {
-	if f.folder.ID.Compare(idwrap.IDWrap{}) == 0 {
+// GetID returns the content ID based on the content type
+func (c Content) GetID() idwrap.IDWrap {
+	switch c.Kind {
+	case ContentKindFolder:
+		if c.Folder != nil {
+			return c.Folder.ID
+		}
+	case ContentKindAPI:
+		if c.API != nil {
+			return c.API.ID
+		}
+	case ContentKindFlow:
+		if c.Flow != nil {
+			return c.Flow.ID
+		}
+	case ContentKindHTTP:
+		if c.HTTP != nil {
+			return c.HTTP.ID
+		}
+	}
+	return idwrap.IDWrap{}
+}
+
+// GetName returns the content name based on the content type
+func (c Content) GetName() string {
+	switch c.Kind {
+	case ContentKindFolder:
+		if c.Folder != nil {
+			return c.Folder.Name
+		}
+	case ContentKindAPI:
+		if c.API != nil {
+			return c.API.Name
+		}
+	case ContentKindFlow:
+		if c.Flow != nil {
+			return c.Flow.Name
+		}
+	case ContentKindHTTP:
+		if c.HTTP != nil {
+			return c.HTTP.Name
+		}
+	}
+	return ""
+}
+
+// Validate performs content-specific validation
+func (c Content) Validate() error {
+	switch c.Kind {
+	case ContentKindFolder:
+		if c.Folder == nil {
+			return fmt.Errorf("folder content is nil")
+		}
+		return c.validateFolder()
+	case ContentKindAPI:
+		if c.API == nil {
+			return fmt.Errorf("API content is nil")
+		}
+		return c.validateAPI()
+	case ContentKindFlow:
+		if c.Flow == nil {
+			return fmt.Errorf("flow content is nil")
+		}
+		return c.validateFlow()
+	case ContentKindHTTP:
+		if c.HTTP == nil {
+			return fmt.Errorf("HTTP content is nil")
+		}
+		return c.validateHTTP()
+	default:
+		return fmt.Errorf("unknown content kind: %s", c.Kind.String())
+	}
+}
+
+func (c Content) validateFolder() error {
+	if c.Folder.ID.Compare(idwrap.IDWrap{}) == 0 {
 		return fmt.Errorf("folder content ID cannot be empty")
 	}
-	if f.folder.Name == "" {
+	if c.Folder.Name == "" {
 		return fmt.Errorf("folder name cannot be empty")
 	}
 	return nil
 }
 
-// apiAdapter implements FileContent interface for *mitemapi.ItemApi
-type apiAdapter struct {
-	api *mitemapi.ItemApi
-}
-
-func (a *apiAdapter) GetKind() ContentKind {
-	return ContentKindAPI
-}
-
-func (a *apiAdapter) GetID() idwrap.IDWrap {
-	return a.api.ID
-}
-
-func (a *apiAdapter) GetName() string {
-	return a.api.Name
-}
-
-func (a *apiAdapter) Validate() error {
-	if a.api.ID.Compare(idwrap.IDWrap{}) == 0 {
+func (c Content) validateAPI() error {
+	if c.API.ID.Compare(idwrap.IDWrap{}) == 0 {
 		return fmt.Errorf("API content ID cannot be empty")
 	}
-	if a.api.Name == "" {
+	if c.API.Name == "" {
 		return fmt.Errorf("API name cannot be empty")
 	}
-	if a.api.Method == "" {
+	if c.API.Method == "" {
 		return fmt.Errorf("API method cannot be empty")
 	}
-	if a.api.Url == "" {
+	if c.API.Url == "" {
 		return fmt.Errorf("API URL cannot be empty")
 	}
 	return nil
 }
 
-// flowAdapter implements FileContent interface for *mflow.Flow
-type flowAdapter struct {
-	flow *mflow.Flow
-}
-
-func (f *flowAdapter) GetKind() ContentKind {
-	return ContentKindFlow
-}
-
-func (f *flowAdapter) GetID() idwrap.IDWrap {
-	return f.flow.ID
-}
-
-func (f *flowAdapter) GetName() string {
-	return f.flow.Name
-}
-
-func (f *flowAdapter) Validate() error {
-	if f.flow.ID.Compare(idwrap.IDWrap{}) == 0 {
+func (c Content) validateFlow() error {
+	if c.Flow.ID.Compare(idwrap.IDWrap{}) == 0 {
 		return fmt.Errorf("flow content ID cannot be empty")
 	}
-	if f.flow.Name == "" {
+	if c.Flow.Name == "" {
 		return fmt.Errorf("flow name cannot be empty")
 	}
-	if f.flow.Duration < 0 {
+	if c.Flow.Duration < 0 {
 		return fmt.Errorf("flow duration cannot be negative")
 	}
 	return nil
 }
 
-// httpAdapter implements FileContent interface for *mhttp.HTTP
-type httpAdapter struct {
-	http *mhttp.HTTP
-}
-
-func (h *httpAdapter) GetKind() ContentKind {
-	return ContentKindHTTP
-}
-
-func (h *httpAdapter) GetID() idwrap.IDWrap {
-	return h.http.ID
-}
-
-func (h *httpAdapter) GetName() string {
-	return h.http.Name
-}
-
-func (h *httpAdapter) Validate() error {
-	if h.http.ID.Compare(idwrap.IDWrap{}) == 0 {
+func (c Content) validateHTTP() error {
+	if c.HTTP.ID.Compare(idwrap.IDWrap{}) == 0 {
 		return fmt.Errorf("HTTP content ID cannot be empty")
 	}
-	if h.http.Name == "" {
+	if c.HTTP.Name == "" {
 		return fmt.Errorf("HTTP name cannot be empty")
 	}
-	if h.http.Method == "" {
+	if c.HTTP.Method == "" {
 		return fmt.Errorf("HTTP method cannot be empty")
 	}
-	if h.http.Url == "" {
+	if c.HTTP.Url == "" {
 		return fmt.Errorf("HTTP URL cannot be empty")
 	}
 	return nil
+}
+
+// AsFolder returns the folder content, or nil if not a folder
+func (c Content) AsFolder() *mitemfolder.ItemFolder {
+	return c.Folder
+}
+
+// AsAPI returns the API content, or nil if not an API
+func (c Content) AsAPI() *mitemapi.ItemApi {
+	return c.API
+}
+
+// AsFlow returns the flow content, or nil if not a flow
+func (c Content) AsFlow() *mflow.Flow {
+	return c.Flow
+}
+
+// AsHTTP returns the HTTP content, or nil if not an HTTP request
+func (c Content) AsHTTP() *mhttp.HTTP {
+	return c.HTTP
+}
+
+// IsZero returns true if no content is set
+func (c Content) IsZero() bool {
+	return c.Folder == nil && c.API == nil && c.Flow == nil && c.HTTP == nil
 }
 
 // File represents a file in the unified file system
@@ -211,6 +270,11 @@ func (f File) IsFlow() bool {
 	return f.ContentKind == ContentKindFlow
 }
 
+// IsHTTP returns true if the file contains an HTTP request
+func (f File) IsHTTP() bool {
+	return f.ContentKind == ContentKindHTTP
+}
+
 // IsRoot returns true if the file has no parent folder
 func (f File) IsRoot() bool {
 	return f.FolderID == nil
@@ -243,7 +307,7 @@ func (f File) Validate() error {
 }
 
 // WithContent returns a new FileWithContent containing the file and its content
-func (f File) WithContent(content FileContent) FileWithContent {
+func (f File) WithContent(content Content) FileWithContent {
 	return FileWithContent{
 		File:    f,
 		Content: content,
@@ -253,7 +317,7 @@ func (f File) WithContent(content FileContent) FileWithContent {
 // FileWithContent represents a file along with its content data
 type FileWithContent struct {
 	File    File
-	Content FileContent
+	Content Content
 }
 
 // Validate validates both the file and its content
@@ -265,9 +329,9 @@ func (fwc FileWithContent) Validate() error {
 		return fmt.Errorf("content validation failed: %w", err)
 	}
 	// Ensure content kinds match
-	if fwc.File.ContentKind != fwc.Content.GetKind() {
+	if fwc.File.ContentKind != fwc.Content.Kind {
 		return fmt.Errorf("content kind mismatch: file has %s but content is %s",
-			fwc.File.ContentKind.String(), fwc.Content.GetKind().String())
+			fwc.File.ContentKind.String(), fwc.Content.Kind.String())
 	}
 	// Ensure content IDs match
 	if fwc.File.ContentID == nil || fwc.File.ContentID.Compare(idwrap.IDWrap{}) == 0 {
@@ -278,28 +342,6 @@ func (fwc FileWithContent) Validate() error {
 			fwc.File.ContentID.String(), fwc.Content.GetID().String())
 	}
 	return nil
-}
-
-// Helper functions for creating content types from existing models
-
-// NewFolderContent creates a FileContent from *mitemfolder.ItemFolder
-func NewFolderContent(folder *mitemfolder.ItemFolder) FileContent {
-	return &folderAdapter{folder: folder}
-}
-
-// NewAPIContent creates a FileContent from *mitemapi.ItemApi
-func NewAPIContent(api *mitemapi.ItemApi) FileContent {
-	return &apiAdapter{api: api}
-}
-
-// NewFlowContent creates a FileContent from *mflow.Flow
-func NewFlowContent(flow *mflow.Flow) FileContent {
-	return &flowAdapter{flow: flow}
-}
-
-// NewHTTPContent creates a FileContent from *mhttp.HTTP
-func NewHTTPContent(http *mhttp.HTTP) FileContent {
-	return &httpAdapter{http: http}
 }
 
 // ContentKindFromString converts a string to ContentKind
@@ -331,4 +373,61 @@ func IDEquals(id, other idwrap.IDWrap) bool {
 // IDIsZero checks if the IDWrap is zero/empty
 func IDIsZero(id idwrap.IDWrap) bool {
 	return id.Compare(idwrap.IDWrap{}) == 0
+}
+
+// Legacy compatibility functions for gradual migration
+
+// FileContent represents the legacy interface for backwards compatibility
+// Deprecated: Use Content struct instead
+type FileContent interface {
+	GetKind() ContentKind
+	GetID() idwrap.IDWrap
+	GetName() string
+	Validate() error
+}
+
+// fileContentAdapter wraps Content to implement legacy FileContent interface
+// Deprecated: Use Content struct directly instead
+type fileContentAdapter struct {
+	content Content
+}
+
+func (a *fileContentAdapter) GetKind() ContentKind {
+	return a.content.Kind
+}
+
+func (a *fileContentAdapter) GetID() idwrap.IDWrap {
+	return a.content.GetID()
+}
+
+func (a *fileContentAdapter) GetName() string {
+	return a.content.GetName()
+}
+
+func (a *fileContentAdapter) Validate() error {
+	return a.content.Validate()
+}
+
+// NewFolderContent creates a legacy FileContent from *mitemfolder.ItemFolder
+// Deprecated: Use NewContentFromFolder instead
+func NewFolderContent(folder *mitemfolder.ItemFolder) FileContent {
+	return &fileContentAdapter{content: NewContentFromFolder(folder)}
+}
+
+// NewAPIContent creates a legacy FileContent from *mitemapi.ItemApi
+// Deprecated: Use NewContentFromAPI instead
+func NewAPIContent(api *mitemapi.ItemApi) FileContent {
+	return &fileContentAdapter{content: NewContentFromAPI(api)}
+}
+
+// NewFlowContent creates a legacy FileContent from *mflow.Flow
+// Deprecated: Use NewContentFromFlow instead
+func NewFlowContent(flow *mflow.Flow) FileContent {
+	return &fileContentAdapter{content: NewContentFromFlow(flow)}
+}
+
+// NewHTTPContent creates a legacy FileContent from *mhttp.HTTP
+// Deprecated: Use NewContentFromHTTP instead
+func NewHTTPContent(http *mhttp.HTTP) FileContent {
+	return &fileContentAdapter{content: NewContentFromHTTP(http)}
 }
