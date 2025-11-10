@@ -1,6 +1,5 @@
-import { Message } from '@bufbuild/protobuf';
 import { AccessorKeyColumnDef, DisplayColumnDef, RowData, Table } from '@tanstack/table-core';
-import { String, Struct } from 'effect';
+import { String } from 'effect';
 import { ReactNode, useEffect, useRef } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import {
@@ -14,17 +13,13 @@ import {
 } from 'react-hook-form';
 import { FiMove, FiPlus } from 'react-icons/fi';
 import { LuTrash2 } from 'react-icons/lu';
-import { twJoin } from 'tailwind-merge';
 import { useDebouncedCallback } from 'use-debounce';
-import { SourceKind } from '@the-dev-tools/spec/delta/v1/delta_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckboxRHF } from '@the-dev-tools/ui/checkbox';
 import { DataTableProps, RowRenderProps, TableOptions, useReactTable } from '@the-dev-tools/ui/data-table';
-import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputFieldRHF } from '@the-dev-tools/ui/text-field';
-import { GenericMessage } from '~api/utils';
-import { ReferenceFieldRHF } from '~reference';
+import { ReferenceFieldRHF } from '~/reference';
 
 interface ReactTableNoMemoProps<TData extends RowData> extends TableOptions<TData> {
   children: (table: Table<TData>) => React.ReactNode;
@@ -141,20 +136,20 @@ export const useFormTableAddRow = <TFieldValues extends FieldValues, TPrimaryNam
   } satisfies Partial<DataTableProps<TFieldValues>>;
 };
 
-export const makeDeltaItems = <
-  T extends Message & {
-    origin?: GenericMessage<T>;
-    source?: SourceKind;
-  },
->(
-  items: T[],
-  key: keyof T,
-) =>
-  items.map((_): GenericMessage<T> => {
-    if (_.source !== SourceKind.ORIGIN || !_.origin) return _;
-    const deltaKey = Struct.pick(_, key, 'source') as Partial<T>;
-    return { ..._.origin, ...deltaKey };
-  });
+// export const makeDeltaItems = <
+//   T extends Message & {
+//     origin?: GenericMessage<T>;
+//     source?: SourceKind;
+//   },
+// >(
+//   items: T[],
+//   key: keyof T,
+// ) =>
+//   items.map((_): GenericMessage<T> => {
+//     if (_.source !== SourceKind.ORIGIN || !_.origin) return _;
+//     const deltaKey = Struct.pick(_, key, 'source') as Partial<T>;
+//     return { ..._.origin, ...deltaKey };
+//   });
 
 interface DisplayFormTableRowProps<T extends FieldValues> {
   children: RowRenderProps<T>['rowNode'];
@@ -262,24 +257,24 @@ export const ColumnActionDelete = ({ onDelete }: ColumnActionDeleteProps) => (
   </TooltipTrigger>
 );
 
-interface ColumnActionDeltaResetProps {
-  onReset: () => void;
-  source: SourceKind | undefined;
-}
+// interface ColumnActionDeltaResetProps {
+//   onReset: () => void;
+//   source: SourceKind | undefined;
+// }
 
-export const ColumnActionDeltaReset = ({ onReset, source }: ColumnActionDeltaResetProps) => (
-  <TooltipTrigger delay={750}>
-    <Button
-      className={({ isDisabled }) => twJoin(tw`p-1 text-slate-500`, isDisabled && tw`invisible`)}
-      isDisabled={source !== SourceKind.MIXED}
-      onPress={onReset}
-      variant='ghost'
-    >
-      <RedoIcon />
-    </Button>
-    <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Reset changes</Tooltip>
-  </TooltipTrigger>
-);
+// export const ColumnActionDeltaReset = ({ onReset, source }: ColumnActionDeltaResetProps) => (
+//   <TooltipTrigger delay={750}>
+//     <Button
+//       className={({ isDisabled }) => twJoin(tw`p-1 text-slate-500`, isDisabled && tw`invisible`)}
+//       isDisabled={source !== SourceKind.MIXED}
+//       onPress={onReset}
+//       variant='ghost'
+//     >
+//       <RedoIcon />
+//     </Button>
+//     <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Reset changes</Tooltip>
+//   </TooltipTrigger>
+// );
 
 export const ColumnActionDrag = () => (
   <Button className={tw`p-1`} slot='drag' variant='ghost'>
@@ -301,19 +296,19 @@ export const columnActionsCommon = <T,>({ onDelete }: ColumnActionsCommonProps<T
     ),
   });
 
-interface ColumnActionsDeltaCommonProps<T> {
-  onDelete: (item: T) => void;
-  onReset: (item: T) => void;
-  source: (item: T) => SourceKind | undefined;
-}
+// interface ColumnActionsDeltaCommonProps<T> {
+//   onDelete: (item: T) => void;
+//   onReset: (item: T) => void;
+//   source: (item: T) => SourceKind | undefined;
+// }
 
-export const columnActionsDeltaCommon = <T,>({ onDelete, onReset, source }: ColumnActionsDeltaCommonProps<T>) =>
-  columnActions<T>({
-    cell: ({ row }) => (
-      <>
-        <ColumnActionDeltaReset onReset={() => void onReset(row.original)} source={source(row.original)} />
-        <ColumnActionDelete onDelete={() => void onDelete(row.original)} />
-        <ColumnActionDrag />
-      </>
-    ),
-  });
+// export const columnActionsDeltaCommon = <T,>({ onDelete, onReset, source }: ColumnActionsDeltaCommonProps<T>) =>
+//   columnActions<T>({
+//     cell: ({ row }) => (
+//       <>
+//         <ColumnActionDeltaReset onReset={() => void onReset(row.original)} source={source(row.original)} />
+//         <ColumnActionDelete onDelete={() => void onDelete(row.original)} />
+//         <ColumnActionDrag />
+//       </>
+//     ),
+//   });

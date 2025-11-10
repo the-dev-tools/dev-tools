@@ -24,15 +24,17 @@ import { useQuery } from '@tanstack/react-query';
 import { Array, Match, pipe } from 'effect';
 import { Suspense } from 'react';
 import { LuClipboardCopy } from 'react-icons/lu';
-
-import { ReferenceCompletion, ReferenceKind, ReferenceService } from '@the-dev-tools/spec/reference/v1/reference_pb';
-import { referenceValue } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
+import {
+  ReferenceCompletion,
+  ReferenceKind,
+  ReferenceService,
+} from '@the-dev-tools/spec/api/reference/v1/reference_pb';
+import { referenceValue } from '@the-dev-tools/spec/api/reference/v1/reference-ReferenceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useConnectSuspenseQuery } from '~api/connect-query';
-import { ReactRender } from '~react-render';
-import { ReferenceContextProps } from '~reference';
-
+import { useConnectSuspenseQuery } from '~/api/connect-query';
+import { ReactRender } from '~/react-render';
+import { ReferenceContextProps } from '~/reference';
 import { parser } from './syntax.grammar';
 
 export const CodeMirrorMarkupLanguages = ['text', 'json', 'html', 'xml'] as const;

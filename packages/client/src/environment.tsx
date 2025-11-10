@@ -1,7 +1,8 @@
 'use no memo'; // TODO: fix variable table incorrect first render with compiler
 
-import { Array, HashMap, Option, pipe, Predicate } from 'effect';
-import { Ulid } from 'id128';
+import { eq, useLiveQuery } from '@tanstack/react-db';
+import { Array, Option, pipe, Predicate } from 'effect';
+import { idEqual, Ulid } from 'id128';
 import { Suspense, useState } from 'react';
 import {
   Button as AriaButton,
@@ -18,39 +19,26 @@ import {
 } from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
+import { EnvironmentInsertSchema, EnvironmentVariable } from '@the-dev-tools/spec/api/environment/v1/environment_pb';
 import {
-  EnvironmentCreateEndpoint,
-  EnvironmentDeleteEndpoint,
-  EnvironmentListEndpoint,
-  EnvironmentMoveEndpoint,
-  EnvironmentUpdateEndpoint,
-} from '@the-dev-tools/spec/data-client/environment/v1/environment.endpoints.ts';
-import {
-  VariableCreateEndpoint,
-  VariableDeleteEndpoint,
-  VariableListEndpoint,
-  VariableMoveEndpoint,
-  VariableUpdateEndpoint,
-} from '@the-dev-tools/spec/data-client/variable/v1/variable.endpoints.ts';
-import { VariableListItemEntity } from '@the-dev-tools/spec/data-client/variable/v1/variable.entities.ts';
-import {
-  WorkspaceGetEndpoint,
-  WorkspaceUpdateEndpoint,
-} from '@the-dev-tools/spec/data-client/workspace/v1/workspace.endpoints.ts';
-import { EnvironmentListItem } from '@the-dev-tools/spec/environment/v1/environment_pb';
+  EnvironmentCollectionSchema,
+  EnvironmentVariableCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/environment';
+import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { GlobalEnvironmentIcon, VariableIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { Modal } from '@the-dev-tools/ui/modal';
-import { basicReorder, DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
+import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { useMutate, useQuery } from '~data-client';
-import { rootRouteApi, workspaceRouteApi } from '~routes';
-import { ExportDialog } from '~workspace/export';
+import { Protobuf, useApiCollection } from '~/api-new';
+import { workspaceRouteApi } from '~/routes';
+import { getNextOrder, handleCollectionReorder } from '~/utils/order';
+import { pick } from '~/utils/tanstack-db';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -59,27 +47,42 @@ import {
   useFormTable,
   useFormTableAddRow,
 } from './form-table';
-import { ImportDialog } from './workspace/import';
 
 export const EnvironmentsWidget = () => {
-  const { dataClient } = rootRouteApi.useRouteContext();
-
   const { workspaceId } = workspaceRouteApi.useLoaderData();
+  const workspaceUlid = Ulid.construct(workspaceId);
 
-  // TODO: fetch in parallel
-  const { selectedEnvironmentId } = useQuery(WorkspaceGetEndpoint, { workspaceId });
-  const { items: environments } = useQuery(EnvironmentListEndpoint, { workspaceId });
+  const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
-  const selectedEnvironmentIdCan = Ulid.construct(selectedEnvironmentId).toCanonical();
+  const selectedEnvironmentIdCan = pipe(
+    useLiveQuery((_) =>
+      _.from({ workspace: workspaceCollection })
+        .fn.where((_) => idEqual(Ulid.construct(_.workspace.workspaceId), workspaceUlid))
+        .select((_) => pick(_.workspace, 'selectedEnvironmentId'))
+        .findOne(),
+    ),
+    (_) => Option.fromNullable(_.data?.selectedEnvironmentId),
+    Option.map((_) => Ulid.construct(_).toCanonical()),
+    Option.getOrNull,
+  );
+
+  const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
+
+  const { data: environments } = useLiveQuery((_) =>
+    _.from({ environment: environmentCollection })
+      .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
+      .orderBy((_) => _.environment.order)
+      .select((_) => pick(_.environment, 'environmentId', 'name', 'isGlobal', 'order')),
+  );
 
   return (
     <div className={tw`flex gap-1 border-b border-slate-200 p-3`}>
       <Select
         aria-label='Environment'
         items={environments}
-        onSelectionChange={async (selectedEnvironmentIdCan) => {
+        onSelectionChange={(selectedEnvironmentIdCan) => {
           const selectedEnvironmentId = Ulid.fromCanonical(selectedEnvironmentIdCan as string).bytes;
-          await dataClient.fetch(WorkspaceUpdateEndpoint, { selectedEnvironmentId, workspaceId });
+          workspaceCollection.utils.update({ selectedEnvironmentId, workspaceId });
         }}
         selectedKey={selectedEnvironmentIdCan}
         triggerClassName={tw`justify-start p-0`}
@@ -106,9 +109,9 @@ export const EnvironmentsWidget = () => {
 
       <div className={tw`flex-1`} />
 
-      <ImportDialog />
+      {/* <ImportDialog /> */}
 
-      <ExportDialog />
+      {/* <ExportDialog /> */}
 
       <DialogTrigger>
         <TooltipTrigger delay={750}>
@@ -126,43 +129,36 @@ export const EnvironmentsWidget = () => {
 };
 
 const EnvironmentModal = () => {
-  const { dataClient } = rootRouteApi.useRouteContext();
-
   const { workspaceId } = workspaceRouteApi.useLoaderData();
+  const workspaceUlid = Ulid.construct(workspaceId);
 
-  const { items: environments } = useQuery(EnvironmentListEndpoint, { workspaceId });
+  const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
 
-  const environmentMap = pipe(
-    Array.map(environments, (_) => [Ulid.construct(_.environmentId).toCanonical(), _] as const),
-    HashMap.fromIterable,
+  const { data: environments } = useLiveQuery((_) =>
+    _.from({ environment: environmentCollection })
+      .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
+      .orderBy((_) => _.environment.order)
+      .select((_) => pick(_.environment, 'environmentId', 'name', 'order')),
   );
 
-  const { global: [global] = [], rest = [] } = Array.groupBy(environments, (_) => (_.isGlobal ? 'global' : 'rest'));
-
-  const globalIdCan = pipe(
-    Option.fromNullable(global),
-    Option.map((_) => Ulid.construct(_.environmentId).toCanonical()),
+  const globalKey = pipe(
+    useLiveQuery((_) =>
+      _.from({ environment: environmentCollection })
+        .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
+        .where((_) => eq(_.environment.isGlobal, true))
+        .select((_) => pick(_.environment, 'environmentId'))
+        .findOne(),
+    ),
+    (_) => Option.fromNullable(_.data),
+    Option.map((_) => environmentCollection.utils.getKey(_)),
     Option.getOrUndefined,
   );
 
-  const [selectedKey, setSelectedKey] = useState<Key | undefined>(globalIdCan);
-
-  const environment = pipe(
-    Option.liftPredicate(selectedKey, Predicate.isString),
-    Option.flatMap((_) => HashMap.get(environmentMap, _)),
-    Option.getOrNull,
-  );
+  const [selectedKey, setSelectedKey] = useState<Key | undefined>(globalKey);
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: basicReorder(({ position, source, target }) =>
-      dataClient.fetch(EnvironmentMoveEndpoint, {
-        environmentId: Ulid.fromCanonical(source).bytes,
-        position,
-        targetEnvironmentId: Ulid.fromCanonical(target).bytes,
-        workspaceId,
-      }),
-    ),
+    onReorder: handleCollectionReorder(environmentCollection),
     renderDropIndicator: () => <DropIndicatorHorizontal />,
   });
 
@@ -177,21 +173,23 @@ const EnvironmentModal = () => {
                 <div className={tw`text-xs leading-4 text-slate-500`}>Manage variables & environment</div>
               </div>
 
-              <ToggleButton
-                className={({ isSelected }) =>
-                  twJoin(
-                    tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
-                    isSelected && tw`bg-slate-200`,
-                  )
-                }
-                isSelected={selectedKey === globalIdCan}
-                onChange={(isSelected) => {
-                  if (isSelected && globalIdCan) setSelectedKey(globalIdCan);
-                }}
-              >
-                <VariableIcon className={tw`size-4 text-slate-500`} />
-                <span className={tw`text-md leading-5 font-semibold`}>Global Variables</span>
-              </ToggleButton>
+              {globalKey && (
+                <ToggleButton
+                  className={({ isSelected }) =>
+                    twJoin(
+                      tw`-mx-2 flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm`,
+                      isSelected && tw`bg-slate-200`,
+                    )
+                  }
+                  isSelected={selectedKey === globalKey}
+                  onChange={(isSelected) => {
+                    if (isSelected && globalKey) setSelectedKey(globalKey);
+                  }}
+                >
+                  <VariableIcon className={tw`size-4 text-slate-500`} />
+                  <span className={tw`text-md leading-5 font-semibold`}>Global Variables</span>
+                </ToggleButton>
+              )}
 
               <div className={tw`mt-3 mb-1 flex items-center justify-between py-0.5`}>
                 <span className={tw`text-md leading-5 text-slate-400`}>Environments</span>
@@ -200,14 +198,16 @@ const EnvironmentModal = () => {
                   <Button
                     className={tw`bg-slate-200 p-0.5`}
                     onPress={async () => {
-                      const { environmentId } = await dataClient.fetch(EnvironmentCreateEndpoint, {
+                      const environment = Protobuf.create(EnvironmentInsertSchema, {
+                        environmentId: Ulid.generate().bytes,
                         name: 'New Environment',
+                        order: await getNextOrder(environmentCollection),
                         workspaceId,
                       });
 
-                      const environmentIdCan = Ulid.construct(environmentId).toCanonical();
+                      environmentCollection.utils.insert(environment);
 
-                      setSelectedKey(environmentIdCan);
+                      setSelectedKey(environmentCollection.utils.getKey(environment));
                     }}
                     variant='ghost'
                   >
@@ -221,8 +221,9 @@ const EnvironmentModal = () => {
 
               <AriaListBox
                 aria-label='Environments'
+                dependencies={[{}]}
                 dragAndDropHooks={dragAndDropHooks}
-                items={rest}
+                items={environments}
                 onSelectionChange={(keys) => {
                   if (!Predicate.isSet(keys) || keys.size !== 1) return;
                   const [key] = keys.values();
@@ -239,7 +240,7 @@ const EnvironmentModal = () => {
                         isSelected && tw`bg-slate-200`,
                       )
                     }
-                    id={Ulid.construct(_.environmentId).toCanonical()}
+                    id={environmentCollection.utils.getKey(_)}
                     textValue={_.name}
                   >
                     <div
@@ -256,7 +257,7 @@ const EnvironmentModal = () => {
             </div>
 
             <div className={tw`flex h-full min-w-0 flex-1 flex-col`}>
-              {environment && <EnvironmentPanel environment={environment} />}
+              {selectedKey && <EnvironmentPanel id={selectedKey.toString()} key={selectedKey} />}
               <div className={tw`flex-1`} />
               <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
                 <Button onPress={close} variant='primary'>
@@ -272,20 +273,31 @@ const EnvironmentModal = () => {
 };
 
 interface EnvironmentPanelProps {
-  environment: EnvironmentListItem;
+  id: string;
 }
 
-const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name } }: EnvironmentPanelProps) => {
-  const { dataClient } = rootRouteApi.useRouteContext();
+const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
+  const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
 
-  const [environmentUpdate, environmentUpdateLoading] = useMutate(EnvironmentUpdateEndpoint);
+  const { environmentId } = environmentCollection.utils.parseKeyUnsafe(id);
+
+  const { data } = useLiveQuery((_) =>
+    _.from({ environment: environmentCollection })
+      .fn.where((_) => idEqual(Ulid.construct(_.environment.environmentId), Ulid.construct(environmentId)))
+      .select((_) => pick(_.environment, 'name', 'isGlobal'))
+      .findOne(),
+  );
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => environmentUpdate({ environmentId, name: _ }),
-    value: name,
+    onSuccess: (_) => environmentCollection.utils.update({ environmentId, name: _ }),
+    value: data?.name ?? '',
   });
+
+  if (!data) return null;
+
+  const { isGlobal, name } = data;
 
   return (
     <div className={tw`h-full px-6 py-4`}>
@@ -306,7 +318,6 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name } }: En
           <TextInputField
             aria-label='Environment name'
             inputClassName={tw`-my-1 py-1 leading-none font-semibold tracking-tight text-slate-800`}
-            isDisabled={environmentUpdateLoading}
             {...textFieldProps}
           />
         ) : (
@@ -331,10 +342,7 @@ const EnvironmentPanel = ({ environment: { environmentId, isGlobal, name } }: En
             <Menu {...menuProps}>
               <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-              <MenuItem
-                onAction={() => dataClient.fetch(EnvironmentDeleteEndpoint, { environmentId })}
-                variant='danger'
-              >
+              <MenuItem onAction={() => environmentCollection.utils.delete({ environmentId })} variant='danger'>
                 Delete
               </MenuItem>
             </Menu>
@@ -360,50 +368,49 @@ interface VariablesTableProps {
 }
 
 export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
-  const { dataClient } = rootRouteApi.useRouteContext();
+  const variableColleciton = useApiCollection(EnvironmentVariableCollectionSchema);
 
-  const { items } = useQuery(VariableListEndpoint, { environmentId });
+  const { data: variables } = useLiveQuery((_) =>
+    _.from({ variable: variableColleciton })
+      .fn.where((_) => idEqual(Ulid.construct(_.variable.environmentId), Ulid.construct(environmentId)))
+      .orderBy((_) => _.variable.order),
+  );
 
   const table = useReactTable({
     columns: [
-      columnCheckboxField<VariableListItemEntity>('enabled', { meta: { divider: false } }),
-      columnReferenceField<VariableListItemEntity>('name', { meta: { isRowHeader: true } }),
-      columnReferenceField<VariableListItemEntity>('value', { allowFiles: true }),
-      columnTextField<VariableListItemEntity>('description', { meta: { divider: false } }),
-      columnActionsCommon<VariableListItemEntity>({
-        onDelete: (_) => dataClient.fetch(VariableDeleteEndpoint, { variableId: _.variableId }),
+      columnCheckboxField<EnvironmentVariable>('enabled', { meta: { divider: false } }),
+      columnReferenceField<EnvironmentVariable>('key', { meta: { isRowHeader: true } }),
+      columnReferenceField<EnvironmentVariable>('value', { allowFiles: true }),
+      columnTextField<EnvironmentVariable>('description', { meta: { divider: false } }),
+      columnActionsCommon<EnvironmentVariable>({
+        onDelete: (_) => variableColleciton.utils.delete(pick(_, 'environmentVariableId')),
       }),
     ],
-    data: items,
-    getRowId: (_) => Ulid.construct(_.variableId).toCanonical(),
+    data: variables,
+    getRowId: (_) => variableColleciton.utils.getKey(_),
   });
 
-  const formTable = useFormTable<VariableListItemEntity>({
-    onUpdate: ({ $typeName: _, ...item }) => dataClient.fetch(VariableUpdateEndpoint, item),
+  const formTable = useFormTable<EnvironmentVariable>({
+    onUpdate: ({ $typeName: _, ...item }) => variableColleciton.utils.update(item),
   });
 
   const addRow = useFormTableAddRow({
     createLabel: 'New variable',
-    items,
-    onCreate: () =>
-      dataClient.fetch(VariableCreateEndpoint, {
+    items: variables,
+    onCreate: async () =>
+      variableColleciton.utils.insert({
         enabled: true,
         environmentId,
-        name: `VARIABLE_${items.length}`,
+        environmentVariableId: Ulid.generate().bytes,
+        key: `VARIABLE_${variables.length}`,
+        order: await getNextOrder(variableColleciton),
       }),
-    primaryColumn: 'name',
+    primaryColumn: 'key',
   });
 
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((key) => ({ key: key.toString() })),
-    onReorder: basicReorder(({ position, source, target }) =>
-      dataClient.fetch(VariableMoveEndpoint, {
-        environmentId,
-        position,
-        targetVariableId: Ulid.fromCanonical(target).bytes,
-        variableId: Ulid.fromCanonical(source).bytes,
-      }),
-    ),
+    onReorder: handleCollectionReorder(variableColleciton),
     renderDropIndicator: () => <DropIndicatorHorizontal as='tr' />,
   });
 

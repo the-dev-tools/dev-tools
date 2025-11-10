@@ -18,14 +18,14 @@ import {
   ReferenceKind,
   ReferenceService,
   ReferenceTreeItem,
-} from '@the-dev-tools/spec/reference/v1/reference_pb';
-import { referenceTree } from '@the-dev-tools/spec/reference/v1/reference-ReferenceService_connectquery';
+} from '@the-dev-tools/spec/api/reference/v1/reference_pb';
+import { referenceTree } from '@the-dev-tools/spec/api/reference/v1/reference-ReferenceService_connectquery';
 import { controllerPropKeys, ControllerPropKeys } from '@the-dev-tools/ui/react-hook-form';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItem } from '@the-dev-tools/ui/tree';
 import { useConnectSuspenseQuery } from '~/api/connect-query';
-import { BaseCodeMirrorExtensionProps, baseCodeMirrorExtensions } from '~code-mirror/extensions';
-import { useReactRender } from '~react-render';
+import { BaseCodeMirrorExtensionProps, baseCodeMirrorExtensions } from '~/code-mirror/extensions';
+import { useReactRender } from '~/react-render';
 
 export const makeReferenceTreeId = (keys: ReferenceKey[], value: unknown) =>
   pipe(

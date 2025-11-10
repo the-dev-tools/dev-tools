@@ -4,7 +4,7 @@ import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { Logo } from '@the-dev-tools/ui/illustrations';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { welcomeRouteApi } from '~routes';
+import { welcomeRouteApi } from '~/routes';
 
 export interface DashboardLayoutProps {
   children?: React.ReactNode;
