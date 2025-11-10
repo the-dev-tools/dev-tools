@@ -2,7 +2,7 @@ import { timestampDate } from '@bufbuild/protobuf/wkt';
 import { count, useLiveQuery } from '@tanstack/react-db';
 import { DateTime, Option, pipe } from 'effect';
 import { idEqual, Ulid } from 'id128';
-import { RefObject, useRef } from 'react';
+import { RefObject, useMemo, useRef } from 'react';
 import { ListBox, ListBoxItem, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import TimeAgo from 'react-timeago';
@@ -26,10 +26,12 @@ import { pick } from '~/utils/tanstack-db';
 export const WorkspaceListPage = () => {
   const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
-  const { data: workspaces } = useLiveQuery((_) =>
-    _.from({ workspace: workspaceCollection })
-      .orderBy((_) => _.workspace.order)
-      .select((_) => pick(_.workspace, 'workspaceId', 'name', 'order')),
+  const { data: workspaces } = useLiveQuery(
+    (_) =>
+      _.from({ workspace: workspaceCollection })
+        .orderBy((_) => _.workspace.order)
+        .select((_) => pick(_.workspace, 'workspaceId', 'name', 'order')),
+    [workspaceCollection],
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,16 +90,19 @@ interface ItemProps {
 const Item = ({ containerRef, id }: ItemProps) => {
   const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
-  const { workspaceId } = workspaceCollection.utils.parseKeyUnsafe(id);
-
-  const workspaceUlid = Ulid.construct(workspaceId);
+  const workspaceUlid = useMemo(
+    () => pipe(workspaceCollection.utils.parseKeyUnsafe(id), (_) => Ulid.construct(_.workspaceId)),
+    [id, workspaceCollection.utils],
+  );
 
   const { name, updated } = pipe(
-    useLiveQuery((_) =>
-      _.from({ workspace: workspaceCollection })
-        .fn.where((_) => idEqual(Ulid.construct(_.workspace.workspaceId), workspaceUlid))
-        .select((_) => pick(_.workspace, 'name', 'updated'))
-        .findOne(),
+    useLiveQuery(
+      (_) =>
+        _.from({ workspace: workspaceCollection })
+          .fn.where((_) => idEqual(Ulid.construct(_.workspace.workspaceId), workspaceUlid))
+          .select((_) => pick(_.workspace, 'name', 'updated'))
+          .findOne(),
+      [workspaceCollection, workspaceUlid],
     ),
     (_) => Option.fromNullable(_.data),
     Option.getOrThrow,
@@ -105,11 +110,13 @@ const Item = ({ containerRef, id }: ItemProps) => {
 
   const fileCollection = useApiCollection(FileCollectionSchema);
 
-  const { data: { fileCount = 0 } = {} } = useLiveQuery((_) =>
-    _.from({ file: fileCollection })
-      .fn.where((_) => idEqual(Ulid.construct(_.file.workspaceId), workspaceUlid))
-      .select((_) => ({ fileCount: count(_.file.fileId) }))
-      .findOne(),
+  const { data: { fileCount = 0 } = {} } = useLiveQuery(
+    (_) =>
+      _.from({ file: fileCollection })
+        .fn.where((_) => idEqual(Ulid.construct(_.file.workspaceId), workspaceUlid))
+        .select((_) => ({ fileCount: count(_.file.fileId) }))
+        .findOne(),
+    [fileCollection, workspaceUlid],
   );
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
@@ -117,7 +124,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
   const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => workspaceCollection.utils.update({ name: _, workspaceId }),
+    onSuccess: (_) => workspaceCollection.utils.update({ name: _, workspaceId: workspaceUlid.bytes }),
     value: name,
   });
 
@@ -183,7 +190,10 @@ const Item = ({ containerRef, id }: ItemProps) => {
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
-            <MenuItem onAction={() => void workspaceCollection.utils.delete({ workspaceId })} variant='danger'>
+            <MenuItem
+              onAction={() => void workspaceCollection.utils.delete({ workspaceId: workspaceUlid.bytes })}
+              variant='danger'
+            >
               Delete
             </MenuItem>
           </Menu>

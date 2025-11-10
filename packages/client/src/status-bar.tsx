@@ -28,7 +28,7 @@ const logTextStyles = tv({
 
 export const StatusBar = () => {
   const logCollection = useApiCollection(LogCollectionSchema);
-  const { data: logs } = useLiveQuery((_) => _.from({ log: logCollection }));
+  const { data: logs } = useLiveQuery((_) => _.from({ log: logCollection }), [logCollection]);
 
   const { showLogs } = workspaceRouteApi.useSearch();
 

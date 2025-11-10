@@ -65,6 +65,13 @@ const reactHooks = defineConfig({
     'react-hooks/unsupported-syntax': 'error',
     'react-hooks/use-memo': 'error',
   },
+  settings: {
+    'react-hooks': {
+      // https://dataclient.io/docs/api/useLoading#eslint
+      // https://tanstack.com/db/latest/docs/guides/live-queries#reactive-updates
+      additionalEffectHooks: '(useLoading|useLiveQuery|useLiveSuspenseQuery)',
+    },
+  },
 });
 
 const tailwind = defineConfig({
@@ -135,14 +142,6 @@ const rules = defineConfig({
       sortObject(['extend', 'base', 'slot', 'variants', 'defaultVariants', 'compoundVariants', 'compoundSlots'], 'tv'),
       sortObject(['sm', 'md', 'lg', 'xl']),
       sortObject(['min', 'max']),
-    ],
-
-    'react-hooks/exhaustive-deps': [
-      'warn',
-      {
-        // https://dataclient.io/docs/api/useLoading#eslint
-        additionalHooks: '(useLoading)',
-      },
     ],
 
     'react/prop-types': 'off',

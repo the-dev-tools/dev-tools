@@ -3,7 +3,7 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Array, Option, pipe, Predicate } from 'effect';
 import { idEqual, Ulid } from 'id128';
-import { Suspense, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import {
   Button as AriaButton,
   ListBox as AriaListBox,
@@ -50,16 +50,18 @@ import {
 
 export const EnvironmentsWidget = () => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
-  const workspaceUlid = Ulid.construct(workspaceId);
+  const workspaceUlid = useMemo(() => Ulid.construct(workspaceId), [workspaceId]);
 
   const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
   const selectedEnvironmentIdCan = pipe(
-    useLiveQuery((_) =>
-      _.from({ workspace: workspaceCollection })
-        .fn.where((_) => idEqual(Ulid.construct(_.workspace.workspaceId), workspaceUlid))
-        .select((_) => pick(_.workspace, 'selectedEnvironmentId'))
-        .findOne(),
+    useLiveQuery(
+      (_) =>
+        _.from({ workspace: workspaceCollection })
+          .fn.where((_) => idEqual(Ulid.construct(_.workspace.workspaceId), workspaceUlid))
+          .select((_) => pick(_.workspace, 'selectedEnvironmentId'))
+          .findOne(),
+      [workspaceCollection, workspaceUlid],
     ),
     (_) => Option.fromNullable(_.data?.selectedEnvironmentId),
     Option.map((_) => Ulid.construct(_).toCanonical()),
@@ -68,11 +70,13 @@ export const EnvironmentsWidget = () => {
 
   const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
 
-  const { data: environments } = useLiveQuery((_) =>
-    _.from({ environment: environmentCollection })
-      .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
-      .orderBy((_) => _.environment.order)
-      .select((_) => pick(_.environment, 'environmentId', 'name', 'isGlobal', 'order')),
+  const { data: environments } = useLiveQuery(
+    (_) =>
+      _.from({ environment: environmentCollection })
+        .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
+        .orderBy((_) => _.environment.order)
+        .select((_) => pick(_.environment, 'environmentId', 'name', 'isGlobal', 'order')),
+    [environmentCollection, workspaceUlid],
   );
 
   return (
@@ -130,24 +134,28 @@ export const EnvironmentsWidget = () => {
 
 const EnvironmentModal = () => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
-  const workspaceUlid = Ulid.construct(workspaceId);
+  const workspaceUlid = useMemo(() => Ulid.construct(workspaceId), [workspaceId]);
 
   const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
 
-  const { data: environments } = useLiveQuery((_) =>
-    _.from({ environment: environmentCollection })
-      .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
-      .orderBy((_) => _.environment.order)
-      .select((_) => pick(_.environment, 'environmentId', 'name', 'order')),
+  const { data: environments } = useLiveQuery(
+    (_) =>
+      _.from({ environment: environmentCollection })
+        .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
+        .orderBy((_) => _.environment.order)
+        .select((_) => pick(_.environment, 'environmentId', 'name', 'order')),
+    [environmentCollection, workspaceUlid],
   );
 
   const globalKey = pipe(
-    useLiveQuery((_) =>
-      _.from({ environment: environmentCollection })
-        .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
-        .where((_) => eq(_.environment.isGlobal, true))
-        .select((_) => pick(_.environment, 'environmentId'))
-        .findOne(),
+    useLiveQuery(
+      (_) =>
+        _.from({ environment: environmentCollection })
+          .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
+          .where((_) => eq(_.environment.isGlobal, true))
+          .select((_) => pick(_.environment, 'environmentId'))
+          .findOne(),
+      [environmentCollection, workspaceUlid],
     ),
     (_) => Option.fromNullable(_.data),
     Option.map((_) => environmentCollection.utils.getKey(_)),
@@ -257,7 +265,7 @@ const EnvironmentModal = () => {
             </div>
 
             <div className={tw`flex h-full min-w-0 flex-1 flex-col`}>
-              {selectedKey && <EnvironmentPanel id={selectedKey.toString()} key={selectedKey} />}
+              {selectedKey && <EnvironmentPanel id={selectedKey.toString()} />}
               <div className={tw`flex-1`} />
               <div className={tw`flex justify-end gap-2 border-t border-slate-200 px-6 py-3`}>
                 <Button onPress={close} variant='primary'>
@@ -279,19 +287,24 @@ interface EnvironmentPanelProps {
 const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
   const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
 
-  const { environmentId } = environmentCollection.utils.parseKeyUnsafe(id);
+  const environmentUlid = useMemo(
+    () => pipe(environmentCollection.utils.parseKeyUnsafe(id), (_) => Ulid.construct(_.environmentId)),
+    [id, environmentCollection.utils],
+  );
 
-  const { data } = useLiveQuery((_) =>
-    _.from({ environment: environmentCollection })
-      .fn.where((_) => idEqual(Ulid.construct(_.environment.environmentId), Ulid.construct(environmentId)))
-      .select((_) => pick(_.environment, 'name', 'isGlobal'))
-      .findOne(),
+  const { data } = useLiveQuery(
+    (_) =>
+      _.from({ environment: environmentCollection })
+        .fn.where((_) => idEqual(Ulid.construct(_.environment.environmentId), environmentUlid))
+        .select((_) => pick(_.environment, 'name', 'isGlobal'))
+        .findOne(),
+    [environmentCollection, environmentUlid],
   );
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => environmentCollection.utils.update({ environmentId, name: _ }),
+    onSuccess: (_) => environmentCollection.utils.update({ environmentId: environmentUlid.bytes, name: _ }),
     value: data?.name ?? '',
   });
 
@@ -342,7 +355,10 @@ const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
             <Menu {...menuProps}>
               <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-              <MenuItem onAction={() => environmentCollection.utils.delete({ environmentId })} variant='danger'>
+              <MenuItem
+                onAction={() => environmentCollection.utils.delete({ environmentId: environmentUlid.bytes })}
+                variant='danger'
+              >
                 Delete
               </MenuItem>
             </Menu>
@@ -357,7 +373,7 @@ const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
           </div>
         }
       >
-        <VariablesTable environmentId={environmentId} key={Ulid.construct(environmentId).toCanonical()} />
+        <VariablesTable environmentId={environmentUlid.bytes} />
       </Suspense>
     </div>
   );
@@ -370,10 +386,12 @@ interface VariablesTableProps {
 export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   const variableColleciton = useApiCollection(EnvironmentVariableCollectionSchema);
 
-  const { data: variables } = useLiveQuery((_) =>
-    _.from({ variable: variableColleciton })
-      .fn.where((_) => idEqual(Ulid.construct(_.variable.environmentId), Ulid.construct(environmentId)))
-      .orderBy((_) => _.variable.order),
+  const { data: variables } = useLiveQuery(
+    (_) =>
+      _.from({ variable: variableColleciton })
+        .fn.where((_) => idEqual(Ulid.construct(_.variable.environmentId), Ulid.construct(environmentId)))
+        .orderBy((_) => _.variable.order),
+    [environmentId, variableColleciton],
   );
 
   const table = useReactTable({
