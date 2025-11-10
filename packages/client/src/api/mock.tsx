@@ -308,6 +308,8 @@ const mockCollections = Effect.gen(function* () {
       yield* Queue.offer(syncQueue, sync);
     });
 
+    MutableHashMap.set(methodImplMap, collection.collection, () => ({}));
+
     if (insert) {
       const insertImpl = (input: Protobuf.Message) =>
         toSyncOutput(input, 'insert', LogLevel.WARNING).pipe(Runtime.runPromise(runtime));
