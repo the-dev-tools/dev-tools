@@ -57,7 +57,7 @@ func TestHarResolvedSimple(t *testing.T) {
 
 	// Verify file system structure
 	require.Len(t, resolved.Files, 1, "Expected 1 file to be created")
-	require.Equal(t, mfile.ContentKindAPI, resolved.Files[0].ContentKind)
+	require.Equal(t, mfile.ContentTypeHTTP, resolved.Files[0].ContentType)
 	require.Equal(t, originalHTTP.ID, *resolved.Files[0].ContentID)
 
 	// Verify flow generation
@@ -687,7 +687,7 @@ func TestMultipleEntriesComplexFlow(t *testing.T) {
 	// Verify file structure
 	require.Len(t, resolved.Files, 6, "Should have 6 files (one per original request)")
 	for _, file := range resolved.Files {
-		require.Equal(t, mfile.ContentKindAPI, file.ContentKind, "All files should be API content")
+		require.Equal(t, mfile.ContentTypeHTTP, file.ContentType, "All files should be HTTP content")
 		require.NotNil(t, file.ContentID, "All files should reference HTTP content")
 	}
 

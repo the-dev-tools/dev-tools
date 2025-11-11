@@ -215,21 +215,47 @@ func parseHTTPRequestData(data map[string]any) (*YamlHTTPRequestV2, error) {
 		httpReq.Description = description
 	}
 
-	// Parse headers
+	// Parse headers (handle both array and map formats)
 	if headers, ok := data[fieldHeaders].([]any); ok {
+		// Array format: [{"name": "key", "value": "value"}]
 		for _, h := range headers {
 			if headerMap, ok := h.(map[string]any); ok {
 				header := parseNameValuePair(headerMap)
 				httpReq.Headers = append(httpReq.Headers, header)
 			}
 		}
+	} else if headers, ok := data[fieldHeaders].(map[string]any); ok {
+		// Map format: {"key": "value"}
+		for key, value := range headers {
+			if valueStr, ok := value.(string); ok {
+				header := YamlNameValuePairV2{
+					Name:   key,
+					Value:  valueStr,
+					Enabled: true,
+				}
+				httpReq.Headers = append(httpReq.Headers, header)
+			}
+		}
 	}
 
-	// Parse query parameters
+	// Parse query parameters (handle both array and map formats)
 	if queryParams, ok := data[fieldQueryParams].([]any); ok {
+		// Array format: [{"name": "key", "value": "value"}]
 		for _, q := range queryParams {
 			if queryMap, ok := q.(map[string]any); ok {
 				param := parseNameValuePair(queryMap)
+				httpReq.QueryParams = append(httpReq.QueryParams, param)
+			}
+		}
+	} else if queryParams, ok := data[fieldQueryParams].(map[string]any); ok {
+		// Map format: {"key": "value"}
+		for key, value := range queryParams {
+			if valueStr, ok := value.(string); ok {
+				param := YamlNameValuePairV2{
+					Name:   key,
+					Value:  valueStr,
+					Enabled: true,
+				}
 				httpReq.QueryParams = append(httpReq.QueryParams, param)
 			}
 		}
@@ -980,6 +1006,9 @@ func processJSStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[s
 		return NewYamlFlowErrorV2(fmt.Sprintf("js step '%s' missing required code", nodeName), fieldCode, nil)
 	}
 
+	// Trim trailing whitespace and newlines from code
+	code = strings.TrimRight(code, " \t\r\n")
+
 	// Create flow node
 	flowNode := mnnode.MNode{
 		ID:       nodeID,
@@ -1011,6 +1040,15 @@ func mergeFlowData(result, flowData *SimplifiedYAMLResolvedV2, opts ConvertOptio
 	result.FlowForNodes = append(result.FlowForNodes, flowData.FlowForNodes...)
 	result.FlowForEachNodes = append(result.FlowForEachNodes, flowData.FlowForEachNodes...)
 	result.FlowJSNodes = append(result.FlowJSNodes, flowData.FlowJSNodes...)
+
+	// Merge HTTP-related data
+	result.HTTPRequests = append(result.HTTPRequests, flowData.HTTPRequests...)
+	result.Headers = append(result.Headers, flowData.Headers...)
+	result.SearchParams = append(result.SearchParams, flowData.SearchParams...)
+	result.BodyForms = append(result.BodyForms, flowData.BodyForms...)
+	result.BodyUrlencoded = append(result.BodyUrlencoded, flowData.BodyUrlencoded...)
+	result.BodyRaw = append(result.BodyRaw, flowData.BodyRaw...)
+	result.Files = append(result.Files, flowData.Files...)
 }
 
 // mergeAssociatedData merges associated HTTP data into the result

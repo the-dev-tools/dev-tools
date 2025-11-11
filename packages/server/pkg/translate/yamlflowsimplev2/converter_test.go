@@ -3,15 +3,10 @@ package yamlflowsimplev2
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
 )
 
 func TestConvertSimplifiedYAML(t *testing.T) {
@@ -455,13 +450,13 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
 		{
 			name: "JSON Body",
 			bodyYAML: `
-body:
-  type: "json"
-  json:
-    key: "value"
-    number: 42
-    nested:
-      field: "data"`,
+          body:
+            type: "json"
+            json:
+              key: "value"
+              number: 42
+              nested:
+                field: "data"`,
 			validate: func(t *testing.T, result *SimplifiedYAMLResolvedV2) {
 				if len(result.BodyRaw) != 1 {
 					t.Errorf("Expected 1 raw body, got %d", len(result.BodyRaw))
@@ -475,9 +470,9 @@ body:
 		{
 			name: "Raw Body",
 			bodyYAML: `
-body:
-  type: "raw"
-  raw: "plain text content"`,
+          body:
+            type: "raw"
+            raw: "plain text content"`,
 			validate: func(t *testing.T, result *SimplifiedYAMLResolvedV2) {
 				if len(result.BodyRaw) != 1 {
 					t.Errorf("Expected 1 raw body, got %d", len(result.BodyRaw))
@@ -491,13 +486,13 @@ body:
 		{
 			name: "Form Data",
 			bodyYAML: `
-body:
-  type: "form-data"
-  form_data:
-    - name: "username"
-      value: "john_doe"
-    - name: "password"
-      value: "secret123"`,
+          body:
+            type: "form-data"
+            form_data:
+              - name: "username"
+                value: "john_doe"
+              - name: "password"
+                value: "secret123"`,
 			validate: func(t *testing.T, result *SimplifiedYAMLResolvedV2) {
 				if len(result.BodyForms) != 2 {
 					t.Errorf("Expected 2 form fields, got %d", len(result.BodyForms))
@@ -507,13 +502,13 @@ body:
 		{
 			name: "URL Encoded",
 			bodyYAML: `
-body:
-  type: "urlencoded"
-  urlencoded:
-    - name: "param1"
-      value: "value1"
-    - name: "param2"
-      value: "value2"`,
+          body:
+            type: "urlencoded"
+            urlencoded:
+              - name: "param1"
+                value: "value1"
+              - name: "param2"
+                value: "value2"`,
 			validate: func(t *testing.T, result *SimplifiedYAMLResolvedV2) {
 				if len(result.BodyUrlencoded) != 2 {
 					t.Errorf("Expected 2 urlencoded fields, got %d", len(result.BodyUrlencoded))
@@ -549,9 +544,6 @@ flows:
 func TestConvertSimplifiedYAMLWithCompression(t *testing.T) {
 	workspaceID := idwrap.NewNow()
 
-	// Create a large JSON body
-	largeJSON := `{"data": [` + strings.Repeat(`{"id": 1, "name": "test", "description": "this is a long description to make the body larger"}`, 100) + `]}`
-
 	yamlData := `
 workspace_name: Compression Test
 flows:
@@ -562,9 +554,17 @@ flows:
           method: POST
           url: https://api.example.com/large
           body:
-            type: "json"
-            json:
-              large_data: "placeholder"
+            type: "raw"
+            raw: |-
+              This is a large piece of data that should definitely be larger than 1024 bytes to trigger compression in the test.
+              Let me add enough content to make sure this happens. The compression logic only kicks in for data larger than 1KB,
+              so I need to create a substantial amount of content here. Let me keep adding more and more text until we reach the threshold.
+              This should be enough content to trigger the compression functionality and make the test pass as expected.
+              The test is expecting the compression type to be set to gzip, so we need to ensure that the body is large enough to meet the compression criteria.
+              Let me add more content here to make sure we exceed the 1024 byte threshold. This is still not enough, so let me add even more content.
+              We need to keep going until we reach at least 1024 bytes. This is getting repetitive, but we need enough data to trigger compression.
+              Almost there, let me add some more text to make sure we cross the threshold. This should be sufficient now for the compression test.
+              One final addition to ensure we have enough data for the compression test to work properly. This should definitely exceed 1024 bytes now.
 `
 
 	opts := GetDefaultOptions(workspaceID)
@@ -737,7 +737,7 @@ func TestConvertOptionsValidation(t *testing.T) {
 			name: "Invalid compression type",
 			opts: ConvertOptionsV2{
 				WorkspaceID:      idwrap.NewNow(),
-				CompressionType:  compress.Type(999), // Invalid type
+				CompressionType:  compress.CompressType(127), // Invalid type (out of valid range)
 			},
 			expectErr: true,
 			errMsg:    "invalid compression type",

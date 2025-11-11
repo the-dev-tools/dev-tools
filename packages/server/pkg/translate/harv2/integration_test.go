@@ -111,7 +111,7 @@ func TestIntegrationModernArchitecture(t *testing.T) {
 
 	for _, file := range result.Files {
 		require.Equal(t, workspaceID, file.WorkspaceID)
-		require.Equal(t, mfile.ContentKindAPI, file.ContentKind)
+		require.Equal(t, mfile.ContentTypeHTTP, file.ContentType)
 		require.NotNil(t, file.ContentID)
 		require.True(t, strings.HasSuffix(file.Name, ".request"))
 		require.NotEmpty(t, file.Name)
@@ -293,7 +293,7 @@ func TestIntegrationURLMapping(t *testing.T) {
 				"File name should reflect URL structure")
 
 			// Verify content type
-			require.Equal(t, mfile.ContentKindAPI, file.ContentKind)
+			require.Equal(t, mfile.ContentTypeHTTP, file.ContentType)
 		})
 	}
 }

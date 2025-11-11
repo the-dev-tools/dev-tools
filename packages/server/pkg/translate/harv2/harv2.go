@@ -339,7 +339,7 @@ func createFileStructure(httpReq *mhttp.HTTP, workspaceID idwrap.IDWrap, folderM
 		WorkspaceID: workspaceID,
 		FolderID:    &folderID,
 		ContentID:   &httpReq.ID,
-		ContentKind: mfile.ContentKindAPI, // This maps to the old item_api
+		ContentType: mfile.ContentTypeHTTP, // This maps to the old item_api
 		Name:        fileName,
 		Order:       float64(httpReq.CreatedAt),
 	}

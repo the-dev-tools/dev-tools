@@ -264,7 +264,7 @@ func TestGenerateFileOrder(t *testing.T) {
 	tests := []struct {
 		name          string
 		existingFiles []mfile.File
-		expected      int
+		expected      float64
 	}{
 		{"No existing files", []mfile.File{}, 1},
 		{"One file with order 0", []mfile.File{{Order: 0}}, 1},
@@ -277,7 +277,7 @@ func TestGenerateFileOrder(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GenerateFileOrder(tt.existingFiles)
 			if result != tt.expected {
-				t.Errorf("Expected order %d, got %d", tt.expected, result)
+				t.Errorf("Expected order %v, got %v", tt.expected, result)
 			}
 		})
 	}
@@ -349,12 +349,6 @@ func TestValidateReferences(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set up valid relationships
-			if len(tt.data.Flows) > 0 && len(tt.data.FlowNodes) > 0 {
-				// Make the first node reference the first flow
-				tt.data.FlowNodes[0].FlowID = tt.data.Flows[0].ID
-			}
-
 			err := ValidateReferences(tt.data)
 
 			if tt.expectErr && err == nil {
