@@ -62,6 +62,30 @@ func (v *DefaultValidator) ValidateWorkspaceAccess(ctx context.Context, workspac
 	return nil
 }
 
+// ValidateDataSize validates the size of import data
+func (v *DefaultValidator) ValidateDataSize(ctx context.Context, data []byte) error {
+	constraints := DefaultConstraints()
+
+	if len(data) > int(constraints.MaxDataSizeBytes) {
+		return NewValidationError("data", fmt.Sprintf("data size %d bytes exceeds maximum allowed size %d bytes", len(data), constraints.MaxDataSizeBytes))
+	}
+
+	return nil
+}
+
+// ValidateFormatSupport validates that a format is supported
+func (v *DefaultValidator) ValidateFormatSupport(ctx context.Context, format Format) error {
+	constraints := DefaultConstraints()
+
+	for _, supportedFormat := range constraints.SupportedFormats {
+		if supportedFormat == format {
+			return nil
+		}
+	}
+
+	return NewValidationError("format", fmt.Sprintf("format %v is not supported", format))
+}
+
 // validateWorkspaceID validates the workspace ID
 func (v *DefaultValidator) validateWorkspaceID(workspaceID idwrap.IDWrap) error {
 	// Check if the ULID is zero (all zeros)
@@ -89,7 +113,13 @@ func (v *DefaultValidator) validateData(data []byte, textData string) error {
 		return NewValidationError("data", "either data or textData must be provided")
 	}
 	if len(data) > 0 {
-		return v.validateHARFormat(data)
+		// Check data size constraints during data validation
+		if err := v.ValidateDataSize(context.Background(), data); err != nil {
+			return err
+		}
+		// For unified import, we don't enforce specific format validation here
+		// The format detection will handle validation later
+		return nil
 	}
 	return nil
 }

@@ -24,10 +24,18 @@ import (
 
 // Common errors for the rimportv2 service
 var (
-	ErrInvalidHARFormat  = errors.New("invalid HAR format")
-	ErrPermissionDenied  = errors.New("permission denied")
-	ErrStorageFailed     = errors.New("storage operation failed")
-	ErrWorkspaceNotFound = errors.New("workspace not found")
+	ErrInvalidHARFormat     = errors.New("invalid HAR format")
+	ErrPermissionDenied     = errors.New("permission denied")
+	ErrStorageFailed        = errors.New("storage operation failed")
+	ErrWorkspaceNotFound    = errors.New("workspace not found")
+	ErrFormatDetection      = errors.New("format detection failed")
+	ErrUnsupportedFormat    = errors.New("unsupported format")
+	ErrInvalidData          = errors.New("invalid data provided")
+	ErrTranslationFailed    = errors.New("translation failed")
+	ErrValidationFailed     = errors.New("validation failed")
+	ErrEmptyData           = errors.New("empty data provided")
+	ErrDataTooLarge        = errors.New("data exceeds size limit")
+	ErrTimeout             = errors.New("operation timed out")
 )
 
 // ValidationError represents an input validation error
@@ -72,22 +80,53 @@ func IsValidationError(err error) bool {
 
 // Interface definitions moved from interfaces.go
 
-// Importer handles the complete import pipeline: HAR processing and storage
+// Importer handles the complete import pipeline: format detection, processing and storage
 type Importer interface {
-	// Process and store HAR data with modern models
+	// Process and store HAR data with modern models (legacy compatibility)
 	ImportAndStore(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error)
+	// Process and store any supported format with automatic detection
+	ImportAndStoreUnified(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*TranslationResult, error)
 	// Store individual entity types
 	StoreHTTPEntities(ctx context.Context, httpReqs []*mhttp.HTTP) error
 	StoreFiles(ctx context.Context, files []*mfile.File) error
 	StoreFlow(ctx context.Context, flow *mflow.Flow) error
+	StoreFlows(ctx context.Context, flows []*mflow.Flow) error
 	// Store complete import results atomically
 	StoreImportResults(ctx context.Context, results *ImportResults) error
+	StoreUnifiedResults(ctx context.Context, results *TranslationResult) error
 }
 
 // Validator handles input validation for import requests
 type Validator interface {
 	ValidateImportRequest(ctx context.Context, req *ImportRequest) error
 	ValidateWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error
+	ValidateDataSize(ctx context.Context, data []byte) error
+	ValidateFormatSupport(ctx context.Context, format Format) error
+}
+
+// ImportConstraints defines validation constraints for import operations
+type ImportConstraints struct {
+	MaxDataSizeBytes int64      // Maximum size of import data
+	SupportedFormats []Format   // List of supported formats
+	AllowedMimeTypes []string   // Allowed MIME types for file uploads
+	Timeout          time.Duration // Operation timeout
+}
+
+// DefaultConstraints returns sensible default constraints
+func DefaultConstraints() *ImportConstraints {
+	return &ImportConstraints{
+		MaxDataSizeBytes: 50 * 1024 * 1024, // 50MB
+		SupportedFormats: []Format{FormatHAR, FormatYAML, FormatJSON, FormatCURL, FormatPostman},
+		AllowedMimeTypes: []string{
+			"application/json",
+			"application/har",
+			"text/yaml",
+			"application/x-yaml",
+			"text/plain",
+			"application/octet-stream",
+		},
+		Timeout: 30 * time.Minute,
+	}
 }
 
 // ImportResults represents the complete results of an import operation
@@ -146,12 +185,13 @@ func WithLogger(logger *slog.Logger) ServiceOption {
 	}
 }
 
-// Service implements the main business logic for HAR import
+// Service implements the main business logic for unified import
 type Service struct {
-	importer  Importer
-	validator Validator
-	logger    *slog.Logger
-	timeout   time.Duration
+	importer         Importer
+	validator        Validator
+	translatorRegistry *TranslatorRegistry
+	logger           *slog.Logger
+	timeout          time.Duration
 }
 
 // NewService creates a new Service with dependency injection and optional configuration
@@ -160,10 +200,11 @@ type Service struct {
 func NewService(importer Importer, validator Validator, opts ...ServiceOption) *Service {
 	// Set sensible defaults
 	service := &Service{
-		importer:  importer,
-		validator: validator,
-		timeout:   30 * time.Minute, // Default timeout for HAR processing
-		logger:    slog.Default(),   // Default logger
+		importer:           importer,
+		validator:          validator,
+		translatorRegistry: NewTranslatorRegistry(), // Auto-initialize translator registry
+		timeout:            30 * time.Minute, // Default timeout for import processing
+		logger:             slog.Default(),   // Default logger
 	}
 
 	// Apply functional options
@@ -627,5 +668,274 @@ func (s *Service) ImportWithTextData(ctx context.Context, req *ImportRequest) (*
 	}
 
 	return s.Import(ctx, req)
+}
+
+// ImportUnified processes any supported format with automatic detection
+func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*ImportResponse, error) {
+	// Check if context is already cancelled
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// Set up context with timeout
+	ctx, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
+
+	s.logger.Info("Starting unified import",
+		"workspace_id", req.WorkspaceID,
+		"name", req.Name,
+		"data_size", len(req.Data))
+
+	// Validate the import request
+	if err := s.validator.ValidateImportRequest(ctx, req); err != nil {
+		return nil, NewValidationErrorWithCause("import_request", err)
+	}
+
+	// Validate workspace access
+	if err := s.validator.ValidateWorkspaceAccess(ctx, req.WorkspaceID); err != nil {
+		return nil, err // Return the original error for workspace access issues
+	}
+
+	// Detect format and translate data
+	translationResult, err := s.translatorRegistry.DetectAndTranslate(ctx, req.Data, req.WorkspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("format detection and translation failed: %w", err)
+	}
+
+	s.logger.Info("Translation completed",
+		"workspace_id", req.WorkspaceID,
+		"detected_format", translationResult.DetectedFormat,
+		"http_requests", len(translationResult.HTTPRequests),
+		"files", len(translationResult.Files),
+		"flows", len(translationResult.Flows))
+
+	// Store all results atomically
+	if err := s.importer.StoreUnifiedResults(ctx, translationResult); err != nil {
+		s.logger.Error("Storage failed - unexpected internal error",
+			"workspace_id", req.WorkspaceID,
+			"format", translationResult.DetectedFormat,
+			"http_requests_count", len(translationResult.HTTPRequests),
+			"files_count", len(translationResult.Files),
+			"flows_count", len(translationResult.Flows),
+			"domains_count", len(translationResult.Domains),
+			"error", err)
+		return nil, fmt.Errorf("storage operation failed: %w", err)
+	}
+
+	s.logger.Info("Unified import completed successfully",
+		"workspace_id", req.WorkspaceID,
+		"format", translationResult.DetectedFormat,
+		"http_requests", len(translationResult.HTTPRequests),
+		"files", len(translationResult.Files),
+		"flows", len(translationResult.Flows),
+		"domains", len(translationResult.Domains))
+
+	// Build response
+	response := &ImportResponse{
+		MissingData: ImportMissingDataKind_UNSPECIFIED,
+		Domains:     translationResult.Domains,
+	}
+
+	// Process domain data if provided
+	if len(req.DomainData) > 0 {
+		// Process provided domain data for future templating support
+		if err := processDomainData(ctx, req.DomainData, req.WorkspaceID, s.logger); err != nil {
+			return nil, fmt.Errorf("domain data processing failed: %w", err)
+		}
+
+		s.logger.Info("Applied domain templates",
+			"workspace_id", req.WorkspaceID,
+			"domain_data_count", len(req.DomainData))
+	} else if len(translationResult.Domains) > 0 {
+		// We have domains but no domain data was provided, indicate missing domain data
+		response.MissingData = ImportMissingDataKind_DOMAIN
+		s.logger.Info("Domain data missing for extracted domains",
+			"workspace_id", req.WorkspaceID,
+			"domain_count", len(translationResult.Domains),
+			"domains", translationResult.Domains)
+	}
+
+	return response, nil
+}
+
+// ImportUnifiedWithTextData processes any supported format from text with automatic detection
+func (s *Service) ImportUnifiedWithTextData(ctx context.Context, req *ImportRequest) (*ImportResponse, error) {
+	s.logger.Debug("Unified import with text data called",
+		"workspace_id", req.WorkspaceID,
+		"has_text_data", len(req.TextData) > 0,
+		"has_binary_data", len(req.Data) > 0)
+
+	// Convert text data to bytes if provided
+	if len(req.Data) == 0 && req.TextData != "" {
+		req.Data = []byte(req.TextData)
+		s.logger.Debug("Converted text data to binary",
+			"workspace_id", req.WorkspaceID,
+			"original_length", len(req.TextData),
+			"converted_length", len(req.Data))
+	}
+
+	return s.ImportUnified(ctx, req)
+}
+
+// DetectFormat performs format detection on the provided data
+func (s *Service) DetectFormat(ctx context.Context, data []byte) (*DetectionResult, error) {
+	if len(data) == 0 {
+		return nil, NewValidationError("data", "empty data provided")
+	}
+
+	result, err := s.translatorRegistry.detector.DetectAndValidate(data)
+	if err != nil {
+		return nil, err
+	}
+	if result.Format == FormatUnknown {
+		return result, fmt.Errorf("unable to detect format: %s", result.Reason)
+	}
+
+	return result, nil
+}
+
+// GetSupportedFormats returns all supported import formats
+func (s *Service) GetSupportedFormats() []Format {
+	return s.translatorRegistry.GetSupportedFormats()
+}
+
+// ValidateFormat validates data for a specific format
+func (s *Service) ValidateFormat(ctx context.Context, data []byte, format Format) error {
+	if len(data) == 0 {
+		return NewValidationError("data", "empty data provided")
+	}
+
+	return s.translatorRegistry.ValidateFormat(data, format)
+}
+
+// ValidateImportRequestExtended performs comprehensive validation of import requests
+func (s *Service) ValidateImportRequestExtended(ctx context.Context, req *ImportRequest, constraints *ImportConstraints) error {
+	// Apply default constraints if none provided
+	if constraints == nil {
+		constraints = DefaultConstraints()
+	}
+
+	// Basic validation
+	if err := s.validator.ValidateImportRequest(ctx, req); err != nil {
+		return err
+	}
+
+	// Validate data size
+	if err := s.validator.ValidateDataSize(ctx, req.Data); err != nil {
+		return err
+	}
+
+	// Validate UTF-8 encoding for text data
+	if req.TextData != "" && !IsUTF8([]byte(req.TextData)) {
+		return NewValidationError("text_data", "text data must be valid UTF-8")
+	}
+
+	// Validate binary data encoding
+	if len(req.Data) > 0 && !IsUTF8(req.Data) {
+		// For binary data, we should validate it's expected binary format
+		s.logger.Debug("Binary data detected, skipping UTF-8 validation",
+			"workspace_id", req.WorkspaceID,
+			"data_size", len(req.Data))
+	}
+
+	// Detect format early to validate support
+	detection, err := s.DetectFormat(ctx, req.Data)
+	if err != nil {
+		// If format detection fails, we'll let the main import method handle it
+		s.logger.Debug("Early format detection failed, will retry in main import",
+			"workspace_id", req.WorkspaceID,
+			"error", err)
+	} else {
+		// Validate format support
+		if err := s.validator.ValidateFormatSupport(ctx, detection.Format); err != nil {
+			return fmt.Errorf("format %s is not supported: %w", detection.Format, err)
+		}
+	}
+
+	// Validate domain data
+	if len(req.DomainData) > 0 {
+		if err := s.validateDomainData(req.DomainData); err != nil {
+			return NewValidationErrorWithCause("domain_data", err)
+		}
+	}
+
+	return nil
+}
+
+// validateDomainData validates domain variable configuration
+func (s *Service) validateDomainData(domainData []ImportDomainData) error {
+	domainMap := make(map[string]string)
+
+	for _, dd := range domainData {
+		// Validate domain format
+		if dd.Domain == "" {
+			return fmt.Errorf("domain cannot be empty")
+		}
+
+		// Basic domain validation
+		if !s.isValidDomain(dd.Domain) {
+			return fmt.Errorf("invalid domain format: %s", dd.Domain)
+		}
+
+		// Validate variable name
+		if dd.Variable == "" {
+			return fmt.Errorf("variable name cannot be empty for domain: %s", dd.Domain)
+		}
+
+		// Check for duplicate domains
+		if existingVar, exists := domainMap[dd.Domain]; exists {
+			return fmt.Errorf("duplicate domain configuration: %s (variables: %s, %s)",
+				dd.Domain, existingVar, dd.Variable)
+		}
+
+		domainMap[dd.Domain] = dd.Variable
+	}
+
+	return nil
+}
+
+// isValidDomain performs basic domain validation
+func (s *Service) isValidDomain(domain string) bool {
+	if domain == "" {
+		return false
+	}
+
+	// Basic checks - no spaces, reasonable length
+	if len(domain) > 253 || strings.ContainsAny(domain, " \t\n\r") {
+		return false
+	}
+
+	// Could add more sophisticated domain validation here if needed
+	return true
+}
+
+// ValidateAndSanitizeRequest validates and sanitizes import request data
+func (s *Service) ValidateAndSanitizeRequest(ctx context.Context, req *ImportRequest) (*ImportRequest, error) {
+	// Create a copy to avoid modifying the original
+	sanitized := &ImportRequest{
+		WorkspaceID: req.WorkspaceID,
+		Name:        strings.TrimSpace(req.Name),
+		Data:        req.Data,
+		TextData:    strings.TrimSpace(req.TextData),
+		DomainData:  make([]ImportDomainData, len(req.DomainData)),
+	}
+
+	// Copy and sanitize domain data
+	for i, dd := range req.DomainData {
+		sanitized.DomainData[i] = ImportDomainData{
+			Enabled:  dd.Enabled,
+			Domain:   strings.ToLower(strings.TrimSpace(dd.Domain)),
+			Variable: strings.TrimSpace(dd.Variable),
+		}
+	}
+
+	// Validate the sanitized request
+	if err := s.ValidateImportRequestExtended(ctx, sanitized, nil); err != nil {
+		return nil, err
+	}
+
+	return sanitized, nil
 }
 

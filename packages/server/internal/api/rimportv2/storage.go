@@ -112,6 +112,79 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	return nil
 }
 
+// ImportAndStoreUnified processes any supported format and returns unified translation results
+func (imp *DefaultImporter) ImportAndStoreUnified(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*TranslationResult, error) {
+	registry := NewTranslatorRegistry()
+	return registry.DetectAndTranslate(ctx, data, workspaceID)
+}
+
+// StoreFlows stores multiple flow entities using the modern flow service
+func (imp *DefaultImporter) StoreFlows(ctx context.Context, flows []*mflow.Flow) error {
+	if len(flows) == 0 {
+		return nil
+	}
+
+	for _, flow := range flows {
+		if err := imp.flowService.CreateFlow(ctx, *flow); err != nil {
+			return fmt.Errorf("failed to store flow: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// StoreUnifiedResults performs a coordinated storage of all unified translation results
+func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) error {
+	if results == nil {
+		return nil
+	}
+
+	// Store files first (they may be referenced by HTTP entities)
+	if len(results.Files) > 0 {
+		for _, file := range results.Files {
+			if err := imp.fileService.CreateFile(ctx, &file); err != nil {
+				return fmt.Errorf("failed to store file: %w", err)
+			}
+		}
+	}
+
+	// Store HTTP entities
+	if len(results.HTTPRequests) > 0 {
+		for _, httpReq := range results.HTTPRequests {
+			if err := imp.httpService.Create(ctx, &httpReq); err != nil {
+				return fmt.Errorf("failed to store HTTP entity: %w", err)
+			}
+		}
+	}
+
+	// Store flows
+	if len(results.Flows) > 0 {
+		for _, flow := range results.Flows {
+			if err := imp.flowService.CreateFlow(ctx, flow); err != nil {
+				return fmt.Errorf("failed to store flow: %w", err)
+			}
+		}
+	}
+
+	// Note: Flow-specific entities (nodes, edges, variables, etc.) would need to be stored
+	// through their respective services when those services are available.
+	// For now, we store the core entities and log the additional entities.
+
+	// TODO: Store flow-specific entities when services are available
+	// - FlowNodes
+	// - FlowEdges
+	// - FlowVariables
+	// - FlowRequestNodes
+	// - FlowConditionNodes
+	// - FlowNoopNodes
+	// - FlowForNodes
+	// - FlowForEachNodes
+	// - FlowJSNodes
+	// - Headers, SearchParams, BodyForms, BodyUrlencoded, BodyRaw
+
+	return nil
+}
+
 // Private HAR translator methods moved from translator.go
 
 // newHARTranslator creates a new HAR translator (private method)

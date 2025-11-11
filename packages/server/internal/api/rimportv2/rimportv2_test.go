@@ -468,12 +468,15 @@ func newMockDependencies() *mockDependencies {
 }
 
 type mockImporter struct {
-	ConvertHARFunc         func(context.Context, []byte, idwrap.IDWrap) (*harv2.HarResolved, error)
-	ImportAndStoreFunc     func(context.Context, []byte, idwrap.IDWrap) (*harv2.HarResolved, error)
-	StoreHTTPEntitiesFunc  func(context.Context, []*mhttp.HTTP) error
-	StoreFilesFunc         func(context.Context, []*mfile.File) error
-	StoreFlowFunc          func(context.Context, *mflow.Flow) error
-	StoreImportResultsFunc func(context.Context, *ImportResults) error
+	ConvertHARFunc            func(context.Context, []byte, idwrap.IDWrap) (*harv2.HarResolved, error)
+	ImportAndStoreFunc        func(context.Context, []byte, idwrap.IDWrap) (*harv2.HarResolved, error)
+	ImportAndStoreUnifiedFunc func(context.Context, []byte, idwrap.IDWrap) (*TranslationResult, error)
+	StoreHTTPEntitiesFunc     func(context.Context, []*mhttp.HTTP) error
+	StoreFilesFunc            func(context.Context, []*mfile.File) error
+	StoreFlowFunc             func(context.Context, *mflow.Flow) error
+	StoreFlowsFunc            func(context.Context, []*mflow.Flow) error
+	StoreImportResultsFunc    func(context.Context, *ImportResults) error
+	StoreUnifiedResultsFunc   func(context.Context, *TranslationResult) error
 }
 
 func (m *mockImporter) ConvertHAR(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
@@ -488,6 +491,14 @@ func (m *mockImporter) ImportAndStore(ctx context.Context, data []byte, workspac
 		return m.ImportAndStoreFunc(ctx, data, workspaceID)
 	}
 	return &harv2.HarResolved{}, nil
+}
+
+func (m *mockImporter) ImportAndStoreUnified(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*TranslationResult, error) {
+	if m.ImportAndStoreUnifiedFunc != nil {
+		return m.ImportAndStoreUnifiedFunc(ctx, data, workspaceID)
+	}
+	// Default implementation - return empty result
+	return &TranslationResult{}, nil
 }
 
 func (m *mockImporter) StoreHTTPEntities(ctx context.Context, httpReqs []*mhttp.HTTP) error {
@@ -511,6 +522,13 @@ func (m *mockImporter) StoreFlow(ctx context.Context, flow *mflow.Flow) error {
 	return nil
 }
 
+func (m *mockImporter) StoreFlows(ctx context.Context, flows []*mflow.Flow) error {
+	if m.StoreFlowsFunc != nil {
+		return m.StoreFlowsFunc(ctx, flows)
+	}
+	return nil
+}
+
 func (m *mockImporter) StoreImportResults(ctx context.Context, results *ImportResults) error {
 	if m.StoreImportResultsFunc != nil {
 		return m.StoreImportResultsFunc(ctx, results)
@@ -518,12 +536,21 @@ func (m *mockImporter) StoreImportResults(ctx context.Context, results *ImportRe
 	return nil
 }
 
+func (m *mockImporter) StoreUnifiedResults(ctx context.Context, results *TranslationResult) error {
+	if m.StoreUnifiedResultsFunc != nil {
+		return m.StoreUnifiedResultsFunc(ctx, results)
+	}
+	return nil
+}
+
 
 type mockValidator struct {
-	ValidateImportRequestFunc   func(context.Context, *ImportRequest) error
-	ValidateWorkspaceAccessFunc func(context.Context, idwrap.IDWrap) error
-	ValidateImportRequestCallCount   int
-	ValidateWorkspaceAccessCallCount int
+	ValidateImportRequestFunc     func(context.Context, *ImportRequest) error
+	ValidateWorkspaceAccessFunc   func(context.Context, idwrap.IDWrap) error
+	ValidateDataSizeFunc          func(context.Context, []byte) error
+	ValidateFormatSupportFunc     func(context.Context, Format) error
+	ValidateImportRequestCallCount     int
+	ValidateWorkspaceAccessCallCount   int
 }
 
 func (m *mockValidator) ValidateImportRequest(ctx context.Context, req *ImportRequest) error {
@@ -539,6 +566,22 @@ func (m *mockValidator) ValidateWorkspaceAccess(ctx context.Context, workspaceID
 	if m.ValidateWorkspaceAccessFunc != nil {
 		return m.ValidateWorkspaceAccessFunc(ctx, workspaceID)
 	}
+	return nil
+}
+
+func (m *mockValidator) ValidateDataSize(ctx context.Context, data []byte) error {
+	if m.ValidateDataSizeFunc != nil {
+		return m.ValidateDataSizeFunc(ctx, data)
+	}
+	// Default implementation - accept any data size
+	return nil
+}
+
+func (m *mockValidator) ValidateFormatSupport(ctx context.Context, format Format) error {
+	if m.ValidateFormatSupportFunc != nil {
+		return m.ValidateFormatSupportFunc(ctx, format)
+	}
+	// Default implementation - accept all formats
 	return nil
 }
 
