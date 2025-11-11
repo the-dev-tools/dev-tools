@@ -177,16 +177,16 @@ type ImportError struct {
 	EntityID   idwrap.IDWrap
 	EntityName string
 	EntityType string
-	Error      error
+	Err        error
 	Context    map[string]interface{}
 }
 
 // Error returns the error message
 func (ie ImportError) Error() string {
 	if ie.EntityName != "" {
-		return fmt.Sprintf("import error for %s '%s': %v", ie.EntityType, ie.EntityName, ie.Error)
+		return fmt.Sprintf("import error for %s '%s': %v", ie.EntityType, ie.EntityName, ie.Err)
 	}
-	return fmt.Sprintf("import error for %s: %v", ie.EntityType, ie.Error)
+	return fmt.Sprintf("import error for %s: %v", ie.EntityType, ie.Err)
 }
 
 // ConflictResolverFunc is a function that resolves conflicts during import
@@ -451,7 +451,7 @@ type WorkspaceImportContext struct {
 	CancelFunc    context.CancelFunc
 	Metrics       ImportMetrics
 	State         ImportState
-	Cache         ImportCache
+	Cache         *ImportCache
 }
 
 // ImportMetrics tracks metrics during import
@@ -483,10 +483,10 @@ type ImportState struct {
 
 // ImportCache provides caching for import operations
 type ImportCache struct {
-	HTTPRequests    map[string]idwrap.IDWrap // URL+method -> ID mapping
-	Files          map[string]idwrap.IDWrap // Name -> ID mapping
-	Flows          map[string]idwrap.IDWrap // Name -> ID mapping
-	Nodes          map[string]idwrap.IDWrap // Name -> ID mapping
+	HTTPRequests     map[string]idwrap.IDWrap // URL+method -> ID mapping
+	Files           map[string]idwrap.IDWrap // Name -> ID mapping
+	Flows           map[string]idwrap.IDWrap // Name -> ID mapping
+	Nodes           map[string]idwrap.IDWrap // Name -> ID mapping
 	ResolvedConflicts map[string]bool       // Conflict resolutions
 }
 
