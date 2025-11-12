@@ -14,7 +14,7 @@ op Export(...ExportRequest): ExportResponse;
 
 model ExportCurlRequest {
   workspaceId: Id;
-  exampleIds?: Id[];
+  httpIds?: Id[];
 }
 
 model ExportCurlResponse {

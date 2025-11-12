@@ -1,11 +1,22 @@
 import { enumToJson } from '@bufbuild/protobuf';
 import { eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
+import CodeMirror from '@uiw/react-codemirror';
 import { Match, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useMemo, useRef } from 'react';
-import { MenuTrigger, SubmenuTrigger, Text, Tree, TreeProps, useDragAndDrop } from 'react-aria-components';
-import { FiFolder, FiMoreHorizontal } from 'react-icons/fi';
+import {
+  Dialog,
+  Heading,
+  MenuTrigger,
+  SubmenuTrigger,
+  Text,
+  Tree,
+  TreeProps,
+  useDragAndDrop,
+} from 'react-aria-components';
+import { FiFolder, FiMoreHorizontal, FiX } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
+import { ExportService } from '@the-dev-tools/spec/api/export/v1/export_pb';
 import {
   File,
   FileKind,
@@ -21,15 +32,17 @@ import { Button } from '@the-dev-tools/ui/button';
 import { FlowsIcon, FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
+import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem } from '@the-dev-tools/ui/tree';
-import { useEscapePortal } from '@the-dev-tools/ui/utils';
+import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useApiCollection } from '~/api-new';
 import { workspaceRouteApi } from '~/routes';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 import { pick } from '~/utils/tanstack-db';
+import { useConnectMutation } from '~api/connect-query';
 
 interface FileCreateMenuProps {
   parentFolderId?: Uint8Array;
@@ -305,6 +318,8 @@ const FolderFile = ({ id }: FileItemProps) => {
 };
 
 const HttpFile = ({ id }: FileItemProps) => {
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
+
   const fileCollection = useApiCollection(FileCollectionSchema);
 
   const { fileId: httpId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
@@ -324,6 +339,11 @@ const HttpFile = ({ id }: FileItemProps) => {
     Option.getOrThrow,
   );
 
+  const modal = useProgrammaticModal();
+
+  const exportMutation = useConnectMutation(ExportService.method.export);
+  const exportCurlMutation = useConnectMutation(ExportService.method.exportCurl);
+
   const { containerRef, showControls } = useContext(FileTreeContext);
 
   const { escapeRef, escapeRender } = useEscapePortal(containerRef);
@@ -337,6 +357,8 @@ const HttpFile = ({ id }: FileItemProps) => {
 
   return (
     <TreeItem id={id} onContextMenu={onContextMenu} textValue={name}>
+      {modal.children && <Modal {...modal} size='sm' />}
+
       <MethodBadge method={method} />
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
@@ -362,6 +384,52 @@ const HttpFile = ({ id }: FileItemProps) => {
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
+            <SubmenuTrigger>
+              <MenuItem>Export</MenuItem>
+
+              <Menu>
+                <MenuItem
+                  onAction={async () => {
+                    const { data, name } = await exportMutation.mutateAsync({ fileIds: [httpId], workspaceId });
+                    saveFile({ blobParts: [data], name });
+                  }}
+                >
+                  YAML (DevTools)
+                </MenuItem>
+
+                <MenuItem
+                  onAction={async () => {
+                    const { data } = await exportCurlMutation.mutateAsync({ httpIds: [httpId], workspaceId });
+                    modal.onOpenChange(
+                      true,
+                      <Dialog className={tw`flex h-full flex-col gap-4 p-6`}>
+                        {({ close }) => (
+                          <>
+                            <div className={tw`flex items-center justify-between`}>
+                              <Heading
+                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-slate-800`}
+                                slot='title'
+                              >
+                                cURL export
+                              </Heading>
+
+                              <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
+                                <FiX className={tw`size-5 text-slate-500`} />
+                              </Button>
+                            </div>
+
+                            <CodeMirror className={tw`flex-1`} height='100%' readOnly value={data} />
+                          </>
+                        )}
+                      </Dialog>,
+                    );
+                  }}
+                >
+                  cURL
+                </MenuItem>
+              </Menu>
+            </SubmenuTrigger>
+
             <MenuItem
               onAction={() => pipe(fileCollection.utils.parseKeyUnsafe(id), (_) => fileCollection.utils.delete(_))}
               variant='danger'
@@ -376,6 +444,8 @@ const HttpFile = ({ id }: FileItemProps) => {
 };
 
 const FlowFile = ({ id }: FileItemProps) => {
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
+
   const fileCollection = useApiCollection(FileCollectionSchema);
 
   const { fileId: flowId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
@@ -394,6 +464,8 @@ const FlowFile = ({ id }: FileItemProps) => {
     (_) => Option.fromNullable(_.data),
     Option.getOrThrow,
   );
+
+  const exportMutation = useConnectMutation(ExportService.method.export);
 
   const { containerRef, showControls } = useContext(FileTreeContext);
 
@@ -432,6 +504,15 @@ const FlowFile = ({ id }: FileItemProps) => {
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+            <MenuItem
+              onAction={async () => {
+                const { data, name } = await exportMutation.mutateAsync({ fileIds: [flowId], workspaceId });
+                saveFile({ blobParts: [data], name });
+              }}
+            >
+              Export YAML (DevTools)
+            </MenuItem>
 
             <MenuItem
               onAction={() => pipe(fileCollection.utils.parseKeyUnsafe(id), (_) => fileCollection.utils.delete(_))}
