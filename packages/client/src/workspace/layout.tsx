@@ -4,7 +4,7 @@ import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, ToOptions } from '@tanstack/react-router';
 import { Config, pipe, Runtime } from 'effect';
 import { idEqual, Ulid } from 'id128';
-import { Tooltip, TooltipTrigger } from 'react-aria-components';
+import { MenuTrigger, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiPlus } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { WorkspaceCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/workspace';
@@ -15,6 +15,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { RouteTabList } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useApiCollection } from '~/api-new';
+import { FileCreateMenu, FileTree } from '~/file-system';
 import { rootRouteApi, workspaceRouteApi } from '~/routes';
 import { pick } from '~/utils/tanstack-db';
 import { DashboardLayout } from '../dashboard';
@@ -84,23 +85,21 @@ export const WorkspaceLayout = () => {
 
             <div className={tw`flex items-center gap-2 px-2.5 py-1.5`}>
               <CollectionIcon className={tw`size-5 text-slate-500`} />
-              <h2 className={tw`flex-1 text-md leading-5 font-semibold tracking-tight text-slate-800`}>Collections</h2>
+              <h2 className={tw`flex-1 text-md leading-5 font-semibold tracking-tight text-slate-800`}>Files</h2>
 
-              <TooltipTrigger delay={750}>
-                <Button
-                  className={tw`bg-slate-200 p-0.5`}
-                  // onPress={() => dataClient.fetch(CollectionCreateEndpoint, { name: 'New collection', workspaceId })}
-                  variant='ghost'
-                >
-                  <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
-                </Button>
-                <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Add New File</Tooltip>
-              </TooltipTrigger>
+              <MenuTrigger>
+                <TooltipTrigger delay={750}>
+                  <Button className={tw`bg-slate-200 p-0.5`} variant='ghost'>
+                    <FiPlus className={tw`size-4 stroke-[1.2px] text-slate-500`} />
+                  </Button>
+                  <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Add New File</Tooltip>
+                </TooltipTrigger>
+
+                <FileCreateMenu />
+              </MenuTrigger>
             </div>
 
-            {/* <CollectionListTree navigate showControls /> */}
-
-            {/* <FlowList /> */}
+            <FileTree navigate showControls />
           </div>
 
           <div className={tw`px-2.5 py-1.5 text-md leading-5 tracking-tight text-slate-800`}>

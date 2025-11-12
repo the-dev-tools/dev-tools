@@ -12,9 +12,13 @@ enum FileKind {
 model File {
   @primaryKey fileId: Id;
   @foreignKey @removeVisibility(Lifecycle.Update) workspaceId: Id;
-  @foreignKey folderId?: Id;
+  @foreignKey parentFolderId?: Id;
   @removeVisibility(Lifecycle.Update) kind: FileKind;
-  @foreignKey @removeVisibility(Lifecycle.Update) contentId: Id;
-  name: string;
   order: float32;
+}
+
+@TanStackDB.collection
+model Folder {
+  @primaryKey folderId: Id;
+  name: string;
 }
