@@ -2,7 +2,7 @@
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Array, Option, pipe, Predicate } from 'effect';
-import { idEqual, Ulid } from 'id128';
+import { Ulid } from 'id128';
 import { Suspense, useMemo, useState } from 'react';
 import {
   Button as AriaButton,
@@ -50,7 +50,6 @@ import {
 
 export const EnvironmentsWidget = () => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
-  const workspaceUlid = useMemo(() => Ulid.construct(workspaceId), [workspaceId]);
 
   const workspaceCollection = useApiCollection(WorkspaceCollectionSchema);
 
@@ -58,10 +57,10 @@ export const EnvironmentsWidget = () => {
     useLiveQuery(
       (_) =>
         _.from({ workspace: workspaceCollection })
-          .fn.where((_) => idEqual(Ulid.construct(_.workspace.workspaceId), workspaceUlid))
+          .where((_) => eq(_.workspace.workspaceId, workspaceId))
           .select((_) => pick(_.workspace, 'selectedEnvironmentId'))
           .findOne(),
-      [workspaceCollection, workspaceUlid],
+      [workspaceCollection, workspaceId],
     ),
     (_) => Option.fromNullable(_.data?.selectedEnvironmentId),
     Option.map((_) => Ulid.construct(_).toCanonical()),
@@ -73,10 +72,10 @@ export const EnvironmentsWidget = () => {
   const { data: environments } = useLiveQuery(
     (_) =>
       _.from({ environment: environmentCollection })
-        .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
+        .where((_) => eq(_.environment.workspaceId, workspaceId))
         .orderBy((_) => _.environment.order)
         .select((_) => pick(_.environment, 'environmentId', 'name', 'isGlobal', 'order')),
-    [environmentCollection, workspaceUlid],
+    [environmentCollection, workspaceId],
   );
 
   return (
@@ -134,28 +133,27 @@ export const EnvironmentsWidget = () => {
 
 const EnvironmentModal = () => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
-  const workspaceUlid = useMemo(() => Ulid.construct(workspaceId), [workspaceId]);
 
   const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
 
   const { data: environments } = useLiveQuery(
     (_) =>
       _.from({ environment: environmentCollection })
-        .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
+        .where((_) => eq(_.environment.workspaceId, workspaceId))
         .orderBy((_) => _.environment.order)
         .select((_) => pick(_.environment, 'environmentId', 'name', 'order')),
-    [environmentCollection, workspaceUlid],
+    [environmentCollection, workspaceId],
   );
 
   const globalKey = pipe(
     useLiveQuery(
       (_) =>
         _.from({ environment: environmentCollection })
-          .fn.where((_) => idEqual(Ulid.construct(_.environment.workspaceId), workspaceUlid))
+          .where((_) => eq(_.environment.workspaceId, workspaceId))
           .where((_) => eq(_.environment.isGlobal, true))
           .select((_) => pick(_.environment, 'environmentId'))
           .findOne(),
-      [environmentCollection, workspaceUlid],
+      [environmentCollection, workspaceId],
     ),
     (_) => Option.fromNullable(_.data),
     Option.map((_) => environmentCollection.utils.getKey(_)),
@@ -287,24 +285,24 @@ interface EnvironmentPanelProps {
 const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
   const environmentCollection = useApiCollection(EnvironmentCollectionSchema);
 
-  const environmentUlid = useMemo(
-    () => pipe(environmentCollection.utils.parseKeyUnsafe(id), (_) => Ulid.construct(_.environmentId)),
-    [id, environmentCollection.utils],
+  const { environmentId } = useMemo(
+    () => environmentCollection.utils.parseKeyUnsafe(id),
+    [environmentCollection.utils, id],
   );
 
   const { data } = useLiveQuery(
     (_) =>
       _.from({ environment: environmentCollection })
-        .fn.where((_) => idEqual(Ulid.construct(_.environment.environmentId), environmentUlid))
+        .where((_) => eq(_.environment.environmentId, environmentId))
         .select((_) => pick(_.environment, 'name', 'isGlobal'))
         .findOne(),
-    [environmentCollection, environmentUlid],
+    [environmentCollection, environmentId],
   );
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => environmentCollection.utils.update({ environmentId: environmentUlid.bytes, name: _ }),
+    onSuccess: (_) => environmentCollection.utils.update({ environmentId, name: _ }),
     value: data?.name ?? '',
   });
 
@@ -355,10 +353,7 @@ const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
             <Menu {...menuProps}>
               <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-              <MenuItem
-                onAction={() => environmentCollection.utils.delete({ environmentId: environmentUlid.bytes })}
-                variant='danger'
-              >
+              <MenuItem onAction={() => environmentCollection.utils.delete({ environmentId })} variant='danger'>
                 Delete
               </MenuItem>
             </Menu>
@@ -373,7 +368,7 @@ const EnvironmentPanel = ({ id }: EnvironmentPanelProps) => {
           </div>
         }
       >
-        <VariablesTable environmentId={environmentUlid.bytes} />
+        <VariablesTable environmentId={environmentId} />
       </Suspense>
     </div>
   );
@@ -389,7 +384,7 @@ export const VariablesTable = ({ environmentId }: VariablesTableProps) => {
   const { data: variables } = useLiveQuery(
     (_) =>
       _.from({ variable: variableColleciton })
-        .fn.where((_) => idEqual(Ulid.construct(_.variable.environmentId), Ulid.construct(environmentId)))
+        .where((_) => eq(_.variable.environmentId, environmentId))
         .orderBy((_) => _.variable.order),
     [environmentId, variableColleciton],
   );

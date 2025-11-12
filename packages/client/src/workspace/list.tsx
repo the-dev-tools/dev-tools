@@ -1,7 +1,7 @@
 import { timestampDate } from '@bufbuild/protobuf/wkt';
-import { count, useLiveQuery } from '@tanstack/react-db';
+import { count, eq, useLiveQuery } from '@tanstack/react-db';
 import { DateTime, Option, pipe } from 'effect';
-import { idEqual, Ulid } from 'id128';
+import { Ulid } from 'id128';
 import { RefObject, useMemo, useRef } from 'react';
 import { ListBox, ListBoxItem, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { FiMoreHorizontal } from 'react-icons/fi';
@@ -99,7 +99,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
     useLiveQuery(
       (_) =>
         _.from({ workspace: workspaceCollection })
-          .fn.where((_) => idEqual(Ulid.construct(_.workspace.workspaceId), workspaceUlid))
+          .where((_) => eq(_.workspace.workspaceId, workspaceUlid.bytes))
           .select((_) => pick(_.workspace, 'name', 'updated'))
           .findOne(),
       [workspaceCollection, workspaceUlid],
@@ -113,7 +113,7 @@ const Item = ({ containerRef, id }: ItemProps) => {
   const { data: { fileCount = 0 } = {} } = useLiveQuery(
     (_) =>
       _.from({ file: fileCollection })
-        .fn.where((_) => idEqual(Ulid.construct(_.file.workspaceId), workspaceUlid))
+        .where((_) => eq(_.file.workspaceId, workspaceUlid.bytes))
         .select((_) => ({ fileCount: count(_.file.fileId) }))
         .findOne(),
     [fileCollection, workspaceUlid],
