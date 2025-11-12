@@ -19,33 +19,21 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/middleware/mwcompress"
-	// "the-dev-tools/server/internal/api/redge"
 	"the-dev-tools/server/internal/api/renv"
+	"the-dev-tools/server/internal/api/rexportv2"
 	"the-dev-tools/server/internal/api/rflowv2"
-	"the-dev-tools/server/internal/api/rimportv2"
-
-	// "the-dev-tools/server/internal/api/rflowvariable"
 	"the-dev-tools/server/internal/api/rhealth"
 	"the-dev-tools/server/internal/api/rhttp"
-	// "the-dev-tools/server/internal/api/rexport"
-	// "the-dev-tools/server/internal/api/rimport"
-
+	"the-dev-tools/server/internal/api/rimportv2"
 	"the-dev-tools/server/internal/api/rlog"
-	// "the-dev-tools/server/internal/api/rnode"
-	// "the-dev-tools/server/internal/api/rnodeexecution"
 	"the-dev-tools/server/internal/api/rreference"
 
-	// "the-dev-tools/server/internal/api/rvar"
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/eventstream/memory"
-	// "the-dev-tools/server/pkg/logconsole"
 	"the-dev-tools/server/pkg/model/muser"
+	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/service/flow/sedge"
-	"the-dev-tools/server/pkg/service/sassert"
-	"the-dev-tools/server/pkg/service/sassertres"
-	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
-	"the-dev-tools/server/pkg/service/sbodyurl"
 	"the-dev-tools/server/pkg/service/sfile"
 
 	"the-dev-tools/server/pkg/service/senv"
@@ -54,7 +42,6 @@ import (
 	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
-	// "the-dev-tools/server/pkg/service/sflowtag"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
@@ -62,11 +49,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
-	// "the-dev-tools/server/pkg/service/scollection"
-	"the-dev-tools/server/pkg/service/sitemapi"
-	"the-dev-tools/server/pkg/service/sitemapiexample"
-	// "the-dev-tools/server/pkg/service/sitemfolder"
-
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
@@ -75,12 +57,30 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
-	// "the-dev-tools/server/pkg/service/stag"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 )
+
+// workspaceImporterAdapter implements rflowv2.WorkspaceImporter using rimportv2 service
+type workspaceImporterAdapter struct {
+	importService *rimportv2.ImportV2RPC
+}
+
+func (w *workspaceImporterAdapter) ImportWorkspaceFromYAML(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*rflowv2.ImportResults, error) {
+	// For now, return a simple empty result - this can be implemented later if needed
+	return &rflowv2.ImportResults{
+		WorkspaceID: workspaceID,
+	}, nil
+}
+
+func (w *workspaceImporterAdapter) ImportWorkspaceFromCurl(ctx context.Context, curlData []byte, workspaceID idwrap.IDWrap) (*rflowv2.ImportResults, error) {
+	// For now, return a simple empty result - this can be implemented later if needed
+	return &rflowv2.ImportResults{
+		WorkspaceID: workspaceID,
+	}, nil
+}
 
 func main() {
 	sc := make(chan os.Signal, 1)
@@ -150,23 +150,14 @@ func main() {
 	workspaceService := sworkspace.New(queries)
 	workspaceUserService := sworkspacesusers.New(queries)
 	userService := suser.New(queries)
-	// collectionService := scollection.New(queries)
-	// folderService := sitemfolder.New(queries)
-	endpointService := sitemapi.New(queries)
 
-	exampleService := sitemapiexample.New(queries)
 	exampleHeaderService := sexampleheader.New(queries)
 	exampleQueryService := sexamplequery.New(queries)
 	bodyRawService := sbodyraw.New(queries)
-	bodyFormService := sbodyform.New(queries)
-	bodyUrlService := sbodyurl.New(queries)
 	exampleResponseService := sexampleresp.New(queries)
 	exampleResponseHeaderService := sexamplerespheader.New(queries)
-	assertService := sassert.New(queries)
-	assertResultService := sassertres.New(queries)
 	variableService := svar.New(queries, logger)
 	environmentService := senv.New(queries, logger)
-	// tagService := stag.New(queries)
 	httpService := shttp.New(queries, logger)
 
 	// HTTP child entity services
@@ -187,7 +178,6 @@ func main() {
 
 	// Flow
 	flowService := sflow.New(queries)
-	// flowTagService := sflowtag.New(queries)
 	flowEdgeService := sedge.New(queries)
 	flowVariableService := sflowvariable.New(queries)
 
@@ -201,10 +191,7 @@ func main() {
 	flowNodeJsService := snodejs.New(queries)
 	nodeExecutionService := snodeexecution.New(queries)
 
-	// log/console
-	// logMap := logconsole.NewLogChanMap()
-
-	var optionsCompress, optionsAuth, opitonsAll []connect.HandlerOption
+	var optionsCompress, optionsAuth, optionsAll []connect.HandlerOption
 	optionsCompress = append(optionsCompress, connect.WithCompression("zstd", mwcompress.NewDecompress, mwcompress.NewCompress))
 	optionsCompress = append(optionsCompress, connect.WithCompression("gzip", nil, nil))
 	_, err = userService.GetUser(ctx, mwauth.LocalDummyID)
@@ -223,7 +210,7 @@ func main() {
 	}
 
 	optionsAuth = append(optionsCompress, connect.WithInterceptors(mwauth.NewAuthInterceptor()))
-	opitonsAll = append(optionsAuth, optionsCompress...)
+	optionsAll = append(optionsAuth, optionsCompress...)
 
 	// Services Connect RPC
 	newServiceManager := NewServiceManager(30)
@@ -235,7 +222,7 @@ func main() {
 	defer workspaceStreamer.Shutdown()
 
 	workspaceSrv := rworkspace.New(currentDB, workspaceService, workspaceUserService, userService, environmentService, workspaceStreamer)
-	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, opitonsAll))
+	newServiceManager.AddService(rworkspace.CreateService(workspaceSrv, optionsAll))
 
 	// Env Service
 	environmentStreamer := memory.NewInMemorySyncStreamer[renv.EnvironmentTopic, renv.EnvironmentEvent]()
@@ -244,7 +231,7 @@ func main() {
 	defer environmentVariableStreamer.Shutdown()
 
 	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService, environmentStreamer, environmentVariableStreamer)
-	newServiceManager.AddService(renv.CreateService(envSrv, opitonsAll))
+	newServiceManager.AddService(renv.CreateService(envSrv, optionsAll))
 
 	// HTTP Service
 	httpStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
@@ -273,7 +260,7 @@ func main() {
 	defer httpBodyRawStreamer.Shutdown()
 
 	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
-	newServiceManager.AddService(rhttp.CreateService(httpSrv, opitonsAll))
+	newServiceManager.AddService(rhttp.CreateService(httpSrv, optionsAll))
 
 	nodeStreamer := memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]()
 	defer nodeStreamer.Shutdown()
@@ -296,6 +283,23 @@ func main() {
 	executionStreamer := memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]()
 	defer executionStreamer.Shutdown()
 
+	// ImportV2 Service
+	importV2Srv := rimportv2.NewImportV2RPC(
+		currentDB,
+		workspaceService,
+		userService,
+		&httpService,
+		&flowService,
+		fileService,
+		logger,
+	)
+	newServiceManager.AddService(rimportv2.CreateImportV2Service(*importV2Srv, optionsAll))
+
+	// Create workspace importer adapter for flow service
+	workspaceImporter := &workspaceImporterAdapter{
+		importService: importV2Srv,
+	}
+
 	flowSrvV2 := rflowv2.New(
 		&workspaceService,
 		&flowService,
@@ -315,6 +319,7 @@ func main() {
 		&httpBodyFormAgg,
 		httpBodyUrlAgg,
 		&httpAssertAgg,
+		workspaceImporter,
 		nodeStreamer,
 		edgeStreamer,
 		flowVariableStreamer,
@@ -326,56 +331,17 @@ func main() {
 		jsStreamer,
 		executionStreamer,
 	)
-	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, opitonsAll))
-
-	// Var Service
-	// varSrv := rvar.New(currentDB, userService, environmentService, variableService)
-	// newServiceManager.AddService(rvar.CreateService(varSrv, opitonsAll))
-
-	// Flow Service
-	// flowSrv := rflow.New(currentDB, workspaceService, userService, tagService,
-	// 	// flow
-	// 	flowService, flowTagService, flowEdgeService, flowVariableService, environmentService, variableService,
-	// 	// req
-	// 	endpointService, exampleService, exampleQueryService, exampleHeaderService,
-	// 	// body
-	// 	bodyRawService, bodyFormService, bodyUrlService,
-	// 	// resp
-	// 	exampleResponseService, exampleResponseHeaderService, assertService, assertResultService,
-	// 	// subnodes
-	// 	flowNodeService, flowNodeRequestSevice, flowNodeForService, flowNodeForeachService,
-	// 	flowNodeNoOpService, *flowNodeCondition, flowNodeJsService, nodeExecutionService, logMap, logger)
-	// newServiceManager.AddService(rflow.CreateService(flowSrv, opitonsAll))
-
-	// Node Service
-	// nodeSrv := rnode.NewNodeServiceRPC(currentDB, userService,
-	// 	flowService, *flowNodeCondition,
-	// 	flowNodeRequestSevice, flowNodeForService, flowNodeForeachService, flowNodeService, flowNodeNoOpService, flowNodeJsService,
-	// 	endpointService, exampleService, exampleQueryService, exampleHeaderService, bodyRawService, bodyFormService, bodyUrlService,
-	// 	nodeExecutionService)
-	// newServiceManager.AddService(rnode.CreateService(nodeSrv, opitonsAll))
-
-	// NodeExecution Service
-	// nodeExecutionSrv := rnodeexecution.New(&nodeExecutionService, &flowNodeService, &flowService, &userService, &exampleResponseService, &flowNodeRequestSevice)
-	// nodeExecutionService_svc, err := rnodeexecution.CreateService(nodeExecutionSrv, opitonsAll)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// newServiceManager.AddService(nodeExecutionService_svc, err)
-
-	// Edge Service
-	// edgeSrv := redge.NewEdgeServiceRPC(currentDB, flowService, userService, flowEdgeService, flowNodeService)
-	// newServiceManager.AddService(redge.CreateService(edgeSrv, opitonsAll))
+	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, optionsAll))
 
 	// Log Service
 	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
 	defer logStreamer.Shutdown()
 
 	logSrv := rlog.New(logStreamer)
-	newServiceManager.AddService(rlog.CreateService(logSrv, opitonsAll))
+	newServiceManager.AddService(rlog.CreateService(logSrv, optionsAll))
 
-	// ImportV2 Service
-	importV2Srv := rimportv2.NewImportV2RPC(
+	// ExportV2 Service
+	exportV2Srv := rexportv2.NewExportV2RPC(
 		currentDB,
 		workspaceService,
 		userService,
@@ -384,64 +350,12 @@ func main() {
 		fileService,
 		logger,
 	)
-	newServiceManager.AddService(rimportv2.CreateImportV2Service(*importV2Srv, opitonsAll))
-
-	// Export Service - Temporarily disabled due to missing dependencies
-	// exportSrv := rexport.New(
-	// 	currentDB,
-	// 	workspaceService,
-	// 	collectionService,
-	// 	folderService,
-	// 	endpointService,
-	// 	exampleService,
-	// 	exampleHeaderService,
-	// 	exampleQueryService,
-	// 	assertService,
-	// 	bodyRawService,
-	// 	bodyFormService,
-	// 	bodyUrlService,
-	// 	exampleResponseService,
-	// 	exampleResponseHeaderService,
-	// 	assertResultService,
-	// 	flowService,
-	// 	flowNodeService,
-	// 	flowEdgeService,
-	// 	flowVariableService,
-	// )
-	// newServiceManager.AddService(rexport.CreateService(exportSrv, opitonsAll))
-
-	// Import Service - Temporarily disabled due to missing dependencies
-	// importSrv := rimport.New(
-	// 	currentDB,
-	// 	workspaceService,
-	// 	collectionService,
-	// 	userService,
-	// 	folderService,
-	// 	endpointService,
-	// 	exampleService,
-	// 	exampleHeaderService,
-	// 	exampleQueryService,
-	// 	assertService,
-	// 	bodyRawService,
-	// 	bodyFormService,
-	// 	bodyUrlService,
-	// 	exampleResponseService,
-	// 	exampleResponseHeaderService,
-	// 	assertResultService,
-	// 	flowService,
-	// 	flowNodeService,
-	// 	flowEdgeService,
-	// 	flowVariableService,
-	// )
-	// newServiceManager.AddService(rimport.CreateService(importSrv, opitonsAll))
+	newServiceManager.AddService(rexportv2.CreateExportV2Service(*exportV2Srv, optionsAll))
 
 	// Reference Service
 	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService,
 		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService, nodeExecutionService)
-	newServiceManager.AddService(rreference.CreateService(refServiceRPC, opitonsAll))
-
-	// flowServiceRPC := rflowvariable.New(currentDB, flowService, userService, flowVariableService)
-	// newServiceManager.AddService(rflowvariable.CreateService(flowServiceRPC, opitonsAll))
+	newServiceManager.AddService(rreference.CreateService(refServiceRPC, optionsAll))
 
 	// Start services
 	go func() {
