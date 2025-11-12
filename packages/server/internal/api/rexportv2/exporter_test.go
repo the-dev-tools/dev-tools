@@ -41,8 +41,8 @@ func TestDefaultExporter_ExportWorkspaceData_Success(t *testing.T) {
 	exporter, workspaceID, flowID, exampleID, _ := setupExporterWithTestData(t, ctx)
 
 	filter := ExportFilter{
-		FlowIDs:    []idwrap.IDWrap{flowID},
-		ExampleIDs: []idwrap.IDWrap{exampleID},
+		FileIDs:    []idwrap.IDWrap{flowID}, // Use flowID as fileID for now
+		HTTPIDs:    []idwrap.IDWrap{exampleID}, // Use exampleID as httpID for now
 		Format:     ExportFormat_YAML,
 		Simplified: false,
 	}

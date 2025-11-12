@@ -29,10 +29,9 @@ func TestSimpleValidator_ValidateExportRequest(t *testing.T) {
 			name: "valid request",
 			req: &ExportRequest{
 				WorkspaceID: idwrap.NewNow(),
-				FlowIDs:     []idwrap.IDWrap{idwrap.NewNow()},
-				ExampleIDs: []idwrap.IDWrap{idwrap.NewNow()},
-				Format:     ExportFormat_YAML,
-				Simplified: false,
+				FileIDs:     []idwrap.IDWrap{idwrap.NewNow()},
+				Format:      ExportFormat_YAML,
+				Simplified:  false,
 			},
 			expectError: false,
 		},

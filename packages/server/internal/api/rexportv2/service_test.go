@@ -205,10 +205,9 @@ func TestService_Export_Success(t *testing.T) {
 
 	req := &ExportRequest{
 		WorkspaceID: workspaceID,
-		FlowIDs:     []idwrap.IDWrap{flowID},
-		ExampleIDs: []idwrap.IDWrap{exampleID},
-		Format:     ExportFormat_YAML,
-		Simplified: false,
+		FileIDs:     []idwrap.IDWrap{flowID}, // Use flowID as fileID for now
+		Format:      ExportFormat_YAML,
+		Simplified:  false,
 	}
 
 	resp, err := service.Export(ctx, req)
@@ -303,8 +302,8 @@ func TestService_Export_CurlFormat(t *testing.T) {
 
 	req := &ExportRequest{
 		WorkspaceID: workspaceID,
-		ExampleIDs: []idwrap.IDWrap{exampleID},
-		Format:     ExportFormat_CURL,
+		FileIDs:     []idwrap.IDWrap{}, // Empty for cURL format tests
+		Format:      ExportFormat_CURL,
 	}
 
 	resp, err := service.Export(ctx, req)
@@ -499,7 +498,7 @@ func TestService_ExportCurl_Success(t *testing.T) {
 
 	req := &ExportCurlRequest{
 		WorkspaceID: workspaceID,
-		ExampleIDs: []idwrap.IDWrap{exampleID},
+		HTTPIDs:     []idwrap.IDWrap{exampleID}, // Use exampleID as httpID for now
 	}
 
 	resp, err := service.ExportCurl(ctx, req)

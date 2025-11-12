@@ -787,6 +787,251 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Request[flowv1.FlowDuplicateRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.GetFlowId()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
+	}
+
+	sourceFlowID, err := idwrap.NewFromBytes(req.Msg.GetFlowId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
+	}
+
+	// Validate access to source flow
+	if err := s.ensureFlowAccess(ctx, sourceFlowID); err != nil {
+		return nil, err
+	}
+
+	// Get source flow details
+	sourceFlow, err := s.fs.GetFlow(ctx, sourceFlowID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", sourceFlowID.String()))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Get workspace access for creating the new flow
+	if err := s.ensureWorkspaceAccess(ctx, sourceFlow.WorkspaceID); err != nil {
+		return nil, err
+	}
+
+	// Get workspace to update flow count
+	workspace, err := s.ws.Get(ctx, sourceFlow.WorkspaceID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Create new flow with duplicated name
+	newFlowID := idwrap.NewNow()
+	duplicatedName := fmt.Sprintf("Copy of %s", sourceFlow.Name)
+
+	newFlow := mflow.Flow{
+		ID:          newFlowID,
+		WorkspaceID: sourceFlow.WorkspaceID,
+		Name:        duplicatedName,
+	}
+
+	if err := s.fs.CreateFlow(ctx, newFlow); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Create a mapping from old node IDs to new node IDs for edge remapping
+	nodeIDMapping := make(map[string]string)
+
+	// Duplicate all nodes
+	sourceNodes, err := s.ns.GetNodesByFlowID(ctx, sourceFlowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, sourceNode := range sourceNodes {
+		newNodeID := idwrap.NewNow()
+		nodeIDMapping[sourceNode.ID.String()] = newNodeID.String()
+
+		// Create the basic node
+		newNode := mnnode.MNode{
+			ID:        newNodeID,
+			FlowID:    newFlowID,
+			Name:      sourceNode.Name,
+			NodeKind:  sourceNode.NodeKind,
+			PositionX: sourceNode.PositionX,
+			PositionY: sourceNode.PositionY,
+		}
+
+		if err := s.ns.CreateNode(ctx, newNode); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Duplicate node-type specific data
+		switch sourceNode.NodeKind {
+		case mnnode.NODE_KIND_NO_OP:
+			noopData, err := s.nnos.GetNodeNoop(ctx, sourceNode.ID)
+			if err == nil {
+				newNoopData := mnnoop.NoopNode{
+					FlowNodeID: newNodeID,
+					Type:       noopData.Type,
+				}
+				if err := s.nnos.CreateNodeNoop(ctx, newNoopData); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+
+		case mnnode.NODE_KIND_REQUEST:
+			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
+			if err == nil {
+				// Get the original HTTP data
+				httpData, err := s.hs.Get(ctx, requestData.HttpID)
+				if err == nil {
+					// Create a new HTTP record for the duplicated node
+					newHttpID := idwrap.NewNow()
+					duplicatedHttp := *httpData
+					duplicatedHttp.ID = newHttpID
+					duplicatedHttp.Name = fmt.Sprintf("Copy of %s", httpData.Name)
+
+					if err := s.hs.Create(ctx, &duplicatedHttp); err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+
+					newRequestData := mnrequest.MNRequest{
+						FlowNodeID:       newNodeID,
+						HttpID:           newHttpID,
+						HasRequestConfig: requestData.HasRequestConfig,
+					}
+					if err := s.nrs.CreateNodeRequest(ctx, newRequestData); err != nil {
+						return nil, connect.NewError(connect.CodeInternal, err)
+					}
+				}
+			}
+
+		case mnnode.NODE_KIND_FOR:
+			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
+			if err == nil {
+				newForData := mnfor.MNFor{
+					FlowNodeID:    newNodeID,
+					IterCount:     forData.IterCount,
+					Condition:     forData.Condition,
+					ErrorHandling: forData.ErrorHandling,
+				}
+				if err := s.nfs.CreateNodeFor(ctx, newForData); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+
+		case mnnode.NODE_KIND_FOR_EACH:
+			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
+			if err == nil {
+				newForEachData := mnforeach.MNForEach{
+					FlowNodeID:    newNodeID,
+					IterExpression: forEachData.IterExpression,
+					Condition:     forEachData.Condition,
+					ErrorHandling: forEachData.ErrorHandling,
+				}
+				if err := s.nfes.CreateNodeForEach(ctx, newForEachData); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+
+		case mnnode.NODE_KIND_CONDITION:
+			conditionData, err := s.nifs.GetNodeIf(ctx, sourceNode.ID)
+			if err == nil {
+				newConditionData := mnif.MNIF{
+					FlowNodeID: newNodeID,
+					Condition:  conditionData.Condition,
+				}
+				if err := s.nifs.CreateNodeIf(ctx, newConditionData); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+
+		case mnnode.NODE_KIND_JS:
+			jsData, err := s.njss.GetNodeJS(ctx, sourceNode.ID)
+			if err == nil {
+				newJsData := mnjs.MNJS{
+					FlowNodeID: newNodeID,
+					Code:       jsData.Code,
+				}
+				if err := s.njss.CreateNodeJS(ctx, newJsData); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+		}
+	}
+
+	// Duplicate all edges with remapped node IDs
+	sourceEdges, err := s.es.GetEdgesByFlowID(ctx, sourceFlowID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, sourceEdge := range sourceEdges {
+		newEdgeID := idwrap.NewNow()
+
+		// Map old node IDs to new node IDs
+		newSourceIDStr, sourceOK := nodeIDMapping[sourceEdge.SourceID.String()]
+		newTargetIDStr, targetOK := nodeIDMapping[sourceEdge.TargetID.String()]
+
+		if !sourceOK || !targetOK {
+			// This should not happen in normal circumstances, but skip invalid edges
+			continue
+		}
+
+		newSourceID, err := idwrap.NewText(newSourceIDStr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("invalid new source node id: %w", err))
+		}
+
+		newTargetID, err := idwrap.NewText(newTargetIDStr)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("invalid new target node id: %w", err))
+		}
+
+		newEdge := edge.Edge{
+			ID:            newEdgeID,
+			FlowID:        newFlowID,
+			SourceID:      newSourceID,
+			TargetID:      newTargetID,
+			SourceHandler: sourceEdge.SourceHandler,
+			Kind:          sourceEdge.Kind,
+		}
+
+		if err := s.es.CreateEdge(ctx, newEdge); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Duplicate all flow variables
+	sourceVariables, err := s.fvs.GetFlowVariablesByFlowID(ctx, sourceFlowID)
+	if err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, sourceVariable := range sourceVariables {
+		newVariableID := idwrap.NewNow()
+		newVariable := mflowvariable.FlowVariable{
+			ID:          newVariableID,
+			FlowID:      newFlowID,
+			Name:        sourceVariable.Name,
+			Value:       sourceVariable.Value,
+			Enabled:     sourceVariable.Enabled,
+			Description: sourceVariable.Description,
+		}
+
+		if err := s.fvs.CreateFlowVariable(ctx, newVariable); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Update workspace flow count
+	workspace.FlowCount++
+	workspace.Updated = dbtime.DBNow()
+	if err := s.ws.Update(ctx, workspace); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
 func (s *FlowServiceV2RPC) FlowVersionCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.FlowVersionCollectionResponse], error) {
 	flowID, err := flowIDFromHeaders(req.Header())
 	if err != nil {

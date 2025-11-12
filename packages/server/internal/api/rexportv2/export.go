@@ -21,7 +21,7 @@ import (
 type Exporter interface {
 	ExportWorkspaceData(ctx context.Context, workspaceID idwrap.IDWrap, filter ExportFilter) (*WorkspaceExportData, error)
 	ExportToYAML(ctx context.Context, data *WorkspaceExportData, simplified bool) ([]byte, error)
-	ExportToCurl(ctx context.Context, data *WorkspaceExportData, exampleIDs []idwrap.IDWrap) (string, error)
+	ExportToCurl(ctx context.Context, data *WorkspaceExportData, httpIDs []idwrap.IDWrap) (string, error)
 }
 
 // Validator provides validation for export operations
@@ -64,14 +64,14 @@ func (e *SimpleExporter) ExportWorkspaceData(ctx context.Context, workspaceID id
 		return nil, fmt.Errorf("failed to get workspace: %w", err)
 	}
 
-	// Get flows
-	flows, err := e.storage.GetFlows(ctx, workspaceID, filter.FlowIDs)
+	// Get flows (using file IDs as flow identifiers for now)
+	flows, err := e.storage.GetFlows(ctx, workspaceID, filter.FileIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get flows: %w", err)
 	}
 
 	// Get HTTP requests
-	httpRequests, err := e.storage.GetHTTPRequests(ctx, workspaceID, filter.ExampleIDs)
+	httpRequests, err := e.storage.GetHTTPRequests(ctx, workspaceID, filter.HTTPIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get HTTP requests: %w", err)
 	}
@@ -174,7 +174,7 @@ func (e *SimpleExporter) ExportToYAML(ctx context.Context, data *WorkspaceExport
 }
 
 // ExportToCurl exports data to cURL format
-func (e *SimpleExporter) ExportToCurl(ctx context.Context, data *WorkspaceExportData, exampleIDs []idwrap.IDWrap) (string, error) {
+func (e *SimpleExporter) ExportToCurl(ctx context.Context, data *WorkspaceExportData, httpIDs []idwrap.IDWrap) (string, error) {
 	if len(data.HTTPRequests) == 0 {
 		return "# No HTTP requests to export\n", nil
 	}
@@ -235,22 +235,16 @@ func (v *SimpleValidator) ValidateExportRequest(ctx context.Context, req *Export
 		return NewValidationError("format", fmt.Sprintf("unsupported format: %v", req.Format))
 	}
 
-	// Validate that we have some data to export
-	if len(req.FlowIDs) == 0 && len(req.ExampleIDs) == 0 {
-		return NewValidationError("request", "at least one flow ID or example ID must be provided")
+	// For YAML format, validate that we have some data to export
+	// For cURL format, file IDs can be empty since we use HTTP IDs from ExportCurlRequest
+	if req.Format == ExportFormat_YAML && len(req.FileIDs) == 0 {
+		return NewValidationError("request", "at least one file ID must be provided for YAML export")
 	}
 
-	// Validate flow IDs
-	for i, flowID := range req.FlowIDs {
-		if flowID.Compare(idwrap.IDWrap{}) == 0 {
-			return NewValidationError("flowIds", fmt.Sprintf("flow ID at index %d cannot be empty", i))
-		}
-	}
-
-	// Validate example IDs
-	for i, exampleID := range req.ExampleIDs {
-		if exampleID.Compare(idwrap.IDWrap{}) == 0 {
-			return NewValidationError("exampleIds", fmt.Sprintf("example ID at index %d cannot be empty", i))
+	// Validate file IDs
+	for i, fileID := range req.FileIDs {
+		if fileID.Compare(idwrap.IDWrap{}) == 0 {
+			return NewValidationError("fileIds", fmt.Sprintf("file ID at index %d cannot be empty", i))
 		}
 	}
 
@@ -273,17 +267,17 @@ func (v *SimpleValidator) ValidateWorkspaceAccess(ctx context.Context, workspace
 
 // ValidateExportFilter validates an export filter
 func (v *SimpleValidator) ValidateExportFilter(ctx context.Context, filter ExportFilter) error {
-	// Validate flow IDs
-	for i, flowID := range filter.FlowIDs {
-		if flowID.Compare(idwrap.IDWrap{}) == 0 {
-			return NewValidationError("filter.flowIds", fmt.Sprintf("flow ID at index %d cannot be empty", i))
+	// Validate file IDs
+	for i, fileID := range filter.FileIDs {
+		if fileID.Compare(idwrap.IDWrap{}) == 0 {
+			return NewValidationError("filter.fileIds", fmt.Sprintf("file ID at index %d cannot be empty", i))
 		}
 	}
 
-	// Validate example IDs
-	for i, exampleID := range filter.ExampleIDs {
-		if exampleID.Compare(idwrap.IDWrap{}) == 0 {
-			return NewValidationError("filter.exampleIds", fmt.Sprintf("example ID at index %d cannot be empty", i))
+	// Validate HTTP IDs
+	for i, httpID := range filter.HTTPIDs {
+		if httpID.Compare(idwrap.IDWrap{}) == 0 {
+			return NewValidationError("filter.httpIds", fmt.Sprintf("HTTP ID at index %d cannot be empty", i))
 		}
 	}
 
@@ -333,8 +327,7 @@ func (s *Service) Export(ctx context.Context, req *ExportRequest) (*ExportRespon
 		"workspace_id", req.WorkspaceID,
 		"format", req.Format,
 		"simplified", req.Simplified,
-		"flow_ids_count", len(req.FlowIDs),
-		"example_ids_count", len(req.ExampleIDs))
+		"file_ids_count", len(req.FileIDs))
 
 	// Validate the export request
 	if err := s.validator.ValidateExportRequest(ctx, req); err != nil {
@@ -348,8 +341,8 @@ func (s *Service) Export(ctx context.Context, req *ExportRequest) (*ExportRespon
 
 	// Create export filter
 	filter := ExportFilter{
-		FlowIDs:    req.FlowIDs,
-		ExampleIDs: req.ExampleIDs,
+		FileIDs:    req.FileIDs,
+		HTTPIDs:    []idwrap.IDWrap{}, // Empty for regular export
 		Format:     req.Format,
 		Simplified: req.Simplified,
 	}
@@ -398,7 +391,9 @@ func (s *Service) Export(ctx context.Context, req *ExportRequest) (*ExportRespon
 		}
 
 	case ExportFormat_CURL:
-		curlData, err := s.exporter.ExportToCurl(ctx, exportData, req.ExampleIDs)
+		// For cURL format, we need HTTP requests but regular ExportRequest only has file IDs
+		// This is a limitation of the new spec - we may need to revisit this approach
+		curlData, err := s.exporter.ExportToCurl(ctx, exportData, []idwrap.IDWrap{})
 		if err != nil {
 			return nil, fmt.Errorf("cURL export failed: %w", err)
 		}
@@ -432,14 +427,14 @@ func (s *Service) ExportCurl(ctx context.Context, req *ExportCurlRequest) (*Expo
 
 	s.logger.Info("Starting cURL export operation",
 		"workspace_id", req.WorkspaceID,
-		"example_ids_count", len(req.ExampleIDs))
+		"http_ids_count", len(req.HTTPIDs))
 
 	// Create an export request for cURL format
 	exportReq := &ExportRequest{
 		WorkspaceID: req.WorkspaceID,
-		ExampleIDs: req.ExampleIDs,
-		Format:     ExportFormat_CURL,
-		Simplified: false,
+		FileIDs:     []idwrap.IDWrap{}, // Empty for cURL export
+		Format:      ExportFormat_CURL,
+		Simplified:  false,
 	}
 
 	// Validate the export request
@@ -454,7 +449,8 @@ func (s *Service) ExportCurl(ctx context.Context, req *ExportCurlRequest) (*Expo
 
 	// Create export filter
 	filter := ExportFilter{
-		ExampleIDs: req.ExampleIDs,
+		FileIDs:    []idwrap.IDWrap{}, // Empty for cURL export
+		HTTPIDs:    req.HTTPIDs,
 		Format:     ExportFormat_CURL,
 		Simplified: false,
 	}
@@ -475,7 +471,7 @@ func (s *Service) ExportCurl(ctx context.Context, req *ExportCurlRequest) (*Expo
 		"http_requests_count", len(exportData.HTTPRequests))
 
 	// Export to cURL format
-	curlData, err := s.exporter.ExportToCurl(ctx, exportData, req.ExampleIDs)
+	curlData, err := s.exporter.ExportToCurl(ctx, exportData, req.HTTPIDs)
 	if err != nil {
 		return nil, fmt.Errorf("cURL export failed: %w", err)
 	}

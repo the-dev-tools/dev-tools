@@ -13,8 +13,8 @@ import (
 // Storage provides data access operations using modern services
 type Storage interface {
 	GetWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (*WorkspaceInfo, error)
-	GetFlows(ctx context.Context, workspaceID idwrap.IDWrap, flowIDs []idwrap.IDWrap) ([]*FlowData, error)
-	GetHTTPRequests(ctx context.Context, workspaceID idwrap.IDWrap, exampleIDs []idwrap.IDWrap) ([]*HTTPData, error)
+	GetFlows(ctx context.Context, workspaceID idwrap.IDWrap, fileIDs []idwrap.IDWrap) ([]*FlowData, error) // Use file IDs as flow identifiers
+	GetHTTPRequests(ctx context.Context, workspaceID idwrap.IDWrap, httpIDs []idwrap.IDWrap) ([]*HTTPData, error)
 	GetFiles(ctx context.Context, workspaceID idwrap.IDWrap, fileIDs []idwrap.IDWrap) ([]*FileData, error)
 }
 
@@ -55,15 +55,17 @@ func (s *SimpleStorage) GetWorkspace(ctx context.Context, workspaceID idwrap.IDW
 	}, nil
 }
 
-// GetFlows retrieves flow data for the given workspace and flow IDs
-func (s *SimpleStorage) GetFlows(ctx context.Context, workspaceID idwrap.IDWrap, flowIDs []idwrap.IDWrap) ([]*FlowData, error) {
+// GetFlows retrieves flow data for the given workspace and file IDs
+func (s *SimpleStorage) GetFlows(ctx context.Context, workspaceID idwrap.IDWrap, fileIDs []idwrap.IDWrap) ([]*FlowData, error) {
 	// Use modern flow service to get flows
 	var flows []*FlowData
 
-	// If specific flow IDs are provided, get only those
-	if len(flowIDs) > 0 {
-		for _, flowID := range flowIDs {
-			flow, err := s.flowService.GetFlow(ctx, flowID)
+	// If specific file IDs are provided, try to get flows associated with those files
+	// For now, we'll treat file IDs as flow IDs since the new spec uses file IDs
+	if len(fileIDs) > 0 {
+		for _, fileID := range fileIDs {
+			// Try to get flow by file ID - this may need adjustment based on actual data model
+			flow, err := s.flowService.GetFlow(ctx, fileID)
 			if err != nil {
 				// Log error but continue with other flows
 				continue
@@ -94,15 +96,15 @@ func (s *SimpleStorage) GetFlows(ctx context.Context, workspaceID idwrap.IDWrap,
 	return flows, nil
 }
 
-// GetHTTPRequests retrieves HTTP request data for the given example IDs
-func (s *SimpleStorage) GetHTTPRequests(ctx context.Context, workspaceID idwrap.IDWrap, exampleIDs []idwrap.IDWrap) ([]*HTTPData, error) {
+// GetHTTPRequests retrieves HTTP request data for the given HTTP IDs
+func (s *SimpleStorage) GetHTTPRequests(ctx context.Context, workspaceID idwrap.IDWrap, httpIDs []idwrap.IDWrap) ([]*HTTPData, error) {
 	// Use modern HTTP service to get HTTP requests
 	var httpRequests []*HTTPData
 
-	// If specific example IDs are provided, get only those
-	if len(exampleIDs) > 0 {
-		for _, exampleID := range exampleIDs {
-			httpReq, err := s.httpService.Get(ctx, exampleID)
+	// If specific HTTP IDs are provided, get only those
+	if len(httpIDs) > 0 {
+		for _, httpID := range httpIDs {
+			httpReq, err := s.httpService.Get(ctx, httpID)
 			if err != nil {
 				// Log error but continue with other requests
 				continue

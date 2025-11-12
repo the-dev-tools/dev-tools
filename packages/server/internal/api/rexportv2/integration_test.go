@@ -165,32 +165,6 @@ func TestIntegration_ExportFullWorkflow(t *testing.T) {
 	assert.Equal(t, "Integration Test Workspace", workspace["name"])
 }
 
-// TestIntegration_ExportSimplifiedWorkflow tests the simplified export workflow
-func TestIntegration_ExportSimplifiedWorkflow(t *testing.T) {
-	fixture := newIntegrationTestFixture(t)
-
-	// Create test data
-	_, _ = createComplexTestData(t, fixture)
-
-	// Test simplified export
-	resp, err := fixture.rpc.ExportSimplified(fixture.ctx, connect.NewRequest(&exportv1.ExportRequest{
-		WorkspaceId: fixture.workspaceID.Bytes(),
-	}))
-
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NotEmpty(t, resp.Msg.Data)
-	assert.Contains(t, resp.Msg.Name, "simplified")
-
-	// Verify simplified YAML structure
-	var exportData map[string]interface{}
-	err = yaml.Unmarshal(resp.Msg.Data, &exportData)
-	require.NoError(t, err)
-
-	assert.Contains(t, exportData, "workspace")
-	assert.Contains(t, exportData, "flows")
-	assert.Contains(t, exportData, "requests")
-}
 
 // TestIntegration_ExportCurlWorkflow tests the cURL export workflow
 func TestIntegration_ExportCurlWorkflow(t *testing.T) {
@@ -202,7 +176,7 @@ func TestIntegration_ExportCurlWorkflow(t *testing.T) {
 	// Test cURL export
 	resp, err := fixture.rpc.ExportCurl(fixture.ctx, connect.NewRequest(&exportv1.ExportCurlRequest{
 		WorkspaceId: fixture.workspaceID.Bytes(),
-		ExampleIds:  [][]byte{exampleID.Bytes()},
+		HttpIds:     [][]byte{exampleID.Bytes()},
 	}))
 
 	require.NoError(t, err)
@@ -220,42 +194,24 @@ func TestIntegration_ExportWithFilters(t *testing.T) {
 	fixture := newIntegrationTestFixture(t)
 
 	// Create multiple flows and requests for filtering tests
-	flowID1, exampleID1 := createComplexTestData(t, fixture)
-	flowID2, exampleID2 := createIntegrationTestData(t, fixture)
+	flowID1, _ := createComplexTestData(t, fixture)
+	flowID2, _ := createIntegrationTestData(t, fixture)
 
 	tests := []struct {
 		name       string
-		flowIDs    [][]byte
-		exampleIDs [][]byte
+		fileIDs    [][]byte // Use file IDs instead of flow IDs
 		expectFlows int
 		expectRequests int
 	}{
 		{
 			name:        "filter by single flow",
-			flowIDs:     [][]byte{flowID1.Bytes()},
+			fileIDs:     [][]byte{flowID1.Bytes()}, // Treat flow IDs as file IDs
 			expectFlows: 1,
 		},
 		{
-			name:          "filter by single example",
-			exampleIDs:    [][]byte{exampleID1.Bytes()},
-			expectRequests: 1,
-		},
-		{
-			name:          "filter by multiple examples",
-			exampleIDs:    [][]byte{exampleID1.Bytes(), exampleID2.Bytes()},
-			expectRequests: 2,
-		},
-		{
 			name:        "filter by multiple flows",
-			flowIDs:     [][]byte{flowID1.Bytes(), flowID2.Bytes()},
+			fileIDs:     [][]byte{flowID1.Bytes(), flowID2.Bytes()}, // Treat flow IDs as file IDs
 			expectFlows: 2,
-		},
-		{
-			name:           "filter by both flows and examples",
-			flowIDs:        [][]byte{flowID1.Bytes()},
-			exampleIDs:     [][]byte{exampleID2.Bytes()},
-			expectFlows:    1,
-			expectRequests: 1,
 		},
 	}
 
@@ -263,8 +219,7 @@ func TestIntegration_ExportWithFilters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resp, err := fixture.rpc.Export(fixture.ctx, connect.NewRequest(&exportv1.ExportRequest{
 				WorkspaceId: fixture.workspaceID.Bytes(),
-				FlowIds:     tt.flowIDs,
-				ExampleIds:  tt.exampleIDs,
+				FileIds:     tt.fileIDs,
 			}))
 
 			require.NoError(t, err)
@@ -360,7 +315,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 		nonExistentFlowID := idwrap.NewNow()
 		resp, err := fixture.rpc.Export(fixture.ctx, connect.NewRequest(&exportv1.ExportRequest{
 			WorkspaceId: fixture.workspaceID.Bytes(),
-			FlowIds:     [][]byte{nonExistentFlowID.Bytes()},
+			FileIds:     [][]byte{nonExistentFlowID.Bytes()},
 					}))
 
 		require.NoError(t, err) // Should succeed but return empty flows

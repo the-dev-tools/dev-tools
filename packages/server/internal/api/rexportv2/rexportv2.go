@@ -29,8 +29,7 @@ const (
 // ExportRequest represents a request to export data
 type ExportRequest struct {
 	WorkspaceID idwrap.IDWrap
-	FlowIDs     []idwrap.IDWrap
-	ExampleIDs []idwrap.IDWrap
+	FileIDs     []idwrap.IDWrap
 	Format     ExportFormat
 	Simplified bool
 }
@@ -38,7 +37,7 @@ type ExportRequest struct {
 // ExportCurlRequest represents a request to export cURL commands
 type ExportCurlRequest struct {
 	WorkspaceID idwrap.IDWrap
-	ExampleIDs []idwrap.IDWrap
+	HTTPIDs     []idwrap.IDWrap
 }
 
 // ExportResponse represents the response from an export operation
@@ -54,8 +53,8 @@ type ExportCurlResponse struct {
 
 // ExportFilter represents filters for export operations
 type ExportFilter struct {
-	FlowIDs    []idwrap.IDWrap
-	ExampleIDs []idwrap.IDWrap
+	FileIDs    []idwrap.IDWrap
+	HTTPIDs    []idwrap.IDWrap
 	Format     ExportFormat
 	Simplified bool
 }
@@ -194,8 +193,7 @@ func CreateExportV2Service(srv ExportV2RPC, options []connect.HandlerOption) (*a
 func (h *ExportV2RPC) Export(ctx context.Context, req *connect.Request[exportv1.ExportRequest]) (*connect.Response[exportv1.ExportResponse], error) {
 	h.logger.Info("Received Export request",
 		"workspace_id", req.Msg.WorkspaceId,
-		"flow_ids_count", len(req.Msg.FlowIds),
-		"example_ids_count", len(req.Msg.ExampleIds))
+		"file_ids_count", len(req.Msg.FileIds))
 
 	// Convert protobuf request to internal request model
 	exportReq, err := convertToExportRequest(req.Msg)
@@ -226,48 +224,12 @@ func (h *ExportV2RPC) Export(ctx context.Context, req *connect.Request[exportv1.
 	return connect.NewResponse(protoResp), nil
 }
 
-// ExportSimplified implements the ExportSimplified RPC method
-func (h *ExportV2RPC) ExportSimplified(ctx context.Context, req *connect.Request[exportv1.ExportRequest]) (*connect.Response[exportv1.ExportResponse], error) {
-	h.logger.Info("Received ExportSimplified request",
-		"workspace_id", req.Msg.WorkspaceId,
-		"flow_ids_count", len(req.Msg.FlowIds),
-		"example_ids_count", len(req.Msg.ExampleIds))
-
-	// Convert protobuf request to internal request model with simplified flag
-	exportReq, err := convertToExportRequest(req.Msg)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-	exportReq.Simplified = true
-
-	// Call the service to process the simplified export
-	response, err := h.service.Export(ctx, exportReq)
-	if err != nil {
-		return nil, handleServiceError(err)
-	}
-
-	// Convert internal response to protobuf response
-	protoResp, err := convertToExportResponse(response)
-	if err != nil {
-		h.logger.Error("Simplified export response conversion failed",
-			"workspace_id", req.Msg.WorkspaceId,
-			"error", err)
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	h.logger.Info("ExportSimplified completed successfully",
-		"workspace_id", req.Msg.WorkspaceId,
-		"export_name", protoResp.Name,
-		"data_size", len(protoResp.Data))
-
-	return connect.NewResponse(protoResp), nil
-}
 
 // ExportCurl implements the ExportCurl RPC method
 func (h *ExportV2RPC) ExportCurl(ctx context.Context, req *connect.Request[exportv1.ExportCurlRequest]) (*connect.Response[exportv1.ExportCurlResponse], error) {
 	h.logger.Info("Received ExportCurl request",
 		"workspace_id", req.Msg.WorkspaceId,
-		"example_ids_count", len(req.Msg.ExampleIds))
+		"http_ids_count", len(req.Msg.HttpIds))
 
 	// Convert protobuf request to internal request model
 	curlReq, err := convertToExportCurlRequest(req.Msg)
@@ -303,24 +265,14 @@ func convertToExportRequest(msg *exportv1.ExportRequest) (*ExportRequest, error)
 		return nil, NewValidationError("workspaceId", err.Error())
 	}
 
-	// Convert flow IDs
-	flowIDs := make([]idwrap.IDWrap, 0, len(msg.FlowIds))
-	for _, flowIdBytes := range msg.FlowIds {
-		flowID, err := idwrap.NewFromBytes(flowIdBytes)
+	// Convert file IDs
+	fileIDs := make([]idwrap.IDWrap, 0, len(msg.FileIds))
+	for _, fileIdBytes := range msg.FileIds {
+		fileID, err := idwrap.NewFromBytes(fileIdBytes)
 		if err != nil {
-			return nil, NewValidationError("flowIds", err.Error())
+			return nil, NewValidationError("fileIds", err.Error())
 		}
-		flowIDs = append(flowIDs, flowID)
-	}
-
-	// Convert example IDs
-	exampleIDs := make([]idwrap.IDWrap, 0, len(msg.ExampleIds))
-	for _, exampleIdBytes := range msg.ExampleIds {
-		exampleID, err := idwrap.NewFromBytes(exampleIdBytes)
-		if err != nil {
-			return nil, NewValidationError("exampleIds", err.Error())
-		}
-		exampleIDs = append(exampleIDs, exampleID)
+		fileIDs = append(fileIDs, fileID)
 	}
 
 	// Default format is YAML for standard Export RPC
@@ -328,8 +280,7 @@ func convertToExportRequest(msg *exportv1.ExportRequest) (*ExportRequest, error)
 
 	return &ExportRequest{
 		WorkspaceID: workspaceID,
-		FlowIDs:     flowIDs,
-		ExampleIDs: exampleIDs,
+		FileIDs:     fileIDs,
 		Format:     format,
 		Simplified: false,
 	}, nil
@@ -343,19 +294,19 @@ func convertToExportCurlRequest(msg *exportv1.ExportCurlRequest) (*ExportCurlReq
 		return nil, NewValidationError("workspaceId", err.Error())
 	}
 
-	// Convert example IDs
-	exampleIDs := make([]idwrap.IDWrap, 0, len(msg.ExampleIds))
-	for _, exampleIdBytes := range msg.ExampleIds {
-		exampleID, err := idwrap.NewFromBytes(exampleIdBytes)
+	// Convert HTTP IDs
+	httpIDs := make([]idwrap.IDWrap, 0, len(msg.HttpIds))
+	for _, httpIdBytes := range msg.HttpIds {
+		httpID, err := idwrap.NewFromBytes(httpIdBytes)
 		if err != nil {
-			return nil, NewValidationError("exampleIds", err.Error())
+			return nil, NewValidationError("httpIds", err.Error())
 		}
-		exampleIDs = append(exampleIDs, exampleID)
+		httpIDs = append(httpIDs, httpID)
 	}
 
 	return &ExportCurlRequest{
 		WorkspaceID: workspaceID,
-		ExampleIDs: exampleIDs,
+		HTTPIDs:     httpIDs,
 	}, nil
 }
 

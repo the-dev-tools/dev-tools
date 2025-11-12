@@ -103,6 +103,18 @@ func containsSubstring(s, substr string) bool {
 	return false
 }
 
+// bytesToIDWrap converts []byte to *idwrap.IDWrap safely
+func bytesToIDWrap(b []byte) *idwrap.IDWrap {
+	if b == nil || len(b) == 0 {
+		return nil
+	}
+	id, err := idwrap.NewFromBytes(b)
+	if err != nil {
+		return nil
+	}
+	return &id
+}
+
 // HttpTopic defines the streaming topic for HTTP events
 type HttpTopic struct {
 	WorkspaceID idwrap.IDWrap
@@ -2221,6 +2233,203 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 		if isDNSError(err) {
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request[apiv1.HttpDuplicateRequest]) (*connect.Response[emptypb.Empty], error) {
+	if len(req.Msg.HttpId) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required"))
+	}
+
+	httpID, err := idwrap.NewFromBytes(req.Msg.HttpId)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	// Get HTTP entry to check workspace permissions and retrieve source data
+	httpEntry, err := h.hs.Get(ctx, httpID)
+	if err != nil {
+		if errors.Is(err, shttp.ErrNoHTTPFound) {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Check read access to source (any role in workspace)
+	if err := h.checkWorkspaceReadAccess(ctx, httpEntry.WorkspaceID); err != nil {
+		return nil, err
+	}
+
+	// Check write access to workspace for creating new entries (Admin or Owner role required)
+	if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+		return nil, err
+	}
+
+	// Start transaction for consistent duplication
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	// Create transaction-scoped services
+	hsService := h.hs.TX(tx)
+	httpHeaderService := h.httpHeaderService.TX(tx)
+	httpSearchParamService := h.httpSearchParamService.TX(tx)
+	httpBodyFormService := h.httpBodyFormService.TX(tx)
+	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
+	httpAssertService := h.httpAssertService.TX(tx)
+
+	// Create transaction-scoped queries
+	txQueries, err := dbmodels.Prepare(ctx, tx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Create new HTTP entry with duplicated name
+	newHttpID := idwrap.NewNow()
+	duplicateName := fmt.Sprintf("Copy of %s", httpEntry.Name)
+	duplicateHttp := &mhttp.HTTP{
+		ID:               newHttpID,
+		WorkspaceID:      httpEntry.WorkspaceID,
+		FolderID:         httpEntry.FolderID,
+		Name:             duplicateName,
+		Url:              httpEntry.Url,
+		Method:           httpEntry.Method,
+		Description:      httpEntry.Description,
+		ParentHttpID:     httpEntry.ParentHttpID,
+		// Clear delta fields for the duplicate
+		IsDelta:          false,
+		DeltaName:        nil,
+		DeltaUrl:         nil,
+		DeltaMethod:      nil,
+		DeltaDescription: nil,
+	}
+
+	if err := hsService.Create(ctx, duplicateHttp); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Get and duplicate headers
+	headers, err := txQueries.GetHTTPHeaders(ctx, httpID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, header := range headers {
+		newHeaderID := idwrap.NewNow()
+		headerModel := &mhttpheader.HttpHeader{
+			ID:          newHeaderID,
+			HttpID:      newHttpID,
+			Key:         header.HeaderKey,
+			Value:       header.HeaderValue,
+			Enabled:     header.Enabled,
+			Description: header.Description,
+		}
+		if err := httpHeaderService.Create(ctx, headerModel); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Get and duplicate search params
+	searchParams, err := txQueries.GetHTTPSearchParams(ctx, httpID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, param := range searchParams {
+		newParamID := idwrap.NewNow()
+		paramModel := &mhttpsearchparam.HttpSearchParam{
+			ID:          newParamID,
+			HttpID:      newHttpID,
+			Key:         param.Key,
+			Value:       param.Value,
+			Enabled:     param.Enabled,
+			Description: param.Description,
+			Order:       param.Order,
+		}
+		if err := httpSearchParamService.Create(ctx, paramModel); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Get and duplicate body form entries
+	bodyForms, err := txQueries.GetHTTPBodyForms(ctx, httpID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, bodyForm := range bodyForms {
+		newBodyFormID := idwrap.NewNow()
+		bodyFormModel := &mhttpbodyform.HttpBodyForm{
+			ID:               newBodyFormID,
+			HttpID:           newHttpID,
+			Key:              bodyForm.Key,
+			Value:            bodyForm.Value,
+			Enabled:          bodyForm.Enabled,
+			Description:      bodyForm.Description,
+			Order:            float32(bodyForm.Order),
+			ParentHttpBodyFormID: bytesToIDWrap(bodyForm.ParentHttpBodyFormID),
+		}
+		if err := httpBodyFormService.CreateHttpBodyForm(ctx, bodyFormModel); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Get and duplicate body URL encoded entries
+	bodyUrlEncoded, err := txQueries.GetHTTPBodyUrlEncodedByHttpID(ctx, httpID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, bodyUrlEnc := range bodyUrlEncoded {
+		newBodyUrlEncodedID := idwrap.NewNow()
+		bodyUrlEncodedModel := &mhttpbodyurlencoded.HttpBodyUrlEncoded{
+			ID:                         newBodyUrlEncodedID,
+			HttpID:                     newHttpID,
+			Key:                        bodyUrlEnc.Key,
+			Value:                      bodyUrlEnc.Value,
+			Enabled:                    bodyUrlEnc.Enabled,
+			Description:                bodyUrlEnc.Description,
+			Order:                      float32(bodyUrlEnc.Order),
+			ParentHttpBodyUrlEncodedID: bytesToIDWrap(bodyUrlEnc.ParentHttpBodyUrlencodedID),
+		}
+		if err := httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, bodyUrlEncodedModel); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Get and duplicate assertions
+	asserts, err := txQueries.GetHTTPAssertsByHttpID(ctx, httpID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for _, assert := range asserts {
+		newAssertID := idwrap.NewNow()
+		assertModel := &mhttpassert.HttpAssert{
+			ID:          newAssertID,
+			HttpID:      newHttpID,
+			Key:         "", // HttpAssert doesn't use Key field
+			Value:       assert.Value,
+			Enabled:     true, // Assertions are always active
+			Description: "",   // No description available in DB
+			Order:       0,    // No order available in DB
+		}
+		if err := httpAssertService.CreateHttpAssert(ctx, assertModel); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Handle raw body if needed (check if source has raw body)
+	// Note: This would depend on the raw body structure and service availability
+	// The raw body might need to be handled separately based on your schema
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 

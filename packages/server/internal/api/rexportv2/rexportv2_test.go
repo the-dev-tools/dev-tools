@@ -88,11 +88,11 @@ func TestCreateExportV2Service(t *testing.T) {
 // TestExportV2RPC_Export_Success tests successful export operation
 func TestExportV2RPC_Export_Success(t *testing.T) {
 	ctx := context.Background()
-	svc, workspaceID, exampleID := setupExportV2RPC(t, ctx)
+	svc, workspaceID, flowID := setupExportV2RPC(t, ctx)
 
 	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: workspaceID.Bytes(),
-		ExampleIds:  [][]byte{exampleID.Bytes()},
+		FileIds:     [][]byte{flowID.Bytes()}, // Use flowID as fileID for now
 	}))
 
 	require.NoError(t, err)
@@ -124,10 +124,10 @@ func TestExportV2RPC_Export_InvalidFlowIDs(t *testing.T) {
 	ctx := context.Background()
 	svc, workspaceID, _ := setupExportV2RPC(t, ctx)
 
-	// Invalid flow ID (empty bytes)
+	// Invalid file ID (empty bytes)
 	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: workspaceID.Bytes(),
-		FlowIds:     [][]byte{[]byte{}},
+		FileIds:     [][]byte{[]byte{}},
 	}))
 
 	require.Error(t, err)
@@ -138,24 +138,6 @@ func TestExportV2RPC_Export_InvalidFlowIDs(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 }
 
-// TestExportV2RPC_Export_InvalidExampleIDs tests export with invalid example IDs
-func TestExportV2RPC_Export_InvalidExampleIDs(t *testing.T) {
-	ctx := context.Background()
-	svc, workspaceID, _ := setupExportV2RPC(t, ctx)
-
-	// Invalid example ID (empty bytes)
-	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
-		WorkspaceId: workspaceID.Bytes(),
-		ExampleIds:  [][]byte{[]byte{}},
-	}))
-
-	require.Error(t, err)
-	require.Nil(t, resp)
-
-	connectErr, ok := err.(*connect.Error)
-	require.True(t, ok)
-	assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
-}
 
 // TestExportV2RPC_Export_UnsupportedFormat tests export with unsupported format
 func TestExportV2RPC_Export_UnsupportedFormat(t *testing.T) {
@@ -172,22 +154,6 @@ func TestExportV2RPC_Export_UnsupportedFormat(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
-// TestExportV2RPC_ExportSimplified_Success tests successful simplified export
-func TestExportV2RPC_ExportSimplified_Success(t *testing.T) {
-	ctx := context.Background()
-	svc, workspaceID, exampleID := setupExportV2RPC(t, ctx)
-
-	resp, err := svc.ExportSimplified(ctx, connect.NewRequest(&exportv1.ExportRequest{
-		WorkspaceId: workspaceID.Bytes(),
-		ExampleIds:  [][]byte{exampleID.Bytes()},
-	}))
-
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NotEmpty(t, resp.Msg.GetData())
-	require.True(t, len(resp.Msg.Name) > 0)
-	assert.Contains(t, resp.Msg.Name, "simplified")
-}
 
 // TestExportV2RPC_ExportCurl_Success tests successful cURL export
 func TestExportV2RPC_ExportCurl_Success(t *testing.T) {
@@ -196,7 +162,7 @@ func TestExportV2RPC_ExportCurl_Success(t *testing.T) {
 
 	resp, err := svc.ExportCurl(ctx, connect.NewRequest(&exportv1.ExportCurlRequest{
 		WorkspaceId: workspaceID.Bytes(),
-		ExampleIds:  [][]byte{exampleID.Bytes()},
+		HttpIds:     [][]byte{exampleID.Bytes()},
 	}))
 
 	require.NoError(t, err)
@@ -221,14 +187,14 @@ func TestExportV2RPC_ExportCurl_InvalidWorkspaceID(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 }
 
-// TestExportV2RPC_ExportCurl_InvalidExampleIDs tests cURL export with invalid example IDs
-func TestExportV2RPC_ExportCurl_InvalidExampleIDs(t *testing.T) {
+// TestExportV2RPC_ExportCurl_InvalidHttpIDs tests cURL export with invalid HTTP IDs
+func TestExportV2RPC_ExportCurl_InvalidHttpIDs(t *testing.T) {
 	ctx := context.Background()
 	svc, workspaceID, _ := setupExportV2RPC(t, ctx)
 
 	resp, err := svc.ExportCurl(ctx, connect.NewRequest(&exportv1.ExportCurlRequest{
 		WorkspaceId: workspaceID.Bytes(),
-		ExampleIds:  [][]byte{[]byte{}},
+		HttpIds:     [][]byte{[]byte{}},
 	}))
 
 	require.Error(t, err)
@@ -246,7 +212,7 @@ func TestExportV2RPC_ExportWithFlowFilter(t *testing.T) {
 
 	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: workspaceID.Bytes(),
-		FlowIds:     [][]byte{flowID.Bytes()},
+		FileIds:     [][]byte{flowID.Bytes()}, // Use flowID as fileID for now
 	}))
 
 	require.NoError(t, err)
@@ -254,20 +220,6 @@ func TestExportV2RPC_ExportWithFlowFilter(t *testing.T) {
 	require.NotEmpty(t, resp.Msg.GetData())
 }
 
-// TestExportV2RPC_ExportWithExampleFilter tests export with example filtering
-func TestExportV2RPC_ExportWithExampleFilter(t *testing.T) {
-	ctx := context.Background()
-	svc, workspaceID, exampleID := setupExportV2RPC(t, ctx)
-
-	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
-		WorkspaceId: workspaceID.Bytes(),
-		ExampleIds:  [][]byte{exampleID.Bytes()},
-	}))
-
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NotEmpty(t, resp.Msg.GetData())
-}
 
 // TestExportV2RPC_ContextCancellation tests export with context cancellation
 func TestExportV2RPC_ContextCancellation(t *testing.T) {
@@ -292,7 +244,7 @@ func TestExportV2RPC_ContextCancellation(t *testing.T) {
 func TestConvertToExportRequest(t *testing.T) {
 	workspaceID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
-	exampleID := idwrap.NewNow()
+	_ = idwrap.NewNow() // exampleID - not used in new spec
 
 	tests := []struct {
 		name        string
@@ -301,19 +253,17 @@ func TestConvertToExportRequest(t *testing.T) {
 		expectReq   *ExportRequest
 	}{
 		{
-			name: "valid request with all fields",
+			name: "valid request with file IDs",
 			msg: &exportv1.ExportRequest{
 				WorkspaceId: workspaceID.Bytes(),
-				FlowIds:     [][]byte{flowID.Bytes()},
-				ExampleIds:  [][]byte{exampleID.Bytes()},
+				FileIds:     [][]byte{flowID.Bytes()}, // Use flowID as fileID for now
 			},
 			expectError: false,
 			expectReq: &ExportRequest{
 				WorkspaceID: workspaceID,
-				FlowIDs:     []idwrap.IDWrap{flowID},
-				ExampleIDs: []idwrap.IDWrap{exampleID},
-				Format:     ExportFormat_YAML, // Default format
-				Simplified: false,
+				FileIDs:     []idwrap.IDWrap{flowID},
+				Format:      ExportFormat_YAML, // Default format
+				Simplified:  false,
 			},
 		},
 		{
@@ -324,10 +274,9 @@ func TestConvertToExportRequest(t *testing.T) {
 			expectError: false,
 			expectReq: &ExportRequest{
 				WorkspaceID: workspaceID,
-				FlowIDs:     []idwrap.IDWrap{},
-				ExampleIDs: []idwrap.IDWrap{},
-				Format:     ExportFormat_YAML, // Default
-				Simplified: false,
+				FileIDs:     []idwrap.IDWrap{},
+				Format:      ExportFormat_YAML, // Default
+				Simplified:  false,
 			},
 		},
 		{
@@ -338,10 +287,10 @@ func TestConvertToExportRequest(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "invalid flow ID",
+			name: "invalid file ID",
 			msg: &exportv1.ExportRequest{
 				WorkspaceId: workspaceID.Bytes(),
-				FlowIds:     [][]byte{[]byte{}},
+				FileIds:     [][]byte{[]byte{}},
 			},
 			expectError: true,
 		},
@@ -360,11 +309,8 @@ func TestConvertToExportRequest(t *testing.T) {
 				assert.Equal(t, tt.expectReq.Format, req.Format)
 				assert.Equal(t, tt.expectReq.Simplified, req.Simplified)
 
-				if len(tt.expectReq.FlowIDs) > 0 {
-					assert.Equal(t, len(tt.expectReq.FlowIDs), len(req.FlowIDs))
-				}
-				if len(tt.expectReq.ExampleIDs) > 0 {
-					assert.Equal(t, len(tt.expectReq.ExampleIDs), len(req.ExampleIDs))
+				if len(tt.expectReq.FileIDs) > 0 {
+					assert.Equal(t, len(tt.expectReq.FileIDs), len(req.FileIDs))
 				}
 			}
 		})
@@ -386,12 +332,12 @@ func TestConvertToExportCurlRequest(t *testing.T) {
 			name: "valid request",
 			msg: &exportv1.ExportCurlRequest{
 				WorkspaceId: workspaceID.Bytes(),
-				ExampleIds:  [][]byte{exampleID.Bytes()},
+				HttpIds:     [][]byte{exampleID.Bytes()}, // Use exampleID as httpID for now
 			},
 			expectError: false,
 			expectReq: &ExportCurlRequest{
 				WorkspaceID: workspaceID,
-				ExampleIDs: []idwrap.IDWrap{exampleID},
+				HTTPIDs:     []idwrap.IDWrap{exampleID},
 			},
 		},
 		{
@@ -402,10 +348,10 @@ func TestConvertToExportCurlRequest(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "invalid example ID",
+			name: "invalid HTTP ID",
 			msg: &exportv1.ExportCurlRequest{
 				WorkspaceId: workspaceID.Bytes(),
-				ExampleIds:  [][]byte{[]byte{}},
+				HttpIds:     [][]byte{[]byte{}},
 			},
 			expectError: true,
 		},
@@ -421,7 +367,7 @@ func TestConvertToExportCurlRequest(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectReq.WorkspaceID, req.WorkspaceID)
-				assert.Equal(t, len(tt.expectReq.ExampleIDs), len(req.ExampleIDs))
+				assert.Equal(t, len(tt.expectReq.HTTPIDs), len(req.HTTPIDs))
 			}
 		})
 	}
