@@ -1,22 +1,15 @@
 import { create, MessageInitShape } from '@bufbuild/protobuf';
-import { useNavigate } from '@tanstack/react-router';
 import { Array, HashMap, Option, pipe } from 'effect';
-import { Ulid } from 'id128';
 import { ReactNode, useState, useTransition } from 'react';
 import { Dialog, Heading, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiInfo, FiX } from 'react-icons/fi';
-import { ExampleListEndpoint } from '@the-dev-tools/spec/data-client/collection/item/example/v1/example.endpoints.js';
-import { CollectionItemListEndpoint } from '@the-dev-tools/spec/data-client/collection/item/v1/item.endpoints.js';
-import { CollectionListEndpoint } from '@the-dev-tools/spec/data-client/collection/v1/collection.endpoints.js';
-import { FlowListEndpoint } from '@the-dev-tools/spec/data-client/flow/v1/flow.endpoints.js';
-import { ImportEndpoint } from '@the-dev-tools/spec/data-client/import/v1/import.endpoints.ts';
-import { VariableListEndpoint } from '@the-dev-tools/spec/data-client/variable/v1/variable.endpoints.js';
 import {
   ImportDomainData,
   ImportDomainDataSchema,
   ImportMissingDataKind,
   ImportRequestSchema,
-} from '@the-dev-tools/spec/import/v1/import_pb';
+  ImportService,
+} from '@the-dev-tools/spec/api/import/v1/import_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { FileDropZone } from '@the-dev-tools/ui/file-drop-zone';
@@ -24,27 +17,12 @@ import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
-import { matchAllEndpoint, setQueryChild } from '~data-client';
-import { columnCheckboxField, columnText, columnTextField, ReactTableNoMemo, useFormTable } from '~form-table';
-import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~routes';
+import { Connect } from '~/api-new';
+import { columnCheckboxField, columnText, columnTextField, ReactTableNoMemo, useFormTable } from '~/form-table';
+import { rootRouteApi, workspaceRouteApi } from '~/routes';
 
 export const ImportDialog = () => {
-  const { dataClient } = rootRouteApi.useRouteContext();
-
   const modal = useProgrammaticModal();
-
-  const successAction = async () => {
-    modal.onOpenChange(false);
-    await dataClient.controller.expireAll({
-      testKey: (_) => {
-        if (matchAllEndpoint(VariableListEndpoint)(_)) return true;
-        if (matchAllEndpoint(CollectionListEndpoint)(_)) return true;
-        if (matchAllEndpoint(CollectionItemListEndpoint)(_)) return true;
-        if (matchAllEndpoint(ExampleListEndpoint)(_)) return true;
-        return false;
-      },
-    });
-  };
 
   return (
     <>
@@ -54,7 +32,10 @@ export const ImportDialog = () => {
           onPress={() =>
             void modal.onOpenChange(
               true,
-              <InitialDialog setModal={(node) => void modal.onOpenChange(true, node)} successAction={successAction} />,
+              <InitialDialog
+                setModal={(node) => void modal.onOpenChange(true, node)}
+                successAction={() => Promise.resolve(void modal.onOpenChange(false))}
+              />,
             )
           }
           variant='ghost'
@@ -115,7 +96,7 @@ interface InitialDialogProps {
 }
 
 const InitialDialog = ({ setModal, successAction }: InitialDialogProps) => {
-  const { dataClient } = rootRouteApi.useRouteContext();
+  const { transport } = rootRouteApi.useRouteContext();
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const [text, setText] = useState('');
@@ -137,7 +118,7 @@ const InitialDialog = ({ setModal, successAction }: InitialDialogProps) => {
       workspaceId,
     };
 
-    const result = await dataClient.fetch(ImportEndpoint, input);
+    const { message: result } = await Connect.request({ input, method: ImportService.method.import, transport });
 
     if (result.missingData === ImportMissingDataKind.DOMAIN)
       setModal(<DomainDialog domains={result.domains} input={input} successAction={successAction} />);
@@ -187,10 +168,7 @@ interface DomainDialogProps {
 }
 
 const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
-  const { dataClient, transport } = rootRouteApi.useRouteContext();
-  const { workspaceId } = workspaceRouteApi.useLoaderData();
-
-  const navigate = useNavigate();
+  const { transport } = rootRouteApi.useRouteContext();
 
   const [isPending, startTransition] = useTransition();
   const [domainData, setDomainData] = useState(
@@ -205,25 +183,22 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
   });
 
   const importAction = async () => {
-    const { flow } = await dataClient.fetch(ImportEndpoint, { ...input, domainData: HashMap.toValues(domainData) });
+    const {
+      message: { flowId },
+    } = await Connect.request({
+      input: { ...input, domainData: HashMap.toValues(domainData) },
+      method: ImportService.method.import,
+      transport,
+    });
 
-    if (flow) {
-      await setQueryChild(
-        dataClient.controller,
-        FlowListEndpoint.schema.items,
-        'push',
-        { controller: () => dataClient.controller, input: { workspaceId }, transport },
-        flow,
-      );
-
-      const flowIdCan = Ulid.construct(flow.flowId).toCanonical();
-
-      await navigate({
-        from: workspaceRouteApi.id,
-        to: flowLayoutRouteApi.id,
-
-        params: { flowIdCan },
-      });
+    if (flowId) {
+      // TODO: open new flow
+      // const flowIdCan = Ulid.construct(flow.flowId).toCanonical();
+      // await navigate({
+      //   from: workspaceRouteApi.id,
+      //   to: flowLayoutRouteApi.id,
+      //   params: { flowIdCan },
+      // });
     }
 
     await successAction();

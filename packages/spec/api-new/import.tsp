@@ -21,6 +21,7 @@ model ImportRequest {
 model ImportResponse {
   missingData: ImportMissingDataKind;
   domains?: string[];
+  flowId?: Id;
 }
 
 op Import(...ImportRequest): ImportResponse;
