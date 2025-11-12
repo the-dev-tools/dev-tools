@@ -7,29 +7,18 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 )
 
 // WorkspaceImportOptions defines configuration options for modern workspace import
 type WorkspaceImportOptions struct {
-	WorkspaceID       idwrap.IDWrap
-	FolderID          *idwrap.IDWrap
-	MergeStrategy     MergeStrategy
-	SkipDuplicates    bool
-	PreserveExisting  bool
-	ConflictResolver  ConflictResolverFunc
-	ProgressCallback  ProgressCallbackFunc
-	BatchSize         int // Number of entities to process in each batch
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	MergeStrategy    MergeStrategy
+	SkipDuplicates   bool
+	PreserveExisting bool
+	ConflictResolver ConflictResolverFunc
+	ProgressCallback ProgressCallbackFunc
+	BatchSize        int // Number of entities to process in each batch
 }
 
 // MergeStrategy defines how to handle conflicts during import
@@ -68,35 +57,35 @@ func (ms MergeStrategy) String() string {
 
 // ImportResults contains the results of a modern workspace import operation
 type ImportResults struct {
-	WorkspaceID    idwrap.IDWrap
-	HTTPReqsCreated int
-	HTTPReqsUpdated int
-	HTTPReqsSkipped int
-	HTTPReqsFailed  int
-	FilesCreated    int
-	FilesUpdated    int
-	FilesSkipped    int
-	FilesFailed     int
-	FlowsCreated    int
-	FlowsUpdated    int
-	FlowsSkipped    int
-	FlowsFailed     int
-	NodesCreated    int
-	NodesUpdated    int
-	NodesSkipped    int
-	NodesFailed     int
-	EdgesCreated    int
-	EdgesUpdated    int
-	EdgesSkipped    int
-	EdgesFailed     int
+	WorkspaceID      idwrap.IDWrap
+	HTTPReqsCreated  int
+	HTTPReqsUpdated  int
+	HTTPReqsSkipped  int
+	HTTPReqsFailed   int
+	FilesCreated     int
+	FilesUpdated     int
+	FilesSkipped     int
+	FilesFailed      int
+	FlowsCreated     int
+	FlowsUpdated     int
+	FlowsSkipped     int
+	FlowsFailed      int
+	NodesCreated     int
+	NodesUpdated     int
+	NodesSkipped     int
+	NodesFailed      int
+	EdgesCreated     int
+	EdgesUpdated     int
+	EdgesSkipped     int
+	EdgesFailed      int
 	VariablesCreated int
 	VariablesUpdated int
 	VariablesSkipped int
 	VariablesFailed  int
-	Conflicts       []ImportConflict
-	Errors          []ImportError
-	Duration        int64 // Import duration in milliseconds
-	EntityCounts    map[string]int
+	Conflicts        []ImportConflict
+	Errors           []ImportError
+	Duration         int64 // Import duration in milliseconds
+	EntityCounts     map[string]int
 }
 
 // ImportConflict represents a conflict that occurred during import
@@ -197,43 +186,43 @@ type ProgressCallbackFunc func(progress ImportProgress)
 
 // ImportProgress reports the current progress of an import operation
 type ImportProgress struct {
-	Stage           string  // Current stage of import
-	Total           int     // Total items to process
-	Processed       int     // Items processed so far
-	Success         int     // Items successfully processed
-	Failed          int     // Items that failed
-	Percentage      float64 // Completion percentage
-	CurrentItem     string  // Name of current item being processed
-	EstimatedTime   int64   // Estimated remaining time in milliseconds
-	BytesProcessed  int64   // Bytes processed so far
-	TotalBytes      int64   // Total bytes to process
+	Stage          string  // Current stage of import
+	Total          int     // Total items to process
+	Processed      int     // Items processed so far
+	Success        int     // Items successfully processed
+	Failed         int     // Items that failed
+	Percentage     float64 // Completion percentage
+	CurrentItem    string  // Name of current item being processed
+	EstimatedTime  int64   // Estimated remaining time in milliseconds
+	BytesProcessed int64   // Bytes processed so far
+	TotalBytes     int64   // Total bytes to process
 }
 
 // WorkspaceImportConfig provides additional configuration for import
 type WorkspaceImportConfig struct {
 	// Validation settings
-	ValidateURLs       bool
+	ValidateURLs        bool
 	ValidateHTTPMethods bool
 	ValidateReferences  bool
 
 	// Performance settings
-	EnableCompression    bool
-	CompressionThreshold int // Minimum size in bytes to compress
+	EnableCompression       bool
+	CompressionThreshold    int // Minimum size in bytes to compress
 	MaxConcurrentGoroutines int
 
 	// Conflict handling
-	AutoResolveConflicts bool
+	AutoResolveConflicts      bool
 	DefaultConflictResolution ConflictResolution
 
 	// Data transformation
-	TransformHTTPHeaders   func([]string) []string
-	TransformQueryParams  func(map[string]string) map[string]string
-	TransformBody         func([]byte) []byte
+	TransformHTTPHeaders func([]string) []string
+	TransformQueryParams func(map[string]string) map[string]string
+	TransformBody        func([]byte) []byte
 
 	// Metadata handling
-	PreserveMetadata    bool
-	GenerateMetadata    bool
-	MetadataTemplate    map[string]interface{}
+	PreserveMetadata bool
+	GenerateMetadata bool
+	MetadataTemplate map[string]interface{}
 
 	// Logging and monitoring
 	EnableDetailedLogging bool
@@ -244,19 +233,19 @@ type WorkspaceImportConfig struct {
 // GetDefaultConfig returns a default configuration for workspace import
 func GetDefaultConfig() WorkspaceImportConfig {
 	return WorkspaceImportConfig{
-		ValidateURLs:            true,
-		ValidateHTTPMethods:     true,
-		ValidateReferences:      true,
-		EnableCompression:       true,
-		CompressionThreshold:    1024,
-		MaxConcurrentGoroutines: 10,
-		AutoResolveConflicts:    false,
+		ValidateURLs:              true,
+		ValidateHTTPMethods:       true,
+		ValidateReferences:        true,
+		EnableCompression:         true,
+		CompressionThreshold:      1024,
+		MaxConcurrentGoroutines:   10,
+		AutoResolveConflicts:      false,
 		DefaultConflictResolution: ConflictResolutionSkipped,
-		PreserveMetadata:        true,
-		GenerateMetadata:        false,
-		EnableDetailedLogging:   false,
-		LogLevel:                "info",
-		MetricsEnabled:          false,
+		PreserveMetadata:          true,
+		GenerateMetadata:          false,
+		EnableDetailedLogging:     false,
+		LogLevel:                  "info",
+		MetricsEnabled:            false,
 	}
 }
 
@@ -291,7 +280,7 @@ func (opts WorkspaceImportOptions) Validate() error {
 	// Validate merge strategy
 	switch opts.MergeStrategy {
 	case MergeStrategyCreateNew, MergeStrategyMergeExisting, MergeStrategySkipDuplicates,
-		 MergeStrategyReplaceExisting, MergeStrategyUpdateExisting:
+		MergeStrategyReplaceExisting, MergeStrategyUpdateExisting:
 		// Valid strategies
 	default:
 		return fmt.Errorf("invalid merge strategy: %v", opts.MergeStrategy)
@@ -325,7 +314,7 @@ func (config WorkspaceImportConfig) Validate() error {
 	// Validate conflict resolution
 	switch config.DefaultConflictResolution {
 	case ConflictResolutionSkipped, ConflictResolutionMerged, ConflictResolutionReplaced,
-		 ConflictResolutionUpdated, ConflictResolutionCreated:
+		ConflictResolutionUpdated, ConflictResolutionCreated:
 		// Valid resolutions
 	default:
 		return fmt.Errorf("invalid default conflict resolution: %v", config.DefaultConflictResolution)
@@ -444,14 +433,14 @@ func (ir *ImportResults) GetErrorsByType() map[string][]ImportError {
 
 // WorkspaceImportContext provides context for the import operation
 type WorkspaceImportContext struct {
-	Context       context.Context
-	Options       WorkspaceImportOptions
-	Config        WorkspaceImportConfig
-	StartTime     int64
-	CancelFunc    context.CancelFunc
-	Metrics       ImportMetrics
-	State         ImportState
-	Cache         *ImportCache
+	Context    context.Context
+	Options    WorkspaceImportOptions
+	Config     WorkspaceImportConfig
+	StartTime  int64
+	CancelFunc context.CancelFunc
+	Metrics    ImportMetrics
+	State      ImportState
+	Cache      *ImportCache
 }
 
 // ImportMetrics tracks metrics during import
@@ -470,33 +459,33 @@ type ImportMetrics struct {
 
 // ImportState tracks the current state of the import
 type ImportState struct {
-	CurrentStage     string
-	TotalItems       int
-	ProcessedItems   int
-	CurrentItem      string
-	LastEntityID     idwrap.IDWrap
-	LastError        error
-	IsPaused         bool
-	IsCancelled      bool
-	IsCompleted      bool
+	CurrentStage   string
+	TotalItems     int
+	ProcessedItems int
+	CurrentItem    string
+	LastEntityID   idwrap.IDWrap
+	LastError      error
+	IsPaused       bool
+	IsCancelled    bool
+	IsCompleted    bool
 }
 
 // ImportCache provides caching for import operations
 type ImportCache struct {
-	HTTPRequests     map[string]idwrap.IDWrap // URL+method -> ID mapping
-	Files           map[string]idwrap.IDWrap // Name -> ID mapping
-	Flows           map[string]idwrap.IDWrap // Name -> ID mapping
-	Nodes           map[string]idwrap.IDWrap // Name -> ID mapping
-	ResolvedConflicts map[string]bool       // Conflict resolutions
+	HTTPRequests      map[string]idwrap.IDWrap // URL+method -> ID mapping
+	Files             map[string]idwrap.IDWrap // Name -> ID mapping
+	Flows             map[string]idwrap.IDWrap // Name -> ID mapping
+	Nodes             map[string]idwrap.IDWrap // Name -> ID mapping
+	ResolvedConflicts map[string]bool          // Conflict resolutions
 }
 
 // NewImportCache creates a new import cache
 func NewImportCache() *ImportCache {
 	return &ImportCache{
-		HTTPRequests:     make(map[string]idwrap.IDWrap),
-		Files:           make(map[string]idwrap.IDWrap),
-		Flows:           make(map[string]idwrap.IDWrap),
-		Nodes:           make(map[string]idwrap.IDWrap),
+		HTTPRequests:      make(map[string]idwrap.IDWrap),
+		Files:             make(map[string]idwrap.IDWrap),
+		Flows:             make(map[string]idwrap.IDWrap),
+		Nodes:             make(map[string]idwrap.IDWrap),
 		ResolvedConflicts: make(map[string]bool),
 	}
 }

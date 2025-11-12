@@ -5,20 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-	"time"
-	"the-dev-tools/server/pkg/idwrap"
-	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
-	"the-dev-tools/server/pkg/model/mnnode/mnfor"
-	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
-	"the-dev-tools/server/pkg/model/mnnode/mnif"
-	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
@@ -30,6 +21,8 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
+	"time"
 )
 
 // IOWorkspaceServiceV2 provides modern workspace import without collections
@@ -37,12 +30,12 @@ type IOWorkspaceServiceV2 struct {
 	db *sql.DB
 
 	// Modern services
-	httpService  shttp.HTTPService
-	fileService  sfile.FileService
-	flowService  sflow.FlowService
+	httpService shttp.HTTPService
+	fileService sfile.FileService
+	flowService sflow.FlowService
 
 	// Flow node services
-	nodeService       snode.NodeService
+	nodeService      snode.NodeService
 	requestService   snoderequest.NodeRequestService
 	conditionService snodeif.NodeIfService
 	noopService      snodenoop.NodeNoopService
@@ -70,17 +63,17 @@ func NewIOWorkspaceServiceV2(
 	variableService sflowvariable.FlowVariableService,
 ) *IOWorkspaceServiceV2 {
 	return &IOWorkspaceServiceV2{
-		db:                db,
-		httpService:       httpService,
-		fileService:       fileService,
-		flowService:       flowService,
-		nodeService:       nodeService,
-		requestService:    requestService,
-		conditionService:  conditionService,
-		noopService:       noopService,
-		forService:        forService,
-		forEachService:    forEachService,
-		jsService:         jsService,
+		db:               db,
+		httpService:      httpService,
+		fileService:      fileService,
+		flowService:      flowService,
+		nodeService:      nodeService,
+		requestService:   requestService,
+		conditionService: conditionService,
+		noopService:      noopService,
+		forService:       forService,
+		forEachService:   forEachService,
+		jsService:        jsService,
 		variableService:  variableService,
 	}
 }
@@ -105,7 +98,7 @@ func (s *IOWorkspaceServiceV2) ImportWorkspace(
 
 	// Initialize results
 	results := &ImportResults{
-		WorkspaceID: options.WorkspaceID,
+		WorkspaceID:  options.WorkspaceID,
 		EntityCounts: make(map[string]int),
 	}
 
@@ -340,7 +333,7 @@ func (s *IOWorkspaceServiceV2) processFlowBatch(
 		} else {
 			// No conflict, create new flow
 			flowTx := s.flowService.TX(tx)
-				err := flowTx.CreateFlow(ctx, flow)
+			err := flowTx.CreateFlow(ctx, flow)
 			if err != nil {
 				results.FlowsFailed++
 				results.AddError(ImportError{
@@ -666,8 +659,11 @@ func (s *IOWorkspaceServiceV2) importFlowNodeImplementations(
 	// Import request nodes
 	if len(resolved.FlowRequestNodes) > 0 {
 		// TODO: Implement batch request node creation
-		if err != nil {
-			return fmt.Errorf("failed to create request nodes: %w", err)
+		for _, node := range resolved.FlowRequestNodes {
+			err := s.requestService.TX(tx).CreateNodeRequest(ctx, node)
+			if err != nil {
+				return fmt.Errorf("failed to create request node: %w", err)
+			}
 		}
 		results.NodesCreated += len(resolved.FlowRequestNodes)
 	}
@@ -675,15 +671,18 @@ func (s *IOWorkspaceServiceV2) importFlowNodeImplementations(
 	// Import condition nodes
 	if len(resolved.FlowConditionNodes) > 0 {
 		// TODO: Implement batch condition node creation
-		if err != nil {
-			return fmt.Errorf("failed to create condition nodes: %w", err)
+		for _, node := range resolved.FlowConditionNodes {
+			err := s.conditionService.TX(tx).CreateNodeIf(ctx, node)
+			if err != nil {
+				return fmt.Errorf("failed to create condition node: %w", err)
+			}
 		}
 		results.NodesCreated += len(resolved.FlowConditionNodes)
 	}
 
 	// Import noop nodes
 	if len(resolved.FlowNoopNodes) > 0 {
-		err := s.noopService.TX(tx).CreateNodeNoopBatch(ctx, resolved.FlowNoopNodes)
+		err := s.noopService.TX(tx).CreateNodeNoopBulk(ctx, resolved.FlowNoopNodes)
 		if err != nil {
 			return fmt.Errorf("failed to create noop nodes: %w", err)
 		}
@@ -692,7 +691,7 @@ func (s *IOWorkspaceServiceV2) importFlowNodeImplementations(
 
 	// Import for nodes
 	if len(resolved.FlowForNodes) > 0 {
-		err := s.forService.TX(tx).CreateNodeForBatch(ctx, resolved.FlowForNodes)
+		err := s.forService.TX(tx).CreateNodeForBulk(ctx, resolved.FlowForNodes)
 		if err != nil {
 			return fmt.Errorf("failed to create for nodes: %w", err)
 		}
@@ -701,7 +700,7 @@ func (s *IOWorkspaceServiceV2) importFlowNodeImplementations(
 
 	// Import for each nodes
 	if len(resolved.FlowForEachNodes) > 0 {
-		err := s.forEachService.TX(tx).CreateNodeForEachBatch(ctx, resolved.FlowForEachNodes)
+		err := s.forEachService.TX(tx).CreateNodeForEachBulk(ctx, resolved.FlowForEachNodes)
 		if err != nil {
 			return fmt.Errorf("failed to create for each nodes: %w", err)
 		}
@@ -710,7 +709,7 @@ func (s *IOWorkspaceServiceV2) importFlowNodeImplementations(
 
 	// Import JS nodes
 	if len(resolved.FlowJSNodes) > 0 {
-		err := s.jsService.TX(tx).CreateNodeJSBatch(ctx, resolved.FlowJSNodes)
+		err := s.jsService.TX(tx).CreateNodeJSBulk(ctx, resolved.FlowJSNodes)
 		if err != nil {
 			return fmt.Errorf("failed to create JS nodes: %w", err)
 		}
@@ -741,8 +740,12 @@ func (s *IOWorkspaceServiceV2) importFlowVariables(
 
 		batch := variables[i:end]
 		// TODO: Implement batch variable creation
-		if err != nil {
-			return fmt.Errorf("failed to create variable batch %d-%d: %w", i, end, err)
+		for _, variable := range batch {
+			variableTx := s.variableService.TX(tx)
+			err := variableTx.CreateFlowVariable(ctx, variable)
+			if err != nil {
+				return fmt.Errorf("failed to create variable batch %d-%d: %w", i, end, err)
+			}
 		}
 		results.VariablesCreated += len(batch)
 	}
@@ -785,7 +788,7 @@ func (s *IOWorkspaceServiceV2) ConcurrentImportWorkspace(
 
 	// Initialize results
 	results := &ImportResults{
-		WorkspaceID: options.WorkspaceID,
+		WorkspaceID:  options.WorkspaceID,
 		EntityCounts: make(map[string]int),
 	}
 
