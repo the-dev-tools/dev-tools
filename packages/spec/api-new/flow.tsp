@@ -9,6 +9,12 @@ model Flow {
   @visibility(Lifecycle.Read) duration?: int32;
 }
 
+model FlowDuplicateRequest {
+  flowId: Id;
+}
+
+op FlowDuplicate(...FlowDuplicateRequest): {};
+
 model FlowRunRequest {
   flowId: Id;
 }

@@ -24,7 +24,8 @@ import {
   FileKindSchema,
   FileUpdate_ParentFolderIdUnion_Kind,
 } from '@the-dev-tools/spec/api/file_system/v1/file_system_pb';
-import { HttpMethod } from '@the-dev-tools/spec/api/http/v1/http_pb';
+import { FlowService } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import { HttpMethod, HttpService } from '@the-dev-tools/spec/api/http/v1/http_pb';
 import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
@@ -341,6 +342,7 @@ const HttpFile = ({ id }: FileItemProps) => {
 
   const modal = useProgrammaticModal();
 
+  const duplicateMutation = useConnectMutation(HttpService.method.httpDuplicate);
   const exportMutation = useConnectMutation(ExportService.method.export);
   const exportCurlMutation = useConnectMutation(ExportService.method.exportCurl);
 
@@ -383,6 +385,8 @@ const HttpFile = ({ id }: FileItemProps) => {
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+            <MenuItem onAction={() => duplicateMutation.mutateAsync({ httpId })}>Duplicate</MenuItem>
 
             <SubmenuTrigger>
               <MenuItem>Export</MenuItem>
@@ -465,6 +469,7 @@ const FlowFile = ({ id }: FileItemProps) => {
     Option.getOrThrow,
   );
 
+  const duplicateMutation = useConnectMutation(FlowService.method.flowDuplicate);
   const exportMutation = useConnectMutation(ExportService.method.export);
 
   const { containerRef, showControls } = useContext(FileTreeContext);
@@ -504,6 +509,8 @@ const FlowFile = ({ id }: FileItemProps) => {
 
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+            <MenuItem onAction={() => duplicateMutation.mutateAsync({ flowId })}>Duplicate</MenuItem>
 
             <MenuItem
               onAction={async () => {

@@ -29,6 +29,12 @@ model Http {
   bodyKind: HttpBodyKind;
 }
 
+model HttpDuplicateRequest {
+  httpId: Id;
+}
+
+op HttpDuplicate(...HttpDuplicateRequest): {};
+
 model HttpRunRequest {
   httpId: Id;
 }
