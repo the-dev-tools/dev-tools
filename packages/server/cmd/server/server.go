@@ -33,15 +33,10 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/service/flow/sedge"
-	"the-dev-tools/server/pkg/service/sbodyraw"
-	"the-dev-tools/server/pkg/service/sfile"
+		"the-dev-tools/server/pkg/service/sfile"
 
 	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sexampleheader"
-	"the-dev-tools/server/pkg/service/sexamplequery"
-	"the-dev-tools/server/pkg/service/sexampleresp"
-	"the-dev-tools/server/pkg/service/sexamplerespheader"
-	"the-dev-tools/server/pkg/service/sflow"
+		"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
@@ -151,11 +146,7 @@ func main() {
 	workspaceUserService := sworkspacesusers.New(queries)
 	userService := suser.New(queries)
 
-	exampleHeaderService := sexampleheader.New(queries)
-	exampleQueryService := sexamplequery.New(queries)
-	bodyRawService := sbodyraw.New(queries)
-	exampleResponseService := sexampleresp.New(queries)
-	exampleResponseHeaderService := sexamplerespheader.New(queries)
+	httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 	variableService := svar.New(queries, logger)
 	environmentService := senv.New(queries, logger)
 	httpService := shttp.New(queries, logger)
@@ -259,7 +250,7 @@ func main() {
 	httpBodyRawStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
 	defer httpBodyRawStreamer.Shutdown()
 
-	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, exampleHeaderService, exampleQueryService, bodyRawService, exampleResponseService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
+	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, optionsAll))
 
 	nodeStreamer := memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]()
@@ -353,7 +344,7 @@ func main() {
 	newServiceManager.AddService(rexportv2.CreateExportV2Service(*exportV2Srv, optionsAll))
 
 	// Reference Service
-	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService, exampleResponseService, exampleResponseHeaderService,
+	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService,
 		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService, nodeExecutionService)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, optionsAll))
 

@@ -21,18 +21,15 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
-	"the-dev-tools/server/pkg/compress"
-	"the-dev-tools/server/pkg/eventstream"
+		"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/expression"
 	// "the-dev-tools/server/pkg/http/request" // TODO: Use if needed
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	// "the-dev-tools/server/pkg/model/mbodyform" // TODO: Use if needed
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	// "the-dev-tools/server/pkg/model/mbodyurl" // TODO: Use if needed
+		// "the-dev-tools/server/pkg/model/mbodyurl" // TODO: Use if needed
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
-	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
@@ -43,11 +40,7 @@ import (
 	// "the-dev-tools/server/pkg/model/mitemapiexample" // TODO: Use if needed
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/service/sbodyraw"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sexampleheader"
-	"the-dev-tools/server/pkg/service/sexamplequery"
-	"the-dev-tools/server/pkg/service/sexampleresp"
+		"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
@@ -250,10 +243,7 @@ type HttpServiceRPC struct {
 	vs  svar.VarService
 
 	// Additional services for HTTP components
-	headerService sexampleheader.HeaderService
-	queryService  sexamplequery.ExampleQueryService
-	bodyService   sbodyraw.BodyRawService
-	respService   sexampleresp.ExampleRespService
+	bodyService   *shttp.HttpBodyRawService
 
 	// Child entity services
 	httpHeaderService         shttpheader.HttpHeaderService
@@ -287,10 +277,7 @@ func New(
 	wus sworkspacesusers.WorkspaceUserService,
 	es senv.EnvService,
 	vs svar.VarService,
-	headerService sexampleheader.HeaderService,
-	queryService sexamplequery.ExampleQueryService,
-	bodyService sbodyraw.BodyRawService,
-	respService sexampleresp.ExampleRespService,
+	bodyService *shttp.HttpBodyRawService,
 	httpHeaderService shttpheader.HttpHeaderService,
 	httpSearchParamService shttpsearchparam.HttpSearchParamService,
 	httpBodyFormService shttpbodyform.HttpBodyFormService,
@@ -316,10 +303,7 @@ func New(
 		wus:                       wus,
 		es:                        es,
 		vs:                        vs,
-		headerService:             headerService,
-		queryService:              queryService,
 		bodyService:               bodyService,
-		respService:               respService,
 		httpHeaderService:         httpHeaderService,
 		httpSearchParamService:    httpSearchParamService,
 		httpBodyFormService:       httpBodyFormService,
@@ -1294,14 +1278,14 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	if err != nil {
 		log.Printf("Failed to load HTTP headers: %v", err)
 		// Continue with empty headers rather than failing
-		headers = []mexampleheader.Header{}
+		headers = []interface{}{}
 	}
 
 	queries, err := h.loadHttpQueries(ctx, httpEntry.ID)
 	if err != nil {
 		log.Printf("Failed to load HTTP queries: %v", err)
 		// Continue with empty queries rather than failing
-		queries = []mexamplequery.Query{}
+		queries = []interface{}{}
 	}
 
 	body, err := h.loadHttpBody(ctx, httpEntry.ID)
@@ -1330,8 +1314,8 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		Method:  httpEntry.Method,
 		URL:     httpEntry.Url,
 		Body:    body,
-		Headers: headers,
-		Queries: queries,
+		Headers: []mexampleheader.Header{}, // Legacy headers service removed - use empty slice
+		Queries: []mexamplequery.Query{},   // Legacy queries service removed - use empty slice
 	}
 
 	// Start timing the HTTP request
@@ -1431,8 +1415,8 @@ func (h *HttpServiceRPC) buildWorkspaceVarMap(ctx context.Context, workspaceID i
 
 // applyVariableSubstitution applies variable substitution to HTTP request components
 func (h *HttpServiceRPC) applyVariableSubstitution(ctx context.Context, httpEntry *mhttp.HTTP,
-	headers []mexampleheader.Header, queries []mexamplequery.Query, body []byte,
-	varMap varsystem.VarMap) (*mhttp.HTTP, []mexampleheader.Header, []mexamplequery.Query, []byte, error) {
+	headers []interface{}, queries []interface{}, body []byte,
+	varMap varsystem.VarMap) (*mhttp.HTTP, []interface{}, []interface{}, []byte, error) {
 
 	// Create a tracking wrapper around the varMap to track variable usage
 	tracker := varsystem.NewVarMapTracker(varMap)
@@ -1446,43 +1430,7 @@ func (h *HttpServiceRPC) applyVariableSubstitution(ctx context.Context, httpEntr
 		httpEntry.Url = resolvedURL
 	}
 
-	// Apply variable substitution to headers
-	for i, header := range headers {
-		if varsystem.CheckStringHasAnyVarKey(header.HeaderKey) {
-			resolvedKey, err := tracker.ReplaceVars(header.HeaderKey)
-			if err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in header key '%s': %w", header.HeaderKey, err)
-			}
-			headers[i].HeaderKey = resolvedKey
-		}
-
-		if varsystem.CheckStringHasAnyVarKey(header.Value) {
-			resolvedValue, err := tracker.ReplaceVars(header.Value)
-			if err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in header value '%s': %w", header.Value, err)
-			}
-			headers[i].Value = resolvedValue
-		}
-	}
-
-	// Apply variable substitution to queries
-	for i, query := range queries {
-		if varsystem.CheckStringHasAnyVarKey(query.QueryKey) {
-			resolvedKey, err := tracker.ReplaceVars(query.QueryKey)
-			if err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in query key '%s': %w", query.QueryKey, err)
-			}
-			queries[i].QueryKey = resolvedKey
-		}
-
-		if varsystem.CheckStringHasAnyVarKey(query.Value) {
-			resolvedValue, err := tracker.ReplaceVars(query.Value)
-			if err != nil {
-				return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in query value '%s': %w", query.Value, err)
-			}
-			queries[i].Value = resolvedValue
-		}
-	}
+	// Legacy header and query variable substitution removed - headers and queries passed through unchanged
 
 	// Apply variable substitution to body
 	if len(body) > 0 {
@@ -6911,15 +6859,15 @@ func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect
 
 		// Get body for each HTTP entry
 		for _, http := range httpList {
-			body, err := h.bodyService.GetBodyRawByExampleID(ctx, http.ID)
-			if err != nil && !errors.Is(err, sbodyraw.ErrNoBodyRawFound) {
+			body, err := h.bodyService.GetByHttpID(ctx, http.ID)
+			if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
 			if body != nil {
 				bodyRaw := &apiv1.HttpBodyRaw{
 					HttpId: http.ID.Bytes(),
-					Data:   string(body.Data), // Convert []byte to string
+					Data:   string(body.RawData), // Convert []byte to string
 				}
 				allBodies = append(allBodies, bodyRaw)
 			}
@@ -6968,22 +6916,15 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 			return nil, err
 		}
 
-		// Determine visualize mode based on content
-		visualizeMode := mbodyraw.VisualizeModeText
+		// Determine content type based on content
+		contentType := "text/plain"
 		if json.Valid([]byte(item.Data)) {
-			visualizeMode = mbodyraw.VisualizeModeJSON
+			contentType = "application/json"
 		}
 
-		// Create the body raw
-		bodyRawModel := &mbodyraw.ExampleBodyRaw{
-			ID:            idwrap.NewNow(),
-			ExampleID:     httpID,
-			Data:          []byte(item.Data),
-			VisualizeMode: visualizeMode,
-			CompressType:  compress.CompressTypeNone,
-		}
-
-		if err := bodyRawService.CreateBodyRaw(ctx, *bodyRawModel); err != nil {
+		// Create the body raw using the new service
+		_, err = bodyRawService.Create(ctx, httpID, []byte(item.Data), contentType)
+		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
@@ -7018,15 +6959,6 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing body raw
-		existingBodyRaw, err := bodyRawService.GetBodyRawByExampleID(ctx, httpID)
-		if err != nil {
-			if errors.Is(err, sbodyraw.ErrNoBodyRawFound) {
-				return nil, connect.NewError(connect.CodeNotFound, errors.New("raw body not found for this HTTP entry"))
-			}
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
 		// Verify the HTTP entry exists and user has access
 		httpEntry, err := h.hs.Get(ctx, httpID)
 		if err != nil {
@@ -7041,20 +6973,28 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			return nil, err
 		}
 
-		// Update fields if provided
-		if item.Data != nil {
-			existingBodyRaw.Data = []byte(*item.Data)
-
-			// Re-determine visualize mode based on new content
-			visualizeMode := mbodyraw.VisualizeModeText
-			if json.Valid([]byte(*item.Data)) {
-				visualizeMode = mbodyraw.VisualizeModeJSON
+		// Get existing body raw to get its ID
+		existingBodyRaw, err := h.bodyService.GetByHttpID(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+				return nil, connect.NewError(connect.CodeNotFound, errors.New("raw body not found for this HTTP entry"))
 			}
-			existingBodyRaw.VisualizeMode = visualizeMode
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := bodyRawService.UpdateBodyRawBody(ctx, *existingBodyRaw); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+		// Update fields if provided
+		if item.Data != nil {
+			// Determine content type based on new content
+			contentType := "text/plain"
+			if json.Valid([]byte(*item.Data)) {
+				contentType = "application/json"
+			}
+
+			// Update using the new service
+			_, err := bodyRawService.Update(ctx, existingBodyRaw.ID, []byte(*item.Data), contentType)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 		}
 	}
 
@@ -7226,48 +7166,35 @@ func httpMethodToString(method *apiv1.HttpMethod) *string {
 }
 
 // loadHttpHeaders loads HTTP headers for the given HTTP ID
-func (h *HttpServiceRPC) loadHttpHeaders(ctx context.Context, httpID idwrap.IDWrap) ([]mexampleheader.Header, error) {
-	return h.headerService.GetHeaderByExampleID(ctx, httpID)
+func (h *HttpServiceRPC) loadHttpHeaders(ctx context.Context, httpID idwrap.IDWrap) ([]interface{}, error) {
+	// Legacy service removed - return empty headers
+	return []interface{}{}, nil
 }
 
 // loadHttpQueries loads HTTP queries for the given HTTP ID
-func (h *HttpServiceRPC) loadHttpQueries(ctx context.Context, httpID idwrap.IDWrap) ([]mexamplequery.Query, error) {
-	return h.queryService.GetExampleQueriesByExampleID(ctx, httpID)
+func (h *HttpServiceRPC) loadHttpQueries(ctx context.Context, httpID idwrap.IDWrap) ([]interface{}, error) {
+	// Legacy service removed - return empty queries
+	return []interface{}{}, nil
 }
 
 // loadHttpBody loads HTTP body for the given HTTP ID
 func (h *HttpServiceRPC) loadHttpBody(ctx context.Context, httpID idwrap.IDWrap) ([]byte, error) {
-	body, err := h.bodyService.GetBodyRawByExampleID(ctx, httpID)
+	body, err := h.bodyService.GetByHttpID(ctx, httpID)
 	if err != nil {
-		if err == sbodyraw.ErrNoBodyRawFound {
+		if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
 			return nil, nil // No body is valid
 		}
 		return nil, err
 	}
-	return body.Data, nil
+	return body.RawData, nil
 }
 
-// storeHttpResponse stores the HTTP response in the database
+// storeHttpResponse handles HTTP response storage (legacy service removed)
 func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpID idwrap.IDWrap, resp httpclient.Response, duration int64) (idwrap.IDWrap, error) {
-	// Create response model
-	responseModel := mexampleresp.ExampleResp{
-		ID:               idwrap.NewNow(), // Generate new ID for response
-		ExampleID:        httpID,
-		Status:           uint16(resp.StatusCode),
-		Body:             resp.Body,
-		BodyCompressType: mexampleresp.BodyCompressTypeNone, // No compression for now
-		Duration:         int32(duration),                   // Actual request duration in milliseconds
-	}
-
-	// Store using response service
-	err := h.respService.CreateExampleResp(ctx, responseModel)
-	if err != nil {
-		return idwrap.IDWrap{}, fmt.Errorf("failed to store HTTP response: %w", err)
-	}
-
-	log.Printf("Stored HTTP Response %s for %s: Status=%d, Content-Length=%d, Duration=%dms",
-		responseModel.ID.String(), httpID.String(), resp.StatusCode, len(resp.Body), duration)
-	return responseModel.ID, nil
+	// Legacy response service removed - just log the response and return empty ID
+	log.Printf("HTTP Response for %s: Status=%d, Content-Length=%d, Duration=%dms (legacy response storage disabled)",
+		httpID.String(), resp.StatusCode, len(resp.Body), duration)
+	return idwrap.IDWrap{}, nil
 }
 
 // evaluateAndStoreAssertions loads assertions for an HTTP entry, evaluates them against the response, and stores the results

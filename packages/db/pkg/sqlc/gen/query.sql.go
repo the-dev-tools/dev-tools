@@ -1748,6 +1748,59 @@ func (q *Queries) CreateHTTPBodyForm(ctx context.Context, arg CreateHTTPBodyForm
 	return err
 }
 
+const createHTTPBodyRaw = `-- name: CreateHTTPBodyRaw :exec
+INSERT INTO
+  http_body_raw (
+    id,
+    http_id,
+    raw_data,
+    content_type,
+    compression_type,
+    parent_body_raw_id,
+    is_delta,
+    delta_raw_data,
+    delta_content_type,
+    delta_compression_type,
+    created_at,
+    updated_at
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHTTPBodyRawParams struct {
+	ID                   idwrap.IDWrap
+	HttpID               idwrap.IDWrap
+	RawData              []byte
+	ContentType          string
+	CompressionType      int8
+	ParentBodyRawID      *idwrap.IDWrap
+	IsDelta              bool
+	DeltaRawData         interface{}
+	DeltaContentType     interface{}
+	DeltaCompressionType interface{}
+	CreatedAt            int64
+	UpdatedAt            int64
+}
+
+func (q *Queries) CreateHTTPBodyRaw(ctx context.Context, arg CreateHTTPBodyRawParams) error {
+	_, err := q.exec(ctx, q.createHTTPBodyRawStmt, createHTTPBodyRaw,
+		arg.ID,
+		arg.HttpID,
+		arg.RawData,
+		arg.ContentType,
+		arg.CompressionType,
+		arg.ParentBodyRawID,
+		arg.IsDelta,
+		arg.DeltaRawData,
+		arg.DeltaContentType,
+		arg.DeltaCompressionType,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const createHTTPBodyUrlEncoded = `-- name: CreateHTTPBodyUrlEncoded :exec
 INSERT INTO http_body_urlencoded (
   id, http_id, key, value, enabled, description, "order",
@@ -4484,6 +4537,17 @@ DELETE FROM http_body_form WHERE id = ?
 
 func (q *Queries) DeleteHTTPBodyForm(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteHTTPBodyFormStmt, deleteHTTPBodyForm, id)
+	return err
+}
+
+const deleteHTTPBodyRaw = `-- name: DeleteHTTPBodyRaw :exec
+DELETE FROM http_body_raw
+WHERE
+  id = ?
+`
+
+func (q *Queries) DeleteHTTPBodyRaw(ctx context.Context, id idwrap.IDWrap) error {
+	_, err := q.exec(ctx, q.deleteHTTPBodyRawStmt, deleteHTTPBodyRaw, id)
 	return err
 }
 
@@ -9636,6 +9700,89 @@ func (q *Queries) GetHTTPBodyFormsByIDs(ctx context.Context, ids []idwrap.IDWrap
 		return nil, err
 	}
 	return items, nil
+}
+
+const getHTTPBodyRaw = `-- name: GetHTTPBodyRaw :one
+SELECT
+  id,
+  http_id,
+  raw_data,
+  content_type,
+  compression_type,
+  parent_body_raw_id,
+  is_delta,
+  delta_raw_data,
+  delta_content_type,
+  delta_compression_type,
+  created_at,
+  updated_at
+FROM
+  http_body_raw
+WHERE
+  http_id = ?
+LIMIT 1
+`
+
+func (q *Queries) GetHTTPBodyRaw(ctx context.Context, httpID idwrap.IDWrap) (HttpBodyRaw, error) {
+	row := q.queryRow(ctx, q.getHTTPBodyRawStmt, getHTTPBodyRaw, httpID)
+	var i HttpBodyRaw
+	err := row.Scan(
+		&i.ID,
+		&i.HttpID,
+		&i.RawData,
+		&i.ContentType,
+		&i.CompressionType,
+		&i.ParentBodyRawID,
+		&i.IsDelta,
+		&i.DeltaRawData,
+		&i.DeltaContentType,
+		&i.DeltaCompressionType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getHTTPBodyRawByID = `-- name: GetHTTPBodyRawByID :one
+SELECT
+  id,
+  http_id,
+  raw_data,
+  content_type,
+  compression_type,
+  parent_body_raw_id,
+  is_delta,
+  delta_raw_data,
+  delta_content_type,
+  delta_compression_type,
+  created_at,
+  updated_at
+FROM
+  http_body_raw
+WHERE
+  id = ?
+LIMIT 1
+`
+
+// HTTP Body Raw queries
+func (q *Queries) GetHTTPBodyRawByID(ctx context.Context, id idwrap.IDWrap) (HttpBodyRaw, error) {
+	row := q.queryRow(ctx, q.getHTTPBodyRawByIDStmt, getHTTPBodyRawByID, id)
+	var i HttpBodyRaw
+	err := row.Scan(
+		&i.ID,
+		&i.HttpID,
+		&i.RawData,
+		&i.ContentType,
+		&i.CompressionType,
+		&i.ParentBodyRawID,
+		&i.IsDelta,
+		&i.DeltaRawData,
+		&i.DeltaContentType,
+		&i.DeltaCompressionType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getHTTPBodyUrlEncoded = `-- name: GetHTTPBodyUrlEncoded :one
@@ -14812,6 +14959,36 @@ type UpdateHTTPBodyFormOrderParams struct {
 
 func (q *Queries) UpdateHTTPBodyFormOrder(ctx context.Context, arg UpdateHTTPBodyFormOrderParams) error {
 	_, err := q.exec(ctx, q.updateHTTPBodyFormOrderStmt, updateHTTPBodyFormOrder, arg.Order, arg.ID, arg.HttpID)
+	return err
+}
+
+const updateHTTPBodyRaw = `-- name: UpdateHTTPBodyRaw :exec
+UPDATE http_body_raw
+SET
+  raw_data = ?,
+  content_type = ?,
+  compression_type = ?,
+  updated_at = ?
+WHERE
+  id = ?
+`
+
+type UpdateHTTPBodyRawParams struct {
+	RawData         []byte
+	ContentType     string
+	CompressionType int8
+	UpdatedAt       int64
+	ID              idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyRaw(ctx context.Context, arg UpdateHTTPBodyRawParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyRawStmt, updateHTTPBodyRaw,
+		arg.RawData,
+		arg.ContentType,
+		arg.CompressionType,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	return err
 }
 

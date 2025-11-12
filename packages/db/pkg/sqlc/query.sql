@@ -4520,3 +4520,78 @@ WHERE id = ?;
 
 -- name: DeleteHTTPResponseAssert :exec
 DELETE FROM http_response_assert WHERE id = ?;
+
+-- HTTP Body Raw queries
+-- name: GetHTTPBodyRawByID :one
+SELECT
+  id,
+  http_id,
+  raw_data,
+  content_type,
+  compression_type,
+  parent_body_raw_id,
+  is_delta,
+  delta_raw_data,
+  delta_content_type,
+  delta_compression_type,
+  created_at,
+  updated_at
+FROM
+  http_body_raw
+WHERE
+  id = ?
+LIMIT 1;
+
+-- name: GetHTTPBodyRaw :one
+SELECT
+  id,
+  http_id,
+  raw_data,
+  content_type,
+  compression_type,
+  parent_body_raw_id,
+  is_delta,
+  delta_raw_data,
+  delta_content_type,
+  delta_compression_type,
+  created_at,
+  updated_at
+FROM
+  http_body_raw
+WHERE
+  http_id = ?
+LIMIT 1;
+
+-- name: CreateHTTPBodyRaw :exec
+INSERT INTO
+  http_body_raw (
+    id,
+    http_id,
+    raw_data,
+    content_type,
+    compression_type,
+    parent_body_raw_id,
+    is_delta,
+    delta_raw_data,
+    delta_content_type,
+    delta_compression_type,
+    created_at,
+    updated_at
+  )
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: UpdateHTTPBodyRaw :exec
+UPDATE http_body_raw
+SET
+  raw_data = ?,
+  content_type = ?,
+  compression_type = ?,
+  updated_at = ?
+WHERE
+  id = ?;
+
+-- name: DeleteHTTPBodyRaw :exec
+DELETE FROM http_body_raw
+WHERE
+  id = ?;

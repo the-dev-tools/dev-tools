@@ -117,6 +117,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createHTTPBodyFormStmt, err = db.PrepareContext(ctx, createHTTPBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTPBodyForm: %w", err)
 	}
+	if q.createHTTPBodyRawStmt, err = db.PrepareContext(ctx, createHTTPBodyRaw); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHTTPBodyRaw: %w", err)
+	}
 	if q.createHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, createHTTPBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTPBodyUrlEncoded: %w", err)
 	}
@@ -269,6 +272,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteHTTPBodyFormStmt, err = db.PrepareContext(ctx, deleteHTTPBodyForm); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHTTPBodyForm: %w", err)
+	}
+	if q.deleteHTTPBodyRawStmt, err = db.PrepareContext(ctx, deleteHTTPBodyRaw); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteHTTPBodyRaw: %w", err)
 	}
 	if q.deleteHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, deleteHTTPBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHTTPBodyUrlEncoded: %w", err)
@@ -786,6 +792,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPBodyFormsByIDsStmt, err = db.PrepareContext(ctx, getHTTPBodyFormsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyFormsByIDs: %w", err)
 	}
+	if q.getHTTPBodyRawStmt, err = db.PrepareContext(ctx, getHTTPBodyRaw); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBodyRaw: %w", err)
+	}
+	if q.getHTTPBodyRawByIDStmt, err = db.PrepareContext(ctx, getHTTPBodyRawByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBodyRawByID: %w", err)
+	}
 	if q.getHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, getHTTPBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyUrlEncoded: %w", err)
 	}
@@ -1155,6 +1167,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateHTTPBodyFormOrderStmt, err = db.PrepareContext(ctx, updateHTTPBodyFormOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyFormOrder: %w", err)
 	}
+	if q.updateHTTPBodyRawStmt, err = db.PrepareContext(ctx, updateHTTPBodyRaw); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyRaw: %w", err)
+	}
 	if q.updateHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, updateHTTPBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyUrlEncoded: %w", err)
 	}
@@ -1420,6 +1435,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createHTTPBodyFormStmt: %w", cerr)
 		}
 	}
+	if q.createHTTPBodyRawStmt != nil {
+		if cerr := q.createHTTPBodyRawStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHTTPBodyRawStmt: %w", cerr)
+		}
+	}
 	if q.createHTTPBodyUrlEncodedStmt != nil {
 		if cerr := q.createHTTPBodyUrlEncodedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createHTTPBodyUrlEncodedStmt: %w", cerr)
@@ -1673,6 +1693,11 @@ func (q *Queries) Close() error {
 	if q.deleteHTTPBodyFormStmt != nil {
 		if cerr := q.deleteHTTPBodyFormStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteHTTPBodyFormStmt: %w", cerr)
+		}
+	}
+	if q.deleteHTTPBodyRawStmt != nil {
+		if cerr := q.deleteHTTPBodyRawStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteHTTPBodyRawStmt: %w", cerr)
 		}
 	}
 	if q.deleteHTTPBodyUrlEncodedStmt != nil {
@@ -2535,6 +2560,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPBodyFormsByIDsStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPBodyRawStmt != nil {
+		if cerr := q.getHTTPBodyRawStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBodyRawStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPBodyRawByIDStmt != nil {
+		if cerr := q.getHTTPBodyRawByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBodyRawByIDStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPBodyUrlEncodedStmt != nil {
 		if cerr := q.getHTTPBodyUrlEncodedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPBodyUrlEncodedStmt: %w", cerr)
@@ -3150,6 +3185,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateHTTPBodyFormOrderStmt: %w", cerr)
 		}
 	}
+	if q.updateHTTPBodyRawStmt != nil {
+		if cerr := q.updateHTTPBodyRawStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHTTPBodyRawStmt: %w", cerr)
+		}
+	}
 	if q.updateHTTPBodyUrlEncodedStmt != nil {
 		if cerr := q.updateHTTPBodyUrlEncodedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHTTPBodyUrlEncodedStmt: %w", cerr)
@@ -3395,6 +3435,7 @@ type Queries struct {
 	createHTTPAssertStmt                       *sql.Stmt
 	createHTTPAssertBulkStmt                   *sql.Stmt
 	createHTTPBodyFormStmt                     *sql.Stmt
+	createHTTPBodyRawStmt                      *sql.Stmt
 	createHTTPBodyUrlEncodedStmt               *sql.Stmt
 	createHTTPBodyUrlEncodedBulkStmt           *sql.Stmt
 	createHTTPHeaderStmt                       *sql.Stmt
@@ -3446,6 +3487,7 @@ type Queries struct {
 	deleteHTTPStmt                             *sql.Stmt
 	deleteHTTPAssertStmt                       *sql.Stmt
 	deleteHTTPBodyFormStmt                     *sql.Stmt
+	deleteHTTPBodyRawStmt                      *sql.Stmt
 	deleteHTTPBodyUrlEncodedStmt               *sql.Stmt
 	deleteHTTPHeaderStmt                       *sql.Stmt
 	deleteHTTPResponseStmt                     *sql.Stmt
@@ -3618,6 +3660,8 @@ type Queries struct {
 	getHTTPBodyFormStreamingStmt               *sql.Stmt
 	getHTTPBodyFormsStmt                       *sql.Stmt
 	getHTTPBodyFormsByIDsStmt                  *sql.Stmt
+	getHTTPBodyRawStmt                         *sql.Stmt
+	getHTTPBodyRawByIDStmt                     *sql.Stmt
 	getHTTPBodyUrlEncodedStmt                  *sql.Stmt
 	getHTTPBodyUrlEncodedByHttpIDStmt          *sql.Stmt
 	getHTTPBodyUrlEncodedsByIDsStmt            *sql.Stmt
@@ -3741,6 +3785,7 @@ type Queries struct {
 	updateHTTPBodyFormStmt                     *sql.Stmt
 	updateHTTPBodyFormDeltaStmt                *sql.Stmt
 	updateHTTPBodyFormOrderStmt                *sql.Stmt
+	updateHTTPBodyRawStmt                      *sql.Stmt
 	updateHTTPBodyUrlEncodedStmt               *sql.Stmt
 	updateHTTPBodyUrlEncodedDeltaStmt          *sql.Stmt
 	updateHTTPDeltaStmt                        *sql.Stmt
@@ -3813,6 +3858,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createHTTPAssertStmt:                       q.createHTTPAssertStmt,
 		createHTTPAssertBulkStmt:                   q.createHTTPAssertBulkStmt,
 		createHTTPBodyFormStmt:                     q.createHTTPBodyFormStmt,
+		createHTTPBodyRawStmt:                      q.createHTTPBodyRawStmt,
 		createHTTPBodyUrlEncodedStmt:               q.createHTTPBodyUrlEncodedStmt,
 		createHTTPBodyUrlEncodedBulkStmt:           q.createHTTPBodyUrlEncodedBulkStmt,
 		createHTTPHeaderStmt:                       q.createHTTPHeaderStmt,
@@ -3864,6 +3910,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteHTTPStmt:                             q.deleteHTTPStmt,
 		deleteHTTPAssertStmt:                       q.deleteHTTPAssertStmt,
 		deleteHTTPBodyFormStmt:                     q.deleteHTTPBodyFormStmt,
+		deleteHTTPBodyRawStmt:                      q.deleteHTTPBodyRawStmt,
 		deleteHTTPBodyUrlEncodedStmt:               q.deleteHTTPBodyUrlEncodedStmt,
 		deleteHTTPHeaderStmt:                       q.deleteHTTPHeaderStmt,
 		deleteHTTPResponseStmt:                     q.deleteHTTPResponseStmt,
@@ -4036,6 +4083,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPBodyFormStreamingStmt:               q.getHTTPBodyFormStreamingStmt,
 		getHTTPBodyFormsStmt:                       q.getHTTPBodyFormsStmt,
 		getHTTPBodyFormsByIDsStmt:                  q.getHTTPBodyFormsByIDsStmt,
+		getHTTPBodyRawStmt:                         q.getHTTPBodyRawStmt,
+		getHTTPBodyRawByIDStmt:                     q.getHTTPBodyRawByIDStmt,
 		getHTTPBodyUrlEncodedStmt:                  q.getHTTPBodyUrlEncodedStmt,
 		getHTTPBodyUrlEncodedByHttpIDStmt:          q.getHTTPBodyUrlEncodedByHttpIDStmt,
 		getHTTPBodyUrlEncodedsByIDsStmt:            q.getHTTPBodyUrlEncodedsByIDsStmt,
@@ -4159,6 +4208,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateHTTPBodyFormStmt:                     q.updateHTTPBodyFormStmt,
 		updateHTTPBodyFormDeltaStmt:                q.updateHTTPBodyFormDeltaStmt,
 		updateHTTPBodyFormOrderStmt:                q.updateHTTPBodyFormOrderStmt,
+		updateHTTPBodyRawStmt:                      q.updateHTTPBodyRawStmt,
 		updateHTTPBodyUrlEncodedStmt:               q.updateHTTPBodyUrlEncodedStmt,
 		updateHTTPBodyUrlEncodedDeltaStmt:          q.updateHTTPBodyUrlEncodedDeltaStmt,
 		updateHTTPDeltaStmt:                        q.updateHTTPDeltaStmt,

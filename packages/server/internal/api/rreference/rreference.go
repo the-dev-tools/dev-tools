@@ -10,10 +10,8 @@ import (
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
-	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
-	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mvar"
@@ -22,8 +20,6 @@ import (
 	"the-dev-tools/server/pkg/referencecompletion"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sexampleresp"
-	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/snode"
@@ -33,7 +29,6 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/sort/sortenabled"
-	"the-dev-tools/server/pkg/zstdcompress"
 	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 	"the-dev-tools/spec/dist/buf/go/api/reference/v1/referencev1connect"
 
@@ -50,10 +45,6 @@ type ReferenceServiceRPC struct {
 	es senv.EnvService
 	vs svar.VarService
 
-	// resp
-	ers  sexampleresp.ExampleRespService
-	erhs sexamplerespheader.ExampleRespHeaderService
-
 	// flow
 	fs                   sflow.FlowService
 	fns                  snode.NodeService
@@ -65,7 +56,6 @@ type ReferenceServiceRPC struct {
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.WorkspaceService,
 	es senv.EnvService, vs svar.VarService,
-	ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService,
 	fs sflow.FlowService, fns snode.NodeService, frns snoderequest.NodeRequestService,
 	flowVariableService sflowvariable.FlowVariableService,
 	edgeService sedge.EdgeService,
@@ -79,9 +69,6 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.Workspace
 
 		es: es,
 		vs: vs,
-
-		ers:  ers,
-		erhs: erhs,
 
 		fs:                  fs,
 		fns:                 fns,
@@ -258,21 +245,8 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 
 	// Example
 	if exampleID != nil {
-		exID := *exampleID
-
-		respRef, err := GetExampleRespByExampleID(ctx, c.ers, c.erhs, exID)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				return nil, err
-			}
-		} else {
-			converted, convErr := reference.ConvertPkgToRpcTree(*respRef)
-			if convErr != nil {
-				return nil, fmt.Errorf("convert example reference tree: %w", convErr)
-			}
-			Items = append(Items, converted)
-		}
-
+		// Legacy example response service removed - skip example response reference generation
+		_ = *exampleID // suppress unused variable warning
 	}
 
 	// Node
@@ -449,76 +423,6 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 	return nodeRefs, nil
 }
 
-func GetExampleRespByExampleID(ctx context.Context, ers sexampleresp.ExampleRespService, erhs sexamplerespheader.ExampleRespHeaderService, exID idwrap.IDWrap) (*reference.ReferenceTreeItem, error) {
-	resp, err := ers.GetExampleRespByExampleIDLatest(ctx, exID)
-	if err != nil {
-		return nil, err
-	}
-
-	respHeaders, err := erhs.GetHeaderByRespID(ctx, resp.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	headerMap := make(map[string]string)
-	for _, header := range respHeaders {
-		headerVal, ok := headerMap[header.HeaderKey]
-		if ok {
-			headerMap[header.HeaderKey] = headerVal + ", " + header.Value
-		} else {
-			headerMap[header.HeaderKey] = header.Value
-		}
-	}
-
-	if resp.BodyCompressType != mexampleresp.BodyCompressTypeNone {
-		if resp.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
-			data, err := zstdcompress.Decompress(resp.Body)
-			if err != nil {
-				return nil, err
-			}
-			resp.Body = data
-		}
-	}
-
-	// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
-	var body any
-	if json.Valid(resp.Body) {
-		var jsonBody map[string]any
-		// If unmarshaling works, use the decoded JSON.
-		if err := json.Unmarshal(resp.Body, &jsonBody); err == nil {
-			body = jsonBody
-		} else {
-			body = string(resp.Body)
-		}
-	} else {
-		body = string(resp.Body)
-	}
-
-	// check if body seems like json
-
-	httpResp := httpclient.ResponseVar{
-		StatusCode: int(resp.Status),
-		Body:       body,
-		Headers:    headerMap,
-		Duration:   resp.Duration,
-	}
-
-	var m map[string]interface{}
-	data, err := json.Marshal(httpResp)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(data, &m)
-	if err != nil {
-		return nil, err
-	}
-
-	localRef, err := reference.ConvertMapToReference(m, "response")
-	if err != nil {
-		return nil, err
-	}
-	return &localRef, nil
-}
 
 // ReferenceCompletion calls reference.v1.ReferenceService.ReferenceCompletion.
 func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *connect.Request[referencev1.ReferenceCompletionRequest]) (*connect.Response[referencev1.ReferenceCompletionResponse], error) {
@@ -576,77 +480,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 	}
 
 	if exampleID != nil {
-		exID := *exampleID
-		resp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, exID)
-		if err != nil {
-			if err == sexampleresp.ErrNoRespFound {
-			} else {
-				return nil, err
-			}
-		}
-
-		if resp != nil {
-			respHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			headerMap := make(map[string]string)
-			for _, header := range respHeaders {
-				headerVal, ok := headerMap[header.HeaderKey]
-				if ok {
-					headerMap[header.HeaderKey] = headerVal + ", " + header.Value
-				} else {
-					headerMap[header.HeaderKey] = header.Value
-				}
-			}
-
-			if resp.BodyCompressType != mexampleresp.BodyCompressTypeNone {
-				if resp.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
-					data, err := zstdcompress.Decompress(resp.Body)
-					if err != nil {
-						return nil, err
-					}
-					resp.Body = data
-				}
-			}
-
-			// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
-			var body any
-			if json.Valid(resp.Body) {
-				var jsonBody map[string]any
-				// If unmarshaling works, use the decoded JSON.
-				if err := json.Unmarshal(resp.Body, &jsonBody); err == nil {
-					body = jsonBody
-				} else {
-					body = string(resp.Body)
-				}
-			} else {
-				body = string(resp.Body)
-			}
-
-			// check if body seems like json
-
-			httpResp := httpclient.ResponseVar{
-				StatusCode: int(resp.Status),
-				Body:       body,
-				Headers:    headerMap,
-				Duration:   resp.Duration,
-			}
-
-			var m map[string]any
-			data, err := json.Marshal(httpResp)
-			if err != nil {
-				return nil, err
-			}
-			err = json.Unmarshal(data, &m)
-			if err != nil {
-				return nil, err
-			}
-
-			creator.AddWithKey("response", m)
-		}
-
+		// Legacy example response service removed - skip response variable generation
+		_ = *exampleID // suppress unused variable warning
 	}
 
 	if nodeIDPtr != nil {
@@ -996,71 +831,8 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 	}
 
 	if exampleID != nil {
-		exID := *exampleID
-		resp, err := c.ers.GetExampleRespByExampleIDLatest(ctx, exID)
-		if err != nil {
-			return nil, err
-		}
-
-		respHeaders, err := c.erhs.GetHeaderByRespID(ctx, resp.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		headerMap := make(map[string]string)
-		for _, header := range respHeaders {
-			headerVal, ok := headerMap[header.HeaderKey]
-			if ok {
-				headerMap[header.HeaderKey] = headerVal + ", " + header.Value
-			} else {
-				headerMap[header.HeaderKey] = header.Value
-			}
-		}
-
-		if resp.BodyCompressType != mexampleresp.BodyCompressTypeNone {
-			if resp.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
-				data, err := zstdcompress.Decompress(resp.Body)
-				if err != nil {
-					return nil, err
-				}
-				resp.Body = data
-			}
-		}
-
-		// check if body seems like json; if so decode it into a map[string]interface{}, otherwise use a string.
-		var body any
-		if json.Valid(resp.Body) {
-			var jsonBody map[string]any
-			// If unmarshaling works, use the decoded JSON.
-			if err := json.Unmarshal(resp.Body, &jsonBody); err == nil {
-				body = jsonBody
-			} else {
-				body = string(resp.Body)
-			}
-		} else {
-			body = string(resp.Body)
-		}
-
-		// check if body seems like json
-
-		httpResp := httpclient.ResponseVar{
-			StatusCode: int(resp.Status),
-			Body:       body,
-			Headers:    headerMap,
-			Duration:   resp.Duration,
-		}
-
-		var m map[string]any
-		data, err := json.Marshal(httpResp)
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(data, &m)
-		if err != nil {
-			return nil, err
-		}
-
-		lookup.AddWithKey("response", m)
+		// Legacy example response service removed - skip response variable generation
+		_ = *exampleID // suppress unused variable warning
 	}
 
 	if nodeIDPtr != nil {
