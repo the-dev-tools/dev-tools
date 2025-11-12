@@ -45,7 +45,9 @@ export const createAlike = <Desc extends DescMessage>(schema: Desc, init: Messag
   create(schema, Struct.omit(init, ...messageMetaKeys) as MessageInitShape<Desc>);
 
 const fieldByNumberMemo = new Map<DescMessage, Map<number, DescField>>();
-const fieldByNumber = (messageDesc: DescMessage, number: number) => {
+const fieldByNumber = (message: Message, number: number) => {
+  const messageDesc = registry.getMessage(message.$typeName)!;
+
   let localFieldByNumberMemo = fieldByNumberMemo.get(messageDesc);
 
   if (!localFieldByNumberMemo) {
@@ -63,41 +65,42 @@ export interface MessageUnion extends Message {
 
 export const isUnion = (value: unknown): value is MessageUnion => isMessage(value) && 'kind' in value;
 
+export const isUnionDesc = (value?: DescMessage) => value && 'kind' in value.field;
+
 export const toUnion = <T extends MessageUnion>(message: T) => {
   type Keys = keyof Omit<T, 'kind' | keyof Message>;
   type MessageUnion = Exclude<T[Keys], undefined>;
 
-  const messageDesc = registry.getMessage(message.$typeName)!;
-  const field = fieldByNumber(messageDesc, message.kind)!;
+  const field = fieldByNumber(message, message.kind)!;
 
   return message[field.localName as never] as MessageUnion;
 };
 
 export const mergeDelta = <T extends Message>(
-  value: T,
+  value: Record<string, unknown> & T,
   delta: Message & Record<string, unknown>,
   unset: DescEnum,
 ): T => {
   const messageDesc = registry.getMessage(value.$typeName)!;
-  const deltaMessageDesc = registry.getMessage(delta.$typeName)!;
 
   return pipe(
-    Struct.omit(value, ...messageMetaKeys) as Record<string, unknown>,
-    Record.filterMap((value, key) => {
+    Array.filterMap(messageDesc.fields, ({ localName: key }): Option.Option<[string, unknown]> => {
       const deltaValue = delta[key];
 
-      if (deltaValue === undefined) return Option.some(value);
+      if (deltaValue === undefined) return Option.some([key, value[key]]);
 
       if (isUnion(deltaValue)) {
-        const deltaField = fieldByNumber(deltaMessageDesc, deltaValue.kind)!;
+        const deltaField = fieldByNumber(deltaValue, deltaValue.kind)!;
 
-        if (deltaField.message?.typeName === unset.typeName) return Option.none();
+        if (deltaField.enum?.typeName === unset.typeName) return Option.none();
 
-        if (!isUnion(value)) return Option.some(deltaValue[deltaField.localName as keyof typeof deltaValue]);
+        if (!isUnionDesc(messageDesc.field[key]?.message))
+          return Option.some([key, deltaValue[deltaField.localName as keyof typeof deltaValue]]);
       }
 
-      return Option.some(deltaValue);
+      return Option.some([key, deltaValue]);
     }),
+    Record.fromEntries,
     (_) => create(messageDesc, _) as T,
   );
 };
@@ -107,26 +110,22 @@ export const draftDelta = (
   delta: Message & Record<string, unknown>,
   unset: DescEnum,
 ) => {
-  const deltaMessageDesc = registry.getMessage(delta.$typeName)!;
+  const messageDesc = registry.getMessage(draft.$typeName)!;
 
-  void pipe(
-    Struct.omit(draft, ...messageMetaKeys),
-    Record.toEntries,
-    Array.forEach(([key, value]) => {
-      const deltaValue = delta[key];
+  Array.forEach(messageDesc.fields, ({ localName: key }) => {
+    const deltaValue = delta[key];
 
-      if (deltaValue === undefined) return;
+    if (deltaValue === undefined) return;
 
-      if (isUnion(deltaValue)) {
-        const deltaField = fieldByNumber(deltaMessageDesc, deltaValue.kind)!;
+    if (isUnion(deltaValue)) {
+      const deltaField = fieldByNumber(deltaValue, deltaValue.kind)!;
 
-        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-        if (deltaField.message?.typeName === unset.typeName) return delete draft[key];
+      if (deltaField.enum?.typeName === unset.typeName) return (draft[key] = undefined);
 
-        if (!isUnion(value)) return (draft[key] = deltaValue[deltaField.localName as keyof typeof deltaValue]);
-      }
+      if (!isUnionDesc(messageDesc.field[key]?.message))
+        return (draft[key] = deltaValue[deltaField.localName as keyof typeof deltaValue]);
+    }
 
-      return (draft[key] = deltaValue);
-    }),
-  );
+    return (draft[key] = deltaValue);
+  });
 };
