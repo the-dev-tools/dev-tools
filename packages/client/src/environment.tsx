@@ -39,6 +39,7 @@ import { Protobuf, useApiCollection } from '~/api-new';
 import { workspaceRouteApi } from '~/routes';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 import { pick } from '~/utils/tanstack-db';
+import { ExportDialog } from '~/workspace/export';
 import {
   columnActionsCommon,
   columnCheckboxField,
@@ -114,7 +115,7 @@ export const EnvironmentsWidget = () => {
 
       {/* <ImportDialog /> */}
 
-      {/* <ExportDialog /> */}
+      <ExportDialog />
 
       <DialogTrigger>
         <TooltipTrigger delay={750}>

@@ -3,7 +3,7 @@ import { eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
 import { Match, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useMemo, useRef } from 'react';
-import { MenuTrigger, SubmenuTrigger, Text, Tree, useDragAndDrop } from 'react-aria-components';
+import { MenuTrigger, SubmenuTrigger, Text, Tree, TreeProps, useDragAndDrop } from 'react-aria-components';
 import { FiFolder, FiMoreHorizontal } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import {
@@ -94,9 +94,11 @@ interface FileTreeContext {
 
 const FileTreeContext = createContext({} as FileTreeContext);
 
-interface FileTreeProps extends Omit<FileTreeContext, 'containerRef'> {}
+interface FileTreeProps
+  extends Omit<FileTreeContext, 'containerRef'>,
+    Pick<TreeProps<object>, 'onSelectionChange' | 'selectedKeys' | 'selectionMode'> {}
 
-export const FileTree = ({ ...context }: FileTreeProps) => {
+export const FileTree = ({ onSelectionChange, selectedKeys, selectionMode, ...context }: FileTreeProps) => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const fileCollection = useApiCollection(FileCollectionSchema);
@@ -156,7 +158,14 @@ export const FileTree = ({ ...context }: FileTreeProps) => {
   return (
     <FileTreeContext.Provider value={{ ...context, containerRef: ref }}>
       <div className={tw`relative`} ref={ref}>
-        <Tree aria-label='Files' dragAndDropHooks={dragAndDropHooks} items={files}>
+        <Tree
+          aria-label='Files'
+          dragAndDropHooks={dragAndDropHooks}
+          items={files}
+          {...(onSelectionChange && { onSelectionChange })}
+          {...(selectedKeys && { selectedKeys })}
+          {...(selectionMode && { selectionMode })}
+        >
           {(_) => <FileItem id={fileCollection.utils.getKey(_)} />}
         </Tree>
       </div>

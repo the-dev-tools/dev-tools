@@ -2,8 +2,7 @@ namespace Api.Export;
 
 model ExportRequest {
   workspaceId: Id;
-  flowIds?: Id[];
-  exampleIds?: Id[];
+  fileIds?: Id[];
 }
 
 model ExportResponse {
