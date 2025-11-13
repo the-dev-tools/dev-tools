@@ -4,7 +4,7 @@ import { TransportProvider } from '@connectrpc/connect-query';
 import { Atom, Result, useAtomValue } from '@effect-atom/atom-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { Effect, Option, Runtime } from 'effect';
+import { ConfigProvider, Effect, Option, pipe, Record, Runtime } from 'effect';
 import { StrictMode } from 'react';
 import { AriaRouterProvider } from '@the-dev-tools/ui/router';
 import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
@@ -76,5 +76,14 @@ export const App = ({ finalizer }: AppProps) => {
     },
   });
 };
+
+export const configProviderFromMetaEnv = (extra?: Record<string, string>) =>
+  pipe(
+    { ...import.meta.env, ...extra },
+    Record.mapKeys((_) => _.replaceAll('__', '.')),
+    Record.toEntries,
+    (_) => new Map(_ as [string, string][]),
+    ConfigProvider.fromMap,
+  );
 
 export const addGlobalLayer: Atom.RuntimeFactory['addGlobalLayer'] = Atom.runtime.addGlobalLayer;
