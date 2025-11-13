@@ -434,15 +434,8 @@ func (f *FileServiceRPC) FileInsert(ctx context.Context, req *connect.Request[ap
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one file must be provided"))
 	}
 
-	tx, err := f.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer tx.Rollback()
-
-	fileService := f.fs.TX(tx)
-	var createdFiles []mfile.File
-
+	// Step 1: Process request data and create file models OUTSIDE transaction
+	var fileModels []*mfile.File
 	for _, fileInsert := range req.Msg.Items {
 		// Convert API to model
 		file, err := fromAPIFileInsert(fileInsert)
@@ -455,6 +448,11 @@ func (f *FileServiceRPC) FileInsert(ctx context.Context, req *connect.Request[ap
 			file.Name = "New Folder"
 		}
 
+		fileModels = append(fileModels, file)
+	}
+
+	// Step 2: Check permissions for all files OUTSIDE transaction
+	for _, file := range fileModels {
 		// Check workspace permissions
 		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, f.us, file.WorkspaceID))
 		if rpcErr != nil {
@@ -465,7 +463,20 @@ func (f *FileServiceRPC) FileInsert(ctx context.Context, req *connect.Request[ap
 		if err := file.Validate(); err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
+	}
 
+	// Step 3: Minimal write transaction for fast inserts only
+	tx, err := f.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	fileService := f.fs.TX(tx)
+	var createdFiles []mfile.File
+
+	// Fast inserts inside minimal transaction
+	for _, file := range fileModels {
 		// Create file
 		if err := fileService.CreateFile(ctx, file); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -714,7 +725,7 @@ func (f *FileServiceRPC) FolderInsert(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one folder must be provided"))
 	}
 
-	// Get user's default workspace for folder creation since API doesn't include workspace
+	// Step 1: Get user's default workspace for folder creation since API doesn't include workspace
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
@@ -726,6 +737,30 @@ func (f *FileServiceRPC) FolderInsert(ctx context.Context, req *connect.Request[
 	}
 	defaultWorkspace := workspaces[0] // Use first workspace as default
 
+	// Step 2: Check workspace permissions OUTSIDE transaction
+	rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, f.us, defaultWorkspace.ID))
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	// Step 3: Process request data and create folder models OUTSIDE transaction
+	var folderModels []*mfile.File
+	for _, folderInsert := range req.Msg.Items {
+		// Convert API to model
+		folder, err := fromAPIFolderInsert(folderInsert, defaultWorkspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Validate folder
+		if err := folder.Validate(); err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		folderModels = append(folderModels, folder)
+	}
+
+	// Step 4: Minimal write transaction for fast inserts only
 	tx, err := f.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -735,24 +770,8 @@ func (f *FileServiceRPC) FolderInsert(ctx context.Context, req *connect.Request[
 	fileService := f.fs.TX(tx)
 	var createdFolders []mfile.File
 
-	for _, folderInsert := range req.Msg.Items {
-		// Convert API to model
-		folder, err := fromAPIFolderInsert(folderInsert, defaultWorkspace.ID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-
-		// Check workspace permissions
-		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, f.us, folder.WorkspaceID))
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
-		// Validate folder
-		if err := folder.Validate(); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-
+	// Fast inserts inside minimal transaction
+	for _, folder := range folderModels {
 		// Create folder
 		if err := fileService.CreateFile(ctx, folder); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)

@@ -1576,16 +1576,23 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
+	// Step 1: Do ALL reads OUTSIDE transaction - get user's workspaces
+	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	defer tx.Rollback()
+	if len(workspaces) == 0 {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("user has no workspaces"))
+	}
 
-	hsService := h.hs.TX(tx)
+	// Step 2: Check permissions OUTSIDE transaction
+	defaultWorkspaceID := workspaces[0].ID
+	if err := h.checkWorkspaceWriteAccess(ctx, defaultWorkspaceID); err != nil {
+		return nil, err
+	}
 
-	var createdHTTPs []mhttp.HTTP
-
+	// Step 3: Process request data OUTSIDE transaction
+	var httpModels []*mhttp.HTTP
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required"))
@@ -1596,35 +1603,35 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// For now, we'll use the first workspace the user has access to
-		// In a real implementation, workspace_id should be in the API request
-		workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		if len(workspaces) == 0 {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("user has no workspaces"))
-		}
-
-		// Check write access to the workspace (Admin or Owner role required)
-		if err := h.checkWorkspaceWriteAccess(ctx, workspaces[0].ID); err != nil {
-			return nil, err
-		}
-
-		// Create the HTTP entry
+		// Create the HTTP entry model
 		httpModel := &mhttp.HTTP{
 			ID:          httpID,
-			WorkspaceID: workspaces[0].ID,
+			WorkspaceID: defaultWorkspaceID,
 			Name:        item.Name,
 			Url:         item.Url,
 			Method:      fromAPIHttpMethod(item.Method),
 			Description: "", // Description field not available in API yet
 		}
 
+		httpModels = append(httpModels, httpModel)
+	}
+
+	// Step 4: Minimal write transaction for fast inserts only
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	hsService := h.hs.TX(tx)
+
+	var createdHTTPs []mhttp.HTTP
+
+	// Fast writes inside minimal transaction
+	for _, httpModel := range httpModels {
 		if err := hsService.Create(ctx, httpModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
 		createdHTTPs = append(createdHTTPs, *httpModel)
 	}
 
@@ -1645,15 +1652,14 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP entry must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Process request data and get HTTP IDs OUTSIDE transaction
+	var updateData []struct {
+		httpID     idwrap.IDWrap
+		name       *string
+		url        *string
+		method     *string
+		httpModel  *mhttp.HTTP
 	}
-	defer tx.Rollback()
-
-	hsService := h.hs.TX(tx)
-
-	var updatedHTTPs []mhttp.HTTP
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
@@ -1665,8 +1671,34 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing HTTP entry within transaction for consistency
-		existingHttp, err := hsService.Get(ctx, httpID)
+		var name *string
+		var url *string
+		var method *string
+
+		// Process optional fields
+		if item.Name != nil {
+			name = item.Name
+		}
+		if item.Url != nil {
+			url = item.Url
+		}
+		if item.Method != nil {
+			m := fromAPIHttpMethod(*item.Method)
+			method = &m
+		}
+
+		updateData = append(updateData, struct {
+			httpID     idwrap.IDWrap
+			name       *string
+			url        *string
+			method     *string
+			httpModel  *mhttp.HTTP
+		}{httpID: httpID, name: name, url: url, method: method})
+	}
+
+	// Step 2: Get existing HTTP entries and check permissions OUTSIDE transaction
+	for i := range updateData {
+		existingHttp, err := h.hs.Get(ctx, updateData[i].httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -1679,26 +1711,42 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 			return nil, err
 		}
 
-		// Update fields if provided - use transaction-scoped service
-		if item.Name != nil {
-			existingHttp.Name = *item.Name
-		}
-		if item.Url != nil {
-			existingHttp.Url = *item.Url
-		}
-		if item.Method != nil {
-			existingHttp.Method = fromAPIHttpMethod(*item.Method)
-		}
-		if item.BodyKind != nil {
-			// Note: BodyKind is not currently in the mhttp.HTTP model
-			// This would need to be added to the model and database schema
-		}
+		// Store the existing model for later update
+		updateData[i].httpModel = existingHttp
+	}
 
-		if err := hsService.Update(ctx, existingHttp); err != nil {
+	// Step 3: Apply updates to models OUTSIDE transaction
+	for i := range updateData {
+		if updateData[i].name != nil {
+			updateData[i].httpModel.Name = *updateData[i].name
+		}
+		if updateData[i].url != nil {
+			updateData[i].httpModel.Url = *updateData[i].url
+		}
+		if updateData[i].method != nil {
+			updateData[i].httpModel.Method = *updateData[i].method
+		}
+		// Note: BodyKind is not currently in the mhttp.HTTP model
+		// This would need to be added to the model and database schema
+	}
+
+	// Step 4: Minimal write transaction for fast updates only
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	hsService := h.hs.TX(tx)
+
+	var updatedHTTPs []mhttp.HTTP
+
+	// Fast updates inside minimal transaction
+	for _, data := range updateData {
+		if err := hsService.Update(ctx, data.httpModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		updatedHTTPs = append(updatedHTTPs, *existingHttp)
+		updatedHTTPs = append(updatedHTTPs, *data.httpModel)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -1718,16 +1766,12 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP entry must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Process request data and get HTTP IDs OUTSIDE transaction
+	var deleteData []struct {
+		httpID           idwrap.IDWrap
+		existingHttp     *mhttp.HTTP
+		workspaceID      idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	hsService := h.hs.TX(tx)
-
-	var deletedIDs []idwrap.IDWrap
-	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
@@ -1739,8 +1783,16 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing HTTP entry within transaction for consistency
-		existingHttp, err := hsService.Get(ctx, httpID)
+		deleteData = append(deleteData, struct {
+			httpID           idwrap.IDWrap
+			existingHttp     *mhttp.HTTP
+			workspaceID      idwrap.IDWrap
+		}{httpID: httpID})
+	}
+
+	// Step 2: Get existing HTTP entries and check permissions OUTSIDE transaction
+	for i := range deleteData {
+		existingHttp, err := h.hs.Get(ctx, deleteData[i].httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -1753,10 +1805,29 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 			return nil, err
 		}
 
+		// Store the existing model and workspace ID for later deletion
+		deleteData[i].existingHttp = existingHttp
+		deleteData[i].workspaceID = existingHttp.WorkspaceID
+	}
+
+	// Step 3: Minimal write transaction for fast deletes only
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	hsService := h.hs.TX(tx)
+
+	var deletedIDs []idwrap.IDWrap
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	// Fast deletes inside minimal transaction
+	for _, data := range deleteData {
 		// Perform cascade delete - the database schema should handle foreign key constraints
 		// This includes: http_search_param, http_header, http_body_form, http_body_urlencoded,
 		// http_body_raw, http_assert, http_response, etc.
-		if err := hsService.Delete(ctx, httpID); err != nil {
+		if err := hsService.Delete(ctx, data.httpID); err != nil {
 			// Handle foreign key constraint violations gracefully
 			if isForeignKeyConstraintError(err) {
 				return nil, connect.NewError(connect.CodeFailedPrecondition,
@@ -1765,8 +1836,8 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedIDs = append(deletedIDs, httpID)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, existingHttp.WorkspaceID)
+		deletedIDs = append(deletedIDs, data.httpID)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {

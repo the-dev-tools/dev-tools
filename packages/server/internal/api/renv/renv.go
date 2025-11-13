@@ -268,21 +268,15 @@ func (e *EnvRPC) EnvironmentInsert(ctx context.Context, req *connect.Request[api
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment must be provided"))
 	}
 
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer tx.Rollback()
-
-	envService := e.es.TX(tx)
-	var createdEnvs []menv.Env
-
+	// Step 1: Process request data and create environment models OUTSIDE transaction
+	var envModels []menv.Env
 	for _, envCreate := range req.Msg.Items {
 		workspaceID, err := idwrap.NewFromBytes(envCreate.WorkspaceId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
+		// Check workspace permissions OUTSIDE transaction
 		rpcErr := permcheck.CheckPerm(rworkspace.CheckOwnerWorkspace(ctx, e.us, workspaceID))
 		if rpcErr != nil {
 			return nil, rpcErr
@@ -307,6 +301,21 @@ func (e *EnvRPC) EnvironmentInsert(ctx context.Context, req *connect.Request[api
 			Order:       float64(envCreate.Order),
 		}
 
+		envModels = append(envModels, envReq)
+	}
+
+	// Step 2: Minimal write transaction for fast inserts only
+	tx, err := e.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	envService := e.es.TX(tx)
+	var createdEnvs []menv.Env
+
+	// Fast inserts inside minimal transaction
+	for _, envReq := range envModels {
 		if err := envService.CreateEnvironment(ctx, &envReq); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -570,18 +579,20 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one environment variable must be provided"))
 	}
 
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer tx.Rollback()
-
-	varService := e.vs.TX(tx)
-	workspaceCache := map[string]idwrap.IDWrap{}
-	createdVars := []struct {
-		variable    mvar.Var
+	// Step 1: Process request data and build cache OUTSIDE transaction
+	type varData struct {
+		envID       idwrap.IDWrap
 		workspaceID idwrap.IDWrap
-	}{}
+		varID       idwrap.IDWrap
+		key         string
+		value       string
+		enabled     bool
+		description string
+		order       float64
+	}
+
+	var varModels []varData
+	workspaceCache := map[string]idwrap.IDWrap{}
 
 	for _, item := range req.Msg.Items {
 		envID, err := idwrap.NewFromBytes(item.EnvironmentId)
@@ -589,11 +600,13 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
+		// Check permissions OUTSIDE transaction
 		rpcErr := permcheck.CheckPerm(CheckOwnerEnv(ctx, e.us, e.es, envID))
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
 
+		// Build cache OUTSIDE transaction
 		workspaceID := workspaceCache[envID.String()]
 		if workspaceID == (idwrap.IDWrap{}) {
 			env, err := e.es.GetEnvironment(ctx, envID)
@@ -612,14 +625,41 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 			}
 		}
 
+		varModels = append(varModels, varData{
+			envID:       envID,
+			workspaceID: workspaceID,
+			varID:       varID,
+			key:         item.Key,
+			value:       item.Value,
+			enabled:     item.Enabled,
+			description: item.Description,
+			order:       float64(item.Order),
+		})
+	}
+
+	// Step 2: Minimal write transaction for fast inserts only
+	tx, err := e.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	varService := e.vs.TX(tx)
+	createdVars := []struct {
+		variable    mvar.Var
+		workspaceID idwrap.IDWrap
+	}{}
+
+	// Fast inserts inside minimal transaction
+	for _, data := range varModels {
 		varReq := mvar.Var{
-			ID:          varID,
-			EnvID:       envID,
-			VarKey:      item.Key,
-			Value:       item.Value,
-			Enabled:     item.Enabled,
-			Description: item.Description,
-			Order:       float64(item.Order),
+			ID:          data.varID,
+			EnvID:       data.envID,
+			VarKey:      data.key,
+			Value:       data.value,
+			Enabled:     data.enabled,
+			Description: data.description,
+			Order:       data.order,
 		}
 
 		if err := varService.Create(ctx, varReq); err != nil {
@@ -628,7 +668,7 @@ func (e *EnvRPC) EnvironmentVariableInsert(ctx context.Context, req *connect.Req
 		createdVars = append(createdVars, struct {
 			variable    mvar.Var
 			workspaceID idwrap.IDWrap
-		}{variable: varReq, workspaceID: workspaceID})
+		}{variable: varReq, workspaceID: data.workspaceID})
 	}
 
 	if err := tx.Commit(); err != nil {
