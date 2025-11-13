@@ -13,9 +13,10 @@ enum HttpMethod {
   Connect,
 }
 
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods/POST
 enum HttpBodyKind {
-  FormArray,
-  UrlEncodedArray,
+  FormData, // multipart/form-data
+  UrlEncoded, // application/x-www-form-urlencoded
   Raw,
 }
 
@@ -63,8 +64,8 @@ model HttpHeader {
 
 @withDelta
 @TanStackDB.collection
-model HttpBodyForm {
-  @primaryKey httpBodyFormId: Id;
+model HttpBodyFormData {
+  @primaryKey httpBodyFormDataId: Id;
   ...CommonTableFields<Http>;
 }
 

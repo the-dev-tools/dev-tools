@@ -1,5 +1,6 @@
 import { enumToJson } from '@bufbuild/protobuf';
 import { eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
+import { ToOptions, useMatchRoute } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
 import { Match, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
@@ -37,10 +38,10 @@ import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { TreeItem } from '@the-dev-tools/ui/tree';
+import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useApiCollection } from '~/api-new';
-import { workspaceRouteApi } from '~/routes';
+import { httpRouteApi, workspaceRouteApi } from '~/routes';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 import { pick } from '~/utils/tanstack-db';
 import { useConnectMutation } from '~api/connect-query';
@@ -319,6 +320,8 @@ const FolderFile = ({ id }: FileItemProps) => {
 };
 
 const HttpFile = ({ id }: FileItemProps) => {
+  const matchRoute = useMatchRoute();
+
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const fileCollection = useApiCollection(FileCollectionSchema);
@@ -346,7 +349,7 @@ const HttpFile = ({ id }: FileItemProps) => {
   const exportMutation = useConnectMutation(ExportService.method.export);
   const exportCurlMutation = useConnectMutation(ExportService.method.exportCurl);
 
-  const { containerRef, showControls } = useContext(FileTreeContext);
+  const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
 
   const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
@@ -357,8 +360,14 @@ const HttpFile = ({ id }: FileItemProps) => {
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  return (
-    <TreeItem id={id} onContextMenu={onContextMenu} textValue={name}>
+  const route = {
+    from: workspaceRouteApi.id,
+    params: { httpIdCan: Ulid.construct(httpId).toCanonical() },
+    to: httpRouteApi.id,
+  } satisfies ToOptions;
+
+  const content = (
+    <>
       {modal.children && <Modal {...modal} size='sm' />}
 
       <MethodBadge method={method} />
@@ -443,8 +452,18 @@ const HttpFile = ({ id }: FileItemProps) => {
           </Menu>
         </MenuTrigger>
       )}
-    </TreeItem>
+    </>
   );
+
+  const props = {
+    children: content,
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
+    id,
+    onContextMenu,
+    textValue: name,
+  } satisfies TreeItemProps<object>;
+
+  return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;
 };
 
 const FlowFile = ({ id }: FileItemProps) => {

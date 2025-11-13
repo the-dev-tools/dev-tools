@@ -43,8 +43,8 @@ model ReferenceTreeItem {
 
 model ReferenceContext {
   workspaceId?: Id;
-  exampleId?: Id;
-  nodeId?: Id;
+  httpId?: Id;
+  flowNodeId?: Id;
 }
 
 model ReferenceTreeRequest is ReferenceContext;

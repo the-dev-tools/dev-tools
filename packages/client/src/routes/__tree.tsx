@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './root'
 import { Route as welcomeRouteImport } from './welcome'
 import { Route as workspaceRouteImport } from './workspace'
 import { Route as overviewRouteImport } from './overview'
+import { Route as httpRouteImport } from './http'
 
 const welcomeRoute = welcomeRouteImport.update({
   id: '/',
@@ -28,32 +29,48 @@ const overviewRoute = overviewRouteImport.update({
   path: '/',
   getParentRoute: () => workspaceRoute,
 } as any)
+const httpRoute = httpRouteImport.update({
+  id: '/http/$httpIdCan',
+  path: '/http/$httpIdCan',
+  getParentRoute: () => workspaceRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof welcomeRoute
   '/workspace/$workspaceIdCan': typeof workspaceRouteWithChildren
   '/workspace/$workspaceIdCan/': typeof overviewRoute
+  '/workspace/$workspaceIdCan/http/$httpIdCan': typeof httpRoute
 }
 export interface FileRoutesByTo {
   '/': typeof welcomeRoute
   '/workspace/$workspaceIdCan': typeof overviewRoute
+  '/workspace/$workspaceIdCan/http/$httpIdCan': typeof httpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof welcomeRoute
   '/workspace/$workspaceIdCan': typeof workspaceRouteWithChildren
   '/workspace/$workspaceIdCan/': typeof overviewRoute
+  '/workspace/$workspaceIdCan/http/$httpIdCan': typeof httpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/workspace/$workspaceIdCan' | '/workspace/$workspaceIdCan/'
+  fullPaths:
+    | '/'
+    | '/workspace/$workspaceIdCan'
+    | '/workspace/$workspaceIdCan/'
+    | '/workspace/$workspaceIdCan/http/$httpIdCan'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/workspace/$workspaceIdCan'
+  to:
+    | '/'
+    | '/workspace/$workspaceIdCan'
+    | '/workspace/$workspaceIdCan/http/$httpIdCan'
   id:
     | '__root__'
     | '/'
     | '/workspace/$workspaceIdCan'
     | '/workspace/$workspaceIdCan/'
+    | '/workspace/$workspaceIdCan/http/$httpIdCan'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -84,15 +101,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof overviewRouteImport
       parentRoute: typeof workspaceRoute
     }
+    '/workspace/$workspaceIdCan/http/$httpIdCan': {
+      id: '/workspace/$workspaceIdCan/http/$httpIdCan'
+      path: '/http/$httpIdCan'
+      fullPath: '/workspace/$workspaceIdCan/http/$httpIdCan'
+      preLoaderRoute: typeof httpRouteImport
+      parentRoute: typeof workspaceRoute
+    }
   }
 }
 
 interface workspaceRouteChildren {
   overviewRoute: typeof overviewRoute
+  httpRoute: typeof httpRoute
 }
 
 const workspaceRouteChildren: workspaceRouteChildren = {
   overviewRoute: overviewRoute,
+  httpRoute: httpRoute,
 }
 
 const workspaceRouteWithChildren = workspaceRoute._addFileChildren(

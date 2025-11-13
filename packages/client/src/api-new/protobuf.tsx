@@ -44,6 +44,13 @@ export type MessageAlikeInitShape<Desc extends DescMessage> = Omit<MessageInitSh
 export const createAlike = <Desc extends DescMessage>(schema: Desc, init: MessageAlikeInitShape<Desc>) =>
   create(schema, Struct.omit(init, ...messageMetaKeys) as MessageInitShape<Desc>);
 
+export type MessageData<T extends Message> = Omit<T, MessageMetaKeys>;
+
+export const messageData = <T extends Message>(message: T) =>
+  Struct.omit(message, ...messageMetaKeys) as MessageData<T>;
+
+export const enumToString = (schema: DescEnum, value: number) => schema.value[value]?.localName;
+
 const fieldByNumberMemo = new Map<DescMessage, Map<number, DescField>>();
 const fieldByNumber = (message: Message, number: number) => {
   const messageDesc = registry.getMessage(message.$typeName)!;
