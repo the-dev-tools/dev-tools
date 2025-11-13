@@ -24,7 +24,7 @@ func TestFileValidation(t *testing.T) {
 			ID:          fileID,
 			WorkspaceID: workspaceID,
 			ContentID:   &contentID,
-			ContentKind: mfile.ContentKindAPI,
+			ContentType: mfile.ContentTypeHTTP,
 			Name:        "test-file",
 			Order:       1.0,
 		}
@@ -41,7 +41,7 @@ func TestFileValidation(t *testing.T) {
 			ID:          idwrap.IDWrap{}, // Empty ID
 			WorkspaceID: workspaceID,
 			ContentID:   &contentID,
-			ContentKind: mfile.ContentKindAPI,
+			ContentType: mfile.ContentTypeHTTP,
 			Name:        "test-file",
 			Order:       1.0,
 		}
@@ -59,7 +59,7 @@ func TestFileValidation(t *testing.T) {
 			ID:          fileID,
 			WorkspaceID: idwrap.IDWrap{}, // Empty workspace ID
 			ContentID:   &contentID,
-			ContentKind: mfile.ContentKindAPI,
+			ContentType: mfile.ContentTypeHTTP,
 			Name:        "test-file",
 			Order:       1.0,
 		}
@@ -78,7 +78,7 @@ func TestFileValidation(t *testing.T) {
 			ID:          fileID,
 			WorkspaceID: workspaceID,
 			ContentID:   &contentID,
-			ContentKind: mfile.ContentKindAPI,
+			ContentType: mfile.ContentTypeHTTP,
 			Name:        "", // Empty name
 			Order:       1.0,
 		}
@@ -113,7 +113,6 @@ func TestFileEvent(t *testing.T) {
 		FileId:      fileID.Bytes(),
 		WorkspaceId: workspaceID.Bytes(),
 		Kind:        apiv1.FileKind_FILE_KIND_HTTP,
-		Name:        "test-file",
 		Order:       1.0,
 	}
 
