@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwcompress"
 	"the-dev-tools/server/internal/api/renv"
 	"the-dev-tools/server/internal/api/rexportv2"
+	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhealth"
 	"the-dev-tools/server/internal/api/rhttp"
@@ -342,6 +343,13 @@ func main() {
 		logger,
 	)
 	newServiceManager.AddService(rexportv2.CreateExportV2Service(*exportV2Srv, optionsAll))
+
+	// File Service
+	fileStreamer := memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent]()
+	defer fileStreamer.Shutdown()
+
+	fileSrv := rfile.New(currentDB, fileService, userService, workspaceService, fileStreamer)
+	newServiceManager.AddService(rfile.CreateService(fileSrv, optionsAll))
 
 	// Reference Service
 	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService,

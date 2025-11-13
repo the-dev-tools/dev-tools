@@ -41,7 +41,7 @@ type FileEvent struct {
 type FileServiceRPC struct {
 	DB *sql.DB
 
-	fs sfile.FileService
+	fs *sfile.FileService
 	us suser.UserService
 	ws sworkspace.WorkspaceService
 
@@ -50,7 +50,7 @@ type FileServiceRPC struct {
 
 func New(
 	db *sql.DB,
-	fs sfile.FileService,
+	fs *sfile.FileService,
 	us suser.UserService,
 	ws sworkspace.WorkspaceService,
 	stream eventstream.SyncStreamer[FileTopic, FileEvent],
