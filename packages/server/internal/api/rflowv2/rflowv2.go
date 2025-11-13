@@ -6,17 +6,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-	"gopkg.in/yaml.v3"
 
 	"connectrpc.com/connect"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
@@ -52,9 +52,9 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
 	"the-dev-tools/server/pkg/model/mnnode/mnif"
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -193,8 +193,8 @@ type ExecutionTopic struct {
 
 // ExecutionEvent describes a node execution change for sync streaming.
 type ExecutionEvent struct {
-	Type     string
-	FlowID   idwrap.IDWrap
+	Type      string
+	FlowID    idwrap.IDWrap
 	Execution *flowv1.NodeExecution
 }
 
@@ -241,36 +241,36 @@ const (
 )
 
 type FlowServiceV2RPC struct {
-	ws              *sworkspace.WorkspaceService
-	fs              *sflow.FlowService
-	es              *sedge.EdgeService
-	ns              *snode.NodeService
-	nrs             *snoderequest.NodeRequestService
-	nfs             *snodefor.NodeForService
-	nfes            *snodeforeach.NodeForEachService
-	nifs            *snodeif.NodeIfService
-	nnos            *snodenoop.NodeNoopService
-	njss            *snodejs.NodeJSService
-	nes             *snodeexecution.NodeExecutionService
-	fvs             *sflowvariable.FlowVariableService
-	hs              *shttp.HTTPService
-	hh              *shttp.HttpHeaderService
-	hsp             *shttp.HttpSearchParamService
-	hbf             *shttp.HttpBodyFormService
-	hbu             *shttp.HttpBodyUrlencodedService
-	has             *shttp.HttpAssertService
+	ws   *sworkspace.WorkspaceService
+	fs   *sflow.FlowService
+	es   *sedge.EdgeService
+	ns   *snode.NodeService
+	nrs  *snoderequest.NodeRequestService
+	nfs  *snodefor.NodeForService
+	nfes *snodeforeach.NodeForEachService
+	nifs *snodeif.NodeIfService
+	nnos *snodenoop.NodeNoopService
+	njss *snodejs.NodeJSService
+	nes  *snodeexecution.NodeExecutionService
+	fvs  *sflowvariable.FlowVariableService
+	hs   *shttp.HTTPService
+	hh   *shttp.HttpHeaderService
+	hsp  *shttp.HttpSearchParamService
+	hbf  *shttp.HttpBodyFormService
+	hbu  *shttp.HttpBodyUrlencodedService
+	has  *shttp.HttpAssertService
 	// V2 import services
 	workspaceImportService WorkspaceImporter
-	nodeStream      eventstream.SyncStreamer[NodeTopic, NodeEvent]
-	edgeStream      eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
-	varStream       eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
-	versionStream   eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
-	noopStream      eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
-	forStream       eventstream.SyncStreamer[ForTopic, ForEvent]
-	conditionStream eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
-	forEachStream   eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
-	jsStream        eventstream.SyncStreamer[JsTopic, JsEvent]
-	executionStream eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
+	nodeStream             eventstream.SyncStreamer[NodeTopic, NodeEvent]
+	edgeStream             eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+	varStream              eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+	versionStream          eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
+	noopStream             eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
+	forStream              eventstream.SyncStreamer[ForTopic, ForEvent]
+	conditionStream        eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
+	forEachStream          eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
+	jsStream               eventstream.SyncStreamer[JsTopic, JsEvent]
+	executionStream        eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
 }
 
 func New(
@@ -305,35 +305,35 @@ func New(
 	executionStream eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
-		ws:              ws,
-		fs:              fs,
-		es:              es,
-		ns:              ns,
-		nrs:             nrs,
-		nfs:             nfs,
-		nfes:            nfes,
-		nifs:            nifs,
-		nnos:            nnos,
-		njss:            njss,
-		nes:             nes,
-		fvs:             fvs,
-		hs:              hs,
-		hh:              hh,
-		hsp:             hsp,
-		hbf:             hbf,
-		hbu:             hbu,
-		has:                     has,
+		ws:                     ws,
+		fs:                     fs,
+		es:                     es,
+		ns:                     ns,
+		nrs:                    nrs,
+		nfs:                    nfs,
+		nfes:                   nfes,
+		nifs:                   nifs,
+		nnos:                   nnos,
+		njss:                   njss,
+		nes:                    nes,
+		fvs:                    fvs,
+		hs:                     hs,
+		hh:                     hh,
+		hsp:                    hsp,
+		hbf:                    hbf,
+		hbu:                    hbu,
+		has:                    has,
 		workspaceImportService: workspaceImportService,
-		nodeStream:      nodeStream,
-		edgeStream:      edgeStream,
-		varStream:       varStream,
-		versionStream:   versionStream,
-		noopStream:      noopStream,
-		forStream:       forStream,
-		conditionStream: conditionStream,
-		forEachStream:   forEachStream,
-		jsStream:        jsStream,
-		executionStream: executionStream,
+		nodeStream:             nodeStream,
+		edgeStream:             edgeStream,
+		varStream:              varStream,
+		versionStream:          versionStream,
+		noopStream:             noopStream,
+		forStream:              forStream,
+		conditionStream:        conditionStream,
+		forEachStream:          forEachStream,
+		jsStream:               jsStream,
+		executionStream:        executionStream,
 	}
 }
 
@@ -922,10 +922,10 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
 			if err == nil {
 				newForEachData := mnforeach.MNForEach{
-					FlowNodeID:    newNodeID,
+					FlowNodeID:     newNodeID,
 					IterExpression: forEachData.IterExpression,
-					Condition:     forEachData.Condition,
-					ErrorHandling: forEachData.ErrorHandling,
+					Condition:      forEachData.Condition,
+					ErrorHandling:  forEachData.ErrorHandling,
 				}
 				if err := s.nfes.CreateNodeForEach(ctx, newForEachData); err != nil {
 					return nil, connect.NewError(connect.CodeInternal, err)
@@ -1033,32 +1033,34 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 }
 
 func (s *FlowServiceV2RPC) FlowVersionCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.FlowVersionCollectionResponse], error) {
-	flowID, err := flowIDFromHeaders(req.Header())
+	// Get all accessible flows
+	flows, err := s.listAccessibleFlows(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
 		return nil, err
 	}
 
-	versions, err := s.fs.GetFlowsByVersionParentID(ctx, flowID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Collect all versions from all flows
+	var allVersions []*flowv1.FlowVersion
+	for _, flow := range flows {
+		versions, err := s.fs.GetFlowsByVersionParentID(ctx, flow.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		for _, version := range versions {
+			allVersions = append(allVersions, &flowv1.FlowVersion{
+				FlowVersionId: version.ID.Bytes(),
+				FlowId:        flow.ID.Bytes(),
+			})
+		}
 	}
 
-	items := make([]*flowv1.FlowVersion, 0, len(versions))
-	for _, version := range versions {
-		items = append(items, &flowv1.FlowVersion{
-			FlowVersionId: version.ID.Bytes(),
-			FlowId:        flowID.Bytes(),
-		})
-	}
-	sort.Slice(items, func(i, j int) bool {
-		return bytes.Compare(items[i].GetFlowVersionId(), items[j].GetFlowVersionId()) < 0
+	// Sort by flow version ID for consistent ordering
+	sort.Slice(allVersions, func(i, j int) bool {
+		return bytes.Compare(allVersions[i].GetFlowVersionId(), allVersions[j].GetFlowVersionId()) < 0
 	})
 
-	return connect.NewResponse(&flowv1.FlowVersionCollectionResponse{Items: items}), nil
+	return connect.NewResponse(&flowv1.FlowVersionCollectionResponse{Items: allVersions}), nil
 }
 
 func (s *FlowServiceV2RPC) FlowVersionSync(
@@ -1075,30 +1077,32 @@ func (s *FlowServiceV2RPC) FlowVersionSync(
 }
 
 func (s *FlowServiceV2RPC) FlowVariableCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[flowv1.FlowVariableCollectionResponse], error) {
-	flowID, err := flowIDFromHeaders(req.Header())
+	// Get all accessible flows
+	flows, err := s.listAccessibleFlows(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
 		return nil, err
 	}
 
-	variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flowID)
-	if err != nil {
-		if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
-			variables = nil
-		} else {
-			return nil, connect.NewError(connect.CodeInternal, err)
+	// Collect all variables from all flows
+	var allVariables []*flowv1.FlowVariable
+	var globalIndex float32
+	for _, flow := range flows {
+		variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flow.ID)
+		if err != nil {
+			if errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
+				continue // No variables for this flow, continue to next
+			} else {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+		}
+
+		for _, variable := range variables {
+			allVariables = append(allVariables, serializeFlowVariable(variable, globalIndex))
+			globalIndex++
 		}
 	}
 
-	items := make([]*flowv1.FlowVariable, 0, len(variables))
-	for idx, variable := range variables {
-		items = append(items, serializeFlowVariable(variable, float32(idx)))
-	}
-
-	return connect.NewResponse(&flowv1.FlowVariableCollectionResponse{Items: items}), nil
+	return connect.NewResponse(&flowv1.FlowVariableCollectionResponse{Items: allVariables}), nil
 }
 
 func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.Request[flowv1.FlowVariableInsertRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -3858,7 +3862,7 @@ func (s *FlowServiceV2RPC) executionEventToSyncResponse(
 		// Handle Error union
 		if evt.Execution.Error != nil {
 			update.Error = &flowv1.NodeExecutionSyncUpdate_ErrorUnion{
-				Kind:   flowv1.NodeExecutionSyncUpdate_ErrorUnion_KIND_STRING,
+				Kind:    flowv1.NodeExecutionSyncUpdate_ErrorUnion_KIND_STRING,
 				String_: evt.Execution.Error,
 			}
 		}
@@ -4639,8 +4643,8 @@ func serializeNodeForEach(n mnforeach.MNForEach) *flowv1.NodeForEach {
 
 func serializeNodeJs(n mnjs.MNJS) *flowv1.NodeJs {
 	return &flowv1.NodeJs{
-		NodeId:    n.FlowNodeID.Bytes(),
-		Code:      string(n.Code),
+		NodeId: n.FlowNodeID.Bytes(),
+		Code:   string(n.Code),
 	}
 }
 
@@ -4908,24 +4912,24 @@ func (s *FlowServiceV2RPC) DetectFlowFormat(ctx context.Context, data []byte) (s
 
 	// Check for curl command first (most specific)
 	if strings.HasPrefix(trimmedData, "curl ") ||
-	   strings.Contains(dataStr, "\ncurl ") ||
-	   strings.Contains(dataStr, " curl ") {
+		strings.Contains(dataStr, "\ncurl ") ||
+		strings.Contains(dataStr, " curl ") {
 		return "curl", nil
 	}
 
 	// Simple YAML detection - check for common YAML patterns
 	if strings.Contains(dataStr, "flows:") ||
-	   strings.Contains(dataStr, "workspace_name:") ||
-	   strings.Contains(dataStr, "requests:") ||
-	   strings.Contains(dataStr, "run:") ||
-	   strings.Contains(dataStr, "- name:") ||
-	   strings.Contains(dataStr, "steps:") {
+		strings.Contains(dataStr, "workspace_name:") ||
+		strings.Contains(dataStr, "requests:") ||
+		strings.Contains(dataStr, "run:") ||
+		strings.Contains(dataStr, "- name:") ||
+		strings.Contains(dataStr, "steps:") {
 		return "yaml", nil
 	}
 
 	// Check if it's JSON
 	if strings.HasPrefix(trimmedData, "{") ||
-	   strings.HasPrefix(trimmedData, "[") {
+		strings.HasPrefix(trimmedData, "[") {
 		return "json", nil
 	}
 
@@ -4983,7 +4987,7 @@ func (s *FlowServiceV2RPC) ImportCurlCommand(ctx context.Context, curlData []byt
 				"name": "Curl Import Flow",
 				"steps": []map[string]interface{}{
 					{
-						"type": "request",
+						"type":    "request",
 						"request": resolved.HTTP.Name,
 					},
 				},
