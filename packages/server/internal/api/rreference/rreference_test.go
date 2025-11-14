@@ -7,7 +7,7 @@ import (
 	"connectrpc.com/connect"
 	"the-dev-tools/server/pkg/reference"
 	"the-dev-tools/server/pkg/referencecompletion"
-	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
+	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 )
 
 func TestReferenceKindToProto(t *testing.T) {

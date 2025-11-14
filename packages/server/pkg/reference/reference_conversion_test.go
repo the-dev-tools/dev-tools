@@ -3,7 +3,7 @@ package reference
 import (
 	"testing"
 
-	referencev1 "the-dev-tools/spec/dist/buf/go/reference/v1"
+	referencev1 "the-dev-tools/spec/dist/buf/go/api/reference/v1"
 )
 
 func stringPtr(v string) *string {

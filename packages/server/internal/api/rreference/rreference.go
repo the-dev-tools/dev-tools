@@ -159,7 +159,7 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 
 	var Items []*referencev1.ReferenceTreeItem
 
-	var workspaceID, exampleID, nodeIDPtr *idwrap.IDWrap
+	var workspaceID, httpID, flowNodeID *idwrap.IDWrap
 	msg := req.Msg
 	if msg.WorkspaceId != nil {
 		tempID, err := idwrap.NewFromBytes(msg.WorkspaceId)
@@ -168,19 +168,19 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 		}
 		workspaceID = &tempID
 	}
-	if msg.ExampleId != nil {
-		tempID, err := idwrap.NewFromBytes(msg.ExampleId)
+	if msg.HttpId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.HttpId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		exampleID = &tempID
+		httpID = &tempID
 	}
-	if msg.NodeId != nil {
-		tempID, err := idwrap.NewFromBytes(msg.NodeId)
+	if msg.FlowNodeId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.FlowNodeId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		nodeIDPtr = &tempID
+		flowNodeID = &tempID
 	}
 
 	// Workspace
@@ -244,14 +244,14 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 	}
 
 	// Example
-	if exampleID != nil {
+	if httpID != nil {
 		// Legacy example response service removed - skip example response reference generation
-		_ = *exampleID // suppress unused variable warning
+		_ = *httpID // suppress unused variable warning
 	}
 
 	// Node
-	if nodeIDPtr != nil {
-		refs, err := c.HandleNode(ctx, *nodeIDPtr)
+	if flowNodeID != nil {
+		refs, err := c.HandleNode(ctx, *flowNodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -427,7 +427,7 @@ func (c *ReferenceServiceRPC) HandleNode(ctx context.Context, nodeID idwrap.IDWr
 // ReferenceCompletion calls reference.v1.ReferenceService.ReferenceCompletion.
 func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *connect.Request[referencev1.ReferenceCompletionRequest]) (*connect.Response[referencev1.ReferenceCompletionResponse], error) {
 
-	var workspaceID, exampleID, nodeIDPtr *idwrap.IDWrap
+	var workspaceID, httpID, flowNodeID *idwrap.IDWrap
 	msg := req.Msg
 	if msg.WorkspaceId != nil {
 		tempID, err := idwrap.NewFromBytes(msg.WorkspaceId)
@@ -436,19 +436,19 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		}
 		workspaceID = &tempID
 	}
-	if msg.ExampleId != nil {
-		tempID, err := idwrap.NewFromBytes(msg.ExampleId)
+	if msg.HttpId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.HttpId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		exampleID = &tempID
+		httpID = &tempID
 	}
-	if msg.NodeId != nil {
-		tempID, err := idwrap.NewFromBytes(msg.NodeId)
+	if msg.FlowNodeId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.FlowNodeId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		nodeIDPtr = &tempID
+		flowNodeID = &tempID
 	}
 
 	creator := referencecompletion.NewReferenceCompletionCreator()
@@ -479,13 +479,13 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 		}
 	}
 
-	if exampleID != nil {
+	if httpID != nil {
 		// Legacy example response service removed - skip response variable generation
-		_ = *exampleID // suppress unused variable warning
+		_ = *httpID // suppress unused variable warning
 	}
 
-	if nodeIDPtr != nil {
-		nodeID := *nodeIDPtr
+	if flowNodeID != nil {
+		nodeID := *flowNodeID
 		nodeInst, err := c.fns.GetNode(ctx, nodeID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -611,8 +611,8 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 		// Add self-reference for FOR, FOREACH, and REQUEST nodes so they can reference their own variables
 		// This enables break conditions like "if foreach_8.index > 8" and request nodes to use "response.status"
-		if nodeIDPtr != nil {
-			currentNode, err := c.fns.GetNode(ctx, *nodeIDPtr)
+		if flowNodeID != nil {
+			currentNode, err := c.fns.GetNode(ctx, *flowNodeID)
 			if err == nil {
 				switch currentNode.NodeKind {
 				case mnnode.NODE_KIND_FOR:
@@ -777,7 +777,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 
 // ReferenceValue calls reference.v1.ReferenceService.ReferenceValue.
 func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.Request[referencev1.ReferenceValueRequest]) (*connect.Response[referencev1.ReferenceValueResponse], error) {
-	var workspaceID, exampleID, nodeIDPtr *idwrap.IDWrap
+	var workspaceID, httpID, flowNodeID *idwrap.IDWrap
 	msg := req.Msg
 	if msg.WorkspaceId != nil {
 		tempID, err := idwrap.NewFromBytes(msg.WorkspaceId)
@@ -786,19 +786,19 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 		}
 		workspaceID = &tempID
 	}
-	if msg.ExampleId != nil {
-		tempID, err := idwrap.NewFromBytes(msg.ExampleId)
+	if msg.HttpId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.HttpId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		exampleID = &tempID
+		httpID = &tempID
 	}
-	if msg.NodeId != nil {
-		tempID, err := idwrap.NewFromBytes(msg.NodeId)
+	if msg.FlowNodeId != nil {
+		tempID, err := idwrap.NewFromBytes(msg.FlowNodeId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
-		nodeIDPtr = &tempID
+		flowNodeID = &tempID
 	}
 
 	lookup := referencecompletion.NewReferenceCompletionLookup()
@@ -830,13 +830,13 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 	}
 
-	if exampleID != nil {
+	if httpID != nil {
 		// Legacy example response service removed - skip response variable generation
-		_ = *exampleID // suppress unused variable warning
+		_ = *httpID // suppress unused variable warning
 	}
 
-	if nodeIDPtr != nil {
-		nodeID := *nodeIDPtr
+	if flowNodeID != nil {
+		nodeID := *flowNodeID
 		nodeInst, err := c.fns.GetNode(ctx, nodeID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -962,8 +962,8 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 
 		// Add self-reference for REQUEST, FOR, and FOREACH nodes so they can reference their own variables
 		// This allows these nodes to use their own variables directly
-		if nodeIDPtr != nil {
-			currentNode, err := c.fns.GetNode(ctx, *nodeIDPtr)
+		if flowNodeID != nil {
+			currentNode, err := c.fns.GetNode(ctx, *flowNodeID)
 			if err == nil {
 				switch currentNode.NodeKind {
 				case mnnode.NODE_KIND_FOR, mnnode.NODE_KIND_FOR_EACH:
