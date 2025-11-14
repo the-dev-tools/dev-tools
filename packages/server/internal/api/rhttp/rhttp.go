@@ -2526,6 +2526,9 @@ func (h *HttpServiceRPC) HttpSearchParamCollection(ctx context.Context, req *con
 		for _, http := range httpList {
 			params, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, http.ID)
 			if err != nil {
+				if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+					continue
+				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
@@ -3041,6 +3044,9 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req
 		for _, http := range httpList {
 			params, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, http.ID)
 			if err != nil {
+				if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+					continue
+				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
