@@ -149,7 +149,7 @@ type HttpBodyFormTopic struct {
 // HttpBodyFormEvent defines the event payload for HTTP body form streaming
 type HttpBodyFormEvent struct {
 	Type         string
-	HttpBodyForm *apiv1.HttpBodyForm
+	HttpBodyForm *apiv1.HttpBodyFormData
 }
 
 // HttpBodyUrlEncodedTopic defines the streaming topic for HTTP body URL encoded events
@@ -397,15 +397,15 @@ func toAPIHttpSearchParam(param mhttpsearchparam.HttpSearchParam) *apiv1.HttpSea
 	}
 }
 
-// toAPIHttpBodyForm converts model HttpBodyForm to API HttpBodyForm
-func toAPIHttpBodyForm(form mhttpbodyform.HttpBodyForm) *apiv1.HttpBodyForm {
-	return &apiv1.HttpBodyForm{
-		HttpBodyFormId: form.ID.Bytes(),
-		HttpId:         form.HttpID.Bytes(),
-		Key:            form.Key,
-		Value:          form.Value,
-		Enabled:        form.Enabled,
-		Description:    form.Description,
+// toAPIHttpBodyFormData converts model HttpBodyForm to API HttpBodyFormData
+func toAPIHttpBodyFormData(form mhttpbodyform.HttpBodyForm) *apiv1.HttpBodyFormData {
+	return &apiv1.HttpBodyFormData{
+		HttpBodyFormDataId: form.ID.Bytes(),
+		HttpId:             form.HttpID.Bytes(),
+		Key:                form.Key,
+		Value:              form.Value,
+		Enabled:            form.Enabled,
+		Description:        form.Description,
 	}
 }
 
@@ -4942,7 +4942,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaSync(ctx context.Context, req *connect.R
 	return h.streamHttpHeaderDeltaSync(ctx, userID, stream.Send)
 }
 
-func (h *HttpServiceRPC) HttpBodyFormCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormCollectionResponse], error) {
+func (h *HttpServiceRPC) HttpBodyFormDataCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormDataCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
@@ -4954,7 +4954,7 @@ func (h *HttpServiceRPC) HttpBodyFormCollection(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var allBodyForms []*apiv1.HttpBodyForm
+	var allBodyForms []*apiv1.HttpBodyFormData
 	for _, workspace := range workspaces {
 		// Get HTTP entries for this workspace
 		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
@@ -4971,16 +4971,16 @@ func (h *HttpServiceRPC) HttpBodyFormCollection(ctx context.Context, req *connec
 
 			// Convert to API format
 			for _, bodyForm := range bodyForms {
-				apiBodyForm := toAPIHttpBodyForm(bodyForm)
+				apiBodyForm := toAPIHttpBodyFormData(bodyForm)
 				allBodyForms = append(allBodyForms, apiBodyForm)
 			}
 		}
 	}
 
-	return connect.NewResponse(&apiv1.HttpBodyFormCollectionResponse{Items: allBodyForms}), nil
+	return connect.NewResponse(&apiv1.HttpBodyFormDataCollectionResponse{Items: allBodyForms}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
@@ -4996,14 +4996,14 @@ func (h *HttpServiceRPC) HttpBodyFormInsert(ctx context.Context, req *connect.Re
 	var createdBodyForms []mhttpbodyform.HttpBodyForm
 
 	for _, item := range req.Msg.Items {
-		if len(item.HttpBodyFormId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_id is required"))
+		if len(item.HttpBodyFormDataId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_data_id is required"))
 		}
 		if len(item.HttpId) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required"))
 		}
 
-		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormId)
+		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormDataId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -5059,14 +5059,14 @@ func (h *HttpServiceRPC) HttpBodyFormInsert(ctx context.Context, req *connect.Re
 		}
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeInsert,
-			HttpBodyForm: toAPIHttpBodyForm(bodyForm),
+			HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
 		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
@@ -5082,11 +5082,11 @@ func (h *HttpServiceRPC) HttpBodyFormUpdate(ctx context.Context, req *connect.Re
 	var updatedBodyForms []mhttpbodyform.HttpBodyForm
 
 	for _, item := range req.Msg.Items {
-		if len(item.HttpBodyFormId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_id is required"))
+		if len(item.HttpBodyFormDataId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_data_id is required"))
 		}
 
-		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormId)
+		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormDataId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -5152,14 +5152,14 @@ func (h *HttpServiceRPC) HttpBodyFormUpdate(ctx context.Context, req *connect.Re
 		}
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeUpdate,
-			HttpBodyForm: toAPIHttpBodyForm(bodyForm),
+			HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
 		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
@@ -5175,11 +5175,11 @@ func (h *HttpServiceRPC) HttpBodyFormDelete(ctx context.Context, req *connect.Re
 	var deletedBodyForms []mhttpbodyform.HttpBodyForm
 
 	for _, item := range req.Msg.Items {
-		if len(item.HttpBodyFormId) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_id is required"))
+		if len(item.HttpBodyFormDataId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_data_id is required"))
 		}
 
-		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormId)
+		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormDataId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -5228,14 +5228,14 @@ func (h *HttpServiceRPC) HttpBodyFormDelete(ctx context.Context, req *connect.Re
 		}
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeDelete,
-			HttpBodyForm: toAPIHttpBodyForm(bodyForm),
+			HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
 		})
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyFormSyncResponse]) error {
+func (h *HttpServiceRPC) HttpBodyFormDataSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyFormDataSyncResponse]) error {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return connect.NewError(connect.CodeUnauthenticated, err)
@@ -5244,8 +5244,8 @@ func (h *HttpServiceRPC) HttpBodyFormSync(ctx context.Context, req *connect.Requ
 	return h.streamHttpBodyFormSync(ctx, userID, stream.Send)
 }
 
-func httpBodyFormSyncResponseFrom(event HttpBodyFormEvent) *apiv1.HttpBodyFormSyncResponse {
-	var value *apiv1.HttpBodyFormSync_ValueUnion
+func httpBodyFormDataSyncResponseFrom(event HttpBodyFormEvent) *apiv1.HttpBodyFormDataSyncResponse {
+	var value *apiv1.HttpBodyFormDataSync_ValueUnion
 
 	switch event.Type {
 	case eventTypeInsert:
@@ -5254,36 +5254,36 @@ func httpBodyFormSyncResponseFrom(event HttpBodyFormEvent) *apiv1.HttpBodyFormSy
 		enabled := event.HttpBodyForm.GetEnabled()
 		description := event.HttpBodyForm.GetDescription()
 		order := event.HttpBodyForm.GetOrder()
-		value = &apiv1.HttpBodyFormSync_ValueUnion{
-			Kind: apiv1.HttpBodyFormSync_ValueUnion_KIND_INSERT,
-			Insert: &apiv1.HttpBodyFormSyncInsert{
-				HttpBodyFormId: event.HttpBodyForm.GetHttpBodyFormId(),
-				HttpId:         event.HttpBodyForm.GetHttpId(),
-				Key:            key,
-				Value:          value_,
-				Enabled:        enabled,
-				Description:    description,
-				Order:          order,
+		value = &apiv1.HttpBodyFormDataSync_ValueUnion{
+			Kind: apiv1.HttpBodyFormDataSync_ValueUnion_KIND_INSERT,
+			Insert: &apiv1.HttpBodyFormDataSyncInsert{
+				HttpBodyFormDataId: event.HttpBodyForm.GetHttpBodyFormDataId(),
+				HttpId:             event.HttpBodyForm.GetHttpId(),
+				Key:                key,
+				Value:              value_,
+				Enabled:            enabled,
+				Description:        description,
+				Order:              order,
 			},
 		}
 	case eventTypeUpdate:
-		value = &apiv1.HttpBodyFormSync_ValueUnion{
-			Kind: apiv1.HttpBodyFormSync_ValueUnion_KIND_UPDATE,
-			Update: &apiv1.HttpBodyFormSyncUpdate{
-				HttpBodyFormId: event.HttpBodyForm.GetHttpBodyFormId(),
+		value = &apiv1.HttpBodyFormDataSync_ValueUnion{
+			Kind: apiv1.HttpBodyFormDataSync_ValueUnion_KIND_UPDATE,
+			Update: &apiv1.HttpBodyFormDataSyncUpdate{
+				HttpBodyFormDataId: event.HttpBodyForm.GetHttpBodyFormDataId(),
 			},
 		}
 	case eventTypeDelete:
-		value = &apiv1.HttpBodyFormSync_ValueUnion{
-			Kind: apiv1.HttpBodyFormSync_ValueUnion_KIND_DELETE,
-			Delete: &apiv1.HttpBodyFormSyncDelete{
-				HttpBodyFormId: event.HttpBodyForm.GetHttpBodyFormId(),
+		value = &apiv1.HttpBodyFormDataSync_ValueUnion{
+			Kind: apiv1.HttpBodyFormDataSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpBodyFormDataSyncDelete{
+				HttpBodyFormDataId: event.HttpBodyForm.GetHttpBodyFormDataId(),
 			},
 		}
 	}
 
-	return &apiv1.HttpBodyFormSyncResponse{
-		Items: []*apiv1.HttpBodyFormSync{
+	return &apiv1.HttpBodyFormDataSyncResponse{
+		Items: []*apiv1.HttpBodyFormDataSync{
 			{
 				Value: value,
 			},
@@ -5464,7 +5464,7 @@ func (h *HttpServiceRPC) streamHttpHeaderDeltaSync(ctx context.Context, userID i
 }
 
 // streamHttpBodyFormDeltaSync streams HTTP body form delta events to the client
-func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyFormDeltaSyncResponse) error) error {
+func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyFormDataDeltaSyncResponse) error) error {
 	var workspaceSet sync.Map
 
 	// Snapshot provider for initial state
@@ -5493,7 +5493,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 					Topic: HttpBodyFormTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyFormEvent{
 						Type:         eventTypeInsert,
-						HttpBodyForm: toAPIHttpBodyForm(bodyForm),
+						HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
 					},
 				})
 			}
@@ -5528,7 +5528,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 				return nil
 			}
 			// Get the full body form record for delta sync response
-			bodyFormID, err := idwrap.NewFromBytes(evt.Payload.HttpBodyForm.GetHttpBodyFormId())
+			bodyFormID, err := idwrap.NewFromBytes(evt.Payload.HttpBodyForm.GetHttpBodyFormDataId())
 			if err != nil {
 				continue // Skip if can't parse ID
 			}
@@ -5536,7 +5536,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 			if err != nil {
 				continue // Skip if can't get the record
 			}
-			resp := httpBodyFormDeltaSyncResponseFrom(evt.Payload, *bodyFormRecord)
+			resp := httpBodyFormDataDeltaSyncResponseFrom(evt.Payload, *bodyFormRecord)
 			if resp == nil {
 				continue
 			}
@@ -5636,7 +5636,7 @@ func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID i
 }
 
 // streamHttpBodyFormSync streams HTTP body form events to the client
-func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyFormSyncResponse) error) error {
+func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyFormDataSyncResponse) error) error {
 	var workspaceSet sync.Map
 
 	// Snapshot provider for initial state
@@ -5662,7 +5662,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 					Topic: HttpBodyFormTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyFormEvent{
 						Type:         eventTypeInsert,
-						HttpBodyForm: toAPIHttpBodyForm(bodyForm),
+						HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
 					},
 				})
 			}
@@ -5696,7 +5696,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 			if !ok {
 				return nil
 			}
-			resp := httpBodyFormSyncResponseFrom(evt.Payload)
+			resp := httpBodyFormDataSyncResponseFrom(evt.Payload)
 			if err := send(resp); err != nil {
 				return err
 			}
@@ -5706,7 +5706,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 	}
 }
 
-func (h *HttpServiceRPC) HttpBodyFormDeltaCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormDeltaCollectionResponse], error) {
+func (h *HttpServiceRPC) HttpBodyFormDataDeltaCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormDataDeltaCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
@@ -5718,7 +5718,7 @@ func (h *HttpServiceRPC) HttpBodyFormDeltaCollection(ctx context.Context, req *c
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	var allDeltas []*apiv1.HttpBodyFormDelta
+	var allDeltas []*apiv1.HttpBodyFormDataDelta
 	for _, workspace := range workspaces {
 		// Get HTTP entries for this workspace
 		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
@@ -5735,9 +5735,9 @@ func (h *HttpServiceRPC) HttpBodyFormDeltaCollection(ctx context.Context, req *c
 
 			// Convert to delta format
 			for _, bodyForm := range bodyForms {
-				delta := &apiv1.HttpBodyFormDelta{
-					DeltaHttpBodyFormId: bodyForm.ID.Bytes(),
-					HttpBodyFormId:      bodyForm.ID.Bytes(),
+				delta := &apiv1.HttpBodyFormDataDelta{
+					DeltaHttpBodyFormDataId: bodyForm.ID.Bytes(),
+					HttpBodyFormDataId:      bodyForm.ID.Bytes(),
 					HttpId:              bodyForm.HttpID.Bytes(),
 				}
 
@@ -5763,23 +5763,23 @@ func (h *HttpServiceRPC) HttpBodyFormDeltaCollection(ctx context.Context, req *c
 		}
 	}
 
-	return connect.NewResponse(&apiv1.HttpBodyFormDeltaCollectionResponse{
+	return connect.NewResponse(&apiv1.HttpBodyFormDataDeltaCollectionResponse{
 		Items: allDeltas,
 	}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyFormDataDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.Items) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
 	}
 
 	// Process each delta item
 	for _, item := range req.Msg.Items {
-		if len(item.HttpBodyFormId) == 0 {
+		if len(item.HttpBodyFormDataId) == 0 {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_body_form_id is required for each delta item"))
 		}
 
-		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormId)
+		bodyFormID, err := idwrap.NewFromBytes(item.HttpBodyFormDataId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
@@ -5812,17 +5812,17 @@ func (h *HttpServiceRPC) HttpBodyFormDeltaInsert(ctx context.Context, req *conne
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
 	// Stub implementation - delta updates are handled via HttpBodyFormDeltaCreate
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
 	// Stub implementation - delta deletion is not supported
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (h *HttpServiceRPC) HttpBodyFormDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyFormDeltaSyncResponse]) error {
+func (h *HttpServiceRPC) HttpBodyFormDataDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyFormDataDeltaSyncResponse]) error {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
 		return connect.NewError(connect.CodeUnauthenticated, err)
@@ -6376,16 +6376,16 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttpheader.H
 }
 
 // httpBodyFormDeltaSyncResponseFrom converts HttpBodyFormEvent and form record to HttpBodyFormDeltaSync response
-func httpBodyFormDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttpbodyform.HttpBodyForm) *apiv1.HttpBodyFormDeltaSyncResponse {
-	var value *apiv1.HttpBodyFormDeltaSync_ValueUnion
+func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttpbodyform.HttpBodyForm) *apiv1.HttpBodyFormDataDeltaSyncResponse {
+	var value *apiv1.HttpBodyFormDataDeltaSync_ValueUnion
 
 	switch event.Type {
 	case eventTypeInsert:
-		delta := &apiv1.HttpBodyFormDeltaSyncInsert{
-			DeltaHttpBodyFormId: form.ID.Bytes(),
+		delta := &apiv1.HttpBodyFormDataDeltaSyncInsert{
+			DeltaHttpBodyFormDataId: form.ID.Bytes(),
 		}
 		if form.ParentHttpBodyFormID != nil {
-			delta.HttpBodyFormId = form.ParentHttpBodyFormID.Bytes()
+			delta.HttpBodyFormDataId = form.ParentHttpBodyFormID.Bytes()
 		}
 		delta.HttpId = form.HttpID.Bytes()
 		if form.DeltaKey != nil {
@@ -6403,68 +6403,68 @@ func httpBodyFormDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttpbodyfo
 		if form.DeltaOrder != nil {
 			delta.Order = form.DeltaOrder
 		}
-		value = &apiv1.HttpBodyFormDeltaSync_ValueUnion{
-			Kind:   apiv1.HttpBodyFormDeltaSync_ValueUnion_KIND_INSERT,
+		value = &apiv1.HttpBodyFormDataDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpBodyFormDataDeltaSync_ValueUnion_KIND_INSERT,
 			Insert: delta,
 		}
 	case eventTypeUpdate:
-		delta := &apiv1.HttpBodyFormDeltaSyncUpdate{
-			DeltaHttpBodyFormId: form.ID.Bytes(),
+		delta := &apiv1.HttpBodyFormDataDeltaSyncUpdate{
+			DeltaHttpBodyFormDataId: form.ID.Bytes(),
 		}
 		if form.ParentHttpBodyFormID != nil {
-			delta.HttpBodyFormId = form.ParentHttpBodyFormID.Bytes()
+			delta.HttpBodyFormDataId = form.ParentHttpBodyFormID.Bytes()
 		}
 		delta.HttpId = form.HttpID.Bytes()
 		if form.DeltaKey != nil {
 			keyStr := *form.DeltaKey
-			delta.Key = &apiv1.HttpBodyFormDeltaSyncUpdate_KeyUnion{
+			delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
 				Kind:    315301840, // KIND_STRING
 				String_: &keyStr,
 			}
 		}
 		if form.DeltaValue != nil {
 			valueStr := *form.DeltaValue
-			delta.Value = &apiv1.HttpBodyFormDeltaSyncUpdate_ValueUnion{
+			delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
 				Kind:    315301840, // KIND_STRING
 				String_: &valueStr,
 			}
 		}
 		if form.DeltaEnabled != nil {
 			enabledBool := *form.DeltaEnabled
-			delta.Enabled = &apiv1.HttpBodyFormDeltaSyncUpdate_EnabledUnion{
+			delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
 				Kind: 477045804, // KIND_BOOL
 				Bool: &enabledBool,
 			}
 		}
 		if form.DeltaDescription != nil {
 			descStr := *form.DeltaDescription
-			delta.Description = &apiv1.HttpBodyFormDeltaSyncUpdate_DescriptionUnion{
+			delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
 				Kind:    315301840, // KIND_STRING
 				String_: &descStr,
 			}
 		}
 		if form.DeltaOrder != nil {
 			orderFloat := *form.DeltaOrder
-			delta.Order = &apiv1.HttpBodyFormDeltaSyncUpdate_OrderUnion{
+			delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
 				Kind:  182966389, // KIND_FLOAT
 				Float: &orderFloat,
 			}
 		}
-		value = &apiv1.HttpBodyFormDeltaSync_ValueUnion{
-			Kind:   apiv1.HttpBodyFormDeltaSync_ValueUnion_KIND_UPDATE,
+		value = &apiv1.HttpBodyFormDataDeltaSync_ValueUnion{
+			Kind:   apiv1.HttpBodyFormDataDeltaSync_ValueUnion_KIND_UPDATE,
 			Update: delta,
 		}
 	case eventTypeDelete:
-		value = &apiv1.HttpBodyFormDeltaSync_ValueUnion{
-			Kind: apiv1.HttpBodyFormDeltaSync_ValueUnion_KIND_DELETE,
-			Delete: &apiv1.HttpBodyFormDeltaSyncDelete{
-				DeltaHttpBodyFormId: form.ID.Bytes(),
+		value = &apiv1.HttpBodyFormDataDeltaSync_ValueUnion{
+			Kind: apiv1.HttpBodyFormDataDeltaSync_ValueUnion_KIND_DELETE,
+			Delete: &apiv1.HttpBodyFormDataDeltaSyncDelete{
+				DeltaHttpBodyFormDataId: form.ID.Bytes(),
 			},
 		}
 	}
 
-	return &apiv1.HttpBodyFormDeltaSyncResponse{
-		Items: []*apiv1.HttpBodyFormDeltaSync{
+	return &apiv1.HttpBodyFormDataDeltaSyncResponse{
+		Items: []*apiv1.HttpBodyFormDataDeltaSync{
 			{
 				Value: value,
 			},
