@@ -21,13 +21,13 @@ import (
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
-		"the-dev-tools/server/pkg/eventstream"
+	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/expression"
 	// "the-dev-tools/server/pkg/http/request" // TODO: Use if needed
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	// "the-dev-tools/server/pkg/model/mbodyform" // TODO: Use if needed
-		// "the-dev-tools/server/pkg/model/mbodyurl" // TODO: Use if needed
+	// "the-dev-tools/server/pkg/model/mbodyurl" // TODO: Use if needed
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -40,8 +40,7 @@ import (
 	// "the-dev-tools/server/pkg/model/mitemapiexample" // TODO: Use if needed
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-		"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/svar"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
@@ -49,6 +48,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	// "the-dev-tools/server/pkg/sort/sortenabled" // TODO: Use if needed
@@ -239,11 +239,12 @@ type HttpServiceRPC struct {
 	wus sworkspacesusers.WorkspaceUserService
 
 	// Environment and variable services
-	es  senv.EnvService
-	vs  svar.VarService
+	es senv.EnvService
+	vs svar.VarService
 
 	// Additional services for HTTP components
-	bodyService   *shttp.HttpBodyRawService
+	bodyService         *shttp.HttpBodyRawService
+	httpResponseService shttp.HttpResponseService
 
 	// Child entity services
 	httpHeaderService         shttpheader.HttpHeaderService
@@ -283,6 +284,7 @@ func New(
 	httpBodyFormService shttpbodyform.HttpBodyFormService,
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
 	httpAssertService shttpassert.HttpAssertService,
+	httpResponseService shttp.HttpResponseService,
 	stream eventstream.SyncStreamer[HttpTopic, HttpEvent],
 	httpHeaderStream eventstream.SyncStreamer[HttpHeaderTopic, HttpHeaderEvent],
 	httpSearchParamStream eventstream.SyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent],
@@ -309,6 +311,7 @@ func New(
 		httpBodyFormService:       httpBodyFormService,
 		httpBodyUrlEncodedService: httpBodyUrlEncodedService,
 		httpAssertService:         httpAssertService,
+		httpResponseService:       httpResponseService,
 		stream:                    stream,
 		httpHeaderStream:          httpHeaderStream,
 		httpSearchParamStream:     httpSearchParamStream,
@@ -1354,7 +1357,7 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 
 	// Store HTTP response in database
 	duration := time.Since(startTime).Milliseconds()
-	responseID, err := h.storeHttpResponse(ctx, httpEntry.ID, httpResp, duration)
+	responseID, err := h.storeHttpResponse(ctx, httpEntry, httpResp, startTime, duration)
 	if err != nil {
 		// Log detailed error but don't fail the request
 		log.Printf("Failed to store HTTP response for %s (status %d, duration %dms): %v",
@@ -1654,11 +1657,11 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 
 	// Step 1: Process request data and get HTTP IDs OUTSIDE transaction
 	var updateData []struct {
-		httpID     idwrap.IDWrap
-		name       *string
-		url        *string
-		method     *string
-		httpModel  *mhttp.HTTP
+		httpID    idwrap.IDWrap
+		name      *string
+		url       *string
+		method    *string
+		httpModel *mhttp.HTTP
 	}
 
 	for _, item := range req.Msg.Items {
@@ -1688,11 +1691,11 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		}
 
 		updateData = append(updateData, struct {
-			httpID     idwrap.IDWrap
-			name       *string
-			url        *string
-			method     *string
-			httpModel  *mhttp.HTTP
+			httpID    idwrap.IDWrap
+			name      *string
+			url       *string
+			method    *string
+			httpModel *mhttp.HTTP
 		}{httpID: httpID, name: name, url: url, method: method})
 	}
 
@@ -1768,9 +1771,9 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 
 	// Step 1: Process request data and get HTTP IDs OUTSIDE transaction
 	var deleteData []struct {
-		httpID           idwrap.IDWrap
-		existingHttp     *mhttp.HTTP
-		workspaceID      idwrap.IDWrap
+		httpID       idwrap.IDWrap
+		existingHttp *mhttp.HTTP
+		workspaceID  idwrap.IDWrap
 	}
 
 	for _, item := range req.Msg.Items {
@@ -1784,9 +1787,9 @@ func (h *HttpServiceRPC) HttpDelete(ctx context.Context, req *connect.Request[ap
 		}
 
 		deleteData = append(deleteData, struct {
-			httpID           idwrap.IDWrap
-			existingHttp     *mhttp.HTTP
-			workspaceID      idwrap.IDWrap
+			httpID       idwrap.IDWrap
+			existingHttp *mhttp.HTTP
+			workspaceID  idwrap.IDWrap
 		}{httpID: httpID})
 	}
 
@@ -2312,14 +2315,14 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	newHttpID := idwrap.NewNow()
 	duplicateName := fmt.Sprintf("Copy of %s", httpEntry.Name)
 	duplicateHttp := &mhttp.HTTP{
-		ID:               newHttpID,
-		WorkspaceID:      httpEntry.WorkspaceID,
-		FolderID:         httpEntry.FolderID,
-		Name:             duplicateName,
-		Url:              httpEntry.Url,
-		Method:           httpEntry.Method,
-		Description:      httpEntry.Description,
-		ParentHttpID:     httpEntry.ParentHttpID,
+		ID:           newHttpID,
+		WorkspaceID:  httpEntry.WorkspaceID,
+		FolderID:     httpEntry.FolderID,
+		Name:         duplicateName,
+		Url:          httpEntry.Url,
+		Method:       httpEntry.Method,
+		Description:  httpEntry.Description,
+		ParentHttpID: httpEntry.ParentHttpID,
 		// Clear delta fields for the duplicate
 		IsDelta:          false,
 		DeltaName:        nil,
@@ -2384,13 +2387,13 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	for _, bodyForm := range bodyForms {
 		newBodyFormID := idwrap.NewNow()
 		bodyFormModel := &mhttpbodyform.HttpBodyForm{
-			ID:               newBodyFormID,
-			HttpID:           newHttpID,
-			Key:              bodyForm.Key,
-			Value:            bodyForm.Value,
-			Enabled:          bodyForm.Enabled,
-			Description:      bodyForm.Description,
-			Order:            float32(bodyForm.Order),
+			ID:                   newBodyFormID,
+			HttpID:               newHttpID,
+			Key:                  bodyForm.Key,
+			Value:                bodyForm.Value,
+			Enabled:              bodyForm.Enabled,
+			Description:          bodyForm.Description,
+			Order:                float32(bodyForm.Order),
 			ParentHttpBodyFormID: bytesToIDWrap(bodyForm.ParentHttpBodyFormID),
 		}
 		if err := httpBodyFormService.CreateHttpBodyForm(ctx, bodyFormModel); err != nil {
@@ -5744,7 +5747,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaCollection(ctx context.Context, re
 				delta := &apiv1.HttpBodyFormDataDelta{
 					DeltaHttpBodyFormDataId: bodyForm.ID.Bytes(),
 					HttpBodyFormDataId:      bodyForm.ID.Bytes(),
-					HttpId:              bodyForm.HttpID.Bytes(),
+					HttpId:                  bodyForm.HttpID.Bytes(),
 				}
 
 				// Only include delta fields if they exist
@@ -7266,12 +7269,93 @@ func (h *HttpServiceRPC) loadHttpBody(ctx context.Context, httpID idwrap.IDWrap)
 	return body.RawData, nil
 }
 
-// storeHttpResponse handles HTTP response storage (legacy service removed)
-func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpID idwrap.IDWrap, resp httpclient.Response, duration int64) (idwrap.IDWrap, error) {
-	// Legacy response service removed - just log the response and return empty ID
-	log.Printf("HTTP Response for %s: Status=%d, Content-Length=%d, Duration=%dms (legacy response storage disabled)",
-		httpID.String(), resp.StatusCode, len(resp.Body), duration)
-	return idwrap.IDWrap{}, nil
+// storeHttpResponse handles HTTP response storage and publishes sync events
+func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp.HTTP, resp httpclient.Response, requestTime time.Time, duration int64) (idwrap.IDWrap, error) {
+	responseID := idwrap.NewNow()
+	nowUnix := time.Now().Unix()
+
+	httpResponse := dbmodels.HttpResponse{
+		ID:        responseID,
+		HttpID:    httpEntry.ID,
+		Status:    int32(resp.StatusCode),
+		Body:      resp.Body,
+		Time:      requestTime,
+		Duration:  int32(duration),
+		Size:      int32(len(resp.Body)),
+		CreatedAt: nowUnix,
+	}
+
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return idwrap.IDWrap{}, err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("Failed to rollback http response transaction: %v", rbErr)
+			}
+		}
+	}()
+
+	if err := h.httpResponseService.TX(tx).Create(ctx, httpResponse); err != nil {
+		return idwrap.IDWrap{}, err
+	}
+
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO http_response_header (id, http_id, key, value, created_at)
+		VALUES (?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return idwrap.IDWrap{}, err
+	}
+	defer stmt.Close()
+
+	httpIDBytes := httpEntry.ID.Bytes()
+	headerEvents := make([]HttpResponseHeaderEvent, 0, len(resp.Headers))
+	for _, header := range resp.Headers {
+		if header.HeaderKey == "" {
+			continue
+		}
+		headerID := idwrap.NewNow()
+		if _, err := stmt.ExecContext(ctx,
+			headerID.Bytes(),
+			httpIDBytes,
+			header.HeaderKey,
+			header.Value,
+			nowUnix,
+		); err != nil {
+			return idwrap.IDWrap{}, err
+		}
+		headerEvents = append(headerEvents, HttpResponseHeaderEvent{
+			Type: eventTypeInsert,
+			HttpResponseHeader: toAPIHttpResponseHeader(dbmodels.HttpResponseHeader{
+				ID:        headerID,
+				HttpID:    httpIDBytes,
+				Key:       header.HeaderKey,
+				Value:     header.Value,
+				CreatedAt: nowUnix,
+			}),
+		})
+	}
+
+	if err := tx.Commit(); err != nil {
+		return idwrap.IDWrap{}, err
+	}
+	committed = true
+
+	topic := HttpResponseTopic{WorkspaceID: httpEntry.WorkspaceID}
+	h.httpResponseStream.Publish(topic, HttpResponseEvent{
+		Type:         eventTypeInsert,
+		HttpResponse: toAPIHttpResponse(httpResponse),
+	})
+
+	headerTopic := HttpResponseHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}
+	for _, evt := range headerEvents {
+		h.httpResponseHeaderStream.Publish(headerTopic, evt)
+	}
+
+	return responseID, nil
 }
 
 // evaluateAndStoreAssertions loads assertions for an HTTP entry, evaluates them against the response, and stores the results

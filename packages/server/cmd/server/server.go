@@ -31,13 +31,13 @@ import (
 
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/eventstream/memory"
-	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
-		"the-dev-tools/server/pkg/service/sfile"
+	"the-dev-tools/server/pkg/service/sfile"
 
 	"the-dev-tools/server/pkg/service/senv"
-		"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
@@ -158,6 +158,7 @@ func main() {
 	httpBodyFormService := shttpbodyform.New(queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
 	httpAssertService := shttpassert.New(queries)
+	httpResponseService := shttp.NewHttpResponseService(queries)
 	// Aggregated HTTP services used by flow execution
 	httpHeaderAgg := shttp.NewHttpHeaderService(queries)
 	httpSearchAgg := shttp.NewHttpSearchParamService(queries)
@@ -251,7 +252,7 @@ func main() {
 	httpBodyRawStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
 	defer httpBodyRawStreamer.Shutdown()
 
-	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
+	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, optionsAll))
 
 	nodeStreamer := memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]()
