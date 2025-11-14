@@ -95,7 +95,7 @@ model HttpResponse {
   @primaryKey httpResponseId: Id;
   @foreignKey httpId: Id;
   status: int32;
-  body: bytes;
+  body: string;
   time: Protobuf.WellKnown.Timestamp;
   duration: int32;
   size: int32;

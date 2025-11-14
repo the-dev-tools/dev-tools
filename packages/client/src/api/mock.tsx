@@ -15,6 +15,18 @@ import {
 } from 'effect';
 import { Ulid } from 'id128';
 import {
+  HttpResponseAssertSync_ValueUnion_Kind,
+  HttpResponseAssertSyncInsertSchema,
+  HttpResponseAssertSyncSchema,
+  HttpResponseHeaderSync_ValueUnion_Kind,
+  HttpResponseHeaderSyncInsertSchema,
+  HttpResponseHeaderSyncSchema,
+  HttpResponseSync_ValueUnion_Kind,
+  HttpResponseSyncInsertSchema,
+  HttpRunRequest,
+  HttpService,
+} from '@the-dev-tools/spec/api/http/v1/http_pb';
+import {
   LogLevel,
   LogService,
   LogSync_ValueUnion_Kind,
@@ -250,6 +262,7 @@ export class ApiTransportMock extends Effect.Service<ApiTransportMock>()('ApiTra
   dependencies: [ApiMockState.Default, Faker.Default],
   effect: Effect.gen(function* () {
     yield* mockCollections;
+    yield* mockHttpRun;
 
     const { methodImplMap } = yield* ApiMockState;
 
@@ -350,4 +363,66 @@ const mockLog = Effect.fn(function* (message: Protobuf.Message, level: LogLevel 
   });
 
   yield* Queue.offer(queue, sync);
+});
+
+const mockHttpRun = Effect.gen(function* () {
+  const faker = yield* Faker;
+  const runtime = yield* Effect.runtime<Faker>();
+  const { methodImplMap } = yield* ApiMockState;
+
+  const responseQueue = yield* getStreamQueue(HttpService.method.httpResponseSync);
+  const headerQueue = yield* getStreamQueue(HttpService.method.httpResponseHeaderSync);
+  const assertQueue = yield* getStreamQueue(HttpService.method.httpResponseAssertSync);
+
+  const impl = ({ httpId }: HttpRunRequest) =>
+    Effect.gen(function* () {
+      const response = yield* mockMessage(HttpResponseSyncInsertSchema);
+
+      yield* Queue.offer(responseQueue, {
+        items: [
+          {
+            value: {
+              insert: { ...response, httpId },
+              kind: HttpResponseSync_ValueUnion_Kind.INSERT,
+            },
+          },
+        ],
+      });
+
+      const headers = yield* pipe(
+        faker.number.int({ min: 3, max: 10 }),
+        Array.makeBy(() => mockMessage(HttpResponseHeaderSyncInsertSchema)),
+        Effect.all,
+      );
+
+      yield* Queue.offer(headerQueue, {
+        items: headers.map(
+          (_): Protobuf.MessageInitShape<typeof HttpResponseHeaderSyncSchema> => ({
+            value: {
+              insert: { ..._, httpId },
+              kind: HttpResponseHeaderSync_ValueUnion_Kind.INSERT,
+            },
+          }),
+        ),
+      });
+
+      const asserts = yield* pipe(
+        faker.number.int({ min: 3, max: 10 }),
+        Array.makeBy(() => mockMessage(HttpResponseAssertSyncInsertSchema)),
+        Effect.all,
+      );
+
+      yield* Queue.offer(assertQueue, {
+        items: asserts.map(
+          (_): Protobuf.MessageInitShape<typeof HttpResponseAssertSyncSchema> => ({
+            value: {
+              insert: { ..._, httpId },
+              kind: HttpResponseAssertSync_ValueUnion_Kind.INSERT,
+            },
+          }),
+        ),
+      });
+    }).pipe(Runtime.runPromise(runtime));
+
+  MutableHashMap.set(methodImplMap, HttpService.method.httpRun, impl);
 });
