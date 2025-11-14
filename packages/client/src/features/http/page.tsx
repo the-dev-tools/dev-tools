@@ -6,7 +6,7 @@ import { useApiCollection } from '~/api-new';
 import { ReferenceContext } from '~/reference';
 import { httpRouteApi, workspaceRouteApi } from '~/routes';
 import { pick } from '~/utils/tanstack-db';
-import { HttpRequest, HttpTopBar } from './request';
+import { HttpRequestPanel, HttpTopBar } from './request';
 import { ResponsePanel } from './response';
 
 export const HttpPage = () => {
@@ -32,7 +32,7 @@ export const HttpPage = () => {
         <ReferenceContext value={{ httpId, workspaceId }}>
           <HttpTopBar httpId={httpId} />
 
-          <HttpRequest httpId={httpId} />
+          <HttpRequestPanel httpId={httpId} />
         </ReferenceContext>
       </Panel>
 

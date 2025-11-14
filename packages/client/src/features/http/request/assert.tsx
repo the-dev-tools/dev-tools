@@ -14,9 +14,10 @@ import { ReferenceFieldRHF } from '~/reference';
 
 export interface AssertPanelProps {
   httpId: Uint8Array;
+  isReadOnly?: boolean;
 }
 
-export const AssertPanel = ({ httpId }: AssertPanelProps) => {
+export const AssertPanel = ({ httpId, isReadOnly = false }: AssertPanelProps) => {
   const collection = useApiCollection(HttpAssertCollectionSchema);
 
   const { data: items } = useLiveQuery((_) => _.from({ item: collection }).where((_) => eq(_.item.httpId, httpId)));
@@ -66,6 +67,7 @@ export const AssertPanel = ({ httpId }: AssertPanelProps) => {
             control={form.control}
             name={`items.${index}.value`}
             placeholder='Enter value to compare'
+            readOnly={isReadOnly}
           />
           <Button
             className={tw`h-8 text-red-700`}
@@ -77,12 +79,14 @@ export const AssertPanel = ({ httpId }: AssertPanelProps) => {
         </div>
       ))}
 
-      <Button
-        isDisabled={!canAdd}
-        onPress={() => void collection.utils.insert({ httpAssertId: Ulid.generate().bytes, httpId })}
-      >
-        New Assertion
-      </Button>
+      {!isReadOnly && (
+        <Button
+          isDisabled={!canAdd}
+          onPress={() => void collection.utils.insert({ httpAssertId: Ulid.generate().bytes, httpId })}
+        >
+          New Assertion
+        </Button>
+      )}
     </div>
   );
 };

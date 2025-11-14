@@ -22,9 +22,10 @@ import { rootRouteApi } from '~/routes';
 
 export interface RawFormProps {
   httpId: Uint8Array;
+  isReadOnly?: boolean;
 }
 
-export const RawForm = ({ httpId }: RawFormProps) => {
+export const RawForm = ({ httpId, isReadOnly = false }: RawFormProps) => {
   const { transport } = rootRouteApi.useRouteContext();
 
   const collection = useApiCollection(HttpBodyRawCollectionSchema);
@@ -74,16 +75,18 @@ export const RawForm = ({ httpId }: RawFormProps) => {
           ))}
         </Select>
 
-        <Button
-          className={tw`px-4 py-1`}
-          onPress={async () => {
-            const formattedValue = await prettierFormat({ language, text: value });
-            setValue(formattedValue);
-            save(formattedValue);
-          }}
-        >
-          Prettify
-        </Button>
+        {!isReadOnly && (
+          <Button
+            className={tw`px-4 py-1`}
+            onPress={async () => {
+              const formattedValue = await prettierFormat({ language, text: value });
+              setValue(formattedValue);
+              save(formattedValue);
+            }}
+          >
+            Prettify
+          </Button>
+        )}
       </div>
 
       <CodeMirror
@@ -92,6 +95,7 @@ export const RawForm = ({ httpId }: RawFormProps) => {
         height='100%'
         onBlur={() => void save(value)}
         onChange={setValue}
+        readOnly={isReadOnly}
         value={value}
       />
     </>

@@ -3,7 +3,7 @@ import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
 import { HttpBodyFormData } from '@the-dev-tools/spec/api/http/v1/http_pb';
 import { HttpBodyFormDataCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { Protobuf, useApiCollection } from '~/api-new';
@@ -12,17 +12,58 @@ import {
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
+  displayTable,
   ReactTableNoMemo,
   useFormTable,
   useFormTableAddRow,
 } from '~/form-table';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 
+const dataColumns = [
+  columnCheckboxField<HttpBodyFormData>('enabled', { meta: { divider: false } }),
+  columnReferenceField<HttpBodyFormData>('key', { meta: { isRowHeader: true } }),
+  columnReferenceField<HttpBodyFormData>('value', { allowFiles: true }),
+  columnTextField<HttpBodyFormData>('description', { meta: { divider: false } }),
+];
+
 export interface FormDataTableProps {
+  httpId: Uint8Array;
+  isReadOnly?: boolean;
+}
+
+export const FormDataTable = ({ httpId, isReadOnly = false }: FormDataTableProps) => {
+  if (isReadOnly) return <DisplayTable httpId={httpId} />;
+  return <EditTable httpId={httpId} />;
+};
+
+interface DisplayTableProps {
   httpId: Uint8Array;
 }
 
-export const FormDataTable = ({ httpId }: FormDataTableProps) => {
+const DisplayTable = ({ httpId }: DisplayTableProps) => {
+  const collection = useApiCollection(HttpBodyFormDataCollectionSchema);
+
+  const { data: items } = useLiveQuery(
+    (_) =>
+      _.from({ item: collection })
+        .where((_) => eq(_.item.httpId, httpId))
+        .orderBy((_) => _.item.order),
+    [collection, httpId],
+  );
+
+  const table = useReactTable({
+    columns: dataColumns,
+    data: items,
+  });
+
+  return <DataTable {...displayTable<HttpBodyFormData>()} aria-label='Body items' table={table} />;
+};
+
+interface EditTableProps {
+  httpId: Uint8Array;
+}
+
+const EditTable = ({ httpId }: EditTableProps) => {
   const collection = useApiCollection(HttpBodyFormDataCollectionSchema);
 
   const { data: items } = useLiveQuery(
@@ -59,10 +100,7 @@ export const FormDataTable = ({ httpId }: FormDataTableProps) => {
   return (
     <ReactTableNoMemo
       columns={[
-        columnCheckboxField<HttpBodyFormData>('enabled', { meta: { divider: false } }),
-        columnReferenceField<HttpBodyFormData>('key', { meta: { isRowHeader: true } }),
-        columnReferenceField<HttpBodyFormData>('value', { allowFiles: true }),
-        columnTextField<HttpBodyFormData>('description', { meta: { divider: false } }),
+        ...dataColumns,
         columnActionsCommon<HttpBodyFormData>({
           onDelete: (_) => collection.utils.delete(Protobuf.messageData(_)),
         }),

@@ -12,9 +12,10 @@ import { UrlEncodedTable } from './url-encoded';
 
 export interface BodyPanelProps {
   httpId: Uint8Array;
+  isReadOnly?: boolean;
 }
 
-export const BodyPanel = ({ httpId }: BodyPanelProps) => {
+export const BodyPanel = ({ httpId, isReadOnly = false }: BodyPanelProps) => {
   const httpCollection = useApiCollection(HttpCollectionSchema);
 
   const { data: { bodyKind = HttpBodyKind.UNSPECIFIED } = {} } = useLiveQuery(
@@ -31,6 +32,7 @@ export const BodyPanel = ({ httpId }: BodyPanelProps) => {
       <RadioGroup
         aria-label='Body type'
         className={tw`h-7 justify-center`}
+        isReadOnly={isReadOnly}
         onChange={(key) => httpCollection.utils.update({ bodyKind: parseInt(key), httpId })}
         orientation='horizontal'
         value={bodyKind.toString()}
@@ -43,9 +45,9 @@ export const BodyPanel = ({ httpId }: BodyPanelProps) => {
 
       {pipe(
         Match.value(bodyKind),
-        Match.when(HttpBodyKind.FORM_DATA, () => <FormDataTable httpId={httpId} />),
-        Match.when(HttpBodyKind.URL_ENCODED, () => <UrlEncodedTable httpId={httpId} />),
-        Match.when(HttpBodyKind.RAW, () => <RawForm httpId={httpId} />),
+        Match.when(HttpBodyKind.FORM_DATA, () => <FormDataTable httpId={httpId} isReadOnly={isReadOnly} />),
+        Match.when(HttpBodyKind.URL_ENCODED, () => <UrlEncodedTable httpId={httpId} isReadOnly={isReadOnly} />),
+        Match.when(HttpBodyKind.RAW, () => <RawForm httpId={httpId} isReadOnly={isReadOnly} />),
         Match.orElse(() => null),
       )}
     </div>

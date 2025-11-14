@@ -3,7 +3,7 @@ import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
 import { HttpHeader } from '@the-dev-tools/spec/api/http/v1/http_pb';
 import { HttpHeaderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { Protobuf, useApiCollection } from '~/api-new';
 import {
@@ -11,17 +11,58 @@ import {
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
+  displayTable,
   ReactTableNoMemo,
   useFormTable,
   useFormTableAddRow,
 } from '~/form-table';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 
+const dataColumns = [
+  columnCheckboxField<HttpHeader>('enabled', { meta: { divider: false } }),
+  columnReferenceField<HttpHeader>('key', { meta: { isRowHeader: true } }),
+  columnReferenceField<HttpHeader>('value', { allowFiles: true }),
+  columnTextField<HttpHeader>('description', { meta: { divider: false } }),
+];
+
 export interface HeaderTableProps {
+  httpId: Uint8Array;
+  isReadOnly?: boolean;
+}
+
+export const HeaderTable = ({ httpId, isReadOnly = false }: HeaderTableProps) => {
+  if (isReadOnly) return <DisplayTable httpId={httpId} />;
+  return <EditTable httpId={httpId} />;
+};
+
+interface DisplayTableProps {
   httpId: Uint8Array;
 }
 
-export const HeaderTable = ({ httpId }: HeaderTableProps) => {
+const DisplayTable = ({ httpId }: DisplayTableProps) => {
+  const collection = useApiCollection(HttpHeaderCollectionSchema);
+
+  const { data: items } = useLiveQuery(
+    (_) =>
+      _.from({ item: collection })
+        .where((_) => eq(_.item.httpId, httpId))
+        .orderBy((_) => _.item.order),
+    [collection, httpId],
+  );
+
+  const table = useReactTable({
+    columns: dataColumns,
+    data: items,
+  });
+
+  return <DataTable {...displayTable<HttpHeader>()} aria-label='Headers' table={table} />;
+};
+
+interface EditTableProps {
+  httpId: Uint8Array;
+}
+
+const EditTable = ({ httpId }: EditTableProps) => {
   const collection = useApiCollection(HttpHeaderCollectionSchema);
 
   const { data: items } = useLiveQuery(
@@ -58,10 +99,7 @@ export const HeaderTable = ({ httpId }: HeaderTableProps) => {
   return (
     <ReactTableNoMemo
       columns={[
-        columnCheckboxField<HttpHeader>('enabled', { meta: { divider: false } }),
-        columnReferenceField<HttpHeader>('key', { meta: { isRowHeader: true } }),
-        columnReferenceField<HttpHeader>('value', { allowFiles: true }),
-        columnTextField<HttpHeader>('description', { meta: { divider: false } }),
+        ...dataColumns,
         columnActionsCommon<HttpHeader>({
           onDelete: (_) => collection.utils.delete(Protobuf.messageData(_)),
         }),

@@ -3,7 +3,7 @@ import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
 import { HttpBodyUrlEncoded } from '@the-dev-tools/spec/api/http/v1/http_pb';
 import { HttpBodyUrlEncodedCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
-import { DataTable } from '@the-dev-tools/ui/data-table';
+import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { Protobuf, useApiCollection } from '~/api-new';
@@ -12,17 +12,58 @@ import {
   columnCheckboxField,
   columnReferenceField,
   columnTextField,
+  displayTable,
   ReactTableNoMemo,
   useFormTable,
   useFormTableAddRow,
 } from '~/form-table';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 
+const dataColumns = [
+  columnCheckboxField<HttpBodyUrlEncoded>('enabled', { meta: { divider: false } }),
+  columnReferenceField<HttpBodyUrlEncoded>('key', { meta: { isRowHeader: true } }),
+  columnReferenceField<HttpBodyUrlEncoded>('value', { allowFiles: true }),
+  columnTextField<HttpBodyUrlEncoded>('description', { meta: { divider: false } }),
+];
+
 export interface UrlEncodedTableProps {
+  httpId: Uint8Array;
+  isReadOnly?: boolean;
+}
+
+export const UrlEncodedTable = ({ httpId, isReadOnly = false }: UrlEncodedTableProps) => {
+  if (isReadOnly) return <DisplayTable httpId={httpId} />;
+  return <EditTable httpId={httpId} />;
+};
+
+interface DisplayTableProps {
   httpId: Uint8Array;
 }
 
-export const UrlEncodedTable = ({ httpId }: UrlEncodedTableProps) => {
+const DisplayTable = ({ httpId }: DisplayTableProps) => {
+  const collection = useApiCollection(HttpBodyUrlEncodedCollectionSchema);
+
+  const { data: items } = useLiveQuery(
+    (_) =>
+      _.from({ item: collection })
+        .where((_) => eq(_.item.httpId, httpId))
+        .orderBy((_) => _.item.order),
+    [collection, httpId],
+  );
+
+  const table = useReactTable({
+    columns: dataColumns,
+    data: items,
+  });
+
+  return <DataTable {...displayTable<HttpBodyUrlEncoded>()} aria-label='Body items' table={table} />;
+};
+
+interface EditTableProps {
+  httpId: Uint8Array;
+}
+
+const EditTable = ({ httpId }: EditTableProps) => {
   const collection = useApiCollection(HttpBodyUrlEncodedCollectionSchema);
 
   const { data: items } = useLiveQuery(
@@ -59,10 +100,7 @@ export const UrlEncodedTable = ({ httpId }: UrlEncodedTableProps) => {
   return (
     <ReactTableNoMemo
       columns={[
-        columnCheckboxField<HttpBodyUrlEncoded>('enabled', { meta: { divider: false } }),
-        columnReferenceField<HttpBodyUrlEncoded>('key', { meta: { isRowHeader: true } }),
-        columnReferenceField<HttpBodyUrlEncoded>('value', { allowFiles: true }),
-        columnTextField<HttpBodyUrlEncoded>('description', { meta: { divider: false } }),
+        ...dataColumns,
         columnActionsCommon<HttpBodyUrlEncoded>({
           onDelete: (_) => collection.utils.delete(Protobuf.messageData(_)),
         }),
