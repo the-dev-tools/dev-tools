@@ -6,6 +6,11 @@ import { app, BrowserWindow, dialog, Dialog, globalShortcut, ipcMain, shell } fr
 import { autoUpdater } from 'electron-updater';
 import { CustomUpdateProvider, UpdateOptions } from './update';
 
+// Workaround to allow unlimited concurrent HTTP/1.1 connections
+// https://medium.com/@hnasr/chromes-6-tcp-connections-limit-c199fe550af6
+// https://www.electronjs.org/docs/latest/api/command-line-switches#--ignore-connections-limitdomains
+app.commandLine.appendSwitch('ignore-connections-limit', 'localhost');
+
 const createWindow = Effect.gen(function* () {
   const path = yield* Path.Path;
 
