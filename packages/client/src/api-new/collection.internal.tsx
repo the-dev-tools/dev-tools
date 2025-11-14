@@ -19,6 +19,7 @@ export interface ApiCollectionSchema {
     delete: Protobuf.DescMessage;
     insert: Protobuf.DescMessage;
     update: Protobuf.DescMessage;
+    upsert: Protobuf.DescMessage;
   };
 
   operations: {
@@ -72,9 +73,12 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
               void write({ type: 'insert', value: Protobuf.createAlike<Protobuf.DescMessage>(schema.item, _) as Item }),
           ),
           Match.when(
-            { $typeName: schema.sync.delete.typeName },
-            (_) =>
-              void write({ type: 'delete', value: Protobuf.createAlike<Protobuf.DescMessage>(schema.item, _) as Item }),
+            { $typeName: schema.sync.upsert.typeName },
+            (_: Protobuf.Message) =>
+              void write({
+                type: collection.has(getKey(_ as Item)) ? 'update' : 'insert',
+                value: Protobuf.createAlike<Protobuf.DescMessage>(schema.item, _) as Item,
+              }),
           ),
           Match.when({ $typeName: schema.sync.update.typeName }, (_) => {
             const currentValue = collection.get(getKey(_ as Item));
@@ -86,6 +90,11 @@ const createApiCollection = <TSchema extends ApiCollectionSchema>(schema: TSchem
 
             write({ type: 'update', value: Protobuf.mergeDelta(currentValue, _, UnsetSchema) });
           }),
+          Match.when(
+            { $typeName: schema.sync.delete.typeName },
+            (_) =>
+              void write({ type: 'delete', value: Protobuf.createAlike<Protobuf.DescMessage>(schema.item, _) as Item }),
+          ),
           Match.option,
         );
       });

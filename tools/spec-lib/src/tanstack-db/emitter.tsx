@@ -180,6 +180,11 @@ const Files = ({ includeNestedSchemas, namespace }: FilesProps) => {
                         />
 
                         <ObjectProperty
+                          name='upsert'
+                          value={refkey('message', collection.namespace, `${collection.name}SyncUpsert`)}
+                        />
+
+                        <ObjectProperty
                           name='update'
                           value={refkey('message', collection.namespace, `${collection.name}SyncUpdate`)}
                         />

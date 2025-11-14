@@ -185,6 +185,13 @@ function collection({ program }: DecoratorContext, base: Model, optionsMaybe?: P
     }),
   );
 
+  const syncUpsertItem = getOrMake(namespace.models, `${base.name}SyncUpsert`, (name) =>
+    $(program).model.create({
+      name,
+      properties: Record.fromEntries(base.properties.entries()),
+    }),
+  );
+
   const syncUpdateItem = getOrMake(namespace.models, `${base.name}SyncUpdate`, (name) =>
     $(program).model.create({
       name,
@@ -219,6 +226,7 @@ function collection({ program }: DecoratorContext, base: Model, optionsMaybe?: P
           type: $(program).union.create({
             variants: [
               $(program).unionVariant.create({ name: 'insert', type: syncInsertItem }),
+              $(program).unionVariant.create({ name: 'upsert', type: syncUpsertItem }),
               $(program).unionVariant.create({ name: 'update', type: syncUpdateItem }),
               $(program).unionVariant.create({ name: 'delete', type: syncDeleteItem }),
             ],
