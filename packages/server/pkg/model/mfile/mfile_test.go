@@ -73,7 +73,7 @@ func TestFile_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "empty name",
+			name: "empty name allowed for non-folder",
 			file: File{
 				ID:          validID,
 				WorkspaceID: workspaceID,
@@ -81,7 +81,7 @@ func TestFile_Validate(t *testing.T) {
 				ContentID:   &contentID,
 				Name:        "",
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "unknown content type",
@@ -95,12 +95,33 @@ func TestFile_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "missing content ID",
+			name: "missing content ID allowed for placeholders",
 			file: File{
 				ID:          validID,
 				WorkspaceID: workspaceID,
 				ContentType: ContentTypeHTTP,
 				ContentID:   nil,
+				Name:        "test.txt",
+			},
+			wantErr: false,
+		},
+		{
+			name: "folder requires name",
+			file: File{
+				ID:          validID,
+				WorkspaceID: workspaceID,
+				ContentType: ContentTypeFolder,
+				Name:        "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "zero content ID is invalid",
+			file: File{
+				ID:          validID,
+				WorkspaceID: workspaceID,
+				ContentType: ContentTypeHTTP,
+				ContentID:   &idwrap.IDWrap{},
 				Name:        "test.txt",
 			},
 			wantErr: true,

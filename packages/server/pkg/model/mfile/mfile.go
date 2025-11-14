@@ -87,15 +87,14 @@ func (f File) Validate() error {
 	if f.WorkspaceID.Compare(idwrap.IDWrap{}) == 0 {
 		return fmt.Errorf("workspace ID cannot be empty")
 	}
-	if f.Name == "" {
-		return fmt.Errorf("file name cannot be empty")
-	}
 	if f.ContentType == ContentTypeUnknown {
 		return fmt.Errorf("content type cannot be unknown")
 	}
-	// Validate that content_id is present for known content types
-	if f.ContentType != ContentTypeUnknown && !f.HasContent() {
-		return fmt.Errorf("content ID is required for content type %s", f.ContentType.String())
+	if f.ContentType == ContentTypeFolder && f.Name == "" {
+		return fmt.Errorf("file name cannot be empty")
+	}
+	if f.ContentID != nil && f.ContentID.Compare(idwrap.IDWrap{}) == 0 {
+		return fmt.Errorf("content ID cannot be empty")
 	}
 	return nil
 }

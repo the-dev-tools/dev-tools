@@ -69,7 +69,7 @@ func TestFileValidation(t *testing.T) {
 		require.Contains(t, err.Error(), "workspace ID cannot be empty")
 	})
 
-	t.Run("invalid_file_missing_name", func(t *testing.T) {
+	t.Run("file_missing_name_allowed_for_non_folder", func(t *testing.T) {
 		fileID := idwrap.NewNow()
 		workspaceID := idwrap.NewNow()
 		contentID := idwrap.NewNow()
@@ -80,6 +80,22 @@ func TestFileValidation(t *testing.T) {
 			ContentID:   &contentID,
 			ContentType: mfile.ContentTypeHTTP,
 			Name:        "", // Empty name
+			Order:       1.0,
+		}
+
+		err := file.Validate()
+		require.NoError(t, err)
+	})
+
+	t.Run("invalid_folder_missing_name", func(t *testing.T) {
+		fileID := idwrap.NewNow()
+		workspaceID := idwrap.NewNow()
+
+		file := mfile.File{
+			ID:          fileID,
+			WorkspaceID: workspaceID,
+			ContentType: mfile.ContentTypeFolder,
+			Name:        "",
 			Order:       1.0,
 		}
 
