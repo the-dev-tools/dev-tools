@@ -104,7 +104,7 @@ model HttpResponse {
 @TanStackDB.collection(#{ isReadOnly: true })
 model HttpResponseHeader {
   @primaryKey httpResponseHeaderId: Id;
-  @foreignKey httpId: Id;
+  @foreignKey httpResponseId: Id;
   key: string;
   value: string;
 }
@@ -112,7 +112,7 @@ model HttpResponseHeader {
 @TanStackDB.collection(#{ isReadOnly: true })
 model HttpResponseAssert {
   @primaryKey httpResponseAssertId: Id;
-  @foreignKey httpId: Id;
+  @foreignKey httpResponseId: Id;
   value: string;
   success: boolean;
 }

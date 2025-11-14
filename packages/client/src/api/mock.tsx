@@ -377,6 +377,7 @@ const mockHttpRun = Effect.gen(function* () {
   const impl = ({ httpId }: HttpRunRequest) =>
     Effect.gen(function* () {
       const response = yield* mockMessage(HttpResponseSyncInsertSchema);
+      const { httpResponseId } = response;
 
       yield* Queue.offer(responseQueue, {
         items: [
@@ -399,7 +400,7 @@ const mockHttpRun = Effect.gen(function* () {
         items: headers.map(
           (_): Protobuf.MessageInitShape<typeof HttpResponseHeaderSyncSchema> => ({
             value: {
-              insert: { ..._, httpId },
+              insert: { ..._, httpResponseId },
               kind: HttpResponseHeaderSync_ValueUnion_Kind.INSERT,
             },
           }),
@@ -416,7 +417,7 @@ const mockHttpRun = Effect.gen(function* () {
         items: asserts.map(
           (_): Protobuf.MessageInitShape<typeof HttpResponseAssertSyncSchema> => ({
             value: {
-              insert: { ..._, httpId },
+              insert: { ..._, httpResponseId },
               kind: HttpResponseAssertSync_ValueUnion_Kind.INSERT,
             },
           }),

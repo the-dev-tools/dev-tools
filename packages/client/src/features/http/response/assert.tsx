@@ -7,18 +7,18 @@ import { useApiCollection } from '~/api-new';
 import { pick } from '~/utils/tanstack-db';
 
 export interface AssertTableProps {
-  httpId: Uint8Array;
+  httpResponseId: Uint8Array;
 }
 
-export const AssertTable = ({ httpId }: AssertTableProps) => {
+export const AssertTable = ({ httpResponseId }: AssertTableProps) => {
   const collection = useApiCollection(HttpResponseAssertCollectionSchema);
 
   const { data: items } = useLiveQuery(
     (_) =>
       _.from({ item: collection })
-        .where((_) => eq(_.item.httpId, httpId))
+        .where((_) => eq(_.item.httpResponseId, httpResponseId))
         .select((_) => pick(_.item, 'httpResponseAssertId', 'value', 'success')),
-    [collection, httpId],
+    [collection, httpResponseId],
   );
 
   return (

@@ -27,12 +27,12 @@ export interface ResponsePanelProps {
 export const ResponsePanel = ({ className, fullWidth = false, httpResponseId }: ResponsePanelProps) => {
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
 
-  const { duration, httpId, size, status } = pipe(
+  const { duration, size, status } = pipe(
     useLiveQuery(
       (_) =>
         _.from({ item: responseCollection })
           .where((_) => eq(_.item.httpResponseId, httpResponseId))
-          .select((_) => pick(_.item, 'httpId', 'duration', 'size', 'status'))
+          .select((_) => pick(_.item, 'duration', 'size', 'status'))
           .findOne(),
       [responseCollection, httpResponseId],
     ),
@@ -45,10 +45,10 @@ export const ResponsePanel = ({ className, fullWidth = false, httpResponseId }: 
   const { data: { headerCount = 0 } = {} } = useLiveQuery(
     (_) =>
       _.from({ item: headerCollection })
-        .where((_) => eq(_.item.httpId, httpId))
+        .where((_) => eq(_.item.httpResponseId, httpResponseId))
         .select((_) => ({ headerCount: count(_.item.httpResponseHeaderId) }))
         .findOne(),
-    [headerCollection, httpId],
+    [headerCollection, httpResponseId],
   );
 
   const assertCollection = useApiCollection(HttpResponseAssertCollectionSchema);
@@ -56,10 +56,10 @@ export const ResponsePanel = ({ className, fullWidth = false, httpResponseId }: 
   const { data: { assertCount = 0 } = {} } = useLiveQuery(
     (_) =>
       _.from({ item: assertCollection })
-        .where((_) => eq(_.item.httpId, httpId))
+        .where((_) => eq(_.item.httpResponseId, httpResponseId))
         .select((_) => ({ assertCount: count(_.item.httpResponseAssertId) }))
         .findOne(),
-    [assertCollection, httpId],
+    [assertCollection, httpResponseId],
   );
 
   return (
@@ -151,11 +151,11 @@ export const ResponsePanel = ({ className, fullWidth = false, httpResponseId }: 
           </TabPanel>
 
           <TabPanel id='headers'>
-            <HeaderTable httpId={httpId} />
+            <HeaderTable httpResponseId={httpResponseId} />
           </TabPanel>
 
           <TabPanel id='assertions'>
-            <AssertTable httpId={httpId} />
+            <AssertTable httpResponseId={httpResponseId} />
           </TabPanel>
         </Suspense>
       </div>

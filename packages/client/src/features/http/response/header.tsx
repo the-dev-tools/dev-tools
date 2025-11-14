@@ -7,18 +7,18 @@ import { useApiCollection } from '~/api-new';
 import { pick } from '~/utils/tanstack-db';
 
 export interface HeaderTableProps {
-  httpId: Uint8Array;
+  httpResponseId: Uint8Array;
 }
 
-export const HeaderTable = ({ httpId }: HeaderTableProps) => {
+export const HeaderTable = ({ httpResponseId }: HeaderTableProps) => {
   const collection = useApiCollection(HttpResponseHeaderCollectionSchema);
 
   const { data: items } = useLiveQuery(
     (_) =>
       _.from({ item: collection })
-        .where((_) => eq(_.item.httpId, httpId))
+        .where((_) => eq(_.item.httpResponseId, httpResponseId))
         .select((_) => pick(_.item, 'key', 'value')),
-    [collection, httpId],
+    [collection, httpResponseId],
   );
 
   const { accessor } = createColumnHelper<(typeof items)[number]>();

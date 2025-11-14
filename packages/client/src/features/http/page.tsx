@@ -20,6 +20,8 @@ export const HttpPage = () => {
       _.from({ item: responseCollection })
         .where((_) => eq(_.item.httpId, httpId))
         .select((_) => pick(_.item, 'httpResponseId'))
+        .orderBy((_) => _.item.httpResponseId, 'desc')
+        .limit(1)
         .findOne(),
     [responseCollection, httpId],
   );
