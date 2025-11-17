@@ -27,12 +27,8 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
-	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/svar"
-	"the-dev-tools/server/pkg/service/sexamplequery"
-	"the-dev-tools/server/pkg/service/sexampleresp"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
@@ -83,18 +79,21 @@ func newHttpFixture(t *testing.T) *httpFixture {
 		t.Fatalf("create user: %v", err)
 	}
 
-	// Create additional services needed for HTTP handler
-	headerService := sexampleheader.New(base.Queries)
-	queryService := sexamplequery.New(base.Queries)
-	bodyService := sbodyraw.New(base.Queries)
-	respService := sexampleresp.New(base.Queries)
+	// Create additional services needed for HTTP handler (not used in basic tests)
+	// headerService := sexampleheader.New(base.Queries)
+	// queryService := sexamplequery.New(base.Queries)
+	// respService := sexampleresp.New(base.Queries)
 
-	// Child entity services
+	// Child entity services from separate packages
 	httpHeaderService := shttpheader.New(base.Queries)
 	httpSearchParamService := shttpsearchparam.New(base.Queries)
 	httpBodyFormService := shttpbodyform.New(base.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
 	httpAssertService := shttpassert.New(base.Queries)
+
+	// Create response and body raw services
+	httpResponseService := shttp.NewHttpResponseService(base.Queries)
+	httpBodyRawService := shttp.NewHttpBodyRawService(base.Queries)
 
 	// Streamers
 	httpHeaderStream := memory.NewInMemorySyncStreamer[HttpHeaderTopic, HttpHeaderEvent]()
@@ -108,7 +107,7 @@ func newHttpFixture(t *testing.T) *httpFixture {
 	httpResponseAssertStream := memory.NewInMemorySyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]()
 	httpBodyRawStream := memory.NewInMemorySyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]()
 
-	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, headerService, queryService, bodyService, respService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream)
+	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream)
 
 	t.Cleanup(base.Close)
 
@@ -386,10 +385,10 @@ func TestHttpSyncStreamsSnapshotAndUpdates(t *testing.T) {
 		if val == nil {
 			t.Fatal("snapshot item missing value union")
 		}
-		if val.GetKind() != httpv1.HttpSync_ValueUnion_KIND_CREATE {
-			t.Fatalf("expected create kind for snapshot, got %v", val.GetKind())
+		if val.GetKind() != httpv1.HttpSync_ValueUnion_KIND_INSERT {
+			t.Fatalf("expected insert kind for snapshot, got %v", val.GetKind())
 		}
-		seen[string(val.GetCreate().GetHttpId())] = true
+		seen[string(val.GetInsert().GetHttpId())] = true
 	}
 	if !seen[string(httpA.Bytes())] || !seen[string(httpB.Bytes())] {
 		t.Fatalf("snapshot missing expected http entries, seen=%v", seen)
@@ -534,7 +533,7 @@ func TestHttpSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	}
 
 	f.handler.stream.Publish(HttpTopic{WorkspaceID: otherWorkspaceID}, HttpEvent{
-		Type: eventTypeCreate,
+		Type: "insert",
 		Http: &httpv1.Http{
 			HttpId: hiddenHttpID.Bytes(),
 			Name:   "hidden-http",
@@ -577,8 +576,8 @@ func TestHttpCreatePublishesEvent(t *testing.T) {
 	}()
 
 	httpID := idwrap.NewNow()
-	createReq := connect.NewRequest(&httpv1.HttpCreateRequest{
-		Items: []*httpv1.HttpCreate{
+	createReq := connect.NewRequest(&httpv1.HttpInsertRequest{
+		Items: []*httpv1.HttpInsert{
 			{
 				HttpId: httpID.Bytes(),
 				Name:   "api-created",
@@ -587,8 +586,8 @@ func TestHttpCreatePublishesEvent(t *testing.T) {
 			},
 		},
 	})
-	if _, err := f.handler.HttpCreate(f.ctx, createReq); err != nil {
-		t.Fatalf("HttpCreate err: %v", err)
+	if _, err := f.handler.HttpInsert(f.ctx, createReq); err != nil {
+		t.Fatalf("HttpInsert err: %v", err)
 	}
 
 	items := collectHttpSyncItems(t, msgCh, 1)
@@ -596,10 +595,10 @@ func TestHttpCreatePublishesEvent(t *testing.T) {
 	if val == nil {
 		t.Fatal("create response missing value union")
 	}
-	if val.GetKind() != httpv1.HttpSync_ValueUnion_KIND_CREATE {
-		t.Fatalf("expected create kind, got %v", val.GetKind())
+	if val.GetKind() != httpv1.HttpSync_ValueUnion_KIND_INSERT {
+		t.Fatalf("expected insert kind, got %v", val.GetKind())
 	}
-	if got := val.GetCreate().GetName(); got != "api-created" {
+	if got := val.GetInsert().GetName(); got != "api-created" {
 		t.Fatalf("expected created name api-created, got %q", got)
 	}
 

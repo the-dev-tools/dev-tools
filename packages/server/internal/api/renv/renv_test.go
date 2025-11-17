@@ -164,8 +164,8 @@ func TestEnvironmentCreate(t *testing.T) {
 
 	f := newEnvFixture(t)
 	envID := idwrap.NewNow()
-	req := connect.NewRequest(&apiv1.EnvironmentCreateRequest{
-		Items: []*apiv1.EnvironmentCreate{
+	req := connect.NewRequest(&apiv1.EnvironmentInsertRequest{
+		Items: []*apiv1.EnvironmentInsert{
 			{
 				EnvironmentId: envID.Bytes(),
 				WorkspaceId:   f.workspaceID.Bytes(),
@@ -176,8 +176,8 @@ func TestEnvironmentCreate(t *testing.T) {
 		},
 	})
 
-	if _, err := f.handler.EnvironmentCreate(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentCreate err: %v", err)
+	if _, err := f.handler.EnvironmentInsert(f.ctx, req); err != nil {
+		t.Fatalf("EnvironmentInsert err: %v", err)
 	}
 
 	stored, err := f.envService.GetEnvironment(f.ctx, envID)
@@ -270,8 +270,8 @@ func TestEnvironmentVariableCreate(t *testing.T) {
 	f := newEnvFixture(t)
 	env := f.createEnv(t, 1)
 	varID := idwrap.NewNow()
-	req := connect.NewRequest(&apiv1.EnvironmentVariableCreateRequest{
-		Items: []*apiv1.EnvironmentVariableCreate{
+	req := connect.NewRequest(&apiv1.EnvironmentVariableInsertRequest{
+		Items: []*apiv1.EnvironmentVariableInsert{
 			{
 				EnvironmentVariableId: varID.Bytes(),
 				EnvironmentId:         env.ID.Bytes(),
@@ -284,8 +284,8 @@ func TestEnvironmentVariableCreate(t *testing.T) {
 		},
 	})
 
-	if _, err := f.handler.EnvironmentVariableCreate(f.ctx, req); err != nil {
-		t.Fatalf("EnvironmentVariableCreate err: %v", err)
+	if _, err := f.handler.EnvironmentVariableInsert(f.ctx, req); err != nil {
+		t.Fatalf("EnvironmentVariableInsert err: %v", err)
 	}
 
 	stored, err := f.varService.Get(f.ctx, varID)
@@ -391,10 +391,10 @@ func TestEnvironmentSyncStreamsSnapshotAndUpdates(t *testing.T) {
 		if val == nil {
 			t.Fatal("snapshot item missing value union")
 		}
-		if val.GetKind() != apiv1.EnvironmentSync_ValueUnion_KIND_CREATE {
-			t.Fatalf("expected create kind for snapshot, got %v", val.GetKind())
+		if val.GetKind() != apiv1.EnvironmentSync_ValueUnion_KIND_INSERT {
+			t.Fatalf("expected insert kind for snapshot, got %v", val.GetKind())
 		}
-		envID := string(val.GetCreate().GetEnvironmentId())
+		envID := string(val.GetInsert().GetEnvironmentId())
 		seen[envID] = true
 	}
 	if !seen[string(envA.ID.Bytes())] || !seen[string(envB.ID.Bytes())] {
@@ -462,10 +462,10 @@ func TestEnvironmentVariableSyncStreamsSnapshotAndUpdates(t *testing.T) {
 		if val == nil {
 			t.Fatal("snapshot variable missing value union")
 		}
-		if val.GetKind() != apiv1.EnvironmentVariableSync_ValueUnion_KIND_CREATE {
-			t.Fatalf("expected create kind for snapshot, got %v", val.GetKind())
+		if val.GetKind() != apiv1.EnvironmentVariableSync_ValueUnion_KIND_INSERT {
+			t.Fatalf("expected insert kind for snapshot, got %v", val.GetKind())
 		}
-		varSeen[string(val.GetCreate().GetEnvironmentVariableId())] = true
+		varSeen[string(val.GetInsert().GetEnvironmentVariableId())] = true
 	}
 	if len(varSeen) != 2 {
 		t.Fatalf("expected snapshot to contain 2 variables, got %d", len(varSeen))
@@ -544,7 +544,7 @@ func TestEnvironmentSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 	}
 
 	f.handler.envStream.Publish(EnvironmentTopic{WorkspaceID: otherWorkspaceID}, EnvironmentEvent{
-		Type:        eventTypeCreate,
+		Type:        "insert",
 		Environment: toAPIEnvironment(otherEnv),
 	})
 

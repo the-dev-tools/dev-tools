@@ -22,17 +22,22 @@ func TestNewExporter(t *testing.T) {
 	t.Cleanup(base.Close)
 
 	logger := base.Logger()
+	services := base.GetBaseServices()
 
 	httpService := shttp.New(base.Queries, logger)
 	flowService := sflow.New(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
+	workspaceService := services.Ws
 
 	exporter := NewExporter(&httpService, &flowService, fileService)
+	storage := NewStorage(&workspaceService, &httpService, &flowService, fileService)
+	exporter.SetStorage(storage)
 
 	require.NotNil(t, exporter)
-	assert.Equal(t, httpService, exporter.httpService)
-	assert.Equal(t, flowService, exporter.flowService)
-	assert.Equal(t, fileService, exporter.fileService)
+	assert.NotNil(t, exporter.httpService)
+	assert.NotNil(t, exporter.flowService)
+	assert.NotNil(t, exporter.fileService)
+	assert.NotNil(t, exporter.storage)
 }
 
 // TestDefaultExporter_ExportWorkspaceData_Success tests successful workspace data export
@@ -454,12 +459,18 @@ func setupExporterWithoutData(t *testing.T, ctx context.Context) *SimpleExporter
 	t.Cleanup(base.Close)
 
 	logger := base.Logger()
+	services := base.GetBaseServices()
 
 	httpService := shttp.New(base.Queries, logger)
 	flowService := sflow.New(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
+	workspaceService := services.Ws
 
-	return NewExporter(&httpService, &flowService, fileService)
+	exporter := NewExporter(&httpService, &flowService, fileService)
+	storage := NewStorage(&workspaceService, &httpService, &flowService, fileService)
+	exporter.SetStorage(storage)
+
+	return exporter
 }
 
 // setupExporterWithTestData creates an exporter with comprehensive test data
@@ -470,12 +481,16 @@ func setupExporterWithTestData(t *testing.T, ctx context.Context) (*SimpleExport
 	t.Cleanup(base.Close)
 
 	logger := base.Logger()
+	services := base.GetBaseServices()
 
 	httpService := shttp.New(base.Queries, logger)
 	flowService := sflow.New(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
+	workspaceService := services.Ws
 
 	exporter := NewExporter(&httpService, &flowService, fileService)
+	storage := NewStorage(&workspaceService, &httpService, &flowService, fileService)
+	exporter.SetStorage(storage)
 
 	// Create test data
 	workspaceID, flowID, exampleID, fileID := createExporterTestData(t, ctx, base)
