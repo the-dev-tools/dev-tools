@@ -5,7 +5,16 @@ import (
 	"errors"
 	"the-dev-tools/server/pkg/idwrap"
 	orank "the-dev-tools/server/pkg/overlay/rank"
-	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+)
+
+// SourceKind represents the source of a merged value.
+// TODO: Replace with actual protobuf type when available
+type SourceKind int32
+
+const (
+	SourceKind_SOURCE_KIND_ORIGIN SourceKind = 0
+	SourceKind_SOURCE_KIND_DELTA  SourceKind = 1
+	SourceKind_SOURCE_KIND_MIXED  SourceKind = 2
 )
 
 // Values represents the user-facing fields common across families.
@@ -21,7 +30,7 @@ type Merged struct {
 	ID     idwrap.IDWrap
 	Values Values
 	Origin *Values
-	Source deltav1.SourceKind
+	Source SourceKind
 }
 
 // OrderStore provides operations on the overlay order table.
@@ -173,7 +182,7 @@ func List[O any](ctx context.Context,
 				mixed = true
 			}
 			if !mixed {
-				m := Merged{ID: r.RefID, Values: orig, Origin: &orig, Source: deltav1.SourceKind_SOURCE_KIND_ORIGIN}
+				m := Merged{ID: r.RefID, Values: orig, Origin: &orig, Source: SourceKind_SOURCE_KIND_ORIGIN}
 				out = append(out, build(m))
 				continue
 			}
@@ -191,7 +200,7 @@ func List[O any](ctx context.Context,
 			if st.Enabled != nil {
 				merged.Enabled = *st.Enabled
 			}
-			src := deltav1.SourceKind_SOURCE_KIND_MIXED
+			src := SourceKind_SOURCE_KIND_MIXED
 			m := Merged{ID: r.RefID, Values: merged, Origin: &orig, Source: src}
 			out = append(out, build(m))
 		case RefKindDelta:
@@ -202,7 +211,7 @@ func List[O any](ctx context.Context,
 			if !found {
 				continue
 			}
-			m := Merged{ID: r.RefID, Values: Values{Key: k, Value: v, Description: d, Enabled: en}, Origin: nil, Source: deltav1.SourceKind_SOURCE_KIND_DELTA}
+			m := Merged{ID: r.RefID, Values: Values{Key: k, Value: v, Description: d, Enabled: en}, Origin: nil, Source: SourceKind_SOURCE_KIND_DELTA}
 			out = append(out, build(m))
 		}
 	}

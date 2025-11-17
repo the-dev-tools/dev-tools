@@ -10,9 +10,30 @@ import (
 	orank "the-dev-tools/server/pkg/overlay/rank"
 	"the-dev-tools/server/pkg/service/sbodyurl"
 	soverlayurlenc "the-dev-tools/server/pkg/service/soverlayurlenc"
-	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
-	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
+
+// SourceKind represents the source of a merged value.
+// TODO: Replace with actual protobuf type when available
+type SourceKind int32
+
+const (
+	SourceKind_SOURCE_KIND_ORIGIN SourceKind = 0
+	SourceKind_SOURCE_KIND_DELTA  SourceKind = 1
+	SourceKind_SOURCE_KIND_MIXED  SourceKind = 2
+)
+
+// BodyUrlEncodedDeltaListItem represents a list item for URL encoded body delta.
+// TODO: Replace with actual protobuf type when available
+type BodyUrlEncodedDeltaListItem struct {
+	BodyId      []byte                     `json:"body_id,omitempty"`
+	Key         string                     `json:"key,omitempty"`
+	Value       string                     `json:"value,omitempty"`
+	Description string                     `json:"description,omitempty"`
+	Enabled     bool                       `json:"enabled,omitempty"`
+	Origin      *httpv1.HttpBodyUrlEncoded `json:"origin,omitempty"`
+	Source      *SourceKind                `json:"source,omitempty"`
+}
 
 // RefKind for delta overlay order rows
 const (
@@ -102,7 +123,7 @@ func (s *Service) nextRevision(ctx context.Context, exampleID idwrap.IDWrap) (in
 }
 
 // List merges overlay order, state, and delta.
-func (s *Service) List(ctx context.Context, deltaExampleID, originExampleID idwrap.IDWrap) ([]*bodyv1.BodyUrlEncodedDeltaListItem, error) {
+func (s *Service) List(ctx context.Context, deltaExampleID, originExampleID idwrap.IDWrap) ([]*BodyUrlEncodedDeltaListItem, error) {
 	// ensure seeded at least once
 	if err := s.EnsureSeeded(ctx, deltaExampleID, originExampleID); err != nil {
 		return nil, err
@@ -158,7 +179,7 @@ func (s *Service) List(ctx context.Context, deltaExampleID, originExampleID idwr
 		return def
 	}
 
-	out := make([]*bodyv1.BodyUrlEncodedDeltaListItem, 0, len(ord))
+	out := make([]*BodyUrlEncodedDeltaListItem, 0, len(ord))
 	for _, o := range ord {
 		switch o.RefKind {
 		case refKindOrigin:
@@ -176,21 +197,21 @@ func (s *Service) List(ctx context.Context, deltaExampleID, originExampleID idwr
 			// Determine source kind: MIXED if any override present
 			var mixed bool
 			mixed = st.Key.Valid || st.Val.Valid || st.Desc.Valid || st.Enabled.Valid
-			kind := deltav1.SourceKind_SOURCE_KIND_ORIGIN
+			kind := SourceKind_SOURCE_KIND_ORIGIN
 			key := orig.BodyKey
 			val := orig.Value
 			desc := orig.Description
 			en := orig.Enable
 			if mixed {
-				kind = deltav1.SourceKind_SOURCE_KIND_MIXED
+				kind = SourceKind_SOURCE_KIND_MIXED
 				key = coalesce(st.Key, key)
 				val = coalesce(st.Val, val)
 				desc = coalesce(st.Desc, desc)
 				en = coalesceB(st.Enabled, en)
 			}
 			// embed origin RPC
-			originRPC := &bodyv1.BodyUrlEncoded{BodyId: orig.ID.Bytes(), Key: orig.BodyKey, Enabled: orig.Enable, Value: orig.Value, Description: orig.Description}
-			out = append(out, &bodyv1.BodyUrlEncodedDeltaListItem{
+			originRPC := &httpv1.HttpBodyUrlEncoded{HttpBodyUrlEncodedId: orig.ID.Bytes(), Key: orig.BodyKey, Enabled: orig.Enable, Value: orig.Value, Description: orig.Description}
+			out = append(out, &BodyUrlEncodedDeltaListItem{
 				BodyId: o.RefID.Bytes(),
 				Key:    key, Enabled: en, Value: val, Description: desc,
 				Origin: originRPC, Source: &kind,
@@ -207,8 +228,8 @@ func (s *Service) List(ctx context.Context, deltaExampleID, originExampleID idwr
 			if !found {
 				continue
 			}
-			kind := deltav1.SourceKind_SOURCE_KIND_DELTA
-			out = append(out, &bodyv1.BodyUrlEncodedDeltaListItem{
+			kind := SourceKind_SOURCE_KIND_DELTA
+			out = append(out, &BodyUrlEncodedDeltaListItem{
 				BodyId: o.RefID.Bytes(),
 				Key:    key, Enabled: en, Value: val, Description: desc,
 				Origin: nil, Source: &kind,
@@ -409,14 +430,14 @@ func boolPtrOrNil(p *bool) interface{} {
 }
 
 // ByKeySort sorts list items by key, stable (used in tests if needed)
-type byKey []*bodyv1.BodyUrlEncodedDeltaListItem
+type byKey []*BodyUrlEncodedDeltaListItem
 
 func (s byKey) Len() int           { return len(s) }
 func (s byKey) Less(i, j int) bool { return s[i].Key < s[j].Key }
 func (s byKey) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // SortByKey is a helper to make output deterministic in some scenarios
-func SortByKey(items []*bodyv1.BodyUrlEncodedDeltaListItem) {
+func SortByKey(items []*BodyUrlEncodedDeltaListItem) {
 	sort.Sort(byKey(items))
 }
 

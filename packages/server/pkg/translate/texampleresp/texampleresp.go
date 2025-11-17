@@ -4,7 +4,7 @@ import (
 	"errors"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/zstdcompress"
-	responsev1 "the-dev-tools/spec/dist/buf/go/collection/item/response/v1"
+	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -21,7 +21,7 @@ func SeralizeHeaderModelToRPC(h mexamplerespheader.ExampleRespHeader) *itemapiex
 
 var ErrDecompress error = errors.New("failed to decompress body")
 
-func SeralizeModelToRPC(e mexampleresp.ExampleResp) (*responsev1.Response, error) {
+func SeralizeModelToRPC(e mexampleresp.ExampleResp) (*httpv1.HttpResponse, error) {
 	body := e.Body
 	if e.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
 		var err error
@@ -31,7 +31,7 @@ func SeralizeModelToRPC(e mexampleresp.ExampleResp) (*responsev1.Response, error
 		}
 	}
 
-	return &responsev1.Response{
+	return &httpv1.HttpResponse{
 		ResponseId: e.ID.Bytes(),
 		Status:     int32(e.Status),
 		Body:       body,
@@ -40,7 +40,18 @@ func SeralizeModelToRPC(e mexampleresp.ExampleResp) (*responsev1.Response, error
 	}, nil
 }
 
-func SeralizeModelToRPCGetResponse(e mexampleresp.ExampleResp) (*responsev1.ResponseGetResponse, error) {
+// ResponseGetResponse represents a response with additional metadata.
+// TODO: Replace with actual protobuf type when available
+type ResponseGetResponse struct {
+	ResponseId []byte                 `protobuf:"bytes,1,opt,name=response_id,json=responseId,proto3" json:"response_id,omitempty"`
+	Status     int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	Body       []byte                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	Time       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=time,proto3" json:"time,omitempty"`
+	Duration   int64                  `protobuf:"varint,5,opt,name=duration,proto3" json:"duration,omitempty"`
+	Size       int32                  `protobuf:"varint,6,opt,name=size,proto3" json:"size,omitempty"`
+}
+
+func SeralizeModelToRPCGetResponse(e mexampleresp.ExampleResp) (*ResponseGetResponse, error) {
 	body := e.Body
 	if e.BodyCompressType == mexampleresp.BodyCompressTypeZstd {
 		var err error
@@ -50,7 +61,7 @@ func SeralizeModelToRPCGetResponse(e mexampleresp.ExampleResp) (*responsev1.Resp
 		}
 	}
 
-	return &responsev1.ResponseGetResponse{
+	return &ResponseGetResponse{
 		ResponseId: e.ID.Bytes(),
 		Status:     int32(e.Status),
 		Body:       body,

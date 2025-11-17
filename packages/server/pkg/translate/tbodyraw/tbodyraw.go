@@ -4,12 +4,14 @@ package tbodyraw
 
 import (
 	"context"
+	"fmt"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
-	"the-dev-tools/server/pkg/translate/tbodyform"
+	// TODO: tbodyform package removed - functionality disabled
+// "the-dev-tools/server/pkg/translate/tbodyform"
 	"the-dev-tools/server/pkg/translate/tbodyurl"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 	"the-dev-tools/server/pkg/zstdcompress"
@@ -50,13 +52,15 @@ func SerializeModelToRPC(ctx context.Context, ex mitemapiexample.ItemApiExample,
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-		body = &bodyv1.Body{
-			Value: &bodyv1.Body_Forms{
-				Forms: &bodyv1.BodyFormArray{
-					Items: tgeneric.MassConvert(forms, tbodyform.SerializeFormModelToRPC),
-				},
-			},
-		}
+		// TODO: tbodyform package removed - forms functionality disabled
+		// body = &bodyv1.Body{
+		//	Value: &bodyv1.Body_Forms{
+		//		Forms: &bodyv1.BodyFormArray{
+		//			Items: tgeneric.MassConvert(forms, tbodyform.SerializeFormModelToRPC),
+		//		},
+		//	},
+		// }
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("forms processing disabled - tbodyform package removed"))
 	case mitemapiexample.BodyTypeUrlencoded:
 		urls, err := bues.GetBodyURLEncodedByExampleID(ctx, ex.ID)
 		if err != nil {

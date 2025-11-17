@@ -1,5 +1,6 @@
 using DevTools;
 
+@DevTools.project
 namespace API.Collection.Item.Body;
 
 enum BodyKind {

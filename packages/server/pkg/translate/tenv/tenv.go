@@ -3,7 +3,7 @@ package tenv
 import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
-	environmentv1 "the-dev-tools/spec/dist/buf/go/environment/v1"
+	environmentv1 "the-dev-tools/spec/dist/buf/go/api/environment/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

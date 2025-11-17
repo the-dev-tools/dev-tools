@@ -335,7 +335,7 @@ func CreateService(srv HttpServiceRPC, options []connect.HandlerOption) (*api.Se
 // toAPIHttp converts model HTTP to API HTTP
 func toAPIHttp(http mhttp.HTTP) *apiv1.Http {
 	apiHttp := &apiv1.Http{
-		HttpId:   http.ID.Bytes(),
+		// HttpId:   http.ID.Bytes(),
 		Name:     http.Name,
 		Url:      http.Url,
 		Method:   toAPIHttpMethod(http.Method),
@@ -378,7 +378,7 @@ func toAPIHttpMethod(method string) apiv1.HttpMethod {
 func toAPIHttpHeader(header mhttpheader.HttpHeader) *apiv1.HttpHeader {
 	return &apiv1.HttpHeader{
 		HttpHeaderId: header.ID.Bytes(),
-		HttpId:       header.HttpID.Bytes(),
+		// HttpId:       header.HttpID.Bytes(),
 		Key:          header.Key,
 		Value:        header.Value,
 		Enabled:      header.Enabled,
@@ -391,7 +391,7 @@ func toAPIHttpHeader(header mhttpheader.HttpHeader) *apiv1.HttpHeader {
 func toAPIHttpSearchParam(param mhttpsearchparam.HttpSearchParam) *apiv1.HttpSearchParam {
 	return &apiv1.HttpSearchParam{
 		HttpSearchParamId: param.ID.Bytes(),
-		HttpId:            param.HttpID.Bytes(),
+		// HttpId:            param.HttpID.Bytes(),
 		Key:               param.Key,
 		Value:             param.Value,
 		Enabled:           param.Enabled,
@@ -404,7 +404,7 @@ func toAPIHttpSearchParam(param mhttpsearchparam.HttpSearchParam) *apiv1.HttpSea
 func toAPIHttpBodyFormData(form mhttpbodyform.HttpBodyForm) *apiv1.HttpBodyFormData {
 	return &apiv1.HttpBodyFormData{
 		HttpBodyFormDataId: form.ID.Bytes(),
-		HttpId:             form.HttpID.Bytes(),
+		// HttpId:             form.HttpID.Bytes(),
 		Key:                form.Key,
 		Value:              form.Value,
 		Enabled:            form.Enabled,
@@ -416,7 +416,7 @@ func toAPIHttpBodyFormData(form mhttpbodyform.HttpBodyForm) *apiv1.HttpBodyFormD
 func toAPIHttpBodyUrlEncoded(urlEncoded mhttpbodyurlencoded.HttpBodyUrlEncoded) *apiv1.HttpBodyUrlEncoded {
 	return &apiv1.HttpBodyUrlEncoded{
 		HttpBodyUrlEncodedId: urlEncoded.ID.Bytes(),
-		HttpId:               urlEncoded.HttpID.Bytes(),
+		// HttpId:               urlEncoded.HttpID.Bytes(),
 		Key:                  urlEncoded.Key,
 		Value:                urlEncoded.Value,
 		Enabled:              urlEncoded.Enabled,
@@ -428,7 +428,7 @@ func toAPIHttpBodyUrlEncoded(urlEncoded mhttpbodyurlencoded.HttpBodyUrlEncoded) 
 func toAPIHttpAssert(assert mhttpassert.HttpAssert) *apiv1.HttpAssert {
 	return &apiv1.HttpAssert{
 		HttpAssertId: assert.ID.Bytes(),
-		HttpId:       assert.HttpID.Bytes(),
+		// HttpId:       assert.HttpID.Bytes(),
 		Value:        assert.Value,
 	}
 }
@@ -437,7 +437,7 @@ func toAPIHttpAssert(assert mhttpassert.HttpAssert) *apiv1.HttpAssert {
 func toAPIHttpVersion(version dbmodels.HttpVersion) *apiv1.HttpVersion {
 	return &apiv1.HttpVersion{
 		HttpVersionId: version.ID.Bytes(),
-		HttpId:        version.HttpID.Bytes(),
+		// HttpId:        version.HttpID.Bytes(),
 	}
 }
 
@@ -445,9 +445,9 @@ func toAPIHttpVersion(version dbmodels.HttpVersion) *apiv1.HttpVersion {
 func toAPIHttpResponse(response dbmodels.HttpResponse) *apiv1.HttpResponse {
 	return &apiv1.HttpResponse{
 		HttpResponseId: response.ID.Bytes(),
-		HttpId:         response.HttpID.Bytes(),
+		// HttpId:         response.HttpID.Bytes(),
 		Status:         int32(response.Status.(int32)),
-		Body:           response.Body,
+		Body:           string(response.Body),
 		Time:           timestamppb.New(response.Time),
 		Duration:       int32(response.Duration.(int32)),
 		Size:           int32(response.Size.(int32)),
@@ -458,7 +458,7 @@ func toAPIHttpResponse(response dbmodels.HttpResponse) *apiv1.HttpResponse {
 func toAPIHttpResponseHeader(header dbmodels.HttpResponseHeader) *apiv1.HttpResponseHeader {
 	return &apiv1.HttpResponseHeader{
 		HttpResponseHeaderId: header.ID.Bytes(),
-		HttpId:               header.HttpID,
+		// HttpId:               header.HttpID,
 		Key:                  header.Key,
 		Value:                header.Value,
 	}
@@ -468,7 +468,7 @@ func toAPIHttpResponseHeader(header dbmodels.HttpResponseHeader) *apiv1.HttpResp
 func toAPIHttpResponseAssert(assert dbmodels.HttpResponseAssert) *apiv1.HttpResponseAssert {
 	return &apiv1.HttpResponseAssert{
 		HttpResponseAssertId: assert.ID,
-		HttpId:               assert.HttpID,
+		// HttpId:               assert.HttpID,
 		Value:                assert.Value,
 		Success:              assert.Success,
 	}
@@ -477,7 +477,7 @@ func toAPIHttpResponseAssert(assert dbmodels.HttpResponseAssert) *apiv1.HttpResp
 // toAPIHttpBodyRaw converts DB HttpBodyRaw to API HttpBodyRaw
 func toAPIHttpBodyRaw(httpID []byte, data string) *apiv1.HttpBodyRaw {
 	return &apiv1.HttpBodyRaw{
-		HttpId: httpID,
+		// HttpId: httpID,
 		Data:   data,
 	}
 }
@@ -527,7 +527,7 @@ func (h *HttpServiceRPC) publishDeleteEvent(httpID, workspaceID idwrap.IDWrap) {
 	h.stream.Publish(HttpTopic{WorkspaceID: workspaceID}, HttpEvent{
 		Type: eventTypeDelete,
 		Http: &apiv1.Http{
-			HttpId: httpID.Bytes(),
+			// HttpId: httpID.Bytes(),
 		},
 	})
 }
@@ -614,7 +614,7 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 		value = &apiv1.HttpSync_ValueUnion{
 			Kind: apiv1.HttpSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpSyncInsert{
-				HttpId:   event.Http.GetHttpId(),
+				// HttpId:   event.Http.GetHttpResponseId(),
 				Name:     name,
 				Method:   method,
 				Url:      url,
@@ -629,7 +629,7 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 		value = &apiv1.HttpSync_ValueUnion{
 			Kind: apiv1.HttpSync_ValueUnion_KIND_UPDATE,
 			Update: &apiv1.HttpSyncUpdate{
-				HttpId:   event.Http.GetHttpId(),
+				// HttpId:   event.Http.GetHttpResponseId(),
 				Name:     &name,
 				Method:   &method,
 				Url:      &url,
@@ -640,7 +640,7 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 		value = &apiv1.HttpSync_ValueUnion{
 			Kind: apiv1.HttpSync_ValueUnion_KIND_DELETE,
 			Delete: &apiv1.HttpSyncDelete{
-				HttpId: event.Http.GetHttpId(),
+				// HttpId: event.Http.GetHttpResponseId(),
 			},
 		}
 	}
@@ -669,7 +669,7 @@ func httpHeaderSyncResponseFrom(event HttpHeaderEvent) *apiv1.HttpHeaderSyncResp
 			Kind: apiv1.HttpHeaderSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpHeaderSyncInsert{
 				HttpHeaderId: event.HttpHeader.GetHttpHeaderId(),
-				HttpId:       event.HttpHeader.GetHttpId(),
+				// HttpId:       event.HttpHeader.GetHttpResponseId(),
 				Key:          key,
 				Value:        value_,
 				Enabled:      enabled,
@@ -727,7 +727,7 @@ func httpSearchParamSyncResponseFrom(event HttpSearchParamEvent) *apiv1.HttpSear
 			Kind: apiv1.HttpSearchParamSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpSearchParamSyncInsert{
 				HttpSearchParamId: event.HttpSearchParam.GetHttpSearchParamId(),
-				HttpId:            event.HttpSearchParam.GetHttpId(),
+				// HttpId:            event.HttpSearchParam.GetHttpResponseId(),
 				Key:               key,
 				Value:             value_,
 				Enabled:           enabled,
@@ -781,7 +781,7 @@ func httpAssertSyncResponseFrom(event HttpAssertEvent) *apiv1.HttpAssertSyncResp
 			Kind: apiv1.HttpAssertSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpAssertSyncInsert{
 				HttpAssertId: event.HttpAssert.GetHttpAssertId(),
-				HttpId:       event.HttpAssert.GetHttpId(),
+				// HttpId:       event.HttpAssert.GetHttpResponseId(),
 				Value:        value_,
 			},
 		}
@@ -822,7 +822,7 @@ func httpVersionSyncResponseFrom(event HttpVersionEvent) *apiv1.HttpVersionSyncR
 			Kind: apiv1.HttpVersionSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpVersionSyncInsert{
 				HttpVersionId: event.HttpVersion.GetHttpVersionId(),
-				HttpId:        event.HttpVersion.GetHttpId(),
+				// HttpId:        event.HttpVersion.GetHttpResponseId(),
 			},
 		}
 	case eventTypeUpdate:
@@ -865,7 +865,7 @@ func httpResponseSyncResponseFrom(event HttpResponseEvent) *apiv1.HttpResponseSy
 			Kind: apiv1.HttpResponseSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpResponseSyncInsert{
 				HttpResponseId: event.HttpResponse.GetHttpResponseId(),
-				HttpId:         event.HttpResponse.GetHttpId(),
+				// HttpId:         event.HttpResponse.GetHttpResponseId(),
 				Status:         status,
 				Body:           body,
 				Time:           time,
@@ -884,7 +884,7 @@ func httpResponseSyncResponseFrom(event HttpResponseEvent) *apiv1.HttpResponseSy
 			Update: &apiv1.HttpResponseSyncUpdate{
 				HttpResponseId: event.HttpResponse.GetHttpResponseId(),
 				Status:         &status,
-				Body:           body,
+				Body:           &body,
 				Time:           time,
 				Duration:       &duration,
 				Size:           &size,
@@ -920,7 +920,7 @@ func httpResponseHeaderSyncResponseFrom(event HttpResponseHeaderEvent) *apiv1.Ht
 			Kind: apiv1.HttpResponseHeaderSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpResponseHeaderSyncInsert{
 				HttpResponseHeaderId: event.HttpResponseHeader.GetHttpResponseHeaderId(),
-				HttpId:               event.HttpResponseHeader.GetHttpId(),
+				// HttpId:               event.HttpResponseHeader.GetHttpResponseId(),
 				Key:                  key,
 				Value:                value_,
 			},
@@ -966,7 +966,7 @@ func httpResponseAssertSyncResponseFrom(event HttpResponseAssertEvent) *apiv1.Ht
 			Kind: apiv1.HttpResponseAssertSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpResponseAssertSyncInsert{
 				HttpResponseAssertId: event.HttpResponseAssert.GetHttpResponseAssertId(),
-				HttpId:               event.HttpResponseAssert.GetHttpId(),
+				// HttpId:               event.HttpResponseAssert.GetHttpResponseId(),
 				Value:                value_,
 				Success:              success,
 			},
@@ -1010,7 +1010,7 @@ func httpBodyRawSyncResponseFrom(event HttpBodyRawEvent) *apiv1.HttpBodyRawSyncR
 		value = &apiv1.HttpBodyRawSync_ValueUnion{
 			Kind: apiv1.HttpBodyRawSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpBodyRawSyncInsert{
-				HttpId: event.HttpBodyRaw.GetHttpId(),
+				// HttpId: event.HttpBodyRaw.GetHttpResponseId(),
 				Data:   data,
 			},
 		}
@@ -1019,7 +1019,7 @@ func httpBodyRawSyncResponseFrom(event HttpBodyRawEvent) *apiv1.HttpBodyRawSyncR
 		value = &apiv1.HttpBodyRawSync_ValueUnion{
 			Kind: apiv1.HttpBodyRawSync_ValueUnion_KIND_UPDATE,
 			Update: &apiv1.HttpBodyRawSyncUpdate{
-				HttpId: event.HttpBodyRaw.GetHttpId(),
+				// HttpId: event.HttpBodyRaw.GetHttpResponseId(),
 				Data:   &data,
 			},
 		}
@@ -1027,7 +1027,7 @@ func httpBodyRawSyncResponseFrom(event HttpBodyRawEvent) *apiv1.HttpBodyRawSyncR
 		value = &apiv1.HttpBodyRawSync_ValueUnion{
 			Kind: apiv1.HttpBodyRawSync_ValueUnion_KIND_DELETE,
 			Delete: &apiv1.HttpBodyRawSyncDelete{
-				HttpId: event.HttpBodyRaw.GetHttpId(),
+				// HttpId: event.HttpBodyRaw.GetHttpResponseId(),
 			},
 		}
 	}
@@ -1878,7 +1878,7 @@ func (h *HttpServiceRPC) HttpDeltaCollection(ctx context.Context, req *connect.R
 		// Convert to delta format
 		for _, http := range httpList {
 			delta := &apiv1.HttpDelta{
-				HttpId: http.ID.Bytes(),
+				// HttpId: http.ID.Bytes(),
 			}
 
 			// Only include delta fields if they exist
@@ -3058,7 +3058,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req
 				delta := &apiv1.HttpSearchParamDelta{
 					DeltaHttpSearchParamId: param.ID.Bytes(),
 					HttpSearchParamId:      param.ID.Bytes(),
-					HttpId:                 param.HttpID.Bytes(),
+					// HttpId:                 param.HttpID.Bytes(),
 				}
 
 				// Only include delta fields if they exist
@@ -3665,7 +3665,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaCollection(ctx context.Context, req *con
 				delta := &apiv1.HttpAssertDelta{
 					DeltaHttpAssertId: assert.ID.Bytes(),
 					HttpAssertId:      assert.ID.Bytes(),
-					HttpId:            assert.HttpID.Bytes(),
+					// HttpId:            assert.HttpID.Bytes(),
 				}
 
 				// Only include delta fields if they exist
@@ -4668,7 +4668,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaCollection(ctx context.Context, req *con
 				delta := &apiv1.HttpHeaderDelta{
 					DeltaHttpHeaderId: header.ID.Bytes(),
 					HttpHeaderId:      header.ID.Bytes(),
-					HttpId:            header.HttpID.Bytes(),
+					// HttpId:            header.HttpID.Bytes(),
 				}
 
 				// Only include delta fields if they exist
@@ -5267,7 +5267,7 @@ func httpBodyFormDataSyncResponseFrom(event HttpBodyFormEvent) *apiv1.HttpBodyFo
 			Kind: apiv1.HttpBodyFormDataSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpBodyFormDataSyncInsert{
 				HttpBodyFormDataId: event.HttpBodyForm.GetHttpBodyFormDataId(),
-				HttpId:             event.HttpBodyForm.GetHttpId(),
+				// HttpId:             event.HttpBodyForm.GetHttpResponseId(),
 				Key:                key,
 				Value:              value_,
 				Enabled:            enabled,
@@ -5747,7 +5747,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaCollection(ctx context.Context, re
 				delta := &apiv1.HttpBodyFormDataDelta{
 					DeltaHttpBodyFormDataId: bodyForm.ID.Bytes(),
 					HttpBodyFormDataId:      bodyForm.ID.Bytes(),
-					HttpId:                  bodyForm.HttpID.Bytes(),
+					// HttpId:                  bodyForm.HttpID.Bytes(),
 				}
 
 				// Only include delta fields if they exist
@@ -6156,7 +6156,7 @@ func httpBodyUrlEncodedSyncResponseFrom(event HttpBodyUrlEncodedEvent) *apiv1.Ht
 			Kind: apiv1.HttpBodyUrlEncodedSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpBodyUrlEncodedSyncInsert{
 				HttpBodyUrlEncodedId: event.HttpBodyUrlEncoded.GetHttpBodyUrlEncodedId(),
-				HttpId:               event.HttpBodyUrlEncoded.GetHttpId(),
+				// HttpId:               event.HttpBodyUrlEncoded.GetHttpResponseId(),
 				Key:                  key,
 				Value:                value_,
 				Enabled:              enabled,
@@ -6824,7 +6824,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCollection(ctx context.Context, 
 				delta := &apiv1.HttpBodyUrlEncodedDelta{
 					DeltaHttpBodyUrlEncodedId: bodyUrlEncoded.ID.Bytes(),
 					HttpBodyUrlEncodedId:      bodyUrlEncoded.ID.Bytes(),
-					HttpId:                    bodyUrlEncoded.HttpID.Bytes(),
+					// HttpId:                    bodyUrlEncoded.HttpID.Bytes(),
 				}
 
 				// Only include delta fields if they exist
@@ -6946,7 +6946,7 @@ func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect
 
 			if body != nil {
 				bodyRaw := &apiv1.HttpBodyRaw{
-					HttpId: http.ID.Bytes(),
+					// HttpId: http.ID.Bytes(),
 					Data:   string(body.RawData), // Convert []byte to string
 				}
 				allBodies = append(allBodies, bodyRaw)

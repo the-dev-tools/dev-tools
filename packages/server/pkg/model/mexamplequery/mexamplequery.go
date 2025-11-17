@@ -2,7 +2,7 @@ package mexamplequery
 
 import (
 	"the-dev-tools/server/pkg/idwrap"
-	// deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1" // Temporarily commented out
+	// deltav1 "the-dev-tools/spec/dist/buf/go/api/delta/v1" // Temporarily commented out
 )
 
 // QuerySource represents the source kind of query for delta operations

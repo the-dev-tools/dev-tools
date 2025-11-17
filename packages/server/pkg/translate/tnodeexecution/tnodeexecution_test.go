@@ -6,7 +6,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
-	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
+	nodev1 "the-dev-tools/spec/dist/buf/go/api/flow/node/v1"
 )
 
 func TestModelNodeStateToProtoSuccess(t *testing.T) {

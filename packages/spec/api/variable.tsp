@@ -1,5 +1,6 @@
 using DevTools;
 
+@DevTools.project
 namespace API.Variable;
 
 @DataClient.entity

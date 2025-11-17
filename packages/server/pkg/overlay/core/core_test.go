@@ -6,7 +6,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	core "the-dev-tools/server/pkg/overlay/core"
 	orank "the-dev-tools/server/pkg/overlay/rank"
-	deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1"
+	deltav1 "the-dev-tools/spec/dist/buf/go/api/delta/v1"
 )
 
 // In-memory stores implementing the core interfaces for tests

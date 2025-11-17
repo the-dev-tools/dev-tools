@@ -4,7 +4,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mworkspace"
-	workspacev1 "the-dev-tools/spec/dist/buf/go/workspace/v1"
+	workspacev1 "the-dev-tools/spec/dist/buf/go/api/workspace/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

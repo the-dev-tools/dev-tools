@@ -1,6 +1,7 @@
 using DevTools;
 using TypeSpec.Reflection;
 
+@DevTools.project
 namespace API.Delta {
   enum SourceKind {
     Origin,

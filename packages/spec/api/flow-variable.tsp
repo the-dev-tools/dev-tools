@@ -1,5 +1,6 @@
 using DevTools;
 
+@DevTools.project
 namespace API.FlowVariable;
 
 @DataClient.entity

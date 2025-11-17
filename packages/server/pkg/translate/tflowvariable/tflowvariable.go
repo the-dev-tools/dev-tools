@@ -3,12 +3,12 @@ package tflowvariable
 import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflowvariable"
-	flow_variablev1 "the-dev-tools/spec/dist/buf/go/flow_variable/v1"
+	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
 // ModelToRPC converts a FlowVariable model to its RPC representation
-func ModelToRPC(v mflowvariable.FlowVariable) *flow_variablev1.FlowVariable {
-	return &flow_variablev1.FlowVariable{
+func ModelToRPC(v mflowvariable.FlowVariable) *flowv1.FlowVariable {
+	return &flowv1.FlowVariable{
 		VariableId:  v.ID.Bytes(),
 		Name:        v.Name,
 		Value:       v.Value,
@@ -18,8 +18,8 @@ func ModelToRPC(v mflowvariable.FlowVariable) *flow_variablev1.FlowVariable {
 }
 
 // ModelToRPCListItem converts a FlowVariable model to a list item representation for RPC
-func ModelToRPCListItem(v mflowvariable.FlowVariable) *flow_variablev1.FlowVariableListItem {
-	return &flow_variablev1.FlowVariableListItem{
+func ModelToRPCListItem(v mflowvariable.FlowVariable) *flowv1.FlowVariableListItem {
+	return &flowv1.FlowVariableListItem{
 		VariableId:  v.ID.Bytes(),
 		Name:        v.Name,
 		Value:       v.Value,
@@ -29,7 +29,7 @@ func ModelToRPCListItem(v mflowvariable.FlowVariable) *flow_variablev1.FlowVaria
 }
 
 // RPCToModel converts an RPC FlowVariable to its model representation
-func RPCToModel(v *flow_variablev1.FlowVariable) (mflowvariable.FlowVariable, error) {
+func RPCToModel(v *flowv1.FlowVariable) (mflowvariable.FlowVariable, error) {
 	id, err := idwrap.NewFromBytes(v.VariableId)
 	if err != nil {
 		return mflowvariable.FlowVariable{}, err
@@ -45,7 +45,7 @@ func RPCToModel(v *flow_variablev1.FlowVariable) (mflowvariable.FlowVariable, er
 }
 
 // RPCToModelWithID creates a model with provided IDs from RPC representation
-func RPCToModelWithID(variableID, flowID idwrap.IDWrap, v *flow_variablev1.FlowVariable) mflowvariable.FlowVariable {
+func RPCToModelWithID(variableID, flowID idwrap.IDWrap, v *flowv1.FlowVariable) mflowvariable.FlowVariable {
 	return mflowvariable.FlowVariable{
 		ID:          variableID,
 		FlowID:      flowID,

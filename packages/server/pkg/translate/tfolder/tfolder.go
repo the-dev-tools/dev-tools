@@ -4,10 +4,49 @@ import (
 	"errors"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mitemfolder"
-	folderv1 "the-dev-tools/spec/dist/buf/go/collection/item/folder/v1"
 )
 
-func SeralizeRPCToModel(item *folderv1.Folder, collectionID idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
+// Folder represents a folder with parent relationship.
+// TODO: Replace with actual protobuf type when available
+type Folder struct {
+	FolderId       []byte `protobuf:"bytes,1,opt,name=folder_id,json=folderId,proto3" json:"folder_id,omitempty"`
+	ParentFolderId []byte `protobuf:"bytes,2,opt,name=parent_folder_id,json=parentFolderId,proto3" json:"parent_folder_id,omitempty"`
+	Name           string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+}
+
+// FolderListItem represents a folder in a list.
+// TODO: Replace with actual protobuf type when available
+type FolderListItem struct {
+	FolderId       []byte `protobuf:"bytes,1,opt,name=folder_id,json=folderId,proto3" json:"folder_id,omitempty"`
+	ParentFolderId []byte `protobuf:"bytes,2,opt,name=parent_folder_id,json=parentFolderId,proto3" json:"parent_folder_id,omitempty"`
+	Name           string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+}
+
+// GetFolderId returns the folder ID
+func (f *Folder) GetFolderId() []byte {
+	if f != nil {
+		return f.FolderId
+	}
+	return nil
+}
+
+// GetParentFolderId returns the parent folder ID
+func (f *Folder) GetParentFolderId() []byte {
+	if f != nil {
+		return f.ParentFolderId
+	}
+	return nil
+}
+
+// GetName returns the folder name
+func (f *Folder) GetName() string {
+	if f != nil {
+		return f.Name
+	}
+	return ""
+}
+
+func SeralizeRPCToModel(item *Folder, collectionID idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
 	modelItem, err := SeralizeRPCToModelWithoutID(item, collectionID)
 	if err != nil {
 		return nil, err
@@ -20,7 +59,7 @@ func SeralizeRPCToModel(item *folderv1.Folder, collectionID idwrap.IDWrap) (*mit
 	return modelItem, nil
 }
 
-func SeralizeRPCToModelWithoutID(item *folderv1.Folder, collectionID idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
+func SeralizeRPCToModelWithoutID(item *Folder, collectionID idwrap.IDWrap) (*mitemfolder.ItemFolder, error) {
 	var parentID *idwrap.IDWrap
 	if item == nil {
 		return nil, errors.New("folder is nil")
@@ -44,24 +83,24 @@ func SeralizeRPCToModelWithoutID(item *folderv1.Folder, collectionID idwrap.IDWr
 	}, nil
 }
 
-func DeseralizeModelToRPC(item mitemfolder.ItemFolder) *folderv1.Folder {
+func DeseralizeModelToRPC(item mitemfolder.ItemFolder) *Folder {
 	var parentIDBytes []byte = nil
 	if item.ParentID != nil {
 		parentIDBytes = item.ParentID.Bytes()
 	}
-	return &folderv1.Folder{
+	return &Folder{
 		FolderId:       item.ID.Bytes(),
 		ParentFolderId: parentIDBytes,
 		Name:           item.Name,
 	}
 }
 
-func SeralizeModelToRPCItem(item mitemfolder.ItemFolder) *folderv1.FolderListItem {
+func SeralizeModelToRPCItem(item mitemfolder.ItemFolder) *FolderListItem {
 	var parentIDBytes []byte = nil
 	if item.ParentID != nil {
 		parentIDBytes = item.ParentID.Bytes()
 	}
-	return &folderv1.FolderListItem{
+	return &FolderListItem{
 		FolderId:       item.ID.Bytes(),
 		ParentFolderId: parentIDBytes,
 		Name:           item.Name,

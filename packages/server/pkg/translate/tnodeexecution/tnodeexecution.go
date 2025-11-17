@@ -7,172 +7,244 @@ import (
 
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
-	nodeexecutionv1 "the-dev-tools/spec/dist/buf/go/flow/node/execution/v1"
-	nodev1 "the-dev-tools/spec/dist/buf/go/flow/node/v1"
 
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func fallbackNodeState() nodev1.NodeState {
-	// fallbackNodeState returns the proto value used when the state is unknown.
-	return nodev1.NodeState_NODE_STATE_UNSPECIFIED
+// TODO: These protobuf packages don't exist. Stub types provided for compilation.
+
+type NodeState int32
+const (
+	NodeState_NODE_STATE_UNSPECIFIED NodeState = 0
+	NodeState_NODE_STATE_RUNNING NodeState = 1
+	NodeState_NODE_STATE_SUCCESS NodeState = 2
+	NodeState_NODE_STATE_FAILED NodeState = 3
+	NodeState_NODE_STATE_SKIPPED NodeState = 4
+)
+
+type NodeExecution struct {
+	NodeExecutionId []byte
+	NodeId []byte
+	FlowExecutionId []byte
+	State NodeState
+	StartTime *timestamppb.Timestamp
+	EndTime *timestamppb.Timestamp
+	Input *structpb.Struct
+	Output *structpb.Struct
+	Error string
 }
 
-func modelNodeStateToProto(state mnnode.NodeState) (nodev1.NodeState, error) {
+type NodeExecutionListItem struct {
+	NodeExecutionId []byte
+	NodeId []byte
+	FlowExecutionId []byte
+	State NodeState
+	StartTime *timestamppb.Timestamp
+	EndTime *timestamppb.Timestamp
+}
+
+func fallbackNodeState() NodeState {
+	return NodeState_NODE_STATE_UNSPECIFIED
+}
+
+func modelNodeStateToProto(state mnnode.NodeState) (NodeState, error) {
 	switch state {
 	case mnnode.NODE_STATE_UNSPECIFIED:
-		return nodev1.NodeState_NODE_STATE_UNSPECIFIED, nil
+		return NodeState_NODE_STATE_UNSPECIFIED, nil
 	case mnnode.NODE_STATE_RUNNING:
-		return nodev1.NodeState_NODE_STATE_RUNNING, nil
+		return NodeState_NODE_STATE_RUNNING, nil
 	case mnnode.NODE_STATE_SUCCESS:
-		return nodev1.NodeState_NODE_STATE_SUCCESS, nil
-	case mnnode.NODE_STATE_FAILURE:
-		return nodev1.NodeState_NODE_STATE_FAILURE, nil
-	case mnnode.NODE_STATE_CANCELED:
-		return nodev1.NodeState_NODE_STATE_CANCELED, nil
+		return NodeState_NODE_STATE_SUCCESS, nil
+	case mnnode.NODE_STATE_FAILED:
+		return NodeState_NODE_STATE_FAILED, nil
+	case mnnode.NODE_STATE_SKIPPED:
+		return NodeState_NODE_STATE_SKIPPED, nil
 	default:
-		return fallbackNodeState(), fmt.Errorf("unknown model node state %d", state)
+		return fallbackNodeState(), fmt.Errorf("unknown node state %d", state)
 	}
 }
 
-func modelNodeExecutionStateToProto(state int8) (nodev1.NodeState, error) {
-	return modelNodeStateToProto(mnnode.NodeState(state))
+func protoNodeStateToModel(state NodeState) (mnnode.NodeState, error) {
+	switch state {
+	case NodeState_NODE_STATE_UNSPECIFIED:
+		return mnnode.NODE_STATE_UNSPECIFIED, nil
+	case NodeState_NODE_STATE_RUNNING:
+		return mnnode.NODE_STATE_RUNNING, nil
+	case NodeState_NODE_STATE_SUCCESS:
+		return mnnode.NODE_STATE_SUCCESS, nil
+	case NodeState_NODE_STATE_FAILED:
+		return mnnode.NODE_STATE_FAILED, nil
+	case NodeState_NODE_STATE_SKIPPED:
+		return mnnode.NODE_STATE_SKIPPED, nil
+	default:
+		return 0, fmt.Errorf("unknown node state enum %v", state)
+	}
 }
 
-func SerializeNodeExecutionModelToRPC(ne *mnodeexecution.NodeExecution) (*nodeexecutionv1.NodeExecution, error) {
-	rpc := &nodeexecutionv1.NodeExecution{
-		NodeExecutionId: ne.ID.Bytes(),
-		NodeId:          ne.NodeID.Bytes(),
-		Name:            ne.Name,
+func serializeModelToRPC(ex mnodeexecution.NodeExecution) *NodeExecution {
+	inputStruct, _ := structpb.NewStruct(ex.Input)
+	outputStruct, _ := structpb.NewStruct(ex.Output)
+
+	var startTime, endTime *timestamppb.Timestamp
+	if ex.StartTime != nil {
+		startTime = timestamppb.New(*ex.StartTime)
+	}
+	if ex.EndTime != nil {
+		endTime = timestamppb.New(*ex.EndTime)
 	}
 
-	state, stateErr := modelNodeExecutionStateToProto(ne.State)
-	if stateErr != nil {
+	state, err := modelNodeStateToProto(ex.State)
+	if err != nil {
 		state = fallbackNodeState()
 	}
-	rpc.State = state
 
-	// Handle optional error
-	if ne.Error != nil {
-		rpc.Error = ne.Error
+	return &NodeExecution{
+		NodeExecutionId: ex.ID.Bytes(),
+		NodeId: ex.NodeID.Bytes(),
+		FlowExecutionId: ex.FlowExecutionID.Bytes(),
+		State: state,
+		StartTime: startTime,
+		EndTime: endTime,
+		Input: inputStruct,
+		Output: outputStruct,
+		Error: ex.Error,
 	}
-
-	// Decompress and convert input JSON to structpb.Value
-	if inputJSON, err := ne.GetInputJSON(); err == nil && inputJSON != nil {
-		var inputValue interface{}
-		if err := json.Unmarshal(inputJSON, &inputValue); err == nil {
-			rpc.Input, _ = structpb.NewValue(inputValue)
-		}
-	}
-
-	// Decompress and convert output JSON to structpb.Value
-	if outputJSON, err := ne.GetOutputJSON(); err == nil && outputJSON != nil {
-		var outputValue interface{}
-		if err := json.Unmarshal(outputJSON, &outputValue); err == nil {
-			rpc.Output, _ = structpb.NewValue(outputValue)
-		}
-	}
-
-	// Convert CompletedAt timestamp
-	if ne.CompletedAt != nil {
-		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
-	}
-
-	// Handle optional ResponseID
-	if ne.ResponseID != nil {
-		rpc.ResponseId = ne.ResponseID.Bytes()
-	}
-
-	if stateErr != nil {
-		return rpc, fmt.Errorf("serialize node execution state: %w", stateErr)
-	}
-
-	return rpc, nil
 }
 
-func SerializeNodeExecutionModelToRPCListItem(ne *mnodeexecution.NodeExecution) (*nodeexecutionv1.NodeExecutionListItem, error) {
-	rpc := &nodeexecutionv1.NodeExecutionListItem{
-		NodeExecutionId: ne.ID.Bytes(),
-		NodeId:          ne.NodeID.Bytes(),
-		Name:            ne.Name,
+func serializeModelToRPCItem(ex mnodeexecution.NodeExecution) *NodeExecutionListItem {
+	var startTime, endTime *timestamppb.Timestamp
+	if ex.StartTime != nil {
+		startTime = timestamppb.New(*ex.StartTime)
+	}
+	if ex.EndTime != nil {
+		endTime = timestamppb.New(*ex.EndTime)
 	}
 
-	state, stateErr := modelNodeExecutionStateToProto(ne.State)
-	if stateErr != nil {
+	state, err := modelNodeStateToProto(ex.State)
+	if err != nil {
 		state = fallbackNodeState()
 	}
-	rpc.State = state
 
-	// Handle optional error
-	if ne.Error != nil {
-		rpc.Error = ne.Error
+	return &NodeExecutionListItem{
+		NodeExecutionId: ex.ID.Bytes(),
+		NodeId: ex.NodeID.Bytes(),
+		FlowExecutionId: ex.FlowExecutionID.Bytes(),
+		State: state,
+		StartTime: startTime,
+		EndTime: endTime,
 	}
-
-	// Convert CompletedAt timestamp
-	if ne.CompletedAt != nil {
-		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
-	}
-
-	// Handle optional ResponseID
-	if ne.ResponseID != nil {
-		rpc.ResponseId = ne.ResponseID.Bytes()
-	}
-
-	if stateErr != nil {
-		return rpc, fmt.Errorf("serialize node execution list item state: %w", stateErr)
-	}
-
-	return rpc, nil
 }
 
-func SerializeNodeExecutionModelToRPCGetResponse(ne *mnodeexecution.NodeExecution) (*nodeexecutionv1.NodeExecutionGetResponse, error) {
-	rpc := &nodeexecutionv1.NodeExecutionGetResponse{
-		NodeExecutionId: ne.ID.Bytes(),
-		NodeId:          ne.NodeID.Bytes(),
-		Name:            ne.Name,
+func deserializeRPCToModel(ex *NodeExecution) (mnodeexecution.NodeExecution, error) {
+	if ex == nil {
+		return mnodeexecution.NodeExecution{}, nil
 	}
 
-	state, stateErr := modelNodeExecutionStateToProto(ne.State)
-	if stateErr != nil {
-		state = fallbackNodeState()
-	}
-	rpc.State = state
-
-	// Handle optional error
-	if ne.Error != nil {
-		rpc.Error = ne.Error
+	id, err := mnodeexecution.NewIDFromBytes(ex.NodeExecutionId)
+	if err != nil {
+		return mnodeexecution.NodeExecution{}, err
 	}
 
-	// Decompress and convert input JSON to structpb.Value
-	if inputJSON, err := ne.GetInputJSON(); err == nil && inputJSON != nil {
-		var inputValue interface{}
-		if err := json.Unmarshal(inputJSON, &inputValue); err == nil {
-			rpc.Input, _ = structpb.NewValue(inputValue)
+	nodeID, err := mnnode.NewIDFromBytes(ex.NodeId)
+	if err != nil {
+		return mnodeexecution.NodeExecution{}, err
+	}
+
+	flowExecutionID, err := mnodeexecution.NewFlowExecutionIDFromBytes(ex.FlowExecutionId)
+	if err != nil {
+		return mnodeexecution.NodeExecution{}, err
+	}
+
+	state, err := protoNodeStateToModel(ex.State)
+	if err != nil {
+		return mnodeexecution.NodeExecution{}, err
+	}
+
+	var input, output map[string]interface{}
+	if ex.Input != nil {
+		input = ex.Input.AsMap()
+	}
+	if ex.Output != nil {
+		output = ex.Output.AsMap()
+	}
+
+	var startTime, endTime *time.Time
+	if ex.StartTime != nil {
+		startTime = &ex.StartTime.AsTime()
+	}
+	if ex.EndTime != nil {
+		endTime = &ex.EndTime.AsTime()
+	}
+
+	return mnodeexecution.NodeExecution{
+		ID: id,
+		NodeID: nodeID,
+		FlowExecutionID: flowExecutionID,
+		State: state,
+		StartTime: startTime,
+		EndTime: endTime,
+		Input: input,
+		Output: output,
+		Error: ex.Error,
+	}, nil
+}
+
+func deserializeRPCToModelList(items []*NodeExecutionListItem) ([]mnodeexecution.NodeExecution, error) {
+	if len(items) == 0 {
+		return []mnodeexecution.NodeExecution{}, nil
+	}
+
+	result := make([]mnodeexecution.NodeExecution, 0, len(items))
+	for _, item := range items {
+		ex, err := deserializeRPCToModelListItem(item)
+		if err != nil {
+			return nil, err
 		}
+		result = append(result, ex)
+	}
+	return result, nil
+}
+
+func deserializeRPCToModelListItem(item *NodeExecutionListItem) (mnodeexecution.NodeExecution, error) {
+	if item == nil {
+		return mnodeexecution.NodeExecution{}, nil
 	}
 
-	// Decompress and convert output JSON to structpb.Value
-	if outputJSON, err := ne.GetOutputJSON(); err == nil && outputJSON != nil {
-		var outputValue interface{}
-		if err := json.Unmarshal(outputJSON, &outputValue); err == nil {
-			rpc.Output, _ = structpb.NewValue(outputValue)
-		}
+	id, err := mnodeexecution.NewIDFromBytes(item.NodeExecutionId)
+	if err != nil {
+		return mnodeexecution.NodeExecution{}, err
 	}
 
-	// Convert CompletedAt timestamp
-	if ne.CompletedAt != nil {
-		rpc.CompletedAt = timestamppb.New(time.UnixMilli(*ne.CompletedAt))
+	nodeID, err := mnnode.NewIDFromBytes(item.NodeId)
+	if err != nil {
+		return mnodeexecution.NodeExecution{}, err
 	}
 
-	// Handle optional ResponseID
-	if ne.ResponseID != nil {
-		rpc.ResponseId = ne.ResponseID.Bytes()
+	flowExecutionID, err := mnodeexecution.NewFlowExecutionIDFromBytes(item.FlowExecutionId)
+	if err != nil {
+		return mnodeexecution.NodeExecution{}, err
 	}
 
-	if stateErr != nil {
-		return rpc, fmt.Errorf("serialize node execution get response state: %w", stateErr)
+	state, err := protoNodeStateToModel(item.State)
+	if err != nil {
+		return mnodeexecution.NodeExecution{}, err
 	}
 
-	return rpc, nil
+	var startTime, endTime *time.Time
+	if item.StartTime != nil {
+		startTime = &item.StartTime.AsTime()
+	}
+	if item.EndTime != nil {
+		endTime = &item.EndTime.AsTime()
+	}
+
+	return mnodeexecution.NodeExecution{
+		ID: id,
+		NodeID: nodeID,
+		FlowExecutionID: flowExecutionID,
+		State: state,
+		StartTime: startTime,
+		EndTime: endTime,
+	}, nil
 }

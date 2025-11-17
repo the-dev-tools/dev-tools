@@ -2,7 +2,7 @@ package mbodyurl
 
 import (
 	"the-dev-tools/server/pkg/idwrap"
-	// deltav1 "the-dev-tools/spec/dist/buf/go/delta/v1" // TODO: Re-enable when delta v1 is available
+	// deltav1 "the-dev-tools/spec/dist/buf/go/api/delta/v1" // TODO: Re-enable when delta v1 is available
 )
 
 type BodyURLEncodedSource int8

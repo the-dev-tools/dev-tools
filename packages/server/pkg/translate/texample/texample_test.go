@@ -6,8 +6,8 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
-	bodyv1 "the-dev-tools/spec/dist/buf/go/collection/item/body/v1"
-	examplev1 "the-dev-tools/spec/dist/buf/go/collection/item/example/v1"
+	bodyv1 "the-dev-tools/spec/dist/buf/go/api/collection/item/body/v1"
+	examplev1 "the-dev-tools/spec/dist/buf/go/api/collection/item/example/v1"
 )
 
 func TestModelBodyTypeToProto(t *testing.T) {
