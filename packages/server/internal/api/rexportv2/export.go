@@ -176,11 +176,22 @@ func (e *SimpleExporter) ExportToYAML(ctx context.Context, data *WorkspaceExport
 // ExportToCurl exports data to cURL format
 func (e *SimpleExporter) ExportToCurl(ctx context.Context, data *WorkspaceExportData, httpIDs []idwrap.IDWrap) (string, error) {
 	if len(data.HTTPRequests) == 0 {
-		return "# No HTTP requests to export\n", nil
+		return "", nil
+	}
+
+	// Create a set of IDs for efficient lookup
+	httpIDSet := make(map[idwrap.IDWrap]bool)
+	for _, id := range httpIDs {
+		httpIDSet[id] = true
 	}
 
 	var commands []string
 	for _, httpReq := range data.HTTPRequests {
+		// Skip this request if httpIDs is provided and this request is not in the filter
+		if len(httpIDs) > 0 && !httpIDSet[httpReq.ID] {
+			continue
+		}
+
 		var cmd strings.Builder
 		cmd.WriteString(fmt.Sprintf("curl -X %s '%s'", httpReq.Method, httpReq.Url))
 
@@ -200,6 +211,10 @@ func (e *SimpleExporter) ExportToCurl(ctx context.Context, data *WorkspaceExport
 
 		cmd.WriteString(fmt.Sprintf(" # %s", httpReq.Name))
 		commands = append(commands, cmd.String())
+	}
+
+	if len(commands) == 0 {
+		return "", nil
 	}
 
 	return strings.Join(commands, "\n\n"), nil
