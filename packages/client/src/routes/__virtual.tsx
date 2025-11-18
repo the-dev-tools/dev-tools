@@ -5,6 +5,6 @@ export const routes = rootRoute('root.tsx', [
   route('workspace/$workspaceIdCan', 'workspace.tsx', [
     index('overview.tsx'),
     route('http/$httpIdCan', 'http.tsx'),
-    // route('flow/$flowIdCan', 'flow/layout.tsx', [index('flow/edit.tsx'), route('history', 'flow/history.tsx')]),
+    route('flow/$flowIdCan', 'flow/layout.tsx', [index('flow/edit.tsx'), route('history', 'flow/history.tsx')]),
   ]),
 ]);

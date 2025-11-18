@@ -13,6 +13,9 @@ import { Route as welcomeRouteImport } from './welcome'
 import { Route as workspaceRouteImport } from './workspace'
 import { Route as overviewRouteImport } from './overview'
 import { Route as httpRouteImport } from './http'
+import { Route as flowLayoutRouteImport } from './flow/layout'
+import { Route as flowHistoryRouteImport } from './flow/history'
+import { Route as flowEditRouteImport } from './flow/edit'
 
 const welcomeRoute = welcomeRouteImport.update({
   id: '/',
@@ -34,24 +37,47 @@ const httpRoute = httpRouteImport.update({
   path: '/http/$httpIdCan',
   getParentRoute: () => workspaceRoute,
 } as any)
+const flowLayoutRoute = flowLayoutRouteImport.update({
+  id: '/flow/$flowIdCan',
+  path: '/flow/$flowIdCan',
+  getParentRoute: () => workspaceRoute,
+} as any)
+const flowHistoryRoute = flowHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => flowLayoutRoute,
+} as any)
+const flowEditRoute = flowEditRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => flowLayoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof welcomeRoute
   '/workspace/$workspaceIdCan': typeof workspaceRouteWithChildren
   '/workspace/$workspaceIdCan/': typeof overviewRoute
+  '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowLayoutRouteWithChildren
   '/workspace/$workspaceIdCan/http/$httpIdCan': typeof httpRoute
+  '/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof flowEditRoute
+  '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof welcomeRoute
   '/workspace/$workspaceIdCan': typeof overviewRoute
   '/workspace/$workspaceIdCan/http/$httpIdCan': typeof httpRoute
+  '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowEditRoute
+  '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof welcomeRoute
   '/workspace/$workspaceIdCan': typeof workspaceRouteWithChildren
   '/workspace/$workspaceIdCan/': typeof overviewRoute
+  '/workspace/$workspaceIdCan/flow/$flowIdCan': typeof flowLayoutRouteWithChildren
   '/workspace/$workspaceIdCan/http/$httpIdCan': typeof httpRoute
+  '/workspace/$workspaceIdCan/flow/$flowIdCan/': typeof flowEditRoute
+  '/workspace/$workspaceIdCan/flow/$flowIdCan/history': typeof flowHistoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -59,18 +85,26 @@ export interface FileRouteTypes {
     | '/'
     | '/workspace/$workspaceIdCan'
     | '/workspace/$workspaceIdCan/'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan'
     | '/workspace/$workspaceIdCan/http/$httpIdCan'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan/'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/workspace/$workspaceIdCan'
     | '/workspace/$workspaceIdCan/http/$httpIdCan'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
   id:
     | '__root__'
     | '/'
     | '/workspace/$workspaceIdCan'
     | '/workspace/$workspaceIdCan/'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan'
     | '/workspace/$workspaceIdCan/http/$httpIdCan'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan/'
+    | '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -108,16 +142,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof httpRouteImport
       parentRoute: typeof workspaceRoute
     }
+    '/workspace/$workspaceIdCan/flow/$flowIdCan': {
+      id: '/workspace/$workspaceIdCan/flow/$flowIdCan'
+      path: '/flow/$flowIdCan'
+      fullPath: '/workspace/$workspaceIdCan/flow/$flowIdCan'
+      preLoaderRoute: typeof flowLayoutRouteImport
+      parentRoute: typeof workspaceRoute
+    }
+    '/workspace/$workspaceIdCan/flow/$flowIdCan/history': {
+      id: '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
+      path: '/history'
+      fullPath: '/workspace/$workspaceIdCan/flow/$flowIdCan/history'
+      preLoaderRoute: typeof flowHistoryRouteImport
+      parentRoute: typeof flowLayoutRoute
+    }
+    '/workspace/$workspaceIdCan/flow/$flowIdCan/': {
+      id: '/workspace/$workspaceIdCan/flow/$flowIdCan/'
+      path: '/'
+      fullPath: '/workspace/$workspaceIdCan/flow/$flowIdCan/'
+      preLoaderRoute: typeof flowEditRouteImport
+      parentRoute: typeof flowLayoutRoute
+    }
   }
 }
 
+interface flowLayoutRouteChildren {
+  flowEditRoute: typeof flowEditRoute
+  flowHistoryRoute: typeof flowHistoryRoute
+}
+
+const flowLayoutRouteChildren: flowLayoutRouteChildren = {
+  flowEditRoute: flowEditRoute,
+  flowHistoryRoute: flowHistoryRoute,
+}
+
+const flowLayoutRouteWithChildren = flowLayoutRoute._addFileChildren(
+  flowLayoutRouteChildren,
+)
+
 interface workspaceRouteChildren {
   overviewRoute: typeof overviewRoute
+  flowLayoutRoute: typeof flowLayoutRouteWithChildren
   httpRoute: typeof httpRoute
 }
 
 const workspaceRouteChildren: workspaceRouteChildren = {
   overviewRoute: overviewRoute,
+  flowLayoutRoute: flowLayoutRouteWithChildren,
   httpRoute: httpRoute,
 }
 

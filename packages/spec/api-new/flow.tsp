@@ -7,6 +7,7 @@ model Flow {
   @primaryKey flowId: Id;
   name: string;
   @visibility(Lifecycle.Read) duration?: int32;
+  @visibility(Lifecycle.Read) running?: boolean;
 }
 
 model FlowDuplicateRequest {
@@ -21,6 +22,12 @@ model FlowRunRequest {
 
 op FlowRun(...FlowRunRequest): {};
 
+model FlowStopRequest {
+  flowId: Id;
+}
+
+op FlowStop(...FlowStopRequest): {};
+
 @TanStackDB.collection(#{ isReadOnly: true })
 model FlowVersion {
   @primaryKey flowVersionId: Id;
@@ -33,7 +40,7 @@ model FlowVariable {
   ...CommonTableFields<Flow>;
 }
 
-enum Handle {
+enum HandleKind {
   Then,
   Else,
   Loop,
@@ -50,19 +57,20 @@ model Edge {
   kind: EdgeKind;
   @foreignKey sourceId: Id;
   @foreignKey targetId: Id;
-  sourceHandle: Handle;
+  sourceHandle: HandleKind;
+  @visibility(Lifecycle.Read) state: FlowItemState;
 }
 
 enum NodeKind {
   NoOp,
-  Request,
+  Http,
   Condition,
   For,
   ForEach,
   Js,
 }
 
-enum NodeState {
+enum FlowItemState {
   Running,
   Success,
   Failure,
@@ -81,7 +89,7 @@ model Node {
   kind: NodeKind;
   name: string;
   position: Position;
-  @visibility(Lifecycle.Read) state: NodeState;
+  @visibility(Lifecycle.Read) state: FlowItemState;
   @visibility(Lifecycle.Read) info?: string;
 }
 
@@ -102,7 +110,7 @@ model NodeNoOp {
 @TanStackDB.collection
 model NodeHttp {
   @primaryKey nodeId: Id;
-  @foreignKey httpId: Id;
+  @foreignKey httpId?: Id;
 }
 
 enum ErrorHandling {
@@ -143,7 +151,7 @@ model NodeExecution {
   @primaryKey nodeExecutionId: Id;
   @foreignKey nodeId: Id;
   name: string;
-  state: NodeState;
+  state: FlowItemState;
   error?: string;
   input?: Protobuf.WellKnown.Json;
   output?: Protobuf.WellKnown.Json;

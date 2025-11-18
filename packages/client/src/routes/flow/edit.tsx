@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { FlowEditPage } from '~flow/flow';
+import { FlowEditPage } from '~/features/flow';
 
 export const Route = createFileRoute('/workspace/$workspaceIdCan/flow/$flowIdCan/')({
   component: FlowEditPage,

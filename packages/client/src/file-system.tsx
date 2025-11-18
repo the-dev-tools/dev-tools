@@ -41,7 +41,7 @@ import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-fie
 import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useApiCollection } from '~/api-new';
-import { httpRouteApi, workspaceRouteApi } from '~/routes';
+import { flowLayoutRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 import { pick } from '~/utils/tanstack-db';
 import { useConnectMutation } from '~api/connect-query';
@@ -111,9 +111,9 @@ const FileTreeContext = createContext({} as FileTreeContext);
 
 interface FileTreeProps
   extends Omit<FileTreeContext, 'containerRef'>,
-    Pick<TreeProps<object>, 'onSelectionChange' | 'selectedKeys' | 'selectionMode'> {}
+    Pick<TreeProps<object>, 'onAction' | 'onSelectionChange' | 'selectedKeys' | 'selectionMode'> {}
 
-export const FileTree = ({ onSelectionChange, selectedKeys, selectionMode, ...context }: FileTreeProps) => {
+export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionMode, ...context }: FileTreeProps) => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const fileCollection = useApiCollection(FileCollectionSchema);
@@ -177,6 +177,7 @@ export const FileTree = ({ onSelectionChange, selectedKeys, selectionMode, ...co
           aria-label='Files'
           dragAndDropHooks={dragAndDropHooks}
           items={files}
+          {...(onAction && { onAction })}
           {...(onSelectionChange && { onSelectionChange })}
           {...(selectedKeys && { selectedKeys })}
           {...(selectionMode && { selectionMode })}
@@ -467,6 +468,8 @@ const HttpFile = ({ id }: FileItemProps) => {
 };
 
 const FlowFile = ({ id }: FileItemProps) => {
+  const matchRoute = useMatchRoute();
+
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const fileCollection = useApiCollection(FileCollectionSchema);
@@ -491,7 +494,7 @@ const FlowFile = ({ id }: FileItemProps) => {
   const duplicateMutation = useConnectMutation(FlowService.method.flowDuplicate);
   const exportMutation = useConnectMutation(ExportService.method.export);
 
-  const { containerRef, showControls } = useContext(FileTreeContext);
+  const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
 
   const { escapeRef, escapeRender } = useEscapePortal(containerRef);
 
@@ -502,8 +505,14 @@ const FlowFile = ({ id }: FileItemProps) => {
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
-  return (
-    <TreeItem id={id} onContextMenu={onContextMenu} textValue={name}>
+  const route = {
+    from: workspaceRouteApi.id,
+    params: { flowIdCan: Ulid.construct(flowId).toCanonical() },
+    to: flowLayoutRouteApi.id,
+  } satisfies ToOptions;
+
+  const content = (
+    <>
       <FlowsIcon className={tw`size-4 text-slate-500`} />
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
@@ -549,6 +558,16 @@ const FlowFile = ({ id }: FileItemProps) => {
           </Menu>
         </MenuTrigger>
       )}
-    </TreeItem>
+    </>
   );
+
+  const props = {
+    children: content,
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
+    id,
+    onContextMenu,
+    textValue: name,
+  } satisfies TreeItemProps<object>;
+
+  return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;
 };
