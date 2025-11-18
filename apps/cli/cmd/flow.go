@@ -46,7 +46,6 @@ import (
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
-	"the-dev-tools/server/pkg/service/scollection"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sexampleheader"
 	"the-dev-tools/server/pkg/service/sexamplequery"
@@ -234,7 +233,6 @@ var yamlflowRunCmd = &cobra.Command{
 			return err
 		}
 
-		collectionService := scollection.New(queries, logger)
 		workspaceService := sworkspace.New(queries)
 		folderService := sitemfolder.New(queries)
 		endpointService := sitemapi.New(queries)
@@ -265,7 +263,6 @@ var yamlflowRunCmd = &cobra.Command{
 		ioWorkspaceService := ioworkspace.NewIOWorkspaceService(
 			db,
 			workspaceService,
-			collectionService,
 			folderService,
 			endpointService,
 			exampleService,

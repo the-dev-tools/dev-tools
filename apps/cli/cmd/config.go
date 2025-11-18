@@ -5,7 +5,6 @@ import (
 	"the-dev-tools/server/pkg/model/mbodyform"
 	"the-dev-tools/server/pkg/model/mbodyraw"
 	"the-dev-tools/server/pkg/model/mbodyurl"
-	"the-dev-tools/server/pkg/model/mcollection"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mexampleresp"
@@ -25,10 +24,9 @@ import (
 
 type DefaultConfig struct {
 	// collections
-	Collections []mcollection.Collection
-	Folders     []mitemfolder.ItemFolder
-	Endpoints   []mitemapi.ItemApi
-	Examples    []mitemapiexample.ItemApiExample
+	Folders   []mitemfolder.ItemFolder
+	Endpoints []mitemapi.ItemApi
+	Examples  []mitemapiexample.ItemApiExample
 
 	// example sub items
 
