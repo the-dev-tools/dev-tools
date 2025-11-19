@@ -786,6 +786,10 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+func (s *FlowServiceV2RPC) FlowStop(ctx context.Context, req *connect.Request[flowv1.FlowStopRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+}
+
 func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Request[flowv1.FlowDuplicateRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetFlowId()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
@@ -2355,13 +2359,12 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
-		if len(item.GetHttpId()) == 0 {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http id is required"))
-		}
-
-		httpID, err := idwrap.NewFromBytes(item.GetHttpId())
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid http id: %w", err))
+		var httpID idwrap.IDWrap
+		if len(item.GetHttpId()) > 0 {
+			httpID, err = idwrap.NewFromBytes(item.GetHttpId())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid http id: %w", err))
+			}
 		}
 
 		if err := s.nrs.CreateNodeRequest(ctx, mnrequest.MNRequest{
@@ -2388,8 +2391,9 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 		}
 
 		var httpID idwrap.IDWrap
-		if len(item.GetHttpId()) != 0 {
-			httpID, err = idwrap.NewFromBytes(item.GetHttpId())
+		union := item.GetHttpId()
+		if union != nil && union.Kind == flowv1.NodeHttpUpdate_HttpIdUnion_KIND_BYTES {
+			httpID, err = idwrap.NewFromBytes(union.GetBytes())
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid http id: %w", err))
 			}
@@ -2850,7 +2854,7 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 	}
 
 	// Only process HTTP nodes (REQUEST nodes)
-	if evt.Node.GetKind() != flowv1.NodeKind_NODE_KIND_REQUEST {
+	if evt.Node.GetKind() != flowv1.NodeKind_NODE_KIND_HTTP {
 		return nil, nil
 	}
 
@@ -2890,7 +2894,10 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 				Kind: flowv1.NodeHttpSync_ValueUnion_KIND_UPDATE,
 				Update: &flowv1.NodeHttpSyncUpdate{
 					NodeId: nodeReq.FlowNodeID.Bytes(),
-					HttpId: nodeReq.HttpID.Bytes(),
+					HttpId: &flowv1.NodeHttpSyncUpdate_HttpIdUnion{
+						Kind:  flowv1.NodeHttpSyncUpdate_HttpIdUnion_KIND_BYTES,
+						Bytes: nodeReq.HttpID.Bytes(),
+					},
 				},
 			},
 		}
@@ -3854,7 +3861,7 @@ func (s *FlowServiceV2RPC) executionEventToSyncResponse(
 		}
 
 		// Only include State if it's being updated
-		if evt.Execution.State != flowv1.NodeState_NODE_STATE_UNSPECIFIED {
+		if evt.Execution.State != flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED {
 			update.State = &evt.Execution.State
 		}
 
@@ -4029,7 +4036,7 @@ func nodeEventToSyncResponse(evt NodeEvent) *flowv1.NodeSyncResponse {
 		if pos := node.GetPosition(); pos != nil {
 			update.Position = pos
 		}
-		if state := node.GetState(); state != flowv1.NodeState_NODE_STATE_UNSPECIFIED {
+		if state := node.GetState(); state != flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED {
 			st := state
 			update.State = &st
 		}
@@ -4105,7 +4112,7 @@ func edgeEventToSyncResponse(evt EdgeEvent) *flowv1.EdgeSyncResponse {
 		if targetID := edgePB.GetTargetId(); len(targetID) > 0 {
 			update.TargetId = targetID
 		}
-		if handle := edgePB.GetSourceHandle(); handle != flowv1.Handle_HANDLE_UNSPECIFIED {
+		if handle := edgePB.GetSourceHandle(); handle != flowv1.HandleKind_HANDLE_KIND_UNSPECIFIED {
 			h := handle
 			update.SourceHandle = &h
 		}
@@ -4478,7 +4485,7 @@ func serializeEdge(e edge.Edge) *flowv1.Edge {
 		Kind:         flowv1.EdgeKind(e.Kind),
 		SourceId:     e.SourceID.Bytes(),
 		TargetId:     e.TargetID.Bytes(),
-		SourceHandle: flowv1.Handle(e.SourceHandler),
+		SourceHandle: flowv1.HandleKind(e.SourceHandler),
 	}
 }
 
@@ -4494,7 +4501,7 @@ func serializeNode(n mnnode.MNode) *flowv1.Node {
 		Kind:     flowv1.NodeKind(n.NodeKind),
 		Name:     n.Name,
 		Position: position,
-		State:    flowv1.NodeState_NODE_STATE_UNSPECIFIED,
+		State:    flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED,
 	}
 }
 
@@ -4549,7 +4556,7 @@ func serializeNodeExecution(execution mnodeexecution.NodeExecution) *flowv1.Node
 		NodeExecutionId: execution.ID.Bytes(),
 		NodeId:          execution.NodeID.Bytes(),
 		Name:            execution.Name,
-		State:           flowv1.NodeState(execution.State),
+		State:           flowv1.FlowItemState(execution.State),
 	}
 
 	// Handle optional fields
@@ -4612,7 +4619,7 @@ func buildCondition(expression string) mcondition.Condition {
 	}
 }
 
-func convertHandle(h flowv1.Handle) edge.EdgeHandle {
+func convertHandle(h flowv1.HandleKind) edge.EdgeHandle {
 	return edge.EdgeHandle(h)
 }
 
