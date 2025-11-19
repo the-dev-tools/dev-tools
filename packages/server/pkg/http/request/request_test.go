@@ -11,17 +11,8 @@ import (
 	"testing"
 
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/model/mbodyform"
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	"the-dev-tools/server/pkg/model/mbodyurl"
-	"the-dev-tools/server/pkg/model/mcondition"
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mvar"
-	"the-dev-tools/server/pkg/sort/sortenabled"
 	"the-dev-tools/server/pkg/varsystem"
 )
 
@@ -99,26 +90,25 @@ func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 				}
 			}
 
-			endpoint := mitemapi.ItemApi{
-				Method: "GET",
-				Url:    "http://example.com",
+			endpoint := mhttp.HTTP{
+				Method:  "GET",
+				Url:     "http://example.com",
+				BodyKind: mhttp.HttpBodyKindRaw,
 			}
 
-			example := mitemapiexample.ItemApiExample{
-				BodyType: mitemapiexample.BodyTypeRaw,
+			example := mhttp.HTTP{
+				BodyKind: mhttp.HttpBodyKindRaw,
 			}
 
-			headers := []mexampleheader.Header{
+			headers := []mhttp.HTTPHeader{
 				{
-					HeaderKey: "Authorization",
-					Value:     tt.headerValue,
-					Enable:    true,
+					HeaderKey:   "Authorization",
+					HeaderValue: tt.headerValue,
+					Enabled:     true,
 				},
 			}
 
-			sortenabled.GetAllWithState(&headers, true)
-
-			req, err := PrepareRequest(endpoint, example, nil, headers, mbodyraw.ExampleBodyRaw{}, nil, nil, tt.varMap)
+			req, err := PrepareRequest(endpoint, example, nil, headers, mhttp.HTTPBodyRaw{}, nil, nil, tt.varMap)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("expected error but got none")
@@ -183,25 +173,26 @@ func TestPrepareRequest_MultiFileUpload(t *testing.T) {
 		t.Errorf("failed to close file 2: %v", err)
 	}
 
-	// Prepare the request components
-	endpoint := mitemapi.ItemApi{
-		Method: "POST",
-		Url:    "http://example.com/upload",
+	// Prepare the request components using mhttp models
+	endpoint := mhttp.HTTP{
+		Method:  "POST",
+		Url:     "http://example.com/upload",
+		BodyKind: mhttp.HttpBodyKindFormData,
 	}
-	example := mitemapiexample.ItemApiExample{
-		BodyType: mitemapiexample.BodyTypeForm,
+	example := mhttp.HTTP{
+		BodyKind: mhttp.HttpBodyKindFormData,
 	}
-	formBody := []mbodyform.BodyForm{
+	formBody := []mhttp.HTTPBodyForm{
 		{
-			BodyKey: "photos",
-			Value:   fmt.Sprintf("{{#file:%s}},{{#file:%s}}", file1.Name(), file2.Name()),
-			Enable:  true,
+			FormKey:   "photos",
+			FormValue: fmt.Sprintf("{{#file:%s}},{{#file:%s}}", file1.Name(), file2.Name()),
+			Enabled:   true,
 		},
 	}
 	varMap := varsystem.NewVarMap(nil) // No variables needed for direct file paths
 
 	// Call PrepareRequest
-	req, err := PrepareRequest(endpoint, example, nil, nil, mbodyraw.ExampleBodyRaw{}, formBody, nil, varMap)
+	req, err := PrepareRequest(endpoint, example, nil, nil, mhttp.HTTPBodyRaw{}, formBody, nil, varMap)
 	if err != nil {
 		t.Fatalf("PrepareRequest failed: %v", err)
 	}
@@ -292,12 +283,12 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 	baseExampleID := idwrap.NewNow()
 	deltaExampleID := idwrap.NewNow()
 
-	baseExample := mitemapiexample.ItemApiExample{
+	baseExample := mhttp.HTTP{
 		ID:   baseExampleID,
 		Name: "Base Example",
 	}
 
-	deltaExample := mitemapiexample.ItemApiExample{
+	deltaExample := mhttp.HTTP{
 		ID:   deltaExampleID,
 		Name: "Delta Example",
 	}
@@ -306,78 +297,74 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 	baseQueryID := idwrap.NewNow()
 	baseHeaderID := idwrap.NewNow()
 
-	baseQueries := []mexamplequery.Query{
+	baseQueries := []mhttp.HTTPSearchParam{
 		{
 			ID:        baseQueryID,
-			ExampleID: baseExampleID,
-			QueryKey:  "page",
-			Value:     "1",
+			HttpID:    baseExampleID,
+			ParamKey:  "page",
+			ParamValue: "1",
 		},
 	}
 
-	baseHeaders := []mexampleheader.Header{
+	baseHeaders := []mhttp.HTTPHeader{
 		{
-			ID:        baseHeaderID,
-			ExampleID: baseExampleID,
-			HeaderKey: "Authorization",
-			Value:     "Bearer token123",
+			ID:          baseHeaderID,
+			HttpID:      baseExampleID,
+			HeaderKey:   "Authorization",
+			HeaderValue: "Bearer token123",
 		},
 	}
 
-	baseAsserts := []massert.Assert{
+	baseAsserts := []mhttp.HTTPAssert{
 		{
-			ID:        idwrap.NewNow(),
-			ExampleID: baseExampleID,
-			Condition: mcondition.Condition{
-				Comparisons: mcondition.Comparison{Expression: "response.status == 200"},
-			},
-			Enable: true,
+			ID:          idwrap.NewNow(),
+			HttpID:      baseExampleID,
+			AssertValue: "response.status == 200",
+			Enabled:     true,
 		},
 	}
 
-	// Create delta queries and headers with nil DeltaParentID (legacy format)
-	deltaQueries := []mexamplequery.Query{
+	// Create delta queries and headers with nil ParentSearchParamID/ParentHeaderID (legacy format)
+	deltaQueries := []mhttp.HTTPSearchParam{
 		{
-			ID:            idwrap.NewNow(),
-			ExampleID:     deltaExampleID,
-			QueryKey:      "page",
-			Value:         "2", // Changed value
-			DeltaParentID: nil, // This would cause a panic in the old code
+			ID:                idwrap.NewNow(),
+			HttpID:            deltaExampleID,
+			ParamKey:          "page",
+			ParamValue:        "2", // Changed value
+			ParentSearchParamID: nil, // This would cause a panic in the old code
 		},
 	}
 
-	deltaHeaders := []mexampleheader.Header{
+	deltaHeaders := []mhttp.HTTPHeader{
 		{
 			ID:            idwrap.NewNow(),
-			ExampleID:     deltaExampleID,
+			HttpID:        deltaExampleID,
 			HeaderKey:     "Authorization",
-			Value:         "Bearer {{ token }}",
-			DeltaParentID: nil, // This would cause a panic in the old code
+			HeaderValue:   "Bearer {{ token }}",
+			ParentHeaderID: nil, // This would cause a panic in the old code
 		},
 	}
 
-	deltaAsserts := []massert.Assert{
+	deltaAsserts := []mhttp.HTTPAssert{
 		{
-			ID:        idwrap.NewNow(),
-			ExampleID: deltaExampleID,
-			Condition: mcondition.Condition{
-				Comparisons: mcondition.Comparison{Expression: "response.status == 201"},
-			},
-			Enable: true,
+			ID:          idwrap.NewNow(),
+			HttpID:      deltaExampleID,
+			AssertValue: "response.status == 201",
+			Enabled:     true,
 		},
 	}
 
 	// Create empty bodies for testing
-	baseRawBody := mbodyraw.ExampleBodyRaw{
-		ID:        idwrap.NewNow(),
-		ExampleID: baseExampleID,
-		Data:      []byte(`{"test": "base"}`),
+	baseRawBody := mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  baseExampleID,
+		RawData: []byte(`{"test": "base"}`),
 	}
 
-	deltaRawBody := mbodyraw.ExampleBodyRaw{
-		ID:        idwrap.NewNow(),
-		ExampleID: deltaExampleID,
-		Data:      []byte(`{"test": "delta"}`),
+	deltaRawBody := mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  deltaExampleID,
+		RawData: []byte(`{"test": "delta"}`),
 	}
 
 	input := MergeExamplesInput{
@@ -393,15 +380,15 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		BaseRawBody:  baseRawBody,
 		DeltaRawBody: deltaRawBody,
 
-		BaseFormBody:        []mbodyform.BodyForm{},
-		DeltaFormBody:       []mbodyform.BodyForm{},
-		BaseUrlEncodedBody:  []mbodyurl.BodyURLEncoded{},
-		DeltaUrlEncodedBody: []mbodyurl.BodyURLEncoded{},
+		BaseFormBody:        []mhttp.HTTPBodyForm{},
+		DeltaFormBody:       []mhttp.HTTPBodyForm{},
+		BaseUrlEncodedBody:  []mhttp.HTTPBodyUrlencoded{},
+		DeltaUrlEncodedBody: []mhttp.HTTPBodyUrlencoded{},
 		BaseAsserts:         baseAsserts,
 		DeltaAsserts:        deltaAsserts,
 	}
 
-	// This should not panic even with nil DeltaParentID
+	// This should not panic even with nil ParentSearchParamID/ParentHeaderID
 	output := MergeExamples(input)
 
 	// Verify the merge worked
@@ -420,7 +407,7 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 	// Verify that delta values override base values (key-based matching for legacy)
 	foundDeltaQuery := false
 	for _, query := range output.MergeQueries {
-		if query.QueryKey == "page" && query.Value == "2" {
+		if query.ParamKey == "page" && query.ParamValue == "2" {
 			foundDeltaQuery = true
 			break
 		}
@@ -431,7 +418,7 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 
 	foundDeltaHeader := false
 	for _, header := range output.MergeHeaders {
-		if header.HeaderKey == "Authorization" && header.Value == "Bearer {{ token }}" {
+		if header.HeaderKey == "Authorization" && header.HeaderValue == "Bearer {{ token }}" {
 			foundDeltaHeader = true
 			break
 		}
@@ -453,27 +440,27 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		t.Fatalf("Expected merged asserts to include base and delta entries, got %d", len(output.MergeAsserts))
 	}
 
-	if output.MergeAsserts[1].Condition.Comparisons.Expression != "response.status == 201" {
-		t.Errorf("Expected delta assertion expression to be preserved, got %s", output.MergeAsserts[1].Condition.Comparisons.Expression)
+	if output.MergeAsserts[1].AssertValue != "response.status == 201" {
+		t.Errorf("Expected delta assertion expression to be preserved, got %s", output.MergeAsserts[1].AssertValue)
 	}
 
-	t.Logf("✅ MergeExamples handled nil DeltaParentID successfully")
+	t.Logf("✅ MergeExamples handled nil ParentSearchParamID/ParentHeaderID successfully")
 	t.Logf("📊 Merged %d queries and %d headers", len(output.MergeQueries), len(output.MergeHeaders))
 }
 
 func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
-	// This test verifies that MergeExamples works correctly with proper DeltaParentID
+	// This test verifies that MergeExamples works correctly with proper ParentSearchParamID/ParentHeaderID
 	// (the new format created by HAR conversion)
 
 	baseExampleID := idwrap.NewNow()
 	deltaExampleID := idwrap.NewNow()
 
-	baseExample := mitemapiexample.ItemApiExample{
+	baseExample := mhttp.HTTP{
 		ID:   baseExampleID,
 		Name: "Base Example",
 	}
 
-	deltaExample := mitemapiexample.ItemApiExample{
+	deltaExample := mhttp.HTTP{
 		ID:   deltaExampleID,
 		Name: "Delta Example",
 	}
@@ -482,80 +469,76 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 	baseQueryID := idwrap.NewNow()
 	baseHeaderID := idwrap.NewNow()
 
-	baseQueries := []mexamplequery.Query{
+	baseQueries := []mhttp.HTTPSearchParam{
 		{
 			ID:        baseQueryID,
-			ExampleID: baseExampleID,
-			QueryKey:  "page",
-			Value:     "1",
+			HttpID:    baseExampleID,
+			ParamKey:  "page",
+			ParamValue: "1",
 		},
 	}
 
-	baseHeaders := []mexampleheader.Header{
+	baseHeaders := []mhttp.HTTPHeader{
 		{
-			ID:        baseHeaderID,
-			ExampleID: baseExampleID,
-			HeaderKey: "Authorization",
-			Value:     "Bearer token123",
+			ID:          baseHeaderID,
+			HttpID:      baseExampleID,
+			HeaderKey:   "Authorization",
+			HeaderValue: "Bearer token123",
 		},
 	}
 
 	baseAssertIDWithParent := idwrap.NewNow()
-	baseAssertsWithParent := []massert.Assert{
+	baseAssertsWithParent := []mhttp.HTTPAssert{
 		{
-			ID:        baseAssertIDWithParent,
-			ExampleID: baseExampleID,
-			Condition: mcondition.Condition{
-				Comparisons: mcondition.Comparison{Expression: "response.status == 200"},
-			},
-			Enable: true,
+			ID:          baseAssertIDWithParent,
+			HttpID:      baseExampleID,
+			AssertValue: "response.status == 200",
+			Enabled:     true,
 		},
 	}
 
-	// Create delta queries and headers with proper DeltaParentID (new format)
-	deltaQueries := []mexamplequery.Query{
+	// Create delta queries and headers with proper ParentSearchParamID/ParentHeaderID (new format)
+	deltaQueries := []mhttp.HTTPSearchParam{
 		{
-			ID:            idwrap.NewNow(),
-			ExampleID:     deltaExampleID,
-			QueryKey:      "page",
-			Value:         "{{ request-1.response.page }}", // Templated value
-			DeltaParentID: &baseQueryID,                    // Proper reference to base query
+			ID:                idwrap.NewNow(),
+			HttpID:            deltaExampleID,
+			ParamKey:          "page",
+			ParamValue:        "{{ request-1.response.page }}", // Templated value
+			ParentSearchParamID: &baseQueryID,                 // Proper reference to base query
 		},
 	}
 
-	deltaHeaders := []mexampleheader.Header{
+	deltaHeaders := []mhttp.HTTPHeader{
 		{
 			ID:            idwrap.NewNow(),
-			ExampleID:     deltaExampleID,
+			HttpID:        deltaExampleID,
 			HeaderKey:     "Authorization",
-			Value:         "Bearer {{ request-1.response.body.token }}",
-			DeltaParentID: &baseHeaderID, // Proper reference to base header
+			HeaderValue:   "Bearer {{ request-1.response.body.token }}",
+			ParentHeaderID: &baseHeaderID, // Proper reference to base header
 		},
 	}
 
-	deltaAsserts := []massert.Assert{
+	deltaAsserts := []mhttp.HTTPAssert{
 		{
 			ID:            idwrap.NewNow(),
-			ExampleID:     deltaExampleID,
-			DeltaParentID: &baseAssertIDWithParent,
-			Condition: mcondition.Condition{
-				Comparisons: mcondition.Comparison{Expression: "response.status == 201"},
-			},
-			Enable: true,
+			HttpID:        deltaExampleID,
+			ParentAssertID: &baseAssertIDWithParent,
+			AssertValue:   "response.status == 201",
+			Enabled:       true,
 		},
 	}
 
 	// Create empty bodies for testing
-	baseRawBody := mbodyraw.ExampleBodyRaw{
-		ID:        idwrap.NewNow(),
-		ExampleID: baseExampleID,
-		Data:      []byte(`{"test": "base"}`),
+	baseRawBody := mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  baseExampleID,
+		RawData: []byte(`{"test": "base"}`),
 	}
 
-	deltaRawBody := mbodyraw.ExampleBodyRaw{
-		ID:        idwrap.NewNow(),
-		ExampleID: deltaExampleID,
-		Data:      []byte(`{"test": "delta"}`),
+	deltaRawBody := mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  deltaExampleID,
+		RawData: []byte(`{"test": "delta"}`),
 	}
 
 	input := MergeExamplesInput{
@@ -571,10 +554,10 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		BaseRawBody:  baseRawBody,
 		DeltaRawBody: deltaRawBody,
 
-		BaseFormBody:        []mbodyform.BodyForm{},
-		DeltaFormBody:       []mbodyform.BodyForm{},
-		BaseUrlEncodedBody:  []mbodyurl.BodyURLEncoded{},
-		DeltaUrlEncodedBody: []mbodyurl.BodyURLEncoded{},
+		BaseFormBody:        []mhttp.HTTPBodyForm{},
+		DeltaFormBody:       []mhttp.HTTPBodyForm{},
+		BaseUrlEncodedBody:  []mhttp.HTTPBodyUrlencoded{},
+		DeltaUrlEncodedBody: []mhttp.HTTPBodyUrlencoded{},
 		BaseAsserts:         baseAssertsWithParent,
 		DeltaAsserts:        deltaAsserts,
 	}
@@ -599,21 +582,21 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		t.Fatalf("Expected merged asserts to reuse base slot and stay at 1 entry, got %d", len(output.MergeAsserts))
 	}
 
-	if output.MergeAsserts[0].Condition.Comparisons.Expression != "response.status == 201" {
-		t.Errorf("Expected merged assertion to reflect delta expression, got %s", output.MergeAsserts[0].Condition.Comparisons.Expression)
+	if output.MergeAsserts[0].AssertValue != "response.status == 201" {
+		t.Errorf("Expected merged assertion to reflect delta expression, got %s", output.MergeAsserts[0].AssertValue)
 	}
 
 	// Verify that delta values replaced base values correctly
 	mergedQuery := output.MergeQueries[0]
-	if mergedQuery.QueryKey != "page" || mergedQuery.Value != "{{ request-1.response.page }}" {
-		t.Errorf("Expected delta query to replace base query, got QueryKey: %s, Value: %s", mergedQuery.QueryKey, mergedQuery.Value)
+	if mergedQuery.ParamKey != "page" || mergedQuery.ParamValue != "{{ request-1.response.page }}" {
+		t.Errorf("Expected delta query to replace base query, got ParamKey: %s, ParamValue: %s", mergedQuery.ParamKey, mergedQuery.ParamValue)
 	}
 
 	mergedHeader := output.MergeHeaders[0]
-	if mergedHeader.HeaderKey != "Authorization" || mergedHeader.Value != "Bearer {{ request-1.response.body.token }}" {
-		t.Errorf("Expected delta header to replace base header, got HeaderKey: %s, Value: %s", mergedHeader.HeaderKey, mergedHeader.Value)
+	if mergedHeader.HeaderKey != "Authorization" || mergedHeader.HeaderValue != "Bearer {{ request-1.response.body.token }}" {
+		t.Errorf("Expected delta header to replace base header, got HeaderKey: %s, HeaderValue: %s", mergedHeader.HeaderKey, mergedHeader.HeaderValue)
 	}
 
-	t.Logf("✅ MergeExamples handled proper DeltaParentID successfully")
+	t.Logf("✅ MergeExamples handled proper ParentSearchParamID/ParentHeaderID successfully")
 	t.Logf("📊 Merged %d queries and %d headers with proper parent relationships", len(output.MergeQueries), len(output.MergeHeaders))
 }

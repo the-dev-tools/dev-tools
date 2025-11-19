@@ -3,13 +3,7 @@ package request_test
 import (
 	"testing"
 	"the-dev-tools/server/pkg/http/request"
-	"the-dev-tools/server/pkg/model/mbodyform"
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	"the-dev-tools/server/pkg/model/mbodyurl"
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/varsystem"
 )
@@ -23,19 +17,20 @@ func TestPrepareRequestWithTracking_URL(t *testing.T) {
 	varMap := varsystem.NewVarMap(vars)
 
 	// Setup endpoint with variables
-	endpoint := mitemapi.ItemApi{
-		Method: "GET",
-		Url:    "{{baseUrl}}/{{version}}/users",
+	endpoint := mhttp.HTTP{
+		Method:  "GET",
+		Url:     "{{baseUrl}}/{{version}}/users",
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
-	example := mitemapiexample.ItemApiExample{
-		BodyType: mitemapiexample.BodyTypeRaw,
+	example := mhttp.HTTP{
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
 	// Call PrepareRequestWithTracking
 	result, err := request.PrepareRequestWithTracking(
-		endpoint, example, []mexamplequery.Query{}, []mexampleheader.Header{},
-		mbodyraw.ExampleBodyRaw{}, []mbodyform.BodyForm{}, []mbodyurl.BodyURLEncoded{},
+		endpoint, example, []mhttp.HTTPSearchParam{}, []mhttp.HTTPHeader{},
+		mhttp.HTTPBodyRaw{}, []mhttp.HTTPBodyForm{}, []mhttp.HTTPBodyUrlencoded{},
 		varMap,
 	)
 
@@ -76,13 +71,14 @@ func TestPrepareRequestWithTracking_TrimsVariableKeys(t *testing.T) {
 		},
 	})
 
-	endpoint := mitemapi.ItemApi{
-		Method: "GET",
-		Url:    "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}",
+	endpoint := mhttp.HTTP{
+		Method:  "GET",
+		Url:     "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}",
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
-	example := mitemapiexample.ItemApiExample{
-		BodyType: mitemapiexample.BodyTypeRaw,
+	example := mhttp.HTTP{
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
 	result, err := request.PrepareRequestWithTracking(
@@ -90,7 +86,7 @@ func TestPrepareRequestWithTracking_TrimsVariableKeys(t *testing.T) {
 		example,
 		nil,
 		nil,
-		mbodyraw.ExampleBodyRaw{},
+		mhttp.HTTPBodyRaw{},
 		nil,
 		nil,
 		varMap,
@@ -124,25 +120,26 @@ func TestPrepareRequestWithTracking_Headers(t *testing.T) {
 	varMap := varsystem.NewVarMap(vars)
 
 	// Setup endpoint and headers with variables
-	endpoint := mitemapi.ItemApi{
-		Method: "POST",
-		Url:    "https://api.example.com/users",
+	endpoint := mhttp.HTTP{
+		Method:  "POST",
+		Url:     "https://api.example.com/users",
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
-	headers := []mexampleheader.Header{
-		{HeaderKey: "Authorization", Value: "Bearer {{token}}", Enable: true},
-		{HeaderKey: "Content-Type", Value: "{{contentType}}", Enable: true},
-		{HeaderKey: "X-Static", Value: "static-value", Enable: true},
+	headers := []mhttp.HTTPHeader{
+		{HeaderKey: "Authorization", HeaderValue: "Bearer {{token}}", Enabled: true},
+		{HeaderKey: "Content-Type", HeaderValue: "{{contentType}}", Enabled: true},
+		{HeaderKey: "X-Static", HeaderValue: "static-value", Enabled: true},
 	}
 
-	example := mitemapiexample.ItemApiExample{
-		BodyType: mitemapiexample.BodyTypeRaw,
+	example := mhttp.HTTP{
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
 	// Call PrepareRequestWithTracking
 	result, err := request.PrepareRequestWithTracking(
-		endpoint, example, []mexamplequery.Query{}, headers,
-		mbodyraw.ExampleBodyRaw{}, []mbodyform.BodyForm{}, []mbodyurl.BodyURLEncoded{},
+		endpoint, example, []mhttp.HTTPSearchParam{}, headers,
+		mhttp.HTTPBodyRaw{}, []mhttp.HTTPBodyForm{}, []mhttp.HTTPBodyUrlencoded{},
 		varMap,
 	)
 
@@ -196,25 +193,26 @@ func TestPrepareRequestWithTracking_Queries(t *testing.T) {
 	varMap := varsystem.NewVarMap(vars)
 
 	// Setup endpoint and queries with variables
-	endpoint := mitemapi.ItemApi{
-		Method: "GET",
-		Url:    "https://api.example.com/users",
+	endpoint := mhttp.HTTP{
+		Method:  "GET",
+		Url:     "https://api.example.com/users",
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
-	queries := []mexamplequery.Query{
-		{QueryKey: "limit", Value: "{{limit}}", Enable: true},
-		{QueryKey: "sort", Value: "{{sortBy}}", Enable: true},
-		{QueryKey: "active", Value: "true", Enable: true},
+	queries := []mhttp.HTTPSearchParam{
+		{ParamKey: "limit", ParamValue: "{{limit}}", Enabled: true},
+		{ParamKey: "sort", ParamValue: "{{sortBy}}", Enabled: true},
+		{ParamKey: "active", ParamValue: "true", Enabled: true},
 	}
 
-	example := mitemapiexample.ItemApiExample{
-		BodyType: mitemapiexample.BodyTypeRaw,
+	example := mhttp.HTTP{
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
 	// Call PrepareRequestWithTracking
 	result, err := request.PrepareRequestWithTracking(
-		endpoint, example, queries, []mexampleheader.Header{},
-		mbodyraw.ExampleBodyRaw{}, []mbodyform.BodyForm{}, []mbodyurl.BodyURLEncoded{},
+		endpoint, example, queries, []mhttp.HTTPHeader{},
+		mhttp.HTTPBodyRaw{}, []mhttp.HTTPBodyForm{}, []mhttp.HTTPBodyUrlencoded{},
 		varMap,
 	)
 
@@ -249,24 +247,25 @@ func TestPrepareRequestWithTracking_Body(t *testing.T) {
 	varMap := varsystem.NewVarMap(vars)
 
 	// Setup endpoint with body containing variables
-	endpoint := mitemapi.ItemApi{
-		Method: "POST",
-		Url:    "https://api.example.com/users",
+	endpoint := mhttp.HTTP{
+		Method:  "POST",
+		Url:     "https://api.example.com/users",
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
 	bodyData := `{"name": "{{userName}}", "email": "{{userEmail}}"}`
-	rawBody := mbodyraw.ExampleBodyRaw{
-		Data: []byte(bodyData),
+	rawBody := mhttp.HTTPBodyRaw{
+		RawData: []byte(bodyData),
 	}
 
-	example := mitemapiexample.ItemApiExample{
-		BodyType: mitemapiexample.BodyTypeRaw,
+	example := mhttp.HTTP{
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
 	// Call PrepareRequestWithTracking
 	result, err := request.PrepareRequestWithTracking(
-		endpoint, example, []mexamplequery.Query{}, []mexampleheader.Header{},
-		rawBody, []mbodyform.BodyForm{}, []mbodyurl.BodyURLEncoded{},
+		endpoint, example, []mhttp.HTTPSearchParam{}, []mhttp.HTTPHeader{},
+		rawBody, []mhttp.HTTPBodyForm{}, []mhttp.HTTPBodyUrlencoded{},
 		varMap,
 	)
 
@@ -304,19 +303,20 @@ func TestPrepareRequestWithTracking_NoVariables(t *testing.T) {
 	varMap := varsystem.NewVarMap([]mvar.Var{})
 
 	// Setup static endpoint
-	endpoint := mitemapi.ItemApi{
-		Method: "GET",
-		Url:    "https://api.example.com/users",
+	endpoint := mhttp.HTTP{
+		Method:  "GET",
+		Url:     "https://api.example.com/users",
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
-	example := mitemapiexample.ItemApiExample{
-		BodyType: mitemapiexample.BodyTypeRaw,
+	example := mhttp.HTTP{
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
 	// Call PrepareRequestWithTracking
 	result, err := request.PrepareRequestWithTracking(
-		endpoint, example, []mexamplequery.Query{}, []mexampleheader.Header{},
-		mbodyraw.ExampleBodyRaw{}, []mbodyform.BodyForm{}, []mbodyurl.BodyURLEncoded{},
+		endpoint, example, []mhttp.HTTPSearchParam{}, []mhttp.HTTPHeader{},
+		mhttp.HTTPBodyRaw{}, []mhttp.HTTPBodyForm{}, []mhttp.HTTPBodyUrlencoded{},
 		varMap,
 	)
 
@@ -347,32 +347,33 @@ func TestPrepareRequestWithTracking_ComplexScenario(t *testing.T) {
 	varMap := varsystem.NewVarMap(vars)
 
 	// Setup complex endpoint with variables in multiple places
-	endpoint := mitemapi.ItemApi{
-		Method: "PUT",
-		Url:    "{{baseUrl}}/{{version}}/users/{{userId}}",
+	endpoint := mhttp.HTTP{
+		Method:  "PUT",
+		Url:     "{{baseUrl}}/{{version}}/users/{{userId}}",
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
-	headers := []mexampleheader.Header{
-		{HeaderKey: "Authorization", Value: "Bearer {{token}}", Enable: true},
+	headers := []mhttp.HTTPHeader{
+		{HeaderKey: "Authorization", HeaderValue: "Bearer {{token}}", Enabled: true},
 	}
 
-	queries := []mexamplequery.Query{
-		{QueryKey: "format", Value: "{{format}}", Enable: true},
+	queries := []mhttp.HTTPSearchParam{
+		{ParamKey: "format", ParamValue: "{{format}}", Enabled: true},
 	}
 
 	bodyData := `{"id": {{userId}}}`
-	rawBody := mbodyraw.ExampleBodyRaw{
-		Data: []byte(bodyData),
+	rawBody := mhttp.HTTPBodyRaw{
+		RawData: []byte(bodyData),
 	}
 
-	example := mitemapiexample.ItemApiExample{
-		BodyType: mitemapiexample.BodyTypeRaw,
+	example := mhttp.HTTP{
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
 	// Call PrepareRequestWithTracking
 	result, err := request.PrepareRequestWithTracking(
 		endpoint, example, queries, headers,
-		rawBody, []mbodyform.BodyForm{}, []mbodyurl.BodyURLEncoded{},
+		rawBody, []mhttp.HTTPBodyForm{}, []mhttp.HTTPBodyUrlencoded{},
 		varMap,
 	)
 
