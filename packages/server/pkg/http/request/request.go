@@ -18,16 +18,7 @@ import (
 	"the-dev-tools/server/pkg/errmap"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/model/mbodyform"
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	"the-dev-tools/server/pkg/model/mbodyurl"
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemapiexample"
-	"the-dev-tools/server/pkg/sort/sortenabled"
 	"the-dev-tools/server/pkg/varsystem"
 	"time"
 	"unicode/utf8"
@@ -430,15 +421,15 @@ func formatBodyForLog(body []byte) string {
 	return text
 }
 
-func validateHeadersForHTTP(headers []mexampleheader.Header) error {
+func validateHeadersForHTTP(headers []mhttp.HTTPHeader) error {
 	for _, header := range headers {
-		if header.HeaderKey == "" && header.Value == "" {
+		if header.HeaderKey == "" && header.HeaderValue == "" {
 			continue
 		}
 		if hasInvalidHeaderCharacters(header.HeaderKey, false) {
 			return fmt.Errorf("header %q can only contain visible ASCII characters", header.HeaderKey)
 		}
-		if hasInvalidHeaderCharacters(header.Value, true) {
+		if hasInvalidHeaderCharacters(header.HeaderValue, true) {
 			return fmt.Errorf("header %q cannot include line breaks or other control characters; trim file contents or encode them before use", header.HeaderKey)
 		}
 	}
@@ -493,8 +484,8 @@ type PrepareRequestResult struct {
 	ReadVars map[string]string // Variables that were read during request preparation
 }
 
-func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiExample, queries []mexamplequery.Query, headers []mexampleheader.Header,
-	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded, varMap varsystem.VarMap,
+func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTTPSearchParam, headers []mhttp.HTTPHeader,
+	rawBody mhttp.HTTPBodyRaw, formBody []mhttp.HTTPBodyForm, urlBody []mhttp.HTTPBodyUrlencoded, varMap varsystem.VarMap,
 ) (*httpclient.Request, error) {
 	var err error
 	if varsystem.CheckStringHasAnyVarKey(endpoint.Url) {
@@ -505,36 +496,64 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	}
 
 	// get only enabled
-	sortenabled.GetAllWithState(&headers, true)
-	sortenabled.GetAllWithState(&queries, true)
-	sortenabled.GetAllWithState(&formBody, true)
-	sortenabled.GetAllWithState(&urlBody, true)
+	// Filter enabled items manually since mhttp models don't implement IsEnabled()
+	activeHeaders := make([]mhttp.HTTPHeader, 0, len(headers))
+	for _, h := range headers {
+		if h.Enabled {
+			activeHeaders = append(activeHeaders, h)
+		}
+	}
+	headers = activeHeaders
+
+	activeQueries := make([]mhttp.HTTPSearchParam, 0, len(queries))
+	for _, q := range queries {
+		if q.Enabled {
+			activeQueries = append(activeQueries, q)
+		}
+	}
+	queries = activeQueries
+
+	activeFormBody := make([]mhttp.HTTPBodyForm, 0, len(formBody))
+	for _, f := range formBody {
+		if f.Enabled {
+			activeFormBody = append(activeFormBody, f)
+		}
+	}
+	formBody = activeFormBody
+
+	activeUrlBody := make([]mhttp.HTTPBodyUrlencoded, 0, len(urlBody))
+	for _, u := range urlBody {
+		if u.Enabled {
+			activeUrlBody = append(activeUrlBody, u)
+		}
+	}
+	urlBody = activeUrlBody
 
 	clientQueries := make([]httpclient.Query, len(queries))
 	if varMap != nil {
 		for i, query := range queries {
-			if varsystem.CheckIsVar(query.QueryKey) {
-				key := varsystem.GetVarKeyFromRaw(query.QueryKey)
+			if varsystem.CheckIsVar(query.ParamKey) {
+				key := varsystem.GetVarKeyFromRaw(query.ParamKey)
 				if val, ok := varMap.Get(key); ok {
-					query.QueryKey = val.Value
+					query.ParamKey = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
 			}
 
-			if varsystem.CheckIsVar(query.Value) {
-				key := varsystem.GetVarKeyFromRaw(query.Value)
+			if varsystem.CheckIsVar(query.ParamValue) {
+				key := varsystem.GetVarKeyFromRaw(query.ParamValue)
 				if val, ok := varMap.Get(key); ok {
-					query.Value = val.Value
+					query.ParamValue = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
 			}
-			clientQueries[i] = httpclient.Query{QueryKey: query.QueryKey, Value: query.Value}
+			clientQueries[i] = httpclient.Query{QueryKey: query.ParamKey, Value: query.ParamValue}
 		}
 	} else {
 		for i, query := range queries {
-			clientQueries[i] = httpclient.Query{QueryKey: query.QueryKey, Value: query.Value}
+			clientQueries[i] = httpclient.Query{QueryKey: query.ParamKey, Value: query.ParamValue}
 		}
 	}
 
@@ -542,7 +561,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	clientHeaders := make([]httpclient.Header, len(headers))
 	for i, header := range headers {
 		if header.HeaderKey == "Content-Encoding" {
-			switch strings.ToLower(header.Value) {
+			switch strings.ToLower(header.HeaderValue) {
 			case "gzip":
 				compressType = compress.CompressTypeGzip
 			case "zstd":
@@ -550,9 +569,9 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 			case "br":
 				compressType = compress.CompressTypeBr
 			case "deflate", "identity":
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.HeaderValue))
 			default:
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.HeaderValue))
 			}
 		}
 
@@ -566,40 +585,40 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				}
 			}
 
-			if varsystem.CheckStringHasAnyVarKey(header.Value) {
+			if varsystem.CheckStringHasAnyVarKey(header.HeaderValue) {
 				// Use varsystem's ReplaceVars for any string containing variables
-				replacedValue, err := varMap.ReplaceVars(header.Value)
+				replacedValue, err := varMap.ReplaceVars(header.HeaderValue)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				header.Value = replacedValue
+				header.HeaderValue = replacedValue
 			}
 		}
-		clientHeaders[i] = httpclient.Header{HeaderKey: header.HeaderKey, Value: header.Value}
+		clientHeaders[i] = httpclient.Header{HeaderKey: header.HeaderKey, Value: header.HeaderValue}
 	}
 
 	bodyBytes := &bytes.Buffer{}
-	switch example.BodyType {
-	case mitemapiexample.BodyTypeRaw:
-		if len(rawBody.Data) > 0 {
-			if rawBody.CompressType != compress.CompressTypeNone {
-				rawBody.Data, err = compress.Decompress(rawBody.Data, rawBody.CompressType)
+	switch example.BodyKind {
+	case mhttp.HttpBodyKindRaw:
+		if len(rawBody.RawData) > 0 {
+			if rawBody.CompressionType != int8(compress.CompressTypeNone) {
+				rawBody.RawData, err = compress.Decompress(rawBody.RawData, compress.CompressType(rawBody.CompressionType))
 				if err != nil {
 					return nil, err
 				}
 			}
-			bodyStr := string(rawBody.Data)
+			bodyStr := string(rawBody.RawData)
 			bodyStr, err = varMap.ReplaceVars(bodyStr)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
-			rawBody.Data = []byte(bodyStr)
+			rawBody.RawData = []byte(bodyStr)
 		}
-		_, err = bodyBytes.Write(rawBody.Data)
+		_, err = bodyBytes.Write(rawBody.RawData)
 		if err != nil {
 			return nil, err
 		}
-	case mitemapiexample.BodyTypeForm:
+	case mhttp.HttpBodyKindFormData:
 		writer := multipart.NewWriter(bodyBytes)
 
 		// Add Content-Type header with multipart boundary
@@ -610,9 +629,9 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 		clientHeaders = append(clientHeaders, contentTypeHeader)
 
 		for _, v := range formBody {
-			actualBodyKey := v.BodyKey
-			if varsystem.CheckIsVar(v.BodyKey) {
-				key := varsystem.GetVarKeyFromRaw(v.BodyKey)
+			actualBodyKey := v.FormKey
+			if varsystem.CheckIsVar(v.FormKey) {
+				key := varsystem.GetVarKeyFromRaw(v.FormKey)
 				if val, ok := varMap.Get(key); ok {
 					actualBodyKey = val.Value
 				} else {
@@ -622,7 +641,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 
 			// First check if this value contains file references (before variable replacement)
 			filePathsToUpload := []string{}
-			potentialFileRefs := strings.Split(v.Value, ",")
+			potentialFileRefs := strings.Split(v.FormValue, ",")
 			allAreFileReferences := true
 
 			for _, ref := range potentialFileRefs {
@@ -656,11 +675,11 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				}
 			}
 
-			resolvedValue := v.Value
-			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.Value) {
+			resolvedValue := v.FormValue
+			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.FormValue) {
 				// Only replace variables if this is not a file reference
 				var err error
-				resolvedValue, err = varMap.ReplaceVars(v.Value)
+				resolvedValue, err = varMap.ReplaceVars(v.FormValue)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
@@ -706,27 +725,27 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 		if err := writer.Close(); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to close multipart writer: %w", err))
 		}
-	case mitemapiexample.BodyTypeUrlencoded:
+	case mhttp.HttpBodyKindUrlEncoded:
 		urlVal := url.Values{}
 		for _, url := range urlBody {
-			if varsystem.CheckIsVar(url.BodyKey) {
-				key := varsystem.GetVarKeyFromRaw(url.Value)
+			if varsystem.CheckIsVar(url.UrlencodedKey) {
+				key := varsystem.GetVarKeyFromRaw(url.UrlencodedValue)
 				if val, ok := varMap.Get(key); ok {
-					url.BodyKey = val.Value
+					url.UrlencodedKey = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
 				}
 			}
-			if varsystem.CheckIsVar(url.Value) {
-				key := varsystem.GetVarKeyFromRaw(url.Value)
+			if varsystem.CheckIsVar(url.UrlencodedValue) {
+				key := varsystem.GetVarKeyFromRaw(url.UrlencodedValue)
 				if val, ok := varMap.Get(key); ok {
-					url.Value = val.Value
+					url.UrlencodedValue = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
 				}
 			}
 
-			urlVal.Add(url.BodyKey, url.Value)
+			urlVal.Add(url.UrlencodedKey, url.UrlencodedValue)
 		}
 		endpoint.Url += urlVal.Encode()
 	}
@@ -755,8 +774,8 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 }
 
 // PrepareRequestWithTracking prepares a request and tracks which variables are read
-func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiExample, queries []mexamplequery.Query, headers []mexampleheader.Header,
-	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded, varMap varsystem.VarMap,
+func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTTPSearchParam, headers []mhttp.HTTPHeader,
+	rawBody mhttp.HTTPBodyRaw, formBody []mhttp.HTTPBodyForm, urlBody []mhttp.HTTPBodyUrlencoded, varMap varsystem.VarMap,
 ) (*PrepareRequestResult, error) {
 	// Create a tracking wrapper around the varMap
 	tracker := varsystem.NewVarMapTracker(varMap)
@@ -770,34 +789,62 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 	}
 
 	// get only enabled
-	sortenabled.GetAllWithState(&headers, true)
-	sortenabled.GetAllWithState(&queries, true)
-	sortenabled.GetAllWithState(&formBody, true)
-	sortenabled.GetAllWithState(&urlBody, true)
+	// Filter enabled items manually since mhttp models don't implement IsEnabled()
+	activeHeaders := make([]mhttp.HTTPHeader, 0, len(headers))
+	for _, h := range headers {
+		if h.Enabled {
+			activeHeaders = append(activeHeaders, h)
+		}
+	}
+	headers = activeHeaders
+
+	activeQueries := make([]mhttp.HTTPSearchParam, 0, len(queries))
+	for _, q := range queries {
+		if q.Enabled {
+			activeQueries = append(activeQueries, q)
+		}
+	}
+	queries = activeQueries
+
+	activeFormBody := make([]mhttp.HTTPBodyForm, 0, len(formBody))
+	for _, f := range formBody {
+		if f.Enabled {
+			activeFormBody = append(activeFormBody, f)
+		}
+	}
+	formBody = activeFormBody
+
+	activeUrlBody := make([]mhttp.HTTPBodyUrlencoded, 0, len(urlBody))
+	for _, u := range urlBody {
+		if u.Enabled {
+			activeUrlBody = append(activeUrlBody, u)
+		}
+	}
+	urlBody = activeUrlBody
 
 	clientQueries := make([]httpclient.Query, len(queries))
 	if varMap != nil {
 		for i, query := range queries {
-			if varsystem.CheckStringHasAnyVarKey(query.QueryKey) {
-				resolvedKey, err := tracker.ReplaceVars(query.QueryKey)
+			if varsystem.CheckStringHasAnyVarKey(query.ParamKey) {
+				resolvedKey, err := tracker.ReplaceVars(query.ParamKey)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				query.QueryKey = resolvedKey
+				query.ParamKey = resolvedKey
 			}
 
-			if varsystem.CheckStringHasAnyVarKey(query.Value) {
-				resolvedValue, err := tracker.ReplaceVars(query.Value)
+			if varsystem.CheckStringHasAnyVarKey(query.ParamValue) {
+				resolvedValue, err := tracker.ReplaceVars(query.ParamValue)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				query.Value = resolvedValue
+				query.ParamValue = resolvedValue
 			}
-			clientQueries[i] = httpclient.Query{QueryKey: query.QueryKey, Value: query.Value}
+			clientQueries[i] = httpclient.Query{QueryKey: query.ParamKey, Value: query.ParamValue}
 		}
 	} else {
 		for i, query := range queries {
-			clientQueries[i] = httpclient.Query{QueryKey: query.QueryKey, Value: query.Value}
+			clientQueries[i] = httpclient.Query{QueryKey: query.ParamKey, Value: query.ParamValue}
 		}
 	}
 
@@ -805,7 +852,7 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 	clientHeaders := make([]httpclient.Header, len(headers))
 	for i, header := range headers {
 		if header.HeaderKey == "Content-Encoding" {
-			switch strings.ToLower(header.Value) {
+			switch strings.ToLower(header.HeaderValue) {
 			case "gzip":
 				compressType = compress.CompressTypeGzip
 			case "zstd":
@@ -813,9 +860,9 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 			case "br":
 				compressType = compress.CompressTypeBr
 			case "deflate", "identity":
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.HeaderValue))
 			default:
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.HeaderValue))
 			}
 		}
 
@@ -828,40 +875,40 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 				header.HeaderKey = resolvedKey
 			}
 
-			if varsystem.CheckStringHasAnyVarKey(header.Value) {
+			if varsystem.CheckStringHasAnyVarKey(header.HeaderValue) {
 				// Use tracking wrapper's ReplaceVars for any string containing variables
-				replacedValue, err := tracker.ReplaceVars(header.Value)
+				replacedValue, err := tracker.ReplaceVars(header.HeaderValue)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				header.Value = replacedValue
+				header.HeaderValue = replacedValue
 			}
 		}
-		clientHeaders[i] = httpclient.Header{HeaderKey: header.HeaderKey, Value: header.Value}
+		clientHeaders[i] = httpclient.Header{HeaderKey: header.HeaderKey, Value: header.HeaderValue}
 	}
 
 	bodyBytes := &bytes.Buffer{}
-	switch example.BodyType {
-	case mitemapiexample.BodyTypeRaw:
-		if len(rawBody.Data) > 0 {
-			if rawBody.CompressType != compress.CompressTypeNone {
-				rawBody.Data, err = compress.Decompress(rawBody.Data, rawBody.CompressType)
+	switch example.BodyKind {
+	case mhttp.HttpBodyKindRaw:
+		if len(rawBody.RawData) > 0 {
+			if rawBody.CompressionType != int8(compress.CompressTypeNone) {
+				rawBody.RawData, err = compress.Decompress(rawBody.RawData, compress.CompressType(rawBody.CompressionType))
 				if err != nil {
 					return nil, err
 				}
 			}
-			bodyStr := string(rawBody.Data)
+			bodyStr := string(rawBody.RawData)
 			bodyStr, err = tracker.ReplaceVars(bodyStr)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
-			rawBody.Data = []byte(bodyStr)
+			rawBody.RawData = []byte(bodyStr)
 		}
-		_, err = bodyBytes.Write(rawBody.Data)
+		_, err = bodyBytes.Write(rawBody.RawData)
 		if err != nil {
 			return nil, err
 		}
-	case mitemapiexample.BodyTypeForm:
+	case mhttp.HttpBodyKindFormData:
 		writer := multipart.NewWriter(bodyBytes)
 
 		// Add Content-Type header with multipart boundary
@@ -872,9 +919,9 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 		clientHeaders = append(clientHeaders, contentTypeHeader)
 
 		for _, v := range formBody {
-			actualBodyKey := v.BodyKey
-			if varsystem.CheckStringHasAnyVarKey(v.BodyKey) {
-				resolvedKey, err := tracker.ReplaceVars(v.BodyKey)
+			actualBodyKey := v.FormKey
+			if varsystem.CheckStringHasAnyVarKey(v.FormKey) {
+				resolvedKey, err := tracker.ReplaceVars(v.FormKey)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
@@ -883,7 +930,7 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 
 			// First check if this value contains file references (before variable replacement)
 			filePathsToUpload := []string{}
-			potentialFileRefs := strings.Split(v.Value, ",")
+			potentialFileRefs := strings.Split(v.FormValue, ",")
 			allAreFileReferences := true
 
 			for _, ref := range potentialFileRefs {
@@ -924,11 +971,11 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 				}
 			}
 
-			resolvedValue := v.Value
-			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.Value) {
+			resolvedValue := v.FormValue
+			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.FormValue) {
 				// Only replace variables if this is not a file reference
 				var err error
-				resolvedValue, err = tracker.ReplaceVars(v.Value)
+				resolvedValue, err = tracker.ReplaceVars(v.FormValue)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
@@ -974,10 +1021,10 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 		if err := writer.Close(); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to close multipart writer: %w", err))
 		}
-	case mitemapiexample.BodyTypeUrlencoded:
+	case mhttp.HttpBodyKindUrlEncoded:
 		urlVal := url.Values{}
 		for _, url := range urlBody {
-			bodyKey := url.BodyKey
+			bodyKey := url.UrlencodedKey
 			if varsystem.CheckStringHasAnyVarKey(bodyKey) {
 				resolvedKey, err := tracker.ReplaceVars(bodyKey)
 				if err != nil {
@@ -985,7 +1032,7 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 				}
 				bodyKey = resolvedKey
 			}
-			bodyValue := url.Value
+			bodyValue := url.UrlencodedValue
 			if varsystem.CheckStringHasAnyVarKey(bodyValue) {
 				resolvedValue, err := tracker.ReplaceVars(bodyValue)
 				if err != nil {
@@ -1049,25 +1096,25 @@ func SendRequestWithContext(ctx context.Context, req *httpclient.Request, exampl
 }
 
 type MergeExamplesInput struct {
-	Base, Delta               mitemapiexample.ItemApiExample
-	BaseQueries, DeltaQueries []mexamplequery.Query
-	BaseHeaders, DeltaHeaders []mexampleheader.Header
+	Base, Delta               mhttp.HTTP
+	BaseQueries, DeltaQueries []mhttp.HTTPSearchParam
+	BaseHeaders, DeltaHeaders []mhttp.HTTPHeader
 
 	// Bodies
-	BaseRawBody, DeltaRawBody               mbodyraw.ExampleBodyRaw
-	BaseFormBody, DeltaFormBody             []mbodyform.BodyForm
-	BaseUrlEncodedBody, DeltaUrlEncodedBody []mbodyurl.BodyURLEncoded
-	BaseAsserts, DeltaAsserts               []massert.Assert
+	BaseRawBody, DeltaRawBody               mhttp.HTTPBodyRaw
+	BaseFormBody, DeltaFormBody             []mhttp.HTTPBodyForm
+	BaseUrlEncodedBody, DeltaUrlEncodedBody []mhttp.HTTPBodyUrlencoded
+	BaseAsserts, DeltaAsserts               []mhttp.HTTPAssert
 }
 
 type MergeExamplesOutput struct {
-	Merged              mitemapiexample.ItemApiExample
-	MergeQueries        []mexamplequery.Query
-	MergeHeaders        []mexampleheader.Header
-	MergeRawBody        mbodyraw.ExampleBodyRaw
-	MergeFormBody       []mbodyform.BodyForm
-	MergeUrlEncodedBody []mbodyurl.BodyURLEncoded
-	MergeAsserts        []massert.Assert
+	Merged              mhttp.HTTP
+	MergeQueries        []mhttp.HTTPSearchParam
+	MergeHeaders        []mhttp.HTTPHeader
+	MergeRawBody        mhttp.HTTPBodyRaw
+	MergeFormBody       []mhttp.HTTPBodyForm
+	MergeUrlEncodedBody []mhttp.HTTPBodyUrlencoded
+	MergeAsserts        []mhttp.HTTPAssert
 }
 
 // Function will merge two examples
@@ -1080,28 +1127,28 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 		output.Merged = input.Delta
 		output.Merged.ID = input.Base.ID
 		// INFO: seems like FE update base example insteed of delta for bodytype
-		output.Merged.BodyType = input.Base.BodyType
+		output.Merged.BodyKind = input.Base.BodyKind
 	}
 
 	// Query
-	queryMap := make(map[idwrap.IDWrap]mexamplequery.Query, len(input.BaseQueries))
+	queryMap := make(map[idwrap.IDWrap]mhttp.HTTPSearchParam, len(input.BaseQueries))
 	for _, q := range input.BaseQueries {
 		queryMap[q.ID] = q
 	}
 
 	// Create a map for matching base queries by key name (for legacy delta queries)
-	baseQueryByKey := make(map[string]mexamplequery.Query)
+	baseQueryByKey := make(map[string]mhttp.HTTPSearchParam)
 	for _, q := range input.BaseQueries {
-		baseQueryByKey[q.QueryKey] = q
+		baseQueryByKey[q.ParamKey] = q
 	}
 
 	for _, q := range input.DeltaQueries {
-		// Handle legacy delta queries that don't have DeltaParentID set
-		if q.DeltaParentID != nil {
-			queryMap[*q.DeltaParentID] = q
+		// Handle delta queries with parent relationships
+		if q.ParentSearchParamID != nil {
+			queryMap[*q.ParentSearchParamID] = q
 		} else {
-			// For legacy delta queries without parent ID, try to find matching base query by key name
-			if baseQuery, exists := baseQueryByKey[q.QueryKey]; exists {
+			// For delta queries without parent ID, try to find matching base query by key name
+			if baseQuery, exists := baseQueryByKey[q.ParamKey]; exists {
 				queryMap[baseQuery.ID] = q
 			} else {
 				// If no matching base query found, add as new query
@@ -1110,29 +1157,29 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 		}
 	}
 
-	output.MergeQueries = make([]mexamplequery.Query, 0, len(queryMap))
+	output.MergeQueries = make([]mhttp.HTTPSearchParam, 0, len(queryMap))
 	for _, q := range queryMap {
 		output.MergeQueries = append(output.MergeQueries, q)
 	}
 
 	// Header
-	headerMap := make(map[idwrap.IDWrap]mexampleheader.Header, len(input.BaseHeaders))
+	headerMap := make(map[idwrap.IDWrap]mhttp.HTTPHeader, len(input.BaseHeaders))
 	for _, h := range input.BaseHeaders {
 		headerMap[h.ID] = h
 	}
 
 	// Create a map for matching base headers by key name (for legacy delta headers)
-	baseHeaderByKey := make(map[string]mexampleheader.Header)
+	baseHeaderByKey := make(map[string]mhttp.HTTPHeader)
 	for _, h := range input.BaseHeaders {
 		baseHeaderByKey[h.HeaderKey] = h
 	}
 
 	for _, h := range input.DeltaHeaders {
-		// Handle legacy delta headers that don't have DeltaParentID set
-		if h.DeltaParentID != nil {
-			headerMap[*h.DeltaParentID] = h
+		// Handle delta headers with parent relationships
+		if h.ParentHeaderID != nil {
+			headerMap[*h.ParentHeaderID] = h
 		} else {
-			// For legacy delta headers without parent ID, try to find matching base header by key name
+			// For delta headers without parent ID, try to find matching base header by key name
 			if baseHeader, exists := baseHeaderByKey[h.HeaderKey]; exists {
 				headerMap[baseHeader.ID] = h
 			} else {
@@ -1142,20 +1189,20 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 		}
 	}
 
-	output.MergeHeaders = make([]mexampleheader.Header, 0, len(headerMap))
+	output.MergeHeaders = make([]mhttp.HTTPHeader, 0, len(headerMap))
 	for _, h := range headerMap {
 		output.MergeHeaders = append(output.MergeHeaders, h)
 	}
 
 	// Raw Body
-	if len(input.DeltaRawBody.Data) > 0 {
+	if len(input.DeltaRawBody.RawData) > 0 {
 		output.MergeRawBody = input.DeltaRawBody
 	} else {
 		output.MergeRawBody = input.BaseRawBody
 	}
 
 	// Form Body
-	formMap := make(map[idwrap.IDWrap]mbodyform.BodyForm, len(input.BaseFormBody))
+	formMap := make(map[idwrap.IDWrap]mhttp.HTTPBodyForm, len(input.BaseFormBody))
 	for _, f := range input.BaseFormBody {
 		formMap[f.ID] = f
 	}
@@ -1164,13 +1211,13 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 		formMap[f.ID] = f
 	}
 
-	output.MergeFormBody = make([]mbodyform.BodyForm, 0, len(formMap))
+	output.MergeFormBody = make([]mhttp.HTTPBodyForm, 0, len(formMap))
 	for _, f := range formMap {
 		output.MergeFormBody = append(output.MergeFormBody, f)
 	}
 
 	// Url Encoded Body
-	urlEncodedMap := make(map[idwrap.IDWrap]mbodyurl.BodyURLEncoded, len(input.BaseUrlEncodedBody))
+	urlEncodedMap := make(map[idwrap.IDWrap]mhttp.HTTPBodyUrlencoded, len(input.BaseUrlEncodedBody))
 	for _, f := range input.BaseUrlEncodedBody {
 		urlEncodedMap[f.ID] = f
 	}
@@ -1179,7 +1226,7 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 		urlEncodedMap[f.ID] = f
 	}
 
-	output.MergeUrlEncodedBody = make([]mbodyurl.BodyURLEncoded, 0, len(urlEncodedMap))
+	output.MergeUrlEncodedBody = make([]mhttp.HTTPBodyUrlencoded, 0, len(urlEncodedMap))
 	for _, f := range urlEncodedMap {
 		output.MergeUrlEncodedBody = append(output.MergeUrlEncodedBody, f)
 	}
@@ -1189,14 +1236,14 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 	return output
 }
 
-func mergeAsserts(baseAsserts, deltaAsserts []massert.Assert) []massert.Assert {
+func mergeAsserts(baseAsserts, deltaAsserts []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 	orderedBase := orderAsserts(baseAsserts)
 	if len(deltaAsserts) == 0 {
 		return orderedBase
 	}
 
 	orderedDelta := orderAsserts(deltaAsserts)
-	baseMap := make(map[idwrap.IDWrap]massert.Assert, len(orderedBase))
+	baseMap := make(map[idwrap.IDWrap]mhttp.HTTPAssert, len(orderedBase))
 	baseOrder := make([]idwrap.IDWrap, 0, len(orderedBase))
 
 	for _, assert := range orderedBase {
@@ -1204,18 +1251,18 @@ func mergeAsserts(baseAsserts, deltaAsserts []massert.Assert) []massert.Assert {
 		baseOrder = append(baseOrder, assert.ID)
 	}
 
-	additions := make([]massert.Assert, 0)
+	additions := make([]mhttp.HTTPAssert, 0)
 	for _, deltaAssert := range orderedDelta {
-		if deltaAssert.DeltaParentID != nil {
-			if _, exists := baseMap[*deltaAssert.DeltaParentID]; exists {
-				baseMap[*deltaAssert.DeltaParentID] = deltaAssert
+		if deltaAssert.ParentAssertID != nil {
+			if _, exists := baseMap[*deltaAssert.ParentAssertID]; exists {
+				baseMap[*deltaAssert.ParentAssertID] = deltaAssert
 				continue
 			}
 		}
 		additions = append(additions, deltaAssert)
 	}
 
-	merged := make([]massert.Assert, 0, len(baseMap)+len(additions))
+	merged := make([]mhttp.HTTPAssert, 0, len(baseMap)+len(additions))
 	for _, id := range baseOrder {
 		if assert, exists := baseMap[id]; exists {
 			merged = append(merged, assert)
@@ -1229,13 +1276,13 @@ func mergeAsserts(baseAsserts, deltaAsserts []massert.Assert) []massert.Assert {
 	return merged
 }
 
-func orderAsserts(asserts []massert.Assert) []massert.Assert {
+func orderAsserts(asserts []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 	if len(asserts) <= 1 {
-		return append([]massert.Assert(nil), asserts...)
+		return append([]mhttp.HTTPAssert(nil), asserts...)
 	}
 
-	byID := make(map[idwrap.IDWrap]*massert.Assert, len(asserts))
-	var head *massert.Assert
+	byID := make(map[idwrap.IDWrap]*mhttp.HTTPAssert, len(asserts))
+	var head *mhttp.HTTPAssert
 	for i := range asserts {
 		assert := &asserts[i]
 		byID[assert.ID] = assert
@@ -1244,7 +1291,7 @@ func orderAsserts(asserts []massert.Assert) []massert.Assert {
 		}
 	}
 
-	ordered := make([]massert.Assert, 0, len(asserts))
+	ordered := make([]mhttp.HTTPAssert, 0, len(asserts))
 	visited := make(map[idwrap.IDWrap]bool, len(asserts))
 
 	for current := head; current != nil; {
@@ -1264,14 +1311,14 @@ func orderAsserts(asserts []massert.Assert) []massert.Assert {
 	}
 
 	if len(ordered) < len(asserts) {
-		remaining := make([]massert.Assert, 0, len(asserts)-len(ordered))
+		remaining := make([]mhttp.HTTPAssert, 0, len(asserts)-len(ordered))
 		for _, assert := range asserts {
 			if !visited[assert.ID] {
 				remaining = append(remaining, assert)
 			}
 		}
 		sort.Slice(remaining, func(i, j int) bool {
-			return remaining[i].Condition.Comparisons.Expression < remaining[j].Condition.Comparisons.Expression
+			return remaining[i].AssertValue < remaining[j].AssertValue
 		})
 		ordered = append(ordered, remaining...)
 	}
