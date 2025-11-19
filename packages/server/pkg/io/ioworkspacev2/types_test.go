@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"the-dev-tools/server/pkg/idwrap"
-	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
+	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
 )
 
 func TestMergeStrategyString(t *testing.T) {
@@ -97,7 +97,7 @@ func TestImportError(t *testing.T) {
 				EntityID:   idwrap.NewNow(),
 				EntityName: "TestEntity",
 				EntityType: "test",
-				Error:      fmt.Errorf("something went wrong"),
+				Err:        fmt.Errorf("something went wrong"),
 			},
 			expectedMsg: "import error for test 'TestEntity': something went wrong",
 		},
@@ -107,7 +107,7 @@ func TestImportError(t *testing.T) {
 				EntityID:   idwrap.NewNow(),
 				EntityName: "",
 				EntityType: "test",
-				Error:      fmt.Errorf("something went wrong"),
+				Err:        fmt.Errorf("something went wrong"),
 			},
 			expectedMsg: "import error for test: something went wrong",
 		},
@@ -149,7 +149,7 @@ func TestImportResultsAddError(t *testing.T) {
 		EntityID:   idwrap.NewNow(),
 		EntityName: "Test Error",
 		EntityType: "test",
-		Error:      fmt.Errorf("test error"),
+		Err:        fmt.Errorf("test error"),
 	}
 
 	results.AddError(err)
@@ -303,7 +303,7 @@ func TestImportResultsSummary(t *testing.T) {
 
 func TestImportResultsUpdateEntityCounts(t *testing.T) {
 	results := &ImportResults{}
-	resolved := &SimplifiedYAMLResolvedV2{
+	resolved := &yamlflowsimplev2.SimplifiedYAMLResolvedV2{
 		HTTPRequests:     []mhttp.HTTP{{}, {}},
 		Files:           []mfile.File{{}},
 		Flows:           []mflow.Flow{{}, {}, {}},

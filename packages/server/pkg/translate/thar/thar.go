@@ -1021,7 +1021,7 @@ func convertHARInternal(har *HAR, collectionID, workspaceID idwrap.IDWrap, depFi
 	// The following service methods handle linking properly:
 	// - AppendBulkHeader() in sexampleheader
 	// - CreateBulkQuery() in sexamplequery
-	// - CreateBulkAssert() in sassert
+	// - Assertions now handled by shttpassert
 	// - CreateItemApiBulk() and CreateApiExampleBulk() handle API/Example linking
 	// - CreateItemFolderBulk() handles folder linking
 

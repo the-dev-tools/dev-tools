@@ -16,14 +16,7 @@ import (
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	"the-dev-tools/server/pkg/model/mcondition"
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
-	"the-dev-tools/server/pkg/model/mexampleresp"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/model/mhttp"
 )
 
 func legacyBuildNodeRequestOutputMap(output NodeRequestOutput) (map[string]any, error) {
@@ -105,35 +98,42 @@ func (stubHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 type requestNodeFixture struct {
-	node      *NodeRequest
-	flowReq   *node.FlowNodeRequest
-	exampleID idwrap.IDWrap
+	node    *NodeRequest
+	flowReq *node.FlowNodeRequest
+	httpID  idwrap.IDWrap
 }
 
-func newRequestNodeFixture(asserts []massert.Assert, respChan chan NodeRequestSideResp) requestNodeFixture {
+func newRequestNodeFixture(asserts []mhttp.HTTPAssert, respChan chan NodeRequestSideResp) requestNodeFixture {
 	nodeID := idwrap.NewNow()
-	exampleID := idwrap.NewNow()
-	endpoint := mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "req", Url: "https://example.dev", Method: "GET"}
-	example := mitemapiexample.ItemApiExample{ID: exampleID, ItemApiID: endpoint.ID, Name: "req"}
-	rawBody := mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: example.ID, Data: []byte("{}")}
-	exampleResp := mexampleresp.ExampleResp{ExampleID: example.ID}
+	httpID := idwrap.NewNow()
+
+	httpReq := mhttp.HTTP{
+		ID:       httpID,
+		Name:     "req",
+		Url:      "https://example.dev",
+		Method:   "GET",
+		BodyKind: mhttp.HttpBodyKindRaw,
+	}
+
+	rawBody := &mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  httpID,
+		RawData: []byte("{}"),
+	}
 
 	requestNode := New(
 		nodeID,
 		"req",
-		endpoint,
-		example,
-		nil,
-		nil,
+		httpReq,
+		nil, // headers
+		nil, // params
 		rawBody,
-		nil,
-		nil,
-		exampleResp,
-		nil,
+		nil, // formBody
+		nil, // urlBody
 		asserts,
 		stubHTTPClient{},
 		respChan,
-		nil,
+		nil, // logger
 	)
 
 	flowReq := &node.FlowNodeRequest{
@@ -145,39 +145,35 @@ func newRequestNodeFixture(asserts []massert.Assert, respChan chan NodeRequestSi
 	}
 
 	return requestNodeFixture{
-		node:      requestNode,
-		flowReq:   flowReq,
-		exampleID: exampleID,
+		node:    requestNode,
+		flowReq: flowReq,
+		httpID:  httpID,
 	}
 }
 
 func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 	nodeID := idwrap.NewNow()
-	exampleID := idwrap.NewNow()
+	httpID := idwrap.NewNow()
 
-	endpoint := mitemapi.ItemApi{
-		ID:     idwrap.NewNow(),
-		Name:   "req",
-		Method: "POST",
-		Url:    "{{baseUrl}}/users",
-	}
-	example := mitemapiexample.ItemApiExample{
-		ID:        exampleID,
-		ItemApiID: endpoint.ID,
-		Name:      "req",
-		BodyType:  mitemapiexample.BodyTypeRaw,
-	}
-	rawBody := mbodyraw.ExampleBodyRaw{
-		ID:        idwrap.NewNow(),
-		ExampleID: example.ID,
-		Data:      []byte(`{"name": "{{name}}"}`),
+	httpReq := mhttp.HTTP{
+		ID:       httpID,
+		Name:     "req",
+		Method:   "POST",
+		Url:      "{{baseUrl}}/users",
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
 
-	queries := []mexamplequery.Query{
-		{QueryKey: "limit", Value: "{{limit}}", Enable: true},
+	rawBody := &mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  httpID,
+		RawData: []byte(`{"name": "{{name}}"}`),
 	}
-	headers := []mexampleheader.Header{
-		{HeaderKey: "Authorization", Value: "Bearer {{token}}", Enable: true},
+
+	queries := []mhttp.HTTPSearchParam{
+		{ParamKey: "limit", ParamValue: "{{limit}}", Enabled: true},
+	}
+	headers := []mhttp.HTTPHeader{
+		{HeaderKey: "Authorization", HeaderValue: "Bearer {{token}}", Enabled: true},
 	}
 
 	respChan := make(chan NodeRequestSideResp, 1)
@@ -185,16 +181,13 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 	requestNode := New(
 		nodeID,
 		"req",
-		endpoint,
-		example,
-		queries,
+		httpReq,
 		headers,
+		queries,
 		rawBody,
 		nil,
 		nil,
-		mexampleresp.ExampleResp{ExampleID: example.ID},
-		nil,
-		nil,
+		nil, // asserts
 		stubHTTPClient{},
 		respChan,
 		nil,
@@ -250,17 +243,27 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 
 func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 	nodeID := idwrap.NewNow()
-	exampleID := idwrap.NewNow()
-	endpoint := mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "req", Url: "https://example.dev", Method: "GET"}
-	example := mitemapiexample.ItemApiExample{ID: exampleID, ItemApiID: endpoint.ID, Name: "req"}
-	rawBody := mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: example.ID, Data: []byte("{}")}
-	exampleResp := mexampleresp.ExampleResp{ID: idwrap.NewNow(), ExampleID: example.ID}
-	asserts := []massert.Assert{
+	httpID := idwrap.NewNow()
+
+	httpReq := mhttp.HTTP{
+		ID:       httpID,
+		Name:     "req",
+		Url:      "https://example.dev",
+		Method:   "GET",
+		BodyKind: mhttp.HttpBodyKindRaw,
+	}
+	rawBody := &mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  httpID,
+		RawData: []byte("{}"),
+	}
+
+	asserts := []mhttp.HTTPAssert{
 		{
-			ID:        idwrap.NewNow(),
-			ExampleID: example.ID,
-			Enable:    true,
-			Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "response.status == 205"}},
+			ID:          idwrap.NewNow(),
+			HttpID:      httpID,
+			Enabled:     true,
+			AssertValue: "response.status == 205",
 		},
 	}
 
@@ -268,14 +271,11 @@ func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 	requestNode := New(
 		nodeID,
 		"req",
-		endpoint,
-		example,
+		httpReq,
 		nil,
 		nil,
 		rawBody,
 		nil,
-		nil,
-		exampleResp,
 		nil,
 		asserts,
 		stubHTTPClient{},
@@ -302,17 +302,25 @@ func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 
 func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 	nodeID := idwrap.NewNow()
-	exampleID := idwrap.NewNow()
-	endpoint := mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "req", Url: "https://example.dev", Method: "GET"}
-	example := mitemapiexample.ItemApiExample{ID: exampleID, ItemApiID: endpoint.ID, Name: "req"}
-	rawBody := mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: example.ID, Data: []byte("{}")}
-	exampleResp := mexampleresp.ExampleResp{ID: idwrap.NewNow(), ExampleID: example.ID}
-	asserts := []massert.Assert{
+	httpID := idwrap.NewNow()
+	httpReq := mhttp.HTTP{
+		ID:       httpID,
+		Name:     "req",
+		Url:      "https://example.dev",
+		Method:   "GET",
+		BodyKind: mhttp.HttpBodyKindRaw,
+	}
+	rawBody := &mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  httpID,
+		RawData: []byte("{}"),
+	}
+	asserts := []mhttp.HTTPAssert{
 		{
-			ID:        idwrap.NewNow(),
-			ExampleID: example.ID,
-			Enable:    true,
-			Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "response.status == 205"}},
+			ID:          idwrap.NewNow(),
+			HttpID:      httpID,
+			Enabled:     true,
+			AssertValue: "response.status == 205",
 		},
 	}
 
@@ -320,14 +328,11 @@ func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 	requestNode := New(
 		nodeID,
 		"req",
-		endpoint,
-		example,
+		httpReq,
 		nil,
 		nil,
 		rawBody,
 		nil,
-		nil,
-		exampleResp,
 		nil,
 		asserts,
 		stubHTTPClient{},
@@ -383,17 +388,25 @@ func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 
 func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 	nodeID := idwrap.NewNow()
-	exampleID := idwrap.NewNow()
-	endpoint := mitemapi.ItemApi{ID: idwrap.NewNow(), Name: "req", Url: "https://example.dev", Method: "GET"}
-	example := mitemapiexample.ItemApiExample{ID: exampleID, ItemApiID: endpoint.ID, Name: "req"}
-	rawBody := mbodyraw.ExampleBodyRaw{ID: idwrap.NewNow(), ExampleID: example.ID, Data: []byte("{}")}
-	exampleResp := mexampleresp.ExampleResp{ExampleID: example.ID}
-	asserts := []massert.Assert{
+	httpID := idwrap.NewNow()
+	httpReq := mhttp.HTTP{
+		ID:       httpID,
+		Name:     "req",
+		Url:      "https://example.dev",
+		Method:   "GET",
+		BodyKind: mhttp.HttpBodyKindRaw,
+	}
+	rawBody := &mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  httpID,
+		RawData: []byte("{}"),
+	}
+	asserts := []mhttp.HTTPAssert{
 		{
-			ID:        idwrap.NewNow(),
-			ExampleID: example.ID,
-			Enable:    true,
-			Condition: mcondition.Condition{Comparisons: mcondition.Comparison{Expression: "response.status == 205"}},
+			ID:          idwrap.NewNow(),
+			HttpID:      httpID,
+			Enabled:     true,
+			AssertValue: "response.status == 205",
 		},
 	}
 
@@ -401,14 +414,11 @@ func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 	requestNode := New(
 		nodeID,
 		"req",
-		endpoint,
-		example,
+		httpReq,
 		nil,
 		nil,
 		rawBody,
 		nil,
-		nil,
-		exampleResp,
 		nil,
 		asserts,
 		stubHTTPClient{},
@@ -431,11 +441,11 @@ func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 
 	select {
 	case resp := <-respChan:
-		if resp.Resp.ExampleResp.ID == (idwrap.IDWrap{}) {
-			t.Fatalf("expected response ID to be set: %#v", resp.Resp.ExampleResp)
+		if resp.Resp.HTTPResponse.ID == (idwrap.IDWrap{}) {
+			t.Fatalf("expected response ID to be set: %#v", resp.Resp.HTTPResponse)
 		}
-		if resp.Resp.ExampleResp.ExampleID != example.ID {
-			t.Fatalf("expected response to target example %s, got %s", example.ID, resp.Resp.ExampleResp.ExampleID)
+		if resp.Resp.HTTPResponse.HttpID != httpID {
+			t.Fatalf("expected response to target http %s, got %s", httpID, resp.Resp.HTTPResponse.HttpID)
 		}
 	default:
 		t.Fatalf("expected response side channel to receive entry")
@@ -453,11 +463,11 @@ func TestNodeRequestRunSyncSuccessSendsResponseID(t *testing.T) {
 
 	select {
 	case resp := <-respChan:
-		if resp.Resp.ExampleResp.ID == (idwrap.IDWrap{}) {
-			t.Fatalf("expected response id to be set on success: %#v", resp.Resp.ExampleResp)
+		if resp.Resp.HTTPResponse.ID == (idwrap.IDWrap{}) {
+			t.Fatalf("expected response id to be set on success: %#v", resp.Resp.HTTPResponse)
 		}
-		if resp.Resp.ExampleResp.ExampleID != fixture.exampleID {
-			t.Fatalf("expected response example id %s, got %s", fixture.exampleID, resp.Resp.ExampleResp.ExampleID)
+		if resp.Resp.HTTPResponse.HttpID != fixture.httpID {
+			t.Fatalf("expected response http id %s, got %s", fixture.httpID, resp.Resp.HTTPResponse.HttpID)
 		}
 	default:
 		t.Fatalf("expected response side channel to receive entry")
@@ -482,11 +492,11 @@ func TestNodeRequestRunAsyncSuccessSendsResponseID(t *testing.T) {
 
 	select {
 	case resp := <-respChan:
-		if resp.Resp.ExampleResp.ID == (idwrap.IDWrap{}) {
-			t.Fatalf("expected response id to be set on async success: %#v", resp.Resp.ExampleResp)
+		if resp.Resp.HTTPResponse.ID == (idwrap.IDWrap{}) {
+			t.Fatalf("expected response id to be set on async success: %#v", resp.Resp.HTTPResponse)
 		}
-		if resp.Resp.ExampleResp.ExampleID != fixture.exampleID {
-			t.Fatalf("expected response example id %s, got %s", fixture.exampleID, resp.Resp.ExampleResp.ExampleID)
+		if resp.Resp.HTTPResponse.HttpID != fixture.httpID {
+			t.Fatalf("expected response http id %s, got %s", fixture.httpID, resp.Resp.HTTPResponse.HttpID)
 		}
 	default:
 		t.Fatalf("expected async response side channel to receive entry")

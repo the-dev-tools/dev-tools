@@ -12,7 +12,6 @@ import (
 	"the-dev-tools/server/pkg/model/massert"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mexampleresp"
-	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/varsystem"
 )
 
@@ -20,7 +19,7 @@ func makeRequestResponse() request.RequestResponse {
 	resp := httpclient.Response{
 		StatusCode: 200,
 		Body:       []byte(`{"foo":"bar"}`),
-		Headers: []mexamplerespheader.ExampleRespHeader{
+		Headers: []httpclient.Header{
 			{HeaderKey: "Content-Type", Value: "application/json"},
 		},
 	}

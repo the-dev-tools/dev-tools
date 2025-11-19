@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 	"the-dev-tools/server/pkg/httpclient"
-	"the-dev-tools/server/pkg/model/mexamplerespheader"
 )
 
 func TestConvertResponseToVar(t *testing.T) {
@@ -20,7 +19,7 @@ func TestConvertResponseToVar(t *testing.T) {
 			input: httpclient.Response{
 				StatusCode: http.StatusOK,
 				Body:       []byte(`{"key": "value", "number": 123}`),
-				Headers: []mexamplerespheader.ExampleRespHeader{
+				Headers: []httpclient.Header{
 					{HeaderKey: "Content-Type", Value: "application/json"},
 					{HeaderKey: "X-Request-Id", Value: "abc-123"},
 				},
@@ -43,7 +42,7 @@ func TestConvertResponseToVar(t *testing.T) {
 			input: httpclient.Response{
 				StatusCode: http.StatusNotFound,
 				Body:       []byte("This is plain text"),
-				Headers: []mexamplerespheader.ExampleRespHeader{
+				Headers: []httpclient.Header{
 					{HeaderKey: "Content-Type", Value: "text/plain"},
 				},
 			},
@@ -61,7 +60,7 @@ func TestConvertResponseToVar(t *testing.T) {
 			input: httpclient.Response{
 				StatusCode: http.StatusNoContent,
 				Body:       []byte{},
-				Headers:    []mexamplerespheader.ExampleRespHeader{},
+				Headers:    []httpclient.Header{},
 			},
 			expected: httpclient.ResponseVar{
 				StatusCode: http.StatusNoContent,

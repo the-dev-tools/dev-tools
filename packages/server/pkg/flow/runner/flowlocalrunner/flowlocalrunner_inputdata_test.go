@@ -3,6 +3,7 @@ package flowlocalrunner
 import (
 	"context"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -14,10 +15,7 @@ import (
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	"the-dev-tools/server/pkg/model/mexampleresp"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
 )
 
@@ -26,6 +24,14 @@ type inputTrackingNode struct {
 	name string
 }
 type staticHTTPClient struct{}
+
+func (s staticHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+		Header:     make(http.Header),
+	}, nil
+}
 
 func (n *inputTrackingNode) GetID() idwrap.IDWrap { return n.id }
 
@@ -60,15 +66,6 @@ func (n *singleEdgeStartNode) RunAsync(ctx context.Context, req *node.FlowNodeRe
 	resultChan <- n.RunSync(ctx, req)
 }
 
-func (staticHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(`{"status":"ok"}`)),
-		Header: http.Header{
-			"Content-Type": []string{"application/json"},
-		},
-	}, nil
-}
 
 func TestFlowLocalRunnerEmitsInputDataForTrackedReads(t *testing.T) {
 	t.Parallel()
@@ -180,46 +177,32 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 
 	startNode := &singleEdgeStartNode{id: startID, next: requestNodeID}
 
-	endpoint := mitemapi.ItemApi{
-		ID:     idwrap.NewNow(),
-		Name:   "request",
-		Method: "GET",
-		Url:    "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}",
+	endpoint := mhttp.HTTP{
+		ID:      idwrap.NewNow(),
+		Name:    "request",
+		Method:  "GET",
+		Url:     "{{ baseUrl }}/api/categories/{{ foreach_4.item.id }}",
+		BodyKind: mhttp.HttpBodyKindRaw,
 	}
-	example := mitemapiexample.ItemApiExample{
-		ID:        idwrap.NewNow(),
-		ItemApiID: endpoint.ID,
-		Name:      "example",
-		BodyType:  mitemapiexample.BodyTypeRaw,
-	}
-	rawBody := mbodyraw.ExampleBodyRaw{
-		ID:        idwrap.NewNow(),
-		ExampleID: example.ID,
-		Data:      []byte(`{"payload":"{{ foreach_4.item.id }}"}`),
-	}
-	exampleResp := mexampleresp.ExampleResp{
-		ID:        idwrap.NewNow(),
-		ExampleID: example.ID,
-		Status:    200,
-		Body:      []byte(`{"ok":true}`),
+	rawBody := &mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  endpoint.ID,
+		RawData: []byte(`{"payload":"{{ foreach_4.item.id }}"}`),
 	}
 
 	requestNode := nrequest.New(
 		requestNodeID,
 		"request",
 		endpoint,
-		example,
-		nil,
-		nil,
+		nil, // headers
+		nil, // params
 		rawBody,
-		nil,
-		nil,
-		exampleResp,
-		nil,
-		nil,
+		nil, // formBody
+		nil, // urlBody
+		nil, // asserts
 		staticHTTPClient{},
 		make(chan nrequest.NodeRequestSideResp, 1),
-		nil,
+		slog.Default(),
 	)
 
 	nodeMap := map[idwrap.IDWrap]node.FlowNode{

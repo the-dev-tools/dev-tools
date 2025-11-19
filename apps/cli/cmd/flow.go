@@ -35,8 +35,6 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/service/flow/sedge"
-	"the-dev-tools/server/pkg/service/sassert"
-	"the-dev-tools/server/pkg/service/sassertres"
 	"the-dev-tools/server/pkg/service/sbodyform"
 	"the-dev-tools/server/pkg/service/sbodyraw"
 	"the-dev-tools/server/pkg/service/sbodyurl"
@@ -83,8 +81,6 @@ type FlowServiceLocal struct {
 	// response
 	ers  sexampleresp.ExampleRespService
 	erhs sexamplerespheader.ExampleRespHeaderService
-	as   sassert.AssertService
-	ars  sassertres.AssertResultService
 
 	// sub nodes
 	ns   snode.NodeService
@@ -233,8 +229,6 @@ var yamlflowRunCmd = &cobra.Command{
 		urlBodyService := sbodyurl.New(queries)
 		responseService := sexampleresp.New(queries)
 		responseHeaderService := sexamplerespheader.New(queries)
-		exampleAssertService := sassert.New(queries)
-		responseAssertService := sassertres.New(queries)
 		// exampleHeaderService, exampleQueryService, envService, varService - removed as unused
 
 		logMap := logconsole.NewLogChanMap()
