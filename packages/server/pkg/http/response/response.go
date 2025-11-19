@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
+
 	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
@@ -13,6 +15,7 @@ import (
 	"the-dev-tools/server/pkg/model/massertres"
 	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mexamplerespheader"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/varsystem"
 	"the-dev-tools/server/pkg/zstdcompress"
 
@@ -30,9 +33,115 @@ type ResponseCreateOutput struct {
 	DeleteHeaderIds              []idwrap.IDWrap
 }
 
+type ResponseCreateHTTPOutput struct {
+	HTTPResponse    mhttp.HTTPResponse
+	ResponseHeaders []mhttp.HTTPResponseHeader
+	ResponseAsserts []mhttp.HTTPResponseAssert
+}
+
 type AssertCouple struct {
 	Assert    massert.Assert
 	AssertRes massertres.AssertResult
+}
+
+func ResponseCreateHTTP(
+	ctx context.Context,
+	r request.RequestResponse,
+	httpID idwrap.IDWrap,
+	assertions []mhttp.HTTPAssert,
+	varMap varsystem.VarMap,
+	flowVars map[string]any,
+) (*ResponseCreateHTTPOutput, error) {
+	respHttp := r.HttpResp
+	lapse := r.LapTime
+
+	responseID := idwrap.NewNow()
+	now := time.Now().Unix()
+
+	httpResponse := mhttp.HTTPResponse{
+		ID:        responseID,
+		HttpID:    httpID,
+		Status:    int32(respHttp.StatusCode),
+		Body:      respHttp.Body,
+		Time:      now,
+		Duration:  int32(lapse.Milliseconds()),
+		Size:      int32(len(respHttp.Body)),
+		CreatedAt: now,
+	}
+
+	responseHeaders := make([]mhttp.HTTPResponseHeader, 0, len(respHttp.Headers))
+	for _, h := range respHttp.Headers {
+		responseHeaders = append(responseHeaders, mhttp.HTTPResponseHeader{
+			ID:          idwrap.NewNow(),
+			HttpID:      httpID,
+			HeaderKey:   h.HeaderKey,
+			HeaderValue: h.Value,
+			CreatedAt:   now,
+		})
+	}
+
+	responseAsserts := make([]mhttp.HTTPResponseAssert, 0)
+	responseVar := httpclient.ConvertResponseToVar(respHttp)
+	responseBinding := map[string]any{
+		"status":   responseVar.StatusCode,
+		"body":     responseVar.Body,
+		"headers":  responseVar.Headers,
+		"duration": responseVar.Duration,
+	}
+	responseEnv := map[string]any{"response": responseBinding}
+	mergedVarMap := varsystem.MergeVarMap(varMap, varsystem.NewVarMapFromAnyMap(responseEnv))
+	evalEnvMap := buildAssertionEnv(flowVars, responseBinding)
+	exprEnv := expression.NewEnv(evalEnvMap)
+
+	normalizedExprCache := make(map[string]string)
+
+	for _, assertion := range assertions {
+		if assertion.Enabled {
+			expr := assertion.AssertValue // Using Value as expression? Old model used Condition.Comparisons.Expression.
+			// mhttp.HTTPAssert has AssertKey and AssertValue.
+			// If it's an expression assertion, maybe Key is empty or Value is the expression?
+			// Or Key is description?
+			// "AssertKey string", "AssertValue string".
+			// "Condition" is missing.
+			// Spec says: `model HttpAssert { ... value: string; }`.
+			// `key` is likely the name/description or key if it's a key-value assertion.
+			// Assuming `AssertValue` is the expression to evaluate.
+			
+			// Check if we need normalization
+			if strings.Contains(expr, "{{") && strings.Contains(expr, "}}") {
+				if cached, ok := normalizedExprCache[expr]; ok {
+					expr = cached
+				} else {
+					normalized, err := expression.NormalizeExpression(ctx, expr, mergedVarMap)
+					if err != nil {
+						return nil, err
+					}
+					normalizedExprCache[expr] = normalized
+					expr = normalized
+				}
+			}
+
+			ok, err := expression.ExpressionEvaluteAsBool(ctx, exprEnv, expr)
+			if err != nil {
+				annotatedErr := annotateUnknownNameError(err, evalEnvMap)
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", expr, annotatedErr))
+			}
+
+			responseAsserts = append(responseAsserts, mhttp.HTTPResponseAssert{
+				ID:        idwrap.NewNow(),
+				HttpID:    httpID,
+				Value:     expr,
+				Success:   ok,
+				CreatedAt: now,
+			})
+		}
+	}
+
+	return &ResponseCreateHTTPOutput{
+		HTTPResponse:    httpResponse,
+		ResponseHeaders: responseHeaders,
+		ResponseAsserts: responseAsserts,
+	}, nil
 }
 
 func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp mexampleresp.ExampleResp, lastResonseHeaders []mexamplerespheader.ExampleRespHeader, assertions []massert.Assert, varMap varsystem.VarMap, flowVars map[string]any) (*ResponseCreateOutput, error) {

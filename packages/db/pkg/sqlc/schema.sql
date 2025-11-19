@@ -756,6 +756,7 @@ CREATE TABLE http (
   name TEXT NOT NULL,
   url TEXT NOT NULL,
   method TEXT NOT NULL,
+  body_kind INT8 NOT NULL DEFAULT 2,
   description TEXT NOT NULL DEFAULT '',
   
   -- Delta system fields
@@ -766,6 +767,7 @@ CREATE TABLE http (
   delta_name TEXT NULL,
   delta_url TEXT NULL,
   delta_method TEXT NULL,
+  delta_body_kind INT8 NULL,
   delta_description TEXT NULL,
   
   -- Metadata

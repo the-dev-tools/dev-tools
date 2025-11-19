@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v3"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -35,18 +36,10 @@ import (
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mbodyform"
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mcondition"
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
-	"the-dev-tools/server/pkg/model/mexampleresp"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -259,6 +252,8 @@ type FlowServiceV2RPC struct {
 	hbf  *shttp.HttpBodyFormService
 	hbu  *shttp.HttpBodyUrlencodedService
 	has  *shttp.HttpAssertService
+	hbr  *shttp.HttpBodyRawService
+	logger *slog.Logger
 	// V2 import services
 	workspaceImportService WorkspaceImporter
 	nodeStream             eventstream.SyncStreamer[NodeTopic, NodeEvent]
@@ -292,6 +287,8 @@ func New(
 	hbf *shttp.HttpBodyFormService,
 	hbu *shttp.HttpBodyUrlencodedService,
 	has *shttp.HttpAssertService,
+	hbr *shttp.HttpBodyRawService,
+	logger *slog.Logger,
 	workspaceImportService WorkspaceImporter,
 	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent],
 	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent],
@@ -323,6 +320,8 @@ func New(
 		hbf:                    hbf,
 		hbu:                    hbu,
 		has:                    has,
+		hbr:                    hbr,
+		logger:                 logger,
 		workspaceImportService: workspaceImportService,
 		nodeStream:             nodeStream,
 		edgeStream:             edgeStream,
@@ -4387,15 +4386,6 @@ func (s *FlowServiceV2RPC) buildRequestFlowNode(
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http %s: %w", cfg.HttpID.String(), err))
 	}
 
-	exampleID := cfg.HttpID
-	endpoint := mitemapi.ItemApi{
-		ID:           httpRecord.ID,
-		CollectionID: flow.WorkspaceID,
-		Name:         httpRecord.Name,
-		Url:          httpRecord.Url,
-		Method:       httpRecord.Method,
-	}
-
 	var headers []mhttp.HTTPHeader
 	if s.hh != nil {
 		headers, err = s.hh.GetByHttpID(ctx, cfg.HttpID)
@@ -4427,141 +4417,47 @@ func (s *FlowServiceV2RPC) buildRequestFlowNode(
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body urlencoded: %w", err))
 		}
 	}
-
-	headersOld := convertHTTPHeadersToExampleHeaders(headers, exampleID)
-	queriesOld := convertHTTPQueriesToExampleQueries(queries, exampleID)
-	formsOld := convertHTTPFormsToExample(forms, exampleID)
-	urlEncodedOld := convertHTTPUrlencodedToExample(urlEncoded, exampleID)
-
-	rawBody := mbodyraw.ExampleBodyRaw{
-		ID:        idwrap.NewNow(),
-		ExampleID: exampleID,
-		Data:      nil,
+	urlEncodedVals := make([]mhttp.HTTPBodyUrlencoded, 0, len(urlEncoded))
+	for _, v := range urlEncoded {
+		if v != nil {
+			urlEncodedVals = append(urlEncodedVals, *v)
+		}
 	}
 
-	example := mitemapiexample.ItemApiExample{
-		ID:        exampleID,
-		ItemApiID: endpoint.ID,
-		Name:      nodeModel.Name,
-		BodyType:  determineExampleBodyType(formsOld, urlEncodedOld),
+	var rawBody *mhttp.HTTPBodyRaw
+	if s.hbr != nil {
+		rawBody, err = s.hbr.GetByHttpID(ctx, cfg.HttpID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body raw: %w", err))
+		}
 	}
 
-	exampleResp := mexampleresp.ExampleResp{
-		ID:        idwrap.NewNow(),
-		ExampleID: exampleID,
+	var asserts []mhttp.HTTPAssert
+	if s.has != nil {
+		asserts, err = s.has.GetByHttpID(ctx, cfg.HttpID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http asserts: %w", err))
+		}
 	}
 
 	requestNode := nrequest.New(
 		nodeModel.ID,
 		nodeModel.Name,
-		endpoint,
-		example,
-		queriesOld,
-		headersOld,
+		*httpRecord,
+		headers,
+		queries,
 		rawBody,
-		formsOld,
-		urlEncodedOld,
-		exampleResp,
-		nil,
-		nil,
+		forms,
+		urlEncodedVals,
+		asserts,
 		client,
 		respChan,
-		nil,
+		s.logger,
 	)
 	return requestNode, nil
 }
 
-func convertHTTPHeadersToExampleHeaders(headers []mhttp.HTTPHeader, exampleID idwrap.IDWrap) []mexampleheader.Header {
-	if len(headers) == 0 {
-		return nil
-	}
-	result := make([]mexampleheader.Header, 0, len(headers))
-	for _, header := range headers {
-		result = append(result, mexampleheader.Header{
-			ID:            header.ID,
-			ExampleID:     exampleID,
-			HeaderKey:     header.HeaderKey,
-			Value:         header.HeaderValue,
-			Description:   header.Description,
-			Enable:        header.Enabled,
-			DeltaParentID: header.ParentHeaderID,
-			Prev:          header.Prev,
-			Next:          header.Next,
-		})
-	}
-	return result
-}
 
-func convertHTTPQueriesToExampleQueries(queries []mhttp.HTTPSearchParam, exampleID idwrap.IDWrap) []mexamplequery.Query {
-	if len(queries) == 0 {
-		return nil
-	}
-	result := make([]mexamplequery.Query, 0, len(queries))
-	for _, query := range queries {
-		result = append(result, mexamplequery.Query{
-			ID:            query.ID,
-			ExampleID:     exampleID,
-			QueryKey:      query.ParamKey,
-			Value:         query.ParamValue,
-			Description:   query.Description,
-			Enable:        query.Enabled,
-			DeltaParentID: query.ParentSearchParamID,
-		})
-	}
-	return result
-}
-
-func convertHTTPFormsToExample(forms []mhttp.HTTPBodyForm, exampleID idwrap.IDWrap) []mbodyform.BodyForm {
-	if len(forms) == 0 {
-		return nil
-	}
-	result := make([]mbodyform.BodyForm, 0, len(forms))
-	for _, form := range forms {
-		result = append(result, mbodyform.BodyForm{
-			ID:            form.ID,
-			ExampleID:     exampleID,
-			BodyKey:       form.FormKey,
-			Value:         form.FormValue,
-			Description:   form.Description,
-			Enable:        form.Enabled,
-			DeltaParentID: form.ParentBodyFormID,
-		})
-	}
-	return result
-}
-
-func convertHTTPUrlencodedToExample(items []*mhttp.HTTPBodyUrlencoded, exampleID idwrap.IDWrap) []mbodyurl.BodyURLEncoded {
-	if len(items) == 0 {
-		return nil
-	}
-	result := make([]mbodyurl.BodyURLEncoded, 0, len(items))
-	for _, item := range items {
-		if item == nil {
-			continue
-		}
-		result = append(result, mbodyurl.BodyURLEncoded{
-			ID:            item.ID,
-			ExampleID:     exampleID,
-			BodyKey:       item.UrlencodedKey,
-			Value:         item.UrlencodedValue,
-			Description:   item.Description,
-			Enable:        item.Enabled,
-			DeltaParentID: item.ParentBodyUrlencodedID,
-		})
-	}
-	return result
-}
-
-func determineExampleBodyType(forms []mbodyform.BodyForm, urlEncoded []mbodyurl.BodyURLEncoded) mitemapiexample.BodyType {
-	switch {
-	case len(forms) > 0:
-		return mitemapiexample.BodyTypeForm
-	case len(urlEncoded) > 0:
-		return mitemapiexample.BodyTypeUrlencoded
-	default:
-		return mitemapiexample.BodyTypeRaw
-	}
-}
 
 func serializeFlow(flow mflow.Flow) *flowv1.Flow {
 	msg := &flowv1.Flow{

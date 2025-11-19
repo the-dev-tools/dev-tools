@@ -12,15 +12,25 @@ type HTTP struct {
 	Url              string         `json:"url"`
 	Method           string         `json:"method"`
 	Description      string         `json:"description"`
+	BodyKind         HttpBodyKind   `json:"body_kind"`
 	ParentHttpID     *idwrap.IDWrap `json:"parent_http_id,omitempty"`
 	IsDelta          bool           `json:"is_delta"`
 	DeltaName        *string        `json:"delta_name,omitempty"`
 	DeltaUrl         *string        `json:"delta_url,omitempty"`
 	DeltaMethod      *string        `json:"delta_method,omitempty"`
 	DeltaDescription *string        `json:"delta_description,omitempty"`
+	DeltaBodyKind    *HttpBodyKind  `json:"delta_body_kind,omitempty"`
 	CreatedAt        int64          `json:"created_at"`
 	UpdatedAt        int64          `json:"updated_at"`
 }
+
+type HttpBodyKind int8
+
+const (
+	HttpBodyKindFormData   HttpBodyKind = 0
+	HttpBodyKindUrlEncoded HttpBodyKind = 1
+	HttpBodyKindRaw        HttpBodyKind = 2
+)
 
 type HTTPSearchParam struct {
 	ID                  idwrap.IDWrap  `json:"id"`

@@ -32,6 +32,8 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sassert"
 	"the-dev-tools/server/pkg/service/sassertres"
@@ -54,8 +56,8 @@ import (
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	// "the-dev-tools/spec/dist/buf/go/node_js_executor/v1/node_js_executorv1connect" // Commented out - using local execution
-	// V2 service imports (commented out until full integration)
-	// "the-dev-tools/server/pkg/service/shttp"
+	// V2 service imports
+	"the-dev-tools/server/pkg/service/shttp"
 	// "the-dev-tools/server/pkg/service/sfile"
 	"time"
 
@@ -92,6 +94,16 @@ type FlowServiceLocal struct {
 	sns  snodenoop.NodeNoopService
 	ins  snodeif.NodeIfService
 	jsns snodejs.NodeJSService
+
+	// V2 services
+	hs     shttp.HTTPService
+	hh     shttp.HttpHeaderService
+	hsp    shttp.HttpSearchParamService
+	hbf    shttp.HttpBodyFormService
+	hbu    shttp.HttpBodyUrlencodedService
+	hbr    shttp.HttpBodyRawService
+	has    shttp.HttpAssertService
+	logger *slog.Logger
 
 	logChanMap logconsole.LogChanMap
 }
@@ -206,9 +218,14 @@ var yamlflowRunCmd = &cobra.Command{
 		flowJSService := snodejs.New(queries)
 		flowEdges := sedge.New(queries)
 
-		// V2 services - for future use
-		// httpService := shttp.New(queries, logger)
-		// fileService := sfile.New(queries, logger)
+		// V2 services
+		httpService := shttp.New(queries, logger)
+		httpHeaderService := shttp.NewHttpHeaderService(queries)
+		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
+		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
+		httpBodyUrlencodedService := shttp.NewHttpBodyUrlencodedService(queries)
+		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
+		httpAssertService := shttp.NewHttpAssertService(queries)
 
 		// Legacy services (still needed for some functionality)
 		rawBodyService := sbodyraw.New(queries)
@@ -242,6 +259,16 @@ var yamlflowRunCmd = &cobra.Command{
 			sns:  flowNoopService,
 			ins:  *flowConditionService,
 			jsns: flowJSService,
+			// V2 services
+			hs:     httpService,
+			hh:     *httpHeaderService,
+			hsp:    *httpSearchParamService,
+			hbf:    httpBodyFormService,
+			hbu:    *httpBodyUrlencodedService,
+			hbr:    *httpBodyRawService,
+			has:    httpAssertService,
+			logger: logger,
+
 			logChanMap: logMap,
 		}
 
@@ -615,19 +642,65 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 			requestBufferSize = estimatedRequests
 		}
 	}
+	httpClient := httpclient.New()
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, requestBufferSize)
 	for _, requestNode := range requestNodes {
-
-		// Base Request - simplified for v2 migration
-		if requestNode.ExampleID == nil {
-			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("example not found for %s", requestNode.FlowNodeID)))
+		httpRecord, err := c.hs.Get(ctx, requestNode.HttpID)
+		if err != nil {
+			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http %s: %w", requestNode.HttpID.String(), err)))
 		}
 
-		// For now, convert all request nodes to no-op nodes due to v2 migration
-		// The full migration would require creating adapter functions between v2 and legacy types
+		headers, err := c.hh.GetByHttpID(ctx, requestNode.HttpID)
+		if err != nil {
+			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http headers: %w", err)))
+		}
+
+		queries, err := c.hsp.GetByHttpID(ctx, requestNode.HttpID)
+		if err != nil {
+			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http queries: %w", err)))
+		}
+
+		forms, err := c.hbf.GetByHttpID(ctx, requestNode.HttpID)
+		if err != nil {
+			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http body forms: %w", err)))
+		}
+
+		urlEncoded, err := c.hbu.List(ctx, requestNode.HttpID)
+		if err != nil {
+			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http body urlencoded: %w", err)))
+		}
+		urlEncodedVals := make([]mhttp.HTTPBodyUrlencoded, 0, len(urlEncoded))
+		for _, v := range urlEncoded {
+			if v != nil {
+				urlEncodedVals = append(urlEncodedVals, *v)
+			}
+		}
+
+		rawBody, err := c.hbr.GetByHttpID(ctx, requestNode.HttpID)
+		if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) && !errors.Is(err, sql.ErrNoRows) {
+			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http body raw: %w", err)))
+		}
+
+		asserts, err := c.has.GetByHttpID(ctx, requestNode.HttpID)
+		if err != nil {
+			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http asserts: %w", err)))
+		}
+
 		name := nodeNameMap[requestNode.FlowNodeID]
-		log.Printf("Warning: Converting request node '%s' to no-op due to v2 migration", name)
-		flowNodeMap[requestNode.FlowNodeID] = nnoop.New(requestNode.FlowNodeID, name)
+		flowNodeMap[requestNode.FlowNodeID] = nrequest.New(
+			requestNode.FlowNodeID,
+			name,
+			*httpRecord,
+			headers,
+			queries,
+			rawBody,
+			forms,
+			urlEncodedVals,
+			asserts,
+			httpClient,
+			requestNodeRespChan,
+			c.logger,
+		)
 	}
 
 	for _, ifNode := range ifNodes {

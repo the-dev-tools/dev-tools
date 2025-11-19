@@ -312,6 +312,8 @@ func main() {
 		&httpBodyFormAgg,
 		httpBodyUrlAgg,
 		&httpAssertAgg,
+		httpBodyRawService,
+		logger,
 		workspaceImporter,
 		nodeStreamer,
 		edgeStreamer,

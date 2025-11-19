@@ -1256,11 +1256,11 @@ func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVari
 
 const createHTTP = `-- name: CreateHTTP :exec
 INSERT INTO http (
-  id, workspace_id, folder_id, name, url, method, description,
-  parent_http_id, is_delta, delta_name, delta_url, delta_method, delta_description,
+  id, workspace_id, folder_id, name, url, method, body_kind, description,
+  parent_http_id, is_delta, delta_name, delta_url, delta_method, delta_body_kind, delta_description,
   created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPParams struct {
@@ -1270,12 +1270,14 @@ type CreateHTTPParams struct {
 	Name             string
 	Url              string
 	Method           string
+	BodyKind         int8
 	Description      string
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
 	DeltaName        *string
 	DeltaUrl         *string
 	DeltaMethod      *string
+	DeltaBodyKind    interface{}
 	DeltaDescription *string
 	CreatedAt        int64
 	UpdatedAt        int64
@@ -1289,12 +1291,14 @@ func (q *Queries) CreateHTTP(ctx context.Context, arg CreateHTTPParams) error {
 		arg.Name,
 		arg.Url,
 		arg.Method,
+		arg.BodyKind,
 		arg.Description,
 		arg.ParentHttpID,
 		arg.IsDelta,
 		arg.DeltaName,
 		arg.DeltaUrl,
 		arg.DeltaMethod,
+		arg.DeltaBodyKind,
 		arg.DeltaDescription,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -9135,12 +9139,14 @@ SELECT
   name,
   url,
   method,
+  body_kind,
   description,
   parent_http_id,
   is_delta,
   delta_name,
   delta_url,
   delta_method,
+  delta_body_kind,
   delta_description,
   created_at,
   updated_at
@@ -9160,12 +9166,14 @@ func (q *Queries) GetHTTP(ctx context.Context, id idwrap.IDWrap) (Http, error) {
 		&i.Name,
 		&i.Url,
 		&i.Method,
+		&i.BodyKind,
 		&i.Description,
 		&i.ParentHttpID,
 		&i.IsDelta,
 		&i.DeltaName,
 		&i.DeltaUrl,
 		&i.DeltaMethod,
+		&i.DeltaBodyKind,
 		&i.DeltaDescription,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -9365,12 +9373,14 @@ SELECT
   h.name,
   h.url,
   h.method,
+  h.body_kind,
   h.description,
   h.parent_http_id,
   h.is_delta,
   h.delta_name,
   h.delta_url,
   h.delta_method,
+  h.delta_body_kind,
   h.delta_description,
   h.created_at,
   h.updated_at
@@ -9415,12 +9425,14 @@ func (q *Queries) GetHTTPBatchForStreaming(ctx context.Context, arg GetHTTPBatch
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.BodyKind,
 			&i.Description,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
+			&i.DeltaBodyKind,
 			&i.DeltaDescription,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -9977,12 +9989,14 @@ SELECT
   name,
   url,
   method,
+  body_kind,
   description,
   parent_http_id,
   is_delta,
   delta_name,
   delta_url,
   delta_method,
+  delta_body_kind,
   delta_description,
   created_at,
   updated_at
@@ -10007,12 +10021,14 @@ func (q *Queries) GetHTTPDeltasByParentID(ctx context.Context, parentHttpID *idw
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.BodyKind,
 			&i.Description,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
+			&i.DeltaBodyKind,
 			&i.DeltaDescription,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -10038,12 +10054,14 @@ SELECT
   h.name,
   h.url,
   h.method,
+  h.body_kind,
   h.description,
   h.parent_http_id,
   h.is_delta,
   h.delta_name,
   h.delta_url,
   h.delta_method,
+  h.delta_body_kind,
   h.delta_description,
   h.created_at,
   h.updated_at
@@ -10091,12 +10109,14 @@ func (q *Queries) GetHTTPDeltasSince(ctx context.Context, arg GetHTTPDeltasSince
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.BodyKind,
 			&i.Description,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
+			&i.DeltaBodyKind,
 			&i.DeltaDescription,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -10355,12 +10375,14 @@ SELECT
   h.name,
   h.url,
   h.method,
+  h.body_kind,
   h.description,
   h.parent_http_id,
   h.is_delta,
   h.delta_name,
   h.delta_url,
   h.delta_method,
+  h.delta_body_kind,
   h.delta_description,
   h.created_at,
   h.updated_at
@@ -10396,12 +10418,14 @@ func (q *Queries) GetHTTPIncrementalUpdates(ctx context.Context, arg GetHTTPIncr
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.BodyKind,
 			&i.Description,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
+			&i.DeltaBodyKind,
 			&i.DeltaDescription,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -11096,12 +11120,14 @@ SELECT
   h.name,
   h.url,
   h.method,
+  h.body_kind,
   h.description,
   h.parent_http_id,
   h.is_delta,
   h.delta_name,
   h.delta_url,
   h.delta_method,
+  h.delta_body_kind,
   h.delta_description,
   h.created_at,
   h.updated_at
@@ -11138,12 +11164,14 @@ func (q *Queries) GetHTTPSnapshotPage(ctx context.Context, arg GetHTTPSnapshotPa
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.BodyKind,
 			&i.Description,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
+			&i.DeltaBodyKind,
 			&i.DeltaDescription,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -11280,12 +11308,14 @@ SELECT
   name,
   url,
   method,
+  body_kind,
   description,
   parent_http_id,
   is_delta,
   delta_name,
   delta_url,
   delta_method,
+  delta_body_kind,
   delta_description,
   created_at,
   updated_at
@@ -11310,12 +11340,14 @@ func (q *Queries) GetHTTPsByFolderID(ctx context.Context, folderID *idwrap.IDWra
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.BodyKind,
 			&i.Description,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
+			&i.DeltaBodyKind,
 			&i.DeltaDescription,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -11341,12 +11373,14 @@ SELECT
   name,
   url,
   method,
+  body_kind,
   description,
   parent_http_id,
   is_delta,
   delta_name,
   delta_url,
   delta_method,
+  delta_body_kind,
   delta_description,
   created_at,
   updated_at
@@ -11380,12 +11414,14 @@ func (q *Queries) GetHTTPsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]Htt
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.BodyKind,
 			&i.Description,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
+			&i.DeltaBodyKind,
 			&i.DeltaDescription,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -11411,12 +11447,14 @@ SELECT
   name,
   url,
   method,
+  body_kind,
   description,
   parent_http_id,
   is_delta,
   delta_name,
   delta_url,
   delta_method,
+  delta_body_kind,
   delta_description,
   created_at,
   updated_at
@@ -11441,12 +11479,14 @@ func (q *Queries) GetHTTPsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 			&i.Name,
 			&i.Url,
 			&i.Method,
+			&i.BodyKind,
 			&i.Description,
 			&i.ParentHttpID,
 			&i.IsDelta,
 			&i.DeltaName,
 			&i.DeltaUrl,
 			&i.DeltaMethod,
+			&i.DeltaBodyKind,
 			&i.DeltaDescription,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -13869,12 +13909,14 @@ WITH RECURSIVE delta_chain AS (
     h.name,
     h.url,
     h.method,
+    h.body_kind,
     h.description,
     h.parent_http_id,
     h.is_delta,
     h.delta_name,
     h.delta_url,
     h.delta_method,
+    h.delta_body_kind,
     h.delta_description,
     h.created_at,
     h.updated_at,
@@ -13892,12 +13934,14 @@ WITH RECURSIVE delta_chain AS (
     COALESCE(h.delta_name, dc.name, dc.name) as name,
     COALESCE(h.delta_url, dc.url, dc.url) as url,
     COALESCE(h.delta_method, dc.method, dc.method) as method,
+    COALESCE(h.delta_body_kind, dc.body_kind, dc.body_kind) as body_kind,
     COALESCE(h.delta_description, dc.description, dc.description) as description,
     h.parent_http_id,
     h.is_delta,
     h.delta_name,
     h.delta_url,
     h.delta_method,
+    h.delta_body_kind,
     h.delta_description,
     h.created_at,
     h.updated_at,
@@ -13914,12 +13958,14 @@ SELECT
   name,
   url,
   method,
+  body_kind,
   description,
   parent_http_id,
   is_delta,
   delta_name,
   delta_url,
   delta_method,
+  delta_body_kind,
   delta_description,
   created_at,
   updated_at
@@ -13940,12 +13986,14 @@ type ResolveHTTPWithDeltasRow struct {
 	Name             string
 	Url              string
 	Method           string
+	BodyKind         int8
 	Description      string
 	ParentHttpID     []byte
 	IsDelta          bool
 	DeltaName        interface{}
 	DeltaUrl         interface{}
 	DeltaMethod      interface{}
+	DeltaBodyKind    interface{}
 	DeltaDescription interface{}
 	CreatedAt        int64
 	UpdatedAt        int64
@@ -13964,12 +14012,14 @@ func (q *Queries) ResolveHTTPWithDeltas(ctx context.Context, arg ResolveHTTPWith
 		&i.Name,
 		&i.Url,
 		&i.Method,
+		&i.BodyKind,
 		&i.Description,
 		&i.ParentHttpID,
 		&i.IsDelta,
 		&i.DeltaName,
 		&i.DeltaUrl,
 		&i.DeltaMethod,
+		&i.DeltaBodyKind,
 		&i.DeltaDescription,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -14776,6 +14826,7 @@ SET
   name = ?,
   url = ?,
   method = ?,
+  body_kind = ?,
   description = ?,
   updated_at = unixepoch()
 WHERE id = ?
@@ -14786,6 +14837,7 @@ type UpdateHTTPParams struct {
 	Name        string
 	Url         string
 	Method      string
+	BodyKind    int8
 	Description string
 	ID          idwrap.IDWrap
 }
@@ -14796,6 +14848,7 @@ func (q *Queries) UpdateHTTP(ctx context.Context, arg UpdateHTTPParams) error {
 		arg.Name,
 		arg.Url,
 		arg.Method,
+		arg.BodyKind,
 		arg.Description,
 		arg.ID,
 	)
@@ -15081,6 +15134,7 @@ SET
   delta_name = ?,
   delta_url = ?,
   delta_method = ?,
+  delta_body_kind = ?,
   delta_description = ?,
   updated_at = unixepoch()
 WHERE id = ?
@@ -15090,6 +15144,7 @@ type UpdateHTTPDeltaParams struct {
 	DeltaName        *string
 	DeltaUrl         *string
 	DeltaMethod      *string
+	DeltaBodyKind    interface{}
 	DeltaDescription *string
 	ID               idwrap.IDWrap
 }
@@ -15099,6 +15154,7 @@ func (q *Queries) UpdateHTTPDelta(ctx context.Context, arg UpdateHTTPDeltaParams
 		arg.DeltaName,
 		arg.DeltaUrl,
 		arg.DeltaMethod,
+		arg.DeltaBodyKind,
 		arg.DeltaDescription,
 		arg.ID,
 	)

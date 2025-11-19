@@ -28,8 +28,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	// "the-dev-tools/server/pkg/model/mbodyform" // TODO: Use if needed
 	// "the-dev-tools/server/pkg/model/mbodyurl" // TODO: Use if needed
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
@@ -1317,8 +1315,8 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		Method:  httpEntry.Method,
 		URL:     httpEntry.Url,
 		Body:    body,
-		Headers: []mexampleheader.Header{}, // Legacy headers service removed - use empty slice
-		Queries: []mexamplequery.Query{},   // Legacy queries service removed - use empty slice
+		Headers: []httpclient.Header{}, // Legacy headers service removed - use empty slice
+		Queries: []httpclient.Query{},   // Legacy queries service removed - use empty slice
 	}
 
 	// Start timing the HTTP request

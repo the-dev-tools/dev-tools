@@ -9,9 +9,6 @@ import (
 	"net/url"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
-	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"time"
 )
 
@@ -27,18 +24,28 @@ func New() HttpClient {
 	}
 }
 
+type Query struct {
+	QueryKey string
+	Value    string
+}
+
+type Header struct {
+	HeaderKey string
+	Value     string
+}
+
 type Request struct {
 	Method  string
 	URL     string
-	Queries []mexamplequery.Query
-	Headers []mexampleheader.Header
+	Queries []Query
+	Headers []Header
 	Body    []byte
 }
 
 type Response struct {
-	StatusCode int                                    `json:"statusCode"`
-	Body       []byte                                 `json:"body"`
-	Headers    []mexamplerespheader.ExampleRespHeader `json:"headers"`
+	StatusCode int      `json:"statusCode"`
+	Body       []byte   `json:"body"`
+	Headers    []Header `json:"headers"`
 }
 
 type ResponseVar struct {
@@ -81,9 +88,9 @@ func SendRequest(client HttpClient, req *Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	qNew := ConvertModelToQuery(req.Queries, reqRaw.URL.Query())
+	qNew := ConvertQueriesToUrl(req.Queries, reqRaw.URL.Query())
 	reqRaw.URL.RawQuery = qNew.Encode()
-	reqRaw.Header = ConvertModelToHeader(req.Headers)
+	reqRaw.Header = ConvertHeadersToHttp(req.Headers)
 	return client.Do(reqRaw)
 }
 
@@ -93,9 +100,9 @@ func SendRequestWithContext(ctx context.Context, client HttpClient, req *Request
 		return nil, err
 	}
 
-	qNew := ConvertModelToQuery(req.Queries, reqRaw.URL.Query())
+	qNew := ConvertQueriesToUrl(req.Queries, reqRaw.URL.Query())
 	reqRaw.URL.RawQuery = qNew.Encode()
-	reqRaw.Header = ConvertModelToHeader(req.Headers)
+	reqRaw.Header = ConvertHeadersToHttp(req.Headers)
 	return client.Do(reqRaw)
 }
 
@@ -125,7 +132,7 @@ func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDW
 	return Response{
 		StatusCode: resp.StatusCode,
 		Body:       body,
-		Headers:    ConvertHeaderToModel(resp.Header, exampleID),
+		Headers:    ConvertHttpHeaderToHeaders(resp.Header),
 	}, nil
 }
 
@@ -155,31 +162,16 @@ func SendRequestAndConvertWithContext(ctx context.Context, client HttpClient, re
 	return Response{
 		StatusCode: resp.StatusCode,
 		Body:       body,
-		Headers:    ConvertHeaderToModel(resp.Header, exampleID),
+		Headers:    ConvertHttpHeaderToHeaders(resp.Header),
 	}, nil
 }
 
-func ConvertHeaderToModel(headers http.Header, exampleID idwrap.IDWrap) []mexamplerespheader.ExampleRespHeader {
-	result := make([]mexamplerespheader.ExampleRespHeader, 0, len(headers))
+func ConvertHttpHeaderToHeaders(headers http.Header) []Header {
+	result := make([]Header, 0, len(headers))
 	for key, values := range headers {
 		for _, value := range values {
-			result = append(result, mexamplerespheader.ExampleRespHeader{
-				ExampleRespID: exampleID,
-				HeaderKey:     key,
-				Value:         value,
-			})
-		}
-	}
-	return result
-}
-
-func ConvertQueryToModel(query map[string][]string, exampleID idwrap.IDWrap) []mexamplequery.Query {
-	var result []mexamplequery.Query
-	for key, values := range query {
-		for _, value := range values {
-			result = append(result, mexamplequery.Query{
-				ExampleID: exampleID,
-				QueryKey:  key,
+			result = append(result, Header{
+				HeaderKey: key,
 				Value:     value,
 			})
 		}
@@ -187,7 +179,7 @@ func ConvertQueryToModel(query map[string][]string, exampleID idwrap.IDWrap) []m
 	return result
 }
 
-func ConvertModelToHeader(headers []mexampleheader.Header) http.Header {
+func ConvertHeadersToHttp(headers []Header) http.Header {
 	result := make(http.Header)
 	for _, header := range headers {
 		result.Add(header.HeaderKey, header.Value)
@@ -195,7 +187,7 @@ func ConvertModelToHeader(headers []mexampleheader.Header) http.Header {
 	return result
 }
 
-func ConvertModelToQuery(queries []mexamplequery.Query, url url.Values) url.Values {
+func ConvertQueriesToUrl(queries []Query, url url.Values) url.Values {
 	for _, query := range queries {
 		url.Add(query.QueryKey, query.Value)
 	}

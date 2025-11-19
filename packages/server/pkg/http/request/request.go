@@ -24,6 +24,7 @@ import (
 	"the-dev-tools/server/pkg/model/mbodyurl"
 	"the-dev-tools/server/pkg/model/mexampleheader"
 	"the-dev-tools/server/pkg/model/mexamplequery"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mitemapi"
 	"the-dev-tools/server/pkg/model/mitemapiexample"
 	"the-dev-tools/server/pkg/sort/sortenabled"
@@ -33,6 +34,317 @@ import (
 
 	"connectrpc.com/connect"
 )
+
+// PrepareHTTPRequestResult holds the result of preparing a request with tracked variable usage
+type PrepareHTTPRequestResult struct {
+	Request  *httpclient.Request
+	ReadVars map[string]string // Variables that were read during request preparation
+}
+
+// PrepareHTTPRequestWithTracking prepares a request using mhttp models and tracks variable usage
+func PrepareHTTPRequestWithTracking(
+	httpReq mhttp.HTTP,
+	headers []mhttp.HTTPHeader,
+	params []mhttp.HTTPSearchParam,
+	rawBody *mhttp.HTTPBodyRaw,
+	formBody []mhttp.HTTPBodyForm,
+	urlBody []mhttp.HTTPBodyUrlencoded,
+	varMap varsystem.VarMap,
+) (*PrepareHTTPRequestResult, error) {
+	// Create a tracking wrapper around the varMap
+	tracker := varsystem.NewVarMapTracker(varMap)
+
+	var err error
+	if varsystem.CheckStringHasAnyVarKey(httpReq.Url) {
+		httpReq.Url, err = tracker.ReplaceVars(httpReq.Url)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
+	}
+
+	// Filter enabled items
+	activeHeaders := make([]mhttp.HTTPHeader, 0, len(headers))
+	for _, h := range headers {
+		if h.Enabled {
+			activeHeaders = append(activeHeaders, h)
+		}
+	}
+
+	activeParams := make([]mhttp.HTTPSearchParam, 0, len(params))
+	for _, p := range params {
+		if p.Enabled {
+			activeParams = append(activeParams, p)
+		}
+	}
+
+	activeFormBody := make([]mhttp.HTTPBodyForm, 0, len(formBody))
+	for _, f := range formBody {
+		if f.Enabled {
+			activeFormBody = append(activeFormBody, f)
+		}
+	}
+
+	activeUrlBody := make([]mhttp.HTTPBodyUrlencoded, 0, len(urlBody))
+	for _, u := range urlBody {
+		if u.Enabled {
+			activeUrlBody = append(activeUrlBody, u)
+		}
+	}
+
+	// Process Query Params
+	clientQueries := make([]httpclient.Query, len(activeParams))
+	for i, param := range activeParams {
+		key := param.ParamKey
+		if varsystem.CheckStringHasAnyVarKey(key) {
+			key, err = tracker.ReplaceVars(key)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+		}
+
+		val := param.ParamValue
+		if varsystem.CheckStringHasAnyVarKey(val) {
+			val, err = tracker.ReplaceVars(val)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+		}
+		clientQueries[i] = httpclient.Query{QueryKey: key, Value: val}
+	}
+
+	// Process Headers
+	compressType := compress.CompressTypeNone
+	clientHeaders := make([]httpclient.Header, len(activeHeaders))
+	for i, header := range activeHeaders {
+		if header.HeaderKey == "Content-Encoding" {
+			switch strings.ToLower(header.HeaderValue) {
+			case "gzip":
+				compressType = compress.CompressTypeGzip
+			case "zstd":
+				compressType = compress.CompressTypeZstd
+			case "br":
+				compressType = compress.CompressTypeBr
+			case "deflate", "identity":
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.HeaderValue))
+			default:
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.HeaderValue))
+			}
+		}
+
+		key := header.HeaderKey
+		if varsystem.CheckStringHasAnyVarKey(key) {
+			key, err = tracker.ReplaceVars(key)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+		}
+
+		val := header.HeaderValue
+		if varsystem.CheckStringHasAnyVarKey(val) {
+			val, err = tracker.ReplaceVars(val)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+		}
+		clientHeaders[i] = httpclient.Header{HeaderKey: key, Value: val}
+	}
+
+	bodyBytes := &bytes.Buffer{}
+
+	switch httpReq.BodyKind {
+	case mhttp.HttpBodyKindRaw:
+		if rawBody != nil && len(rawBody.RawData) > 0 {
+			data := rawBody.RawData
+			if rawBody.CompressionType != int8(compress.CompressTypeNone) {
+				data, err = compress.Decompress(data, compress.CompressType(rawBody.CompressionType))
+				if err != nil {
+					return nil, err
+				}
+			}
+			bodyStr := string(data)
+			bodyStr, err = tracker.ReplaceVars(bodyStr)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			_, err = bodyBytes.WriteString(bodyStr)
+			if err != nil {
+				return nil, err
+			}
+		}
+	case mhttp.HttpBodyKindFormData:
+		writer := multipart.NewWriter(bodyBytes)
+
+		// Add Content-Type header with multipart boundary
+		contentTypeHeader := httpclient.Header{
+			HeaderKey: "Content-Type",
+			Value:     writer.FormDataContentType(),
+		}
+		clientHeaders = append(clientHeaders, contentTypeHeader)
+
+		for _, v := range activeFormBody {
+			actualBodyKey := v.FormKey
+			if varsystem.CheckStringHasAnyVarKey(v.FormKey) {
+				actualBodyKey, err = tracker.ReplaceVars(v.FormKey)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
+				}
+			}
+
+			// First check if this value contains file references (before variable replacement)
+			filePathsToUpload := []string{}
+			potentialFileRefs := strings.Split(v.FormValue, ",")
+			allAreFileReferences := true
+
+			for _, ref := range potentialFileRefs {
+				trimmedRef := strings.TrimSpace(ref)
+				// Check if this is a variable containing a file reference
+				if varsystem.CheckIsVar(trimmedRef) {
+					key := strings.TrimSpace(varsystem.GetVarKeyFromRaw(trimmedRef))
+					if varsystem.IsFileReference(key) {
+						// This is {{#file:path}} format
+						filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(key))
+						// Track the file reference read
+						fileKey := strings.TrimSpace(key)
+						tracker.ReadVars[fileKey], _ = varsystem.ReadFileContentAsString(fileKey)
+					} else {
+						// This is a regular variable, try to resolve it
+						if val, ok := tracker.Get(key); ok {
+							if varsystem.IsFileReference(val.Value) {
+								fileKey := strings.TrimSpace(val.Value)
+								filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(fileKey))
+							} else {
+								allAreFileReferences = false
+								break
+							}
+						} else {
+							allAreFileReferences = false
+							break
+						}
+					}
+				} else if varsystem.IsFileReference(trimmedRef) {
+					// This is direct #file:path format
+					filePathsToUpload = append(filePathsToUpload, varsystem.GetIsFileReferencePath(trimmedRef))
+					// Track the file reference read
+					fileKey := strings.TrimSpace(trimmedRef)
+					tracker.ReadVars[fileKey], _ = varsystem.ReadFileContentAsString(fileKey)
+				} else {
+					allAreFileReferences = false
+					break
+				}
+			}
+
+			resolvedValue := v.FormValue
+			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.FormValue) {
+				// Only replace variables if this is not a file reference
+				resolvedValue, err = tracker.ReplaceVars(v.FormValue)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
+				}
+			}
+
+			if allAreFileReferences && len(filePathsToUpload) > 0 {
+				// This is a file upload (single or multiple)
+				for _, filePath := range filePathsToUpload {
+					fileContentBytes, err := os.ReadFile(filePath)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read file %s: %w", filePath, err))
+					}
+
+					fileName := filepath.Base(filePath)
+
+					h := make(textproto.MIMEHeader)
+					h.Set("Content-Disposition",
+						fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+							escapeQuotes(actualBodyKey), escapeQuotes(fileName)))
+
+					mimeType := mime.TypeByExtension(filepath.Ext(fileName))
+					if mimeType == "" {
+						mimeType = "application/octet-stream"
+					}
+					h.Set("Content-Type", mimeType)
+
+					partWriter, err := writer.CreatePart(h)
+					if err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create form part: %w", err))
+					}
+
+					if _, err = partWriter.Write(fileContentBytes); err != nil {
+						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to write file content: %w", err))
+					}
+				}
+			} else {
+				// This is a regular text field
+				if err := writer.WriteField(actualBodyKey, resolvedValue); err != nil {
+					return nil, connect.NewError(connect.CodeInternal, err)
+				}
+			}
+		}
+		if err := writer.Close(); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to close multipart writer: %w", err))
+		}
+	case mhttp.HttpBodyKindUrlEncoded:
+		urlVal := url.Values{}
+		for _, u := range activeUrlBody {
+			bodyKey := u.UrlencodedKey
+			if varsystem.CheckStringHasAnyVarKey(bodyKey) {
+				bodyKey, err = tracker.ReplaceVars(bodyKey)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
+				}
+			}
+			bodyValue := u.UrlencodedValue
+			if varsystem.CheckStringHasAnyVarKey(bodyValue) {
+				bodyValue, err = tracker.ReplaceVars(bodyValue)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeNotFound, err)
+				}
+			}
+
+			urlVal.Add(bodyKey, bodyValue)
+		}
+		encodedData := urlVal.Encode()
+		_, err = bodyBytes.WriteString(encodedData)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Add Content-Type if not present
+		hasContentType := false
+		for _, h := range clientHeaders {
+			if strings.EqualFold(h.HeaderKey, "Content-Type") {
+				hasContentType = true
+				break
+			}
+		}
+		if !hasContentType {
+			clientHeaders = append(clientHeaders, httpclient.Header{
+				HeaderKey: "Content-Type",
+				Value:     "application/x-www-form-urlencoded",
+			})
+		}
+	}
+
+	if compressType != compress.CompressTypeNone {
+		compressedData, err := compress.Compress(bodyBytes.Bytes(), compressType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		bodyBytes = bytes.NewBuffer(compressedData)
+	}
+
+	httpReqObj := &httpclient.Request{
+		Method:  httpReq.Method,
+		URL:     httpReq.Url,
+		Headers: clientHeaders,
+		Queries: clientQueries,
+		Body:    bodyBytes.Bytes(),
+	}
+
+	return &PrepareHTTPRequestResult{
+		Request:  httpReqObj,
+		ReadVars: tracker.GetReadVars(),
+	}, nil
+}
 
 type RequestResponseVar struct {
 	Method  string            `json:"method"`
@@ -68,7 +380,7 @@ func ConvertRequestToVar(r *httpclient.Request) RequestResponseVar {
 
 const logBodyLimit = 2048
 
-func sanitizeHeadersForLog(headers []mexampleheader.Header) []map[string]string {
+func sanitizeHeadersForLog(headers []httpclient.Header) []map[string]string {
 	if len(headers) == 0 {
 		return nil
 	}
@@ -86,7 +398,7 @@ func sanitizeHeadersForLog(headers []mexampleheader.Header) []map[string]string 
 	return result
 }
 
-func formatQueriesForLog(queries []mexamplequery.Query) []map[string]string {
+func formatQueriesForLog(queries []httpclient.Query) []map[string]string {
 	if len(queries) == 0 {
 		return nil
 	}
@@ -198,13 +510,13 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	sortenabled.GetAllWithState(&formBody, true)
 	sortenabled.GetAllWithState(&urlBody, true)
 
-	compressType := compress.CompressTypeNone
+	clientQueries := make([]httpclient.Query, len(queries))
 	if varMap != nil {
 		for i, query := range queries {
 			if varsystem.CheckIsVar(query.QueryKey) {
 				key := varsystem.GetVarKeyFromRaw(query.QueryKey)
 				if val, ok := varMap.Get(key); ok {
-					queries[i].QueryKey = val.Value
+					query.QueryKey = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
@@ -213,14 +525,21 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 			if varsystem.CheckIsVar(query.Value) {
 				key := varsystem.GetVarKeyFromRaw(query.Value)
 				if val, ok := varMap.Get(key); ok {
-					queries[i].Value = val.Value
+					query.Value = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
 			}
+			clientQueries[i] = httpclient.Query{QueryKey: query.QueryKey, Value: query.Value}
+		}
+	} else {
+		for i, query := range queries {
+			clientQueries[i] = httpclient.Query{QueryKey: query.QueryKey, Value: query.Value}
 		}
 	}
 
+	compressType := compress.CompressTypeNone
+	clientHeaders := make([]httpclient.Header, len(headers))
 	for i, header := range headers {
 		if header.HeaderKey == "Content-Encoding" {
 			switch strings.ToLower(header.Value) {
@@ -241,7 +560,7 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 			if varsystem.CheckIsVar(header.HeaderKey) {
 				key := varsystem.GetVarKeyFromRaw(header.HeaderKey)
 				if val, ok := varMap.Get(key); ok {
-					headers[i].HeaderKey = val.Value
+					header.HeaderKey = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
@@ -253,9 +572,10 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				headers[i].Value = replacedValue
+				header.Value = replacedValue
 			}
 		}
+		clientHeaders[i] = httpclient.Header{HeaderKey: header.HeaderKey, Value: header.Value}
 	}
 
 	bodyBytes := &bytes.Buffer{}
@@ -283,12 +603,11 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 		writer := multipart.NewWriter(bodyBytes)
 
 		// Add Content-Type header with multipart boundary
-		contentTypeHeader := mexampleheader.Header{
+		contentTypeHeader := httpclient.Header{
 			HeaderKey: "Content-Type",
 			Value:     writer.FormDataContentType(),
-			Enable:    true,
 		}
-		headers = append(headers, contentTypeHeader)
+		clientHeaders = append(clientHeaders, contentTypeHeader)
 
 		for _, v := range formBody {
 			actualBodyKey := v.BodyKey
@@ -427,8 +746,8 @@ func PrepareRequest(endpoint mitemapi.ItemApi, example mitemapiexample.ItemApiEx
 	httpReq := &httpclient.Request{
 		Method:  endpoint.Method,
 		URL:     endpoint.Url,
-		Headers: headers,
-		Queries: queries,
+		Headers: clientHeaders,
+		Queries: clientQueries,
 		Body:    bodyBytes.Bytes(),
 	}
 
@@ -456,7 +775,7 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 	sortenabled.GetAllWithState(&formBody, true)
 	sortenabled.GetAllWithState(&urlBody, true)
 
-	compressType := compress.CompressTypeNone
+	clientQueries := make([]httpclient.Query, len(queries))
 	if varMap != nil {
 		for i, query := range queries {
 			if varsystem.CheckStringHasAnyVarKey(query.QueryKey) {
@@ -464,7 +783,7 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				queries[i].QueryKey = resolvedKey
+				query.QueryKey = resolvedKey
 			}
 
 			if varsystem.CheckStringHasAnyVarKey(query.Value) {
@@ -472,11 +791,18 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				queries[i].Value = resolvedValue
+				query.Value = resolvedValue
 			}
+			clientQueries[i] = httpclient.Query{QueryKey: query.QueryKey, Value: query.Value}
+		}
+	} else {
+		for i, query := range queries {
+			clientQueries[i] = httpclient.Query{QueryKey: query.QueryKey, Value: query.Value}
 		}
 	}
 
+	compressType := compress.CompressTypeNone
+	clientHeaders := make([]httpclient.Header, len(headers))
 	for i, header := range headers {
 		if header.HeaderKey == "Content-Encoding" {
 			switch strings.ToLower(header.Value) {
@@ -499,7 +825,7 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				headers[i].HeaderKey = resolvedKey
+				header.HeaderKey = resolvedKey
 			}
 
 			if varsystem.CheckStringHasAnyVarKey(header.Value) {
@@ -508,9 +834,10 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				headers[i].Value = replacedValue
+				header.Value = replacedValue
 			}
 		}
+		clientHeaders[i] = httpclient.Header{HeaderKey: header.HeaderKey, Value: header.Value}
 	}
 
 	bodyBytes := &bytes.Buffer{}
@@ -538,12 +865,11 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 		writer := multipart.NewWriter(bodyBytes)
 
 		// Add Content-Type header with multipart boundary
-		contentTypeHeader := mexampleheader.Header{
+		contentTypeHeader := httpclient.Header{
 			HeaderKey: "Content-Type",
 			Value:     writer.FormDataContentType(),
-			Enable:    true,
 		}
-		headers = append(headers, contentTypeHeader)
+		clientHeaders = append(clientHeaders, contentTypeHeader)
 
 		for _, v := range formBody {
 			actualBodyKey := v.BodyKey
@@ -688,8 +1014,8 @@ func PrepareRequestWithTracking(endpoint mitemapi.ItemApi, example mitemapiexamp
 	httpReq := &httpclient.Request{
 		Method:  endpoint.Method,
 		URL:     endpoint.Url,
-		Headers: headers,
-		Queries: queries,
+		Headers: clientHeaders,
+		Queries: clientQueries,
 		Body:    bodyBytes.Bytes(),
 	}
 

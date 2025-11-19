@@ -19,6 +19,11 @@ type HTTPService struct {
 }
 
 func ConvertToDBHTTP(http mhttp.HTTP) gen.Http {
+	var deltaBodyKind interface{}
+	if http.DeltaBodyKind != nil {
+		deltaBodyKind = int64(*http.DeltaBodyKind)
+	}
+
 	return gen.Http{
 		ID:               http.ID,
 		WorkspaceID:      http.WorkspaceID,
@@ -26,15 +31,39 @@ func ConvertToDBHTTP(http mhttp.HTTP) gen.Http {
 		Name:             http.Name,
 		Url:              http.Url,
 		Method:           http.Method,
+		BodyKind:         int8(http.BodyKind),
 		Description:      http.Description,
 		ParentHttpID:     http.ParentHttpID,
 		IsDelta:          http.IsDelta,
 		DeltaName:        http.DeltaName,
 		DeltaUrl:         http.DeltaUrl,
 		DeltaMethod:      http.DeltaMethod,
+		DeltaBodyKind:    deltaBodyKind,
 		DeltaDescription: http.DeltaDescription,
 		CreatedAt:        http.CreatedAt,
 		UpdatedAt:        http.UpdatedAt,
+	}
+}
+
+func interfaceToInt8Ptr(v interface{}) *mhttp.HttpBodyKind {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case int64:
+		k := mhttp.HttpBodyKind(val)
+		return &k
+	case int32:
+		k := mhttp.HttpBodyKind(val)
+		return &k
+	case int:
+		k := mhttp.HttpBodyKind(val)
+		return &k
+	case int8:
+		k := mhttp.HttpBodyKind(val)
+		return &k
+	default:
+		return nil
 	}
 }
 
@@ -46,12 +75,14 @@ func ConvertToModelHTTP(http gen.Http) *mhttp.HTTP {
 		Name:             http.Name,
 		Url:              http.Url,
 		Method:           http.Method,
+		BodyKind:         mhttp.HttpBodyKind(http.BodyKind),
 		Description:      http.Description,
 		ParentHttpID:     http.ParentHttpID,
 		IsDelta:          http.IsDelta,
 		DeltaName:        http.DeltaName,
 		DeltaUrl:         http.DeltaUrl,
 		DeltaMethod:      http.DeltaMethod,
+		DeltaBodyKind:    interfaceToInt8Ptr(http.DeltaBodyKind),
 		DeltaDescription: http.DeltaDescription,
 		CreatedAt:        http.CreatedAt,
 		UpdatedAt:        http.UpdatedAt,
@@ -98,12 +129,14 @@ func (hs HTTPService) Create(ctx context.Context, http *mhttp.HTTP) error {
 		Name:             dbHttp.Name,
 		Url:              dbHttp.Url,
 		Method:           dbHttp.Method,
+		BodyKind:         dbHttp.BodyKind,
 		Description:      dbHttp.Description,
 		ParentHttpID:     dbHttp.ParentHttpID,
 		IsDelta:          dbHttp.IsDelta,
 		DeltaName:        dbHttp.DeltaName,
 		DeltaUrl:         dbHttp.DeltaUrl,
 		DeltaMethod:      dbHttp.DeltaMethod,
+		DeltaBodyKind:    dbHttp.DeltaBodyKind,
 		DeltaDescription: dbHttp.DeltaDescription,
 		CreatedAt:        dbHttp.CreatedAt,
 		UpdatedAt:        dbHttp.UpdatedAt,
@@ -149,6 +182,7 @@ func (hs HTTPService) Update(ctx context.Context, http *mhttp.HTTP) error {
 		Name:        dbHttp.Name,
 		Url:         dbHttp.Url,
 		Method:      dbHttp.Method,
+		BodyKind:    dbHttp.BodyKind,
 		Description: dbHttp.Description,
 	})
 }

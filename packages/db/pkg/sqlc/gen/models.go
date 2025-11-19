@@ -317,12 +317,14 @@ type Http struct {
 	Name             string
 	Url              string
 	Method           string
+	BodyKind         int8
 	Description      string
 	ParentHttpID     *idwrap.IDWrap
 	IsDelta          bool
 	DeltaName        *string
 	DeltaUrl         *string
 	DeltaMethod      *string
+	DeltaBodyKind    interface{}
 	DeltaDescription *string
 	CreatedAt        int64
 	UpdatedAt        int64

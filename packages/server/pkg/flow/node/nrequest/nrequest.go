@@ -10,16 +10,7 @@ import (
 	"the-dev-tools/server/pkg/http/response"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/model/mbodyform"
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	"the-dev-tools/server/pkg/model/mbodyurl"
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
-	"the-dev-tools/server/pkg/model/mexampleresp"
-	"the-dev-tools/server/pkg/model/mexamplerespheader"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemapiexample"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/varsystem"
 )
 
@@ -27,18 +18,14 @@ type NodeRequest struct {
 	FlownNodeID idwrap.IDWrap
 	Name        string
 
-	Api     mitemapi.ItemApi
-	Example mitemapiexample.ItemApiExample
-	Queries []mexamplequery.Query
-	Headers []mexampleheader.Header
+	HttpReq mhttp.HTTP
+	Headers []mhttp.HTTPHeader
+	Params  []mhttp.HTTPSearchParam
 
-	RawBody        mbodyraw.ExampleBodyRaw
-	FormBody       []mbodyform.BodyForm
-	UrlBody        []mbodyurl.BodyURLEncoded
-	ExampleAsserts []massert.Assert
-
-	ExampleResp       mexampleresp.ExampleResp
-	ExampleRespHeader []mexamplerespheader.ExampleRespHeader
+	RawBody  *mhttp.HTTPBodyRaw
+	FormBody []mhttp.HTTPBodyForm
+	UrlBody  []mhttp.HTTPBodyUrlencoded
+	Asserts  []mhttp.HTTPAssert
 
 	HttpClient              httpclient.HttpClient
 	NodeRequestSideRespChan chan NodeRequestSideResp
@@ -50,16 +37,16 @@ type NodeRequestSideResp struct {
 	ExecutionID idwrap.IDWrap // The specific execution ID for this request
 
 	// Request
-	Example mitemapiexample.ItemApiExample
-	Queries []mexamplequery.Query
-	Headers []mexampleheader.Header
+	HttpReq mhttp.HTTP
+	Headers []mhttp.HTTPHeader
+	Params  []mhttp.HTTPSearchParam
 
-	RawBody  mbodyraw.ExampleBodyRaw
-	FormBody []mbodyform.BodyForm
-	UrlBody  []mbodyurl.BodyURLEncoded
+	RawBody  *mhttp.HTTPBodyRaw
+	FormBody []mhttp.HTTPBodyForm
+	UrlBody  []mhttp.HTTPBodyUrlencoded
 
 	// Resp
-	Resp response.ResponseCreateOutput
+	Resp response.ResponseCreateHTTPOutput
 }
 
 const (
@@ -105,28 +92,28 @@ func cloneStringMapToAny(src map[string]string) map[string]any {
 	return dst
 }
 
-func New(id idwrap.IDWrap, name string, api mitemapi.ItemApi, example mitemapiexample.ItemApiExample,
-	Queries []mexamplequery.Query, Headers []mexampleheader.Header,
-	rawBody mbodyraw.ExampleBodyRaw, formBody []mbodyform.BodyForm, urlBody []mbodyurl.BodyURLEncoded,
-	ExampleResp mexampleresp.ExampleResp, ExampleRespHeader []mexamplerespheader.ExampleRespHeader, asserts []massert.Assert,
+func New(id idwrap.IDWrap, name string,
+	httpReq mhttp.HTTP,
+	headers []mhttp.HTTPHeader,
+	params []mhttp.HTTPSearchParam,
+	rawBody *mhttp.HTTPBodyRaw,
+	formBody []mhttp.HTTPBodyForm,
+	urlBody []mhttp.HTTPBodyUrlencoded,
+	asserts []mhttp.HTTPAssert,
 	Httpclient httpclient.HttpClient, NodeRequestSideRespChan chan NodeRequestSideResp, logger *slog.Logger,
 ) *NodeRequest {
 	return &NodeRequest{
 		FlownNodeID: id,
 		Name:        name,
-		Api:         api,
-		Example:     example,
 
-		Headers: Headers,
-		Queries: Queries,
+		HttpReq: httpReq,
+		Headers: headers,
+		Params:  params,
 
 		RawBody:  rawBody,
 		FormBody: formBody,
 		UrlBody:  urlBody,
-
-		ExampleResp:       ExampleResp,
-		ExampleRespHeader: ExampleRespHeader,
-		ExampleAsserts:    asserts,
+		Asserts:  asserts,
 
 		HttpClient:              Httpclient,
 		NodeRequestSideRespChan: NodeRequestSideRespChan,
@@ -153,15 +140,13 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		Err:        nil,
 	}
 
-	nr.ExampleResp.ID = idwrap.NewNow()
-
 	// TODO: varMap is null create varMap
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
 	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 
-	prepareResult, err := request.PrepareRequestWithTracking(nr.Api, nr.Example,
-		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
+	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
+		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
 	if err != nil {
 		result.Err = err
 		return result
@@ -183,7 +168,11 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	resp, err := request.SendRequestWithContext(ctx, prepareOutput, nr.Example.ID, nr.HttpClient)
+	// Use httpReq.ID as exampleID? Or pass ID from definition?
+	// SendRequest expects exampleID for logging/metrics?
+	// It's used in `httpclient.SendRequestAndConvert`.
+	// I'll pass nr.HttpReq.ID.
+	resp, err := request.SendRequestWithContext(ctx, prepareOutput, nr.HttpReq.ID, nr.HttpClient)
 	if err != nil {
 		result.Err = err
 		return result
@@ -213,7 +202,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	respCreate, err := response.ResponseCreate(ctx, *resp, nr.ExampleResp, nr.ExampleRespHeader, nr.ExampleAsserts, varMap, varMapCopy)
+	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMap, varMapCopy)
 	if err != nil {
 		result.Err = err
 		return result
@@ -224,21 +213,20 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 	}
 
 	// Check if any assertions failed
-	for _, assertCouple := range respCreate.AssertCouples {
-		if !assertCouple.AssertRes.Result {
-			result.Err = fmt.Errorf("assertion failed: %s", assertCouple.Assert.Condition.Comparisons.Expression)
+	for _, assertRes := range respCreate.ResponseAsserts {
+		if !assertRes.Success {
+			result.Err = fmt.Errorf("assertion failed: %s", assertRes.Value)
+
 			// Still send the response data even though we're failing
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 				ExecutionID: req.ExecutionID,
-				Example:     nr.Example,
-				Queries:     nr.Queries,
+				HttpReq:     nr.HttpReq,
 				Headers:     nr.Headers,
-
-				RawBody:  nr.RawBody,
-				FormBody: nr.FormBody,
-				UrlBody:  nr.UrlBody,
-
-				Resp: *respCreate,
+				Params:      nr.Params,
+				RawBody:     nr.RawBody,
+				FormBody:    nr.FormBody,
+				UrlBody:     nr.UrlBody,
+				Resp:        *respCreate,
 			}
 			return result
 		}
@@ -246,15 +234,13 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 		ExecutionID: req.ExecutionID,
-		Example:     nr.Example,
-		Queries:     nr.Queries,
+		HttpReq:     nr.HttpReq,
 		Headers:     nr.Headers,
-
-		RawBody:  nr.RawBody,
-		FormBody: nr.FormBody,
-		UrlBody:  nr.UrlBody,
-
-		Resp: *respCreate,
+		Params:      nr.Params,
+		RawBody:     nr.RawBody,
+		FormBody:    nr.FormBody,
+		UrlBody:     nr.UrlBody,
+		Resp:        *respCreate,
 	}
 
 	return result
@@ -267,15 +253,13 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		Err:        nil,
 	}
 
-	nr.ExampleResp.ID = idwrap.NewNow()
-
 	// TODO: varMap is null create varMap
 	// Create a deep copy of VarMap to prevent concurrent access issues
 	varMapCopy := node.DeepCopyVarMap(req)
 	varMap := varsystem.NewVarMapFromAnyMap(varMapCopy)
 
-	prepareResult, err := request.PrepareRequestWithTracking(nr.Api, nr.Example,
-		nr.Queries, nr.Headers, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
+	prepareResult, err := request.PrepareHTTPRequestWithTracking(nr.HttpReq, nr.Headers,
+		nr.Params, nr.RawBody, nr.FormBody, nr.UrlBody, varMap)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
@@ -298,7 +282,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	resp, err := request.SendRequestWithContext(ctx, prepareOutput, nr.Example.ID, nr.HttpClient)
+	resp, err := request.SendRequestWithContext(ctx, prepareOutput, nr.HttpReq.ID, nr.HttpClient)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
@@ -330,31 +314,27 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		return
 	}
 
-	respCreate, err := response.ResponseCreate(ctx, *resp, nr.ExampleResp, nr.ExampleRespHeader, nr.ExampleAsserts, varMap, varMapCopy)
+	respCreate, err := response.ResponseCreateHTTP(ctx, *resp, nr.HttpReq.ID, nr.Asserts, varMap, varMapCopy)
 	if err != nil {
 		result.Err = err
 		resultChan <- result
 		return
 	}
 
-	nr.ExampleResp.ID = idwrap.NewNow()
-
 	// Check if any assertions failed
-	for _, assertCouple := range respCreate.AssertCouples {
-		if !assertCouple.AssertRes.Result {
-			result.Err = fmt.Errorf("assertion failed: %s", assertCouple.Assert.Condition.Comparisons.Expression)
-			// Still send the response data even though we're failing
+	for _, assertRes := range respCreate.ResponseAsserts {
+		if !assertRes.Success {
+			result.Err = fmt.Errorf("assertion failed: %s", assertRes.Value)
+			
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 				ExecutionID: req.ExecutionID,
-				Example:     nr.Example,
-				Queries:     nr.Queries,
+				HttpReq:     nr.HttpReq,
 				Headers:     nr.Headers,
-
-				RawBody:  nr.RawBody,
-				FormBody: nr.FormBody,
-				UrlBody:  nr.UrlBody,
-
-				Resp: *respCreate,
+				Params:      nr.Params,
+				RawBody:     nr.RawBody,
+				FormBody:    nr.FormBody,
+				UrlBody:     nr.UrlBody,
+				Resp:        *respCreate,
 			}
 			resultChan <- result
 			return
@@ -363,15 +343,13 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 		ExecutionID: req.ExecutionID,
-		Example:     nr.Example,
-		Queries:     nr.Queries,
+		HttpReq:     nr.HttpReq,
 		Headers:     nr.Headers,
-
-		RawBody:  nr.RawBody,
-		FormBody: nr.FormBody,
-		UrlBody:  nr.UrlBody,
-
-		Resp: *respCreate,
+		Params:      nr.Params,
+		RawBody:     nr.RawBody,
+		FormBody:    nr.FormBody,
+		UrlBody:     nr.UrlBody,
+		Resp:        *respCreate,
 	}
 	if ctx.Err() != nil {
 		return
