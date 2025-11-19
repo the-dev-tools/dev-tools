@@ -11,10 +11,6 @@ import (
 	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/model/massertres"
-	"the-dev-tools/server/pkg/model/mexampleresp"
-	"the-dev-tools/server/pkg/model/mexamplerespheader"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/varsystem"
 	"the-dev-tools/server/pkg/zstdcompress"
@@ -24,12 +20,12 @@ import (
 
 type ResponseCreateOutput struct {
 	BodyRaw     []byte
-	ExampleResp mexampleresp.ExampleResp
+	HTTPResponse mhttp.HTTPResponse
 
 	AssertCouples []AssertCouple
 
 	// new headers
-	CreateHeaders, UpdateHeaders []mexamplerespheader.ExampleRespHeader
+	CreateHeaders, UpdateHeaders []mhttp.HTTPResponseHeader
 	DeleteHeaderIds              []idwrap.IDWrap
 }
 
@@ -40,8 +36,8 @@ type ResponseCreateHTTPOutput struct {
 }
 
 type AssertCouple struct {
-	Assert    massert.Assert
-	AssertRes massertres.AssertResult
+	Assert    mhttp.HTTPAssert
+	AssertRes mhttp.HTTPResponseAssert
 }
 
 func ResponseCreateHTTP(
@@ -144,38 +140,41 @@ func ResponseCreateHTTP(
 	}, nil
 }
 
-func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp mexampleresp.ExampleResp, lastResonseHeaders []mexamplerespheader.ExampleRespHeader, assertions []massert.Assert, varMap varsystem.VarMap, flowVars map[string]any) (*ResponseCreateOutput, error) {
+func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse mhttp.HTTPResponse, lastResponseHeaders []mhttp.HTTPResponseHeader, assertions []mhttp.HTTPAssert, varMap varsystem.VarMap, flowVars map[string]any) (*ResponseCreateOutput, error) {
 	ResponseCreateOutput := ResponseCreateOutput{}
 	respHttp := r.HttpResp
 	lapse := r.LapTime
 	ResponseCreateOutput.BodyRaw = respHttp.Body
 	bodyData := respHttp.Body
 
-	exampleResp.BodyCompressType = mexampleresp.BodyCompressTypeNone
+	// Note: mhttp.HTTPResponse doesn't have compression field, handle compression at raw level if needed
 
 	if len(bodyData) > 1024 {
 		bodyDataTemp := zstdcompress.Compress(bodyData)
 		if len(bodyDataTemp) < len(bodyData) {
-			exampleResp.BodyCompressType = mexampleresp.BodyCompressTypeZstd
+			// Store compressed data in body
 			bodyData = bodyDataTemp
 		}
 	}
 
-	exampleResp.Body = bodyData
-	exampleResp.Duration = int32(lapse.Milliseconds())
-	exampleResp.Status = uint16(respHttp.StatusCode)
+	// Update httpResponse with actual response data
+	httpResponse.Body = bodyData
+	httpResponse.Duration = int32(lapse.Milliseconds())
+	httpResponse.Status = int32(respHttp.StatusCode)
+	httpResponse.Size = int32(len(bodyData))
+	httpResponse.CreatedAt = time.Now().Unix()
 
-	ResponseCreateOutput.ExampleResp = exampleResp
+	ResponseCreateOutput.HTTPResponse = httpResponse
 
-	taskCreateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
-	taskUpdateHeaders := make([]mexamplerespheader.ExampleRespHeader, 0)
+	taskCreateHeaders := make([]mhttp.HTTPResponseHeader, 0)
+	taskUpdateHeaders := make([]mhttp.HTTPResponseHeader, 0)
 	taskDeleteHeaders := make([]idwrap.IDWrap, 0)
 
 	// Create a map for quick lookup of current headers by key
-	headerMap := make(map[string]mexamplerespheader.ExampleRespHeader, len(lastResonseHeaders))
-	headerProcessed := make(map[string]struct{}, len(lastResonseHeaders))
+	headerMap := make(map[string]mhttp.HTTPResponseHeader, len(lastResponseHeaders))
+	headerProcessed := make(map[string]struct{}, len(lastResponseHeaders))
 
-	for _, header := range lastResonseHeaders {
+	for _, header := range lastResponseHeaders {
 		headerMap[header.HeaderKey] = header
 	}
 
@@ -185,22 +184,23 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 
 		if found {
 			// Update existing header if values differ
-			if dbHeader.Value != respHeader.Value {
-				dbHeader.Value = respHeader.Value
+			if dbHeader.HeaderValue != respHeader.Value {
+				dbHeader.HeaderValue = respHeader.Value
 				taskUpdateHeaders = append(taskUpdateHeaders, dbHeader)
 			}
 		} else {
 			// Create new header if not found
-			taskCreateHeaders = append(taskCreateHeaders, mexamplerespheader.ExampleRespHeader{
-				ID:            idwrap.NewNow(),
-				ExampleRespID: exampleResp.ID,
-				HeaderKey:     respHeader.HeaderKey,
-				Value:         respHeader.Value,
+			taskCreateHeaders = append(taskCreateHeaders, mhttp.HTTPResponseHeader{
+				ID:          idwrap.NewNow(),
+				HttpID:      httpResponse.HttpID,
+				HeaderKey:   respHeader.HeaderKey,
+				HeaderValue: respHeader.Value,
+				CreatedAt:   time.Now().Unix(),
 			})
 		}
 	}
 
-	for _, header := range lastResonseHeaders {
+	for _, header := range lastResponseHeaders {
 		_, ok := headerProcessed[header.HeaderKey]
 		if !ok {
 			taskDeleteHeaders = append(taskDeleteHeaders, header.ID)
@@ -229,9 +229,9 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 
 	normalizedExprCache := make(map[string]string)
 	for _, assertion := range assertions {
-		if assertion.Enable {
+		if assertion.Enabled {
 			// Use NormalizeExpression if {{ }} wrapper is found
-			expr := assertion.Condition.Comparisons.Expression
+			expr := assertion.AssertValue
 			if strings.Contains(expr, "{{") && strings.Contains(expr, "}}") {
 				if cached, ok := normalizedExprCache[expr]; ok {
 					expr = cached
@@ -250,11 +250,12 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, exampleResp 
 				annotatedErr := annotateUnknownNameError(err, evalEnvMap)
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", expr, annotatedErr))
 			}
-			res := massertres.AssertResult{
-				ID:         idwrap.NewNow(),
-				ResponseID: exampleResp.ID,
-				AssertID:   assertion.ID,
-				Result:     ok,
+			res := mhttp.HTTPResponseAssert{
+				ID:        idwrap.NewNow(),
+				HttpID:    httpResponse.HttpID,
+				Value:     expr,
+				Success:   ok,
+				CreatedAt: time.Now().Unix(),
 			}
 
 			resultArr = append(resultArr, AssertCouple{
