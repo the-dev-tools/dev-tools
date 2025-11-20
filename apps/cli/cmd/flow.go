@@ -244,8 +244,6 @@ var yamlflowRunCmd = &cobra.Command{
 			bues: urlBodyService,
 			ers:  responseService,
 			erhs: responseHeaderService,
-			as:   exampleAssertService,
-			ars:  responseAssertService,
 			ns:   flowNodeService,
 			rns:  flowRequestService,
 			fns:  flowForService,

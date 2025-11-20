@@ -1,18 +1,9 @@
 package cmd
 
 import (
-	"the-dev-tools/server/pkg/model/massert"
-	"the-dev-tools/server/pkg/model/mbodyform"
-	"the-dev-tools/server/pkg/model/mbodyraw"
-	"the-dev-tools/server/pkg/model/mbodyurl"
-	"the-dev-tools/server/pkg/model/mexampleheader"
-	"the-dev-tools/server/pkg/model/mexamplequery"
-	"the-dev-tools/server/pkg/model/mexampleresp"
-	"the-dev-tools/server/pkg/model/mexamplerespheader"
+	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mitemapi"
-	"the-dev-tools/server/pkg/model/mitemapiexample"
-	"the-dev-tools/server/pkg/model/mitemfolder"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -23,34 +14,28 @@ import (
 )
 
 type DefaultConfig struct {
-	// collections
-	Folders   []mitemfolder.ItemFolder
-	Endpoints []mitemapi.ItemApi
-	Examples  []mitemapiexample.ItemApiExample
+	// unified files (replaces collections)
+	Files []mfile.File
 
-	// example sub items
+	// HTTP requests and related data (unified mhttp models)
+	HTTPRequests      []mhttp.HTTP
+	HTTPHeaders       []mhttp.HTTPHeader
+	HTTPSearchParams  []mhttp.HTTPSearchParam
+	HTTPAsserts       []mhttp.HTTPAssert
+	HTTPBodyForms     []mhttp.HTTPBodyForm
+	HTTPBodyUrlencoded []mhttp.HTTPBodyUrlencoded
+	HTTPBodyRaws      []mhttp.HTTPBodyRaw
+	HTTPResponses     []mhttp.HTTPResponse
+	HTTPResponseHeaders []mhttp.HTTPResponseHeader
+	HTTPResponseAsserts []mhttp.HTTPResponseAssert
 
-	ExampleHeaders []mexampleheader.Header
-	ExampleQueries []mexamplequery.Query
-	ExampleAsserts []massert.Assert
-
-	// body
-	Rawbodies  []mbodyraw.ExampleBodyRaw
-	FormBodies []mbodyform.BodyForm
-	UrlBodies  []mbodyurl.BodyURLEncoded
-
-	// response
-	ExampleResponses       []mexampleresp.ExampleResp
-	ExampleResponseHeaders []mexamplerespheader.ExampleRespHeader
-	ExampleResponseAsserts []massert.Assert
-
-	// flows
+	// flows (kept as-is - no unified model available yet)
 	Flows []mflow.Flow
 
-	// Root nodes
+	// Root nodes (kept as-is)
 	FlowNodes []mnnode.MNode
 
-	// Sub nodes
+	// Sub nodes (kept as-is)
 	FlowRequestNodes   []mnrequest.MNRequest
 	FlowConditionNodes []mnif.MNIF
 	FlowNoopNodes      []mnnoop.NoopNode
