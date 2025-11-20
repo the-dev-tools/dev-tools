@@ -454,11 +454,11 @@ func createComplexTestData(t *testing.T, fixture *integrationTestFixture) (idwra
 
 	// Create file
 	file := mfile.File{
-		ID:         fileID,
+		ID:          fileID,
 		WorkspaceID: fixture.workspaceID,
-		Name:       "integration-test.txt",
-		ContentType: mfile.ContentTypeUnknown,
-		Order:      0,
+		Name:        "integration-test.txt",
+		ContentType: mfile.ContentTypeFolder,
+		Order:       0,
 		UpdatedAt:   time.Now(),
 	}
 	err = fixture.services.FileService.CreateFile(fixture.ctx, &file)
@@ -543,8 +543,8 @@ func createTestHARData(t *testing.T) []byte {
 func createImportService(t *testing.T, fixture *integrationTestFixture) *rimportv2.Service {
 	t.Helper()
 
-	// This is a simplified mock - in a real scenario, you'd create a proper import service
-	// For integration testing purposes, we can create a minimal service or use existing ones
-	// This placeholder shows the intended structure
-	return &rimportv2.Service{}
+	importer := rimportv2.NewImporter(&fixture.services.Hs, &fixture.services.Fs, &fixture.services.FileService)
+	validator := rimportv2.NewValidator(&fixture.services.Us)
+
+	return rimportv2.NewService(importer, validator, rimportv2.WithLogger(fixture.logger))
 }

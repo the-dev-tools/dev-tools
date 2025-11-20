@@ -199,14 +199,14 @@ func (e *SimpleExporter) ExportToCurl(ctx context.Context, data *WorkspaceExport
 		if httpReq.Headers != nil && len(httpReq.Headers) > 0 {
 			for key, values := range httpReq.Headers {
 				for _, value := range values {
-					cmd.WriteString(fmt.Sprintf(" -H '%s: %s'", key, value))
+					cmd.WriteString(fmt.Sprintf(" -H \"%s: %s\"", key, value))
 				}
 			}
 		}
 
 		// Add body if present
 		if httpReq.Body != "" {
-			cmd.WriteString(fmt.Sprintf(" -d '%s'", strings.ReplaceAll(httpReq.Body, "'", "'\"'\"'")))
+			cmd.WriteString(fmt.Sprintf(" --data-raw '%s'", strings.ReplaceAll(httpReq.Body, "'", "'\"'\"'")))
 		}
 
 		cmd.WriteString(fmt.Sprintf(" # %s", httpReq.Name))
@@ -248,12 +248,6 @@ func (v *SimpleValidator) ValidateExportRequest(ctx context.Context, req *Export
 	// Validate format
 	if req.Format != ExportFormat_YAML && req.Format != ExportFormat_CURL {
 		return NewValidationError("format", fmt.Sprintf("unsupported format: %v", req.Format))
-	}
-
-	// For YAML format, validate that we have some data to export
-	// For cURL format, file IDs can be empty since we use HTTP IDs from ExportCurlRequest
-	if req.Format == ExportFormat_YAML && len(req.FileIDs) == 0 {
-		return NewValidationError("request", "at least one file ID must be provided for YAML export")
 	}
 
 	// Validate file IDs
