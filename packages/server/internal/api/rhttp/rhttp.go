@@ -333,7 +333,7 @@ func CreateService(srv HttpServiceRPC, options []connect.HandlerOption) (*api.Se
 // toAPIHttp converts model HTTP to API HTTP
 func toAPIHttp(http mhttp.HTTP) *apiv1.Http {
 	apiHttp := &apiv1.Http{
-		// HttpId:   http.ID.Bytes(),
+		HttpId:   http.ID.Bytes(),
 		Name:     http.Name,
 		Url:      http.Url,
 		Method:   toAPIHttpMethod(http.Method),
@@ -612,7 +612,7 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 		value = &apiv1.HttpSync_ValueUnion{
 			Kind: apiv1.HttpSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpSyncInsert{
-				// HttpId:   event.Http.GetHttpResponseId(),
+				HttpId:   event.Http.GetHttpId(),
 				Name:     name,
 				Method:   method,
 				Url:      url,
@@ -627,7 +627,7 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 		value = &apiv1.HttpSync_ValueUnion{
 			Kind: apiv1.HttpSync_ValueUnion_KIND_UPDATE,
 			Update: &apiv1.HttpSyncUpdate{
-				// HttpId:   event.Http.GetHttpResponseId(),
+				HttpId:   event.Http.GetHttpId(),
 				Name:     &name,
 				Method:   &method,
 				Url:      &url,
@@ -638,7 +638,7 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 		value = &apiv1.HttpSync_ValueUnion{
 			Kind: apiv1.HttpSync_ValueUnion_KIND_DELETE,
 			Delete: &apiv1.HttpSyncDelete{
-				// HttpId: event.Http.GetHttpResponseId(),
+				HttpId: event.Http.GetHttpId(),
 			},
 		}
 	}
@@ -1315,8 +1315,8 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		Method:  httpEntry.Method,
 		URL:     httpEntry.Url,
 		Body:    body,
-		Headers: []httpclient.Header{}, // Legacy headers service removed - use empty slice
-		Queries: []httpclient.Query{},   // Legacy queries service removed - use empty slice
+		Headers: convertToHttpClientHeaders(headers),
+		Queries: convertToHttpClientQueries(queries),
 	}
 
 	// Start timing the HTTP request
@@ -1431,7 +1431,51 @@ func (h *HttpServiceRPC) applyVariableSubstitution(ctx context.Context, httpEntr
 		httpEntry.Url = resolvedURL
 	}
 
-	// Legacy header and query variable substitution removed - headers and queries passed through unchanged
+	// Apply variable substitution to headers
+	for i, item := range headers {
+		if header, ok := item.(mhttpheader.HttpHeader); ok && header.Enabled {
+			// Substitute key
+			if varsystem.CheckStringHasAnyVarKey(header.Key) {
+				resolvedKey, err := tracker.ReplaceVars(header.Key)
+				if err != nil {
+					return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in header key '%s': %w", header.Key, err)
+				}
+				header.Key = resolvedKey
+			}
+			// Substitute value
+			if varsystem.CheckStringHasAnyVarKey(header.Value) {
+				resolvedValue, err := tracker.ReplaceVars(header.Value)
+				if err != nil {
+					return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in header value '%s': %w", header.Value, err)
+				}
+				header.Value = resolvedValue
+			}
+			headers[i] = header
+		}
+	}
+
+	// Apply variable substitution to queries
+	for i, item := range queries {
+		if query, ok := item.(mhttpsearchparam.HttpSearchParam); ok && query.Enabled {
+			// Substitute key
+			if varsystem.CheckStringHasAnyVarKey(query.Key) {
+				resolvedKey, err := tracker.ReplaceVars(query.Key)
+				if err != nil {
+					return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in query key '%s': %w", query.Key, err)
+				}
+				query.Key = resolvedKey
+			}
+			// Substitute value
+			if varsystem.CheckStringHasAnyVarKey(query.Value) {
+				resolvedValue, err := tracker.ReplaceVars(query.Value)
+				if err != nil {
+					return nil, nil, nil, nil, fmt.Errorf("failed to resolve variables in query value '%s': %w", query.Value, err)
+				}
+				query.Value = resolvedValue
+			}
+			queries[i] = query
+		}
+	}
 
 	// Apply variable substitution to body
 	if len(body) > 0 {
@@ -7245,14 +7289,64 @@ func httpMethodToString(method *apiv1.HttpMethod) *string {
 
 // loadHttpHeaders loads HTTP headers for the given HTTP ID
 func (h *HttpServiceRPC) loadHttpHeaders(ctx context.Context, httpID idwrap.IDWrap) ([]interface{}, error) {
-	// Legacy service removed - return empty headers
-	return []interface{}{}, nil
+	headers, err := h.httpHeaderService.GetByHttpIDOrdered(ctx, httpID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to interface slice for generic processing
+	result := make([]interface{}, len(headers))
+	for i, header := range headers {
+		result[i] = header
+	}
+	return result, nil
 }
 
 // loadHttpQueries loads HTTP queries for the given HTTP ID
 func (h *HttpServiceRPC) loadHttpQueries(ctx context.Context, httpID idwrap.IDWrap) ([]interface{}, error) {
-	// Legacy service removed - return empty queries
-	return []interface{}{}, nil
+	queries, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, httpID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to interface slice for generic processing
+	result := make([]interface{}, len(queries))
+	for i, query := range queries {
+		result[i] = query
+	}
+	return result, nil
+}
+
+// Helper functions to convert generic interfaces to httpclient types
+
+func convertToHttpClientHeaders(headers []interface{}) []httpclient.Header {
+	result := make([]httpclient.Header, 0, len(headers))
+	for _, h := range headers {
+		if header, ok := h.(mhttpheader.HttpHeader); ok {
+			if header.Enabled {
+				result = append(result, httpclient.Header{
+					HeaderKey: header.Key,
+					Value:     header.Value,
+				})
+			}
+		}
+	}
+	return result
+}
+
+func convertToHttpClientQueries(queries []interface{}) []httpclient.Query {
+	result := make([]httpclient.Query, 0, len(queries))
+	for _, q := range queries {
+		if query, ok := q.(mhttpsearchparam.HttpSearchParam); ok {
+			if query.Enabled {
+				result = append(result, httpclient.Query{
+					QueryKey: query.Key,
+					Value:    query.Value,
+				})
+			}
+		}
+	}
+	return result
 }
 
 // loadHttpBody loads HTTP body for the given HTTP ID
