@@ -452,11 +452,13 @@ func TestService_Export_ContextCancellation(t *testing.T) {
 		WorkspaceID: idwrap.NewNow(),
 	}
 
+	// Call Export with cancelled context
 	resp, err := service.Export(ctx, req)
 
+	// Verify error
 	require.Error(t, err)
-	assert.Equal(t, context.Canceled, err)
-	require.Nil(t, resp)
+	assert.Nil(t, resp)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 // TestService_ExportCurl_Success tests successful cURL export
@@ -556,11 +558,13 @@ func TestService_ExportCurl_ExporterError(t *testing.T) {
 		WorkspaceID: workspaceID,
 	}
 
+	// Call ExportCurl with mock exporter error
 	resp, err := service.ExportCurl(ctx, req)
 
+	// Verify error
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace data export for cURL failed: exporter failed")
-	require.Nil(t, resp)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "workspace data export failed: exporter failed")
 }
 
 

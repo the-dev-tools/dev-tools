@@ -294,7 +294,7 @@ func TestImportResultsSummary(t *testing.T) {
 		"HTTP: 5 created, 2 updated, 1 skipped, 1 failed. " +
 		"Files: 3 created, 1 updated, 1 skipped, 0 failed. " +
 		"Flows: 2 created, 1 updated, 0 skipped, 1 failed. " +
-		"Success rate: 84.6%"
+		"Success rate: 77.8%"
 
 	if summary != expected {
 		t.Errorf("Summary mismatch.\nExpected: %s\nGot:      %s", expected, summary)

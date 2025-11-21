@@ -295,7 +295,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 
 		connectErr, ok := err.(*connect.Error)
 		require.True(t, ok)
-		assert.Equal(t, connect.CodeNotFound, connectErr.Code)
+		assert.Equal(t, connect.CodeNotFound, connectErr.Code())
 	})
 
 	t.Run("invalid workspace ID", func(t *testing.T) {
@@ -308,7 +308,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 
 		connectErr, ok := err.(*connect.Error)
 		require.True(t, ok)
-		assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code)
+		assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 	})
 
 	t.Run("filtering non-existent flows", func(t *testing.T) {

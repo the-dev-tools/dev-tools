@@ -3,6 +3,7 @@ package rexportv2
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -327,18 +328,20 @@ func handleServiceError(err error) error {
 	switch {
 	case IsValidationError(err):
 		return connect.NewError(connect.CodeInvalidArgument, err)
-	case err == ErrWorkspaceNotFound:
+	case errors.Is(err, ErrWorkspaceNotFound):
 		return connect.NewError(connect.CodeNotFound, err)
-	case err == ErrPermissionDenied:
+	case errors.Is(err, ErrPermissionDenied):
 		return connect.NewError(connect.CodePermissionDenied, err)
-	case err == ErrExportFailed:
+	case errors.Is(err, ErrExportFailed):
 		return connect.NewError(connect.CodeInternal, err)
-	case err == ErrNoDataFound:
+	case errors.Is(err, ErrNoDataFound) || errors.Is(err, sql.ErrNoRows):
 		return connect.NewError(connect.CodeNotFound, err)
-	case err == ErrUnsupportedFormat:
+	case errors.Is(err, ErrUnsupportedFormat):
 		return connect.NewError(connect.CodeInvalidArgument, err)
-	case err == ErrTimeout:
+	case errors.Is(err, ErrTimeout) || errors.Is(err, context.DeadlineExceeded):
 		return connect.NewError(connect.CodeDeadlineExceeded, err)
+	case errors.Is(err, context.Canceled):
+		return connect.NewError(connect.CodeCanceled, err)
 	default:
 		return connect.NewError(connect.CodeInternal, err)
 	}

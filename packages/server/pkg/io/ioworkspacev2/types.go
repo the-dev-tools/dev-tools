@@ -352,12 +352,12 @@ func (ir *ImportResults) IsSuccess() bool {
 
 // GetTotalProcessed returns the total number of entities processed
 func (ir *ImportResults) GetTotalProcessed() int {
-	return ir.HTTPReqsCreated + ir.HTTPReqsUpdated + ir.HTTPReqsSkipped +
-		ir.FilesCreated + ir.FilesUpdated + ir.FilesSkipped +
-		ir.FlowsCreated + ir.FlowsUpdated + ir.FlowsSkipped +
-		ir.NodesCreated + ir.NodesUpdated + ir.NodesSkipped +
-		ir.EdgesCreated + ir.EdgesUpdated + ir.EdgesSkipped +
-		ir.VariablesCreated + ir.VariablesUpdated + ir.VariablesSkipped
+	return ir.HTTPReqsCreated + ir.HTTPReqsUpdated + ir.HTTPReqsSkipped + ir.HTTPReqsFailed +
+		ir.FilesCreated + ir.FilesUpdated + ir.FilesSkipped + ir.FilesFailed +
+		ir.FlowsCreated + ir.FlowsUpdated + ir.FlowsSkipped + ir.FlowsFailed +
+		ir.NodesCreated + ir.NodesUpdated + ir.NodesSkipped + ir.NodesFailed +
+		ir.EdgesCreated + ir.EdgesUpdated + ir.EdgesSkipped + ir.EdgesFailed +
+		ir.VariablesCreated + ir.VariablesUpdated + ir.VariablesSkipped + ir.VariablesFailed
 }
 
 // GetSuccessRate returns the success rate as a percentage

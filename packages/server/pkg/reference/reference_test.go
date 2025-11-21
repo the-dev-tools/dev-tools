@@ -82,6 +82,19 @@ func TestNewReferenceFromSlice(t *testing.T) {
 	result := reference.NewReferenceFromInterface(input, reference.ReferenceKey{Kind: reference.ReferenceKeyKind_REFERENCE_KEY_KIND_KEY, Key: ""})
 	sortReferences(result.Array)
 	sortReferences(expected.Array)
+
+	// Sort nested maps
+	for _, item := range result.Array {
+		if item.Kind == reference.ReferenceKind_REFERENCE_KIND_MAP {
+			sortReferences(item.Map)
+		}
+	}
+	for _, item := range expected.Array {
+		if item.Kind == reference.ReferenceKind_REFERENCE_KIND_MAP {
+			sortReferences(item.Map)
+		}
+	}
+
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("expected %v, got %v", expected, result)
 	}

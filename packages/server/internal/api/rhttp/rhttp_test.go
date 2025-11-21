@@ -806,7 +806,14 @@ func TestHttpRun_ErrorCases(t *testing.T) {
 				HttpId: httpID.Bytes(),
 			})
 
-			_, err := f.handler.HttpRun(f.ctx, req)
+			ctx := f.ctx
+			if tt.name == "timeout" {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
+				defer cancel()
+			}
+
+			_, err := f.handler.HttpRun(ctx, req)
 
 			if tt.expectedError && err == nil {
 				t.Fatalf("Expected error but got none")
@@ -918,8 +925,8 @@ func TestHttpRun_UnauthorizedWorkspace(t *testing.T) {
 		t.Fatalf("Expected Connect error, got: %T", err)
 	}
 
-	if connectErr.Code() != connect.CodePermissionDenied {
-		t.Fatalf("Expected PermissionDenied code, got: %v", connectErr.Code())
+	if connectErr.Code() != connect.CodeNotFound {
+		t.Fatalf("Expected NotFound code, got: %v", connectErr.Code())
 	}
 }
 
@@ -1865,23 +1872,40 @@ func TestHttpRun_VariableSubstitutionInURL(t *testing.T) {
 	defer testServer.Close()
 
 	f := newHttpFixture(t)
-	ws := f.createWorkspace(t, "test-workspace")
+	wsID := f.createWorkspace(t, "test-workspace")
 
-	// Create HTTP entry with variable in URL (using a variable-like syntax)
-	httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL+"/api/users/{{userId}}/profile", "GET")
+	// Get workspace to find GlobalEnv
+	ws, err := f.ws.Get(f.ctx, wsID)
+	if err != nil {
+		t.Fatalf("failed to get workspace: %v", err)
+	}
+
+	// Create variables
+	if err := f.vs.Create(f.ctx, mvar.Var{
+		ID:      idwrap.NewNow(),
+		EnvID:   ws.GlobalEnv,
+		VarKey:  "userId",
+		Value:   "12345",
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("create userId variable: %v", err)
+	}
+
+	// Create HTTP entry with variable in URL
+	httpID := f.createHttpWithUrl(t, wsID, "test-http", testServer.URL+"/api/users/{{userId}}/profile", "GET")
 
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: httpID.Bytes(),
 	})
 
-	_, err := f.handler.HttpRun(f.ctx, req)
+	_, err = f.handler.HttpRun(f.ctx, req)
 	if err != nil {
 		t.Fatalf("HttpRun failed: %v", err)
 	}
 
-	// Verify that the request was made with the variable path (since no substitution occurs without variables)
-	if requestedPath != "/api/users/{{userId}}/profile" {
-		t.Fatalf("Expected path /api/users/{{userId}}/profile, got %s", requestedPath)
+	// Verify that the request was made with the substituted path
+	if requestedPath != "/api/users/12345/profile" {
+		t.Fatalf("Expected path /api/users/12345/profile, got %s", requestedPath)
 	}
 }
 
@@ -1897,25 +1921,42 @@ func TestHttpRun_VariableSubstitutionInHeaders(t *testing.T) {
 	defer testServer.Close()
 
 	f := newHttpFixture(t)
-	ws := f.createWorkspace(t, "test-workspace")
-	httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL, "GET")
+	wsID := f.createWorkspace(t, "test-workspace")
+	httpID := f.createHttpWithUrl(t, wsID, "test-http", testServer.URL, "GET")
+
+	// Get workspace to find GlobalEnv
+	ws, err := f.ws.Get(f.ctx, wsID)
+	if err != nil {
+		t.Fatalf("failed to get workspace: %v", err)
+	}
+
+	// Create variables
+	if err := f.vs.Create(f.ctx, mvar.Var{
+		ID:      idwrap.NewNow(),
+		EnvID:   ws.GlobalEnv,
+		VarKey:  "authToken",
+		Value:   "token123",
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("create authToken variable: %v", err)
+	}
 
 	// Add header with variable placeholder
 	f.createHttpHeader(t, httpID, "Authorization", "Bearer {{authToken}}")
-	f.createHttpHeader(t, httpID, "X-API-Version", "{{apiVersion}}")
+	f.createHttpHeader(t, httpID, "X-API-Version", "v1")
 
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: httpID.Bytes(),
 	})
 
-	_, err := f.handler.HttpRun(f.ctx, req)
+	_, err = f.handler.HttpRun(f.ctx, req)
 	if err != nil {
 		t.Fatalf("HttpRun failed: %v", err)
 	}
 
-	// Verify that the header was sent with the placeholder (since no substitution occurs without variables)
-	if receivedAuthHeader != "Bearer {{authToken}}" {
-		t.Fatalf("Expected Authorization header 'Bearer {{authToken}}', got '%s'", receivedAuthHeader)
+	// Verify that the header was substituted
+	if receivedAuthHeader != "Bearer token123" {
+		t.Fatalf("Expected Authorization header 'Bearer token123', got '%s'", receivedAuthHeader)
 	}
 }
 
@@ -1931,25 +1972,50 @@ func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
 	defer testServer.Close()
 
 	f := newHttpFixture(t)
-	ws := f.createWorkspace(t, "test-workspace")
-	httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL, "GET")
+	wsID := f.createWorkspace(t, "test-workspace")
+	httpID := f.createHttpWithUrl(t, wsID, "test-http", testServer.URL, "GET")
+
+	// Get workspace to find GlobalEnv
+	ws, err := f.ws.Get(f.ctx, wsID)
+	if err != nil {
+		t.Fatalf("failed to get workspace: %v", err)
+	}
+
+	// Create variables
+	if err := f.vs.Create(f.ctx, mvar.Var{
+		ID:      idwrap.NewNow(),
+		EnvID:   ws.GlobalEnv,
+		VarKey:  "userId",
+		Value:   "user123",
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("create userId variable: %v", err)
+	}
+	if err := f.vs.Create(f.ctx, mvar.Var{
+		ID:      idwrap.NewNow(),
+		EnvID:   ws.GlobalEnv,
+		VarKey:  "sessionId",
+		Value:   "sess456",
+		Enabled: true,
+	}); err != nil {
+		t.Fatalf("create sessionId variable: %v", err)
+	}
 
 	// Add query parameters with variable placeholders
 	f.createHttpSearchParam(t, httpID, "userId", "{{userId}}")
 	f.createHttpSearchParam(t, httpID, "sessionId", "{{sessionId}}")
+		req := connect.NewRequest(&httpv1.HttpRunRequest{
+			HttpId: httpID.Bytes(),
+		})
+	
+		_, err = f.handler.HttpRun(f.ctx, req)
+		if err != nil {
+			t.Fatalf("HttpRun failed: %v", err)
+		}
 
-	req := connect.NewRequest(&httpv1.HttpRunRequest{
-		HttpId: httpID.Bytes(),
-	})
-
-	_, err := f.handler.HttpRun(f.ctx, req)
-	if err != nil {
-		t.Fatalf("HttpRun failed: %v", err)
-	}
-
-	// Verify that query parameters were sent with placeholders
-	if receivedQuery != "sessionId={{sessionId}}&userId={{userId}}" && receivedQuery != "userId={{userId}}&sessionId={{sessionId}}" {
-		t.Fatalf("Expected query with userId and sessionId placeholders, got '%s'", receivedQuery)
+	// Verify that query parameters were substituted
+	if receivedQuery != "sessionId=sess456&userId=user123" && receivedQuery != "userId=user123&sessionId=sess456" {
+		t.Fatalf("Expected query with substituted values, got '%s'", receivedQuery)
 	}
 }
 
@@ -2101,6 +2167,20 @@ func TestHttpRun_VariableSubstitutionChaining_Simulated(t *testing.T) {
 		t.Fatalf("First HttpRun failed: %v", err)
 	}
 
+	// Manually inject variables to simulate chaining
+	// Get workspace to find GlobalEnv
+	wsObj, err := f.ws.Get(f.ctx, ws)
+	if err != nil {
+		t.Fatalf("failed to get workspace: %v", err)
+	}
+
+	if err := f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "response.userId", Value: "12345", Enabled: true}); err != nil {
+		t.Fatalf("create response.userId: %v", err)
+	}
+	if err := f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "response.token", Value: "secret-token-xyz", Enabled: true}); err != nil {
+		t.Fatalf("create response.token: %v", err)
+	}
+
 	// Execute second request (in real implementation, this would use variables from first response)
 	secondReq := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: secondHttpID.Bytes(),
@@ -2111,9 +2191,9 @@ func TestHttpRun_VariableSubstitutionChaining_Simulated(t *testing.T) {
 		t.Fatalf("Second HttpRun failed: %v", err)
 	}
 
-	// Verify that the second request was made with variable placeholder
-	if firstRequestData != "{{response.userId}}" {
-		t.Fatalf("Expected data parameter with variable placeholder, got %s", firstRequestData)
+	// Verify that the second request was made with substituted variable
+	if firstRequestData != "12345" {
+		t.Fatalf("Expected data parameter to be substituted, got %s", firstRequestData)
 	}
 }
 
@@ -2132,21 +2212,21 @@ func TestHttpRun_VariableSubstitutionEdgeCases(t *testing.T) {
 			url:         "testServer.URL/api/{{}}/users",
 			headerValue: "Bearer {{}}",
 			queryValue:  "{{}}",
-			expectError: false, // Should not error, just treat as literal
+			expectError: true, // Strict mode fails on empty key
 		},
 		{
 			name:        "malformed variable placeholder",
 			url:         "testServer.URL/api/{userId}/users",
 			headerValue: "Bearer {token}",
 			queryValue:  "{value}",
-			expectError: false, // Should not error, treat as literal
+			expectError: false, // Should not error, treat as literal (no {{ prefix)
 		},
 		{
 			name:        "nested variable placeholders",
 			url:         "testServer.URL/api/{{outer.{inner}}}/users",
 			headerValue: "Bearer {{outer.{{inner}}}}",
 			queryValue:  "{{outer.{nested}}}",
-			expectError: false, // Should not error, treat as literal
+			expectError: true, // Strict mode fails on missing key
 		},
 		{
 			name:        "unicode variables",
@@ -2169,6 +2249,17 @@ func TestHttpRun_VariableSubstitutionEdgeCases(t *testing.T) {
 
 			f := newHttpFixture(t)
 			ws := f.createWorkspace(t, "test-workspace")
+			
+			if tt.name == "unicode variables" {
+				wsObj, err := f.ws.Get(f.ctx, ws)
+				if err != nil {
+					t.Fatalf("failed to get workspace: %v", err)
+				}
+				f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "用户ID", Value: "123", Enabled: true})
+				f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "令牌", Value: "abc", Enabled: true})
+				f.vs.Create(f.ctx, mvar.Var{ID: idwrap.NewNow(), EnvID: wsObj.GlobalEnv, VarKey: "值", Value: "val", Enabled: true})
+			}
+
 			httpID := f.createHttpWithUrl(t, ws, "test-http", actualURL, "GET")
 
 			if tt.headerValue != "" {

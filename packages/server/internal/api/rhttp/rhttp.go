@@ -525,7 +525,7 @@ func (h *HttpServiceRPC) publishDeleteEvent(httpID, workspaceID idwrap.IDWrap) {
 	h.stream.Publish(HttpTopic{WorkspaceID: workspaceID}, HttpEvent{
 		Type: eventTypeDelete,
 		Http: &apiv1.Http{
-			// HttpId: httpID.Bytes(),
+			HttpId: httpID.Bytes(),
 		},
 	})
 }
