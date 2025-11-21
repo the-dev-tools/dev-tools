@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -768,8 +769,11 @@ func TestConcurrentErrorHandling(t *testing.T) {
 	mockIndex := 0
 
 	// Simulate intermittent failures
+	var mu sync.Mutex
 	callCount := 0
 	deps.importer.ImportAndStoreFunc = func(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
+		mu.Lock()
+		defer mu.Unlock()
 		callCount++
 		if callCount%3 == 0 {
 			// Fail every 3rd call
@@ -806,19 +810,18 @@ func TestConcurrentErrorHandling(t *testing.T) {
 	for i := range workspaceIDs {
 		workspaceIDs[i] = idwrap.NewNow()
 	}
-	idIndex := 0
 
 	// Run concurrent imports with intermittent failures
 	for i := 0; i < numGoroutines; i++ {
 		go func(goroutineID int) {
 			for j := 0; j < numIterations; j++ {
+				index := goroutineID*numIterations + j
 				req := &ImportRequest{
-					WorkspaceID: workspaceIDs[idIndex],
+					WorkspaceID: workspaceIDs[index],
 					Name:        fmt.Sprintf("Concurrent Test %d-%d", goroutineID, j),
 					Data:        createMinimalHAR(t),
 					DomainData:  []ImportDomainData{},
 				}
-				idIndex++
 
 				_, err := service.Import(context.Background(), req)
 				results <- err

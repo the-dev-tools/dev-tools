@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -545,15 +546,18 @@ func (m *mockImporter) StoreUnifiedResults(ctx context.Context, results *Transla
 
 
 type mockValidator struct {
-	ValidateImportRequestFunc     func(context.Context, *ImportRequest) error
-	ValidateWorkspaceAccessFunc   func(context.Context, idwrap.IDWrap) error
-	ValidateDataSizeFunc          func(context.Context, []byte) error
-	ValidateFormatSupportFunc     func(context.Context, Format) error
+	mu                                 sync.Mutex
+	ValidateImportRequestFunc          func(context.Context, *ImportRequest) error
+	ValidateWorkspaceAccessFunc        func(context.Context, idwrap.IDWrap) error
+	ValidateDataSizeFunc               func(context.Context, []byte) error
+	ValidateFormatSupportFunc          func(context.Context, Format) error
 	ValidateImportRequestCallCount     int
 	ValidateWorkspaceAccessCallCount   int
 }
 
 func (m *mockValidator) ValidateImportRequest(ctx context.Context, req *ImportRequest) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.ValidateImportRequestCallCount++
 	if m.ValidateImportRequestFunc != nil {
 		return m.ValidateImportRequestFunc(ctx, req)
@@ -562,6 +566,8 @@ func (m *mockValidator) ValidateImportRequest(ctx context.Context, req *ImportRe
 }
 
 func (m *mockValidator) ValidateWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.ValidateWorkspaceAccessCallCount++
 	if m.ValidateWorkspaceAccessFunc != nil {
 		return m.ValidateWorkspaceAccessFunc(ctx, workspaceID)

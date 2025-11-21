@@ -3,10 +3,12 @@ package mocklogger
 import (
 	"context"
 	"log/slog"
+	"sync"
 )
 
 // MockHandler is a mock implementation of slog.Handler
 type MockHandler struct {
+	mu sync.Mutex
 	// You can add fields here to track calls for testing if needed
 	// For example:
 	LoggedMessages []string
@@ -20,6 +22,8 @@ func (h *MockHandler) Enabled(_ context.Context, _ slog.Level) bool {
 
 // Handle implements slog.Handler.
 func (h *MockHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	// In a real test, you might want to store the record information
 	if h.LoggedMessages != nil {
 		h.LoggedMessages = append(h.LoggedMessages, r.Message)
