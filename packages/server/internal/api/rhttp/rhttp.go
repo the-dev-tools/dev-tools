@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -441,11 +442,16 @@ func toAPIHttpVersion(version dbmodels.HttpVersion) *apiv1.HttpVersion {
 
 // toAPIHttpResponse converts DB HttpResponse to API HttpResponse
 func toAPIHttpResponse(response dbmodels.HttpResponse) *apiv1.HttpResponse {
+	body := string(response.Body)
+	if !utf8.ValidString(body) {
+		body = fmt.Sprintf("[Binary data: %d bytes]", len(response.Body))
+	}
+
 	return &apiv1.HttpResponse{
 		HttpResponseId: response.ID.Bytes(),
 		HttpId:         response.HttpID.Bytes(),
 		Status:         int32(response.Status.(int32)),
-		Body:           string(response.Body),
+		Body:           body,
 		Time:           timestamppb.New(response.Time),
 		Duration:       int32(response.Duration.(int32)),
 		Size:           int32(response.Size.(int32)),
