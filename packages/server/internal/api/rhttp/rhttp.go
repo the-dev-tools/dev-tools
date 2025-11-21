@@ -443,7 +443,7 @@ func toAPIHttpVersion(version dbmodels.HttpVersion) *apiv1.HttpVersion {
 func toAPIHttpResponse(response dbmodels.HttpResponse) *apiv1.HttpResponse {
 	return &apiv1.HttpResponse{
 		HttpResponseId: response.ID.Bytes(),
-		// HttpId:         response.HttpID.Bytes(),
+		HttpId:         response.HttpID.Bytes(),
 		Status:         int32(response.Status.(int32)),
 		Body:           string(response.Body),
 		Time:           timestamppb.New(response.Time),
@@ -863,7 +863,7 @@ func httpResponseSyncResponseFrom(event HttpResponseEvent) *apiv1.HttpResponseSy
 			Kind: apiv1.HttpResponseSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpResponseSyncInsert{
 				HttpResponseId: event.HttpResponse.GetHttpResponseId(),
-				// HttpId:         event.HttpResponse.GetHttpResponseId(),
+				HttpId:         event.HttpResponse.GetHttpId(),
 				Status:         status,
 				Body:           body,
 				Time:           time,
