@@ -1283,21 +1283,18 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	// Load HTTP headers, queries, and body from related services
 	headers, err := h.loadHttpHeaders(ctx, httpEntry.ID)
 	if err != nil {
-		log.Printf("Failed to load HTTP headers: %v", err)
 		// Continue with empty headers rather than failing
 		headers = []interface{}{}
 	}
 
 	queries, err := h.loadHttpQueries(ctx, httpEntry.ID)
 	if err != nil {
-		log.Printf("Failed to load HTTP queries: %v", err)
 		// Continue with empty queries rather than failing
 		queries = []interface{}{}
 	}
 
 	body, err := h.loadHttpBody(ctx, httpEntry.ID)
 	if err != nil {
-		log.Printf("Failed to load HTTP body: %v", err)
 		// Continue with empty body rather than failing
 		body = nil
 	}
@@ -1305,7 +1302,6 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	// Build variable context from previous HTTP responses in the workspace
 	varMap, err := h.buildWorkspaceVarMap(ctx, httpEntry.WorkspaceID)
 	if err != nil {
-		log.Printf("Failed to build workspace variable map: %v", err)
 		// Continue with empty varMap rather than failing
 		varMap = varsystem.VarMap{}
 	}
@@ -1363,9 +1359,6 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	duration := time.Since(startTime).Milliseconds()
 	responseID, err := h.storeHttpResponse(ctx, httpEntry, httpResp, startTime, duration)
 	if err != nil {
-		// Log detailed error but don't fail the request
-		log.Printf("Failed to store HTTP response for %s (status %d, duration %dms): %v",
-			httpEntry.ID.String(), httpResp.StatusCode, duration, err)
 		// Continue with assertion evaluation even if response storage fails
 		responseID = idwrap.IDWrap{} // Use empty ID as fallback
 	}
@@ -1415,7 +1408,6 @@ func (h *HttpServiceRPC) buildWorkspaceVarMap(ctx context.Context, workspaceID i
 
 	// Convert to varsystem.VarMap
 	result := varsystem.NewVarMapFromAnyMap(varMap)
-	log.Printf("Created workspace variable map with %d variables from global environment for workspace %s", len(result), workspaceID.String())
 
 	return result, nil
 }
@@ -1495,11 +1487,6 @@ func (h *HttpServiceRPC) applyVariableSubstitution(ctx context.Context, httpEntr
 		}
 	}
 
-	// Log the variables that were used
-	if len(tracker.ReadVars) > 0 {
-		log.Printf("Variables used in HTTP request '%s': %v", httpEntry.Name, tracker.ReadVars)
-	}
-
 	return httpEntry, headers, queries, body, nil
 }
 
@@ -1522,17 +1509,6 @@ func (h *HttpServiceRPC) extractResponseVariables(ctx context.Context, workspace
 	// 1. A dedicated HTTP response variable table
 	// 2. Workspace-scoped variable storage
 	// 3. In-memory cache for the session
-
-	// Handle respVar.Body which might be interface{} type
-	var bodyLength int
-	if bodyStr, ok := respVar.Body.(string); ok {
-		bodyLength = len(bodyStr)
-	} else if bodyBytes, ok := respVar.Body.([]byte); ok {
-		bodyLength = len(bodyBytes)
-	}
-
-	log.Printf("Extracted variables from HTTP response '%s': status=%d, body_length=%d, headers=%d",
-		httpName, respVar.StatusCode, bodyLength, len(respVar.Headers))
 
 	return nil
 }
@@ -7475,50 +7451,27 @@ func (h *HttpServiceRPC) evaluateAndStoreAssertions(ctx context.Context, httpID 
 
 	if len(asserts) == 0 {
 		// No assertions to evaluate
-		log.Printf("No assertions found for HTTP %s", httpID.String())
 		return nil
 	}
 
 	// Filter enabled assertions and log statistics
 	enabledAsserts := make([]mhttpassert.HttpAssert, 0, len(asserts))
-	disabledCount := 0
 	for _, assert := range asserts {
 		if assert.Enabled {
 			enabledAsserts = append(enabledAsserts, assert)
-		} else {
-			disabledCount++
 		}
 	}
 
 	if len(enabledAsserts) == 0 {
 		// No enabled assertions to evaluate
-		log.Printf("No enabled assertions to evaluate for HTTP %s (%d total, %d disabled)",
-			httpID.String(), len(asserts), disabledCount)
 		return nil
 	}
-
-	log.Printf("Evaluating %d enabled assertions for HTTP %s (%d total, %d disabled)",
-		len(enabledAsserts), httpID.String(), len(asserts), disabledCount)
 
 	// Create evaluation context with response data (shared across all assertions)
 	evalContext := h.createAssertionEvalContext(resp)
 
 	// Evaluate assertions in parallel and collect results
 	results := h.evaluateAssertionsParallel(ctx, enabledAsserts, evalContext)
-
-	// Log evaluation summary before storage
-	evalSuccessCount := 0
-	evalErrorCount := 0
-	for _, result := range results {
-		if result.Error != nil {
-			evalErrorCount++
-		} else if result.Success {
-			evalSuccessCount++
-		}
-	}
-
-	log.Printf("Assertion evaluation completed for HTTP %s: %d succeeded, %d failed, %d had errors",
-		httpID.String(), evalSuccessCount, len(results)-evalSuccessCount-evalErrorCount, evalErrorCount)
 
 	// Store assertion results in batch with enhanced error handling
 	if err := h.storeAssertionResultsBatch(ctx, httpID, responseID, results); err != nil {
