@@ -4648,24 +4648,7 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-		deletedHeaders = append(deletedHeaders, existingHeader)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, httpEntry.WorkspaceID)
-	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Publish delete events for real-time sync
-	for i, header := range deletedHeaders {
-		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpHeaderEvent{
-			Type:       eventTypeDelete,
-			HttpHeader: toAPIHttpHeader(header),
-		})
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
 
 // HttpHeaderSync handles real-time synchronization for HTTP header entries
 func (h *HttpServiceRPC) HttpHeaderSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpHeaderSyncResponse]) error {
