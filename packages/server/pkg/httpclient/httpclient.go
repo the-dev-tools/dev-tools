@@ -11,6 +11,8 @@ import (
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"time"
+
+	"golang.org/x/net/html/charset"
 )
 
 type HttpClient interface {
@@ -126,6 +128,18 @@ func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDW
 		}
 	}
 
+	// Convert body to UTF-8 if content-type specifies a charset
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "" {
+		reader, err := charset.NewReader(bytes.NewReader(body), contentType)
+		if err == nil {
+			body, err = io.ReadAll(reader)
+			if err != nil {
+				return Response{}, err
+			}
+		}
+	}
+
 	err = resp.Body.Close()
 	if err != nil {
 		return Response{}, err
@@ -153,6 +167,18 @@ func SendRequestAndConvertWithContext(ctx context.Context, client HttpClient, re
 		body, err = compress.DecompressWithContentEncodeStr(body, encoding)
 		if err != nil {
 			return Response{}, err
+		}
+	}
+
+	// Convert body to UTF-8 if content-type specifies a charset
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "" {
+		reader, err := charset.NewReader(bytes.NewReader(body), contentType)
+		if err == nil {
+			body, err = io.ReadAll(reader)
+			if err != nil {
+				return Response{}, err
+			}
 		}
 	}
 
