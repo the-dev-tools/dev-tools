@@ -338,7 +338,7 @@ func toAPIHttp(http mhttp.HTTP) *apiv1.Http {
 		Name:     http.Name,
 		Url:      http.Url,
 		Method:   toAPIHttpMethod(http.Method),
-		BodyKind: apiv1.HttpBodyKind_HTTP_BODY_KIND_UNSPECIFIED, // Default value
+		BodyKind: toAPIHttpBodyKind(http.BodyKind),
 	}
 
 	if http.FolderID != nil {
@@ -347,6 +347,20 @@ func toAPIHttp(http mhttp.HTTP) *apiv1.Http {
 	}
 
 	return apiHttp
+}
+
+// toAPIHttpBodyKind converts model HttpBodyKind to API HttpBodyKind
+func toAPIHttpBodyKind(kind mhttp.HttpBodyKind) apiv1.HttpBodyKind {
+	switch kind {
+	case mhttp.HttpBodyKindFormData:
+		return apiv1.HttpBodyKind_HTTP_BODY_KIND_FORM_DATA
+	case mhttp.HttpBodyKindUrlEncoded:
+		return apiv1.HttpBodyKind_HTTP_BODY_KIND_URL_ENCODED
+	case mhttp.HttpBodyKindRaw:
+		return apiv1.HttpBodyKind_HTTP_BODY_KIND_RAW
+	default:
+		return apiv1.HttpBodyKind_HTTP_BODY_KIND_UNSPECIFIED
+	}
 }
 
 // toAPIHttpMethod converts string method to API HttpMethod
@@ -370,6 +384,20 @@ func toAPIHttpMethod(method string) apiv1.HttpMethod {
 		return apiv1.HttpMethod_HTTP_METHOD_CONNECT
 	default:
 		return apiv1.HttpMethod_HTTP_METHOD_UNSPECIFIED
+	}
+}
+
+// fromAPIHttpBodyKind converts API HttpBodyKind to model HttpBodyKind
+func fromAPIHttpBodyKind(kind apiv1.HttpBodyKind) mhttp.HttpBodyKind {
+	switch kind {
+	case apiv1.HttpBodyKind_HTTP_BODY_KIND_FORM_DATA:
+		return mhttp.HttpBodyKindFormData
+	case apiv1.HttpBodyKind_HTTP_BODY_KIND_URL_ENCODED:
+		return mhttp.HttpBodyKindUrlEncoded
+	case apiv1.HttpBodyKind_HTTP_BODY_KIND_RAW:
+		return mhttp.HttpBodyKindRaw
+	default:
+		return mhttp.HttpBodyKindFormData // Default to FormData if unspecified
 	}
 }
 
@@ -442,8 +470,10 @@ func toAPIHttpVersion(version dbmodels.HttpVersion) *apiv1.HttpVersion {
 
 // toAPIHttpResponse converts DB HttpResponse to API HttpResponse
 func toAPIHttpResponse(response dbmodels.HttpResponse) *apiv1.HttpResponse {
-	body := string(response.Body)
-	if !utf8.ValidString(body) {
+	var body string
+	if utf8.Valid(response.Body) {
+		body = string(response.Body)
+	} else {
 		body = fmt.Sprintf("[Binary data: %d bytes]", len(response.Body))
 	}
 
@@ -1638,6 +1668,7 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 			Url:         item.Url,
 			Method:      fromAPIHttpMethod(item.Method),
 			Description: "", // Description field not available in API yet
+			BodyKind:    fromAPIHttpBodyKind(item.BodyKind),
 		}
 
 		httpModels = append(httpModels, httpModel)
@@ -1685,6 +1716,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		name      *string
 		url       *string
 		method    *string
+		bodyKind  *mhttp.HttpBodyKind
 		httpModel *mhttp.HTTP
 	}
 
@@ -1701,6 +1733,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		var name *string
 		var url *string
 		var method *string
+		var bodyKind *mhttp.HttpBodyKind
 
 		// Process optional fields
 		if item.Name != nil {
@@ -1713,14 +1746,19 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 			m := fromAPIHttpMethod(*item.Method)
 			method = &m
 		}
+		if item.BodyKind != nil {
+			bk := fromAPIHttpBodyKind(*item.BodyKind)
+			bodyKind = &bk
+		}
 
 		updateData = append(updateData, struct {
 			httpID    idwrap.IDWrap
 			name      *string
 			url       *string
 			method    *string
+			bodyKind  *mhttp.HttpBodyKind
 			httpModel *mhttp.HTTP
-		}{httpID: httpID, name: name, url: url, method: method})
+		}{httpID: httpID, name: name, url: url, method: method, bodyKind: bodyKind})
 	}
 
 	// Step 2: Get existing HTTP entries and check permissions OUTSIDE transaction
@@ -1753,8 +1791,9 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		if updateData[i].method != nil {
 			updateData[i].httpModel.Method = *updateData[i].method
 		}
-		// Note: BodyKind is not currently in the mhttp.HTTP model
-		// This would need to be added to the model and database schema
+		if updateData[i].bodyKind != nil {
+			updateData[i].httpModel.BodyKind = *updateData[i].bodyKind
+		}
 	}
 
 	// Step 4: Minimal write transaction for fast updates only
