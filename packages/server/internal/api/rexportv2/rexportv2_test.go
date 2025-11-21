@@ -225,13 +225,15 @@ func TestExportV2RPC_ExportWithFlowFilter(t *testing.T) {
 
 // TestExportV2RPC_ContextCancellation tests export with context cancellation
 func TestExportV2RPC_ContextCancellation(t *testing.T) {
+	// Use background context for setup to avoid schema execution failure
+	svc, workspaceID, _ := setupExportV2RPC(t, context.Background())
+
+	// Create a short-lived context for the request
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer cancel()
 
-	// Wait for context to be cancelled
+	// Wait for context to be cancelled/timed out
 	time.Sleep(1 * time.Millisecond)
-
-	svc, workspaceID, _ := setupExportV2RPC(t, context.Background())
 
 	resp, err := svc.Export(ctx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: workspaceID.Bytes(),
@@ -239,6 +241,7 @@ func TestExportV2RPC_ContextCancellation(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, resp)
+	// Expect deadline exceeded since we used WithTimeout
 	assert.Contains(t, err.Error(), "deadline exceeded")
 }
 
@@ -433,15 +436,16 @@ func TestHandleServiceError(t *testing.T) {
 			expectedCode:  connect.CodeDeadlineExceeded,
 		},
 		{
-			name:          "generic error",
+			name:          "nil_error_wrapper_fixed",
 			err:           NewValidationError("service_error", "nil error provided to handleServiceError"),
-			expectedCode:  connect.CodeInternal,
+			expectedCode:  connect.CodeInvalidArgument,
 		},
-		        		{
-		        			name:         "generic error",
-		        			err:          errors.New("generic error"),
-		        			expectedCode: connect.CodeInvalidArgument, // TODO: Investigate why this returns InvalidArgument instead of Internal
-		        		},		{
+		{
+			name:         "generic_error_fixed",
+			err:          errors.New("generic error"),
+			expectedCode: connect.CodeInternal,
+		},
+		{
 			name:          "nil error",
 			err:           nil,
 			expectedCode:  connect.CodeInternal,

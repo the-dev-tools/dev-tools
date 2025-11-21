@@ -402,10 +402,11 @@ func TestDefaultExporter_ExportToCurl_NoMatchingRequests(t *testing.T) {
 
 // TestDefaultExporter_ContextCancellation tests exporter with context cancellation
 func TestDefaultExporter_ContextCancellation(t *testing.T) {
+	// Use background context for setup
+	exporter := setupExporterWithoutData(t, context.Background())
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
-
-	exporter := setupExporterWithoutData(t, ctx)
 
 	workspaceID := idwrap.NewNow()
 	filter := ExportFilter{Format: ExportFormat_YAML}
