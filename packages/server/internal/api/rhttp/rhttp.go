@@ -4450,15 +4450,16 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Process request data and perform all reads/checks OUTSIDE transaction
+	var updateData []struct {
+		existingHeader mhttpheader.HttpHeader
+		key            *string
+		value          *string
+		enabled        *bool
+		description    *string
+		order          *float32
+		workspaceID    idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
-
-	var updatedHeaders []mhttpheader.HttpHeader
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpHeaderId) == 0 {
@@ -4470,8 +4471,8 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing header within transaction for consistency
-		existingHeader, err := httpHeaderService.GetByID(ctx, headerID)
+		// Get existing header
+		existingHeader, err := h.httpHeaderService.GetByID(ctx, headerID)
 		if err != nil {
 			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -4490,43 +4491,70 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
+		updateData = append(updateData, struct {
+			existingHeader mhttpheader.HttpHeader
+			key            *string
+			value          *string
+			enabled        *bool
+			description    *string
+			order          *float32
+			workspaceID    idwrap.IDWrap
+		}{
+			existingHeader: existingHeader,
+			key:            item.Key,
+			value:          item.Value,
+			enabled:        item.Enabled,
+			description:    item.Description,
+			order:          item.Order,
+			workspaceID:    httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Minimal write transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpHeaderService := h.httpHeaderService.TX(tx)
+
+	var updatedHeaders []mhttpheader.HttpHeader
+
+	for _, data := range updateData {
+		header := data.existingHeader
+
 		// Update fields if provided
-		if item.Key != nil {
-			existingHeader.Key = *item.Key
+		if data.key != nil {
+			header.Key = *data.key
 		}
-		if item.Value != nil {
-			existingHeader.Value = *item.Value
+		if data.value != nil {
+			header.Value = *data.value
 		}
-		if item.Enabled != nil {
-			existingHeader.Enabled = *item.Enabled
+		if data.enabled != nil {
+			header.Enabled = *data.enabled
 		}
-		if item.Description != nil {
-			existingHeader.Description = *item.Description
+		if data.description != nil {
+			header.Description = *data.description
 		}
-		if item.Order != nil {
-			existingHeader.Order = *item.Order
+		if data.order != nil {
+			header.Order = *data.order
 		}
 
-		if err := httpHeaderService.Update(ctx, &existingHeader); err != nil {
+		if err := httpHeaderService.Update(ctx, &header); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		updatedHeaders = append(updatedHeaders, existingHeader)
+		updatedHeaders = append(updatedHeaders, header)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Publish update events for real-time sync
-	for _, header := range updatedHeaders {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, header.HttpID)
-		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
-			continue
-		}
-		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpHeaderEvent{
+	// Step 3: Publish update events for real-time sync
+	for i, header := range updatedHeaders {
+		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: updateData[i].workspaceID}, HttpHeaderEvent{
 			Type:       eventTypeUpdate,
 			HttpHeader: toAPIHttpHeader(header),
 		})
@@ -4540,16 +4568,11 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Process request data and perform all reads/checks OUTSIDE transaction
+	var deleteData []struct {
+		headerID    idwrap.IDWrap
+		workspaceID idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
-
-	var deletedHeaders []mhttpheader.HttpHeader
-	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpHeaderId) == 0 {
@@ -4561,8 +4584,8 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing header within transaction for consistency
-		existingHeader, err := httpHeaderService.GetByID(ctx, headerID)
+		// Get existing header
+		existingHeader, err := h.httpHeaderService.GetByID(ctx, headerID)
 		if err != nil {
 			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -4581,10 +4604,49 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
-		// Delete the header
-		if err := httpHeaderService.Delete(ctx, headerID); err != nil {
+		deleteData = append(deleteData, struct {
+			headerID    idwrap.IDWrap
+			workspaceID idwrap.IDWrap
+		}{
+			headerID:    headerID,
+			workspaceID: httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Minimal write transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpHeaderService := h.httpHeaderService.TX(tx)
+
+	var deletedHeaders []idwrap.IDWrap
+
+	for _, data := range deleteData {
+		if err := httpHeaderService.Delete(ctx, data.headerID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+		deletedHeaders = append(deletedHeaders, data.headerID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Step 3: Publish delete events for real-time sync
+	for i, headerID := range deletedHeaders {
+		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: deleteData[i].workspaceID}, HttpHeaderEvent{
+			Type: eventTypeDelete,
+			HttpHeader: &apiv1.HttpHeader{
+				HttpHeaderId: headerID.Bytes(),
+			},
+		})
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
 
 		deletedHeaders = append(deletedHeaders, existingHeader)
 		deletedWorkspaceIDs = append(deletedWorkspaceIDs, httpEntry.WorkspaceID)
