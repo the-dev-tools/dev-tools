@@ -104,6 +104,10 @@ func TestHttpHeaderInsertRespectsClientIDs(t *testing.T) {
 						if insert.GetKey() != headerKey {
 							t.Errorf("Header key mismatch in stream. Expected %s, got %s", headerKey, insert.GetKey())
 						}
+						// Verify HttpId is populated
+						if len(insert.GetHttpId()) == 0 {
+							t.Error("HttpId missing in sync event")
+						}
 						goto Done
 					}
 				}
