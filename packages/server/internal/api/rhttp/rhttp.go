@@ -1994,15 +1994,12 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP delta must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Pre-process and check permissions OUTSIDE transaction
+	var updateData []struct {
+		deltaID       idwrap.IDWrap
+		existingDelta *mhttp.HTTP
+		item          *apiv1.HttpDeltaUpdate
 	}
-	defer tx.Rollback()
-
-	hsService := h.hs.TX(tx)
-
-	var updatedDeltas []mhttp.HTTP
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpId) == 0 {
@@ -2014,8 +2011,8 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta HTTP entry within transaction for consistency
-		existingDelta, err := hsService.Get(ctx, deltaID)
+		// Get existing delta HTTP entry
+		existingDelta, err := h.hs.Get(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -2033,7 +2030,22 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 			return nil, err
 		}
 
-		// Update delta fields if provided
+		updateData = append(updateData, struct {
+			deltaID       idwrap.IDWrap
+			existingDelta *mhttp.HTTP
+			item          *apiv1.HttpDeltaUpdate
+		}{
+			deltaID:       deltaID,
+			existingDelta: existingDelta,
+			item:          item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory modifications)
+	for _, data := range updateData {
+		item := data.item
+		existingDelta := data.existingDelta
+
 		if item.Name != nil {
 			switch item.Name.GetKind() {
 			case 183079996: // KIND_UNSET
@@ -2065,12 +2077,23 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 			// Note: BodyKind is not currently in the mhttp.HTTP model delta fields
 			// This would need to be added to the model and database schema if needed
 		}
+	}
 
-		if err := hsService.Update(ctx, existingDelta); err != nil {
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	hsService := h.hs.TX(tx)
+	var updatedDeltas []mhttp.HTTP
+
+	for _, data := range updateData {
+		if err := hsService.Update(ctx, data.existingDelta); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		updatedDeltas = append(updatedDeltas, *existingDelta)
+		updatedDeltas = append(updatedDeltas, *data.existingDelta)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -2093,16 +2116,11 @@ func (h *HttpServiceRPC) HttpDeltaDelete(ctx context.Context, req *connect.Reque
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP delta must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		deltaID       idwrap.IDWrap
+		existingDelta *mhttp.HTTP
 	}
-	defer tx.Rollback()
-
-	hsService := h.hs.TX(tx)
-
-	var deletedDeltas []mhttp.HTTP
-	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpId) == 0 {
@@ -2114,8 +2132,8 @@ func (h *HttpServiceRPC) HttpDeltaDelete(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta HTTP entry within transaction for consistency
-		existingDelta, err := hsService.Get(ctx, deltaID)
+		// Get existing delta HTTP entry - use pool service
+		existingDelta, err := h.hs.Get(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -2133,13 +2151,34 @@ func (h *HttpServiceRPC) HttpDeltaDelete(ctx context.Context, req *connect.Reque
 			return nil, err
 		}
 
+		deleteData = append(deleteData, struct {
+			deltaID       idwrap.IDWrap
+			existingDelta *mhttp.HTTP
+		}{
+			deltaID:       deltaID,
+			existingDelta: existingDelta,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	hsService := h.hs.TX(tx)
+	var deletedDeltas []mhttp.HTTP
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
 		// Delete the delta record
-		if err := hsService.Delete(ctx, deltaID); err != nil {
+		if err := hsService.Delete(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedDeltas = append(deletedDeltas, *existingDelta)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, existingDelta.WorkspaceID)
+		deletedDeltas = append(deletedDeltas, *data.existingDelta)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.existingDelta.WorkspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -2575,15 +2614,10 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP search param must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var insertData []struct {
+		paramModel *mhttpsearchparam.HttpSearchParam
 	}
-	defer tx.Rollback()
-
-	httpSearchParamService := h.httpSearchParamService.TX(tx)
-
-	var createdParams []mhttpsearchparam.HttpSearchParam
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpSearchParamId) == 0 {
@@ -2603,7 +2637,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -2617,7 +2651,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 			return nil, err
 		}
 
-		// Create the param
+		// Create the param model
 		paramModel := &mhttpsearchparam.HttpSearchParam{
 			ID:          paramID,
 			HttpID:      httpID,
@@ -2628,11 +2662,28 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 			Order:       float64(item.Order),
 		}
 
-		if err := httpSearchParamService.Create(ctx, paramModel); err != nil {
+		insertData = append(insertData, struct {
+			paramModel *mhttpsearchparam.HttpSearchParam
+		}{
+			paramModel: paramModel,
+		})
+	}
+
+	// Step 2: Execute inserts in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpSearchParamService := h.httpSearchParamService.TX(tx)
+	var createdParams []mhttpsearchparam.HttpSearchParam
+
+	for _, data := range insertData {
+		if err := httpSearchParamService.Create(ctx, data.paramModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		createdParams = append(createdParams, *paramModel)
+		createdParams = append(createdParams, *data.paramModel)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -2641,7 +2692,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 
 	// Publish create events for real-time sync
 	for _, param := range createdParams {
-		// Get workspace ID for the HTTP entry
+		// Get workspace ID for the HTTP entry (we can reuse pool read here as it's after commit)
 		httpEntry, err := h.hs.Get(ctx, param.HttpID)
 		if err != nil {
 			// Log error but continue - event publishing shouldn't fail the operation
@@ -2661,15 +2712,12 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP search param must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Pre-process and check permissions OUTSIDE transaction
+	var updateData []struct {
+		paramID       idwrap.IDWrap
+		existingParam *mhttpsearchparam.HttpSearchParam
+		item          *apiv1.HttpSearchParamUpdate
 	}
-	defer tx.Rollback()
-
-	httpSearchParamService := h.httpSearchParamService.TX(tx)
-
-	var updatedParams []mhttpsearchparam.HttpSearchParam
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpSearchParamId) == 0 {
@@ -2681,8 +2729,8 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing param within transaction for consistency
-		existingParam, err := httpSearchParamService.GetHttpSearchParam(ctx, paramID)
+		// Get existing param - use pool service
+		existingParam, err := h.httpSearchParamService.GetHttpSearchParam(ctx, paramID)
 		if err != nil {
 			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -2701,7 +2749,22 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 			return nil, err
 		}
 
-		// Update fields if provided
+		updateData = append(updateData, struct {
+			paramID       idwrap.IDWrap
+			existingParam *mhttpsearchparam.HttpSearchParam
+			item          *apiv1.HttpSearchParamUpdate
+		}{
+			paramID:       paramID,
+			existingParam: existingParam,
+			item:          item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory)
+	for _, data := range updateData {
+		item := data.item
+		existingParam := data.existingParam
+
 		if item.Key != nil {
 			existingParam.Key = *item.Key
 		}
@@ -2717,12 +2780,23 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		if item.Order != nil {
 			existingParam.Order = float64(*item.Order)
 		}
+	}
 
-		if err := httpSearchParamService.Update(ctx, existingParam); err != nil {
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpSearchParamService := h.httpSearchParamService.TX(tx)
+	var updatedParams []mhttpsearchparam.HttpSearchParam
+
+	for _, data := range updateData {
+		if err := httpSearchParamService.Update(ctx, data.existingParam); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		updatedParams = append(updatedParams, *existingParam)
+		updatedParams = append(updatedParams, *data.existingParam)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -2734,7 +2808,6 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		// Get workspace ID for the HTTP entry
 		httpEntry, err := h.hs.Get(ctx, param.HttpID)
 		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
@@ -2751,16 +2824,12 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP search param must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		paramID       idwrap.IDWrap
+		existingParam *mhttpsearchparam.HttpSearchParam
+		workspaceID   idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	httpSearchParamService := h.httpSearchParamService.TX(tx)
-
-	var deletedParams []mhttpsearchparam.HttpSearchParam
-	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpSearchParamId) == 0 {
@@ -2772,8 +2841,8 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing param within transaction for consistency
-		existingParam, err := httpSearchParamService.GetHttpSearchParam(ctx, paramID)
+		// Get existing param - use pool service
+		existingParam, err := h.httpSearchParamService.GetHttpSearchParam(ctx, paramID)
 		if err != nil {
 			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -2792,13 +2861,36 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 			return nil, err
 		}
 
+		deleteData = append(deleteData, struct {
+			paramID       idwrap.IDWrap
+			existingParam *mhttpsearchparam.HttpSearchParam
+			workspaceID   idwrap.IDWrap
+		}{
+			paramID:       paramID,
+			existingParam: existingParam,
+			workspaceID:   httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpSearchParamService := h.httpSearchParamService.TX(tx)
+	var deletedParams []mhttpsearchparam.HttpSearchParam
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
 		// Delete the param
-		if err := httpSearchParamService.Delete(ctx, paramID); err != nil {
+		if err := httpSearchParamService.Delete(ctx, data.paramID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedParams = append(deletedParams, *existingParam)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, httpEntry.WorkspaceID)
+		deletedParams = append(deletedParams, *data.existingParam)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -3167,15 +3259,12 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP search param delta must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var updateData []struct {
+		deltaID       idwrap.IDWrap
+		existingParam *mhttpsearchparam.HttpSearchParam
+		item          *apiv1.HttpSearchParamDeltaUpdate
 	}
-	defer tx.Rollback()
-
-	httpSearchParamService := h.httpSearchParamService.TX(tx)
-
-	var updatedParams []mhttpsearchparam.HttpSearchParam
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpSearchParamId) == 0 {
@@ -3187,8 +3276,8 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta param within transaction for consistency
-		existingParam, err := httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
+		// Get existing delta param - use pool service
+		existingParam, err := h.httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -3201,7 +3290,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP search param is not a delta"))
 		}
 
-		// Get the HTTP entry to check workspace access
+		// Get the HTTP entry to check workspace access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingParam.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -3212,7 +3301,28 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 			return nil, err
 		}
 
-		// Update delta fields if provided
+		updateData = append(updateData, struct {
+			deltaID       idwrap.IDWrap
+			existingParam *mhttpsearchparam.HttpSearchParam
+			item          *apiv1.HttpSearchParamDeltaUpdate
+		}{
+			deltaID:       deltaID,
+			existingParam: existingParam,
+			item:          item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory)
+	var preparedUpdates []struct {
+		deltaID          idwrap.IDWrap
+		deltaKey         *string
+		deltaValue       *string
+		deltaEnabled     *bool
+		deltaDescription *string
+	}
+
+	for _, data := range updateData {
+		item := data.item
 		var deltaKey, deltaValue, deltaDescription *string
 		var deltaEnabled *bool
 
@@ -3253,16 +3363,41 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 			}
 		}
 
-		if err := httpSearchParamService.UpdateHttpSearchParamDelta(ctx, deltaID, deltaKey, deltaValue, deltaEnabled, deltaDescription, nil); err != nil {
+		preparedUpdates = append(preparedUpdates, struct {
+			deltaID          idwrap.IDWrap
+			deltaKey         *string
+			deltaValue       *string
+			deltaEnabled     *bool
+			deltaDescription *string
+		}{
+			deltaID:          data.deltaID,
+			deltaKey:         deltaKey,
+			deltaValue:       deltaValue,
+			deltaEnabled:     deltaEnabled,
+			deltaDescription: deltaDescription,
+		})
+	}
+
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpSearchParamService := h.httpSearchParamService.TX(tx)
+	var updatedParams []mhttpsearchparam.HttpSearchParam
+
+	for _, update := range preparedUpdates {
+		if err := httpSearchParamService.UpdateHttpSearchParamDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, nil); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get updated param for event publishing
-		updatedParam, err := httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
+		// Get updated param for event publishing (must get from TX service to see changes)
+		updatedParam, err := httpSearchParamService.GetHttpSearchParam(ctx, update.deltaID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
 		updatedParams = append(updatedParams, *updatedParam)
 	}
 
@@ -3275,7 +3410,6 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 		// Get workspace ID for the HTTP entry
 		httpEntry, err := h.hs.Get(ctx, param.HttpID)
 		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
@@ -3292,16 +3426,12 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP search param delta must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		deltaID       idwrap.IDWrap
+		existingParam *mhttpsearchparam.HttpSearchParam
+		workspaceID   idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	httpSearchParamService := h.httpSearchParamService.TX(tx)
-
-	var deletedParams []mhttpsearchparam.HttpSearchParam
-	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpSearchParamId) == 0 {
@@ -3313,8 +3443,8 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta param within transaction for consistency
-		existingParam, err := httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
+		// Get existing delta param - use pool service
+		existingParam, err := h.httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -3327,7 +3457,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP search param is not a delta"))
 		}
 
-		// Get the HTTP entry to check workspace access
+		// Get the HTTP entry to check workspace access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingParam.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -3338,13 +3468,36 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 			return nil, err
 		}
 
+		deleteData = append(deleteData, struct {
+			deltaID       idwrap.IDWrap
+			existingParam *mhttpsearchparam.HttpSearchParam
+			workspaceID   idwrap.IDWrap
+		}{
+			deltaID:       deltaID,
+			existingParam: existingParam,
+			workspaceID:   httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpSearchParamService := h.httpSearchParamService.TX(tx)
+	var deletedParams []mhttpsearchparam.HttpSearchParam
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
 		// Delete the delta record
-		if err := httpSearchParamService.Delete(ctx, deltaID); err != nil {
+		if err := httpSearchParamService.Delete(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedParams = append(deletedParams, *existingParam)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, httpEntry.WorkspaceID)
+		deletedParams = append(deletedParams, *data.existingParam)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -3414,15 +3567,10 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP assert must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var insertData []struct {
+		assertModel *mhttpassert.HttpAssert
 	}
-	defer tx.Rollback()
-
-	httpAssertService := h.httpAssertService.TX(tx)
-
-	var createdAsserts []mhttpassert.HttpAssert
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpAssertId) == 0 {
@@ -3442,7 +3590,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -3456,7 +3604,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
-		// Create the assert
+		// Create the assert model
 		assertModel := &mhttpassert.HttpAssert{
 			ID:          assertID,
 			HttpID:      httpID,
@@ -3467,11 +3615,28 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 			Order:       0,    // No order in API
 		}
 
-		if err := httpAssertService.CreateHttpAssert(ctx, assertModel); err != nil {
+		insertData = append(insertData, struct {
+			assertModel *mhttpassert.HttpAssert
+		}{
+			assertModel: assertModel,
+		})
+	}
+
+	// Step 2: Execute inserts in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpAssertService := h.httpAssertService.TX(tx)
+	var createdAsserts []mhttpassert.HttpAssert
+
+	for _, data := range insertData {
+		if err := httpAssertService.CreateHttpAssert(ctx, data.assertModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		createdAsserts = append(createdAsserts, *assertModel)
+		createdAsserts = append(createdAsserts, *data.assertModel)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -3500,15 +3665,11 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP assert must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var updateData []struct {
+		existingAssert *mhttpassert.HttpAssert
+		item           *apiv1.HttpAssertUpdate
 	}
-	defer tx.Rollback()
-
-	httpAssertService := h.httpAssertService.TX(tx)
-
-	var updatedAsserts []mhttpassert.HttpAssert
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpAssertId) == 0 {
@@ -3520,8 +3681,8 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing assert to verify ownership
-		existingAssert, err := httpAssertService.GetHttpAssert(ctx, assertID)
+		// Get existing assert - use pool service
+		existingAssert, err := h.httpAssertService.GetHttpAssert(ctx, assertID)
 		if err != nil {
 			if errors.Is(err, shttpassert.ErrNoHttpAssertFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -3529,7 +3690,7 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingAssert.HttpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -3543,16 +3704,40 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
-		// Update fields if provided
+		updateData = append(updateData, struct {
+			existingAssert *mhttpassert.HttpAssert
+			item           *apiv1.HttpAssertUpdate
+		}{
+			existingAssert: existingAssert,
+			item:           item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory)
+	for _, data := range updateData {
+		item := data.item
+		existingAssert := data.existingAssert
+
 		if item.Value != nil {
 			existingAssert.Value = *item.Value
 		}
+	}
 
-		if err := httpAssertService.UpdateHttpAssert(ctx, existingAssert); err != nil {
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpAssertService := h.httpAssertService.TX(tx)
+	var updatedAsserts []mhttpassert.HttpAssert
+
+	for _, data := range updateData {
+		if err := httpAssertService.UpdateHttpAssert(ctx, data.existingAssert); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		updatedAsserts = append(updatedAsserts, *existingAssert)
+		updatedAsserts = append(updatedAsserts, *data.existingAssert)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -3581,16 +3766,12 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP assert must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		assertID       idwrap.IDWrap
+		existingAssert *mhttpassert.HttpAssert
+		workspaceID    idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	httpAssertService := h.httpAssertService.TX(tx)
-
-	var deletedAsserts []mhttpassert.HttpAssert
-	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpAssertId) == 0 {
@@ -3602,8 +3783,8 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing assert to verify ownership
-		existingAssert, err := httpAssertService.GetHttpAssert(ctx, assertID)
+		// Get existing assert - use pool service
+		existingAssert, err := h.httpAssertService.GetHttpAssert(ctx, assertID)
 		if err != nil {
 			if errors.Is(err, shttpassert.ErrNoHttpAssertFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -3611,7 +3792,7 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingAssert.HttpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -3625,12 +3806,35 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
-		if err := httpAssertService.DeleteHttpAssert(ctx, assertID); err != nil {
+		deleteData = append(deleteData, struct {
+			assertID       idwrap.IDWrap
+			existingAssert *mhttpassert.HttpAssert
+			workspaceID    idwrap.IDWrap
+		}{
+			assertID:       assertID,
+			existingAssert: existingAssert,
+			workspaceID:    httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpAssertService := h.httpAssertService.TX(tx)
+	var deletedAsserts []mhttpassert.HttpAssert
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
+		if err := httpAssertService.DeleteHttpAssert(ctx, data.assertID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedAsserts = append(deletedAsserts, *existingAssert)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, httpEntry.WorkspaceID)
+		deletedAsserts = append(deletedAsserts, *data.existingAssert)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -4365,7 +4569,7 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -4471,7 +4675,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing header
+		// Get existing header - use pool service
 		existingHeader, err := h.httpHeaderService.GetByID(ctx, headerID)
 		if err != nil {
 			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
@@ -4480,7 +4684,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get the HTTP entry to check workspace access
+		// Get the HTTP entry to check workspace access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingHeader.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -4584,7 +4788,7 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing header
+		// Get existing header - use pool service
 		existingHeader, err := h.httpHeaderService.GetByID(ctx, headerID)
 		if err != nil {
 			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
@@ -4593,7 +4797,7 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get the HTTP entry to check workspace access
+		// Get the HTTP entry to check workspace access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingHeader.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -4845,15 +5049,12 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header delta must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var updateData []struct {
+		deltaID        idwrap.IDWrap
+		existingHeader mhttpheader.HttpHeader
+		item           *apiv1.HttpHeaderDeltaUpdate
 	}
-	defer tx.Rollback()
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
-
-	var updatedHeaders []mhttpheader.HttpHeader
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpHeaderId) == 0 {
@@ -4865,8 +5066,8 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta header within transaction for consistency
-		existingHeader, err := httpHeaderService.GetByID(ctx, deltaID)
+		// Get existing delta header - use pool service
+		existingHeader, err := h.httpHeaderService.GetByID(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -4879,7 +5080,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP header is not a delta"))
 		}
 
-		// Get the HTTP entry to check workspace access
+		// Get the HTTP entry to check workspace access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingHeader.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -4890,7 +5091,28 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 			return nil, err
 		}
 
-		// Update delta fields if provided
+		updateData = append(updateData, struct {
+			deltaID        idwrap.IDWrap
+			existingHeader mhttpheader.HttpHeader
+			item           *apiv1.HttpHeaderDeltaUpdate
+		}{
+			deltaID:        deltaID,
+			existingHeader: existingHeader,
+			item:           item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory)
+	var preparedUpdates []struct {
+		deltaID          idwrap.IDWrap
+		deltaKey         *string
+		deltaValue       *string
+		deltaEnabled     *bool
+		deltaDescription *string
+	}
+
+	for _, data := range updateData {
+		item := data.item
 		var deltaKey, deltaValue, deltaDescription *string
 		var deltaEnabled *bool
 
@@ -4931,16 +5153,41 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 			}
 		}
 
-		if err := httpHeaderService.UpdateDelta(ctx, deltaID, deltaKey, deltaValue, deltaDescription, deltaEnabled); err != nil {
+		preparedUpdates = append(preparedUpdates, struct {
+			deltaID          idwrap.IDWrap
+			deltaKey         *string
+			deltaValue       *string
+			deltaEnabled     *bool
+			deltaDescription *string
+		}{
+			deltaID:          data.deltaID,
+			deltaKey:         deltaKey,
+			deltaValue:       deltaValue,
+			deltaEnabled:     deltaEnabled,
+			deltaDescription: deltaDescription,
+		})
+	}
+
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpHeaderService := h.httpHeaderService.TX(tx)
+	var updatedHeaders []mhttpheader.HttpHeader
+
+	for _, update := range preparedUpdates {
+		if err := httpHeaderService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaDescription, update.deltaEnabled); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Get updated header for event publishing
-		updatedHeader, err := httpHeaderService.GetByID(ctx, deltaID)
+		// Get updated header for event publishing (from TX service)
+		updatedHeader, err := httpHeaderService.GetByID(ctx, update.deltaID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
 		updatedHeaders = append(updatedHeaders, updatedHeader)
 	}
 
@@ -4953,7 +5200,6 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 		// Get workspace ID for the HTTP entry
 		httpEntry, err := h.hs.Get(ctx, header.HttpID)
 		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
 		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpHeaderEvent{
@@ -4970,16 +5216,12 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header delta must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		deltaID        idwrap.IDWrap
+		existingHeader mhttpheader.HttpHeader
+		workspaceID    idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
-
-	var deletedHeaders []mhttpheader.HttpHeader
-	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, item := range req.Msg.Items {
 		if len(item.DeltaHttpHeaderId) == 0 {
@@ -4991,8 +5233,8 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing delta header within transaction for consistency
-		existingHeader, err := httpHeaderService.GetByID(ctx, deltaID)
+		// Get existing delta header - use pool service
+		existingHeader, err := h.httpHeaderService.GetByID(ctx, deltaID)
 		if err != nil {
 			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -5005,7 +5247,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP header is not a delta"))
 		}
 
-		// Get the HTTP entry to check workspace access
+		// Get the HTTP entry to check workspace access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingHeader.HttpID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -5016,13 +5258,36 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 			return nil, err
 		}
 
+		deleteData = append(deleteData, struct {
+			deltaID        idwrap.IDWrap
+			existingHeader mhttpheader.HttpHeader
+			workspaceID    idwrap.IDWrap
+		}{
+			deltaID:        deltaID,
+			existingHeader: existingHeader,
+			workspaceID:    httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpHeaderService := h.httpHeaderService.TX(tx)
+	var deletedHeaders []mhttpheader.HttpHeader
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
 		// Delete the delta record
-		if err := httpHeaderService.Delete(ctx, deltaID); err != nil {
+		if err := httpHeaderService.Delete(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedHeaders = append(deletedHeaders, existingHeader)
-		deletedWorkspaceIDs = append(deletedWorkspaceIDs, httpEntry.WorkspaceID)
+		deletedHeaders = append(deletedHeaders, data.existingHeader)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -5092,15 +5357,10 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var insertData []struct {
+		bodyFormModel *mhttpbodyform.HttpBodyForm
 	}
-	defer tx.Rollback()
-
-	httpBodyFormService := h.httpBodyFormService.TX(tx)
-
-	var createdBodyForms []mhttpbodyform.HttpBodyForm
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyFormDataId) == 0 {
@@ -5120,7 +5380,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -5134,7 +5394,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 			return nil, err
 		}
 
-		// Create the body form
+		// Create the body form model
 		bodyFormModel := &mhttpbodyform.HttpBodyForm{
 			ID:          bodyFormID,
 			HttpID:      httpID,
@@ -5145,11 +5405,30 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 			Order:       item.Order,
 		}
 
-		if err := httpBodyFormService.CreateHttpBodyForm(ctx, bodyFormModel); err != nil {
+		insertData = append(insertData, struct {
+			bodyFormModel *mhttpbodyform.HttpBodyForm
+		}{
+			bodyFormModel: bodyFormModel,
+		})
+	}
+
+	// Step 2: Execute inserts in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyFormService := h.httpBodyFormService.TX(tx)
+
+	var createdBodyForms []mhttpbodyform.HttpBodyForm
+
+	for _, data := range insertData {
+		if err := httpBodyFormService.CreateHttpBodyForm(ctx, data.bodyFormModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		createdBodyForms = append(createdBodyForms, *bodyFormModel)
+		createdBodyForms = append(createdBodyForms, *data.bodyFormModel)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -5178,15 +5457,11 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var updateData []struct {
+		existingBodyForm *mhttpbodyform.HttpBodyForm
+		item             *apiv1.HttpBodyFormDataUpdate
 	}
-	defer tx.Rollback()
-
-	httpBodyFormService := h.httpBodyFormService.TX(tx)
-
-	var updatedBodyForms []mhttpbodyform.HttpBodyForm
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyFormDataId) == 0 {
@@ -5198,8 +5473,8 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing body form to verify ownership
-		existingBodyForm, err := httpBodyFormService.GetHttpBodyForm(ctx, bodyFormID)
+		// Get existing body form - use pool service
+		existingBodyForm, err := h.httpBodyFormService.GetHttpBodyForm(ctx, bodyFormID)
 		if err != nil {
 			if errors.Is(err, shttpbodyform.ErrNoHttpBodyFormFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -5207,7 +5482,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingBodyForm.HttpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -5221,7 +5496,20 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 			return nil, err
 		}
 
-		// Update fields if provided
+		updateData = append(updateData, struct {
+			existingBodyForm *mhttpbodyform.HttpBodyForm
+			item             *apiv1.HttpBodyFormDataUpdate
+		}{
+			existingBodyForm: existingBodyForm,
+			item:             item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory)
+	for _, data := range updateData {
+		item := data.item
+		existingBodyForm := data.existingBodyForm
+
 		if item.Key != nil {
 			existingBodyForm.Key = *item.Key
 		}
@@ -5237,12 +5525,23 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		if item.Order != nil {
 			existingBodyForm.Order = *item.Order
 		}
+	}
 
-		if err := httpBodyFormService.UpdateHttpBodyForm(ctx, existingBodyForm); err != nil {
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyFormService := h.httpBodyFormService.TX(tx)
+	var updatedBodyForms []mhttpbodyform.HttpBodyForm
+
+	for _, data := range updateData {
+		if err := httpBodyFormService.UpdateHttpBodyForm(ctx, data.existingBodyForm); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		updatedBodyForms = append(updatedBodyForms, *existingBodyForm)
+		updatedBodyForms = append(updatedBodyForms, *data.existingBodyForm)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -5254,7 +5553,6 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		// Get workspace ID for the HTTP entry
 		httpEntry, err := h.hs.Get(ctx, bodyForm.HttpID)
 		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
@@ -5271,15 +5569,12 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		bodyFormID       idwrap.IDWrap
+		existingBodyForm *mhttpbodyform.HttpBodyForm
+		workspaceID      idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	httpBodyFormService := h.httpBodyFormService.TX(tx)
-
-	var deletedBodyForms []mhttpbodyform.HttpBodyForm
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyFormDataId) == 0 {
@@ -5291,8 +5586,8 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing body form to verify ownership
-		existingBodyForm, err := httpBodyFormService.GetHttpBodyForm(ctx, bodyFormID)
+		// Get existing body form - use pool service
+		existingBodyForm, err := h.httpBodyFormService.GetHttpBodyForm(ctx, bodyFormID)
 		if err != nil {
 			if errors.Is(err, shttpbodyform.ErrNoHttpBodyFormFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -5300,7 +5595,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingBodyForm.HttpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -5309,16 +5604,40 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
-		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+		// Check delete access to the workspace
+		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		if err := httpBodyFormService.DeleteHttpBodyForm(ctx, bodyFormID); err != nil {
+		deleteData = append(deleteData, struct {
+			bodyFormID       idwrap.IDWrap
+			existingBodyForm *mhttpbodyform.HttpBodyForm
+			workspaceID      idwrap.IDWrap
+		}{
+			bodyFormID:       bodyFormID,
+			existingBodyForm: existingBodyForm,
+			workspaceID:      httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyFormService := h.httpBodyFormService.TX(tx)
+	var deletedBodyForms []mhttpbodyform.HttpBodyForm
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
+		if err := httpBodyFormService.DeleteHttpBodyForm(ctx, data.bodyFormID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedBodyForms = append(deletedBodyForms, *existingBodyForm)
+		deletedBodyForms = append(deletedBodyForms, *data.existingBodyForm)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -5326,14 +5645,8 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 	}
 
 	// Publish delete events for real-time sync
-	for _, bodyForm := range deletedBodyForms {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, bodyForm.HttpID)
-		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
-			continue
-		}
-		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
+	for i, bodyForm := range deletedBodyForms {
+		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyFormEvent{
 			Type:         eventTypeDelete,
 			HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
 		})
@@ -5981,15 +6294,10 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var insertData []struct {
+		bodyUrlEncodedModel *mhttpbodyurlencoded.HttpBodyUrlEncoded
 	}
-	defer tx.Rollback()
-
-	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-
-	var createdBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyUrlEncodedId) == 0 {
@@ -6009,7 +6317,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -6023,7 +6331,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 			return nil, err
 		}
 
-		// Create the body URL encoded
+		// Create the body URL encoded model
 		bodyUrlEncodedModel := &mhttpbodyurlencoded.HttpBodyUrlEncoded{
 			ID:          bodyUrlEncodedID,
 			HttpID:      httpID,
@@ -6034,11 +6342,28 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 			Order:       item.Order,
 		}
 
-		if err := httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, bodyUrlEncodedModel); err != nil {
+		insertData = append(insertData, struct {
+			bodyUrlEncodedModel *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		}{
+			bodyUrlEncodedModel: bodyUrlEncodedModel,
+		})
+	}
+
+	// Step 2: Execute inserts in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
+	var createdBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+
+	for _, data := range insertData {
+		if err := httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, data.bodyUrlEncodedModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		createdBodyUrlEncodeds = append(createdBodyUrlEncodeds, *bodyUrlEncodedModel)
+		createdBodyUrlEncodeds = append(createdBodyUrlEncodeds, *data.bodyUrlEncodedModel)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -6067,15 +6392,11 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var updateData []struct {
+		existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		item                   *apiv1.HttpBodyUrlEncodedUpdate
 	}
-	defer tx.Rollback()
-
-	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-
-	var updatedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyUrlEncodedId) == 0 {
@@ -6087,8 +6408,8 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing body URL encoded to verify ownership
-		existingBodyUrlEncoded, err := httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyUrlEncodedID)
+		// Get existing body URL encoded - use pool service
+		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyUrlEncodedID)
 		if err != nil {
 			if errors.Is(err, shttpbodyurlencoded.ErrNoHttpBodyUrlEncodedFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -6096,7 +6417,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingBodyUrlEncoded.HttpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -6110,7 +6431,20 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 			return nil, err
 		}
 
-		// Update fields if provided
+		updateData = append(updateData, struct {
+			existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+			item                   *apiv1.HttpBodyUrlEncodedUpdate
+		}{
+			existingBodyUrlEncoded: existingBodyUrlEncoded,
+			item:                   item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory)
+	for _, data := range updateData {
+		item := data.item
+		existingBodyUrlEncoded := data.existingBodyUrlEncoded
+
 		if item.Key != nil {
 			existingBodyUrlEncoded.Key = *item.Key
 		}
@@ -6126,12 +6460,23 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		if item.Order != nil {
 			existingBodyUrlEncoded.Order = *item.Order
 		}
+	}
 
-		if err := httpBodyUrlEncodedService.UpdateHttpBodyUrlEncoded(ctx, existingBodyUrlEncoded); err != nil {
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
+	var updatedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+
+	for _, data := range updateData {
+		if err := httpBodyUrlEncodedService.UpdateHttpBodyUrlEncoded(ctx, data.existingBodyUrlEncoded); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		updatedBodyUrlEncodeds = append(updatedBodyUrlEncodeds, *existingBodyUrlEncoded)
+		updatedBodyUrlEncodeds = append(updatedBodyUrlEncodeds, *data.existingBodyUrlEncoded)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -6143,7 +6488,6 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		// Get workspace ID for the HTTP entry
 		httpEntry, err := h.hs.Get(ctx, bodyUrlEncoded.HttpID)
 		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
 			continue
 		}
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
@@ -6160,15 +6504,12 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		bodyUrlEncodedID       idwrap.IDWrap
+		existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		workspaceID            idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-
-	var deletedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpBodyUrlEncodedId) == 0 {
@@ -6180,8 +6521,8 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing body URL encoded to verify ownership
-		existingBodyUrlEncoded, err := httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyUrlEncodedID)
+		// Get existing body URL encoded - use pool service
+		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyUrlEncodedID)
 		if err != nil {
 			if errors.Is(err, shttpbodyurlencoded.ErrNoHttpBodyUrlEncodedFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -6189,7 +6530,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, existingBodyUrlEncoded.HttpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -6198,16 +6539,40 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Check write access to the workspace
-		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+		// Check delete access to the workspace
+		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
 			return nil, err
 		}
 
-		if err := httpBodyUrlEncodedService.DeleteHttpBodyUrlEncoded(ctx, bodyUrlEncodedID); err != nil {
+		deleteData = append(deleteData, struct {
+			bodyUrlEncodedID       idwrap.IDWrap
+			existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+			workspaceID            idwrap.IDWrap
+		}{
+			bodyUrlEncodedID:       bodyUrlEncodedID,
+			existingBodyUrlEncoded: existingBodyUrlEncoded,
+			workspaceID:            httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
+	var deletedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
+		if err := httpBodyUrlEncodedService.DeleteHttpBodyUrlEncoded(ctx, data.bodyUrlEncodedID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedBodyUrlEncodeds = append(deletedBodyUrlEncodeds, *existingBodyUrlEncoded)
+		deletedBodyUrlEncodeds = append(deletedBodyUrlEncodeds, *data.existingBodyUrlEncoded)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -6215,14 +6580,8 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 	}
 
 	// Publish delete events for real-time sync
-	for _, bodyUrlEncoded := range deletedBodyUrlEncodeds {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, bodyUrlEncoded.HttpID)
-		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
-			continue
-		}
-		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
+	for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
+		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeDelete,
 			HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
@@ -7062,13 +7421,12 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var insertData []struct {
+		httpID      idwrap.IDWrap
+		data        []byte
+		contentType string
 	}
-	defer tx.Rollback()
-
-	bodyRawService := h.bodyService.TX(tx)
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
@@ -7080,7 +7438,7 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -7100,8 +7458,29 @@ func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Req
 			contentType = "application/json"
 		}
 
+		insertData = append(insertData, struct {
+			httpID      idwrap.IDWrap
+			data        []byte
+			contentType string
+		}{
+			httpID:      httpID,
+			data:        []byte(item.Data),
+			contentType: contentType,
+		})
+	}
+
+	// Step 2: Execute inserts in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	bodyRawService := h.bodyService.TX(tx)
+
+	for _, data := range insertData {
 		// Create the body raw using the new service
-		_, err = bodyRawService.Create(ctx, httpID, []byte(item.Data), contentType)
+		_, err = bodyRawService.Create(ctx, data.httpID, data.data, data.contentType)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -7119,13 +7498,12 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var updateData []struct {
+		existingBodyID idwrap.IDWrap
+		data           []byte
+		contentType    string
 	}
-	defer tx.Rollback()
-
-	bodyRawService := h.bodyService.TX(tx)
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpId) == 0 {
@@ -7137,7 +7515,7 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Verify the HTTP entry exists and user has access
+		// Verify the HTTP entry exists and user has access - use pool service
 		httpEntry, err := h.hs.Get(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHTTPFound) {
@@ -7151,7 +7529,7 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			return nil, err
 		}
 
-		// Get existing body raw to get its ID
+		// Get existing body raw to get its ID - use pool service
 		existingBodyRaw, err := h.bodyService.GetByHttpID(ctx, httpID)
 		if err != nil {
 			if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
@@ -7160,7 +7538,7 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Update fields if provided
+		// Prepare update data if provided
 		if item.Data != nil {
 			// Determine content type based on new content
 			contentType := "text/plain"
@@ -7168,11 +7546,32 @@ func (h *HttpServiceRPC) HttpBodyRawUpdate(ctx context.Context, req *connect.Req
 				contentType = "application/json"
 			}
 
-			// Update using the new service
-			_, err := bodyRawService.Update(ctx, existingBodyRaw.ID, []byte(*item.Data), contentType)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
+			updateData = append(updateData, struct {
+				existingBodyID idwrap.IDWrap
+				data           []byte
+				contentType    string
+			}{
+				existingBodyID: existingBodyRaw.ID,
+				data:           []byte(*item.Data),
+				contentType:    contentType,
+			})
+		}
+	}
+
+	// Step 2: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	bodyRawService := h.bodyService.TX(tx)
+
+	for _, data := range updateData {
+		// Update using the new service
+		_, err := bodyRawService.Update(ctx, data.existingBodyID, data.data, data.contentType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
