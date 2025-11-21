@@ -24,7 +24,7 @@ import (
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/expression"
-	// "the-dev-tools/server/pkg/http/request" // TODO: Use if needed
+	"the-dev-tools/server/pkg/http/request"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	// "the-dev-tools/server/pkg/model/mbodyform" // TODO: Use if needed
@@ -1307,26 +1307,30 @@ func (h *HttpServiceRPC) checkWorkspaceDeleteAccess(ctx context.Context, workspa
 
 // executeHTTPRequest performs the actual HTTP request execution
 func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhttp.HTTP) error {
-	// Create HTTP client with timeout
-	client := httpclient.New()
-
-	// Load HTTP headers, queries, and body from related services
-	headers, err := h.loadHttpHeaders(ctx, httpEntry.ID)
+	// Load all components
+	headers, err := h.httpHeaderService.GetByHttpIDOrdered(ctx, httpEntry.ID)
 	if err != nil {
-		// Continue with empty headers rather than failing
-		headers = []interface{}{}
+		headers = []mhttpheader.HttpHeader{}
 	}
 
-	queries, err := h.loadHttpQueries(ctx, httpEntry.ID)
+	queries, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, httpEntry.ID)
 	if err != nil {
-		// Continue with empty queries rather than failing
-		queries = []interface{}{}
+		queries = []mhttpsearchparam.HttpSearchParam{}
 	}
 
-	body, err := h.loadHttpBody(ctx, httpEntry.ID)
+	rawBody, err := h.bodyService.GetByHttpID(ctx, httpEntry.ID)
+	if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+		rawBody = nil
+	}
+
+	formBody, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, httpEntry.ID)
 	if err != nil {
-		// Continue with empty body rather than failing
-		body = nil
+		formBody = []mhttpbodyform.HttpBodyForm{}
+	}
+
+	urlEncodedBody, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, httpEntry.ID)
+	if err != nil {
+		urlEncodedBody = []mhttpbodyurlencoded.HttpBodyUrlEncoded{}
 	}
 
 	// Build variable context from previous HTTP responses in the workspace
@@ -1336,20 +1340,60 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		varMap = varsystem.VarMap{}
 	}
 
-	// Apply variable substitution to HTTP request components
-	httpEntry, headers, queries, body, err = h.applyVariableSubstitution(ctx, httpEntry, headers, queries, body, varMap)
-	if err != nil {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("variable substitution failed: %w", err))
+	// Convert to mhttp types for request preparation
+	mHeaders := make([]mhttp.HTTPHeader, len(headers))
+	for i, v := range headers {
+		mHeaders[i] = mhttp.HTTPHeader{
+			HeaderKey:   v.Key,
+			HeaderValue: v.Value,
+			Enabled:     v.Enabled,
+		}
 	}
 
-	// Prepare the HTTP request using existing utilities
-	httpReq := &httpclient.Request{
-		Method:  httpEntry.Method,
-		URL:     httpEntry.Url,
-		Body:    body,
-		Headers: convertToHttpClientHeaders(headers),
-		Queries: convertToHttpClientQueries(queries),
+	mQueries := make([]mhttp.HTTPSearchParam, len(queries))
+	for i, v := range queries {
+		mQueries[i] = mhttp.HTTPSearchParam{
+			ParamKey:   v.Key,
+			ParamValue: v.Value,
+			Enabled:    v.Enabled,
+		}
 	}
+
+	mFormBody := make([]mhttp.HTTPBodyForm, len(formBody))
+	for i, v := range formBody {
+		mFormBody[i] = mhttp.HTTPBodyForm{
+			FormKey:   v.Key,
+			FormValue: v.Value,
+			Enabled:   v.Enabled,
+		}
+	}
+
+	mUrlEncodedBody := make([]mhttp.HTTPBodyUrlencoded, len(urlEncodedBody))
+	for i, v := range urlEncodedBody {
+		mUrlEncodedBody[i] = mhttp.HTTPBodyUrlencoded{
+			UrlencodedKey:   v.Key,
+			UrlencodedValue: v.Value,
+			Enabled:         v.Enabled,
+		}
+	}
+
+	// Prepare the HTTP request using request package
+	res, err := request.PrepareHTTPRequestWithTracking(
+		*httpEntry,
+		mHeaders,
+		mQueries,
+		rawBody,
+		mFormBody,
+		mUrlEncodedBody,
+		varMap,
+	)
+	if err != nil {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to prepare request: %w", err))
+	}
+	httpReq := res.Request
+
+	// Create HTTP client with timeout
+	client := httpclient.New()
 
 	// Start timing the HTTP request
 	startTime := time.Now()
@@ -7781,79 +7825,7 @@ func httpMethodToString(method *apiv1.HttpMethod) *string {
 	return &result
 }
 
-// loadHttpHeaders loads HTTP headers for the given HTTP ID
-func (h *HttpServiceRPC) loadHttpHeaders(ctx context.Context, httpID idwrap.IDWrap) ([]interface{}, error) {
-	headers, err := h.httpHeaderService.GetByHttpIDOrdered(ctx, httpID)
-	if err != nil {
-		return nil, err
-	}
 
-	// Convert to interface slice for generic processing
-	result := make([]interface{}, len(headers))
-	for i, header := range headers {
-		result[i] = header
-	}
-	return result, nil
-}
-
-// loadHttpQueries loads HTTP queries for the given HTTP ID
-func (h *HttpServiceRPC) loadHttpQueries(ctx context.Context, httpID idwrap.IDWrap) ([]interface{}, error) {
-	queries, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, httpID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to interface slice for generic processing
-	result := make([]interface{}, len(queries))
-	for i, query := range queries {
-		result[i] = query
-	}
-	return result, nil
-}
-
-// Helper functions to convert generic interfaces to httpclient types
-
-func convertToHttpClientHeaders(headers []interface{}) []httpclient.Header {
-	result := make([]httpclient.Header, 0, len(headers))
-	for _, h := range headers {
-		if header, ok := h.(mhttpheader.HttpHeader); ok {
-			if header.Enabled {
-				result = append(result, httpclient.Header{
-					HeaderKey: header.Key,
-					Value:     header.Value,
-				})
-			}
-		}
-	}
-	return result
-}
-
-func convertToHttpClientQueries(queries []interface{}) []httpclient.Query {
-	result := make([]httpclient.Query, 0, len(queries))
-	for _, q := range queries {
-		if query, ok := q.(mhttpsearchparam.HttpSearchParam); ok {
-			if query.Enabled {
-				result = append(result, httpclient.Query{
-					QueryKey: query.Key,
-					Value:    query.Value,
-				})
-			}
-		}
-	}
-	return result
-}
-
-// loadHttpBody loads HTTP body for the given HTTP ID
-func (h *HttpServiceRPC) loadHttpBody(ctx context.Context, httpID idwrap.IDWrap) ([]byte, error) {
-	body, err := h.bodyService.GetByHttpID(ctx, httpID)
-	if err != nil {
-		if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
-			return nil, nil // No body is valid
-		}
-		return nil, err
-	}
-	return body.RawData, nil
-}
 
 // storeHttpResponse handles HTTP response storage and publishes sync events
 func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp.HTTP, resp httpclient.Response, requestTime time.Time, duration int64) (idwrap.IDWrap, error) {
