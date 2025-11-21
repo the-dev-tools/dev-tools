@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
 	"time"
@@ -117,7 +118,7 @@ func SendRequestAndConvert(client HttpClient, req *Request, exampleID idwrap.IDW
 		return Response{}, err
 	}
 
-	encoding := resp.Header.Get("Content-Encoding")
+	encoding := strings.ToLower(resp.Header.Get("Content-Encoding"))
 	if encoding != "" {
 		body, err = compress.DecompressWithContentEncodeStr(body, encoding)
 		if err != nil {
@@ -147,7 +148,7 @@ func SendRequestAndConvertWithContext(ctx context.Context, client HttpClient, re
 		return Response{}, err
 	}
 
-	encoding := resp.Header.Get("Content-Encoding")
+	encoding := strings.ToLower(resp.Header.Get("Content-Encoding"))
 	if encoding != "" {
 		body, err = compress.DecompressWithContentEncodeStr(body, encoding)
 		if err != nil {

@@ -20,10 +20,11 @@ const (
 )
 
 var CompressLockupMap map[string]CompressType = map[string]CompressType{
-	"":     CompressTypeNone,
-	"gzip": CompressTypeGzip,
-	"zstd": CompressTypeZstd,
-	"br":   CompressTypeBr,
+	"":         CompressTypeNone,
+	"identity": CompressTypeNone,
+	"gzip":     CompressTypeGzip,
+	"zstd":     CompressTypeZstd,
+	"br":       CompressTypeBr,
 }
 
 // TODO: refactor this for better performance
@@ -70,10 +71,7 @@ func Decompress(data []byte, compressType CompressType) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = z.Close()
-		if err != nil {
-			return nil, err
-		}
+		defer z.Close()
 		return io.ReadAll(z)
 
 	case CompressTypeZstd:
