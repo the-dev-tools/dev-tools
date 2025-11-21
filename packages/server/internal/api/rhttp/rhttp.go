@@ -4335,15 +4335,17 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP header must be provided"))
 	}
 
-	tx, err := h.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Step 1: Process request data and perform all reads/checks OUTSIDE transaction
+	var insertData []struct {
+		headerID    idwrap.IDWrap
+		httpID      idwrap.IDWrap
+		key         string
+		value       string
+		enabled     bool
+		description string
+		order       float64
+		workspaceID idwrap.IDWrap
 	}
-	defer tx.Rollback()
-
-	httpHeaderService := h.httpHeaderService.TX(tx)
-
-	var createdHeaders []mhttpheader.HttpHeader
 
 	for _, item := range req.Msg.Items {
 		if len(item.HttpHeaderId) == 0 {
@@ -4377,15 +4379,48 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
+		insertData = append(insertData, struct {
+			headerID    idwrap.IDWrap
+			httpID      idwrap.IDWrap
+			key         string
+			value       string
+			enabled     bool
+			description string
+			order       float64
+			workspaceID idwrap.IDWrap
+		}{
+			headerID:    headerID,
+			httpID:      httpID,
+			key:         item.Key,
+			value:       item.Value,
+			enabled:     item.Enabled,
+			description: item.Description,
+			order:       float64(item.Order),
+			workspaceID: httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Minimal write transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpHeaderService := h.httpHeaderService.TX(tx)
+
+	var createdHeaders []mhttpheader.HttpHeader
+
+	for _, data := range insertData {
 		// Create the header
 		headerModel := &mhttpheader.HttpHeader{
-			ID:          headerID,
-			HttpID:      httpID,
-			Key:         item.Key,
-			Value:       item.Value,
-			Enabled:     item.Enabled,
-			Description: item.Description,
-			Order:       item.Order,
+			ID:          data.headerID,
+			HttpID:      data.httpID,
+			Key:         data.key,
+			Value:       data.value,
+			Enabled:     data.enabled,
+			Description: data.description,
+			Order:       float32(data.order),
 		}
 
 		if err := httpHeaderService.Create(ctx, headerModel); err != nil {
@@ -4399,15 +4434,9 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Publish create events for real-time sync
-	for _, header := range createdHeaders {
-		// Get workspace ID for the HTTP entry
-		httpEntry, err := h.hs.Get(ctx, header.HttpID)
-		if err != nil {
-			// Log error but continue - event publishing shouldn't fail the operation
-			continue
-		}
-		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpHeaderEvent{
+	// Step 3: Publish create events for real-time sync
+	for i, header := range createdHeaders {
+		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: insertData[i].workspaceID}, HttpHeaderEvent{
 			Type:       eventTypeInsert,
 			HttpHeader: toAPIHttpHeader(header),
 		})
