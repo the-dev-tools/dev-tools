@@ -33,6 +33,7 @@ import (
 	"the-dev-tools/spec/dist/buf/go/api/reference/v1/referencev1connect"
 
 	"connectrpc.com/connect"
+	"the-dev-tools/server/pkg/service/shttp"
 )
 
 type ReferenceServiceRPC struct {
@@ -52,6 +53,9 @@ type ReferenceServiceRPC struct {
 	flowVariableService  sflowvariable.FlowVariableService
 	flowEdgeService      sedge.EdgeService
 	nodeExecutionService snodeexecution.NodeExecutionService
+
+	// http
+	hrs shttp.HttpResponseService
 }
 
 func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.WorkspaceService,
@@ -60,6 +64,7 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.Workspace
 	flowVariableService sflowvariable.FlowVariableService,
 	edgeService sedge.EdgeService,
 	nodeExecutionService snodeexecution.NodeExecutionService,
+	hrs shttp.HttpResponseService,
 ) *ReferenceServiceRPC {
 	return &ReferenceServiceRPC{
 		DB: db,
@@ -77,6 +82,8 @@ func NewNodeServiceRPC(db *sql.DB, us suser.UserService, ws sworkspace.Workspace
 
 		flowEdgeService:      edgeService,
 		nodeExecutionService: nodeExecutionService,
+
+		hrs: hrs,
 	}
 }
 
@@ -153,6 +160,41 @@ func convertReferenceCompletionItems(items []referencecompletion.ReferenceComple
 	}
 
 	return converted, nil
+}
+
+func (c *ReferenceServiceRPC) getLatestResponse(ctx context.Context, httpID idwrap.IDWrap) (map[string]interface{}, error) {
+	responses, err := c.hrs.GetByHttpID(ctx, httpID)
+	if err != nil {
+		return nil, err
+	}
+	if len(responses) == 0 {
+		return nil, nil
+	}
+
+	// Find latest response
+	latest := responses[0]
+	for _, r := range responses {
+		if r.CreatedAt > latest.CreatedAt {
+			latest = r
+		}
+	}
+
+	// Parse body
+	var body interface{} = string(latest.Body)
+	if len(latest.Body) > 0 {
+		var jsonBody interface{}
+		if err := json.Unmarshal(latest.Body, &jsonBody); err == nil {
+			body = jsonBody
+		}
+	}
+
+	return map[string]interface{}{
+		"status":   latest.Status,
+		"body":     body,
+		"headers":  map[string]string{}, // Headers not currently linkable to specific response
+		"duration": latest.Duration,
+		"size":     latest.Size,
+	}, nil
 }
 
 func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Request[referencev1.ReferenceTreeRequest]) (*connect.Response[referencev1.ReferenceTreeResponse], error) {
@@ -245,8 +287,19 @@ func (c *ReferenceServiceRPC) ReferenceTree(ctx context.Context, req *connect.Re
 
 	// Example
 	if httpID != nil {
-		// Legacy example response service removed - skip example response reference generation
-		_ = *httpID // suppress unused variable warning
+		resp, err := c.getLatestResponse(ctx, *httpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if resp != nil {
+			respRef := reference.NewReferenceFromInterfaceWithKey(resp, "response")
+			converted, err := reference.ConvertPkgToRpcTree(respRef)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			Items = append(Items, converted)
+		}
 	}
 
 	// Node
@@ -480,8 +533,29 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 	}
 
 	if httpID != nil {
-		// Legacy example response service removed - skip response variable generation
-		_ = *httpID // suppress unused variable warning
+		resp, err := c.getLatestResponse(ctx, *httpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if resp != nil {
+			creator.AddWithKey("response", resp)
+		} else {
+			// Fallback schema
+			creator.AddWithKey("response", map[string]interface{}{
+				"status":   200,
+				"body":     map[string]interface{}{},
+				"headers":  map[string]string{},
+				"duration": 0,
+			})
+		}
+
+		// Request schema (always present for now as we don't fetch actual request config yet)
+		creator.AddWithKey("request", map[string]interface{}{
+			"headers": map[string]string{},
+			"queries": map[string]string{},
+			"body":    "string",
+		})
 	}
 
 	if flowNodeID != nil {
@@ -728,6 +802,7 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 						}
 					}
 
+					dataAdded := false
 					if hasExecutionData && nodeData != nil {
 						// Extract the node-specific data
 						if nodeMap, ok := nodeData.(map[string]interface{}); ok {
@@ -739,10 +814,13 @@ func (c *ReferenceServiceRPC) ReferenceCompletion(ctx context.Context, req *conn
 									for key, value := range nodeVars {
 										creator.AddWithKey(key, value)
 									}
+									dataAdded = true
 								}
 							}
 						}
-					} else {
+					}
+
+					if !dataAdded {
 						// No execution data, provide the schema at root level
 						creator.AddWithKey("request", map[string]interface{}{
 							"headers": map[string]string{},
@@ -831,8 +909,29 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 	}
 
 	if httpID != nil {
-		// Legacy example response service removed - skip response variable generation
-		_ = *httpID // suppress unused variable warning
+		resp, err := c.getLatestResponse(ctx, *httpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if resp != nil {
+			lookup.AddWithKey("response", resp)
+		} else {
+			// Fallback schema
+			lookup.AddWithKey("response", map[string]interface{}{
+				"status":   200,
+				"body":     map[string]interface{}{},
+				"headers":  map[string]string{},
+				"duration": 0,
+			})
+		}
+
+		// Request schema
+		lookup.AddWithKey("request", map[string]interface{}{
+			"headers": map[string]string{},
+			"queries": map[string]string{},
+			"body":    "string",
+		})
 	}
 
 	if flowNodeID != nil {
@@ -1039,6 +1138,7 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 						}
 					}
 
+					dataAdded := false
 					if hasExecutionData && nodeData != nil {
 						// Extract the node-specific data
 						if nodeMap, ok := nodeData.(map[string]interface{}); ok {
@@ -1050,10 +1150,13 @@ func (c *ReferenceServiceRPC) ReferenceValue(ctx context.Context, req *connect.R
 									for key, value := range nodeVars {
 										lookup.AddWithKey(key, value)
 									}
+									dataAdded = true
 								}
 							}
 						}
-					} else {
+					}
+
+					if !dataAdded {
 						// No execution data, provide the schema at root level
 						lookup.AddWithKey("request", map[string]interface{}{
 							"headers": map[string]string{},

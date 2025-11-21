@@ -34,16 +34,22 @@ func ConvertToModelHttpResponse(response gen.HttpResponse) mhttp.HTTPResponse {
 	var status int32
 	if s, ok := response.Status.(int32); ok {
 		status = s
+	} else if s, ok := response.Status.(int64); ok {
+		status = int32(s)
 	}
 
 	var duration int32
 	if d, ok := response.Duration.(int32); ok {
 		duration = d
+	} else if d, ok := response.Duration.(int64); ok {
+		duration = int32(d)
 	}
 
 	var size int32
 	if s, ok := response.Size.(int32); ok {
 		size = s
+	} else if s, ok := response.Size.(int64); ok {
+		size = int32(s)
 	}
 
 	return mhttp.HTTPResponse{

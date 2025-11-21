@@ -356,7 +356,8 @@ func main() {
 
 	// Reference Service
 	refServiceRPC := rreference.NewNodeServiceRPC(currentDB, userService, workspaceService, environmentService, variableService,
-		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService, nodeExecutionService)
+		flowService, flowNodeService, flowNodeRequestSevice, flowVariableService, flowEdgeService, nodeExecutionService,
+		httpResponseService)
 	newServiceManager.AddService(rreference.CreateService(refServiceRPC, optionsAll))
 
 	// Start services
