@@ -27,9 +27,10 @@ type HTTP struct {
 type HttpBodyKind int8
 
 const (
-	HttpBodyKindFormData   HttpBodyKind = 0
-	HttpBodyKindUrlEncoded HttpBodyKind = 1
-	HttpBodyKindRaw        HttpBodyKind = 2
+	HttpBodyKindNone       HttpBodyKind = 0
+	HttpBodyKindFormData   HttpBodyKind = 1
+	HttpBodyKindUrlEncoded HttpBodyKind = 2
+	HttpBodyKindRaw        HttpBodyKind = 3
 )
 
 type HTTPSearchParam struct {

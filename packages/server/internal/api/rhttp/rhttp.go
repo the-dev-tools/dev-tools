@@ -352,6 +352,8 @@ func toAPIHttp(http mhttp.HTTP) *apiv1.Http {
 // toAPIHttpBodyKind converts model HttpBodyKind to API HttpBodyKind
 func toAPIHttpBodyKind(kind mhttp.HttpBodyKind) apiv1.HttpBodyKind {
 	switch kind {
+	case mhttp.HttpBodyKindNone:
+		return apiv1.HttpBodyKind_HTTP_BODY_KIND_UNSPECIFIED
 	case mhttp.HttpBodyKindFormData:
 		return apiv1.HttpBodyKind_HTTP_BODY_KIND_FORM_DATA
 	case mhttp.HttpBodyKindUrlEncoded:
@@ -390,6 +392,8 @@ func toAPIHttpMethod(method string) apiv1.HttpMethod {
 // fromAPIHttpBodyKind converts API HttpBodyKind to model HttpBodyKind
 func fromAPIHttpBodyKind(kind apiv1.HttpBodyKind) mhttp.HttpBodyKind {
 	switch kind {
+	case apiv1.HttpBodyKind_HTTP_BODY_KIND_UNSPECIFIED:
+		return mhttp.HttpBodyKindNone
 	case apiv1.HttpBodyKind_HTTP_BODY_KIND_FORM_DATA:
 		return mhttp.HttpBodyKindFormData
 	case apiv1.HttpBodyKind_HTTP_BODY_KIND_URL_ENCODED:
@@ -397,7 +401,7 @@ func fromAPIHttpBodyKind(kind apiv1.HttpBodyKind) mhttp.HttpBodyKind {
 	case apiv1.HttpBodyKind_HTTP_BODY_KIND_RAW:
 		return mhttp.HttpBodyKindRaw
 	default:
-		return mhttp.HttpBodyKindFormData // Default to FormData if unspecified
+		return mhttp.HttpBodyKindNone // Default to None if unspecified
 	}
 }
 
