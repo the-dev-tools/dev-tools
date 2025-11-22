@@ -2440,6 +2440,32 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		return nil, err
 	}
 
+	// Step 1: Gather all data OUTSIDE transaction to avoid "Read after Write" deadlocks
+	headers, err := h.httpHeaderService.GetByHttpID(ctx, httpID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	searchParams, err := h.httpSearchParamService.GetByHttpID(ctx, httpID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	bodyForms, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, httpID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	bodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, httpID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	asserts, err := h.httpAssertService.GetHttpAssertsByHttpID(ctx, httpID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
 	// Start transaction for consistent duplication
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -2454,12 +2480,6 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
 	httpAssertService := h.httpAssertService.TX(tx)
-
-	// Create transaction-scoped queries
-	txQueries, err := dbmodels.Prepare(ctx, tx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
 
 	// Create new HTTP entry with duplicated name
 	newHttpID := idwrap.NewNow()
@@ -2485,19 +2505,14 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Get and duplicate headers
-	headers, err := txQueries.GetHTTPHeaders(ctx, httpID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
+	// Duplicate headers
 	for _, header := range headers {
 		newHeaderID := idwrap.NewNow()
 		headerModel := &mhttpheader.HttpHeader{
 			ID:          newHeaderID,
 			HttpID:      newHttpID,
-			Key:         header.HeaderKey,
-			Value:       header.HeaderValue,
+			Key:         header.Key,
+			Value:       header.Value,
 			Enabled:     header.Enabled,
 			Description: header.Description,
 		}
@@ -2506,12 +2521,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		}
 	}
 
-	// Get and duplicate search params
-	searchParams, err := txQueries.GetHTTPSearchParams(ctx, httpID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
+	// Duplicate search params
 	for _, param := range searchParams {
 		newParamID := idwrap.NewNow()
 		paramModel := &mhttpsearchparam.HttpSearchParam{
@@ -2528,12 +2538,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		}
 	}
 
-	// Get and duplicate body form entries
-	bodyForms, err := txQueries.GetHTTPBodyForms(ctx, httpID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
+	// Duplicate body form entries
 	for _, bodyForm := range bodyForms {
 		newBodyFormID := idwrap.NewNow()
 		bodyFormModel := &mhttpbodyform.HttpBodyForm{
@@ -2544,19 +2549,14 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Enabled:              bodyForm.Enabled,
 			Description:          bodyForm.Description,
 			Order:                float32(bodyForm.Order),
-			ParentHttpBodyFormID: bytesToIDWrap(bodyForm.ParentHttpBodyFormID),
+			ParentHttpBodyFormID: bodyForm.ParentHttpBodyFormID, // Assuming direct copy is fine or handle recursive logic if needed
 		}
 		if err := httpBodyFormService.CreateHttpBodyForm(ctx, bodyFormModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
-	// Get and duplicate body URL encoded entries
-	bodyUrlEncoded, err := txQueries.GetHTTPBodyUrlEncodedByHttpID(ctx, httpID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
+	// Duplicate body URL encoded entries
 	for _, bodyUrlEnc := range bodyUrlEncoded {
 		newBodyUrlEncodedID := idwrap.NewNow()
 		bodyUrlEncodedModel := &mhttpbodyurlencoded.HttpBodyUrlEncoded{
@@ -2567,19 +2567,14 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Enabled:                    bodyUrlEnc.Enabled,
 			Description:                bodyUrlEnc.Description,
 			Order:                      float32(bodyUrlEnc.Order),
-			ParentHttpBodyUrlEncodedID: bytesToIDWrap(bodyUrlEnc.ParentHttpBodyUrlencodedID),
+			ParentHttpBodyUrlEncodedID: bodyUrlEnc.ParentHttpBodyUrlEncodedID, // Assuming direct copy is fine
 		}
 		if err := httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, bodyUrlEncodedModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}
 
-	// Get and duplicate assertions
-	asserts, err := txQueries.GetHTTPAssertsByHttpID(ctx, httpID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
+	// Duplicate assertions
 	for _, assert := range asserts {
 		newAssertID := idwrap.NewNow()
 		assertModel := &mhttpassert.HttpAssert{

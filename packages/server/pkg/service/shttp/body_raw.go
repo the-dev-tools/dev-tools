@@ -58,16 +58,10 @@ func NewHttpBodyRawService(queries *gen.Queries) *HttpBodyRawService {
 }
 
 func (s *HttpBodyRawService) Create(ctx context.Context, httpID idwrap.IDWrap, rawData []byte, contentType string) (*mhttp.HTTPBodyRaw, error) {
-	// Check permissions
-	_, err := s.queries.GetHTTP(ctx, httpID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create the body raw
 	now := dbtime.DBNow().Unix()
 	id := idwrap.NewNow()
-	err = s.queries.CreateHTTPBodyRaw(ctx, gen.CreateHTTPBodyRawParams{
+	err := s.queries.CreateHTTPBodyRaw(ctx, gen.CreateHTTPBodyRawParams{
 		ID:                   id,
 		HttpID:               httpID,
 		RawData:              rawData,
@@ -129,21 +123,9 @@ func (s *HttpBodyRawService) GetByHttpID(ctx context.Context, httpID idwrap.IDWr
 }
 
 func (s *HttpBodyRawService) Update(ctx context.Context, id idwrap.IDWrap, rawData []byte, contentType string) (*mhttp.HTTPBodyRaw, error) {
-	// Check if exists and get permissions
-	existing, err := s.Get(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check permissions via the HTTP
-	_, err = s.queries.GetHTTP(ctx, existing.HttpID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Update the body raw
 	now := dbtime.DBNow().Unix()
-	err = s.queries.UpdateHTTPBodyRaw(ctx, gen.UpdateHTTPBodyRawParams{
+	err := s.queries.UpdateHTTPBodyRaw(ctx, gen.UpdateHTTPBodyRawParams{
 		RawData:         rawData,
 		ContentType:     contentType,
 		CompressionType: 0, // No compression
@@ -159,18 +141,6 @@ func (s *HttpBodyRawService) Update(ctx context.Context, id idwrap.IDWrap, rawDa
 }
 
 func (s *HttpBodyRawService) Delete(ctx context.Context, id idwrap.IDWrap) error {
-	// Check if exists and get permissions
-	existing, err := s.Get(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	// Check permissions via the HTTP
-	_, err = s.queries.GetHTTP(ctx, existing.HttpID)
-	if err != nil {
-		return err
-	}
-
 	// Delete the body raw
 	return s.queries.DeleteHTTPBodyRaw(ctx, id)
 }
