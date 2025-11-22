@@ -156,6 +156,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createHeaderBulkStmt, err = db.PrepareContext(ctx, createHeaderBulk); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHeaderBulk: %w", err)
 	}
+	if q.createHttpVersionStmt, err = db.PrepareContext(ctx, createHttpVersion); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateHttpVersion: %w", err)
+	}
 	if q.createItemApiStmt, err = db.PrepareContext(ctx, createItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateItemApi: %w", err)
 	}
@@ -1498,6 +1501,11 @@ func (q *Queries) Close() error {
 	if q.createHeaderBulkStmt != nil {
 		if cerr := q.createHeaderBulkStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createHeaderBulkStmt: %w", cerr)
+		}
+	}
+	if q.createHttpVersionStmt != nil {
+		if cerr := q.createHttpVersionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createHttpVersionStmt: %w", cerr)
 		}
 	}
 	if q.createItemApiStmt != nil {
@@ -3448,6 +3456,7 @@ type Queries struct {
 	createHTTPSearchParamStmt                  *sql.Stmt
 	createHeaderStmt                           *sql.Stmt
 	createHeaderBulkStmt                       *sql.Stmt
+	createHttpVersionStmt                      *sql.Stmt
 	createItemApiStmt                          *sql.Stmt
 	createItemApiBulkStmt                      *sql.Stmt
 	createItemApiExampleStmt                   *sql.Stmt
@@ -3871,6 +3880,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createHTTPSearchParamStmt:                  q.createHTTPSearchParamStmt,
 		createHeaderStmt:                           q.createHeaderStmt,
 		createHeaderBulkStmt:                       q.createHeaderBulkStmt,
+		createHttpVersionStmt:                      q.createHttpVersionStmt,
 		createItemApiStmt:                          q.createItemApiStmt,
 		createItemApiBulkStmt:                      q.createItemApiBulkStmt,
 		createItemApiExampleStmt:                   q.createItemApiExampleStmt,

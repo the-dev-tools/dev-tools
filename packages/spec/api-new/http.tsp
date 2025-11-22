@@ -28,6 +28,7 @@ model Http {
   method: HttpMethod;
   url: string;
   bodyKind: HttpBodyKind;
+  lastRunAt?: Protobuf.WellKnown.Timestamp;
 }
 
 model HttpDuplicateRequest {

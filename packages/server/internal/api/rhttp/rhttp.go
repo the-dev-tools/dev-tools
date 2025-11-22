@@ -341,6 +341,10 @@ func toAPIHttp(http mhttp.HTTP) *apiv1.Http {
 		BodyKind: toAPIHttpBodyKind(http.BodyKind),
 	}
 
+	if http.LastRunAt != nil {
+		apiHttp.LastRunAt = timestamppb.New(time.Unix(*http.LastRunAt, 0))
+	}
+
 	if http.FolderID != nil {
 		// Note: FolderId field may need to be added to API proto if not present
 		// apiHttp.FolderId = http.FolderID.Bytes()
@@ -570,6 +574,14 @@ func (h *HttpServiceRPC) publishDeleteEvent(httpID, workspaceID idwrap.IDWrap) {
 	})
 }
 
+// publishVersionInsertEvent publishes an insert event for real-time sync
+func (h *HttpServiceRPC) publishVersionInsertEvent(version dbmodels.HttpVersion, workspaceID idwrap.IDWrap) {
+	h.httpVersionStream.Publish(HttpVersionTopic{WorkspaceID: workspaceID}, HttpVersionEvent{
+		Type:        eventTypeInsert,
+		HttpVersion: toAPIHttpVersion(version),
+	})
+}
+
 // listUserHttp retrieves all HTTP entries accessible to the user
 func (h *HttpServiceRPC) listUserHttp(ctx context.Context) ([]mhttp.HTTP, error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -649,29 +661,42 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 		method := event.Http.GetMethod()
 		url := event.Http.GetUrl()
 		bodyKind := event.Http.GetBodyKind()
+		lastRunAt := event.Http.GetLastRunAt()
 		value = &apiv1.HttpSync_ValueUnion{
 			Kind: apiv1.HttpSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpSyncInsert{
-				HttpId:   event.Http.GetHttpId(),
-				Name:     name,
-				Method:   method,
-				Url:      url,
-				BodyKind: bodyKind,
+				HttpId:    event.Http.GetHttpId(),
+				Name:      name,
+				Method:    method,
+				Url:       url,
+				BodyKind:  bodyKind,
+				LastRunAt: lastRunAt,
 			},
 		}
-	case eventTypeUpdate:
-		name := event.Http.GetName()
-		method := event.Http.GetMethod()
-		url := event.Http.GetUrl()
-		bodyKind := event.Http.GetBodyKind()
+		case eventTypeUpdate:
+			name := event.Http.GetName()
+			method := event.Http.GetMethod()
+			url := event.Http.GetUrl()
+			bodyKind := event.Http.GetBodyKind()
+			lastRunAt := event.Http.GetLastRunAt()
+	
+			var lastRunAtUnion *apiv1.HttpSyncUpdate_LastRunAtUnion
+		if lastRunAt != nil {
+			lastRunAtUnion = &apiv1.HttpSyncUpdate_LastRunAtUnion{
+				Kind:      apiv1.HttpSyncUpdate_LastRunAtUnion_KIND_TIMESTAMP,
+				Timestamp: lastRunAt,
+			}
+		}
+
 		value = &apiv1.HttpSync_ValueUnion{
 			Kind: apiv1.HttpSync_ValueUnion_KIND_UPDATE,
 			Update: &apiv1.HttpSyncUpdate{
-				HttpId:   event.Http.GetHttpId(),
-				Name:     &name,
-				Method:   &method,
-				Url:      &url,
-				BodyKind: &bodyKind,
+				HttpId:    event.Http.GetHttpId(),
+				Name:      &name,
+				Method:    &method,
+				Url:       &url,
+				BodyKind:  &bodyKind,
+				LastRunAt: lastRunAtUnion,
 			},
 		}
 	case eventTypeDelete:
@@ -1854,6 +1879,12 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 	hsService := h.hs.TX(tx)
 
 	var updatedHTTPs []mhttp.HTTP
+	var newVersions []dbmodels.HttpVersion
+
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
 
 	// Fast updates inside minimal transaction
 	for _, data := range updateData {
@@ -1861,6 +1892,18 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		updatedHTTPs = append(updatedHTTPs, *data.httpModel)
+
+		// Create a new version for this update
+		versionName := fmt.Sprintf("v%d", time.Now().Unix()) // Simple version naming
+		versionDesc := "Auto-saved version"
+		
+		version, err := hsService.CreateHttpVersion(ctx, data.httpID, userID, versionName, versionDesc)
+		if err != nil {
+			// Log error but don't fail the update? 
+			// Strict mode: fail the update if version creation fails
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		newVersions = append(newVersions, *version)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -1870,6 +1913,22 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 	// Publish update events for real-time sync after successful commit
 	for _, http := range updatedHTTPs {
 		h.publishUpdateEvent(http)
+	}
+
+	// Publish version insert events
+	for _, version := range newVersions {
+		workspaceID := idwrap.IDWrap{} // Need workspace ID, get from http model or lookup
+		// Efficient lookup: we have updatedHTTPs which correspond to newVersions by index
+		// Find corresponding HTTP to get workspaceID
+		for _, http := range updatedHTTPs {
+			if http.ID == version.HttpID {
+				workspaceID = http.WorkspaceID
+				break
+			}
+		}
+		if workspaceID != (idwrap.IDWrap{}) {
+			h.publishVersionInsertEvent(version, workspaceID)
+		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -2406,6 +2465,27 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 			return nil, connect.NewError(connect.CodeNotFound, err)
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Update LastRunAt and publish update event
+	now := time.Now().Unix()
+	httpEntry.LastRunAt = &now
+
+	// Use minimal transaction for update
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		log.Printf("Failed to begin transaction for updating LastRunAt: %v", err)
+	} else {
+		defer tx.Rollback()
+		if err := h.hs.TX(tx).Update(ctx, httpEntry); err != nil {
+			log.Printf("Failed to update LastRunAt for HTTP %s: %v", httpEntry.ID.String(), err)
+		} else {
+			if err := tx.Commit(); err != nil {
+				log.Printf("Failed to commit transaction for updating LastRunAt: %v", err)
+			} else {
+				h.publishUpdateEvent(*httpEntry)
+			}
+		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

@@ -179,6 +179,7 @@ func TestHttpService_ConvertToDBHTTP(t *testing.T) {
 		DeltaUrl:         stringPtr("https://delta.example.com"),
 		DeltaMethod:      stringPtr("POST"),
 		DeltaDescription: stringPtr("Delta description"),
+		LastRunAt:        int64Ptr(now),
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
@@ -208,6 +209,10 @@ func TestHttpService_ConvertToDBHTTP(t *testing.T) {
 	if dbHttp.IsDelta != http.IsDelta {
 		t.Errorf("Expected IsDelta %v, got %v", http.IsDelta, dbHttp.IsDelta)
 	}
+	
+	if dbHttp.LastRunAt != *http.LastRunAt {
+		t.Errorf("Expected LastRunAt %v, got %v", *http.LastRunAt, dbHttp.LastRunAt)
+	}
 }
 
 func TestHttpService_ConvertToModelHTTP(t *testing.T) {
@@ -226,6 +231,7 @@ func TestHttpService_ConvertToModelHTTP(t *testing.T) {
 		DeltaUrl:         stringPtr("https://delta.example.com"),
 		DeltaMethod:      stringPtr("POST"),
 		DeltaDescription: stringPtr("Delta description"),
+		LastRunAt:        now,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
@@ -254,6 +260,10 @@ func TestHttpService_ConvertToModelHTTP(t *testing.T) {
 
 	if http.IsDelta != dbHttp.IsDelta {
 		t.Errorf("Expected IsDelta %v, got %v", dbHttp.IsDelta, http.IsDelta)
+	}
+
+	if *http.LastRunAt != dbHttp.LastRunAt.(int64) {
+		t.Errorf("Expected LastRunAt %v, got %v", dbHttp.LastRunAt, *http.LastRunAt)
 	}
 }
 
@@ -384,4 +394,8 @@ func TestHttpService_ErrorHandling(t *testing.T) {
 // Helper function
 func stringPtr(s string) *string {
 	return &s
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
 }

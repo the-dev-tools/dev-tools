@@ -769,8 +769,8 @@ CREATE TABLE http (
   delta_method TEXT NULL,
   delta_body_kind INT8 NULL,
   delta_description TEXT NULL,
-  
   -- Metadata
+  last_run_at BIGINT NULL,
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
   

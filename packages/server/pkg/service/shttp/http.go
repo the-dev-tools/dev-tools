@@ -24,6 +24,11 @@ func ConvertToDBHTTP(http mhttp.HTTP) gen.Http {
 		deltaBodyKind = int64(*http.DeltaBodyKind)
 	}
 
+	var lastRunAt interface{}
+	if http.LastRunAt != nil {
+		lastRunAt = *http.LastRunAt
+	}
+
 	return gen.Http{
 		ID:               http.ID,
 		WorkspaceID:      http.WorkspaceID,
@@ -40,6 +45,7 @@ func ConvertToDBHTTP(http mhttp.HTTP) gen.Http {
 		DeltaMethod:      http.DeltaMethod,
 		DeltaBodyKind:    deltaBodyKind,
 		DeltaDescription: http.DeltaDescription,
+		LastRunAt:        lastRunAt,
 		CreatedAt:        http.CreatedAt,
 		UpdatedAt:        http.UpdatedAt,
 	}
@@ -67,6 +73,21 @@ func interfaceToInt8Ptr(v interface{}) *mhttp.HttpBodyKind {
 	}
 }
 
+func interfaceToInt64Ptr(v interface{}) *int64 {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case int64:
+		return &val
+	case int:
+		i := int64(val)
+		return &i
+	default:
+		return nil
+	}
+}
+
 func ConvertToModelHTTP(http gen.Http) *mhttp.HTTP {
 	return &mhttp.HTTP{
 		ID:               http.ID,
@@ -84,6 +105,7 @@ func ConvertToModelHTTP(http gen.Http) *mhttp.HTTP {
 		DeltaMethod:      http.DeltaMethod,
 		DeltaBodyKind:    interfaceToInt8Ptr(http.DeltaBodyKind),
 		DeltaDescription: http.DeltaDescription,
+		LastRunAt:        interfaceToInt64Ptr(http.LastRunAt),
 		CreatedAt:        http.CreatedAt,
 		UpdatedAt:        http.UpdatedAt,
 	}
@@ -138,6 +160,7 @@ func (hs HTTPService) Create(ctx context.Context, http *mhttp.HTTP) error {
 		DeltaMethod:      dbHttp.DeltaMethod,
 		DeltaBodyKind:    dbHttp.DeltaBodyKind,
 		DeltaDescription: dbHttp.DeltaDescription,
+		LastRunAt:        dbHttp.LastRunAt,
 		CreatedAt:        dbHttp.CreatedAt,
 		UpdatedAt:        dbHttp.UpdatedAt,
 	})
@@ -184,6 +207,7 @@ func (hs HTTPService) Update(ctx context.Context, http *mhttp.HTTP) error {
 		Method:      dbHttp.Method,
 		BodyKind:    dbHttp.BodyKind,
 		Description: dbHttp.Description,
+		LastRunAt:   dbHttp.LastRunAt,
 	})
 }
 

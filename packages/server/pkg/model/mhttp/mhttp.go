@@ -20,6 +20,7 @@ type HTTP struct {
 	DeltaMethod      *string        `json:"delta_method,omitempty"`
 	DeltaDescription *string        `json:"delta_description,omitempty"`
 	DeltaBodyKind    *HttpBodyKind  `json:"delta_body_kind,omitempty"`
+	LastRunAt        *int64         `json:"last_run_at,omitempty"`
 	CreatedAt        int64          `json:"created_at"`
 	UpdatedAt        int64          `json:"updated_at"`
 }

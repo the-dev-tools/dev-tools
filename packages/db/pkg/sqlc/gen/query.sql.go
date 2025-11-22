@@ -1258,9 +1258,9 @@ const createHTTP = `-- name: CreateHTTP :exec
 INSERT INTO http (
   id, workspace_id, folder_id, name, url, method, body_kind, description,
   parent_http_id, is_delta, delta_name, delta_url, delta_method, delta_body_kind, delta_description,
-  created_at, updated_at
+  last_run_at, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPParams struct {
@@ -1279,6 +1279,7 @@ type CreateHTTPParams struct {
 	DeltaMethod      *string
 	DeltaBodyKind    interface{}
 	DeltaDescription *string
+	LastRunAt        interface{}
 	CreatedAt        int64
 	UpdatedAt        int64
 }
@@ -1300,6 +1301,7 @@ func (q *Queries) CreateHTTP(ctx context.Context, arg CreateHTTPParams) error {
 		arg.DeltaMethod,
 		arg.DeltaBodyKind,
 		arg.DeltaDescription,
+		arg.LastRunAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -9132,27 +9134,48 @@ const getHTTP = `-- name: GetHTTP :one
  */
 
 
+
 SELECT
+
   id,
+
   workspace_id,
+
   folder_id,
+
   name,
+
   url,
+
   method,
+
   body_kind,
+
   description,
+
   parent_http_id,
+
   is_delta,
+
   delta_name,
+
   delta_url,
+
   delta_method,
+
   delta_body_kind,
+
   delta_description,
+
+  last_run_at,
+
   created_at,
+
   updated_at
+
 FROM http
-WHERE id = ?
-LIMIT 1
+
+WHERE id = ? LIMIT 1
 `
 
 // HTTP Core Queries
@@ -9175,6 +9198,7 @@ func (q *Queries) GetHTTP(ctx context.Context, id idwrap.IDWrap) (Http, error) {
 		&i.DeltaMethod,
 		&i.DeltaBodyKind,
 		&i.DeltaDescription,
+		&i.LastRunAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -9395,10 +9419,30 @@ type GetHTTPBatchForStreamingParams struct {
 	UpdatedAt int64
 }
 
+type GetHTTPBatchForStreamingRow struct {
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Method           string
+	BodyKind         int8
+	Description      string
+	ParentHttpID     *idwrap.IDWrap
+	IsDelta          bool
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaBodyKind    interface{}
+	DeltaDescription *string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
 // HTTP Batch Operations for Streaming
 // Batch query for processing multiple HTTP records efficiently
 // Optimized for high-throughput streaming operations
-func (q *Queries) GetHTTPBatchForStreaming(ctx context.Context, arg GetHTTPBatchForStreamingParams) ([]Http, error) {
+func (q *Queries) GetHTTPBatchForStreaming(ctx context.Context, arg GetHTTPBatchForStreamingParams) ([]GetHTTPBatchForStreamingRow, error) {
 	query := getHTTPBatchForStreaming
 	var queryParams []interface{}
 	if len(arg.HttpIds) > 0 {
@@ -9415,9 +9459,9 @@ func (q *Queries) GetHTTPBatchForStreaming(ctx context.Context, arg GetHTTPBatch
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Http{}
+	items := []GetHTTPBatchForStreamingRow{}
 	for rows.Next() {
-		var i Http
+		var i GetHTTPBatchForStreamingRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
@@ -10005,15 +10049,35 @@ WHERE parent_http_id = ? AND is_delta = TRUE
 ORDER BY created_at DESC
 `
 
-func (q *Queries) GetHTTPDeltasByParentID(ctx context.Context, parentHttpID *idwrap.IDWrap) ([]Http, error) {
+type GetHTTPDeltasByParentIDRow struct {
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Method           string
+	BodyKind         int8
+	Description      string
+	ParentHttpID     *idwrap.IDWrap
+	IsDelta          bool
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaBodyKind    interface{}
+	DeltaDescription *string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+func (q *Queries) GetHTTPDeltasByParentID(ctx context.Context, parentHttpID *idwrap.IDWrap) ([]GetHTTPDeltasByParentIDRow, error) {
 	rows, err := q.query(ctx, q.getHTTPDeltasByParentIDStmt, getHTTPDeltasByParentID, parentHttpID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Http{}
+	items := []GetHTTPDeltasByParentIDRow{}
 	for rows.Next() {
-		var i Http
+		var i GetHTTPDeltasByParentIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
@@ -10079,9 +10143,29 @@ type GetHTTPDeltasSinceParams struct {
 	UpdatedAt_2 int64
 }
 
+type GetHTTPDeltasSinceRow struct {
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Method           string
+	BodyKind         int8
+	Description      string
+	ParentHttpID     *idwrap.IDWrap
+	IsDelta          bool
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaBodyKind    interface{}
+	DeltaDescription *string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
 // Delta-specific streaming query for conflict resolution
 // Uses delta resolution index for optimal performance
-func (q *Queries) GetHTTPDeltasSince(ctx context.Context, arg GetHTTPDeltasSinceParams) ([]Http, error) {
+func (q *Queries) GetHTTPDeltasSince(ctx context.Context, arg GetHTTPDeltasSinceParams) ([]GetHTTPDeltasSinceRow, error) {
 	query := getHTTPDeltasSince
 	var queryParams []interface{}
 	if len(arg.ParentIds) > 0 {
@@ -10099,9 +10183,9 @@ func (q *Queries) GetHTTPDeltasSince(ctx context.Context, arg GetHTTPDeltasSince
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Http{}
+	items := []GetHTTPDeltasSinceRow{}
 	for rows.Next() {
-		var i Http
+		var i GetHTTPDeltasSinceRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
@@ -10399,18 +10483,38 @@ type GetHTTPIncrementalUpdatesParams struct {
 	UpdatedAt_2 int64
 }
 
+type GetHTTPIncrementalUpdatesRow struct {
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Method           string
+	BodyKind         int8
+	Description      string
+	ParentHttpID     *idwrap.IDWrap
+	IsDelta          bool
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaBodyKind    interface{}
+	DeltaDescription *string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
 // HTTP Incremental Streaming Queries
 // Real-time streaming query for changes since last update
 // Optimized with streaming indexes for minimal latency
-func (q *Queries) GetHTTPIncrementalUpdates(ctx context.Context, arg GetHTTPIncrementalUpdatesParams) ([]Http, error) {
+func (q *Queries) GetHTTPIncrementalUpdates(ctx context.Context, arg GetHTTPIncrementalUpdatesParams) ([]GetHTTPIncrementalUpdatesRow, error) {
 	rows, err := q.query(ctx, q.getHTTPIncrementalUpdatesStmt, getHTTPIncrementalUpdates, arg.WorkspaceID, arg.UpdatedAt, arg.UpdatedAt_2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Http{}
+	items := []GetHTTPIncrementalUpdatesRow{}
 	for rows.Next() {
-		var i Http
+		var i GetHTTPIncrementalUpdatesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
@@ -11145,18 +11249,38 @@ type GetHTTPSnapshotPageParams struct {
 	Limit       int64
 }
 
+type GetHTTPSnapshotPageRow struct {
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Method           string
+	BodyKind         int8
+	Description      string
+	ParentHttpID     *idwrap.IDWrap
+	IsDelta          bool
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaBodyKind    interface{}
+	DeltaDescription *string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
 // HTTP Snapshot Queries for Streaming
 // High-performance paginated snapshot query for initial data load
 // Uses optimized streaming indexes for fast workspace-scoped access
-func (q *Queries) GetHTTPSnapshotPage(ctx context.Context, arg GetHTTPSnapshotPageParams) ([]Http, error) {
+func (q *Queries) GetHTTPSnapshotPage(ctx context.Context, arg GetHTTPSnapshotPageParams) ([]GetHTTPSnapshotPageRow, error) {
 	rows, err := q.query(ctx, q.getHTTPSnapshotPageStmt, getHTTPSnapshotPage, arg.WorkspaceID, arg.UpdatedAt, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Http{}
+	items := []GetHTTPSnapshotPageRow{}
 	for rows.Next() {
-		var i Http
+		var i GetHTTPSnapshotPageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
@@ -11324,15 +11448,35 @@ WHERE folder_id = ? AND is_delta = FALSE
 ORDER BY updated_at DESC
 `
 
-func (q *Queries) GetHTTPsByFolderID(ctx context.Context, folderID *idwrap.IDWrap) ([]Http, error) {
+type GetHTTPsByFolderIDRow struct {
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Method           string
+	BodyKind         int8
+	Description      string
+	ParentHttpID     *idwrap.IDWrap
+	IsDelta          bool
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaBodyKind    interface{}
+	DeltaDescription *string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+func (q *Queries) GetHTTPsByFolderID(ctx context.Context, folderID *idwrap.IDWrap) ([]GetHTTPsByFolderIDRow, error) {
 	rows, err := q.query(ctx, q.getHTTPsByFolderIDStmt, getHTTPsByFolderID, folderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Http{}
+	items := []GetHTTPsByFolderIDRow{}
 	for rows.Next() {
-		var i Http
+		var i GetHTTPsByFolderIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
@@ -11388,7 +11532,27 @@ FROM http
 WHERE id IN (/*SLICE:ids*/?)
 `
 
-func (q *Queries) GetHTTPsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]Http, error) {
+type GetHTTPsByIDsRow struct {
+	ID               idwrap.IDWrap
+	WorkspaceID      idwrap.IDWrap
+	FolderID         *idwrap.IDWrap
+	Name             string
+	Url              string
+	Method           string
+	BodyKind         int8
+	Description      string
+	ParentHttpID     *idwrap.IDWrap
+	IsDelta          bool
+	DeltaName        *string
+	DeltaUrl         *string
+	DeltaMethod      *string
+	DeltaBodyKind    interface{}
+	DeltaDescription *string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+func (q *Queries) GetHTTPsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]GetHTTPsByIDsRow, error) {
 	query := getHTTPsByIDs
 	var queryParams []interface{}
 	if len(ids) > 0 {
@@ -11404,9 +11568,9 @@ func (q *Queries) GetHTTPsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]Htt
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Http{}
+	items := []GetHTTPsByIDsRow{}
 	for rows.Next() {
-		var i Http
+		var i GetHTTPsByIDsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
@@ -11456,6 +11620,7 @@ SELECT
   delta_method,
   delta_body_kind,
   delta_description,
+  last_run_at,
   created_at,
   updated_at
 FROM http
@@ -11488,6 +11653,7 @@ func (q *Queries) GetHTTPsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 			&i.DeltaMethod,
 			&i.DeltaBodyKind,
 			&i.DeltaDescription,
+			&i.LastRunAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -14828,6 +14994,7 @@ SET
   method = ?,
   body_kind = ?,
   description = ?,
+  last_run_at = COALESCE(?, last_run_at),
   updated_at = unixepoch()
 WHERE id = ?
 `
@@ -14839,6 +15006,7 @@ type UpdateHTTPParams struct {
 	Method      string
 	BodyKind    int8
 	Description string
+	LastRunAt   interface{}
 	ID          idwrap.IDWrap
 }
 
@@ -14850,6 +15018,7 @@ func (q *Queries) UpdateHTTP(ctx context.Context, arg UpdateHTTPParams) error {
 		arg.Method,
 		arg.BodyKind,
 		arg.Description,
+		arg.LastRunAt,
 		arg.ID,
 	)
 	return err

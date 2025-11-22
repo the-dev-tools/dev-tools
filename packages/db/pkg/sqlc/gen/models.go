@@ -326,6 +326,7 @@ type Http struct {
 	DeltaMethod      *string
 	DeltaBodyKind    interface{}
 	DeltaDescription *string
+	LastRunAt        interface{}
 	CreatedAt        int64
 	UpdatedAt        int64
 }

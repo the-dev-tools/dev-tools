@@ -3662,27 +3662,48 @@ WHERE id = ?;
 --
 
 -- name: GetHTTP :one
+
 SELECT
+
   id,
+
   workspace_id,
+
   folder_id,
+
   name,
+
   url,
+
   method,
+
   body_kind,
+
   description,
+
   parent_http_id,
+
   is_delta,
+
   delta_name,
+
   delta_url,
+
   delta_method,
+
   delta_body_kind,
+
   delta_description,
+
+  last_run_at,
+
   created_at,
+
   updated_at
+
 FROM http
-WHERE id = ?
-LIMIT 1;
+
+WHERE id = ? LIMIT 1;
 
 -- name: GetHTTPsByWorkspaceID :many
 SELECT
@@ -3701,6 +3722,7 @@ SELECT
   delta_method,
   delta_body_kind,
   delta_description,
+  last_run_at,
   created_at,
   updated_at
 FROM http
@@ -3762,9 +3784,9 @@ LIMIT 1;
 INSERT INTO http (
   id, workspace_id, folder_id, name, url, method, body_kind, description,
   parent_http_id, is_delta, delta_name, delta_url, delta_method, delta_body_kind, delta_description,
-  created_at, updated_at
+  last_run_at, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateHTTP :exec
 UPDATE http
@@ -3775,6 +3797,7 @@ SET
   method = ?,
   body_kind = ?,
   description = ?,
+  last_run_at = COALESCE(?, last_run_at),
   updated_at = unixepoch()
 WHERE id = ?;
 

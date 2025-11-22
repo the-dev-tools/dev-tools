@@ -1,7 +1,9 @@
 version: '2'
 sql:
   - engine: 'sqlite'
-    queries: 'query.sql'
+    queries:
+      - 'query.sql'
+      - 'http_version.sql'
     schema: 'schema.sql'
     gen:
       go:
