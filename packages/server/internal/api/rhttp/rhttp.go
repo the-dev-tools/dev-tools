@@ -1236,30 +1236,14 @@ func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWra
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.stream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.stream,
+		snapshot,
+		filter,
+		httpSyncResponseFrom,
+		send,
+	)
 }
 
 // CheckOwnerHttp verifies if a user owns an HTTP entry via workspace membership
@@ -2400,45 +2384,34 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.stream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			// Get the full HTTP record for delta sync response
-			httpID, err := idwrap.NewFromBytes(evt.Payload.Http.HttpId)
-			if err != nil {
-				continue // Skip if can't parse ID
-			}
-			httpRecord, err := h.hs.Get(ctx, httpID)
-			if err != nil {
-				continue // Skip if can't get the record
-			}
-			
-			// Filter: Only process actual Delta records
-			if !httpRecord.IsDelta {
-				continue
-			}
-
-			resp := httpDeltaSyncResponseFrom(evt.Payload, *httpRecord)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
+	// Converter with data fetching logic
+	converter := func(event HttpEvent) *apiv1.HttpDeltaSyncResponse {
+		// Get the full HTTP record for delta sync response
+		httpID, err := idwrap.NewFromBytes(event.Http.HttpId)
+		if err != nil {
+			return nil // Skip if can't parse ID
 		}
+		httpRecord, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			return nil // Skip if can't get the record
+		}
+
+		// Filter: Only process actual Delta records
+		if !httpRecord.IsDelta {
+			return nil
+		}
+
+		return httpDeltaSyncResponseFrom(event, *httpRecord)
 	}
+
+	return eventstream.StreamToClient(
+		ctx,
+		h.stream,
+		snapshot,
+		filter,
+		converter,
+		send,
+	)
 }
 
 func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1.HttpRunRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -3305,30 +3278,14 @@ func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwra
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpVersionStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpVersionSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpVersionStream,
+		snapshot,
+		filter,
+		httpVersionSyncResponseFrom,
+		send,
+	)
 }
 
 func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpSearchParamDeltaCollectionResponse], error) {
