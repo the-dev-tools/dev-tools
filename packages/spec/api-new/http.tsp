@@ -47,6 +47,9 @@ op HttpRun(...HttpRunRequest): {};
 model HttpVersion {
   @primaryKey httpVersionId: Id;
   @foreignKey httpId: Id;
+  name: string;
+  description: string;
+  createdAt: int64;
 }
 
 @withDelta

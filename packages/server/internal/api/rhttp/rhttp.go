@@ -473,6 +473,9 @@ func toAPIHttpVersion(version dbmodels.HttpVersion) *apiv1.HttpVersion {
 	return &apiv1.HttpVersion{
 		HttpVersionId: version.ID.Bytes(),
 		HttpId:        version.HttpID.Bytes(),
+		Name:          version.VersionName,
+		Description:   version.VersionDescription,
+		CreatedAt:     version.CreatedAt,
 	}
 }
 
@@ -886,6 +889,9 @@ func httpVersionSyncResponseFrom(event HttpVersionEvent) *apiv1.HttpVersionSyncR
 			Insert: &apiv1.HttpVersionSyncInsert{
 				HttpVersionId: event.HttpVersion.GetHttpVersionId(),
 				HttpId:        event.HttpVersion.GetHttpId(),
+				Name:          event.HttpVersion.GetName(),
+				Description:   event.HttpVersion.GetDescription(),
+				CreatedAt:     event.HttpVersion.GetCreatedAt(),
 			},
 		}
 	case eventTypeUpdate:
@@ -2474,19 +2480,19 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 	// Use minimal transaction for update
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
-		log.Printf("Failed to begin transaction for updating LastRunAt: %v", err)
-	} else {
-		defer tx.Rollback()
-		if err := h.hs.TX(tx).Update(ctx, httpEntry); err != nil {
-			log.Printf("Failed to update LastRunAt for HTTP %s: %v", httpEntry.ID.String(), err)
-		} else {
-			if err := tx.Commit(); err != nil {
-				log.Printf("Failed to commit transaction for updating LastRunAt: %v", err)
-			} else {
-				h.publishUpdateEvent(*httpEntry)
-			}
-		}
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to begin transaction: %w", err))
 	}
+	defer tx.Rollback()
+
+	if err := h.hs.TX(tx).Update(ctx, httpEntry); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update LastRunAt: %w", err))
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to commit transaction: %w", err))
+	}
+
+	h.publishUpdateEvent(*httpEntry)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
