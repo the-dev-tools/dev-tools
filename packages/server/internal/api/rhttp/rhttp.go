@@ -2422,6 +2422,12 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 			if err != nil {
 				continue // Skip if can't get the record
 			}
+			
+			// Filter: Only process actual Delta records
+			if !httpRecord.IsDelta {
+				continue
+			}
+
 			resp := httpDeltaSyncResponseFrom(evt.Payload, *httpRecord)
 			if resp == nil {
 				continue
