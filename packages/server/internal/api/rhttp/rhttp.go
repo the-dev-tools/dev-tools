@@ -1900,7 +1900,8 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		updatedHTTPs = append(updatedHTTPs, *data.httpModel)
 
 		// Create a new version for this update
-		versionName := fmt.Sprintf("v%d", time.Now().Unix()) // Simple version naming
+		// Use Nano to ensure uniqueness during rapid updates
+		versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
 		versionDesc := "Auto-saved version"
 		
 		version, err := hsService.CreateHttpVersion(ctx, data.httpID, userID, versionName, versionDesc)
