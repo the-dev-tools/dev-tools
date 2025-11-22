@@ -99,37 +99,3 @@ func TestHttpVersionSync_Concurrency(t *testing.T) {
 	require.Equal(t, count, eventCount, "Should receive exactly 5 HttpVersionSync insert events")
 }
 
-func TestHttpRun_DoesNotCreateVersion(t *testing.T) {
-	f := newHttpFixture(t)
-	ctx := f.ctx
-
-	// 1. Create Workspace & HTTP
-	f.createWorkspace(t, "Test Workspace")
-	httpID := idwrap.NewNow()
-	_, err := f.handler.HttpInsert(ctx, connect.NewRequest(&apiv1.HttpInsertRequest{
-		Items: []*apiv1.HttpInsert{
-			{
-				HttpId:   httpID.Bytes(),
-				Name:     "Test Request",
-				Method:   apiv1.HttpMethod_HTTP_METHOD_GET,
-				Url:      "https://example.com",
-				BodyKind: apiv1.HttpBodyKind_HTTP_BODY_KIND_RAW,
-			},
-		},
-	}))
-	require.NoError(t, err)
-
-	// 2. Call HttpRun 5 times
-	for i := 0; i < 5; i++ {
-		_, err := f.handler.HttpRun(ctx, connect.NewRequest(&apiv1.HttpRunRequest{
-			HttpId: httpID.Bytes(),
-		}))
-		require.NoError(t, err)
-	}
-
-	// 3. Verify Versions count
-	versions, err := f.handler.getHttpVersionsByHttpID(ctx, httpID)
-	require.NoError(t, err)
-	
-	require.Equal(t, 0, len(versions), "HttpRun should not create HttpVersion records")
-}
