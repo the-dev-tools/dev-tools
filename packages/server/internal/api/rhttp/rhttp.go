@@ -3130,30 +3130,14 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpSearchParamStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpSearchParamSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpSearchParamStream,
+		snapshot,
+		filter,
+		httpSearchParamSyncResponseFrom,
+		send,
+	)
 }
 
 // streamHttpAssertSync streams HTTP assert events to the client
@@ -3204,30 +3188,14 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpAssertStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpAssertSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpAssertStream,
+		snapshot,
+		filter,
+		httpAssertSyncResponseFrom,
+		send,
+	)
 }
 
 // streamHttpVersionSync streams HTTP version events to the client
@@ -4283,30 +4251,14 @@ func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwr
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpResponseStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpResponseSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpResponseStream,
+		snapshot,
+		filter,
+		httpResponseSyncResponseFrom,
+		send,
+	)
 }
 
 func (h *HttpServiceRPC) HttpResponseHeaderCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpResponseHeaderCollectionResponse], error) {
@@ -4453,30 +4405,14 @@ func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userI
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpResponseHeaderStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpResponseHeaderSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpResponseHeaderStream,
+		snapshot,
+		filter,
+		httpResponseHeaderSyncResponseFrom,
+		send,
+	)
 }
 
 func (h *HttpServiceRPC) HttpResponseAssertCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpResponseAssertCollectionResponse], error) {
@@ -4623,30 +4559,14 @@ func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userI
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpResponseAssertStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpResponseAssertSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpResponseAssertStream,
+		snapshot,
+		filter,
+		httpResponseAssertSyncResponseFrom,
+		send,
+	)
 }
 
 func (h *HttpServiceRPC) HttpHeaderCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpHeaderCollectionResponse], error) {
@@ -6256,27 +6176,14 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpBodyFormStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpBodyFormDataSyncResponseFrom(evt.Payload)
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpBodyFormStream,
+		snapshot,
+		filter,
+		httpBodyFormDataSyncResponseFrom,
+		send,
+	)
 }
 
 func (h *HttpServiceRPC) HttpBodyFormDataDeltaCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormDataDeltaCollectionResponse], error) {
@@ -7379,27 +7286,14 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userI
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpBodyUrlEncodedStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpBodyUrlEncodedSyncResponseFrom(evt.Payload)
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpBodyUrlEncodedStream,
+		snapshot,
+		filter,
+		httpBodyUrlEncodedSyncResponseFrom,
+		send,
+	)
 }
 
 func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyUrlEncodedDeltaCollectionResponse], error) {
@@ -7761,41 +7655,25 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
 
 			// Get body raw for this HTTP entry
-			rows, err := h.DB.QueryContext(ctx, `
-				SELECT http_id, data
-				FROM http_body_raw
-				WHERE http_id = ?
-			`, http.ID.Bytes())
+			bodyRaw, err := h.bodyService.GetByHttpID(ctx, http.ID)
 			if err != nil {
+				if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+					continue
+				}
 				return nil, err
 			}
 
-			for rows.Next() {
-				var httpID []byte
-				var data string
-				err := rows.Scan(
-					&httpID,
-					&data,
-				)
-				if err != nil {
-					rows.Close()
-					return nil, err
-				}
-
+			if bodyRaw != nil {
 				events = append(events, eventstream.Event[HttpBodyRawTopic, HttpBodyRawEvent]{
 					Topic: HttpBodyRawTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyRawEvent{
-						Type:        eventTypeInsert,
-						HttpBodyRaw: toAPIHttpBodyRaw(httpID, data),
+						Type: eventTypeInsert,
+						HttpBodyRaw: &apiv1.HttpBodyRaw{
+							Data: string(bodyRaw.RawData), // Convert byte slice to string
+						},
 					},
 				})
 			}
-
-			if err := rows.Err(); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			rows.Close()
 		}
 		return events, nil
 	}
@@ -7813,30 +7691,14 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpBodyRawStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpBodyRawSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpBodyRawStream,
+		snapshot,
+		filter,
+		httpBodyRawSyncResponseFrom,
+		send,
+	)
 }
 
 // Helper methods for HTTP request execution
