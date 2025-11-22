@@ -2287,23 +2287,23 @@ func (q *Queries) CreateHTTPResponse(ctx context.Context, arg CreateHTTPResponse
 
 const createHTTPResponseAssert = `-- name: CreateHTTPResponseAssert :exec
 INSERT INTO http_response_assert (
-  id, http_id, value, success, created_at
+  id, response_id, value, success, created_at
 )
 VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateHTTPResponseAssertParams struct {
-	ID        []byte
-	HttpID    []byte
-	Value     string
-	Success   bool
-	CreatedAt int64
+	ID         []byte
+	ResponseID []byte
+	Value      string
+	Success    bool
+	CreatedAt  int64
 }
 
 func (q *Queries) CreateHTTPResponseAssert(ctx context.Context, arg CreateHTTPResponseAssertParams) error {
 	_, err := q.exec(ctx, q.createHTTPResponseAssertStmt, createHTTPResponseAssert,
 		arg.ID,
-		arg.HttpID,
+		arg.ResponseID,
 		arg.Value,
 		arg.Success,
 		arg.CreatedAt,
@@ -2313,7 +2313,7 @@ func (q *Queries) CreateHTTPResponseAssert(ctx context.Context, arg CreateHTTPRe
 
 const createHTTPResponseAssertBulk = `-- name: CreateHTTPResponseAssertBulk :exec
 INSERT INTO http_response_assert (
-  id, http_id, value, success, created_at
+  id, response_id, value, success, created_at
 )
 VALUES
   (?, ?, ?, ?, ?),
@@ -2329,107 +2329,107 @@ VALUES
 `
 
 type CreateHTTPResponseAssertBulkParams struct {
-	ID           []byte
-	HttpID       []byte
-	Value        string
-	Success      bool
-	CreatedAt    int64
-	ID_2         []byte
-	HttpID_2     []byte
-	Value_2      string
-	Success_2    bool
-	CreatedAt_2  int64
-	ID_3         []byte
-	HttpID_3     []byte
-	Value_3      string
-	Success_3    bool
-	CreatedAt_3  int64
-	ID_4         []byte
-	HttpID_4     []byte
-	Value_4      string
-	Success_4    bool
-	CreatedAt_4  int64
-	ID_5         []byte
-	HttpID_5     []byte
-	Value_5      string
-	Success_5    bool
-	CreatedAt_5  int64
-	ID_6         []byte
-	HttpID_6     []byte
-	Value_6      string
-	Success_6    bool
-	CreatedAt_6  int64
-	ID_7         []byte
-	HttpID_7     []byte
-	Value_7      string
-	Success_7    bool
-	CreatedAt_7  int64
-	ID_8         []byte
-	HttpID_8     []byte
-	Value_8      string
-	Success_8    bool
-	CreatedAt_8  int64
-	ID_9         []byte
-	HttpID_9     []byte
-	Value_9      string
-	Success_9    bool
-	CreatedAt_9  int64
-	ID_10        []byte
-	HttpID_10    []byte
-	Value_10     string
-	Success_10   bool
-	CreatedAt_10 int64
+	ID            []byte
+	ResponseID    []byte
+	Value         string
+	Success       bool
+	CreatedAt     int64
+	ID_2          []byte
+	ResponseID_2  []byte
+	Value_2       string
+	Success_2     bool
+	CreatedAt_2   int64
+	ID_3          []byte
+	ResponseID_3  []byte
+	Value_3       string
+	Success_3     bool
+	CreatedAt_3   int64
+	ID_4          []byte
+	ResponseID_4  []byte
+	Value_4       string
+	Success_4     bool
+	CreatedAt_4   int64
+	ID_5          []byte
+	ResponseID_5  []byte
+	Value_5       string
+	Success_5     bool
+	CreatedAt_5   int64
+	ID_6          []byte
+	ResponseID_6  []byte
+	Value_6       string
+	Success_6     bool
+	CreatedAt_6   int64
+	ID_7          []byte
+	ResponseID_7  []byte
+	Value_7       string
+	Success_7     bool
+	CreatedAt_7   int64
+	ID_8          []byte
+	ResponseID_8  []byte
+	Value_8       string
+	Success_8     bool
+	CreatedAt_8   int64
+	ID_9          []byte
+	ResponseID_9  []byte
+	Value_9       string
+	Success_9     bool
+	CreatedAt_9   int64
+	ID_10         []byte
+	ResponseID_10 []byte
+	Value_10      string
+	Success_10    bool
+	CreatedAt_10  int64
 }
 
 func (q *Queries) CreateHTTPResponseAssertBulk(ctx context.Context, arg CreateHTTPResponseAssertBulkParams) error {
 	_, err := q.exec(ctx, q.createHTTPResponseAssertBulkStmt, createHTTPResponseAssertBulk,
 		arg.ID,
-		arg.HttpID,
+		arg.ResponseID,
 		arg.Value,
 		arg.Success,
 		arg.CreatedAt,
 		arg.ID_2,
-		arg.HttpID_2,
+		arg.ResponseID_2,
 		arg.Value_2,
 		arg.Success_2,
 		arg.CreatedAt_2,
 		arg.ID_3,
-		arg.HttpID_3,
+		arg.ResponseID_3,
 		arg.Value_3,
 		arg.Success_3,
 		arg.CreatedAt_3,
 		arg.ID_4,
-		arg.HttpID_4,
+		arg.ResponseID_4,
 		arg.Value_4,
 		arg.Success_4,
 		arg.CreatedAt_4,
 		arg.ID_5,
-		arg.HttpID_5,
+		arg.ResponseID_5,
 		arg.Value_5,
 		arg.Success_5,
 		arg.CreatedAt_5,
 		arg.ID_6,
-		arg.HttpID_6,
+		arg.ResponseID_6,
 		arg.Value_6,
 		arg.Success_6,
 		arg.CreatedAt_6,
 		arg.ID_7,
-		arg.HttpID_7,
+		arg.ResponseID_7,
 		arg.Value_7,
 		arg.Success_7,
 		arg.CreatedAt_7,
 		arg.ID_8,
-		arg.HttpID_8,
+		arg.ResponseID_8,
 		arg.Value_8,
 		arg.Success_8,
 		arg.CreatedAt_8,
 		arg.ID_9,
-		arg.HttpID_9,
+		arg.ResponseID_9,
 		arg.Value_9,
 		arg.Success_9,
 		arg.CreatedAt_9,
 		arg.ID_10,
-		arg.HttpID_10,
+		arg.ResponseID_10,
 		arg.Value_10,
 		arg.Success_10,
 		arg.CreatedAt_10,
@@ -2625,23 +2625,23 @@ func (q *Queries) CreateHTTPResponseBulk(ctx context.Context, arg CreateHTTPResp
 
 const createHTTPResponseHeader = `-- name: CreateHTTPResponseHeader :exec
 INSERT INTO http_response_header (
-  id, http_id, key, value, created_at
+  id, response_id, key, value, created_at
 )
 VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateHTTPResponseHeaderParams struct {
-	ID        idwrap.IDWrap
-	HttpID    []byte
-	Key       string
-	Value     string
-	CreatedAt int64
+	ID         idwrap.IDWrap
+	ResponseID idwrap.IDWrap
+	Key        string
+	Value      string
+	CreatedAt  int64
 }
 
 func (q *Queries) CreateHTTPResponseHeader(ctx context.Context, arg CreateHTTPResponseHeaderParams) error {
 	_, err := q.exec(ctx, q.createHTTPResponseHeaderStmt, createHTTPResponseHeader,
 		arg.ID,
-		arg.HttpID,
+		arg.ResponseID,
 		arg.Key,
 		arg.Value,
 		arg.CreatedAt,
@@ -2651,7 +2651,7 @@ func (q *Queries) CreateHTTPResponseHeader(ctx context.Context, arg CreateHTTPRe
 
 const createHTTPResponseHeaderBulk = `-- name: CreateHTTPResponseHeaderBulk :exec
 INSERT INTO http_response_header (
-  id, http_id, key, value, created_at
+  id, response_id, key, value, created_at
 )
 VALUES
   (?, ?, ?, ?, ?),
@@ -2667,107 +2667,107 @@ VALUES
 `
 
 type CreateHTTPResponseHeaderBulkParams struct {
-	ID           idwrap.IDWrap
-	HttpID       []byte
-	Key          string
-	Value        string
-	CreatedAt    int64
-	ID_2         idwrap.IDWrap
-	HttpID_2     []byte
-	Key_2        string
-	Value_2      string
-	CreatedAt_2  int64
-	ID_3         idwrap.IDWrap
-	HttpID_3     []byte
-	Key_3        string
-	Value_3      string
-	CreatedAt_3  int64
-	ID_4         idwrap.IDWrap
-	HttpID_4     []byte
-	Key_4        string
-	Value_4      string
-	CreatedAt_4  int64
-	ID_5         idwrap.IDWrap
-	HttpID_5     []byte
-	Key_5        string
-	Value_5      string
-	CreatedAt_5  int64
-	ID_6         idwrap.IDWrap
-	HttpID_6     []byte
-	Key_6        string
-	Value_6      string
-	CreatedAt_6  int64
-	ID_7         idwrap.IDWrap
-	HttpID_7     []byte
-	Key_7        string
-	Value_7      string
-	CreatedAt_7  int64
-	ID_8         idwrap.IDWrap
-	HttpID_8     []byte
-	Key_8        string
-	Value_8      string
-	CreatedAt_8  int64
-	ID_9         idwrap.IDWrap
-	HttpID_9     []byte
-	Key_9        string
-	Value_9      string
-	CreatedAt_9  int64
-	ID_10        idwrap.IDWrap
-	HttpID_10    []byte
-	Key_10       string
-	Value_10     string
-	CreatedAt_10 int64
+	ID            idwrap.IDWrap
+	ResponseID    idwrap.IDWrap
+	Key           string
+	Value         string
+	CreatedAt     int64
+	ID_2          idwrap.IDWrap
+	ResponseID_2  idwrap.IDWrap
+	Key_2         string
+	Value_2       string
+	CreatedAt_2   int64
+	ID_3          idwrap.IDWrap
+	ResponseID_3  idwrap.IDWrap
+	Key_3         string
+	Value_3       string
+	CreatedAt_3   int64
+	ID_4          idwrap.IDWrap
+	ResponseID_4  idwrap.IDWrap
+	Key_4         string
+	Value_4       string
+	CreatedAt_4   int64
+	ID_5          idwrap.IDWrap
+	ResponseID_5  idwrap.IDWrap
+	Key_5         string
+	Value_5       string
+	CreatedAt_5   int64
+	ID_6          idwrap.IDWrap
+	ResponseID_6  idwrap.IDWrap
+	Key_6         string
+	Value_6       string
+	CreatedAt_6   int64
+	ID_7          idwrap.IDWrap
+	ResponseID_7  idwrap.IDWrap
+	Key_7         string
+	Value_7       string
+	CreatedAt_7   int64
+	ID_8          idwrap.IDWrap
+	ResponseID_8  idwrap.IDWrap
+	Key_8         string
+	Value_8       string
+	CreatedAt_8   int64
+	ID_9          idwrap.IDWrap
+	ResponseID_9  idwrap.IDWrap
+	Key_9         string
+	Value_9       string
+	CreatedAt_9   int64
+	ID_10         idwrap.IDWrap
+	ResponseID_10 idwrap.IDWrap
+	Key_10        string
+	Value_10      string
+	CreatedAt_10  int64
 }
 
 func (q *Queries) CreateHTTPResponseHeaderBulk(ctx context.Context, arg CreateHTTPResponseHeaderBulkParams) error {
 	_, err := q.exec(ctx, q.createHTTPResponseHeaderBulkStmt, createHTTPResponseHeaderBulk,
 		arg.ID,
-		arg.HttpID,
+		arg.ResponseID,
 		arg.Key,
 		arg.Value,
 		arg.CreatedAt,
 		arg.ID_2,
-		arg.HttpID_2,
+		arg.ResponseID_2,
 		arg.Key_2,
 		arg.Value_2,
 		arg.CreatedAt_2,
 		arg.ID_3,
-		arg.HttpID_3,
+		arg.ResponseID_3,
 		arg.Key_3,
 		arg.Value_3,
 		arg.CreatedAt_3,
 		arg.ID_4,
-		arg.HttpID_4,
+		arg.ResponseID_4,
 		arg.Key_4,
 		arg.Value_4,
 		arg.CreatedAt_4,
 		arg.ID_5,
-		arg.HttpID_5,
+		arg.ResponseID_5,
 		arg.Key_5,
 		arg.Value_5,
 		arg.CreatedAt_5,
 		arg.ID_6,
-		arg.HttpID_6,
+		arg.ResponseID_6,
 		arg.Key_6,
 		arg.Value_6,
 		arg.CreatedAt_6,
 		arg.ID_7,
-		arg.HttpID_7,
+		arg.ResponseID_7,
 		arg.Key_7,
 		arg.Value_7,
 		arg.CreatedAt_7,
 		arg.ID_8,
-		arg.HttpID_8,
+		arg.ResponseID_8,
 		arg.Key_8,
 		arg.Value_8,
 		arg.CreatedAt_8,
 		arg.ID_9,
-		arg.HttpID_9,
+		arg.ResponseID_9,
 		arg.Key_9,
 		arg.Value_9,
 		arg.CreatedAt_9,
 		arg.ID_10,
-		arg.HttpID_10,
+		arg.ResponseID_10,
 		arg.Key_10,
 		arg.Value_10,
 		arg.CreatedAt_10,
@@ -10482,7 +10482,7 @@ const getHTTPResponseAssert = `-- name: GetHTTPResponseAssert :one
 
 SELECT
   id,
-  http_id,
+  response_id,
   value,
   success,
   created_at
@@ -10497,7 +10497,7 @@ func (q *Queries) GetHTTPResponseAssert(ctx context.Context, id []byte) (HttpRes
 	var i HttpResponseAssert
 	err := row.Scan(
 		&i.ID,
-		&i.HttpID,
+		&i.ResponseID,
 		&i.Value,
 		&i.Success,
 		&i.CreatedAt,
@@ -10505,51 +10505,10 @@ func (q *Queries) GetHTTPResponseAssert(ctx context.Context, id []byte) (HttpRes
 	return i, err
 }
 
-const getHTTPResponseAssertsByHttpID = `-- name: GetHTTPResponseAssertsByHttpID :many
-SELECT
-  id,
-  http_id,
-  value,
-  success,
-  created_at
-FROM http_response_assert
-WHERE http_id = ?
-ORDER BY created_at DESC
-`
-
-func (q *Queries) GetHTTPResponseAssertsByHttpID(ctx context.Context, httpID []byte) ([]HttpResponseAssert, error) {
-	rows, err := q.query(ctx, q.getHTTPResponseAssertsByHttpIDStmt, getHTTPResponseAssertsByHttpID, httpID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []HttpResponseAssert{}
-	for rows.Next() {
-		var i HttpResponseAssert
-		if err := rows.Scan(
-			&i.ID,
-			&i.HttpID,
-			&i.Value,
-			&i.Success,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getHTTPResponseAssertsByIDs = `-- name: GetHTTPResponseAssertsByIDs :many
 SELECT
   id,
-  http_id,
+  response_id,
   value,
   success,
   created_at
@@ -10579,7 +10538,48 @@ func (q *Queries) GetHTTPResponseAssertsByIDs(ctx context.Context, ids [][]byte)
 		var i HttpResponseAssert
 		if err := rows.Scan(
 			&i.ID,
-			&i.HttpID,
+			&i.ResponseID,
+			&i.Value,
+			&i.Success,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPResponseAssertsByResponseID = `-- name: GetHTTPResponseAssertsByResponseID :many
+SELECT
+  id,
+  response_id,
+  value,
+  success,
+  created_at
+FROM http_response_assert
+WHERE response_id = ?
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetHTTPResponseAssertsByResponseID(ctx context.Context, responseID []byte) ([]HttpResponseAssert, error) {
+	rows, err := q.query(ctx, q.getHTTPResponseAssertsByResponseIDStmt, getHTTPResponseAssertsByResponseID, responseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseAssert{}
+	for rows.Next() {
+		var i HttpResponseAssert
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
 			&i.Value,
 			&i.Success,
 			&i.CreatedAt,
@@ -10601,7 +10601,7 @@ const getHTTPResponseHeader = `-- name: GetHTTPResponseHeader :one
 
 SELECT
   id,
-  http_id,
+  response_id,
   key,
   value,
   created_at
@@ -10616,7 +10616,7 @@ func (q *Queries) GetHTTPResponseHeader(ctx context.Context, id idwrap.IDWrap) (
 	var i HttpResponseHeader
 	err := row.Scan(
 		&i.ID,
-		&i.HttpID,
+		&i.ResponseID,
 		&i.Key,
 		&i.Value,
 		&i.CreatedAt,
@@ -10624,57 +10624,16 @@ func (q *Queries) GetHTTPResponseHeader(ctx context.Context, id idwrap.IDWrap) (
 	return i, err
 }
 
-const getHTTPResponseHeadersByHttpID = `-- name: GetHTTPResponseHeadersByHttpID :many
-SELECT
-  id,
-  http_id,
-  key,
-  value,
-  created_at
-FROM http_response_header
-WHERE http_id = ?
-ORDER BY key
-`
-
-func (q *Queries) GetHTTPResponseHeadersByHttpID(ctx context.Context, httpID []byte) ([]HttpResponseHeader, error) {
-	rows, err := q.query(ctx, q.getHTTPResponseHeadersByHttpIDStmt, getHTTPResponseHeadersByHttpID, httpID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []HttpResponseHeader{}
-	for rows.Next() {
-		var i HttpResponseHeader
-		if err := rows.Scan(
-			&i.ID,
-			&i.HttpID,
-			&i.Key,
-			&i.Value,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getHTTPResponseHeadersByIDs = `-- name: GetHTTPResponseHeadersByIDs :many
 SELECT
   id,
-  http_id,
+  response_id,
   key,
   value,
   created_at
 FROM http_response_header
 WHERE id IN (/*SLICE:ids*/?)
-ORDER BY http_id, key
+ORDER BY response_id, key
 `
 
 func (q *Queries) GetHTTPResponseHeadersByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpResponseHeader, error) {
@@ -10698,7 +10657,48 @@ func (q *Queries) GetHTTPResponseHeadersByIDs(ctx context.Context, ids []idwrap.
 		var i HttpResponseHeader
 		if err := rows.Scan(
 			&i.ID,
-			&i.HttpID,
+			&i.ResponseID,
+			&i.Key,
+			&i.Value,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHTTPResponseHeadersByResponseID = `-- name: GetHTTPResponseHeadersByResponseID :many
+SELECT
+  id,
+  response_id,
+  key,
+  value,
+  created_at
+FROM http_response_header
+WHERE response_id = ?
+ORDER BY key
+`
+
+func (q *Queries) GetHTTPResponseHeadersByResponseID(ctx context.Context, responseID idwrap.IDWrap) ([]HttpResponseHeader, error) {
+	rows, err := q.query(ctx, q.getHTTPResponseHeadersByResponseIDStmt, getHTTPResponseHeadersByResponseID, responseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseHeader{}
+	for rows.Next() {
+		var i HttpResponseHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
 			&i.Key,
 			&i.Value,
 			&i.CreatedAt,

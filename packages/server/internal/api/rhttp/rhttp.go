@@ -496,7 +496,7 @@ func toAPIHttpResponse(response dbmodels.HttpResponse) *apiv1.HttpResponse {
 func toAPIHttpResponseHeader(header dbmodels.HttpResponseHeader) *apiv1.HttpResponseHeader {
 	return &apiv1.HttpResponseHeader{
 		HttpResponseHeaderId: header.ID.Bytes(),
-		// HttpId:               header.HttpID,
+		HttpResponseId:       header.ResponseID.Bytes(),
 		Key:                  header.Key,
 		Value:                header.Value,
 	}
@@ -506,7 +506,7 @@ func toAPIHttpResponseHeader(header dbmodels.HttpResponseHeader) *apiv1.HttpResp
 func toAPIHttpResponseAssert(assert dbmodels.HttpResponseAssert) *apiv1.HttpResponseAssert {
 	return &apiv1.HttpResponseAssert{
 		HttpResponseAssertId: assert.ID,
-		// HttpId:               assert.HttpID,
+		HttpResponseId:       assert.ResponseID,
 		Value:                assert.Value,
 		Success:              assert.Success,
 	}
@@ -958,7 +958,7 @@ func httpResponseHeaderSyncResponseFrom(event HttpResponseHeaderEvent) *apiv1.Ht
 			Kind: apiv1.HttpResponseHeaderSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpResponseHeaderSyncInsert{
 				HttpResponseHeaderId: event.HttpResponseHeader.GetHttpResponseHeaderId(),
-				// HttpId:               event.HttpResponseHeader.GetHttpResponseId(),
+				HttpResponseId:       event.HttpResponseHeader.GetHttpResponseId(),
 				Key:                  key,
 				Value:                value_,
 			},
@@ -1004,7 +1004,7 @@ func httpResponseAssertSyncResponseFrom(event HttpResponseAssertEvent) *apiv1.Ht
 			Kind: apiv1.HttpResponseAssertSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpResponseAssertSyncInsert{
 				HttpResponseAssertId: event.HttpResponseAssert.GetHttpResponseAssertId(),
-				// HttpId:               event.HttpResponseAssert.GetHttpResponseId(),
+				HttpResponseId:       event.HttpResponseAssert.GetHttpResponseId(),
 				Value:                value_,
 				Success:              success,
 			},
@@ -4270,10 +4270,11 @@ func (h *HttpServiceRPC) HttpResponseHeaderCollection(ctx context.Context, req *
 		// Get response headers for each HTTP entry
 		for _, http := range httpList {
 			headers, err := h.DB.QueryContext(ctx, `
-				SELECT id, http_id, key, value, created_at
-				FROM http_response_header
-				WHERE http_id = ?
-				ORDER BY created_at DESC
+				SELECT hrh.id, hrh.response_id, hrh.key, hrh.value, hrh.created_at
+				FROM http_response_header hrh
+				JOIN http_response hr ON hrh.response_id = hr.id
+				WHERE hr.http_id = ?
+				ORDER BY hrh.created_at DESC
 			`, http.ID.Bytes())
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -4283,7 +4284,7 @@ func (h *HttpServiceRPC) HttpResponseHeaderCollection(ctx context.Context, req *
 				var header dbmodels.HttpResponseHeader
 				err := headers.Scan(
 					&header.ID,
-					&header.HttpID,
+					&header.ResponseID,
 					&header.Key,
 					&header.Value,
 					&header.CreatedAt,
@@ -4335,10 +4336,11 @@ func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userI
 
 			// Get response headers for this HTTP entry
 			headers, err := h.DB.QueryContext(ctx, `
-				SELECT id, http_id, key, value, created_at
-				FROM http_response_header
-				WHERE http_id = ?
-				ORDER BY created_at DESC
+				SELECT hrh.id, hrh.response_id, hrh.key, hrh.value, hrh.created_at
+				FROM http_response_header hrh
+				JOIN http_response hr ON hrh.response_id = hr.id
+				WHERE hr.http_id = ?
+				ORDER BY hrh.created_at DESC
 			`, http.ID.Bytes())
 			if err != nil {
 				return nil, err
@@ -4348,7 +4350,7 @@ func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userI
 				var header dbmodels.HttpResponseHeader
 				err := headers.Scan(
 					&header.ID,
-					&header.HttpID,
+					&header.ResponseID,
 					&header.Key,
 					&header.Value,
 					&header.CreatedAt,
@@ -4438,10 +4440,11 @@ func (h *HttpServiceRPC) HttpResponseAssertCollection(ctx context.Context, req *
 		// Get response asserts for each HTTP entry
 		for _, http := range httpList {
 			asserts, err := h.DB.QueryContext(ctx, `
-				SELECT id, http_id, value, success, created_at
-				FROM http_response_assert
-				WHERE http_id = ?
-				ORDER BY created_at DESC
+				SELECT hra.id, hra.response_id, hra.value, hra.success, hra.created_at
+				FROM http_response_assert hra
+				JOIN http_response hr ON hra.response_id = hr.id
+				WHERE hr.http_id = ?
+				ORDER BY hra.created_at DESC
 			`, http.ID.Bytes())
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -4451,7 +4454,7 @@ func (h *HttpServiceRPC) HttpResponseAssertCollection(ctx context.Context, req *
 				var assert dbmodels.HttpResponseAssert
 				err := asserts.Scan(
 					&assert.ID,
-					&assert.HttpID,
+					&assert.ResponseID,
 					&assert.Value,
 					&assert.Success,
 					&assert.CreatedAt,
@@ -4503,10 +4506,11 @@ func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userI
 
 			// Get response asserts for this HTTP entry
 			asserts, err := h.DB.QueryContext(ctx, `
-				SELECT id, http_id, value, success, created_at
-				FROM http_response_assert
-				WHERE http_id = ?
-				ORDER BY created_at DESC
+				SELECT hra.id, hra.response_id, hra.value, hra.success, hra.created_at
+				FROM http_response_assert hra
+				JOIN http_response hr ON hra.response_id = hr.id
+				WHERE hr.http_id = ?
+				ORDER BY hra.created_at DESC
 			`, http.ID.Bytes())
 			if err != nil {
 				return nil, err
@@ -4516,7 +4520,7 @@ func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userI
 				var assert dbmodels.HttpResponseAssert
 				err := asserts.Scan(
 					&assert.ID,
-					&assert.HttpID,
+					&assert.ResponseID,
 					&assert.Value,
 					&assert.Success,
 					&assert.CreatedAt,
@@ -7865,7 +7869,7 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	}
 
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO http_response_header (id, http_id, key, value, created_at)
+		INSERT INTO http_response_header (id, response_id, key, value, created_at)
 		VALUES (?, ?, ?, ?, ?)
 	`)
 	if err != nil {
@@ -7873,7 +7877,6 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	}
 	defer stmt.Close()
 
-	httpIDBytes := httpEntry.ID.Bytes()
 	headerEvents := make([]HttpResponseHeaderEvent, 0, len(resp.Headers))
 	for _, header := range resp.Headers {
 		if header.HeaderKey == "" {
@@ -7882,7 +7885,7 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 		headerID := idwrap.NewNow()
 		if _, err := stmt.ExecContext(ctx,
 			headerID.Bytes(),
-			httpIDBytes,
+			responseID.Bytes(),
 			header.HeaderKey,
 			header.Value,
 			nowUnix,
@@ -7892,11 +7895,11 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 		headerEvents = append(headerEvents, HttpResponseHeaderEvent{
 			Type: eventTypeInsert,
 			HttpResponseHeader: toAPIHttpResponseHeader(dbmodels.HttpResponseHeader{
-				ID:        headerID,
-				HttpID:    httpIDBytes,
-				Key:       header.HeaderKey,
-				Value:     header.Value,
-				CreatedAt: nowUnix,
+				ID:         headerID,
+				ResponseID: responseID,
+				Key:        header.HeaderKey,
+				Value:      header.Value,
+				CreatedAt:  nowUnix,
 			}),
 		})
 	}
@@ -8124,7 +8127,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 
 	// Prepare batch insert statement matching existing database schema
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO http_response_assert (id, http_id, value, success, created_at)
+		INSERT INTO http_response_assert (id, response_id, value, success, created_at)
 		VALUES (?, ?, ?, ?, ?)
 	`)
 	if err != nil {
@@ -8134,6 +8137,8 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 
 	// Insert all results in batch
 	now := time.Now().Unix()
+	var events []HttpResponseAssertEvent
+
 	for _, result := range results {
 		var value string
 		var success bool
@@ -8148,9 +8153,10 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 			success = result.Success
 		}
 
+		assertID := idwrap.NewNow()
 		_, err := stmt.ExecContext(ctx,
-			idwrap.NewNow().Bytes(),
-			httpID.Bytes(),
+			assertID.Bytes(),
+			responseID.Bytes(),
 			value,
 			success,
 			now,
@@ -8158,6 +8164,17 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 		if err != nil {
 			return fmt.Errorf("failed to insert assertion result for %s: %w", result.AssertionID.String(), err)
 		}
+
+		events = append(events, HttpResponseAssertEvent{
+			Type: eventTypeInsert,
+			HttpResponseAssert: toAPIHttpResponseAssert(dbmodels.HttpResponseAssert{
+				ID:         assertID.Bytes(),
+				ResponseID: responseID.Bytes(),
+				Value:      value,
+				Success:    success,
+				CreatedAt:  now,
+			}),
+		})
 	}
 
 	log.Printf("Stored %d assertion results for HTTP %s (response %s)",
@@ -8166,6 +8183,17 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Publish events
+	workspaceID, err := h.hs.GetWorkspaceID(ctx, httpID)
+	if err == nil {
+		topic := HttpResponseAssertTopic{WorkspaceID: workspaceID}
+		for _, evt := range events {
+			h.httpResponseAssertStream.Publish(topic, evt)
+		}
+	} else {
+		log.Printf("Failed to get workspace ID for publishing assertion events: %v", err)
 	}
 
 	return nil

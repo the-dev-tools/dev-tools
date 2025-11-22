@@ -433,19 +433,19 @@ type HttpResponse struct {
 }
 
 type HttpResponseAssert struct {
-	ID        []byte
-	HttpID    []byte
-	Value     string
-	Success   bool
-	CreatedAt int64
+	ID         []byte
+	ResponseID []byte
+	Value      string
+	Success    bool
+	CreatedAt  int64
 }
 
 type HttpResponseHeader struct {
-	ID        idwrap.IDWrap
-	HttpID    []byte
-	Key       string
-	Value     string
-	CreatedAt int64
+	ID         idwrap.IDWrap
+	ResponseID idwrap.IDWrap
+	Key        string
+	Value      string
+	CreatedAt  int64
 }
 
 type HttpSearchParam struct {

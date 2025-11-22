@@ -1094,12 +1094,12 @@ CREATE TABLE http_response (
 -- HttpResponseHeader table (read-only, no delta fields)
 CREATE TABLE http_response_header (
   id BLOB NOT NULL PRIMARY KEY,
-  http_id BLOB NOT NULL,
+  response_id BLOB NOT NULL,
   key TEXT NOT NULL,
   value TEXT NOT NULL,
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   
-  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
+  FOREIGN KEY (response_id) REFERENCES http_response (id) ON DELETE CASCADE
 );
 
 -- Performance indexes for HttpResponse
@@ -1107,20 +1107,20 @@ CREATE INDEX http_response_http_idx ON http_response (http_id);
 CREATE INDEX http_response_time_idx ON http_response (http_id, time DESC);
 
 -- Performance indexes for HttpResponseHeader
-CREATE INDEX http_response_header_http_idx ON http_response_header (http_id);
-CREATE INDEX http_response_header_key_idx ON http_response_header (http_id, key);
+CREATE INDEX http_response_header_response_idx ON http_response_header (response_id);
+CREATE INDEX http_response_header_key_idx ON http_response_header (response_id, key);
 
 -- HttpResponseAssert table (read-only, no delta fields)
 CREATE TABLE http_response_assert (
   id BLOB NOT NULL PRIMARY KEY,
-  http_id BLOB NOT NULL,
+  response_id BLOB NOT NULL,
   value TEXT NOT NULL,
   success BOOLEAN NOT NULL,
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   
-  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
+  FOREIGN KEY (response_id) REFERENCES http_response (id) ON DELETE CASCADE
 );
 
 -- Performance indexes for HttpResponseAssert
-CREATE INDEX http_response_assert_http_idx ON http_response_assert (http_id);
-CREATE INDEX http_response_assert_success_idx ON http_response_assert (http_id, success);
+CREATE INDEX http_response_assert_response_idx ON http_response_assert (response_id);
+CREATE INDEX http_response_assert_success_idx ON http_response_assert (response_id, success);

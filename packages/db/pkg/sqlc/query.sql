@@ -4416,7 +4416,7 @@ DELETE FROM http_response WHERE id = ?;
 -- name: GetHTTPResponseHeader :one
 SELECT
   id,
-  http_id,
+  response_id,
   key,
   value,
   created_at
@@ -4424,37 +4424,37 @@ FROM http_response_header
 WHERE id = ?
 LIMIT 1;
 
--- name: GetHTTPResponseHeadersByHttpID :many
+-- name: GetHTTPResponseHeadersByResponseID :many
 SELECT
   id,
-  http_id,
+  response_id,
   key,
   value,
   created_at
 FROM http_response_header
-WHERE http_id = ?
+WHERE response_id = ?
 ORDER BY key;
 
 -- name: GetHTTPResponseHeadersByIDs :many
 SELECT
   id,
-  http_id,
+  response_id,
   key,
   value,
   created_at
 FROM http_response_header
 WHERE id IN (sqlc.slice('ids'))
-ORDER BY http_id, key;
+ORDER BY response_id, key;
 
 -- name: CreateHTTPResponseHeader :exec
 INSERT INTO http_response_header (
-  id, http_id, key, value, created_at
+  id, response_id, key, value, created_at
 )
 VALUES (?, ?, ?, ?, ?);
 
 -- name: CreateHTTPResponseHeaderBulk :exec
 INSERT INTO http_response_header (
-  id, http_id, key, value, created_at
+  id, response_id, key, value, created_at
 )
 VALUES
   (?, ?, ?, ?, ?),
@@ -4485,7 +4485,7 @@ DELETE FROM http_response_header WHERE id = ?;
 -- name: GetHTTPResponseAssert :one
 SELECT
   id,
-  http_id,
+  response_id,
   value,
   success,
   created_at
@@ -4493,21 +4493,21 @@ FROM http_response_assert
 WHERE id = ?
 LIMIT 1;
 
--- name: GetHTTPResponseAssertsByHttpID :many
+-- name: GetHTTPResponseAssertsByResponseID :many
 SELECT
   id,
-  http_id,
+  response_id,
   value,
   success,
   created_at
 FROM http_response_assert
-WHERE http_id = ?
+WHERE response_id = ?
 ORDER BY created_at DESC;
 
 -- name: GetHTTPResponseAssertsByIDs :many
 SELECT
   id,
-  http_id,
+  response_id,
   value,
   success,
   created_at
@@ -4517,13 +4517,13 @@ ORDER BY created_at DESC;
 
 -- name: CreateHTTPResponseAssert :exec
 INSERT INTO http_response_assert (
-  id, http_id, value, success, created_at
+  id, response_id, value, success, created_at
 )
 VALUES (?, ?, ?, ?, ?);
 
 -- name: CreateHTTPResponseAssertBulk :exec
 INSERT INTO http_response_assert (
-  id, http_id, value, success, created_at
+  id, response_id, value, success, created_at
 )
 VALUES
   (?, ?, ?, ?, ?),
