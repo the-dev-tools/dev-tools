@@ -181,7 +181,7 @@ func (v *DefaultValidator) validateSingleDomainData(dd ImportDomainData, index i
 		return NewValidationError("domainData", fmt.Sprintf("domain cannot be empty at index %d", index))
 	}
 
-	if dd.Variable == "" {
+	if dd.Enabled && dd.Variable == "" {
 		return NewValidationError("domainData", fmt.Sprintf("variable cannot be empty at index %d", index))
 	}
 

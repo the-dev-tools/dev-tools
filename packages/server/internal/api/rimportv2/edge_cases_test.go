@@ -99,6 +99,47 @@ func TestValidationErrorScenarios(t *testing.T) {
 			errorType:   &ValidationError{},
 			errorField:  "domainData",
 		},
+		{
+			name: "domain data enabled but empty variable",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test",
+				Data:        []byte(`{"log": {"entries": []}}`),
+				DomainData: []ImportDomainData{
+					{Enabled: true, Domain: "example.com", Variable: ""},
+				},
+			},
+			expectError: true,
+			errorType:   &ValidationError{},
+			errorField:  "domainData",
+		},
+		{
+			name: "domain data disabled with empty variable (valid)",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test",
+				Data:        []byte(`{"log": {"entries": []}}`),
+				DomainData: []ImportDomainData{
+					{Enabled: false, Domain: "example.com", Variable: ""},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "duplicate domains enabled",
+			request: &ImportRequest{
+				WorkspaceID: idwrap.NewNow(),
+				Name:        "Test",
+				Data:        []byte(`{"log": {"entries": []}}`),
+				DomainData: []ImportDomainData{
+					{Enabled: true, Domain: "example.com", Variable: "var1"},
+					{Enabled: true, Domain: "example.com", Variable: "var2"},
+				},
+			},
+			expectError: true,
+			errorType:   &ValidationError{},
+			errorField:  "domainData",
+		},
 	}
 
 	for _, tt := range tests {
