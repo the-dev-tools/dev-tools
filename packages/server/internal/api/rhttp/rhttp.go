@@ -468,7 +468,7 @@ func toAPIHttpAssert(assert mhttpassert.HttpAssert) *apiv1.HttpAssert {
 func toAPIHttpVersion(version dbmodels.HttpVersion) *apiv1.HttpVersion {
 	return &apiv1.HttpVersion{
 		HttpVersionId: version.ID.Bytes(),
-		// HttpId:        version.HttpID.Bytes(),
+		HttpId:        version.HttpID.Bytes(),
 	}
 }
 
@@ -860,7 +860,7 @@ func httpVersionSyncResponseFrom(event HttpVersionEvent) *apiv1.HttpVersionSyncR
 			Kind: apiv1.HttpVersionSync_ValueUnion_KIND_INSERT,
 			Insert: &apiv1.HttpVersionSyncInsert{
 				HttpVersionId: event.HttpVersion.GetHttpVersionId(),
-				// HttpId:        event.HttpVersion.GetHttpResponseId(),
+				HttpId:        event.HttpVersion.GetHttpId(),
 			},
 		}
 	case eventTypeUpdate:
