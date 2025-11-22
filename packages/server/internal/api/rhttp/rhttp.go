@@ -2480,19 +2480,35 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Update LastRunAt and publish update event
+	// Update LastRunAt, create version, and publish events
 	now := time.Now().Unix()
 	httpEntry.LastRunAt = &now
 
-	// Use minimal transaction for update
+	// Use minimal transaction for update and version creation
 	tx, err := h.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to begin transaction: %w", err))
 	}
 	defer tx.Rollback()
 
-	if err := h.hs.TX(tx).Update(ctx, httpEntry); err != nil {
+	hsService := h.hs.TX(tx)
+
+	if err := hsService.Update(ctx, httpEntry); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update LastRunAt: %w", err))
+	}
+
+	// Create a new version for this run
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
+	versionDesc := "Auto-saved version (Run)"
+	
+	version, err := hsService.CreateHttpVersion(ctx, httpEntry.ID, userID, versionName, versionDesc)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create version on run: %w", err))
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -2500,6 +2516,7 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 	}
 
 	h.publishUpdateEvent(*httpEntry)
+	h.publishVersionInsertEvent(*version, httpEntry.WorkspaceID)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
