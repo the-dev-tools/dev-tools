@@ -56,9 +56,19 @@ func TestHarResolvedSimple(t *testing.T) {
 	require.Equal(t, originalHTTP.ID, *deltaHTTP.ParentHttpID, "Expected delta HTTP request to reference original HTTP request as parent")
 
 	// Verify file system structure
-	require.Len(t, resolved.Files, 1, "Expected 1 file to be created")
-	require.Equal(t, mfile.ContentTypeHTTP, resolved.Files[0].ContentType)
-	require.Equal(t, originalHTTP.ID, *resolved.Files[0].ContentID)
+	// We expect 1 HTTP file, plus folder files and flow file
+	require.NotEmpty(t, resolved.Files)
+	
+	var httpFile *mfile.File
+	for i := range resolved.Files {
+		if resolved.Files[i].ContentType == mfile.ContentTypeHTTP {
+			httpFile = &resolved.Files[i]
+			break
+		}
+	}
+	
+	require.NotNil(t, httpFile, "Expected 1 HTTP file to be created")
+	require.Equal(t, originalHTTP.ID, *httpFile.ContentID)
 
 	// Verify flow generation
 	require.NotZero(t, resolved.Flow.ID, "Expected flow to be created")
@@ -199,8 +209,15 @@ func TestURLToFilePathMapping(t *testing.T) {
 
 			// The folder path should be reflected in the file's parent folder structure
 			require.NotEmpty(t, resolved.Files)
-			// The file should be placed in a folder that matches the expected path structure
-			file := resolved.Files[0]
+			// Find the HTTP file
+			var file *mfile.File
+			for i := range resolved.Files {
+				if resolved.Files[i].ContentType == mfile.ContentTypeHTTP {
+					file = &resolved.Files[i]
+					break
+				}
+			}
+			require.NotNil(t, file, "Should find HTTP file")
 			require.NotNil(t, file.FolderID)
 		})
 	}
@@ -685,9 +702,17 @@ func TestMultipleEntriesComplexFlow(t *testing.T) {
 	require.NotEmpty(t, resolved.Files, "Should have files created")
 
 	// Verify file structure
-	require.Len(t, resolved.Files, 6, "Should have 6 files (one per original request)")
+	// Filter for HTTP files
+	httpFiles := make([]mfile.File, 0)
 	for _, file := range resolved.Files {
-		require.Equal(t, mfile.ContentTypeHTTP, file.ContentType, "All files should be HTTP content")
+		if file.ContentType == mfile.ContentTypeHTTP {
+			httpFiles = append(httpFiles, file)
+		}
+	}
+	
+	require.Len(t, httpFiles, 6, "Should have 6 HTTP files (one per original request)")
+	for _, file := range httpFiles {
+		require.Equal(t, mfile.ContentTypeHTTP, file.ContentType, "All filtered files should be HTTP content")
 		require.NotNil(t, file.ContentID, "All files should reference HTTP content")
 	}
 
@@ -749,7 +774,15 @@ func TestLargeNumberOfEntries(t *testing.T) {
 	require.NotNil(t, resolved)
 	require.Len(t, resolved.HTTPRequests, numEntries*2, "Should have double entries due to delta system")
 	require.Len(t, resolved.RequestNodes, numEntries, "Should have one node per original request")
-	require.Len(t, resolved.Files, numEntries, "Should have one file per original request")
+	
+	// Count HTTP files
+	httpFileCount := 0
+	for _, file := range resolved.Files {
+		if file.ContentType == mfile.ContentTypeHTTP {
+			httpFileCount++
+		}
+	}
+	require.Equal(t, numEntries, httpFileCount, "Should have one HTTP file per original request")
 
 	// Performance should be reasonable (less than 1 second for 100 entries)
 	require.Less(t, duration, time.Second, "Processing 100 entries should take less than 1 second")
@@ -795,9 +828,17 @@ func TestFileNamingSanitization(t *testing.T) {
 			workspaceID := idwrap.NewNow()
 			resolved, err := harv2.ConvertHAR(&testHar, workspaceID)
 			require.NoError(t, err)
-			require.Len(t, resolved.Files, 1)
+			
+			// Find the HTTP file
+			var file *mfile.File
+			for i := range resolved.Files {
+				if resolved.Files[i].ContentType == mfile.ContentTypeHTTP {
+					file = &resolved.Files[i]
+					break
+				}
+			}
+			require.NotNil(t, file, "Should create an HTTP file")
 
-			file := resolved.Files[0]
 			require.NotEmpty(t, file.Name)
 			require.True(t, strings.HasSuffix(file.Name, ".request"))
 			// The name should be sanitized (no problematic characters)

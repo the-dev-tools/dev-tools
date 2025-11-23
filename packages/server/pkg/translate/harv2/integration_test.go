@@ -107,9 +107,15 @@ func TestIntegrationModernArchitecture(t *testing.T) {
 	require.NotNil(t, firstDelta.DeltaMethod)
 
 	// Verify modern file system structure
-	require.Len(t, result.Files, 2, "Should have 2 files for original requests")
-
+	httpFiles := make([]mfile.File, 0)
 	for _, file := range result.Files {
+		if file.ContentType == mfile.ContentTypeHTTP {
+			httpFiles = append(httpFiles, file)
+		}
+	}
+	require.Len(t, httpFiles, 2, "Should have 2 files for original requests")
+
+	for _, file := range httpFiles {
 		require.Equal(t, workspaceID, file.WorkspaceID)
 		require.Equal(t, mfile.ContentTypeHTTP, file.ContentType)
 		require.NotNil(t, file.ContentID)
@@ -214,7 +220,15 @@ func TestIntegrationPerformanceCharacteristics(t *testing.T) {
 
 	// Validate structure
 	require.Len(t, result.HTTPRequests, numEntries*2, "Should have double entries due to delta system")
-	require.Len(t, result.Files, numEntries, "Should have one file per original request")
+	
+	httpFileCount := 0
+	for _, file := range result.Files {
+		if file.ContentType == mfile.ContentTypeHTTP {
+			httpFileCount++
+		}
+	}
+	require.Equal(t, numEntries, httpFileCount, "Should have one file per original request")
+	
 	require.Len(t, result.Nodes, numEntries, "Should have one node per original request")
 	require.Len(t, result.RequestNodes, numEntries, "Should have one request node per original request")
 
@@ -284,8 +298,15 @@ func TestIntegrationURLMapping(t *testing.T) {
 			result, err := harv2.ConvertHAR(har, workspaceID)
 			require.NoError(t, err)
 
-			require.Len(t, result.Files, 1, "Should have 1 file")
-			file := result.Files[0]
+			// Find the HTTP file
+			var file *mfile.File
+			for i := range result.Files {
+				if result.Files[i].ContentType == mfile.ContentTypeHTTP {
+					file = &result.Files[i]
+					break
+				}
+			}
+			require.NotNil(t, file, "Should find HTTP file")
 
 			// Verify file naming reflects URL structure
 			require.True(t, strings.Contains(file.Name, tc.expectedName) ||

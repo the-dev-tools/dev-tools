@@ -15,7 +15,6 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mitemfolder"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 )
@@ -189,6 +188,20 @@ func ConvertHARWithDepFinder(har *HAR, workspaceID idwrap.IDWrap, depFinder *dep
 		return nil, fmt.Errorf("failed to generate flow graph: %w", err)
 	}
 
+	// Create file for the flow
+	if !mfile.IDIsZero(result.Flow.ID) {
+		flowFile := mfile.File{
+			ID:          idwrap.NewNow(),
+			WorkspaceID: workspaceID,
+			ContentID:   &result.Flow.ID,
+			ContentType: mfile.ContentTypeFlow,
+			Name:        result.Flow.Name,
+			Order:       -1, // Put flow at top/special order
+			UpdatedAt:   time.Now(),
+		}
+		result.Files = append(result.Files, flowFile)
+	}
+
 	return result, nil
 }
 
@@ -205,6 +218,7 @@ func processEntriesToHTTP(entries []Entry, workspaceID idwrap.IDWrap, depFinder 
 
 	fileMap := make(map[string]mfile.File)
 	folderMap := make(map[string]idwrap.IDWrap)
+	folderFileMap := make(map[string]mfile.File)
 
 	for i, entry := range entries {
 		// Create HTTP request and child entities
@@ -226,12 +240,17 @@ func processEntriesToHTTP(entries []Entry, workspaceID idwrap.IDWrap, depFinder 
 		result.HTTPRequests = append(result.HTTPRequests, deltaReq)
 
 		// Create file system structure
-		file, _, err := createFileStructure(httpReq, workspaceID, folderMap)
+		file, _, err := createFileStructure(httpReq, workspaceID, folderMap, folderFileMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file structure for entry %d: %w", i, err)
 		}
 
 		fileMap[httpReq.ID.String()] = *file
+	}
+
+	// Add folder files to result
+	for _, folderFile := range folderFileMap {
+		result.Files = append(result.Files, folderFile)
 	}
 
 	// Sort files for consistent ordering
@@ -243,7 +262,7 @@ func processEntriesToHTTP(entries []Entry, workspaceID idwrap.IDWrap, depFinder 
 		return sortedFiles[i].Order < sortedFiles[j].Order
 	})
 
-	result.Files = sortedFiles
+	result.Files = append(result.Files, sortedFiles...)
 	return result, nil
 }
 
@@ -431,7 +450,7 @@ func isNumericSegment(segment string) bool {
 }
 
 // createFileStructure creates the file system hierarchy for an HTTP request
-func createFileStructure(httpReq *mhttp.HTTP, workspaceID idwrap.IDWrap, folderMap map[string]idwrap.IDWrap) (*mfile.File, string, error) {
+func createFileStructure(httpReq *mhttp.HTTP, workspaceID idwrap.IDWrap, folderMap map[string]idwrap.IDWrap, folderFileMap map[string]mfile.File) (*mfile.File, string, error) {
 	parsedURL, err := url.Parse(httpReq.Url)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to parse URL %s: %w", httpReq.Url, err)
@@ -439,7 +458,7 @@ func createFileStructure(httpReq *mhttp.HTTP, workspaceID idwrap.IDWrap, folderM
 
 	// Build folder path from URL structure
 	folderPath := buildFolderPathFromURL(parsedURL)
-	folderID, err := getOrCreateFolder(folderPath, workspaceID, folderMap)
+	folderID, err := getOrCreateFolder(folderPath, workspaceID, folderMap, folderFileMap)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create folder structure: %w", err)
 	}
@@ -483,34 +502,39 @@ func buildFolderPathFromURL(parsedURL *url.URL) string {
 }
 
 // getOrCreateFolder creates or retrieves folder ID for a given path
-func getOrCreateFolder(folderPath string, workspaceID idwrap.IDWrap, folderMap map[string]idwrap.IDWrap) (idwrap.IDWrap, error) {
+func getOrCreateFolder(folderPath string, workspaceID idwrap.IDWrap, folderMap map[string]idwrap.IDWrap, folderFileMap map[string]mfile.File) (idwrap.IDWrap, error) {
 	if existingID, exists := folderMap[folderPath]; exists {
 		return existingID, nil
 	}
 
-	// Create new folder - simplified structure using collection-based folder model
-	collectionID := idwrap.NewNow() // Use a temporary collection ID
-	folder := &mitemfolder.ItemFolder{
-		ID:           idwrap.NewNow(),
-		CollectionID: collectionID,
-		Name:         path.Base(folderPath),
-	}
-
-	// TODO: In a real implementation, we would need to persist this folder
-	// For now, we'll just use the ID in our map
-	folderMap[folderPath] = folder.ID
-
-	// Create parent folders if needed
+	// Create parent folders if needed first to get parent ID
+	var parentID *idwrap.IDWrap
 	parentPath := path.Dir(folderPath)
 	if parentPath != "/" && parentPath != "." {
-		parentID, err := getOrCreateFolder(parentPath, workspaceID, folderMap)
+		pid, err := getOrCreateFolder(parentPath, workspaceID, folderMap, folderFileMap)
 		if err != nil {
 			return idwrap.IDWrap{}, err
 		}
-		folder.ParentID = &parentID
+		parentID = &pid
 	}
 
-	return folder.ID, nil
+	// Create new folder file
+	folderID := idwrap.NewNow()
+	folderFile := mfile.File{
+		ID:          folderID,
+		WorkspaceID: workspaceID,
+		FolderID:    parentID,
+		ContentID:   nil, // Folders don't have separate content objects in this model
+		ContentType: mfile.ContentTypeFolder,
+		Name:        path.Base(folderPath),
+		Order:       0,
+		UpdatedAt:   time.Now(),
+	}
+
+	folderMap[folderPath] = folderID
+	folderFileMap[folderPath] = folderFile
+
+	return folderID, nil
 }
 
 // sanitizeFileName cleans up a string to be used as a filename
