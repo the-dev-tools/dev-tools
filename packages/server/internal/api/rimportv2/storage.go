@@ -2,9 +2,11 @@ package rimportv2
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 
+	"the-dev-tools/db"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -26,6 +28,7 @@ import (
 // DefaultImporter implements the Importer interface using existing modern services
 // It coordinates HAR processing and storage operations
 type DefaultImporter struct {
+	db                        *sql.DB
 	httpService               *shttp.HTTPService
 	flowService               *sflow.FlowService
 	fileService               *sfile.FileService
@@ -39,6 +42,7 @@ type DefaultImporter struct {
 
 // NewImporter creates a new DefaultImporter with service dependencies
 func NewImporter(
+	db *sql.DB,
 	httpService *shttp.HTTPService,
 	flowService *sflow.FlowService,
 	fileService *sfile.FileService,
@@ -49,6 +53,7 @@ func NewImporter(
 	bodyService *shttp.HttpBodyRawService,
 ) *DefaultImporter {
 	return &DefaultImporter{
+		db:                        db,
 		httpService:               httpService,
 		flowService:               flowService,
 		fileService:               fileService,
@@ -248,11 +253,54 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		return nil
 	}
 
+	// Start transaction
+	tx, err := imp.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	// Create transactional services
+	txFileService := imp.fileService.TX(tx)
+	txHttpService := imp.httpService.TX(tx)
+	txFlowService := imp.flowService.TX(tx)
+	txHeaderService := imp.httpHeaderService.TX(tx)
+	txSearchParamService := imp.httpSearchParamService.TX(tx)
+	txBodyFormService := imp.httpBodyFormService.TX(tx)
+	txBodyUrlEncodedService := imp.httpBodyUrlEncodedService.TX(tx)
+	txBodyRawService := imp.bodyService.TX(tx)
+
 	// Store files first (they may be referenced by HTTP entities)
 	if len(results.Files) > 0 {
-		for _, file := range results.Files {
-			if err := imp.fileService.CreateFile(ctx, &file); err != nil {
-				return fmt.Errorf("failed to store file: %w", err)
+		// Group files by folder to safely calculate orders
+		filesByFolder := make(map[string][]*mfile.File)
+		for i := range results.Files {
+			file := &results.Files[i]
+			key := "nil"
+			if file.FolderID != nil {
+				key = file.FolderID.String()
+			}
+			filesByFolder[key] = append(filesByFolder[key], file)
+		}
+
+		for _, files := range filesByFolder {
+			if len(files) == 0 {
+				continue
+			}
+			
+			folderID := files[0].FolderID
+			
+			// Get starting order once for this folder using the transactional service
+			startOrder, err := txFileService.NextDisplayOrder(ctx, results.WorkspaceID, folderID)
+			if err != nil {
+				return fmt.Errorf("failed to get display order: %w", err)
+			}
+
+			for i, file := range files {
+				file.Order = startOrder + float64(i)
+				if err := txFileService.CreateFile(ctx, file); err != nil {
+					return fmt.Errorf("failed to store file: %w", err)
+				}
 			}
 		}
 	}
@@ -260,7 +308,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	// Store HTTP entities
 	if len(results.HTTPRequests) > 0 {
 		for _, httpReq := range results.HTTPRequests {
-			if err := imp.httpService.Create(ctx, &httpReq); err != nil {
+			if err := txHttpService.Create(ctx, &httpReq); err != nil {
 				return fmt.Errorf("failed to store HTTP entity: %w", err)
 			}
 		}
@@ -269,7 +317,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	// Store flows
 	if len(results.Flows) > 0 {
 		for _, flow := range results.Flows {
-			if err := imp.flowService.CreateFlow(ctx, flow); err != nil {
+			if err := txFlowService.CreateFlow(ctx, flow); err != nil {
 				return fmt.Errorf("failed to store flow: %w", err)
 			}
 		}
@@ -288,7 +336,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				CreatedAt:   h.CreatedAt,
 				UpdatedAt:   h.UpdatedAt,
 			}
-			if err := imp.httpHeaderService.Create(ctx, &header); err != nil {
+			if err := txHeaderService.Create(ctx, &header); err != nil {
 				return fmt.Errorf("failed to store header: %w", err)
 			}
 		}
@@ -306,7 +354,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				CreatedAt:   p.CreatedAt,
 				UpdatedAt:   p.UpdatedAt,
 			}
-			if err := imp.httpSearchParamService.Create(ctx, &param); err != nil {
+			if err := txSearchParamService.Create(ctx, &param); err != nil {
 				return fmt.Errorf("failed to store search param: %w", err)
 			}
 		}
@@ -324,7 +372,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				CreatedAt:   f.CreatedAt,
 				UpdatedAt:   f.UpdatedAt,
 			}
-			if err := imp.httpBodyFormService.CreateHttpBodyForm(ctx, &form); err != nil {
+			if err := txBodyFormService.CreateHttpBodyForm(ctx, &form); err != nil {
 				return fmt.Errorf("failed to store body form: %w", err)
 			}
 		}
@@ -342,7 +390,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				CreatedAt:   u.CreatedAt,
 				UpdatedAt:   u.UpdatedAt,
 			}
-			if err := imp.httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, &urlencoded); err != nil {
+			if err := txBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, &urlencoded); err != nil {
 				return fmt.Errorf("failed to store body urlencoded: %w", err)
 			}
 		}
@@ -350,10 +398,15 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	if len(results.BodyRaw) > 0 {
 		for _, r := range results.BodyRaw {
-			if _, err := imp.bodyService.Create(ctx, r.HttpID, r.RawData, r.ContentType); err != nil {
+			if _, err := txBodyRawService.Create(ctx, r.HttpID, r.RawData, r.ContentType); err != nil {
 				return fmt.Errorf("failed to store body raw: %w", err)
 			}
 		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil

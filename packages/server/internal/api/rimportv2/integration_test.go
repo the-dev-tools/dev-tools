@@ -407,7 +407,13 @@ func TestImportRPC_Integration(t *testing.T) {
 				}
 
 				// Verify that data was actually stored in the database
-				if len(tt.harData) > 0 && !tt.expectError {
+				shouldStore := len(tt.harData) > 0 && !tt.expectError
+				// If MissingData is returned, we expect NO data to be stored (new behavior)
+				if resp.Msg.MissingData != apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED {
+					shouldStore = false
+				}
+				
+				if shouldStore {
 					fixture.verifyStoredData(t, tt.harData)
 				}
 			}
@@ -431,7 +437,9 @@ func TestImportService_DatabaseImport(t *testing.T) {
 		WorkspaceID: fixture.workspaceID,
 		Name:        "Database Import Test",
 		Data:        harData,
-		DomainData:  []ImportDomainData{},
+		DomainData:  []ImportDomainData{
+			{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
+		},
 	}
 
 	// Create the service directly using the RPC's service
@@ -495,7 +503,9 @@ func TestImportService_ConcurrentImports(t *testing.T) {
 				WorkspaceId: fixture.workspaceID.Bytes(),
 				Name:        fmt.Sprintf("Concurrent Import %d", index),
 				Data:        harData,
-				DomainData:  []*apiv1.ImportDomainData{},
+				DomainData:  []*apiv1.ImportDomainData{
+					{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
+				},
 			})
 
 			_, err := fixture.rpc.Import(fixture.ctx, req)
@@ -543,7 +553,11 @@ func TestImportService_LargeHARImport(t *testing.T) {
 		WorkspaceId: fixture.workspaceID.Bytes(),
 		Name:        "Large HAR Import",
 		Data:        harData,
-		DomainData:  []*apiv1.ImportDomainData{},
+		DomainData:  []*apiv1.ImportDomainData{
+			{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
+			{Enabled: true, Domain: "data.example.org", Variable: "DATA_DOMAIN"},
+			{Enabled: true, Domain: "service.example.net", Variable: "SERVICE_DOMAIN"},
+		},
 	})
 
 	resp, err := fixture.rpc.Import(fixture.ctx, req)

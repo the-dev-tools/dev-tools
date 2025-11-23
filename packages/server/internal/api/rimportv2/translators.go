@@ -40,6 +40,7 @@ type TranslationResult struct {
 	DetectedFormat Format
 	Domains       []string
 	ProcessedAt   int64
+	WorkspaceID   idwrap.IDWrap
 }
 
 // Translator defines the unified interface for all format translators
@@ -114,6 +115,7 @@ func (r *TranslatorRegistry) DetectAndTranslate(ctx context.Context, data []byte
 	// Set detected format in result
 	result.DetectedFormat = detection.Format
 	result.ProcessedAt = time.Now().UnixMilli()
+	result.WorkspaceID = workspaceID
 
 	return result, nil
 }

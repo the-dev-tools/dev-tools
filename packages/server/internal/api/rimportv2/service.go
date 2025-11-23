@@ -743,27 +743,6 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		"files", len(translationResult.Files),
 		"flows", len(translationResult.Flows))
 
-	// Store all results atomically
-	if err := s.importer.StoreUnifiedResults(ctx, translationResult); err != nil {
-		s.logger.Error("Storage failed - unexpected internal error",
-			"workspace_id", req.WorkspaceID,
-			"format", translationResult.DetectedFormat,
-			"http_requests_count", len(translationResult.HTTPRequests),
-			"files_count", len(translationResult.Files),
-			"flows_count", len(translationResult.Flows),
-			"domains_count", len(translationResult.Domains),
-			"error", err)
-		return nil, fmt.Errorf("storage operation failed: %w", err)
-	}
-
-	s.logger.Info("Unified import completed successfully",
-		"workspace_id", req.WorkspaceID,
-		"format", translationResult.DetectedFormat,
-		"http_requests", len(translationResult.HTTPRequests),
-		"files", len(translationResult.Files),
-		"flows", len(translationResult.Flows),
-		"domains", len(translationResult.Domains))
-
 	// Helper to create slice pointers
 	httpReqsPtr := make([]*mhttp.HTTP, len(translationResult.HTTPRequests))
 	for i := range translationResult.HTTPRequests {
@@ -795,8 +774,7 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		bodyUrlEncodedPtr[i] = &translationResult.BodyUrlencoded[i]
 	}
 
-	// BodyRaw is already []*mhttp.HTTPBodyRaw in TranslationResult, but we need to verify type or copy
-	// TranslationResult.BodyRaw is []*mhttp.HTTPBodyRaw
+	// BodyRaw is already []*mhttp.HTTPBodyRaw in TranslationResult
 	bodyRawsPtr := translationResult.BodyRaw
 
 	// Only support single flow for now in ImportResults
@@ -805,7 +783,7 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		flow = &translationResult.Flows[0]
 	}
 
-	// Build results
+	// Build results structure early to check for missing data
 	results := &ImportResults{
 		Flow:               flow,
 		HTTPReqs:           httpReqsPtr,
@@ -820,7 +798,41 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		MissingData:        ImportMissingDataKind_UNSPECIFIED,
 	}
 
-	// Process domain data if provided
+	// Check for missing domain data BEFORE storage
+	if len(req.DomainData) == 0 && len(translationResult.Domains) > 0 {
+		// We have domains but no domain data was provided
+		// Return early with MissingData set so the client can prompt the user
+		// Do NOT store data yet
+		results.MissingData = ImportMissingDataKind_DOMAIN
+		s.logger.Info("Domain data missing for extracted domains - returning early without storage",
+			"workspace_id", req.WorkspaceID,
+			"domain_count", len(translationResult.Domains),
+			"domains", translationResult.Domains)
+		return results, nil
+	}
+
+	// Store all results atomically
+	if err := s.importer.StoreUnifiedResults(ctx, translationResult); err != nil {
+		s.logger.Error("Storage failed - unexpected internal error",
+			"workspace_id", req.WorkspaceID,
+			"format", translationResult.DetectedFormat,
+			"http_requests_count", len(translationResult.HTTPRequests),
+			"files_count", len(translationResult.Files),
+			"flows_count", len(translationResult.Flows),
+			"domains_count", len(translationResult.Domains),
+			"error", err)
+		return nil, fmt.Errorf("storage operation failed: %w", err)
+	}
+
+	s.logger.Info("Unified import completed successfully",
+		"workspace_id", req.WorkspaceID,
+		"format", translationResult.DetectedFormat,
+		"http_requests", len(translationResult.HTTPRequests),
+		"files", len(translationResult.Files),
+		"flows", len(translationResult.Flows),
+		"domains", len(translationResult.Domains))
+
+	// Process domain data if provided (and we have already stored the initial data)
 	if len(req.DomainData) > 0 {
 		// Process provided domain data for future templating support
 		if err := processDomainData(ctx, req.DomainData, req.WorkspaceID, s.logger); err != nil {
@@ -830,13 +842,6 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		s.logger.Info("Applied domain templates",
 			"workspace_id", req.WorkspaceID,
 			"domain_data_count", len(req.DomainData))
-	} else if len(translationResult.Domains) > 0 {
-		// We have domains but no domain data was provided, indicate missing domain data
-		results.MissingData = ImportMissingDataKind_DOMAIN
-		s.logger.Info("Domain data missing for extracted domains",
-			"workspace_id", req.WorkspaceID,
-			"domain_count", len(translationResult.Domains),
-			"domains", translationResult.Domains)
 	}
 
 	return results, nil

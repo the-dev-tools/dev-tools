@@ -8,7 +8,6 @@ require (
 	github.com/expr-lang/expr v1.17.2
 	github.com/goccy/go-json v0.10.5
 	github.com/golang-jwt/jwt/v5 v5.2.2
-	github.com/google/go-cmp v0.7.0
 	github.com/klauspost/compress v1.18.0
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/oklog/ulid/v2 v2.1.0

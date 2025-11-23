@@ -74,7 +74,7 @@ func NewImportV2RPC(
 	fileStream eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent],
 ) *ImportV2RPC {
 	// Create the importer with modern service dependencies
-	importer := NewImporter(httpService, flowService, fileService,
+	importer := NewImporter(db, httpService, flowService, fileService,
 		httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, bodyService)
 
 	// Create the validator for input validation

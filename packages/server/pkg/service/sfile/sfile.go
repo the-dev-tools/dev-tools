@@ -206,7 +206,7 @@ func (s *FileService) CreateFile(ctx context.Context, file *mfile.File) error {
 
 	// Auto-assign order if not provided
 	if file.Order == 0 {
-		nextOrder, err := s.nextDisplayOrder(ctx, file.WorkspaceID, file.FolderID)
+		nextOrder, err := s.NextDisplayOrder(ctx, file.WorkspaceID, file.FolderID)
 		if err != nil {
 			return fmt.Errorf("failed to get next display order: %w", err)
 		}
@@ -327,8 +327,8 @@ func (s *FileService) CheckWorkspaceID(ctx context.Context, fileID, workspaceID 
 	return fileWorkspaceID.Compare(workspaceID) == 0, nil
 }
 
-// nextDisplayOrder calculates the next order value for a file in a workspace/folder
-func (s *FileService) nextDisplayOrder(ctx context.Context, workspaceID idwrap.IDWrap, folderID *idwrap.IDWrap) (float64, error) {
+// NextDisplayOrder calculates the next order value for a file in a workspace/folder
+func (s *FileService) NextDisplayOrder(ctx context.Context, workspaceID idwrap.IDWrap, folderID *idwrap.IDWrap) (float64, error) {
 	var files []gen.File
 	var err error
 
