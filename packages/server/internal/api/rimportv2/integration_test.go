@@ -14,6 +14,7 @@ import (
 	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rhttp"
+	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/muser"
@@ -34,127 +35,275 @@ import (
 )
 
 // integrationTestFixture represents the complete test setup for integration testing
+
 type integrationTestFixture struct {
+
 	ctx         context.Context
+
 	base        *testutil.BaseDBQueries
+
 	services    BaseTestServices
+
 	rpc         *ImportV2RPC
+
 	userID      idwrap.IDWrap
+
 	workspaceID idwrap.IDWrap
+
 	logger      *slog.Logger
+
+	streamers   IntegrationTestStreamers
+
 }
+
+
+
+type IntegrationTestStreamers struct {
+
+	Http               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
+
+	HttpHeader         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
+
+	HttpSearchParam    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
+
+	HttpBodyForm       eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
+
+	HttpBodyUrlEncoded eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
+
+	HttpBodyRaw        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
+
+}
+
+
 
 // BaseTestServices wraps the testutil services for easier access
+
 type BaseTestServices struct {
+
 	Us  suser.UserService
+
 	Ws  sworkspace.WorkspaceService
+
 	Wus sworkspacesusers.WorkspaceUserService
+
 	Hs  shttp.HTTPService
+
 	Fs  sfile.FileService
+
 	Fls sflow.FlowService
+
 }
 
+
+
 // newIntegrationTestFixture creates a complete test environment for integration tests
+
 func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
+
 	t.Helper()
 
+
+
 	ctx := context.Background()
+
 	base := testutil.CreateBaseDB(ctx, t)
+
 	t.Cleanup(base.Close)
 
+
+
 	// Get base services
+
 	baseServices := base.GetBaseServices()
+
 	logger := base.Logger()
 
+
+
 	// Create additional services needed for import
+
 	httpService := shttp.New(base.Queries, logger)
+
 	flowService := sflow.New(base.Queries)
+
 	fileService := sfile.New(base.Queries, logger)
 
+
+
 	httpHeaderService := shttpheader.New(base.Queries)
+
 	httpSearchParamService := shttpsearchparam.New(base.Queries)
+
 	httpBodyFormService := shttpbodyform.New(base.Queries)
+
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
+
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 
+
+
 	// Create streamers
-	stream := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
-	headerStream := memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]()
-	paramStream := memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]()
-	formStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]()
-	encodedStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]()
-	rawStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
+
+	streamers := IntegrationTestStreamers{
+
+		Http:               memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
+
+		HttpHeader:         memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent](),
+
+		HttpSearchParam:    memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent](),
+
+		HttpBodyForm:       memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent](),
+
+		HttpBodyUrlEncoded: memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent](),
+
+		HttpBodyRaw:        memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent](),
+
+	}
+
+
 
 	// Create user and workspace
+
 	userID := idwrap.NewNow()
+
 	workspaceID := idwrap.NewNow()
 
+
+
 	// Create test user
+
 	err := baseServices.Us.CreateUser(ctx, &muser.User{
+
 		ID:           userID,
+
 		Email:        "test@example.com",
+
 		Password:     []byte("password"),
+
 		ProviderType: muser.MagicLink,
+
 		Status:       muser.Active,
+
 	})
+
 	require.NoError(t, err)
+
+
 
 	// Create test workspace
+
 	err = baseServices.Ws.Create(ctx, &mworkspace.Workspace{
+
 		ID:   workspaceID,
+
 		Name: "Test Workspace",
+
 	})
+
 	require.NoError(t, err)
+
+
 
 	// Create workspace-user relationship
+
 	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+
 		ID:          idwrap.NewNow(),
+
 		WorkspaceID: workspaceID,
+
 		UserID:      userID,
+
 		Role:        mworkspaceuser.RoleOwner,
+
 	})
+
 	require.NoError(t, err)
 
+
+
 	// Create the import RPC with all dependencies
+
 	rpc := NewImportV2RPC(
+
 		base.DB,
+
 		baseServices.Ws,
+
 		baseServices.Us,
+
 		&httpService,
+
 		&flowService,
+
 		fileService,
+
 		httpHeaderService,
+
 		httpSearchParamService,
+
 		httpBodyFormService,
+
 		httpBodyUrlEncodedService,
+
 		bodyService,
+
 		logger,
-		stream,
-		headerStream,
-		paramStream,
-		formStream,
-		encodedStream,
-		rawStream,
+
+		streamers.Http,
+
+		streamers.HttpHeader,
+
+		streamers.HttpSearchParam,
+
+		streamers.HttpBodyForm,
+
+		streamers.HttpBodyUrlEncoded,
+
+		streamers.HttpBodyRaw,
+
 	)
 
+
+
 	services := BaseTestServices{
+
 		Us:  baseServices.Us,
+
 		Ws:  baseServices.Ws,
+
 		Wus: baseServices.Wus,
+
 		Hs:  httpService,
+
 		Fs:  *fileService,
+
 		Fls: flowService,
+
 	}
 
+
+
 	return &integrationTestFixture{
+
 		ctx:         mwauth.CreateAuthedContext(ctx, userID),
+
 		base:        base,
+
 		services:    services,
+
 		rpc:         rpc,
+
 		userID:      userID,
+
 		workspaceID: workspaceID,
+
 		logger:      logger,
+
+		streamers:   streamers,
+
 	}
+
 }
 
 // TestImportRPC_Integration tests the complete import flow through the RPC
@@ -520,6 +669,67 @@ func (f *integrationTestFixture) verifyStoredData(t *testing.T, originalHAR []by
 
 	// Verify files if any were referenced in HAR (binary data, etc.)
 	// This is more complex to test without specific HAR content
+}
+
+// TestImportRPC_SyncEvents verifies that sync events are published during import
+func TestImportRPC_SyncEvents(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping sync events test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+	harData := createComplexHAR(t) // Contains headers, params, etc.
+
+	// Subscribe to streamers
+	httpCh, err := fixture.streamers.Http.Subscribe(fixture.ctx, nil)
+	require.NoError(t, err)
+	
+	headerCh, err := fixture.streamers.HttpHeader.Subscribe(fixture.ctx, nil)
+	require.NoError(t, err)
+	
+	paramCh, err := fixture.streamers.HttpSearchParam.Subscribe(fixture.ctx, nil)
+	require.NoError(t, err)
+
+	// Perform import
+	req := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Sync Events Import",
+		Data:        harData,
+		DomainData:  []*apiv1.ImportDomainData{},
+	})
+
+	_, err = fixture.rpc.Import(fixture.ctx, req)
+	require.NoError(t, err)
+
+	// Verify events are received
+	// We expect multiple events for HTTP requests, Headers, and Params
+	
+	// Check HTTP events (at least 2 from complex HAR)
+	select {
+	case evt := <-httpCh:
+		assert.Equal(t, "insert", evt.Payload.Type)
+		assert.NotNil(t, evt.Payload.Http)
+	case <-time.After(time.Second):
+		assert.Fail(t, "Timed out waiting for HTTP event")
+	}
+
+	// Check Header events
+	select {
+	case evt := <-headerCh:
+		assert.Equal(t, "insert", evt.Payload.Type)
+		assert.NotNil(t, evt.Payload.HttpHeader)
+	case <-time.After(time.Second):
+		assert.Fail(t, "Timed out waiting for Header event")
+	}
+
+	// Check SearchParam events (Complex HAR has query params)
+	select {
+	case evt := <-paramCh:
+		assert.Equal(t, "insert", evt.Payload.Type)
+		assert.NotNil(t, evt.Payload.HttpSearchParam)
+	case <-time.After(time.Second):
+		assert.Fail(t, "Timed out waiting for SearchParam event")
+	}
 }
 
 // HAR creation helpers for testing
