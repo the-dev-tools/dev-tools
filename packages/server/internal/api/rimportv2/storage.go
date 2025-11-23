@@ -9,28 +9,55 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mhttpbodyform"
+	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
+	"the-dev-tools/server/pkg/model/mhttpheader"
+	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/shttpbodyform"
+	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
+	"the-dev-tools/server/pkg/service/shttpheader"
+	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
 // DefaultImporter implements the Importer interface using existing modern services
 // It coordinates HAR processing and storage operations
 type DefaultImporter struct {
-	httpService   *shttp.HTTPService
-	flowService   *sflow.FlowService
-	fileService   *sfile.FileService
-	harTranslator *defaultHARTranslator
+	httpService               *shttp.HTTPService
+	flowService               *sflow.FlowService
+	fileService               *sfile.FileService
+	httpHeaderService         shttpheader.HttpHeaderService
+	httpSearchParamService    shttpsearchparam.HttpSearchParamService
+	httpBodyFormService       shttpbodyform.HttpBodyFormService
+	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
+	bodyService               *shttp.HttpBodyRawService
+	harTranslator             *defaultHARTranslator
 }
 
 // NewImporter creates a new DefaultImporter with service dependencies
-func NewImporter(httpService *shttp.HTTPService, flowService *sflow.FlowService, fileService *sfile.FileService) *DefaultImporter {
+func NewImporter(
+	httpService *shttp.HTTPService,
+	flowService *sflow.FlowService,
+	fileService *sfile.FileService,
+	httpHeaderService shttpheader.HttpHeaderService,
+	httpSearchParamService shttpsearchparam.HttpSearchParamService,
+	httpBodyFormService shttpbodyform.HttpBodyFormService,
+	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
+	bodyService *shttp.HttpBodyRawService,
+) *DefaultImporter {
 	return &DefaultImporter{
-		httpService:   httpService,
-		flowService:   flowService,
-		fileService:   fileService,
-		harTranslator: newHARTranslator(),
+		httpService:               httpService,
+		flowService:               flowService,
+		fileService:               fileService,
+		httpHeaderService:         httpHeaderService,
+		httpSearchParamService:    httpSearchParamService,
+		httpBodyFormService:       httpBodyFormService,
+		httpBodyUrlEncodedService: httpBodyUrlEncodedService,
+		bodyService:               bodyService,
+		harTranslator:             newHARTranslator(),
 	}
 }
 
@@ -98,6 +125,88 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 		for _, httpReq := range results.HTTPReqs {
 			if err := imp.httpService.Create(ctx, httpReq); err != nil {
 				return fmt.Errorf("failed to store HTTP entities: %w", err)
+			}
+		}
+	}
+
+	// Store child entities
+	if len(results.HTTPHeaders) > 0 {
+		for _, h := range results.HTTPHeaders {
+			header := &mhttpheader.HttpHeader{
+				ID:          h.ID,
+				HttpID:      h.HttpID,
+				Key:         h.HeaderKey,
+				Value:       h.HeaderValue,
+				Enabled:     h.Enabled,
+				Description: h.Description,
+				CreatedAt:   h.CreatedAt,
+				UpdatedAt:   h.UpdatedAt,
+			}
+			if err := imp.httpHeaderService.Create(ctx, header); err != nil {
+				return fmt.Errorf("failed to store header: %w", err)
+			}
+		}
+	}
+
+	if len(results.HTTPSearchParams) > 0 {
+		for _, p := range results.HTTPSearchParams {
+			param := &mhttpsearchparam.HttpSearchParam{
+				ID:          p.ID,
+				HttpID:      p.HttpID,
+				Key:         p.ParamKey,
+				Value:       p.ParamValue,
+				Enabled:     p.Enabled,
+				Description: p.Description,
+				CreatedAt:   p.CreatedAt,
+				UpdatedAt:   p.UpdatedAt,
+			}
+			if err := imp.httpSearchParamService.Create(ctx, param); err != nil {
+				return fmt.Errorf("failed to store search param: %w", err)
+			}
+		}
+	}
+
+	if len(results.HTTPBodyForms) > 0 {
+		for _, f := range results.HTTPBodyForms {
+			form := &mhttpbodyform.HttpBodyForm{
+				ID:          f.ID,
+				HttpID:      f.HttpID,
+				Key:         f.FormKey,
+				Value:       f.FormValue,
+				Enabled:     f.Enabled,
+				Description: f.Description,
+				CreatedAt:   f.CreatedAt,
+				UpdatedAt:   f.UpdatedAt,
+			}
+			if err := imp.httpBodyFormService.CreateHttpBodyForm(ctx, form); err != nil {
+				return fmt.Errorf("failed to store body form: %w", err)
+			}
+		}
+	}
+
+	if len(results.HTTPBodyUrlEncoded) > 0 {
+		for _, u := range results.HTTPBodyUrlEncoded {
+			urlencoded := &mhttpbodyurlencoded.HttpBodyUrlEncoded{
+				ID:          u.ID,
+				HttpID:      u.HttpID,
+				Key:         u.UrlencodedKey,
+				Value:       u.UrlencodedValue,
+				Enabled:     u.Enabled,
+				Description: u.Description,
+				CreatedAt:   u.CreatedAt,
+				UpdatedAt:   u.UpdatedAt,
+			}
+			if err := imp.httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, urlencoded); err != nil {
+				return fmt.Errorf("failed to store body urlencoded: %w", err)
+			}
+		}
+	}
+
+	if len(results.HTTPBodyRaws) > 0 {
+		for _, r := range results.HTTPBodyRaws {
+			// Note: bodyService.Create generates a new ID
+			if _, err := imp.bodyService.Create(ctx, r.HttpID, r.RawData, r.ContentType); err != nil {
+				return fmt.Errorf("failed to store body raw: %w", err)
 			}
 		}
 	}

@@ -13,6 +13,8 @@ import (
 
 	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rhttp"
+	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
@@ -20,6 +22,10 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/shttpbodyform"
+	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
+	"the-dev-tools/server/pkg/service/shttpheader"
+	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
@@ -65,6 +71,20 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	flowService := sflow.New(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
 
+	httpHeaderService := shttpheader.New(base.Queries)
+	httpSearchParamService := shttpsearchparam.New(base.Queries)
+	httpBodyFormService := shttpbodyform.New(base.Queries)
+	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
+	bodyService := shttp.NewHttpBodyRawService(base.Queries)
+
+	// Create streamers
+	stream := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
+	headerStream := memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]()
+	paramStream := memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]()
+	formStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]()
+	encodedStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]()
+	rawStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
+
 	// Create user and workspace
 	userID := idwrap.NewNow()
 	workspaceID := idwrap.NewNow()
@@ -88,10 +108,10 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	// Create workspace-user relationship
 	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
-		ID:         idwrap.NewNow(),
+		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
-		UserID:     userID,
-		Role:       mworkspaceuser.RoleOwner,
+		UserID:      userID,
+		Role:        mworkspaceuser.RoleOwner,
 	})
 	require.NoError(t, err)
 
@@ -103,7 +123,18 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		&httpService,
 		&flowService,
 		fileService,
+		httpHeaderService,
+		httpSearchParamService,
+		httpBodyFormService,
+		httpBodyUrlEncodedService,
+		bodyService,
 		logger,
+		stream,
+		headerStream,
+		paramStream,
+		formStream,
+		encodedStream,
+		rawStream,
 	)
 
 	services := BaseTestServices{

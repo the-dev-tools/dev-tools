@@ -284,7 +284,18 @@ func main() {
 		&httpService,
 		&flowService,
 		fileService,
+		httpHeaderService,
+		httpSearchParamService,
+		httpBodyFormService,
+		httpBodyUrlEncodedService,
+		httpBodyRawService,
 		logger,
+		httpStreamer,
+		httpHeaderStreamer,
+		httpSearchParamStreamer,
+		httpBodyFormStreamer,
+		httpBodyUrlEncodedStreamer,
+		httpBodyRawStreamer,
 	)
 	newServiceManager.AddService(rimportv2.CreateImportV2Service(*importV2Srv, optionsAll))
 

@@ -105,14 +105,21 @@ type HarResolved struct {
 	// HTTP Requests (modern mhttp.HTTP model)
 	HTTPRequests []mhttp.HTTP `json:"http_requests"`
 
+	// Child Entities
+	HTTPHeaders        []mhttp.HTTPHeader        `json:"http_headers"`
+	HTTPSearchParams   []mhttp.HTTPSearchParam   `json:"http_search_params"`
+	HTTPBodyForms      []mhttp.HTTPBodyForm      `json:"http_body_forms"`
+	HTTPBodyUrlEncoded []mhttp.HTTPBodyUrlencoded `json:"http_body_urlencoded"`
+	HTTPBodyRaws       []mhttp.HTTPBodyRaw       `json:"http_body_raws"`
+
 	// File System (modern mfile.File model)
 	Files []mfile.File `json:"files"`
 
 	// Flow Items (preserving existing flow generation)
-	Flow         mflow.Flow         `json:"flow"`
-	Nodes        []mnnode.MNode     `json:"nodes"`
+	Flow         mflow.Flow          `json:"flow"`
+	Nodes        []mnnode.MNode      `json:"nodes"`
 	RequestNodes []mnrequest.MNRequest `json:"request_nodes"`
-	Edges        []edge.Edge        `json:"edges"`
+	Edges        []edge.Edge         `json:"edges"`
 }
 
 // Helper functions for request processing
@@ -164,8 +171,6 @@ func ConvertHARWithDepFinder(har *HAR, workspaceID idwrap.IDWrap, depFinder *dep
 		return &HarResolved{}, nil
 	}
 
-	result := &HarResolved{}
-
 	// Sort entries by started date for proper sequencing
 	entries := make([]Entry, len(har.Log.Entries))
 	copy(entries, har.Log.Entries)
@@ -174,16 +179,13 @@ func ConvertHARWithDepFinder(har *HAR, workspaceID idwrap.IDWrap, depFinder *dep
 	})
 
 	// Process entries and create HTTP requests and file structure
-	httpReqs, files, err := processEntriesToHTTP(entries, workspaceID, depFinder)
+	result, err := processEntriesToHTTP(entries, workspaceID, depFinder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process entries: %w", err)
 	}
 
-	result.HTTPRequests = httpReqs
-	result.Files = files
-
 	// Generate flow nodes and edges
-	if err := generateFlowGraph(result, entries, httpReqs); err != nil {
+	if err := generateFlowGraph(result, entries, result.HTTPRequests); err != nil {
 		return nil, fmt.Errorf("failed to generate flow graph: %w", err)
 	}
 
@@ -191,27 +193,42 @@ func ConvertHARWithDepFinder(har *HAR, workspaceID idwrap.IDWrap, depFinder *dep
 }
 
 // processEntriesToHTTP converts HAR entries to mhttp.HTTP entities and file structure
-func processEntriesToHTTP(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder) ([]mhttp.HTTP, []mfile.File, error) {
-	httpRequests := make([]mhttp.HTTP, 0, len(entries))
+func processEntriesToHTTP(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder) (*HarResolved, error) {
+	result := &HarResolved{
+		HTTPRequests:       make([]mhttp.HTTP, 0, len(entries)),
+		HTTPHeaders:        make([]mhttp.HTTPHeader, 0),
+		HTTPSearchParams:   make([]mhttp.HTTPSearchParam, 0),
+		HTTPBodyForms:      make([]mhttp.HTTPBodyForm, 0),
+		HTTPBodyUrlEncoded: make([]mhttp.HTTPBodyUrlencoded, 0),
+		HTTPBodyRaws:       make([]mhttp.HTTPBodyRaw, 0),
+	}
+
 	fileMap := make(map[string]mfile.File)
 	folderMap := make(map[string]idwrap.IDWrap)
 
 	for i, entry := range entries {
-		// Create HTTP request
-		httpReq, err := createHTTPRequestFromEntry(entry, workspaceID)
+		// Create HTTP request and child entities
+		httpReq, headers, params, bodyForms, bodyUrlEncoded, bodyRaws, err := createHTTPRequestFromEntry(entry, workspaceID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create HTTP request for entry %d: %w", i, err)
+			return nil, fmt.Errorf("failed to create HTTP request for entry %d: %w", i, err)
 		}
+
+		// Append entities to result
+		result.HTTPRequests = append(result.HTTPRequests, *httpReq)
+		result.HTTPHeaders = append(result.HTTPHeaders, headers...)
+		result.HTTPSearchParams = append(result.HTTPSearchParams, params...)
+		result.HTTPBodyForms = append(result.HTTPBodyForms, bodyForms...)
+		result.HTTPBodyUrlEncoded = append(result.HTTPBodyUrlEncoded, bodyUrlEncoded...)
+		result.HTTPBodyRaws = append(result.HTTPBodyRaws, bodyRaws...)
 
 		// Create delta version (always create both original and delta)
 		deltaReq := createDeltaVersion(*httpReq)
-
-		httpRequests = append(httpRequests, *httpReq, deltaReq)
+		result.HTTPRequests = append(result.HTTPRequests, deltaReq)
 
 		// Create file system structure
 		file, _, err := createFileStructure(httpReq, workspaceID, folderMap)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create file structure for entry %d: %w", i, err)
+			return nil, fmt.Errorf("failed to create file structure for entry %d: %w", i, err)
 		}
 
 		fileMap[httpReq.ID.String()] = *file
@@ -226,32 +243,128 @@ func processEntriesToHTTP(entries []Entry, workspaceID idwrap.IDWrap, depFinder 
 		return sortedFiles[i].Order < sortedFiles[j].Order
 	})
 
-	return httpRequests, sortedFiles, nil
+	result.Files = sortedFiles
+	return result, nil
 }
 
-// createHTTPRequestFromEntry creates an mhttp.HTTP entity from a HAR entry
-func createHTTPRequestFromEntry(entry Entry, workspaceID idwrap.IDWrap) (*mhttp.HTTP, error) {
+// createHTTPRequestFromEntry creates an mhttp.HTTP entity and children from a HAR entry
+func createHTTPRequestFromEntry(entry Entry, workspaceID idwrap.IDWrap) (
+	*mhttp.HTTP,
+	[]mhttp.HTTPHeader,
+	[]mhttp.HTTPSearchParam,
+	[]mhttp.HTTPBodyForm,
+	[]mhttp.HTTPBodyUrlencoded,
+	[]mhttp.HTTPBodyRaw,
+	error,
+) {
 	parsedURL, err := url.Parse(entry.Request.URL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL %s: %w", entry.Request.URL, err)
+		return nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL %s: %w", entry.Request.URL, err)
+	}
+
+	// Determine body kind
+	bodyKind := mhttp.HttpBodyKindNone
+	if entry.Request.PostData != nil {
+		mimeType := strings.ToLower(entry.Request.PostData.MimeType)
+		if strings.Contains(mimeType, FormBodyCheck) {
+			bodyKind = mhttp.HttpBodyKindFormData
+		} else if strings.Contains(mimeType, UrlEncodedBodyCheck) {
+			bodyKind = mhttp.HttpBodyKindUrlEncoded
+		} else {
+			bodyKind = mhttp.HttpBodyKindRaw
+		}
 	}
 
 	// Generate a descriptive name from the URL
 	name := generateRequestName(entry.Request.Method, parsedURL)
+	now := entry.StartedDateTime.UnixMilli()
+	httpID := idwrap.NewNow()
 
 	httpReq := &mhttp.HTTP{
-		ID:          idwrap.NewNow(),
+		ID:          httpID,
 		WorkspaceID: workspaceID,
 		Name:        name,
 		Url:         entry.Request.URL,
 		Method:      entry.Request.Method,
 		Description: fmt.Sprintf("Imported from HAR - %s %s", entry.Request.Method, entry.Request.URL),
+		BodyKind:    bodyKind,
 		IsDelta:     false,
-		CreatedAt:   entry.StartedDateTime.UnixMilli(),
-		UpdatedAt:   entry.StartedDateTime.UnixMilli(),
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
-	return httpReq, nil
+	// Extract headers
+	headers := make([]mhttp.HTTPHeader, 0, len(entry.Request.Headers))
+	for _, h := range entry.Request.Headers {
+		headers = append(headers, mhttp.HTTPHeader{
+			ID:          idwrap.NewNow(),
+			HttpID:      httpID,
+			HeaderKey:   h.Name,
+			HeaderValue: h.Value,
+			Enabled:     true,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		})
+	}
+
+	// Extract Query Parameters
+	params := make([]mhttp.HTTPSearchParam, 0, len(entry.Request.QueryString))
+	for _, q := range entry.Request.QueryString {
+		params = append(params, mhttp.HTTPSearchParam{
+			ID:         idwrap.NewNow(),
+			HttpID:     httpID,
+			ParamKey:   q.Name,
+			ParamValue: q.Value,
+			Enabled:    true,
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		})
+	}
+
+	// Extract Body
+	var bodyForms []mhttp.HTTPBodyForm
+	var bodyUrlEncoded []mhttp.HTTPBodyUrlencoded
+	var bodyRaws []mhttp.HTTPBodyRaw
+
+	if entry.Request.PostData != nil {
+		if bodyKind == mhttp.HttpBodyKindFormData {
+			for _, p := range entry.Request.PostData.Params {
+				bodyForms = append(bodyForms, mhttp.HTTPBodyForm{
+					ID:        idwrap.NewNow(),
+					HttpID:    httpID,
+					FormKey:   p.Name,
+					FormValue: p.Value,
+					Enabled:   true,
+					CreatedAt: now,
+					UpdatedAt: now,
+				})
+			}
+		} else if bodyKind == mhttp.HttpBodyKindUrlEncoded {
+			for _, p := range entry.Request.PostData.Params {
+				bodyUrlEncoded = append(bodyUrlEncoded, mhttp.HTTPBodyUrlencoded{
+					ID:              idwrap.NewNow(),
+					HttpID:          httpID,
+					UrlencodedKey:   p.Name,
+					UrlencodedValue: p.Value,
+					Enabled:         true,
+					CreatedAt:       now,
+					UpdatedAt:       now,
+				})
+			}
+		} else if bodyKind == mhttp.HttpBodyKindRaw {
+			bodyRaws = append(bodyRaws, mhttp.HTTPBodyRaw{
+				ID:              idwrap.NewNow(),
+				HttpID:          httpID,
+				RawData:         []byte(entry.Request.PostData.Text),
+				ContentType:     entry.Request.PostData.MimeType,
+				CompressionType: 0, // Default to no compression
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			})
+		}
+	}
+
+	return httpReq, headers, params, bodyForms, bodyUrlEncoded, bodyRaws, nil
 }
 
 // createDeltaVersion creates a delta version of an HTTP request

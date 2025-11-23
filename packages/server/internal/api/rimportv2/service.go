@@ -134,8 +134,16 @@ type ImportResults struct {
 	Flow        *mflow.Flow
 	HTTPReqs    []*mhttp.HTTP
 	Files       []*mfile.File
+	
+	HTTPHeaders        []*mhttp.HTTPHeader
+	HTTPSearchParams   []*mhttp.HTTPSearchParam
+	HTTPBodyForms      []*mhttp.HTTPBodyForm
+	HTTPBodyUrlEncoded []*mhttp.HTTPBodyUrlencoded
+	HTTPBodyRaws       []*mhttp.HTTPBodyRaw
+
 	Domains     []string
 	WorkspaceID idwrap.IDWrap
+	MissingData ImportMissingDataKind
 }
 
 // ImportRequest represents the incoming import request with domain data
@@ -521,7 +529,7 @@ func buildTemplatedURL(variable, suffix string) string {
 }
 
 // Import processes a HAR file and stores the results using modern models
-func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportResponse, error) {
+func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportResults, error) {
 	// Check if context is already cancelled
 	select {
 	case <-ctx.Done():
@@ -581,6 +589,31 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportRespon
 		filesPtr[i] = &harResolved.Files[i]
 	}
 
+	headersPtr := make([]*mhttp.HTTPHeader, len(harResolved.HTTPHeaders))
+	for i := range harResolved.HTTPHeaders {
+		headersPtr[i] = &harResolved.HTTPHeaders[i]
+	}
+
+	paramsPtr := make([]*mhttp.HTTPSearchParam, len(harResolved.HTTPSearchParams))
+	for i := range harResolved.HTTPSearchParams {
+		paramsPtr[i] = &harResolved.HTTPSearchParams[i]
+	}
+
+	bodyFormsPtr := make([]*mhttp.HTTPBodyForm, len(harResolved.HTTPBodyForms))
+	for i := range harResolved.HTTPBodyForms {
+		bodyFormsPtr[i] = &harResolved.HTTPBodyForms[i]
+	}
+
+	bodyUrlEncodedPtr := make([]*mhttp.HTTPBodyUrlencoded, len(harResolved.HTTPBodyUrlEncoded))
+	for i := range harResolved.HTTPBodyUrlEncoded {
+		bodyUrlEncodedPtr[i] = &harResolved.HTTPBodyUrlEncoded[i]
+	}
+
+	bodyRawsPtr := make([]*mhttp.HTTPBodyRaw, len(harResolved.HTTPBodyRaws))
+	for i := range harResolved.HTTPBodyRaws {
+		bodyRawsPtr[i] = &harResolved.HTTPBodyRaws[i]
+	}
+
 	// Extract domains from HTTP requests
 	domains, err := extractDomains(ctx, httpReqsPtr, s.logger)
 	if err != nil {
@@ -588,11 +621,16 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportRespon
 	}
 
 	results := &ImportResults{
-		Flow:        flow,
-		HTTPReqs:    httpReqsPtr,
-		Files:       filesPtr,
-		Domains:     domains,
-		WorkspaceID: req.WorkspaceID,
+		Flow:               flow,
+		HTTPReqs:           httpReqsPtr,
+		Files:              filesPtr,
+		HTTPHeaders:        headersPtr,
+		HTTPSearchParams:   paramsPtr,
+		HTTPBodyForms:      bodyFormsPtr,
+		HTTPBodyUrlEncoded: bodyUrlEncodedPtr,
+		HTTPBodyRaws:       bodyRawsPtr,
+		Domains:            domains,
+		WorkspaceID:        req.WorkspaceID,
 	}
 
 	// Store all results atomically
@@ -613,12 +651,6 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportRespon
 		"http_requests", len(harResolved.HTTPRequests),
 		"files", len(harResolved.Files),
 		"domains", len(domains))
-
-	// Build response
-	response := &ImportResponse{
-		MissingData: ImportMissingDataKind_UNSPECIFIED,
-		Domains:     domains,
-	}
 
 	// Process domain data if provided
 	if len(req.DomainData) > 0 {
@@ -641,18 +673,18 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportRespon
 			"domain_data_count", len(req.DomainData))
 	} else if len(domains) > 0 {
 		// We have domains but no domain data was provided, indicate missing domain data
-		response.MissingData = ImportMissingDataKind_DOMAIN
+		results.MissingData = ImportMissingDataKind_DOMAIN
 		s.logger.Info("Domain data missing for extracted domains",
 			"workspace_id", req.WorkspaceID,
 			"domain_count", len(domains),
 			"domains", domains)
 	}
 
-	return response, nil
+	return results, nil
 }
 
 // ImportWithTextData processes HAR data from text format
-func (s *Service) ImportWithTextData(ctx context.Context, req *ImportRequest) (*ImportResponse, error) {
+func (s *Service) ImportWithTextData(ctx context.Context, req *ImportRequest) (*ImportResults, error) {
 	s.logger.Debug("Import with text data called",
 		"workspace_id", req.WorkspaceID,
 		"has_text_data", len(req.TextData) > 0,
