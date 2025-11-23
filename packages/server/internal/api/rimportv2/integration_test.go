@@ -13,6 +13,7 @@ import (
 
 	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
@@ -71,6 +72,8 @@ type IntegrationTestStreamers struct {
 	HttpBodyUrlEncoded eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
 
 	HttpBodyRaw        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
+
+	File               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 
 }
 
@@ -157,6 +160,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		HttpBodyUrlEncoded: memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent](),
 
 		HttpBodyRaw:        memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent](),
+
+		File:               memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
 
 	}
 
@@ -256,17 +261,19 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 		streamers.HttpSearchParam,
 
-		streamers.HttpBodyForm,
+				streamers.HttpBodyForm,
 
-		streamers.HttpBodyUrlEncoded,
+				streamers.HttpBodyUrlEncoded,
 
-		streamers.HttpBodyRaw,
+				streamers.HttpBodyRaw,
 
-	)
+				streamers.File,
 
+			)
 
+		
 
-	services := BaseTestServices{
+			services := BaseTestServices{
 
 		Us:  baseServices.Us,
 
@@ -686,6 +693,9 @@ func TestImportRPC_SyncEvents(t *testing.T) {
 	
 	paramCh, err := fixture.streamers.HttpSearchParam.Subscribe(fixture.ctx, nil)
 	require.NoError(t, err)
+	
+	fileCh, err := fixture.streamers.File.Subscribe(fixture.ctx, nil)
+	require.NoError(t, err)
 
 	// Perform import
 	req := connect.NewRequest(&apiv1.ImportRequest{
@@ -708,6 +718,15 @@ func TestImportRPC_SyncEvents(t *testing.T) {
 		assert.NotNil(t, evt.Payload.Http)
 	case <-time.After(time.Second):
 		assert.Fail(t, "Timed out waiting for HTTP event")
+	}
+
+	// Check File events (for the files created)
+	select {
+	case evt := <-fileCh:
+		assert.Equal(t, "create", evt.Payload.Type)
+		assert.NotNil(t, evt.Payload.File)
+	case <-time.After(time.Second):
+		assert.Fail(t, "Timed out waiting for File event")
 	}
 
 	// Check Header events

@@ -276,6 +276,10 @@ func main() {
 	executionStreamer := memory.NewInMemorySyncStreamer[rflowv2.ExecutionTopic, rflowv2.ExecutionEvent]()
 	defer executionStreamer.Shutdown()
 
+	// File Service Streamer
+	fileStreamer := memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent]()
+	defer fileStreamer.Shutdown()
+
 	// ImportV2 Service
 	importV2Srv := rimportv2.NewImportV2RPC(
 		currentDB,
@@ -296,6 +300,7 @@ func main() {
 		httpBodyFormStreamer,
 		httpBodyUrlEncodedStreamer,
 		httpBodyRawStreamer,
+		fileStreamer,
 	)
 	newServiceManager.AddService(rimportv2.CreateImportV2Service(*importV2Srv, optionsAll))
 
@@ -357,10 +362,6 @@ func main() {
 		logger,
 	)
 	newServiceManager.AddService(rexportv2.CreateExportV2Service(*exportV2Srv, optionsAll))
-
-	// File Service
-	fileStreamer := memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent]()
-	defer fileStreamer.Shutdown()
 
 	fileSrv := rfile.New(currentDB, fileService, userService, workspaceService, fileStreamer)
 	newServiceManager.AddService(rfile.CreateService(fileSrv, optionsAll))

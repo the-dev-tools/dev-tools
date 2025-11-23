@@ -11,8 +11,10 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rhttp"
+	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -23,6 +25,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	filev1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 	"the-dev-tools/spec/dist/buf/go/api/import/v1/importv1connect"
@@ -43,6 +46,7 @@ type ImportV2RPC struct {
 	httpBodyFormStream       eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
 	httpBodyUrlEncodedStream eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
 	httpBodyRawStream        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
+	fileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 }
 
 // NewImportV2RPC creates a new ImportV2RPC handler with all required dependencies
@@ -67,6 +71,7 @@ func NewImportV2RPC(
 	httpBodyFormStream eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent],
 	httpBodyUrlEncodedStream eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent],
 	httpBodyRawStream eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent],
+	fileStream eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent],
 ) *ImportV2RPC {
 	// Create the importer with modern service dependencies
 	importer := NewImporter(httpService, flowService, fileService,
@@ -91,6 +96,7 @@ func NewImportV2RPC(
 		httpBodyFormStream:       httpBodyFormStream,
 		httpBodyUrlEncodedStream: httpBodyUrlEncodedStream,
 		httpBodyRawStream:        httpBodyRawStream,
+		fileStream:               fileStream,
 	}
 }
 
@@ -217,6 +223,14 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		h.stream.Publish(rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}, rhttp.HttpEvent{
 			Type: "insert",
 			Http: toAPIHttp(httpReq),
+		})
+	}
+
+	// Publish File events
+	for _, file := range results.Files {
+		h.fileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
+			Type: "create",
+			File: toAPIFile(*file),
 		})
 	}
 
@@ -367,3 +381,32 @@ func toAPIHttpBodyRaw(raw *mhttp.HTTPBodyRaw) *httpv1.HttpBodyRaw {
 	}
 }
 
+// toAPIFile converts a model File to an API File
+func toAPIFile(file mfile.File) *filev1.File {
+	apiFile := &filev1.File{
+		FileId:      file.ID.Bytes(),
+		WorkspaceId: file.WorkspaceID.Bytes(),
+		Order:       float32(file.Order),
+		Kind:        toAPIFileKind(file.ContentType),
+	}
+
+	if file.FolderID != nil {
+		apiFile.ParentFolderId = file.FolderID.Bytes()
+	}
+
+	return apiFile
+}
+
+// toAPIFileKind converts a model ContentType to an API FileKind
+func toAPIFileKind(kind mfile.ContentType) filev1.FileKind {
+	switch kind {
+	case mfile.ContentTypeFolder:
+		return filev1.FileKind_FILE_KIND_FOLDER
+	case mfile.ContentTypeHTTP:
+		return filev1.FileKind_FILE_KIND_HTTP
+	case mfile.ContentTypeFlow:
+		return filev1.FileKind_FILE_KIND_FLOW
+	default:
+		return filev1.FileKind_FILE_KIND_UNSPECIFIED
+	}
+}
