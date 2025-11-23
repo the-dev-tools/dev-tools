@@ -12,6 +12,8 @@ tasks:
   dev:desktop:
     desc: Start desktop app development servers
     interactive: true
+    env:
+      LOG_LEVEL: INFO
     cmd: nx run desktop:dev {{.CLI_ARGS}}
 
   lint:
