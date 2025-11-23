@@ -275,21 +275,86 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		}
 	}
 
-	// Note: Flow-specific entities (nodes, edges, variables, etc.) would need to be stored
-	// through their respective services when those services are available.
-	// For now, we store the core entities and log the additional entities.
+	// Store child entities
+	if len(results.Headers) > 0 {
+		for _, h := range results.Headers {
+			header := mhttpheader.HttpHeader{
+				ID:          h.ID,
+				HttpID:      h.HttpID,
+				Key:         h.HeaderKey,
+				Value:       h.HeaderValue,
+				Enabled:     h.Enabled,
+				Description: h.Description,
+				CreatedAt:   h.CreatedAt,
+				UpdatedAt:   h.UpdatedAt,
+			}
+			if err := imp.httpHeaderService.Create(ctx, &header); err != nil {
+				return fmt.Errorf("failed to store header: %w", err)
+			}
+		}
+	}
 
-	// TODO: Store flow-specific entities when services are available
-	// - FlowNodes
-	// - FlowEdges
-	// - FlowVariables
-	// - FlowRequestNodes
-	// - FlowConditionNodes
-	// - FlowNoopNodes
-	// - FlowForNodes
-	// - FlowForEachNodes
-	// - FlowJSNodes
-	// - Headers, SearchParams, BodyForms, BodyUrlencoded, BodyRaw
+	if len(results.SearchParams) > 0 {
+		for _, p := range results.SearchParams {
+			param := mhttpsearchparam.HttpSearchParam{
+				ID:          p.ID,
+				HttpID:      p.HttpID,
+				Key:         p.ParamKey,
+				Value:       p.ParamValue,
+				Enabled:     p.Enabled,
+				Description: p.Description,
+				CreatedAt:   p.CreatedAt,
+				UpdatedAt:   p.UpdatedAt,
+			}
+			if err := imp.httpSearchParamService.Create(ctx, &param); err != nil {
+				return fmt.Errorf("failed to store search param: %w", err)
+			}
+		}
+	}
+
+	if len(results.BodyForms) > 0 {
+		for _, f := range results.BodyForms {
+			form := mhttpbodyform.HttpBodyForm{
+				ID:          f.ID,
+				HttpID:      f.HttpID,
+				Key:         f.FormKey,
+				Value:       f.FormValue,
+				Enabled:     f.Enabled,
+				Description: f.Description,
+				CreatedAt:   f.CreatedAt,
+				UpdatedAt:   f.UpdatedAt,
+			}
+			if err := imp.httpBodyFormService.CreateHttpBodyForm(ctx, &form); err != nil {
+				return fmt.Errorf("failed to store body form: %w", err)
+			}
+		}
+	}
+
+	if len(results.BodyUrlencoded) > 0 {
+		for _, u := range results.BodyUrlencoded {
+			urlencoded := mhttpbodyurlencoded.HttpBodyUrlEncoded{
+				ID:          u.ID,
+				HttpID:      u.HttpID,
+				Key:         u.UrlencodedKey,
+				Value:       u.UrlencodedValue,
+				Enabled:     u.Enabled,
+				Description: u.Description,
+				CreatedAt:   u.CreatedAt,
+				UpdatedAt:   u.UpdatedAt,
+			}
+			if err := imp.httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, &urlencoded); err != nil {
+				return fmt.Errorf("failed to store body urlencoded: %w", err)
+			}
+		}
+	}
+
+	if len(results.BodyRaw) > 0 {
+		for _, r := range results.BodyRaw {
+			if _, err := imp.bodyService.Create(ctx, r.HttpID, r.RawData, r.ContentType); err != nil {
+				return fmt.Errorf("failed to store body raw: %w", err)
+			}
+		}
+	}
 
 	return nil
 }

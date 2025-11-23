@@ -171,10 +171,22 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 
 	// Convert to unified result
 	result := &TranslationResult{
-		HTTPRequests: resolved.HTTPRequests,
-		Files:        resolved.Files,
-		Flows:        []mflow.Flow{resolved.Flow},
-		ProcessedAt:  time.Now().UnixMilli(),
+		HTTPRequests:   resolved.HTTPRequests,
+		Files:          resolved.Files,
+		Flows:          []mflow.Flow{resolved.Flow},
+		Headers:        resolved.HTTPHeaders,
+		SearchParams:   resolved.HTTPSearchParams,
+		BodyForms:      resolved.HTTPBodyForms,
+		BodyUrlencoded: resolved.HTTPBodyUrlEncoded,
+		ProcessedAt:    time.Now().UnixMilli(),
+	}
+
+	// Convert BodyRaw slice of values to slice of pointers
+	if len(resolved.HTTPBodyRaws) > 0 {
+		result.BodyRaw = make([]*mhttp.HTTPBodyRaw, len(resolved.HTTPBodyRaws))
+		for i := range resolved.HTTPBodyRaws {
+			result.BodyRaw[i] = &resolved.HTTPBodyRaws[i]
+		}
 	}
 
 	// Extract domains from HTTP requests

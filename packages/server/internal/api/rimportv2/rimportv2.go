@@ -118,7 +118,7 @@ func (h *ImportV2RPC) Import(ctx context.Context, req *connect.Request[apiv1.Imp
 	}
 
 	// Call the service to process the import
-	results, err := h.service.Import(ctx, importReq)
+	results, err := h.service.ImportUnified(ctx, importReq)
 	if err != nil {
 		return handleServiceError(err)
 	}

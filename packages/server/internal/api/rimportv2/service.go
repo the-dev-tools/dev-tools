@@ -703,7 +703,7 @@ func (s *Service) ImportWithTextData(ctx context.Context, req *ImportRequest) (*
 }
 
 // ImportUnified processes any supported format with automatic detection
-func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*ImportResponse, error) {
+func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*ImportResults, error) {
 	// Check if context is already cancelled
 	select {
 	case <-ctx.Done():
@@ -764,10 +764,60 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		"flows", len(translationResult.Flows),
 		"domains", len(translationResult.Domains))
 
-	// Build response
-	response := &ImportResponse{
-		MissingData: ImportMissingDataKind_UNSPECIFIED,
-		Domains:     translationResult.Domains,
+	// Helper to create slice pointers
+	httpReqsPtr := make([]*mhttp.HTTP, len(translationResult.HTTPRequests))
+	for i := range translationResult.HTTPRequests {
+		httpReqsPtr[i] = &translationResult.HTTPRequests[i]
+	}
+
+	filesPtr := make([]*mfile.File, len(translationResult.Files))
+	for i := range translationResult.Files {
+		filesPtr[i] = &translationResult.Files[i]
+	}
+
+	headersPtr := make([]*mhttp.HTTPHeader, len(translationResult.Headers))
+	for i := range translationResult.Headers {
+		headersPtr[i] = &translationResult.Headers[i]
+	}
+
+	paramsPtr := make([]*mhttp.HTTPSearchParam, len(translationResult.SearchParams))
+	for i := range translationResult.SearchParams {
+		paramsPtr[i] = &translationResult.SearchParams[i]
+	}
+
+	bodyFormsPtr := make([]*mhttp.HTTPBodyForm, len(translationResult.BodyForms))
+	for i := range translationResult.BodyForms {
+		bodyFormsPtr[i] = &translationResult.BodyForms[i]
+	}
+
+	bodyUrlEncodedPtr := make([]*mhttp.HTTPBodyUrlencoded, len(translationResult.BodyUrlencoded))
+	for i := range translationResult.BodyUrlencoded {
+		bodyUrlEncodedPtr[i] = &translationResult.BodyUrlencoded[i]
+	}
+
+	// BodyRaw is already []*mhttp.HTTPBodyRaw in TranslationResult, but we need to verify type or copy
+	// TranslationResult.BodyRaw is []*mhttp.HTTPBodyRaw
+	bodyRawsPtr := translationResult.BodyRaw
+
+	// Only support single flow for now in ImportResults
+	var flow *mflow.Flow
+	if len(translationResult.Flows) > 0 {
+		flow = &translationResult.Flows[0]
+	}
+
+	// Build results
+	results := &ImportResults{
+		Flow:               flow,
+		HTTPReqs:           httpReqsPtr,
+		Files:              filesPtr,
+		HTTPHeaders:        headersPtr,
+		HTTPSearchParams:   paramsPtr,
+		HTTPBodyForms:      bodyFormsPtr,
+		HTTPBodyUrlEncoded: bodyUrlEncodedPtr,
+		HTTPBodyRaws:       bodyRawsPtr,
+		Domains:            translationResult.Domains,
+		WorkspaceID:        req.WorkspaceID,
+		MissingData:        ImportMissingDataKind_UNSPECIFIED,
 	}
 
 	// Process domain data if provided
@@ -782,18 +832,18 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 			"domain_data_count", len(req.DomainData))
 	} else if len(translationResult.Domains) > 0 {
 		// We have domains but no domain data was provided, indicate missing domain data
-		response.MissingData = ImportMissingDataKind_DOMAIN
+		results.MissingData = ImportMissingDataKind_DOMAIN
 		s.logger.Info("Domain data missing for extracted domains",
 			"workspace_id", req.WorkspaceID,
 			"domain_count", len(translationResult.Domains),
 			"domains", translationResult.Domains)
 	}
 
-	return response, nil
+	return results, nil
 }
 
 // ImportUnifiedWithTextData processes any supported format from text with automatic detection
-func (s *Service) ImportUnifiedWithTextData(ctx context.Context, req *ImportRequest) (*ImportResponse, error) {
+func (s *Service) ImportUnifiedWithTextData(ctx context.Context, req *ImportRequest) (*ImportResults, error) {
 	s.logger.Debug("Unified import with text data called",
 		"workspace_id", req.WorkspaceID,
 		"has_text_data", len(req.TextData) > 0,
