@@ -847,6 +847,9 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		s.logger.Info("Applied domain templates",
 			"workspace_id", req.WorkspaceID,
 			"domain_data_count", len(req.DomainData))
+
+		// Clear domains from result as they are now handled and we don't want to return them on success
+		results.Domains = nil
 	}
 
 	return results, nil

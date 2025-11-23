@@ -336,7 +336,7 @@ func TestImportRPC_Integration(t *testing.T) {
 			},
 			expectError: false,
 			expectResp: func(resp *apiv1.ImportResponse) bool {
-				return len(resp.Domains) > 0
+				return len(resp.Domains) == 0 // Domains should be empty on success
 			},
 		},
 		{
@@ -573,8 +573,8 @@ func TestImportService_LargeHARImport(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, httpReqs, 50, "All 50 HTTP requests should be imported")
 
-	// Should find domains from the large HAR
-	assert.NotEmpty(t, resp.Msg.Domains, "Large HAR should contain domains")
+	// Domains should be cleared on success
+	assert.Empty(t, resp.Msg.Domains, "Domains should be cleared on successful import")
 }
 
 // TestImportService_DomainProcessingIntegration tests domain processing functionality
@@ -617,7 +617,8 @@ func TestImportService_DomainProcessingIntegration(t *testing.T) {
 				// Missing cdn.example.com
 			},
 			expectResp: func(resp *apiv1.ImportResponse) bool {
-				return len(resp.Domains) > 0 // Should still extract all domains
+				// We proceed with partial data, so storage happens, so domains are cleared
+				return resp.MissingData == apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED && len(resp.Domains) == 0
 			},
 		},
 	}
@@ -648,8 +649,13 @@ func TestImportService_DomainProcessingIntegration(t *testing.T) {
 			// Verify domain processing response
 			assert.True(t, tt.expectResp(resp.Msg), "Domain processing response validation failed")
 
-			// Should always extract domains regardless of provided domain data
-			assert.NotEmpty(t, resp.Msg.Domains, "Should extract domains from HAR")
+			// If MissingData is set, we expect domains to be returned (preview)
+			// If MissingData is NOT set (success), we expect domains to be cleared
+			if resp.Msg.MissingData != apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED {
+				assert.NotEmpty(t, resp.Msg.Domains, "Should extract domains from HAR when data is missing")
+			} else {
+				assert.Empty(t, resp.Msg.Domains, "Should clear domains on successful import")
+			}
 		})
 	}
 }
