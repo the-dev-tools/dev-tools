@@ -24,6 +24,10 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/shttpbodyform"
+	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
+	"the-dev-tools/server/pkg/service/shttpheader"
+	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
@@ -50,6 +54,13 @@ type BaseTestServices struct {
 	Hs  shttp.HTTPService
 	Fs  sflow.FlowService
 	FileService sfile.FileService
+	
+	// Child entity services
+	HttpHeaderService         shttpheader.HttpHeaderService
+	HttpSearchParamService    shttpsearchparam.HttpSearchParamService
+	HttpBodyFormService       shttpbodyform.HttpBodyFormService
+	HttpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
+	BodyService               *shttp.HttpBodyRawService
 }
 
 // newIntegrationTestFixture creates a complete test environment for integration tests
@@ -68,6 +79,12 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	httpService := shttp.New(base.Queries, logger)
 	flowService := sflow.New(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
+	
+	httpHeaderService := shttpheader.New(base.Queries)
+	httpSearchParamService := shttpsearchparam.New(base.Queries)
+	httpBodyFormService := shttpbodyform.New(base.Queries)
+	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
+	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 
 	// Create user and workspace
 	userID := idwrap.NewNow()
@@ -120,6 +137,11 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		Hs:  httpService,
 		Fs:  flowService,
 		FileService: *fileService,
+		HttpHeaderService: httpHeaderService,
+		HttpSearchParamService: httpSearchParamService,
+		HttpBodyFormService: httpBodyFormService,
+		HttpBodyUrlEncodedService: httpBodyUrlEncodedService,
+		BodyService: bodyService,
 	}
 
 	return &integrationTestFixture{
@@ -543,7 +565,17 @@ func createTestHARData(t *testing.T) []byte {
 func createImportService(t *testing.T, fixture *integrationTestFixture) *rimportv2.Service {
 	t.Helper()
 
-	importer := rimportv2.NewImporter(&fixture.services.Hs, &fixture.services.Fs, &fixture.services.FileService)
+	importer := rimportv2.NewImporter(
+		fixture.base.DB,
+		&fixture.services.Hs,
+		&fixture.services.Fs,
+		&fixture.services.FileService,
+		fixture.services.HttpHeaderService,
+		fixture.services.HttpSearchParamService,
+		fixture.services.HttpBodyFormService,
+		fixture.services.HttpBodyUrlEncodedService,
+		fixture.services.BodyService,
+	)
 	validator := rimportv2.NewValidator(&fixture.services.Us)
 
 	return rimportv2.NewService(importer, validator, rimportv2.WithLogger(fixture.logger))
