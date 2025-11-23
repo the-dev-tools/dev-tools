@@ -704,6 +704,7 @@ func (s *Service) ImportWithTextData(ctx context.Context, req *ImportRequest) (*
 
 // ImportUnified processes any supported format with automatic detection
 func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*ImportResults, error) {
+	s.logger.Debug("ImportUnified: Starting", "workspace_id", req.WorkspaceID)
 	// Check if context is already cancelled
 	select {
 	case <-ctx.Done():
@@ -730,6 +731,7 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		return nil, err // Return the original error for workspace access issues
 	}
 
+	s.logger.Debug("ImportUnified: Translating data")
 	// Detect format and translate data
 	translationResult, err := s.translatorRegistry.DetectAndTranslate(ctx, req.Data, req.WorkspaceID)
 	if err != nil {
@@ -798,6 +800,7 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		MissingData:        ImportMissingDataKind_UNSPECIFIED,
 	}
 
+	s.logger.Debug("ImportUnified: Checking for missing data", "domain_count", len(translationResult.Domains), "provided_domains", len(req.DomainData))
 	// Check for missing domain data BEFORE storage
 	if len(req.DomainData) == 0 && len(translationResult.Domains) > 0 {
 		// We have domains but no domain data was provided
@@ -811,6 +814,7 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		return results, nil
 	}
 
+	s.logger.Debug("ImportUnified: Storing results")
 	// Store all results atomically
 	if err := s.importer.StoreUnifiedResults(ctx, translationResult); err != nil {
 		s.logger.Error("Storage failed - unexpected internal error",
@@ -823,6 +827,7 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 			"error", err)
 		return nil, fmt.Errorf("storage operation failed: %w", err)
 	}
+	s.logger.Debug("ImportUnified: Storage complete")
 
 	s.logger.Info("Unified import completed successfully",
 		"workspace_id", req.WorkspaceID,
