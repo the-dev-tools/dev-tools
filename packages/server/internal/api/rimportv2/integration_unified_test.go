@@ -126,8 +126,8 @@ func TestIntegrationHARImport(t *testing.T) {
 	if len(result.Headers) == 0 {
 		t.Error("Expected headers in translation result")
 	}
-	if len(result.BodyForms) == 0 {
-		t.Error("Expected body forms in translation result")
+	if len(result.BodyRaw) == 0 {
+		t.Error("Expected body raw in translation result")
 	}
 
 	t.Logf("HAR import test completed successfully:")
@@ -137,7 +137,7 @@ func TestIntegrationHARImport(t *testing.T) {
 	t.Logf("  - Flows: %d", len(result.Flows))
 	t.Logf("  - Domains: %v", result.Domains)
 	t.Logf("  - Headers: %d", len(result.Headers))
-	t.Logf("  - Body Forms: %d", len(result.BodyForms))
+	t.Logf("  - Body Raws: %d", len(result.BodyRaw))
 }
 
 // TestIntegrationYAMLImport tests the complete YAML flow import workflow

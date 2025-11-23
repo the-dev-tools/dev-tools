@@ -360,10 +360,7 @@ func TestImportRPC_Integration(t *testing.T) {
 			name:        "empty HAR",
 			harData:     createEmptyHAR(t),
 			domainData:  []ImportDomainData{},
-			expectError: false,
-			expectResp: func(resp *apiv1.ImportResponse) bool {
-				return len(resp.Domains) == 0
-			},
+			expectError: true,
 		},
 	}
 
