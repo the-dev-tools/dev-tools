@@ -716,7 +716,10 @@ func TestImportRPC_SyncEvents(t *testing.T) {
 		WorkspaceId: fixture.workspaceID.Bytes(),
 		Name:        "Sync Events Import",
 		Data:        harData,
-		DomainData:  []*apiv1.ImportDomainData{},
+		DomainData:  []*apiv1.ImportDomainData{
+			{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
+			{Enabled: true, Domain: "cdn.example.com", Variable: "CDN_DOMAIN"},
+		},
 	})
 
 	_, err = fixture.rpc.Import(fixture.ctx, req)

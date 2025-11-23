@@ -129,8 +129,10 @@ func (h *ImportV2RPC) Import(ctx context.Context, req *connect.Request[apiv1.Imp
 		return handleServiceError(err)
 	}
 
-	// Publish events for real-time sync
-	h.publishEvents(ctx, results)
+	// Publish events for real-time sync ONLY if storage occurred (no missing data)
+	if results.MissingData == ImportMissingDataKind_UNSPECIFIED {
+		h.publishEvents(ctx, results)
+	}
 
 	// Convert internal response to protobuf response
 	protoResp, err := convertToImportResponse(results)
