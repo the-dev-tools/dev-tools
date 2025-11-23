@@ -8,14 +8,12 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/api/rfile"
+	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
-	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -25,8 +23,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
-	filev1 "the-dev-tools/spec/dist/buf/go/api/file_system/v1"
-	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 	"the-dev-tools/spec/dist/buf/go/api/import/v1/importv1connect"
 )
@@ -224,7 +220,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, httpReq := range results.HTTPReqs {
 		h.stream.Publish(rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}, rhttp.HttpEvent{
 			Type: "insert",
-			Http: toAPIHttp(httpReq),
+			Http: converter.ToAPIHttp(*httpReq),
 		})
 	}
 
@@ -232,7 +228,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, file := range results.Files {
 		h.fileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
 			Type: "create",
-			File: toAPIFile(*file),
+			File: converter.ToAPIFile(*file),
 		})
 	}
 
@@ -240,7 +236,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, header := range results.HTTPHeaders {
 		h.httpHeaderStream.Publish(rhttp.HttpHeaderTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpHeaderEvent{
 			Type:       "insert",
-			HttpHeader: toAPIHttpHeader(header),
+			HttpHeader: converter.ToAPIHttpHeaderFromMHttp(*header),
 		})
 	}
 
@@ -248,7 +244,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, param := range results.HTTPSearchParams {
 		h.httpSearchParamStream.Publish(rhttp.HttpSearchParamTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpSearchParamEvent{
 			Type:            "insert",
-			HttpSearchParam: toAPIHttpSearchParam(param),
+			HttpSearchParam: converter.ToAPIHttpSearchParamFromMHttp(*param),
 		})
 	}
 
@@ -256,7 +252,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, form := range results.HTTPBodyForms {
 		h.httpBodyFormStream.Publish(rhttp.HttpBodyFormTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyFormEvent{
 			Type:         "insert",
-			HttpBodyForm: toAPIHttpBodyFormData(form),
+			HttpBodyForm: converter.ToAPIHttpBodyFormDataFromMHttp(*form),
 		})
 	}
 
@@ -264,7 +260,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, encoded := range results.HTTPBodyUrlEncoded {
 		h.httpBodyUrlEncodedStream.Publish(rhttp.HttpBodyUrlEncodedTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyUrlEncodedEvent{
 			Type:               "insert",
-			HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(encoded),
+			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncodedFromMHttp(*encoded),
 		})
 	}
 
@@ -272,143 +268,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, raw := range results.HTTPBodyRaws {
 		h.httpBodyRawStream.Publish(rhttp.HttpBodyRawTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyRawEvent{
 			Type:        "insert",
-			HttpBodyRaw: toAPIHttpBodyRaw(raw),
+			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*raw),
 		})
-	}
-}
-
-// Helper functions for API conversion
-
-func toAPIHttp(http *mhttp.HTTP) *httpv1.Http {
-	apiHttp := &httpv1.Http{
-		HttpId:   http.ID.Bytes(),
-		Name:     http.Name,
-		Url:      http.Url,
-		Method:   toAPIHttpMethod(http.Method),
-		BodyKind: toAPIHttpBodyKind(http.BodyKind),
-	}
-	if http.LastRunAt != nil {
-		apiHttp.LastRunAt = timestamppb.New(time.Unix(*http.LastRunAt, 0))
-	}
-	return apiHttp
-}
-
-func toAPIHttpMethod(method string) httpv1.HttpMethod {
-	switch method {
-	case "GET":
-		return httpv1.HttpMethod_HTTP_METHOD_GET
-	case "POST":
-		return httpv1.HttpMethod_HTTP_METHOD_POST
-	case "PUT":
-		return httpv1.HttpMethod_HTTP_METHOD_PUT
-	case "PATCH":
-		return httpv1.HttpMethod_HTTP_METHOD_PATCH
-	case "DELETE":
-		return httpv1.HttpMethod_HTTP_METHOD_DELETE
-	case "HEAD":
-		return httpv1.HttpMethod_HTTP_METHOD_HEAD
-	case "OPTION":
-		return httpv1.HttpMethod_HTTP_METHOD_OPTION
-	case "CONNECT":
-		return httpv1.HttpMethod_HTTP_METHOD_CONNECT
-	default:
-		return httpv1.HttpMethod_HTTP_METHOD_UNSPECIFIED
-	}
-}
-
-func toAPIHttpBodyKind(kind mhttp.HttpBodyKind) httpv1.HttpBodyKind {
-	switch kind {
-	case mhttp.HttpBodyKindNone:
-		return httpv1.HttpBodyKind_HTTP_BODY_KIND_UNSPECIFIED
-	case mhttp.HttpBodyKindFormData:
-		return httpv1.HttpBodyKind_HTTP_BODY_KIND_FORM_DATA
-	case mhttp.HttpBodyKindUrlEncoded:
-		return httpv1.HttpBodyKind_HTTP_BODY_KIND_URL_ENCODED
-	case mhttp.HttpBodyKindRaw:
-		return httpv1.HttpBodyKind_HTTP_BODY_KIND_RAW
-	default:
-		return httpv1.HttpBodyKind_HTTP_BODY_KIND_UNSPECIFIED
-	}
-}
-
-func toAPIHttpHeader(header *mhttp.HTTPHeader) *httpv1.HttpHeader {
-	return &httpv1.HttpHeader{
-		HttpHeaderId: header.ID.Bytes(),
-		HttpId:       header.HttpID.Bytes(),
-		Key:          header.HeaderKey,
-		Value:        header.HeaderValue,
-		Enabled:      header.Enabled,
-		Description:  header.Description,
-		Order:        0,
-	}
-}
-
-func toAPIHttpSearchParam(param *mhttp.HTTPSearchParam) *httpv1.HttpSearchParam {
-	return &httpv1.HttpSearchParam{
-		HttpSearchParamId: param.ID.Bytes(),
-		HttpId:            param.HttpID.Bytes(),
-		Key:               param.ParamKey,
-		Value:             param.ParamValue,
-		Enabled:           param.Enabled,
-		Description:       param.Description,
-		Order:             0,
-	}
-}
-
-func toAPIHttpBodyFormData(form *mhttp.HTTPBodyForm) *httpv1.HttpBodyFormData {
-	return &httpv1.HttpBodyFormData{
-		HttpBodyFormDataId: form.ID.Bytes(),
-		HttpId:             form.HttpID.Bytes(),
-		Key:                form.FormKey,
-		Value:              form.FormValue,
-		Enabled:            form.Enabled,
-		Description:        form.Description,
-	}
-}
-
-func toAPIHttpBodyUrlEncoded(encoded *mhttp.HTTPBodyUrlencoded) *httpv1.HttpBodyUrlEncoded {
-	return &httpv1.HttpBodyUrlEncoded{
-		HttpBodyUrlEncodedId: encoded.ID.Bytes(),
-		HttpId:               encoded.HttpID.Bytes(),
-		Key:                  encoded.UrlencodedKey,
-		Value:                encoded.UrlencodedValue,
-		Enabled:              encoded.Enabled,
-		Description:          encoded.Description,
-	}
-}
-
-func toAPIHttpBodyRaw(raw *mhttp.HTTPBodyRaw) *httpv1.HttpBodyRaw {
-	return &httpv1.HttpBodyRaw{
-		Data: string(raw.RawData),
-	}
-}
-
-// toAPIFile converts a model File to an API File
-func toAPIFile(file mfile.File) *filev1.File {
-	apiFile := &filev1.File{
-		FileId:      file.ID.Bytes(),
-		WorkspaceId: file.WorkspaceID.Bytes(),
-		Order:       float32(file.Order),
-		Kind:        toAPIFileKind(file.ContentType),
-	}
-
-	if file.FolderID != nil {
-		apiFile.ParentFolderId = file.FolderID.Bytes()
-	}
-
-	return apiFile
-}
-
-// toAPIFileKind converts a model ContentType to an API FileKind
-func toAPIFileKind(kind mfile.ContentType) filev1.FileKind {
-	switch kind {
-	case mfile.ContentTypeFolder:
-		return filev1.FileKind_FILE_KIND_FOLDER
-	case mfile.ContentTypeHTTP:
-		return filev1.FileKind_FILE_KIND_HTTP
-	case mfile.ContentTypeFlow:
-		return filev1.FileKind_FILE_KIND_FLOW
-	default:
-		return filev1.FileKind_FILE_KIND_UNSPECIFIED
 	}
 }

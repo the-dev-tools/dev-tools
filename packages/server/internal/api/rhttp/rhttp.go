@@ -12,16 +12,15 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	dbmodels "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/http/request"
@@ -331,231 +330,12 @@ func CreateService(srv HttpServiceRPC, options []connect.HandlerOption) (*api.Se
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-// toAPIHttp converts model HTTP to API HTTP
-func toAPIHttp(http mhttp.HTTP) *apiv1.Http {
-	apiHttp := &apiv1.Http{
-		HttpId:   http.ID.Bytes(),
-		Name:     http.Name,
-		Url:      http.Url,
-		Method:   toAPIHttpMethod(http.Method),
-		BodyKind: toAPIHttpBodyKind(http.BodyKind),
-	}
-
-	if http.LastRunAt != nil {
-		apiHttp.LastRunAt = timestamppb.New(time.Unix(*http.LastRunAt, 0))
-	}
-
-	if http.FolderID != nil {
-		// Note: FolderId field may need to be added to API proto if not present
-		// apiHttp.FolderId = http.FolderID.Bytes()
-	}
-
-	return apiHttp
-}
-
-// toAPIHttpBodyKind converts model HttpBodyKind to API HttpBodyKind
-func toAPIHttpBodyKind(kind mhttp.HttpBodyKind) apiv1.HttpBodyKind {
-	switch kind {
-	case mhttp.HttpBodyKindNone:
-		return apiv1.HttpBodyKind_HTTP_BODY_KIND_UNSPECIFIED
-	case mhttp.HttpBodyKindFormData:
-		return apiv1.HttpBodyKind_HTTP_BODY_KIND_FORM_DATA
-	case mhttp.HttpBodyKindUrlEncoded:
-		return apiv1.HttpBodyKind_HTTP_BODY_KIND_URL_ENCODED
-	case mhttp.HttpBodyKindRaw:
-		return apiv1.HttpBodyKind_HTTP_BODY_KIND_RAW
-	default:
-		return apiv1.HttpBodyKind_HTTP_BODY_KIND_UNSPECIFIED
-	}
-}
-
-// toAPIHttpMethod converts string method to API HttpMethod
-func toAPIHttpMethod(method string) apiv1.HttpMethod {
-	switch method {
-	case "GET":
-		return apiv1.HttpMethod_HTTP_METHOD_GET
-	case "POST":
-		return apiv1.HttpMethod_HTTP_METHOD_POST
-	case "PUT":
-		return apiv1.HttpMethod_HTTP_METHOD_PUT
-	case "PATCH":
-		return apiv1.HttpMethod_HTTP_METHOD_PATCH
-	case "DELETE":
-		return apiv1.HttpMethod_HTTP_METHOD_DELETE
-	case "HEAD":
-		return apiv1.HttpMethod_HTTP_METHOD_HEAD
-	case "OPTION":
-		return apiv1.HttpMethod_HTTP_METHOD_OPTION
-	case "CONNECT":
-		return apiv1.HttpMethod_HTTP_METHOD_CONNECT
-	default:
-		return apiv1.HttpMethod_HTTP_METHOD_UNSPECIFIED
-	}
-}
-
-// fromAPIHttpBodyKind converts API HttpBodyKind to model HttpBodyKind
-func fromAPIHttpBodyKind(kind apiv1.HttpBodyKind) mhttp.HttpBodyKind {
-	switch kind {
-	case apiv1.HttpBodyKind_HTTP_BODY_KIND_UNSPECIFIED:
-		return mhttp.HttpBodyKindNone
-	case apiv1.HttpBodyKind_HTTP_BODY_KIND_FORM_DATA:
-		return mhttp.HttpBodyKindFormData
-	case apiv1.HttpBodyKind_HTTP_BODY_KIND_URL_ENCODED:
-		return mhttp.HttpBodyKindUrlEncoded
-	case apiv1.HttpBodyKind_HTTP_BODY_KIND_RAW:
-		return mhttp.HttpBodyKindRaw
-	default:
-		return mhttp.HttpBodyKindNone // Default to None if unspecified
-	}
-}
-
-// toAPIHttpHeader converts model HttpHeader to API HttpHeader
-func toAPIHttpHeader(header mhttpheader.HttpHeader) *apiv1.HttpHeader {
-	return &apiv1.HttpHeader{
-		HttpHeaderId: header.ID.Bytes(),
-		HttpId:       header.HttpID.Bytes(),
-		Key:          header.Key,
-		Value:        header.Value,
-		Enabled:      header.Enabled,
-		Description:  header.Description,
-		Order:        float32(header.Order),
-	}
-}
-
-// toAPIHttpSearchParam converts model HttpSearchParam to API HttpSearchParam
-func toAPIHttpSearchParam(param mhttpsearchparam.HttpSearchParam) *apiv1.HttpSearchParam {
-	return &apiv1.HttpSearchParam{
-		HttpSearchParamId: param.ID.Bytes(),
-		HttpId:            param.HttpID.Bytes(),
-		Key:               param.Key,
-		Value:             param.Value,
-		Enabled:           param.Enabled,
-		Description:       param.Description,
-		Order:             float32(param.Order),
-	}
-}
-
-// toAPIHttpBodyFormData converts model HttpBodyForm to API HttpBodyFormData
-func toAPIHttpBodyFormData(form mhttpbodyform.HttpBodyForm) *apiv1.HttpBodyFormData {
-	return &apiv1.HttpBodyFormData{
-		HttpBodyFormDataId: form.ID.Bytes(),
-		HttpId:             form.HttpID.Bytes(),
-		Key:                form.Key,
-		Value:              form.Value,
-		Enabled:            form.Enabled,
-		Description:        form.Description,
-	}
-}
-
-// toAPIHttpBodyUrlEncoded converts model HttpBodyUrlEncoded to API HttpBodyUrlEncoded
-func toAPIHttpBodyUrlEncoded(urlEncoded mhttpbodyurlencoded.HttpBodyUrlEncoded) *apiv1.HttpBodyUrlEncoded {
-	return &apiv1.HttpBodyUrlEncoded{
-		HttpBodyUrlEncodedId: urlEncoded.ID.Bytes(),
-		HttpId:               urlEncoded.HttpID.Bytes(),
-		Key:                  urlEncoded.Key,
-		Value:                urlEncoded.Value,
-		Enabled:              urlEncoded.Enabled,
-		Description:          urlEncoded.Description,
-	}
-}
-
-// toAPIHttpAssert converts model HttpAssert to API HttpAssert
-func toAPIHttpAssert(assert mhttpassert.HttpAssert) *apiv1.HttpAssert {
-	return &apiv1.HttpAssert{
-		HttpAssertId: assert.ID.Bytes(),
-		HttpId:       assert.HttpID.Bytes(),
-		Value:        assert.Value,
-	}
-}
-
-// toAPIHttpVersion converts model HttpVersion to API HttpVersion
-func toAPIHttpVersion(version dbmodels.HttpVersion) *apiv1.HttpVersion {
-	return &apiv1.HttpVersion{
-		HttpVersionId: version.ID.Bytes(),
-		HttpId:        version.HttpID.Bytes(),
-		Name:          version.VersionName,
-		Description:   version.VersionDescription,
-		CreatedAt:     version.CreatedAt,
-	}
-}
-
-// toAPIHttpResponse converts DB HttpResponse to API HttpResponse
-func toAPIHttpResponse(response dbmodels.HttpResponse) *apiv1.HttpResponse {
-	var body string
-	if utf8.Valid(response.Body) {
-		body = string(response.Body)
-	} else {
-		body = fmt.Sprintf("[Binary data: %d bytes]", len(response.Body))
-	}
-
-	return &apiv1.HttpResponse{
-		HttpResponseId: response.ID.Bytes(),
-		HttpId:         response.HttpID.Bytes(),
-		Status:         int32(response.Status.(int32)),
-		Body:           body,
-		Time:           timestamppb.New(response.Time),
-		Duration:       int32(response.Duration.(int32)),
-		Size:           int32(response.Size.(int32)),
-	}
-}
-
-// toAPIHttpResponseHeader converts DB HttpResponseHeader to API HttpResponseHeader
-func toAPIHttpResponseHeader(header dbmodels.HttpResponseHeader) *apiv1.HttpResponseHeader {
-	return &apiv1.HttpResponseHeader{
-		HttpResponseHeaderId: header.ID.Bytes(),
-		HttpResponseId:       header.ResponseID.Bytes(),
-		Key:                  header.Key,
-		Value:                header.Value,
-	}
-}
-
-// toAPIHttpResponseAssert converts DB HttpResponseAssert to API HttpResponseAssert
-func toAPIHttpResponseAssert(assert dbmodels.HttpResponseAssert) *apiv1.HttpResponseAssert {
-	return &apiv1.HttpResponseAssert{
-		HttpResponseAssertId: assert.ID,
-		HttpResponseId:       assert.ResponseID,
-		Value:                assert.Value,
-		Success:              assert.Success,
-	}
-}
-
-// toAPIHttpBodyRaw converts DB HttpBodyRaw to API HttpBodyRaw
-func toAPIHttpBodyRaw(httpID []byte, data string) *apiv1.HttpBodyRaw {
-	return &apiv1.HttpBodyRaw{
-		// HttpId: httpID,
-		Data:   data,
-	}
-}
-
-// fromAPIHttpMethod converts API HttpMethod to string
-func fromAPIHttpMethod(method apiv1.HttpMethod) string {
-	switch method {
-	case apiv1.HttpMethod_HTTP_METHOD_GET:
-		return "GET"
-	case apiv1.HttpMethod_HTTP_METHOD_POST:
-		return "POST"
-	case apiv1.HttpMethod_HTTP_METHOD_PUT:
-		return "PUT"
-	case apiv1.HttpMethod_HTTP_METHOD_PATCH:
-		return "PATCH"
-	case apiv1.HttpMethod_HTTP_METHOD_DELETE:
-		return "DELETE"
-	case apiv1.HttpMethod_HTTP_METHOD_HEAD:
-		return "HEAD"
-	case apiv1.HttpMethod_HTTP_METHOD_OPTION:
-		return "OPTION"
-	case apiv1.HttpMethod_HTTP_METHOD_CONNECT:
-		return "CONNECT"
-	default:
-		return ""
-	}
-}
 
 // publishInsertEvent publishes an insert event for real-time sync
 func (h *HttpServiceRPC) publishInsertEvent(http mhttp.HTTP) {
 	h.stream.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
 		Type: eventTypeInsert,
-		Http: toAPIHttp(http),
+		Http: converter.ToAPIHttp(http),
 	})
 }
 
@@ -563,7 +343,7 @@ func (h *HttpServiceRPC) publishInsertEvent(http mhttp.HTTP) {
 func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP) {
 	h.stream.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
 		Type: eventTypeUpdate,
-		Http: toAPIHttp(http),
+		Http: converter.ToAPIHttp(http),
 	})
 }
 
@@ -581,7 +361,7 @@ func (h *HttpServiceRPC) publishDeleteEvent(httpID, workspaceID idwrap.IDWrap) {
 func (h *HttpServiceRPC) publishVersionInsertEvent(version dbmodels.HttpVersion, workspaceID idwrap.IDWrap) {
 	h.httpVersionStream.Publish(HttpVersionTopic{WorkspaceID: workspaceID}, HttpVersionEvent{
 		Type:        eventTypeInsert,
-		HttpVersion: toAPIHttpVersion(version),
+		HttpVersion: converter.ToAPIHttpVersion(version),
 	})
 }
 
@@ -1126,7 +906,7 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 			delta.Name = http.DeltaName
 		}
 		if http.DeltaMethod != nil {
-			method := toAPIHttpMethod(*http.DeltaMethod)
+			method := converter.ToAPIHttpMethod(*http.DeltaMethod)
 			delta.Method = &method
 		}
 		if http.DeltaUrl != nil {
@@ -1152,7 +932,7 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 			}
 		}
 		if http.DeltaMethod != nil {
-			method := toAPIHttpMethod(*http.DeltaMethod)
+			method := converter.ToAPIHttpMethod(*http.DeltaMethod)
 			delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
 				Kind:       470142787, // KIND_HTTP_METHOD
 				HttpMethod: &method,
@@ -1216,7 +996,7 @@ func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWra
 				Topic: HttpTopic{WorkspaceID: http.WorkspaceID},
 				Payload: HttpEvent{
 					Type: eventTypeInsert,
-					Http: toAPIHttp(http),
+					Http: converter.ToAPIHttp(http),
 				},
 			})
 		}
@@ -1680,7 +1460,7 @@ func (h *HttpServiceRPC) HttpCollection(ctx context.Context, req *connect.Reques
 
 	items := make([]*apiv1.Http, 0, len(httpList))
 	for _, http := range httpList {
-		items = append(items, toAPIHttp(http))
+		items = append(items, converter.ToAPIHttp(http))
 	}
 
 	return connect.NewResponse(&apiv1.HttpCollectionResponse{Items: items}), nil
@@ -1729,9 +1509,9 @@ func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[ap
 			WorkspaceID: defaultWorkspaceID,
 			Name:        item.Name,
 			Url:         item.Url,
-			Method:      fromAPIHttpMethod(item.Method),
+			Method:      converter.FromAPIHttpMethod(item.Method),
 			Description: "", // Description field not available in API yet
-			BodyKind:    fromAPIHttpBodyKind(item.BodyKind),
+			BodyKind:    converter.FromAPIHttpBodyKind(item.BodyKind),
 		}
 
 		httpModels = append(httpModels, httpModel)
@@ -1806,11 +1586,11 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 			url = item.Url
 		}
 		if item.Method != nil {
-			m := fromAPIHttpMethod(*item.Method)
+			m := converter.FromAPIHttpMethod(*item.Method)
 			method = &m
 		}
 		if item.BodyKind != nil {
-			bk := fromAPIHttpBodyKind(*item.BodyKind)
+			bk := converter.FromAPIHttpBodyKind(*item.BodyKind)
 			bodyKind = &bk
 		}
 
@@ -2107,7 +1887,7 @@ func (h *HttpServiceRPC) HttpDeltaInsert(ctx context.Context, req *connect.Reque
 			DeltaUrl:     item.Url,
 			DeltaMethod: func() *string {
 				if item.Method != nil {
-					methodStr := fromAPIHttpMethod(*item.Method)
+					methodStr := converter.FromAPIHttpMethod(*item.Method)
 					return &methodStr
 				}
 				return nil
@@ -2241,7 +2021,7 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 	for _, delta := range updatedDeltas {
 		h.stream.Publish(HttpTopic{WorkspaceID: delta.WorkspaceID}, HttpEvent{
 			Type: eventTypeUpdate,
-			Http: toAPIHttp(delta),
+			Http: converter.ToAPIHttp(delta),
 		})
 	}
 
@@ -2326,7 +2106,7 @@ func (h *HttpServiceRPC) HttpDeltaDelete(ctx context.Context, req *connect.Reque
 	for i, delta := range deletedDeltas {
 		h.stream.Publish(HttpTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpEvent{
 			Type: eventTypeDelete,
-			Http: toAPIHttp(delta),
+			Http: converter.ToAPIHttp(delta),
 		})
 	}
 
@@ -2364,7 +2144,7 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 				Topic: HttpTopic{WorkspaceID: http.WorkspaceID},
 				Payload: HttpEvent{
 					Type: eventTypeInsert,
-					Http: toAPIHttp(http),
+					Http: converter.ToAPIHttp(http),
 				},
 			})
 		}
@@ -2715,7 +2495,7 @@ func (h *HttpServiceRPC) HttpVersionCollection(ctx context.Context, req *connect
 
 			// Convert to API format
 			for _, version := range versions {
-				apiVersion := toAPIHttpVersion(version)
+				apiVersion := converter.ToAPIHttpVersion(version)
 				allVersions = append(allVersions, apiVersion)
 			}
 		}
@@ -2765,7 +2545,7 @@ func (h *HttpServiceRPC) HttpSearchParamCollection(ctx context.Context, req *con
 
 			// Convert to API format
 			for _, param := range params {
-				apiParam := toAPIHttpSearchParam(param)
+				apiParam := converter.ToAPIHttpSearchParam(param)
 				allParams = append(allParams, apiParam)
 			}
 		}
@@ -2865,7 +2645,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 		}
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
 			Type:            eventTypeInsert,
-			HttpSearchParam: toAPIHttpSearchParam(param),
+			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
 	}
 
@@ -2977,7 +2757,7 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		}
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
 			Type:            eventTypeUpdate,
-			HttpSearchParam: toAPIHttpSearchParam(param),
+			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
 	}
 
@@ -3066,7 +2846,7 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 	for i, param := range deletedParams {
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
 			Type:            eventTypeDelete,
-			HttpSearchParam: toAPIHttpSearchParam(param),
+			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
 	}
 
@@ -3109,7 +2889,7 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 					Topic: HttpSearchParamTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpSearchParamEvent{
 						Type:            eventTypeInsert,
-						HttpSearchParam: toAPIHttpSearchParam(param),
+						HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 					},
 				})
 			}
@@ -3167,7 +2947,7 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 					Topic: HttpAssertTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpAssertEvent{
 						Type:       eventTypeInsert,
-						HttpAssert: toAPIHttpAssert(assert),
+						HttpAssert: converter.ToAPIHttpAssert(assert),
 					},
 				})
 			}
@@ -3225,7 +3005,7 @@ func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwra
 					Topic: HttpVersionTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpVersionEvent{
 						Type:        eventTypeInsert,
-						HttpVersion: toAPIHttpVersion(version),
+						HttpVersion: converter.ToAPIHttpVersion(version),
 					},
 				})
 			}
@@ -3531,7 +3311,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 		}
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
 			Type:            eventTypeUpdate,
-			HttpSearchParam: toAPIHttpSearchParam(param),
+			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
 	}
 
@@ -3625,7 +3405,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 	for i, param := range deletedParams {
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
 			Type:            eventTypeDelete,
-			HttpSearchParam: toAPIHttpSearchParam(param),
+			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
 	}
 
@@ -3670,7 +3450,7 @@ func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.
 
 			// Convert to API format
 			for _, assert := range asserts {
-				apiAssert := toAPIHttpAssert(assert)
+				apiAssert := converter.ToAPIHttpAssert(assert)
 				allAsserts = append(allAsserts, apiAssert)
 			}
 		}
@@ -3770,7 +3550,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 		}
 		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
 			Type:       eventTypeInsert,
-			HttpAssert: toAPIHttpAssert(assert),
+			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
 	}
 
@@ -3871,7 +3651,7 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 		}
 		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
 			Type:       eventTypeUpdate,
-			HttpAssert: toAPIHttpAssert(assert),
+			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
 	}
 
@@ -3962,7 +3742,7 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 	for i, assert := range deletedAsserts {
 		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpAssertEvent{
 			Type:       eventTypeDelete,
-			HttpAssert: toAPIHttpAssert(assert),
+			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
 	}
 
@@ -4146,7 +3926,7 @@ func (h *HttpServiceRPC) HttpResponseCollection(ctx context.Context, req *connec
 				response.Duration = duration
 				response.Size = size
 
-				apiResponse := toAPIHttpResponse(response)
+				apiResponse := converter.ToAPIHttpResponse(response)
 				allResponses = append(allResponses, apiResponse)
 			}
 
@@ -4224,7 +4004,7 @@ func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwr
 					Topic: HttpResponseTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpResponseEvent{
 						Type:         eventTypeInsert,
-						HttpResponse: toAPIHttpResponse(response),
+						HttpResponse: converter.ToAPIHttpResponse(response),
 					},
 				})
 			}
@@ -4308,7 +4088,7 @@ func (h *HttpServiceRPC) HttpResponseHeaderCollection(ctx context.Context, req *
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
 
-				apiHeader := toAPIHttpResponseHeader(header)
+				apiHeader := converter.ToAPIHttpResponseHeader(header)
 				allHeaders = append(allHeaders, apiHeader)
 			}
 
@@ -4378,7 +4158,7 @@ func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userI
 					Topic: HttpResponseHeaderTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpResponseHeaderEvent{
 						Type:               eventTypeInsert,
-						HttpResponseHeader: toAPIHttpResponseHeader(header),
+						HttpResponseHeader: converter.ToAPIHttpResponseHeader(header),
 					},
 				})
 			}
@@ -4462,7 +4242,7 @@ func (h *HttpServiceRPC) HttpResponseAssertCollection(ctx context.Context, req *
 					return nil, connect.NewError(connect.CodeInternal, err)
 				}
 
-				apiAssert := toAPIHttpResponseAssert(assert)
+				apiAssert := converter.ToAPIHttpResponseAssert(assert)
 				allAsserts = append(allAsserts, apiAssert)
 			}
 
@@ -4532,7 +4312,7 @@ func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userI
 					Topic: HttpResponseAssertTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpResponseAssertEvent{
 						Type:               eventTypeInsert,
-						HttpResponseAssert: toAPIHttpResponseAssert(assert),
+						HttpResponseAssert: converter.ToAPIHttpResponseAssert(assert),
 					},
 				})
 			}
@@ -4598,7 +4378,7 @@ func (h *HttpServiceRPC) HttpHeaderCollection(ctx context.Context, req *connect.
 
 			// Convert to API format
 			for _, header := range headers {
-				apiHeader := toAPIHttpHeader(header)
+				apiHeader := converter.ToAPIHttpHeader(header)
 				allHeaders = append(allHeaders, apiHeader)
 			}
 		}
@@ -4715,7 +4495,7 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 	for i, header := range createdHeaders {
 		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: insertData[i].workspaceID}, HttpHeaderEvent{
 			Type:       eventTypeInsert,
-			HttpHeader: toAPIHttpHeader(header),
+			HttpHeader: converter.ToAPIHttpHeader(header),
 		})
 	}
 
@@ -4833,7 +4613,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 	for i, header := range updatedHeaders {
 		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: updateData[i].workspaceID}, HttpHeaderEvent{
 			Type:       eventTypeUpdate,
-			HttpHeader: toAPIHttpHeader(header),
+			HttpHeader: converter.ToAPIHttpHeader(header),
 		})
 	}
 
@@ -4964,7 +4744,7 @@ func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap
 					Topic: HttpHeaderTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpHeaderEvent{
 						Type:       eventTypeInsert,
-						HttpHeader: toAPIHttpHeader(header),
+						HttpHeader: converter.ToAPIHttpHeader(header),
 					},
 				})
 			}
@@ -5277,7 +5057,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 		}
 		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpHeaderEvent{
 			Type:       eventTypeUpdate,
-			HttpHeader: toAPIHttpHeader(header),
+			HttpHeader: converter.ToAPIHttpHeader(header),
 		})
 	}
 
@@ -5371,7 +5151,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 	for i, header := range deletedHeaders {
 		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpHeaderEvent{
 			Type:       eventTypeDelete,
-			HttpHeader: toAPIHttpHeader(header),
+			HttpHeader: converter.ToAPIHttpHeader(header),
 		})
 	}
 
@@ -5416,7 +5196,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataCollection(ctx context.Context, req *co
 
 			// Convert to API format
 			for _, bodyForm := range bodyForms {
-				apiBodyForm := toAPIHttpBodyFormData(bodyForm)
+				apiBodyForm := converter.ToAPIHttpBodyFormData(bodyForm)
 				allBodyForms = append(allBodyForms, apiBodyForm)
 			}
 		}
@@ -5518,7 +5298,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 		}
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeInsert,
-			HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
+			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 		})
 	}
 
@@ -5630,7 +5410,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		}
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeUpdate,
-			HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
+			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 		})
 	}
 
@@ -5721,7 +5501,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 	for i, bodyForm := range deletedBodyForms {
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyFormEvent{
 			Type:         eventTypeDelete,
-			HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
+			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 		})
 	}
 
@@ -5814,7 +5594,7 @@ func (h *HttpServiceRPC) streamHttpSearchParamDeltaSync(ctx context.Context, use
 					Topic: HttpSearchParamTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpSearchParamEvent{
 						Type:            eventTypeInsert,
-						HttpSearchParam: toAPIHttpSearchParam(param),
+						HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 					},
 				})
 			}
@@ -5900,7 +5680,7 @@ func (h *HttpServiceRPC) streamHttpHeaderDeltaSync(ctx context.Context, userID i
 					Topic: HttpHeaderTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpHeaderEvent{
 						Type:       eventTypeInsert,
-						HttpHeader: toAPIHttpHeader(header),
+						HttpHeader: converter.ToAPIHttpHeader(header),
 					},
 				})
 			}
@@ -5986,7 +5766,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 					Topic: HttpBodyFormTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyFormEvent{
 						Type:         eventTypeInsert,
-						HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
+						HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 					},
 				})
 			}
@@ -6072,7 +5852,7 @@ func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID i
 					Topic: HttpAssertTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpAssertEvent{
 						Type:       eventTypeInsert,
-						HttpAssert: toAPIHttpAssert(assert),
+						HttpAssert: converter.ToAPIHttpAssert(assert),
 					},
 				})
 			}
@@ -6155,7 +5935,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 					Topic: HttpBodyFormTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyFormEvent{
 						Type:         eventTypeInsert,
-						HttpBodyForm: toAPIHttpBodyFormData(bodyForm),
+						HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 					},
 				})
 			}
@@ -6340,7 +6120,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedCollection(ctx context.Context, req *
 
 			// Convert to API format
 			for _, bodyUrlEncoded := range bodyUrlEncodeds {
-				apiBodyUrlEncoded := toAPIHttpBodyUrlEncoded(bodyUrlEncoded)
+				apiBodyUrlEncoded := converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded)
 				allBodyUrlEncodeds = append(allBodyUrlEncodeds, apiBodyUrlEncoded)
 			}
 		}
@@ -6440,7 +6220,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 		}
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeInsert,
-			HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
 	}
 
@@ -6552,7 +6332,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		}
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeUpdate,
-			HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
 	}
 
@@ -6643,7 +6423,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 	for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeDelete,
-			HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
 	}
 
@@ -7182,7 +6962,7 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedDeltaSync(ctx context.Context, 
 					Topic: HttpBodyUrlEncodedTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyUrlEncodedEvent{
 						Type:               eventTypeInsert,
-						HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+						HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 					},
 				})
 			}
@@ -7265,7 +7045,7 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userI
 					Topic: HttpBodyUrlEncodedTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyUrlEncodedEvent{
 						Type:               eventTypeInsert,
-						HttpBodyUrlEncoded: toAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+						HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 					},
 				})
 			}
@@ -7449,11 +7229,7 @@ func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect
 			}
 
 			if body != nil {
-				bodyRaw := &apiv1.HttpBodyRaw{
-					// HttpId: http.ID.Bytes(),
-					Data:   string(body.RawData), // Convert []byte to string
-				}
-				allBodies = append(allBodies, bodyRaw)
+				allBodies = append(allBodies, converter.ToAPIHttpBodyRawFromMHttp(*body))
 			}
 		}
 	}
@@ -7667,10 +7443,8 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 				events = append(events, eventstream.Event[HttpBodyRawTopic, HttpBodyRawEvent]{
 					Topic: HttpBodyRawTopic{WorkspaceID: http.WorkspaceID},
 					Payload: HttpBodyRawEvent{
-						Type: eventTypeInsert,
-						HttpBodyRaw: &apiv1.HttpBodyRaw{
-							Data: string(bodyRaw.RawData), // Convert byte slice to string
-						},
+						Type:        eventTypeInsert,
+						HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*bodyRaw),
 					},
 				})
 			}
@@ -7818,7 +7592,7 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 		}
 		headerEvents = append(headerEvents, HttpResponseHeaderEvent{
 			Type: eventTypeInsert,
-			HttpResponseHeader: toAPIHttpResponseHeader(dbmodels.HttpResponseHeader{
+			HttpResponseHeader: converter.ToAPIHttpResponseHeader(dbmodels.HttpResponseHeader{
 				ID:         headerID,
 				ResponseID: responseID,
 				Key:        header.HeaderKey,
@@ -7836,7 +7610,7 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	topic := HttpResponseTopic{WorkspaceID: httpEntry.WorkspaceID}
 	h.httpResponseStream.Publish(topic, HttpResponseEvent{
 		Type:         eventTypeInsert,
-		HttpResponse: toAPIHttpResponse(httpResponse),
+		HttpResponse: converter.ToAPIHttpResponse(httpResponse),
 	})
 
 	headerTopic := HttpResponseHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}
@@ -8091,7 +7865,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 
 		events = append(events, HttpResponseAssertEvent{
 			Type: eventTypeInsert,
-			HttpResponseAssert: toAPIHttpResponseAssert(dbmodels.HttpResponseAssert{
+			HttpResponseAssert: converter.ToAPIHttpResponseAssert(dbmodels.HttpResponseAssert{
 				ID:         assertID.Bytes(),
 				ResponseID: responseID.Bytes(),
 				Value:      value,
