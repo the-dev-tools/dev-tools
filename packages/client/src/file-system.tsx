@@ -29,7 +29,7 @@ import { FlowService } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
 import { HttpMethod, HttpService } from '@the-dev-tools/spec/api/http/v1/http_pb';
 import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Button } from '@the-dev-tools/ui/button';
 import { FlowsIcon, FolderOpenedIcon } from '@the-dev-tools/ui/icons';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
@@ -41,10 +41,11 @@ import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-fie
 import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
 import { useApiCollection } from '~/api-new';
-import { flowLayoutRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
+import { useConnectMutation } from '~/api/connect-query';
+import { flowLayoutRouteApi, httpDeltaRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
+import { useDeltaState } from '~/utils/delta';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 import { pick } from '~/utils/tanstack-db';
-import { useConnectMutation } from '~api/connect-query';
 
 interface FileCreateMenuProps {
   parentFolderId?: Uint8Array;
@@ -161,7 +162,7 @@ export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionM
       fileCollection.utils.update({
         fileId: source.fileId,
         order: await getNextOrder(fileCollection),
-        parentFolderId: { bytes: target.fileId, kind: FileUpdate_ParentFolderIdUnion_Kind.BYTES },
+        parentFolderId: { kind: FileUpdate_ParentFolderIdUnion_Kind.VALUE, value: target.fileId },
       });
     },
 
@@ -344,6 +345,16 @@ const HttpFile = ({ id }: FileItemProps) => {
     Option.getOrThrow,
   );
 
+  const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
+
+  const { data: deltas } = useLiveQuery(
+    (_) =>
+      _.from({ item: deltaCollection })
+        .where((_) => eq(_.item.httpId, httpId))
+        .select((_) => pick(_.item, 'deltaHttpId')),
+    [deltaCollection, httpId],
+  );
+
   const modal = useProgrammaticModal();
 
   const duplicateMutation = useConnectMutation(HttpService.method.httpDuplicate);
@@ -394,6 +405,12 @@ const HttpFile = ({ id }: FileItemProps) => {
           </Button>
 
           <Menu {...menuProps}>
+            <MenuItem
+              onAction={() => void deltaCollection.utils.insert({ deltaHttpId: Ulid.generate().bytes, httpId })}
+            >
+              New delta
+            </MenuItem>
+
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
             <MenuItem onAction={() => duplicateMutation.mutateAsync({ httpId })}>Duplicate</MenuItem>
@@ -460,8 +477,106 @@ const HttpFile = ({ id }: FileItemProps) => {
     children: content,
     className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
     id,
+    item: (_) => <HttpDeltaFile id={deltaCollection.utils.getKey(_)} />,
+    items: deltas,
     onContextMenu,
     textValue: name,
+  } satisfies TreeItemProps<(typeof deltas)[number]>;
+
+  return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;
+};
+
+const HttpDeltaFile = ({ id }: FileItemProps) => {
+  const matchRoute = useMatchRoute();
+
+  const collection = useApiCollection(HttpDeltaCollectionSchema);
+
+  const { deltaHttpId } = useMemo(() => collection.utils.parseKeyUnsafe(id), [collection.utils, id]);
+
+  const { httpId } = useLiveQuery(
+    (_) =>
+      _.from({ item: collection })
+        .where((_) => eq(_.item.deltaHttpId, deltaHttpId))
+        .select((_) => pick(_.item, 'httpId'))
+        .findOne(),
+    [collection, deltaHttpId],
+  ).data!;
+
+  const deltaOptions = {
+    deltaId: deltaHttpId,
+    deltaSchema: HttpDeltaCollectionSchema,
+    originId: httpId,
+    originSchema: HttpCollectionSchema,
+  } as const;
+
+  const [name, setName] = useDeltaState({ ...deltaOptions, valueKey: 'name' });
+  const [method] = useDeltaState({ ...deltaOptions, valueKey: 'method' });
+
+  const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
+
+  const { escapeRef, escapeRender } = useEscapePortal(containerRef);
+
+  const { edit, isEditing, textFieldProps } = useEditableTextState({
+    onSuccess: (_) => {
+      if (_ === name) return;
+      setName(_);
+    },
+    value: name ?? '',
+  });
+
+  const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
+
+  const route = {
+    from: workspaceRouteApi.id,
+    params: {
+      deltaHttpIdCan: Ulid.construct(deltaHttpId).toCanonical(),
+      httpIdCan: Ulid.construct(httpId).toCanonical(),
+    },
+    to: httpDeltaRouteApi.id,
+  } satisfies ToOptions;
+
+  const content = (
+    <>
+      <MethodBadge method={method ?? HttpMethod.UNSPECIFIED} />
+
+      <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
+        {name}
+      </Text>
+
+      {isEditing &&
+        escapeRender(
+          <TextInputField
+            aria-label='HTTP request name'
+            className={tw`w-full`}
+            inputClassName={tw`-my-1 py-1`}
+            {...textFieldProps}
+          />,
+        )}
+
+      {showControls && (
+        <MenuTrigger {...menuTriggerProps}>
+          <Button className={tw`p-0.5`} variant='ghost'>
+            <FiMoreHorizontal className={tw`size-4 text-slate-500`} />
+          </Button>
+
+          <Menu {...menuProps}>
+            <MenuItem onAction={() => void edit()}>Rename</MenuItem>
+
+            <MenuItem onAction={() => void collection.utils.delete({ deltaHttpId })} variant='danger'>
+              Delete
+            </MenuItem>
+          </Menu>
+        </MenuTrigger>
+      )}
+    </>
+  );
+
+  const props = {
+    children: content,
+    className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
+    id,
+    onContextMenu,
+    textValue: name ?? '',
   } satisfies TreeItemProps<object>;
 
   return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;

@@ -1,33 +1,28 @@
-import { eq, useLiveQuery } from '@tanstack/react-db';
-import { Option, pipe } from 'effect';
-import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
 import { httpRouteApi } from '~/routes';
-import { pick } from '~/utils/tanstack-db';
+import { useDeltaState } from '~utils/delta';
 
 export interface HttpTabProps {
+  deltaHttpId?: Uint8Array;
   httpId: Uint8Array;
 }
 
-export const httpTabId = ({ httpId }: HttpTabProps) => JSON.stringify({ httpId, route: httpRouteApi.id });
+export const httpTabId = ({ deltaHttpId, httpId }: HttpTabProps) =>
+  JSON.stringify({ deltaHttpId, httpId, route: httpRouteApi.id });
 
-export const HttpTab = ({ httpId }: HttpTabProps) => {
-  const httpCollection = useApiCollection(HttpCollectionSchema);
+export const HttpTab = ({ deltaHttpId, httpId }: HttpTabProps) => {
+  const deltaOptions = {
+    deltaId: deltaHttpId,
+    deltaSchema: HttpDeltaCollectionSchema,
+    isDelta: deltaHttpId !== undefined,
+    originId: httpId,
+    originSchema: HttpCollectionSchema,
+  };
 
-  const { method, name } = pipe(
-    useLiveQuery(
-      (_) =>
-        _.from({ item: httpCollection })
-          .where((_) => eq(_.item.httpId, httpId))
-          .select((_) => pick(_.item, 'name', 'method'))
-          .findOne(),
-      [httpCollection, httpId],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+  const [method] = useDeltaState({ ...deltaOptions, valueKey: 'method' });
+  const [name] = useDeltaState({ ...deltaOptions, valueKey: 'name' });
 
   return (
     <>

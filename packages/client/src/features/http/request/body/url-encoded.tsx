@@ -1,82 +1,45 @@
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import { eq, or, useLiveQuery } from '@tanstack/react-db';
 import { Ulid } from 'id128';
 import { useDragAndDrop } from 'react-aria-components';
-import { HttpBodyUrlEncoded } from '@the-dev-tools/spec/api/http/v1/http_pb';
-import { HttpBodyUrlEncodedCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
-import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
+import {
+  HttpBodyUrlEncodedCollectionSchema,
+  HttpBodyUrlEncodedDeltaCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { DataTable } from '@the-dev-tools/ui/data-table';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { Protobuf, useApiCollection } from '~/api-new';
-import {
-  columnActionsCommon,
-  columnCheckboxField,
-  columnReferenceField,
-  columnTextField,
-  displayTable,
-  ReactTableNoMemo,
-  useFormTable,
-  useFormTableAddRow,
-} from '~/form-table';
+import { useApiCollection } from '~/api-new';
+import { ReactTableNoMemo, useFormTableAddRow } from '~/form-table';
+import { deltaActionsColumn, deltaCheckboxColumn, deltaReferenceColumn, deltaTextFieldColumn } from '~/utils/delta';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
+import { pick } from '~/utils/tanstack-db';
 
-const dataColumns = [
-  columnCheckboxField<HttpBodyUrlEncoded>('enabled', { meta: { divider: false } }),
-  columnReferenceField<HttpBodyUrlEncoded>('key', { meta: { isRowHeader: true } }),
-  columnReferenceField<HttpBodyUrlEncoded>('value', { allowFiles: true }),
-  columnTextField<HttpBodyUrlEncoded>('description', { meta: { divider: false } }),
-];
-
-export interface UrlEncodedTableProps {
+export interface BodyUrlEncodedTableProps {
+  deltaHttpId: Uint8Array | undefined;
   httpId: Uint8Array;
   isReadOnly?: boolean;
 }
 
-export const UrlEncodedTable = ({ httpId, isReadOnly = false }: UrlEncodedTableProps) => {
-  if (isReadOnly) return <DisplayTable httpId={httpId} />;
-  return <EditTable httpId={httpId} />;
-};
-
-interface DisplayTableProps {
-  httpId: Uint8Array;
-}
-
-const DisplayTable = ({ httpId }: DisplayTableProps) => {
+export const BodyUrlEncodedTable = ({ deltaHttpId, httpId, isReadOnly = false }: BodyUrlEncodedTableProps) => {
   const collection = useApiCollection(HttpBodyUrlEncodedCollectionSchema);
 
-  const { data: items } = useLiveQuery(
+  const items = useLiveQuery(
     (_) =>
       _.from({ item: collection })
-        .where((_) => eq(_.item.httpId, httpId))
-        .orderBy((_) => _.item.order),
-    [collection, httpId],
-  );
+        .where((_) => or(eq(_.item.httpId, httpId), eq(_.item.httpId, deltaHttpId)))
+        .orderBy((_) => _.item.order)
+        .select((_) => pick(_.item, 'httpBodyUrlEncodedId', 'order')),
+    [collection, deltaHttpId, httpId],
+  ).data.map((_) => pick(_, 'httpBodyUrlEncodedId'));
 
-  const table = useReactTable({
-    columns: dataColumns,
-    data: items,
-  });
-
-  return <DataTable {...displayTable<HttpBodyUrlEncoded>()} aria-label='Body items' table={table} />;
-};
-
-interface EditTableProps {
-  httpId: Uint8Array;
-}
-
-const EditTable = ({ httpId }: EditTableProps) => {
-  const collection = useApiCollection(HttpBodyUrlEncodedCollectionSchema);
-
-  const { data: items } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.httpId, httpId))
-        .orderBy((_) => _.item.order),
-    [collection, httpId],
-  );
-
-  const formTable = useFormTable<HttpBodyUrlEncoded>({
-    onUpdate: (_) => collection.utils.update(Protobuf.messageData(_)),
-  });
+  const deltaColumnOptions = {
+    deltaKey: 'deltaHttpBodyUrlEncodedId',
+    deltaParentKey: { httpId: deltaHttpId },
+    deltaSchema: HttpBodyUrlEncodedDeltaCollectionSchema,
+    isDelta: deltaHttpId !== undefined,
+    originKey: 'httpBodyUrlEncodedId',
+    originSchema: HttpBodyUrlEncodedCollectionSchema,
+  } as const;
 
   const addRow = useFormTableAddRow({
     createLabel: 'New body item',
@@ -85,10 +48,9 @@ const EditTable = ({ httpId }: EditTableProps) => {
       void collection.utils.insert({
         enabled: true,
         httpBodyUrlEncodedId: Ulid.generate().bytes,
-        httpId,
+        httpId: deltaHttpId ?? httpId,
         order: await getNextOrder(collection),
       }),
-    primaryColumn: 'key',
   });
 
   const { dragAndDropHooks } = useDragAndDrop({
@@ -100,18 +62,18 @@ const EditTable = ({ httpId }: EditTableProps) => {
   return (
     <ReactTableNoMemo
       columns={[
-        ...dataColumns,
-        columnActionsCommon<HttpBodyUrlEncoded>({
-          onDelete: (_) => collection.utils.delete(Protobuf.messageData(_)),
-        }),
+        deltaCheckboxColumn({ ...deltaColumnOptions, header: '', isReadOnly, valueKey: 'enabled' }),
+        deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, meta: { isRowHeader: true }, valueKey: 'key' }),
+        deltaReferenceColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'value' }),
+        deltaTextFieldColumn({ ...deltaColumnOptions, isReadOnly, valueKey: 'description' }),
+        ...(isReadOnly ? [] : [deltaActionsColumn(deltaColumnOptions)]),
       ]}
       data={items}
-      getRowId={(_) => collection.utils.getKey(_)}
+      getRowId={(_) => collection.utils.getKey({ httpBodyUrlEncodedId: _.httpBodyUrlEncodedId! })}
     >
       {(table) => (
         <DataTable
-          {...formTable}
-          {...addRow}
+          {...(!isReadOnly && addRow)}
           aria-label='Body items'
           containerClassName={tw`col-span-full`}
           dragAndDropHooks={dragAndDropHooks}

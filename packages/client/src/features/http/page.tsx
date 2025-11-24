@@ -4,13 +4,27 @@ import { HttpResponseCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { useApiCollection } from '~/api-new';
 import { ReferenceContext } from '~/reference';
-import { httpRouteApi, workspaceRouteApi } from '~/routes';
+import { httpDeltaRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
 import { pick } from '~/utils/tanstack-db';
 import { HttpRequestPanel, HttpTopBar } from './request';
 import { ResponsePanel } from './response';
 
 export const HttpPage = () => {
-  const { httpId } = httpRouteApi.useLoaderData();
+  const { httpId } = httpRouteApi.useRouteContext();
+  return <Page httpId={httpId} />;
+};
+
+export const HttpDeltaPage = () => {
+  const { deltaHttpId, httpId } = httpDeltaRouteApi.useRouteContext();
+  return <Page deltaHttpId={deltaHttpId} httpId={httpId} />;
+};
+
+interface PageProps {
+  deltaHttpId?: Uint8Array;
+  httpId: Uint8Array;
+}
+
+const Page = ({ deltaHttpId, httpId }: PageProps) => {
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
@@ -18,21 +32,21 @@ export const HttpPage = () => {
   const { data: { httpResponseId } = {} } = useLiveQuery(
     (_) =>
       _.from({ item: responseCollection })
-        .where((_) => eq(_.item.httpId, httpId))
+        .where((_) => eq(_.item.httpId, deltaHttpId ?? httpId))
         .select((_) => pick(_.item, 'httpResponseId'))
         .orderBy((_) => _.item.httpResponseId, 'desc')
         .limit(1)
         .findOne(),
-    [responseCollection, httpId],
+    [responseCollection, deltaHttpId, httpId],
   );
 
   return (
     <PanelGroup autoSaveId='endpoint' direction='vertical'>
       <Panel className='flex h-full flex-col' id='request' order={1}>
         <ReferenceContext value={{ httpId, workspaceId }}>
-          <HttpTopBar httpId={httpId} />
+          <HttpTopBar deltaHttpId={deltaHttpId} httpId={httpId} />
 
-          <HttpRequestPanel httpId={httpId} />
+          <HttpRequestPanel deltaHttpId={deltaHttpId} httpId={httpId} />
         </ReferenceContext>
       </Panel>
 

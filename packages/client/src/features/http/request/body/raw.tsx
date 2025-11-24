@@ -1,13 +1,14 @@
 import { createClient } from '@connectrpc/connect';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import CodeMirror from '@uiw/react-codemirror';
 import { useContext, useState } from 'react';
 import { ReferenceService } from '@the-dev-tools/spec/api/reference/v1/reference_pb';
-import { HttpBodyRawCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import {
+  HttpBodyRawCollectionSchema,
+  HttpBodyRawDeltaCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Button } from '@the-dev-tools/ui/button';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
 import {
   baseCodeMirrorExtensions,
   CodeMirrorMarkupLanguage,
@@ -19,32 +20,29 @@ import { prettierFormat } from '~/prettier';
 import { useReactRender } from '~/react-render';
 import { ReferenceContext } from '~/reference';
 import { rootRouteApi } from '~/routes';
+import { DeltaResetButton, useDeltaState } from '~/utils/delta';
 
 export interface RawFormProps {
+  deltaHttpId: Uint8Array | undefined;
   httpId: Uint8Array;
   isReadOnly?: boolean;
 }
 
-export const RawForm = ({ httpId, isReadOnly = false }: RawFormProps) => {
+export const RawForm = ({ deltaHttpId, httpId, isReadOnly = false }: RawFormProps) => {
   const { transport } = rootRouteApi.useRouteContext();
 
-  const collection = useApiCollection(HttpBodyRawCollectionSchema);
+  const deltaOptions = {
+    deltaId: deltaHttpId,
+    deltaSchema: HttpBodyRawDeltaCollectionSchema,
+    isDelta: deltaHttpId !== undefined,
+    originId: httpId,
+    originSchema: HttpBodyRawCollectionSchema,
+    valueKey: 'data',
+  } as const;
 
-  const data = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.httpId, httpId))
-        .findOne(),
-    [collection, httpId],
-  ).data?.data;
+  const [value, setValue] = useDeltaState(deltaOptions);
 
-  const save = (value: string) => {
-    if (data === undefined) collection.utils.insert({ data: value, httpId });
-    else collection.utils.update({ data: value, httpId });
-  };
-
-  const [value, setValue] = useState(data ?? '');
-  const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>(guessLanguage(data ?? ''));
+  const [language, setLanguage] = useState<CodeMirrorMarkupLanguage>(guessLanguage(value ?? ''));
 
   // Get base language extensions
   const languageExtensions = useCodeMirrorLanguageExtensions(language);
@@ -79,24 +77,24 @@ export const RawForm = ({ httpId, isReadOnly = false }: RawFormProps) => {
           <Button
             className={tw`px-4 py-1`}
             onPress={async () => {
-              const formattedValue = await prettierFormat({ language, text: value });
-              setValue(formattedValue);
-              save(formattedValue);
+              const formatted = await prettierFormat({ language, text: value ?? '' });
+              setValue(formatted);
             }}
           >
             Prettify
           </Button>
         )}
+
+        {!isReadOnly && <DeltaResetButton {...deltaOptions} />}
       </div>
 
       <CodeMirror
         className={tw`col-span-full self-stretch`}
         extensions={combinedExtensions}
         height='100%'
-        onBlur={() => void save(value)}
-        onChange={setValue}
+        onChange={(_) => void setValue(_)}
         readOnly={isReadOnly}
-        value={value}
+        value={value ?? ''}
       />
     </>
   );

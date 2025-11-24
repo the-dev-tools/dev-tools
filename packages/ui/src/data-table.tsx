@@ -19,7 +19,7 @@ export const tableStyles = tv({
   slots: {
     base: tw`grid w-full border-inherit text-md leading-5 text-slate-800`,
     body: tw`col-span-full grid grid-cols-subgrid divide-y border-inherit`,
-    cell: tw`block min-w-0 border-inherit align-middle break-all select-text`,
+    cell: tw`flex h-full min-w-0 items-center border-inherit align-middle break-all select-text`,
     container: tw`block overflow-auto rounded-lg border border-slate-200`,
     footer: tw`
       col-span-full block min-w-0 items-center divide-x border-t border-inherit align-middle break-all select-text

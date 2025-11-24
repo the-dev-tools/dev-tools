@@ -47,6 +47,7 @@ op HttpRun(...HttpRunRequest): {};
 model HttpVersion {
   @primaryKey httpVersionId: Id;
   @foreignKey httpId: Id;
+  @foreignKey deltaHttpId?: Id;
   name: string;
   description: string;
   createdAt: int64;
@@ -80,6 +81,7 @@ model HttpBodyUrlEncoded {
   ...CommonTableFields<Http>;
 }
 
+@withDelta
 @TanStackDB.collection(#{ canDelete: false })
 model HttpBodyRaw {
   @primaryKey httpId: Id;

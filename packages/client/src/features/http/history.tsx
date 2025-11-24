@@ -16,10 +16,11 @@ import { HttpUrl } from './request/url';
 import { ResponsePanel } from './response';
 
 export interface HistoryModalProps {
+  deltaHttpId: Uint8Array | undefined;
   httpId: Uint8Array;
 }
 
-export const HistoryModal = ({ httpId }: HistoryModalProps) => {
+export const HistoryModal = ({ deltaHttpId, httpId }: HistoryModalProps) => {
   'use no memo';
 
   const collection = useApiCollection(HttpVersionCollectionSchema);
@@ -27,9 +28,9 @@ export const HistoryModal = ({ httpId }: HistoryModalProps) => {
   const { data: versions } = useLiveQuery(
     (_) =>
       _.from({ item: collection })
-        .where((_) => eq(_.item.httpId, httpId))
+        .where((_) => eq(_.item.httpId, deltaHttpId ?? httpId))
         .orderBy((_) => _.item.httpVersionId, 'desc'),
-    [collection, httpId],
+    [collection, deltaHttpId, httpId],
   );
 
   return (
@@ -98,7 +99,7 @@ export const HistoryModal = ({ httpId }: HistoryModalProps) => {
                       </div>
                     }
                   >
-                    <Version httpId={_.httpVersionId} />
+                    <Version deltaHttpId={deltaHttpId} httpId={_.httpVersionId} />
                   </Suspense>
                 </TabPanel>
               )}
@@ -111,10 +112,11 @@ export const HistoryModal = ({ httpId }: HistoryModalProps) => {
 };
 
 interface VersionProps {
+  deltaHttpId: Uint8Array | undefined;
   httpId: Uint8Array;
 }
 
-const Version = ({ httpId }: VersionProps) => {
+const Version = ({ deltaHttpId, httpId }: VersionProps) => {
   const responseCollection = useApiCollection(HttpResponseCollectionSchema);
 
   const { data: { httpResponseId } = {} } = useLiveQuery(
@@ -132,10 +134,10 @@ const Version = ({ httpId }: VersionProps) => {
     <PanelGroup autoSaveId='endpoint-versions' direction='vertical'>
       <Panel className={tw`flex h-full flex-col`} id='request' order={1}>
         <div className={tw`p-6 pb-2`}>
-          <HttpUrl httpId={httpId} isReadOnly />
+          <HttpUrl deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly />
         </div>
 
-        <HttpRequestPanel httpId={httpId} isReadOnly />
+        <HttpRequestPanel deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly />
       </Panel>
 
       {httpResponseId && (

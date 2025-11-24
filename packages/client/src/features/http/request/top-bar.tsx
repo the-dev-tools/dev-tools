@@ -1,49 +1,54 @@
-import { eq, useLiveQuery } from '@tanstack/react-db';
-import { Array, Option, pipe } from 'effect';
+import { Array, pipe } from 'effect';
 import { useTransition } from 'react';
 import { Button as AriaButton, DialogTrigger, MenuTrigger } from 'react-aria-components';
 import { FiClock, FiMoreHorizontal } from 'react-icons/fi';
 import { HttpService } from '@the-dev-tools/spec/api/http/v1/http_pb';
-import { HttpCollectionSchema, HttpSearchParamCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import {
+  HttpCollectionSchema,
+  HttpDeltaCollectionSchema,
+  HttpSearchParamCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Button } from '@the-dev-tools/ui/button';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { Connect, useApiCollection } from '~/api-new';
 import { rootRouteApi } from '~/routes';
-import { pick } from '~/utils/tanstack-db';
+import { DeltaResetButton, useDeltaState } from '~/utils/delta';
 import { HistoryModal } from '../history';
 import { HttpUrl } from './url';
 
 export interface HttpTopBarProps {
+  deltaHttpId: Uint8Array | undefined;
   httpId: Uint8Array;
 }
 
-export const HttpTopBar = ({ httpId }: HttpTopBarProps) => {
+export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
   const { transport } = rootRouteApi.useRouteContext();
 
-  const httpCollection = useApiCollection(HttpCollectionSchema);
+  const collection = useApiCollection(HttpCollectionSchema);
+  const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
-  const { name } = pipe(
-    useLiveQuery(
-      (_) =>
-        _.from({ item: httpCollection })
-          .where((_) => eq(_.item.httpId, httpId))
-          .select((_) => pick(_.item, 'name'))
-          .findOne(),
-      [httpCollection, httpId],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+  const deltaOptions = {
+    deltaId: deltaHttpId,
+    deltaSchema: HttpDeltaCollectionSchema,
+    isDelta: deltaHttpId !== undefined,
+    originId: httpId,
+    originSchema: HttpCollectionSchema,
+  };
+
+  const [name, setName] = useDeltaState({ ...deltaOptions, valueKey: 'name' });
 
   const searchParamCollection = useApiCollection(HttpSearchParamCollectionSchema);
 
   const { menuProps, menuTriggerProps, onContextMenu } = useContextMenuState();
 
   const { edit, isEditing, textFieldProps } = useEditableTextState({
-    onSuccess: (_) => httpCollection.utils.update({ httpId, name: _ }),
-    value: name,
+    onSuccess: (_) => {
+      if (_ === name) return;
+      setName(_);
+    },
+    value: name ?? '',
   });
 
   const [isSending, startTransition] = useTransition();
@@ -83,6 +88,8 @@ export const HttpTopBar = ({ httpId }: HttpTopBarProps) => {
               {name}
             </AriaButton>
           )}
+
+          <DeltaResetButton {...deltaOptions} valueKey='name' />
         </div>
 
         <DialogTrigger>
@@ -90,7 +97,7 @@ export const HttpTopBar = ({ httpId }: HttpTopBarProps) => {
             <FiClock className={tw`size-4 text-slate-500`} /> Response History
           </Button>
 
-          <HistoryModal httpId={httpId} />
+          <HistoryModal deltaHttpId={deltaHttpId} httpId={httpId} />
         </DialogTrigger>
 
         <MenuTrigger {...menuTriggerProps}>
@@ -101,7 +108,13 @@ export const HttpTopBar = ({ httpId }: HttpTopBarProps) => {
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem onAction={() => void httpCollection.utils.delete({ httpId })} variant='danger'>
+            <MenuItem
+              onAction={() => {
+                if (deltaHttpId) deltaCollection.utils.delete({ deltaHttpId });
+                else collection.utils.delete({ httpId });
+              }}
+              variant='danger'
+            >
               Delete
             </MenuItem>
           </Menu>
@@ -109,14 +122,14 @@ export const HttpTopBar = ({ httpId }: HttpTopBarProps) => {
       </div>
 
       <div className={tw`flex gap-3 p-6 pb-0`}>
-        <HttpUrl httpId={httpId} />
+        <HttpUrl deltaHttpId={deltaHttpId} httpId={httpId} />
 
         <Button
           className={tw`px-6`}
           isPending={isSending}
           onPress={() =>
             void startTransition(async () => {
-              const httpTransactions = Array.fromIterable(httpCollection._state.transactions.values());
+              const httpTransactions = Array.fromIterable(collection._state.transactions.values());
               const searchParamTransactions = Array.fromIterable(searchParamCollection._state.transactions.values());
 
               await pipe(

@@ -4,39 +4,42 @@ import { Array, flow, MutableHashSet, Option, pipe, Record, String, Struct } fro
 import { Ulid } from 'id128';
 import { useForm } from 'react-hook-form';
 import {
+  HttpMethod,
   HttpMethodSchema,
   HttpSearchParamInsertSchema,
   HttpSearchParamUpdateSchema,
 } from '@the-dev-tools/spec/api/http/v1/http_pb';
-import { HttpCollectionSchema, HttpSearchParamCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import {
+  HttpCollectionSchema,
+  HttpDeltaCollectionSchema,
+  HttpSearchParamCollectionSchema,
+} from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { Protobuf, useApiCollection } from '~/api-new';
 import { ReferenceFieldRHF } from '~/reference';
+import { DeltaResetButton, useDeltaState } from '~/utils/delta';
 import { pick, queryCollection } from '~/utils/tanstack-db';
 
 export interface HttpUrlProps {
+  deltaHttpId: Uint8Array | undefined;
   httpId: Uint8Array;
   isReadOnly?: boolean;
 }
 
-export const HttpUrl = ({ httpId, isReadOnly = false }: HttpUrlProps) => {
-  const httpCollection = useApiCollection(HttpCollectionSchema);
+export const HttpUrl = ({ deltaHttpId, httpId, isReadOnly = false }: HttpUrlProps) => {
+  const deltaOptions = {
+    deltaId: deltaHttpId,
+    deltaSchema: HttpDeltaCollectionSchema,
+    isDelta: deltaHttpId !== undefined,
+    originId: httpId,
+    originSchema: HttpCollectionSchema,
+  };
 
-  const { method, url } = pipe(
-    useLiveQuery(
-      (_) =>
-        _.from({ item: httpCollection })
-          .where((_) => eq(_.item.httpId, httpId))
-          .select((_) => pick(_.item, 'url', 'method'))
-          .findOne(),
-      [httpCollection, httpId],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+  const [method, setMethod] = useDeltaState({ ...deltaOptions, valueKey: 'method' });
+  const [url, setUrl] = useDeltaState({ ...deltaOptions, valueKey: 'url' });
 
   const searchParamCollection = useApiCollection(HttpSearchParamCollectionSchema);
 
@@ -60,7 +63,7 @@ export const HttpUrl = ({ httpId, isReadOnly = false }: HttpUrlProps) => {
     Array.join('&'),
   );
 
-  let urlString = url;
+  let urlString = url ?? '';
   if (searchParamString.length > 0) urlString += '?' + searchParamString;
 
   const form = useForm({ values: { urlString } });
@@ -78,7 +81,7 @@ export const HttpUrl = ({ httpId, isReadOnly = false }: HttpUrlProps) => {
       }),
     );
 
-    httpCollection.utils.update({ httpId, url });
+    setUrl(url);
 
     const searchParamSet = pipe(
       searchParamString,
@@ -142,9 +145,9 @@ export const HttpUrl = ({ httpId, isReadOnly = false }: HttpUrlProps) => {
         items={pipe(Struct.omit(HttpMethodSchema.value, 0), Record.values)}
         onSelectionChange={(method) => {
           if (typeof method !== 'number') return;
-          httpCollection.utils.update({ httpId, method });
+          setMethod(method);
         }}
-        selectedKey={method}
+        selectedKey={method ?? HttpMethod.UNSPECIFIED}
         triggerClassName={tw`border-none p-0`}
       >
         {(_) => (
@@ -153,6 +156,8 @@ export const HttpUrl = ({ httpId, isReadOnly = false }: HttpUrlProps) => {
           </SelectItem>
         )}
       </Select>
+
+      <DeltaResetButton {...deltaOptions} valueKey='method' />
 
       <Separator className={tw`h-7`} orientation='vertical' />
 
@@ -165,6 +170,8 @@ export const HttpUrl = ({ httpId, isReadOnly = false }: HttpUrlProps) => {
         onBlur={() => void submit()}
         readOnly={isReadOnly}
       />
+
+      <DeltaResetButton {...deltaOptions} valueKey='url' />
     </div>
   );
 };
