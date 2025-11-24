@@ -512,23 +512,17 @@ func (f *FileServiceRPC) FileUpdate(ctx context.Context, req *connect.Request[ap
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one file must be provided"))
 	}
 
-	tx, err := f.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer tx.Rollback()
+	var updatedFiles []*mfile.File
 
-	fileService := f.fs.TX(tx)
-	var updatedFiles []mfile.File
-
+	// Step 1: Validate and check permissions OUTSIDE transaction
 	for _, fileUpdate := range req.Msg.Items {
 		fileID, err := idwrap.NewFromBytes(fileUpdate.FileId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing file
-		existingFile, err := fileService.GetFile(ctx, fileID)
+		// Get existing file using read-only service (no transaction)
+		existingFile, err := f.fs.GetFile(ctx, fileID)
 		if err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -553,12 +547,25 @@ func (f *FileServiceRPC) FileUpdate(ctx context.Context, req *connect.Request[ap
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
+		updatedFiles = append(updatedFiles, file)
+	}
+
+	// Step 2: Minimal write transaction
+	tx, err := f.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	fileService := f.fs.TX(tx)
+	var successFiles []mfile.File
+
+	for _, file := range updatedFiles {
 		// Update file
 		if err := fileService.UpdateFile(ctx, file); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
-
-		updatedFiles = append(updatedFiles, *file)
+		successFiles = append(successFiles, *file)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -566,7 +573,7 @@ func (f *FileServiceRPC) FileUpdate(ctx context.Context, req *connect.Request[ap
 	}
 
 	// Publish events for real-time sync
-	for _, file := range updatedFiles {
+	for _, file := range successFiles {
 		f.stream.Publish(FileTopic{WorkspaceID: file.WorkspaceID}, FileEvent{
 			Type: eventTypeUpdate,
 			File: toAPIFile(file),
@@ -583,15 +590,9 @@ func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[ap
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one file must be provided"))
 	}
 
-	tx, err := f.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer tx.Rollback()
+	var filesToDelete []*mfile.File
 
-	fileService := f.fs.TX(tx)
-	var deletedFiles []mfile.File
-
+	// Step 1: Validate and check permissions OUTSIDE transaction
 	for _, fileDelete := range req.Msg.Items {
 		fileID, err := idwrap.NewFromBytes(fileDelete.FileId)
 		if err != nil {
@@ -599,7 +600,7 @@ func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[ap
 		}
 
 		// Get existing file for workspace permission check and event publishing
-		existingFile, err := fileService.GetFile(ctx, fileID)
+		existingFile, err := f.fs.GetFile(ctx, fileID)
 		if err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -613,15 +614,29 @@ func (f *FileServiceRPC) FileDelete(ctx context.Context, req *connect.Request[ap
 			return nil, rpcErr
 		}
 
+		filesToDelete = append(filesToDelete, existingFile)
+	}
+
+	// Step 2: Minimal write transaction
+	tx, err := f.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	fileService := f.fs.TX(tx)
+	var deletedFiles []mfile.File
+
+	for _, file := range filesToDelete {
 		// Delete file
-		if err := fileService.DeleteFile(ctx, fileID); err != nil {
+		if err := fileService.DeleteFile(ctx, file.ID); err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedFiles = append(deletedFiles, *existingFile)
+		deletedFiles = append(deletedFiles, *file)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -789,23 +804,17 @@ func (f *FileServiceRPC) FolderUpdate(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one folder must be provided"))
 	}
 
-	tx, err := f.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer tx.Rollback()
+	var updatedFolders []*mfile.File
 
-	fileService := f.fs.TX(tx)
-	var updatedFolders []mfile.File
-
+	// Step 1: Validate and check permissions OUTSIDE transaction
 	for _, folderUpdate := range req.Msg.Items {
 		folderID, err := idwrap.NewFromBytes(folderUpdate.FolderId)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
-		// Get existing folder
-		existingFolder, err := fileService.GetFile(ctx, folderID)
+		// Get existing folder (read-only, no TX)
+		existingFolder, err := f.fs.GetFile(ctx, folderID)
 		if err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -835,12 +844,26 @@ func (f *FileServiceRPC) FolderUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
 		}
 
+		updatedFolders = append(updatedFolders, folder)
+	}
+
+	// Step 2: Minimal write transaction
+	tx, err := f.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	fileService := f.fs.TX(tx)
+	var successFolders []mfile.File
+
+	for _, folder := range updatedFolders {
 		// Update folder
 		if err := fileService.UpdateFile(ctx, folder); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		updatedFolders = append(updatedFolders, *folder)
+		successFolders = append(successFolders, *folder)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -848,7 +871,7 @@ func (f *FileServiceRPC) FolderUpdate(ctx context.Context, req *connect.Request[
 	}
 
 	// Publish events for real-time sync
-	for _, folder := range updatedFolders {
+	for _, folder := range successFolders {
 		f.stream.Publish(FileTopic{WorkspaceID: folder.WorkspaceID}, FileEvent{
 			Type: eventTypeUpdate,
 			File: toAPIFile(folder),
@@ -865,15 +888,9 @@ func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one folder must be provided"))
 	}
 
-	tx, err := f.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	defer tx.Rollback()
+	var foldersToDelete []*mfile.File
 
-	fileService := f.fs.TX(tx)
-	var deletedFolders []mfile.File
-
+	// Step 1: Validate and check permissions OUTSIDE transaction
 	for _, folderDelete := range req.Msg.Items {
 		folderID, err := idwrap.NewFromBytes(folderDelete.FolderId)
 		if err != nil {
@@ -881,7 +898,7 @@ func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[
 		}
 
 		// Get existing folder for workspace permission check and event publishing
-		existingFolder, err := fileService.GetFile(ctx, folderID)
+		existingFolder, err := f.fs.GetFile(ctx, folderID)
 		if err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
@@ -900,15 +917,29 @@ func (f *FileServiceRPC) FolderDelete(ctx context.Context, req *connect.Request[
 			return nil, rpcErr
 		}
 
+		foldersToDelete = append(foldersToDelete, existingFolder)
+	}
+
+	// Step 2: Minimal write transaction
+	tx, err := f.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	fileService := f.fs.TX(tx)
+	var deletedFolders []mfile.File
+
+	for _, folder := range foldersToDelete {
 		// Delete folder
-		if err := fileService.DeleteFile(ctx, folderID); err != nil {
+		if err := fileService.DeleteFile(ctx, folder.ID); err != nil {
 			if errors.Is(err, sfile.ErrFileNotFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		deletedFolders = append(deletedFolders, *existingFolder)
+		deletedFolders = append(deletedFolders, *folder)
 	}
 
 	if err := tx.Commit(); err != nil {
