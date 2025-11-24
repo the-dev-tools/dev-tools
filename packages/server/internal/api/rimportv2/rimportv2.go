@@ -9,12 +9,12 @@ import (
 
 	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -24,6 +24,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
+	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 	"the-dev-tools/spec/dist/buf/go/api/import/v1/importv1connect"
 )
@@ -37,6 +38,7 @@ type ImportV2RPC struct {
 	us      suser.UserService
 
 	// Streamers for real-time updates
+	flowStream               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
 	stream                   eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	httpHeaderStream         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
 	httpSearchParamStream    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
@@ -62,6 +64,7 @@ func NewImportV2RPC(
 	bodyService *shttp.HttpBodyRawService,
 	logger *slog.Logger,
 	// Streamers
+	flowStream eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent],
 	stream eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent],
 	httpHeaderStream eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent],
 	httpSearchParamStream eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent],
@@ -87,6 +90,7 @@ func NewImportV2RPC(
 		logger:                   logger,
 		ws:                       ws,
 		us:                       us,
+		flowStream:               flowStream,
 		stream:                   stream,
 		httpHeaderStream:         httpHeaderStream,
 		httpSearchParamStream:    httpSearchParamStream,
@@ -223,6 +227,23 @@ func handleServiceError(err error) (*connect.Response[apiv1.ImportResponse], err
 
 // publishEvents publishes real-time sync events for imported entities
 func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults) {
+	// Publish Flow event FIRST if present
+	if results.Flow != nil {
+		flowPB := &flowv1.Flow{
+			FlowId: results.Flow.ID.Bytes(),
+			Name:   results.Flow.Name,
+		}
+		if results.Flow.Duration != 0 {
+			d := results.Flow.Duration
+			flowPB.Duration = &d
+		}
+
+		h.flowStream.Publish(rflowv2.FlowTopic{WorkspaceID: results.Flow.WorkspaceID}, rflowv2.FlowEvent{
+			Type: "insert",
+			Flow: flowPB,
+		})
+	}
+
 	// Publish HTTP events
 	for _, httpReq := range results.HTTPReqs {
 		h.stream.Publish(rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}, rhttp.HttpEvent{
@@ -233,12 +254,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 
 	// Publish File events
 	for _, file := range results.Files {
-		// Skip publishing file events for flows to prevent race conditions on the frontend,
-		// where the file event might be processed before the flow itself is known.
-		if file.ContentType == mfile.ContentTypeFlow {
-			continue
-		}
-
+		// No longer skipping Flow files since we publish Flow event first now
 		h.fileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
 			Type: "create",
 			File: converter.ToAPIFile(*file),

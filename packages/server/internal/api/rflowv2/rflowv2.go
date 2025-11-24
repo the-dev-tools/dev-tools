@@ -70,6 +70,17 @@ import (
 
 var errUnimplemented = errors.New("rflowv2: method not implemented")
 
+// FlowTopic identifies the workspace whose flows are being published.
+type FlowTopic struct {
+	WorkspaceID idwrap.IDWrap
+}
+
+// FlowEvent describes a flow change for sync streaming.
+type FlowEvent struct {
+	Type string
+	Flow *flowv1.Flow
+}
+
 // NodeTopic identifies the flow whose nodes are being published.
 type NodeTopic struct {
 	FlowID idwrap.IDWrap
@@ -192,6 +203,10 @@ type ExecutionEvent struct {
 }
 
 const (
+	flowEventInsert = "insert"
+	flowEventUpdate = "update"
+	flowEventDelete = "delete"
+
 	nodeEventInsert = "insert"
 	nodeEventUpdate = "update"
 	nodeEventDelete = "delete"
@@ -256,6 +271,7 @@ type FlowServiceV2RPC struct {
 	logger *slog.Logger
 	// V2 import services
 	workspaceImportService WorkspaceImporter
+	flowStream             eventstream.SyncStreamer[FlowTopic, FlowEvent]
 	nodeStream             eventstream.SyncStreamer[NodeTopic, NodeEvent]
 	edgeStream             eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
 	varStream              eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
@@ -290,6 +306,7 @@ func New(
 	hbr *shttp.HttpBodyRawService,
 	logger *slog.Logger,
 	workspaceImportService WorkspaceImporter,
+	flowStream eventstream.SyncStreamer[FlowTopic, FlowEvent],
 	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent],
 	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent],
 	varStream eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent],
@@ -323,6 +340,7 @@ func New(
 		hbr:                    hbr,
 		logger:                 logger,
 		workspaceImportService: workspaceImportService,
+		flowStream:             flowStream,
 		nodeStream:             nodeStream,
 		edgeStream:             edgeStream,
 		varStream:              varStream,
@@ -448,6 +466,155 @@ func (s *FlowServiceV2RPC) NodeHttpCollection(
 	return connect.NewResponse(&flowv1.NodeHttpCollectionResponse{Items: items}), nil
 }
 
+func (s *FlowServiceV2RPC) FlowSync(
+	ctx context.Context,
+	_ *connect.Request[emptypb.Empty],
+	stream *connect.ServerStream[flowv1.FlowSyncResponse],
+) error {
+	if stream == nil {
+		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
+	}
+	return s.streamFlowSync(ctx, func(resp *flowv1.FlowSyncResponse) error {
+		return stream.Send(resp)
+	})
+}
+
+func (s *FlowServiceV2RPC) streamFlowSync(
+	ctx context.Context,
+	send func(*flowv1.FlowSyncResponse) error,
+) error {
+	if s.flowStream == nil {
+		return connect.NewError(connect.CodeUnavailable, errors.New("flow stream not configured"))
+	}
+
+	var workspaceSet sync.Map
+
+	snapshot := func(ctx context.Context) ([]eventstream.Event[FlowTopic, FlowEvent], error) {
+		flows, err := s.listAccessibleFlows(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		events := make([]eventstream.Event[FlowTopic, FlowEvent], 0)
+
+		for _, flow := range flows {
+			workspaceSet.Store(flow.WorkspaceID.String(), struct{}{})
+
+			events = append(events, eventstream.Event[FlowTopic, FlowEvent]{
+				Topic: FlowTopic{WorkspaceID: flow.WorkspaceID},
+				Payload: FlowEvent{
+					Type: flowEventInsert,
+					Flow: serializeFlow(flow),
+				},
+			})
+		}
+
+		return events, nil
+	}
+
+	filter := func(topic FlowTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		if err := s.ensureWorkspaceAccess(ctx, topic.WorkspaceID); err != nil {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	events, err := s.flowStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			resp := flowEventToSyncResponse(evt.Payload)
+			if resp == nil {
+				continue
+			}
+			if err := send(resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *FlowServiceV2RPC) publishFlowEvent(eventType string, flow mflow.Flow) {
+	if s.flowStream == nil {
+		return
+	}
+	s.flowStream.Publish(FlowTopic{WorkspaceID: flow.WorkspaceID}, FlowEvent{
+		Type: eventType,
+		Flow: serializeFlow(flow),
+	})
+}
+
+func flowEventToSyncResponse(evt FlowEvent) *flowv1.FlowSyncResponse {
+	if evt.Flow == nil {
+		return nil
+	}
+
+	var syncEvent *flowv1.FlowSync
+	switch evt.Type {
+	case flowEventInsert:
+		insert := &flowv1.FlowSyncInsert{
+			FlowId: evt.Flow.FlowId,
+			Name:   evt.Flow.Name,
+		}
+		if evt.Flow.Duration != nil {
+			insert.Duration = evt.Flow.Duration
+		}
+		syncEvent = &flowv1.FlowSync{
+			Value: &flowv1.FlowSync_ValueUnion{
+				Kind:   flowv1.FlowSync_ValueUnion_KIND_INSERT,
+				Insert: insert,
+			},
+		}
+	case flowEventUpdate:
+		update := &flowv1.FlowSyncUpdate{
+			FlowId: evt.Flow.FlowId,
+		}
+		if evt.Flow.Name != "" {
+			update.Name = &evt.Flow.Name
+		}
+		if evt.Flow.Duration != nil {
+			update.Duration = &flowv1.FlowSyncUpdate_DurationUnion{
+				Kind:  flowv1.FlowSyncUpdate_DurationUnion_KIND_INT32,
+				Int32: evt.Flow.Duration,
+			}
+		}
+		syncEvent = &flowv1.FlowSync{
+			Value: &flowv1.FlowSync_ValueUnion{
+				Kind:   flowv1.FlowSync_ValueUnion_KIND_UPDATE,
+				Update: update,
+			},
+		}
+	case flowEventDelete:
+		syncEvent = &flowv1.FlowSync{
+			Value: &flowv1.FlowSync_ValueUnion{
+				Kind: flowv1.FlowSync_ValueUnion_KIND_DELETE,
+				Delete: &flowv1.FlowSyncDelete{
+					FlowId: evt.Flow.FlowId,
+				},
+			},
+		}
+	default:
+		return nil
+	}
+
+	return &flowv1.FlowSyncResponse{
+		Items: []*flowv1.FlowSync{syncEvent},
+	}
+}
+
 func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[flowv1.FlowInsertRequest]) (*connect.Response[emptypb.Empty], error) {
 	if len(req.Msg.GetItems()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
@@ -513,6 +680,7 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		}
 
 		if created, err := s.fs.GetFlow(ctx, flowID); err == nil {
+			s.publishFlowEvent(flowEventInsert, created)
 			if created.VersionParentID != nil {
 				s.publishFlowVersionEvent(flowVersionEventInsert, created)
 			}
@@ -572,6 +740,8 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		s.publishFlowEvent(flowEventUpdate, flow)
+
 		if flow.VersionParentID != nil {
 			s.publishFlowVersionEvent(flowVersionEventUpdate, flow)
 		}
@@ -603,6 +773,8 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		s.publishFlowEvent(flowEventDelete, flow)
+
 		if flow.VersionParentID != nil {
 			s.publishFlowVersionEvent(flowVersionEventDelete, flow)
 		}
@@ -621,28 +793,6 @@ func (s *FlowServiceV2RPC) FlowDelete(ctx context.Context, req *connect.Request[
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-func (s *FlowServiceV2RPC) FlowSync(
-	ctx context.Context,
-	_ *connect.Request[emptypb.Empty],
-	stream *connect.ServerStream[flowv1.FlowSyncResponse],
-) error {
-	if stream == nil {
-		return connect.NewError(connect.CodeInternal, errors.New("stream is required"))
-	}
-
-	flows, err := s.listAccessibleFlows(ctx)
-	if err != nil {
-		return err
-	}
-
-	items := buildFlowSyncInserts(flows)
-	if len(items) == 0 {
-		return nil
-	}
-
-	return stream.Send(&flowv1.FlowSyncResponse{Items: items})
 }
 
 func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest]) (*connect.Response[emptypb.Empty], error) {
