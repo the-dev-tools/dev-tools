@@ -184,10 +184,16 @@ func convertToImportRequest(msg *apiv1.ImportRequest) (*ImportRequest, error) {
 // convertToImportResponse converts internal response to protobuf response model.
 // It maps missing data kinds and domain lists to their protobuf equivalents.
 func convertToImportResponse(results *ImportResults) (*apiv1.ImportResponse, error) {
-	return &apiv1.ImportResponse{
+	resp := &apiv1.ImportResponse{
 		MissingData: apiv1.ImportMissingDataKind(results.MissingData),
 		Domains:     results.Domains,
-	}, nil
+	}
+
+	if results.Flow != nil {
+		resp.FlowId = results.Flow.ID.Bytes()
+	}
+
+	return resp, nil
 }
 
 // handleServiceError converts service errors to appropriate Connect errors.
