@@ -136,21 +136,6 @@ export const useFormTableAddRow = <TFieldValues extends FieldValues, TPrimaryNam
   } satisfies Partial<DataTableProps<TFieldValues>>;
 };
 
-// export const makeDeltaItems = <
-//   T extends Message & {
-//     origin?: GenericMessage<T>;
-//     source?: SourceKind;
-//   },
-// >(
-//   items: T[],
-//   key: keyof T,
-// ) =>
-//   items.map((_): GenericMessage<T> => {
-//     if (_.source !== SourceKind.ORIGIN || !_.origin) return _;
-//     const deltaKey = Struct.pick(_, key, 'source') as Partial<T>;
-//     return { ..._.origin, ...deltaKey };
-//   });
-
 interface DisplayFormTableRowProps<T extends FieldValues> {
   children: RowRenderProps<T>['rowNode'];
   value: T;
@@ -236,7 +221,7 @@ export const columnText = <TFieldValues extends FieldValues>(
 
 export const columnActions = <T,>({ cell, ...props }: Partial<DisplayColumnDef<T>>): DisplayColumnDef<T> => ({
   cell: (props) => (
-    <div className={tw`flex justify-center gap-1 px-1`}>{typeof cell === 'function' ? cell(props) : cell}</div>
+    <div className={tw`flex flex-1 justify-end gap-1 px-1`}>{typeof cell === 'function' ? cell(props) : cell}</div>
   ),
   header: '',
   id: 'actions',
@@ -257,25 +242,6 @@ export const ColumnActionDelete = ({ onDelete }: ColumnActionDeleteProps) => (
   </TooltipTrigger>
 );
 
-// interface ColumnActionDeltaResetProps {
-//   onReset: () => void;
-//   source: SourceKind | undefined;
-// }
-
-// export const ColumnActionDeltaReset = ({ onReset, source }: ColumnActionDeltaResetProps) => (
-//   <TooltipTrigger delay={750}>
-//     <Button
-//       className={({ isDisabled }) => twJoin(tw`p-1 text-slate-500`, isDisabled && tw`invisible`)}
-//       isDisabled={source !== SourceKind.MIXED}
-//       onPress={onReset}
-//       variant='ghost'
-//     >
-//       <RedoIcon />
-//     </Button>
-//     <Tooltip className={tw`rounded-md bg-slate-800 px-2 py-1 text-xs text-white`}>Reset changes</Tooltip>
-//   </TooltipTrigger>
-// );
-
 export const ColumnActionDrag = () => (
   <Button className={tw`p-1`} slot='drag' variant='ghost'>
     <FiMove className={tw`size-3 text-slate-500`} />
@@ -295,20 +261,3 @@ export const columnActionsCommon = <T,>({ onDelete }: ColumnActionsCommonProps<T
       </>
     ),
   });
-
-// interface ColumnActionsDeltaCommonProps<T> {
-//   onDelete: (item: T) => void;
-//   onReset: (item: T) => void;
-//   source: (item: T) => SourceKind | undefined;
-// }
-
-// export const columnActionsDeltaCommon = <T,>({ onDelete, onReset, source }: ColumnActionsDeltaCommonProps<T>) =>
-//   columnActions<T>({
-//     cell: ({ row }) => (
-//       <>
-//         <ColumnActionDeltaReset onReset={() => void onReset(row.original)} source={source(row.original)} />
-//         <ColumnActionDelete onDelete={() => void onDelete(row.original)} />
-//         <ColumnActionDrag />
-//       </>
-//     ),
-//   });
