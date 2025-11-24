@@ -315,6 +315,9 @@ func createHTTPRequestFromEntry(entry Entry, workspaceID idwrap.IDWrap) (
 	// Extract headers
 	headers := make([]mhttp.HTTPHeader, 0, len(entry.Request.Headers))
 	for _, h := range entry.Request.Headers {
+		if strings.HasPrefix(h.Name, ":") {
+			continue
+		}
 		headers = append(headers, mhttp.HTTPHeader{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
