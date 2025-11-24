@@ -603,8 +603,8 @@ func createRequestNodesAndEdges(result *HarResolved, entries []Entry, httpReques
 			FlowID:    result.Flow.ID,
 			Name:      httpReq.Name,
 			NodeKind:  mnnode.NODE_KIND_REQUEST,
-			PositionX: 0, // Will be positioned by layout algorithm
-			PositionY: 0, // Will be positioned by layout algorithm
+			PositionX: float64(len(nodes) * 300), // Simple horizontal layout
+			PositionY: 0,
 		}
 
 		// Create MNRequest node data
