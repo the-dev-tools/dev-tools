@@ -161,7 +161,7 @@ export const deltaProperty = (property: ModelProperty, program: Program, unset: 
   if (property.optional) {
     const variants = $(program).union.is(type)
       ? type.variants.values().toArray()
-      : [$(program).unionVariant.create({ type })];
+      : [$(program).unionVariant.create({ name: 'value', type })];
 
     const unsetVariant = $(program).unionVariant.create({ type: unset });
     variants.unshift(unsetVariant);
