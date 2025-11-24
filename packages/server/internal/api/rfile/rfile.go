@@ -655,27 +655,6 @@ func (f *FileServiceRPC) FileSync(ctx context.Context, req *connect.Request[empt
 func (f *FileServiceRPC) streamFileSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.FileSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[FileTopic, FileEvent], error) {
-		files, err := f.listUserFiles(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[FileTopic, FileEvent], 0, len(files))
-		for _, file := range files {
-			workspaceSet.Store(file.WorkspaceID.String(), struct{}{})
-			events = append(events, eventstream.Event[FileTopic, FileEvent]{
-				Topic: FileTopic{WorkspaceID: file.WorkspaceID},
-				Payload: FileEvent{
-					Type: eventTypeCreate,
-					File: toAPIFile(file),
-					Name: file.Name,
-				},
-			})
-		}
-		return events, nil
-	}
-
 	filter := func(topic FileTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
@@ -688,7 +667,7 @@ func (f *FileServiceRPC) streamFileSync(ctx context.Context, userID idwrap.IDWra
 		return true
 	}
 
-	events, err := f.stream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := f.stream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -963,26 +942,6 @@ func (f *FileServiceRPC) FolderSync(ctx context.Context, req *connect.Request[em
 func (f *FileServiceRPC) streamFolderSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.FolderSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	snapshot := func(ctx context.Context) ([]eventstream.Event[FileTopic, FileEvent], error) {
-		folders, err := f.listUserFolders(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[FileTopic, FileEvent], 0, len(folders))
-		for _, folder := range folders {
-			workspaceSet.Store(folder.WorkspaceID.String(), struct{}{})
-			events = append(events, eventstream.Event[FileTopic, FileEvent]{
-				Topic: FileTopic{WorkspaceID: folder.WorkspaceID},
-				Payload: FileEvent{
-					Type: eventTypeCreate,
-					File: toAPIFile(folder),
-				},
-			})
-		}
-		return events, nil
-	}
-
 	filter := func(topic FileTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
 			return true
@@ -995,7 +954,7 @@ func (f *FileServiceRPC) streamFolderSync(ctx context.Context, userID idwrap.IDW
 		return true
 	}
 
-	events, err := f.stream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := f.stream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}

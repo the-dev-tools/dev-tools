@@ -191,7 +191,7 @@ func ConvertHARWithDepFinder(har *HAR, workspaceID idwrap.IDWrap, depFinder *dep
 	// Create file for the flow
 	if !mfile.IDIsZero(result.Flow.ID) {
 		flowFile := mfile.File{
-			ID:          idwrap.NewNow(),
+			ID:          result.Flow.ID,
 			WorkspaceID: workspaceID,
 			ContentID:   &result.Flow.ID,
 			ContentType: mfile.ContentTypeFlow,
@@ -467,7 +467,7 @@ func createFileStructure(httpReq *mhttp.HTTP, workspaceID idwrap.IDWrap, folderM
 	fileName := fmt.Sprintf("%s.request", sanitizeFileName(httpReq.Name))
 
 	file := &mfile.File{
-		ID:          idwrap.NewNow(),
+		ID:          httpReq.ID,
 		WorkspaceID: workspaceID,
 		FolderID:    &folderID,
 		ContentID:   &httpReq.ID,

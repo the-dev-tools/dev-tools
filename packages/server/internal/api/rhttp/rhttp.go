@@ -982,27 +982,6 @@ func (h *HttpServiceRPC) HttpSync(ctx context.Context, req *connect.Request[empt
 func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpTopic, HttpEvent], error) {
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpTopic, HttpEvent], 0, len(httpList))
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-			events = append(events, eventstream.Event[HttpTopic, HttpEvent]{
-				Topic: HttpTopic{WorkspaceID: http.WorkspaceID},
-				Payload: HttpEvent{
-					Type: eventTypeInsert,
-					Http: converter.ToAPIHttp(http),
-				},
-			})
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -1019,7 +998,7 @@ func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWra
 	return eventstream.StreamToClient(
 		ctx,
 		h.stream,
-		snapshot,
+		nil,
 		filter,
 		httpSyncResponseFrom,
 		send,
@@ -2126,31 +2105,6 @@ func (h *HttpServiceRPC) HttpDeltaSync(ctx context.Context, req *connect.Request
 func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpDeltaSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpTopic, HttpEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpTopic, HttpEvent], 0)
-		for _, http := range httpList {
-			if !http.IsDelta {
-				continue // Only include delta records
-			}
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-			events = append(events, eventstream.Event[HttpTopic, HttpEvent]{
-				Topic: HttpTopic{WorkspaceID: http.WorkspaceID},
-				Payload: HttpEvent{
-					Type: eventTypeInsert,
-					Http: converter.ToAPIHttp(http),
-				},
-			})
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -2187,7 +2141,7 @@ func (h *HttpServiceRPC) streamHttpDeltaSync(ctx context.Context, userID idwrap.
 	return eventstream.StreamToClient(
 		ctx,
 		h.stream,
-		snapshot,
+		nil,
 		filter,
 		converter,
 		send,
@@ -2866,37 +2820,6 @@ func (h *HttpServiceRPC) HttpSearchParamSync(ctx context.Context, req *connect.R
 func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpSearchParamSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get params for this HTTP entry
-			params, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, param := range params {
-				events = append(events, eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent]{
-					Topic: HttpSearchParamTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpSearchParamEvent{
-						Type:            eventTypeInsert,
-						HttpSearchParam: converter.ToAPIHttpSearchParam(param),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpSearchParamTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -2913,7 +2836,7 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpSearchParamStream,
-		snapshot,
+		nil,
 		filter,
 		httpSearchParamSyncResponseFrom,
 		send,
@@ -2923,37 +2846,6 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 // streamHttpAssertSync streams HTTP assert events to the client
 func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpAssertSyncResponse) error) error {
 	var workspaceSet sync.Map
-
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpAssertTopic, HttpAssertEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpAssertTopic, HttpAssertEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get asserts for this HTTP entry
-			asserts, err := h.httpAssertService.GetHttpAssertsByHttpID(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, assert := range asserts {
-				events = append(events, eventstream.Event[HttpAssertTopic, HttpAssertEvent]{
-					Topic: HttpAssertTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpAssertEvent{
-						Type:       eventTypeInsert,
-						HttpAssert: converter.ToAPIHttpAssert(assert),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
 
 	// Filter for workspace-based access control
 	filter := func(topic HttpAssertTopic) bool {
@@ -2971,7 +2863,7 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpAssertStream,
-		snapshot,
+		nil,
 		filter,
 		httpAssertSyncResponseFrom,
 		send,
@@ -2981,37 +2873,6 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 // streamHttpVersionSync streams HTTP version events to the client
 func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpVersionSyncResponse) error) error {
 	var workspaceSet sync.Map
-
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpVersionTopic, HttpVersionEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpVersionTopic, HttpVersionEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get versions for this HTTP entry
-			versions, err := h.getHttpVersionsByHttpID(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, version := range versions {
-				events = append(events, eventstream.Event[HttpVersionTopic, HttpVersionEvent]{
-					Topic: HttpVersionTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpVersionEvent{
-						Type:        eventTypeInsert,
-						HttpVersion: converter.ToAPIHttpVersion(version),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
 
 	// Filter for workspace-based access control
 	filter := func(topic HttpVersionTopic) bool {
@@ -3029,7 +2890,7 @@ func (h *HttpServiceRPC) streamHttpVersionSync(ctx context.Context, userID idwra
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpVersionStream,
-		snapshot,
+		nil,
 		filter,
 		httpVersionSyncResponseFrom,
 		send,
@@ -3954,70 +3815,6 @@ func (h *HttpServiceRPC) HttpResponseSync(ctx context.Context, req *connect.Requ
 func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpResponseSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpResponseTopic, HttpResponseEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpResponseTopic, HttpResponseEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get responses for this HTTP entry
-			responses, err := h.DB.QueryContext(ctx, `
-				SELECT id, http_id, status, body, time, duration, size, created_at
-				FROM http_response
-				WHERE http_id = ?
-				ORDER BY time DESC
-			`, http.ID.Bytes())
-			if err != nil {
-				return nil, err
-			}
-
-			for responses.Next() {
-				var response dbmodels.HttpResponse
-				var status int32
-				var duration int32
-				var size int32
-				err := responses.Scan(
-					&response.ID,
-					&response.HttpID,
-					&status,
-					&response.Body,
-					&response.Time,
-					&duration,
-					&size,
-					&response.CreatedAt,
-				)
-				if err != nil {
-					responses.Close()
-					return nil, err
-				}
-				response.Status = status
-				response.Duration = duration
-				response.Size = size
-
-				events = append(events, eventstream.Event[HttpResponseTopic, HttpResponseEvent]{
-					Topic: HttpResponseTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpResponseEvent{
-						Type:         eventTypeInsert,
-						HttpResponse: converter.ToAPIHttpResponse(response),
-					},
-				})
-			}
-
-			if err := responses.Err(); err != nil {
-				responses.Close()
-				return nil, err
-			}
-			responses.Close()
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpResponseTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -4034,7 +3831,7 @@ func (h *HttpServiceRPC) streamHttpResponseSync(ctx context.Context, userID idwr
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpResponseStream,
-		snapshot,
+		nil,
 		filter,
 		httpResponseSyncResponseFrom,
 		send,
@@ -4116,62 +3913,6 @@ func (h *HttpServiceRPC) HttpResponseHeaderSync(ctx context.Context, req *connec
 func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpResponseHeaderSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpResponseHeaderTopic, HttpResponseHeaderEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpResponseHeaderTopic, HttpResponseHeaderEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get response headers for this HTTP entry
-			headers, err := h.DB.QueryContext(ctx, `
-				SELECT hrh.id, hrh.response_id, hrh.key, hrh.value, hrh.created_at
-				FROM http_response_header hrh
-				JOIN http_response hr ON hrh.response_id = hr.id
-				WHERE hr.http_id = ?
-				ORDER BY hrh.created_at DESC
-			`, http.ID.Bytes())
-			if err != nil {
-				return nil, err
-			}
-
-			for headers.Next() {
-				var header dbmodels.HttpResponseHeader
-				err := headers.Scan(
-					&header.ID,
-					&header.ResponseID,
-					&header.Key,
-					&header.Value,
-					&header.CreatedAt,
-				)
-				if err != nil {
-					headers.Close()
-					return nil, err
-				}
-
-				events = append(events, eventstream.Event[HttpResponseHeaderTopic, HttpResponseHeaderEvent]{
-					Topic: HttpResponseHeaderTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpResponseHeaderEvent{
-						Type:               eventTypeInsert,
-						HttpResponseHeader: converter.ToAPIHttpResponseHeader(header),
-					},
-				})
-			}
-
-			if err := headers.Err(); err != nil {
-				headers.Close()
-				return nil, err
-			}
-			headers.Close()
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpResponseHeaderTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -4188,7 +3929,7 @@ func (h *HttpServiceRPC) streamHttpResponseHeaderSync(ctx context.Context, userI
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpResponseHeaderStream,
-		snapshot,
+		nil,
 		filter,
 		httpResponseHeaderSyncResponseFrom,
 		send,
@@ -4270,62 +4011,6 @@ func (h *HttpServiceRPC) HttpResponseAssertSync(ctx context.Context, req *connec
 func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpResponseAssertSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpResponseAssertTopic, HttpResponseAssertEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpResponseAssertTopic, HttpResponseAssertEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get response asserts for this HTTP entry
-			asserts, err := h.DB.QueryContext(ctx, `
-				SELECT hra.id, hra.response_id, hra.value, hra.success, hra.created_at
-				FROM http_response_assert hra
-				JOIN http_response hr ON hra.response_id = hr.id
-				WHERE hr.http_id = ?
-				ORDER BY hra.created_at DESC
-			`, http.ID.Bytes())
-			if err != nil {
-				return nil, err
-			}
-
-			for asserts.Next() {
-				var assert dbmodels.HttpResponseAssert
-				err := asserts.Scan(
-					&assert.ID,
-					&assert.ResponseID,
-					&assert.Value,
-					&assert.Success,
-					&assert.CreatedAt,
-				)
-				if err != nil {
-					asserts.Close()
-					return nil, err
-				}
-
-				events = append(events, eventstream.Event[HttpResponseAssertTopic, HttpResponseAssertEvent]{
-					Topic: HttpResponseAssertTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpResponseAssertEvent{
-						Type:               eventTypeInsert,
-						HttpResponseAssert: converter.ToAPIHttpResponseAssert(assert),
-					},
-				})
-			}
-
-			if err := asserts.Err(); err != nil {
-				asserts.Close()
-				return nil, err
-			}
-			asserts.Close()
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpResponseAssertTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -4342,7 +4027,7 @@ func (h *HttpServiceRPC) streamHttpResponseAssertSync(ctx context.Context, userI
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpResponseAssertStream,
-		snapshot,
+		nil,
 		filter,
 		httpResponseAssertSyncResponseFrom,
 		send,
@@ -4721,37 +4406,6 @@ func (h *HttpServiceRPC) HttpHeaderSync(ctx context.Context, req *connect.Reques
 func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpHeaderSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpHeaderTopic, HttpHeaderEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpHeaderTopic, HttpHeaderEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get headers for this HTTP entry
-			headers, err := h.httpHeaderService.GetByHttpID(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, header := range headers {
-				events = append(events, eventstream.Event[HttpHeaderTopic, HttpHeaderEvent]{
-					Topic: HttpHeaderTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpHeaderEvent{
-						Type:       eventTypeInsert,
-						HttpHeader: converter.ToAPIHttpHeader(header),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpHeaderTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -4766,7 +4420,7 @@ func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap
 	}
 
 	// Subscribe to events with snapshot
-	events, err := h.httpHeaderStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	events, err := h.httpHeaderStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -5568,40 +5222,6 @@ func httpBodyFormDataSyncResponseFrom(event HttpBodyFormEvent) *apiv1.HttpBodyFo
 func (h *HttpServiceRPC) streamHttpSearchParamDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpSearchParamDeltaSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get params for this HTTP entry
-			params, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, param := range params {
-				if !param.IsDelta {
-					continue // Only include delta records
-				}
-				events = append(events, eventstream.Event[HttpSearchParamTopic, HttpSearchParamEvent]{
-					Topic: HttpSearchParamTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpSearchParamEvent{
-						Type:            eventTypeInsert,
-						HttpSearchParam: converter.ToAPIHttpSearchParam(param),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpSearchParamTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -5615,8 +5235,8 @@ func (h *HttpServiceRPC) streamHttpSearchParamDeltaSync(ctx context.Context, use
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpSearchParamStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	// Subscribe to events without snapshot
+	events, err := h.httpSearchParamStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -5654,40 +5274,6 @@ func (h *HttpServiceRPC) streamHttpSearchParamDeltaSync(ctx context.Context, use
 func (h *HttpServiceRPC) streamHttpHeaderDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpHeaderDeltaSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpHeaderTopic, HttpHeaderEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpHeaderTopic, HttpHeaderEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get headers for this HTTP entry
-			headers, err := h.httpHeaderService.GetByHttpID(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, header := range headers {
-				if !header.IsDelta {
-					continue // Only include delta records
-				}
-				events = append(events, eventstream.Event[HttpHeaderTopic, HttpHeaderEvent]{
-					Topic: HttpHeaderTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpHeaderEvent{
-						Type:       eventTypeInsert,
-						HttpHeader: converter.ToAPIHttpHeader(header),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpHeaderTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -5701,8 +5287,8 @@ func (h *HttpServiceRPC) streamHttpHeaderDeltaSync(ctx context.Context, userID i
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpHeaderStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	// Subscribe to events without snapshot
+	events, err := h.httpHeaderStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -5740,40 +5326,6 @@ func (h *HttpServiceRPC) streamHttpHeaderDeltaSync(ctx context.Context, userID i
 func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyFormDataDeltaSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get body forms for this HTTP entry
-			bodyForms, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, bodyForm := range bodyForms {
-				if !bodyForm.IsDelta {
-					continue // Only include delta records
-				}
-				events = append(events, eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent]{
-					Topic: HttpBodyFormTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpBodyFormEvent{
-						Type:         eventTypeInsert,
-						HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpBodyFormTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -5787,8 +5339,8 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpBodyFormStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	// Subscribe to events without snapshot
+	events, err := h.httpBodyFormStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -5826,40 +5378,6 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpAssertDeltaSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpAssertTopic, HttpAssertEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpAssertTopic, HttpAssertEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get asserts for this HTTP entry
-			asserts, err := h.httpAssertService.GetHttpAssertsByHttpID(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, assert := range asserts {
-				if !assert.IsDelta {
-					continue // Only include delta records
-				}
-				events = append(events, eventstream.Event[HttpAssertTopic, HttpAssertEvent]{
-					Topic: HttpAssertTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpAssertEvent{
-						Type:       eventTypeInsert,
-						HttpAssert: converter.ToAPIHttpAssert(assert),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpAssertTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -5873,8 +5391,8 @@ func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID i
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpAssertStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	// Subscribe to events without snapshot
+	events, err := h.httpAssertStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -5912,37 +5430,6 @@ func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID i
 func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyFormDataSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get body forms for this HTTP entry
-			bodyForms, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, bodyForm := range bodyForms {
-				events = append(events, eventstream.Event[HttpBodyFormTopic, HttpBodyFormEvent]{
-					Topic: HttpBodyFormTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpBodyFormEvent{
-						Type:         eventTypeInsert,
-						HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpBodyFormTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -5959,7 +5446,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpBodyFormStream,
-		snapshot,
+		nil,
 		filter,
 		httpBodyFormDataSyncResponseFrom,
 		send,
@@ -6936,40 +6423,6 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 func (h *HttpServiceRPC) streamHttpBodyUrlEncodedDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyUrlEncodedDeltaSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get body URL encoded for this HTTP entry
-			bodyUrlEncodeds, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, bodyUrlEncoded := range bodyUrlEncodeds {
-				if !bodyUrlEncoded.IsDelta {
-					continue // Only include delta records
-				}
-				events = append(events, eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]{
-					Topic: HttpBodyUrlEncodedTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpBodyUrlEncodedEvent{
-						Type:               eventTypeInsert,
-						HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpBodyUrlEncodedTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -6983,8 +6436,8 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedDeltaSync(ctx context.Context, 
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpBodyUrlEncodedStream.Subscribe(ctx, filter, eventstream.WithSnapshot(snapshot))
+	// Subscribe to events without snapshot
+	events, err := h.httpBodyUrlEncodedStream.Subscribe(ctx, filter)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -7022,37 +6475,6 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedDeltaSync(ctx context.Context, 
 func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyUrlEncodedSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get body URL encoded for this HTTP entry
-			bodyUrlEncodeds, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, http.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, bodyUrlEncoded := range bodyUrlEncodeds {
-				events = append(events, eventstream.Event[HttpBodyUrlEncodedTopic, HttpBodyUrlEncodedEvent]{
-					Topic: HttpBodyUrlEncodedTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpBodyUrlEncodedEvent{
-						Type:               eventTypeInsert,
-						HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpBodyUrlEncodedTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -7069,7 +6491,7 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userI
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpBodyUrlEncodedStream,
-		snapshot,
+		nil,
 		filter,
 		httpBodyUrlEncodedSyncResponseFrom,
 		send,
@@ -7418,40 +6840,6 @@ func (h *HttpServiceRPC) HttpBodyRawSync(ctx context.Context, req *connect.Reque
 func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyRawSyncResponse) error) error {
 	var workspaceSet sync.Map
 
-	// Snapshot provider for initial state
-	snapshot := func(ctx context.Context) ([]eventstream.Event[HttpBodyRawTopic, HttpBodyRawEvent], error) {
-		// Get all HTTP entries for user
-		httpList, err := h.listUserHttp(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		events := make([]eventstream.Event[HttpBodyRawTopic, HttpBodyRawEvent], 0)
-		for _, http := range httpList {
-			workspaceSet.Store(http.WorkspaceID.String(), struct{}{})
-
-			// Get body raw for this HTTP entry
-			bodyRaw, err := h.bodyService.GetByHttpID(ctx, http.ID)
-			if err != nil {
-				if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
-					continue
-				}
-				return nil, err
-			}
-
-			if bodyRaw != nil {
-				events = append(events, eventstream.Event[HttpBodyRawTopic, HttpBodyRawEvent]{
-					Topic: HttpBodyRawTopic{WorkspaceID: http.WorkspaceID},
-					Payload: HttpBodyRawEvent{
-						Type:        eventTypeInsert,
-						HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*bodyRaw),
-					},
-				})
-			}
-		}
-		return events, nil
-	}
-
 	// Filter for workspace-based access control
 	filter := func(topic HttpBodyRawTopic) bool {
 		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
@@ -7468,7 +6856,7 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpBodyRawStream,
-		snapshot,
+		nil,
 		filter,
 		httpBodyRawSyncResponseFrom,
 		send,

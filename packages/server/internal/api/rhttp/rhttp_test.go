@@ -383,20 +383,12 @@ func TestHttpSyncStreamsSnapshotAndUpdates(t *testing.T) {
 		close(msgCh)
 	}()
 
-	snapshot := collectHttpSyncItems(t, msgCh, 2)
-	seen := make(map[string]bool)
-	for _, item := range snapshot {
-		val := item.GetValue()
-		if val == nil {
-			t.Fatal("snapshot item missing value union")
-		}
-		if val.GetKind() != httpv1.HttpSync_ValueUnion_KIND_INSERT {
-			t.Fatalf("expected insert kind for snapshot, got %v", val.GetKind())
-		}
-		seen[string(val.GetInsert().GetHttpId())] = true
-	}
-	if !seen[string(httpA.Bytes())] || !seen[string(httpB.Bytes())] {
-		t.Fatalf("snapshot missing expected http entries, seen=%v", seen)
+	// Snapshot was removed, so we should not receive the existing items
+	select {
+	case <-msgCh:
+		t.Fatal("Received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+		// Good, no snapshot
 	}
 
 	newName := "renamed http"
@@ -475,7 +467,13 @@ func TestHttpSyncFiltersUnauthorizedWorkspaces(t *testing.T) {
 		close(msgCh)
 	}()
 
-	_ = collectHttpSyncItems(t, msgCh, 1)
+	// Snapshot removed, no initial items expected
+	select {
+	case <-msgCh:
+		t.Fatal("Received unexpected snapshot item")
+	case <-time.After(100 * time.Millisecond):
+		// Good
+	}
 
 	otherUserID := idwrap.NewNow()
 	providerID := fmt.Sprintf("other-%s", otherUserID.String())
