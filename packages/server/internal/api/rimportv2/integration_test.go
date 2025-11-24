@@ -31,6 +31,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -150,11 +151,23 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	
 
-		nodeService := snode.New(base.Queries)
+			nodeService := snode.New(base.Queries)
 
-		nodeRequestService := snoderequest.New(base.Queries)
+	
 
-		edgeService := sedge.New(base.Queries)
+			nodeRequestService := snoderequest.New(base.Queries)
+
+	
+
+			nodeNoopService := snodenoop.New(base.Queries)
+
+	
+
+			edgeService := sedge.New(base.Queries)
+
+	
+
+		
 
 	
 
@@ -270,6 +283,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		bodyService,
 		&nodeService,
 		&nodeRequestService,
+		&nodeNoopService,
 		&edgeService,
 		logger,
 		streamers.Flow,

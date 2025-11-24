@@ -24,6 +24,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -69,6 +70,7 @@ func NewImportV2RPC(
 	bodyService *shttp.HttpBodyRawService,
 	nodeService *snode.NodeService,
 	nodeRequestService *snoderequest.NodeRequestService,
+	nodeNoopService *snodenoop.NodeNoopService,
 	edgeService *sedge.EdgeService,
 	logger *slog.Logger,
 	// Streamers
@@ -86,7 +88,7 @@ func NewImportV2RPC(
 	// Create the importer with modern service dependencies
 	importer := NewImporter(db, httpService, flowService, fileService,
 		httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, bodyService,
-		nodeService, nodeRequestService, edgeService)
+		nodeService, nodeRequestService, nodeNoopService, edgeService)
 
 	// Create the validator for input validation
 	validator := NewValidator(&us)

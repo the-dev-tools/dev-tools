@@ -297,6 +297,7 @@ func main() {
 		httpBodyRawService,
 		&flowNodeService,
 		&flowNodeRequestSevice,
+		&flowNodeNoOpService,
 		&flowEdgeService,
 		logger,
 		flowStreamer,

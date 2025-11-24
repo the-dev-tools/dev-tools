@@ -24,6 +24,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
@@ -42,6 +43,7 @@ type DefaultImporter struct {
 	bodyService               *shttp.HttpBodyRawService
 	nodeService               *snode.NodeService
 	nodeRequestService        *snoderequest.NodeRequestService
+	nodeNoopService           *snodenoop.NodeNoopService
 	edgeService               *sedge.EdgeService
 	harTranslator             *defaultHARTranslator
 }
@@ -59,6 +61,7 @@ func NewImporter(
 	bodyService *shttp.HttpBodyRawService,
 	nodeService *snode.NodeService,
 	nodeRequestService *snoderequest.NodeRequestService,
+	nodeNoopService *snodenoop.NodeNoopService,
 	edgeService *sedge.EdgeService,
 ) *DefaultImporter {
 	return &DefaultImporter{
@@ -73,6 +76,7 @@ func NewImporter(
 		bodyService:               bodyService,
 		nodeService:               nodeService,
 		nodeRequestService:        nodeRequestService,
+		nodeNoopService:           nodeNoopService,
 		edgeService:               edgeService,
 		harTranslator:             newHARTranslator(),
 	}
@@ -283,6 +287,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	txBodyRawService := imp.bodyService.TX(tx)
 	txNodeService := imp.nodeService.TX(tx)
 	txNodeRequestService := imp.nodeRequestService.TX(tx)
+	txNodeNoopService := imp.nodeNoopService.TX(tx)
 	txEdgeService := imp.edgeService.TX(tx)
 
 	// Store files first (they may be referenced by HTTP entities)
@@ -352,6 +357,15 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		for _, reqNode := range results.RequestNodes {
 			if err := txNodeRequestService.CreateNodeRequest(ctx, reqNode); err != nil {
 				return fmt.Errorf("failed to store request node: %w", err)
+			}
+		}
+	}
+
+	// Store no-op nodes
+	if len(results.NoOpNodes) > 0 {
+		for _, noopNode := range results.NoOpNodes {
+			if err := txNodeNoopService.CreateNodeNoop(ctx, noopNode); err != nil {
+				return fmt.Errorf("failed to store no-op node: %w", err)
 			}
 		}
 	}

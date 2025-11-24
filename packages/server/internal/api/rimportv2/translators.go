@@ -14,6 +14,7 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/translate/harv2"
 	"the-dev-tools/server/pkg/translate/tcurlv2"
@@ -38,6 +39,7 @@ type TranslationResult struct {
 	// Flow-specific entities
 	Nodes        []mnnode.MNode
 	RequestNodes []mnrequest.MNRequest
+	NoOpNodes    []mnnoop.NoopNode
 	Edges        []edge.Edge
 
 	// Metadata
@@ -186,6 +188,7 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 		BodyUrlencoded: resolved.HTTPBodyUrlEncoded,
 		Nodes:          resolved.Nodes,
 		RequestNodes:   resolved.RequestNodes,
+		NoOpNodes:      resolved.NoOpNodes,
 		Edges:          resolved.Edges,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
