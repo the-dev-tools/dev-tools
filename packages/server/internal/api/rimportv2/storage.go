@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	"the-dev-tools/server/pkg/model/mhttpheader"
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
+	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -22,6 +23,8 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
+	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
@@ -37,6 +40,9 @@ type DefaultImporter struct {
 	httpBodyFormService       shttpbodyform.HttpBodyFormService
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
 	bodyService               *shttp.HttpBodyRawService
+	nodeService               *snode.NodeService
+	nodeRequestService        *snoderequest.NodeRequestService
+	edgeService               *sedge.EdgeService
 	harTranslator             *defaultHARTranslator
 }
 
@@ -51,6 +57,9 @@ func NewImporter(
 	httpBodyFormService shttpbodyform.HttpBodyFormService,
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
 	bodyService *shttp.HttpBodyRawService,
+	nodeService *snode.NodeService,
+	nodeRequestService *snoderequest.NodeRequestService,
+	edgeService *sedge.EdgeService,
 ) *DefaultImporter {
 	return &DefaultImporter{
 		db:                        db,
@@ -62,6 +71,9 @@ func NewImporter(
 		httpBodyFormService:       httpBodyFormService,
 		httpBodyUrlEncodedService: httpBodyUrlEncodedService,
 		bodyService:               bodyService,
+		nodeService:               nodeService,
+		nodeRequestService:        nodeRequestService,
+		edgeService:               edgeService,
 		harTranslator:             newHARTranslator(),
 	}
 }
@@ -269,6 +281,9 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	txBodyFormService := imp.httpBodyFormService.TX(tx)
 	txBodyUrlEncodedService := imp.httpBodyUrlEncodedService.TX(tx)
 	txBodyRawService := imp.bodyService.TX(tx)
+	txNodeService := imp.nodeService.TX(tx)
+	txNodeRequestService := imp.nodeRequestService.TX(tx)
+	txEdgeService := imp.edgeService.TX(tx)
 
 	// Store files first (they may be referenced by HTTP entities)
 	if len(results.Files) > 0 {
@@ -319,6 +334,33 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		for _, flow := range results.Flows {
 			if err := txFlowService.CreateFlow(ctx, flow); err != nil {
 				return fmt.Errorf("failed to store flow: %w", err)
+			}
+		}
+	}
+
+	// Store nodes
+	if len(results.Nodes) > 0 {
+		for _, node := range results.Nodes {
+			if err := txNodeService.CreateNode(ctx, node); err != nil {
+				return fmt.Errorf("failed to store node: %w", err)
+			}
+		}
+	}
+
+	// Store request nodes
+	if len(results.RequestNodes) > 0 {
+		for _, reqNode := range results.RequestNodes {
+			if err := txNodeRequestService.CreateNodeRequest(ctx, reqNode); err != nil {
+				return fmt.Errorf("failed to store request node: %w", err)
+			}
+		}
+	}
+
+	// Store edges
+	if len(results.Edges) > 0 {
+		for _, edge := range results.Edges {
+			if err := txEdgeService.CreateEdge(ctx, edge); err != nil {
+				return fmt.Errorf("failed to store edge: %w", err)
 			}
 		}
 	}

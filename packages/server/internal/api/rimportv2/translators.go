@@ -8,10 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/translate/harv2"
 	"the-dev-tools/server/pkg/translate/tcurlv2"
 	"the-dev-tools/server/pkg/translate/tpostmanv2"
@@ -32,15 +35,16 @@ type TranslationResult struct {
 	BodyUrlencoded []mhttp.HTTPBodyUrlencoded
 	BodyRaw        []*mhttp.HTTPBodyRaw
 
-	// Note: Flow-specific entities (nodes, edges, variables, etc.) are not yet
-	// implemented in the model layer. These would be added when the flow
-	// visualization and execution models are available.
+	// Flow-specific entities
+	Nodes        []mnnode.MNode
+	RequestNodes []mnrequest.MNRequest
+	Edges        []edge.Edge
 
 	// Metadata
 	DetectedFormat Format
-	Domains       []string
-	ProcessedAt   int64
-	WorkspaceID   idwrap.IDWrap
+	Domains        []string
+	ProcessedAt    int64
+	WorkspaceID    idwrap.IDWrap
 }
 
 // Translator defines the unified interface for all format translators
@@ -180,6 +184,9 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 		SearchParams:   resolved.HTTPSearchParams,
 		BodyForms:      resolved.HTTPBodyForms,
 		BodyUrlencoded: resolved.HTTPBodyUrlEncoded,
+		Nodes:          resolved.Nodes,
+		RequestNodes:   resolved.RequestNodes,
+		Edges:          resolved.Edges,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
 

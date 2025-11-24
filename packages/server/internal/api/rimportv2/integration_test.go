@@ -14,6 +14,7 @@ import (
 	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rfile"
+	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/eventstream/memory"
@@ -23,11 +24,14 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
+	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
+	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
@@ -60,9 +64,8 @@ type integrationTestFixture struct {
 
 
 type IntegrationTestStreamers struct {
-
+	Flow               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
 	Http               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
-
 	HttpHeader         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
 
 	HttpSearchParam    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
@@ -139,18 +142,25 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	httpBodyFormService := shttpbodyform.New(base.Queries)
 
-	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
+		httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
 
-	bodyService := shttp.NewHttpBodyRawService(base.Queries)
+		bodyService := shttp.NewHttpBodyRawService(base.Queries)
 
+	
 
+		nodeService := snode.New(base.Queries)
 
-	// Create streamers
+		nodeRequestService := snoderequest.New(base.Queries)
 
-	streamers := IntegrationTestStreamers{
+		edgeService := sedge.New(base.Queries)
 
+	
+
+		// Create streamers
+
+		streamers := IntegrationTestStreamers{
+		Flow:               memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent](),
 		Http:               memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
-
 		HttpHeader:         memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent](),
 
 		HttpSearchParam:    memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent](),
@@ -227,49 +237,32 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 
 
-	// Create the import RPC with all dependencies
-
+	// Create RPC handler
 	rpc := NewImportV2RPC(
-
 		base.DB,
-
 		baseServices.Ws,
-
 		baseServices.Us,
-
 		&httpService,
-
 		&flowService,
-
 		fileService,
-
 		httpHeaderService,
-
 		httpSearchParamService,
-
 		httpBodyFormService,
-
 		httpBodyUrlEncodedService,
-
 		bodyService,
-
+		&nodeService,
+		&nodeRequestService,
+		&edgeService,
 		logger,
-
+		streamers.Flow,
 		streamers.Http,
-
 		streamers.HttpHeader,
-
 		streamers.HttpSearchParam,
-
-				streamers.HttpBodyForm,
-
-				streamers.HttpBodyUrlEncoded,
-
-				streamers.HttpBodyRaw,
-
-				streamers.File,
-
-			)
+		streamers.HttpBodyForm,
+		streamers.HttpBodyUrlEncoded,
+		streamers.HttpBodyRaw,
+		streamers.File,
+	)
 
 		
 

@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -22,6 +23,8 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
+	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
@@ -62,6 +65,9 @@ func NewImportV2RPC(
 	httpBodyFormService shttpbodyform.HttpBodyFormService,
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
 	bodyService *shttp.HttpBodyRawService,
+	nodeService *snode.NodeService,
+	nodeRequestService *snoderequest.NodeRequestService,
+	edgeService *sedge.EdgeService,
 	logger *slog.Logger,
 	// Streamers
 	flowStream eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent],
@@ -75,7 +81,8 @@ func NewImportV2RPC(
 ) *ImportV2RPC {
 	// Create the importer with modern service dependencies
 	importer := NewImporter(db, httpService, flowService, fileService,
-		httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, bodyService)
+		httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, bodyService,
+		nodeService, nodeRequestService, edgeService)
 
 	// Create the validator for input validation
 	validator := NewValidator(&us)
