@@ -14,6 +14,7 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -232,6 +233,12 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 
 	// Publish File events
 	for _, file := range results.Files {
+		// Skip publishing file events for flows to prevent race conditions on the frontend,
+		// where the file event might be processed before the flow itself is known.
+		if file.ContentType == mfile.ContentTypeFlow {
+			continue
+		}
+
 		h.fileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
 			Type: "create",
 			File: converter.ToAPIFile(*file),

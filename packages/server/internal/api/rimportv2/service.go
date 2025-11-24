@@ -733,7 +733,7 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 
 	s.logger.Debug("ImportUnified: Translating data")
 	// Detect format and translate data
-	translationResult, err := s.translatorRegistry.DetectAndTranslate(ctx, req.Data, req.WorkspaceID)
+	translationResult, err := s.importer.ImportAndStoreUnified(ctx, req.Data, req.WorkspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("format detection and translation failed: %w", err)
 	}
