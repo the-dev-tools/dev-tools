@@ -42,6 +42,8 @@ type ImportV2RPC struct {
 
 	// Streamers for real-time updates
 	flowStream               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
+	nodeStream               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
+	edgeStream               eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
 	stream                   eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	httpHeaderStream         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
 	httpSearchParamStream    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
@@ -71,6 +73,8 @@ func NewImportV2RPC(
 	logger *slog.Logger,
 	// Streamers
 	flowStream eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent],
+	nodeStream eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent],
+	edgeStream eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent],
 	stream eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent],
 	httpHeaderStream eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent],
 	httpSearchParamStream eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent],
@@ -98,6 +102,8 @@ func NewImportV2RPC(
 		ws:                       ws,
 		us:                       us,
 		flowStream:               flowStream,
+		nodeStream:               nodeStream,
+		edgeStream:               edgeStream,
 		stream:                   stream,
 		httpHeaderStream:         httpHeaderStream,
 		httpSearchParamStream:    httpSearchParamStream,
@@ -249,6 +255,48 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 			Type: "insert",
 			Flow: flowPB,
 		})
+
+		// Publish Nodes events
+		for _, node := range results.Nodes {
+			nodePB := &flowv1.Node{
+				NodeId: node.ID.Bytes(),
+				FlowId: node.FlowID.Bytes(),
+				Name:   node.Name,
+				Kind:   flowv1.NodeKind(node.NodeKind),
+				Position: &flowv1.Position{
+					X: float32(node.PositionX),
+					Y: float32(node.PositionY),
+				},
+			}
+			h.nodeStream.Publish(rflowv2.NodeTopic{FlowID: node.FlowID}, rflowv2.NodeEvent{
+				Type: "insert",
+				Node: nodePB,
+			})
+		}
+
+		// Publish Request Nodes (as node events? No, wait, request nodes are just configuration for nodes)
+		// Request Node configuration is usually fetched separately or part of node details depending on API.
+		// Looking at rflowv2.go, NodeHttpCollection returns the configuration.
+		// There isn't a separate stream for NodeRequest configuration in the list I saw in rflowv2.go (NodeStream carries NodeEvent).
+		// However, NodeEvent in rflowv2.go only contains *flowv1.Node.
+		// There doesn't seem to be a stream for NodeRequest updates in rflowv2.go.
+		// Assuming we only need to stream the base nodes and edges for the graph to appear.
+
+		// Publish Edges events
+		for _, edge := range results.Edges {
+			edgePB := &flowv1.Edge{
+				EdgeId:       edge.ID.Bytes(),
+				FlowId:       edge.FlowID.Bytes(),
+				SourceId:     edge.SourceID.Bytes(),
+				TargetId:     edge.TargetID.Bytes(),
+				SourceHandle: flowv1.HandleKind(edge.SourceHandler),
+				Kind:         flowv1.EdgeKind(edge.Kind),
+			}
+			h.edgeStream.Publish(rflowv2.EdgeTopic{FlowID: edge.FlowID}, rflowv2.EdgeEvent{
+				Type: "insert",
+				Edge: edgePB,
+			})
+		}
 	}
 
 	// Publish HTTP events

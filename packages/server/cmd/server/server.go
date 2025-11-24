@@ -300,6 +300,8 @@ func main() {
 		&flowEdgeService,
 		logger,
 		flowStreamer,
+		nodeStreamer,
+		edgeStreamer,
 		httpStreamer,
 		httpHeaderStreamer,
 		httpSearchParamStreamer,

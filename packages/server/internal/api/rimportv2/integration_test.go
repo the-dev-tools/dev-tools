@@ -65,6 +65,8 @@ type integrationTestFixture struct {
 
 type IntegrationTestStreamers struct {
 	Flow               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
+	Node               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
+	Edge               eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
 	Http               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	HttpHeader         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
 
@@ -156,11 +158,27 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	
 
-		// Create streamers
+			// Create streamers
 
-		streamers := IntegrationTestStreamers{
-		Flow:               memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent](),
-		Http:               memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
+	
+
+			streamers := IntegrationTestStreamers{
+
+	
+
+				Flow:               memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent](),
+
+	
+
+				Node:               memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent](),
+
+	
+
+				Edge:               memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent](),
+
+	
+
+				Http:               memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
 		HttpHeader:         memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent](),
 
 		HttpSearchParam:    memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent](),
@@ -255,6 +273,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		&edgeService,
 		logger,
 		streamers.Flow,
+		streamers.Node,
+		streamers.Edge,
 		streamers.Http,
 		streamers.HttpHeader,
 		streamers.HttpSearchParam,

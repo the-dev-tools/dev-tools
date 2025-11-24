@@ -17,6 +17,9 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
@@ -140,6 +143,11 @@ type ImportResults struct {
 	HTTPBodyForms      []*mhttp.HTTPBodyForm
 	HTTPBodyUrlEncoded []*mhttp.HTTPBodyUrlencoded
 	HTTPBodyRaws       []*mhttp.HTTPBodyRaw
+
+	// Flow-specific entities
+	Nodes        []mnnode.MNode
+	RequestNodes []mnrequest.MNRequest
+	Edges        []edge.Edge
 
 	Domains     []string
 	WorkspaceID idwrap.IDWrap
@@ -629,6 +637,9 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportResult
 		HTTPBodyForms:      bodyFormsPtr,
 		HTTPBodyUrlEncoded: bodyUrlEncodedPtr,
 		HTTPBodyRaws:       bodyRawsPtr,
+		Nodes:              harResolved.Nodes,
+		RequestNodes:       harResolved.RequestNodes,
+		Edges:              harResolved.Edges,
 		Domains:            domains,
 		WorkspaceID:        req.WorkspaceID,
 	}
@@ -795,6 +806,9 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		HTTPBodyForms:      bodyFormsPtr,
 		HTTPBodyUrlEncoded: bodyUrlEncodedPtr,
 		HTTPBodyRaws:       bodyRawsPtr,
+		Nodes:              translationResult.Nodes,
+		RequestNodes:       translationResult.RequestNodes,
+		Edges:              translationResult.Edges,
 		Domains:            translationResult.Domains,
 		WorkspaceID:        req.WorkspaceID,
 		MissingData:        ImportMissingDataKind_UNSPECIFIED,
