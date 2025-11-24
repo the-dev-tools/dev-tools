@@ -229,6 +229,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		h.fileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
 			Type: "create",
 			File: converter.ToAPIFile(*file),
+			Name: file.Name,
 		})
 	}
 

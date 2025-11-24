@@ -36,6 +36,7 @@ type FileTopic struct {
 type FileEvent struct {
 	Type string
 	File *apiv1.File
+	Name string
 }
 
 type FileServiceRPC struct {
@@ -250,7 +251,7 @@ func folderSyncResponseFrom(evt FileEvent) *apiv1.FolderSyncResponse {
 				Kind: apiv1.FolderSync_ValueUnion_KIND_INSERT,
 				Insert: &apiv1.FolderSyncInsert{
 					FolderId: evt.File.FileId,
-					Name:     "", // Will be populated by the calling method
+					Name:     evt.Name,
 				},
 			},
 		}
@@ -258,6 +259,10 @@ func folderSyncResponseFrom(evt FileEvent) *apiv1.FolderSyncResponse {
 	case eventTypeUpdate:
 		update := &apiv1.FolderSyncUpdate{
 			FolderId: evt.File.FileId,
+		}
+
+		if evt.Name != "" {
+			update.Name = &evt.Name
 		}
 
 		msg := &apiv1.FolderSync{
@@ -494,6 +499,7 @@ func (f *FileServiceRPC) FileInsert(ctx context.Context, req *connect.Request[ap
 		f.stream.Publish(FileTopic{WorkspaceID: file.WorkspaceID}, FileEvent{
 			Type: eventTypeCreate,
 			File: toAPIFile(file),
+			Name: file.Name,
 		})
 	}
 
@@ -564,6 +570,7 @@ func (f *FileServiceRPC) FileUpdate(ctx context.Context, req *connect.Request[ap
 		f.stream.Publish(FileTopic{WorkspaceID: file.WorkspaceID}, FileEvent{
 			Type: eventTypeUpdate,
 			File: toAPIFile(file),
+			Name: file.Name,
 		})
 	}
 
@@ -662,6 +669,7 @@ func (f *FileServiceRPC) streamFileSync(ctx context.Context, userID idwrap.IDWra
 				Payload: FileEvent{
 					Type: eventTypeCreate,
 					File: toAPIFile(file),
+					Name: file.Name,
 				},
 			})
 		}
@@ -789,6 +797,7 @@ func (f *FileServiceRPC) FolderInsert(ctx context.Context, req *connect.Request[
 		f.stream.Publish(FileTopic{WorkspaceID: folder.WorkspaceID}, FileEvent{
 			Type: eventTypeCreate,
 			File: toAPIFile(folder),
+			Name: folder.Name,
 		})
 	}
 
@@ -864,6 +873,7 @@ func (f *FileServiceRPC) FolderUpdate(ctx context.Context, req *connect.Request[
 		f.stream.Publish(FileTopic{WorkspaceID: folder.WorkspaceID}, FileEvent{
 			Type: eventTypeUpdate,
 			File: toAPIFile(folder),
+			Name: folder.Name,
 		})
 	}
 
