@@ -9,7 +9,10 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 )
 
-const defaultSubscriberBuffer = 32
+// defaultSubscriberBuffer is set to 4096 to handle bulk operations (like HAR import)
+// where thousands of events might be published in a short burst.
+// A small buffer (e.g., 32) causes events to be dropped in non-blocking Publish calls.
+const defaultSubscriberBuffer = 4096
 
 type subscriber[Topic any, Payload any] struct {
 	ctx    context.Context
