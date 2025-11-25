@@ -3159,6 +3159,36 @@ func (q *Queries) CreateHeaderBulk(ctx context.Context, arg CreateHeaderBulkPara
 	return err
 }
 
+const createHttpVersion = `-- name: CreateHttpVersion :exec
+INSERT INTO http_version (
+  id, http_id, version_name, version_description, is_active, created_at, created_by
+)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+
+type CreateHttpVersionParams struct {
+	ID                 idwrap.IDWrap
+	HttpID             idwrap.IDWrap
+	VersionName        string
+	VersionDescription string
+	IsActive           bool
+	CreatedAt          int64
+	CreatedBy          *idwrap.IDWrap
+}
+
+func (q *Queries) CreateHttpVersion(ctx context.Context, arg CreateHttpVersionParams) error {
+	_, err := q.exec(ctx, q.createHttpVersionStmt, createHttpVersion,
+		arg.ID,
+		arg.HttpID,
+		arg.VersionName,
+		arg.VersionDescription,
+		arg.IsActive,
+		arg.CreatedAt,
+		arg.CreatedBy,
+	)
+	return err
+}
+
 const createItemApi = `-- name: CreateItemApi :exec
 INSERT INTO
   item_api (id, folder_id, name, url, method, version_parent_id, delta_parent_id, hidden, prev, next)
@@ -10609,6 +10639,43 @@ func (q *Queries) GetHTTPResponseAssert(ctx context.Context, id idwrap.IDWrap) (
 	return i, err
 }
 
+const getHTTPResponseAssertsByHttpID = `-- name: GetHTTPResponseAssertsByHttpID :many
+SELECT hra.id, hra.response_id, hra.value, hra.success, hra.created_at
+FROM http_response_assert hra
+JOIN http_response hr ON hra.response_id = hr.id
+WHERE hr.http_id = ?
+ORDER BY hra.created_at DESC
+`
+
+func (q *Queries) GetHTTPResponseAssertsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]HttpResponseAssert, error) {
+	rows, err := q.query(ctx, q.getHTTPResponseAssertsByHttpIDStmt, getHTTPResponseAssertsByHttpID, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseAssert{}
+	for rows.Next() {
+		var i HttpResponseAssert
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.Value,
+			&i.Success,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHTTPResponseAssertsByIDs = `-- name: GetHTTPResponseAssertsByIDs :many
 SELECT
   id,
@@ -10726,6 +10793,43 @@ func (q *Queries) GetHTTPResponseHeader(ctx context.Context, id idwrap.IDWrap) (
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getHTTPResponseHeadersByHttpID = `-- name: GetHTTPResponseHeadersByHttpID :many
+SELECT hrh.id, hrh.response_id, hrh.key, hrh.value, hrh.created_at
+FROM http_response_header hrh
+JOIN http_response hr ON hrh.response_id = hr.id
+WHERE hr.http_id = ?
+ORDER BY hrh.created_at DESC
+`
+
+func (q *Queries) GetHTTPResponseHeadersByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]HttpResponseHeader, error) {
+	rows, err := q.query(ctx, q.getHTTPResponseHeadersByHttpIDStmt, getHTTPResponseHeadersByHttpID, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpResponseHeader{}
+	for rows.Next() {
+		var i HttpResponseHeader
+		if err := rows.Scan(
+			&i.ID,
+			&i.ResponseID,
+			&i.Key,
+			&i.Value,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getHTTPResponseHeadersByIDs = `-- name: GetHTTPResponseHeadersByIDs :many
@@ -11993,6 +12097,44 @@ func (q *Queries) GetHeadersByExampleIDs(ctx context.Context, exampleIds []idwra
 			&i.Value,
 			&i.Prev,
 			&i.Next,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getHttpVersionsByHttpID = `-- name: GetHttpVersionsByHttpID :many
+SELECT id, http_id, version_name, version_description, is_active, created_at, created_by
+FROM http_version
+WHERE http_id = ?
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetHttpVersionsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]HttpVersion, error) {
+	rows, err := q.query(ctx, q.getHttpVersionsByHttpIDStmt, getHttpVersionsByHttpID, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpVersion{}
+	for rows.Next() {
+		var i HttpVersion
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.VersionName,
+			&i.VersionDescription,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.CreatedBy,
 		); err != nil {
 			return nil, err
 		}

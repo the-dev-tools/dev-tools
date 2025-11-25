@@ -4644,3 +4644,27 @@ WHERE
 DELETE FROM http_body_raw
 WHERE
   id = ?;
+-- name: CreateHttpVersion :exec
+INSERT INTO http_version (
+  id, http_id, version_name, version_description, is_active, created_at, created_by
+)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- name: GetHttpVersionsByHttpID :many
+SELECT id, http_id, version_name, version_description, is_active, created_at, created_by
+FROM http_version
+WHERE http_id = ?
+ORDER BY created_at DESC;
+-- name: GetHTTPResponseHeadersByHttpID :many
+SELECT hrh.id, hrh.response_id, hrh.key, hrh.value, hrh.created_at
+FROM http_response_header hrh
+JOIN http_response hr ON hrh.response_id = hr.id
+WHERE hr.http_id = ?
+ORDER BY hrh.created_at DESC;
+
+-- name: GetHTTPResponseAssertsByHttpID :many
+SELECT hra.id, hra.response_id, hra.value, hra.success, hra.created_at
+FROM http_response_assert hra
+JOIN http_response hr ON hra.response_id = hr.id
+WHERE hr.http_id = ?
+ORDER BY hra.created_at DESC;

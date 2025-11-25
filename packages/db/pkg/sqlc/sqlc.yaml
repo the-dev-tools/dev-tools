@@ -3,8 +3,6 @@ sql:
   - engine: 'sqlite'
     queries:
       - 'query.sql'
-      - 'http_version.sql'
-      - 'http_response.sql'
     schema: 'schema.sql'
     gen:
       go:
