@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v3"
@@ -420,7 +421,20 @@ func (s *FlowServiceV2RPC) NodeCollection(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, node := range nodes {
-			nodesPB = append(nodesPB, serializeNode(node))
+			nodePB := serializeNode(node)
+
+			exec, err := s.nes.GetLatestNodeExecutionByNodeID(ctx, node.ID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			if exec != nil {
+				nodePB.State = flowv1.FlowItemState(exec.State)
+				if exec.Error != nil {
+					nodePB.Info = exec.Error
+				}
+			}
+
+			nodesPB = append(nodesPB, nodePB)
 		}
 	}
 
@@ -934,6 +948,46 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	go func() {
 		defer stateDrain.Done()
 		for status := range nodeStateChan {
+			// Persist execution state
+			execID := status.ExecutionID
+			if isZeroID(execID) {
+				execID = idwrap.NewNow()
+			}
+
+			model := mnodeexecution.NodeExecution{
+				ID:     execID,
+				NodeID: status.NodeID,
+				Name:   status.Name,
+				State:  int8(status.State),
+			}
+
+			if status.Error != nil {
+				errStr := status.Error.Error()
+				model.Error = &errStr
+			}
+
+			if status.InputData != nil {
+				if b, err := json.Marshal(status.InputData); err == nil {
+					_ = model.SetInputJSON(b)
+				}
+			}
+			if status.OutputData != nil {
+				if b, err := json.Marshal(status.OutputData); err == nil {
+					_ = model.SetOutputJSON(b)
+				}
+			}
+
+			if status.State == mnnode.NODE_STATE_SUCCESS ||
+				status.State == mnnode.NODE_STATE_FAILURE ||
+				status.State == mnnode.NODE_STATE_CANCELED {
+				now := time.Now().Unix()
+				model.CompletedAt = &now
+			}
+
+			if err := s.nes.UpsertNodeExecution(ctx, model); err != nil {
+				s.logger.Error("failed to persist node execution", "error", err)
+			}
+
 			if s.nodeStream != nil {
 				var info string
 				if status.Error != nil {
@@ -1918,12 +1972,21 @@ func (s *FlowServiceV2RPC) streamNodeSync(
 			}
 
 			for _, nodeModel := range nodes {
+				nodePB := serializeNode(nodeModel)
+				exec, err := s.nes.GetLatestNodeExecutionByNodeID(ctx, nodeModel.ID)
+				if err == nil && exec != nil {
+					nodePB.State = flowv1.FlowItemState(exec.State)
+					if exec.Error != nil {
+						nodePB.Info = exec.Error
+					}
+				}
+
 				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
 					Topic: NodeTopic{FlowID: flow.ID},
 					Payload: NodeEvent{
 						Type:   nodeEventInsert,
 						FlowID: flow.ID,
-						Node:   serializeNode(nodeModel),
+						Node:   nodePB,
 					},
 				})
 			}
