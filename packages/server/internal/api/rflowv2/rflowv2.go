@@ -927,10 +927,35 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	}
 
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
-	if err := flowRunner.RunWithEvents(ctx, runner.FlowEventChannels{}, baseVars); err != nil {
+
+	nodeStateChan := make(chan runner.FlowNodeStatus, len(nodes)*2+1)
+	var stateDrain sync.WaitGroup
+	stateDrain.Add(1)
+	go func() {
+		defer stateDrain.Done()
+		for status := range nodeStateChan {
+			if s.nodeStream != nil {
+				s.nodeStream.Publish(NodeTopic{FlowID: flow.ID}, NodeEvent{
+					Type:   nodeEventUpdate,
+					FlowID: flow.ID,
+					Node: &flowv1.Node{
+						NodeId: status.NodeID.Bytes(),
+						FlowId: flow.ID.Bytes(),
+						State:  flowv1.FlowItemState(status.State),
+					},
+				})
+			}
+		}
+	}()
+
+	if err := flowRunner.RunWithEvents(ctx, runner.FlowEventChannels{
+		NodeStates: nodeStateChan,
+	}, baseVars); err != nil {
+		stateDrain.Wait()
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	stateDrain.Wait()
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
