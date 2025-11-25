@@ -431,12 +431,18 @@ const ActionBar = () => {
       </Button>
 
       {running ? (
-        <Button onPress={() => Connect.request({ method: FlowService.method.flowStop, transport })} variant='primary'>
+        <Button
+          onPress={() => Connect.request({ input: { flowId }, method: FlowService.method.flowStop, transport })}
+          variant='primary'
+        >
           <FiStopCircle className={tw`size-4`} />
           Stop
         </Button>
       ) : (
-        <Button onPress={() => Connect.request({ method: FlowService.method.flowRun, transport })} variant='primary'>
+        <Button
+          onPress={() => Connect.request({ input: { flowId }, method: FlowService.method.flowRun, transport })}
+          variant='primary'
+        >
           <PlayCircleIcon className={tw`size-4`} />
           Run
         </Button>
