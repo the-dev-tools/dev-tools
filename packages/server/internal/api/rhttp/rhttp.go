@@ -3282,6 +3282,16 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaSync(ctx context.Context, req *conn
 	return h.streamHttpSearchParamDeltaSync(ctx, userID, stream.Send)
 }
 
+func (h *HttpServiceRPC) HttpSearchParamMove(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h *HttpServiceRPC) HttpSearchParamDeltaMove(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
 func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpAssertCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -3714,12 +3724,12 @@ func (h *HttpServiceRPC) HttpAssertDeltaInsert(ctx context.Context, req *connect
 }
 
 func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpAssertDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	// Stub implementation - delta updates are handled via HttpAssertDeltaCreate
+	// TODO: Implement
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpAssertDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	// Stub implementation - delta deletion is not supported
+	// TODO: Implement
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
@@ -4821,6 +4831,16 @@ func (h *HttpServiceRPC) HttpHeaderDeltaSync(ctx context.Context, req *connect.R
 	return h.streamHttpHeaderDeltaSync(ctx, userID, stream.Send)
 }
 
+func (h *HttpServiceRPC) HttpHeaderMove(ctx context.Context, req *connect.Request[apiv1.HttpHeaderMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h *HttpServiceRPC) HttpHeaderDeltaMove(ctx context.Context, req *connect.Request[apiv1.HttpHeaderDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
 func (h *HttpServiceRPC) HttpBodyFormDataCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormDataCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -5560,12 +5580,12 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaInsert(ctx context.Context, req *c
 }
 
 func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	// Stub implementation - delta updates are handled via HttpBodyFormDeltaCreate
+	// TODO: Implement
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	// Stub implementation - delta deletion is not supported
+	// TODO: Implement
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
@@ -5576,6 +5596,16 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaSync(ctx context.Context, req *con
 	}
 
 	return h.streamHttpBodyFormDeltaSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) HttpBodyFormDataMove(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h *HttpServiceRPC) HttpBodyFormDataDeltaMove(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyUrlEncodedCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyUrlEncodedCollectionResponse], error) {
@@ -6605,12 +6635,12 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaInsert(ctx context.Context, req 
 }
 
 func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	// Stub implementation - delta updates are handled via HttpBodyUrlEncodedDeltaCreate
+	// TODO: Implement
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	// Stub implementation - delta deletion is not supported
+	// TODO: Implement
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
@@ -6621,6 +6651,16 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaSync(ctx context.Context, req *c
 	}
 
 	return h.streamHttpBodyUrlEncodedDeltaSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) HttpBodyUrlEncodedMove(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaMove(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyRawCollectionResponse], error) {
