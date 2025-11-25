@@ -39,7 +39,7 @@ func ConvertToDBExampleResp(item mexampleresp.ExampleResp) gen.ExampleResp {
 		Status:           item.Status,
 		Body:             item.Body,
 		Duration:         item.Duration,
-		BodyCompressType: int8(item.BodyCompressType),
+		BodyCompressType: int8(item.BodyCompressType), // nolint:gosec // G115
 	}
 }
 
@@ -50,7 +50,7 @@ func ConvertToModelExampleResp(item gen.ExampleResp) mexampleresp.ExampleResp {
 		Status:           item.Status,
 		Body:             item.Body,
 		Duration:         item.Duration,
-		BodyCompressType: mexampleresp.BodyCompressType(item.BodyCompressType),
+		BodyCompressType: mexampleresp.BodyCompressType(item.BodyCompressType), // nolint:gosec // G115
 	}
 }
 

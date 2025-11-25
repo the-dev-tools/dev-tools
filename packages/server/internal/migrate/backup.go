@@ -24,13 +24,13 @@ func (b *BackupManager) Create(ctx context.Context, migrationID string, now time
 		return "", fmt.Errorf("backup manager not configured")
 	}
 
-	if err := os.MkdirAll(b.BackupDir, 0o755); err != nil {
+	if err := os.MkdirAll(b.BackupDir, 0o750); err != nil {
 		return "", fmt.Errorf("create backup dir: %w", err)
 	}
 
 	dirName := fmt.Sprintf("%s-%s", now.UTC().Format("20060102T150405Z"), migrationID)
 	targetDir := filepath.Join(b.BackupDir, dirName)
-	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+	if err := os.MkdirAll(targetDir, 0o750); err != nil {
 		return "", fmt.Errorf("create backup subdir: %w", err)
 	}
 
@@ -98,13 +98,13 @@ func (b *BackupManager) Trim() error {
 }
 
 func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+	in, err := os.Open(filepath.Clean(src))
 	if err != nil {
 		return err
 	}
 	defer in.Close()
 
-	out, err := os.Create(dst)
+	out, err := os.Create(filepath.Clean(dst))
 	if err != nil {
 		return err
 	}

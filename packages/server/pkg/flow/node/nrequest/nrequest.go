@@ -50,7 +50,7 @@ type NodeRequestSideResp struct {
 }
 
 const (
-	OUTPUT_RESPONE_NAME = "response"
+	OUTPUT_RESPONSE_NAME = "response"
 	OUTPUT_REQUEST_NAME = "request"
 )
 
@@ -77,7 +77,7 @@ func buildNodeRequestOutputMap(output NodeRequestOutput) map[string]any {
 	}
 
 	result[OUTPUT_REQUEST_NAME] = requestMap
-	result[OUTPUT_RESPONE_NAME] = responseMap
+	result[OUTPUT_RESPONSE_NAME] = responseMap
 	return result
 }
 
@@ -184,7 +184,7 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 
 	// Build output using measured duration
 	respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
-	respVar.Duration = int32(resp.LapTime.Milliseconds())
+	respVar.Duration = int32(resp.LapTime.Milliseconds()) // nolint:gosec // G115
 	output := NodeRequestOutput{
 		Request:  request.ConvertRequestToVar(prepareOutput),
 		Response: respVar,
@@ -296,7 +296,7 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	// Build output using measured duration
 	respVar := httpclient.ConvertResponseToVar(resp.HttpResp)
-	respVar.Duration = int32(resp.LapTime.Milliseconds())
+	respVar.Duration = int32(resp.LapTime.Milliseconds()) // nolint:gosec // G115
 	output := NodeRequestOutput{
 		Request:  request.ConvertRequestToVar(prepareOutput),
 		Response: respVar,

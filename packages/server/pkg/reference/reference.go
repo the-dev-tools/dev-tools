@@ -377,7 +377,7 @@ func NewReferenceFromInterface(value any, key ReferenceKey) ReferenceTreeItem {
 	case reflect.Slice, reflect.Array:
 		arrayRefs := make([]ReferenceTreeItem, val.Len())
 		for i := range val.Len() {
-			subKey := ReferenceKey{Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: int32(i)}
+			subKey := ReferenceKey{Kind: ReferenceKeyKind_REFERENCE_KEY_KIND_INDEX, Index: int32(i)} // nolint:gosec // G115
 			arrayRefs[i] = NewReferenceFromInterface(val.Index(i).Interface(), subKey)
 		}
 		return ReferenceTreeItem{Key: key, Kind: ReferenceKind_REFERENCE_KIND_ARRAY, Array: arrayRefs}

@@ -113,10 +113,10 @@ func addPaths(currentPath string, value any, pathMap map[string]ReferenceComplet
 			// Recursively process the map value
 			addPaths(nextPath, val.Interface(), pathMap)
 		}
-		count = uint(v.Len())
+		count = uint(v.Len()) // nolint:gosec // G115
 
 	case reflect.Slice, reflect.Array:
-		count = uint(v.Len())
+		count = uint(v.Len()) // nolint:gosec // G115
 
 		// Iterate through the elements of the slice or array.
 		for i := 0; i < v.Len(); i++ {
@@ -215,12 +215,12 @@ func (c ReferenceCompletionCreator) FindMatchAndCalcCompletionData(query string)
 		endIndex := len(query)
 
 		Details := c.PathMap[matchedPath]
-		itemCount := int32(Details.Count)
+		itemCount := int32(Details.Count) // nolint:gosec // G115
 
 		referenceCompletionItems[i] = ReferenceCompletionItem{
 			Kind:         pathKind,
 			EndToken:     matchedPath,
-			EndIndex:     int32(endIndex),
+			EndIndex:     int32(endIndex), // nolint:gosec // G115
 			ItemCount:    &itemCount,
 			Environments: nil,
 		}

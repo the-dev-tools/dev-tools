@@ -102,11 +102,11 @@ func (u *IDWrap) Scan(value interface{}) error {
 
 func GetTimeFromULID(idwrap IDWrap) time.Time {
 	// Get the time from the ULID
-	return time.UnixMilli(int64(idwrap.ulid.Time()))
+	return time.UnixMilli(int64(idwrap.ulid.Time())) // nolint:gosec // G115
 }
 
 func GetUnixMilliFromULID(idwrap IDWrap) int64 {
-	return int64(idwrap.ulid.Time())
+	return int64(idwrap.ulid.Time()) // nolint:gosec // G115
 }
 
 func GetUlid(Ulid IDWrap) ulid.ULID {

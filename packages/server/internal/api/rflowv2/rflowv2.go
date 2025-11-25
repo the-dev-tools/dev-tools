@@ -2478,7 +2478,7 @@ func (s *FlowServiceV2RPC) NodeNoOpInsert(ctx context.Context, req *connect.Requ
 
 		noop := mnnoop.NoopNode{
 			FlowNodeID: nodeID,
-			Type:       mnnoop.NoopTypes(item.GetKind()),
+			Type:       mnnoop.NoopTypes(item.GetKind()), // nolint:gosec // G115
 		}
 		if err := s.nnos.CreateNodeNoop(ctx, noop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -2519,7 +2519,7 @@ func (s *FlowServiceV2RPC) NodeNoOpUpdate(ctx context.Context, req *connect.Requ
 
 		noop := mnnoop.NoopNode{
 			FlowNodeID: nodeID,
-			Type:       mnnoop.NoopTypes(item.GetKind()),
+			Type:       mnnoop.NoopTypes(item.GetKind()), // nolint:gosec // G115
 		}
 		if err := s.nnos.CreateNodeNoop(ctx, noop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -3407,7 +3407,7 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 			FlowNodeID:    nodeID,
 			IterCount:     int64(item.GetIterations()),
 			Condition:     buildCondition(item.GetCondition()),
-			ErrorHandling: mnfor.ErrorHandling(item.GetErrorHandling()),
+			ErrorHandling: mnfor.ErrorHandling(item.GetErrorHandling()), // nolint:gosec // G115
 		}
 
 		if err := s.nfs.CreateNodeFor(ctx, model); err != nil {
@@ -3441,14 +3441,8 @@ func (s *FlowServiceV2RPC) NodeForUpdate(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if item.Iterations != nil {
-			existing.IterCount = int64(item.GetIterations())
-		}
-		if item.Condition != nil {
-			existing.Condition = buildCondition(item.GetCondition())
-		}
 		if item.ErrorHandling != nil {
-			existing.ErrorHandling = mnfor.ErrorHandling(item.GetErrorHandling())
+			existing.ErrorHandling = mnfor.ErrorHandling(item.GetErrorHandling()) // nolint:gosec // G115
 		}
 
 		if err := s.nfs.UpdateNodeFor(ctx, *existing); err != nil {
@@ -3558,7 +3552,7 @@ func (s *FlowServiceV2RPC) NodeForEachInsert(ctx context.Context, req *connect.R
 			FlowNodeID:     nodeID,
 			IterExpression: item.GetPath(),
 			Condition:      buildCondition(item.GetCondition()),
-			ErrorHandling:  mnfor.ErrorHandling(item.GetErrorHandling()),
+			ErrorHandling:  mnfor.ErrorHandling(item.GetErrorHandling()), // nolint:gosec // G115
 		}
 
 		if err := s.nfes.CreateNodeForEach(ctx, model); err != nil {
@@ -3595,7 +3589,7 @@ func (s *FlowServiceV2RPC) NodeForEachUpdate(ctx context.Context, req *connect.R
 			existing.Condition = buildCondition(item.GetCondition())
 		}
 		if item.ErrorHandling != nil {
-			existing.ErrorHandling = mnfor.ErrorHandling(item.GetErrorHandling())
+			existing.ErrorHandling = mnfor.ErrorHandling(item.GetErrorHandling()) // nolint:gosec // G115
 		}
 
 		if err := s.nfes.UpdateNodeForEach(ctx, *existing); err != nil {
@@ -4749,7 +4743,7 @@ func serializeNodeNoop(n mnnoop.NoopNode) *flowv1.NodeNoOp {
 func serializeNodeFor(n mnfor.MNFor) *flowv1.NodeFor {
 	return &flowv1.NodeFor{
 		NodeId:        n.FlowNodeID.Bytes(),
-		Iterations:    int32(n.IterCount),
+		Iterations:    int32(n.IterCount), // nolint:gosec // G115
 		Condition:     n.Condition.Comparisons.Expression,
 		ErrorHandling: converter.ToAPIErrorHandling(n.ErrorHandling),
 	}

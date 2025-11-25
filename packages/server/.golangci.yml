@@ -8,11 +8,27 @@ linters:
   disable-all: true
   enable:
     - govet
+    - testifylint
+    - importas
+    - misspell
+    - gosec
   disable:
     - staticcheck
     - unused
     - errcheck
     - revive
+
+linters-settings:
+  importas:
+    alias:
+      - pkg: the-dev-tools/server/pkg/model/mhttp
+        alias: mhttp
+      - pkg: the-dev-tools/server/pkg/service/shttp
+        alias: shttp
+      - pkg: the-dev-tools/db/pkg/sqlc/gen
+        alias: gen
+  testifylint:
+    enable-all: true
 
 issues:
   # Avoid noise from suggestions and test-only checks in this target

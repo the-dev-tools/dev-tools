@@ -112,7 +112,7 @@ func (s *IOWorkspaceServiceV2) ImportWorkspace(
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 

@@ -57,11 +57,11 @@ func ResponseCreateHTTP(
 	httpResponse := mhttp.HTTPResponse{
 		ID:        responseID,
 		HttpID:    httpID,
-		Status:    int32(respHttp.StatusCode),
+		Status:    int32(respHttp.StatusCode), // nolint:gosec // G115
 		Body:      respHttp.Body,
 		Time:      now,
-		Duration:  int32(lapse.Milliseconds()),
-		Size:      int32(len(respHttp.Body)),
+		Duration:  int32(lapse.Milliseconds()), // nolint:gosec // G115
+		Size:      int32(len(respHttp.Body)),   // nolint:gosec // G115
 		CreatedAt: now,
 	}
 
@@ -159,9 +159,9 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 
 	// Update httpResponse with actual response data
 	httpResponse.Body = bodyData
-	httpResponse.Duration = int32(lapse.Milliseconds())
-	httpResponse.Status = int32(respHttp.StatusCode)
-	httpResponse.Size = int32(len(bodyData))
+	httpResponse.Duration = int32(lapse.Milliseconds()) // nolint:gosec // G115
+	httpResponse.Status = int32(respHttp.StatusCode)    // nolint:gosec // G115
+	httpResponse.Size = int32(len(bodyData))            // nolint:gosec // G115
 	httpResponse.CreatedAt = time.Now().Unix()
 
 	ResponseCreateOutput.HTTPResponse = httpResponse

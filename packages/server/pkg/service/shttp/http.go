@@ -57,13 +57,13 @@ func interfaceToInt8Ptr(v interface{}) *mhttp.HttpBodyKind {
 	}
 	switch val := v.(type) {
 	case int64:
-		k := mhttp.HttpBodyKind(val)
+		k := mhttp.HttpBodyKind(val) // nolint:gosec // G115
 		return &k
 	case int32:
-		k := mhttp.HttpBodyKind(val)
+		k := mhttp.HttpBodyKind(val) // nolint:gosec // G115
 		return &k
 	case int:
-		k := mhttp.HttpBodyKind(val)
+		k := mhttp.HttpBodyKind(val) // nolint:gosec // G115
 		return &k
 	case int8:
 		k := mhttp.HttpBodyKind(val)

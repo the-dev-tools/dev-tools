@@ -6873,11 +6873,11 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	httpResponse := mhttp.HTTPResponse{
 		ID:        responseID,
 		HttpID:    httpEntry.ID,
-		Status:    int32(resp.StatusCode),
+		Status:    int32(resp.StatusCode),      // nolint:gosec // G115
 		Body:      resp.Body,
 		Time:      requestTime.Unix(),
-		Duration:  int32(duration),
-		Size:      int32(len(resp.Body)),
+		Duration:  int32(duration),             // nolint:gosec // G115
+		Size:      int32(len(resp.Body)),       // nolint:gosec // G115
 		CreatedAt: nowUnix,
 	}
 

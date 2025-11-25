@@ -17,7 +17,7 @@ func ConvertToDBWorkspaceUser(wsuser mworkspaceuser.WorkspaceUser) gen.Workspace
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,
 		UserID:      wsuser.UserID,
-		Role:        int8(wsuser.Role),
+		Role:        int8(wsuser.Role), // nolint:gosec // G115
 	}
 }
 
@@ -26,7 +26,7 @@ func ConvertToModelWorkspaceUser(wsuser gen.WorkspacesUser) mworkspaceuser.Works
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,
 		UserID:      wsuser.UserID,
-		Role:        mworkspaceuser.Role(wsuser.Role),
+		Role:        mworkspaceuser.Role(wsuser.Role), // nolint:gosec // G115
 	}
 }
 
@@ -57,7 +57,7 @@ func (wsu WorkspaceUserService) CreateWorkspaceUser(ctx context.Context, user *m
 		ID:          user.ID,
 		WorkspaceID: user.WorkspaceID,
 		UserID:      user.UserID,
-		Role:        int8(user.Role),
+		Role:        int8(user.Role), // nolint:gosec // G115
 	})
 }
 
@@ -74,7 +74,7 @@ func (wsu WorkspaceUserService) GetWorkspaceUser(ctx context.Context, id idwrap.
 		ID:          wsuser.ID,
 		WorkspaceID: wsuser.WorkspaceID,
 		UserID:      wsuser.UserID,
-		Role:        mworkspaceuser.Role(wsuser.Role),
+		Role:        mworkspaceuser.Role(wsuser.Role), // nolint:gosec // G115
 	}, nil
 }
 

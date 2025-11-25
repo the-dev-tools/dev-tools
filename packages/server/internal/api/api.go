@@ -67,13 +67,16 @@ func ListenServices(services []Service, port string) error {
 		mux.Handle(service.Path, service.Handler)
 	}
 
-	return http.ListenAndServe(
-		":"+port,
+	srv := &http.Server{
+		Addr:              ":" + port,
+		ReadHeaderTimeout: 10 * time.Second,
 		// INFO: Use h2c so we can serve HTTP/2 without TLS.
-		h2c.NewHandler(newCORS().Handler(mux), &http2.Server{
+		Handler: h2c.NewHandler(newCORS().Handler(mux), &http2.Server{
 			IdleTimeout:          0,
 			MaxConcurrentStreams: 100000,
 			MaxHandlers:          0,
 		}),
-	)
+	}
+
+	return srv.ListenAndServe()
 }

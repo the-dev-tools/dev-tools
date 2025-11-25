@@ -268,7 +268,7 @@ func BuildPendingMap(predecessors map[idwrap.IDWrap][]idwrap.IDWrap) map[idwrap.
 	pending := make(map[idwrap.IDWrap]uint32)
 	for nodeID, preds := range predecessors {
 		if len(preds) > 1 {
-			pending[nodeID] = uint32(len(preds))
+			pending[nodeID] = uint32(len(preds)) // nolint:gosec // G115
 		}
 	}
 

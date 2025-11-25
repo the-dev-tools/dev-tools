@@ -236,7 +236,7 @@ func PrepareHTTPRequestWithTracking(
 			if allAreFileReferences && len(filePathsToUpload) > 0 {
 				// This is a file upload (single or multiple)
 				for _, filePath := range filePathsToUpload {
-					fileContentBytes, err := os.ReadFile(filePath)
+					fileContentBytes, err := os.ReadFile(filepath.Clean(filePath))
 					if err != nil {
 						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read file %s: %w", filePath, err))
 					}
@@ -688,7 +688,7 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 			if allAreFileReferences && len(filePathsToUpload) > 0 {
 				// This is a file upload (single or multiple)
 				for _, filePath := range filePathsToUpload {
-					fileContentBytes, err := os.ReadFile(filePath)
+					fileContentBytes, err := os.ReadFile(filepath.Clean(filePath))
 					if err != nil {
 						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read file %s: %w", filePath, err))
 					}
@@ -984,7 +984,7 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 			if allAreFileReferences && len(filePathsToUpload) > 0 {
 				// This is a file upload (single or multiple)
 				for _, filePath := range filePathsToUpload {
-					fileContentBytes, err := os.ReadFile(filePath)
+					fileContentBytes, err := os.ReadFile(filepath.Clean(filePath))
 					if err != nil {
 						return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read file %s: %w", filePath, err))
 					}
