@@ -434,8 +434,8 @@ type HttpResponse struct {
 }
 
 type HttpResponseAssert struct {
-	ID         []byte
-	ResponseID []byte
+	ID         idwrap.IDWrap
+	ResponseID idwrap.IDWrap
 	Value      string
 	Success    bool
 	CreatedAt  int64

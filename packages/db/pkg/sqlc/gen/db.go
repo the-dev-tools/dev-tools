@@ -834,6 +834,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPResponseAssertStmt, err = db.PrepareContext(ctx, getHTTPResponseAssert); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponseAssert: %w", err)
 	}
+	if q.getHTTPResponseAssertsByHttpIDStmt, err = db.PrepareContext(ctx, getHTTPResponseAssertsByHttpID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponseAssertsByHttpID: %w", err)
+	}
 	if q.getHTTPResponseAssertsByIDsStmt, err = db.PrepareContext(ctx, getHTTPResponseAssertsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponseAssertsByIDs: %w", err)
 	}
@@ -842,6 +845,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getHTTPResponseHeaderStmt, err = db.PrepareContext(ctx, getHTTPResponseHeader); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeader: %w", err)
+	}
+	if q.getHTTPResponseHeadersByHttpIDStmt, err = db.PrepareContext(ctx, getHTTPResponseHeadersByHttpID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeadersByHttpID: %w", err)
 	}
 	if q.getHTTPResponseHeadersByIDsStmt, err = db.PrepareContext(ctx, getHTTPResponseHeadersByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponseHeadersByIDs: %w", err)
@@ -2636,6 +2642,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPResponseAssertStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPResponseAssertsByHttpIDStmt != nil {
+		if cerr := q.getHTTPResponseAssertsByHttpIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponseAssertsByHttpIDStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPResponseAssertsByIDsStmt != nil {
 		if cerr := q.getHTTPResponseAssertsByIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPResponseAssertsByIDsStmt: %w", cerr)
@@ -2649,6 +2660,11 @@ func (q *Queries) Close() error {
 	if q.getHTTPResponseHeaderStmt != nil {
 		if cerr := q.getHTTPResponseHeaderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPResponseHeaderStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPResponseHeadersByHttpIDStmt != nil {
+		if cerr := q.getHTTPResponseHeadersByHttpIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPResponseHeadersByHttpIDStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPResponseHeadersByIDsStmt != nil {
@@ -3690,9 +3706,11 @@ type Queries struct {
 	getHTTPIncrementalUpdatesStmt              *sql.Stmt
 	getHTTPResponseStmt                        *sql.Stmt
 	getHTTPResponseAssertStmt                  *sql.Stmt
+	getHTTPResponseAssertsByHttpIDStmt         *sql.Stmt
 	getHTTPResponseAssertsByIDsStmt            *sql.Stmt
 	getHTTPResponseAssertsByResponseIDStmt     *sql.Stmt
 	getHTTPResponseHeaderStmt                  *sql.Stmt
+	getHTTPResponseHeadersByHttpIDStmt         *sql.Stmt
 	getHTTPResponseHeadersByIDsStmt            *sql.Stmt
 	getHTTPResponseHeadersByResponseIDStmt     *sql.Stmt
 	getHTTPResponsesByHttpIDStmt               *sql.Stmt
@@ -4115,9 +4133,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPIncrementalUpdatesStmt:              q.getHTTPIncrementalUpdatesStmt,
 		getHTTPResponseStmt:                        q.getHTTPResponseStmt,
 		getHTTPResponseAssertStmt:                  q.getHTTPResponseAssertStmt,
+		getHTTPResponseAssertsByHttpIDStmt:         q.getHTTPResponseAssertsByHttpIDStmt,
 		getHTTPResponseAssertsByIDsStmt:            q.getHTTPResponseAssertsByIDsStmt,
 		getHTTPResponseAssertsByResponseIDStmt:     q.getHTTPResponseAssertsByResponseIDStmt,
 		getHTTPResponseHeaderStmt:                  q.getHTTPResponseHeaderStmt,
+		getHTTPResponseHeadersByHttpIDStmt:         q.getHTTPResponseHeadersByHttpIDStmt,
 		getHTTPResponseHeadersByIDsStmt:            q.getHTTPResponseHeadersByIDsStmt,
 		getHTTPResponseHeadersByResponseIDStmt:     q.getHTTPResponseHeadersByResponseIDStmt,
 		getHTTPResponsesByHttpIDStmt:               q.getHTTPResponsesByHttpIDStmt,

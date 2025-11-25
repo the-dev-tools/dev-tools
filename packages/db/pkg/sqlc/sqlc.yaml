@@ -4,6 +4,7 @@ sql:
     queries:
       - 'query.sql'
       - 'http_version.sql'
+      - 'http_response.sql'
     schema: 'schema.sql'
     gen:
       go:
@@ -22,6 +23,8 @@ sql:
             go_type: 'int64'
           - db_type: TIMESTAMP
             go_type: 'int64'
+          - db_type: DATETIME
+            go_type: 'time.Time'
           ## user
           - column: 'users.id'
             go_type:
@@ -1167,3 +1170,14 @@ sql:
             go_type:
               type: 'bool'
               pointer: true
+          ### http_response_assert table
+          - column: 'http_response_assert.id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'
+          - column: 'http_response_assert.response_id'
+            go_type:
+              import: 'the-dev-tools/server/pkg/idwrap'
+              package: 'idwrap'
+              type: 'IDWrap'

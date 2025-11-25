@@ -2295,8 +2295,8 @@ VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateHTTPResponseAssertParams struct {
-	ID         []byte
-	ResponseID []byte
+	ID         idwrap.IDWrap
+	ResponseID idwrap.IDWrap
 	Value      string
 	Success    bool
 	CreatedAt  int64
@@ -2331,53 +2331,53 @@ VALUES
 `
 
 type CreateHTTPResponseAssertBulkParams struct {
-	ID            []byte
-	ResponseID    []byte
+	ID            idwrap.IDWrap
+	ResponseID    idwrap.IDWrap
 	Value         string
 	Success       bool
 	CreatedAt     int64
-	ID_2          []byte
-	ResponseID_2  []byte
+	ID_2          idwrap.IDWrap
+	ResponseID_2  idwrap.IDWrap
 	Value_2       string
 	Success_2     bool
 	CreatedAt_2   int64
-	ID_3          []byte
-	ResponseID_3  []byte
+	ID_3          idwrap.IDWrap
+	ResponseID_3  idwrap.IDWrap
 	Value_3       string
 	Success_3     bool
 	CreatedAt_3   int64
-	ID_4          []byte
-	ResponseID_4  []byte
+	ID_4          idwrap.IDWrap
+	ResponseID_4  idwrap.IDWrap
 	Value_4       string
 	Success_4     bool
 	CreatedAt_4   int64
-	ID_5          []byte
-	ResponseID_5  []byte
+	ID_5          idwrap.IDWrap
+	ResponseID_5  idwrap.IDWrap
 	Value_5       string
 	Success_5     bool
 	CreatedAt_5   int64
-	ID_6          []byte
-	ResponseID_6  []byte
+	ID_6          idwrap.IDWrap
+	ResponseID_6  idwrap.IDWrap
 	Value_6       string
 	Success_6     bool
 	CreatedAt_6   int64
-	ID_7          []byte
-	ResponseID_7  []byte
+	ID_7          idwrap.IDWrap
+	ResponseID_7  idwrap.IDWrap
 	Value_7       string
 	Success_7     bool
 	CreatedAt_7   int64
-	ID_8          []byte
-	ResponseID_8  []byte
+	ID_8          idwrap.IDWrap
+	ResponseID_8  idwrap.IDWrap
 	Value_8       string
 	Success_8     bool
 	CreatedAt_8   int64
-	ID_9          []byte
-	ResponseID_9  []byte
+	ID_9          idwrap.IDWrap
+	ResponseID_9  idwrap.IDWrap
 	Value_9       string
 	Success_9     bool
 	CreatedAt_9   int64
-	ID_10         []byte
-	ResponseID_10 []byte
+	ID_10         idwrap.IDWrap
+	ResponseID_10 idwrap.IDWrap
 	Value_10      string
 	Success_10    bool
 	CreatedAt_10  int64
@@ -4589,7 +4589,7 @@ const deleteHTTPResponseAssert = `-- name: DeleteHTTPResponseAssert :exec
 DELETE FROM http_response_assert WHERE id = ?
 `
 
-func (q *Queries) DeleteHTTPResponseAssert(ctx context.Context, id []byte) error {
+func (q *Queries) DeleteHTTPResponseAssert(ctx context.Context, id idwrap.IDWrap) error {
 	_, err := q.exec(ctx, q.deleteHTTPResponseAssertStmt, deleteHTTPResponseAssert, id)
 	return err
 }
@@ -10596,7 +10596,7 @@ LIMIT 1
 `
 
 // HTTP Response Assert Queries (TypeSpec-compliant)
-func (q *Queries) GetHTTPResponseAssert(ctx context.Context, id []byte) (HttpResponseAssert, error) {
+func (q *Queries) GetHTTPResponseAssert(ctx context.Context, id idwrap.IDWrap) (HttpResponseAssert, error) {
 	row := q.queryRow(ctx, q.getHTTPResponseAssertStmt, getHTTPResponseAssert, id)
 	var i HttpResponseAssert
 	err := row.Scan(
@@ -10621,7 +10621,7 @@ WHERE id IN (/*SLICE:ids*/?)
 ORDER BY created_at DESC
 `
 
-func (q *Queries) GetHTTPResponseAssertsByIDs(ctx context.Context, ids [][]byte) ([]HttpResponseAssert, error) {
+func (q *Queries) GetHTTPResponseAssertsByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]HttpResponseAssert, error) {
 	query := getHTTPResponseAssertsByIDs
 	var queryParams []interface{}
 	if len(ids) > 0 {
@@ -10672,7 +10672,7 @@ WHERE response_id = ?
 ORDER BY created_at DESC
 `
 
-func (q *Queries) GetHTTPResponseAssertsByResponseID(ctx context.Context, responseID []byte) ([]HttpResponseAssert, error) {
+func (q *Queries) GetHTTPResponseAssertsByResponseID(ctx context.Context, responseID idwrap.IDWrap) ([]HttpResponseAssert, error) {
 	rows, err := q.query(ctx, q.getHTTPResponseAssertsByResponseIDStmt, getHTTPResponseAssertsByResponseID, responseID)
 	if err != nil {
 		return nil, err
@@ -15456,7 +15456,7 @@ WHERE id = ?
 type UpdateHTTPResponseAssertParams struct {
 	Value   string
 	Success bool
-	ID      []byte
+	ID      idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPResponseAssert(ctx context.Context, arg UpdateHTTPResponseAssertParams) error {

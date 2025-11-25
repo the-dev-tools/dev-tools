@@ -72,16 +72,17 @@ func (hrs HttpResponseService) TX(tx *sql.Tx) HttpResponseService {
 	return HttpResponseService{queries: hrs.queries.WithTx(tx)}
 }
 
-func (hrs HttpResponseService) Create(ctx context.Context, response gen.HttpResponse) error {
+func (hrs HttpResponseService) Create(ctx context.Context, response mhttp.HTTPResponse) error {
+	dbResponse := ConvertToDBHttpResponse(response)
 	return hrs.queries.CreateHTTPResponse(ctx, gen.CreateHTTPResponseParams{
-		ID:        response.ID,
-		HttpID:    response.HttpID,
-		Status:    response.Status,
-		Body:      response.Body,
-		Time:      response.Time,
-		Duration:  response.Duration,
-		Size:      response.Size,
-		CreatedAt: response.CreatedAt,
+		ID:        dbResponse.ID,
+		HttpID:    dbResponse.HttpID,
+		Status:    dbResponse.Status,
+		Body:      dbResponse.Body,
+		Time:      dbResponse.Time,
+		Duration:  dbResponse.Duration,
+		Size:      dbResponse.Size,
+		CreatedAt: dbResponse.CreatedAt,
 	})
 }
 
@@ -99,4 +100,108 @@ func (hrs HttpResponseService) GetByHttpID(ctx context.Context, httpID idwrap.ID
 		result[i] = ConvertToModelHttpResponse(response)
 	}
 	return result, nil
+}
+
+func (hrs HttpResponseService) CreateHeader(ctx context.Context, header mhttp.HTTPResponseHeader) error {
+	return hrs.queries.CreateHTTPResponseHeader(ctx, gen.CreateHTTPResponseHeaderParams{
+		ID:         header.ID,
+		ResponseID: header.ResponseID,
+		Key:        header.HeaderKey,
+		Value:      header.HeaderValue,
+		CreatedAt:  header.CreatedAt,
+	})
+}
+
+func (hrs HttpResponseService) GetHeadersByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponseHeader, error) {
+
+	headers, err := hrs.queries.GetHTTPResponseHeadersByHttpID(ctx, httpID)
+
+	if err != nil {
+
+		return nil, err
+
+	}
+
+
+
+	result := make([]mhttp.HTTPResponseHeader, len(headers))
+
+	for i, header := range headers {
+
+		result[i] = mhttp.HTTPResponseHeader{
+
+			ID:          header.ID,
+
+			ResponseID:  header.ResponseID,
+
+			HeaderKey:   header.Key,
+
+			HeaderValue: header.Value,
+
+			CreatedAt:   header.CreatedAt,
+
+		}
+
+	}
+
+	return result, nil
+
+}
+
+
+
+func (hrs HttpResponseService) GetAssertsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPResponseAssert, error) {
+
+	asserts, err := hrs.queries.GetHTTPResponseAssertsByHttpID(ctx, httpID)
+
+	if err != nil {
+
+		return nil, err
+
+	}
+
+
+
+	result := make([]mhttp.HTTPResponseAssert, len(asserts))
+
+	for i, assert := range asserts {
+
+		result[i] = mhttp.HTTPResponseAssert{
+
+			ID:         assert.ID,
+
+			ResponseID: assert.ResponseID,
+
+			Value:      assert.Value,
+
+			Success:    assert.Success,
+
+			CreatedAt:  assert.CreatedAt,
+
+		}
+
+	}
+
+	return result, nil
+
+}
+
+
+
+func (hrs HttpResponseService) CreateAssert(ctx context.Context, assert mhttp.HTTPResponseAssert) error {
+
+	return hrs.queries.CreateHTTPResponseAssert(ctx, gen.CreateHTTPResponseAssertParams{
+
+		ID:         assert.ID,
+
+		ResponseID: assert.ResponseID,
+
+		Value:      assert.Value,
+
+		Success:    assert.Success,
+
+		CreatedAt:  assert.CreatedAt,
+
+	})
+
 }

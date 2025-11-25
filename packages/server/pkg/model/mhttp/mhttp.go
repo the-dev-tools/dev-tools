@@ -157,18 +157,18 @@ type HTTPResponse struct {
 
 type HTTPResponseHeader struct {
 	ID          idwrap.IDWrap `json:"id"`
-	HttpID      idwrap.IDWrap `json:"http_id"`
+	ResponseID  idwrap.IDWrap `json:"response_id"`
 	HeaderKey   string        `json:"header_key"`
 	HeaderValue string        `json:"header_value"`
 	CreatedAt   int64         `json:"created_at"`
 }
 
 type HTTPResponseAssert struct {
-	ID        idwrap.IDWrap `json:"id"`
-	HttpID    idwrap.IDWrap `json:"http_id"`
-	Value     string        `json:"value"`
-	Success   bool          `json:"success"`
-	CreatedAt int64         `json:"created_at"`
+	ID         idwrap.IDWrap `json:"id"`
+	ResponseID idwrap.IDWrap `json:"response_id"`
+	Value      string        `json:"value"`
+	Success    bool          `json:"success"`
+	CreatedAt  int64         `json:"created_at"`
 }
 
 type HttpVersion struct {

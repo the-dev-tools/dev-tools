@@ -7,7 +7,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	dbmodels "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
@@ -258,7 +257,7 @@ func ToAPIHttpVersion(version mhttp.HttpVersion) *httpv1.HttpVersion {
 }
 
 // ToAPIHttpResponse converts DB HttpResponse to API HttpResponse
-func ToAPIHttpResponse(response dbmodels.HttpResponse) *httpv1.HttpResponse {
+func ToAPIHttpResponse(response mhttp.HTTPResponse) *httpv1.HttpResponse {
 	var body string
 	if utf8.Valid(response.Body) {
 		body = string(response.Body)
@@ -269,29 +268,29 @@ func ToAPIHttpResponse(response dbmodels.HttpResponse) *httpv1.HttpResponse {
 	return &httpv1.HttpResponse{
 		HttpResponseId: response.ID.Bytes(),
 		HttpId:         response.HttpID.Bytes(),
-		Status:         int32(response.Status.(int32)),
+		Status:         response.Status,
 		Body:           body,
-		Time:           timestamppb.New(response.Time),
-		Duration:       int32(response.Duration.(int32)),
-		Size:           int32(response.Size.(int32)),
+		Time:           timestamppb.New(time.Unix(response.Time, 0)),
+		Duration:       response.Duration,
+		Size:           response.Size,
 	}
 }
 
 // ToAPIHttpResponseHeader converts DB HttpResponseHeader to API HttpResponseHeader
-func ToAPIHttpResponseHeader(header dbmodels.HttpResponseHeader) *httpv1.HttpResponseHeader {
+func ToAPIHttpResponseHeader(header mhttp.HTTPResponseHeader) *httpv1.HttpResponseHeader {
 	return &httpv1.HttpResponseHeader{
 		HttpResponseHeaderId: header.ID.Bytes(),
 		HttpResponseId:       header.ResponseID.Bytes(),
-		Key:                  header.Key,
-		Value:                header.Value,
+		Key:                  header.HeaderKey,
+		Value:                header.HeaderValue,
 	}
 }
 
 // ToAPIHttpResponseAssert converts DB HttpResponseAssert to API HttpResponseAssert
-func ToAPIHttpResponseAssert(assert dbmodels.HttpResponseAssert) *httpv1.HttpResponseAssert {
+func ToAPIHttpResponseAssert(assert mhttp.HTTPResponseAssert) *httpv1.HttpResponseAssert {
 	return &httpv1.HttpResponseAssert{
-		HttpResponseAssertId: assert.ID,
-		HttpResponseId:       assert.ResponseID,
+		HttpResponseAssertId: assert.ID.Bytes(),
+		HttpResponseId:       assert.ResponseID.Bytes(),
 		Value:                assert.Value,
 		Success:              assert.Success,
 	}

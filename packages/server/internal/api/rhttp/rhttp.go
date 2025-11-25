@@ -16,7 +16,6 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	dbmodels "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rworkspace"
@@ -3717,48 +3716,15 @@ func (h *HttpServiceRPC) HttpResponseCollection(ctx context.Context, req *connec
 
 		// Get responses for each HTTP entry
 		for _, http := range httpList {
-			responses, err := h.DB.QueryContext(ctx, `
-				SELECT id, http_id, status, body, time, duration, size, created_at
-				FROM http_response
-				WHERE http_id = ?
-				ORDER BY time DESC
-			`, http.ID.Bytes())
+			responses, err := h.httpResponseService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
-			for responses.Next() {
-				var response dbmodels.HttpResponse
-				var status int32
-				var duration int32
-				var size int32
-				err := responses.Scan(
-					&response.ID,
-					&response.HttpID,
-					&status,
-					&response.Body,
-					&response.Time,
-					&duration,
-					&size,
-					&response.CreatedAt,
-				)
-				if err != nil {
-					responses.Close()
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-				response.Status = status
-				response.Duration = duration
-				response.Size = size
-
+			for _, response := range responses {
 				apiResponse := converter.ToAPIHttpResponse(response)
 				allResponses = append(allResponses, apiResponse)
 			}
-
-			if err := responses.Err(); err != nil {
-				responses.Close()
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			responses.Close()
 		}
 	}
 
@@ -3823,40 +3789,15 @@ func (h *HttpServiceRPC) HttpResponseHeaderCollection(ctx context.Context, req *
 
 		// Get response headers for each HTTP entry
 		for _, http := range httpList {
-			headers, err := h.DB.QueryContext(ctx, `
-				SELECT hrh.id, hrh.response_id, hrh.key, hrh.value, hrh.created_at
-				FROM http_response_header hrh
-				JOIN http_response hr ON hrh.response_id = hr.id
-				WHERE hr.http_id = ?
-				ORDER BY hrh.created_at DESC
-			`, http.ID.Bytes())
+			headers, err := h.httpResponseService.GetHeadersByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
-			for headers.Next() {
-				var header dbmodels.HttpResponseHeader
-				err := headers.Scan(
-					&header.ID,
-					&header.ResponseID,
-					&header.Key,
-					&header.Value,
-					&header.CreatedAt,
-				)
-				if err != nil {
-					headers.Close()
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-
+			for _, header := range headers {
 				apiHeader := converter.ToAPIHttpResponseHeader(header)
 				allHeaders = append(allHeaders, apiHeader)
 			}
-
-			if err := headers.Err(); err != nil {
-				headers.Close()
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			headers.Close()
 		}
 	}
 
@@ -3921,40 +3862,15 @@ func (h *HttpServiceRPC) HttpResponseAssertCollection(ctx context.Context, req *
 
 		// Get response asserts for each HTTP entry
 		for _, http := range httpList {
-			asserts, err := h.DB.QueryContext(ctx, `
-				SELECT hra.id, hra.response_id, hra.value, hra.success, hra.created_at
-				FROM http_response_assert hra
-				JOIN http_response hr ON hra.response_id = hr.id
-				WHERE hr.http_id = ?
-				ORDER BY hra.created_at DESC
-			`, http.ID.Bytes())
+			asserts, err := h.httpResponseService.GetAssertsByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
 
-			for asserts.Next() {
-				var assert dbmodels.HttpResponseAssert
-				err := asserts.Scan(
-					&assert.ID,
-					&assert.ResponseID,
-					&assert.Value,
-					&assert.Success,
-					&assert.CreatedAt,
-				)
-				if err != nil {
-					asserts.Close()
-					return nil, connect.NewError(connect.CodeInternal, err)
-				}
-
+			for _, assert := range asserts {
 				apiAssert := converter.ToAPIHttpResponseAssert(assert)
 				allAsserts = append(allAsserts, apiAssert)
 			}
-
-			if err := asserts.Err(); err != nil {
-				asserts.Close()
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			asserts.Close()
 		}
 	}
 
@@ -6954,12 +6870,12 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	responseID := idwrap.NewNow()
 	nowUnix := time.Now().Unix()
 
-	httpResponse := dbmodels.HttpResponse{
+	httpResponse := mhttp.HTTPResponse{
 		ID:        responseID,
 		HttpID:    httpEntry.ID,
 		Status:    int32(resp.StatusCode),
 		Body:      resp.Body,
-		Time:      requestTime,
+		Time:      requestTime.Unix(),
 		Duration:  int32(duration),
 		Size:      int32(len(resp.Body)),
 		CreatedAt: nowUnix,
@@ -6978,18 +6894,11 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 		}
 	}()
 
-	if err := h.httpResponseService.TX(tx).Create(ctx, httpResponse); err != nil {
-		return idwrap.IDWrap{}, err
-	}
+	serviceTx := h.httpResponseService.TX(tx)
 
-	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO http_response_header (id, response_id, key, value, created_at)
-		VALUES (?, ?, ?, ?, ?)
-	`)
-	if err != nil {
+	if err := serviceTx.Create(ctx, httpResponse); err != nil {
 		return idwrap.IDWrap{}, err
 	}
-	defer stmt.Close()
 
 	headerEvents := make([]HttpResponseHeaderEvent, 0, len(resp.Headers))
 	for _, header := range resp.Headers {
@@ -6997,24 +6906,20 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 			continue
 		}
 		headerID := idwrap.NewNow()
-		if _, err := stmt.ExecContext(ctx,
-			headerID.Bytes(),
-			responseID.Bytes(),
-			header.HeaderKey,
-			header.Value,
-			nowUnix,
-		); err != nil {
+		responseHeader := mhttp.HTTPResponseHeader{
+			ID:          headerID,
+			ResponseID:  responseID,
+			HeaderKey:   header.HeaderKey,
+			HeaderValue: header.Value,
+			CreatedAt:   nowUnix,
+		}
+
+		if err := serviceTx.CreateHeader(ctx, responseHeader); err != nil {
 			return idwrap.IDWrap{}, err
 		}
 		headerEvents = append(headerEvents, HttpResponseHeaderEvent{
 			Type: eventTypeInsert,
-			HttpResponseHeader: converter.ToAPIHttpResponseHeader(dbmodels.HttpResponseHeader{
-				ID:         headerID,
-				ResponseID: responseID,
-				Key:        header.HeaderKey,
-				Value:      header.Value,
-				CreatedAt:  nowUnix,
-			}),
+			HttpResponseHeader: converter.ToAPIHttpResponseHeader(responseHeader),
 		})
 	}
 
@@ -7239,15 +7144,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 		}
 	}()
 
-	// Prepare batch insert statement matching existing database schema
-	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO http_response_assert (id, response_id, value, success, created_at)
-		VALUES (?, ?, ?, ?, ?)
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to prepare statement: %w", err)
-	}
-	defer stmt.Close()
+	serviceTx := h.httpResponseService.TX(tx)
 
 	// Insert all results in batch
 	now := time.Now().Unix()
@@ -7268,26 +7165,21 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 		}
 
 		assertID := idwrap.NewNow()
-		_, err := stmt.ExecContext(ctx,
-			assertID.Bytes(),
-			responseID.Bytes(),
-			value,
-			success,
-			now,
-		)
-		if err != nil {
+		assert := mhttp.HTTPResponseAssert{
+			ID:         assertID,
+			ResponseID: responseID,
+			Value:      value,
+			Success:    success,
+			CreatedAt:  now,
+		}
+
+		if err := serviceTx.CreateAssert(ctx, assert); err != nil {
 			return fmt.Errorf("failed to insert assertion result for %s: %w", result.AssertionID.String(), err)
 		}
 
 		events = append(events, HttpResponseAssertEvent{
 			Type: eventTypeInsert,
-			HttpResponseAssert: converter.ToAPIHttpResponseAssert(dbmodels.HttpResponseAssert{
-				ID:         assertID.Bytes(),
-				ResponseID: responseID.Bytes(),
-				Value:      value,
-				Success:    success,
-				CreatedAt:  now,
-			}),
+			HttpResponseAssert: converter.ToAPIHttpResponseAssert(assert),
 		})
 	}
 
