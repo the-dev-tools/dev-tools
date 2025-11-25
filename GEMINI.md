@@ -24,6 +24,7 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
     - **Never** revert changes you didn't author unless instructed.
     - **Never** commit changes unless explicitly asked.
 4.  **Verification:** Always test and lint and try to compile the project after change to be sure.
+5.  **Nx Output:** When running `nx` commands, prefer setting `NX_TERMINAL_OUTPUT_FORMAT=stream` (e.g., in `.envrc` or command line) to avoid TUI rendering issues and ensure readable logs in non-interactive shells.
 
 ## Development Workflows
 
