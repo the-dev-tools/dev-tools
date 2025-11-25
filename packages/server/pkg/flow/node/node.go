@@ -53,6 +53,7 @@ type FlowNodeResult struct {
 	// SkipFinalStatus tells the runner not to create a final execution status.
 	// Used by FOR/FOREACH nodes that handle their own iteration status logging.
 	SkipFinalStatus bool
+	AuxiliaryID     *idwrap.IDWrap
 }
 
 var (

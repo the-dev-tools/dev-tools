@@ -66,6 +66,7 @@ type FlowNodeStatus struct {
 	IterationEvent   bool              `json:"iteration_event,omitempty"`
 	IterationIndex   int               `json:"iteration_index,omitempty"`
 	LoopNodeID       idwrap.IDWrap     `json:"loop_node_id,omitempty"`
+	AuxiliaryID      *idwrap.IDWrap
 }
 
 func NewFlowNodeStatus(nodeID idwrap.IDWrap, status mnnode.NodeState, output []byte) FlowNodeStatus {

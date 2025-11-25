@@ -360,6 +360,7 @@ func runNodesSingle(ctx context.Context, startNodeID idwrap.IDWrap, req *node.Fl
 			Name:             currentNode.GetName(),
 			IterationContext: req.IterationContext,
 			RunDuration:      time.Since(startTime),
+			AuxiliaryID:      result.AuxiliaryID,
 		}
 
 		if trackData {
@@ -532,6 +533,7 @@ type processResult struct {
 	inputData       map[string]any
 	outputData      map[string]any // NEW: From tracker.GetWrittenVars()
 	skipFinalStatus bool           // From FlowNodeResult.SkipFinalStatus
+	AuxiliaryID     *idwrap.IDWrap
 }
 
 func processNode(ctx context.Context, n node.FlowNode, req *node.FlowNodeRequest,
@@ -774,6 +776,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 					inputData:       inputData,
 					outputData:      outputData,
 					skipFinalStatus: result.SkipFinalStatus,
+					AuxiliaryID:     result.AuxiliaryID,
 				}
 			}(flowNodeID)
 		}
@@ -793,6 +796,7 @@ func runNodesMultiNoTimeout(ctx context.Context, startNodeID idwrap.IDWrap, req 
 			status.RunDuration = time.Since(nodeState.StartTime)
 			status.InputData = nil
 			status.OutputData = nil
+			status.AuxiliaryID = result.AuxiliaryID
 			signalNodeComplete(nodeSignals, result.originalID)
 
 			// Remove from running nodes since we're processing its completion
@@ -1070,6 +1074,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 					inputData:       inputData,
 					outputData:      outputData,
 					skipFinalStatus: result.SkipFinalStatus,
+					AuxiliaryID:     result.AuxiliaryID,
 				}
 			}(nodeID, currentNode)
 		}
@@ -1091,6 +1096,7 @@ func runNodesMultiWithTimeout(ctx context.Context, startNodeID idwrap.IDWrap, re
 			status.RunDuration = time.Since(timeStart[status.NodeID])
 			status.InputData = nil
 			status.OutputData = nil
+			status.AuxiliaryID = result.AuxiliaryID
 			_, isLoop := currentNode.(node.LoopCoordinator)
 
 			signalNodeComplete(nodeSignals, result.originalID)

@@ -955,10 +955,11 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 			}
 
 			model := mnodeexecution.NodeExecution{
-				ID:     execID,
-				NodeID: status.NodeID,
-				Name:   status.Name,
-				State:  int8(status.State),
+				ID:         execID,
+				NodeID:     status.NodeID,
+				Name:       status.Name,
+				State:      int8(status.State),
+				ResponseID: status.AuxiliaryID,
 			}
 
 			if status.Error != nil {
@@ -987,6 +988,9 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 			if err := s.nes.UpsertNodeExecution(ctx, model); err != nil {
 				s.logger.Error("failed to persist node execution", "error", err)
 			}
+
+			// Publish execution event
+			s.publishExecutionEvent(executionEventInsert, model, flow.ID)
 
 			if s.nodeStream != nil {
 				var info string
@@ -1836,6 +1840,19 @@ func (s *FlowServiceV2RPC) publishJsEvent(eventType string, flowID idwrap.IDWrap
 		Type:   eventType,
 		FlowID: flowID,
 		Node:   nodePB,
+	})
+}
+
+func (s *FlowServiceV2RPC) publishExecutionEvent(eventType string, execution mnodeexecution.NodeExecution, flowID idwrap.IDWrap) {
+	if s.executionStream == nil {
+		return
+	}
+
+	executionPB := serializeNodeExecution(execution)
+	s.executionStream.Publish(ExecutionTopic{FlowID: flowID}, ExecutionEvent{
+		Type:      eventType,
+		FlowID:    flowID,
+		Execution: executionPB,
 	})
 }
 
