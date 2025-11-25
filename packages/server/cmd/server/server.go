@@ -303,6 +303,7 @@ func main() {
 		flowStreamer,
 		nodeStreamer,
 		edgeStreamer,
+		noopStreamer,
 		httpStreamer,
 		httpHeaderStreamer,
 		httpSearchParamStreamer,

@@ -45,6 +45,7 @@ type ImportV2RPC struct {
 	flowStream               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
 	nodeStream               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
 	edgeStream               eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
+	noopStream               eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
 	stream                   eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
 	httpHeaderStream         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
 	httpSearchParamStream    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
@@ -77,6 +78,7 @@ func NewImportV2RPC(
 	flowStream eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent],
 	nodeStream eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent],
 	edgeStream eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent],
+	noopStream eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent],
 	stream eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent],
 	httpHeaderStream eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent],
 	httpSearchParamStream eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent],
@@ -106,6 +108,7 @@ func NewImportV2RPC(
 		flowStream:               flowStream,
 		nodeStream:               nodeStream,
 		edgeStream:               edgeStream,
+		noopStream:               noopStream,
 		stream:                   stream,
 		httpHeaderStream:         httpHeaderStream,
 		httpSearchParamStream:    httpSearchParamStream,
@@ -284,23 +287,41 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		// There doesn't seem to be a stream for NodeRequest updates in rflowv2.go.
 		// Assuming we only need to stream the base nodes and edges for the graph to appear.
 
-		// Publish Edges events
-		for _, edge := range results.Edges {
-			edgePB := &flowv1.Edge{
-				EdgeId:       edge.ID.Bytes(),
-				FlowId:       edge.FlowID.Bytes(),
-				SourceId:     edge.SourceID.Bytes(),
-				TargetId:     edge.TargetID.Bytes(),
-				SourceHandle: flowv1.HandleKind(edge.SourceHandler),
-				Kind:         flowv1.EdgeKind(edge.Kind),
+		        // Publish Edges events
+				for _, edge := range results.Edges {
+					edgePB := &flowv1.Edge{
+						EdgeId:       edge.ID.Bytes(),
+						FlowId:       edge.FlowID.Bytes(),
+						SourceId:     edge.SourceID.Bytes(),
+						TargetId:     edge.TargetID.Bytes(),
+						SourceHandle: flowv1.HandleKind(edge.SourceHandler),
+						Kind:         flowv1.EdgeKind(edge.Kind),
+					}
+					h.edgeStream.Publish(rflowv2.EdgeTopic{FlowID: edge.FlowID}, rflowv2.EdgeEvent{
+						Type: "insert",
+						Edge: edgePB,
+					})
+				}
+		
+				// Publish NoOpNodes events
+				for _, noOpNode := range results.NoOpNodes {
+					// Assuming results.NoOpNodes contains mnnoop.NoopNode
+					// We need to look up the FlowID. It is usually available in the Node struct, but NoOpNode only has FlowNodeID.
+					// However, results.Nodes contains all nodes including NoOp ones.
+					// We can iterate NoOpNodes and use results.Flow.ID (since all imported nodes belong to the same flow)
+					
+					noOpPB := &flowv1.NodeNoOp{
+						NodeId: noOpNode.FlowNodeID.Bytes(),
+						Kind:   flowv1.NodeNoOpKind(noOpNode.Type),
+					}
+					
+					h.noopStream.Publish(rflowv2.NoOpTopic{FlowID: results.Flow.ID}, rflowv2.NoOpEvent{
+						Type: "insert",
+						FlowID: results.Flow.ID,
+						Node: noOpPB,
+					})
+				}
 			}
-			h.edgeStream.Publish(rflowv2.EdgeTopic{FlowID: edge.FlowID}, rflowv2.EdgeEvent{
-				Type: "insert",
-				Edge: edgePB,
-			})
-		}
-	}
-
 	// Publish HTTP events
 	for _, httpReq := range results.HTTPReqs {
 		h.stream.Publish(rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}, rhttp.HttpEvent{
