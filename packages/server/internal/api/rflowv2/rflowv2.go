@@ -1653,9 +1653,6 @@ func (s *FlowServiceV2RPC) publishNodeEvent(eventType string, model mnnode.MNode
 	if s.nodeStream == nil {
 		return
 	}
-	if isStartNode(model) {
-		return
-	}
 	nodePB := serializeNode(model)
 	s.nodeStream.Publish(NodeTopic{FlowID: model.FlowID}, NodeEvent{
 		Type:   eventType,
@@ -1708,15 +1705,6 @@ func (s *FlowServiceV2RPC) publishNoOpEvent(eventType string, flowID idwrap.IDWr
 		return
 	}
 
-	// Skip publishing events for NoOp nodes associated with start nodes
-	if baseNode, err := s.ns.GetNode(context.Background(), node.FlowNodeID); err == nil {
-		if isStartNode(*baseNode) {
-			return
-		}
-	} else {
-		return
-	}
-
 	nodePB := serializeNodeNoop(node)
 	s.noopStream.Publish(NoOpTopic{FlowID: flowID}, NoOpEvent{
 		Type:   eventType,
@@ -1730,15 +1718,6 @@ func (s *FlowServiceV2RPC) publishForEvent(eventType string, flowID idwrap.IDWra
 		return
 	}
 
-	// Skip publishing events for For nodes associated with start nodes
-	if baseNode, err := s.ns.GetNode(context.Background(), node.FlowNodeID); err == nil {
-		if isStartNode(*baseNode) {
-			return
-		}
-	} else {
-		return
-	}
-
 	nodePB := serializeNodeFor(node)
 	s.forStream.Publish(ForTopic{FlowID: flowID}, ForEvent{
 		Type:   eventType,
@@ -1749,15 +1728,6 @@ func (s *FlowServiceV2RPC) publishForEvent(eventType string, flowID idwrap.IDWra
 
 func (s *FlowServiceV2RPC) publishJsEvent(eventType string, flowID idwrap.IDWrap, node mnjs.MNJS) {
 	if s.jsStream == nil {
-		return
-	}
-
-	// Skip publishing events for JS nodes associated with start nodes
-	if baseNode, err := s.ns.GetNode(context.Background(), node.FlowNodeID); err == nil {
-		if isStartNode(*baseNode) {
-			return
-		}
-	} else {
 		return
 	}
 
@@ -1902,9 +1872,6 @@ func (s *FlowServiceV2RPC) streamNodeSync(
 			}
 
 			for _, nodeModel := range nodes {
-				if isStartNode(nodeModel) {
-					continue
-				}
 				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
 					Topic: NodeTopic{FlowID: flow.ID},
 					Payload: NodeEvent{
@@ -2153,11 +2120,6 @@ func (s *FlowServiceV2RPC) streamNoOpSync(
 			for _, node := range nodes {
 				// Only process NoOp nodes
 				if node.NodeKind != mnnode.NODE_KIND_NO_OP {
-					continue
-				}
-
-				// Skip start nodes
-				if isStartNode(node) {
 					continue
 				}
 
@@ -4136,10 +4098,6 @@ func nodeEventToSyncResponse(evt NodeEvent) *flowv1.NodeSyncResponse {
 	}
 
 	node := evt.Node
-
-	if strings.EqualFold(node.GetName(), "start") && node.GetKind() == flowv1.NodeKind_NODE_KIND_NO_OP {
-		return nil
-	}
 
 	switch evt.Type {
 	case nodeEventInsert:
