@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/dbtime"
@@ -419,9 +420,6 @@ func (s *FlowServiceV2RPC) NodeCollection(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		for _, node := range nodes {
-			if isStartNode(node) {
-				continue
-			}
 			nodesPB = append(nodesPB, serializeNode(node))
 		}
 	}
@@ -2351,11 +2349,6 @@ func (s *FlowServiceV2RPC) NodeNoOpCollection(
 		for _, node := range nodes {
 			// Only process NoOp nodes
 			if node.NodeKind != mnnode.NODE_KIND_NO_OP {
-				continue
-			}
-
-			// Skip start nodes
-			if isStartNode(node) {
 				continue
 			}
 
@@ -4648,7 +4641,7 @@ func serializeNode(n mnnode.MNode) *flowv1.Node {
 	return &flowv1.Node{
 		NodeId:   n.ID.Bytes(),
 		FlowId:   n.FlowID.Bytes(),
-		Kind:     flowv1.NodeKind(n.NodeKind),
+		Kind:     converter.ToAPINodeKind(n.NodeKind),
 		Name:     n.Name,
 		Position: position,
 		State:    flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED,
@@ -4665,7 +4658,7 @@ func serializeNodeHTTP(n mnrequest.MNRequest) *flowv1.NodeHttp {
 func serializeNodeNoop(n mnnoop.NoopNode) *flowv1.NodeNoOp {
 	return &flowv1.NodeNoOp{
 		NodeId: n.FlowNodeID.Bytes(),
-		Kind:   flowv1.NodeNoOpKind(n.Type),
+		Kind:   converter.ToAPINodeNoOpKind(n.Type),
 	}
 }
 
@@ -4674,7 +4667,7 @@ func serializeNodeFor(n mnfor.MNFor) *flowv1.NodeFor {
 		NodeId:        n.FlowNodeID.Bytes(),
 		Iterations:    int32(n.IterCount),
 		Condition:     n.Condition.Comparisons.Expression,
-		ErrorHandling: flowv1.ErrorHandling(n.ErrorHandling),
+		ErrorHandling: converter.ToAPIErrorHandling(n.ErrorHandling),
 	}
 }
 
@@ -4690,7 +4683,7 @@ func serializeNodeForEach(n mnforeach.MNForEach) *flowv1.NodeForEach {
 		NodeId:        n.FlowNodeID.Bytes(),
 		Path:          n.IterExpression,
 		Condition:     n.Condition.Comparisons.Expression,
-		ErrorHandling: flowv1.ErrorHandling(n.ErrorHandling),
+		ErrorHandling: converter.ToAPIErrorHandling(n.ErrorHandling),
 	}
 }
 

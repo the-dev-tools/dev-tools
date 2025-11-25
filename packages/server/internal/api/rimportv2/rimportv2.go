@@ -267,7 +267,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 				NodeId: node.ID.Bytes(),
 				FlowId: node.FlowID.Bytes(),
 				Name:   node.Name,
-				Kind:   flowv1.NodeKind(node.NodeKind),
+				Kind:   converter.ToAPINodeKind(node.NodeKind),
 				Position: &flowv1.Position{
 					X: float32(node.PositionX),
 					Y: float32(node.PositionY),
@@ -312,7 +312,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 					
 					noOpPB := &flowv1.NodeNoOp{
 						NodeId: noOpNode.FlowNodeID.Bytes(),
-						Kind:   flowv1.NodeNoOpKind(noOpNode.Type),
+						Kind:   converter.ToAPINodeNoOpKind(noOpNode.Type),
 					}
 					
 					h.noopStream.Publish(rflowv2.NoOpTopic{FlowID: results.Flow.ID}, rflowv2.NoOpEvent{
