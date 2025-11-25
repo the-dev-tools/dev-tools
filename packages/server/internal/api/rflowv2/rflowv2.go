@@ -935,14 +935,35 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 		defer stateDrain.Done()
 		for status := range nodeStateChan {
 			if s.nodeStream != nil {
+				var info string
+				if status.Error != nil {
+					info = status.Error.Error()
+				} else {
+					iterIndex := -1
+					if status.IterationEvent {
+						iterIndex = status.IterationIndex
+					} else if status.IterationContext != nil {
+						iterIndex = status.IterationContext.ExecutionIndex
+					}
+
+					if iterIndex >= 0 {
+						info = fmt.Sprintf("Iter: %d", iterIndex+1)
+					}
+				}
+
+				nodePB := &flowv1.Node{
+					NodeId: status.NodeID.Bytes(),
+					FlowId: flow.ID.Bytes(),
+					State:  flowv1.FlowItemState(status.State),
+				}
+				if info != "" {
+					nodePB.Info = &info
+				}
+
 				s.nodeStream.Publish(NodeTopic{FlowID: flow.ID}, NodeEvent{
 					Type:   nodeEventUpdate,
 					FlowID: flow.ID,
-					Node: &flowv1.Node{
-						NodeId: status.NodeID.Bytes(),
-						FlowId: flow.ID.Bytes(),
-						State:  flowv1.FlowItemState(status.State),
-					},
+					Node:   nodePB,
 				})
 			}
 		}
