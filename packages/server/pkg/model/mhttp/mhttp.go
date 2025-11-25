@@ -170,3 +170,13 @@ type HTTPResponseAssert struct {
 	Success   bool          `json:"success"`
 	CreatedAt int64         `json:"created_at"`
 }
+
+type HttpVersion struct {
+	ID                 idwrap.IDWrap  `json:"id"`
+	HttpID             idwrap.IDWrap  `json:"http_id"`
+	VersionName        string         `json:"version_name"`
+	VersionDescription string         `json:"version_description"`
+	IsActive           bool           `json:"is_active"`
+	CreatedAt          int64          `json:"created_at"`
+	CreatedBy          *idwrap.IDWrap `json:"created_by,omitempty"`
+}

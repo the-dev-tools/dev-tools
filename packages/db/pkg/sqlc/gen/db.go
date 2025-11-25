@@ -906,6 +906,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHeadersByExampleIDsStmt, err = db.PrepareContext(ctx, getHeadersByExampleIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHeadersByExampleIDs: %w", err)
 	}
+	if q.getHttpVersionsByHttpIDStmt, err = db.PrepareContext(ctx, getHttpVersionsByHttpID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHttpVersionsByHttpID: %w", err)
+	}
 	if q.getItemApiStmt, err = db.PrepareContext(ctx, getItemApi); err != nil {
 		return nil, fmt.Errorf("error preparing query GetItemApi: %w", err)
 	}
@@ -2753,6 +2756,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHeadersByExampleIDsStmt: %w", cerr)
 		}
 	}
+	if q.getHttpVersionsByHttpIDStmt != nil {
+		if cerr := q.getHttpVersionsByHttpIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHttpVersionsByHttpIDStmt: %w", cerr)
+		}
+	}
 	if q.getItemApiStmt != nil {
 		if cerr := q.getItemApiStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getItemApiStmt: %w", cerr)
@@ -3706,6 +3714,7 @@ type Queries struct {
 	getHeadersByExampleIDStmt                  *sql.Stmt
 	getHeadersByExampleIDOrderedStmt           *sql.Stmt
 	getHeadersByExampleIDsStmt                 *sql.Stmt
+	getHttpVersionsByHttpIDStmt                *sql.Stmt
 	getItemApiStmt                             *sql.Stmt
 	getItemApiByFolderIDAndNextIDStmt          *sql.Stmt
 	getItemApiByFolderIDAndURLAndMethodStmt    *sql.Stmt
@@ -4130,6 +4139,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHeadersByExampleIDStmt:                  q.getHeadersByExampleIDStmt,
 		getHeadersByExampleIDOrderedStmt:           q.getHeadersByExampleIDOrderedStmt,
 		getHeadersByExampleIDsStmt:                 q.getHeadersByExampleIDsStmt,
+		getHttpVersionsByHttpIDStmt:                q.getHttpVersionsByHttpIDStmt,
 		getItemApiStmt:                             q.getItemApiStmt,
 		getItemApiByFolderIDAndNextIDStmt:          q.getItemApiByFolderIDAndNextIDStmt,
 		getItemApiByFolderIDAndURLAndMethodStmt:    q.getItemApiByFolderIDAndURLAndMethodStmt,

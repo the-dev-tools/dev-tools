@@ -358,7 +358,7 @@ func (h *HttpServiceRPC) publishDeleteEvent(httpID, workspaceID idwrap.IDWrap) {
 }
 
 // publishVersionInsertEvent publishes an insert event for real-time sync
-func (h *HttpServiceRPC) publishVersionInsertEvent(version dbmodels.HttpVersion, workspaceID idwrap.IDWrap) {
+func (h *HttpServiceRPC) publishVersionInsertEvent(version mhttp.HttpVersion, workspaceID idwrap.IDWrap) {
 	h.httpVersionStream.Publish(HttpVersionTopic{WorkspaceID: workspaceID}, HttpVersionEvent{
 		Type:        eventTypeInsert,
 		HttpVersion: converter.ToAPIHttpVersion(version),
@@ -391,47 +391,8 @@ func (h *HttpServiceRPC) listUserHttp(ctx context.Context) ([]mhttp.HTTP, error)
 }
 
 // getHttpVersionsByHttpID retrieves all versions for a specific HTTP entry
-func (h *HttpServiceRPC) getHttpVersionsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]dbmodels.HttpVersion, error) {
-	rows, err := h.DB.QueryContext(ctx, `
-		SELECT id, http_id, version_name, version_description, is_active, created_at, created_by
-		FROM http_version
-		WHERE http_id = ?
-		ORDER BY created_at DESC
-	`, httpID.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var versions []dbmodels.HttpVersion
-	for rows.Next() {
-		var version dbmodels.HttpVersion
-		var createdByBytes []byte
-		err := rows.Scan(
-			&version.ID,
-			&version.HttpID,
-			&version.VersionName,
-			&version.VersionDescription,
-			&version.IsActive,
-			&version.CreatedAt,
-			&createdByBytes,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(createdByBytes) > 0 {
-			createdByID, err := idwrap.NewFromBytes(createdByBytes)
-			if err != nil {
-				return nil, err
-			}
-			version.CreatedBy = &createdByID
-		}
-
-		versions = append(versions, version)
-	}
-
-	return versions, rows.Err()
+func (h *HttpServiceRPC) getHttpVersionsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HttpVersion, error) {
+	return h.hs.GetHttpVersionsByHttpID(ctx, httpID)
 }
 
 // httpSyncResponseFrom converts HttpEvent to HttpSync response
@@ -1628,7 +1589,7 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 	hsService := h.hs.TX(tx)
 
 	var updatedHTTPs []mhttp.HTTP
-	var newVersions []dbmodels.HttpVersion
+	var newVersions []mhttp.HttpVersion
 
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {

@@ -247,7 +247,7 @@ func ToAPIHttpAssert(assert mhttpassert.HttpAssert) *httpv1.HttpAssert {
 }
 
 // ToAPIHttpVersion converts model HttpVersion to API HttpVersion
-func ToAPIHttpVersion(version dbmodels.HttpVersion) *httpv1.HttpVersion {
+func ToAPIHttpVersion(version mhttp.HttpVersion) *httpv1.HttpVersion {
 	return &httpv1.HttpVersion{
 		HttpVersionId: version.ID.Bytes(),
 		HttpId:        version.HttpID.Bytes(),

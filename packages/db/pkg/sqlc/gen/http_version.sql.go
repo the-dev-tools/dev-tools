@@ -40,3 +40,41 @@ func (q *Queries) CreateHttpVersion(ctx context.Context, arg CreateHttpVersionPa
 	)
 	return err
 }
+
+const getHttpVersionsByHttpID = `-- name: GetHttpVersionsByHttpID :many
+SELECT id, http_id, version_name, version_description, is_active, created_at, created_by
+FROM http_version
+WHERE http_id = ?
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetHttpVersionsByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]HttpVersion, error) {
+	rows, err := q.query(ctx, q.getHttpVersionsByHttpIDStmt, getHttpVersionsByHttpID, httpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []HttpVersion{}
+	for rows.Next() {
+		var i HttpVersion
+		if err := rows.Scan(
+			&i.ID,
+			&i.HttpID,
+			&i.VersionName,
+			&i.VersionDescription,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
