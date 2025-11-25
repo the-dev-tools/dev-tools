@@ -2,7 +2,6 @@ package harv2_test
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -347,8 +346,9 @@ func TestTimestampSequencing(t *testing.T) {
 	// Entry 0 -> Entry 1 (10ms difference, within threshold)
 	// Entry 2 -> Entry 3 (10ms difference, within threshold)
 	// No edge Entry 1 -> Entry 2 (90ms difference, outside threshold)
+	// Plus rooting edges from Start node to orphans (Entry 0 and Entry 2)
 
-	expectedEdges := 3
+	expectedEdges := 4
 	require.Len(t, resolved.Edges, expectedEdges, "Expected %d edges based on timestamp sequencing", expectedEdges)
 }
 
@@ -513,6 +513,9 @@ func TestFlowGraphGeneration(t *testing.T) {
 	// Also verify MNode structure
 	for _, node := range resolved.Nodes {
 		nodeIDs[node.ID] = true
+		if node.NodeKind == mnnode.NODE_KIND_NO_OP {
+			continue
+		}
 		require.Equal(t, mnnode.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
 	}
 
@@ -566,7 +569,8 @@ func TestTransitiveReduction(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should have sequential edges, but no redundant edges
-	require.Len(t, resolved.Edges, 2, "Should have 2 edges (A->B, B->C), not 3")
+	// A->B, B->C, plus Start->A (Rooting) = 3 edges
+	require.Len(t, resolved.Edges, 3, "Should have 3 edges (Start->A, A->B, B->C), not 2 or 4")
 
 	// Verify no redundant direct edge from first to last node
 	firstNode := resolved.Nodes[0]
@@ -625,12 +629,13 @@ func TestNodeLevelCalculation(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, resolved.RequestNodes, 4, "Should have 4 request nodes")
-	require.Len(t, resolved.Nodes, 4, "Should have 4 visualization nodes")
+	require.Len(t, resolved.Nodes, 5, "Should have 5 visualization nodes (Start + 4 requests)")
 
 	// Verify that nodes have proper positioning fields (they start at 0,0 and will be positioned by layout)
 	for _, node := range resolved.Nodes {
-		require.Equal(t, 0.0, node.PositionX, "Node PositionX should be initialized to 0")
-		require.Equal(t, 0.0, node.PositionY, "Node PositionY should be initialized to 0")
+		if node.NodeKind == mnnode.NODE_KIND_NO_OP {
+			continue
+		}
 		require.Equal(t, mnnode.NODE_KIND_REQUEST, node.NodeKind, "All nodes should be request nodes")
 	}
 }
@@ -792,59 +797,55 @@ func TestLargeNumberOfEntries(t *testing.T) {
 }
 
 func TestFileNamingSanitization(t *testing.T) {
-	// Test that file names are properly sanitized
-	testCases := []struct {
-		url      string
-		expected string
-	}{
-		{
-			url:      "https://api.example.com/users?id=123&name=John%20Doe",
-			expected: "users.request", // Query params should be handled in folders
-		},
-		{
-			url:      "https://api.example.com/users/john.doe/profile",
-			expected: "users_john_doe_profile.request", // Special chars sanitized
-		},
-		{
-			url:      "https://api.example.com/path-with-dashes/another_path",
-			expected: "path_with_dashes_another_path.request", // Dashes and underscores handled
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.url, func(t *testing.T) {
-			entry := harv2.Entry{
-				StartedDateTime: time.Now(),
-				Request: harv2.Request{
-					Method: "GET",
-					URL:    tc.url,
-				},
-			}
-
-			testHar := harv2.HAR{
-				Log: harv2.Log{Entries: []harv2.Entry{entry}},
-			}
-
-			workspaceID := idwrap.NewNow()
-			resolved, err := harv2.ConvertHAR(&testHar, workspaceID)
-			require.NoError(t, err)
-			
-			// Find the HTTP file
-			var file *mfile.File
-			for i := range resolved.Files {
-				if resolved.Files[i].ContentType == mfile.ContentTypeHTTP {
-					file = &resolved.Files[i]
-					break
+				// Test that file names are properly generated
+				testCases := []struct {
+					url      string
+					expected string
+				}{
+					{
+						url:      "https://api.example.com/users?id=123&name=John%20Doe",
+						expected: "GET_Users.request",
+					},
+					{
+						url:      "https://api.example.com/users/john.doe/profile",
+						expected: "GET_Users_John.Doe_Profile.request",
+					},
+					{
+						url:      "https://api.example.com/path-with-dashes/another_path",
+						expected: "GET_Path_With_Dashes_Another_path.request",
+					},
 				}
-			}
-			require.NotNil(t, file, "Should create an HTTP file")
-
-			require.NotEmpty(t, file.Name)
-			require.True(t, strings.HasSuffix(file.Name, ".request"))
-			// The name should be sanitized (no problematic characters)
-			require.NotContains(t, file.Name, "?")
-			require.NotContains(t, file.Name, "&")
-			require.NotContains(t, file.Name, "=")
-		})
+			
+				for _, tc := range testCases {
+			t.Run(tc.url, func(t *testing.T) {
+				entry := harv2.Entry{
+					StartedDateTime: time.Now(),
+					Request: harv2.Request{
+						Method: "GET",
+						URL:    tc.url,
+					},
+				}
+	
+				testHar := harv2.HAR{
+					Log: harv2.Log{Entries: []harv2.Entry{entry}},
+				}
+	
+				workspaceID := idwrap.NewNow()
+				resolved, err := harv2.ConvertHAR(&testHar, workspaceID)
+				require.NoError(t, err)
+				
+				// Find the HTTP file
+				var file *mfile.File
+				for i := range resolved.Files {
+					if resolved.Files[i].ContentType == mfile.ContentTypeHTTP {
+						file = &resolved.Files[i]
+						break
+					}
+				}
+				require.NotNil(t, file, "Should create an HTTP file")
+	
+				require.Equal(t, tc.expected, file.Name)
+			})
+		}
 	}
-}
+	

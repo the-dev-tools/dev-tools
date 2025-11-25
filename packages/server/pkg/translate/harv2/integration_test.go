@@ -10,6 +10,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/translate/harv2"
 
 	"github.com/stretchr/testify/require"
@@ -129,7 +130,28 @@ func TestIntegrationModernArchitecture(t *testing.T) {
 	require.Equal(t, workspaceID, result.Flow.WorkspaceID)
 
 	// Verify nodes (only for original requests, not deltas)
-	require.Len(t, result.Nodes, 2, "Should have 2 nodes for original requests")
+	require.Len(t, result.Nodes, 3, "Should have 3 nodes (Start + 2 for original requests)")
+	
+	// Verify node naming convention (request_1, request_2)
+	var requestNodes []mnnode.MNode
+	for _, node := range result.Nodes {
+		if node.NodeKind == mnnode.NODE_KIND_REQUEST {
+			requestNodes = append(requestNodes, node)
+		}
+	}
+	require.Len(t, requestNodes, 2)
+	// Nodes order is not guaranteed by map iteration but here slice order is preserved from append
+	// First request node should be request_1
+	// (Assuming result.Nodes order preserves insertion order which it does)
+	// We need to find the one corresponding to first original request
+	// Actually simpler: check that we have request_1 and request_2 names
+	nodeNames := make(map[string]bool)
+	for _, n := range requestNodes {
+		nodeNames[n.Name] = true
+	}
+	require.True(t, nodeNames["request_1"], "Should contain node named request_1")
+	require.True(t, nodeNames["request_2"], "Should contain node named request_2")
+
 	require.Len(t, result.RequestNodes, 2, "Should have 2 request node data structures")
 
 	// Verify edges (based on timestamp sequencing - both requests are within 50ms)
@@ -229,12 +251,12 @@ func TestIntegrationPerformanceCharacteristics(t *testing.T) {
 	}
 	require.Equal(t, numEntries, httpFileCount, "Should have one file per original request")
 	
-	require.Len(t, result.Nodes, numEntries, "Should have one node per original request")
+	require.Len(t, result.Nodes, numEntries+1, "Should have one node per original request plus start node")
 	require.Len(t, result.RequestNodes, numEntries, "Should have one request node per original request")
 
 	// Validate that memory usage is reasonable
 	// (This is a basic check - in production you'd want more sophisticated memory profiling)
-	require.Less(t, len(result.Edges), numEntries, "Edge count should be reasonable after transitive reduction")
+	require.LessOrEqual(t, len(result.Edges), numEntries, "Edge count should be reasonable after transitive reduction")
 }
 
 // TestIntegrationURLMapping demonstrates the URL-to-file path mapping

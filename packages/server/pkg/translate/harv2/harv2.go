@@ -261,7 +261,13 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 	const nodeSpacingX = 300
 	currentX := float64(nodeSpacingX) // Start after Start node
 
+	// Global counter for node naming
+	// Note: We start at 0, so the first request becomes request_1
+	nodeCounter := 0
+
 	for i, entry := range entries {
+		nodeCounter++
+
 		// Create HTTP request and child entities (using DepFinder to template values)
 		httpReq, headers, params, bodyForms, bodyUrlEncoded, bodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
 		if err != nil {
@@ -273,7 +279,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		node := mnnode.MNode{
 			ID:        nodeID,
 			FlowID:    flowID,
-			Name:      httpReq.Name,
+			Name:      fmt.Sprintf("request_%d", nodeCounter),
 			NodeKind:  mnnode.NODE_KIND_REQUEST,
 			PositionX: currentX,
 			PositionY: 0, // Will be refined later if we implement sophisticated layout, currently horizontal
@@ -360,7 +366,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 			// Try to parse as JSON
 			if strings.Contains(entry.Response.Content.MimeType, "json") || 
 			   strings.HasPrefix(strings.TrimSpace(entry.Response.Content.Text), "{") {
-				path := fmt.Sprintf("%s.%s.%s", httpReq.Name, "response", "body")
+				path := fmt.Sprintf("%s.%s.%s", node.Name, "response", "body")
 				couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
 				_ = depFinder.AddJsonBytes([]byte(entry.Response.Content.Text), couple)
 			}
