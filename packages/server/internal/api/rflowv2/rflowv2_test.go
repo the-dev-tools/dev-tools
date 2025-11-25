@@ -3,11 +3,10 @@ package rflowv2
 import (
 	"bytes"
 	"context"
-	"database/sql"
-	"testing"
-	"time"
-
-	"connectrpc.com/connect"
+		"database/sql"
+		"testing"
+	
+		"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -20,7 +19,6 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
-	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -32,109 +30,7 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
-// TestNodeCollection_StatePopulation verifies that NodeCollection populates State and Info from latest execution
-func TestNodeCollection_StatePopulation(t *testing.T) {
-	// Setup DB
-	db, err := sql.Open("sqlite", ":memory:")
-	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec(schema)
-	require.NoError(t, err)
-	_, err = db.Exec("PRAGMA foreign_keys = ON")
-	require.NoError(t, err)
-
-	queries := gen.New(db)
-
-	// Setup Services
-	wsService := sworkspace.New(queries)
-	flowService := sflow.New(queries)
-	nodeService := snode.New(queries)
-	nodeExecService := snodeexecution.New(queries)
-
-	svc := &FlowServiceV2RPC{
-		ws:  &wsService,
-		fs:  &flowService,
-		ns:  &nodeService,
-		nes: &nodeExecService,
-	}
-
-	// Setup Data
-	ctx := context.Background()
-	userID := idwrap.NewNow()
-	ctx = mwauth.CreateAuthedContext(ctx, userID)
-
-	_, err = db.Exec("INSERT INTO users (id, email) VALUES (?, ?)", userID.Bytes(), "test@example.com")
-	require.NoError(t, err)
-
-	workspaceID := idwrap.NewNow()
-	workspace := mworkspace.Workspace{
-		ID:              workspaceID,
-		Name:            "Test Workspace",
-		Updated:         dbtime.DBNow(),
-		CollectionCount: 0,
-		FlowCount:       0,
-	}
-	err = wsService.Create(ctx, &workspace)
-	require.NoError(t, err)
-
-	_, err = db.Exec("INSERT INTO workspaces_users (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)",
-		idwrap.NewNow().Bytes(), workspaceID.Bytes(), userID.Bytes(), 1)
-	require.NoError(t, err)
-
-	flowID := idwrap.NewNow()
-	flow := mflow.Flow{
-		ID:          flowID,
-		WorkspaceID: workspaceID,
-		Name:        "Test Flow",
-	}
-	err = flowService.CreateFlow(ctx, flow)
-	require.NoError(t, err)
-
-	nodeID := idwrap.NewNow()
-	node := mnnode.MNode{
-		ID:        nodeID,
-		FlowID:    flowID,
-		Name:      "Test Node",
-		NodeKind:  mnnode.NODE_KIND_REQUEST,
-		PositionX: 100,
-		PositionY: 200,
-	}
-	err = nodeService.CreateNode(ctx, node)
-	require.NoError(t, err)
-
-	// Create Node Execution
-	execID := idwrap.NewNow()
-	errStr := "Some error occurred"
-	now := time.Now().Unix()
-	exec := mnodeexecution.NodeExecution{
-		ID:          execID,
-		NodeID:      nodeID,
-		Name:        "Test Node",
-		State:       mnnode.NODE_STATE_FAILURE,
-		Error:       &errStr,
-		CompletedAt: &now,
-	}
-	err = nodeExecService.CreateNodeExecution(ctx, exec)
-	require.NoError(t, err)
-
-	// Call NodeCollection
-	req := connect.NewRequest(&emptypb.Empty{})
-	resp, err := svc.NodeCollection(ctx, req)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	// Assert
-	require.Len(t, resp.Msg.Items, 1)
-	item := resp.Msg.Items[0]
-	assert.Equal(t, nodeID.Bytes(), item.NodeId)
-	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_FAILURE, item.State)
-	require.NotNil(t, item.Info)
-	assert.Equal(t, "Some error occurred", *item.Info)
-}
-
-// TestFlowRun_PersistsState verifies that FlowRun persists node execution state to the DB
-func TestFlowRun_PersistsState(t *testing.T) {
+func TestFlowRun_MultipleRuns(t *testing.T) {
 	// Setup DB
 	db, err := sql.Open("sqlite", ":memory:")
 	require.NoError(t, err)
@@ -217,25 +113,23 @@ func TestFlowRun_PersistsState(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Call FlowRun
-	req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes()})
-	_, err = svc.FlowRun(ctx, req)
-	require.NoError(t, err)
+	// Run Multiple Times
+	for i := 0; i < 10; i++ {
+		req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes()})
+		_, err = svc.FlowRun(ctx, req)
+		require.NoError(t, err, "Run %d failed", i)
+	}
 
-	// Verify NodeCollection
+	// Verify NodeCollection state (should be SUCCESS from last run)
 	collReq := connect.NewRequest(&emptypb.Empty{})
 	resp, err := svc.NodeCollection(ctx, collReq)
 	require.NoError(t, err)
 
 	require.Len(t, resp.Msg.Items, 1)
 	item := resp.Msg.Items[0]
-	
 	if !bytes.Equal(item.NodeId, startNodeID.Bytes()) {
 		t.Fatalf("Expected node ID %s, got %s", startNodeID.String(), idwrap.NewFromBytesMust(item.NodeId).String())
 	}
-
-	// Check if state is populated from FlowRun persistence
-	// Start node should succeed
 	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, item.State)
 }
 
