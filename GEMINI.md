@@ -23,6 +23,7 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
     - Use `git status` and `git diff` to verify changes.
     - **Never** revert changes you didn't author unless instructed.
     - **Never** commit changes unless explicitly asked.
+4.  **Verification:** Always test and lint and try to compile the project after change to be sure.
 
 ## Development Workflows
 
