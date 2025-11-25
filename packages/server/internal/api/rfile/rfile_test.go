@@ -256,8 +256,8 @@ func TestFromAPIFileUpdateWithFolderUnion(t *testing.T) {
 		FileId:      fileID.Bytes(),
 		WorkspaceId: workspaceID.Bytes(),
 		ParentFolderId: &apiv1.FileUpdate_ParentFolderIdUnion{
-			Kind:  apiv1.FileUpdate_ParentFolderIdUnion_KIND_BYTES,
-			Bytes: newFolderID.Bytes(),
+			Kind:  apiv1.FileUpdate_ParentFolderIdUnion_KIND_VALUE,
+			Value: newFolderID.Bytes(),
 		},
 	}
 

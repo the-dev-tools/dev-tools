@@ -89,8 +89,8 @@ func workspaceUpdatedUnion(ts *timestamppb.Timestamp) *apiv1.WorkspaceSyncUpdate
 		return nil
 	}
 	return &apiv1.WorkspaceSyncUpdate_UpdatedUnion{
-		Kind:      apiv1.WorkspaceSyncUpdate_UpdatedUnion_KIND_TIMESTAMP,
-		Timestamp: ts,
+		Kind:  apiv1.WorkspaceSyncUpdate_UpdatedUnion_KIND_VALUE,
+		Value: ts,
 	}
 }
 

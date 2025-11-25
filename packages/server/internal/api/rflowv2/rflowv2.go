@@ -587,8 +587,8 @@ func flowEventToSyncResponse(evt FlowEvent) *flowv1.FlowSyncResponse {
 		}
 		if evt.Flow.Duration != nil {
 			update.Duration = &flowv1.FlowSyncUpdate_DurationUnion{
-				Kind:  flowv1.FlowSyncUpdate_DurationUnion_KIND_INT32,
-				Int32: evt.Flow.Duration,
+				Kind:  flowv1.FlowSyncUpdate_DurationUnion_KIND_VALUE,
+				Value: evt.Flow.Duration,
 			}
 		}
 		syncEvent = &flowv1.FlowSync{
@@ -731,8 +731,8 @@ func (s *FlowServiceV2RPC) FlowUpdate(ctx context.Context, req *connect.Request[
 			switch du.GetKind() {
 			case flowv1.FlowUpdate_DurationUnion_KIND_UNSET:
 				flow.Duration = 0
-			case flowv1.FlowUpdate_DurationUnion_KIND_INT32:
-				flow.Duration = du.GetInt32()
+			case flowv1.FlowUpdate_DurationUnion_KIND_VALUE:
+				flow.Duration = du.GetValue()
 			}
 		}
 
@@ -2542,8 +2542,8 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 
 		var httpID idwrap.IDWrap
 		union := item.GetHttpId()
-		if union != nil && union.Kind == flowv1.NodeHttpUpdate_HttpIdUnion_KIND_BYTES {
-			httpID, err = idwrap.NewFromBytes(union.GetBytes())
+		if union != nil && union.Kind == flowv1.NodeHttpUpdate_HttpIdUnion_KIND_VALUE {
+			httpID, err = idwrap.NewFromBytes(union.GetValue())
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid http id: %w", err))
 			}
@@ -3045,8 +3045,8 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 				Update: &flowv1.NodeHttpSyncUpdate{
 					NodeId: nodeReq.FlowNodeID.Bytes(),
 					HttpId: &flowv1.NodeHttpSyncUpdate_HttpIdUnion{
-						Kind:  flowv1.NodeHttpSyncUpdate_HttpIdUnion_KIND_BYTES,
-						Bytes: nodeReq.HttpID.Bytes(),
+						Kind:  flowv1.NodeHttpSyncUpdate_HttpIdUnion_KIND_VALUE,
+						Value: nodeReq.HttpID.Bytes(),
 					},
 				},
 			},
@@ -4018,40 +4018,40 @@ func (s *FlowServiceV2RPC) executionEventToSyncResponse(
 		// Handle Error union
 		if evt.Execution.Error != nil {
 			update.Error = &flowv1.NodeExecutionSyncUpdate_ErrorUnion{
-				Kind:    flowv1.NodeExecutionSyncUpdate_ErrorUnion_KIND_STRING,
-				String_: evt.Execution.Error,
+				Kind:  flowv1.NodeExecutionSyncUpdate_ErrorUnion_KIND_VALUE,
+				Value: evt.Execution.Error,
 			}
 		}
 
 		// Handle Input union
 		if evt.Execution.Input != nil {
 			update.Input = &flowv1.NodeExecutionSyncUpdate_InputUnion{
-				Kind: flowv1.NodeExecutionSyncUpdate_InputUnion_KIND_JSON,
-				Json: evt.Execution.Input,
+				Kind:  flowv1.NodeExecutionSyncUpdate_InputUnion_KIND_VALUE,
+				Value: evt.Execution.Input,
 			}
 		}
 
 		// Handle Output union
 		if evt.Execution.Output != nil {
 			update.Output = &flowv1.NodeExecutionSyncUpdate_OutputUnion{
-				Kind: flowv1.NodeExecutionSyncUpdate_OutputUnion_KIND_JSON,
-				Json: evt.Execution.Output,
+				Kind:  flowv1.NodeExecutionSyncUpdate_OutputUnion_KIND_VALUE,
+				Value: evt.Execution.Output,
 			}
 		}
 
 		// Handle HttpResponseId union
 		if evt.Execution.HttpResponseId != nil {
 			update.HttpResponseId = &flowv1.NodeExecutionSyncUpdate_HttpResponseIdUnion{
-				Kind:  flowv1.NodeExecutionSyncUpdate_HttpResponseIdUnion_KIND_BYTES,
-				Bytes: evt.Execution.HttpResponseId,
+				Kind:  flowv1.NodeExecutionSyncUpdate_HttpResponseIdUnion_KIND_VALUE,
+				Value: evt.Execution.HttpResponseId,
 			}
 		}
 
 		// Handle CompletedAt union
 		if evt.Execution.CompletedAt != nil {
 			update.CompletedAt = &flowv1.NodeExecutionSyncUpdate_CompletedAtUnion{
-				Kind:      flowv1.NodeExecutionSyncUpdate_CompletedAtUnion_KIND_TIMESTAMP,
-				Timestamp: evt.Execution.CompletedAt,
+				Kind:  flowv1.NodeExecutionSyncUpdate_CompletedAtUnion_KIND_VALUE,
+				Value: evt.Execution.CompletedAt,
 			}
 		}
 
@@ -4192,8 +4192,8 @@ func nodeEventToSyncResponse(evt NodeEvent) *flowv1.NodeSyncResponse {
 		}
 		if info := node.GetInfo(); info != "" {
 			update.Info = &flowv1.NodeSyncUpdate_InfoUnion{
-				Kind:    flowv1.NodeSyncUpdate_InfoUnion_KIND_STRING,
-				String_: &info,
+				Kind:  flowv1.NodeSyncUpdate_InfoUnion_KIND_VALUE,
+				Value: &info,
 			}
 		}
 		return &flowv1.NodeSyncResponse{

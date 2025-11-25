@@ -75,8 +75,8 @@ func logSyncResponseFrom(evt LogEvent) *apiv1.LogSyncResponse {
 		}
 		if evt.Log.Value != nil {
 			update.Value = &apiv1.LogSyncUpdate_ValueUnion{
-				Kind: apiv1.LogSyncUpdate_ValueUnion_KIND_JSON,
-				Json: evt.Log.Value,
+				Kind:  apiv1.LogSyncUpdate_ValueUnion_KIND_VALUE,
+				Value: evt.Log.Value,
 			}
 		}
 		msg := &apiv1.LogSync{

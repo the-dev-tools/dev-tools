@@ -466,8 +466,8 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 			var lastRunAtUnion *apiv1.HttpSyncUpdate_LastRunAtUnion
 		if lastRunAt != nil {
 			lastRunAtUnion = &apiv1.HttpSyncUpdate_LastRunAtUnion{
-				Kind:      apiv1.HttpSyncUpdate_LastRunAtUnion_KIND_TIMESTAMP,
-				Timestamp: lastRunAt,
+				Kind:  apiv1.HttpSyncUpdate_LastRunAtUnion_KIND_VALUE,
+				Value: lastRunAt,
 			}
 		}
 
@@ -927,22 +927,22 @@ func httpDeltaSyncResponseFrom(event HttpEvent, http mhttp.HTTP) *apiv1.HttpDelt
 		if http.DeltaName != nil {
 			nameStr := *http.DeltaName
 			delta.Name = &apiv1.HttpDeltaSyncUpdate_NameUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &nameStr,
+				Kind:  apiv1.HttpDeltaSyncUpdate_NameUnion_KIND_VALUE,
+				Value: &nameStr,
 			}
 		}
 		if http.DeltaMethod != nil {
 			method := converter.ToAPIHttpMethod(*http.DeltaMethod)
 			delta.Method = &apiv1.HttpDeltaSyncUpdate_MethodUnion{
-				Kind:       470142787, // KIND_HTTP_METHOD
-				HttpMethod: &method,
+				Kind:  apiv1.HttpDeltaSyncUpdate_MethodUnion_KIND_VALUE,
+				Value: &method,
 			}
 		}
 		if http.DeltaUrl != nil {
 			urlStr := *http.DeltaUrl
 			delta.Url = &apiv1.HttpDeltaSyncUpdate_UrlUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &urlStr,
+				Kind:  apiv1.HttpDeltaSyncUpdate_UrlUnion_KIND_VALUE,
+				Value: &urlStr,
 			}
 		}
 		// Note: BodyKind delta not implemented yet
@@ -1944,28 +1944,28 @@ func (h *HttpServiceRPC) HttpDeltaUpdate(ctx context.Context, req *connect.Reque
 
 		if item.Name != nil {
 			switch item.Name.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpDeltaUpdate_NameUnion_KIND_UNSET:
 				existingDelta.DeltaName = nil
-			case 315301840: // KIND_STRING
-				nameStr := item.Name.GetString_()
+			case apiv1.HttpDeltaUpdate_NameUnion_KIND_VALUE:
+				nameStr := item.Name.GetValue()
 				existingDelta.DeltaName = &nameStr
 			}
 		}
 		if item.Method != nil {
 			switch item.Method.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpDeltaUpdate_MethodUnion_KIND_UNSET:
 				existingDelta.DeltaMethod = nil
-			case 470142787: // KIND_HTTP_METHOD
-				method := item.Method.GetHttpMethod()
+			case apiv1.HttpDeltaUpdate_MethodUnion_KIND_VALUE:
+				method := item.Method.GetValue()
 				existingDelta.DeltaMethod = httpMethodToString(&method)
 			}
 		}
 		if item.Url != nil {
 			switch item.Url.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpDeltaUpdate_UrlUnion_KIND_UNSET:
 				existingDelta.DeltaUrl = nil
-			case 315301840: // KIND_STRING
-				urlStr := item.Url.GetString_()
+			case apiv1.HttpDeltaUpdate_UrlUnion_KIND_VALUE:
+				urlStr := item.Url.GetValue()
 				existingDelta.DeltaUrl = &urlStr
 			}
 		}
@@ -3086,37 +3086,37 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 
 		if item.Key != nil {
 			switch item.Key.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpSearchParamDeltaUpdate_KeyUnion_KIND_UNSET:
 				deltaKey = nil
-			case 315301840: // KIND_STRING
-				keyStr := item.Key.GetString_()
+			case apiv1.HttpSearchParamDeltaUpdate_KeyUnion_KIND_VALUE:
+				keyStr := item.Key.GetValue()
 				deltaKey = &keyStr
 			}
 		}
 		if item.Value != nil {
 			switch item.Value.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpSearchParamDeltaUpdate_ValueUnion_KIND_UNSET:
 				deltaValue = nil
-			case 315301840: // KIND_STRING
-				valueStr := item.Value.GetString_()
+			case apiv1.HttpSearchParamDeltaUpdate_ValueUnion_KIND_VALUE:
+				valueStr := item.Value.GetValue()
 				deltaValue = &valueStr
 			}
 		}
 		if item.Enabled != nil {
 			switch item.Enabled.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpSearchParamDeltaUpdate_EnabledUnion_KIND_UNSET:
 				deltaEnabled = nil
-			case 477045804: // KIND_BOOL
-				enabledBool := item.Enabled.GetBool()
+			case apiv1.HttpSearchParamDeltaUpdate_EnabledUnion_KIND_VALUE:
+				enabledBool := item.Enabled.GetValue()
 				deltaEnabled = &enabledBool
 			}
 		}
 		if item.Description != nil {
 			switch item.Description.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpSearchParamDeltaUpdate_DescriptionUnion_KIND_UNSET:
 				deltaDescription = nil
-			case 315301840: // KIND_STRING
-				descStr := item.Description.GetString_()
+			case apiv1.HttpSearchParamDeltaUpdate_DescriptionUnion_KIND_VALUE:
+				descStr := item.Description.GetValue()
 				deltaDescription = &descStr
 			}
 		}
@@ -3282,15 +3282,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaSync(ctx context.Context, req *conn
 	return h.streamHttpSearchParamDeltaSync(ctx, userID, stream.Send)
 }
 
-func (h *HttpServiceRPC) HttpSearchParamMove(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamMoveRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
 
-func (h *HttpServiceRPC) HttpSearchParamDeltaMove(ctx context.Context, req *connect.Request[apiv1.HttpSearchParamDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
 
 func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpAssertCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -4635,37 +4627,37 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 
 		if item.Key != nil {
 			switch item.Key.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpHeaderDeltaUpdate_KeyUnion_KIND_UNSET:
 				deltaKey = nil
-			case 315301840: // KIND_STRING
-				keyStr := item.Key.GetString_()
+			case apiv1.HttpHeaderDeltaUpdate_KeyUnion_KIND_VALUE:
+				keyStr := item.Key.GetValue()
 				deltaKey = &keyStr
 			}
 		}
 		if item.Value != nil {
 			switch item.Value.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpHeaderDeltaUpdate_ValueUnion_KIND_UNSET:
 				deltaValue = nil
-			case 315301840: // KIND_STRING
-				valueStr := item.Value.GetString_()
+			case apiv1.HttpHeaderDeltaUpdate_ValueUnion_KIND_VALUE:
+				valueStr := item.Value.GetValue()
 				deltaValue = &valueStr
 			}
 		}
 		if item.Enabled != nil {
 			switch item.Enabled.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpHeaderDeltaUpdate_EnabledUnion_KIND_UNSET:
 				deltaEnabled = nil
-			case 477045804: // KIND_BOOL
-				enabledBool := item.Enabled.GetBool()
+			case apiv1.HttpHeaderDeltaUpdate_EnabledUnion_KIND_VALUE:
+				enabledBool := item.Enabled.GetValue()
 				deltaEnabled = &enabledBool
 			}
 		}
 		if item.Description != nil {
 			switch item.Description.GetKind() {
-			case 183079996: // KIND_UNSET
+			case apiv1.HttpHeaderDeltaUpdate_DescriptionUnion_KIND_UNSET:
 				deltaDescription = nil
-			case 315301840: // KIND_STRING
-				descStr := item.Description.GetString_()
+			case apiv1.HttpHeaderDeltaUpdate_DescriptionUnion_KIND_VALUE:
+				descStr := item.Description.GetValue()
 				deltaDescription = &descStr
 			}
 		}
@@ -4831,15 +4823,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaSync(ctx context.Context, req *connect.R
 	return h.streamHttpHeaderDeltaSync(ctx, userID, stream.Send)
 }
 
-func (h *HttpServiceRPC) HttpHeaderMove(ctx context.Context, req *connect.Request[apiv1.HttpHeaderMoveRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
 
-func (h *HttpServiceRPC) HttpHeaderDeltaMove(ctx context.Context, req *connect.Request[apiv1.HttpHeaderDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
 
 func (h *HttpServiceRPC) HttpBodyFormDataCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormDataCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -5598,15 +5582,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaSync(ctx context.Context, req *con
 	return h.streamHttpBodyFormDeltaSync(ctx, userID, stream.Send)
 }
 
-func (h *HttpServiceRPC) HttpBodyFormDataMove(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataMoveRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
 
-func (h *HttpServiceRPC) HttpBodyFormDataDeltaMove(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
 
 func (h *HttpServiceRPC) HttpBodyUrlEncodedCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyUrlEncodedCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -6044,41 +6020,41 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 			delta.HttpSearchParamId = param.ParentHttpSearchParamID.Bytes()
 		}
 		delta.HttpId = param.HttpID.Bytes()
-		if param.DeltaKey != nil {
-			keyStr := *param.DeltaKey
-			delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &keyStr,
-			}
-		}
-		if param.DeltaValue != nil {
-			valueStr := *param.DeltaValue
-			delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &valueStr,
-			}
-		}
-		if param.DeltaEnabled != nil {
-			enabledBool := *param.DeltaEnabled
-			delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
-				Kind: 477045804, // KIND_BOOL
-				Bool: &enabledBool,
-			}
-		}
-		if param.DeltaDescription != nil {
-			descStr := *param.DeltaDescription
-			delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &descStr,
-			}
-		}
-		if param.DeltaOrder != nil {
-			orderFloat := float32(*param.DeltaOrder)
-			delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
-				Kind:  182966389, // KIND_FLOAT
-				Float: &orderFloat,
-			}
-		}
+				if param.DeltaKey != nil {
+					keyStr := *param.DeltaKey
+					delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+						Value: &keyStr,
+					}
+				}
+				if param.DeltaValue != nil {
+					valueStr := *param.DeltaValue
+					delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+						Value: &valueStr,
+					}
+				}
+				if param.DeltaEnabled != nil {
+					enabledBool := *param.DeltaEnabled
+					delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+						Value: &enabledBool,
+					}
+				}
+				if param.DeltaDescription != nil {
+					descStr := *param.DeltaDescription
+					delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+						Value: &descStr,
+					}
+				}
+				if param.DeltaOrder != nil {
+					orderFloat := float32(*param.DeltaOrder)
+					delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
+						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+						Value: &orderFloat,
+					}
+				}
 		value = &apiv1.HttpSearchParamDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpSearchParamDeltaSync_ValueUnion_KIND_UPDATE,
 			Update: delta,
@@ -6144,36 +6120,36 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttpheader.H
 		if header.DeltaKey != nil {
 			keyStr := *header.DeltaKey
 			delta.Key = &apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &keyStr,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+				Value: &keyStr,
 			}
 		}
 		if header.DeltaValue != nil {
 			valueStr := *header.DeltaValue
 			delta.Value = &apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &valueStr,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+				Value: &valueStr,
 			}
 		}
 		if header.DeltaEnabled != nil {
 			enabledBool := *header.DeltaEnabled
 			delta.Enabled = &apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion{
-				Kind: 477045804, // KIND_BOOL
-				Bool: &enabledBool,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+				Value: &enabledBool,
 			}
 		}
 		if header.DeltaDescription != nil {
 			descStr := *header.DeltaDescription
 			delta.Description = &apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &descStr,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+				Value: &descStr,
 			}
 		}
 		if header.DeltaOrder != nil {
 			orderFloat := *header.DeltaOrder
 			delta.Order = &apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion{
-				Kind:  182966389, // KIND_FLOAT
-				Float: &orderFloat,
+				Kind:  apiv1.HttpHeaderDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+				Value: &orderFloat,
 			}
 		}
 		value = &apiv1.HttpHeaderDeltaSync_ValueUnion{
@@ -6241,36 +6217,36 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttpbo
 		if form.DeltaKey != nil {
 			keyStr := *form.DeltaKey
 			delta.Key = &apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &keyStr,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+				Value: &keyStr,
 			}
 		}
 		if form.DeltaValue != nil {
 			valueStr := *form.DeltaValue
 			delta.Value = &apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &valueStr,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+				Value: &valueStr,
 			}
 		}
 		if form.DeltaEnabled != nil {
 			enabledBool := *form.DeltaEnabled
 			delta.Enabled = &apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion{
-				Kind: 477045804, // KIND_BOOL
-				Bool: &enabledBool,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+				Value: &enabledBool,
 			}
 		}
 		if form.DeltaDescription != nil {
 			descStr := *form.DeltaDescription
 			delta.Description = &apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &descStr,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+				Value: &descStr,
 			}
 		}
 		if form.DeltaOrder != nil {
 			orderFloat := *form.DeltaOrder
 			delta.Order = &apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion{
-				Kind:  182966389, // KIND_FLOAT
-				Float: &orderFloat,
+				Kind:  apiv1.HttpBodyFormDataDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+				Value: &orderFloat,
 			}
 		}
 		value = &apiv1.HttpBodyFormDataDeltaSync_ValueUnion{
@@ -6326,8 +6302,8 @@ func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttpassert.H
 		if assert.DeltaValue != nil {
 			valueStr := *assert.DeltaValue
 			delta.Value = &apiv1.HttpAssertDeltaSyncUpdate_ValueUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &valueStr,
+				Kind:  apiv1.HttpAssertDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+				Value: &valueStr,
 			}
 		}
 		value = &apiv1.HttpAssertDeltaSync_ValueUnion{
@@ -6395,36 +6371,36 @@ func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body
 		if body.DeltaKey != nil {
 			keyStr := *body.DeltaKey
 			delta.Key = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &keyStr,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+				Value: &keyStr,
 			}
 		}
 		if body.DeltaValue != nil {
 			valueStr := *body.DeltaValue
 			delta.Value = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &valueStr,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+				Value: &valueStr,
 			}
 		}
 		if body.DeltaEnabled != nil {
 			enabledBool := *body.DeltaEnabled
 			delta.Enabled = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion{
-				Kind: 477045804, // KIND_BOOL
-				Bool: &enabledBool,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+				Value: &enabledBool,
 			}
 		}
 		if body.DeltaDescription != nil {
 			descStr := *body.DeltaDescription
 			delta.Description = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion{
-				Kind:    315301840, // KIND_STRING
-				String_: &descStr,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+				Value: &descStr,
 			}
 		}
 		if body.DeltaOrder != nil {
 			orderFloat := *body.DeltaOrder
 			delta.Order = &apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion{
-				Kind:  182966389, // KIND_FLOAT
-				Float: &orderFloat,
+				Kind:  apiv1.HttpBodyUrlEncodedDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+				Value: &orderFloat,
 			}
 		}
 		value = &apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion{
@@ -6653,15 +6629,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaSync(ctx context.Context, req *c
 	return h.streamHttpBodyUrlEncodedDeltaSync(ctx, userID, stream.Send)
 }
 
-func (h *HttpServiceRPC) HttpBodyUrlEncodedMove(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedMoveRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
 
-func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaMove(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeltaMoveRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
 
 func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyRawCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -6699,6 +6667,65 @@ func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect
 	return connect.NewResponse(&apiv1.HttpBodyRawCollectionResponse{
 		Items: allBodies,
 	}), nil
+}
+
+func (h *HttpServiceRPC) HttpBodyRawDeltaCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyRawDeltaCollectionResponse], error) {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	var allDeltas []*apiv1.HttpBodyRawDelta
+	for _, workspace := range workspaces {
+		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		for _, http := range httpList {
+			body, err := h.bodyService.GetByHttpID(ctx, http.ID)
+			if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+
+			if body != nil {
+				data := string(body.RawData)
+				allDeltas = append(allDeltas, &apiv1.HttpBodyRawDelta{
+					HttpId: body.HttpID.Bytes(),
+					Data:   &data,
+				})
+			}
+		}
+	}
+
+	return connect.NewResponse(&apiv1.HttpBodyRawDeltaCollectionResponse{
+		Items: allDeltas,
+	}), nil
+}
+
+func (h *HttpServiceRPC) HttpBodyRawDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h *HttpServiceRPC) HttpBodyRawDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
+	// TODO: Implement
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (h *HttpServiceRPC) HttpBodyRawDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyRawDeltaSyncResponse]) error {
+	// TODO: Implement
+	return nil
 }
 
 func (h *HttpServiceRPC) HttpBodyRawInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawInsertRequest]) (*connect.Response[emptypb.Empty], error) {

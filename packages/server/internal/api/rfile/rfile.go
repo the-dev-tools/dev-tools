@@ -170,8 +170,8 @@ func fromAPIFileUpdate(apiFile *apiv1.FileUpdate, existingFile *mfile.File) (*mf
 	}
 
 	if apiFile.ParentFolderId != nil {
-		if apiFile.ParentFolderId.Kind == apiv1.FileUpdate_ParentFolderIdUnion_KIND_BYTES && len(apiFile.ParentFolderId.Bytes) > 0 {
-			folderID, err := idwrap.NewFromBytes(apiFile.ParentFolderId.Bytes)
+		if apiFile.ParentFolderId.Kind == apiv1.FileUpdate_ParentFolderIdUnion_KIND_VALUE && len(apiFile.ParentFolderId.Value) > 0 {
+			folderID, err := idwrap.NewFromBytes(apiFile.ParentFolderId.Value)
 			if err != nil {
 				return nil, err
 			}
@@ -320,8 +320,8 @@ func fileSyncResponseFrom(evt FileEvent) *apiv1.FileSyncResponse {
 
 		if len(evt.File.ParentFolderId) > 0 {
 			update.ParentFolderId = &apiv1.FileSyncUpdate_ParentFolderIdUnion{
-				Kind:  apiv1.FileSyncUpdate_ParentFolderIdUnion_KIND_BYTES,
-				Bytes: evt.File.ParentFolderId,
+				Kind:  apiv1.FileSyncUpdate_ParentFolderIdUnion_KIND_VALUE,
+				Value: evt.File.ParentFolderId,
 			}
 		} else {
 			update.ParentFolderId = &apiv1.FileSyncUpdate_ParentFolderIdUnion{
