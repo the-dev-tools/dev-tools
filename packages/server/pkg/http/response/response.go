@@ -69,7 +69,7 @@ func ResponseCreateHTTP(
 	for _, h := range respHttp.Headers {
 		responseHeaders = append(responseHeaders, mhttp.HTTPResponseHeader{
 			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
+			ResponseID:  responseID,
 			HeaderKey:   h.HeaderKey,
 			HeaderValue: h.Value,
 			CreatedAt:   now,
@@ -124,11 +124,11 @@ func ResponseCreateHTTP(
 			}
 
 			responseAsserts = append(responseAsserts, mhttp.HTTPResponseAssert{
-				ID:        idwrap.NewNow(),
-				HttpID:    httpID,
-				Value:     expr,
-				Success:   ok,
-				CreatedAt: now,
+				ID:         idwrap.NewNow(),
+				ResponseID: responseID,
+				Value:      expr,
+				Success:    ok,
+				CreatedAt:  now,
 			})
 		}
 	}
@@ -192,7 +192,7 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 			// Create new header if not found
 			taskCreateHeaders = append(taskCreateHeaders, mhttp.HTTPResponseHeader{
 				ID:          idwrap.NewNow(),
-				HttpID:      httpResponse.HttpID,
+				ResponseID:  httpResponse.ID,
 				HeaderKey:   respHeader.HeaderKey,
 				HeaderValue: respHeader.Value,
 				CreatedAt:   time.Now().Unix(),
@@ -251,11 +251,11 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("expression %q failed: %w", expr, annotatedErr))
 			}
 			res := mhttp.HTTPResponseAssert{
-				ID:        idwrap.NewNow(),
-				HttpID:    httpResponse.HttpID,
-				Value:     expr,
-				Success:   ok,
-				CreatedAt: time.Now().Unix(),
+				ID:         idwrap.NewNow(),
+				ResponseID: httpResponse.ID,
+				Value:      expr,
+				Success:    ok,
+				CreatedAt:  time.Now().Unix(),
 			}
 
 			resultArr = append(resultArr, AssertCouple{

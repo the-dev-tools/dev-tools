@@ -925,11 +925,6 @@ func (s *Service) ValidateFormat(ctx context.Context, data []byte, format Format
 
 // ValidateImportRequestExtended performs comprehensive validation of import requests
 func (s *Service) ValidateImportRequestExtended(ctx context.Context, req *ImportRequest, constraints *ImportConstraints) error {
-	// Apply default constraints if none provided
-	if constraints == nil {
-		constraints = DefaultConstraints()
-	}
-
 	// Basic validation
 	if err := s.validator.ValidateImportRequest(ctx, req); err != nil {
 		return err
