@@ -44,6 +44,7 @@ func TestToAPIFileKind(t *testing.T) {
 	}{
 		{"folder", mfile.ContentTypeFolder, apiv1.FileKind_FILE_KIND_FOLDER},
 		{"http", mfile.ContentTypeHTTP, apiv1.FileKind_FILE_KIND_HTTP},
+		{"http_delta", mfile.ContentTypeHTTPDelta, apiv1.FileKind_FILE_KIND_HTTP_DELTA},
 		{"flow", mfile.ContentTypeFlow, apiv1.FileKind_FILE_KIND_FLOW},
 		{"unknown", mfile.ContentTypeUnknown, apiv1.FileKind_FILE_KIND_UNSPECIFIED},
 	}
@@ -82,11 +83,11 @@ func TestFromAPIFileInsert(t *testing.T) {
 	folderID := idwrap.NewNow()
 
 	apiFile := &apiv1.FileInsert{
-		FileId:         fileID.Bytes(),
-		WorkspaceId:    workspaceID.Bytes(),
-		ParentId: folderID.Bytes(),
-		Kind:           apiv1.FileKind_FILE_KIND_HTTP,
-		Order:          1.5,
+		FileId:      fileID.Bytes(),
+		WorkspaceId: workspaceID.Bytes(),
+		ParentId:    folderID.Bytes(),
+		Kind:        apiv1.FileKind_FILE_KIND_HTTP,
+		Order:       1.5,
 	}
 
 	file, err := fromAPIFileInsert(apiFile)
@@ -148,10 +149,10 @@ func TestFileSyncResponseFrom(t *testing.T) {
 						Value: &apiv1.FileSync_ValueUnion{
 							Kind: apiv1.FileSync_ValueUnion_KIND_INSERT,
 							Insert: &apiv1.FileSyncInsert{
-								FileId:         fileID.Bytes(),
-								WorkspaceId:    workspaceID.Bytes(),
-								Kind:           apiv1.FileKind_FILE_KIND_HTTP,
-								Order:          1.0,
+								FileId:      fileID.Bytes(),
+								WorkspaceId: workspaceID.Bytes(),
+								Kind:        apiv1.FileKind_FILE_KIND_HTTP,
+								Order:       1.0,
 							},
 						},
 					},
@@ -231,11 +232,11 @@ func TestFromAPIFileUpdate(t *testing.T) {
 
 	assert.Equal(t, fileID, file.ID)
 	assert.Equal(t, workspaceID, file.WorkspaceID)
-	assert.Equal(t, folderID, *file.FolderID)               // Should preserve existing
-	assert.Equal(t, contentID, *file.ContentID)             // Should preserve existing
+	assert.Equal(t, folderID, *file.FolderID)                // Should preserve existing
+	assert.Equal(t, contentID, *file.ContentID)              // Should preserve existing
 	assert.Equal(t, mfile.ContentTypeHTTP, file.ContentType) // Should preserve existing
-	assert.Equal(t, "old-name", file.Name)                  // Should preserve existing
-	assert.Equal(t, float64(2.5), file.Order)               // Should update order
+	assert.Equal(t, "old-name", file.Name)                   // Should preserve existing
+	assert.Equal(t, float64(2.5), file.Order)                // Should update order
 }
 
 func TestFromAPIFileUpdateWithFolderUnion(t *testing.T) {
