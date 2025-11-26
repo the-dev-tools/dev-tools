@@ -202,7 +202,7 @@ SELECT
   created_at,
   updated_at
 FROM http_search_param
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY "order";
 
 -- name: GetHTTPSearchParamsByIDs :many
@@ -285,7 +285,7 @@ SELECT
   created_at,
   updated_at
 FROM http_header
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY created_at ASC;
 
 -- name: GetHTTPHeadersByIDs :many
@@ -368,7 +368,7 @@ SELECT
   created_at,
   updated_at
 FROM http_body_form
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY "order";
 
 -- name: GetHTTPBodyFormsByIDs :many
@@ -485,7 +485,7 @@ SELECT
   created_at,
   updated_at
 FROM http_body_urlencoded
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY "order";
 
 -- name: GetHTTPBodyUrlEncodedsByIDs :many
@@ -610,7 +610,7 @@ SELECT
   created_at,
   updated_at
 FROM http_assert
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY "order";
 
 -- name: GetHTTPAssertsByIDs :many

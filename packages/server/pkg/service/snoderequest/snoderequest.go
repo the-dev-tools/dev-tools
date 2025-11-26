@@ -37,16 +37,31 @@ func ConvertToDBNodeHTTP(nr mnrequest.MNRequest) (gen.FlowNodeHttp, bool) {
 		return gen.FlowNodeHttp{}, false
 	}
 
+	var deltaID []byte
+	if nr.DeltaExampleID != nil {
+		deltaID = nr.DeltaExampleID.Bytes()
+	}
+
 	return gen.FlowNodeHttp{
-		FlowNodeID: nr.FlowNodeID,
-		HttpID:     nr.HttpID,
+		FlowNodeID:  nr.FlowNodeID,
+		HttpID:      nr.HttpID,
+		DeltaHttpID: deltaID,
 	}, true
 }
 
 func ConvertToModelNodeHTTP(nr gen.FlowNodeHttp) *mnrequest.MNRequest {
+	var deltaID *idwrap.IDWrap
+	if len(nr.DeltaHttpID) > 0 {
+		id, err := idwrap.NewFromBytes(nr.DeltaHttpID)
+		if err == nil {
+			deltaID = &id
+		}
+	}
+
 	result := &mnrequest.MNRequest{
-		FlowNodeID: nr.FlowNodeID,
-		HttpID:     nr.HttpID,
+		FlowNodeID:     nr.FlowNodeID,
+		HttpID:         nr.HttpID,
+		DeltaExampleID: deltaID,
 	}
 	result.HasRequestConfig = !isZeroID(nr.HttpID)
 	return result
@@ -73,8 +88,9 @@ func (nrs NodeRequestService) CreateNodeRequest(ctx context.Context, nr mnreques
 		return nil
 	}
 	return nrs.queries.CreateFlowNodeHTTP(ctx, gen.CreateFlowNodeHTTPParams{
-		FlowNodeID: nodeHTTP.FlowNodeID,
-		HttpID:     nodeHTTP.HttpID,
+		FlowNodeID:  nodeHTTP.FlowNodeID,
+		HttpID:      nodeHTTP.HttpID,
+		DeltaHttpID: nodeHTTP.DeltaHttpID,
 	})
 }
 
@@ -86,8 +102,9 @@ func (nrs NodeRequestService) CreateNodeRequestBulk(ctx context.Context, nodes [
 		}
 
 		if err := nrs.queries.CreateFlowNodeHTTP(ctx, gen.CreateFlowNodeHTTPParams{
-			FlowNodeID: nodeHTTP.FlowNodeID,
-			HttpID:     nodeHTTP.HttpID,
+			FlowNodeID:  nodeHTTP.FlowNodeID,
+			HttpID:      nodeHTTP.HttpID,
+			DeltaHttpID: nodeHTTP.DeltaHttpID,
 		}); err != nil {
 			return err
 		}
@@ -105,8 +122,9 @@ func (nrs NodeRequestService) UpdateNodeRequest(ctx context.Context, nr mnreques
 		return nil
 	}
 	return nrs.queries.UpdateFlowNodeHTTP(ctx, gen.UpdateFlowNodeHTTPParams{
-		FlowNodeID: nodeHTTP.FlowNodeID,
-		HttpID:     nodeHTTP.HttpID,
+		HttpID:      nodeHTTP.HttpID,
+		DeltaHttpID: nodeHTTP.DeltaHttpID,
+		FlowNodeID:  nodeHTTP.FlowNodeID,
 	})
 }
 

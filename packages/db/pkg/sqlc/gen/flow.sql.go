@@ -166,19 +166,21 @@ const createFlowNodeHTTP = `-- name: CreateFlowNodeHTTP :exec
 INSERT INTO
   flow_node_http (
     flow_node_id,
-    http_id
+    http_id,
+    delta_http_id
   )
 VALUES
-  (?, ?)
+  (?, ?, ?)
 `
 
 type CreateFlowNodeHTTPParams struct {
-	FlowNodeID idwrap.IDWrap
-	HttpID     idwrap.IDWrap
+	FlowNodeID  idwrap.IDWrap
+	HttpID      idwrap.IDWrap
+	DeltaHttpID []byte
 }
 
 func (q *Queries) CreateFlowNodeHTTP(ctx context.Context, arg CreateFlowNodeHTTPParams) error {
-	_, err := q.exec(ctx, q.createFlowNodeHTTPStmt, createFlowNodeHTTP, arg.FlowNodeID, arg.HttpID)
+	_, err := q.exec(ctx, q.createFlowNodeHTTPStmt, createFlowNodeHTTP, arg.FlowNodeID, arg.HttpID, arg.DeltaHttpID)
 	return err
 }
 
@@ -928,7 +930,8 @@ func (q *Queries) GetFlowNodeForEach(ctx context.Context, flowNodeID idwrap.IDWr
 const getFlowNodeHTTP = `-- name: GetFlowNodeHTTP :one
 SELECT
   flow_node_id,
-  http_id
+  http_id,
+  delta_http_id
 FROM
   flow_node_http
 WHERE
@@ -939,7 +942,7 @@ LIMIT 1
 func (q *Queries) GetFlowNodeHTTP(ctx context.Context, flowNodeID idwrap.IDWrap) (FlowNodeHttp, error) {
 	row := q.queryRow(ctx, q.getFlowNodeHTTPStmt, getFlowNodeHTTP, flowNodeID)
 	var i FlowNodeHttp
-	err := row.Scan(&i.FlowNodeID, &i.HttpID)
+	err := row.Scan(&i.FlowNodeID, &i.HttpID, &i.DeltaHttpID)
 	return i, err
 }
 
@@ -1910,18 +1913,20 @@ func (q *Queries) UpdateFlowNodeForEach(ctx context.Context, arg UpdateFlowNodeF
 const updateFlowNodeHTTP = `-- name: UpdateFlowNodeHTTP :exec
 UPDATE flow_node_http
 SET
-  http_id = ?
+  http_id = ?,
+  delta_http_id = ?
 WHERE
   flow_node_id = ?
 `
 
 type UpdateFlowNodeHTTPParams struct {
-	HttpID     idwrap.IDWrap
-	FlowNodeID idwrap.IDWrap
+	HttpID      idwrap.IDWrap
+	DeltaHttpID []byte
+	FlowNodeID  idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeHTTP(ctx context.Context, arg UpdateFlowNodeHTTPParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeHTTPStmt, updateFlowNodeHTTP, arg.HttpID, arg.FlowNodeID)
+	_, err := q.exec(ctx, q.updateFlowNodeHTTPStmt, updateFlowNodeHTTP, arg.HttpID, arg.DeltaHttpID, arg.FlowNodeID)
 	return err
 }
 

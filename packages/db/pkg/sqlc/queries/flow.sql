@@ -304,7 +304,8 @@ WHERE
 -- name: GetFlowNodeHTTP :one
 SELECT
   flow_node_id,
-  http_id
+  http_id,
+  delta_http_id
 FROM
   flow_node_http
 WHERE
@@ -315,15 +316,17 @@ LIMIT 1;
 INSERT INTO
   flow_node_http (
     flow_node_id,
-    http_id
+    http_id,
+    delta_http_id
   )
 VALUES
-  (?, ?);
+  (?, ?, ?);
 
 -- name: UpdateFlowNodeHTTP :exec
 UPDATE flow_node_http
 SET
-  http_id = ?
+  http_id = ?,
+  delta_http_id = ?
 WHERE
   flow_node_id = ?;
 

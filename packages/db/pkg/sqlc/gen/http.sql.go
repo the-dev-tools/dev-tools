@@ -1851,7 +1851,7 @@ SELECT
   created_at,
   updated_at
 FROM http_assert
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY "order"
 `
 
@@ -2186,7 +2186,7 @@ SELECT
   created_at,
   updated_at
 FROM http_body_form
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY "order"
 `
 
@@ -2487,7 +2487,7 @@ SELECT
   created_at,
   updated_at
 FROM http_body_urlencoded
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY "order"
 `
 
@@ -2816,7 +2816,7 @@ SELECT
   created_at,
   updated_at
 FROM http_header
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY created_at ASC
 `
 
@@ -3595,7 +3595,7 @@ SELECT
   created_at,
   updated_at
 FROM http_search_param
-WHERE http_id = ? AND is_delta = FALSE
+WHERE http_id = ?
 ORDER BY "order"
 `
 

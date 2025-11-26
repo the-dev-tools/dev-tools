@@ -78,8 +78,9 @@ type FlowNodeForEach struct {
 }
 
 type FlowNodeHttp struct {
-	FlowNodeID idwrap.IDWrap
-	HttpID     idwrap.IDWrap
+	FlowNodeID  idwrap.IDWrap
+	HttpID      idwrap.IDWrap
+	DeltaHttpID []byte
 }
 
 type FlowNodeJ struct {

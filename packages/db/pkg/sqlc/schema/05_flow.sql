@@ -79,8 +79,10 @@ CREATE TABLE flow_node_for_each (
 CREATE TABLE flow_node_http (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   http_id BLOB NOT NULL,
+  delta_http_id BLOB,
   FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
+  FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
+  FOREIGN KEY (delta_http_id) REFERENCES http (id) ON DELETE SET NULL
 );
 
 -- TODO: move conditions to new condition table
