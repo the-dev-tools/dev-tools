@@ -1,4 +1,3 @@
-import { enumToJson } from '@bufbuild/protobuf';
 import { eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
 import { ToOptions, useMatchRoute } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
@@ -18,13 +17,7 @@ import {
 import { FiFolder, FiMoreHorizontal, FiX } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { ExportService } from '@the-dev-tools/spec/api/export/v1/export_pb';
-import {
-  File,
-  FileKind,
-  FileKindJson,
-  FileKindSchema,
-  FileUpdate_ParentFolderIdUnion_Kind,
-} from '@the-dev-tools/spec/api/file_system/v1/file_system_pb';
+import { File, FileKind, FileUpdate_ParentIdUnion_Kind } from '@the-dev-tools/spec/api/file_system/v1/file_system_pb';
 import { FlowService } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
 import { HttpMethod, HttpService } from '@the-dev-tools/spec/api/http/v1/http_pb';
 import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
@@ -62,7 +55,7 @@ export const FileCreateMenu = ({ parentFolderId }: FileCreateMenuProps) => {
   const insertFile = async (props: Pick<File, 'fileId' | 'kind'>) =>
     fileCollection.utils.insert({
       ...props,
-      ...(parentFolderId && { parentFolderId }),
+      ...(parentFolderId && { parentId: parentFolderId }),
       order: await getNextOrder(fileCollection),
       workspaceId,
     });
@@ -123,7 +116,7 @@ export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionM
     (_) =>
       _.from({ file: fileCollection })
         .where((_) => eq(_.file.workspaceId, workspaceId))
-        .where((_) => isUndefined(_.file.parentFolderId))
+        .where((_) => isUndefined(_.file.parentId))
         .orderBy((_) => _.file.order)
         .select((_) => pick(_.file, 'fileId', 'order')),
     [fileCollection, workspaceId],
@@ -134,14 +127,20 @@ export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionM
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) =>
       [...keys].map((key) => {
-        const kind = fileCollection.get(key.toString())?.kind ?? FileKind.UNSPECIFIED;
-        return { key: key.toString(), [kind]: enumToJson(FileKindSchema, kind) };
+        const kind = pipe(
+          key.toString(),
+          (_) => fileCollection.get(_)?.kind ?? FileKind.UNSPECIFIED,
+          (_) => `kind_${_}`,
+        );
+
+        return { key: key.toString(), [kind]: '' };
       }),
 
     shouldAcceptItemDrop: ({ dropPosition, key }, sourceKinds) => {
       if (dropPosition !== 'on') return false;
 
-      const sourceCanMove = !sourceKinds.has('FILE_KIND_UNSPECIFIED' satisfies FileKindJson);
+      const sourceCanMove =
+        !sourceKinds.has(`kind_${FileKind.UNSPECIFIED}`) && !sourceKinds.has(`kind_${FileKind.HTTP_DELTA}`);
       const targetCanAccept = fileCollection.get(key.toString())?.kind === FileKind.FOLDER;
 
       return sourceCanMove && targetCanAccept;
@@ -162,7 +161,7 @@ export const FileTree = ({ onAction, onSelectionChange, selectedKeys, selectionM
       fileCollection.utils.update({
         fileId: source.fileId,
         order: await getNextOrder(fileCollection),
-        parentFolderId: { kind: FileUpdate_ParentFolderIdUnion_Kind.VALUE, value: target.fileId },
+        parentId: { kind: FileUpdate_ParentIdUnion_Kind.VALUE, value: target.fileId },
       });
     },
 
@@ -216,6 +215,7 @@ const FileItem = ({ id }: FileItemProps) => {
     Match.value(kind),
     Match.when(FileKind.FOLDER, () => <FolderFile id={id} />),
     Match.when(FileKind.HTTP, () => <HttpFile id={id} />),
+    Match.when(FileKind.HTTP_DELTA, () => <HttpDeltaFile id={id} />),
     Match.when(FileKind.FLOW, () => <FlowFile id={id} />),
     Match.orElseAbsurd,
   );
@@ -244,7 +244,7 @@ const FolderFile = ({ id }: FileItemProps) => {
   const { data: files } = useLiveQuery(
     (_) =>
       _.from({ file: fileCollection })
-        .where((_) => eq(_.file.parentFolderId, folderId))
+        .where((_) => eq(_.file.parentId, folderId))
         .orderBy((_) => _.file.order)
         .select((_) => pick(_.file, 'fileId', 'order')),
     [fileCollection, folderId],
@@ -347,12 +347,13 @@ const HttpFile = ({ id }: FileItemProps) => {
 
   const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
-  const { data: deltas } = useLiveQuery(
+  const { data: files } = useLiveQuery(
     (_) =>
-      _.from({ item: deltaCollection })
-        .where((_) => eq(_.item.httpId, httpId))
-        .select((_) => pick(_.item, 'deltaHttpId')),
-    [deltaCollection, httpId],
+      _.from({ file: fileCollection })
+        .where((_) => eq(_.file.parentId, httpId))
+        .orderBy((_) => _.file.order)
+        .select((_) => pick(_.file, 'fileId', 'order')),
+    [fileCollection, httpId],
   );
 
   const modal = useProgrammaticModal();
@@ -406,7 +407,17 @@ const HttpFile = ({ id }: FileItemProps) => {
 
           <Menu {...menuProps}>
             <MenuItem
-              onAction={() => void deltaCollection.utils.insert({ deltaHttpId: Ulid.generate().bytes, httpId })}
+              onAction={async () => {
+                const deltaHttpId = Ulid.generate().bytes;
+                deltaCollection.utils.insert({ deltaHttpId, httpId });
+                fileCollection.utils.insert({
+                  fileId: deltaHttpId,
+                  kind: FileKind.HTTP_DELTA,
+                  order: await getNextOrder(fileCollection),
+                  parentId: httpId,
+                  workspaceId,
+                });
+              }}
             >
               New delta
             </MenuItem>
@@ -477,11 +488,11 @@ const HttpFile = ({ id }: FileItemProps) => {
     children: content,
     className: toNavigate && matchRoute(route) !== false ? tw`bg-slate-200` : '',
     id,
-    item: (_) => <HttpDeltaFile id={deltaCollection.utils.getKey(_)} />,
-    items: deltas,
+    item: (_) => <FileItem id={fileCollection.utils.getKey(_)} />,
+    items: files,
     onContextMenu,
     textValue: name,
-  } satisfies TreeItemProps<(typeof deltas)[number]>;
+  } satisfies TreeItemProps<(typeof files)[number]>;
 
   return toNavigate ? <TreeItemLink {...props} {...route} /> : <TreeItem {...props} />;
 };
@@ -489,17 +500,21 @@ const HttpFile = ({ id }: FileItemProps) => {
 const HttpDeltaFile = ({ id }: FileItemProps) => {
   const matchRoute = useMatchRoute();
 
-  const collection = useApiCollection(HttpDeltaCollectionSchema);
+  const { workspaceId } = workspaceRouteApi.useLoaderData();
 
-  const { deltaHttpId } = useMemo(() => collection.utils.parseKeyUnsafe(id), [collection.utils, id]);
+  const fileCollection = useApiCollection(FileCollectionSchema);
+
+  const { fileId: deltaHttpId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
+
+  const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
   const { httpId } = useLiveQuery(
     (_) =>
-      _.from({ item: collection })
+      _.from({ item: deltaCollection })
         .where((_) => eq(_.item.deltaHttpId, deltaHttpId))
         .select((_) => pick(_.item, 'httpId'))
         .findOne(),
-    [collection, deltaHttpId],
+    [deltaCollection, deltaHttpId],
   ).data!;
 
   const deltaOptions = {
@@ -511,6 +526,11 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
 
   const [name, setName] = useDeltaState({ ...deltaOptions, valueKey: 'name' });
   const [method] = useDeltaState({ ...deltaOptions, valueKey: 'method' });
+
+  const modal = useProgrammaticModal();
+
+  const exportMutation = useConnectMutation(ExportService.method.export);
+  const exportCurlMutation = useConnectMutation(ExportService.method.exportCurl);
 
   const { containerRef, navigate: toNavigate = false, showControls } = useContext(FileTreeContext);
 
@@ -537,6 +557,8 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
 
   const content = (
     <>
+      {modal.children && <Modal {...modal} size='sm' />}
+
       <MethodBadge method={method ?? HttpMethod.UNSPECIFIED} />
 
       <Text className={twJoin(tw`flex-1 truncate`, isEditing && tw`opacity-0`)} ref={escapeRef}>
@@ -562,7 +584,53 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
           <Menu {...menuProps}>
             <MenuItem onAction={() => void edit()}>Rename</MenuItem>
 
-            <MenuItem onAction={() => void collection.utils.delete({ deltaHttpId })} variant='danger'>
+            <SubmenuTrigger>
+              <MenuItem>Export</MenuItem>
+
+              <Menu>
+                <MenuItem
+                  onAction={async () => {
+                    const { data, name } = await exportMutation.mutateAsync({ fileIds: [deltaHttpId], workspaceId });
+                    saveFile({ blobParts: [data], name });
+                  }}
+                >
+                  YAML (DevTools)
+                </MenuItem>
+
+                <MenuItem
+                  onAction={async () => {
+                    const { data } = await exportCurlMutation.mutateAsync({ httpIds: [deltaHttpId], workspaceId });
+                    modal.onOpenChange(
+                      true,
+                      <Dialog className={tw`flex h-full flex-col gap-4 p-6`}>
+                        {({ close }) => (
+                          <>
+                            <div className={tw`flex items-center justify-between`}>
+                              <Heading
+                                className={tw`text-xl leading-6 font-semibold tracking-tighter text-slate-800`}
+                                slot='title'
+                              >
+                                cURL export
+                              </Heading>
+
+                              <Button className={tw`p-1`} onPress={() => void close()} variant='ghost'>
+                                <FiX className={tw`size-5 text-slate-500`} />
+                              </Button>
+                            </div>
+
+                            <CodeMirror className={tw`flex-1`} height='100%' readOnly value={data} />
+                          </>
+                        )}
+                      </Dialog>,
+                    );
+                  }}
+                >
+                  cURL
+                </MenuItem>
+              </Menu>
+            </SubmenuTrigger>
+
+            <MenuItem onAction={() => void fileCollection.utils.delete({ fileId: deltaHttpId })} variant='danger'>
               Delete
             </MenuItem>
           </Menu>

@@ -5,6 +5,7 @@ namespace Api.FileSystem;
 enum FileKind {
   Folder,
   Http,
+  HttpDelta,
   Flow,
 }
 
@@ -12,7 +13,7 @@ enum FileKind {
 model File {
   @primaryKey fileId: Id;
   @foreignKey @removeVisibility(Lifecycle.Update) workspaceId: Id;
-  @foreignKey parentFolderId?: Id;
+  @foreignKey parentId?: Id;
   @removeVisibility(Lifecycle.Update) kind: FileKind;
   order: float32;
 }
