@@ -591,8 +591,9 @@ func flowEventToSyncResponse(evt FlowEvent) *flowv1.FlowSyncResponse {
 	switch evt.Type {
 	case flowEventInsert:
 		insert := &flowv1.FlowSyncInsert{
-			FlowId: evt.Flow.FlowId,
-			Name:   evt.Flow.Name,
+			FlowId:  evt.Flow.FlowId,
+			Name:    evt.Flow.Name,
+			Running: evt.Flow.Running,
 		}
 		if evt.Flow.Duration != nil {
 			insert.Duration = evt.Flow.Duration
@@ -605,7 +606,8 @@ func flowEventToSyncResponse(evt FlowEvent) *flowv1.FlowSyncResponse {
 		}
 	case flowEventUpdate:
 		update := &flowv1.FlowSyncUpdate{
-			FlowId: evt.Flow.FlowId,
+			FlowId:  evt.Flow.FlowId,
+			Running: &evt.Flow.Running,
 		}
 		if evt.Flow.Name != "" {
 			update.Name = &evt.Flow.Name
@@ -856,6 +858,22 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	if err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// Mark flow as running
+	flow.Running = true
+	if err := s.fs.UpdateFlow(ctx, flow); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to mark flow as running: %w", err))
+	}
+	s.publishFlowEvent(flowEventUpdate, flow)
+
+	defer func() {
+		// Mark flow as not running when done
+		flow.Running = false
+		if err := s.fs.UpdateFlow(context.Background(), flow); err != nil {
+			s.logger.Error("failed to mark flow as not running", "error", err)
+		}
+		s.publishFlowEvent(flowEventUpdate, flow)
+	}()
 
 	baseVars := make(map[string]any, len(flowVars))
 	for _, variable := range flowVars {
@@ -4765,8 +4783,9 @@ func (s *FlowServiceV2RPC) buildRequestFlowNode(
 
 func serializeFlow(flow mflow.Flow) *flowv1.Flow {
 	msg := &flowv1.Flow{
-		FlowId: flow.ID.Bytes(),
-		Name:   flow.Name,
+		FlowId:  flow.ID.Bytes(),
+		Name:    flow.Name,
+		Running: flow.Running,
 	}
 	if flow.Duration != 0 {
 		duration := flow.Duration

@@ -31,7 +31,7 @@ func TestToAPIFile(t *testing.T) {
 
 	assert.Equal(t, fileID.Bytes(), apiFile.FileId)
 	assert.Equal(t, workspaceID.Bytes(), apiFile.WorkspaceId)
-	assert.Equal(t, folderID.Bytes(), apiFile.ParentFolderId)
+	assert.Equal(t, folderID.Bytes(), apiFile.ParentId)
 	assert.Equal(t, apiv1.FileKind_FILE_KIND_HTTP, apiFile.Kind)
 	assert.Equal(t, float32(1.5), apiFile.Order)
 }
@@ -84,7 +84,7 @@ func TestFromAPIFileInsert(t *testing.T) {
 	apiFile := &apiv1.FileInsert{
 		FileId:         fileID.Bytes(),
 		WorkspaceId:    workspaceID.Bytes(),
-		ParentFolderId: folderID.Bytes(),
+		ParentId: folderID.Bytes(),
 		Kind:           apiv1.FileKind_FILE_KIND_HTTP,
 		Order:          1.5,
 	}
@@ -255,8 +255,8 @@ func TestFromAPIFileUpdateWithFolderUnion(t *testing.T) {
 	apiFile := &apiv1.FileUpdate{
 		FileId:      fileID.Bytes(),
 		WorkspaceId: workspaceID.Bytes(),
-		ParentFolderId: &apiv1.FileUpdate_ParentFolderIdUnion{
-			Kind:  apiv1.FileUpdate_ParentFolderIdUnion_KIND_VALUE,
+		ParentId: &apiv1.FileUpdate_ParentIdUnion{
+			Kind:  apiv1.FileUpdate_ParentIdUnion_KIND_VALUE,
 			Value: newFolderID.Bytes(),
 		},
 	}
@@ -287,8 +287,8 @@ func TestFromAPIFileUpdateWithUnsetFolder(t *testing.T) {
 	apiFile := &apiv1.FileUpdate{
 		FileId:      fileID.Bytes(),
 		WorkspaceId: workspaceID.Bytes(),
-		ParentFolderId: &apiv1.FileUpdate_ParentFolderIdUnion{
-			Kind: apiv1.FileUpdate_ParentFolderIdUnion_KIND_UNSET,
+		ParentId: &apiv1.FileUpdate_ParentIdUnion{
+			Kind: apiv1.FileUpdate_ParentIdUnion_KIND_UNSET,
 		},
 	}
 

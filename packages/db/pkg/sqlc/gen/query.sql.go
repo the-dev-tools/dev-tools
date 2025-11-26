@@ -819,9 +819,9 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) error {
 
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration)
+  flow (id, workspace_id, version_parent_id, name, duration, running)
 VALUES
-  (?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowParams struct {
@@ -830,6 +830,7 @@ type CreateFlowParams struct {
 	VersionParentID *idwrap.IDWrap
 	Name            string
 	Duration        int32
+	Running         bool
 }
 
 func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
@@ -839,6 +840,7 @@ func (q *Queries) CreateFlow(ctx context.Context, arg CreateFlowParams) error {
 		arg.VersionParentID,
 		arg.Name,
 		arg.Duration,
+		arg.Running,
 	)
 	return err
 }
@@ -8469,7 +8471,8 @@ SELECT
   workspace_id,
   version_parent_id,
   name,
-  duration
+  duration,
+  running
 FROM
   flow
 WHERE
@@ -8486,6 +8489,7 @@ func (q *Queries) GetFlow(ctx context.Context, id idwrap.IDWrap) (Flow, error) {
 		&i.VersionParentID,
 		&i.Name,
 		&i.Duration,
+		&i.Running,
 	)
 	return i, err
 }
@@ -9057,7 +9061,8 @@ SELECT
   workspace_id,
   version_parent_id,
   name,
-  duration
+  duration,
+  running
 FROM
   flow
 WHERE
@@ -9079,6 +9084,7 @@ func (q *Queries) GetFlowsByVersionParentID(ctx context.Context, versionParentID
 			&i.VersionParentID,
 			&i.Name,
 			&i.Duration,
+			&i.Running,
 		); err != nil {
 			return nil, err
 		}
@@ -9099,7 +9105,8 @@ SELECT
   workspace_id,
   version_parent_id,
   name,
-  duration
+  duration,
+  running
 FROM
   flow
 WHERE
@@ -9122,6 +9129,7 @@ func (q *Queries) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.
 			&i.VersionParentID,
 			&i.Name,
 			&i.Duration,
+			&i.Running,
 		); err != nil {
 			return nil, err
 		}
@@ -14843,7 +14851,8 @@ const updateFlow = `-- name: UpdateFlow :exec
 UPDATE flow
 SET
   name = ?,
-  duration = ?
+  duration = ?,
+  running = ?
 WHERE
   id = ?
 `
@@ -14851,11 +14860,17 @@ WHERE
 type UpdateFlowParams struct {
 	Name     string
 	Duration int32
+	Running  bool
 	ID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlow(ctx context.Context, arg UpdateFlowParams) error {
-	_, err := q.exec(ctx, q.updateFlowStmt, updateFlow, arg.Name, arg.Duration, arg.ID)
+	_, err := q.exec(ctx, q.updateFlowStmt, updateFlow,
+		arg.Name,
+		arg.Duration,
+		arg.Running,
+		arg.ID,
+	)
 	return err
 }
 

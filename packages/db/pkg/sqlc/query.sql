@@ -2894,7 +2894,8 @@ SELECT
   workspace_id,
   version_parent_id,
   name,
-  duration
+  duration,
+  running
 FROM
   flow
 WHERE
@@ -2907,7 +2908,8 @@ SELECT
   workspace_id,
   version_parent_id,
   name,
-  duration
+  duration,
+  running
 FROM
   flow
 WHERE
@@ -2920,7 +2922,8 @@ SELECT
   workspace_id,
   version_parent_id,
   name,
-  duration
+  duration,
+  running
 FROM
   flow
 WHERE
@@ -2928,15 +2931,16 @@ WHERE
 
 -- name: CreateFlow :exec
 INSERT INTO
-  flow (id, workspace_id, version_parent_id, name, duration)
+  flow (id, workspace_id, version_parent_id, name, duration, running)
 VALUES
-  (?, ?, ?, ?, ?);
+  (?, ?, ?, ?, ?, ?);
 
 -- name: UpdateFlow :exec
 UPDATE flow
 SET
   name = ?,
-  duration = ?
+  duration = ?,
+  running = ?
 WHERE
   id = ?;
 

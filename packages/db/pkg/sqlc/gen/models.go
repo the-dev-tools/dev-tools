@@ -238,6 +238,7 @@ type Flow struct {
 	VersionParentID *idwrap.IDWrap
 	Name            string
 	Duration        int32
+	Running         bool
 }
 
 type FlowEdge struct {

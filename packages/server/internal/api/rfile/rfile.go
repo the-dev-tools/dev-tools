@@ -84,7 +84,7 @@ func toAPIFile(file mfile.File) *apiv1.File {
 	}
 
 	if file.FolderID != nil {
-		apiFile.ParentFolderId = file.FolderID.Bytes()
+		apiFile.ParentId = file.FolderID.Bytes()
 	}
 
 	return apiFile
@@ -131,8 +131,8 @@ func fromAPIFileInsert(apiFile *apiv1.FileInsert) (*mfile.File, error) {
 	}
 
 	var folderID *idwrap.IDWrap
-	if len(apiFile.ParentFolderId) > 0 {
-		fid, err := idwrap.NewFromBytes(apiFile.ParentFolderId)
+	if len(apiFile.ParentId) > 0 {
+		fid, err := idwrap.NewFromBytes(apiFile.ParentId)
 		if err != nil {
 			return nil, err
 		}
@@ -169,9 +169,9 @@ func fromAPIFileUpdate(apiFile *apiv1.FileUpdate, existingFile *mfile.File) (*mf
 		file.WorkspaceID = workspaceID
 	}
 
-	if apiFile.ParentFolderId != nil {
-		if apiFile.ParentFolderId.Kind == apiv1.FileUpdate_ParentFolderIdUnion_KIND_VALUE && len(apiFile.ParentFolderId.Value) > 0 {
-			folderID, err := idwrap.NewFromBytes(apiFile.ParentFolderId.Value)
+	if apiFile.ParentId != nil {
+		if apiFile.ParentId.Kind == apiv1.FileUpdate_ParentIdUnion_KIND_VALUE && len(apiFile.ParentId.Value) > 0 {
+			folderID, err := idwrap.NewFromBytes(apiFile.ParentId.Value)
 			if err != nil {
 				return nil, err
 			}
@@ -299,11 +299,11 @@ func fileSyncResponseFrom(evt FileEvent) *apiv1.FileSyncResponse {
 			Value: &apiv1.FileSync_ValueUnion{
 				Kind: apiv1.FileSync_ValueUnion_KIND_INSERT,
 				Insert: &apiv1.FileSyncInsert{
-					FileId:         evt.File.FileId,
-					WorkspaceId:    evt.File.WorkspaceId,
-					ParentFolderId: evt.File.ParentFolderId,
-					Kind:           evt.File.Kind,
-					Order:          evt.File.Order,
+					FileId:      evt.File.FileId,
+					WorkspaceId: evt.File.WorkspaceId,
+					ParentId:    evt.File.ParentId,
+					Kind:        evt.File.Kind,
+					Order:       evt.File.Order,
 				},
 			},
 		}
@@ -318,14 +318,14 @@ func fileSyncResponseFrom(evt FileEvent) *apiv1.FileSyncResponse {
 			update.WorkspaceId = evt.File.WorkspaceId
 		}
 
-		if len(evt.File.ParentFolderId) > 0 {
-			update.ParentFolderId = &apiv1.FileSyncUpdate_ParentFolderIdUnion{
-				Kind:  apiv1.FileSyncUpdate_ParentFolderIdUnion_KIND_VALUE,
-				Value: evt.File.ParentFolderId,
+		if len(evt.File.ParentId) > 0 {
+			update.ParentId = &apiv1.FileSyncUpdate_ParentIdUnion{
+				Kind:  apiv1.FileSyncUpdate_ParentIdUnion_KIND_VALUE,
+				Value: evt.File.ParentId,
 			}
 		} else {
-			update.ParentFolderId = &apiv1.FileSyncUpdate_ParentFolderIdUnion{
-				Kind: apiv1.FileSyncUpdate_ParentFolderIdUnion_KIND_UNSET,
+			update.ParentId = &apiv1.FileSyncUpdate_ParentIdUnion{
+				Kind: apiv1.FileSyncUpdate_ParentIdUnion_KIND_UNSET,
 			}
 		}
 

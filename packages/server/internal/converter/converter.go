@@ -306,7 +306,7 @@ func ToAPIFile(file mfile.File) *filev1.File {
 	}
 
 	if file.FolderID != nil {
-		apiFile.ParentFolderId = file.FolderID.Bytes()
+		apiFile.ParentId = file.FolderID.Bytes()
 	}
 
 	return apiFile
