@@ -1,5 +1,5 @@
 import { eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
-import { ToOptions, useMatchRoute } from '@tanstack/react-router';
+import { ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
 import { Match, Option, pipe } from 'effect';
 import { Ulid } from 'id128';
@@ -45,6 +45,8 @@ interface FileCreateMenuProps {
 }
 
 export const FileCreateMenu = ({ parentFolderId }: FileCreateMenuProps) => {
+  const navigate = useNavigate();
+
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
   const fileCollection = useApiCollection(FileCollectionSchema);
@@ -73,20 +75,30 @@ export const FileCreateMenu = ({ parentFolderId }: FileCreateMenuProps) => {
       </MenuItem>
 
       <MenuItem
-        onAction={() => {
-          const httpId = Ulid.generate().bytes;
-          httpCollection.utils.insert({ httpId, method: HttpMethod.GET, name: 'New HTTP request' });
-          void insertFile({ fileId: httpId, kind: FileKind.HTTP });
+        onAction={async () => {
+          const httpUlid = Ulid.generate();
+          httpCollection.utils.insert({ httpId: httpUlid.bytes, method: HttpMethod.GET, name: 'New HTTP request' });
+          await insertFile({ fileId: httpUlid.bytes, kind: FileKind.HTTP });
+          await navigate({
+            from: workspaceRouteApi.id,
+            params: { httpIdCan: httpUlid.toCanonical() },
+            to: httpRouteApi.id,
+          });
         }}
       >
         HTTP request
       </MenuItem>
 
       <MenuItem
-        onAction={() => {
-          const flowId = Ulid.generate().bytes;
-          flowCollection.utils.insert({ flowId, name: 'New flow' });
-          void insertFile({ fileId: flowId, kind: FileKind.FLOW });
+        onAction={async () => {
+          const flowUlid = Ulid.generate();
+          flowCollection.utils.insert({ flowId: flowUlid.bytes, name: 'New flow' });
+          await insertFile({ fileId: flowUlid.bytes, kind: FileKind.FLOW });
+          await navigate({
+            from: workspaceRouteApi.id,
+            params: { flowIdCan: flowUlid.toCanonical() },
+            to: flowLayoutRouteApi.id,
+          });
         }}
       >
         Flow
@@ -323,6 +335,7 @@ const FolderFile = ({ id }: FileItemProps) => {
 
 const HttpFile = ({ id }: FileItemProps) => {
   const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
 
   const { workspaceId } = workspaceRouteApi.useLoaderData();
 
@@ -416,6 +429,14 @@ const HttpFile = ({ id }: FileItemProps) => {
                   order: await getNextOrder(fileCollection),
                   parentId: httpId,
                   workspaceId,
+                });
+                await navigate({
+                  from: workspaceRouteApi.id,
+                  params: {
+                    deltaHttpIdCan: Ulid.construct(deltaHttpId).toCanonical(),
+                    httpIdCan: Ulid.construct(httpId).toCanonical(),
+                  },
+                  to: httpDeltaRouteApi.id,
                 });
               }}
             >

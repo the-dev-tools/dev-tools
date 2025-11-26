@@ -1,5 +1,7 @@
 import { create, MessageInitShape } from '@bufbuild/protobuf';
+import { useNavigate } from '@tanstack/react-router';
 import { Array, HashMap, Option, pipe } from 'effect';
+import { Ulid } from 'id128';
 import { ReactNode, useState, useTransition } from 'react';
 import { Dialog, Heading, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiInfo, FiX } from 'react-icons/fi';
@@ -19,7 +21,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
 import { Connect } from '~/api-new';
 import { columnCheckboxField, columnText, columnTextField, ReactTableNoMemo, useFormTable } from '~/form-table';
-import { rootRouteApi, workspaceRouteApi } from '~/routes';
+import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~/routes';
 
 export const ImportDialog = () => {
   const modal = useProgrammaticModal();
@@ -168,6 +170,8 @@ interface DomainDialogProps {
 }
 
 const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
+  const navigate = useNavigate();
+
   const { transport } = rootRouteApi.useRouteContext();
 
   const [isPending, startTransition] = useTransition();
@@ -192,13 +196,11 @@ const DomainDialog = ({ domains, input, successAction }: DomainDialogProps) => {
     });
 
     if (flowId) {
-      // TODO: open new flow
-      // const flowIdCan = Ulid.construct(flow.flowId).toCanonical();
-      // await navigate({
-      //   from: workspaceRouteApi.id,
-      //   to: flowLayoutRouteApi.id,
-      //   params: { flowIdCan },
-      // });
+      await navigate({
+        from: workspaceRouteApi.id,
+        params: { flowIdCan: Ulid.construct(flowId).toCanonical() },
+        to: flowLayoutRouteApi.id,
+      });
     }
 
     await successAction();
