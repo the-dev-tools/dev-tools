@@ -68,18 +68,6 @@ SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_orde
 FROM files
 WHERE id = ?;
 
--- name: GetFolderContent :one
--- Get folder content by content_id (for union type resolution)
-SELECT id, name
-FROM item_folder
-WHERE id = ?;
-
--- name: GetAPIContent :one
--- Get API content by content_id (for union type resolution)
-SELECT id, name, url, method
-FROM item_api
-WHERE id = ?;
-
 -- name: GetFlowContent :one
 -- Get flow content by content_id (for union type resolution)
 SELECT id, name, duration

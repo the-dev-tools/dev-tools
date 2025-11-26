@@ -1009,3 +1009,304 @@ FROM http_response_assert hra
 JOIN http_response hr ON hra.response_id = hr.id
 WHERE hr.http_id = ?
 ORDER BY hra.created_at DESC;
+
+/*
+ *
+ * HTTP STREAMING OPTIMIZATION QUERIES
+ * High-performance queries for Phase 2a HTTP streaming implementation
+ *
+ */
+
+-- HTTP Snapshot Queries for Streaming
+-- name: GetHTTPSnapshotPage :many
+-- High-performance paginated snapshot query for initial data load
+-- Uses optimized streaming indexes for fast workspace-scoped access
+SELECT 
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.body_kind,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_body_kind,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+WHERE h.workspace_id = ? 
+  AND h.is_delta = FALSE
+  AND h.updated_at <= ?
+ORDER BY h.updated_at DESC, h.id
+LIMIT ?;
+
+-- name: GetHTTPSnapshotCount :one
+-- Count query for pagination progress tracking
+SELECT COUNT(*) as total_count
+FROM http h
+WHERE h.workspace_id = ? 
+  AND h.is_delta = FALSE
+  AND h.updated_at <= ?;
+
+-- HTTP Incremental Streaming Queries
+-- name: GetHTTPIncrementalUpdates :many
+-- Real-time streaming query for changes since last update
+-- Optimized with streaming indexes for minimal latency
+SELECT 
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.body_kind,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_body_kind,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+WHERE h.workspace_id = ? 
+  AND h.updated_at > ?
+  AND h.updated_at <= ?
+ORDER BY h.updated_at ASC, h.id;
+
+-- name: GetHTTPDeltasSince :many
+-- Delta-specific streaming query for conflict resolution
+-- Uses delta resolution index for optimal performance
+SELECT 
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.body_kind,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_body_kind,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+WHERE h.parent_http_id IN (sqlc.slice('parent_ids'))
+  AND h.is_delta = TRUE
+  AND h.updated_at > ?
+  AND h.updated_at <= ?
+ORDER BY h.parent_http_id, h.updated_at ASC;
+
+-- HTTP Delta Resolution Queries
+-- name: ResolveHTTPWithDeltas :one
+-- CTE-optimized query to resolve HTTP record with all applicable deltas
+-- Single query for complete delta resolution with minimal joins
+WITH RECURSIVE delta_chain AS (
+  -- Base case: Start with the parent HTTP record
+  SELECT 
+    h.id,
+    h.workspace_id,
+    h.folder_id,
+    h.name,
+    h.url,
+    h.method,
+    h.body_kind,
+    h.description,
+    h.parent_http_id,
+    h.is_delta,
+    h.delta_name,
+    h.delta_url,
+    h.delta_method,
+    h.delta_body_kind,
+    h.delta_description,
+    h.created_at,
+    h.updated_at,
+    0 as delta_level
+  FROM http h
+  WHERE h.id = ? AND h.is_delta = FALSE
+  
+  UNION ALL
+  
+  -- Recursive case: Apply deltas in chronological order
+  SELECT 
+    h.id,
+    h.workspace_id,
+    h.folder_id,
+    COALESCE(h.delta_name, dc.name, dc.name) as name,
+    COALESCE(h.delta_url, dc.url, dc.url) as url,
+    COALESCE(h.delta_method, dc.method, dc.method) as method,
+    COALESCE(h.delta_body_kind, dc.body_kind, dc.body_kind) as body_kind,
+    COALESCE(h.delta_description, dc.description, dc.description) as description,
+    h.parent_http_id,
+    h.is_delta,
+    h.delta_name,
+    h.delta_url,
+    h.delta_method,
+    h.delta_body_kind,
+    h.delta_description,
+    h.created_at,
+    h.updated_at,
+    dc.delta_level + 1
+  FROM http h
+  INNER JOIN delta_chain dc ON h.parent_http_id = dc.id
+  WHERE h.is_delta = TRUE
+    AND h.updated_at <= ?
+)
+SELECT 
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  body_kind,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_body_kind,
+  delta_description,
+  created_at,
+  updated_at
+FROM delta_chain
+ORDER BY delta_level DESC
+LIMIT 1;
+
+-- HTTP Child Record Streaming Queries
+-- name: GetHTTPHeadersStreaming :many
+-- Optimized headers query for streaming with enabled filter
+SELECT 
+  hh.id,
+  hh.http_id,
+  hh.header_key,
+  hh.header_value,
+  hh.description,
+  hh.enabled,
+  hh.parent_header_id,
+  hh.is_delta,
+  hh.delta_header_key,
+  hh.delta_header_value,
+  hh.delta_description,
+  hh.delta_enabled,
+  hh.created_at,
+  hh.updated_at
+FROM http_header hh
+WHERE hh.http_id IN (sqlc.slice('http_ids'))
+  AND hh.enabled = TRUE
+  AND hh.updated_at <= ?
+ORDER BY hh.http_id, hh.updated_at DESC;
+
+-- name: GetHTTPSearchParamsStreaming :many
+-- Optimized search parameters query for streaming
+SELECT 
+  hsp.id,
+  hsp.http_id,
+  hsp.key,
+  hsp.value,
+  hsp.description,
+  hsp.enabled,
+  hsp.parent_http_search_param_id,
+  hsp.is_delta,
+  hsp.delta_key,
+  hsp.delta_value,
+  hsp.delta_description,
+  hsp.delta_enabled,
+  hsp.created_at,
+  hsp.updated_at
+FROM http_search_param hsp
+WHERE hsp.http_id IN (sqlc.slice('http_ids'))
+  AND hsp.enabled = TRUE
+  AND hsp.updated_at <= ?
+ORDER BY hsp.http_id, hsp.updated_at DESC;
+
+-- name: GetHTTPBodyFormStreaming :many
+-- Optimized form body query for streaming
+SELECT 
+  hbf.id,
+  hbf.http_id,
+  hbf.key,
+  hbf.value,
+  hbf.description,
+  hbf.enabled,
+  hbf.parent_http_body_form_id,
+  hbf.is_delta,
+  hbf.delta_key,
+  hbf.delta_value,
+  hbf.delta_description,
+  hbf.delta_enabled,
+  hbf.created_at,
+  hbf.updated_at
+FROM http_body_form hbf
+WHERE hbf.http_id IN (sqlc.slice('http_ids'))
+  AND hbf.enabled = TRUE
+  AND hbf.updated_at <= ?
+ORDER BY hbf.http_id, hbf.updated_at DESC;
+
+-- HTTP Batch Operations for Streaming
+-- name: GetHTTPBatchForStreaming :many
+-- Batch query for processing multiple HTTP records efficiently
+-- Optimized for high-throughput streaming operations
+SELECT 
+  h.id,
+  h.workspace_id,
+  h.folder_id,
+  h.name,
+  h.url,
+  h.method,
+  h.body_kind,
+  h.description,
+  h.parent_http_id,
+  h.is_delta,
+  h.delta_name,
+  h.delta_url,
+  h.delta_method,
+  h.delta_body_kind,
+  h.delta_description,
+  h.created_at,
+  h.updated_at
+FROM http h
+WHERE h.id IN (sqlc.slice('http_ids'))
+  AND h.updated_at <= ?
+ORDER BY h.updated_at DESC;
+
+-- HTTP Performance Monitoring Queries
+-- name: GetHTTPStreamingMetrics :one
+-- Performance metrics query for monitoring streaming operations
+SELECT 
+  COUNT(*) as total_http_records,
+  COUNT(CASE WHEN is_delta = FALSE THEN 1 END) as base_records,
+  COUNT(CASE WHEN is_delta = TRUE THEN 1 END) as delta_records,
+  MAX(updated_at) as latest_update,
+  MIN(updated_at) as earliest_update,
+  COUNT(CASE WHEN updated_at > ? THEN 1 END) as recent_changes
+FROM http 
+WHERE workspace_id = ?;
+
+-- name: GetHTTPWorkspaceActivity :many
+-- Activity monitoring query for workspace streaming health
+SELECT 
+  DATE(updated_at, 'unixepoch') as activity_date,
+  COUNT(*) as changes_count,
+  COUNT(CASE WHEN is_delta = TRUE THEN 1 END) as delta_count,
+  COUNT(CASE WHEN is_delta = FALSE THEN 1 END) as base_count
+FROM http
+WHERE workspace_id = ?
+  AND updated_at >= ?
+GROUP BY DATE(updated_at, 'unixepoch')
+ORDER BY activity_date DESC
+LIMIT 30;

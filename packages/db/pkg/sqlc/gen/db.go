@@ -27,44 +27,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.checkIFWorkspaceUserExistsStmt, err = db.PrepareContext(ctx, checkIFWorkspaceUserExists); err != nil {
 		return nil, fmt.Errorf("error preparing query CheckIFWorkspaceUserExists: %w", err)
 	}
-	if q.createAssertStmt, err = db.PrepareContext(ctx, createAssert); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateAssert: %w", err)
-	}
-	if q.createAssertBulkStmt, err = db.PrepareContext(ctx, createAssertBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateAssertBulk: %w", err)
-	}
-	if q.createAssertResultStmt, err = db.PrepareContext(ctx, createAssertResult); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateAssertResult: %w", err)
-	}
-	if q.createBodyFormStmt, err = db.PrepareContext(ctx, createBodyForm); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateBodyForm: %w", err)
-	}
-	if q.createBodyFormBulkStmt, err = db.PrepareContext(ctx, createBodyFormBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateBodyFormBulk: %w", err)
-	}
-	if q.createBodyRawStmt, err = db.PrepareContext(ctx, createBodyRaw); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateBodyRaw: %w", err)
-	}
-	if q.createBodyRawBulkStmt, err = db.PrepareContext(ctx, createBodyRawBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateBodyRawBulk: %w", err)
-	}
-	if q.createBodyUrlEncodedStmt, err = db.PrepareContext(ctx, createBodyUrlEncoded); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateBodyUrlEncoded: %w", err)
-	}
-	if q.createBodyUrlEncodedBulkStmt, err = db.PrepareContext(ctx, createBodyUrlEncodedBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateBodyUrlEncodedBulk: %w", err)
-	}
 	if q.createEnvironmentStmt, err = db.PrepareContext(ctx, createEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateEnvironment: %w", err)
-	}
-	if q.createExampleRespStmt, err = db.PrepareContext(ctx, createExampleResp); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateExampleResp: %w", err)
-	}
-	if q.createExampleRespHeaderStmt, err = db.PrepareContext(ctx, createExampleRespHeader); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateExampleRespHeader: %w", err)
-	}
-	if q.createExampleRespHeaderBulkStmt, err = db.PrepareContext(ctx, createExampleRespHeaderBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateExampleRespHeaderBulk: %w", err)
 	}
 	if q.createFileStmt, err = db.PrepareContext(ctx, createFile); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateFile: %w", err)
@@ -150,44 +114,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createHTTPSearchParamStmt, err = db.PrepareContext(ctx, createHTTPSearchParam); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHTTPSearchParam: %w", err)
 	}
-	if q.createHeaderStmt, err = db.PrepareContext(ctx, createHeader); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHeader: %w", err)
-	}
-	if q.createHeaderBulkStmt, err = db.PrepareContext(ctx, createHeaderBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateHeaderBulk: %w", err)
-	}
 	if q.createHttpVersionStmt, err = db.PrepareContext(ctx, createHttpVersion); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateHttpVersion: %w", err)
-	}
-	if q.createItemApiStmt, err = db.PrepareContext(ctx, createItemApi); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateItemApi: %w", err)
-	}
-	if q.createItemApiBulkStmt, err = db.PrepareContext(ctx, createItemApiBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateItemApiBulk: %w", err)
-	}
-	if q.createItemApiExampleStmt, err = db.PrepareContext(ctx, createItemApiExample); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateItemApiExample: %w", err)
-	}
-	if q.createItemApiExampleBulkStmt, err = db.PrepareContext(ctx, createItemApiExampleBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateItemApiExampleBulk: %w", err)
-	}
-	if q.createItemFolderStmt, err = db.PrepareContext(ctx, createItemFolder); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateItemFolder: %w", err)
-	}
-	if q.createItemFolderBulkStmt, err = db.PrepareContext(ctx, createItemFolderBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateItemFolderBulk: %w", err)
 	}
 	if q.createMigrationStmt, err = db.PrepareContext(ctx, createMigration); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateMigration: %w", err)
 	}
 	if q.createNodeExecutionStmt, err = db.PrepareContext(ctx, createNodeExecution); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateNodeExecution: %w", err)
-	}
-	if q.createQueryStmt, err = db.PrepareContext(ctx, createQuery); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateQuery: %w", err)
-	}
-	if q.createQueryBulkStmt, err = db.PrepareContext(ctx, createQueryBulk); err != nil {
-		return nil, fmt.Errorf("error preparing query CreateQueryBulk: %w", err)
 	}
 	if q.createTagStmt, err = db.PrepareContext(ctx, createTag); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateTag: %w", err)
@@ -207,29 +141,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createWorkspaceUserStmt, err = db.PrepareContext(ctx, createWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateWorkspaceUser: %w", err)
 	}
-	if q.deleteAssertStmt, err = db.PrepareContext(ctx, deleteAssert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteAssert: %w", err)
-	}
-	if q.deleteAssertResultStmt, err = db.PrepareContext(ctx, deleteAssertResult); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteAssertResult: %w", err)
-	}
-	if q.deleteBodyFormStmt, err = db.PrepareContext(ctx, deleteBodyForm); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteBodyForm: %w", err)
-	}
-	if q.deleteBodyRawStmt, err = db.PrepareContext(ctx, deleteBodyRaw); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteBodyRaw: %w", err)
-	}
-	if q.deleteBodyURLEncodedStmt, err = db.PrepareContext(ctx, deleteBodyURLEncoded); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteBodyURLEncoded: %w", err)
-	}
 	if q.deleteEnvironmentStmt, err = db.PrepareContext(ctx, deleteEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteEnvironment: %w", err)
-	}
-	if q.deleteExampleRespStmt, err = db.PrepareContext(ctx, deleteExampleResp); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteExampleResp: %w", err)
-	}
-	if q.deleteExampleRespHeaderStmt, err = db.PrepareContext(ctx, deleteExampleRespHeader); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteExampleRespHeader: %w", err)
 	}
 	if q.deleteFileStmt, err = db.PrepareContext(ctx, deleteFile); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFile: %w", err)
@@ -297,18 +210,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteHTTPSearchParamStmt, err = db.PrepareContext(ctx, deleteHTTPSearchParam); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteHTTPSearchParam: %w", err)
 	}
-	if q.deleteHeaderStmt, err = db.PrepareContext(ctx, deleteHeader); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteHeader: %w", err)
-	}
-	if q.deleteItemApiStmt, err = db.PrepareContext(ctx, deleteItemApi); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteItemApi: %w", err)
-	}
-	if q.deleteItemApiExampleStmt, err = db.PrepareContext(ctx, deleteItemApiExample); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteItemApiExample: %w", err)
-	}
-	if q.deleteItemFolderStmt, err = db.PrepareContext(ctx, deleteItemFolder); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteItemFolder: %w", err)
-	}
 	if q.deleteMigrationStmt, err = db.PrepareContext(ctx, deleteMigration); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteMigration: %w", err)
 	}
@@ -317,9 +218,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteNodeExecutionsByNodeIDsStmt, err = db.PrepareContext(ctx, deleteNodeExecutionsByNodeIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteNodeExecutionsByNodeIDs: %w", err)
-	}
-	if q.deleteQueryStmt, err = db.PrepareContext(ctx, deleteQuery); err != nil {
-		return nil, fmt.Errorf("error preparing query DeleteQuery: %w", err)
 	}
 	if q.deleteTagStmt, err = db.PrepareContext(ctx, deleteTag); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteTag: %w", err)
@@ -336,320 +234,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteWorkspaceUserStmt, err = db.PrepareContext(ctx, deleteWorkspaceUser); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteWorkspaceUser: %w", err)
 	}
-	if q.deltaFormDeltaDeleteStmt, err = db.PrepareContext(ctx, deltaFormDeltaDelete); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormDeltaDelete: %w", err)
-	}
-	if q.deltaFormDeltaExistsStmt, err = db.PrepareContext(ctx, deltaFormDeltaExists); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormDeltaExists: %w", err)
-	}
-	if q.deltaFormDeltaGetStmt, err = db.PrepareContext(ctx, deltaFormDeltaGet); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormDeltaGet: %w", err)
-	}
-	if q.deltaFormDeltaInsertStmt, err = db.PrepareContext(ctx, deltaFormDeltaInsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormDeltaInsert: %w", err)
-	}
-	if q.deltaFormDeltaUpdateStmt, err = db.PrepareContext(ctx, deltaFormDeltaUpdate); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormDeltaUpdate: %w", err)
-	}
-	if q.deltaFormOrderCountStmt, err = db.PrepareContext(ctx, deltaFormOrderCount); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormOrderCount: %w", err)
-	}
-	if q.deltaFormOrderDeleteByRefStmt, err = db.PrepareContext(ctx, deltaFormOrderDeleteByRef); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormOrderDeleteByRef: %w", err)
-	}
-	if q.deltaFormOrderExistsStmt, err = db.PrepareContext(ctx, deltaFormOrderExists); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormOrderExists: %w", err)
-	}
-	if q.deltaFormOrderInsertIgnoreStmt, err = db.PrepareContext(ctx, deltaFormOrderInsertIgnore); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormOrderInsertIgnore: %w", err)
-	}
-	if q.deltaFormOrderLastRankStmt, err = db.PrepareContext(ctx, deltaFormOrderLastRank); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormOrderLastRank: %w", err)
-	}
-	if q.deltaFormOrderSelectAscStmt, err = db.PrepareContext(ctx, deltaFormOrderSelectAsc); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormOrderSelectAsc: %w", err)
-	}
-	if q.deltaFormOrderUpsertStmt, err = db.PrepareContext(ctx, deltaFormOrderUpsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormOrderUpsert: %w", err)
-	}
-	if q.deltaFormResolveExampleByDeltaIDStmt, err = db.PrepareContext(ctx, deltaFormResolveExampleByDeltaID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormResolveExampleByDeltaID: %w", err)
-	}
-	if q.deltaFormResolveExampleByOrderRefIDStmt, err = db.PrepareContext(ctx, deltaFormResolveExampleByOrderRefID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormResolveExampleByOrderRefID: %w", err)
-	}
-	if q.deltaFormStateClearOverridesStmt, err = db.PrepareContext(ctx, deltaFormStateClearOverrides); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormStateClearOverrides: %w", err)
-	}
-	if q.deltaFormStateGetStmt, err = db.PrepareContext(ctx, deltaFormStateGet); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormStateGet: %w", err)
-	}
-	if q.deltaFormStateSuppressStmt, err = db.PrepareContext(ctx, deltaFormStateSuppress); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormStateSuppress: %w", err)
-	}
-	if q.deltaFormStateUnsuppressStmt, err = db.PrepareContext(ctx, deltaFormStateUnsuppress); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormStateUnsuppress: %w", err)
-	}
-	if q.deltaFormStateUpsertStmt, err = db.PrepareContext(ctx, deltaFormStateUpsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaFormStateUpsert: %w", err)
-	}
-	if q.deltaHeaderDeltaDeleteStmt, err = db.PrepareContext(ctx, deltaHeaderDeltaDelete); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderDeltaDelete: %w", err)
-	}
-	if q.deltaHeaderDeltaExistsStmt, err = db.PrepareContext(ctx, deltaHeaderDeltaExists); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderDeltaExists: %w", err)
-	}
-	if q.deltaHeaderDeltaGetStmt, err = db.PrepareContext(ctx, deltaHeaderDeltaGet); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderDeltaGet: %w", err)
-	}
-	if q.deltaHeaderDeltaInsertStmt, err = db.PrepareContext(ctx, deltaHeaderDeltaInsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderDeltaInsert: %w", err)
-	}
-	if q.deltaHeaderDeltaUpdateStmt, err = db.PrepareContext(ctx, deltaHeaderDeltaUpdate); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderDeltaUpdate: %w", err)
-	}
-	if q.deltaHeaderOrderCountStmt, err = db.PrepareContext(ctx, deltaHeaderOrderCount); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderOrderCount: %w", err)
-	}
-	if q.deltaHeaderOrderDeleteByRefStmt, err = db.PrepareContext(ctx, deltaHeaderOrderDeleteByRef); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderOrderDeleteByRef: %w", err)
-	}
-	if q.deltaHeaderOrderExistsStmt, err = db.PrepareContext(ctx, deltaHeaderOrderExists); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderOrderExists: %w", err)
-	}
-	if q.deltaHeaderOrderInsertIgnoreStmt, err = db.PrepareContext(ctx, deltaHeaderOrderInsertIgnore); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderOrderInsertIgnore: %w", err)
-	}
-	if q.deltaHeaderOrderLastRankStmt, err = db.PrepareContext(ctx, deltaHeaderOrderLastRank); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderOrderLastRank: %w", err)
-	}
-	if q.deltaHeaderOrderSelectAscStmt, err = db.PrepareContext(ctx, deltaHeaderOrderSelectAsc); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderOrderSelectAsc: %w", err)
-	}
-	if q.deltaHeaderOrderUpsertStmt, err = db.PrepareContext(ctx, deltaHeaderOrderUpsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderOrderUpsert: %w", err)
-	}
-	if q.deltaHeaderResolveExampleByDeltaIDStmt, err = db.PrepareContext(ctx, deltaHeaderResolveExampleByDeltaID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderResolveExampleByDeltaID: %w", err)
-	}
-	if q.deltaHeaderResolveExampleByOrderRefIDStmt, err = db.PrepareContext(ctx, deltaHeaderResolveExampleByOrderRefID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderResolveExampleByOrderRefID: %w", err)
-	}
-	if q.deltaHeaderStateClearOverridesStmt, err = db.PrepareContext(ctx, deltaHeaderStateClearOverrides); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderStateClearOverrides: %w", err)
-	}
-	if q.deltaHeaderStateGetStmt, err = db.PrepareContext(ctx, deltaHeaderStateGet); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderStateGet: %w", err)
-	}
-	if q.deltaHeaderStateSuppressStmt, err = db.PrepareContext(ctx, deltaHeaderStateSuppress); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderStateSuppress: %w", err)
-	}
-	if q.deltaHeaderStateUnsuppressStmt, err = db.PrepareContext(ctx, deltaHeaderStateUnsuppress); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderStateUnsuppress: %w", err)
-	}
-	if q.deltaHeaderStateUpsertStmt, err = db.PrepareContext(ctx, deltaHeaderStateUpsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaHeaderStateUpsert: %w", err)
-	}
-	if q.deltaQueryDeltaDeleteStmt, err = db.PrepareContext(ctx, deltaQueryDeltaDelete); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryDeltaDelete: %w", err)
-	}
-	if q.deltaQueryDeltaExistsStmt, err = db.PrepareContext(ctx, deltaQueryDeltaExists); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryDeltaExists: %w", err)
-	}
-	if q.deltaQueryDeltaGetStmt, err = db.PrepareContext(ctx, deltaQueryDeltaGet); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryDeltaGet: %w", err)
-	}
-	if q.deltaQueryDeltaInsertStmt, err = db.PrepareContext(ctx, deltaQueryDeltaInsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryDeltaInsert: %w", err)
-	}
-	if q.deltaQueryDeltaUpdateStmt, err = db.PrepareContext(ctx, deltaQueryDeltaUpdate); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryDeltaUpdate: %w", err)
-	}
-	if q.deltaQueryOrderCountStmt, err = db.PrepareContext(ctx, deltaQueryOrderCount); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryOrderCount: %w", err)
-	}
-	if q.deltaQueryOrderDeleteByRefStmt, err = db.PrepareContext(ctx, deltaQueryOrderDeleteByRef); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryOrderDeleteByRef: %w", err)
-	}
-	if q.deltaQueryOrderExistsStmt, err = db.PrepareContext(ctx, deltaQueryOrderExists); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryOrderExists: %w", err)
-	}
-	if q.deltaQueryOrderInsertIgnoreStmt, err = db.PrepareContext(ctx, deltaQueryOrderInsertIgnore); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryOrderInsertIgnore: %w", err)
-	}
-	if q.deltaQueryOrderLastRankStmt, err = db.PrepareContext(ctx, deltaQueryOrderLastRank); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryOrderLastRank: %w", err)
-	}
-	if q.deltaQueryOrderSelectAscStmt, err = db.PrepareContext(ctx, deltaQueryOrderSelectAsc); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryOrderSelectAsc: %w", err)
-	}
-	if q.deltaQueryOrderUpsertStmt, err = db.PrepareContext(ctx, deltaQueryOrderUpsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryOrderUpsert: %w", err)
-	}
-	if q.deltaQueryResolveExampleByDeltaIDStmt, err = db.PrepareContext(ctx, deltaQueryResolveExampleByDeltaID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryResolveExampleByDeltaID: %w", err)
-	}
-	if q.deltaQueryResolveExampleByOrderRefIDStmt, err = db.PrepareContext(ctx, deltaQueryResolveExampleByOrderRefID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryResolveExampleByOrderRefID: %w", err)
-	}
-	if q.deltaQueryStateClearOverridesStmt, err = db.PrepareContext(ctx, deltaQueryStateClearOverrides); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryStateClearOverrides: %w", err)
-	}
-	if q.deltaQueryStateGetStmt, err = db.PrepareContext(ctx, deltaQueryStateGet); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryStateGet: %w", err)
-	}
-	if q.deltaQueryStateSuppressStmt, err = db.PrepareContext(ctx, deltaQueryStateSuppress); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryStateSuppress: %w", err)
-	}
-	if q.deltaQueryStateUnsuppressStmt, err = db.PrepareContext(ctx, deltaQueryStateUnsuppress); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryStateUnsuppress: %w", err)
-	}
-	if q.deltaQueryStateUpsertStmt, err = db.PrepareContext(ctx, deltaQueryStateUpsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaQueryStateUpsert: %w", err)
-	}
-	if q.deltaUrlencDeltaDeleteStmt, err = db.PrepareContext(ctx, deltaUrlencDeltaDelete); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencDeltaDelete: %w", err)
-	}
-	if q.deltaUrlencDeltaExistsStmt, err = db.PrepareContext(ctx, deltaUrlencDeltaExists); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencDeltaExists: %w", err)
-	}
-	if q.deltaUrlencDeltaGetStmt, err = db.PrepareContext(ctx, deltaUrlencDeltaGet); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencDeltaGet: %w", err)
-	}
-	if q.deltaUrlencDeltaInsertStmt, err = db.PrepareContext(ctx, deltaUrlencDeltaInsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencDeltaInsert: %w", err)
-	}
-	if q.deltaUrlencDeltaUpdateStmt, err = db.PrepareContext(ctx, deltaUrlencDeltaUpdate); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencDeltaUpdate: %w", err)
-	}
-	if q.deltaUrlencOrderCountStmt, err = db.PrepareContext(ctx, deltaUrlencOrderCount); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencOrderCount: %w", err)
-	}
-	if q.deltaUrlencOrderDeleteByRefStmt, err = db.PrepareContext(ctx, deltaUrlencOrderDeleteByRef); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencOrderDeleteByRef: %w", err)
-	}
-	if q.deltaUrlencOrderExistsStmt, err = db.PrepareContext(ctx, deltaUrlencOrderExists); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencOrderExists: %w", err)
-	}
-	if q.deltaUrlencOrderInsertIgnoreStmt, err = db.PrepareContext(ctx, deltaUrlencOrderInsertIgnore); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencOrderInsertIgnore: %w", err)
-	}
-	if q.deltaUrlencOrderLastRankStmt, err = db.PrepareContext(ctx, deltaUrlencOrderLastRank); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencOrderLastRank: %w", err)
-	}
-	if q.deltaUrlencOrderSelectAscStmt, err = db.PrepareContext(ctx, deltaUrlencOrderSelectAsc); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencOrderSelectAsc: %w", err)
-	}
-	if q.deltaUrlencOrderUpsertStmt, err = db.PrepareContext(ctx, deltaUrlencOrderUpsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencOrderUpsert: %w", err)
-	}
-	if q.deltaUrlencResolveExampleByDeltaIDStmt, err = db.PrepareContext(ctx, deltaUrlencResolveExampleByDeltaID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencResolveExampleByDeltaID: %w", err)
-	}
-	if q.deltaUrlencResolveExampleByOrderRefIDStmt, err = db.PrepareContext(ctx, deltaUrlencResolveExampleByOrderRefID); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencResolveExampleByOrderRefID: %w", err)
-	}
-	if q.deltaUrlencStateClearOverridesStmt, err = db.PrepareContext(ctx, deltaUrlencStateClearOverrides); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencStateClearOverrides: %w", err)
-	}
-	if q.deltaUrlencStateGetStmt, err = db.PrepareContext(ctx, deltaUrlencStateGet); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencStateGet: %w", err)
-	}
-	if q.deltaUrlencStateSuppressStmt, err = db.PrepareContext(ctx, deltaUrlencStateSuppress); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencStateSuppress: %w", err)
-	}
-	if q.deltaUrlencStateUnsuppressStmt, err = db.PrepareContext(ctx, deltaUrlencStateUnsuppress); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencStateUnsuppress: %w", err)
-	}
-	if q.deltaUrlencStateUpsertStmt, err = db.PrepareContext(ctx, deltaUrlencStateUpsert); err != nil {
-		return nil, fmt.Errorf("error preparing query DeltaUrlencStateUpsert: %w", err)
-	}
-	if q.getAPIContentStmt, err = db.PrepareContext(ctx, getAPIContent); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAPIContent: %w", err)
-	}
-	if q.getAllExamplesByEndpointIDStmt, err = db.PrepareContext(ctx, getAllExamplesByEndpointID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAllExamplesByEndpointID: %w", err)
-	}
-	if q.getAllHeadersByExampleIDStmt, err = db.PrepareContext(ctx, getAllHeadersByExampleID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAllHeadersByExampleID: %w", err)
-	}
-	if q.getAllItemsApiByFolderIDStmt, err = db.PrepareContext(ctx, getAllItemsApiByFolderID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAllItemsApiByFolderID: %w", err)
-	}
 	if q.getAllWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getAllWorkspacesByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllWorkspacesByUserID: %w", err)
-	}
-	if q.getAssertStmt, err = db.PrepareContext(ctx, getAssert); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAssert: %w", err)
-	}
-	if q.getAssertResultStmt, err = db.PrepareContext(ctx, getAssertResult); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAssertResult: %w", err)
-	}
-	if q.getAssertResultsByAssertIDStmt, err = db.PrepareContext(ctx, getAssertResultsByAssertID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAssertResultsByAssertID: %w", err)
-	}
-	if q.getAssertResultsByResponseIDStmt, err = db.PrepareContext(ctx, getAssertResultsByResponseID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAssertResultsByResponseID: %w", err)
-	}
-	if q.getAssertTailStmt, err = db.PrepareContext(ctx, getAssertTail); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAssertTail: %w", err)
-	}
-	if q.getAssertsByDeltaParentStmt, err = db.PrepareContext(ctx, getAssertsByDeltaParent); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAssertsByDeltaParent: %w", err)
-	}
-	if q.getAssertsByExampleIDStmt, err = db.PrepareContext(ctx, getAssertsByExampleID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAssertsByExampleID: %w", err)
-	}
-	if q.getAssertsByExampleIDOrderedStmt, err = db.PrepareContext(ctx, getAssertsByExampleIDOrdered); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAssertsByExampleIDOrdered: %w", err)
-	}
-	if q.getAssertsByExampleIDsStmt, err = db.PrepareContext(ctx, getAssertsByExampleIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetAssertsByExampleIDs: %w", err)
-	}
-	if q.getBodyFormStmt, err = db.PrepareContext(ctx, getBodyForm); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyForm: %w", err)
-	}
-	if q.getBodyFormsByDeltaParentIDStmt, err = db.PrepareContext(ctx, getBodyFormsByDeltaParentID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyFormsByDeltaParentID: %w", err)
-	}
-	if q.getBodyFormsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyFormsByExampleID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyFormsByExampleID: %w", err)
-	}
-	if q.getBodyFormsByExampleIDsStmt, err = db.PrepareContext(ctx, getBodyFormsByExampleIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyFormsByExampleIDs: %w", err)
-	}
-	if q.getBodyRawStmt, err = db.PrepareContext(ctx, getBodyRaw); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyRaw: %w", err)
-	}
-	if q.getBodyRawsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyRawsByExampleID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyRawsByExampleID: %w", err)
-	}
-	if q.getBodyRawsByExampleIDsStmt, err = db.PrepareContext(ctx, getBodyRawsByExampleIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyRawsByExampleIDs: %w", err)
-	}
-	if q.getBodyUrlEncodedStmt, err = db.PrepareContext(ctx, getBodyUrlEncoded); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyUrlEncoded: %w", err)
-	}
-	if q.getBodyUrlEncodedLinksStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedLinks); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedLinks: %w", err)
-	}
-	if q.getBodyUrlEncodedTailStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedTail); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedTail: %w", err)
-	}
-	if q.getBodyUrlEncodedTailExcludingIDStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedTailExcludingID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedTailExcludingID: %w", err)
-	}
-	if q.getBodyUrlEncodedsByDeltaParentIDStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedsByDeltaParentID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedsByDeltaParentID: %w", err)
-	}
-	if q.getBodyUrlEncodedsByExampleIDStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedsByExampleID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedsByExampleID: %w", err)
-	}
-	if q.getBodyUrlEncodedsByExampleIDOrderedStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedsByExampleIDOrdered); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedsByExampleIDOrdered: %w", err)
-	}
-	if q.getBodyUrlEncodedsByExampleIDsStmt, err = db.PrepareContext(ctx, getBodyUrlEncodedsByExampleIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBodyUrlEncodedsByExampleIDs: %w", err)
 	}
 	if q.getEnvironmentStmt, err = db.PrepareContext(ctx, getEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironment: %w", err)
@@ -662,30 +248,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getEnvironmentsByWorkspaceIDOrderedStmt, err = db.PrepareContext(ctx, getEnvironmentsByWorkspaceIDOrdered); err != nil {
 		return nil, fmt.Errorf("error preparing query GetEnvironmentsByWorkspaceIDOrdered: %w", err)
-	}
-	if q.getExampleRespStmt, err = db.PrepareContext(ctx, getExampleResp); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExampleResp: %w", err)
-	}
-	if q.getExampleRespByExampleIDStmt, err = db.PrepareContext(ctx, getExampleRespByExampleID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExampleRespByExampleID: %w", err)
-	}
-	if q.getExampleRespByExampleIDLatestStmt, err = db.PrepareContext(ctx, getExampleRespByExampleIDLatest); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExampleRespByExampleIDLatest: %w", err)
-	}
-	if q.getExampleRespByExampleIDsLatestStmt, err = db.PrepareContext(ctx, getExampleRespByExampleIDsLatest); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExampleRespByExampleIDsLatest: %w", err)
-	}
-	if q.getExampleRespHeaderStmt, err = db.PrepareContext(ctx, getExampleRespHeader); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExampleRespHeader: %w", err)
-	}
-	if q.getExampleRespHeadersByRespIDStmt, err = db.PrepareContext(ctx, getExampleRespHeadersByRespID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExampleRespHeadersByRespID: %w", err)
-	}
-	if q.getExampleRespHeadersByRespIDsStmt, err = db.PrepareContext(ctx, getExampleRespHeadersByRespIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExampleRespHeadersByRespIDs: %w", err)
-	}
-	if q.getExamplesByEndpointIDOrderedStmt, err = db.PrepareContext(ctx, getExamplesByEndpointIDOrdered); err != nil {
-		return nil, fmt.Errorf("error preparing query GetExamplesByEndpointIDOrdered: %w", err)
 	}
 	if q.getFileStmt, err = db.PrepareContext(ctx, getFile); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFile: %w", err)
@@ -768,9 +330,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFlowsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getFlowsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFlowsByWorkspaceID: %w", err)
 	}
-	if q.getFolderContentStmt, err = db.PrepareContext(ctx, getFolderContent); err != nil {
-		return nil, fmt.Errorf("error preparing query GetFolderContent: %w", err)
-	}
 	if q.getHTTPStmt, err = db.PrepareContext(ctx, getHTTP); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTP: %w", err)
 	}
@@ -782,6 +341,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getHTTPAssertsByIDsStmt, err = db.PrepareContext(ctx, getHTTPAssertsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPAssertsByIDs: %w", err)
+	}
+	if q.getHTTPBatchForStreamingStmt, err = db.PrepareContext(ctx, getHTTPBatchForStreaming); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBatchForStreaming: %w", err)
+	}
+	if q.getHTTPBodyFormStreamingStmt, err = db.PrepareContext(ctx, getHTTPBodyFormStreaming); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPBodyFormStreaming: %w", err)
 	}
 	if q.getHTTPBodyFormsStmt, err = db.PrepareContext(ctx, getHTTPBodyForms); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyForms: %w", err)
@@ -807,11 +372,20 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPDeltasByParentIDStmt, err = db.PrepareContext(ctx, getHTTPDeltasByParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPDeltasByParentID: %w", err)
 	}
+	if q.getHTTPDeltasSinceStmt, err = db.PrepareContext(ctx, getHTTPDeltasSince); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPDeltasSince: %w", err)
+	}
 	if q.getHTTPHeadersStmt, err = db.PrepareContext(ctx, getHTTPHeaders); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPHeaders: %w", err)
 	}
 	if q.getHTTPHeadersByIDsStmt, err = db.PrepareContext(ctx, getHTTPHeadersByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPHeadersByIDs: %w", err)
+	}
+	if q.getHTTPHeadersStreamingStmt, err = db.PrepareContext(ctx, getHTTPHeadersStreaming); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPHeadersStreaming: %w", err)
+	}
+	if q.getHTTPIncrementalUpdatesStmt, err = db.PrepareContext(ctx, getHTTPIncrementalUpdates); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPIncrementalUpdates: %w", err)
 	}
 	if q.getHTTPResponseStmt, err = db.PrepareContext(ctx, getHTTPResponse); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponse: %w", err)
@@ -852,6 +426,21 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPSearchParamsByIDsStmt, err = db.PrepareContext(ctx, getHTTPSearchParamsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPSearchParamsByIDs: %w", err)
 	}
+	if q.getHTTPSearchParamsStreamingStmt, err = db.PrepareContext(ctx, getHTTPSearchParamsStreaming); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPSearchParamsStreaming: %w", err)
+	}
+	if q.getHTTPSnapshotCountStmt, err = db.PrepareContext(ctx, getHTTPSnapshotCount); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPSnapshotCount: %w", err)
+	}
+	if q.getHTTPSnapshotPageStmt, err = db.PrepareContext(ctx, getHTTPSnapshotPage); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPSnapshotPage: %w", err)
+	}
+	if q.getHTTPStreamingMetricsStmt, err = db.PrepareContext(ctx, getHTTPStreamingMetrics); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPStreamingMetrics: %w", err)
+	}
+	if q.getHTTPWorkspaceActivityStmt, err = db.PrepareContext(ctx, getHTTPWorkspaceActivity); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPWorkspaceActivity: %w", err)
+	}
 	if q.getHTTPWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPWorkspaceID: %w", err)
 	}
@@ -864,74 +453,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPsByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPsByWorkspaceID: %w", err)
 	}
-	if q.getHeaderStmt, err = db.PrepareContext(ctx, getHeader); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHeader: %w", err)
-	}
-	if q.getHeaderByDeltaParentIDStmt, err = db.PrepareContext(ctx, getHeaderByDeltaParentID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHeaderByDeltaParentID: %w", err)
-	}
-	if q.getHeaderTailStmt, err = db.PrepareContext(ctx, getHeaderTail); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHeaderTail: %w", err)
-	}
-	if q.getHeadersByExampleIDStmt, err = db.PrepareContext(ctx, getHeadersByExampleID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHeadersByExampleID: %w", err)
-	}
-	if q.getHeadersByExampleIDOrderedStmt, err = db.PrepareContext(ctx, getHeadersByExampleIDOrdered); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHeadersByExampleIDOrdered: %w", err)
-	}
-	if q.getHeadersByExampleIDsStmt, err = db.PrepareContext(ctx, getHeadersByExampleIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHeadersByExampleIDs: %w", err)
-	}
 	if q.getHttpVersionsByHttpIDStmt, err = db.PrepareContext(ctx, getHttpVersionsByHttpID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHttpVersionsByHttpID: %w", err)
-	}
-	if q.getItemApiStmt, err = db.PrepareContext(ctx, getItemApi); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApi: %w", err)
-	}
-	if q.getItemApiByFolderIDAndNextIDStmt, err = db.PrepareContext(ctx, getItemApiByFolderIDAndNextID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiByFolderIDAndNextID: %w", err)
-	}
-	if q.getItemApiByFolderIDAndURLAndMethodStmt, err = db.PrepareContext(ctx, getItemApiByFolderIDAndURLAndMethod); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiByFolderIDAndURLAndMethod: %w", err)
-	}
-	if q.getItemApiExampleStmt, err = db.PrepareContext(ctx, getItemApiExample); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiExample: %w", err)
-	}
-	if q.getItemApiExampleByVersionParentIDStmt, err = db.PrepareContext(ctx, getItemApiExampleByVersionParentID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiExampleByVersionParentID: %w", err)
-	}
-	if q.getItemApiExampleDefaultStmt, err = db.PrepareContext(ctx, getItemApiExampleDefault); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiExampleDefault: %w", err)
-	}
-	if q.getItemApiExamplesStmt, err = db.PrepareContext(ctx, getItemApiExamples); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiExamples: %w", err)
-	}
-	if q.getItemApiExamplesByIDsStmt, err = db.PrepareContext(ctx, getItemApiExamplesByIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiExamplesByIDs: %w", err)
-	}
-	if q.getItemApiExamplesByItemApiIDStmt, err = db.PrepareContext(ctx, getItemApiExamplesByItemApiID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiExamplesByItemApiID: %w", err)
-	}
-	if q.getItemApiExamplesWithDefaultsStmt, err = db.PrepareContext(ctx, getItemApiExamplesWithDefaults); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApiExamplesWithDefaults: %w", err)
-	}
-	if q.getItemApisByIDsStmt, err = db.PrepareContext(ctx, getItemApisByIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemApisByIDs: %w", err)
-	}
-	if q.getItemExampleByNextIDAndItemApiIDStmt, err = db.PrepareContext(ctx, getItemExampleByNextIDAndItemApiID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemExampleByNextIDAndItemApiID: %w", err)
-	}
-	if q.getItemFolderStmt, err = db.PrepareContext(ctx, getItemFolder); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemFolder: %w", err)
-	}
-	if q.getItemFolderByParentIDAndNextIDStmt, err = db.PrepareContext(ctx, getItemFolderByParentIDAndNextID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemFolderByParentIDAndNextID: %w", err)
-	}
-	if q.getItemFoldersByParentIDStmt, err = db.PrepareContext(ctx, getItemFoldersByParentID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemFoldersByParentID: %w", err)
-	}
-	if q.getItemsApiByFolderIDStmt, err = db.PrepareContext(ctx, getItemsApiByFolderID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetItemsApiByFolderID: %w", err)
 	}
 	if q.getLatestNodeExecutionByNodeIDStmt, err = db.PrepareContext(ctx, getLatestNodeExecutionByNodeID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetLatestNodeExecutionByNodeID: %w", err)
@@ -947,18 +470,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getNodeExecutionsByNodeIDStmt, err = db.PrepareContext(ctx, getNodeExecutionsByNodeID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetNodeExecutionsByNodeID: %w", err)
-	}
-	if q.getQueriesByExampleIDStmt, err = db.PrepareContext(ctx, getQueriesByExampleID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetQueriesByExampleID: %w", err)
-	}
-	if q.getQueriesByExampleIDsStmt, err = db.PrepareContext(ctx, getQueriesByExampleIDs); err != nil {
-		return nil, fmt.Errorf("error preparing query GetQueriesByExampleIDs: %w", err)
-	}
-	if q.getQueryStmt, err = db.PrepareContext(ctx, getQuery); err != nil {
-		return nil, fmt.Errorf("error preparing query GetQuery: %w", err)
-	}
-	if q.getQueryByDeltaParentIDStmt, err = db.PrepareContext(ctx, getQueryByDeltaParentID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetQueryByDeltaParentID: %w", err)
 	}
 	if q.getRootFilesByWorkspaceIDStmt, err = db.PrepareContext(ctx, getRootFilesByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetRootFilesByWorkspaceID: %w", err)
@@ -1029,65 +540,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.resetHTTPBodyFormDeltaStmt, err = db.PrepareContext(ctx, resetHTTPBodyFormDelta); err != nil {
 		return nil, fmt.Errorf("error preparing query ResetHTTPBodyFormDelta: %w", err)
 	}
-	if q.setBodyFormEnableStmt, err = db.PrepareContext(ctx, setBodyFormEnable); err != nil {
-		return nil, fmt.Errorf("error preparing query SetBodyFormEnable: %w", err)
-	}
-	if q.setHeaderEnableStmt, err = db.PrepareContext(ctx, setHeaderEnable); err != nil {
-		return nil, fmt.Errorf("error preparing query SetHeaderEnable: %w", err)
-	}
-	if q.setQueryEnableStmt, err = db.PrepareContext(ctx, setQueryEnable); err != nil {
-		return nil, fmt.Errorf("error preparing query SetQueryEnable: %w", err)
-	}
-	if q.updateAssertStmt, err = db.PrepareContext(ctx, updateAssert); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateAssert: %w", err)
-	}
-	if q.updateAssertNextStmt, err = db.PrepareContext(ctx, updateAssertNext); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateAssertNext: %w", err)
-	}
-	if q.updateAssertOrderStmt, err = db.PrepareContext(ctx, updateAssertOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateAssertOrder: %w", err)
-	}
-	if q.updateAssertPrevStmt, err = db.PrepareContext(ctx, updateAssertPrev); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateAssertPrev: %w", err)
-	}
-	if q.updateAssertResultStmt, err = db.PrepareContext(ctx, updateAssertResult); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateAssertResult: %w", err)
-	}
-	if q.updateBodyFormStmt, err = db.PrepareContext(ctx, updateBodyForm); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateBodyForm: %w", err)
-	}
-	if q.updateBodyRawDataStmt, err = db.PrepareContext(ctx, updateBodyRawData); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateBodyRawData: %w", err)
-	}
-	if q.updateBodyUrlEncodedStmt, err = db.PrepareContext(ctx, updateBodyUrlEncoded); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateBodyUrlEncoded: %w", err)
-	}
-	if q.updateBodyUrlEncodedNextStmt, err = db.PrepareContext(ctx, updateBodyUrlEncodedNext); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateBodyUrlEncodedNext: %w", err)
-	}
-	if q.updateBodyUrlEncodedOrderStmt, err = db.PrepareContext(ctx, updateBodyUrlEncodedOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateBodyUrlEncodedOrder: %w", err)
-	}
-	if q.updateBodyUrlEncodedPrevStmt, err = db.PrepareContext(ctx, updateBodyUrlEncodedPrev); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateBodyUrlEncodedPrev: %w", err)
+	if q.resolveHTTPWithDeltasStmt, err = db.PrepareContext(ctx, resolveHTTPWithDeltas); err != nil {
+		return nil, fmt.Errorf("error preparing query ResolveHTTPWithDeltas: %w", err)
 	}
 	if q.updateEnvironmentStmt, err = db.PrepareContext(ctx, updateEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateEnvironment: %w", err)
-	}
-	if q.updateExampleNextStmt, err = db.PrepareContext(ctx, updateExampleNext); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateExampleNext: %w", err)
-	}
-	if q.updateExampleOrderStmt, err = db.PrepareContext(ctx, updateExampleOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateExampleOrder: %w", err)
-	}
-	if q.updateExamplePrevStmt, err = db.PrepareContext(ctx, updateExamplePrev); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateExamplePrev: %w", err)
-	}
-	if q.updateExampleRespStmt, err = db.PrepareContext(ctx, updateExampleResp); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateExampleResp: %w", err)
-	}
-	if q.updateExampleRespHeaderStmt, err = db.PrepareContext(ctx, updateExampleRespHeader); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateExampleRespHeader: %w", err)
 	}
 	if q.updateFileStmt, err = db.PrepareContext(ctx, updateFile); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFile: %w", err)
@@ -1185,41 +642,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateHTTPSearchParamOrderStmt, err = db.PrepareContext(ctx, updateHTTPSearchParamOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPSearchParamOrder: %w", err)
 	}
-	if q.updateHeaderStmt, err = db.PrepareContext(ctx, updateHeader); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHeader: %w", err)
-	}
-	if q.updateHeaderNextStmt, err = db.PrepareContext(ctx, updateHeaderNext); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHeaderNext: %w", err)
-	}
-	if q.updateHeaderOrderStmt, err = db.PrepareContext(ctx, updateHeaderOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHeaderOrder: %w", err)
-	}
-	if q.updateHeaderPrevStmt, err = db.PrepareContext(ctx, updateHeaderPrev); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateHeaderPrev: %w", err)
-	}
-	if q.updateItemApiStmt, err = db.PrepareContext(ctx, updateItemApi); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateItemApi: %w", err)
-	}
-	if q.updateItemApiExampleStmt, err = db.PrepareContext(ctx, updateItemApiExample); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateItemApiExample: %w", err)
-	}
-	if q.updateItemApiExampleOrderStmt, err = db.PrepareContext(ctx, updateItemApiExampleOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateItemApiExampleOrder: %w", err)
-	}
-	if q.updateItemApiOrderStmt, err = db.PrepareContext(ctx, updateItemApiOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateItemApiOrder: %w", err)
-	}
-	if q.updateItemFolderStmt, err = db.PrepareContext(ctx, updateItemFolder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateItemFolder: %w", err)
-	}
-	if q.updateItemFolderOrderStmt, err = db.PrepareContext(ctx, updateItemFolderOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateItemFolderOrder: %w", err)
-	}
 	if q.updateNodeExecutionStmt, err = db.PrepareContext(ctx, updateNodeExecution); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateNodeExecution: %w", err)
-	}
-	if q.updateQueryStmt, err = db.PrepareContext(ctx, updateQuery); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateQuery: %w", err)
 	}
 	if q.updateTagStmt, err = db.PrepareContext(ctx, updateTag); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateTag: %w", err)
@@ -1229,9 +653,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateVariableStmt, err = db.PrepareContext(ctx, updateVariable); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateVariable: %w", err)
-	}
-	if q.updateVisualizeModeStmt, err = db.PrepareContext(ctx, updateVisualizeMode); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateVisualizeMode: %w", err)
 	}
 	if q.updateWorkspaceStmt, err = db.PrepareContext(ctx, updateWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspace: %w", err)
@@ -1264,69 +685,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing checkIFWorkspaceUserExistsStmt: %w", cerr)
 		}
 	}
-	if q.createAssertStmt != nil {
-		if cerr := q.createAssertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createAssertStmt: %w", cerr)
-		}
-	}
-	if q.createAssertBulkStmt != nil {
-		if cerr := q.createAssertBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createAssertBulkStmt: %w", cerr)
-		}
-	}
-	if q.createAssertResultStmt != nil {
-		if cerr := q.createAssertResultStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createAssertResultStmt: %w", cerr)
-		}
-	}
-	if q.createBodyFormStmt != nil {
-		if cerr := q.createBodyFormStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createBodyFormStmt: %w", cerr)
-		}
-	}
-	if q.createBodyFormBulkStmt != nil {
-		if cerr := q.createBodyFormBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createBodyFormBulkStmt: %w", cerr)
-		}
-	}
-	if q.createBodyRawStmt != nil {
-		if cerr := q.createBodyRawStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createBodyRawStmt: %w", cerr)
-		}
-	}
-	if q.createBodyRawBulkStmt != nil {
-		if cerr := q.createBodyRawBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createBodyRawBulkStmt: %w", cerr)
-		}
-	}
-	if q.createBodyUrlEncodedStmt != nil {
-		if cerr := q.createBodyUrlEncodedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createBodyUrlEncodedStmt: %w", cerr)
-		}
-	}
-	if q.createBodyUrlEncodedBulkStmt != nil {
-		if cerr := q.createBodyUrlEncodedBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createBodyUrlEncodedBulkStmt: %w", cerr)
-		}
-	}
 	if q.createEnvironmentStmt != nil {
 		if cerr := q.createEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createEnvironmentStmt: %w", cerr)
-		}
-	}
-	if q.createExampleRespStmt != nil {
-		if cerr := q.createExampleRespStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createExampleRespStmt: %w", cerr)
-		}
-	}
-	if q.createExampleRespHeaderStmt != nil {
-		if cerr := q.createExampleRespHeaderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createExampleRespHeaderStmt: %w", cerr)
-		}
-	}
-	if q.createExampleRespHeaderBulkStmt != nil {
-		if cerr := q.createExampleRespHeaderBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createExampleRespHeaderBulkStmt: %w", cerr)
 		}
 	}
 	if q.createFileStmt != nil {
@@ -1469,49 +830,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createHTTPSearchParamStmt: %w", cerr)
 		}
 	}
-	if q.createHeaderStmt != nil {
-		if cerr := q.createHeaderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHeaderStmt: %w", cerr)
-		}
-	}
-	if q.createHeaderBulkStmt != nil {
-		if cerr := q.createHeaderBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createHeaderBulkStmt: %w", cerr)
-		}
-	}
 	if q.createHttpVersionStmt != nil {
 		if cerr := q.createHttpVersionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createHttpVersionStmt: %w", cerr)
-		}
-	}
-	if q.createItemApiStmt != nil {
-		if cerr := q.createItemApiStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createItemApiStmt: %w", cerr)
-		}
-	}
-	if q.createItemApiBulkStmt != nil {
-		if cerr := q.createItemApiBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createItemApiBulkStmt: %w", cerr)
-		}
-	}
-	if q.createItemApiExampleStmt != nil {
-		if cerr := q.createItemApiExampleStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createItemApiExampleStmt: %w", cerr)
-		}
-	}
-	if q.createItemApiExampleBulkStmt != nil {
-		if cerr := q.createItemApiExampleBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createItemApiExampleBulkStmt: %w", cerr)
-		}
-	}
-	if q.createItemFolderStmt != nil {
-		if cerr := q.createItemFolderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createItemFolderStmt: %w", cerr)
-		}
-	}
-	if q.createItemFolderBulkStmt != nil {
-		if cerr := q.createItemFolderBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createItemFolderBulkStmt: %w", cerr)
 		}
 	}
 	if q.createMigrationStmt != nil {
@@ -1522,16 +843,6 @@ func (q *Queries) Close() error {
 	if q.createNodeExecutionStmt != nil {
 		if cerr := q.createNodeExecutionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createNodeExecutionStmt: %w", cerr)
-		}
-	}
-	if q.createQueryStmt != nil {
-		if cerr := q.createQueryStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createQueryStmt: %w", cerr)
-		}
-	}
-	if q.createQueryBulkStmt != nil {
-		if cerr := q.createQueryBulkStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing createQueryBulkStmt: %w", cerr)
 		}
 	}
 	if q.createTagStmt != nil {
@@ -1564,44 +875,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createWorkspaceUserStmt: %w", cerr)
 		}
 	}
-	if q.deleteAssertStmt != nil {
-		if cerr := q.deleteAssertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteAssertStmt: %w", cerr)
-		}
-	}
-	if q.deleteAssertResultStmt != nil {
-		if cerr := q.deleteAssertResultStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteAssertResultStmt: %w", cerr)
-		}
-	}
-	if q.deleteBodyFormStmt != nil {
-		if cerr := q.deleteBodyFormStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteBodyFormStmt: %w", cerr)
-		}
-	}
-	if q.deleteBodyRawStmt != nil {
-		if cerr := q.deleteBodyRawStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteBodyRawStmt: %w", cerr)
-		}
-	}
-	if q.deleteBodyURLEncodedStmt != nil {
-		if cerr := q.deleteBodyURLEncodedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteBodyURLEncodedStmt: %w", cerr)
-		}
-	}
 	if q.deleteEnvironmentStmt != nil {
 		if cerr := q.deleteEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteEnvironmentStmt: %w", cerr)
-		}
-	}
-	if q.deleteExampleRespStmt != nil {
-		if cerr := q.deleteExampleRespStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteExampleRespStmt: %w", cerr)
-		}
-	}
-	if q.deleteExampleRespHeaderStmt != nil {
-		if cerr := q.deleteExampleRespHeaderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteExampleRespHeaderStmt: %w", cerr)
 		}
 	}
 	if q.deleteFileStmt != nil {
@@ -1714,26 +990,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteHTTPSearchParamStmt: %w", cerr)
 		}
 	}
-	if q.deleteHeaderStmt != nil {
-		if cerr := q.deleteHeaderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteHeaderStmt: %w", cerr)
-		}
-	}
-	if q.deleteItemApiStmt != nil {
-		if cerr := q.deleteItemApiStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteItemApiStmt: %w", cerr)
-		}
-	}
-	if q.deleteItemApiExampleStmt != nil {
-		if cerr := q.deleteItemApiExampleStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteItemApiExampleStmt: %w", cerr)
-		}
-	}
-	if q.deleteItemFolderStmt != nil {
-		if cerr := q.deleteItemFolderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteItemFolderStmt: %w", cerr)
-		}
-	}
 	if q.deleteMigrationStmt != nil {
 		if cerr := q.deleteMigrationStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteMigrationStmt: %w", cerr)
@@ -1747,11 +1003,6 @@ func (q *Queries) Close() error {
 	if q.deleteNodeExecutionsByNodeIDsStmt != nil {
 		if cerr := q.deleteNodeExecutionsByNodeIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteNodeExecutionsByNodeIDsStmt: %w", cerr)
-		}
-	}
-	if q.deleteQueryStmt != nil {
-		if cerr := q.deleteQueryStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deleteQueryStmt: %w", cerr)
 		}
 	}
 	if q.deleteTagStmt != nil {
@@ -1779,529 +1030,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteWorkspaceUserStmt: %w", cerr)
 		}
 	}
-	if q.deltaFormDeltaDeleteStmt != nil {
-		if cerr := q.deltaFormDeltaDeleteStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormDeltaDeleteStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormDeltaExistsStmt != nil {
-		if cerr := q.deltaFormDeltaExistsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormDeltaExistsStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormDeltaGetStmt != nil {
-		if cerr := q.deltaFormDeltaGetStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormDeltaGetStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormDeltaInsertStmt != nil {
-		if cerr := q.deltaFormDeltaInsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormDeltaInsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormDeltaUpdateStmt != nil {
-		if cerr := q.deltaFormDeltaUpdateStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormDeltaUpdateStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormOrderCountStmt != nil {
-		if cerr := q.deltaFormOrderCountStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormOrderCountStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormOrderDeleteByRefStmt != nil {
-		if cerr := q.deltaFormOrderDeleteByRefStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormOrderDeleteByRefStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormOrderExistsStmt != nil {
-		if cerr := q.deltaFormOrderExistsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormOrderExistsStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormOrderInsertIgnoreStmt != nil {
-		if cerr := q.deltaFormOrderInsertIgnoreStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormOrderInsertIgnoreStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormOrderLastRankStmt != nil {
-		if cerr := q.deltaFormOrderLastRankStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormOrderLastRankStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormOrderSelectAscStmt != nil {
-		if cerr := q.deltaFormOrderSelectAscStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormOrderSelectAscStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormOrderUpsertStmt != nil {
-		if cerr := q.deltaFormOrderUpsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormOrderUpsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormResolveExampleByDeltaIDStmt != nil {
-		if cerr := q.deltaFormResolveExampleByDeltaIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormResolveExampleByDeltaIDStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormResolveExampleByOrderRefIDStmt != nil {
-		if cerr := q.deltaFormResolveExampleByOrderRefIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormResolveExampleByOrderRefIDStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormStateClearOverridesStmt != nil {
-		if cerr := q.deltaFormStateClearOverridesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormStateClearOverridesStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormStateGetStmt != nil {
-		if cerr := q.deltaFormStateGetStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormStateGetStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormStateSuppressStmt != nil {
-		if cerr := q.deltaFormStateSuppressStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormStateSuppressStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormStateUnsuppressStmt != nil {
-		if cerr := q.deltaFormStateUnsuppressStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormStateUnsuppressStmt: %w", cerr)
-		}
-	}
-	if q.deltaFormStateUpsertStmt != nil {
-		if cerr := q.deltaFormStateUpsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaFormStateUpsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderDeltaDeleteStmt != nil {
-		if cerr := q.deltaHeaderDeltaDeleteStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderDeltaDeleteStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderDeltaExistsStmt != nil {
-		if cerr := q.deltaHeaderDeltaExistsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderDeltaExistsStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderDeltaGetStmt != nil {
-		if cerr := q.deltaHeaderDeltaGetStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderDeltaGetStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderDeltaInsertStmt != nil {
-		if cerr := q.deltaHeaderDeltaInsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderDeltaInsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderDeltaUpdateStmt != nil {
-		if cerr := q.deltaHeaderDeltaUpdateStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderDeltaUpdateStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderOrderCountStmt != nil {
-		if cerr := q.deltaHeaderOrderCountStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderOrderCountStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderOrderDeleteByRefStmt != nil {
-		if cerr := q.deltaHeaderOrderDeleteByRefStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderOrderDeleteByRefStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderOrderExistsStmt != nil {
-		if cerr := q.deltaHeaderOrderExistsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderOrderExistsStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderOrderInsertIgnoreStmt != nil {
-		if cerr := q.deltaHeaderOrderInsertIgnoreStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderOrderInsertIgnoreStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderOrderLastRankStmt != nil {
-		if cerr := q.deltaHeaderOrderLastRankStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderOrderLastRankStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderOrderSelectAscStmt != nil {
-		if cerr := q.deltaHeaderOrderSelectAscStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderOrderSelectAscStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderOrderUpsertStmt != nil {
-		if cerr := q.deltaHeaderOrderUpsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderOrderUpsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderResolveExampleByDeltaIDStmt != nil {
-		if cerr := q.deltaHeaderResolveExampleByDeltaIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderResolveExampleByDeltaIDStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderResolveExampleByOrderRefIDStmt != nil {
-		if cerr := q.deltaHeaderResolveExampleByOrderRefIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderResolveExampleByOrderRefIDStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderStateClearOverridesStmt != nil {
-		if cerr := q.deltaHeaderStateClearOverridesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderStateClearOverridesStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderStateGetStmt != nil {
-		if cerr := q.deltaHeaderStateGetStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderStateGetStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderStateSuppressStmt != nil {
-		if cerr := q.deltaHeaderStateSuppressStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderStateSuppressStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderStateUnsuppressStmt != nil {
-		if cerr := q.deltaHeaderStateUnsuppressStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderStateUnsuppressStmt: %w", cerr)
-		}
-	}
-	if q.deltaHeaderStateUpsertStmt != nil {
-		if cerr := q.deltaHeaderStateUpsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaHeaderStateUpsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryDeltaDeleteStmt != nil {
-		if cerr := q.deltaQueryDeltaDeleteStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryDeltaDeleteStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryDeltaExistsStmt != nil {
-		if cerr := q.deltaQueryDeltaExistsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryDeltaExistsStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryDeltaGetStmt != nil {
-		if cerr := q.deltaQueryDeltaGetStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryDeltaGetStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryDeltaInsertStmt != nil {
-		if cerr := q.deltaQueryDeltaInsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryDeltaInsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryDeltaUpdateStmt != nil {
-		if cerr := q.deltaQueryDeltaUpdateStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryDeltaUpdateStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryOrderCountStmt != nil {
-		if cerr := q.deltaQueryOrderCountStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryOrderCountStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryOrderDeleteByRefStmt != nil {
-		if cerr := q.deltaQueryOrderDeleteByRefStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryOrderDeleteByRefStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryOrderExistsStmt != nil {
-		if cerr := q.deltaQueryOrderExistsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryOrderExistsStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryOrderInsertIgnoreStmt != nil {
-		if cerr := q.deltaQueryOrderInsertIgnoreStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryOrderInsertIgnoreStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryOrderLastRankStmt != nil {
-		if cerr := q.deltaQueryOrderLastRankStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryOrderLastRankStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryOrderSelectAscStmt != nil {
-		if cerr := q.deltaQueryOrderSelectAscStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryOrderSelectAscStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryOrderUpsertStmt != nil {
-		if cerr := q.deltaQueryOrderUpsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryOrderUpsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryResolveExampleByDeltaIDStmt != nil {
-		if cerr := q.deltaQueryResolveExampleByDeltaIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryResolveExampleByDeltaIDStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryResolveExampleByOrderRefIDStmt != nil {
-		if cerr := q.deltaQueryResolveExampleByOrderRefIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryResolveExampleByOrderRefIDStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryStateClearOverridesStmt != nil {
-		if cerr := q.deltaQueryStateClearOverridesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryStateClearOverridesStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryStateGetStmt != nil {
-		if cerr := q.deltaQueryStateGetStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryStateGetStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryStateSuppressStmt != nil {
-		if cerr := q.deltaQueryStateSuppressStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryStateSuppressStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryStateUnsuppressStmt != nil {
-		if cerr := q.deltaQueryStateUnsuppressStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryStateUnsuppressStmt: %w", cerr)
-		}
-	}
-	if q.deltaQueryStateUpsertStmt != nil {
-		if cerr := q.deltaQueryStateUpsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaQueryStateUpsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencDeltaDeleteStmt != nil {
-		if cerr := q.deltaUrlencDeltaDeleteStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencDeltaDeleteStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencDeltaExistsStmt != nil {
-		if cerr := q.deltaUrlencDeltaExistsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencDeltaExistsStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencDeltaGetStmt != nil {
-		if cerr := q.deltaUrlencDeltaGetStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencDeltaGetStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencDeltaInsertStmt != nil {
-		if cerr := q.deltaUrlencDeltaInsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencDeltaInsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencDeltaUpdateStmt != nil {
-		if cerr := q.deltaUrlencDeltaUpdateStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencDeltaUpdateStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencOrderCountStmt != nil {
-		if cerr := q.deltaUrlencOrderCountStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencOrderCountStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencOrderDeleteByRefStmt != nil {
-		if cerr := q.deltaUrlencOrderDeleteByRefStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencOrderDeleteByRefStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencOrderExistsStmt != nil {
-		if cerr := q.deltaUrlencOrderExistsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencOrderExistsStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencOrderInsertIgnoreStmt != nil {
-		if cerr := q.deltaUrlencOrderInsertIgnoreStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencOrderInsertIgnoreStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencOrderLastRankStmt != nil {
-		if cerr := q.deltaUrlencOrderLastRankStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencOrderLastRankStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencOrderSelectAscStmt != nil {
-		if cerr := q.deltaUrlencOrderSelectAscStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencOrderSelectAscStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencOrderUpsertStmt != nil {
-		if cerr := q.deltaUrlencOrderUpsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencOrderUpsertStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencResolveExampleByDeltaIDStmt != nil {
-		if cerr := q.deltaUrlencResolveExampleByDeltaIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencResolveExampleByDeltaIDStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencResolveExampleByOrderRefIDStmt != nil {
-		if cerr := q.deltaUrlencResolveExampleByOrderRefIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencResolveExampleByOrderRefIDStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencStateClearOverridesStmt != nil {
-		if cerr := q.deltaUrlencStateClearOverridesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencStateClearOverridesStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencStateGetStmt != nil {
-		if cerr := q.deltaUrlencStateGetStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencStateGetStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencStateSuppressStmt != nil {
-		if cerr := q.deltaUrlencStateSuppressStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencStateSuppressStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencStateUnsuppressStmt != nil {
-		if cerr := q.deltaUrlencStateUnsuppressStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencStateUnsuppressStmt: %w", cerr)
-		}
-	}
-	if q.deltaUrlencStateUpsertStmt != nil {
-		if cerr := q.deltaUrlencStateUpsertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing deltaUrlencStateUpsertStmt: %w", cerr)
-		}
-	}
-	if q.getAPIContentStmt != nil {
-		if cerr := q.getAPIContentStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAPIContentStmt: %w", cerr)
-		}
-	}
-	if q.getAllExamplesByEndpointIDStmt != nil {
-		if cerr := q.getAllExamplesByEndpointIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAllExamplesByEndpointIDStmt: %w", cerr)
-		}
-	}
-	if q.getAllHeadersByExampleIDStmt != nil {
-		if cerr := q.getAllHeadersByExampleIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAllHeadersByExampleIDStmt: %w", cerr)
-		}
-	}
-	if q.getAllItemsApiByFolderIDStmt != nil {
-		if cerr := q.getAllItemsApiByFolderIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAllItemsApiByFolderIDStmt: %w", cerr)
-		}
-	}
 	if q.getAllWorkspacesByUserIDStmt != nil {
 		if cerr := q.getAllWorkspacesByUserIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAllWorkspacesByUserIDStmt: %w", cerr)
-		}
-	}
-	if q.getAssertStmt != nil {
-		if cerr := q.getAssertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAssertStmt: %w", cerr)
-		}
-	}
-	if q.getAssertResultStmt != nil {
-		if cerr := q.getAssertResultStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAssertResultStmt: %w", cerr)
-		}
-	}
-	if q.getAssertResultsByAssertIDStmt != nil {
-		if cerr := q.getAssertResultsByAssertIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAssertResultsByAssertIDStmt: %w", cerr)
-		}
-	}
-	if q.getAssertResultsByResponseIDStmt != nil {
-		if cerr := q.getAssertResultsByResponseIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAssertResultsByResponseIDStmt: %w", cerr)
-		}
-	}
-	if q.getAssertTailStmt != nil {
-		if cerr := q.getAssertTailStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAssertTailStmt: %w", cerr)
-		}
-	}
-	if q.getAssertsByDeltaParentStmt != nil {
-		if cerr := q.getAssertsByDeltaParentStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAssertsByDeltaParentStmt: %w", cerr)
-		}
-	}
-	if q.getAssertsByExampleIDStmt != nil {
-		if cerr := q.getAssertsByExampleIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAssertsByExampleIDStmt: %w", cerr)
-		}
-	}
-	if q.getAssertsByExampleIDOrderedStmt != nil {
-		if cerr := q.getAssertsByExampleIDOrderedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAssertsByExampleIDOrderedStmt: %w", cerr)
-		}
-	}
-	if q.getAssertsByExampleIDsStmt != nil {
-		if cerr := q.getAssertsByExampleIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getAssertsByExampleIDsStmt: %w", cerr)
-		}
-	}
-	if q.getBodyFormStmt != nil {
-		if cerr := q.getBodyFormStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyFormStmt: %w", cerr)
-		}
-	}
-	if q.getBodyFormsByDeltaParentIDStmt != nil {
-		if cerr := q.getBodyFormsByDeltaParentIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyFormsByDeltaParentIDStmt: %w", cerr)
-		}
-	}
-	if q.getBodyFormsByExampleIDStmt != nil {
-		if cerr := q.getBodyFormsByExampleIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyFormsByExampleIDStmt: %w", cerr)
-		}
-	}
-	if q.getBodyFormsByExampleIDsStmt != nil {
-		if cerr := q.getBodyFormsByExampleIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyFormsByExampleIDsStmt: %w", cerr)
-		}
-	}
-	if q.getBodyRawStmt != nil {
-		if cerr := q.getBodyRawStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyRawStmt: %w", cerr)
-		}
-	}
-	if q.getBodyRawsByExampleIDStmt != nil {
-		if cerr := q.getBodyRawsByExampleIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyRawsByExampleIDStmt: %w", cerr)
-		}
-	}
-	if q.getBodyRawsByExampleIDsStmt != nil {
-		if cerr := q.getBodyRawsByExampleIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyRawsByExampleIDsStmt: %w", cerr)
-		}
-	}
-	if q.getBodyUrlEncodedStmt != nil {
-		if cerr := q.getBodyUrlEncodedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyUrlEncodedStmt: %w", cerr)
-		}
-	}
-	if q.getBodyUrlEncodedLinksStmt != nil {
-		if cerr := q.getBodyUrlEncodedLinksStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyUrlEncodedLinksStmt: %w", cerr)
-		}
-	}
-	if q.getBodyUrlEncodedTailStmt != nil {
-		if cerr := q.getBodyUrlEncodedTailStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyUrlEncodedTailStmt: %w", cerr)
-		}
-	}
-	if q.getBodyUrlEncodedTailExcludingIDStmt != nil {
-		if cerr := q.getBodyUrlEncodedTailExcludingIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyUrlEncodedTailExcludingIDStmt: %w", cerr)
-		}
-	}
-	if q.getBodyUrlEncodedsByDeltaParentIDStmt != nil {
-		if cerr := q.getBodyUrlEncodedsByDeltaParentIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyUrlEncodedsByDeltaParentIDStmt: %w", cerr)
-		}
-	}
-	if q.getBodyUrlEncodedsByExampleIDStmt != nil {
-		if cerr := q.getBodyUrlEncodedsByExampleIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyUrlEncodedsByExampleIDStmt: %w", cerr)
-		}
-	}
-	if q.getBodyUrlEncodedsByExampleIDOrderedStmt != nil {
-		if cerr := q.getBodyUrlEncodedsByExampleIDOrderedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyUrlEncodedsByExampleIDOrderedStmt: %w", cerr)
-		}
-	}
-	if q.getBodyUrlEncodedsByExampleIDsStmt != nil {
-		if cerr := q.getBodyUrlEncodedsByExampleIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBodyUrlEncodedsByExampleIDsStmt: %w", cerr)
 		}
 	}
 	if q.getEnvironmentStmt != nil {
@@ -2322,46 +1053,6 @@ func (q *Queries) Close() error {
 	if q.getEnvironmentsByWorkspaceIDOrderedStmt != nil {
 		if cerr := q.getEnvironmentsByWorkspaceIDOrderedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getEnvironmentsByWorkspaceIDOrderedStmt: %w", cerr)
-		}
-	}
-	if q.getExampleRespStmt != nil {
-		if cerr := q.getExampleRespStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExampleRespStmt: %w", cerr)
-		}
-	}
-	if q.getExampleRespByExampleIDStmt != nil {
-		if cerr := q.getExampleRespByExampleIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExampleRespByExampleIDStmt: %w", cerr)
-		}
-	}
-	if q.getExampleRespByExampleIDLatestStmt != nil {
-		if cerr := q.getExampleRespByExampleIDLatestStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExampleRespByExampleIDLatestStmt: %w", cerr)
-		}
-	}
-	if q.getExampleRespByExampleIDsLatestStmt != nil {
-		if cerr := q.getExampleRespByExampleIDsLatestStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExampleRespByExampleIDsLatestStmt: %w", cerr)
-		}
-	}
-	if q.getExampleRespHeaderStmt != nil {
-		if cerr := q.getExampleRespHeaderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExampleRespHeaderStmt: %w", cerr)
-		}
-	}
-	if q.getExampleRespHeadersByRespIDStmt != nil {
-		if cerr := q.getExampleRespHeadersByRespIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExampleRespHeadersByRespIDStmt: %w", cerr)
-		}
-	}
-	if q.getExampleRespHeadersByRespIDsStmt != nil {
-		if cerr := q.getExampleRespHeadersByRespIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExampleRespHeadersByRespIDsStmt: %w", cerr)
-		}
-	}
-	if q.getExamplesByEndpointIDOrderedStmt != nil {
-		if cerr := q.getExamplesByEndpointIDOrderedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getExamplesByEndpointIDOrderedStmt: %w", cerr)
 		}
 	}
 	if q.getFileStmt != nil {
@@ -2499,11 +1190,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFlowsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
-	if q.getFolderContentStmt != nil {
-		if cerr := q.getFolderContentStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getFolderContentStmt: %w", cerr)
-		}
-	}
 	if q.getHTTPStmt != nil {
 		if cerr := q.getHTTPStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPStmt: %w", cerr)
@@ -2522,6 +1208,16 @@ func (q *Queries) Close() error {
 	if q.getHTTPAssertsByIDsStmt != nil {
 		if cerr := q.getHTTPAssertsByIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPAssertsByIDsStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPBatchForStreamingStmt != nil {
+		if cerr := q.getHTTPBatchForStreamingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBatchForStreamingStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPBodyFormStreamingStmt != nil {
+		if cerr := q.getHTTPBodyFormStreamingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPBodyFormStreamingStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPBodyFormsStmt != nil {
@@ -2564,6 +1260,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPDeltasByParentIDStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPDeltasSinceStmt != nil {
+		if cerr := q.getHTTPDeltasSinceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPDeltasSinceStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPHeadersStmt != nil {
 		if cerr := q.getHTTPHeadersStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPHeadersStmt: %w", cerr)
@@ -2572,6 +1273,16 @@ func (q *Queries) Close() error {
 	if q.getHTTPHeadersByIDsStmt != nil {
 		if cerr := q.getHTTPHeadersByIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPHeadersByIDsStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPHeadersStreamingStmt != nil {
+		if cerr := q.getHTTPHeadersStreamingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPHeadersStreamingStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPIncrementalUpdatesStmt != nil {
+		if cerr := q.getHTTPIncrementalUpdatesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPIncrementalUpdatesStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPResponseStmt != nil {
@@ -2639,6 +1350,31 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPSearchParamsByIDsStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPSearchParamsStreamingStmt != nil {
+		if cerr := q.getHTTPSearchParamsStreamingStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPSearchParamsStreamingStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPSnapshotCountStmt != nil {
+		if cerr := q.getHTTPSnapshotCountStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPSnapshotCountStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPSnapshotPageStmt != nil {
+		if cerr := q.getHTTPSnapshotPageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPSnapshotPageStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPStreamingMetricsStmt != nil {
+		if cerr := q.getHTTPStreamingMetricsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPStreamingMetricsStmt: %w", cerr)
+		}
+	}
+	if q.getHTTPWorkspaceActivityStmt != nil {
+		if cerr := q.getHTTPWorkspaceActivityStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPWorkspaceActivityStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPWorkspaceIDStmt != nil {
 		if cerr := q.getHTTPWorkspaceIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPWorkspaceIDStmt: %w", cerr)
@@ -2659,119 +1395,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
-	if q.getHeaderStmt != nil {
-		if cerr := q.getHeaderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHeaderStmt: %w", cerr)
-		}
-	}
-	if q.getHeaderByDeltaParentIDStmt != nil {
-		if cerr := q.getHeaderByDeltaParentIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHeaderByDeltaParentIDStmt: %w", cerr)
-		}
-	}
-	if q.getHeaderTailStmt != nil {
-		if cerr := q.getHeaderTailStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHeaderTailStmt: %w", cerr)
-		}
-	}
-	if q.getHeadersByExampleIDStmt != nil {
-		if cerr := q.getHeadersByExampleIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHeadersByExampleIDStmt: %w", cerr)
-		}
-	}
-	if q.getHeadersByExampleIDOrderedStmt != nil {
-		if cerr := q.getHeadersByExampleIDOrderedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHeadersByExampleIDOrderedStmt: %w", cerr)
-		}
-	}
-	if q.getHeadersByExampleIDsStmt != nil {
-		if cerr := q.getHeadersByExampleIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHeadersByExampleIDsStmt: %w", cerr)
-		}
-	}
 	if q.getHttpVersionsByHttpIDStmt != nil {
 		if cerr := q.getHttpVersionsByHttpIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHttpVersionsByHttpIDStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiStmt != nil {
-		if cerr := q.getItemApiStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiByFolderIDAndNextIDStmt != nil {
-		if cerr := q.getItemApiByFolderIDAndNextIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiByFolderIDAndNextIDStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiByFolderIDAndURLAndMethodStmt != nil {
-		if cerr := q.getItemApiByFolderIDAndURLAndMethodStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiByFolderIDAndURLAndMethodStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiExampleStmt != nil {
-		if cerr := q.getItemApiExampleStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiExampleStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiExampleByVersionParentIDStmt != nil {
-		if cerr := q.getItemApiExampleByVersionParentIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiExampleByVersionParentIDStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiExampleDefaultStmt != nil {
-		if cerr := q.getItemApiExampleDefaultStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiExampleDefaultStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiExamplesStmt != nil {
-		if cerr := q.getItemApiExamplesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiExamplesStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiExamplesByIDsStmt != nil {
-		if cerr := q.getItemApiExamplesByIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiExamplesByIDsStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiExamplesByItemApiIDStmt != nil {
-		if cerr := q.getItemApiExamplesByItemApiIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiExamplesByItemApiIDStmt: %w", cerr)
-		}
-	}
-	if q.getItemApiExamplesWithDefaultsStmt != nil {
-		if cerr := q.getItemApiExamplesWithDefaultsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApiExamplesWithDefaultsStmt: %w", cerr)
-		}
-	}
-	if q.getItemApisByIDsStmt != nil {
-		if cerr := q.getItemApisByIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemApisByIDsStmt: %w", cerr)
-		}
-	}
-	if q.getItemExampleByNextIDAndItemApiIDStmt != nil {
-		if cerr := q.getItemExampleByNextIDAndItemApiIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemExampleByNextIDAndItemApiIDStmt: %w", cerr)
-		}
-	}
-	if q.getItemFolderStmt != nil {
-		if cerr := q.getItemFolderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemFolderStmt: %w", cerr)
-		}
-	}
-	if q.getItemFolderByParentIDAndNextIDStmt != nil {
-		if cerr := q.getItemFolderByParentIDAndNextIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemFolderByParentIDAndNextIDStmt: %w", cerr)
-		}
-	}
-	if q.getItemFoldersByParentIDStmt != nil {
-		if cerr := q.getItemFoldersByParentIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemFoldersByParentIDStmt: %w", cerr)
-		}
-	}
-	if q.getItemsApiByFolderIDStmt != nil {
-		if cerr := q.getItemsApiByFolderIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getItemsApiByFolderIDStmt: %w", cerr)
 		}
 	}
 	if q.getLatestNodeExecutionByNodeIDStmt != nil {
@@ -2797,26 +1423,6 @@ func (q *Queries) Close() error {
 	if q.getNodeExecutionsByNodeIDStmt != nil {
 		if cerr := q.getNodeExecutionsByNodeIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getNodeExecutionsByNodeIDStmt: %w", cerr)
-		}
-	}
-	if q.getQueriesByExampleIDStmt != nil {
-		if cerr := q.getQueriesByExampleIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getQueriesByExampleIDStmt: %w", cerr)
-		}
-	}
-	if q.getQueriesByExampleIDsStmt != nil {
-		if cerr := q.getQueriesByExampleIDsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getQueriesByExampleIDsStmt: %w", cerr)
-		}
-	}
-	if q.getQueryStmt != nil {
-		if cerr := q.getQueryStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getQueryStmt: %w", cerr)
-		}
-	}
-	if q.getQueryByDeltaParentIDStmt != nil {
-		if cerr := q.getQueryByDeltaParentIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getQueryByDeltaParentIDStmt: %w", cerr)
 		}
 	}
 	if q.getRootFilesByWorkspaceIDStmt != nil {
@@ -2934,104 +1540,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing resetHTTPBodyFormDeltaStmt: %w", cerr)
 		}
 	}
-	if q.setBodyFormEnableStmt != nil {
-		if cerr := q.setBodyFormEnableStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing setBodyFormEnableStmt: %w", cerr)
-		}
-	}
-	if q.setHeaderEnableStmt != nil {
-		if cerr := q.setHeaderEnableStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing setHeaderEnableStmt: %w", cerr)
-		}
-	}
-	if q.setQueryEnableStmt != nil {
-		if cerr := q.setQueryEnableStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing setQueryEnableStmt: %w", cerr)
-		}
-	}
-	if q.updateAssertStmt != nil {
-		if cerr := q.updateAssertStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateAssertStmt: %w", cerr)
-		}
-	}
-	if q.updateAssertNextStmt != nil {
-		if cerr := q.updateAssertNextStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateAssertNextStmt: %w", cerr)
-		}
-	}
-	if q.updateAssertOrderStmt != nil {
-		if cerr := q.updateAssertOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateAssertOrderStmt: %w", cerr)
-		}
-	}
-	if q.updateAssertPrevStmt != nil {
-		if cerr := q.updateAssertPrevStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateAssertPrevStmt: %w", cerr)
-		}
-	}
-	if q.updateAssertResultStmt != nil {
-		if cerr := q.updateAssertResultStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateAssertResultStmt: %w", cerr)
-		}
-	}
-	if q.updateBodyFormStmt != nil {
-		if cerr := q.updateBodyFormStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateBodyFormStmt: %w", cerr)
-		}
-	}
-	if q.updateBodyRawDataStmt != nil {
-		if cerr := q.updateBodyRawDataStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateBodyRawDataStmt: %w", cerr)
-		}
-	}
-	if q.updateBodyUrlEncodedStmt != nil {
-		if cerr := q.updateBodyUrlEncodedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateBodyUrlEncodedStmt: %w", cerr)
-		}
-	}
-	if q.updateBodyUrlEncodedNextStmt != nil {
-		if cerr := q.updateBodyUrlEncodedNextStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateBodyUrlEncodedNextStmt: %w", cerr)
-		}
-	}
-	if q.updateBodyUrlEncodedOrderStmt != nil {
-		if cerr := q.updateBodyUrlEncodedOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateBodyUrlEncodedOrderStmt: %w", cerr)
-		}
-	}
-	if q.updateBodyUrlEncodedPrevStmt != nil {
-		if cerr := q.updateBodyUrlEncodedPrevStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateBodyUrlEncodedPrevStmt: %w", cerr)
+	if q.resolveHTTPWithDeltasStmt != nil {
+		if cerr := q.resolveHTTPWithDeltasStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing resolveHTTPWithDeltasStmt: %w", cerr)
 		}
 	}
 	if q.updateEnvironmentStmt != nil {
 		if cerr := q.updateEnvironmentStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateEnvironmentStmt: %w", cerr)
-		}
-	}
-	if q.updateExampleNextStmt != nil {
-		if cerr := q.updateExampleNextStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateExampleNextStmt: %w", cerr)
-		}
-	}
-	if q.updateExampleOrderStmt != nil {
-		if cerr := q.updateExampleOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateExampleOrderStmt: %w", cerr)
-		}
-	}
-	if q.updateExamplePrevStmt != nil {
-		if cerr := q.updateExamplePrevStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateExamplePrevStmt: %w", cerr)
-		}
-	}
-	if q.updateExampleRespStmt != nil {
-		if cerr := q.updateExampleRespStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateExampleRespStmt: %w", cerr)
-		}
-	}
-	if q.updateExampleRespHeaderStmt != nil {
-		if cerr := q.updateExampleRespHeaderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateExampleRespHeaderStmt: %w", cerr)
 		}
 	}
 	if q.updateFileStmt != nil {
@@ -3194,64 +1710,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateHTTPSearchParamOrderStmt: %w", cerr)
 		}
 	}
-	if q.updateHeaderStmt != nil {
-		if cerr := q.updateHeaderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHeaderStmt: %w", cerr)
-		}
-	}
-	if q.updateHeaderNextStmt != nil {
-		if cerr := q.updateHeaderNextStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHeaderNextStmt: %w", cerr)
-		}
-	}
-	if q.updateHeaderOrderStmt != nil {
-		if cerr := q.updateHeaderOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHeaderOrderStmt: %w", cerr)
-		}
-	}
-	if q.updateHeaderPrevStmt != nil {
-		if cerr := q.updateHeaderPrevStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateHeaderPrevStmt: %w", cerr)
-		}
-	}
-	if q.updateItemApiStmt != nil {
-		if cerr := q.updateItemApiStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateItemApiStmt: %w", cerr)
-		}
-	}
-	if q.updateItemApiExampleStmt != nil {
-		if cerr := q.updateItemApiExampleStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateItemApiExampleStmt: %w", cerr)
-		}
-	}
-	if q.updateItemApiExampleOrderStmt != nil {
-		if cerr := q.updateItemApiExampleOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateItemApiExampleOrderStmt: %w", cerr)
-		}
-	}
-	if q.updateItemApiOrderStmt != nil {
-		if cerr := q.updateItemApiOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateItemApiOrderStmt: %w", cerr)
-		}
-	}
-	if q.updateItemFolderStmt != nil {
-		if cerr := q.updateItemFolderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateItemFolderStmt: %w", cerr)
-		}
-	}
-	if q.updateItemFolderOrderStmt != nil {
-		if cerr := q.updateItemFolderOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateItemFolderOrderStmt: %w", cerr)
-		}
-	}
 	if q.updateNodeExecutionStmt != nil {
 		if cerr := q.updateNodeExecutionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateNodeExecutionStmt: %w", cerr)
-		}
-	}
-	if q.updateQueryStmt != nil {
-		if cerr := q.updateQueryStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateQueryStmt: %w", cerr)
 		}
 	}
 	if q.updateTagStmt != nil {
@@ -3267,11 +1728,6 @@ func (q *Queries) Close() error {
 	if q.updateVariableStmt != nil {
 		if cerr := q.updateVariableStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateVariableStmt: %w", cerr)
-		}
-	}
-	if q.updateVisualizeModeStmt != nil {
-		if cerr := q.updateVisualizeModeStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateVisualizeModeStmt: %w", cerr)
 		}
 	}
 	if q.updateWorkspaceStmt != nil {
@@ -3349,19 +1805,7 @@ type Queries struct {
 	db                                         DBTX
 	tx                                         *sql.Tx
 	checkIFWorkspaceUserExistsStmt             *sql.Stmt
-	createAssertStmt                           *sql.Stmt
-	createAssertBulkStmt                       *sql.Stmt
-	createAssertResultStmt                     *sql.Stmt
-	createBodyFormStmt                         *sql.Stmt
-	createBodyFormBulkStmt                     *sql.Stmt
-	createBodyRawStmt                          *sql.Stmt
-	createBodyRawBulkStmt                      *sql.Stmt
-	createBodyUrlEncodedStmt                   *sql.Stmt
-	createBodyUrlEncodedBulkStmt               *sql.Stmt
 	createEnvironmentStmt                      *sql.Stmt
-	createExampleRespStmt                      *sql.Stmt
-	createExampleRespHeaderStmt                *sql.Stmt
-	createExampleRespHeaderBulkStmt            *sql.Stmt
 	createFileStmt                             *sql.Stmt
 	createFlowStmt                             *sql.Stmt
 	createFlowEdgeStmt                         *sql.Stmt
@@ -3390,33 +1834,16 @@ type Queries struct {
 	createHTTPResponseHeaderStmt               *sql.Stmt
 	createHTTPResponseHeaderBulkStmt           *sql.Stmt
 	createHTTPSearchParamStmt                  *sql.Stmt
-	createHeaderStmt                           *sql.Stmt
-	createHeaderBulkStmt                       *sql.Stmt
 	createHttpVersionStmt                      *sql.Stmt
-	createItemApiStmt                          *sql.Stmt
-	createItemApiBulkStmt                      *sql.Stmt
-	createItemApiExampleStmt                   *sql.Stmt
-	createItemApiExampleBulkStmt               *sql.Stmt
-	createItemFolderStmt                       *sql.Stmt
-	createItemFolderBulkStmt                   *sql.Stmt
 	createMigrationStmt                        *sql.Stmt
 	createNodeExecutionStmt                    *sql.Stmt
-	createQueryStmt                            *sql.Stmt
-	createQueryBulkStmt                        *sql.Stmt
 	createTagStmt                              *sql.Stmt
 	createUserStmt                             *sql.Stmt
 	createVariableStmt                         *sql.Stmt
 	createVariableBulkStmt                     *sql.Stmt
 	createWorkspaceStmt                        *sql.Stmt
 	createWorkspaceUserStmt                    *sql.Stmt
-	deleteAssertStmt                           *sql.Stmt
-	deleteAssertResultStmt                     *sql.Stmt
-	deleteBodyFormStmt                         *sql.Stmt
-	deleteBodyRawStmt                          *sql.Stmt
-	deleteBodyURLEncodedStmt                   *sql.Stmt
 	deleteEnvironmentStmt                      *sql.Stmt
-	deleteExampleRespStmt                      *sql.Stmt
-	deleteExampleRespHeaderStmt                *sql.Stmt
 	deleteFileStmt                             *sql.Stmt
 	deleteFlowStmt                             *sql.Stmt
 	deleteFlowEdgeStmt                         *sql.Stmt
@@ -3439,136 +1866,19 @@ type Queries struct {
 	deleteHTTPResponseAssertStmt               *sql.Stmt
 	deleteHTTPResponseHeaderStmt               *sql.Stmt
 	deleteHTTPSearchParamStmt                  *sql.Stmt
-	deleteHeaderStmt                           *sql.Stmt
-	deleteItemApiStmt                          *sql.Stmt
-	deleteItemApiExampleStmt                   *sql.Stmt
-	deleteItemFolderStmt                       *sql.Stmt
 	deleteMigrationStmt                        *sql.Stmt
 	deleteNodeExecutionsByNodeIDStmt           *sql.Stmt
 	deleteNodeExecutionsByNodeIDsStmt          *sql.Stmt
-	deleteQueryStmt                            *sql.Stmt
 	deleteTagStmt                              *sql.Stmt
 	deleteUserStmt                             *sql.Stmt
 	deleteVariableStmt                         *sql.Stmt
 	deleteWorkspaceStmt                        *sql.Stmt
 	deleteWorkspaceUserStmt                    *sql.Stmt
-	deltaFormDeltaDeleteStmt                   *sql.Stmt
-	deltaFormDeltaExistsStmt                   *sql.Stmt
-	deltaFormDeltaGetStmt                      *sql.Stmt
-	deltaFormDeltaInsertStmt                   *sql.Stmt
-	deltaFormDeltaUpdateStmt                   *sql.Stmt
-	deltaFormOrderCountStmt                    *sql.Stmt
-	deltaFormOrderDeleteByRefStmt              *sql.Stmt
-	deltaFormOrderExistsStmt                   *sql.Stmt
-	deltaFormOrderInsertIgnoreStmt             *sql.Stmt
-	deltaFormOrderLastRankStmt                 *sql.Stmt
-	deltaFormOrderSelectAscStmt                *sql.Stmt
-	deltaFormOrderUpsertStmt                   *sql.Stmt
-	deltaFormResolveExampleByDeltaIDStmt       *sql.Stmt
-	deltaFormResolveExampleByOrderRefIDStmt    *sql.Stmt
-	deltaFormStateClearOverridesStmt           *sql.Stmt
-	deltaFormStateGetStmt                      *sql.Stmt
-	deltaFormStateSuppressStmt                 *sql.Stmt
-	deltaFormStateUnsuppressStmt               *sql.Stmt
-	deltaFormStateUpsertStmt                   *sql.Stmt
-	deltaHeaderDeltaDeleteStmt                 *sql.Stmt
-	deltaHeaderDeltaExistsStmt                 *sql.Stmt
-	deltaHeaderDeltaGetStmt                    *sql.Stmt
-	deltaHeaderDeltaInsertStmt                 *sql.Stmt
-	deltaHeaderDeltaUpdateStmt                 *sql.Stmt
-	deltaHeaderOrderCountStmt                  *sql.Stmt
-	deltaHeaderOrderDeleteByRefStmt            *sql.Stmt
-	deltaHeaderOrderExistsStmt                 *sql.Stmt
-	deltaHeaderOrderInsertIgnoreStmt           *sql.Stmt
-	deltaHeaderOrderLastRankStmt               *sql.Stmt
-	deltaHeaderOrderSelectAscStmt              *sql.Stmt
-	deltaHeaderOrderUpsertStmt                 *sql.Stmt
-	deltaHeaderResolveExampleByDeltaIDStmt     *sql.Stmt
-	deltaHeaderResolveExampleByOrderRefIDStmt  *sql.Stmt
-	deltaHeaderStateClearOverridesStmt         *sql.Stmt
-	deltaHeaderStateGetStmt                    *sql.Stmt
-	deltaHeaderStateSuppressStmt               *sql.Stmt
-	deltaHeaderStateUnsuppressStmt             *sql.Stmt
-	deltaHeaderStateUpsertStmt                 *sql.Stmt
-	deltaQueryDeltaDeleteStmt                  *sql.Stmt
-	deltaQueryDeltaExistsStmt                  *sql.Stmt
-	deltaQueryDeltaGetStmt                     *sql.Stmt
-	deltaQueryDeltaInsertStmt                  *sql.Stmt
-	deltaQueryDeltaUpdateStmt                  *sql.Stmt
-	deltaQueryOrderCountStmt                   *sql.Stmt
-	deltaQueryOrderDeleteByRefStmt             *sql.Stmt
-	deltaQueryOrderExistsStmt                  *sql.Stmt
-	deltaQueryOrderInsertIgnoreStmt            *sql.Stmt
-	deltaQueryOrderLastRankStmt                *sql.Stmt
-	deltaQueryOrderSelectAscStmt               *sql.Stmt
-	deltaQueryOrderUpsertStmt                  *sql.Stmt
-	deltaQueryResolveExampleByDeltaIDStmt      *sql.Stmt
-	deltaQueryResolveExampleByOrderRefIDStmt   *sql.Stmt
-	deltaQueryStateClearOverridesStmt          *sql.Stmt
-	deltaQueryStateGetStmt                     *sql.Stmt
-	deltaQueryStateSuppressStmt                *sql.Stmt
-	deltaQueryStateUnsuppressStmt              *sql.Stmt
-	deltaQueryStateUpsertStmt                  *sql.Stmt
-	deltaUrlencDeltaDeleteStmt                 *sql.Stmt
-	deltaUrlencDeltaExistsStmt                 *sql.Stmt
-	deltaUrlencDeltaGetStmt                    *sql.Stmt
-	deltaUrlencDeltaInsertStmt                 *sql.Stmt
-	deltaUrlencDeltaUpdateStmt                 *sql.Stmt
-	deltaUrlencOrderCountStmt                  *sql.Stmt
-	deltaUrlencOrderDeleteByRefStmt            *sql.Stmt
-	deltaUrlencOrderExistsStmt                 *sql.Stmt
-	deltaUrlencOrderInsertIgnoreStmt           *sql.Stmt
-	deltaUrlencOrderLastRankStmt               *sql.Stmt
-	deltaUrlencOrderSelectAscStmt              *sql.Stmt
-	deltaUrlencOrderUpsertStmt                 *sql.Stmt
-	deltaUrlencResolveExampleByDeltaIDStmt     *sql.Stmt
-	deltaUrlencResolveExampleByOrderRefIDStmt  *sql.Stmt
-	deltaUrlencStateClearOverridesStmt         *sql.Stmt
-	deltaUrlencStateGetStmt                    *sql.Stmt
-	deltaUrlencStateSuppressStmt               *sql.Stmt
-	deltaUrlencStateUnsuppressStmt             *sql.Stmt
-	deltaUrlencStateUpsertStmt                 *sql.Stmt
-	getAPIContentStmt                          *sql.Stmt
-	getAllExamplesByEndpointIDStmt             *sql.Stmt
-	getAllHeadersByExampleIDStmt               *sql.Stmt
-	getAllItemsApiByFolderIDStmt               *sql.Stmt
 	getAllWorkspacesByUserIDStmt               *sql.Stmt
-	getAssertStmt                              *sql.Stmt
-	getAssertResultStmt                        *sql.Stmt
-	getAssertResultsByAssertIDStmt             *sql.Stmt
-	getAssertResultsByResponseIDStmt           *sql.Stmt
-	getAssertTailStmt                          *sql.Stmt
-	getAssertsByDeltaParentStmt                *sql.Stmt
-	getAssertsByExampleIDStmt                  *sql.Stmt
-	getAssertsByExampleIDOrderedStmt           *sql.Stmt
-	getAssertsByExampleIDsStmt                 *sql.Stmt
-	getBodyFormStmt                            *sql.Stmt
-	getBodyFormsByDeltaParentIDStmt            *sql.Stmt
-	getBodyFormsByExampleIDStmt                *sql.Stmt
-	getBodyFormsByExampleIDsStmt               *sql.Stmt
-	getBodyRawStmt                             *sql.Stmt
-	getBodyRawsByExampleIDStmt                 *sql.Stmt
-	getBodyRawsByExampleIDsStmt                *sql.Stmt
-	getBodyUrlEncodedStmt                      *sql.Stmt
-	getBodyUrlEncodedLinksStmt                 *sql.Stmt
-	getBodyUrlEncodedTailStmt                  *sql.Stmt
-	getBodyUrlEncodedTailExcludingIDStmt       *sql.Stmt
-	getBodyUrlEncodedsByDeltaParentIDStmt      *sql.Stmt
-	getBodyUrlEncodedsByExampleIDStmt          *sql.Stmt
-	getBodyUrlEncodedsByExampleIDOrderedStmt   *sql.Stmt
-	getBodyUrlEncodedsByExampleIDsStmt         *sql.Stmt
 	getEnvironmentStmt                         *sql.Stmt
 	getEnvironmentWorkspaceIDStmt              *sql.Stmt
 	getEnvironmentsByWorkspaceIDStmt           *sql.Stmt
 	getEnvironmentsByWorkspaceIDOrderedStmt    *sql.Stmt
-	getExampleRespStmt                         *sql.Stmt
-	getExampleRespByExampleIDStmt              *sql.Stmt
-	getExampleRespByExampleIDLatestStmt        *sql.Stmt
-	getExampleRespByExampleIDsLatestStmt       *sql.Stmt
-	getExampleRespHeaderStmt                   *sql.Stmt
-	getExampleRespHeadersByRespIDStmt          *sql.Stmt
-	getExampleRespHeadersByRespIDsStmt         *sql.Stmt
-	getExamplesByEndpointIDOrderedStmt         *sql.Stmt
 	getFileStmt                                *sql.Stmt
 	getFileWithContentStmt                     *sql.Stmt
 	getFileWorkspaceIDStmt                     *sql.Stmt
@@ -3596,11 +1906,12 @@ type Queries struct {
 	getFlowVariablesByFlowIDOrderedStmt        *sql.Stmt
 	getFlowsByVersionParentIDStmt              *sql.Stmt
 	getFlowsByWorkspaceIDStmt                  *sql.Stmt
-	getFolderContentStmt                       *sql.Stmt
 	getHTTPStmt                                *sql.Stmt
 	getHTTPAssertStmt                          *sql.Stmt
 	getHTTPAssertsByHttpIDStmt                 *sql.Stmt
 	getHTTPAssertsByIDsStmt                    *sql.Stmt
+	getHTTPBatchForStreamingStmt               *sql.Stmt
+	getHTTPBodyFormStreamingStmt               *sql.Stmt
 	getHTTPBodyFormsStmt                       *sql.Stmt
 	getHTTPBodyFormsByIDsStmt                  *sql.Stmt
 	getHTTPBodyRawStmt                         *sql.Stmt
@@ -3609,8 +1920,11 @@ type Queries struct {
 	getHTTPBodyUrlEncodedByHttpIDStmt          *sql.Stmt
 	getHTTPBodyUrlEncodedsByIDsStmt            *sql.Stmt
 	getHTTPDeltasByParentIDStmt                *sql.Stmt
+	getHTTPDeltasSinceStmt                     *sql.Stmt
 	getHTTPHeadersStmt                         *sql.Stmt
 	getHTTPHeadersByIDsStmt                    *sql.Stmt
+	getHTTPHeadersStreamingStmt                *sql.Stmt
+	getHTTPIncrementalUpdatesStmt              *sql.Stmt
 	getHTTPResponseStmt                        *sql.Stmt
 	getHTTPResponseAssertStmt                  *sql.Stmt
 	getHTTPResponseAssertsByHttpIDStmt         *sql.Stmt
@@ -3624,42 +1938,21 @@ type Queries struct {
 	getHTTPResponsesByIDsStmt                  *sql.Stmt
 	getHTTPSearchParamsStmt                    *sql.Stmt
 	getHTTPSearchParamsByIDsStmt               *sql.Stmt
+	getHTTPSearchParamsStreamingStmt           *sql.Stmt
+	getHTTPSnapshotCountStmt                   *sql.Stmt
+	getHTTPSnapshotPageStmt                    *sql.Stmt
+	getHTTPStreamingMetricsStmt                *sql.Stmt
+	getHTTPWorkspaceActivityStmt               *sql.Stmt
 	getHTTPWorkspaceIDStmt                     *sql.Stmt
 	getHTTPsByFolderIDStmt                     *sql.Stmt
 	getHTTPsByIDsStmt                          *sql.Stmt
 	getHTTPsByWorkspaceIDStmt                  *sql.Stmt
-	getHeaderStmt                              *sql.Stmt
-	getHeaderByDeltaParentIDStmt               *sql.Stmt
-	getHeaderTailStmt                          *sql.Stmt
-	getHeadersByExampleIDStmt                  *sql.Stmt
-	getHeadersByExampleIDOrderedStmt           *sql.Stmt
-	getHeadersByExampleIDsStmt                 *sql.Stmt
 	getHttpVersionsByHttpIDStmt                *sql.Stmt
-	getItemApiStmt                             *sql.Stmt
-	getItemApiByFolderIDAndNextIDStmt          *sql.Stmt
-	getItemApiByFolderIDAndURLAndMethodStmt    *sql.Stmt
-	getItemApiExampleStmt                      *sql.Stmt
-	getItemApiExampleByVersionParentIDStmt     *sql.Stmt
-	getItemApiExampleDefaultStmt               *sql.Stmt
-	getItemApiExamplesStmt                     *sql.Stmt
-	getItemApiExamplesByIDsStmt                *sql.Stmt
-	getItemApiExamplesByItemApiIDStmt          *sql.Stmt
-	getItemApiExamplesWithDefaultsStmt         *sql.Stmt
-	getItemApisByIDsStmt                       *sql.Stmt
-	getItemExampleByNextIDAndItemApiIDStmt     *sql.Stmt
-	getItemFolderStmt                          *sql.Stmt
-	getItemFolderByParentIDAndNextIDStmt       *sql.Stmt
-	getItemFoldersByParentIDStmt               *sql.Stmt
-	getItemsApiByFolderIDStmt                  *sql.Stmt
 	getLatestNodeExecutionByNodeIDStmt         *sql.Stmt
 	getMigrationStmt                           *sql.Stmt
 	getMigrationsStmt                          *sql.Stmt
 	getNodeExecutionStmt                       *sql.Stmt
 	getNodeExecutionsByNodeIDStmt              *sql.Stmt
-	getQueriesByExampleIDStmt                  *sql.Stmt
-	getQueriesByExampleIDsStmt                 *sql.Stmt
-	getQueryStmt                               *sql.Stmt
-	getQueryByDeltaParentIDStmt                *sql.Stmt
 	getRootFilesByWorkspaceIDStmt              *sql.Stmt
 	getTagStmt                                 *sql.Stmt
 	getTagsByWorkspaceIDStmt                   *sql.Stmt
@@ -3683,26 +1976,8 @@ type Queries struct {
 	listNodeExecutionsByFlowRunStmt            *sql.Stmt
 	listNodeExecutionsByStateStmt              *sql.Stmt
 	resetHTTPBodyFormDeltaStmt                 *sql.Stmt
-	setBodyFormEnableStmt                      *sql.Stmt
-	setHeaderEnableStmt                        *sql.Stmt
-	setQueryEnableStmt                         *sql.Stmt
-	updateAssertStmt                           *sql.Stmt
-	updateAssertNextStmt                       *sql.Stmt
-	updateAssertOrderStmt                      *sql.Stmt
-	updateAssertPrevStmt                       *sql.Stmt
-	updateAssertResultStmt                     *sql.Stmt
-	updateBodyFormStmt                         *sql.Stmt
-	updateBodyRawDataStmt                      *sql.Stmt
-	updateBodyUrlEncodedStmt                   *sql.Stmt
-	updateBodyUrlEncodedNextStmt               *sql.Stmt
-	updateBodyUrlEncodedOrderStmt              *sql.Stmt
-	updateBodyUrlEncodedPrevStmt               *sql.Stmt
+	resolveHTTPWithDeltasStmt                  *sql.Stmt
 	updateEnvironmentStmt                      *sql.Stmt
-	updateExampleNextStmt                      *sql.Stmt
-	updateExampleOrderStmt                     *sql.Stmt
-	updateExamplePrevStmt                      *sql.Stmt
-	updateExampleRespStmt                      *sql.Stmt
-	updateExampleRespHeaderStmt                *sql.Stmt
 	updateFileStmt                             *sql.Stmt
 	updateFlowStmt                             *sql.Stmt
 	updateFlowEdgeStmt                         *sql.Stmt
@@ -3735,22 +2010,10 @@ type Queries struct {
 	updateHTTPSearchParamStmt                  *sql.Stmt
 	updateHTTPSearchParamDeltaStmt             *sql.Stmt
 	updateHTTPSearchParamOrderStmt             *sql.Stmt
-	updateHeaderStmt                           *sql.Stmt
-	updateHeaderNextStmt                       *sql.Stmt
-	updateHeaderOrderStmt                      *sql.Stmt
-	updateHeaderPrevStmt                       *sql.Stmt
-	updateItemApiStmt                          *sql.Stmt
-	updateItemApiExampleStmt                   *sql.Stmt
-	updateItemApiExampleOrderStmt              *sql.Stmt
-	updateItemApiOrderStmt                     *sql.Stmt
-	updateItemFolderStmt                       *sql.Stmt
-	updateItemFolderOrderStmt                  *sql.Stmt
 	updateNodeExecutionStmt                    *sql.Stmt
-	updateQueryStmt                            *sql.Stmt
 	updateTagStmt                              *sql.Stmt
 	updateUserStmt                             *sql.Stmt
 	updateVariableStmt                         *sql.Stmt
-	updateVisualizeModeStmt                    *sql.Stmt
 	updateWorkspaceStmt                        *sql.Stmt
 	updateWorkspaceNextStmt                    *sql.Stmt
 	updateWorkspaceOrderStmt                   *sql.Stmt
@@ -3765,19 +2028,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		db:                                         tx,
 		tx:                                         tx,
 		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,
-		createAssertStmt:                           q.createAssertStmt,
-		createAssertBulkStmt:                       q.createAssertBulkStmt,
-		createAssertResultStmt:                     q.createAssertResultStmt,
-		createBodyFormStmt:                         q.createBodyFormStmt,
-		createBodyFormBulkStmt:                     q.createBodyFormBulkStmt,
-		createBodyRawStmt:                          q.createBodyRawStmt,
-		createBodyRawBulkStmt:                      q.createBodyRawBulkStmt,
-		createBodyUrlEncodedStmt:                   q.createBodyUrlEncodedStmt,
-		createBodyUrlEncodedBulkStmt:               q.createBodyUrlEncodedBulkStmt,
 		createEnvironmentStmt:                      q.createEnvironmentStmt,
-		createExampleRespStmt:                      q.createExampleRespStmt,
-		createExampleRespHeaderStmt:                q.createExampleRespHeaderStmt,
-		createExampleRespHeaderBulkStmt:            q.createExampleRespHeaderBulkStmt,
 		createFileStmt:                             q.createFileStmt,
 		createFlowStmt:                             q.createFlowStmt,
 		createFlowEdgeStmt:                         q.createFlowEdgeStmt,
@@ -3806,33 +2057,16 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createHTTPResponseHeaderStmt:               q.createHTTPResponseHeaderStmt,
 		createHTTPResponseHeaderBulkStmt:           q.createHTTPResponseHeaderBulkStmt,
 		createHTTPSearchParamStmt:                  q.createHTTPSearchParamStmt,
-		createHeaderStmt:                           q.createHeaderStmt,
-		createHeaderBulkStmt:                       q.createHeaderBulkStmt,
 		createHttpVersionStmt:                      q.createHttpVersionStmt,
-		createItemApiStmt:                          q.createItemApiStmt,
-		createItemApiBulkStmt:                      q.createItemApiBulkStmt,
-		createItemApiExampleStmt:                   q.createItemApiExampleStmt,
-		createItemApiExampleBulkStmt:               q.createItemApiExampleBulkStmt,
-		createItemFolderStmt:                       q.createItemFolderStmt,
-		createItemFolderBulkStmt:                   q.createItemFolderBulkStmt,
 		createMigrationStmt:                        q.createMigrationStmt,
 		createNodeExecutionStmt:                    q.createNodeExecutionStmt,
-		createQueryStmt:                            q.createQueryStmt,
-		createQueryBulkStmt:                        q.createQueryBulkStmt,
 		createTagStmt:                              q.createTagStmt,
 		createUserStmt:                             q.createUserStmt,
 		createVariableStmt:                         q.createVariableStmt,
 		createVariableBulkStmt:                     q.createVariableBulkStmt,
 		createWorkspaceStmt:                        q.createWorkspaceStmt,
 		createWorkspaceUserStmt:                    q.createWorkspaceUserStmt,
-		deleteAssertStmt:                           q.deleteAssertStmt,
-		deleteAssertResultStmt:                     q.deleteAssertResultStmt,
-		deleteBodyFormStmt:                         q.deleteBodyFormStmt,
-		deleteBodyRawStmt:                          q.deleteBodyRawStmt,
-		deleteBodyURLEncodedStmt:                   q.deleteBodyURLEncodedStmt,
 		deleteEnvironmentStmt:                      q.deleteEnvironmentStmt,
-		deleteExampleRespStmt:                      q.deleteExampleRespStmt,
-		deleteExampleRespHeaderStmt:                q.deleteExampleRespHeaderStmt,
 		deleteFileStmt:                             q.deleteFileStmt,
 		deleteFlowStmt:                             q.deleteFlowStmt,
 		deleteFlowEdgeStmt:                         q.deleteFlowEdgeStmt,
@@ -3855,136 +2089,19 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteHTTPResponseAssertStmt:               q.deleteHTTPResponseAssertStmt,
 		deleteHTTPResponseHeaderStmt:               q.deleteHTTPResponseHeaderStmt,
 		deleteHTTPSearchParamStmt:                  q.deleteHTTPSearchParamStmt,
-		deleteHeaderStmt:                           q.deleteHeaderStmt,
-		deleteItemApiStmt:                          q.deleteItemApiStmt,
-		deleteItemApiExampleStmt:                   q.deleteItemApiExampleStmt,
-		deleteItemFolderStmt:                       q.deleteItemFolderStmt,
 		deleteMigrationStmt:                        q.deleteMigrationStmt,
 		deleteNodeExecutionsByNodeIDStmt:           q.deleteNodeExecutionsByNodeIDStmt,
 		deleteNodeExecutionsByNodeIDsStmt:          q.deleteNodeExecutionsByNodeIDsStmt,
-		deleteQueryStmt:                            q.deleteQueryStmt,
 		deleteTagStmt:                              q.deleteTagStmt,
 		deleteUserStmt:                             q.deleteUserStmt,
 		deleteVariableStmt:                         q.deleteVariableStmt,
 		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
-		deltaFormDeltaDeleteStmt:                   q.deltaFormDeltaDeleteStmt,
-		deltaFormDeltaExistsStmt:                   q.deltaFormDeltaExistsStmt,
-		deltaFormDeltaGetStmt:                      q.deltaFormDeltaGetStmt,
-		deltaFormDeltaInsertStmt:                   q.deltaFormDeltaInsertStmt,
-		deltaFormDeltaUpdateStmt:                   q.deltaFormDeltaUpdateStmt,
-		deltaFormOrderCountStmt:                    q.deltaFormOrderCountStmt,
-		deltaFormOrderDeleteByRefStmt:              q.deltaFormOrderDeleteByRefStmt,
-		deltaFormOrderExistsStmt:                   q.deltaFormOrderExistsStmt,
-		deltaFormOrderInsertIgnoreStmt:             q.deltaFormOrderInsertIgnoreStmt,
-		deltaFormOrderLastRankStmt:                 q.deltaFormOrderLastRankStmt,
-		deltaFormOrderSelectAscStmt:                q.deltaFormOrderSelectAscStmt,
-		deltaFormOrderUpsertStmt:                   q.deltaFormOrderUpsertStmt,
-		deltaFormResolveExampleByDeltaIDStmt:       q.deltaFormResolveExampleByDeltaIDStmt,
-		deltaFormResolveExampleByOrderRefIDStmt:    q.deltaFormResolveExampleByOrderRefIDStmt,
-		deltaFormStateClearOverridesStmt:           q.deltaFormStateClearOverridesStmt,
-		deltaFormStateGetStmt:                      q.deltaFormStateGetStmt,
-		deltaFormStateSuppressStmt:                 q.deltaFormStateSuppressStmt,
-		deltaFormStateUnsuppressStmt:               q.deltaFormStateUnsuppressStmt,
-		deltaFormStateUpsertStmt:                   q.deltaFormStateUpsertStmt,
-		deltaHeaderDeltaDeleteStmt:                 q.deltaHeaderDeltaDeleteStmt,
-		deltaHeaderDeltaExistsStmt:                 q.deltaHeaderDeltaExistsStmt,
-		deltaHeaderDeltaGetStmt:                    q.deltaHeaderDeltaGetStmt,
-		deltaHeaderDeltaInsertStmt:                 q.deltaHeaderDeltaInsertStmt,
-		deltaHeaderDeltaUpdateStmt:                 q.deltaHeaderDeltaUpdateStmt,
-		deltaHeaderOrderCountStmt:                  q.deltaHeaderOrderCountStmt,
-		deltaHeaderOrderDeleteByRefStmt:            q.deltaHeaderOrderDeleteByRefStmt,
-		deltaHeaderOrderExistsStmt:                 q.deltaHeaderOrderExistsStmt,
-		deltaHeaderOrderInsertIgnoreStmt:           q.deltaHeaderOrderInsertIgnoreStmt,
-		deltaHeaderOrderLastRankStmt:               q.deltaHeaderOrderLastRankStmt,
-		deltaHeaderOrderSelectAscStmt:              q.deltaHeaderOrderSelectAscStmt,
-		deltaHeaderOrderUpsertStmt:                 q.deltaHeaderOrderUpsertStmt,
-		deltaHeaderResolveExampleByDeltaIDStmt:     q.deltaHeaderResolveExampleByDeltaIDStmt,
-		deltaHeaderResolveExampleByOrderRefIDStmt:  q.deltaHeaderResolveExampleByOrderRefIDStmt,
-		deltaHeaderStateClearOverridesStmt:         q.deltaHeaderStateClearOverridesStmt,
-		deltaHeaderStateGetStmt:                    q.deltaHeaderStateGetStmt,
-		deltaHeaderStateSuppressStmt:               q.deltaHeaderStateSuppressStmt,
-		deltaHeaderStateUnsuppressStmt:             q.deltaHeaderStateUnsuppressStmt,
-		deltaHeaderStateUpsertStmt:                 q.deltaHeaderStateUpsertStmt,
-		deltaQueryDeltaDeleteStmt:                  q.deltaQueryDeltaDeleteStmt,
-		deltaQueryDeltaExistsStmt:                  q.deltaQueryDeltaExistsStmt,
-		deltaQueryDeltaGetStmt:                     q.deltaQueryDeltaGetStmt,
-		deltaQueryDeltaInsertStmt:                  q.deltaQueryDeltaInsertStmt,
-		deltaQueryDeltaUpdateStmt:                  q.deltaQueryDeltaUpdateStmt,
-		deltaQueryOrderCountStmt:                   q.deltaQueryOrderCountStmt,
-		deltaQueryOrderDeleteByRefStmt:             q.deltaQueryOrderDeleteByRefStmt,
-		deltaQueryOrderExistsStmt:                  q.deltaQueryOrderExistsStmt,
-		deltaQueryOrderInsertIgnoreStmt:            q.deltaQueryOrderInsertIgnoreStmt,
-		deltaQueryOrderLastRankStmt:                q.deltaQueryOrderLastRankStmt,
-		deltaQueryOrderSelectAscStmt:               q.deltaQueryOrderSelectAscStmt,
-		deltaQueryOrderUpsertStmt:                  q.deltaQueryOrderUpsertStmt,
-		deltaQueryResolveExampleByDeltaIDStmt:      q.deltaQueryResolveExampleByDeltaIDStmt,
-		deltaQueryResolveExampleByOrderRefIDStmt:   q.deltaQueryResolveExampleByOrderRefIDStmt,
-		deltaQueryStateClearOverridesStmt:          q.deltaQueryStateClearOverridesStmt,
-		deltaQueryStateGetStmt:                     q.deltaQueryStateGetStmt,
-		deltaQueryStateSuppressStmt:                q.deltaQueryStateSuppressStmt,
-		deltaQueryStateUnsuppressStmt:              q.deltaQueryStateUnsuppressStmt,
-		deltaQueryStateUpsertStmt:                  q.deltaQueryStateUpsertStmt,
-		deltaUrlencDeltaDeleteStmt:                 q.deltaUrlencDeltaDeleteStmt,
-		deltaUrlencDeltaExistsStmt:                 q.deltaUrlencDeltaExistsStmt,
-		deltaUrlencDeltaGetStmt:                    q.deltaUrlencDeltaGetStmt,
-		deltaUrlencDeltaInsertStmt:                 q.deltaUrlencDeltaInsertStmt,
-		deltaUrlencDeltaUpdateStmt:                 q.deltaUrlencDeltaUpdateStmt,
-		deltaUrlencOrderCountStmt:                  q.deltaUrlencOrderCountStmt,
-		deltaUrlencOrderDeleteByRefStmt:            q.deltaUrlencOrderDeleteByRefStmt,
-		deltaUrlencOrderExistsStmt:                 q.deltaUrlencOrderExistsStmt,
-		deltaUrlencOrderInsertIgnoreStmt:           q.deltaUrlencOrderInsertIgnoreStmt,
-		deltaUrlencOrderLastRankStmt:               q.deltaUrlencOrderLastRankStmt,
-		deltaUrlencOrderSelectAscStmt:              q.deltaUrlencOrderSelectAscStmt,
-		deltaUrlencOrderUpsertStmt:                 q.deltaUrlencOrderUpsertStmt,
-		deltaUrlencResolveExampleByDeltaIDStmt:     q.deltaUrlencResolveExampleByDeltaIDStmt,
-		deltaUrlencResolveExampleByOrderRefIDStmt:  q.deltaUrlencResolveExampleByOrderRefIDStmt,
-		deltaUrlencStateClearOverridesStmt:         q.deltaUrlencStateClearOverridesStmt,
-		deltaUrlencStateGetStmt:                    q.deltaUrlencStateGetStmt,
-		deltaUrlencStateSuppressStmt:               q.deltaUrlencStateSuppressStmt,
-		deltaUrlencStateUnsuppressStmt:             q.deltaUrlencStateUnsuppressStmt,
-		deltaUrlencStateUpsertStmt:                 q.deltaUrlencStateUpsertStmt,
-		getAPIContentStmt:                          q.getAPIContentStmt,
-		getAllExamplesByEndpointIDStmt:             q.getAllExamplesByEndpointIDStmt,
-		getAllHeadersByExampleIDStmt:               q.getAllHeadersByExampleIDStmt,
-		getAllItemsApiByFolderIDStmt:               q.getAllItemsApiByFolderIDStmt,
 		getAllWorkspacesByUserIDStmt:               q.getAllWorkspacesByUserIDStmt,
-		getAssertStmt:                              q.getAssertStmt,
-		getAssertResultStmt:                        q.getAssertResultStmt,
-		getAssertResultsByAssertIDStmt:             q.getAssertResultsByAssertIDStmt,
-		getAssertResultsByResponseIDStmt:           q.getAssertResultsByResponseIDStmt,
-		getAssertTailStmt:                          q.getAssertTailStmt,
-		getAssertsByDeltaParentStmt:                q.getAssertsByDeltaParentStmt,
-		getAssertsByExampleIDStmt:                  q.getAssertsByExampleIDStmt,
-		getAssertsByExampleIDOrderedStmt:           q.getAssertsByExampleIDOrderedStmt,
-		getAssertsByExampleIDsStmt:                 q.getAssertsByExampleIDsStmt,
-		getBodyFormStmt:                            q.getBodyFormStmt,
-		getBodyFormsByDeltaParentIDStmt:            q.getBodyFormsByDeltaParentIDStmt,
-		getBodyFormsByExampleIDStmt:                q.getBodyFormsByExampleIDStmt,
-		getBodyFormsByExampleIDsStmt:               q.getBodyFormsByExampleIDsStmt,
-		getBodyRawStmt:                             q.getBodyRawStmt,
-		getBodyRawsByExampleIDStmt:                 q.getBodyRawsByExampleIDStmt,
-		getBodyRawsByExampleIDsStmt:                q.getBodyRawsByExampleIDsStmt,
-		getBodyUrlEncodedStmt:                      q.getBodyUrlEncodedStmt,
-		getBodyUrlEncodedLinksStmt:                 q.getBodyUrlEncodedLinksStmt,
-		getBodyUrlEncodedTailStmt:                  q.getBodyUrlEncodedTailStmt,
-		getBodyUrlEncodedTailExcludingIDStmt:       q.getBodyUrlEncodedTailExcludingIDStmt,
-		getBodyUrlEncodedsByDeltaParentIDStmt:      q.getBodyUrlEncodedsByDeltaParentIDStmt,
-		getBodyUrlEncodedsByExampleIDStmt:          q.getBodyUrlEncodedsByExampleIDStmt,
-		getBodyUrlEncodedsByExampleIDOrderedStmt:   q.getBodyUrlEncodedsByExampleIDOrderedStmt,
-		getBodyUrlEncodedsByExampleIDsStmt:         q.getBodyUrlEncodedsByExampleIDsStmt,
 		getEnvironmentStmt:                         q.getEnvironmentStmt,
 		getEnvironmentWorkspaceIDStmt:              q.getEnvironmentWorkspaceIDStmt,
 		getEnvironmentsByWorkspaceIDStmt:           q.getEnvironmentsByWorkspaceIDStmt,
 		getEnvironmentsByWorkspaceIDOrderedStmt:    q.getEnvironmentsByWorkspaceIDOrderedStmt,
-		getExampleRespStmt:                         q.getExampleRespStmt,
-		getExampleRespByExampleIDStmt:              q.getExampleRespByExampleIDStmt,
-		getExampleRespByExampleIDLatestStmt:        q.getExampleRespByExampleIDLatestStmt,
-		getExampleRespByExampleIDsLatestStmt:       q.getExampleRespByExampleIDsLatestStmt,
-		getExampleRespHeaderStmt:                   q.getExampleRespHeaderStmt,
-		getExampleRespHeadersByRespIDStmt:          q.getExampleRespHeadersByRespIDStmt,
-		getExampleRespHeadersByRespIDsStmt:         q.getExampleRespHeadersByRespIDsStmt,
-		getExamplesByEndpointIDOrderedStmt:         q.getExamplesByEndpointIDOrderedStmt,
 		getFileStmt:                                q.getFileStmt,
 		getFileWithContentStmt:                     q.getFileWithContentStmt,
 		getFileWorkspaceIDStmt:                     q.getFileWorkspaceIDStmt,
@@ -4012,11 +2129,12 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFlowVariablesByFlowIDOrderedStmt:        q.getFlowVariablesByFlowIDOrderedStmt,
 		getFlowsByVersionParentIDStmt:              q.getFlowsByVersionParentIDStmt,
 		getFlowsByWorkspaceIDStmt:                  q.getFlowsByWorkspaceIDStmt,
-		getFolderContentStmt:                       q.getFolderContentStmt,
 		getHTTPStmt:                                q.getHTTPStmt,
 		getHTTPAssertStmt:                          q.getHTTPAssertStmt,
 		getHTTPAssertsByHttpIDStmt:                 q.getHTTPAssertsByHttpIDStmt,
 		getHTTPAssertsByIDsStmt:                    q.getHTTPAssertsByIDsStmt,
+		getHTTPBatchForStreamingStmt:               q.getHTTPBatchForStreamingStmt,
+		getHTTPBodyFormStreamingStmt:               q.getHTTPBodyFormStreamingStmt,
 		getHTTPBodyFormsStmt:                       q.getHTTPBodyFormsStmt,
 		getHTTPBodyFormsByIDsStmt:                  q.getHTTPBodyFormsByIDsStmt,
 		getHTTPBodyRawStmt:                         q.getHTTPBodyRawStmt,
@@ -4025,8 +2143,11 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPBodyUrlEncodedByHttpIDStmt:          q.getHTTPBodyUrlEncodedByHttpIDStmt,
 		getHTTPBodyUrlEncodedsByIDsStmt:            q.getHTTPBodyUrlEncodedsByIDsStmt,
 		getHTTPDeltasByParentIDStmt:                q.getHTTPDeltasByParentIDStmt,
+		getHTTPDeltasSinceStmt:                     q.getHTTPDeltasSinceStmt,
 		getHTTPHeadersStmt:                         q.getHTTPHeadersStmt,
 		getHTTPHeadersByIDsStmt:                    q.getHTTPHeadersByIDsStmt,
+		getHTTPHeadersStreamingStmt:                q.getHTTPHeadersStreamingStmt,
+		getHTTPIncrementalUpdatesStmt:              q.getHTTPIncrementalUpdatesStmt,
 		getHTTPResponseStmt:                        q.getHTTPResponseStmt,
 		getHTTPResponseAssertStmt:                  q.getHTTPResponseAssertStmt,
 		getHTTPResponseAssertsByHttpIDStmt:         q.getHTTPResponseAssertsByHttpIDStmt,
@@ -4040,42 +2161,21 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPResponsesByIDsStmt:                  q.getHTTPResponsesByIDsStmt,
 		getHTTPSearchParamsStmt:                    q.getHTTPSearchParamsStmt,
 		getHTTPSearchParamsByIDsStmt:               q.getHTTPSearchParamsByIDsStmt,
+		getHTTPSearchParamsStreamingStmt:           q.getHTTPSearchParamsStreamingStmt,
+		getHTTPSnapshotCountStmt:                   q.getHTTPSnapshotCountStmt,
+		getHTTPSnapshotPageStmt:                    q.getHTTPSnapshotPageStmt,
+		getHTTPStreamingMetricsStmt:                q.getHTTPStreamingMetricsStmt,
+		getHTTPWorkspaceActivityStmt:               q.getHTTPWorkspaceActivityStmt,
 		getHTTPWorkspaceIDStmt:                     q.getHTTPWorkspaceIDStmt,
 		getHTTPsByFolderIDStmt:                     q.getHTTPsByFolderIDStmt,
 		getHTTPsByIDsStmt:                          q.getHTTPsByIDsStmt,
 		getHTTPsByWorkspaceIDStmt:                  q.getHTTPsByWorkspaceIDStmt,
-		getHeaderStmt:                              q.getHeaderStmt,
-		getHeaderByDeltaParentIDStmt:               q.getHeaderByDeltaParentIDStmt,
-		getHeaderTailStmt:                          q.getHeaderTailStmt,
-		getHeadersByExampleIDStmt:                  q.getHeadersByExampleIDStmt,
-		getHeadersByExampleIDOrderedStmt:           q.getHeadersByExampleIDOrderedStmt,
-		getHeadersByExampleIDsStmt:                 q.getHeadersByExampleIDsStmt,
 		getHttpVersionsByHttpIDStmt:                q.getHttpVersionsByHttpIDStmt,
-		getItemApiStmt:                             q.getItemApiStmt,
-		getItemApiByFolderIDAndNextIDStmt:          q.getItemApiByFolderIDAndNextIDStmt,
-		getItemApiByFolderIDAndURLAndMethodStmt:    q.getItemApiByFolderIDAndURLAndMethodStmt,
-		getItemApiExampleStmt:                      q.getItemApiExampleStmt,
-		getItemApiExampleByVersionParentIDStmt:     q.getItemApiExampleByVersionParentIDStmt,
-		getItemApiExampleDefaultStmt:               q.getItemApiExampleDefaultStmt,
-		getItemApiExamplesStmt:                     q.getItemApiExamplesStmt,
-		getItemApiExamplesByIDsStmt:                q.getItemApiExamplesByIDsStmt,
-		getItemApiExamplesByItemApiIDStmt:          q.getItemApiExamplesByItemApiIDStmt,
-		getItemApiExamplesWithDefaultsStmt:         q.getItemApiExamplesWithDefaultsStmt,
-		getItemApisByIDsStmt:                       q.getItemApisByIDsStmt,
-		getItemExampleByNextIDAndItemApiIDStmt:     q.getItemExampleByNextIDAndItemApiIDStmt,
-		getItemFolderStmt:                          q.getItemFolderStmt,
-		getItemFolderByParentIDAndNextIDStmt:       q.getItemFolderByParentIDAndNextIDStmt,
-		getItemFoldersByParentIDStmt:               q.getItemFoldersByParentIDStmt,
-		getItemsApiByFolderIDStmt:                  q.getItemsApiByFolderIDStmt,
 		getLatestNodeExecutionByNodeIDStmt:         q.getLatestNodeExecutionByNodeIDStmt,
 		getMigrationStmt:                           q.getMigrationStmt,
 		getMigrationsStmt:                          q.getMigrationsStmt,
 		getNodeExecutionStmt:                       q.getNodeExecutionStmt,
 		getNodeExecutionsByNodeIDStmt:              q.getNodeExecutionsByNodeIDStmt,
-		getQueriesByExampleIDStmt:                  q.getQueriesByExampleIDStmt,
-		getQueriesByExampleIDsStmt:                 q.getQueriesByExampleIDsStmt,
-		getQueryStmt:                               q.getQueryStmt,
-		getQueryByDeltaParentIDStmt:                q.getQueryByDeltaParentIDStmt,
 		getRootFilesByWorkspaceIDStmt:              q.getRootFilesByWorkspaceIDStmt,
 		getTagStmt:                                 q.getTagStmt,
 		getTagsByWorkspaceIDStmt:                   q.getTagsByWorkspaceIDStmt,
@@ -4099,26 +2199,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listNodeExecutionsByFlowRunStmt:            q.listNodeExecutionsByFlowRunStmt,
 		listNodeExecutionsByStateStmt:              q.listNodeExecutionsByStateStmt,
 		resetHTTPBodyFormDeltaStmt:                 q.resetHTTPBodyFormDeltaStmt,
-		setBodyFormEnableStmt:                      q.setBodyFormEnableStmt,
-		setHeaderEnableStmt:                        q.setHeaderEnableStmt,
-		setQueryEnableStmt:                         q.setQueryEnableStmt,
-		updateAssertStmt:                           q.updateAssertStmt,
-		updateAssertNextStmt:                       q.updateAssertNextStmt,
-		updateAssertOrderStmt:                      q.updateAssertOrderStmt,
-		updateAssertPrevStmt:                       q.updateAssertPrevStmt,
-		updateAssertResultStmt:                     q.updateAssertResultStmt,
-		updateBodyFormStmt:                         q.updateBodyFormStmt,
-		updateBodyRawDataStmt:                      q.updateBodyRawDataStmt,
-		updateBodyUrlEncodedStmt:                   q.updateBodyUrlEncodedStmt,
-		updateBodyUrlEncodedNextStmt:               q.updateBodyUrlEncodedNextStmt,
-		updateBodyUrlEncodedOrderStmt:              q.updateBodyUrlEncodedOrderStmt,
-		updateBodyUrlEncodedPrevStmt:               q.updateBodyUrlEncodedPrevStmt,
+		resolveHTTPWithDeltasStmt:                  q.resolveHTTPWithDeltasStmt,
 		updateEnvironmentStmt:                      q.updateEnvironmentStmt,
-		updateExampleNextStmt:                      q.updateExampleNextStmt,
-		updateExampleOrderStmt:                     q.updateExampleOrderStmt,
-		updateExamplePrevStmt:                      q.updateExamplePrevStmt,
-		updateExampleRespStmt:                      q.updateExampleRespStmt,
-		updateExampleRespHeaderStmt:                q.updateExampleRespHeaderStmt,
 		updateFileStmt:                             q.updateFileStmt,
 		updateFlowStmt:                             q.updateFlowStmt,
 		updateFlowEdgeStmt:                         q.updateFlowEdgeStmt,
@@ -4151,22 +2233,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateHTTPSearchParamStmt:                  q.updateHTTPSearchParamStmt,
 		updateHTTPSearchParamDeltaStmt:             q.updateHTTPSearchParamDeltaStmt,
 		updateHTTPSearchParamOrderStmt:             q.updateHTTPSearchParamOrderStmt,
-		updateHeaderStmt:                           q.updateHeaderStmt,
-		updateHeaderNextStmt:                       q.updateHeaderNextStmt,
-		updateHeaderOrderStmt:                      q.updateHeaderOrderStmt,
-		updateHeaderPrevStmt:                       q.updateHeaderPrevStmt,
-		updateItemApiStmt:                          q.updateItemApiStmt,
-		updateItemApiExampleStmt:                   q.updateItemApiExampleStmt,
-		updateItemApiExampleOrderStmt:              q.updateItemApiExampleOrderStmt,
-		updateItemApiOrderStmt:                     q.updateItemApiOrderStmt,
-		updateItemFolderStmt:                       q.updateItemFolderStmt,
-		updateItemFolderOrderStmt:                  q.updateItemFolderOrderStmt,
 		updateNodeExecutionStmt:                    q.updateNodeExecutionStmt,
-		updateQueryStmt:                            q.updateQueryStmt,
 		updateTagStmt:                              q.updateTagStmt,
 		updateUserStmt:                             q.updateUserStmt,
 		updateVariableStmt:                         q.updateVariableStmt,
-		updateVisualizeModeStmt:                    q.updateVisualizeModeStmt,
 		updateWorkspaceStmt:                        q.updateWorkspaceStmt,
 		updateWorkspaceNextStmt:                    q.updateWorkspaceNextStmt,
 		updateWorkspaceOrderStmt:                   q.updateWorkspaceOrderStmt,

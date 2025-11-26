@@ -52,32 +52,6 @@ func (q *Queries) DeleteFile(ctx context.Context, id idwrap.IDWrap) error {
 	return err
 }
 
-const getAPIContent = `-- name: GetAPIContent :one
-SELECT id, name, url, method
-FROM item_api
-WHERE id = ?
-`
-
-type GetAPIContentRow struct {
-	ID     idwrap.IDWrap
-	Name   string
-	Url    string
-	Method string
-}
-
-// Get API content by content_id (for union type resolution)
-func (q *Queries) GetAPIContent(ctx context.Context, id idwrap.IDWrap) (GetAPIContentRow, error) {
-	row := q.queryRow(ctx, q.getAPIContentStmt, getAPIContent, id)
-	var i GetAPIContentRow
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Url,
-		&i.Method,
-	)
-	return i, err
-}
-
 const getFile = `-- name: GetFile :one
 
 SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
@@ -316,25 +290,6 @@ func (q *Queries) GetFlowContent(ctx context.Context, id idwrap.IDWrap) (GetFlow
 	row := q.queryRow(ctx, q.getFlowContentStmt, getFlowContent, id)
 	var i GetFlowContentRow
 	err := row.Scan(&i.ID, &i.Name, &i.Duration)
-	return i, err
-}
-
-const getFolderContent = `-- name: GetFolderContent :one
-SELECT id, name
-FROM item_folder
-WHERE id = ?
-`
-
-type GetFolderContentRow struct {
-	ID   idwrap.IDWrap
-	Name string
-}
-
-// Get folder content by content_id (for union type resolution)
-func (q *Queries) GetFolderContent(ctx context.Context, id idwrap.IDWrap) (GetFolderContentRow, error) {
-	row := q.queryRow(ctx, q.getFolderContentStmt, getFolderContent, id)
-	var i GetFolderContentRow
-	err := row.Scan(&i.ID, &i.Name)
 	return i, err
 }
 
