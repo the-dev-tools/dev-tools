@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/compress"
@@ -272,18 +273,22 @@ type FlowServiceV2RPC struct {
 	hbr  *shttp.HttpBodyRawService
 	logger *slog.Logger
 	// V2 import services
-	workspaceImportService WorkspaceImporter
-	flowStream             eventstream.SyncStreamer[FlowTopic, FlowEvent]
-	nodeStream             eventstream.SyncStreamer[NodeTopic, NodeEvent]
-	edgeStream             eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
-	varStream              eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
-	versionStream          eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
-	noopStream             eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
-	forStream              eventstream.SyncStreamer[ForTopic, ForEvent]
-	conditionStream        eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
-	forEachStream          eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
-	jsStream               eventstream.SyncStreamer[JsTopic, JsEvent]
-	executionStream        eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
+	workspaceImportService     WorkspaceImporter
+	httpResponseService        shttp.HttpResponseService
+	flowStream                 eventstream.SyncStreamer[FlowTopic, FlowEvent]
+	nodeStream                 eventstream.SyncStreamer[NodeTopic, NodeEvent]
+	edgeStream                 eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+	varStream                  eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+	versionStream              eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
+	noopStream                 eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
+	forStream                  eventstream.SyncStreamer[ForTopic, ForEvent]
+	conditionStream            eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
+	forEachStream              eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
+	jsStream                   eventstream.SyncStreamer[JsTopic, JsEvent]
+	executionStream            eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
+	httpResponseStream         eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
+	httpResponseHeaderStream   eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
+	httpResponseAssertStream   eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
 }
 
 func New(
@@ -308,6 +313,7 @@ func New(
 	hbr *shttp.HttpBodyRawService,
 	logger *slog.Logger,
 	workspaceImportService WorkspaceImporter,
+	httpResponseService shttp.HttpResponseService,
 	flowStream eventstream.SyncStreamer[FlowTopic, FlowEvent],
 	nodeStream eventstream.SyncStreamer[NodeTopic, NodeEvent],
 	edgeStream eventstream.SyncStreamer[EdgeTopic, EdgeEvent],
@@ -319,40 +325,47 @@ func New(
 	forEachStream eventstream.SyncStreamer[ForEachTopic, ForEachEvent],
 	jsStream eventstream.SyncStreamer[JsTopic, JsEvent],
 	executionStream eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent],
+	httpResponseStream eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent],
+	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent],
+	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
-		ws:                     ws,
-		fs:                     fs,
-		es:                     es,
-		ns:                     ns,
-		nrs:                    nrs,
-		nfs:                    nfs,
-		nfes:                   nfes,
-		nifs:                   nifs,
-		nnos:                   nnos,
-		njss:                   njss,
-		nes:                    nes,
-		fvs:                    fvs,
-		hs:                     hs,
-		hh:                     hh,
-		hsp:                    hsp,
-		hbf:                    hbf,
-		hbu:                    hbu,
-		has:                    has,
-		hbr:                    hbr,
-		logger:                 logger,
-		workspaceImportService: workspaceImportService,
-		flowStream:             flowStream,
-		nodeStream:             nodeStream,
-		edgeStream:             edgeStream,
-		varStream:              varStream,
-		versionStream:          versionStream,
-		noopStream:             noopStream,
-		forStream:              forStream,
-		conditionStream:        conditionStream,
-		forEachStream:          forEachStream,
-		jsStream:               jsStream,
-		executionStream:        executionStream,
+		ws:                         ws,
+		fs:                         fs,
+		es:                         es,
+		ns:                         ns,
+		nrs:                        nrs,
+		nfs:                        nfs,
+		nfes:                       nfes,
+		nifs:                       nifs,
+		nnos:                       nnos,
+		njss:                       njss,
+		nes:                        nes,
+		fvs:                        fvs,
+		hs:                         hs,
+		hh:                         hh,
+		hsp:                        hsp,
+		hbf:                        hbf,
+		hbu:                        hbu,
+		has:                        has,
+		hbr:                        hbr,
+		logger:                     logger,
+		workspaceImportService:     workspaceImportService,
+		httpResponseService:        httpResponseService,
+		flowStream:                 flowStream,
+		nodeStream:                 nodeStream,
+		edgeStream:                 edgeStream,
+		varStream:                  varStream,
+		versionStream:              versionStream,
+		noopStream:                 noopStream,
+		forStream:                  forStream,
+		conditionStream:            conditionStream,
+		forEachStream:              forEachStream,
+		jsStream:                   jsStream,
+		executionStream:            executionStream,
+		httpResponseStream:         httpResponseStream,
+		httpResponseHeaderStream:   httpResponseHeaderStream,
+		httpResponseAssertStream:   httpResponseAssertStream,
 	}
 }
 
@@ -856,7 +869,31 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	respDrain.Add(1)
 	go func() {
 		defer respDrain.Done()
-		for range requestRespChan {
+		for resp := range requestRespChan {
+			// Save HTTP Response
+			if err := s.httpResponseService.Create(ctx, resp.Resp.HTTPResponse); err != nil {
+				s.logger.Error("failed to save http response", "error", err)
+			} else {
+				s.publishHttpResponseEvent("insert", resp.Resp.HTTPResponse, flow.WorkspaceID)
+			}
+
+			// Save Headers
+			for _, h := range resp.Resp.ResponseHeaders {
+				if err := s.httpResponseService.CreateHeader(ctx, h); err != nil {
+					s.logger.Error("failed to save http response header", "error", err)
+				} else {
+					s.publishHttpResponseHeaderEvent("insert", h, flow.WorkspaceID)
+				}
+			}
+
+			// Save Asserts
+			for _, a := range resp.Resp.ResponseAsserts {
+				if err := s.httpResponseService.CreateAssert(ctx, a); err != nil {
+					s.logger.Error("failed to save http response assert", "error", err)
+				} else {
+					s.publishHttpResponseAssertEvent("insert", a, flow.WorkspaceID)
+				}
+			}
 		}
 	}()
 	defer func() {
@@ -1853,6 +1890,39 @@ func (s *FlowServiceV2RPC) publishExecutionEvent(eventType string, execution mno
 		Type:      eventType,
 		FlowID:    flowID,
 		Execution: executionPB,
+	})
+}
+
+func (s *FlowServiceV2RPC) publishHttpResponseEvent(eventType string, response mhttp.HTTPResponse, workspaceID idwrap.IDWrap) {
+	if s.httpResponseStream == nil {
+		return
+	}
+	responsePB := converter.ToAPIHttpResponse(response)
+	s.httpResponseStream.Publish(rhttp.HttpResponseTopic{WorkspaceID: workspaceID}, rhttp.HttpResponseEvent{
+		Type:         eventType,
+		HttpResponse: responsePB,
+	})
+}
+
+func (s *FlowServiceV2RPC) publishHttpResponseHeaderEvent(eventType string, header mhttp.HTTPResponseHeader, workspaceID idwrap.IDWrap) {
+	if s.httpResponseHeaderStream == nil {
+		return
+	}
+	headerPB := converter.ToAPIHttpResponseHeader(header)
+	s.httpResponseHeaderStream.Publish(rhttp.HttpResponseHeaderTopic{WorkspaceID: workspaceID}, rhttp.HttpResponseHeaderEvent{
+		Type:               eventType,
+		HttpResponseHeader: headerPB,
+	})
+}
+
+func (s *FlowServiceV2RPC) publishHttpResponseAssertEvent(eventType string, assert mhttp.HTTPResponseAssert, workspaceID idwrap.IDWrap) {
+	if s.httpResponseAssertStream == nil {
+		return
+	}
+	assertPB := converter.ToAPIHttpResponseAssert(assert)
+	s.httpResponseAssertStream.Publish(rhttp.HttpResponseAssertTopic{WorkspaceID: workspaceID}, rhttp.HttpResponseAssertEvent{
+		Type:               eventType,
+		HttpResponseAssert: assertPB,
 	})
 }
 

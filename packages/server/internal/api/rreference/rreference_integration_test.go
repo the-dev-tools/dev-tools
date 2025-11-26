@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
@@ -109,15 +108,16 @@ func TestReferenceCompletion_HttpId(t *testing.T) {
 
 	// Create HTTP Response
 	respID := idwrap.NewNow()
-	if err := httpResponseService.Create(ctx, gen.HttpResponse{
+	now := time.Now().Unix()
+	if err := httpResponseService.Create(ctx, mhttp.HTTPResponse{
 		ID:        respID,
 		HttpID:    httpID,
-		Status:    int32(201),
+		Status:    201,
 		Body:      []byte(`{"foo":"bar"}`),
-		Time:      time.Now(),
-		Duration:  int32(100),
-		Size:      int32(123),
-		CreatedAt: time.Now().Unix(),
+		Time:      now,
+		Duration:  100,
+		Size:      123,
+		CreatedAt: now,
 	}); err != nil {
 		t.Fatalf("create response: %v", err)
 	}

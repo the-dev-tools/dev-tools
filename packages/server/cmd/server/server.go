@@ -341,6 +341,7 @@ func main() {
 		httpBodyRawService,
 		logger,
 		workspaceImporter,
+		httpResponseService,
 		flowStreamer,
 		nodeStreamer,
 		edgeStreamer,
@@ -352,6 +353,9 @@ func main() {
 		forEachStreamer,
 		jsStreamer,
 		executionStreamer,
+		httpResponseStreamer,
+		httpResponseHeaderStreamer,
+		httpResponseAssertStreamer,
 	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, optionsAll))
 
