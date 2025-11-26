@@ -783,12 +783,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPAssertsByIDsStmt, err = db.PrepareContext(ctx, getHTTPAssertsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPAssertsByIDs: %w", err)
 	}
-	if q.getHTTPBatchForStreamingStmt, err = db.PrepareContext(ctx, getHTTPBatchForStreaming); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPBatchForStreaming: %w", err)
-	}
-	if q.getHTTPBodyFormStreamingStmt, err = db.PrepareContext(ctx, getHTTPBodyFormStreaming); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPBodyFormStreaming: %w", err)
-	}
 	if q.getHTTPBodyFormsStmt, err = db.PrepareContext(ctx, getHTTPBodyForms); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPBodyForms: %w", err)
 	}
@@ -813,20 +807,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPDeltasByParentIDStmt, err = db.PrepareContext(ctx, getHTTPDeltasByParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPDeltasByParentID: %w", err)
 	}
-	if q.getHTTPDeltasSinceStmt, err = db.PrepareContext(ctx, getHTTPDeltasSince); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPDeltasSince: %w", err)
-	}
 	if q.getHTTPHeadersStmt, err = db.PrepareContext(ctx, getHTTPHeaders); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPHeaders: %w", err)
 	}
 	if q.getHTTPHeadersByIDsStmt, err = db.PrepareContext(ctx, getHTTPHeadersByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPHeadersByIDs: %w", err)
-	}
-	if q.getHTTPHeadersStreamingStmt, err = db.PrepareContext(ctx, getHTTPHeadersStreaming); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPHeadersStreaming: %w", err)
-	}
-	if q.getHTTPIncrementalUpdatesStmt, err = db.PrepareContext(ctx, getHTTPIncrementalUpdates); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPIncrementalUpdates: %w", err)
 	}
 	if q.getHTTPResponseStmt, err = db.PrepareContext(ctx, getHTTPResponse); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPResponse: %w", err)
@@ -866,21 +851,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getHTTPSearchParamsByIDsStmt, err = db.PrepareContext(ctx, getHTTPSearchParamsByIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPSearchParamsByIDs: %w", err)
-	}
-	if q.getHTTPSearchParamsStreamingStmt, err = db.PrepareContext(ctx, getHTTPSearchParamsStreaming); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPSearchParamsStreaming: %w", err)
-	}
-	if q.getHTTPSnapshotCountStmt, err = db.PrepareContext(ctx, getHTTPSnapshotCount); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPSnapshotCount: %w", err)
-	}
-	if q.getHTTPSnapshotPageStmt, err = db.PrepareContext(ctx, getHTTPSnapshotPage); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPSnapshotPage: %w", err)
-	}
-	if q.getHTTPStreamingMetricsStmt, err = db.PrepareContext(ctx, getHTTPStreamingMetrics); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPStreamingMetrics: %w", err)
-	}
-	if q.getHTTPWorkspaceActivityStmt, err = db.PrepareContext(ctx, getHTTPWorkspaceActivity); err != nil {
-		return nil, fmt.Errorf("error preparing query GetHTTPWorkspaceActivity: %w", err)
 	}
 	if q.getHTTPWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPWorkspaceID: %w", err)
@@ -1058,9 +1028,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.resetHTTPBodyFormDeltaStmt, err = db.PrepareContext(ctx, resetHTTPBodyFormDelta); err != nil {
 		return nil, fmt.Errorf("error preparing query ResetHTTPBodyFormDelta: %w", err)
-	}
-	if q.resolveHTTPWithDeltasStmt, err = db.PrepareContext(ctx, resolveHTTPWithDeltas); err != nil {
-		return nil, fmt.Errorf("error preparing query ResolveHTTPWithDeltas: %w", err)
 	}
 	if q.setBodyFormEnableStmt, err = db.PrepareContext(ctx, setBodyFormEnable); err != nil {
 		return nil, fmt.Errorf("error preparing query SetBodyFormEnable: %w", err)
@@ -2557,16 +2524,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPAssertsByIDsStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPBatchForStreamingStmt != nil {
-		if cerr := q.getHTTPBatchForStreamingStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPBatchForStreamingStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPBodyFormStreamingStmt != nil {
-		if cerr := q.getHTTPBodyFormStreamingStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPBodyFormStreamingStmt: %w", cerr)
-		}
-	}
 	if q.getHTTPBodyFormsStmt != nil {
 		if cerr := q.getHTTPBodyFormsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPBodyFormsStmt: %w", cerr)
@@ -2607,11 +2564,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPDeltasByParentIDStmt: %w", cerr)
 		}
 	}
-	if q.getHTTPDeltasSinceStmt != nil {
-		if cerr := q.getHTTPDeltasSinceStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPDeltasSinceStmt: %w", cerr)
-		}
-	}
 	if q.getHTTPHeadersStmt != nil {
 		if cerr := q.getHTTPHeadersStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPHeadersStmt: %w", cerr)
@@ -2620,16 +2572,6 @@ func (q *Queries) Close() error {
 	if q.getHTTPHeadersByIDsStmt != nil {
 		if cerr := q.getHTTPHeadersByIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPHeadersByIDsStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPHeadersStreamingStmt != nil {
-		if cerr := q.getHTTPHeadersStreamingStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPHeadersStreamingStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPIncrementalUpdatesStmt != nil {
-		if cerr := q.getHTTPIncrementalUpdatesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPIncrementalUpdatesStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPResponseStmt != nil {
@@ -2695,31 +2637,6 @@ func (q *Queries) Close() error {
 	if q.getHTTPSearchParamsByIDsStmt != nil {
 		if cerr := q.getHTTPSearchParamsByIDsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPSearchParamsByIDsStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPSearchParamsStreamingStmt != nil {
-		if cerr := q.getHTTPSearchParamsStreamingStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPSearchParamsStreamingStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPSnapshotCountStmt != nil {
-		if cerr := q.getHTTPSnapshotCountStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPSnapshotCountStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPSnapshotPageStmt != nil {
-		if cerr := q.getHTTPSnapshotPageStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPSnapshotPageStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPStreamingMetricsStmt != nil {
-		if cerr := q.getHTTPStreamingMetricsStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPStreamingMetricsStmt: %w", cerr)
-		}
-	}
-	if q.getHTTPWorkspaceActivityStmt != nil {
-		if cerr := q.getHTTPWorkspaceActivityStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getHTTPWorkspaceActivityStmt: %w", cerr)
 		}
 	}
 	if q.getHTTPWorkspaceIDStmt != nil {
@@ -3015,11 +2932,6 @@ func (q *Queries) Close() error {
 	if q.resetHTTPBodyFormDeltaStmt != nil {
 		if cerr := q.resetHTTPBodyFormDeltaStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing resetHTTPBodyFormDeltaStmt: %w", cerr)
-		}
-	}
-	if q.resolveHTTPWithDeltasStmt != nil {
-		if cerr := q.resolveHTTPWithDeltasStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing resolveHTTPWithDeltasStmt: %w", cerr)
 		}
 	}
 	if q.setBodyFormEnableStmt != nil {
@@ -3689,8 +3601,6 @@ type Queries struct {
 	getHTTPAssertStmt                          *sql.Stmt
 	getHTTPAssertsByHttpIDStmt                 *sql.Stmt
 	getHTTPAssertsByIDsStmt                    *sql.Stmt
-	getHTTPBatchForStreamingStmt               *sql.Stmt
-	getHTTPBodyFormStreamingStmt               *sql.Stmt
 	getHTTPBodyFormsStmt                       *sql.Stmt
 	getHTTPBodyFormsByIDsStmt                  *sql.Stmt
 	getHTTPBodyRawStmt                         *sql.Stmt
@@ -3699,11 +3609,8 @@ type Queries struct {
 	getHTTPBodyUrlEncodedByHttpIDStmt          *sql.Stmt
 	getHTTPBodyUrlEncodedsByIDsStmt            *sql.Stmt
 	getHTTPDeltasByParentIDStmt                *sql.Stmt
-	getHTTPDeltasSinceStmt                     *sql.Stmt
 	getHTTPHeadersStmt                         *sql.Stmt
 	getHTTPHeadersByIDsStmt                    *sql.Stmt
-	getHTTPHeadersStreamingStmt                *sql.Stmt
-	getHTTPIncrementalUpdatesStmt              *sql.Stmt
 	getHTTPResponseStmt                        *sql.Stmt
 	getHTTPResponseAssertStmt                  *sql.Stmt
 	getHTTPResponseAssertsByHttpIDStmt         *sql.Stmt
@@ -3717,11 +3624,6 @@ type Queries struct {
 	getHTTPResponsesByIDsStmt                  *sql.Stmt
 	getHTTPSearchParamsStmt                    *sql.Stmt
 	getHTTPSearchParamsByIDsStmt               *sql.Stmt
-	getHTTPSearchParamsStreamingStmt           *sql.Stmt
-	getHTTPSnapshotCountStmt                   *sql.Stmt
-	getHTTPSnapshotPageStmt                    *sql.Stmt
-	getHTTPStreamingMetricsStmt                *sql.Stmt
-	getHTTPWorkspaceActivityStmt               *sql.Stmt
 	getHTTPWorkspaceIDStmt                     *sql.Stmt
 	getHTTPsByFolderIDStmt                     *sql.Stmt
 	getHTTPsByIDsStmt                          *sql.Stmt
@@ -3781,7 +3683,6 @@ type Queries struct {
 	listNodeExecutionsByFlowRunStmt            *sql.Stmt
 	listNodeExecutionsByStateStmt              *sql.Stmt
 	resetHTTPBodyFormDeltaStmt                 *sql.Stmt
-	resolveHTTPWithDeltasStmt                  *sql.Stmt
 	setBodyFormEnableStmt                      *sql.Stmt
 	setHeaderEnableStmt                        *sql.Stmt
 	setQueryEnableStmt                         *sql.Stmt
@@ -4116,8 +4017,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPAssertStmt:                          q.getHTTPAssertStmt,
 		getHTTPAssertsByHttpIDStmt:                 q.getHTTPAssertsByHttpIDStmt,
 		getHTTPAssertsByIDsStmt:                    q.getHTTPAssertsByIDsStmt,
-		getHTTPBatchForStreamingStmt:               q.getHTTPBatchForStreamingStmt,
-		getHTTPBodyFormStreamingStmt:               q.getHTTPBodyFormStreamingStmt,
 		getHTTPBodyFormsStmt:                       q.getHTTPBodyFormsStmt,
 		getHTTPBodyFormsByIDsStmt:                  q.getHTTPBodyFormsByIDsStmt,
 		getHTTPBodyRawStmt:                         q.getHTTPBodyRawStmt,
@@ -4126,11 +4025,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPBodyUrlEncodedByHttpIDStmt:          q.getHTTPBodyUrlEncodedByHttpIDStmt,
 		getHTTPBodyUrlEncodedsByIDsStmt:            q.getHTTPBodyUrlEncodedsByIDsStmt,
 		getHTTPDeltasByParentIDStmt:                q.getHTTPDeltasByParentIDStmt,
-		getHTTPDeltasSinceStmt:                     q.getHTTPDeltasSinceStmt,
 		getHTTPHeadersStmt:                         q.getHTTPHeadersStmt,
 		getHTTPHeadersByIDsStmt:                    q.getHTTPHeadersByIDsStmt,
-		getHTTPHeadersStreamingStmt:                q.getHTTPHeadersStreamingStmt,
-		getHTTPIncrementalUpdatesStmt:              q.getHTTPIncrementalUpdatesStmt,
 		getHTTPResponseStmt:                        q.getHTTPResponseStmt,
 		getHTTPResponseAssertStmt:                  q.getHTTPResponseAssertStmt,
 		getHTTPResponseAssertsByHttpIDStmt:         q.getHTTPResponseAssertsByHttpIDStmt,
@@ -4144,11 +4040,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPResponsesByIDsStmt:                  q.getHTTPResponsesByIDsStmt,
 		getHTTPSearchParamsStmt:                    q.getHTTPSearchParamsStmt,
 		getHTTPSearchParamsByIDsStmt:               q.getHTTPSearchParamsByIDsStmt,
-		getHTTPSearchParamsStreamingStmt:           q.getHTTPSearchParamsStreamingStmt,
-		getHTTPSnapshotCountStmt:                   q.getHTTPSnapshotCountStmt,
-		getHTTPSnapshotPageStmt:                    q.getHTTPSnapshotPageStmt,
-		getHTTPStreamingMetricsStmt:                q.getHTTPStreamingMetricsStmt,
-		getHTTPWorkspaceActivityStmt:               q.getHTTPWorkspaceActivityStmt,
 		getHTTPWorkspaceIDStmt:                     q.getHTTPWorkspaceIDStmt,
 		getHTTPsByFolderIDStmt:                     q.getHTTPsByFolderIDStmt,
 		getHTTPsByIDsStmt:                          q.getHTTPsByIDsStmt,
@@ -4208,7 +4099,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listNodeExecutionsByFlowRunStmt:            q.listNodeExecutionsByFlowRunStmt,
 		listNodeExecutionsByStateStmt:              q.listNodeExecutionsByStateStmt,
 		resetHTTPBodyFormDeltaStmt:                 q.resetHTTPBodyFormDeltaStmt,
-		resolveHTTPWithDeltasStmt:                  q.resolveHTTPWithDeltasStmt,
 		setBodyFormEnableStmt:                      q.setBodyFormEnableStmt,
 		setHeaderEnableStmt:                        q.setHeaderEnableStmt,
 		setQueryEnableStmt:                         q.setQueryEnableStmt,
