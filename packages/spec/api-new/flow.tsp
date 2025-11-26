@@ -111,6 +111,7 @@ model NodeNoOp {
 model NodeHttp {
   @primaryKey nodeId: Id;
   @foreignKey httpId?: Id;
+  @foreignKey deltaHttpId?: Id;
 }
 
 enum ErrorHandling {

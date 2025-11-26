@@ -5,10 +5,14 @@ import { use, useEffect } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 import { FileKind } from '@the-dev-tools/spec/api/file_system/v1/file_system_pb';
-import { NodeHttpUpdate_HttpIdUnion_Kind } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import {
+  NodeHttpUpdate_DeltaHttpIdUnion_Kind,
+  NodeHttpUpdate_HttpIdUnion_Kind,
+} from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import { HttpMethod } from '@the-dev-tools/spec/api/http/v1/http_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { NodeExecutionCollectionSchema, NodeHttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
-import { HttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
+import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
@@ -17,7 +21,8 @@ import { useApiCollection } from '~/api-new';
 import { HttpRequest, HttpResponse, HttpUrl } from '~/features/http';
 import { FileTree } from '~/file-system';
 import { ReferenceContext } from '~/reference';
-import { httpRouteApi, workspaceRouteApi } from '~/routes';
+import { httpDeltaRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
+import { useDeltaState } from '~/utils/delta';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';
@@ -44,11 +49,11 @@ const HttpNodeBody = (props: XF.NodeProps) => {
   const fileCollection = useApiCollection(FileCollectionSchema);
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
 
-  const { httpId } = useLiveQuery(
+  const { deltaHttpId, httpId } = useLiveQuery(
     (_) =>
       _.from({ item: nodeHttpCollection })
         .where((_) => eq(_.item.nodeId, nodeId))
-        .select((_) => pick(_.item, 'httpId'))
+        .select((_) => pick(_.item, 'httpId', 'deltaHttpId'))
         .findOne(),
     [nodeHttpCollection, nodeId],
   ).data!;
@@ -63,18 +68,24 @@ const HttpNodeBody = (props: XF.NodeProps) => {
     <NodeBody {...props} Icon={SendRequestIcon}>
       <div className={tw`rounded-md border border-slate-200 bg-white shadow-xs`}>
         {httpId ? (
-          <HttpNodeSelected httpId={httpId} />
+          <HttpNodeSelected deltaHttpId={deltaHttpId} httpId={httpId} />
         ) : (
           <FileTree
             onAction={(key) => {
               const file = fileCollection.get(key.toString())!;
 
-              if (file.kind !== FileKind.HTTP) return;
-
-              nodeHttpCollection.utils.update({
-                httpId: { bytes: file.fileId, kind: NodeHttpUpdate_HttpIdUnion_Kind.BYTES },
-                nodeId,
-              });
+              if (file.kind === FileKind.HTTP) {
+                nodeHttpCollection.utils.update({
+                  httpId: { kind: NodeHttpUpdate_HttpIdUnion_Kind.VALUE, value: file.fileId },
+                  nodeId,
+                });
+              } else if (file.kind === FileKind.HTTP_DELTA) {
+                nodeHttpCollection.utils.update({
+                  deltaHttpId: { kind: NodeHttpUpdate_DeltaHttpIdUnion_Kind.VALUE, value: file.fileId },
+                  httpId: { kind: NodeHttpUpdate_HttpIdUnion_Kind.VALUE, value: file.parentId! },
+                  nodeId,
+                });
+              }
             }}
             showControls
           />
@@ -85,33 +96,48 @@ const HttpNodeBody = (props: XF.NodeProps) => {
 };
 
 interface HttpNodeSelectedProps {
+  deltaHttpId: Uint8Array | undefined;
   httpId: Uint8Array;
 }
 
-const HttpNodeSelected = ({ httpId }: HttpNodeSelectedProps) => {
+const HttpNodeSelected = ({ deltaHttpId, httpId }: HttpNodeSelectedProps) => {
   const { workspaceIdCan } = workspaceRouteApi.useParams();
 
-  const collection = useApiCollection(HttpCollectionSchema);
+  const deltaOptions = {
+    deltaId: deltaHttpId,
+    deltaSchema: HttpDeltaCollectionSchema,
+    isDelta: deltaHttpId !== undefined,
+    originId: httpId,
+    originSchema: HttpCollectionSchema,
+  };
 
-  const { method, name } = useLiveQuery(
-    (_) =>
-      _.from({ item: collection })
-        .where((_) => eq(_.item.httpId, httpId))
-        .select((_) => pick(_.item, 'method', 'name'))
-        .findOne(),
-    [collection, httpId],
-  ).data!;
+  const [name] = useDeltaState({ ...deltaOptions, valueKey: 'name' });
+  const [method] = useDeltaState({ ...deltaOptions, valueKey: 'method' });
 
   return (
     <div className={tw`space-y-1.5 p-2`}>
       <div className={tw`flex items-center gap-1.5`}>
-        <MethodBadge method={method} />
+        <MethodBadge method={method ?? HttpMethod.UNSPECIFIED} />
         <div className={tw`flex-1 truncate text-xs leading-5 font-medium tracking-tight text-slate-800`}>{name}</div>
         <ButtonAsLink
           className={tw`p-0.5`}
-          params={{ httpIdCan: Ulid.construct(httpId).toCanonical(), workspaceIdCan }}
-          to={httpRouteApi.id}
           variant='ghost'
+          {...(deltaHttpId
+            ? {
+                params: {
+                  deltaHttpIdCan: Ulid.construct(deltaHttpId).toCanonical(),
+                  httpIdCan: Ulid.construct(httpId).toCanonical(),
+                  workspaceIdCan,
+                },
+                to: httpDeltaRouteApi.id,
+              }
+            : {
+                params: {
+                  httpIdCan: Ulid.construct(httpId).toCanonical(),
+                  workspaceIdCan,
+                },
+                to: httpRouteApi.id,
+              })}
         >
           <FiExternalLink className={tw`size-4 text-slate-500`} />
         </ButtonAsLink>
@@ -127,25 +153,27 @@ export const HttpPanel = ({ nodeId }: NodePanelProps) => {
   const { workspaceIdCan } = workspaceRouteApi.useParams();
 
   const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
-  const httpCollection = useApiCollection(HttpCollectionSchema);
 
-  const httpId = useLiveQuery(
+  const { deltaHttpId, httpId } = useLiveQuery(
     (_) =>
       _.from({ item: nodeHttpCollection })
         .where((_) => eq(_.item.nodeId, nodeId))
-        .select((_) => pick(_.item, 'httpId'))
+        .select((_) => pick(_.item, 'httpId', 'deltaHttpId'))
         .findOne(),
     [nodeHttpCollection, nodeId],
-  ).data!.httpId!;
-
-  const { name } = useLiveQuery(
-    (_) =>
-      _.from({ item: httpCollection })
-        .where((_) => eq(_.item.httpId, httpId))
-        .select((_) => pick(_.item, 'name'))
-        .findOne(),
-    [httpCollection, httpId],
   ).data!;
+
+  const deltaOptions = {
+    deltaId: deltaHttpId,
+    deltaSchema: HttpDeltaCollectionSchema,
+    isDelta: deltaHttpId !== undefined,
+    originId: httpId!,
+    originSchema: HttpCollectionSchema,
+  };
+
+  const [name] = useDeltaState({ ...deltaOptions, valueKey: 'name' });
+
+  if (!httpId) return null;
 
   return (
     <>
@@ -158,9 +186,23 @@ export const HttpPanel = ({ nodeId }: NodePanelProps) => {
 
         <ButtonAsLink
           className={tw`shrink-0 px-2`}
-          params={{ httpIdCan: Ulid.construct(httpId).toCanonical(), workspaceIdCan }}
-          to={httpRouteApi.id}
           variant='ghost'
+          {...(deltaHttpId
+            ? {
+                params: {
+                  deltaHttpIdCan: Ulid.construct(deltaHttpId).toCanonical(),
+                  httpIdCan: Ulid.construct(httpId).toCanonical(),
+                  workspaceIdCan,
+                },
+                to: httpDeltaRouteApi.id,
+              }
+            : {
+                params: {
+                  httpIdCan: Ulid.construct(httpId).toCanonical(),
+                  workspaceIdCan,
+                },
+                to: httpRouteApi.id,
+              })}
         >
           <FiExternalLink className={tw`size-4 text-slate-500`} />
           Open API
@@ -177,7 +219,7 @@ export const HttpPanel = ({ nodeId }: NodePanelProps) => {
       </div>
 
       <div className={tw`m-5 mb-4`}>
-        <HttpUrl httpId={httpId} isReadOnly={isReadOnly} />
+        <HttpUrl deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
       </div>
 
       <div className={tw`mx-5 overflow-auto rounded-lg border border-slate-200`}>
@@ -190,7 +232,7 @@ export const HttpPanel = ({ nodeId }: NodePanelProps) => {
         </div>
 
         <ReferenceContext value={{ flowNodeId: nodeId, httpId, workspaceId }}>
-          <HttpRequest className={tw`p-5 pt-3`} httpId={httpId} isReadOnly={isReadOnly} />
+          <HttpRequest className={tw`p-5 pt-3`} deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
         </ReferenceContext>
       </div>
 
