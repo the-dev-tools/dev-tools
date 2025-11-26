@@ -3,7 +3,7 @@ sql:
   - engine: 'sqlite'
     queries:
       - 'query.sql'
-    schema: 'schema.sql'
+    schema: 'schema/'
     gen:
       go:
         emit_empty_slices: true
