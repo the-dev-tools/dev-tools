@@ -894,6 +894,10 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 					s.publishHttpResponseAssertEvent("insert", a, flow.WorkspaceID)
 				}
 			}
+
+			if resp.Done != nil {
+				close(resp.Done)
+			}
 		}
 	}()
 	defer func() {

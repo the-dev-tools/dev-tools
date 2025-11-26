@@ -47,11 +47,14 @@ type NodeRequestSideResp struct {
 
 	// Resp
 	Resp response.ResponseCreateHTTPOutput
+
+	// Synchronization
+	Done chan struct{}
 }
 
 const (
 	OUTPUT_RESPONSE_NAME = "response"
-	OUTPUT_REQUEST_NAME = "request"
+	OUTPUT_REQUEST_NAME  = "request"
 )
 
 type NodeRequestOutput struct {
@@ -208,15 +211,18 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		return result
 	}
 
-	    if ctx.Err() != nil {
-	        return result
-	    }
-	
-	    	result.AuxiliaryID = &respCreate.HTTPResponse.ID
-	    
-	    	// Check if any assertions failed
-	    	for _, assertRes := range respCreate.ResponseAsserts {
-	    		if !assertRes.Success {			result.Err = fmt.Errorf("assertion failed: %s", assertRes.Value)
+	if ctx.Err() != nil {
+		return result
+	}
+
+	result.AuxiliaryID = &respCreate.HTTPResponse.ID
+
+	done := make(chan struct{})
+
+	// Check if any assertions failed
+	for _, assertRes := range respCreate.ResponseAsserts {
+		if !assertRes.Success {
+			result.Err = fmt.Errorf("assertion failed: %s", assertRes.Value)
 
 			// Still send the response data even though we're failing
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
@@ -228,6 +234,11 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 				FormBody:    nr.FormBody,
 				UrlBody:     nr.UrlBody,
 				Resp:        *respCreate,
+				Done:        done,
+			}
+			select {
+			case <-done:
+			case <-ctx.Done():
 			}
 			return result
 		}
@@ -242,6 +253,11 @@ func (nr *NodeRequest) RunSync(ctx context.Context, req *node.FlowNodeRequest) n
 		FormBody:    nr.FormBody,
 		UrlBody:     nr.UrlBody,
 		Resp:        *respCreate,
+		Done:        done,
+	}
+	select {
+	case <-done:
+	case <-ctx.Done():
 	}
 
 	return result
@@ -324,11 +340,13 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 
 	result.AuxiliaryID = &respCreate.HTTPResponse.ID
 
+	done := make(chan struct{})
+
 	// Check if any assertions failed
 	for _, assertRes := range respCreate.ResponseAsserts {
 		if !assertRes.Success {
 			result.Err = fmt.Errorf("assertion failed: %s", assertRes.Value)
-			
+
 			nr.NodeRequestSideRespChan <- NodeRequestSideResp{
 				ExecutionID: req.ExecutionID,
 				HttpReq:     nr.HttpReq,
@@ -338,6 +356,11 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 				FormBody:    nr.FormBody,
 				UrlBody:     nr.UrlBody,
 				Resp:        *respCreate,
+				Done:        done,
+			}
+			select {
+			case <-done:
+			case <-ctx.Done():
 			}
 			resultChan <- result
 			return
@@ -353,7 +376,13 @@ func (nr *NodeRequest) RunAsync(ctx context.Context, req *node.FlowNodeRequest, 
 		FormBody:    nr.FormBody,
 		UrlBody:     nr.UrlBody,
 		Resp:        *respCreate,
+		Done:        done,
 	}
+	select {
+	case <-done:
+	case <-ctx.Done():
+	}
+
 	if ctx.Err() != nil {
 		return
 	}

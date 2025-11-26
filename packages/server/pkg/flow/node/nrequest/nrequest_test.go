@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -59,13 +60,15 @@ func TestBuildNodeRequestOutputMapMatchesLegacy(t *testing.T) {
 
 	expected, err := legacyBuildNodeRequestOutputMap(output)
 	if err != nil {
-		t.Fatalf("legacy builder returned error: %v", err)
+		t.Errorf("legacy builder returned error: %v", err)
+		t.FailNow()
 	}
 
 	got := buildNodeRequestOutputMap(output)
 
 	if !reflect.DeepEqual(got, expected) {
-		t.Fatalf("map mismatch\nexpected: %#v\n     got: %#v", expected, got)
+		t.Errorf("map mismatch\nexpected: %#v\n     got: %#v", expected, got)
+		t.FailNow()
 	}
 }
 
@@ -151,6 +154,24 @@ func newRequestNodeFixture(asserts []mhttp.HTTPAssert, respChan chan NodeRequest
 	}
 }
 
+// helper to start a consumer that closes Done channel and forwards the response for assertion
+func startResponseConsumer(respChan <-chan NodeRequestSideResp) <-chan NodeRequestSideResp {
+	out := make(chan NodeRequestSideResp, 1)
+	go func() {
+		select {
+		case resp := <-respChan:
+			if resp.Done != nil {
+				close(resp.Done)
+			}
+			out <- resp
+		case <-time.After(5 * time.Second):
+			// prevent leaking goroutine if test times out/fails before sending
+			close(out)
+		}
+	}()
+	return out
+}
+
 func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	httpID := idwrap.NewNow()
@@ -177,6 +198,7 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 	}
 
 	respChan := make(chan NodeRequestSideResp, 1)
+	consumedChan := startResponseConsumer(respChan)
 
 	requestNode := New(
 		nodeID,
@@ -210,13 +232,15 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 
 	result := requestNode.RunSync(context.Background(), req)
 	if result.Err != nil {
-		t.Fatalf("expected success, got error: %v", result.Err)
+		t.Errorf("expected success, got error: %v", result.Err)
+		t.FailNow()
 	}
 
 	select {
-	case <-respChan:
+	case <-consumedChan:
 	default:
-		t.Fatalf("expected response channel to receive payload")
+		t.Error("expected response channel to receive payload")
+		t.FailNow()
 	}
 
 	readVars := tracker.GetReadVars()
@@ -229,14 +253,17 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 	for key, expected := range expectedValues {
 		value, ok := readVars[key]
 		if !ok {
-			t.Fatalf("expected tracker to capture %s, got %#v", key, readVars)
+			t.Errorf("expected tracker to capture %s, got %#v", key, readVars)
+			t.FailNow()
 		}
 		strValue, ok := value.(string)
 		if !ok {
-			t.Fatalf("expected %s to be a string, got %T", key, value)
+			t.Errorf("expected %s to be a string, got %T", key, value)
+			t.FailNow()
 		}
 		if strValue != expected {
-			t.Fatalf("expected tracker to capture %s=%s, got %s", key, expected, strValue)
+			t.Errorf("expected tracker to capture %s=%s, got %s", key, expected, strValue)
+			t.FailNow()
 		}
 	}
 }
@@ -268,6 +295,9 @@ func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 	}
 
 	respChan := make(chan NodeRequestSideResp, 1)
+	// Ensure consumer is running before RunSync
+	startResponseConsumer(respChan)
+
 	requestNode := New(
 		nodeID,
 		"req",
@@ -293,10 +323,12 @@ func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 
 	result := requestNode.RunSync(context.Background(), req)
 	if result.Err == nil {
-		t.Fatalf("expected assertion failure, got nil error")
+		t.Error("expected assertion failure, got nil error")
+		t.FailNow()
 	}
 	if !strings.Contains(result.Err.Error(), "assertion failed") {
-		t.Fatalf("expected assertion failure message, got %v", result.Err)
+		t.Errorf("expected assertion failure message, got %v", result.Err)
+		t.FailNow()
 	}
 }
 
@@ -325,6 +357,8 @@ func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 	}
 
 	respChan := make(chan NodeRequestSideResp, 1)
+	consumedChan := startResponseConsumer(respChan)
+
 	requestNode := New(
 		nodeID,
 		"req",
@@ -352,37 +386,45 @@ func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 
 	result := requestNode.RunSync(context.Background(), req)
 	if result.Err == nil {
-		t.Fatalf("expected assertion failure, got nil error")
+		t.Error("expected assertion failure, got nil error")
+		t.FailNow()
 	}
 
 	select {
-	case <-respChan:
+	case <-consumedChan:
 	default:
-		t.Fatalf("expected response side channel to receive entry")
+		t.Error("expected response side channel to receive entry")
+		t.FailNow()
 	}
 
-	written := tracker.GetWrittenVarsAsTree()
-	reqData, ok := written["req"]
+	writen := tracker.GetWrittenVarsAsTree()
+	reqData, ok := writen["req"]
 	if !ok {
-		t.Fatalf("expected tracker to record req writes, got %+v", written)
+		t.Errorf("expected tracker to record req writes, got %+v", writen)
+		t.FailNow()
 	}
 	reqMap, ok := reqData.(map[string]any)
 	if !ok {
-		t.Fatalf("req entry is not a map: %#v", reqData)
+		t.Errorf("req entry is not a map: %#v", reqData)
+		t.FailNow()
 	}
 	respSection, ok := reqMap["response"].(map[string]any)
 	if !ok {
-		t.Fatalf("missing response payload: %#v", reqMap)
+		t.Errorf("missing response payload: %#v", reqMap)
+		t.FailNow()
 	}
 	if respSection["status"] == nil {
-		t.Fatalf("response status not tracked: %#v", respSection)
+		t.Errorf("response status not tracked: %#v", respSection)
+		t.FailNow()
 	}
 	requestSection, ok := reqMap["request"].(map[string]any)
 	if !ok {
-		t.Fatalf("missing request payload: %#v", reqMap)
+		t.Errorf("missing request payload: %#v", reqMap)
+		t.FailNow()
 	}
 	if requestSection["url"] == nil {
-		t.Fatalf("request url not tracked: %#v", requestSection)
+		t.Errorf("request url not tracked: %#v", requestSection)
+		t.FailNow()
 	}
 }
 
@@ -411,6 +453,8 @@ func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 	}
 
 	respChan := make(chan NodeRequestSideResp, 1)
+	consumedChan := startResponseConsumer(respChan)
+
 	requestNode := New(
 		nodeID,
 		"req",
@@ -436,46 +480,56 @@ func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 
 	result := requestNode.RunSync(context.Background(), req)
 	if result.Err == nil {
-		t.Fatalf("expected assertion failure, got nil error")
+		t.Error("expected assertion failure, got nil error")
+		t.FailNow()
 	}
 
 	select {
-	case resp := <-respChan:
+	case resp := <-consumedChan:
 		if resp.Resp.HTTPResponse.ID == (idwrap.IDWrap{}) {
-			t.Fatalf("expected response ID to be set: %#v", resp.Resp.HTTPResponse)
+			t.Errorf("expected response ID to be set: %#v", resp.Resp.HTTPResponse)
+			t.FailNow()
 		}
 		if resp.Resp.HTTPResponse.HttpID != httpID {
-			t.Fatalf("expected response to target http %s, got %s", httpID, resp.Resp.HTTPResponse.HttpID)
+			t.Errorf("expected response to target http %s, got %s", httpID, resp.Resp.HTTPResponse.HttpID)
+			t.FailNow()
 		}
 	default:
-		t.Fatalf("expected response side channel to receive entry")
+		t.Error("expected response side channel to receive entry")
+		t.FailNow()
 	}
 }
 
 func TestNodeRequestRunSyncSuccessSendsResponseID(t *testing.T) {
 	respChan := make(chan NodeRequestSideResp, 1)
+	consumedChan := startResponseConsumer(respChan)
 	fixture := newRequestNodeFixture(nil, respChan)
 
 	result := fixture.node.RunSync(context.Background(), fixture.flowReq)
 	if result.Err != nil {
-		t.Fatalf("expected success, got error: %v", result.Err)
+		t.Errorf("expected success, got error: %v", result.Err)
+		t.FailNow()
 	}
 
 	select {
-	case resp := <-respChan:
+	case resp := <-consumedChan:
 		if resp.Resp.HTTPResponse.ID == (idwrap.IDWrap{}) {
-			t.Fatalf("expected response id to be set on success: %#v", resp.Resp.HTTPResponse)
+			t.Errorf("expected response id to be set on success: %#v", resp.Resp.HTTPResponse)
+			t.FailNow()
 		}
 		if resp.Resp.HTTPResponse.HttpID != fixture.httpID {
-			t.Fatalf("expected response http id %s, got %s", fixture.httpID, resp.Resp.HTTPResponse.HttpID)
+			t.Errorf("expected response http id %s, got %s", fixture.httpID, resp.Resp.HTTPResponse.HttpID)
+			t.FailNow()
 		}
 	default:
-		t.Fatalf("expected response side channel to receive entry")
+		t.Error("expected response side channel to receive entry")
+		t.FailNow()
 	}
 }
 
 func TestNodeRequestRunAsyncSuccessSendsResponseID(t *testing.T) {
 	respChan := make(chan NodeRequestSideResp, 1)
+	consumedChan := startResponseConsumer(respChan)
 	resultChan := make(chan node.FlowNodeResult, 1)
 	fixture := newRequestNodeFixture(nil, respChan)
 
@@ -484,21 +538,26 @@ func TestNodeRequestRunAsyncSuccessSendsResponseID(t *testing.T) {
 	select {
 	case result := <-resultChan:
 		if result.Err != nil {
-			t.Fatalf("expected async success, got error: %v", result.Err)
+			t.Errorf("expected async success, got error: %v", result.Err)
+			t.FailNow()
 		}
 	default:
-		t.Fatalf("expected async result to be delivered")
+		t.Error("expected async result to be delivered")
+		t.FailNow()
 	}
 
 	select {
-	case resp := <-respChan:
+	case resp := <-consumedChan:
 		if resp.Resp.HTTPResponse.ID == (idwrap.IDWrap{}) {
-			t.Fatalf("expected response id to be set on async success: %#v", resp.Resp.HTTPResponse)
+			t.Errorf("expected response id to be set on async success: %#v", resp.Resp.HTTPResponse)
+			t.FailNow()
 		}
 		if resp.Resp.HTTPResponse.HttpID != fixture.httpID {
-			t.Fatalf("expected response http id %s, got %s", fixture.httpID, resp.Resp.HTTPResponse.HttpID)
+			t.Errorf("expected response http id %s, got %s", fixture.httpID, resp.Resp.HTTPResponse.HttpID)
+			t.FailNow()
 		}
 	default:
-		t.Fatalf("expected async response side channel to receive entry")
+		t.Error("expected async response side channel to receive entry")
+		t.FailNow()
 	}
 }
