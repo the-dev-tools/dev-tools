@@ -1015,11 +1015,13 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 				}
 			}
 
+			eventType := executionEventInsert
 			if status.State == mnnode.NODE_STATE_SUCCESS ||
 				status.State == mnnode.NODE_STATE_FAILURE ||
 				status.State == mnnode.NODE_STATE_CANCELED {
 				now := time.Now().Unix()
 				model.CompletedAt = &now
+				eventType = executionEventUpdate
 			}
 
 			if err := s.nes.UpsertNodeExecution(ctx, model); err != nil {
@@ -1027,7 +1029,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 			}
 
 			// Publish execution event
-			s.publishExecutionEvent(executionEventInsert, model, flow.ID)
+			s.publishExecutionEvent(eventType, model, flow.ID)
 
 			if s.nodeStream != nil {
 				var info string
