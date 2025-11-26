@@ -4,11 +4,13 @@ import * as XF from '@xyflow/react';
 import { Array, Boolean, Duration, HashSet, Match, MutableHashMap, Option, pipe, Record } from 'effect';
 import { Ulid } from 'id128';
 import { PropsWithChildren, ReactNode, use, useRef } from 'react';
+import { useDrop } from 'react-aria';
 import { Button as AriaButton, MenuTrigger, useDragAndDrop } from 'react-aria-components';
 import { createPortal } from 'react-dom';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
+import { FileKind } from '@the-dev-tools/spec/api/file_system/v1/file_system_pb';
 import {
   EdgeKind,
   FlowService,
@@ -17,11 +19,13 @@ import {
   NodeKind,
   NodeNoOpKind,
 } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
   EdgeCollectionSchema,
   FlowCollectionSchema,
   FlowVariableCollectionSchema,
   NodeCollectionSchema,
+  NodeHttpCollectionSchema,
   NodeNoOpCollectionSchema,
 } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
@@ -105,12 +109,14 @@ const minZoom = 0.1;
 const maxZoom = 2;
 
 export const Flow = ({ children }: PropsWithChildren) => {
+  const fileCollection = useApiCollection(FileCollectionSchema);
   const flowCollection = useApiCollection(FlowCollectionSchema);
   const edgeCollection = useApiCollection(EdgeCollectionSchema);
   const nodeCollection = useApiCollection(NodeCollectionSchema);
   const nodeNoOpCollection = useApiCollection(NodeNoOpCollectionSchema);
+  const nodeHttpCollection = useApiCollection(NodeHttpCollectionSchema);
 
-  const { getEdges, getNode, screenToFlowPosition } = XF.useReactFlow();
+  const { getEdges, getNode, getNodes, screenToFlowPosition } = XF.useReactFlow();
 
   const { flowId, isReadOnly = false } = use(FlowContext);
 
@@ -214,6 +220,54 @@ export const Flow = ({ children }: PropsWithChildren) => {
     });
   };
 
+  const { dropProps } = useDrop({
+    onDrop: async ({ items, x, y }) => {
+      const [item] = items;
+      if (!item || item.kind !== 'text' || !item.types.has('key') || items.length !== 1) return;
+
+      const file = fileCollection.get(await item.getText('key'));
+
+      const canvas = ref.current?.getBoundingClientRect() ?? { x: 0, y: 0 };
+      const position = screenToFlowPosition({ x: x + canvas.x, y: y + canvas.y });
+
+      if (file?.kind === FileKind.HTTP) {
+        const nodeId = Ulid.generate().bytes;
+
+        nodeHttpCollection.utils.insert({
+          httpId: file.fileId,
+          nodeId,
+        });
+
+        nodeCollection.utils.insert({
+          flowId,
+          kind: NodeKind.HTTP,
+          name: `http_${getNodes().length + 1}`,
+          nodeId,
+          position,
+        });
+      }
+
+      if (file?.kind === FileKind.HTTP_DELTA) {
+        const nodeId = Ulid.generate().bytes;
+
+        nodeHttpCollection.utils.insert({
+          deltaHttpId: file.fileId,
+          httpId: file.parentId!,
+          nodeId,
+        });
+
+        nodeCollection.utils.insert({
+          flowId,
+          kind: NodeKind.HTTP,
+          name: `http_${getNodes().length + 1}`,
+          nodeId,
+          position,
+        });
+      }
+    },
+    ref,
+  });
+
   const statusBarEndSlot = document.getElementById('statusBarEndSlot');
 
   return (
@@ -228,6 +282,7 @@ export const Flow = ({ children }: PropsWithChildren) => {
         )}
 
       <XF.ReactFlow
+        {...(dropProps as object)}
         colorMode='light'
         connectionLineComponent={ConnectionLine}
         defaultEdgeOptions={{ type: EdgeKind.UNSPECIFIED.toString() }}
