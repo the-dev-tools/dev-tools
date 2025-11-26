@@ -329,3 +329,50 @@ The Backend exposes endpoints to support the Frontend's management of these enti
 | **Resolution**  | Resolves for **Preview/UI** (Optimistic).                       | Resolves for **Execution** (Authoritative).            |
 | **Ordering**    | Calculates `float32` positions (Drag & Drop).                   | Stores `float32`. Sorts by `float32` during execution. |
 | **Validation**  | Prevents invalid local states.                                  | Enforces Foreign Keys and Type Safety.                 |
+
+---
+
+## 9. Implementation Plan (Refined)
+
+To ensure stability and reduce coupling, we will extract the resolution logic into a dedicated package and use interfaces to abstract the data sourcing.
+
+### Phase 1: The `pkg/delta` Package (Logic Extraction)
+**Goal:** Centralize the "Merge/Overlay" logic into a pure, testable package, decoupling it from HTTP execution details.
+
+1.  **Create `packages/server/pkg/delta`**:
+    *   This package will contain the core *Resolver* logic.
+    *   It will operate on `mhttp` models but be independent of the network/execution layer.
+2.  **Migrate & Refactor `MergeExamples`**:
+    *   Move the existing `MergeExamples` function (currently in `pkg/http/request`) to `pkg/delta`.
+    *   Rename to `ResolveHTTP(base, delta *mhttp.HTTP) *mhttp.HTTP`.
+    *   **Crucial:** Audit and enhance the logic to explicitly handle "Unset" states (distinguishing between "Empty String" and "Inherit", and "Enabled=false").
+
+### Phase 2: The `RequestResolver` Interface
+**Goal:** Define an interface that allows the Execution Engine to request a "Ready-to-Run" model without knowing if it came from a single record or a merged delta.
+
+1.  **Define Interface (e.g., in `pkg/http/core` or similar)**:
+    ```go
+    type RequestResolver interface {
+        // Resolve takes a base ID and an optional delta ID, returning the final effective struct.
+        Resolve(ctx context.Context, baseID idwrap.IDWrap, deltaID *idwrap.IDWrap) (*mhttp.HTTP, error)
+    }
+    ```
+2.  **Implement Standard Resolver**:
+    *   Create a concrete implementation that fetches from the DB and uses `pkg/delta.ResolveHTTP` if a `deltaID` is provided.
+
+### Phase 3: Integration via Dependency Injection
+**Goal:** Inject the `RequestResolver` into the Flow Runner and HTTP Service, replacing direct DB calls or ad-hoc merging.
+
+1.  **Update `FlowRun`**:
+    *   Inject `RequestResolver` into the Flow Runner.
+    *   When processing `NodeHttp`:
+        ```go
+        req, err := runner.resolver.Resolve(ctx, node.HttpID, node.DeltaHttpID)
+        // Proceed to execute 'req' (standard mhttp.HTTP)
+        ```
+2.  **Update `HttpRun`**:
+    *   Similarly update the `HttpRun` RPC handler to use the resolver.
+
+### Phase 4: Verification
+1.  **Unit Tests**: Heavy testing on `pkg/delta` for all merge edge cases (headers, bodies, nested params).
+2.  **Integration Tests**: Verify that `FlowRun` correctly executes a "Draft" request with overrides.
