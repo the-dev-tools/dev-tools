@@ -31,6 +31,7 @@ import (
 
 	"the-dev-tools/server/internal/api/rworkspace"
 	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
@@ -319,6 +320,16 @@ func main() {
 		importService: importV2Srv,
 	}
 
+	requestResolver := resolver.NewStandardResolver(
+		&httpService,
+		&httpHeaderService,
+		&httpSearchParamService,
+		httpBodyRawService,
+		&httpBodyFormService,
+		&httpBodyUrlEncodedService,
+		&httpAssertService,
+	)
+
 	flowSrvV2 := rflowv2.New(
 		&workspaceService,
 		&flowService,
@@ -339,6 +350,7 @@ func main() {
 		httpBodyUrlAgg,
 		&httpAssertAgg,
 		httpBodyRawService,
+		requestResolver,
 		logger,
 		workspaceImporter,
 		httpResponseService,

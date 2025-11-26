@@ -21,9 +21,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/internal/converter"
-	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream"
@@ -37,6 +37,7 @@ import (
 	"the-dev-tools/server/pkg/flow/node/nrequest"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mcondition"
@@ -252,43 +253,44 @@ const (
 )
 
 type FlowServiceV2RPC struct {
-	ws   *sworkspace.WorkspaceService
-	fs   *sflow.FlowService
-	es   *sedge.EdgeService
-	ns   *snode.NodeService
-	nrs  *snoderequest.NodeRequestService
-	nfs  *snodefor.NodeForService
-	nfes *snodeforeach.NodeForEachService
-	nifs *snodeif.NodeIfService
-	nnos *snodenoop.NodeNoopService
-	njss *snodejs.NodeJSService
-	nes  *snodeexecution.NodeExecutionService
-	fvs  *sflowvariable.FlowVariableService
-	hs   *shttp.HTTPService
-	hh   *shttp.HttpHeaderService
-	hsp  *shttp.HttpSearchParamService
-	hbf  *shttp.HttpBodyFormService
-	hbu  *shttp.HttpBodyUrlencodedService
-	has  *shttp.HttpAssertService
-	hbr  *shttp.HttpBodyRawService
-	logger *slog.Logger
+	ws       *sworkspace.WorkspaceService
+	fs       *sflow.FlowService
+	es       *sedge.EdgeService
+	ns       *snode.NodeService
+	nrs      *snoderequest.NodeRequestService
+	nfs      *snodefor.NodeForService
+	nfes     *snodeforeach.NodeForEachService
+	nifs     *snodeif.NodeIfService
+	nnos     *snodenoop.NodeNoopService
+	njss     *snodejs.NodeJSService
+	nes      *snodeexecution.NodeExecutionService
+	fvs      *sflowvariable.FlowVariableService
+	hs       *shttp.HTTPService
+	hh       *shttp.HttpHeaderService
+	hsp      *shttp.HttpSearchParamService
+	hbf      *shttp.HttpBodyFormService
+	hbu      *shttp.HttpBodyUrlencodedService
+	has      *shttp.HttpAssertService
+	hbr      *shttp.HttpBodyRawService
+	resolver resolver.RequestResolver
+	logger   *slog.Logger
 	// V2 import services
-	workspaceImportService     WorkspaceImporter
-	httpResponseService        shttp.HttpResponseService
-	flowStream                 eventstream.SyncStreamer[FlowTopic, FlowEvent]
-	nodeStream                 eventstream.SyncStreamer[NodeTopic, NodeEvent]
-	edgeStream                 eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
-	varStream                  eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
-	versionStream              eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
-	noopStream                 eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
-	forStream                  eventstream.SyncStreamer[ForTopic, ForEvent]
-	conditionStream            eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
-	forEachStream              eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
-	jsStream                   eventstream.SyncStreamer[JsTopic, JsEvent]
-	executionStream            eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
-	httpResponseStream         eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
-	httpResponseHeaderStream   eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
-	httpResponseAssertStream   eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
+	workspaceImportService   WorkspaceImporter
+	httpResponseService      shttp.HttpResponseService
+	flowStream               eventstream.SyncStreamer[FlowTopic, FlowEvent]
+	nodeStream               eventstream.SyncStreamer[NodeTopic, NodeEvent]
+	edgeStream               eventstream.SyncStreamer[EdgeTopic, EdgeEvent]
+	varStream                eventstream.SyncStreamer[FlowVariableTopic, FlowVariableEvent]
+	versionStream            eventstream.SyncStreamer[FlowVersionTopic, FlowVersionEvent]
+	noopStream               eventstream.SyncStreamer[NoOpTopic, NoOpEvent]
+	forStream                eventstream.SyncStreamer[ForTopic, ForEvent]
+	conditionStream          eventstream.SyncStreamer[ConditionTopic, ConditionEvent]
+	forEachStream            eventstream.SyncStreamer[ForEachTopic, ForEachEvent]
+	jsStream                 eventstream.SyncStreamer[JsTopic, JsEvent]
+	executionStream          eventstream.SyncStreamer[ExecutionTopic, ExecutionEvent]
+	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
+	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
+	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
 }
 
 func New(
@@ -311,6 +313,7 @@ func New(
 	hbu *shttp.HttpBodyUrlencodedService,
 	has *shttp.HttpAssertService,
 	hbr *shttp.HttpBodyRawService,
+	resolver resolver.RequestResolver,
 	logger *slog.Logger,
 	workspaceImportService WorkspaceImporter,
 	httpResponseService shttp.HttpResponseService,
@@ -330,42 +333,43 @@ func New(
 	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
-		ws:                         ws,
-		fs:                         fs,
-		es:                         es,
-		ns:                         ns,
-		nrs:                        nrs,
-		nfs:                        nfs,
-		nfes:                       nfes,
-		nifs:                       nifs,
-		nnos:                       nnos,
-		njss:                       njss,
-		nes:                        nes,
-		fvs:                        fvs,
-		hs:                         hs,
-		hh:                         hh,
-		hsp:                        hsp,
-		hbf:                        hbf,
-		hbu:                        hbu,
-		has:                        has,
-		hbr:                        hbr,
-		logger:                     logger,
-		workspaceImportService:     workspaceImportService,
-		httpResponseService:        httpResponseService,
-		flowStream:                 flowStream,
-		nodeStream:                 nodeStream,
-		edgeStream:                 edgeStream,
-		varStream:                  varStream,
-		versionStream:              versionStream,
-		noopStream:                 noopStream,
-		forStream:                  forStream,
-		conditionStream:            conditionStream,
-		forEachStream:              forEachStream,
-		jsStream:                   jsStream,
-		executionStream:            executionStream,
-		httpResponseStream:         httpResponseStream,
-		httpResponseHeaderStream:   httpResponseHeaderStream,
-		httpResponseAssertStream:   httpResponseAssertStream,
+		ws:                       ws,
+		fs:                       fs,
+		es:                       es,
+		ns:                       ns,
+		nrs:                      nrs,
+		nfs:                      nfs,
+		nfes:                     nfes,
+		nifs:                     nifs,
+		nnos:                     nnos,
+		njss:                     njss,
+		nes:                      nes,
+		fvs:                      fvs,
+		hs:                       hs,
+		hh:                       hh,
+		hsp:                      hsp,
+		hbf:                      hbf,
+		hbu:                      hbu,
+		has:                      has,
+		hbr:                      hbr,
+		resolver:                 resolver,
+		logger:                   logger,
+		workspaceImportService:   workspaceImportService,
+		httpResponseService:      httpResponseService,
+		flowStream:               flowStream,
+		nodeStream:               nodeStream,
+		edgeStream:               edgeStream,
+		varStream:                varStream,
+		versionStream:            versionStream,
+		noopStream:               noopStream,
+		forStream:                forStream,
+		conditionStream:          conditionStream,
+		forEachStream:            forEachStream,
+		jsStream:                 jsStream,
+		executionStream:          executionStream,
+		httpResponseStream:       httpResponseStream,
+		httpResponseHeaderStream: httpResponseHeaderStream,
+		httpResponseAssertStream: httpResponseAssertStream,
 	}
 }
 
@@ -4703,83 +4707,27 @@ func (s *FlowServiceV2RPC) buildRequestFlowNode(
 	client httpclient.HttpClient,
 	respChan chan nrequest.NodeRequestSideResp,
 ) (*nrequest.NodeRequest, error) {
-	httpRecord, err := s.hs.Get(ctx, cfg.HttpID)
+	resolved, err := s.resolver.Resolve(ctx, cfg.HttpID, cfg.DeltaExampleID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http %s: %w", cfg.HttpID.String(), err))
-	}
-
-	var headers []mhttp.HTTPHeader
-	if s.hh != nil {
-		headers, err = s.hh.GetByHttpID(ctx, cfg.HttpID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http headers: %w", err))
-		}
-	}
-
-	var queries []mhttp.HTTPSearchParam
-	if s.hsp != nil {
-		queries, err = s.hsp.GetByHttpID(ctx, cfg.HttpID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http queries: %w", err))
-		}
-	}
-
-	var forms []mhttp.HTTPBodyForm
-	if s.hbf != nil {
-		forms, err = s.hbf.GetByHttpID(ctx, cfg.HttpID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body forms: %w", err))
-		}
-	}
-
-	var urlEncoded []*mhttp.HTTPBodyUrlencoded
-	if s.hbu != nil {
-		urlEncoded, err = s.hbu.List(ctx, cfg.HttpID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body urlencoded: %w", err))
-		}
-	}
-	urlEncodedVals := make([]mhttp.HTTPBodyUrlencoded, 0, len(urlEncoded))
-	for _, v := range urlEncoded {
-		if v != nil {
-			urlEncodedVals = append(urlEncodedVals, *v)
-		}
-	}
-
-	var rawBody *mhttp.HTTPBodyRaw
-	if s.hbr != nil {
-		rawBody, err = s.hbr.GetByHttpID(ctx, cfg.HttpID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http body raw: %w", err))
-		}
-	}
-
-	var asserts []mhttp.HTTPAssert
-	if s.has != nil {
-		asserts, err = s.has.GetByHttpID(ctx, cfg.HttpID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("load http asserts: %w", err))
-		}
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("resolve http %s: %w", cfg.HttpID.String(), err))
 	}
 
 	requestNode := nrequest.New(
 		nodeModel.ID,
 		nodeModel.Name,
-		*httpRecord,
-		headers,
-		queries,
-		rawBody,
-		forms,
-		urlEncodedVals,
-		asserts,
+		resolved.Resolved,
+		resolved.ResolvedHeaders,
+		resolved.ResolvedQueries,
+		&resolved.ResolvedRawBody,
+		resolved.ResolvedFormBody,
+		resolved.ResolvedUrlEncodedBody,
+		resolved.ResolvedAsserts,
 		client,
 		respChan,
 		s.logger,
 	)
 	return requestNode, nil
 }
-
-
 
 func serializeFlow(flow mflow.Flow) *flowv1.Flow {
 	msg := &flowv1.Flow{
