@@ -231,7 +231,7 @@ export const HttpPanel = ({ nodeId }: NodePanelProps) => {
           Request
         </div>
 
-        <ReferenceContext value={{ flowNodeId: nodeId, httpId, workspaceId }}>
+        <ReferenceContext value={{ flowNodeId: nodeId, httpId, workspaceId, ...(deltaHttpId && { deltaHttpId }) }}>
           <HttpRequest className={tw`p-5 pt-3`} deltaHttpId={deltaHttpId} httpId={httpId} isReadOnly={isReadOnly} />
         </ReferenceContext>
       </div>

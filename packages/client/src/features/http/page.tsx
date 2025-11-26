@@ -43,7 +43,7 @@ const Page = ({ deltaHttpId, httpId }: PageProps) => {
   return (
     <PanelGroup autoSaveId='endpoint' direction='vertical'>
       <Panel className='flex h-full flex-col' id='request' order={1}>
-        <ReferenceContext value={{ httpId, workspaceId }}>
+        <ReferenceContext value={{ httpId, workspaceId, ...(deltaHttpId && { deltaHttpId }) }}>
           <HttpTopBar deltaHttpId={deltaHttpId} httpId={httpId} />
 
           <HttpRequestPanel deltaHttpId={deltaHttpId} httpId={httpId} />

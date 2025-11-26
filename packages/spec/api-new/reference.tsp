@@ -44,6 +44,7 @@ model ReferenceTreeItem {
 model ReferenceContext {
   workspaceId?: Id;
   httpId?: Id;
+  deltaHttpId?: Id;
   flowNodeId?: Id;
 }
 
