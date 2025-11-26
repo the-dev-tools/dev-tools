@@ -190,6 +190,16 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 		RawData: []byte(`{"payload":"{{ foreach_4.item.id }}"}`),
 	}
 
+	respChan := make(chan nrequest.NodeRequestSideResp, 10)
+	go func() {
+		for resp := range respChan {
+			if resp.Done != nil {
+				close(resp.Done)
+			}
+		}
+	}()
+	defer close(respChan)
+
 	requestNode := nrequest.New(
 		requestNodeID,
 		"request",
@@ -201,7 +211,7 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 		nil, // urlBody
 		nil, // asserts
 		staticHTTPClient{},
-		make(chan nrequest.NodeRequestSideResp, 1),
+		respChan,
 		slog.Default(),
 	)
 
