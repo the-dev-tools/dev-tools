@@ -97,6 +97,8 @@ func toAPIFileKind(kind mfile.ContentType) apiv1.FileKind {
 		return apiv1.FileKind_FILE_KIND_FOLDER
 	case mfile.ContentTypeHTTP:
 		return apiv1.FileKind_FILE_KIND_HTTP
+	case mfile.ContentTypeHTTPDelta:
+		return apiv1.FileKind_FILE_KIND_HTTP_DELTA
 	case mfile.ContentTypeFlow:
 		return apiv1.FileKind_FILE_KIND_FLOW
 	default:
@@ -111,6 +113,8 @@ func fromAPIFileKind(kind apiv1.FileKind) mfile.ContentType {
 		return mfile.ContentTypeFolder
 	case apiv1.FileKind_FILE_KIND_HTTP:
 		return mfile.ContentTypeHTTP
+	case apiv1.FileKind_FILE_KIND_HTTP_DELTA:
+		return mfile.ContentTypeHTTPDelta
 	case apiv1.FileKind_FILE_KIND_FLOW:
 		return mfile.ContentTypeFlow
 	default:
@@ -140,12 +144,12 @@ func fromAPIFileInsert(apiFile *apiv1.FileInsert) (*mfile.File, error) {
 	}
 
 	return &mfile.File{
-		ID:           fileID,
-		WorkspaceID:  workspaceID,
-		FolderID:     folderID,
-		ContentType:  fromAPIFileKind(apiFile.Kind),
-		Name:         "", // API doesn't have name field, will be set based on kind
-		Order:        float64(apiFile.Order),
+		ID:          fileID,
+		WorkspaceID: workspaceID,
+		FolderID:    folderID,
+		ContentType: fromAPIFileKind(apiFile.Kind),
+		Name:        "", // API doesn't have name field, will be set based on kind
+		Order:       float64(apiFile.Order),
 	}, nil
 }
 
@@ -209,11 +213,11 @@ func fromAPIFolderInsert(apiFolder *apiv1.FolderInsert, workspaceID idwrap.IDWra
 	}
 
 	return &mfile.File{
-		ID:           folderID,
-		WorkspaceID:  workspaceID,
-		ContentType:  mfile.ContentTypeFolder,
-		Name:         apiFolder.Name,
-		Order:        0, // Folders have default order
+		ID:          folderID,
+		WorkspaceID: workspaceID,
+		ContentType: mfile.ContentTypeFolder,
+		Name:        apiFolder.Name,
+		Order:       0, // Folders have default order
 	}, nil
 }
 

@@ -11,10 +11,11 @@ import (
 type ContentType int8
 
 const (
-	ContentTypeUnknown ContentType = -1
-	ContentTypeFolder ContentType = 0 // folder
-	ContentTypeHTTP   ContentType = 1 // http (new model, replaces item_api)
-	ContentTypeFlow   ContentType = 2 // flow
+	ContentTypeUnknown   ContentType = -1
+	ContentTypeFolder    ContentType = 0 // folder
+	ContentTypeHTTP      ContentType = 1 // http (new model, replaces item_api)
+	ContentTypeFlow      ContentType = 2 // flow
+	ContentTypeHTTPDelta ContentType = 3 // http delta (draft/overlay)
 )
 
 // String returns the string representation of ContentType
@@ -26,6 +27,8 @@ func (ct ContentType) String() string {
 		return "flow"
 	case ContentTypeHTTP:
 		return "http"
+	case ContentTypeHTTPDelta:
+		return "http_delta"
 	default:
 		return "unknown"
 	}
@@ -62,6 +65,11 @@ func (f File) IsFolder() bool {
 // IsHTTP returns true if the file contains an HTTP request
 func (f File) IsHTTP() bool {
 	return f.ContentType == ContentTypeHTTP
+}
+
+// IsHTTPDelta returns true if the file contains an HTTP delta request
+func (f File) IsHTTPDelta() bool {
+	return f.ContentType == ContentTypeHTTPDelta
 }
 
 // IsFlow returns true if the file contains a flow
@@ -108,6 +116,8 @@ func ContentTypeFromString(s string) ContentType {
 		return ContentTypeFlow
 	case "http":
 		return ContentTypeHTTP
+	case "http_delta":
+		return ContentTypeHTTPDelta
 	default:
 		return ContentTypeUnknown
 	}
@@ -115,7 +125,7 @@ func ContentTypeFromString(s string) ContentType {
 
 // IsValidContentType checks if the content type is valid
 func IsValidContentType(kind ContentType) bool {
-	return kind == ContentTypeFolder || kind == ContentTypeFlow || kind == ContentTypeHTTP
+	return kind == ContentTypeFolder || kind == ContentTypeFlow || kind == ContentTypeHTTP || kind == ContentTypeHTTPDelta
 }
 
 // IDEquals checks if two IDWrap values are equal
