@@ -376,3 +376,12 @@ To ensure stability and reduce coupling, we will extract the resolution logic in
 ### Phase 4: Verification
 1.  **Unit Tests**: Heavy testing on `pkg/delta` for all merge edge cases (headers, bodies, nested params).
 2.  **Integration Tests**: Verify that `FlowRun` correctly executes a "Draft" request with overrides.
+
+### Refactoring Note: Terminology Update
+As part of the migration to `pkg/delta`, we must eliminate legacy "Example" terminology.
+*   `MergeExamples` -> `ResolveHTTP`
+*   `MergeExamplesInput` -> `ResolveHTTPInput`
+*   `example mhttp.HTTP` -> `base mhttp.HTTP` or `request mhttp.HTTP`
+*   `SendRequest(..., exampleID)` -> `SendRequest(..., httpID)`
+
+This ensures the code reflects the current domain model where "Examples" have been unified into "HTTP Requests".
