@@ -1911,22 +1911,26 @@ func (q *Queries) UpdateFlowNodeForEach(ctx context.Context, arg UpdateFlowNodeF
 }
 
 const updateFlowNodeHTTP = `-- name: UpdateFlowNodeHTTP :exec
-UPDATE flow_node_http
-SET
-  http_id = ?,
-  delta_http_id = ?
-WHERE
-  flow_node_id = ?
+INSERT INTO flow_node_http (
+    flow_node_id,
+    http_id,
+    delta_http_id
+)
+VALUES
+    (?, ?, ?)
+ON CONFLICT(flow_node_id) DO UPDATE SET
+    http_id = excluded.http_id,
+    delta_http_id = excluded.delta_http_id
 `
 
 type UpdateFlowNodeHTTPParams struct {
+	FlowNodeID  idwrap.IDWrap
 	HttpID      idwrap.IDWrap
 	DeltaHttpID []byte
-	FlowNodeID  idwrap.IDWrap
 }
 
 func (q *Queries) UpdateFlowNodeHTTP(ctx context.Context, arg UpdateFlowNodeHTTPParams) error {
-	_, err := q.exec(ctx, q.updateFlowNodeHTTPStmt, updateFlowNodeHTTP, arg.HttpID, arg.DeltaHttpID, arg.FlowNodeID)
+	_, err := q.exec(ctx, q.updateFlowNodeHTTPStmt, updateFlowNodeHTTP, arg.FlowNodeID, arg.HttpID, arg.DeltaHttpID)
 	return err
 }
 

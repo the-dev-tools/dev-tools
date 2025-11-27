@@ -323,12 +323,16 @@ VALUES
   (?, ?, ?);
 
 -- name: UpdateFlowNodeHTTP :exec
-UPDATE flow_node_http
-SET
-  http_id = ?,
-  delta_http_id = ?
-WHERE
-  flow_node_id = ?;
+INSERT INTO flow_node_http (
+    flow_node_id,
+    http_id,
+    delta_http_id
+)
+VALUES
+    (?, ?, ?)
+ON CONFLICT(flow_node_id) DO UPDATE SET
+    http_id = excluded.http_id,
+    delta_http_id = excluded.delta_http_id;
 
 -- name: DeleteFlowNodeHTTP :exec
 DELETE FROM flow_node_http
