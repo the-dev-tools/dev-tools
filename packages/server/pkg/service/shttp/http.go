@@ -183,6 +183,22 @@ func (hs HTTPService) GetByWorkspaceID(ctx context.Context, workspaceID idwrap.I
 	return result, nil
 }
 
+func (hs HTTPService) GetDeltasByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTP, error) {
+	https, err := hs.queries.GetHTTPDeltasByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mhttp.HTTP{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mhttp.HTTP, len(https))
+	for i, http := range https {
+		result[i] = *ConvertToModelHTTP(http)
+	}
+	return result, nil
+}
+
 func (hs HTTPService) Get(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTP, error) {
 	http, err := hs.queries.GetHTTP(ctx, id)
 	if err != nil {

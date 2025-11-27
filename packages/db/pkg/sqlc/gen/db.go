@@ -372,6 +372,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getHTTPDeltasByParentIDStmt, err = db.PrepareContext(ctx, getHTTPDeltasByParentID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPDeltasByParentID: %w", err)
 	}
+	if q.getHTTPDeltasByWorkspaceIDStmt, err = db.PrepareContext(ctx, getHTTPDeltasByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetHTTPDeltasByWorkspaceID: %w", err)
+	}
 	if q.getHTTPDeltasSinceStmt, err = db.PrepareContext(ctx, getHTTPDeltasSince); err != nil {
 		return nil, fmt.Errorf("error preparing query GetHTTPDeltasSince: %w", err)
 	}
@@ -1260,6 +1263,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getHTTPDeltasByParentIDStmt: %w", cerr)
 		}
 	}
+	if q.getHTTPDeltasByWorkspaceIDStmt != nil {
+		if cerr := q.getHTTPDeltasByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getHTTPDeltasByWorkspaceIDStmt: %w", cerr)
+		}
+	}
 	if q.getHTTPDeltasSinceStmt != nil {
 		if cerr := q.getHTTPDeltasSinceStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getHTTPDeltasSinceStmt: %w", cerr)
@@ -1920,6 +1928,7 @@ type Queries struct {
 	getHTTPBodyUrlEncodedByHttpIDStmt          *sql.Stmt
 	getHTTPBodyUrlEncodedsByIDsStmt            *sql.Stmt
 	getHTTPDeltasByParentIDStmt                *sql.Stmt
+	getHTTPDeltasByWorkspaceIDStmt             *sql.Stmt
 	getHTTPDeltasSinceStmt                     *sql.Stmt
 	getHTTPHeadersStmt                         *sql.Stmt
 	getHTTPHeadersByIDsStmt                    *sql.Stmt
@@ -2143,6 +2152,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getHTTPBodyUrlEncodedByHttpIDStmt:          q.getHTTPBodyUrlEncodedByHttpIDStmt,
 		getHTTPBodyUrlEncodedsByIDsStmt:            q.getHTTPBodyUrlEncodedsByIDsStmt,
 		getHTTPDeltasByParentIDStmt:                q.getHTTPDeltasByParentIDStmt,
+		getHTTPDeltasByWorkspaceIDStmt:             q.getHTTPDeltasByWorkspaceIDStmt,
 		getHTTPDeltasSinceStmt:                     q.getHTTPDeltasSinceStmt,
 		getHTTPHeadersStmt:                         q.getHTTPHeadersStmt,
 		getHTTPHeadersByIDsStmt:                    q.getHTTPHeadersByIDsStmt,

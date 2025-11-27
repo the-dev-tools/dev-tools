@@ -2688,6 +2688,73 @@ func (q *Queries) GetHTTPDeltasByParentID(ctx context.Context, parentHttpID *idw
 	return items, nil
 }
 
+const getHTTPDeltasByWorkspaceID = `-- name: GetHTTPDeltasByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  body_kind,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_body_kind,
+  delta_description,
+  last_run_at,
+  created_at,
+  updated_at
+FROM http
+WHERE workspace_id = ? AND is_delta = TRUE
+ORDER BY updated_at DESC
+`
+
+func (q *Queries) GetHTTPDeltasByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Http, error) {
+	rows, err := q.query(ctx, q.getHTTPDeltasByWorkspaceIDStmt, getHTTPDeltasByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Http{}
+	for rows.Next() {
+		var i Http
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FolderID,
+			&i.Name,
+			&i.Url,
+			&i.Method,
+			&i.BodyKind,
+			&i.Description,
+			&i.ParentHttpID,
+			&i.IsDelta,
+			&i.DeltaName,
+			&i.DeltaUrl,
+			&i.DeltaMethod,
+			&i.DeltaBodyKind,
+			&i.DeltaDescription,
+			&i.LastRunAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getHTTPDeltasSince = `-- name: GetHTTPDeltasSince :many
 SELECT 
   h.id,

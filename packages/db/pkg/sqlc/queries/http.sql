@@ -70,6 +70,30 @@ FROM http
 WHERE workspace_id = ? AND is_delta = FALSE
 ORDER BY updated_at DESC;
 
+-- name: GetHTTPDeltasByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  body_kind,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_body_kind,
+  delta_description,
+  last_run_at,
+  created_at,
+  updated_at
+FROM http
+WHERE workspace_id = ? AND is_delta = TRUE
+ORDER BY updated_at DESC;
+
 -- name: GetHTTPsByFolderID :many
 SELECT
   id,

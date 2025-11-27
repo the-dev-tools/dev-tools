@@ -1749,17 +1749,13 @@ func (h *HttpServiceRPC) HttpDeltaCollection(ctx context.Context, req *connect.R
 	var allDeltas []*apiv1.HttpDelta
 	for _, workspace := range workspaces {
 		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		// Convert to delta format
 		for _, http := range httpList {
-			if !http.IsDelta {
-				continue
-			}
-
 			delta := &apiv1.HttpDelta{
 				DeltaHttpId: http.ID.Bytes(),
 			}
