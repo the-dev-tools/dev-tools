@@ -338,9 +338,13 @@ func resolveRawBody(base, delta mhttp.HTTPBodyRaw) mhttp.HTTPBodyRaw {
 		case int8:
 			resolved.CompressionType = v
 		case int:
-			resolved.CompressionType = int8(v)
+			if v >= -128 && v <= 127 {
+				resolved.CompressionType = int8(v)
+			}
 		case float64:
-			resolved.CompressionType = int8(v)
+			if v >= -128 && v <= 127 {
+				resolved.CompressionType = int8(v)
+			}
 		}
 	}
 
