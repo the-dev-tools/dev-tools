@@ -1,5 +1,15 @@
 # Gemini Context & Instructions
 
+## Core Operational Mandates
+1.  **Environment:** Always assume execution within a `nix develop` environment. Use `pnpm nx` for project tasks and `task` (Taskfile) for orchestrated workflows. **CRITICAL:** Always run commands using `direnv exec . <command>` to ensure the correct environment (e.g., `NX_TUI`, `TASK_OUTPUT`) is loaded.
+2.  **Context Awareness:** Read `CLAUDE.md` and `README.md` for domain specific vocabulary (flow nodes, delta system) before starting complex tasks.
+3.  **File Editing:**
+    - Verify files exist before editing.
+    - Use `git status` and `git diff` to verify changes.
+    - **Never** revert changes you didn't author unless instructed.
+    - **Never** commit changes unless explicitly asked.
+4.  **Verification:** Always test and lint and try to compile the project after change to be sure.
+
 ## Project Overview
 DevTools is a local-first, open-source API testing platform (Postman alternative) that runs as a desktop app, CLI, and Chrome extension. It features request recording, visual flow building, and CI/CD integration.
 
@@ -14,19 +24,6 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
   - `packages/ui`: Shared React component library (Storybook).
   - `packages/db`: Shared SQL drivers and `sqlc` generated code.
   - `packages/spec`: TypeSpec definitions (single source of truth for API/Protobuf).
-
-## Core Operational Mandates
-1.  **Environment:** Always assume execution within a `nix develop` environment. Use `pnpm nx` for project tasks and `task` (Taskfile) for orchestrated workflows.
-2.  **Context Awareness:** Read `CLAUDE.md` and `README.md` for domain specific vocabulary (flow nodes, delta system) before starting complex tasks.
-3.  **File Editing:**
-    - Verify files exist before editing.
-    - Use `git status` and `git diff` to verify changes.
-    - **Never** revert changes you didn't author unless instructed.
-    - **Never** commit changes unless explicitly asked.
-4.  **Verification:** Always test and lint and try to compile the project after change to be sure.
-5.  **Nx Output:** When running `nx` commands, prefer setting `NX_TERMINAL_OUTPUT_FORMAT=stream` (e.g., in `.envrc` or command line) to avoid TUI rendering issues and ensure readable logs in non-interactive shells.
-6.  **Task Output:** When running `task` commands, prefer setting `TASK_OUTPUT=prefixed` (e.g., in `.envrc` or command line) to ensure readable logs in non-interactive shells.
-7.  **TUI Disable:** **CRITICAL:** Always run `nx` and `task` commands with `NX_TUI=false` (e.g., `NX_TUI=false task test` or export it) to disable the interactive TUI. The agent cannot interpret the TUI output structure.
 
 ## Development Workflows
 
@@ -52,6 +49,14 @@ DevTools is a local-first, open-source API testing platform (Postman alternative
 - **Database:** Use `sqlc` generated structs in `packages/server/pkg/gen`.
 - **Transactions:** Short-lived. Use `devtoolsdb.TxnRollback` in defer.
 - **Concurrency:** Channel-based coordination or `sync.WaitGroup`.
+
+### Testing Patterns (Server)
+- **Service/Repository Tests:** Use `sqlitemem.NewSQLiteMem` for fastest, single-connection, in-memory SQLite. Best for testing isolated services.
+- **RPC/Integration Tests:** Use `testutil.CreateBaseDB` when multiple components (RPC + Services) need to share a DB.
+- **Isolation:** One DB per test. Never share DB instances across tests.
+- **Transactions:** Keep TXs short. Commit before reading in a different connection (e.g., RPC calls).
+- **Seeding:** Use `BaseTestServices.CreateTempCollection` to quickly seed workspace/user/collection state.
+- **Parallelism:** Safe to use `t.Parallel()` *only* if each subtest creates its own independent DB.
 
 ### TypeScript/React (Client/Desktop)
 - **State/Effects:** Effect-TS and TanStack Query.
