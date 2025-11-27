@@ -318,7 +318,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		deltaFile := mfile.File{
 			ID:          deltaReq.ID,
 			WorkspaceID: workspaceID,
-			FolderID:    file.FolderID,
+			FolderID:    &file.ID,
 			ContentID:   &deltaReq.ID,
 			ContentType: mfile.ContentTypeHTTPDelta,
 			Name:        deltaReq.Name,
