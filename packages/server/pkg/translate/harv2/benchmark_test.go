@@ -41,8 +41,8 @@ func generateTestHAR(numEntries int) *harv2.HAR {
 				HTTPVersion: "HTTP/1.1",
 			},
 			Response: harv2.Response{
-				Status:     200,
-				StatusText: "OK",
+				Status:      200,
+				StatusText:  "OK",
 				HTTPVersion: "HTTP/1.1",
 				Content: harv2.Content{
 					Size:     100,

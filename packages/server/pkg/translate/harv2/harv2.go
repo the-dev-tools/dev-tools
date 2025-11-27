@@ -106,21 +106,21 @@ type HarResolved struct {
 	HTTPRequests []mhttp.HTTP `json:"http_requests"`
 
 	// Child Entities
-	HTTPHeaders        []mhttp.HTTPHeader        `json:"http_headers"`
-	HTTPSearchParams   []mhttp.HTTPSearchParam   `json:"http_search_params"`
-	HTTPBodyForms      []mhttp.HTTPBodyForm      `json:"http_body_forms"`
+	HTTPHeaders        []mhttp.HTTPHeader         `json:"http_headers"`
+	HTTPSearchParams   []mhttp.HTTPSearchParam    `json:"http_search_params"`
+	HTTPBodyForms      []mhttp.HTTPBodyForm       `json:"http_body_forms"`
 	HTTPBodyUrlEncoded []mhttp.HTTPBodyUrlencoded `json:"http_body_urlencoded"`
-	HTTPBodyRaws       []mhttp.HTTPBodyRaw       `json:"http_body_raws"`
+	HTTPBodyRaws       []mhttp.HTTPBodyRaw        `json:"http_body_raws"`
 
 	// File System (modern mfile.File model)
 	Files []mfile.File `json:"files"`
 
 	// Flow Items (preserving existing flow generation)
-	Flow         mflow.Flow          `json:"flow"`
-	Nodes        []mnnode.MNode      `json:"nodes"`
+	Flow         mflow.Flow            `json:"flow"`
+	Nodes        []mnnode.MNode        `json:"nodes"`
 	RequestNodes []mnrequest.MNRequest `json:"request_nodes"`
-	NoOpNodes    []mnnoop.NoopNode   `json:"no_op_nodes"`
-	Edges        []edge.Edge         `json:"edges"`
+	NoOpNodes    []mnnoop.NoopNode     `json:"no_op_nodes"`
+	Edges        []edge.Edge           `json:"edges"`
 }
 
 // Helper functions for request processing
@@ -322,13 +322,13 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		// Actually, we should probably move the dependency checking *out* or make it return edges.
 		// For simplicity, let's check dependencies here using the modified httpReq fields or passed back info.
 		// Re-design: createHTTPRequestFromEntryWithDeps should return found dependency couples.
-		
-		// (Self-Correction: To avoid changing the signature too much, let's extract dependencies *before* creating the request 
-		// or have the function return them. Let's assume we refactor `createHTTPRequestFromEntry` to `createHTTPRequestFromEntryWithDeps` 
+
+		// (Self-Correction: To avoid changing the signature too much, let's extract dependencies *before* creating the request
+		// or have the function return them. Let's assume we refactor `createHTTPRequestFromEntry` to `createHTTPRequestFromEntryWithDeps`
 		// and it returns `[]depfinder.VarCouple` used.)
-		
+
 		// See implementation of `createHTTPRequestFromEntryWithDeps` below for details.
-		
+
 		// 2. Timestamp Sequencing
 		currentTimestamp := entry.StartedDateTime
 		if previousNodeID != nil && previousTimestamp != nil {
@@ -349,11 +349,11 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 			lastMutationID := nodeID
 			lastMutationNodeID = &lastMutationID
 		} else if requiresSequentialOrdering(httpReq.Method) && previousNodeID != nil {
-             // Strict ordering for DELETE etc if not caught by mutation chain
-             if !edgeExists(result.Edges, *previousNodeID, nodeID) {
-                 addEdge(result, flowID, *previousNodeID, nodeID)
-             }
-        }
+			// Strict ordering for DELETE etc if not caught by mutation chain
+			if !edgeExists(result.Edges, *previousNodeID, nodeID) {
+				addEdge(result, flowID, *previousNodeID, nodeID)
+			}
+		}
 
 		// Update tracking
 		previousNodeID = &nodeID
@@ -364,8 +364,8 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		// Add response to DepFinder for future requests
 		if entry.Response.Content.Text != "" {
 			// Try to parse as JSON
-			if strings.Contains(entry.Response.Content.MimeType, "json") || 
-			   strings.HasPrefix(strings.TrimSpace(entry.Response.Content.Text), "{") {
+			if strings.Contains(entry.Response.Content.MimeType, "json") ||
+				strings.HasPrefix(strings.TrimSpace(entry.Response.Content.Text), "{") {
 				path := fmt.Sprintf("%s.%s.%s", node.Name, "response", "body")
 				couple := depfinder.VarCouple{Path: path, NodeID: nodeID}
 				_ = depFinder.AddJsonBytes([]byte(entry.Response.Content.Text), couple)
@@ -412,286 +412,27 @@ func addEdge(result *HarResolved, flowID, sourceID, targetID idwrap.IDWrap) {
 	})
 }
 
-// createHTTPRequestFromEntryWithDeps creates HTTP entity and checks for data dependencies
-func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, depFinder *depfinder.DepFinder) (
-	*mhttp.HTTP,
-	[]mhttp.HTTPHeader,
-	[]mhttp.HTTPSearchParam,
-	[]mhttp.HTTPBodyForm,
-	[]mhttp.HTTPBodyUrlencoded,
-	[]mhttp.HTTPBodyRaw,
-	error,
-) {
-    // Use the original function logic but inject dependency checks
-    // Since we can't easily call the original function and then modify, we duplicate the logic here 
-    // but integrated with DepFinder.
-    
-	parsedURL, err := url.Parse(entry.Request.URL)
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL %s: %w", entry.Request.URL, err)
-	}
-
-    // Check URL Path Params for dependencies
-    // TODO: Implement URL path param replacement if DepFinder supports it (it does: ReplaceURLPathParams)
-    // For now, we stick to the basic logic + header/body deps.
-
-	// Determine body kind
-	bodyKind := mhttp.HttpBodyKindNone
-	if entry.Request.PostData != nil {
-		mimeType := strings.ToLower(entry.Request.PostData.MimeType)
-		if strings.Contains(mimeType, FormBodyCheck) {
-			bodyKind = mhttp.HttpBodyKindFormData
-		} else if strings.Contains(mimeType, UrlEncodedBodyCheck) {
-			bodyKind = mhttp.HttpBodyKindUrlEncoded
-		} else {
-			bodyKind = mhttp.HttpBodyKindRaw
-		}
-	}
-
-	name := generateRequestName(entry.Request.Method, parsedURL)
-	now := entry.StartedDateTime.UnixMilli()
-	httpID := idwrap.NewNow()
-
-	httpReq := &mhttp.HTTP{
-		ID:          httpID,
-		WorkspaceID: workspaceID,
-		Name:        name,
-		Url:         entry.Request.URL,
-		Method:      entry.Request.Method,
-		Description: fmt.Sprintf("Imported from HAR - %s %s", entry.Request.Method, entry.Request.URL),
-		BodyKind:    bodyKind,
-		IsDelta:     false,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-    
-    // Check URL for full replacements (query params are handled separately)
-    // (Simplification: we won't modify the base URL string for path params here to avoid breaking 
-    // valid URLs unless we are sure. The old thar did simple string replacement.)
-
-	// Extract headers
-	headers := make([]mhttp.HTTPHeader, 0, len(entry.Request.Headers))
-	for _, h := range entry.Request.Headers {
-		if strings.HasPrefix(h.Name, ":") {
-			continue
-		}
-        
-        // Dependency Check
-        val := h.Value
-        if depFinder != nil {
-            if newVal, found, _ := depFinder.ReplaceWithPaths(val); found {
-                if strVal, ok := newVal.(string); ok {
-                    val = strVal
-                    // implicitly creates dependency via data usage
-                    // We need to capture the source node ID from the couple to create edges later?
-                    // Since we don't return edges here, we rely on 'processEntries' to create edges?
-                    // No, processEntries needs to know about this.
-                    // Limitation: The current structure makes it hard to pass edges back without changing signature significantly.
-                    // However, for this refactor, I will assume data dependency edges are less critical 
-                    // than the structure (mutation/time) OR I rely on the fact that I can't easily return them 
-                    // without a bigger refactor.
-                    // WAIT: I can return them via a side channel or just assume for now that
-                    // Mutation/Time/Rooting covers 90% of ordering needs.
-                    // DATA DEPENDENCY is critical for execution.
-                    // Let's hack it: The prompt asked for "Tree like dependency system".
-                    // I will implement the structural parts fully. Data dependency requires the templating to happen.
-                    // I am applying the template here: `val = strVal`.
-                    // But I am NOT creating the edge. That's a gap. 
-                    // I should return the dependencies found.
-                }
-            }
-        }
-
-		headers = append(headers, mhttp.HTTPHeader{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
-			HeaderKey:   h.Name,
-			HeaderValue: val,
-			Enabled:     true,
-			CreatedAt:   now,
-			UpdatedAt:   now,
-		})
-	}
-
-	// Extract Query Parameters
-	params := make([]mhttp.HTTPSearchParam, 0, len(entry.Request.QueryString))
-	for _, q := range entry.Request.QueryString {
-        val := q.Value
-        if depFinder != nil {
-            if newVal, found, _ := depFinder.ReplaceWithPaths(val); found {
-                if strVal, ok := newVal.(string); ok {
-                    val = strVal
-                }
-            }
-        }
-		params = append(params, mhttp.HTTPSearchParam{
-			ID:         idwrap.NewNow(),
-			HttpID:     httpID,
-			ParamKey:   q.Name,
-			ParamValue: val,
-			Enabled:    true,
-			CreatedAt:  now,
-			UpdatedAt:  now,
-		})
-	}
-
-	// Extract Body
-	var bodyForms []mhttp.HTTPBodyForm
-	var bodyUrlEncoded []mhttp.HTTPBodyUrlencoded
-	var bodyRaws []mhttp.HTTPBodyRaw
-
-	if entry.Request.PostData != nil {
-		if bodyKind == mhttp.HttpBodyKindFormData {
-			for _, p := range entry.Request.PostData.Params {
-                val := p.Value
-                if depFinder != nil {
-                    if newVal, found, _ := depFinder.ReplaceWithPaths(val); found {
-                        if strVal, ok := newVal.(string); ok {
-                            val = strVal
-                        }
-                    }
-                }
-				bodyForms = append(bodyForms, mhttp.HTTPBodyForm{
-					ID:        idwrap.NewNow(),
-					HttpID:    httpID,
-					FormKey:   p.Name,
-					FormValue: val,
-					Enabled:   true,
-					CreatedAt: now,
-					UpdatedAt: now,
-				})
-			}
-		} else if bodyKind == mhttp.HttpBodyKindUrlEncoded {
-			for _, p := range entry.Request.PostData.Params {
-                val := p.Value
-                if depFinder != nil {
-                    if newVal, found, _ := depFinder.ReplaceWithPaths(val); found {
-                        if strVal, ok := newVal.(string); ok {
-                            val = strVal
-                        }
-                    }
-                }
-				bodyUrlEncoded = append(bodyUrlEncoded, mhttp.HTTPBodyUrlencoded{
-					ID:              idwrap.NewNow(),
-					HttpID:          httpID,
-					UrlencodedKey:   p.Name,
-					UrlencodedValue: val,
-					Enabled:         true,
-					CreatedAt:       now,
-					UpdatedAt:       now,
-				})
-			}
-		} else if bodyKind == mhttp.HttpBodyKindRaw {
-            text := entry.Request.PostData.Text
-            // Template JSON body
-            if depFinder != nil && strings.Contains(strings.ToLower(entry.Request.PostData.MimeType), "json") {
-                res := depFinder.TemplateJSON([]byte(text))
-                if res.Err == nil {
-                    text = string(res.NewJson)
-                    // Here we would also capture res.Couples to add edges
-                }
-            }
-            
-			bodyRaws = append(bodyRaws, mhttp.HTTPBodyRaw{
-				ID:              idwrap.NewNow(),
-				HttpID:          httpID,
-				RawData:         []byte(text),
-				ContentType:     entry.Request.PostData.MimeType,
-				CompressionType: 0, // Default to no compression
-				CreatedAt:       now,
-				UpdatedAt:       now,
-			})
-		}
-	}
-
-	return httpReq, headers, params, bodyForms, bodyUrlEncoded, bodyRaws, nil
-}
-
 // finalizeGraph connects orphans to start node and performs cleanup
 func finalizeGraph(result *HarResolved, startNodeID idwrap.IDWrap, flowID idwrap.IDWrap) error {
-    // 1. Transitive Reduction
-    result.Edges = applyTransitiveReduction(result.Edges)
-    
-    // 2. Rooting (Connect orphans to Start)
-    hasIncoming := make(map[idwrap.IDWrap]bool)
-    for _, e := range result.Edges {
-        hasIncoming[e.TargetID] = true
-    }
-    
-    for _, node := range result.Nodes {
-        if node.ID == startNodeID {
-            continue
-        }
-        if !hasIncoming[node.ID] {
-            addEdge(result, flowID, startNodeID, node.ID)
-        }
-    }
-    
-    return nil
-}
+	// 1. Transitive Reduction
+	result.Edges = applyTransitiveReduction(result.Edges)
 
-
-// createDeltaVersion creates a delta version of an HTTP request
-func createDeltaVersion(original mhttp.HTTP) mhttp.HTTP {
-	deltaName := original.Name + " (Delta)"
-	deltaURL := original.Url
-	deltaMethod := original.Method
-	deltaDesc := original.Description + " [Delta Version]"
-
-	delta := mhttp.HTTP{
-		ID:               idwrap.NewNow(),
-		WorkspaceID:      original.WorkspaceID,
-		ParentHttpID:     &original.ID,
-		Name:             deltaName,
-		Url:              original.Url,
-		Method:           original.Method,
-		Description:      deltaDesc,
-		IsDelta:          true,
-		DeltaName:        &deltaName,
-		DeltaUrl:         &deltaURL,
-		DeltaMethod:      &deltaMethod,
-		DeltaDescription: &deltaDesc,
-		CreatedAt:        original.CreatedAt + 1, // Ensure slightly later timestamp
-		UpdatedAt:        original.UpdatedAt + 1,
+	// 2. Rooting (Connect orphans to Start)
+	hasIncoming := make(map[idwrap.IDWrap]bool)
+	for _, e := range result.Edges {
+		hasIncoming[e.TargetID] = true
 	}
 
-	return delta
-}
-
-// generateRequestName creates a descriptive name from HTTP method and URL
-func generateRequestName(method string, parsedURL *url.URL) string {
-	// Extract meaningful path segments
-	pathSegments := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
-
-	// Take last 2-3 meaningful segments
-	var meaningfulSegments []string
-	for i := len(pathSegments) - 1; i >= 0 && len(meaningfulSegments) < 3; i-- {
-		segment := pathSegments[i]
-		if segment != "" && !strings.HasPrefix(segment, "{") && !isNumericSegment(segment) {
-			meaningfulSegments = append([]string{segment}, meaningfulSegments...)
+	for _, node := range result.Nodes {
+		if node.ID == startNodeID {
+			continue
+		}
+		if !hasIncoming[node.ID] {
+			addEdge(result, flowID, startNodeID, node.ID)
 		}
 	}
 
-	// Include hostname if no meaningful path segments
-	if len(meaningfulSegments) == 0 {
-		host := strings.Replace(parsedURL.Hostname(), "www.", "", 1)
-		host = strings.Replace(host, ".", " ", -1)
-		return fmt.Sprintf("%s %s", method, strings.Title(host))
-	}
-
-	// Build final name
-	pathName := strings.Join(meaningfulSegments, " ")
-	return fmt.Sprintf("%s %s", method, strings.Title(strings.Replace(pathName, "-", " ", -1)))
-}
-
-// isNumericSegment checks if a URL segment is purely numeric (likely an ID)
-func isNumericSegment(segment string) bool {
-	for _, r := range segment {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return len(segment) > 0
+	return nil
 }
 
 // createFileStructure creates the file system hierarchy for an HTTP request
@@ -802,9 +543,6 @@ func sanitizeFileName(name string) string {
 
 	return replacer.Replace(name)
 }
-
-
-
 
 // ReorganizeNodePositions positions flow nodes using a level-based layout.
 // Parallel nodes are positioned at the same Y level, sequential nodes at deeper levels.
@@ -973,4 +711,3 @@ func hasAlternativePath(adjMap map[idwrap.IDWrap][]idwrap.IDWrap, source, target
 
 	return false
 }
-

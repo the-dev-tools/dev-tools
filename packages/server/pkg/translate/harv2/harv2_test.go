@@ -57,7 +57,7 @@ func TestHarResolvedSimple(t *testing.T) {
 	// Verify file system structure
 	// We expect 1 HTTP file, plus folder files and flow file
 	require.NotEmpty(t, resolved.Files)
-	
+
 	var httpFile *mfile.File
 	for i := range resolved.Files {
 		if resolved.Files[i].ContentType == mfile.ContentTypeHTTP {
@@ -65,7 +65,7 @@ func TestHarResolvedSimple(t *testing.T) {
 			break
 		}
 	}
-	
+
 	require.NotNil(t, httpFile, "Expected 1 HTTP file to be created")
 	require.Equal(t, originalHTTP.ID, *httpFile.ContentID)
 
@@ -714,7 +714,7 @@ func TestMultipleEntriesComplexFlow(t *testing.T) {
 			httpFiles = append(httpFiles, file)
 		}
 	}
-	
+
 	require.Len(t, httpFiles, 6, "Should have 6 HTTP files (one per original request)")
 	for _, file := range httpFiles {
 		require.Equal(t, mfile.ContentTypeHTTP, file.ContentType, "All filtered files should be HTTP content")
@@ -779,7 +779,7 @@ func TestLargeNumberOfEntries(t *testing.T) {
 	require.NotNil(t, resolved)
 	require.Len(t, resolved.HTTPRequests, numEntries*2, "Should have double entries due to delta system")
 	require.Len(t, resolved.RequestNodes, numEntries, "Should have one node per original request")
-	
+
 	// Count HTTP files
 	httpFileCount := 0
 	for _, file := range resolved.Files {
@@ -797,55 +797,54 @@ func TestLargeNumberOfEntries(t *testing.T) {
 }
 
 func TestFileNamingSanitization(t *testing.T) {
-				// Test that file names are properly generated
-				testCases := []struct {
-					url      string
-					expected string
-				}{
-					{
-						url:      "https://api.example.com/users?id=123&name=John%20Doe",
-						expected: "GET_Users.request",
-					},
-					{
-						url:      "https://api.example.com/users/john.doe/profile",
-						expected: "GET_Users_John.Doe_Profile.request",
-					},
-					{
-						url:      "https://api.example.com/path-with-dashes/another_path",
-						expected: "GET_Path_With_Dashes_Another_path.request",
-					},
-				}
-			
-				for _, tc := range testCases {
-			t.Run(tc.url, func(t *testing.T) {
-				entry := harv2.Entry{
-					StartedDateTime: time.Now(),
-					Request: harv2.Request{
-						Method: "GET",
-						URL:    tc.url,
-					},
-				}
-	
-				testHar := harv2.HAR{
-					Log: harv2.Log{Entries: []harv2.Entry{entry}},
-				}
-	
-				workspaceID := idwrap.NewNow()
-				resolved, err := harv2.ConvertHAR(&testHar, workspaceID)
-				require.NoError(t, err)
-				
-				// Find the HTTP file
-				var file *mfile.File
-				for i := range resolved.Files {
-					if resolved.Files[i].ContentType == mfile.ContentTypeHTTP {
-						file = &resolved.Files[i]
-						break
-					}
-				}
-				require.NotNil(t, file, "Should create an HTTP file")
-	
-				require.Equal(t, tc.expected, file.Name)
-			})
-		}
+	// Test that file names are properly generated
+	testCases := []struct {
+		url      string
+		expected string
+	}{
+		{
+			url:      "https://api.example.com/users?id=123&name=John%20Doe",
+			expected: "GET_Users.request",
+		},
+		{
+			url:      "https://api.example.com/users/john.doe/profile",
+			expected: "GET_Users_John.Doe_Profile.request",
+		},
+		{
+			url:      "https://api.example.com/path-with-dashes/another_path",
+			expected: "GET_Path_With_Dashes_Another_path.request",
+		},
 	}
-	
+
+	for _, tc := range testCases {
+		t.Run(tc.url, func(t *testing.T) {
+			entry := harv2.Entry{
+				StartedDateTime: time.Now(),
+				Request: harv2.Request{
+					Method: "GET",
+					URL:    tc.url,
+				},
+			}
+
+			testHar := harv2.HAR{
+				Log: harv2.Log{Entries: []harv2.Entry{entry}},
+			}
+
+			workspaceID := idwrap.NewNow()
+			resolved, err := harv2.ConvertHAR(&testHar, workspaceID)
+			require.NoError(t, err)
+
+			// Find the HTTP file
+			var file *mfile.File
+			for i := range resolved.Files {
+				if resolved.Files[i].ContentType == mfile.ContentTypeHTTP {
+					file = &resolved.Files[i]
+					break
+				}
+			}
+			require.NotNil(t, file, "Should create an HTTP file")
+
+			require.Equal(t, tc.expected, file.Name)
+		})
+	}
+}

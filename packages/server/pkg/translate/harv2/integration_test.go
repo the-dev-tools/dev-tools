@@ -131,7 +131,7 @@ func TestIntegrationModernArchitecture(t *testing.T) {
 
 	// Verify nodes (only for original requests, not deltas)
 	require.Len(t, result.Nodes, 3, "Should have 3 nodes (Start + 2 for original requests)")
-	
+
 	// Verify node naming convention (request_1, request_2)
 	var requestNodes []mnnode.MNode
 	for _, node := range result.Nodes {
@@ -242,7 +242,7 @@ func TestIntegrationPerformanceCharacteristics(t *testing.T) {
 
 	// Validate structure
 	require.Len(t, result.HTTPRequests, numEntries*2, "Should have double entries due to delta system")
-	
+
 	httpFileCount := 0
 	for _, file := range result.Files {
 		if file.ContentType == mfile.ContentTypeHTTP {
@@ -250,7 +250,7 @@ func TestIntegrationPerformanceCharacteristics(t *testing.T) {
 		}
 	}
 	require.Equal(t, numEntries, httpFileCount, "Should have one file per original request")
-	
+
 	require.Len(t, result.Nodes, numEntries+1, "Should have one node per original request plus start node")
 	require.Len(t, result.RequestNodes, numEntries, "Should have one request node per original request")
 

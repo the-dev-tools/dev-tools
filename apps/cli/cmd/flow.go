@@ -35,11 +35,6 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/service/flow/sedge"
-	"the-dev-tools/server/pkg/service/sbodyform"
-	"the-dev-tools/server/pkg/service/sbodyraw"
-	"the-dev-tools/server/pkg/service/sbodyurl"
-	"the-dev-tools/server/pkg/service/sexampleresp"
-	"the-dev-tools/server/pkg/service/sexamplerespheader"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	// "the-dev-tools/server/pkg/service/sitemapi" // Removed - using v2 packages
@@ -72,15 +67,6 @@ type FlowServiceLocal struct {
 	fs  sflow.FlowService
 	fes sedge.EdgeService
 	fvs sflowvariable.FlowVariableService
-
-	// body
-	brs  sbodyraw.BodyRawService
-	bfs  sbodyform.BodyFormService
-	bues sbodyurl.BodyURLEncodedService
-
-	// response
-	ers  sexampleresp.ExampleRespService
-	erhs sexamplerespheader.ExampleRespHeaderService
 
 	// sub nodes
 	ns   snode.NodeService
@@ -223,14 +209,6 @@ var yamlflowRunCmd = &cobra.Command{
 		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 		httpAssertService := shttp.NewHttpAssertService(queries)
 
-		// Legacy services (still needed for some functionality)
-		rawBodyService := sbodyraw.New(queries)
-		formBodyService := sbodyform.New(queries)
-		urlBodyService := sbodyurl.New(queries)
-		responseService := sexampleresp.New(queries)
-		responseHeaderService := sexamplerespheader.New(queries)
-		// exampleHeaderService, exampleQueryService, envService, varService - removed as unused
-
 		logMap := logconsole.NewLogChanMap()
 
 		flowServiceLocal := FlowServiceLocal{
@@ -239,11 +217,6 @@ var yamlflowRunCmd = &cobra.Command{
 			fs:   flowService,
 			fes:  flowEdges,
 			fvs:  flowVariableService,
-			brs:  rawBodyService,
-			bfs:  formBodyService,
-			bues: urlBodyService,
-			ers:  responseService,
-			erhs: responseHeaderService,
 			ns:   flowNodeService,
 			rns:  flowRequestService,
 			fns:  flowForService,
