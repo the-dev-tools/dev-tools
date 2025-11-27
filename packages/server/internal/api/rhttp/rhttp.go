@@ -329,7 +329,6 @@ func CreateService(srv HttpServiceRPC, options []connect.HandlerOption) (*api.Se
 	return &api.Service{Path: path, Handler: handler}, nil
 }
 
-
 // publishInsertEvent publishes an insert event for real-time sync
 func (h *HttpServiceRPC) publishInsertEvent(http mhttp.HTTP) {
 	h.stream.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
@@ -416,14 +415,14 @@ func httpSyncResponseFrom(event HttpEvent) *apiv1.HttpSyncResponse {
 				LastRunAt: lastRunAt,
 			},
 		}
-		case eventTypeUpdate:
-			name := event.Http.GetName()
-			method := event.Http.GetMethod()
-			url := event.Http.GetUrl()
-			bodyKind := event.Http.GetBodyKind()
-			lastRunAt := event.Http.GetLastRunAt()
-	
-			var lastRunAtUnion *apiv1.HttpSyncUpdate_LastRunAtUnion
+	case eventTypeUpdate:
+		name := event.Http.GetName()
+		method := event.Http.GetMethod()
+		url := event.Http.GetUrl()
+		bodyKind := event.Http.GetBodyKind()
+		lastRunAt := event.Http.GetLastRunAt()
+
+		var lastRunAtUnion *apiv1.HttpSyncUpdate_LastRunAtUnion
 		if lastRunAt != nil {
 			lastRunAtUnion = &apiv1.HttpSyncUpdate_LastRunAtUnion{
 				Kind:  apiv1.HttpSyncUpdate_LastRunAtUnion_KIND_VALUE,
@@ -1606,10 +1605,10 @@ func (h *HttpServiceRPC) HttpUpdate(ctx context.Context, req *connect.Request[ap
 		// Use Nano to ensure uniqueness during rapid updates
 		versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
 		versionDesc := "Auto-saved version"
-		
+
 		version, err := hsService.CreateHttpVersion(ctx, data.httpID, userID, versionName, versionDesc)
 		if err != nil {
-			// Log error but don't fail the update? 
+			// Log error but don't fail the update?
 			// Strict mode: fail the update if version creation fails
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1757,8 +1756,16 @@ func (h *HttpServiceRPC) HttpDeltaCollection(ctx context.Context, req *connect.R
 
 		// Convert to delta format
 		for _, http := range httpList {
+			if !http.IsDelta {
+				continue
+			}
+
 			delta := &apiv1.HttpDelta{
-				// HttpId: http.ID.Bytes(),
+				DeltaHttpId: http.ID.Bytes(),
+			}
+
+			if http.ParentHttpID != nil {
+				delta.HttpId = http.ParentHttpID.Bytes()
 			}
 
 			// Only include delta fields if they exist
@@ -1811,9 +1818,20 @@ func (h *HttpServiceRPC) HttpDeltaInsert(ctx context.Context, req *connect.Reque
 			return nil, err
 		}
 
+		var deltaID idwrap.IDWrap
+		if len(item.DeltaHttpId) > 0 {
+			var err error
+			deltaID, err = idwrap.NewFromBytes(item.DeltaHttpId)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			}
+		} else {
+			deltaID = idwrap.NewNow()
+		}
+
 		// Create delta HTTP entry
 		deltaHttp := &mhttp.HTTP{
-			ID:           idwrap.NewNow(),
+			ID:           deltaID,
 			WorkspaceID:  httpEntry.WorkspaceID,
 			FolderID:     httpEntry.FolderID,
 			Name:         httpEntry.Name,
@@ -1840,6 +1858,8 @@ func (h *HttpServiceRPC) HttpDeltaInsert(ctx context.Context, req *connect.Reque
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		h.publishInsertEvent(*deltaHttp)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -2172,7 +2192,7 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 
 	versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
 	versionDesc := "Auto-saved version (Run)"
-	
+
 	version, err := hsService.CreateHttpVersion(ctx, httpEntry.ID, userID, versionName, versionDesc)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create version on run: %w", err))
@@ -3242,8 +3262,6 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaSync(ctx context.Context, req *conn
 	return h.streamHttpSearchParamDeltaSync(ctx, userID, stream.Send)
 }
 
-
-
 func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpAssertCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -4269,8 +4287,6 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-
-
 // HttpHeaderSync handles real-time synchronization for HTTP header entries
 func (h *HttpServiceRPC) HttpHeaderSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpHeaderSyncResponse]) error {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -4699,8 +4715,6 @@ func (h *HttpServiceRPC) HttpHeaderDeltaSync(ctx context.Context, req *connect.R
 
 	return h.streamHttpHeaderDeltaSync(ctx, userID, stream.Send)
 }
-
-
 
 func (h *HttpServiceRPC) HttpBodyFormDataCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyFormDataCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
@@ -5459,8 +5473,6 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaSync(ctx context.Context, req *con
 	return h.streamHttpBodyFormDeltaSync(ctx, userID, stream.Send)
 }
 
-
-
 func (h *HttpServiceRPC) HttpBodyUrlEncodedCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyUrlEncodedCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -5897,41 +5909,41 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 			delta.HttpSearchParamId = param.ParentHttpSearchParamID.Bytes()
 		}
 		delta.HttpId = param.HttpID.Bytes()
-				if param.DeltaKey != nil {
-					keyStr := *param.DeltaKey
-					delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_VALUE,
-						Value: &keyStr,
-					}
-				}
-				if param.DeltaValue != nil {
-					valueStr := *param.DeltaValue
-					delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_VALUE,
-						Value: &valueStr,
-					}
-				}
-				if param.DeltaEnabled != nil {
-					enabledBool := *param.DeltaEnabled
-					delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
-						Value: &enabledBool,
-					}
-				}
-				if param.DeltaDescription != nil {
-					descStr := *param.DeltaDescription
-					delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
-						Value: &descStr,
-					}
-				}
-				if param.DeltaOrder != nil {
-					orderFloat := float32(*param.DeltaOrder)
-					delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
-						Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_VALUE,
-						Value: &orderFloat,
-					}
-				}
+		if param.DeltaKey != nil {
+			keyStr := *param.DeltaKey
+			delta.Key = &apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion{
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_KeyUnion_KIND_VALUE,
+				Value: &keyStr,
+			}
+		}
+		if param.DeltaValue != nil {
+			valueStr := *param.DeltaValue
+			delta.Value = &apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion{
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_ValueUnion_KIND_VALUE,
+				Value: &valueStr,
+			}
+		}
+		if param.DeltaEnabled != nil {
+			enabledBool := *param.DeltaEnabled
+			delta.Enabled = &apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion{
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_EnabledUnion_KIND_VALUE,
+				Value: &enabledBool,
+			}
+		}
+		if param.DeltaDescription != nil {
+			descStr := *param.DeltaDescription
+			delta.Description = &apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion{
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_DescriptionUnion_KIND_VALUE,
+				Value: &descStr,
+			}
+		}
+		if param.DeltaOrder != nil {
+			orderFloat := float32(*param.DeltaOrder)
+			delta.Order = &apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion{
+				Kind:  apiv1.HttpSearchParamDeltaSyncUpdate_OrderUnion_KIND_VALUE,
+				Value: &orderFloat,
+			}
+		}
 		value = &apiv1.HttpSearchParamDeltaSync_ValueUnion{
 			Kind:   apiv1.HttpSearchParamDeltaSync_ValueUnion_KIND_UPDATE,
 			Update: delta,
@@ -6506,8 +6518,6 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaSync(ctx context.Context, req *c
 	return h.streamHttpBodyUrlEncodedDeltaSync(ctx, userID, stream.Send)
 }
 
-
-
 func (h *HttpServiceRPC) HttpBodyRawCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.HttpBodyRawCollectionResponse], error) {
 	userID, err := mwauth.GetContextUserID(ctx)
 	if err != nil {
@@ -6863,8 +6873,6 @@ func httpMethodToString(method *apiv1.HttpMethod) *string {
 	return &result
 }
 
-
-
 // storeHttpResponse handles HTTP response storage and publishes sync events
 func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp.HTTP, resp httpclient.Response, requestTime time.Time, duration int64) (idwrap.IDWrap, error) {
 	responseID := idwrap.NewNow()
@@ -6873,11 +6881,11 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	httpResponse := mhttp.HTTPResponse{
 		ID:        responseID,
 		HttpID:    httpEntry.ID,
-		Status:    int32(resp.StatusCode),      // nolint:gosec // G115
+		Status:    int32(resp.StatusCode), // nolint:gosec // G115
 		Body:      resp.Body,
 		Time:      requestTime.Unix(),
-		Duration:  int32(duration),             // nolint:gosec // G115
-		Size:      int32(len(resp.Body)),       // nolint:gosec // G115
+		Duration:  int32(duration),       // nolint:gosec // G115
+		Size:      int32(len(resp.Body)), // nolint:gosec // G115
 		CreatedAt: nowUnix,
 	}
 
@@ -6918,7 +6926,7 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 			return idwrap.IDWrap{}, err
 		}
 		headerEvents = append(headerEvents, HttpResponseHeaderEvent{
-			Type: eventTypeInsert,
+			Type:               eventTypeInsert,
 			HttpResponseHeader: converter.ToAPIHttpResponseHeader(responseHeader),
 		})
 	}
@@ -7178,7 +7186,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 		}
 
 		events = append(events, HttpResponseAssertEvent{
-			Type: eventTypeInsert,
+			Type:               eventTypeInsert,
 			HttpResponseAssert: converter.ToAPIHttpResponseAssert(assert),
 		})
 	}
