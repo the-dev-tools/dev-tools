@@ -12,14 +12,14 @@ import (
 )
 
 const createFile = `-- name: CreateFile :exec
-INSERT INTO files (id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at)
+INSERT INTO files (id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateFileParams struct {
 	ID           idwrap.IDWrap
 	WorkspaceID  idwrap.IDWrap
-	FolderID     *idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
 	ContentID    *idwrap.IDWrap
 	ContentKind  int8
 	Name         string
@@ -32,7 +32,7 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) error {
 	_, err := q.exec(ctx, q.createFileStmt, createFile,
 		arg.ID,
 		arg.WorkspaceID,
-		arg.FolderID,
+		arg.ParentID,
 		arg.ContentID,
 		arg.ContentKind,
 		arg.Name,
@@ -54,7 +54,7 @@ func (q *Queries) DeleteFile(ctx context.Context, id idwrap.IDWrap) error {
 
 const getFile = `-- name: GetFile :one
 
-SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
 FROM files
 WHERE id = ?
 `
@@ -68,7 +68,7 @@ func (q *Queries) GetFile(ctx context.Context, id idwrap.IDWrap) (File, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.WorkspaceID,
-		&i.FolderID,
+		&i.ParentID,
 		&i.ContentID,
 		&i.ContentKind,
 		&i.Name,
@@ -79,7 +79,7 @@ func (q *Queries) GetFile(ctx context.Context, id idwrap.IDWrap) (File, error) {
 }
 
 const getFileWithContent = `-- name: GetFileWithContent :one
-SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
 FROM files
 WHERE id = ?
 `
@@ -91,7 +91,7 @@ func (q *Queries) GetFileWithContent(ctx context.Context, id idwrap.IDWrap) (Fil
 	err := row.Scan(
 		&i.ID,
 		&i.WorkspaceID,
-		&i.FolderID,
+		&i.ParentID,
 		&i.ContentID,
 		&i.ContentKind,
 		&i.Name,
@@ -115,15 +115,15 @@ func (q *Queries) GetFileWorkspaceID(ctx context.Context, id idwrap.IDWrap) (idw
 	return workspace_id, err
 }
 
-const getFilesByFolderID = `-- name: GetFilesByFolderID :many
-SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+const getFilesByParentID = `-- name: GetFilesByParentID :many
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
 FROM files
-WHERE folder_id = ?
+WHERE parent_id = ?
 `
 
-// Get all files directly under a folder (unordered)
-func (q *Queries) GetFilesByFolderID(ctx context.Context, folderID *idwrap.IDWrap) ([]File, error) {
-	rows, err := q.query(ctx, q.getFilesByFolderIDStmt, getFilesByFolderID, folderID)
+// Get all files directly under a parent (unordered)
+func (q *Queries) GetFilesByParentID(ctx context.Context, parentID *idwrap.IDWrap) ([]File, error) {
+	rows, err := q.query(ctx, q.getFilesByParentIDStmt, getFilesByParentID, parentID)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (q *Queries) GetFilesByFolderID(ctx context.Context, folderID *idwrap.IDWra
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
-			&i.FolderID,
+			&i.ParentID,
 			&i.ContentID,
 			&i.ContentKind,
 			&i.Name,
@@ -154,16 +154,16 @@ func (q *Queries) GetFilesByFolderID(ctx context.Context, folderID *idwrap.IDWra
 	return items, nil
 }
 
-const getFilesByFolderIDOrdered = `-- name: GetFilesByFolderIDOrdered :many
-SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+const getFilesByParentIDOrdered = `-- name: GetFilesByParentIDOrdered :many
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
 FROM files
-WHERE folder_id = ?
+WHERE parent_id = ?
 ORDER BY display_order, id
 `
 
-// Get all files directly under a folder ordered by display_order
-func (q *Queries) GetFilesByFolderIDOrdered(ctx context.Context, folderID *idwrap.IDWrap) ([]File, error) {
-	rows, err := q.query(ctx, q.getFilesByFolderIDOrderedStmt, getFilesByFolderIDOrdered, folderID)
+// Get all files directly under a parent ordered by display_order
+func (q *Queries) GetFilesByParentIDOrdered(ctx context.Context, parentID *idwrap.IDWrap) ([]File, error) {
+	rows, err := q.query(ctx, q.getFilesByParentIDOrderedStmt, getFilesByParentIDOrdered, parentID)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (q *Queries) GetFilesByFolderIDOrdered(ctx context.Context, folderID *idwra
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
-			&i.FolderID,
+			&i.ParentID,
 			&i.ContentID,
 			&i.ContentKind,
 			&i.Name,
@@ -195,7 +195,7 @@ func (q *Queries) GetFilesByFolderIDOrdered(ctx context.Context, folderID *idwra
 }
 
 const getFilesByWorkspaceID = `-- name: GetFilesByWorkspaceID :many
-SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
 FROM files
 WHERE workspace_id = ?
 `
@@ -213,7 +213,7 @@ func (q *Queries) GetFilesByWorkspaceID(ctx context.Context, workspaceID idwrap.
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
-			&i.FolderID,
+			&i.ParentID,
 			&i.ContentID,
 			&i.ContentKind,
 			&i.Name,
@@ -234,7 +234,7 @@ func (q *Queries) GetFilesByWorkspaceID(ctx context.Context, workspaceID idwrap.
 }
 
 const getFilesByWorkspaceIDOrdered = `-- name: GetFilesByWorkspaceIDOrdered :many
-SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
 FROM files
 WHERE workspace_id = ?
 ORDER BY display_order, id
@@ -253,7 +253,7 @@ func (q *Queries) GetFilesByWorkspaceIDOrdered(ctx context.Context, workspaceID 
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
-			&i.FolderID,
+			&i.ParentID,
 			&i.ContentID,
 			&i.ContentKind,
 			&i.Name,
@@ -294,9 +294,9 @@ func (q *Queries) GetFlowContent(ctx context.Context, id idwrap.IDWrap) (GetFlow
 }
 
 const getRootFilesByWorkspaceID = `-- name: GetRootFilesByWorkspaceID :many
-SELECT id, workspace_id, folder_id, content_id, content_kind, name, display_order, updated_at
+SELECT id, workspace_id, parent_id, content_id, content_kind, name, display_order, updated_at
 FROM files
-WHERE workspace_id = ? AND folder_id IS NULL
+WHERE workspace_id = ? AND parent_id IS NULL
 ORDER BY display_order, id
 `
 
@@ -313,7 +313,7 @@ func (q *Queries) GetRootFilesByWorkspaceID(ctx context.Context, workspaceID idw
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
-			&i.FolderID,
+			&i.ParentID,
 			&i.ContentID,
 			&i.ContentKind,
 			&i.Name,
@@ -335,13 +335,13 @@ func (q *Queries) GetRootFilesByWorkspaceID(ctx context.Context, workspaceID idw
 
 const updateFile = `-- name: UpdateFile :exec
 UPDATE files 
-SET workspace_id = ?, folder_id = ?, content_id = ?, content_kind = ?, name = ?, display_order = ?, updated_at = ?
+SET workspace_id = ?, parent_id = ?, content_id = ?, content_kind = ?, name = ?, display_order = ?, updated_at = ?
 WHERE id = ?
 `
 
 type UpdateFileParams struct {
 	WorkspaceID  idwrap.IDWrap
-	FolderID     *idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
 	ContentID    *idwrap.IDWrap
 	ContentKind  int8
 	Name         string
@@ -354,7 +354,7 @@ type UpdateFileParams struct {
 func (q *Queries) UpdateFile(ctx context.Context, arg UpdateFileParams) error {
 	_, err := q.exec(ctx, q.updateFileStmt, updateFile,
 		arg.WorkspaceID,
-		arg.FolderID,
+		arg.ParentID,
 		arg.ContentID,
 		arg.ContentKind,
 		arg.Name,

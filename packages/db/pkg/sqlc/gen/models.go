@@ -23,7 +23,7 @@ type Environment struct {
 type File struct {
 	ID           idwrap.IDWrap
 	WorkspaceID  idwrap.IDWrap
-	FolderID     *idwrap.IDWrap
+	ParentID     *idwrap.IDWrap
 	ContentID    *idwrap.IDWrap
 	ContentKind  int8
 	Name         string

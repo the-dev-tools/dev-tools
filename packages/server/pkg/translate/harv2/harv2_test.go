@@ -217,7 +217,7 @@ func TestURLToFilePathMapping(t *testing.T) {
 				}
 			}
 			require.NotNil(t, file, "Should find HTTP file")
-			require.NotNil(t, file.FolderID)
+			require.NotNil(t, file.ParentID)
 		})
 	}
 }

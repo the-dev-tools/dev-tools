@@ -787,8 +787,8 @@ sql:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'
               type: 'IDWrap'
-          ### folder_id
-          - column: 'files.folder_id'
+          ### parent_id
+          - column: 'files.parent_id'
             go_type:
               import: 'the-dev-tools/server/pkg/idwrap'
               package: 'idwrap'

@@ -79,9 +79,9 @@ func TestConvertHAR_DeltaLinkage(t *testing.T) {
 	assert.Equal(t, mfile.ContentTypeHTTPDelta, deltaFile.ContentType)
 
 	// Verify Colocation
-	require.NotNil(t, baseFile.FolderID)
-	require.NotNil(t, deltaFile.FolderID)
-	assert.Equal(t, baseFile.ID, *deltaFile.FolderID, "Delta file should be a child of the Base file")
+	require.NotNil(t, baseFile.ParentID)
+	require.NotNil(t, deltaFile.ParentID)
+	assert.Equal(t, baseFile.ID, *deltaFile.ParentID, "Delta file should be a child of the Base file")
 }
 
 func TestConvertHAR_DeltaDependencies(t *testing.T) {

@@ -318,7 +318,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		deltaFile := mfile.File{
 			ID:          deltaReq.ID,
 			WorkspaceID: workspaceID,
-			FolderID:    &file.ID,
+			ParentID:    &file.ID,
 			ContentID:   &deltaReq.ID,
 			ContentType: mfile.ContentTypeHTTPDelta,
 			Name:        deltaReq.Name,
@@ -469,7 +469,7 @@ func createFileStructure(httpReq *mhttp.HTTP, workspaceID idwrap.IDWrap, folderM
 	file := &mfile.File{
 		ID:          httpReq.ID,
 		WorkspaceID: workspaceID,
-		FolderID:    &folderID,
+		ParentID:    &folderID,
 		ContentID:   &httpReq.ID,
 		ContentType: mfile.ContentTypeHTTP, // This maps to the old item_api
 		Name:        fileName,
@@ -523,7 +523,7 @@ func getOrCreateFolder(folderPath string, workspaceID idwrap.IDWrap, folderMap m
 	folderFile := mfile.File{
 		ID:          folderID,
 		WorkspaceID: workspaceID,
-		FolderID:    parentID,
+		ParentID:    parentID,
 		ContentID:   nil, // Folders don't have separate content objects in this model
 		ContentType: mfile.ContentTypeFolder,
 		Name:        path.Base(folderPath),

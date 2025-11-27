@@ -8,7 +8,7 @@
 CREATE TABLE files (
   id BLOB NOT NULL PRIMARY KEY,
   workspace_id BLOB NOT NULL,
-  folder_id BLOB,
+  parent_id BLOB,
   content_id BLOB,
   content_kind INT8 NOT NULL DEFAULT 0,
   name TEXT NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE files (
     (content_id IS NULL)
   ),
   FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
-  FOREIGN KEY (folder_id) REFERENCES files (id) ON DELETE SET NULL
+  FOREIGN KEY (parent_id) REFERENCES files (id) ON DELETE SET NULL
 );
 
 -- Performance indexes for file system operations
@@ -32,7 +32,7 @@ CREATE INDEX files_workspace_idx ON files (workspace_id);
 
 CREATE INDEX files_hierarchy_idx ON files (
   workspace_id,
-  folder_id,
+  parent_id,
   display_order
 );
 
@@ -42,9 +42,9 @@ CREATE INDEX files_content_lookup_idx ON files (
 ) WHERE content_id IS NOT NULL;
 
 CREATE INDEX files_parent_lookup_idx ON files (
-  folder_id,
+  parent_id,
   display_order
-) WHERE folder_id IS NOT NULL;
+) WHERE parent_id IS NOT NULL;
 
 CREATE INDEX files_name_search_idx ON files (
   workspace_id,
@@ -59,7 +59,7 @@ CREATE INDEX files_kind_filter_idx ON files (
 -- Composite index for common file system queries
 CREATE INDEX files_workspace_hierarchy_idx ON files (
   workspace_id,
-  folder_id,
+  parent_id,
   content_kind,
   display_order
 );

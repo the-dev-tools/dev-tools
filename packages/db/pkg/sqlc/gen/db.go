@@ -258,11 +258,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getFileWorkspaceIDStmt, err = db.PrepareContext(ctx, getFileWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFileWorkspaceID: %w", err)
 	}
-	if q.getFilesByFolderIDStmt, err = db.PrepareContext(ctx, getFilesByFolderID); err != nil {
-		return nil, fmt.Errorf("error preparing query GetFilesByFolderID: %w", err)
+	if q.getFilesByParentIDStmt, err = db.PrepareContext(ctx, getFilesByParentID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFilesByParentID: %w", err)
 	}
-	if q.getFilesByFolderIDOrderedStmt, err = db.PrepareContext(ctx, getFilesByFolderIDOrdered); err != nil {
-		return nil, fmt.Errorf("error preparing query GetFilesByFolderIDOrdered: %w", err)
+	if q.getFilesByParentIDOrderedStmt, err = db.PrepareContext(ctx, getFilesByParentIDOrdered); err != nil {
+		return nil, fmt.Errorf("error preparing query GetFilesByParentIDOrdered: %w", err)
 	}
 	if q.getFilesByWorkspaceIDStmt, err = db.PrepareContext(ctx, getFilesByWorkspaceID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetFilesByWorkspaceID: %w", err)
@@ -1073,14 +1073,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getFileWorkspaceIDStmt: %w", cerr)
 		}
 	}
-	if q.getFilesByFolderIDStmt != nil {
-		if cerr := q.getFilesByFolderIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getFilesByFolderIDStmt: %w", cerr)
+	if q.getFilesByParentIDStmt != nil {
+		if cerr := q.getFilesByParentIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFilesByParentIDStmt: %w", cerr)
 		}
 	}
-	if q.getFilesByFolderIDOrderedStmt != nil {
-		if cerr := q.getFilesByFolderIDOrderedStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getFilesByFolderIDOrderedStmt: %w", cerr)
+	if q.getFilesByParentIDOrderedStmt != nil {
+		if cerr := q.getFilesByParentIDOrderedStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getFilesByParentIDOrderedStmt: %w", cerr)
 		}
 	}
 	if q.getFilesByWorkspaceIDStmt != nil {
@@ -1890,8 +1890,8 @@ type Queries struct {
 	getFileStmt                                *sql.Stmt
 	getFileWithContentStmt                     *sql.Stmt
 	getFileWorkspaceIDStmt                     *sql.Stmt
-	getFilesByFolderIDStmt                     *sql.Stmt
-	getFilesByFolderIDOrderedStmt              *sql.Stmt
+	getFilesByParentIDStmt                     *sql.Stmt
+	getFilesByParentIDOrderedStmt              *sql.Stmt
 	getFilesByWorkspaceIDStmt                  *sql.Stmt
 	getFilesByWorkspaceIDOrderedStmt           *sql.Stmt
 	getFlowStmt                                *sql.Stmt
@@ -2114,8 +2114,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getFileStmt:                                q.getFileStmt,
 		getFileWithContentStmt:                     q.getFileWithContentStmt,
 		getFileWorkspaceIDStmt:                     q.getFileWorkspaceIDStmt,
-		getFilesByFolderIDStmt:                     q.getFilesByFolderIDStmt,
-		getFilesByFolderIDOrderedStmt:              q.getFilesByFolderIDOrderedStmt,
+		getFilesByParentIDStmt:                     q.getFilesByParentIDStmt,
+		getFilesByParentIDOrderedStmt:              q.getFilesByParentIDOrderedStmt,
 		getFilesByWorkspaceIDStmt:                  q.getFilesByWorkspaceIDStmt,
 		getFilesByWorkspaceIDOrderedStmt:           q.getFilesByWorkspaceIDOrderedStmt,
 		getFlowStmt:                                q.getFlowStmt,

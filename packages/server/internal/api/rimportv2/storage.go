@@ -297,8 +297,8 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		for i := range results.Files {
 			file := &results.Files[i]
 			key := "nil"
-			if file.FolderID != nil {
-				key = file.FolderID.String()
+			if file.ParentID != nil {
+				key = file.ParentID.String()
 			}
 			filesByFolder[key] = append(filesByFolder[key], file)
 		}
@@ -308,7 +308,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				continue
 			}
 			
-			folderID := files[0].FolderID
+			folderID := files[0].ParentID
 			
 			// Get starting order once for this folder using the transactional service
 			startOrder, err := txFileService.NextDisplayOrder(ctx, results.WorkspaceID, folderID)

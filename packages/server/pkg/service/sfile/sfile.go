@@ -69,7 +69,7 @@ func ConvertToDBFile(file mfile.File) gen.File {
 	return gen.File{
 		ID:           file.ID,
 		WorkspaceID:  file.WorkspaceID,
-		FolderID:     file.FolderID,
+		ParentID:     file.ParentID,
 		ContentID:    file.ContentID,
 		ContentKind:  int8(file.ContentType),
 		Name:         file.Name,
@@ -83,7 +83,7 @@ func ConvertToModelFile(file gen.File) *mfile.File {
 	return &mfile.File{
 		ID:          file.ID,
 		WorkspaceID: file.WorkspaceID,
-		FolderID:    file.FolderID,
+		ParentID:    file.ParentID,
 		ContentID:   file.ContentID,
 		ContentType: mfile.ContentType(file.ContentKind),
 		Name:        file.Name,
@@ -151,28 +151,28 @@ func (s *FileService) ListFilesByWorkspace(ctx context.Context, workspaceID idwr
 	return result, nil
 }
 
-// ListFilesByFolder retrieves files directly under a folder
-func (s *FileService) ListFilesByFolder(ctx context.Context, workspaceID idwrap.IDWrap, folderID *idwrap.IDWrap) ([]mfile.File, error) {
-	s.logger.Debug("Listing files by folder",
+// ListFilesByParent retrieves files directly under a parent
+func (s *FileService) ListFilesByParent(ctx context.Context, workspaceID idwrap.IDWrap, parentID *idwrap.IDWrap) ([]mfile.File, error) {
+	s.logger.Debug("Listing files by parent",
 		"workspace_id", workspaceID.String(),
-		"folder_id", getIDString(folderID))
+		"parent_id", getIDString(parentID))
 
 	var files []gen.File
 	var err error
 
-	if folderID == nil {
+	if parentID == nil {
 		// Get root-level files
 		files, err = s.queries.GetRootFilesByWorkspaceID(ctx, workspaceID)
 	} else {
-		// Get files in specific folder
-		files, err = s.queries.GetFilesByFolderIDOrdered(ctx, folderID)
+		// Get files in specific parent
+		files, err = s.queries.GetFilesByParentIDOrdered(ctx, parentID)
 	}
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []mfile.File{}, nil
 		}
-		return nil, fmt.Errorf("failed to list files by folder: %w", err)
+		return nil, fmt.Errorf("failed to list files by parent: %w", err)
 	}
 
 	result := make([]mfile.File, len(files))
@@ -183,9 +183,9 @@ func (s *FileService) ListFilesByFolder(ctx context.Context, workspaceID idwrap.
 		}
 	}
 
-	s.logger.Debug("Successfully listed files by folder",
+	s.logger.Debug("Successfully listed files by parent",
 		"workspace_id", workspaceID.String(),
-		"folder_id", getIDString(folderID),
+		"parent_id", getIDString(parentID),
 		"count", len(result))
 
 	return result, nil
@@ -206,7 +206,7 @@ func (s *FileService) CreateFile(ctx context.Context, file *mfile.File) error {
 
 	// Auto-assign order if not provided
 	if file.Order == 0 {
-		nextOrder, err := s.NextDisplayOrder(ctx, file.WorkspaceID, file.FolderID)
+		nextOrder, err := s.NextDisplayOrder(ctx, file.WorkspaceID, file.ParentID)
 		if err != nil {
 			return fmt.Errorf("failed to get next display order: %w", err)
 		}
@@ -220,7 +220,7 @@ func (s *FileService) CreateFile(ctx context.Context, file *mfile.File) error {
 	err := s.queries.CreateFile(ctx, gen.CreateFileParams{
 		ID:           dbFile.ID,
 		WorkspaceID:  dbFile.WorkspaceID,
-		FolderID:     dbFile.FolderID,
+		ParentID:     dbFile.ParentID,
 		ContentID:    dbFile.ContentID,
 		ContentKind:  dbFile.ContentKind,
 		Name:         dbFile.Name,
@@ -269,7 +269,7 @@ func (s *FileService) UpdateFile(ctx context.Context, file *mfile.File) error {
 	dbFile := ConvertToDBFile(*file)
 	err := s.queries.UpdateFile(ctx, gen.UpdateFileParams{
 		WorkspaceID:  dbFile.WorkspaceID,
-		FolderID:     dbFile.FolderID,
+		ParentID:     dbFile.ParentID,
 		ContentID:    dbFile.ContentID,
 		ContentKind:  dbFile.ContentKind,
 		Name:         dbFile.Name,
@@ -327,15 +327,15 @@ func (s *FileService) CheckWorkspaceID(ctx context.Context, fileID, workspaceID 
 	return fileWorkspaceID.Compare(workspaceID) == 0, nil
 }
 
-// NextDisplayOrder calculates the next order value for a file in a workspace/folder
-func (s *FileService) NextDisplayOrder(ctx context.Context, workspaceID idwrap.IDWrap, folderID *idwrap.IDWrap) (float64, error) {
+// NextDisplayOrder calculates the next order value for a file in a workspace/parent
+func (s *FileService) NextDisplayOrder(ctx context.Context, workspaceID idwrap.IDWrap, parentID *idwrap.IDWrap) (float64, error) {
 	var files []gen.File
 	var err error
 
-	if folderID == nil {
+	if parentID == nil {
 		files, err = s.queries.GetFilesByWorkspaceID(ctx, workspaceID)
 	} else {
-		files, err = s.queries.GetFilesByFolderID(ctx, folderID)
+		files, err = s.queries.GetFilesByParentID(ctx, parentID)
 	}
 
 	if err != nil {
@@ -354,11 +354,11 @@ func (s *FileService) NextDisplayOrder(ctx context.Context, workspaceID idwrap.I
 	return max + 1, nil
 }
 
-// MoveFile moves a file to a different folder
-func (s *FileService) MoveFile(ctx context.Context, fileID idwrap.IDWrap, newFolderID *idwrap.IDWrap) error {
+// MoveFile moves a file to a different parent
+func (s *FileService) MoveFile(ctx context.Context, fileID idwrap.IDWrap, newParentID *idwrap.IDWrap) error {
 	s.logger.Debug("Moving file",
 		"file_id", fileID.String(),
-		"new_folder_id", getIDString(newFolderID))
+		"new_parent_id", getIDString(newParentID))
 
 	file, err := s.GetFile(ctx, fileID)
 	if err != nil {
@@ -366,24 +366,25 @@ func (s *FileService) MoveFile(ctx context.Context, fileID idwrap.IDWrap, newFol
 	}
 
 	// Prevent moving a folder into itself
-	if newFolderID != nil && file.IsFolder() {
-		if fileID.Compare(*newFolderID) == 0 {
+	if newParentID != nil && file.IsFolder() {
+		if fileID.Compare(*newParentID) == 0 {
 			return ErrFolderIntoItself
 		}
+		// TODO: Add cycle detection if needed, but for now just direct parent check
 	}
 
-	// Validate workspace consistency if moving to a different folder
-	if newFolderID != nil {
-		newParentWorkspaceID, err := s.GetWorkspaceID(ctx, *newFolderID)
+	// Validate workspace consistency if moving to a different parent
+	if newParentID != nil {
+		newParentWorkspaceID, err := s.GetWorkspaceID(ctx, *newParentID)
 		if err != nil {
-			return fmt.Errorf("failed to get new parent folder workspace ID: %w", err)
+			return fmt.Errorf("failed to get new parent workspace ID: %w", err)
 		}
 		if newParentWorkspaceID.Compare(file.WorkspaceID) != 0 {
 			return ErrWorkspaceMismatch
 		}
 	}
 
-	file.FolderID = newFolderID
+	file.ParentID = newParentID
 	file.UpdatedAt = time.Now()
 	return s.UpdateFile(ctx, file)
 }

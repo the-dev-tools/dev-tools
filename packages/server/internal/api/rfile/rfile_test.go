@@ -20,7 +20,7 @@ func TestToAPIFile(t *testing.T) {
 	file := mfile.File{
 		ID:          fileID,
 		WorkspaceID: workspaceID,
-		FolderID:    &folderID,
+		ParentID:    &folderID,
 		ContentID:   &contentID,
 		ContentType: mfile.ContentTypeHTTP,
 		Name:        "test-file",
@@ -95,8 +95,8 @@ func TestFromAPIFileInsert(t *testing.T) {
 
 	assert.Equal(t, fileID, file.ID)
 	assert.Equal(t, workspaceID, file.WorkspaceID)
-	assert.NotNil(t, file.FolderID)
-	assert.Equal(t, folderID, *file.FolderID)
+	assert.NotNil(t, file.ParentID)
+	assert.Equal(t, folderID, *file.ParentID)
 	assert.Equal(t, mfile.ContentTypeHTTP, file.ContentType)
 	assert.Equal(t, float64(1.5), file.Order)
 }
@@ -117,7 +117,7 @@ func TestFromAPIFileInsertWithoutOptionalFields(t *testing.T) {
 
 	assert.Equal(t, fileID, file.ID)
 	assert.Equal(t, workspaceID, file.WorkspaceID)
-	assert.Nil(t, file.FolderID)
+	assert.Nil(t, file.ParentID)
 	assert.Equal(t, mfile.ContentTypeFolder, file.ContentType)
 	assert.Equal(t, "", file.Name) // API doesn't provide name, will be set later
 	assert.Equal(t, float64(1.0), file.Order)
@@ -212,7 +212,7 @@ func TestFromAPIFileUpdate(t *testing.T) {
 	existingFile := &mfile.File{
 		ID:          fileID,
 		WorkspaceID: workspaceID,
-		FolderID:    &folderID,
+		ParentID:    &folderID,
 		ContentID:   &contentID,
 		ContentType: mfile.ContentTypeHTTP,
 		Name:        "old-name",
@@ -232,7 +232,7 @@ func TestFromAPIFileUpdate(t *testing.T) {
 
 	assert.Equal(t, fileID, file.ID)
 	assert.Equal(t, workspaceID, file.WorkspaceID)
-	assert.Equal(t, folderID, *file.FolderID)                // Should preserve existing
+	assert.Equal(t, folderID, *file.ParentID)                // Should preserve existing
 	assert.Equal(t, contentID, *file.ContentID)              // Should preserve existing
 	assert.Equal(t, mfile.ContentTypeHTTP, file.ContentType) // Should preserve existing
 	assert.Equal(t, "old-name", file.Name)                   // Should preserve existing
@@ -242,7 +242,7 @@ func TestFromAPIFileUpdate(t *testing.T) {
 func TestFromAPIFileUpdateWithFolderUnion(t *testing.T) {
 	fileID := idwrap.NewNow()
 	workspaceID := idwrap.NewNow()
-	newFolderID := idwrap.NewNow()
+	newParentID := idwrap.NewNow()
 
 	existingFile := &mfile.File{
 		ID:          fileID,
@@ -258,7 +258,7 @@ func TestFromAPIFileUpdateWithFolderUnion(t *testing.T) {
 		WorkspaceId: workspaceID.Bytes(),
 		ParentId: &apiv1.FileUpdate_ParentIdUnion{
 			Kind:  apiv1.FileUpdate_ParentIdUnion_KIND_VALUE,
-			Value: newFolderID.Bytes(),
+			Value: newParentID.Bytes(),
 		},
 	}
 
@@ -266,8 +266,8 @@ func TestFromAPIFileUpdateWithFolderUnion(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, fileID, file.ID)
-	assert.NotNil(t, file.FolderID)
-	assert.Equal(t, newFolderID, *file.FolderID)
+	assert.NotNil(t, file.ParentID)
+	assert.Equal(t, newParentID, *file.ParentID)
 }
 
 func TestFromAPIFileUpdateWithUnsetFolder(t *testing.T) {
@@ -278,7 +278,7 @@ func TestFromAPIFileUpdateWithUnsetFolder(t *testing.T) {
 	existingFile := &mfile.File{
 		ID:          fileID,
 		WorkspaceID: workspaceID,
-		FolderID:    &folderID,
+		ParentID:    &folderID,
 		ContentType: mfile.ContentTypeHTTP,
 		Name:        "test-file",
 		Order:       1.0,
@@ -297,7 +297,7 @@ func TestFromAPIFileUpdateWithUnsetFolder(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, fileID, file.ID)
-	assert.Nil(t, file.FolderID) // Should be unset
+	assert.Nil(t, file.ParentID) // Should be unset
 }
 
 // TestToAPIFolder tests conversion from model File (ContentTypeFolder) to API Folder
@@ -336,7 +336,7 @@ func TestFromAPIFolderInsert(t *testing.T) {
 	assert.Equal(t, mfile.ContentTypeFolder, file.ContentType)
 	assert.Equal(t, "New Folder", file.Name)
 	assert.Equal(t, float64(0), file.Order) // Folders have default order
-	assert.Nil(t, file.FolderID)            // No parent folder for new folders
+	assert.Nil(t, file.ParentID)            // No parent folder for new folders
 }
 
 // TestFromAPIFolderInsertWithoutOptionalFields tests minimal folder creation
@@ -357,7 +357,7 @@ func TestFromAPIFolderInsertWithoutOptionalFields(t *testing.T) {
 	assert.Equal(t, mfile.ContentTypeFolder, file.ContentType)
 	assert.Equal(t, "", file.Name)
 	assert.Equal(t, float64(0), file.Order)
-	assert.Nil(t, file.FolderID)
+	assert.Nil(t, file.ParentID)
 }
 
 // TestFromAPIFolderInsertWithInvalidID tests error handling for invalid folder ID

@@ -541,7 +541,7 @@ func (s *IOWorkspaceServiceV2) processFileBatch(
 	for _, file := range batch {
 		file.WorkspaceID = options.WorkspaceID
 		if options.FolderID != nil {
-			file.FolderID = options.FolderID
+			file.ParentID = options.FolderID
 		}
 
 		if existing, exists := existingMap[file.Name]; exists {

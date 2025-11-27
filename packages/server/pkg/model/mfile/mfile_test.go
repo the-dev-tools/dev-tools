@@ -158,7 +158,7 @@ func TestFile_HelperMethods(t *testing.T) {
 			file: File{
 				ID:          fileID,
 				WorkspaceID: workspaceID,
-				FolderID:    &parentID, // Has parent
+				ParentID:    &parentID, // Has parent
 				ContentType: ContentTypeFolder,
 				ContentID:   &contentID,
 				Name:        "My Folder",
@@ -174,7 +174,7 @@ func TestFile_HelperMethods(t *testing.T) {
 			file: File{
 				ID:          fileID,
 				WorkspaceID: workspaceID,
-				FolderID:    &parentID, // Has parent
+				ParentID:    &parentID, // Has parent
 				ContentType: ContentTypeHTTP,
 				ContentID:   &contentID,
 				Name:        "API Request",
@@ -190,7 +190,7 @@ func TestFile_HelperMethods(t *testing.T) {
 			file: File{
 				ID:          fileID,
 				WorkspaceID: workspaceID,
-				FolderID:    &parentID, // Has parent
+				ParentID:    &parentID, // Has parent
 				ContentType: ContentTypeFlow,
 				ContentID:   &contentID,
 				Name:        "My Flow",
@@ -209,7 +209,7 @@ func TestFile_HelperMethods(t *testing.T) {
 				ContentType: ContentTypeFolder,
 				ContentID:   &contentID,
 				Name:        "Root",
-				FolderID:    nil,
+				ParentID:    nil,
 			},
 			isFolder:   true,
 			isHTTP:     false,
@@ -222,7 +222,7 @@ func TestFile_HelperMethods(t *testing.T) {
 			file: File{
 				ID:          fileID,
 				WorkspaceID: workspaceID,
-				FolderID:    &parentID, // Has parent so not root
+				ParentID:    &parentID, // Has parent so not root
 				ContentType: ContentTypeUnknown,
 				ContentID:   nil,
 				Name:        "Placeholder",

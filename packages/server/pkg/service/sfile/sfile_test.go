@@ -130,7 +130,7 @@ func TestFileService_MoveFile(t *testing.T) {
 	file := &mfile.File{
 		ID:          fileID,
 		WorkspaceID: workspaceID,
-		FolderID:    nil, // Root level
+		ParentID:    nil, // Root level
 		ContentID:   &apiContentID,
 		ContentType: mfile.ContentTypeHTTP,
 		Name:        "test-api",
@@ -148,8 +148,8 @@ func TestFileService_MoveFile(t *testing.T) {
 	// Verify file was moved
 	retrieved, err := service.GetFile(ctx, fileID)
 	assert.NoError(t, err)
-	assert.NotNil(t, retrieved.FolderID)
-	assert.Equal(t, folderID, *retrieved.FolderID)
+	assert.NotNil(t, retrieved.ParentID)
+	assert.Equal(t, folderID, *retrieved.ParentID)
 }
 
 func TestFileService_DeleteFile(t *testing.T) {

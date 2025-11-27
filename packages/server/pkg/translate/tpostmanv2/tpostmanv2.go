@@ -278,7 +278,7 @@ func processItems(items []PostmanItem, parentFolderID idwrap.IDWrap, opts Conver
 			}
 
 			// Create file record for this HTTP request
-			file := createFileRecord(*httpReq, opts)
+			file := createFileRecord(*httpReq, parentFolderID, opts)
 			resolved.Files = append(resolved.Files, file)
 		}
 	}
@@ -347,16 +347,21 @@ func convertPostmanRequestToHTTP(item PostmanItem, opts ConvertOptions) (*mhttp.
 }
 
 // createFileRecord creates a file record for an HTTP request
-func createFileRecord(httpReq mhttp.HTTP, opts ConvertOptions) mfile.File {
+func createFileRecord(httpReq mhttp.HTTP, parentID idwrap.IDWrap, opts ConvertOptions) mfile.File {
 	filename := httpReq.Name
 	if filename == "" {
 		filename = "untitled_request"
 	}
 
+	var pid *idwrap.IDWrap
+	if parentID.Compare(idwrap.IDWrap{}) != 0 {
+		pid = &parentID
+	}
+
 	return mfile.File{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: opts.WorkspaceID,
-		FolderID:    opts.FolderID,
+		ParentID:    pid,
 		ContentID:   &httpReq.ID,
 		ContentType: mfile.ContentTypeHTTP,
 		Name:        filename,

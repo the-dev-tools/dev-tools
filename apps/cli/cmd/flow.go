@@ -610,27 +610,31 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	httpClient := httpclient.New()
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, requestBufferSize)
 	for _, requestNode := range requestNodes {
-		httpRecord, err := c.hs.Get(ctx, requestNode.HttpID)
+		if requestNode.HttpID == nil {
+			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("request node %s has no http id", requestNode.FlowNodeID)))
+		}
+
+		httpRecord, err := c.hs.Get(ctx, *requestNode.HttpID)
 		if err != nil {
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http %s: %w", requestNode.HttpID.String(), err)))
 		}
 
-		headers, err := c.hh.GetByHttpID(ctx, requestNode.HttpID)
+		headers, err := c.hh.GetByHttpID(ctx, *requestNode.HttpID)
 		if err != nil {
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http headers: %w", err)))
 		}
 
-		queries, err := c.hsp.GetByHttpID(ctx, requestNode.HttpID)
+		queries, err := c.hsp.GetByHttpID(ctx, *requestNode.HttpID)
 		if err != nil {
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http queries: %w", err)))
 		}
 
-		forms, err := c.hbf.GetByHttpID(ctx, requestNode.HttpID)
+		forms, err := c.hbf.GetByHttpID(ctx, *requestNode.HttpID)
 		if err != nil {
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http body forms: %w", err)))
 		}
 
-		urlEncoded, err := c.hbu.List(ctx, requestNode.HttpID)
+		urlEncoded, err := c.hbu.List(ctx, *requestNode.HttpID)
 		if err != nil {
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http body urlencoded: %w", err)))
 		}
@@ -641,12 +645,12 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 			}
 		}
 
-		rawBody, err := c.hbr.GetByHttpID(ctx, requestNode.HttpID)
+		rawBody, err := c.hbr.GetByHttpID(ctx, *requestNode.HttpID)
 		if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) && !errors.Is(err, sql.ErrNoRows) {
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http body raw: %w", err)))
 		}
 
-		asserts, err := c.has.GetByHttpID(ctx, requestNode.HttpID)
+		asserts, err := c.has.GetByHttpID(ctx, *requestNode.HttpID)
 		if err != nil {
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http asserts: %w", err)))
 		}

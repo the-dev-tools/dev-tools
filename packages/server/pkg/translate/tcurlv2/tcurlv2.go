@@ -133,7 +133,7 @@ func ConvertCurl(curlStr string, opts ConvertCurlOptions) (*CurlResolvedV2, erro
 	file := mfile.File{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: opts.WorkspaceID,
-		FolderID:    opts.FolderID,
+		ParentID:    nil, // Root level
 		ContentID:   &httpID,
 		ContentType: mfile.ContentTypeHTTP,
 		Name:        filename,

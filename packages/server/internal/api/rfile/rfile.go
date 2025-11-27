@@ -83,8 +83,8 @@ func toAPIFile(file mfile.File) *apiv1.File {
 		Kind:        toAPIFileKind(file.ContentType),
 	}
 
-	if file.FolderID != nil {
-		apiFile.ParentId = file.FolderID.Bytes()
+	if file.ParentID != nil {
+		apiFile.ParentId = file.ParentID.Bytes()
 	}
 
 	return apiFile
@@ -134,19 +134,19 @@ func fromAPIFileInsert(apiFile *apiv1.FileInsert) (*mfile.File, error) {
 		return nil, err
 	}
 
-	var folderID *idwrap.IDWrap
+	var parentID *idwrap.IDWrap
 	if len(apiFile.ParentId) > 0 {
-		fid, err := idwrap.NewFromBytes(apiFile.ParentId)
+		pid, err := idwrap.NewFromBytes(apiFile.ParentId)
 		if err != nil {
 			return nil, err
 		}
-		folderID = &fid
+		parentID = &pid
 	}
 
 	return &mfile.File{
 		ID:          fileID,
 		WorkspaceID: workspaceID,
-		FolderID:    folderID,
+		ParentID:    parentID,
 		ContentType: fromAPIFileKind(apiFile.Kind),
 		Name:        "", // API doesn't have name field, will be set based on kind
 		Order:       float64(apiFile.Order),
@@ -175,13 +175,13 @@ func fromAPIFileUpdate(apiFile *apiv1.FileUpdate, existingFile *mfile.File) (*mf
 
 	if apiFile.ParentId != nil {
 		if apiFile.ParentId.Kind == apiv1.FileUpdate_ParentIdUnion_KIND_VALUE && len(apiFile.ParentId.Value) > 0 {
-			folderID, err := idwrap.NewFromBytes(apiFile.ParentId.Value)
+			parentID, err := idwrap.NewFromBytes(apiFile.ParentId.Value)
 			if err != nil {
 				return nil, err
 			}
-			file.FolderID = &folderID
+			file.ParentID = &parentID
 		} else {
-			file.FolderID = nil
+			file.ParentID = nil
 		}
 	}
 

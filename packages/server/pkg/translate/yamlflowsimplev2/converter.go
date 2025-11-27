@@ -905,7 +905,7 @@ func createFileForHTTP(httpReq mhttp.HTTP, opts ConvertOptionsV2) mfile.File {
 	return mfile.File{
 		ID:          idwrap.NewNow(),
 		WorkspaceID: opts.WorkspaceID,
-		FolderID:    opts.FolderID,
+		ParentID:    opts.FolderID,
 		ContentID:   &httpReq.ID,
 		ContentType: mfile.ContentTypeHTTP,
 		Name:        filename,

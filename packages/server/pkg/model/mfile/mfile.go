@@ -39,7 +39,7 @@ func (ct ContentType) String() string {
 type File struct {
 	ID          idwrap.IDWrap
 	WorkspaceID idwrap.IDWrap
-	FolderID    *idwrap.IDWrap // Optional parent folder
+	ParentID    *idwrap.IDWrap // Optional parent folder
 	ContentID   *idwrap.IDWrap // References content (can be nil for empty placeholders)
 	ContentType ContentType    // Type of content
 	Name        string
@@ -79,7 +79,7 @@ func (f File) IsFlow() bool {
 
 // IsRoot returns true if the file has no parent folder
 func (f File) IsRoot() bool {
-	return f.FolderID == nil
+	return f.ParentID == nil
 }
 
 // HasContent returns true if the file has associated content
