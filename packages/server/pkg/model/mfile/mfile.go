@@ -14,8 +14,8 @@ const (
 	ContentTypeUnknown   ContentType = -1
 	ContentTypeFolder    ContentType = 0 // folder
 	ContentTypeHTTP      ContentType = 1 // http (new model, replaces item_api)
-	ContentTypeFlow      ContentType = 2 // flow
-	ContentTypeHTTPDelta ContentType = 3 // http delta (draft/overlay)
+	ContentTypeHTTPDelta ContentType = 2 // http delta (draft/overlay)
+	ContentTypeFlow      ContentType = 3 // flow
 )
 
 // String returns the string representation of ContentType
