@@ -36,11 +36,11 @@ func TestHttpRun_CreatesVersionOnEveryRun(t *testing.T) {
 	// 2. Call HttpRun 5 times concurrently
 	var wg sync.WaitGroup
 	count := 5
-	
+
 	// Capture events
 	eventCount := 0
 	var eventMu sync.Mutex
-	
+
 	ctxStream, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -75,17 +75,17 @@ func TestHttpRun_CreatesVersionOnEveryRun(t *testing.T) {
 	}
 
 	wg.Wait()
-	
+
 	// Give events time to propagate
 	time.Sleep(500 * time.Millisecond)
 	cancel() // Stop listener
 
 	eventMu.Lock()
 	defer eventMu.Unlock()
-	
+
 	// We expect 5 insert events (one per run)
 	require.Equal(t, count, eventCount, "Should receive exactly 5 HttpVersionSync insert events from 5 runs")
-	
+
 	// Verify Versions count in DB
 	versions, err := f.handler.getHttpVersionsByHttpID(ctx, httpID)
 	require.NoError(t, err)

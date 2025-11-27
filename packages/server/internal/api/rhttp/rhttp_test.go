@@ -29,7 +29,6 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
@@ -37,6 +36,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
@@ -286,9 +286,9 @@ func createEchoServer(t *testing.T) *httptest.Server {
 
 		// Create response with request details
 		response := map[string]interface{}{
-			"method": r.Method,
-			"path":   r.URL.Path,
-			"query":  r.URL.Query(),
+			"method":  r.Method,
+			"path":    r.URL.Path,
+			"query":   r.URL.Query(),
 			"headers": r.Header,
 		}
 
@@ -804,9 +804,9 @@ func TestHttpRun_ErrorCases(t *testing.T) {
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithTimeout(ctx, 1*time.Millisecond)
 				defer cancel()
-				// Ensure the context is actually canceled/timed out before we even start if we want to force it, 
+				// Ensure the context is actually canceled/timed out before we even start if we want to force it,
 				// but we want to test the *request* timeout.
-				// Actually, 100ms should be plenty for a 5s delay. 
+				// Actually, 100ms should be plenty for a 5s delay.
 				// If it failed, maybe the server isn't using the delay handler?
 				// Let's double check the serverSetup usage.
 			}
@@ -958,10 +958,10 @@ func TestHttpRun_Assertions_StatusCode(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name             string
-		responseStatus   int
-		assertionValue   string
-		shouldSucceed    bool
+		name           string
+		responseStatus int
+		assertionValue string
+		shouldSucceed  bool
 	}{
 		{"200 status equals 200", 200, "200", true},
 		{"200 status equals 201", 200, "201", false},
@@ -1065,11 +1065,11 @@ func TestHttpRun_Assertions_BodyContent(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		responseBody  string
-		assertionKey  string
+		name           string
+		responseBody   string
+		assertionKey   string
 		assertionValue string
-		shouldSucceed bool
+		shouldSucceed  bool
 	}{
 		{
 			name:           "body contains success",
@@ -1141,10 +1141,10 @@ func TestHttpRun_Assertions_CustomExpressions(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name           string
-		responseBody   string
-		expression     string
-		shouldSucceed  bool
+		name          string
+		responseBody  string
+		expression    string
+		shouldSucceed bool
 	}{
 		{
 			name:          "json path expression success",
@@ -1224,9 +1224,9 @@ func TestHttpRun_Assertions_MultipleAssertions(t *testing.T) {
 
 	// Add multiple assertions
 	assertions := []struct {
-		key    string
-		value  string
-		desc   string
+		key   string
+		value string
+		desc  string
 	}{
 		{"status_code", "200", "Status should be 200"},
 		{"header.content_type", "application/json", "Content-Type should be JSON"},
@@ -1258,9 +1258,9 @@ func TestHttpRun_Assertions_ErrorResponses(t *testing.T) {
 		responseStatus int
 		responseBody   string
 		assertions     []struct {
-			key    string
-			value  string
-			desc   string
+			key   string
+			value string
+			desc  string
 		}
 	}{
 		{
@@ -1268,9 +1268,9 @@ func TestHttpRun_Assertions_ErrorResponses(t *testing.T) {
 			responseStatus: 404,
 			responseBody:   `{"error":"Not Found","message":"Resource not found"}`,
 			assertions: []struct {
-				key    string
-				value  string
-				desc   string
+				key   string
+				value string
+				desc  string
 			}{
 				{"status_code", "404", "Status should be 404"},
 				{"body_contains", "Not Found", "Body should contain error message"},
@@ -1281,9 +1281,9 @@ func TestHttpRun_Assertions_ErrorResponses(t *testing.T) {
 			responseStatus: 500,
 			responseBody:   `{"error":"Internal Server Error","message":"Something went wrong"}`,
 			assertions: []struct {
-				key    string
-				value  string
-				desc   string
+				key   string
+				value string
+				desc  string
 			}{
 				{"status_code", "500", "Status should be 500"},
 				{"body_contains", "Internal Server Error", "Body should contain error"},
@@ -1707,7 +1707,7 @@ func TestHttpRun_ConcurrentWithTimeouts(t *testing.T) {
 		if count%3 == 0 {
 			time.Sleep(100 * time.Millisecond) // Slow response
 		} else {
-			time.Sleep(10 * time.Millisecond)  // Fast response
+			time.Sleep(10 * time.Millisecond) // Fast response
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -2002,14 +2002,14 @@ func TestHttpRun_VariableSubstitutionInQueryParams(t *testing.T) {
 	// Add query parameters with variable placeholders
 	f.createHttpSearchParam(t, httpID, "userId", "{{userId}}")
 	f.createHttpSearchParam(t, httpID, "sessionId", "{{sessionId}}")
-		req := connect.NewRequest(&httpv1.HttpRunRequest{
-			HttpId: httpID.Bytes(),
-		})
-	
-		_, err = f.handler.HttpRun(f.ctx, req)
-		if err != nil {
-			t.Fatalf("HttpRun failed: %v", err)
-		}
+	req := connect.NewRequest(&httpv1.HttpRunRequest{
+		HttpId: httpID.Bytes(),
+	})
+
+	_, err = f.handler.HttpRun(f.ctx, req)
+	if err != nil {
+		t.Fatalf("HttpRun failed: %v", err)
+	}
 
 	// Verify that query parameters were substituted
 	if receivedQuery != "sessionId=sess456&userId=user123" && receivedQuery != "userId=user123&sessionId=sess456" {
@@ -2040,14 +2040,14 @@ func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
 
 	f := newHttpFixture(t)
 	ws := f.createWorkspace(t, "test-workspace")
-	
+
 	// Get workspace to find active env
 	workspace, err := f.ws.Get(f.ctx, ws)
 	if err != nil {
 		t.Fatalf("failed to get workspace: %v", err)
 	}
 	envID := workspace.ActiveEnv
-	
+
 	vars := map[string]string{
 		"version":        "1",
 		"userId":         "12345",
@@ -2056,14 +2056,14 @@ func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
 		"responseFormat": "json",
 		"debugMode":      "true",
 	}
-	
+
 	for k, v := range vars {
 		if err := f.vs.Create(f.ctx, mvar.Var{
-			ID:          idwrap.NewNow(),
-			EnvID:       envID,
-			VarKey:      k,
-			Value:       v,
-			Enabled:     true,
+			ID:      idwrap.NewNow(),
+			EnvID:   envID,
+			VarKey:  k,
+			Value:   v,
+			Enabled: true,
 		}); err != nil {
 			t.Fatalf("failed to create variable %s: %v", k, err)
 		}
@@ -2089,7 +2089,7 @@ func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
 	// But usually assertion logic DOES substitute.
 	// Let's assume for this test we just want to check status code, as the main point is the request formation.
 	// Or better, update the mock server to return what we want.
-	
+
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: httpID.Bytes(),
 	})
@@ -2199,11 +2199,11 @@ func TestHttpRun_VariableSubstitutionEdgeCases(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		url          string
-		headerValue  string
-		queryValue   string
-		expectError  bool
+		name        string
+		url         string
+		headerValue string
+		queryValue  string
+		expectError bool
 	}{
 		{
 			name:        "empty variable placeholder",
@@ -2247,7 +2247,7 @@ func TestHttpRun_VariableSubstitutionEdgeCases(t *testing.T) {
 
 			f := newHttpFixture(t)
 			ws := f.createWorkspace(t, "test-workspace")
-			
+
 			if tt.name == "unicode variables" {
 				wsObj, err := f.ws.Get(f.ctx, ws)
 				if err != nil {

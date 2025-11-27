@@ -92,10 +92,10 @@ func createTestServiceSetup(t *testing.T) *testServiceSetup {
 
 	// Create workspace user with admin role
 	err = wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
-		ID:         idwrap.NewNow(),
+		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
-		UserID:     userID,
-		Role:       mworkspaceuser.RoleAdmin,
+		UserID:      userID,
+		Role:        mworkspaceuser.RoleAdmin,
 	})
 	require.NoError(t, err)
 
@@ -444,10 +444,10 @@ func BenchmarkHttpInsertOptimizedPattern(b *testing.B) {
 
 	// Create workspace user with admin role
 	err = wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
-		ID:         idwrap.NewNow(),
+		ID:          idwrap.NewNow(),
 		WorkspaceID: workspaceID,
-		UserID:     userID,
-		Role:       mworkspaceuser.RoleAdmin,
+		UserID:      userID,
+		Role:        mworkspaceuser.RoleAdmin,
 	})
 	if err != nil {
 		b.Fatalf("Failed to create workspace user: %v", err)

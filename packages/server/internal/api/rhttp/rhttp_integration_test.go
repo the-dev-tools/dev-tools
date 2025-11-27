@@ -2,6 +2,21 @@
 
 package rhttp
 
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"the-dev-tools/server/pkg/idwrap"
+	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	"time"
+
+	"connectrpc.com/connect"
+)
+
 // Integration tests are temporarily disabled due to TypeSpec compilation issues.
 // This file will be re-enabled once the TypeSpec migration is complete.
 
@@ -19,12 +34,12 @@ func TestHttpRun_CompleteIntegration_Pipeline(t *testing.T) {
 
 	// Test server that captures request details and provides structured response
 	var (
-		receivedMethod     string
-		receivedURL        string
-		receivedHeaders    map[string]string
-		receivedQuery      string
-		receivedBody       string
-		requestProcessed   int32
+		receivedMethod   string
+		receivedURL      string
+		receivedHeaders  map[string]string
+		receivedQuery    string
+		receivedBody     string
+		requestProcessed int32
 	)
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -190,10 +205,10 @@ func TestHttpRun_VariableContextSharing(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 
 		response := map[string]interface{}{
-			"token":     "initial-token-123",
-			"user_id":   999,
-			"session":   "session-abc",
-			"quota":     50,
+			"token":   "initial-token-123",
+			"user_id": 999,
+			"session": "session-abc",
+			"quota":   50,
 			"endpoints": map[string]interface{}{
 				"profile": "/api/profile",
 				"posts":   "/api/posts",
@@ -487,4 +502,3 @@ func TestHttpRun_Performance_Integration(t *testing.T) {
 		t.Errorf("Average request duration too high: %v", avgDurationPerRequest)
 	}
 }
-

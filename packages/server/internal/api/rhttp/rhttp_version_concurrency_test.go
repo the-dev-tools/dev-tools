@@ -37,11 +37,11 @@ func TestHttpVersionSync_Concurrency(t *testing.T) {
 	// 2. Call HttpUpdate 5 times concurrently
 	var wg sync.WaitGroup
 	count := 5
-	
+
 	// Capture events
 	eventCount := 0
 	var eventMu sync.Mutex
-	
+
 	ctxStream, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -84,18 +84,17 @@ func TestHttpVersionSync_Concurrency(t *testing.T) {
 	}
 
 	wg.Wait()
-	
+
 	// Give events time to propagate
 	time.Sleep(500 * time.Millisecond)
 	cancel() // Stop listener
 
 	eventMu.Lock()
 	defer eventMu.Unlock()
-	
+
 	// We expect 5 insert events (one per update) + 1 initial snapshot insert?
 	// The initial snapshot might have 0 versions if we didn't create any manually.
 	// HttpInsert does NOT create a version in current logic (only HttpUpdate).
 	// So we expect exactly 5 events.
 	require.Equal(t, count, eventCount, "Should receive exactly 5 HttpVersionSync insert events")
 }
-

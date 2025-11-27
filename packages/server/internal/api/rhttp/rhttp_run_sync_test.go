@@ -17,7 +17,7 @@ func TestHttpRunPublishesResponseSyncEvent(t *testing.T) {
 
 	f := newHttpStreamingFixture(t)
 	wsID := f.createWorkspace(t, "run-workspace")
-	
+
 	// Create a test server to receive the request
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -57,7 +57,7 @@ func TestHttpRunPublishesResponseSyncEvent(t *testing.T) {
 	// Collect events
 	var items []*httpv1.HttpResponseSync
 	timeout := time.After(2 * time.Second)
-	
+
 	select {
 	case resp, ok := <-msgCh:
 		if !ok {
@@ -80,11 +80,11 @@ func TestHttpRunPublishesResponseSyncEvent(t *testing.T) {
 	if val == nil {
 		t.Fatal("response sync item missing value union")
 	}
-	
+
 	if val.GetKind() != httpv1.HttpResponseSync_ValueUnion_KIND_INSERT {
 		t.Fatalf("expected insert kind, got %v", val.GetKind())
 	}
-	
+
 	insert := val.GetInsert()
 	if insert == nil {
 		t.Fatal("expected insert value, got nil")

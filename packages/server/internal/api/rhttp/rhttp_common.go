@@ -1,0 +1,348 @@
+package rhttp
+
+import (
+	"context"
+	"errors"
+	"net"
+	"net/url"
+	"strings"
+
+	"connectrpc.com/connect"
+
+	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rworkspace"
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/sworkspacesusers"
+	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+)
+
+// isForeignKeyConstraintError checks if the error is a foreign key constraint violation
+func isForeignKeyConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// SQLite foreign key constraint error patterns
+	errStr := err.Error()
+	return contains(errStr, "FOREIGN KEY constraint failed") ||
+		contains(errStr, "foreign key constraint") ||
+		contains(errStr, "constraint violation")
+}
+
+// contains checks if a string contains a substring (case-insensitive)
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) &&
+		(s == substr ||
+			len(s) > len(substr) &&
+				(s[:len(substr)] == substr ||
+					s[len(s)-len(substr):] == substr ||
+					containsSubstring(s, substr)))
+}
+
+// containsSubstring performs a simple substring search
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+// bytesToIDWrap converts []byte to *idwrap.IDWrap safely
+func bytesToIDWrap(b []byte) *idwrap.IDWrap {
+	if b == nil || len(b) == 0 {
+		return nil
+	}
+	id, err := idwrap.NewFromBytes(b)
+	if err != nil {
+		return nil
+	}
+	return &id
+}
+
+func CheckOwnerHttp(ctx context.Context, hs shttp.HTTPService, us suser.UserService, httpID idwrap.IDWrap) (bool, error) {
+	workspaceID, err := hs.GetWorkspaceID(ctx, httpID)
+	if err != nil {
+		return false, err
+	}
+	return rworkspace.CheckOwnerWorkspace(ctx, us, workspaceID)
+}
+
+// checkWorkspaceReadAccess verifies if user has read access to workspace (any role)
+func (h *HttpServiceRPC) checkWorkspaceReadAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	wsUser, err := h.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+	if err != nil {
+		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
+		}
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Any role provides read access
+	if wsUser.Role < mworkspaceuser.RoleUser {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+	}
+
+	return nil
+}
+
+// checkWorkspaceWriteAccess verifies if user has write access to workspace (Admin or Owner)
+func (h *HttpServiceRPC) checkWorkspaceWriteAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	wsUser, err := h.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+	if err != nil {
+		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
+		}
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Write access requires Admin or Owner role
+	if wsUser.Role < mworkspaceuser.RoleAdmin {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+	}
+
+	return nil
+}
+
+// checkWorkspaceDeleteAccess verifies if user has delete access to workspace (Owner only)
+func (h *HttpServiceRPC) checkWorkspaceDeleteAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	wsUser, err := h.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+	if err != nil {
+		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+			return connect.NewError(connect.CodeNotFound, errors.New("workspace not found or access denied"))
+		}
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Delete access requires Owner role only
+	if wsUser.Role != mworkspaceuser.RoleOwner {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
+	}
+
+	return nil
+}
+
+// executeHTTPRequest performs the actual HTTP request execution
+// cloneStringMapToAny converts a map[string]string to map[string]any
+// This follows the pattern from nrequest.go
+func cloneStringMapToAny(src map[string]string) map[string]any {
+	if len(src) == 0 {
+		return map[string]any{}
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+// isNetworkError checks if the error is a network-related error
+func isNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+	return strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "network is unreachable") ||
+		strings.Contains(errStr, "no such host") ||
+		isDNSError(err)
+}
+
+// isTimeoutError checks if the error is a timeout error
+func isTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+	return strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "deadline exceeded") ||
+		errors.Is(err, context.DeadlineExceeded)
+}
+
+// isDNSError checks if the error is a DNS resolution error
+func isDNSError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		var netErr *net.DNSError
+		if errors.As(urlErr.Err, &netErr) {
+			return true
+		}
+	}
+
+	errStr := err.Error()
+	return strings.Contains(errStr, "no such host") ||
+		strings.Contains(errStr, "name resolution failed")
+}
+
+// parseHttpMethod converts string method to HttpMethod enum
+func parseHttpMethod(method string) apiv1.HttpMethod {
+	switch strings.ToUpper(method) {
+	case "GET":
+		return apiv1.HttpMethod_HTTP_METHOD_GET
+	case "POST":
+		return apiv1.HttpMethod_HTTP_METHOD_POST
+	case "PUT":
+		return apiv1.HttpMethod_HTTP_METHOD_PUT
+	case "PATCH":
+		return apiv1.HttpMethod_HTTP_METHOD_PATCH
+	case "DELETE":
+		return apiv1.HttpMethod_HTTP_METHOD_DELETE
+	case "HEAD":
+		return apiv1.HttpMethod_HTTP_METHOD_HEAD
+	case "OPTION":
+		return apiv1.HttpMethod_HTTP_METHOD_OPTION
+	case "CONNECT":
+		return apiv1.HttpMethod_HTTP_METHOD_CONNECT
+	default:
+		return apiv1.HttpMethod_HTTP_METHOD_UNSPECIFIED
+	}
+}
+
+// httpMethodToString converts HttpMethod enum to string
+func httpMethodToString(method *apiv1.HttpMethod) *string {
+	if method == nil {
+		return nil
+	}
+
+	var result string
+	switch *method {
+	case apiv1.HttpMethod_HTTP_METHOD_GET:
+		result = "GET"
+	case apiv1.HttpMethod_HTTP_METHOD_POST:
+		result = "POST"
+	case apiv1.HttpMethod_HTTP_METHOD_PUT:
+		result = "PUT"
+	case apiv1.HttpMethod_HTTP_METHOD_PATCH:
+		result = "PATCH"
+	case apiv1.HttpMethod_HTTP_METHOD_DELETE:
+		result = "DELETE"
+	case apiv1.HttpMethod_HTTP_METHOD_HEAD:
+		result = "HEAD"
+	case apiv1.HttpMethod_HTTP_METHOD_OPTION:
+		result = "OPTION"
+	case apiv1.HttpMethod_HTTP_METHOD_CONNECT:
+		result = "CONNECT"
+	default:
+		result = ""
+	}
+	return &result
+}
+
+// getStatusText returns the standard HTTP status text for a status code
+func (h *HttpServiceRPC) getStatusText(statusCode int) string {
+	switch {
+	case statusCode >= 100 && statusCode < 200:
+		switch statusCode {
+		case 100:
+			return "Continue"
+		case 101:
+			return "Switching Protocols"
+		case 102:
+			return "Processing"
+		case 103:
+			return "Early Hints"
+		default:
+			return "Informational"
+		}
+	case statusCode >= 200 && statusCode < 300:
+		switch statusCode {
+		case 200:
+			return "OK"
+		case 201:
+			return "Created"
+		case 202:
+			return "Accepted"
+		case 204:
+			return "No Content"
+		case 206:
+			return "Partial Content"
+		default:
+			return "Success"
+		}
+	case statusCode >= 300 && statusCode < 400:
+		switch statusCode {
+		case 300:
+			return "Multiple Choices"
+		case 301:
+			return "Moved Permanently"
+		case 302:
+			return "Found"
+		case 304:
+			return "Not Modified"
+		case 307:
+			return "Temporary Redirect"
+		case 308:
+			return "Permanent Redirect"
+		default:
+			return "Redirection"
+		}
+	case statusCode >= 400 && statusCode < 500:
+		switch statusCode {
+		case 400:
+			return "Bad Request"
+		case 401:
+			return "Unauthorized"
+		case 403:
+			return "Forbidden"
+		case 404:
+			return "Not Found"
+		case 405:
+			return "Method Not Allowed"
+		case 408:
+			return "Request Timeout"
+		case 409:
+			return "Conflict"
+		case 422:
+			return "Unprocessable Entity"
+		case 429:
+			return "Too Many Requests"
+		default:
+			return "Client Error"
+		}
+	case statusCode >= 500 && statusCode < 600:
+		switch statusCode {
+		case 500:
+			return "Internal Server Error"
+		case 501:
+			return "Not Implemented"
+		case 502:
+			return "Bad Gateway"
+		case 503:
+			return "Service Unavailable"
+		case 504:
+			return "Gateway Timeout"
+		default:
+			return "Server Error"
+		}
+	default:
+		return "Unknown"
+	}
+}
+
+// constructAssertionExpression constructs an expression from key and value

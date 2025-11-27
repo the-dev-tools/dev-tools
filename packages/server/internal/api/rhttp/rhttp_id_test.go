@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/server/pkg/idwrap"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+
+	"connectrpc.com/connect"
 )
 
 func TestHttpHeaderInsertRespectsClientIDs(t *testing.T) {
@@ -80,7 +81,7 @@ func TestHttpHeaderInsertRespectsClientIDs(t *testing.T) {
 	// Verify ID in Sync Event
 	timeout := time.After(2 * time.Second)
 	foundInStream := false
-	
+
 	// We might receive snapshot events first, so we loop until we find ours or timeout
 	for {
 		select {
@@ -93,12 +94,12 @@ func TestHttpHeaderInsertRespectsClientIDs(t *testing.T) {
 				if val == nil {
 					continue
 				}
-				
+
 				// We look for INSERT kind
 				if val.GetKind() == httpv1.HttpHeaderSync_ValueUnion_KIND_INSERT {
 					insert := val.GetInsert()
 					eventID, _ := idwrap.NewFromBytes(insert.GetHttpHeaderId())
-					
+
 					if eventID == clientGeneratedID {
 						foundInStream = true
 						if insert.GetKey() != headerKey {
