@@ -33,18 +33,18 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*NodeRequestService, error) {
 }
 
 func ConvertToDBNodeHTTP(nr mnrequest.MNRequest) (gen.FlowNodeHttp, bool) {
-	if isZeroID(nr.HttpID) {
+	if nr.HttpID == nil || isZeroID(*nr.HttpID) {
 		return gen.FlowNodeHttp{}, false
 	}
 
 	var deltaID []byte
-	if nr.DeltaExampleID != nil {
-		deltaID = nr.DeltaExampleID.Bytes()
+	if nr.DeltaHttpID != nil {
+		deltaID = nr.DeltaHttpID.Bytes()
 	}
 
 	return gen.FlowNodeHttp{
 		FlowNodeID:  nr.FlowNodeID,
-		HttpID:      nr.HttpID,
+		HttpID:      *nr.HttpID,
 		DeltaHttpID: deltaID,
 	}, true
 }
@@ -57,11 +57,12 @@ func ConvertToModelNodeHTTP(nr gen.FlowNodeHttp) *mnrequest.MNRequest {
 			deltaID = &id
 		}
 	}
+	httpID := nr.HttpID
 
 	result := &mnrequest.MNRequest{
-		FlowNodeID:     nr.FlowNodeID,
-		HttpID:         nr.HttpID,
-		DeltaExampleID: deltaID,
+		FlowNodeID:  nr.FlowNodeID,
+		HttpID:      &httpID,
+		DeltaHttpID: deltaID,
 	}
 	result.HasRequestConfig = !isZeroID(nr.HttpID)
 	return result

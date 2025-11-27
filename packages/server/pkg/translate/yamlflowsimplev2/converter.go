@@ -655,7 +655,7 @@ func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData 
 	// Create request node
 	requestNode := mnrequest.MNRequest{
 		FlowNodeID:       nodeID,
-		ExampleID:        &httpID, // Direct reference to HTTP ID
+		HttpID:           &httpID, // Direct reference to HTTP ID
 		HasRequestConfig: true,
 	}
 

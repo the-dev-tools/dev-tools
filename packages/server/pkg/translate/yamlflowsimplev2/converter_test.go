@@ -158,7 +158,7 @@ flows:
 	}
 
 	requestNode := result.FlowRequestNodes[0]
-	if requestNode.ExampleID == nil || requestNode.ExampleID.Compare(httpReq.ID) != 0 {
+	if requestNode.HttpID == nil || requestNode.HttpID.Compare(httpReq.ID) != 0 {
 		t.Errorf("Request node should reference HTTP request")
 	}
 }

@@ -287,9 +287,9 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 
 	// Link Node to HTTP (with Delta)
 	err = nodeRequestService.CreateNodeRequest(ctx, mnrequest.MNRequest{
-		FlowNodeID:     requestNodeID,
-		HttpID:         baseID,
-		DeltaExampleID: &deltaID, // Mapped to delta_http_id in DB
+		FlowNodeID:  requestNodeID,
+		HttpID:      &baseID,
+		DeltaHttpID: &deltaID, // Mapped to delta_http_id in DB
 	})
 	require.NoError(t, err)
 

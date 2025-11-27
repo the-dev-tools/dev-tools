@@ -286,10 +286,15 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		}
 		currentX += nodeSpacingX
 
+		// Add Delta version
+		deltaReq := createDeltaVersion(*httpReq)
+		result.HTTPRequests = append(result.HTTPRequests, deltaReq)
+
 		// Create Request Node config
 		reqNode := mnrequest.MNRequest{
-			FlowNodeID: nodeID,
-			HttpID:     httpReq.ID,
+			FlowNodeID:  nodeID,
+			HttpID:      &httpReq.ID,
+			DeltaHttpID: &deltaReq.ID,
 		}
 
 		// Append to result
@@ -302,16 +307,25 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		result.HTTPBodyUrlEncoded = append(result.HTTPBodyUrlEncoded, bodyUrlEncoded...)
 		result.HTTPBodyRaws = append(result.HTTPBodyRaws, bodyRaws...)
 
-		// Add Delta version
-		deltaReq := createDeltaVersion(*httpReq)
-		result.HTTPRequests = append(result.HTTPRequests, deltaReq)
-
 		// File System
 		file, _, err := createFileStructure(httpReq, workspaceID, folderMap, folderFileMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file structure for entry %d: %w", i, err)
 		}
 		fileMap[httpReq.ID.String()] = *file
+
+		// Create File for Delta
+		deltaFile := mfile.File{
+			ID:          deltaReq.ID,
+			WorkspaceID: workspaceID,
+			FolderID:    file.FolderID,
+			ContentID:   &deltaReq.ID,
+			ContentType: mfile.ContentTypeHTTPDelta,
+			Name:        deltaReq.Name,
+			Order:       file.Order,
+			UpdatedAt:   time.Now(),
+		}
+		fileMap[deltaReq.ID.String()] = deltaFile
 
 		// --- Dependency Logic ---
 

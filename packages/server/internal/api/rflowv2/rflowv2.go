@@ -485,7 +485,7 @@ func (s *FlowServiceV2RPC) NodeHttpCollection(
 				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-			if nodeReq == nil || isZeroID(nodeReq.HttpID) {
+			if nodeReq == nil || nodeReq.HttpID == nil || isZeroID(*nodeReq.HttpID) {
 				continue
 			}
 			items = append(items, serializeNodeHTTP(*nodeReq))
@@ -951,7 +951,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-			if requestCfg == nil || isZeroID(requestCfg.HttpID) {
+			if requestCfg == nil || requestCfg.HttpID == nil || isZeroID(*requestCfg.HttpID) {
 				return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("request node %s missing http configuration", nodeModel.ID.String()))
 			}
 			requestNode, err := s.buildRequestFlowNode(ctx, flow, nodeModel, *requestCfg, sharedHTTPClient, requestRespChan)
@@ -1199,9 +1199,9 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 
 		case mnnode.NODE_KIND_REQUEST:
 			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
-			if err == nil {
+			if err == nil && requestData.HttpID != nil {
 				// Get the original HTTP data
-				httpData, err := s.hs.Get(ctx, requestData.HttpID)
+				httpData, err := s.hs.Get(ctx, *requestData.HttpID)
 				if err == nil {
 					// Create a new HTTP record for the duplicated node
 					newHttpID := idwrap.NewNow()
@@ -1215,7 +1215,7 @@ func (s *FlowServiceV2RPC) FlowDuplicate(ctx context.Context, req *connect.Reque
 
 					newRequestData := mnrequest.MNRequest{
 						FlowNodeID:       newNodeID,
-						HttpID:           newHttpID,
+						HttpID:           &newHttpID,
 						HasRequestConfig: requestData.HasRequestConfig,
 					}
 					if err := s.nrs.CreateNodeRequest(ctx, newRequestData); err != nil {
@@ -2698,7 +2698,7 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 
 		if err := s.nrs.CreateNodeRequest(ctx, mnrequest.MNRequest{
 			FlowNodeID:       nodeID,
-			HttpID:           httpID,
+			HttpID:           &httpID,
 			HasRequestConfig: !isZeroID(httpID),
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -2730,7 +2730,7 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 
 		if err := s.nrs.UpdateNodeRequest(ctx, mnrequest.MNRequest{
 			FlowNodeID:       nodeID,
-			HttpID:           httpID,
+			HttpID:           &httpID,
 			HasRequestConfig: !isZeroID(httpID),
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -2814,7 +2814,7 @@ func (s *FlowServiceV2RPC) streamNodeHttpSync(
 					}
 					return nil, err
 				}
-				if nodeReq == nil || isZeroID(nodeReq.HttpID) {
+				if nodeReq == nil || nodeReq.HttpID == nil || isZeroID(*nodeReq.HttpID) {
 					continue
 				}
 
@@ -3201,7 +3201,7 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 		}
 		return nil, err
 	}
-	if nodeReq == nil || isZeroID(nodeReq.HttpID) {
+	if nodeReq == nil || nodeReq.HttpID == nil || isZeroID(*nodeReq.HttpID) {
 		return nil, nil
 	}
 
@@ -4707,7 +4707,11 @@ func (s *FlowServiceV2RPC) buildRequestFlowNode(
 	client httpclient.HttpClient,
 	respChan chan nrequest.NodeRequestSideResp,
 ) (*nrequest.NodeRequest, error) {
-	resolved, err := s.resolver.Resolve(ctx, cfg.HttpID, cfg.DeltaExampleID)
+	if cfg.HttpID == nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("request node %s missing http_id", nodeModel.Name))
+	}
+
+	resolved, err := s.resolver.Resolve(ctx, *cfg.HttpID, cfg.DeltaHttpID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("resolve http %s: %w", cfg.HttpID.String(), err))
 	}
@@ -4770,6 +4774,11 @@ func serializeNode(n mnnode.MNode) *flowv1.Node {
 }
 
 func serializeNodeHTTP(n mnrequest.MNRequest) *flowv1.NodeHttp {
+	if n.HttpID == nil {
+		return &flowv1.NodeHttp{
+			NodeId: n.FlowNodeID.Bytes(),
+		}
+	}
 	return &flowv1.NodeHttp{
 		NodeId: n.FlowNodeID.Bytes(),
 		HttpId: n.HttpID.Bytes(),
