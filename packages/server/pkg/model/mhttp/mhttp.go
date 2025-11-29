@@ -118,7 +118,7 @@ type HTTPBodyRaw struct {
 	CompressionType      int8           `json:"compression_type"`
 	ParentBodyRawID      *idwrap.IDWrap `json:"parent_body_raw_id,omitempty"`
 	IsDelta              bool           `json:"is_delta"`
-	DeltaRawData         interface{}    `json:"delta_raw_data,omitempty"`
+	DeltaRawData         []byte         `json:"delta_raw_data,omitempty"`
 	DeltaContentType     interface{}    `json:"delta_content_type,omitempty"`
 	DeltaCompressionType interface{}    `json:"delta_compression_type,omitempty"`
 	CreatedAt            int64          `json:"created_at"`
