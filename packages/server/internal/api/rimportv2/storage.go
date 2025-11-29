@@ -135,7 +135,7 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	// Store files first (they may be referenced by HTTP entities)
 	if len(results.Files) > 0 {
 		for _, file := range results.Files {
-			if err := imp.fileService.CreateFile(ctx, file); err != nil {
+			if err := imp.fileService.UpsertFile(ctx, file); err != nil {
 				return fmt.Errorf("failed to store files: %w", err)
 			}
 		}
@@ -342,7 +342,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 			for i, file := range files {
 				file.Order = startOrder + float64(i)
-				if err := txFileService.CreateFile(ctx, file); err != nil {
+				if err := txFileService.UpsertFile(ctx, file); err != nil {
 					return fmt.Errorf("failed to store file: %w", err)
 				}
 			}

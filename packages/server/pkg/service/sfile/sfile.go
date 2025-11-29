@@ -239,6 +239,27 @@ func (s *FileService) CreateFile(ctx context.Context, file *mfile.File) error {
 }
 
 
+// UpsertFile creates or updates a file
+func (s *FileService) UpsertFile(ctx context.Context, file *mfile.File) error {
+	s.logger.Debug("Upserting file",
+		"file_id", file.ID.String(),
+		"workspace_id", file.WorkspaceID.String())
+
+	// Check if file exists
+	_, err := s.GetFile(ctx, file.ID)
+	if err != nil {
+		if err == ErrFileNotFound {
+			// File doesn't exist, create it
+			return s.CreateFile(ctx, file)
+		}
+		// Other error
+		return fmt.Errorf("failed to check file existence: %w", err)
+	}
+
+	// File exists, update it
+	return s.UpdateFile(ctx, file)
+}
+
 // UpdateFile updates an existing file
 func (s *FileService) UpdateFile(ctx context.Context, file *mfile.File) error {
 	s.logger.Debug("Updating file",
