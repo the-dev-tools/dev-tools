@@ -72,14 +72,21 @@
           };
 
         devShells.default = pkgs.mkShell {
-          inherit (self'.devShells.runner) shellHook;
-
           # Specify Nixpkgs path for improved nixd intellisense
           NIX_PATH = ["nixpkgs=${inputs.nixpkgs}"];
 
           # Use Electron binary from Nixpkgs in development for NixOS compatibility
           ELECTRON_SKIP_BINARY_DOWNLOAD = 1;
           ELECTRON_EXEC_PATH = "${pkgs.electron}/bin/electron";
+
+          shellHook = ''
+            ${self'.devShells.runner.shellHook}
+
+            if [ -n "''${GEMINI_CLI-}" ]; then
+              export NX_TUI=false
+              export TASK_OUTPUT=prefixed
+            fi
+          '';
 
           nativeBuildInputs =
             self'.devShells.runner.nativeBuildInputs
