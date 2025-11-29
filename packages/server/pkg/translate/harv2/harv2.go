@@ -610,8 +610,23 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 			comparisonBaseBodyUrlEncoded = existingBodyUrlEncoded
 			comparisonBaseBodyRaws = existingBodyRaws
 
+			// Check for existing Delta to overwrite
+			var existingDeltaID idwrap.IDWrap
+			if httpService != nil {
+				deltas, err := httpService.GetDeltasByParentID(ctx, existingRequest.ID)
+				if err == nil && len(deltas) > 0 {
+					// For now, we just pick the first delta found as the "default" overwrite target.
+					// Future improvement: could match by name "Import Delta" or similar if we support multiple deltas.
+					existingDeltaID = deltas[0].ID
+				}
+			}
+
+			if existingDeltaID.Compare(idwrap.IDWrap{}) == 0 {
+				existingDeltaID = idwrap.NewNow()
+			}
+
 			deltaReq = &mhttp.HTTP{
-				ID:               idwrap.NewNow(),
+				ID:               existingDeltaID,
 				WorkspaceID:      workspaceID,
 				ParentHttpID:     &existingRequest.ID,
 				Name:             templatedReq.Name + " (Delta)",

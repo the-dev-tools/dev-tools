@@ -144,7 +144,7 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	// Store HTTP entities
 	if len(results.HTTPReqs) > 0 {
 		for _, httpReq := range results.HTTPReqs {
-			if err := imp.httpService.Create(ctx, httpReq); err != nil {
+			if err := imp.httpService.Upsert(ctx, httpReq); err != nil {
 				return fmt.Errorf("failed to store HTTP entities: %w", err)
 			}
 		}
@@ -356,7 +356,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	// Store HTTP entities
 	if len(results.HTTPRequests) > 0 {
 		for _, httpReq := range results.HTTPRequests {
-			if err := txHttpService.Create(ctx, &httpReq); err != nil {
+			if err := txHttpService.Upsert(ctx, &httpReq); err != nil {
 				return fmt.Errorf("failed to store HTTP entity: %w", err)
 			}
 		}

@@ -166,6 +166,24 @@ func (hs HTTPService) Create(ctx context.Context, http *mhttp.HTTP) error {
 	})
 }
 
+func (hs HTTPService) Upsert(ctx context.Context, http *mhttp.HTTP) error {
+	existing, err := hs.Get(ctx, http.ID)
+	if err != nil {
+		if err == ErrNoHTTPFound {
+			return hs.Create(ctx, http)
+		}
+		return err
+	}
+
+	// Preserve creation time from existing record if not set in new record (though usually import sets it)
+	if http.CreatedAt == 0 {
+		http.CreatedAt = existing.CreatedAt
+	}
+	
+	// Update fields
+	return hs.Update(ctx, http)
+}
+
 func (hs HTTPService) GetByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mhttp.HTTP, error) {
 	https, err := hs.queries.GetHTTPsByWorkspaceID(ctx, workspaceID)
 	if err != nil {
@@ -195,6 +213,43 @@ func (hs HTTPService) GetDeltasByWorkspaceID(ctx context.Context, workspaceID id
 	result := make([]mhttp.HTTP, len(https))
 	for i, http := range https {
 		result[i] = *ConvertToModelHTTP(http)
+	}
+	return result, nil
+}
+
+func (hs HTTPService) GetDeltasByParentID(ctx context.Context, parentID idwrap.IDWrap) ([]mhttp.HTTP, error) {
+	https, err := hs.queries.GetHTTPDeltasByParentID(ctx, &parentID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mhttp.HTTP{}, nil
+		}
+		return nil, err
+	}
+
+	result := make([]mhttp.HTTP, len(https))
+	for i, h := range https {
+		// Manual mapping from GetHTTPDeltasByParentIDRow to mhttp.HTTP
+		// Assuming the query returns all columns
+		result[i] = mhttp.HTTP{
+			ID:               h.ID,
+			WorkspaceID:      h.WorkspaceID,
+			FolderID:         h.FolderID,
+			Name:             h.Name,
+			Url:              h.Url,
+			Method:           h.Method,
+			BodyKind:         mhttp.HttpBodyKind(h.BodyKind),
+			Description:      h.Description,
+			ParentHttpID:     h.ParentHttpID,
+			IsDelta:          h.IsDelta,
+			DeltaName:        h.DeltaName,
+			DeltaUrl:         h.DeltaUrl,
+			DeltaMethod:      h.DeltaMethod,
+			DeltaBodyKind:    interfaceToInt8Ptr(h.DeltaBodyKind),
+			DeltaDescription: h.DeltaDescription,
+			// LastRunAt not available in this query view?
+			CreatedAt:        h.CreatedAt,
+			UpdatedAt:        h.UpdatedAt,
+		}
 	}
 	return result, nil
 }
