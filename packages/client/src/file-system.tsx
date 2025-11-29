@@ -1,7 +1,7 @@
 import { eq, isUndefined, useLiveQuery } from '@tanstack/react-db';
 import { ToOptions, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import CodeMirror from '@uiw/react-codemirror';
-import { Match, Option, pipe } from 'effect';
+import { Match, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { createContext, RefObject, useContext, useMemo, useRef } from 'react';
 import {
@@ -210,7 +210,7 @@ const FileItem = ({ id }: FileItemProps) => {
 
   const { fileId } = useMemo(() => fileCollection.utils.parseKeyUnsafe(id), [fileCollection.utils, id]);
 
-  const { kind } = pipe(
+  const { kind = FileKind.UNSPECIFIED } =
     useLiveQuery(
       (_) =>
         _.from({ file: fileCollection })
@@ -218,10 +218,7 @@ const FileItem = ({ id }: FileItemProps) => {
           .select((_) => pick(_.file, 'kind'))
           .findOne(),
       [fileCollection, fileId],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+    ).data ?? {};
 
   return pipe(
     Match.value(kind),
@@ -229,7 +226,7 @@ const FileItem = ({ id }: FileItemProps) => {
     Match.when(FileKind.HTTP, () => <HttpFile id={id} />),
     Match.when(FileKind.HTTP_DELTA, () => <HttpDeltaFile id={id} />),
     Match.when(FileKind.FLOW, () => <FlowFile id={id} />),
-    Match.orElseAbsurd,
+    Match.orElse(() => null),
   );
 };
 
@@ -240,7 +237,7 @@ const FolderFile = ({ id }: FileItemProps) => {
 
   const folderCollection = useApiCollection(FolderCollectionSchema);
 
-  const { name } = pipe(
+  const { name = '' } =
     useLiveQuery(
       (_) =>
         _.from({ folder: folderCollection })
@@ -248,10 +245,7 @@ const FolderFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.folder, 'name'))
           .findOne(),
       [folderCollection, folderId],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+    ).data ?? {};
 
   const { data: files } = useLiveQuery(
     (_) =>
@@ -345,7 +339,7 @@ const HttpFile = ({ id }: FileItemProps) => {
 
   const httpCollection = useApiCollection(HttpCollectionSchema);
 
-  const { method, name } = pipe(
+  const { method = HttpMethod.UNSPECIFIED, name = '' } =
     useLiveQuery(
       (_) =>
         _.from({ http: httpCollection })
@@ -353,10 +347,7 @@ const HttpFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.http, 'name', 'method'))
           .findOne(),
       [httpCollection, httpId],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+    ).data ?? {};
 
   const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
@@ -529,14 +520,15 @@ const HttpDeltaFile = ({ id }: FileItemProps) => {
 
   const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
 
-  const { httpId } = useLiveQuery(
-    (_) =>
-      _.from({ item: deltaCollection })
-        .where((_) => eq(_.item.deltaHttpId, deltaHttpId))
-        .select((_) => pick(_.item, 'httpId'))
-        .findOne(),
-    [deltaCollection, deltaHttpId],
-  ).data!;
+  const { httpId = new Uint8Array(0) } =
+    useLiveQuery(
+      (_) =>
+        _.from({ item: deltaCollection })
+          .where((_) => eq(_.item.deltaHttpId, deltaHttpId))
+          .select((_) => pick(_.item, 'httpId'))
+          .findOne(),
+      [deltaCollection, deltaHttpId],
+    ).data ?? {};
 
   const deltaOptions = {
     deltaId: deltaHttpId,
@@ -682,7 +674,7 @@ const FlowFile = ({ id }: FileItemProps) => {
 
   const flowCollection = useApiCollection(FlowCollectionSchema);
 
-  const { name } = pipe(
+  const { name = '' } =
     useLiveQuery(
       (_) =>
         _.from({ flow: flowCollection })
@@ -690,10 +682,7 @@ const FlowFile = ({ id }: FileItemProps) => {
           .select((_) => pick(_.flow, 'name'))
           .findOne(),
       [flowCollection, flowId],
-    ),
-    (_) => Option.fromNullable(_.data),
-    Option.getOrThrow,
-  );
+    ).data ?? {};
 
   const duplicateMutation = useConnectMutation(FlowService.method.flowDuplicate);
   const exportMutation = useConnectMutation(ExportService.method.export);

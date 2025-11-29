@@ -1,8 +1,13 @@
+import { useLiveQuery } from '@tanstack/react-db';
+import { useEffect } from 'react';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
+import { useRemoveTab } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { httpRouteApi } from '~/routes';
-import { useDeltaState } from '~utils/delta';
+import { useApiCollection } from '~/api-new';
+import { httpRouteApi, workspaceRouteApi } from '~/routes';
+import { useDeltaState } from '~/utils/delta';
+import { eqStruct } from '~/utils/tanstack-db';
 
 export interface HttpTabProps {
   deltaHttpId?: Uint8Array;
@@ -13,6 +18,34 @@ export const httpTabId = ({ deltaHttpId, httpId }: HttpTabProps) =>
   JSON.stringify({ deltaHttpId, httpId, route: httpRouteApi.id });
 
 export const HttpTab = ({ deltaHttpId, httpId }: HttpTabProps) => {
+  const context = workspaceRouteApi.useRouteContext();
+
+  const removeTab = useRemoveTab();
+
+  const httpCollection = useApiCollection(HttpCollectionSchema);
+
+  const httpExists =
+    useLiveQuery(
+      (_) => _.from({ item: httpCollection }).where(eqStruct({ httpId })).findOne(),
+      [httpCollection, httpId],
+    ).data !== undefined;
+
+  useEffect(() => {
+    if (!httpExists) void removeTab({ ...context, id: httpTabId({ httpId }) });
+  }, [context, httpExists, httpId, removeTab]);
+
+  const deltaCollection = useApiCollection(HttpDeltaCollectionSchema);
+
+  const deltaExists =
+    useLiveQuery(
+      (_) => _.from({ item: deltaCollection }).where(eqStruct({ deltaHttpId })).findOne(),
+      [deltaCollection, deltaHttpId],
+    ).data !== undefined;
+
+  useEffect(() => {
+    if (deltaHttpId && !deltaExists) void removeTab({ ...context, id: httpTabId({ deltaHttpId, httpId }) });
+  }, [context, deltaExists, deltaHttpId, httpId, removeTab]);
+
   const deltaOptions = {
     deltaId: deltaHttpId,
     deltaSchema: HttpDeltaCollectionSchema,
