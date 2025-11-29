@@ -174,13 +174,8 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 		return nil, fmt.Errorf("failed to parse HAR data: %w", err)
 	}
 
-	// Convert to modern models with overwrite detection (if httpService is available)
-	var resolved *harv2.HarResolved
-	if t.httpService != nil {
-		resolved, err = harv2.ConvertHARWithService(ctx, har, workspaceID, t.httpService)
-	} else {
-		resolved, err = harv2.ConvertHAR(har, workspaceID)
-	}
+	// Convert to modern models without overwrite detection (always create new)
+	resolved, err := harv2.ConvertHAR(har, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert HAR: %w", err)
 	}

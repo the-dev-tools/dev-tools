@@ -120,7 +120,7 @@ func TestFormatDetector(t *testing.T) {
 
 // TestTranslatorRegistry tests the translator registry functionality
 func TestTranslatorRegistry(t *testing.T) {
-	registry := NewTranslatorRegistry()
+	registry := NewTranslatorRegistry(nil)
 
 	// Test supported formats
 	formats := registry.GetSupportedFormats()
@@ -444,7 +444,7 @@ func BenchmarkFormatDetection(b *testing.B) {
 
 // BenchmarkTranslatorRegistry benchmarks the translator registry performance
 func BenchmarkTranslatorRegistry(b *testing.B) {
-	registry := NewTranslatorRegistry()
+	registry := NewTranslatorRegistry(nil)
 	ctx := context.Background()
 	workspaceID := idwrap.NewNow()
 
