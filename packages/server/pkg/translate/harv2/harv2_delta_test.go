@@ -143,37 +143,21 @@ func TestConvertHAR_DeltaDependencies(t *testing.T) {
 	require.NotNil(t, deltaReq2)
 
 	// Find the headers
-	var baseHeader string
+	var baseHeader, deltaHeader string
 	for _, h := range resolved.HTTPHeaders {
 		if h.HttpID == baseReq2.ID && h.HeaderKey == "X-Token" {
 			baseHeader = h.HeaderValue
 		}
+		if h.HttpID == deltaReq2.ID && h.HeaderKey == "X-Token" {
+			deltaHeader = h.HeaderValue
+		}
 	}
-	// Delta headers are stored in HTTPHeader table but with IsDelta=true (not implemented in harv2 yet?)
-	// Wait, createDeltaVersion only copies the HTTP struct fields.
-	// The *Child Entities* (Headers, Params) for the Delta are NOT created by harv2.go currently.
-	// Is that expected?
-	// createDeltaVersion in delta.go only creates the mhttp.HTTP object.
-	// It does NOT clone headers/params.
-	// The `DeltaHeaderValue` logic in `rflowv2` (Resolver) handles merging.
-	// BUT, for the imported Delta to actually *work* as a copy, it relies on the Base Request's children
-	// UNLESS we explicitly create Delta children.
+
+	// Verify dependencies in the Delta Header
+	assert.Contains(t, deltaHeader, "{{ request_1.response.body.token }}", "Delta header should contain template")
 	
-	// Checking `harv2.go`: It appends `headers` which are linked to `httpID` (Base).
-	// It does NOT create headers for `deltaReq.ID`.
-	
-	// So, `deltaReq` is a "shell" that inherits everything from Base via ParentHttpID linkage in the Resolver.
-	// The Resolver (StandardResolver) loads Base children if Delta children are missing?
-	// Let's check `resolver.go` (not visible here, but standard behavior).
-	// Usually `Resolve` loads Base, then loads Delta, then merges.
-	// If Delta has no headers, it uses Base headers.
-	
-	// So verifying dependencies in Base Header is sufficient to prove it works for the node.
-	// The Delta Request *Object* fields (Url, Method) ARE copied.
-	
-	// Let's verify dependencies in the Header of the Base Request.
-	assert.Contains(t, baseHeader, "{{ request_1.response.body.token }}", "Base header should contain template")
-	assert.NotContains(t, baseHeader, "SECRET_TOKEN_123", "Base header should NOT contain raw secret")
+	// Base header should contain the raw secret
+	assert.Contains(t, baseHeader, "SECRET_TOKEN_123", "Base header should contain raw secret")
 	
 	// And if the URL had a dependency, checking Delta Request URL would be valid.
 	// Let's check if URL dependency is propagated.

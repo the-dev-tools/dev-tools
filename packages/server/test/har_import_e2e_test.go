@@ -193,6 +193,10 @@ func (suite *HARImportE2ETestSuite) Cleanup() {
 
 // TestHARImportE2E_Comprehensive suite tests the complete HAR import pipeline
 func TestHARImportE2E_Comprehensive(t *testing.T) {
+	if _, err := os.Stat("uuidhar.har"); os.IsNotExist(err) {
+		t.Skip("uuidhar.har not found, skipping comprehensive E2E test")
+	}
+
 	// Note: t.Parallel() disabled to prevent database deadlocks between tests
 	// Each test creates its own workspace and database to ensure isolation
 
@@ -231,6 +235,9 @@ func (suite *HARImportE2ETestSuite) testCleanImport() {
 	// Load the HAR file
 	harPath := "uuidhar.har"
 	harData, err := os.ReadFile(harPath)
+	if err != nil {
+		t.Fatalf("Failed to read HAR file: %v", err)
+	}
 	if err != nil {
 		t.Fatalf("Failed to read HAR file: %v", err)
 	}
