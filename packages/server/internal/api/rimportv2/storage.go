@@ -184,7 +184,7 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 				Value:                 p.ParamValue,
 				Enabled:               p.Enabled,
 				Description:           p.Description,
-				ParentSearchParamID: p.ParentSearchParamID,    // ✅ ADD delta field
+				ParentHttpSearchParamID: p.ParentSearchParamID,    // ✅ ADD delta field
 				IsDelta:               p.IsDelta,                   // ✅ ADD delta field
 				DeltaKey:              p.DeltaParamKey,             // ✅ ADD delta field
 				DeltaValue:            p.DeltaParamValue,           // ✅ ADD delta field
@@ -208,7 +208,7 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 				Value:              f.FormValue,
 				Enabled:            f.Enabled,
 				Description:        f.Description,
-				ParentHttpBodyFormID: f.ParentHttpBodyFormID,    // ✅ ADD delta field
+				ParentHttpBodyFormID: f.ParentBodyFormID,    // ✅ ADD delta field
 				IsDelta:            f.IsDelta,                   // ✅ ADD delta field
 				DeltaKey:           f.DeltaFormKey,             // ✅ ADD delta field
 				DeltaValue:         f.DeltaFormValue,           // ✅ ADD delta field
@@ -232,7 +232,7 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 				Value:                    u.UrlencodedValue,
 				Enabled:                  u.Enabled,
 				Description:              u.Description,
-				ParentHttpBodyUrlEncodedID: u.ParentHttpBodyUrlEncodedID,    // ✅ ADD delta field
+				ParentHttpBodyUrlEncodedID: u.ParentBodyUrlencodedID,    // ✅ ADD delta field
 				IsDelta:                  u.IsDelta,                         // ✅ ADD delta field
 				DeltaKey:                 u.DeltaUrlencodedKey,              // ✅ ADD delta field
 				DeltaValue:               u.DeltaUrlencodedValue,            // ✅ ADD delta field
@@ -437,7 +437,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				Value:                 p.ParamValue,
 				Enabled:               p.Enabled,
 				Description:           p.Description,
-				ParentSearchParamID: p.ParentSearchParamID,    // ✅ ADD delta field
+				ParentHttpSearchParamID: p.ParentSearchParamID,    // ✅ ADD delta field
 				IsDelta:               p.IsDelta,                   // ✅ ADD delta field
 				DeltaKey:              p.DeltaParamKey,             // ✅ ADD delta field
 				DeltaValue:            p.DeltaParamValue,           // ✅ ADD delta field
@@ -461,7 +461,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				Value:              f.FormValue,
 				Enabled:            f.Enabled,
 				Description:        f.Description,
-				ParentHttpBodyFormID: f.ParentHttpBodyFormID,    // ✅ ADD delta field
+				ParentHttpBodyFormID: f.ParentBodyFormID,    // ✅ ADD delta field
 				IsDelta:            f.IsDelta,                   // ✅ ADD delta field
 				DeltaKey:           f.DeltaFormKey,             // ✅ ADD delta field
 				DeltaValue:         f.DeltaFormValue,           // ✅ ADD delta field
@@ -485,7 +485,7 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				Value:                    u.UrlencodedValue,
 				Enabled:                  u.Enabled,
 				Description:              u.Description,
-				ParentHttpBodyUrlEncodedID: u.ParentHttpBodyUrlEncodedID,    // ✅ ADD delta field
+				ParentHttpBodyUrlEncodedID: u.ParentBodyUrlencodedID,    // ✅ ADD delta field
 				IsDelta:                  u.IsDelta,                         // ✅ ADD delta field
 				DeltaKey:                 u.DeltaUrlencodedKey,              // ✅ ADD delta field
 				DeltaValue:               u.DeltaUrlencodedValue,            // ✅ ADD delta field

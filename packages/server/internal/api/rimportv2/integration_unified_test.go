@@ -17,7 +17,7 @@ func TestIntegrationHARImport(t *testing.T) {
 	// This test would require real service dependencies
 	// For now, we'll test the format detection and basic workflow
 	detector := NewFormatDetector()
-	registry := NewTranslatorRegistry()
+	registry := NewTranslatorRegistry(nil)
 
 	ctx := context.Background()
 	workspaceID := idwrap.NewNow()
@@ -147,7 +147,7 @@ func TestIntegrationYAMLImport(t *testing.T) {
 	}
 
 	detector := NewFormatDetector()
-	registry := NewTranslatorRegistry()
+	registry := NewTranslatorRegistry(nil)
 
 	ctx := context.Background()
 	workspaceID := idwrap.NewNow()
@@ -263,7 +263,7 @@ func TestIntegrationCURLImport(t *testing.T) {
 	}
 
 	detector := NewFormatDetector()
-	registry := NewTranslatorRegistry()
+	registry := NewTranslatorRegistry(nil)
 
 	ctx := context.Background()
 	workspaceID := idwrap.NewNow()
@@ -334,7 +334,7 @@ func TestIntegrationPostmanImport(t *testing.T) {
 	}
 
 	detector := NewFormatDetector()
-	registry := NewTranslatorRegistry()
+	registry := NewTranslatorRegistry(nil)
 
 	ctx := context.Background()
 	workspaceID := idwrap.NewNow()
@@ -465,7 +465,7 @@ func TestErrorHandlingIntegration(t *testing.T) {
 	}
 
 	detector := NewFormatDetector()
-	registry := NewTranslatorRegistry()
+	registry := NewTranslatorRegistry(nil)
 
 	ctx := context.Background()
 	workspaceID := idwrap.NewNow()

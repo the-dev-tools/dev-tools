@@ -321,10 +321,16 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 	for i, entry := range entries {
 		nodeCounter++
 
-		// Create HTTP request and child entities (using DepFinder to template values)
-		httpReq, headers, params, bodyForms, bodyUrlEncoded, bodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
+		// 1. Create Raw (Base) Request - No DepFinder
+		baseReq, baseHeaders, baseParams, baseBodyForms, baseBodyUrlEncoded, baseBodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create HTTP request for entry %d: %w", i, err)
+			return nil, fmt.Errorf("failed to create base request for entry %d: %w", i, err)
+		}
+
+		// 2. Create Templated (Delta) Request - With DepFinder
+		_, templatedHeaders, templatedParams, templatedBodyForms, templatedBodyUrlEncoded, templatedBodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create templated request for entry %d: %w", i, err)
 		}
 
 		// Create Node
@@ -339,33 +345,55 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		}
 		currentX += nodeSpacingX
 
-		// Add Delta version
-		deltaReq := createDeltaVersion(*httpReq)
-		result.HTTPRequests = append(result.HTTPRequests, deltaReq)
+		// 3. Create Delta Request Object (links to Base)
+		deltaReq := createDeltaVersion(*baseReq)
+		
+		// 4. Calculate Delta Components
+		deltaHeaders := CreateDeltaHeaders(baseHeaders, templatedHeaders, deltaReq.ID)
+		deltaParams := CreateDeltaSearchParams(baseParams, templatedParams, deltaReq.ID)
+		deltaBodyForms := CreateDeltaBodyForms(baseBodyForms, templatedBodyForms, deltaReq.ID)
+		deltaBodyUrlEncoded := CreateDeltaBodyUrlEncoded(baseBodyUrlEncoded, templatedBodyUrlEncoded, deltaReq.ID)
+		
+		// Raw body is singular, handle separately
+		var baseRaw, templatedRaw *mhttp.HTTPBodyRaw
+		if len(baseBodyRaws) > 0 { baseRaw = &baseBodyRaws[0] }
+		if len(templatedBodyRaws) > 0 { templatedRaw = &templatedBodyRaws[0] }
+		deltaRaw := CreateDeltaBodyRaw(baseRaw, templatedRaw, deltaReq.ID)
 
 		// Create Request Node config
 		reqNode := mnrequest.MNRequest{
 			FlowNodeID:  nodeID,
-			HttpID:      &httpReq.ID,
+			HttpID:      &baseReq.ID,
 			DeltaHttpID: &deltaReq.ID,
 		}
 
-		// Append to result
+		// 5. Add to Result
 		result.Nodes = append(result.Nodes, node)
 		result.RequestNodes = append(result.RequestNodes, reqNode)
-		result.HTTPRequests = append(result.HTTPRequests, *httpReq)
-		result.HTTPHeaders = append(result.HTTPHeaders, headers...)
-		result.HTTPSearchParams = append(result.HTTPSearchParams, params...)
-		result.HTTPBodyForms = append(result.HTTPBodyForms, bodyForms...)
-		result.HTTPBodyUrlEncoded = append(result.HTTPBodyUrlEncoded, bodyUrlEncoded...)
-		result.HTTPBodyRaws = append(result.HTTPBodyRaws, bodyRaws...)
+		result.HTTPRequests = append(result.HTTPRequests, *baseReq, deltaReq)
+		
+		// Add Base Components
+		result.HTTPHeaders = append(result.HTTPHeaders, baseHeaders...)
+		result.HTTPSearchParams = append(result.HTTPSearchParams, baseParams...)
+		result.HTTPBodyForms = append(result.HTTPBodyForms, baseBodyForms...)
+		result.HTTPBodyUrlEncoded = append(result.HTTPBodyUrlEncoded, baseBodyUrlEncoded...)
+		result.HTTPBodyRaws = append(result.HTTPBodyRaws, baseBodyRaws...)
+
+		// Add Delta Components
+		result.HTTPHeaders = append(result.HTTPHeaders, deltaHeaders...)
+		result.HTTPSearchParams = append(result.HTTPSearchParams, deltaParams...)
+		result.HTTPBodyForms = append(result.HTTPBodyForms, deltaBodyForms...)
+		result.HTTPBodyUrlEncoded = append(result.HTTPBodyUrlEncoded, deltaBodyUrlEncoded...)
+		if deltaRaw != nil {
+			result.HTTPBodyRaws = append(result.HTTPBodyRaws, *deltaRaw)
+		}
 
 		// File System
-		file, _, err := createFileStructure(httpReq, workspaceID, folderMap, folderFileMap)
+		file, _, err := createFileStructure(baseReq, workspaceID, folderMap, folderFileMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create file structure for entry %d: %w", i, err)
 		}
-		fileMap[httpReq.ID.String()] = *file
+		fileMap[baseReq.ID.String()] = *file
 
 		// Create File for Delta
 		deltaFile := mfile.File{
@@ -405,7 +433,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		}
 
 		// 3. Mutation Chain
-		if isMutationMethod(httpReq.Method) {
+		if isMutationMethod(baseReq.Method) {
 			if lastMutationNodeID != nil && *lastMutationNodeID != nodeID {
 				// Avoid duplicate edges if already connected via timestamp
 				if !edgeExists(result.Edges, *lastMutationNodeID, nodeID) {
@@ -414,7 +442,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 			}
 			lastMutationID := nodeID
 			lastMutationNodeID = &lastMutationID
-		} else if requiresSequentialOrdering(httpReq.Method) && previousNodeID != nil {
+		} else if requiresSequentialOrdering(baseReq.Method) && previousNodeID != nil {
 			// Strict ordering for DELETE etc if not caught by mutation chain
 			if !edgeExists(result.Edges, *previousNodeID, nodeID) {
 				addEdge(result, flowID, *previousNodeID, nodeID)
@@ -527,10 +555,16 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 	for i, entry := range entries {
 		nodeCounter++
 
-		// Create HTTP request and child entities (using DepFinder to template values)
-		httpReq, headers, params, bodyForms, bodyUrlEncoded, bodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
+		// 1. Create Raw (Base) Request - No DepFinder
+		baseReqRaw, baseHeadersRaw, baseParamsRaw, baseBodyFormsRaw, baseBodyUrlEncodedRaw, baseBodyRawsRaw, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create HTTP request for entry %d: %w", i, err)
+			return nil, fmt.Errorf("failed to create raw request for entry %d: %w", i, err)
+		}
+
+		// 2. Create Templated (Delta) Request - With DepFinder
+		templatedReq, templatedHeaders, templatedParams, templatedBodyForms, templatedBodyUrlEncoded, templatedBodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create templated request for entry %d: %w", i, err)
 		}
 
 		// Check for existing request for overwrite detection
@@ -542,7 +576,7 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		var existingBodyRaws []mhttp.HTTPBodyRaw
 
 		if httpService != nil {
-			existing, err := httpService.FindByURLAndMethod(ctx, workspaceID, httpReq.Url, httpReq.Method)
+			existing, err := httpService.FindByURLAndMethod(ctx, workspaceID, baseReqRaw.Url, baseReqRaw.Method)
 			if err == nil {
 				existingRequest = existing
 				// TODO: In a real implementation, you'd also load existing child entities
@@ -553,30 +587,49 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		var baseRequest *mhttp.HTTP
 		var deltaReq *mhttp.HTTP
 
+		// Child entities to use for Delta comparison (Base vs Templated)
+		var comparisonBaseHeaders []mhttp.HTTPHeader
+		var comparisonBaseParams []mhttp.HTTPSearchParam
+		var comparisonBaseBodyForms []mhttp.HTTPBodyForm
+		var comparisonBaseBodyUrlEncoded []mhttp.HTTPBodyUrlencoded
+		var comparisonBaseBodyRaws []mhttp.HTTPBodyRaw
+
 		if existingRequest != nil {
 			// Use existing request as base, create delta for new request
 			baseRequest = existingRequest
+			comparisonBaseHeaders = existingHeaders
+			comparisonBaseParams = existingParams
+			comparisonBaseBodyForms = existingBodyForms
+			comparisonBaseBodyUrlEncoded = existingBodyUrlEncoded
+			comparisonBaseBodyRaws = existingBodyRaws
+
 			deltaReq = &mhttp.HTTP{
 				ID:               idwrap.NewNow(),
 				WorkspaceID:      workspaceID,
 				ParentHttpID:     &existingRequest.ID,
-				Name:             httpReq.Name + " (Delta)",
-				Url:              httpReq.Url,
-				Method:           httpReq.Method,
-				Description:      httpReq.Description + " [Import Delta]",
-				BodyKind:         httpReq.BodyKind,
+				Name:             templatedReq.Name + " (Delta)",
+				Url:              templatedReq.Url,
+				Method:           templatedReq.Method,
+				Description:      templatedReq.Description + " [Import Delta]",
+				BodyKind:         templatedReq.BodyKind,
 				IsDelta:          true,
-				DeltaName:        &httpReq.Name,
-				DeltaUrl:         &httpReq.Url,
-				DeltaMethod:      &httpReq.Method,
-				DeltaDescription: &httpReq.Description,
-				DeltaBodyKind:    &httpReq.BodyKind,
-				CreatedAt:        httpReq.CreatedAt,
-				UpdatedAt:        httpReq.UpdatedAt,
+				DeltaName:        &templatedReq.Name,
+				DeltaUrl:         &templatedReq.Url,
+				DeltaMethod:      &templatedReq.Method,
+				DeltaDescription: &templatedReq.Description,
+				DeltaBodyKind:    &templatedReq.BodyKind,
+				CreatedAt:        templatedReq.CreatedAt,
+				UpdatedAt:        templatedReq.UpdatedAt,
 			}
 		} else {
 			// No existing request, use new request as base
-			baseRequest = httpReq
+			baseRequest = baseReqRaw
+			comparisonBaseHeaders = baseHeadersRaw
+			comparisonBaseParams = baseParamsRaw
+			comparisonBaseBodyForms = baseBodyFormsRaw
+			comparisonBaseBodyUrlEncoded = baseBodyUrlEncodedRaw
+			comparisonBaseBodyRaws = baseBodyRawsRaw
+
 			// Create standard delta version
 			baseDelta := createDeltaVersion(*baseRequest)
 			deltaReq = &baseDelta
@@ -585,47 +638,39 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		// Add both base and delta requests to result
 		if existingRequest == nil {
 			result.HTTPRequests = append(result.HTTPRequests, *baseRequest)
+			// Add Base Children
+			result.HTTPHeaders = append(result.HTTPHeaders, baseHeadersRaw...)
+			result.HTTPSearchParams = append(result.HTTPSearchParams, baseParamsRaw...)
+			result.HTTPBodyForms = append(result.HTTPBodyForms, baseBodyFormsRaw...)
+			result.HTTPBodyUrlEncoded = append(result.HTTPBodyUrlEncoded, baseBodyUrlEncodedRaw...)
+			result.HTTPBodyRaws = append(result.HTTPBodyRaws, baseBodyRawsRaw...)
 		}
 		result.HTTPRequests = append(result.HTTPRequests, *deltaReq)
 
-		// Create child entity deltas if we have an existing request
-		if existingRequest != nil {
-			// Create delta headers only if there are differences
-			deltaHeaders := CreateDeltaHeaders(existingHeaders, headers, deltaReq.ID)
-			result.HTTPHeaders = append(result.HTTPHeaders, deltaHeaders...)
+		// Create delta child entities (comparing Base vs Templated)
+		deltaHeaders := CreateDeltaHeaders(comparisonBaseHeaders, templatedHeaders, deltaReq.ID)
+		result.HTTPHeaders = append(result.HTTPHeaders, deltaHeaders...)
 
-			// Create delta search params only if there are differences
-			deltaParams := CreateDeltaSearchParams(existingParams, params, deltaReq.ID)
-			result.HTTPSearchParams = append(result.HTTPSearchParams, deltaParams...)
+		deltaParams := CreateDeltaSearchParams(comparisonBaseParams, templatedParams, deltaReq.ID)
+		result.HTTPSearchParams = append(result.HTTPSearchParams, deltaParams...)
 
-			// Create delta body forms only if there are differences
-			deltaForms := CreateDeltaBodyForms(existingBodyForms, bodyForms, deltaReq.ID)
-			result.HTTPBodyForms = append(result.HTTPBodyForms, deltaForms...)
+		deltaForms := CreateDeltaBodyForms(comparisonBaseBodyForms, templatedBodyForms, deltaReq.ID)
+		result.HTTPBodyForms = append(result.HTTPBodyForms, deltaForms...)
 
-			// Create delta URL-encoded body only if there are differences
-			deltaEncoded := CreateDeltaBodyUrlEncoded(existingBodyUrlEncoded, bodyUrlEncoded, deltaReq.ID)
-			result.HTTPBodyUrlEncoded = append(result.HTTPBodyUrlEncoded, deltaEncoded...)
+		deltaEncoded := CreateDeltaBodyUrlEncoded(comparisonBaseBodyUrlEncoded, templatedBodyUrlEncoded, deltaReq.ID)
+		result.HTTPBodyUrlEncoded = append(result.HTTPBodyUrlEncoded, deltaEncoded...)
 
-			// Create delta raw body only if there are differences
-			var existingRaw *mhttp.HTTPBodyRaw
-			if len(existingBodyRaws) > 0 {
-				existingRaw = &existingBodyRaws[0]
-			}
-			var newRaw *mhttp.HTTPBodyRaw
-			if len(bodyRaws) > 0 {
-				newRaw = &bodyRaws[0]
-			}
-			deltaRaw := CreateDeltaBodyRaw(existingRaw, newRaw, deltaReq.ID)
-			if deltaRaw != nil {
-				result.HTTPBodyRaws = append(result.HTTPBodyRaws, *deltaRaw)
-			}
-		} else {
-			// For new imports, add all child entities to base request
-			result.HTTPHeaders = append(result.HTTPHeaders, headers...)
-			result.HTTPSearchParams = append(result.HTTPSearchParams, params...)
-			result.HTTPBodyForms = append(result.HTTPBodyForms, bodyForms...)
-			result.HTTPBodyUrlEncoded = append(result.HTTPBodyUrlEncoded, bodyUrlEncoded...)
-			result.HTTPBodyRaws = append(result.HTTPBodyRaws, bodyRaws...)
+		var baseRaw *mhttp.HTTPBodyRaw
+		if len(comparisonBaseBodyRaws) > 0 {
+			baseRaw = &comparisonBaseBodyRaws[0]
+		}
+		var templatedRaw *mhttp.HTTPBodyRaw
+		if len(templatedBodyRaws) > 0 {
+			templatedRaw = &templatedBodyRaws[0]
+		}
+		deltaRaw := CreateDeltaBodyRaw(baseRaw, templatedRaw, deltaReq.ID)
+		if deltaRaw != nil {
+			result.HTTPBodyRaws = append(result.HTTPBodyRaws, *deltaRaw)
 		}
 
 		// Create Node

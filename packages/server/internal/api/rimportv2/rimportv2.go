@@ -325,8 +325,9 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	// Publish HTTP events
 	for _, httpReq := range results.HTTPReqs {
 		h.stream.Publish(rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}, rhttp.HttpEvent{
-			Type: "insert",
-			Http: converter.ToAPIHttp(*httpReq),
+			Type:    "insert",
+			IsDelta: httpReq.IsDelta,
+			Http:    converter.ToAPIHttp(*httpReq),
 		})
 	}
 
@@ -344,6 +345,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, header := range results.HTTPHeaders {
 		h.httpHeaderStream.Publish(rhttp.HttpHeaderTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpHeaderEvent{
 			Type:       "insert",
+			IsDelta:    header.IsDelta,
 			HttpHeader: converter.ToAPIHttpHeaderFromMHttp(*header),
 		})
 	}
@@ -352,6 +354,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, param := range results.HTTPSearchParams {
 		h.httpSearchParamStream.Publish(rhttp.HttpSearchParamTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpSearchParamEvent{
 			Type:            "insert",
+			IsDelta:         param.IsDelta,
 			HttpSearchParam: converter.ToAPIHttpSearchParamFromMHttp(*param),
 		})
 	}
@@ -360,6 +363,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, form := range results.HTTPBodyForms {
 		h.httpBodyFormStream.Publish(rhttp.HttpBodyFormTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyFormEvent{
 			Type:         "insert",
+			IsDelta:      form.IsDelta,
 			HttpBodyForm: converter.ToAPIHttpBodyFormDataFromMHttp(*form),
 		})
 	}
@@ -368,6 +372,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, encoded := range results.HTTPBodyUrlEncoded {
 		h.httpBodyUrlEncodedStream.Publish(rhttp.HttpBodyUrlEncodedTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyUrlEncodedEvent{
 			Type:               "insert",
+			IsDelta:            encoded.IsDelta,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncodedFromMHttp(*encoded),
 		})
 	}
@@ -376,6 +381,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	for _, raw := range results.HTTPBodyRaws {
 		h.httpBodyRawStream.Publish(rhttp.HttpBodyRawTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyRawEvent{
 			Type:        "insert",
+			IsDelta:     raw.IsDelta,
 			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*raw),
 		})
 	}

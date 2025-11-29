@@ -1,0 +1,178 @@
+package rimportv2
+
+import (
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"connectrpc.com/connect"
+	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+)
+
+// TestImportV2_DeltaE2E tests the complete import flow and verifies
+// that Base and Delta records are correctly streamed.
+func TestImportV2_DeltaE2E(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+
+	// 1. Create HAR with Dependency
+	// Request A: Returns token
+	// Request B: Uses token
+	harData := []byte(`{
+		"log": {
+			"version": "1.2",
+			"creator": {"name": "Test", "version": "1.0"},
+			"entries": [
+				{
+					"startedDateTime": "` + time.Now().UTC().Format(time.RFC3339) + `",
+					"request": {
+						"method": "POST",
+						"url": "https://api.com/login",
+						"httpVersion": "HTTP/1.1",
+						"headers": []
+					},
+					"response": {
+						"status": 200,
+						"statusText": "OK",
+						"httpVersion": "HTTP/1.1",
+						"headers": [{"name": "Content-Type", "value": "application/json"}],
+						"content": {
+							"mimeType": "application/json",
+							"text": "{\"token\": \"abc-123\"}"
+						}
+					}
+				},
+				{
+					"startedDateTime": "` + time.Now().Add(1*time.Second).UTC().Format(time.RFC3339) + `",
+					"request": {
+						"method": "GET",
+						"url": "https://api.com/profile",
+						"httpVersion": "HTTP/1.1",
+						"headers": [
+							{"name": "Authorization", "value": "Bearer abc-123"}
+						]
+					},
+					"response": {
+						"status": 200,
+						"statusText": "OK",
+						"httpVersion": "HTTP/1.1",
+						"headers": [],
+						"content": {"size": 0, "mimeType": "application/json"}
+					}
+				}
+			]
+		}
+	}`)
+
+	// 2. Subscribe to Streams
+	// We need to capture HTTP and Header events
+
+	// We manually subscribe to the in-memory streamers in the fixture
+	// The fixture uses memory.SyncStreamer which has Subscribe method.
+	// But the interface is generic.
+	// Let's assume we can just listen to the channels we passed to NewImportV2RPC.
+	// Actually, we passed the streamers.
+	
+	// Subscribe to HTTP Stream
+	httpSub, err := fixture.streamers.Http.Subscribe(fixture.ctx, nil)
+	require.NoError(t, err)
+	
+	// Subscribe to Header Stream
+	headerSub, err := fixture.streamers.HttpHeader.Subscribe(fixture.ctx, nil)
+	require.NoError(t, err)
+
+	// 3. Perform Import
+	req := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Delta E2E Test",
+		Data:        harData,
+		DomainData:  []*apiv1.ImportDomainData{
+			{Enabled: true, Domain: "api.com", Variable: "API_HOST"},
+		},
+	})
+
+	resp, err := fixture.rpc.Import(fixture.ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// 4. Verify HTTP Events (Base + Delta)
+	// We expect 4 HTTP events: 2 Base, 2 Delta
+	var baseB_ID, deltaB_ID []byte
+	
+	timeout := time.After(2 * time.Second)
+	httpEvents := 0
+	expectedHttpEvents := 4 // A(Base), A(Delta), B(Base), B(Delta)
+
+	for httpEvents < expectedHttpEvents {
+		select {
+		case evt := <-httpSub:
+			httpEvents++
+			if evt.Payload.Http.Url == "https://api.com/profile" {
+				if evt.Payload.IsDelta {
+					deltaB_ID = evt.Payload.Http.HttpId
+				} else {
+					baseB_ID = evt.Payload.Http.HttpId
+				}
+			}
+		case <-timeout:
+			t.Fatal("Timed out waiting for HTTP events")
+		}
+	}
+
+	require.NotNil(t, baseB_ID, "Base Request B ID not found")
+	require.NotNil(t, deltaB_ID, "Delta Request B ID not found")
+	assert.NotEqual(t, baseB_ID, deltaB_ID)
+
+	// 5. Verify Header Events
+	// We expect headers for Request B.
+	// Base Header: "Bearer abc-123", IsDelta=false
+	// Delta Header: "Bearer {{...}}", IsDelta=true, ParentID=BaseHeaderID
+	
+	var baseHeaderID []byte
+	foundBaseHeader := false
+	foundDeltaHeader := false
+
+	// Consume header events until timeout or we find what we need
+	// Note: There might be other headers (Content-Type from req A)
+	
+	timeoutHeader := time.After(2 * time.Second)
+	
+	for {
+		select {
+		case evt := <-headerSub:
+			h := evt.Payload.HttpHeader
+			if h.Key == "Authorization" {
+				t.Logf("Received Auth Header: IsDelta=%v, Value=%s", evt.Payload.IsDelta, h.Value)
+				if evt.Payload.IsDelta {
+					// Verify Delta Header
+					if assert.Contains(t, h.Value, "{{") {
+						foundDeltaHeader = true
+					}
+				} else {
+					// Verify Base Header
+					// Allow failure for debugging
+					if assert.Contains(t, h.Value, "abc-123") {
+						baseHeaderID = h.HttpHeaderId
+						foundBaseHeader = true
+					}
+				}
+			}
+			
+			if foundBaseHeader && foundDeltaHeader {
+				goto DoneHeaders
+			}
+		case <-timeoutHeader:
+			goto DoneHeaders
+		}
+	}
+	
+DoneHeaders:
+	assert.True(t, foundBaseHeader, "Base Authorization header not found")
+	assert.NotEmpty(t, baseHeaderID, "Base Header ID should be captured")
+	assert.True(t, foundDeltaHeader, "Delta Authorization header not found")
+}
