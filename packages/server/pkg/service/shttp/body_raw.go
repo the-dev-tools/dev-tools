@@ -145,6 +145,24 @@ func (s *HttpBodyRawService) Delete(ctx context.Context, id idwrap.IDWrap) error
 	return s.queries.DeleteHTTPBodyRaw(ctx, id)
 }
 
+func (s *HttpBodyRawService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
+	// Get existing body raw
+	// We don't need to check permissions here as this is an internal service call
+	// and the caller (e.g. import) should have verified access.
+	// But GetByHttpID does verify access implicitly by checking HTTP existence?
+	// Actually GetByHttpID calls GetHTTP to check if it exists.
+	
+	bodyRaw, err := s.queries.GetHTTPBodyRaw(ctx, httpID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil // Already deleted or never existed
+		}
+		return err
+	}
+
+	return s.Delete(ctx, bodyRaw.ID)
+}
+
 func (s *HttpBodyRawService) TX(tx *sql.Tx) *HttpBodyRawService {
 	return &HttpBodyRawService{
 		queries: s.queries.WithTx(tx),

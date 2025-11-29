@@ -446,6 +446,9 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			if err := txBodyUrlEncodedService.DeleteByHttpID(ctx, req.ID); err != nil {
 				return fmt.Errorf("failed to clear body urlencoded: %w", err)
 			}
+			if err := txBodyRawService.DeleteByHttpID(ctx, req.ID); err != nil {
+				return fmt.Errorf("failed to clear body raw: %w", err)
+			}
 		}
 	}
 
