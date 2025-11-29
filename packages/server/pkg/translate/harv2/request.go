@@ -29,10 +29,6 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 		return nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL %s: %w", entry.Request.URL, err)
 	}
 
-	// Check URL Path Params for dependencies
-	// TODO: Implement URL path param replacement if DepFinder supports it (it does: ReplaceURLPathParams)
-	// For now, we stick to the basic logic + header/body deps.
-
 	// Determine body kind
 	bodyKind := mhttp.HttpBodyKindNone
 	if entry.Request.PostData != nil {
@@ -61,6 +57,12 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 		IsDelta:     false,
 		CreatedAt:   now,
 		UpdatedAt:   now,
+	}
+
+	if depFinder != nil {
+		// Check URL Path Params for dependencies
+		newURL, _, _ := depFinder.ReplaceURLPathParams(parsedURL.String())
+		httpReq.Url = newURL
 	}
 
 	// Check URL for full replacements (query params are handled separately)

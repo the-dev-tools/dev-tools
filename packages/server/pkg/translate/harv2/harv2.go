@@ -328,7 +328,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		}
 
 		// 2. Create Templated (Delta) Request - With DepFinder
-		_, templatedHeaders, templatedParams, templatedBodyForms, templatedBodyUrlEncoded, templatedBodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
+		templatedReq, templatedHeaders, templatedParams, templatedBodyForms, templatedBodyUrlEncoded, templatedBodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create templated request for entry %d: %w", i, err)
 		}
@@ -347,6 +347,13 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 
 		// 3. Create Delta Request Object (links to Base)
 		deltaReq := createDeltaVersion(*baseReq)
+		
+		// Apply templated values to Delta Request
+		if templatedReq.Url != baseReq.Url {
+			deltaReq.Url = templatedReq.Url
+			deltaReq.DeltaUrl = &templatedReq.Url
+		}
+		// We could also check Method/BodyKind but typically URL/Body are the dependency targets.
 		
 		// 4. Calculate Delta Components
 		deltaHeaders := CreateDeltaHeaders(baseHeaders, templatedHeaders, deltaReq.ID)
@@ -633,6 +640,12 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 			// Create standard delta version
 			baseDelta := createDeltaVersion(*baseRequest)
 			deltaReq = &baseDelta
+
+			// Apply templated values to Delta Request
+			if templatedReq.Url != baseRequest.Url {
+				deltaReq.Url = templatedReq.Url
+				deltaReq.DeltaUrl = &templatedReq.Url
+			}
 		}
 
 		// Add both base and delta requests to result
