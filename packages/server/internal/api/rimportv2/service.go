@@ -20,6 +20,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
@@ -203,6 +204,14 @@ func WithLogger(logger *slog.Logger) ServiceOption {
 	}
 }
 
+// WithHTTPService sets the HTTP service for the service (required for HAR import overwrite detection)
+func WithHTTPService(httpService *shttp.HTTPService) ServiceOption {
+	return func(s *Service) {
+		// Re-initialize the translator registry with the HTTP service
+		s.translatorRegistry = NewTranslatorRegistry(httpService)
+	}
+}
+
 // Service implements the main business logic for unified import
 type Service struct {
 	importer         Importer
@@ -220,7 +229,7 @@ func NewService(importer Importer, validator Validator, opts ...ServiceOption) *
 	service := &Service{
 		importer:           importer,
 		validator:          validator,
-		translatorRegistry: NewTranslatorRegistry(), // Auto-initialize translator registry
+		translatorRegistry: NewTranslatorRegistry(nil), // Auto-initialize translator registry without HTTP service (will be overridden if provided)
 		timeout:            30 * time.Minute, // Default timeout for import processing
 		logger:             slog.Default(),   // Default logger
 	}

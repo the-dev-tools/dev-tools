@@ -145,6 +145,34 @@ FROM http
 WHERE id = ?
 LIMIT 1;
 
+-- name: FindHTTPByURLAndMethod :one
+-- Find existing HTTP request by URL, method, and workspace for overwrite detection
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  body_kind,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_body_kind,
+  delta_description,
+  last_run_at,
+  created_at,
+  updated_at
+FROM http
+WHERE workspace_id = ?
+  AND url = ?
+  AND method = ?
+  AND is_delta = FALSE
+LIMIT 1;
+
 -- name: CreateHTTP :exec
 INSERT INTO http (
   id, workspace_id, folder_id, name, url, method, body_kind, description,

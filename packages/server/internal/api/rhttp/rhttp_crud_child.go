@@ -157,6 +157,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 		}
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
 			Type:            eventTypeInsert,
+			IsDelta:         param.IsDelta,
 			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
 	}
@@ -269,6 +270,7 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		}
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpSearchParamEvent{
 			Type:            eventTypeUpdate,
+			IsDelta:         param.IsDelta,
 			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
 	}
@@ -358,6 +360,7 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 	for i, param := range deletedParams {
 		h.httpSearchParamStream.Publish(HttpSearchParamTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpSearchParamEvent{
 			Type:            eventTypeDelete,
+			IsDelta:         param.IsDelta,
 			HttpSearchParam: converter.ToAPIHttpSearchParam(param),
 		})
 	}
@@ -494,6 +497,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 		}
 		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
 			Type:       eventTypeInsert,
+			IsDelta:    assert.IsDelta,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
 	}
@@ -595,6 +599,7 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 		}
 		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
 			Type:       eventTypeUpdate,
+			IsDelta:    assert.IsDelta,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
 	}
@@ -686,6 +691,7 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 	for i, assert := range deletedAsserts {
 		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpAssertEvent{
 			Type:       eventTypeDelete,
+			IsDelta:    assert.IsDelta,
 			HttpAssert: converter.ToAPIHttpAssert(assert),
 		})
 	}
@@ -950,6 +956,7 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 	for i, header := range createdHeaders {
 		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: insertData[i].workspaceID}, HttpHeaderEvent{
 			Type:       eventTypeInsert,
+			IsDelta:    header.IsDelta,
 			HttpHeader: converter.ToAPIHttpHeader(header),
 		})
 	}
@@ -1068,6 +1075,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 	for i, header := range updatedHeaders {
 		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: updateData[i].workspaceID}, HttpHeaderEvent{
 			Type:       eventTypeUpdate,
+			IsDelta:    header.IsDelta,
 			HttpHeader: converter.ToAPIHttpHeader(header),
 		})
 	}
@@ -1084,6 +1092,7 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 	var deleteData []struct {
 		headerID    idwrap.IDWrap
 		workspaceID idwrap.IDWrap
+		isDelta     bool
 	}
 
 	for _, item := range req.Msg.Items {
@@ -1119,9 +1128,11 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 		deleteData = append(deleteData, struct {
 			headerID    idwrap.IDWrap
 			workspaceID idwrap.IDWrap
+			isDelta     bool
 		}{
 			headerID:    headerID,
 			workspaceID: httpEntry.WorkspaceID,
+			isDelta:     existingHeader.IsDelta,
 		})
 	}
 
@@ -1150,7 +1161,8 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 	// Step 3: Publish delete events for real-time sync
 	for i, headerID := range deletedHeaders {
 		h.httpHeaderStream.Publish(HttpHeaderTopic{WorkspaceID: deleteData[i].workspaceID}, HttpHeaderEvent{
-			Type: eventTypeDelete,
+			Type:    eventTypeDelete,
+			IsDelta: deleteData[i].isDelta,
 			HttpHeader: &apiv1.HttpHeader{
 				HttpHeaderId: headerID.Bytes(),
 			},
@@ -1292,6 +1304,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 		}
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeInsert,
+			IsDelta:      bodyForm.IsDelta,
 			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 		})
 	}
@@ -1404,6 +1417,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		}
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
 			Type:         eventTypeUpdate,
+			IsDelta:      bodyForm.IsDelta,
 			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 		})
 	}
@@ -1495,6 +1509,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 	for i, bodyForm := range deletedBodyForms {
 		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyFormEvent{
 			Type:         eventTypeDelete,
+			IsDelta:      bodyForm.IsDelta,
 			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
 		})
 	}
@@ -1631,6 +1646,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 		}
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeInsert,
+			IsDelta:            bodyUrlEncoded.IsDelta,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
 	}
@@ -1743,6 +1759,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		}
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeUpdate,
+			IsDelta:            bodyUrlEncoded.IsDelta,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
 	}
@@ -1834,6 +1851,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 	for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
 			Type:               eventTypeDelete,
+			IsDelta:            bodyUrlEncoded.IsDelta,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
 	}

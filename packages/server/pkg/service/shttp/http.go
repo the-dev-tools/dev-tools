@@ -262,3 +262,18 @@ func (hs HTTPService) CheckUserBelongsToHttp(ctx context.Context, httpID, userID
 	// This should check if the user has access to the workspace
 	return true, nil
 }
+
+func (hs HTTPService) FindByURLAndMethod(ctx context.Context, workspaceID idwrap.IDWrap, url, method string) (*mhttp.HTTP, error) {
+	http, err := hs.queries.FindHTTPByURLAndMethod(ctx, gen.FindHTTPByURLAndMethodParams{
+		WorkspaceID: workspaceID,
+		Url:         url,
+		Method:      method,
+	})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoHTTPFound
+		}
+		return nil, err
+	}
+	return ConvertToModelHTTP(http), nil
+}

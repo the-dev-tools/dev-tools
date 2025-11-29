@@ -96,7 +96,7 @@ func NewImportV2RPC(
 	validator := NewValidator(&us)
 
 	// Create the main service with functional options
-	service := NewService(importer, validator, WithLogger(logger))
+	service := NewService(importer, validator, WithLogger(logger), WithHTTPService(httpService))
 
 	// Create and return the RPC handler
 	return &ImportV2RPC{

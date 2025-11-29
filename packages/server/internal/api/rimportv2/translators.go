@@ -16,6 +16,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/translate/harv2"
 	"the-dev-tools/server/pkg/translate/tcurlv2"
 	"the-dev-tools/server/pkg/translate/tpostmanv2"
@@ -68,14 +69,14 @@ type TranslatorRegistry struct {
 }
 
 // NewTranslatorRegistry creates a new registry with all available translators
-func NewTranslatorRegistry() *TranslatorRegistry {
+func NewTranslatorRegistry(httpService *shttp.HTTPService) *TranslatorRegistry {
 	registry := &TranslatorRegistry{
 		translators: make(map[Format]Translator),
 		detector:    NewFormatDetector(),
 	}
 
 	// Register all available translators
-	registry.RegisterTranslator(NewHARTranslator())
+	registry.RegisterTranslator(NewHARTranslator(httpService))
 	registry.RegisterTranslator(NewYAMLTranslator())
 	registry.RegisterTranslator(NewCURLTranslator())
 	registry.RegisterTranslator(NewPostmanTranslator())
@@ -146,13 +147,15 @@ func (r *TranslatorRegistry) ValidateFormat(data []byte, format Format) error {
 
 // HARTranslator implements Translator for HAR format
 type HARTranslator struct {
-	detector *FormatDetector
+	detector   *FormatDetector
+	httpService *shttp.HTTPService
 }
 
 // NewHARTranslator creates a new HAR translator
-func NewHARTranslator() *HARTranslator {
+func NewHARTranslator(httpService *shttp.HTTPService) *HARTranslator {
 	return &HARTranslator{
-		detector: NewFormatDetector(),
+		detector:    NewFormatDetector(),
+		httpService: httpService,
 	}
 }
 
@@ -171,8 +174,13 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 		return nil, fmt.Errorf("failed to parse HAR data: %w", err)
 	}
 
-	// Convert to modern models
-	resolved, err := harv2.ConvertHAR(har, workspaceID)
+	// Convert to modern models with overwrite detection (if httpService is available)
+	var resolved *harv2.HarResolved
+	if t.httpService != nil {
+		resolved, err = harv2.ConvertHARWithService(ctx, har, workspaceID, t.httpService)
+	} else {
+		resolved, err = harv2.ConvertHAR(har, workspaceID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert HAR: %w", err)
 	}

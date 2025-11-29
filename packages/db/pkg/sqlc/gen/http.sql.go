@@ -1710,6 +1710,67 @@ func (q *Queries) DeleteHTTPSearchParam(ctx context.Context, id idwrap.IDWrap) e
 	return err
 }
 
+const findHTTPByURLAndMethod = `-- name: FindHTTPByURLAndMethod :one
+SELECT
+  id,
+  workspace_id,
+  folder_id,
+  name,
+  url,
+  method,
+  body_kind,
+  description,
+  parent_http_id,
+  is_delta,
+  delta_name,
+  delta_url,
+  delta_method,
+  delta_body_kind,
+  delta_description,
+  last_run_at,
+  created_at,
+  updated_at
+FROM http
+WHERE workspace_id = ?
+  AND url = ?
+  AND method = ?
+  AND is_delta = FALSE
+LIMIT 1
+`
+
+type FindHTTPByURLAndMethodParams struct {
+	WorkspaceID idwrap.IDWrap
+	Url         string
+	Method      string
+}
+
+// Find existing HTTP request by URL, method, and workspace for overwrite detection
+func (q *Queries) FindHTTPByURLAndMethod(ctx context.Context, arg FindHTTPByURLAndMethodParams) (Http, error) {
+	row := q.queryRow(ctx, q.findHTTPByURLAndMethodStmt, findHTTPByURLAndMethod, arg.WorkspaceID, arg.Url, arg.Method)
+	var i Http
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.FolderID,
+		&i.Name,
+		&i.Url,
+		&i.Method,
+		&i.BodyKind,
+		&i.Description,
+		&i.ParentHttpID,
+		&i.IsDelta,
+		&i.DeltaName,
+		&i.DeltaUrl,
+		&i.DeltaMethod,
+		&i.DeltaBodyKind,
+		&i.DeltaDescription,
+		&i.LastRunAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getHTTP = `-- name: GetHTTP :one
 
 

@@ -837,6 +837,9 @@ func (h *HttpServiceRPC) streamHttpSearchParamDeltaSync(ctx context.Context, use
 			if err != nil {
 				continue // Skip if can't get the record
 			}
+			if !paramRecord.IsDelta {
+				continue
+			}
 			resp := httpSearchParamDeltaSyncResponseFrom(evt.Payload, *paramRecord)
 			if resp == nil {
 				continue
@@ -1001,6 +1004,9 @@ func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID i
 			assertRecord, err := h.httpAssertService.GetHttpAssert(ctx, assertID)
 			if err != nil {
 				continue // Skip if can't get the record
+			}
+			if !assertRecord.IsDelta {
+				continue
 			}
 			resp := httpAssertDeltaSyncResponseFrom(evt.Payload, *assertRecord)
 			if resp == nil {
@@ -1430,6 +1436,9 @@ func (h *HttpServiceRPC) streamHttpHeaderDeltaSync(ctx context.Context, userID i
 			if err != nil {
 				continue // Skip if can't get the record
 			}
+			if !headerRecord.IsDelta {
+				continue
+			}
 			resp := httpHeaderDeltaSyncResponseFrom(evt.Payload, headerRecord)
 			if resp == nil {
 				continue
@@ -1607,6 +1616,9 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 			if err != nil {
 				continue // Skip if can't get the record
 			}
+			if !bodyFormRecord.IsDelta {
+				continue
+			}
 			resp := httpBodyFormDataDeltaSyncResponseFrom(evt.Payload, *bodyFormRecord)
 			if resp == nil {
 				continue
@@ -1783,6 +1795,9 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedDeltaSync(ctx context.Context, 
 			bodyRecord, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyID)
 			if err != nil {
 				continue // Skip if can't get the record
+			}
+			if !bodyRecord.IsDelta {
+				continue
 			}
 			resp := httpBodyUrlEncodedDeltaSyncResponseFrom(evt.Payload, *bodyRecord)
 			if resp == nil {

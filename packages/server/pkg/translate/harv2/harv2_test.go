@@ -1,6 +1,7 @@
 package harv2_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -847,4 +848,312 @@ func TestFileNamingSanitization(t *testing.T) {
 			require.Equal(t, tc.expected, file.Name)
 		})
 	}
+}
+
+func TestOverwriteDetectionWithoutService(t *testing.T) {
+	// Test that when no service is provided, overwrite detection doesn't work (backward compatibility)
+	entries := []harv2.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: harv2.Request{
+				Method: "GET",
+				URL:    "https://api.example.com/users",
+				Headers: []harv2.Header{
+					{Name: "Accept", Value: "application/json"},
+				},
+			},
+		},
+	}
+
+	testHar := harv2.HAR{
+		Log: harv2.Log{Entries: entries},
+	}
+
+	workspaceID := idwrap.NewNow()
+
+	// First import
+	resolved1, err := harv2.ConvertHAR(&testHar, workspaceID)
+	require.NoError(t, err)
+	require.Len(t, resolved1.HTTPRequests, 2) // Original + delta
+
+	// Second import without service should create new records
+	resolved2, err := harv2.ConvertHAR(&testHar, workspaceID)
+	require.NoError(t, err)
+	require.Len(t, resolved2.HTTPRequests, 2) // Original + delta (new ones)
+}
+
+func TestOverwriteDetectionWithService(t *testing.T) {
+	// This test would require a mock HTTP service for proper testing
+	// For now, we'll test the structure without a real service
+	t.Skip("Requires mock HTTP service - test structure ready for implementation")
+
+	entries := []harv2.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: harv2.Request{
+				Method: "GET",
+				URL:    "https://api.example.com/users",
+				Headers: []harv2.Header{
+					{Name: "Accept", Value: "application/json"},
+				},
+			},
+		},
+	}
+
+	testHar := harv2.HAR{
+		Log: harv2.Log{Entries: entries},
+	}
+
+	workspaceID := idwrap.NewNow()
+	ctx := context.Background()
+
+	// Test with nil service (should fall back to no overwrite detection)
+	resolved, err := harv2.ConvertHARWithService(ctx, &testHar, workspaceID, nil)
+	require.NoError(t, err)
+	require.Len(t, resolved.HTTPRequests, 2) // Original + delta
+}
+
+func TestDeltaChildEntityCreation(t *testing.T) {
+	// Test that delta child entities are created properly
+	entry := harv2.Entry{
+		StartedDateTime: time.Now(),
+		Request: harv2.Request{
+			Method: "POST",
+			URL:    "https://api.example.com/users",
+			Headers: []harv2.Header{
+				{Name: "Content-Type", Value: "application/json"},
+				{Name: "Authorization", Value: "Bearer token123"},
+			},
+			PostData: &harv2.PostData{
+				MimeType: "application/json",
+				Text:     `{"name": "John Doe", "email": "john@example.com"}`,
+			},
+		},
+	}
+
+	testHar := harv2.HAR{
+		Log: harv2.Log{Entries: []harv2.Entry{entry}},
+	}
+
+	workspaceID := idwrap.NewNow()
+	resolved, err := harv2.ConvertHAR(&testHar, workspaceID)
+	require.NoError(t, err)
+
+	// Should have original and delta HTTP requests
+	require.Len(t, resolved.HTTPRequests, 2)
+
+	// Should have child entities for both requests
+	require.NotEmpty(t, resolved.HTTPHeaders, "Should have HTTP headers")
+	require.NotEmpty(t, resolved.HTTPBodyRaws, "Should have raw body")
+
+	// Find original and delta requests
+	var original, delta *mhttp.HTTP
+	for _, req := range resolved.HTTPRequests {
+		if !req.IsDelta {
+			original = &req
+		} else {
+			delta = &req
+		}
+	}
+
+	require.NotNil(t, original, "Should have original request")
+	require.NotNil(t, delta, "Should have delta request")
+
+	// Verify delta properties
+	require.True(t, delta.IsDelta, "Delta request should be marked as delta")
+	require.Equal(t, original.ID, *delta.ParentHttpID, "Delta should reference original")
+}
+
+func TestDeltaHeaderComparison(t *testing.T) {
+	// Test delta header creation with different scenarios
+	originalHeaders := []mhttp.HTTPHeader{
+		{
+			ID:           idwrap.NewNow(),
+			HeaderKey:    "Content-Type",
+			HeaderValue:  "application/json",
+			HttpID:       idwrap.NewNow(),
+			CreatedAt:    time.Now().Unix(),
+			UpdatedAt:    time.Now().Unix(),
+		},
+	}
+
+	newHeaders := []mhttp.HTTPHeader{
+		{
+			ID:           idwrap.NewNow(),
+			HeaderKey:    "Content-Type",
+			HeaderValue:  "application/xml", // Different value
+			HttpID:       idwrap.NewNow(),
+			CreatedAt:    time.Now().Unix(),
+			UpdatedAt:    time.Now().Unix(),
+		},
+		{
+			ID:           idwrap.NewNow(),
+			HeaderKey:    "Authorization", // New header
+			HeaderValue:  "Bearer new-token",
+			HttpID:       idwrap.NewNow(),
+			CreatedAt:    time.Now().Unix(),
+			UpdatedAt:    time.Now().Unix(),
+		},
+	}
+
+	deltaHttpID := idwrap.NewNow()
+	deltaHeaders := harv2.CreateDeltaHeaders(originalHeaders, newHeaders, deltaHttpID)
+
+	// Should create deltas for changed and new headers
+	require.Len(t, deltaHeaders, 2, "Should create 2 delta headers")
+
+	// Verify delta structure
+	for i, delta := range deltaHeaders {
+		require.True(t, delta.IsDelta, "Delta header should be marked as delta")
+		require.Equal(t, deltaHttpID, delta.HttpID, "Delta should reference correct HTTP")
+		require.NotNil(t, delta.DeltaHeaderKey, "Delta should have delta key")
+		require.NotNil(t, delta.DeltaHeaderValue, "Delta should have delta value")
+
+		// The first header (Content-Type) should have a parent (it was changed)
+		// The second header (Authorization) should have no parent (it's new)
+		if i == 0 {
+			require.NotNil(t, delta.ParentHeaderID, "Changed header should have parent reference")
+		} else {
+			require.Nil(t, delta.ParentHeaderID, "New header should not have parent reference")
+		}
+	}
+}
+
+func TestDeltaSearchParamsComparison(t *testing.T) {
+	// Test delta search params creation
+	originalParams := []mhttp.HTTPSearchParam{
+		{
+			ID:          idwrap.NewNow(),
+			ParamKey:    "page",
+			ParamValue:  "1",
+			HttpID:      idwrap.NewNow(),
+			CreatedAt:   time.Now().Unix(),
+			UpdatedAt:   time.Now().Unix(),
+		},
+	}
+
+	newParams := []mhttp.HTTPSearchParam{
+		{
+			ID:          idwrap.NewNow(),
+			ParamKey:    "page",
+			ParamValue:  "2", // Different value
+			HttpID:      idwrap.NewNow(),
+			CreatedAt:   time.Now().Unix(),
+			UpdatedAt:   time.Now().Unix(),
+		},
+		{
+			ID:          idwrap.NewNow(),
+			ParamKey:    "limit", // New param
+			ParamValue:  "10",
+			HttpID:      idwrap.NewNow(),
+			CreatedAt:   time.Now().Unix(),
+			UpdatedAt:   time.Now().Unix(),
+		},
+	}
+
+	deltaHttpID := idwrap.NewNow()
+	deltaParams := harv2.CreateDeltaSearchParams(originalParams, newParams, deltaHttpID)
+
+	// Should create deltas for changed and new params
+	require.Len(t, deltaParams, 2, "Should create 2 delta search params")
+
+	// Verify delta structure
+	for _, delta := range deltaParams {
+		require.True(t, delta.IsDelta, "Delta param should be marked as delta")
+		require.Equal(t, deltaHttpID, delta.HttpID, "Delta should reference correct HTTP")
+	}
+}
+
+func TestDeltaBodyFormComparison(t *testing.T) {
+	// Test delta body form creation
+	originalForms := []mhttp.HTTPBodyForm{
+		{
+			ID:        idwrap.NewNow(),
+			FormKey:   "username",
+			FormValue: "olduser",
+			HttpID:    idwrap.NewNow(),
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
+		},
+	}
+
+	newForms := []mhttp.HTTPBodyForm{
+		{
+			ID:        idwrap.NewNow(),
+			FormKey:   "username",
+			FormValue: "newuser", // Different value
+			HttpID:    idwrap.NewNow(),
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
+		},
+		{
+			ID:        idwrap.NewNow(),
+			FormKey:   "password", // New form field
+			FormValue: "secret123",
+			HttpID:    idwrap.NewNow(),
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
+		},
+	}
+
+	deltaHttpID := idwrap.NewNow()
+	deltaForms := harv2.CreateDeltaBodyForms(originalForms, newForms, deltaHttpID)
+
+	// Should create deltas for changed and new forms
+	require.Len(t, deltaForms, 2, "Should create 2 delta body forms")
+
+	// Verify delta structure
+	for _, delta := range deltaForms {
+		require.True(t, delta.IsDelta, "Delta form should be marked as delta")
+		require.Equal(t, deltaHttpID, delta.HttpID, "Delta should reference correct HTTP")
+	}
+}
+
+func TestDeltaBodyRawComparison(t *testing.T) {
+	// Test delta raw body creation
+	originalRaw := &mhttp.HTTPBodyRaw{
+		ID:           idwrap.NewNow(),
+		RawData:      []byte(`{"old": "data"}`),
+		ContentType:  "application/json",
+		HttpID:       idwrap.NewNow(),
+		CreatedAt:    time.Now().Unix(),
+		UpdatedAt:    time.Now().Unix(),
+	}
+
+	newRaw := &mhttp.HTTPBodyRaw{
+		ID:           idwrap.NewNow(),
+		RawData:      []byte(`{"new": "data"}`),
+		ContentType:  "application/json",
+		HttpID:       idwrap.NewNow(),
+		CreatedAt:    time.Now().Unix(),
+		UpdatedAt:    time.Now().Unix(),
+	}
+
+	deltaHttpID := idwrap.NewNow()
+	deltaRaw := harv2.CreateDeltaBodyRaw(originalRaw, newRaw, deltaHttpID)
+
+	// Should create delta because data is different
+	require.NotNil(t, deltaRaw, "Should create delta raw body")
+	require.True(t, deltaRaw.IsDelta, "Delta raw should be marked as delta")
+	require.Equal(t, deltaHttpID, deltaRaw.HttpID, "Delta should reference correct HTTP")
+	require.Equal(t, originalRaw.ID, *deltaRaw.ParentBodyRawID, "Delta should reference parent")
+	require.NotNil(t, deltaRaw.DeltaRawData, "Delta should have delta data")
+
+	// Test with identical data (should not create delta)
+	sameRaw := &mhttp.HTTPBodyRaw{
+		ID:           idwrap.NewNow(),
+		RawData:      []byte(`{"old": "data"}`), // Same as original
+		ContentType:  "application/json",
+		HttpID:       idwrap.NewNow(),
+		CreatedAt:    time.Now().Unix(),
+		UpdatedAt:    time.Now().Unix(),
+	}
+
+	noDeltaRaw := harv2.CreateDeltaBodyRaw(originalRaw, sameRaw, deltaHttpID)
+	require.Nil(t, noDeltaRaw, "Should not create delta for identical data")
+
+	// Test with no original (should create new raw body, not delta)
+	noOriginalRaw := harv2.CreateDeltaBodyRaw(nil, newRaw, deltaHttpID)
+	require.NotNil(t, noOriginalRaw, "Should create raw body when no original exists")
+	require.False(t, noOriginalRaw.IsDelta, "Should create non-delta raw body when no original")
 }

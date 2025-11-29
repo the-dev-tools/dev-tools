@@ -46,8 +46,9 @@ type HttpTopic struct {
 
 // HttpEvent defines the event payload for HTTP streaming
 type HttpEvent struct {
-	Type string
-	Http *apiv1.Http
+	Type    string
+	IsDelta bool
+	Http    *apiv1.Http
 }
 
 // HttpHeaderTopic defines the streaming topic for HTTP header events
@@ -58,6 +59,7 @@ type HttpHeaderTopic struct {
 // HttpHeaderEvent defines the event payload for HTTP header streaming
 type HttpHeaderEvent struct {
 	Type       string
+	IsDelta    bool
 	HttpHeader *apiv1.HttpHeader
 }
 
@@ -69,6 +71,7 @@ type HttpSearchParamTopic struct {
 // HttpSearchParamEvent defines the event payload for HTTP search param streaming
 type HttpSearchParamEvent struct {
 	Type            string
+	IsDelta         bool
 	HttpSearchParam *apiv1.HttpSearchParam
 }
 
@@ -80,6 +83,7 @@ type HttpBodyFormTopic struct {
 // HttpBodyFormEvent defines the event payload for HTTP body form streaming
 type HttpBodyFormEvent struct {
 	Type         string
+	IsDelta      bool
 	HttpBodyForm *apiv1.HttpBodyFormData
 }
 
@@ -91,6 +95,7 @@ type HttpBodyUrlEncodedTopic struct {
 // HttpBodyUrlEncodedEvent defines the event payload for HTTP body URL encoded streaming
 type HttpBodyUrlEncodedEvent struct {
 	Type               string
+	IsDelta            bool
 	HttpBodyUrlEncoded *apiv1.HttpBodyUrlEncoded
 }
 
@@ -102,6 +107,7 @@ type HttpAssertTopic struct {
 // HttpAssertEvent defines the event payload for HTTP assert streaming
 type HttpAssertEvent struct {
 	Type       string
+	IsDelta    bool
 	HttpAssert *apiv1.HttpAssert
 }
 
@@ -157,6 +163,7 @@ type HttpBodyRawTopic struct {
 // HttpBodyRawEvent defines the event payload for HTTP body raw streaming
 type HttpBodyRawEvent struct {
 	Type        string
+	IsDelta     bool
 	HttpBodyRaw *apiv1.HttpBodyRaw
 }
 

@@ -154,14 +154,20 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	if len(results.HTTPHeaders) > 0 {
 		for _, h := range results.HTTPHeaders {
 			header := &mhttpheader.HttpHeader{
-				ID:          h.ID,
-				HttpID:      h.HttpID,
-				Key:         h.HeaderKey,
-				Value:       h.HeaderValue,
-				Enabled:     h.Enabled,
-				Description: h.Description,
-				CreatedAt:   h.CreatedAt,
-				UpdatedAt:   h.UpdatedAt,
+				ID:                 h.ID,
+				HttpID:             h.HttpID,
+				Key:                h.HeaderKey,
+				Value:              h.HeaderValue,
+				Enabled:            h.Enabled,
+				Description:        h.Description,
+				ParentHttpHeaderID:  h.ParentHeaderID,    // ✅ ADD delta field
+				IsDelta:            h.IsDelta,           // ✅ ADD delta field
+				DeltaKey:           h.DeltaHeaderKey,    // ✅ ADD delta field
+				DeltaValue:         h.DeltaHeaderValue,  // ✅ ADD delta field
+				DeltaEnabled:       h.DeltaEnabled,      // ✅ ADD delta field
+				DeltaDescription:   h.DeltaDescription,  // ✅ ADD delta field
+				CreatedAt:          h.CreatedAt,
+				UpdatedAt:          h.UpdatedAt,
 			}
 			if err := imp.httpHeaderService.Create(ctx, header); err != nil {
 				return fmt.Errorf("failed to store header: %w", err)
@@ -172,14 +178,20 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	if len(results.HTTPSearchParams) > 0 {
 		for _, p := range results.HTTPSearchParams {
 			param := &mhttpsearchparam.HttpSearchParam{
-				ID:          p.ID,
-				HttpID:      p.HttpID,
-				Key:         p.ParamKey,
-				Value:       p.ParamValue,
-				Enabled:     p.Enabled,
-				Description: p.Description,
-				CreatedAt:   p.CreatedAt,
-				UpdatedAt:   p.UpdatedAt,
+				ID:                    p.ID,
+				HttpID:                p.HttpID,
+				Key:                   p.ParamKey,
+				Value:                 p.ParamValue,
+				Enabled:               p.Enabled,
+				Description:           p.Description,
+				ParentSearchParamID: p.ParentSearchParamID,    // ✅ ADD delta field
+				IsDelta:               p.IsDelta,                   // ✅ ADD delta field
+				DeltaKey:              p.DeltaParamKey,             // ✅ ADD delta field
+				DeltaValue:            p.DeltaParamValue,           // ✅ ADD delta field
+				DeltaEnabled:          p.DeltaEnabled,              // ✅ ADD delta field
+				DeltaDescription:      p.DeltaDescription,         // ✅ ADD delta field
+				CreatedAt:             p.CreatedAt,
+				UpdatedAt:             p.UpdatedAt,
 			}
 			if err := imp.httpSearchParamService.Create(ctx, param); err != nil {
 				return fmt.Errorf("failed to store search param: %w", err)
@@ -190,14 +202,20 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	if len(results.HTTPBodyForms) > 0 {
 		for _, f := range results.HTTPBodyForms {
 			form := &mhttpbodyform.HttpBodyForm{
-				ID:          f.ID,
-				HttpID:      f.HttpID,
-				Key:         f.FormKey,
-				Value:       f.FormValue,
-				Enabled:     f.Enabled,
-				Description: f.Description,
-				CreatedAt:   f.CreatedAt,
-				UpdatedAt:   f.UpdatedAt,
+				ID:                 f.ID,
+				HttpID:             f.HttpID,
+				Key:                f.FormKey,
+				Value:              f.FormValue,
+				Enabled:            f.Enabled,
+				Description:        f.Description,
+				ParentHttpBodyFormID: f.ParentHttpBodyFormID,    // ✅ ADD delta field
+				IsDelta:            f.IsDelta,                   // ✅ ADD delta field
+				DeltaKey:           f.DeltaFormKey,             // ✅ ADD delta field
+				DeltaValue:         f.DeltaFormValue,           // ✅ ADD delta field
+				DeltaEnabled:       f.DeltaEnabled,              // ✅ ADD delta field
+				DeltaDescription:   f.DeltaDescription,         // ✅ ADD delta field
+				CreatedAt:          f.CreatedAt,
+				UpdatedAt:          f.UpdatedAt,
 			}
 			if err := imp.httpBodyFormService.CreateHttpBodyForm(ctx, form); err != nil {
 				return fmt.Errorf("failed to store body form: %w", err)
@@ -208,14 +226,20 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 	if len(results.HTTPBodyUrlEncoded) > 0 {
 		for _, u := range results.HTTPBodyUrlEncoded {
 			urlencoded := &mhttpbodyurlencoded.HttpBodyUrlEncoded{
-				ID:          u.ID,
-				HttpID:      u.HttpID,
-				Key:         u.UrlencodedKey,
-				Value:       u.UrlencodedValue,
-				Enabled:     u.Enabled,
-				Description: u.Description,
-				CreatedAt:   u.CreatedAt,
-				UpdatedAt:   u.UpdatedAt,
+				ID:                       u.ID,
+				HttpID:                   u.HttpID,
+				Key:                      u.UrlencodedKey,
+				Value:                    u.UrlencodedValue,
+				Enabled:                  u.Enabled,
+				Description:              u.Description,
+				ParentHttpBodyUrlEncodedID: u.ParentHttpBodyUrlEncodedID,    // ✅ ADD delta field
+				IsDelta:                  u.IsDelta,                         // ✅ ADD delta field
+				DeltaKey:                 u.DeltaUrlencodedKey,              // ✅ ADD delta field
+				DeltaValue:               u.DeltaUrlencodedValue,            // ✅ ADD delta field
+				DeltaEnabled:             u.DeltaEnabled,                    // ✅ ADD delta field
+				DeltaDescription:         u.DeltaDescription,               // ✅ ADD delta field
+				CreatedAt:                u.CreatedAt,
+				UpdatedAt:                u.UpdatedAt,
 			}
 			if err := imp.httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, urlencoded); err != nil {
 				return fmt.Errorf("failed to store body urlencoded: %w", err)
@@ -244,7 +268,7 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 
 // ImportAndStoreUnified processes any supported format and returns unified translation results
 func (imp *DefaultImporter) ImportAndStoreUnified(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*TranslationResult, error) {
-	registry := NewTranslatorRegistry()
+	registry := NewTranslatorRegistry(imp.httpService)
 	return registry.DetectAndTranslate(ctx, data, workspaceID)
 }
 
@@ -383,14 +407,20 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	if len(results.Headers) > 0 {
 		for _, h := range results.Headers {
 			header := mhttpheader.HttpHeader{
-				ID:          h.ID,
-				HttpID:      h.HttpID,
-				Key:         h.HeaderKey,
-				Value:       h.HeaderValue,
-				Enabled:     h.Enabled,
-				Description: h.Description,
-				CreatedAt:   h.CreatedAt,
-				UpdatedAt:   h.UpdatedAt,
+				ID:                 h.ID,
+				HttpID:             h.HttpID,
+				Key:                h.HeaderKey,
+				Value:              h.HeaderValue,
+				Enabled:            h.Enabled,
+				Description:        h.Description,
+				ParentHttpHeaderID:  h.ParentHeaderID,    // ✅ ADD delta field
+				IsDelta:            h.IsDelta,           // ✅ ADD delta field
+				DeltaKey:           h.DeltaHeaderKey,    // ✅ ADD delta field
+				DeltaValue:         h.DeltaHeaderValue,  // ✅ ADD delta field
+				DeltaEnabled:       h.DeltaEnabled,      // ✅ ADD delta field
+				DeltaDescription:   h.DeltaDescription,  // ✅ ADD delta field
+				CreatedAt:          h.CreatedAt,
+				UpdatedAt:          h.UpdatedAt,
 			}
 			if err := txHeaderService.Create(ctx, &header); err != nil {
 				return fmt.Errorf("failed to store header: %w", err)
@@ -401,14 +431,20 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	if len(results.SearchParams) > 0 {
 		for _, p := range results.SearchParams {
 			param := mhttpsearchparam.HttpSearchParam{
-				ID:          p.ID,
-				HttpID:      p.HttpID,
-				Key:         p.ParamKey,
-				Value:       p.ParamValue,
-				Enabled:     p.Enabled,
-				Description: p.Description,
-				CreatedAt:   p.CreatedAt,
-				UpdatedAt:   p.UpdatedAt,
+				ID:                    p.ID,
+				HttpID:                p.HttpID,
+				Key:                   p.ParamKey,
+				Value:                 p.ParamValue,
+				Enabled:               p.Enabled,
+				Description:           p.Description,
+				ParentSearchParamID: p.ParentSearchParamID,    // ✅ ADD delta field
+				IsDelta:               p.IsDelta,                   // ✅ ADD delta field
+				DeltaKey:              p.DeltaParamKey,             // ✅ ADD delta field
+				DeltaValue:            p.DeltaParamValue,           // ✅ ADD delta field
+				DeltaEnabled:          p.DeltaEnabled,              // ✅ ADD delta field
+				DeltaDescription:      p.DeltaDescription,         // ✅ ADD delta field
+				CreatedAt:             p.CreatedAt,
+				UpdatedAt:             p.UpdatedAt,
 			}
 			if err := txSearchParamService.Create(ctx, &param); err != nil {
 				return fmt.Errorf("failed to store search param: %w", err)
@@ -419,14 +455,20 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	if len(results.BodyForms) > 0 {
 		for _, f := range results.BodyForms {
 			form := mhttpbodyform.HttpBodyForm{
-				ID:          f.ID,
-				HttpID:      f.HttpID,
-				Key:         f.FormKey,
-				Value:       f.FormValue,
-				Enabled:     f.Enabled,
-				Description: f.Description,
-				CreatedAt:   f.CreatedAt,
-				UpdatedAt:   f.UpdatedAt,
+				ID:                 f.ID,
+				HttpID:             f.HttpID,
+				Key:                f.FormKey,
+				Value:              f.FormValue,
+				Enabled:            f.Enabled,
+				Description:        f.Description,
+				ParentHttpBodyFormID: f.ParentHttpBodyFormID,    // ✅ ADD delta field
+				IsDelta:            f.IsDelta,                   // ✅ ADD delta field
+				DeltaKey:           f.DeltaFormKey,             // ✅ ADD delta field
+				DeltaValue:         f.DeltaFormValue,           // ✅ ADD delta field
+				DeltaEnabled:       f.DeltaEnabled,              // ✅ ADD delta field
+				DeltaDescription:   f.DeltaDescription,         // ✅ ADD delta field
+				CreatedAt:          f.CreatedAt,
+				UpdatedAt:          f.UpdatedAt,
 			}
 			if err := txBodyFormService.CreateHttpBodyForm(ctx, &form); err != nil {
 				return fmt.Errorf("failed to store body form: %w", err)
@@ -437,14 +479,20 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 	if len(results.BodyUrlencoded) > 0 {
 		for _, u := range results.BodyUrlencoded {
 			urlencoded := mhttpbodyurlencoded.HttpBodyUrlEncoded{
-				ID:          u.ID,
-				HttpID:      u.HttpID,
-				Key:         u.UrlencodedKey,
-				Value:       u.UrlencodedValue,
-				Enabled:     u.Enabled,
-				Description: u.Description,
-				CreatedAt:   u.CreatedAt,
-				UpdatedAt:   u.UpdatedAt,
+				ID:                       u.ID,
+				HttpID:                   u.HttpID,
+				Key:                      u.UrlencodedKey,
+				Value:                    u.UrlencodedValue,
+				Enabled:                  u.Enabled,
+				Description:              u.Description,
+				ParentHttpBodyUrlEncodedID: u.ParentHttpBodyUrlEncodedID,    // ✅ ADD delta field
+				IsDelta:                  u.IsDelta,                         // ✅ ADD delta field
+				DeltaKey:                 u.DeltaUrlencodedKey,              // ✅ ADD delta field
+				DeltaValue:               u.DeltaUrlencodedValue,            // ✅ ADD delta field
+				DeltaEnabled:             u.DeltaEnabled,                    // ✅ ADD delta field
+				DeltaDescription:         u.DeltaDescription,               // ✅ ADD delta field
+				CreatedAt:                u.CreatedAt,
+				UpdatedAt:                u.UpdatedAt,
 			}
 			if err := txBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, &urlencoded); err != nil {
 				return fmt.Errorf("failed to store body urlencoded: %w", err)

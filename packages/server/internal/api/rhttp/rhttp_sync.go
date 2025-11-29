@@ -17,21 +17,32 @@ import (
 
 func (h *HttpServiceRPC) publishInsertEvent(http mhttp.HTTP) {
 	h.stream.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
-		Type: eventTypeInsert,
-		Http: converter.ToAPIHttp(http),
+		Type:    eventTypeInsert,
+		IsDelta: http.IsDelta,
+		Http:    converter.ToAPIHttp(http),
 	})
 }
 
 // publishUpdateEvent publishes an update event for real-time sync
 func (h *HttpServiceRPC) publishUpdateEvent(http mhttp.HTTP) {
 	h.stream.Publish(HttpTopic{WorkspaceID: http.WorkspaceID}, HttpEvent{
-		Type: eventTypeUpdate,
-		Http: converter.ToAPIHttp(http),
+		Type:    eventTypeUpdate,
+		IsDelta: http.IsDelta,
+		Http:    converter.ToAPIHttp(http),
 	})
 }
 
 // publishDeleteEvent publishes a delete event for real-time sync
 func (h *HttpServiceRPC) publishDeleteEvent(httpID, workspaceID idwrap.IDWrap) {
+	// Delete event doesn't carry IsDelta info usually, but if we deleted a delta, we should know.
+	// However, consumers might not need IsDelta for delete if they just delete by ID.
+	// But to filter the stream correctly, we should ideally know.
+	// For now, let's default IsDelta to false or try to fetch? Fetching on delete is impossible if already deleted.
+	// We can pass IsDelta to this function.
+	// TODO: Refactor to pass IsDelta. For now, standard delete assumes base or doesn't matter if ID is unique.
+	// Actually, if we filter by IsDelta == false for HttpSync, and we delete a Delta, we might want to suppress it?
+	// If HttpSync receives a delete for a Delta ID, it's harmless if the client doesn't have that ID.
+	// So skipping IsDelta for delete is "okay" but imperfect.
 	h.stream.Publish(HttpTopic{WorkspaceID: workspaceID}, HttpEvent{
 		Type: eventTypeDelete,
 		Http: &apiv1.Http{
@@ -75,12 +86,19 @@ func (h *HttpServiceRPC) streamHttpSync(ctx context.Context, userID idwrap.IDWra
 		return true
 	}
 
+	converter := func(event HttpEvent) *apiv1.HttpSyncResponse {
+		if event.IsDelta {
+			return nil
+		}
+		return httpSyncResponseFrom(event)
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.stream,
 		nil,
 		filter,
-		httpSyncResponseFrom,
+		converter,
 		send,
 	)
 }
@@ -121,12 +139,19 @@ func (h *HttpServiceRPC) streamHttpSearchParamSync(ctx context.Context, userID i
 		return true
 	}
 
+	converter := func(event HttpSearchParamEvent) *apiv1.HttpSearchParamSyncResponse {
+		if event.IsDelta {
+			return nil
+		}
+		return httpSearchParamSyncResponseFrom(event)
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpSearchParamStream,
 		nil,
 		filter,
-		httpSearchParamSyncResponseFrom,
+		converter,
 		send,
 	)
 }
@@ -148,12 +173,19 @@ func (h *HttpServiceRPC) streamHttpAssertSync(ctx context.Context, userID idwrap
 		return true
 	}
 
+	converter := func(event HttpAssertEvent) *apiv1.HttpAssertSyncResponse {
+		if event.IsDelta {
+			return nil
+		}
+		return httpAssertSyncResponseFrom(event)
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpAssertStream,
 		nil,
 		filter,
-		httpAssertSyncResponseFrom,
+		converter,
 		send,
 	)
 }
@@ -328,30 +360,22 @@ func (h *HttpServiceRPC) streamHttpHeaderSync(ctx context.Context, userID idwrap
 		return true
 	}
 
-	// Subscribe to events with snapshot
-	events, err := h.httpHeaderStream.Subscribe(ctx, filter)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
+	converter := func(event HttpHeaderEvent) *apiv1.HttpHeaderSyncResponse {
+		if event.IsDelta {
+			return nil
+		}
+		return httpHeaderSyncResponseFrom(event)
 	}
 
-	// Stream events to client
-	for {
-		select {
-		case evt, ok := <-events:
-			if !ok {
-				return nil
-			}
-			resp := httpHeaderSyncResponseFrom(evt.Payload)
-			if resp == nil {
-				continue
-			}
-			if err := send(resp); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	// Subscribe to events with snapshot
+	return eventstream.StreamToClient(
+		ctx,
+		h.httpHeaderStream,
+		nil,
+		filter,
+		converter,
+		send,
+	)
 }
 
 func (h *HttpServiceRPC) HttpBodyFormDataSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyFormDataSyncResponse]) error {
@@ -379,12 +403,19 @@ func (h *HttpServiceRPC) streamHttpBodyFormSync(ctx context.Context, userID idwr
 		return true
 	}
 
+	converter := func(event HttpBodyFormEvent) *apiv1.HttpBodyFormDataSyncResponse {
+		if event.IsDelta {
+			return nil
+		}
+		return httpBodyFormDataSyncResponseFrom(event)
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpBodyFormStream,
 		nil,
 		filter,
-		httpBodyFormDataSyncResponseFrom,
+		converter,
 		send,
 	)
 }
@@ -414,12 +445,19 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedSync(ctx context.Context, userI
 		return true
 	}
 
+	converter := func(event HttpBodyUrlEncodedEvent) *apiv1.HttpBodyUrlEncodedSyncResponse {
+		if event.IsDelta {
+			return nil
+		}
+		return httpBodyUrlEncodedSyncResponseFrom(event)
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpBodyUrlEncodedStream,
 		nil,
 		filter,
-		httpBodyUrlEncodedSyncResponseFrom,
+		converter,
 		send,
 	)
 }
@@ -450,12 +488,19 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 		return true
 	}
 
+	converter := func(event HttpBodyRawEvent) *apiv1.HttpBodyRawSyncResponse {
+		if event.IsDelta {
+			return nil
+		}
+		return httpBodyRawSyncResponseFrom(event)
+	}
+
 	return eventstream.StreamToClient(
 		ctx,
 		h.httpBodyRawStream,
 		nil,
 		filter,
-		httpBodyRawSyncResponseFrom,
+		converter,
 		send,
 	)
 }
@@ -463,3 +508,4 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 // Helper methods for HTTP request execution
 
 // parseHttpMethod converts string method to HttpMethod enum
+
