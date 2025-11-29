@@ -319,6 +319,8 @@ func ToAPIFileKind(kind mfile.ContentType) filev1.FileKind {
 		return filev1.FileKind_FILE_KIND_FOLDER
 	case mfile.ContentTypeHTTP:
 		return filev1.FileKind_FILE_KIND_HTTP
+	case mfile.ContentTypeHTTPDelta:
+		return filev1.FileKind_FILE_KIND_HTTP_DELTA
 	case mfile.ContentTypeFlow:
 		return filev1.FileKind_FILE_KIND_FLOW
 	default:
