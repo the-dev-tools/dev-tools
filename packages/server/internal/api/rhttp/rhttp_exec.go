@@ -469,15 +469,19 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	}
 	committed = true
 
-	topic := HttpResponseTopic{WorkspaceID: httpEntry.WorkspaceID}
-	h.httpResponseStream.Publish(topic, HttpResponseEvent{
-		Type:         eventTypeInsert,
-		HttpResponse: converter.ToAPIHttpResponse(httpResponse),
-	})
+	if h.httpResponseStream != nil {
+		topic := HttpResponseTopic{WorkspaceID: httpEntry.WorkspaceID}
+		h.httpResponseStream.Publish(topic, HttpResponseEvent{
+			Type:         eventTypeInsert,
+			HttpResponse: converter.ToAPIHttpResponse(httpResponse),
+		})
+	}
 
-	headerTopic := HttpResponseHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}
-	for _, evt := range headerEvents {
-		h.httpResponseHeaderStream.Publish(headerTopic, evt)
+	if h.httpResponseHeaderStream != nil {
+		headerTopic := HttpResponseHeaderTopic{WorkspaceID: httpEntry.WorkspaceID}
+		for _, evt := range headerEvents {
+			h.httpResponseHeaderStream.Publish(headerTopic, evt)
+		}
 	}
 
 	return responseID, nil
@@ -735,9 +739,11 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 	// Publish events
 	workspaceID, err := h.hs.GetWorkspaceID(ctx, httpID)
 	if err == nil {
-		topic := HttpResponseAssertTopic{WorkspaceID: workspaceID}
-		for _, evt := range events {
-			h.httpResponseAssertStream.Publish(topic, evt)
+		if h.httpResponseAssertStream != nil {
+			topic := HttpResponseAssertTopic{WorkspaceID: workspaceID}
+			for _, evt := range events {
+				h.httpResponseAssertStream.Publish(topic, evt)
+			}
 		}
 	} else {
 		log.Printf("Failed to get workspace ID for publishing assertion events: %v", err)
