@@ -68,8 +68,9 @@ func ConvertResponseToVar(r Response) ResponseVar {
 	var body any
 	if json.Valid(r.Body) {
 		var jsonBody any
-		// If unmarshaling works, use the decoded JSON.
-		if err := json.Unmarshal(r.Body, &jsonBody); err == nil {
+		decoder := json.NewDecoder(bytes.NewReader(r.Body))
+		decoder.UseNumber()
+		if err := decoder.Decode(&jsonBody); err == nil {
 			body = jsonBody
 		} else {
 			body = string(r.Body)

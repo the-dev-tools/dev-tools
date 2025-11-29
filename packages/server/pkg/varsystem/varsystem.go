@@ -88,7 +88,7 @@ func HelperNewAny(vars *[]mvar.Var, target any, prefix string) {
 	case reflect.String:
 		*vars = append(*vars, mvar.Var{
 			VarKey: prefix,
-			Value:  target.(string),
+			Value:  reflect.ValueOf(target).String(),
 		})
 	}
 }
