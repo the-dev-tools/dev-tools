@@ -329,6 +329,23 @@ func (hfs HttpBodyFormService) DeleteHttpBodyForm(ctx context.Context, id idwrap
 	return hfs.queries.DeleteHTTPBodyForm(ctx, id)
 }
 
+func (hfs HttpBodyFormService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
+	forms, err := hfs.GetHttpBodyFormsByHttpID(ctx, httpID)
+	if err != nil {
+		if err == ErrNoHttpBodyFormFound {
+			return nil
+		}
+		return err
+	}
+
+	for _, form := range forms {
+		if err := hfs.DeleteHttpBodyForm(ctx, form.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (hfs HttpBodyFormService) ResetHttpBodyFormDelta(ctx context.Context, id idwrap.IDWrap) error {
 	// Use the new ResetHTTPBodyFormDelta query to reset all delta fields at once
 	return hfs.queries.ResetHTTPBodyFormDelta(ctx, id)

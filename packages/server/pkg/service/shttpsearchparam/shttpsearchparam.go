@@ -206,6 +206,23 @@ func (s HttpSearchParamService) Delete(ctx context.Context, paramID idwrap.IDWra
 	return nil
 }
 
+func (s HttpSearchParamService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
+	params, err := s.GetByHttpID(ctx, httpID)
+	if err != nil {
+		if err == ErrNoHttpSearchParamFound {
+			return nil
+		}
+		return err
+	}
+
+	for _, param := range params {
+		if err := s.Delete(ctx, param.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func NewTX(ctx context.Context, tx *sql.Tx) (*HttpSearchParamService, error) {
 	queries, err := gen.Prepare(ctx, tx)
 	if err != nil {

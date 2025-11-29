@@ -259,6 +259,27 @@ func (hues HttpBodyUrlEncodedService) DeleteHttpBodyUrlEncoded(ctx context.Conte
 	return hues.queries.DeleteHTTPBodyUrlEncoded(ctx, id)
 }
 
+func (hues HttpBodyUrlEncodedService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
+	bodies, err := hues.GetHttpBodyUrlEncodedByHttpID(ctx, httpID)
+	if err != nil {
+		// If no bodies found, nothing to delete
+		if err == ErrNoHttpBodyUrlEncodedFound {
+			return nil
+		}
+		// GetHttpBodyUrlEncodedByHttpID returns empty slice on no rows (handled inside),
+		// but might return ErrNoHttpBodyUrlEncodedFound if I change it later.
+		// Currently it returns empty slice and nil error on sql.ErrNoRows.
+		return err
+	}
+
+	for _, body := range bodies {
+		if err := hues.DeleteHttpBodyUrlEncoded(ctx, body.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (hues HttpBodyUrlEncodedService) ResetHttpBodyUrlEncodedDelta(ctx context.Context, id idwrap.IDWrap) error {
 	bodyUrlEncoded, err := hues.GetHttpBodyUrlEncoded(ctx, id)
 	if err != nil {

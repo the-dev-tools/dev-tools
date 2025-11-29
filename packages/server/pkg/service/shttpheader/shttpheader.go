@@ -259,6 +259,22 @@ func (h HttpHeaderService) Delete(ctx context.Context, headerID idwrap.IDWrap) e
 	return h.queries.DeleteHTTPHeader(ctx, headerID)
 }
 
+func (h HttpHeaderService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
+	// Since bulk delete might not be generated, we fetch and delete one by one
+	// This is less efficient but safer without knowing available queries
+	headers, err := h.GetByHttpID(ctx, httpID)
+	if err != nil {
+		return err
+	}
+
+	for _, header := range headers {
+		if err := h.Delete(ctx, header.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (h HttpHeaderService) UpdateOrder(ctx context.Context, headerID idwrap.IDWrap, prev, next *idwrap.IDWrap) error {
 	// First get the header to extract its HTTP ID for validation
 	header, err := h.GetByID(ctx, headerID)

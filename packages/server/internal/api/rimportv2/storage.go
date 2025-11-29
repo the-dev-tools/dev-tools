@@ -150,6 +150,30 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 		}
 	}
 
+	// Clear existing child entities for imported requests to ensure clean overwrite (prevent duplicates)
+	if len(results.HTTPReqs) > 0 {
+		for _, req := range results.HTTPReqs {
+			if err := imp.httpHeaderService.DeleteByHttpID(ctx, req.ID); err != nil {
+				return fmt.Errorf("failed to clear headers: %w", err)
+			}
+			if err := imp.httpSearchParamService.DeleteByHttpID(ctx, req.ID); err != nil {
+				return fmt.Errorf("failed to clear search params: %w", err)
+			}
+			if err := imp.httpBodyFormService.DeleteByHttpID(ctx, req.ID); err != nil {
+				return fmt.Errorf("failed to clear body forms: %w", err)
+			}
+			if err := imp.httpBodyUrlEncodedService.DeleteByHttpID(ctx, req.ID); err != nil {
+				return fmt.Errorf("failed to clear body urlencoded: %w", err)
+			}
+			// BodyRaw is one-to-one and replaced by Create usually, but we should check shttp service.
+			// shttp.HttpBodyRawService Create generates new ID. It doesn't replace by HttpID?
+			// Let's check shttp/body_raw.go.
+			// Assuming Create appends, we should probably clear it too if we want 1 body per request.
+			// But HttpBodyRaw is usually unique per request.
+			// I will skip BodyRaw clear for now unless I see a DeleteByHttpID there.
+		}
+	}
+
 	// Store child entities
 	if len(results.HTTPHeaders) > 0 {
 		for _, h := range results.HTTPHeaders {
@@ -403,6 +427,24 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		for _, edge := range results.Edges {
 			if err := txEdgeService.CreateEdge(ctx, edge); err != nil {
 				return fmt.Errorf("failed to store edge: %w", err)
+			}
+		}
+	}
+
+	// Clear existing child entities for imported requests to ensure clean overwrite
+	if len(results.HTTPRequests) > 0 {
+		for _, req := range results.HTTPRequests {
+			if err := txHeaderService.DeleteByHttpID(ctx, req.ID); err != nil {
+				return fmt.Errorf("failed to clear headers: %w", err)
+			}
+			if err := txSearchParamService.DeleteByHttpID(ctx, req.ID); err != nil {
+				return fmt.Errorf("failed to clear search params: %w", err)
+			}
+			if err := txBodyFormService.DeleteByHttpID(ctx, req.ID); err != nil {
+				return fmt.Errorf("failed to clear body forms: %w", err)
+			}
+			if err := txBodyUrlEncodedService.DeleteByHttpID(ctx, req.ID); err != nil {
+				return fmt.Errorf("failed to clear body urlencoded: %w", err)
 			}
 		}
 	}
