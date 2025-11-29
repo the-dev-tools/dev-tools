@@ -37,22 +37,36 @@ import (
 type ImportV2RPC struct {
 	db      *sql.DB
 	service *Service
-	logger  *slog.Logger
+	Logger  *slog.Logger
 	ws      sworkspace.WorkspaceService
 	us      suser.UserService
 
 	// Streamers for real-time updates
-	flowStream               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
-	nodeStream               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
-	edgeStream               eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
-	noopStream               eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
-	stream                   eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
-	httpHeaderStream         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
-	httpSearchParamStream    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
-	httpBodyFormStream       eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
-	httpBodyUrlEncodedStream eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
-	httpBodyRawStream        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
-	fileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
+	FlowStream               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
+	NodeStream               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
+	EdgeStream               eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
+	NoopStream               eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
+	HttpStream               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
+	HttpHeaderStream         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
+	HttpSearchParamStream    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
+	HttpBodyFormStream       eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
+	HttpBodyUrlEncodedStream eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
+	HttpBodyRawStream        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
+	FileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
+	
+	// Services exposed for testing
+	HttpService                 *shttp.HTTPService
+	FlowService                 *sflow.FlowService
+	FileService                 *sfile.FileService
+	HttpHeaderService           shttpheader.HttpHeaderService
+	HttpSearchParamService      shttpsearchparam.HttpSearchParamService
+	HttpBodyFormService         shttpbodyform.HttpBodyFormService
+	HttpBodyUrlEncodedService   shttpbodyurlencoded.HttpBodyUrlEncodedService
+	HttpBodyRawService          *shttp.HttpBodyRawService
+	NodeService                 *snode.NodeService
+	NodeRequestService          *snoderequest.NodeRequestService
+	NodeNoopService             *snodenoop.NodeNoopService
+	EdgeService                 *sedge.EdgeService
 }
 
 // NewImportV2RPC creates a new ImportV2RPC handler with all required dependencies
@@ -102,20 +116,34 @@ func NewImportV2RPC(
 	return &ImportV2RPC{
 		db:                       db,
 		service:                  service,
-		logger:                   logger,
+		Logger:                   logger,
 		ws:                       ws,
 		us:                       us,
-		flowStream:               flowStream,
-		nodeStream:               nodeStream,
-		edgeStream:               edgeStream,
-		noopStream:               noopStream,
-		stream:                   stream,
-		httpHeaderStream:         httpHeaderStream,
-		httpSearchParamStream:    httpSearchParamStream,
-		httpBodyFormStream:       httpBodyFormStream,
-		httpBodyUrlEncodedStream: httpBodyUrlEncodedStream,
-		httpBodyRawStream:        httpBodyRawStream,
-		fileStream:               fileStream,
+		FlowStream:               flowStream,
+		NodeStream:               nodeStream,
+		EdgeStream:               edgeStream,
+		NoopStream:               noopStream,
+		HttpStream:               stream,
+		HttpHeaderStream:         httpHeaderStream,
+		HttpSearchParamStream:    httpSearchParamStream,
+		HttpBodyFormStream:       httpBodyFormStream,
+		HttpBodyUrlEncodedStream: httpBodyUrlEncodedStream,
+		HttpBodyRawStream:        httpBodyRawStream,
+		FileStream:               fileStream,
+		
+		// Exposed Services
+		HttpService:                 httpService,
+		FlowService:                 flowService,
+		FileService:                 fileService,
+		HttpHeaderService:           httpHeaderService,
+		HttpSearchParamService:      httpSearchParamService,
+		HttpBodyFormService:         httpBodyFormService,
+		HttpBodyUrlEncodedService:   httpBodyUrlEncodedService,
+		HttpBodyRawService:          bodyService,
+		NodeService:                 nodeService,
+		NodeRequestService:          nodeRequestService,
+		NodeNoopService:             nodeNoopService,
+		EdgeService:                 edgeService,
 	}
 }
 
@@ -131,7 +159,7 @@ func CreateImportV2Service(srv ImportV2RPC, options []connect.HandlerOption) (*a
 func (h *ImportV2RPC) Import(ctx context.Context, req *connect.Request[apiv1.ImportRequest]) (*connect.Response[apiv1.ImportResponse], error) {
 	startTime := time.Now()
 
-	h.logger.Info("Received ImportV2 RPC request",
+	h.Logger.Info("Received ImportV2 RPC request",
 		"workspace_id", req.Msg.WorkspaceId,
 		"name", req.Msg.Name,
 		"data_size", len(req.Msg.Data))
@@ -156,7 +184,7 @@ func (h *ImportV2RPC) Import(ctx context.Context, req *connect.Request[apiv1.Imp
 	// Convert internal response to protobuf response
 	protoResp, err := convertToImportResponse(results)
 	if err != nil {
-		h.logger.Error("Response conversion failed - unexpected internal error",
+		h.Logger.Error("Response conversion failed - unexpected internal error",
 			"workspace_id", req.Msg.WorkspaceId,
 			"missing_data", results.MissingData,
 			"domains_count", len(results.Domains),
@@ -165,7 +193,7 @@ func (h *ImportV2RPC) Import(ctx context.Context, req *connect.Request[apiv1.Imp
 	}
 
 	rpcDuration := time.Since(startTime)
-	h.logger.Info("ImportV2 RPC completed successfully",
+	h.Logger.Info("ImportV2 RPC completed successfully",
 		"workspace_id", req.Msg.WorkspaceId,
 		"missing_data", protoResp.MissingData,
 		"domains", len(protoResp.Domains),
@@ -256,7 +284,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 			flowPB.Duration = &d
 		}
 
-		h.flowStream.Publish(rflowv2.FlowTopic{WorkspaceID: results.Flow.WorkspaceID}, rflowv2.FlowEvent{
+		h.FlowStream.Publish(rflowv2.FlowTopic{WorkspaceID: results.Flow.WorkspaceID}, rflowv2.FlowEvent{
 			Type: "insert",
 			Flow: flowPB,
 		})
@@ -273,58 +301,45 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 					Y: float32(node.PositionY),
 				},
 			}
-			h.nodeStream.Publish(rflowv2.NodeTopic{FlowID: node.FlowID}, rflowv2.NodeEvent{
+			h.NodeStream.Publish(rflowv2.NodeTopic{FlowID: node.FlowID}, rflowv2.NodeEvent{
 				Type: "insert",
 				Node: nodePB,
 			})
 		}
 
-		// Publish Request Nodes (as node events? No, wait, request nodes are just configuration for nodes)
-		// Request Node configuration is usually fetched separately or part of node details depending on API.
-		// Looking at rflowv2.go, NodeHttpCollection returns the configuration.
-		// There isn't a separate stream for NodeRequest configuration in the list I saw in rflowv2.go (NodeStream carries NodeEvent).
-		// However, NodeEvent in rflowv2.go only contains *flowv1.Node.
-		// There doesn't seem to be a stream for NodeRequest updates in rflowv2.go.
-		// Assuming we only need to stream the base nodes and edges for the graph to appear.
-
-		        // Publish Edges events
-				for _, edge := range results.Edges {
-					edgePB := &flowv1.Edge{
-						EdgeId:       edge.ID.Bytes(),
-						FlowId:       edge.FlowID.Bytes(),
-						SourceId:     edge.SourceID.Bytes(),
-						TargetId:     edge.TargetID.Bytes(),
-						SourceHandle: flowv1.HandleKind(edge.SourceHandler),
-						Kind:         flowv1.EdgeKind(edge.Kind),
-					}
-					h.edgeStream.Publish(rflowv2.EdgeTopic{FlowID: edge.FlowID}, rflowv2.EdgeEvent{
-						Type: "insert",
-						Edge: edgePB,
-					})
-				}
-		
-				// Publish NoOpNodes events
-				for _, noOpNode := range results.NoOpNodes {
-					// Assuming results.NoOpNodes contains mnnoop.NoopNode
-					// We need to look up the FlowID. It is usually available in the Node struct, but NoOpNode only has FlowNodeID.
-					// However, results.Nodes contains all nodes including NoOp ones.
-					// We can iterate NoOpNodes and use results.Flow.ID (since all imported nodes belong to the same flow)
-					
-					noOpPB := &flowv1.NodeNoOp{
-						NodeId: noOpNode.FlowNodeID.Bytes(),
-						Kind:   converter.ToAPINodeNoOpKind(noOpNode.Type),
-					}
-					
-					h.noopStream.Publish(rflowv2.NoOpTopic{FlowID: results.Flow.ID}, rflowv2.NoOpEvent{
-						Type: "insert",
-						FlowID: results.Flow.ID,
-						Node: noOpPB,
-					})
-				}
+		// Publish Edges events
+		for _, edge := range results.Edges {
+			edgePB := &flowv1.Edge{
+				EdgeId:       edge.ID.Bytes(),
+				FlowId:       edge.FlowID.Bytes(),
+				SourceId:     edge.SourceID.Bytes(),
+				TargetId:     edge.TargetID.Bytes(),
+				SourceHandle: flowv1.HandleKind(edge.SourceHandler),
+				Kind:         flowv1.EdgeKind(edge.Kind),
 			}
+			h.EdgeStream.Publish(rflowv2.EdgeTopic{FlowID: edge.FlowID}, rflowv2.EdgeEvent{
+				Type: "insert",
+				Edge: edgePB,
+			})
+		}
+
+		// Publish NoOpNodes events
+		for _, noOpNode := range results.NoOpNodes {
+			noOpPB := &flowv1.NodeNoOp{
+				NodeId: noOpNode.FlowNodeID.Bytes(),
+				Kind:   converter.ToAPINodeNoOpKind(noOpNode.Type),
+			}
+
+			h.NoopStream.Publish(rflowv2.NoOpTopic{FlowID: results.Flow.ID}, rflowv2.NoOpEvent{
+				Type:   "insert",
+				FlowID: results.Flow.ID,
+				Node:   noOpPB,
+			})
+		}
+	}
 	// Publish HTTP events
 	for _, httpReq := range results.HTTPReqs {
-		h.stream.Publish(rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}, rhttp.HttpEvent{
+		h.HttpStream.Publish(rhttp.HttpTopic{WorkspaceID: httpReq.WorkspaceID}, rhttp.HttpEvent{
 			Type:    "insert",
 			IsDelta: httpReq.IsDelta,
 			Http:    converter.ToAPIHttp(*httpReq),
@@ -334,7 +349,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 	// Publish File events
 	for _, file := range results.Files {
 		// No longer skipping Flow files since we publish Flow event first now
-		h.fileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
+		h.FileStream.Publish(rfile.FileTopic{WorkspaceID: file.WorkspaceID}, rfile.FileEvent{
 			Type: "create",
 			File: converter.ToAPIFile(*file),
 			Name: file.Name,
@@ -343,7 +358,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 
 	// Publish Header events
 	for _, header := range results.HTTPHeaders {
-		h.httpHeaderStream.Publish(rhttp.HttpHeaderTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpHeaderEvent{
+		h.HttpHeaderStream.Publish(rhttp.HttpHeaderTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpHeaderEvent{
 			Type:       "insert",
 			IsDelta:    header.IsDelta,
 			HttpHeader: converter.ToAPIHttpHeaderFromMHttp(*header),
@@ -352,7 +367,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 
 	// Publish SearchParam events
 	for _, param := range results.HTTPSearchParams {
-		h.httpSearchParamStream.Publish(rhttp.HttpSearchParamTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpSearchParamEvent{
+		h.HttpSearchParamStream.Publish(rhttp.HttpSearchParamTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpSearchParamEvent{
 			Type:            "insert",
 			IsDelta:         param.IsDelta,
 			HttpSearchParam: converter.ToAPIHttpSearchParamFromMHttp(*param),
@@ -361,7 +376,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 
 	// Publish BodyForm events
 	for _, form := range results.HTTPBodyForms {
-		h.httpBodyFormStream.Publish(rhttp.HttpBodyFormTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyFormEvent{
+		h.HttpBodyFormStream.Publish(rhttp.HttpBodyFormTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyFormEvent{
 			Type:         "insert",
 			IsDelta:      form.IsDelta,
 			HttpBodyForm: converter.ToAPIHttpBodyFormDataFromMHttp(*form),
@@ -370,7 +385,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 
 	// Publish BodyUrlEncoded events
 	for _, encoded := range results.HTTPBodyUrlEncoded {
-		h.httpBodyUrlEncodedStream.Publish(rhttp.HttpBodyUrlEncodedTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyUrlEncodedEvent{
+		h.HttpBodyUrlEncodedStream.Publish(rhttp.HttpBodyUrlEncodedTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyUrlEncodedEvent{
 			Type:               "insert",
 			IsDelta:            encoded.IsDelta,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncodedFromMHttp(*encoded),
@@ -379,7 +394,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 
 	// Publish BodyRaw events
 	for _, raw := range results.HTTPBodyRaws {
-		h.httpBodyRawStream.Publish(rhttp.HttpBodyRawTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyRawEvent{
+		h.HttpBodyRawStream.Publish(rhttp.HttpBodyRawTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpBodyRawEvent{
 			Type:        "insert",
 			IsDelta:     raw.IsDelta,
 			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*raw),
