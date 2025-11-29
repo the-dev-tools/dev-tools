@@ -160,12 +160,13 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 				Value:              h.HeaderValue,
 				Enabled:            h.Enabled,
 				Description:        h.Description,
-				ParentHttpHeaderID:  h.ParentHeaderID,    // ✅ ADD delta field
-				IsDelta:            h.IsDelta,           // ✅ ADD delta field
-				DeltaKey:           h.DeltaHeaderKey,    // ✅ ADD delta field
-				DeltaValue:         h.DeltaHeaderValue,  // ✅ ADD delta field
-				DeltaEnabled:       h.DeltaEnabled,      // ✅ ADD delta field
-				DeltaDescription:   h.DeltaDescription,  // ✅ ADD delta field
+				ParentHttpHeaderID: h.ParentHeaderID,
+				// Ensure constraint: is_delta = FALSE OR parent_header_id IS NOT NULL
+				IsDelta:            h.IsDelta && h.ParentHeaderID != nil,
+				DeltaKey:           h.DeltaHeaderKey,
+				DeltaValue:         h.DeltaHeaderValue,
+				DeltaEnabled:       h.DeltaEnabled,
+				DeltaDescription:   h.DeltaDescription,
 				CreatedAt:          h.CreatedAt,
 				UpdatedAt:          h.UpdatedAt,
 			}
@@ -184,12 +185,13 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 				Value:                 p.ParamValue,
 				Enabled:               p.Enabled,
 				Description:           p.Description,
-				ParentHttpSearchParamID: p.ParentSearchParamID,    // ✅ ADD delta field
-				IsDelta:               p.IsDelta,                   // ✅ ADD delta field
-				DeltaKey:              p.DeltaParamKey,             // ✅ ADD delta field
-				DeltaValue:            p.DeltaParamValue,           // ✅ ADD delta field
-				DeltaEnabled:          p.DeltaEnabled,              // ✅ ADD delta field
-				DeltaDescription:      p.DeltaDescription,         // ✅ ADD delta field
+				ParentHttpSearchParamID: p.ParentSearchParamID,
+				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+				IsDelta:               p.IsDelta && p.ParentSearchParamID != nil,
+				DeltaKey:              p.DeltaParamKey,
+				DeltaValue:            p.DeltaParamValue,
+				DeltaEnabled:          p.DeltaEnabled,
+				DeltaDescription:      p.DeltaDescription,
 				CreatedAt:             p.CreatedAt,
 				UpdatedAt:             p.UpdatedAt,
 			}
@@ -208,12 +210,13 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 				Value:              f.FormValue,
 				Enabled:            f.Enabled,
 				Description:        f.Description,
-				ParentHttpBodyFormID: f.ParentBodyFormID,    // ✅ ADD delta field
-				IsDelta:            f.IsDelta,                   // ✅ ADD delta field
-				DeltaKey:           f.DeltaFormKey,             // ✅ ADD delta field
-				DeltaValue:         f.DeltaFormValue,           // ✅ ADD delta field
-				DeltaEnabled:       f.DeltaEnabled,              // ✅ ADD delta field
-				DeltaDescription:   f.DeltaDescription,         // ✅ ADD delta field
+				ParentHttpBodyFormID: f.ParentBodyFormID,
+				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+				IsDelta:            f.IsDelta && f.ParentBodyFormID != nil,
+				DeltaKey:           f.DeltaFormKey,
+				DeltaValue:         f.DeltaFormValue,
+				DeltaEnabled:       f.DeltaEnabled,
+				DeltaDescription:   f.DeltaDescription,
 				CreatedAt:          f.CreatedAt,
 				UpdatedAt:          f.UpdatedAt,
 			}
@@ -232,12 +235,13 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 				Value:                    u.UrlencodedValue,
 				Enabled:                  u.Enabled,
 				Description:              u.Description,
-				ParentHttpBodyUrlEncodedID: u.ParentBodyUrlencodedID,    // ✅ ADD delta field
-				IsDelta:                  u.IsDelta,                         // ✅ ADD delta field
-				DeltaKey:                 u.DeltaUrlencodedKey,              // ✅ ADD delta field
-				DeltaValue:               u.DeltaUrlencodedValue,            // ✅ ADD delta field
-				DeltaEnabled:             u.DeltaEnabled,                    // ✅ ADD delta field
-				DeltaDescription:         u.DeltaDescription,               // ✅ ADD delta field
+				ParentHttpBodyUrlEncodedID: u.ParentBodyUrlencodedID,
+				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+				IsDelta:                  u.IsDelta && u.ParentBodyUrlencodedID != nil,
+				DeltaKey:                 u.DeltaUrlencodedKey,
+				DeltaValue:               u.DeltaUrlencodedValue,
+				DeltaEnabled:             u.DeltaEnabled,
+				DeltaDescription:         u.DeltaDescription,
 				CreatedAt:                u.CreatedAt,
 				UpdatedAt:                u.UpdatedAt,
 			}
@@ -413,12 +417,13 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				Value:              h.HeaderValue,
 				Enabled:            h.Enabled,
 				Description:        h.Description,
-				ParentHttpHeaderID:  h.ParentHeaderID,    // ✅ ADD delta field
-				IsDelta:            h.IsDelta,           // ✅ ADD delta field
-				DeltaKey:           h.DeltaHeaderKey,    // ✅ ADD delta field
-				DeltaValue:         h.DeltaHeaderValue,  // ✅ ADD delta field
-				DeltaEnabled:       h.DeltaEnabled,      // ✅ ADD delta field
-				DeltaDescription:   h.DeltaDescription,  // ✅ ADD delta field
+				ParentHttpHeaderID: h.ParentHeaderID,
+				// Ensure constraint: is_delta = FALSE OR parent_header_id IS NOT NULL
+				IsDelta:            h.IsDelta && h.ParentHeaderID != nil,
+				DeltaKey:           h.DeltaHeaderKey,
+				DeltaValue:         h.DeltaHeaderValue,
+				DeltaEnabled:       h.DeltaEnabled,
+				DeltaDescription:   h.DeltaDescription,
 				CreatedAt:          h.CreatedAt,
 				UpdatedAt:          h.UpdatedAt,
 			}
@@ -437,12 +442,13 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				Value:                 p.ParamValue,
 				Enabled:               p.Enabled,
 				Description:           p.Description,
-				ParentHttpSearchParamID: p.ParentSearchParamID,    // ✅ ADD delta field
-				IsDelta:               p.IsDelta,                   // ✅ ADD delta field
-				DeltaKey:              p.DeltaParamKey,             // ✅ ADD delta field
-				DeltaValue:            p.DeltaParamValue,           // ✅ ADD delta field
-				DeltaEnabled:          p.DeltaEnabled,              // ✅ ADD delta field
-				DeltaDescription:      p.DeltaDescription,         // ✅ ADD delta field
+				ParentHttpSearchParamID: p.ParentSearchParamID,
+				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+				IsDelta:               p.IsDelta && p.ParentSearchParamID != nil,
+				DeltaKey:              p.DeltaParamKey,
+				DeltaValue:            p.DeltaParamValue,
+				DeltaEnabled:          p.DeltaEnabled,
+				DeltaDescription:      p.DeltaDescription,
 				CreatedAt:             p.CreatedAt,
 				UpdatedAt:             p.UpdatedAt,
 			}
@@ -461,12 +467,13 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				Value:              f.FormValue,
 				Enabled:            f.Enabled,
 				Description:        f.Description,
-				ParentHttpBodyFormID: f.ParentBodyFormID,    // ✅ ADD delta field
-				IsDelta:            f.IsDelta,                   // ✅ ADD delta field
-				DeltaKey:           f.DeltaFormKey,             // ✅ ADD delta field
-				DeltaValue:         f.DeltaFormValue,           // ✅ ADD delta field
-				DeltaEnabled:       f.DeltaEnabled,              // ✅ ADD delta field
-				DeltaDescription:   f.DeltaDescription,         // ✅ ADD delta field
+				ParentHttpBodyFormID: f.ParentBodyFormID,
+				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+				IsDelta:            f.IsDelta && f.ParentBodyFormID != nil,
+				DeltaKey:           f.DeltaFormKey,
+				DeltaValue:         f.DeltaFormValue,
+				DeltaEnabled:       f.DeltaEnabled,
+				DeltaDescription:   f.DeltaDescription,
 				CreatedAt:          f.CreatedAt,
 				UpdatedAt:          f.UpdatedAt,
 			}
@@ -485,12 +492,13 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				Value:                    u.UrlencodedValue,
 				Enabled:                  u.Enabled,
 				Description:              u.Description,
-				ParentHttpBodyUrlEncodedID: u.ParentBodyUrlencodedID,    // ✅ ADD delta field
-				IsDelta:                  u.IsDelta,                         // ✅ ADD delta field
-				DeltaKey:                 u.DeltaUrlencodedKey,              // ✅ ADD delta field
-				DeltaValue:               u.DeltaUrlencodedValue,            // ✅ ADD delta field
-				DeltaEnabled:             u.DeltaEnabled,                    // ✅ ADD delta field
-				DeltaDescription:         u.DeltaDescription,               // ✅ ADD delta field
+				ParentHttpBodyUrlEncodedID: u.ParentBodyUrlencodedID,
+				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+				IsDelta:                  u.IsDelta && u.ParentBodyUrlencodedID != nil,
+				DeltaKey:                 u.DeltaUrlencodedKey,
+				DeltaValue:               u.DeltaUrlencodedValue,
+				DeltaEnabled:             u.DeltaEnabled,
+				DeltaDescription:         u.DeltaDescription,
 				CreatedAt:                u.CreatedAt,
 				UpdatedAt:                u.UpdatedAt,
 			}
