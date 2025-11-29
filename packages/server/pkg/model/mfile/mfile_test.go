@@ -279,7 +279,6 @@ func TestContentTypeFromString(t *testing.T) {
 		expected ContentType
 	}{
 		{"folder", ContentTypeFolder},
-		{"item_folder", ContentTypeFolder},
 		{"flow", ContentTypeFlow},
 		{"http", ContentTypeHTTP},
 		{"unknown", ContentTypeUnknown},

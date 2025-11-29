@@ -13,7 +13,7 @@ type ContentType int8
 const (
 	ContentTypeUnknown   ContentType = -1
 	ContentTypeFolder    ContentType = 0 // folder
-	ContentTypeHTTP      ContentType = 1 // http (new model, replaces item_api)
+	ContentTypeHTTP      ContentType = 1 // http
 	ContentTypeHTTPDelta ContentType = 2 // http delta (draft/overlay)
 	ContentTypeFlow      ContentType = 3 // flow
 )
@@ -110,7 +110,7 @@ func (f File) Validate() error {
 // ContentTypeFromString converts a string to ContentType
 func ContentTypeFromString(s string) ContentType {
 	switch s {
-	case "folder", "item_folder":
+	case "folder":
 		return ContentTypeFolder
 	case "flow":
 		return ContentTypeFlow

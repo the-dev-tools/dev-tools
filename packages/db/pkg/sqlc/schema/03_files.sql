@@ -15,7 +15,7 @@ CREATE TABLE files (
   display_order REAL NOT NULL DEFAULT 0,
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
   CHECK (length (id) == 16),
-  CHECK (content_kind IN (0, 1, 2, 3)), -- 0 = item_folder, 1 = item_api, 2 = flow, 3 = http_delta
+	CHECK (content_kind IN (0, 1, 2, 3)), -- 0 = folder, 1 = http, 2 = flow, 3 = http_delta
   CHECK (
     (content_kind = 0 AND content_id IS NOT NULL) OR
     (content_kind = 1 AND content_id IS NOT NULL) OR

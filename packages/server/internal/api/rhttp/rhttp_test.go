@@ -82,8 +82,6 @@ func newHttpFixture(t *testing.T) *httpFixture {
 	}
 
 	// Create additional services needed for HTTP handler (not used in basic tests)
-	// headerService := sexampleheader.New(base.Queries)
-	// queryService := sexamplequery.New(base.Queries)
 	// respService := sexampleresp.New(base.Queries)
 
 	// Child entity services from separate packages
