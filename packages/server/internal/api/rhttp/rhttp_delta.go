@@ -452,7 +452,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req
 
 				delta := &apiv1.HttpSearchParamDelta{
 					DeltaHttpSearchParamId: param.ID.Bytes(),
-					// HttpId:                 param.HttpID.Bytes(),
+					HttpId:                 param.HttpID.Bytes(),
 				}
 
 				if param.ParentHttpSearchParamID != nil {
@@ -896,7 +896,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaCollection(ctx context.Context, req *con
 
 				delta := &apiv1.HttpAssertDelta{
 					DeltaHttpAssertId: assert.ID.Bytes(),
-					// HttpId:            assert.HttpID.Bytes(),
+					HttpId:            assert.HttpID.Bytes(),
 				}
 
 				if assert.ParentHttpAssertID != nil {
@@ -1071,7 +1071,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaCollection(ctx context.Context, req *con
 
 				delta := &apiv1.HttpHeaderDelta{
 					DeltaHttpHeaderId: header.ID.Bytes(),
-					// HttpId:            header.HttpID.Bytes(),
+					HttpId:            header.HttpID.Bytes(),
 				}
 
 				if header.ParentHttpHeaderID != nil {
@@ -1509,7 +1509,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaCollection(ctx context.Context, re
 
 				delta := &apiv1.HttpBodyFormDataDelta{
 					DeltaHttpBodyFormDataId: bodyForm.ID.Bytes(),
-					// HttpId:                  bodyForm.HttpID.Bytes(),
+					HttpId:                  bodyForm.HttpID.Bytes(),
 				}
 
 				if bodyForm.ParentHttpBodyFormID != nil {
@@ -1696,7 +1696,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCollection(ctx context.Context, 
 
 				delta := &apiv1.HttpBodyUrlEncodedDelta{
 					DeltaHttpBodyUrlEncodedId: bodyUrlEncoded.ID.Bytes(),
-					// HttpId:                    bodyUrlEncoded.HttpID.Bytes(),
+					HttpId:                    bodyUrlEncoded.HttpID.Bytes(),
 				}
 
 				if bodyUrlEncoded.ParentHttpBodyUrlEncodedID != nil {
