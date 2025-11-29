@@ -1,30 +1,37 @@
 # Import Overwrite Behavior Analysis
 
 ## Question
+
 "So are we doing upsert of all other stuff? how do you know it gonna same by name or what?"
 
 ## Answer
 
 ### 1. How "Sameness" is Detected (Base Requests)
+
 Currently, we detect existing Base Requests by **URL and Method** within the same Workspace.
 
 **In `harv2.go` (`processEntriesWithService`):**
+
 ```go
 existing, err := httpService.FindByURLAndMethod(ctx, workspaceID, baseReqRaw.Url, baseReqRaw.Method)
 ```
--   **If found:** We reuse `existing.ID` as the Base Request ID.
--   **If not found:** We generate a new ID (`idwrap.NewNow()`).
+
+- **If found:** We reuse `existing.ID` as the Base Request ID.
+- **If not found:** We generate a new ID (`idwrap.NewNow()`).
 
 ### 2. Delta Requests
--   **Before Fix:** We always generated a new Delta Request ID. This caused duplicates.
--   **After Fix:** We look up existing Deltas linked to the Base Request (`GetDeltasByParentID`). If found, we reuse that Delta ID.
+
+- **Before Fix:** We always generated a new Delta Request ID. This caused duplicates.
+- **After Fix:** We look up existing Deltas linked to the Base Request (`GetDeltasByParentID`). If found, we reuse that Delta ID.
 
 ### 3. Child Entities (Headers, Params, etc.)
+
 We do **NOT** currently detect "sameness" for child entities by value/key. We effectively treat them as "replace/append".
 
 **Current Behavior:**
--   `Upsert` on the Request (Base or Delta) updates the main record (Name, Description, etc.).
--   `StoreImportResults` then calls `Create` (INSERT) for all child entities found in the HAR.
+
+- `Upsert` on the Request (Base or Delta) updates the main record (Name, Description, etc.).
+- `StoreImportResults` then calls `Create` (INSERT) for all child entities found in the HAR.
 
 **Potential Issue:**
 If we reuse a Request ID, but simply `INSERT` the headers again, we might duplicate headers if they already exist.
@@ -32,18 +39,20 @@ e.g., Existing: `Header A: 1`. Import: `Header A: 1`.
 Result: Two `Header A` rows for the same Request?
 
 **Database Constraints:**
--   `http_header` usually has `(http_id, header_key)` uniqueness?
--   Let's check the schema (I cannot see schema files directly, but typically headers allow duplicates in HTTP spec, e.g., `Set-Cookie`).
--   However, most UI tools enforce unique keys or treat duplicates as array values.
+
+- `http_header` usually has `(http_id, header_key)` uniqueness?
+- Let's check the schema (I cannot see schema files directly, but typically headers allow duplicates in HTTP spec, e.g., `Set-Cookie`).
+- However, most UI tools enforce unique keys or treat duplicates as array values.
 
 **If the schema allows duplicate keys:** We are appending.
 **If the schema enforces unique keys:** `Create` will fail.
 
 **Recommendation for Child Entities:**
 To be truly "Upsert" friendly for child entities, we should probably:
+
 1.  **Delete all existing children** for the Request before inserting the new ones (Replace strategy).
-    *   *Pros:* Cleanest state, matches the HAR exactly.
-    *   *Cons:* Destructive history (if we track history per header).
+    - _Pros:_ Cleanest state, matches the HAR exactly.
+    - _Cons:_ Destructive history (if we track history per header).
 2.  **Or:** Check existence of each header by Key+Value? Too complex.
 
 **Current Implementation Status:**
@@ -51,10 +60,11 @@ We are `Upsert`ing the **Request**.
 We are `Insert`ing the **Headers**.
 
 If the user re-imports the same HAR:
+
 1.  Request is Upserted (Updated).
 2.  Headers are Inserted.
-    *   If DB allows duplicates: We get double headers.
-    *   If DB forbids duplicates: We get an error.
+    - If DB allows duplicates: We get double headers.
+    - If DB forbids duplicates: We get an error.
 
 **Investigation:**
 I suspect we might be duplicating headers on re-import.

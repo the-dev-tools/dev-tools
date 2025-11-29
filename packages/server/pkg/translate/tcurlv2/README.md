@@ -8,16 +8,16 @@ This package converts curl commands into the modern HTTP request model (`mhttp.H
 
 ## Key Differences from tcurl
 
-| Feature | tcurl (Legacy) | tcurlv2 (New) |
-|---------|----------------|---------------|
-| Main Model | `mitemapi.ItemApi` | `mhttp.HTTP` |
-| File System | Collection-based | Unified file system with `mfile.File` |
-| Context | CollectionID | WorkspaceID + FolderID |
-| Headers | `mexampleheader.Header` | `mhttp.HTTPHeader` |
-| Body Types | `mbodyraw`, `mbodyform`, `mbodyurl` | `mhttp.HTTPBodyRaw`, `mhttp.HTTPBodyForm`, `mhttp.HTTPBodyUrlencoded` |
-| Query Params | `mexamplequery.Query` | `mhttp.HTTPSearchParam` |
-| Delta System | Not supported | Full support with `ParentHttpID`, `IsDelta` |
-| File Integration | Limited | Full integration with `ContentKind.HTTP` |
+| Feature          | tcurl (Legacy)                      | tcurlv2 (New)                                                         |
+| ---------------- | ----------------------------------- | --------------------------------------------------------------------- |
+| Main Model       | `mitemapi.ItemApi`                  | `mhttp.HTTP`                                                          |
+| File System      | Collection-based                    | Unified file system with `mfile.File`                                 |
+| Context          | CollectionID                        | WorkspaceID + FolderID                                                |
+| Headers          | `mexampleheader.Header`             | `mhttp.HTTPHeader`                                                    |
+| Body Types       | `mbodyraw`, `mbodyform`, `mbodyurl` | `mhttp.HTTPBodyRaw`, `mhttp.HTTPBodyForm`, `mhttp.HTTPBodyUrlencoded` |
+| Query Params     | `mexamplequery.Query`               | `mhttp.HTTPSearchParam`                                               |
+| Delta System     | Not supported                       | Full support with `ParentHttpID`, `IsDelta`                           |
+| File Integration | Limited                             | Full integration with `ContentKind.HTTP`                              |
 
 ## Usage
 
@@ -202,6 +202,7 @@ go test -cover ./packages/server/pkg/translate/tcurlv2/...
 ## Examples
 
 See the test files for detailed usage examples covering:
+
 - Simple GET requests
 - POST requests with headers and bodies
 - Form data uploads

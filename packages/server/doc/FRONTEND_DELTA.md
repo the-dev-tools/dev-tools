@@ -43,6 +43,7 @@ The frontend maintains a live connection to the server. Events flow from the ser
 When an `Update` (or `Upsert` on existing item) is received, the frontend merges it using `Protobuf.mergeDelta`. It does **not** simply replace the object.
 
 **Logic:**
+
 - **Field Present:** Overwrite local value.
 - **Field Missing:** Keep local value (preserve existing data).
 - **Field is "Unset":** Explicitly remove the field (set to undefined/null).
@@ -78,8 +79,9 @@ The frontend often uses a "Dual Collection" pattern for scenarios like **Overrid
 - **Delta Collection**: The overrides (linked to the Origin).
 
 **ID Rule:**
+
 - **Origin ID**: The permanent ID of the base item.
-- **Delta ID**: A unique ID for the *override record* itself.
+- **Delta ID**: A unique ID for the _override record_ itself.
 - **Linking**: The Delta record contains an `originId` field pointing to the Base item.
 
 ```ascii
@@ -112,23 +114,28 @@ The frontend often uses a "Dual Collection" pattern for scenarios like **Overrid
 ## Core Components
 
 ### 1. `ApiCollection` Wrapper
+
 **Location**: `packages/client/src/api-new/collection.internal.tsx`
 Wraps `createCollection` from TanStack DB. Handles buffering stream events and the Initial Snapshot vs Stream race conditions.
 
 ### 2. Sync Lifecycle
+
 1.  **Stream**: Opens immediately.
 2.  **Buffer**: Queues events until Snapshot is done.
 3.  **Snapshot**: Fetches full state via Unary RPC.
 4.  **Apply**: Inserts Snapshot -> Replays Buffer -> Listens to Stream.
 
 ### 3. Optimistic Updates
+
 **Location**: `packages/client/src/api-new/collection.internal.tsx` -> `makeUtils`
+
 1.  **User Action**: UI triggers `insert/update`.
 2.  **Optimistic Write**: `onMutate` updates TanStack DB immediately.
 3.  **Network Request**: Sends RPC.
-4.  **Wait**: `waitForSync` polls until the Server Stream echoes an event timestamped *after* the mutation, ensuring consistency.
+4.  **Wait**: `waitForSync` polls until the Server Stream echoes an event timestamped _after_ the mutation, ensuring consistency.
 
 ## Key Files
+
 - `packages/client/src/api-new/collection.internal.tsx`: Sync loop & Optimistic logic.
 - `packages/client/src/api-new/protobuf.tsx`: `mergeDelta` implementation.
 - `packages/client/src/utils/delta.tsx`: `useDeltaState` for Origin/Delta merging.

@@ -612,6 +612,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateHTTPBodyRawStmt, err = db.PrepareContext(ctx, updateHTTPBodyRaw); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyRaw: %w", err)
 	}
+	if q.updateHTTPBodyRawDeltaStmt, err = db.PrepareContext(ctx, updateHTTPBodyRawDelta); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyRawDelta: %w", err)
+	}
 	if q.updateHTTPBodyUrlEncodedStmt, err = db.PrepareContext(ctx, updateHTTPBodyUrlEncoded); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTPBodyUrlEncoded: %w", err)
 	}
@@ -1666,6 +1669,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateHTTPBodyRawStmt: %w", cerr)
 		}
 	}
+	if q.updateHTTPBodyRawDeltaStmt != nil {
+		if cerr := q.updateHTTPBodyRawDeltaStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateHTTPBodyRawDeltaStmt: %w", cerr)
+		}
+	}
 	if q.updateHTTPBodyUrlEncodedStmt != nil {
 		if cerr := q.updateHTTPBodyUrlEncodedStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateHTTPBodyUrlEncodedStmt: %w", cerr)
@@ -2016,6 +2024,7 @@ type Queries struct {
 	updateHTTPBodyFormDeltaStmt                *sql.Stmt
 	updateHTTPBodyFormOrderStmt                *sql.Stmt
 	updateHTTPBodyRawStmt                      *sql.Stmt
+	updateHTTPBodyRawDeltaStmt                 *sql.Stmt
 	updateHTTPBodyUrlEncodedStmt               *sql.Stmt
 	updateHTTPBodyUrlEncodedDeltaStmt          *sql.Stmt
 	updateHTTPDeltaStmt                        *sql.Stmt
@@ -2241,6 +2250,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateHTTPBodyFormDeltaStmt:                q.updateHTTPBodyFormDeltaStmt,
 		updateHTTPBodyFormOrderStmt:                q.updateHTTPBodyFormOrderStmt,
 		updateHTTPBodyRawStmt:                      q.updateHTTPBodyRawStmt,
+		updateHTTPBodyRawDeltaStmt:                 q.updateHTTPBodyRawDeltaStmt,
 		updateHTTPBodyUrlEncodedStmt:               q.updateHTTPBodyUrlEncodedStmt,
 		updateHTTPBodyUrlEncodedDeltaStmt:          q.updateHTTPBodyUrlEncodedDeltaStmt,
 		updateHTTPDeltaStmt:                        q.updateHTTPDeltaStmt,

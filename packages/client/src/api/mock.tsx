@@ -28,7 +28,7 @@ import {
   HttpService,
   HttpSync_ValueUnion_Kind,
   HttpSyncInsertSchema,
-  HttpVersionSync_ValueUnion_Kind
+  HttpVersionSync_ValueUnion_Kind,
 } from '@the-dev-tools/spec/api/http/v1/http_pb';
 import {
   LogLevel,

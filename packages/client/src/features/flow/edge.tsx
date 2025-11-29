@@ -54,8 +54,8 @@ export const useEdgeState = () => {
       ),
     );
 
-    if (changes.add?.length)console.log('add', changes.add)
-      //  pipe(changes.add, Array.map(_ => {}))
+    if (changes.add?.length) console.log('add', changes.add);
+    //  pipe(changes.add, Array.map(_ => {}))
 
     if (changes.remove?.length)
       pipe(

@@ -4864,6 +4864,36 @@ func (q *Queries) UpdateHTTPBodyRaw(ctx context.Context, arg UpdateHTTPBodyRawPa
 	return err
 }
 
+const updateHTTPBodyRawDelta = `-- name: UpdateHTTPBodyRawDelta :exec
+UPDATE http_body_raw
+SET
+  delta_raw_data = ?,
+  delta_content_type = ?,
+  delta_compression_type = ?,
+  updated_at = ?
+WHERE
+  id = ?
+`
+
+type UpdateHTTPBodyRawDeltaParams struct {
+	DeltaRawData         interface{}
+	DeltaContentType     interface{}
+	DeltaCompressionType interface{}
+	UpdatedAt            int64
+	ID                   idwrap.IDWrap
+}
+
+func (q *Queries) UpdateHTTPBodyRawDelta(ctx context.Context, arg UpdateHTTPBodyRawDeltaParams) error {
+	_, err := q.exec(ctx, q.updateHTTPBodyRawDeltaStmt, updateHTTPBodyRawDelta,
+		arg.DeltaRawData,
+		arg.DeltaContentType,
+		arg.DeltaCompressionType,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
 const updateHTTPBodyUrlEncoded = `-- name: UpdateHTTPBodyUrlEncoded :exec
 UPDATE http_body_urlencoded
 SET

@@ -101,9 +101,9 @@ The `depfinder` component is responsible for detecting data dependencies between
 
 ### Integration with Delta System
 
-When a dependency is found and replaced in the **Base Request** (`mhttp.HTTP`), the **Delta Request** is created as a copy *after* this replacement.
+When a dependency is found and replaced in the **Base Request** (`mhttp.HTTP`), the **Delta Request** is created as a copy _after_ this replacement.
 
-*   **Base Request:** `Url: /users/{{...}}`
-*   **Delta Request:** `Url: /users/{{...}}` (Inherits the template)
+- **Base Request:** `Url: /users/{{...}}`
+- **Delta Request:** `Url: /users/{{...}}` (Inherits the template)
 
 This ensures that both the base definition and the active delta configuration correctly reference the dynamic data from the previous step in the flow.

@@ -35,6 +35,11 @@ func ConvertToDBHttpBodyRaw(body mhttp.HTTPBodyRaw) gen.HttpBodyRaw {
 }
 
 func ConvertToModelHttpBodyRaw(dbBody gen.HttpBodyRaw) mhttp.HTTPBodyRaw {
+	var deltaRawData []byte
+	if dbBody.DeltaRawData != nil {
+		deltaRawData = dbBody.DeltaRawData.([]byte)
+	}
+
 	return mhttp.HTTPBodyRaw{
 		ID:                   dbBody.ID,
 		HttpID:               dbBody.HttpID,
@@ -43,7 +48,7 @@ func ConvertToModelHttpBodyRaw(dbBody gen.HttpBodyRaw) mhttp.HTTPBodyRaw {
 		CompressionType:      dbBody.CompressionType,
 		ParentBodyRawID:      dbBody.ParentBodyRawID,
 		IsDelta:              dbBody.IsDelta,
-		DeltaRawData:         dbBody.DeltaRawData,
+		DeltaRawData:         deltaRawData,
 		DeltaContentType:     dbBody.DeltaContentType,
 		DeltaCompressionType: dbBody.DeltaCompressionType,
 		CreatedAt:            dbBody.CreatedAt,
@@ -141,16 +146,66 @@ func (s *HttpBodyRawService) Update(ctx context.Context, id idwrap.IDWrap, rawDa
 }
 
 func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWrap, rawData []byte, contentType string) (*mhttp.HTTPBodyRaw, error) {
-	// Create the delta body raw
+	// 1. Get the HTTP entry to find its parent
+	httpEntry, err := s.queries.GetHTTP(ctx, httpID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !httpEntry.IsDelta || httpEntry.ParentHttpID == nil {
+		return nil, errors.New("cannot create delta body for non-delta HTTP request")
+	}
+
+	// 2. Find the parent HTTP's body raw
+	var parentHttpID *idwrap.IDWrap
+	if httpEntry.ParentHttpID != nil {
+		parentHttpID = httpEntry.ParentHttpID
+	}
+	
+	if parentHttpID == nil {
+		return nil, errors.New("parent HTTP ID is invalid or missing")
+	}
+
+	parentBody, err := s.queries.GetHTTPBodyRaw(ctx, *parentHttpID)
+	
+	var parentBodyID *idwrap.IDWrap
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// If parent has no body, we must create a placeholder one to satisfy the constraint
+			// Or we could fail. For now, let's create an empty base body for the parent.
+			now := dbtime.DBNow().Unix()
+			newParentID := idwrap.NewNow()
+			err = s.queries.CreateHTTPBodyRaw(ctx, gen.CreateHTTPBodyRawParams{
+				ID:              newParentID,
+				HttpID:          *parentHttpID,
+				RawData:         []byte{},
+				ContentType:     "",
+				CompressionType: 0,
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			})
+			if err != nil {
+				return nil, err
+			}
+			parentBodyID = &newParentID
+		} else {
+			return nil, err
+		}
+	} else {
+		id := parentBody.ID
+		parentBodyID = &id
+	}
+
+	// 3. Create the delta body raw linked to the parent body
 	now := dbtime.DBNow().Unix()
 	id := idwrap.NewNow()
-	err := s.queries.CreateHTTPBodyRaw(ctx, gen.CreateHTTPBodyRawParams{
+	err = s.queries.CreateHTTPBodyRaw(ctx, gen.CreateHTTPBodyRawParams{
 		ID:                   id,
 		HttpID:               httpID,
 		RawData:              nil, // Base data is nil for delta record
 		ContentType:          "",  // Base content type is empty
 		CompressionType:      0,
-		ParentBodyRawID:      nil, // Will be linked by logic if needed, but typically linked via HTTP ID
+		ParentBodyRawID:      parentBodyID, // Linked to parent body
 		IsDelta:              true,
 		DeltaRawData:         rawData,
 		DeltaContentType:     stringToNullPtr(&contentType),
