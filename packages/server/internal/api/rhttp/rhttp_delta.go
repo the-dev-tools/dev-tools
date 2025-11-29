@@ -429,7 +429,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req
 	var allDeltas []*apiv1.HttpSearchParamDelta
 	for _, workspace := range workspaces {
 		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -446,10 +446,17 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req
 
 			// Convert to delta format
 			for _, param := range params {
+				if !param.IsDelta {
+					continue
+				}
+
 				delta := &apiv1.HttpSearchParamDelta{
 					DeltaHttpSearchParamId: param.ID.Bytes(),
-					HttpSearchParamId:      param.ID.Bytes(),
 					// HttpId:                 param.HttpID.Bytes(),
+				}
+
+				if param.ParentHttpSearchParamID != nil {
+					delta.HttpSearchParamId = param.ParentHttpSearchParamID.Bytes()
 				}
 
 				// Only include delta fields if they exist
@@ -869,7 +876,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaCollection(ctx context.Context, req *con
 	var allDeltas []*apiv1.HttpAssertDelta
 	for _, workspace := range workspaces {
 		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -883,10 +890,17 @@ func (h *HttpServiceRPC) HttpAssertDeltaCollection(ctx context.Context, req *con
 
 			// Convert to delta format
 			for _, assert := range asserts {
+				if !assert.IsDelta {
+					continue
+				}
+
 				delta := &apiv1.HttpAssertDelta{
 					DeltaHttpAssertId: assert.ID.Bytes(),
-					HttpAssertId:      assert.ID.Bytes(),
 					// HttpId:            assert.HttpID.Bytes(),
+				}
+
+				if assert.ParentHttpAssertID != nil {
+					delta.HttpAssertId = assert.ParentHttpAssertID.Bytes()
 				}
 
 				// Only include delta fields if they exist
@@ -1037,7 +1051,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaCollection(ctx context.Context, req *con
 	var allDeltas []*apiv1.HttpHeaderDelta
 	for _, workspace := range workspaces {
 		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1051,10 +1065,17 @@ func (h *HttpServiceRPC) HttpHeaderDeltaCollection(ctx context.Context, req *con
 
 			// Convert to delta format
 			for _, header := range headers {
+				if !header.IsDelta {
+					continue
+				}
+
 				delta := &apiv1.HttpHeaderDelta{
 					DeltaHttpHeaderId: header.ID.Bytes(),
-					HttpHeaderId:      header.ID.Bytes(),
 					// HttpId:            header.HttpID.Bytes(),
+				}
+
+				if header.ParentHttpHeaderID != nil {
+					delta.HttpHeaderId = header.ParentHttpHeaderID.Bytes()
 				}
 
 				// Only include delta fields if they exist
@@ -1468,7 +1489,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaCollection(ctx context.Context, re
 	var allDeltas []*apiv1.HttpBodyFormDataDelta
 	for _, workspace := range workspaces {
 		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1482,10 +1503,17 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaCollection(ctx context.Context, re
 
 			// Convert to delta format
 			for _, bodyForm := range bodyForms {
+				if !bodyForm.IsDelta {
+					continue
+				}
+
 				delta := &apiv1.HttpBodyFormDataDelta{
 					DeltaHttpBodyFormDataId: bodyForm.ID.Bytes(),
-					HttpBodyFormDataId:      bodyForm.ID.Bytes(),
 					// HttpId:                  bodyForm.HttpID.Bytes(),
+				}
+
+				if bodyForm.ParentHttpBodyFormID != nil {
+					delta.HttpBodyFormDataId = bodyForm.ParentHttpBodyFormID.Bytes()
 				}
 
 				// Only include delta fields if they exist
@@ -1648,7 +1676,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCollection(ctx context.Context, 
 	var allDeltas []*apiv1.HttpBodyUrlEncodedDelta
 	for _, workspace := range workspaces {
 		// Get HTTP entries for this workspace
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1662,10 +1690,17 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCollection(ctx context.Context, 
 
 			// Convert to delta format
 			for _, bodyUrlEncoded := range bodyUrlEncodeds {
+				if !bodyUrlEncoded.IsDelta {
+					continue
+				}
+
 				delta := &apiv1.HttpBodyUrlEncodedDelta{
 					DeltaHttpBodyUrlEncodedId: bodyUrlEncoded.ID.Bytes(),
-					HttpBodyUrlEncodedId:      bodyUrlEncoded.ID.Bytes(),
 					// HttpId:                    bodyUrlEncoded.HttpID.Bytes(),
+				}
+
+				if bodyUrlEncoded.ParentHttpBodyUrlEncodedID != nil {
+					delta.HttpBodyUrlEncodedId = bodyUrlEncoded.ParentHttpBodyUrlEncodedID.Bytes()
 				}
 
 				// Only include delta fields if they exist
@@ -1826,7 +1861,7 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaCollection(ctx context.Context, req *co
 
 	var allDeltas []*apiv1.HttpBodyRawDelta
 	for _, workspace := range workspaces {
-		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
+		httpList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1839,8 +1874,13 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaCollection(ctx context.Context, req *co
 
 			if body != nil {
 				data := string(body.RawData)
+				httpId := body.HttpID.Bytes()
+				if http.ParentHttpID != nil {
+					httpId = http.ParentHttpID.Bytes()
+				}
+
 				allDeltas = append(allDeltas, &apiv1.HttpBodyRawDelta{
-					HttpId: body.HttpID.Bytes(),
+					HttpId: httpId,
 					Data:   &data,
 				})
 			}
