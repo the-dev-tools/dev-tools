@@ -18,15 +18,18 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 	[]mhttp.HTTPBodyForm,
 	[]mhttp.HTTPBodyUrlencoded,
 	[]mhttp.HTTPBodyRaw,
+	[]depfinder.VarCouple,
 	error,
 ) {
 	// Use the original function logic but inject dependency checks
 	// Since we can't easily call the original function and then modify, we duplicate the logic here
 	// but integrated with DepFinder.
 
+	var allCouples []depfinder.VarCouple
+
 	parsedURL, err := url.Parse(entry.Request.URL)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL %s: %w", entry.Request.URL, err)
+		return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL %s: %w", entry.Request.URL, err)
 	}
 
 	// Determine body kind
@@ -61,8 +64,11 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 
 	if depFinder != nil {
 		// Check URL Path Params for dependencies
-		newURL, _, _ := depFinder.ReplaceURLPathParams(parsedURL.String())
-		httpReq.Url = newURL
+		newURL, found, couples := depFinder.ReplaceURLPathParams(parsedURL.String())
+		if found {
+			httpReq.Url = newURL
+			allCouples = append(allCouples, couples...)
+		}
 	}
 
 	// Check URL for full replacements (query params are handled separately)
@@ -79,24 +85,11 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 		// Dependency Check
 		val := h.Value
 		if depFinder != nil {
-			if newVal, found, _ := depFinder.ReplaceWithPaths(val); found {
+			// Use ReplaceWithPathsSubstring for headers (often tokens are substrings like "Bearer ...")
+			if newVal, found, couples := depFinder.ReplaceWithPathsSubstring(val); found {
 				if strVal, ok := newVal.(string); ok {
 					val = strVal
-				}
-			} else if strings.Contains(val, " ") {
-				// Try splitting by space (simple heuristic for Bearer tokens)
-				parts := strings.Split(val, " ")
-				changed := false
-				for i, part := range parts {
-					if newVal, found, _ := depFinder.ReplaceWithPaths(part); found {
-						if strVal, ok := newVal.(string); ok {
-							parts[i] = strVal
-							changed = true
-						}
-					}
-				}
-				if changed {
-					val = strings.Join(parts, " ")
+					allCouples = append(allCouples, couples...)
 				}
 			}
 		}
@@ -117,9 +110,10 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 	for _, q := range entry.Request.QueryString {
 		val := q.Value
 		if depFinder != nil {
-			if newVal, found, _ := depFinder.ReplaceWithPaths(val); found {
+			if newVal, found, couples := depFinder.ReplaceWithPaths(val); found {
 				if strVal, ok := newVal.(string); ok {
 					val = strVal
+					allCouples = append(allCouples, couples...)
 				}
 			}
 		}
@@ -144,9 +138,10 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 			for _, p := range entry.Request.PostData.Params {
 				val := p.Value
 				if depFinder != nil {
-					if newVal, found, _ := depFinder.ReplaceWithPaths(val); found {
+					if newVal, found, couples := depFinder.ReplaceWithPaths(val); found {
 						if strVal, ok := newVal.(string); ok {
 							val = strVal
+							allCouples = append(allCouples, couples...)
 						}
 					}
 				}
@@ -164,9 +159,10 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 			for _, p := range entry.Request.PostData.Params {
 				val := p.Value
 				if depFinder != nil {
-					if newVal, found, _ := depFinder.ReplaceWithPaths(val); found {
+					if newVal, found, couples := depFinder.ReplaceWithPaths(val); found {
 						if strVal, ok := newVal.(string); ok {
 							val = strVal
+							allCouples = append(allCouples, couples...)
 						}
 					}
 				}
@@ -187,7 +183,7 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 				res := depFinder.TemplateJSON([]byte(text))
 				if res.Err == nil {
 					text = string(res.NewJson)
-					// Here we would also capture res.Couples to add edges
+					allCouples = append(allCouples, res.Couples...)
 				}
 			}
 
@@ -203,7 +199,7 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 		}
 	}
 
-	return httpReq, headers, params, bodyForms, bodyUrlEncoded, bodyRaws, nil
+	return httpReq, headers, params, bodyForms, bodyUrlEncoded, bodyRaws, allCouples, nil
 }
 
 // generateRequestName creates a descriptive name from HTTP method and URL

@@ -322,13 +322,13 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		nodeCounter++
 
 		// 1. Create Raw (Base) Request - No DepFinder
-		baseReq, baseHeaders, baseParams, baseBodyForms, baseBodyUrlEncoded, baseBodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, nil)
+		baseReq, baseHeaders, baseParams, baseBodyForms, baseBodyUrlEncoded, baseBodyRaws, _, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create base request for entry %d: %w", i, err)
 		}
 
 		// 2. Create Templated (Delta) Request - With DepFinder
-		templatedReq, templatedHeaders, templatedParams, templatedBodyForms, templatedBodyUrlEncoded, templatedBodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
+		templatedReq, templatedHeaders, templatedParams, templatedBodyForms, templatedBodyUrlEncoded, templatedBodyRaws, deps, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create templated request for entry %d: %w", i, err)
 		}
@@ -418,17 +418,11 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		// --- Dependency Logic ---
 
 		// 1. Data Dependency (Edges from DepFinder)
-		// Note: createHTTPRequestFromEntryWithDeps returns *modified* entities with templates.
-		// We need to know WHICH edges were found.
-		// Since createHTTPRequestFromEntryWithDeps abstracts this, we need to recover the edges.
-		// Actually, we should probably move the dependency checking *out* or make it return edges.
-		// For simplicity, let's check dependencies here using the modified httpReq fields or passed back info.
-
-		// (Self-Correction: To avoid changing the signature too much, let's extract dependencies *before* creating the request
-		// or have the function return them. Let's assume we refactor `createHTTPRequestFromEntry` to `createHTTPRequestFromEntryWithDeps`
-		// and it returns `[]depfinder.VarCouple` used.)
-
-		// See implementation of `createHTTPRequestFromEntryWithDeps` below for details.
+		for _, couple := range deps {
+			if !edgeExists(result.Edges, couple.NodeID, nodeID) {
+				addEdge(result, flowID, couple.NodeID, nodeID)
+			}
+		}
 
 		// 2. Timestamp Sequencing
 		currentTimestamp := entry.StartedDateTime
@@ -563,13 +557,13 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		nodeCounter++
 
 		// 1. Create Raw (Base) Request - No DepFinder
-		baseReqRaw, baseHeadersRaw, baseParamsRaw, baseBodyFormsRaw, baseBodyUrlEncodedRaw, baseBodyRawsRaw, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, nil)
+		baseReqRaw, baseHeadersRaw, baseParamsRaw, baseBodyFormsRaw, baseBodyUrlEncodedRaw, baseBodyRawsRaw, _, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create raw request for entry %d: %w", i, err)
 		}
 
 		// 2. Create Templated (Delta) Request - With DepFinder
-		templatedReq, templatedHeaders, templatedParams, templatedBodyForms, templatedBodyUrlEncoded, templatedBodyRaws, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
+		templatedReq, templatedHeaders, templatedParams, templatedBodyForms, templatedBodyUrlEncoded, templatedBodyRaws, deps, err := createHTTPRequestFromEntryWithDeps(entry, workspaceID, depFinder)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create templated request for entry %d: %w", i, err)
 		}
@@ -745,6 +739,13 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		fileMap[deltaReq.ID.String()] = deltaFile
 
 		// --- Dependency Logic (same as original) ---
+
+		// 1. Data Dependency (Edges from DepFinder)
+		for _, couple := range deps {
+			if !edgeExists(result.Edges, couple.NodeID, nodeID) {
+				addEdge(result, flowID, couple.NodeID, nodeID)
+			}
+		}
 
 		// Timestamp Sequencing
 		currentTimestamp := entry.StartedDateTime
