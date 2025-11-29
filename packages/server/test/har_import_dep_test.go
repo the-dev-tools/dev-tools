@@ -7,8 +7,15 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rhttp"
+	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/shttpassert"
+	"the-dev-tools/server/pkg/service/svar"
+	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 )
 
@@ -119,23 +126,71 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 	
 	// The value should be templated, e.g., "Bearer {{...}}"
 	// It should NOT be "Bearer abc-123"
-	t.Logf("Found Delta Authorization Header: %s", authHeaderEvent.HttpHeader.Value)
+	t.Logf("Found Delta Authorization Header in Sync: %s", authHeaderEvent.HttpHeader.Value)
 	assert.Contains(t, authHeaderEvent.HttpHeader.Value, "{{", "Value should contain variable template")
 	assert.NotContains(t, authHeaderEvent.HttpHeader.Value, "abc-123", "Value should NOT contain raw secret")
 	assert.Contains(t, authHeaderEvent.HttpHeader.Value, "Bearer ", "Value should preserve prefix")
 
-	// 4. Verify Static Header
-	// The "X-Static" header should NOT have a Delta if it matches the base?
-	// Wait, HAR import creates Base = HAR.
-	// If Delta matches Base (no templating), does it create a Delta Header?
-	// Current logic: It creates Templated Delta requests.
-	// If a header has NO dependency, it stays as is in Base.
-	// Does it create a Delta Header with the SAME value? Or does it omit it?
-	// Ideally it omits it (inherits).
-	// Let's check if we received a Delta event for X-Static.
-	// Note: We consumed events from channel above, so we can't re-iterate easily unless we stored them.
-	// But the loop broke on finding Auth. So X-Static might be left in channel or already consumed.
+	// 4. Verify Collection Consistency
+	// Instantiate rhttp handler
+	envService := senv.New(suite.baseDB.Queries, suite.importHandler.Logger)
+	varService := svar.New(suite.baseDB.Queries, suite.importHandler.Logger)
+	httpAssertService := shttpassert.New(suite.baseDB.Queries)
+	httpResponseService := shttp.NewHttpResponseService(suite.baseDB.Queries)
 	
+	httpHandler := rhttp.New(
+		suite.baseDB.DB,
+		*suite.importHandler.HttpService,
+		suite.services.Us,
+		suite.services.Ws,
+		suite.services.Wus,
+		envService,
+		varService,
+		suite.importHandler.HttpBodyRawService,
+		suite.importHandler.HttpHeaderService,
+		suite.importHandler.HttpSearchParamService,
+		suite.importHandler.HttpBodyFormService,
+		suite.importHandler.HttpBodyUrlEncodedService,
+		httpAssertService,
+		httpResponseService,
+		suite.importHandler.HttpStream, 
+		suite.importHandler.HttpHeaderStream,
+		suite.importHandler.HttpSearchParamStream,
+		suite.importHandler.HttpBodyFormStream,
+		suite.importHandler.HttpBodyUrlEncodedStream,
+		memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent](),
+		memory.NewInMemorySyncStreamer[rhttp.HttpVersionTopic, rhttp.HttpVersionEvent](),
+		memory.NewInMemorySyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent](),
+		memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent](),
+		memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent](),
+		suite.importHandler.HttpBodyRawStream,
+	)
+
+	// Call HttpHeaderDeltaCollection
+	headerDeltaCollResp, err := httpHandler.HttpHeaderDeltaCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+
+	// Find the Authorization header in the collection
+	var foundHeaderInColl *httpv1.HttpHeaderDelta
+	for _, h := range headerDeltaCollResp.Msg.Items {
+		if string(h.DeltaHttpHeaderId) == string(authHeaderEvent.HttpHeader.HttpHeaderId) {
+			foundHeaderInColl = h
+			break
+		}
+	}
+
+	require.NotNil(t, foundHeaderInColl, "Delta Authorization Header should be in Delta Collection")
+	
+	// Check Value in Collection
+	assert.Equal(t, authHeaderEvent.HttpHeader.Value, *foundHeaderInColl.Value, "Collection Value should match Sync Value")
+	t.Logf("Found Delta Authorization Header in Collection: %s", *foundHeaderInColl.Value)
+
+	// Check Parent Mapping
+	// We need to find the Base Header ID.
+	// We can assume the import created a base header.
+	// Let's verify that `HttpHeaderId` in collection is NOT `DeltaHttpHeaderId`.
+	assert.NotEqual(t, foundHeaderInColl.DeltaHttpHeaderId, foundHeaderInColl.HttpHeaderId, "Collection: HttpHeaderId should point to Parent, not Self")
+
 	// 5. Verify File Events
 	// Check if any file events were published.
 	// Usually importing a HAR creates a Flow file.
