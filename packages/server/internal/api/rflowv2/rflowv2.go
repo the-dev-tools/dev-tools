@@ -3208,26 +3208,37 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 	var syncEvent *flowv1.NodeHttpSync
 	switch evt.Type {
 	case nodeEventInsert:
+		insert := &flowv1.NodeHttpSyncInsert{
+			NodeId: nodeReq.FlowNodeID.Bytes(),
+			HttpId: nodeReq.HttpID.Bytes(),
+		}
+		if nodeReq.DeltaHttpID != nil {
+			insert.DeltaHttpId = nodeReq.DeltaHttpID.Bytes()
+		}
 		syncEvent = &flowv1.NodeHttpSync{
 			Value: &flowv1.NodeHttpSync_ValueUnion{
-				Kind: flowv1.NodeHttpSync_ValueUnion_KIND_INSERT,
-				Insert: &flowv1.NodeHttpSyncInsert{
-					NodeId: nodeReq.FlowNodeID.Bytes(),
-					HttpId: nodeReq.HttpID.Bytes(),
-				},
+				Kind:   flowv1.NodeHttpSync_ValueUnion_KIND_INSERT,
+				Insert: insert,
 			},
 		}
 	case nodeEventUpdate:
+		update := &flowv1.NodeHttpSyncUpdate{
+			NodeId: nodeReq.FlowNodeID.Bytes(),
+			HttpId: &flowv1.NodeHttpSyncUpdate_HttpIdUnion{
+				Kind:  flowv1.NodeHttpSyncUpdate_HttpIdUnion_KIND_VALUE,
+				Value: nodeReq.HttpID.Bytes(),
+			},
+		}
+		if nodeReq.DeltaHttpID != nil {
+			update.DeltaHttpId = &flowv1.NodeHttpSyncUpdate_DeltaHttpIdUnion{
+				Kind:  flowv1.NodeHttpSyncUpdate_DeltaHttpIdUnion_KIND_VALUE,
+				Value: nodeReq.DeltaHttpID.Bytes(),
+			}
+		}
 		syncEvent = &flowv1.NodeHttpSync{
 			Value: &flowv1.NodeHttpSync_ValueUnion{
-				Kind: flowv1.NodeHttpSync_ValueUnion_KIND_UPDATE,
-				Update: &flowv1.NodeHttpSyncUpdate{
-					NodeId: nodeReq.FlowNodeID.Bytes(),
-					HttpId: &flowv1.NodeHttpSyncUpdate_HttpIdUnion{
-						Kind:  flowv1.NodeHttpSyncUpdate_HttpIdUnion_KIND_VALUE,
-						Value: nodeReq.HttpID.Bytes(),
-					},
-				},
+				Kind:   flowv1.NodeHttpSync_ValueUnion_KIND_UPDATE,
+				Update: update,
 			},
 		}
 	case nodeEventDelete:
@@ -4779,10 +4790,14 @@ func serializeNodeHTTP(n mnrequest.MNRequest) *flowv1.NodeHttp {
 			NodeId: n.FlowNodeID.Bytes(),
 		}
 	}
-	return &flowv1.NodeHttp{
+	msg := &flowv1.NodeHttp{
 		NodeId: n.FlowNodeID.Bytes(),
 		HttpId: n.HttpID.Bytes(),
 	}
+	if n.DeltaHttpID != nil {
+		msg.DeltaHttpId = n.DeltaHttpID.Bytes()
+	}
+	return msg
 }
 
 func serializeNodeNoop(n mnnoop.NoopNode) *flowv1.NodeNoOp {
