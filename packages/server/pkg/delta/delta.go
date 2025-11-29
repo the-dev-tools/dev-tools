@@ -318,6 +318,8 @@ func resolveRawBody(base, delta mhttp.HTTPBodyRaw) mhttp.HTTPBodyRaw {
 	// Check if Delta has data to override
 	if len(delta.DeltaRawData) > 0 {
 		resolved.RawData = delta.DeltaRawData
+	} else if delta.IsDelta && len(delta.RawData) > 0 {
+		resolved.RawData = delta.RawData
 	}
 
 	if delta.DeltaContentType != nil {

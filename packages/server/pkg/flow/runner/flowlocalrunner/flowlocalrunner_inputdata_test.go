@@ -311,3 +311,160 @@ func TestFlowLocalRunnerRequestNodeEmitsInputData(t *testing.T) {
 		t.Fatalf("expected foreach_4.item.id to be tracked, got %+v", foreachVal)
 	}
 }
+
+// TestFlowLocalRunnerRequestNodeEmitsInputDataForBodyOnlyVariables verifies that
+// variables used ONLY in the body (not in URL or headers) are properly tracked.
+// This is a regression test for the issue where body variables were not being tracked
+// while header variables were.
+func TestFlowLocalRunnerRequestNodeEmitsInputDataForBodyOnlyVariables(t *testing.T) {
+	t.Parallel()
+
+	startID := idwrap.NewNow()
+	requestNodeID := idwrap.NewNow()
+
+	startNode := &singleEdgeStartNode{id: startID, next: requestNodeID}
+
+	// URL has NO variables - only the body has variables
+	endpoint := mhttp.HTTP{
+		ID:       idwrap.NewNow(),
+		Name:     "request",
+		Method:   "POST",
+		Url:      "https://api.example.com/categories", // Static URL, NO variables
+		BodyKind: mhttp.HttpBodyKindRaw,
+	}
+	// Body has a variable referencing another request's response
+	rawBody := &mhttp.HTTPBodyRaw{
+		ID:      idwrap.NewNow(),
+		HttpID:  endpoint.ID,
+		RawData: []byte(`{"categoryId": "{{ prev_request.response.body.id }}"}`),
+	}
+
+	respChan := make(chan nrequest.NodeRequestSideResp, 10)
+	go func() {
+		for resp := range respChan {
+			if resp.Done != nil {
+				close(resp.Done)
+			}
+		}
+	}()
+	defer close(respChan)
+
+	requestNode := nrequest.New(
+		requestNodeID,
+		"request",
+		endpoint,
+		nil, // no headers
+		nil, // no params
+		rawBody,
+		nil, // formBody
+		nil, // urlBody
+		nil, // asserts
+		staticHTTPClient{},
+		respChan,
+		slog.Default(),
+	)
+
+	nodeMap := map[idwrap.IDWrap]node.FlowNode{
+		startID:       startNode,
+		requestNodeID: requestNode,
+	}
+
+	edges := []edge.Edge{
+		edge.NewEdge(idwrap.NewNow(), startID, requestNodeID, edge.HandleUnspecified, int32(edge.EdgeKindNoOp)),
+	}
+	edgesMap := edge.NewEdgesMap(edges)
+
+	runnerID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	fr := CreateFlowRunner(runnerID, flowID, startID, nodeMap, edgesMap, 0, nil)
+
+	nodeStates := make(chan runner.FlowNodeStatus, 10)
+	flowStatus := make(chan runner.FlowStatus, 2)
+
+	// Variables that simulate a previous request's response
+	baseVars := map[string]any{
+		"prev_request": map[string]any{
+			"response": map[string]any{
+				"body": map[string]any{
+					"id": "category-123",
+				},
+			},
+		},
+	}
+
+	var (
+		mu          sync.Mutex
+		successSeen bool
+		inputData   map[string]any
+	)
+
+	statesDone := make(chan struct{})
+	go func() {
+		defer close(statesDone)
+		for status := range nodeStates {
+			if status.NodeID == requestNodeID && status.State == mnnode.NODE_STATE_SUCCESS {
+				mu.Lock()
+				successSeen = true
+				if data, ok := status.InputData.(map[string]any); ok {
+					inputData = data
+				}
+				mu.Unlock()
+			}
+		}
+	}()
+
+	statusDone := make(chan struct{})
+	go func() {
+		for range flowStatus {
+		}
+		close(statusDone)
+	}()
+
+	err := fr.RunWithEvents(
+		context.Background(),
+		runner.FlowEventChannels{
+			NodeStates: nodeStates,
+			FlowStatus: flowStatus,
+		},
+		baseVars,
+	)
+	if err != nil {
+		t.Fatalf("runner returned error: %v", err)
+	}
+
+	select {
+	case <-statesDone:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for node states to drain")
+	}
+
+	select {
+	case <-statusDone:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for flow status to drain")
+	}
+
+	if !successSeen {
+		t.Fatalf("did not observe success status for request node")
+	}
+	if len(inputData) == 0 {
+		t.Fatalf("expected input data for request node (body-only variable), got empty inputData")
+	}
+
+	// The body-only variable should be tracked
+	prevReqVal, ok := inputData["prev_request"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected prev_request subtree in inputData for body-only variable, got %+v", inputData)
+	}
+	respVal, ok := prevReqVal["response"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected prev_request.response subtree, got %+v", prevReqVal)
+	}
+	bodyVal, ok := respVal["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected prev_request.response.body subtree, got %+v", respVal)
+	}
+	if bodyVal["id"] != "category-123" {
+		t.Fatalf("expected prev_request.response.body.id to be 'category-123', got %+v", bodyVal["id"])
+	}
+}
