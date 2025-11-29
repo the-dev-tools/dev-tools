@@ -1033,6 +1033,16 @@ SET
 WHERE
   id = ?;
 
+-- name: UpdateHTTPBodyRawDelta :exec
+UPDATE http_body_raw
+SET
+  delta_raw_data = ?,
+  delta_content_type = ?,
+  delta_compression_type = ?,
+  updated_at = ?
+WHERE
+  id = ?;
+
 -- name: DeleteHTTPBodyRaw :exec
 DELETE FROM http_body_raw
 WHERE

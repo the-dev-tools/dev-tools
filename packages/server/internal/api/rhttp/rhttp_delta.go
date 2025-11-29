@@ -13,6 +13,9 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mhttpassert"
+	"the-dev-tools/server/pkg/model/mhttpbodyform"
+	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	"the-dev-tools/server/pkg/model/mhttpheader"
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -963,12 +966,227 @@ func (h *HttpServiceRPC) HttpAssertDeltaInsert(ctx context.Context, req *connect
 }
 
 func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpAssertDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP assert delta must be provided"))
+	}
+
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var updateData []struct {
+		deltaID        idwrap.IDWrap
+		existingAssert *mhttpassert.HttpAssert
+		item           *apiv1.HttpAssertDeltaUpdate
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpAssertId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_assert_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpAssertId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta assert - use pool service
+		existingAssert, err := h.httpAssertService.GetHttpAssert(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpassert.ErrNoHttpAssertFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingAssert.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP assert is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access - use pool service
+		httpEntry, err := h.hs.Get(ctx, existingAssert.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check write access to the workspace
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		updateData = append(updateData, struct {
+			deltaID        idwrap.IDWrap
+			existingAssert *mhttpassert.HttpAssert
+			item           *apiv1.HttpAssertDeltaUpdate
+		}{
+			deltaID:        deltaID,
+			existingAssert: existingAssert,
+			item:           item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory)
+	var preparedUpdates []struct {
+		deltaID    idwrap.IDWrap
+		deltaValue *string
+	}
+
+	for _, data := range updateData {
+		item := data.item
+		var deltaValue *string
+
+		if item.Value != nil {
+			switch item.Value.GetKind() {
+			case apiv1.HttpAssertDeltaUpdate_ValueUnion_KIND_UNSET:
+				deltaValue = nil
+			case apiv1.HttpAssertDeltaUpdate_ValueUnion_KIND_VALUE:
+				valueStr := item.Value.GetValue()
+				deltaValue = &valueStr
+			}
+		}
+
+		preparedUpdates = append(preparedUpdates, struct {
+			deltaID    idwrap.IDWrap
+			deltaValue *string
+		}{
+			deltaID:    data.deltaID,
+			deltaValue: deltaValue,
+		})
+	}
+
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpAssertService := h.httpAssertService.TX(tx)
+	var updatedAsserts []mhttpassert.HttpAssert
+
+	for _, update := range preparedUpdates {
+		// HttpAssert only supports updating Value delta currently (based on Insert implementation)
+		if err := httpAssertService.UpdateHttpAssertDelta(ctx, update.deltaID, nil, update.deltaValue, nil, nil, nil); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Get updated assert for event publishing (from TX service)
+		updatedAssert, err := httpAssertService.GetHttpAssert(ctx, update.deltaID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		updatedAsserts = append(updatedAsserts, *updatedAssert)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish update events for real-time sync after successful commit
+	for _, assert := range updatedAsserts {
+		// Get workspace ID for the HTTP entry
+		httpEntry, err := h.hs.Get(ctx, assert.HttpID)
+		if err != nil {
+			continue
+		}
+		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpAssertEvent{
+			Type:       eventTypeUpdate,
+			HttpAssert: converter.ToAPIHttpAssert(assert),
+		})
+	}
+
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpAssertDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP assert delta must be provided"))
+	}
+
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		deltaID        idwrap.IDWrap
+		existingAssert *mhttpassert.HttpAssert
+		workspaceID    idwrap.IDWrap
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpAssertId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_assert_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpAssertId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta assert - use pool service
+		existingAssert, err := h.httpAssertService.GetHttpAssert(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpassert.ErrNoHttpAssertFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingAssert.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP assert is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access - use pool service
+		httpEntry, err := h.hs.Get(ctx, existingAssert.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check delete access to the workspace
+		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		deleteData = append(deleteData, struct {
+			deltaID        idwrap.IDWrap
+			existingAssert *mhttpassert.HttpAssert
+			workspaceID    idwrap.IDWrap
+		}{
+			deltaID:        deltaID,
+			existingAssert: existingAssert,
+			workspaceID:    httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpAssertService := h.httpAssertService.TX(tx)
+	var deletedAsserts []mhttpassert.HttpAssert
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
+		// Delete the delta record
+		if err := httpAssertService.DeleteHttpAssert(ctx, data.deltaID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		deletedAsserts = append(deletedAsserts, *data.existingAssert)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish delete events for real-time sync after successful commit
+	for i, assert := range deletedAsserts {
+		h.httpAssertStream.Publish(HttpAssertTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpAssertEvent{
+			Type:       eventTypeDelete,
+			HttpAssert: converter.ToAPIHttpAssert(assert),
+		})
+	}
+
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
@@ -1588,12 +1806,276 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaInsert(ctx context.Context, req *c
 }
 
 func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form delta must be provided"))
+	}
+
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var updateData []struct {
+		deltaID          idwrap.IDWrap
+		existingBodyForm *mhttpbodyform.HttpBodyForm
+		item             *apiv1.HttpBodyFormDataDeltaUpdate
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpBodyFormDataId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_body_form_data_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpBodyFormDataId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta body form - use pool service
+		existingBodyForm, err := h.httpBodyFormService.GetHttpBodyForm(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpbodyform.ErrNoHttpBodyFormFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingBodyForm.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP body form is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access - use pool service
+		httpEntry, err := h.hs.Get(ctx, existingBodyForm.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check write access to the workspace
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		updateData = append(updateData, struct {
+			deltaID          idwrap.IDWrap
+			existingBodyForm *mhttpbodyform.HttpBodyForm
+			item             *apiv1.HttpBodyFormDataDeltaUpdate
+		}{
+			deltaID:          deltaID,
+			existingBodyForm: existingBodyForm,
+			item:             item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory)
+	var preparedUpdates []struct {
+		deltaID          idwrap.IDWrap
+		deltaKey         *string
+		deltaValue       *string
+		deltaEnabled     *bool
+		deltaDescription *string
+		deltaOrder       *float32
+	}
+
+	for _, data := range updateData {
+		item := data.item
+		var deltaKey, deltaValue, deltaDescription *string
+		var deltaEnabled *bool
+		var deltaOrder *float32
+
+		if item.Key != nil {
+			switch item.Key.GetKind() {
+			case apiv1.HttpBodyFormDataDeltaUpdate_KeyUnion_KIND_UNSET:
+				deltaKey = nil
+			case apiv1.HttpBodyFormDataDeltaUpdate_KeyUnion_KIND_VALUE:
+				keyStr := item.Key.GetValue()
+				deltaKey = &keyStr
+			}
+		}
+		if item.Value != nil {
+			switch item.Value.GetKind() {
+			case apiv1.HttpBodyFormDataDeltaUpdate_ValueUnion_KIND_UNSET:
+				deltaValue = nil
+			case apiv1.HttpBodyFormDataDeltaUpdate_ValueUnion_KIND_VALUE:
+				valueStr := item.Value.GetValue()
+				deltaValue = &valueStr
+			}
+		}
+		if item.Enabled != nil {
+			switch item.Enabled.GetKind() {
+			case apiv1.HttpBodyFormDataDeltaUpdate_EnabledUnion_KIND_UNSET:
+				deltaEnabled = nil
+			case apiv1.HttpBodyFormDataDeltaUpdate_EnabledUnion_KIND_VALUE:
+				enabledBool := item.Enabled.GetValue()
+				deltaEnabled = &enabledBool
+			}
+		}
+		if item.Description != nil {
+			switch item.Description.GetKind() {
+			case apiv1.HttpBodyFormDataDeltaUpdate_DescriptionUnion_KIND_UNSET:
+				deltaDescription = nil
+			case apiv1.HttpBodyFormDataDeltaUpdate_DescriptionUnion_KIND_VALUE:
+				descStr := item.Description.GetValue()
+				deltaDescription = &descStr
+			}
+		}
+		if item.Order != nil {
+			switch item.Order.GetKind() {
+			case apiv1.HttpBodyFormDataDeltaUpdate_OrderUnion_KIND_UNSET:
+				deltaOrder = nil
+			case apiv1.HttpBodyFormDataDeltaUpdate_OrderUnion_KIND_VALUE:
+				orderVal := item.Order.GetValue()
+				deltaOrder = &orderVal
+			}
+		}
+
+		preparedUpdates = append(preparedUpdates, struct {
+			deltaID          idwrap.IDWrap
+			deltaKey         *string
+			deltaValue       *string
+			deltaEnabled     *bool
+			deltaDescription *string
+			deltaOrder       *float32
+		}{
+			deltaID:          data.deltaID,
+			deltaKey:         deltaKey,
+			deltaValue:       deltaValue,
+			deltaEnabled:     deltaEnabled,
+			deltaDescription: deltaDescription,
+			deltaOrder:       deltaOrder,
+		})
+	}
+
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyFormService := h.httpBodyFormService.TX(tx)
+	var updatedBodyForms []mhttpbodyform.HttpBodyForm
+
+	for _, update := range preparedUpdates {
+		if err := httpBodyFormService.UpdateHttpBodyFormDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Get updated body form for event publishing (from TX service)
+		updatedBodyForm, err := httpBodyFormService.GetHttpBodyForm(ctx, update.deltaID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		updatedBodyForms = append(updatedBodyForms, *updatedBodyForm)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish update events for real-time sync after successful commit
+	for _, bodyForm := range updatedBodyForms {
+		// Get workspace ID for the HTTP entry
+		httpEntry, err := h.hs.Get(ctx, bodyForm.HttpID)
+		if err != nil {
+			continue
+		}
+		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyFormEvent{
+			Type:         eventTypeUpdate,
+			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
+		})
+	}
+
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyFormDataDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body form delta must be provided"))
+	}
+
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		deltaID          idwrap.IDWrap
+		existingBodyForm *mhttpbodyform.HttpBodyForm
+		workspaceID      idwrap.IDWrap
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpBodyFormDataId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_body_form_data_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpBodyFormDataId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta body form - use pool service
+		existingBodyForm, err := h.httpBodyFormService.GetHttpBodyForm(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpbodyform.ErrNoHttpBodyFormFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingBodyForm.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP body form is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access - use pool service
+		httpEntry, err := h.hs.Get(ctx, existingBodyForm.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check delete access to the workspace
+		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		deleteData = append(deleteData, struct {
+			deltaID          idwrap.IDWrap
+			existingBodyForm *mhttpbodyform.HttpBodyForm
+			workspaceID      idwrap.IDWrap
+		}{
+			deltaID:          deltaID,
+			existingBodyForm: existingBodyForm,
+			workspaceID:      httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyFormService := h.httpBodyFormService.TX(tx)
+	var deletedBodyForms []mhttpbodyform.HttpBodyForm
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
+		// Delete the delta record
+		if err := httpBodyFormService.DeleteHttpBodyForm(ctx, data.deltaID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		deletedBodyForms = append(deletedBodyForms, *data.existingBodyForm)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish delete events for real-time sync after successful commit
+	for i, bodyForm := range deletedBodyForms {
+		h.httpBodyFormStream.Publish(HttpBodyFormTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyFormEvent{
+			Type:         eventTypeDelete,
+			HttpBodyForm: converter.ToAPIHttpBodyFormData(bodyForm),
+		})
+	}
+
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
@@ -1775,12 +2257,276 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaInsert(ctx context.Context, req 
 }
 
 func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded delta must be provided"))
+	}
+
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var updateData []struct {
+		deltaID                idwrap.IDWrap
+		existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		item                   *apiv1.HttpBodyUrlEncodedDeltaUpdate
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpBodyUrlEncodedId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_body_url_encoded_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpBodyUrlEncodedId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta body url encoded - use pool service
+		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpbodyurlencoded.ErrNoHttpBodyUrlEncodedFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingBodyUrlEncoded.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP body URL encoded is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access - use pool service
+		httpEntry, err := h.hs.Get(ctx, existingBodyUrlEncoded.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check write access to the workspace
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		updateData = append(updateData, struct {
+			deltaID                idwrap.IDWrap
+			existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+			item                   *apiv1.HttpBodyUrlEncodedDeltaUpdate
+		}{
+			deltaID:                deltaID,
+			existingBodyUrlEncoded: existingBodyUrlEncoded,
+			item:                   item,
+		})
+	}
+
+	// Step 2: Prepare updates (in memory)
+	var preparedUpdates []struct {
+		deltaID          idwrap.IDWrap
+		deltaKey         *string
+		deltaValue       *string
+		deltaEnabled     *bool
+		deltaDescription *string
+		deltaOrder       *float32
+	}
+
+	for _, data := range updateData {
+		item := data.item
+		var deltaKey, deltaValue, deltaDescription *string
+		var deltaEnabled *bool
+		var deltaOrder *float32
+
+		if item.Key != nil {
+			switch item.Key.GetKind() {
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_KeyUnion_KIND_UNSET:
+				deltaKey = nil
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_KeyUnion_KIND_VALUE:
+				keyStr := item.Key.GetValue()
+				deltaKey = &keyStr
+			}
+		}
+		if item.Value != nil {
+			switch item.Value.GetKind() {
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_ValueUnion_KIND_UNSET:
+				deltaValue = nil
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_ValueUnion_KIND_VALUE:
+				valueStr := item.Value.GetValue()
+				deltaValue = &valueStr
+			}
+		}
+		if item.Enabled != nil {
+			switch item.Enabled.GetKind() {
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_EnabledUnion_KIND_UNSET:
+				deltaEnabled = nil
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_EnabledUnion_KIND_VALUE:
+				enabledBool := item.Enabled.GetValue()
+				deltaEnabled = &enabledBool
+			}
+		}
+		if item.Description != nil {
+			switch item.Description.GetKind() {
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_DescriptionUnion_KIND_UNSET:
+				deltaDescription = nil
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_DescriptionUnion_KIND_VALUE:
+				descStr := item.Description.GetValue()
+				deltaDescription = &descStr
+			}
+		}
+		if item.Order != nil {
+			switch item.Order.GetKind() {
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_OrderUnion_KIND_UNSET:
+				deltaOrder = nil
+			case apiv1.HttpBodyUrlEncodedDeltaUpdate_OrderUnion_KIND_VALUE:
+				orderVal := item.Order.GetValue()
+				deltaOrder = &orderVal
+			}
+		}
+
+		preparedUpdates = append(preparedUpdates, struct {
+			deltaID          idwrap.IDWrap
+			deltaKey         *string
+			deltaValue       *string
+			deltaEnabled     *bool
+			deltaDescription *string
+			deltaOrder       *float32
+		}{
+			deltaID:          data.deltaID,
+			deltaKey:         deltaKey,
+			deltaValue:       deltaValue,
+			deltaEnabled:     deltaEnabled,
+			deltaDescription: deltaDescription,
+			deltaOrder:       deltaOrder,
+		})
+	}
+
+	// Step 3: Execute updates in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
+	var updatedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+
+	for _, update := range preparedUpdates {
+		if err := httpBodyUrlEncodedService.UpdateHttpBodyUrlEncodedDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Get updated body url encoded for event publishing (from TX service)
+		updatedBodyUrlEncoded, err := httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, update.deltaID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		updatedBodyUrlEncodeds = append(updatedBodyUrlEncodeds, *updatedBodyUrlEncoded)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish update events for real-time sync after successful commit
+	for _, bodyUrlEncoded := range updatedBodyUrlEncodeds {
+		// Get workspace ID for the HTTP entry
+		httpEntry, err := h.hs.Get(ctx, bodyUrlEncoded.HttpID)
+		if err != nil {
+			continue
+		}
+		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
+			Type:                 eventTypeUpdate,
+			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+		})
+	}
+
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyUrlEncodedDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body URL encoded delta must be provided"))
+	}
+
+	// Step 1: Gather data and check permissions OUTSIDE transaction
+	var deleteData []struct {
+		deltaID                idwrap.IDWrap
+		existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		workspaceID            idwrap.IDWrap
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpBodyUrlEncodedId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_body_url_encoded_id is required"))
+		}
+
+		deltaID, err := idwrap.NewFromBytes(item.DeltaHttpBodyUrlEncodedId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Get existing delta body url encoded - use pool service
+		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, deltaID)
+		if err != nil {
+			if errors.Is(err, shttpbodyurlencoded.ErrNoHttpBodyUrlEncodedFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Verify this is actually a delta record
+		if !existingBodyUrlEncoded.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP body URL encoded is not a delta"))
+		}
+
+		// Get the HTTP entry to check workspace access - use pool service
+		httpEntry, err := h.hs.Get(ctx, existingBodyUrlEncoded.HttpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Check delete access to the workspace
+		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		deleteData = append(deleteData, struct {
+			deltaID                idwrap.IDWrap
+			existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+			workspaceID            idwrap.IDWrap
+		}{
+			deltaID:                deltaID,
+			existingBodyUrlEncoded: existingBodyUrlEncoded,
+			workspaceID:            httpEntry.WorkspaceID,
+		})
+	}
+
+	// Step 2: Execute deletes in transaction
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	defer tx.Rollback()
+
+	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
+	var deletedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+	var deletedWorkspaceIDs []idwrap.IDWrap
+
+	for _, data := range deleteData {
+		// Delete the delta record
+		if err := httpBodyUrlEncodedService.DeleteHttpBodyUrlEncoded(ctx, data.deltaID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		deletedBodyUrlEncodeds = append(deletedBodyUrlEncodeds, *data.existingBodyUrlEncoded)
+		deletedWorkspaceIDs = append(deletedWorkspaceIDs, data.workspaceID)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Publish delete events for real-time sync after successful commit
+	for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
+		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
+			Type:                 eventTypeDelete,
+			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
+		})
+	}
+
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
@@ -1893,21 +2639,271 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaCollection(ctx context.Context, req *co
 }
 
 func (h *HttpServiceRPC) HttpBodyRawDeltaInsert(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawDeltaInsertRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
+	if len(req.Msg.Items) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one delta item is required"))
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.HttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required for each delta item"))
+		}
+
+		httpID, err := idwrap.NewFromBytes(item.HttpId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Check workspace write access
+		httpEntry, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHTTPFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if !httpEntry.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP entry is not a delta"))
+		}
+
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Create delta body raw
+		// Data is optional (can be empty string)
+		data := ""
+		if item.Data != nil {
+			data = *item.Data
+		}
+
+		// Use CreateDelta from body service
+		// We assume default content type or empty for now, as API doesn't seem to pass it in Insert
+		bodyRaw, err := h.bodyService.CreateDelta(ctx, httpID, []byte(data), "")
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		h.httpBodyRawStream.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
+			Type:    eventTypeInsert,
+			IsDelta: true,
+			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*bodyRaw),
+		})
+	}
+
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawDeltaUpdateRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw delta must be provided"))
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.HttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("http_id is required"))
+		}
+
+		httpID, err := idwrap.NewFromBytes(item.HttpId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Check workspace write access and if body exists
+		httpEntry, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if !httpEntry.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP entry is not a delta"))
+		}
+
+		if err := h.checkWorkspaceWriteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		bodyRaw, err := h.bodyService.GetByHttpID(ctx, httpID)
+		if err != nil {
+			if errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+				return nil, connect.NewError(connect.CodeNotFound, err)
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Prepare update
+		var deltaData []byte
+		var deltaContentType *string
+
+		if item.Data != nil {
+			switch item.Data.GetKind() {
+			case apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_UNSET:
+				deltaData = nil
+			case apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_VALUE:
+				deltaData = []byte(item.Data.GetValue())
+			}
+		}
+
+		// Update using UpdateDelta
+		updatedBody, err := h.bodyService.UpdateDelta(ctx, bodyRaw.ID, deltaData, deltaContentType)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		h.httpBodyRawStream.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
+			Type:    eventTypeUpdate,
+			IsDelta: true,
+			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*updatedBody),
+		})
+	}
+
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyRawDeltaDelete(ctx context.Context, req *connect.Request[apiv1.HttpBodyRawDeltaDeleteRequest]) (*connect.Response[emptypb.Empty], error) {
-	// TODO: Implement
+	if len(req.Msg.GetItems()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one HTTP body raw delta must be provided"))
+	}
+
+	for _, item := range req.Msg.Items {
+		if len(item.DeltaHttpId) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("delta_http_id is required"))
+		}
+
+		httpID, err := idwrap.NewFromBytes(item.DeltaHttpId)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+
+		// Check workspace delete access
+		httpEntry, err := h.hs.Get(ctx, httpID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		if !httpEntry.IsDelta {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("specified HTTP entry is not a delta"))
+		}
+
+		if err := h.checkWorkspaceDeleteAccess(ctx, httpEntry.WorkspaceID); err != nil {
+			return nil, err
+		}
+
+		// Delete by HTTP ID
+		if err := h.bodyService.DeleteByHttpID(ctx, httpID); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Publish delete event
+		// We need to construct a minimal object for the event since we deleted it
+		deletedBody := &apiv1.HttpBodyRaw{
+			HttpId: item.DeltaHttpId,
+		}
+
+		h.httpBodyRawStream.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
+			Type:        eventTypeDelete,
+			IsDelta:     true,
+			HttpBodyRaw: deletedBody,
+		})
+	}
+
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (h *HttpServiceRPC) HttpBodyRawDeltaSync(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[apiv1.HttpBodyRawDeltaSyncResponse]) error {
-	// TODO: Implement
-	return nil
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	return h.streamHttpBodyRawDeltaSync(ctx, userID, stream.Send)
+}
+
+func (h *HttpServiceRPC) streamHttpBodyRawDeltaSync(ctx context.Context, userID idwrap.IDWrap, send func(*apiv1.HttpBodyRawDeltaSyncResponse) error) error {
+	var workspaceSet sync.Map
+
+	// Filter for workspace-based access control
+	filter := func(topic HttpBodyRawTopic) bool {
+		if _, ok := workspaceSet.Load(topic.WorkspaceID.String()); ok {
+			return true
+		}
+		belongs, err := h.us.CheckUserBelongsToWorkspace(ctx, userID, topic.WorkspaceID)
+		if err != nil || !belongs {
+			return false
+		}
+		workspaceSet.Store(topic.WorkspaceID.String(), struct{}{})
+		return true
+	}
+
+	// Subscribe to events without snapshot
+	events, err := h.httpBodyRawStream.Subscribe(ctx, filter)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Stream events to client
+	for {
+		select {
+		case evt, ok := <-events:
+			if !ok {
+				return nil
+			}
+			// Only stream delta events
+			if !evt.Payload.IsDelta {
+				continue
+			}
+
+			var syncItem *apiv1.HttpBodyRawDeltaSync
+
+			switch evt.Payload.Type {
+			case eventTypeInsert:
+				data := evt.Payload.HttpBodyRaw.Data
+				syncItem = &apiv1.HttpBodyRawDeltaSync{
+					Value: &apiv1.HttpBodyRawDeltaSync_ValueUnion{
+						Kind: apiv1.HttpBodyRawDeltaSync_ValueUnion_KIND_INSERT,
+						Insert: &apiv1.HttpBodyRawDeltaSyncInsert{
+							DeltaHttpId: evt.Payload.HttpBodyRaw.HttpId,
+							HttpId:      evt.Payload.HttpBodyRaw.HttpId,
+							Data:        &data,
+						},
+					},
+				}
+			case eventTypeUpdate:
+				data := evt.Payload.HttpBodyRaw.Data
+				syncItem = &apiv1.HttpBodyRawDeltaSync{
+					Value: &apiv1.HttpBodyRawDeltaSync_ValueUnion{
+						Kind: apiv1.HttpBodyRawDeltaSync_ValueUnion_KIND_UPDATE,
+						Update: &apiv1.HttpBodyRawDeltaSyncUpdate{
+							DeltaHttpId: evt.Payload.HttpBodyRaw.HttpId,
+							HttpId:      evt.Payload.HttpBodyRaw.HttpId,
+							Data: &apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion{
+								Kind:  apiv1.HttpBodyRawDeltaSyncUpdate_DataUnion_KIND_VALUE,
+								Value: &data,
+							},
+						},
+					},
+				}
+			case eventTypeDelete:
+				syncItem = &apiv1.HttpBodyRawDeltaSync{
+					Value: &apiv1.HttpBodyRawDeltaSync_ValueUnion{
+						Kind: apiv1.HttpBodyRawDeltaSync_ValueUnion_KIND_DELETE,
+						Delete: &apiv1.HttpBodyRawDeltaSyncDelete{
+							DeltaHttpId: evt.Payload.HttpBodyRaw.HttpId,
+						},
+					},
+				}
+			}
+
+			if syncItem != nil {
+				resp := &apiv1.HttpBodyRawDeltaSyncResponse{
+					Items: []*apiv1.HttpBodyRawDeltaSync{syncItem},
+				}
+				if err := send(resp); err != nil {
+					return err
+				}
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }

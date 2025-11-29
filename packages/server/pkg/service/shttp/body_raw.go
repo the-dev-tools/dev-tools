@@ -140,6 +140,74 @@ func (s *HttpBodyRawService) Update(ctx context.Context, id idwrap.IDWrap, rawDa
 	return s.Get(ctx, id)
 }
 
+func (s *HttpBodyRawService) CreateDelta(ctx context.Context, httpID idwrap.IDWrap, rawData []byte, contentType string) (*mhttp.HTTPBodyRaw, error) {
+	// Create the delta body raw
+	now := dbtime.DBNow().Unix()
+	id := idwrap.NewNow()
+	err := s.queries.CreateHTTPBodyRaw(ctx, gen.CreateHTTPBodyRawParams{
+		ID:                   id,
+		HttpID:               httpID,
+		RawData:              nil, // Base data is nil for delta record
+		ContentType:          "",  // Base content type is empty
+		CompressionType:      0,
+		ParentBodyRawID:      nil, // Will be linked by logic if needed, but typically linked via HTTP ID
+		IsDelta:              true,
+		DeltaRawData:         rawData,
+		DeltaContentType:     stringToNullPtr(&contentType),
+		DeltaCompressionType: nil,
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the created record
+	bodyRaw, err := s.queries.GetHTTPBodyRawByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	result := ConvertToModelHttpBodyRaw(bodyRaw)
+	return &result, nil
+}
+
+func (s *HttpBodyRawService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, rawData []byte, contentType *string) (*mhttp.HTTPBodyRaw, error) {
+	// Update the delta body raw
+	now := dbtime.DBNow().Unix()
+	
+	// We need a specific UpdateHTTPBodyRawDelta query, or we use the general update if it supports delta fields.
+	// Checking `UpdateHTTPBodyRaw` in sqlc - it usually only updates standard fields.
+	// Let's check if `UpdateHTTPBodyRawDelta` exists in `gen`.
+	// Since I can't see `gen` package, I assume I need to check if I can use `UpdateHTTPBodyRaw` or if I need to add a new query.
+	// The existing `Update` method uses `UpdateHTTPBodyRawParams` which has `RawData`.
+	
+	// Assuming `UpdateHTTPBodyRawDelta` exists based on other services having it.
+	// If not, I might need to add it or use a workaround.
+	// Let's try to use `UpdateHTTPBodyRawDelta` if it exists.
+	
+	err := s.queries.UpdateHTTPBodyRawDelta(ctx, gen.UpdateHTTPBodyRawDeltaParams{
+		DeltaRawData:     rawData,
+		DeltaContentType: stringToNullPtr(contentType),
+		UpdatedAt:        now,
+		ID:               id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return s.Get(ctx, id)
+}
+
+// Helper for null string ptr
+func stringToNullPtr(s *string) sql.NullString {
+	if s == nil {
+		return sql.NullString{Valid: false}
+	}
+	return sql.NullString{String: *s, Valid: true}
+}
+
+
 func (s *HttpBodyRawService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	// Delete the body raw
 	return s.queries.DeleteHTTPBodyRaw(ctx, id)
