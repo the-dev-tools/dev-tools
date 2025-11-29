@@ -7,33 +7,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpheader"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/muser"
-	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
-	"the-dev-tools/server/pkg/service/senv"
-	"the-dev-tools/server/pkg/service/sfile"
-	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/shttpheader"
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
-	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
-	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 )
 
@@ -78,7 +67,7 @@ func newFlowExecutionFixture(t *testing.T) *flowExecutionFixture {
 	require.NoError(t, err)
 
 	// Initialize specific services
-	httpService := shttp.New(base.Queries)
+	httpService := shttp.New(base.Queries, base.Logger())
 	nodeService := snode.New(base.Queries)
 	nodeRequestService := snoderequest.New(base.Queries)
 	nodeExecutionService := snodeexecution.New(base.Queries)
@@ -124,18 +113,13 @@ func newFlowExecutionFixture(t *testing.T) *flowExecutionFixture {
 func TestFlowExecution_ChainedRequests(t *testing.T) {
 	// This test simulates a "Chained Request" scenario:
 	// 1. Request A -> Mock Server
-	// 2. Request B -> Mock Server (uses data from A, though hard to simulate full runner without runner package exposure)
-	//
-	// Since the actual "Runner" logic resides in `packages/server/pkg/flow/runner`, and might be complex to instantiate fully 
-	// (it requires a lot of wired services), we will simulate the "Creation" part here to ensure the data structure is valid.
-	// Full execution requires the Runner engine which might be internal.
-	// We will verify that we can build the Flow structure correctly in the DB.
-
+	// 2. Request B -> Mock Server
+	
 	f := newFlowExecutionFixture(t)
 	
 	// 1. Create Flow
 	flowID := idwrap.NewNow()
-	err := f.services.Fs.Create(f.ctx, &mflow.Flow{
+	err := f.services.Fs.CreateFlow(f.ctx, mflow.Flow{
 		ID:          flowID,
 		WorkspaceID: f.workspaceID,
 		Name:        "E2E Test Flow",
@@ -144,7 +128,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 
 	// 2. Create Start Node
 	startNodeID := idwrap.NewNow()
-	err = f.nodeService.Create(f.ctx, &mnnode.MNode{
+	err = f.nodeService.CreateNode(f.ctx, mnnode.MNode{
 		ID:        startNodeID,
 		FlowID:    flowID,
 		Name:      "Start",
@@ -169,7 +153,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create Node A
-	err = f.nodeService.Create(f.ctx, &mnnode.MNode{
+	err = f.nodeService.CreateNode(f.ctx, mnnode.MNode{
 		ID:        reqNodeAID,
 		FlowID:    flowID,
 		Name:      "Request A Node",
@@ -180,7 +164,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	require.NoError(t, err)
 
 	// Link Node A to HTTP A
-	err = f.nodeRequestService.Create(f.ctx, &mnrequest.MNRequest{
+	err = f.nodeRequestService.CreateNodeRequest(f.ctx, mnrequest.MNRequest{
 		FlowNodeID: reqNodeAID,
 		HttpID:     &httpAID,
 	})
@@ -201,7 +185,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create Node B
-	err = f.nodeService.Create(f.ctx, &mnnode.MNode{
+	err = f.nodeService.CreateNode(f.ctx, mnnode.MNode{
 		ID:        reqNodeBID,
 		FlowID:    flowID,
 		Name:      "Request B Node",
@@ -212,7 +196,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	require.NoError(t, err)
 
 	// Link Node B to HTTP B
-	err = f.nodeRequestService.Create(f.ctx, &mnrequest.MNRequest{
+	err = f.nodeRequestService.CreateNodeRequest(f.ctx, mnrequest.MNRequest{
 		FlowNodeID: reqNodeBID,
 		HttpID:     &httpBID,
 	})
@@ -224,31 +208,46 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	
 	// Start -> A
 	edge1ID := idwrap.NewNow()
-	err = edgeService.Create(f.ctx, edge1ID, flowID, startNodeID, reqNodeAID, "start-to-a")
+	err = edgeService.CreateEdge(f.ctx, edge.Edge{
+		ID:            edge1ID,
+		FlowID:        flowID,
+		SourceID:      startNodeID,
+		TargetID:      reqNodeAID,
+		Kind:          int32(edge.EdgeKindNoOp), // Use correct enum cast
+		SourceHandler: edge.EdgeHandle(0),
+	})
 	require.NoError(t, err)
 
 	// A -> B
 	edge2ID := idwrap.NewNow()
-	err = edgeService.Create(f.ctx, edge2ID, flowID, reqNodeAID, reqNodeBID, "a-to-b")
+	err = edgeService.CreateEdge(f.ctx, edge.Edge{
+		ID:            edge2ID,
+		FlowID:        flowID,
+		SourceID:      reqNodeAID,
+		TargetID:      reqNodeBID,
+		Kind:          int32(edge.EdgeKindNoOp), // Use correct enum cast
+		SourceHandler: edge.EdgeHandle(0),
+	})
 	require.NoError(t, err)
 
 	// 6. Verify Structure via Queries
 	// Check that Flow has 3 nodes
-	nodes, err := f.nodeService.GetByFlowID(f.ctx, flowID)
+	nodes, err := f.nodeService.GetNodesByFlowID(f.ctx, flowID)
 	require.NoError(t, err)
 	require.Len(t, nodes, 3)
 
 	// Check HTTP linkage
-	reqA, err := f.nodeRequestService.Get(f.ctx, reqNodeAID)
+	reqA, err := f.nodeRequestService.GetNodeRequest(f.ctx, reqNodeAID)
 	require.NoError(t, err)
 	require.Equal(t, httpAID, *reqA.HttpID)
 
-	reqB, err := f.nodeRequestService.Get(f.ctx, reqNodeBID)
+	reqB, err := f.nodeRequestService.GetNodeRequest(f.ctx, reqNodeBID)
 	require.NoError(t, err)
 	require.Equal(t, httpBID, *reqB.HttpID)
 
 	// Check Edges
-	edges, err := edgeService.GetByFlowID(f.ctx, flowID)
+	edges, err := edgeService.GetEdgesByFlowID(f.ctx, flowID)
 	require.NoError(t, err)
 	require.Len(t, edges, 2)
 }
+

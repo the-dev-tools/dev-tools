@@ -316,14 +316,8 @@ func resolveRawBody(base, delta mhttp.HTTPBodyRaw) mhttp.HTTPBodyRaw {
 	resolved.ParentBodyRawID = nil
 
 	// Check if Delta has data to override
-	// Note: DeltaRawData is interface{}. We need to type check it.
-	if delta.DeltaRawData != nil {
-		switch v := delta.DeltaRawData.(type) {
-		case []byte:
-			resolved.RawData = v
-		case string:
-			resolved.RawData = []byte(v)
-		}
+	if len(delta.DeltaRawData) > 0 {
+		resolved.RawData = delta.DeltaRawData
 	}
 
 	if delta.DeltaContentType != nil {

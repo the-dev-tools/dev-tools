@@ -276,7 +276,7 @@ func CreateDeltaBodyRaw(originalRaw *mhttp.HTTPBodyRaw, newRaw *mhttp.HTTPBodyRa
 		CompressionType:      newRaw.CompressionType,
 		ParentBodyRawID:      &originalRaw.ID,
 		IsDelta:              true,
-		DeltaRawData:         &deltaRawData,
+		DeltaRawData:         deltaRawData,
 		DeltaContentType:     &deltaContentType,
 		DeltaCompressionType: &deltaCompressionType,
 		CreatedAt:            newRaw.CreatedAt + 1,

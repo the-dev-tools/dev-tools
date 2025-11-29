@@ -7,7 +7,11 @@ import (
 	"testing"
 	"the-dev-tools/db/pkg/dbtest"
 	"the-dev-tools/db/pkg/sqlc/gen"
+	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/logger/mocklogger"
+	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/suser"
@@ -23,17 +27,19 @@ type BaseDBQueries struct {
 }
 
 type BaseTestServices struct {
-	DB  *sql.DB
-	Us  suser.UserService
-	Ws  sworkspace.WorkspaceService
-	Wus sworkspacesusers.WorkspaceUserService
-	Hs  shttp.HTTPService
-	Fvs sflowvariable.FlowVariableService
-	Hh  *shttp.HttpHeaderService
-	Hsp *shttp.HttpSearchParamService
-	Hbf *shttp.HttpBodyFormService
-	Hbu *shttp.HttpBodyUrlencodedService
-	Has *shttp.HttpAssertService
+	Queries *gen.Queries
+	DB      *sql.DB
+	Us      suser.UserService
+	Ws      sworkspace.WorkspaceService
+	Wus     sworkspacesusers.WorkspaceUserService
+	Hs      shttp.HTTPService
+	Fs      sflow.FlowService
+	Fvs     sflowvariable.FlowVariableService
+	Hh      *shttp.HttpHeaderService
+	Hsp     *shttp.HttpSearchParamService
+	Hbf     *shttp.HttpBodyFormService
+	Hbu     *shttp.HttpBodyUrlencodedService
+	Has     *shttp.HttpAssertService
 }
 
 func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
@@ -57,6 +63,7 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	wus := sworkspacesusers.New(queries)
 	us := suser.New(queries)
 	hs := shttp.New(queries, mockLogger)
+	fs := sflow.New(queries)
 	fvs := sflowvariable.New(queries)
 	hh := shttp.NewHttpHeaderService(queries)
 	hsp := shttp.NewHttpSearchParamService(queries)
@@ -64,18 +71,43 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	hbu := shttp.NewHttpBodyUrlencodedService(queries)
 	hasVal := shttp.NewHttpAssertService(queries)
 	return BaseTestServices{
-		DB:  c.DB,
-		Us:  us,
-		Ws:  ws,
-		Wus: wus,
-		Hs:  hs,
-		Fvs: fvs,
-		Hh:  hh,
-		Hsp: hsp,
-		Hbf: &hbfVal,
-		Hbu: hbu,
-		Has: &hasVal,
+		Queries: queries,
+		DB:      c.DB,
+		Us:      us,
+		Ws:      ws,
+		Wus:     wus,
+		Hs:      hs,
+		Fs:      fs,
+		Fvs:     fvs,
+		Hh:      hh,
+		Hsp:     hsp,
+		Hbf:     &hbfVal,
+		Hbu:     hbu,
+		Has:     &hasVal,
 	}
+}
+
+func (b BaseTestServices) CreateTempCollection(ctx context.Context, userID idwrap.IDWrap, name string) (idwrap.IDWrap, error) {
+	workspaceID := idwrap.NewNow()
+	err := b.Ws.Create(ctx, &mworkspace.Workspace{
+		ID:   workspaceID,
+		Name: name,
+	})
+	if err != nil {
+		return idwrap.IDWrap{}, err
+	}
+
+	err = b.Wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        mworkspaceuser.RoleOwner,
+	})
+	if err != nil {
+		return idwrap.IDWrap{}, err
+	}
+
+	return workspaceID, nil
 }
 
 func (b BaseDBQueries) Close() {

@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,12 +10,12 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/emptypb"
 
+	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rhttp"
+	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpheader"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -25,10 +24,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
-	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -70,11 +66,15 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	require.NoError(t, err)
 
 	// Create Workspace
+	// Use authenticated context for workspace creation as it might need it in future, 
+	// and definitely for the handler later
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+	
 	workspaceID, err := services.CreateTempCollection(ctx, userID, "Delta Execution Workspace")
 	require.NoError(t, err)
 
 	// Initialize specific services
-	httpService := shttp.New(base.Queries)
+	httpService := shttp.New(base.Queries, base.Logger())
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 	httpHeaderService := shttpheader.New(base.Queries)
 	httpSearchParamService := shttpsearchparam.New(base.Queries)
@@ -85,12 +85,20 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	envService := senv.New(base.Queries, base.Logger())
 	varService := svar.New(base.Queries, base.Logger())
 
-	// Create handler (simplified, no streaming for this test as we test execution)
-	// We use nil for streamers as HttpRun shouldn't need them, or we might need mock ones if it publishes events.
-	// HttpRun usually publishes events? No, HttpRun just runs and stores response.
-	// Storing response might trigger event? No, not in current implementation.
-	// Wait, rhttp.New requires streamers. We'll pass nil and hope HttpRun doesn't use them.
-	// Actually HttpRun doesn't use streams.
+	// Create streamers
+	stream := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
+	httpHeaderStream := memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]()
+	httpSearchParamStream := memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]()
+	httpBodyFormStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]()
+	httpBodyUrlEncodedStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]()
+	httpAssertStream := memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]()
+	httpVersionStream := memory.NewInMemorySyncStreamer[rhttp.HttpVersionTopic, rhttp.HttpVersionEvent]()
+	httpResponseStream := memory.NewInMemorySyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]()
+	httpResponseHeaderStream := memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]()
+	httpResponseAssertStream := memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]()
+	httpBodyRawStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
+
+	// Create handler
 	handler := rhttp.New(
 		base.DB,
 		httpService,
@@ -106,7 +114,17 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 		httpBodyUrlEncodedService,
 		httpAssertService,
 		httpResponseService,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, // Streamers
+		stream,
+		httpHeaderStream,
+		httpSearchParamStream,
+		httpBodyFormStream,
+		httpBodyUrlEncodedStream,
+		httpAssertStream,
+		httpVersionStream,
+		httpResponseStream,
+		httpResponseHeaderStream,
+		httpResponseAssertStream,
+		httpBodyRawStream,
 	)
 
 	f := &deltaExecutionFixture{

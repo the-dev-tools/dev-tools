@@ -104,6 +104,18 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		}
 	}
 
+	// Apply Delta override for Body Raw
+	if rawBody != nil && rawBody.IsDelta {
+		if len(rawBody.DeltaRawData) > 0 {
+			rawBody.RawData = rawBody.DeltaRawData
+		}
+		if rawBody.DeltaContentType != nil {
+			if val, ok := rawBody.DeltaContentType.(string); ok && val != "" {
+				rawBody.ContentType = val
+			}
+		}
+	}
+
 	// Prepare the HTTP request using request package
 	res, err := request.PrepareHTTPRequestWithTracking(
 		*httpEntry,
