@@ -1,0 +1,411 @@
+package rflowv2
+
+import (
+	"bytes"
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"net/http"
+	"sort"
+	"strings"
+	"time"
+
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/converter"
+	"the-dev-tools/server/pkg/flow/edge"
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mflowvariable"
+	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
+	"the-dev-tools/server/pkg/model/mnnode/mnif"
+	"the-dev-tools/server/pkg/model/mnnode/mnjs"
+	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mnodeexecution"
+	"the-dev-tools/server/pkg/model/mworkspace"
+	"the-dev-tools/server/pkg/service/sflow"
+	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+)
+
+func isStartNode(node mnnode.MNode) bool {
+	if node.NodeKind != mnnode.NODE_KIND_NO_OP {
+		return false
+	}
+	return strings.EqualFold(node.Name, "start")
+}
+
+func serializeFlow(flow mflow.Flow) *flowv1.Flow {
+	msg := &flowv1.Flow{
+		FlowId:  flow.ID.Bytes(),
+		Name:    flow.Name,
+		Running: flow.Running,
+	}
+	if flow.Duration != 0 {
+		duration := flow.Duration
+		msg.Duration = &duration
+	}
+	return msg
+}
+
+func serializeEdge(e edge.Edge) *flowv1.Edge {
+	return &flowv1.Edge{
+		EdgeId:       e.ID.Bytes(),
+		FlowId:       e.FlowID.Bytes(),
+		Kind:         flowv1.EdgeKind(e.Kind),
+		SourceId:     e.SourceID.Bytes(),
+		TargetId:     e.TargetID.Bytes(),
+		SourceHandle: flowv1.HandleKind(e.SourceHandler),
+	}
+}
+
+func serializeNode(n mnnode.MNode) *flowv1.Node {
+	position := &flowv1.Position{
+		X: float32(n.PositionX),
+		Y: float32(n.PositionY),
+	}
+
+	return &flowv1.Node{
+		NodeId:   n.ID.Bytes(),
+		FlowId:   n.FlowID.Bytes(),
+		Kind:     converter.ToAPINodeKind(n.NodeKind),
+		Name:     n.Name,
+		Position: position,
+		State:    flowv1.FlowItemState_FLOW_ITEM_STATE_UNSPECIFIED,
+	}
+}
+
+func serializeNodeHTTP(n mnrequest.MNRequest) *flowv1.NodeHttp {
+	if n.HttpID == nil {
+		return &flowv1.NodeHttp{
+			NodeId: n.FlowNodeID.Bytes(),
+		}
+	}
+	msg := &flowv1.NodeHttp{
+		NodeId: n.FlowNodeID.Bytes(),
+		HttpId: n.HttpID.Bytes(),
+	}
+	if n.DeltaHttpID != nil {
+		msg.DeltaHttpId = n.DeltaHttpID.Bytes()
+	}
+	return msg
+}
+
+func serializeNodeNoop(n mnnoop.NoopNode) *flowv1.NodeNoOp {
+	return &flowv1.NodeNoOp{
+		NodeId: n.FlowNodeID.Bytes(),
+		Kind:   converter.ToAPINodeNoOpKind(n.Type),
+	}
+}
+
+func serializeNodeFor(n mnfor.MNFor) *flowv1.NodeFor {
+	return &flowv1.NodeFor{
+		NodeId:        n.FlowNodeID.Bytes(),
+		Iterations:    int32(n.IterCount), // nolint:gosec // G115
+		Condition:     n.Condition.Comparisons.Expression,
+		ErrorHandling: converter.ToAPIErrorHandling(n.ErrorHandling),
+	}
+}
+
+func serializeNodeCondition(n mnif.MNIF) *flowv1.NodeCondition {
+	return &flowv1.NodeCondition{
+		NodeId:    n.FlowNodeID.Bytes(),
+		Condition: n.Condition.Comparisons.Expression,
+	}
+}
+
+func serializeNodeForEach(n mnforeach.MNForEach) *flowv1.NodeForEach {
+	return &flowv1.NodeForEach{
+		NodeId:        n.FlowNodeID.Bytes(),
+		Path:          n.IterExpression,
+		Condition:     n.Condition.Comparisons.Expression,
+		ErrorHandling: converter.ToAPIErrorHandling(n.ErrorHandling),
+	}
+}
+
+func serializeNodeJs(n mnjs.MNJS) *flowv1.NodeJs {
+	return &flowv1.NodeJs{
+		NodeId: n.FlowNodeID.Bytes(),
+		Code:   string(n.Code),
+	}
+}
+
+func serializeNodeExecution(execution mnodeexecution.NodeExecution) *flowv1.NodeExecution {
+	result := &flowv1.NodeExecution{
+		NodeExecutionId: execution.ID.Bytes(),
+		NodeId:          execution.NodeID.Bytes(),
+		Name:            execution.Name,
+		State:           flowv1.FlowItemState(execution.State),
+	}
+
+	// Handle optional fields
+	if execution.Error != nil {
+		result.Error = execution.Error
+	}
+
+	// Handle input data - decompress if needed
+	if execution.InputData != nil {
+		if inputDataJSON, err := execution.GetInputJSON(); err == nil && len(inputDataJSON) > 0 {
+			if inputValue, err := structpb.NewValue(string(inputDataJSON)); err == nil {
+				result.Input = inputValue
+			}
+		}
+	}
+
+	// Handle output data - decompress if needed
+	if execution.OutputData != nil {
+		if outputDataJSON, err := execution.GetOutputJSON(); err == nil && len(outputDataJSON) > 0 {
+			if outputValue, err := structpb.NewValue(string(outputDataJSON)); err == nil {
+				result.Output = outputValue
+			}
+		}
+	}
+
+	// Handle HTTP response ID
+	if execution.ResponseID != nil {
+		result.HttpResponseId = execution.ResponseID.Bytes()
+	}
+
+	// Handle completion timestamp
+	if execution.CompletedAt != nil {
+		result.CompletedAt = timestamppb.New(time.Unix(*execution.CompletedAt, 0))
+	}
+
+	return result
+}
+
+func serializeFlowVariable(variable mflowvariable.FlowVariable, order float32) *flowv1.FlowVariable {
+	return &flowv1.FlowVariable{
+		FlowVariableId: variable.ID.Bytes(),
+		FlowId:         variable.FlowID.Bytes(),
+		Key:            variable.Name,
+		Value:          variable.Value,
+		Enabled:        variable.Enabled,
+		Description:    variable.Description,
+		Order:          order,
+	}
+}
+
+func isZeroID(id idwrap.IDWrap) bool {
+	return id == (idwrap.IDWrap{})
+}
+
+func buildCondition(expression string) mcondition.Condition {
+	return mcondition.Condition{
+		Comparisons: mcondition.Comparison{
+			Expression: expression,
+		},
+	}
+}
+
+func convertHandle(h flowv1.HandleKind) edge.EdgeHandle {
+	return edge.EdgeHandle(h)
+}
+
+func (s *FlowServiceV2RPC) flowVariableOrder(ctx context.Context, flowID, variableID idwrap.IDWrap) (float32, error) {
+	variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flowID)
+	if err != nil {
+		return 0, err
+	}
+	for idx, item := range variables {
+		if item.ID == variableID {
+			return float32(idx), nil
+		}
+	}
+	return 0, fmt.Errorf("flow variable %s not found in flow %s", variableID.String(), flowID.String())
+}
+
+func workspaceIDFromHeaders(header http.Header) (idwrap.IDWrap, error) {
+	value := header.Get("workspace-id")
+	if value == "" {
+		value = header.Get("x-workspace-id")
+	}
+	if value == "" {
+		return idwrap.IDWrap{}, errors.New("workspace id header is required")
+	}
+	return idwrap.NewText(value)
+}
+
+func flowIDFromHeaders(header http.Header) (idwrap.IDWrap, error) {
+	value := header.Get("flow-id")
+	if value == "" {
+		value = header.Get("x-flow-id")
+	}
+	if value == "" {
+		return idwrap.IDWrap{}, errors.New("flow id header is required")
+	}
+	return idwrap.NewText(value)
+}
+
+func (s *FlowServiceV2RPC) deserializeNodeInsert(item *flowv1.NodeInsert) (*mnnode.MNode, error) {
+	if item == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node insert item is required"))
+	}
+
+	if len(item.GetFlowId()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
+	}
+
+	flowID, err := idwrap.NewFromBytes(item.GetFlowId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
+	}
+
+	nodeID := idwrap.NewNow()
+	if len(item.GetNodeId()) != 0 {
+		nodeID, err = idwrap.NewFromBytes(item.GetNodeId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
+		}
+	}
+
+	var posX, posY float64
+	if p := item.GetPosition(); p != nil {
+		posX = float64(p.GetX())
+		posY = float64(p.GetY())
+	}
+
+	return &mnnode.MNode{
+		ID:        nodeID,
+		FlowID:    flowID,
+		Name:      item.GetName(),
+		NodeKind:  mnnode.NodeKind(item.GetKind()),
+		PositionX: posX,
+		PositionY: posY,
+	}, nil
+}
+
+func (s *FlowServiceV2RPC) ensureWorkspaceAccess(ctx context.Context, workspaceID idwrap.IDWrap) error {
+	workspaces, err := s.listUserWorkspaces(ctx)
+	if err != nil {
+		return err
+	}
+	for _, ws := range workspaces {
+		if ws.ID == workspaceID {
+			return nil
+		}
+	}
+	return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("workspace %s not accessible to current user", workspaceID.String()))
+}
+
+func (s *FlowServiceV2RPC) ensureFlowAccess(ctx context.Context, flowID idwrap.IDWrap) error {
+	flow, err := s.fs.GetFlow(ctx, flowID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return connect.NewError(connect.CodeNotFound, fmt.Errorf("flow %s not found", flowID.String()))
+		}
+		return connect.NewError(connect.CodeInternal, err)
+	}
+
+	workspaces, err := s.listUserWorkspaces(ctx)
+	if err != nil {
+		return err
+	}
+	for _, ws := range workspaces {
+		if ws.ID == flow.WorkspaceID {
+			return nil
+		}
+	}
+	return connect.NewError(connect.CodePermissionDenied, fmt.Errorf("flow %s not accessible to current user", flowID.String()))
+}
+
+func (s *FlowServiceV2RPC) ensureNodeAccess(ctx context.Context, nodeID idwrap.IDWrap) (*mnnode.MNode, error) {
+	node, err := s.ns.GetNode(ctx, nodeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("node %s not found", nodeID.String()))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if err := s.ensureFlowAccess(ctx, node.FlowID); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+func (s *FlowServiceV2RPC) ensureEdgeAccess(ctx context.Context, edgeID idwrap.IDWrap) (*edge.Edge, error) {
+	edgeModel, err := s.es.GetEdge(ctx, edgeID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("edge %s not found", edgeID.String()))
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if err := s.ensureFlowAccess(ctx, edgeModel.FlowID); err != nil {
+		return nil, err
+	}
+	return edgeModel, nil
+}
+
+func (s *FlowServiceV2RPC) listAccessibleFlows(ctx context.Context) ([]mflow.Flow, error) {
+	workspaces, err := s.listUserWorkspaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var allFlows []mflow.Flow
+	for _, ws := range workspaces {
+		flows, err := s.fs.GetFlowsByWorkspaceID(ctx, ws.ID)
+		if err != nil {
+			if errors.Is(err, sflow.ErrNoFlowFound) {
+				continue
+			}
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		allFlows = append(allFlows, flows...)
+	}
+	return allFlows, nil
+}
+
+func (s *FlowServiceV2RPC) listUserWorkspaces(ctx context.Context) ([]mworkspace.Workspace, error) {
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	workspaces, err := s.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return workspaces, nil
+}
+
+func buildFlowSyncInserts(flows []mflow.Flow) []*flowv1.FlowSync {
+	if len(flows) == 0 {
+		return nil
+	}
+
+	sort.Slice(flows, func(i, j int) bool {
+		return bytes.Compare(flows[i].ID.Bytes(), flows[j].ID.Bytes()) < 0
+	})
+
+	items := make([]*flowv1.FlowSync, 0, len(flows))
+	for _, flow := range flows {
+		insert := &flowv1.FlowSyncInsert{
+			FlowId: flow.ID.Bytes(),
+			Name:   flow.Name,
+		}
+		if flow.Duration != 0 {
+			duration := flow.Duration
+			insert.Duration = &duration
+		}
+
+		items = append(items, &flowv1.FlowSync{
+			Value: &flowv1.FlowSync_ValueUnion{
+				Kind:   flowv1.FlowSync_ValueUnion_KIND_INSERT,
+				Insert: insert,
+			},
+		})
+	}
+
+	return items
+}
