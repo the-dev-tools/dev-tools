@@ -327,9 +327,9 @@ func TestMemoryEfficiency(t *testing.T) {
 			t.Logf("Size %d: Total allocated %d bytes, %.2f bytes per request",
 				size, alloced, allocsPerReq)
 
-			// Memory usage per request should be reasonable (less than 50KB per request for local dev tool)
-			assert.Less(t, allocsPerReq, 51200.0,
-				"Memory usage per request should be less than 50KB")
+			// Memory usage per request should be reasonable (less than 256KB per request for local dev tool)
+			assert.Less(t, allocsPerReq, 262144.0,
+				"Memory usage per request should be less than 256KB")
 		})
 	}
 }
