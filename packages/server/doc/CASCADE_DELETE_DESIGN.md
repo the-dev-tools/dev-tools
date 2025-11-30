@@ -296,6 +296,41 @@ func GetCascadeChildren(parent EntityType) []CascadeRule {
 
 ## 4. Implementation Pattern
 
+### Service Layer Architecture
+
+Before diving into implementation, understanding the service layer is critical:
+
+```ascii
+┌─────────────────────────────────────────────────────┐
+│ RPC Layer (packages/server/internal/api/rhttp/)     │
+│ Connect RPC handlers - orchestration & events       │
+└─────────────────────────────────────────────────────┘
+                        ↓↑
+┌─────────────────────────────────────────────────────┐
+│ Service Layer (packages/server/pkg/service/shttp/)  │
+│ Domain logic, wraps sqlc, model conversion          │
+└─────────────────────────────────────────────────────┘
+                        ↓↑
+┌─────────────────────────────────────────────────────┐
+│ Model Layer (packages/server/pkg/model/mhttp/)      │
+│ Pure Go domain entities (mhttp.HTTP)                │
+└─────────────────────────────────────────────────────┘
+                        ↓↑
+┌─────────────────────────────────────────────────────┐
+│ Data Access (packages/db/pkg/sqlc/gen/)             │
+│ sqlc-generated type-safe queries                    │
+└─────────────────────────────────────────────────────┘
+```
+
+**Key Patterns:**
+
+1. **Services wrap sqlc queries** - Never use `gen.Queries` directly in RPC layer
+2. **TX() method for transactions** - `service.TX(tx)` returns transactional service
+3. **Model conversion in services** - `ConvertToModelHTTP()` / `ConvertToDBHTTP()`
+4. **Reads OUTSIDE transaction** - All permission checks and data collection before `BeginTx`
+5. **Minimal transactions** - Only writes inside transaction
+6. **Events AFTER commit** - Publish to eventstream only after successful commit
+
 ### Delete Handler Structure
 
 ```go
@@ -310,8 +345,12 @@ func (h *HttpServiceRPC) HttpDelete(
         return nil, connect.NewError(connect.CodeInvalidArgument, err)
     }
 
-    // Step 1: Validate permissions OUTSIDE transaction
-    httpRecord, err := h.hs.Get(ctx, httpID)
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 1: ALL READS OUTSIDE TRANSACTION
+    // ═══════════════════════════════════════════════════════════════
+
+    // Step 1a: Validate permissions (uses services, NOT sqlc directly)
+    httpRecord, err := h.hs.Get(ctx, httpID)  // shttp.HTTPService.Get()
     if err != nil {
         return nil, connect.NewError(connect.CodeNotFound, err)
     }
@@ -321,20 +360,28 @@ func (h *HttpServiceRPC) HttpDelete(
         return nil, err
     }
 
-    // Step 2: Collect all cascading children BEFORE delete
+    // Step 1b: Collect all cascading children BEFORE delete
+    // Uses existing service methods - no new sqlc queries needed
     cascadeData, err := h.collectHttpCascadeData(ctx, httpID)
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
     }
 
-    // Step 3: Execute delete in minimal transaction
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 2: MINIMAL WRITE TRANSACTION
+    // ═══════════════════════════════════════════════════════════════
+
     tx, err := h.DB.BeginTx(ctx, nil)
     if err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
     }
-    defer devtoolsdb.TxnRollback(tx)
+    defer tx.Rollback()  // Safe rollback if commit fails
 
-    if err := h.hs.TX(tx).Delete(ctx, httpID); err != nil {
+    // Create transactional service using TX() pattern
+    hsService := h.hs.TX(tx)
+
+    // Single delete - SQLite CASCADE handles children as safety net
+    if err := hsService.Delete(ctx, httpID); err != nil {
         return nil, connect.NewError(connect.CodeInternal, err)
     }
 
@@ -342,13 +389,21 @@ func (h *HttpServiceRPC) HttpDelete(
         return nil, connect.NewError(connect.CodeInternal, err)
     }
 
-    // Step 4: Publish delete events for ALL affected entities
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 3: PUBLISH EVENTS AFTER SUCCESSFUL COMMIT
+    // ═══════════════════════════════════════════════════════════════
+
     h.publishHttpCascadeDeletes(workspaceID, cascadeData)
 
     return connect.NewResponse(&emptypb.Empty{}), nil
 }
+```
 
-// CascadeData holds all entities that will be deleted
+### CascadeData Structure
+
+```go
+// HttpCascadeData holds all entities that will be deleted
+// Uses model types from packages/server/pkg/model/*
 type HttpCascadeData struct {
     HTTP              mhttp.HTTP
     Headers           []mhttpheader.HttpHeader
@@ -360,29 +415,54 @@ type HttpCascadeData struct {
     Responses         []mhttpresponse.HttpResponse
     ResponseHeaders   []mhttpresponseheader.HttpResponseHeader
     ResponseAsserts   []mhttpresponseassert.HttpResponseAssert
-    DeltaHTTPs        []mhttp.HTTP  // Child delta records
+    DeltaHTTPs        []mhttp.HTTP  // Child delta records (self-referential)
 }
+```
 
+### Cascade Collection (Using Existing Services)
+
+```go
+// collectHttpCascadeData uses EXISTING service methods
+// No new sqlc queries needed - services already have ListByHttpID etc.
 func (h *HttpServiceRPC) collectHttpCascadeData(ctx context.Context, httpID idwrap.IDWrap) (*HttpCascadeData, error) {
     data := &HttpCascadeData{}
 
-    // Get the HTTP record itself
+    // Get the HTTP record itself (mhttp.HTTP model)
     http, err := h.hs.Get(ctx, httpID)
     if err != nil {
         return nil, err
     }
-    data.HTTP = http
+    data.HTTP = *http
 
-    // Collect all direct children
+    // ─────────────────────────────────────────────────────────────
+    // Collect direct children using existing service methods
+    // Services return model types, not gen.* types
+    // ─────────────────────────────────────────────────────────────
+
+    // shttpheader.HttpHeaderService.ListByHttpID() → []mhttpheader.HttpHeader
     data.Headers, _ = h.httpHeaderService.ListByHttpID(ctx, httpID)
+
+    // shttpsearchparam.HttpSearchParamService.ListByHttpID()
     data.SearchParams, _ = h.httpSearchParamService.ListByHttpID(ctx, httpID)
+
+    // shttpbodyform.HttpBodyFormService.ListByHttpID()
     data.BodyForms, _ = h.httpBodyFormService.ListByHttpID(ctx, httpID)
+
+    // shttpbodyurlencoded.HttpBodyUrlEncodedService.ListByHttpID()
     data.BodyUrlEncoded, _ = h.httpBodyUrlEncodedService.ListByHttpID(ctx, httpID)
+
+    // shttp.HttpBodyRawService.GetByHttpID() → *mhttpbodyraw.HttpBodyRaw
     data.BodyRaw, _ = h.bodyService.GetByHttpID(ctx, httpID)
+
+    // shttpassert.HttpAssertService.ListByHttpID()
     data.Asserts, _ = h.httpAssertService.ListByHttpID(ctx, httpID)
+
+    // shttp.HttpResponseService.ListByHttpID()
     data.Responses, _ = h.httpResponseService.ListByHttpID(ctx, httpID)
 
-    // Collect response children (nested cascade)
+    // ─────────────────────────────────────────────────────────────
+    // Nested cascade: Response → ResponseHeaders, ResponseAsserts
+    // ─────────────────────────────────────────────────────────────
     for _, resp := range data.Responses {
         headers, _ := h.httpResponseHeaderService.ListByResponseID(ctx, resp.ID)
         data.ResponseHeaders = append(data.ResponseHeaders, headers...)
@@ -391,11 +471,12 @@ func (h *HttpServiceRPC) collectHttpCascadeData(ctx context.Context, httpID idwr
         data.ResponseAsserts = append(data.ResponseAsserts, asserts...)
     }
 
-    // Collect delta HTTP records (self-referential cascade)
+    // ─────────────────────────────────────────────────────────────
+    // Self-referential cascade: HTTP → Delta HTTPs
+    // ─────────────────────────────────────────────────────────────
     data.DeltaHTTPs, _ = h.hs.ListByParentID(ctx, httpID)
 
     // Recursively collect delta children's cascade data
-    // (Headers, params, etc. belonging to deltas)
     for _, delta := range data.DeltaHTTPs {
         deltaData, err := h.collectHttpCascadeData(ctx, delta.ID)
         if err != nil {
@@ -409,56 +490,139 @@ func (h *HttpServiceRPC) collectHttpCascadeData(ctx context.Context, httpID idwr
     return data, nil
 }
 
+// publishHttpCascadeDeletes publishes delete events for all cascaded entities
+// Uses the existing eventstream pattern from HttpServiceRPC
+// Converter functions (e.g., converter.ToAPIHttpHeader) convert models to API types
 func (h *HttpServiceRPC) publishHttpCascadeDeletes(workspaceID idwrap.IDWrap, data *HttpCascadeData) {
-    topic := HttpTopic{WorkspaceID: workspaceID}
+    // ═══════════════════════════════════════════════════════════════
+    // Publish in REVERSE TOPOLOGICAL ORDER: deepest children first
+    // This ensures frontend can process parent-child relationships correctly
+    // ═══════════════════════════════════════════════════════════════
 
-    // Publish in reverse order: children first, then parent
-    // This allows frontend to process correctly if order matters
-
-    // Response children (deepest level)
+    // ─────────────────────────────────────────────────────────────
+    // Level 3: Deepest children (Response → Headers, Asserts)
+    // ─────────────────────────────────────────────────────────────
     for _, ra := range data.ResponseAsserts {
         h.httpResponseAssertStream.Publish(
             HttpResponseAssertTopic{WorkspaceID: workspaceID},
-            HttpResponseAssertEvent{Type: eventTypeDelete, HttpResponseAssert: convertResponseAssert(ra)},
+            HttpResponseAssertEvent{
+                Type:               eventTypeDelete,
+                HttpResponseAssert: converter.ToAPIHttpResponseAssert(ra),
+            },
         )
     }
     for _, rh := range data.ResponseHeaders {
         h.httpResponseHeaderStream.Publish(
             HttpResponseHeaderTopic{WorkspaceID: workspaceID},
-            HttpResponseHeaderEvent{Type: eventTypeDelete, HttpResponseHeader: convertResponseHeader(rh)},
+            HttpResponseHeaderEvent{
+                Type:               eventTypeDelete,
+                HttpResponseHeader: converter.ToAPIHttpResponseHeader(rh),
+            },
         )
     }
 
-    // Responses
+    // ─────────────────────────────────────────────────────────────
+    // Level 2: HTTP Responses
+    // ─────────────────────────────────────────────────────────────
     for _, r := range data.Responses {
         h.httpResponseStream.Publish(
             HttpResponseTopic{WorkspaceID: workspaceID},
-            HttpResponseEvent{Type: eventTypeDelete, HttpResponse: convertResponse(r)},
+            HttpResponseEvent{
+                Type:         eventTypeDelete,
+                HttpResponse: converter.ToAPIHttpResponse(r),
+            },
         )
     }
 
-    // Direct HTTP children
-    for _, a := range data.Asserts {
-        h.httpAssertStream.Publish(
-            HttpAssertTopic{WorkspaceID: workspaceID},
-            HttpAssertEvent{Type: eventTypeDelete, IsDelta: a.IsDelta, HttpAssert: convertAssert(a)},
+    // ─────────────────────────────────────────────────────────────
+    // Level 2: HTTP child entities (Headers, Params, Body, Asserts)
+    // ─────────────────────────────────────────────────────────────
+    for _, header := range data.Headers {
+        h.httpHeaderStream.Publish(
+            HttpHeaderTopic{WorkspaceID: workspaceID},
+            HttpHeaderEvent{
+                Type:       eventTypeDelete,
+                IsDelta:    header.IsDelta,
+                HttpHeader: converter.ToAPIHttpHeader(header),
+            },
+        )
+    }
+    for _, param := range data.SearchParams {
+        h.httpSearchParamStream.Publish(
+            HttpSearchParamTopic{WorkspaceID: workspaceID},
+            HttpSearchParamEvent{
+                Type:            eventTypeDelete,
+                IsDelta:         param.IsDelta,
+                HttpSearchParam: converter.ToAPIHttpSearchParam(param),
+            },
         )
     }
     for _, bf := range data.BodyForms {
         h.httpBodyFormStream.Publish(
             HttpBodyFormTopic{WorkspaceID: workspaceID},
-            HttpBodyFormEvent{Type: eventTypeDelete, IsDelta: bf.IsDelta, HttpBodyForm: convertBodyForm(bf)},
+            HttpBodyFormEvent{
+                Type:         eventTypeDelete,
+                IsDelta:      bf.IsDelta,
+                HttpBodyForm: converter.ToAPIHttpBodyForm(bf),
+            },
         )
     }
-    // ... all other children
-
-    // Delta HTTP records
-    for _, delta := range data.DeltaHTTPs {
-        h.stream.Publish(topic, HttpEvent{Type: eventTypeDelete, IsDelta: true, Http: convertHttp(delta)})
+    for _, bue := range data.BodyUrlEncoded {
+        h.httpBodyUrlEncodedStream.Publish(
+            HttpBodyUrlEncodedTopic{WorkspaceID: workspaceID},
+            HttpBodyUrlEncodedEvent{
+                Type:               eventTypeDelete,
+                IsDelta:            bue.IsDelta,
+                HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bue),
+            },
+        )
+    }
+    if data.BodyRaw != nil {
+        h.httpBodyRawStream.Publish(
+            HttpBodyRawTopic{WorkspaceID: workspaceID},
+            HttpBodyRawEvent{
+                Type:        eventTypeDelete,
+                IsDelta:     data.BodyRaw.IsDelta,
+                HttpBodyRaw: converter.ToAPIHttpBodyRaw(*data.BodyRaw),
+            },
+        )
+    }
+    for _, a := range data.Asserts {
+        h.httpAssertStream.Publish(
+            HttpAssertTopic{WorkspaceID: workspaceID},
+            HttpAssertEvent{
+                Type:       eventTypeDelete,
+                IsDelta:    a.IsDelta,
+                HttpAssert: converter.ToAPIHttpAssert(a),
+            },
+        )
     }
 
-    // Finally, the parent HTTP
-    h.stream.Publish(topic, HttpEvent{Type: eventTypeDelete, IsDelta: data.HTTP.IsDelta, Http: convertHttp(data.HTTP)})
+    // ─────────────────────────────────────────────────────────────
+    // Level 1: Delta HTTP records (children of parent HTTP)
+    // ─────────────────────────────────────────────────────────────
+    for _, delta := range data.DeltaHTTPs {
+        h.stream.Publish(
+            HttpTopic{WorkspaceID: workspaceID},
+            HttpEvent{
+                Type:    eventTypeDelete,
+                IsDelta: true,  // Deltas always have IsDelta=true
+                Http:    converter.ToAPIHttp(delta),
+            },
+        )
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Level 0: Parent HTTP (LAST)
+    // ─────────────────────────────────────────────────────────────
+    h.stream.Publish(
+        HttpTopic{WorkspaceID: workspaceID},
+        HttpEvent{
+            Type:    eventTypeDelete,
+            IsDelta: data.HTTP.IsDelta,
+            Http:    converter.ToAPIHttp(data.HTTP),
+        },
+    )
 }
 ```
 
@@ -850,3 +1014,296 @@ func TestHttpDeleteCascade_Integration(t *testing.T) {
 3. Add cascade publishing to `HttpDelete` RPC
 4. Add tests for cascade scenarios
 5. Repeat for Flow, File, and other entities
+
+---
+
+## Appendix A: Service Layer Reference
+
+This section documents how the existing service layer works, which is critical for implementing cascade logic correctly.
+
+### A.1 Service Structure Pattern
+
+Every service in `packages/server/pkg/service/` follows this pattern:
+
+```go
+// packages/server/pkg/service/shttp/http.go
+
+type HTTPService struct {
+    queries *gen.Queries    // sqlc-generated query interface (NOT accessed directly from RPC)
+    logger  *slog.Logger    // Optional logging
+}
+
+// Constructor - called once at startup
+func New(queries *gen.Queries, logger *slog.Logger) HTTPService {
+    return HTTPService{
+        queries: queries,
+        logger:  logger,
+    }
+}
+
+// TX() returns a transactional version of the service
+// This is the KEY pattern for atomic operations across services
+func (hs HTTPService) TX(tx *sql.Tx) HTTPService {
+    return HTTPService{
+        queries: hs.queries.WithTx(tx),  // Switches to transactional context
+        logger:  hs.logger,
+    }
+}
+```
+
+### A.2 Model Conversion Pattern
+
+Services convert between three layers:
+
+```ascii
+┌─────────────────────────────────────────────────────┐
+│ API Types (apiv1.Http)                              │
+│ Generated from TypeSpec → Protobuf                  │
+│ Used in RPC request/response                        │
+└─────────────────────────────────────────────────────┘
+              ↓ converter.ToAPIHttp()
+              ↑ converter.FromAPIHttp()
+┌─────────────────────────────────────────────────────┐
+│ Model Types (mhttp.HTTP)                            │
+│ Pure Go domain entities                             │
+│ Used in service layer, business logic               │
+└─────────────────────────────────────────────────────┘
+              ↓ ConvertToDBHTTP()
+              ↑ ConvertToModelHTTP()
+┌─────────────────────────────────────────────────────┐
+│ DB Types (gen.Http)                                 │
+│ sqlc-generated structs matching SQL schema          │
+│ Used only inside services                           │
+└─────────────────────────────────────────────────────┘
+```
+
+**Service-level conversion (inside services):**
+
+```go
+// shttp/http.go - DB → Model
+func ConvertToModelHTTP(http gen.Http) *mhttp.HTTP {
+    return &mhttp.HTTP{
+        ID:          http.ID,               // idwrap.IDWrap (same in both)
+        WorkspaceID: http.WorkspaceID,
+        Name:        http.Name,
+        Method:      http.Method,
+        BodyKind:    mhttp.HttpBodyKind(http.BodyKind),  // Type conversion
+        IsDelta:     http.IsDelta,
+        // ... all fields
+    }
+}
+
+// shttp/http.go - Model → DB
+func ConvertToDBHTTP(http mhttp.HTTP) gen.Http {
+    return gen.Http{
+        ID:          http.ID,
+        WorkspaceID: http.WorkspaceID,
+        Name:        http.Name,
+        Method:      http.Method,
+        BodyKind:    int8(http.BodyKind),  // Type conversion
+        IsDelta:     http.IsDelta,
+        // ... all fields
+    }
+}
+```
+
+**RPC-level conversion (in converter package):**
+
+```go
+// internal/api/converter/http.go - Model → API
+func ToAPIHttp(http mhttp.HTTP) *apiv1.Http {
+    return &apiv1.Http{
+        HttpId:      http.ID.Bytes(),              // IDWrap → []byte
+        WorkspaceId: http.WorkspaceID.Bytes(),
+        Name:        http.Name,
+        Method:      http.Method,
+        BodyKind:    apiv1.HttpBodyKind(http.BodyKind),
+        IsDelta:     http.IsDelta,
+        // ... all fields
+    }
+}
+```
+
+### A.3 Transaction Pattern in RPC Handlers
+
+The established pattern in your codebase:
+
+```go
+func (h *HttpServiceRPC) HttpInsert(ctx context.Context, req *connect.Request[apiv1.HttpInsertRequest]) (*connect.Response[emptypb.Empty], error) {
+    // ════════════════════════════════════════════════════
+    // PHASE 1: ALL READS OUTSIDE TRANSACTION
+    // ════════════════════════════════════════════════════
+
+    // Auth check
+    userID, err := mwauth.GetContextUserID(ctx)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeUnauthenticated, err)
+    }
+
+    // Read existing data (uses services, returns model types)
+    workspaces, err := h.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // Permission check
+    if err := h.checkWorkspaceWriteAccess(ctx, workspaceID); err != nil {
+        return nil, err
+    }
+
+    // Build models from request
+    var httpModels []*mhttp.HTTP
+    for _, item := range req.Msg.Items {
+        httpModel := &mhttp.HTTP{
+            ID:          idwrap.NewNow(),
+            WorkspaceID: workspaceID,
+            Name:        item.Name,
+            // ... populate from request
+        }
+        httpModels = append(httpModels, httpModel)
+    }
+
+    // ════════════════════════════════════════════════════
+    // PHASE 2: MINIMAL WRITE TRANSACTION
+    // ════════════════════════════════════════════════════
+
+    tx, err := h.DB.BeginTx(ctx, nil)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    defer tx.Rollback()  // Safe rollback if we don't reach commit
+
+    // Create transactional service instances
+    hsService := h.hs.TX(tx)
+    headerService := h.httpHeaderService.TX(tx)
+
+    // All writes happen here
+    for _, httpModel := range httpModels {
+        if err := hsService.Create(ctx, httpModel); err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+    }
+
+    // Commit atomically
+    if err := tx.Commit(); err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // ════════════════════════════════════════════════════
+    // PHASE 3: PUBLISH EVENTS AFTER SUCCESSFUL COMMIT
+    // ════════════════════════════════════════════════════
+
+    for _, http := range httpModels {
+        h.publishInsertEvent(*http)
+    }
+
+    return connect.NewResponse(&emptypb.Empty{}), nil
+}
+```
+
+### A.4 Multi-Service Transaction Example
+
+When multiple services need to operate atomically:
+
+```go
+// From rimportv2/storage.go - Multiple services in one transaction
+func (imp *ImportService) ImportWorkspace(ctx context.Context, data *ImportData) error {
+    // Begin single transaction
+    tx, err := imp.DB.BeginTx(ctx, nil)
+    if err != nil {
+        return err
+    }
+    defer tx.Rollback()
+
+    // Create transactional versions of ALL services needed
+    txFileService := imp.fileService.TX(tx)
+    txHttpService := imp.httpService.TX(tx)
+    txFlowService := imp.flowService.TX(tx)
+    txHeaderService := imp.httpHeaderService.TX(tx)
+    txSearchParamService := imp.httpSearchParamService.TX(tx)
+    txBodyFormService := imp.httpBodyFormService.TX(tx)
+    txNodeService := imp.nodeService.TX(tx)
+    txEdgeService := imp.edgeService.TX(tx)
+
+    // All operations share the same transaction
+    for _, file := range data.Files {
+        if err := txFileService.CreateFile(ctx, &file); err != nil {
+            return err  // Rollback happens via defer
+        }
+    }
+
+    for _, http := range data.HTTPRequests {
+        if err := txHttpService.Create(ctx, &http); err != nil {
+            return err
+        }
+        for _, header := range http.Headers {
+            if err := txHeaderService.Create(ctx, &header); err != nil {
+                return err
+            }
+        }
+    }
+
+    // ... more operations ...
+
+    // Single atomic commit
+    if err := tx.Commit(); err != nil {
+        return err
+    }
+
+    // Publish events AFTER successful commit
+    imp.publishImportEvents(data)
+
+    return nil
+}
+```
+
+### A.5 Service Directory Structure
+
+```
+packages/server/pkg/service/
+├── shttp/                    # HTTP request management
+│   ├── http.go               # HTTPService (main CRUD)
+│   ├── body_raw.go           # HttpBodyRawService
+│   └── response.go           # HttpResponseService
+├── shttpheader/              # HTTP headers
+│   └── header.go             # HttpHeaderService
+├── shttpsearchparam/         # Query parameters
+│   └── search_param.go       # HttpSearchParamService
+├── shttpbodyform/            # Form body
+│   └── body_form.go          # HttpBodyFormService
+├── shttpbodyurlencoded/      # URL-encoded body
+│   └── body_urlencoded.go    # HttpBodyUrlEncodedService
+├── shttpassert/              # Assertions
+│   └── assert.go             # HttpAssertService
+├── sfile/                    # File system
+│   └── sfile.go              # FileService
+├── sflow/                    # Flows
+│   └── sflow.go              # FlowService
+├── snode/                    # Flow nodes
+│   ├── snode.go              # NodeService
+│   ├── snoderequest.go       # NodeRequestService
+│   ├── snodefor.go           # NodeForService
+│   ├── snodeforeach.go       # NodeForEachService
+│   └── ...
+├── sedge/                    # Flow edges
+│   └── sedge.go              # EdgeService
+├── sworkspace/               # Workspaces
+│   └── sworkspace.go         # WorkspaceService
+├── suser/                    # Users
+│   └── suser.go              # UserService
+├── senv/                     # Environments
+│   └── senv.go               # EnvService
+├── svar/                     # Variables
+│   └── svar.go               # VarService
+└── ...
+```
+
+### A.6 Key Rules for Cascade Implementation
+
+1. **Never use `gen.Queries` directly in RPC layer** - Always go through services
+2. **TX() for transactions** - `service.TX(tx)` returns a transactional service
+3. **Model types in cascade data** - Store `mhttp.HTTP`, not `gen.Http` or `apiv1.Http`
+4. **Converter for events** - Use `converter.ToAPIHttp()` when publishing to streams
+5. **Reads before BeginTx** - Collect cascade data before transaction starts
+6. **Events after Commit** - Publish only after successful commit
+7. **Services have ListByXxxID** - Use existing service methods for cascade collection
