@@ -17,9 +17,6 @@ import (
 	"time"
 )
 
-// TODO: this is dupe should me refactored
-const NodeVarKey = "var"
-
 type NodeFor struct {
 	FlowNodeID    idwrap.IDWrap
 	Name          string
