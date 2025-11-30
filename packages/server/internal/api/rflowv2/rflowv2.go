@@ -1,8 +1,10 @@
 package rflowv2
 
 import (
+	"context"
 	"errors"
 	"log/slog"
+	"sync"
 
 	"connectrpc.com/connect"
 
@@ -248,6 +250,10 @@ type FlowServiceV2RPC struct {
 	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
 	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
+
+	// Running flows map for cancellation
+	runningFlowsMu sync.Mutex
+	runningFlows   map[string]context.CancelFunc
 }
 
 func New(
@@ -327,6 +333,7 @@ func New(
 		httpResponseStream:       httpResponseStream,
 		httpResponseHeaderStream: httpResponseHeaderStream,
 		httpResponseAssertStream: httpResponseAssertStream,
+		runningFlows:             make(map[string]context.CancelFunc),
 	}
 }
 

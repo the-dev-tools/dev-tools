@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +27,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -69,9 +71,10 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	defer ts.Close()
 
 	// 2. Setup DB
-	db, err := sql.Open("sqlite", ":memory:")
+	// Use shared cache for in-memory DB to support concurrency
+	db, err := sql.Open("sqlite", "file:delta_test?mode=memory&cache=shared")
 	require.NoError(t, err)
-	db.SetMaxOpenConns(1) // Ensure single connection for in-memory DB persistence
+	db.SetMaxOpenConns(1)
 	defer db.Close()
 
 	statements := strings.Split(deltaTestSchema, ";")
@@ -310,8 +313,16 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	// 6. Verification
-	// Check Node Execution
-	exec, err := nodeExecService.GetLatestNodeExecutionByNodeID(ctx, requestNodeID)
+	// Check Node Execution (Poll for completion)
+	var exec *mnodeexecution.NodeExecution
+	for i := 0; i < 10; i++ {
+		exec, err = nodeExecService.GetLatestNodeExecutionByNodeID(ctx, requestNodeID)
+		if err == nil && exec != nil && mnnode.NodeState(exec.State) == mnnode.NODE_STATE_SUCCESS {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	require.NoError(t, err)
 	require.NotNil(t, exec, "Node execution not found for node %s", requestNodeID.String())
 	assert.Equal(t, mnnode.NODE_STATE_SUCCESS, mnnode.NodeState(exec.State))

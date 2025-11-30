@@ -3,14 +3,17 @@ package rflowv2
 import (
 	"bytes"
 	"context"
-		"database/sql"
-		"testing"
-	
-		"connectrpc.com/connect"
+	"database/sql"
+	"testing"
+	"time"
+
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	_ "modernc.org/sqlite"
+	"log/slog"
+	"os"
 
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
@@ -32,7 +35,8 @@ import (
 
 func TestFlowRun_MultipleRuns(t *testing.T) {
 	// Setup DB
-	db, err := sql.Open("sqlite", ":memory:")
+	// Use shared cache for in-memory DB to support concurrency
+	db, err := sql.Open("sqlite", "file:multiple_runs_test?mode=memory&cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -51,15 +55,18 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 	edgeService := sedge.New(queries)
 	noopService := snodenoop.New(queries)
 	flowVarService := sflowvariable.New(queries)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := &FlowServiceV2RPC{
-		ws:   &wsService,
-		fs:   &flowService,
-		ns:   &nodeService,
-		nes:  &nodeExecService,
-		es:   &edgeService,
-		nnos: &noopService,
-		fvs:  &flowVarService,
+		ws:           &wsService,
+		fs:           &flowService,
+		ns:           &nodeService,
+		nes:          &nodeExecService,
+		es:           &edgeService,
+		nnos:         &noopService,
+		fvs:          &flowVarService,
+		logger:       logger,
+		runningFlows: make(map[string]context.CancelFunc),
 	}
 
 	// Setup Data
@@ -120,10 +127,21 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 		require.NoError(t, err, "Run %d failed", i)
 	}
 
-	// Verify NodeCollection state (should be SUCCESS from last run)
+	// Verification (Poll for SUCCESS)
 	collReq := connect.NewRequest(&emptypb.Empty{})
-	resp, err := svc.NodeCollection(ctx, collReq)
-	require.NoError(t, err)
+	var resp *connect.Response[flowv1.NodeCollectionResponse]
+	
+	// Poll until we see SUCCESS state
+	for i := 0; i < 20; i++ {
+		resp, err = svc.NodeCollection(ctx, collReq)
+		require.NoError(t, err)
+		require.Len(t, resp.Msg.Items, 1)
+		item := resp.Msg.Items[0]
+		if item.State == flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	require.Len(t, resp.Msg.Items, 1)
 	item := resp.Msg.Items[0]

@@ -26,6 +26,7 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
@@ -71,10 +72,48 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Run execution asynchronously
+	go func() {
+		// Create a background context for execution with cancellation support
+		bgCtx, cancel := context.WithCancel(context.Background())
+		
+		// Store cancel function
+		s.runningFlowsMu.Lock()
+		s.runningFlows[flowID.String()] = cancel
+		s.runningFlowsMu.Unlock()
+
+		defer func() {
+			// Cleanup
+			s.runningFlowsMu.Lock()
+			delete(s.runningFlows, flowID.String())
+			s.runningFlowsMu.Unlock()
+			cancel()
+		}()
+
+		if err := s.executeFlow(bgCtx, flow, nodes, edges, flowVars); err != nil {
+			// Check if error is due to cancellation
+			if errors.Is(err, context.Canceled) {
+				s.logger.Info("flow execution canceled", "flow_id", flowID.String())
+			} else {
+				s.logger.Error("async flow execution failed", "flow_id", flowID.String(), "error", err)
+			}
+		}
+	}()
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (s *FlowServiceV2RPC) executeFlow(
+	ctx context.Context,
+	flow mflow.Flow,
+	nodes []mnnode.MNode,
+	edges []edge.Edge,
+	flowVars []mflowvariable.FlowVariable,
+) error {
 	// Mark flow as running
 	flow.Running = true
 	if err := s.fs.UpdateFlow(ctx, flow); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to mark flow as running: %w", err))
+		return fmt.Errorf("failed to mark flow as running: %w", err)
 	}
 	s.publishFlowEvent(flowEventUpdate, flow)
 
@@ -148,7 +187,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 		case mnnode.NODE_KIND_NO_OP:
 			noopModel, err := s.nnos.GetNodeNoop(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return err
 			}
 			flowNodeMap[nodeModel.ID] = nnoop.New(nodeModel.ID, nodeModel.Name)
 			if noopModel.Type == mnnoop.NODE_NO_OP_KIND_START {
@@ -157,20 +196,20 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 		case mnnode.NODE_KIND_REQUEST:
 			requestCfg, err := s.nrs.GetNodeRequest(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return err
 			}
 			if requestCfg == nil || requestCfg.HttpID == nil || isZeroID(*requestCfg.HttpID) {
-				return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("request node %s missing http configuration", nodeModel.ID.String()))
+				return fmt.Errorf("request node %s missing http configuration", nodeModel.ID.String())
 			}
 			requestNode, err := s.buildRequestFlowNode(ctx, flow, nodeModel, *requestCfg, sharedHTTPClient, requestRespChan)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			flowNodeMap[nodeModel.ID] = requestNode
 		case mnnode.NODE_KIND_FOR:
 			forCfg, err := s.nfs.GetNodeFor(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return err
 			}
 			if forCfg.Condition.Comparisons.Expression != "" {
 				flowNodeMap[nodeModel.ID] = nfor.NewWithCondition(nodeModel.ID, nodeModel.Name, forCfg.IterCount, timeoutDuration, forCfg.ErrorHandling, forCfg.Condition)
@@ -180,35 +219,35 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 		case mnnode.NODE_KIND_FOR_EACH:
 			forEachCfg, err := s.nfes.GetNodeForEach(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return err
 			}
 			flowNodeMap[nodeModel.ID] = nforeach.New(nodeModel.ID, nodeModel.Name, forEachCfg.IterExpression, timeoutDuration, forEachCfg.Condition, forEachCfg.ErrorHandling)
 		case mnnode.NODE_KIND_CONDITION:
 			condCfg, err := s.nifs.GetNodeIf(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return err
 			}
 			flowNodeMap[nodeModel.ID] = nif.New(nodeModel.ID, nodeModel.Name, condCfg.Condition)
 		case mnnode.NODE_KIND_JS:
 			jsCfg, err := s.njss.GetNodeJS(ctx, nodeModel.ID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return err
 			}
 			codeBytes := jsCfg.Code
 			if jsCfg.CodeCompressType != compress.CompressTypeNone {
 				codeBytes, err = compress.Decompress(jsCfg.Code, jsCfg.CodeCompressType)
 				if err != nil {
-					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("decompress js code: %w", err))
+					return fmt.Errorf("decompress js code: %w", err)
 				}
 			}
 			flowNodeMap[nodeModel.ID] = njs.New(nodeModel.ID, nodeModel.Name, string(codeBytes), nil)
 		default:
-			return nil, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("node kind %d not supported in FlowRun", nodeModel.NodeKind))
+			return fmt.Errorf("node kind %d not supported in FlowRun", nodeModel.NodeKind)
 		}
 	}
 
 	if startNodeID == (idwrap.IDWrap{}) {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("flow missing start node"))
+		return errors.New("flow missing start node")
 	}
 
 	flowRunner := flowlocalrunner.CreateFlowRunner(idwrap.NewNow(), flow.ID, startNodeID, flowNodeMap, edgeMap, 0, nil)
@@ -304,15 +343,40 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 		NodeStates: nodeStateChan,
 	}, baseVars); err != nil {
 		stateDrain.Wait()
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return err
 	}
 
 	stateDrain.Wait()
-	return connect.NewResponse(&emptypb.Empty{}), nil
+	return nil
 }
 
 func (s *FlowServiceV2RPC) FlowStop(ctx context.Context, req *connect.Request[flowv1.FlowStopRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errUnimplemented)
+	if len(req.Msg.GetFlowId()) == 0 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow id is required"))
+	}
+
+	flowID, err := idwrap.NewFromBytes(req.Msg.GetFlowId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid flow id: %w", err))
+	}
+
+	if err := s.ensureFlowAccess(ctx, flowID); err != nil {
+		return nil, err
+	}
+
+	s.runningFlowsMu.Lock()
+	cancel, ok := s.runningFlows[flowID.String()]
+	s.runningFlowsMu.Unlock()
+
+	if !ok {
+		// Flow is not running, which is fine for a stop request (idempotent)
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	// Cancel the flow
+	cancel()
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (s *FlowServiceV2RPC) buildRequestFlowNode(
@@ -324,12 +388,12 @@ func (s *FlowServiceV2RPC) buildRequestFlowNode(
 	respChan chan nrequest.NodeRequestSideResp,
 ) (*nrequest.NodeRequest, error) {
 	if cfg.HttpID == nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("request node %s missing http_id", nodeModel.Name))
+		return nil, fmt.Errorf("request node %s missing http_id", nodeModel.Name)
 	}
 
 	resolved, err := s.resolver.Resolve(ctx, *cfg.HttpID, cfg.DeltaHttpID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("resolve http %s: %w", cfg.HttpID.String(), err))
+		return nil, fmt.Errorf("resolve http %s: %w", cfg.HttpID.String(), err)
 	}
 
 	requestNode := nrequest.New(
