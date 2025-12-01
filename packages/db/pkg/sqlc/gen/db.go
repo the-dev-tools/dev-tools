@@ -27,6 +27,30 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.checkIFWorkspaceUserExistsStmt, err = db.PrepareContext(ctx, checkIFWorkspaceUserExists); err != nil {
 		return nil, fmt.Errorf("error preparing query CheckIFWorkspaceUserExists: %w", err)
 	}
+	if q.cleanupOrphanedFlowEdgesStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowEdges); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowEdges: %w", err)
+	}
+	if q.cleanupOrphanedFlowNodeConditionStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeCondition); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeCondition: %w", err)
+	}
+	if q.cleanupOrphanedFlowNodeForStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeFor); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeFor: %w", err)
+	}
+	if q.cleanupOrphanedFlowNodeForEachStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeForEach); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeForEach: %w", err)
+	}
+	if q.cleanupOrphanedFlowNodeHttpStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeHttp); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeHttp: %w", err)
+	}
+	if q.cleanupOrphanedFlowNodeJsStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeJs); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeJs: %w", err)
+	}
+	if q.cleanupOrphanedFlowNodeNoopStmt, err = db.PrepareContext(ctx, cleanupOrphanedFlowNodeNoop); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedFlowNodeNoop: %w", err)
+	}
+	if q.cleanupOrphanedNodeExecutionsStmt, err = db.PrepareContext(ctx, cleanupOrphanedNodeExecutions); err != nil {
+		return nil, fmt.Errorf("error preparing query CleanupOrphanedNodeExecutions: %w", err)
+	}
 	if q.createEnvironmentStmt, err = db.PrepareContext(ctx, createEnvironment); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateEnvironment: %w", err)
 	}
@@ -692,6 +716,46 @@ func (q *Queries) Close() error {
 	if q.checkIFWorkspaceUserExistsStmt != nil {
 		if cerr := q.checkIFWorkspaceUserExistsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing checkIFWorkspaceUserExistsStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedFlowEdgesStmt != nil {
+		if cerr := q.cleanupOrphanedFlowEdgesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowEdgesStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedFlowNodeConditionStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeConditionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeConditionStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedFlowNodeForStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeForStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeForStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedFlowNodeForEachStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeForEachStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeForEachStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedFlowNodeHttpStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeHttpStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeHttpStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedFlowNodeJsStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeJsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeJsStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedFlowNodeNoopStmt != nil {
+		if cerr := q.cleanupOrphanedFlowNodeNoopStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedFlowNodeNoopStmt: %w", cerr)
+		}
+	}
+	if q.cleanupOrphanedNodeExecutionsStmt != nil {
+		if cerr := q.cleanupOrphanedNodeExecutionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing cleanupOrphanedNodeExecutionsStmt: %w", cerr)
 		}
 	}
 	if q.createEnvironmentStmt != nil {
@@ -1829,6 +1893,14 @@ type Queries struct {
 	db                                         DBTX
 	tx                                         *sql.Tx
 	checkIFWorkspaceUserExistsStmt             *sql.Stmt
+	cleanupOrphanedFlowEdgesStmt               *sql.Stmt
+	cleanupOrphanedFlowNodeConditionStmt       *sql.Stmt
+	cleanupOrphanedFlowNodeForStmt             *sql.Stmt
+	cleanupOrphanedFlowNodeForEachStmt         *sql.Stmt
+	cleanupOrphanedFlowNodeHttpStmt            *sql.Stmt
+	cleanupOrphanedFlowNodeJsStmt              *sql.Stmt
+	cleanupOrphanedFlowNodeNoopStmt            *sql.Stmt
+	cleanupOrphanedNodeExecutionsStmt          *sql.Stmt
 	createEnvironmentStmt                      *sql.Stmt
 	createFileStmt                             *sql.Stmt
 	createFlowStmt                             *sql.Stmt
@@ -2055,6 +2127,14 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		db:                                         tx,
 		tx:                                         tx,
 		checkIFWorkspaceUserExistsStmt:             q.checkIFWorkspaceUserExistsStmt,
+		cleanupOrphanedFlowEdgesStmt:               q.cleanupOrphanedFlowEdgesStmt,
+		cleanupOrphanedFlowNodeConditionStmt:       q.cleanupOrphanedFlowNodeConditionStmt,
+		cleanupOrphanedFlowNodeForStmt:             q.cleanupOrphanedFlowNodeForStmt,
+		cleanupOrphanedFlowNodeForEachStmt:         q.cleanupOrphanedFlowNodeForEachStmt,
+		cleanupOrphanedFlowNodeHttpStmt:            q.cleanupOrphanedFlowNodeHttpStmt,
+		cleanupOrphanedFlowNodeJsStmt:              q.cleanupOrphanedFlowNodeJsStmt,
+		cleanupOrphanedFlowNodeNoopStmt:            q.cleanupOrphanedFlowNodeNoopStmt,
+		cleanupOrphanedNodeExecutionsStmt:          q.cleanupOrphanedNodeExecutionsStmt,
 		createEnvironmentStmt:                      q.createEnvironmentStmt,
 		createFileStmt:                             q.createFileStmt,
 		createFlowStmt:                             q.createFlowStmt,

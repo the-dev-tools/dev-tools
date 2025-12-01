@@ -50,9 +50,7 @@ CREATE TABLE flow_edge (
   target_id BLOB NOT NULL,
   source_handle INT NOT NULL,
   edge_kind INT NOT NULL DEFAULT 0,
-  FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE,
-  FOREIGN KEY (source_id) REFERENCES flow_node (id) ON DELETE CASCADE,
-  FOREIGN KEY (target_id) REFERENCES flow_node (id) ON DELETE CASCADE
+  FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
 
 CREATE INDEX flow_edge_idx1 ON flow_edge (flow_id, source_id, target_id);
@@ -63,8 +61,7 @@ CREATE TABLE flow_node_for (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   iter_count BIGINT NOT NULL,
   error_handling INT8 NOT NULL,
-  expression TEXT NOT NULL,
-  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+  expression TEXT NOT NULL
 );
 
 -- TODO: move conditions to new condition table
@@ -72,15 +69,13 @@ CREATE TABLE flow_node_for_each (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   iter_expression TEXT NOT NULL,
   error_handling INT8 NOT NULL,
-  expression TEXT NOT NULL,
-  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+  expression TEXT NOT NULL
 );
 
 CREATE TABLE flow_node_http (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   http_id BLOB NOT NULL,
   delta_http_id BLOB,
-  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
   FOREIGN KEY (delta_http_id) REFERENCES http (id) ON DELETE SET NULL
 );
@@ -88,21 +83,18 @@ CREATE TABLE flow_node_http (
 -- TODO: move conditions to new condition table
 CREATE TABLE flow_node_condition (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  expression TEXT NOT NULL,
-  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+  expression TEXT NOT NULL
 );
 
 CREATE TABLE flow_node_noop (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
-  node_type TINYINT NOT NULL,
-  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+  node_type TINYINT NOT NULL
 );
 
 CREATE TABLE flow_node_js (
   flow_node_id BLOB NOT NULL PRIMARY KEY,
   code BLOB NOT NULL,
-  code_compress_type INT8 NOT NULL,
-  FOREIGN KEY (flow_node_id) REFERENCES flow_node (id) ON DELETE CASCADE
+  code_compress_type INT8 NOT NULL
 );
 
 CREATE TABLE flow_variable (
@@ -136,7 +128,6 @@ CREATE TABLE node_execution (
   -- Add new fields
   http_response_id BLOB, -- Response ID for HTTP request nodes (NULL for non-request nodes)
   completed_at BIGINT, -- Unix timestamp in milliseconds
-  FOREIGN KEY (node_id) REFERENCES flow_node (id) ON DELETE CASCADE,
   FOREIGN KEY (http_response_id) REFERENCES http_response (id) ON DELETE SET NULL
 );
 

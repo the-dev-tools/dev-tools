@@ -13,6 +13,81 @@ import (
 	idwrap "the-dev-tools/server/pkg/idwrap"
 )
 
+const cleanupOrphanedFlowEdges = `-- name: CleanupOrphanedFlowEdges :exec
+DELETE FROM flow_edge WHERE source_id NOT IN (SELECT id FROM flow_node) OR target_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowEdges(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowEdgesStmt, cleanupOrphanedFlowEdges)
+	return err
+}
+
+const cleanupOrphanedFlowNodeCondition = `-- name: CleanupOrphanedFlowNodeCondition :exec
+DELETE FROM flow_node_condition WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeCondition(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeConditionStmt, cleanupOrphanedFlowNodeCondition)
+	return err
+}
+
+const cleanupOrphanedFlowNodeFor = `-- name: CleanupOrphanedFlowNodeFor :exec
+
+DELETE FROM flow_node_for WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+// Cleanup queries for orphaned flow_node sub-table records
+// (used when FK constraints are removed for flexible insert ordering)
+func (q *Queries) CleanupOrphanedFlowNodeFor(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeForStmt, cleanupOrphanedFlowNodeFor)
+	return err
+}
+
+const cleanupOrphanedFlowNodeForEach = `-- name: CleanupOrphanedFlowNodeForEach :exec
+DELETE FROM flow_node_for_each WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeForEach(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeForEachStmt, cleanupOrphanedFlowNodeForEach)
+	return err
+}
+
+const cleanupOrphanedFlowNodeHttp = `-- name: CleanupOrphanedFlowNodeHttp :exec
+DELETE FROM flow_node_http WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeHttp(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeHttpStmt, cleanupOrphanedFlowNodeHttp)
+	return err
+}
+
+const cleanupOrphanedFlowNodeJs = `-- name: CleanupOrphanedFlowNodeJs :exec
+DELETE FROM flow_node_js WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeJs(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeJsStmt, cleanupOrphanedFlowNodeJs)
+	return err
+}
+
+const cleanupOrphanedFlowNodeNoop = `-- name: CleanupOrphanedFlowNodeNoop :exec
+DELETE FROM flow_node_noop WHERE flow_node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedFlowNodeNoop(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedFlowNodeNoopStmt, cleanupOrphanedFlowNodeNoop)
+	return err
+}
+
+const cleanupOrphanedNodeExecutions = `-- name: CleanupOrphanedNodeExecutions :exec
+DELETE FROM node_execution WHERE node_id NOT IN (SELECT id FROM flow_node)
+`
+
+func (q *Queries) CleanupOrphanedNodeExecutions(ctx context.Context) error {
+	_, err := q.exec(ctx, q.cleanupOrphanedNodeExecutionsStmt, cleanupOrphanedNodeExecutions)
+	return err
+}
+
 const createFlow = `-- name: CreateFlow :exec
 INSERT INTO
   flow (id, workspace_id, version_parent_id, name, duration, running)

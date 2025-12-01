@@ -675,3 +675,30 @@ DELETE FROM node_execution WHERE node_id = ?;
 
 -- name: DeleteNodeExecutionsByNodeIDs :exec
 DELETE FROM node_execution WHERE node_id IN (sqlc.slice('node_ids'));
+
+-- Cleanup queries for orphaned flow_node sub-table records
+-- (used when FK constraints are removed for flexible insert ordering)
+
+-- name: CleanupOrphanedFlowNodeFor :exec
+DELETE FROM flow_node_for WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
+-- name: CleanupOrphanedFlowNodeForEach :exec
+DELETE FROM flow_node_for_each WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
+-- name: CleanupOrphanedFlowNodeHttp :exec
+DELETE FROM flow_node_http WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
+-- name: CleanupOrphanedFlowNodeCondition :exec
+DELETE FROM flow_node_condition WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
+-- name: CleanupOrphanedFlowNodeNoop :exec
+DELETE FROM flow_node_noop WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
+-- name: CleanupOrphanedFlowNodeJs :exec
+DELETE FROM flow_node_js WHERE flow_node_id NOT IN (SELECT id FROM flow_node);
+
+-- name: CleanupOrphanedFlowEdges :exec
+DELETE FROM flow_edge WHERE source_id NOT IN (SELECT id FROM flow_node) OR target_id NOT IN (SELECT id FROM flow_node);
+
+-- name: CleanupOrphanedNodeExecutions :exec
+DELETE FROM node_execution WHERE node_id NOT IN (SELECT id FROM flow_node);
