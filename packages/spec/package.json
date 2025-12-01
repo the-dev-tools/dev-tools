@@ -9,15 +9,7 @@
   ],
   "exports": {
     "./*": "./dist/buf/typescript/*.ts",
-    "./buf/*": "./dist/buf/typescript/*.ts",
-    "./tanstack-db/*": "./dist/tanstack-db/typescript/*.ts",
-    "./data-client/*": "./dist/data-client/*",
-    "./data-client/utils": "./data-client/utils.ts"
-  },
-  "dependencies": {
-    "@connectrpc/connect": "2.1.0",
-    "@data-client/core": "0.14.24",
-    "@data-client/endpoint": "0.14.26"
+    "./tanstack-db/*": "./dist/tanstack-db/typescript/*.ts"
   },
   "devDependencies": {
     "@bufbuild/buf": "~1.57.0",
@@ -29,7 +21,6 @@
     "@types/node": "~24.6.1",
     "effect": "~3.18.1",
     "prettier": "~3.6.2",
-    "rimraf": "~6.0.1",
     "typescript": "~5.9.3"
   }
 }

@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "dist"
   },
-  "include": ["data-client", "dist", "lib"],
+  "include": ["dist", "lib"],
   "exclude": ["node_modules", "*.ts"],
   "references": [
     {
