@@ -5,7 +5,7 @@ import { Ulid } from 'id128';
 import { useContext, useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import { tv } from 'tailwind-variants';
-import { EdgeKind, FlowItemState, HandleKind } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import { EdgeKind, FlowItemState, HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { EdgeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';

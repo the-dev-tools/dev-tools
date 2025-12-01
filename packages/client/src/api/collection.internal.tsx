@@ -1,7 +1,7 @@
 import { CollectionConfig, createCollection, createOptimisticAction, Transaction } from '@tanstack/react-db';
 import { Array, Effect, HashMap, Match, pipe, Predicate, Record, Struct } from 'effect';
 import { Ulid } from 'id128';
-import { UnsetSchema } from '@the-dev-tools/spec/global/v1/global_pb';
+import { UnsetSchema } from '@the-dev-tools/spec/buf/global/v1/global_pb';
 import { schemas_v1_api } from '@the-dev-tools/spec/tanstack-db/v1/api';
 import { ApiTransport } from '~/api/transport';
 import * as Connect from './connect-rpc';

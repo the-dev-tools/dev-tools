@@ -2,7 +2,7 @@ import { count, eq, or, useLiveQuery } from '@tanstack/react-db';
 import { Suspense } from 'react';
 import { Tab, TabList, TabPanel, Tabs } from 'react-aria-components';
 import { twMerge } from 'tailwind-merge';
-import { HttpBodyKind } from '@the-dev-tools/spec/api/http/v1/http_pb';
+import { HttpBodyKind } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import {
   HttpAssertCollectionSchema,
   HttpBodyFormDataCollectionSchema,

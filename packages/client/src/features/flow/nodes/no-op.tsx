@@ -3,7 +3,7 @@ import * as XF from '@xyflow/react';
 import { Match, pipe } from 'effect';
 import { Ulid } from 'id128';
 import { twMerge } from 'tailwind-merge';
-import { NodeNoOpKind } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import { NodeNoOpKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeNoOpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { PlayIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';

@@ -4,12 +4,12 @@ import { Ulid } from 'id128';
 import { use, useEffect } from 'react';
 import { Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiExternalLink, FiX } from 'react-icons/fi';
-import { FileKind } from '@the-dev-tools/spec/api/file_system/v1/file_system_pb';
+import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import {
   NodeHttpUpdate_DeltaHttpIdUnion_Kind,
   NodeHttpUpdate_HttpIdUnion_Kind,
-} from '@the-dev-tools/spec/api/flow/v1/flow_pb';
-import { HttpMethod } from '@the-dev-tools/spec/api/http/v1/http_pb';
+} from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
+import { HttpMethod } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { NodeExecutionCollectionSchema, NodeHttpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';

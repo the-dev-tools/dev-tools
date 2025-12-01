@@ -7,7 +7,7 @@ import { Header, ListBoxSection } from 'react-aria-components';
 import { IconType } from 'react-icons';
 import { FiTerminal } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
-import { EdgeKind, HandleKind, NodeKind, NodeNoOpKind } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import { EdgeKind, HandleKind, NodeKind, NodeNoOpKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import {
   EdgeCollectionSchema,
   NodeCollectionSchema,

@@ -29,14 +29,14 @@ import {
   HttpSync_ValueUnion_Kind,
   HttpSyncInsertSchema,
   HttpVersionSync_ValueUnion_Kind,
-} from '@the-dev-tools/spec/api/http/v1/http_pb';
+} from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import {
   LogLevel,
   LogService,
   LogSync_ValueUnion_Kind,
   LogSyncResponseSchema,
-} from '@the-dev-tools/spec/api/log/v1/log_pb';
-import { files } from '@the-dev-tools/spec/files';
+} from '@the-dev-tools/spec/buf/api/log/v1/log_pb';
+import { files } from '@the-dev-tools/spec/buf/files';
 import { schemas_v1_api as collections } from '@the-dev-tools/spec/tanstack-db/v1/api';
 import { ApiCollectionSchema, Connect, Protobuf } from '~/api';
 import { registry } from '~/api/protobuf';

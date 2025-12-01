@@ -4,7 +4,7 @@ import { use, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { FiX } from 'react-icons/fi';
 import { useDebouncedCallback } from 'use-debounce';
-import { HandleKind } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import { HandleKind } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeConditionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';

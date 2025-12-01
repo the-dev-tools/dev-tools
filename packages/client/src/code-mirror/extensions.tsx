@@ -28,7 +28,7 @@ import {
   ReferenceCompletion,
   ReferenceKind,
   ReferenceService,
-} from '@the-dev-tools/spec/api/reference/v1/reference_pb';
+} from '@the-dev-tools/spec/buf/api/reference/v1/reference_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useConnectSuspenseQuery } from '~/api/connect-query';

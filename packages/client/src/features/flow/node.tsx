@@ -20,7 +20,7 @@ import { IconType } from 'react-icons/lib';
 import { TbAlertTriangle, TbCancel, TbRefresh } from 'react-icons/tb';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
-import { FlowItemState, FlowService } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import { FlowItemState, FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { NodeCollectionSchema, NodeExecutionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button } from '@the-dev-tools/ui/button';
 import { CheckIcon } from '@the-dev-tools/ui/icons';

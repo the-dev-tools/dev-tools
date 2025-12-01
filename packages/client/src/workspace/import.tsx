@@ -11,7 +11,7 @@ import {
   ImportMissingDataKind,
   ImportRequestSchema,
   ImportService,
-} from '@the-dev-tools/spec/api/import/v1/import_pb';
+} from '@the-dev-tools/spec/buf/api/import/v1/import_pb';
 import { Button } from '@the-dev-tools/ui/button';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { FileDropZone } from '@the-dev-tools/ui/file-drop-zone';

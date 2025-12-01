@@ -1,5 +1,5 @@
 import { Match, pipe } from 'effect';
-import { HttpBodyKind } from '@the-dev-tools/spec/api/http/v1/http_pb';
+import { HttpBodyKind } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Radio, RadioGroup } from '@the-dev-tools/ui/radio-group';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';

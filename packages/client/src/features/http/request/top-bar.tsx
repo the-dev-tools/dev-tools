@@ -2,7 +2,7 @@ import { Array, pipe } from 'effect';
 import { useTransition } from 'react';
 import { Button as AriaButton, DialogTrigger, MenuTrigger } from 'react-aria-components';
 import { FiClock, FiMoreHorizontal } from 'react-icons/fi';
-import { HttpService } from '@the-dev-tools/spec/api/http/v1/http_pb';
+import { HttpService } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import {
   HttpCollectionSchema,
   HttpDeltaCollectionSchema,

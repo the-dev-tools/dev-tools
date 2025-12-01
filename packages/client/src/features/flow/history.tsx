@@ -7,7 +7,7 @@ import { useTab, useTabList, useTabPanel } from 'react-aria';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { Item, Node, TabListState, useTabListState } from 'react-stately';
 import { twJoin } from 'tailwind-merge';
-import { FlowVersion } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+import { FlowVersion } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { FlowVersionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Spinner } from '@the-dev-tools/ui/spinner';

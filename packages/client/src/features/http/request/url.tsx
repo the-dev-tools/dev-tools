@@ -8,7 +8,7 @@ import {
   HttpMethodSchema,
   HttpSearchParamInsertSchema,
   HttpSearchParamUpdateSchema,
-} from '@the-dev-tools/spec/api/http/v1/http_pb';
+} from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import {
   HttpCollectionSchema,
   HttpDeltaCollectionSchema,

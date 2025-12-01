@@ -5,7 +5,7 @@ import { FiTerminal, FiTrash2, FiX } from 'react-icons/fi';
 import { Panel } from 'react-resizable-panels';
 import { twMerge } from 'tailwind-merge';
 import { tv } from 'tailwind-variants';
-import { LogLevel } from '@the-dev-tools/spec/api/log/v1/log_pb';
+import { LogLevel } from '@the-dev-tools/spec/buf/api/log/v1/log_pb';
 import { LogCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/log';
 import { Button, ButtonAsLink } from '@the-dev-tools/ui/button';
 import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';

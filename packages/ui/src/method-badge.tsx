@@ -1,6 +1,6 @@
 import { Match, pipe } from 'effect';
 import { tv } from 'tailwind-variants';
-import { HttpMethod } from '@the-dev-tools/spec/api/http/v1/http_pb';
+import { HttpMethod } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { Badge, BadgeProps } from './badge';
 import { tw } from './tailwind-literal';
 

@@ -19,7 +19,7 @@ import {
 } from 'react-aria-components';
 import { FiMoreHorizontal, FiPlus } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
-import { EnvironmentInsertSchema, EnvironmentVariable } from '@the-dev-tools/spec/api/environment/v1/environment_pb';
+import { EnvironmentInsertSchema, EnvironmentVariable } from '@the-dev-tools/spec/buf/api/environment/v1/environment_pb';
 import {
   EnvironmentCollectionSchema,
   EnvironmentVariableCollectionSchema,

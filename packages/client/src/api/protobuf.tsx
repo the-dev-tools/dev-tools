@@ -13,7 +13,7 @@ import {
 import { createStandardSchema, createValidator, ValidatorOptions } from '@bufbuild/protovalidate';
 import { StandardSchemaV1 } from '@standard-schema/spec';
 import { Array, Option, pipe, Record, Struct } from 'effect';
-import { files } from '@the-dev-tools/spec/files';
+import { files } from '@the-dev-tools/spec/buf/files';
 
 export * from '@bufbuild/protobuf';
 export * as WKT from '@bufbuild/protobuf/wkt';

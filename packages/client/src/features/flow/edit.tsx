@@ -10,7 +10,7 @@ import { createPortal } from 'react-dom';
 import { FiClock, FiMinus, FiMoreHorizontal, FiPlus, FiStopCircle, FiX } from 'react-icons/fi';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { twJoin } from 'tailwind-merge';
-import { FileKind } from '@the-dev-tools/spec/api/file_system/v1/file_system_pb';
+import { FileKind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import {
   EdgeKind,
   FlowService,
@@ -18,7 +18,7 @@ import {
   HandleKind,
   NodeKind,
   NodeNoOpKind,
-} from '@the-dev-tools/spec/api/flow/v1/flow_pb';
+} from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import {
   EdgeCollectionSchema,

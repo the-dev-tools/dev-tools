@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Dialog, DialogTrigger, Key, Tooltip, TooltipTrigger } from 'react-aria-components';
 import { FiX } from 'react-icons/fi';
 import { TbFileExport } from 'react-icons/tb';
-import { ExportService } from '@the-dev-tools/spec/api/export/v1/export_pb';
+import { ExportService } from '@the-dev-tools/spec/buf/api/export/v1/export_pb';
 import { FileCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
 import { Button } from '@the-dev-tools/ui/button';
 import { Modal } from '@the-dev-tools/ui/modal';

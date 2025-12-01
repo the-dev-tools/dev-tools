@@ -1,7 +1,7 @@
 import { createClient } from '@connectrpc/connect';
 import CodeMirror from '@uiw/react-codemirror';
 import { useContext, useState } from 'react';
-import { ReferenceService } from '@the-dev-tools/spec/api/reference/v1/reference_pb';
+import { ReferenceService } from '@the-dev-tools/spec/buf/api/reference/v1/reference_pb';
 import {
   HttpBodyRawCollectionSchema,
   HttpBodyRawDeltaCollectionSchema,
