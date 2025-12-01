@@ -34,30 +34,96 @@ import (
 )
 
 func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhttp.HTTP) error {
-	// Load all components
-	headers, err := h.httpHeaderService.GetByHttpIDOrdered(ctx, httpEntry.ID)
-	if err != nil {
-		headers = []mhttpheader.HttpHeader{}
-	}
+	var resolvedHTTP mhttp.HTTP
+	var mHeaders []mhttp.HTTPHeader
+	var mQueries []mhttp.HTTPSearchParam
+	var rawBody *mhttp.HTTPBodyRaw
+	var mFormBody []mhttp.HTTPBodyForm
+	var mUrlEncodedBody []mhttp.HTTPBodyUrlencoded
 
-	queries, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, httpEntry.ID)
-	if err != nil {
-		queries = []mhttpsearchparam.HttpSearchParam{}
-	}
+	// Check if this is a delta request and resolve it using the resolver
+	if httpEntry.IsDelta && httpEntry.ParentHttpID != nil {
+		// Use the resolver to merge base + delta
+		resolved, err := h.resolver.Resolve(ctx, *httpEntry.ParentHttpID, &httpEntry.ID)
+		if err != nil {
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resolve delta request: %w", err))
+		}
 
-	rawBody, err := h.bodyService.GetByHttpID(ctx, httpEntry.ID)
-	if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
-		rawBody = nil
-	}
+		resolvedHTTP = resolved.Resolved
+		mHeaders = resolved.ResolvedHeaders
+		mQueries = resolved.ResolvedQueries
+		mFormBody = resolved.ResolvedFormBody
+		mUrlEncodedBody = resolved.ResolvedUrlEncodedBody
+		rawBody = &resolved.ResolvedRawBody
 
-	formBody, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, httpEntry.ID)
-	if err != nil {
-		formBody = []mhttpbodyform.HttpBodyForm{}
-	}
+		// Use workspace ID from original entry (base might have different workspace)
+		resolvedHTTP.WorkspaceID = httpEntry.WorkspaceID
+	} else {
+		// Non-delta request: load components directly
+		resolvedHTTP = *httpEntry
 
-	urlEncodedBody, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, httpEntry.ID)
-	if err != nil {
-		urlEncodedBody = []mhttpbodyurlencoded.HttpBodyUrlEncoded{}
+		headers, err := h.httpHeaderService.GetByHttpIDOrdered(ctx, httpEntry.ID)
+		if err != nil {
+			headers = []mhttpheader.HttpHeader{}
+		}
+
+		queries, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, httpEntry.ID)
+		if err != nil {
+			queries = []mhttpsearchparam.HttpSearchParam{}
+		}
+
+		rawBodyFetched, err := h.bodyService.GetByHttpID(ctx, httpEntry.ID)
+		if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
+			rawBodyFetched = nil
+		}
+		rawBody = rawBodyFetched
+
+		formBody, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, httpEntry.ID)
+		if err != nil {
+			formBody = []mhttpbodyform.HttpBodyForm{}
+		}
+
+		urlEncodedBody, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, httpEntry.ID)
+		if err != nil {
+			urlEncodedBody = []mhttpbodyurlencoded.HttpBodyUrlEncoded{}
+		}
+
+		// Convert to mhttp types for request preparation
+		mHeaders = make([]mhttp.HTTPHeader, len(headers))
+		for i, v := range headers {
+			mHeaders[i] = mhttp.HTTPHeader{
+				HeaderKey:   v.Key,
+				HeaderValue: v.Value,
+				Enabled:     v.Enabled,
+			}
+		}
+
+		mQueries = make([]mhttp.HTTPSearchParam, len(queries))
+		for i, v := range queries {
+			mQueries[i] = mhttp.HTTPSearchParam{
+				ParamKey:   v.Key,
+				ParamValue: v.Value,
+				Enabled:    v.Enabled,
+			}
+		}
+
+		mFormBody = make([]mhttp.HTTPBodyForm, len(formBody))
+		for i, v := range formBody {
+			mFormBody[i] = mhttp.HTTPBodyForm{
+				FormKey:   v.Key,
+				FormValue: v.Value,
+				Enabled:   v.Enabled,
+			}
+		}
+
+		mUrlEncodedBody = make([]mhttp.HTTPBodyUrlencoded, len(urlEncodedBody))
+		for i, v := range urlEncodedBody {
+			mUrlEncodedBody[i] = mhttp.HTTPBodyUrlencoded{
+				UrlencodedKey:   v.Key,
+				UrlencodedValue: v.Value,
+				Enabled:         v.Enabled,
+			}
+		}
 	}
 
 	// Build variable context from previous HTTP responses in the workspace
@@ -67,58 +133,9 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		varMap = varsystem.VarMap{}
 	}
 
-	// Convert to mhttp types for request preparation
-	mHeaders := make([]mhttp.HTTPHeader, len(headers))
-	for i, v := range headers {
-		mHeaders[i] = mhttp.HTTPHeader{
-			HeaderKey:   v.Key,
-			HeaderValue: v.Value,
-			Enabled:     v.Enabled,
-		}
-	}
-
-	mQueries := make([]mhttp.HTTPSearchParam, len(queries))
-	for i, v := range queries {
-		mQueries[i] = mhttp.HTTPSearchParam{
-			ParamKey:   v.Key,
-			ParamValue: v.Value,
-			Enabled:    v.Enabled,
-		}
-	}
-
-	mFormBody := make([]mhttp.HTTPBodyForm, len(formBody))
-	for i, v := range formBody {
-		mFormBody[i] = mhttp.HTTPBodyForm{
-			FormKey:   v.Key,
-			FormValue: v.Value,
-			Enabled:   v.Enabled,
-		}
-	}
-
-	mUrlEncodedBody := make([]mhttp.HTTPBodyUrlencoded, len(urlEncodedBody))
-	for i, v := range urlEncodedBody {
-		mUrlEncodedBody[i] = mhttp.HTTPBodyUrlencoded{
-			UrlencodedKey:   v.Key,
-			UrlencodedValue: v.Value,
-			Enabled:         v.Enabled,
-		}
-	}
-
-	// Apply Delta override for Body Raw
-	if rawBody != nil && rawBody.IsDelta {
-		if len(rawBody.DeltaRawData) > 0 {
-			rawBody.RawData = rawBody.DeltaRawData
-		}
-		if rawBody.DeltaContentType != nil {
-			if val, ok := rawBody.DeltaContentType.(string); ok && val != "" {
-				rawBody.ContentType = val
-			}
-		}
-	}
-
 	// Prepare the HTTP request using request package
 	res, err := request.PrepareHTTPRequestWithTracking(
-		*httpEntry,
+		resolvedHTTP,
 		mHeaders,
 		mQueries,
 		rawBody,

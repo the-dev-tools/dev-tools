@@ -253,7 +253,18 @@ func main() {
 	httpBodyRawStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
 	defer httpBodyRawStreamer.Shutdown()
 
-	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
+	// Create request resolver for HTTP delta resolution (shared with flow service)
+	requestResolver := resolver.NewStandardResolver(
+		&httpService,
+		&httpHeaderService,
+		&httpSearchParamService,
+		httpBodyRawService,
+		&httpBodyFormService,
+		&httpBodyUrlEncodedService,
+		&httpAssertService,
+	)
+
+	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, optionsAll))
 
 	flowStreamer := memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]()
@@ -319,16 +330,6 @@ func main() {
 	workspaceImporter := &workspaceImporterAdapter{
 		importService: importV2Srv,
 	}
-
-	requestResolver := resolver.NewStandardResolver(
-		&httpService,
-		&httpHeaderService,
-		&httpSearchParamService,
-		httpBodyRawService,
-		&httpBodyFormService,
-		&httpBodyUrlEncodedService,
-		&httpAssertService,
-	)
 
 	flowSrvV2 := rflowv2.New(
 		&workspaceService,

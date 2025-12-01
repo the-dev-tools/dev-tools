@@ -11,6 +11,7 @@ import (
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
@@ -137,7 +138,18 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 	varService := svar.New(suite.baseDB.Queries, suite.importHandler.Logger)
 	httpAssertService := shttpassert.New(suite.baseDB.Queries)
 	httpResponseService := shttp.NewHttpResponseService(suite.baseDB.Queries)
-	
+
+	// Create resolver for delta resolution
+	requestResolver := resolver.NewStandardResolver(
+		suite.importHandler.HttpService,
+		&suite.importHandler.HttpHeaderService,
+		&suite.importHandler.HttpSearchParamService,
+		suite.importHandler.HttpBodyRawService,
+		&suite.importHandler.HttpBodyFormService,
+		&suite.importHandler.HttpBodyUrlEncodedService,
+		&httpAssertService,
+	)
+
 	httpHandler := rhttp.New(
 		suite.baseDB.DB,
 		*suite.importHandler.HttpService,
@@ -153,7 +165,8 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 		suite.importHandler.HttpBodyUrlEncodedService,
 		httpAssertService,
 		httpResponseService,
-		suite.importHandler.HttpStream, 
+		requestResolver,
+		suite.importHandler.HttpStream,
 		suite.importHandler.HttpHeaderStream,
 		suite.importHandler.HttpSearchParamStream,
 		suite.importHandler.HttpBodyFormStream,

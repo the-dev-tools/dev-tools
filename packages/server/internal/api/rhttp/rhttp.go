@@ -7,6 +7,7 @@ import (
 
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/pkg/eventstream"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -175,6 +176,9 @@ type HttpServiceRPC struct {
 	bodyService         *shttp.HttpBodyRawService
 	httpResponseService shttp.HttpResponseService
 
+	// Resolver for delta request resolution
+	resolver resolver.RequestResolver
+
 	// Child entity services
 	httpHeaderService         shttpheader.HttpHeaderService
 	httpSearchParamService    shttpsearchparam.HttpSearchParamService
@@ -214,6 +218,7 @@ func New(
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
 	httpAssertService shttpassert.HttpAssertService,
 	httpResponseService shttp.HttpResponseService,
+	requestResolver resolver.RequestResolver,
 	stream eventstream.SyncStreamer[HttpTopic, HttpEvent],
 	httpHeaderStream eventstream.SyncStreamer[HttpHeaderTopic, HttpHeaderEvent],
 	httpSearchParamStream eventstream.SyncStreamer[HttpSearchParamTopic, HttpSearchParamEvent],
@@ -241,6 +246,7 @@ func New(
 		httpBodyUrlEncodedService: httpBodyUrlEncodedService,
 		httpAssertService:         httpAssertService,
 		httpResponseService:       httpResponseService,
+		resolver:                  requestResolver,
 		stream:                    stream,
 		httpHeaderStream:          httpHeaderStream,
 		httpSearchParamStream:     httpSearchParamStream,

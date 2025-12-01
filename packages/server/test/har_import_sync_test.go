@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
@@ -155,14 +156,25 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 	assert.NotEmpty(t, receivedHeaders, "Should receive Header events")
 	
 	// 4. Validate Collections (RPC vs Sync Consistency)
-	
+
 	// Create missing services manually since they aren't exposed in suite.services
 	// BaseDB is available in suite
 	envService := senv.New(suite.baseDB.Queries, suite.importHandler.Logger) // Mock logger is fine
 	varService := svar.New(suite.baseDB.Queries, suite.importHandler.Logger)
 	httpAssertService := shttpassert.New(suite.baseDB.Queries)
 	httpResponseService := shttp.NewHttpResponseService(suite.baseDB.Queries)
-	
+
+	// Create resolver for delta resolution
+	requestResolver := resolver.NewStandardResolver(
+		suite.importHandler.HttpService,
+		&suite.importHandler.HttpHeaderService,
+		&suite.importHandler.HttpSearchParamService,
+		suite.importHandler.HttpBodyRawService,
+		&suite.importHandler.HttpBodyFormService,
+		&suite.importHandler.HttpBodyUrlEncodedService,
+		&httpAssertService,
+	)
+
 	// Instantiate rhttp handler
 	httpHandler := rhttp.New(
 		suite.baseDB.DB,
@@ -179,7 +191,8 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 		suite.importHandler.HttpBodyUrlEncodedService,
 		httpAssertService,
 		httpResponseService,
-		suite.importHandler.HttpStream, 
+		requestResolver,
+		suite.importHandler.HttpStream,
 		suite.importHandler.HttpHeaderStream,
 		suite.importHandler.HttpSearchParamStream,
 		suite.importHandler.HttpBodyFormStream,

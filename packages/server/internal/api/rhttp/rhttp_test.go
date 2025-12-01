@@ -40,6 +40,7 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
+	"the-dev-tools/server/pkg/http/resolver"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -107,7 +108,18 @@ func newHttpFixture(t *testing.T) *httpFixture {
 	httpResponseAssertStream := memory.NewInMemorySyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]()
 	httpBodyRawStream := memory.NewInMemorySyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]()
 
-	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream)
+	// Create resolver for delta resolution
+	requestResolver := resolver.NewStandardResolver(
+		&services.Hs,
+		&httpHeaderService,
+		&httpSearchParamService,
+		httpBodyRawService,
+		&httpBodyFormService,
+		&httpBodyUrlEncodedService,
+		&httpAssertService,
+	)
+
+	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream)
 
 	t.Cleanup(base.Close)
 

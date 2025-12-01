@@ -14,6 +14,7 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/muser"
@@ -98,6 +99,17 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	httpResponseAssertStream := memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]()
 	httpBodyRawStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
 
+	// Create resolver for delta resolution
+	requestResolver := resolver.NewStandardResolver(
+		&httpService,
+		&httpHeaderService,
+		&httpSearchParamService,
+		bodyService,
+		&httpBodyFormService,
+		&httpBodyUrlEncodedService,
+		&httpAssertService,
+	)
+
 	// Create handler
 	handler := rhttp.New(
 		base.DB,
@@ -114,6 +126,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 		httpBodyUrlEncodedService,
 		httpAssertService,
 		httpResponseService,
+		requestResolver,
 		stream,
 		httpHeaderStream,
 		httpSearchParamStream,

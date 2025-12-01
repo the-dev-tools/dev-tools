@@ -25,6 +25,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
+	"the-dev-tools/server/pkg/http/resolver"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -71,6 +72,17 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	httpResponseAssertStream := memory.NewInMemorySyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]()
 	httpBodyRawStream := memory.NewInMemorySyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]()
 
+	// Create resolver for delta resolution
+	requestResolver := resolver.NewStandardResolver(
+		&hs,
+		&httpHeaderService,
+		&httpSearchParamService,
+		bodyService,
+		&httpBodyFormService,
+		&httpBodyUrlEncodedService,
+		&httpAssertService,
+	)
+
 	svc := New(
 		db,
 		hs,
@@ -86,6 +98,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 		httpBodyUrlEncodedService,
 		httpAssertService,
 		httpResponseService,
+		requestResolver,
 		httpStream,
 		httpHeaderStream,
 		httpSearchParamStream,

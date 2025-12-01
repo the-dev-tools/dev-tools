@@ -713,14 +713,23 @@ func (h *HttpServiceRPC) HttpResponseCollection(ctx context.Context, req *connec
 
 	var allResponses []*apiv1.HttpResponse
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
+		// Get base HTTP entries for this workspace
 		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		// Also get delta HTTP entries (responses can be stored against delta IDs)
+		deltaList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Combine base and delta entries
+		allHTTPs := append(httpList, deltaList...)
+
 		// Get responses for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			responses, err := h.httpResponseService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -750,14 +759,23 @@ func (h *HttpServiceRPC) HttpResponseHeaderCollection(ctx context.Context, req *
 
 	var allHeaders []*apiv1.HttpResponseHeader
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
+		// Get base HTTP entries for this workspace
 		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		// Also get delta HTTP entries (response headers can be stored against delta IDs)
+		deltaList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Combine base and delta entries
+		allHTTPs := append(httpList, deltaList...)
+
 		// Get response headers for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			headers, err := h.httpResponseService.GetHeadersByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -787,14 +805,23 @@ func (h *HttpServiceRPC) HttpResponseAssertCollection(ctx context.Context, req *
 
 	var allAsserts []*apiv1.HttpResponseAssert
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
+		// Get base HTTP entries for this workspace
 		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		// Also get delta HTTP entries (response asserts can be stored against delta IDs)
+		deltaList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Combine base and delta entries
+		allHTTPs := append(httpList, deltaList...)
+
 		// Get response asserts for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			asserts, err := h.httpResponseService.GetAssertsByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
