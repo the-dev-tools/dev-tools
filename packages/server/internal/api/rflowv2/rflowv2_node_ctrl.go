@@ -10,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
+	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
@@ -941,7 +942,10 @@ func (s *FlowServiceV2RPC) forEachEventToSyncResponse(
 			Value: &flowv1.NodeForEachSync_ValueUnion{
 				Kind: flowv1.NodeForEachSync_ValueUnion_KIND_INSERT,
 				Insert: &flowv1.NodeForEachSyncInsert{
-					NodeId: nodeForEach.FlowNodeID.Bytes(),
+					NodeId:        nodeForEach.FlowNodeID.Bytes(),
+					Path:          nodeForEach.IterExpression,
+					Condition:     nodeForEach.Condition.Comparisons.Expression,
+					ErrorHandling: converter.ToAPIErrorHandling(nodeForEach.ErrorHandling),
 				},
 			},
 		}
@@ -1234,7 +1238,8 @@ func (s *FlowServiceV2RPC) conditionEventToSyncResponse(
 			Value: &flowv1.NodeConditionSync_ValueUnion{
 				Kind: flowv1.NodeConditionSync_ValueUnion_KIND_INSERT,
 				Insert: &flowv1.NodeConditionSyncInsert{
-					NodeId: nodeCondition.FlowNodeID.Bytes(),
+					NodeId:    nodeCondition.FlowNodeID.Bytes(),
+					Condition: nodeCondition.Condition.Comparisons.Expression,
 				},
 			},
 		}
@@ -1533,6 +1538,7 @@ func (s *FlowServiceV2RPC) jsEventToSyncResponse(
 				Kind: flowv1.NodeJsSync_ValueUnion_KIND_INSERT,
 				Insert: &flowv1.NodeJsSyncInsert{
 					NodeId: nodeJs.FlowNodeID.Bytes(),
+					Code:   string(nodeJs.Code),
 				},
 			},
 		}
