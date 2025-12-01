@@ -75,11 +75,6 @@ func (s *FlowServiceV2RPC) NodeNoOpInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		baseNode, err := s.ensureNodeAccess(ctx, nodeID)
-		if err != nil {
-			return nil, err
-		}
-
 		if err := s.nnos.DeleteNodeNoop(ctx, nodeID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -92,8 +87,10 @@ func (s *FlowServiceV2RPC) NodeNoOpInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish insert event
-		s.publishNoOpEvent(noopEventInsert, baseNode.FlowID, noop)
+		// Publish insert event if base node exists
+		if baseNode, err := s.ns.GetNode(ctx, nodeID); err == nil {
+			s.publishNoOpEvent(noopEventInsert, baseNode.FlowID, noop)
+		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -398,11 +395,6 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		baseNode, err := s.ensureNodeAccess(ctx, nodeID)
-		if err != nil {
-			return nil, err
-		}
-
 		model := mnfor.MNFor{
 			FlowNodeID:    nodeID,
 			IterCount:     int64(item.GetIterations()),
@@ -414,8 +406,10 @@ func (s *FlowServiceV2RPC) NodeForInsert(ctx context.Context, req *connect.Reque
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		// Publish insert event
-		s.publishForEvent(forEventInsert, baseNode.FlowID, model)
+		// Publish insert event if base node exists
+		if baseNode, err := s.ns.GetNode(ctx, nodeID); err == nil {
+			s.publishForEvent(forEventInsert, baseNode.FlowID, model)
+		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -723,10 +717,6 @@ func (s *FlowServiceV2RPC) NodeForEachInsert(ctx context.Context, req *connect.R
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
-			return nil, err
-		}
-
 		model := mnforeach.MNForEach{
 			FlowNodeID:     nodeID,
 			IterExpression: item.GetPath(),
@@ -1028,10 +1018,6 @@ func (s *FlowServiceV2RPC) NodeConditionInsert(ctx context.Context, req *connect
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
-			return nil, err
-		}
-
 		model := mnif.MNIF{
 			FlowNodeID: nodeID,
 			Condition:  buildCondition(item.GetCondition()),
@@ -1320,10 +1306,6 @@ func (s *FlowServiceV2RPC) NodeJsInsert(ctx context.Context, req *connect.Reques
 		nodeID, err := idwrap.NewFromBytes(item.GetNodeId())
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
-		}
-
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
-			return nil, err
 		}
 
 		model := mnjs.MNJS{

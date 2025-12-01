@@ -61,10 +61,6 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		if _, err := s.ensureNodeAccess(ctx, nodeID); err != nil {
-			return nil, err
-		}
-
 		var httpID idwrap.IDWrap
 		if len(item.GetHttpId()) > 0 {
 			httpID, err = idwrap.NewFromBytes(item.GetHttpId())
