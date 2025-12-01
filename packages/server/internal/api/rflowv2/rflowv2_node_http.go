@@ -61,18 +61,33 @@ func (s *FlowServiceV2RPC) NodeHttpInsert(ctx context.Context, req *connect.Requ
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid node id: %w", err))
 		}
 
-		var httpID idwrap.IDWrap
+		var httpID *idwrap.IDWrap
 		if len(item.GetHttpId()) > 0 {
-			httpID, err = idwrap.NewFromBytes(item.GetHttpId())
+			parsedID, err := idwrap.NewFromBytes(item.GetHttpId())
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid http id: %w", err))
+			}
+			if !isZeroID(parsedID) {
+				httpID = &parsedID
+			}
+		}
+
+		var deltaHttpID *idwrap.IDWrap
+		if len(item.GetDeltaHttpId()) > 0 {
+			parsedID, err := idwrap.NewFromBytes(item.GetDeltaHttpId())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid delta http id: %w", err))
+			}
+			if !isZeroID(parsedID) {
+				deltaHttpID = &parsedID
 			}
 		}
 
 		if err := s.nrs.CreateNodeRequest(ctx, mnrequest.MNRequest{
 			FlowNodeID:       nodeID,
-			HttpID:           &httpID,
-			HasRequestConfig: !isZeroID(httpID),
+			HttpID:           httpID,
+			DeltaHttpID:      deltaHttpID,
+			HasRequestConfig: httpID != nil,
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -92,19 +107,35 @@ func (s *FlowServiceV2RPC) NodeHttpUpdate(ctx context.Context, req *connect.Requ
 			return nil, err
 		}
 
-		var httpID idwrap.IDWrap
-		union := item.GetHttpId()
-		if union != nil && union.Kind == flowv1.NodeHttpUpdate_HttpIdUnion_KIND_VALUE {
-			httpID, err = idwrap.NewFromBytes(union.GetValue())
+		var httpID *idwrap.IDWrap
+		httpUnion := item.GetHttpId()
+		if httpUnion != nil && httpUnion.Kind == flowv1.NodeHttpUpdate_HttpIdUnion_KIND_VALUE {
+			parsedID, err := idwrap.NewFromBytes(httpUnion.GetValue())
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid http id: %w", err))
+			}
+			if !isZeroID(parsedID) {
+				httpID = &parsedID
+			}
+		}
+
+		var deltaHttpID *idwrap.IDWrap
+		deltaUnion := item.GetDeltaHttpId()
+		if deltaUnion != nil && deltaUnion.Kind == flowv1.NodeHttpUpdate_DeltaHttpIdUnion_KIND_VALUE {
+			parsedID, err := idwrap.NewFromBytes(deltaUnion.GetValue())
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid delta http id: %w", err))
+			}
+			if !isZeroID(parsedID) {
+				deltaHttpID = &parsedID
 			}
 		}
 
 		if err := s.nrs.UpdateNodeRequest(ctx, mnrequest.MNRequest{
 			FlowNodeID:       nodeID,
-			HttpID:           &httpID,
-			HasRequestConfig: !isZeroID(httpID),
+			HttpID:           httpID,
+			DeltaHttpID:      deltaHttpID,
+			HasRequestConfig: httpID != nil,
 		}); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

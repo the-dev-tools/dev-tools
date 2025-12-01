@@ -38,7 +38,7 @@ func ConvertToDBNodeHTTP(nr mnrequest.MNRequest) (gen.FlowNodeHttp, bool) {
 	}
 
 	var deltaID []byte
-	if nr.DeltaHttpID != nil {
+	if nr.DeltaHttpID != nil && !isZeroID(*nr.DeltaHttpID) {
 		deltaID = nr.DeltaHttpID.Bytes()
 	}
 
