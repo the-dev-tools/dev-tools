@@ -607,14 +607,23 @@ func (h *HttpServiceRPC) HttpVersionCollection(ctx context.Context, req *connect
 
 	var allVersions []*apiv1.HttpVersion
 	for _, workspace := range workspaces {
-		// Get HTTP entries for this workspace
+		// Get base HTTP entries for this workspace
 		httpList, err := h.hs.GetByWorkspaceID(ctx, workspace.ID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
+		// Also get delta HTTP entries (versions can be stored against delta IDs)
+		deltaList, err := h.hs.GetDeltasByWorkspaceID(ctx, workspace.ID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+
+		// Combine base and delta entries
+		allHTTPs := append(httpList, deltaList...)
+
 		// Get versions for each HTTP entry
-		for _, http := range httpList {
+		for _, http := range allHTTPs {
 			versions, err := h.getHttpVersionsByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
