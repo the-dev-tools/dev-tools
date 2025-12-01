@@ -24,6 +24,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -201,21 +202,32 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("at least one flow is required"))
 	}
 
-	workspaceID, err := workspaceIDFromHeaders(req.Header())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
-		return nil, err
-	}
-
-	workspace, err := s.ws.Get(ctx, workspaceID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
+	// Track workspaces to update their flow counts
+	workspaceUpdates := make(map[idwrap.IDWrap]*mworkspace.Workspace)
 
 	for _, item := range req.Msg.GetItems() {
+		if len(item.GetWorkspaceId()) == 0 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("workspace id is required"))
+		}
+
+		workspaceID, err := idwrap.NewFromBytes(item.GetWorkspaceId())
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid workspace id: %w", err))
+		}
+
+		if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
+			return nil, err
+		}
+
+		workspace, exists := workspaceUpdates[workspaceID]
+		if !exists {
+			workspace, err = s.ws.Get(ctx, workspaceID)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			workspaceUpdates[workspaceID] = workspace
+		}
+
 		name := strings.TrimSpace(item.GetName())
 		if name == "" {
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow name is required"))
@@ -270,9 +282,12 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 		workspace.FlowCount++
 	}
 
-	workspace.Updated = dbtime.DBNow()
-	if err := s.ws.Update(ctx, workspace); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	// Update all workspaces that had flows added
+	for _, workspace := range workspaceUpdates {
+		workspace.Updated = dbtime.DBNow()
+		if err := s.ws.Update(ctx, workspace); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
