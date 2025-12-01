@@ -29,7 +29,6 @@ import {
   ReferenceKind,
   ReferenceService,
 } from '@the-dev-tools/spec/api/reference/v1/reference_pb';
-import { referenceValue } from '@the-dev-tools/spec/api/reference/v1/reference-ReferenceService_connectquery';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { useConnectSuspenseQuery } from '~/api/connect-query';
@@ -73,7 +72,7 @@ interface CompletionInfoProps {
 const CompletionInfo = ({ completion, context, path }: CompletionInfoProps) => {
   const {
     data: { value },
-  } = useConnectSuspenseQuery(referenceValue, { ...context, path });
+  } = useConnectSuspenseQuery(ReferenceService.method.referenceValue, { ...context, path });
 
   return (
     <>

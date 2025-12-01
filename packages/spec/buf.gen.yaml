@@ -20,9 +20,3 @@ plugins:
       - import_extension=.ts
       - json_types=true
       - valid_types=protovalidate_required
-
-  - local: protoc-gen-connect-query
-    out: ./dist/buf/typescript
-    opt:
-      - target=ts
-      - import_extension=.ts

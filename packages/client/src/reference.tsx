@@ -19,7 +19,6 @@ import {
   ReferenceService,
   ReferenceTreeItem,
 } from '@the-dev-tools/spec/api/reference/v1/reference_pb';
-import { referenceTree } from '@the-dev-tools/spec/api/reference/v1/reference-ReferenceService_connectquery';
 import { controllerPropKeys, ControllerPropKeys } from '@the-dev-tools/ui/react-hook-form';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItem } from '@the-dev-tools/ui/tree';
@@ -46,7 +45,7 @@ export const ReferenceTree = ({ onSelect, ...props }: ReferenceTreeProps) => {
 
   const {
     data: { items },
-  } = useConnectSuspenseQuery(referenceTree, { ...props, ...context });
+  } = useConnectSuspenseQuery(ReferenceService.method.referenceTree, { ...props, ...context });
 
   return (
     <AriaTree
