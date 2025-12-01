@@ -17,7 +17,11 @@ import {
 import { FiFolder, FiMoreHorizontal, FiX } from 'react-icons/fi';
 import { twJoin } from 'tailwind-merge';
 import { ExportService } from '@the-dev-tools/spec/buf/api/export/v1/export_pb';
-import { File, FileKind, FileUpdate_ParentIdUnion_Kind } from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
+import {
+  File,
+  FileKind,
+  FileUpdate_ParentIdUnion_Kind,
+} from '@the-dev-tools/spec/buf/api/file_system/v1/file_system_pb';
 import { FlowService } from '@the-dev-tools/spec/buf/api/flow/v1/flow_pb';
 import { HttpMethod, HttpService } from '@the-dev-tools/spec/buf/api/http/v1/http_pb';
 import { FileCollectionSchema, FolderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/file_system';
@@ -92,7 +96,7 @@ export const FileCreateMenu = ({ parentFolderId }: FileCreateMenuProps) => {
       <MenuItem
         onAction={async () => {
           const flowUlid = Ulid.generate();
-          flowCollection.utils.insert({ flowId: flowUlid.bytes, name: 'New flow' });
+          flowCollection.utils.insert({ flowId: flowUlid.bytes, name: 'New flow', workspaceId });
           await insertFile({ fileId: flowUlid.bytes, kind: FileKind.FLOW });
           await navigate({
             from: workspaceRouteApi.id,

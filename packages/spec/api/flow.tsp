@@ -5,7 +5,7 @@ namespace Api.Flow;
 @TanStackDB.collection
 model Flow {
   @primaryKey flowId: Id;
-  @foreignKey @removeVisibility(Lifecycle.Update) workspaceId: Id;
+  @foreignKey @visibility(Lifecycle.Create) workspaceId: Id;
   name: string;
   @visibility(Lifecycle.Read) duration?: int32;
   @visibility(Lifecycle.Read) running: boolean;
