@@ -18,7 +18,7 @@ import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { Protobuf, useApiCollection } from '~/api-new';
+import { Protobuf, useApiCollection } from '~/api';
 import { ReferenceFieldRHF } from '~/reference';
 import { DeltaResetButton, useDeltaState } from '~/utils/delta';
 import { pick, queryCollection } from '~/utils/tanstack-db';

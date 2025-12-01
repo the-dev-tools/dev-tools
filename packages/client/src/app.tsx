@@ -8,7 +8,7 @@ import { ConfigProvider, Effect, Option, pipe, Record, Runtime } from 'effect';
 import { StrictMode } from 'react';
 import { AriaRouterProvider } from '@the-dev-tools/ui/router';
 import { makeToastQueue, ToastQueueContext } from '@the-dev-tools/ui/toast';
-import { ApiCollections } from '~/api-new';
+import { ApiCollections } from '~/api';
 import { ApiTransport } from '~/api/transport';
 import { RouterContext } from '~/routes/context';
 import { runtimeAtom } from '~/runtime';

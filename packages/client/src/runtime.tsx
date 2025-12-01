@@ -1,7 +1,7 @@
 import { Atom, Registry } from '@effect-atom/atom-react';
 import { BrowserKeyValueStore } from '@effect/platform-browser';
 import { Layer, Logger, LogLevel, pipe } from 'effect';
-import { ApiCollections } from '~/api-new/collection.internal';
+import { ApiCollections } from '~/api/collection.internal';
 import { ApiTransport } from '~/api/transport';
 
 export const runtimeLayer = pipe(

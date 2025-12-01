@@ -67,9 +67,8 @@ const reactHooks = defineConfig({
   },
   settings: {
     'react-hooks': {
-      // https://dataclient.io/docs/api/useLoading#eslint
       // https://tanstack.com/db/latest/docs/guides/live-queries#reactive-updates
-      additionalEffectHooks: '(useLoading|useLiveQuery|useLiveSuspenseQuery)',
+      additionalEffectHooks: '(useLiveQuery|useLiveSuspenseQuery)',
     },
   },
 });

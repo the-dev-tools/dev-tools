@@ -12,7 +12,7 @@ import { CheckListAltIcon, ForIcon } from '@the-dev-tools/ui/icons';
 import { NumberFieldRHF } from '@the-dev-tools/ui/number-field';
 import { SelectItem, SelectRHF } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { ReferenceFieldRHF } from '~/reference';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';

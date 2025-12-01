@@ -9,7 +9,7 @@ import { Modal } from '@the-dev-tools/ui/modal';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 import { HttpRequestPanel } from './request/panel';
 import { HttpUrl } from './request/url';

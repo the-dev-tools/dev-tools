@@ -7,7 +7,7 @@ import {
 } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { ReferenceField } from '~/reference';
 import { DeltaResetButton, useDeltaColumnState } from '~/utils/delta';
 import { eqStruct, pick } from '~/utils/tanstack-db';

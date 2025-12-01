@@ -3,7 +3,7 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { HttpResponseHeaderCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { DataTable, useReactTable } from '@the-dev-tools/ui/data-table';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 
 export interface HeaderTableProps {

@@ -8,9 +8,6 @@ overrides:
   '@types/eslint': '-'
 
 patchedDependencies:
-  '@data-client/core':
-    hash: 2d0ba9c82eef30d313cadf0b3ea40cee3c73902f247eebb61412a3054f117498
-    path: patches/@data-client__core.patch
   '@nx/eslint':
     hash: 45d7a0a2e2d55c4ffd4beb467a0e02fac3f27bc1857270f522acafd5365d2c6b
     path: patches/@nx__eslint.patch
@@ -252,12 +249,6 @@ importers:
       '@connectrpc/connect-web':
         specifier: 2.1.0
         version: 2.1.0(@bufbuild/protobuf@2.9.0)(@connectrpc/connect@2.1.0(@bufbuild/protobuf@2.9.0))
-      '@data-client/endpoint':
-        specifier: 0.14.26
-        version: 0.14.26
-      '@data-client/react':
-        specifier: 0.14.25
-        version: 0.14.25(@types/react@19.2.0)(react@19.2.0)
       '@effect-atom/atom-react':
         specifier: 0.3.0
         version: 0.3.0(@effect/experimental@0.56.0(@effect/platform@0.92.1(effect@3.18.1))(effect@3.18.1))(@effect/platform@0.92.1(effect@3.18.1))(@effect/rpc@0.71.0(@effect/platform@0.92.1(effect@3.18.1))(effect@3.18.1))(effect@3.18.1)(react@19.2.0)(scheduler@0.27.0)
@@ -1601,40 +1592,6 @@ packages:
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
-
-  '@data-client/core@0.14.24':
-    resolution: {integrity: sha512-I0BKV1c4+R+D6VHt5Lyhx7g3ekcHKY7DTHKM4gOoApbPyVRL+yKW1djlYsHGTMelg1XyyP5YTz6onmOHcXNLCg==}
-    engines: {node: ^12.17 || ^13.7 || >=14}
-
-  '@data-client/endpoint@0.14.26':
-    resolution: {integrity: sha512-bS/9umQbtO93lEa6mEAL92PmaDlvztAwE41utpTPttlZgrCxVsQ2oH+pTphaO4GuxjYGKazg9EomvIRMeYiaNQ==}
-    engines: {node: ^12.17 || ^13.7 || >=14}
-
-  '@data-client/normalizr@0.14.22':
-    resolution: {integrity: sha512-RK+KkmFSbXNVT4GRRjSriKmwS5PYRDEme0F066eXsESciYOXkPkRk3NUsCkpAj2ixfdvaqq82J3Qo6Ebs0e4iQ==}
-    engines: {node: ^12.17 || ^13.7 || >=14}
-
-  '@data-client/react@0.14.25':
-    resolution: {integrity: sha512-r+oKx+rYRBemupBKgV31dM0/VB/786KLF8Lb2M+vhtZ43l8RxvlGD7sqytlpiLKpYZkYzVqsjKPRkOgGkqhlDg==}
-    engines: {node: ^12.17 || ^13.7 || >=14}
-    peerDependencies:
-      '@react-navigation/native': ^6.0.0 || ^7.0.0
-      '@types/react': ^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0-0 || ^19.0.0
-      react: ^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0-0 || ^19.0.0
-    peerDependenciesMeta:
-      '@react-navigation/native':
-        optional: true
-      '@types/react':
-        optional: true
-
-  '@data-client/use-enhanced-reducer@0.1.14':
-    resolution: {integrity: sha512-/VrbDmaygmJSjja5cOxkkiCOnMpvMUdmZ6uDjTZgjCxTyDUI8ZbEJuCmiLntb2ak9a0wq2CC64R3b19huDiT6g==}
-    peerDependencies:
-      '@types/react': ^16.14.0 || ^17.0.0 || ^18.0.0-0 || ^18.0.0 || ^19.0.0-0 || ^19.0.0
-      react: ^16.14.0 || ^17.0.0 || ^18.0.0-0 || ^18.0.0 || ^19.0.0-0 || ^19.0.0
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
 
   '@develar/schema-utils@2.6.5':
     resolution: {integrity: sha512-0cp4PsWQ/9avqTVMCtZ+GirikIA36ikvjtHweU4/j8yLtgObI0+JUPhYFScgwlteveGB1rt3Cm8UhN04XayDig==}
@@ -6456,9 +6413,6 @@ packages:
   flatted@3.3.3:
     resolution: {integrity: sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==}
 
-  flux-standard-action@2.1.2:
-    resolution: {integrity: sha512-7vdgawlphCjzaMLdpZv8hlGC/FJCXu6sqE3Wuqe3HLZ22KcDiO4IFplxLDePDhEt6hgCrugt45RoUObuzZP6Kg==}
-
   follow-redirects@1.15.11:
     resolution: {integrity: sha512-deG2P0JfjrTxl50XGCDyfI97ZGVCxIpfKYmfyrQ54n5FO/0gfIES8C/Psl6kWVDolizcaaxZJnTS0QSMxvnsBQ==}
     engines: {node: '>=4.0'}
@@ -7331,12 +7285,6 @@ packages:
   lodash.isequal@4.5.0:
     resolution: {integrity: sha512-pDo3lu8Jhfjqls6GkMgpahsF9kCyayhgykjyLMNFTKWrpVdAQtYyB4muAMWozBB4ig/dtWAmsMxLEI8wuz+DYQ==}
     deprecated: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
-
-  lodash.isplainobject@4.0.6:
-    resolution: {integrity: sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA==}
-
-  lodash.isstring@4.0.1:
-    resolution: {integrity: sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==}
 
   lodash.memoize@4.1.2:
     resolution: {integrity: sha512-t7j+NzmgnQzTAYXcsHYLgimltOV1MXHtlOWf6GjL9Kj8GK5FInw5JotxvbOs+IvV1/Dzo04/fCGfLVs7aXb4Ag==}
@@ -10895,36 +10843,6 @@ snapshots:
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
-
-  '@data-client/core@0.14.24(patch_hash=2d0ba9c82eef30d313cadf0b3ea40cee3c73902f247eebb61412a3054f117498)':
-    dependencies:
-      '@babel/runtime': 7.28.4
-      '@data-client/normalizr': 0.14.22
-      flux-standard-action: 2.1.2
-
-  '@data-client/endpoint@0.14.26':
-    dependencies:
-      '@babel/runtime': 7.28.4
-
-  '@data-client/normalizr@0.14.22':
-    dependencies:
-      '@babel/runtime': 7.28.4
-
-  '@data-client/react@0.14.25(@types/react@19.2.0)(react@19.2.0)':
-    dependencies:
-      '@babel/runtime': 7.28.4
-      '@data-client/core': 0.14.24(patch_hash=2d0ba9c82eef30d313cadf0b3ea40cee3c73902f247eebb61412a3054f117498)
-      '@data-client/use-enhanced-reducer': 0.1.14(@types/react@19.2.0)(react@19.2.0)
-      react: 19.2.0
-    optionalDependencies:
-      '@types/react': 19.2.0
-
-  '@data-client/use-enhanced-reducer@0.1.14(@types/react@19.2.0)(react@19.2.0)':
-    dependencies:
-      '@babel/runtime': 7.28.4
-      react: 19.2.0
-    optionalDependencies:
-      '@types/react': 19.2.0
 
   '@develar/schema-utils@2.6.5':
     dependencies:
@@ -16986,11 +16904,6 @@ snapshots:
 
   flatted@3.3.3: {}
 
-  flux-standard-action@2.1.2:
-    dependencies:
-      lodash.isplainobject: 4.0.6
-      lodash.isstring: 4.0.1
-
   follow-redirects@1.15.11(debug@4.4.3):
     optionalDependencies:
       debug: 4.4.3
@@ -17891,10 +17804,6 @@ snapshots:
   lodash.escaperegexp@4.1.2: {}
 
   lodash.isequal@4.5.0: {}
-
-  lodash.isplainobject@4.0.6: {}
-
-  lodash.isstring@4.0.1: {}
 
   lodash.memoize@4.1.2: {}
 

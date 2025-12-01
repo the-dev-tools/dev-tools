@@ -71,7 +71,6 @@ interface CompletionInfoProps {
 }
 
 const CompletionInfo = ({ completion, context, path }: CompletionInfoProps) => {
-  // TODO: switch to Data Client Endpoint
   const {
     data: { value },
   } = useConnectSuspenseQuery(referenceValue, { ...context, path });

@@ -51,11 +51,11 @@ const createWindow = Effect.gen(function* () {
   // and load the index.html of the app.
   if (import.meta.env.DEV && process.env.ELECTRON_RENDERER_URL) {
     // Install dev extensions
-    const { installExtension, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS } = yield* Effect.tryPromise(
+    const { installExtension, REACT_DEVELOPER_TOOLS } = yield* Effect.tryPromise(
       () => import('electron-devtools-installer'),
     );
     yield* Effect.tryPromise(() =>
-      installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS], { loadExtensionOptions: { allowFileAccess: true } }),
+      installExtension([REACT_DEVELOPER_TOOLS], { loadExtensionOptions: { allowFileAccess: true } }),
     );
 
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);

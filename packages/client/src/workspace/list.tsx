@@ -18,7 +18,7 @@ import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { useEscapePortal } from '@the-dev-tools/ui/utils';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { workspaceRouteApi } from '~/routes';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 import { pick } from '~/utils/tanstack-db';

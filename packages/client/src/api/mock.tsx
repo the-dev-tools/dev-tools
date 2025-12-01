@@ -38,9 +38,9 @@ import {
 } from '@the-dev-tools/spec/api/log/v1/log_pb';
 import { files } from '@the-dev-tools/spec/files';
 import { schemas_v1_api as collections } from '@the-dev-tools/spec/tanstack-db/v1/api';
-import { ApiCollectionSchema, Connect, Protobuf } from '~/api-new';
+import { ApiCollectionSchema, Connect, Protobuf } from '~/api';
+import { registry } from '~/api/protobuf';
 import { Faker } from '~/utils/faker';
-import { registry } from '~api-new/protobuf';
 import { defaultInterceptors } from './interceptors';
 
 export class UnimplementedMockError extends Data.TaggedError('UnimplementedMockError')<{ reason: string }> {}

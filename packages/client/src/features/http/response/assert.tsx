@@ -3,7 +3,7 @@ import { Fragment } from 'react/jsx-runtime';
 import { twJoin } from 'tailwind-merge';
 import { HttpResponseAssertCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 
 export interface AssertTableProps {

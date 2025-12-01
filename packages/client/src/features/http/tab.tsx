@@ -4,7 +4,7 @@ import { HttpCollectionSchema, HttpDeltaCollectionSchema } from '@the-dev-tools/
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { useRemoveTab } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { httpRouteApi, workspaceRouteApi } from '~/routes';
 import { useDeltaState } from '~/utils/delta';
 import { eqStruct } from '~/utils/tanstack-db';

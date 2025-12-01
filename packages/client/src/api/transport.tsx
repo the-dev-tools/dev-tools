@@ -1,6 +1,6 @@
 import { Config, Effect, pipe, Schedule } from 'effect';
 import { HealthService } from '@the-dev-tools/spec/api/health/v1/health_pb';
-import { Connect, Protobuf } from '~/api-new';
+import { Connect, Protobuf } from '~/api';
 import { defaultInterceptors } from './interceptors';
 import { ApiTransportMock } from './mock';
 

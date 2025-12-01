@@ -33,7 +33,7 @@ import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
 import { TreeItem, TreeItemLink, TreeItemProps } from '@the-dev-tools/ui/tree';
 import { saveFile, useEscapePortal } from '@the-dev-tools/ui/utils';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { useConnectMutation } from '~/api/connect-query';
 import { flowLayoutRouteApi, httpDeltaRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
 import { useDeltaState } from '~/utils/delta';

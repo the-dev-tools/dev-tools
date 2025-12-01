@@ -12,7 +12,7 @@ import { FlowVersionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { flowLayoutRouteApi } from '~/routes';
 import { FlowContext } from './context';
 import { EditPanel, Flow, TopBar, TopBarWithControls } from './edit';

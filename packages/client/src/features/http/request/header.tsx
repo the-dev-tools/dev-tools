@@ -7,7 +7,7 @@ import {
 } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { DataTable } from '@the-dev-tools/ui/data-table';
 import { DropIndicatorHorizontal } from '@the-dev-tools/ui/reorder';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { ReactTableNoMemo, useFormTableAddRow } from '~/form-table';
 import { deltaActionsColumn, deltaCheckboxColumn, deltaReferenceColumn, deltaTextFieldColumn } from '~/utils/delta';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';

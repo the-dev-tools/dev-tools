@@ -12,7 +12,7 @@ import { Separator } from '@the-dev-tools/ui/separator';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { formatSize } from '@the-dev-tools/ui/utils';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 import { AssertTable } from './assert';
 import { BodyPanel } from './body';

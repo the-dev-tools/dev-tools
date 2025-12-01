@@ -35,7 +35,7 @@ import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { Protobuf, useApiCollection } from '~/api-new';
+import { Protobuf, useApiCollection } from '~/api';
 import { workspaceRouteApi } from '~/routes';
 import { getNextOrder, handleCollectionReorder } from '~/utils/order';
 import { pick } from '~/utils/tanstack-db';

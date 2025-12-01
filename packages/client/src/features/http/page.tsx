@@ -2,7 +2,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Panel, PanelGroup } from 'react-resizable-panels';
 import { HttpResponseCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { ReferenceContext } from '~/reference';
 import { httpDeltaRouteApi, httpRouteApi, workspaceRouteApi } from '~/routes';
 import { pick } from '~/utils/tanstack-db';

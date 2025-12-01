@@ -37,7 +37,7 @@ import { PanelResizeHandle } from '@the-dev-tools/ui/resizable-panel';
 import { Separator } from '@the-dev-tools/ui/separator';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { Connect, useApiCollection } from '~/api-new';
+import { Connect, useApiCollection } from '~/api';
 import {
   columnActionsCommon,
   columnCheckboxField,

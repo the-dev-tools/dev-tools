@@ -6,7 +6,7 @@ import { FiTerminal, FiX } from 'react-icons/fi';
 import { NodeJsCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { useCodeMirrorLanguageExtensions } from '~/code-mirror/extensions';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';

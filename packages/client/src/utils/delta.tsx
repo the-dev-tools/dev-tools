@@ -9,7 +9,7 @@ import { Checkbox } from '@the-dev-tools/ui/checkbox';
 import { RedoIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
-import { ApiCollectionSchema, Connect, useApiCollection } from '~/api-new';
+import { ApiCollectionSchema, Connect, useApiCollection } from '~/api';
 import { ColumnActionDelete, ColumnActionDrag, columnActions } from '~/form-table';
 import { ReferenceField } from '~/reference';
 import { rootRouteApi } from '~/routes';

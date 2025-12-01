@@ -21,7 +21,7 @@ import {
 import { ForIcon, IfIcon, SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { ListBox, ListBoxItem, ListBoxItemProps } from '@the-dev-tools/ui/list-box';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';
 import { Handle } from '../handle';

@@ -9,7 +9,7 @@ import { Button } from '@the-dev-tools/ui/button';
 import { Modal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { saveFile } from '@the-dev-tools/ui/utils';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { useConnectMutation } from '~/api/connect-query';
 import { FileTree } from '~/file-system';
 import { workspaceRouteApi } from '~/routes';

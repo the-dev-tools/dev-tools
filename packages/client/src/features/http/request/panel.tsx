@@ -14,7 +14,7 @@ import {
 } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Spinner } from '@the-dev-tools/ui/spinner';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { useDeltaState } from '~/utils/delta';
 import { AssertPanel } from './assert';
 import { BodyPanel } from './body/panel';

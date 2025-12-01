@@ -19,7 +19,7 @@ import { FileImportIcon } from '@the-dev-tools/ui/icons';
 import { Modal, useProgrammaticModal } from '@the-dev-tools/ui/modal';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField } from '@the-dev-tools/ui/text-field';
-import { Connect } from '~/api-new';
+import { Connect } from '~/api';
 import { columnCheckboxField, columnText, columnTextField, ReactTableNoMemo, useFormTable } from '~/form-table';
 import { flowLayoutRouteApi, rootRouteApi, workspaceRouteApi } from '~/routes';
 

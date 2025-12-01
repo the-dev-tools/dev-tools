@@ -25,8 +25,6 @@
     "@connectrpc/connect": "2.1.0",
     "@connectrpc/connect-query": "2.2.0",
     "@connectrpc/connect-web": "2.1.0",
-    "@data-client/endpoint": "0.14.26",
-    "@data-client/react": "0.14.25",
     "@effect-atom/atom-react": "0.3.0",
     "@effect/platform": "0.92.1",
     "@effect/platform-browser": "0.72.0",

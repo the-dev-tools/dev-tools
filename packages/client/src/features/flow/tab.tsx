@@ -4,7 +4,7 @@ import { FlowCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flo
 import { FlowsIcon } from '@the-dev-tools/ui/icons';
 import { useRemoveTab } from '@the-dev-tools/ui/router';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { flowLayoutRouteApi, workspaceRouteApi } from '~/routes';
 import { pick } from '~/utils/tanstack-db';
 

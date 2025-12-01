@@ -12,7 +12,7 @@ import { JsonTreeItem, jsonTreeItemProps } from '@the-dev-tools/ui/json-tree';
 import { PanelResizeHandle, panelResizeHandleStyles } from '@the-dev-tools/ui/resizable-panel';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TreeItem } from '@the-dev-tools/ui/tree';
-import { useApiCollection } from '~api-new';
+import { useApiCollection } from '~api';
 import { workspaceRouteApi } from '~routes';
 
 const logTextStyles = tv({

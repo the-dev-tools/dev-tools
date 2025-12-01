@@ -9,7 +9,7 @@ import { NodeConditionCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v
 import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { CheckListAltIcon, IfIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { ReferenceFieldRHF } from '~/reference';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from '../context';

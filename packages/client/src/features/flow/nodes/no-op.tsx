@@ -7,7 +7,7 @@ import { NodeNoOpKind } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
 import { NodeNoOpCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { PlayIcon } from '@the-dev-tools/ui/icons';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 import { Handle } from '../handle';
 import { CreateNode } from './create';

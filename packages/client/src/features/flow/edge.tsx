@@ -9,7 +9,7 @@ import { EdgeKind, FlowItemState, HandleKind } from '@the-dev-tools/spec/api/flo
 import { EdgeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { Button } from '@the-dev-tools/ui/button';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 import { FlowContext } from './context';
 

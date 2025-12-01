@@ -17,7 +17,7 @@ import { ButtonAsLink } from '@the-dev-tools/ui/button';
 import { SendRequestIcon } from '@the-dev-tools/ui/icons';
 import { MethodBadge } from '@the-dev-tools/ui/method-badge';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { HttpRequest, HttpResponse, HttpUrl } from '~/features/http';
 import { FileTree } from '~/file-system';
 import { ReferenceContext } from '~/reference';

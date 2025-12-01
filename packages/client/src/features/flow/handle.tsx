@@ -6,7 +6,7 @@ import { tv } from 'tailwind-variants';
 import { FlowItemState } from '@the-dev-tools/spec/api/flow/v1/flow_pb';
 import { EdgeCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/flow';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import { pick } from '~/utils/tanstack-db';
 
 const handleInnerStyles = tv({

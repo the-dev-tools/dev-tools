@@ -1,7 +1,7 @@
 import { Collection, gt, lt } from '@tanstack/react-db';
 import { Array, Option, pipe, Predicate } from 'effect';
 import { DroppableCollectionReorderEvent } from 'react-aria-components';
-import { Protobuf } from '~/api-new';
+import { Protobuf } from '~/api';
 import { queryCollection } from './tanstack-db';
 
 interface OrderableItem {

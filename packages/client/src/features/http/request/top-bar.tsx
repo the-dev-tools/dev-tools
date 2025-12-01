@@ -12,7 +12,7 @@ import { Button } from '@the-dev-tools/ui/button';
 import { Menu, MenuItem, useContextMenuState } from '@the-dev-tools/ui/menu';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
 import { TextInputField, useEditableTextState } from '@the-dev-tools/ui/text-field';
-import { Connect, useApiCollection } from '~/api-new';
+import { Connect, useApiCollection } from '~/api';
 import { rootRouteApi } from '~/routes';
 import { DeltaResetButton, useDeltaState } from '~/utils/delta';
 import { HistoryModal } from '../history';

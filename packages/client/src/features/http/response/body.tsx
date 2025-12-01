@@ -8,7 +8,7 @@ import { twMerge } from 'tailwind-merge';
 import { HttpResponseCollectionSchema } from '@the-dev-tools/spec/tanstack-db/v1/api/http';
 import { Select, SelectItem } from '@the-dev-tools/ui/select';
 import { tw } from '@the-dev-tools/ui/tailwind-literal';
-import { useApiCollection } from '~/api-new';
+import { useApiCollection } from '~/api';
 import {
   CodeMirrorMarkupLanguage,
   CodeMirrorMarkupLanguages,
