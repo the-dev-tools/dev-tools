@@ -265,12 +265,19 @@ func (s *FlowServiceV2RPC) FlowInsert(ctx context.Context, req *connect.Request[
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := s.nnos.CreateNodeNoop(ctx, mnnoop.NoopNode{
+		startNoop := mnnoop.NoopNode{
 			FlowNodeID: startNodeID,
 			Type:       mnnoop.NODE_NO_OP_KIND_START,
-		}); err != nil {
+		}
+		if err := s.nnos.CreateNodeNoop(ctx, startNoop); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
+
+		// Publish node events for the start node so clients receive it via sync streams.
+		// NoOp event must be published before the base node event so the client has the
+		// sub-node data available when it receives and renders the base node.
+		s.publishNoOpEvent(noopEventInsert, flowID, startNoop)
+		s.publishNodeEvent(nodeEventInsert, startNode)
 
 		if created, err := s.fs.GetFlow(ctx, flowID); err == nil {
 			s.publishFlowEvent(flowEventInsert, created)
