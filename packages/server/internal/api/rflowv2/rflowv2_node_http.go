@@ -40,11 +40,19 @@ func (s *FlowServiceV2RPC) NodeHttpCollection(
 			nodeReq, err := s.nrs.GetNodeRequest(ctx, n.ID)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
+					// No flow_node_http record exists, return node with just nodeId
+					items = append(items, &flowv1.NodeHttp{
+						NodeId: n.ID.Bytes(),
+					})
 					continue
 				}
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
-			if nodeReq == nil || nodeReq.HttpID == nil || isZeroID(*nodeReq.HttpID) {
+			if nodeReq == nil {
+				// No record, return node with just nodeId
+				items = append(items, &flowv1.NodeHttp{
+					NodeId: n.ID.Bytes(),
+				})
 				continue
 			}
 			items = append(items, serializeNodeHTTP(*nodeReq))
@@ -211,17 +219,6 @@ func (s *FlowServiceV2RPC) streamNodeHttpSync(
 					continue
 				}
 
-				nodeReq, err := s.nrs.GetNodeRequest(ctx, nodeModel.ID)
-				if err != nil {
-					if errors.Is(err, sql.ErrNoRows) {
-						continue
-					}
-					return nil, err
-				}
-				if nodeReq == nil || nodeReq.HttpID == nil || isZeroID(*nodeReq.HttpID) {
-					continue
-				}
-
 				// Create a custom NodeEvent that includes HTTP node data
 				events = append(events, eventstream.Event[NodeTopic, NodeEvent]{
 					Topic: NodeTopic{FlowID: flow.ID},
@@ -293,27 +290,22 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 		return nil, fmt.Errorf("invalid node id: %w", err)
 	}
 
-	// Fetch the HTTP configuration for this node
+	// Fetch the HTTP configuration for this node (may not exist)
 	nodeReq, err := s.nrs.GetNodeRequest(ctx, nodeID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Node exists but doesn't have HTTP config, skip
-			return nil, nil
-		}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
-	}
-	if nodeReq == nil || nodeReq.HttpID == nil || isZeroID(*nodeReq.HttpID) {
-		return nil, nil
 	}
 
 	var syncEvent *flowv1.NodeHttpSync
 	switch evt.Type {
 	case nodeEventInsert:
 		insert := &flowv1.NodeHttpSyncInsert{
-			NodeId: nodeReq.FlowNodeID.Bytes(),
-			HttpId: nodeReq.HttpID.Bytes(),
+			NodeId: nodeID.Bytes(),
 		}
-		if nodeReq.DeltaHttpID != nil {
+		if nodeReq != nil && nodeReq.HttpID != nil && !isZeroID(*nodeReq.HttpID) {
+			insert.HttpId = nodeReq.HttpID.Bytes()
+		}
+		if nodeReq != nil && nodeReq.DeltaHttpID != nil && !isZeroID(*nodeReq.DeltaHttpID) {
 			insert.DeltaHttpId = nodeReq.DeltaHttpID.Bytes()
 		}
 		syncEvent = &flowv1.NodeHttpSync{
@@ -324,13 +316,15 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 		}
 	case nodeEventUpdate:
 		update := &flowv1.NodeHttpSyncUpdate{
-			NodeId: nodeReq.FlowNodeID.Bytes(),
-			HttpId: &flowv1.NodeHttpSyncUpdate_HttpIdUnion{
+			NodeId: nodeID.Bytes(),
+		}
+		if nodeReq != nil && nodeReq.HttpID != nil && !isZeroID(*nodeReq.HttpID) {
+			update.HttpId = &flowv1.NodeHttpSyncUpdate_HttpIdUnion{
 				Kind:  flowv1.NodeHttpSyncUpdate_HttpIdUnion_KIND_VALUE,
 				Value: nodeReq.HttpID.Bytes(),
-			},
+			}
 		}
-		if nodeReq.DeltaHttpID != nil {
+		if nodeReq != nil && nodeReq.DeltaHttpID != nil && !isZeroID(*nodeReq.DeltaHttpID) {
 			update.DeltaHttpId = &flowv1.NodeHttpSyncUpdate_DeltaHttpIdUnion{
 				Kind:  flowv1.NodeHttpSyncUpdate_DeltaHttpIdUnion_KIND_VALUE,
 				Value: nodeReq.DeltaHttpID.Bytes(),
@@ -347,7 +341,7 @@ func (s *FlowServiceV2RPC) nodeHttpEventToSyncResponse(
 			Value: &flowv1.NodeHttpSync_ValueUnion{
 				Kind: flowv1.NodeHttpSync_ValueUnion_KIND_DELETE,
 				Delete: &flowv1.NodeHttpSyncDelete{
-					NodeId: nodeReq.FlowNodeID.Bytes(),
+					NodeId: nodeID.Bytes(),
 				},
 			},
 		}
