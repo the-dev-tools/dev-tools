@@ -121,7 +121,8 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run Multiple Times
-	for i := 0; i < 10; i++ {
+	runCount := 10
+	for i := 0; i < runCount; i++ {
 		req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes()})
 		_, err = svc.FlowRun(ctx, req)
 		require.NoError(t, err, "Run %d failed", i)
@@ -130,25 +131,42 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 	// Verification (Poll for SUCCESS)
 	collReq := connect.NewRequest(&emptypb.Empty{})
 	var resp *connect.Response[flowv1.NodeCollectionResponse]
-	
-	// Poll until we see SUCCESS state
+
+	// Poll until we see SUCCESS state on the original flow's node
+	// Note: NodeCollection now returns nodes from all flows including versions
+	// We expect 1 original node + 10 version nodes = 11 total
+	expectedNodeCount := 1 + runCount
 	for i := 0; i < 20; i++ {
 		resp, err = svc.NodeCollection(ctx, collReq)
 		require.NoError(t, err)
-		require.Len(t, resp.Msg.Items, 1)
-		item := resp.Msg.Items[0]
-		if item.State == flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS {
+		require.Len(t, resp.Msg.Items, expectedNodeCount, "Should have %d nodes (1 original + %d versions)", expectedNodeCount, runCount)
+
+		// Find the original node by ID
+		var originalNode *flowv1.Node
+		for _, item := range resp.Msg.Items {
+			if bytes.Equal(item.NodeId, startNodeID.Bytes()) {
+				originalNode = item
+				break
+			}
+		}
+		require.NotNil(t, originalNode, "Original node should be in collection")
+
+		if originalNode.State == flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	require.Len(t, resp.Msg.Items, 1)
-	item := resp.Msg.Items[0]
-	if !bytes.Equal(item.NodeId, startNodeID.Bytes()) {
-		t.Fatalf("Expected node ID %s, got %s", startNodeID.String(), idwrap.NewFromBytesMust(item.NodeId).String())
+	// Find original node and verify its state
+	var originalNode *flowv1.Node
+	for _, item := range resp.Msg.Items {
+		if bytes.Equal(item.NodeId, startNodeID.Bytes()) {
+			originalNode = item
+			break
+		}
 	}
-	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, item.State)
+	require.NotNil(t, originalNode, "Original node should be in collection")
+	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, originalNode.State)
 }
 
 const schema = `
@@ -505,4 +523,117 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	require.NoError(t, err, "Base node should be created after sub-node")
 
 	t.Log("Successfully inserted sub-node before base node - decoupled insert works!")
+}
+
+func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
+	// Setup DB
+	db, err := sql.Open("sqlite", "file:flow_version_test?mode=memory&cache=shared")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec(schema)
+	require.NoError(t, err)
+	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	require.NoError(t, err)
+
+	queries := gen.New(db)
+
+	// Setup Services
+	wsService := sworkspace.New(queries)
+	flowService := sflow.New(queries)
+	nodeService := snode.New(queries)
+	nodeExecService := snodeexecution.New(queries)
+	edgeService := sedge.New(queries)
+	noopService := snodenoop.New(queries)
+	flowVarService := sflowvariable.New(queries)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	svc := &FlowServiceV2RPC{
+		ws:           &wsService,
+		fs:           &flowService,
+		ns:           &nodeService,
+		nes:          &nodeExecService,
+		es:           &edgeService,
+		nnos:         &noopService,
+		fvs:          &flowVarService,
+		logger:       logger,
+		runningFlows: make(map[string]context.CancelFunc),
+	}
+
+	// Setup Data
+	ctx := context.Background()
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	_, err = db.Exec("INSERT INTO users (id, email) VALUES (?, ?)", userID.Bytes(), "test@example.com")
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	_, err = db.Exec("INSERT INTO workspaces_users (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)",
+		idwrap.NewNow().Bytes(), workspaceID.Bytes(), userID.Bytes(), 1)
+	require.NoError(t, err)
+
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Create Start Node (NoOp)
+	startNodeID := idwrap.NewNow()
+	startNode := mnnode.MNode{
+		ID:        startNodeID,
+		FlowID:    flowID,
+		Name:      "Start",
+		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		PositionX: 0,
+		PositionY: 0,
+	}
+	err = nodeService.CreateNode(ctx, startNode)
+	require.NoError(t, err)
+
+	err = noopService.CreateNodeNoop(ctx, mnnoop.NoopNode{
+		FlowNodeID: startNodeID,
+		Type:       mnnoop.NODE_NO_OP_KIND_START,
+	})
+	require.NoError(t, err)
+
+	// Run the flow multiple times
+	runCount := 5
+	for i := 0; i < runCount; i++ {
+		req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes()})
+		_, err = svc.FlowRun(ctx, req)
+		require.NoError(t, err, "Run %d failed", i)
+	}
+
+	// Wait for async execution to complete
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify versions were created in DB
+	versions, err := flowService.GetFlowsByVersionParentID(ctx, flowID)
+	require.NoError(t, err)
+	require.Equal(t, runCount, len(versions), "Should have %d versions in database (one per run)", runCount)
+
+	// Verify each version has the correct parent
+	for _, version := range versions {
+		require.NotNil(t, version.VersionParentID, "Version should have VersionParentID set")
+		assert.Equal(t, flowID, *version.VersionParentID, "Version should reference the parent flow")
+		assert.Equal(t, workspaceID, version.WorkspaceID, "Version should be in the same workspace")
+		assert.Equal(t, "Test Flow", version.Name, "Version should have the same name as parent")
+	}
+
+	t.Logf("Successfully created %d flow versions from %d runs", len(versions), runCount)
 }

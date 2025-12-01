@@ -803,6 +803,51 @@ func (q *Queries) DeleteTag(ctx context.Context, id idwrap.IDWrap) error {
 	return err
 }
 
+const getAllFlowsByWorkspaceID = `-- name: GetAllFlowsByWorkspaceID :many
+SELECT
+  id,
+  workspace_id,
+  version_parent_id,
+  name,
+  duration,
+  running
+FROM
+  flow
+WHERE
+  workspace_id = ?
+`
+
+// Returns all flows including versions for TanStack DB sync
+func (q *Queries) GetAllFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]Flow, error) {
+	rows, err := q.query(ctx, q.getAllFlowsByWorkspaceIDStmt, getAllFlowsByWorkspaceID, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Flow{}
+	for rows.Next() {
+		var i Flow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.VersionParentID,
+			&i.Name,
+			&i.Duration,
+			&i.Running,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFlow = `-- name: GetFlow :one
 SELECT
   id,

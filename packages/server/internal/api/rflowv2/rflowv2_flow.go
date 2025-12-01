@@ -146,9 +146,10 @@ func flowEventToSyncResponse(evt FlowEvent) *flowv1.FlowSyncResponse {
 	switch evt.Type {
 	case flowEventInsert:
 		insert := &flowv1.FlowSyncInsert{
-			FlowId:  evt.Flow.FlowId,
-			Name:    evt.Flow.Name,
-			Running: evt.Flow.Running,
+			FlowId:      evt.Flow.FlowId,
+			WorkspaceId: evt.Flow.WorkspaceId,
+			Name:        evt.Flow.Name,
+			Running:     evt.Flow.Running,
 		}
 		if evt.Flow.Duration != nil {
 			insert.Duration = evt.Flow.Duration

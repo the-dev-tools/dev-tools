@@ -44,9 +44,10 @@ func isStartNode(node mnnode.MNode) bool {
 
 func serializeFlow(flow mflow.Flow) *flowv1.Flow {
 	msg := &flowv1.Flow{
-		FlowId:  flow.ID.Bytes(),
-		Name:    flow.Name,
-		Running: flow.Running,
+		FlowId:      flow.ID.Bytes(),
+		WorkspaceId: flow.WorkspaceID.Bytes(),
+		Name:        flow.Name,
+		Running:     flow.Running,
 	}
 	if flow.Duration != 0 {
 		duration := flow.Duration
@@ -354,7 +355,8 @@ func (s *FlowServiceV2RPC) listAccessibleFlows(ctx context.Context) ([]mflow.Flo
 
 	var allFlows []mflow.Flow
 	for _, ws := range workspaces {
-		flows, err := s.fs.GetFlowsByWorkspaceID(ctx, ws.ID)
+		// Use GetAllFlowsByWorkspaceID to include flow versions for TanStack DB sync
+		flows, err := s.fs.GetAllFlowsByWorkspaceID(ctx, ws.ID)
 		if err != nil {
 			if errors.Is(err, sflow.ErrNoFlowFound) {
 				continue

@@ -71,6 +71,15 @@ func (s *FlowService) GetFlowsByWorkspaceID(ctx context.Context, workspaceID idw
 	return tgeneric.MassConvert(item, ConvertDBToModel), nil
 }
 
+// GetAllFlowsByWorkspaceID returns all flows including versions for TanStack DB sync
+func (s *FlowService) GetAllFlowsByWorkspaceID(ctx context.Context, workspaceID idwrap.IDWrap) ([]mflow.Flow, error) {
+	item, err := s.queries.GetAllFlowsByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		return nil, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
+	}
+	return tgeneric.MassConvert(item, ConvertDBToModel), nil
+}
+
 func (s *FlowService) GetFlowsByVersionParentID(ctx context.Context, versionParentID idwrap.IDWrap) ([]mflow.Flow, error) {
 	item, err := s.queries.GetFlowsByVersionParentID(ctx, &versionParentID)
 	if err != nil {
@@ -117,4 +126,32 @@ func (s *FlowService) UpdateFlow(ctx context.Context, flow mflow.Flow) error {
 func (s *FlowService) DeleteFlow(ctx context.Context, id idwrap.IDWrap) error {
 	err := s.queries.DeleteFlow(ctx, id)
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
+}
+
+// CreateFlowVersion creates a new flow version (a flow with VersionParentID set)
+// This is used to snapshot a flow when it's run
+func (s *FlowService) CreateFlowVersion(ctx context.Context, parentFlow mflow.Flow) (mflow.Flow, error) {
+	versionID := idwrap.NewNow()
+	version := mflow.Flow{
+		ID:              versionID,
+		WorkspaceID:     parentFlow.WorkspaceID,
+		VersionParentID: &parentFlow.ID,
+		Name:            parentFlow.Name,
+		Duration:        parentFlow.Duration,
+		Running:         false,
+	}
+
+	err := s.queries.CreateFlow(ctx, gen.CreateFlowParams{
+		ID:              version.ID,
+		WorkspaceID:     version.WorkspaceID,
+		VersionParentID: version.VersionParentID,
+		Name:            version.Name,
+		Duration:        version.Duration,
+		Running:         version.Running,
+	})
+	if err != nil {
+		return mflow.Flow{}, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowFound, err)
+	}
+
+	return version, nil
 }

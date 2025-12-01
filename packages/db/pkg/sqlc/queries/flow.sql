@@ -26,6 +26,20 @@ WHERE
   workspace_id = ? AND
   version_parent_id is NULL;
 
+-- name: GetAllFlowsByWorkspaceID :many
+-- Returns all flows including versions for TanStack DB sync
+SELECT
+  id,
+  workspace_id,
+  version_parent_id,
+  name,
+  duration,
+  running
+FROM
+  flow
+WHERE
+  workspace_id = ?;
+
 -- name: GetFlowsByVersionParentID :many
 SELECT
   id,

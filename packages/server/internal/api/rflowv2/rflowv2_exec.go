@@ -28,6 +28,10 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnfor"
+	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
+	"the-dev-tools/server/pkg/model/mnnode/mnif"
+	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
@@ -71,6 +75,19 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	if err != nil && !errors.Is(err, sflowvariable.ErrNoFlowVariableFound) {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// Create a new flow version for this run (snapshot of the flow with all nodes, edges, etc.)
+	version, err := s.createFlowVersionSnapshot(ctx, flow, nodes, edges, flowVars)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create flow version: %w", err))
+	}
+
+	// Publish flow insert event so clients receive the version in FlowSync
+	// (the version is a flow record that clients need to query)
+	s.publishFlowEvent(flowEventInsert, version)
+
+	// Publish version insert event for real-time sync
+	s.publishFlowVersionEvent(flowVersionEventInsert, version)
 
 	// Run execution asynchronously
 	go func() {
@@ -411,4 +428,182 @@ func (s *FlowServiceV2RPC) buildRequestFlowNode(
 		s.logger,
 	)
 	return requestNode, nil
+}
+
+// createFlowVersionSnapshot creates a complete snapshot of the flow including all nodes, edges, sub-nodes, and variables.
+// It also publishes sync events for all created entities so clients receive the full flow data.
+func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
+	ctx context.Context,
+	sourceFlow mflow.Flow,
+	sourceNodes []mnnode.MNode,
+	sourceEdges []edge.Edge,
+	sourceVars []mflowvariable.FlowVariable,
+) (mflow.Flow, error) {
+	// Create the version flow record
+	version, err := s.fs.CreateFlowVersion(ctx, sourceFlow)
+	if err != nil {
+		return mflow.Flow{}, fmt.Errorf("create flow version: %w", err)
+	}
+
+	versionFlowID := version.ID
+
+	// Create a mapping from old node IDs to new node IDs for edge remapping
+	nodeIDMapping := make(map[string]idwrap.IDWrap, len(sourceNodes))
+
+	// Duplicate all nodes and their sub-node data
+	for _, sourceNode := range sourceNodes {
+		newNodeID := idwrap.NewNow()
+		nodeIDMapping[sourceNode.ID.String()] = newNodeID
+
+		// Create the base node
+		newNode := mnnode.MNode{
+			ID:        newNodeID,
+			FlowID:    versionFlowID,
+			Name:      sourceNode.Name,
+			NodeKind:  sourceNode.NodeKind,
+			PositionX: sourceNode.PositionX,
+			PositionY: sourceNode.PositionY,
+		}
+
+		if err := s.ns.CreateNode(ctx, newNode); err != nil {
+			return mflow.Flow{}, fmt.Errorf("create node %s: %w", sourceNode.Name, err)
+		}
+
+		// Duplicate node-type specific data and publish events
+		// Sub-node events must be published before base node events
+		switch sourceNode.NodeKind {
+		case mnnode.NODE_KIND_NO_OP:
+			noopData, err := s.nnos.GetNodeNoop(ctx, sourceNode.ID)
+			if err == nil {
+				newNoopData := mnnoop.NoopNode{
+					FlowNodeID: newNodeID,
+					Type:       noopData.Type,
+				}
+				if err := s.nnos.CreateNodeNoop(ctx, newNoopData); err != nil {
+					return mflow.Flow{}, fmt.Errorf("create noop node: %w", err)
+				}
+				s.publishNoOpEvent(noopEventInsert, versionFlowID, newNoopData)
+			}
+
+		case mnnode.NODE_KIND_REQUEST:
+			requestData, err := s.nrs.GetNodeRequest(ctx, sourceNode.ID)
+			if err == nil {
+				// Copy the request node config (referencing same HTTP, not duplicating)
+				newRequestData := mnrequest.MNRequest{
+					FlowNodeID:       newNodeID,
+					HttpID:           requestData.HttpID,
+					DeltaHttpID:      requestData.DeltaHttpID,
+					HasRequestConfig: requestData.HasRequestConfig,
+				}
+				if err := s.nrs.CreateNodeRequest(ctx, newRequestData); err != nil {
+					return mflow.Flow{}, fmt.Errorf("create request node: %w", err)
+				}
+				// Request node events are handled through nodeStream subscription
+			}
+
+		case mnnode.NODE_KIND_FOR:
+			forData, err := s.nfs.GetNodeFor(ctx, sourceNode.ID)
+			if err == nil {
+				newForData := mnfor.MNFor{
+					FlowNodeID:    newNodeID,
+					IterCount:     forData.IterCount,
+					Condition:     forData.Condition,
+					ErrorHandling: forData.ErrorHandling,
+				}
+				if err := s.nfs.CreateNodeFor(ctx, newForData); err != nil {
+					return mflow.Flow{}, fmt.Errorf("create for node: %w", err)
+				}
+				s.publishForEvent(forEventInsert, versionFlowID, newForData)
+			}
+
+		case mnnode.NODE_KIND_FOR_EACH:
+			forEachData, err := s.nfes.GetNodeForEach(ctx, sourceNode.ID)
+			if err == nil {
+				newForEachData := mnforeach.MNForEach{
+					FlowNodeID:     newNodeID,
+					IterExpression: forEachData.IterExpression,
+					Condition:      forEachData.Condition,
+					ErrorHandling:  forEachData.ErrorHandling,
+				}
+				if err := s.nfes.CreateNodeForEach(ctx, newForEachData); err != nil {
+					return mflow.Flow{}, fmt.Errorf("create foreach node: %w", err)
+				}
+				// ForEach node events are handled through nodeStream subscription
+			}
+
+		case mnnode.NODE_KIND_CONDITION:
+			conditionData, err := s.nifs.GetNodeIf(ctx, sourceNode.ID)
+			if err == nil {
+				newConditionData := mnif.MNIF{
+					FlowNodeID: newNodeID,
+					Condition:  conditionData.Condition,
+				}
+				if err := s.nifs.CreateNodeIf(ctx, newConditionData); err != nil {
+					return mflow.Flow{}, fmt.Errorf("create condition node: %w", err)
+				}
+				// Condition node events are handled through nodeStream subscription
+			}
+
+		case mnnode.NODE_KIND_JS:
+			jsData, err := s.njss.GetNodeJS(ctx, sourceNode.ID)
+			if err == nil {
+				newJsData := mnjs.MNJS{
+					FlowNodeID:       newNodeID,
+					Code:             jsData.Code,
+					CodeCompressType: jsData.CodeCompressType,
+				}
+				if err := s.njss.CreateNodeJS(ctx, newJsData); err != nil {
+					return mflow.Flow{}, fmt.Errorf("create js node: %w", err)
+				}
+				s.publishJsEvent(jsEventInsert, versionFlowID, newJsData)
+			}
+		}
+
+		// Publish the base node event after sub-node event
+		s.publishNodeEvent(nodeEventInsert, newNode)
+	}
+
+	// Duplicate all edges with remapped node IDs
+	for _, sourceEdge := range sourceEdges {
+		newSourceID, sourceOK := nodeIDMapping[sourceEdge.SourceID.String()]
+		newTargetID, targetOK := nodeIDMapping[sourceEdge.TargetID.String()]
+
+		if !sourceOK || !targetOK {
+			// Skip invalid edges
+			continue
+		}
+
+		newEdge := edge.Edge{
+			ID:            idwrap.NewNow(),
+			FlowID:        versionFlowID,
+			SourceID:      newSourceID,
+			TargetID:      newTargetID,
+			SourceHandler: sourceEdge.SourceHandler,
+			Kind:          sourceEdge.Kind,
+		}
+
+		if err := s.es.CreateEdge(ctx, newEdge); err != nil {
+			return mflow.Flow{}, fmt.Errorf("create edge: %w", err)
+		}
+		s.publishEdgeEvent(edgeEventInsert, newEdge)
+	}
+
+	// Duplicate all flow variables
+	for _, sourceVar := range sourceVars {
+		newVar := mflowvariable.FlowVariable{
+			ID:          idwrap.NewNow(),
+			FlowID:      versionFlowID,
+			Name:        sourceVar.Name,
+			Value:       sourceVar.Value,
+			Enabled:     sourceVar.Enabled,
+			Description: sourceVar.Description,
+		}
+
+		if err := s.fvs.CreateFlowVariable(ctx, newVar); err != nil {
+			return mflow.Flow{}, fmt.Errorf("create flow variable: %w", err)
+		}
+		s.publishFlowVariableEvent(flowVarEventInsert, newVar, 0)
+	}
+
+	return version, nil
 }

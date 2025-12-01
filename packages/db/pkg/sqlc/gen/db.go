@@ -261,6 +261,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.findHTTPByURLAndMethodStmt, err = db.PrepareContext(ctx, findHTTPByURLAndMethod); err != nil {
 		return nil, fmt.Errorf("error preparing query FindHTTPByURLAndMethod: %w", err)
 	}
+	if q.getAllFlowsByWorkspaceIDStmt, err = db.PrepareContext(ctx, getAllFlowsByWorkspaceID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAllFlowsByWorkspaceID: %w", err)
+	}
 	if q.getAllWorkspacesByUserIDStmt, err = db.PrepareContext(ctx, getAllWorkspacesByUserID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllWorkspacesByUserID: %w", err)
 	}
@@ -1106,6 +1109,11 @@ func (q *Queries) Close() error {
 	if q.findHTTPByURLAndMethodStmt != nil {
 		if cerr := q.findHTTPByURLAndMethodStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing findHTTPByURLAndMethodStmt: %w", cerr)
+		}
+	}
+	if q.getAllFlowsByWorkspaceIDStmt != nil {
+		if cerr := q.getAllFlowsByWorkspaceIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAllFlowsByWorkspaceIDStmt: %w", cerr)
 		}
 	}
 	if q.getAllWorkspacesByUserIDStmt != nil {
@@ -1971,6 +1979,7 @@ type Queries struct {
 	deleteWorkspaceStmt                        *sql.Stmt
 	deleteWorkspaceUserStmt                    *sql.Stmt
 	findHTTPByURLAndMethodStmt                 *sql.Stmt
+	getAllFlowsByWorkspaceIDStmt               *sql.Stmt
 	getAllWorkspacesByUserIDStmt               *sql.Stmt
 	getEnvironmentStmt                         *sql.Stmt
 	getEnvironmentWorkspaceIDStmt              *sql.Stmt
@@ -2205,6 +2214,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteWorkspaceStmt:                        q.deleteWorkspaceStmt,
 		deleteWorkspaceUserStmt:                    q.deleteWorkspaceUserStmt,
 		findHTTPByURLAndMethodStmt:                 q.findHTTPByURLAndMethodStmt,
+		getAllFlowsByWorkspaceIDStmt:               q.getAllFlowsByWorkspaceIDStmt,
 		getAllWorkspacesByUserIDStmt:               q.getAllWorkspacesByUserIDStmt,
 		getEnvironmentStmt:                         q.getEnvironmentStmt,
 		getEnvironmentWorkspaceIDStmt:              q.getEnvironmentWorkspaceIDStmt,
