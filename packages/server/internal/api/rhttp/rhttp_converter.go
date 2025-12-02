@@ -4,7 +4,6 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -887,7 +886,7 @@ func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHea
 }
 
 // httpBodyFormDeltaSyncResponseFrom converts HttpBodyFormEvent and form record to HttpBodyFormDeltaSync response
-func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttpbodyform.HttpBodyForm) *apiv1.HttpBodyFormDataDeltaSyncResponse {
+func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.HTTPBodyForm) *apiv1.HttpBodyFormDataDeltaSyncResponse {
 	var value *apiv1.HttpBodyFormDataDeltaSync_ValueUnion
 
 	switch event.Type {

@@ -857,8 +857,8 @@ func convertToBodyForms(formData []YamlNameValuePairV2, httpID idwrap.IDWrap) []
 		bodyForm := mhttp.HTTPBodyForm{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			FormKey:     form.Name,
-			FormValue:   form.Value,
+			Key:     form.Name,
+			Value:   form.Value,
 			Description: form.Description,
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),

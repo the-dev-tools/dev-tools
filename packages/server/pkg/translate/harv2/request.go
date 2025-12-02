@@ -95,13 +95,13 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 		}
 
 		headers = append(headers, mhttp.HTTPHeader{
-			ID:          idwrap.NewNow(),
-			HttpID:      httpID,
-			Key:   h.Name,
-			Value: val,
-			Enabled:     true,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			ID:        idwrap.NewNow(),
+			HttpID:    httpID,
+			Key:       h.Name,
+			Value:     val,
+			Enabled:   true,
+			CreatedAt: now,
+			UpdatedAt: now,
 		})
 	}
 
@@ -118,13 +118,13 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 			}
 		}
 		params = append(params, mhttp.HTTPSearchParam{
-			ID:         idwrap.NewNow(),
-			HttpID:     httpID,
-			Key:   q.Name,
-			Value: val,
-			Enabled:    true,
-			CreatedAt:  now,
-			UpdatedAt:  now,
+			ID:        idwrap.NewNow(),
+			HttpID:    httpID,
+			Key:       q.Name,
+			Value:     val,
+			Enabled:   true,
+			CreatedAt: now,
+			UpdatedAt: now,
 		})
 	}
 
@@ -148,8 +148,8 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 				bodyForms = append(bodyForms, mhttp.HTTPBodyForm{
 					ID:        idwrap.NewNow(),
 					HttpID:    httpID,
-					FormKey:   p.Name,
-					FormValue: val,
+					Key:       p.Name,
+					Value:     val,
 					Enabled:   true,
 					CreatedAt: now,
 					UpdatedAt: now,

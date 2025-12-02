@@ -208,8 +208,8 @@ func resolveFormBody(base []mhttp.HTTPBodyForm, delta []mhttp.HTTPBodyForm) []mh
 	additions := make([]mhttp.HTTPBodyForm, 0)
 
 	for _, d := range delta {
-		if d.ParentBodyFormID != nil {
-			overrideMap[*d.ParentBodyFormID] = d
+		if d.ParentHttpBodyFormID != nil {
+			overrideMap[*d.ParentHttpBodyFormID] = d
 		} else {
 			additions = append(additions, d)
 		}
@@ -220,11 +220,11 @@ func resolveFormBody(base []mhttp.HTTPBodyForm, delta []mhttp.HTTPBodyForm) []mh
 	for _, b := range base {
 		if override, ok := overrideMap[b.ID]; ok {
 			merged := b
-			if override.DeltaFormKey != nil {
-				merged.FormKey = *override.DeltaFormKey
+			if override.DeltaKey != nil {
+				merged.Key = *override.DeltaKey
 			}
-			if override.DeltaFormValue != nil {
-				merged.FormValue = *override.DeltaFormValue
+			if override.DeltaValue != nil {
+				merged.Value = *override.DeltaValue
 			}
 			if override.DeltaDescription != nil {
 				merged.Description = *override.DeltaDescription
@@ -234,9 +234,9 @@ func resolveFormBody(base []mhttp.HTTPBodyForm, delta []mhttp.HTTPBodyForm) []mh
 			}
 
 			merged.IsDelta = false
-			merged.ParentBodyFormID = nil
-			merged.DeltaFormKey = nil
-			merged.DeltaFormValue = nil
+			merged.ParentHttpBodyFormID = nil
+			merged.DeltaKey = nil
+			merged.DeltaValue = nil
 			merged.DeltaDescription = nil
 			merged.DeltaEnabled = nil
 

@@ -173,9 +173,9 @@ func PrepareHTTPRequestWithTracking(
 		clientHeaders = append(clientHeaders, contentTypeHeader)
 
 		for _, v := range activeFormBody {
-			actualBodyKey := v.FormKey
-			if varsystem.CheckStringHasAnyVarKey(v.FormKey) {
-				actualBodyKey, err = tracker.ReplaceVars(v.FormKey)
+			actualBodyKey := v.Key
+			if varsystem.CheckStringHasAnyVarKey(v.Key) {
+				actualBodyKey, err = tracker.ReplaceVars(v.Key)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
@@ -183,7 +183,7 @@ func PrepareHTTPRequestWithTracking(
 
 			// First check if this value contains file references (before variable replacement)
 			filePathsToUpload := []string{}
-			potentialFileRefs := strings.Split(v.FormValue, ",")
+			potentialFileRefs := strings.Split(v.Value, ",")
 			allAreFileReferences := true
 
 			for _, ref := range potentialFileRefs {
@@ -224,10 +224,10 @@ func PrepareHTTPRequestWithTracking(
 				}
 			}
 
-			resolvedValue := v.FormValue
-			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.FormValue) {
+			resolvedValue := v.Value
+			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.Value) {
 				// Only replace variables if this is not a file reference
-				resolvedValue, err = tracker.ReplaceVars(v.FormValue)
+				resolvedValue, err = tracker.ReplaceVars(v.Value)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
@@ -298,7 +298,7 @@ func PrepareHTTPRequestWithTracking(
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Add Content-Type if not present
 		hasContentType := false
 		for _, h := range clientHeaders {
@@ -629,9 +629,9 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 		clientHeaders = append(clientHeaders, contentTypeHeader)
 
 		for _, v := range formBody {
-			actualBodyKey := v.FormKey
-			if varsystem.CheckIsVar(v.FormKey) {
-				key := varsystem.GetVarKeyFromRaw(v.FormKey)
+			actualBodyKey := v.Key
+			if varsystem.CheckIsVar(v.Key) {
+				key := varsystem.GetVarKeyFromRaw(v.Key)
 				if val, ok := varMap.Get(key); ok {
 					actualBodyKey = val.Value
 				} else {
@@ -641,7 +641,7 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 
 			// First check if this value contains file references (before variable replacement)
 			filePathsToUpload := []string{}
-			potentialFileRefs := strings.Split(v.FormValue, ",")
+			potentialFileRefs := strings.Split(v.Value, ",")
 			allAreFileReferences := true
 
 			for _, ref := range potentialFileRefs {
@@ -675,11 +675,11 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 				}
 			}
 
-			resolvedValue := v.FormValue
-			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.FormValue) {
+			resolvedValue := v.Value
+			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.Value) {
 				// Only replace variables if this is not a file reference
 				var err error
-				resolvedValue, err = varMap.ReplaceVars(v.FormValue)
+				resolvedValue, err = varMap.ReplaceVars(v.Value)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
@@ -919,9 +919,9 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 		clientHeaders = append(clientHeaders, contentTypeHeader)
 
 		for _, v := range formBody {
-			actualBodyKey := v.FormKey
-			if varsystem.CheckStringHasAnyVarKey(v.FormKey) {
-				resolvedKey, err := tracker.ReplaceVars(v.FormKey)
+			actualBodyKey := v.Key
+			if varsystem.CheckStringHasAnyVarKey(v.Key) {
+				resolvedKey, err := tracker.ReplaceVars(v.Key)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
@@ -930,7 +930,7 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 
 			// First check if this value contains file references (before variable replacement)
 			filePathsToUpload := []string{}
-			potentialFileRefs := strings.Split(v.FormValue, ",")
+			potentialFileRefs := strings.Split(v.Value, ",")
 			allAreFileReferences := true
 
 			for _, ref := range potentialFileRefs {
@@ -971,11 +971,11 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 				}
 			}
 
-			resolvedValue := v.FormValue
-			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.FormValue) {
+			resolvedValue := v.Value
+			if !allAreFileReferences && varsystem.CheckStringHasAnyVarKey(v.Value) {
 				// Only replace variables if this is not a file reference
 				var err error
-				resolvedValue, err = tracker.ReplaceVars(v.FormValue)
+				resolvedValue, err = tracker.ReplaceVars(v.Value)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}

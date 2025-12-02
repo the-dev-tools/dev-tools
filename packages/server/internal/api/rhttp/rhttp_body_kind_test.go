@@ -11,7 +11,6 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 
@@ -43,7 +42,7 @@ func (f *httpFixture) createHttpBodyForm(t *testing.T, httpID idwrap.IDWrap, key
 	t.Helper()
 
 	formID := idwrap.NewNow()
-	form := &mhttpbodyform.HttpBodyForm{
+	form := &mhttp.HTTPBodyForm{
 		ID:      formID,
 		HttpID:  httpID,
 		Key:     key,
@@ -53,7 +52,7 @@ func (f *httpFixture) createHttpBodyForm(t *testing.T, httpID idwrap.IDWrap, key
 
 	// Access the body form service from the handler
 	formService := f.handler.httpBodyFormService
-	if err := formService.CreateHttpBodyForm(f.ctx, form); err != nil {
+	if err := formService.Create(f.ctx, form); err != nil {
 		t.Fatalf("create http body form: %v", err)
 	}
 }

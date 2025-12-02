@@ -10,7 +10,6 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
@@ -158,7 +157,7 @@ func ToAPIHttpSearchParamFromMHttp(param mhttp.HTTPSearchParam) *httpv1.HttpSear
 }
 
 // ToAPIHttpBodyFormData converts model HttpBodyForm to API HttpBodyFormData
-func ToAPIHttpBodyFormData(form mhttpbodyform.HttpBodyForm) *httpv1.HttpBodyFormData {
+func ToAPIHttpBodyFormData(form mhttp.HTTPBodyForm) *httpv1.HttpBodyFormData {
 	return &httpv1.HttpBodyFormData{
 		HttpBodyFormDataId: form.ID.Bytes(),
 		HttpId:             form.HttpID.Bytes(),
@@ -174,8 +173,8 @@ func ToAPIHttpBodyFormDataFromMHttp(form mhttp.HTTPBodyForm) *httpv1.HttpBodyFor
 	return &httpv1.HttpBodyFormData{
 		HttpBodyFormDataId: form.ID.Bytes(),
 		HttpId:             form.HttpID.Bytes(),
-		Key:                form.FormKey,
-		Value:              form.FormValue,
+		Key:                form.Key,
+		Value:              form.Value,
 		Enabled:            form.Enabled,
 		Description:        form.Description,
 	}

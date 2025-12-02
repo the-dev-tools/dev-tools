@@ -171,7 +171,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 		&suite.importHandler.HttpHeaderService,
 		suite.importHandler.HttpSearchParamService,
 		suite.importHandler.HttpBodyRawService,
-		&suite.importHandler.HttpBodyFormService,
+		suite.importHandler.HttpBodyFormService,
 		&suite.importHandler.HttpBodyUrlEncodedService,
 		&httpAssertService,
 	)

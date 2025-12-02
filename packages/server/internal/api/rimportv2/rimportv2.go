@@ -18,7 +18,6 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
@@ -59,7 +58,7 @@ type ImportV2RPC struct {
 	FileService               *sfile.FileService
 	HttpHeaderService         shttp.HttpHeaderService
 	HttpSearchParamService    *shttp.HttpSearchParamService
-	HttpBodyFormService       shttpbodyform.HttpBodyFormService
+	HttpBodyFormService       *shttp.HttpBodyFormService
 	HttpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
 	HttpBodyRawService        *shttp.HttpBodyRawService
 	NodeService               *snode.NodeService
@@ -79,7 +78,7 @@ func NewImportV2RPC(
 	// Child entity services
 	httpHeaderService shttp.HttpHeaderService,
 	httpSearchParamService *shttp.HttpSearchParamService,
-	httpBodyFormService shttpbodyform.HttpBodyFormService,
+	httpBodyFormService *shttp.HttpBodyFormService,
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
 	bodyService *shttp.HttpBodyRawService,
 	nodeService *snode.NodeService,

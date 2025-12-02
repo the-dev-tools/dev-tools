@@ -42,7 +42,6 @@ import (
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
@@ -154,7 +153,7 @@ func main() {
 	// HTTP child entity services
 	httpHeaderService := shttp.NewHttpHeaderService(queries)
 	httpSearchParamService := shttp.NewHttpSearchParamService(queries)
-	httpBodyFormService := shttpbodyform.New(queries)
+	httpBodyFormService := shttp.NewHttpBodyFormService(queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
 	httpAssertService := shttpassert.New(queries)
 	httpResponseService := shttp.NewHttpResponseService(queries)
@@ -251,7 +250,7 @@ func main() {
 		&httpHeaderService,
 		httpSearchParamService,
 		httpBodyRawService,
-		&httpBodyFormService,
+		httpBodyFormService,
 		&httpBodyUrlEncodedService,
 		&httpAssertService,
 	)

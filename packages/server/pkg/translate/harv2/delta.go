@@ -60,20 +60,20 @@ func CreateDeltaHeaders(originalHeaders []mhttp.HTTPHeader, newHeaders []mhttp.H
 			}
 
 			deltaHeader := mhttp.HTTPHeader{
-				ID:               idwrap.NewNow(),
-				HttpID:           deltaHttpID,
-				Key:        deltaKey,
-				Value:      deltaValue,
-				Description:      deltaDesc,
-				Enabled:          true, // Delta headers are always enabled
-				ParentHttpHeaderID:   parentHeaderID,
-				IsDelta:          true,
-				DeltaKey:   &deltaKey,
-				DeltaValue: &deltaValue,
-				DeltaDescription: &deltaDesc,
-				DeltaEnabled:     &deltaEnabled,
-				CreatedAt:        newHeader.CreatedAt + 1,
-				UpdatedAt:        newHeader.UpdatedAt + 1,
+				ID:                 idwrap.NewNow(),
+				HttpID:             deltaHttpID,
+				Key:                deltaKey,
+				Value:              deltaValue,
+				Description:        deltaDesc,
+				Enabled:            true, // Delta headers are always enabled
+				ParentHttpHeaderID: parentHeaderID,
+				IsDelta:            true,
+				DeltaKey:           &deltaKey,
+				DeltaValue:         &deltaValue,
+				DeltaDescription:   &deltaDesc,
+				DeltaEnabled:       &deltaEnabled,
+				CreatedAt:          newHeader.CreatedAt + 1,
+				UpdatedAt:          newHeader.UpdatedAt + 1,
 			}
 			deltaHeaders = append(deltaHeaders, deltaHeader)
 		}
@@ -110,20 +110,20 @@ func CreateDeltaSearchParams(originalParams []mhttp.HTTPSearchParam, newParams [
 			}
 
 			deltaParam := mhttp.HTTPSearchParam{
-				ID:              idwrap.NewNow(),
-				HttpID:          deltaHttpID,
-				Key:        deltaKey,
-				Value:      deltaValue,
-				Description:     deltaDesc,
-				Enabled:         true,
+				ID:                      idwrap.NewNow(),
+				HttpID:                  deltaHttpID,
+				Key:                     deltaKey,
+				Value:                   deltaValue,
+				Description:             deltaDesc,
+				Enabled:                 true,
 				ParentHttpSearchParamID: parentSearchParamID,
-				IsDelta:         true,
-				DeltaKey:   &deltaKey,
-				DeltaValue: &deltaValue,
-				DeltaDescription: &deltaDesc,
-				DeltaEnabled:    &deltaEnabled,
-				CreatedAt:       newParam.CreatedAt + 1,
-				UpdatedAt:       newParam.UpdatedAt + 1,
+				IsDelta:                 true,
+				DeltaKey:                &deltaKey,
+				DeltaValue:              &deltaValue,
+				DeltaDescription:        &deltaDesc,
+				DeltaEnabled:            &deltaEnabled,
+				CreatedAt:               newParam.CreatedAt + 1,
+				UpdatedAt:               newParam.UpdatedAt + 1,
 			}
 			deltaParams = append(deltaParams, deltaParam)
 		}
@@ -139,17 +139,17 @@ func CreateDeltaBodyForms(originalForms []mhttp.HTTPBodyForm, newForms []mhttp.H
 	// Create map of original forms by key for comparison
 	originalMap := make(map[string]mhttp.HTTPBodyForm)
 	for _, form := range originalForms {
-		originalMap[form.FormKey] = form
+		originalMap[form.Key] = form
 	}
 
 	// Find changed or new forms
 	for _, newForm := range newForms {
-		original, exists := originalMap[newForm.FormKey]
+		original, exists := originalMap[newForm.Key]
 
 		// Create delta if form doesn't exist or has different value
-		if !exists || original.FormValue != newForm.FormValue {
-			deltaKey := newForm.FormKey
-			deltaValue := newForm.FormValue
+		if !exists || original.Value != newForm.Value {
+			deltaKey := newForm.Key
+			deltaValue := newForm.Value
 			deltaDesc := "Imported from HAR"
 			deltaEnabled := true
 
@@ -160,20 +160,20 @@ func CreateDeltaBodyForms(originalForms []mhttp.HTTPBodyForm, newForms []mhttp.H
 			}
 
 			deltaForm := mhttp.HTTPBodyForm{
-				ID:               idwrap.NewNow(),
-				HttpID:           deltaHttpID,
-				FormKey:          deltaKey,
-				FormValue:        deltaValue,
-				Description:      deltaDesc,
-				Enabled:          true,
-				ParentBodyFormID: parentBodyFormID,
-				IsDelta:          true,
-				DeltaFormKey:     &deltaKey,
-				DeltaFormValue:   &deltaValue,
-				DeltaDescription: &deltaDesc,
-				DeltaEnabled:     &deltaEnabled,
-				CreatedAt:        newForm.CreatedAt + 1,
-				UpdatedAt:        newForm.UpdatedAt + 1,
+				ID:                   idwrap.NewNow(),
+				HttpID:               deltaHttpID,
+				Key:                  deltaKey,
+				Value:                deltaValue,
+				Description:          deltaDesc,
+				Enabled:              true,
+				ParentHttpBodyFormID: parentBodyFormID,
+				IsDelta:              true,
+				DeltaKey:             &deltaKey,
+				DeltaValue:           &deltaValue,
+				DeltaDescription:     &deltaDesc,
+				DeltaEnabled:         &deltaEnabled,
+				CreatedAt:            newForm.CreatedAt + 1,
+				UpdatedAt:            newForm.UpdatedAt + 1,
 			}
 			deltaForms = append(deltaForms, deltaForm)
 		}

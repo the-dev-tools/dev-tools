@@ -20,7 +20,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/svar"
@@ -53,7 +52,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	bodyService := shttp.NewHttpBodyRawService(queries)
 	httpHeaderService := shttp.NewHttpHeaderService(queries)
 	httpSearchParamService := shttp.NewHttpSearchParamService(queries)
-	httpBodyFormService := shttpbodyform.New(queries)
+	httpBodyFormService := shttp.NewHttpBodyFormService(queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
 	httpAssertService := shttpassert.New(queries)
 	httpResponseService := shttp.NewHttpResponseService(queries)
@@ -77,7 +76,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 		&httpHeaderService,
 		httpSearchParamService,
 		bodyService,
-		&httpBodyFormService,
+		httpBodyFormService,
 		&httpBodyUrlEncodedService,
 		&httpAssertService,
 	)

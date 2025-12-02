@@ -255,8 +255,8 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 					for _, f := range forms {
 						if !f.Enabled { continue }
 						fList = append(fList, map[string]any{
-							"name": f.FormKey,
-							"value": f.FormValue,
+							"name": f.Key,
+							"value": f.Value,
 						})
 					}
 					bodyData["form_data"] = fList

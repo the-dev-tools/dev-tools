@@ -14,12 +14,10 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -1711,7 +1709,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaCollection(ctx context.Context, re
 
 		// Get body forms for each HTTP entry
 		for _, http := range httpList {
-			bodyForms, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, http.ID)
+			bodyForms, err := h.httpBodyFormService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -1775,9 +1773,9 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaInsert(ctx context.Context, req *c
 		}
 
 		// Check workspace write access
-		bodyForm, err := h.httpBodyFormService.GetHttpBodyForm(ctx, bodyFormID)
+		bodyForm, err := h.httpBodyFormService.GetByID(ctx, bodyFormID)
 		if err != nil {
-			if errors.Is(err, shttpbodyform.ErrNoHttpBodyFormFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyFormFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1793,7 +1791,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaInsert(ctx context.Context, req *c
 		}
 
 		// Update delta fields
-		err = h.httpBodyFormService.UpdateHttpBodyFormDelta(ctx, bodyFormID, item.Key, item.Value, item.Enabled, item.Description, item.Order)
+		err = h.httpBodyFormService.UpdateDelta(ctx, bodyFormID, item.Key, item.Value, item.Enabled, item.Description, item.Order)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1810,7 +1808,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var updateData []struct {
 		deltaID          idwrap.IDWrap
-		existingBodyForm *mhttpbodyform.HttpBodyForm
+		existingBodyForm *mhttp.HTTPBodyForm
 		item             *apiv1.HttpBodyFormDataDeltaUpdate
 	}
 
@@ -1825,9 +1823,9 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 		}
 
 		// Get existing delta body form - use pool service
-		existingBodyForm, err := h.httpBodyFormService.GetHttpBodyForm(ctx, deltaID)
+		existingBodyForm, err := h.httpBodyFormService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpbodyform.ErrNoHttpBodyFormFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyFormFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1851,7 +1849,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 
 		updateData = append(updateData, struct {
 			deltaID          idwrap.IDWrap
-			existingBodyForm *mhttpbodyform.HttpBodyForm
+			existingBodyForm *mhttp.HTTPBodyForm
 			item             *apiv1.HttpBodyFormDataDeltaUpdate
 		}{
 			deltaID:          deltaID,
@@ -1947,15 +1945,15 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaUpdate(ctx context.Context, req *c
 	defer tx.Rollback()
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
-	var updatedBodyForms []mhttpbodyform.HttpBodyForm
+	var updatedBodyForms []mhttp.HTTPBodyForm
 
 	for _, update := range preparedUpdates {
-		if err := httpBodyFormService.UpdateHttpBodyFormDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
+		if err := httpBodyFormService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		// Get updated body form for event publishing (from TX service)
-		updatedBodyForm, err := httpBodyFormService.GetHttpBodyForm(ctx, update.deltaID)
+		updatedBodyForm, err := httpBodyFormService.GetByID(ctx, update.deltaID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1990,7 +1988,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *c
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var deleteData []struct {
 		deltaID          idwrap.IDWrap
-		existingBodyForm *mhttpbodyform.HttpBodyForm
+		existingBodyForm *mhttp.HTTPBodyForm
 		workspaceID      idwrap.IDWrap
 	}
 
@@ -2005,9 +2003,9 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *c
 		}
 
 		// Get existing delta body form - use pool service
-		existingBodyForm, err := h.httpBodyFormService.GetHttpBodyForm(ctx, deltaID)
+		existingBodyForm, err := h.httpBodyFormService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpbodyform.ErrNoHttpBodyFormFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyFormFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -2031,7 +2029,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *c
 
 		deleteData = append(deleteData, struct {
 			deltaID          idwrap.IDWrap
-			existingBodyForm *mhttpbodyform.HttpBodyForm
+			existingBodyForm *mhttp.HTTPBodyForm
 			workspaceID      idwrap.IDWrap
 		}{
 			deltaID:          deltaID,
@@ -2048,12 +2046,12 @@ func (h *HttpServiceRPC) HttpBodyFormDataDeltaDelete(ctx context.Context, req *c
 	defer tx.Rollback()
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
-	var deletedBodyForms []mhttpbodyform.HttpBodyForm
+	var deletedBodyForms []mhttp.HTTPBodyForm
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
 		// Delete the delta record
-		if err := httpBodyFormService.DeleteHttpBodyForm(ctx, data.deltaID); err != nil {
+		if err := httpBodyFormService.Delete(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -2119,7 +2117,7 @@ func (h *HttpServiceRPC) streamHttpBodyFormDeltaSync(ctx context.Context, userID
 			if err != nil {
 				continue // Skip if can't parse ID
 			}
-			bodyFormRecord, err := h.httpBodyFormService.GetHttpBodyForm(ctx, bodyFormID)
+			bodyFormRecord, err := h.httpBodyFormService.GetByID(ctx, bodyFormID)
 			if err != nil {
 				continue // Skip if can't get the record
 			}

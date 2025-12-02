@@ -216,7 +216,7 @@ func BuildCurl(resolved *CurlResolvedV2) (string, error) {
 
 	for _, form := range bodyForms {
 		if form.Enabled {
-			args = append(args, "-F "+singleQuote(fmt.Sprintf("%s=%s", form.FormKey, form.FormValue)))
+			args = append(args, "-F "+singleQuote(fmt.Sprintf("%s=%s", form.Key, form.Value)))
 		}
 	}
 
@@ -470,8 +470,8 @@ func extractBodyForms(curlStr string, httpID idwrap.IDWrap, hasDataFlag *bool) [
 		form := mhttp.HTTPBodyForm{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			FormKey:     key,
-			FormValue:   value,
+			Key:     key,
+			Value:   value,
 			Description: "",
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),
@@ -580,10 +580,10 @@ func sortHeaders(headers []mhttp.HTTPHeader) {
 
 func sortBodyForms(forms []mhttp.HTTPBodyForm) {
 	sort.SliceStable(forms, func(i, j int) bool {
-		if forms[i].FormKey == forms[j].FormKey {
-			return forms[i].FormValue < forms[j].FormValue
+		if forms[i].Key == forms[j].Key {
+			return forms[i].Value < forms[j].Value
 		}
-		return forms[i].FormKey < forms[j].FormKey
+		return forms[i].Key < forms[j].Key
 	})
 }
 

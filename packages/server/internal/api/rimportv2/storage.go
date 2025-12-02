@@ -11,14 +11,12 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
@@ -35,7 +33,7 @@ type DefaultImporter struct {
 	fileService               *sfile.FileService
 	httpHeaderService         shttp.HttpHeaderService
 	httpSearchParamService    *shttp.HttpSearchParamService
-	httpBodyFormService       shttpbodyform.HttpBodyFormService
+	httpBodyFormService       *shttp.HttpBodyFormService
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
 	bodyService               *shttp.HttpBodyRawService
 	nodeService               *snode.NodeService
@@ -53,7 +51,7 @@ func NewImporter(
 	fileService *sfile.FileService,
 	httpHeaderService shttp.HttpHeaderService,
 	httpSearchParamService *shttp.HttpSearchParamService,
-	httpBodyFormService shttpbodyform.HttpBodyFormService,
+	httpBodyFormService *shttp.HttpBodyFormService,
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
 	bodyService *shttp.HttpBodyRawService,
 	nodeService *snode.NodeService,
@@ -200,24 +198,24 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 
 	if len(results.HTTPBodyForms) > 0 {
 		for _, f := range results.HTTPBodyForms {
-			form := &mhttpbodyform.HttpBodyForm{
+			form := &mhttp.HTTPBodyForm{
 				ID:                   f.ID,
 				HttpID:               f.HttpID,
-				Key:                  f.FormKey,
-				Value:                f.FormValue,
+				Key:                  f.Key,
+				Value:                f.Value,
 				Enabled:              f.Enabled,
 				Description:          f.Description,
-				ParentHttpBodyFormID: f.ParentBodyFormID,
+				ParentHttpBodyFormID: f.ParentHttpBodyFormID,
 				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          f.IsDelta && f.ParentBodyFormID != nil,
-				DeltaKey:         f.DeltaFormKey,
-				DeltaValue:       f.DeltaFormValue,
+				IsDelta:          f.IsDelta && f.ParentHttpBodyFormID != nil,
+				DeltaKey:         f.DeltaKey,
+				DeltaValue:       f.DeltaValue,
 				DeltaEnabled:     f.DeltaEnabled,
 				DeltaDescription: f.DeltaDescription,
 				CreatedAt:        f.CreatedAt,
 				UpdatedAt:        f.UpdatedAt,
 			}
-			if err := imp.httpBodyFormService.CreateHttpBodyForm(ctx, form); err != nil {
+			if err := imp.httpBodyFormService.Create(ctx, form); err != nil {
 				return fmt.Errorf("failed to store body form: %w", err)
 			}
 		}
@@ -457,24 +455,24 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	if len(results.BodyForms) > 0 {
 		for _, f := range results.BodyForms {
-			form := mhttpbodyform.HttpBodyForm{
+			form := mhttp.HTTPBodyForm{
 				ID:                   f.ID,
 				HttpID:               f.HttpID,
-				Key:                  f.FormKey,
-				Value:                f.FormValue,
+				Key:                  f.Key,
+				Value:                f.Value,
 				Enabled:              f.Enabled,
 				Description:          f.Description,
-				ParentHttpBodyFormID: f.ParentBodyFormID,
+				ParentHttpBodyFormID: f.ParentHttpBodyFormID,
 				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          f.IsDelta && f.ParentBodyFormID != nil,
-				DeltaKey:         f.DeltaFormKey,
-				DeltaValue:       f.DeltaFormValue,
+				IsDelta:          f.IsDelta && f.ParentHttpBodyFormID != nil,
+				DeltaKey:         f.DeltaKey,
+				DeltaValue:       f.DeltaValue,
 				DeltaEnabled:     f.DeltaEnabled,
 				DeltaDescription: f.DeltaDescription,
 				CreatedAt:        f.CreatedAt,
 				UpdatedAt:        f.UpdatedAt,
 			}
-			if err := txBodyFormService.CreateHttpBodyForm(ctx, &form); err != nil {
+			if err := txBodyFormService.Create(ctx, &form); err != nil {
 				return fmt.Errorf("failed to store body form: %w", err)
 			}
 		}

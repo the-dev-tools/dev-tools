@@ -17,7 +17,6 @@ import (
 
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 )
 
@@ -32,7 +31,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 	headerService := shttp.NewHttpHeaderService(queries)
 	paramService := shttp.NewHttpSearchParamService(queries)
 	rawBodyService := shttp.NewHttpBodyRawService(queries)
-	formBodyService := shttpbodyform.New(queries)
+	formBodyService := shttp.NewHttpBodyFormService(queries)
 	urlEncodedBodyService := shttpbodyurlencoded.New(queries)
 	assertService := shttpassert.New(queries)
 
@@ -41,7 +40,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 		&headerService,
 		paramService,
 		rawBodyService,
-		&formBodyService,
+		formBodyService,
 		&urlEncodedBodyService,
 		&assertService,
 	)

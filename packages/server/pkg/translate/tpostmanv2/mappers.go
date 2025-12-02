@@ -273,8 +273,8 @@ func convertPostmanBodyToHTTPModels(postmanBody *PostmanBody, httpID idwrap.IDWr
 			bodyForm := mhttp.HTTPBodyForm{
 				ID:          idwrap.NewNow(),
 				HttpID:      httpID,
-				FormKey:     formData.Key,
-				FormValue:   formData.Value,
+				Key:     formData.Key,
+				Value:   formData.Value,
 				Description: formData.Description,
 				Enabled:     true, // All included form fields are enabled
 				CreatedAt:   now,

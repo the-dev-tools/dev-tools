@@ -21,7 +21,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/svar"
@@ -78,7 +77,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
-	httpBodyFormService := shttpbodyform.New(base.Queries)
+	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
 	httpAssertService := shttpassert.New(base.Queries)
 	httpResponseService := shttp.NewHttpResponseService(base.Queries)
@@ -104,7 +103,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 		&httpHeaderService,
 		httpSearchParamService,
 		bodyService,
-		&httpBodyFormService,
+		httpBodyFormService,
 		&httpBodyUrlEncodedService,
 		&httpAssertService,
 	)

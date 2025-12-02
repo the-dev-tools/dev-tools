@@ -81,22 +81,26 @@ func (h HTTPHeader) IsEnabled() bool {
 }
 
 type HTTPBodyForm struct {
-	ID               idwrap.IDWrap  `json:"id"`
-	HttpID           idwrap.IDWrap  `json:"http_id"`
-	FormKey          string         `json:"form_key"`
-	FormValue        string         `json:"form_value"`
-	Description      string         `json:"description"`
-	Enabled          bool           `json:"enabled"`
-	ParentBodyFormID *idwrap.IDWrap `json:"parent_body_form_id,omitempty"`
-	IsDelta          bool           `json:"is_delta"`
-	DeltaFormKey     *string        `json:"delta_form_key,omitempty"`
-	DeltaFormValue   *string        `json:"delta_form_value,omitempty"`
-	DeltaDescription *string        `json:"delta_description,omitempty"`
-	DeltaEnabled     *bool          `json:"delta_enabled,omitempty"`
-	Prev             *idwrap.IDWrap `json:"prev,omitempty"`
-	Next             *idwrap.IDWrap `json:"next,omitempty"`
-	CreatedAt        int64          `json:"created_at"`
-	UpdatedAt        int64          `json:"updated_at"`
+	ID                   idwrap.IDWrap  `json:"id"`
+	HttpID               idwrap.IDWrap  `json:"http_id"`
+	Key                  string         `json:"key"`
+	Value                string         `json:"value"`
+	Description          string         `json:"description"`
+	Enabled              bool           `json:"enabled"`
+	Order                float32        `json:"order"`
+	ParentHttpBodyFormID *idwrap.IDWrap `json:"parent_http_body_form_id,omitempty"`
+	IsDelta              bool           `json:"is_delta"`
+	DeltaKey             *string        `json:"delta_key,omitempty"`
+	DeltaValue           *string        `json:"delta_value,omitempty"`
+	DeltaDescription     *string        `json:"delta_description,omitempty"`
+	DeltaEnabled         *bool          `json:"delta_enabled,omitempty"`
+	DeltaOrder           *float32       `json:"delta_order,omitempty"`
+	CreatedAt            int64          `json:"created_at"`
+	UpdatedAt            int64          `json:"updated_at"`
+}
+
+func (f HTTPBodyForm) IsEnabled() bool {
+	return f.Enabled
 }
 
 type HTTPBodyUrlencoded struct {

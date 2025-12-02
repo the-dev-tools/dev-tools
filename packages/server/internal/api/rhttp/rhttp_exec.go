@@ -22,7 +22,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/model/mvar"
@@ -77,9 +76,9 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		}
 		rawBody = rawBodyFetched
 
-		formBody, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, httpEntry.ID)
+		formBody, err := h.httpBodyFormService.GetByHttpID(ctx, httpEntry.ID)
 		if err != nil {
-			formBody = []mhttpbodyform.HttpBodyForm{}
+			formBody = []mhttp.HTTPBodyForm{}
 		}
 
 		urlEncodedBody, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, httpEntry.ID)
@@ -100,18 +99,18 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		mQueries = make([]mhttp.HTTPSearchParam, len(queries))
 		for i, v := range queries {
 			mQueries[i] = mhttp.HTTPSearchParam{
-				Key:   v.Key,
-				Value: v.Value,
-				Enabled:    v.Enabled,
+				Key:     v.Key,
+				Value:   v.Value,
+				Enabled: v.Enabled,
 			}
 		}
 
 		mFormBody = make([]mhttp.HTTPBodyForm, len(formBody))
 		for i, v := range formBody {
 			mFormBody[i] = mhttp.HTTPBodyForm{
-				FormKey:   v.Key,
-				FormValue: v.Value,
-				Enabled:   v.Enabled,
+				Key:     v.Key,
+				Value:   v.Value,
+				Enabled: v.Enabled,
 			}
 		}
 

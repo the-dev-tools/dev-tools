@@ -91,8 +91,8 @@ func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 			}
 
 			endpoint := mhttp.HTTP{
-				Method:  "GET",
-				Url:     "http://example.com",
+				Method:   "GET",
+				Url:      "http://example.com",
 				BodyKind: mhttp.HttpBodyKindRaw,
 			}
 
@@ -102,9 +102,9 @@ func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 
 			headers := []mhttp.HTTPHeader{
 				{
-					Key:   "Authorization",
-					Value: tt.headerValue,
-					Enabled:     true,
+					Key:     "Authorization",
+					Value:   tt.headerValue,
+					Enabled: true,
 				},
 			}
 
@@ -175,8 +175,8 @@ func TestPrepareRequest_MultiFileUpload(t *testing.T) {
 
 	// Prepare the request components using mhttp models
 	endpoint := mhttp.HTTP{
-		Method:  "POST",
-		Url:     "http://example.com/upload",
+		Method:   "POST",
+		Url:      "http://example.com/upload",
 		BodyKind: mhttp.HttpBodyKindFormData,
 	}
 	example := mhttp.HTTP{
@@ -184,9 +184,9 @@ func TestPrepareRequest_MultiFileUpload(t *testing.T) {
 	}
 	formBody := []mhttp.HTTPBodyForm{
 		{
-			FormKey:   "photos",
-			FormValue: fmt.Sprintf("{{#file:%s}},{{#file:%s}}", file1.Name(), file2.Name()),
-			Enabled:   true,
+			Key:     "photos",
+			Value:   fmt.Sprintf("{{#file:%s}},{{#file:%s}}", file1.Name(), file2.Name()),
+			Enabled: true,
 		},
 	}
 	varMap := varsystem.NewVarMap(nil) // No variables needed for direct file paths
@@ -299,19 +299,19 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 
 	baseQueries := []mhttp.HTTPSearchParam{
 		{
-			ID:        baseQueryID,
-			HttpID:    baseExampleID,
-			Key:  "page",
-			Value: "1",
+			ID:     baseQueryID,
+			HttpID: baseExampleID,
+			Key:    "page",
+			Value:  "1",
 		},
 	}
 
 	baseHeaders := []mhttp.HTTPHeader{
 		{
-			ID:          baseHeaderID,
-			HttpID:      baseExampleID,
-			Key:   "Authorization",
-			Value: "Bearer token123",
+			ID:     baseHeaderID,
+			HttpID: baseExampleID,
+			Key:    "Authorization",
+			Value:  "Bearer token123",
 		},
 	}
 
@@ -327,20 +327,20 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 	// Create delta queries and headers with nil ParentSearchParamID/ParentHeaderID (legacy format)
 	deltaQueries := []mhttp.HTTPSearchParam{
 		{
-			ID:                idwrap.NewNow(),
-			HttpID:            deltaExampleID,
-			Key:          "page",
-			Value:        "2", // Changed value
+			ID:                      idwrap.NewNow(),
+			HttpID:                  deltaExampleID,
+			Key:                     "page",
+			Value:                   "2", // Changed value
 			ParentHttpSearchParamID: nil, // This would cause a panic in the old code
 		},
 	}
 
 	deltaHeaders := []mhttp.HTTPHeader{
 		{
-			ID:            idwrap.NewNow(),
-			HttpID:        deltaExampleID,
-			Key:     "Authorization",
-			Value:   "Bearer {{ token }}",
+			ID:                 idwrap.NewNow(),
+			HttpID:             deltaExampleID,
+			Key:                "Authorization",
+			Value:              "Bearer {{ token }}",
 			ParentHttpHeaderID: nil, // This would cause a panic in the old code
 		},
 	}
@@ -471,19 +471,19 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 
 	baseQueries := []mhttp.HTTPSearchParam{
 		{
-			ID:        baseQueryID,
-			HttpID:    baseExampleID,
-			Key:  "page",
-			Value: "1",
+			ID:     baseQueryID,
+			HttpID: baseExampleID,
+			Key:    "page",
+			Value:  "1",
 		},
 	}
 
 	baseHeaders := []mhttp.HTTPHeader{
 		{
-			ID:          baseHeaderID,
-			HttpID:      baseExampleID,
-			Key:   "Authorization",
-			Value: "Bearer token123",
+			ID:     baseHeaderID,
+			HttpID: baseExampleID,
+			Key:    "Authorization",
+			Value:  "Bearer token123",
 		},
 	}
 
@@ -500,31 +500,31 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 	// Create delta queries and headers with proper ParentSearchParamID/ParentHeaderID (new format)
 	deltaQueries := []mhttp.HTTPSearchParam{
 		{
-			ID:                idwrap.NewNow(),
-			HttpID:            deltaExampleID,
-			Key:          "page",
-			Value:        "{{ request-1.response.page }}", // Templated value
-			ParentHttpSearchParamID: &baseQueryID,                 // Proper reference to base query
+			ID:                      idwrap.NewNow(),
+			HttpID:                  deltaExampleID,
+			Key:                     "page",
+			Value:                   "{{ request-1.response.page }}", // Templated value
+			ParentHttpSearchParamID: &baseQueryID,                    // Proper reference to base query
 		},
 	}
 
 	deltaHeaders := []mhttp.HTTPHeader{
 		{
-			ID:            idwrap.NewNow(),
-			HttpID:        deltaExampleID,
-			Key:     "Authorization",
-			Value:   "Bearer {{ request-1.response.body.token }}",
+			ID:                 idwrap.NewNow(),
+			HttpID:             deltaExampleID,
+			Key:                "Authorization",
+			Value:              "Bearer {{ request-1.response.body.token }}",
 			ParentHttpHeaderID: &baseHeaderID, // Proper reference to base header
 		},
 	}
 
 	deltaAsserts := []mhttp.HTTPAssert{
 		{
-			ID:            idwrap.NewNow(),
-			HttpID:        deltaExampleID,
+			ID:             idwrap.NewNow(),
+			HttpID:         deltaExampleID,
 			ParentAssertID: &baseAssertIDWithParent,
-			AssertValue:   "response.status == 201",
-			Enabled:       true,
+			AssertValue:    "response.status == 201",
+			Enabled:        true,
 		},
 	}
 

@@ -9,7 +9,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -245,7 +244,7 @@ func TestHttpDelta_BodyFormData(t *testing.T) {
 
 	// Base Form
 	baseFormID := idwrap.NewNow()
-	err = f.handler.httpBodyFormService.CreateHttpBodyForm(ctx, &mhttpbodyform.HttpBodyForm{
+	err = f.handler.httpBodyFormService.Create(ctx, &mhttp.HTTPBodyForm{
 		ID:      baseFormID,
 		HttpID:  httpID,
 		Enabled: true,
@@ -254,7 +253,7 @@ func TestHttpDelta_BodyFormData(t *testing.T) {
 
 	// Delta Form
 	formID := idwrap.NewNow()
-	err = f.handler.httpBodyFormService.CreateHttpBodyForm(ctx, &mhttpbodyform.HttpBodyForm{
+	err = f.handler.httpBodyFormService.Create(ctx, &mhttp.HTTPBodyForm{
 		ID:                   formID,
 		HttpID:               deltaID,
 		IsDelta:              true,
@@ -278,7 +277,7 @@ func TestHttpDelta_BodyFormData(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	form, err := f.handler.httpBodyFormService.GetHttpBodyForm(ctx, formID)
+	form, err := f.handler.httpBodyFormService.GetByID(ctx, formID)
 	require.NoError(t, err)
 	require.NotNil(t, form.DeltaKey)
 	require.Equal(t, newKey, *form.DeltaKey)
@@ -293,7 +292,7 @@ func TestHttpDelta_BodyFormData(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	_, err = f.handler.httpBodyFormService.GetHttpBodyForm(ctx, formID)
+	_, err = f.handler.httpBodyFormService.GetByID(ctx, formID)
 	require.Error(t, err)
 }
 

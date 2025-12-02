@@ -24,7 +24,6 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/snode"
@@ -62,7 +61,7 @@ type BaseTestServices struct {
 	// Child entity services
 	HttpHeaderService         shttp.HttpHeaderService
 	HttpSearchParamService    *shttp.HttpSearchParamService
-	HttpBodyFormService       shttpbodyform.HttpBodyFormService
+	HttpBodyFormService       *shttp.HttpBodyFormService
 	HttpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
 	BodyService               *shttp.HttpBodyRawService
 
@@ -92,7 +91,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
-	httpBodyFormService := shttpbodyform.New(base.Queries)
+	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 

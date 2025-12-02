@@ -12,7 +12,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
@@ -180,7 +179,7 @@ type HttpServiceRPC struct {
 	// Child entity services
 	httpHeaderService         shttp.HttpHeaderService
 	httpSearchParamService    *shttp.HttpSearchParamService
-	httpBodyFormService       shttpbodyform.HttpBodyFormService
+	httpBodyFormService       *shttp.HttpBodyFormService
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
 	httpAssertService         shttpassert.HttpAssertService
 
@@ -212,7 +211,7 @@ func New(
 	bodyService *shttp.HttpBodyRawService,
 	httpHeaderService shttp.HttpHeaderService,
 	httpSearchParamService *shttp.HttpSearchParamService,
-	httpBodyFormService shttpbodyform.HttpBodyFormService,
+	httpBodyFormService *shttp.HttpBodyFormService,
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
 	httpAssertService shttpassert.HttpAssertService,
 	httpResponseService shttp.HttpResponseService,

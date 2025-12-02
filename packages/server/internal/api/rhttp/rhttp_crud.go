@@ -14,7 +14,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/shttp"
@@ -440,7 +439,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	bodyForms, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, httpID)
+	bodyForms, err := h.httpBodyFormService.GetByHttpID(ctx, httpID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -530,7 +529,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	// Duplicate body form entries
 	for _, bodyForm := range bodyForms {
 		newBodyFormID := idwrap.NewNow()
-		bodyFormModel := &mhttpbodyform.HttpBodyForm{
+		bodyFormModel := &mhttp.HTTPBodyForm{
 			ID:                   newBodyFormID,
 			HttpID:               newHttpID,
 			Key:                  bodyForm.Key,
@@ -540,7 +539,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Order:                float32(bodyForm.Order),
 			ParentHttpBodyFormID: bodyForm.ParentHttpBodyFormID, // Assuming direct copy is fine or handle recursive logic if needed
 		}
-		if err := httpBodyFormService.CreateHttpBodyForm(ctx, bodyFormModel); err != nil {
+		if err := httpBodyFormService.Create(ctx, bodyFormModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}

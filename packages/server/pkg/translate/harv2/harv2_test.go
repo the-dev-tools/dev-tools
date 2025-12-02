@@ -968,31 +968,31 @@ func TestDeltaHeaderComparison(t *testing.T) {
 	// Test delta header creation with different scenarios
 	originalHeaders := []mhttp.HTTPHeader{
 		{
-			ID:           idwrap.NewNow(),
-			Key:    "Content-Type",
-			Value:  "application/json",
-			HttpID:       idwrap.NewNow(),
-			CreatedAt:    time.Now().Unix(),
-			UpdatedAt:    time.Now().Unix(),
+			ID:        idwrap.NewNow(),
+			Key:       "Content-Type",
+			Value:     "application/json",
+			HttpID:    idwrap.NewNow(),
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
 		},
 	}
 
 	newHeaders := []mhttp.HTTPHeader{
 		{
-			ID:           idwrap.NewNow(),
-			Key:    "Content-Type",
-			Value:  "application/xml", // Different value
-			HttpID:       idwrap.NewNow(),
-			CreatedAt:    time.Now().Unix(),
-			UpdatedAt:    time.Now().Unix(),
+			ID:        idwrap.NewNow(),
+			Key:       "Content-Type",
+			Value:     "application/xml", // Different value
+			HttpID:    idwrap.NewNow(),
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
 		},
 		{
-			ID:           idwrap.NewNow(),
-			Key:    "Authorization", // New header
-			Value:  "Bearer new-token",
-			HttpID:       idwrap.NewNow(),
-			CreatedAt:    time.Now().Unix(),
-			UpdatedAt:    time.Now().Unix(),
+			ID:        idwrap.NewNow(),
+			Key:       "Authorization", // New header
+			Value:     "Bearer new-token",
+			HttpID:    idwrap.NewNow(),
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
 		},
 	}
 
@@ -1023,31 +1023,31 @@ func TestDeltaSearchParamsComparison(t *testing.T) {
 	// Test delta search params creation
 	originalParams := []mhttp.HTTPSearchParam{
 		{
-			ID:          idwrap.NewNow(),
-			Key:    "page",
-			Value:  "1",
-			HttpID:      idwrap.NewNow(),
-			CreatedAt:   time.Now().Unix(),
-			UpdatedAt:   time.Now().Unix(),
+			ID:        idwrap.NewNow(),
+			Key:       "page",
+			Value:     "1",
+			HttpID:    idwrap.NewNow(),
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
 		},
 	}
 
 	newParams := []mhttp.HTTPSearchParam{
 		{
-			ID:          idwrap.NewNow(),
-			Key:    "page",
-			Value:  "2", // Different value
-			HttpID:      idwrap.NewNow(),
-			CreatedAt:   time.Now().Unix(),
-			UpdatedAt:   time.Now().Unix(),
+			ID:        idwrap.NewNow(),
+			Key:       "page",
+			Value:     "2", // Different value
+			HttpID:    idwrap.NewNow(),
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
 		},
 		{
-			ID:          idwrap.NewNow(),
-			Key:    "limit", // New param
-			Value:  "10",
-			HttpID:      idwrap.NewNow(),
-			CreatedAt:   time.Now().Unix(),
-			UpdatedAt:   time.Now().Unix(),
+			ID:        idwrap.NewNow(),
+			Key:       "limit", // New param
+			Value:     "10",
+			HttpID:    idwrap.NewNow(),
+			CreatedAt: time.Now().Unix(),
+			UpdatedAt: time.Now().Unix(),
 		},
 	}
 
@@ -1069,8 +1069,8 @@ func TestDeltaBodyFormComparison(t *testing.T) {
 	originalForms := []mhttp.HTTPBodyForm{
 		{
 			ID:        idwrap.NewNow(),
-			FormKey:   "username",
-			FormValue: "olduser",
+			Key:       "username",
+			Value:     "olduser",
 			HttpID:    idwrap.NewNow(),
 			CreatedAt: time.Now().Unix(),
 			UpdatedAt: time.Now().Unix(),
@@ -1080,16 +1080,16 @@ func TestDeltaBodyFormComparison(t *testing.T) {
 	newForms := []mhttp.HTTPBodyForm{
 		{
 			ID:        idwrap.NewNow(),
-			FormKey:   "username",
-			FormValue: "newuser", // Different value
+			Key:       "username",
+			Value:     "newuser", // Different value
 			HttpID:    idwrap.NewNow(),
 			CreatedAt: time.Now().Unix(),
 			UpdatedAt: time.Now().Unix(),
 		},
 		{
 			ID:        idwrap.NewNow(),
-			FormKey:   "password", // New form field
-			FormValue: "secret123",
+			Key:       "password", // New form field
+			Value:     "secret123",
 			HttpID:    idwrap.NewNow(),
 			CreatedAt: time.Now().Unix(),
 			UpdatedAt: time.Now().Unix(),
@@ -1112,21 +1112,21 @@ func TestDeltaBodyFormComparison(t *testing.T) {
 func TestDeltaBodyRawComparison(t *testing.T) {
 	// Test delta raw body creation
 	originalRaw := &mhttp.HTTPBodyRaw{
-		ID:           idwrap.NewNow(),
-		RawData:      []byte(`{"old": "data"}`),
-		ContentType:  "application/json",
-		HttpID:       idwrap.NewNow(),
-		CreatedAt:    time.Now().Unix(),
-		UpdatedAt:    time.Now().Unix(),
+		ID:          idwrap.NewNow(),
+		RawData:     []byte(`{"old": "data"}`),
+		ContentType: "application/json",
+		HttpID:      idwrap.NewNow(),
+		CreatedAt:   time.Now().Unix(),
+		UpdatedAt:   time.Now().Unix(),
 	}
 
 	newRaw := &mhttp.HTTPBodyRaw{
-		ID:           idwrap.NewNow(),
-		RawData:      []byte(`{"new": "data"}`),
-		ContentType:  "application/json",
-		HttpID:       idwrap.NewNow(),
-		CreatedAt:    time.Now().Unix(),
-		UpdatedAt:    time.Now().Unix(),
+		ID:          idwrap.NewNow(),
+		RawData:     []byte(`{"new": "data"}`),
+		ContentType: "application/json",
+		HttpID:      idwrap.NewNow(),
+		CreatedAt:   time.Now().Unix(),
+		UpdatedAt:   time.Now().Unix(),
 	}
 
 	deltaHttpID := idwrap.NewNow()
@@ -1141,12 +1141,12 @@ func TestDeltaBodyRawComparison(t *testing.T) {
 
 	// Test with identical data (should not create delta)
 	sameRaw := &mhttp.HTTPBodyRaw{
-		ID:           idwrap.NewNow(),
-		RawData:      []byte(`{"old": "data"}`), // Same as original
-		ContentType:  "application/json",
-		HttpID:       idwrap.NewNow(),
-		CreatedAt:    time.Now().Unix(),
-		UpdatedAt:    time.Now().Unix(),
+		ID:          idwrap.NewNow(),
+		RawData:     []byte(`{"old": "data"}`), // Same as original
+		ContentType: "application/json",
+		HttpID:      idwrap.NewNow(),
+		CreatedAt:   time.Now().Unix(),
+		UpdatedAt:   time.Now().Unix(),
 	}
 
 	noDeltaRaw := harv2.CreateDeltaBodyRaw(originalRaw, sameRaw, deltaHttpID)

@@ -13,12 +13,10 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -1220,7 +1218,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataCollection(ctx context.Context, req *co
 
 		// Get body forms for each HTTP entry
 		for _, http := range httpList {
-			bodyForms, err := h.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, http.ID)
+			bodyForms, err := h.httpBodyFormService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -1243,7 +1241,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var insertData []struct {
-		bodyFormModel *mhttpbodyform.HttpBodyForm
+		bodyFormModel *mhttp.HTTPBodyForm
 	}
 
 	for _, item := range req.Msg.Items {
@@ -1279,7 +1277,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 		}
 
 		// Create the body form model
-		bodyFormModel := &mhttpbodyform.HttpBodyForm{
+		bodyFormModel := &mhttp.HTTPBodyForm{
 			ID:          bodyFormID,
 			HttpID:      httpID,
 			Key:         item.Key,
@@ -1290,7 +1288,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 		}
 
 		insertData = append(insertData, struct {
-			bodyFormModel *mhttpbodyform.HttpBodyForm
+			bodyFormModel *mhttp.HTTPBodyForm
 		}{
 			bodyFormModel: bodyFormModel,
 		})
@@ -1305,10 +1303,10 @@ func (h *HttpServiceRPC) HttpBodyFormDataInsert(ctx context.Context, req *connec
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
 
-	var createdBodyForms []mhttpbodyform.HttpBodyForm
+	var createdBodyForms []mhttp.HTTPBodyForm
 
 	for _, data := range insertData {
-		if err := httpBodyFormService.CreateHttpBodyForm(ctx, data.bodyFormModel); err != nil {
+		if err := httpBodyFormService.Create(ctx, data.bodyFormModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -1344,7 +1342,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var updateData []struct {
-		existingBodyForm *mhttpbodyform.HttpBodyForm
+		existingBodyForm *mhttp.HTTPBodyForm
 		item             *apiv1.HttpBodyFormDataUpdate
 	}
 
@@ -1359,9 +1357,9 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		}
 
 		// Get existing body form - use pool service
-		existingBodyForm, err := h.httpBodyFormService.GetHttpBodyForm(ctx, bodyFormID)
+		existingBodyForm, err := h.httpBodyFormService.GetByID(ctx, bodyFormID)
 		if err != nil {
-			if errors.Is(err, shttpbodyform.ErrNoHttpBodyFormFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyFormFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1382,7 +1380,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 		}
 
 		updateData = append(updateData, struct {
-			existingBodyForm *mhttpbodyform.HttpBodyForm
+			existingBodyForm *mhttp.HTTPBodyForm
 			item             *apiv1.HttpBodyFormDataUpdate
 		}{
 			existingBodyForm: existingBodyForm,
@@ -1420,10 +1418,10 @@ func (h *HttpServiceRPC) HttpBodyFormDataUpdate(ctx context.Context, req *connec
 	defer tx.Rollback()
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
-	var updatedBodyForms []mhttpbodyform.HttpBodyForm
+	var updatedBodyForms []mhttp.HTTPBodyForm
 
 	for _, data := range updateData {
-		if err := httpBodyFormService.UpdateHttpBodyForm(ctx, data.existingBodyForm); err != nil {
+		if err := httpBodyFormService.Update(ctx, data.existingBodyForm); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		updatedBodyForms = append(updatedBodyForms, *data.existingBodyForm)
@@ -1458,7 +1456,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var deleteData []struct {
 		bodyFormID       idwrap.IDWrap
-		existingBodyForm *mhttpbodyform.HttpBodyForm
+		existingBodyForm *mhttp.HTTPBodyForm
 		workspaceID      idwrap.IDWrap
 	}
 
@@ -1473,9 +1471,9 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 		}
 
 		// Get existing body form - use pool service
-		existingBodyForm, err := h.httpBodyFormService.GetHttpBodyForm(ctx, bodyFormID)
+		existingBodyForm, err := h.httpBodyFormService.GetByID(ctx, bodyFormID)
 		if err != nil {
-			if errors.Is(err, shttpbodyform.ErrNoHttpBodyFormFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyFormFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1497,7 +1495,7 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 
 		deleteData = append(deleteData, struct {
 			bodyFormID       idwrap.IDWrap
-			existingBodyForm *mhttpbodyform.HttpBodyForm
+			existingBodyForm *mhttp.HTTPBodyForm
 			workspaceID      idwrap.IDWrap
 		}{
 			bodyFormID:       bodyFormID,
@@ -1514,11 +1512,11 @@ func (h *HttpServiceRPC) HttpBodyFormDataDelete(ctx context.Context, req *connec
 	defer tx.Rollback()
 
 	httpBodyFormService := h.httpBodyFormService.TX(tx)
-	var deletedBodyForms []mhttpbodyform.HttpBodyForm
+	var deletedBodyForms []mhttp.HTTPBodyForm
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
-		if err := httpBodyFormService.DeleteHttpBodyForm(ctx, data.bodyFormID); err != nil {
+		if err := httpBodyFormService.Delete(ctx, data.bodyFormID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 

@@ -9,11 +9,9 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 )
 
@@ -28,7 +26,7 @@ type StandardResolver struct {
 	httpHeaderService         *shttp.HttpHeaderService
 	httpSearchParamService    *shttp.HttpSearchParamService
 	httpBodyRawService        *shttp.HttpBodyRawService
-	httpBodyFormService       *shttpbodyform.HttpBodyFormService
+	httpBodyFormService       *shttp.HttpBodyFormService
 	httpBodyUrlEncodedService *shttpbodyurlencoded.HttpBodyUrlEncodedService
 	httpAssertService         *shttpassert.HttpAssertService
 }
@@ -39,7 +37,7 @@ func NewStandardResolver(
 	httpHeaderService *shttp.HttpHeaderService,
 	httpSearchParamService *shttp.HttpSearchParamService,
 	httpBodyRawService *shttp.HttpBodyRawService,
-	httpBodyFormService *shttpbodyform.HttpBodyFormService,
+	httpBodyFormService *shttp.HttpBodyFormService,
 	httpBodyUrlEncodedService *shttpbodyurlencoded.HttpBodyUrlEncodedService,
 	httpAssertService *shttpassert.HttpAssertService,
 ) *StandardResolver {
@@ -69,7 +67,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 		// Treat error as no body, similar to rhttp logic
 		baseRawBody = nil
 	}
-	baseFormBody, _ := r.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, baseID)
+	baseFormBody, _ := r.httpBodyFormService.GetByHttpID(ctx, baseID)
 	baseUrlEncodedBody, _ := r.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, baseID)
 	baseAsserts, _ := r.httpAssertService.GetHttpAssertsByHttpID(ctx, baseID)
 
@@ -78,7 +76,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 	var deltaHeaders []mhttp.HTTPHeader
 	var deltaQueries []mhttp.HTTPSearchParam
 	var deltaRawBody *mhttp.HTTPBodyRaw
-	var deltaFormBody []mhttpbodyform.HttpBodyForm
+	var deltaFormBody []mhttp.HTTPBodyForm
 	var deltaUrlEncodedBody []mhttpbodyurlencoded.HttpBodyUrlEncoded
 	var deltaAsserts []mhttpassert.HttpAssert
 
@@ -95,7 +93,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 		if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) {
 			deltaRawBody = nil
 		}
-		deltaFormBody, _ = r.httpBodyFormService.GetHttpBodyFormsByHttpID(ctx, *deltaID)
+		deltaFormBody, _ = r.httpBodyFormService.GetByHttpID(ctx, *deltaID)
 		deltaUrlEncodedBody, _ = r.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, *deltaID)
 		deltaAsserts, _ = r.httpAssertService.GetHttpAssertsByHttpID(ctx, *deltaID)
 	}
@@ -161,46 +159,46 @@ func convertQueries(in []mhttp.HTTPSearchParam) []mhttp.HTTPSearchParam {
 	out := make([]mhttp.HTTPSearchParam, len(in))
 	for i, v := range in {
 		out[i] = mhttp.HTTPSearchParam{
-			ID:                  v.ID,
-			HttpID:              v.HttpID,
-			Key:            v.Key,
-			Value:          v.Value,
-			Description:         v.Description,
-			Enabled:             v.Enabled,
+			ID:                      v.ID,
+			HttpID:                  v.HttpID,
+			Key:                     v.Key,
+			Value:                   v.Value,
+			Description:             v.Description,
+			Enabled:                 v.Enabled,
 			ParentHttpSearchParamID: v.ParentHttpSearchParamID,
-			IsDelta:             v.IsDelta,
-			DeltaKey:       v.DeltaKey,
-			DeltaValue:     v.DeltaValue,
-			DeltaDescription:    v.DeltaDescription,
-			DeltaEnabled:        v.DeltaEnabled,
-			CreatedAt:           v.CreatedAt,
-			UpdatedAt:           v.UpdatedAt,
+			IsDelta:                 v.IsDelta,
+			DeltaKey:                v.DeltaKey,
+			DeltaValue:              v.DeltaValue,
+			DeltaDescription:        v.DeltaDescription,
+			DeltaEnabled:            v.DeltaEnabled,
+			CreatedAt:               v.CreatedAt,
+			UpdatedAt:               v.UpdatedAt,
 		}
 	}
 	return out
 }
 
-func convertFormBody(in []mhttpbodyform.HttpBodyForm) []mhttp.HTTPBodyForm {
+func convertFormBody(in []mhttp.HTTPBodyForm) []mhttp.HTTPBodyForm {
 	if in == nil {
 		return []mhttp.HTTPBodyForm{}
 	}
 	out := make([]mhttp.HTTPBodyForm, len(in))
 	for i, v := range in {
 		out[i] = mhttp.HTTPBodyForm{
-			ID:               v.ID,
-			HttpID:           v.HttpID,
-			FormKey:          v.Key,
-			FormValue:        v.Value,
-			Description:      v.Description,
-			Enabled:          v.Enabled,
-			ParentBodyFormID: v.ParentHttpBodyFormID,
-			IsDelta:          v.IsDelta,
-			DeltaFormKey:     v.DeltaKey,
-			DeltaFormValue:   v.DeltaValue,
-			DeltaDescription: v.DeltaDescription,
-			DeltaEnabled:     v.DeltaEnabled,
-			CreatedAt:        v.CreatedAt,
-			UpdatedAt:        v.UpdatedAt,
+			ID:                   v.ID,
+			HttpID:               v.HttpID,
+			Key:                  v.Key,
+			Value:                v.Value,
+			Description:          v.Description,
+			Enabled:              v.Enabled,
+			ParentHttpBodyFormID: v.ParentHttpBodyFormID,
+			IsDelta:              v.IsDelta,
+			DeltaKey:             v.DeltaKey,
+			DeltaValue:           v.DeltaValue,
+			DeltaDescription:     v.DeltaDescription,
+			DeltaEnabled:         v.DeltaEnabled,
+			CreatedAt:            v.CreatedAt,
+			UpdatedAt:            v.UpdatedAt,
 		}
 	}
 	return out
