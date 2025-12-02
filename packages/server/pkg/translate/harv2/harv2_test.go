@@ -1237,10 +1237,11 @@ func TestResponseStatusAssertions(t *testing.T) {
 	require.Len(t, deltaAsserts, 3, "Expected 3 delta assertions")
 
 	// Verify base assertions
-	expectedKeys := []string{"response.status == 200", "response.status == 201", "response.status == 404"}
+	expectedKeys := []string{"Status 200", "Status 201", "Status 404"}
+	expectedValues := []string{"response.status == 200", "response.status == 201", "response.status == 404"}
 	for i, assert := range baseAsserts {
-		require.Equal(t, expectedKeys[i], assert.Key, "Assertion key should be 'response.status == XXX'")
-		require.Empty(t, assert.Value, "Assertion value should be empty (expression is in key)")
+		require.Equal(t, expectedKeys[i], assert.Key, "Assertion key should be 'Status XXX'")
+		require.Equal(t, expectedValues[i], assert.Value, "Assertion value should contain the expression")
 		require.True(t, assert.Enabled, "Assertion should be enabled")
 		require.Contains(t, assert.Description, "HAR import", "Description should mention HAR import")
 	}
@@ -1249,7 +1250,7 @@ func TestResponseStatusAssertions(t *testing.T) {
 	for _, deltaAssert := range deltaAsserts {
 		require.True(t, deltaAssert.IsDelta, "Delta assertion should be marked as delta")
 		require.NotNil(t, deltaAssert.ParentHttpAssertID, "Delta assertion should have parent reference")
-		require.Contains(t, deltaAssert.Key, "response.status ==", "Delta assertion key should contain 'response.status =='")
+		require.Contains(t, deltaAssert.Value, "response.status ==", "Delta assertion value should contain 'response.status =='")
 	}
 }
 

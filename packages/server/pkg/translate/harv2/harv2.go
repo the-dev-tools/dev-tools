@@ -1141,15 +1141,16 @@ func hasAlternativePath(adjMap map[idwrap.IDWrap][]idwrap.IDWrap, source, target
 // createStatusAssertions creates base and delta assertions for HTTP response status code
 func createStatusAssertions(baseHttpID, deltaHttpID idwrap.IDWrap, statusCode int, entryIndex int) (mhttp.HTTPAssert, mhttp.HTTPAssert) {
 	now := time.Now().Unix()
-	// Format the assertion key as "response.status == XXX" where XXX is the status code
-	assertKey := fmt.Sprintf("response.status == %d", statusCode)
+	// Format the assertion expression as "response.status == XXX" where XXX is the status code
+	assertExpr := fmt.Sprintf("response.status == %d", statusCode)
+	assertKey := fmt.Sprintf("Status %d", statusCode)
 
 	baseAssertID := idwrap.NewNow()
 	baseAssert := mhttp.HTTPAssert{
 		ID:          baseAssertID,
 		HttpID:      baseHttpID,
 		Key:         assertKey,
-		Value:       "",
+		Value:       assertExpr,
 		Enabled:     true,
 		Description: fmt.Sprintf("Verify response status is %d (from HAR import)", statusCode),
 		Order:       float32(entryIndex),
@@ -1161,7 +1162,7 @@ func createStatusAssertions(baseHttpID, deltaHttpID idwrap.IDWrap, statusCode in
 		ID:                 idwrap.NewNow(),
 		HttpID:             deltaHttpID,
 		Key:                assertKey,
-		Value:              "",
+		Value:              assertExpr,
 		Enabled:            true,
 		Description:        fmt.Sprintf("Verify response status is %d (from HAR import)", statusCode),
 		Order:              float32(entryIndex),

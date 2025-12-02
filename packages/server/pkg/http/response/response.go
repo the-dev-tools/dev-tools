@@ -93,16 +93,13 @@ func ResponseCreateHTTP(
 
 	for _, assertion := range assertions {
 		if assertion.Enabled {
-			expr := assertion.Value // Using Value as expression? Old model used Condition.Comparisons.Expression.
-			// mhttp.HTTPAssert has AssertKey and AssertValue.
-			// If it's an expression assertion, maybe Key is empty or Value is the expression?
-			// Or Key is description?
-			// "AssertKey string", "AssertValue string".
-			// "Condition" is missing.
-			// Spec says: `model HttpAssert { ... value: string; }`.
-			// `key` is likely the name/description or key if it's a key-value assertion.
-			// Assuming `AssertValue` is the expression to evaluate.
-			
+			expr := assertion.Value
+
+			// Skip assertions with empty expressions
+			if strings.TrimSpace(expr) == "" {
+				continue
+			}
+
 			// Check if we need normalization
 			if strings.Contains(expr, "{{") && strings.Contains(expr, "}}") {
 				if cached, ok := normalizedExprCache[expr]; ok {
@@ -230,8 +227,14 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 	normalizedExprCache := make(map[string]string)
 	for _, assertion := range assertions {
 		if assertion.Enabled {
-			// Use NormalizeExpression if {{ }} wrapper is found
 			expr := assertion.Value
+
+			// Skip assertions with empty expressions
+			if strings.TrimSpace(expr) == "" {
+				continue
+			}
+
+			// Use NormalizeExpression if {{ }} wrapper is found
 			if strings.Contains(expr, "{{") && strings.Contains(expr, "}}") {
 				if cached, ok := normalizedExprCache[expr]; ok {
 					expr = cached
