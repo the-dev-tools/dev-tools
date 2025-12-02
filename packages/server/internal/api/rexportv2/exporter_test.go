@@ -135,7 +135,7 @@ func TestDefaultExporter_ExportToYAML_Success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			yamlData, err := exporter.ExportToYAML(ctx, data, tt.simplified)
+			yamlData, err := exporter.ExportToYAML(ctx, data, tt.simplified, nil)
 
 			require.NoError(t, err)
 			require.NotEmpty(t, yamlData)
@@ -167,7 +167,7 @@ func TestDefaultExporter_ExportToYAML_EmptyData(t *testing.T) {
 		Files:        []*FileData{},
 	}
 
-	yamlData, err := exporter.ExportToYAML(ctx, data, false)
+	yamlData, err := exporter.ExportToYAML(ctx, data, false, nil)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, yamlData)
@@ -192,7 +192,7 @@ func TestDefaultExporter_ExportToYAML_NilWorkspace(t *testing.T) {
 		Files:        []*FileData{},
 	}
 
-	_, err := exporter.ExportToYAML(ctx, data, false)
+	_, err := exporter.ExportToYAML(ctx, data, false, nil)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workspace data is required")

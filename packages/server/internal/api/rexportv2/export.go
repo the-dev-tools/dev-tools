@@ -20,7 +20,7 @@ import (
 // Exporter provides export functionality for different formats
 type Exporter interface {
 	ExportWorkspaceData(ctx context.Context, workspaceID idwrap.IDWrap, filter ExportFilter) (*WorkspaceExportData, error)
-	ExportToYAML(ctx context.Context, data *WorkspaceExportData, simplified bool) ([]byte, error)
+	ExportToYAML(ctx context.Context, data *WorkspaceExportData, simplified bool, flowIDs []idwrap.IDWrap) ([]byte, error)
 	ExportToCurl(ctx context.Context, data *WorkspaceExportData, httpIDs []idwrap.IDWrap) (string, error)
 }
 
@@ -89,7 +89,7 @@ func (e *SimpleExporter) ExportWorkspaceData(ctx context.Context, workspaceID id
 }
 
 // ExportToYAML exports data to YAML format using ioworkspace and yamlflowsimplev2
-func (e *SimpleExporter) ExportToYAML(ctx context.Context, data *WorkspaceExportData, simplified bool) ([]byte, error) {
+func (e *SimpleExporter) ExportToYAML(ctx context.Context, data *WorkspaceExportData, simplified bool, flowIDs []idwrap.IDWrap) ([]byte, error) {
 	if data.Workspace == nil {
 		return nil, fmt.Errorf("workspace data is required for YAML export")
 	}
@@ -98,13 +98,14 @@ func (e *SimpleExporter) ExportToYAML(ctx context.Context, data *WorkspaceExport
 		return nil, fmt.Errorf("ioWorkspaceService is required for YAML export")
 	}
 
-	// Use ioworkspace to export full workspace bundle
+	// Use ioworkspace to export workspace bundle with optional flow filtering
 	exportOpts := ioworkspace.ExportOptions{
 		WorkspaceID:         data.Workspace.ID,
 		IncludeHTTP:         true,
 		IncludeFlows:        true,
 		IncludeEnvironments: false,
 		IncludeFiles:        false,
+		FilterByFlowIDs:     flowIDs,
 	}
 
 	bundle, err := e.ioWorkspaceService.Export(ctx, exportOpts)
@@ -327,7 +328,7 @@ func (s *Service) Export(ctx context.Context, req *ExportRequest) (*ExportRespon
 
 	switch req.Format {
 	case ExportFormat_YAML:
-		data, err = s.exporter.ExportToYAML(ctx, exportData, req.Simplified)
+		data, err = s.exporter.ExportToYAML(ctx, exportData, req.Simplified, req.FileIDs)
 		if err != nil {
 			return nil, fmt.Errorf("YAML export failed: %w", err)
 		}

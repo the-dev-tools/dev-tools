@@ -15,7 +15,7 @@ import (
 // mockExporter is a mock implementation of the Exporter interface
 type mockExporter struct {
 	ExportWorkspaceDataFunc func(ctx context.Context, workspaceID idwrap.IDWrap, filter ExportFilter) (*WorkspaceExportData, error)
-	ExportToYAMLFunc        func(ctx context.Context, data *WorkspaceExportData, simplified bool) ([]byte, error)
+	ExportToYAMLFunc        func(ctx context.Context, data *WorkspaceExportData, simplified bool, flowIDs []idwrap.IDWrap) ([]byte, error)
 	ExportToCurlFunc        func(ctx context.Context, data *WorkspaceExportData, exampleIDs []idwrap.IDWrap) (string, error)
 }
 
@@ -26,9 +26,9 @@ func (m *mockExporter) ExportWorkspaceData(ctx context.Context, workspaceID idwr
 	return &WorkspaceExportData{}, nil
 }
 
-func (m *mockExporter) ExportToYAML(ctx context.Context, data *WorkspaceExportData, simplified bool) ([]byte, error) {
+func (m *mockExporter) ExportToYAML(ctx context.Context, data *WorkspaceExportData, simplified bool, flowIDs []idwrap.IDWrap) ([]byte, error) {
 	if m.ExportToYAMLFunc != nil {
-		return m.ExportToYAMLFunc(ctx, data, simplified)
+		return m.ExportToYAMLFunc(ctx, data, simplified, flowIDs)
 	}
 	return []byte("yaml data"), nil
 }
@@ -188,7 +188,7 @@ func TestService_Export_Success(t *testing.T) {
 		ExportWorkspaceDataFunc: func(ctx context.Context, workspaceID idwrap.IDWrap, filter ExportFilter) (*WorkspaceExportData, error) {
 			return exportData, nil
 		},
-		ExportToYAMLFunc: func(ctx context.Context, data *WorkspaceExportData, simplified bool) ([]byte, error) {
+		ExportToYAMLFunc: func(ctx context.Context, data *WorkspaceExportData, simplified bool, flowIDs []idwrap.IDWrap) ([]byte, error) {
 			return []byte("workspace_name: Test Workspace\nflows:\n  - name: Test Flow"), nil
 		},
 	}
@@ -234,7 +234,7 @@ func TestService_Export_Simplified(t *testing.T) {
 		ExportWorkspaceDataFunc: func(ctx context.Context, workspaceID idwrap.IDWrap, filter ExportFilter) (*WorkspaceExportData, error) {
 			return exportData, nil
 		},
-		ExportToYAMLFunc: func(ctx context.Context, data *WorkspaceExportData, simplified bool) ([]byte, error) {
+		ExportToYAMLFunc: func(ctx context.Context, data *WorkspaceExportData, simplified bool, flowIDs []idwrap.IDWrap) ([]byte, error) {
 			return []byte("simplified: data"), nil
 		},
 	}

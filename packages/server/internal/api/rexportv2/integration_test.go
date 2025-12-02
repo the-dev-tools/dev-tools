@@ -347,16 +347,13 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 			FileIds:     [][]byte{nonExistentFlowID.Bytes()},
 		}))
 
-		require.NoError(t, err) // Should succeed but return empty flows
-		require.NotNil(t, resp)
-		require.NotEmpty(t, resp.Msg.Data)
+		// When filtering by specific flow IDs that don't exist, expect an error
+		require.Error(t, err)
+		assert.Nil(t, resp)
 
-		var exportData map[string]interface{}
-		err = yaml.Unmarshal(resp.Msg.Data, &exportData)
-		require.NoError(t, err)
-
-		flows := exportData["flows"].([]interface{})
-		assert.Empty(t, flows) // No flows should be returned
+		connectErr, ok := err.(*connect.Error)
+		require.True(t, ok)
+		assert.Equal(t, connect.CodeNotFound, connectErr.Code())
 	})
 }
 
