@@ -25,7 +25,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -76,7 +75,7 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 
 	// Child entity services from separate packages
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
-	httpSearchParamService := shttpsearchparam.New(base.Queries)
+	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
 	httpBodyFormService := shttpbodyform.New(base.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
 	httpAssertService := shttpassert.New(base.Queries)
@@ -101,7 +100,7 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 	requestResolver := resolver.NewStandardResolver(
 		&services.Hs,
 		&httpHeaderService,
-		&httpSearchParamService,
+		httpSearchParamService,
 		httpBodyRawService,
 		&httpBodyFormService,
 		&httpBodyUrlEncodedService,

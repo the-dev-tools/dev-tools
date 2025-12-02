@@ -85,7 +85,7 @@ func PrepareHTTPRequestWithTracking(
 	// Process Query Params
 	clientQueries := make([]httpclient.Query, len(activeParams))
 	for i, param := range activeParams {
-		key := param.ParamKey
+		key := param.Key
 		if varsystem.CheckStringHasAnyVarKey(key) {
 			key, err = tracker.ReplaceVars(key)
 			if err != nil {
@@ -93,7 +93,7 @@ func PrepareHTTPRequestWithTracking(
 			}
 		}
 
-		val := param.ParamValue
+		val := param.Value
 		if varsystem.CheckStringHasAnyVarKey(val) {
 			val, err = tracker.ReplaceVars(val)
 			if err != nil {
@@ -532,28 +532,28 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 	clientQueries := make([]httpclient.Query, len(queries))
 	if varMap != nil {
 		for i, query := range queries {
-			if varsystem.CheckIsVar(query.ParamKey) {
-				key := varsystem.GetVarKeyFromRaw(query.ParamKey)
+			if varsystem.CheckIsVar(query.Key) {
+				key := varsystem.GetVarKeyFromRaw(query.Key)
 				if val, ok := varMap.Get(key); ok {
-					query.ParamKey = val.Value
+					query.Key = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
 			}
 
-			if varsystem.CheckIsVar(query.ParamValue) {
-				key := varsystem.GetVarKeyFromRaw(query.ParamValue)
+			if varsystem.CheckIsVar(query.Value) {
+				key := varsystem.GetVarKeyFromRaw(query.Value)
 				if val, ok := varMap.Get(key); ok {
-					query.ParamValue = val.Value
+					query.Value = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
 			}
-			clientQueries[i] = httpclient.Query{QueryKey: query.ParamKey, Value: query.ParamValue}
+			clientQueries[i] = httpclient.Query{QueryKey: query.Key, Value: query.Value}
 		}
 	} else {
 		for i, query := range queries {
-			clientQueries[i] = httpclient.Query{QueryKey: query.ParamKey, Value: query.ParamValue}
+			clientQueries[i] = httpclient.Query{QueryKey: query.Key, Value: query.Value}
 		}
 	}
 
@@ -825,26 +825,26 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 	clientQueries := make([]httpclient.Query, len(queries))
 	if varMap != nil {
 		for i, query := range queries {
-			if varsystem.CheckStringHasAnyVarKey(query.ParamKey) {
-				resolvedKey, err := tracker.ReplaceVars(query.ParamKey)
+			if varsystem.CheckStringHasAnyVarKey(query.Key) {
+				resolvedKey, err := tracker.ReplaceVars(query.Key)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				query.ParamKey = resolvedKey
+				query.Key = resolvedKey
 			}
 
-			if varsystem.CheckStringHasAnyVarKey(query.ParamValue) {
-				resolvedValue, err := tracker.ReplaceVars(query.ParamValue)
+			if varsystem.CheckStringHasAnyVarKey(query.Value) {
+				resolvedValue, err := tracker.ReplaceVars(query.Value)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				query.ParamValue = resolvedValue
+				query.Value = resolvedValue
 			}
-			clientQueries[i] = httpclient.Query{QueryKey: query.ParamKey, Value: query.ParamValue}
+			clientQueries[i] = httpclient.Query{QueryKey: query.Key, Value: query.Value}
 		}
 	} else {
 		for i, query := range queries {
-			clientQueries[i] = httpclient.Query{QueryKey: query.ParamKey, Value: query.ParamValue}
+			clientQueries[i] = httpclient.Query{QueryKey: query.Key, Value: query.Value}
 		}
 	}
 
@@ -1139,16 +1139,16 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 	// Create a map for matching base queries by key name (for legacy delta queries)
 	baseQueryByKey := make(map[string]mhttp.HTTPSearchParam)
 	for _, q := range input.BaseQueries {
-		baseQueryByKey[q.ParamKey] = q
+		baseQueryByKey[q.Key] = q
 	}
 
 	for _, q := range input.DeltaQueries {
 		// Handle delta queries with parent relationships
-		if q.ParentSearchParamID != nil {
-			queryMap[*q.ParentSearchParamID] = q
+		if q.ParentHttpSearchParamID != nil {
+			queryMap[*q.ParentHttpSearchParamID] = q
 		} else {
 			// For delta queries without parent ID, try to find matching base query by key name
-			if baseQuery, exists := baseQueryByKey[q.ParamKey]; exists {
+			if baseQuery, exists := baseQueryByKey[q.Key]; exists {
 				queryMap[baseQuery.ID] = q
 			} else {
 				// If no matching base query found, add as new query

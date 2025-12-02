@@ -89,17 +89,17 @@ func CreateDeltaSearchParams(originalParams []mhttp.HTTPSearchParam, newParams [
 	// Create map of original params by key for comparison
 	originalMap := make(map[string]mhttp.HTTPSearchParam)
 	for _, param := range originalParams {
-		originalMap[param.ParamKey] = param
+		originalMap[param.Key] = param
 	}
 
 	// Find changed or new params
 	for _, newParam := range newParams {
-		original, exists := originalMap[newParam.ParamKey]
+		original, exists := originalMap[newParam.Key]
 
 		// Create delta if param doesn't exist or has different value
-		if !exists || original.ParamValue != newParam.ParamValue {
-			deltaKey := newParam.ParamKey
-			deltaValue := newParam.ParamValue
+		if !exists || original.Value != newParam.Value {
+			deltaKey := newParam.Key
+			deltaValue := newParam.Value
 			deltaDesc := "Imported from HAR"
 			deltaEnabled := true
 
@@ -112,14 +112,14 @@ func CreateDeltaSearchParams(originalParams []mhttp.HTTPSearchParam, newParams [
 			deltaParam := mhttp.HTTPSearchParam{
 				ID:              idwrap.NewNow(),
 				HttpID:          deltaHttpID,
-				ParamKey:        deltaKey,
-				ParamValue:      deltaValue,
+				Key:        deltaKey,
+				Value:      deltaValue,
 				Description:     deltaDesc,
 				Enabled:         true,
-				ParentSearchParamID: parentSearchParamID,
+				ParentHttpSearchParamID: parentSearchParamID,
 				IsDelta:         true,
-				DeltaParamKey:   &deltaKey,
-				DeltaParamValue: &deltaValue,
+				DeltaKey:   &deltaKey,
+				DeltaValue: &deltaValue,
 				DeltaDescription: &deltaDesc,
 				DeltaEnabled:    &deltaEnabled,
 				CreatedAt:       newParam.CreatedAt + 1,

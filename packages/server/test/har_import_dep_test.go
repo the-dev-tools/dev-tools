@@ -144,7 +144,7 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 	requestResolver := resolver.NewStandardResolver(
 		suite.importHandler.HttpService,
 		&suite.importHandler.HttpHeaderService,
-		&suite.importHandler.HttpSearchParamService,
+		suite.importHandler.HttpSearchParamService,
 		suite.importHandler.HttpBodyRawService,
 		&suite.importHandler.HttpBodyFormService,
 		&suite.importHandler.HttpBodyUrlEncodedService,

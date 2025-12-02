@@ -16,12 +16,10 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -49,7 +47,7 @@ func (h *HttpServiceRPC) HttpSearchParamCollection(ctx context.Context, req *con
 		for _, http := range httpList {
 			params, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, http.ID)
 			if err != nil {
-				if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+				if errors.Is(err, shttp.ErrNoHttpSearchParamFound) {
 					continue
 				}
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -73,7 +71,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var insertData []struct {
-		paramModel *mhttpsearchparam.HttpSearchParam
+		paramModel *mhttp.HTTPSearchParam
 	}
 
 	for _, item := range req.Msg.Items {
@@ -109,7 +107,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 		}
 
 		// Create the param model
-		paramModel := &mhttpsearchparam.HttpSearchParam{
+		paramModel := &mhttp.HTTPSearchParam{
 			ID:          paramID,
 			HttpID:      httpID,
 			Key:         item.Key,
@@ -120,7 +118,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 		}
 
 		insertData = append(insertData, struct {
-			paramModel *mhttpsearchparam.HttpSearchParam
+			paramModel *mhttp.HTTPSearchParam
 		}{
 			paramModel: paramModel,
 		})
@@ -134,7 +132,7 @@ func (h *HttpServiceRPC) HttpSearchParamInsert(ctx context.Context, req *connect
 	defer tx.Rollback()
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var createdParams []mhttpsearchparam.HttpSearchParam
+	var createdParams []mhttp.HTTPSearchParam
 
 	for _, data := range insertData {
 		if err := httpSearchParamService.Create(ctx, data.paramModel); err != nil {
@@ -173,7 +171,7 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 	// Step 1: Pre-process and check permissions OUTSIDE transaction
 	var updateData []struct {
 		paramID       idwrap.IDWrap
-		existingParam *mhttpsearchparam.HttpSearchParam
+		existingParam *mhttp.HTTPSearchParam
 		item          *apiv1.HttpSearchParamUpdate
 	}
 
@@ -188,9 +186,9 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 		}
 
 		// Get existing param - use pool service
-		existingParam, err := h.httpSearchParamService.GetHttpSearchParam(ctx, paramID)
+		existingParam, err := h.httpSearchParamService.GetByID(ctx, paramID)
 		if err != nil {
-			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+			if errors.Is(err, shttp.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -209,7 +207,7 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 
 		updateData = append(updateData, struct {
 			paramID       idwrap.IDWrap
-			existingParam *mhttpsearchparam.HttpSearchParam
+			existingParam *mhttp.HTTPSearchParam
 			item          *apiv1.HttpSearchParamUpdate
 		}{
 			paramID:       paramID,
@@ -248,7 +246,7 @@ func (h *HttpServiceRPC) HttpSearchParamUpdate(ctx context.Context, req *connect
 	defer tx.Rollback()
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var updatedParams []mhttpsearchparam.HttpSearchParam
+	var updatedParams []mhttp.HTTPSearchParam
 
 	for _, data := range updateData {
 		if err := httpSearchParamService.Update(ctx, data.existingParam); err != nil {
@@ -286,7 +284,7 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var deleteData []struct {
 		paramID       idwrap.IDWrap
-		existingParam *mhttpsearchparam.HttpSearchParam
+		existingParam *mhttp.HTTPSearchParam
 		workspaceID   idwrap.IDWrap
 	}
 
@@ -301,9 +299,9 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 		}
 
 		// Get existing param - use pool service
-		existingParam, err := h.httpSearchParamService.GetHttpSearchParam(ctx, paramID)
+		existingParam, err := h.httpSearchParamService.GetByID(ctx, paramID)
 		if err != nil {
-			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+			if errors.Is(err, shttp.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -322,7 +320,7 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 
 		deleteData = append(deleteData, struct {
 			paramID       idwrap.IDWrap
-			existingParam *mhttpsearchparam.HttpSearchParam
+			existingParam *mhttp.HTTPSearchParam
 			workspaceID   idwrap.IDWrap
 		}{
 			paramID:       paramID,
@@ -339,7 +337,7 @@ func (h *HttpServiceRPC) HttpSearchParamDelete(ctx context.Context, req *connect
 	defer tx.Rollback()
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var deletedParams []mhttpsearchparam.HttpSearchParam
+	var deletedParams []mhttp.HTTPSearchParam
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {

@@ -301,8 +301,8 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		{
 			ID:        baseQueryID,
 			HttpID:    baseExampleID,
-			ParamKey:  "page",
-			ParamValue: "1",
+			Key:  "page",
+			Value: "1",
 		},
 	}
 
@@ -329,9 +329,9 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		{
 			ID:                idwrap.NewNow(),
 			HttpID:            deltaExampleID,
-			ParamKey:          "page",
-			ParamValue:        "2", // Changed value
-			ParentSearchParamID: nil, // This would cause a panic in the old code
+			Key:          "page",
+			Value:        "2", // Changed value
+			ParentHttpSearchParamID: nil, // This would cause a panic in the old code
 		},
 	}
 
@@ -407,7 +407,7 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 	// Verify that delta values override base values (key-based matching for legacy)
 	foundDeltaQuery := false
 	for _, query := range output.MergeQueries {
-		if query.ParamKey == "page" && query.ParamValue == "2" {
+		if query.Key == "page" && query.Value == "2" {
 			foundDeltaQuery = true
 			break
 		}
@@ -473,8 +473,8 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		{
 			ID:        baseQueryID,
 			HttpID:    baseExampleID,
-			ParamKey:  "page",
-			ParamValue: "1",
+			Key:  "page",
+			Value: "1",
 		},
 	}
 
@@ -502,9 +502,9 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		{
 			ID:                idwrap.NewNow(),
 			HttpID:            deltaExampleID,
-			ParamKey:          "page",
-			ParamValue:        "{{ request-1.response.page }}", // Templated value
-			ParentSearchParamID: &baseQueryID,                 // Proper reference to base query
+			Key:          "page",
+			Value:        "{{ request-1.response.page }}", // Templated value
+			ParentHttpSearchParamID: &baseQueryID,                 // Proper reference to base query
 		},
 	}
 
@@ -588,8 +588,8 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 
 	// Verify that delta values replaced base values correctly
 	mergedQuery := output.MergeQueries[0]
-	if mergedQuery.ParamKey != "page" || mergedQuery.ParamValue != "{{ request-1.response.page }}" {
-		t.Errorf("Expected delta query to replace base query, got ParamKey: %s, ParamValue: %s", mergedQuery.ParamKey, mergedQuery.ParamValue)
+	if mergedQuery.Key != "page" || mergedQuery.Value != "{{ request-1.response.page }}" {
+		t.Errorf("Expected delta query to replace base query, got Key: %s, Value: %s", mergedQuery.Key, mergedQuery.Value)
 	}
 
 	mergedHeader := output.MergeHeaders[0]

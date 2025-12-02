@@ -59,8 +59,8 @@ func convertPostmanURLToSearchParams(postmanURL PostmanURL, httpID idwrap.IDWrap
 		searchParam := mhttp.HTTPSearchParam{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			ParamKey:    param.Key,
-			ParamValue:  param.Value,
+			Key:    param.Key,
+			Value:  param.Value,
 			Description: param.Description,
 			Enabled:     true, // All included parameters are enabled
 			CreatedAt:   now,
@@ -86,8 +86,8 @@ func convertPostmanURLToSearchParams(postmanURL PostmanURL, httpID idwrap.IDWrap
 					searchParam := mhttp.HTTPSearchParam{
 						ID:          idwrap.NewNow(),
 						HttpID:      httpID,
-						ParamKey:    key,
-						ParamValue:  value,
+						Key:    key,
+						Value:  value,
 						Description: "",
 						Enabled:     true,
 						CreatedAt:   now,
@@ -363,8 +363,8 @@ func extractSearchParamsForHTTP(httpID idwrap.IDWrap, searchParams []mhttp.HTTPS
 	for _, param := range searchParams {
 		if param.HttpID.Compare(httpID) == 0 && param.Enabled {
 			postmanQuery = append(postmanQuery, PostmanQueryParam{
-				Key:         param.ParamKey,
-				Value:       param.ParamValue,
+				Key:         param.Key,
+				Value:       param.Value,
 				Description: param.Description,
 				Disabled:    false,
 			})

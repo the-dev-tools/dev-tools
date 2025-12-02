@@ -99,8 +99,8 @@ func resolveQueries(base []mhttp.HTTPSearchParam, delta []mhttp.HTTPSearchParam)
 	additions := make([]mhttp.HTTPSearchParam, 0)
 
 	for _, d := range delta {
-		if d.ParentSearchParamID != nil {
-			overrideMap[*d.ParentSearchParamID] = d
+		if d.ParentHttpSearchParamID != nil {
+			overrideMap[*d.ParentHttpSearchParamID] = d
 		} else {
 			additions = append(additions, d)
 		}
@@ -112,11 +112,11 @@ func resolveQueries(base []mhttp.HTTPSearchParam, delta []mhttp.HTTPSearchParam)
 	for _, b := range base {
 		if override, ok := overrideMap[b.ID]; ok {
 			merged := b
-			if override.DeltaParamKey != nil {
-				merged.ParamKey = *override.DeltaParamKey
+			if override.DeltaKey != nil {
+				merged.Key = *override.DeltaKey
 			}
-			if override.DeltaParamValue != nil {
-				merged.ParamValue = *override.DeltaParamValue
+			if override.DeltaValue != nil {
+				merged.Value = *override.DeltaValue
 			}
 			if override.DeltaDescription != nil {
 				merged.Description = *override.DeltaDescription
@@ -127,9 +127,9 @@ func resolveQueries(base []mhttp.HTTPSearchParam, delta []mhttp.HTTPSearchParam)
 
 			// Cleanup
 			merged.IsDelta = false
-			merged.ParentSearchParamID = nil
-			merged.DeltaParamKey = nil
-			merged.DeltaParamValue = nil
+			merged.ParentHttpSearchParamID = nil
+			merged.DeltaKey = nil
+			merged.DeltaValue = nil
 			merged.DeltaDescription = nil
 			merged.DeltaEnabled = nil
 

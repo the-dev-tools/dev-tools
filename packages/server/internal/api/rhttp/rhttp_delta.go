@@ -17,12 +17,10 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -440,7 +438,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaCollection(ctx context.Context, req
 		for _, http := range httpList {
 			params, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, http.ID)
 			if err != nil {
-				if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+				if errors.Is(err, shttp.ErrNoHttpSearchParamFound) {
 					continue
 				}
 				return nil, connect.NewError(connect.CodeInternal, err)
@@ -506,9 +504,9 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaInsert(ctx context.Context, req *co
 		}
 
 		// Check workspace write access
-		param, err := h.httpSearchParamService.GetHttpSearchParam(ctx, paramID)
+		param, err := h.httpSearchParamService.GetByID(ctx, paramID)
 		if err != nil {
-			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+			if errors.Is(err, shttp.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -529,7 +527,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaInsert(ctx context.Context, req *co
 			order := float64(*item.Order)
 			deltaOrder = &order
 		}
-		err = h.httpSearchParamService.UpdateHttpSearchParamDelta(ctx, paramID, item.Key, item.Value, item.Enabled, item.Description, deltaOrder)
+		err = h.httpSearchParamService.UpdateDelta(ctx, paramID, item.Key, item.Value, item.Enabled, item.Description, deltaOrder)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -546,7 +544,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var updateData []struct {
 		deltaID       idwrap.IDWrap
-		existingParam *mhttpsearchparam.HttpSearchParam
+		existingParam *mhttp.HTTPSearchParam
 		item          *apiv1.HttpSearchParamDeltaUpdate
 	}
 
@@ -561,9 +559,9 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 		}
 
 		// Get existing delta param - use pool service
-		existingParam, err := h.httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
+		existingParam, err := h.httpSearchParamService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+			if errors.Is(err, shttp.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -587,7 +585,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 
 		updateData = append(updateData, struct {
 			deltaID       idwrap.IDWrap
-			existingParam *mhttpsearchparam.HttpSearchParam
+			existingParam *mhttp.HTTPSearchParam
 			item          *apiv1.HttpSearchParamDeltaUpdate
 		}{
 			deltaID:       deltaID,
@@ -670,15 +668,15 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaUpdate(ctx context.Context, req *co
 	defer tx.Rollback()
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var updatedParams []mhttpsearchparam.HttpSearchParam
+	var updatedParams []mhttp.HTTPSearchParam
 
 	for _, update := range preparedUpdates {
-		if err := httpSearchParamService.UpdateHttpSearchParamDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, nil); err != nil {
+		if err := httpSearchParamService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, nil); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		// Get updated param for event publishing (must get from TX service to see changes)
-		updatedParam, err := httpSearchParamService.GetHttpSearchParam(ctx, update.deltaID)
+		updatedParam, err := httpSearchParamService.GetByID(ctx, update.deltaID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -713,7 +711,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var deleteData []struct {
 		deltaID       idwrap.IDWrap
-		existingParam *mhttpsearchparam.HttpSearchParam
+		existingParam *mhttp.HTTPSearchParam
 		workspaceID   idwrap.IDWrap
 	}
 
@@ -728,9 +726,9 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 		}
 
 		// Get existing delta param - use pool service
-		existingParam, err := h.httpSearchParamService.GetHttpSearchParam(ctx, deltaID)
+		existingParam, err := h.httpSearchParamService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpsearchparam.ErrNoHttpSearchParamFound) {
+			if errors.Is(err, shttp.ErrNoHttpSearchParamFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -754,7 +752,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 
 		deleteData = append(deleteData, struct {
 			deltaID       idwrap.IDWrap
-			existingParam *mhttpsearchparam.HttpSearchParam
+			existingParam *mhttp.HTTPSearchParam
 			workspaceID   idwrap.IDWrap
 		}{
 			deltaID:       deltaID,
@@ -771,7 +769,7 @@ func (h *HttpServiceRPC) HttpSearchParamDeltaDelete(ctx context.Context, req *co
 	defer tx.Rollback()
 
 	httpSearchParamService := h.httpSearchParamService.TX(tx)
-	var deletedParams []mhttpsearchparam.HttpSearchParam
+	var deletedParams []mhttp.HTTPSearchParam
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
@@ -842,7 +840,7 @@ func (h *HttpServiceRPC) streamHttpSearchParamDeltaSync(ctx context.Context, use
 			if err != nil {
 				continue // Skip if can't parse ID
 			}
-			paramRecord, err := h.httpSearchParamService.GetHttpSearchParam(ctx, paramID)
+			paramRecord, err := h.httpSearchParamService.GetByID(ctx, paramID)
 			if err != nil {
 				continue // Skip if can't get the record
 			}

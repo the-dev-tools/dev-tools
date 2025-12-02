@@ -17,7 +17,6 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -514,7 +513,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	// Duplicate search params
 	for _, param := range searchParams {
 		newParamID := idwrap.NewNow()
-		paramModel := &mhttpsearchparam.HttpSearchParam{
+		paramModel := &mhttp.HTTPSearchParam{
 			ID:          newParamID,
 			HttpID:      newHttpID,
 			Key:         param.Key,

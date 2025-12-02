@@ -531,8 +531,8 @@ func TestBuildPostmanCollection(t *testing.T) {
 		{
 			ID:         idwrap.NewNow(),
 			HttpID:     httpID1,
-			ParamKey:   "page",
-			ParamValue: "1",
+			Key:   "page",
+			Value: "1",
 			Enabled:    true,
 			CreatedAt:  now,
 			UpdatedAt:  now,

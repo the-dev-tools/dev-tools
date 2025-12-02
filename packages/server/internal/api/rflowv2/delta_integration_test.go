@@ -37,7 +37,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
@@ -108,7 +107,7 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 
 	// Independent services (Used by StandardResolver)
 	resHeaderSvc := shttp.NewHttpHeaderService(queries)
-	resSearchParamSvc := shttpsearchparam.New(queries)
+	resSearchParamSvc := shttp.NewHttpSearchParamService(queries)
 	resBodyFormSvc := shttpbodyform.New(queries)
 	resBodyUrlencodedSvc := shttpbodyurlencoded.New(queries)
 	resAssertSvc := shttpassert.New(queries)
@@ -128,7 +127,7 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	res := resolver.NewStandardResolver(
 		&httpService,
 		&resHeaderSvc,
-		&resSearchParamSvc,
+		resSearchParamSvc,
 		shttpBodyRawSvc,
 		&resBodyFormSvc,
 		&resBodyUrlencodedSvc,
@@ -209,11 +208,11 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	// Base Header
 	baseHeaderID := idwrap.NewNow()
 	baseHeader := mhttp.HTTPHeader{
-		ID:          baseHeaderID,
-		HttpID:      baseID,
-		Key:   "X-Test",
-		Value: "Base",
-		Enabled:     true,
+		ID:      baseHeaderID,
+		HttpID:  baseID,
+		Key:     "X-Test",
+		Value:   "Base",
+		Enabled: true,
 	}
 	// Use shttpHeaderSvc to create data (it accepts mhttp models)
 	err = shttpHeaderSvc.Create(ctx, &baseHeader)
@@ -237,13 +236,13 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	// Delta Header (Override)
 	deltaHeaderID := idwrap.NewNow()
 	deltaHeader := mhttp.HTTPHeader{
-		ID:               deltaHeaderID,
-		HttpID:           deltaID,
-		Key:        "X-Test",
-		ParentHttpHeaderID:   &baseHeaderID,
-		IsDelta:          true,
-		DeltaValue: func() *string { s := "Delta"; return &s }(),
-		DeltaEnabled:     func() *bool { b := true; return &b }(),
+		ID:                 deltaHeaderID,
+		HttpID:             deltaID,
+		Key:                "X-Test",
+		ParentHttpHeaderID: &baseHeaderID,
+		IsDelta:            true,
+		DeltaValue:         func() *string { s := "Delta"; return &s }(),
+		DeltaEnabled:       func() *bool { b := true; return &b }(),
 	}
 	err = shttpHeaderSvc.Create(ctx, &deltaHeader)
 	require.NoError(t, err)

@@ -222,8 +222,8 @@ func OptimizeYAMLData(data *SimplifiedYAMLResolvedV2) {
 
 	// Sort search params by key
 	for i := 1; i < len(data.SearchParams); i++ {
-		if data.SearchParams[i].ParamKey < data.SearchParams[i-1].ParamKey {
-			for j := i; j > 0 && data.SearchParams[j].ParamKey < data.SearchParams[j-1].ParamKey; j-- {
+		if data.SearchParams[i].Key < data.SearchParams[i-1].Key {
+			for j := i; j > 0 && data.SearchParams[j].Key < data.SearchParams[j-1].Key; j-- {
 				data.SearchParams[j], data.SearchParams[j-1] = data.SearchParams[j-1], data.SearchParams[j]
 			}
 		}
@@ -245,7 +245,7 @@ func OptimizeYAMLData(data *SimplifiedYAMLResolvedV2) {
 	seenParams := make(map[string]bool)
 	filteredParams := make([]mhttp.HTTPSearchParam, 0, len(data.SearchParams))
 	for _, param := range data.SearchParams {
-		key := fmt.Sprintf("%s:%s", param.ParamKey, param.ParamValue)
+		key := fmt.Sprintf("%s:%s", param.Key, param.Value)
 		if !seenParams[key] {
 			seenParams[key] = true
 			filteredParams = append(filteredParams, param)

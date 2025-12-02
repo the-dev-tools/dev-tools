@@ -1024,8 +1024,8 @@ func TestDeltaSearchParamsComparison(t *testing.T) {
 	originalParams := []mhttp.HTTPSearchParam{
 		{
 			ID:          idwrap.NewNow(),
-			ParamKey:    "page",
-			ParamValue:  "1",
+			Key:    "page",
+			Value:  "1",
 			HttpID:      idwrap.NewNow(),
 			CreatedAt:   time.Now().Unix(),
 			UpdatedAt:   time.Now().Unix(),
@@ -1035,16 +1035,16 @@ func TestDeltaSearchParamsComparison(t *testing.T) {
 	newParams := []mhttp.HTTPSearchParam{
 		{
 			ID:          idwrap.NewNow(),
-			ParamKey:    "page",
-			ParamValue:  "2", // Different value
+			Key:    "page",
+			Value:  "2", // Different value
 			HttpID:      idwrap.NewNow(),
 			CreatedAt:   time.Now().Unix(),
 			UpdatedAt:   time.Now().Unix(),
 		},
 		{
 			ID:          idwrap.NewNow(),
-			ParamKey:    "limit", // New param
-			ParamValue:  "10",
+			Key:    "limit", // New param
+			Value:  "10",
 			HttpID:      idwrap.NewNow(),
 			CreatedAt:   time.Now().Unix(),
 			UpdatedAt:   time.Now().Unix(),

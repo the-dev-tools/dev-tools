@@ -191,7 +191,7 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 	}
 
 	queries := []mhttp.HTTPSearchParam{
-		{ParamKey: "limit", ParamValue: "{{limit}}", Enabled: true},
+		{Key: "limit", Value: "{{limit}}", Enabled: true},
 	}
 	headers := []mhttp.HTTPHeader{
 		{Key: "Authorization", Value: "Bearer {{token}}", Enabled: true},

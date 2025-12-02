@@ -14,14 +14,12 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
@@ -36,7 +34,7 @@ type DefaultImporter struct {
 	flowService               *sflow.FlowService
 	fileService               *sfile.FileService
 	httpHeaderService         shttp.HttpHeaderService
-	httpSearchParamService    shttpsearchparam.HttpSearchParamService
+	httpSearchParamService    *shttp.HttpSearchParamService
 	httpBodyFormService       shttpbodyform.HttpBodyFormService
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
 	bodyService               *shttp.HttpBodyRawService
@@ -54,7 +52,7 @@ func NewImporter(
 	flowService *sflow.FlowService,
 	fileService *sfile.FileService,
 	httpHeaderService shttp.HttpHeaderService,
-	httpSearchParamService shttpsearchparam.HttpSearchParamService,
+	httpSearchParamService *shttp.HttpSearchParamService,
 	httpBodyFormService shttpbodyform.HttpBodyFormService,
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
 	bodyService *shttp.HttpBodyRawService,
@@ -177,18 +175,18 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 
 	if len(results.HTTPSearchParams) > 0 {
 		for _, p := range results.HTTPSearchParams {
-			param := &mhttpsearchparam.HttpSearchParam{
+			param := &mhttp.HTTPSearchParam{
 				ID:                      p.ID,
 				HttpID:                  p.HttpID,
-				Key:                     p.ParamKey,
-				Value:                   p.ParamValue,
+				Key:                     p.Key,
+				Value:                   p.Value,
 				Enabled:                 p.Enabled,
 				Description:             p.Description,
-				ParentHttpSearchParamID: p.ParentSearchParamID,
+				ParentHttpSearchParamID: p.ParentHttpSearchParamID,
 				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          p.IsDelta && p.ParentSearchParamID != nil,
-				DeltaKey:         p.DeltaParamKey,
-				DeltaValue:       p.DeltaParamValue,
+				IsDelta:          p.IsDelta && p.ParentHttpSearchParamID != nil,
+				DeltaKey:         p.DeltaKey,
+				DeltaValue:       p.DeltaValue,
 				DeltaEnabled:     p.DeltaEnabled,
 				DeltaDescription: p.DeltaDescription,
 				CreatedAt:        p.CreatedAt,
@@ -434,18 +432,18 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	if len(results.SearchParams) > 0 {
 		for _, p := range results.SearchParams {
-			param := mhttpsearchparam.HttpSearchParam{
+			param := mhttp.HTTPSearchParam{
 				ID:                      p.ID,
 				HttpID:                  p.HttpID,
-				Key:                     p.ParamKey,
-				Value:                   p.ParamValue,
+				Key:                     p.Key,
+				Value:                   p.Value,
 				Enabled:                 p.Enabled,
 				Description:             p.Description,
-				ParentHttpSearchParamID: p.ParentSearchParamID,
+				ParentHttpSearchParamID: p.ParentHttpSearchParamID,
 				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          p.IsDelta && p.ParentSearchParamID != nil,
-				DeltaKey:         p.DeltaParamKey,
-				DeltaValue:       p.DeltaParamValue,
+				IsDelta:          p.IsDelta && p.ParentHttpSearchParamID != nil,
+				DeltaKey:         p.DeltaKey,
+				DeltaValue:       p.DeltaValue,
 				DeltaEnabled:     p.DeltaEnabled,
 				DeltaDescription: p.DeltaDescription,
 				CreatedAt:        p.CreatedAt,

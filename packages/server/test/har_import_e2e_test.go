@@ -28,7 +28,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
@@ -71,7 +70,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 
 	// Create child entity services
 	httpHeaderService := shttp.NewHttpHeaderService(baseDB.Queries)
-	httpSearchParamService := shttpsearchparam.New(baseDB.Queries)
+	httpSearchParamService := shttp.NewHttpSearchParamService(baseDB.Queries)
 	httpBodyFormService := shttpbodyform.New(baseDB.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(baseDB.Queries)
 	bodyService := shttp.NewHttpBodyRawService(baseDB.Queries)

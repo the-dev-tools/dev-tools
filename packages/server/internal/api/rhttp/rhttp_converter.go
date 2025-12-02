@@ -7,7 +7,6 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -653,7 +652,7 @@ func httpBodyUrlEncodedSyncResponseFrom(event HttpBodyUrlEncodedEvent) *apiv1.Ht
 }
 
 // httpSearchParamDeltaSyncResponseFrom converts HttpSearchParamEvent and param record to HttpSearchParamDeltaSync response
-func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhttpsearchparam.HttpSearchParam) *apiv1.HttpSearchParamDeltaSyncResponse {
+func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhttp.HTTPSearchParam) *apiv1.HttpSearchParamDeltaSyncResponse {
 	var value *apiv1.HttpSearchParamDeltaSync_ValueUnion
 
 	switch event.Type {

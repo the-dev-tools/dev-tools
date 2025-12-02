@@ -23,7 +23,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -53,7 +52,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 
 	bodyService := shttp.NewHttpBodyRawService(queries)
 	httpHeaderService := shttp.NewHttpHeaderService(queries)
-	httpSearchParamService := shttpsearchparam.New(queries)
+	httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 	httpBodyFormService := shttpbodyform.New(queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
 	httpAssertService := shttpassert.New(queries)
@@ -76,7 +75,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	requestResolver := resolver.NewStandardResolver(
 		&hs,
 		&httpHeaderService,
-		&httpSearchParamService,
+		httpSearchParamService,
 		bodyService,
 		&httpBodyFormService,
 		&httpBodyUrlEncodedService,

@@ -109,7 +109,7 @@ flows:
 
 	paramMap := make(map[string]string)
 	for _, param := range result.SearchParams {
-		paramMap[param.ParamKey] = param.ParamValue
+		paramMap[param.Key] = param.Value
 	}
 
 	if paramMap["param1"] != "value1" {

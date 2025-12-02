@@ -25,7 +25,6 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/svar"
@@ -69,7 +68,7 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 
 		queries, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, httpEntry.ID)
 		if err != nil {
-			queries = []mhttpsearchparam.HttpSearchParam{}
+			queries = []mhttp.HTTPSearchParam{}
 		}
 
 		rawBodyFetched, err := h.bodyService.GetByHttpID(ctx, httpEntry.ID)
@@ -101,8 +100,8 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		mQueries = make([]mhttp.HTTPSearchParam, len(queries))
 		for i, v := range queries {
 			mQueries[i] = mhttp.HTTPSearchParam{
-				ParamKey:   v.Key,
-				ParamValue: v.Value,
+				Key:   v.Key,
+				Value: v.Value,
 				Enabled:    v.Enabled,
 			}
 		}
@@ -284,7 +283,7 @@ func (h *HttpServiceRPC) applyVariableSubstitution(ctx context.Context, httpEntr
 
 	// Apply variable substitution to queries
 	for i, item := range queries {
-		if query, ok := item.(mhttpsearchparam.HttpSearchParam); ok && query.Enabled {
+		if query, ok := item.(mhttp.HTTPSearchParam); ok && query.Enabled {
 			// Substitute key
 			if varsystem.CheckStringHasAnyVarKey(query.Key) {
 				resolvedKey, err := tracker.ReplaceVars(query.Key)

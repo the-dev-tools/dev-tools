@@ -28,7 +28,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
@@ -124,7 +123,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 
-	httpSearchParamService := shttpsearchparam.New(base.Queries)
+	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
 
 	httpBodyFormService := shttpbodyform.New(base.Queries)
 

@@ -777,8 +777,8 @@ func convertToHTTPSearchParams(params []YamlNameValuePairV2, httpID idwrap.IDWra
 		searchParam := mhttp.HTTPSearchParam{
 			ID:         idwrap.NewNow(),
 			HttpID:     httpID,
-			ParamKey:   param.Name,
-			ParamValue: param.Value,
+			Key:   param.Name,
+			Value: param.Value,
 			Description: param.Description,
 			Enabled:    true,
 			CreatedAt:  time.Now().UnixMilli(),

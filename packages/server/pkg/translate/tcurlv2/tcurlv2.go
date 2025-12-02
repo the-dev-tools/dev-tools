@@ -499,8 +499,8 @@ func parseURLAndSearchQueries(urlStr string, httpID idwrap.IDWrap) (string, []mh
 			param := mhttp.HTTPSearchParam{
 				ID:         idwrap.NewNow(),
 				HttpID:     httpID,
-				ParamKey:   match[1],
-				ParamValue: match[2],
+				Key:   match[1],
+				Value: match[2],
 				Enabled:    true,
 				CreatedAt:  time.Now().UnixMilli(),
 				UpdatedAt:  time.Now().UnixMilli(),
@@ -551,7 +551,7 @@ func buildURLWithSearchQueries(baseURL string, searchParams []mhttp.HTTPSearchPa
 	values := url.Values{}
 	for _, param := range searchParams {
 		if param.Enabled {
-			values.Add(param.ParamKey, param.ParamValue)
+			values.Add(param.Key, param.Value)
 		}
 	}
 

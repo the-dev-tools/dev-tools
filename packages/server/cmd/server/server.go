@@ -44,7 +44,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
@@ -154,7 +153,7 @@ func main() {
 
 	// HTTP child entity services
 	httpHeaderService := shttp.NewHttpHeaderService(queries)
-	httpSearchParamService := shttpsearchparam.New(queries)
+	httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 	httpBodyFormService := shttpbodyform.New(queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
 	httpAssertService := shttpassert.New(queries)
@@ -250,7 +249,7 @@ func main() {
 	requestResolver := resolver.NewStandardResolver(
 		&httpService,
 		&httpHeaderService,
-		&httpSearchParamService,
+		httpSearchParamService,
 		httpBodyRawService,
 		&httpBodyFormService,
 		&httpBodyUrlEncodedService,

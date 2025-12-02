@@ -11,12 +11,10 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
-	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 )
 
 // RequestResolver defines the interface for resolving HTTP requests with their delta overlays.
@@ -28,7 +26,7 @@ type RequestResolver interface {
 type StandardResolver struct {
 	httpService               *shttp.HTTPService
 	httpHeaderService         *shttp.HttpHeaderService
-	httpSearchParamService    *shttpsearchparam.HttpSearchParamService
+	httpSearchParamService    *shttp.HttpSearchParamService
 	httpBodyRawService        *shttp.HttpBodyRawService
 	httpBodyFormService       *shttpbodyform.HttpBodyFormService
 	httpBodyUrlEncodedService *shttpbodyurlencoded.HttpBodyUrlEncodedService
@@ -39,7 +37,7 @@ type StandardResolver struct {
 func NewStandardResolver(
 	httpService *shttp.HTTPService,
 	httpHeaderService *shttp.HttpHeaderService,
-	httpSearchParamService *shttpsearchparam.HttpSearchParamService,
+	httpSearchParamService *shttp.HttpSearchParamService,
 	httpBodyRawService *shttp.HttpBodyRawService,
 	httpBodyFormService *shttpbodyform.HttpBodyFormService,
 	httpBodyUrlEncodedService *shttpbodyurlencoded.HttpBodyUrlEncodedService,
@@ -78,7 +76,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 	// 2. Fetch Delta Components (if present)
 	var deltaHTTP *mhttp.HTTP
 	var deltaHeaders []mhttp.HTTPHeader
-	var deltaQueries []mhttpsearchparam.HttpSearchParam
+	var deltaQueries []mhttp.HTTPSearchParam
 	var deltaRawBody *mhttp.HTTPBodyRaw
 	var deltaFormBody []mhttpbodyform.HttpBodyForm
 	var deltaUrlEncodedBody []mhttpbodyurlencoded.HttpBodyUrlEncoded
@@ -156,7 +154,7 @@ func convertHeaders(in []mhttp.HTTPHeader) []mhttp.HTTPHeader {
 	return out
 }
 
-func convertQueries(in []mhttpsearchparam.HttpSearchParam) []mhttp.HTTPSearchParam {
+func convertQueries(in []mhttp.HTTPSearchParam) []mhttp.HTTPSearchParam {
 	if in == nil {
 		return []mhttp.HTTPSearchParam{}
 	}
@@ -165,14 +163,14 @@ func convertQueries(in []mhttpsearchparam.HttpSearchParam) []mhttp.HTTPSearchPar
 		out[i] = mhttp.HTTPSearchParam{
 			ID:                  v.ID,
 			HttpID:              v.HttpID,
-			ParamKey:            v.Key,
-			ParamValue:          v.Value,
+			Key:            v.Key,
+			Value:          v.Value,
 			Description:         v.Description,
 			Enabled:             v.Enabled,
-			ParentSearchParamID: v.ParentHttpSearchParamID,
+			ParentHttpSearchParamID: v.ParentHttpSearchParamID,
 			IsDelta:             v.IsDelta,
-			DeltaParamKey:       v.DeltaKey,
-			DeltaParamValue:     v.DeltaValue,
+			DeltaKey:       v.DeltaKey,
+			DeltaValue:     v.DeltaValue,
 			DeltaDescription:    v.DeltaDescription,
 			DeltaEnabled:        v.DeltaEnabled,
 			CreatedAt:           v.CreatedAt,

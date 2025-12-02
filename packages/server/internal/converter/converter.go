@@ -12,7 +12,6 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
-	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
@@ -133,7 +132,7 @@ func ToAPIHttpHeader(header mhttp.HTTPHeader) *httpv1.HttpHeader {
 }
 
 // ToAPIHttpSearchParam converts model HttpSearchParam to API HttpSearchParam
-func ToAPIHttpSearchParam(param mhttpsearchparam.HttpSearchParam) *httpv1.HttpSearchParam {
+func ToAPIHttpSearchParam(param mhttp.HTTPSearchParam) *httpv1.HttpSearchParam {
 	return &httpv1.HttpSearchParam{
 		HttpSearchParamId: param.ID.Bytes(),
 		HttpId:            param.HttpID.Bytes(),
@@ -150,8 +149,8 @@ func ToAPIHttpSearchParamFromMHttp(param mhttp.HTTPSearchParam) *httpv1.HttpSear
 	return &httpv1.HttpSearchParam{
 		HttpSearchParamId: param.ID.Bytes(),
 		HttpId:            param.HttpID.Bytes(),
-		Key:               param.ParamKey,
-		Value:             param.ParamValue,
+		Key:               param.Key,
+		Value:             param.Value,
 		Enabled:           param.Enabled,
 		Description:       param.Description,
 		Order:             0,

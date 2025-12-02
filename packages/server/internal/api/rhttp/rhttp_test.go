@@ -24,7 +24,6 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
 
-	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
@@ -35,7 +34,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
-	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -87,7 +85,7 @@ func newHttpFixture(t *testing.T) *httpFixture {
 
 	// Child entity services from separate packages
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
-	httpSearchParamService := shttpsearchparam.New(base.Queries)
+	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
 	httpBodyFormService := shttpbodyform.New(base.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
 	httpAssertService := shttpassert.New(base.Queries)
@@ -112,7 +110,7 @@ func newHttpFixture(t *testing.T) *httpFixture {
 	requestResolver := resolver.NewStandardResolver(
 		&services.Hs,
 		&httpHeaderService,
-		&httpSearchParamService,
+		httpSearchParamService,
 		httpBodyRawService,
 		&httpBodyFormService,
 		&httpBodyUrlEncodedService,
@@ -244,7 +242,7 @@ func (f *httpFixture) createHttpSearchParam(t *testing.T, httpID idwrap.IDWrap, 
 	t.Helper()
 
 	paramID := idwrap.NewNow()
-	param := &mhttpsearchparam.HttpSearchParam{
+	param := &mhttp.HTTPSearchParam{
 		ID:      paramID,
 		HttpID:  httpID,
 		Key:     key,

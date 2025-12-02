@@ -200,9 +200,9 @@ func TestPrepareRequestWithTracking_Queries(t *testing.T) {
 	}
 
 	queries := []mhttp.HTTPSearchParam{
-		{ParamKey: "limit", ParamValue: "{{limit}}", Enabled: true},
-		{ParamKey: "sort", ParamValue: "{{sortBy}}", Enabled: true},
-		{ParamKey: "active", ParamValue: "true", Enabled: true},
+		{Key: "limit", Value: "{{limit}}", Enabled: true},
+		{Key: "sort", Value: "{{sortBy}}", Enabled: true},
+		{Key: "active", Value: "true", Enabled: true},
 	}
 
 	example := mhttp.HTTP{
@@ -358,7 +358,7 @@ func TestPrepareRequestWithTracking_ComplexScenario(t *testing.T) {
 	}
 
 	queries := []mhttp.HTTPSearchParam{
-		{ParamKey: "format", ParamValue: "{{format}}", Enabled: true},
+		{Key: "format", Value: "{{format}}", Enabled: true},
 	}
 
 	bodyData := `{"id": {{userId}}}`

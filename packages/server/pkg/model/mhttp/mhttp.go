@@ -35,22 +35,26 @@ const (
 )
 
 type HTTPSearchParam struct {
-	ID                  idwrap.IDWrap  `json:"id"`
-	HttpID              idwrap.IDWrap  `json:"http_id"`
-	ParamKey            string         `json:"param_key"`
-	ParamValue          string         `json:"param_value"`
-	Description         string         `json:"description"`
-	Enabled             bool           `json:"enabled"`
-	ParentSearchParamID *idwrap.IDWrap `json:"parent_search_param_id,omitempty"`
-	IsDelta             bool           `json:"is_delta"`
-	DeltaParamKey       *string        `json:"delta_param_key,omitempty"`
-	DeltaParamValue     *string        `json:"delta_param_value,omitempty"`
-	DeltaDescription    *string        `json:"delta_description,omitempty"`
-	DeltaEnabled        *bool          `json:"delta_enabled,omitempty"`
-	Prev                *idwrap.IDWrap `json:"prev,omitempty"`
-	Next                *idwrap.IDWrap `json:"next,omitempty"`
-	CreatedAt           int64          `json:"created_at"`
-	UpdatedAt           int64          `json:"updated_at"`
+	ID                      idwrap.IDWrap  `json:"id"`
+	HttpID                  idwrap.IDWrap  `json:"http_id"`
+	Key                     string         `json:"key"`
+	Value                   string         `json:"value"`
+	Description             string         `json:"description"`
+	Enabled                 bool           `json:"enabled"`
+	Order                   float64        `json:"order"`
+	ParentHttpSearchParamID *idwrap.IDWrap `json:"parent_http_search_param_id,omitempty"`
+	IsDelta                 bool           `json:"is_delta"`
+	DeltaKey                *string        `json:"delta_key,omitempty"`
+	DeltaValue              *string        `json:"delta_value,omitempty"`
+	DeltaDescription        *string        `json:"delta_description,omitempty"`
+	DeltaEnabled            *bool          `json:"delta_enabled,omitempty"`
+	DeltaOrder              *float64       `json:"delta_order,omitempty"`
+	CreatedAt               int64          `json:"created_at"`
+	UpdatedAt               int64          `json:"updated_at"`
+}
+
+func (p HTTPSearchParam) IsEnabled() bool {
+	return p.Enabled
 }
 
 type HTTPHeader struct {

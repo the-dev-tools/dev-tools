@@ -238,8 +238,8 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 					for _, p := range params {
 						if !p.Enabled { continue }
 						pList = append(pList, map[string]any{
-							"name":  p.ParamKey,
-							"value": p.ParamValue,
+							"name":  p.Key,
+							"value": p.Value,
 						})
 					}
 					if len(pList) > 0 {

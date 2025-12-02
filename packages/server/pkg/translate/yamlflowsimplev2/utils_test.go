@@ -419,8 +419,8 @@ func TestOptimizeYAMLData(t *testing.T) {
 			{Key: "B", Value: "value2"}, // Duplicate
 		},
 		SearchParams: []mhttp.HTTPSearchParam{
-			{ParamKey: "param2", ParamValue: "value2"},
-			{ParamKey: "param1", ParamValue: "value1"},
+			{Key: "param2", Value: "value2"},
+			{Key: "param1", Value: "value1"},
 		},
 	}
 
@@ -441,7 +441,7 @@ func TestOptimizeYAMLData(t *testing.T) {
 		t.Errorf("Expected 2 search params, got %d", len(data.SearchParams))
 	}
 
-	if data.SearchParams[0].ParamKey != "param1" || data.SearchParams[1].ParamKey != "param2" {
+	if data.SearchParams[0].Key != "param1" || data.SearchParams[1].Key != "param2" {
 		t.Errorf("Search params not sorted correctly: %v", data.SearchParams)
 	}
 }
