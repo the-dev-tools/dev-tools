@@ -37,6 +37,7 @@ type YamlRequestDefV2 struct {
 	Headers     map[string]string `yaml:"headers,omitempty"`
 	QueryParams map[string]string `yaml:"query_params,omitempty"`
 	Body        any               `yaml:"body,omitempty"`
+	Assertions  []string          `yaml:"assertions,omitempty"`
 }
 
 // YamlFlowFlowV2 represents a flow in the modern YAML format

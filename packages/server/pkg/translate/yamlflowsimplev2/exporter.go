@@ -65,6 +65,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		bodyUrlMap[u.HttpID] = append(bodyUrlMap[u.HttpID], u)
 	}
 
+	assertsMap := make(map[idwrap.IDWrap][]mhttp.HTTPAssert)
+	for _, a := range data.HTTPAsserts {
+		assertsMap[a.HttpID] = append(assertsMap[a.HttpID], a)
+	}
+
 	// Node Specific Maps
 	reqNodeMap := make(map[idwrap.IDWrap]mnrequest.MNRequest)
 	for _, n := range data.FlowRequestNodes {
@@ -236,6 +241,19 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				reqDef.Body = map[string]any{"type": "json", "json": jsonObj}
 			} else if len(dataBytes) > 0 {
 				reqDef.Body = map[string]any{"type": "raw", "raw": string(dataBytes)}
+			}
+		}
+
+		// Assertions (only enabled ones, as simple expression strings)
+		if asserts, ok := assertsMap[httpID]; ok && len(asserts) > 0 {
+			var assertList []string
+			for _, a := range asserts {
+				if a.Enabled && a.Key != "" {
+					assertList = append(assertList, a.Key)
+				}
+			}
+			if len(assertList) > 0 {
+				reqDef.Assertions = assertList
 			}
 		}
 
