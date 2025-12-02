@@ -446,6 +446,24 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []RunEntry, templates map[
 	}
 	result.Flows = append(result.Flows, flow)
 
+	// Create folder for the flow if generating files
+	if opts.GenerateFiles {
+		folderID := idwrap.NewNow()
+		folderFile := mfile.File{
+			ID:          folderID,
+			WorkspaceID: opts.WorkspaceID,
+			ParentID:    opts.FolderID, // Nested under parent folder if provided
+			ContentID:   &folderID,
+			ContentType: mfile.ContentTypeFolder,
+			Name:        flowEntry.Name,
+			Order:       float64(opts.FileOrder),
+			UpdatedAt:   time.Now(),
+		}
+		result.Files = append(result.Files, folderFile)
+		// Update opts to use this folder as parent for HTTP files
+		opts.FolderID = &folderID
+	}
+
 	// Process flow variables
 	varMap, err := processFlowVariables(flowEntry, flowID, result)
 	if err != nil {

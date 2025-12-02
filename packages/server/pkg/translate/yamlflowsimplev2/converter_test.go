@@ -57,8 +57,9 @@ flows:
 		t.Errorf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
 	}
 
-	if len(result.Files) != 1 {
-		t.Errorf("Expected 1 file, got %d", len(result.Files))
+	// Expect 2 files: 1 folder for the flow + 1 HTTP file
+	if len(result.Files) != 2 {
+		t.Errorf("Expected 2 files (1 folder + 1 HTTP), got %d", len(result.Files))
 	}
 
 	// Verify flow
@@ -126,13 +127,32 @@ flows:
 		t.Errorf("Expected 1 raw body, got %d", len(result.HTTPBodyRaw))
 	}
 
-	// Verify file
-	file := result.Files[0]
-	if file.ContentType != mfile.ContentTypeHTTP {
-		t.Errorf("Expected file content type HTTP, got %v", file.ContentType)
+	// Verify files - find folder and HTTP file
+	var folderFile, httpFile *mfile.File
+	for i := range result.Files {
+		if result.Files[i].ContentType == mfile.ContentTypeFolder {
+			folderFile = &result.Files[i]
+		} else if result.Files[i].ContentType == mfile.ContentTypeHTTP {
+			httpFile = &result.Files[i]
+		}
 	}
-	if file.ContentID == nil || file.ContentID.Compare(httpReq.ID) != 0 {
-		t.Errorf("File should reference HTTP request")
+
+	if folderFile == nil {
+		t.Errorf("Expected folder file to be created")
+	} else if folderFile.Name != "Test Flow" {
+		t.Errorf("Expected folder name 'Test Flow', got '%s'", folderFile.Name)
+	}
+
+	if httpFile == nil {
+		t.Errorf("Expected HTTP file to be created")
+	} else {
+		if httpFile.ContentID == nil || httpFile.ContentID.Compare(httpReq.ID) != 0 {
+			t.Errorf("HTTP file should reference HTTP request")
+		}
+		// HTTP file should be inside the folder
+		if httpFile.ParentID == nil || httpFile.ParentID.Compare(folderFile.ID) != 0 {
+			t.Errorf("HTTP file should be inside the flow folder")
+		}
 	}
 
 	// Verify flow variables
