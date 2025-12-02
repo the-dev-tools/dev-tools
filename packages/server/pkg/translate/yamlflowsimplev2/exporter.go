@@ -99,12 +99,10 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		edgesByTarget[e.TargetID] = append(edgesByTarget[e.TargetID], e)
 	}
 
-	// 1. Construct the root YAML structure
-	// We'll try to infer workspace name from the first flow or file if available, mostly placeholder since source is resolved data
-	wsName := "Exported Workspace"
-	if len(data.Files) > 0 {
-		// Try to find a collection name if files were structured that way?
-		// Since SimplifiedYAMLResolvedV2 doesn't have Workspace info directly, we use a default
+	// 1. Construct the root YAML structure using the workspace name from the bundle
+	wsName := data.Workspace.Name
+	if wsName == "" {
+		wsName = "Exported Workspace"
 	}
 
 	yamlFormat := YamlFlowFormatV2{

@@ -172,9 +172,9 @@ func (s *IOWorkspaceService) exportHTTP(ctx context.Context, opts ExportOptions,
 		}
 		bundle.HTTPBodyUrlencoded = append(bundle.HTTPBodyUrlencoded, bodyUrlencoded...)
 
-		// Export body raw
+		// Export body raw (may not exist for all HTTP requests)
 		bodyRaw, err := httpBodyRawSvc.GetByHttpID(ctx, httpID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && err != sql.ErrNoRows && err != shttp.ErrNoHttpBodyRawFound {
 			return fmt.Errorf("failed to get body raw for HTTP %s: %w", httpID.String(), err)
 		}
 		if bodyRaw != nil {

@@ -6,8 +6,6 @@ import (
 	"log/slog"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/service/sfile"
@@ -90,122 +88,34 @@ func (e *SimpleExporter) ExportWorkspaceData(ctx context.Context, workspaceID id
 	}, nil
 }
 
-// ExportToYAML exports data to YAML format
+// ExportToYAML exports data to YAML format using ioworkspace and yamlflowsimplev2
 func (e *SimpleExporter) ExportToYAML(ctx context.Context, data *WorkspaceExportData, simplified bool) ([]byte, error) {
-	// If simplified and we have ioWorkspaceService, try the new export path
-	if simplified && data.Workspace != nil && e.ioWorkspaceService != nil {
-		// Use ioworkspace to export full workspace bundle
-		exportOpts := ioworkspace.ExportOptions{
-			WorkspaceID:         data.Workspace.ID,
-			IncludeHTTP:         true,
-			IncludeFlows:        true,
-			IncludeEnvironments: false,
-			IncludeFiles:        false,
-		}
-
-		bundle, err := e.ioWorkspaceService.Export(ctx, exportOpts)
-		if err != nil {
-			// If export fails (e.g., workspace not in DB), fallback to legacy
-			// This allows tests with mock data to still work
-			return e.exportToYAMLLegacy(ctx, data, simplified)
-		}
-
-		// Use yamlflowsimplev2 to marshal to YAML
-		yamlData, err := yamlflowsimplev2.MarshalSimplifiedYAML(bundle)
-		if err != nil {
-			return nil, fmt.Errorf("YAML marshalling failed: %w", err)
-		}
-
-		return yamlData, nil
+	if data.Workspace == nil {
+		return nil, fmt.Errorf("workspace data is required for YAML export")
 	}
 
-	// Fallback to old implementation for non-simplified exports
-	// or when workspace data is missing or ioWorkspaceService is not available
-	return e.exportToYAMLLegacy(ctx, data, simplified)
-}
-
-// exportToYAMLLegacy is the original YAML export implementation
-// kept for backward compatibility with non-simplified exports
-func (e *SimpleExporter) exportToYAMLLegacy(ctx context.Context, data *WorkspaceExportData, simplified bool) ([]byte, error) {
-	// Create YAML structure
-	yamlFormat := map[string]interface{}{
-		"requests": make([]map[string]interface{}, 0),
-		"flows":    make([]map[string]interface{}, 0),
-		"files":    make([]map[string]interface{}, 0),
+	if e.ioWorkspaceService == nil {
+		return nil, fmt.Errorf("ioWorkspaceService is required for YAML export")
 	}
 
-	// Add workspace data if present
-	if data.Workspace != nil {
-		workspaceData := map[string]interface{}{
-			"name": data.Workspace.Name,
-		}
-		if !simplified {
-			workspaceData["id"] = data.Workspace.ID.String()
-		}
-		yamlFormat["workspace"] = workspaceData
+	// Use ioworkspace to export full workspace bundle
+	exportOpts := ioworkspace.ExportOptions{
+		WorkspaceID:         data.Workspace.ID,
+		IncludeHTTP:         true,
+		IncludeFlows:        true,
+		IncludeEnvironments: false,
+		IncludeFiles:        false,
 	}
 
-	// Convert HTTP requests
-	for _, httpReq := range data.HTTPRequests {
-		request := map[string]interface{}{
-			"name":   httpReq.Name,
-			"method": httpReq.Method,
-			"url":    httpReq.Url,
-		}
-		if !simplified {
-			if httpReq.Headers != nil {
-				request["headers"] = httpReq.Headers
-			}
-			if httpReq.Body != "" {
-				request["body"] = httpReq.Body
-			}
-			if httpReq.QueryParams != nil {
-				request["query_params"] = httpReq.QueryParams
-			}
-		}
-		yamlFormat["requests"] = append(yamlFormat["requests"].([]map[string]interface{}), request)
-	}
-
-	// Convert flows
-	for _, flow := range data.Flows {
-		flowData := map[string]interface{}{
-			"name": flow.Name,
-		}
-		if !simplified {
-			if flow.Description != "" {
-				flowData["description"] = flow.Description
-			}
-			if flow.Variables != nil {
-				flowData["variables"] = flow.Variables
-			}
-			if len(flow.Steps) > 0 {
-				flowData["steps"] = flow.Steps
-			}
-		}
-		yamlFormat["flows"] = append(yamlFormat["flows"].([]map[string]interface{}), flowData)
-	}
-
-	// Convert files
-	for _, file := range data.Files {
-		fileData := map[string]interface{}{
-			"name": file.Name,
-		}
-		if !simplified {
-			fileData["id"] = file.ID.String()
-			if file.Path != "" {
-				fileData["path"] = file.Path
-			}
-			if len(file.Data) > 0 {
-				fileData["size"] = len(file.Data)
-			}
-		}
-		yamlFormat["files"] = append(yamlFormat["files"].([]map[string]interface{}), fileData)
-	}
-
-	// Marshal to YAML
-	yamlData, err := yaml.Marshal(yamlFormat)
+	bundle, err := e.ioWorkspaceService.Export(ctx, exportOpts)
 	if err != nil {
-		return nil, fmt.Errorf("YAML export failed: %w", err)
+		return nil, fmt.Errorf("failed to export workspace bundle: %w", err)
+	}
+
+	// Use yamlflowsimplev2 to marshal to YAML
+	yamlData, err := yamlflowsimplev2.MarshalSimplifiedYAML(bundle)
+	if err != nil {
+		return nil, fmt.Errorf("YAML marshalling failed: %w", err)
 	}
 
 	return yamlData, nil

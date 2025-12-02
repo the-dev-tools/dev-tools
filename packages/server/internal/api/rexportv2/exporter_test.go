@@ -110,37 +110,12 @@ func TestDefaultExporter_ExportWorkspaceData_WorkspaceNotFound(t *testing.T) {
 // TestDefaultExporter_ExportToYAML_Success tests successful YAML export
 func TestDefaultExporter_ExportToYAML_Success(t *testing.T) {
 	ctx := context.Background()
-	exporter := setupExporterWithoutData(t, ctx)
-
-	// Create test data
-	workspaceID := idwrap.NewNow()
-	flowID := idwrap.NewNow()
-	exampleID := idwrap.NewNow()
+	exporter, workspaceID, _, _, _ := setupExporterWithTestData(t, ctx)
 
 	data := &WorkspaceExportData{
 		Workspace: &WorkspaceInfo{
 			ID:   workspaceID,
 			Name: "Test Workspace",
-		},
-		Flows: []*FlowData{
-			{
-				ID:   flowID,
-				Name: "Test Flow",
-			},
-		},
-		HTTPRequests: []*HTTPData{
-			{
-				ID:   exampleID,
-				Url:  "https://api.example.com/test",
-				Name: "Test Request",
-				Body: "test body",
-			},
-		},
-		Files: []*FileData{
-			{
-				ID:   exampleID,
-				Name: "test.txt",
-			},
 		},
 	}
 
@@ -170,32 +145,22 @@ func TestDefaultExporter_ExportToYAML_Success(t *testing.T) {
 			err = yaml.Unmarshal(yamlData, &parsed)
 			require.NoError(t, err)
 
-			// Check basic structure
-			assert.Contains(t, parsed, "workspace")
-			assert.Contains(t, parsed, "flows")
-			assert.Contains(t, parsed, "requests")
-			assert.Contains(t, parsed, "files")
-
-			workspace := parsed["workspace"].(map[string]interface{})
-			assert.Equal(t, "Test Workspace", workspace["name"])
-
-			if !tt.simplified {
-				// Full export should include more details
-				assert.Contains(t, workspace, "id")
-			}
+			// Check that we have workspace_name (from yamlflowsimplev2 format)
+			assert.Contains(t, parsed, "workspace_name")
+			assert.Equal(t, "Test Workspace", parsed["workspace_name"])
 		})
 	}
 }
 
-// TestDefaultExporter_ExportToYAML_EmptyData tests YAML export with empty data
+// TestDefaultExporter_ExportToYAML_EmptyData tests YAML export with empty workspace (no HTTP/flows)
 func TestDefaultExporter_ExportToYAML_EmptyData(t *testing.T) {
 	ctx := context.Background()
-	exporter := setupExporterWithoutData(t, ctx)
+	exporter, workspaceID, _, _, _ := setupExporterWithTestData(t, ctx)
 
 	data := &WorkspaceExportData{
 		Workspace: &WorkspaceInfo{
-			ID:   idwrap.NewNow(),
-			Name: "Empty Workspace",
+			ID:   workspaceID,
+			Name: "Test Workspace",
 		},
 		Flows:        []*FlowData{},
 		HTTPRequests: []*HTTPData{},
@@ -211,13 +176,11 @@ func TestDefaultExporter_ExportToYAML_EmptyData(t *testing.T) {
 	err = yaml.Unmarshal(yamlData, &parsed)
 	require.NoError(t, err)
 
-	assert.Equal(t, "Empty Workspace", parsed["workspace"].(map[string]interface{})["name"])
-	assert.Empty(t, parsed["flows"])
-	assert.Empty(t, parsed["requests"])
-	assert.Empty(t, parsed["files"])
+	// Check workspace name from yamlflowsimplev2 format
+	assert.Equal(t, "Test Workspace", parsed["workspace_name"])
 }
 
-// TestDefaultExporter_ExportToYAML_NilWorkspace tests YAML export with nil workspace
+// TestDefaultExporter_ExportToYAML_NilWorkspace tests YAML export with nil workspace returns error
 func TestDefaultExporter_ExportToYAML_NilWorkspace(t *testing.T) {
 	ctx := context.Background()
 	exporter := setupExporterWithoutData(t, ctx)
@@ -229,16 +192,10 @@ func TestDefaultExporter_ExportToYAML_NilWorkspace(t *testing.T) {
 		Files:        []*FileData{},
 	}
 
-	yamlData, err := exporter.ExportToYAML(ctx, data, false)
+	_, err := exporter.ExportToYAML(ctx, data, false)
 
-	require.NoError(t, err)
-	require.NotEmpty(t, yamlData)
-
-	var parsed map[string]interface{}
-	err = yaml.Unmarshal(yamlData, &parsed)
-	require.NoError(t, err)
-
-	assert.Nil(t, parsed["workspace"])
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workspace data is required")
 }
 
 // TestDefaultExporter_ExportToCurl_Success tests successful cURL export
