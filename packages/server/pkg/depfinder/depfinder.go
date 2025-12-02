@@ -218,8 +218,11 @@ func (d DepFinder) replaceWithPaths(value any, allowSubstring bool) (any, bool, 
 			var allCouples []VarCouple
 
 			// Check each known variable to see if it appears as a substring
+			// Only consider values with minimum length to avoid false positives
+			// from short common strings like "d", "key", "value", etc.
+			const minSubstringLength = 8
 			for varValue, couple := range d.vars {
-				if strValue, ok := varValue.(string); ok && len(strValue) > 0 {
+				if strValue, ok := varValue.(string); ok && len(strValue) >= minSubstringLength {
 					// Replace all occurrences of this token in the string
 					if strings.Contains(result, strValue) {
 						template := fmt.Sprintf("{{ %s }}", couple.Path)
