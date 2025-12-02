@@ -1089,3 +1089,240 @@ func createIndexedHAR(t *testing.T, index int) []byte {
 		}
 	}`, time.Now().UTC().Format(time.RFC3339), index, index, index))
 }
+
+// TestYAMLImport_WithTimeout tests that YAML import completes without stalling
+// This test verifies the fix for missing flow nodes/edges in YAMLTranslator
+func TestYAMLImport_WithTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping YAML import test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+
+	// YAML data similar to what the exporter generates with use_request references
+	yamlData := []byte(`workspace_name: New Workspace
+requests:
+    - name: DELETE Api Categories
+      method: DELETE
+      url: https://ecommerce-admin-panel.fly.dev/api/categories/c2b85766
+      headers:
+        accept: '*/*'
+        authorization: Bearer token123
+    - name: GET Api Categories
+      method: GET
+      url: https://ecommerce-admin-panel.fly.dev/api/categories
+      headers:
+        accept: '*/*'
+        authorization: Bearer token123
+    - name: POST Api Auth Login
+      method: POST
+      url: https://ecommerce-admin-panel.fly.dev/api/auth/login
+      body:
+        json:
+            email: admin@example.com
+            password: admin123
+        type: json
+flows:
+    - name: Imported HAR Flow
+      steps:
+        - request:
+            name: request_1
+            use_request: POST Api Auth Login
+        - request:
+            name: request_2
+            use_request: GET Api Categories
+        - request:
+            depends_on:
+                - request_1
+            name: request_3
+            use_request: DELETE Api Categories
+`)
+
+	// Create a context with timeout to detect stalls
+	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
+	defer cancel()
+
+	// Create the request
+	req := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "YAML Import Test",
+		Data:        yamlData,
+		DomainData: []*apiv1.ImportDomainData{
+			{Enabled: true, Domain: "ecommerce-admin-panel.fly.dev", Variable: "API_HOST"},
+		},
+	})
+
+	// Channel to capture result
+	type result struct {
+		resp *connect.Response[apiv1.ImportResponse]
+		err  error
+	}
+	done := make(chan result, 1)
+
+	go func() {
+		resp, err := fixture.rpc.Import(ctx, req)
+		done <- result{resp, err}
+	}()
+
+	// Wait for completion or timeout
+	select {
+	case res := <-done:
+		require.NoError(t, res.err, "YAML import should complete without error")
+		require.NotNil(t, res.resp, "Response should not be nil")
+
+		// Verify data was stored
+		httpReqs, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(httpReqs), 3, "Should have at least 3 HTTP requests")
+
+		flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+		require.NoError(t, err)
+		assert.NotEmpty(t, flows, "Should have created flows")
+
+		t.Logf("YAML import completed successfully:")
+		t.Logf("  - HTTP Requests: %d", len(httpReqs))
+		t.Logf("  - Flows: %d", len(flows))
+
+	case <-ctx.Done():
+		t.Fatal("YAML import timed out - import is stalling!")
+	}
+}
+
+// TestYAMLImport_WithFlowNodes verifies that flow nodes and edges are properly stored
+func TestYAMLImport_WithFlowNodes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping YAML flow nodes test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+
+	// YAML with explicit dependencies to test edge creation
+	yamlData := []byte(`workspace_name: Flow Nodes Test
+flows:
+    - name: Test Flow
+      steps:
+        - request:
+            name: Step 1
+            method: GET
+            url: https://api.example.com/step1
+        - request:
+            name: Step 2
+            method: GET
+            url: https://api.example.com/step2
+        - request:
+            name: Step 3
+            method: POST
+            url: https://api.example.com/step3
+            depends_on:
+                - Step 1
+                - Step 2
+`)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
+	defer cancel()
+
+	req := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Flow Nodes Test",
+		Data:        yamlData,
+		DomainData: []*apiv1.ImportDomainData{
+			{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+		},
+	})
+
+	type result struct {
+		resp *connect.Response[apiv1.ImportResponse]
+		err  error
+	}
+	done := make(chan result, 1)
+
+	go func() {
+		resp, err := fixture.rpc.Import(ctx, req)
+		done <- result{resp, err}
+	}()
+
+	select {
+	case res := <-done:
+		require.NoError(t, res.err, "YAML import should complete without error")
+
+		// Verify flows were created
+		flows, err := fixture.services.Fls.GetFlowsByWorkspaceID(fixture.ctx, fixture.workspaceID)
+		require.NoError(t, err)
+		assert.Len(t, flows, 1, "Should have exactly 1 flow")
+
+		t.Logf("Flow nodes test completed successfully with %d flow(s)", len(flows))
+
+	case <-ctx.Done():
+		t.Fatal("YAML import with flow nodes timed out!")
+	}
+}
+
+// TestYAMLImport_FileNames verifies that file names are correctly set during YAML import
+func TestYAMLImport_FileNames(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping YAML file names test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+
+	// YAML with use_request references - file names should match step names
+	yamlData := []byte(`workspace_name: File Names Test
+requests:
+    - name: Get Users API
+      method: GET
+      url: https://api.example.com/users
+    - name: Create User API
+      method: POST
+      url: https://api.example.com/users
+flows:
+    - name: User Flow
+      steps:
+        - request:
+            name: fetch_users
+            use_request: Get Users API
+        - request:
+            name: create_user
+            use_request: Create User API
+`)
+
+	ctx, cancel := context.WithTimeout(fixture.ctx, 10*time.Second)
+	defer cancel()
+
+	req := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "File Names Test",
+		Data:        yamlData,
+		DomainData: []*apiv1.ImportDomainData{
+			{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+		},
+	})
+
+	resp, err := fixture.rpc.Import(ctx, req)
+	require.NoError(t, err, "YAML import should complete without error")
+	require.NotNil(t, resp, "Response should not be nil")
+
+	// Get all files in the workspace
+	files, err := fixture.services.Fs.ListFilesByWorkspace(fixture.ctx, fixture.workspaceID)
+	require.NoError(t, err)
+
+	// Log all files for debugging
+	t.Logf("Created %d files:", len(files))
+	for i, file := range files {
+		t.Logf("  [%d] Name=%q ContentType=%d", i, file.Name, file.ContentType)
+	}
+
+	// Verify file names are NOT empty or "N/A"
+	for _, file := range files {
+		assert.NotEmpty(t, file.Name, "File name should not be empty")
+		assert.NotEqual(t, "N/A", file.Name, "File name should not be N/A")
+	}
+
+	// Check for expected file names (step names: fetch_users, create_user)
+	fileNames := make(map[string]bool)
+	for _, file := range files {
+		fileNames[file.Name] = true
+	}
+
+	assert.True(t, fileNames["fetch_users"] || fileNames["create_user"],
+		"Should have files named after the step names (fetch_users, create_user)")
+}

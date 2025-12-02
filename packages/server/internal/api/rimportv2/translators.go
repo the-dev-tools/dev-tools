@@ -253,6 +253,10 @@ func (t *YAMLTranslator) Translate(ctx context.Context, data []byte, workspaceID
 		BodyForms:      resolved.HTTPBodyForms,
 		BodyUrlencoded: resolved.HTTPBodyUrlencoded,
 		BodyRaw:        resolved.HTTPBodyRaw,
+		Nodes:          resolved.FlowNodes,
+		RequestNodes:   resolved.FlowRequestNodes,
+		NoOpNodes:      resolved.FlowNoopNodes,
+		Edges:          resolved.FlowEdges,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
 
