@@ -205,22 +205,22 @@ type HttpBodyUrlencoded struct {
 }
 
 type HttpHeader struct {
-	ID               idwrap.IDWrap
-	HttpID           idwrap.IDWrap
-	HeaderKey        string
-	HeaderValue      string
-	Description      string
-	Enabled          bool
-	ParentHeaderID   *idwrap.IDWrap
-	IsDelta          bool
-	DeltaHeaderKey   *string
-	DeltaHeaderValue *string
-	DeltaDescription *string
-	DeltaEnabled     *bool
-	Prev             *idwrap.IDWrap
-	Next             *idwrap.IDWrap
-	CreatedAt        int64
-	UpdatedAt        int64
+	ID                idwrap.IDWrap
+	HttpID            idwrap.IDWrap
+	HeaderKey         string
+	HeaderValue       string
+	Description       string
+	Enabled           bool
+	ParentHeaderID    *idwrap.IDWrap
+	IsDelta           bool
+	DeltaHeaderKey    *string
+	DeltaHeaderValue  *string
+	DeltaDescription  *string
+	DeltaEnabled      *bool
+	DeltaDisplayOrder sql.NullFloat64
+	DisplayOrder      float64
+	CreatedAt         int64
+	UpdatedAt         int64
 }
 
 type HttpResponse struct {

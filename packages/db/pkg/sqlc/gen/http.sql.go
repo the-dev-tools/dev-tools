@@ -969,28 +969,28 @@ const createHTTPHeader = `-- name: CreateHTTPHeader :exec
 INSERT INTO http_header (
   id, http_id, header_key, header_value, description, enabled,
   parent_header_id, is_delta, delta_header_key, delta_header_value,
-  delta_description, delta_enabled, prev, next, created_at, updated_at
+  delta_description, delta_enabled, delta_display_order, display_order, created_at, updated_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPHeaderParams struct {
-	ID               idwrap.IDWrap
-	HttpID           idwrap.IDWrap
-	HeaderKey        string
-	HeaderValue      string
-	Description      string
-	Enabled          bool
-	ParentHeaderID   *idwrap.IDWrap
-	IsDelta          bool
-	DeltaHeaderKey   *string
-	DeltaHeaderValue *string
-	DeltaDescription *string
-	DeltaEnabled     *bool
-	Prev             *idwrap.IDWrap
-	Next             *idwrap.IDWrap
-	CreatedAt        int64
-	UpdatedAt        int64
+	ID                idwrap.IDWrap
+	HttpID            idwrap.IDWrap
+	HeaderKey         string
+	HeaderValue       string
+	Description       string
+	Enabled           bool
+	ParentHeaderID    *idwrap.IDWrap
+	IsDelta           bool
+	DeltaHeaderKey    *string
+	DeltaHeaderValue  *string
+	DeltaDescription  *string
+	DeltaEnabled      *bool
+	DeltaDisplayOrder sql.NullFloat64
+	DisplayOrder      float64
+	CreatedAt         int64
+	UpdatedAt         int64
 }
 
 func (q *Queries) CreateHTTPHeader(ctx context.Context, arg CreateHTTPHeaderParams) error {
@@ -1007,8 +1007,8 @@ func (q *Queries) CreateHTTPHeader(ctx context.Context, arg CreateHTTPHeaderPara
 		arg.DeltaHeaderValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
-		arg.Prev,
-		arg.Next,
+		arg.DeltaDisplayOrder,
+		arg.DisplayOrder,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -2939,13 +2939,13 @@ SELECT
   delta_header_value,
   delta_description,
   delta_enabled,
-  prev,
-  next,
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_header
 WHERE http_id = ?
-ORDER BY created_at ASC
+ORDER BY display_order
 `
 
 // HTTP Header Queries
@@ -2971,8 +2971,8 @@ func (q *Queries) GetHTTPHeaders(ctx context.Context, httpID idwrap.IDWrap) ([]H
 			&i.DeltaHeaderValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.DeltaDisplayOrder,
+			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -3003,8 +3003,8 @@ SELECT
   delta_header_value,
   delta_description,
   delta_enabled,
-  prev,
-  next,
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_header
@@ -3043,8 +3043,8 @@ func (q *Queries) GetHTTPHeadersByIDs(ctx context.Context, ids []idwrap.IDWrap) 
 			&i.DeltaHeaderValue,
 			&i.DeltaDescription,
 			&i.DeltaEnabled,
-			&i.Prev,
-			&i.Next,
+			&i.DeltaDisplayOrder,
+			&i.DisplayOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -5047,16 +5047,18 @@ SET
   delta_header_value = ?,
   delta_description = ?,
   delta_enabled = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPHeaderDeltaParams struct {
-	DeltaHeaderKey   *string
-	DeltaHeaderValue *string
-	DeltaDescription *string
-	DeltaEnabled     *bool
-	ID               idwrap.IDWrap
+	DeltaHeaderKey    *string
+	DeltaHeaderValue  *string
+	DeltaDescription  *string
+	DeltaEnabled      *bool
+	DeltaDisplayOrder sql.NullFloat64
+	ID                idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPHeaderDelta(ctx context.Context, arg UpdateHTTPHeaderDeltaParams) error {
@@ -5065,6 +5067,7 @@ func (q *Queries) UpdateHTTPHeaderDelta(ctx context.Context, arg UpdateHTTPHeade
 		arg.DeltaHeaderValue,
 		arg.DeltaDescription,
 		arg.DeltaEnabled,
+		arg.DeltaDisplayOrder,
 		arg.ID,
 	)
 	return err
@@ -5072,24 +5075,18 @@ func (q *Queries) UpdateHTTPHeaderDelta(ctx context.Context, arg UpdateHTTPHeade
 
 const updateHTTPHeaderOrder = `-- name: UpdateHTTPHeaderOrder :exec
 UPDATE http_header
-SET prev = ?, next = ?
+SET display_order = ?
 WHERE id = ? AND http_id = ?
 `
 
 type UpdateHTTPHeaderOrderParams struct {
-	Prev   *idwrap.IDWrap
-	Next   *idwrap.IDWrap
-	ID     idwrap.IDWrap
-	HttpID idwrap.IDWrap
+	DisplayOrder float64
+	ID           idwrap.IDWrap
+	HttpID       idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPHeaderOrder(ctx context.Context, arg UpdateHTTPHeaderOrderParams) error {
-	_, err := q.exec(ctx, q.updateHTTPHeaderOrderStmt, updateHTTPHeaderOrder,
-		arg.Prev,
-		arg.Next,
-		arg.ID,
-		arg.HttpID,
-	)
+	_, err := q.exec(ctx, q.updateHTTPHeaderOrderStmt, updateHTTPHeaderOrder, arg.DisplayOrder, arg.ID, arg.HttpID)
 	return err
 }
 

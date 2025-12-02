@@ -277,8 +277,6 @@ func TestHttpHeaderService_UpdateOrder(t *testing.T) {
 	// Test data
 	httpID := idwrap.NewNow()
 	headerID := idwrap.NewNow()
-	prevID := idwrap.NewNow()
-	nextID := idwrap.NewNow()
 	now := time.Now().Unix()
 
 	// Create test header
@@ -300,13 +298,21 @@ func TestHttpHeaderService_UpdateOrder(t *testing.T) {
 	}
 
 	// Test UpdateOrder
-	err = service.UpdateOrder(ctx, headerID, &prevID, &nextID)
+	newOrder := 2.0
+	err = service.UpdateOrder(ctx, headerID, newOrder)
 	if err != nil {
 		t.Fatalf("Failed to update HttpHeader order: %v", err)
 	}
 
-	// Order update is verified through the database query succeeding
-	// The actual prev/next values would need to be verified through a more complex query
+	// Verify update
+	updatedHeader, err := service.GetByID(ctx, headerID)
+	if err != nil {
+		t.Fatalf("Failed to get updated HttpHeader: %v", err)
+	}
+
+	if float64(updatedHeader.Order) != newOrder {
+		t.Errorf("Expected Order %f, got %f", newOrder, updatedHeader.Order)
+	}
 }
 
 func TestHttpHeaderService_GetByHttpIDOrdered(t *testing.T) {

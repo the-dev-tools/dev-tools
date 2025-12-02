@@ -332,13 +332,13 @@ SELECT
   delta_header_value,
   delta_description,
   delta_enabled,
-  prev,
-  next,
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_header
 WHERE http_id = ?
-ORDER BY created_at ASC;
+ORDER BY display_order;
 
 -- name: GetHTTPHeadersByIDs :many
 SELECT
@@ -354,8 +354,8 @@ SELECT
   delta_header_value,
   delta_description,
   delta_enabled,
-  prev,
-  next,
+  delta_display_order,
+  display_order,
   created_at,
   updated_at
 FROM http_header
@@ -365,7 +365,7 @@ WHERE id IN (sqlc.slice('ids'));
 INSERT INTO http_header (
   id, http_id, header_key, header_value, description, enabled,
   parent_header_id, is_delta, delta_header_key, delta_header_value,
-  delta_description, delta_enabled, prev, next, created_at, updated_at
+  delta_description, delta_enabled, delta_display_order, display_order, created_at, updated_at
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
@@ -386,12 +386,13 @@ SET
   delta_header_value = ?,
   delta_description = ?,
   delta_enabled = ?,
+  delta_display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: UpdateHTTPHeaderOrder :exec
 UPDATE http_header
-SET prev = ?, next = ?
+SET display_order = ?
 WHERE id = ? AND http_id = ?;
 
 -- name: DeleteHTTPHeader :exec

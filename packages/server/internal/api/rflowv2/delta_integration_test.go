@@ -475,9 +475,9 @@ CREATE TABLE http_header (
   delta_header_value TEXT NULL,
   delta_description TEXT NULL,
   delta_enabled BOOLEAN NULL,
+  delta_display_order REAL,
   
-  prev BLOB DEFAULT NULL,
-  next BLOB DEFAULT NULL,
+  display_order REAL NOT NULL DEFAULT 0,
   
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),

@@ -49,8 +49,6 @@ func ConvertToModelHttpHeader(dbHeader gen.HttpHeader) mhttp.HTTPHeader {
 		DeltaHeaderValue: dbHeader.DeltaHeaderValue,
 		DeltaDescription: dbHeader.DeltaDescription,
 		DeltaEnabled:     dbHeader.DeltaEnabled,
-		Prev:             dbHeader.Prev,
-		Next:             dbHeader.Next,
 		CreatedAt:        dbHeader.CreatedAt,
 		UpdatedAt:        dbHeader.UpdatedAt,
 	}

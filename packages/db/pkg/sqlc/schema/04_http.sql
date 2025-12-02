@@ -99,10 +99,10 @@ CREATE TABLE http_header (
   delta_header_value TEXT NULL,
   delta_description TEXT NULL,
   delta_enabled BOOLEAN NULL,
+  delta_display_order REAL,
   
   -- Ordering
-  prev BLOB DEFAULT NULL,
-  next BLOB DEFAULT NULL,
+  display_order REAL NOT NULL DEFAULT 0,
   
   -- Metadata
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
@@ -111,8 +111,6 @@ CREATE TABLE http_header (
   -- Foreign keys
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_header_id) REFERENCES http_header (id) ON DELETE CASCADE,
-  FOREIGN KEY (prev) REFERENCES http_header (id) ON DELETE SET NULL,
-  FOREIGN KEY (next) REFERENCES http_header (id) ON DELETE SET NULL,
   
   -- Constraints
   CHECK (is_delta = FALSE OR parent_header_id IS NOT NULL)
@@ -121,7 +119,7 @@ CREATE TABLE http_header (
 -- Indexes for headers
 CREATE INDEX http_header_http_idx ON http_header (http_id);
 CREATE INDEX http_header_parent_delta_idx ON http_header (parent_header_id, is_delta);
-CREATE INDEX http_header_ordering_idx ON http_header (http_id, prev, next);
+CREATE INDEX http_header_order_idx ON http_header (http_id, display_order);
 CREATE INDEX http_header_key_idx ON http_header (header_key);
 
 -- Streaming performance indexes for headers

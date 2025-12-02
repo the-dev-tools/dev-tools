@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"slices"
 	"time"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
@@ -73,28 +72,39 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*HttpHeaderService, error) {
 
 // SerializeModelToGen converts model HttpHeader to DB HttpHeader
 func SerializeModelToGen(header mhttpheader.HttpHeader) gen.HttpHeader {
+	var deltaDisplayOrder sql.NullFloat64
+	if header.DeltaOrder != nil {
+		deltaDisplayOrder = sql.NullFloat64{Float64: float64(*header.DeltaOrder), Valid: true}
+	}
+
 	return gen.HttpHeader{
-		ID:               header.ID,
-		HttpID:           header.HttpID,
-		HeaderKey:        header.Key,
-		HeaderValue:      header.Value,
-		Description:      header.Description,
-		Enabled:          header.Enabled,
-		ParentHeaderID:   header.ParentHttpHeaderID,
-		IsDelta:          header.IsDelta,
-		DeltaHeaderKey:   header.DeltaKey,
-		DeltaHeaderValue: header.DeltaValue,
-		DeltaDescription: header.DeltaDescription,
-		DeltaEnabled:     header.DeltaEnabled,
-		Prev:             nil, // Will be set separately
-		Next:             nil, // Will be set separately
-		CreatedAt:        header.CreatedAt,
-		UpdatedAt:        header.UpdatedAt,
+		ID:                header.ID,
+		HttpID:            header.HttpID,
+		HeaderKey:         header.Key,
+		HeaderValue:       header.Value,
+		Description:       header.Description,
+		Enabled:           header.Enabled,
+		ParentHeaderID:    header.ParentHttpHeaderID,
+		IsDelta:           header.IsDelta,
+		DeltaHeaderKey:    header.DeltaKey,
+		DeltaHeaderValue:  header.DeltaValue,
+		DeltaDescription:  header.DeltaDescription,
+		DeltaEnabled:      header.DeltaEnabled,
+		DeltaDisplayOrder: deltaDisplayOrder,
+		DisplayOrder:      float64(header.Order),
+		CreatedAt:         header.CreatedAt,
+		UpdatedAt:         header.UpdatedAt,
 	}
 }
 
 // DeserializeGenToModel converts DB HttpHeader to model HttpHeader
 func DeserializeGenToModel(header gen.HttpHeader) mhttpheader.HttpHeader {
+	var deltaOrder *float32
+	if header.DeltaDisplayOrder.Valid {
+		val := float32(header.DeltaDisplayOrder.Float64)
+		deltaOrder = &val
+	}
+
 	return mhttpheader.HttpHeader{
 		ID:                 header.ID,
 		HttpID:             header.HttpID,
@@ -102,14 +112,14 @@ func DeserializeGenToModel(header gen.HttpHeader) mhttpheader.HttpHeader {
 		Value:              header.HeaderValue,
 		Enabled:            header.Enabled,
 		Description:        header.Description,
-		Order:              0, // No order field in DB, default to 0
+		Order:              float32(header.DisplayOrder),
 		ParentHttpHeaderID: header.ParentHeaderID,
 		IsDelta:            header.IsDelta,
 		DeltaKey:           header.DeltaHeaderKey,
 		DeltaValue:         header.DeltaHeaderValue,
 		DeltaDescription:   header.DeltaDescription,
 		DeltaEnabled:       header.DeltaEnabled,
-		DeltaOrder:         nil, // No order delta field in DB
+		DeltaOrder:         deltaOrder,
 		CreatedAt:          header.CreatedAt,
 		UpdatedAt:          header.UpdatedAt,
 	}
@@ -126,22 +136,22 @@ func (h HttpHeaderService) Create(ctx context.Context, header *mhttpheader.HttpH
 
 	dbHeader := SerializeModelToGen(*header)
 	return h.queries.CreateHTTPHeader(ctx, gen.CreateHTTPHeaderParams{
-		ID:               dbHeader.ID,
-		HttpID:           dbHeader.HttpID,
-		HeaderKey:        dbHeader.HeaderKey,
-		HeaderValue:      dbHeader.HeaderValue,
-		Description:      dbHeader.Description,
-		Enabled:          dbHeader.Enabled,
-		ParentHeaderID:   dbHeader.ParentHeaderID,
-		IsDelta:          dbHeader.IsDelta,
-		DeltaHeaderKey:   dbHeader.DeltaHeaderKey,
-		DeltaHeaderValue: dbHeader.DeltaHeaderValue,
-		DeltaDescription: dbHeader.DeltaDescription,
-		DeltaEnabled:     dbHeader.DeltaEnabled,
-		Prev:             dbHeader.Prev,
-		Next:             dbHeader.Next,
-		CreatedAt:        dbHeader.CreatedAt,
-		UpdatedAt:        dbHeader.UpdatedAt,
+		ID:                dbHeader.ID,
+		HttpID:            dbHeader.HttpID,
+		HeaderKey:         dbHeader.HeaderKey,
+		HeaderValue:       dbHeader.HeaderValue,
+		Description:       dbHeader.Description,
+		Enabled:           dbHeader.Enabled,
+		ParentHeaderID:    dbHeader.ParentHeaderID,
+		IsDelta:           dbHeader.IsDelta,
+		DeltaHeaderKey:    dbHeader.DeltaHeaderKey,
+		DeltaHeaderValue:  dbHeader.DeltaHeaderValue,
+		DeltaDescription:  dbHeader.DeltaDescription,
+		DeltaEnabled:      dbHeader.DeltaEnabled,
+		DeltaDisplayOrder: dbHeader.DeltaDisplayOrder,
+		DisplayOrder:      dbHeader.DisplayOrder,
+		CreatedAt:         dbHeader.CreatedAt,
+		UpdatedAt:         dbHeader.UpdatedAt,
 	})
 }
 
@@ -177,24 +187,8 @@ func (h HttpHeaderService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap
 }
 
 func (h HttpHeaderService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttpheader.HttpHeader, error) {
-	// Since there's no ordered query for HTTP headers, we'll get all headers and sort them
-	headers, err := h.GetByHttpID(ctx, httpID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Sort by creation time as a simple ordering (could be enhanced later)
-	slices.SortFunc(headers, func(a, b mhttpheader.HttpHeader) int {
-		if a.CreatedAt < b.CreatedAt {
-			return -1
-		}
-		if a.CreatedAt > b.CreatedAt {
-			return 1
-		}
-		return 0
-	})
-
-	return headers, nil
+	// GetByHttpID now uses ORDER BY display_order in the query
+	return h.GetByHttpID(ctx, httpID)
 }
 
 func (h HttpHeaderService) GetByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]mhttpheader.HttpHeader, error) {
@@ -275,7 +269,7 @@ func (h HttpHeaderService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDW
 	return nil
 }
 
-func (h HttpHeaderService) UpdateOrder(ctx context.Context, headerID idwrap.IDWrap, prev, next *idwrap.IDWrap) error {
+func (h HttpHeaderService) UpdateOrder(ctx context.Context, headerID idwrap.IDWrap, displayOrder float64) error {
 	// First get the header to extract its HTTP ID for validation
 	header, err := h.GetByID(ctx, headerID)
 	if err != nil {
@@ -283,9 +277,8 @@ func (h HttpHeaderService) UpdateOrder(ctx context.Context, headerID idwrap.IDWr
 	}
 
 	return h.queries.UpdateHTTPHeaderOrder(ctx, gen.UpdateHTTPHeaderOrderParams{
-		Prev:   prev,
-		Next:   next,
-		ID:     headerID,
-		HttpID: header.HttpID,
+		DisplayOrder: displayOrder,
+		ID:           headerID,
+		HttpID:       header.HttpID,
 	})
 }
