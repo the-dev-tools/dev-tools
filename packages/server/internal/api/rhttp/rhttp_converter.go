@@ -576,10 +576,21 @@ func httpBodyFormDataSyncResponseFrom(event HttpBodyFormEvent) *apiv1.HttpBodyFo
 			},
 		}
 	case eventTypeUpdate:
+		key := event.HttpBodyForm.Key
+		value_ := event.HttpBodyForm.Value
+		enabled := event.HttpBodyForm.Enabled
+		description := event.HttpBodyForm.Description
+		order := event.HttpBodyForm.Order
 		value = &apiv1.HttpBodyFormDataSync_ValueUnion{
 			Kind: apiv1.HttpBodyFormDataSync_ValueUnion_KIND_UPDATE,
 			Update: &apiv1.HttpBodyFormDataSyncUpdate{
 				HttpBodyFormDataId: event.HttpBodyForm.GetHttpBodyFormDataId(),
+				HttpId:             event.HttpBodyForm.GetHttpId(),
+				Key:                &key,
+				Value:              &value_,
+				Enabled:            &enabled,
+				Description:        &description,
+				Order:              &order,
 			},
 		}
 	case eventTypeDelete:
@@ -624,10 +635,21 @@ func httpBodyUrlEncodedSyncResponseFrom(event HttpBodyUrlEncodedEvent) *apiv1.Ht
 			},
 		}
 	case eventTypeUpdate:
+		key := event.HttpBodyUrlEncoded.Key
+		value_ := event.HttpBodyUrlEncoded.Value
+		enabled := event.HttpBodyUrlEncoded.Enabled
+		description := event.HttpBodyUrlEncoded.Description
+		order := event.HttpBodyUrlEncoded.Order
 		value = &apiv1.HttpBodyUrlEncodedSync_ValueUnion{
 			Kind: apiv1.HttpBodyUrlEncodedSync_ValueUnion_KIND_UPDATE,
 			Update: &apiv1.HttpBodyUrlEncodedSyncUpdate{
 				HttpBodyUrlEncodedId: event.HttpBodyUrlEncoded.GetHttpBodyUrlEncodedId(),
+				HttpId:               event.HttpBodyUrlEncoded.GetHttpId(),
+				Key:                  &key,
+				Value:                &value_,
+				Enabled:              &enabled,
+				Description:          &description,
+				Order:                &order,
 			},
 		}
 	case eventTypeDelete:

@@ -4764,6 +4764,7 @@ SET
   value = ?,
   description = ?,
   enabled = ?,
+  "order" = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
@@ -4773,6 +4774,7 @@ type UpdateHTTPBodyFormParams struct {
 	Value       string
 	Description string
 	Enabled     bool
+	Order       float64
 	ID          idwrap.IDWrap
 }
 
@@ -4782,6 +4784,7 @@ func (q *Queries) UpdateHTTPBodyForm(ctx context.Context, arg UpdateHTTPBodyForm
 		arg.Value,
 		arg.Description,
 		arg.Enabled,
+		arg.Order,
 		arg.ID,
 	)
 	return err
@@ -4902,28 +4905,17 @@ SET
   enabled = ?,
   description = ?,
   "order" = ?,
-  delta_key = ?,
-  delta_value = ?,
-  delta_enabled = ?,
-  delta_description = ?,
-  delta_order = ?,
-  updated_at = ?
+  updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPBodyUrlEncodedParams struct {
-	Key              string
-	Value            string
-	Enabled          bool
-	Description      string
-	Order            float64
-	DeltaKey         sql.NullString
-	DeltaValue       sql.NullString
-	DeltaEnabled     *bool
-	DeltaDescription *string
-	DeltaOrder       sql.NullFloat64
-	UpdatedAt        int64
-	ID               idwrap.IDWrap
+	Key         string
+	Value       string
+	Enabled     bool
+	Description string
+	Order       float64
+	ID          idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPBodyUrlEncoded(ctx context.Context, arg UpdateHTTPBodyUrlEncodedParams) error {
@@ -4933,12 +4925,6 @@ func (q *Queries) UpdateHTTPBodyUrlEncoded(ctx context.Context, arg UpdateHTTPBo
 		arg.Enabled,
 		arg.Description,
 		arg.Order,
-		arg.DeltaKey,
-		arg.DeltaValue,
-		arg.DeltaEnabled,
-		arg.DeltaDescription,
-		arg.DeltaOrder,
-		arg.UpdatedAt,
 		arg.ID,
 	)
 	return err
@@ -5017,16 +5003,18 @@ SET
   header_value = ?,
   description = ?,
   enabled = ?,
+  display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?
 `
 
 type UpdateHTTPHeaderParams struct {
-	HeaderKey   string
-	HeaderValue string
-	Description string
-	Enabled     bool
-	ID          idwrap.IDWrap
+	HeaderKey    string
+	HeaderValue  string
+	Description  string
+	Enabled      bool
+	DisplayOrder float64
+	ID           idwrap.IDWrap
 }
 
 func (q *Queries) UpdateHTTPHeader(ctx context.Context, arg UpdateHTTPHeaderParams) error {
@@ -5035,6 +5023,7 @@ func (q *Queries) UpdateHTTPHeader(ctx context.Context, arg UpdateHTTPHeaderPara
 		arg.HeaderValue,
 		arg.Description,
 		arg.Enabled,
+		arg.DisplayOrder,
 		arg.ID,
 	)
 	return err

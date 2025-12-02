@@ -376,6 +376,7 @@ SET
   header_value = ?,
   description = ?,
   enabled = ?,
+  display_order = ?,
   updated_at = unixepoch()
 WHERE id = ?;
 
@@ -459,6 +460,7 @@ SET
   value = ?,
   description = ?,
   enabled = ?,
+  "order" = ?,
   updated_at = unixepoch()
 WHERE id = ?;
 
@@ -596,12 +598,7 @@ SET
   enabled = ?,
   description = ?,
   "order" = ?,
-  delta_key = ?,
-  delta_value = ?,
-  delta_enabled = ?,
-  delta_description = ?,
-  delta_order = ?,
-  updated_at = ?
+  updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: UpdateHTTPBodyUrlEncodedDelta :exec

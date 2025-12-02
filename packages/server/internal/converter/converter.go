@@ -163,6 +163,7 @@ func ToAPIHttpBodyFormData(form mhttp.HTTPBodyForm) *httpv1.HttpBodyFormData {
 		Value:              form.Value,
 		Enabled:            form.Enabled,
 		Description:        form.Description,
+		Order:              form.Order,
 	}
 }
 
@@ -175,6 +176,7 @@ func ToAPIHttpBodyFormDataFromMHttp(form mhttp.HTTPBodyForm) *httpv1.HttpBodyFor
 		Value:              form.Value,
 		Enabled:            form.Enabled,
 		Description:        form.Description,
+		Order:              form.Order,
 	}
 }
 
@@ -187,6 +189,7 @@ func ToAPIHttpBodyUrlEncoded(urlEncoded mhttp.HTTPBodyUrlencoded) *httpv1.HttpBo
 		Value:                urlEncoded.Value,
 		Enabled:              urlEncoded.Enabled,
 		Description:          urlEncoded.Description,
+		Order:                urlEncoded.Order,
 	}
 }
 
@@ -199,6 +202,7 @@ func ToAPIHttpBodyUrlEncodedFromMHttp(encoded mhttp.HTTPBodyUrlencoded) *httpv1.
 		Value:                encoded.Value,
 		Enabled:              encoded.Enabled,
 		Description:          encoded.Description,
+		Order:                encoded.Order,
 	}
 }
 

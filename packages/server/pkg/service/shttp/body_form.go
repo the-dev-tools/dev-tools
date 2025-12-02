@@ -184,6 +184,7 @@ func (s *HttpBodyFormService) Update(ctx context.Context, body *mhttp.HTTPBodyFo
 		Value:       body.Value,
 		Description: body.Description,
 		Enabled:     body.Enabled,
+		Order:       float64(body.Order),
 		ID:          body.ID,
 	})
 }

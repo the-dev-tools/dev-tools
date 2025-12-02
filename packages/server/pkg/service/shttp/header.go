@@ -198,11 +198,12 @@ func (h HttpHeaderService) Update(ctx context.Context, header *mhttp.HTTPHeader)
 
 	dbHeader := SerializeHeaderModelToGen(*header)
 	return h.queries.UpdateHTTPHeader(ctx, gen.UpdateHTTPHeaderParams{
-		HeaderKey:   dbHeader.HeaderKey,
-		HeaderValue: dbHeader.HeaderValue,
-		Description: dbHeader.Description,
-		Enabled:     dbHeader.Enabled,
-		ID:          dbHeader.ID,
+		HeaderKey:    dbHeader.HeaderKey,
+		HeaderValue:  dbHeader.HeaderValue,
+		Description:  dbHeader.Description,
+		Enabled:      dbHeader.Enabled,
+		DisplayOrder: dbHeader.DisplayOrder,
+		ID:           dbHeader.ID,
 	})
 }
 

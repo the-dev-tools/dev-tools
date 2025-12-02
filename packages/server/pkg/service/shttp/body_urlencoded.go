@@ -188,12 +188,10 @@ func (s *HttpBodyUrlEncodedService) Update(ctx context.Context, body *mhttp.HTTP
 		Value:       body.Value,
 		Description: body.Description,
 		Enabled:     body.Enabled,
+		Order:       float64(body.Order),
 		ID:          body.ID,
 	})
 }
-
-// Note: UpdateOrder is not available for HTTPBodyUrlEncoded
-// Order updates would need to be handled through a dedicated query if needed
 
 func (s *HttpBodyUrlEncodedService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
 	return s.queries.UpdateHTTPBodyUrlEncodedDelta(ctx, gen.UpdateHTTPBodyUrlEncodedDeltaParams{
