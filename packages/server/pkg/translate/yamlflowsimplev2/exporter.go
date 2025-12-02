@@ -110,7 +110,143 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		Flows:         make([]YamlFlowFlowV2, 0),
 	}
 
-	// 2. Process each Flow
+	// 2. Build top-level requests section from HTTP requests
+	// Track which HTTP IDs we've already added to avoid duplicates
+	httpIDToRequestName := make(map[idwrap.IDWrap]string)
+	requestNameUsed := make(map[string]bool)
+
+	// First pass: collect all HTTP requests used in flows and create unique names
+	for _, flow := range data.Flows {
+		for _, n := range data.FlowNodes {
+			if n.FlowID != flow.ID || n.NodeKind != mnnode.NODE_KIND_REQUEST {
+				continue
+			}
+			reqNode, ok := reqNodeMap[n.ID]
+			if !ok || reqNode.HttpID == nil {
+				continue
+			}
+			httpReq, ok := httpMap[*reqNode.HttpID]
+			if !ok {
+				continue
+			}
+
+			// Skip if already added
+			if _, exists := httpIDToRequestName[httpReq.ID]; exists {
+				continue
+			}
+
+			// Use HTTP request name as the request template name
+			reqName := httpReq.Name
+			if reqName == "" {
+				reqName = "Request"
+			}
+
+			// Ensure unique name
+			baseName := reqName
+			counter := 1
+			for requestNameUsed[reqName] {
+				reqName = fmt.Sprintf("%s_%d", baseName, counter)
+				counter++
+			}
+			requestNameUsed[reqName] = true
+			httpIDToRequestName[httpReq.ID] = reqName
+		}
+	}
+
+	// Second pass: build the requests section
+	var requests []map[string]any
+	// Sort HTTP IDs for deterministic output
+	var httpIDs []idwrap.IDWrap
+	for httpID := range httpIDToRequestName {
+		httpIDs = append(httpIDs, httpID)
+	}
+	sort.Slice(httpIDs, func(i, j int) bool {
+		return httpIDToRequestName[httpIDs[i]] < httpIDToRequestName[httpIDs[j]]
+	})
+
+	for _, httpID := range httpIDs {
+		reqName := httpIDToRequestName[httpID]
+		httpReq := httpMap[httpID]
+
+		reqMap := map[string]any{
+			"name":   reqName,
+			"method": httpReq.Method,
+			"url":    httpReq.Url,
+		}
+
+		// Headers (as simple map for cleaner output)
+		if hdrs, ok := headersMap[httpID]; ok && len(hdrs) > 0 {
+			hdrMap := make(map[string]string)
+			for _, h := range hdrs {
+				if h.Enabled {
+					hdrMap[h.Key] = h.Value
+				}
+			}
+			if len(hdrMap) > 0 {
+				reqMap["headers"] = hdrMap
+			}
+		}
+
+		// Query Params (as simple map for cleaner output)
+		if params, ok := paramsMap[httpID]; ok && len(params) > 0 {
+			paramMap := make(map[string]string)
+			for _, p := range params {
+				if p.Enabled {
+					paramMap[p.Key] = p.Value
+				}
+			}
+			if len(paramMap) > 0 {
+				reqMap["query_params"] = paramMap
+			}
+		}
+
+		// Body
+		if forms, ok := bodyFormMap[httpID]; ok && len(forms) > 0 {
+			bodyData := map[string]any{"type": "form-data"}
+			fList := make([]map[string]any, 0)
+			for _, f := range forms {
+				if f.Enabled {
+					fList = append(fList, map[string]any{"name": f.Key, "value": f.Value})
+				}
+			}
+			bodyData["form_data"] = fList
+			reqMap["body"] = bodyData
+		} else if urls, ok := bodyUrlMap[httpID]; ok && len(urls) > 0 {
+			bodyData := map[string]any{"type": "urlencoded"}
+			uList := make([]map[string]any, 0)
+			for _, u := range urls {
+				if u.Enabled {
+					uList = append(uList, map[string]any{"name": u.Key, "value": u.Value})
+				}
+			}
+			bodyData["urlencoded"] = uList
+			reqMap["body"] = bodyData
+		} else if raw, ok := bodyRawMap[httpID]; ok {
+			dataBytes := raw.RawData
+			if raw.CompressionType != int8(compress.CompressTypeNone) {
+				decompressed, err := compress.Decompress(dataBytes, compress.CompressType(raw.CompressionType))
+				if err == nil {
+					dataBytes = decompressed
+				}
+			}
+
+			var jsonObj any
+			if json.Unmarshal(dataBytes, &jsonObj) == nil {
+				// For JSON bodies, use proper type: json format for round-trip compatibility
+				reqMap["body"] = map[string]any{"type": "json", "json": jsonObj}
+			} else if len(dataBytes) > 0 {
+				reqMap["body"] = map[string]any{"type": "raw", "raw": string(dataBytes)}
+			}
+		}
+
+		requests = append(requests, reqMap)
+	}
+
+	if len(requests) > 0 {
+		yamlFormat.Requests = requests
+	}
+
+	// 3. Process each Flow
 	for _, flow := range data.Flows {
 		flowYaml := YamlFlowFlowV2{
 			Name:      flow.Name,
@@ -210,96 +346,13 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 					continue
 				}
 
-				baseStep["method"] = httpReq.Method
-				baseStep["url"] = httpReq.Url
-
-				// Headers
-				if hdrs, ok := headersMap[httpReq.ID]; ok && len(hdrs) > 0 {
-					// To match v2 schema tests which use map format often, or list format.
-					// v2 schema supports list of objects with name/value/enabled.
-					hList := make([]map[string]any, 0)
-					for _, h := range hdrs {
-						if !h.Enabled {
-							continue
-						}
-						hList = append(hList, map[string]any{
-							"name":  h.Key,
-							"value": h.Value,
-						})
-					}
-					if len(hList) > 0 {
-						baseStep["headers"] = hList
-					}
-				}
-
-				// Query Params
-				if params, ok := paramsMap[httpReq.ID]; ok && len(params) > 0 {
-					pList := make([]map[string]any, 0)
-					for _, p := range params {
-						if !p.Enabled {
-							continue
-						}
-						pList = append(pList, map[string]any{
-							"name":  p.Key,
-							"value": p.Value,
-						})
-					}
-					if len(pList) > 0 {
-						baseStep["query_params"] = pList
-					}
-				}
-
-				// Body
-				bodyData := make(map[string]any)
-				if forms, ok := bodyFormMap[httpReq.ID]; ok && len(forms) > 0 {
-					bodyData["type"] = "form-data"
-					fList := make([]map[string]any, 0)
-					for _, f := range forms {
-						if !f.Enabled {
-							continue
-						}
-						fList = append(fList, map[string]any{
-							"name":  f.Key,
-							"value": f.Value,
-						})
-					}
-					bodyData["form_data"] = fList
-				} else if urls, ok := bodyUrlMap[httpReq.ID]; ok && len(urls) > 0 {
-					bodyData["type"] = "urlencoded"
-					uList := make([]map[string]any, 0)
-					for _, u := range urls {
-						if !u.Enabled {
-							continue
-						}
-						uList = append(uList, map[string]any{
-							"name":  u.Key,
-							"value": u.Value,
-						})
-					}
-					bodyData["urlencoded"] = uList
-				} else if raw, ok := bodyRawMap[httpReq.ID]; ok {
-					// Decompress if needed
-					dataBytes := raw.RawData
-					if raw.CompressionType != int8(compress.CompressTypeNone) {
-						decompressed, err := compress.Decompress(dataBytes, compress.CompressType(raw.CompressionType))
-						if err == nil {
-							dataBytes = decompressed
-						}
-					}
-
-					// Try JSON
-					var jsonObj any
-					if json.Unmarshal(dataBytes, &jsonObj) == nil {
-						bodyData["type"] = "json"
-						bodyData["json"] = jsonObj
-					} else {
-						bodyData["type"] = "raw"
-						bodyData["raw"] = string(dataBytes)
-					}
-				}
-
-				if len(bodyData) > 0 {
-					baseStep["body"] = bodyData
+				// Use use_request to reference the top-level request
+				if reqName, exists := httpIDToRequestName[httpReq.ID]; exists {
+					baseStep["use_request"] = reqName
+				} else {
+					// Fallback to inline (shouldn't happen)
+					baseStep["method"] = httpReq.Method
+					baseStep["url"] = httpReq.Url
 				}
 
 				stepMap["request"] = baseStep

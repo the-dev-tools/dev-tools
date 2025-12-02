@@ -17,6 +17,7 @@ import (
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -89,8 +90,13 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 		return nil, fmt.Errorf("failed to parse request templates: %w", err)
 	}
 
-	// Initialize resolved data structure
-	result := &ioworkspace.WorkspaceBundle{}
+	// Initialize resolved data structure with workspace metadata
+	result := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   opts.WorkspaceID,
+			Name: yamlFormat.WorkspaceName,
+		},
+	}
 
 	// Process flows and generate HTTP requests
 	for _, flowEntry := range yamlFormat.Flows {
