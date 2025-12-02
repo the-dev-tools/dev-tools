@@ -11,6 +11,7 @@ import (
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -59,7 +60,7 @@ const (
 )
 
 // ConvertSimplifiedYAML converts simplified YAML to modern HTTP and flow models
-func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*SimplifiedYAMLResolvedV2, error) {
+func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.WorkspaceBundle, error) {
 	// Validate options
 	if err := opts.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
@@ -89,7 +90,7 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*SimplifiedYAMLR
 	}
 
 	// Initialize resolved data structure
-	result := &SimplifiedYAMLResolvedV2{}
+	result := &ioworkspace.WorkspaceBundle{}
 
 	// Process flows and generate HTTP requests
 	for _, flowEntry := range yamlFormat.Flows {
@@ -388,8 +389,8 @@ func parseAssertion(data map[string]any) YamlAssertionV2 {
 }
 
 // processFlow processes a single flow and returns the generated data
-func processFlow(flowEntry YamlFlowFlowV2, runEntries []RunEntry, templates map[string]*YamlHTTPRequestV2, rawData map[string]any, opts ConvertOptionsV2) (*SimplifiedYAMLResolvedV2, error) {
-	result := &SimplifiedYAMLResolvedV2{}
+func processFlow(flowEntry YamlFlowFlowV2, runEntries []RunEntry, templates map[string]*YamlHTTPRequestV2, rawData map[string]any, opts ConvertOptionsV2) (*ioworkspace.WorkspaceBundle, error) {
+	result := &ioworkspace.WorkspaceBundle{}
 
 	// Create flow entity
 	flowID := idwrap.NewNow()
@@ -434,7 +435,7 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []RunEntry, templates map[
 }
 
 // processFlowVariables processes flow variables and returns a variable map
-func processFlowVariables(flowEntry YamlFlowFlowV2, flowID idwrap.IDWrap, result *SimplifiedYAMLResolvedV2) (varsystem.VarMap, error) {
+func processFlowVariables(flowEntry YamlFlowFlowV2, flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) (varsystem.VarMap, error) {
 
 	// Create flow variable entities
 	for _, variable := range flowEntry.Variables {
@@ -490,7 +491,7 @@ type nodeInfo struct {
 }
 
 // createStartNode creates the start node for a flow
-func createStartNode(flowID idwrap.IDWrap, result *SimplifiedYAMLResolvedV2) idwrap.IDWrap {
+func createStartNode(flowID idwrap.IDWrap, result *ioworkspace.WorkspaceBundle) idwrap.IDWrap {
 	startNodeID := idwrap.NewNow()
 
 	startNode := mnnode.MNode{
@@ -511,7 +512,7 @@ func createStartNode(flowID idwrap.IDWrap, result *SimplifiedYAMLResolvedV2) idw
 }
 
 // processSteps processes all steps in a flow
-func processSteps(flowEntry YamlFlowFlowV2, rawSteps []map[string]any, templates map[string]*YamlHTTPRequestV2, varMap varsystem.VarMap, flowID, startNodeID idwrap.IDWrap, opts ConvertOptionsV2, result *SimplifiedYAMLResolvedV2) (map[string]*nodeInfo, []*nodeInfo, error) {
+func processSteps(flowEntry YamlFlowFlowV2, rawSteps []map[string]any, templates map[string]*YamlHTTPRequestV2, varMap varsystem.VarMap, flowID, startNodeID idwrap.IDWrap, opts ConvertOptionsV2, result *ioworkspace.WorkspaceBundle) (map[string]*nodeInfo, []*nodeInfo, error) {
 	nodeInfoMap := make(map[string]*nodeInfo)
 	nodeList := make([]*nodeInfo, 0)
 
@@ -916,7 +917,7 @@ func createFileForHTTP(httpReq mhttp.HTTP, opts ConvertOptionsV2) mfile.File {
 }
 
 // processIfStep processes an if step
-func processIfStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *SimplifiedYAMLResolvedV2) error {
+func processIfStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *ioworkspace.WorkspaceBundle) error {
 	condition, ok := stepData[fieldCondition].(string)
 	if !ok || condition == "" {
 		return NewYamlFlowErrorV2(fmt.Sprintf("if step '%s' missing required condition", nodeName), fieldCondition, nil)
@@ -944,7 +945,7 @@ func processIfStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[s
 }
 
 // processForStep processes a for step
-func processForStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *SimplifiedYAMLResolvedV2) error {
+func processForStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *ioworkspace.WorkspaceBundle) error {
 	iterCount := 1 // Default to 1 if not specified
 	if val, ok := stepData[fieldIterCount]; ok {
 		switch v := val.(type) {
@@ -975,7 +976,7 @@ func processForStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[
 }
 
 // processForEachStep processes a for_each step
-func processForEachStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *SimplifiedYAMLResolvedV2) error {
+func processForEachStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *ioworkspace.WorkspaceBundle) error {
 	items, ok := stepData[fieldItems].(string)
 	if !ok || items == "" {
 		return NewYamlFlowErrorV2(fmt.Sprintf("for_each step '%s' missing required items", nodeName), fieldItems, nil)
@@ -1001,7 +1002,7 @@ func processForEachStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData 
 }
 
 // processJSStep processes a JavaScript step
-func processJSStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *SimplifiedYAMLResolvedV2) error {
+func processJSStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[string]any, result *ioworkspace.WorkspaceBundle) error {
 	code, ok := stepData[fieldCode].(string)
 	if !ok || code == "" {
 		return NewYamlFlowErrorV2(fmt.Sprintf("js step '%s' missing required code", nodeName), fieldCode, nil)
@@ -1030,7 +1031,7 @@ func processJSStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData map[s
 }
 
 // mergeFlowData merges flow data into the main result
-func mergeFlowData(result, flowData *SimplifiedYAMLResolvedV2, opts ConvertOptionsV2) {
+func mergeFlowData(result, flowData *ioworkspace.WorkspaceBundle, opts ConvertOptionsV2) {
 	result.Flows = append(result.Flows, flowData.Flows...)
 	result.FlowNodes = append(result.FlowNodes, flowData.FlowNodes...)
 	result.FlowEdges = append(result.FlowEdges, flowData.FlowEdges...)
@@ -1044,23 +1045,23 @@ func mergeFlowData(result, flowData *SimplifiedYAMLResolvedV2, opts ConvertOptio
 
 	// Merge HTTP-related data
 	result.HTTPRequests = append(result.HTTPRequests, flowData.HTTPRequests...)
-	result.Headers = append(result.Headers, flowData.Headers...)
-	result.SearchParams = append(result.SearchParams, flowData.SearchParams...)
-	result.BodyForms = append(result.BodyForms, flowData.BodyForms...)
-	result.BodyUrlencoded = append(result.BodyUrlencoded, flowData.BodyUrlencoded...)
-	result.BodyRaw = append(result.BodyRaw, flowData.BodyRaw...)
+	result.HTTPHeaders = append(result.HTTPHeaders, flowData.HTTPHeaders...)
+	result.HTTPSearchParams = append(result.HTTPSearchParams, flowData.HTTPSearchParams...)
+	result.HTTPBodyForms = append(result.HTTPBodyForms, flowData.HTTPBodyForms...)
+	result.HTTPBodyUrlencoded = append(result.HTTPBodyUrlencoded, flowData.HTTPBodyUrlencoded...)
+	result.HTTPBodyRaw = append(result.HTTPBodyRaw, flowData.HTTPBodyRaw...)
 	result.Files = append(result.Files, flowData.Files...)
 }
 
 // mergeAssociatedData merges associated HTTP data into the result
-func mergeAssociatedData(result *SimplifiedYAMLResolvedV2, associated *HTTPAssociatedData) {
+func mergeAssociatedData(result *ioworkspace.WorkspaceBundle, associated *HTTPAssociatedData) {
 	if associated != nil {
-		result.Headers = append(result.Headers, associated.Headers...)
-		result.SearchParams = append(result.SearchParams, associated.SearchParams...)
-		result.BodyForms = append(result.BodyForms, associated.BodyForms...)
-		result.BodyUrlencoded = append(result.BodyUrlencoded, associated.BodyUrlencoded...)
+		result.HTTPHeaders = append(result.HTTPHeaders, associated.Headers...)
+		result.HTTPSearchParams = append(result.HTTPSearchParams, associated.SearchParams...)
+		result.HTTPBodyForms = append(result.HTTPBodyForms, associated.BodyForms...)
+		result.HTTPBodyUrlencoded = append(result.HTTPBodyUrlencoded, associated.BodyUrlencoded...)
 		if associated.BodyRaw != nil {
-			result.BodyRaw = append(result.BodyRaw, associated.BodyRaw)
+			result.HTTPBodyRaw = append(result.HTTPBodyRaw, *associated.BodyRaw)
 		}
 		if associated.FlowNode != nil {
 			result.FlowNodes = append(result.FlowNodes, *associated.FlowNode)
@@ -1072,7 +1073,7 @@ func mergeAssociatedData(result *SimplifiedYAMLResolvedV2, associated *HTTPAssoc
 }
 
 // createEdges creates flow edges based on dependencies and control flow
-func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, rawSteps []map[string]any, result *SimplifiedYAMLResolvedV2) error {
+func createEdges(flowID, startNodeID idwrap.IDWrap, nodeInfoMap map[string]*nodeInfo, nodeList []*nodeInfo, rawSteps []map[string]any, result *ioworkspace.WorkspaceBundle) error {
 	// Track which nodes have incoming edges
 	hasIncoming := make(map[idwrap.IDWrap]bool)
 

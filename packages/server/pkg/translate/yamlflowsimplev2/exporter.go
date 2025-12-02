@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
@@ -21,7 +22,7 @@ import (
 )
 
 // MarshalSimplifiedYAML converts resolved data structures back to the simplified YAML format
-func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
+func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	if data == nil {
 		return nil, fmt.Errorf("input data is nil")
 	}
@@ -40,29 +41,27 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 
 	// HTTP Related Data Maps
 	headersMap := make(map[idwrap.IDWrap][]mhttp.HTTPHeader)
-	for _, h := range data.Headers {
+	for _, h := range data.HTTPHeaders {
 		headersMap[h.HttpID] = append(headersMap[h.HttpID], h)
 	}
 
 	paramsMap := make(map[idwrap.IDWrap][]mhttp.HTTPSearchParam)
-	for _, p := range data.SearchParams {
+	for _, p := range data.HTTPSearchParams {
 		paramsMap[p.HttpID] = append(paramsMap[p.HttpID], p)
 	}
 
-	bodyRawMap := make(map[idwrap.IDWrap]*mhttp.HTTPBodyRaw)
-	for _, b := range data.BodyRaw {
-		if b != nil {
-			bodyRawMap[b.HttpID] = b
-		}
+	bodyRawMap := make(map[idwrap.IDWrap]mhttp.HTTPBodyRaw)
+	for _, b := range data.HTTPBodyRaw {
+		bodyRawMap[b.HttpID] = b
 	}
 
 	bodyFormMap := make(map[idwrap.IDWrap][]mhttp.HTTPBodyForm)
-	for _, f := range data.BodyForms {
+	for _, f := range data.HTTPBodyForms {
 		bodyFormMap[f.HttpID] = append(bodyFormMap[f.HttpID], f)
 	}
 
 	bodyUrlMap := make(map[idwrap.IDWrap][]mhttp.HTTPBodyUrlencoded)
-	for _, u := range data.BodyUrlencoded {
+	for _, u := range data.HTTPBodyUrlencoded {
 		bodyUrlMap[u.HttpID] = append(bodyUrlMap[u.HttpID], u)
 	}
 

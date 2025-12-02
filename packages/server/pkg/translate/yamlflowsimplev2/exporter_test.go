@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 )
@@ -100,7 +101,7 @@ flows:
 	}
 
 	// Deep dive into a specific request to check body preservation
-	findRequest := func(data *SimplifiedYAMLResolvedV2, name string) *mnrequest.MNRequest {
+	findRequest := func(data *ioworkspace.WorkspaceBundle, name string) *mnrequest.MNRequest {
 		var nodeID idwrap.IDWrap
 		found := false
 		for _, n := range data.FlowNodes {
@@ -119,7 +120,7 @@ flows:
 		return nil
 	}
 
-	findHTTP := func(data *SimplifiedYAMLResolvedV2, id idwrap.IDWrap) *mhttp.HTTP {
+	findHTTP := func(data *ioworkspace.WorkspaceBundle, id idwrap.IDWrap) *mhttp.HTTP {
 		for _, h := range data.HTTPRequests {
 			if h.ID == id {
 				return &h
@@ -141,7 +142,7 @@ flows:
 
 	// Check Body Raw
 	foundBody := false
-	for _, b := range reImportedData.BodyRaw {
+	for _, b := range reImportedData.HTTPBodyRaw {
 		if b.HttpID == httpReq.ID {
 			foundBody = true
 			if b.ContentType != "application/json" {

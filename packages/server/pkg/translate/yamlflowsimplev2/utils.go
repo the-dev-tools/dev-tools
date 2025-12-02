@@ -9,6 +9,7 @@ import (
 
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/model/mhttp"
@@ -209,53 +210,53 @@ func ValidateYAMLStructure(yamlFormat *YamlFlowFormatV2) error {
 }
 
 // OptimizeYAMLData optimizes the parsed YAML data for better performance
-func OptimizeYAMLData(data *SimplifiedYAMLResolvedV2) {
+func OptimizeYAMLData(data *ioworkspace.WorkspaceBundle) {
 	// Sort headers by key for consistent ordering
-	for i := 1; i < len(data.Headers); i++ {
-		if data.Headers[i].Key < data.Headers[i-1].Key {
+	for i := 1; i < len(data.HTTPHeaders); i++ {
+		if data.HTTPHeaders[i].Key < data.HTTPHeaders[i-1].Key {
 			// Simple bubble sort for small arrays
-			for j := i; j > 0 && data.Headers[j].Key < data.Headers[j-1].Key; j-- {
-				data.Headers[j], data.Headers[j-1] = data.Headers[j-1], data.Headers[j]
+			for j := i; j > 0 && data.HTTPHeaders[j].Key < data.HTTPHeaders[j-1].Key; j-- {
+				data.HTTPHeaders[j], data.HTTPHeaders[j-1] = data.HTTPHeaders[j-1], data.HTTPHeaders[j]
 			}
 		}
 	}
 
 	// Sort search params by key
-	for i := 1; i < len(data.SearchParams); i++ {
-		if data.SearchParams[i].Key < data.SearchParams[i-1].Key {
-			for j := i; j > 0 && data.SearchParams[j].Key < data.SearchParams[j-1].Key; j-- {
-				data.SearchParams[j], data.SearchParams[j-1] = data.SearchParams[j-1], data.SearchParams[j]
+	for i := 1; i < len(data.HTTPSearchParams); i++ {
+		if data.HTTPSearchParams[i].Key < data.HTTPSearchParams[i-1].Key {
+			for j := i; j > 0 && data.HTTPSearchParams[j].Key < data.HTTPSearchParams[j-1].Key; j-- {
+				data.HTTPSearchParams[j], data.HTTPSearchParams[j-1] = data.HTTPSearchParams[j-1], data.HTTPSearchParams[j]
 			}
 		}
 	}
 
 	// Deduplicate identical headers
 	seenHeaders := make(map[string]bool)
-	filteredHeaders := make([]mhttp.HTTPHeader, 0, len(data.Headers))
-	for _, header := range data.Headers {
+	filteredHeaders := make([]mhttp.HTTPHeader, 0, len(data.HTTPHeaders))
+	for _, header := range data.HTTPHeaders {
 		key := fmt.Sprintf("%s:%s", header.Key, header.Value)
 		if !seenHeaders[key] {
 			seenHeaders[key] = true
 			filteredHeaders = append(filteredHeaders, header)
 		}
 	}
-	data.Headers = filteredHeaders
+	data.HTTPHeaders = filteredHeaders
 
 	// Deduplicate identical search params
 	seenParams := make(map[string]bool)
-	filteredParams := make([]mhttp.HTTPSearchParam, 0, len(data.SearchParams))
-	for _, param := range data.SearchParams {
+	filteredParams := make([]mhttp.HTTPSearchParam, 0, len(data.HTTPSearchParams))
+	for _, param := range data.HTTPSearchParams {
 		key := fmt.Sprintf("%s:%s", param.Key, param.Value)
 		if !seenParams[key] {
 			seenParams[key] = true
 			filteredParams = append(filteredParams, param)
 		}
 	}
-	data.SearchParams = filteredParams
+	data.HTTPSearchParams = filteredParams
 }
 
 // CreateSummary creates a human-readable summary of the imported data
-func CreateSummary(data *SimplifiedYAMLResolvedV2) map[string]interface{} {
+func CreateSummary(data *ioworkspace.WorkspaceBundle) map[string]interface{} {
 	return map[string]interface{}{
 		"workspace_id":      data.Flows[0].WorkspaceID, // Assuming all flows share the same workspace
 		"total_flows":       len(data.Flows),
@@ -268,7 +269,7 @@ func CreateSummary(data *SimplifiedYAMLResolvedV2) map[string]interface{} {
 }
 
 // createFlowSummary creates a summary of flows
-func createFlowSummary(data *SimplifiedYAMLResolvedV2) []map[string]interface{} {
+func createFlowSummary(data *ioworkspace.WorkspaceBundle) []map[string]interface{} {
 	var summary []map[string]interface{}
 
 	for _, flow := range data.Flows {
@@ -286,7 +287,7 @@ func createFlowSummary(data *SimplifiedYAMLResolvedV2) []map[string]interface{} 
 }
 
 // createRequestSummary creates a summary of HTTP requests
-func createRequestSummary(data *SimplifiedYAMLResolvedV2) map[string]interface{} {
+func createRequestSummary(data *ioworkspace.WorkspaceBundle) map[string]interface{} {
 	methods := make(map[string]int)
 	hasHeaders := 0
 	hasBody := 0
@@ -296,7 +297,7 @@ func createRequestSummary(data *SimplifiedYAMLResolvedV2) map[string]interface{}
 
 		// Count headers for this request
 		reqHeaders := 0
-		for _, header := range data.Headers {
+		for _, header := range data.HTTPHeaders {
 			if header.HttpID.Compare(req.ID) == 0 {
 				reqHeaders++
 			}
@@ -306,7 +307,7 @@ func createRequestSummary(data *SimplifiedYAMLResolvedV2) map[string]interface{}
 		}
 
 		// Check if request has body
-		for _, body := range data.BodyRaw {
+		for _, body := range data.HTTPBodyRaw {
 			if body.HttpID.Compare(req.ID) == 0 {
 				hasBody++
 				break
@@ -318,8 +319,8 @@ func createRequestSummary(data *SimplifiedYAMLResolvedV2) map[string]interface{}
 		"methods":        methods,
 		"with_headers":   hasHeaders,
 		"with_body":      hasBody,
-		"total_headers":  len(data.Headers),
-		"total_params":   len(data.SearchParams),
+		"total_headers":  len(data.HTTPHeaders),
+		"total_params":   len(data.HTTPSearchParams),
 	}
 }
 
@@ -355,7 +356,7 @@ func countFlowVariables(flowID idwrap.IDWrap, variables []mflowvariable.FlowVari
 }
 
 // ValidateReferences ensures all references in the data are valid
-func ValidateReferences(data *SimplifiedYAMLResolvedV2) error {
+func ValidateReferences(data *ioworkspace.WorkspaceBundle) error {
 	// Validate that all flow nodes reference valid flows
 	flowIDs := make(map[idwrap.IDWrap]bool)
 	for _, flow := range data.Flows {
@@ -389,7 +390,7 @@ func ValidateReferences(data *SimplifiedYAMLResolvedV2) error {
 		httpIDs[http.ID] = true
 	}
 
-	for _, header := range data.Headers {
+	for _, header := range data.HTTPHeaders {
 		if !httpIDs[header.HttpID] {
 			return NewYamlFlowErrorV2(fmt.Sprintf("header references non-existent HTTP request: %s", header.HttpID), "header_http_id", header.ID)
 		}
@@ -399,7 +400,7 @@ func ValidateReferences(data *SimplifiedYAMLResolvedV2) error {
 }
 
 // GenerateStats generates detailed statistics about the imported data
-func GenerateStats(data *SimplifiedYAMLResolvedV2) map[string]interface{} {
+func GenerateStats(data *ioworkspace.WorkspaceBundle) map[string]interface{} {
 	stats := make(map[string]interface{})
 
 	// Basic counts
@@ -424,9 +425,9 @@ func GenerateStats(data *SimplifiedYAMLResolvedV2) map[string]interface{} {
 	stats["flow_node_types"] = nodeTypes
 
 	// Body statistics
-	stats["bodies_raw"] = len(data.BodyRaw)
-	stats["bodies_form"] = len(data.BodyForms)
-	stats["bodies_urlencoded"] = len(data.BodyUrlencoded)
+	stats["bodies_raw"] = len(data.HTTPBodyRaw)
+	stats["bodies_form"] = len(data.HTTPBodyForms)
+	stats["bodies_urlencoded"] = len(data.HTTPBodyUrlencoded)
 
 	// Average nodes per flow
 	if len(data.Flows) > 0 {

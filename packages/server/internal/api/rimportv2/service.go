@@ -799,8 +799,11 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		bodyUrlEncodedPtr[i] = &translationResult.BodyUrlencoded[i]
 	}
 
-	// BodyRaw is already []*mhttp.HTTPBodyRaw in TranslationResult
-	bodyRawsPtr := translationResult.BodyRaw
+	// Convert BodyRaw from []mhttp.HTTPBodyRaw to []*mhttp.HTTPBodyRaw
+	bodyRawsPtr := make([]*mhttp.HTTPBodyRaw, len(translationResult.BodyRaw))
+	for i := range translationResult.BodyRaw {
+		bodyRawsPtr[i] = &translationResult.BodyRaw[i]
+	}
 
 	// Only support single flow for now in ImportResults
 	var flow *mflow.Flow

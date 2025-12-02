@@ -6,6 +6,7 @@ import (
 
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mfile"
 )
 
@@ -85,12 +86,12 @@ flows:
 	}
 
 	// Verify headers
-	if len(result.Headers) != 2 {
-		t.Errorf("Expected 2 headers, got %d", len(result.Headers))
+	if len(result.HTTPHeaders) != 2 {
+		t.Errorf("Expected 2 headers, got %d", len(result.HTTPHeaders))
 	}
 
 	headerMap := make(map[string]string)
-	for _, header := range result.Headers {
+	for _, header := range result.HTTPHeaders {
 		headerMap[header.Key] = header.Value
 	}
 
@@ -103,12 +104,12 @@ flows:
 	}
 
 	// Verify query params
-	if len(result.SearchParams) != 2 {
-		t.Errorf("Expected 2 search params, got %d", len(result.SearchParams))
+	if len(result.HTTPSearchParams) != 2 {
+		t.Errorf("Expected 2 search params, got %d", len(result.HTTPSearchParams))
 	}
 
 	paramMap := make(map[string]string)
-	for _, param := range result.SearchParams {
+	for _, param := range result.HTTPSearchParams {
 		paramMap[param.Key] = param.Value
 	}
 
@@ -121,8 +122,8 @@ flows:
 	}
 
 	// Verify body
-	if len(result.BodyRaw) != 1 {
-		t.Errorf("Expected 1 raw body, got %d", len(result.BodyRaw))
+	if len(result.HTTPBodyRaw) != 1 {
+		t.Errorf("Expected 1 raw body, got %d", len(result.HTTPBodyRaw))
 	}
 
 	// Verify file
@@ -445,7 +446,7 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
 	tests := []struct {
 		name     string
 		bodyYAML string
-		validate func(t *testing.T, result *SimplifiedYAMLResolvedV2)
+		validate func(t *testing.T, result *ioworkspace.WorkspaceBundle)
 	}{
 		{
 			name: "JSON Body",
@@ -457,11 +458,11 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
               number: 42
               nested:
                 field: "data"`,
-			validate: func(t *testing.T, result *SimplifiedYAMLResolvedV2) {
-				if len(result.BodyRaw) != 1 {
-					t.Errorf("Expected 1 raw body, got %d", len(result.BodyRaw))
+			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
+				if len(result.HTTPBodyRaw) != 1 {
+					t.Errorf("Expected 1 raw body, got %d", len(result.HTTPBodyRaw))
 				}
-				body := result.BodyRaw[0]
+				body := result.HTTPBodyRaw[0]
 				if body.ContentType != "application/json" {
 					t.Errorf("Expected content type 'application/json', got '%s'", body.ContentType)
 				}
@@ -473,11 +474,11 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
           body:
             type: "raw"
             raw: "plain text content"`,
-			validate: func(t *testing.T, result *SimplifiedYAMLResolvedV2) {
-				if len(result.BodyRaw) != 1 {
-					t.Errorf("Expected 1 raw body, got %d", len(result.BodyRaw))
+			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
+				if len(result.HTTPBodyRaw) != 1 {
+					t.Errorf("Expected 1 raw body, got %d", len(result.HTTPBodyRaw))
 				}
-				body := result.BodyRaw[0]
+				body := result.HTTPBodyRaw[0]
 				if string(body.RawData) != "plain text content" {
 					t.Errorf("Expected raw body content 'plain text content', got '%s'", string(body.RawData))
 				}
@@ -493,9 +494,9 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
                 value: "john_doe"
               - name: "password"
                 value: "secret123"`,
-			validate: func(t *testing.T, result *SimplifiedYAMLResolvedV2) {
-				if len(result.BodyForms) != 2 {
-					t.Errorf("Expected 2 form fields, got %d", len(result.BodyForms))
+			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
+				if len(result.HTTPBodyForms) != 2 {
+					t.Errorf("Expected 2 form fields, got %d", len(result.HTTPBodyForms))
 				}
 			},
 		},
@@ -509,9 +510,9 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
                 value: "value1"
               - name: "param2"
                 value: "value2"`,
-			validate: func(t *testing.T, result *SimplifiedYAMLResolvedV2) {
-				if len(result.BodyUrlencoded) != 2 {
-					t.Errorf("Expected 2 urlencoded fields, got %d", len(result.BodyUrlencoded))
+			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
+				if len(result.HTTPBodyUrlencoded) != 2 {
+					t.Errorf("Expected 2 urlencoded fields, got %d", len(result.HTTPBodyUrlencoded))
 				}
 			},
 		},
@@ -578,11 +579,11 @@ flows:
 	}
 
 	// Should have 1 raw body with compression
-	if len(result.BodyRaw) != 1 {
-		t.Errorf("Expected 1 raw body, got %d", len(result.BodyRaw))
+	if len(result.HTTPBodyRaw) != 1 {
+		t.Errorf("Expected 1 raw body, got %d", len(result.HTTPBodyRaw))
 	}
 
-	body := result.BodyRaw[0]
+	body := result.HTTPBodyRaw[0]
 	if body.CompressionType != compress.CompressTypeGzip {
 		t.Errorf("Expected compression type %v, got %v", compress.CompressTypeGzip, body.CompressionType)
 	}

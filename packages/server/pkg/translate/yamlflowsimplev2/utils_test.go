@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -284,7 +285,7 @@ func TestGenerateFileOrder(t *testing.T) {
 }
 
 func TestCreateSummary(t *testing.T) {
-	data := &SimplifiedYAMLResolvedV2{
+	data := &ioworkspace.WorkspaceBundle{
 		Flows: []mflow.Flow{
 			{ID: idwrap.NewNow(), Name: "Test Flow 1"},
 			{ID: idwrap.NewNow(), Name: "Test Flow 2"},
@@ -332,12 +333,12 @@ func TestCreateSummary(t *testing.T) {
 func TestValidateReferences(t *testing.T) {
 	tests := []struct {
 		name      string
-		data      *SimplifiedYAMLResolvedV2
+		data      *ioworkspace.WorkspaceBundle
 		expectErr bool
 	}{
 		{
 			name: "Valid data",
-			data: &SimplifiedYAMLResolvedV2{
+			data: &ioworkspace.WorkspaceBundle{
 				Flows: []mflow.Flow{{ID: idwrap.NewNow()}},
 				FlowNodes: []mnnode.MNode{
 					{ID: idwrap.NewNow(), FlowID: idwrap.NewNow()}, // This will be invalid
@@ -363,7 +364,7 @@ func TestValidateReferences(t *testing.T) {
 }
 
 func TestGenerateStats(t *testing.T) {
-	data := &SimplifiedYAMLResolvedV2{
+	data := &ioworkspace.WorkspaceBundle{
 		HTTPRequests: []mhttp.HTTP{
 			{Method: "GET"},
 			{Method: "POST"},
@@ -412,13 +413,13 @@ func TestGenerateStats(t *testing.T) {
 }
 
 func TestOptimizeYAMLData(t *testing.T) {
-	data := &SimplifiedYAMLResolvedV2{
-		Headers: []mhttp.HTTPHeader{
+	data := &ioworkspace.WorkspaceBundle{
+		HTTPHeaders: []mhttp.HTTPHeader{
 			{Key: "B", Value: "value2"},
 			{Key: "A", Value: "value1"},
 			{Key: "B", Value: "value2"}, // Duplicate
 		},
-		SearchParams: []mhttp.HTTPSearchParam{
+		HTTPSearchParams: []mhttp.HTTPSearchParam{
 			{Key: "param2", Value: "value2"},
 			{Key: "param1", Value: "value1"},
 		},
@@ -427,21 +428,21 @@ func TestOptimizeYAMLData(t *testing.T) {
 	OptimizeYAMLData(data)
 
 	// Headers should be sorted and deduplicated
-	if len(data.Headers) != 2 {
-		t.Errorf("Expected 2 headers after optimization, got %d", len(data.Headers))
+	if len(data.HTTPHeaders) != 2 {
+		t.Errorf("Expected 2 headers after optimization, got %d", len(data.HTTPHeaders))
 	}
 
 	// Should be sorted by key
-	if data.Headers[0].Key != "A" || data.Headers[1].Key != "B" {
-		t.Errorf("Headers not sorted correctly: %v", data.Headers)
+	if data.HTTPHeaders[0].Key != "A" || data.HTTPHeaders[1].Key != "B" {
+		t.Errorf("Headers not sorted correctly: %v", data.HTTPHeaders)
 	}
 
 	// Search params should be sorted
-	if len(data.SearchParams) != 2 {
-		t.Errorf("Expected 2 search params, got %d", len(data.SearchParams))
+	if len(data.HTTPSearchParams) != 2 {
+		t.Errorf("Expected 2 search params, got %d", len(data.HTTPSearchParams))
 	}
 
-	if data.SearchParams[0].Key != "param1" || data.SearchParams[1].Key != "param2" {
-		t.Errorf("Search params not sorted correctly: %v", data.SearchParams)
+	if data.HTTPSearchParams[0].Key != "param1" || data.HTTPSearchParams[1].Key != "param2" {
+		t.Errorf("Search params not sorted correctly: %v", data.HTTPSearchParams)
 	}
 }

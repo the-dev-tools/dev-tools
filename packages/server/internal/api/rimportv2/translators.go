@@ -35,7 +35,7 @@ type TranslationResult struct {
 	SearchParams   []mhttp.HTTPSearchParam
 	BodyForms      []mhttp.HTTPBodyForm
 	BodyUrlencoded []mhttp.HTTPBodyUrlencoded
-	BodyRaw        []*mhttp.HTTPBodyRaw
+	BodyRaw        []mhttp.HTTPBodyRaw
 
 	// Flow-specific entities
 	Nodes        []mnnode.MNode
@@ -196,12 +196,9 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
 
-	// Convert BodyRaw slice of values to slice of pointers
+	// Copy body raw data
 	if len(resolved.HTTPBodyRaws) > 0 {
-		result.BodyRaw = make([]*mhttp.HTTPBodyRaw, len(resolved.HTTPBodyRaws))
-		for i := range resolved.HTTPBodyRaws {
-			result.BodyRaw[i] = &resolved.HTTPBodyRaws[i]
-		}
+		result.BodyRaw = resolved.HTTPBodyRaws
 	}
 
 	// Extract domains from HTTP requests
@@ -251,11 +248,11 @@ func (t *YAMLTranslator) Translate(ctx context.Context, data []byte, workspaceID
 		HTTPRequests:   resolved.HTTPRequests,
 		Files:          resolved.Files,
 		Flows:          resolved.Flows,
-		Headers:        resolved.Headers,
-		SearchParams:   resolved.SearchParams,
-		BodyForms:      resolved.BodyForms,
-		BodyUrlencoded: resolved.BodyUrlencoded,
-		BodyRaw:        resolved.BodyRaw,
+		Headers:        resolved.HTTPHeaders,
+		SearchParams:   resolved.HTTPSearchParams,
+		BodyForms:      resolved.HTTPBodyForms,
+		BodyUrlencoded: resolved.HTTPBodyUrlencoded,
+		BodyRaw:        resolved.HTTPBodyRaw,
 		ProcessedAt:    time.Now().UnixMilli(),
 	}
 
@@ -309,7 +306,7 @@ func (t *CURLTranslator) Translate(ctx context.Context, data []byte, workspaceID
 	}
 
 	if resolved.BodyRaw != nil {
-		result.BodyRaw = []*mhttp.HTTPBodyRaw{resolved.BodyRaw}
+		result.BodyRaw = []mhttp.HTTPBodyRaw{*resolved.BodyRaw}
 	}
 
 	// Extract domains from HTTP requests
@@ -358,8 +355,17 @@ func (t *PostmanTranslator) Translate(ctx context.Context, data []byte, workspac
 		SearchParams:   resolved.SearchParams,
 		BodyForms:      resolved.BodyForms,
 		BodyUrlencoded: resolved.BodyUrlencoded,
-		BodyRaw:        resolved.BodyRaw,
 		ProcessedAt:    time.Now().UnixMilli(),
+	}
+
+	// Convert BodyRaw from pointer slice to value slice
+	if len(resolved.BodyRaw) > 0 {
+		result.BodyRaw = make([]mhttp.HTTPBodyRaw, 0, len(resolved.BodyRaw))
+		for _, br := range resolved.BodyRaw {
+			if br != nil {
+				result.BodyRaw = append(result.BodyRaw, *br)
+			}
+		}
 	}
 
 	// Extract domains from HTTP requests

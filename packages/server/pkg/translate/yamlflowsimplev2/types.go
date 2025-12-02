@@ -6,10 +6,7 @@ import (
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
-	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnforeach"
@@ -53,34 +50,6 @@ type YamlEnvironmentV2 struct {
 	Name        string            `yaml:"name"`
 	Description string            `yaml:"description,omitempty"`
 	Variables   map[string]string `yaml:"variables"`
-}
-
-// SimplifiedYAMLResolvedV2 contains all entities parsed from simplified YAML using modern models
-type SimplifiedYAMLResolvedV2 struct {
-	// Modern HTTP models (direct to workspace)
-	HTTPRequests []mhttp.HTTP
-
-	// Associated HTTP data structures
-	SearchParams   []mhttp.HTTPSearchParam
-	Headers        []mhttp.HTTPHeader
-	BodyForms      []mhttp.HTTPBodyForm
-	BodyUrlencoded []mhttp.HTTPBodyUrlencoded
-	BodyRaw        []*mhttp.HTTPBodyRaw
-
-	// File organization for workspace
-	Files []mfile.File
-
-	// Flow structures (unchanged but with direct workspace integration)
-	Flows              []mflow.Flow
-	FlowNodes          []mnnode.MNode
-	FlowEdges          []edge.Edge
-	FlowVariables      []mflowvariable.FlowVariable
-	FlowRequestNodes   []mnrequest.MNRequest
-	FlowConditionNodes []mnif.MNIF
-	FlowNoopNodes      []mnnoop.NoopNode
-	FlowForNodes       []mnfor.MNFor
-	FlowForEachNodes   []mnforeach.MNForEach
-	FlowJSNodes        []mnjs.MNJS
 }
 
 // ConvertOptionsV2 contains options for modern YAML conversion
@@ -296,57 +265,3 @@ func GetDefaultOptions(workspaceID idwrap.IDWrap) ConvertOptionsV2 {
 	}
 }
 
-// Helper functions for working with the data structures
-
-// GetHTTPByID finds an HTTP request by ID in the resolved data
-func (syr *SimplifiedYAMLResolvedV2) GetHTTPByID(id idwrap.IDWrap) *mhttp.HTTP {
-	for _, http := range syr.HTTPRequests {
-		if http.ID.Compare(id) == 0 {
-			return &http
-		}
-	}
-	return nil
-}
-
-// GetFileByContentID finds a file by its ContentID in the resolved data
-func (syr *SimplifiedYAMLResolvedV2) GetFileByContentID(contentID idwrap.IDWrap) *mfile.File {
-	for _, file := range syr.Files {
-		if file.ContentID != nil && file.ContentID.Compare(contentID) == 0 {
-			return &file
-		}
-	}
-	return nil
-}
-
-// GetFlowByName finds a flow by name in the resolved data
-func (syr *SimplifiedYAMLResolvedV2) GetFlowByName(name string) *mflow.Flow {
-	for _, flow := range syr.Flows {
-		if flow.Name == name {
-			return &flow
-		}
-	}
-	return nil
-}
-
-// CountEntities returns a summary of entities in the resolved data
-func (syr *SimplifiedYAMLResolvedV2) CountEntities() map[string]int {
-	return map[string]int{
-		"http_requests":      len(syr.HTTPRequests),
-		"search_params":      len(syr.SearchParams),
-		"headers":           len(syr.Headers),
-		"body_forms":        len(syr.BodyForms),
-		"body_urlencoded":   len(syr.BodyUrlencoded),
-		"body_raw":          len(syr.BodyRaw),
-		"files":             len(syr.Files),
-		"flows":             len(syr.Flows),
-		"flow_nodes":        len(syr.FlowNodes),
-		"flow_edges":        len(syr.FlowEdges),
-		"flow_variables":    len(syr.FlowVariables),
-		"flow_request_nodes": len(syr.FlowRequestNodes),
-		"flow_condition_nodes": len(syr.FlowConditionNodes),
-		"flow_noop_nodes":   len(syr.FlowNoopNodes),
-		"flow_for_nodes":    len(syr.FlowForNodes),
-		"flow_foreach_nodes": len(syr.FlowForEachNodes),
-		"flow_js_nodes":     len(syr.FlowJSNodes),
-	}
-}

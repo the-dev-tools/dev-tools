@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/translate/tcurlv2"
 	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
 )
@@ -40,7 +41,7 @@ func (s *FlowServiceV2RPC) ImportYAMLFlowSimple(
 }
 
 // ParseYAMLFlow parses YAML flow data without importing it
-func (s *FlowServiceV2RPC) ParseYAMLFlow(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*yamlflowsimplev2.SimplifiedYAMLResolvedV2, error) {
+func (s *FlowServiceV2RPC) ParseYAMLFlow(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*ioworkspace.WorkspaceBundle, error) {
 	// Validate workspace access
 	if err := s.ensureWorkspaceAccess(ctx, workspaceID); err != nil {
 		return nil, err
