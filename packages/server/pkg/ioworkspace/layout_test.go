@@ -1,0 +1,215 @@
+package ioworkspace
+
+import (
+	"testing"
+
+	"the-dev-tools/server/pkg/flow/edge"
+	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mflow"
+	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
+	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+)
+
+func TestEnsureFlowStructure_CreatesStartNode(t *testing.T) {
+	flowID := idwrap.NewNow()
+	nodeID := idwrap.NewNow()
+
+	bundle := &WorkspaceBundle{
+		Flows: []mflow.Flow{
+			{ID: flowID, Name: "Test Flow"},
+		},
+		FlowNodes: []mnnode.MNode{
+			{ID: nodeID, FlowID: flowID, Name: "Request 1", NodeKind: mnnode.NODE_KIND_REQUEST},
+		},
+		FlowRequestNodes: []mnrequest.MNRequest{
+			{FlowNodeID: nodeID},
+		},
+	}
+
+	err := bundle.EnsureFlowStructure()
+	if err != nil {
+		t.Fatalf("EnsureFlowStructure failed: %v", err)
+	}
+
+	// Should have 2 nodes now (start + request)
+	if len(bundle.FlowNodes) != 2 {
+		t.Errorf("Expected 2 nodes, got %d", len(bundle.FlowNodes))
+	}
+
+	// Should have 1 noop node (start)
+	if len(bundle.FlowNoopNodes) != 1 {
+		t.Errorf("Expected 1 noop node, got %d", len(bundle.FlowNoopNodes))
+	}
+
+	// Should have start node type
+	if bundle.FlowNoopNodes[0].Type != mnnoop.NODE_NO_OP_KIND_START {
+		t.Errorf("Expected start node type, got %d", bundle.FlowNoopNodes[0].Type)
+	}
+
+	// Should have edge from start to request
+	if len(bundle.FlowEdges) != 1 {
+		t.Errorf("Expected 1 edge, got %d", len(bundle.FlowEdges))
+	}
+}
+
+func TestEnsureFlowStructure_DoesNotDuplicateStartNode(t *testing.T) {
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	requestNodeID := idwrap.NewNow()
+
+	bundle := &WorkspaceBundle{
+		Flows: []mflow.Flow{
+			{ID: flowID, Name: "Test Flow"},
+		},
+		FlowNodes: []mnnode.MNode{
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP},
+			{ID: requestNodeID, FlowID: flowID, Name: "Request 1", NodeKind: mnnode.NODE_KIND_REQUEST},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{FlowNodeID: startNodeID, Type: mnnoop.NODE_NO_OP_KIND_START},
+		},
+		FlowRequestNodes: []mnrequest.MNRequest{
+			{FlowNodeID: requestNodeID},
+		},
+		FlowEdges: []edge.Edge{
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: requestNodeID},
+		},
+	}
+
+	err := bundle.EnsureFlowStructure()
+	if err != nil {
+		t.Fatalf("EnsureFlowStructure failed: %v", err)
+	}
+
+	// Should still have 2 nodes (not create duplicate start)
+	if len(bundle.FlowNodes) != 2 {
+		t.Errorf("Expected 2 nodes, got %d", len(bundle.FlowNodes))
+	}
+
+	// Should still have 1 noop node
+	if len(bundle.FlowNoopNodes) != 1 {
+		t.Errorf("Expected 1 noop node, got %d", len(bundle.FlowNoopNodes))
+	}
+
+	// Should still have 1 edge
+	if len(bundle.FlowEdges) != 1 {
+		t.Errorf("Expected 1 edge, got %d", len(bundle.FlowEdges))
+	}
+}
+
+func TestEnsureFlowStructure_PositionsNodes(t *testing.T) {
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	node1ID := idwrap.NewNow()
+	node2ID := idwrap.NewNow()
+
+	bundle := &WorkspaceBundle{
+		Flows: []mflow.Flow{
+			{ID: flowID, Name: "Test Flow"},
+		},
+		FlowNodes: []mnnode.MNode{
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP},
+			{ID: node1ID, FlowID: flowID, Name: "Request 1", NodeKind: mnnode.NODE_KIND_REQUEST},
+			{ID: node2ID, FlowID: flowID, Name: "Request 2", NodeKind: mnnode.NODE_KIND_REQUEST},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{FlowNodeID: startNodeID, Type: mnnoop.NODE_NO_OP_KIND_START},
+		},
+		FlowRequestNodes: []mnrequest.MNRequest{
+			{FlowNodeID: node1ID},
+			{FlowNodeID: node2ID},
+		},
+		FlowEdges: []edge.Edge{
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: node1ID},
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: node1ID, TargetID: node2ID},
+		},
+	}
+
+	err := bundle.EnsureFlowStructure()
+	if err != nil {
+		t.Fatalf("EnsureFlowStructure failed: %v", err)
+	}
+
+	// Find nodes by ID and check positions
+	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)
+	for i := range bundle.FlowNodes {
+		nodeMap[bundle.FlowNodes[i].ID] = &bundle.FlowNodes[i]
+	}
+
+	// Start node should be at level 0 (Y = 0)
+	startNode := nodeMap[startNodeID]
+	if startNode.PositionY != 0 {
+		t.Errorf("Start node Y position should be 0, got %f", startNode.PositionY)
+	}
+
+	// Node1 should be at level 1 (Y = NodeSpacingY)
+	node1 := nodeMap[node1ID]
+	if node1.PositionY != NodeSpacingY {
+		t.Errorf("Node1 Y position should be %d, got %f", NodeSpacingY, node1.PositionY)
+	}
+
+	// Node2 should be at level 2 (Y = 2*NodeSpacingY)
+	node2 := nodeMap[node2ID]
+	if node2.PositionY != 2*NodeSpacingY {
+		t.Errorf("Node2 Y position should be %d, got %f", 2*NodeSpacingY, node2.PositionY)
+	}
+}
+
+func TestEnsureFlowStructure_ParallelNodes(t *testing.T) {
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	node1ID := idwrap.NewNow()
+	node2ID := idwrap.NewNow()
+
+	// Create parallel structure: start -> node1, start -> node2
+	bundle := &WorkspaceBundle{
+		Flows: []mflow.Flow{
+			{ID: flowID, Name: "Test Flow"},
+		},
+		FlowNodes: []mnnode.MNode{
+			{ID: startNodeID, FlowID: flowID, Name: "Start", NodeKind: mnnode.NODE_KIND_NO_OP},
+			{ID: node1ID, FlowID: flowID, Name: "Request 1", NodeKind: mnnode.NODE_KIND_REQUEST},
+			{ID: node2ID, FlowID: flowID, Name: "Request 2", NodeKind: mnnode.NODE_KIND_REQUEST},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{FlowNodeID: startNodeID, Type: mnnoop.NODE_NO_OP_KIND_START},
+		},
+		FlowRequestNodes: []mnrequest.MNRequest{
+			{FlowNodeID: node1ID},
+			{FlowNodeID: node2ID},
+		},
+		FlowEdges: []edge.Edge{
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: node1ID},
+			{ID: idwrap.NewNow(), FlowID: flowID, SourceID: startNodeID, TargetID: node2ID},
+		},
+	}
+
+	err := bundle.EnsureFlowStructure()
+	if err != nil {
+		t.Fatalf("EnsureFlowStructure failed: %v", err)
+	}
+
+	// Find nodes by ID
+	nodeMap := make(map[idwrap.IDWrap]*mnnode.MNode)
+	for i := range bundle.FlowNodes {
+		nodeMap[bundle.FlowNodes[i].ID] = &bundle.FlowNodes[i]
+	}
+
+	// Both node1 and node2 should be at the same Y level (level 1)
+	node1 := nodeMap[node1ID]
+	node2 := nodeMap[node2ID]
+
+	if node1.PositionY != node2.PositionY {
+		t.Errorf("Parallel nodes should be at same Y level, got %f and %f", node1.PositionY, node2.PositionY)
+	}
+
+	if node1.PositionY != NodeSpacingY {
+		t.Errorf("Parallel nodes should be at level 1 (Y=%d), got %f", NodeSpacingY, node1.PositionY)
+	}
+
+	// Nodes should have different X positions
+	if node1.PositionX == node2.PositionX {
+		t.Errorf("Parallel nodes should have different X positions, both at %f", node1.PositionX)
+	}
+}

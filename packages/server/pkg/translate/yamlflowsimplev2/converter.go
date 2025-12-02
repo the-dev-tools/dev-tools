@@ -109,6 +109,11 @@ func ConvertSimplifiedYAML(data []byte, opts ConvertOptionsV2) (*ioworkspace.Wor
 		mergeFlowData(result, flowData, opts)
 	}
 
+	// Ensure all flows have proper structure (start nodes, edges, positioning)
+	if err := result.EnsureFlowStructure(); err != nil {
+		return nil, fmt.Errorf("failed to ensure flow structure: %w", err)
+	}
+
 	return result, nil
 }
 
@@ -446,17 +451,31 @@ func processFlow(flowEntry YamlFlowFlowV2, runEntries []RunEntry, templates map[
 	}
 	result.Flows = append(result.Flows, flow)
 
-	// Create folder for the flow if generating files
+	// Create file entries if generating files
 	if opts.GenerateFiles {
+		// Create file for the flow (so it shows up in the file tree)
+		flowFile := mfile.File{
+			ID:          flowID,
+			WorkspaceID: opts.WorkspaceID,
+			ParentID:    opts.FolderID,
+			ContentID:   &flowID,
+			ContentType: mfile.ContentTypeFlow,
+			Name:        flowEntry.Name,
+			Order:       float64(opts.FileOrder),
+			UpdatedAt:   time.Now(),
+		}
+		result.Files = append(result.Files, flowFile)
+
+		// Create folder for the flow's HTTP requests
 		folderID := idwrap.NewNow()
 		folderFile := mfile.File{
 			ID:          folderID,
 			WorkspaceID: opts.WorkspaceID,
-			ParentID:    opts.FolderID, // Nested under parent folder if provided
+			ParentID:    opts.FolderID,
 			ContentID:   &folderID,
 			ContentType: mfile.ContentTypeFolder,
 			Name:        flowEntry.Name,
-			Order:       float64(opts.FileOrder),
+			Order:       float64(opts.FileOrder) + 1, // Place folder after flow file
 			UpdatedAt:   time.Now(),
 		}
 		result.Files = append(result.Files, folderFile)

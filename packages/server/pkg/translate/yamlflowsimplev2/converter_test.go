@@ -58,9 +58,21 @@ flows:
 		t.Errorf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
 	}
 
-	// Expect 2 files: 1 folder for the flow + 1 HTTP file
-	if len(result.Files) != 2 {
-		t.Errorf("Expected 2 files (1 folder + 1 HTTP), got %d", len(result.Files))
+	// Expect 3 files: 1 flow file + 1 folder for HTTP requests + 1 HTTP file
+	if len(result.Files) != 3 {
+		t.Errorf("Expected 3 files (1 flow + 1 folder + 1 HTTP), got %d", len(result.Files))
+	}
+
+	// Verify we have a flow file
+	var hasFlowFile bool
+	for _, f := range result.Files {
+		if f.ContentType == mfile.ContentTypeFlow {
+			hasFlowFile = true
+			break
+		}
+	}
+	if !hasFlowFile {
+		t.Errorf("Expected a flow file (ContentTypeFlow) but none found")
 	}
 
 	// Verify flow
