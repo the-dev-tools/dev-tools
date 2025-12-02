@@ -49,6 +49,7 @@ type ImportV2RPC struct {
 	HttpBodyFormStream       eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
 	HttpBodyUrlEncodedStream eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
 	HttpBodyRawStream        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
+	HttpAssertStream         eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]
 	FileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 
 	// Services exposed for testing
@@ -60,6 +61,7 @@ type ImportV2RPC struct {
 	HttpBodyFormService       *shttp.HttpBodyFormService
 	HttpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	HttpBodyRawService        *shttp.HttpBodyRawService
+	HttpAssertService         *shttp.HttpAssertService
 	NodeService               *snode.NodeService
 	NodeRequestService        *snoderequest.NodeRequestService
 	NodeNoopService           *snodenoop.NodeNoopService
@@ -80,6 +82,7 @@ func NewImportV2RPC(
 	httpBodyFormService *shttp.HttpBodyFormService,
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
 	bodyService *shttp.HttpBodyRawService,
+	httpAssertService *shttp.HttpAssertService,
 	nodeService *snode.NodeService,
 	nodeRequestService *snoderequest.NodeRequestService,
 	nodeNoopService *snodenoop.NodeNoopService,
@@ -96,12 +99,13 @@ func NewImportV2RPC(
 	httpBodyFormStream eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent],
 	httpBodyUrlEncodedStream eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent],
 	httpBodyRawStream eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent],
+	httpAssertStream eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent],
 	fileStream eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent],
 ) *ImportV2RPC {
 	// Create the importer with modern service dependencies
 	importer := NewImporter(db, httpService, flowService, fileService,
 		httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, bodyService,
-		nodeService, nodeRequestService, nodeNoopService, edgeService)
+		httpAssertService, nodeService, nodeRequestService, nodeNoopService, edgeService)
 
 	// Create the validator for input validation
 	validator := NewValidator(&us)
@@ -129,6 +133,7 @@ func NewImportV2RPC(
 		HttpBodyFormStream:       httpBodyFormStream,
 		HttpBodyUrlEncodedStream: httpBodyUrlEncodedStream,
 		HttpBodyRawStream:        httpBodyRawStream,
+		HttpAssertStream:         httpAssertStream,
 		FileStream:               fileStream,
 
 		// Exposed Services
@@ -140,6 +145,7 @@ func NewImportV2RPC(
 		HttpBodyFormService:       httpBodyFormService,
 		HttpBodyUrlEncodedService: httpBodyUrlEncodedService,
 		HttpBodyRawService:        bodyService,
+		HttpAssertService:         httpAssertService,
 		NodeService:               nodeService,
 		NodeRequestService:        nodeRequestService,
 		NodeNoopService:           nodeNoopService,
@@ -398,6 +404,15 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 			Type:        "insert",
 			IsDelta:     raw.IsDelta,
 			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*raw),
+		})
+	}
+
+	// Publish Assert events
+	for _, assert := range results.HTTPAsserts {
+		h.HttpAssertStream.Publish(rhttp.HttpAssertTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpAssertEvent{
+			Type:       "insert",
+			IsDelta:    assert.IsDelta,
+			HttpAssert: converter.ToAPIHttpAssert(*assert),
 		})
 	}
 }

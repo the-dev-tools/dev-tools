@@ -113,6 +113,7 @@ type HarResolved struct {
 	HTTPBodyForms      []mhttp.HTTPBodyForm       `json:"http_body_forms"`
 	HTTPBodyUrlEncoded []mhttp.HTTPBodyUrlencoded `json:"http_body_urlencoded"`
 	HTTPBodyRaws       []mhttp.HTTPBodyRaw        `json:"http_body_raws"`
+	HTTPAsserts        []mhttp.HTTPAssert         `json:"http_asserts"`
 
 	// File System (modern mfile.File model)
 	Files []mfile.File `json:"files"`
@@ -271,6 +272,7 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 		HTTPBodyForms:      make([]mhttp.HTTPBodyForm, 0),
 		HTTPBodyUrlEncoded: make([]mhttp.HTTPBodyUrlencoded, 0),
 		HTTPBodyRaws:       make([]mhttp.HTTPBodyRaw, 0),
+		HTTPAsserts:        make([]mhttp.HTTPAssert, 0),
 		Nodes:              make([]mnnode.MNode, 0),
 		RequestNodes:       make([]mnrequest.MNRequest, 0),
 		NoOpNodes:          make([]mnnoop.NoopNode, 0),
@@ -395,6 +397,12 @@ func processEntries(entries []Entry, workspaceID idwrap.IDWrap, depFinder *depfi
 			result.HTTPBodyRaws = append(result.HTTPBodyRaws, *deltaRaw)
 		}
 
+		// Create assertion for response status code if HAR has a valid response status
+		if entry.Response.Status > 0 {
+			baseAssert, deltaAssert := createStatusAssertions(baseReq.ID, deltaReq.ID, entry.Response.Status, i)
+			result.HTTPAsserts = append(result.HTTPAsserts, baseAssert, deltaAssert)
+		}
+
 		// File System
 		file, _, err := createFileStructure(baseReq, workspaceID, folderMap, folderFileMap)
 		if err != nil {
@@ -506,6 +514,7 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		HTTPBodyForms:      make([]mhttp.HTTPBodyForm, 0),
 		HTTPBodyUrlEncoded: make([]mhttp.HTTPBodyUrlencoded, 0),
 		HTTPBodyRaws:       make([]mhttp.HTTPBodyRaw, 0),
+		HTTPAsserts:        make([]mhttp.HTTPAssert, 0),
 		Nodes:              make([]mnnode.MNode, 0),
 		RequestNodes:       make([]mnrequest.MNRequest, 0),
 		NoOpNodes:          make([]mnnoop.NoopNode, 0),
@@ -693,6 +702,12 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 		deltaRaw := CreateDeltaBodyRaw(baseRaw, templatedRaw, deltaReq.ID)
 		if deltaRaw != nil {
 			result.HTTPBodyRaws = append(result.HTTPBodyRaws, *deltaRaw)
+		}
+
+		// Create assertion for response status code if HAR has a valid response status
+		if entry.Response.Status > 0 {
+			baseAssert, deltaAssert := createStatusAssertions(baseRequest.ID, deltaReq.ID, entry.Response.Status, i)
+			result.HTTPAsserts = append(result.HTTPAsserts, baseAssert, deltaAssert)
 		}
 
 		// Create Node
@@ -1121,4 +1136,40 @@ func hasAlternativePath(adjMap map[idwrap.IDWrap][]idwrap.IDWrap, source, target
 	}
 
 	return false
+}
+
+// createStatusAssertions creates base and delta assertions for HTTP response status code
+func createStatusAssertions(baseHttpID, deltaHttpID idwrap.IDWrap, statusCode int, entryIndex int) (mhttp.HTTPAssert, mhttp.HTTPAssert) {
+	now := time.Now().Unix()
+	// Format the assertion key as "response.status == XXX" where XXX is the status code
+	assertKey := fmt.Sprintf("response.status == %d", statusCode)
+
+	baseAssertID := idwrap.NewNow()
+	baseAssert := mhttp.HTTPAssert{
+		ID:          baseAssertID,
+		HttpID:      baseHttpID,
+		Key:         assertKey,
+		Value:       "",
+		Enabled:     true,
+		Description: fmt.Sprintf("Verify response status is %d (from HAR import)", statusCode),
+		Order:       float32(entryIndex),
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	deltaAssert := mhttp.HTTPAssert{
+		ID:                 idwrap.NewNow(),
+		HttpID:             deltaHttpID,
+		Key:                assertKey,
+		Value:              "",
+		Enabled:            true,
+		Description:        fmt.Sprintf("Verify response status is %d (from HAR import)", statusCode),
+		Order:              float32(entryIndex),
+		ParentHttpAssertID: &baseAssertID,
+		IsDelta:            true,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+
+	return baseAssert, deltaAssert
 }

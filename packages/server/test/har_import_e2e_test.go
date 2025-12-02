@@ -72,6 +72,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	httpBodyFormService := shttp.NewHttpBodyFormService(baseDB.Queries)
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(baseDB.Queries)
 	bodyService := shttp.NewHttpBodyRawService(baseDB.Queries)
+	httpAssertService := shttp.NewHttpAssertService(baseDB.Queries)
 
 	// Create node services
 	nodeService := snode.New(baseDB.Queries)
@@ -90,6 +91,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	httpBodyFormStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]()
 	httpBodyUrlEncodedStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]()
 	httpBodyRawStream := memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]()
+	httpAssertStream := memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]()
 	fileStream := memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent]()
 
 	// Create import handler
@@ -105,6 +107,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 		httpBodyFormService,
 		httpBodyUrlEncodedService,
 		bodyService,
+		httpAssertService,
 		&nodeService,
 		&nodeRequestService,
 		&nodeNoopService,
@@ -113,6 +116,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 		flowStream, nodeStream, edgeStream, noopStream,
 		stream, httpHeaderStream, httpSearchParamStream,
 		httpBodyFormStream, httpBodyUrlEncodedStream, httpBodyRawStream,
+		httpAssertStream,
 		fileStream,
 	)
 

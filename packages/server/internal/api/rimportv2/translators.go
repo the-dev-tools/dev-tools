@@ -36,6 +36,7 @@ type TranslationResult struct {
 	BodyForms      []mhttp.HTTPBodyForm
 	BodyUrlencoded []mhttp.HTTPBodyUrlencoded
 	BodyRaw        []mhttp.HTTPBodyRaw
+	Asserts        []mhttp.HTTPAssert
 
 	// Flow-specific entities
 	Nodes        []mnnode.MNode
@@ -189,6 +190,7 @@ func (t *HARTranslator) Translate(ctx context.Context, data []byte, workspaceID 
 		SearchParams:   resolved.HTTPSearchParams,
 		BodyForms:      resolved.HTTPBodyForms,
 		BodyUrlencoded: resolved.HTTPBodyUrlEncoded,
+		Asserts:        resolved.HTTPAsserts,
 		Nodes:          resolved.Nodes,
 		RequestNodes:   resolved.RequestNodes,
 		NoOpNodes:      resolved.NoOpNodes,

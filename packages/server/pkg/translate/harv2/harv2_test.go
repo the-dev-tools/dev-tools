@@ -1157,3 +1157,128 @@ func TestDeltaBodyRawComparison(t *testing.T) {
 	require.NotNil(t, noOriginalRaw, "Should create raw body when no original exists")
 	require.False(t, noOriginalRaw.IsDelta, "Should create non-delta raw body when no original")
 }
+
+func TestResponseStatusAssertions(t *testing.T) {
+	// Test that assertions are created for response status codes in HAR entries
+	entries := []harv2.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: harv2.Request{
+				Method: "GET",
+				URL:    "https://api.example.com/users",
+				Headers: []harv2.Header{
+					{Name: "Accept", Value: "application/json"},
+				},
+			},
+			Response: harv2.Response{
+				Status:     200,
+				StatusText: "OK",
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(time.Second),
+			Request: harv2.Request{
+				Method: "POST",
+				URL:    "https://api.example.com/users",
+				Headers: []harv2.Header{
+					{Name: "Content-Type", Value: "application/json"},
+				},
+				PostData: &harv2.PostData{
+					MimeType: "application/json",
+					Text:     `{"name": "Test User"}`,
+				},
+			},
+			Response: harv2.Response{
+				Status:     201,
+				StatusText: "Created",
+			},
+		},
+		{
+			StartedDateTime: time.Now().Add(2 * time.Second),
+			Request: harv2.Request{
+				Method: "GET",
+				URL:    "https://api.example.com/users/404",
+				Headers: []harv2.Header{
+					{Name: "Accept", Value: "application/json"},
+				},
+			},
+			Response: harv2.Response{
+				Status:     404,
+				StatusText: "Not Found",
+			},
+		},
+	}
+
+	testHar := harv2.HAR{
+		Log: harv2.Log{Entries: entries},
+	}
+
+	workspaceID := idwrap.NewNow()
+	resolved, err := harv2.ConvertHAR(&testHar, workspaceID)
+	require.NoError(t, err)
+
+	// Should have 3 requests * 2 (base + delta) = 6 requests
+	require.Len(t, resolved.HTTPRequests, 6, "Expected 6 HTTP requests (3 original + 3 delta)")
+
+	// Should have 3 entries * 2 (base + delta) = 6 assertions
+	require.Len(t, resolved.HTTPAsserts, 6, "Expected 6 HTTP assertions (3 base + 3 delta)")
+
+	// Verify assertion structure
+	var baseAsserts, deltaAsserts []mhttp.HTTPAssert
+	for _, assert := range resolved.HTTPAsserts {
+		if assert.IsDelta {
+			deltaAsserts = append(deltaAsserts, assert)
+		} else {
+			baseAsserts = append(baseAsserts, assert)
+		}
+	}
+
+	require.Len(t, baseAsserts, 3, "Expected 3 base assertions")
+	require.Len(t, deltaAsserts, 3, "Expected 3 delta assertions")
+
+	// Verify base assertions
+	expectedKeys := []string{"response.status == 200", "response.status == 201", "response.status == 404"}
+	for i, assert := range baseAsserts {
+		require.Equal(t, expectedKeys[i], assert.Key, "Assertion key should be 'response.status == XXX'")
+		require.Empty(t, assert.Value, "Assertion value should be empty (expression is in key)")
+		require.True(t, assert.Enabled, "Assertion should be enabled")
+		require.Contains(t, assert.Description, "HAR import", "Description should mention HAR import")
+	}
+
+	// Verify delta assertions link to base assertions
+	for _, deltaAssert := range deltaAsserts {
+		require.True(t, deltaAssert.IsDelta, "Delta assertion should be marked as delta")
+		require.NotNil(t, deltaAssert.ParentHttpAssertID, "Delta assertion should have parent reference")
+		require.Contains(t, deltaAssert.Key, "response.status ==", "Delta assertion key should contain 'response.status =='")
+	}
+}
+
+func TestResponseStatusAssertionNoStatus(t *testing.T) {
+	// Test that assertions are NOT created when response status is 0 or invalid
+	entries := []harv2.Entry{
+		{
+			StartedDateTime: time.Now(),
+			Request: harv2.Request{
+				Method: "GET",
+				URL:    "https://api.example.com/users",
+			},
+			Response: harv2.Response{
+				Status: 0, // No status
+			},
+		},
+	}
+
+	testHar := harv2.HAR{
+		Log: harv2.Log{Entries: entries},
+	}
+
+	workspaceID := idwrap.NewNow()
+	resolved, err := harv2.ConvertHAR(&testHar, workspaceID)
+	require.NoError(t, err)
+
+	// Should have 1 request * 2 (base + delta) = 2 requests
+	require.Len(t, resolved.HTTPRequests, 2, "Expected 2 HTTP requests")
+
+	// Should have 0 assertions since status is 0
+	require.Len(t, resolved.HTTPAsserts, 0, "Expected 0 HTTP assertions when status is 0")
+}

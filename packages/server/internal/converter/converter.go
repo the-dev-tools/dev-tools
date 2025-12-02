@@ -227,7 +227,7 @@ func ToAPIHttpAssert(assert mhttp.HTTPAssert) *httpv1.HttpAssert {
 	return &httpv1.HttpAssert{
 		HttpAssertId: assert.ID.Bytes(),
 		HttpId:       assert.HttpID.Bytes(),
-		Value:        assert.Value,
+		Value:        assert.Key, // Key contains the expression like "response.status == 200"
 	}
 }
 

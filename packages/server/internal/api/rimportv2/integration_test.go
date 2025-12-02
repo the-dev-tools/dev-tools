@@ -74,6 +74,8 @@ type IntegrationTestStreamers struct {
 
 	HttpBodyRaw eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
 
+	HttpAssert eventstream.SyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent]
+
 	File eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 }
 
@@ -129,6 +131,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 
+	httpAssertService := shttp.NewHttpAssertService(base.Queries)
+
 	nodeService := snode.New(base.Queries)
 
 	nodeRequestService := snoderequest.New(base.Queries)
@@ -159,6 +163,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		HttpBodyUrlEncoded: memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent](),
 
 		HttpBodyRaw: memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent](),
+
+		HttpAssert: memory.NewInMemorySyncStreamer[rhttp.HttpAssertTopic, rhttp.HttpAssertEvent](),
 
 		File: memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
 	}
@@ -225,6 +231,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		httpBodyFormService,
 		httpBodyUrlEncodedService,
 		bodyService,
+		httpAssertService,
 		&nodeService,
 		&nodeRequestService,
 		&nodeNoopService,
@@ -240,6 +247,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		streamers.HttpBodyForm,
 		streamers.HttpBodyUrlEncoded,
 		streamers.HttpBodyRaw,
+		streamers.HttpAssert,
 		streamers.File,
 	)
 

@@ -145,6 +145,7 @@ type ImportResults struct {
 	HTTPBodyForms      []*mhttp.HTTPBodyForm
 	HTTPBodyUrlEncoded []*mhttp.HTTPBodyUrlencoded
 	HTTPBodyRaws       []*mhttp.HTTPBodyRaw
+	HTTPAsserts        []*mhttp.HTTPAssert
 
 	// Flow-specific entities
 	Nodes        []mnnode.MNode
@@ -633,6 +634,11 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportResult
 		bodyRawsPtr[i] = &harResolved.HTTPBodyRaws[i]
 	}
 
+	assertsPtr := make([]*mhttp.HTTPAssert, len(harResolved.HTTPAsserts))
+	for i := range harResolved.HTTPAsserts {
+		assertsPtr[i] = &harResolved.HTTPAsserts[i]
+	}
+
 	// Extract domains from HTTP requests
 	domains, err := extractDomains(ctx, httpReqsPtr, s.logger)
 	if err != nil {
@@ -648,6 +654,7 @@ func (s *Service) Import(ctx context.Context, req *ImportRequest) (*ImportResult
 		HTTPBodyForms:      bodyFormsPtr,
 		HTTPBodyUrlEncoded: bodyUrlEncodedPtr,
 		HTTPBodyRaws:       bodyRawsPtr,
+		HTTPAsserts:        assertsPtr,
 		Nodes:              harResolved.Nodes,
 		RequestNodes:       harResolved.RequestNodes,
 		NoOpNodes:          harResolved.NoOpNodes,
@@ -805,6 +812,12 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		bodyRawsPtr[i] = &translationResult.BodyRaw[i]
 	}
 
+	// Convert Asserts from []mhttp.HTTPAssert to []*mhttp.HTTPAssert
+	assertsPtr := make([]*mhttp.HTTPAssert, len(translationResult.Asserts))
+	for i := range translationResult.Asserts {
+		assertsPtr[i] = &translationResult.Asserts[i]
+	}
+
 	// Only support single flow for now in ImportResults
 	var flow *mflow.Flow
 	if len(translationResult.Flows) > 0 {
@@ -821,6 +834,7 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		HTTPBodyForms:      bodyFormsPtr,
 		HTTPBodyUrlEncoded: bodyUrlEncodedPtr,
 		HTTPBodyRaws:       bodyRawsPtr,
+		HTTPAsserts:        assertsPtr,
 		Nodes:              translationResult.Nodes,
 		RequestNodes:       translationResult.RequestNodes,
 		NoOpNodes:          translationResult.NoOpNodes,

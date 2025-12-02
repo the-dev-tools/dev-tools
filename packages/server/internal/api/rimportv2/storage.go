@@ -34,6 +34,7 @@ type DefaultImporter struct {
 	httpBodyFormService       *shttp.HttpBodyFormService
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	bodyService               *shttp.HttpBodyRawService
+	httpAssertService         *shttp.HttpAssertService
 	nodeService               *snode.NodeService
 	nodeRequestService        *snoderequest.NodeRequestService
 	nodeNoopService           *snodenoop.NodeNoopService
@@ -52,6 +53,7 @@ func NewImporter(
 	httpBodyFormService *shttp.HttpBodyFormService,
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
 	bodyService *shttp.HttpBodyRawService,
+	httpAssertService *shttp.HttpAssertService,
 	nodeService *snode.NodeService,
 	nodeRequestService *snoderequest.NodeRequestService,
 	nodeNoopService *snodenoop.NodeNoopService,
@@ -67,6 +69,7 @@ func NewImporter(
 		httpBodyFormService:       httpBodyFormService,
 		httpBodyUrlEncodedService: httpBodyUrlEncodedService,
 		bodyService:               bodyService,
+		httpAssertService:         httpAssertService,
 		nodeService:               nodeService,
 		nodeRequestService:        nodeRequestService,
 		nodeNoopService:           nodeNoopService,
@@ -505,6 +508,35 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		for _, r := range results.BodyRaw {
 			if _, err := txBodyRawService.Create(ctx, r.HttpID, r.RawData, r.ContentType); err != nil {
 				return fmt.Errorf("failed to store body raw: %w", err)
+			}
+		}
+	}
+
+	// Store assertions
+	if len(results.Asserts) > 0 {
+		txAssertService := imp.httpAssertService.TX(tx)
+		for _, a := range results.Asserts {
+			assert := mhttp.HTTPAssert{
+				ID:                 a.ID,
+				HttpID:             a.HttpID,
+				Key:                a.Key,
+				Value:              a.Value,
+				Enabled:            a.Enabled,
+				Description:        a.Description,
+				Order:              a.Order,
+				ParentHttpAssertID: a.ParentHttpAssertID,
+				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
+				IsDelta:          a.IsDelta && a.ParentHttpAssertID != nil,
+				DeltaKey:         a.DeltaKey,
+				DeltaValue:       a.DeltaValue,
+				DeltaEnabled:     a.DeltaEnabled,
+				DeltaDescription: a.DeltaDescription,
+				DeltaOrder:       a.DeltaOrder,
+				CreatedAt:        a.CreatedAt,
+				UpdatedAt:        a.UpdatedAt,
+			}
+			if err := txAssertService.Create(ctx, &assert); err != nil {
+				return fmt.Errorf("failed to store assertion: %w", err)
 			}
 		}
 	}

@@ -297,6 +297,7 @@ func main() {
 		httpBodyFormService,
 		httpBodyUrlEncodedService,
 		httpBodyRawService,
+		httpAssertService,
 		&flowNodeService,
 		&flowNodeRequestSevice,
 		&flowNodeNoOpService,
@@ -312,6 +313,7 @@ func main() {
 		httpBodyFormStreamer,
 		httpBodyUrlEncodedStreamer,
 		httpBodyRawStreamer,
+		httpAssertStreamer,
 		fileStreamer,
 	)
 	newServiceManager.AddService(rimportv2.CreateImportV2Service(*importV2Srv, optionsAll))
