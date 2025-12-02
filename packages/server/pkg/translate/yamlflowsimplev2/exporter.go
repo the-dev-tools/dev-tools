@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 
-	"gopkg.in/yaml.v3"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
@@ -17,6 +16,8 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+
+	"gopkg.in/yaml.v3"
 )
 
 // MarshalSimplifiedYAML converts resolved data structures back to the simplified YAML format
@@ -173,7 +174,7 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 				// We only care about standard dependencies here.
 				// But wait, we can't easily know if an incoming edge was a 'then' edge just by looking at the edge itself
 				// if we didn't store that info. Fortunately Edge struct has SourceHandler.
-				
+
 				if e.SourceHandler == edge.HandleUnspecified {
 					// This is a potential dependency
 					sourceNode, ok := nodeMap[e.SourceID]
@@ -193,7 +194,7 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 					}
 				}
 			}
-			
+
 			if len(explicitDeps) > 0 {
 				// Sort for deterministic output
 				sort.Strings(explicitDeps)
@@ -221,7 +222,9 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 					// v2 schema supports list of objects with name/value/enabled.
 					hList := make([]map[string]any, 0)
 					for _, h := range hdrs {
-						if !h.Enabled { continue }
+						if !h.Enabled {
+							continue
+						}
 						hList = append(hList, map[string]any{
 							"name":  h.Key,
 							"value": h.Value,
@@ -236,7 +239,9 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 				if params, ok := paramsMap[httpReq.ID]; ok && len(params) > 0 {
 					pList := make([]map[string]any, 0)
 					for _, p := range params {
-						if !p.Enabled { continue }
+						if !p.Enabled {
+							continue
+						}
 						pList = append(pList, map[string]any{
 							"name":  p.Key,
 							"value": p.Value,
@@ -253,9 +258,11 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 					bodyData["type"] = "form-data"
 					fList := make([]map[string]any, 0)
 					for _, f := range forms {
-						if !f.Enabled { continue }
+						if !f.Enabled {
+							continue
+						}
 						fList = append(fList, map[string]any{
-							"name": f.Key,
+							"name":  f.Key,
 							"value": f.Value,
 						})
 					}
@@ -264,10 +271,12 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 					bodyData["type"] = "urlencoded"
 					uList := make([]map[string]any, 0)
 					for _, u := range urls {
-						if !u.Enabled { continue }
+						if !u.Enabled {
+							continue
+						}
 						uList = append(uList, map[string]any{
-							"name": u.UrlencodedKey,
-							"value": u.UrlencodedValue,
+							"name":  u.Key,
+							"value": u.Value,
 						})
 					}
 					bodyData["urlencoded"] = uList
@@ -300,16 +309,20 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 
 			case mnnode.NODE_KIND_CONDITION:
 				ifNode, ok := ifNodeMap[node.ID]
-				if !ok { continue }
-				
+				if !ok {
+					continue
+				}
+
 				baseStep["condition"] = ifNode.Condition.Comparisons.Expression
-				
+
 				// Find targets
 				outgoing := edgesBySource[node.ID]
 				for _, e := range outgoing {
 					targetNode, found := nodeMap[e.TargetID]
-					if !found { continue }
-					
+					if !found {
+						continue
+					}
+
 					if e.SourceHandler == edge.HandleThen {
 						baseStep["then"] = targetNode.Name
 					} else if e.SourceHandler == edge.HandleElse {
@@ -320,16 +333,20 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 
 			case mnnode.NODE_KIND_FOR:
 				forNode, ok := forNodeMap[node.ID]
-				if !ok { continue }
+				if !ok {
+					continue
+				}
 
 				baseStep["iter_count"] = forNode.IterCount
-				
+
 				// Find loop target
 				outgoing := edgesBySource[node.ID]
 				for _, e := range outgoing {
 					targetNode, found := nodeMap[e.TargetID]
-					if !found { continue }
-					
+					if !found {
+						continue
+					}
+
 					if e.SourceHandler == edge.HandleLoop {
 						baseStep["loop"] = targetNode.Name
 					}
@@ -338,7 +355,9 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 
 			case mnnode.NODE_KIND_FOR_EACH:
 				forEachNode, ok := forEachNodeMap[node.ID]
-				if !ok { continue }
+				if !ok {
+					continue
+				}
 
 				baseStep["items"] = forEachNode.IterExpression
 
@@ -346,8 +365,10 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 				outgoing := edgesBySource[node.ID]
 				for _, e := range outgoing {
 					targetNode, found := nodeMap[e.TargetID]
-					if !found { continue }
-					
+					if !found {
+						continue
+					}
+
 					if e.SourceHandler == edge.HandleLoop {
 						baseStep["loop"] = targetNode.Name
 					}
@@ -356,11 +377,13 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 
 			case mnnode.NODE_KIND_JS:
 				jsNode, ok := jsNodeMap[node.ID]
-				if !ok { continue }
+				if !ok {
+					continue
+				}
 
 				baseStep["code"] = string(jsNode.Code)
 				stepMap["js"] = baseStep
-			
+
 			case mnnode.NODE_KIND_NO_OP:
 				// Skip other no-ops
 				continue
@@ -390,33 +413,33 @@ func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesByS
 	queue := []idwrap.IDWrap{startNodeID}
 	visited[startNodeID] = true
 
-	// NOTE: This is a simplified BFS. For a perfect reproduction of the original "steps" list order, 
-	// we would need to preserve the index order if available. 
+	// NOTE: This is a simplified BFS. For a perfect reproduction of the original "steps" list order,
+	// we would need to preserve the index order if available.
 	// Since we don't have the original index, BFS is a reasonable approximation for execution order.
 	// A pure dependency topological sort might be better, but BFS handles the "flow" visualization better.
-	
+
 	for len(queue) > 0 {
 		currentID := queue[0]
 		queue = queue[1:]
-		
+
 		if n, ok := nodeMap[currentID]; ok {
 			result = append(result, n)
 		}
 
 		// Find neighbors
 		edges := edgesBySource[currentID]
-		
+
 		// Sort edges to be deterministic?
 		// In graph theory, the order of edges doesn't matter, but for stability it's nice.
 		// We can't easily sort edges without looking up target names.
-		
+
 		var neighbors []mnnode.MNode
 		for _, e := range edges {
 			if target, ok := nodeMap[e.TargetID]; ok {
 				neighbors = append(neighbors, target)
 			}
 		}
-		
+
 		// Sort neighbors by name to ensure deterministic output
 		sort.Slice(neighbors, func(i, j int) bool {
 			return neighbors[i].Name < neighbors[j].Name

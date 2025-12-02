@@ -25,7 +25,6 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
@@ -71,7 +70,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	httpHeaderService := shttp.NewHttpHeaderService(baseDB.Queries)
 	httpSearchParamService := shttp.NewHttpSearchParamService(baseDB.Queries)
 	httpBodyFormService := shttp.NewHttpBodyFormService(baseDB.Queries)
-	httpBodyUrlEncodedService := shttpbodyurlencoded.New(baseDB.Queries)
+	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(baseDB.Queries)
 	bodyService := shttp.NewHttpBodyRawService(baseDB.Queries)
 
 	// Create node services

@@ -22,7 +22,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
@@ -76,7 +75,7 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
 	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
-	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
+	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(base.Queries)
 	httpAssertService := shttpassert.New(base.Queries)
 
 	// Create response and body raw services
@@ -102,7 +101,7 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 		httpSearchParamService,
 		httpBodyRawService,
 		httpBodyFormService,
-		&httpBodyUrlEncodedService,
+		httpBodyUrlEncodedService,
 		&httpAssertService,
 	)
 

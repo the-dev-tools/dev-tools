@@ -14,7 +14,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -444,7 +443,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	bodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, httpID)
+	bodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByHttpID(ctx, httpID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -547,7 +546,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	// Duplicate body URL encoded entries
 	for _, bodyUrlEnc := range bodyUrlEncoded {
 		newBodyUrlEncodedID := idwrap.NewNow()
-		bodyUrlEncodedModel := &mhttpbodyurlencoded.HttpBodyUrlEncoded{
+		bodyUrlEncodedModel := &mhttp.HTTPBodyUrlencoded{
 			ID:                         newBodyUrlEncodedID,
 			HttpID:                     newHttpID,
 			Key:                        bodyUrlEnc.Key,
@@ -557,7 +556,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Order:                      float32(bodyUrlEnc.Order),
 			ParentHttpBodyUrlEncodedID: bodyUrlEnc.ParentHttpBodyUrlEncodedID, // Assuming direct copy is fine
 		}
-		if err := httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, bodyUrlEncodedModel); err != nil {
+		if err := httpBodyUrlEncodedService.Create(ctx, bodyUrlEncodedModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}

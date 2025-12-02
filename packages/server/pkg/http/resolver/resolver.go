@@ -9,10 +9,8 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 )
 
 // RequestResolver defines the interface for resolving HTTP requests with their delta overlays.
@@ -27,7 +25,7 @@ type StandardResolver struct {
 	httpSearchParamService    *shttp.HttpSearchParamService
 	httpBodyRawService        *shttp.HttpBodyRawService
 	httpBodyFormService       *shttp.HttpBodyFormService
-	httpBodyUrlEncodedService *shttpbodyurlencoded.HttpBodyUrlEncodedService
+	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	httpAssertService         *shttpassert.HttpAssertService
 }
 
@@ -38,7 +36,7 @@ func NewStandardResolver(
 	httpSearchParamService *shttp.HttpSearchParamService,
 	httpBodyRawService *shttp.HttpBodyRawService,
 	httpBodyFormService *shttp.HttpBodyFormService,
-	httpBodyUrlEncodedService *shttpbodyurlencoded.HttpBodyUrlEncodedService,
+	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
 	httpAssertService *shttpassert.HttpAssertService,
 ) *StandardResolver {
 	return &StandardResolver{
@@ -68,7 +66,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 		baseRawBody = nil
 	}
 	baseFormBody, _ := r.httpBodyFormService.GetByHttpID(ctx, baseID)
-	baseUrlEncodedBody, _ := r.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, baseID)
+	baseUrlEncodedBody, _ := r.httpBodyUrlEncodedService.GetByHttpID(ctx, baseID)
 	baseAsserts, _ := r.httpAssertService.GetHttpAssertsByHttpID(ctx, baseID)
 
 	// 2. Fetch Delta Components (if present)
@@ -77,7 +75,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 	var deltaQueries []mhttp.HTTPSearchParam
 	var deltaRawBody *mhttp.HTTPBodyRaw
 	var deltaFormBody []mhttp.HTTPBodyForm
-	var deltaUrlEncodedBody []mhttpbodyurlencoded.HttpBodyUrlEncoded
+	var deltaUrlEncodedBody []mhttp.HTTPBodyUrlencoded
 	var deltaAsserts []mhttpassert.HttpAssert
 
 	if deltaID != nil {
@@ -94,7 +92,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 			deltaRawBody = nil
 		}
 		deltaFormBody, _ = r.httpBodyFormService.GetByHttpID(ctx, *deltaID)
-		deltaUrlEncodedBody, _ = r.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, *deltaID)
+		deltaUrlEncodedBody, _ = r.httpBodyUrlEncodedService.GetByHttpID(ctx, *deltaID)
 		deltaAsserts, _ = r.httpAssertService.GetHttpAssertsByHttpID(ctx, *deltaID)
 	}
 
@@ -204,27 +202,27 @@ func convertFormBody(in []mhttp.HTTPBodyForm) []mhttp.HTTPBodyForm {
 	return out
 }
 
-func convertUrlEncodedBody(in []mhttpbodyurlencoded.HttpBodyUrlEncoded) []mhttp.HTTPBodyUrlencoded {
+func convertUrlEncodedBody(in []mhttp.HTTPBodyUrlencoded) []mhttp.HTTPBodyUrlencoded {
 	if in == nil {
 		return []mhttp.HTTPBodyUrlencoded{}
 	}
 	out := make([]mhttp.HTTPBodyUrlencoded, len(in))
 	for i, v := range in {
 		out[i] = mhttp.HTTPBodyUrlencoded{
-			ID:                     v.ID,
-			HttpID:                 v.HttpID,
-			UrlencodedKey:          v.Key,
-			UrlencodedValue:        v.Value,
-			Description:            v.Description,
-			Enabled:                v.Enabled,
-			ParentBodyUrlencodedID: v.ParentHttpBodyUrlEncodedID,
-			IsDelta:                v.IsDelta,
-			DeltaUrlencodedKey:     v.DeltaKey,
-			DeltaUrlencodedValue:   v.DeltaValue,
-			DeltaDescription:       v.DeltaDescription,
-			DeltaEnabled:           v.DeltaEnabled,
-			CreatedAt:              v.CreatedAt,
-			UpdatedAt:              v.UpdatedAt,
+			ID:                         v.ID,
+			HttpID:                     v.HttpID,
+			Key:                        v.Key,
+			Value:                      v.Value,
+			Description:                v.Description,
+			Enabled:                    v.Enabled,
+			ParentHttpBodyUrlEncodedID: v.ParentHttpBodyUrlEncodedID,
+			IsDelta:                    v.IsDelta,
+			DeltaKey:                   v.DeltaKey,
+			DeltaValue:                 v.DeltaValue,
+			DeltaDescription:           v.DeltaDescription,
+			DeltaEnabled:               v.DeltaEnabled,
+			CreatedAt:                  v.CreatedAt,
+			UpdatedAt:                  v.UpdatedAt,
 		}
 	}
 	return out

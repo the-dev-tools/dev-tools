@@ -167,13 +167,13 @@ func createHTTPRequestFromEntryWithDeps(entry Entry, workspaceID idwrap.IDWrap, 
 					}
 				}
 				bodyUrlEncoded = append(bodyUrlEncoded, mhttp.HTTPBodyUrlencoded{
-					ID:              idwrap.NewNow(),
-					HttpID:          httpID,
-					UrlencodedKey:   p.Name,
-					UrlencodedValue: val,
-					Enabled:         true,
-					CreatedAt:       now,
-					UpdatedAt:       now,
+					ID:        idwrap.NewNow(),
+					HttpID:    httpID,
+					Key:       p.Name,
+					Value:     val,
+					Enabled:   true,
+					CreatedAt: now,
+					UpdatedAt: now,
 				})
 			}
 		} else if bodyKind == mhttp.HttpBodyKindRaw {

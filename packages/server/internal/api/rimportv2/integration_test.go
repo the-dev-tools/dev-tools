@@ -25,7 +25,6 @@ import (
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
@@ -126,7 +125,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
 
-	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
+	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(base.Queries)
 
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 

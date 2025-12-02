@@ -11,13 +11,11 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
@@ -34,7 +32,7 @@ type DefaultImporter struct {
 	httpHeaderService         shttp.HttpHeaderService
 	httpSearchParamService    *shttp.HttpSearchParamService
 	httpBodyFormService       *shttp.HttpBodyFormService
-	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
+	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	bodyService               *shttp.HttpBodyRawService
 	nodeService               *snode.NodeService
 	nodeRequestService        *snoderequest.NodeRequestService
@@ -52,7 +50,7 @@ func NewImporter(
 	httpHeaderService shttp.HttpHeaderService,
 	httpSearchParamService *shttp.HttpSearchParamService,
 	httpBodyFormService *shttp.HttpBodyFormService,
-	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
+	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
 	bodyService *shttp.HttpBodyRawService,
 	nodeService *snode.NodeService,
 	nodeRequestService *snoderequest.NodeRequestService,
@@ -223,24 +221,24 @@ func (imp *DefaultImporter) StoreImportResults(ctx context.Context, results *Imp
 
 	if len(results.HTTPBodyUrlEncoded) > 0 {
 		for _, u := range results.HTTPBodyUrlEncoded {
-			urlencoded := &mhttpbodyurlencoded.HttpBodyUrlEncoded{
+			urlencoded := &mhttp.HTTPBodyUrlencoded{
 				ID:                         u.ID,
 				HttpID:                     u.HttpID,
-				Key:                        u.UrlencodedKey,
-				Value:                      u.UrlencodedValue,
+				Key:                        u.Key,
+				Value:                      u.Value,
 				Enabled:                    u.Enabled,
 				Description:                u.Description,
-				ParentHttpBodyUrlEncodedID: u.ParentBodyUrlencodedID,
+				ParentHttpBodyUrlEncodedID: u.ParentHttpBodyUrlEncodedID,
 				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          u.IsDelta && u.ParentBodyUrlencodedID != nil,
-				DeltaKey:         u.DeltaUrlencodedKey,
-				DeltaValue:       u.DeltaUrlencodedValue,
+				IsDelta:          u.IsDelta && u.ParentHttpBodyUrlEncodedID != nil,
+				DeltaKey:         u.DeltaKey,
+				DeltaValue:       u.DeltaValue,
 				DeltaEnabled:     u.DeltaEnabled,
 				DeltaDescription: u.DeltaDescription,
 				CreatedAt:        u.CreatedAt,
 				UpdatedAt:        u.UpdatedAt,
 			}
-			if err := imp.httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, urlencoded); err != nil {
+			if err := imp.httpBodyUrlEncodedService.Create(ctx, urlencoded); err != nil {
 				return fmt.Errorf("failed to store body urlencoded: %w", err)
 			}
 		}
@@ -480,24 +478,24 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	if len(results.BodyUrlencoded) > 0 {
 		for _, u := range results.BodyUrlencoded {
-			urlencoded := mhttpbodyurlencoded.HttpBodyUrlEncoded{
+			urlencoded := mhttp.HTTPBodyUrlencoded{
 				ID:                         u.ID,
 				HttpID:                     u.HttpID,
-				Key:                        u.UrlencodedKey,
-				Value:                      u.UrlencodedValue,
+				Key:                        u.Key,
+				Value:                      u.Value,
 				Enabled:                    u.Enabled,
 				Description:                u.Description,
-				ParentHttpBodyUrlEncodedID: u.ParentBodyUrlencodedID,
+				ParentHttpBodyUrlEncodedID: u.ParentHttpBodyUrlEncodedID,
 				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
-				IsDelta:          u.IsDelta && u.ParentBodyUrlencodedID != nil,
-				DeltaKey:         u.DeltaUrlencodedKey,
-				DeltaValue:       u.DeltaUrlencodedValue,
+				IsDelta:          u.IsDelta && u.ParentHttpBodyUrlEncodedID != nil,
+				DeltaKey:         u.DeltaKey,
+				DeltaValue:       u.DeltaValue,
 				DeltaEnabled:     u.DeltaEnabled,
 				DeltaDescription: u.DeltaDescription,
 				CreatedAt:        u.CreatedAt,
 				UpdatedAt:        u.UpdatedAt,
 			}
-			if err := txBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, &urlencoded); err != nil {
+			if err := txBodyUrlEncodedService.Create(ctx, &urlencoded); err != nil {
 				return fmt.Errorf("failed to store body urlencoded: %w", err)
 			}
 		}

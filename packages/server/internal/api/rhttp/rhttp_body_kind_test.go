@@ -11,7 +11,6 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 
 	"connectrpc.com/connect"
@@ -61,7 +60,7 @@ func (f *httpFixture) createHttpBodyUrlEncoded(t *testing.T, httpID idwrap.IDWra
 	t.Helper()
 
 	urlEncodedID := idwrap.NewNow()
-	urlEncoded := &mhttpbodyurlencoded.HttpBodyUrlEncoded{
+	urlEncoded := &mhttp.HTTPBodyUrlencoded{
 		ID:      urlEncodedID,
 		HttpID:  httpID,
 		Key:     key,
@@ -71,7 +70,7 @@ func (f *httpFixture) createHttpBodyUrlEncoded(t *testing.T, httpID idwrap.IDWra
 
 	// Access the body url encoded service from the handler
 	urlEncodedService := f.handler.httpBodyUrlEncodedService
-	if err := urlEncodedService.CreateHttpBodyUrlEncoded(f.ctx, urlEncoded); err != nil {
+	if err := urlEncodedService.Create(f.ctx, urlEncoded); err != nil {
 		t.Fatalf("create http body url encoded: %v", err)
 	}
 }

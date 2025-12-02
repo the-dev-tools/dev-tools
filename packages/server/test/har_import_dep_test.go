@@ -147,7 +147,7 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 		suite.importHandler.HttpSearchParamService,
 		suite.importHandler.HttpBodyRawService,
 		suite.importHandler.HttpBodyFormService,
-		&suite.importHandler.HttpBodyUrlEncodedService,
+		suite.importHandler.HttpBodyUrlEncodedService,
 		&httpAssertService,
 	)
 

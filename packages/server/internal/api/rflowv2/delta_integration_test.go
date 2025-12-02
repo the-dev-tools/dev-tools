@@ -34,7 +34,6 @@ import (
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
@@ -108,7 +107,7 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	resHeaderSvc := shttp.NewHttpHeaderService(queries)
 	resSearchParamSvc := shttp.NewHttpSearchParamService(queries)
 	resBodyFormSvc := shttp.NewHttpBodyFormService(queries)
-	resBodyUrlencodedSvc := shttpbodyurlencoded.New(queries)
+	resBodyUrlencodedSvc := shttp.NewHttpBodyUrlEncodedService(queries)
 	resAssertSvc := shttpassert.New(queries)
 
 	nodeRequestService := snoderequest.New(queries)
@@ -129,7 +128,7 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 		resSearchParamSvc,
 		shttpBodyRawSvc,
 		resBodyFormSvc,
-		&resBodyUrlencodedSvc,
+		resBodyUrlencodedSvc,
 		&resAssertSvc,
 	)
 

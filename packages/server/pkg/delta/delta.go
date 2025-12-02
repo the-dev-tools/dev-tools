@@ -261,8 +261,8 @@ func resolveUrlEncodedBody(base []mhttp.HTTPBodyUrlencoded, delta []mhttp.HTTPBo
 	additions := make([]mhttp.HTTPBodyUrlencoded, 0)
 
 	for _, d := range delta {
-		if d.ParentBodyUrlencodedID != nil {
-			overrideMap[*d.ParentBodyUrlencodedID] = d
+		if d.ParentHttpBodyUrlEncodedID != nil {
+			overrideMap[*d.ParentHttpBodyUrlEncodedID] = d
 		} else {
 			additions = append(additions, d)
 		}
@@ -273,11 +273,11 @@ func resolveUrlEncodedBody(base []mhttp.HTTPBodyUrlencoded, delta []mhttp.HTTPBo
 	for _, b := range base {
 		if override, ok := overrideMap[b.ID]; ok {
 			merged := b
-			if override.DeltaUrlencodedKey != nil {
-				merged.UrlencodedKey = *override.DeltaUrlencodedKey
+			if override.DeltaKey != nil {
+				merged.Key = *override.DeltaKey
 			}
-			if override.DeltaUrlencodedValue != nil {
-				merged.UrlencodedValue = *override.DeltaUrlencodedValue
+			if override.DeltaValue != nil {
+				merged.Value = *override.DeltaValue
 			}
 			if override.DeltaDescription != nil {
 				merged.Description = *override.DeltaDescription
@@ -287,9 +287,9 @@ func resolveUrlEncodedBody(base []mhttp.HTTPBodyUrlencoded, delta []mhttp.HTTPBo
 			}
 
 			merged.IsDelta = false
-			merged.ParentBodyUrlencodedID = nil
-			merged.DeltaUrlencodedKey = nil
-			merged.DeltaUrlencodedValue = nil
+			merged.ParentHttpBodyUrlEncodedID = nil
+			merged.DeltaKey = nil
+			merged.DeltaValue = nil
 			merged.DeltaDescription = nil
 			merged.DeltaEnabled = nil
 

@@ -14,11 +14,9 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -2160,7 +2158,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaCollection(ctx context.Context, 
 
 		// Get body URL encoded for each HTTP entry
 		for _, http := range httpList {
-			bodyUrlEncodeds, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, http.ID)
+			bodyUrlEncodeds, err := h.httpBodyUrlEncodedService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -2224,9 +2222,9 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaInsert(ctx context.Context, req 
 		}
 
 		// Check workspace write access
-		bodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyUrlEncodedID)
+		bodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, bodyUrlEncodedID)
 		if err != nil {
-			if errors.Is(err, shttpbodyurlencoded.ErrNoHttpBodyUrlEncodedFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyUrlEncodedFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -2242,7 +2240,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaInsert(ctx context.Context, req 
 		}
 
 		// Update delta fields
-		err = h.httpBodyUrlEncodedService.UpdateHttpBodyUrlEncodedDelta(ctx, bodyUrlEncodedID, item.Key, item.Value, item.Enabled, item.Description, item.Order)
+		err = h.httpBodyUrlEncodedService.UpdateDelta(ctx, bodyUrlEncodedID, item.Key, item.Value, item.Enabled, item.Description, item.Order)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -2259,7 +2257,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var updateData []struct {
 		deltaID                idwrap.IDWrap
-		existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
 		item                   *apiv1.HttpBodyUrlEncodedDeltaUpdate
 	}
 
@@ -2274,9 +2272,9 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 		}
 
 		// Get existing delta body url encoded - use pool service
-		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, deltaID)
+		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpbodyurlencoded.ErrNoHttpBodyUrlEncodedFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyUrlEncodedFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -2300,7 +2298,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 
 		updateData = append(updateData, struct {
 			deltaID                idwrap.IDWrap
-			existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+			existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
 			item                   *apiv1.HttpBodyUrlEncodedDeltaUpdate
 		}{
 			deltaID:                deltaID,
@@ -2396,15 +2394,15 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 	defer tx.Rollback()
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-	var updatedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+	var updatedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
 
 	for _, update := range preparedUpdates {
-		if err := httpBodyUrlEncodedService.UpdateHttpBodyUrlEncodedDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
+		if err := httpBodyUrlEncodedService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaEnabled, update.deltaDescription, update.deltaOrder); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		// Get updated body url encoded for event publishing (from TX service)
-		updatedBodyUrlEncoded, err := httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, update.deltaID)
+		updatedBodyUrlEncoded, err := httpBodyUrlEncodedService.GetByID(ctx, update.deltaID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -2439,7 +2437,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var deleteData []struct {
 		deltaID                idwrap.IDWrap
-		existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
 		workspaceID            idwrap.IDWrap
 	}
 
@@ -2454,9 +2452,9 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 		}
 
 		// Get existing delta body url encoded - use pool service
-		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, deltaID)
+		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpbodyurlencoded.ErrNoHttpBodyUrlEncodedFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyUrlEncodedFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -2480,7 +2478,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 
 		deleteData = append(deleteData, struct {
 			deltaID                idwrap.IDWrap
-			existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+			existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
 			workspaceID            idwrap.IDWrap
 		}{
 			deltaID:                deltaID,
@@ -2497,12 +2495,12 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 	defer tx.Rollback()
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-	var deletedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+	var deletedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
 		// Delete the delta record
-		if err := httpBodyUrlEncodedService.DeleteHttpBodyUrlEncoded(ctx, data.deltaID); err != nil {
+		if err := httpBodyUrlEncodedService.Delete(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -2568,7 +2566,7 @@ func (h *HttpServiceRPC) streamHttpBodyUrlEncodedDeltaSync(ctx context.Context, 
 			if err != nil {
 				continue // Skip if can't parse ID
 			}
-			bodyRecord, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyID)
+			bodyRecord, err := h.httpBodyUrlEncodedService.GetByID(ctx, bodyID)
 			if err != nil {
 				continue // Skip if can't get the record
 			}

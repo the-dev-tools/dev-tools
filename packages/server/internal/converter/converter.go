@@ -10,7 +10,6 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
@@ -181,7 +180,7 @@ func ToAPIHttpBodyFormDataFromMHttp(form mhttp.HTTPBodyForm) *httpv1.HttpBodyFor
 }
 
 // ToAPIHttpBodyUrlEncoded converts model HttpBodyUrlEncoded to API HttpBodyUrlEncoded
-func ToAPIHttpBodyUrlEncoded(urlEncoded mhttpbodyurlencoded.HttpBodyUrlEncoded) *httpv1.HttpBodyUrlEncoded {
+func ToAPIHttpBodyUrlEncoded(urlEncoded mhttp.HTTPBodyUrlencoded) *httpv1.HttpBodyUrlEncoded {
 	return &httpv1.HttpBodyUrlEncoded{
 		HttpBodyUrlEncodedId: urlEncoded.ID.Bytes(),
 		HttpId:               urlEncoded.HttpID.Bytes(),
@@ -197,8 +196,8 @@ func ToAPIHttpBodyUrlEncodedFromMHttp(encoded mhttp.HTTPBodyUrlencoded) *httpv1.
 	return &httpv1.HttpBodyUrlEncoded{
 		HttpBodyUrlEncodedId: encoded.ID.Bytes(),
 		HttpId:               encoded.HttpID.Bytes(),
-		Key:                  encoded.UrlencodedKey,
-		Value:                encoded.UrlencodedValue,
+		Key:                  encoded.Key,
+		Value:                encoded.Value,
 		Enabled:              encoded.Enabled,
 		Description:          encoded.Description,
 	}

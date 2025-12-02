@@ -59,8 +59,8 @@ func convertPostmanURLToSearchParams(postmanURL PostmanURL, httpID idwrap.IDWrap
 		searchParam := mhttp.HTTPSearchParam{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			Key:    param.Key,
-			Value:  param.Value,
+			Key:         param.Key,
+			Value:       param.Value,
 			Description: param.Description,
 			Enabled:     true, // All included parameters are enabled
 			CreatedAt:   now,
@@ -86,8 +86,8 @@ func convertPostmanURLToSearchParams(postmanURL PostmanURL, httpID idwrap.IDWrap
 					searchParam := mhttp.HTTPSearchParam{
 						ID:          idwrap.NewNow(),
 						HttpID:      httpID,
-						Key:    key,
-						Value:  value,
+						Key:         key,
+						Value:       value,
 						Description: "",
 						Enabled:     true,
 						CreatedAt:   now,
@@ -120,8 +120,8 @@ func convertPostmanHeadersToHTTPHeaders(postmanHeaders []PostmanHeader, postmanA
 		httpHeader := mhttp.HTTPHeader{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			Key:   header.Key,
-			Value: header.Value,
+			Key:         header.Key,
+			Value:       header.Value,
 			Description: header.Description,
 			Enabled:     true, // All included headers are enabled
 			CreatedAt:   now,
@@ -162,8 +162,8 @@ func convertAuthToHeaders(auth *PostmanAuth, httpID idwrap.IDWrap) []mhttp.HTTPH
 					{
 						ID:          idwrap.NewNow(),
 						HttpID:      httpID,
-						Key:   key,
-						Value: value,
+						Key:         key,
+						Value:       value,
 						Description: "API Key authentication",
 						Enabled:     true,
 						CreatedAt:   now,
@@ -192,8 +192,8 @@ func convertAuthToHeaders(auth *PostmanAuth, httpID idwrap.IDWrap) []mhttp.HTTPH
 					{
 						ID:          idwrap.NewNow(),
 						HttpID:      httpID,
-						Key:   "Authorization",
-						Value: "Basic " + encoded,
+						Key:         "Authorization",
+						Value:       "Basic " + encoded,
 						Description: "Basic authentication",
 						Enabled:     true,
 						CreatedAt:   now,
@@ -217,8 +217,8 @@ func convertAuthToHeaders(auth *PostmanAuth, httpID idwrap.IDWrap) []mhttp.HTTPH
 					{
 						ID:          idwrap.NewNow(),
 						HttpID:      httpID,
-						Key:   "Authorization",
-						Value: "Bearer " + token,
+						Key:         "Authorization",
+						Value:       "Bearer " + token,
 						Description: "Bearer token authentication",
 						Enabled:     true,
 						CreatedAt:   now,
@@ -273,8 +273,8 @@ func convertPostmanBodyToHTTPModels(postmanBody *PostmanBody, httpID idwrap.IDWr
 			bodyForm := mhttp.HTTPBodyForm{
 				ID:          idwrap.NewNow(),
 				HttpID:      httpID,
-				Key:     formData.Key,
-				Value:   formData.Value,
+				Key:         formData.Key,
+				Value:       formData.Value,
 				Description: formData.Description,
 				Enabled:     true, // All included form fields are enabled
 				CreatedAt:   now,
@@ -292,14 +292,14 @@ func convertPostmanBodyToHTTPModels(postmanBody *PostmanBody, httpID idwrap.IDWr
 			}
 
 			bodyUrl := mhttp.HTTPBodyUrlencoded{
-				ID:              idwrap.NewNow(),
-				HttpID:          httpID,
-				UrlencodedKey:   urlEncoded.Key,
-				UrlencodedValue: urlEncoded.Value,
-				Description:     urlEncoded.Description,
-				Enabled:         true, // All included URL encoded fields are enabled
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				ID:          idwrap.NewNow(),
+				HttpID:      httpID,
+				Key:         urlEncoded.Key,
+				Value:       urlEncoded.Value,
+				Description: urlEncoded.Description,
+				Enabled:     true, // All included URL encoded fields are enabled
+				CreatedAt:   now,
+				UpdatedAt:   now,
 			}
 			bodyUrlencoded = append(bodyUrlencoded, bodyUrl)
 		}

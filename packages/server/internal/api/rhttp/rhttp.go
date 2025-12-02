@@ -12,7 +12,6 @@ import (
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -180,7 +179,7 @@ type HttpServiceRPC struct {
 	httpHeaderService         shttp.HttpHeaderService
 	httpSearchParamService    *shttp.HttpSearchParamService
 	httpBodyFormService       *shttp.HttpBodyFormService
-	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
+	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	httpAssertService         shttpassert.HttpAssertService
 
 	// Streamers for child entities
@@ -212,7 +211,7 @@ func New(
 	httpHeaderService shttp.HttpHeaderService,
 	httpSearchParamService *shttp.HttpSearchParamService,
 	httpBodyFormService *shttp.HttpBodyFormService,
-	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
+	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
 	httpAssertService shttpassert.HttpAssertService,
 	httpResponseService shttp.HttpResponseService,
 	requestResolver resolver.RequestResolver,

@@ -28,7 +28,7 @@ type CurlResolvedV2 struct {
 	BodyRaw        *mhttp.HTTPBodyRaw
 
 	// File system integration
-	File      mfile.File
+	File mfile.File
 }
 
 // ConvertCurlOptions contains options for the curl conversion
@@ -222,7 +222,7 @@ func BuildCurl(resolved *CurlResolvedV2) (string, error) {
 
 	for _, urlBody := range bodyUrlencoded {
 		if urlBody.Enabled {
-			args = append(args, "--data-urlencode "+singleQuote(fmt.Sprintf("%s=%s", urlBody.UrlencodedKey, urlBody.UrlencodedValue)))
+			args = append(args, "--data-urlencode "+singleQuote(fmt.Sprintf("%s=%s", urlBody.Key, urlBody.Value)))
 		}
 	}
 
@@ -342,8 +342,8 @@ func extractHeaders(curlStr string, httpID idwrap.IDWrap) []mhttp.HTTPHeader {
 		header := mhttp.HTTPHeader{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			Key:   strings.TrimSpace(key),
-			Value: strings.TrimSpace(value),
+			Key:         strings.TrimSpace(key),
+			Value:       strings.TrimSpace(value),
 			Description: "",
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),
@@ -373,8 +373,8 @@ func extractCookies(curlStr string, httpID idwrap.IDWrap) []mhttp.HTTPHeader {
 		cookieHeader := mhttp.HTTPHeader{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			Key:   "Cookie",
-			Value: strings.TrimSpace(cookieContent),
+			Key:         "Cookie",
+			Value:       strings.TrimSpace(cookieContent),
 			Description: "",
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),
@@ -435,14 +435,14 @@ func extractBodyUrlencoded(curlStr string, httpID idwrap.IDWrap, hasDataFlag *bo
 		}
 
 		body := mhttp.HTTPBodyUrlencoded{
-			ID:              idwrap.NewNow(),
-			HttpID:          httpID,
-			UrlencodedKey:   key,
-			UrlencodedValue: value,
-			Description:     "",
-			Enabled:         true,
-			CreatedAt:       time.Now().UnixMilli(),
-			UpdatedAt:       time.Now().UnixMilli(),
+			ID:          idwrap.NewNow(),
+			HttpID:      httpID,
+			Key:         key,
+			Value:       value,
+			Description: "",
+			Enabled:     true,
+			CreatedAt:   time.Now().UnixMilli(),
+			UpdatedAt:   time.Now().UnixMilli(),
 		}
 		bodies = append(bodies, body)
 	}
@@ -470,8 +470,8 @@ func extractBodyForms(curlStr string, httpID idwrap.IDWrap, hasDataFlag *bool) [
 		form := mhttp.HTTPBodyForm{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			Key:     key,
-			Value:   value,
+			Key:         key,
+			Value:       value,
 			Description: "",
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),
@@ -497,13 +497,13 @@ func parseURLAndSearchQueries(urlStr string, httpID idwrap.IDWrap) (string, []mh
 	for _, match := range matches {
 		if len(match) >= 3 {
 			param := mhttp.HTTPSearchParam{
-				ID:         idwrap.NewNow(),
-				HttpID:     httpID,
-				Key:   match[1],
-				Value: match[2],
-				Enabled:    true,
-				CreatedAt:  time.Now().UnixMilli(),
-				UpdatedAt:  time.Now().UnixMilli(),
+				ID:        idwrap.NewNow(),
+				HttpID:    httpID,
+				Key:       match[1],
+				Value:     match[2],
+				Enabled:   true,
+				CreatedAt: time.Now().UnixMilli(),
+				UpdatedAt: time.Now().UnixMilli(),
 			}
 			searchParams = append(searchParams, param)
 		}
@@ -589,10 +589,10 @@ func sortBodyForms(forms []mhttp.HTTPBodyForm) {
 
 func sortBodyUrlencoded(bodies []mhttp.HTTPBodyUrlencoded) {
 	sort.SliceStable(bodies, func(i, j int) bool {
-		if bodies[i].UrlencodedKey == bodies[j].UrlencodedKey {
-			return bodies[i].UrlencodedValue < bodies[j].UrlencodedValue
+		if bodies[i].Key == bodies[j].Key {
+			return bodies[i].Value < bodies[j].Value
 		}
-		return bodies[i].UrlencodedKey < bodies[j].UrlencodedKey
+		return bodies[i].Key < bodies[j].Key
 	})
 }
 

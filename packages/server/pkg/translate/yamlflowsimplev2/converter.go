@@ -3,14 +3,15 @@ package yamlflowsimplev2
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
-		"the-dev-tools/server/pkg/model/mcondition"
+	"the-dev-tools/server/pkg/model/mcondition"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mflowvariable"
@@ -229,8 +230,8 @@ func parseHTTPRequestData(data map[string]any) (*YamlHTTPRequestV2, error) {
 		for key, value := range headers {
 			if valueStr, ok := value.(string); ok {
 				header := YamlNameValuePairV2{
-					Name:   key,
-					Value:  valueStr,
+					Name:    key,
+					Value:   valueStr,
 					Enabled: true,
 				}
 				httpReq.Headers = append(httpReq.Headers, header)
@@ -252,8 +253,8 @@ func parseHTTPRequestData(data map[string]any) (*YamlHTTPRequestV2, error) {
 		for key, value := range queryParams {
 			if valueStr, ok := value.(string); ok {
 				param := YamlNameValuePairV2{
-					Name:   key,
-					Value:  valueStr,
+					Name:    key,
+					Value:   valueStr,
 					Enabled: true,
 				}
 				httpReq.QueryParams = append(httpReq.QueryParams, param)
@@ -752,8 +753,8 @@ func convertToHTTPHeaders(headers []YamlNameValuePairV2, httpID idwrap.IDWrap) [
 		httpHeader := mhttp.HTTPHeader{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			Key:   header.Name,
-			Value: header.Value,
+			Key:         header.Name,
+			Value:       header.Value,
 			Description: header.Description,
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),
@@ -775,14 +776,14 @@ func convertToHTTPSearchParams(params []YamlNameValuePairV2, httpID idwrap.IDWra
 		}
 
 		searchParam := mhttp.HTTPSearchParam{
-			ID:         idwrap.NewNow(),
-			HttpID:     httpID,
-			Key:   param.Name,
-			Value: param.Value,
+			ID:          idwrap.NewNow(),
+			HttpID:      httpID,
+			Key:         param.Name,
+			Value:       param.Value,
 			Description: param.Description,
-			Enabled:    true,
-			CreatedAt:  time.Now().UnixMilli(),
-			UpdatedAt:  time.Now().UnixMilli(),
+			Enabled:     true,
+			CreatedAt:   time.Now().UnixMilli(),
+			UpdatedAt:   time.Now().UnixMilli(),
 		}
 		searchParams = append(searchParams, searchParam)
 	}
@@ -857,8 +858,8 @@ func convertToBodyForms(formData []YamlNameValuePairV2, httpID idwrap.IDWrap) []
 		bodyForm := mhttp.HTTPBodyForm{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			Key:     form.Name,
-			Value:   form.Value,
+			Key:         form.Name,
+			Value:       form.Value,
 			Description: form.Description,
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),
@@ -880,14 +881,14 @@ func convertToBodyUrlencoded(urlData []YamlNameValuePairV2, httpID idwrap.IDWrap
 		}
 
 		bodyUrl := mhttp.HTTPBodyUrlencoded{
-			ID:              idwrap.NewNow(),
-			HttpID:          httpID,
-			UrlencodedKey:   url.Name,
-			UrlencodedValue: url.Value,
-			Description:     url.Description,
-			Enabled:         true,
-			CreatedAt:       time.Now().UnixMilli(),
-			UpdatedAt:       time.Now().UnixMilli(),
+			ID:          idwrap.NewNow(),
+			HttpID:      httpID,
+			Key:         url.Name,
+			Value:       url.Value,
+			Description: url.Description,
+			Enabled:     true,
+			CreatedAt:   time.Now().UnixMilli(),
+			UpdatedAt:   time.Now().UnixMilli(),
 		}
 		bodyUrlencoded = append(bodyUrlencoded, bodyUrl)
 	}

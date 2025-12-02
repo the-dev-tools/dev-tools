@@ -13,11 +13,9 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -1562,7 +1560,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedCollection(ctx context.Context, req *
 
 		// Get body URL encoded for each HTTP entry
 		for _, http := range httpList {
-			bodyUrlEncodeds, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, http.ID)
+			bodyUrlEncodeds, err := h.httpBodyUrlEncodedService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -1585,7 +1583,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var insertData []struct {
-		bodyUrlEncodedModel *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		bodyUrlEncodedModel *mhttp.HTTPBodyUrlencoded
 	}
 
 	for _, item := range req.Msg.Items {
@@ -1621,7 +1619,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 		}
 
 		// Create the body URL encoded model
-		bodyUrlEncodedModel := &mhttpbodyurlencoded.HttpBodyUrlEncoded{
+		bodyUrlEncodedModel := &mhttp.HTTPBodyUrlencoded{
 			ID:          bodyUrlEncodedID,
 			HttpID:      httpID,
 			Key:         item.Key,
@@ -1632,7 +1630,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 		}
 
 		insertData = append(insertData, struct {
-			bodyUrlEncodedModel *mhttpbodyurlencoded.HttpBodyUrlEncoded
+			bodyUrlEncodedModel *mhttp.HTTPBodyUrlencoded
 		}{
 			bodyUrlEncodedModel: bodyUrlEncodedModel,
 		})
@@ -1646,10 +1644,10 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedInsert(ctx context.Context, req *conn
 	defer tx.Rollback()
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-	var createdBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+	var createdBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
 
 	for _, data := range insertData {
-		if err := httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, data.bodyUrlEncodedModel); err != nil {
+		if err := httpBodyUrlEncodedService.Create(ctx, data.bodyUrlEncodedModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		createdBodyUrlEncodeds = append(createdBodyUrlEncodeds, *data.bodyUrlEncodedModel)
@@ -1684,7 +1682,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var updateData []struct {
-		existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
 		item                   *apiv1.HttpBodyUrlEncodedUpdate
 	}
 
@@ -1699,9 +1697,9 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		}
 
 		// Get existing body URL encoded - use pool service
-		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyUrlEncodedID)
+		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, bodyUrlEncodedID)
 		if err != nil {
-			if errors.Is(err, shttpbodyurlencoded.ErrNoHttpBodyUrlEncodedFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyUrlEncodedFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1722,7 +1720,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 		}
 
 		updateData = append(updateData, struct {
-			existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+			existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
 			item                   *apiv1.HttpBodyUrlEncodedUpdate
 		}{
 			existingBodyUrlEncoded: existingBodyUrlEncoded,
@@ -1760,10 +1758,10 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedUpdate(ctx context.Context, req *conn
 	defer tx.Rollback()
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-	var updatedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+	var updatedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
 
 	for _, data := range updateData {
-		if err := httpBodyUrlEncodedService.UpdateHttpBodyUrlEncoded(ctx, data.existingBodyUrlEncoded); err != nil {
+		if err := httpBodyUrlEncodedService.Update(ctx, data.existingBodyUrlEncoded); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		updatedBodyUrlEncodeds = append(updatedBodyUrlEncodeds, *data.existingBodyUrlEncoded)
@@ -1798,7 +1796,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var deleteData []struct {
 		bodyUrlEncodedID       idwrap.IDWrap
-		existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+		existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
 		workspaceID            idwrap.IDWrap
 	}
 
@@ -1813,9 +1811,9 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 		}
 
 		// Get existing body URL encoded - use pool service
-		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, bodyUrlEncodedID)
+		existingBodyUrlEncoded, err := h.httpBodyUrlEncodedService.GetByID(ctx, bodyUrlEncodedID)
 		if err != nil {
-			if errors.Is(err, shttpbodyurlencoded.ErrNoHttpBodyUrlEncodedFound) {
+			if errors.Is(err, shttp.ErrNoHttpBodyUrlEncodedFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1837,7 +1835,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 
 		deleteData = append(deleteData, struct {
 			bodyUrlEncodedID       idwrap.IDWrap
-			existingBodyUrlEncoded *mhttpbodyurlencoded.HttpBodyUrlEncoded
+			existingBodyUrlEncoded *mhttp.HTTPBodyUrlencoded
 			workspaceID            idwrap.IDWrap
 		}{
 			bodyUrlEncodedID:       bodyUrlEncodedID,
@@ -1854,11 +1852,11 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDelete(ctx context.Context, req *conn
 	defer tx.Rollback()
 
 	httpBodyUrlEncodedService := h.httpBodyUrlEncodedService.TX(tx)
-	var deletedBodyUrlEncodeds []mhttpbodyurlencoded.HttpBodyUrlEncoded
+	var deletedBodyUrlEncodeds []mhttp.HTTPBodyUrlencoded
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
-		if err := httpBodyUrlEncodedService.DeleteHttpBodyUrlEncoded(ctx, data.bodyUrlEncodedID); err != nil {
+		if err := httpBodyUrlEncodedService.Delete(ctx, data.bodyUrlEncodedID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 

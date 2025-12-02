@@ -189,17 +189,17 @@ func CreateDeltaBodyUrlEncoded(originalEncoded []mhttp.HTTPBodyUrlencoded, newEn
 	// Create map of original encoded params by key for comparison
 	originalMap := make(map[string]mhttp.HTTPBodyUrlencoded)
 	for _, encoded := range originalEncoded {
-		originalMap[encoded.UrlencodedKey] = encoded
+		originalMap[encoded.Key] = encoded
 	}
 
 	// Find changed or new encoded params
 	for _, newEncoded := range newEncoded {
-		original, exists := originalMap[newEncoded.UrlencodedKey]
+		original, exists := originalMap[newEncoded.Key]
 
 		// Create delta if param doesn't exist or has different value
-		if !exists || original.UrlencodedValue != newEncoded.UrlencodedValue {
-			deltaKey := newEncoded.UrlencodedKey
-			deltaValue := newEncoded.UrlencodedValue
+		if !exists || original.Value != newEncoded.Value {
+			deltaKey := newEncoded.Key
+			deltaValue := newEncoded.Value
 			deltaDesc := "Imported from HAR"
 			deltaEnabled := true
 
@@ -210,20 +210,20 @@ func CreateDeltaBodyUrlEncoded(originalEncoded []mhttp.HTTPBodyUrlencoded, newEn
 			}
 
 			deltaEncodedParam := mhttp.HTTPBodyUrlencoded{
-				ID:                     idwrap.NewNow(),
-				HttpID:                 deltaHttpID,
-				UrlencodedKey:          deltaKey,
-				UrlencodedValue:        deltaValue,
-				Description:            deltaDesc,
-				Enabled:                true,
-				ParentBodyUrlencodedID: parentBodyUrlencodedID,
-				IsDelta:                true,
-				DeltaUrlencodedKey:     &deltaKey,
-				DeltaUrlencodedValue:   &deltaValue,
-				DeltaDescription:       &deltaDesc,
-				DeltaEnabled:           &deltaEnabled,
-				CreatedAt:              newEncoded.CreatedAt + 1,
-				UpdatedAt:              newEncoded.UpdatedAt + 1,
+				ID:                         idwrap.NewNow(),
+				HttpID:                     deltaHttpID,
+				Key:                        deltaKey,
+				Value:                      deltaValue,
+				Description:                deltaDesc,
+				Enabled:                    true,
+				ParentHttpBodyUrlEncodedID: parentBodyUrlencodedID,
+				IsDelta:                    true,
+				DeltaKey:                   &deltaKey,
+				DeltaValue:                 &deltaValue,
+				DeltaDescription:           &deltaDesc,
+				DeltaEnabled:               &deltaEnabled,
+				CreatedAt:                  newEncoded.CreatedAt + 1,
+				UpdatedAt:                  newEncoded.UpdatedAt + 1,
 			}
 			deltaEncoded = append(deltaEncoded, deltaEncodedParam)
 		}

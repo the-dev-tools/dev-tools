@@ -4,7 +4,6 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -1064,7 +1063,7 @@ func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttpassert.H
 }
 
 // httpBodyUrlEncodedDeltaSyncResponseFrom converts HttpBodyUrlEncodedEvent and body record to HttpBodyUrlEncodedDeltaSync response
-func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body mhttpbodyurlencoded.HttpBodyUrlEncoded) *apiv1.HttpBodyUrlEncodedDeltaSyncResponse {
+func httpBodyUrlEncodedDeltaSyncResponseFrom(event HttpBodyUrlEncodedEvent, body mhttp.HTTPBodyUrlencoded) *apiv1.HttpBodyUrlEncodedDeltaSyncResponse {
 	var value *apiv1.HttpBodyUrlEncodedDeltaSync_ValueUnion
 
 	switch event.Type {

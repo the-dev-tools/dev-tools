@@ -22,7 +22,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -81,9 +80,9 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 			formBody = []mhttp.HTTPBodyForm{}
 		}
 
-		urlEncodedBody, err := h.httpBodyUrlEncodedService.GetHttpBodyUrlEncodedByHttpID(ctx, httpEntry.ID)
+		urlEncodedBody, err := h.httpBodyUrlEncodedService.GetByHttpID(ctx, httpEntry.ID)
 		if err != nil {
-			urlEncodedBody = []mhttpbodyurlencoded.HttpBodyUrlEncoded{}
+			urlEncodedBody = []mhttp.HTTPBodyUrlencoded{}
 		}
 
 		// Convert to mhttp types for request preparation
@@ -117,9 +116,9 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		mUrlEncodedBody = make([]mhttp.HTTPBodyUrlencoded, len(urlEncodedBody))
 		for i, v := range urlEncodedBody {
 			mUrlEncodedBody[i] = mhttp.HTTPBodyUrlencoded{
-				UrlencodedKey:   v.Key,
-				UrlencodedValue: v.Value,
-				Enabled:         v.Enabled,
+				Key:     v.Key,
+				Value:   v.Value,
+				Enabled: v.Enabled,
 			}
 		}
 	}

@@ -42,7 +42,6 @@ import (
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
-	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
@@ -154,7 +153,7 @@ func main() {
 	httpHeaderService := shttp.NewHttpHeaderService(queries)
 	httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 	httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
+	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
 	httpAssertService := shttpassert.New(queries)
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
@@ -251,7 +250,7 @@ func main() {
 		httpSearchParamService,
 		httpBodyRawService,
 		httpBodyFormService,
-		&httpBodyUrlEncodedService,
+		httpBodyUrlEncodedService,
 		&httpAssertService,
 	)
 

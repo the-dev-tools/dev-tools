@@ -276,14 +276,14 @@ func PrepareHTTPRequestWithTracking(
 	case mhttp.HttpBodyKindUrlEncoded:
 		urlVal := url.Values{}
 		for _, u := range activeUrlBody {
-			bodyKey := u.UrlencodedKey
+			bodyKey := u.Key
 			if varsystem.CheckStringHasAnyVarKey(bodyKey) {
 				bodyKey, err = tracker.ReplaceVars(bodyKey)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
 			}
-			bodyValue := u.UrlencodedValue
+			bodyValue := u.Value
 			if varsystem.CheckStringHasAnyVarKey(bodyValue) {
 				bodyValue, err = tracker.ReplaceVars(bodyValue)
 				if err != nil {
@@ -728,24 +728,24 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 	case mhttp.HttpBodyKindUrlEncoded:
 		urlVal := url.Values{}
 		for _, url := range urlBody {
-			if varsystem.CheckIsVar(url.UrlencodedKey) {
-				key := varsystem.GetVarKeyFromRaw(url.UrlencodedValue)
+			if varsystem.CheckIsVar(url.Key) {
+				key := varsystem.GetVarKeyFromRaw(url.Value)
 				if val, ok := varMap.Get(key); ok {
-					url.UrlencodedKey = val.Value
+					url.Key = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
 				}
 			}
-			if varsystem.CheckIsVar(url.UrlencodedValue) {
-				key := varsystem.GetVarKeyFromRaw(url.UrlencodedValue)
+			if varsystem.CheckIsVar(url.Value) {
+				key := varsystem.GetVarKeyFromRaw(url.Value)
 				if val, ok := varMap.Get(key); ok {
-					url.UrlencodedValue = val.Value
+					url.Value = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named error not found", key))
 				}
 			}
 
-			urlVal.Add(url.UrlencodedKey, url.UrlencodedValue)
+			urlVal.Add(url.Key, url.Value)
 		}
 		endpoint.Url += urlVal.Encode()
 	}
@@ -1024,7 +1024,7 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 	case mhttp.HttpBodyKindUrlEncoded:
 		urlVal := url.Values{}
 		for _, url := range urlBody {
-			bodyKey := url.UrlencodedKey
+			bodyKey := url.Key
 			if varsystem.CheckStringHasAnyVarKey(bodyKey) {
 				resolvedKey, err := tracker.ReplaceVars(bodyKey)
 				if err != nil {
@@ -1032,7 +1032,7 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 				}
 				bodyKey = resolvedKey
 			}
-			bodyValue := url.UrlencodedValue
+			bodyValue := url.Value
 			if varsystem.CheckStringHasAnyVarKey(bodyValue) {
 				resolvedValue, err := tracker.ReplaceVars(bodyValue)
 				if err != nil {

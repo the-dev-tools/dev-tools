@@ -9,7 +9,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -315,7 +314,7 @@ func TestHttpDelta_BodyUrlEncoded(t *testing.T) {
 
 	// Base Url Encoded
 	baseUrlID := idwrap.NewNow()
-	err = f.handler.httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, &mhttpbodyurlencoded.HttpBodyUrlEncoded{
+	err = f.handler.httpBodyUrlEncodedService.Create(ctx, &mhttp.HTTPBodyUrlencoded{
 		ID:      baseUrlID,
 		HttpID:  httpID,
 		Enabled: true,
@@ -324,7 +323,7 @@ func TestHttpDelta_BodyUrlEncoded(t *testing.T) {
 
 	// Delta Url Encoded
 	urlID := idwrap.NewNow()
-	err = f.handler.httpBodyUrlEncodedService.CreateHttpBodyUrlEncoded(ctx, &mhttpbodyurlencoded.HttpBodyUrlEncoded{
+	err = f.handler.httpBodyUrlEncodedService.Create(ctx, &mhttp.HTTPBodyUrlencoded{
 		ID:                         urlID,
 		HttpID:                     deltaID,
 		IsDelta:                    true,
@@ -348,7 +347,7 @@ func TestHttpDelta_BodyUrlEncoded(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	encoded, err := f.handler.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, urlID)
+	encoded, err := f.handler.httpBodyUrlEncodedService.GetByID(ctx, urlID)
 	require.NoError(t, err)
 	require.NotNil(t, encoded.DeltaValue)
 	require.Equal(t, newVal, *encoded.DeltaValue)
@@ -363,7 +362,7 @@ func TestHttpDelta_BodyUrlEncoded(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	_, err = f.handler.httpBodyUrlEncodedService.GetHttpBodyUrlEncoded(ctx, urlID)
+	_, err = f.handler.httpBodyUrlEncodedService.GetByID(ctx, urlID)
 	require.Error(t, err)
 }
 
