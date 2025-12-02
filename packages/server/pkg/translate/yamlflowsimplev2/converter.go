@@ -738,10 +738,11 @@ func processRequestStep(nodeName string, nodeID, flowID idwrap.IDWrap, stepData 
 
 	// Process body
 	if finalReq.Body != nil {
-		bodyRaw, bodyForms, bodyUrlencoded := convertBodyData(finalReq.Body, httpID, opts)
+		bodyRaw, bodyForms, bodyUrlencoded, bodyKind := convertBodyData(finalReq.Body, httpID, opts)
 		associated.BodyRaw = bodyRaw
 		associated.BodyForms = bodyForms
 		associated.BodyUrlencoded = bodyUrlencoded
+		httpReq.BodyKind = bodyKind
 	}
 
 	return httpReq, associated, nil
@@ -852,15 +853,15 @@ func convertToHTTPSearchParams(params []YamlNameValuePairV2, httpID idwrap.IDWra
 }
 
 // convertBodyData converts YAML body data to HTTP body models
-func convertBodyData(body *YamlBodyV2, httpID idwrap.IDWrap, opts ConvertOptionsV2) (*mhttp.HTTPBodyRaw, []mhttp.HTTPBodyForm, []mhttp.HTTPBodyUrlencoded) {
+func convertBodyData(body *YamlBodyV2, httpID idwrap.IDWrap, opts ConvertOptionsV2) (*mhttp.HTTPBodyRaw, []mhttp.HTTPBodyForm, []mhttp.HTTPBodyUrlencoded, mhttp.HttpBodyKind) {
 	switch body.Type {
 	case "form-data":
-		return nil, convertToBodyForms(body.Form, httpID), nil
+		return nil, convertToBodyForms(body.Form, httpID), nil, mhttp.HttpBodyKindFormData
 	case "urlencoded":
-		return nil, nil, convertToBodyUrlencoded(body.UrlEncoded, httpID)
+		return nil, nil, convertToBodyUrlencoded(body.UrlEncoded, httpID), mhttp.HttpBodyKindUrlEncoded
 	default:
 		// Default to raw body (handles JSON and raw text)
-		return convertToBodyRaw(body, httpID, opts), nil, nil
+		return convertToBodyRaw(body, httpID, opts), nil, nil, mhttp.HttpBodyKindRaw
 	}
 }
 

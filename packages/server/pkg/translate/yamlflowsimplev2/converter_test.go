@@ -8,6 +8,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/mfile"
+	"the-dev-tools/server/pkg/model/mhttp"
 )
 
 func TestConvertSimplifiedYAML(t *testing.T) {
@@ -486,6 +487,13 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
 				if body.ContentType != "application/json" {
 					t.Errorf("Expected content type 'application/json', got '%s'", body.ContentType)
 				}
+				// Verify BodyKind is set correctly on HTTP request
+				if len(result.HTTPRequests) != 1 {
+					t.Fatalf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
+				}
+				if result.HTTPRequests[0].BodyKind != mhttp.HttpBodyKindRaw {
+					t.Errorf("Expected BodyKind to be HttpBodyKindRaw (%d), got %d", mhttp.HttpBodyKindRaw, result.HTTPRequests[0].BodyKind)
+				}
 			},
 		},
 		{
@@ -501,6 +509,13 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
 				body := result.HTTPBodyRaw[0]
 				if string(body.RawData) != "plain text content" {
 					t.Errorf("Expected raw body content 'plain text content', got '%s'", string(body.RawData))
+				}
+				// Verify BodyKind is set correctly on HTTP request
+				if len(result.HTTPRequests) != 1 {
+					t.Fatalf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
+				}
+				if result.HTTPRequests[0].BodyKind != mhttp.HttpBodyKindRaw {
+					t.Errorf("Expected BodyKind to be HttpBodyKindRaw (%d), got %d", mhttp.HttpBodyKindRaw, result.HTTPRequests[0].BodyKind)
 				}
 			},
 		},
@@ -518,6 +533,13 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
 				if len(result.HTTPBodyForms) != 2 {
 					t.Errorf("Expected 2 form fields, got %d", len(result.HTTPBodyForms))
 				}
+				// Verify BodyKind is set correctly on HTTP request
+				if len(result.HTTPRequests) != 1 {
+					t.Fatalf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
+				}
+				if result.HTTPRequests[0].BodyKind != mhttp.HttpBodyKindFormData {
+					t.Errorf("Expected BodyKind to be HttpBodyKindFormData (%d), got %d", mhttp.HttpBodyKindFormData, result.HTTPRequests[0].BodyKind)
+				}
 			},
 		},
 		{
@@ -533,6 +555,13 @@ func TestConvertSimplifiedYAMLWithDifferentBodyTypes(t *testing.T) {
 			validate: func(t *testing.T, result *ioworkspace.WorkspaceBundle) {
 				if len(result.HTTPBodyUrlencoded) != 2 {
 					t.Errorf("Expected 2 urlencoded fields, got %d", len(result.HTTPBodyUrlencoded))
+				}
+				// Verify BodyKind is set correctly on HTTP request
+				if len(result.HTTPRequests) != 1 {
+					t.Fatalf("Expected 1 HTTP request, got %d", len(result.HTTPRequests))
+				}
+				if result.HTTPRequests[0].BodyKind != mhttp.HttpBodyKindUrlEncoded {
+					t.Errorf("Expected BodyKind to be HttpBodyKindUrlEncoded (%d), got %d", mhttp.HttpBodyKindUrlEncoded, result.HTTPRequests[0].BodyKind)
 				}
 			},
 		},
