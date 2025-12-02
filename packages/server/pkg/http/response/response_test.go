@@ -34,8 +34,8 @@ func makeAssertions(count int) []mhttp.HTTPAssert {
 		asserts = append(asserts, mhttp.HTTPAssert{
 			ID:          idwrap.NewNow(),
 			HttpID:      idwrap.NewNow(),
-			AssertKey:   "status_check",
-			AssertValue: "{{ response.status }} == 200",
+			Key:   "status_check",
+			Value: "{{ response.status }} == 200",
 			Enabled:     true,
 			CreatedAt:   time.Now().Unix(),
 		})
@@ -90,8 +90,8 @@ func TestResponseCreateEvaluatesLoopVariables(t *testing.T) {
 	assertions := []mhttp.HTTPAssert{{
 		ID:          idwrap.NewNow(),
 		HttpID:      idwrap.NewNow(),
-		AssertKey:   "loop_index_check",
-		AssertValue: "for_1.index < 5",
+		Key:   "loop_index_check",
+		Value: "for_1.index < 5",
 		Enabled:     true,
 		CreatedAt:   time.Now().Unix(),
 	}}
@@ -120,8 +120,8 @@ func TestResponseCreateUnknownVariableProvidesHint(t *testing.T) {
 	assertions := []mhttp.HTTPAssert{{
 		ID:          idwrap.NewNow(),
 		HttpID:      idwrap.NewNow(),
-		AssertKey:   "missing_var_check",
-		AssertValue: "missing_var > 0",
+		Key:   "missing_var_check",
+		Value: "missing_var > 0",
 		Enabled:     true,
 		CreatedAt:   time.Now().Unix(),
 	}}

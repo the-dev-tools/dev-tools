@@ -11,7 +11,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
@@ -180,7 +179,7 @@ type HttpServiceRPC struct {
 	httpSearchParamService    *shttp.HttpSearchParamService
 	httpBodyFormService       *shttp.HttpBodyFormService
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
-	httpAssertService         shttpassert.HttpAssertService
+	httpAssertService         *shttp.HttpAssertService
 
 	// Streamers for child entities
 	stream                   eventstream.SyncStreamer[HttpTopic, HttpEvent]
@@ -212,7 +211,7 @@ func New(
 	httpSearchParamService *shttp.HttpSearchParamService,
 	httpBodyFormService *shttp.HttpBodyFormService,
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
-	httpAssertService shttpassert.HttpAssertService,
+	httpAssertService *shttp.HttpAssertService,
 	httpResponseService shttp.HttpResponseService,
 	requestResolver resolver.RequestResolver,
 	stream eventstream.SyncStreamer[HttpTopic, HttpEvent],

@@ -8,9 +8,7 @@ import (
 	"the-dev-tools/server/pkg/delta"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 )
 
 // RequestResolver defines the interface for resolving HTTP requests with their delta overlays.
@@ -26,7 +24,7 @@ type StandardResolver struct {
 	httpBodyRawService        *shttp.HttpBodyRawService
 	httpBodyFormService       *shttp.HttpBodyFormService
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
-	httpAssertService         *shttpassert.HttpAssertService
+	httpAssertService         *shttp.HttpAssertService
 }
 
 // NewStandardResolver creates a new instance of StandardResolver.
@@ -37,7 +35,7 @@ func NewStandardResolver(
 	httpBodyRawService *shttp.HttpBodyRawService,
 	httpBodyFormService *shttp.HttpBodyFormService,
 	httpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService,
-	httpAssertService *shttpassert.HttpAssertService,
+	httpAssertService *shttp.HttpAssertService,
 ) *StandardResolver {
 	return &StandardResolver{
 		httpService:               httpService,
@@ -67,7 +65,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 	}
 	baseFormBody, _ := r.httpBodyFormService.GetByHttpID(ctx, baseID)
 	baseUrlEncodedBody, _ := r.httpBodyUrlEncodedService.GetByHttpID(ctx, baseID)
-	baseAsserts, _ := r.httpAssertService.GetHttpAssertsByHttpID(ctx, baseID)
+	baseAsserts, _ := r.httpAssertService.GetByHttpID(ctx, baseID)
 
 	// 2. Fetch Delta Components (if present)
 	var deltaHTTP *mhttp.HTTP
@@ -76,7 +74,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 	var deltaRawBody *mhttp.HTTPBodyRaw
 	var deltaFormBody []mhttp.HTTPBodyForm
 	var deltaUrlEncodedBody []mhttp.HTTPBodyUrlencoded
-	var deltaAsserts []mhttpassert.HttpAssert
+	var deltaAsserts []mhttp.HTTPAssert
 
 	if deltaID != nil {
 		d, err := r.httpService.Get(ctx, *deltaID)
@@ -93,7 +91,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 		}
 		deltaFormBody, _ = r.httpBodyFormService.GetByHttpID(ctx, *deltaID)
 		deltaUrlEncodedBody, _ = r.httpBodyUrlEncodedService.GetByHttpID(ctx, *deltaID)
-		deltaAsserts, _ = r.httpAssertService.GetHttpAssertsByHttpID(ctx, *deltaID)
+		deltaAsserts, _ = r.httpAssertService.GetByHttpID(ctx, *deltaID)
 	}
 
 	// 3. Prepare Input for Delta Resolution
@@ -237,50 +235,17 @@ func convertRawBody(in *mhttp.HTTPBodyRaw) mhttp.HTTPBodyRaw {
 
 // convertAsserts converts DB model asserts (ordered by float) to mhttp model asserts (linked list).
 // pkg/delta expects a Linked List structure to correctly resolve ordering.
-func convertAsserts(in []mhttpassert.HttpAssert) []mhttp.HTTPAssert {
+func convertAsserts(in []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 	if len(in) == 0 {
 		return []mhttp.HTTPAssert{}
 	}
 
-	// 1. Sort by Order (DB model uses float ordering)
-	sorted := make([]mhttpassert.HttpAssert, len(in))
+	// Sort by Order (DB model uses float ordering)
+	sorted := make([]mhttp.HTTPAssert, len(in))
 	copy(sorted, in)
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].Order < sorted[j].Order
 	})
 
-	// 2. Convert and Link
-	out := make([]mhttp.HTTPAssert, len(sorted))
-	for i, v := range sorted {
-		out[i] = mhttp.HTTPAssert{
-			ID:               v.ID,
-			HttpID:           v.HttpID,
-			AssertKey:        v.Key,
-			AssertValue:      v.Value,
-			Description:      v.Description,
-			Enabled:          v.Enabled,
-			ParentAssertID:   v.ParentHttpAssertID,
-			IsDelta:          v.IsDelta,
-			DeltaAssertKey:   v.DeltaKey,
-			DeltaAssertValue: v.DeltaValue,
-			DeltaDescription: v.DeltaDescription,
-			DeltaEnabled:     v.DeltaEnabled,
-			CreatedAt:        v.CreatedAt,
-			UpdatedAt:        v.UpdatedAt,
-		}
-	}
-
-	// 3. Establish Linked List relationships (Prev/Next) based on sorted order
-	for i := range out {
-		if i > 0 {
-			prevID := out[i-1].ID
-			out[i].Prev = &prevID
-		}
-		if i < len(out)-1 {
-			nextID := out[i+1].ID
-			out[i].Next = &nextID
-		}
-	}
-
-	return out
+	return sorted
 }

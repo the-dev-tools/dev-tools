@@ -262,15 +262,15 @@ func TestCollectionResolution_Additions(t *testing.T) {
 }
 
 func TestAssertOrdering(t *testing.T) {
-	// A -> B -> C
+	// A -> B -> C (ordered by Order field)
 	idA := idwrap.NewNow()
 	idB := idwrap.NewNow()
 	idC := idwrap.NewNow()
 
 	baseAsserts := []mhttp.HTTPAssert{
-		{ID: idB, AssertKey: "B", Prev: &idA, Next: &idC},
-		{ID: idA, AssertKey: "A", Prev: nil, Next: &idB},
-		{ID: idC, AssertKey: "C", Prev: &idB, Next: nil},
+		{ID: idB, Key: "B", Order: 2.0},
+		{ID: idA, Key: "A", Order: 1.0},
+		{ID: idC, Key: "C", Order: 3.0},
 	}
 
 	t.Run("PreserveOrder", func(t *testing.T) {
@@ -284,13 +284,13 @@ func TestAssertOrdering(t *testing.T) {
 			t.Fatalf("Expected 3 asserts, got %d", len(resolved))
 		}
 		if resolved[0].ID != idA {
-			t.Errorf("Expected first item A, got %s", resolved[0].AssertKey)
+			t.Errorf("Expected first item A, got %s", resolved[0].Key)
 		}
 		if resolved[1].ID != idB {
-			t.Errorf("Expected second item B, got %s", resolved[1].AssertKey)
+			t.Errorf("Expected second item B, got %s", resolved[1].Key)
 		}
 		if resolved[2].ID != idC {
-			t.Errorf("Expected third item C, got %s", resolved[2].AssertKey)
+			t.Errorf("Expected third item C, got %s", resolved[2].Key)
 		}
 	})
 
@@ -299,8 +299,8 @@ func TestAssertOrdering(t *testing.T) {
 		deltaAsserts := []mhttp.HTTPAssert{
 			{
 				ID:               idwrap.NewNow(),
-				ParentAssertID:   &idB,
-				DeltaAssertValue: ptrStr("Updated B"),
+				ParentHttpAssertID:   &idB,
+				DeltaValue: ptrStr("Updated B"),
 			},
 		}
 
@@ -316,10 +316,10 @@ func TestAssertOrdering(t *testing.T) {
 		}
 		// Order should still be A -> B -> C
 		if resolved[1].ID != idB {
-			t.Errorf("Expected second item B, got %s", resolved[1].AssertKey)
+			t.Errorf("Expected second item B, got %s", resolved[1].Key)
 		}
-		if resolved[1].AssertValue != "Updated B" {
-			t.Errorf("Expected updated value 'Updated B', got '%s'", resolved[1].AssertValue)
+		if resolved[1].Value != "Updated B" {
+			t.Errorf("Expected updated value 'Updated B', got '%s'", resolved[1].Value)
 		}
 	})
 
@@ -328,8 +328,8 @@ func TestAssertOrdering(t *testing.T) {
 		deltaAsserts := []mhttp.HTTPAssert{
 			{
 				ID:             idD,
-				ParentAssertID: nil,
-				AssertKey:      "D",
+				ParentHttpAssertID: nil,
+				Key:      "D",
 			},
 		}
 
@@ -345,7 +345,7 @@ func TestAssertOrdering(t *testing.T) {
 		}
 		// A -> B -> C -> D
 		if resolved[3].ID != idD {
-			t.Errorf("Expected fourth item D, got %s", resolved[3].AssertKey)
+			t.Errorf("Expected fourth item D, got %s", resolved[3].Key)
 		}
 	})
 }

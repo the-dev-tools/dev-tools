@@ -4,127 +4,103 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 	"time"
 
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
-var ErrNoHttpAssertFound = errors.New("no HTTP assert found")
+var ErrNoHttpAssertFound = errors.New("no http assert found")
 
 type HttpAssertService struct {
 	queries *gen.Queries
 }
 
-func NewHttpAssertService(queries *gen.Queries) HttpAssertService {
-	return HttpAssertService{queries: queries}
+func NewHttpAssertService(queries *gen.Queries) *HttpAssertService {
+	return &HttpAssertService{queries: queries}
 }
 
-func (has HttpAssertService) TX(tx *sql.Tx) HttpAssertService {
-	return HttpAssertService{queries: has.queries.WithTx(tx)}
+func (s *HttpAssertService) TX(tx *sql.Tx) *HttpAssertService {
+	return &HttpAssertService{queries: s.queries.WithTx(tx)}
 }
 
-func NewHttpAssertServiceTX(ctx context.Context, tx *sql.Tx) (*HttpAssertService, error) {
-	queries := gen.New(tx)
-	assertService := HttpAssertService{
-		queries: queries,
-	}
-
-	return &assertService, nil
-}
-
-// ConvertToModelHttpAssert converts DB HttpAssert to model HttpAssert
-func ConvertToModelHttpAssert(assert gen.HttpAssert) mhttp.HTTPAssert {
-	return mhttp.HTTPAssert{
-		ID:               assert.ID,
-		HttpID:           assert.HttpID,
-		AssertKey:        assert.Key,
-		AssertValue:      assert.Value,
-		Description:      assert.Description,
-		Enabled:          assert.Enabled,
-		ParentAssertID:   bytesToIDWrap(assert.ParentHttpAssertID),
-		IsDelta:          assert.IsDelta,
-		DeltaAssertKey:   nullToString(assert.DeltaKey),
-		DeltaAssertValue: nullToString(assert.DeltaValue),
-		DeltaDescription: nullToString(assert.DeltaDescription),
-		DeltaEnabled:     assert.DeltaEnabled,
-		Prev:             nil, // Not supported in current schema
-		Next:             nil, // Not supported in current schema
-		CreatedAt:        assert.CreatedAt,
-		UpdatedAt:        assert.UpdatedAt,
-	}
-}
-
-// ConvertToDBHttpAssert converts model HttpAssert to DB HttpAssert
-func ConvertToDBHttpAssert(assert mhttp.HTTPAssert) gen.HttpAssert {
-	return gen.HttpAssert{
-		ID:                 assert.ID,
-		HttpID:             assert.HttpID,
-		Key:                assert.AssertKey,
-		Value:              assert.AssertValue,
-		Description:        assert.Description,
-		Enabled:            assert.Enabled,
-		Order:              0, // Default order, can be enhanced later
-		ParentHttpAssertID: idWrapToBytes(assert.ParentAssertID),
-		IsDelta:            assert.IsDelta,
-		DeltaKey:           stringToNull(assert.DeltaAssertKey),
-		DeltaValue:         stringToNull(assert.DeltaAssertValue),
-		DeltaEnabled:       assert.DeltaEnabled,
-		DeltaDescription:   stringToNull(assert.DeltaDescription),
-		DeltaOrder:         sql.NullFloat64{}, // No order delta in model
-		CreatedAt:          assert.CreatedAt,
-		UpdatedAt:          assert.UpdatedAt,
-	}
-}
-
-func (has HttpAssertService) Create(ctx context.Context, assert *mhttp.HTTPAssert) error {
-	if assert == nil {
-		return errors.New("assert cannot be nil")
-	}
-
-	now := time.Now().Unix()
-	assert.CreatedAt = now
-	assert.UpdatedAt = now
-
-	dbAssert := ConvertToDBHttpAssert(*assert)
-	return has.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
-		ID:                 dbAssert.ID,
-		HttpID:             dbAssert.HttpID,
-		Key:                dbAssert.Key,
-		Value:              dbAssert.Value,
-		Description:        dbAssert.Description,
-		Enabled:            dbAssert.Enabled,
-		Order:              dbAssert.Order,
-		ParentHttpAssertID: dbAssert.ParentHttpAssertID,
-		IsDelta:            dbAssert.IsDelta,
-		DeltaKey:           dbAssert.DeltaKey,
-		DeltaValue:         dbAssert.DeltaValue,
-		DeltaEnabled:       dbAssert.DeltaEnabled,
-		DeltaDescription:   dbAssert.DeltaDescription,
-		DeltaOrder:         dbAssert.DeltaOrder,
-		CreatedAt:          dbAssert.CreatedAt,
-		UpdatedAt:          dbAssert.UpdatedAt,
+func (s *HttpAssertService) Create(ctx context.Context, assert *mhttp.HTTPAssert) error {
+	af := SerializeAssertModelToGen(*assert)
+	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
+		ID:                 af.ID,
+		HttpID:             af.HttpID,
+		Key:                af.Key,
+		Value:              af.Value,
+		Description:        af.Description,
+		Enabled:            af.Enabled,
+		Order:              af.Order,
+		ParentHttpAssertID: af.ParentHttpAssertID,
+		IsDelta:            af.IsDelta,
+		DeltaKey:           af.DeltaKey,
+		DeltaValue:         af.DeltaValue,
+		DeltaEnabled:       af.DeltaEnabled,
+		DeltaDescription:   af.DeltaDescription,
+		DeltaOrder:         af.DeltaOrder,
+		CreatedAt:          af.CreatedAt,
+		UpdatedAt:          af.UpdatedAt,
 	})
 }
 
-func (has HttpAssertService) CreateBulk(ctx context.Context, asserts []mhttp.HTTPAssert) error {
-	if len(asserts) == 0 {
-		return nil
-	}
+func (s *HttpAssertService) CreateBulk(ctx context.Context, asserts []mhttp.HTTPAssert) error {
+	const sizeOfChunks = 10
+	convertedItems := tgeneric.MassConvert(asserts, SerializeAssertModelToGen)
 
-	// Create asserts individually since the bulk operation has complex parameter mapping
-	for _, assert := range asserts {
-		if err := has.Create(ctx, &assert); err != nil {
-			return err
+	for assertChunk := range slices.Chunk(convertedItems, sizeOfChunks) {
+		for _, assert := range assertChunk {
+			err := s.createRaw(ctx, assert)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (has HttpAssertService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPAssert, error) {
-	dbAsserts, err := has.queries.GetHTTPAssertsByHttpID(ctx, httpID)
+func (s *HttpAssertService) createRaw(ctx context.Context, af gen.HttpAssert) error {
+	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
+		ID:                 af.ID,
+		HttpID:             af.HttpID,
+		Key:                af.Key,
+		Value:              af.Value,
+		Description:        af.Description,
+		Enabled:            af.Enabled,
+		Order:              af.Order,
+		ParentHttpAssertID: af.ParentHttpAssertID,
+		IsDelta:            af.IsDelta,
+		DeltaKey:           af.DeltaKey,
+		DeltaValue:         af.DeltaValue,
+		DeltaEnabled:       af.DeltaEnabled,
+		DeltaDescription:   af.DeltaDescription,
+		DeltaOrder:         af.DeltaOrder,
+		CreatedAt:          af.CreatedAt,
+		UpdatedAt:          af.UpdatedAt,
+	})
+}
+
+func (s *HttpAssertService) GetByID(ctx context.Context, id idwrap.IDWrap) (*mhttp.HTTPAssert, error) {
+	assert, err := s.queries.GetHTTPAssert(ctx, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoHttpAssertFound
+		}
+		return nil, err
+	}
+
+	model := DeserializeAssertGenToModel(assert)
+	return &model, nil
+}
+
+func (s *HttpAssertService) GetByHttpID(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPAssert, error) {
+	rows, err := s.queries.GetHTTPAssertsByHttpID(ctx, httpID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []mhttp.HTTPAssert{}, nil
@@ -132,80 +108,253 @@ func (has HttpAssertService) GetByHttpID(ctx context.Context, httpID idwrap.IDWr
 		return nil, err
 	}
 
-	var asserts []mhttp.HTTPAssert
-	for _, dbAssert := range dbAsserts {
-		assert := ConvertToModelHttpAssert(dbAssert)
-		asserts = append(asserts, assert)
+	result := make([]mhttp.HTTPAssert, len(rows))
+	for i, row := range rows {
+		result[i] = DeserializeAssertGenToModel(row)
 	}
-
-	return asserts, nil
+	return result, nil
 }
 
-func (has HttpAssertService) GetByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]mhttp.HTTPAssert, error) {
+func (s *HttpAssertService) GetByHttpIDOrdered(ctx context.Context, httpID idwrap.IDWrap) ([]mhttp.HTTPAssert, error) {
+	rows, err := s.queries.GetHTTPAssertsByHttpID(ctx, httpID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mhttp.HTTPAssert{}, nil
+		}
+		return nil, err
+	}
+
+	// Sort by order field
+	slices.SortFunc(rows, func(a, b gen.HttpAssert) int {
+		if a.Order < b.Order {
+			return -1
+		}
+		if a.Order > b.Order {
+			return 1
+		}
+		return 0
+	})
+
+	result := make([]mhttp.HTTPAssert, len(rows))
+	for i, row := range rows {
+		result[i] = DeserializeAssertGenToModel(row)
+	}
+	return result, nil
+}
+
+func (s *HttpAssertService) GetByIDs(ctx context.Context, ids []idwrap.IDWrap) ([]mhttp.HTTPAssert, error) {
 	if len(ids) == 0 {
 		return []mhttp.HTTPAssert{}, nil
 	}
 
-	dbAsserts, err := has.queries.GetHTTPAssertsByIDs(ctx, ids)
+	rows, err := s.queries.GetHTTPAssertsByIDs(ctx, ids)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return []mhttp.HTTPAssert{}, nil
+		}
 		return nil, err
 	}
 
-	var asserts []mhttp.HTTPAssert
-	for _, dbAssert := range dbAsserts {
-		assert := ConvertToModelHttpAssert(dbAssert)
-		asserts = append(asserts, assert)
+	result := make([]mhttp.HTTPAssert, len(rows))
+	for i, row := range rows {
+		result[i] = DeserializeAssertGenToModel(row)
 	}
-
-	return asserts, nil
+	return result, nil
 }
 
-func (has HttpAssertService) GetByID(ctx context.Context, assertID idwrap.IDWrap) (mhttp.HTTPAssert, error) {
-	dbAssert, err := has.queries.GetHTTPAssert(ctx, assertID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return mhttp.HTTPAssert{}, ErrNoHttpAssertFound
+func (s *HttpAssertService) GetByHttpIDs(ctx context.Context, httpIDs []idwrap.IDWrap) (map[idwrap.IDWrap][]mhttp.HTTPAssert, error) {
+	result := make(map[idwrap.IDWrap][]mhttp.HTTPAssert, len(httpIDs))
+	if len(httpIDs) == 0 {
+		return result, nil
+	}
+
+	// For each HttpID, get the asserts and group them
+	for _, httpID := range httpIDs {
+		asserts, err := s.GetByHttpID(ctx, httpID)
+		if err != nil {
+			return nil, err
 		}
-		return mhttp.HTTPAssert{}, err
+		if len(asserts) > 0 {
+			result[httpID] = asserts
+		}
 	}
 
-	return ConvertToModelHttpAssert(dbAssert), nil
+	return result, nil
 }
 
-func (has HttpAssertService) Update(ctx context.Context, assert *mhttp.HTTPAssert) error {
-	if assert == nil {
-		return errors.New("assert cannot be nil")
+func (s *HttpAssertService) Update(ctx context.Context, assert *mhttp.HTTPAssert) error {
+	// Get current assert to preserve delta fields
+	currentAssert, err := s.GetByID(ctx, assert.ID)
+	if err != nil {
+		return err
 	}
 
-	assert.UpdatedAt = time.Now().Unix()
-
-	dbAssert := ConvertToDBHttpAssert(*assert)
-	return has.queries.UpdateHTTPAssert(ctx, gen.UpdateHTTPAssertParams{
-		Key:              dbAssert.Key,
-		Value:            dbAssert.Value,
-		Description:      dbAssert.Description,
-		Enabled:          dbAssert.Enabled,
-		Order:            dbAssert.Order,
-		DeltaKey:         dbAssert.DeltaKey,
-		DeltaValue:       dbAssert.DeltaValue,
-		DeltaEnabled:     dbAssert.DeltaEnabled,
-		DeltaDescription: dbAssert.DeltaDescription,
-		DeltaOrder:       dbAssert.DeltaOrder,
-		UpdatedAt:        dbAssert.UpdatedAt,
-		ID:               dbAssert.ID,
+	return s.queries.UpdateHTTPAssert(ctx, gen.UpdateHTTPAssertParams{
+		Key:              assert.Key,
+		Value:            assert.Value,
+		Description:      assert.Description,
+		Enabled:          assert.Enabled,
+		Order:            float64(currentAssert.Order),
+		DeltaKey:         stringToNull(currentAssert.DeltaKey),
+		DeltaValue:       stringToNull(currentAssert.DeltaValue),
+		DeltaEnabled:     currentAssert.DeltaEnabled,
+		DeltaDescription: stringToNull(currentAssert.DeltaDescription),
+		DeltaOrder:       float32ToNullFloat64Assert(currentAssert.DeltaOrder),
+		UpdatedAt:        time.Now().Unix(),
+		ID:               assert.ID,
 	})
 }
 
-func (has HttpAssertService) UpdateDelta(ctx context.Context, assertID idwrap.IDWrap, deltaKey, deltaValue, deltaDescription *string, deltaEnabled *bool) error {
-	return has.queries.UpdateHTTPAssertDelta(ctx, gen.UpdateHTTPAssertDeltaParams{
+func (s *HttpAssertService) UpdateOrder(ctx context.Context, id idwrap.IDWrap, httpID idwrap.IDWrap, order float32) error {
+	assert, err := s.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	return s.queries.UpdateHTTPAssert(ctx, gen.UpdateHTTPAssertParams{
+		Key:              assert.Key,
+		Value:            assert.Value,
+		Description:      assert.Description,
+		Enabled:          assert.Enabled,
+		Order:            float64(order),
+		DeltaKey:         stringToNull(assert.DeltaKey),
+		DeltaValue:       stringToNull(assert.DeltaValue),
+		DeltaEnabled:     assert.DeltaEnabled,
+		DeltaDescription: stringToNull(assert.DeltaDescription),
+		DeltaOrder:       float32ToNullFloat64Assert(assert.DeltaOrder),
+		UpdatedAt:        time.Now().Unix(),
+		ID:               assert.ID,
+	})
+}
+
+func (s *HttpAssertService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
+	return s.queries.UpdateHTTPAssertDelta(ctx, gen.UpdateHTTPAssertDeltaParams{
 		DeltaKey:         stringToNull(deltaKey),
 		DeltaValue:       stringToNull(deltaValue),
-		DeltaEnabled:     deltaEnabled,
 		DeltaDescription: stringToNull(deltaDescription),
-		ID:               assertID,
+		DeltaEnabled:     deltaEnabled,
+		DeltaOrder:       float32ToNullFloat64Assert(deltaOrder),
+		ID:               id,
 	})
 }
 
-func (has HttpAssertService) Delete(ctx context.Context, assertID idwrap.IDWrap) error {
-	return has.queries.DeleteHTTPAssert(ctx, assertID)
+func (s *HttpAssertService) Delete(ctx context.Context, id idwrap.IDWrap) error {
+	return s.queries.DeleteHTTPAssert(ctx, id)
+}
+
+func (s *HttpAssertService) DeleteByHttpID(ctx context.Context, httpID idwrap.IDWrap) error {
+	asserts, err := s.GetByHttpID(ctx, httpID)
+	if err != nil {
+		return err
+	}
+
+	for _, assert := range asserts {
+		if err := s.Delete(ctx, assert.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *HttpAssertService) ResetDelta(ctx context.Context, id idwrap.IDWrap) error {
+	assert, err := s.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Reset all delta fields
+	assert.ParentHttpAssertID = nil
+	assert.IsDelta = false
+	assert.DeltaKey = nil
+	assert.DeltaValue = nil
+	assert.DeltaEnabled = nil
+	assert.DeltaDescription = nil
+	assert.DeltaOrder = nil
+	assert.UpdatedAt = time.Now().Unix()
+
+	// Delete and recreate since UpdateHTTPAssert doesn't include is_delta field
+	err = s.queries.DeleteHTTPAssert(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
+		ID:                 assert.ID,
+		HttpID:             assert.HttpID,
+		Key:                assert.Key,
+		Value:              assert.Value,
+		Enabled:            assert.Enabled,
+		Description:        assert.Description,
+		Order:              float64(assert.Order),
+		ParentHttpAssertID: idWrapToBytes(assert.ParentHttpAssertID),
+		IsDelta:            assert.IsDelta,
+		DeltaKey:           stringToNull(assert.DeltaKey),
+		DeltaValue:         stringToNull(assert.DeltaValue),
+		DeltaEnabled:       assert.DeltaEnabled,
+		DeltaDescription:   stringToNull(assert.DeltaDescription),
+		DeltaOrder:         float32ToNullFloat64Assert(assert.DeltaOrder),
+		CreatedAt:          assert.CreatedAt,
+		UpdatedAt:          assert.UpdatedAt,
+	})
+}
+
+// Note: GetStreaming method is not available - no GetHTTPAssertStreaming query exists
+
+// Conversion functions
+
+func float32ToNullFloat64Assert(f *float32) sql.NullFloat64 {
+	if f == nil {
+		return sql.NullFloat64{Valid: false}
+	}
+	return sql.NullFloat64{Float64: float64(*f), Valid: true}
+}
+
+func nullFloat64ToFloat32Assert(nf sql.NullFloat64) *float32 {
+	if !nf.Valid {
+		return nil
+	}
+	f := float32(nf.Float64)
+	return &f
+}
+
+func SerializeAssertModelToGen(assert mhttp.HTTPAssert) gen.HttpAssert {
+	return gen.HttpAssert{
+		ID:                 assert.ID,
+		HttpID:             assert.HttpID,
+		Key:                assert.Key,
+		Value:              assert.Value,
+		Enabled:            assert.Enabled,
+		Description:        assert.Description,
+		Order:              float64(assert.Order),
+		ParentHttpAssertID: idWrapToBytes(assert.ParentHttpAssertID),
+		IsDelta:            assert.IsDelta,
+		DeltaKey:           stringToNull(assert.DeltaKey),
+		DeltaValue:         stringToNull(assert.DeltaValue),
+		DeltaEnabled:       assert.DeltaEnabled,
+		DeltaDescription:   stringToNull(assert.DeltaDescription),
+		DeltaOrder:         float32ToNullFloat64Assert(assert.DeltaOrder),
+		CreatedAt:          assert.CreatedAt,
+		UpdatedAt:          assert.UpdatedAt,
+	}
+}
+
+func DeserializeAssertGenToModel(assert gen.HttpAssert) mhttp.HTTPAssert {
+	return mhttp.HTTPAssert{
+		ID:                 assert.ID,
+		HttpID:             assert.HttpID,
+		Key:                assert.Key,
+		Value:              assert.Value,
+		Enabled:            assert.Enabled,
+		Description:        assert.Description,
+		Order:              float32(assert.Order),
+		ParentHttpAssertID: bytesToIDWrap(assert.ParentHttpAssertID),
+		IsDelta:            assert.IsDelta,
+		DeltaKey:           nullToString(assert.DeltaKey),
+		DeltaValue:         nullToString(assert.DeltaValue),
+		DeltaEnabled:       assert.DeltaEnabled,
+		DeltaDescription:   nullToString(assert.DeltaDescription),
+		DeltaOrder:         nullFloat64ToFloat32Assert(assert.DeltaOrder),
+		CreatedAt:          assert.CreatedAt,
+		UpdatedAt:          assert.UpdatedAt,
+	}
 }

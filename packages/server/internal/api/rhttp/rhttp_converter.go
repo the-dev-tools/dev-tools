@@ -3,7 +3,6 @@ package rhttp
 import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpassert"
 
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -1002,7 +1001,7 @@ func httpBodyFormDataDeltaSyncResponseFrom(event HttpBodyFormEvent, form mhttp.H
 }
 
 // httpAssertDeltaSyncResponseFrom converts HttpAssertEvent and assert record to HttpAssertDeltaSync response
-func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttpassert.HttpAssert) *apiv1.HttpAssertDeltaSyncResponse {
+func httpAssertDeltaSyncResponseFrom(event HttpAssertEvent, assert mhttp.HTTPAssert) *apiv1.HttpAssertDeltaSyncResponse {
 	var value *apiv1.HttpAssertDeltaSync_ValueUnion
 
 	switch event.Type {

@@ -93,7 +93,7 @@ func ResponseCreateHTTP(
 
 	for _, assertion := range assertions {
 		if assertion.Enabled {
-			expr := assertion.AssertValue // Using Value as expression? Old model used Condition.Comparisons.Expression.
+			expr := assertion.Value // Using Value as expression? Old model used Condition.Comparisons.Expression.
 			// mhttp.HTTPAssert has AssertKey and AssertValue.
 			// If it's an expression assertion, maybe Key is empty or Value is the expression?
 			// Or Key is description?
@@ -231,7 +231,7 @@ func ResponseCreate(ctx context.Context, r request.RequestResponse, httpResponse
 	for _, assertion := range assertions {
 		if assertion.Enabled {
 			// Use NormalizeExpression if {{ }} wrapper is found
-			expr := assertion.AssertValue
+			expr := assertion.Value
 			if strings.Contains(expr, "{{") && strings.Contains(expr, "}}") {
 				if cached, ok := normalizedExprCache[expr]; ok {
 					expr = cached

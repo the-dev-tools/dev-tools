@@ -21,7 +21,6 @@ import (
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpassert"
 
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -513,7 +512,7 @@ type AssertionResult struct {
 
 func (h *HttpServiceRPC) evaluateAndStoreAssertions(ctx context.Context, httpID idwrap.IDWrap, responseID idwrap.IDWrap, resp httpclient.Response) error {
 	// Load assertions for this HTTP entry
-	asserts, err := h.httpAssertService.GetHttpAssertsByHttpID(ctx, httpID)
+	asserts, err := h.httpAssertService.GetByHttpID(ctx, httpID)
 	if err != nil {
 		return fmt.Errorf("failed to load assertions for HTTP %s: %w", httpID.String(), err)
 	}
@@ -524,7 +523,7 @@ func (h *HttpServiceRPC) evaluateAndStoreAssertions(ctx context.Context, httpID 
 	}
 
 	// Filter enabled assertions and log statistics
-	enabledAsserts := make([]mhttpassert.HttpAssert, 0, len(asserts))
+	enabledAsserts := make([]mhttp.HTTPAssert, 0, len(asserts))
 	for _, assert := range asserts {
 		if assert.Enabled {
 			enabledAsserts = append(enabledAsserts, assert)
@@ -551,7 +550,7 @@ func (h *HttpServiceRPC) evaluateAndStoreAssertions(ctx context.Context, httpID 
 }
 
 // evaluateAssertionsParallel evaluates multiple assertions in parallel with timeout and error handling
-func (h *HttpServiceRPC) evaluateAssertionsParallel(ctx context.Context, asserts []mhttpassert.HttpAssert, evalContext map[string]any) []AssertionResult {
+func (h *HttpServiceRPC) evaluateAssertionsParallel(ctx context.Context, asserts []mhttp.HTTPAssert, evalContext map[string]any) []AssertionResult {
 	results := make([]AssertionResult, len(asserts))
 	resultChan := make(chan AssertionResult, len(asserts))
 
@@ -565,7 +564,7 @@ func (h *HttpServiceRPC) evaluateAssertionsParallel(ctx context.Context, asserts
 	// Evaluate each assertion in a separate goroutine
 	for i, assert := range asserts {
 		wg.Add(1)
-		go func(idx int, assertion mhttpassert.HttpAssert) {
+		go func(idx int, assertion mhttp.HTTPAssert) {
 			defer wg.Done()
 			startTime := time.Now()
 			result := AssertionResult{

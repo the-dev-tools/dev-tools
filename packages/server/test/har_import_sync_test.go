@@ -9,7 +9,6 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/svar"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
@@ -162,7 +161,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 	// BaseDB is available in suite
 	envService := senv.New(suite.baseDB.Queries, suite.importHandler.Logger) // Mock logger is fine
 	varService := svar.New(suite.baseDB.Queries, suite.importHandler.Logger)
-	httpAssertService := shttpassert.New(suite.baseDB.Queries)
+	httpAssertService := shttp.NewHttpAssertService(suite.baseDB.Queries)
 	httpResponseService := shttp.NewHttpResponseService(suite.baseDB.Queries)
 
 	// Create resolver for delta resolution
@@ -173,7 +172,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 		suite.importHandler.HttpBodyRawService,
 		suite.importHandler.HttpBodyFormService,
 		suite.importHandler.HttpBodyUrlEncodedService,
-		&httpAssertService,
+		httpAssertService,
 	)
 
 	// Instantiate rhttp handler

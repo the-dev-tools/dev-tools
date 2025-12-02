@@ -12,10 +12,8 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpassert"
 
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -384,7 +382,7 @@ func (h *HttpServiceRPC) HttpAssertCollection(ctx context.Context, req *connect.
 
 		// Get asserts for each HTTP entry
 		for _, http := range httpList {
-			asserts, err := h.httpAssertService.GetHttpAssertsByHttpID(ctx, http.ID)
+			asserts, err := h.httpAssertService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -407,7 +405,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var insertData []struct {
-		assertModel *mhttpassert.HttpAssert
+		assertModel *mhttp.HTTPAssert
 	}
 
 	for _, item := range req.Msg.Items {
@@ -443,7 +441,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 		}
 
 		// Create the assert model
-		assertModel := &mhttpassert.HttpAssert{
+		assertModel := &mhttp.HTTPAssert{
 			ID:          assertID,
 			HttpID:      httpID,
 			Key:         "", // HttpAssert doesn't use Key field
@@ -454,7 +452,7 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 		}
 
 		insertData = append(insertData, struct {
-			assertModel *mhttpassert.HttpAssert
+			assertModel *mhttp.HTTPAssert
 		}{
 			assertModel: assertModel,
 		})
@@ -468,10 +466,10 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 	defer tx.Rollback()
 
 	httpAssertService := h.httpAssertService.TX(tx)
-	var createdAsserts []mhttpassert.HttpAssert
+	var createdAsserts []mhttp.HTTPAssert
 
 	for _, data := range insertData {
-		if err := httpAssertService.CreateHttpAssert(ctx, data.assertModel); err != nil {
+		if err := httpAssertService.Create(ctx, data.assertModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		createdAsserts = append(createdAsserts, *data.assertModel)
@@ -506,7 +504,7 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var updateData []struct {
-		existingAssert *mhttpassert.HttpAssert
+		existingAssert *mhttp.HTTPAssert
 		item           *apiv1.HttpAssertUpdate
 	}
 
@@ -521,9 +519,9 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 		}
 
 		// Get existing assert - use pool service
-		existingAssert, err := h.httpAssertService.GetHttpAssert(ctx, assertID)
+		existingAssert, err := h.httpAssertService.GetByID(ctx, assertID)
 		if err != nil {
-			if errors.Is(err, shttpassert.ErrNoHttpAssertFound) {
+			if errors.Is(err, shttp.ErrNoHttpAssertFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -544,7 +542,7 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 		}
 
 		updateData = append(updateData, struct {
-			existingAssert *mhttpassert.HttpAssert
+			existingAssert *mhttp.HTTPAssert
 			item           *apiv1.HttpAssertUpdate
 		}{
 			existingAssert: existingAssert,
@@ -570,10 +568,10 @@ func (h *HttpServiceRPC) HttpAssertUpdate(ctx context.Context, req *connect.Requ
 	defer tx.Rollback()
 
 	httpAssertService := h.httpAssertService.TX(tx)
-	var updatedAsserts []mhttpassert.HttpAssert
+	var updatedAsserts []mhttp.HTTPAssert
 
 	for _, data := range updateData {
-		if err := httpAssertService.UpdateHttpAssert(ctx, data.existingAssert); err != nil {
+		if err := httpAssertService.Update(ctx, data.existingAssert); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		updatedAsserts = append(updatedAsserts, *data.existingAssert)
@@ -609,7 +607,7 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var deleteData []struct {
 		assertID       idwrap.IDWrap
-		existingAssert *mhttpassert.HttpAssert
+		existingAssert *mhttp.HTTPAssert
 		workspaceID    idwrap.IDWrap
 	}
 
@@ -624,9 +622,9 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 		}
 
 		// Get existing assert - use pool service
-		existingAssert, err := h.httpAssertService.GetHttpAssert(ctx, assertID)
+		existingAssert, err := h.httpAssertService.GetByID(ctx, assertID)
 		if err != nil {
-			if errors.Is(err, shttpassert.ErrNoHttpAssertFound) {
+			if errors.Is(err, shttp.ErrNoHttpAssertFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -648,7 +646,7 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 
 		deleteData = append(deleteData, struct {
 			assertID       idwrap.IDWrap
-			existingAssert *mhttpassert.HttpAssert
+			existingAssert *mhttp.HTTPAssert
 			workspaceID    idwrap.IDWrap
 		}{
 			assertID:       assertID,
@@ -665,11 +663,11 @@ func (h *HttpServiceRPC) HttpAssertDelete(ctx context.Context, req *connect.Requ
 	defer tx.Rollback()
 
 	httpAssertService := h.httpAssertService.TX(tx)
-	var deletedAsserts []mhttpassert.HttpAssert
+	var deletedAsserts []mhttp.HTTPAssert
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
-		if err := httpAssertService.DeleteHttpAssert(ctx, data.assertID); err != nil {
+		if err := httpAssertService.Delete(ctx, data.assertID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 

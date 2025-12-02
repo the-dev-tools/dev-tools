@@ -9,7 +9,6 @@ import (
 
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
@@ -220,7 +219,7 @@ func ToAPIHttpBodyRawFromMHttp(raw mhttp.HTTPBodyRaw) *httpv1.HttpBodyRaw {
 }
 
 // ToAPIHttpAssert converts model HttpAssert to API HttpAssert
-func ToAPIHttpAssert(assert mhttpassert.HttpAssert) *httpv1.HttpAssert {
+func ToAPIHttpAssert(assert mhttp.HTTPAssert) *httpv1.HttpAssert {
 	return &httpv1.HttpAssert{
 		HttpAssertId: assert.ID.Bytes(),
 		HttpId:       assert.HttpID.Bytes(),

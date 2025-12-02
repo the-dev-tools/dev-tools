@@ -13,7 +13,6 @@ import (
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpassert"
 
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -448,7 +447,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	asserts, err := h.httpAssertService.GetHttpAssertsByHttpID(ctx, httpID)
+	asserts, err := h.httpAssertService.GetByHttpID(ctx, httpID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -564,7 +563,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	// Duplicate assertions
 	for _, assert := range asserts {
 		newAssertID := idwrap.NewNow()
-		assertModel := &mhttpassert.HttpAssert{
+		assertModel := &mhttp.HTTPAssert{
 			ID:          newAssertID,
 			HttpID:      newHttpID,
 			Key:         "", // HttpAssert doesn't use Key field
@@ -573,7 +572,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 			Description: "",   // No description available in DB
 			Order:       0,    // No order available in DB
 		}
-		if err := httpAssertService.CreateHttpAssert(ctx, assertModel); err != nil {
+		if err := httpAssertService.Create(ctx, assertModel); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 	}

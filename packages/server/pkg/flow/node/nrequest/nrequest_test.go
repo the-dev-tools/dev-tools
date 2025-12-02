@@ -290,7 +290,7 @@ func TestNodeRequestRunSyncFailsOnAssertion(t *testing.T) {
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
 			Enabled:     true,
-			AssertValue: "response.status == 205",
+			Value: "response.status == 205",
 		},
 	}
 
@@ -352,7 +352,7 @@ func TestNodeRequestRunSyncTracksOutputOnAssertionFailure(t *testing.T) {
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
 			Enabled:     true,
-			AssertValue: "response.status == 205",
+			Value: "response.status == 205",
 		},
 	}
 
@@ -448,7 +448,7 @@ func TestNodeRequestRunSyncAssertionFailureSendsResponseID(t *testing.T) {
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
 			Enabled:     true,
-			AssertValue: "response.status == 205",
+			Value: "response.status == 205",
 		},
 	}
 

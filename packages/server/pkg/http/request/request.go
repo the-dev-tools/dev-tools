@@ -1253,9 +1253,9 @@ func mergeAsserts(baseAsserts, deltaAsserts []mhttp.HTTPAssert) []mhttp.HTTPAsse
 
 	additions := make([]mhttp.HTTPAssert, 0)
 	for _, deltaAssert := range orderedDelta {
-		if deltaAssert.ParentAssertID != nil {
-			if _, exists := baseMap[*deltaAssert.ParentAssertID]; exists {
-				baseMap[*deltaAssert.ParentAssertID] = deltaAssert
+		if deltaAssert.ParentHttpAssertID != nil {
+			if _, exists := baseMap[*deltaAssert.ParentHttpAssertID]; exists {
+				baseMap[*deltaAssert.ParentHttpAssertID] = deltaAssert
 				continue
 			}
 		}
@@ -1281,47 +1281,12 @@ func orderAsserts(asserts []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 		return append([]mhttp.HTTPAssert(nil), asserts...)
 	}
 
-	byID := make(map[idwrap.IDWrap]*mhttp.HTTPAssert, len(asserts))
-	var head *mhttp.HTTPAssert
-	for i := range asserts {
-		assert := &asserts[i]
-		byID[assert.ID] = assert
-		if assert.Prev == nil {
-			head = assert
-		}
-	}
-
-	ordered := make([]mhttp.HTTPAssert, 0, len(asserts))
-	visited := make(map[idwrap.IDWrap]bool, len(asserts))
-
-	for current := head; current != nil; {
-		if visited[current.ID] {
-			break
-		}
-		ordered = append(ordered, *current)
-		visited[current.ID] = true
-		if current.Next == nil {
-			break
-		}
-		next, ok := byID[*current.Next]
-		if !ok {
-			break
-		}
-		current = next
-	}
-
-	if len(ordered) < len(asserts) {
-		remaining := make([]mhttp.HTTPAssert, 0, len(asserts)-len(ordered))
-		for _, assert := range asserts {
-			if !visited[assert.ID] {
-				remaining = append(remaining, assert)
-			}
-		}
-		sort.Slice(remaining, func(i, j int) bool {
-			return remaining[i].AssertValue < remaining[j].AssertValue
-		})
-		ordered = append(ordered, remaining...)
-	}
+	// Create a copy and sort by Order field
+	ordered := make([]mhttp.HTTPAssert, len(asserts))
+	copy(ordered, asserts)
+	sort.Slice(ordered, func(i, j int) bool {
+		return ordered[i].Order < ordered[j].Order
+	})
 
 	return ordered
 }

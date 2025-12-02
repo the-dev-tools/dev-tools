@@ -16,7 +16,6 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 )
 
 func TestStandardResolver_Resolve(t *testing.T) {
@@ -32,7 +31,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 	rawBodyService := shttp.NewHttpBodyRawService(queries)
 	formBodyService := shttp.NewHttpBodyFormService(queries)
 	urlEncodedBodyService := shttp.NewHttpBodyUrlEncodedService(queries)
-	assertService := shttpassert.New(queries)
+	assertService := shttp.NewHttpAssertService(queries)
 
 	r := resolver.NewStandardResolver(
 		&httpService,
@@ -41,7 +40,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 		rawBodyService,
 		formBodyService,
 		urlEncodedBodyService,
-		&assertService,
+		assertService,
 	)
 
 	// 2. Setup Test Data

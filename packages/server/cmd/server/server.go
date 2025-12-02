@@ -41,7 +41,7 @@ import (
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
+
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
@@ -154,7 +154,7 @@ func main() {
 	httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 	httpBodyFormService := shttp.NewHttpBodyFormService(queries)
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
-	httpAssertService := shttpassert.New(queries)
+	httpAssertService := shttp.NewHttpAssertService(queries)
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
 	// File Service
@@ -251,7 +251,7 @@ func main() {
 		httpBodyRawService,
 		httpBodyFormService,
 		httpBodyUrlEncodedService,
-		&httpAssertService,
+		httpAssertService,
 	)
 
 	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)

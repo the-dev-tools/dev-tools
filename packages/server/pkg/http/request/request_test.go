@@ -319,7 +319,7 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		{
 			ID:          idwrap.NewNow(),
 			HttpID:      baseExampleID,
-			AssertValue: "response.status == 200",
+			Value: "response.status == 200",
 			Enabled:     true,
 		},
 	}
@@ -349,7 +349,7 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		{
 			ID:          idwrap.NewNow(),
 			HttpID:      deltaExampleID,
-			AssertValue: "response.status == 201",
+			Value: "response.status == 201",
 			Enabled:     true,
 		},
 	}
@@ -440,8 +440,8 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		t.Fatalf("Expected merged asserts to include base and delta entries, got %d", len(output.MergeAsserts))
 	}
 
-	if output.MergeAsserts[1].AssertValue != "response.status == 201" {
-		t.Errorf("Expected delta assertion expression to be preserved, got %s", output.MergeAsserts[1].AssertValue)
+	if output.MergeAsserts[1].Value != "response.status == 201" {
+		t.Errorf("Expected delta assertion expression to be preserved, got %s", output.MergeAsserts[1].Value)
 	}
 
 	t.Logf("✅ MergeExamples handled nil ParentSearchParamID/ParentHeaderID successfully")
@@ -492,7 +492,7 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		{
 			ID:          baseAssertIDWithParent,
 			HttpID:      baseExampleID,
-			AssertValue: "response.status == 200",
+			Value: "response.status == 200",
 			Enabled:     true,
 		},
 	}
@@ -522,8 +522,8 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		{
 			ID:             idwrap.NewNow(),
 			HttpID:         deltaExampleID,
-			ParentAssertID: &baseAssertIDWithParent,
-			AssertValue:    "response.status == 201",
+			ParentHttpAssertID: &baseAssertIDWithParent,
+			Value:    "response.status == 201",
 			Enabled:        true,
 		},
 	}
@@ -582,8 +582,8 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		t.Fatalf("Expected merged asserts to reuse base slot and stay at 1 entry, got %d", len(output.MergeAsserts))
 	}
 
-	if output.MergeAsserts[0].AssertValue != "response.status == 201" {
-		t.Errorf("Expected merged assertion to reflect delta expression, got %s", output.MergeAsserts[0].AssertValue)
+	if output.MergeAsserts[0].Value != "response.status == 201" {
+		t.Errorf("Expected merged assertion to reflect delta expression, got %s", output.MergeAsserts[0].Value)
 	}
 
 	// Verify that delta values replaced base values correctly

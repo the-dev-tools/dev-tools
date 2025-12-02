@@ -20,7 +20,6 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
@@ -78,7 +77,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
 	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(base.Queries)
-	httpAssertService := shttpassert.New(base.Queries)
+	httpAssertService := shttp.NewHttpAssertService(base.Queries)
 	httpResponseService := shttp.NewHttpResponseService(base.Queries)
 	envService := senv.New(base.Queries, base.Logger())
 	varService := svar.New(base.Queries, base.Logger())
@@ -104,7 +103,7 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 		bodyService,
 		httpBodyFormService,
 		httpBodyUrlEncodedService,
-		&httpAssertService,
+		httpAssertService,
 	)
 
 	// Create handler

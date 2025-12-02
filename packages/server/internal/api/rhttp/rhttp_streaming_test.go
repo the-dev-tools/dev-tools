@@ -21,7 +21,6 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
@@ -76,7 +75,7 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
 	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(base.Queries)
-	httpAssertService := shttpassert.New(base.Queries)
+	httpAssertService := shttp.NewHttpAssertService(base.Queries)
 
 	// Create response and body raw services
 	httpResponseService := shttp.NewHttpResponseService(base.Queries)
@@ -102,7 +101,7 @@ func newHttpStreamingFixture(t *testing.T) *httpStreamingFixture {
 		httpBodyRawService,
 		httpBodyFormService,
 		httpBodyUrlEncodedService,
-		&httpAssertService,
+		httpAssertService,
 	)
 
 	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream)

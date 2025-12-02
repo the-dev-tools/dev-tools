@@ -8,7 +8,6 @@ import (
 
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpassert"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -125,7 +124,7 @@ func TestHttpDelta_Assert(t *testing.T) {
 	// Asserts must also have a parent assert if they are deltas
 	// Create a base assert first
 	baseAssertID := idwrap.NewNow()
-	err = f.handler.httpAssertService.CreateHttpAssert(ctx, &mhttpassert.HttpAssert{
+	err = f.handler.httpAssertService.Create(ctx, &mhttp.HTTPAssert{
 		ID:      baseAssertID,
 		HttpID:  httpID,
 		Key:     "base-key",
@@ -138,8 +137,8 @@ func TestHttpDelta_Assert(t *testing.T) {
 	// Actually, looking at HttpAssertDeltaInsert implementation:
 	// It takes HttpAssertId (which seems to be the BASE assert ID or the DELTA assert ID?)
 	// "assertID, err := idwrap.NewFromBytes(item.HttpAssertId)"
-	// "assert, err := h.httpAssertService.GetHttpAssert(ctx, assertID)"
-	// "err = h.httpAssertService.UpdateHttpAssertDelta(..."
+	// "assert, err := h.httpAssertService.GetByID(ctx, assertID)"
+	// "err = h.httpAssertService.UpdateDelta(..."
 	// So it UPDATES an existing assert to add delta fields.
 	// This means the assert MUST exist.
 	// And it seems it doesn't create a NEW delta assert record, but updates fields on an existing one?
@@ -160,7 +159,7 @@ func TestHttpDelta_Assert(t *testing.T) {
 	// If so, let's create the delta assert manually first.
 
 	deltaAssertID := idwrap.NewNow()
-	err = f.handler.httpAssertService.CreateHttpAssert(ctx, &mhttpassert.HttpAssert{
+	err = f.handler.httpAssertService.Create(ctx, &mhttp.HTTPAssert{
 		ID:                 deltaAssertID,
 		HttpID:             deltaID,
 		IsDelta:            true,
@@ -182,7 +181,7 @@ func TestHttpDelta_Assert(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify
-	assert, err := f.handler.httpAssertService.GetHttpAssert(ctx, deltaAssertID)
+	assert, err := f.handler.httpAssertService.GetByID(ctx, deltaAssertID)
 	require.NoError(t, err)
 	require.NotNil(t, assert.DeltaValue)
 	require.Equal(t, newValue, *assert.DeltaValue)
@@ -203,7 +202,7 @@ func TestHttpDelta_Assert(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify update
-	assert, err = f.handler.httpAssertService.GetHttpAssert(ctx, deltaAssertID)
+	assert, err = f.handler.httpAssertService.GetByID(ctx, deltaAssertID)
 	require.NoError(t, err)
 	require.NotNil(t, assert.DeltaValue)
 	require.Equal(t, updatedValue, *assert.DeltaValue)
@@ -220,7 +219,7 @@ func TestHttpDelta_Assert(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify delete
-	_, err = f.handler.httpAssertService.GetHttpAssert(ctx, deltaAssertID)
+	_, err = f.handler.httpAssertService.GetByID(ctx, deltaAssertID)
 	require.Error(t, err)
 }
 

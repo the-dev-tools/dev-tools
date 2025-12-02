@@ -372,15 +372,15 @@ func resolveAsserts(base, delta []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 	// 3. Process Deltas (Overrides and Additions)
 	additions := make([]mhttp.HTTPAssert, 0)
 	for _, d := range orderedDelta {
-		if d.ParentAssertID != nil {
-			if b, exists := baseMap[*d.ParentAssertID]; exists {
+		if d.ParentHttpAssertID != nil {
+			if b, exists := baseMap[*d.ParentHttpAssertID]; exists {
 				// Apply Overrides
 				merged := b
-				if d.DeltaAssertKey != nil {
-					merged.AssertKey = *d.DeltaAssertKey
+				if d.DeltaKey != nil {
+					merged.Key = *d.DeltaKey
 				}
-				if d.DeltaAssertValue != nil {
-					merged.AssertValue = *d.DeltaAssertValue
+				if d.DeltaValue != nil {
+					merged.Value = *d.DeltaValue
 				}
 				if d.DeltaDescription != nil {
 					merged.Description = *d.DeltaDescription
@@ -390,13 +390,13 @@ func resolveAsserts(base, delta []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 				}
 
 				merged.IsDelta = false
-				merged.ParentAssertID = nil
-				merged.DeltaAssertKey = nil
-				merged.DeltaAssertValue = nil
+				merged.ParentHttpAssertID = nil
+				merged.DeltaKey = nil
+				merged.DeltaValue = nil
 				merged.DeltaDescription = nil
 				merged.DeltaEnabled = nil
 
-				baseMap[*d.ParentAssertID] = merged
+				baseMap[*d.ParentHttpAssertID] = merged
 			}
 		} else {
 			// New Addition
@@ -424,57 +424,18 @@ func resolveAsserts(base, delta []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 	return merged
 }
 
-// orderAsserts orders asserts based on linked-list pointers (Prev/Next).
+// orderAsserts orders asserts by Order field.
 func orderAsserts(asserts []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 	if len(asserts) <= 1 {
 		return append([]mhttp.HTTPAssert(nil), asserts...)
 	}
 
-	byID := make(map[idwrap.IDWrap]*mhttp.HTTPAssert, len(asserts))
-	var head *mhttp.HTTPAssert
-	for i := range asserts {
-		assert := &asserts[i]
-		byID[assert.ID] = assert
-		if assert.Prev == nil {
-			head = assert
-		}
-	}
-
-	ordered := make([]mhttp.HTTPAssert, 0, len(asserts))
-	visited := make(map[idwrap.IDWrap]bool, len(asserts))
-
-	// Traverse linked list
-	for current := head; current != nil; {
-		if visited[current.ID] {
-			break
-		}
-		ordered = append(ordered, *current)
-		visited[current.ID] = true
-
-		if current.Next == nil {
-			break
-		}
-		next, ok := byID[*current.Next]
-		if !ok {
-			break
-		}
-		current = next
-	}
-
-	// Append any disconnected items (orphans) at the end
-	if len(ordered) < len(asserts) {
-		remaining := make([]mhttp.HTTPAssert, 0, len(asserts)-len(ordered))
-		for _, assert := range asserts {
-			if !visited[assert.ID] {
-				remaining = append(remaining, assert)
-			}
-		}
-		// Sort orphans by value as a stable fallback
-		sort.Slice(remaining, func(i, j int) bool {
-			return remaining[i].AssertValue < remaining[j].AssertValue
-		})
-		ordered = append(ordered, remaining...)
-	}
+	// Create a copy and sort by Order field
+	ordered := make([]mhttp.HTTPAssert, len(asserts))
+	copy(ordered, asserts)
+	sort.Slice(ordered, func(i, j int) bool {
+		return ordered[i].Order < ordered[j].Order
+	})
 
 	return ordered
 }

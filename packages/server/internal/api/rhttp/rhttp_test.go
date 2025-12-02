@@ -22,7 +22,6 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpassert"
 
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mvar"
@@ -30,7 +29,6 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
@@ -86,7 +84,7 @@ func newHttpFixture(t *testing.T) *httpFixture {
 	httpSearchParamService := shttp.NewHttpSearchParamService(base.Queries)
 	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(base.Queries)
-	httpAssertService := shttpassert.New(base.Queries)
+	httpAssertService := shttp.NewHttpAssertService(base.Queries)
 
 	// Create response and body raw services
 	httpResponseService := shttp.NewHttpResponseService(base.Queries)
@@ -112,7 +110,7 @@ func newHttpFixture(t *testing.T) *httpFixture {
 		httpBodyRawService,
 		httpBodyFormService,
 		httpBodyUrlEncodedService,
-		&httpAssertService,
+		httpAssertService,
 	)
 
 	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream)
@@ -259,7 +257,7 @@ func (f *httpFixture) createHttpAssertion(t *testing.T, httpID idwrap.IDWrap, as
 	t.Helper()
 
 	assertID := idwrap.NewNow()
-	assertion := &mhttpassert.HttpAssert{
+	assertion := &mhttp.HTTPAssert{
 		ID:          assertID,
 		HttpID:      httpID,
 		Key:         assertKey,
@@ -273,7 +271,7 @@ func (f *httpFixture) createHttpAssertion(t *testing.T, httpID idwrap.IDWrap, as
 
 	// Access the assertion service from the handler
 	assertService := f.handler.httpAssertService
-	if err := assertService.CreateHttpAssert(f.ctx, assertion); err != nil {
+	if err := assertService.Create(f.ctx, assertion); err != nil {
 		t.Fatalf("create http assertion: %v", err)
 	}
 }

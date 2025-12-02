@@ -13,10 +13,8 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpassert"
 
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -879,7 +877,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaCollection(ctx context.Context, req *con
 
 		// Get asserts for each HTTP entry
 		for _, http := range httpList {
-			asserts, err := h.httpAssertService.GetHttpAssertsByHttpID(ctx, http.ID)
+			asserts, err := h.httpAssertService.GetByHttpID(ctx, http.ID)
 			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
@@ -931,9 +929,9 @@ func (h *HttpServiceRPC) HttpAssertDeltaInsert(ctx context.Context, req *connect
 		}
 
 		// Check workspace write access
-		assert, err := h.httpAssertService.GetHttpAssert(ctx, assertID)
+		assert, err := h.httpAssertService.GetByID(ctx, assertID)
 		if err != nil {
-			if errors.Is(err, shttpassert.ErrNoHttpAssertFound) {
+			if errors.Is(err, shttp.ErrNoHttpAssertFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -949,7 +947,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaInsert(ctx context.Context, req *connect
 		}
 
 		// Update delta fields
-		err = h.httpAssertService.UpdateHttpAssertDelta(ctx, assertID, nil, item.Value, nil, nil, nil)
+		err = h.httpAssertService.UpdateDelta(ctx, assertID, nil, item.Value, nil, nil, nil)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -966,7 +964,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var updateData []struct {
 		deltaID        idwrap.IDWrap
-		existingAssert *mhttpassert.HttpAssert
+		existingAssert *mhttp.HTTPAssert
 		item           *apiv1.HttpAssertDeltaUpdate
 	}
 
@@ -981,9 +979,9 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 		}
 
 		// Get existing delta assert - use pool service
-		existingAssert, err := h.httpAssertService.GetHttpAssert(ctx, deltaID)
+		existingAssert, err := h.httpAssertService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpassert.ErrNoHttpAssertFound) {
+			if errors.Is(err, shttp.ErrNoHttpAssertFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1007,7 +1005,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 
 		updateData = append(updateData, struct {
 			deltaID        idwrap.IDWrap
-			existingAssert *mhttpassert.HttpAssert
+			existingAssert *mhttp.HTTPAssert
 			item           *apiv1.HttpAssertDeltaUpdate
 		}{
 			deltaID:        deltaID,
@@ -1053,16 +1051,16 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 	defer tx.Rollback()
 
 	httpAssertService := h.httpAssertService.TX(tx)
-	var updatedAsserts []mhttpassert.HttpAssert
+	var updatedAsserts []mhttp.HTTPAssert
 
 	for _, update := range preparedUpdates {
 		// HttpAssert only supports updating Value delta currently (based on Insert implementation)
-		if err := httpAssertService.UpdateHttpAssertDelta(ctx, update.deltaID, nil, update.deltaValue, nil, nil, nil); err != nil {
+		if err := httpAssertService.UpdateDelta(ctx, update.deltaID, nil, update.deltaValue, nil, nil, nil); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
 		// Get updated assert for event publishing (from TX service)
-		updatedAssert, err := httpAssertService.GetHttpAssert(ctx, update.deltaID)
+		updatedAssert, err := httpAssertService.GetByID(ctx, update.deltaID)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1097,7 +1095,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var deleteData []struct {
 		deltaID        idwrap.IDWrap
-		existingAssert *mhttpassert.HttpAssert
+		existingAssert *mhttp.HTTPAssert
 		workspaceID    idwrap.IDWrap
 	}
 
@@ -1112,9 +1110,9 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 		}
 
 		// Get existing delta assert - use pool service
-		existingAssert, err := h.httpAssertService.GetHttpAssert(ctx, deltaID)
+		existingAssert, err := h.httpAssertService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpassert.ErrNoHttpAssertFound) {
+			if errors.Is(err, shttp.ErrNoHttpAssertFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1138,7 +1136,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 
 		deleteData = append(deleteData, struct {
 			deltaID        idwrap.IDWrap
-			existingAssert *mhttpassert.HttpAssert
+			existingAssert *mhttp.HTTPAssert
 			workspaceID    idwrap.IDWrap
 		}{
 			deltaID:        deltaID,
@@ -1155,12 +1153,12 @@ func (h *HttpServiceRPC) HttpAssertDeltaDelete(ctx context.Context, req *connect
 	defer tx.Rollback()
 
 	httpAssertService := h.httpAssertService.TX(tx)
-	var deletedAsserts []mhttpassert.HttpAssert
+	var deletedAsserts []mhttp.HTTPAssert
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
 		// Delete the delta record
-		if err := httpAssertService.DeleteHttpAssert(ctx, data.deltaID); err != nil {
+		if err := httpAssertService.Delete(ctx, data.deltaID); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
@@ -1226,7 +1224,7 @@ func (h *HttpServiceRPC) streamHttpAssertDeltaSync(ctx context.Context, userID i
 			if err != nil {
 				continue // Skip if can't parse ID
 			}
-			assertRecord, err := h.httpAssertService.GetHttpAssert(ctx, assertID)
+			assertRecord, err := h.httpAssertService.GetByID(ctx, assertID)
 			if err != nil {
 				continue // Skip if can't get the record
 			}

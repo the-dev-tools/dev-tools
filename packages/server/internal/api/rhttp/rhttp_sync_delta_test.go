@@ -19,7 +19,6 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpassert"
 
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
@@ -53,7 +52,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 	httpBodyFormService := shttp.NewHttpBodyFormService(queries)
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
-	httpAssertService := shttpassert.New(queries)
+	httpAssertService := shttp.NewHttpAssertService(queries)
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
 	// Streamers
@@ -77,7 +76,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 		bodyService,
 		httpBodyFormService,
 		httpBodyUrlEncodedService,
-		&httpAssertService,
+		httpAssertService,
 	)
 
 	svc := New(
