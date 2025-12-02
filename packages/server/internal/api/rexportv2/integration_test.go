@@ -135,6 +135,7 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	// Create RPC handler
 	rpc := NewExportV2RPC(
 		base.DB,
+		base.Queries,
 		baseServices.Ws,
 		baseServices.Us,
 		&httpService,

@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -157,6 +159,7 @@ type ExportV2RPC struct {
 // NewExportV2RPC creates a new ExportV2RPC handler with modern services
 func NewExportV2RPC(
 	db *sql.DB,
+	queries *gen.Queries,
 	ws sworkspace.WorkspaceService,
 	us suser.UserService,
 	httpService *shttp.HTTPService,
@@ -164,11 +167,14 @@ func NewExportV2RPC(
 	fileService *sfile.FileService,
 	logger *slog.Logger,
 ) *ExportV2RPC {
+	// Create IOWorkspaceService
+	ioWorkspaceService := ioworkspace.New(queries, logger)
+
 	// Create simple storage with modern services
 	storage := NewStorage(&ws, httpService, flowService, fileService)
 
-	// Create simple exporter
-	exporter := NewExporter(httpService, flowService, fileService)
+	// Create simple exporter with IOWorkspaceService
+	exporter := NewExporter(httpService, flowService, fileService, ioWorkspaceService)
 
 	// Create simple validator
 	validator := NewValidator(&us)

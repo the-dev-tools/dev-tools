@@ -44,6 +44,7 @@ func TestNewExportV2RPC(t *testing.T) {
 
 	rpc := NewExportV2RPC(
 		base.DB,
+		base.Queries,
 		services.Ws,
 		services.Us,
 		&httpService,
@@ -72,6 +73,7 @@ func TestCreateExportV2Service(t *testing.T) {
 
 	rpc := NewExportV2RPC(
 		base.DB,
+		base.Queries,
 		services.Ws,
 		services.Us,
 		&httpService,
@@ -531,6 +533,7 @@ func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.I
 	// Create RPC handler
 	rpc := NewExportV2RPC(
 		base.DB,
+		base.Queries,
 		services.Ws,
 		services.Us,
 		&httpService,

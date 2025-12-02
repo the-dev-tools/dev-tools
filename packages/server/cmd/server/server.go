@@ -367,6 +367,7 @@ func main() {
 	// ExportV2 Service
 	exportV2Srv := rexportv2.NewExportV2RPC(
 		currentDB,
+		queries,
 		workspaceService,
 		userService,
 		&httpService,
