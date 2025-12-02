@@ -519,7 +519,6 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 			assert := mhttp.HTTPAssert{
 				ID:                 a.ID,
 				HttpID:             a.HttpID,
-				Key:                a.Key,
 				Value:              a.Value,
 				Enabled:            a.Enabled,
 				Description:        a.Description,
@@ -527,7 +526,6 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 				ParentHttpAssertID: a.ParentHttpAssertID,
 				// Ensure constraint: is_delta = FALSE OR parent_id IS NOT NULL
 				IsDelta:          a.IsDelta && a.ParentHttpAssertID != nil,
-				DeltaKey:         a.DeltaKey,
 				DeltaValue:       a.DeltaValue,
 				DeltaEnabled:     a.DeltaEnabled,
 				DeltaDescription: a.DeltaDescription,

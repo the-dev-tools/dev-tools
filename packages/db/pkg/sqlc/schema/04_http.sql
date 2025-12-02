@@ -232,36 +232,33 @@ CREATE INDEX http_version_created_by_idx ON http_version (created_by);
 CREATE TABLE http_assert (
   id BLOB NOT NULL PRIMARY KEY,
   http_id BLOB NOT NULL,
-  key TEXT NOT NULL,
   value TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   description TEXT NOT NULL DEFAULT '',
   "order" REAL NOT NULL DEFAULT 0,
-  
+
   -- Delta relationship fields
   parent_http_assert_id BLOB,
   is_delta BOOLEAN NOT NULL DEFAULT FALSE,
-  
+
   -- Delta fields (NULL means "no change" for delta records)
-  delta_key TEXT,
   delta_value TEXT,
   delta_enabled BOOLEAN,
   delta_description TEXT,
   delta_order REAL,
-  
+
   created_at BIGINT NOT NULL DEFAULT (unixepoch()),
   updated_at BIGINT NOT NULL DEFAULT (unixepoch()),
-  
+
   FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE,
   FOREIGN KEY (parent_http_assert_id) REFERENCES http_assert (id) ON DELETE CASCADE,
-  
+
   -- Constraints
   CHECK (is_delta = FALSE OR parent_http_assert_id IS NOT NULL) -- Delta records must have a parent
 );
 
 -- Performance indexes for HttpAssert
 CREATE INDEX http_assert_http_idx ON http_assert (http_id);
-CREATE INDEX http_assert_key_idx ON http_assert (http_id, key);
 CREATE INDEX http_assert_order_idx ON http_assert (http_id, "order");
 CREATE INDEX http_assert_delta_idx ON http_assert (parent_http_assert_id) WHERE is_delta = TRUE;
 

@@ -70,24 +70,22 @@ func (q *Queries) CreateHTTP(ctx context.Context, arg CreateHTTPParams) error {
 
 const createHTTPAssert = `-- name: CreateHTTPAssert :exec
 INSERT INTO http_assert (
-  id, http_id, key, value, enabled, description, "order",
-  parent_http_assert_id, is_delta, delta_key, delta_value,
+  id, http_id, value, enabled, description, "order",
+  parent_http_assert_id, is_delta, delta_value,
   delta_enabled, delta_description, delta_order, created_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPAssertParams struct {
 	ID                 idwrap.IDWrap
 	HttpID             idwrap.IDWrap
-	Key                string
 	Value              string
 	Enabled            bool
 	Description        string
 	Order              float64
 	ParentHttpAssertID []byte
 	IsDelta            bool
-	DeltaKey           sql.NullString
 	DeltaValue         sql.NullString
 	DeltaEnabled       *bool
 	DeltaDescription   sql.NullString
@@ -100,14 +98,12 @@ func (q *Queries) CreateHTTPAssert(ctx context.Context, arg CreateHTTPAssertPara
 	_, err := q.exec(ctx, q.createHTTPAssertStmt, createHTTPAssert,
 		arg.ID,
 		arg.HttpID,
-		arg.Key,
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
 		arg.Order,
 		arg.ParentHttpAssertID,
 		arg.IsDelta,
-		arg.DeltaKey,
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
@@ -120,34 +116,32 @@ func (q *Queries) CreateHTTPAssert(ctx context.Context, arg CreateHTTPAssertPara
 
 const createHTTPAssertBulk = `-- name: CreateHTTPAssertBulk :exec
 INSERT INTO http_assert (
-  id, http_id, key, value, enabled, description, "order",
-  parent_http_assert_id, is_delta, delta_key, delta_value,
+  id, http_id, value, enabled, description, "order",
+  parent_http_assert_id, is_delta, delta_value,
   delta_enabled, delta_description, delta_order, created_at, updated_at
 )
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateHTTPAssertBulkParams struct {
 	ID                    idwrap.IDWrap
 	HttpID                idwrap.IDWrap
-	Key                   string
 	Value                 string
 	Enabled               bool
 	Description           string
 	Order                 float64
 	ParentHttpAssertID    []byte
 	IsDelta               bool
-	DeltaKey              sql.NullString
 	DeltaValue            sql.NullString
 	DeltaEnabled          *bool
 	DeltaDescription      sql.NullString
@@ -156,14 +150,12 @@ type CreateHTTPAssertBulkParams struct {
 	UpdatedAt             int64
 	ID_2                  idwrap.IDWrap
 	HttpID_2              idwrap.IDWrap
-	Key_2                 string
 	Value_2               string
 	Enabled_2             bool
 	Description_2         string
 	Order_2               float64
 	ParentHttpAssertID_2  []byte
 	IsDelta_2             bool
-	DeltaKey_2            sql.NullString
 	DeltaValue_2          sql.NullString
 	DeltaEnabled_2        *bool
 	DeltaDescription_2    sql.NullString
@@ -172,14 +164,12 @@ type CreateHTTPAssertBulkParams struct {
 	UpdatedAt_2           int64
 	ID_3                  idwrap.IDWrap
 	HttpID_3              idwrap.IDWrap
-	Key_3                 string
 	Value_3               string
 	Enabled_3             bool
 	Description_3         string
 	Order_3               float64
 	ParentHttpAssertID_3  []byte
 	IsDelta_3             bool
-	DeltaKey_3            sql.NullString
 	DeltaValue_3          sql.NullString
 	DeltaEnabled_3        *bool
 	DeltaDescription_3    sql.NullString
@@ -188,14 +178,12 @@ type CreateHTTPAssertBulkParams struct {
 	UpdatedAt_3           int64
 	ID_4                  idwrap.IDWrap
 	HttpID_4              idwrap.IDWrap
-	Key_4                 string
 	Value_4               string
 	Enabled_4             bool
 	Description_4         string
 	Order_4               float64
 	ParentHttpAssertID_4  []byte
 	IsDelta_4             bool
-	DeltaKey_4            sql.NullString
 	DeltaValue_4          sql.NullString
 	DeltaEnabled_4        *bool
 	DeltaDescription_4    sql.NullString
@@ -204,14 +192,12 @@ type CreateHTTPAssertBulkParams struct {
 	UpdatedAt_4           int64
 	ID_5                  idwrap.IDWrap
 	HttpID_5              idwrap.IDWrap
-	Key_5                 string
 	Value_5               string
 	Enabled_5             bool
 	Description_5         string
 	Order_5               float64
 	ParentHttpAssertID_5  []byte
 	IsDelta_5             bool
-	DeltaKey_5            sql.NullString
 	DeltaValue_5          sql.NullString
 	DeltaEnabled_5        *bool
 	DeltaDescription_5    sql.NullString
@@ -220,14 +206,12 @@ type CreateHTTPAssertBulkParams struct {
 	UpdatedAt_5           int64
 	ID_6                  idwrap.IDWrap
 	HttpID_6              idwrap.IDWrap
-	Key_6                 string
 	Value_6               string
 	Enabled_6             bool
 	Description_6         string
 	Order_6               float64
 	ParentHttpAssertID_6  []byte
 	IsDelta_6             bool
-	DeltaKey_6            sql.NullString
 	DeltaValue_6          sql.NullString
 	DeltaEnabled_6        *bool
 	DeltaDescription_6    sql.NullString
@@ -236,14 +220,12 @@ type CreateHTTPAssertBulkParams struct {
 	UpdatedAt_6           int64
 	ID_7                  idwrap.IDWrap
 	HttpID_7              idwrap.IDWrap
-	Key_7                 string
 	Value_7               string
 	Enabled_7             bool
 	Description_7         string
 	Order_7               float64
 	ParentHttpAssertID_7  []byte
 	IsDelta_7             bool
-	DeltaKey_7            sql.NullString
 	DeltaValue_7          sql.NullString
 	DeltaEnabled_7        *bool
 	DeltaDescription_7    sql.NullString
@@ -252,14 +234,12 @@ type CreateHTTPAssertBulkParams struct {
 	UpdatedAt_7           int64
 	ID_8                  idwrap.IDWrap
 	HttpID_8              idwrap.IDWrap
-	Key_8                 string
 	Value_8               string
 	Enabled_8             bool
 	Description_8         string
 	Order_8               float64
 	ParentHttpAssertID_8  []byte
 	IsDelta_8             bool
-	DeltaKey_8            sql.NullString
 	DeltaValue_8          sql.NullString
 	DeltaEnabled_8        *bool
 	DeltaDescription_8    sql.NullString
@@ -268,14 +248,12 @@ type CreateHTTPAssertBulkParams struct {
 	UpdatedAt_8           int64
 	ID_9                  idwrap.IDWrap
 	HttpID_9              idwrap.IDWrap
-	Key_9                 string
 	Value_9               string
 	Enabled_9             bool
 	Description_9         string
 	Order_9               float64
 	ParentHttpAssertID_9  []byte
 	IsDelta_9             bool
-	DeltaKey_9            sql.NullString
 	DeltaValue_9          sql.NullString
 	DeltaEnabled_9        *bool
 	DeltaDescription_9    sql.NullString
@@ -284,14 +262,12 @@ type CreateHTTPAssertBulkParams struct {
 	UpdatedAt_9           int64
 	ID_10                 idwrap.IDWrap
 	HttpID_10             idwrap.IDWrap
-	Key_10                string
 	Value_10              string
 	Enabled_10            bool
 	Description_10        string
 	Order_10              float64
 	ParentHttpAssertID_10 []byte
 	IsDelta_10            bool
-	DeltaKey_10           sql.NullString
 	DeltaValue_10         sql.NullString
 	DeltaEnabled_10       *bool
 	DeltaDescription_10   sql.NullString
@@ -304,14 +280,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 	_, err := q.exec(ctx, q.createHTTPAssertBulkStmt, createHTTPAssertBulk,
 		arg.ID,
 		arg.HttpID,
-		arg.Key,
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
 		arg.Order,
 		arg.ParentHttpAssertID,
 		arg.IsDelta,
-		arg.DeltaKey,
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
@@ -320,14 +294,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.UpdatedAt,
 		arg.ID_2,
 		arg.HttpID_2,
-		arg.Key_2,
 		arg.Value_2,
 		arg.Enabled_2,
 		arg.Description_2,
 		arg.Order_2,
 		arg.ParentHttpAssertID_2,
 		arg.IsDelta_2,
-		arg.DeltaKey_2,
 		arg.DeltaValue_2,
 		arg.DeltaEnabled_2,
 		arg.DeltaDescription_2,
@@ -336,14 +308,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.UpdatedAt_2,
 		arg.ID_3,
 		arg.HttpID_3,
-		arg.Key_3,
 		arg.Value_3,
 		arg.Enabled_3,
 		arg.Description_3,
 		arg.Order_3,
 		arg.ParentHttpAssertID_3,
 		arg.IsDelta_3,
-		arg.DeltaKey_3,
 		arg.DeltaValue_3,
 		arg.DeltaEnabled_3,
 		arg.DeltaDescription_3,
@@ -352,14 +322,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.UpdatedAt_3,
 		arg.ID_4,
 		arg.HttpID_4,
-		arg.Key_4,
 		arg.Value_4,
 		arg.Enabled_4,
 		arg.Description_4,
 		arg.Order_4,
 		arg.ParentHttpAssertID_4,
 		arg.IsDelta_4,
-		arg.DeltaKey_4,
 		arg.DeltaValue_4,
 		arg.DeltaEnabled_4,
 		arg.DeltaDescription_4,
@@ -368,14 +336,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.UpdatedAt_4,
 		arg.ID_5,
 		arg.HttpID_5,
-		arg.Key_5,
 		arg.Value_5,
 		arg.Enabled_5,
 		arg.Description_5,
 		arg.Order_5,
 		arg.ParentHttpAssertID_5,
 		arg.IsDelta_5,
-		arg.DeltaKey_5,
 		arg.DeltaValue_5,
 		arg.DeltaEnabled_5,
 		arg.DeltaDescription_5,
@@ -384,14 +350,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.UpdatedAt_5,
 		arg.ID_6,
 		arg.HttpID_6,
-		arg.Key_6,
 		arg.Value_6,
 		arg.Enabled_6,
 		arg.Description_6,
 		arg.Order_6,
 		arg.ParentHttpAssertID_6,
 		arg.IsDelta_6,
-		arg.DeltaKey_6,
 		arg.DeltaValue_6,
 		arg.DeltaEnabled_6,
 		arg.DeltaDescription_6,
@@ -400,14 +364,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.UpdatedAt_6,
 		arg.ID_7,
 		arg.HttpID_7,
-		arg.Key_7,
 		arg.Value_7,
 		arg.Enabled_7,
 		arg.Description_7,
 		arg.Order_7,
 		arg.ParentHttpAssertID_7,
 		arg.IsDelta_7,
-		arg.DeltaKey_7,
 		arg.DeltaValue_7,
 		arg.DeltaEnabled_7,
 		arg.DeltaDescription_7,
@@ -416,14 +378,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.UpdatedAt_7,
 		arg.ID_8,
 		arg.HttpID_8,
-		arg.Key_8,
 		arg.Value_8,
 		arg.Enabled_8,
 		arg.Description_8,
 		arg.Order_8,
 		arg.ParentHttpAssertID_8,
 		arg.IsDelta_8,
-		arg.DeltaKey_8,
 		arg.DeltaValue_8,
 		arg.DeltaEnabled_8,
 		arg.DeltaDescription_8,
@@ -432,14 +392,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.UpdatedAt_8,
 		arg.ID_9,
 		arg.HttpID_9,
-		arg.Key_9,
 		arg.Value_9,
 		arg.Enabled_9,
 		arg.Description_9,
 		arg.Order_9,
 		arg.ParentHttpAssertID_9,
 		arg.IsDelta_9,
-		arg.DeltaKey_9,
 		arg.DeltaValue_9,
 		arg.DeltaEnabled_9,
 		arg.DeltaDescription_9,
@@ -448,14 +406,12 @@ func (q *Queries) CreateHTTPAssertBulk(ctx context.Context, arg CreateHTTPAssert
 		arg.UpdatedAt_9,
 		arg.ID_10,
 		arg.HttpID_10,
-		arg.Key_10,
 		arg.Value_10,
 		arg.Enabled_10,
 		arg.Description_10,
 		arg.Order_10,
 		arg.ParentHttpAssertID_10,
 		arg.IsDelta_10,
-		arg.DeltaKey_10,
 		arg.DeltaValue_10,
 		arg.DeltaEnabled_10,
 		arg.DeltaDescription_10,
@@ -1849,14 +1805,12 @@ const getHTTPAssert = `-- name: GetHTTPAssert :one
 SELECT
   id,
   http_id,
-  key,
   value,
   enabled,
   description,
   "order",
   parent_http_assert_id,
   is_delta,
-  delta_key,
   delta_value,
   delta_enabled,
   delta_description,
@@ -1875,14 +1829,12 @@ func (q *Queries) GetHTTPAssert(ctx context.Context, id idwrap.IDWrap) (HttpAsse
 	err := row.Scan(
 		&i.ID,
 		&i.HttpID,
-		&i.Key,
 		&i.Value,
 		&i.Enabled,
 		&i.Description,
 		&i.Order,
 		&i.ParentHttpAssertID,
 		&i.IsDelta,
-		&i.DeltaKey,
 		&i.DeltaValue,
 		&i.DeltaEnabled,
 		&i.DeltaDescription,
@@ -1897,14 +1849,12 @@ const getHTTPAssertsByHttpID = `-- name: GetHTTPAssertsByHttpID :many
 SELECT
   id,
   http_id,
-  key,
   value,
   enabled,
   description,
   "order",
   parent_http_assert_id,
   is_delta,
-  delta_key,
   delta_value,
   delta_enabled,
   delta_description,
@@ -1928,14 +1878,12 @@ func (q *Queries) GetHTTPAssertsByHttpID(ctx context.Context, httpID idwrap.IDWr
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.Key,
 			&i.Value,
 			&i.Enabled,
 			&i.Description,
 			&i.Order,
 			&i.ParentHttpAssertID,
 			&i.IsDelta,
-			&i.DeltaKey,
 			&i.DeltaValue,
 			&i.DeltaEnabled,
 			&i.DeltaDescription,
@@ -1960,14 +1908,12 @@ const getHTTPAssertsByIDs = `-- name: GetHTTPAssertsByIDs :many
 SELECT
   id,
   http_id,
-  key,
   value,
   enabled,
   description,
   "order",
   parent_http_assert_id,
   is_delta,
-  delta_key,
   delta_value,
   delta_enabled,
   delta_description,
@@ -2000,14 +1946,12 @@ func (q *Queries) GetHTTPAssertsByIDs(ctx context.Context, ids []idwrap.IDWrap) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.HttpID,
-			&i.Key,
 			&i.Value,
 			&i.Enabled,
 			&i.Description,
 			&i.Order,
 			&i.ParentHttpAssertID,
 			&i.IsDelta,
-			&i.DeltaKey,
 			&i.DeltaValue,
 			&i.DeltaEnabled,
 			&i.DeltaDescription,
@@ -4677,12 +4621,10 @@ func (q *Queries) UpdateHTTP(ctx context.Context, arg UpdateHTTPParams) error {
 const updateHTTPAssert = `-- name: UpdateHTTPAssert :exec
 UPDATE http_assert
 SET
-  key = ?,
   value = ?,
   enabled = ?,
   description = ?,
   "order" = ?,
-  delta_key = ?,
   delta_value = ?,
   delta_enabled = ?,
   delta_description = ?,
@@ -4692,12 +4634,10 @@ WHERE id = ?
 `
 
 type UpdateHTTPAssertParams struct {
-	Key              string
 	Value            string
 	Enabled          bool
 	Description      string
 	Order            float64
-	DeltaKey         sql.NullString
 	DeltaValue       sql.NullString
 	DeltaEnabled     *bool
 	DeltaDescription sql.NullString
@@ -4708,12 +4648,10 @@ type UpdateHTTPAssertParams struct {
 
 func (q *Queries) UpdateHTTPAssert(ctx context.Context, arg UpdateHTTPAssertParams) error {
 	_, err := q.exec(ctx, q.updateHTTPAssertStmt, updateHTTPAssert,
-		arg.Key,
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
 		arg.Order,
-		arg.DeltaKey,
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,
@@ -4727,7 +4665,6 @@ func (q *Queries) UpdateHTTPAssert(ctx context.Context, arg UpdateHTTPAssertPara
 const updateHTTPAssertDelta = `-- name: UpdateHTTPAssertDelta :exec
 UPDATE http_assert
 SET
-  delta_key = ?,
   delta_value = ?,
   delta_enabled = ?,
   delta_description = ?,
@@ -4737,7 +4674,6 @@ WHERE id = ?
 `
 
 type UpdateHTTPAssertDeltaParams struct {
-	DeltaKey         sql.NullString
 	DeltaValue       sql.NullString
 	DeltaEnabled     *bool
 	DeltaDescription sql.NullString
@@ -4747,7 +4683,6 @@ type UpdateHTTPAssertDeltaParams struct {
 
 func (q *Queries) UpdateHTTPAssertDelta(ctx context.Context, arg UpdateHTTPAssertDeltaParams) error {
 	_, err := q.exec(ctx, q.updateHTTPAssertDeltaStmt, updateHTTPAssertDelta,
-		arg.DeltaKey,
 		arg.DeltaValue,
 		arg.DeltaEnabled,
 		arg.DeltaDescription,

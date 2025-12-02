@@ -253,15 +253,14 @@ func (f *httpFixture) createHttpSearchParam(t *testing.T, httpID idwrap.IDWrap, 
 	}
 }
 
-func (f *httpFixture) createHttpAssertion(t *testing.T, httpID idwrap.IDWrap, assertKey, assertValue, description string) {
+func (f *httpFixture) createHttpAssertion(t *testing.T, httpID idwrap.IDWrap, expression, description string) {
 	t.Helper()
 
 	assertID := idwrap.NewNow()
 	assertion := &mhttp.HTTPAssert{
 		ID:          assertID,
 		HttpID:      httpID,
-		Key:         assertKey,
-		Value:       assertValue,
+		Value:       expression,
 		Description: description,
 		Enabled:     true,
 		IsDelta:     false,
@@ -1006,32 +1005,28 @@ func TestHttpRun_Assertions_Headers(t *testing.T) {
 		name           string
 		responseHeader string
 		headerValue    string
-		assertionKey   string
-		assertionValue string
+		expression     string
 		shouldSucceed  bool
 	}{
 		{
 			name:           "content-type json",
 			responseHeader: "Content-Type",
 			headerValue:    "application/json",
-			assertionKey:   "header.content_type",
-			assertionValue: "application/json",
+			expression:     "response.headers['content-type'] == 'application/json'",
 			shouldSucceed:  true,
 		},
 		{
 			name:           "content-type xml mismatch",
 			responseHeader: "Content-Type",
 			headerValue:    "application/xml",
-			assertionKey:   "header.content_type",
-			assertionValue: "application/json",
+			expression:     "response.headers['content-type'] == 'application/json'",
 			shouldSucceed:  false,
 		},
 		{
 			name:           "custom header",
 			responseHeader: "X-Custom-Header",
 			headerValue:    "custom-value",
-			assertionKey:   "header.x-custom-header",
-			assertionValue: "custom-value",
+			expression:     "response.headers['x-custom-header'] == 'custom-value'",
 			shouldSucceed:  true,
 		},
 	}
@@ -1051,7 +1046,7 @@ func TestHttpRun_Assertions_Headers(t *testing.T) {
 			ws := f.createWorkspace(t, "test-workspace")
 			httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL, "GET")
 
-			f.createHttpAssertion(t, httpID, tt.assertionKey, tt.assertionValue, fmt.Sprintf("Header %s should match", tt.assertionKey))
+			f.createHttpAssertion(t, httpID, tt.expression, "Header assertion")
 
 			req := connect.NewRequest(&httpv1.HttpRunRequest{
 				HttpId: httpID.Bytes(),
@@ -1069,46 +1064,40 @@ func TestHttpRun_Assertions_BodyContent(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name           string
-		responseBody   string
-		assertionKey   string
-		assertionValue string
-		shouldSucceed  bool
+		name          string
+		responseBody  string
+		expression    string
+		shouldSucceed bool
 	}{
 		{
-			name:           "body contains success",
-			responseBody:   `{"status":"success","data":{"id":123}}`,
-			assertionKey:   "body_contains",
-			assertionValue: "success",
-			shouldSucceed:  true,
+			name:          "body contains success",
+			responseBody:  `{"status":"success","data":{"id":123}}`,
+			expression:    "contains(response.body, 'success')",
+			shouldSucceed: true,
 		},
 		{
-			name:           "body contains missing text",
-			responseBody:   `{"status":"error","message":"Not found"}`,
-			assertionKey:   "body_contains",
-			assertionValue: "success",
-			shouldSucceed:  false,
+			name:          "body contains missing text",
+			responseBody:  `{"status":"error","message":"Not found"}`,
+			expression:    "contains(response.body, 'success')",
+			shouldSucceed: false,
 		},
 		{
-			name:           "body json path exists",
-			responseBody:   `{"status":"success","data":{"id":123,"name":"test"}}`,
-			assertionKey:   "body_json_path",
-			assertionValue: "$.status",
-			shouldSucceed:  true,
+			name:          "body json status check",
+			responseBody:  `{"status":"success","data":{"id":123,"name":"test"}}`,
+			expression:    "response.body.status == 'success'",
+			shouldSucceed: true,
 		},
 		{
-			name:           "body json path value",
-			responseBody:   `{"status":"success","data":{"id":123,"name":"test"}}`,
-			assertionKey:   "body_json_path",
-			assertionValue: "$.data.id",
-			shouldSucceed:  true,
+			name:          "body json data id check",
+			responseBody:  `{"status":"success","data":{"id":123,"name":"test"}}`,
+			expression:    "response.body.data.id == 123",
+			shouldSucceed: true,
 		},
 		{
-			name:           "body json path not exists",
-			responseBody:   `{"status":"success","data":{"id":123}}`,
-			assertionKey:   "body_json_path",
-			assertionValue: "$.data.name",
-			shouldSucceed:  false,
+			name:          "body json missing field check",
+			responseBody:  `{"status":"success","data":{"id":123}}`,
+			expression:    "'name' in response.body.data",
+			shouldSucceed: false,
 		},
 	}
 
@@ -1127,7 +1116,7 @@ func TestHttpRun_Assertions_BodyContent(t *testing.T) {
 			ws := f.createWorkspace(t, "test-workspace")
 			httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL, "GET")
 
-			f.createHttpAssertion(t, httpID, tt.assertionKey, tt.assertionValue, fmt.Sprintf("Body assertion %s", tt.assertionKey))
+			f.createHttpAssertion(t, httpID, tt.expression, "Body assertion")
 
 			req := connect.NewRequest(&httpv1.HttpRunRequest{
 				HttpId: httpID.Bytes(),
@@ -1419,9 +1408,9 @@ func BenchmarkHttpRun_WithAssertions(b *testing.B) {
 	httpID := f.createHttpWithUrlForBench(b, ws, "test-http", testServer.URL, "GET")
 
 	// Add multiple assertions
-	f.createHttpAssertionForBench(b, httpID, "status_code", "200", "Status code should be 200")
-	f.createHttpAssertionForBench(b, httpID, "header.content_type", "application/json", "Content-Type should be application/json")
-	f.createHttpAssertionForBench(b, httpID, "body_contains", "success", "Response should contain success")
+	f.createHttpAssertionForBench(b, httpID, "response.status == 200", "Status code should be 200")
+	f.createHttpAssertionForBench(b, httpID, "response.headers['content-type'] == 'application/json'", "Content-Type should be application/json")
+	f.createHttpAssertionForBench(b, httpID, "contains(response.body, 'success')", "Response should contain success")
 
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: httpID.Bytes(),
@@ -1460,10 +1449,10 @@ func BenchmarkHttpRun_ComplexRequest(b *testing.B) {
 	f.createHttpSearchParamForBench(b, httpID, "verbose", "false")
 
 	// Add assertions
-	f.createHttpAssertionForBench(b, httpID, "status_code", "200", "Status code should be 200")
-	f.createHttpAssertionForBench(b, httpID, "header.content_type", "application/json", "Content-Type should be application/json")
-	f.createHttpAssertionForBench(b, httpID, "body_json_path", "$.status", "Response should have success status")
-	f.createHttpAssertionForBench(b, httpID, "body_json_path", "$.data.id", "Response should have ID 123")
+	f.createHttpAssertionForBench(b, httpID, "response.status == 200", "Status code should be 200")
+	f.createHttpAssertionForBench(b, httpID, "response.headers['content-type'] == 'application/json'", "Content-Type should be application/json")
+	f.createHttpAssertionForBench(b, httpID, "response.body.status == 'success'", "Response should have success status")
+	f.createHttpAssertionForBench(b, httpID, "response.body.data.id == 123", "Response should have ID 123")
 
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: httpID.Bytes(),
@@ -2315,8 +2304,8 @@ func (f *httpFixture) createHttpSearchParamForBench(b *testing.B, httpID idwrap.
 	f.createHttpSearchParam(nil, httpID, key, value)
 }
 
-func (f *httpFixture) createHttpAssertionForBench(b *testing.B, httpID idwrap.IDWrap, assertKey, assertValue, description string) {
-	f.createHttpAssertion(nil, httpID, assertKey, assertValue, description)
+func (f *httpFixture) createHttpAssertionForBench(b *testing.B, httpID idwrap.IDWrap, expression, description string) {
+	f.createHttpAssertion(nil, httpID, expression, description)
 }
 
 func createTestServerForBench(b *testing.B, handler func(http.ResponseWriter, *http.Request)) *httptest.Server {

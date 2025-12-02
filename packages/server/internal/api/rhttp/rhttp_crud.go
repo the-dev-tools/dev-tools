@@ -566,7 +566,6 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 		assertModel := &mhttp.HTTPAssert{
 			ID:          newAssertID,
 			HttpID:      newHttpID,
-			Key:         "", // HttpAssert doesn't use Key field
 			Value:       assert.Value,
 			Enabled:     true, // Assertions are always active
 			Description: "",   // No description available in DB

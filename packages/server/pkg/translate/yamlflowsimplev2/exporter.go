@@ -248,8 +248,8 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		if asserts, ok := assertsMap[httpID]; ok && len(asserts) > 0 {
 			var assertList []string
 			for _, a := range asserts {
-				if a.Enabled && a.Key != "" {
-					assertList = append(assertList, a.Key)
+				if a.Enabled && a.Value != "" {
+					assertList = append(assertList, a.Value)
 				}
 			}
 			if len(assertList) > 0 {

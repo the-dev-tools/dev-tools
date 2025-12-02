@@ -268,9 +268,9 @@ func TestAssertOrdering(t *testing.T) {
 	idC := idwrap.NewNow()
 
 	baseAsserts := []mhttp.HTTPAssert{
-		{ID: idB, Key: "B", Order: 2.0},
-		{ID: idA, Key: "A", Order: 1.0},
-		{ID: idC, Key: "C", Order: 3.0},
+		{ID: idB, Value: "B", Order: 2.0},
+		{ID: idA, Value: "A", Order: 1.0},
+		{ID: idC, Value: "C", Order: 3.0},
 	}
 
 	t.Run("PreserveOrder", func(t *testing.T) {
@@ -284,13 +284,13 @@ func TestAssertOrdering(t *testing.T) {
 			t.Fatalf("Expected 3 asserts, got %d", len(resolved))
 		}
 		if resolved[0].ID != idA {
-			t.Errorf("Expected first item A, got %s", resolved[0].Key)
+			t.Errorf("Expected first item A, got %s", resolved[0].Value)
 		}
 		if resolved[1].ID != idB {
-			t.Errorf("Expected second item B, got %s", resolved[1].Key)
+			t.Errorf("Expected second item B, got %s", resolved[1].Value)
 		}
 		if resolved[2].ID != idC {
-			t.Errorf("Expected third item C, got %s", resolved[2].Key)
+			t.Errorf("Expected third item C, got %s", resolved[2].Value)
 		}
 	})
 
@@ -298,9 +298,9 @@ func TestAssertOrdering(t *testing.T) {
 		// Override B with B'
 		deltaAsserts := []mhttp.HTTPAssert{
 			{
-				ID:               idwrap.NewNow(),
-				ParentHttpAssertID:   &idB,
-				DeltaValue: ptrStr("Updated B"),
+				ID:                 idwrap.NewNow(),
+				ParentHttpAssertID: &idB,
+				DeltaValue:         ptrStr("Updated B"),
 			},
 		}
 
@@ -316,7 +316,7 @@ func TestAssertOrdering(t *testing.T) {
 		}
 		// Order should still be A -> B -> C
 		if resolved[1].ID != idB {
-			t.Errorf("Expected second item B, got %s", resolved[1].Key)
+			t.Errorf("Expected second item B, got %s", resolved[1].Value)
 		}
 		if resolved[1].Value != "Updated B" {
 			t.Errorf("Expected updated value 'Updated B', got '%s'", resolved[1].Value)
@@ -327,9 +327,9 @@ func TestAssertOrdering(t *testing.T) {
 		idD := idwrap.NewNow()
 		deltaAsserts := []mhttp.HTTPAssert{
 			{
-				ID:             idD,
+				ID:                 idD,
 				ParentHttpAssertID: nil,
-				Key:      "D",
+				Value:              "D",
 			},
 		}
 
@@ -345,7 +345,7 @@ func TestAssertOrdering(t *testing.T) {
 		}
 		// A -> B -> C -> D
 		if resolved[3].ID != idD {
-			t.Errorf("Expected fourth item D, got %s", resolved[3].Key)
+			t.Errorf("Expected fourth item D, got %s", resolved[3].Value)
 		}
 	})
 }

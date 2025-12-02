@@ -110,26 +110,24 @@ func TestHttpRun_CompleteIntegration_Pipeline(t *testing.T) {
 	// Create assertions that will test variable access from response
 	// These assertions test response variable availability (Stream 1 & 2 integration)
 	assertions := []struct {
-		key      string
-		value    string
-		expected bool
-		desc     string
+		expression string
+		expected   bool
+		desc       string
 	}{
-		{"status", "response.status == 200", true, "Status code assertion"},
-		{"content_type", "response.headers['content-type'] contains 'application/json'", true, "Content-Type header assertion"},
-		{"response_id", "response.headers['x-response-id'] == 'resp-12345'", true, "Custom response header assertion"},
-		{"user_data", "response.body.user_id == 12345", true, "Response body data assertion"},
-		{"username", "response.body.username == 'testuser'", true, "Username assertion"},
-		{"nested_data", "response.body.data.role == 'admin'", true, "Nested data assertion"},
-		{"active_status", "response.body.data.active == true", true, "Boolean assertion"},
-		{"session_check", "len(response.body.data.session) > 0", true, "String length assertion"},
-		{"timestamp_exists", "'timestamp' in response.body", true, "Key existence assertion"},
-		{"quota_range", "response.body.data.quota >= 50 and response.body.data.quota <= 200", true, "Range assertion"},
+		{"response.status == 200", true, "Status code assertion"},
+		{"response.headers['content-type'] contains 'application/json'", true, "Content-Type header assertion"},
+		{"response.headers['x-response-id'] == 'resp-12345'", true, "Custom response header assertion"},
+		{"response.body.user_id == 12345", true, "Response body data assertion"},
+		{"response.body.username == 'testuser'", true, "Username assertion"},
+		{"response.body.data.role == 'admin'", true, "Nested data assertion"},
+		{"response.body.data.active == true", true, "Boolean assertion"},
+		{"len(response.body.data.session) > 0", true, "String length assertion"},
+		{"'timestamp' in response.body", true, "Key existence assertion"},
+		{"response.body.data.quota >= 50 and response.body.data.quota <= 200", true, "Range assertion"},
 	}
 
 	for _, assertion := range assertions {
-		// Using existing createHttpAssertion method - note the different signature
-		f.createHttpAssertion(t, httpID, assertion.key, assertion.value, assertion.desc)
+		f.createHttpAssertion(t, httpID, assertion.expression, assertion.desc)
 	}
 
 	// Record start time for duration validation

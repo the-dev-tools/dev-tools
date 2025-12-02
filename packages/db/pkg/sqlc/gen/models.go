@@ -135,14 +135,12 @@ type Http struct {
 type HttpAssert struct {
 	ID                 idwrap.IDWrap
 	HttpID             idwrap.IDWrap
-	Key                string
 	Value              string
 	Enabled            bool
 	Description        string
 	Order              float64
 	ParentHttpAssertID []byte
 	IsDelta            bool
-	DeltaKey           sql.NullString
 	DeltaValue         sql.NullString
 	DeltaEnabled       *bool
 	DeltaDescription   sql.NullString

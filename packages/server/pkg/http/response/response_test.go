@@ -32,12 +32,11 @@ func makeAssertions(count int) []mhttp.HTTPAssert {
 	asserts := make([]mhttp.HTTPAssert, 0, count)
 	for i := 0; i < count; i++ {
 		asserts = append(asserts, mhttp.HTTPAssert{
-			ID:          idwrap.NewNow(),
-			HttpID:      idwrap.NewNow(),
-			Key:   "status_check",
-			Value: "{{ response.status }} == 200",
-			Enabled:     true,
-			CreatedAt:   time.Now().Unix(),
+			ID:        idwrap.NewNow(),
+			HttpID:    idwrap.NewNow(),
+			Value:     "{{ response.status }} == 200",
+			Enabled:   true,
+			CreatedAt: time.Now().Unix(),
 		})
 	}
 	return asserts
@@ -88,12 +87,11 @@ func TestResponseCreateEvaluatesLoopVariables(t *testing.T) {
 		},
 	}
 	assertions := []mhttp.HTTPAssert{{
-		ID:          idwrap.NewNow(),
-		HttpID:      idwrap.NewNow(),
-		Key:   "loop_index_check",
-		Value: "for_1.index < 5",
-		Enabled:     true,
-		CreatedAt:   time.Now().Unix(),
+		ID:        idwrap.NewNow(),
+		HttpID:    idwrap.NewNow(),
+		Value:     "for_1.index < 5",
+		Enabled:   true,
+		CreatedAt: time.Now().Unix(),
 	}}
 	varMap := varsystem.NewVarMapFromAnyMap(flowVars)
 
@@ -118,12 +116,11 @@ func TestResponseCreateUnknownVariableProvidesHint(t *testing.T) {
 	httpResp := mhttp.HTTPResponse{ID: idwrap.NewNow(), HttpID: idwrap.NewNow()}
 	flowVars := map[string]any{"for_1": map[string]any{"index": 2}}
 	assertions := []mhttp.HTTPAssert{{
-		ID:          idwrap.NewNow(),
-		HttpID:      idwrap.NewNow(),
-		Key:   "missing_var_check",
-		Value: "missing_var > 0",
-		Enabled:     true,
-		CreatedAt:   time.Now().Unix(),
+		ID:        idwrap.NewNow(),
+		HttpID:    idwrap.NewNow(),
+		Value:     "missing_var > 0",
+		Enabled:   true,
+		CreatedAt: time.Now().Unix(),
 	}}
 	varMap := varsystem.NewVarMapFromAnyMap(flowVars)
 

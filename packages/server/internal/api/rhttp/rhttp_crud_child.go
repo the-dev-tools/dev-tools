@@ -444,7 +444,6 @@ func (h *HttpServiceRPC) HttpAssertInsert(ctx context.Context, req *connect.Requ
 		assertModel := &mhttp.HTTPAssert{
 			ID:          assertID,
 			HttpID:      httpID,
-			Key:         "", // HttpAssert doesn't use Key field
 			Value:       item.Value,
 			Enabled:     true, // Assertions are always active
 			Description: "",   // No description in API

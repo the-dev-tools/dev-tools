@@ -32,14 +32,12 @@ func (s *HttpAssertService) Create(ctx context.Context, assert *mhttp.HTTPAssert
 	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
 		ID:                 af.ID,
 		HttpID:             af.HttpID,
-		Key:                af.Key,
 		Value:              af.Value,
 		Description:        af.Description,
 		Enabled:            af.Enabled,
 		Order:              af.Order,
 		ParentHttpAssertID: af.ParentHttpAssertID,
 		IsDelta:            af.IsDelta,
-		DeltaKey:           af.DeltaKey,
 		DeltaValue:         af.DeltaValue,
 		DeltaEnabled:       af.DeltaEnabled,
 		DeltaDescription:   af.DeltaDescription,
@@ -69,14 +67,12 @@ func (s *HttpAssertService) createRaw(ctx context.Context, af gen.HttpAssert) er
 	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
 		ID:                 af.ID,
 		HttpID:             af.HttpID,
-		Key:                af.Key,
 		Value:              af.Value,
 		Description:        af.Description,
 		Enabled:            af.Enabled,
 		Order:              af.Order,
 		ParentHttpAssertID: af.ParentHttpAssertID,
 		IsDelta:            af.IsDelta,
-		DeltaKey:           af.DeltaKey,
 		DeltaValue:         af.DeltaValue,
 		DeltaEnabled:       af.DeltaEnabled,
 		DeltaDescription:   af.DeltaDescription,
@@ -190,12 +186,10 @@ func (s *HttpAssertService) Update(ctx context.Context, assert *mhttp.HTTPAssert
 	}
 
 	return s.queries.UpdateHTTPAssert(ctx, gen.UpdateHTTPAssertParams{
-		Key:              assert.Key,
 		Value:            assert.Value,
 		Description:      assert.Description,
 		Enabled:          assert.Enabled,
 		Order:            float64(currentAssert.Order),
-		DeltaKey:         stringToNull(currentAssert.DeltaKey),
 		DeltaValue:       stringToNull(currentAssert.DeltaValue),
 		DeltaEnabled:     currentAssert.DeltaEnabled,
 		DeltaDescription: stringToNull(currentAssert.DeltaDescription),
@@ -212,12 +206,10 @@ func (s *HttpAssertService) UpdateOrder(ctx context.Context, id idwrap.IDWrap, h
 	}
 
 	return s.queries.UpdateHTTPAssert(ctx, gen.UpdateHTTPAssertParams{
-		Key:              assert.Key,
 		Value:            assert.Value,
 		Description:      assert.Description,
 		Enabled:          assert.Enabled,
 		Order:            float64(order),
-		DeltaKey:         stringToNull(assert.DeltaKey),
 		DeltaValue:       stringToNull(assert.DeltaValue),
 		DeltaEnabled:     assert.DeltaEnabled,
 		DeltaDescription: stringToNull(assert.DeltaDescription),
@@ -227,9 +219,8 @@ func (s *HttpAssertService) UpdateOrder(ctx context.Context, id idwrap.IDWrap, h
 	})
 }
 
-func (s *HttpAssertService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaKey *string, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
+func (s *HttpAssertService) UpdateDelta(ctx context.Context, id idwrap.IDWrap, deltaValue *string, deltaEnabled *bool, deltaDescription *string, deltaOrder *float32) error {
 	return s.queries.UpdateHTTPAssertDelta(ctx, gen.UpdateHTTPAssertDeltaParams{
-		DeltaKey:         stringToNull(deltaKey),
 		DeltaValue:       stringToNull(deltaValue),
 		DeltaDescription: stringToNull(deltaDescription),
 		DeltaEnabled:     deltaEnabled,
@@ -265,7 +256,6 @@ func (s *HttpAssertService) ResetDelta(ctx context.Context, id idwrap.IDWrap) er
 	// Reset all delta fields
 	assert.ParentHttpAssertID = nil
 	assert.IsDelta = false
-	assert.DeltaKey = nil
 	assert.DeltaValue = nil
 	assert.DeltaEnabled = nil
 	assert.DeltaDescription = nil
@@ -281,14 +271,12 @@ func (s *HttpAssertService) ResetDelta(ctx context.Context, id idwrap.IDWrap) er
 	return s.queries.CreateHTTPAssert(ctx, gen.CreateHTTPAssertParams{
 		ID:                 assert.ID,
 		HttpID:             assert.HttpID,
-		Key:                assert.Key,
 		Value:              assert.Value,
 		Enabled:            assert.Enabled,
 		Description:        assert.Description,
 		Order:              float64(assert.Order),
 		ParentHttpAssertID: idWrapToBytes(assert.ParentHttpAssertID),
 		IsDelta:            assert.IsDelta,
-		DeltaKey:           stringToNull(assert.DeltaKey),
 		DeltaValue:         stringToNull(assert.DeltaValue),
 		DeltaEnabled:       assert.DeltaEnabled,
 		DeltaDescription:   stringToNull(assert.DeltaDescription),
@@ -321,14 +309,12 @@ func SerializeAssertModelToGen(assert mhttp.HTTPAssert) gen.HttpAssert {
 	return gen.HttpAssert{
 		ID:                 assert.ID,
 		HttpID:             assert.HttpID,
-		Key:                assert.Key,
 		Value:              assert.Value,
 		Enabled:            assert.Enabled,
 		Description:        assert.Description,
 		Order:              float64(assert.Order),
 		ParentHttpAssertID: idWrapToBytes(assert.ParentHttpAssertID),
 		IsDelta:            assert.IsDelta,
-		DeltaKey:           stringToNull(assert.DeltaKey),
 		DeltaValue:         stringToNull(assert.DeltaValue),
 		DeltaEnabled:       assert.DeltaEnabled,
 		DeltaDescription:   stringToNull(assert.DeltaDescription),
@@ -342,14 +328,12 @@ func DeserializeAssertGenToModel(assert gen.HttpAssert) mhttp.HTTPAssert {
 	return mhttp.HTTPAssert{
 		ID:                 assert.ID,
 		HttpID:             assert.HttpID,
-		Key:                assert.Key,
 		Value:              assert.Value,
 		Enabled:            assert.Enabled,
 		Description:        assert.Description,
 		Order:              float32(assert.Order),
 		ParentHttpAssertID: bytesToIDWrap(assert.ParentHttpAssertID),
 		IsDelta:            assert.IsDelta,
-		DeltaKey:           nullToString(assert.DeltaKey),
 		DeltaValue:         nullToString(assert.DeltaValue),
 		DeltaEnabled:       assert.DeltaEnabled,
 		DeltaDescription:   nullToString(assert.DeltaDescription),

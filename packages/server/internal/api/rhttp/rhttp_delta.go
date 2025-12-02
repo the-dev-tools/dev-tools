@@ -947,7 +947,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaInsert(ctx context.Context, req *connect
 		}
 
 		// Update delta fields
-		err = h.httpAssertService.UpdateDelta(ctx, assertID, nil, item.Value, nil, nil, nil)
+		err = h.httpAssertService.UpdateDelta(ctx, assertID, item.Value, nil, nil, nil)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
@@ -1055,7 +1055,7 @@ func (h *HttpServiceRPC) HttpAssertDeltaUpdate(ctx context.Context, req *connect
 
 	for _, update := range preparedUpdates {
 		// HttpAssert only supports updating Value delta currently (based on Insert implementation)
-		if err := httpAssertService.UpdateDelta(ctx, update.deltaID, nil, update.deltaValue, nil, nil, nil); err != nil {
+		if err := httpAssertService.UpdateDelta(ctx, update.deltaID, update.deltaValue, nil, nil, nil); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 

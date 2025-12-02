@@ -1237,10 +1237,8 @@ func TestResponseStatusAssertions(t *testing.T) {
 	require.Len(t, deltaAsserts, 3, "Expected 3 delta assertions")
 
 	// Verify base assertions
-	expectedKeys := []string{"Status 200", "Status 201", "Status 404"}
 	expectedValues := []string{"response.status == 200", "response.status == 201", "response.status == 404"}
 	for i, assert := range baseAsserts {
-		require.Equal(t, expectedKeys[i], assert.Key, "Assertion key should be 'Status XXX'")
 		require.Equal(t, expectedValues[i], assert.Value, "Assertion value should contain the expression")
 		require.True(t, assert.Enabled, "Assertion should be enabled")
 		require.Contains(t, assert.Description, "HAR import", "Description should mention HAR import")

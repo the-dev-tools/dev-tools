@@ -581,12 +581,8 @@ func (h *HttpServiceRPC) evaluateAssertionsParallel(ctx context.Context, asserts
 				}
 			}()
 
-			// Construct the expression to evaluate
+			// Use the assertion value directly as the expression
 			expression := assertion.Value
-			if assertion.Key != "" {
-				// If Key is provided, construct expression based on key type
-				expression = h.constructAssertionExpression(assertion.Key, assertion.Value)
-			}
 			result.Expression = expression
 
 			// Evaluate the assertion expression with context
@@ -915,22 +911,6 @@ func (h *HttpServiceRPC) createJSONPathHelpers(bodyMap map[string]any) map[strin
 	helpers["number"] = getNumber
 
 	return helpers
-}
-
-func (h *HttpServiceRPC) constructAssertionExpression(key, value string) string {
-	switch key {
-	case "status_code":
-		return fmt.Sprintf("response.status == %s", value)
-	case "response_time":
-		return fmt.Sprintf("response_time %s", value)
-	case "content_type":
-		return fmt.Sprintf("response.headers['content-type'] == '%s'", value)
-	case "body":
-		return fmt.Sprintf("response.body == %s", value)
-	default:
-		// For unknown keys, assume it's a direct expression
-		return value
-	}
 }
 
 // evaluateAssertion evaluates an assertion expression against the provided context

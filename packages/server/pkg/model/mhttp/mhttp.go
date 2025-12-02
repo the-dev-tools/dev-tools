@@ -144,14 +144,12 @@ type HTTPBodyRaw struct {
 type HTTPAssert struct {
 	ID                 idwrap.IDWrap  `json:"id"`
 	HttpID             idwrap.IDWrap  `json:"http_id"`
-	Key                string         `json:"key"`
 	Value              string         `json:"value"`
 	Enabled            bool           `json:"enabled"`
 	Description        string         `json:"description"`
 	Order              float32        `json:"order"`
 	ParentHttpAssertID *idwrap.IDWrap `json:"parent_http_assert_id,omitempty"`
 	IsDelta            bool           `json:"is_delta"`
-	DeltaKey           *string        `json:"delta_key,omitempty"`
 	DeltaValue         *string        `json:"delta_value,omitempty"`
 	DeltaEnabled       *bool          `json:"delta_enabled,omitempty"`
 	DeltaDescription   *string        `json:"delta_description,omitempty"`

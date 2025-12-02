@@ -376,9 +376,6 @@ func resolveAsserts(base, delta []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 			if b, exists := baseMap[*d.ParentHttpAssertID]; exists {
 				// Apply Overrides
 				merged := b
-				if d.DeltaKey != nil {
-					merged.Key = *d.DeltaKey
-				}
 				if d.DeltaValue != nil {
 					merged.Value = *d.DeltaValue
 				}
@@ -391,7 +388,6 @@ func resolveAsserts(base, delta []mhttp.HTTPAssert) []mhttp.HTTPAssert {
 
 				merged.IsDelta = false
 				merged.ParentHttpAssertID = nil
-				merged.DeltaKey = nil
 				merged.DeltaValue = nil
 				merged.DeltaDescription = nil
 				merged.DeltaEnabled = nil
