@@ -23,9 +23,20 @@ type YamlFlowFormatV2 struct {
 	GlobalEnvironment string                    `yaml:"global_environment,omitempty"`
 	Run               []map[string]any          `yaml:"run,omitempty"`
 	RequestTemplates  map[string]map[string]any `yaml:"request_templates,omitempty"`
-	Requests          []map[string]any          `yaml:"requests,omitempty"`
-	Flows             []YamlFlowFlowV2         `yaml:"flows"`
-	Environments      []YamlEnvironmentV2      `yaml:"environments,omitempty"`
+	Requests          []YamlRequestDefV2        `yaml:"requests,omitempty"`
+	Flows             []YamlFlowFlowV2          `yaml:"flows"`
+	Environments      []YamlEnvironmentV2       `yaml:"environments,omitempty"`
+}
+
+// YamlRequestDefV2 represents a request definition in the requests section
+// Field order is controlled by struct field order for clean YAML output
+type YamlRequestDefV2 struct {
+	Name        string            `yaml:"name"`
+	Method      string            `yaml:"method"`
+	URL         string            `yaml:"url"`
+	Headers     map[string]string `yaml:"headers,omitempty"`
+	QueryParams map[string]string `yaml:"query_params,omitempty"`
+	Body        any               `yaml:"body,omitempty"`
 }
 
 // YamlFlowFlowV2 represents a flow in the modern YAML format

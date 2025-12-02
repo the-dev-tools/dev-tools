@@ -182,12 +182,11 @@ func ValidateYAMLStructure(yamlFormat *YamlFlowFormatV2) error {
 	// Check for duplicate request names
 	requestNames := make(map[string]bool)
 	for _, req := range yamlFormat.Requests {
-		name, ok := req["name"].(string)
-		if ok && name != "" {
-			if requestNames[name] {
-				return NewYamlFlowErrorV2(fmt.Sprintf("duplicate request name: %s", name), "requests", name)
+		if req.Name != "" {
+			if requestNames[req.Name] {
+				return NewYamlFlowErrorV2(fmt.Sprintf("duplicate request name: %s", req.Name), "requests", req.Name)
 			}
-			requestNames[name] = true
+			requestNames[req.Name] = true
 		}
 	}
 

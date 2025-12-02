@@ -173,7 +173,7 @@ type RunEntry struct {
 }
 
 // parseRequestTemplates parses request templates into a map
-func parseRequestTemplates(templates map[string]map[string]any, requests []map[string]any) (map[string]*YamlHTTPRequestV2, error) {
+func parseRequestTemplates(templates map[string]map[string]any, requests []YamlRequestDefV2) (map[string]*YamlHTTPRequestV2, error) {
 	result := make(map[string]*YamlHTTPRequestV2)
 
 	// Parse templates
@@ -185,22 +185,57 @@ func parseRequestTemplates(templates map[string]map[string]any, requests []map[s
 		result[name] = httpReq
 	}
 
-	// Parse direct requests
+	// Parse direct requests from YamlRequestDefV2 structs
 	for _, req := range requests {
-		name, ok := req[fieldName].(string)
-		if !ok || name == "" {
+		if req.Name == "" {
 			continue
 		}
 
-		if _, exists := result[name]; exists {
-			return nil, fmt.Errorf("duplicate request name: %s", name)
+		if _, exists := result[req.Name]; exists {
+			return nil, fmt.Errorf("duplicate request name: %s", req.Name)
 		}
 
-		httpReq, err := parseHTTPRequestData(req)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse request '%s': %w", name, err)
+		httpReq := &YamlHTTPRequestV2{
+			Name:   req.Name,
+			Method: req.Method,
+			URL:    req.URL,
 		}
-		result[name] = httpReq
+
+		// Convert headers
+		if len(req.Headers) > 0 {
+			for k, v := range req.Headers {
+				httpReq.Headers = append(httpReq.Headers, YamlNameValuePairV2{
+					Name:    k,
+					Value:   v,
+					Enabled: true,
+				})
+			}
+		}
+
+		// Convert query params
+		if len(req.QueryParams) > 0 {
+			for k, v := range req.QueryParams {
+				httpReq.QueryParams = append(httpReq.QueryParams, YamlNameValuePairV2{
+					Name:    k,
+					Value:   v,
+					Enabled: true,
+				})
+			}
+		}
+
+		// Convert body - handle the map[string]any format
+		if req.Body != nil {
+			bodyMap, ok := req.Body.(map[string]any)
+			if ok {
+				body, err := parseBodyData(bodyMap)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse body for request '%s': %w", req.Name, err)
+				}
+				httpReq.Body = body
+			}
+		}
+
+		result[req.Name] = httpReq
 	}
 
 	return result, nil

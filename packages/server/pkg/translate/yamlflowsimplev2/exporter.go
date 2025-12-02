@@ -154,7 +154,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	// Second pass: build the requests section
-	var requests []map[string]any
+	var requests []YamlRequestDefV2
 	// Sort HTTP IDs for deterministic output
 	var httpIDs []idwrap.IDWrap
 	for httpID := range httpIDToRequestName {
@@ -168,10 +168,10 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		reqName := httpIDToRequestName[httpID]
 		httpReq := httpMap[httpID]
 
-		reqMap := map[string]any{
-			"name":   reqName,
-			"method": httpReq.Method,
-			"url":    httpReq.Url,
+		reqDef := YamlRequestDefV2{
+			Name:   reqName,
+			Method: httpReq.Method,
+			URL:    httpReq.Url,
 		}
 
 		// Headers (as simple map for cleaner output)
@@ -183,7 +183,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 			}
 			if len(hdrMap) > 0 {
-				reqMap["headers"] = hdrMap
+				reqDef.Headers = hdrMap
 			}
 		}
 
@@ -196,7 +196,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 			}
 			if len(paramMap) > 0 {
-				reqMap["query_params"] = paramMap
+				reqDef.QueryParams = paramMap
 			}
 		}
 
@@ -210,7 +210,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 			}
 			bodyData["form_data"] = fList
-			reqMap["body"] = bodyData
+			reqDef.Body = bodyData
 		} else if urls, ok := bodyUrlMap[httpID]; ok && len(urls) > 0 {
 			bodyData := map[string]any{"type": "urlencoded"}
 			uList := make([]map[string]any, 0)
@@ -220,7 +220,7 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 				}
 			}
 			bodyData["urlencoded"] = uList
-			reqMap["body"] = bodyData
+			reqDef.Body = bodyData
 		} else if raw, ok := bodyRawMap[httpID]; ok {
 			dataBytes := raw.RawData
 			if raw.CompressionType != int8(compress.CompressTypeNone) {
@@ -233,13 +233,13 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			var jsonObj any
 			if json.Unmarshal(dataBytes, &jsonObj) == nil {
 				// For JSON bodies, use proper type: json format for round-trip compatibility
-				reqMap["body"] = map[string]any{"type": "json", "json": jsonObj}
+				reqDef.Body = map[string]any{"type": "json", "json": jsonObj}
 			} else if len(dataBytes) > 0 {
-				reqMap["body"] = map[string]any{"type": "raw", "raw": string(dataBytes)}
+				reqDef.Body = map[string]any{"type": "raw", "raw": string(dataBytes)}
 			}
 		}
 
-		requests = append(requests, reqMap)
+		requests = append(requests, reqDef)
 	}
 
 	if len(requests) > 0 {
