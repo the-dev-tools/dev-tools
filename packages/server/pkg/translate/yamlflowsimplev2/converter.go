@@ -945,8 +945,10 @@ func createFileForHTTP(httpReq mhttp.HTTP, opts ConvertOptionsV2) mfile.File {
 		filename = "untitled_request"
 	}
 
+	// Use httpReq.ID as the file ID so frontend can look up HTTP by fileId
+	// This matches the pattern used in HAR import
 	return mfile.File{
-		ID:          idwrap.NewNow(),
+		ID:          httpReq.ID,
 		WorkspaceID: opts.WorkspaceID,
 		ParentID:    opts.FolderID,
 		ContentID:   &httpReq.ID,
