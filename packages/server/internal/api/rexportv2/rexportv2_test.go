@@ -140,7 +140,6 @@ func TestExportV2RPC_Export_InvalidFlowIDs(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 }
 
-
 // TestExportV2RPC_Export_UnsupportedFormat tests export with unsupported format
 func TestExportV2RPC_Export_UnsupportedFormat(t *testing.T) {
 	ctx := context.Background()
@@ -155,7 +154,6 @@ func TestExportV2RPC_Export_UnsupportedFormat(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 }
-
 
 // TestExportV2RPC_ExportCurl_Success tests successful cURL export
 func TestExportV2RPC_ExportCurl_Success(t *testing.T) {
@@ -221,7 +219,6 @@ func TestExportV2RPC_ExportWithFlowFilter(t *testing.T) {
 	require.NotNil(t, resp)
 	require.NotEmpty(t, resp.Msg.GetData())
 }
-
 
 // TestExportV2RPC_ContextCancellation tests export with context cancellation
 func TestExportV2RPC_ContextCancellation(t *testing.T) {
@@ -396,49 +393,49 @@ func TestConvertToExportResponse(t *testing.T) {
 // TestHandleServiceError tests error handling function
 func TestHandleServiceError(t *testing.T) {
 	tests := []struct {
-		name          string
-		err           error
-		expectedCode  connect.Code
+		name         string
+		err          error
+		expectedCode connect.Code
 	}{
 		{
-			name:          "validation error",
-			err:           NewValidationError("test", "invalid"),
-			expectedCode:  connect.CodeInvalidArgument,
+			name:         "validation error",
+			err:          NewValidationError("test", "invalid"),
+			expectedCode: connect.CodeInvalidArgument,
 		},
 		{
-			name:          "workspace not found",
-			err:           ErrWorkspaceNotFound,
-			expectedCode:  connect.CodeNotFound,
+			name:         "workspace not found",
+			err:          ErrWorkspaceNotFound,
+			expectedCode: connect.CodeNotFound,
 		},
 		{
-			name:          "permission denied",
-			err:           ErrPermissionDenied,
-			expectedCode:  connect.CodePermissionDenied,
+			name:         "permission denied",
+			err:          ErrPermissionDenied,
+			expectedCode: connect.CodePermissionDenied,
 		},
 		{
-			name:          "export failed",
-			err:           ErrExportFailed,
-			expectedCode:  connect.CodeInternal,
+			name:         "export failed",
+			err:          ErrExportFailed,
+			expectedCode: connect.CodeInternal,
 		},
 		{
-			name:          "no data found",
-			err:           ErrNoDataFound,
-			expectedCode:  connect.CodeNotFound,
+			name:         "no data found",
+			err:          ErrNoDataFound,
+			expectedCode: connect.CodeNotFound,
 		},
 		{
-			name:          "unsupported format",
-			err:           ErrUnsupportedFormat,
-			expectedCode:  connect.CodeInvalidArgument,
+			name:         "unsupported format",
+			err:          ErrUnsupportedFormat,
+			expectedCode: connect.CodeInvalidArgument,
 		},
 		{
-			name:          "timeout",
-			err:           ErrTimeout,
-			expectedCode:  connect.CodeDeadlineExceeded,
+			name:         "timeout",
+			err:          ErrTimeout,
+			expectedCode: connect.CodeDeadlineExceeded,
 		},
 		{
-			name:          "nil_error_wrapper_fixed",
-			err:           NewValidationError("service_error", "nil error provided to handleServiceError"),
-			expectedCode:  connect.CodeInvalidArgument,
+			name:         "nil_error_wrapper_fixed",
+			err:          NewValidationError("service_error", "nil error provided to handleServiceError"),
+			expectedCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:         "generic_error_fixed",
@@ -446,9 +443,9 @@ func TestHandleServiceError(t *testing.T) {
 			expectedCode: connect.CodeInternal,
 		},
 		{
-			name:          "nil error",
-			err:           nil,
-			expectedCode:  connect.CodeInternal,
+			name:         "nil error",
+			err:          nil,
+			expectedCode: connect.CodeInternal,
 		},
 	}
 
@@ -542,6 +539,5 @@ func setupExportV2RPC(t *testing.T, ctx context.Context) (*ExportV2RPC, idwrap.I
 		logger,
 	)
 
-	
 	return rpc, workspaceID, exampleID
 }

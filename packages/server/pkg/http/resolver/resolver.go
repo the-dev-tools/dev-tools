@@ -11,13 +11,11 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
-	"the-dev-tools/server/pkg/model/mhttpheader"
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 )
 
@@ -29,7 +27,7 @@ type RequestResolver interface {
 // StandardResolver implements RequestResolver using standard DB services.
 type StandardResolver struct {
 	httpService               *shttp.HTTPService
-	httpHeaderService         *shttpheader.HttpHeaderService
+	httpHeaderService         *shttp.HttpHeaderService
 	httpSearchParamService    *shttpsearchparam.HttpSearchParamService
 	httpBodyRawService        *shttp.HttpBodyRawService
 	httpBodyFormService       *shttpbodyform.HttpBodyFormService
@@ -40,7 +38,7 @@ type StandardResolver struct {
 // NewStandardResolver creates a new instance of StandardResolver.
 func NewStandardResolver(
 	httpService *shttp.HTTPService,
-	httpHeaderService *shttpheader.HttpHeaderService,
+	httpHeaderService *shttp.HttpHeaderService,
 	httpSearchParamService *shttpsearchparam.HttpSearchParamService,
 	httpBodyRawService *shttp.HttpBodyRawService,
 	httpBodyFormService *shttpbodyform.HttpBodyFormService,
@@ -79,7 +77,7 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 
 	// 2. Fetch Delta Components (if present)
 	var deltaHTTP *mhttp.HTTP
-	var deltaHeaders []mhttpheader.HttpHeader
+	var deltaHeaders []mhttp.HTTPHeader
 	var deltaQueries []mhttpsearchparam.HttpSearchParam
 	var deltaRawBody *mhttp.HTTPBodyRaw
 	var deltaFormBody []mhttpbodyform.HttpBodyForm
@@ -132,27 +130,27 @@ func (r *StandardResolver) Resolve(ctx context.Context, baseID idwrap.IDWrap, de
 
 // Helper functions for type conversion
 
-func convertHeaders(in []mhttpheader.HttpHeader) []mhttp.HTTPHeader {
+func convertHeaders(in []mhttp.HTTPHeader) []mhttp.HTTPHeader {
 	if in == nil {
 		return []mhttp.HTTPHeader{}
 	}
 	out := make([]mhttp.HTTPHeader, len(in))
 	for i, v := range in {
 		out[i] = mhttp.HTTPHeader{
-			ID:               v.ID,
-			HttpID:           v.HttpID,
-			HeaderKey:        v.Key,
-			HeaderValue:      v.Value,
-			Description:      v.Description,
-			Enabled:          v.Enabled,
-			ParentHeaderID:   v.ParentHttpHeaderID,
-			IsDelta:          v.IsDelta,
-			DeltaHeaderKey:   v.DeltaKey,
-			DeltaHeaderValue: v.DeltaValue,
-			DeltaDescription: v.DeltaDescription,
-			DeltaEnabled:     v.DeltaEnabled,
-			CreatedAt:        v.CreatedAt,
-			UpdatedAt:        v.UpdatedAt,
+			ID:                 v.ID,
+			HttpID:             v.HttpID,
+			Key:                v.Key,
+			Value:              v.Value,
+			Description:        v.Description,
+			Enabled:            v.Enabled,
+			ParentHttpHeaderID: v.ParentHttpHeaderID,
+			IsDelta:            v.IsDelta,
+			DeltaKey:           v.DeltaKey,
+			DeltaValue:         v.DeltaValue,
+			DeltaDescription:   v.DeltaDescription,
+			DeltaEnabled:       v.DeltaEnabled,
+			CreatedAt:          v.CreatedAt,
+			UpdatedAt:          v.UpdatedAt,
 		}
 	}
 	return out

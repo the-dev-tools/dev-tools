@@ -45,9 +45,9 @@ func (f Format) String() string {
 
 // DetectionResult represents the result of format detection with confidence
 type DetectionResult struct {
-	Format    Format
+	Format     Format
 	Confidence float64 // 0.0 to 1.0
-	Reason    string   // Human-readable explanation
+	Reason     string  // Human-readable explanation
 }
 
 // FormatDetector implements automatic format detection with confidence scoring
@@ -62,10 +62,10 @@ type FormatDetector struct {
 // NewFormatDetector creates a new format detector with compiled patterns
 func NewFormatDetector() *FormatDetector {
 	return &FormatDetector{
-		harPattern: regexp.MustCompile(`^\s*\{?\s*"?log"?[\s\S]*"?entries"?[\s\S]*\}?\s*$`),
-		curlPattern: regexp.MustCompile(`(?i)^\s*curl\s+`),
+		harPattern:     regexp.MustCompile(`^\s*\{?\s*"?log"?[\s\S]*"?entries"?[\s\S]*\}?\s*$`),
+		curlPattern:    regexp.MustCompile(`(?i)^\s*curl\s+`),
 		postmanPattern: regexp.MustCompile(`(?i)"?info"?\s*:\s*\{[\s\S]*"?name"?[\s\S]*"?schema"?\s*:\s*"https://schema\.getpostman\.com/json/collection/v2\.1\.0/collection\.json"`),
-		yamlPattern: regexp.MustCompile(`(?i)^\s*flows?\s*:`),
+		yamlPattern:    regexp.MustCompile(`(?i)^\s*flows?\s*:`),
 	}
 }
 

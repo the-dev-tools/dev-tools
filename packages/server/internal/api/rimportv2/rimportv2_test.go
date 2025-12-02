@@ -35,7 +35,6 @@ func TestNewHARTranslator(t *testing.T) {
 	}
 }
 
-
 // TestErrorConstructors tests custom error constructors
 func TestErrorConstructors(t *testing.T) {
 	// Test ValidationError
@@ -97,15 +96,15 @@ func TestService_Import(t *testing.T) {
 						},
 						HTTPRequests: []mhttp.HTTP{
 							{
-								ID:   idwrap.NewNow(),
-								Url:  "https://api.example.com/test",
+								ID:     idwrap.NewNow(),
+								Url:    "https://api.example.com/test",
 								Method: "POST",
 							},
 						},
 						Files: []mfile.File{},
 					}, nil
 				}
-												deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+				deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
 					return nil
 				}
 			},
@@ -191,15 +190,15 @@ func TestService_Import(t *testing.T) {
 						},
 						HTTPRequests: []mhttp.HTTP{
 							{
-								ID:   idwrap.NewNow(),
-								Url:  "https://api.example.com/test",
+								ID:     idwrap.NewNow(),
+								Url:    "https://api.example.com/test",
 								Method: "POST",
 							},
 						},
 						Files: []mfile.File{},
 					}, nil
 				}
-												deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+				deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
 					return fmt.Errorf("storage operation failed: %w", sql.ErrConnDone)
 				}
 			},
@@ -255,10 +254,10 @@ func TestService_Import(t *testing.T) {
 // TestService_ImportWithTextData tests the text data import functionality
 func TestService_ImportWithTextData(t *testing.T) {
 	tests := []struct {
-		name           string
-		request        *ImportRequest
-		expectedData   []byte
-		expectError    bool
+		name         string
+		request      *ImportRequest
+		expectedData []byte
+		expectError  bool
 	}{
 		{
 			name: "convert text data to bytes",
@@ -337,8 +336,6 @@ func TestService_ImportWithTextData(t *testing.T) {
 		})
 	}
 }
-
-
 
 // TestErrorTypeCheckingFunctions tests the error type checking functions
 func TestErrorTypeCheckingFunctions(t *testing.T) {
@@ -544,15 +541,14 @@ func (m *mockImporter) StoreUnifiedResults(ctx context.Context, results *Transla
 	return nil
 }
 
-
 type mockValidator struct {
-	mu                                 sync.Mutex
-	ValidateImportRequestFunc          func(context.Context, *ImportRequest) error
-	ValidateWorkspaceAccessFunc        func(context.Context, idwrap.IDWrap) error
-	ValidateDataSizeFunc               func(context.Context, []byte) error
-	ValidateFormatSupportFunc          func(context.Context, Format) error
-	ValidateImportRequestCallCount     int
-	ValidateWorkspaceAccessCallCount   int
+	mu                               sync.Mutex
+	ValidateImportRequestFunc        func(context.Context, *ImportRequest) error
+	ValidateWorkspaceAccessFunc      func(context.Context, idwrap.IDWrap) error
+	ValidateDataSizeFunc             func(context.Context, []byte) error
+	ValidateFormatSupportFunc        func(context.Context, Format) error
+	ValidateImportRequestCallCount   int
+	ValidateWorkspaceAccessCallCount int
 }
 
 func (m *mockValidator) ValidateImportRequest(ctx context.Context, req *ImportRequest) error {
@@ -590,7 +586,6 @@ func (m *mockValidator) ValidateFormatSupport(ctx context.Context, format Format
 	// Default implementation - accept all formats
 	return nil
 }
-
 
 // createMinimalHAR creates a minimal valid HAR for testing
 func createMinimalHAR(t *testing.T) []byte {

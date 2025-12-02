@@ -45,7 +45,7 @@ func TestSimpleValidator_ValidateExportRequest(t *testing.T) {
 			name: "empty workspace ID",
 			req: &ExportRequest{
 				WorkspaceID: idwrap.IDWrap{},
-				Format:     ExportFormat_YAML,
+				Format:      ExportFormat_YAML,
 			},
 			expectError: true,
 			errorField:  "workspaceId",
@@ -54,7 +54,7 @@ func TestSimpleValidator_ValidateExportRequest(t *testing.T) {
 			name: "unsupported format",
 			req: &ExportRequest{
 				WorkspaceID: idwrap.NewNow(),
-				Format:     ExportFormat("UNSUPPORTED"),
+				Format:      ExportFormat("UNSUPPORTED"),
 			},
 			expectError: true,
 			errorField:  "format",

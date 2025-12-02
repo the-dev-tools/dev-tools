@@ -4,10 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/http/resolver"
@@ -17,6 +13,11 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Mock HAR Data
@@ -79,14 +80,14 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 
 	// 1. Setup Stream Listeners
 	// We need to listen to the streams *before* triggering the import
-	
+
 	// Channel to capture events
 	receivedHttp := make([]rhttp.HttpEvent, 0)
 	receivedHeaders := make([]rhttp.HttpHeaderEvent, 0)
-	
+
 	httpSub, err := suite.importHandler.HttpStream.Subscribe(ctx, func(topic rhttp.HttpTopic) bool { return true })
 	require.NoError(t, err)
-	
+
 	headerSub, err := suite.importHandler.HttpHeaderStream.Subscribe(ctx, func(topic rhttp.HttpHeaderTopic) bool { return true })
 	require.NoError(t, err)
 
@@ -126,10 +127,10 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 			},
 		},
 	}
-	
+
 	resp, err := suite.importHandler.Import(ctx, connect.NewRequest(importReq))
 	require.NoError(t, err)
-	
+
 	t.Logf("Import Response: MissingData=%v, Domains=%d", resp.Msg.MissingData, len(resp.Msg.Domains))
 	if resp.Msg.MissingData != importv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED {
 		t.Fatalf("Import reports missing data, events will not be published. MissingData: %v", resp.Msg.MissingData)
@@ -141,7 +142,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 	// 3. Validate Sync Events
 	t.Logf("Received %d HTTP events and %d Header events", len(receivedHttp), len(receivedHeaders))
 	assert.GreaterOrEqual(t, len(receivedHttp), 2, "Should receive at least 2 HTTP events (Base + Delta)")
-	
+
 	var baseHttp, deltaHttp *httpv1.Http
 	for _, evt := range receivedHttp {
 		if evt.IsDelta {
@@ -150,11 +151,11 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 			baseHttp = evt.Http
 		}
 	}
-	
+
 	assert.NotNil(t, baseHttp, "Should receive Base HTTP event")
 	assert.NotNil(t, deltaHttp, "Should receive Delta HTTP event")
 	assert.NotEmpty(t, receivedHeaders, "Should receive Header events")
-	
+
 	// 4. Validate Collections (RPC vs Sync Consistency)
 
 	// Create missing services manually since they aren't exposed in suite.services
@@ -208,11 +209,11 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 	// Call HttpDeltaCollection
 	deltaCollResp, err := httpHandler.HttpDeltaCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
-	
+
 	// Call HttpHeaderDeltaCollection
 	headerDeltaCollResp, err := httpHandler.HttpHeaderDeltaCollection(ctx, connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
-	
+
 	// Verify HTTP Delta Collection
 	var foundDeltaInColl *httpv1.HttpDelta
 	for _, d := range deltaCollResp.Msg.Items {
@@ -221,7 +222,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 			break
 		}
 	}
-	
+
 	assert.NotNil(t, foundDeltaInColl, "Delta HTTP from Sync should be in Delta Collection")
 	if foundDeltaInColl != nil {
 		// Sync event `deltaHttp.HttpId` is the Delta's own ID.
@@ -230,7 +231,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 		assert.Equal(t, deltaHttp.HttpId, foundDeltaInColl.DeltaHttpId, "IDs should match")
 		assert.Equal(t, baseHttp.HttpId, foundDeltaInColl.HttpId, "Collection ParentID should match Base ID")
 	}
-	
+
 	// Verify Header Delta Collection
 	var deltaHeaderFromSync *httpv1.HttpHeader
 	for _, hEvt := range receivedHeaders {
@@ -239,7 +240,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if deltaHeaderFromSync != nil {
 		var foundHeaderInColl *httpv1.HttpHeaderDelta
 		for _, h := range headerDeltaCollResp.Msg.Items {
@@ -248,7 +249,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 				break
 			}
 		}
-		
+
 		assert.NotNil(t, foundHeaderInColl, "Delta Header from Sync should be in Delta Collection")
 		if foundHeaderInColl != nil {
 			// Collection `HttpHeaderId` should be the Parent Header ID (Base Header).
@@ -260,7 +261,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 					break
 				}
 			}
-			
+
 			if baseHeaderFromSync != nil {
 				assert.Equal(t, baseHeaderFromSync.HttpHeaderId, foundHeaderInColl.HttpHeaderId, "Collection: HttpHeaderId should point to Base Header")
 			}

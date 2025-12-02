@@ -129,14 +129,14 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 	baseHeaders := []mhttp.HTTPHeader{
 		{
 			ID:          baseID1,
-			HeaderKey:   "Content-Type",
-			HeaderValue: "application/json",
+			Key:   "Content-Type",
+			Value: "application/json",
 			Enabled:     true,
 		},
 		{
 			ID:          baseID2,
-			HeaderKey:   "Authorization",
-			HeaderValue: "Bearer token",
+			Key:   "Authorization",
+			Value: "Bearer token",
 			Enabled:     true,
 		},
 	}
@@ -146,8 +146,8 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 		deltaHeaders := []mhttp.HTTPHeader{
 			{
 				ID:               idwrap.NewNow(),
-				ParentHeaderID:   &baseID1,
-				DeltaHeaderValue: ptrStr("application/xml"),
+				ParentHttpHeaderID:   &baseID1,
+				DeltaValue: ptrStr("application/xml"),
 			},
 		}
 
@@ -167,19 +167,19 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 		if resolved[0].ID != baseID1 {
 			t.Errorf("Expected first item ID %v, got %v", baseID1, resolved[0].ID)
 		}
-		if resolved[0].HeaderValue != "application/xml" {
-			t.Errorf("Expected updated value 'application/xml', got '%s'", resolved[0].HeaderValue)
+		if resolved[0].Value != "application/xml" {
+			t.Errorf("Expected updated value 'application/xml', got '%s'", resolved[0].Value)
 		}
-		if resolved[0].HeaderKey != "Content-Type" {
-			t.Errorf("Expected key 'Content-Type', got '%s'", resolved[0].HeaderKey)
+		if resolved[0].Key != "Content-Type" {
+			t.Errorf("Expected key 'Content-Type', got '%s'", resolved[0].Key)
 		}
 
 		// Second item should be untouched
 		if resolved[1].ID != baseID2 {
 			t.Errorf("Expected second item ID %v, got %v", baseID2, resolved[1].ID)
 		}
-		if resolved[1].HeaderValue != "Bearer token" {
-			t.Errorf("Expected original value 'Bearer token', got '%s'", resolved[1].HeaderValue)
+		if resolved[1].Value != "Bearer token" {
+			t.Errorf("Expected original value 'Bearer token', got '%s'", resolved[1].Value)
 		}
 	})
 
@@ -189,8 +189,8 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 		deltaHeaders := []mhttp.HTTPHeader{
 			{
 				ID:               idwrap.NewNow(),
-				ParentHeaderID:   &randomID, // Does not match any base item
-				DeltaHeaderValue: ptrStr("Should Not Exist"),
+				ParentHttpHeaderID:   &randomID, // Does not match any base item
+				DeltaValue: ptrStr("Should Not Exist"),
 			},
 		}
 
@@ -206,10 +206,10 @@ func TestCollectionResolution_StrictIDMatching(t *testing.T) {
 			t.Fatalf("Expected 2 headers, got %d", len(resolved))
 		}
 		// Base items should remain unchanged
-		if resolved[0].HeaderValue != "application/json" {
+		if resolved[0].Value != "application/json" {
 			t.Error("Base item 1 modified unexpectedly")
 		}
-		if resolved[1].HeaderValue != "Bearer token" {
+		if resolved[1].Value != "Bearer token" {
 			t.Error("Base item 2 modified unexpectedly")
 		}
 	})
@@ -219,8 +219,8 @@ func TestCollectionResolution_Additions(t *testing.T) {
 	baseHeaders := []mhttp.HTTPHeader{
 		{
 			ID:          idwrap.NewNow(),
-			HeaderKey:   "Base",
-			HeaderValue: "Val",
+			Key:   "Base",
+			Value: "Val",
 		},
 	}
 
@@ -229,9 +229,9 @@ func TestCollectionResolution_Additions(t *testing.T) {
 		deltaHeaders := []mhttp.HTTPHeader{
 			{
 				ID:             newID,
-				ParentHeaderID: nil, // nil ParentID means addition
-				HeaderKey:      "New-Header",
-				HeaderValue:    "New-Value",
+				ParentHttpHeaderID: nil, // nil ParentID means addition
+				Key:      "New-Header",
+				Value:    "New-Value",
 			},
 		}
 
@@ -252,8 +252,8 @@ func TestCollectionResolution_Additions(t *testing.T) {
 		if added.ID != newID {
 			t.Errorf("Expected added item ID %v, got %v", newID, added.ID)
 		}
-		if added.HeaderKey != "New-Header" {
-			t.Errorf("Expected added key 'New-Header', got '%s'", added.HeaderKey)
+		if added.Key != "New-Header" {
+			t.Errorf("Expected added key 'New-Header', got '%s'", added.Key)
 		}
 		if added.IsDelta {
 			t.Error("Expected IsDelta to be cleared on added item")

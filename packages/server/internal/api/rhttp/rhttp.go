@@ -14,7 +14,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
@@ -180,7 +179,7 @@ type HttpServiceRPC struct {
 	resolver resolver.RequestResolver
 
 	// Child entity services
-	httpHeaderService         shttpheader.HttpHeaderService
+	httpHeaderService         shttp.HttpHeaderService
 	httpSearchParamService    shttpsearchparam.HttpSearchParamService
 	httpBodyFormService       shttpbodyform.HttpBodyFormService
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
@@ -212,7 +211,7 @@ func New(
 	es senv.EnvService,
 	vs svar.VarService,
 	bodyService *shttp.HttpBodyRawService,
-	httpHeaderService shttpheader.HttpHeaderService,
+	httpHeaderService shttp.HttpHeaderService,
 	httpSearchParamService shttpsearchparam.HttpSearchParamService,
 	httpBodyFormService shttpbodyform.HttpBodyFormService,
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,

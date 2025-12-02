@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	"connectrpc.com/connect"
-	"github.com/stretchr/testify/require"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
 	yamlflowsimplev2 "the-dev-tools/server/pkg/translate/yamlflowsimplev2"
+
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFlowServiceV2_DetectFlowFormat(t *testing.T) {
@@ -139,7 +140,7 @@ flows:
 func TestFlowServiceV2_ImportYAMLFlow_Mock(t *testing.T) {
 	// Create a mock import service that returns predefined results
 	expectedResults := &ImportResults{
-		WorkspaceID:    idwrap.NewNow(),
+		WorkspaceID:     idwrap.NewNow(),
 		HTTPReqsCreated: 2,
 		FlowsCreated:    1,
 		NodesCreated:    3,
@@ -176,7 +177,7 @@ flows:
 
 func TestMockWorkspaceImporter(t *testing.T) {
 	expectedResults := &ImportResults{
-		WorkspaceID:    idwrap.NewNow(),
+		WorkspaceID:     idwrap.NewNow(),
 		HTTPReqsCreated: 5,
 		FlowsCreated:    2,
 		NodesCreated:    7,
@@ -388,14 +389,14 @@ func TestFlowServiceV2_ParseFlowData_Mock(t *testing.T) {
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		(len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-		func() bool {
-			for i := 0; i <= len(s)-len(substr); i++ {
-				if s[i:i+len(substr)] == substr {
-					return true
+			func() bool {
+				for i := 0; i <= len(s)-len(substr); i++ {
+					if s[i:i+len(substr)] == substr {
+						return true
+					}
 				}
-			}
-			return false
-		}())))
+				return false
+			}())))
 }
 
 // MockHTTPService provides a mock implementation for testing

@@ -85,7 +85,7 @@ func TestHARv2_DependencyChain_Unit(t *testing.T) {
 	findHeader := func(httpID idwrap.IDWrap, key string) *mhttp.HTTPHeader {
 		for i := range result.HTTPHeaders {
 			h := result.HTTPHeaders[i]
-			if h.HttpID == httpID && h.HeaderKey == key {
+			if h.HttpID == httpID && h.Key == key {
 				return &h
 			}
 		}
@@ -94,18 +94,18 @@ func TestHARv2_DependencyChain_Unit(t *testing.T) {
 
 	headerBase := findHeader(baseB.ID, "Authorization")
 	require.NotNil(t, headerBase, "Base header not found")
-	assert.Equal(t, "Bearer abc-123", headerBase.HeaderValue, "Base header should have raw value")
+	assert.Equal(t, "Bearer abc-123", headerBase.Value, "Base header should have raw value")
 	assert.False(t, headerBase.IsDelta, "Base header should NOT be delta")
 
 	headerDelta := findHeader(deltaB.ID, "Authorization")
 	require.NotNil(t, headerDelta, "Delta header not found")
 	assert.True(t, headerDelta.IsDelta, "Delta header should be marked IsDelta")
-	assert.NotNil(t, headerDelta.ParentHeaderID, "Delta header should have ParentID")
-	assert.Equal(t, headerBase.ID, *headerDelta.ParentHeaderID, "Delta header should point to Base header")
+	assert.NotNil(t, headerDelta.ParentHttpHeaderID, "Delta header should have ParentID")
+	assert.Equal(t, headerBase.ID, *headerDelta.ParentHttpHeaderID, "Delta header should point to Base header")
 	
 	// Check Delta Value for template
-	require.NotNil(t, headerDelta.DeltaHeaderValue)
-	assert.Contains(t, *headerDelta.DeltaHeaderValue, "{{", "Delta header value should contain template start")
-	assert.Contains(t, *headerDelta.DeltaHeaderValue, "}}", "Delta header value should contain template end")
-	assert.NotContains(t, *headerDelta.DeltaHeaderValue, "abc-123", "Delta header value should NOT contain raw token")
+	require.NotNil(t, headerDelta.DeltaValue)
+	assert.Contains(t, *headerDelta.DeltaValue, "{{", "Delta header value should contain template start")
+	assert.Contains(t, *headerDelta.DeltaValue, "}}", "Delta header value should contain template end")
+	assert.NotContains(t, *headerDelta.DeltaValue, "abc-123", "Delta header value should NOT contain raw token")
 }

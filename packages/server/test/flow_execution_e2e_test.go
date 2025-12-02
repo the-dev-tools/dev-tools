@@ -19,7 +19,7 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/shttpheader"
+
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snoderequest"
@@ -29,17 +29,17 @@ import (
 type flowExecutionFixture struct {
 	ctx      context.Context
 	services testutil.BaseTestServices
-	
+
 	// Additional services needed for execution
-	httpService           shttp.HTTPService
-	nodeService           snode.NodeService
-	nodeRequestService    snoderequest.NodeRequestService
-	nodeExecutionService  snodeexecution.NodeExecutionService
-	httpHeaderService     shttpheader.HttpHeaderService
-	
+	httpService          shttp.HTTPService
+	nodeService          snode.NodeService
+	nodeRequestService   snoderequest.NodeRequestService
+	nodeExecutionService snodeexecution.NodeExecutionService
+	httpHeaderService    shttp.HttpHeaderService
+
 	userID      idwrap.IDWrap
 	workspaceID idwrap.IDWrap
-	
+
 	mockServer *httptest.Server
 	serverURL  string
 }
@@ -71,7 +71,7 @@ func newFlowExecutionFixture(t *testing.T) *flowExecutionFixture {
 	nodeService := snode.New(base.Queries)
 	nodeRequestService := snoderequest.New(base.Queries)
 	nodeExecutionService := snodeexecution.New(base.Queries)
-	httpHeaderService := shttpheader.New(base.Queries)
+	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 
 	// Start Mock Server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -81,10 +81,10 @@ func newFlowExecutionFixture(t *testing.T) *flowExecutionFixture {
 				w.Header().Add(k, val)
 			}
 		}
-		
+
 		// Echo Body
 		w.WriteHeader(http.StatusOK)
-		
+
 		// Simple JSON response
 		response := map[string]string{
 			"status": "success",
@@ -114,9 +114,9 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	// This test simulates a "Chained Request" scenario:
 	// 1. Request A -> Mock Server
 	// 2. Request B -> Mock Server
-	
+
 	f := newFlowExecutionFixture(t)
-	
+
 	// 1. Create Flow
 	flowID := idwrap.NewNow()
 	err := f.services.Fs.CreateFlow(f.ctx, mflow.Flow{
@@ -137,11 +137,11 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 		PositionY: 0,
 	})
 	require.NoError(t, err)
-	
+
 	// 3. Create Request Node A
 	reqNodeAID := idwrap.NewNow()
 	httpAID := idwrap.NewNow()
-	
+
 	// Create HTTP entry for A
 	err = f.httpService.Create(f.ctx, &mhttp.HTTP{
 		ID:          httpAID,
@@ -205,7 +205,7 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	// 5. Create Edges (Start -> A -> B)
 	// Note: Edge service is usually needed here
 	edgeService := sedge.New(f.services.Queries) // Assuming we can access Queries
-	
+
 	// Start -> A
 	edge1ID := idwrap.NewNow()
 	err = edgeService.CreateEdge(f.ctx, edge.Edge{
@@ -250,4 +250,3 @@ func TestFlowExecution_ChainedRequests(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, edges, 2)
 }
-

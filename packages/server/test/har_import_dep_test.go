@@ -4,10 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rhttp"
 	"the-dev-tools/server/pkg/eventstream/memory"
@@ -18,6 +14,11 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // HAR with Dependency
@@ -124,7 +125,7 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 	}
 
 	require.NotNil(t, authHeaderEvent, "Should find a Delta Authorization header")
-	
+
 	// The value should be templated, e.g., "Bearer {{...}}"
 	// It should NOT be "Bearer abc-123"
 	t.Logf("Found Delta Authorization Header in Sync: %s", authHeaderEvent.HttpHeader.Value)
@@ -193,7 +194,7 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 	}
 
 	require.NotNil(t, foundHeaderInColl, "Delta Authorization Header should be in Delta Collection")
-	
+
 	// Check Value in Collection
 	assert.Equal(t, authHeaderEvent.HttpHeader.Value, *foundHeaderInColl.Value, "Collection Value should match Sync Value")
 	t.Logf("Found Delta Authorization Header in Collection: %s", *foundHeaderInColl.Value)

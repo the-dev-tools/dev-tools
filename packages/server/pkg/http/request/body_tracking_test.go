@@ -24,7 +24,7 @@ func TestBodyTracking(t *testing.T) {
 	}
 
 	headers := []mhttp.HTTPHeader{
-		{HeaderKey: "X-Test", HeaderValue: "{{headerVar}}", Enabled: true},
+		{Key: "X-Test", Value: "{{headerVar}}", Enabled: true},
 	}
 
 	rawBody := &mhttp.HTTPBodyRaw{

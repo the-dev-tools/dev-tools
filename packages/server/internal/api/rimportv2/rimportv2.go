@@ -7,11 +7,10 @@ import (
 	"log/slog"
 	"time"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rflowv2"
 	"the-dev-tools/server/internal/api/rhttp"
-	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
@@ -21,7 +20,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
@@ -31,6 +29,8 @@ import (
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 	"the-dev-tools/spec/dist/buf/go/api/import/v1/importv1connect"
+
+	"connectrpc.com/connect"
 )
 
 // ImportV2RPC implements the Connect RPC interface for HAR import v2
@@ -53,20 +53,20 @@ type ImportV2RPC struct {
 	HttpBodyUrlEncodedStream eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
 	HttpBodyRawStream        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
 	FileStream               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
-	
+
 	// Services exposed for testing
-	HttpService                 *shttp.HTTPService
-	FlowService                 *sflow.FlowService
-	FileService                 *sfile.FileService
-	HttpHeaderService           shttpheader.HttpHeaderService
-	HttpSearchParamService      shttpsearchparam.HttpSearchParamService
-	HttpBodyFormService         shttpbodyform.HttpBodyFormService
-	HttpBodyUrlEncodedService   shttpbodyurlencoded.HttpBodyUrlEncodedService
-	HttpBodyRawService          *shttp.HttpBodyRawService
-	NodeService                 *snode.NodeService
-	NodeRequestService          *snoderequest.NodeRequestService
-	NodeNoopService             *snodenoop.NodeNoopService
-	EdgeService                 *sedge.EdgeService
+	HttpService               *shttp.HTTPService
+	FlowService               *sflow.FlowService
+	FileService               *sfile.FileService
+	HttpHeaderService         shttp.HttpHeaderService
+	HttpSearchParamService    shttpsearchparam.HttpSearchParamService
+	HttpBodyFormService       shttpbodyform.HttpBodyFormService
+	HttpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
+	HttpBodyRawService        *shttp.HttpBodyRawService
+	NodeService               *snode.NodeService
+	NodeRequestService        *snoderequest.NodeRequestService
+	NodeNoopService           *snodenoop.NodeNoopService
+	EdgeService               *sedge.EdgeService
 }
 
 // NewImportV2RPC creates a new ImportV2RPC handler with all required dependencies
@@ -78,7 +78,7 @@ func NewImportV2RPC(
 	flowService *sflow.FlowService,
 	fileService *sfile.FileService,
 	// Child entity services
-	httpHeaderService shttpheader.HttpHeaderService,
+	httpHeaderService shttp.HttpHeaderService,
 	httpSearchParamService shttpsearchparam.HttpSearchParamService,
 	httpBodyFormService shttpbodyform.HttpBodyFormService,
 	httpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService,
@@ -133,20 +133,20 @@ func NewImportV2RPC(
 		HttpBodyUrlEncodedStream: httpBodyUrlEncodedStream,
 		HttpBodyRawStream:        httpBodyRawStream,
 		FileStream:               fileStream,
-		
+
 		// Exposed Services
-		HttpService:                 httpService,
-		FlowService:                 flowService,
-		FileService:                 fileService,
-		HttpHeaderService:           httpHeaderService,
-		HttpSearchParamService:      httpSearchParamService,
-		HttpBodyFormService:         httpBodyFormService,
-		HttpBodyUrlEncodedService:   httpBodyUrlEncodedService,
-		HttpBodyRawService:          bodyService,
-		NodeService:                 nodeService,
-		NodeRequestService:          nodeRequestService,
-		NodeNoopService:             nodeNoopService,
-		EdgeService:                 edgeService,
+		HttpService:               httpService,
+		FlowService:               flowService,
+		FileService:               fileService,
+		HttpHeaderService:         httpHeaderService,
+		HttpSearchParamService:    httpSearchParamService,
+		HttpBodyFormService:       httpBodyFormService,
+		HttpBodyUrlEncodedService: httpBodyUrlEncodedService,
+		HttpBodyRawService:        bodyService,
+		NodeService:               nodeService,
+		NodeRequestService:        nodeRequestService,
+		NodeNoopService:           nodeNoopService,
+		EdgeService:               edgeService,
 	}
 }
 
@@ -364,7 +364,7 @@ func (h *ImportV2RPC) publishEvents(ctx context.Context, results *ImportResults)
 		h.HttpHeaderStream.Publish(rhttp.HttpHeaderTopic{WorkspaceID: results.WorkspaceID}, rhttp.HttpHeaderEvent{
 			Type:       "insert",
 			IsDelta:    header.IsDelta,
-			HttpHeader: converter.ToAPIHttpHeaderFromMHttp(*header),
+			HttpHeader: converter.ToAPIHttpHeader(*header),
 		})
 	}
 

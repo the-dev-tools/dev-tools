@@ -120,8 +120,8 @@ func convertPostmanHeadersToHTTPHeaders(postmanHeaders []PostmanHeader, postmanA
 		httpHeader := mhttp.HTTPHeader{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			HeaderKey:   header.Key,
-			HeaderValue: header.Value,
+			Key:   header.Key,
+			Value: header.Value,
 			Description: header.Description,
 			Enabled:     true, // All included headers are enabled
 			CreatedAt:   now,
@@ -162,8 +162,8 @@ func convertAuthToHeaders(auth *PostmanAuth, httpID idwrap.IDWrap) []mhttp.HTTPH
 					{
 						ID:          idwrap.NewNow(),
 						HttpID:      httpID,
-						HeaderKey:   key,
-						HeaderValue: value,
+						Key:   key,
+						Value: value,
 						Description: "API Key authentication",
 						Enabled:     true,
 						CreatedAt:   now,
@@ -192,8 +192,8 @@ func convertAuthToHeaders(auth *PostmanAuth, httpID idwrap.IDWrap) []mhttp.HTTPH
 					{
 						ID:          idwrap.NewNow(),
 						HttpID:      httpID,
-						HeaderKey:   "Authorization",
-						HeaderValue: "Basic " + encoded,
+						Key:   "Authorization",
+						Value: "Basic " + encoded,
 						Description: "Basic authentication",
 						Enabled:     true,
 						CreatedAt:   now,
@@ -217,8 +217,8 @@ func convertAuthToHeaders(auth *PostmanAuth, httpID idwrap.IDWrap) []mhttp.HTTPH
 					{
 						ID:          idwrap.NewNow(),
 						HttpID:      httpID,
-						HeaderKey:   "Authorization",
-						HeaderValue: "Bearer " + token,
+						Key:   "Authorization",
+						Value: "Bearer " + token,
 						Description: "Bearer token authentication",
 						Enabled:     true,
 						CreatedAt:   now,
@@ -381,8 +381,8 @@ func extractHeadersForHTTP(httpID idwrap.IDWrap, headers []mhttp.HTTPHeader) []P
 	for _, header := range headers {
 		if header.HttpID.Compare(httpID) == 0 && header.Enabled {
 			postmanHeaders = append(postmanHeaders, PostmanHeader{
-				Key:         header.HeaderKey,
-				Value:       header.HeaderValue,
+				Key:         header.Key,
+				Value:       header.Value,
 				Description: header.Description,
 				Disabled:    false,
 			})

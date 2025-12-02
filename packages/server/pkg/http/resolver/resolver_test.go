@@ -14,12 +14,12 @@ import (
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpheader"
+
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
+
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 )
 
@@ -31,7 +31,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 	require.NoError(t, err)
 
 	httpService := shttp.New(queries, nil)
-	headerService := shttpheader.New(queries)
+	headerService := shttp.NewHttpHeaderService(queries)
 	paramService := shttpsearchparam.New(queries)
 	rawBodyService := shttp.NewHttpBodyRawService(queries)
 	formBodyService := shttpbodyform.New(queries)
@@ -71,7 +71,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 
 	// Base Headers
 	baseHeaderID := idwrap.NewNow()
-	err = headerService.Create(ctx, &mhttpheader.HttpHeader{
+	err = headerService.Create(ctx, &mhttp.HTTPHeader{
 		ID:        baseHeaderID,
 		HttpID:    baseID,
 		Key:       "Content-Type",
@@ -120,7 +120,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 	deltaKey := "Content-Type"
 	deltaValue := "text/plain"
 	deltaEnabled := true
-	err = headerService.Create(ctx, &mhttpheader.HttpHeader{
+	err = headerService.Create(ctx, &mhttp.HTTPHeader{
 		ID:                 idwrap.NewNow(),
 		HttpID:             deltaID,
 		ParentHttpHeaderID: &baseHeaderID, // Pointing to Base Header ID
@@ -134,7 +134,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 	require.NoError(t, err)
 
 	// Delta Header (New)
-	err = headerService.Create(ctx, &mhttpheader.HttpHeader{
+	err = headerService.Create(ctx, &mhttp.HTTPHeader{
 		ID:        idwrap.NewNow(),
 		HttpID:    deltaID,
 		Key:       "Authorization",
@@ -188,7 +188,7 @@ func TestStandardResolver_Resolve(t *testing.T) {
 	headerMap := make(map[string]string)
 	for _, h := range resolved.ResolvedHeaders {
 		if h.Enabled {
-			headerMap[h.HeaderKey] = h.HeaderValue
+			headerMap[h.Key] = h.Value
 		}
 	}
 

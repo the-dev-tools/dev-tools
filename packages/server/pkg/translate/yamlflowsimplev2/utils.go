@@ -212,9 +212,9 @@ func ValidateYAMLStructure(yamlFormat *YamlFlowFormatV2) error {
 func OptimizeYAMLData(data *SimplifiedYAMLResolvedV2) {
 	// Sort headers by key for consistent ordering
 	for i := 1; i < len(data.Headers); i++ {
-		if data.Headers[i].HeaderKey < data.Headers[i-1].HeaderKey {
+		if data.Headers[i].Key < data.Headers[i-1].Key {
 			// Simple bubble sort for small arrays
-			for j := i; j > 0 && data.Headers[j].HeaderKey < data.Headers[j-1].HeaderKey; j-- {
+			for j := i; j > 0 && data.Headers[j].Key < data.Headers[j-1].Key; j-- {
 				data.Headers[j], data.Headers[j-1] = data.Headers[j-1], data.Headers[j]
 			}
 		}
@@ -233,7 +233,7 @@ func OptimizeYAMLData(data *SimplifiedYAMLResolvedV2) {
 	seenHeaders := make(map[string]bool)
 	filteredHeaders := make([]mhttp.HTTPHeader, 0, len(data.Headers))
 	for _, header := range data.Headers {
-		key := fmt.Sprintf("%s:%s", header.HeaderKey, header.HeaderValue)
+		key := fmt.Sprintf("%s:%s", header.Key, header.Value)
 		if !seenHeaders[key] {
 			seenHeaders[key] = true
 			filteredHeaders = append(filteredHeaders, header)

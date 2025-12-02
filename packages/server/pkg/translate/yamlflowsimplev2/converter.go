@@ -752,8 +752,8 @@ func convertToHTTPHeaders(headers []YamlNameValuePairV2, httpID idwrap.IDWrap) [
 		httpHeader := mhttp.HTTPHeader{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			HeaderKey:   header.Name,
-			HeaderValue: header.Value,
+			Key:   header.Name,
+			Value: header.Value,
 			Description: header.Description,
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),

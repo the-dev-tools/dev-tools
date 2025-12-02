@@ -225,11 +225,6 @@ type FlowServiceV2RPC struct {
 	nes      *snodeexecution.NodeExecutionService
 	fvs      *sflowvariable.FlowVariableService
 	hs       *shttp.HTTPService
-	hh       *shttp.HttpHeaderService
-	hsp      *shttp.HttpSearchParamService
-	hbf      *shttp.HttpBodyFormService
-	hbu      *shttp.HttpBodyUrlencodedService
-	has      *shttp.HttpAssertService
 	hbr      *shttp.HttpBodyRawService
 	resolver resolver.RequestResolver
 	logger   *slog.Logger
@@ -270,11 +265,6 @@ func New(
 	nes *snodeexecution.NodeExecutionService,
 	fvs *sflowvariable.FlowVariableService,
 	hs *shttp.HTTPService,
-	hh *shttp.HttpHeaderService,
-	hsp *shttp.HttpSearchParamService,
-	hbf *shttp.HttpBodyFormService,
-	hbu *shttp.HttpBodyUrlencodedService,
-	has *shttp.HttpAssertService,
 	hbr *shttp.HttpBodyRawService,
 	resolver resolver.RequestResolver,
 	logger *slog.Logger,
@@ -309,11 +299,6 @@ func New(
 		nes:                      nes,
 		fvs:                      fvs,
 		hs:                       hs,
-		hh:                       hh,
-		hsp:                      hsp,
-		hbf:                      hbf,
-		hbu:                      hbu,
-		has:                      has,
 		hbr:                      hbr,
 		resolver:                 resolver,
 		logger:                   logger,

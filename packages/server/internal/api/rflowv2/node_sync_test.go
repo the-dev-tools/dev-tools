@@ -3,16 +3,17 @@ package rflowv2
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"the-dev-tools/server/pkg/idwrap"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNodeEventToSyncResponse_StartNode(t *testing.T) {
 	// Create a "Start" node event
 	nodeID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
-	
+
 	// Construct a Node protobuf that mimics a StartNode
 	// StartNode is typically a NO_OP node with name "Start"
 	startNodePB := &flowv1.Node{
@@ -48,7 +49,7 @@ func TestNodeEventToSyncResponse_StartNode(t *testing.T) {
 func TestNodeEventToSyncResponse_OtherNode(t *testing.T) {
 	nodeID := idwrap.NewNow()
 	flowID := idwrap.NewNow()
-	
+
 	otherNodePB := &flowv1.Node{
 		NodeId: nodeID.Bytes(),
 		FlowId: flowID.Bytes(),

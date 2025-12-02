@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"testing"
 
-	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpheader"
+
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestHttpHeaderDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
@@ -22,7 +23,7 @@ func TestHttpHeaderDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
 	baseHttpID := f.createHttp(t, ws, "Base Request")
 
 	baseHeaderID := idwrap.NewNow()
-	baseHeader := &mhttpheader.HttpHeader{
+	baseHeader := &mhttp.HTTPHeader{
 		ID:      baseHeaderID,
 		HttpID:  baseHttpID,
 		Key:     "X-Base",
@@ -49,9 +50,9 @@ func TestHttpHeaderDeltaCollection_ReturnsCorrectDeltas(t *testing.T) {
 
 	deltaHeaderID := idwrap.NewNow()
 	deltaValue := "false"
-	deltaHeader := &mhttpheader.HttpHeader{
+	deltaHeader := &mhttp.HTTPHeader{
 		ID:                 deltaHeaderID,
-		HttpID:             deltaHttpID,  // The Delta Request this override belongs to
+		HttpID:             deltaHttpID,   // The Delta Request this override belongs to
 		ParentHttpHeaderID: &baseHeaderID, // The Base Header this overrides
 		IsDelta:            true,
 		DeltaValue:         &deltaValue, // Override

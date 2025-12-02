@@ -127,9 +127,9 @@ func TestPrepareRequestWithTracking_Headers(t *testing.T) {
 	}
 
 	headers := []mhttp.HTTPHeader{
-		{HeaderKey: "Authorization", HeaderValue: "Bearer {{token}}", Enabled: true},
-		{HeaderKey: "Content-Type", HeaderValue: "{{contentType}}", Enabled: true},
-		{HeaderKey: "X-Static", HeaderValue: "static-value", Enabled: true},
+		{Key: "Authorization", Value: "Bearer {{token}}", Enabled: true},
+		{Key: "Content-Type", Value: "{{contentType}}", Enabled: true},
+		{Key: "X-Static", Value: "static-value", Enabled: true},
 	}
 
 	example := mhttp.HTTP{
@@ -354,7 +354,7 @@ func TestPrepareRequestWithTracking_ComplexScenario(t *testing.T) {
 	}
 
 	headers := []mhttp.HTTPHeader{
-		{HeaderKey: "Authorization", HeaderValue: "Bearer {{token}}", Enabled: true},
+		{Key: "Authorization", Value: "Bearer {{token}}", Enabled: true},
 	}
 
 	queries := []mhttp.HTTPSearchParam{

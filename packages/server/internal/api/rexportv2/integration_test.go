@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rimportv2"
 	"the-dev-tools/server/pkg/idwrap"
@@ -21,22 +20,24 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
+
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
+	"the-dev-tools/server/pkg/service/snode"
+	"the-dev-tools/server/pkg/service/snodenoop"
+	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
-	"the-dev-tools/server/pkg/service/snode"
-	"the-dev-tools/server/pkg/service/snoderequest"
-	"the-dev-tools/server/pkg/service/snodenoop"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/testutil"
 	exportv1 "the-dev-tools/spec/dist/buf/go/api/export/v1"
+
+	"connectrpc.com/connect"
 )
 
 // integrationTestFixture represents the complete test setup for integration testing
@@ -52,20 +53,20 @@ type integrationTestFixture struct {
 
 // BaseTestServices wraps the testutil services for easier access
 type BaseTestServices struct {
-	Us  suser.UserService
-	Ws  sworkspace.WorkspaceService
-	Wus sworkspacesusers.WorkspaceUserService
-	Hs  shttp.HTTPService
-	Fs  sflow.FlowService
+	Us          suser.UserService
+	Ws          sworkspace.WorkspaceService
+	Wus         sworkspacesusers.WorkspaceUserService
+	Hs          shttp.HTTPService
+	Fs          sflow.FlowService
 	FileService sfile.FileService
-	
+
 	// Child entity services
-	HttpHeaderService         shttpheader.HttpHeaderService
+	HttpHeaderService         shttp.HttpHeaderService
 	HttpSearchParamService    shttpsearchparam.HttpSearchParamService
 	HttpBodyFormService       shttpbodyform.HttpBodyFormService
 	HttpBodyUrlEncodedService shttpbodyurlencoded.HttpBodyUrlEncodedService
 	BodyService               *shttp.HttpBodyRawService
-	
+
 	// Flow related services
 	NodeService        *snode.NodeService
 	NodeRequestService *snoderequest.NodeRequestService
@@ -89,8 +90,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	httpService := shttp.New(base.Queries, logger)
 	flowService := sflow.New(base.Queries)
 	fileService := sfile.New(base.Queries, logger)
-	
-	httpHeaderService := shttpheader.New(base.Queries)
+
+	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 	httpSearchParamService := shttpsearchparam.New(base.Queries)
 	httpBodyFormService := shttpbodyform.New(base.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
@@ -146,21 +147,21 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	)
 
 	services := BaseTestServices{
-		Us:  baseServices.Us,
-		Ws:  baseServices.Ws,
-		Wus: baseServices.Wus,
-		Hs:  httpService,
-		Fs:  flowService,
-		FileService: *fileService,
-		HttpHeaderService: httpHeaderService,
-		HttpSearchParamService: httpSearchParamService,
-		HttpBodyFormService: httpBodyFormService,
+		Us:                        baseServices.Us,
+		Ws:                        baseServices.Ws,
+		Wus:                       baseServices.Wus,
+		Hs:                        httpService,
+		Fs:                        flowService,
+		FileService:               *fileService,
+		HttpHeaderService:         httpHeaderService,
+		HttpSearchParamService:    httpSearchParamService,
+		HttpBodyFormService:       httpBodyFormService,
 		HttpBodyUrlEncodedService: httpBodyUrlEncodedService,
-		BodyService: bodyService,
-		NodeService: &nodeService,
-		NodeRequestService: &nodeRequestService,
-		NodeNoopService: &nodeNoopService,
-		EdgeService: &edgeService,
+		BodyService:               bodyService,
+		NodeService:               &nodeService,
+		NodeRequestService:        &nodeRequestService,
+		NodeNoopService:           &nodeNoopService,
+		EdgeService:               &edgeService,
 	}
 
 	return &integrationTestFixture{
@@ -206,7 +207,6 @@ func TestIntegration_ExportFullWorkflow(t *testing.T) {
 	assert.Equal(t, "Integration Test Workspace", workspace["name"])
 }
 
-
 // TestIntegration_ExportCurlWorkflow tests the cURL export workflow
 func TestIntegration_ExportCurlWorkflow(t *testing.T) {
 	fixture := newIntegrationTestFixture(t)
@@ -239,9 +239,9 @@ func TestIntegration_ExportWithFilters(t *testing.T) {
 	flowID2, _ := createIntegrationTestData(t, fixture)
 
 	tests := []struct {
-		name       string
-		fileIDs    [][]byte // Use file IDs instead of flow IDs
-		expectFlows int
+		name           string
+		fileIDs        [][]byte // Use file IDs instead of flow IDs
+		expectFlows    int
 		expectRequests int
 	}{
 		{
@@ -305,7 +305,7 @@ func TestIntegration_ImportExportRoundTrip(t *testing.T) {
 	// Now export the imported data
 	exportResp, err := fixture.rpc.Export(fixture.ctx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: fixture.workspaceID.Bytes(),
-			}))
+	}))
 
 	require.NoError(t, err)
 	require.NotNil(t, exportResp)
@@ -329,7 +329,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 		nonExistentID := idwrap.NewNow()
 		resp, err := fixture.rpc.Export(fixture.ctx, connect.NewRequest(&exportv1.ExportRequest{
 			WorkspaceId: nonExistentID.Bytes(),
-					}))
+		}))
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
@@ -342,7 +342,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 	t.Run("invalid workspace ID", func(t *testing.T) {
 		resp, err := fixture.rpc.Export(fixture.ctx, connect.NewRequest(&exportv1.ExportRequest{
 			WorkspaceId: []byte{}, // Invalid empty bytes
-					}))
+		}))
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
@@ -357,7 +357,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 		resp, err := fixture.rpc.Export(fixture.ctx, connect.NewRequest(&exportv1.ExportRequest{
 			WorkspaceId: fixture.workspaceID.Bytes(),
 			FileIds:     [][]byte{nonExistentFlowID.Bytes()},
-					}))
+		}))
 
 		require.NoError(t, err) // Should succeed but return empty flows
 		require.NotNil(t, resp)
@@ -387,9 +387,9 @@ func TestIntegration_PerformanceWithLargeDataset(t *testing.T) {
 	for i := 0; i < numFlows; i++ {
 		flowID := idwrap.NewNow()
 		flow := mflow.Flow{
-			ID:         flowID,
+			ID:          flowID,
 			WorkspaceID: fixture.workspaceID,
-			Name:       "Performance Test Flow",
+			Name:        "Performance Test Flow",
 		}
 		err := fixture.services.Fs.CreateFlow(fixture.ctx, flow)
 		require.NoError(t, err)
@@ -398,11 +398,11 @@ func TestIntegration_PerformanceWithLargeDataset(t *testing.T) {
 	for i := 0; i < numRequests; i++ {
 		exampleID := idwrap.NewNow()
 		httpRequest := &mhttp.HTTP{
-			ID:         exampleID,
+			ID:          exampleID,
 			WorkspaceID: fixture.workspaceID,
-			Url:        "https://api.example.com/performance-test",
-			Method:     "POST",
-			Name:       "Performance Test Request",
+			Url:         "https://api.example.com/performance-test",
+			Method:      "POST",
+			Name:        "Performance Test Request",
 		}
 		err := fixture.services.Hs.Create(fixture.ctx, httpRequest)
 		require.NoError(t, err)
@@ -411,7 +411,7 @@ func TestIntegration_PerformanceWithLargeDataset(t *testing.T) {
 	// Test export performance
 	resp, err := fixture.rpc.Export(fixture.ctx, connect.NewRequest(&exportv1.ExportRequest{
 		WorkspaceId: fixture.workspaceID.Bytes(),
-			}))
+	}))
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -446,7 +446,7 @@ func TestIntegration_ConcurrentExports(t *testing.T) {
 
 			resp, err := fixture.rpc.Export(fixture.ctx, connect.NewRequest(&exportv1.ExportRequest{
 				WorkspaceId: fixture.workspaceID.Bytes(),
-							}))
+			}))
 
 			require.NoError(t, err)
 			require.NotNil(t, resp)
@@ -475,20 +475,20 @@ func createComplexTestData(t *testing.T, fixture *integrationTestFixture) (idwra
 
 	// Create flow
 	flow := mflow.Flow{
-		ID:         flowID,
+		ID:          flowID,
 		WorkspaceID: fixture.workspaceID,
-		Name:       "Integration Test Flow",
+		Name:        "Integration Test Flow",
 	}
 	err := fixture.services.Fs.CreateFlow(fixture.ctx, flow)
 	require.NoError(t, err)
 
 	// Create HTTP request
 	httpRequest := mhttp.HTTP{
-		ID:         exampleID,
+		ID:          exampleID,
 		WorkspaceID: fixture.workspaceID,
-		Url:        "https://api.example.com/test",
-		Method:     "POST",
-		Name:       "Integration Test Request",
+		Url:         "https://api.example.com/test",
+		Method:      "POST",
+		Name:        "Integration Test Request",
 	}
 	err = fixture.services.Hs.Create(fixture.ctx, &httpRequest)
 	require.NoError(t, err)
@@ -517,20 +517,20 @@ func createIntegrationTestData(t *testing.T, fixture *integrationTestFixture) (i
 
 	// Create additional flow
 	flow := mflow.Flow{
-		ID:         flowID,
+		ID:          flowID,
 		WorkspaceID: fixture.workspaceID,
-		Name:       "Additional Test Flow",
+		Name:        "Additional Test Flow",
 	}
 	err := fixture.services.Fs.CreateFlow(fixture.ctx, flow)
 	require.NoError(t, err)
 
 	// Create additional HTTP request
 	httpRequest := mhttp.HTTP{
-		ID:         exampleID,
+		ID:          exampleID,
 		WorkspaceID: fixture.workspaceID,
-		Url:        "https://api.example.com/additional",
-		Method:     "GET",
-		Name:       "Additional Test Request",
+		Url:         "https://api.example.com/additional",
+		Method:      "GET",
+		Name:        "Additional Test Request",
 	}
 	err = fixture.services.Hs.Create(fixture.ctx, &httpRequest)
 	require.NoError(t, err)
@@ -546,14 +546,14 @@ func createTestHARData(t *testing.T) []byte {
 		"log": map[string]interface{}{
 			"version": "1.2",
 			"creator": map[string]interface{}{
-				"name": "test-creator",
+				"name":    "test-creator",
 				"version": "1.0",
 			},
 			"entries": []map[string]interface{}{
 				{
 					"request": map[string]interface{}{
-						"method": "POST",
-						"url":    "https://api.example.com/har-test",
+						"method":      "POST",
+						"url":         "https://api.example.com/har-test",
 						"httpVersion": "HTTP/1.1",
 						"headers": []map[string]interface{}{
 							{
@@ -567,7 +567,7 @@ func createTestHARData(t *testing.T) []byte {
 						},
 					},
 					"response": map[string]interface{}{
-						"status": 200,
+						"status":     200,
 						"statusText": "OK",
 					},
 				},

@@ -91,7 +91,7 @@ flows:
 
 	headerMap := make(map[string]string)
 	for _, header := range result.Headers {
-		headerMap[header.HeaderKey] = header.HeaderValue
+		headerMap[header.Key] = header.Value
 	}
 
 	if headerMap["Authorization"] != "Bearer token" {

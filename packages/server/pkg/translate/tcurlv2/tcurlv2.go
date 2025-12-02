@@ -206,7 +206,7 @@ func BuildCurl(resolved *CurlResolvedV2) (string, error) {
 
 	for _, header := range headers {
 		if header.Enabled {
-			args = append(args, "-H "+singleQuote(fmt.Sprintf("%s: %s", header.HeaderKey, header.HeaderValue)))
+			args = append(args, "-H "+singleQuote(fmt.Sprintf("%s: %s", header.Key, header.Value)))
 		}
 	}
 
@@ -342,8 +342,8 @@ func extractHeaders(curlStr string, httpID idwrap.IDWrap) []mhttp.HTTPHeader {
 		header := mhttp.HTTPHeader{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			HeaderKey:   strings.TrimSpace(key),
-			HeaderValue: strings.TrimSpace(value),
+			Key:   strings.TrimSpace(key),
+			Value: strings.TrimSpace(value),
 			Description: "",
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),
@@ -373,8 +373,8 @@ func extractCookies(curlStr string, httpID idwrap.IDWrap) []mhttp.HTTPHeader {
 		cookieHeader := mhttp.HTTPHeader{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID,
-			HeaderKey:   "Cookie",
-			HeaderValue: strings.TrimSpace(cookieContent),
+			Key:   "Cookie",
+			Value: strings.TrimSpace(cookieContent),
 			Description: "",
 			Enabled:     true,
 			CreatedAt:   time.Now().UnixMilli(),
@@ -569,10 +569,10 @@ func buildURLWithSearchQueries(baseURL string, searchParams []mhttp.HTTPSearchPa
 
 func sortHeaders(headers []mhttp.HTTPHeader) {
 	sort.SliceStable(headers, func(i, j int) bool {
-		ki := strings.ToLower(headers[i].HeaderKey)
-		kj := strings.ToLower(headers[j].HeaderKey)
+		ki := strings.ToLower(headers[i].Key)
+		kj := strings.ToLower(headers[j].Key)
 		if ki == kj {
-			return headers[i].HeaderKey < headers[j].HeaderKey
+			return headers[i].Key < headers[j].Key
 		}
 		return ki < kj
 	})

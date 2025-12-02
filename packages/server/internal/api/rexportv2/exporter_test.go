@@ -50,7 +50,7 @@ func TestDefaultExporter_ExportWorkspaceData_Success(t *testing.T) {
 	exporter, workspaceID, flowID, exampleID, _ := setupExporterWithTestData(t, ctx)
 
 	filter := ExportFilter{
-		FileIDs:    []idwrap.IDWrap{flowID}, // Use flowID as fileID for now
+		FileIDs:    []idwrap.IDWrap{flowID},    // Use flowID as fileID for now
 		HTTPIDs:    []idwrap.IDWrap{exampleID}, // Use exampleID as httpID for now
 		Format:     ExportFormat_YAML,
 		Simplified: false,
@@ -125,10 +125,10 @@ func TestDefaultExporter_ExportToYAML_Success(t *testing.T) {
 		},
 		HTTPRequests: []*HTTPData{
 			{
-				ID:    exampleID,
-				Url:   "https://api.example.com/test",
-				Name:  "Test Request",
-				Body:  "test body",
+				ID:   exampleID,
+				Url:  "https://api.example.com/test",
+				Name: "Test Request",
+				Body: "test body",
 			},
 		},
 		Files: []*FileData{
@@ -140,15 +140,15 @@ func TestDefaultExporter_ExportToYAML_Success(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
+		name       string
 		simplified bool
 	}{
 		{
-			name:      "full export",
+			name:       "full export",
 			simplified: false,
 		},
 		{
-			name:      "simplified export",
+			name:       "simplified export",
 			simplified: true,
 		},
 	}
@@ -192,9 +192,9 @@ func TestDefaultExporter_ExportToYAML_EmptyData(t *testing.T) {
 			ID:   idwrap.NewNow(),
 			Name: "Empty Workspace",
 		},
-		Flows:       []*FlowData{},
+		Flows:        []*FlowData{},
 		HTTPRequests: []*HTTPData{},
-		Files:       []*FileData{},
+		Files:        []*FileData{},
 	}
 
 	yamlData, err := exporter.ExportToYAML(ctx, data, false)
@@ -218,10 +218,10 @@ func TestDefaultExporter_ExportToYAML_NilWorkspace(t *testing.T) {
 	exporter := setupExporterWithoutData(t, ctx)
 
 	data := &WorkspaceExportData{
-		Workspace: nil,
-		Flows:     []*FlowData{},
+		Workspace:    nil,
+		Flows:        []*FlowData{},
 		HTTPRequests: []*HTTPData{},
-		Files:     []*FileData{},
+		Files:        []*FileData{},
 	}
 
 	yamlData, err := exporter.ExportToYAML(ctx, data, false)
@@ -250,8 +250,8 @@ func TestDefaultExporter_ExportToCurl_Success(t *testing.T) {
 				Method: "POST",
 				Name:   "Test Request",
 				Headers: map[string][]string{
-					"Content-Type":    {"application/json"},
-					"Authorization":   {"Bearer token123"},
+					"Content-Type":  {"application/json"},
+					"Authorization": {"Bearer token123"},
 				},
 				Body: `{"test": "data"}`,
 			},
@@ -434,7 +434,7 @@ func TestDefaultExporter_CurlCommandGeneration(t *testing.T) {
 				Headers: map[string][]string{
 					"Content-Type":    {"application/json"},
 					"X-Custom-Header": {"custom-value"},
-					"User-Agent":       {"TestAgent/1.0"},
+					"User-Agent":      {"TestAgent/1.0"},
 				},
 				Body: `{"name": "test", "data": [1, 2, 3]}`,
 			},
@@ -543,4 +543,3 @@ func createExporterTestData(t *testing.T, ctx context.Context, base *testutil.Ba
 
 	return workspaceID, flowID, exampleID, fileID
 }
-

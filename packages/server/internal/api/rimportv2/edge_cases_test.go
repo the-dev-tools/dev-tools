@@ -340,7 +340,7 @@ func TestStorageErrorScenarios(t *testing.T) {
 						Files:        []mfile.File{},
 					}, nil
 				}
-								deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+				deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
 					return ErrStorageFailed
 				}
 			},
@@ -364,7 +364,7 @@ func TestStorageErrorScenarios(t *testing.T) {
 						Files:        []mfile.File{},
 					}, nil
 				}
-								deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+				deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
 					return ErrStorageFailed
 				}
 			},
@@ -388,7 +388,7 @@ func TestStorageErrorScenarios(t *testing.T) {
 						Files:        []mfile.File{{ID: idwrap.NewNow(), Name: "test.txt"}},
 					}, nil
 				}
-								deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+				deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
 					return ErrStorageFailed
 				}
 			},
@@ -404,10 +404,10 @@ func TestStorageErrorScenarios(t *testing.T) {
 			tt.setupMocks(deps)
 
 			service := NewService(
-			deps.importer,
-			deps.validator,
-						WithLogger(slog.Default()),
-		)
+				deps.importer,
+				deps.validator,
+				WithLogger(slog.Default()),
+			)
 
 			req := &ImportRequest{
 				WorkspaceID: idwrap.NewNow(),
@@ -461,7 +461,7 @@ func TestDomainProcessingErrors(t *testing.T) {
 			name: "URLs with special characters",
 			httpReqs: []*mhttp.HTTP{
 				{Url: "https://example.com/api/path with spaces", Method: "GET"},
-				{Url: "https://example.com/api/路径/中文", Method: "GET"}, // Unicode path
+				{Url: "https://example.com/api/路径/中文", Method: "GET"},  // Unicode path
 				{Url: "https://[2001:db8::1]/api/path", Method: "GET"}, // IPv6
 			},
 			expectError: false, // Should handle special characters
@@ -566,18 +566,18 @@ func TestContextCancellation(t *testing.T) {
 					Files:        []mfile.File{},
 				}, nil
 			}
-						deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+			deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
 				return nil
 			}
 
 			service := NewService(
-			deps.importer,
-			deps.validator,
-						WithLogger(slog.Default()),
-		)
+				deps.importer,
+				deps.validator,
+				WithLogger(slog.Default()),
+			)
 
-		ctx, cancel := tt.cancelFunc(context.Background())
-		defer cancel()
+			ctx, cancel := tt.cancelFunc(context.Background())
+			defer cancel()
 
 			req := &ImportRequest{
 				WorkspaceID: idwrap.NewNow(),
@@ -624,14 +624,14 @@ func TestResourceExhaustion(t *testing.T) {
 				deps.importer.ImportAndStoreFunc = func(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*harv2.HarResolved, error) {
 					// Simulate memory allocation
 					largeData := make([]byte, 10*1024*1024) // 10MB
-					_ = largeData // Use the data
+					_ = largeData                           // Use the data
 					return &harv2.HarResolved{
 						Flow:         mflow.Flow{ID: idwrap.NewNow()},
 						HTTPRequests: []mhttp.HTTP{},
 						Files:        []mfile.File{},
 					}, nil
 				}
-								deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+				deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
 					return nil
 				}
 			},
@@ -653,7 +653,7 @@ func TestResourceExhaustion(t *testing.T) {
 						Files:        []mfile.File{},
 					}, nil
 				}
-								deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+				deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
 					time.Sleep(100 * time.Millisecond) // Simulate slow storage
 					return nil
 				}
@@ -668,10 +668,10 @@ func TestResourceExhaustion(t *testing.T) {
 			tt.setupMocks(deps)
 
 			service := NewService(
-			deps.importer,
-			deps.validator,
-						WithLogger(slog.Default()),
-		)
+				deps.importer,
+				deps.validator,
+				WithLogger(slog.Default()),
+			)
 
 			req := &ImportRequest{
 				WorkspaceID: idwrap.NewNow(),
@@ -726,7 +726,7 @@ func TestInvalidInputFormats(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "invalid structure",
+			name: "invalid structure",
 			harData: map[string]interface{}{
 				"invalid": "structure",
 			},
@@ -743,7 +743,7 @@ func TestInvalidInputFormats(t *testing.T) {
 			name: "version should be string",
 			harData: map[string]interface{}{
 				"log": map[string]interface{}{
-					"version": 123, // Should be string
+					"version": 123,             // Should be string
 					"entries": []interface{}{}, // Should be valid entries
 				},
 			},
@@ -839,10 +839,10 @@ func TestConcurrentErrorHandling(t *testing.T) {
 	}
 
 	service := NewService(
-			deps.importer,
-			deps.validator,
-						WithLogger(slog.Default()),
-		)
+		deps.importer,
+		deps.validator,
+		WithLogger(slog.Default()),
+	)
 
 	results := make(chan error, numGoroutines*numIterations)
 

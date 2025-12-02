@@ -66,7 +66,7 @@ func TestHttpDelta_BodyRaw(t *testing.T) {
 			{
 				HttpId: deltaID.Bytes(),
 				Data: &apiv1.HttpBodyRawDeltaUpdate_DataUnion{
-					Kind: apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_VALUE,
+					Kind:  apiv1.HttpBodyRawDeltaUpdate_DataUnion_KIND_VALUE,
 					Value: &updatedData,
 				},
 			},
@@ -196,7 +196,7 @@ func TestHttpDelta_Assert(t *testing.T) {
 			{
 				DeltaHttpAssertId: deltaAssertID.Bytes(),
 				Value: &apiv1.HttpAssertDeltaUpdate_ValueUnion{
-					Kind: apiv1.HttpAssertDeltaUpdate_ValueUnion_KIND_VALUE,
+					Kind:  apiv1.HttpAssertDeltaUpdate_ValueUnion_KIND_VALUE,
 					Value: &updatedValue,
 				},
 			},
@@ -270,7 +270,7 @@ func TestHttpDelta_BodyFormData(t *testing.T) {
 			{
 				DeltaHttpBodyFormDataId: formID.Bytes(),
 				Key: &apiv1.HttpBodyFormDataDeltaUpdate_KeyUnion{
-					Kind: apiv1.HttpBodyFormDataDeltaUpdate_KeyUnion_KIND_VALUE,
+					Kind:  apiv1.HttpBodyFormDataDeltaUpdate_KeyUnion_KIND_VALUE,
 					Value: &newKey,
 				},
 			},
@@ -341,7 +341,7 @@ func TestHttpDelta_BodyUrlEncoded(t *testing.T) {
 			{
 				DeltaHttpBodyUrlEncodedId: urlID.Bytes(),
 				Value: &apiv1.HttpBodyUrlEncodedDeltaUpdate_ValueUnion{
-					Kind: apiv1.HttpBodyUrlEncodedDeltaUpdate_ValueUnion_KIND_VALUE,
+					Kind:  apiv1.HttpBodyUrlEncodedDeltaUpdate_ValueUnion_KIND_VALUE,
 					Value: &newVal,
 				},
 			},

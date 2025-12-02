@@ -111,10 +111,10 @@ func (s *SimpleStorage) GetHTTPRequests(ctx context.Context, workspaceID idwrap.
 			}
 
 			httpData := &HTTPData{
-				ID:          httpReq.ID,
-				Name:        httpReq.Name,
-				Method:      httpReq.Method,
-				Url:         httpReq.Url,
+				ID:     httpReq.ID,
+				Name:   httpReq.Name,
+				Method: httpReq.Method,
+				Url:    httpReq.Url,
 			}
 			httpRequests = append(httpRequests, httpData)
 		}
@@ -127,10 +127,10 @@ func (s *SimpleStorage) GetHTTPRequests(ctx context.Context, workspaceID idwrap.
 
 		for _, httpReq := range workspaceRequests {
 			httpData := &HTTPData{
-				ID:          httpReq.ID,
-				Name:        httpReq.Name,
-				Method:      httpReq.Method,
-				Url:         httpReq.Url,
+				ID:     httpReq.ID,
+				Name:   httpReq.Name,
+				Method: httpReq.Method,
+				Url:    httpReq.Url,
 			}
 			httpRequests = append(httpRequests, httpData)
 		}

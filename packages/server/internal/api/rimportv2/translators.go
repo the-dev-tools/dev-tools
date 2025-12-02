@@ -147,7 +147,7 @@ func (r *TranslatorRegistry) ValidateFormat(data []byte, format Format) error {
 
 // HARTranslator implements Translator for HAR format
 type HARTranslator struct {
-	detector   *FormatDetector
+	detector    *FormatDetector
 	httpService *shttp.HTTPService
 }
 
@@ -233,11 +233,11 @@ func (t *YAMLTranslator) Validate(data []byte) error {
 func (t *YAMLTranslator) Translate(ctx context.Context, data []byte, workspaceID idwrap.IDWrap) (*TranslationResult, error) {
 	// Convert YAML options
 	opts := yamlflowsimplev2.ConvertOptionsV2{
-		WorkspaceID:      workspaceID,
-		GenerateFiles:    true,
-		FileOrder:        0,
+		WorkspaceID:       workspaceID,
+		GenerateFiles:     true,
+		FileOrder:         0,
 		EnableCompression: false,
-		CompressionType:  0,
+		CompressionType:   0,
 	}
 
 	// Convert YAML to modern models
@@ -299,13 +299,13 @@ func (t *CURLTranslator) Translate(ctx context.Context, data []byte, workspaceID
 
 	// Convert to unified result
 	result := &TranslationResult{
-		HTTPRequests: []mhttp.HTTP{resolved.HTTP},
-		Files:        []mfile.File{resolved.File},
-		Headers:      resolved.Headers,
-		SearchParams: resolved.SearchParams,
-		BodyForms:    resolved.BodyForms,
+		HTTPRequests:   []mhttp.HTTP{resolved.HTTP},
+		Files:          []mfile.File{resolved.File},
+		Headers:        resolved.Headers,
+		SearchParams:   resolved.SearchParams,
+		BodyForms:      resolved.BodyForms,
 		BodyUrlencoded: resolved.BodyUrlencoded,
-		ProcessedAt:  time.Now().UnixMilli(),
+		ProcessedAt:    time.Now().UnixMilli(),
 	}
 
 	if resolved.BodyRaw != nil {
@@ -352,14 +352,14 @@ func (t *PostmanTranslator) Translate(ctx context.Context, data []byte, workspac
 
 	// Convert to unified result
 	result := &TranslationResult{
-		HTTPRequests: resolved.HTTPRequests,
-		Files:        resolved.Files,
-		Headers:      resolved.Headers,
-		SearchParams: resolved.SearchParams,
-		BodyForms:    resolved.BodyForms,
+		HTTPRequests:   resolved.HTTPRequests,
+		Files:          resolved.Files,
+		Headers:        resolved.Headers,
+		SearchParams:   resolved.SearchParams,
+		BodyForms:      resolved.BodyForms,
 		BodyUrlencoded: resolved.BodyUrlencoded,
-		BodyRaw:      resolved.BodyRaw,
-		ProcessedAt:  time.Now().UnixMilli(),
+		BodyRaw:        resolved.BodyRaw,
+		ProcessedAt:    time.Now().UnixMilli(),
 	}
 
 	// Extract domains from HTTP requests
@@ -431,21 +431,21 @@ func extractDomainsFromHTTP(requests []mhttp.HTTP) []string {
 
 // TranslationOptions provides options for the translation process
 type TranslationOptions struct {
-	WorkspaceID      idwrap.IDWrap
-	GenerateFiles    bool
-	FileOrder        int
+	WorkspaceID       idwrap.IDWrap
+	GenerateFiles     bool
+	FileOrder         int
 	EnableCompression bool
-	CompressionType  int8
+	CompressionType   int8
 }
 
 // DefaultTranslationOptions returns sensible default options
 func DefaultTranslationOptions(workspaceID idwrap.IDWrap) *TranslationOptions {
 	return &TranslationOptions{
-		WorkspaceID:      workspaceID,
-		GenerateFiles:    true,
-		FileOrder:        0,
+		WorkspaceID:       workspaceID,
+		GenerateFiles:     true,
+		FileOrder:         0,
 		EnableCompression: false,
-		CompressionType:  0,
+		CompressionType:   0,
 	}
 }
 

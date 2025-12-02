@@ -414,9 +414,9 @@ func TestGenerateStats(t *testing.T) {
 func TestOptimizeYAMLData(t *testing.T) {
 	data := &SimplifiedYAMLResolvedV2{
 		Headers: []mhttp.HTTPHeader{
-			{HeaderKey: "B", HeaderValue: "value2"},
-			{HeaderKey: "A", HeaderValue: "value1"},
-			{HeaderKey: "B", HeaderValue: "value2"}, // Duplicate
+			{Key: "B", Value: "value2"},
+			{Key: "A", Value: "value1"},
+			{Key: "B", Value: "value2"}, // Duplicate
 		},
 		SearchParams: []mhttp.HTTPSearchParam{
 			{ParamKey: "param2", ParamValue: "value2"},
@@ -432,7 +432,7 @@ func TestOptimizeYAMLData(t *testing.T) {
 	}
 
 	// Should be sorted by key
-	if data.Headers[0].HeaderKey != "A" || data.Headers[1].HeaderKey != "B" {
+	if data.Headers[0].Key != "A" || data.Headers[1].Key != "B" {
 		t.Errorf("Headers not sorted correctly: %v", data.Headers)
 	}
 

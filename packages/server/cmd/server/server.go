@@ -44,7 +44,6 @@ import (
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
@@ -154,18 +153,12 @@ func main() {
 	httpService := shttp.New(queries, logger)
 
 	// HTTP child entity services
-	httpHeaderService := shttpheader.New(queries)
+	httpHeaderService := shttp.NewHttpHeaderService(queries)
 	httpSearchParamService := shttpsearchparam.New(queries)
 	httpBodyFormService := shttpbodyform.New(queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
 	httpAssertService := shttpassert.New(queries)
 	httpResponseService := shttp.NewHttpResponseService(queries)
-	// Aggregated HTTP services used by flow execution
-	httpHeaderAgg := shttp.NewHttpHeaderService(queries)
-	httpSearchAgg := shttp.NewHttpSearchParamService(queries)
-	httpBodyFormAgg := shttp.NewHttpBodyFormService(queries)
-	httpBodyUrlAgg := shttp.NewHttpBodyUrlencodedService(queries)
-	httpAssertAgg := shttp.NewHttpAssertService(queries)
 
 	// File Service
 	fileService := sfile.New(queries, logger)
@@ -345,11 +338,6 @@ func main() {
 		&nodeExecutionService,
 		&flowVariableService,
 		&httpService,
-		httpHeaderAgg,
-		httpSearchAgg,
-		&httpBodyFormAgg,
-		httpBodyUrlAgg,
-		&httpAssertAgg,
 		httpBodyRawService,
 		requestResolver,
 		logger,

@@ -35,11 +35,6 @@ type BaseTestServices struct {
 	Hs      shttp.HTTPService
 	Fs      sflow.FlowService
 	Fvs     sflowvariable.FlowVariableService
-	Hh      *shttp.HttpHeaderService
-	Hsp     *shttp.HttpSearchParamService
-	Hbf     *shttp.HttpBodyFormService
-	Hbu     *shttp.HttpBodyUrlencodedService
-	Has     *shttp.HttpAssertService
 }
 
 func CreateBaseDB(ctx context.Context, t *testing.T) *BaseDBQueries {
@@ -65,11 +60,6 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 	hs := shttp.New(queries, mockLogger)
 	fs := sflow.New(queries)
 	fvs := sflowvariable.New(queries)
-	hh := shttp.NewHttpHeaderService(queries)
-	hsp := shttp.NewHttpSearchParamService(queries)
-	hbfVal := shttp.NewHttpBodyFormService(queries)
-	hbu := shttp.NewHttpBodyUrlencodedService(queries)
-	hasVal := shttp.NewHttpAssertService(queries)
 	return BaseTestServices{
 		Queries: queries,
 		DB:      c.DB,
@@ -79,11 +69,6 @@ func (c BaseDBQueries) GetBaseServices() BaseTestServices {
 		Hs:      hs,
 		Fs:      fs,
 		Fvs:     fvs,
-		Hh:      hh,
-		Hsp:     hsp,
-		Hbf:     &hbfVal,
-		Hbu:     hbu,
-		Has:     &hasVal,
 	}
 }
 

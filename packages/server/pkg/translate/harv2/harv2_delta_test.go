@@ -145,11 +145,11 @@ func TestConvertHAR_DeltaDependencies(t *testing.T) {
 	// Find the headers
 	var baseHeader, deltaHeader string
 	for _, h := range resolved.HTTPHeaders {
-		if h.HttpID == baseReq2.ID && h.HeaderKey == "X-Token" {
-			baseHeader = h.HeaderValue
+		if h.HttpID == baseReq2.ID && h.Key == "X-Token" {
+			baseHeader = h.Value
 		}
-		if h.HttpID == deltaReq2.ID && h.HeaderKey == "X-Token" {
-			deltaHeader = h.HeaderValue
+		if h.HttpID == deltaReq2.ID && h.Key == "X-Token" {
+			deltaHeader = h.Value
 		}
 	}
 

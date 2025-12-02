@@ -6,7 +6,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
-	"the-dev-tools/server/pkg/model/mhttpheader"
+
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -771,7 +771,7 @@ func httpSearchParamDeltaSyncResponseFrom(event HttpSearchParamEvent, param mhtt
 }
 
 // httpHeaderDeltaSyncResponseFrom converts HttpHeaderEvent and header record to HttpHeaderDeltaSync response
-func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttpheader.HttpHeader) *apiv1.HttpHeaderDeltaSyncResponse {
+func httpHeaderDeltaSyncResponseFrom(event HttpHeaderEvent, header mhttp.HTTPHeader) *apiv1.HttpHeaderDeltaSyncResponse {
 	var value *apiv1.HttpHeaderDeltaSync_ValueUnion
 
 	switch event.Type {

@@ -31,7 +31,6 @@ type Validator interface {
 	ValidateExportFilter(ctx context.Context, filter ExportFilter) error
 }
 
-
 // Exporter Implementation
 
 // SimpleExporter implements the Exporter interface using modern services

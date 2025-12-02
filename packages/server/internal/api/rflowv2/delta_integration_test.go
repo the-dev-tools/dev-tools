@@ -36,7 +36,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
+
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
@@ -104,14 +104,10 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	// shttp services (Used by FlowServiceV2RPC and for Data Creation)
 	httpService := shttp.New(queries, logger)
 	shttpHeaderSvc := shttp.NewHttpHeaderService(queries)
-	shttpSearchParamSvc := shttp.NewHttpSearchParamService(queries)
-	shttpBodyFormSvc := shttp.NewHttpBodyFormService(queries) // Returns Struct
-	shttpBodyUrlencodedSvc := shttp.NewHttpBodyUrlencodedService(queries)
-	shttpAssertSvc := shttp.NewHttpAssertService(queries)   // Returns Struct
 	shttpBodyRawSvc := shttp.NewHttpBodyRawService(queries) // Shared
 
 	// Independent services (Used by StandardResolver)
-	resHeaderSvc := shttpheader.New(queries)
+	resHeaderSvc := shttp.NewHttpHeaderService(queries)
 	resSearchParamSvc := shttpsearchparam.New(queries)
 	resBodyFormSvc := shttpbodyform.New(queries)
 	resBodyUrlencodedSvc := shttpbodyurlencoded.New(queries)
@@ -153,11 +149,6 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 		&nodeExecService,
 		&flowVarService,
 		&httpService,
-		shttpHeaderSvc,
-		shttpSearchParamSvc,
-		&shttpBodyFormSvc,
-		shttpBodyUrlencodedSvc,
-		&shttpAssertSvc,
 		shttpBodyRawSvc,
 		res,
 		logger,
@@ -220,12 +211,12 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	baseHeader := mhttp.HTTPHeader{
 		ID:          baseHeaderID,
 		HttpID:      baseID,
-		HeaderKey:   "X-Test",
-		HeaderValue: "Base",
+		Key:   "X-Test",
+		Value: "Base",
 		Enabled:     true,
 	}
 	// Use shttpHeaderSvc to create data (it accepts mhttp models)
-	_, err = shttpHeaderSvc.Create(ctx, baseHeader)
+	err = shttpHeaderSvc.Create(ctx, &baseHeader)
 	require.NoError(t, err)
 
 	// Delta Request
@@ -248,13 +239,13 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	deltaHeader := mhttp.HTTPHeader{
 		ID:               deltaHeaderID,
 		HttpID:           deltaID,
-		HeaderKey:        "X-Test",
-		ParentHeaderID:   &baseHeaderID,
+		Key:        "X-Test",
+		ParentHttpHeaderID:   &baseHeaderID,
 		IsDelta:          true,
-		DeltaHeaderValue: func() *string { s := "Delta"; return &s }(),
+		DeltaValue: func() *string { s := "Delta"; return &s }(),
 		DeltaEnabled:     func() *bool { b := true; return &b }(),
 	}
-	_, err = shttpHeaderSvc.Create(ctx, deltaHeader)
+	err = shttpHeaderSvc.Create(ctx, &deltaHeader)
 	require.NoError(t, err)
 
 	// --- Flow Nodes ---

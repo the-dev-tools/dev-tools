@@ -23,7 +23,7 @@ import (
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
+
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
@@ -37,7 +37,7 @@ type deltaExecutionFixture struct {
 
 	httpService       shttp.HTTPService
 	bodyService       *shttp.HttpBodyRawService
-	httpHeaderService shttpheader.HttpHeaderService
+	httpHeaderService shttp.HttpHeaderService
 
 	userID      idwrap.IDWrap
 	workspaceID idwrap.IDWrap
@@ -67,17 +67,17 @@ func newDeltaExecutionFixture(t *testing.T) *deltaExecutionFixture {
 	require.NoError(t, err)
 
 	// Create Workspace
-	// Use authenticated context for workspace creation as it might need it in future, 
+	// Use authenticated context for workspace creation as it might need it in future,
 	// and definitely for the handler later
 	ctx = mwauth.CreateAuthedContext(ctx, userID)
-	
+
 	workspaceID, err := services.CreateTempCollection(ctx, userID, "Delta Execution Workspace")
 	require.NoError(t, err)
 
 	// Initialize specific services
 	httpService := shttp.New(base.Queries, base.Logger())
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
-	httpHeaderService := shttpheader.New(base.Queries)
+	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 	httpSearchParamService := shttpsearchparam.New(base.Queries)
 	httpBodyFormService := shttpbodyform.New(base.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)

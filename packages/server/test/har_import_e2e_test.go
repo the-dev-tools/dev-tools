@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rfile"
@@ -28,13 +27,15 @@ import (
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
+
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/testutil"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+
+	"connectrpc.com/connect"
 )
 
 // HARImportE2ETestSuite represents the complete e2e test suite for HAR import
@@ -69,7 +70,7 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	fileService := sfile.New(baseDB.Queries, mockLogger)
 
 	// Create child entity services
-	httpHeaderService := shttpheader.New(baseDB.Queries)
+	httpHeaderService := shttp.NewHttpHeaderService(baseDB.Queries)
 	httpSearchParamService := shttpsearchparam.New(baseDB.Queries)
 	httpBodyFormService := shttpbodyform.New(baseDB.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(baseDB.Queries)

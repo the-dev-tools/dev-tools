@@ -86,11 +86,11 @@ func TestConvertPostmanCollection_SimpleRequest(t *testing.T) {
 		t.Fatalf("Expected 1 header, got %d", len(resolved.Headers))
 	}
 	header := resolved.Headers[0]
-	if header.HeaderKey != "Accept" {
-		t.Errorf("Expected header key 'Accept', got '%s'", header.HeaderKey)
+	if header.Key != "Accept" {
+		t.Errorf("Expected header key 'Accept', got '%s'", header.Key)
 	}
-	if header.HeaderValue != "application/json" {
-		t.Errorf("Expected header value 'application/json', got '%s'", header.HeaderValue)
+	if header.Value != "application/json" {
+		t.Errorf("Expected header value 'application/json', got '%s'", header.Value)
 	}
 
 	// Check files
@@ -348,8 +348,8 @@ func TestConvertPostmanCollection_DisabledItems(t *testing.T) {
 	if len(resolved.Headers) != 1 {
 		t.Fatalf("Expected 1 enabled header, got %d", len(resolved.Headers))
 	}
-	if resolved.Headers[0].HeaderKey != "Enabled Header" {
-		t.Errorf("Expected enabled header key 'Enabled Header', got '%s'", resolved.Headers[0].HeaderKey)
+	if resolved.Headers[0].Key != "Enabled Header" {
+		t.Errorf("Expected enabled header key 'Enabled Header', got '%s'", resolved.Headers[0].Key)
 	}
 	if !resolved.Headers[0].Enabled {
 		t.Error("Expected header to be enabled")
@@ -519,8 +519,8 @@ func TestBuildPostmanCollection(t *testing.T) {
 		{
 			ID:          idwrap.NewNow(),
 			HttpID:      httpID1,
-			HeaderKey:   "Accept",
-			HeaderValue: "application/json",
+			Key:   "Accept",
+			Value: "application/json",
 			Enabled:     true,
 			CreatedAt:   now,
 			UpdatedAt:   now,
@@ -746,7 +746,7 @@ func TestConvertPostmanCollection_Authentication(t *testing.T) {
 			for expectedKey, expectedValue := range tt.expectedAuthHeaders {
 				found := false
 				for _, header := range resolved.Headers {
-					if header.HeaderKey == expectedKey && header.HeaderValue == expectedValue {
+					if header.Key == expectedKey && header.Value == expectedValue {
 						found = true
 						break
 					}

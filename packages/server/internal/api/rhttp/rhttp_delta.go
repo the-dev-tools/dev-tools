@@ -16,13 +16,12 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
-	"the-dev-tools/server/pkg/model/mhttpheader"
+
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -1342,7 +1341,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaInsert(ctx context.Context, req *connect
 		// Check workspace write access
 		header, err := h.httpHeaderService.GetByID(ctx, headerID)
 		if err != nil {
-			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
+			if errors.Is(err, shttp.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1375,7 +1374,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var updateData []struct {
 		deltaID        idwrap.IDWrap
-		existingHeader mhttpheader.HttpHeader
+		existingHeader mhttp.HTTPHeader
 		item           *apiv1.HttpHeaderDeltaUpdate
 	}
 
@@ -1392,7 +1391,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 		// Get existing delta header - use pool service
 		existingHeader, err := h.httpHeaderService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
+			if errors.Is(err, shttp.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1416,7 +1415,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 
 		updateData = append(updateData, struct {
 			deltaID        idwrap.IDWrap
-			existingHeader mhttpheader.HttpHeader
+			existingHeader mhttp.HTTPHeader
 			item           *apiv1.HttpHeaderDeltaUpdate
 		}{
 			deltaID:        deltaID,
@@ -1499,7 +1498,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaUpdate(ctx context.Context, req *connect
 	defer tx.Rollback()
 
 	httpHeaderService := h.httpHeaderService.TX(tx)
-	var updatedHeaders []mhttpheader.HttpHeader
+	var updatedHeaders []mhttp.HTTPHeader
 
 	for _, update := range preparedUpdates {
 		if err := httpHeaderService.UpdateDelta(ctx, update.deltaID, update.deltaKey, update.deltaValue, update.deltaDescription, update.deltaEnabled); err != nil {
@@ -1542,7 +1541,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 	// Step 1: Gather data and check permissions OUTSIDE transaction
 	var deleteData []struct {
 		deltaID        idwrap.IDWrap
-		existingHeader mhttpheader.HttpHeader
+		existingHeader mhttp.HTTPHeader
 		workspaceID    idwrap.IDWrap
 	}
 
@@ -1559,7 +1558,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 		// Get existing delta header - use pool service
 		existingHeader, err := h.httpHeaderService.GetByID(ctx, deltaID)
 		if err != nil {
-			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
+			if errors.Is(err, shttp.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1583,7 +1582,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 
 		deleteData = append(deleteData, struct {
 			deltaID        idwrap.IDWrap
-			existingHeader mhttpheader.HttpHeader
+			existingHeader mhttp.HTTPHeader
 			workspaceID    idwrap.IDWrap
 		}{
 			deltaID:        deltaID,
@@ -1600,7 +1599,7 @@ func (h *HttpServiceRPC) HttpHeaderDeltaDelete(ctx context.Context, req *connect
 	defer tx.Rollback()
 
 	httpHeaderService := h.httpHeaderService.TX(tx)
-	var deletedHeaders []mhttpheader.HttpHeader
+	var deletedHeaders []mhttp.HTTPHeader
 	var deletedWorkspaceIDs []idwrap.IDWrap
 
 	for _, data := range deleteData {
@@ -2428,7 +2427,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaUpdate(ctx context.Context, req 
 			continue
 		}
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyUrlEncodedEvent{
-			Type:                 eventTypeUpdate,
+			Type:               eventTypeUpdate,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
 	}
@@ -2522,7 +2521,7 @@ func (h *HttpServiceRPC) HttpBodyUrlEncodedDeltaDelete(ctx context.Context, req 
 	// Publish delete events for real-time sync after successful commit
 	for i, bodyUrlEncoded := range deletedBodyUrlEncodeds {
 		h.httpBodyUrlEncodedStream.Publish(HttpBodyUrlEncodedTopic{WorkspaceID: deletedWorkspaceIDs[i]}, HttpBodyUrlEncodedEvent{
-			Type:                 eventTypeDelete,
+			Type:               eventTypeDelete,
 			HttpBodyUrlEncoded: converter.ToAPIHttpBodyUrlEncoded(bodyUrlEncoded),
 		})
 	}
@@ -2685,8 +2684,8 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaInsert(ctx context.Context, req *connec
 		}
 
 		h.httpBodyRawStream.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
-			Type:    eventTypeInsert,
-			IsDelta: true,
+			Type:        eventTypeInsert,
+			IsDelta:     true,
 			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*bodyRaw),
 		})
 	}
@@ -2751,8 +2750,8 @@ func (h *HttpServiceRPC) HttpBodyRawDeltaUpdate(ctx context.Context, req *connec
 		}
 
 		h.httpBodyRawStream.Publish(HttpBodyRawTopic{WorkspaceID: httpEntry.WorkspaceID}, HttpBodyRawEvent{
-			Type:    eventTypeUpdate,
-			IsDelta: true,
+			Type:        eventTypeUpdate,
+			IsDelta:     true,
 			HttpBodyRaw: converter.ToAPIHttpBodyRawFromMHttp(*updatedBody),
 		})
 	}

@@ -155,8 +155,8 @@ func resolveHeaders(base []mhttp.HTTPHeader, delta []mhttp.HTTPHeader) []mhttp.H
 	additions := make([]mhttp.HTTPHeader, 0)
 
 	for _, d := range delta {
-		if d.ParentHeaderID != nil {
-			overrideMap[*d.ParentHeaderID] = d
+		if d.ParentHttpHeaderID != nil {
+			overrideMap[*d.ParentHttpHeaderID] = d
 		} else {
 			additions = append(additions, d)
 		}
@@ -167,11 +167,11 @@ func resolveHeaders(base []mhttp.HTTPHeader, delta []mhttp.HTTPHeader) []mhttp.H
 	for _, b := range base {
 		if override, ok := overrideMap[b.ID]; ok {
 			merged := b
-			if override.DeltaHeaderKey != nil {
-				merged.HeaderKey = *override.DeltaHeaderKey
+			if override.DeltaKey != nil {
+				merged.Key = *override.DeltaKey
 			}
-			if override.DeltaHeaderValue != nil {
-				merged.HeaderValue = *override.DeltaHeaderValue
+			if override.DeltaValue != nil {
+				merged.Value = *override.DeltaValue
 			}
 			if override.DeltaDescription != nil {
 				merged.Description = *override.DeltaDescription
@@ -181,9 +181,9 @@ func resolveHeaders(base []mhttp.HTTPHeader, delta []mhttp.HTTPHeader) []mhttp.H
 			}
 
 			merged.IsDelta = false
-			merged.ParentHeaderID = nil
-			merged.DeltaHeaderKey = nil
-			merged.DeltaHeaderValue = nil
+			merged.ParentHttpHeaderID = nil
+			merged.DeltaKey = nil
+			merged.DeltaValue = nil
 			merged.DeltaDescription = nil
 			merged.DeltaEnabled = nil
 

@@ -42,7 +42,7 @@ func (m *mockExporter) ExportToCurl(ctx context.Context, data *WorkspaceExportDa
 
 // mockValidator is a mock implementation of the Validator interface
 type mockValidator struct {
-	ValidateExportRequestFunc  func(ctx context.Context, req *ExportRequest) error
+	ValidateExportRequestFunc   func(ctx context.Context, req *ExportRequest) error
 	ValidateWorkspaceAccessFunc func(ctx context.Context, workspaceID idwrap.IDWrap) error
 	ValidateExportFilterFunc    func(ctx context.Context, filter ExportFilter) error
 }
@@ -70,10 +70,10 @@ func (m *mockValidator) ValidateExportFilter(ctx context.Context, filter ExportF
 
 // mockStorage is a mock implementation of the Storage interface
 type mockStorage struct {
-	GetWorkspaceFunc  func(ctx context.Context, workspaceID idwrap.IDWrap) (*WorkspaceInfo, error)
-	GetFlowsFunc      func(ctx context.Context, workspaceID idwrap.IDWrap, flowIDs []idwrap.IDWrap) ([]*FlowData, error)
+	GetWorkspaceFunc    func(ctx context.Context, workspaceID idwrap.IDWrap) (*WorkspaceInfo, error)
+	GetFlowsFunc        func(ctx context.Context, workspaceID idwrap.IDWrap, flowIDs []idwrap.IDWrap) ([]*FlowData, error)
 	GetHTTPRequestsFunc func(ctx context.Context, workspaceID idwrap.IDWrap, exampleIDs []idwrap.IDWrap) ([]*HTTPData, error)
-	GetFilesFunc      func(ctx context.Context, workspaceID idwrap.IDWrap, fileIDs []idwrap.IDWrap) ([]*FileData, error)
+	GetFilesFunc        func(ctx context.Context, workspaceID idwrap.IDWrap, fileIDs []idwrap.IDWrap) ([]*FileData, error)
 }
 
 func (m *mockStorage) GetWorkspace(ctx context.Context, workspaceID idwrap.IDWrap) (*WorkspaceInfo, error) {
@@ -111,8 +111,8 @@ func TestNewService(t *testing.T) {
 	storage := &mockStorage{}
 
 	tests := []struct {
-		name     string
-		exporter Exporter
+		name      string
+		exporter  Exporter
 		validator Validator
 		storage   Storage
 	}{
@@ -194,7 +194,7 @@ func TestService_Export_Success(t *testing.T) {
 	}
 
 	validator := &mockValidator{
-		ValidateExportRequestFunc:  func(ctx context.Context, req *ExportRequest) error { return nil },
+		ValidateExportRequestFunc:   func(ctx context.Context, req *ExportRequest) error { return nil },
 		ValidateWorkspaceAccessFunc: func(ctx context.Context, workspaceID idwrap.IDWrap) error { return nil },
 		ValidateExportFilterFunc:    func(ctx context.Context, filter ExportFilter) error { return nil },
 	}
@@ -240,7 +240,7 @@ func TestService_Export_Simplified(t *testing.T) {
 	}
 
 	validator := &mockValidator{
-		ValidateExportRequestFunc:  func(ctx context.Context, req *ExportRequest) error { return nil },
+		ValidateExportRequestFunc:   func(ctx context.Context, req *ExportRequest) error { return nil },
 		ValidateWorkspaceAccessFunc: func(ctx context.Context, workspaceID idwrap.IDWrap) error { return nil },
 		ValidateExportFilterFunc:    func(ctx context.Context, filter ExportFilter) error { return nil },
 	}
@@ -251,8 +251,8 @@ func TestService_Export_Simplified(t *testing.T) {
 
 	req := &ExportRequest{
 		WorkspaceID: workspaceID,
-		Format:     ExportFormat_YAML,
-		Simplified: true,
+		Format:      ExportFormat_YAML,
+		Simplified:  true,
 	}
 
 	resp, err := service.Export(ctx, req)
@@ -291,7 +291,7 @@ func TestService_Export_CurlFormat(t *testing.T) {
 	}
 
 	validator := &mockValidator{
-		ValidateExportRequestFunc:  func(ctx context.Context, req *ExportRequest) error { return nil },
+		ValidateExportRequestFunc:   func(ctx context.Context, req *ExportRequest) error { return nil },
 		ValidateWorkspaceAccessFunc: func(ctx context.Context, workspaceID idwrap.IDWrap) error { return nil },
 		ValidateExportFilterFunc:    func(ctx context.Context, filter ExportFilter) error { return nil },
 	}
@@ -378,7 +378,7 @@ func TestService_Export_ExporterError(t *testing.T) {
 		},
 	}
 	validator := &mockValidator{
-		ValidateExportRequestFunc:  func(ctx context.Context, req *ExportRequest) error { return nil },
+		ValidateExportRequestFunc:   func(ctx context.Context, req *ExportRequest) error { return nil },
 		ValidateWorkspaceAccessFunc: func(ctx context.Context, workspaceID idwrap.IDWrap) error { return nil },
 		ValidateExportFilterFunc:    func(ctx context.Context, filter ExportFilter) error { return nil },
 	}
@@ -388,7 +388,7 @@ func TestService_Export_ExporterError(t *testing.T) {
 
 	req := &ExportRequest{
 		WorkspaceID: workspaceID,
-		Format:     ExportFormat_YAML,
+		Format:      ExportFormat_YAML,
 	}
 
 	resp, err := service.Export(ctx, req)
@@ -409,7 +409,7 @@ func TestService_Export_UnsupportedFormat(t *testing.T) {
 		},
 	}
 	validator := &mockValidator{
-		ValidateExportRequestFunc:  func(ctx context.Context, req *ExportRequest) error { return nil },
+		ValidateExportRequestFunc:   func(ctx context.Context, req *ExportRequest) error { return nil },
 		ValidateWorkspaceAccessFunc: func(ctx context.Context, workspaceID idwrap.IDWrap) error { return nil },
 		ValidateExportFilterFunc:    func(ctx context.Context, filter ExportFilter) error { return nil },
 	}
@@ -419,7 +419,7 @@ func TestService_Export_UnsupportedFormat(t *testing.T) {
 
 	req := &ExportRequest{
 		WorkspaceID: workspaceID,
-		Format:     ExportFormat("UNSUPPORTED"), // Unsupported format
+		Format:      ExportFormat("UNSUPPORTED"), // Unsupported format
 	}
 
 	resp, err := service.Export(ctx, req)
@@ -490,7 +490,7 @@ func TestService_ExportCurl_Success(t *testing.T) {
 	}
 
 	validator := &mockValidator{
-		ValidateExportRequestFunc:  func(ctx context.Context, req *ExportRequest) error { return nil },
+		ValidateExportRequestFunc:   func(ctx context.Context, req *ExportRequest) error { return nil },
 		ValidateWorkspaceAccessFunc: func(ctx context.Context, workspaceID idwrap.IDWrap) error { return nil },
 	}
 
@@ -547,7 +547,7 @@ func TestService_ExportCurl_ExporterError(t *testing.T) {
 		},
 	}
 	validator := &mockValidator{
-		ValidateExportRequestFunc:  func(ctx context.Context, req *ExportRequest) error { return nil },
+		ValidateExportRequestFunc:   func(ctx context.Context, req *ExportRequest) error { return nil },
 		ValidateWorkspaceAccessFunc: func(ctx context.Context, workspaceID idwrap.IDWrap) error { return nil },
 	}
 	storage := &mockStorage{}
@@ -566,5 +566,3 @@ func TestService_ExportCurl_ExporterError(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "workspace data export failed: exporter failed")
 }
-
-

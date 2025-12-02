@@ -194,7 +194,7 @@ func TestNodeRequestRunSyncTracksVariableReads(t *testing.T) {
 		{ParamKey: "limit", ParamValue: "{{limit}}", Enabled: true},
 	}
 	headers := []mhttp.HTTPHeader{
-		{HeaderKey: "Authorization", HeaderValue: "Bearer {{token}}", Enabled: true},
+		{Key: "Authorization", Value: "Bearer {{token}}", Enabled: true},
 	}
 
 	respChan := make(chan NodeRequestSideResp, 1)

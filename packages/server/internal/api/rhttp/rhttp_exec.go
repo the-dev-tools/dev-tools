@@ -24,7 +24,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
-	"the-dev-tools/server/pkg/model/mhttpheader"
+
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -64,7 +64,7 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 
 		headers, err := h.httpHeaderService.GetByHttpIDOrdered(ctx, httpEntry.ID)
 		if err != nil {
-			headers = []mhttpheader.HttpHeader{}
+			headers = []mhttp.HTTPHeader{}
 		}
 
 		queries, err := h.httpSearchParamService.GetByHttpIDOrdered(ctx, httpEntry.ID)
@@ -92,9 +92,9 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 		mHeaders = make([]mhttp.HTTPHeader, len(headers))
 		for i, v := range headers {
 			mHeaders[i] = mhttp.HTTPHeader{
-				HeaderKey:   v.Key,
-				HeaderValue: v.Value,
-				Enabled:     v.Enabled,
+				Key:     v.Key,
+				Value:   v.Value,
+				Enabled: v.Enabled,
 			}
 		}
 
@@ -261,7 +261,7 @@ func (h *HttpServiceRPC) applyVariableSubstitution(ctx context.Context, httpEntr
 
 	// Apply variable substitution to headers
 	for i, item := range headers {
-		if header, ok := item.(mhttpheader.HttpHeader); ok && header.Enabled {
+		if header, ok := item.(mhttp.HTTPHeader); ok && header.Enabled {
 			// Substitute key
 			if varsystem.CheckStringHasAnyVarKey(header.Key) {
 				resolvedKey, err := tracker.ReplaceVars(header.Key)

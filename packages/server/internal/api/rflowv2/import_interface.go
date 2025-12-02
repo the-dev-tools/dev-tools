@@ -14,7 +14,7 @@ type WorkspaceImporter interface {
 
 // ImportResults represents the results of a workspace import operation
 type ImportResults struct {
-	WorkspaceID    idwrap.IDWrap
+	WorkspaceID     idwrap.IDWrap
 	HTTPReqsCreated int
 	HTTPReqsUpdated int
 	HTTPReqsSkipped int

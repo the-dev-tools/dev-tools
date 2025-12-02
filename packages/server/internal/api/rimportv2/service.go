@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
@@ -21,7 +22,6 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
@@ -29,18 +29,18 @@ import (
 
 // Common errors for the rimportv2 service
 var (
-	ErrInvalidHARFormat     = errors.New("invalid HAR format")
-	ErrPermissionDenied     = errors.New("permission denied")
-	ErrStorageFailed        = errors.New("storage operation failed")
-	ErrWorkspaceNotFound    = errors.New("workspace not found")
-	ErrFormatDetection      = errors.New("format detection failed")
-	ErrUnsupportedFormat    = errors.New("unsupported format")
-	ErrInvalidData          = errors.New("invalid data provided")
-	ErrTranslationFailed    = errors.New("translation failed")
-	ErrValidationFailed     = errors.New("validation failed")
-	ErrEmptyData           = errors.New("empty data provided")
-	ErrDataTooLarge        = errors.New("data exceeds size limit")
-	ErrTimeout             = errors.New("operation timed out")
+	ErrInvalidHARFormat  = errors.New("invalid HAR format")
+	ErrPermissionDenied  = errors.New("permission denied")
+	ErrStorageFailed     = errors.New("storage operation failed")
+	ErrWorkspaceNotFound = errors.New("workspace not found")
+	ErrFormatDetection   = errors.New("format detection failed")
+	ErrUnsupportedFormat = errors.New("unsupported format")
+	ErrInvalidData       = errors.New("invalid data provided")
+	ErrTranslationFailed = errors.New("translation failed")
+	ErrValidationFailed  = errors.New("validation failed")
+	ErrEmptyData         = errors.New("empty data provided")
+	ErrDataTooLarge      = errors.New("data exceeds size limit")
+	ErrTimeout           = errors.New("operation timed out")
 )
 
 // ValidationError represents an input validation error
@@ -111,9 +111,9 @@ type Validator interface {
 
 // ImportConstraints defines validation constraints for import operations
 type ImportConstraints struct {
-	MaxDataSizeBytes int64      // Maximum size of import data
-	SupportedFormats []Format   // List of supported formats
-	AllowedMimeTypes []string   // Allowed MIME types for file uploads
+	MaxDataSizeBytes int64         // Maximum size of import data
+	SupportedFormats []Format      // List of supported formats
+	AllowedMimeTypes []string      // Allowed MIME types for file uploads
 	Timeout          time.Duration // Operation timeout
 }
 
@@ -136,10 +136,10 @@ func DefaultConstraints() *ImportConstraints {
 
 // ImportResults represents the complete results of an import operation
 type ImportResults struct {
-	Flow        *mflow.Flow
-	HTTPReqs    []*mhttp.HTTP
-	Files       []*mfile.File
-	
+	Flow     *mflow.Flow
+	HTTPReqs []*mhttp.HTTP
+	Files    []*mfile.File
+
 	HTTPHeaders        []*mhttp.HTTPHeader
 	HTTPSearchParams   []*mhttp.HTTPSearchParam
 	HTTPBodyForms      []*mhttp.HTTPBodyForm
@@ -214,11 +214,11 @@ func WithHTTPService(httpService *shttp.HTTPService) ServiceOption {
 
 // Service implements the main business logic for unified import
 type Service struct {
-	importer         Importer
-	validator        Validator
+	importer           Importer
+	validator          Validator
 	translatorRegistry *TranslatorRegistry
-	logger           *slog.Logger
-	timeout          time.Duration
+	logger             *slog.Logger
+	timeout            time.Duration
 }
 
 // NewService creates a new Service with dependency injection and optional configuration
@@ -230,8 +230,8 @@ func NewService(importer Importer, validator Validator, opts ...ServiceOption) *
 		importer:           importer,
 		validator:          validator,
 		translatorRegistry: NewTranslatorRegistry(nil), // Auto-initialize translator registry without HTTP service (will be overridden if provided)
-		timeout:            30 * time.Minute, // Default timeout for import processing
-		logger:             slog.Default(),   // Default logger
+		timeout:            30 * time.Minute,           // Default timeout for import processing
+		logger:             slog.Default(),             // Default logger
 	}
 
 	// Apply functional options
@@ -1055,4 +1055,3 @@ func (s *Service) ValidateAndSanitizeRequest(ctx context.Context, req *ImportReq
 
 	return sanitized, nil
 }
-

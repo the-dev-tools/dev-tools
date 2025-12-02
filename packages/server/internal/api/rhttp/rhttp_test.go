@@ -18,11 +18,12 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/menv"
 	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
-	"the-dev-tools/server/pkg/model/mhttpheader"
+
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mvar"
@@ -33,14 +34,13 @@ import (
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
+
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
-	"the-dev-tools/server/pkg/http/resolver"
 	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -86,7 +86,7 @@ func newHttpFixture(t *testing.T) *httpFixture {
 	// respService := sexampleresp.New(base.Queries)
 
 	// Child entity services from separate packages
-	httpHeaderService := shttpheader.New(base.Queries)
+	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 	httpSearchParamService := shttpsearchparam.New(base.Queries)
 	httpBodyFormService := shttpbodyform.New(base.Queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
@@ -225,7 +225,7 @@ func (f *httpFixture) createHttpHeader(t *testing.T, httpID idwrap.IDWrap, key, 
 	t.Helper()
 
 	headerID := idwrap.NewNow()
-	header := &mhttpheader.HttpHeader{
+	header := &mhttp.HTTPHeader{
 		ID:      headerID,
 		HttpID:  httpID,
 		Key:     key,

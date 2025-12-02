@@ -508,4 +508,3 @@ func (h *HttpServiceRPC) streamHttpBodyRawSync(ctx context.Context, userID idwra
 // Helper methods for HTTP request execution
 
 // parseHttpMethod converts string method to HttpMethod enum
-

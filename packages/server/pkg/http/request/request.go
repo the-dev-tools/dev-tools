@@ -107,8 +107,8 @@ func PrepareHTTPRequestWithTracking(
 	compressType := compress.CompressTypeNone
 	clientHeaders := make([]httpclient.Header, len(activeHeaders))
 	for i, header := range activeHeaders {
-		if header.HeaderKey == "Content-Encoding" {
-			switch strings.ToLower(header.HeaderValue) {
+		if header.Key == "Content-Encoding" {
+			switch strings.ToLower(header.Value) {
 			case "gzip":
 				compressType = compress.CompressTypeGzip
 			case "zstd":
@@ -116,13 +116,13 @@ func PrepareHTTPRequestWithTracking(
 			case "br":
 				compressType = compress.CompressTypeBr
 			case "deflate", "identity":
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.HeaderValue))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
 			default:
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.HeaderValue))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
 			}
 		}
 
-		key := header.HeaderKey
+		key := header.Key
 		if varsystem.CheckStringHasAnyVarKey(key) {
 			key, err = tracker.ReplaceVars(key)
 			if err != nil {
@@ -130,7 +130,7 @@ func PrepareHTTPRequestWithTracking(
 			}
 		}
 
-		val := header.HeaderValue
+		val := header.Value
 		if varsystem.CheckStringHasAnyVarKey(val) {
 			val, err = tracker.ReplaceVars(val)
 			if err != nil {
@@ -423,14 +423,14 @@ func formatBodyForLog(body []byte) string {
 
 func validateHeadersForHTTP(headers []mhttp.HTTPHeader) error {
 	for _, header := range headers {
-		if header.HeaderKey == "" && header.HeaderValue == "" {
+		if header.Key == "" && header.Value == "" {
 			continue
 		}
-		if hasInvalidHeaderCharacters(header.HeaderKey, false) {
-			return fmt.Errorf("header %q can only contain visible ASCII characters", header.HeaderKey)
+		if hasInvalidHeaderCharacters(header.Key, false) {
+			return fmt.Errorf("header %q can only contain visible ASCII characters", header.Key)
 		}
-		if hasInvalidHeaderCharacters(header.HeaderValue, true) {
-			return fmt.Errorf("header %q cannot include line breaks or other control characters; trim file contents or encode them before use", header.HeaderKey)
+		if hasInvalidHeaderCharacters(header.Value, true) {
+			return fmt.Errorf("header %q cannot include line breaks or other control characters; trim file contents or encode them before use", header.Key)
 		}
 	}
 	return nil
@@ -560,8 +560,8 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 	compressType := compress.CompressTypeNone
 	clientHeaders := make([]httpclient.Header, len(headers))
 	for i, header := range headers {
-		if header.HeaderKey == "Content-Encoding" {
-			switch strings.ToLower(header.HeaderValue) {
+		if header.Key == "Content-Encoding" {
+			switch strings.ToLower(header.Value) {
 			case "gzip":
 				compressType = compress.CompressTypeGzip
 			case "zstd":
@@ -569,32 +569,32 @@ func PrepareRequest(endpoint mhttp.HTTP, example mhttp.HTTP, queries []mhttp.HTT
 			case "br":
 				compressType = compress.CompressTypeBr
 			case "deflate", "identity":
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.HeaderValue))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
 			default:
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.HeaderValue))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
 			}
 		}
 
 		if varMap != nil {
-			if varsystem.CheckIsVar(header.HeaderKey) {
-				key := varsystem.GetVarKeyFromRaw(header.HeaderKey)
+			if varsystem.CheckIsVar(header.Key) {
+				key := varsystem.GetVarKeyFromRaw(header.Key)
 				if val, ok := varMap.Get(key); ok {
-					header.HeaderKey = val.Value
+					header.Key = val.Value
 				} else {
 					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s named variable not found", key))
 				}
 			}
 
-			if varsystem.CheckStringHasAnyVarKey(header.HeaderValue) {
+			if varsystem.CheckStringHasAnyVarKey(header.Value) {
 				// Use varsystem's ReplaceVars for any string containing variables
-				replacedValue, err := varMap.ReplaceVars(header.HeaderValue)
+				replacedValue, err := varMap.ReplaceVars(header.Value)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				header.HeaderValue = replacedValue
+				header.Value = replacedValue
 			}
 		}
-		clientHeaders[i] = httpclient.Header{HeaderKey: header.HeaderKey, Value: header.HeaderValue}
+		clientHeaders[i] = httpclient.Header{HeaderKey: header.Key, Value: header.Value}
 	}
 
 	bodyBytes := &bytes.Buffer{}
@@ -851,8 +851,8 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 	compressType := compress.CompressTypeNone
 	clientHeaders := make([]httpclient.Header, len(headers))
 	for i, header := range headers {
-		if header.HeaderKey == "Content-Encoding" {
-			switch strings.ToLower(header.HeaderValue) {
+		if header.Key == "Content-Encoding" {
+			switch strings.ToLower(header.Value) {
 			case "gzip":
 				compressType = compress.CompressTypeGzip
 			case "zstd":
@@ -860,31 +860,31 @@ func PrepareRequestWithTracking(endpoint mhttp.HTTP, example mhttp.HTTP, queries
 			case "br":
 				compressType = compress.CompressTypeBr
 			case "deflate", "identity":
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.HeaderValue))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s not supported", header.Value))
 			default:
-				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.HeaderValue))
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid compression type %s", header.Value))
 			}
 		}
 
 		if varMap != nil {
-			if varsystem.CheckStringHasAnyVarKey(header.HeaderKey) {
-				resolvedKey, err := tracker.ReplaceVars(header.HeaderKey)
+			if varsystem.CheckStringHasAnyVarKey(header.Key) {
+				resolvedKey, err := tracker.ReplaceVars(header.Key)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				header.HeaderKey = resolvedKey
+				header.Key = resolvedKey
 			}
 
-			if varsystem.CheckStringHasAnyVarKey(header.HeaderValue) {
+			if varsystem.CheckStringHasAnyVarKey(header.Value) {
 				// Use tracking wrapper's ReplaceVars for any string containing variables
-				replacedValue, err := tracker.ReplaceVars(header.HeaderValue)
+				replacedValue, err := tracker.ReplaceVars(header.Value)
 				if err != nil {
 					return nil, connect.NewError(connect.CodeNotFound, err)
 				}
-				header.HeaderValue = replacedValue
+				header.Value = replacedValue
 			}
 		}
-		clientHeaders[i] = httpclient.Header{HeaderKey: header.HeaderKey, Value: header.HeaderValue}
+		clientHeaders[i] = httpclient.Header{HeaderKey: header.Key, Value: header.Value}
 	}
 
 	bodyBytes := &bytes.Buffer{}
@@ -1171,16 +1171,16 @@ func MergeExamples(input MergeExamplesInput) MergeExamplesOutput {
 	// Create a map for matching base headers by key name (for legacy delta headers)
 	baseHeaderByKey := make(map[string]mhttp.HTTPHeader)
 	for _, h := range input.BaseHeaders {
-		baseHeaderByKey[h.HeaderKey] = h
+		baseHeaderByKey[h.Key] = h
 	}
 
 	for _, h := range input.DeltaHeaders {
 		// Handle delta headers with parent relationships
-		if h.ParentHeaderID != nil {
-			headerMap[*h.ParentHeaderID] = h
+		if h.ParentHttpHeaderID != nil {
+			headerMap[*h.ParentHttpHeaderID] = h
 		} else {
 			// For delta headers without parent ID, try to find matching base header by key name
-			if baseHeader, exists := baseHeaderByKey[h.HeaderKey]; exists {
+			if baseHeader, exists := baseHeaderByKey[h.Key]; exists {
 				headerMap[baseHeader.ID] = h
 			} else {
 				// If no matching base header found, add as new header

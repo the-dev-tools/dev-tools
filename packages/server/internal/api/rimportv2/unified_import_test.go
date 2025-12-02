@@ -25,8 +25,8 @@ func TestFormatDetector(t *testing.T) {
 		shouldError    bool
 	}{
 		{
-			name: "Empty data",
-			data: []byte(""),
+			name:           "Empty data",
+			data:           []byte(""),
 			expectedFormat: FormatUnknown,
 			minConfidence:  0.9,
 			shouldError:    false,
@@ -61,8 +61,8 @@ func TestFormatDetector(t *testing.T) {
 			shouldError:    false,
 		},
 		{
-			name: "Valid CURL command",
-			data: []byte(`curl -X GET "https://api.example.com" -H "Accept: application/json"`),
+			name:           "Valid CURL command",
+			data:           []byte(`curl -X GET "https://api.example.com" -H "Accept: application/json"`),
 			expectedFormat: FormatCURL,
 			minConfidence:  0.7,
 			shouldError:    false,
@@ -88,8 +88,8 @@ func TestFormatDetector(t *testing.T) {
 			shouldError:    false,
 		},
 		{
-			name: "Invalid JSON",
-			data: []byte(`{invalid json`),
+			name:           "Invalid JSON",
+			data:           []byte(`{invalid json`),
 			expectedFormat: FormatUnknown,
 			minConfidence:  0.0,
 			shouldError:    false,
@@ -387,7 +387,7 @@ func (m *MockImporter) StoreUnifiedResults(ctx context.Context, results *Transla
 }
 
 type MockValidator struct {
-	validateFunc         func(ctx context.Context, req *ImportRequest) error
+	validateFunc          func(ctx context.Context, req *ImportRequest) error
 	validateWorkspaceFunc func(ctx context.Context, workspaceID idwrap.IDWrap) error
 	validateDataSizeFunc  func(ctx context.Context, data []byte) error
 	validateFormatFunc    func(ctx context.Context, format Format) error

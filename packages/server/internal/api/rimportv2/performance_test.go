@@ -79,8 +79,8 @@ func BenchmarkService_Import(b *testing.B) {
 
 				for i := 0; i < tt.size; i++ {
 					httpReqs[i] = mhttp.HTTP{
-						ID:   idwrap.NewNow(),
-						Url:  fmt.Sprintf("https://api.example.com/endpoint_%d", i),
+						ID:     idwrap.NewNow(),
+						Url:    fmt.Sprintf("https://api.example.com/endpoint_%d", i),
 						Method: "GET",
 					}
 				}
@@ -101,7 +101,7 @@ func BenchmarkService_Import(b *testing.B) {
 					Files:        files,
 				}, nil
 			}
-						deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
+			deps.importer.StoreImportResultsFunc = func(ctx context.Context, results *ImportResults) error {
 				// Simulate storage work based on data size
 				time.Sleep(time.Microsecond * time.Duration(len(results.HTTPReqs)))
 				return nil
@@ -110,7 +110,7 @@ func BenchmarkService_Import(b *testing.B) {
 			service := NewService(
 				deps.importer,
 				deps.validator,
-								WithLogger(nil),
+				WithLogger(nil),
 			)
 
 			request := &ImportRequest{
@@ -425,8 +425,8 @@ func createSizedHAR(tb testing.TB, size int) []byte {
 				"duration": 1000.0,
 			},
 			"request": map[string]interface{}{
-				"method":     []string{"GET", "POST", "PUT", "DELETE", "PATCH"}[i%5],
-				"url":        fmt.Sprintf("https://api.example.com/endpoint_%d", i),
+				"method":      []string{"GET", "POST", "PUT", "DELETE", "PATCH"}[i%5],
+				"url":         fmt.Sprintf("https://api.example.com/endpoint_%d", i),
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Content-Type", "value": "application/json"},
@@ -445,8 +445,8 @@ func createSizedHAR(tb testing.TB, size int) []byte {
 				"bodySize":    200,
 			},
 			"response": map[string]interface{}{
-				"status":     200,
-				"statusText": "OK",
+				"status":      200,
+				"statusText":  "OK",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Content-Type", "value": "application/json"},
@@ -464,13 +464,13 @@ func createSizedHAR(tb testing.TB, size int) []byte {
 			},
 			"cache": map[string]interface{}{},
 			"timings": map[string]interface{}{
-				"blocked":    0,
-				"dns":        1,
-				"connect":    2,
-				"send":       3,
-				"wait":       50 + (i % 50), // Variable wait time
-				"receive":    5,
-				"ssl":        2,
+				"blocked": 0,
+				"dns":     1,
+				"connect": 2,
+				"send":    3,
+				"wait":    50 + (i % 50), // Variable wait time
+				"receive": 5,
+				"ssl":     2,
 			},
 			"_resourceType": []string{"xhr", "document", "script", "stylesheet"}[i%4],
 		}
@@ -487,8 +487,8 @@ func createSizedHAR(tb testing.TB, size int) []byte {
 			"pages": []map[string]interface{}{
 				{
 					"startedDateTime": time.Now().UTC().Format(time.RFC3339),
-					"id":            "page_1",
-					"title":         "Performance Test Page",
+					"id":              "page_1",
+					"title":           "Performance Test Page",
 					"pageTimings": map[string]interface{}{
 						"onContentLoad": 1500,
 						"onLoad":        3000,
@@ -521,8 +521,8 @@ func createHTTPRequestsForDomains(tb testing.TB, reqCount, domainCount int) []*m
 		method := methods[i%len(methods)]
 
 		requests[i] = &mhttp.HTTP{
-			ID:   idwrap.NewNow(),
-			Url:  fmt.Sprintf("https://%s/endpoint_%d", domain, i),
+			ID:     idwrap.NewNow(),
+			Url:    fmt.Sprintf("https://%s/endpoint_%d", domain, i),
 			Method: method,
 			// Add other required fields as needed
 		}

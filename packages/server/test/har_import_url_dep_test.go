@@ -4,12 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"the-dev-tools/server/internal/api/rhttp"
+	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"the-dev-tools/server/internal/api/rhttp"
-	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
-	httpv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
 // HAR with URL Dependency
@@ -99,7 +100,7 @@ func TestHARImport_URLDependencyDetection(t *testing.T) {
 	}
 
 	require.NotNil(t, deleteDeltaEvent, "Should find a Delta DELETE request")
-	
+
 	// The URL should be templated, e.g., ".../users/{{...}}"
 	t.Logf("Found Delta DELETE URL: %s", deleteDeltaEvent.Http.Url)
 	assert.Contains(t, deleteDeltaEvent.Http.Url, "{{", "URL should contain variable template")

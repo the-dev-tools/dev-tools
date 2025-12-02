@@ -102,8 +102,8 @@ func TestPrepareRequest_HeaderVariableReplacement(t *testing.T) {
 
 			headers := []mhttp.HTTPHeader{
 				{
-					HeaderKey:   "Authorization",
-					HeaderValue: tt.headerValue,
+					Key:   "Authorization",
+					Value: tt.headerValue,
 					Enabled:     true,
 				},
 			}
@@ -310,8 +310,8 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		{
 			ID:          baseHeaderID,
 			HttpID:      baseExampleID,
-			HeaderKey:   "Authorization",
-			HeaderValue: "Bearer token123",
+			Key:   "Authorization",
+			Value: "Bearer token123",
 		},
 	}
 
@@ -339,9 +339,9 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 		{
 			ID:            idwrap.NewNow(),
 			HttpID:        deltaExampleID,
-			HeaderKey:     "Authorization",
-			HeaderValue:   "Bearer {{ token }}",
-			ParentHeaderID: nil, // This would cause a panic in the old code
+			Key:     "Authorization",
+			Value:   "Bearer {{ token }}",
+			ParentHttpHeaderID: nil, // This would cause a panic in the old code
 		},
 	}
 
@@ -418,7 +418,7 @@ func TestMergeExamplesWithNilDeltaParentID(t *testing.T) {
 
 	foundDeltaHeader := false
 	for _, header := range output.MergeHeaders {
-		if header.HeaderKey == "Authorization" && header.HeaderValue == "Bearer {{ token }}" {
+		if header.Key == "Authorization" && header.Value == "Bearer {{ token }}" {
 			foundDeltaHeader = true
 			break
 		}
@@ -482,8 +482,8 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		{
 			ID:          baseHeaderID,
 			HttpID:      baseExampleID,
-			HeaderKey:   "Authorization",
-			HeaderValue: "Bearer token123",
+			Key:   "Authorization",
+			Value: "Bearer token123",
 		},
 	}
 
@@ -512,9 +512,9 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 		{
 			ID:            idwrap.NewNow(),
 			HttpID:        deltaExampleID,
-			HeaderKey:     "Authorization",
-			HeaderValue:   "Bearer {{ request-1.response.body.token }}",
-			ParentHeaderID: &baseHeaderID, // Proper reference to base header
+			Key:     "Authorization",
+			Value:   "Bearer {{ request-1.response.body.token }}",
+			ParentHttpHeaderID: &baseHeaderID, // Proper reference to base header
 		},
 	}
 
@@ -593,8 +593,8 @@ func TestMergeExamplesWithProperDeltaParentID(t *testing.T) {
 	}
 
 	mergedHeader := output.MergeHeaders[0]
-	if mergedHeader.HeaderKey != "Authorization" || mergedHeader.HeaderValue != "Bearer {{ request-1.response.body.token }}" {
-		t.Errorf("Expected delta header to replace base header, got HeaderKey: %s, HeaderValue: %s", mergedHeader.HeaderKey, mergedHeader.HeaderValue)
+	if mergedHeader.Key != "Authorization" || mergedHeader.Value != "Bearer {{ request-1.response.body.token }}" {
+		t.Errorf("Expected delta header to replace base header, got Key: %s, Value: %s", mergedHeader.Key, mergedHeader.Value)
 	}
 
 	t.Logf("✅ MergeExamples handled proper ParentSearchParamID/ParentHeaderID successfully")

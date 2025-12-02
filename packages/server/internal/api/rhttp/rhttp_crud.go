@@ -16,7 +16,7 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
-	"the-dev-tools/server/pkg/model/mhttpheader"
+
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/shttp"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
@@ -498,7 +498,7 @@ func (h *HttpServiceRPC) HttpDuplicate(ctx context.Context, req *connect.Request
 	// Duplicate headers
 	for _, header := range headers {
 		newHeaderID := idwrap.NewNow()
-		headerModel := &mhttpheader.HttpHeader{
+		headerModel := &mhttp.HTTPHeader{
 			ID:          newHeaderID,
 			HttpID:      newHttpID,
 			Key:         header.Key,

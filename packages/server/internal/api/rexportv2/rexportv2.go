@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/service/sfile"
@@ -17,6 +16,8 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspace"
 	exportv1 "the-dev-tools/spec/dist/buf/go/api/export/v1"
 	"the-dev-tools/spec/dist/buf/go/api/export/v1/exportv1connect"
+
+	"connectrpc.com/connect"
 )
 
 // ExportFormat represents the supported export formats
@@ -31,8 +32,8 @@ const (
 type ExportRequest struct {
 	WorkspaceID idwrap.IDWrap
 	FileIDs     []idwrap.IDWrap
-	Format     ExportFormat
-	Simplified bool
+	Format      ExportFormat
+	Simplified  bool
 }
 
 // ExportCurlRequest represents a request to export cURL commands
@@ -62,10 +63,10 @@ type ExportFilter struct {
 
 // WorkspaceExportData represents data exported from a workspace
 type WorkspaceExportData struct {
-	Workspace   *WorkspaceInfo
-	Flows       []*FlowData
+	Workspace    *WorkspaceInfo
+	Flows        []*FlowData
 	HTTPRequests []*HTTPData
-	Files       []*FileData
+	Files        []*FileData
 }
 
 // WorkspaceInfo represents basic workspace information
@@ -225,7 +226,6 @@ func (h *ExportV2RPC) Export(ctx context.Context, req *connect.Request[exportv1.
 	return connect.NewResponse(protoResp), nil
 }
 
-
 // ExportCurl implements the ExportCurl RPC method
 func (h *ExportV2RPC) ExportCurl(ctx context.Context, req *connect.Request[exportv1.ExportCurlRequest]) (*connect.Response[exportv1.ExportCurlResponse], error) {
 	h.logger.Info("Received ExportCurl request",
@@ -282,8 +282,8 @@ func convertToExportRequest(msg *exportv1.ExportRequest) (*ExportRequest, error)
 	return &ExportRequest{
 		WorkspaceID: workspaceID,
 		FileIDs:     fileIDs,
-		Format:     format,
-		Simplified: false,
+		Format:      format,
+		Simplified:  false,
 	}, nil
 }
 

@@ -12,7 +12,6 @@ import (
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
-	"the-dev-tools/server/pkg/model/mhttpheader"
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnfor"
@@ -120,8 +119,8 @@ func FromAPIHttpBodyKind(kind httpv1.HttpBodyKind) mhttp.HttpBodyKind {
 	}
 }
 
-// ToAPIHttpHeader converts model HttpHeader to API HttpHeader
-func ToAPIHttpHeader(header mhttpheader.HttpHeader) *httpv1.HttpHeader {
+// ToAPIHttpHeader converts model HTTPHeader to API HttpHeader
+func ToAPIHttpHeader(header mhttp.HTTPHeader) *httpv1.HttpHeader {
 	return &httpv1.HttpHeader{
 		HttpHeaderId: header.ID.Bytes(),
 		HttpId:       header.HttpID.Bytes(),
@@ -129,20 +128,7 @@ func ToAPIHttpHeader(header mhttpheader.HttpHeader) *httpv1.HttpHeader {
 		Value:        header.Value,
 		Enabled:      header.Enabled,
 		Description:  header.Description,
-		Order:        float32(header.Order),
-	}
-}
-
-// ToAPIHttpHeaderFromMHttp converts mhttp.HTTPHeader to API HttpHeader
-func ToAPIHttpHeaderFromMHttp(header mhttp.HTTPHeader) *httpv1.HttpHeader {
-	return &httpv1.HttpHeader{
-		HttpHeaderId: header.ID.Bytes(),
-		HttpId:       header.HttpID.Bytes(),
-		Key:          header.HeaderKey,
-		Value:        header.HeaderValue,
-		Enabled:      header.Enabled,
-		Description:  header.Description,
-		Order:        0, // mhttp.HTTPHeader doesn't seem to have Order
+		Order:        header.Order,
 	}
 }
 

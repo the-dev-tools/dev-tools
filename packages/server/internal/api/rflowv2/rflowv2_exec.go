@@ -93,7 +93,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	go func() {
 		// Create a background context for execution with cancellation support
 		bgCtx, cancel := context.WithCancel(context.Background())
-		
+
 		// Store cancel function
 		s.runningFlowsMu.Lock()
 		s.runningFlows[flowID.String()] = cancel

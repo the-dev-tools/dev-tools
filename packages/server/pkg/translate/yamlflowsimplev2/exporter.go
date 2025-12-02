@@ -223,8 +223,8 @@ func MarshalSimplifiedYAML(data *SimplifiedYAMLResolvedV2) ([]byte, error) {
 					for _, h := range hdrs {
 						if !h.Enabled { continue }
 						hList = append(hList, map[string]any{
-							"name":  h.HeaderKey,
-							"value": h.HeaderValue,
+							"name":  h.Key,
+							"value": h.Value,
 						})
 					}
 					if len(hList) > 0 {

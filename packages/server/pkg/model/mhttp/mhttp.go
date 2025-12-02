@@ -54,22 +54,26 @@ type HTTPSearchParam struct {
 }
 
 type HTTPHeader struct {
-	ID               idwrap.IDWrap  `json:"id"`
-	HttpID           idwrap.IDWrap  `json:"http_id"`
-	HeaderKey        string         `json:"header_key"`
-	HeaderValue      string         `json:"header_value"`
-	Description      string         `json:"description"`
-	Enabled          bool           `json:"enabled"`
-	ParentHeaderID   *idwrap.IDWrap `json:"parent_header_id,omitempty"`
-	IsDelta          bool           `json:"is_delta"`
-	DeltaHeaderKey   *string        `json:"delta_header_key,omitempty"`
-	DeltaHeaderValue *string        `json:"delta_header_value,omitempty"`
-	DeltaDescription *string        `json:"delta_description,omitempty"`
-	DeltaEnabled     *bool          `json:"delta_enabled,omitempty"`
-	Prev             *idwrap.IDWrap `json:"prev,omitempty"`
-	Next             *idwrap.IDWrap `json:"next,omitempty"`
-	CreatedAt        int64          `json:"created_at"`
-	UpdatedAt        int64          `json:"updated_at"`
+	ID                 idwrap.IDWrap  `json:"id"`
+	HttpID             idwrap.IDWrap  `json:"http_id"`
+	Key                string         `json:"key"`
+	Value              string         `json:"value"`
+	Enabled            bool           `json:"enabled"`
+	Description        string         `json:"description"`
+	Order              float32        `json:"order"`
+	ParentHttpHeaderID *idwrap.IDWrap `json:"parent_http_header_id,omitempty"`
+	IsDelta            bool           `json:"is_delta"`
+	DeltaKey           *string        `json:"delta_key,omitempty"`
+	DeltaValue         *string        `json:"delta_value,omitempty"`
+	DeltaEnabled       *bool          `json:"delta_enabled,omitempty"`
+	DeltaDescription   *string        `json:"delta_description,omitempty"`
+	DeltaOrder         *float32       `json:"delta_order,omitempty"`
+	CreatedAt          int64          `json:"created_at"`
+	UpdatedAt          int64          `json:"updated_at"`
+}
+
+func (h HTTPHeader) IsEnabled() bool {
+	return h.Enabled
 }
 
 type HTTPBodyForm struct {

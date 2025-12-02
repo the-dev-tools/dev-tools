@@ -3,9 +3,10 @@ package converter
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestToAPIHttpBodyRaw(t *testing.T) {
@@ -21,7 +22,7 @@ func TestToAPIHttpBodyRaw(t *testing.T) {
 func TestToAPIHttpBodyRawFromMHttp(t *testing.T) {
 	httpID := idwrap.NewNow()
 	data := []byte("test data mhttp")
-	
+
 	mRaw := mhttp.HTTPBodyRaw{
 		HttpID:  httpID,
 		RawData: data,

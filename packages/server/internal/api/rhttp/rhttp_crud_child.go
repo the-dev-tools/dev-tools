@@ -11,16 +11,16 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/idwrap"
+	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/model/mhttpassert"
 	"the-dev-tools/server/pkg/model/mhttpbodyform"
 	"the-dev-tools/server/pkg/model/mhttpbodyurlencoded"
-	"the-dev-tools/server/pkg/model/mhttpheader"
+
 	"the-dev-tools/server/pkg/model/mhttpsearchparam"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
@@ -954,11 +954,11 @@ func (h *HttpServiceRPC) HttpHeaderInsert(ctx context.Context, req *connect.Requ
 
 	httpHeaderService := h.httpHeaderService.TX(tx)
 
-	var createdHeaders []mhttpheader.HttpHeader
+	var createdHeaders []mhttp.HTTPHeader
 
 	for _, data := range insertData {
 		// Create the header
-		headerModel := &mhttpheader.HttpHeader{
+		headerModel := &mhttp.HTTPHeader{
 			ID:          data.headerID,
 			HttpID:      data.httpID,
 			Key:         data.key,
@@ -998,7 +998,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 
 	// Step 1: Process request data and perform all reads/checks OUTSIDE transaction
 	var updateData []struct {
-		existingHeader mhttpheader.HttpHeader
+		existingHeader mhttp.HTTPHeader
 		key            *string
 		value          *string
 		enabled        *bool
@@ -1020,7 +1020,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 		// Get existing header - use pool service
 		existingHeader, err := h.httpHeaderService.GetByID(ctx, headerID)
 		if err != nil {
-			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
+			if errors.Is(err, shttp.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)
@@ -1038,7 +1038,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 		}
 
 		updateData = append(updateData, struct {
-			existingHeader mhttpheader.HttpHeader
+			existingHeader mhttp.HTTPHeader
 			key            *string
 			value          *string
 			enabled        *bool
@@ -1065,7 +1065,7 @@ func (h *HttpServiceRPC) HttpHeaderUpdate(ctx context.Context, req *connect.Requ
 
 	httpHeaderService := h.httpHeaderService.TX(tx)
 
-	var updatedHeaders []mhttpheader.HttpHeader
+	var updatedHeaders []mhttp.HTTPHeader
 
 	for _, data := range updateData {
 		header := data.existingHeader
@@ -1135,7 +1135,7 @@ func (h *HttpServiceRPC) HttpHeaderDelete(ctx context.Context, req *connect.Requ
 		// Get existing header - use pool service
 		existingHeader, err := h.httpHeaderService.GetByID(ctx, headerID)
 		if err != nil {
-			if errors.Is(err, shttpheader.ErrNoHttpHeaderFound) {
+			if errors.Is(err, shttp.ErrNoHttpHeaderFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
 			return nil, connect.NewError(connect.CodeInternal, err)

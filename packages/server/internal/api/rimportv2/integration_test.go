@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"connectrpc.com/connect"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rflowv2"
@@ -22,13 +21,13 @@ import (
 	"the-dev-tools/server/pkg/model/muser"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
-	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
+
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
@@ -38,73 +37,64 @@ import (
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
+
+	"connectrpc.com/connect"
 )
 
 // integrationTestFixture represents the complete test setup for integration testing
 
 type integrationTestFixture struct {
+	ctx context.Context
 
-	ctx         context.Context
+	base *testutil.BaseDBQueries
 
-	base        *testutil.BaseDBQueries
+	services BaseTestServices
 
-	services    BaseTestServices
+	rpc *ImportV2RPC
 
-	rpc         *ImportV2RPC
-
-	userID      idwrap.IDWrap
+	userID idwrap.IDWrap
 
 	workspaceID idwrap.IDWrap
 
-	logger      *slog.Logger
+	logger *slog.Logger
 
-	streamers   IntegrationTestStreamers
-
+	streamers IntegrationTestStreamers
 }
 
-
-
 type IntegrationTestStreamers struct {
-	Flow               eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
-	Node               eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
-	Edge               eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
-	NoOp               eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
-	Http               eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
-	HttpHeader         eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
+	Flow       eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]
+	Node       eventstream.SyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]
+	Edge       eventstream.SyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent]
+	NoOp       eventstream.SyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent]
+	Http       eventstream.SyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]
+	HttpHeader eventstream.SyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent]
 
-	HttpSearchParam    eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
+	HttpSearchParam eventstream.SyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent]
 
-	HttpBodyForm       eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
+	HttpBodyForm eventstream.SyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent]
 
 	HttpBodyUrlEncoded eventstream.SyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent]
 
-	HttpBodyRaw        eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
+	HttpBodyRaw eventstream.SyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent]
 
-	File               eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
-
+	File eventstream.SyncStreamer[rfile.FileTopic, rfile.FileEvent]
 }
-
-
 
 // BaseTestServices wraps the testutil services for easier access
 
 type BaseTestServices struct {
+	Us suser.UserService
 
-	Us  suser.UserService
-
-	Ws  sworkspace.WorkspaceService
+	Ws sworkspace.WorkspaceService
 
 	Wus sworkspacesusers.WorkspaceUserService
 
-	Hs  shttp.HTTPService
+	Hs shttp.HTTPService
 
-	Fs  sfile.FileService
+	Fs sfile.FileService
 
 	Fls sflow.FlowService
-
 }
-
-
 
 // newIntegrationTestFixture creates a complete test environment for integration tests
 
@@ -112,23 +102,17 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	t.Helper()
 
-
-
 	ctx := context.Background()
 
 	base := testutil.CreateBaseDB(ctx, t)
 
 	t.Cleanup(base.Close)
 
-
-
 	// Get base services
 
 	baseServices := base.GetBaseServices()
 
 	logger := base.Logger()
-
-
 
 	// Create additional services needed for import
 
@@ -138,92 +122,49 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	fileService := sfile.New(base.Queries, logger)
 
-
-
-	httpHeaderService := shttpheader.New(base.Queries)
+	httpHeaderService := shttp.NewHttpHeaderService(base.Queries)
 
 	httpSearchParamService := shttpsearchparam.New(base.Queries)
 
 	httpBodyFormService := shttpbodyform.New(base.Queries)
 
-		httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
+	httpBodyUrlEncodedService := shttpbodyurlencoded.New(base.Queries)
 
-		bodyService := shttp.NewHttpBodyRawService(base.Queries)
+	bodyService := shttp.NewHttpBodyRawService(base.Queries)
 
-	
+	nodeService := snode.New(base.Queries)
 
-			nodeService := snode.New(base.Queries)
+	nodeRequestService := snoderequest.New(base.Queries)
 
-	
+	nodeNoopService := snodenoop.New(base.Queries)
 
-			nodeRequestService := snoderequest.New(base.Queries)
+	edgeService := sedge.New(base.Queries)
 
-	
+	// Create streamers
 
-			nodeNoopService := snodenoop.New(base.Queries)
+	streamers := IntegrationTestStreamers{
 
-	
+		Flow: memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent](),
 
-			edgeService := sedge.New(base.Queries)
+		Node: memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent](),
 
-	
+		Edge: memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent](),
 
-		
+		NoOp: memory.NewInMemorySyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent](),
 
-	
+		Http:       memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
+		HttpHeader: memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent](),
 
-			// Create streamers
+		HttpSearchParam: memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent](),
 
-	
-
-			streamers := IntegrationTestStreamers{
-
-	
-
-				Flow:               memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent](),
-
-	
-
-								Node:               memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent](),
-
-	
-
-					
-
-	
-
-								Edge:               memory.NewInMemorySyncStreamer[rflowv2.EdgeTopic, rflowv2.EdgeEvent](),
-
-	
-
-				
-
-	
-
-								NoOp:               memory.NewInMemorySyncStreamer[rflowv2.NoOpTopic, rflowv2.NoOpEvent](),
-
-	
-
-					
-
-	
-
-								Http:               memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent](),
-		HttpHeader:         memory.NewInMemorySyncStreamer[rhttp.HttpHeaderTopic, rhttp.HttpHeaderEvent](),
-
-		HttpSearchParam:    memory.NewInMemorySyncStreamer[rhttp.HttpSearchParamTopic, rhttp.HttpSearchParamEvent](),
-
-		HttpBodyForm:       memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent](),
+		HttpBodyForm: memory.NewInMemorySyncStreamer[rhttp.HttpBodyFormTopic, rhttp.HttpBodyFormEvent](),
 
 		HttpBodyUrlEncoded: memory.NewInMemorySyncStreamer[rhttp.HttpBodyUrlEncodedTopic, rhttp.HttpBodyUrlEncodedEvent](),
 
-		HttpBodyRaw:        memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent](),
+		HttpBodyRaw: memory.NewInMemorySyncStreamer[rhttp.HttpBodyRawTopic, rhttp.HttpBodyRawEvent](),
 
-		File:               memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
-
+		File: memory.NewInMemorySyncStreamer[rfile.FileTopic, rfile.FileEvent](),
 	}
-
-
 
 	// Create user and workspace
 
@@ -231,59 +172,48 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	workspaceID := idwrap.NewNow()
 
-
-
 	// Create test user
 
 	err := baseServices.Us.CreateUser(ctx, &muser.User{
 
-		ID:           userID,
+		ID: userID,
 
-		Email:        "test@example.com",
+		Email: "test@example.com",
 
-		Password:     []byte("password"),
+		Password: []byte("password"),
 
 		ProviderType: muser.MagicLink,
 
-		Status:       muser.Active,
-
+		Status: muser.Active,
 	})
 
 	require.NoError(t, err)
-
-
 
 	// Create test workspace
 
 	err = baseServices.Ws.Create(ctx, &mworkspace.Workspace{
 
-		ID:   workspaceID,
+		ID: workspaceID,
 
 		Name: "Test Workspace",
-
 	})
 
 	require.NoError(t, err)
-
-
 
 	// Create workspace-user relationship
 
 	err = baseServices.Wus.CreateWorkspaceUser(ctx, &mworkspaceuser.WorkspaceUser{
 
-		ID:          idwrap.NewNow(),
+		ID: idwrap.NewNow(),
 
 		WorkspaceID: workspaceID,
 
-		UserID:      userID,
+		UserID: userID,
 
-		Role:        mworkspaceuser.RoleOwner,
-
+		Role: mworkspaceuser.RoleOwner,
 	})
 
 	require.NoError(t, err)
-
-
 
 	// Create RPC handler
 	rpc := NewImportV2RPC(
@@ -316,44 +246,38 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		streamers.File,
 	)
 
-		
+	services := BaseTestServices{
 
-			services := BaseTestServices{
+		Us: baseServices.Us,
 
-		Us:  baseServices.Us,
-
-		Ws:  baseServices.Ws,
+		Ws: baseServices.Ws,
 
 		Wus: baseServices.Wus,
 
-		Hs:  httpService,
+		Hs: httpService,
 
-		Fs:  *fileService,
+		Fs: *fileService,
 
 		Fls: flowService,
-
 	}
-
-
 
 	return &integrationTestFixture{
 
-		ctx:         mwauth.CreateAuthedContext(ctx, userID),
+		ctx: mwauth.CreateAuthedContext(ctx, userID),
 
-		base:        base,
+		base: base,
 
-		services:    services,
+		services: services,
 
-		rpc:         rpc,
+		rpc: rpc,
 
-		userID:      userID,
+		userID: userID,
 
 		workspaceID: workspaceID,
 
-		logger:      logger,
+		logger: logger,
 
-		streamers:   streamers,
-
+		streamers: streamers,
 	}
 
 }
@@ -457,7 +381,7 @@ func TestImportRPC_Integration(t *testing.T) {
 				if resp.Msg.MissingData != apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED {
 					shouldStore = false
 				}
-				
+
 				if shouldStore {
 					fixture.verifyStoredData(t, tt.harData)
 				}
@@ -482,7 +406,7 @@ func TestImportService_DatabaseImport(t *testing.T) {
 		WorkspaceID: fixture.workspaceID,
 		Name:        "Database Import Test",
 		Data:        harData,
-		DomainData:  []ImportDomainData{
+		DomainData: []ImportDomainData{
 			{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
 		},
 	}
@@ -548,7 +472,7 @@ func TestImportService_ConcurrentImports(t *testing.T) {
 				WorkspaceId: fixture.workspaceID.Bytes(),
 				Name:        fmt.Sprintf("Concurrent Import %d", index),
 				Data:        harData,
-				DomainData:  []*apiv1.ImportDomainData{
+				DomainData: []*apiv1.ImportDomainData{
 					{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
 				},
 			})
@@ -598,7 +522,7 @@ func TestImportService_LargeHARImport(t *testing.T) {
 		WorkspaceId: fixture.workspaceID.Bytes(),
 		Name:        "Large HAR Import",
 		Data:        harData,
-		DomainData:  []*apiv1.ImportDomainData{
+		DomainData: []*apiv1.ImportDomainData{
 			{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
 			{Enabled: true, Domain: "data.example.org", Variable: "DATA_DOMAIN"},
 			{Enabled: true, Domain: "service.example.net", Variable: "SERVICE_DOMAIN"},
@@ -639,7 +563,7 @@ func TestImportService_DomainProcessingIntegration(t *testing.T) {
 		expectResp func(*apiv1.ImportResponse) bool
 	}{
 		{
-			name: "no domain data provided",
+			name:       "no domain data provided",
 			domainData: []ImportDomainData{},
 			expectResp: func(resp *apiv1.ImportResponse) bool {
 				return resp.MissingData == apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_DOMAIN
@@ -752,13 +676,13 @@ func TestImportRPC_SyncEvents(t *testing.T) {
 	// Subscribe to streamers
 	httpCh, err := fixture.streamers.Http.Subscribe(fixture.ctx, nil)
 	require.NoError(t, err)
-	
+
 	headerCh, err := fixture.streamers.HttpHeader.Subscribe(fixture.ctx, nil)
 	require.NoError(t, err)
-	
+
 	paramCh, err := fixture.streamers.HttpSearchParam.Subscribe(fixture.ctx, nil)
 	require.NoError(t, err)
-	
+
 	fileCh, err := fixture.streamers.File.Subscribe(fixture.ctx, nil)
 	require.NoError(t, err)
 
@@ -767,7 +691,7 @@ func TestImportRPC_SyncEvents(t *testing.T) {
 		WorkspaceId: fixture.workspaceID.Bytes(),
 		Name:        "Sync Events Import",
 		Data:        harData,
-		DomainData:  []*apiv1.ImportDomainData{
+		DomainData: []*apiv1.ImportDomainData{
 			{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
 			{Enabled: true, Domain: "cdn.example.com", Variable: "CDN_DOMAIN"},
 		},
@@ -778,7 +702,7 @@ func TestImportRPC_SyncEvents(t *testing.T) {
 
 	// Verify events are received
 	// We expect multiple events for HTTP requests, Headers, and Params
-	
+
 	// Check HTTP events (at least 2 from complex HAR)
 	select {
 	case evt := <-httpCh:
@@ -864,16 +788,16 @@ func createMultiEntryHAR(t *testing.T) []byte {
 			"startedDateTime": baseTime.Add(time.Duration(i) * time.Second).Format(time.RFC3339),
 			"time":            100 + i*10,
 			"request": map[string]interface{}{
-				"method":     []string{"GET", "POST", "PUT"}[i],
-				"url":        fmt.Sprintf("https://api.example.com/resource_%d", i),
+				"method":      []string{"GET", "POST", "PUT"}[i],
+				"url":         fmt.Sprintf("https://api.example.com/resource_%d", i),
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Accept", "value": "application/json"},
 				},
 			},
 			"response": map[string]interface{}{
-				"status":     200,
-				"statusText": "OK",
+				"status":      200,
+				"statusText":  "OK",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Content-Type", "value": "application/json"},
@@ -909,8 +833,8 @@ func createComplexHAR(t *testing.T) []byte {
 			"startedDateTime": time.Now().UTC().Format(time.RFC3339),
 			"time":            150,
 			"request": map[string]interface{}{
-				"method": "GET",
-				"url":    "https://api.example.com/users",
+				"method":      "GET",
+				"url":         "https://api.example.com/users",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Accept", "value": "application/json"},
@@ -922,8 +846,8 @@ func createComplexHAR(t *testing.T) []byte {
 				},
 			},
 			"response": map[string]interface{}{
-				"status":     200,
-				"statusText": "OK",
+				"status":      200,
+				"statusText":  "OK",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Content-Type", "value": "application/json"},
@@ -939,16 +863,16 @@ func createComplexHAR(t *testing.T) []byte {
 			"startedDateTime": time.Now().Add(time.Second).UTC().Format(time.RFC3339),
 			"time":            50,
 			"request": map[string]interface{}{
-				"method": "GET",
-				"url":    "https://cdn.example.com/assets/style.css",
+				"method":      "GET",
+				"url":         "https://cdn.example.com/assets/style.css",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Accept", "value": "text/css"},
 				},
 			},
 			"response": map[string]interface{}{
-				"status":     200,
-				"statusText": "OK",
+				"status":      200,
+				"statusText":  "OK",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Content-Type", "value": "text/css"},
@@ -983,40 +907,40 @@ func createMultiDomainHAR(t *testing.T) []byte {
 		map[string]interface{}{
 			"startedDateTime": time.Now().UTC().Format(time.RFC3339),
 			"request": map[string]interface{}{
-				"method": "GET",
-				"url":    "https://api.example.com/data",
+				"method":      "GET",
+				"url":         "https://api.example.com/data",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Accept", "value": "application/json"},
 				},
 			},
 			"response": map[string]interface{}{
-				"status": 200,
-				"statusText": "OK",
+				"status":      200,
+				"statusText":  "OK",
 				"httpVersion": "HTTP/1.1",
 			},
 		},
 		map[string]interface{}{
 			"startedDateTime": time.Now().Add(time.Second).UTC().Format(time.RFC3339),
 			"request": map[string]interface{}{
-				"method": "GET",
-				"url":    "https://cdn.example.com/assets/image.png",
+				"method":      "GET",
+				"url":         "https://cdn.example.com/assets/image.png",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Accept", "value": "image/png"},
 				},
 			},
 			"response": map[string]interface{}{
-				"status": 200,
-				"statusText": "OK",
+				"status":      200,
+				"statusText":  "OK",
 				"httpVersion": "HTTP/1.1",
 			},
 		},
 		map[string]interface{}{
 			"startedDateTime": time.Now().Add(2 * time.Second).UTC().Format(time.RFC3339),
 			"request": map[string]interface{}{
-				"method": "POST",
-				"url":    "https://api.example.com/submit",
+				"method":      "POST",
+				"url":         "https://api.example.com/submit",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Content-Type", "value": "application/json"},
@@ -1027,8 +951,8 @@ func createMultiDomainHAR(t *testing.T) []byte {
 				},
 			},
 			"response": map[string]interface{}{
-				"status": 201,
-				"statusText": "Created",
+				"status":      201,
+				"statusText":  "Created",
 				"httpVersion": "HTTP/1.1",
 			},
 		},
@@ -1094,10 +1018,10 @@ func createLargeHAR(t *testing.T, numEntries int) []byte {
 
 		entries[i] = map[string]interface{}{
 			"startedDateTime": baseTime.Add(time.Duration(i) * time.Millisecond).Format(time.RFC3339),
-			"time":            100 + (i%50),
+			"time":            100 + (i % 50),
 			"request": map[string]interface{}{
-				"method":     method,
-				"url":        fmt.Sprintf("https://%s/endpoint_%d", domain, i),
+				"method":      method,
+				"url":         fmt.Sprintf("https://%s/endpoint_%d", domain, i),
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Accept", "value": "application/json"},
@@ -1108,8 +1032,8 @@ func createLargeHAR(t *testing.T, numEntries int) []byte {
 				},
 			},
 			"response": map[string]interface{}{
-				"status":     200,
-				"statusText": "OK",
+				"status":      200,
+				"statusText":  "OK",
 				"httpVersion": "HTTP/1.1",
 				"headers": []map[string]interface{}{
 					{"name": "Content-Type", "value": "application/json"},

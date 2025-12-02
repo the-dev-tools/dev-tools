@@ -483,8 +483,8 @@ func TestErrorHandlingIntegration(t *testing.T) {
 			expectedFormat: FormatUnknown,
 		},
 		{
-			name: "Invalid JSON",
-			data: []byte(`{invalid json that cannot be parsed`),
+			name:           "Invalid JSON",
+			data:           []byte(`{invalid json that cannot be parsed`),
 			expectedError:  "invalid",
 			expectedFormat: FormatUnknown,
 		},
@@ -500,8 +500,8 @@ func TestErrorHandlingIntegration(t *testing.T) {
 			expectedFormat: FormatHAR, // Will detect as HAR but fail validation due to no entries
 		},
 		{
-			name: "Invalid YAML",
-			data: []byte(`invalid: yaml: content: [missing colon`),
+			name:           "Invalid YAML",
+			data:           []byte(`invalid: yaml: content: [missing colon`),
 			expectedError:  "invalid",
 			expectedFormat: FormatUnknown,
 		},
@@ -547,9 +547,9 @@ func TestErrorHandlingIntegration(t *testing.T) {
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) &&
-		   (s == substr ||
-		    (len(s) > len(substr) &&
-		     findSubstring(s, substr)))
+		(s == substr ||
+			(len(s) > len(substr) &&
+				findSubstring(s, substr)))
 }
 
 func findSubstring(s, substr string) bool {

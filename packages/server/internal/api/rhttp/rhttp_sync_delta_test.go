@@ -11,9 +11,10 @@ import (
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/eventstream/memory"
+	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
-	"the-dev-tools/server/pkg/model/mhttpheader"
+
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/senv"
@@ -21,11 +22,10 @@ import (
 	"the-dev-tools/server/pkg/service/shttpassert"
 	"the-dev-tools/server/pkg/service/shttpbodyform"
 	"the-dev-tools/server/pkg/service/shttpbodyurlencoded"
-	"the-dev-tools/server/pkg/service/shttpheader"
+
 	"the-dev-tools/server/pkg/service/shttpsearchparam"
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
-	"the-dev-tools/server/pkg/http/resolver"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
 )
 
@@ -38,7 +38,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 
 	baseDBQueries := testutil.CreateBaseDB(ctx, t)
 	defer baseDBQueries.Close()
-	
+
 	// Setup services
 	logger := baseDBQueries.Logger()
 	queries := baseDBQueries.Queries
@@ -50,9 +50,9 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	hs := baseDBQueries.GetBaseServices().Hs
 	es := senv.New(queries, logger)
 	vs := svar.New(queries, logger)
-	
+
 	bodyService := shttp.NewHttpBodyRawService(queries)
-	httpHeaderService := shttpheader.New(queries)
+	httpHeaderService := shttp.NewHttpHeaderService(queries)
 	httpSearchParamService := shttpsearchparam.New(queries)
 	httpBodyFormService := shttpbodyform.New(queries)
 	httpBodyUrlEncodedService := shttpbodyurlencoded.New(queries)
@@ -115,8 +115,8 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 	// 1. Create Workspace and User
 	workspaceID := idwrap.NewNow()
 	err := svc.ws.Create(ctx, &mworkspace.Workspace{
-		ID:        workspaceID,
-		Name:      "Test Workspace",
+		ID:   workspaceID,
+		Name: "Test Workspace",
 	})
 	require.NoError(t, err)
 
@@ -234,9 +234,9 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 
 	// 7. Insert Delta Header -> Should appear in Delta Stream ONLY
 	deltaHeaderID := idwrap.NewNow()
-	
+
 	// Manually create the Delta Header using service because the RPC seems suspect
-	deltaHeader := &mhttpheader.HttpHeader{
+	deltaHeader := &mhttp.HTTPHeader{
 		ID:                 deltaHeaderID,
 		HttpID:             deltaHttpID,
 		Key:                "Content-Type",

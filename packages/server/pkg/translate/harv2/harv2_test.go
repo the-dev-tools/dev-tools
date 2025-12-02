@@ -969,8 +969,8 @@ func TestDeltaHeaderComparison(t *testing.T) {
 	originalHeaders := []mhttp.HTTPHeader{
 		{
 			ID:           idwrap.NewNow(),
-			HeaderKey:    "Content-Type",
-			HeaderValue:  "application/json",
+			Key:    "Content-Type",
+			Value:  "application/json",
 			HttpID:       idwrap.NewNow(),
 			CreatedAt:    time.Now().Unix(),
 			UpdatedAt:    time.Now().Unix(),
@@ -980,16 +980,16 @@ func TestDeltaHeaderComparison(t *testing.T) {
 	newHeaders := []mhttp.HTTPHeader{
 		{
 			ID:           idwrap.NewNow(),
-			HeaderKey:    "Content-Type",
-			HeaderValue:  "application/xml", // Different value
+			Key:    "Content-Type",
+			Value:  "application/xml", // Different value
 			HttpID:       idwrap.NewNow(),
 			CreatedAt:    time.Now().Unix(),
 			UpdatedAt:    time.Now().Unix(),
 		},
 		{
 			ID:           idwrap.NewNow(),
-			HeaderKey:    "Authorization", // New header
-			HeaderValue:  "Bearer new-token",
+			Key:    "Authorization", // New header
+			Value:  "Bearer new-token",
 			HttpID:       idwrap.NewNow(),
 			CreatedAt:    time.Now().Unix(),
 			UpdatedAt:    time.Now().Unix(),
@@ -1006,15 +1006,15 @@ func TestDeltaHeaderComparison(t *testing.T) {
 	for i, delta := range deltaHeaders {
 		require.True(t, delta.IsDelta, "Delta header should be marked as delta")
 		require.Equal(t, deltaHttpID, delta.HttpID, "Delta should reference correct HTTP")
-		require.NotNil(t, delta.DeltaHeaderKey, "Delta should have delta key")
-		require.NotNil(t, delta.DeltaHeaderValue, "Delta should have delta value")
+		require.NotNil(t, delta.DeltaKey, "Delta should have delta key")
+		require.NotNil(t, delta.DeltaValue, "Delta should have delta value")
 
 		// The first header (Content-Type) should have a parent (it was changed)
 		// The second header (Authorization) should have no parent (it's new)
 		if i == 0 {
-			require.NotNil(t, delta.ParentHeaderID, "Changed header should have parent reference")
+			require.NotNil(t, delta.ParentHttpHeaderID, "Changed header should have parent reference")
 		} else {
-			require.Nil(t, delta.ParentHeaderID, "New header should not have parent reference")
+			require.Nil(t, delta.ParentHttpHeaderID, "New header should not have parent reference")
 		}
 	}
 }

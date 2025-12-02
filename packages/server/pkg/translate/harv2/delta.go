@@ -39,17 +39,17 @@ func CreateDeltaHeaders(originalHeaders []mhttp.HTTPHeader, newHeaders []mhttp.H
 	// Create map of original headers by key for comparison
 	originalMap := make(map[string]mhttp.HTTPHeader)
 	for _, header := range originalHeaders {
-		originalMap[header.HeaderKey] = header
+		originalMap[header.Key] = header
 	}
 
 	// Find changed or new headers
 	for _, newHeader := range newHeaders {
-		original, exists := originalMap[newHeader.HeaderKey]
+		original, exists := originalMap[newHeader.Key]
 
 		// Create delta if header doesn't exist or has different value
-		if !exists || original.HeaderValue != newHeader.HeaderValue {
-			deltaKey := newHeader.HeaderKey
-			deltaValue := newHeader.HeaderValue
+		if !exists || original.Value != newHeader.Value {
+			deltaKey := newHeader.Key
+			deltaValue := newHeader.Value
 			deltaDesc := "Imported from HAR"
 			deltaEnabled := true
 
@@ -62,14 +62,14 @@ func CreateDeltaHeaders(originalHeaders []mhttp.HTTPHeader, newHeaders []mhttp.H
 			deltaHeader := mhttp.HTTPHeader{
 				ID:               idwrap.NewNow(),
 				HttpID:           deltaHttpID,
-				HeaderKey:        deltaKey,
-				HeaderValue:      deltaValue,
+				Key:        deltaKey,
+				Value:      deltaValue,
 				Description:      deltaDesc,
 				Enabled:          true, // Delta headers are always enabled
-				ParentHeaderID:   parentHeaderID,
+				ParentHttpHeaderID:   parentHeaderID,
 				IsDelta:          true,
-				DeltaHeaderKey:   &deltaKey,
-				DeltaHeaderValue: &deltaValue,
+				DeltaKey:   &deltaKey,
+				DeltaValue: &deltaValue,
 				DeltaDescription: &deltaDesc,
 				DeltaEnabled:     &deltaEnabled,
 				CreatedAt:        newHeader.CreatedAt + 1,
