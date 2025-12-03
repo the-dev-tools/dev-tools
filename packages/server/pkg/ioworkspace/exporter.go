@@ -129,7 +129,7 @@ func (s *IOWorkspaceService) exportHTTP(ctx context.Context, opts ExportOptions,
 			httpRequests = append(httpRequests, httpID)
 		}
 	} else {
-		// Export all HTTP requests in workspace
+		// Export all HTTP requests in workspace (base requests)
 		https, err := httpService.GetByWorkspaceID(ctx, opts.WorkspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get HTTP requests: %w", err)
@@ -137,6 +137,16 @@ func (s *IOWorkspaceService) exportHTTP(ctx context.Context, opts ExportOptions,
 		bundle.HTTPRequests = https
 		for _, http := range https {
 			httpRequests = append(httpRequests, http.ID)
+		}
+
+		// Also export delta HTTP requests
+		deltaHttps, err := httpService.GetDeltasByWorkspaceID(ctx, opts.WorkspaceID)
+		if err != nil {
+			return fmt.Errorf("failed to get delta HTTP requests: %w", err)
+		}
+		bundle.HTTPRequests = append(bundle.HTTPRequests, deltaHttps...)
+		for _, deltaHttp := range deltaHttps {
+			httpRequests = append(httpRequests, deltaHttp.ID)
 		}
 	}
 

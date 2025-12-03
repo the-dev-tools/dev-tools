@@ -1,13 +1,18 @@
 package yamlflowsimplev2
 
 import (
-	"testing"
 	"strings"
+	"testing"
 
+	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
+	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mnnode"
+	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mworkspace"
 )
 
 func TestMarshalSimplifiedYAML_RoundTrip(t *testing.T) {
@@ -157,5 +162,361 @@ flows:
 	}
 	if !foundBody {
 		t.Errorf("Missing body for 'Create User'")
+	}
+}
+
+func TestMarshalSimplifiedYAML_WithDeltaOverrides(t *testing.T) {
+	// This test verifies that when a request node has a DeltaHttpID,
+	// the exporter merges the delta values (like template syntax) into the output.
+
+	workspaceID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	requestNodeID := idwrap.NewNow()
+
+	// Base HTTP request (static values)
+	baseHttpID := idwrap.NewNow()
+	baseHttp := mhttp.HTTP{
+		ID:          baseHttpID,
+		WorkspaceID: workspaceID,
+		Name:        "Get User",
+		Method:      "GET",
+		Url:         "https://api.example.com/users/123",
+	}
+
+	// Delta HTTP request (with template syntax)
+	deltaHttpID := idwrap.NewNow()
+	deltaUrl := "https://api.example.com/users/{{ request_1.response.body.id }}"
+	deltaHttp := mhttp.HTTP{
+		ID:           deltaHttpID,
+		WorkspaceID:  workspaceID,
+		Name:         "Get User Delta",
+		Method:       "GET",
+		Url:          "https://api.example.com/users/123", // Base URL
+		IsDelta:      true,
+		ParentHttpID: &baseHttpID,
+		DeltaUrl:     &deltaUrl,
+	}
+
+	// Base header (static value)
+	baseHeaderID := idwrap.NewNow()
+	baseHeader := mhttp.HTTPHeader{
+		ID:      baseHeaderID,
+		HttpID:  baseHttpID,
+		Key:     "Authorization",
+		Value:   "Bearer static-token",
+		Enabled: true,
+	}
+
+	// Delta header (with template syntax)
+	deltaHeaderValue := "Bearer {{ request_1.response.body.token }}"
+	deltaHeader := mhttp.HTTPHeader{
+		ID:                 idwrap.NewNow(),
+		HttpID:             deltaHttpID,
+		Key:                "Authorization",
+		Value:              "Bearer static-token", // Base value
+		Enabled:            true,
+		ParentHttpHeaderID: &baseHeaderID,
+		IsDelta:            true,
+		DeltaValue:         &deltaHeaderValue,
+	}
+
+	// Build the workspace bundle
+	bundle := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   workspaceID,
+			Name: "Delta Test Workspace",
+		},
+		Flows: []mflow.Flow{
+			{
+				ID:          flowID,
+				WorkspaceID: workspaceID,
+				Name:        "Test Flow",
+			},
+		},
+		FlowNodes: []mnnode.MNode{
+			{
+				ID:       startNodeID,
+				FlowID:   flowID,
+				Name:     "Start",
+				NodeKind: mnnode.NODE_KIND_NO_OP,
+			},
+			{
+				ID:       requestNodeID,
+				FlowID:   flowID,
+				Name:     "Get User",
+				NodeKind: mnnode.NODE_KIND_REQUEST,
+			},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{
+				FlowNodeID: startNodeID,
+				Type:       mnnoop.NODE_NO_OP_KIND_START,
+			},
+		},
+		FlowRequestNodes: []mnrequest.MNRequest{
+			{
+				FlowNodeID:  requestNodeID,
+				HttpID:      &baseHttpID,
+				DeltaHttpID: &deltaHttpID, // This is the key - points to delta
+			},
+		},
+		FlowEdges: []edge.Edge{
+			{
+				ID:       idwrap.NewNow(),
+				FlowID:   flowID,
+				SourceID: startNodeID,
+				TargetID: requestNodeID,
+			},
+		},
+		HTTPRequests: []mhttp.HTTP{baseHttp, deltaHttp},
+		HTTPHeaders:  []mhttp.HTTPHeader{baseHeader, deltaHeader},
+	}
+
+	// Export to YAML
+	yamlBytes, err := MarshalSimplifiedYAML(bundle)
+	if err != nil {
+		t.Fatalf("MarshalSimplifiedYAML failed: %v", err)
+	}
+
+	yamlStr := string(yamlBytes)
+	t.Logf("Exported YAML:\n%s", yamlStr)
+
+	// Verify the delta URL template is in the output
+	if !strings.Contains(yamlStr, "{{ request_1.response.body.id }}") {
+		t.Errorf("Expected delta URL template '{{ request_1.response.body.id }}' in output, got:\n%s", yamlStr)
+	}
+
+	// Verify the delta header template is in the output
+	if !strings.Contains(yamlStr, "{{ request_1.response.body.token }}") {
+		t.Errorf("Expected delta header template '{{ request_1.response.body.token }}' in output, got:\n%s", yamlStr)
+	}
+
+	// Verify the static values are NOT in the output (they should be replaced by delta)
+	if strings.Contains(yamlStr, "static-token") {
+		t.Errorf("Static token should be replaced by delta template, but found 'static-token' in output")
+	}
+}
+
+func TestMarshalSimplifiedYAML_WithDeltaDisabledHeader(t *testing.T) {
+	// Test that delta can disable a header
+
+	workspaceID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	requestNodeID := idwrap.NewNow()
+
+	baseHttpID := idwrap.NewNow()
+	baseHttp := mhttp.HTTP{
+		ID:          baseHttpID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Request",
+		Method:      "GET",
+		Url:         "https://api.example.com/test",
+	}
+
+	deltaHttpID := idwrap.NewNow()
+	deltaHttp := mhttp.HTTP{
+		ID:           deltaHttpID,
+		WorkspaceID:  workspaceID,
+		Name:         "Test Request Delta",
+		Method:       "GET",
+		Url:          "https://api.example.com/test",
+		IsDelta:      true,
+		ParentHttpID: &baseHttpID,
+	}
+
+	// Base header that should be disabled by delta
+	baseHeaderID := idwrap.NewNow()
+	baseHeader := mhttp.HTTPHeader{
+		ID:      baseHeaderID,
+		HttpID:  baseHttpID,
+		Key:     "X-Debug",
+		Value:   "true",
+		Enabled: true,
+	}
+
+	// Delta header that disables the base header
+	deltaEnabled := false
+	deltaHeader := mhttp.HTTPHeader{
+		ID:                 idwrap.NewNow(),
+		HttpID:             deltaHttpID,
+		Key:                "X-Debug",
+		Value:              "true",
+		Enabled:            true,
+		ParentHttpHeaderID: &baseHeaderID,
+		IsDelta:            true,
+		DeltaEnabled:       &deltaEnabled,
+	}
+
+	bundle := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   workspaceID,
+			Name: "Delta Disable Test",
+		},
+		Flows: []mflow.Flow{
+			{
+				ID:          flowID,
+				WorkspaceID: workspaceID,
+				Name:        "Test Flow",
+			},
+		},
+		FlowNodes: []mnnode.MNode{
+			{
+				ID:       startNodeID,
+				FlowID:   flowID,
+				Name:     "Start",
+				NodeKind: mnnode.NODE_KIND_NO_OP,
+			},
+			{
+				ID:       requestNodeID,
+				FlowID:   flowID,
+				Name:     "Test Request",
+				NodeKind: mnnode.NODE_KIND_REQUEST,
+			},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{
+				FlowNodeID: startNodeID,
+				Type:       mnnoop.NODE_NO_OP_KIND_START,
+			},
+		},
+		FlowRequestNodes: []mnrequest.MNRequest{
+			{
+				FlowNodeID:  requestNodeID,
+				HttpID:      &baseHttpID,
+				DeltaHttpID: &deltaHttpID,
+			},
+		},
+		FlowEdges: []edge.Edge{
+			{
+				ID:       idwrap.NewNow(),
+				FlowID:   flowID,
+				SourceID: startNodeID,
+				TargetID: requestNodeID,
+			},
+		},
+		HTTPRequests: []mhttp.HTTP{baseHttp, deltaHttp},
+		HTTPHeaders:  []mhttp.HTTPHeader{baseHeader, deltaHeader},
+	}
+
+	yamlBytes, err := MarshalSimplifiedYAML(bundle)
+	if err != nil {
+		t.Fatalf("MarshalSimplifiedYAML failed: %v", err)
+	}
+
+	yamlStr := string(yamlBytes)
+	t.Logf("Exported YAML:\n%s", yamlStr)
+
+	// The X-Debug header should NOT be in the output because delta disabled it
+	if strings.Contains(yamlStr, "X-Debug") {
+		t.Errorf("X-Debug header should be disabled by delta, but found in output:\n%s", yamlStr)
+	}
+}
+
+func TestMarshalSimplifiedYAML_WithNewDeltaHeader(t *testing.T) {
+	// Test that delta can add a new header not present in base
+
+	workspaceID := idwrap.NewNow()
+	flowID := idwrap.NewNow()
+	startNodeID := idwrap.NewNow()
+	requestNodeID := idwrap.NewNow()
+
+	baseHttpID := idwrap.NewNow()
+	baseHttp := mhttp.HTTP{
+		ID:          baseHttpID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Request",
+		Method:      "GET",
+		Url:         "https://api.example.com/test",
+	}
+
+	deltaHttpID := idwrap.NewNow()
+	deltaHttp := mhttp.HTTP{
+		ID:           deltaHttpID,
+		WorkspaceID:  workspaceID,
+		Name:         "Test Request Delta",
+		Method:       "GET",
+		Url:          "https://api.example.com/test",
+		IsDelta:      true,
+		ParentHttpID: &baseHttpID,
+	}
+
+	// New header added only in delta (no parent)
+	newDeltaHeader := mhttp.HTTPHeader{
+		ID:      idwrap.NewNow(),
+		HttpID:  deltaHttpID,
+		Key:     "X-Request-ID",
+		Value:   "{{ uuid() }}",
+		Enabled: true,
+		IsDelta: false, // It's a new header, not a delta override
+		// ParentHttpHeaderID is nil - this is a new header
+	}
+
+	bundle := &ioworkspace.WorkspaceBundle{
+		Workspace: mworkspace.Workspace{
+			ID:   workspaceID,
+			Name: "Delta New Header Test",
+		},
+		Flows: []mflow.Flow{
+			{
+				ID:          flowID,
+				WorkspaceID: workspaceID,
+				Name:        "Test Flow",
+			},
+		},
+		FlowNodes: []mnnode.MNode{
+			{
+				ID:       startNodeID,
+				FlowID:   flowID,
+				Name:     "Start",
+				NodeKind: mnnode.NODE_KIND_NO_OP,
+			},
+			{
+				ID:       requestNodeID,
+				FlowID:   flowID,
+				Name:     "Test Request",
+				NodeKind: mnnode.NODE_KIND_REQUEST,
+			},
+		},
+		FlowNoopNodes: []mnnoop.NoopNode{
+			{
+				FlowNodeID: startNodeID,
+				Type:       mnnoop.NODE_NO_OP_KIND_START,
+			},
+		},
+		FlowRequestNodes: []mnrequest.MNRequest{
+			{
+				FlowNodeID:  requestNodeID,
+				HttpID:      &baseHttpID,
+				DeltaHttpID: &deltaHttpID,
+			},
+		},
+		FlowEdges: []edge.Edge{
+			{
+				ID:       idwrap.NewNow(),
+				FlowID:   flowID,
+				SourceID: startNodeID,
+				TargetID: requestNodeID,
+			},
+		},
+		HTTPRequests: []mhttp.HTTP{baseHttp, deltaHttp},
+		HTTPHeaders:  []mhttp.HTTPHeader{newDeltaHeader},
+	}
+
+	yamlBytes, err := MarshalSimplifiedYAML(bundle)
+	if err != nil {
+		t.Fatalf("MarshalSimplifiedYAML failed: %v", err)
+	}
+
+	yamlStr := string(yamlBytes)
+	t.Logf("Exported YAML:\n%s", yamlStr)
+
+	// The new header should be in the output
+	if !strings.Contains(yamlStr, "X-Request-ID") {
+		t.Errorf("X-Request-ID header should be in output, but not found:\n%s", yamlStr)
+	}
+	if !strings.Contains(yamlStr, "{{ uuid() }}") {
+		t.Errorf("Header value '{{ uuid() }}' should be in output, but not found:\n%s", yamlStr)
 	}
 }

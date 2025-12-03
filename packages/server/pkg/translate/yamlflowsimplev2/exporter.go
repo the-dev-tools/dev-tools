@@ -70,6 +70,17 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		assertsMap[a.HttpID] = append(assertsMap[a.HttpID], a)
 	}
 
+	// Build lookup context for delta merging
+	deltaCtx := &deltaLookupContext{
+		httpMap:     httpMap,
+		headersMap:  headersMap,
+		paramsMap:   paramsMap,
+		bodyRawMap:  bodyRawMap,
+		bodyFormMap: bodyFormMap,
+		bodyUrlMap:  bodyUrlMap,
+		assertsMap:  assertsMap,
+	}
+
 	// Node Specific Maps
 	reqNodeMap := make(map[idwrap.IDWrap]mnrequest.MNRequest)
 	for _, n := range data.FlowRequestNodes {
@@ -119,6 +130,8 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	// Track which HTTP IDs we've already added to avoid duplicates
 	httpIDToRequestName := make(map[idwrap.IDWrap]string)
 	requestNameUsed := make(map[string]bool)
+	// Track which base HTTP IDs have delta overrides (base HTTP ID -> delta HTTP ID)
+	httpIDToDeltaID := make(map[idwrap.IDWrap]idwrap.IDWrap)
 
 	// First pass: collect all HTTP requests used in flows and create unique names
 	for _, flow := range data.Flows {
@@ -155,6 +168,11 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 			}
 			requestNameUsed[reqName] = true
 			httpIDToRequestName[httpReq.ID] = reqName
+
+			// Track delta HTTP ID if present
+			if reqNode.DeltaHttpID != nil {
+				httpIDToDeltaID[httpReq.ID] = *reqNode.DeltaHttpID
+			}
 		}
 	}
 
@@ -173,90 +191,14 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		reqName := httpIDToRequestName[httpID]
 		httpReq := httpMap[httpID]
 
-		reqDef := YamlRequestDefV2{
-			Name:   reqName,
-			Method: httpReq.Method,
-			URL:    httpReq.Url,
+		// Check if this request has a delta override
+		var deltaHttpID *idwrap.IDWrap
+		if did, hasDelta := httpIDToDeltaID[httpID]; hasDelta {
+			deltaHttpID = &did
 		}
 
-		// Headers (as simple map for cleaner output)
-		if hdrs, ok := headersMap[httpID]; ok && len(hdrs) > 0 {
-			hdrMap := make(map[string]string)
-			for _, h := range hdrs {
-				if h.Enabled {
-					hdrMap[h.Key] = h.Value
-				}
-			}
-			if len(hdrMap) > 0 {
-				reqDef.Headers = hdrMap
-			}
-		}
-
-		// Query Params (as simple map for cleaner output)
-		if params, ok := paramsMap[httpID]; ok && len(params) > 0 {
-			paramMap := make(map[string]string)
-			for _, p := range params {
-				if p.Enabled {
-					paramMap[p.Key] = p.Value
-				}
-			}
-			if len(paramMap) > 0 {
-				reqDef.QueryParams = paramMap
-			}
-		}
-
-		// Body
-		if forms, ok := bodyFormMap[httpID]; ok && len(forms) > 0 {
-			bodyData := map[string]any{"type": "form-data"}
-			fList := make([]map[string]any, 0)
-			for _, f := range forms {
-				if f.Enabled {
-					fList = append(fList, map[string]any{"name": f.Key, "value": f.Value})
-				}
-			}
-			bodyData["form_data"] = fList
-			reqDef.Body = bodyData
-		} else if urls, ok := bodyUrlMap[httpID]; ok && len(urls) > 0 {
-			bodyData := map[string]any{"type": "urlencoded"}
-			uList := make([]map[string]any, 0)
-			for _, u := range urls {
-				if u.Enabled {
-					uList = append(uList, map[string]any{"name": u.Key, "value": u.Value})
-				}
-			}
-			bodyData["urlencoded"] = uList
-			reqDef.Body = bodyData
-		} else if raw, ok := bodyRawMap[httpID]; ok {
-			dataBytes := raw.RawData
-			if raw.CompressionType != int8(compress.CompressTypeNone) {
-				decompressed, err := compress.Decompress(dataBytes, compress.CompressType(raw.CompressionType))
-				if err == nil {
-					dataBytes = decompressed
-				}
-			}
-
-			var jsonObj any
-			if json.Unmarshal(dataBytes, &jsonObj) == nil {
-				// For JSON bodies, use proper type: json format for round-trip compatibility
-				reqDef.Body = map[string]any{"type": "json", "json": jsonObj}
-			} else if len(dataBytes) > 0 {
-				reqDef.Body = map[string]any{"type": "raw", "raw": string(dataBytes)}
-			}
-		}
-
-		// Assertions (only enabled ones, as simple expression strings)
-		if asserts, ok := assertsMap[httpID]; ok && len(asserts) > 0 {
-			var assertList []string
-			for _, a := range asserts {
-				if a.Enabled && a.Value != "" {
-					assertList = append(assertList, a.Value)
-				}
-			}
-			if len(assertList) > 0 {
-				reqDef.Assertions = assertList
-			}
-		}
-
+		// Build the request definition with delta merging
+		reqDef := buildRequestDefWithDelta(reqName, httpReq, deltaHttpID, deltaCtx)
 		requests = append(requests, reqDef)
 	}
 
@@ -534,5 +476,440 @@ func linearizeNodes(startNodeID idwrap.IDWrap, allNodes []mnnode.MNode, edgesByS
 	})
 	result = append(result, disconnected...)
 
+	return result
+}
+
+// deltaLookupContext holds all the maps needed to look up delta values
+type deltaLookupContext struct {
+	httpMap     map[idwrap.IDWrap]mhttp.HTTP
+	headersMap  map[idwrap.IDWrap][]mhttp.HTTPHeader
+	paramsMap   map[idwrap.IDWrap][]mhttp.HTTPSearchParam
+	bodyRawMap  map[idwrap.IDWrap]mhttp.HTTPBodyRaw
+	bodyFormMap map[idwrap.IDWrap][]mhttp.HTTPBodyForm
+	bodyUrlMap  map[idwrap.IDWrap][]mhttp.HTTPBodyUrlencoded
+	assertsMap  map[idwrap.IDWrap][]mhttp.HTTPAssert
+}
+
+// buildRequestDefWithDelta builds a YamlRequestDefV2 by merging base HTTP with delta overrides
+func buildRequestDefWithDelta(reqName string, baseHttp mhttp.HTTP, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) YamlRequestDefV2 {
+	// Start with base values
+	method := baseHttp.Method
+	url := baseHttp.Url
+
+	// If there's a delta HTTP, check for overrides on the delta HTTP itself
+	if deltaHttpID != nil {
+		if deltaHttp, ok := ctx.httpMap[*deltaHttpID]; ok {
+			// Delta HTTP can override URL and Method via Delta* fields
+			if deltaHttp.DeltaUrl != nil && *deltaHttp.DeltaUrl != "" {
+				url = *deltaHttp.DeltaUrl
+			}
+			if deltaHttp.DeltaMethod != nil && *deltaHttp.DeltaMethod != "" {
+				method = *deltaHttp.DeltaMethod
+			}
+		}
+	}
+
+	reqDef := YamlRequestDefV2{
+		Name:   reqName,
+		Method: method,
+		URL:    url,
+	}
+
+	// Merge headers
+	reqDef.Headers = mergeHeaders(baseHttp.ID, deltaHttpID, ctx)
+
+	// Merge query params
+	reqDef.QueryParams = mergeQueryParams(baseHttp.ID, deltaHttpID, ctx)
+
+	// Merge body
+	reqDef.Body = mergeBody(baseHttp.ID, deltaHttpID, ctx)
+
+	// Merge assertions
+	reqDef.Assertions = mergeAssertions(baseHttp.ID, deltaHttpID, ctx)
+
+	return reqDef
+}
+
+// mergeHeaders merges base headers with delta header overrides
+func mergeHeaders(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) map[string]string {
+	result := make(map[string]string)
+
+	// Get base headers
+	baseHeaders := ctx.headersMap[baseHttpID]
+
+	// Build a map of base header ID -> delta header for quick lookup
+	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPHeader)
+	if deltaHttpID != nil {
+		for _, dh := range ctx.headersMap[*deltaHttpID] {
+			if dh.ParentHttpHeaderID != nil {
+				deltaByParentID[*dh.ParentHttpHeaderID] = dh
+			}
+		}
+	}
+
+	// Process each base header
+	for _, h := range baseHeaders {
+		key := h.Key
+		value := h.Value
+		enabled := h.Enabled
+
+		// Check if there's a delta override for this header
+		if delta, hasDelta := deltaByParentID[h.ID]; hasDelta {
+			// Apply delta overrides
+			if delta.DeltaKey != nil {
+				key = *delta.DeltaKey
+			}
+			if delta.DeltaValue != nil {
+				value = *delta.DeltaValue
+			}
+			if delta.DeltaEnabled != nil {
+				enabled = *delta.DeltaEnabled
+			}
+		}
+
+		if enabled {
+			result[key] = value
+		}
+	}
+
+	// Also add any new headers from delta that don't have a parent (new headers added in delta)
+	if deltaHttpID != nil {
+		for _, dh := range ctx.headersMap[*deltaHttpID] {
+			if dh.ParentHttpHeaderID == nil && dh.Enabled {
+				// This is a new header added in the delta
+				result[dh.Key] = dh.Value
+			}
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+// mergeQueryParams merges base query params with delta overrides
+func mergeQueryParams(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) map[string]string {
+	result := make(map[string]string)
+
+	// Get base params
+	baseParams := ctx.paramsMap[baseHttpID]
+
+	// Build a map of base param ID -> delta param for quick lookup
+	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPSearchParam)
+	if deltaHttpID != nil {
+		for _, dp := range ctx.paramsMap[*deltaHttpID] {
+			if dp.ParentHttpSearchParamID != nil {
+				deltaByParentID[*dp.ParentHttpSearchParamID] = dp
+			}
+		}
+	}
+
+	// Process each base param
+	for _, p := range baseParams {
+		key := p.Key
+		value := p.Value
+		enabled := p.Enabled
+
+		// Check if there's a delta override
+		if delta, hasDelta := deltaByParentID[p.ID]; hasDelta {
+			if delta.DeltaKey != nil {
+				key = *delta.DeltaKey
+			}
+			if delta.DeltaValue != nil {
+				value = *delta.DeltaValue
+			}
+			if delta.DeltaEnabled != nil {
+				enabled = *delta.DeltaEnabled
+			}
+		}
+
+		if enabled {
+			result[key] = value
+		}
+	}
+
+	// Add new params from delta
+	if deltaHttpID != nil {
+		for _, dp := range ctx.paramsMap[*deltaHttpID] {
+			if dp.ParentHttpSearchParamID == nil && dp.Enabled {
+				result[dp.Key] = dp.Value
+			}
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+// mergeBody merges base body with delta overrides
+func mergeBody(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) any {
+	// Check for form data
+	if forms := mergeBodyForms(baseHttpID, deltaHttpID, ctx); forms != nil {
+		return forms
+	}
+
+	// Check for urlencoded
+	if urlencoded := mergeBodyUrlencoded(baseHttpID, deltaHttpID, ctx); urlencoded != nil {
+		return urlencoded
+	}
+
+	// Check for raw body
+	return mergeBodyRaw(baseHttpID, deltaHttpID, ctx)
+}
+
+// mergeBodyForms merges base form data with delta overrides
+func mergeBodyForms(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) any {
+	baseForms := ctx.bodyFormMap[baseHttpID]
+	if len(baseForms) == 0 {
+		// Check if delta has forms
+		if deltaHttpID != nil {
+			deltaForms := ctx.bodyFormMap[*deltaHttpID]
+			if len(deltaForms) > 0 {
+				bodyData := map[string]any{"type": "form-data"}
+				fList := make([]map[string]any, 0)
+				for _, f := range deltaForms {
+					if f.Enabled {
+						fList = append(fList, map[string]any{"name": f.Key, "value": f.Value})
+					}
+				}
+				if len(fList) > 0 {
+					bodyData["form_data"] = fList
+					return bodyData
+				}
+			}
+		}
+		return nil
+	}
+
+	// Build delta lookup
+	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPBodyForm)
+	if deltaHttpID != nil {
+		for _, df := range ctx.bodyFormMap[*deltaHttpID] {
+			if df.ParentHttpBodyFormID != nil {
+				deltaByParentID[*df.ParentHttpBodyFormID] = df
+			}
+		}
+	}
+
+	bodyData := map[string]any{"type": "form-data"}
+	fList := make([]map[string]any, 0)
+
+	for _, f := range baseForms {
+		key := f.Key
+		value := f.Value
+		enabled := f.Enabled
+
+		if delta, hasDelta := deltaByParentID[f.ID]; hasDelta {
+			if delta.DeltaKey != nil {
+				key = *delta.DeltaKey
+			}
+			if delta.DeltaValue != nil {
+				value = *delta.DeltaValue
+			}
+			if delta.DeltaEnabled != nil {
+				enabled = *delta.DeltaEnabled
+			}
+		}
+
+		if enabled {
+			fList = append(fList, map[string]any{"name": key, "value": value})
+		}
+	}
+
+	// Add new form fields from delta
+	if deltaHttpID != nil {
+		for _, df := range ctx.bodyFormMap[*deltaHttpID] {
+			if df.ParentHttpBodyFormID == nil && df.Enabled {
+				fList = append(fList, map[string]any{"name": df.Key, "value": df.Value})
+			}
+		}
+	}
+
+	if len(fList) > 0 {
+		bodyData["form_data"] = fList
+		return bodyData
+	}
+	return nil
+}
+
+// mergeBodyUrlencoded merges base urlencoded data with delta overrides
+func mergeBodyUrlencoded(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) any {
+	baseUrls := ctx.bodyUrlMap[baseHttpID]
+	if len(baseUrls) == 0 {
+		// Check if delta has urlencoded
+		if deltaHttpID != nil {
+			deltaUrls := ctx.bodyUrlMap[*deltaHttpID]
+			if len(deltaUrls) > 0 {
+				bodyData := map[string]any{"type": "urlencoded"}
+				uList := make([]map[string]any, 0)
+				for _, u := range deltaUrls {
+					if u.Enabled {
+						uList = append(uList, map[string]any{"name": u.Key, "value": u.Value})
+					}
+				}
+				if len(uList) > 0 {
+					bodyData["urlencoded"] = uList
+					return bodyData
+				}
+			}
+		}
+		return nil
+	}
+
+	// Build delta lookup
+	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPBodyUrlencoded)
+	if deltaHttpID != nil {
+		for _, du := range ctx.bodyUrlMap[*deltaHttpID] {
+			if du.ParentHttpBodyUrlEncodedID != nil {
+				deltaByParentID[*du.ParentHttpBodyUrlEncodedID] = du
+			}
+		}
+	}
+
+	bodyData := map[string]any{"type": "urlencoded"}
+	uList := make([]map[string]any, 0)
+
+	for _, u := range baseUrls {
+		key := u.Key
+		value := u.Value
+		enabled := u.Enabled
+
+		if delta, hasDelta := deltaByParentID[u.ID]; hasDelta {
+			if delta.DeltaKey != nil {
+				key = *delta.DeltaKey
+			}
+			if delta.DeltaValue != nil {
+				value = *delta.DeltaValue
+			}
+			if delta.DeltaEnabled != nil {
+				enabled = *delta.DeltaEnabled
+			}
+		}
+
+		if enabled {
+			uList = append(uList, map[string]any{"name": key, "value": value})
+		}
+	}
+
+	// Add new urlencoded fields from delta
+	if deltaHttpID != nil {
+		for _, du := range ctx.bodyUrlMap[*deltaHttpID] {
+			if du.ParentHttpBodyUrlEncodedID == nil && du.Enabled {
+				uList = append(uList, map[string]any{"name": du.Key, "value": du.Value})
+			}
+		}
+	}
+
+	if len(uList) > 0 {
+		bodyData["urlencoded"] = uList
+		return bodyData
+	}
+	return nil
+}
+
+// mergeBodyRaw merges base raw body with delta override
+func mergeBodyRaw(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) any {
+	baseRaw, hasBase := ctx.bodyRawMap[baseHttpID]
+
+	// Check for delta raw body
+	var deltaRaw *mhttp.HTTPBodyRaw
+	if deltaHttpID != nil {
+		if dr, ok := ctx.bodyRawMap[*deltaHttpID]; ok {
+			deltaRaw = &dr
+		}
+	}
+
+	// Determine which raw data to use
+	var dataBytes []byte
+	var compressionType int8
+
+	if deltaRaw != nil && len(deltaRaw.DeltaRawData) > 0 {
+		// Use delta raw data
+		dataBytes = deltaRaw.DeltaRawData
+		// Delta compression type handling
+		if ct, ok := deltaRaw.DeltaCompressionType.(int8); ok {
+			compressionType = ct
+		} else {
+			compressionType = deltaRaw.CompressionType
+		}
+	} else if hasBase {
+		// Use base raw data
+		dataBytes = baseRaw.RawData
+		compressionType = baseRaw.CompressionType
+	} else {
+		return nil
+	}
+
+	// Decompress if needed
+	if compressionType != int8(compress.CompressTypeNone) {
+		decompressed, err := compress.Decompress(dataBytes, compress.CompressType(compressionType))
+		if err == nil {
+			dataBytes = decompressed
+		}
+	}
+
+	if len(dataBytes) == 0 {
+		return nil
+	}
+
+	// Try to parse as JSON
+	var jsonObj any
+	if json.Unmarshal(dataBytes, &jsonObj) == nil {
+		return map[string]any{"type": "json", "json": jsonObj}
+	}
+	return map[string]any{"type": "raw", "raw": string(dataBytes)}
+}
+
+// mergeAssertions merges base assertions with delta overrides
+func mergeAssertions(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *deltaLookupContext) []string {
+	var result []string
+
+	// Get base assertions
+	baseAsserts := ctx.assertsMap[baseHttpID]
+
+	// Build delta lookup
+	deltaByParentID := make(map[idwrap.IDWrap]mhttp.HTTPAssert)
+	if deltaHttpID != nil {
+		for _, da := range ctx.assertsMap[*deltaHttpID] {
+			if da.ParentHttpAssertID != nil {
+				deltaByParentID[*da.ParentHttpAssertID] = da
+			}
+		}
+	}
+
+	// Process base assertions
+	for _, a := range baseAsserts {
+		value := a.Value
+		enabled := a.Enabled
+
+		if delta, hasDelta := deltaByParentID[a.ID]; hasDelta {
+			if delta.DeltaValue != nil {
+				value = *delta.DeltaValue
+			}
+			if delta.DeltaEnabled != nil {
+				enabled = *delta.DeltaEnabled
+			}
+		}
+
+		if enabled && value != "" {
+			result = append(result, value)
+		}
+	}
+
+	// Add new assertions from delta
+	if deltaHttpID != nil {
+		for _, da := range ctx.assertsMap[*deltaHttpID] {
+			if da.ParentHttpAssertID == nil && da.Enabled && da.Value != "" {
+				result = append(result, da.Value)
+			}
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
 	return result
 }
