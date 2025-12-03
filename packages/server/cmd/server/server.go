@@ -302,6 +302,8 @@ func main() {
 		&flowNodeRequestSevice,
 		&flowNodeNoOpService,
 		&flowEdgeService,
+		environmentService,
+		variableService,
 		logger,
 		flowStreamer,
 		nodeStreamer,

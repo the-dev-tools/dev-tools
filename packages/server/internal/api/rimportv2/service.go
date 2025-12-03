@@ -21,6 +21,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
@@ -99,6 +100,8 @@ type Importer interface {
 	// Store complete import results atomically
 	StoreImportResults(ctx context.Context, results *ImportResults) error
 	StoreUnifiedResults(ctx context.Context, results *TranslationResult) error
+	// Store domain-to-variable mappings to all existing environments
+	StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]mvar.Var, error)
 }
 
 // Validator handles input validation for import requests
@@ -160,11 +163,12 @@ type ImportResults struct {
 
 // ImportRequest represents the incoming import request with domain data
 type ImportRequest struct {
-	WorkspaceID idwrap.IDWrap
-	Name        string
-	Data        []byte
-	TextData    string
-	DomainData  []ImportDomainData
+	WorkspaceID            idwrap.IDWrap
+	Name                   string
+	Data                   []byte
+	TextData               string
+	DomainData             []ImportDomainData
+	DomainDataWasProvided  bool // True if domainData was explicitly provided (even if empty array)
 }
 
 // ImportResponse represents the response to an import request
@@ -844,18 +848,35 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 		MissingData:        ImportMissingDataKind_UNSPECIFIED,
 	}
 
-	s.logger.Debug("ImportUnified: Checking for missing data", "domain_count", len(translationResult.Domains), "provided_domains", len(req.DomainData))
-	// Check for missing domain data BEFORE storage
-	if len(req.DomainData) == 0 && len(translationResult.Domains) > 0 {
-		// We have domains but no domain data was provided
+	s.logger.Debug("ImportUnified: Checking for missing data",
+		"domain_count", len(translationResult.Domains),
+		"provided_domains", len(req.DomainData),
+		"domain_data_was_provided", req.DomainDataWasProvided)
+
+	// Two-step import flow for domain configuration:
+	// 1. First call (DomainDataWasProvided=false): Detect domains, return them to user for configuration (no storage)
+	// 2. Second call (DomainDataWasProvided=true):
+	//    - If domainData has entries: Create env vars with the mappings, then store
+	//    - If domainData is empty []: User chose to skip, just store without env vars
+	if !req.DomainDataWasProvided && len(translationResult.Domains) > 0 {
+		// First call: domains detected but user hasn't made a choice yet
 		// Return early with MissingData set so the client can prompt the user
-		// Do NOT store data yet
 		results.MissingData = ImportMissingDataKind_DOMAIN
-		s.logger.Info("Domain data missing for extracted domains - returning early without storage",
+		results.Domains = translationResult.Domains
+		s.logger.Info("Domain data missing for extracted domains - returning for user configuration",
 			"workspace_id", req.WorkspaceID,
 			"domain_count", len(translationResult.Domains),
 			"domains", translationResult.Domains)
 		return results, nil
+	}
+	// If DomainDataWasProvided=true, we proceed with import regardless of whether domainData is empty or has values
+
+	// Apply domain-to-variable replacements in URLs before storage
+	if len(req.DomainData) > 0 {
+		translationResult.HTTPRequests = applyDomainReplacements(translationResult.HTTPRequests, req.DomainData)
+		s.logger.Debug("ImportUnified: Applied domain replacements to URLs",
+			"http_requests_count", len(translationResult.HTTPRequests),
+			"domain_mappings", len(req.DomainData))
 	}
 
 	s.logger.Debug("ImportUnified: Storing results")
@@ -883,16 +904,25 @@ func (s *Service) ImportUnified(ctx context.Context, req *ImportRequest) (*Impor
 
 	// Process domain data if provided (and we have already stored the initial data)
 	if len(req.DomainData) > 0 {
-		// Process provided domain data for future templating support
-		if err := processDomainData(ctx, req.DomainData, req.WorkspaceID, s.logger); err != nil {
-			return nil, fmt.Errorf("domain data processing failed: %w", err)
+		// Add domain-to-variable mappings to all existing environments
+		vars, err := s.importer.StoreDomainVariables(ctx, req.WorkspaceID, req.DomainData)
+		if err != nil {
+			s.logger.Error("Failed to store domain variables",
+				"workspace_id", req.WorkspaceID,
+				"error", err)
+			return nil, fmt.Errorf("domain variable storage failed: %w", err)
 		}
 
-		s.logger.Info("Applied domain templates",
-			"workspace_id", req.WorkspaceID,
-			"domain_data_count", len(req.DomainData))
+		if len(vars) > 0 {
+			s.logger.Info("Added domain variables to environments",
+				"workspace_id", req.WorkspaceID,
+				"variable_count", len(vars))
+		}
+	}
 
-		// Clear domains from result as they are now handled and we don't want to return them on success
+	// Clear domains from result if user made a decision (provided mappings OR skipped)
+	// This signals that domain handling is complete
+	if req.DomainDataWasProvided {
 		results.Domains = nil
 	}
 
@@ -1043,6 +1073,69 @@ func (s *Service) isValidDomain(domain string) bool {
 
 	// Could add more sophisticated domain validation here if needed
 	return true
+}
+
+// applyDomainReplacements replaces domain URLs with variable references in HTTP requests.
+// For example: https://api.example.com/users -> {{API_HOST}}/users
+func applyDomainReplacements(httpRequests []mhttp.HTTP, domainData []ImportDomainData) []mhttp.HTTP {
+	// Build a map of domain -> variable for enabled domains with variables
+	domainToVar := make(map[string]string)
+	for _, dd := range domainData {
+		if dd.Enabled && dd.Variable != "" {
+			domainToVar[dd.Domain] = dd.Variable
+		}
+	}
+
+	if len(domainToVar) == 0 {
+		return httpRequests
+	}
+
+	// Replace domains in each HTTP request URL
+	for i := range httpRequests {
+		httpRequests[i].Url = replaceDomainInURL(httpRequests[i].Url, domainToVar)
+	}
+	return httpRequests
+}
+
+// replaceDomainInURL replaces the domain part of a URL with a variable reference.
+// Example: https://api.example.com/users -> {{API_HOST}}/users
+func replaceDomainInURL(urlStr string, domainToVar map[string]string) string {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return urlStr // Return unchanged if URL can't be parsed
+	}
+
+	host := parsed.Host
+	// Remove port if present for domain matching
+	hostWithoutPort := host
+	if colonIdx := strings.LastIndex(host, ":"); colonIdx != -1 {
+		// Check if this is actually a port (not IPv6)
+		if !strings.Contains(host[colonIdx:], "]") {
+			hostWithoutPort = host[:colonIdx]
+		}
+	}
+
+	// Check if this domain has a variable mapping
+	varName, exists := domainToVar[hostWithoutPort]
+	if !exists {
+		// Also try with the full host (including port)
+		varName, exists = domainToVar[host]
+		if !exists {
+			return urlStr // No mapping found, return unchanged
+		}
+	}
+
+	// Build the new URL with variable reference
+	// {{VARIABLE}}/path?query#fragment
+	varRef := "{{" + varName + "}}"
+
+	// Get the path and everything after
+	pathAndMore := parsed.RequestURI() // This includes path, query, and fragment
+	if pathAndMore == "" || pathAndMore == "/" {
+		return varRef
+	}
+
+	return varRef + pathAndMore
 }
 
 // ValidateAndSanitizeRequest validates and sanitizes import request data

@@ -172,17 +172,14 @@ func (v *DefaultValidator) validateDomainData(domainData []ImportDomainData) err
 	return nil
 }
 
-// validateSingleDomainData validates a single domain data entry
+// validateSingleDomainData validates a single domain data entry.
+// Variable can be empty - entries with empty variables are simply skipped when creating env vars.
 func (v *DefaultValidator) validateSingleDomainData(dd ImportDomainData, index int) error {
 	dd.Domain = strings.TrimSpace(dd.Domain)
 	dd.Variable = strings.TrimSpace(dd.Variable)
 
 	if dd.Domain == "" {
 		return NewValidationError("domainData", fmt.Sprintf("domain cannot be empty at index %d", index))
-	}
-
-	if dd.Enabled && dd.Variable == "" {
-		return NewValidationError("domainData", fmt.Sprintf("variable cannot be empty at index %d", index))
 	}
 
 	if len(dd.Domain) > 253 {

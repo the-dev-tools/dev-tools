@@ -11,14 +11,17 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mvar"
 
 	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
@@ -39,6 +42,8 @@ type DefaultImporter struct {
 	nodeRequestService        *snoderequest.NodeRequestService
 	nodeNoopService           *snodenoop.NodeNoopService
 	edgeService               *sedge.EdgeService
+	envService                senv.EnvironmentService
+	varService                svar.VarService
 	harTranslator             *defaultHARTranslator
 }
 
@@ -58,6 +63,8 @@ func NewImporter(
 	nodeRequestService *snoderequest.NodeRequestService,
 	nodeNoopService *snodenoop.NodeNoopService,
 	edgeService *sedge.EdgeService,
+	envService senv.EnvironmentService,
+	varService svar.VarService,
 ) *DefaultImporter {
 	return &DefaultImporter{
 		db:                        db,
@@ -74,8 +81,107 @@ func NewImporter(
 		nodeRequestService:        nodeRequestService,
 		nodeNoopService:           nodeNoopService,
 		edgeService:               edgeService,
+		envService:                envService,
+		varService:                varService,
 		harTranslator:             newHARTranslator(),
 	}
+}
+
+// StoreDomainVariables adds domain-to-variable mappings to all existing environments
+// in the workspace. The domain URL is stored as the variable value so users can
+// easily change the base URL by modifying the environment variable.
+func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]mvar.Var, error) {
+	if len(domainData) == 0 {
+		return nil, nil
+	}
+
+	// Filter to only enabled domain data WITH variable names
+	// Skip entries where variable is empty - user didn't want to create an env var for it
+	var enabledDomains []ImportDomainData
+	for _, dd := range domainData {
+		if dd.Enabled && dd.Variable != "" {
+			enabledDomains = append(enabledDomains, dd)
+		}
+	}
+
+	if len(enabledDomains) == 0 {
+		return nil, nil
+	}
+
+	// Get all environments in the workspace (before transaction)
+	environments, err := imp.envService.ListEnvironments(ctx, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list environments: %w", err)
+	}
+
+	if len(environments) == 0 {
+		// No environments exist, nothing to add variables to
+		return nil, nil
+	}
+
+	// Start transaction
+	tx, err := imp.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer devtoolsdb.TxnRollback(tx)
+
+	txVarService := imp.varService.TX(tx)
+
+	// Add variables to each environment
+	var allVariables []mvar.Var
+	for _, env := range environments {
+		// Get existing variables for this environment to check for duplicates
+		existingVars, err := txVarService.GetVariableByEnvID(ctx, env.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get existing variables for environment %s: %w", env.Name, err)
+		}
+
+		// Build a map of existing variable keys to their IDs for quick lookup
+		existingKeyToVar := make(map[string]mvar.Var)
+		for _, v := range existingVars {
+			existingKeyToVar[v.VarKey] = v
+		}
+
+		for i, dd := range enabledDomains {
+			// Build the full URL value (include https:// prefix for the domain)
+			urlValue := "https://" + dd.Domain
+
+			// Check if variable already exists
+			if existingVar, exists := existingKeyToVar[dd.Variable]; exists {
+				// Update existing variable
+				existingVar.Value = urlValue
+				existingVar.Description = fmt.Sprintf("Base URL for %s", dd.Domain)
+				if err := txVarService.Update(ctx, &existingVar); err != nil {
+					return nil, fmt.Errorf("failed to update variable %s for environment %s: %w", dd.Variable, env.Name, err)
+				}
+				allVariables = append(allVariables, existingVar)
+			} else {
+				// Create new variable
+				variable := mvar.Var{
+					ID:          idwrap.NewNow(),
+					EnvID:       env.ID,
+					VarKey:      dd.Variable,
+					Value:       urlValue,
+					Enabled:     true,
+					Description: fmt.Sprintf("Base URL for %s", dd.Domain),
+					Order:       float64(i + 1),
+				}
+
+				if err := txVarService.Create(ctx, variable); err != nil {
+					return nil, fmt.Errorf("failed to create variable %s for environment %s: %w", dd.Variable, env.Name, err)
+				}
+				allVariables = append(allVariables, variable)
+			}
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return allVariables, nil
 }
 
 // ImportAndStore processes HAR data and returns resolved models

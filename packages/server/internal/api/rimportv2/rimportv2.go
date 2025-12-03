@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -22,6 +23,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
@@ -66,6 +68,8 @@ type ImportV2RPC struct {
 	NodeRequestService        *snoderequest.NodeRequestService
 	NodeNoopService           *snodenoop.NodeNoopService
 	EdgeService               *sedge.EdgeService
+	EnvService                senv.EnvironmentService
+	VarService                svar.VarService
 }
 
 // NewImportV2RPC creates a new ImportV2RPC handler with all required dependencies
@@ -87,6 +91,8 @@ func NewImportV2RPC(
 	nodeRequestService *snoderequest.NodeRequestService,
 	nodeNoopService *snodenoop.NodeNoopService,
 	edgeService *sedge.EdgeService,
+	envService senv.EnvironmentService,
+	varService svar.VarService,
 	logger *slog.Logger,
 	// Streamers
 	flowStream eventstream.SyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent],
@@ -105,7 +111,7 @@ func NewImportV2RPC(
 	// Create the importer with modern service dependencies
 	importer := NewImporter(db, httpService, flowService, fileService,
 		httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, bodyService,
-		httpAssertService, nodeService, nodeRequestService, nodeNoopService, edgeService)
+		httpAssertService, nodeService, nodeRequestService, nodeNoopService, edgeService, envService, varService)
 
 	// Create the validator for input validation
 	validator := NewValidator(&us)
@@ -150,6 +156,8 @@ func NewImportV2RPC(
 		NodeRequestService:        nodeRequestService,
 		NodeNoopService:           nodeNoopService,
 		EdgeService:               edgeService,
+		EnvService:                envService,
+		VarService:                varService,
 	}
 }
 
@@ -219,22 +227,30 @@ func convertToImportRequest(msg *apiv1.ImportRequest) (*ImportRequest, error) {
 		return nil, NewValidationErrorWithCause("workspaceId", err)
 	}
 
+	// Check if domainData was explicitly provided (even if empty)
+	// In protobuf/JSON: nil means not provided, non-nil (even empty slice) means provided
+	domainDataWasProvided := msg.DomainData != nil
+
 	// Convert domain data
-	domainData := make([]ImportDomainData, len(msg.DomainData))
-	for i, dd := range msg.DomainData {
-		domainData[i] = ImportDomainData{
-			Enabled:  dd.Enabled,
-			Domain:   dd.Domain,
-			Variable: dd.Variable,
+	var domainData []ImportDomainData
+	if msg.DomainData != nil {
+		domainData = make([]ImportDomainData, len(msg.DomainData))
+		for i, dd := range msg.DomainData {
+			domainData[i] = ImportDomainData{
+				Enabled:  dd.Enabled,
+				Domain:   dd.Domain,
+				Variable: dd.Variable,
+			}
 		}
 	}
 
 	return &ImportRequest{
-		WorkspaceID: workspaceID,
-		Name:        msg.Name,
-		Data:        msg.Data,
-		TextData:    msg.TextData,
-		DomainData:  domainData,
+		WorkspaceID:           workspaceID,
+		Name:                  msg.Name,
+		Data:                  msg.Data,
+		TextData:              msg.TextData,
+		DomainData:            domainData,
+		DomainDataWasProvided: domainDataWasProvided,
 	}, nil
 }
 

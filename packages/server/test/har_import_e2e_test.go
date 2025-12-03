@@ -22,6 +22,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -29,6 +30,7 @@ import (
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	importv1 "the-dev-tools/spec/dist/buf/go/api/import/v1"
 
@@ -80,6 +82,10 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 	nodeNoopService := snodenoop.New(baseDB.Queries)
 	edgeService := sedge.New(baseDB.Queries)
 
+	// Create environment and variable services
+	envService := senv.New(baseDB.Queries, mockLogger)
+	varService := svar.New(baseDB.Queries, mockLogger)
+
 	// Create streamers using the same approach as integration tests
 	flowStream := memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]()
 	nodeStream := memory.NewInMemorySyncStreamer[rflowv2.NodeTopic, rflowv2.NodeEvent]()
@@ -112,6 +118,8 @@ func setupHARImportE2ETest(t *testing.T) *HARImportE2ETestSuite {
 		&nodeRequestService,
 		&nodeNoopService,
 		&edgeService,
+		envService,
+		varService,
 		mockLogger,
 		flowStream, nodeStream, edgeStream, noopStream,
 		stream, httpHeaderStream, httpSearchParamStream,

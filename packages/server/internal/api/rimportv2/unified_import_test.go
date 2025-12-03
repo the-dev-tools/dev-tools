@@ -10,6 +10,7 @@ import (
 	"the-dev-tools/server/pkg/model/mfile"
 	"the-dev-tools/server/pkg/model/mflow"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/translate/harv2"
 )
 
@@ -386,6 +387,11 @@ func (m *MockImporter) StoreUnifiedResults(ctx context.Context, results *Transla
 	return nil
 }
 
+func (m *MockImporter) StoreDomainVariables(ctx context.Context, workspaceID idwrap.IDWrap, domainData []ImportDomainData) ([]mvar.Var, error) {
+	// Default mock implementation - no-op
+	return nil, nil
+}
+
 type MockValidator struct {
 	validateFunc          func(ctx context.Context, req *ImportRequest) error
 	validateWorkspaceFunc func(ctx context.Context, workspaceID idwrap.IDWrap) error
@@ -419,6 +425,154 @@ func (m *MockValidator) ValidateFormatSupport(ctx context.Context, format Format
 		return m.validateFormatFunc(ctx, format)
 	}
 	return nil
+}
+
+// TestApplyDomainReplacements tests the domain replacement functionality
+func TestApplyDomainReplacements(t *testing.T) {
+	tests := []struct {
+		name         string
+		httpRequests []mhttp.HTTP
+		domainData   []ImportDomainData
+		expectedURLs []string
+	}{
+		{
+			name: "Replace single domain",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://api.example.com/users"},
+				{Url: "https://api.example.com/posts"},
+			},
+			domainData: []ImportDomainData{
+				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+			},
+			expectedURLs: []string{
+				"{{API_HOST}}/users",
+				"{{API_HOST}}/posts",
+			},
+		},
+		{
+			name: "Replace multiple domains",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://api.example.com/users"},
+				{Url: "https://auth.example.com/login"},
+				{Url: "https://api.example.com/posts"},
+			},
+			domainData: []ImportDomainData{
+				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+				{Enabled: true, Domain: "auth.example.com", Variable: "AUTH_HOST"},
+			},
+			expectedURLs: []string{
+				"{{API_HOST}}/users",
+				"{{AUTH_HOST}}/login",
+				"{{API_HOST}}/posts",
+			},
+		},
+		{
+			name: "Skip disabled domain mappings",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://api.example.com/users"},
+				{Url: "https://skip.example.com/data"},
+			},
+			domainData: []ImportDomainData{
+				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+				{Enabled: false, Domain: "skip.example.com", Variable: "SKIP_HOST"},
+			},
+			expectedURLs: []string{
+				"{{API_HOST}}/users",
+				"https://skip.example.com/data", // unchanged
+			},
+		},
+		{
+			name: "Skip empty variable mappings",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://api.example.com/users"},
+				{Url: "https://novar.example.com/data"},
+			},
+			domainData: []ImportDomainData{
+				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+				{Enabled: true, Domain: "novar.example.com", Variable: ""},
+			},
+			expectedURLs: []string{
+				"{{API_HOST}}/users",
+				"https://novar.example.com/data", // unchanged
+			},
+		},
+		{
+			name: "Preserve query parameters",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://api.example.com/search?q=test&limit=10"},
+			},
+			domainData: []ImportDomainData{
+				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+			},
+			expectedURLs: []string{
+				"{{API_HOST}}/search?q=test&limit=10",
+			},
+		},
+		{
+			name: "Handle URL without path",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://api.example.com"},
+				{Url: "https://api.example.com/"},
+			},
+			domainData: []ImportDomainData{
+				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+			},
+			expectedURLs: []string{
+				"{{API_HOST}}",
+				"{{API_HOST}}",
+			},
+		},
+		{
+			name: "No domain mappings - unchanged",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://api.example.com/users"},
+			},
+			domainData: []ImportDomainData{},
+			expectedURLs: []string{
+				"https://api.example.com/users",
+			},
+		},
+		{
+			name: "Domain with port",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://api.example.com:8080/users"},
+			},
+			domainData: []ImportDomainData{
+				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+			},
+			expectedURLs: []string{
+				"{{API_HOST}}/users",
+			},
+		},
+		{
+			name: "Unmatched domain - unchanged",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://other.example.com/data"},
+			},
+			domainData: []ImportDomainData{
+				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+			},
+			expectedURLs: []string{
+				"https://other.example.com/data",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := applyDomainReplacements(tt.httpRequests, tt.domainData)
+
+			if len(result) != len(tt.expectedURLs) {
+				t.Fatalf("Expected %d results, got %d", len(tt.expectedURLs), len(result))
+			}
+
+			for i, expectedURL := range tt.expectedURLs {
+				if result[i].Url != expectedURL {
+					t.Errorf("Request %d: expected URL %q, got %q", i, expectedURL, result[i].Url)
+				}
+			}
+		})
+	}
 }
 
 // BenchmarkFormatDetection benchmarks the format detection performance

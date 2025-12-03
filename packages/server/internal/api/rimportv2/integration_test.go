@@ -22,6 +22,7 @@ import (
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/model/mworkspaceuser"
 	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -30,6 +31,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
 	"the-dev-tools/server/pkg/service/suser"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
 	"the-dev-tools/server/pkg/testutil"
@@ -141,6 +143,10 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 
 	edgeService := sedge.New(base.Queries)
 
+	envService := senv.New(base.Queries, logger)
+
+	varService := svar.New(base.Queries, logger)
+
 	// Create streamers
 
 	streamers := IntegrationTestStreamers{
@@ -236,6 +242,8 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		&nodeRequestService,
 		&nodeNoopService,
 		&edgeService,
+		envService,
+		varService,
 		logger,
 		streamers.Flow,
 		streamers.Node,
@@ -298,7 +306,8 @@ func TestImportRPC_Integration(t *testing.T) {
 	tests := []struct {
 		name        string
 		harData     []byte
-		domainData  []ImportDomainData
+		domainData  []ImportDomainData  // nil = first call (not provided), empty = skip, with values = configure
+		useNilDomain bool               // When true, use nil for DomainData in request (first call behavior)
 		expectError bool
 		expectResp  func(*apiv1.ImportResponse) bool
 	}{
@@ -314,19 +323,22 @@ func TestImportRPC_Integration(t *testing.T) {
 			},
 		},
 		{
-			name:        "import with missing domain data",
-			harData:     createMultiEntryHAR(t),
-			domainData:  []ImportDomainData{},
-			expectError: false,
+			// Two-step flow: First call returns domains for user to configure
+			name:         "import with missing domain data",
+			harData:      createMultiEntryHAR(t),
+			useNilDomain: true, // nil signals first call - return domains for configuration
+			expectError:  false,
 			expectResp: func(resp *apiv1.ImportResponse) bool {
+				// MissingData = DOMAIN signals client to prompt user for domain configuration
+				// Domains are returned so user can map them to variables
 				return resp.MissingData == apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_DOMAIN && len(resp.Domains) > 0
 			},
 		},
 		{
-			name:        "complex HAR with multiple domains",
-			harData:     createComplexHAR(t),
-			domainData:  []ImportDomainData{},
-			expectError: false,
+			name:         "complex HAR with multiple domains",
+			harData:      createComplexHAR(t),
+			useNilDomain: true, // nil signals first call - return domains
+			expectError:  false,
 			expectResp: func(resp *apiv1.ImportResponse) bool {
 				return len(resp.Domains) >= 1 // Should find api.example.com (XHR request), but not cdn.example.com (CSS file)
 			},
@@ -348,14 +360,19 @@ func TestImportRPC_Integration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create protobuf domain data
-			protoDomainData := make([]*apiv1.ImportDomainData, len(tt.domainData))
-			for i, dd := range tt.domainData {
-				protoDomainData[i] = &apiv1.ImportDomainData{
-					Enabled:  dd.Enabled,
-					Domain:   dd.Domain,
-					Variable: dd.Variable,
+			// nil = first call (domain not provided), empty slice = user chose to skip
+			var protoDomainData []*apiv1.ImportDomainData
+			if !tt.useNilDomain {
+				protoDomainData = make([]*apiv1.ImportDomainData, len(tt.domainData))
+				for i, dd := range tt.domainData {
+					protoDomainData[i] = &apiv1.ImportDomainData{
+						Enabled:  dd.Enabled,
+						Domain:   dd.Domain,
+						Variable: dd.Variable,
+					}
 				}
 			}
+			// If useNilDomain is true, protoDomainData stays nil (first call behavior)
 
 			// Create request
 			req := connect.NewRequest(&apiv1.ImportRequest{
@@ -564,18 +581,30 @@ func TestImportService_DomainProcessingIntegration(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		domainData []ImportDomainData
+		domainData []ImportDomainData // nil = first call (not provided), empty = skip, with values = configure
 		expectResp func(*apiv1.ImportResponse) bool
 	}{
 		{
-			name:       "no domain data provided",
-			domainData: []ImportDomainData{},
+			// First call: domainData not provided (nil) - return domains for user to configure
+			name:       "first call - domain data not provided",
+			domainData: nil, // nil means first call, domains should be returned
 			expectResp: func(resp *apiv1.ImportResponse) bool {
+				// MissingData = DOMAIN signals client to prompt user for domain configuration
 				return resp.MissingData == apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_DOMAIN
 			},
 		},
 		{
-			name: "domain data provided",
+			// Second call: user chose to skip domain configuration (empty array)
+			name:       "second call - user skipped domain config",
+			domainData: []ImportDomainData{}, // empty means user chose to skip
+			expectResp: func(resp *apiv1.ImportResponse) bool {
+				// Import proceeds without creating env vars, domains cleared
+				return resp.MissingData == apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED
+			},
+		},
+		{
+			// Second call with domain data: import proceeds and creates env vars
+			name: "second call - domain data provided",
 			domainData: []ImportDomainData{
 				{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
 				{Enabled: true, Domain: "cdn.example.com", Variable: "CDN_DOMAIN"},
@@ -585,10 +614,10 @@ func TestImportService_DomainProcessingIntegration(t *testing.T) {
 			},
 		},
 		{
-			name: "partial domain data",
+			name: "second call - partial domain data",
 			domainData: []ImportDomainData{
 				{Enabled: true, Domain: "api.example.com", Variable: "API_DOMAIN"},
-				// Missing cdn.example.com
+				// Missing cdn.example.com - but we still proceed
 			},
 			expectResp: func(resp *apiv1.ImportResponse) bool {
 				// We proceed with partial data, so storage happens, so domains are cleared
@@ -600,12 +629,17 @@ func TestImportService_DomainProcessingIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Convert domain data to protobuf format
-			protoDomainData := make([]*apiv1.ImportDomainData, len(tt.domainData))
-			for i, dd := range tt.domainData {
-				protoDomainData[i] = &apiv1.ImportDomainData{
-					Enabled:  dd.Enabled,
-					Domain:   dd.Domain,
-					Variable: dd.Variable,
+			// nil means "not provided yet" (first call)
+			// empty slice means "user chose to skip" (second call with no mappings)
+			var protoDomainData []*apiv1.ImportDomainData
+			if tt.domainData != nil {
+				protoDomainData = make([]*apiv1.ImportDomainData, len(tt.domainData))
+				for i, dd := range tt.domainData {
+					protoDomainData[i] = &apiv1.ImportDomainData{
+						Enabled:  dd.Enabled,
+						Domain:   dd.Domain,
+						Variable: dd.Variable,
+					}
 				}
 			}
 
@@ -623,10 +657,10 @@ func TestImportService_DomainProcessingIntegration(t *testing.T) {
 			// Verify domain processing response
 			assert.True(t, tt.expectResp(resp.Msg), "Domain processing response validation failed")
 
-			// If MissingData is set, we expect domains to be returned (preview)
-			// If MissingData is NOT set (success), we expect domains to be cleared
+			// If MissingData is set (waiting for user config), domains should be returned
+			// If MissingData is NOT set (success), domains should be cleared
 			if resp.Msg.MissingData != apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED {
-				assert.NotEmpty(t, resp.Msg.Domains, "Should extract domains from HAR when data is missing")
+				assert.NotEmpty(t, resp.Msg.Domains, "Should return domains when waiting for user configuration")
 			} else {
 				assert.Empty(t, resp.Msg.Domains, "Should clear domains on successful import")
 			}
@@ -1333,4 +1367,155 @@ flows:
 
 	assert.True(t, fileNames["fetch_users"] || fileNames["create_user"],
 		"Should have files named after the step names (fetch_users, create_user)")
+}
+
+// TestImportRPC_DomainReplacement tests that domain URLs are replaced with variable references
+// and stored correctly in the database
+func TestImportRPC_DomainReplacement(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	fixture := newIntegrationTestFixture(t)
+
+	// Create a simple HAR with a known domain
+	harData := []byte(`{
+		"log": {
+			"version": "1.2",
+			"creator": {"name": "test", "version": "1.0"},
+			"entries": [
+				{
+					"startedDateTime": "2024-01-01T00:00:00.000Z",
+					"time": 100,
+					"request": {
+						"method": "GET",
+						"url": "https://api.example.com/users",
+						"httpVersion": "HTTP/1.1",
+						"headers": [],
+						"queryString": [],
+						"cookies": [],
+						"headersSize": -1,
+						"bodySize": 0
+					},
+					"response": {
+						"status": 200,
+						"statusText": "OK",
+						"httpVersion": "HTTP/1.1",
+						"headers": [],
+						"cookies": [],
+						"content": {"size": 0, "mimeType": "application/json"},
+						"redirectURL": "",
+						"headersSize": -1,
+						"bodySize": 0
+					},
+					"cache": {},
+					"timings": {"send": 0, "wait": 100, "receive": 0}
+				},
+				{
+					"startedDateTime": "2024-01-01T00:00:01.000Z",
+					"time": 100,
+					"request": {
+						"method": "POST",
+						"url": "https://api.example.com/users/create",
+						"httpVersion": "HTTP/1.1",
+						"headers": [],
+						"queryString": [],
+						"cookies": [],
+						"headersSize": -1,
+						"bodySize": 0
+					},
+					"response": {
+						"status": 201,
+						"statusText": "Created",
+						"httpVersion": "HTTP/1.1",
+						"headers": [],
+						"cookies": [],
+						"content": {"size": 0, "mimeType": "application/json"},
+						"redirectURL": "",
+						"headersSize": -1,
+						"bodySize": 0
+					},
+					"cache": {},
+					"timings": {"send": 0, "wait": 100, "receive": 0}
+				}
+			]
+		}
+	}`)
+
+	// Step 1: First import call without domain data - should return domains for configuration
+	req1 := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Domain Replacement Test",
+		Data:        harData,
+		DomainData:  nil, // nil = first call, should return domains
+	})
+
+	resp1, err := fixture.rpc.Import(fixture.ctx, req1)
+	require.NoError(t, err, "First import call should succeed")
+	require.NotNil(t, resp1)
+
+	// Verify domains are returned
+	assert.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_DOMAIN, resp1.Msg.MissingData,
+		"Should indicate domain data is missing")
+	assert.Contains(t, resp1.Msg.Domains, "api.example.com",
+		"Should return api.example.com as a detected domain")
+
+	t.Logf("Step 1: Detected domains: %v", resp1.Msg.Domains)
+
+	// Step 2: Second import call with domain data - should replace URLs and store
+	req2 := connect.NewRequest(&apiv1.ImportRequest{
+		WorkspaceId: fixture.workspaceID.Bytes(),
+		Name:        "Domain Replacement Test",
+		Data:        harData,
+		DomainData: []*apiv1.ImportDomainData{
+			{
+				Enabled:  true,
+				Domain:   "api.example.com",
+				Variable: "API_HOST",
+			},
+		},
+	})
+
+	resp2, err := fixture.rpc.Import(fixture.ctx, req2)
+	require.NoError(t, err, "Second import call should succeed")
+	require.NotNil(t, resp2)
+
+	// Verify import succeeded
+	assert.Equal(t, apiv1.ImportMissingDataKind_IMPORT_MISSING_DATA_KIND_UNSPECIFIED, resp2.Msg.MissingData,
+		"Should not indicate any missing data")
+	assert.Empty(t, resp2.Msg.Domains, "Domains should be empty after successful import with domain data")
+
+	t.Logf("Step 2: Import completed, FlowId: %x", resp2.Msg.FlowId)
+
+	// Step 3: Verify the stored HTTP requests have replaced URLs
+	// Query the database directly to check the stored URLs
+	httpRequests, err := fixture.services.Hs.GetByWorkspaceID(fixture.ctx, fixture.workspaceID)
+	require.NoError(t, err, "Should be able to list HTTP requests")
+	require.NotEmpty(t, httpRequests, "Should have stored HTTP requests")
+
+	t.Logf("Step 3: Found %d HTTP requests in database", len(httpRequests))
+
+	// Check each URL is replaced with variable reference
+	for i, httpReq := range httpRequests {
+		t.Logf("  HTTP[%d]: Method=%s, URL=%s", i, httpReq.Method, httpReq.Url)
+
+		// URLs should now use {{API_HOST}} instead of https://api.example.com
+		assert.NotContains(t, httpReq.Url, "https://api.example.com",
+			"URL should not contain the original domain")
+		assert.Contains(t, httpReq.Url, "{{API_HOST}}",
+			"URL should contain the variable reference {{API_HOST}}")
+	}
+
+	// Verify specific URL patterns
+	urlsFound := make(map[string]bool)
+	for _, httpReq := range httpRequests {
+		urlsFound[httpReq.Url] = true
+	}
+
+	assert.True(t, urlsFound["{{API_HOST}}/users"],
+		"Should have URL {{API_HOST}}/users")
+	assert.True(t, urlsFound["{{API_HOST}}/users/create"],
+		"Should have URL {{API_HOST}}/users/create")
+
+	t.Log("Domain replacement test passed - URLs are correctly replaced in storage")
 }

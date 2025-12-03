@@ -100,7 +100,8 @@ func TestValidationErrorScenarios(t *testing.T) {
 			errorField:  "domainData",
 		},
 		{
-			name: "domain data enabled but empty variable",
+			// Empty variable is allowed - entries with empty variables are skipped when creating env vars
+			name: "domain data enabled but empty variable (valid, skipped for env var creation)",
 			request: &ImportRequest{
 				WorkspaceID: idwrap.NewNow(),
 				Name:        "Test",
@@ -109,9 +110,7 @@ func TestValidationErrorScenarios(t *testing.T) {
 					{Enabled: true, Domain: "example.com", Variable: ""},
 				},
 			},
-			expectError: true,
-			errorType:   &ValidationError{},
-			errorField:  "domainData",
+			expectError: false,
 		},
 		{
 			name: "domain data disabled with empty variable (valid)",
