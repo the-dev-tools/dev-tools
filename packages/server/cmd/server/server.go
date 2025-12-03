@@ -338,6 +338,8 @@ func main() {
 		&flowNodeJsService,
 		&nodeExecutionService,
 		&flowVariableService,
+		&environmentService,
+		&variableService,
 		&httpService,
 		httpBodyRawService,
 		requestResolver,

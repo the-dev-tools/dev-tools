@@ -36,6 +36,7 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
 	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/service/sflowvariable"
+	"the-dev-tools/server/pkg/service/svar"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
 
@@ -143,11 +144,11 @@ func (s *FlowServiceV2RPC) executeFlow(
 		s.publishFlowEvent(flowEventUpdate, flow)
 	}()
 
-	baseVars := make(map[string]any, len(flowVars))
-	for _, variable := range flowVars {
-		if variable.Enabled {
-			baseVars[variable.Name] = variable.Value
-		}
+	// Build base variables by merging: GlobalEnv -> ActiveEnv -> FlowVars
+	// Later values override earlier ones
+	baseVars, err := s.buildExecutionVars(ctx, flow.WorkspaceID, flowVars)
+	if err != nil {
+		return fmt.Errorf("failed to build execution variables: %w", err)
 	}
 
 	requestRespChan := make(chan nrequest.NodeRequestSideResp, len(nodes)*2+1)
@@ -606,4 +607,61 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	}
 
 	return version, nil
+}
+
+// buildExecutionVars builds the variable map for flow execution by merging:
+// 1. Global environment variables (workspace.GlobalEnv)
+// 2. Active environment variables (workspace.ActiveEnv) - overrides global
+// 3. Flow-level variables - overrides environment variables
+func (s *FlowServiceV2RPC) buildExecutionVars(
+	ctx context.Context,
+	workspaceID idwrap.IDWrap,
+	flowVars []mflowvariable.FlowVariable,
+) (map[string]any, error) {
+	baseVars := make(map[string]any)
+
+	// Get workspace to find GlobalEnv and ActiveEnv
+	workspace, err := s.ws.Get(ctx, workspaceID)
+	if err != nil {
+		// If workspace not found, just use flow vars
+		s.logger.Warn("failed to get workspace for environment variables", "workspace_id", workspaceID.String(), "error", err)
+	} else {
+		// 1. Add global environment variables
+		if workspace.GlobalEnv != (idwrap.IDWrap{}) {
+			globalVars, err := s.vs.GetVariableByEnvID(ctx, workspace.GlobalEnv)
+			if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
+				s.logger.Warn("failed to get global environment variables", "env_id", workspace.GlobalEnv.String(), "error", err)
+			} else {
+				for _, v := range globalVars {
+					if v.Enabled {
+						baseVars[v.VarKey] = v.Value
+					}
+				}
+			}
+		}
+
+		// 2. Add active environment variables (override global)
+		// Only if ActiveEnv is different from GlobalEnv
+		if workspace.ActiveEnv != (idwrap.IDWrap{}) && workspace.ActiveEnv != workspace.GlobalEnv {
+			activeVars, err := s.vs.GetVariableByEnvID(ctx, workspace.ActiveEnv)
+			if err != nil && !errors.Is(err, svar.ErrNoVarFound) {
+				s.logger.Warn("failed to get active environment variables", "env_id", workspace.ActiveEnv.String(), "error", err)
+			} else {
+				for _, v := range activeVars {
+					if v.Enabled {
+						baseVars[v.VarKey] = v.Value
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Add flow-level variables (override environment variables)
+	for _, variable := range flowVars {
+		if variable.Enabled {
+			baseVars[variable.Name] = variable.Value
+		}
+	}
+
+	return baseVars, nil
 }

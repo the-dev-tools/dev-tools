@@ -1106,13 +1106,29 @@ func applyDomainReplacements(httpRequests []mhttp.HTTP, domainData []ImportDomai
 
 // replaceDomainInURL replaces the domain part of a URL with a variable reference.
 // Example: https://api.example.com/users -> {{API_HOST}}/users
+// Note: This uses string manipulation to preserve template variables like {{ var }}
+// that may already exist in the URL path (from depfinder).
 func replaceDomainInURL(urlStr string, domainToVar map[string]string) string {
-	parsed, err := url.Parse(urlStr)
-	if err != nil {
-		return urlStr // Return unchanged if URL can't be parsed
+	// Find the scheme (http:// or https://)
+	schemeEnd := strings.Index(urlStr, "://")
+	if schemeEnd == -1 {
+		return urlStr // Not a valid URL with scheme
 	}
 
-	host := parsed.Host
+	// Find where the host ends (first / after scheme, or end of string)
+	hostStart := schemeEnd + 3
+	pathStart := strings.Index(urlStr[hostStart:], "/")
+
+	var host, pathAndMore string
+	if pathStart == -1 {
+		// No path, just host
+		host = urlStr[hostStart:]
+		pathAndMore = ""
+	} else {
+		host = urlStr[hostStart : hostStart+pathStart]
+		pathAndMore = urlStr[hostStart+pathStart:]
+	}
+
 	// Remove port if present for domain matching
 	hostWithoutPort := host
 	if colonIdx := strings.LastIndex(host, ":"); colonIdx != -1 {
@@ -1136,8 +1152,6 @@ func replaceDomainInURL(urlStr string, domainToVar map[string]string) string {
 	// {{VARIABLE}}/path?query#fragment
 	varRef := "{{" + varName + "}}"
 
-	// Get the path and everything after
-	pathAndMore := parsed.RequestURI() // This includes path, query, and fragment
 	if pathAndMore == "" || pathAndMore == "/" {
 		return varRef
 	}

@@ -556,6 +556,20 @@ func TestApplyDomainReplacements(t *testing.T) {
 				"https://other.example.com/data",
 			},
 		},
+		{
+			name: "Preserve template variables in path (from depfinder)",
+			httpRequests: []mhttp.HTTP{
+				{Url: "https://api.example.com/api/categories/{{ request_5.response.body.id }}"},
+				{Url: "https://api.example.com/users/{{userId}}/posts"},
+			},
+			domainData: []ImportDomainData{
+				{Enabled: true, Domain: "api.example.com", Variable: "API_HOST"},
+			},
+			expectedURLs: []string{
+				"{{API_HOST}}/api/categories/{{ request_5.response.body.id }}",
+				"{{API_HOST}}/users/{{userId}}/posts",
+			},
+		},
 	}
 
 	for _, tt := range tests {

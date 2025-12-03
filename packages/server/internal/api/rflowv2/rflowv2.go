@@ -15,6 +15,7 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflowvariable"
 	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
@@ -26,6 +27,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 	"the-dev-tools/spec/dist/buf/go/api/flow/v1/flowv1connect"
@@ -224,6 +226,8 @@ type FlowServiceV2RPC struct {
 	njss     *snodejs.NodeJSService
 	nes      *snodeexecution.NodeExecutionService
 	fvs      *sflowvariable.FlowVariableService
+	envs     *senv.EnvironmentService
+	vs       *svar.VarService
 	hs       *shttp.HTTPService
 	hbr      *shttp.HttpBodyRawService
 	resolver resolver.RequestResolver
@@ -264,6 +268,8 @@ func New(
 	njss *snodejs.NodeJSService,
 	nes *snodeexecution.NodeExecutionService,
 	fvs *sflowvariable.FlowVariableService,
+	envs *senv.EnvironmentService,
+	vs *svar.VarService,
 	hs *shttp.HTTPService,
 	hbr *shttp.HttpBodyRawService,
 	resolver resolver.RequestResolver,
@@ -298,6 +304,8 @@ func New(
 		njss:                     njss,
 		nes:                      nes,
 		fvs:                      fvs,
+		envs:                     envs,
+		vs:                       vs,
 		hs:                       hs,
 		hbr:                      hbr,
 		resolver:                 resolver,

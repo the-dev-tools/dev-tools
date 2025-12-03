@@ -30,10 +30,10 @@ import (
 	"the-dev-tools/server/pkg/model/mnodeexecution"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/flow/sedge"
+	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/shttp"
-
 	"the-dev-tools/server/pkg/service/snode"
 	"the-dev-tools/server/pkg/service/snodeexecution"
 	"the-dev-tools/server/pkg/service/snodefor"
@@ -42,6 +42,7 @@ import (
 	"the-dev-tools/server/pkg/service/snodejs"
 	"the-dev-tools/server/pkg/service/snodenoop"
 	"the-dev-tools/server/pkg/service/snoderequest"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
 )
@@ -120,6 +121,10 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	// Response services
 	httpResponseService := shttp.NewHttpResponseService(queries)
 
+	// Environment and variable services
+	envService := senv.New(queries, logger)
+	varService := svar.New(queries, logger)
+
 	// Resolver
 	res := resolver.NewStandardResolver(
 		&httpService,
@@ -144,6 +149,8 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 		&nodeJsService,
 		&nodeExecService,
 		&flowVarService,
+		&envService,
+		&varService,
 		&httpService,
 		shttpBodyRawSvc,
 		res,
