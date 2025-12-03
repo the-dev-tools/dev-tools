@@ -68,7 +68,7 @@ The request is converted using the tcurlv2 translation service.`,
 		if err != nil {
 			return fmt.Errorf("failed to create database: %w", err)
 		}
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		queries, err := gen.Prepare(ctx, db)
 		if err != nil {
@@ -167,7 +167,7 @@ The requests are converted using the tpostmanv2 translation service.`,
 		if err != nil {
 			return fmt.Errorf("failed to create database: %w", err)
 		}
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		queries, err := gen.Prepare(ctx, db)
 		if err != nil {
@@ -296,7 +296,7 @@ The requests are converted using the harv2 translation service.`,
 		if err != nil {
 			return fmt.Errorf("failed to create database: %w", err)
 		}
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		queries, err := gen.Prepare(ctx, db)
 		if err != nil {
@@ -308,8 +308,8 @@ The requests are converted using the harv2 translation service.`,
 		httpService := shttp.New(queries, slog.Default())
 		httpHeaderService := shttp.NewHttpHeaderService(queries)
 		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
-		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
+		// httpBodyFormService := shttp.NewHttpBodyFormService(queries)
+		// httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
 		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 
 		// Verify workspace exists
@@ -332,8 +332,8 @@ The requests are converted using the harv2 translation service.`,
 		// Collect all associated data for each request
 		var allHeaders []mhttp.HTTPHeader
 		var allSearchParams []mhttp.HTTPSearchParam
-		var allBodyForms []mhttp.HTTPBodyForm
-		var allBodyUrlencoded []mhttp.HTTPBodyUrlencoded
+		// var allBodyForms []mhttp.HTTPBodyForm
+		// var allBodyUrlencoded []mhttp.HTTPBodyUrlencoded
 		var allBodyRaw []*mhttp.HTTPBodyRaw
 
 		for _, httpRequest := range httpRequests {
@@ -350,6 +350,7 @@ The requests are converted using the harv2 translation service.`,
 			}
 			allSearchParams = append(allSearchParams, searchParams...)
 
+			/*
 			bodyForms, err := httpBodyFormService.GetByHttpID(ctx, httpRequest.ID)
 			if err != nil {
 				return fmt.Errorf("failed to get body forms for request %s: %w", httpRequest.ID.String(), err)
@@ -361,6 +362,7 @@ The requests are converted using the harv2 translation service.`,
 				return fmt.Errorf("failed to get body urlencoded for request %s: %w", httpRequest.ID.String(), err)
 			}
 			allBodyUrlencoded = append(allBodyUrlencoded, bodyUrlencoded...)
+			*/
 
 			bodyRaw, err := httpBodyRawService.GetByHttpID(ctx, httpRequest.ID)
 			if err != nil && err != sql.ErrNoRows {

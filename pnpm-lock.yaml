@@ -445,9 +445,6 @@ importers:
       '@bufbuild/protoc-gen-es':
         specifier: ~2.9.0
         version: 2.9.0(@bufbuild/protobuf@2.9.0)
-      '@connectrpc/protoc-gen-connect-query':
-        specifier: ~2.2.0
-        version: 2.2.0(@bufbuild/protoc-gen-es@2.9.0(@bufbuild/protobuf@2.9.0))
       '@the-dev-tools/eslint-config':
         specifier: workspace:^
         version: link:../../tools/eslint
@@ -1578,16 +1575,6 @@ packages:
     resolution: {integrity: sha512-xhiwnYlJNHzmFsRw+iSPIwXR/xweTvTw8x5HiwWp10sbVtd4OpOXbRgE7V58xs1EC17fzusF1f5uOAy24OkBuA==}
     peerDependencies:
       '@bufbuild/protobuf': ^2.7.0
-
-  '@connectrpc/protoc-gen-connect-query@2.2.0':
-    resolution: {integrity: sha512-MC+Yn3GjqfmdXnmzixylbnAF6viX5y30PTj9gBXTPwyvA5s9iarWV3FKdjT4IcfQYQIJv11e7LrJ2eFZ6vGAUA==}
-    engines: {node: '>=20'}
-    hasBin: true
-    peerDependencies:
-      '@bufbuild/protoc-gen-es': 2.x
-    peerDependenciesMeta:
-      '@bufbuild/protoc-gen-es':
-        optional: true
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -10830,15 +10817,6 @@ snapshots:
   '@connectrpc/connect@2.1.0(@bufbuild/protobuf@2.9.0)':
     dependencies:
       '@bufbuild/protobuf': 2.9.0
-
-  '@connectrpc/protoc-gen-connect-query@2.2.0(@bufbuild/protoc-gen-es@2.9.0(@bufbuild/protobuf@2.9.0))':
-    dependencies:
-      '@bufbuild/protobuf': 2.9.0
-      '@bufbuild/protoplugin': 2.9.0
-    optionalDependencies:
-      '@bufbuild/protoc-gen-es': 2.9.0(@bufbuild/protobuf@2.9.0)
-    transitivePeerDependencies:
-      - supports-color
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:

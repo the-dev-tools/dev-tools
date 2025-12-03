@@ -32,7 +32,7 @@ func init() {
 	importCmd.PersistentFlags().StringVar(&folderID, "folder", "", "Optional folder ID for organization")
 
 	// Mark required flags
-	importCmd.MarkPersistentFlagRequired("workspace")
+	_ = importCmd.MarkPersistentFlagRequired("workspace")
 
 	// Add subcommands
 	importCmd.AddCommand(importCurlCmd)
@@ -80,7 +80,7 @@ The command will be parsed and converted to a unified HTTP request model.`,
 		if err != nil {
 			return fmt.Errorf("failed to create database: %w", err)
 		}
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		queries, err := gen.Prepare(ctx, db)
 		if err != nil {
@@ -198,7 +198,7 @@ translation service. All requests in the collection will be converted to unified
 		if err != nil {
 			return fmt.Errorf("failed to create database: %w", err)
 		}
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		queries, err := gen.Prepare(ctx, db)
 		if err != nil {
@@ -325,7 +325,7 @@ into flows based on request dependencies.`,
 		if err != nil {
 			return fmt.Errorf("failed to create database: %w", err)
 		}
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 
 		queries, err := gen.Prepare(ctx, db)
 		if err != nil {

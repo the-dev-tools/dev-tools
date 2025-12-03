@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -397,7 +398,14 @@ func (s *FlowServiceV2RPC) executeFlow(
 	runErr := flowRunner.RunWithEvents(ctx, runner.FlowEventChannels{
 		NodeStates: nodeStateChan,
 	}, baseVars)
-	flow.Duration = int32(time.Since(startTime).Milliseconds())
+
+	duration := time.Since(startTime).Milliseconds()
+	if duration > math.MaxInt32 {
+		duration = math.MaxInt32
+	}
+	//nolint:gosec // duration clamped to MaxInt32
+	flow.Duration = int32(duration)
+
 	flow.Running = false
 	if err := s.fs.UpdateFlow(context.Background(), flow); err != nil {
 		s.logger.Error("failed to mark flow as not running", "error", err)

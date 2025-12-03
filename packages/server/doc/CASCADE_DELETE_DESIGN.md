@@ -48,11 +48,11 @@ This document details the design for implementing **application-level cascading 
 
 ### The Gap
 
-| Layer | What Happens | Problem |
-|-------|--------------|---------|
-| Backend RPC | Deletes parent HTTP record | Only knows about parent |
-| SQLite CASCADE | Silently deletes all children | Backend unaware of what was deleted |
-| EventStream | Publishes single `delete` event | Only parent ID transmitted |
+| Layer          | What Happens                    | Problem                                     |
+| -------------- | ------------------------------- | ------------------------------------------- |
+| Backend RPC    | Deletes parent HTTP record      | Only knows about parent                     |
+| SQLite CASCADE | Silently deletes all children   | Backend unaware of what was deleted         |
+| EventStream    | Publishes single `delete` event | Only parent ID transmitted                  |
 | Frontend Cache | Removes parent from TanStack DB | **Children remain in separate collections** |
 
 ### Why This Matters
@@ -69,6 +69,7 @@ const assertCollection = createApiCollection(HttpAssertSchema, transport);
 ```
 
 When a parent HTTP is deleted, SQLite cascades the delete to children, but:
+
 1. Backend only publishes `HttpEvent{Type: "delete", ID: parentID}`
 2. Frontend removes parent from `httpCollection`
 3. **Children remain in `headerCollection`, `paramCollection`, etc.**
@@ -729,10 +730,10 @@ FOREIGN KEY (http_id) REFERENCES http (id) ON DELETE CASCADE
 
 ### Why Keep Both?
 
-| Mechanism | Role | Failure Mode |
-|-----------|------|--------------|
-| **Application Cascade** | Primary - query and publish events | If service crashes mid-cascade, some events not published |
-| **SQLite CASCADE** | Safety net - ensures data consistency | Silent deletion (no events), but DB stays consistent |
+| Mechanism               | Role                                  | Failure Mode                                              |
+| ----------------------- | ------------------------------------- | --------------------------------------------------------- |
+| **Application Cascade** | Primary - query and publish events    | If service crashes mid-cascade, some events not published |
+| **SQLite CASCADE**      | Safety net - ensures data consistency | Silent deletion (no events), but DB stays consistent      |
 
 ### Transaction Pattern
 
@@ -771,6 +772,7 @@ HTTP (parent)
 ```
 
 When deleting the parent HTTP, we must:
+
 1. Recursively collect all delta HTTPs
 2. Collect their children (headers, params, etc.)
 3. Publish deletes for everything
@@ -810,6 +812,7 @@ Folder A                    (deleted)
 ```
 
 **For SET NULL relationships:**
+
 - Don't collect children for deletion
 - Optionally publish `update` events with `parent_id: null`
 - Or let frontend infer orphaning when parent disappears
@@ -852,11 +855,11 @@ func (h *HttpServiceRPC) HttpBatchDelete(ctx context.Context, req *connect.Reque
 
 Collecting cascade data requires multiple queries:
 
-| Entity Type | Queries per Parent |
-|-------------|-------------------|
-| HTTP | 1 (parent) + 7 (children) + N (responses × 2) |
-| Flow | 1 (parent) + 4 (children) |
-| File | 1 (parent) + 0 (SET NULL, no cascade) |
+| Entity Type | Queries per Parent                            |
+| ----------- | --------------------------------------------- |
+| HTTP        | 1 (parent) + 7 (children) + N (responses × 2) |
+| Flow        | 1 (parent) + 4 (children)                     |
+| File        | 1 (parent) + 0 (SET NULL, no cascade)         |
 
 ### Optimization Strategies
 
@@ -888,10 +891,10 @@ func (h *HttpServiceRPC) collectHttpCascadeDataParallel(ctx context.Context, htt
 
 Publishing many events has network cost:
 
-| Approach | Tradeoff |
-|----------|----------|
-| **Individual Events** | More messages, simpler frontend |
-| **Batched Events** | Fewer messages, frontend must handle batches |
+| Approach              | Tradeoff                                     |
+| --------------------- | -------------------------------------------- |
+| **Individual Events** | More messages, simpler frontend              |
+| **Batched Events**    | Fewer messages, frontend must handle batches |
 
 Recommendation: Start with individual events. Optimize to batching if performance issues arise.
 
@@ -984,14 +987,14 @@ func TestHttpDeleteCascade_Integration(t *testing.T) {
 
 ### Key Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Cascade awareness | Backend | Frontend stays dumb |
-| Event granularity | One per entity | Simple frontend logic |
-| Event order | Children first | Allows frontend FK validation |
-| SQLite CASCADE | Keep as safety | Defense in depth |
-| Query timing | Before delete | Ensures we capture all IDs |
-| Publish timing | After commit | All or nothing consistency |
+| Decision          | Choice         | Rationale                     |
+| ----------------- | -------------- | ----------------------------- |
+| Cascade awareness | Backend        | Frontend stays dumb           |
+| Event granularity | One per entity | Simple frontend logic         |
+| Event order       | Children first | Allows frontend FK validation |
+| SQLite CASCADE    | Keep as safety | Defense in depth              |
+| Query timing      | Before delete  | Ensures we capture all IDs    |
+| Publish timing    | After commit   | All or nothing consistency    |
 
 ### Benefits
 

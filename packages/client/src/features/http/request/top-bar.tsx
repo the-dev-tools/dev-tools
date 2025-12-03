@@ -138,7 +138,11 @@ export const HttpTopBar = ({ deltaHttpId, httpId }: HttpTopBarProps) => {
                 (_) => Promise.all(_),
               );
 
-              await Connect.request({ input: { httpId: deltaHttpId ?? httpId }, method: HttpService.method.httpRun, transport });
+              await Connect.request({
+                input: { httpId: deltaHttpId ?? httpId },
+                method: HttpService.method.httpRun,
+                transport,
+              });
             })
           }
           variant='primary'

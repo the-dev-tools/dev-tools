@@ -146,7 +146,7 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 
 	workspaceID := idwrap.NewNow()
@@ -469,7 +469,7 @@ func TestFlowRun_RequestNode(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	})
 
 	// Create a flow with HTTP request
@@ -572,7 +572,7 @@ func TestFlowRun_HTTPMethods(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"method": r.Method,
 			"status": "ok",
 		})
