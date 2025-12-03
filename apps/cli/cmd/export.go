@@ -80,7 +80,7 @@ The request is converted using the tcurlv2 translation service.`,
 		httpHeaderService := shttp.NewHttpHeaderService(queries)
 		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlencodedService := shttp.NewHttpBodyUrlencodedService(queries)
+		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
 		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 
 		// Get HTTP request
@@ -105,15 +105,9 @@ The request is converted using the tcurlv2 translation service.`,
 			return fmt.Errorf("failed to get body forms: %w", err)
 		}
 
-		bodyUrlencodedPtrs, err := httpBodyUrlencodedService.List(ctx, httpID)
+		bodyUrlencoded, err := httpBodyUrlEncodedService.GetByHttpID(ctx, httpID)
 		if err != nil {
 			return fmt.Errorf("failed to get body urlencoded: %w", err)
-		}
-		var bodyUrlencoded []mhttp.HTTPBodyUrlencoded
-		for _, ptr := range bodyUrlencodedPtrs {
-			if ptr != nil {
-				bodyUrlencoded = append(bodyUrlencoded, *ptr)
-			}
 		}
 
 		bodyRaw, err := httpBodyRawService.GetByHttpID(ctx, httpID)
@@ -186,7 +180,7 @@ The requests are converted using the tpostmanv2 translation service.`,
 		httpHeaderService := shttp.NewHttpHeaderService(queries)
 		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlencodedService := shttp.NewHttpBodyUrlencodedService(queries)
+		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
 		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 
 		// Verify workspace exists
@@ -233,15 +227,11 @@ The requests are converted using the tpostmanv2 translation service.`,
 			}
 			allBodyForms = append(allBodyForms, bodyForms...)
 
-			bodyUrlencodedPtrs, err := httpBodyUrlencodedService.List(ctx, httpRequest.ID)
+			bodyUrlencoded, err := httpBodyUrlEncodedService.GetByHttpID(ctx, httpRequest.ID)
 			if err != nil {
 				return fmt.Errorf("failed to get body urlencoded for request %s: %w", httpRequest.ID.String(), err)
 			}
-			for _, ptr := range bodyUrlencodedPtrs {
-				if ptr != nil {
-					allBodyUrlencoded = append(allBodyUrlencoded, *ptr)
-				}
-			}
+			allBodyUrlencoded = append(allBodyUrlencoded, bodyUrlencoded...)
 
 			bodyRaw, err := httpBodyRawService.GetByHttpID(ctx, httpRequest.ID)
 			if err != nil && err != sql.ErrNoRows {
@@ -319,7 +309,7 @@ The requests are converted using the harv2 translation service.`,
 		httpHeaderService := shttp.NewHttpHeaderService(queries)
 		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlencodedService := shttp.NewHttpBodyUrlencodedService(queries)
+		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
 		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 
 		// Verify workspace exists
@@ -366,15 +356,11 @@ The requests are converted using the harv2 translation service.`,
 			}
 			allBodyForms = append(allBodyForms, bodyForms...)
 
-			bodyUrlencodedPtrs, err := httpBodyUrlencodedService.List(ctx, httpRequest.ID)
+			bodyUrlencoded, err := httpBodyUrlEncodedService.GetByHttpID(ctx, httpRequest.ID)
 			if err != nil {
 				return fmt.Errorf("failed to get body urlencoded for request %s: %w", httpRequest.ID.String(), err)
 			}
-			for _, ptr := range bodyUrlencodedPtrs {
-				if ptr != nil {
-					allBodyUrlencoded = append(allBodyUrlencoded, *ptr)
-				}
-			}
+			allBodyUrlencoded = append(allBodyUrlencoded, bodyUrlencoded...)
 
 			bodyRaw, err := httpBodyRawService.GetByHttpID(ctx, httpRequest.ID)
 			if err != nil && err != sql.ErrNoRows {
@@ -410,8 +396,8 @@ The requests are converted using the harv2 translation service.`,
 			for _, header := range allHeaders {
 				if header.HttpID.Compare(httpRequest.ID) == 0 {
 					reqHeaders = append(reqHeaders, map[string]interface{}{
-						"name":  header.HeaderKey,
-						"value": header.HeaderValue,
+						"name":  header.Key,
+						"value": header.Value,
 					})
 				}
 			}
@@ -421,8 +407,8 @@ The requests are converted using the harv2 translation service.`,
 			for _, param := range allSearchParams {
 				if param.HttpID.Compare(httpRequest.ID) == 0 {
 					reqQuery = append(reqQuery, map[string]interface{}{
-						"name":  param.ParamKey,
-						"value": param.ParamValue,
+						"name":  param.Key,
+						"value": param.Value,
 					})
 				}
 			}

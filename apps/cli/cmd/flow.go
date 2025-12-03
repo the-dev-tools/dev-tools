@@ -32,7 +32,6 @@ import (
 	"the-dev-tools/server/pkg/model/mnnode/mnjs"
 	"the-dev-tools/server/pkg/model/mnnode/mnnoop"
 	"the-dev-tools/server/pkg/model/mnnode/mnrequest"
-	"the-dev-tools/server/pkg/model/mhttp"
 	"the-dev-tools/server/pkg/httpclient"
 	"the-dev-tools/server/pkg/service/flow/sedge"
 	"the-dev-tools/server/pkg/service/sflow"
@@ -80,11 +79,11 @@ type FlowServiceLocal struct {
 	// V2 services
 	hs     shttp.HTTPService
 	hh     shttp.HttpHeaderService
-	hsp    shttp.HttpSearchParamService
-	hbf    shttp.HttpBodyFormService
-	hbu    shttp.HttpBodyUrlencodedService
-	hbr    shttp.HttpBodyRawService
-	has    shttp.HttpAssertService
+	hsp    *shttp.HttpSearchParamService
+	hbf    *shttp.HttpBodyFormService
+	hbu    *shttp.HttpBodyUrlEncodedService
+	hbr    *shttp.HttpBodyRawService
+	has    *shttp.HttpAssertService
 	logger *slog.Logger
 
 	logChanMap logconsole.LogChanMap
@@ -205,7 +204,7 @@ var yamlflowRunCmd = &cobra.Command{
 		httpHeaderService := shttp.NewHttpHeaderService(queries)
 		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlencodedService := shttp.NewHttpBodyUrlencodedService(queries)
+		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
 		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 		httpAssertService := shttp.NewHttpAssertService(queries)
 
@@ -226,11 +225,11 @@ var yamlflowRunCmd = &cobra.Command{
 			jsns: flowJSService,
 			// V2 services
 			hs:     httpService,
-			hh:     *httpHeaderService,
-			hsp:    *httpSearchParamService,
+			hh:     httpHeaderService,
+			hsp:    httpSearchParamService,
 			hbf:    httpBodyFormService,
-			hbu:    *httpBodyUrlencodedService,
-			hbr:    *httpBodyRawService,
+			hbu:    httpBodyUrlEncodedService,
+			hbr:    httpBodyRawService,
 			has:    httpAssertService,
 			logger: logger,
 
@@ -609,6 +608,21 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	}
 	httpClient := httpclient.New()
 	requestNodeRespChan := make(chan nrequest.NodeRequestSideResp, requestBufferSize)
+
+	// Start a goroutine to consume request responses and signal completion
+	// This is necessary because nrequest nodes block waiting for Done to be closed
+	var respDrain sync.WaitGroup
+	respDrain.Add(1)
+	go func() {
+		defer respDrain.Done()
+		for resp := range requestNodeRespChan {
+			// Signal that we've processed the response
+			if resp.Done != nil {
+				close(resp.Done)
+			}
+		}
+	}()
+
 	for _, requestNode := range requestNodes {
 		if requestNode.HttpID == nil {
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("request node %s has no http id", requestNode.FlowNodeID)))
@@ -634,16 +648,11 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http body forms: %w", err)))
 		}
 
-		urlEncoded, err := c.hbu.List(ctx, *requestNode.HttpID)
+		urlEncoded, err := c.hbu.GetByHttpID(ctx, *requestNode.HttpID)
 		if err != nil {
 			return markFailure(connect.NewError(connect.CodeInternal, fmt.Errorf("load http body urlencoded: %w", err)))
 		}
-		urlEncodedVals := make([]mhttp.HTTPBodyUrlencoded, 0, len(urlEncoded))
-		for _, v := range urlEncoded {
-			if v != nil {
-				urlEncodedVals = append(urlEncodedVals, *v)
-			}
-		}
+		urlEncodedVals := urlEncoded
 
 		rawBody, err := c.hbr.GetByHttpID(ctx, *requestNode.HttpID)
 		if err != nil && !errors.Is(err, shttp.ErrNoHttpBodyRawFound) && !errors.Is(err, sql.ErrNoRows) {
@@ -810,6 +819,7 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 	result.Nodes = nodeResults
 
 	close(requestNodeRespChan)
+	respDrain.Wait()
 
 	var finalErr error
 	if flowErr != nil {

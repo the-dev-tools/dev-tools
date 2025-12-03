@@ -93,7 +93,7 @@ The command will be parsed and converted to a unified HTTP request model.`,
 		httpHeaderService := shttp.NewHttpHeaderService(queries)
 		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlencodedService := shttp.NewHttpBodyUrlencodedService(queries)
+		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
 		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 
 		// Verify workspace exists
@@ -119,33 +119,33 @@ The command will be parsed and converted to a unified HTTP request model.`,
 
 		// Save associated data
 		for _, header := range resolved.Headers {
-			_, err := httpHeaderService.Create(ctx, header)
+			err := httpHeaderService.Create(ctx, &header)
 			if err != nil {
 				return fmt.Errorf("failed to save header: %w", err)
 			}
 		}
 
 		for _, searchParam := range resolved.SearchParams {
-			if err := httpSearchParamService.Create(ctx, searchParam); err != nil {
+			if err := httpSearchParamService.Create(ctx, &searchParam); err != nil {
 				return fmt.Errorf("failed to save search param: %w", err)
 			}
 		}
 
 		for _, form := range resolved.BodyForms {
-			if err := httpBodyFormService.Create(ctx, form); err != nil {
+			if err := httpBodyFormService.Create(ctx, &form); err != nil {
 				return fmt.Errorf("failed to save body form: %w", err)
 			}
 		}
 
 		for _, urlencoded := range resolved.BodyUrlencoded {
-			_, err := httpBodyUrlencodedService.Create(ctx, urlencoded.HttpID, urlencoded.UrlencodedKey, urlencoded.UrlencodedValue, urlencoded.Description)
+			err := httpBodyUrlEncodedService.Create(ctx, &urlencoded)
 			if err != nil {
 				return fmt.Errorf("failed to save body urlencoded: %w", err)
 			}
 		}
 
 		if resolved.BodyRaw != nil {
-			_, err := httpBodyRawService.Create(ctx, resolved.BodyRaw.HttpID, resolved.BodyRaw.RawData, resolved.BodyRaw.ContentType)
+			_, err = httpBodyRawService.Create(ctx, resolved.BodyRaw.HttpID, resolved.BodyRaw.RawData, resolved.BodyRaw.ContentType)
 			if err != nil {
 				return fmt.Errorf("failed to save body raw: %w", err)
 			}
@@ -211,7 +211,7 @@ translation service. All requests in the collection will be converted to unified
 		httpHeaderService := shttp.NewHttpHeaderService(queries)
 		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
 		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlencodedService := shttp.NewHttpBodyUrlencodedService(queries)
+		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
 		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
 
 		// Verify workspace exists
@@ -243,26 +243,26 @@ translation service. All requests in the collection will be converted to unified
 
 		// Save headers, search params, and body data for each request
 		for _, header := range resolved.Headers {
-			_, err := httpHeaderService.Create(ctx, header)
+			err := httpHeaderService.Create(ctx, &header)
 			if err != nil {
 				return fmt.Errorf("failed to save header: %w", err)
 			}
 		}
 
 		for _, searchParam := range resolved.SearchParams {
-			if err := httpSearchParamService.Create(ctx, searchParam); err != nil {
+			if err := httpSearchParamService.Create(ctx, &searchParam); err != nil {
 				return fmt.Errorf("failed to save search param: %w", err)
 			}
 		}
 
 		for _, form := range resolved.BodyForms {
-			if err := httpBodyFormService.Create(ctx, form); err != nil {
+			if err := httpBodyFormService.Create(ctx, &form); err != nil {
 				return fmt.Errorf("failed to save body form: %w", err)
 			}
 		}
 
 		for _, urlencoded := range resolved.BodyUrlencoded {
-			_, err := httpBodyUrlencodedService.Create(ctx, urlencoded.HttpID, urlencoded.UrlencodedKey, urlencoded.UrlencodedValue, urlencoded.Description)
+			err := httpBodyUrlEncodedService.Create(ctx, &urlencoded)
 			if err != nil {
 				return fmt.Errorf("failed to save body urlencoded: %w", err)
 			}
