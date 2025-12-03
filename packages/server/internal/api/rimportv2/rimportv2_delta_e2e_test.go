@@ -1,6 +1,7 @@
 package rimportv2
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -22,7 +23,7 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 	fixture := newIntegrationTestFixture(t)
 
 	// 1. Create HAR with Dependency
-	// Request A: Returns token
+	// Request A: Returns token (>= 8 chars for depfinder matching)
 	// Request B: Uses token
 	harData := []byte(`{
 		"log": {
@@ -44,7 +45,7 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 						"headers": [{"name": "Content-Type", "value": "application/json"}],
 						"content": {
 							"mimeType": "application/json",
-							"text": "{\"token\": \"abc-123\"}"
+							"text": "{\"token\": \"abc-12345-xyz\"}"
 						}
 					}
 				},
@@ -55,7 +56,7 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 						"url": "https://api.com/profile",
 						"httpVersion": "HTTP/1.1",
 						"headers": [
-							{"name": "Authorization", "value": "Bearer abc-123"}
+							{"name": "Authorization", "value": "Bearer abc-12345-xyz"}
 						]
 					},
 					"response": {
@@ -171,7 +172,8 @@ func TestImportV2_DeltaE2E(t *testing.T) {
 		select {
 		case evt := <-httpSub:
 			httpEvents++
-			if evt.Payload.Http.Url == "https://api.com/profile" {
+			// After import with domain variable, URL becomes {{API_HOST}}/profile
+			if strings.Contains(evt.Payload.Http.Url, "profile") {
 				if evt.Payload.IsDelta {
 					deltaB_ID = evt.Payload.Http.HttpId
 				} else {

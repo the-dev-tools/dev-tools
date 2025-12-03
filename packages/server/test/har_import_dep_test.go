@@ -21,8 +21,8 @@ import (
 )
 
 // HAR with Dependency
-// Request 1: Login returns token "abc-123"
-// Request 2: Profile uses "Bearer abc-123"
+// Request 1: Login returns token "abc-12345-xyz" (>= 8 chars for depfinder matching)
+// Request 2: Profile uses "Bearer abc-12345-xyz"
 const harWithDeps = `{
   "log": {
     "version": "1.2",
@@ -40,7 +40,7 @@ const harWithDeps = `{
           "status": 200,
           "content": {
             "mimeType": "application/json",
-            "text": "{\"token\": \"abc-123\", \"userId\": 99}"
+            "text": "{\"token\": \"abc-12345-xyz\", \"userId\": 99}"
           }
         }
       },
@@ -53,7 +53,7 @@ const harWithDeps = `{
           "headers": [
             {
               "name": "Authorization",
-              "value": "Bearer abc-123"
+              "value": "Bearer abc-12345-xyz"
             },
             {
               "name": "X-Static",
@@ -126,10 +126,10 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 	require.NotNil(t, authHeaderEvent, "Should find a Delta Authorization header")
 
 	// The value should be templated, e.g., "Bearer {{...}}"
-	// It should NOT be "Bearer abc-123"
+	// It should NOT be "Bearer abc-12345-xyz"
 	t.Logf("Found Delta Authorization Header in Sync: %s", authHeaderEvent.HttpHeader.Value)
 	assert.Contains(t, authHeaderEvent.HttpHeader.Value, "{{", "Value should contain variable template")
-	assert.NotContains(t, authHeaderEvent.HttpHeader.Value, "abc-123", "Value should NOT contain raw secret")
+	assert.NotContains(t, authHeaderEvent.HttpHeader.Value, "abc-12345-xyz", "Value should NOT contain raw secret")
 	assert.Contains(t, authHeaderEvent.HttpHeader.Value, "Bearer ", "Value should preserve prefix")
 
 	// 4. Verify Collection Consistency

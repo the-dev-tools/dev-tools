@@ -31,6 +31,8 @@ import (
 	"the-dev-tools/server/pkg/service/suser"
 	"the-dev-tools/server/pkg/service/sworkspace"
 	"the-dev-tools/server/pkg/service/sworkspacesusers"
+	"the-dev-tools/server/pkg/service/senv"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 	exportv1 "the-dev-tools/spec/dist/buf/go/api/export/v1"
 
@@ -63,12 +65,15 @@ type BaseTestServices struct {
 	HttpBodyFormService       *shttp.HttpBodyFormService
 	HttpBodyUrlEncodedService *shttp.HttpBodyUrlEncodedService
 	BodyService               *shttp.HttpBodyRawService
+	HttpAssertService         *shttp.HttpAssertService
 
 	// Flow related services
 	NodeService        *snode.NodeService
 	NodeRequestService *snoderequest.NodeRequestService
 	NodeNoopService    *snodenoop.NodeNoopService
 	EdgeService        *sedge.EdgeService
+	EnvService         senv.EnvironmentService
+	VarService         svar.VarService
 }
 
 // newIntegrationTestFixture creates a complete test environment for integration tests
@@ -93,11 +98,14 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 	httpBodyFormService := shttp.NewHttpBodyFormService(base.Queries)
 	httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(base.Queries)
 	bodyService := shttp.NewHttpBodyRawService(base.Queries)
+	httpAssertService := shttp.NewHttpAssertService(base.Queries)
 
 	nodeService := snode.New(base.Queries)
 	nodeRequestService := snoderequest.New(base.Queries)
 	nodeNoopService := snodenoop.New(base.Queries)
 	edgeService := sedge.New(base.Queries)
+	envService := senv.New(base.Queries, logger)
+	varService := svar.New(base.Queries, logger)
 
 	// Create user and workspace
 	userID := idwrap.NewNow()
@@ -156,10 +164,13 @@ func newIntegrationTestFixture(t *testing.T) *integrationTestFixture {
 		HttpBodyFormService:       httpBodyFormService,
 		HttpBodyUrlEncodedService: httpBodyUrlEncodedService,
 		BodyService:               bodyService,
+		HttpAssertService:         httpAssertService,
 		NodeService:               &nodeService,
 		NodeRequestService:        &nodeRequestService,
 		NodeNoopService:           &nodeNoopService,
 		EdgeService:               &edgeService,
+		EnvService:                envService,
+		VarService:                varService,
 	}
 
 	return &integrationTestFixture{
@@ -580,10 +591,13 @@ func createImportService(t *testing.T, fixture *integrationTestFixture) *rimport
 		fixture.services.HttpBodyFormService,
 		fixture.services.HttpBodyUrlEncodedService,
 		fixture.services.BodyService,
+		fixture.services.HttpAssertService,
 		fixture.services.NodeService,
 		fixture.services.NodeRequestService,
 		fixture.services.NodeNoopService,
 		fixture.services.EdgeService,
+		fixture.services.EnvService,
+		fixture.services.VarService,
 	)
 	validator := rimportv2.NewValidator(&fixture.services.Us)
 
