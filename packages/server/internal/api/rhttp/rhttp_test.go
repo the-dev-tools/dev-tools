@@ -733,11 +733,11 @@ func TestHttpRun_WithAssertions(t *testing.T) {
 	httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL, "GET")
 
 	// Add assertions
-	f.createHttpAssertion(t, httpID, "status_code", "200", "Status code should be 200")
-	f.createHttpAssertion(t, httpID, "header.content_type", "application/json", "Content-Type should be application/json")
-	f.createHttpAssertion(t, httpID, "header.x-custom-header", "test-value", "Custom header should match")
-	f.createHttpAssertion(t, httpID, "body_json_path", "$.status", "Response should have success status")
-	f.createHttpAssertion(t, httpID, "body_contains", "success", "Response should contain success")
+	f.createHttpAssertion(t, httpID, "response.status == 200", "Status code should be 200")
+	f.createHttpAssertion(t, httpID, "response.headers['content-type'] == 'application/json'", "Content-Type should be application/json")
+	f.createHttpAssertion(t, httpID, "response.headers['x-custom-header'] == 'test-value'", "Custom header should match")
+	f.createHttpAssertion(t, httpID, "response.body.status == 'success'", "Response should have success status")
+	f.createHttpAssertion(t, httpID, "contains(string(response.body), 'success')", "Response should contain success")
 
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
 		HttpId: httpID.Bytes(),
@@ -984,7 +984,7 @@ func TestHttpRun_Assertions_StatusCode(t *testing.T) {
 			ws := f.createWorkspace(t, "test-workspace")
 			httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL, "GET")
 
-			f.createHttpAssertion(t, httpID, "status_code", tt.assertionValue, fmt.Sprintf("Status should be %s", tt.assertionValue))
+			f.createHttpAssertion(t, httpID, fmt.Sprintf("response.status == %s", tt.assertionValue), fmt.Sprintf("Status should be %s", tt.assertionValue))
 
 			req := connect.NewRequest(&httpv1.HttpRunRequest{
 				HttpId: httpID.Bytes(),
@@ -1186,7 +1186,7 @@ func TestHttpRun_Assertions_CustomExpressions(t *testing.T) {
 			ws := f.createWorkspace(t, "test-workspace")
 			httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL, "GET")
 
-			f.createHttpAssertion(t, httpID, "", tt.expression, fmt.Sprintf("Custom expression: %s", tt.expression))
+			f.createHttpAssertion(t, httpID, tt.expression, fmt.Sprintf("Custom expression: %s", tt.expression))
 
 			req := connect.NewRequest(&httpv1.HttpRunRequest{
 				HttpId: httpID.Bytes(),
@@ -1217,20 +1217,19 @@ func TestHttpRun_Assertions_MultipleAssertions(t *testing.T) {
 
 	// Add multiple assertions
 	assertions := []struct {
-		key   string
-		value string
-		desc  string
+		expression string
+		desc       string
 	}{
-		{"status_code", "200", "Status should be 200"},
-		{"header.content_type", "application/json", "Content-Type should be JSON"},
-		{"header.x-api-version", "v1.2.3", "API version should match"},
-		{"body_contains", "success", "Response should contain success"},
-		{"body_json_path", "$.data.id", "Product ID should exist"},
-		{"", `response.status == "success" && response.data.price > 25`, "Complex validation"},
+		{"response.status == 200", "Status should be 200"},
+		{"response.headers['content-type'] == 'application/json'", "Content-Type should be JSON"},
+		{"response.headers['x-api-version'] == 'v1.2.3'", "API version should match"},
+		{"contains(string(response.body), 'success')", "Response should contain success"},
+		{"has(response.body.data.id)", "Product ID should exist"},
+		{`response.status == "success" && response.data.price > 25`, "Complex validation"},
 	}
 
 	for _, assertion := range assertions {
-		f.createHttpAssertion(t, httpID, assertion.key, assertion.value, assertion.desc)
+		f.createHttpAssertion(t, httpID, assertion.expression, assertion.desc)
 	}
 
 	req := connect.NewRequest(&httpv1.HttpRunRequest{
@@ -1251,9 +1250,8 @@ func TestHttpRun_Assertions_ErrorResponses(t *testing.T) {
 		responseStatus int
 		responseBody   string
 		assertions     []struct {
-			key   string
-			value string
-			desc  string
+			expression string
+			desc       string
 		}
 	}{
 		{
@@ -1261,12 +1259,11 @@ func TestHttpRun_Assertions_ErrorResponses(t *testing.T) {
 			responseStatus: 404,
 			responseBody:   `{"error":"Not Found","message":"Resource not found"}`,
 			assertions: []struct {
-				key   string
-				value string
-				desc  string
+				expression string
+				desc       string
 			}{
-				{"status_code", "404", "Status should be 404"},
-				{"body_contains", "Not Found", "Body should contain error message"},
+				{"response.status == 404", "Status should be 404"},
+				{"contains(string(response.body), 'Not Found')", "Body should contain error message"},
 			},
 		},
 		{
@@ -1274,12 +1271,11 @@ func TestHttpRun_Assertions_ErrorResponses(t *testing.T) {
 			responseStatus: 500,
 			responseBody:   `{"error":"Internal Server Error","message":"Something went wrong"}`,
 			assertions: []struct {
-				key   string
-				value string
-				desc  string
+				expression string
+				desc       string
 			}{
-				{"status_code", "500", "Status should be 500"},
-				{"body_contains", "Internal Server Error", "Body should contain error"},
+				{"response.status == 500", "Status should be 500"},
+				{"contains(string(response.body), 'Internal Server Error')", "Body should contain error"},
 			},
 		},
 	}
@@ -1300,7 +1296,7 @@ func TestHttpRun_Assertions_ErrorResponses(t *testing.T) {
 			httpID := f.createHttpWithUrl(t, ws, "test-http", testServer.URL, "GET")
 
 			for _, assertion := range tt.assertions {
-				f.createHttpAssertion(t, httpID, assertion.key, assertion.value, assertion.desc)
+				f.createHttpAssertion(t, httpID, assertion.expression, assertion.desc)
 			}
 
 			req := connect.NewRequest(&httpv1.HttpRunRequest{
@@ -1605,11 +1601,11 @@ func TestHttpRun_ConcurrentWithDifferentRequests(t *testing.T) {
 
 		// Add assertions for each
 		if i == 0 {
-			f.createHttpAssertion(t, httpIDs[i], "status_code", "200", "Status should be 200")
+			f.createHttpAssertion(t, httpIDs[i], "response.status == 200", "Status should be 200")
 		} else if i == 1 {
-			f.createHttpAssertion(t, httpIDs[i], "header.x-api-version", "v2.0", "API version should match")
+			f.createHttpAssertion(t, httpIDs[i], "response.headers['x-api-version'] == 'v2.0'", "API version should match")
 		} else {
-			f.createHttpAssertion(t, httpIDs[i], "status_code", "404", "Status should be 404")
+			f.createHttpAssertion(t, httpIDs[i], "response.status == 404", "Status should be 404")
 		}
 	}
 
@@ -2074,7 +2070,7 @@ func TestHttpRun_ComplexVariableSubstitution(t *testing.T) {
 	f.createHttpSearchParam(t, httpID, "debug", "{{debugMode}}")
 
 	// Add assertions that use variables in expected values
-	f.createHttpAssertion(t, httpID, "status_code", "200", "Status code should be 200")
+	f.createHttpAssertion(t, httpID, "response.status == 200", "Status code should be 200")
 	// The server returns the raw "{{userId}}" string, but our assertion logic resolves the expected value "12345".
 	// So "12345" will NOT be found in `... "userId":"{{userId}}"`.
 	// We need to relax this assertion or update the server.
@@ -2139,14 +2135,14 @@ func TestHttpRun_VariableSubstitutionChaining_Simulated(t *testing.T) {
 
 	// First HTTP request that would "generate" variables
 	firstHttpID := f.createHttpWithUrl(t, ws, "first-request", firstServer.URL, "GET")
-	f.createHttpAssertion(t, firstHttpID, "status_code", "200", "First request should succeed")
-	f.createHttpAssertion(t, firstHttpID, "body_contains", "userId", "Response should contain userId")
+	f.createHttpAssertion(t, firstHttpID, "response.status == 200", "First request should succeed")
+	f.createHttpAssertion(t, firstHttpID, "contains(string(response.body), 'userId')", "Response should contain userId")
 
 	// Second HTTP request that would use variables from first request
 	secondHttpID := f.createHttpWithUrl(t, ws, "second-request", secondServer.URL+"?data={{response.userId}}", "GET")
 	f.createHttpHeader(t, secondHttpID, "Authorization", "Bearer {{response.token}}")
-	f.createHttpAssertion(t, secondHttpID, "status_code", "200", "Second request should succeed")
-	f.createHttpAssertion(t, secondHttpID, "body_contains", "chainedData", "Response should contain chained data")
+	f.createHttpAssertion(t, secondHttpID, "response.status == 200", "Second request should succeed")
+	f.createHttpAssertion(t, secondHttpID, "contains(string(response.body), 'chainedData')", "Response should contain chained data")
 
 	// Execute first request
 	firstReq := connect.NewRequest(&httpv1.HttpRunRequest{

@@ -423,7 +423,7 @@ func TestWorkspaceBundle_CompleteStructure(t *testing.T) {
 			{ID: idwrap.NewNow(), HttpID: httpID, RawData: []byte(`{"test": true}`), ContentType: "application/json", CreatedAt: now, UpdatedAt: now},
 		},
 		HTTPAsserts: []mhttp.HTTPAssert{
-			{ID: idwrap.NewNow(), HttpID: httpID, Key: "response.status", Value: "200", Enabled: true, CreatedAt: now, UpdatedAt: now},
+			{ID: idwrap.NewNow(), HttpID: httpID, Value: "response.status == 200", Enabled: true, CreatedAt: now, UpdatedAt: now},
 		},
 		Files: []mfile.File{
 			{ID: idwrap.NewNow(), WorkspaceID: workspaceID, ContentID: &httpID, ContentType: mfile.ContentTypeHTTP, Name: "API Request"},

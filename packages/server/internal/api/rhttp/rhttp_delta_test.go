@@ -127,8 +127,7 @@ func TestHttpDelta_Assert(t *testing.T) {
 	err = f.handler.httpAssertService.Create(ctx, &mhttp.HTTPAssert{
 		ID:      baseAssertID,
 		HttpID:  httpID,
-		Key:     "base-key",
-		Value:   "base-value",
+		Value:   "base-key == 'base-value'",
 		Enabled: true,
 	})
 	require.NoError(t, err)
