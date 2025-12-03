@@ -78,7 +78,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	}
 
 	// Create a new flow version for this run (snapshot of the flow with all nodes, edges, etc.)
-	version, err := s.createFlowVersionSnapshot(ctx, flow, nodes, edges, flowVars)
+	version, nodeIDMapping, err := s.createFlowVersionSnapshot(ctx, flow, nodes, edges, flowVars)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create flow version: %w", err))
 	}
@@ -108,7 +108,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 			cancel()
 		}()
 
-		if err := s.executeFlow(bgCtx, flow, nodes, edges, flowVars); err != nil {
+		if err := s.executeFlow(bgCtx, flow, nodes, edges, flowVars, version.ID, nodeIDMapping); err != nil {
 			// Check if error is due to cancellation
 			if errors.Is(err, context.Canceled) {
 				s.logger.Info("flow execution canceled", "flow_id", flowID.String())
@@ -127,6 +127,8 @@ func (s *FlowServiceV2RPC) executeFlow(
 	nodes []mnnode.MNode,
 	edges []edge.Edge,
 	flowVars []mflowvariable.FlowVariable,
+	versionFlowID idwrap.IDWrap,
+	nodeIDMapping map[string]idwrap.IDWrap,
 ) error {
 	// Mark flow as running
 	flow.Running = true
@@ -319,8 +321,52 @@ func (s *FlowServiceV2RPC) executeFlow(
 				s.logger.Error("failed to persist node execution", "error", err)
 			}
 
-			// Publish execution event
+			// Publish execution event for original node
 			s.publishExecutionEvent(eventType, model, flow.ID)
+
+			// Also create execution for the version node so history shows correct state
+			if versionNodeID, ok := nodeIDMapping[status.NodeID.String()]; ok {
+				versionModel := mnodeexecution.NodeExecution{
+					ID:                     idwrap.NewNow(),
+					NodeID:                 versionNodeID,
+					Name:                   model.Name,
+					State:                  model.State,
+					Error:                  model.Error,
+					InputData:              model.InputData,
+					InputDataCompressType:  model.InputDataCompressType,
+					OutputData:             model.OutputData,
+					OutputDataCompressType: model.OutputDataCompressType,
+					ResponseID:             model.ResponseID,
+					CompletedAt:            model.CompletedAt,
+				}
+				if err := s.nes.UpsertNodeExecution(ctx, versionModel); err != nil {
+					s.logger.Error("failed to persist version node execution", "error", err)
+				}
+				// Publish execution event for version node - always INSERT since these are new records
+				// (the frontend needs INSERT before any UPDATE can be applied)
+				s.publishExecutionEvent(executionEventInsert, versionModel, versionFlowID)
+
+				// Also publish node state update for version node
+				if s.nodeStream != nil {
+					var info string
+					if status.Error != nil {
+						info = status.Error.Error()
+					}
+					versionNodePB := &flowv1.Node{
+						NodeId: versionNodeID.Bytes(),
+						FlowId: versionFlowID.Bytes(),
+						State:  flowv1.FlowItemState(status.State),
+					}
+					if info != "" {
+						versionNodePB.Info = &info
+					}
+					s.nodeStream.Publish(NodeTopic{FlowID: versionFlowID}, NodeEvent{
+						Type:   nodeEventUpdate,
+						FlowID: versionFlowID,
+						Node:   versionNodePB,
+					})
+				}
+			}
 
 			if s.nodeStream != nil {
 				var info string
@@ -433,17 +479,18 @@ func (s *FlowServiceV2RPC) buildRequestFlowNode(
 
 // createFlowVersionSnapshot creates a complete snapshot of the flow including all nodes, edges, sub-nodes, and variables.
 // It also publishes sync events for all created entities so clients receive the full flow data.
+// Returns the created version flow and a mapping from original node IDs to version node IDs.
 func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 	ctx context.Context,
 	sourceFlow mflow.Flow,
 	sourceNodes []mnnode.MNode,
 	sourceEdges []edge.Edge,
 	sourceVars []mflowvariable.FlowVariable,
-) (mflow.Flow, error) {
+) (mflow.Flow, map[string]idwrap.IDWrap, error) {
 	// Create the version flow record
 	version, err := s.fs.CreateFlowVersion(ctx, sourceFlow)
 	if err != nil {
-		return mflow.Flow{}, fmt.Errorf("create flow version: %w", err)
+		return mflow.Flow{}, nil, fmt.Errorf("create flow version: %w", err)
 	}
 
 	versionFlowID := version.ID
@@ -467,7 +514,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		}
 
 		if err := s.ns.CreateNode(ctx, newNode); err != nil {
-			return mflow.Flow{}, fmt.Errorf("create node %s: %w", sourceNode.Name, err)
+			return mflow.Flow{}, nil, fmt.Errorf("create node %s: %w", sourceNode.Name, err)
 		}
 
 		// Duplicate node-type specific data and publish events
@@ -481,7 +528,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 					Type:       noopData.Type,
 				}
 				if err := s.nnos.CreateNodeNoop(ctx, newNoopData); err != nil {
-					return mflow.Flow{}, fmt.Errorf("create noop node: %w", err)
+					return mflow.Flow{}, nil, fmt.Errorf("create noop node: %w", err)
 				}
 				s.publishNoOpEvent(noopEventInsert, versionFlowID, newNoopData)
 			}
@@ -497,7 +544,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 					HasRequestConfig: requestData.HasRequestConfig,
 				}
 				if err := s.nrs.CreateNodeRequest(ctx, newRequestData); err != nil {
-					return mflow.Flow{}, fmt.Errorf("create request node: %w", err)
+					return mflow.Flow{}, nil, fmt.Errorf("create request node: %w", err)
 				}
 				// Request node events are handled through nodeStream subscription
 			}
@@ -512,7 +559,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 					ErrorHandling: forData.ErrorHandling,
 				}
 				if err := s.nfs.CreateNodeFor(ctx, newForData); err != nil {
-					return mflow.Flow{}, fmt.Errorf("create for node: %w", err)
+					return mflow.Flow{}, nil, fmt.Errorf("create for node: %w", err)
 				}
 				s.publishForEvent(forEventInsert, versionFlowID, newForData)
 			}
@@ -527,7 +574,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 					ErrorHandling:  forEachData.ErrorHandling,
 				}
 				if err := s.nfes.CreateNodeForEach(ctx, newForEachData); err != nil {
-					return mflow.Flow{}, fmt.Errorf("create foreach node: %w", err)
+					return mflow.Flow{}, nil, fmt.Errorf("create foreach node: %w", err)
 				}
 				// ForEach node events are handled through nodeStream subscription
 			}
@@ -540,7 +587,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 					Condition:  conditionData.Condition,
 				}
 				if err := s.nifs.CreateNodeIf(ctx, newConditionData); err != nil {
-					return mflow.Flow{}, fmt.Errorf("create condition node: %w", err)
+					return mflow.Flow{}, nil, fmt.Errorf("create condition node: %w", err)
 				}
 				// Condition node events are handled through nodeStream subscription
 			}
@@ -554,7 +601,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 					CodeCompressType: jsData.CodeCompressType,
 				}
 				if err := s.njss.CreateNodeJS(ctx, newJsData); err != nil {
-					return mflow.Flow{}, fmt.Errorf("create js node: %w", err)
+					return mflow.Flow{}, nil, fmt.Errorf("create js node: %w", err)
 				}
 				s.publishJsEvent(jsEventInsert, versionFlowID, newJsData)
 			}
@@ -584,7 +631,7 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		}
 
 		if err := s.es.CreateEdge(ctx, newEdge); err != nil {
-			return mflow.Flow{}, fmt.Errorf("create edge: %w", err)
+			return mflow.Flow{}, nil, fmt.Errorf("create edge: %w", err)
 		}
 		s.publishEdgeEvent(edgeEventInsert, newEdge)
 	}
@@ -601,12 +648,12 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 		}
 
 		if err := s.fvs.CreateFlowVariable(ctx, newVar); err != nil {
-			return mflow.Flow{}, fmt.Errorf("create flow variable: %w", err)
+			return mflow.Flow{}, nil, fmt.Errorf("create flow variable: %w", err)
 		}
 		s.publishFlowVariableEvent(flowVarEventInsert, newVar, 0)
 	}
 
-	return version, nil
+	return version, nodeIDMapping, nil
 }
 
 // buildExecutionVars builds the variable map for flow execution by merging:

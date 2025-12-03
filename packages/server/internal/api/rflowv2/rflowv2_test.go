@@ -638,3 +638,168 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 
 	t.Logf("Successfully created %d flow versions from %d runs", len(versions), runCount)
 }
+
+// TestFlowVersionNodes_HaveStateAndExecutions verifies that flow version nodes
+// have correct state in NodeCollection and have execution records in NodeExecutionCollection
+func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
+	// Setup DB with shared cache for concurrency
+	db, err := sql.Open("sqlite", "file:version_nodes_state_test?mode=memory&cache=shared")
+	require.NoError(t, err)
+	defer db.Close()
+
+	_, err = db.Exec(schema)
+	require.NoError(t, err)
+	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	require.NoError(t, err)
+
+	queries := gen.New(db)
+
+	// Setup Services
+	wsService := sworkspace.New(queries)
+	flowService := sflow.New(queries)
+	nodeService := snode.New(queries)
+	nodeExecService := snodeexecution.New(queries)
+	edgeService := sedge.New(queries)
+	noopService := snodenoop.New(queries)
+	flowVarService := sflowvariable.New(queries)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	svc := &FlowServiceV2RPC{
+		ws:           &wsService,
+		fs:           &flowService,
+		ns:           &nodeService,
+		nes:          &nodeExecService,
+		es:           &edgeService,
+		nnos:         &noopService,
+		fvs:          &flowVarService,
+		logger:       logger,
+		runningFlows: make(map[string]context.CancelFunc),
+	}
+
+	// Setup Data
+	ctx := context.Background()
+	userID := idwrap.NewNow()
+	ctx = mwauth.CreateAuthedContext(ctx, userID)
+
+	_, err = db.Exec("INSERT INTO users (id, email) VALUES (?, ?)", userID.Bytes(), "test@example.com")
+	require.NoError(t, err)
+
+	workspaceID := idwrap.NewNow()
+	workspace := mworkspace.Workspace{
+		ID:              workspaceID,
+		Name:            "Test Workspace",
+		Updated:         dbtime.DBNow(),
+		CollectionCount: 0,
+		FlowCount:       0,
+	}
+	err = wsService.Create(ctx, &workspace)
+	require.NoError(t, err)
+
+	_, err = db.Exec("INSERT INTO workspaces_users (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)",
+		idwrap.NewNow().Bytes(), workspaceID.Bytes(), userID.Bytes(), 1)
+	require.NoError(t, err)
+
+	flowID := idwrap.NewNow()
+	flow := mflow.Flow{
+		ID:          flowID,
+		WorkspaceID: workspaceID,
+		Name:        "Test Flow",
+	}
+	err = flowService.CreateFlow(ctx, flow)
+	require.NoError(t, err)
+
+	// Create Start Node (NoOp)
+	startNodeID := idwrap.NewNow()
+	startNode := mnnode.MNode{
+		ID:        startNodeID,
+		FlowID:    flowID,
+		Name:      "Start",
+		NodeKind:  mnnode.NODE_KIND_NO_OP,
+		PositionX: 0,
+		PositionY: 0,
+	}
+	err = nodeService.CreateNode(ctx, startNode)
+	require.NoError(t, err)
+
+	err = noopService.CreateNodeNoop(ctx, mnnoop.NoopNode{
+		FlowNodeID: startNodeID,
+		Type:       mnnoop.NODE_NO_OP_KIND_START,
+	})
+	require.NoError(t, err)
+
+	// Run the flow once
+	req := connect.NewRequest(&flowv1.FlowRunRequest{FlowId: flowID.Bytes()})
+	_, err = svc.FlowRun(ctx, req)
+	require.NoError(t, err)
+
+	// Wait for async execution to complete
+	time.Sleep(200 * time.Millisecond)
+
+	// Get the flow version
+	versions, err := flowService.GetFlowsByVersionParentID(ctx, flowID)
+	require.NoError(t, err)
+	require.Len(t, versions, 1, "Should have 1 version")
+	versionFlowID := versions[0].ID
+
+	// Get version nodes
+	versionNodes, err := nodeService.GetNodesByFlowID(ctx, versionFlowID)
+	require.NoError(t, err)
+	require.Len(t, versionNodes, 1, "Version should have 1 node")
+	versionNodeID := versionNodes[0].ID
+
+	// TEST 1: Verify NodeCollection returns version node with SUCCESS state
+	collReq := connect.NewRequest(&emptypb.Empty{})
+	var nodeCollResp *connect.Response[flowv1.NodeCollectionResponse]
+
+	// Poll until we see SUCCESS state
+	for i := 0; i < 20; i++ {
+		nodeCollResp, err = svc.NodeCollection(ctx, collReq)
+		require.NoError(t, err)
+
+		// Find the version node
+		var versionNode *flowv1.Node
+		for _, item := range nodeCollResp.Msg.Items {
+			if bytes.Equal(item.NodeId, versionNodeID.Bytes()) {
+				versionNode = item
+				break
+			}
+		}
+		if versionNode != nil && versionNode.State == flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	// Verify version node has SUCCESS state
+	var versionNode *flowv1.Node
+	for _, item := range nodeCollResp.Msg.Items {
+		if bytes.Equal(item.NodeId, versionNodeID.Bytes()) {
+			versionNode = item
+			break
+		}
+	}
+	require.NotNil(t, versionNode, "Version node should be in NodeCollection")
+	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, versionNode.State,
+		"Version node should have SUCCESS state")
+
+	// TEST 2: Verify NodeExecutionCollection has executions for version node
+	execCollResp, err := svc.NodeExecutionCollection(ctx, collReq)
+	require.NoError(t, err)
+
+	// Find executions for the version node
+	var versionNodeExecutions []*flowv1.NodeExecution
+	for _, exec := range execCollResp.Msg.Items {
+		if bytes.Equal(exec.NodeId, versionNodeID.Bytes()) {
+			versionNodeExecutions = append(versionNodeExecutions, exec)
+		}
+	}
+	require.NotEmpty(t, versionNodeExecutions, "Version node should have execution records")
+
+	// Verify the execution has SUCCESS state
+	latestExec := versionNodeExecutions[0]
+	assert.Equal(t, flowv1.FlowItemState_FLOW_ITEM_STATE_SUCCESS, latestExec.State,
+		"Version node execution should have SUCCESS state")
+
+	t.Logf("Version node %s has state=%v with %d execution(s)",
+		versionNodeID.String(), versionNode.State, len(versionNodeExecutions))
+}
