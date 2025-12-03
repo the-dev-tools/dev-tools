@@ -130,21 +130,11 @@ func (s *FlowServiceV2RPC) executeFlow(
 	versionFlowID idwrap.IDWrap,
 	nodeIDMapping map[string]idwrap.IDWrap,
 ) error {
-	// Mark flow as running
 	flow.Running = true
 	if err := s.fs.UpdateFlow(ctx, flow); err != nil {
 		return fmt.Errorf("failed to mark flow as running: %w", err)
 	}
 	s.publishFlowEvent(flowEventUpdate, flow)
-
-	defer func() {
-		// Mark flow as not running when done
-		flow.Running = false
-		if err := s.fs.UpdateFlow(context.Background(), flow); err != nil {
-			s.logger.Error("failed to mark flow as not running", "error", err)
-		}
-		s.publishFlowEvent(flowEventUpdate, flow)
-	}()
 
 	// Build base variables by merging: GlobalEnv -> ActiveEnv -> FlowVars
 	// Later values override earlier ones
@@ -403,15 +393,19 @@ func (s *FlowServiceV2RPC) executeFlow(
 		}
 	}()
 
-	if err := flowRunner.RunWithEvents(ctx, runner.FlowEventChannels{
+	startTime := time.Now()
+	runErr := flowRunner.RunWithEvents(ctx, runner.FlowEventChannels{
 		NodeStates: nodeStateChan,
-	}, baseVars); err != nil {
-		stateDrain.Wait()
-		return err
+	}, baseVars)
+	flow.Duration = int32(time.Since(startTime).Milliseconds())
+	flow.Running = false
+	if err := s.fs.UpdateFlow(context.Background(), flow); err != nil {
+		s.logger.Error("failed to mark flow as not running", "error", err)
 	}
+	s.publishFlowEvent(flowEventUpdate, flow)
 
 	stateDrain.Wait()
-	return nil
+	return runErr
 }
 
 func (s *FlowServiceV2RPC) FlowStop(ctx context.Context, req *connect.Request[flowv1.FlowStopRequest]) (*connect.Response[emptypb.Empty], error) {
