@@ -628,23 +628,36 @@ func processEntriesWithService(ctx context.Context, entries []Entry, workspaceID
 				existingDeltaID = idwrap.NewNow()
 			}
 
+			// Create delta with only the fields that actually differ from the existing base
 			deltaReq = &mhttp.HTTP{
-				ID:               existingDeltaID,
-				WorkspaceID:      workspaceID,
-				ParentHttpID:     &existingRequest.ID,
-				Name:             templatedReq.Name + " (Delta)",
-				Url:              templatedReq.Url,
-				Method:           templatedReq.Method,
-				Description:      templatedReq.Description + " [Import Delta]",
-				BodyKind:         templatedReq.BodyKind,
-				IsDelta:          true,
-				DeltaName:        &templatedReq.Name,
-				DeltaUrl:         &templatedReq.Url,
-				DeltaMethod:      &templatedReq.Method,
-				DeltaDescription: &templatedReq.Description,
-				DeltaBodyKind:    &templatedReq.BodyKind,
-				CreatedAt:        templatedReq.CreatedAt,
-				UpdatedAt:        templatedReq.UpdatedAt,
+				ID:           existingDeltaID,
+				WorkspaceID:  workspaceID,
+				ParentHttpID: &existingRequest.ID,
+				Name:         templatedReq.Name + " (Delta)",
+				Url:          templatedReq.Url,
+				Method:       templatedReq.Method,
+				Description:  templatedReq.Description + " [Import Delta]",
+				BodyKind:     templatedReq.BodyKind,
+				IsDelta:      true,
+				CreatedAt:    templatedReq.CreatedAt,
+				UpdatedAt:    templatedReq.UpdatedAt,
+			}
+
+			// Only set Delta* fields when there's an actual difference from the base
+			if templatedReq.Url != existingRequest.Url {
+				deltaReq.DeltaUrl = &templatedReq.Url
+			}
+			if templatedReq.Method != existingRequest.Method {
+				deltaReq.DeltaMethod = &templatedReq.Method
+			}
+			if templatedReq.Name != existingRequest.Name {
+				deltaReq.DeltaName = &templatedReq.Name
+			}
+			if templatedReq.Description != existingRequest.Description {
+				deltaReq.DeltaDescription = &templatedReq.Description
+			}
+			if templatedReq.BodyKind != existingRequest.BodyKind {
+				deltaReq.DeltaBodyKind = &templatedReq.BodyKind
 			}
 		} else {
 			// No existing request, use new request as base

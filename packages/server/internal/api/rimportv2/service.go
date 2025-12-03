@@ -1077,6 +1077,7 @@ func (s *Service) isValidDomain(domain string) bool {
 
 // applyDomainReplacements replaces domain URLs with variable references in HTTP requests.
 // For example: https://api.example.com/users -> {{API_HOST}}/users
+// This also handles DeltaUrl if it's set (for depfinder-templated URLs).
 func applyDomainReplacements(httpRequests []mhttp.HTTP, domainData []ImportDomainData) []mhttp.HTTP {
 	// Build a map of domain -> variable for enabled domains with variables
 	domainToVar := make(map[string]string)
@@ -1093,6 +1094,12 @@ func applyDomainReplacements(httpRequests []mhttp.HTTP, domainData []ImportDomai
 	// Replace domains in each HTTP request URL
 	for i := range httpRequests {
 		httpRequests[i].Url = replaceDomainInURL(httpRequests[i].Url, domainToVar)
+
+		// Also replace in DeltaUrl if it's set (non-nil means there's an actual override)
+		if httpRequests[i].DeltaUrl != nil {
+			replacedDeltaUrl := replaceDomainInURL(*httpRequests[i].DeltaUrl, domainToVar)
+			httpRequests[i].DeltaUrl = &replacedDeltaUrl
+		}
 	}
 	return httpRequests
 }

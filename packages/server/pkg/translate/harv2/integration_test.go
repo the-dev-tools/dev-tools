@@ -103,9 +103,11 @@ func TestIntegrationModernArchitecture(t *testing.T) {
 	require.True(t, firstDelta.IsDelta)
 	require.NotNil(t, firstDelta.ParentHttpID)
 	require.Equal(t, firstOriginal.ID, *firstDelta.ParentHttpID)
-	require.NotNil(t, firstDelta.DeltaName)
-	require.NotNil(t, firstDelta.DeltaUrl)
-	require.NotNil(t, firstDelta.DeltaMethod)
+	// Delta* fields should be nil when there's no actual difference from the base
+	// (no depfinder templating in this test case)
+	require.Nil(t, firstDelta.DeltaName, "DeltaName should be nil when no difference")
+	require.Nil(t, firstDelta.DeltaUrl, "DeltaUrl should be nil when no difference")
+	require.Nil(t, firstDelta.DeltaMethod, "DeltaMethod should be nil when no difference")
 
 	// Verify modern file system structure
 	httpFiles := make([]mfile.File, 0)

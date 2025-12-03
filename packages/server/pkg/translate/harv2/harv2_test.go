@@ -450,16 +450,20 @@ func TestDeltaSystem(t *testing.T) {
 	// Verify delta properties
 	require.True(t, deltaReq.IsDelta, "Delta request should have IsDelta=true")
 	require.Equal(t, originalReq.ID, *deltaReq.ParentHttpID, "Delta should reference original as parent")
-	require.NotNil(t, deltaReq.DeltaName, "Delta should have DeltaName set")
-	require.NotNil(t, deltaReq.DeltaUrl, "Delta should have DeltaUrl set")
-	require.NotNil(t, deltaReq.DeltaMethod, "Delta should have DeltaMethod set")
-	require.NotNil(t, deltaReq.DeltaDescription, "Delta should have DeltaDescription set")
 
-	// Verify delta content
-	require.Contains(t, *deltaReq.DeltaName, "(Delta)", "Delta name should indicate it's a delta")
-	require.Equal(t, originalReq.Url, *deltaReq.DeltaUrl, "Delta URL should match original")
-	require.Equal(t, originalReq.Method, *deltaReq.DeltaMethod, "Delta method should match original")
-	require.Contains(t, *deltaReq.DeltaDescription, "[Delta Version]", "Delta description should indicate it's a delta version")
+	// Delta* fields should be nil when there's no actual difference from the base
+	// (no depfinder templating in this test case)
+	// This allows domain variable replacements to work correctly without being overwritten
+	require.Nil(t, deltaReq.DeltaName, "DeltaName should be nil when no difference")
+	require.Nil(t, deltaReq.DeltaUrl, "DeltaUrl should be nil when no difference")
+	require.Nil(t, deltaReq.DeltaMethod, "DeltaMethod should be nil when no difference")
+	require.Nil(t, deltaReq.DeltaDescription, "DeltaDescription should be nil when no difference")
+
+	// Verify the delta's actual fields (not Delta* override fields) contain expected values
+	require.Contains(t, deltaReq.Name, "(Delta)", "Delta name should indicate it's a delta")
+	require.Equal(t, originalReq.Url, deltaReq.Url, "Delta URL should match original")
+	require.Equal(t, originalReq.Method, deltaReq.Method, "Delta method should match original")
+	require.Contains(t, deltaReq.Description, "[Delta Version]", "Delta description should indicate it's a delta version")
 }
 
 func TestFlowGraphGeneration(t *testing.T) {

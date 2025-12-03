@@ -5,28 +5,25 @@ import (
 	"the-dev-tools/server/pkg/model/mhttp"
 )
 
-// createDeltaVersion creates a delta version of an HTTP request
+// createDeltaVersion creates a delta version of an HTTP request.
+// Note: DeltaUrl, DeltaMethod, DeltaName, DeltaDescription are left nil by default.
+// They should only be set when there's an actual difference from the base request.
+// This allows domain variable replacements (e.g., {{API_HOST}}) to work correctly
+// without being overwritten by the delta's raw URL values.
 func createDeltaVersion(original mhttp.HTTP) mhttp.HTTP {
-	deltaName := original.Name + " (Delta)"
-	deltaURL := original.Url
-	deltaMethod := original.Method
-	deltaDesc := original.Description + " [Delta Version]"
-
 	delta := mhttp.HTTP{
-		ID:               idwrap.NewNow(),
-		WorkspaceID:      original.WorkspaceID,
-		ParentHttpID:     &original.ID,
-		Name:             deltaName,
-		Url:              original.Url,
-		Method:           original.Method,
-		Description:      deltaDesc,
-		IsDelta:          true,
-		DeltaName:        &deltaName,
-		DeltaUrl:         &deltaURL,
-		DeltaMethod:      &deltaMethod,
-		DeltaDescription: &deltaDesc,
-		CreatedAt:        original.CreatedAt + 1, // Ensure slightly later timestamp
-		UpdatedAt:        original.UpdatedAt + 1,
+		ID:           idwrap.NewNow(),
+		WorkspaceID:  original.WorkspaceID,
+		ParentHttpID: &original.ID,
+		Name:         original.Name + " (Delta)",
+		Url:          original.Url,
+		Method:       original.Method,
+		Description:  original.Description + " [Delta Version]",
+		IsDelta:      true,
+		// DeltaUrl, DeltaMethod, DeltaName, DeltaDescription are nil by default
+		// They are only set when there's an actual override from the base request
+		CreatedAt: original.CreatedAt + 1, // Ensure slightly later timestamp
+		UpdatedAt: original.UpdatedAt + 1,
 	}
 
 	return delta
