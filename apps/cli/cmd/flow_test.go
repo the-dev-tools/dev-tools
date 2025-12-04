@@ -174,136 +174,22 @@ func newFlowTestFixture(t *testing.T) *flowTestFixture {
 func (f *flowTestFixture) importWorkspaceBundle(bundle *ioworkspace.WorkspaceBundle) {
 	f.t.Helper()
 
-	// Import HTTP requests first
-	for i := range bundle.HTTPRequests {
-		err := f.services.hs.Create(f.ctx, &bundle.HTTPRequests[i])
-		if err != nil {
-			f.t.Fatalf("failed to create HTTP request: %v", err)
-		}
+	ios := ioworkspace.New(f.queries, f.services.logger)
+	opts := ioworkspace.GetDefaultImportOptions(f.workspaceID)
+	opts.PreserveIDs = true
+
+	tx, err := f.db.BeginTx(f.ctx, nil)
+	if err != nil {
+		f.t.Fatalf("failed to begin transaction: %v", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := ios.Import(f.ctx, tx, bundle, opts); err != nil {
+		f.t.Fatalf("failed to import bundle: %v", err)
 	}
 
-	// Import HTTP headers
-	for i := range bundle.HTTPHeaders {
-		err := f.services.hh.Create(f.ctx, &bundle.HTTPHeaders[i])
-		if err != nil {
-			f.t.Fatalf("failed to create HTTP header: %v", err)
-		}
-	}
-
-	// Import HTTP search params
-	for i := range bundle.HTTPSearchParams {
-		err := f.services.hsp.Create(f.ctx, &bundle.HTTPSearchParams[i])
-		if err != nil {
-			f.t.Fatalf("failed to create HTTP search param: %v", err)
-		}
-	}
-
-	// Import HTTP body forms
-	for i := range bundle.HTTPBodyForms {
-		err := f.services.hbf.Create(f.ctx, &bundle.HTTPBodyForms[i])
-		if err != nil {
-			f.t.Fatalf("failed to create HTTP body form: %v", err)
-		}
-	}
-
-	// Import HTTP body urlencoded
-	for i := range bundle.HTTPBodyUrlencoded {
-		err := f.services.hbu.Create(f.ctx, &bundle.HTTPBodyUrlencoded[i])
-		if err != nil {
-			f.t.Fatalf("failed to create HTTP body urlencoded: %v", err)
-		}
-	}
-
-	// Import HTTP body raw
-	for i := range bundle.HTTPBodyRaw {
-		raw := bundle.HTTPBodyRaw[i]
-		_, err := f.services.hbr.Create(f.ctx, raw.HttpID, raw.RawData, raw.ContentType)
-		if err != nil {
-			f.t.Fatalf("failed to create HTTP body raw: %v", err)
-		}
-	}
-
-	// Import HTTP asserts
-	for i := range bundle.HTTPAsserts {
-		err := f.services.has.Create(f.ctx, &bundle.HTTPAsserts[i])
-		if err != nil {
-			f.t.Fatalf("failed to create HTTP assert: %v", err)
-		}
-	}
-
-	// Import flows
-	for _, flow := range bundle.Flows {
-		err := f.services.fs.CreateFlow(f.ctx, flow)
-		if err != nil {
-			f.t.Fatalf("failed to create flow %s: %v", flow.Name, err)
-		}
-	}
-
-	// Import flow variables
-	for _, flowVar := range bundle.FlowVariables {
-		err := f.services.fvs.CreateFlowVariable(f.ctx, flowVar)
-		if err != nil {
-			f.t.Fatalf("failed to create flow variable: %v", err)
-		}
-	}
-
-	// Import flow nodes
-	for _, node := range bundle.FlowNodes {
-		err := f.services.ns.CreateNode(f.ctx, node)
-		if err != nil {
-			f.t.Fatalf("failed to create node: %v", err)
-		}
-	}
-
-	// Import node implementations
-	for _, reqNode := range bundle.FlowRequestNodes {
-		err := f.services.rns.CreateNodeRequest(f.ctx, reqNode)
-		if err != nil {
-			f.t.Fatalf("failed to create request node: %v", err)
-		}
-	}
-
-	for _, noopNode := range bundle.FlowNoopNodes {
-		err := f.services.sns.CreateNodeNoop(f.ctx, noopNode)
-		if err != nil {
-			f.t.Fatalf("failed to create noop node: %v", err)
-		}
-	}
-
-	for _, ifNode := range bundle.FlowConditionNodes {
-		err := f.services.ins.CreateNodeIf(f.ctx, ifNode)
-		if err != nil {
-			f.t.Fatalf("failed to create if node: %v", err)
-		}
-	}
-
-	for _, forNode := range bundle.FlowForNodes {
-		err := f.services.fns.CreateNodeFor(f.ctx, forNode)
-		if err != nil {
-			f.t.Fatalf("failed to create for node: %v", err)
-		}
-	}
-
-	for _, forEachNode := range bundle.FlowForEachNodes {
-		err := f.services.fens.CreateNodeForEach(f.ctx, forEachNode)
-		if err != nil {
-			f.t.Fatalf("failed to create for each node: %v", err)
-		}
-	}
-
-	for _, jsNode := range bundle.FlowJSNodes {
-		err := f.services.jsns.CreateNodeJS(f.ctx, jsNode)
-		if err != nil {
-			f.t.Fatalf("failed to create JS node: %v", err)
-		}
-	}
-
-	// Import edges
-	for _, edge := range bundle.FlowEdges {
-		err := f.services.fes.CreateEdge(f.ctx, edge)
-		if err != nil {
-			f.t.Fatalf("failed to create edge: %v", err)
-		}
+	if err := tx.Commit(); err != nil {
+		f.t.Fatalf("failed to commit transaction: %v", err)
 	}
 }
 
