@@ -119,17 +119,6 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 		return nil, nil
 	}
 
-	// Pre-fetch variables for each environment to avoid reading inside transaction
-	// This prevents SQLite deadlocks when upgrading transaction lock
-	envVars := make(map[string][]mvar.Var)
-	for _, env := range environments {
-		vars, err := imp.varService.GetVariableByEnvID(ctx, env.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get existing variables for environment %s: %w", env.Name, err)
-		}
-		envVars[env.ID.String()] = vars
-	}
-
 	// Start transaction
 	tx, err := imp.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -142,45 +131,27 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 	// Add variables to each environment
 	var allVariables []mvar.Var
 	for _, env := range environments {
-		// Use pre-fetched variables
-		existingVars := envVars[env.ID.String()]
-
-		// Build a map of existing variable keys to their IDs for quick lookup
-		existingKeyToVar := make(map[string]mvar.Var)
-		for _, v := range existingVars {
-			existingKeyToVar[v.VarKey] = v
-		}
-
 		for i, dd := range enabledDomains {
 			// Build the full URL value (include https:// prefix for the domain)
 			urlValue := "https://" + dd.Domain
 
-			// Check if variable already exists
-			if existingVar, exists := existingKeyToVar[dd.Variable]; exists {
-				// Update existing variable
-				existingVar.Value = urlValue
-				existingVar.Description = fmt.Sprintf("Base URL for %s", dd.Domain)
-				if err := txVarService.Update(ctx, &existingVar); err != nil {
-					return nil, fmt.Errorf("failed to update variable %s for environment %s: %w", dd.Variable, env.Name, err)
-				}
-				allVariables = append(allVariables, existingVar)
-			} else {
-				// Create new variable
-				variable := mvar.Var{
-					ID:          idwrap.NewNow(),
-					EnvID:       env.ID,
-					VarKey:      dd.Variable,
-					Value:       urlValue,
-					Enabled:     true,
-					Description: fmt.Sprintf("Base URL for %s", dd.Domain),
-					Order:       float64(i + 1),
-				}
-
-				if err := txVarService.Create(ctx, variable); err != nil {
-					return nil, fmt.Errorf("failed to create variable %s for environment %s: %w", dd.Variable, env.Name, err)
-				}
-				allVariables = append(allVariables, variable)
+			// Create variable object (Upsert will handle update vs create)
+			// We provide a new ID for the creation case. If it exists, this ID is ignored
+			// and the existing row is updated (preserving its ID).
+			variable := mvar.Var{
+				ID:          idwrap.NewNow(),
+				EnvID:       env.ID,
+				VarKey:      dd.Variable,
+				Value:       urlValue,
+				Enabled:     true,
+				Description: fmt.Sprintf("Base URL for %s", dd.Domain),
+				Order:       float64(i + 1),
 			}
+
+			if err := txVarService.Upsert(ctx, variable); err != nil {
+				return nil, fmt.Errorf("failed to upsert variable %s for environment %s: %w", dd.Variable, env.Name, err)
+			}
+			allVariables = append(allVariables, variable)
 		}
 	}
 

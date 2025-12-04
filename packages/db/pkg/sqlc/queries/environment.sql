@@ -158,3 +158,10 @@ WHERE
 DELETE FROM variable
 WHERE
   id = ?;
+
+-- name: UpsertVariable :exec
+INSERT INTO variable (id, env_id, var_key, value, enabled, description, display_order)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(env_id, var_key) DO UPDATE SET
+    value = excluded.value,
+    description = excluded.description;

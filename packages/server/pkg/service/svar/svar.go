@@ -149,6 +149,27 @@ func (s VarService) Update(ctx context.Context, variable *mvar.Var) error {
 	})
 }
 
+func (s VarService) Upsert(ctx context.Context, variable mvar.Var) error {
+	if variable.Order == 0 {
+		nextOrder, err := s.nextDisplayOrder(ctx, variable.EnvID)
+		if err != nil {
+			return err
+		}
+		variable.Order = nextOrder
+	}
+
+	dbVar := ConvertToDBVar(variable)
+	return s.queries.UpsertVariable(ctx, gen.UpsertVariableParams{
+		ID:           dbVar.ID,
+		EnvID:        dbVar.EnvID,
+		VarKey:       dbVar.VarKey,
+		Value:        dbVar.Value,
+		Enabled:      dbVar.Enabled,
+		Description:  dbVar.Description,
+		DisplayOrder: dbVar.DisplayOrder,
+	})
+}
+
 func (s VarService) Delete(ctx context.Context, id idwrap.IDWrap) error {
 	if err := s.queries.DeleteVariable(ctx, id); err != nil {
 		if err == sql.ErrNoRows {

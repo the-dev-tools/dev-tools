@@ -502,3 +502,34 @@ func (q *Queries) UpdateVariable(ctx context.Context, arg UpdateVariableParams) 
 	)
 	return err
 }
+
+const upsertVariable = `-- name: UpsertVariable :exec
+INSERT INTO variable (id, env_id, var_key, value, enabled, description, display_order)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(env_id, var_key) DO UPDATE SET
+    value = excluded.value,
+    description = excluded.description
+`
+
+type UpsertVariableParams struct {
+	ID           idwrap.IDWrap
+	EnvID        idwrap.IDWrap
+	VarKey       string
+	Value        string
+	Enabled      bool
+	Description  string
+	DisplayOrder float64
+}
+
+func (q *Queries) UpsertVariable(ctx context.Context, arg UpsertVariableParams) error {
+	_, err := q.exec(ctx, q.upsertVariableStmt, upsertVariable,
+		arg.ID,
+		arg.EnvID,
+		arg.VarKey,
+		arg.Value,
+		arg.Enabled,
+		arg.Description,
+		arg.DisplayOrder,
+	)
+	return err
+}

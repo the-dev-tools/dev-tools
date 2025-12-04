@@ -711,6 +711,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.upsertNodeExecutionStmt, err = db.PrepareContext(ctx, upsertNodeExecution); err != nil {
 		return nil, fmt.Errorf("error preparing query UpsertNodeExecution: %w", err)
 	}
+	if q.upsertVariableStmt, err = db.PrepareContext(ctx, upsertVariable); err != nil {
+		return nil, fmt.Errorf("error preparing query UpsertVariable: %w", err)
+	}
 	return &q, nil
 }
 
@@ -1861,6 +1864,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing upsertNodeExecutionStmt: %w", cerr)
 		}
 	}
+	if q.upsertVariableStmt != nil {
+		if cerr := q.upsertVariableStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing upsertVariableStmt: %w", cerr)
+		}
+	}
 	return err
 }
 
@@ -2129,6 +2137,7 @@ type Queries struct {
 	updateWorkspaceUpdatedTimeStmt             *sql.Stmt
 	updateWorkspaceUserStmt                    *sql.Stmt
 	upsertNodeExecutionStmt                    *sql.Stmt
+	upsertVariableStmt                         *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -2364,5 +2373,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateWorkspaceUpdatedTimeStmt:             q.updateWorkspaceUpdatedTimeStmt,
 		updateWorkspaceUserStmt:                    q.updateWorkspaceUserStmt,
 		upsertNodeExecutionStmt:                    q.upsertNodeExecutionStmt,
+		upsertVariableStmt:                         q.upsertVariableStmt,
 	}
 }
