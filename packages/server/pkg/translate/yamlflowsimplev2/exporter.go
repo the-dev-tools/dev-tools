@@ -407,6 +407,46 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 		yamlFormat.Flows = append(yamlFormat.Flows, flowYaml)
 	}
 
+	// 4. Export Environments
+	if len(data.Environments) > 0 {
+		envMap := make(map[idwrap.IDWrap]*YamlEnvironmentV2)
+		
+		// Initialize environments
+		for _, env := range data.Environments {
+			envMap[env.ID] = &YamlEnvironmentV2{
+				Name:      env.Name,
+				Variables: make(map[string]string),
+			}
+		}
+
+		// Add variables
+		for _, v := range data.EnvironmentVars {
+			if env, ok := envMap[v.EnvID]; ok {
+				env.Variables[v.VarKey] = v.Value
+			}
+		}
+
+		// Convert map to slice
+		for _, env := range data.Environments {
+			if yamlEnv, ok := envMap[env.ID]; ok {
+				yamlFormat.Environments = append(yamlFormat.Environments, *yamlEnv)
+			}
+		}
+	}
+
+	// 5. Generate default Run configuration
+	// Since the database doesn't store the 'run' configuration explicitly,
+	// we generate a default linear run sequence based on the exported flows.
+	// This ensures the exported YAML is valid and runnable.
+	if len(yamlFormat.Flows) > 0 {
+		yamlFormat.Run = make([]map[string]any, 0, len(yamlFormat.Flows))
+		for _, flow := range yamlFormat.Flows {
+			yamlFormat.Run = append(yamlFormat.Run, map[string]any{
+				"flow": flow.Name,
+			})
+		}
+	}
+
 	return yaml.Marshal(yamlFormat)
 }
 
