@@ -399,6 +399,39 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 		return nil
 	}
 
+	// Pre-calculate file orders to avoid read/write deadlocks in SQLite
+	// This must be done BEFORE starting the transaction
+	if len(results.Files) > 0 {
+		// Group files by folder to safely calculate orders
+		filesByFolder := make(map[string][]*mfile.File)
+		for i := range results.Files {
+			file := &results.Files[i]
+			key := "nil"
+			if file.ParentID != nil {
+				key = file.ParentID.String()
+			}
+			filesByFolder[key] = append(filesByFolder[key], file)
+		}
+
+		for _, files := range filesByFolder {
+			if len(files) == 0 {
+				continue
+			}
+
+			folderID := files[0].ParentID
+
+			// Get starting order once for this folder using the non-transactional service
+			startOrder, err := imp.fileService.NextDisplayOrder(ctx, results.WorkspaceID, folderID)
+			if err != nil {
+				return fmt.Errorf("failed to get display order: %w", err)
+			}
+
+			for i, file := range files {
+				file.Order = startOrder + float64(i)
+			}
+		}
+	}
+
 	// Start transaction
 	tx, err := imp.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -422,35 +455,10 @@ func (imp *DefaultImporter) StoreUnifiedResults(ctx context.Context, results *Tr
 
 	// Store files first (they may be referenced by HTTP entities)
 	if len(results.Files) > 0 {
-		// Group files by folder to safely calculate orders
-		filesByFolder := make(map[string][]*mfile.File)
 		for i := range results.Files {
 			file := &results.Files[i]
-			key := "nil"
-			if file.ParentID != nil {
-				key = file.ParentID.String()
-			}
-			filesByFolder[key] = append(filesByFolder[key], file)
-		}
-
-		for _, files := range filesByFolder {
-			if len(files) == 0 {
-				continue
-			}
-
-			folderID := files[0].ParentID
-
-			// Get starting order once for this folder using the transactional service
-			startOrder, err := txFileService.NextDisplayOrder(ctx, results.WorkspaceID, folderID)
-			if err != nil {
-				return fmt.Errorf("failed to get display order: %w", err)
-			}
-
-			for i, file := range files {
-				file.Order = startOrder + float64(i)
-				if err := txFileService.CreateFile(ctx, file); err != nil {
-					return fmt.Errorf("failed to store file: %w", err)
-				}
+			if err := txFileService.CreateFile(ctx, file); err != nil {
+				return fmt.Errorf("failed to store file: %w", err)
 			}
 		}
 	}
