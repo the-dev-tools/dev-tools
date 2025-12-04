@@ -881,13 +881,19 @@ func mergeBodyRaw(baseHttpID idwrap.IDWrap, deltaHttpID *idwrap.IDWrap, ctx *del
 	var dataBytes []byte
 	var compressionType int8
 
-	if deltaRaw != nil && len(deltaRaw.DeltaRawData) > 0 {
-		// Use delta raw data
-		dataBytes = deltaRaw.DeltaRawData
-		// Delta compression type handling
-		if ct, ok := deltaRaw.DeltaCompressionType.(int8); ok {
-			compressionType = ct
+	if deltaRaw != nil && (len(deltaRaw.DeltaRawData) > 0 || len(deltaRaw.RawData) > 0) {
+		if len(deltaRaw.DeltaRawData) > 0 {
+			// Use delta raw data
+			dataBytes = deltaRaw.DeltaRawData
+			// Delta compression type handling
+			if ct, ok := deltaRaw.DeltaCompressionType.(int8); ok {
+				compressionType = ct
+			} else {
+				compressionType = deltaRaw.CompressionType
+			}
 		} else {
+			// Use raw data from delta request
+			dataBytes = deltaRaw.RawData
 			compressionType = deltaRaw.CompressionType
 		}
 	} else if hasBase {
