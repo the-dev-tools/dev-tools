@@ -119,6 +119,17 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 		return nil, nil
 	}
 
+	// Pre-fetch variables for each environment to avoid reading inside transaction
+	// This prevents SQLite deadlocks when upgrading transaction lock
+	envVars := make(map[string][]mvar.Var)
+	for _, env := range environments {
+		vars, err := imp.varService.GetVariableByEnvID(ctx, env.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get existing variables for environment %s: %w", env.Name, err)
+		}
+		envVars[env.ID.String()] = vars
+	}
+
 	// Start transaction
 	tx, err := imp.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -131,11 +142,8 @@ func (imp *DefaultImporter) StoreDomainVariables(ctx context.Context, workspaceI
 	// Add variables to each environment
 	var allVariables []mvar.Var
 	for _, env := range environments {
-		// Get existing variables for this environment to check for duplicates
-		existingVars, err := txVarService.GetVariableByEnvID(ctx, env.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get existing variables for environment %s: %w", env.Name, err)
-		}
+		// Use pre-fetched variables
+		existingVars := envVars[env.ID.String()]
 
 		// Build a map of existing variable keys to their IDs for quick lookup
 		existingKeyToVar := make(map[string]mvar.Var)
