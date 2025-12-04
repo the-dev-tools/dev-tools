@@ -12,7 +12,10 @@ import (
 
 	"connectrpc.com/connect"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
+	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/compress"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -39,6 +42,7 @@ import (
 	"the-dev-tools/server/pkg/service/sflowvariable"
 	"the-dev-tools/server/pkg/service/svar"
 	flowv1 "the-dev-tools/spec/dist/buf/go/api/flow/v1"
+	logv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
 )
 
 func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flowv1.FlowRunRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -91,6 +95,11 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 	// Publish version insert event for real-time sync
 	s.publishFlowVersionEvent(flowVersionEventInsert, version)
 
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
 	// Run execution asynchronously
 	go func() {
 		// Create a background context for execution with cancellation support
@@ -109,7 +118,7 @@ func (s *FlowServiceV2RPC) FlowRun(ctx context.Context, req *connect.Request[flo
 			cancel()
 		}()
 
-		if err := s.executeFlow(bgCtx, flow, nodes, edges, flowVars, version.ID, nodeIDMapping); err != nil {
+		if err := s.executeFlow(bgCtx, flow, nodes, edges, flowVars, version.ID, nodeIDMapping, userID); err != nil {
 			// Check if error is due to cancellation
 			if errors.Is(err, context.Canceled) {
 				s.logger.Info("flow execution canceled", "flow_id", flowID.String())
@@ -130,6 +139,7 @@ func (s *FlowServiceV2RPC) executeFlow(
 	flowVars []mflowvariable.FlowVariable,
 	versionFlowID idwrap.IDWrap,
 	nodeIDMapping map[string]idwrap.IDWrap,
+	userID idwrap.IDWrap,
 ) error {
 	flow.Running = true
 	if err := s.fs.UpdateFlow(ctx, flow); err != nil {
@@ -389,6 +399,34 @@ func (s *FlowServiceV2RPC) executeFlow(
 					Type:   nodeEventUpdate,
 					FlowID: flow.ID,
 					Node:   nodePB,
+				})
+			}
+
+			if s.logStream != nil {
+				idStr := status.NodeID.String()
+				stateStr := mnnode.StringNodeState(status.State)
+				msg := fmt.Sprintf("Node %s: %s", idStr, stateStr)
+
+				logLevel := logv1.LogLevel_LOG_LEVEL_WARNING
+				if status.State == mnnode.NODE_STATE_FAILURE {
+					logLevel = logv1.LogLevel_LOG_LEVEL_ERROR
+				}
+
+				// Create structured value with node details
+				val, _ := structpb.NewValue(map[string]any{
+					"node_id": status.NodeID.String(),
+					"state":   stateStr,
+					"flow_id": flow.ID.String(),
+				})
+
+				s.logStream.Publish(rlog.LogTopic{UserID: userID}, rlog.LogEvent{
+					Type: rlog.EventTypeInsert,
+					Log: &logv1.Log{
+						LogId: idwrap.NewNow().Bytes(),
+						Name:  msg,
+						Level: logLevel,
+						Value: val,
+					},
 				})
 			}
 		}

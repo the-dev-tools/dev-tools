@@ -10,6 +10,7 @@ import (
 
 	"the-dev-tools/server/internal/api"
 	"the-dev-tools/server/internal/api/rhttp"
+	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
@@ -249,6 +250,7 @@ type FlowServiceV2RPC struct {
 	httpResponseStream       eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent]
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent]
 	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent]
+	logStream                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
 
 	// Running flows map for cancellation
 	runningFlowsMu sync.Mutex
@@ -290,6 +292,7 @@ func New(
 	httpResponseStream eventstream.SyncStreamer[rhttp.HttpResponseTopic, rhttp.HttpResponseEvent],
 	httpResponseHeaderStream eventstream.SyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent],
 	httpResponseAssertStream eventstream.SyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent],
+	logStream eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent],
 ) *FlowServiceV2RPC {
 	return &FlowServiceV2RPC{
 		ws:                       ws,
@@ -326,6 +329,7 @@ func New(
 		httpResponseStream:       httpResponseStream,
 		httpResponseHeaderStream: httpResponseHeaderStream,
 		httpResponseAssertStream: httpResponseAssertStream,
+		logStream:                logStream,
 		runningFlows:             make(map[string]context.CancelFunc),
 	}
 }

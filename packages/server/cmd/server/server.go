@@ -217,6 +217,10 @@ func main() {
 	envSrv := renv.New(currentDB, environmentService, variableService, userService, workspaceService, environmentStreamer, environmentVariableStreamer)
 	newServiceManager.AddService(renv.CreateService(envSrv, optionsAll))
 
+	// Log Service Streamer (needed for other services)
+	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
+	defer logStreamer.Shutdown()
+
 	// HTTP Service
 	httpStreamer := memory.NewInMemorySyncStreamer[rhttp.HttpTopic, rhttp.HttpEvent]()
 	defer httpStreamer.Shutdown()
@@ -254,7 +258,7 @@ func main() {
 		httpAssertService,
 	)
 
-	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer)
+	httpSrv := rhttp.New(currentDB, httpService, userService, workspaceService, workspaceUserService, environmentService, variableService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, httpStreamer, httpHeaderStreamer, httpSearchParamStreamer, httpBodyFormStreamer, httpBodyUrlEncodedStreamer, httpAssertStreamer, httpVersionStreamer, httpResponseStreamer, httpResponseHeaderStreamer, httpResponseAssertStreamer, httpBodyRawStreamer, logStreamer)
 	newServiceManager.AddService(rhttp.CreateService(httpSrv, optionsAll))
 
 	flowStreamer := memory.NewInMemorySyncStreamer[rflowv2.FlowTopic, rflowv2.FlowEvent]()
@@ -360,12 +364,9 @@ func main() {
 		httpResponseStreamer,
 		httpResponseHeaderStreamer,
 		httpResponseAssertStreamer,
+		logStreamer,
 	)
 	newServiceManager.AddService(rflowv2.CreateService(flowSrvV2, optionsAll))
-
-	// Log Service
-	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
-	defer logStreamer.Shutdown()
 
 	logSrv := rlog.New(logStreamer)
 	newServiceManager.AddService(rlog.CreateService(logSrv, optionsAll))

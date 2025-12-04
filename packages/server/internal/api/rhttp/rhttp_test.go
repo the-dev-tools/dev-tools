@@ -113,7 +113,7 @@ func newHttpFixture(t *testing.T) *httpFixture {
 		httpAssertService,
 	)
 
-	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream)
+	handler := New(base.DB, services.Hs, services.Us, services.Ws, services.Wus, envService, varService, httpBodyRawService, httpHeaderService, httpSearchParamService, httpBodyFormService, httpBodyUrlEncodedService, httpAssertService, httpResponseService, requestResolver, stream, httpHeaderStream, httpSearchParamStream, httpBodyFormStream, httpBodyUrlEncodedStream, httpAssertStream, httpVersionStream, httpResponseStream, httpResponseHeaderStream, httpResponseAssertStream, httpBodyRawStream, nil)
 
 	t.Cleanup(base.Close)
 

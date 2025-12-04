@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"the-dev-tools/server/internal/api/rhttp"
+	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/service/senv"
@@ -164,7 +165,8 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 	httpAssertService := shttp.NewHttpAssertService(suite.baseDB.Queries)
 	httpResponseService := shttp.NewHttpResponseService(suite.baseDB.Queries)
 
-	// Create resolver for delta resolution
+	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
+
 	requestResolver := resolver.NewStandardResolver(
 		suite.importHandler.HttpService,
 		&suite.importHandler.HttpHeaderService,
@@ -203,6 +205,7 @@ func TestHARImportAndSyncE2E(t *testing.T) {
 		memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent](),
 		memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent](),
 		suite.importHandler.HttpBodyRawStream,
+		logStreamer,
 	)
 
 	// Call HttpDeltaCollection

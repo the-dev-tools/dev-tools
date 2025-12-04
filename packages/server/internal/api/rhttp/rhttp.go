@@ -6,6 +6,7 @@ import (
 	"connectrpc.com/connect"
 
 	"the-dev-tools/server/internal/api"
+	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/eventstream"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/idwrap"
@@ -195,6 +196,7 @@ type HttpServiceRPC struct {
 	httpResponseHeaderStream eventstream.SyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent]
 	httpResponseAssertStream eventstream.SyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent]
 	httpBodyRawStream        eventstream.SyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent]
+	logStream                eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent]
 }
 
 // New creates a new HttpServiceRPC instance
@@ -225,6 +227,7 @@ func New(
 	httpResponseHeaderStream eventstream.SyncStreamer[HttpResponseHeaderTopic, HttpResponseHeaderEvent],
 	httpResponseAssertStream eventstream.SyncStreamer[HttpResponseAssertTopic, HttpResponseAssertEvent],
 	httpBodyRawStream eventstream.SyncStreamer[HttpBodyRawTopic, HttpBodyRawEvent],
+	logStream eventstream.SyncStreamer[rlog.LogTopic, rlog.LogEvent],
 ) HttpServiceRPC {
 	return HttpServiceRPC{
 		DB:                        db,
@@ -253,6 +256,7 @@ func New(
 		httpResponseHeaderStream:  httpResponseHeaderStream,
 		httpResponseAssertStream:  httpResponseAssertStream,
 		httpBodyRawStream:         httpBodyRawStream,
+		logStream:                 logStream,
 	}
 }
 

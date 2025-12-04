@@ -105,7 +105,7 @@ func TestLogSync(t *testing.T) {
 
 	topic := LogTopic{UserID: userID}
 	event := LogEvent{
-		Type: eventTypeInsert,
+		Type: EventTypeInsert,
 		Log:  testLog,
 	}
 

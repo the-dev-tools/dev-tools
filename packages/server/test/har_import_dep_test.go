@@ -6,6 +6,7 @@ import (
 
 	"the-dev-tools/server/internal/api/rfile"
 	"the-dev-tools/server/internal/api/rhttp"
+	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/pkg/eventstream/memory"
 	"the-dev-tools/server/pkg/http/resolver"
 	"the-dev-tools/server/pkg/service/senv"
@@ -132,6 +133,8 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 	assert.NotContains(t, authHeaderEvent.HttpHeader.Value, "abc-12345-xyz", "Value should NOT contain raw secret")
 	assert.Contains(t, authHeaderEvent.HttpHeader.Value, "Bearer ", "Value should preserve prefix")
 
+	logStreamer := memory.NewInMemorySyncStreamer[rlog.LogTopic, rlog.LogEvent]()
+
 	// 4. Verify Collection Consistency
 	// Instantiate rhttp handler
 	envService := senv.New(suite.baseDB.Queries, suite.importHandler.Logger)
@@ -177,6 +180,7 @@ func TestHARImport_DependencyDetection(t *testing.T) {
 		memory.NewInMemorySyncStreamer[rhttp.HttpResponseHeaderTopic, rhttp.HttpResponseHeaderEvent](),
 		memory.NewInMemorySyncStreamer[rhttp.HttpResponseAssertTopic, rhttp.HttpResponseAssertEvent](),
 		suite.importHandler.HttpBodyRawStream,
+		logStreamer,
 	)
 
 	// Call HttpHeaderDeltaCollection

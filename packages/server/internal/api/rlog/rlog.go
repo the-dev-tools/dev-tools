@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	eventTypeInsert = "insert"
-	eventTypeUpdate = "update"
-	eventTypeDelete = "delete"
+	EventTypeInsert = "insert"
+	EventTypeUpdate = "update"
+	EventTypeDelete = "delete"
 )
 
 type LogTopic struct {
@@ -50,7 +50,7 @@ func logSyncResponseFrom(evt LogEvent) *apiv1.LogSyncResponse {
 	}
 
 	switch evt.Type {
-	case eventTypeInsert:
+	case EventTypeInsert:
 		msg := &apiv1.LogSync{
 			Value: &apiv1.LogSync_ValueUnion{
 				Kind: apiv1.LogSync_ValueUnion_KIND_INSERT,
@@ -63,7 +63,7 @@ func logSyncResponseFrom(evt LogEvent) *apiv1.LogSyncResponse {
 			},
 		}
 		return &apiv1.LogSyncResponse{Items: []*apiv1.LogSync{msg}}
-	case eventTypeUpdate:
+	case EventTypeUpdate:
 		update := &apiv1.LogSyncUpdate{
 			LogId: evt.Log.LogId,
 		}
@@ -86,7 +86,7 @@ func logSyncResponseFrom(evt LogEvent) *apiv1.LogSyncResponse {
 			},
 		}
 		return &apiv1.LogSyncResponse{Items: []*apiv1.LogSync{msg}}
-	case eventTypeDelete:
+	case EventTypeDelete:
 		msg := &apiv1.LogSync{
 			Value: &apiv1.LogSync_ValueUnion{
 				Kind: apiv1.LogSync_ValueUnion_KIND_DELETE,

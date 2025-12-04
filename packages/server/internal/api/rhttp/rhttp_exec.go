@@ -13,8 +13,10 @@ import (
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"the-dev-tools/server/internal/api/middleware/mwauth"
+	"the-dev-tools/server/internal/api/rlog"
 	"the-dev-tools/server/internal/converter"
 	"the-dev-tools/server/pkg/expression"
 	"the-dev-tools/server/pkg/http/request"
@@ -27,6 +29,7 @@ import (
 	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/varsystem"
 	apiv1 "the-dev-tools/spec/dist/buf/go/api/http/v1"
+	logv1 "the-dev-tools/spec/dist/buf/go/api/log/v1"
 )
 
 func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhttp.HTTP) error {
@@ -363,8 +366,15 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 		return nil, err
 	}
 
+	userID, err := mwauth.GetContextUserID(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
 	// Execute HTTP request with proper error handling
 	if err := h.executeHTTPRequest(ctx, httpEntry); err != nil {
+		h.logExecution(userID, httpEntry, err)
+
 		// Handle different types of errors appropriately
 		if isNetworkError(err) {
 			return nil, connect.NewError(connect.CodeUnavailable, err)
@@ -396,11 +406,6 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 	}
 
 	// Create a new version for this run
-	userID, err := mwauth.GetContextUserID(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
 	versionName := fmt.Sprintf("v%d", time.Now().UnixNano())
 	versionDesc := "Auto-saved version (Run)"
 
@@ -415,6 +420,7 @@ func (h *HttpServiceRPC) HttpRun(ctx context.Context, req *connect.Request[apiv1
 
 	h.publishUpdateEvent(*httpEntry)
 	h.publishVersionInsertEvent(*version, httpEntry.WorkspaceID)
+	h.logExecution(userID, httpEntry, nil)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
@@ -931,4 +937,39 @@ func (h *HttpServiceRPC) storeAssertionResult(ctx context.Context, httpID idwrap
 	}
 
 	return nil
+}
+
+func (h *HttpServiceRPC) logExecution(userID idwrap.IDWrap, httpEntry *mhttp.HTTP, err error) {
+	if h.logStream == nil {
+		return
+	}
+
+	status := "Success"
+	level := logv1.LogLevel_LOG_LEVEL_WARNING // default info/warning
+	errMsg := ""
+
+	if err != nil {
+		status = "Failed"
+		level = logv1.LogLevel_LOG_LEVEL_ERROR
+		errMsg = err.Error()
+	}
+
+	msg := fmt.Sprintf("HTTP %s: %s", httpEntry.Name, status)
+
+	val, _ := structpb.NewValue(map[string]any{
+		"http_id": httpEntry.ID.String(),
+		"name":    httpEntry.Name,
+		"status":  status,
+		"error":   errMsg,
+	})
+
+	h.logStream.Publish(rlog.LogTopic{UserID: userID}, rlog.LogEvent{
+		Type: rlog.EventTypeInsert,
+		Log: &logv1.Log{
+			LogId: idwrap.NewNow().Bytes(),
+			Name:  msg,
+			Level: level,
+			Value: val,
+		},
+	})
 }

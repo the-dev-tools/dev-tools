@@ -106,6 +106,7 @@ func TestHttpSync_DeltaIsolation(t *testing.T) {
 		httpResponseHeaderStream,
 		httpResponseAssertStream,
 		httpBodyRawStream,
+		nil,
 	)
 
 	// 1. Create Workspace and User
