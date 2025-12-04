@@ -103,7 +103,7 @@ func (e *SimpleExporter) ExportToYAML(ctx context.Context, data *WorkspaceExport
 		WorkspaceID:         data.Workspace.ID,
 		IncludeHTTP:         true,
 		IncludeFlows:        true,
-		IncludeEnvironments: false,
+		IncludeEnvironments: true,
 		IncludeFiles:        false,
 		FilterByFlowIDs:     flowIDs,
 	}

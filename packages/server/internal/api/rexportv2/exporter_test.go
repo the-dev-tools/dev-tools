@@ -12,11 +12,13 @@ import (
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/ioworkspace"
 	"the-dev-tools/server/pkg/model/menv"
+	"the-dev-tools/server/pkg/model/mvar"
 	"the-dev-tools/server/pkg/model/mworkspace"
 	"the-dev-tools/server/pkg/service/senv"
 	"the-dev-tools/server/pkg/service/sfile"
 	"the-dev-tools/server/pkg/service/sflow"
 	"the-dev-tools/server/pkg/service/shttp"
+	"the-dev-tools/server/pkg/service/svar"
 	"the-dev-tools/server/pkg/testutil"
 )
 
@@ -105,6 +107,94 @@ func TestDefaultExporter_ExportWorkspaceData_WorkspaceNotFound(t *testing.T) {
 	// Check that the error is properly wrapped and contains the expected message
 	assert.Contains(t, err.Error(), "failed to get workspace")
 	assert.Contains(t, err.Error(), "sql: no rows in result set")
+}
+
+// TestDefaultExporter_ExportToYAML_WithEnvironments tests YAML export with environments
+func TestDefaultExporter_ExportToYAML_WithEnvironments(t *testing.T) {
+	ctx := context.Background()
+	
+	// Manual setup to access DB
+	base := testutil.CreateBaseDB(ctx, t)
+	t.Cleanup(base.Close)
+
+	logger := base.Logger()
+	services := base.GetBaseServices()
+
+	httpService := shttp.New(base.Queries, logger)
+	flowService := sflow.New(base.Queries)
+	fileService := sfile.New(base.Queries, logger)
+	workspaceService := services.Ws
+	ioWorkspaceService := ioworkspace.New(base.Queries, logger)
+
+	exporter := NewExporter(&httpService, &flowService, fileService, ioWorkspaceService)
+	storage := NewStorage(&workspaceService, &httpService, &flowService, fileService)
+	exporter.SetStorage(storage)
+
+	// Create test data
+	workspaceID := idwrap.NewNow()
+	envID := idwrap.NewNow()
+
+	// Create workspace
+	workspace := &mworkspace.Workspace{
+		ID:        workspaceID,
+		Name:      "Test Workspace",
+		Updated:   dbtime.DBNow(),
+		ActiveEnv: envID,
+		GlobalEnv: envID,
+	}
+	err := services.Ws.Create(ctx, workspace)
+	require.NoError(t, err)
+
+	// Create environment
+	envService := senv.New(base.Queries, logger)
+	env := menv.Env{
+		ID:          envID,
+		WorkspaceID: workspaceID,
+		Name:        "default",
+		Type:        menv.EnvGlobal,
+	}
+	err = envService.CreateEnvironment(ctx, &env)
+	require.NoError(t, err)
+	
+	// Create variable
+	varService := svar.New(base.Queries, logger)
+	err = varService.Create(ctx, mvar.Var{
+		ID:      idwrap.NewNow(),
+		EnvID:   envID,
+		VarKey:  "exported_var",
+		Value:   "exported_value",
+		Enabled: true,
+	})
+	require.NoError(t, err)
+
+	data := &WorkspaceExportData{
+		Workspace: &WorkspaceInfo{
+			ID:   workspaceID,
+			Name: "Test Workspace",
+		},
+	}
+
+	yamlData, err := exporter.ExportToYAML(ctx, data, false, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, yamlData)
+
+	var parsed map[string]interface{}
+	err = yaml.Unmarshal(yamlData, &parsed)
+	require.NoError(t, err)
+
+	// Check environments
+	assert.Contains(t, parsed, "environments")
+	envsRaw, ok := parsed["environments"].([]interface{})
+	require.True(t, ok)
+	require.NotEmpty(t, envsRaw)
+	
+	envMap, ok := envsRaw[0].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "default", envMap["name"])
+	
+	varsMap, ok := envMap["variables"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "exported_value", varsMap["exported_var"])
 }
 
 // TestDefaultExporter_ExportToYAML_Success tests successful YAML export
