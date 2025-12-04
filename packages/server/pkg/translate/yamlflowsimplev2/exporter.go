@@ -207,9 +207,24 @@ func MarshalSimplifiedYAML(data *ioworkspace.WorkspaceBundle) ([]byte, error) {
 	}
 
 	// 3. Process each Flow
+	flowNameUsed := make(map[string]bool)
 	for _, flow := range data.Flows {
+		// Ensure unique flow name
+		flowName := flow.Name
+		if flowName == "" {
+			flowName = "Flow"
+		}
+		
+		baseName := flowName
+		counter := 1
+		for flowNameUsed[flowName] {
+			flowName = fmt.Sprintf("%s_%d", baseName, counter)
+			counter++
+		}
+		flowNameUsed[flowName] = true
+
 		flowYaml := YamlFlowFlowV2{
-			Name:      flow.Name,
+			Name:      flowName,
 			Variables: make([]YamlFlowVariableV2, 0),
 			Steps:     make([]map[string]any, 0),
 		}
