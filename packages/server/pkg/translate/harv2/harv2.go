@@ -1028,7 +1028,20 @@ func ReorganizeNodePositions(result *HarResolved) error {
 	nodeLevels[startNode.ID] = 0
 	levelNodes[0] = []idwrap.IDWrap{startNode.ID}
 
+	// Safety counter to prevent infinite loops on cyclic graphs
+	processedCount := 0
+	maxProcessed := len(result.Nodes) * len(result.Nodes)
+	if maxProcessed < 10000 {
+		maxProcessed = 10000
+	}
+
 	for len(queue) > 0 {
+		// Check for potential infinite loop
+		if processedCount > maxProcessed {
+			break
+		}
+		processedCount++
+
 		currentNodeID := queue[0]
 		queue = queue[1:]
 
@@ -1099,6 +1112,12 @@ func applyTransitiveReduction(edges []edge.Edge) []edge.Edge {
 		return edges
 	}
 
+	// Performance optimization: Skip reduction for large graphs to avoid O(E^2) complexity
+	// 2000 edges is roughly where performance starts to degrade noticeably (>1s)
+	if len(edges) > 2000 {
+		return edges
+	}
+
 	// Build adjacency map
 	adjMap := make(map[idwrap.IDWrap][]idwrap.IDWrap)
 	for _, edge := range edges {
@@ -1125,6 +1144,7 @@ func hasAlternativePath(adjMap map[idwrap.IDWrap][]idwrap.IDWrap, source, target
 	for _, neighbor := range adjMap[source] {
 		if neighbor != avoidTarget {
 			queue = append(queue, neighbor)
+			visited[neighbor] = true
 		}
 	}
 
@@ -1136,13 +1156,9 @@ func hasAlternativePath(adjMap map[idwrap.IDWrap][]idwrap.IDWrap, source, target
 			return true // Found alternative path
 		}
 
-		if visited[current] {
-			continue
-		}
-		visited[current] = true
-
 		for _, neighbor := range adjMap[current] {
 			if !visited[neighbor] {
+				visited[neighbor] = true
 				queue = append(queue, neighbor)
 			}
 		}
