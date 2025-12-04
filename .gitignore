@@ -33,3 +33,4 @@ coverage.out
 .code/
 packages/server/server
 tools/collect_go_failures.py
+/server
