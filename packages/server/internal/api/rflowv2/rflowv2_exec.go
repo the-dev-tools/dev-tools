@@ -685,12 +685,13 @@ func (s *FlowServiceV2RPC) createFlowVersionSnapshot(
 			Value:       sourceVar.Value,
 			Enabled:     sourceVar.Enabled,
 			Description: sourceVar.Description,
+			Order:       sourceVar.Order,
 		}
 
 		if err := s.fvs.CreateFlowVariable(ctx, newVar); err != nil {
 			return mflow.Flow{}, nil, fmt.Errorf("create flow variable: %w", err)
 		}
-		s.publishFlowVariableEvent(flowVarEventInsert, newVar, 0)
+		s.publishFlowVariableEvent(flowVarEventInsert, newVar)
 	}
 
 	return version, nodeIDMapping, nil

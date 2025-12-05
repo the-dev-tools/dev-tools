@@ -182,7 +182,7 @@ func serializeNodeExecution(execution mnodeexecution.NodeExecution) *flowv1.Node
 	return result
 }
 
-func serializeFlowVariable(variable mflowvariable.FlowVariable, order float32) *flowv1.FlowVariable {
+func serializeFlowVariable(variable mflowvariable.FlowVariable) *flowv1.FlowVariable {
 	return &flowv1.FlowVariable{
 		FlowVariableId: variable.ID.Bytes(),
 		FlowId:         variable.FlowID.Bytes(),
@@ -190,7 +190,7 @@ func serializeFlowVariable(variable mflowvariable.FlowVariable, order float32) *
 		Value:          variable.Value,
 		Enabled:        variable.Enabled,
 		Description:    variable.Description,
-		Order:          order,
+		Order:          float32(variable.Order),
 	}
 }
 
@@ -210,18 +210,6 @@ func convertHandle(h flowv1.HandleKind) edge.EdgeHandle {
 	return edge.EdgeHandle(h)
 }
 
-func (s *FlowServiceV2RPC) flowVariableOrder(ctx context.Context, flowID, variableID idwrap.IDWrap) (float32, error) {
-	variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flowID)
-	if err != nil {
-		return 0, err
-	}
-	for idx, item := range variables {
-		if item.ID == variableID {
-			return float32(idx), nil
-		}
-	}
-	return 0, fmt.Errorf("flow variable %s not found in flow %s", variableID.String(), flowID.String())
-}
 
 func workspaceIDFromHeaders(header http.Header) (idwrap.IDWrap, error) {
 	value := header.Get("workspace-id")

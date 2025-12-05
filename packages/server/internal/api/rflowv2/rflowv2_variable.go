@@ -26,7 +26,6 @@ func (s *FlowServiceV2RPC) FlowVariableCollection(ctx context.Context, req *conn
 
 	// Collect all variables from all flows
 	var allVariables []*flowv1.FlowVariable
-	var globalIndex float32
 	for _, flow := range flows {
 		variables, err := s.fvs.GetFlowVariablesByFlowIDOrdered(ctx, flow.ID)
 		if err != nil {
@@ -38,8 +37,7 @@ func (s *FlowServiceV2RPC) FlowVariableCollection(ctx context.Context, req *conn
 		}
 
 		for _, variable := range variables {
-			allVariables = append(allVariables, serializeFlowVariable(variable, globalIndex))
-			globalIndex++
+			allVariables = append(allVariables, serializeFlowVariable(variable))
 		}
 	}
 
@@ -81,17 +79,14 @@ func (s *FlowServiceV2RPC) FlowVariableInsert(ctx context.Context, req *connect.
 			Value:       item.GetValue(),
 			Enabled:     item.GetEnabled(),
 			Description: item.GetDescription(),
+			Order:       float64(item.GetOrder()),
 		}
 
 		if err := s.fvs.CreateFlowVariable(ctx, variable); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		order, err := s.flowVariableOrder(ctx, flowID, variableID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		s.publishFlowVariableEvent(flowVarEventInsert, variable, order)
+		s.publishFlowVariableEvent(flowVarEventInsert, variable)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -145,18 +140,17 @@ func (s *FlowServiceV2RPC) FlowVariableUpdate(ctx context.Context, req *connect.
 		}
 
 		if item.Order != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("flow variable order updates are not supported"))
+			variable.Order = float64(item.GetOrder())
+			if err := s.fvs.UpdateFlowVariableOrder(ctx, variable.ID, variable.Order); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
 		}
 
 		if err := s.fvs.UpdateFlowVariable(ctx, variable); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		order, err := s.flowVariableOrder(ctx, variable.FlowID, variable.ID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-		s.publishFlowVariableEvent(flowVarEventUpdate, variable, order)
+		s.publishFlowVariableEvent(flowVarEventUpdate, variable)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -185,7 +179,7 @@ func (s *FlowServiceV2RPC) FlowVariableDelete(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		s.publishFlowVariableEvent(flowVarEventDelete, variable, 0)
+		s.publishFlowVariableEvent(flowVarEventDelete, variable)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -233,14 +227,13 @@ func (s *FlowServiceV2RPC) streamFlowVariableSync(
 				return nil, err
 			}
 
-			for idx, variable := range variables {
+			for _, variable := range variables {
 				events = append(events, eventstream.Event[FlowVariableTopic, FlowVariableEvent]{
 					Topic: FlowVariableTopic{FlowID: flow.ID},
 					Payload: FlowVariableEvent{
 						Type:     flowVarEventInsert,
 						FlowID:   flow.ID,
 						Variable: variable,
-						Order:    float32(idx),
 					},
 				})
 			}
@@ -284,7 +277,7 @@ func (s *FlowServiceV2RPC) streamFlowVariableSync(
 	}
 }
 
-func (s *FlowServiceV2RPC) publishFlowVariableEvent(eventType string, variable mflowvariable.FlowVariable, order float32) {
+func (s *FlowServiceV2RPC) publishFlowVariableEvent(eventType string, variable mflowvariable.FlowVariable) {
 	if s.varStream == nil {
 		return
 	}
@@ -292,7 +285,6 @@ func (s *FlowServiceV2RPC) publishFlowVariableEvent(eventType string, variable m
 		Type:     eventType,
 		FlowID:   variable.FlowID,
 		Variable: variable,
-		Order:    order,
 	})
 }
 
@@ -308,7 +300,7 @@ func flowVariableEventToSyncResponse(evt FlowVariableEvent) *flowv1.FlowVariable
 			Enabled:        variable.Enabled,
 			Value:          variable.Value,
 			Description:    variable.Description,
-			Order:          evt.Order,
+			Order:          float32(variable.Order),
 		}
 		return &flowv1.FlowVariableSyncResponse{
 			Items: []*flowv1.FlowVariableSync{{
@@ -333,7 +325,7 @@ func flowVariableEventToSyncResponse(evt FlowVariableEvent) *flowv1.FlowVariable
 		update.Value = &value
 		description := variable.Description
 		update.Description = &description
-		order := evt.Order
+		order := float32(variable.Order)
 		update.Order = &order
 
 		return &flowv1.FlowVariableSyncResponse{

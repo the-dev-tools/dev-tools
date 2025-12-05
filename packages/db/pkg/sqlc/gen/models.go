@@ -101,14 +101,13 @@ type FlowTag struct {
 }
 
 type FlowVariable struct {
-	ID          idwrap.IDWrap
-	FlowID      idwrap.IDWrap
-	Key         string
-	Value       string
-	Enabled     bool
-	Description string
-	Prev        *idwrap.IDWrap
-	Next        *idwrap.IDWrap
+	ID           idwrap.IDWrap
+	FlowID       idwrap.IDWrap
+	Key          string
+	Value        string
+	Enabled      bool
+	Description  string
+	DisplayOrder float64
 }
 
 type Http struct {

@@ -314,20 +314,19 @@ func (q *Queries) CreateFlowTag(ctx context.Context, arg CreateFlowTagParams) er
 
 const createFlowVariable = `-- name: CreateFlowVariable :exec
 INSERT INTO
-  flow_variable (id, flow_id, key, value, enabled, description, prev, next)
+  flow_variable (id, flow_id, key, value, enabled, description, display_order)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowVariableParams struct {
-	ID          idwrap.IDWrap
-	FlowID      idwrap.IDWrap
-	Key         string
-	Value       string
-	Enabled     bool
-	Description string
-	Prev        *idwrap.IDWrap
-	Next        *idwrap.IDWrap
+	ID           idwrap.IDWrap
+	FlowID       idwrap.IDWrap
+	Key          string
+	Value        string
+	Enabled      bool
+	Description  string
+	DisplayOrder float64
 }
 
 func (q *Queries) CreateFlowVariable(ctx context.Context, arg CreateFlowVariableParams) error {
@@ -338,109 +337,98 @@ func (q *Queries) CreateFlowVariable(ctx context.Context, arg CreateFlowVariable
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
-		arg.Prev,
-		arg.Next,
+		arg.DisplayOrder,
 	)
 	return err
 }
 
 const createFlowVariableBulk = `-- name: CreateFlowVariableBulk :exec
 INSERT INTO
-  flow_variable (id, flow_id, key, value, enabled, description, prev, next)
+  flow_variable (id, flow_id, key, value, enabled, description, display_order)
 VALUES
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?),
-  (?, ?, ?, ?, ?, ?, ?, ?)
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?),
+  (?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateFlowVariableBulkParams struct {
-	ID             idwrap.IDWrap
-	FlowID         idwrap.IDWrap
-	Key            string
-	Value          string
-	Enabled        bool
-	Description    string
-	Prev           *idwrap.IDWrap
-	Next           *idwrap.IDWrap
-	ID_2           idwrap.IDWrap
-	FlowID_2       idwrap.IDWrap
-	Key_2          string
-	Value_2        string
-	Enabled_2      bool
-	Description_2  string
-	Prev_2         *idwrap.IDWrap
-	Next_2         *idwrap.IDWrap
-	ID_3           idwrap.IDWrap
-	FlowID_3       idwrap.IDWrap
-	Key_3          string
-	Value_3        string
-	Enabled_3      bool
-	Description_3  string
-	Prev_3         *idwrap.IDWrap
-	Next_3         *idwrap.IDWrap
-	ID_4           idwrap.IDWrap
-	FlowID_4       idwrap.IDWrap
-	Key_4          string
-	Value_4        string
-	Enabled_4      bool
-	Description_4  string
-	Prev_4         *idwrap.IDWrap
-	Next_4         *idwrap.IDWrap
-	ID_5           idwrap.IDWrap
-	FlowID_5       idwrap.IDWrap
-	Key_5          string
-	Value_5        string
-	Enabled_5      bool
-	Description_5  string
-	Prev_5         *idwrap.IDWrap
-	Next_5         *idwrap.IDWrap
-	ID_6           idwrap.IDWrap
-	FlowID_6       idwrap.IDWrap
-	Key_6          string
-	Value_6        string
-	Enabled_6      bool
-	Description_6  string
-	Prev_6         *idwrap.IDWrap
-	Next_6         *idwrap.IDWrap
-	ID_7           idwrap.IDWrap
-	FlowID_7       idwrap.IDWrap
-	Key_7          string
-	Value_7        string
-	Enabled_7      bool
-	Description_7  string
-	Prev_7         *idwrap.IDWrap
-	Next_7         *idwrap.IDWrap
-	ID_8           idwrap.IDWrap
-	FlowID_8       idwrap.IDWrap
-	Key_8          string
-	Value_8        string
-	Enabled_8      bool
-	Description_8  string
-	Prev_8         *idwrap.IDWrap
-	Next_8         *idwrap.IDWrap
-	ID_9           idwrap.IDWrap
-	FlowID_9       idwrap.IDWrap
-	Key_9          string
-	Value_9        string
-	Enabled_9      bool
-	Description_9  string
-	Prev_9         *idwrap.IDWrap
-	Next_9         *idwrap.IDWrap
-	ID_10          idwrap.IDWrap
-	FlowID_10      idwrap.IDWrap
-	Key_10         string
-	Value_10       string
-	Enabled_10     bool
-	Description_10 string
-	Prev_10        *idwrap.IDWrap
-	Next_10        *idwrap.IDWrap
+	ID              idwrap.IDWrap
+	FlowID          idwrap.IDWrap
+	Key             string
+	Value           string
+	Enabled         bool
+	Description     string
+	DisplayOrder    float64
+	ID_2            idwrap.IDWrap
+	FlowID_2        idwrap.IDWrap
+	Key_2           string
+	Value_2         string
+	Enabled_2       bool
+	Description_2   string
+	DisplayOrder_2  float64
+	ID_3            idwrap.IDWrap
+	FlowID_3        idwrap.IDWrap
+	Key_3           string
+	Value_3         string
+	Enabled_3       bool
+	Description_3   string
+	DisplayOrder_3  float64
+	ID_4            idwrap.IDWrap
+	FlowID_4        idwrap.IDWrap
+	Key_4           string
+	Value_4         string
+	Enabled_4       bool
+	Description_4   string
+	DisplayOrder_4  float64
+	ID_5            idwrap.IDWrap
+	FlowID_5        idwrap.IDWrap
+	Key_5           string
+	Value_5         string
+	Enabled_5       bool
+	Description_5   string
+	DisplayOrder_5  float64
+	ID_6            idwrap.IDWrap
+	FlowID_6        idwrap.IDWrap
+	Key_6           string
+	Value_6         string
+	Enabled_6       bool
+	Description_6   string
+	DisplayOrder_6  float64
+	ID_7            idwrap.IDWrap
+	FlowID_7        idwrap.IDWrap
+	Key_7           string
+	Value_7         string
+	Enabled_7       bool
+	Description_7   string
+	DisplayOrder_7  float64
+	ID_8            idwrap.IDWrap
+	FlowID_8        idwrap.IDWrap
+	Key_8           string
+	Value_8         string
+	Enabled_8       bool
+	Description_8   string
+	DisplayOrder_8  float64
+	ID_9            idwrap.IDWrap
+	FlowID_9        idwrap.IDWrap
+	Key_9           string
+	Value_9         string
+	Enabled_9       bool
+	Description_9   string
+	DisplayOrder_9  float64
+	ID_10           idwrap.IDWrap
+	FlowID_10       idwrap.IDWrap
+	Key_10          string
+	Value_10        string
+	Enabled_10      bool
+	Description_10  string
+	DisplayOrder_10 float64
 }
 
 func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVariableBulkParams) error {
@@ -451,80 +439,70 @@ func (q *Queries) CreateFlowVariableBulk(ctx context.Context, arg CreateFlowVari
 		arg.Value,
 		arg.Enabled,
 		arg.Description,
-		arg.Prev,
-		arg.Next,
+		arg.DisplayOrder,
 		arg.ID_2,
 		arg.FlowID_2,
 		arg.Key_2,
 		arg.Value_2,
 		arg.Enabled_2,
 		arg.Description_2,
-		arg.Prev_2,
-		arg.Next_2,
+		arg.DisplayOrder_2,
 		arg.ID_3,
 		arg.FlowID_3,
 		arg.Key_3,
 		arg.Value_3,
 		arg.Enabled_3,
 		arg.Description_3,
-		arg.Prev_3,
-		arg.Next_3,
+		arg.DisplayOrder_3,
 		arg.ID_4,
 		arg.FlowID_4,
 		arg.Key_4,
 		arg.Value_4,
 		arg.Enabled_4,
 		arg.Description_4,
-		arg.Prev_4,
-		arg.Next_4,
+		arg.DisplayOrder_4,
 		arg.ID_5,
 		arg.FlowID_5,
 		arg.Key_5,
 		arg.Value_5,
 		arg.Enabled_5,
 		arg.Description_5,
-		arg.Prev_5,
-		arg.Next_5,
+		arg.DisplayOrder_5,
 		arg.ID_6,
 		arg.FlowID_6,
 		arg.Key_6,
 		arg.Value_6,
 		arg.Enabled_6,
 		arg.Description_6,
-		arg.Prev_6,
-		arg.Next_6,
+		arg.DisplayOrder_6,
 		arg.ID_7,
 		arg.FlowID_7,
 		arg.Key_7,
 		arg.Value_7,
 		arg.Enabled_7,
 		arg.Description_7,
-		arg.Prev_7,
-		arg.Next_7,
+		arg.DisplayOrder_7,
 		arg.ID_8,
 		arg.FlowID_8,
 		arg.Key_8,
 		arg.Value_8,
 		arg.Enabled_8,
 		arg.Description_8,
-		arg.Prev_8,
-		arg.Next_8,
+		arg.DisplayOrder_8,
 		arg.ID_9,
 		arg.FlowID_9,
 		arg.Key_9,
 		arg.Value_9,
 		arg.Enabled_9,
 		arg.Description_9,
-		arg.Prev_9,
-		arg.Next_9,
+		arg.DisplayOrder_9,
 		arg.ID_10,
 		arg.FlowID_10,
 		arg.Key_10,
 		arg.Value_10,
 		arg.Enabled_10,
 		arg.Description_10,
-		arg.Prev_10,
-		arg.Next_10,
+		arg.DisplayOrder_10,
 	)
 	return err
 }
@@ -1240,8 +1218,7 @@ SELECT
   value,
   enabled,
   description,
-  prev,
-  next
+  display_order
 FROM
   flow_variable
 WHERE
@@ -1259,8 +1236,7 @@ func (q *Queries) GetFlowVariable(ctx context.Context, id idwrap.IDWrap) (FlowVa
 		&i.Value,
 		&i.Enabled,
 		&i.Description,
-		&i.Prev,
-		&i.Next,
+		&i.DisplayOrder,
 	)
 	return i, err
 }
@@ -1273,8 +1249,7 @@ SELECT
   value,
   enabled,
   description,
-  prev,
-  next
+  display_order
 FROM
   flow_variable
 WHERE
@@ -1297,8 +1272,7 @@ func (q *Queries) GetFlowVariablesByFlowID(ctx context.Context, flowID idwrap.ID
 			&i.Value,
 			&i.Enabled,
 			&i.Description,
-			&i.Prev,
-			&i.Next,
+			&i.DisplayOrder,
 		); err != nil {
 			return nil, err
 		}
@@ -1314,87 +1288,31 @@ func (q *Queries) GetFlowVariablesByFlowID(ctx context.Context, flowID idwrap.ID
 }
 
 const getFlowVariablesByFlowIDOrdered = `-- name: GetFlowVariablesByFlowIDOrdered :many
-WITH RECURSIVE ordered_flow_variables AS (
-  -- Base case: Find the head (prev IS NULL)
-  SELECT
-    fv.id,
-    fv.flow_id,
-    fv.key,
-    fv.value,
-    fv.enabled,
-    fv.description,
-    fv.prev,
-    fv.next,
-    0 as position
-  FROM
-    flow_variable fv
-  WHERE
-    fv.flow_id = ? AND
-    fv.prev IS NULL
-  
-  UNION ALL
-  
-  -- Recursive case: Follow the next pointers
-  SELECT
-    fv.id,
-    fv.flow_id,
-    fv.key,
-    fv.value,
-    fv.enabled,
-    fv.description,
-    fv.prev,
-    fv.next,
-    ofv.position + 1
-  FROM
-    flow_variable fv
-  INNER JOIN ordered_flow_variables ofv ON fv.prev = ofv.id
-  WHERE
-    fv.flow_id = ?
-)
 SELECT
-  ofv.id,
-  ofv.flow_id,
-  ofv.key,
-  ofv.value,
-  ofv.enabled,
-  ofv.description,
-  ofv.prev,
-  ofv.next,
-  ofv.position
+  id,
+  flow_id,
+  key,
+  value,
+  enabled,
+  description,
+  display_order
 FROM
-  ordered_flow_variables ofv
+  flow_variable
+WHERE
+  flow_id = ?
 ORDER BY
-  ofv.position
+  display_order
 `
 
-type GetFlowVariablesByFlowIDOrderedParams struct {
-	FlowID   idwrap.IDWrap
-	FlowID_2 idwrap.IDWrap
-}
-
-type GetFlowVariablesByFlowIDOrderedRow struct {
-	ID          []byte
-	FlowID      []byte
-	Key         string
-	Value       string
-	Enabled     bool
-	Description string
-	Prev        []byte
-	Next        []byte
-	Position    int64
-}
-
-// Uses WITH RECURSIVE CTE to traverse linked list from head to tail
-// Requires index on (flow_id, prev) for optimal performance
-func (q *Queries) GetFlowVariablesByFlowIDOrdered(ctx context.Context, arg GetFlowVariablesByFlowIDOrderedParams) ([]GetFlowVariablesByFlowIDOrderedRow, error) {
-	rows, err := q.query(ctx, q.getFlowVariablesByFlowIDOrderedStmt, getFlowVariablesByFlowIDOrdered, arg.FlowID, arg.FlowID_2)
+func (q *Queries) GetFlowVariablesByFlowIDOrdered(ctx context.Context, flowID idwrap.IDWrap) ([]FlowVariable, error) {
+	rows, err := q.query(ctx, q.getFlowVariablesByFlowIDOrderedStmt, getFlowVariablesByFlowIDOrdered, flowID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetFlowVariablesByFlowIDOrderedRow{}
+	items := []FlowVariable{}
 	for rows.Next() {
-		var i GetFlowVariablesByFlowIDOrderedRow
+		var i FlowVariable
 		if err := rows.Scan(
 			&i.ID,
 			&i.FlowID,
@@ -1402,9 +1320,7 @@ func (q *Queries) GetFlowVariablesByFlowIDOrdered(ctx context.Context, arg GetFl
 			&i.Value,
 			&i.Enabled,
 			&i.Description,
-			&i.Prev,
-			&i.Next,
-			&i.Position,
+			&i.DisplayOrder,
 		); err != nil {
 			return nil, err
 		}
@@ -2104,74 +2020,21 @@ func (q *Queries) UpdateFlowVariable(ctx context.Context, arg UpdateFlowVariable
 	return err
 }
 
-const updateFlowVariableNext = `-- name: UpdateFlowVariableNext :exec
-UPDATE flow_variable
-SET
-  next = ?
-WHERE
-  id = ? AND
-  flow_id = ?
-`
-
-type UpdateFlowVariableNextParams struct {
-	Next   *idwrap.IDWrap
-	ID     idwrap.IDWrap
-	FlowID idwrap.IDWrap
-}
-
-// Update only the next pointer for a flow variable (used in deletion)
-func (q *Queries) UpdateFlowVariableNext(ctx context.Context, arg UpdateFlowVariableNextParams) error {
-	_, err := q.exec(ctx, q.updateFlowVariableNextStmt, updateFlowVariableNext, arg.Next, arg.ID, arg.FlowID)
-	return err
-}
-
 const updateFlowVariableOrder = `-- name: UpdateFlowVariableOrder :exec
 UPDATE flow_variable
 SET
-  prev = ?,
-  next = ?
+  display_order = ?
 WHERE
-  id = ? AND
-  flow_id = ?
+  id = ?
 `
 
 type UpdateFlowVariableOrderParams struct {
-	Prev   *idwrap.IDWrap
-	Next   *idwrap.IDWrap
-	ID     idwrap.IDWrap
-	FlowID idwrap.IDWrap
+	DisplayOrder float64
+	ID           idwrap.IDWrap
 }
 
-// Update the prev/next pointers for a single flow variable
-// Used for moving flow variables within the linked list
 func (q *Queries) UpdateFlowVariableOrder(ctx context.Context, arg UpdateFlowVariableOrderParams) error {
-	_, err := q.exec(ctx, q.updateFlowVariableOrderStmt, updateFlowVariableOrder,
-		arg.Prev,
-		arg.Next,
-		arg.ID,
-		arg.FlowID,
-	)
-	return err
-}
-
-const updateFlowVariablePrev = `-- name: UpdateFlowVariablePrev :exec
-UPDATE flow_variable
-SET
-  prev = ?
-WHERE
-  id = ? AND
-  flow_id = ?
-`
-
-type UpdateFlowVariablePrevParams struct {
-	Prev   *idwrap.IDWrap
-	ID     idwrap.IDWrap
-	FlowID idwrap.IDWrap
-}
-
-// Update only the prev pointer for a flow variable (used in deletion)
-func (q *Queries) UpdateFlowVariablePrev(ctx context.Context, arg UpdateFlowVariablePrevParams) error {
-	_, err := q.exec(ctx, q.updateFlowVariablePrevStmt, updateFlowVariablePrev, arg.Prev, arg.ID, arg.FlowID)
+	_, err := q.exec(ctx, q.updateFlowVariableOrderStmt, updateFlowVariableOrder, arg.DisplayOrder, arg.ID)
 	return err
 }
 

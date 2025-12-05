@@ -104,15 +104,13 @@ CREATE TABLE flow_variable (
   value TEXT NOT NULL,
   enabled BOOL NOT NULL,
   description TEXT NOT NULL,
-  prev BLOB,
-  next BLOB,
+  display_order REAL NOT NULL DEFAULT 0,
   UNIQUE (flow_id, key),
-  UNIQUE (prev, next, flow_id),
   FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
 );
 
 -- Performance indexes for flow variable ordering operations
-CREATE INDEX flow_variable_ordering ON flow_variable (flow_id, prev, next);
+CREATE INDEX flow_variable_ordering ON flow_variable (flow_id, display_order);
 
 CREATE TABLE node_execution (
   id BLOB NOT NULL PRIMARY KEY,

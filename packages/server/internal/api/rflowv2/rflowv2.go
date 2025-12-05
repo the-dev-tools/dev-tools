@@ -93,7 +93,6 @@ type FlowVariableEvent struct {
 	Type     string
 	FlowID   idwrap.IDWrap
 	Variable mflowvariable.FlowVariable
-	Order    float32
 }
 
 // NoOpTopic identifies the flow whose NoOp nodes are being published.

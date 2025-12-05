@@ -9,35 +9,24 @@ import (
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mflowvariable"
-	"the-dev-tools/server/pkg/movable"
 	"the-dev-tools/server/pkg/translate/tgeneric"
 )
 
 type FlowVariableService struct {
-	queries           *gen.Queries
-	movableRepository *FlowVariableMovableRepository
+	queries *gen.Queries
 }
 
 var ErrNoFlowVariableFound = errors.New("no flow variable find")
 
 func New(queries *gen.Queries) FlowVariableService {
-	// Create the movable repository for flow variables
-	movableRepo := NewFlowVariableMovableRepository(queries)
-	
 	return FlowVariableService{
-		queries:           queries,
-		movableRepository: movableRepo,
+		queries: queries,
 	}
 }
 
 func (s FlowVariableService) TX(tx *sql.Tx) FlowVariableService {
-	// Create new instances with transaction support
-	txQueries := s.queries.WithTx(tx)
-	movableRepo := NewFlowVariableMovableRepository(txQueries)
-	
 	return FlowVariableService{
-		queries:           txQueries,
-		movableRepository: movableRepo,
+		queries: s.queries.WithTx(tx),
 	}
 }
 
@@ -46,24 +35,21 @@ func NewTX(ctx context.Context, tx *sql.Tx) (*FlowVariableService, error) {
 	if err != nil {
 		return nil, err
 	}
-	
-	// Create movable repository
-	movableRepo := NewFlowVariableMovableRepository(queries)
-	
+
 	return &FlowVariableService{
-		queries:           queries,
-		movableRepository: movableRepo,
+		queries: queries,
 	}, nil
 }
 
 func ConvertModelToDB(item mflowvariable.FlowVariable) gen.FlowVariable {
 	return gen.FlowVariable{
-		ID:          item.ID,
-		FlowID:      item.FlowID,
-		Key:         item.Name,
-		Value:       item.Value,
-		Enabled:     item.Enabled,
-		Description: item.Description,
+		ID:           item.ID,
+		FlowID:       item.FlowID,
+		Key:          item.Name,
+		Value:        item.Value,
+		Enabled:      item.Enabled,
+		Description:  item.Description,
+		DisplayOrder: item.Order,
 	}
 }
 
@@ -75,6 +61,7 @@ func ConvertDBToModel(item gen.FlowVariable) mflowvariable.FlowVariable {
 		Value:       item.Value,
 		Enabled:     item.Enabled,
 		Description: item.Description,
+		Order:       item.DisplayOrder,
 	}
 }
 
@@ -97,12 +84,13 @@ func (s *FlowVariableService) GetFlowVariablesByFlowID(ctx context.Context, flow
 func (s *FlowVariableService) CreateFlowVariable(ctx context.Context, item mflowvariable.FlowVariable) error {
 	arg := ConvertModelToDB(item)
 	err := s.queries.CreateFlowVariable(ctx, gen.CreateFlowVariableParams{
-		ID:          arg.ID,
-		FlowID:      arg.FlowID,
-		Key:         arg.Key,
-		Value:       arg.Value,
-		Enabled:     arg.Enabled,
-		Description: arg.Description,
+		ID:           arg.ID,
+		FlowID:       arg.FlowID,
+		Key:          arg.Key,
+		Value:        arg.Value,
+		Enabled:      arg.Enabled,
+		Description:  arg.Description,
+		DisplayOrder: arg.DisplayOrder,
 	})
 	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
 }
@@ -110,7 +98,6 @@ func (s *FlowVariableService) CreateFlowVariable(ctx context.Context, item mflow
 const sizeOfChunks = 10
 
 func (s *FlowVariableService) CreateFlowVariableBulk(ctx context.Context, variables []mflowvariable.FlowVariable) error {
-
 	for chunk := range slices.Chunk(variables, sizeOfChunks) {
 		if len(chunk) < 10 {
 			for _, variable := range chunk {
@@ -124,7 +111,7 @@ func (s *FlowVariableService) CreateFlowVariableBulk(ctx context.Context, variab
 
 		// Convert all items to DB parameters
 		dbItems := tgeneric.MassConvert(chunk, ConvertModelToDB)
-		params := s.createBulkParams(dbItems)
+		params := createBulkParams(dbItems)
 
 		err := s.queries.CreateFlowVariableBulk(ctx, params)
 		if err != nil {
@@ -135,10 +122,9 @@ func (s *FlowVariableService) CreateFlowVariableBulk(ctx context.Context, variab
 	return nil
 }
 
-func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.CreateFlowVariableBulkParams {
+func createBulkParams(items []gen.FlowVariable) gen.CreateFlowVariableBulkParams {
 	params := gen.CreateFlowVariableBulkParams{}
 
-	// Directly assign each position instead of using a loop
 	// Position 1
 	params.ID = items[0].ID
 	params.FlowID = items[0].FlowID
@@ -146,6 +132,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value = items[0].Value
 	params.Enabled = items[0].Enabled
 	params.Description = items[0].Description
+	params.DisplayOrder = items[0].DisplayOrder
 
 	// Position 2
 	params.ID_2 = items[1].ID
@@ -154,6 +141,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value_2 = items[1].Value
 	params.Enabled_2 = items[1].Enabled
 	params.Description_2 = items[1].Description
+	params.DisplayOrder_2 = items[1].DisplayOrder
 
 	// Position 3
 	params.ID_3 = items[2].ID
@@ -162,6 +150,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value_3 = items[2].Value
 	params.Enabled_3 = items[2].Enabled
 	params.Description_3 = items[2].Description
+	params.DisplayOrder_3 = items[2].DisplayOrder
 
 	// Position 4
 	params.ID_4 = items[3].ID
@@ -170,6 +159,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value_4 = items[3].Value
 	params.Enabled_4 = items[3].Enabled
 	params.Description_4 = items[3].Description
+	params.DisplayOrder_4 = items[3].DisplayOrder
 
 	// Position 5
 	params.ID_5 = items[4].ID
@@ -178,6 +168,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value_5 = items[4].Value
 	params.Enabled_5 = items[4].Enabled
 	params.Description_5 = items[4].Description
+	params.DisplayOrder_5 = items[4].DisplayOrder
 
 	// Position 6
 	params.ID_6 = items[5].ID
@@ -186,6 +177,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value_6 = items[5].Value
 	params.Enabled_6 = items[5].Enabled
 	params.Description_6 = items[5].Description
+	params.DisplayOrder_6 = items[5].DisplayOrder
 
 	// Position 7
 	params.ID_7 = items[6].ID
@@ -194,6 +186,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value_7 = items[6].Value
 	params.Enabled_7 = items[6].Enabled
 	params.Description_7 = items[6].Description
+	params.DisplayOrder_7 = items[6].DisplayOrder
 
 	// Position 8
 	params.ID_8 = items[7].ID
@@ -202,6 +195,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value_8 = items[7].Value
 	params.Enabled_8 = items[7].Enabled
 	params.Description_8 = items[7].Description
+	params.DisplayOrder_8 = items[7].DisplayOrder
 
 	// Position 9
 	params.ID_9 = items[8].ID
@@ -210,6 +204,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value_9 = items[8].Value
 	params.Enabled_9 = items[8].Enabled
 	params.Description_9 = items[8].Description
+	params.DisplayOrder_9 = items[8].DisplayOrder
 
 	// Position 10
 	params.ID_10 = items[9].ID
@@ -218,6 +213,7 @@ func (s *FlowVariableService) createBulkParams(items []gen.FlowVariable) gen.Cre
 	params.Value_10 = items[9].Value
 	params.Enabled_10 = items[9].Enabled
 	params.Description_10 = items[9].Description
+	params.DisplayOrder_10 = items[9].DisplayOrder
 
 	return params
 }
@@ -234,20 +230,13 @@ func (s *FlowVariableService) UpdateFlowVariable(ctx context.Context, item mflow
 }
 
 func (s *FlowVariableService) DeleteFlowVariable(ctx context.Context, id idwrap.IDWrap) error {
-    mgr := movable.NewDefaultLinkedListManager(s.movableRepository)
-    err := mgr.SafeDelete(ctx, nil, id, func(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap) error {
-        return s.queries.DeleteFlowVariable(ctx, itemID)
-    })
-    return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
+	err := s.queries.DeleteFlowVariable(ctx, id)
+	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
 }
 
-// GetFlowVariablesByFlowIDOrdered returns flow variables in the flow in their proper order
+// GetFlowVariablesByFlowIDOrdered returns flow variables in the flow ordered by display_order
 func (s *FlowVariableService) GetFlowVariablesByFlowIDOrdered(ctx context.Context, flowID idwrap.IDWrap) ([]mflowvariable.FlowVariable, error) {
-	// Use the underlying query that maintains the linked list order
-	orderedFlowVariables, err := s.queries.GetFlowVariablesByFlowIDOrdered(ctx, gen.GetFlowVariablesByFlowIDOrderedParams{
-		FlowID:   flowID,
-		FlowID_2: flowID,
-	})
+	items, err := s.queries.GetFlowVariablesByFlowIDOrdered(ctx, flowID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return []mflowvariable.FlowVariable{}, nil
@@ -255,46 +244,16 @@ func (s *FlowVariableService) GetFlowVariablesByFlowIDOrdered(ctx context.Contex
 		return nil, tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
 	}
 
-	// Convert to model flow variables
-	flowVariables := make([]mflowvariable.FlowVariable, len(orderedFlowVariables))
-	for i, fv := range orderedFlowVariables {
-		flowVariables[i] = mflowvariable.FlowVariable{
-			ID:          idwrap.NewFromBytesMust(fv.ID),
-			FlowID:      idwrap.NewFromBytesMust(fv.FlowID),
-			Name:        fv.Key,
-			Value:       fv.Value,
-			Enabled:     fv.Enabled,
-			Description: fv.Description,
-		}
-	}
-
-	return flowVariables, nil
+	return tgeneric.MassConvert(items, ConvertDBToModel), nil
 }
 
-// MoveFlowVariable moves a flow variable to a specific position in the flow
-func (s *FlowVariableService) MoveFlowVariable(ctx context.Context, itemID idwrap.IDWrap, position int) error {
-	return s.MoveFlowVariableTX(ctx, nil, itemID, position)
-}
-
-// MoveFlowVariableTX moves a flow variable to a specific position within a transaction
-func (s *FlowVariableService) MoveFlowVariableTX(ctx context.Context, tx *sql.Tx, itemID idwrap.IDWrap, position int) error {
-	service := *s
-	if tx != nil {
-		service = s.TX(tx)
-	}
-
-	// Use the movable repository to perform the position-based move
-	err := service.movableRepository.UpdatePosition(ctx, tx, itemID, movable.FlowListTypeVariables, position)
-	if err != nil {
-		return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
-	}
-
-	return nil
-}
-
-// Repository returns the movable repository for advanced operations
-func (s *FlowVariableService) Repository() *FlowVariableMovableRepository {
-	return s.movableRepository
+// UpdateFlowVariableOrder updates the display_order for a single flow variable
+func (s *FlowVariableService) UpdateFlowVariableOrder(ctx context.Context, id idwrap.IDWrap, order float64) error {
+	err := s.queries.UpdateFlowVariableOrder(ctx, gen.UpdateFlowVariableOrderParams{
+		ID:           id,
+		DisplayOrder: order,
+	})
+	return tgeneric.ReplaceRootWithSub(sql.ErrNoRows, ErrNoFlowVariableFound, err)
 }
 
 // validateMoveOperation validates that a move operation is safe and valid
@@ -302,7 +261,7 @@ func (s *FlowVariableService) validateMoveOperation(ctx context.Context, variabl
 	if variableID.Compare(targetVariableID) == 0 {
 		return errors.New("cannot move flow variable relative to itself")
 	}
-	
+
 	return nil
 }
 
@@ -395,7 +354,7 @@ func (s *FlowVariableService) MoveFlowVariableAfterTX(ctx context.Context, tx *s
 	}
 
 	// Reorder flow variables
-	return service.ReorderFlowVariablesTX(ctx, tx, sourceVariable.FlowID, newOrder)
+	return service.ReorderFlowVariablesTX(ctx, tx, newOrder)
 }
 
 // MoveFlowVariableBefore moves a flow variable to be positioned before the target variable
@@ -468,34 +427,30 @@ func (s *FlowVariableService) MoveFlowVariableBeforeTX(ctx context.Context, tx *
 	}
 
 	// Reorder flow variables
-	return service.ReorderFlowVariablesTX(ctx, tx, sourceVariable.FlowID, newOrder)
+	return service.ReorderFlowVariablesTX(ctx, tx, newOrder)
 }
 
-// ReorderFlowVariables performs a bulk reorder of flow variables using the movable system
-func (s *FlowVariableService) ReorderFlowVariables(ctx context.Context, flowID idwrap.IDWrap, orderedIDs []idwrap.IDWrap) error {
-	return s.ReorderFlowVariablesTX(ctx, nil, flowID, orderedIDs)
+// ReorderFlowVariables performs a bulk reorder of flow variables by updating their display_order
+func (s *FlowVariableService) ReorderFlowVariables(ctx context.Context, orderedIDs []idwrap.IDWrap) error {
+	return s.ReorderFlowVariablesTX(ctx, nil, orderedIDs)
 }
 
-// ReorderFlowVariablesTX performs a bulk reorder of flow variables using the movable system within a transaction
-func (s *FlowVariableService) ReorderFlowVariablesTX(ctx context.Context, tx *sql.Tx, flowID idwrap.IDWrap, orderedIDs []idwrap.IDWrap) error {
+// ReorderFlowVariablesTX performs a bulk reorder of flow variables within a transaction
+func (s *FlowVariableService) ReorderFlowVariablesTX(ctx context.Context, tx *sql.Tx, orderedIDs []idwrap.IDWrap) error {
 	service := *s
 	if tx != nil {
 		service = s.TX(tx)
 	}
 
-	// Build position updates using the flow variable list type
-	updates := make([]movable.PositionUpdate, len(orderedIDs))
+	// Update display_order for each flow variable based on its position in the slice
 	for i, id := range orderedIDs {
-		updates[i] = movable.PositionUpdate{
-			ItemID:   id,
-			ListType: movable.FlowListTypeVariables, // Flow variables within a flow
-			Position: i,
+		err := service.queries.UpdateFlowVariableOrder(ctx, gen.UpdateFlowVariableOrderParams{
+			ID:           id,
+			DisplayOrder: float64(i),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update flow variable order: %w", err)
 		}
-	}
-
-	// Execute the batch update using the movable repository
-	if err := service.movableRepository.UpdatePositions(ctx, tx, updates); err != nil {
-		return fmt.Errorf("failed to reorder flow variables: %w", err)
 	}
 
 	return nil

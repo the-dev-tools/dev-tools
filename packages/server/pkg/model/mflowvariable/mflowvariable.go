@@ -12,6 +12,7 @@ type FlowVariable struct {
 	Value       string        `json:"value"`
 	Enabled     bool          `json:"enabled"`
 	Description string        `json:"description"`
+	Order       float64       `json:"order"`
 }
 
 type FlowVariableUpdate struct {

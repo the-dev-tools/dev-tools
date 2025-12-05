@@ -609,14 +609,8 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateFlowVariableStmt, err = db.PrepareContext(ctx, updateFlowVariable); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowVariable: %w", err)
 	}
-	if q.updateFlowVariableNextStmt, err = db.PrepareContext(ctx, updateFlowVariableNext); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateFlowVariableNext: %w", err)
-	}
 	if q.updateFlowVariableOrderStmt, err = db.PrepareContext(ctx, updateFlowVariableOrder); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateFlowVariableOrder: %w", err)
-	}
-	if q.updateFlowVariablePrevStmt, err = db.PrepareContext(ctx, updateFlowVariablePrev); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateFlowVariablePrev: %w", err)
 	}
 	if q.updateHTTPStmt, err = db.PrepareContext(ctx, updateHTTP); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateHTTP: %w", err)
@@ -1685,19 +1679,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateFlowVariableStmt: %w", cerr)
 		}
 	}
-	if q.updateFlowVariableNextStmt != nil {
-		if cerr := q.updateFlowVariableNextStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateFlowVariableNextStmt: %w", cerr)
-		}
-	}
 	if q.updateFlowVariableOrderStmt != nil {
 		if cerr := q.updateFlowVariableOrderStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateFlowVariableOrderStmt: %w", cerr)
-		}
-	}
-	if q.updateFlowVariablePrevStmt != nil {
-		if cerr := q.updateFlowVariablePrevStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateFlowVariablePrevStmt: %w", cerr)
 		}
 	}
 	if q.updateHTTPStmt != nil {
@@ -2079,9 +2063,7 @@ type Queries struct {
 	updateFlowNodeHTTPStmt                     *sql.Stmt
 	updateFlowNodeJsStmt                       *sql.Stmt
 	updateFlowVariableStmt                     *sql.Stmt
-	updateFlowVariableNextStmt                 *sql.Stmt
 	updateFlowVariableOrderStmt                *sql.Stmt
-	updateFlowVariablePrevStmt                 *sql.Stmt
 	updateHTTPStmt                             *sql.Stmt
 	updateHTTPAssertStmt                       *sql.Stmt
 	updateHTTPAssertDeltaStmt                  *sql.Stmt
@@ -2312,9 +2294,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateFlowNodeHTTPStmt:                     q.updateFlowNodeHTTPStmt,
 		updateFlowNodeJsStmt:                       q.updateFlowNodeJsStmt,
 		updateFlowVariableStmt:                     q.updateFlowVariableStmt,
-		updateFlowVariableNextStmt:                 q.updateFlowVariableNextStmt,
 		updateFlowVariableOrderStmt:                q.updateFlowVariableOrderStmt,
-		updateFlowVariablePrevStmt:                 q.updateFlowVariablePrevStmt,
 		updateHTTPStmt:                             q.updateHTTPStmt,
 		updateHTTPAssertStmt:                       q.updateHTTPAssertStmt,
 		updateHTTPAssertDeltaStmt:                  q.updateHTTPAssertDeltaStmt,
