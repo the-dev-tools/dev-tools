@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"sync"
@@ -10,6 +11,8 @@ import (
 	"the-dev-tools/server/pkg/flow/tracking"
 	"the-dev-tools/server/pkg/idwrap"
 	"time"
+
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var ErrNodeNotFound = errors.New("node not found")
@@ -425,4 +428,54 @@ func ReadNodeVarWithTracking(a *FlowNodeRequest, name, key string, tracker *trac
 	}
 
 	return v, nil
+}
+
+// WriteVar writes a top-level variable to the VarMap
+func WriteVar(a *FlowNodeRequest, key string, v interface{}) {
+	a.ReadWriteLock.Lock()
+	defer a.ReadWriteLock.Unlock()
+	a.VarMap[key] = v
+}
+
+// BuildContextValue converts a VarMap to a structpb.Value for JS execution context
+func BuildContextValue(varMap map[string]any) (*structpb.Value, error) {
+	if varMap == nil {
+		return structpb.NewNullValue(), nil
+	}
+
+	// Convert to JSON and back to ensure compatibility with structpb
+	jsonBytes, err := json.Marshal(varMap)
+	if err != nil {
+		return nil, err
+	}
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &data); err != nil {
+		return nil, err
+	}
+
+	structVal, err := structpb.NewStruct(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return structpb.NewStructValue(structVal), nil
+}
+
+// ParseResultValue converts a structpb.Value result from JS execution to a map
+func ParseResultValue(result *structpb.Value) (map[string]interface{}, error) {
+	if result == nil {
+		return nil, nil
+	}
+
+	// Convert structpb.Value to native Go types
+	switch v := result.Kind.(type) {
+	case *structpb.Value_StructValue:
+		return v.StructValue.AsMap(), nil
+	case *structpb.Value_NullValue:
+		return nil, nil
+	default:
+		// For non-struct results, wrap in a map with "result" key
+		return map[string]interface{}{"result": result.AsInterface()}, nil
+	}
 }

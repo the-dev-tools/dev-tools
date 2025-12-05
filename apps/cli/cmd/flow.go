@@ -16,8 +16,10 @@ import (
 	"the-dev-tools/server/pkg/flow/node/nfor"
 	"the-dev-tools/server/pkg/flow/node/nforeach"
 	"the-dev-tools/server/pkg/flow/node/nif"
+	"the-dev-tools/server/pkg/flow/node/njs"
 	"the-dev-tools/server/pkg/flow/node/nnoop"
 	"the-dev-tools/server/pkg/flow/node/nrequest"
+	"the-dev-tools/spec/dist/buf/go/api/node_js_executor/v1/node_js_executorv1connect"
 	"the-dev-tools/server/pkg/flow/runner"
 	"the-dev-tools/server/pkg/flow/runner/flowlocalrunner"
 	"the-dev-tools/server/pkg/idwrap"
@@ -273,10 +275,39 @@ var yamlflowRunCmd = &cobra.Command{
 			return err
 		}
 
+		// Check if any flows have JS nodes and start the worker if needed
+		hasJSNodes, err := checkFlowsHaveJSNodes(ctx, flows, c)
+		if err != nil {
+			return fmt.Errorf("failed to check for JS nodes: %w", err)
+		}
+
+		var jsClient node_js_executorv1connect.NodeJsExecutorServiceClient
+		if hasJSNodes {
+			if !quietMode {
+				log.Println("JS nodes detected, starting Node.js worker...")
+			}
+
+			jsRunner, err := NewJSRunner()
+			if err != nil {
+				return fmt.Errorf("failed to initialize JS runner: %w", err)
+			}
+			defer jsRunner.Stop()
+
+			if err := jsRunner.Start(ctx); err != nil {
+				return fmt.Errorf("failed to start JS worker: %w", err)
+			}
+
+			if !quietMode {
+				log.Println("Node.js worker started successfully")
+			}
+
+			jsClient = jsRunner.Client()
+		}
+
 		var runErr error
 		if runMultiple {
 			// Execute multiple flows based on run field
-			runErr = runMultipleFlows(ctx, fileData, flows, c, logger, reporters)
+			runErr = runMultipleFlows(ctx, fileData, flows, c, logger, reporters, jsClient)
 		} else {
 			// Execute single flow (existing behavior)
 			var flowPtr *mflow.Flow
@@ -294,7 +325,7 @@ var yamlflowRunCmd = &cobra.Command{
 			if !quietMode {
 				log.Println("found flow", flowPtr.Name)
 			}
-			_, runErr = flowRun(ctx, flowPtr, c, reporters)
+			_, runErr = flowRun(ctx, flowPtr, c, reporters, jsClient)
 
 			if runErr != nil {
 				logger.Error(runErr.Error())
@@ -324,8 +355,25 @@ func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%.2fh", d.Hours())
 }
 
+// checkFlowsHaveJSNodes checks if any of the given flows contain JS nodes
+func checkFlowsHaveJSNodes(ctx context.Context, flows []mflow.Flow, c FlowServiceLocal) (bool, error) {
+	for _, flow := range flows {
+		nodes, err := c.ns.GetNodesByFlowID(ctx, flow.ID)
+		if err != nil {
+			return false, err
+		}
+
+		for _, node := range nodes {
+			if node.NodeKind == mnnode.NODE_KIND_JS {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 // runMultipleFlows executes multiple flows based on the run field configuration
-func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flow, c FlowServiceLocal, logger *slog.Logger, reporters *ReporterGroup) error {
+func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flow, c FlowServiceLocal, logger *slog.Logger, reporters *ReporterGroup, jsClient node_js_executorv1connect.NodeJsExecutorServiceClient) error {
 	// Parse the run field to get flow order and dependencies
 	var rawYAML map[string]interface{}
 	if err := yaml.Unmarshal(fileData, &rawYAML); err != nil {
@@ -418,7 +466,7 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 			}
 		}
 
-		result, err := flowRun(ctx, flow, c, reporters)
+		result, err := flowRun(ctx, flow, c, reporters, jsClient)
 		executionResults[entry.flowName] = result
 
 		if err != nil {
@@ -464,7 +512,7 @@ func runMultipleFlows(ctx context.Context, fileData []byte, allFlows []mflow.Flo
 	return nil
 }
 
-func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, reporters *ReporterGroup) (FlowRunResult, error) {
+func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, reporters *ReporterGroup, jsClient node_js_executorv1connect.NodeJsExecutorServiceClient) (FlowRunResult, error) {
 	result := FlowRunResult{
 		FlowID:   flowPtr.ID.String(),
 		FlowName: flowPtr.Name,
@@ -707,13 +755,10 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 			forEachNode.Condition, forEachNode.ErrorHandling)
 	}
 
-	// Check for JS nodes and return explicit error - JS execution is not currently supported in CLI
-	if len(jsNodes) > 0 {
-		nodeNames := make([]string, 0, len(jsNodes))
-		for _, jsNode := range jsNodes {
-			nodeNames = append(nodeNames, nodeNameMap[jsNode.FlowNodeID])
-		}
-		return markFailure(fmt.Errorf("JS nodes are not supported in CLI execution. Found %d JS node(s): %v. Please remove JS nodes or use the desktop app", len(jsNodes), nodeNames))
+	// Create JS nodes with the provided client (may be nil if no JS nodes or Node.js unavailable)
+	for _, jsNode := range jsNodes {
+		name := nodeNameMap[jsNode.FlowNodeID]
+		flowNodeMap[jsNode.FlowNodeID] = njs.New(jsNode.FlowNodeID, name, string(jsNode.Code), jsClient)
 	}
 
 	// Use the same timeout for the flow runner
