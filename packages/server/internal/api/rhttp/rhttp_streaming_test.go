@@ -158,10 +158,6 @@ func (f *httpStreamingFixture) createWorkspace(t *testing.T, name string) idwrap
 		t.Fatalf("create workspace user: %v", err)
 	}
 
-	if err := f.ws.AutoLinkWorkspaceToUserList(f.ctx, workspaceID, f.userID); err != nil {
-		t.Fatalf("autolink workspace: %v", err)
-	}
-
 	return workspaceID
 }
 
