@@ -60,10 +60,7 @@
       "options": {
         "cwd": "{projectRoot}",
         "parallel": false,
-        "commands": [
-          "golangci-lint run --allow-parallel-runners",
-          "go tool norawsql the-dev-tools/server/..."
-        ]
+        "commands": ["golangci-lint run --allow-parallel-runners", "go tool norawsql the-dev-tools/server/..."]
       }
     },
     "tidy": {
