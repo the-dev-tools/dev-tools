@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"strings"
 	"sync"
@@ -195,14 +195,16 @@ func (h *HttpServiceRPC) executeHTTPRequest(ctx context.Context, httpEntry *mhtt
 	// Load and evaluate assertions with comprehensive error handling
 	if err := h.evaluateAndStoreAssertions(ctx, httpEntry.ID, responseID, httpResp); err != nil {
 		// Log detailed error but don't fail the request
-		log.Printf("Failed to evaluate assertions for HTTP %s (response %s): %v",
-			httpEntry.ID.String(), responseID.String(), err)
+		slog.WarnContext(ctx, "Failed to evaluate assertions",
+			"http_id", httpEntry.ID.String(),
+			"response_id", responseID.String(),
+			"error", err)
 	}
 
 	// Extract variables from HTTP response for downstream usage
 	if err := h.extractResponseVariables(ctx, httpEntry.WorkspaceID, httpEntry.Name, &httpResp); err != nil {
 		// Log error but don't fail the request
-		log.Printf("Failed to extract response variables: %v", err)
+		slog.WarnContext(ctx, "Failed to extract response variables", "error", err)
 	}
 
 	return nil
@@ -449,7 +451,7 @@ func (h *HttpServiceRPC) storeHttpResponse(ctx context.Context, httpEntry *mhttp
 	defer func() {
 		if !committed {
 			if rbErr := tx.Rollback(); rbErr != nil {
-				log.Printf("Failed to rollback http response transaction: %v", rbErr)
+				slog.ErrorContext(ctx, "Failed to rollback http response transaction", "error", rbErr)
 			}
 		}
 	}()
@@ -608,7 +610,9 @@ func (h *HttpServiceRPC) evaluateAssertionsParallel(ctx context.Context, asserts
 			// Add evaluation duration for monitoring
 			duration := time.Since(startTime)
 			if duration > 5*time.Second {
-				log.Printf("Slow assertion evaluation for %s: took %v", assertion.ID.String(), duration)
+				slog.WarnContext(ctx, "Slow assertion evaluation",
+					"assertion_id", assertion.ID.String(),
+					"duration", duration)
 			}
 
 			resultChan <- result
@@ -644,7 +648,7 @@ func (h *HttpServiceRPC) evaluateAssertionsParallel(ctx context.Context, asserts
 
 		case <-collectCtx.Done():
 			// Collection timeout - fill missing results with timeout error
-			log.Printf("Assertion result collection timed out after 35 seconds")
+			slog.WarnContext(ctx, "Assertion result collection timed out after 35 seconds")
 			for j, assert := range asserts {
 				if results[j].AssertionID.String() == "" {
 					results[j] = AssertionResult{
@@ -660,7 +664,7 @@ func (h *HttpServiceRPC) evaluateAssertionsParallel(ctx context.Context, asserts
 
 		case <-evalCtx.Done():
 			// Evaluation context cancelled
-			log.Printf("Assertion evaluation context cancelled: %v", evalCtx.Err())
+			slog.WarnContext(ctx, "Assertion evaluation context cancelled", "error", evalCtx.Err())
 			for j, assert := range asserts {
 				if results[j].AssertionID.String() == "" {
 					results[j] = AssertionResult{
@@ -678,7 +682,9 @@ func (h *HttpServiceRPC) evaluateAssertionsParallel(ctx context.Context, asserts
 
 done:
 	if collectedCount != len(asserts) {
-		log.Printf("Only collected %d out of %d assertion results", collectedCount, len(asserts))
+		slog.WarnContext(ctx, "Incomplete assertion result collection",
+			"collected", collectedCount,
+			"total", len(asserts))
 	}
 
 	return results
@@ -699,7 +705,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 		if err != nil {
 			// Rollback on error
 			if rbErr := tx.Rollback(); rbErr != nil {
-				log.Printf("Failed to rollback transaction: %v", rbErr)
+				slog.ErrorContext(ctx, "Failed to rollback transaction", "error", rbErr)
 			}
 		}
 	}()
@@ -743,8 +749,10 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 		})
 	}
 
-	log.Printf("Stored %d assertion results for HTTP %s (response %s)",
-		len(results), httpID.String(), responseID.String())
+	slog.InfoContext(ctx, "Stored assertion results",
+		"count", len(results),
+		"http_id", httpID.String(),
+		"response_id", responseID.String())
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
@@ -761,7 +769,7 @@ func (h *HttpServiceRPC) storeAssertionResultsBatch(ctx context.Context, httpID 
 			}
 		}
 	} else {
-		log.Printf("Failed to get workspace ID for publishing assertion events: %v", err)
+		slog.WarnContext(ctx, "Failed to get workspace ID for publishing assertion events", "error", err)
 	}
 
 	return nil

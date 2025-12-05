@@ -14,10 +14,10 @@ tasks:
     cmds:
       - task: ensure-dir
         vars:
-          DIR: embeded/embededJS
-      - cmd: cp ../../packages/worker-js/dist/main.cjs embeded/embededJS/worker.cjs.embed
+          DIR: embedded/embeddedJS
+      - cmd: cp ../../packages/worker-js/dist/main.cjs embedded/embeddedJS/worker.cjs.embed
         platforms: [linux, darwin]
-      - cmd: cmd /c copy "..\\..\\packages\\worker-js\\dist\\main.cjs" "embeded\\embededJS\\worker.cjs.embed"
+      - cmd: cmd /c copy "..\\..\\packages\\worker-js\\dist\\main.cjs" "embedded\\embeddedJS\\worker.cjs.embed"
         platforms: [windows]
 
   ensure-dir:

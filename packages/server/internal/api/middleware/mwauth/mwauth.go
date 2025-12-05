@@ -3,7 +3,8 @@ package mwauth
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
+	"log/slog"
 	"strings"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/stoken"
@@ -108,13 +109,13 @@ func (authData AuthInterceptorData) AuthInterceptor(ctx context.Context, req con
 
 	claims, err := stoken.ValidateJWT(tokenRaw[1], stoken.AccessToken, authData.secret)
 	if err != nil {
-		log.Println("Error validating JWT token:", err)
+		slog.ErrorContext(ctx, "Error validating JWT token", "error", err)
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
 	ID, err := idwrap.NewText(claims.Subject)
 	if err != nil {
-		log.Println("Error creating ID from claims.Subject:", err)
+		slog.ErrorContext(ctx, "Error creating ID from claims.Subject", "error", err)
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
@@ -142,7 +143,7 @@ func CrashInterceptor(ctx context.Context, req connect.AnyRequest, next connect.
 	defer func() {
 		// recover from panic if one occurred and return an error
 		if r := recover(); r != nil {
-			err = connect.NewError(connect.CodeInternal, err)
+			err = connect.NewError(connect.CodeInternal, fmt.Errorf("panic: %v", r))
 			resp = nil
 		}
 	}()

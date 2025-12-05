@@ -1,7 +1,7 @@
 package api
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -63,7 +63,7 @@ func ListenServices(services []Service, port string) error {
 	mux := http.NewServeMux()
 
 	for _, service := range services {
-		log.Printf("Registering service %s", service.Path)
+		slog.Info("Registering service", "path", service.Path)
 		mux.Handle(service.Path, service.Handler)
 	}
 

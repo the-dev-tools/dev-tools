@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/pkg/flow/edge"
 	"the-dev-tools/server/pkg/flow/node"
@@ -90,11 +89,16 @@ type FlowServiceLocal struct {
 	logChanMap logconsole.LogChanMap
 }
 
+var (
+	quietMode bool
+)
+
 func init() {
 	rootCmd.AddCommand(flowCmd)
 	// Add yamlflowRunCmd directly to flowCmd since we only have one run command now
 	flowCmd.AddCommand(yamlflowRunCmd)
 	yamlflowRunCmd.Flags().StringSliceVar(&reportFormats, "report", []string{"console"}, "Report outputs to produce (format[:path]). Supported formats: console, json, junit.")
+	yamlflowRunCmd.Flags().BoolVarP(&quietMode, "quiet", "q", false, "Suppress non-essential output for CI/CD usage")
 }
 
 var flowCmd = &cobra.Command{
@@ -165,6 +169,16 @@ var yamlflowRunCmd = &cobra.Command{
 			}
 		}
 
+		// If quiet mode is enabled, suppress console reporter
+		if quietMode {
+			for i, format := range reportFormats {
+				if format == "console" {
+					reportFormats = append(reportFormats[:i], reportFormats[i+1:]...)
+					break
+				}
+			}
+		}
+
 		// Parse workflow YAML using v2 packages
 		// Create a workspace ID for the import
 		workspaceID := idwrap.NewNow()
@@ -182,66 +196,46 @@ var yamlflowRunCmd = &cobra.Command{
 			return err
 		}
 
-		queries, err := gen.Prepare(ctx, db)
+		services, err := createServices(ctx, db, logger)
 		if err != nil {
 			return err
 		}
 
-		// Initialize services
-		workspaceService := sworkspace.New(queries)
-		flowService := sflow.New(queries)
-		flowNodeService := snode.New(queries)
-		flowRequestService := snoderequest.New(queries)
-		flowConditionService := snodeif.New(queries)
-		flowNoopService := snodenoop.New(queries)
-		flowVariableService := sflowvariable.New(queries)
-		flowForService := snodefor.New(queries)
-		flowForEachService := snodeforeach.New(queries)
-		flowJSService := snodejs.New(queries)
-		flowEdges := sedge.New(queries)
-
-		// V2 services
-		httpService := shttp.New(queries, logger)
-		httpHeaderService := shttp.NewHttpHeaderService(queries)
-		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
-		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
-		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
-		httpAssertService := shttp.NewHttpAssertService(queries)
-
 		logMap := logconsole.NewLogChanMap()
 
 		flowServiceLocal := FlowServiceLocal{
-			DB:   db,
-			ws:   workspaceService,
-			fs:   flowService,
-			fes:  flowEdges,
-			fvs:  flowVariableService,
-			ns:   flowNodeService,
-			rns:  flowRequestService,
-			fns:  flowForService,
-			fens: flowForEachService,
-			sns:  flowNoopService,
-			ins:  *flowConditionService,
-			jsns: flowJSService,
+			DB:   services.DB,
+			ws:   services.Workspace,
+			fs:   services.Flow,
+			fes:  services.FlowEdge,
+			fvs:  services.FlowVariable,
+			ns:   services.Node,
+			rns:  services.NodeRequest,
+			fns:  services.NodeFor,
+			fens: services.NodeForEach,
+			sns:  services.NodeNoop,
+			ins:  services.NodeIf,
+			jsns: services.NodeJS,
 			// V2 services
-			hs:     httpService,
-			hh:     httpHeaderService,
-			hsp:    httpSearchParamService,
-			hbf:    httpBodyFormService,
-			hbu:    httpBodyUrlEncodedService,
-			hbr:    httpBodyRawService,
-			has:    httpAssertService,
-			logger: logger,
+			hs:     services.HTTP,
+			hh:     services.HTTPHeader,
+			hsp:    services.HTTPSearchParam,
+			hbf:    services.HTTPBodyForm,
+			hbu:    services.HTTPBodyUrlEncoded,
+			hbr:    services.HTTPBodyRaw,
+			has:    services.HTTPAssert,
+			logger: services.Logger,
 
 			logChanMap: logMap,
 		}
 
 		// Import all entities from the resolved bundle
-		log.Printf("Importing workspace bundle: %d flows, %d nodes", len(resolved.Flows), len(resolved.FlowNodes))
+		if !quietMode {
+			log.Printf("Importing workspace bundle: %d flows, %d nodes", len(resolved.Flows), len(resolved.FlowNodes))
+		}
 
 		// Create IOWorkspaceService
-		ioService := ioworkspace.New(queries, logger)
+		ioService := ioworkspace.New(services.Queries, logger)
 
 		// Start transaction for import
 		tx, err := db.BeginTx(ctx, nil)
@@ -297,7 +291,9 @@ var yamlflowRunCmd = &cobra.Command{
 				return fmt.Errorf("flow '%s' not found in the workflow file", flowName)
 			}
 
-			log.Println("found flow", flowPtr.Name)
+			if !quietMode {
+				log.Println("found flow", flowPtr.Name)
+			}
 			_, runErr = flowRun(ctx, flowPtr, c, reporters)
 
 			if runErr != nil {
@@ -711,28 +707,13 @@ func flowRun(ctx context.Context, flowPtr *mflow.Flow, c FlowServiceLocal, repor
 			forEachNode.Condition, forEachNode.ErrorHandling)
 	}
 
-	// Node.js executor code commented out - using local execution instead
-	// var clientPtr *node_js_executorv1connect.NodeJsExecutorServiceClient
+	// Check for JS nodes and return explicit error - JS execution is not currently supported in CLI
 	if len(jsNodes) > 0 {
-		// TODO: Implement local JS execution or skip JS nodes for now
-		log.Printf("Warning: %d JS nodes found but Node.js executor is disabled", len(jsNodes))
-		/*
-		// Original Node.js executor code - disabled for v2 migration
-		if nodePath, err := exec.LookPath("node"); err != nil {
-			slog.Warn("node binary not found in PATH, assuming worker-js is already running or not needed")
-		} else {
-			// ... Node.js startup code would go here
+		nodeNames := make([]string, 0, len(jsNodes))
+		for _, jsNode := range jsNodes {
+			nodeNames = append(nodeNames, nodeNameMap[jsNode.FlowNodeID])
 		}
-		*/
-	}
-
-	// TODO: Implement JS node handling without external executor
-	for _, jsNode := range jsNodes {
-		log.Printf("Skipping JS node '%s' - executor disabled", nodeNameMap[jsNode.FlowNodeID])
-		// Create a no-op node instead of JS node for now
-		jsNodeID := jsNode.FlowNodeID
-		jsNodeName := nodeNameMap[jsNodeID]
-		flowNodeMap[jsNodeID] = nnoop.New(jsNodeID, jsNodeName)
+		return markFailure(fmt.Errorf("JS nodes are not supported in CLI execution. Found %d JS node(s): %v. Please remove JS nodes or use the desktop app", len(jsNodes), nodeNames))
 	}
 
 	// Use the same timeout for the flow runner

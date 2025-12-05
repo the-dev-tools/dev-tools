@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -256,93 +257,11 @@ func httpMethodToString(method *apiv1.HttpMethod) *string {
 
 // getStatusText returns the standard HTTP status text for a status code
 func (h *HttpServiceRPC) getStatusText(statusCode int) string {
-	switch {
-	case statusCode >= 100 && statusCode < 200:
-		switch statusCode {
-		case 100:
-			return "Continue"
-		case 101:
-			return "Switching Protocols"
-		case 102:
-			return "Processing"
-		case 103:
-			return "Early Hints"
-		default:
-			return "Informational"
-		}
-	case statusCode >= 200 && statusCode < 300:
-		switch statusCode {
-		case 200:
-			return "OK"
-		case 201:
-			return "Created"
-		case 202:
-			return "Accepted"
-		case 204:
-			return "No Content"
-		case 206:
-			return "Partial Content"
-		default:
-			return "Success"
-		}
-	case statusCode >= 300 && statusCode < 400:
-		switch statusCode {
-		case 300:
-			return "Multiple Choices"
-		case 301:
-			return "Moved Permanently"
-		case 302:
-			return "Found"
-		case 304:
-			return "Not Modified"
-		case 307:
-			return "Temporary Redirect"
-		case 308:
-			return "Permanent Redirect"
-		default:
-			return "Redirection"
-		}
-	case statusCode >= 400 && statusCode < 500:
-		switch statusCode {
-		case 400:
-			return "Bad Request"
-		case 401:
-			return "Unauthorized"
-		case 403:
-			return "Forbidden"
-		case 404:
-			return "Not Found"
-		case 405:
-			return "Method Not Allowed"
-		case 408:
-			return "Request Timeout"
-		case 409:
-			return "Conflict"
-		case 422:
-			return "Unprocessable Entity"
-		case 429:
-			return "Too Many Requests"
-		default:
-			return "Client Error"
-		}
-	case statusCode >= 500 && statusCode < 600:
-		switch statusCode {
-		case 500:
-			return "Internal Server Error"
-		case 501:
-			return "Not Implemented"
-		case 502:
-			return "Bad Gateway"
-		case 503:
-			return "Service Unavailable"
-		case 504:
-			return "Gateway Timeout"
-		default:
-			return "Server Error"
-		}
-	default:
+	text := http.StatusText(statusCode)
+	if text == "" {
 		return "Unknown"
 	}
+	return text
 }
 
 // constructAssertionExpression constructs an expression from key and value

@@ -3,12 +3,15 @@ package shttp
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/pkg/dbtime"
 	"the-dev-tools/server/pkg/idwrap"
 	"the-dev-tools/server/pkg/model/mhttp"
+	"the-dev-tools/server/pkg/model/mworkspaceuser"
+	"the-dev-tools/server/pkg/service/sworkspacesusers"
 )
 
 var ErrNoHTTPFound = sql.ErrNoRows
@@ -16,6 +19,7 @@ var ErrNoHTTPFound = sql.ErrNoRows
 type HTTPService struct {
 	queries *gen.Queries
 	logger  *slog.Logger
+	wus     *sworkspacesusers.WorkspaceUserService
 }
 
 func ConvertToDBHTTP(http mhttp.HTTP) gen.Http {
@@ -115,13 +119,28 @@ func New(queries *gen.Queries, logger *slog.Logger) HTTPService {
 	return HTTPService{
 		queries: queries,
 		logger:  logger,
+		wus:     nil,
+	}
+}
+
+func NewWithWorkspaceUserService(queries *gen.Queries, logger *slog.Logger, wus *sworkspacesusers.WorkspaceUserService) HTTPService {
+	return HTTPService{
+		queries: queries,
+		logger:  logger,
+		wus:     wus,
 	}
 }
 
 func (hs HTTPService) TX(tx *sql.Tx) HTTPService {
+	var wus *sworkspacesusers.WorkspaceUserService
+	if hs.wus != nil {
+		wusTx := hs.wus.TX(tx)
+		wus = &wusTx
+	}
 	return HTTPService{
 		queries: hs.queries.WithTx(tx),
 		logger:  hs.logger,
+		wus:     wus,
 	}
 }
 
@@ -306,16 +325,22 @@ func (hs HTTPService) CheckUserBelongsToHttp(ctx context.Context, httpID, userID
 		return false, err
 	}
 
-	// Check if user belongs to workspace
-	// This would typically use a workspace user service
-	// For now, we'll return a placeholder implementation
-	// In a real implementation, you'd inject a workspace service or use a permission checker
-	_ = workspaceID
-	_ = userID
+	// If workspace user service is not available, cannot verify membership
+	if hs.wus == nil {
+		return false, errors.New("workspace user service not configured")
+	}
 
-	// TODO: Implement proper workspace permission checking
-	// This should check if the user has access to the workspace
-	return true, nil
+	// Check if user belongs to workspace
+	wsUser, err := hs.wus.GetWorkspaceUsersByWorkspaceIDAndUserID(ctx, workspaceID, userID)
+	if err != nil {
+		if errors.Is(err, sworkspacesusers.ErrWorkspaceUserNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	// User must have at least RoleUser to access the HTTP resource
+	return wsUser.Role >= mworkspaceuser.RoleUser, nil
 }
 
 func (hs HTTPService) FindByURLAndMethod(ctx context.Context, workspaceID idwrap.IDWrap, url, method string) (*mhttp.HTTP, error) {

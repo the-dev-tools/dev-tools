@@ -2,21 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/db/pkg/sqlitemem"
 	"the-dev-tools/server/pkg/idwrap"
-	"the-dev-tools/server/pkg/service/shttp"
-	"the-dev-tools/server/pkg/service/sworkspace"
-	tcurlv2 "the-dev-tools/server/pkg/translate/tcurlv2"
 	"the-dev-tools/server/pkg/translate/harv2"
+	tcurlv2 "the-dev-tools/server/pkg/translate/tcurlv2"
 	"the-dev-tools/server/pkg/translate/tpostmanv2"
 
 	"github.com/spf13/cobra"
-	"log/slog"
 )
 
 var (
@@ -82,22 +79,13 @@ The command will be parsed and converted to a unified HTTP request model.`,
 		}
 		defer func() { _ = db.Close() }()
 
-		queries, err := gen.Prepare(ctx, db)
+		services, err := createServices(ctx, db, slog.Default())
 		if err != nil {
-			return fmt.Errorf("failed to prepare queries: %w", err)
+			return err
 		}
 
-		// Initialize services
-		workspaceService := sworkspace.New(queries)
-		httpService := shttp.New(queries, slog.Default())
-		httpHeaderService := shttp.NewHttpHeaderService(queries)
-		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
-		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
-		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
-
 		// Verify workspace exists
-		_, err = workspaceService.Get(ctx, wsID)
+		_, err = services.Workspace.Get(ctx, wsID)
 		if err != nil {
 			return fmt.Errorf("workspace not found: %w", err)
 		}
@@ -112,40 +100,40 @@ The command will be parsed and converted to a unified HTTP request model.`,
 		}
 
 		// Save to database using v2 services
-		err = httpService.Create(ctx, &resolved.HTTP)
+		err = services.HTTP.Create(ctx, &resolved.HTTP)
 		if err != nil {
 			return fmt.Errorf("failed to save HTTP request: %w", err)
 		}
 
 		// Save associated data
 		for _, header := range resolved.Headers {
-			err := httpHeaderService.Create(ctx, &header)
+			err := services.HTTPHeader.Create(ctx, &header)
 			if err != nil {
 				return fmt.Errorf("failed to save header: %w", err)
 			}
 		}
 
 		for _, searchParam := range resolved.SearchParams {
-			if err := httpSearchParamService.Create(ctx, &searchParam); err != nil {
+			if err := services.HTTPSearchParam.Create(ctx, &searchParam); err != nil {
 				return fmt.Errorf("failed to save search param: %w", err)
 			}
 		}
 
 		for _, form := range resolved.BodyForms {
-			if err := httpBodyFormService.Create(ctx, &form); err != nil {
+			if err := services.HTTPBodyForm.Create(ctx, &form); err != nil {
 				return fmt.Errorf("failed to save body form: %w", err)
 			}
 		}
 
 		for _, urlencoded := range resolved.BodyUrlencoded {
-			err := httpBodyUrlEncodedService.Create(ctx, &urlencoded)
+			err := services.HTTPBodyUrlEncoded.Create(ctx, &urlencoded)
 			if err != nil {
 				return fmt.Errorf("failed to save body urlencoded: %w", err)
 			}
 		}
 
 		if resolved.BodyRaw != nil {
-			_, err = httpBodyRawService.Create(ctx, resolved.BodyRaw.HttpID, resolved.BodyRaw.RawData, resolved.BodyRaw.ContentType)
+			_, err = services.HTTPBodyRaw.Create(ctx, resolved.BodyRaw.HttpID, resolved.BodyRaw.RawData, resolved.BodyRaw.ContentType)
 			if err != nil {
 				return fmt.Errorf("failed to save body raw: %w", err)
 			}
@@ -200,22 +188,13 @@ translation service. All requests in the collection will be converted to unified
 		}
 		defer func() { _ = db.Close() }()
 
-		queries, err := gen.Prepare(ctx, db)
+		services, err := createServices(ctx, db, slog.Default())
 		if err != nil {
-			return fmt.Errorf("failed to prepare queries: %w", err)
+			return err
 		}
 
-		// Initialize services
-		workspaceService := sworkspace.New(queries)
-		httpService := shttp.New(queries, slog.Default())
-		httpHeaderService := shttp.NewHttpHeaderService(queries)
-		httpSearchParamService := shttp.NewHttpSearchParamService(queries)
-		httpBodyFormService := shttp.NewHttpBodyFormService(queries)
-		httpBodyUrlEncodedService := shttp.NewHttpBodyUrlEncodedService(queries)
-		httpBodyRawService := shttp.NewHttpBodyRawService(queries)
-
 		// Verify workspace exists
-		_, err = workspaceService.Get(ctx, wsID)
+		_, err = services.Workspace.Get(ctx, wsID)
 		if err != nil {
 			return fmt.Errorf("workspace not found: %w", err)
 		}
@@ -235,7 +214,7 @@ translation service. All requests in the collection will be converted to unified
 
 		// Save all HTTP requests and associated data
 		for i, httpRequest := range resolved.HTTPRequests {
-			err = httpService.Create(ctx, &httpRequest)
+			err = services.HTTP.Create(ctx, &httpRequest)
 			if err != nil {
 				return fmt.Errorf("failed to save HTTP request %d: %w", i+1, err)
 			}
@@ -243,26 +222,26 @@ translation service. All requests in the collection will be converted to unified
 
 		// Save headers, search params, and body data for each request
 		for _, header := range resolved.Headers {
-			err := httpHeaderService.Create(ctx, &header)
+			err := services.HTTPHeader.Create(ctx, &header)
 			if err != nil {
 				return fmt.Errorf("failed to save header: %w", err)
 			}
 		}
 
 		for _, searchParam := range resolved.SearchParams {
-			if err := httpSearchParamService.Create(ctx, &searchParam); err != nil {
+			if err := services.HTTPSearchParam.Create(ctx, &searchParam); err != nil {
 				return fmt.Errorf("failed to save search param: %w", err)
 			}
 		}
 
 		for _, form := range resolved.BodyForms {
-			if err := httpBodyFormService.Create(ctx, &form); err != nil {
+			if err := services.HTTPBodyForm.Create(ctx, &form); err != nil {
 				return fmt.Errorf("failed to save body form: %w", err)
 			}
 		}
 
 		for _, urlencoded := range resolved.BodyUrlencoded {
-			err := httpBodyUrlEncodedService.Create(ctx, &urlencoded)
+			err := services.HTTPBodyUrlEncoded.Create(ctx, &urlencoded)
 			if err != nil {
 				return fmt.Errorf("failed to save body urlencoded: %w", err)
 			}
@@ -270,7 +249,7 @@ translation service. All requests in the collection will be converted to unified
 
 		for _, rawBody := range resolved.BodyRaw {
 			if rawBody != nil {
-				_, err := httpBodyRawService.Create(ctx, rawBody.HttpID, rawBody.RawData, rawBody.ContentType)
+				_, err := services.HTTPBodyRaw.Create(ctx, rawBody.HttpID, rawBody.RawData, rawBody.ContentType)
 				if err != nil {
 					return fmt.Errorf("failed to save body raw: %w", err)
 				}
@@ -327,17 +306,13 @@ into flows based on request dependencies.`,
 		}
 		defer func() { _ = db.Close() }()
 
-		queries, err := gen.Prepare(ctx, db)
+		services, err := createServices(ctx, db, slog.Default())
 		if err != nil {
-			return fmt.Errorf("failed to prepare queries: %w", err)
+			return err
 		}
 
-		// Initialize services
-		workspaceService := sworkspace.New(queries)
-		httpService := shttp.New(queries, slog.Default())
-
 		// Verify workspace exists
-		_, err = workspaceService.Get(ctx, wsID)
+		_, err = services.Workspace.Get(ctx, wsID)
 		if err != nil {
 			return fmt.Errorf("workspace not found: %w", err)
 		}
@@ -357,7 +332,7 @@ into flows based on request dependencies.`,
 		// Save all HTTP requests
 		// Note: HAR v2 service already includes all associated data in the HTTP requests
 		for i, httpRequest := range resolved.HTTPRequests {
-			err = httpService.Create(ctx, &httpRequest)
+			err = services.HTTP.Create(ctx, &httpRequest)
 			if err != nil {
 				return fmt.Errorf("failed to save HTTP request %d: %w", i+1, err)
 			}
