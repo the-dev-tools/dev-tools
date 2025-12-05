@@ -44,10 +44,7 @@ CREATE TABLE workspaces (
   flow_count INT NOT NULL DEFAULT 0,
   active_env BLOB,
   global_env BLOB,
-  prev BLOB,
-  next BLOB,
-  FOREIGN KEY (prev) REFERENCES workspaces (id) ON DELETE SET NULL,
-  FOREIGN KEY (next) REFERENCES workspaces (id) ON DELETE SET NULL
+  display_order REAL NOT NULL DEFAULT 0
 );
 
 CREATE TABLE files (
