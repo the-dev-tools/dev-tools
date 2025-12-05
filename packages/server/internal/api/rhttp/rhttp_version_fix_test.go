@@ -2,7 +2,6 @@ package rhttp
 
 import (
 	"testing"
-	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
@@ -34,11 +33,8 @@ func TestHttpVersionCollection_HasHttpId(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	// 3. Insert HttpVersion manually (raw SQL)
-	_, err = f.base.DB.ExecContext(ctx, `
-		INSERT INTO http_version (id, http_id, version_name, version_description, is_active, created_at, created_by)
-		VALUES (?, ?, 'v1', 'Initial version', 1, ?, ?)
-	`, idwrap.NewNow().Bytes(), httpID.Bytes(), time.Now().Unix(), f.userID.Bytes())
+	// 3. Create HttpVersion using service
+	_, err = f.hs.CreateHttpVersion(ctx, httpID, f.userID, "v1", "Initial version")
 	require.NoError(t, err)
 
 	// 4. Call HttpVersionCollection
