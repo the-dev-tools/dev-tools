@@ -402,22 +402,70 @@ func (s *FlowServiceV2RPC) executeFlow(
 				})
 			}
 
-			if s.logStream != nil {
+			if s.logStream != nil && status.State != mnnode.NODE_STATE_RUNNING {
 				idStr := status.NodeID.String()
 				stateStr := mnnode.StringNodeState(status.State)
 				msg := fmt.Sprintf("Node %s: %s", idStr, stateStr)
 
-				logLevel := logv1.LogLevel_LOG_LEVEL_WARNING
-				if status.State == mnnode.NODE_STATE_FAILURE {
+				var logLevel logv1.LogLevel
+				switch status.State {
+				case mnnode.NODE_STATE_FAILURE:
 					logLevel = logv1.LogLevel_LOG_LEVEL_ERROR
+				case mnnode.NODE_STATE_CANCELED:
+					logLevel = logv1.LogLevel_LOG_LEVEL_WARNING
+				default:
+					logLevel = logv1.LogLevel_LOG_LEVEL_UNSPECIFIED
 				}
 
-				// Create structured value with node details
-				val, _ := structpb.NewValue(map[string]any{
-					"node_id": status.NodeID.String(),
-					"state":   stateStr,
-					"flow_id": flow.ID.String(),
-				})
+				// Create structured value with full node details
+				logData := map[string]any{
+					"node_id":     status.NodeID.String(),
+					"node_name":   status.Name,
+					"state":       stateStr,
+					"flow_id":     flow.ID.String(),
+					"duration_ms": status.RunDuration.Milliseconds(),
+				}
+
+				// Convert output/input to JSON-safe format via marshal/unmarshal
+				// This ensures types like []byte are properly converted
+				// Limit size to avoid very large log entries that could slow down the frontend
+				const maxLogDataSize = 64 * 1024 // 64KB limit
+				if status.OutputData != nil {
+					if jsonBytes, err := json.Marshal(status.OutputData); err == nil {
+						if len(jsonBytes) <= maxLogDataSize {
+							var jsonSafe any
+							if json.Unmarshal(jsonBytes, &jsonSafe) == nil {
+								logData["output"] = jsonSafe
+							}
+						} else {
+							logData["output"] = "(output too large to display)"
+						}
+					}
+				}
+				if status.InputData != nil {
+					if jsonBytes, err := json.Marshal(status.InputData); err == nil {
+						if len(jsonBytes) <= maxLogDataSize {
+							var jsonSafe any
+							if json.Unmarshal(jsonBytes, &jsonSafe) == nil {
+								logData["input"] = jsonSafe
+							}
+						} else {
+							logData["input"] = "(input too large to display)"
+						}
+					}
+				}
+				if status.Error != nil {
+					logData["error"] = status.Error.Error()
+				}
+				if status.IterationContext != nil {
+					logData["iteration_index"] = status.IterationContext.ExecutionIndex
+					logData["iteration_path"] = status.IterationContext.IterationPath
+				}
+
+				val, err := structpb.NewValue(logData)
+				if err != nil {
+					s.logger.Error("failed to create log value", "error", err)
+				}
 
 				s.logStream.Publish(rlog.LogTopic{UserID: userID}, rlog.LogEvent{
 					Type: rlog.EventTypeInsert,

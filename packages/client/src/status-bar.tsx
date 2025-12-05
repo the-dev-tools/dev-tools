@@ -20,6 +20,7 @@ const logTextStyles = tv({
   variants: {
     level: {
       [LogLevel.ERROR]: tw`text-red-600`,
+      [LogLevel.INFO]: tw`text-slate-800`,
       [LogLevel.UNSPECIFIED]: tw`text-slate-800`,
       [LogLevel.WARNING]: tw`text-yellow-600`,
     } satisfies Record<LogLevel, string>,
@@ -96,7 +97,7 @@ export const StatusBar = () => {
                 return (
                   <TreeItem
                     id={id}
-                    item={(_) => <JsonTreeItem {..._} id={`${id}.root`} />}
+                    item={(_) => <JsonTreeItem {..._} id={`${id}.${_.id ?? 'root'}`} />}
                     items={jsonTreeItemProps(_.value)!}
                     textValue={_.name}
                   >

@@ -172,8 +172,10 @@ Loop:
 		require.NotNil(t, val)
 		fields := val.Fields
 		assert.Contains(t, fields, "node_id")
+		assert.Contains(t, fields, "node_name")
 		assert.Contains(t, fields, "state")
 		assert.Contains(t, fields, "flow_id")
+		assert.Contains(t, fields, "duration_ms")
 
 		nodeIDStr := fields["node_id"].GetStringValue()
 		assert.Equal(t, startNodeID.String(), nodeIDStr)
