@@ -299,144 +299,15 @@ CREATE TABLE node_execution (
 );
 `
 
-// schemaNoFK is the same as schema but without FK constraints on flow_node sub-tables
-// This allows testing decoupled inserts where sub-nodes can be inserted before base nodes
-const schemaNoFK = `
--- USERS
-CREATE TABLE users (
-  id BLOB NOT NULL PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  password_hash BLOB,
-  provider_type INT8 NOT NULL DEFAULT 0,
-  provider_id TEXT,
-  status INT8 NOT NULL DEFAULT 0,
-  UNIQUE (provider_type, provider_id)
-);
-
--- WORK SPACES
-CREATE TABLE workspaces (
-  id BLOB NOT NULL PRIMARY KEY,
-  name TEXT NOT NULL,
-  updated BIGINT NOT NULL DEFAULT (unixepoch()),
-  collection_count INT NOT NULL DEFAULT 0,
-  flow_count INT NOT NULL DEFAULT 0,
-  active_env BLOB,
-  global_env BLOB,
-  display_order REAL NOT NULL DEFAULT 0
-);
-
-CREATE TABLE workspaces_users (
-  id BLOB NOT NULL PRIMARY KEY,
-  workspace_id BLOB NOT NULL,
-  user_id BLOB NOT NULL,
-  role INT8 NOT NULL DEFAULT 1,
-  UNIQUE (workspace_id, user_id),
-  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-);
-
--- FLOW
-CREATE TABLE flow (
-  id BLOB NOT NULL PRIMARY KEY,
-  workspace_id BLOB NOT NULL,
-  version_parent_id BLOB DEFAULT NULL,
-  name TEXT NOT NULL,
-  duration INT NOT NULL DEFAULT 0,
-  running BOOLEAN NOT NULL DEFAULT FALSE,
-  FOREIGN KEY (workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE,
-  FOREIGN KEY (version_parent_id) REFERENCES flow (id) ON DELETE CASCADE
-);
-
--- FLOW NODE
-CREATE TABLE flow_node (
-  id BLOB NOT NULL PRIMARY KEY,
-  flow_id BLOB NOT NULL,
-  name TEXT NOT NULL,
-  node_kind INT NOT NULL,
-  position_x REAL NOT NULL,
-  position_y REAL NOT NULL,
-  FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
-);
-
--- FLOW NODE NOOP (no FK to flow_node)
-CREATE TABLE flow_node_noop (
-  flow_node_id BLOB NOT NULL PRIMARY KEY,
-  node_type TINYINT NOT NULL
-);
-
--- FLOW NODE FOR (no FK to flow_node)
-CREATE TABLE flow_node_for (
-  flow_node_id BLOB NOT NULL PRIMARY KEY,
-  iter_count BIGINT NOT NULL,
-  error_handling INT8 NOT NULL,
-  expression TEXT NOT NULL
-);
-
--- FLOW NODE FOR EACH (no FK to flow_node)
-CREATE TABLE flow_node_for_each (
-  flow_node_id BLOB NOT NULL PRIMARY KEY,
-  iter_expression TEXT NOT NULL,
-  error_handling INT8 NOT NULL,
-  expression TEXT NOT NULL
-);
-
--- FLOW NODE CONDITION (no FK to flow_node)
-CREATE TABLE flow_node_condition (
-  flow_node_id BLOB NOT NULL PRIMARY KEY,
-  expression TEXT NOT NULL
-);
-
--- FLOW NODE JS (no FK to flow_node)
-CREATE TABLE flow_node_js (
-  flow_node_id BLOB NOT NULL PRIMARY KEY,
-  code BLOB NOT NULL,
-  code_compress_type INT8 NOT NULL
-);
-
--- FLOW VARIABLE
-CREATE TABLE flow_variable (
-  id BLOB NOT NULL PRIMARY KEY,
-  flow_id BLOB NOT NULL,
-  key TEXT NOT NULL,
-  value TEXT NOT NULL,
-  enabled BOOL NOT NULL,
-  description TEXT NOT NULL,
-  prev BLOB,
-  next BLOB,
-  UNIQUE (flow_id, key),
-  UNIQUE (prev, next, flow_id),
-  FOREIGN KEY (flow_id) REFERENCES flow (id) ON DELETE CASCADE
-);
-
--- NODE EXECUTION (no FK to flow_node)
-CREATE TABLE node_execution (
-  id BLOB NOT NULL PRIMARY KEY,
-  node_id BLOB NOT NULL,
-  name TEXT NOT NULL,
-  state INT8 NOT NULL,
-  error TEXT,
-  input_data BLOB,
-  input_data_compress_type INT8 NOT NULL DEFAULT 0,
-  output_data BLOB,
-  output_data_compress_type INT8 NOT NULL DEFAULT 0,
-  http_response_id BLOB,
-  completed_at BIGINT
-);
-`
-
 func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
-	// Setup DB with schema that has no FK constraints on sub-node tables
-	// Note: This test uses a custom schema (schemaNoFK) which is intentionally different
-	// from the production schema. Raw SQL for schema setup is acceptable here as it's
-	// testing a specific edge case with modified FK constraints.
+	// Setup DB - production schema doesn't have FK constraints on sub-node tables
+	// so sub-nodes can be inserted before base nodes
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:subnode_insert_test?mode=memory&cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
-	_, err = db.ExecContext(ctx, schemaNoFK)
-	require.NoError(t, err)
-	_, err = db.ExecContext(ctx, "PRAGMA foreign_keys = ON")
+	err = sqlc.CreateLocalTables(ctx, db)
 	require.NoError(t, err)
 
 	queries := gen.New(db)
