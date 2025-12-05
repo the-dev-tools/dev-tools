@@ -3,20 +3,17 @@ package rflowv2
 import (
 	"bytes"
 	"context"
-	"database/sql"
-	"testing"
-	"time"
-
 	"log/slog"
 	"os"
+	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	_ "modernc.org/sqlite"
 
-	"the-dev-tools/db/pkg/sqlc"
+	"the-dev-tools/db/pkg/dbtest"
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
@@ -37,14 +34,10 @@ import (
 
 func TestFlowRun_MultipleRuns(t *testing.T) {
 	// Setup DB
-	// Use shared cache for in-memory DB to support concurrency
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", "file:multiple_runs_test?mode=memory&cache=shared")
+	db, err := dbtest.GetTestDB(ctx)
 	require.NoError(t, err)
 	defer db.Close()
-
-	err = sqlc.CreateLocalTables(ctx, db)
-	require.NoError(t, err)
 
 	queries := gen.New(db)
 
@@ -303,12 +296,9 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	// Setup DB - production schema doesn't have FK constraints on sub-node tables
 	// so sub-nodes can be inserted before base nodes
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", "file:subnode_insert_test?mode=memory&cache=shared")
+	db, err := dbtest.GetTestDB(ctx)
 	require.NoError(t, err)
 	defer db.Close()
-
-	err = sqlc.CreateLocalTables(ctx, db)
-	require.NoError(t, err)
 
 	queries := gen.New(db)
 
@@ -410,12 +400,9 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	// Setup DB
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", "file:flow_version_test?mode=memory&cache=shared")
+	db, err := dbtest.GetTestDB(ctx)
 	require.NoError(t, err)
 	defer db.Close()
-
-	err = sqlc.CreateLocalTables(ctx, db)
-	require.NoError(t, err)
 
 	queries := gen.New(db)
 
@@ -528,14 +515,11 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 // TestFlowVersionNodes_HaveStateAndExecutions verifies that flow version nodes
 // have correct state in NodeCollection and have execution records in NodeExecutionCollection
 func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
-	// Setup DB with shared cache for concurrency
+	// Setup DB
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", "file:version_nodes_state_test?mode=memory&cache=shared")
+	db, err := dbtest.GetTestDB(ctx)
 	require.NoError(t, err)
 	defer db.Close()
-
-	err = sqlc.CreateLocalTables(ctx, db)
-	require.NoError(t, err)
 
 	queries := gen.New(db)
 

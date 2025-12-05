@@ -2,7 +2,6 @@ package rflowv2
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -13,9 +12,8 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "modernc.org/sqlite"
 
-	"the-dev-tools/db/pkg/sqlc"
+	"the-dev-tools/db/pkg/dbtest"
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
@@ -68,15 +66,11 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	defer ts.Close()
 
 	// 2. Setup DB
-	// Use shared cache for in-memory DB to support concurrency
 	ctx := context.Background()
-	db, err := sql.Open("sqlite", "file:delta_test?mode=memory&cache=shared")
+	db, err := dbtest.GetTestDB(ctx)
 	require.NoError(t, err)
 	db.SetMaxOpenConns(1)
 	defer db.Close()
-
-	err = sqlc.CreateLocalTables(ctx, db)
-	require.NoError(t, err)
 
 	queries := gen.New(db)
 
