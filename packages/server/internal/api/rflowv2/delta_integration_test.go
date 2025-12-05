@@ -69,22 +69,26 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 
 	// 2. Setup DB
 	// Use shared cache for in-memory DB to support concurrency
+	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:delta_test?mode=memory&cache=shared")
 	require.NoError(t, err)
 	db.SetMaxOpenConns(1)
 	defer db.Close()
 
+	// Note: This test uses a custom schema (deltaTestSchema) which may be different
+	// from the production schema. Raw SQL for schema setup is acceptable here as it's
+	// testing specific delta behavior.
 	statements := strings.Split(deltaTestSchema, ";")
 	for _, stmt := range statements {
 		trimmed := strings.TrimSpace(stmt)
 		if trimmed == "" {
 			continue
 		}
-		_, err = db.Exec(trimmed)
+		_, err = db.ExecContext(ctx, trimmed)
 		require.NoError(t, err, "Failed to execute schema statement: %s", trimmed)
 	}
 
-	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	_, err = db.ExecContext(ctx, "PRAGMA foreign_keys = ON")
 	require.NoError(t, err)
 
 	queries := gen.New(db)
@@ -161,12 +165,14 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	)
 
 	// 4. Setup Data
-	ctx := context.Background()
 	userID := idwrap.NewNow()
 	ctx = mwauth.CreateAuthedContext(ctx, userID)
 
 	// User
-	_, err = db.Exec("INSERT INTO users (id, email) VALUES (?, ?)", userID.Bytes(), "test@example.com")
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
 	require.NoError(t, err)
 
 	// Workspace
@@ -180,8 +186,12 @@ func TestFlowRun_DeltaOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	// Workspace User
-	_, err = db.Exec("INSERT INTO workspaces_users (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)",
-		idwrap.NewNow().Bytes(), workspaceID.Bytes(), userID.Bytes(), 1)
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
 	require.NoError(t, err)
 
 	// Flow

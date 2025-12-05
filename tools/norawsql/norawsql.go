@@ -4,6 +4,7 @@ package norawsql
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
 	"strings"
 
@@ -48,6 +49,15 @@ var allowedPackages = []string{
 	"/dbtest",        // DB test utilities
 }
 
+// isTestFile checks if the given position is in a test file.
+func isTestFile(fset *token.FileSet, pos token.Pos) bool {
+	file := fset.File(pos)
+	if file == nil {
+		return false
+	}
+	return strings.HasSuffix(file.Name(), "_test.go")
+}
+
 func run(pass *analysis.Pass) (interface{}, error) {
 	// Skip packages where raw SQL is allowed
 	pkgPath := pass.Pkg.Path()
@@ -65,6 +75,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 	insp.Preorder(nodeFilter, func(n ast.Node) {
 		call := n.(*ast.CallExpr)
+
+		// Skip test files - they may need raw SQL for custom schema setup
+		if isTestFile(pass.Fset, call.Pos()) {
+			return
+		}
 
 		// We're looking for method calls like db.Query(...) or tx.Exec(...)
 		sel, ok := call.Fun.(*ast.SelectorExpr)

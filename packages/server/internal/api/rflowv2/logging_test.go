@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
 
+	"the-dev-tools/db/pkg/sqlc"
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/internal/api/rlog"
@@ -35,13 +36,12 @@ import (
 
 func TestFlowRun_Logging(t *testing.T) {
 	// Setup DB
+	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:flow_logging_test?mode=memory&cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
-	_, err = db.Exec(schema)
-	require.NoError(t, err)
-	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	err = sqlc.CreateLocalTables(ctx, db)
 	require.NoError(t, err)
 
 	queries := gen.New(db)
@@ -74,11 +74,13 @@ func TestFlowRun_Logging(t *testing.T) {
 	}
 
 	// Setup Data
-	ctx := context.Background()
 	userID := idwrap.NewNow()
 	ctx = mwauth.CreateAuthedContext(ctx, userID)
 
-	_, err = db.Exec("INSERT INTO users (id, email) VALUES (?, ?)", userID.Bytes(), "test@example.com")
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
 	require.NoError(t, err)
 
 	workspaceID := idwrap.NewNow()
@@ -92,8 +94,12 @@ func TestFlowRun_Logging(t *testing.T) {
 	err = wsService.Create(ctx, &workspace)
 	require.NoError(t, err)
 
-	_, err = db.Exec("INSERT INTO workspaces_users (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)",
-		idwrap.NewNow().Bytes(), workspaceID.Bytes(), userID.Bytes(), 1)
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
 	require.NoError(t, err)
 
 	flowID := idwrap.NewNow()

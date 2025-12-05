@@ -16,6 +16,7 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	_ "modernc.org/sqlite"
 
+	"the-dev-tools/db/pkg/sqlc"
 	gen "the-dev-tools/db/pkg/sqlc/gen"
 	"the-dev-tools/server/internal/api/middleware/mwauth"
 	"the-dev-tools/server/pkg/dbtime"
@@ -37,13 +38,12 @@ import (
 func TestFlowRun_MultipleRuns(t *testing.T) {
 	// Setup DB
 	// Use shared cache for in-memory DB to support concurrency
+	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:multiple_runs_test?mode=memory&cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
-	_, err = db.Exec(schema)
-	require.NoError(t, err)
-	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	err = sqlc.CreateLocalTables(ctx, db)
 	require.NoError(t, err)
 
 	queries := gen.New(db)
@@ -71,11 +71,13 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 	}
 
 	// Setup Data
-	ctx := context.Background()
 	userID := idwrap.NewNow()
 	ctx = mwauth.CreateAuthedContext(ctx, userID)
 
-	_, err = db.Exec("INSERT INTO users (id, email) VALUES (?, ?)", userID.Bytes(), "test@example.com")
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
 	require.NoError(t, err)
 
 	workspaceID := idwrap.NewNow()
@@ -89,8 +91,12 @@ func TestFlowRun_MultipleRuns(t *testing.T) {
 	err = wsService.Create(ctx, &workspace)
 	require.NoError(t, err)
 
-	_, err = db.Exec("INSERT INTO workspaces_users (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)",
-		idwrap.NewNow().Bytes(), workspaceID.Bytes(), userID.Bytes(), 1)
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
 	require.NoError(t, err)
 
 	flowID := idwrap.NewNow()
@@ -420,13 +426,17 @@ CREATE TABLE node_execution (
 
 func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	// Setup DB with schema that has no FK constraints on sub-node tables
+	// Note: This test uses a custom schema (schemaNoFK) which is intentionally different
+	// from the production schema. Raw SQL for schema setup is acceptable here as it's
+	// testing a specific edge case with modified FK constraints.
+	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:subnode_insert_test?mode=memory&cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
-	_, err = db.Exec(schemaNoFK)
+	_, err = db.ExecContext(ctx, schemaNoFK)
 	require.NoError(t, err)
-	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	_, err = db.ExecContext(ctx, "PRAGMA foreign_keys = ON")
 	require.NoError(t, err)
 
 	queries := gen.New(db)
@@ -453,12 +463,14 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 		runningFlows: make(map[string]context.CancelFunc),
 	}
 
-	ctx := context.Background()
 	userID := idwrap.NewNow()
 	ctx = mwauth.CreateAuthedContext(ctx, userID)
 
 	// Setup user and workspace
-	_, err = db.Exec("INSERT INTO users (id, email) VALUES (?, ?)", userID.Bytes(), "test@example.com")
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
 	require.NoError(t, err)
 
 	workspaceID := idwrap.NewNow()
@@ -472,8 +484,12 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 	err = wsService.Create(ctx, &workspace)
 	require.NoError(t, err)
 
-	_, err = db.Exec("INSERT INTO workspaces_users (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)",
-		idwrap.NewNow().Bytes(), workspaceID.Bytes(), userID.Bytes(), 1)
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
 	require.NoError(t, err)
 
 	// Create a flow (needed for flow_node later)
@@ -522,13 +538,12 @@ func TestSubNodeInsert_WithoutBaseNode(t *testing.T) {
 
 func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	// Setup DB
+	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:flow_version_test?mode=memory&cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
-	_, err = db.Exec(schema)
-	require.NoError(t, err)
-	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	err = sqlc.CreateLocalTables(ctx, db)
 	require.NoError(t, err)
 
 	queries := gen.New(db)
@@ -556,11 +571,13 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	}
 
 	// Setup Data
-	ctx := context.Background()
 	userID := idwrap.NewNow()
 	ctx = mwauth.CreateAuthedContext(ctx, userID)
 
-	_, err = db.Exec("INSERT INTO users (id, email) VALUES (?, ?)", userID.Bytes(), "test@example.com")
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
 	require.NoError(t, err)
 
 	workspaceID := idwrap.NewNow()
@@ -574,8 +591,12 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 	err = wsService.Create(ctx, &workspace)
 	require.NoError(t, err)
 
-	_, err = db.Exec("INSERT INTO workspaces_users (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)",
-		idwrap.NewNow().Bytes(), workspaceID.Bytes(), userID.Bytes(), 1)
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
 	require.NoError(t, err)
 
 	flowID := idwrap.NewNow()
@@ -637,13 +658,12 @@ func TestFlowRun_CreatesVersionOnEveryRun(t *testing.T) {
 // have correct state in NodeCollection and have execution records in NodeExecutionCollection
 func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	// Setup DB with shared cache for concurrency
+	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:version_nodes_state_test?mode=memory&cache=shared")
 	require.NoError(t, err)
 	defer db.Close()
 
-	_, err = db.Exec(schema)
-	require.NoError(t, err)
-	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	err = sqlc.CreateLocalTables(ctx, db)
 	require.NoError(t, err)
 
 	queries := gen.New(db)
@@ -671,11 +691,13 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	}
 
 	// Setup Data
-	ctx := context.Background()
 	userID := idwrap.NewNow()
 	ctx = mwauth.CreateAuthedContext(ctx, userID)
 
-	_, err = db.Exec("INSERT INTO users (id, email) VALUES (?, ?)", userID.Bytes(), "test@example.com")
+	err = queries.CreateUser(ctx, gen.CreateUserParams{
+		ID:    userID,
+		Email: "test@example.com",
+	})
 	require.NoError(t, err)
 
 	workspaceID := idwrap.NewNow()
@@ -689,8 +711,12 @@ func TestFlowVersionNodes_HaveStateAndExecutions(t *testing.T) {
 	err = wsService.Create(ctx, &workspace)
 	require.NoError(t, err)
 
-	_, err = db.Exec("INSERT INTO workspaces_users (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)",
-		idwrap.NewNow().Bytes(), workspaceID.Bytes(), userID.Bytes(), 1)
+	err = queries.CreateWorkspaceUser(ctx, gen.CreateWorkspaceUserParams{
+		ID:          idwrap.NewNow(),
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        1,
+	})
 	require.NoError(t, err)
 
 	flowID := idwrap.NewNow()

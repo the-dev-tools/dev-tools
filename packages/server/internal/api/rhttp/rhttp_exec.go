@@ -925,20 +925,6 @@ func (h *HttpServiceRPC) evaluateAssertion(ctx context.Context, expressionStr st
 	return expression.ExpressionEvaluteAsBool(ctx, env, expressionStr)
 }
 
-// storeAssertionResult stores the result of an assertion evaluation
-func (h *HttpServiceRPC) storeAssertionResult(ctx context.Context, httpID idwrap.IDWrap, assertionValue string, success bool) error {
-	_, err := h.DB.ExecContext(ctx, `
-		INSERT INTO http_response_assert (id, http_id, value, success, created_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, idwrap.NewNow().Bytes(), httpID.Bytes(), assertionValue, success, time.Now().Unix())
-
-	if err != nil {
-		return fmt.Errorf("failed to insert assertion result: %w", err)
-	}
-
-	return nil
-}
-
 func (h *HttpServiceRPC) logExecution(userID idwrap.IDWrap, httpEntry *mhttp.HTTP, err error) {
 	if h.logStream == nil {
 		return
