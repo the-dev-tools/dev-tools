@@ -693,15 +693,6 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.updateWorkspaceStmt, err = db.PrepareContext(ctx, updateWorkspace); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspace: %w", err)
 	}
-	if q.updateWorkspaceNextStmt, err = db.PrepareContext(ctx, updateWorkspaceNext); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateWorkspaceNext: %w", err)
-	}
-	if q.updateWorkspaceOrderStmt, err = db.PrepareContext(ctx, updateWorkspaceOrder); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateWorkspaceOrder: %w", err)
-	}
-	if q.updateWorkspacePrevStmt, err = db.PrepareContext(ctx, updateWorkspacePrev); err != nil {
-		return nil, fmt.Errorf("error preparing query UpdateWorkspacePrev: %w", err)
-	}
 	if q.updateWorkspaceUpdatedTimeStmt, err = db.PrepareContext(ctx, updateWorkspaceUpdatedTime); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateWorkspaceUpdatedTime: %w", err)
 	}
@@ -1834,21 +1825,6 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateWorkspaceStmt: %w", cerr)
 		}
 	}
-	if q.updateWorkspaceNextStmt != nil {
-		if cerr := q.updateWorkspaceNextStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateWorkspaceNextStmt: %w", cerr)
-		}
-	}
-	if q.updateWorkspaceOrderStmt != nil {
-		if cerr := q.updateWorkspaceOrderStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateWorkspaceOrderStmt: %w", cerr)
-		}
-	}
-	if q.updateWorkspacePrevStmt != nil {
-		if cerr := q.updateWorkspacePrevStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing updateWorkspacePrevStmt: %w", cerr)
-		}
-	}
 	if q.updateWorkspaceUpdatedTimeStmt != nil {
 		if cerr := q.updateWorkspaceUpdatedTimeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateWorkspaceUpdatedTimeStmt: %w", cerr)
@@ -2131,9 +2107,6 @@ type Queries struct {
 	updateUserStmt                             *sql.Stmt
 	updateVariableStmt                         *sql.Stmt
 	updateWorkspaceStmt                        *sql.Stmt
-	updateWorkspaceNextStmt                    *sql.Stmt
-	updateWorkspaceOrderStmt                   *sql.Stmt
-	updateWorkspacePrevStmt                    *sql.Stmt
 	updateWorkspaceUpdatedTimeStmt             *sql.Stmt
 	updateWorkspaceUserStmt                    *sql.Stmt
 	upsertNodeExecutionStmt                    *sql.Stmt
@@ -2367,9 +2340,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		updateUserStmt:                             q.updateUserStmt,
 		updateVariableStmt:                         q.updateVariableStmt,
 		updateWorkspaceStmt:                        q.updateWorkspaceStmt,
-		updateWorkspaceNextStmt:                    q.updateWorkspaceNextStmt,
-		updateWorkspaceOrderStmt:                   q.updateWorkspaceOrderStmt,
-		updateWorkspacePrevStmt:                    q.updateWorkspacePrevStmt,
 		updateWorkspaceUpdatedTimeStmt:             q.updateWorkspaceUpdatedTimeStmt,
 		updateWorkspaceUserStmt:                    q.updateWorkspaceUserStmt,
 		upsertNodeExecutionStmt:                    q.upsertNodeExecutionStmt,

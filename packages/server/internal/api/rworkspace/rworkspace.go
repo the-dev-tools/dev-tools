@@ -41,11 +41,6 @@ type WorkspaceEvent struct {
 	Workspace *apiv1.Workspace
 }
 
-type workspaceWithOrder struct {
-	workspace mworkspace.Workspace
-	order     float32
-}
-
 type WorkspaceServiceRPC struct {
 	DB *sql.DB
 
@@ -94,12 +89,12 @@ func workspaceUpdatedUnion(ts *timestamppb.Timestamp) *apiv1.WorkspaceSyncUpdate
 	}
 }
 
-func toAPIWorkspace(ws mworkspace.Workspace, order float32) *apiv1.Workspace {
+func toAPIWorkspace(ws mworkspace.Workspace) *apiv1.Workspace {
 	apiWorkspace := &apiv1.Workspace{
 		WorkspaceId:           ws.ID.Bytes(),
 		SelectedEnvironmentId: ws.ActiveEnv.Bytes(),
 		Name:                  ws.Name,
-		Order:                 order,
+		Order:                 float32(ws.Order),
 	}
 	if !ws.Updated.IsZero() {
 		apiWorkspace.Updated = timestamppb.New(ws.Updated)
@@ -159,7 +154,7 @@ func workspaceSyncResponseFrom(evt WorkspaceEvent) *apiv1.WorkspaceSyncResponse 
 	}
 }
 
-func (c *WorkspaceServiceRPC) listUserWorkspaces(ctx context.Context, userID idwrap.IDWrap) ([]workspaceWithOrder, error) {
+func (c *WorkspaceServiceRPC) listUserWorkspaces(ctx context.Context, userID idwrap.IDWrap) ([]mworkspace.Workspace, error) {
 	workspaces, err := c.ws.GetWorkspacesByUserIDOrdered(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
@@ -167,27 +162,7 @@ func (c *WorkspaceServiceRPC) listUserWorkspaces(ctx context.Context, userID idw
 		}
 		return nil, err
 	}
-
-	ordered := make([]workspaceWithOrder, len(workspaces))
-	for i, ws := range workspaces {
-		ordered[i] = workspaceWithOrder{
-			workspace: ws,
-			order:     float32(i),
-		}
-	}
-	return ordered, nil
-}
-
-func (c *WorkspaceServiceRPC) workspaceOrderMap(ctx context.Context, userID idwrap.IDWrap) (map[string]float32, error) {
-	list, err := c.listUserWorkspaces(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[string]float32, len(list))
-	for _, item := range list {
-		result[item.workspace.ID.String()] = item.order
-	}
-	return result, nil
+	return workspaces, nil
 }
 
 func (c *WorkspaceServiceRPC) WorkspaceCollection(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[apiv1.WorkspaceCollectionResponse], error) {
@@ -203,7 +178,7 @@ func (c *WorkspaceServiceRPC) WorkspaceCollection(ctx context.Context, req *conn
 
 	items := make([]*apiv1.Workspace, 0, len(ordered))
 	for _, item := range ordered {
-		items = append(items, toAPIWorkspace(item.workspace, item.order))
+		items = append(items, toAPIWorkspace(item))
 	}
 
 	return connect.NewResponse(&apiv1.WorkspaceCollectionResponse{Items: items}), nil
@@ -259,6 +234,7 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 			Updated:   dbtime.DBNow(),
 			ActiveEnv: envID,
 			GlobalEnv: envID,
+			Order:     float64(item.Order),
 		}
 
 		if err := wsService.Create(ctx, ws); err != nil {
@@ -285,19 +261,10 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 
-		if err := wsService.AutoLinkWorkspaceToUserList(ctx, workspaceID, userID); err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
-		}
-
 		createdIDs = append(createdIDs, workspaceID)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	orderMap, err := c.workspaceOrderMap(ctx, userID)
-	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -306,10 +273,9 @@ func (c *WorkspaceServiceRPC) WorkspaceInsert(ctx context.Context, req *connect.
 		if err != nil {
 			continue
 		}
-		order := orderMap[workspaceID.String()]
 		c.stream.Publish(WorkspaceTopic{WorkspaceID: workspaceID}, WorkspaceEvent{
 			Type:      eventTypeInsert,
-			Workspace: toAPIWorkspace(*ws, order),
+			Workspace: toAPIWorkspace(*ws),
 		})
 	}
 
@@ -377,6 +343,10 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 		if item.Name != nil {
 			ws.Name = *item.Name
 		}
+		
+		if item.Order != nil {
+		    ws.Order = float64(*item.Order)
+		}
 
 		ws.Updated = dbtime.DBNow()
 
@@ -394,20 +364,14 @@ func (c *WorkspaceServiceRPC) WorkspaceUpdate(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	orderMap, err := c.workspaceOrderMap(ctx, userID)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	for _, workspaceID := range updatedIDs {
 		ws, err := c.ws.Get(ctx, workspaceID)
 		if err != nil {
 			continue
 		}
-		order := orderMap[workspaceID.String()]
 		c.stream.Publish(WorkspaceTopic{WorkspaceID: workspaceID}, WorkspaceEvent{
 			Type:      eventTypeUpdate,
-			Workspace: toAPIWorkspace(*ws, order),
+			Workspace: toAPIWorkspace(*ws),
 		})
 	}
 
@@ -456,7 +420,7 @@ func (c *WorkspaceServiceRPC) WorkspaceDelete(ctx context.Context, req *connect.
 			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 		}
 
-		if err := wsService.Delete(ctx, workspaceID); err != nil {
+		if err := wsService.Delete(ctx, userID, workspaceID); err != nil {
 			if errors.Is(err, sworkspace.ErrNoWorkspaceFound) {
 				return nil, connect.NewError(connect.CodeNotFound, err)
 			}
@@ -502,12 +466,12 @@ func (c *WorkspaceServiceRPC) streamWorkspaceSync(ctx context.Context, userID id
 
 		events := make([]eventstream.Event[WorkspaceTopic, WorkspaceEvent], 0, len(ordered))
 		for _, item := range ordered {
-			workspaceSet.Store(item.workspace.ID.String(), struct{}{})
+			workspaceSet.Store(item.ID.String(), struct{}{})
 			events = append(events, eventstream.Event[WorkspaceTopic, WorkspaceEvent]{
-				Topic: WorkspaceTopic{WorkspaceID: item.workspace.ID},
+				Topic: WorkspaceTopic{WorkspaceID: item.ID},
 				Payload: WorkspaceEvent{
 					Type:      eventTypeInsert,
-					Workspace: toAPIWorkspace(item.workspace, item.order),
+					Workspace: toAPIWorkspace(item),
 				},
 			})
 		}

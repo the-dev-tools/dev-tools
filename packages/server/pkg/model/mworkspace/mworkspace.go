@@ -13,6 +13,7 @@ type Workspace struct {
 	ActiveEnv       idwrap.IDWrap
 	GlobalEnv       idwrap.IDWrap
 	ID              idwrap.IDWrap
+	Order           float64
 }
 
 func (w Workspace) GetCreatedTime() time.Time {

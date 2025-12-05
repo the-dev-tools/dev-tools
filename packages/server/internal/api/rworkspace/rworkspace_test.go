@@ -113,10 +113,6 @@ func (f *workspaceFixture) createWorkspace(t *testing.T, name string) idwrap.IDW
 		t.Fatalf("create workspace user: %v", err)
 	}
 
-	if err := f.ws.AutoLinkWorkspaceToUserList(f.ctx, workspaceID, f.userID); err != nil {
-		t.Fatalf("autolink workspace: %v", err)
-	}
-
 	return workspaceID
 }
 
